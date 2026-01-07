@@ -8,6 +8,7 @@ import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.update_service.{GetUpdateResponse, GetUpdatesResponse}
 import com.daml.metrics.Timed
+import com.digitalasset.canton.config.CantonRequireTypes.String185
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{EventFormat, UpdateFormat}
@@ -108,13 +109,14 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
 
   override def listKnownParties(
       fromExcl: Option[Party],
+      filterString: Option[String185],
       maxResults: Int,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]] =
     Timed.future(
       metrics.services.index.listKnownParties,
-      delegate.listKnownParties(fromExcl, maxResults),
+      delegate.listKnownParties(fromExcl, filterString, maxResults),
     )
 
   override def prune(

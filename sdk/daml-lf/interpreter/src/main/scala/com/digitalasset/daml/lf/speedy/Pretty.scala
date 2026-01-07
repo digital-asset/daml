@@ -205,6 +205,8 @@ private[lf] object Pretty {
                   text("Encountered non-suffixed Contract ID") & prettyContractId(badCoid)
                 case TranslationFailed.InvalidValue(value, message) =>
                   text("Invalid value") & prettyValue(verbose = false)(value) & text(message)
+                case TranslationFailed.InvalidExtendedValue(message) =>
+                  text(s"Invalid ExtendedValue: $message")
               })
           case Upgrade.AuthenticationFailed(coid, srcTemplateId, dstTemplateId, value, message) =>
             text("Error when authenticating contract") & prettyContractId(coid) &

@@ -7,7 +7,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.DisseminationProgress.reviewAcks
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
-  EpochNumber,
+  BlockNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
   AvailabilityAck,
@@ -121,4 +121,4 @@ final class DisseminationProtocolState(
       new BatchDisseminationNodeQuotaTracker,
 )
 
-final case class ToBeProvidedToConsensus(maxBatchesPerProposal: Short, forEpochNumber: EpochNumber)
+final case class ToBeProvidedToConsensus(forBlock: BlockNumber, maxBatchesPerProposal: Short)

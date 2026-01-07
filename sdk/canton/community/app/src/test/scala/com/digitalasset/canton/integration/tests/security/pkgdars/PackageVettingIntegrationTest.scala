@@ -10,7 +10,6 @@ import com.daml.test.evidence.tag.Security.SecurityTest.Property.Integrity
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.base.error.ErrorCode
 import com.digitalasset.canton.BigDecimalImplicits.*
-import com.digitalasset.canton.config.StorageConfig
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.crypto.{CryptoPureApi, SigningKeyUsage}
 import com.digitalasset.canton.damltests.java.conflicttest.Many
@@ -18,10 +17,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
 import com.digitalasset.canton.examples.java as M
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseProgrammableSequencer}
 import com.digitalasset.canton.integration.tests.pkgdars.PackageUsableMixin
 import com.digitalasset.canton.integration.tests.security.SecurityTestHelpers
 import com.digitalasset.canton.integration.util.TestSubmissionService.CommandsWithMetadata
@@ -847,20 +843,32 @@ trait PackageVettingIntegrationTest
           signedBy = Some(sequencer1SigningKey.fingerprint),
           force = ForceFlags(ForceFlag.AlienMember),
         )
+
+        // Only exit test once package vetting is observable to prevent flakes such as #24162.
+        eventually() {
+          unvettedPackages(archive.all) shouldBe empty
+        }
       }
     }
 
-    "the main package is vetted again" must {
+    "the main package is unvetted and vetted again" must {
       "allow us to use the package" taggedAs ledgerIntegrity.setHappyCase(
         "submit a command referring to a package that has been vetted again"
       ) in { implicit env =>
         import env.*
 
+        // unvet main package so that we can test that we can vet and subsequently submit a command
+        vettingCmd(removes = Seq(archive.main))
+        eventually() {
+          unvettedPackages(archive.all) shouldBe Set(archive.main.getHash)
+        }
+
         // and vet again
         participant3.dars.vetting.enable(darMainPackageId.get().getOrElse(fail("Should be here")))
         participant3.packages.synchronize_vetting()
-        unvettedPackages(archive.all) shouldBe empty
-
+        eventually() {
+          unvettedPackages(archive.all) shouldBe empty
+        }
         assertPackageUsable(participant3, participant3, daId)
       }
     }
@@ -874,7 +882,7 @@ trait PackageVettingIntegrationTest
 
 class PackageVettingIntegrationTestInMemory extends PackageVettingIntegrationTest {
   registerPlugin(
-    new UseReferenceBlockSequencer[StorageConfig.Memory](
+    new UseBftSequencer(
       loggerFactory,
       MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
     )

@@ -80,6 +80,9 @@ sealed trait TopologyMapping extends Product with Serializable with PrettyPrinti
     */
   def maybeUid: Option[UniqueIdentifier]
 
+  /** The set of Uids referenced by this mapping */
+  def referencedUids: Set[UniqueIdentifier]
+
   /** Returns authorization information
     *
     * Each topology transaction must be authorized directly or indirectly by all necessary
@@ -142,7 +145,7 @@ object TopologyMapping {
     MappingHash(
       addUniqueKeyToBuilder(
         Hash.build(HashPurpose.TopologyMappingUniqueKey, HashAlgorithm.Sha256)
-      ).add(code.dbInt)
+      ).addInt(code.dbInt)
         .finish()
     )
 
@@ -527,6 +530,8 @@ final case class NamespaceDelegation private (
       restriction = restriction.toProtoV30,
     )
 
+  override def referencedUids: Set[UniqueIdentifier] = Set.empty
+
   def canSign(mappingsToSign: Code): Boolean =
     restriction.canSign(mappingsToSign)
 
@@ -559,7 +564,9 @@ final case class NamespaceDelegation private (
 object NamespaceDelegation extends TopologyMappingCompanion {
 
   def uniqueKey(namespace: Namespace, target: Fingerprint): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(namespace.fingerprint.unwrap).add(target.unwrap))
+    TopologyMapping.buildUniqueKey(code)(
+      _.addString(namespace.fingerprint.unwrap).addString(target.unwrap)
+    )
 
   /** Creates a namespace delegation for the given namespace to the given target key with possible
     * restrictions on the topology mappings the target key can authorize.
@@ -690,6 +697,7 @@ final case class DecentralizedNamespaceDefinition private (
     )
 
   override def maybeUid: Option[UniqueIdentifier] = None
+  override def referencedUids: Set[UniqueIdentifier] = Set.empty
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = None
 
@@ -715,7 +723,7 @@ final case class DecentralizedNamespaceDefinition private (
 object DecentralizedNamespaceDefinition extends TopologyMappingCompanion {
 
   def uniqueKey(namespace: Namespace): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(namespace.fingerprint.unwrap))
+    TopologyMapping.buildUniqueKey(code)(_.addString(namespace.fingerprint.unwrap))
 
   override def code: TopologyMapping.Code = Code.DecentralizedNamespaceDefinition
 
@@ -770,7 +778,7 @@ object DecentralizedNamespaceDefinition extends TopologyMappingCompanion {
     val builder = Hash.build(HashPurpose.DecentralizedNamespaceNamespace, HashAlgorithm.Sha256)
     owners.toSeq
       .sorted(Namespace.namespaceOrder.toOrdering)
-      .foreach(ns => builder.add(ns.fingerprint.unwrap))
+      .foreach(ns => builder.addString(ns.fingerprint.unwrap))
     Namespace(Fingerprint.tryFromString(builder.finish().toLengthLimitedHexString))
   }
 }
@@ -847,6 +855,7 @@ final case class OwnerToKeyMapping private (
 
   override def namespace: Namespace = member.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(member.uid)
+  override def referencedUids: Set[UniqueIdentifier] = Set(member.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = None
 
@@ -880,7 +889,7 @@ object OwnerToKeyMapping extends TopologyMappingCompanion {
     GenLens[OwnerToKeyMapping](_.keys)
 
   def uniqueKey(member: Member): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(member.uid.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(_.addString(member.uid.toProtoPrimitive))
 
   override def code: TopologyMapping.Code = Code.OwnerToKeyMapping
 
@@ -968,6 +977,7 @@ final case class PartyToKeyMapping private (
   override def namespace: Namespace = party.namespace
 
   override def maybeUid: Option[UniqueIdentifier] = Some(party.uid)
+  override def referencedUids: Set[UniqueIdentifier] = Set(party.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = None
 
@@ -1026,7 +1036,7 @@ object PartyToKeyMapping extends TopologyMappingCompanion {
     create(partyId, threshold, signingKeys).valueOr(err => throw new IllegalArgumentException(err))
 
   def uniqueKey(party: PartyId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(b => b.add(party.uid.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(b => b.addString(party.uid.toProtoPrimitive))
 
   override def code: TopologyMapping.Code = Code.PartyToKeyMapping
 
@@ -1092,6 +1102,7 @@ final case class SynchronizerTrustCertificate(
 
   override def namespace: Namespace = participantId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(participantId.uid)
+  override def referencedUids: Set[UniqueIdentifier] = Set(participantId.uid, synchronizerId.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
 
@@ -1142,7 +1153,7 @@ object SynchronizerTrustCertificate extends TopologyMappingCompanion {
 
   def uniqueKey(participantId: ParticipantId, synchronizerId: SynchronizerId): MappingHash =
     TopologyMapping.buildUniqueKey(code)(
-      _.add(participantId.toProtoPrimitive).add(synchronizerId.toProtoPrimitive)
+      _.addString(participantId.toProtoPrimitive).addString(synchronizerId.toProtoPrimitive)
     )
 
   override def code: Code = Code.SynchronizerTrustCertificate
@@ -1286,6 +1297,7 @@ final case class ParticipantSynchronizerPermission(
 
   override def namespace: Namespace = participantId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(participantId.uid)
+  override def referencedUids: Set[UniqueIdentifier] = Set(participantId.uid, synchronizerId.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
 
@@ -1317,7 +1329,7 @@ object ParticipantSynchronizerPermission extends TopologyMappingCompanion {
   def uniqueKey(synchronizerId: SynchronizerId, participantId: ParticipantId): MappingHash =
     TopologyMapping.buildUniqueKey(
       code
-    )(_.add(synchronizerId.toProtoPrimitive).add(participantId.toProtoPrimitive))
+    )(_.addString(synchronizerId.toProtoPrimitive).addString(participantId.toProtoPrimitive))
 
   override def code: Code = Code.ParticipantSynchronizerPermission
 
@@ -1380,6 +1392,7 @@ final case class PartyHostingLimits(
 
   override def namespace: Namespace = partyId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(partyId.uid)
+  override def referencedUids: Set[UniqueIdentifier] = Set(partyId.uid, synchronizerId.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
 
@@ -1395,7 +1408,7 @@ object PartyHostingLimits extends TopologyMappingCompanion {
 
   def uniqueKey(synchronizerId: SynchronizerId, partyId: PartyId): MappingHash =
     TopologyMapping.buildUniqueKey(code)(
-      _.add(synchronizerId.toProtoPrimitive).add(partyId.toProtoPrimitive)
+      _.addString(synchronizerId.toProtoPrimitive).addString(partyId.toProtoPrimitive)
     )
 
   override def code: Code = Code.PartyHostingLimits
@@ -1491,6 +1504,7 @@ final case class VettedPackages private (
 
   override def namespace: Namespace = participantId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(participantId.uid)
+  override def referencedUids: Set[UniqueIdentifier] = Set(participantId.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = None
 
@@ -1505,7 +1519,7 @@ final case class VettedPackages private (
 object VettedPackages extends TopologyMappingCompanion {
 
   def uniqueKey(participantId: ParticipantId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(participantId.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(_.addString(participantId.toProtoPrimitive))
 
   override def code: Code = Code.VettedPackages
 
@@ -1676,7 +1690,8 @@ final case class PartyToParticipant private (
 
   override def namespace: Namespace = partyId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(partyId.uid)
-
+  override def referencedUids: Set[UniqueIdentifier] =
+    (partyId.uid +: participants.map(_.participantId.uid)).toSet
   override def restrictedToSynchronizer: Option[SynchronizerId] = None
 
   def participantIds: Seq[ParticipantId] = participants.map(_.participantId)
@@ -1865,7 +1880,7 @@ object PartyToParticipant extends TopologyMappingCompanion {
     )
 
   def uniqueKey(partyId: PartyId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(partyId.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(_.addString(partyId.toProtoPrimitive))
 
   override def code: Code = Code.PartyToParticipant
 
@@ -1912,7 +1927,7 @@ final case class SynchronizerParametersState(
 
   override def namespace: Namespace = synchronizerId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
-
+  override def referencedUids: Set[UniqueIdentifier] = Set(synchronizerId.uid)
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
 
   override def requiredAuth(
@@ -1926,7 +1941,7 @@ final case class SynchronizerParametersState(
 object SynchronizerParametersState extends TopologyMappingCompanion {
 
   def uniqueKey(synchronizerId: SynchronizerId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(_.addString(synchronizerId.toProtoPrimitive))
 
   override def code: TopologyMapping.Code = Code.SynchronizerParametersState
 
@@ -1976,6 +1991,7 @@ final case class DynamicSequencingParametersState(
 
   override def namespace: Namespace = synchronizerId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
+  override def referencedUids: Set[UniqueIdentifier] = Set(synchronizerId.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
 
@@ -1989,7 +2005,7 @@ final case class DynamicSequencingParametersState(
 object DynamicSequencingParametersState extends TopologyMappingCompanion {
 
   def uniqueKey(synchronizerId: SynchronizerId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(_.addString(synchronizerId.toProtoPrimitive))
 
   override def code: TopologyMapping.Code = Code.SequencingDynamicParametersState
 
@@ -2051,6 +2067,8 @@ final case class MediatorSynchronizerState private (
 
   override def namespace: Namespace = synchronizerId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
+  override def referencedUids: Set[UniqueIdentifier] =
+    (synchronizerId.uid +: (active.map(_.uid) ++ observers.map(_.uid))).toSet
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
 
@@ -2064,7 +2082,9 @@ final case class MediatorSynchronizerState private (
 object MediatorSynchronizerState extends TopologyMappingCompanion {
 
   def uniqueKey(synchronizerId: SynchronizerId, group: MediatorGroupIndex): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive).add(group.unwrap))
+    TopologyMapping.buildUniqueKey(code)(
+      _.addString(synchronizerId.toProtoPrimitive).addInt(group.unwrap)
+    )
 
   override def code: TopologyMapping.Code = Code.MediatorSynchronizerState
 
@@ -2158,7 +2178,8 @@ final case class SequencerSynchronizerState private (
 
   override def namespace: Namespace = synchronizerId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
-
+  override def referencedUids: Set[UniqueIdentifier] =
+    (synchronizerId.uid +: (active.map(_.uid) ++ observers.map(_.uid))).toSet
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
 
   override def requiredAuth(
@@ -2171,7 +2192,7 @@ final case class SequencerSynchronizerState private (
 object SequencerSynchronizerState extends TopologyMappingCompanion {
 
   def uniqueKey(synchronizerId: SynchronizerId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(_.addString(synchronizerId.toProtoPrimitive))
 
   override def code: TopologyMapping.Code = Code.SequencerSynchronizerState
 
@@ -2250,7 +2271,7 @@ final case class SynchronizerUpgradeAnnouncement(
 
   override def namespace: Namespace = successorSynchronizerId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(successorSynchronizerId.uid)
-
+  override def referencedUids: Set[UniqueIdentifier] = Set(successorSynchronizerId.uid)
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(
     successorSynchronizerId.logical
   )
@@ -2266,7 +2287,7 @@ final case class SynchronizerUpgradeAnnouncement(
 object SynchronizerUpgradeAnnouncement extends TopologyMappingCompanion {
 
   def uniqueKey(synchronizerId: SynchronizerId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
+    TopologyMapping.buildUniqueKey(code)(_.addString(synchronizerId.toProtoPrimitive))
 
   override def code: TopologyMapping.Code = Code.SynchronizerUpgradeAnnouncement
 
@@ -2340,7 +2361,7 @@ final case class SequencerConnectionSuccessor(
   override def namespace: Namespace = sequencerId.namespace
 
   override def maybeUid: Option[UniqueIdentifier] = Some(sequencerId.uid)
-
+  override def referencedUids: Set[UniqueIdentifier] = Set(sequencerId.uid, synchronizerId.uid)
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): RequiredAuth = RequiredNamespaces(Set(namespace))
@@ -2377,7 +2398,7 @@ object SequencerConnectionSuccessor extends TopologyMappingCompanion {
   override def code: Code = Code.SequencerConnectionSuccessor
   def uniqueKey(sequencerId: SequencerId, synchronizerId: SynchronizerId): MappingHash =
     TopologyMapping.buildUniqueKey(code)(
-      _.add(sequencerId.uid.toProtoPrimitive).add(synchronizerId.toProtoPrimitive)
+      _.addString(sequencerId.uid.toProtoPrimitive).addString(synchronizerId.toProtoPrimitive)
     )
 
   def fromProtoV30(

@@ -4,14 +4,13 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import com.daml.ledger.javaapi.data.DisclosedContract
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 
@@ -97,9 +96,9 @@ abstract class LSUExternalPartiesIntegrationTest extends LSUBase {
   }
 }
 
-final class LSUExternalPartiesReferenceIntegrationTest extends LSUExternalPartiesIntegrationTest {
+final class LSUExternalPartiesBftOrderingIntegrationTest extends LSUExternalPartiesIntegrationTest {
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
     )

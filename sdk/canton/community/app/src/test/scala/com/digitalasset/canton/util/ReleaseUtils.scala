@@ -19,9 +19,10 @@ import com.digitalasset.canton.version.{
 
 import java.nio.file.{Files, Paths}
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, Future}
 
 /** A collection of small utilities for tests that have no obvious home */
+@SuppressWarnings(Array("com.digitalasset.canton.RequireBlocking"))
 object ReleaseUtils {
   final case class TestedRelease(
       releaseVersion: ReleaseVersion,
@@ -91,9 +92,6 @@ object ReleaseUtils {
         .map(TestedRelease(releaseVersion, _))
     }
 
-  lazy val reducedScopeOfPreviousSupportedStableReleases: List[TestedRelease] =
-    reduceToLatestSupportedStablesReleases(previousSupportedStableReleases)
-
   private def reduceToLatestSupportedStablesReleases(releases: List[TestedRelease]) =
     releases.sortBy(_.releaseVersion).foldLeft(List.empty[TestedRelease]) {
       case (one :: rest, item)
@@ -124,6 +122,7 @@ object ReleaseUtils {
     * synchronize between different requests for the same release.
     */
   private val releasesRetrieval: TrieMap[ReleaseVersion, Future[String]] = TrieMap.empty
+  private val lock = new Mutex()
 
   /** If the .tar.gz corresponding to release is not found locally, attempts to download it from
     * artifactory. Then, extract the .tar.gz file.
@@ -136,15 +135,13 @@ object ReleaseUtils {
   def retrieve(
       release: ReleaseVersion
   )(implicit elc: ErrorLoggingContext, ec: ExecutionContext): Future[String] =
-    blocking {
-      synchronized {
-        releasesRetrieval.get(release) match {
-          case Some(releaseRetrieval) => releaseRetrieval
-          case None =>
-            val releaseRetrieval = Future(downloadAndExtract(release))
-            releasesRetrieval.put(release, releaseRetrieval).discard
-            releaseRetrieval
-        }
+    lock.exclusive {
+      releasesRetrieval.get(release) match {
+        case Some(releaseRetrieval) => releaseRetrieval
+        case None =>
+          val releaseRetrieval = Future(downloadAndExtract(release))
+          releasesRetrieval.put(release, releaseRetrieval).discard
+          releaseRetrieval
       }
     }
 

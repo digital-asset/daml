@@ -3,13 +3,16 @@
 
 package com.digitalasset.canton.util
 
+import cats.data.EitherT
 import cats.{Applicative, MonadThrow}
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.lifecycle.UnlessShutdown
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import org.scalatest.exceptions.TestFailedException
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.concurrent.atomic.AtomicInteger
+import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 class ResourceUtilTest extends AnyWordSpec with BaseTest with HasExecutionContext {
@@ -166,6 +169,151 @@ class ResourceUtilTest extends AnyWordSpec with BaseTest with HasExecutionContex
         ResourceUtil.withResourceEither(factory.create())(_ => ())
         factory.counter shouldBe 1
       }
+    }
+
+    "withResourceOnErrorET" should {
+
+      def run[R](eitherT: EitherT[FutureUnlessShutdown, String, R], errMsg: String): R =
+        eitherT.futureValueUS.valueOrFail(errMsg)
+
+      "return value from the function and NOT close resource" in {
+        val resource = new DoNothingResource
+        run(
+          ResourceUtil.withResourceCloseOnlyOnError(resource)(_ =>
+            EitherT.rightT[FutureUnlessShutdown, String]("good")
+          ),
+          "run",
+        ) shouldBe "good"
+        resource.closeCount shouldBe 0
+
+        val closeMsg = "Something happened when closing"
+        val resourceThrowOnClose = new ThrowOnCloseResource(closeMsg)
+        run(
+          ResourceUtil.withResourceCloseOnlyOnError(resourceThrowOnClose)(_ =>
+            EitherT.rightT[FutureUnlessShutdown, String]("good")
+          ),
+          "run",
+        ) shouldBe "good"
+        resourceThrowOnClose.closeCount shouldBe 0
+      }
+
+      "return left from the function and close resource" in {
+        val resource = new DoNothingResource
+        ResourceUtil
+          .withResourceCloseOnlyOnError(resource)(_ =>
+            EitherT.leftT[FutureUnlessShutdown, String]("bad")
+          )
+          .futureValueUS shouldBe Left("bad")
+        resource.closeCount shouldBe 1
+      }
+
+      "shutdown/interrupt function and close resource" in {
+        val resource = new DoNothingResource
+        // deal with an InterruptedException to simulate shutdown/interrupt
+        val ex = new InterruptedException("Interrupted")
+        intercept[TestFailedException](
+          run(
+            ResourceUtil.withResourceCloseOnlyOnError.apply(resource) { _ =>
+              EitherT[Future, String, String](
+                Future.failed(ex)
+              ).mapK(FutureUnlessShutdown.outcomeK)
+            },
+            "run and throw exception",
+          )
+        ).cause shouldBe Some(ex)
+        resource.closeCount shouldBe 1
+      }
+
+      "close all nested resources on inner failure" in {
+        val outer = new DoNothingResource
+        val inner = new DoNothingResource
+
+        ResourceUtil
+          .withResourceCloseOnlyOnError(outer) { _ =>
+            ResourceUtil.withResourceCloseOnlyOnError(inner) { _ =>
+              EitherT.leftT[FutureUnlessShutdown, String]("bad")
+            }
+          }
+          .futureValueUS shouldBe Left("bad")
+        outer.closeCount shouldBe 1
+        inner.closeCount shouldBe 1
+
+        run(
+          ResourceUtil
+            .withResourceCloseOnlyOnError(outer) { _ =>
+              ResourceUtil.withResourceCloseOnlyOnError(inner) { _ =>
+                EitherT.rightT[FutureUnlessShutdown, String]("good")
+              }
+            },
+          "run",
+        ) shouldBe "good"
+        outer.closeCount shouldBe 1
+        inner.closeCount shouldBe 1
+
+        val msg = "Something happened"
+        intercept[TestFailedException](
+          run(
+            ResourceUtil.withResourceCloseOnlyOnError(outer) { _ =>
+              ResourceUtil.withResourceCloseOnlyOnError(inner) { _ =>
+                EitherT.liftF[FutureUnlessShutdown, String, String](
+                  FutureUnlessShutdown.failed(TestException(msg))
+                )
+              }
+            },
+            "run and throw exception",
+          )
+        ).cause shouldBe Some(TestException(msg))
+        outer.closeCount shouldBe 2
+        inner.closeCount shouldBe 2
+      }
+
+      "have the same behavior as withResourceM" in {
+        val resource = new DoNothingResource
+
+        // rethrow exception from function and still close resource
+        val msg = "Something happened"
+        intercept[TestFailedException](
+          run(
+            ResourceUtil.withResourceCloseOnlyOnError(resource)(_ =>
+              EitherT.liftF[FutureUnlessShutdown, String, String](
+                FutureUnlessShutdown.failed(TestException(msg))
+              )
+            ),
+            "run and throw exception",
+          )
+        ).cause shouldBe Some(TestException(msg))
+        resource.closeCount shouldBe 1
+
+        // rethrow exception from function and add exception from closing to suppressed
+        val closeMsg = "Something happened when closing"
+        val resourceThrowOnClose = new ThrowOnCloseResource(closeMsg)
+        val exception = intercept[TestFailedException](
+          run(
+            ResourceUtil.withResourceCloseOnlyOnError(resourceThrowOnClose)(_ =>
+              EitherT.liftF[FutureUnlessShutdown, String, String](
+                FutureUnlessShutdown.failed(TestException(msg))
+              )
+            ),
+            "run and throw exception",
+          )
+        )
+        exception.cause shouldBe Some(TestException(msg))
+        resourceThrowOnClose.closeCount shouldBe 1
+        exception.cause.valueOrFail("get exception").getSuppressed()(0) shouldBe TestException(
+          closeMsg
+        )
+
+        // create a resource exactly once
+        val factory = new ResourceFactory(() => new DoNothingResource)
+        run(
+          ResourceUtil.withResourceCloseOnlyOnError(factory.create())(_ =>
+            EitherT.rightT[FutureUnlessShutdown, String]("good")
+          ),
+          "run",
+        )
+        factory.counter shouldBe 1
+      }
+
     }
 
     def withResourceM[F[_], C[_], S](

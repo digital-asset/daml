@@ -5,13 +5,16 @@ package com.digitalasset.canton.crypto
 
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CachingConfigs
+import com.digitalasset.canton.config.{CacheConfig, CachingConfigs}
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.SigningKeyUsage.compatibleUsageForSignAndVerify
 import com.digitalasset.canton.crypto.provider.jce.{JceJavaKeyConverter, JceSecurityProvider}
 import com.digitalasset.canton.util.{EitherUtil, ErrorUtil}
+import com.github.blemale.scaffeine.Cache
 import com.google.common.annotations.VisibleForTesting
 import com.google.crypto.tink.internal.EllipticCurvesUtil
+import com.google.protobuf.ByteString
+import org.bouncycastle.jcajce.provider.asymmetric.edec.{BCEdDSAPrivateKey, BCEdDSAPublicKey}
 import org.bouncycastle.math.ec.rfc8032.Ed25519.{SECRET_KEY_SIZE, validatePublicKeyFull}
 
 import java.math.BigInteger
@@ -30,29 +33,30 @@ import java.security.{
   PublicKey as JPublicKey,
 }
 import scala.annotation.nowarn
-import scala.collection.concurrent.TrieMap
-import scala.concurrent.blocking
 
 object CryptoKeyValidation {
 
+  private val cacheConfig = CacheConfig(
+    maximumSize = CachingConfigs.defaultPublicKeyConversionCache.maximumSize
+  )
+
   // Keeps track of the public keys that have been validated.
-  private lazy val validatedPublicKeys
-      : TrieMap[Fingerprint, Either[KeyParseAndValidateError, Unit]] =
-    TrieMap.empty
+  private lazy val validatedPublicKeys: Cache[Fingerprint, Either[KeyParseAndValidateError, Unit]] =
+    cacheConfig
+      .buildScaffeineWithoutExecutor()
+      .build[Fingerprint, Either[KeyParseAndValidateError, Unit]]()
 
   private lazy val validatedPrivateKeys
-      : TrieMap[Fingerprint, Either[KeyParseAndValidateError, Unit]] =
-    TrieMap.empty
+      : Cache[Fingerprint, Either[KeyParseAndValidateError, Unit]] =
+    cacheConfig
+      .buildScaffeineWithoutExecutor()
+      .build[Fingerprint, Either[KeyParseAndValidateError, Unit]]()
 
   @VisibleForTesting
   def clearValidationCaches(): Unit = {
-    validatedPublicKeys.clear()
-    validatedPrivateKeys.clear()
+    validatedPublicKeys.invalidateAll()
+    validatedPrivateKeys.invalidateAll()
   }
-
-  // To prevent concurrent cache cleanups
-  private val cachePrivateLock = new Object
-  private val cachePublicLock = new Object
 
   /** Validates a symmetric key by checking:
     *   - Symmetric key format
@@ -107,11 +111,18 @@ object CryptoKeyValidation {
     * the key is encoded using the DER-encoded PKCS#8 structure.
     */
   private def validateEd25519PrivateKey(
-      privateKey: PrivateKey
+      privateKey: JPrivateKey
   ): Either[KeyParseAndValidateError, Unit] =
     for {
+      edPrivateKey <- privateKey match {
+        case k: BCEdDSAPrivateKey => Right(k)
+        case _ =>
+          Left(KeyParseAndValidateError(s"Private key is not an ED25519 private key"))
+      }
       // Extract raw 32-byte Ed25519 private key from PKCS #8 PKI
-      rawPrivateKey <- CryptoKeyFormat.extractPrivateKeyFromPkcs8Pki(privateKey.key)
+      rawPrivateKey <- CryptoKeyFormat.extractPrivateKeyFromPkcs8Pki(
+        ByteString.copyFrom(edPrivateKey.getEncoded)
+      )
       _ <- EitherUtil.condUnit(
         rawPrivateKey.length == SECRET_KEY_SIZE,
         KeyParseAndValidateError(
@@ -126,11 +137,18 @@ object CryptoKeyValidation {
     * SubjectPublicKeyInfo (SPKI) format.
     */
   private def validateEd25519PublicKey(
-      pubKey: PublicKey
+      pubKey: JPublicKey
   ): Either[KeyParseAndValidateError, Unit] =
     for {
+      edPublicKey <- pubKey match {
+        case k: BCEdDSAPublicKey => Right(k)
+        case _ =>
+          Left(KeyParseAndValidateError(s"Public key is not an ED25519 public key"))
+      }
       // Extract raw 32-byte Ed25519 public key from DER-encoded SPKI
-      rawKeyBytes <- CryptoKeyFormat.extractPublicKeyFromX509Spki(pubKey.key)
+      rawKeyBytes <- CryptoKeyFormat.extractPublicKeyFromX509Spki(
+        ByteString.copyFrom(edPublicKey.getEncoded)
+      )
       _ <- Either
         .catchOnly[GeneralSecurityException] {
           validatePublicKeyFull(rawKeyBytes, 0)
@@ -327,7 +345,7 @@ object CryptoKeyValidation {
               }
             case signKey: SigningPrivateKey =>
               signKey.keySpec match {
-                case SigningKeySpec.EcCurve25519 => validateEd25519PrivateKey(privateKey)
+                case SigningKeySpec.EcCurve25519 => validateEd25519PrivateKey(jKey)
                 case ks: EcKeySpec => validateEcPrivateKey(jKey, ks)
               }
             case _ => Left(KeyParseAndValidateError("Unknown key type"))
@@ -339,19 +357,9 @@ object CryptoKeyValidation {
         Left(KeyParseAndValidateError(s"Invalid format for private key: $format"))
     }
 
-    // Temporary workaround to clear this TrieMap and prevent memory leaks.
-    blocking {
-      cachePrivateLock.synchronized {
-        if (
-          validatedPrivateKeys.size > CachingConfigs.defaultPublicKeyConversionCache.maximumSize.value
-        ) {
-          validatedPrivateKeys.clear()
-        }
-      }
-    }
     // If the result is already in the cache it means the key has already been validated.
     (if (cacheValidation)
-       validatedPrivateKeys.getOrElseUpdate(privateKey.id, parseRes)
+       validatedPrivateKeys.get(privateKey.id, _ => parseRes)
      else parseRes).leftMap(err =>
       errFn(s"Failed to deserialize or validate ${privateKey.format} private key: $err")
     )
@@ -383,7 +391,7 @@ object CryptoKeyValidation {
               }
             case signKey: SigningPublicKey =>
               signKey.keySpec match {
-                case SigningKeySpec.EcCurve25519 => validateEd25519PublicKey(publicKey)
+                case SigningKeySpec.EcCurve25519 => validateEd25519PublicKey(jKey)
                 case ks: EcKeySpec => validateEcPublicKey(jKey, ks)
               }
             case _ => Left(KeyParseAndValidateError("Unknown key type"))
@@ -395,19 +403,9 @@ object CryptoKeyValidation {
         Left(KeyParseAndValidateError(s"Invalid format for public key: $format"))
     }
 
-    // Temporary workaround to clear this TrieMap and prevent memory leaks.
-    blocking {
-      cachePublicLock.synchronized {
-        if (
-          validatedPublicKeys.size > CachingConfigs.defaultPublicKeyConversionCache.maximumSize.value
-        ) {
-          validatedPublicKeys.clear()
-        }
-      }
-    }
     // If the result is already in the cache it means the key has already been validated.
     (if (cacheValidation)
-       validatedPublicKeys.getOrElseUpdate(publicKey.id, parseRes)
+       validatedPublicKeys.get(publicKey.id, _ => parseRes)
      else parseRes).leftMap(err =>
       errFn(s"Failed to deserialize or validate ${publicKey.format} public key: $err")
     )

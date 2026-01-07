@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.jsonapi
 
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.ParticipantSelector
 import com.digitalasset.canton.integration.{
   ConfigTransforms,
@@ -16,7 +15,8 @@ import org.apache.pekko.http.scaladsl.model.{StatusCodes, Uri}
 class JsonPathPrefixTests
     extends AbstractHttpServiceIntegrationTestFuns
     with HttpServiceUserFixture.UserToken {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   private lazy val testCases: Map[String, Option[String]] = Map(
     "participant1" -> Some("/any/company/prefix"),

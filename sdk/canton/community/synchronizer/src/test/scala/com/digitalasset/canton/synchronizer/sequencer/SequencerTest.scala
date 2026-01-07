@@ -246,7 +246,12 @@ class SequencerTest
           "member registration"
         )
         signedSubmission <- RequestSigner(aliceCrypto, testedProtocolVersion, loggerFactory)
-          .signRequest(submission, HashPurpose.SubmissionRequestSignature)
+          .signRequest(
+            submission,
+            HashPurpose.SubmissionRequestSignature,
+            aliceCrypto.currentSnapshotApproximation.futureValueUS,
+            Some(clock.now),
+          )
           .valueOrFail("sign request")
         _ <- sequencer.sendAsyncSigned(signedSubmission).valueOrFail("send")
         aliceDeliverEvent <- readAsSeq(alice, 1)

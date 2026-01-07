@@ -438,7 +438,6 @@ object ExampleTransactionFactory {
   val submitters: List[LfPartyId] = List(submitter)
 
   // Request metadata
-
   val userId: UserId = DefaultDamlValues.userId()
   val commandId: CommandId = DefaultDamlValues.commandId()
   val workflowId: WorkflowId = WorkflowId.assertFromString("testWorkflowId")

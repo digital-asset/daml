@@ -16,7 +16,7 @@ interact with JSON Ledger API. See the sections below for guidance on setting up
 Install
 -------
 
-Install the Daml Codegen for JavaScript by :ref:`installing the Daml Assistant <daml-assistant-install>`.
+Install the Daml Codegen for JavaScript by :subsiteref:`installing DPM<dpm>`.
 
 Configure
 ---------
@@ -49,7 +49,7 @@ Specify the above settings in the ``codegen`` element of the Daml project file `
 
 Here is an example::
 
-    sdk-version: 3.4.0-rc2
+    sdk-version: 3.4.9
     name: quickstart
     source: daml
     init-script: Main:initialize

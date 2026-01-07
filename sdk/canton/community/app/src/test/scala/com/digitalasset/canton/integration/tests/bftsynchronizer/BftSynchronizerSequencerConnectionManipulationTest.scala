@@ -4,6 +4,11 @@
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
 import com.daml.metrics.api.testing.MetricValues.*
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnectionPoolDelays,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.LocalSequencerReference
@@ -12,11 +17,6 @@ import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
   SharedEnvironment,
-}
-import com.digitalasset.canton.sequencing.{
-  SequencerConnectionPoolDelays,
-  SequencerConnections,
-  SubmissionRequestAmplification,
 }
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.{SequencerAlias, config}
@@ -166,8 +166,7 @@ sealed trait BftSynchronizerSequencerConnectionManipulationTest
           SequencerConnections.tryMany(
             Seq(sequencer1, sequencer2).map { sequencer =>
               // On purpose, we don't set the sequencer id. It should be grabbed automatically.
-              sequencer.sequencerConnection
-                .withAlias(SequencerAlias.tryCreate(sequencer.name))
+              sequencer.sequencerConnection.withAlias(SequencerAlias.tryCreate(sequencer.name))
             },
             sequencerTrustThreshold = PositiveInt.two,
             sequencerLivenessMargin = NonNegativeInt.zero,

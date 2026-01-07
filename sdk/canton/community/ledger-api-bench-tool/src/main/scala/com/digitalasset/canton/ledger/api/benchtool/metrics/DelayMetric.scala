@@ -14,6 +14,7 @@ final case class DelayMetric[T](
     objective: Option[(DelayMetric.MaxDelay, Option[DelayMetric.Value])],
     delaysInCurrentInterval: List[Duration] = List.empty,
 ) extends Metric[T] {
+
   import DelayMetric.*
 
   override type V = Value
@@ -39,8 +40,8 @@ final case class DelayMetric[T](
     Value(None)
 
   override def violatedPeriodicObjectives: List[(MaxDelay, Value)] =
-    objective.collect {
-      case (obj, value) if value.isDefined => obj -> value.get
+    objective.collect { case (obj, Some(value)) =>
+      obj -> value
     }.toList
 
   override def violatedFinalObjectives(
@@ -69,13 +70,11 @@ final case class DelayMetric[T](
     }
 
   private def periodicMeanDelay: Option[Duration] =
-    if (delaysInCurrentInterval.nonEmpty)
-      Some(
-        delaysInCurrentInterval
-          .reduceLeft(_.plus(_))
-          .dividedBy(delaysInCurrentInterval.length.toLong)
+    delaysInCurrentInterval
+      .reduceLeftOption(_.plus(_))
+      .map(
+        _.dividedBy(delaysInCurrentInterval.length.toLong)
       )
-    else None
 }
 
 object DelayMetric {

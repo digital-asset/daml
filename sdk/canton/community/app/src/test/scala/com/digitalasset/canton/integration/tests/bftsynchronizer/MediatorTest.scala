@@ -4,10 +4,10 @@
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
 import com.digitalasset.canton.SynchronizerAlias
-import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.admin.api.client.data.SequencerConnections
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.LocalParticipantReference
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -15,7 +15,6 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.participant.protocol.TransactionProcessor
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.{ForceFlag, PhysicalSynchronizerId}
 import org.scalatest.matchers.{MatchResult, Matcher}
 
@@ -200,10 +199,11 @@ sealed trait MediatorTest extends CommunityIntegrationTest with SharedEnvironmen
 }
 
 class MediatorTestDefault extends MediatorTest {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 //class MediatorTestPostgres extends MediatorTest {
 //  registerPlugin(new UsePostgres(loggerFactory))
-//  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+//  registerPlugin(new UseBftSequencer(loggerFactory))
 //}

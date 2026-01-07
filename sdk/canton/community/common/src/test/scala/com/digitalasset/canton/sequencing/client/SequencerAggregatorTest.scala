@@ -6,6 +6,7 @@ package com.digitalasset.canton.sequencing.client
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.sequencing.SequencerAggregator.SequencerAggregatorError
 import com.digitalasset.canton.sequencing.{SequencedSerializedEvent, SequencerAggregator}
 import com.digitalasset.canton.util.ResourceUtil
@@ -19,6 +20,7 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.wordspec.FixtureAnyWordSpec
 import org.scalatest.{Assertion, Outcome}
 
+import scala.concurrent.duration.*
 import scala.concurrent.{Future, Promise}
 
 class SequencerAggregatorTest
@@ -293,6 +295,51 @@ class SequencerAggregatorTest
 
       assertDownstreamMessage(aggregator, carlosEvents(1))
     }
+
+    "emit AbortedDueToShutdown for a pending aggregation" in { fixture =>
+      import fixture.*
+      val aggregator = mkAggregator(
+        config(Set(sequencerAlice, sequencerBob), sequencerTrustThreshold = 2)
+      )
+
+      assertNoMessageDownstream(aggregator)
+
+      val incompleteF = aggregator.combineAndMergeEvent(sequencerAlice, aliceEvents(0))
+
+      eventuallyForever(timeUntilSuccess = 0.seconds, durationOfSuccess = 500.millis) {
+        incompleteF.isCompleted shouldBe false
+      }
+      aggregator.close()
+      eventually() {
+        incompleteF.unwrap.futureValue shouldBe AbortedDueToShutdown
+      }
+    }
+
+    "emit AbortedDueToShutdown when observing events after having been closed" in { fixture =>
+      import fixture.*
+      val aggregator = mkAggregator(
+        config(Set(sequencerAlice, sequencerBob), sequencerTrustThreshold = 2)
+      )
+
+      assertNoMessageDownstream(aggregator)
+
+      val incompleteAliceF = aggregator.combineAndMergeEvent(sequencerAlice, aliceEvents(0))
+
+      eventuallyForever(timeUntilSuccess = 0.seconds, durationOfSuccess = 500.millis) {
+        incompleteAliceF.isCompleted shouldBe false
+      }
+      aggregator.close()
+
+      eventually() {
+        incompleteAliceF.unwrap.futureValue shouldBe AbortedDueToShutdown
+      }
+
+      val incompleteBobF = aggregator.combineAndMergeEvent(sequencerBob, bobEvents(0))
+      eventually() {
+        incompleteBobF.unwrap.futureValue shouldBe AbortedDueToShutdown
+      }
+    }
+
   }
 
   "Sequencer aggregator with two out of 3 expected sequencers" should {
@@ -329,7 +376,6 @@ class SequencerAggregatorTest
 
       val f3 = aggregator
         .combineAndMergeEvent(sequencerCarlos, carlosEvents(0)) // late event
-      f3.isCompleted shouldBe true // should be immediately resolved
       f3.futureValueUS shouldBe Right(false)
     }
 

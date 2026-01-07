@@ -5,6 +5,15 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.platform.store.interning.DomainStringIterators
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.daml.lf.data.Ref.{
+  ChoiceName,
+  Identifier,
+  NameTypeConRef,
+  PackageId,
+  ParticipantId,
+  Party,
+  UserId,
+}
 
 object DbDtoToStringsForInterning {
 
@@ -20,7 +29,7 @@ object DbDtoToStringsForInterning {
       interfaceIds = dbDtos.iterator.flatMap(interfaceIdsOf),
     )
 
-  private def templateIdsOf(dbDto: DbDto): Iterator[String] =
+  private def templateIdsOf(dbDto: DbDto): Iterator[NameTypeConRef] =
     dbDto match {
       case dbDto: DbDto.EventDeactivate => Iterator(dbDto.template_id)
       case dbDto: DbDto.EventVariousWitnessed => dbDto.template_id.iterator
@@ -28,7 +37,7 @@ object DbDtoToStringsForInterning {
       case _ => Iterator.empty
     }
 
-  private def packageIdsOf(dbDto: DbDto): Iterator[String] =
+  private def packageIdsOf(dbDto: DbDto): Iterator[PackageId] =
     dbDto match {
       case dbDto: DbDto.EventActivate => Iterator(dbDto.representative_package_id)
       case dbDto: DbDto.EventDeactivate => Iterator(dbDto.package_id)
@@ -37,7 +46,7 @@ object DbDtoToStringsForInterning {
       case _ => Iterator.empty
     }
 
-  private def partiesOf(dbDto: DbDto): Iterator[String] =
+  private def partiesOf(dbDto: DbDto): Iterator[Party] =
     dbDto match {
       case dbDto: DbDto.EventActivate =>
         dbDto.submitters.getOrElse(Set.empty).iterator ++
@@ -85,26 +94,26 @@ object DbDtoToStringsForInterning {
       case _ => Iterator.empty
     }
 
-  private def userIdsOf(dbDto: DbDto): Iterator[String] =
+  private def userIdsOf(dbDto: DbDto): Iterator[UserId] =
     dbDto match {
       case dbDto: DbDto.CommandCompletion => Iterator(dbDto.user_id)
       case _ => Iterator.empty
     }
 
-  private def participantIdsOf(dbDto: DbDto): Iterator[String] =
+  private def participantIdsOf(dbDto: DbDto): Iterator[ParticipantId] =
     dbDto match {
       case dbDto: DbDto.EventPartyToParticipant => Iterator(dbDto.participant_id)
       case _ => Iterator.empty
     }
 
-  private def choiceNamesOf(dbDto: DbDto): Iterator[String] =
+  private def choiceNamesOf(dbDto: DbDto): Iterator[ChoiceName] =
     dbDto match {
       case dbDto: DbDto.EventDeactivate => dbDto.exercise_choice.iterator
       case dbDto: DbDto.EventVariousWitnessed => dbDto.exercise_choice.iterator
       case _ => Iterator.empty
     }
 
-  private def interfaceIdsOf(dbDto: DbDto): Iterator[String] =
+  private def interfaceIdsOf(dbDto: DbDto): Iterator[Identifier] =
     dbDto match {
       case dbDto: DbDto.EventDeactivate => dbDto.exercise_choice_interface_id.iterator
       case dbDto: DbDto.EventVariousWitnessed => dbDto.exercise_choice_interface_id.iterator

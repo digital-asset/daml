@@ -737,20 +737,20 @@ class MediatorNodeBootstrap(
       _ <- MonadUtil.unlessM(
         EitherT.right[String](synchronizerConfigurationStore.isTopologyInitialized())
       )(
-        new StoreBasedSynchronizerTopologyInitializationCallback(
-          mediatorId
-        ).callback(
-          new InitialTopologySnapshotValidator(
-            new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
-            synchronizerTopologyStore,
-            Some(staticSynchronizerParameters),
-            validateInitialSnapshot = topologyConfig.validateInitialTopologySnapshot,
-            synchronizerLoggerFactory,
-          ),
-          topologyClient,
-          sequencerClient,
-          staticSynchronizerParameters.protocolVersion,
-        ).semiflatMap(_ => synchronizerConfigurationStore.setTopologyInitialized())
+        (new StoreBasedSynchronizerTopologyInitializationCallback)
+          .callback(
+            new InitialTopologySnapshotValidator(
+              new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
+              synchronizerTopologyStore,
+              Some(staticSynchronizerParameters),
+              validateInitialSnapshot = topologyConfig.validateInitialTopologySnapshot,
+              synchronizerLoggerFactory,
+            ),
+            topologyClient,
+            sequencerClient,
+            staticSynchronizerParameters.protocolVersion,
+          )
+          .semiflatMap(_ => synchronizerConfigurationStore.setTopologyInitialized())
       )
 
       mediatorRuntime <- MediatorRuntimeFactory.create(

@@ -118,6 +118,7 @@ object ECDSAVerifier extends Leeway with WithExecuteUnsafe {
 }
 
 // RSA256 validator factory
+@SuppressWarnings(Array("org.wartremover.warts.Null"))
 object RSA256Verifier extends Leeway with WithExecuteUnsafe {
   def apply(
       publicKey: RSAPublicKey,

@@ -3,11 +3,10 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
 import com.digitalasset.canton.time.PositiveSeconds
@@ -32,9 +31,8 @@ final class FindPartyActivationOffsetsIntegrationTest
           .propose_update(daId, _.update(reconciliationInterval = reconciliationInterval.toConfig))
       }
 
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory)
-  )
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   "Alice has 2 activations on P1 and P3" in { implicit env =>
     import env.*

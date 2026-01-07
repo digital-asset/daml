@@ -15,17 +15,18 @@ import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
- * This class can be used to build a valid submission for an Update. It provides {@link #create(String, String, Update)}
- * for initial creation and methods to set optional parameters
- * e.g {@link #withActAs(List)}, {@link #withWorkflowId(String)} etc.
+ * This class can be used to build a valid submission for an Update. It provides {@link
+ * #create(String, String, Update)} for initial creation and methods to set optional parameters e.g
+ * {@link #withActAs(List)}, {@link #withWorkflowId(String)} etc.
  *
- * Usage:
+ * <p>Usage:
+ *
  * <pre>
  *   var submission = UpdateSubmission.create(userId, commandId, update)
  *                                   .withAccessToken(token)
  *                                   .withParty(party)
  *                                   .with...
- * <pre/>
+ * </pre>
  */
 public final class UpdateSubmission<U> {
   @NonNull private final String userId;

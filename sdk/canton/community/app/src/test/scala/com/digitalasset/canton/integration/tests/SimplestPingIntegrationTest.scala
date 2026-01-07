@@ -3,13 +3,7 @@
 
 package com.digitalasset.canton.integration.tests
 
-import com.digitalasset.canton.config.{DbConfig, StorageConfig}
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UseH2,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -50,18 +44,13 @@ class SimplestPingIntegrationTestInMemory extends SimplestPingIntegrationTest {
       .addConfigTransform(ConfigTransforms.allInMemory)
       .addConfigTransform(_.focus(_.monitoring.logging.api.messagePayloads).replace(false))
 
-  registerPlugin(new UseReferenceBlockSequencer[StorageConfig.Memory](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
 }
 
-class SimplestPingReferenceIntegrationTestH2 extends SimplestPingIntegrationTest {
+class SimplestPingBftOrderingIntegrationTestH2 extends SimplestPingIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
-}
-
-class SimplestPingReferenceIntegrationTestPostgres extends SimplestPingIntegrationTest {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 class SimplestPingBftOrderingIntegrationTestPostgres extends SimplestPingIntegrationTest {

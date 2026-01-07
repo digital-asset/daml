@@ -4,17 +4,19 @@
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
 import com.digitalasset.canton.SequencerAlias
-import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.admin.api.client.data.{
+  GrpcSequencerConnection,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
   SharedEnvironment,
   TestConsoleEnvironment,
 }
-import com.digitalasset.canton.sequencing.SubmissionRequestAmplification
 import com.digitalasset.canton.topology.PartyId
 
 import scala.concurrent.duration.DurationInt
@@ -41,8 +43,10 @@ sealed trait BftSynchronizerBootstrapTemplateTest
       clue("participant2 connects to sequencer1, sequencer2 using connect_bft") {
         participant2.synchronizers.connect_bft(
           Seq(sequencer2, sequencer1).map(s =>
-            s.config.publicApi.clientConfig
-              .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
+            GrpcSequencerConnection.fromInternal(
+              s.config.publicApi.clientConfig
+                .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
+            )
           ),
           synchronizerAlias = daName,
           physicalSynchronizerId = Some(daId),
@@ -91,6 +95,7 @@ sealed trait BftSynchronizerBootstrapTemplateTest
         _.errorMessage should include(
           "Sequencer trust threshold 3 cannot be greater than number of sequencer connections 2"
         ),
+        _.errorMessage should include("Command execution failed"),
       )
     }
 
@@ -142,14 +147,11 @@ sealed trait BftSynchronizerBootstrapTemplateTest
 }
 
 class BftSynchronizerBootstrapTemplateTestDefault extends BftSynchronizerBootstrapTemplateTest {
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.H2](
-      loggerFactory
-    )
-  )
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 //class BftSynchronizerBootstrapTemplateTestPostgres extends BftSynchronizerBootstrapTemplateTest {
 //  registerPlugin(new UsePostgres(loggerFactory))
-//  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+//  registerPlugin(new UseBftSequencer(loggerFactory))
 //}

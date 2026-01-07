@@ -231,102 +231,190 @@ describe("decoders for recursive types do not loop", () => {
   });
 });
 
-describe("decoder", () => {
-  const encoded = {
-    unit: {},
-    bool: true,
-    int: "5",
-    text: "Hello",
-    date: "2019-04-04",
-    time: "2019-12-31T12:34:56.789Z",
-    party: ALICE_PARTY,
-    contractId: "contractId",
-    optional: "5", // Some 5
-    optional2: null, // None
-    optionalOptionalInt: ["5"], // Some (Some 5)
-    optionalOptionalInt2: [], // Some (None)
-    optionalOptionalInt3: null, // None
-    list: [true, false],
-    textMap: DAML_TEXTMAP ? { alice: "2", "bob & carl": "3" } : {},
-    monoRecord: {
-      name: "Alice from Wonderland",
+describe("serializer", () => {
+  test("no keys in object serializer", () => {
+    expect(buildAndLint.Main.Counter.Change).not.toHaveProperty("keys");
+  });
+
+  test("keys in enum serializer", () => {
+    expect(buildAndLint.Main.Color.keys).toEqual(["Red", "Blue", "Yellow"]);
+    expect(buildAndLint.Main.Color.Blue).toEqual("Blue");
+    expect(buildAndLint.Main.Color.Red).toEqual("Red");
+    expect(buildAndLint.Main.Color.Yellow).toEqual("Yellow");
+  });
+});
+
+describe("template", () => {
+  describe("decoder/encode", () => {
+    const encoded = {
+      unit: {},
+      bool: true,
+      int: "5",
+      text: "Hello",
+      date: "2019-04-04",
+      time: "2019-12-31T12:34:56.789Z",
       party: ALICE_PARTY,
-      age: "5",
-      friends: [],
-    },
-    polyRecord: { one: "10", two: "XYZ" },
-    imported: { field: { something: "pqr" } },
-    archiveX: {},
-    either: { tag: "Right", value: "really?" },
-    tuple: { _1: "12", _2: "mmm" },
-    enum: "Red",
-    enumList: ["Red", "Blue", "Yellow"],
-    enumList2: ["Red", "Blue", "Yellow"],
-    optcol1: { tag: "Transparent1", value: {} },
-    optcol2: { tag: "Color2", value: { color2: "Red" } }, // 'Red' is of type Color
-    optcol3: {
-      tag: "Color2",
-      value: { color2: "Blue" },
-    },
-    variant: {
-      tag: "Add",
-      value: {
-        _1: { tag: "Lit", value: "1" },
-        _2: { tag: "Lit", value: "2" },
+      contractId: "contractId",
+      optional: "5", // Some 5
+      optional2: null, // None
+      optionalOptionalInt: ["5"], // Some (Some 5)
+      optionalOptionalInt2: [], // Some (None)
+      optionalOptionalInt3: null, // None
+      list: [true, false],
+      textMap: DAML_TEXTMAP ? { alice: "2", "bob & carl": "3" } : {},
+      monoRecord: {
+        name: "Alice from Wonderland",
+        party: ALICE_PARTY,
+        age: "5",
+        friends: [],
       },
-    },
-    optionalVariant: {
-      tag: "Add",
-      value: {
-        _1: { tag: "Lit", value: "1" },
-        _2: { tag: "Lit", value: "2" },
+      polyRecord: { one: "10", two: "XYZ" },
+      imported: { field: { something: "pqr" } },
+      archiveX: {},
+      either: { tag: "Right", value: "really?" },
+      tuple: { _1: "12", _2: "mmm" },
+      enum: "Red",
+      enumList: ["Red", "Blue", "Yellow"],
+      enumList2: ["Red", "Blue", "Yellow"],
+      optcol1: { tag: "Transparent1", value: {} },
+      optcol2: { tag: "Color2", value: { color2: "Red" } }, // 'Red' is of type Color
+      optcol3: {
+        tag: "Color2",
+        value: { color2: "Blue" },
       },
-    },
-    sumProd: { tag: "Corge", value: { x: "1", y: "Garlpy" } },
-    optionalSumProd: { tag: "Corge", value: { x: "1", y: "Garlpy" } },
-    parametericSumProd: {
-      tag: "Add2",
-      value: {
-        lhs: { tag: "Lit2", value: "1" },
-        rhs: { tag: "Lit2", value: "2" },
+      variant: {
+        tag: "Add",
+        value: {
+          _1: { tag: "Lit", value: "1" },
+          _2: { tag: "Lit", value: "2" },
+        },
       },
-    },
-    optionalOptionalParametericSumProd: [
-      {
+      optionalVariant: {
+        tag: "Add",
+        value: {
+          _1: { tag: "Lit", value: "1" },
+          _2: { tag: "Lit", value: "2" },
+        },
+      },
+      sumProd: { tag: "Corge", value: { x: "1", y: "Garlpy" } },
+      optionalSumProd: { tag: "Corge", value: { x: "1", y: "Garlpy" } },
+      parametericSumProd: {
         tag: "Add2",
         value: {
           lhs: { tag: "Lit2", value: "1" },
           rhs: { tag: "Lit2", value: "2" },
         },
       },
-    ],
-    n0: "3.0", // Numeric 0
-    n5: "3.14159", // Numeric 5
-    n10: "3.1415926536", // Numeric 10
-    rec: { recOptional: null, recList: [], recGenMap: [] },
-    voidRecord: null,
-    voidEnum: null,
-    genMap: [[{ tag: "Lit2", value: "0" }, "1"]],
-  };
+      optionalOptionalParametericSumProd: [
+        {
+          tag: "Add2",
+          value: {
+            lhs: { tag: "Lit2", value: "1" },
+            rhs: { tag: "Lit2", value: "2" },
+          },
+        },
+      ],
+      n0: "3.0", // Numeric 0
+      n5: "3.14159", // Numeric 5
+      n10: "3.1415926536", // Numeric 10
+      rec: { recOptional: null, recList: [], recGenMap: [] },
+      voidRecord: null,
+      voidEnum: null,
+      genMap: [[{ tag: "Lit2", value: "0" }, "1"]],
+    };
 
-  test("with all fields set", () => {
-    buildAndLint.Main.AllTypes.decoder.runWithException(encoded);
+    test("with all fields set", () => {
+      const decoded =
+        buildAndLint.Main.AllTypes.decoder.runWithException(encoded);
+      expect(buildAndLint.Main.AllTypes.encode(decoded)).toEqual(encoded);
+    });
+
+    test("with simple optional field absent", () => {
+      const decoded = buildAndLint.Main.AllTypes.decoder.runWithException({
+        ...encoded,
+        optional: undefined, // Clear this field from the input.
+      });
+      expect(decoded.optional).toBeNull();
+      expect(buildAndLint.Main.AllTypes.encode(decoded)).toEqual({
+        ...encoded,
+        optional: null,
+      });
+    });
+
+    test("with nested optional field absent", () => {
+      const decoded = buildAndLint.Main.AllTypes.decoder.runWithException({
+        ...encoded,
+        optionalOptionalInt: undefined, // Clear this field from the input.
+      });
+      expect(decoded.optionalOptionalInt).toBeNull();
+      expect(buildAndLint.Main.AllTypes.encode(decoded)).toEqual({
+        ...encoded,
+        optionalOptionalInt: null,
+      });
+    });
   });
 
-  test("with simple optional field absent", () => {
-    const decoded = buildAndLint.Main.AllTypes.decoder.runWithException({
-      ...encoded,
-      optional: undefined, // Clear this field from the input.
-    });
-    expect(decoded.optional).toBeNull();
+  test("keyDecoder/keyEncode", () => {
+    const encoded = {
+      _1: "some party",
+      _2: "some text",
+    };
+    const decoded =
+      buildAndLint.Main.Counter.keyDecoder.runWithException(encoded);
+    expect(buildAndLint.Main.Counter.keyEncode(decoded)).toEqual(encoded);
   });
 
-  test("with nested optional field absent", () => {
-    const decoded = buildAndLint.Main.AllTypes.decoder.runWithException({
-      ...encoded,
-      optionalOptionalInt: undefined, // Clear this field from the input.
+  describe("template choices", () => {
+    test("argumentDecoder/argumentEncode", () => {
+      const encoded = { n: "1" };
+      const decoded =
+        buildAndLint.Main.Counter.Change.argumentDecoder.runWithException(
+          encoded,
+        );
+      expect(buildAndLint.Main.Counter.Change.argumentEncode(decoded)).toEqual(
+        encoded,
+      );
     });
-    expect(decoded.optionalOptionalInt).toBeNull();
+
+    test("resultDecoder/resultEncode", () => {
+      const encoded = "some contract id";
+      const decoded =
+        buildAndLint.Main.Counter.Change.resultDecoder.runWithException(
+          encoded,
+        );
+      expect(
+        // resultEncode is internal, not declared in the type
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (buildAndLint.Main.Counter.Change as any).resultEncode(decoded),
+      ).toEqual(encoded);
+    });
+  });
+});
+
+describe("interface choices", () => {
+  test("argumentDecoder/argumentEncode", () => {
+    const encoded = { echo: "some text" };
+    const decoded =
+      buildAndLint.Main.Cloneable.Clone.argumentDecoder.runWithException(
+        encoded,
+      );
+    expect(buildAndLint.Main.Cloneable.Clone.argumentEncode(decoded)).toEqual(
+      encoded,
+    );
+  });
+
+  test("resultDecoder/resultEncode", () => {
+    const encoded = {
+      _1: "some contract id",
+      _2: "some text",
+    };
+    const decoded =
+      buildAndLint.Main.Cloneable.Clone.resultDecoder.runWithException(encoded);
+    expect(
+      // resultEncode is internal, not declared in the type
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (buildAndLint.Main.Cloneable.Clone as any).resultEncode(decoded),
+    ).toEqual(encoded);
   });
 });
 
@@ -854,6 +942,14 @@ describe("interface definition", () => {
     expect(if1.templateId).not.toEqual(tpl.templateId);
     expect(if2.templateId).not.toEqual(tpl.templateId);
   });
+  test("template IDs with package IDs not overwritten", () => {
+    expect(if1.templateIdWithPackageId).not.toEqual(
+      tpl.templateIdWithPackageId,
+    );
+    expect(if2.templateIdWithPackageId).not.toEqual(
+      tpl.templateIdWithPackageId,
+    );
+  });
   test("choices not copied to interfaces", () => {
     const key1 = "Transfer";
     const key2 = "Something";
@@ -865,8 +961,10 @@ describe("interface definition", () => {
   test("even with no choices", () => {
     const emptyIfc = buildAndLint.Lib.EmptyIfaceOnly.NoChoices;
     const emptyIfcId: string = emptyIfc.templateId;
+    const emptyIfcIdWithPackageId: string = emptyIfc.templateIdWithPackageId;
     expect(emptyIfc).toMatchObject({
       templateId: emptyIfcId,
+      templateIdWithPackageId: emptyIfcIdWithPackageId,
     });
   });
   describe("choice name collision", () => {

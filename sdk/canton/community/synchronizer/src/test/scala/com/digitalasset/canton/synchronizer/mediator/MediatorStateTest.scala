@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.mediator
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
@@ -133,6 +134,7 @@ class MediatorStateTest
           requestId.unwrap.plusSeconds(300),
           requestId.unwrap.plusSeconds(600),
           mockTopologySnapshot,
+          BatchingConfig(),
           participantResponseDeadlineTick = None,
         )(traceContext, executorService)
         .futureValueUS // without explicit ec it deadlocks on AnyTestSuite.serialExecutionContext

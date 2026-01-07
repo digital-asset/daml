@@ -19,12 +19,13 @@ import scala.util.chaining.*
 
 // TODO(#16089) enable one of these tests after sequencer unification
 //class ScheduledDatabaseSequencerPruningTestDefault extends ScheduledDatabaseSequencerPruningTest {
-//  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+//  registerPlugin(new UseH2(loggerFactory))
+//  registerPlugin(new UseBftSequencer(loggerFactory))
 //}
 
 //class ScheduledDatabaseSequencerPruningTestPostgres extends ScheduledDatabaseSequencerPruningTest {
 //  registerPlugin(new UsePostgres(loggerFactory))
-//  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+//  registerPlugin(new UseBftSequencer(loggerFactory))
 //}
 
 abstract class ScheduledDatabaseSequencerPruningTest

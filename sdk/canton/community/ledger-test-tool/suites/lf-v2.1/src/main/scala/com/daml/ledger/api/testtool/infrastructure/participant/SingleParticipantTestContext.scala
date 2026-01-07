@@ -526,7 +526,7 @@ final class SingleParticipantTestContext private[participant] (
 
   override def listKnownPartiesExpanded(): Future[Set[Party]] =
     services.partyManagement
-      .listKnownParties(ListKnownPartiesRequest("", 0, ""))
+      .listKnownParties(ListKnownPartiesRequest("", 0, "", filterParty = ""))
       .map(_.partyDetails.map(partyDetails => Party(partyDetails.party)).toSet)
 
   override def listKnownParties(req: ListKnownPartiesRequest): Future[ListKnownPartiesResponse] =
@@ -535,7 +535,7 @@ final class SingleParticipantTestContext private[participant] (
 
   override def listKnownParties(): Future[ListKnownPartiesResponse] =
     services.partyManagement
-      .listKnownParties(new ListKnownPartiesRequest("", 0, ""))
+      .listKnownParties(new ListKnownPartiesRequest("", 0, "", filterParty = ""))
 
   override def waitForPartiesOnOtherParticipants(
       otherParticipants: Iterable[ParticipantTestContext],

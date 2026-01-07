@@ -53,7 +53,7 @@ import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
-import com.digitalasset.canton.time.SynchronizerTimeTracker
+import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.TraceContext
@@ -73,6 +73,7 @@ private[reassignment] class UnassignmentProcessingSteps(
     seedGenerator: SeedGenerator,
     staticSynchronizerParameters: Source[StaticSynchronizerParameters],
     override protected val contractValidator: ContractValidator,
+    clock: Clock,
     val protocolVersion: Source[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -122,6 +123,8 @@ private[reassignment] class UnassignmentProcessingSteps(
     ReassignmentProcessorError,
     (Submission, PendingSubmissionData),
   ] = {
+    val approximateTimestampOverride = Some(clock.now)
+
     val SubmissionParam(
       submitterMetadata,
       contractIds,
@@ -228,7 +231,7 @@ private[reassignment] class UnassignmentProcessingSteps(
 
       rootHash = fullTree.rootHash
       submittingParticipantSignature <- sourceRecentSnapshot
-        .sign(rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+        .sign(rootHash.unwrap, SigningKeyUsage.ProtocolOnly, approximateTimestampOverride)
         .leftMap(ReassignmentSigningError.apply)
       mediatorMessage = fullTree.mediatorMessage(
         submittingParticipantSignature,
@@ -265,6 +268,7 @@ private[reassignment] class UnassignmentProcessingSteps(
           fullTree,
           (viewKey, viewKeyMap),
           sourceRecentSnapshot,
+          approximateTimestampOverride,
           protocolVersion.unwrap,
         )
         .leftMap[ReassignmentProcessorError](EncryptionError(contracts.contractIds.toSeq, _))

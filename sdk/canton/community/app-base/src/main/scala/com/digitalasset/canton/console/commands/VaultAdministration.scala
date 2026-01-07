@@ -69,8 +69,12 @@ class SecretKeyAdministration(
     }
 
   @Help.Summary("List keys in private vault")
-  @Help.Description("""Returns all public keys to the corresponding private keys in the key vault.
-                      |Optional arguments can be used for filtering.""")
+  @Help.Description(
+    """Returns all public keys to the corresponding private keys in the key vault.
+      |
+      |Optional arguments can be used for filtering.
+      """
+  )
   def list(
       filterFingerprint: String = "",
       filterName: String = "",
@@ -85,13 +89,19 @@ class SecretKeyAdministration(
 
   @Help.Summary("Generate new public/private key pair for signing and store it in the vault")
   @Help.Description(
-    """
-      |The optional name argument allows you to store an associated string for your convenience.
-      |The usage specifies the intended use for the signing key that can be:
-      | - Namespace: for the root namespace key that defines a node's identity and signs topology requests;
-      | - SequencerAuthentication: for a signing key that authenticates members of the network towards a sequencer;
-      | - Protocol: for a signing key that deals with all the signing that happens as part of the protocol.
-      |The keySpec can be used to select a key specification, e.g., which elliptic curve to use, and the default spec is used if left unspecified."""
+    """Parameters:
+      |- name: The optional name argument allows you to store an associated string for your
+      |  convenience.
+      |- usage: The usage specifies the intended use for the signing key that can be:
+      |  - Namespace: for the root namespace key that defines a node's identity and signs
+      |    topology requests.
+      |  - SequencerAuthentication: for a signing key that authenticates members of the network
+      |    towards a sequencer;
+      |  - Protocol: for a signing key that deals with all the signing that happens as part of
+      |    the protocol.
+      |- keySpec: The keySpec can be used to select a key specification, e.g., which elliptic
+      |  curve to use, and the default spec is used if left unspecified.
+      """
   )
   def generate_signing_key(
       name: String = "",
@@ -108,9 +118,12 @@ class SecretKeyAdministration(
 
   @Help.Summary("Generate new public/private key pair for encryption and store it in the vault")
   @Help.Description(
-    """
-      |The optional name argument allows you to store an associated string for your convenience.
-      |The keySpec can be used to select a key specification, e.g., which elliptic curve to use, and the default spec is used if left unspecified."""
+    """Parameters:
+      |- name: The optional name argument allows you to store an associated string for your
+      |  convenience.
+      |- keySpec: The keySpec can be used to select a key specification, e.g., which elliptic
+      |  curve to use, and the default spec is used if left unspecified.
+      """
   )
   def generate_encryption_key(
       name: String = "",
@@ -124,13 +137,18 @@ class SecretKeyAdministration(
     "Register the specified KMS signing key in canton storing its public information in the vault"
   )
   @Help.Description(
-    """
-      |The id for the KMS signing key.
-      |The usage specifies the intended use for the signing key that can be:
-      | - Namespace: for the root namespace key that defines a node's identity and signs topology requests;
-      | - SequencerAuthentication: for a signing key that authenticates members of the network towards a sequencer;
-      | - Protocol: for a signing key that deals with all the signing that happens as part of the protocol.
-      |The optional name argument allows you to store an associated string for your convenience."""
+    """Parameters:
+      |- kmsKeyId: The id for the KMS signing key.
+      |- usage: The usage specifies the intended use for the signing key that can be:
+      |  - Namespace: for the root namespace key that defines a node's identity and signs
+      |    topology requests.
+      |  - SequencerAuthentication: for a signing key that authenticates members of the
+      |    network towards a sequencer.
+      |  - Protocol: for a signing key that deals with all the signing that happens as part of
+      |    the protocol.
+      |- name: The optional name argument allows you to store an associated string for your
+      |  convenience.
+      """
   )
   def register_kms_signing_key(
       kmsKeyId: String,
@@ -149,9 +167,11 @@ class SecretKeyAdministration(
     "Register the specified KMS encryption key in canton storing its public information in the vault"
   )
   @Help.Description(
-    """
-      |The id for the KMS encryption key.
-      |The optional name argument allows you to store an associated string for your convenience."""
+    """Parameters:
+      |- kmsKeyId: The id for the KMS encryption key.
+      |- name: The optional name argument allows you to store an associated string for your
+      |  convenience.
+      """
   )
   def register_kms_encryption_key(
       kmsKeyId: String,
@@ -176,11 +196,16 @@ class SecretKeyAdministration(
 
   @Help.Summary("Rotate a given node's keypair with a new pre-generated KMS keypair")
   @Help.Description(
-    """Rotates an existing encryption or signing key stored externally in a KMS with a pre-generated
-      key. NOTE: A namespace root signing key CANNOT be rotated by this command.
-      |The fingerprint of the key we want to rotate.
-      |The id of the new KMS key (e.g. Resource Name).
-      |An optional name for the new key."""
+    """Rotates an existing encryption or signing key stored externally in a KMS with a
+      |pre-generated key.
+      |
+      |NOTE: A namespace root signing key CANNOT be rotated by this command.
+      |
+      |Parameters:
+      |- fingerprint: The fingerprint of the key we want to rotate.
+      |- newKmsKeyId: The id of the new KMS key (e.g. Resource Name).
+      |- name: An optional name for the new key.
+      """
   )
   def rotate_kms_node_key(
       fingerprint: String,
@@ -211,10 +236,14 @@ class SecretKeyAdministration(
 
   @Help.Summary("Rotate a node's public/private key pair")
   @Help.Description(
-    """Rotates an existing encryption or signing key. NOTE: A namespace root or intermediate
-      signing key CANNOT be rotated by this command.
-      |The fingerprint of the key we want to rotate.
-      |An optional name for the new key."""
+    """Rotates an existing encryption or signing key.
+      |
+      |NOTE: A namespace root or intermediate signing key CANNOT be rotated by this command.
+      |
+      |Parameters:
+      |- fingerprint: The fingerprint of the key we want to rotate.
+      |- name: An optional name for the new key.
+      """
   )
   def rotate_node_key(fingerprint: String, name: String = ""): PublicKey = {
     val owner = instance.id.member
@@ -241,10 +270,13 @@ class SecretKeyAdministration(
 
   @Help.Summary("Rotate the node's public/private key pairs")
   @Help.Description(
-    """
-      |For a participant node it rotates the signing and encryption key pair.
-      |For a sequencer or mediator node it rotates the signing key pair as those nodes do not have an encryption key pair.
-      |NOTE: Namespace root or intermediate signing keys are NOT rotated by this command."""
+    """For a participant node it rotates the signing and encryption key pair.
+      |
+      |For a sequencer or mediator node it rotates the signing key pair as those nodes do not
+      |have an encryption key pair.
+      |
+      |NOTE: Namespace root or intermediate signing keys are NOT rotated by this command.
+      """
   )
   def rotate_node_keys(): Unit = {
 
@@ -316,8 +348,13 @@ class SecretKeyAdministration(
 
   @Help.Summary("Change the wrapper key for encrypted private keys store")
   @Help.Description(
-    """Change the wrapper key (e.g. AWS KMS key) being used to encrypt the private keys in the store.
-      |newWrapperKeyId: The optional new wrapper key id to be used. If the wrapper key id is empty Canton will generate a new key based on the current configuration."""
+    """Change the wrapper key (e.g. AWS KMS key) being used to encrypt the private keys in the
+      |store.
+      |
+      |Parameters:
+      |- newWrapperKeyId: The optional new wrapper key id to be used. If the wrapper key id is
+      |  empty Canton will generate a new key based on the current configuration.
+      """
   )
   def rotate_wrapper_key(
       newWrapperKeyId: String = ""
@@ -335,9 +372,12 @@ class SecretKeyAdministration(
   @Help.Summary("Upload (load and import) a key pair from file")
   @Help.Description(
     """Upload the previously downloaded key pair from a file.
-      |filename: The name of the file holding the key pair
-      |name: The (optional) descriptive name of the key pair
-      |password: Optional password to decrypt an encrypted key pair"""
+      |
+      |Parameters:
+      |- filename: The name of the file holding the key pair.
+      |- name: The (optional) descriptive name of the key pair.
+      |- password: Optional password to decrypt an encrypted key pair.
+      """
   )
   def upload_from(filename: String, name: Option[String], password: Option[String] = None): Unit = {
     val keyPair = BinaryFileUtil.tryReadByteStringFromFile(filename)
@@ -347,9 +387,12 @@ class SecretKeyAdministration(
   @Help.Summary("Upload a key pair")
   @Help.Description(
     """Upload the previously downloaded key pair.
-      |pairBytes: The binary representation of a previously downloaded key pair
-      |name: The (optional) descriptive name of the key pair
-      |password: Optional password to decrypt an encrypted key pair"""
+      |
+      |Parameters:
+      |- pairBytes: The binary representation of a previously downloaded key pair.
+      |- name: The (optional) descriptive name of the key pair.
+      |- password: Optional password to decrypt an encrypted key pair.
+      """
   )
   def upload(
       pairBytes: ByteString,
@@ -366,9 +409,13 @@ class SecretKeyAdministration(
   @Help.Summary("Download key pair", FeatureFlag.Preview)
   @Help.Description(
     """Download the key pair with the private and public key in its binary representation.
-      |fingerprint: The identifier of the key pair to download
-      |protocolVersion: The (optional) protocol version that defines the serialization of the key pair
-      |password: Optional password to encrypt the exported key pair with"""
+      |
+      |Parameters:
+      |- fingerprint: The identifier of the key pair to download.
+      |- protocolVersion: The (optional) protocol version that defines the serialization of the
+      |  key pair.
+      |- password: Optional password to encrypt the exported key pair with.
+      """
   )
   def download(
       fingerprint: Fingerprint,
@@ -385,11 +432,16 @@ class SecretKeyAdministration(
 
   @Help.Summary("Download key pair and save it to a file", FeatureFlag.Preview)
   @Help.Description(
-    """Download the key pair with the private and public key in its binary representation and store it in a file.
-      |fingerprint: The identifier of the key pair to download
-      |outputFile: The name of the file to store the key pair in
-      |protocolVersion: The (optional) protocol version that defines the serialization of the key pair
-      |password: Optional password to encrypt the exported key pair with"""
+    """Download the key pair with the private and public key in its binary representation and
+      |store it in a file.
+      |
+      |Parameters:
+      |- fingerprint: The identifier of the key pair to download.
+      |- outputFile: The name of the file to store the key pair in.
+      |- protocolVersion: The (optional) protocol version that defines the serialization of the
+      |  key pair.
+      |- password: Optional password to encrypt the exported key pair with.
+      """
   )
   def download_to(
       fingerprint: Fingerprint,
@@ -438,11 +490,11 @@ class GlobalSecretKeyAdministration(
   @Help.Description(
     """Get the SigningPublicKey for a fingerprint.
       |
-      |The arguments are:
-      |  - fingerprint: Fingerprint of the key to lookup
-      |
       |Fails if the corresponding keys are not in the global crypto.
-      |"""
+      |
+      |Parameters:
+      |- fingerprint: Fingerprint of the key to lookup.
+      """
   )
   def get_signing_key(fingerprint: Fingerprint): SigningPublicKey =
     consoleEnvironment.run(
@@ -457,13 +509,14 @@ class GlobalSecretKeyAdministration(
   @Help.Description(
     """Sign the given hash on behalf of the external party with signingThreshold keys.
       |
-      |The arguments are:
-      |  - hash: Hash to be signed
-      |  - party: Party who should sign
-      |  - useAllKeys: If true, all signing keys will be used to sign instead of just signingThreshold many
-      |
       |Fails if the corresponding keys are not in the global crypto.
-      |"""
+      |
+      |Parameters:
+      |- hash: Hash to be signed.
+      |- party: Party who should sign.
+      |- useAllKeys: If true, all signing keys will be used to sign instead of just
+      |  signingThreshold many.
+      """
   )
   def sign(hash: ByteString, party: ExternalParty, useAllKeys: Boolean = false): Seq[Signature] =
     consoleEnvironment.run(
@@ -480,15 +533,15 @@ class GlobalSecretKeyAdministration(
 
   @Help.Summary("Sign the given hash on behalf of the external party")
   @Help.Description(
-    """Sign the given hash on behalf of the external party
-      |
-      |The arguments are:
-      |  - hash: Hash to be signed
-      |  - key: Fingerprint of the key that should sign
-      |  - Usage: Usage of the key (e.g., Protocol or Namespace)
+    """Sign the given hash on behalf of the external party.
       |
       |Fails if the corresponding keys are not in the global crypto.
-      |"""
+      |
+      |Parameters:
+      |- hash: Hash to be signed.
+      |- key: Fingerprint of the key that should sign.
+      |- Usage: Usage of the key (e.g., Protocol or Namespace).
+      """
   )
   def sign(
       hash: ByteString,
@@ -504,15 +557,15 @@ class GlobalSecretKeyAdministration(
 
   @Help.Summary("Sign the given topology transaction on behalf of the external party")
   @Help.Description(
-    """Sign the given topology transaction on behalf of the external party
-      |
-      |The arguments are:
-      |  - tx: Transaction to be signed
-      |  - party: Party who should sign
-      |  - protocolVersion: Protocol version of the synchronizer
+    """Sign the given topology transaction on behalf of the external party.
       |
       |Fails if the corresponding keys are not in the global crypto.
-      |"""
+      |
+      |Parameters:
+      |- tx: Transaction to be signed.
+      |- party: Party who should sign.
+      |- protocolVersion: Protocol version of the synchronizer.
+      """
   )
   def sign[Op <: TopologyChangeOp, M <: TopologyMapping](
       tx: TopologyTransaction[Op, M],
@@ -624,7 +677,9 @@ class PublicKeyAdministration(
 
   @Help.Summary("Upload public key")
   @Help.Description(
-    """Import a public key and store it together with a name used to provide some context to that key."""
+    """Import a public key and store it together with a name used to provide some
+      |context to that key.
+      """
   )
   def upload(keyBytes: ByteString, name: Option[String]): Fingerprint = consoleEnvironment.run {
     adminCommand(
@@ -633,8 +688,10 @@ class PublicKeyAdministration(
   }
 
   @Help.Summary("Upload public key")
-  @Help.Summary(
-    "Load a public key from a file and store it together with a name used to provide some context to that key."
+  @Help.Description(
+    """Load a public key from a file and store it together with a name used to provide some
+      |context to that key.
+      """
   )
   def upload_from(filename: String, name: Option[String]): Fingerprint =
     BinaryFileUtil.readByteStringFromFile(filename).map(upload(_, name)).valueOr { err =>
@@ -671,8 +728,12 @@ class PublicKeyAdministration(
     )
 
   @Help.Summary("List public keys in registry")
-  @Help.Description("""Returns all public keys that have been added to the key registry.
-    Optional arguments can be used for filtering.""")
+  @Help.Description(
+    """Returns all public keys that have been added to the key registry.
+      |
+      |Optional arguments can be used for filtering.
+      """
+  )
   def list(
       filterFingerprint: String = "",
       filterContext: String = "",
@@ -690,11 +751,15 @@ class PublicKeyAdministration(
       )
     }
 
-  @Help.Summary("List active owners with keys for given search arguments.")
-  @Help.Description("""This command allows deep inspection of the topology state.
-      |The response includes the public keys.
-      |Optional filterKeyOwnerType type can be 'ParticipantId.Code' , 'MediatorId.Code','SequencerId.Code'.
-      |""")
+  @Help.Summary("List active owners with keys for given search arguments")
+  @Help.Description(
+    """This command allows deep inspection of the topology state. The response includes the
+      |public keys.
+      |
+      |Optional filterKeyOwnerType type can be `ParticipantId.Code`, `MediatorId.Code`,
+      |`SequencerId.Code`.
+      """
+  )
   def list_owners(
       filterKeyOwnerUid: String = "",
       filterKeyOwnerType: Option[MemberCode] = None,
@@ -708,10 +773,11 @@ class PublicKeyAdministration(
     )
   }
 
-  @Help.Summary("List keys for given keyOwner.")
+  @Help.Summary("List keys for given keyOwner")
   @Help.Description(
-    """This command is a convenience wrapper for `list_key_owners`, taking an explicit keyOwner as search argument.
-      |The response includes the public keys."""
+    """This command is a convenience wrapper for `list_key_owners`, taking an explicit keyOwner
+      |as search argument. The response includes the public keys.
+      """
   )
   def list_by_owner(
       keyOwner: Member,

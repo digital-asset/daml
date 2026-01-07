@@ -20,6 +20,9 @@ class ReferenceToxiproxyIntegrationTest extends ToxiproxyIntegrationTest {
 
   override def pluginsToRegister: Seq[EnvironmentSetupPlugin] =
     Seq(
+      // TODO(#29603): change this back to use the BFT Orderer.
+      // The test was flaking a lot with the BFT Orderer
+      // registerPlugin(new UseBftSequencer(loggerFactory))
       new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
       QuickSequencerReconnection(loggerFactory),
       new UsePostgres(loggerFactory),

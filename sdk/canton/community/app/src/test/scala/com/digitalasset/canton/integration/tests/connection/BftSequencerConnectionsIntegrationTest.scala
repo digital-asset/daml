@@ -3,6 +3,13 @@
 
 package com.digitalasset.canton.integration.tests.connection
 
+import com.digitalasset.canton.admin.api.client.data.{
+  GrpcSequencerConnection,
+  SequencerConnectionPoolDelays,
+  SequencerConnectionValidation,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.InstanceReference
@@ -23,12 +30,6 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.sequencing.{
-  SequencerConnectionPoolDelays,
-  SequencerConnectionValidation,
-  SequencerConnections,
-  SubmissionRequestAmplification,
-}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.{SequencerAlias, config}
 import org.scalatest.Assertion
@@ -167,10 +168,14 @@ sealed trait BftSequencerConnectionsIntegrationTest
       }
 
       val connectionsConfig = sequencers.remote.map(s =>
-        s.config.publicApi
-          .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
+        GrpcSequencerConnection.fromInternal(
+          s.config.publicApi
+            .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
+        )
       )
-      val delays = SequencerConnectionPoolDelays.default.copy(warnValidationDelay = 1.day)
+      val delays = SequencerConnectionPoolDelays.default.copy(warnValidationDelay =
+        config.NonNegativeFiniteDuration.tryFromDuration(1.days)
+      )
 
       clue("connect participant1 to all sequencers") {
         participant1.start()

@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.mediator
 
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.*
+import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
@@ -288,6 +289,7 @@ class ConfirmationRequestAndResponseProcessorTest
       mediatorState,
       loggerFactory,
       timeouts,
+      BatchingConfig(),
     )
   }
 
@@ -307,12 +309,16 @@ class ConfirmationRequestAndResponseProcessorTest
       testedProtocolVersion,
     )
     val participantCrypto = identityFactory.forOwner(participant)
-    SignedProtocolMessage
-      .trySignAndCreate(
-        confirmationResponses,
-        participantCrypto
-          .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
-          .currentSnapshotApproximation,
+    participantCrypto
+      .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
+      .currentSnapshotApproximation
+      .flatMap(snapshot =>
+        SignedProtocolMessage
+          .trySignAndCreate(
+            confirmationResponses,
+            snapshot,
+            None,
+          )
       )
   }
 
@@ -341,12 +347,17 @@ class ConfirmationRequestAndResponseProcessorTest
     )
 
     val participantCrypto = identity.forOwner(participant)
-    SignedProtocolMessage
-      .trySignAndCreate(
-        response,
-        participantCrypto
-          .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
-          .currentSnapshotApproximation,
+
+    participantCrypto
+      .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
+      .currentSnapshotApproximation
+      .flatMap(snapshot =>
+        SignedProtocolMessage
+          .trySignAndCreate(
+            response,
+            snapshot,
+            None,
+          )
       )
       .failOnShutdown
   }
@@ -355,7 +366,7 @@ class ConfirmationRequestAndResponseProcessorTest
     .forOwnerAndSynchronizer(participant, synchronizerId)
     .awaitSnapshot(CantonTimestamp.Epoch)
     .futureValueUS
-    .sign(tree.tree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+    .sign(tree.tree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly, None)
     .failOnShutdown
     .futureValue
 
@@ -965,6 +976,7 @@ class ConfirmationRequestAndResponseProcessorTest
             participantResponseDeadline,
             decisionTime,
             mockTopologySnapshot,
+            BatchingConfig(),
             participantResponseDeadlineTick = None,
           )
 

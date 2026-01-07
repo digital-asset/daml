@@ -4,7 +4,11 @@
 package com.digitalasset.canton.integration.tests
 
 import com.daml.metrics.api.testing.MetricValues.*
-import com.digitalasset.canton.admin.api.client.data.TrafficControlParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  SubmissionRequestAmplification,
+  TrafficControlParameters,
+}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeInt,
@@ -12,14 +16,13 @@ import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeNumeric,
   PositiveInt,
 }
-import com.digitalasset.canton.config.{DbConfig, NonNegativeFiniteDuration}
 import com.digitalasset.canton.console.LocalSequencerReference
 import com.digitalasset.canton.integration.EnvironmentDefinition.S2M2
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -28,7 +31,6 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.sequencing.protocol.{MessageId, TrafficState}
-import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
   ProgrammableSequencerPolicies,
@@ -181,7 +183,7 @@ abstract class SubmissionRequestAmplificationIntegrationTest
           old.withSubmissionRequestAmplification(
             // Make sure to set patience to 0 to force double sending of submission requests
             old.submissionRequestAmplification
-              .copy(factor = PositiveInt.one, patience = NonNegativeFiniteDuration.Zero)
+              .copy(factor = PositiveInt.one, patience = config.NonNegativeFiniteDuration.Zero)
           )
         ),
       )
@@ -438,7 +440,7 @@ class SubmissionRequestAmplificationReferenceIntegrationTestPostgres
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+    new UseBftSequencer(loggerFactory)
   )
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

@@ -6,14 +6,28 @@ package com.daml.jwt
 import java.io.{File, FileInputStream}
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import java.security.KeyFactory
 import java.security.cert.CertificateFactory
 import java.security.interfaces.{ECPublicKey, RSAPrivateKey, RSAPublicKey}
 import java.security.spec.PKCS8EncodedKeySpec
+import java.security.{Key, KeyFactory}
+import scala.reflect.{ClassTag, classTag}
 import scala.util.{Try, Using}
 
 object KeyUtils {
   private val mimeCharSet = StandardCharsets.ISO_8859_1
+
+  private implicit class SpecifyPublicKey[K <: Key](private val self: K) extends AnyVal {
+    def asSpecific[SK <: K: ClassTag]: SK = {
+      val Tag = classTag[SK]
+      self match {
+        case Tag(key) => key
+        case _ =>
+          throw new IllegalStateException(
+            s"Expected a $Tag key, but got $self :${self.getClass.getName}"
+          )
+      }
+    }
+  }
 
   /** Reads an RSA public key from a X509 encoded file. These usually have the .crt file extension.
     */
@@ -23,7 +37,7 @@ object KeyUtils {
         .getInstance("X.509")
         .generateCertificate(_)
         .getPublicKey
-        .asInstanceOf[RSAPublicKey]
+        .asSpecific[RSAPublicKey]
     )
 
   /** Reads an EC public key from a X509 encoded file. These usually have the .crt file extension.
@@ -34,7 +48,7 @@ object KeyUtils {
         .getInstance("X.509")
         .generateCertificate(_)
         .getPublicKey
-        .asInstanceOf[ECPublicKey]
+        .asSpecific[ECPublicKey]
     )
 
   /** Reads a RSA private key from a PEM/PKCS#8 file. These usually have the .pem file extension.
@@ -63,7 +77,7 @@ object KeyUtils {
       key <- Try {
         val kf = KeyFactory.getInstance("RSA")
         val keySpec = new PKCS8EncodedKeySpec(decoded.getBytes)
-        kf.generatePrivate(keySpec).asInstanceOf[RSAPrivateKey]
+        kf.generatePrivate(keySpec).asSpecific[RSAPrivateKey]
       }
     } yield key
 
@@ -79,7 +93,7 @@ object KeyUtils {
       key <- Try {
         val kf = KeyFactory.getInstance("RSA")
         val keySpec = new PKCS8EncodedKeySpec(fileContent)
-        kf.generatePrivate(keySpec).asInstanceOf[RSAPrivateKey]
+        kf.generatePrivate(keySpec).asSpecific[RSAPrivateKey]
       }
     } yield key
 

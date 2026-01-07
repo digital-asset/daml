@@ -22,10 +22,10 @@ da_scala_library(
         "//daml-lf:__subpackages__",
     ],
     deps = [
+        "//canton:scala-utils",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/stable-packages",
-        "//libs-scala/scala-utils",
     ],
 )
 

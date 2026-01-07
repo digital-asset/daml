@@ -337,5 +337,109 @@ class BatchAggregatorTest
         requestsCountPerSize.toMap shouldBe Map(1 -> 2)
       }
     }
+
+    "invoked with runMany for multiple items" should {
+
+      "efficiently batch items when slots are available" in {
+        val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
+
+        val requestsCountPerSize = TrieMap[Int, Int]()
+        val aggregator =
+          aggregatorWithDefaults(
+            maximumInFlight = 2,
+            batchGetter = batchGetterWithCounter(requestsCountPerSize, blocker.futureUS),
+          )
+
+        // Test with 12 items, should create batches of 5, 5, 2 (maximumBatchSize = 5)
+        val items = NonEmpty.from(0 to 11).value.map(Traced(_))
+        val resultF = aggregator.runMany(items)
+
+        blocker.success(UnlessShutdown.unit)
+
+        val result = resultF.futureValueUS
+        result.toList shouldBe (0 to 11).map(_.toString).toList
+
+        // Should have executed as [0..4], [5..9], [10,11]
+        requestsCountPerSize.toMap shouldBe Map(
+          5 -> 2, // Two batches of 5 items
+          2 -> 1, // One batch of 2 items
+        )
+      }
+
+      "fill existing queued batches with runMany items" in {
+        val blocker = PromiseUnlessShutdown.unsupervised[Unit]()
+        val batchSizes = scala.collection.mutable.ListBuffer[Int]()
+
+        val processor =
+          new BatchAggregator.Processor[K, V] {
+            override def kind: String = "item"
+            override def logger: TracedLogger = BatchAggregatorTest.this.logger
+            override def executeBatch(items: NonEmpty[Seq[Traced[K]]])(implicit
+                traceContext: TraceContext,
+                callerCloseContext: CloseContext,
+            ): FutureUnlessShutdown[immutable.Iterable[V]] = {
+              scala.concurrent.blocking {
+                batchSizes.synchronized(batchSizes += items.size)
+              }
+              blocker.futureUS.map(_ => items.toList.map(item => defaultKeyToValue(item.value)))
+            }
+            override def prettyItem: Pretty[K] = implicitly
+          }
+
+        val aggregator = new BatchAggregatorImpl(
+          processor,
+          maximumInFlight = 1,
+          maximumBatchSize = PositiveNumeric.tryCreate(4), // Maximum batch size is 4
+        )
+
+        // First, occupy the slot with a single item
+        val firstItemF = aggregator.run(99)
+
+        // Create partial batches explicitly using runInSameBatch
+        // These will queue as separate batches of sizes 3, 3, 3, 2
+        val batch1F = aggregator.runInSameBatch(
+          NonEmpty.from(0 to 2).map(_.map(Traced(_))).getOrElse(fail())
+        )
+        val batch2F = aggregator.runInSameBatch(
+          NonEmpty.from(3 to 5).map(_.map(Traced(_))).getOrElse(fail())
+        )
+        val batch3F = aggregator.runInSameBatch(
+          NonEmpty.from(6 to 8).map(_.map(Traced(_))).getOrElse(fail())
+        )
+        val batch4F = aggregator.runInSameBatch(
+          NonEmpty.from(9 to 10).map(_.map(Traced(_))).getOrElse(fail())
+        )
+
+        // Now call runMany with 5 items
+        // Expected: all 5 items will fill existing batches
+        // Result should be batches of sizes: 1 (first item), 4, 4, 4, 4
+        val runManyItems = NonEmpty.from(11 to 15).map(_.map(Traced(_))).getOrElse(fail())
+        val runManyF = aggregator.runMany(runManyItems)
+
+        // Release blocker
+        blocker.success(UnlessShutdown.unit)
+
+        // Verify all items complete
+        firstItemF.futureValueUS shouldBe "99"
+
+        // Verify batch results
+        batch1F shouldBe a[Right[?, ?]]
+        batch2F shouldBe a[Right[?, ?]]
+        batch3F shouldBe a[Right[?, ?]]
+        batch4F shouldBe a[Right[?, ?]]
+
+        batch1F.getOrElse(fail()).futureValueUS.toList shouldBe List("0", "1", "2")
+        batch2F.getOrElse(fail()).futureValueUS.toList shouldBe List("3", "4", "5")
+        batch3F.getOrElse(fail()).futureValueUS.toList shouldBe List("6", "7", "8")
+        batch4F.getOrElse(fail()).futureValueUS.toList shouldBe List("9", "10")
+
+        runManyF.futureValueUS.toList shouldBe (11 to 15).map(_.toString).toList
+
+        // Should have executed as [99], [0,1,2,11], [3,4,5,12], [6,7,8,13], [9,10,14,15]
+        // Batch sizes should be: 1 (first item), then 4, 4, 4, 4
+        // The runMany items fill the first batches and create a new batch (4)
+        batchSizes.toList shouldBe List(1, 4, 4, 4, 4)
+      }
+    }
   }
 }

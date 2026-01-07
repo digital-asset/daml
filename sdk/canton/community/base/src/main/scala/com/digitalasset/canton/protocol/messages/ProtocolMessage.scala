@@ -14,6 +14,7 @@ import com.digitalasset.canton.crypto.{
   SyncCryptoApi,
   SyncCryptoError,
 }
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
@@ -213,23 +214,37 @@ object SignedProtocolMessage
     NonEmpty(Seq, signature, moreSignatures*),
   )
 
+  /** @param approximateTimestampOverride
+    *   optional timestamp to use for signing. Should only be set when signing submission requests,
+    *   encrypted view messages or any other times when the topology is not yet fixed, i.e., when
+    *   using a topology snapshot approximation. The current local clock reading is often a suitable
+    *   value.
+    */
   def signAndCreate[M <: SignedProtocolMessageContent](
       message: M,
       cryptoApi: SyncCryptoApi,
+      approximateTimestampOverride: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, SignedProtocolMessage[M]] = {
     val typedMessage = TypedSignedProtocolMessageContent(message)
     for {
-      signature <- mkSignature(typedMessage, cryptoApi)
+      signature <- mkSignature(typedMessage, cryptoApi, approximateTimestampOverride)
     } yield SignedProtocolMessage(typedMessage, NonEmpty(Seq, signature))
   }
 
+  /** @param approximateTimestampOverride
+    *   optional timestamp to use for signing. Should only be set when signing submission requests,
+    *   encrypted view messages or any other times when the topology is not yet fixed, i.e., when
+    *   using a topology snapshot approximation. The current local clock reading is often a suitable
+    *   value.
+    */
   @VisibleForTesting
   private[canton] def mkSignature[M <: SignedProtocolMessageContent](
       typedMessage: TypedSignedProtocolMessageContent[M],
       cryptoApi: SyncCryptoApi,
+      approximateTimestampOverride: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature] = {
@@ -237,17 +252,18 @@ object SignedProtocolMessage
     val serialization = typedMessage.getCryptographicEvidence
 
     val hash = cryptoApi.pureCrypto.digest(hashPurpose, serialization)
-    cryptoApi.sign(hash, SigningKeyUsage.ProtocolOnly)
+    cryptoApi.sign(hash, SigningKeyUsage.ProtocolOnly, approximateTimestampOverride)
   }
 
   def trySignAndCreate[M <: SignedProtocolMessageContent](
       message: M,
       cryptoApi: SyncCryptoApi,
+      approximateTimestampOverride: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): FutureUnlessShutdown[SignedProtocolMessage[M]] =
-    signAndCreate(message, cryptoApi)
+    signAndCreate(message, cryptoApi, approximateTimestampOverride)
       .valueOr(err =>
         throw new IllegalStateException(s"Failed to create signed protocol message: $err")
       )

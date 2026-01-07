@@ -53,8 +53,8 @@ private[backend] trait StorageBackendTestsPartyToParticipant
   private val multipleDtos = Vector(
     dtoPartyToParticipant(offset(1), 1L),
     dtoPartyToParticipant(offset(2), 2L, someParty2),
-    dtoPartyToParticipant(offset(3), 3L, someParty, otherParticipantId.toString),
-    dtoPartyToParticipant(offset(4), 4L, someParty, someParticipantId.toString, Revoked),
+    dtoPartyToParticipant(offset(3), 3L, someParty, otherParticipantId),
+    dtoPartyToParticipant(offset(4), 4L, someParty, someParticipantId, Revoked),
   )
 
   private val authorizationEvents: Vector[AuthorizationEvent] = Vector(

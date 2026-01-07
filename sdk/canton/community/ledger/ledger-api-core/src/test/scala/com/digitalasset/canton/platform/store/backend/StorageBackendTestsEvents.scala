@@ -293,7 +293,7 @@ private[backend] trait StorageBackendTestsEvents
         notPersistedContractId = hashCid("#1"),
       )(
         stakeholders = Set(partySignatory, partyObserver1),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
       dtosAssign(
         event_offset = 2,
@@ -301,7 +301,7 @@ private[backend] trait StorageBackendTestsEvents
         notPersistedContractId = hashCid("#2"),
       )(
         stakeholders = Set(partySignatory, partyObserver2),
-        template_id = someTemplateId.toString(),
+        template_id = someTemplateId,
       ),
     ).flatten
 
@@ -2429,7 +2429,7 @@ private[backend] trait StorageBackendTestsEvents
         exercise_result = None,
         exercise_argument_compression = None,
         exercise_result_compression = None,
-        internal_contract_id = Some(10), // internal contract id should NOT be empty
+        internal_contract_id = None,
       ),
       dtosUnassign(
         event_sequential_id = 4L,
@@ -2438,7 +2438,7 @@ private[backend] trait StorageBackendTestsEvents
         submitter = None,
         deactivated_event_sequential_id = None,
         assignment_exclusivity = None,
-        internal_contract_id = Some(10), // internal contract id should NOT be empty
+        internal_contract_id = None,
       ),
       dtosWitnessedCreate(
         event_sequential_id = 5L,

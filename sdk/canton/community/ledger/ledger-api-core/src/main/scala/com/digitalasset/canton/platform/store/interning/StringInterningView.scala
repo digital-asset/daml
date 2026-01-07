@@ -7,6 +7,7 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.daml.lf.data.Ref.{
   ChoiceName,
   Identifier,
@@ -16,17 +17,17 @@ import com.digitalasset.daml.lf.data.Ref.{
   UserId,
 }
 
-import scala.concurrent.{Future, blocking}
+import scala.concurrent.Future
 
 class DomainStringIterators(
-    val parties: Iterator[String],
-    val templateIds: Iterator[String],
+    val parties: Iterator[Party],
+    val templateIds: Iterator[NameTypeConRef],
     val synchronizerIds: Iterator[SynchronizerId],
-    val packageIds: Iterator[String],
-    val userIds: Iterator[String],
-    val participantIds: Iterator[String],
-    val choiceNames: Iterator[String],
-    val interfaceIds: Iterator[String],
+    val packageIds: Iterator[PackageId],
+    val userIds: Iterator[UserId],
+    val participantIds: Iterator[ParticipantId],
+    val choiceNames: Iterator[ChoiceName],
+    val interfaceIds: Iterator[Identifier],
 )
 
 trait InternizingStringInterningView {
@@ -41,9 +42,12 @@ trait InternizingStringInterningView {
     *   returned as a interned-id and raw, prefixed string pairs.
     *
     * @note
-    *   This method is thread-safe.
+    *   This method is thread-safe. This method should be called from Indexer, which maintains
+    *   consistency between StringInterning view and persistence.
     */
-  def internize(domainStringIterators: DomainStringIterators): Iterable[(Int, String)]
+  private[platform] def internize(
+      domainStringIterators: DomainStringIterators
+  ): Iterable[(Int, String)]
 }
 
 trait UpdatingStringInterningView {
@@ -64,7 +68,7 @@ trait UpdatingStringInterningView {
     *
     * @note
     *   This method is NOT thread-safe and should not be called concurrently with itself or
-    *   [[InternizingStringInterningView.internize]].
+    *   InternizingStringInterningView.internize.
     */
   def update(lastStringInterningId: Option[Int])(
       loadPrefixedEntries: LoadStringInterningEntries
@@ -94,6 +98,7 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
     with NamedLogging {
 
   private val directEc = DirectExecutionContext(noTracingLogger)
+  private val lock = new Mutex()
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   @volatile private var raw: RawStringInterning = RawStringInterning.from(Nil)
@@ -178,8 +183,10 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
       from = _.toString,
     )
 
-  override def internize(domainStringIterators: DomainStringIterators): Iterable[(Int, String)] =
-    blocking(synchronized {
+  override private[platform] def internize(
+      domainStringIterators: DomainStringIterators
+  ): Iterable[(Int, String)] =
+    (lock.exclusive {
       val allPrefixedStrings =
         domainStringIterators.parties.map(PartyPrefix + _) ++
           domainStringIterators.templateIds.map(TemplatePrefix + _) ++
@@ -211,7 +218,7 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
         .map(updateView)(directEc)
     }
 
-  private def updateView(newEntries: Iterable[(Int, String)]): Unit = blocking(synchronized {
+  private def updateView(newEntries: Iterable[(Int, String)]): Unit = (lock.exclusive {
     if (newEntries.nonEmpty) {
       raw = RawStringInterning.from(
         entries = newEntries,

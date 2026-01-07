@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -32,7 +32,7 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageVersion.Majo
         for {
           clients <- scriptClients()
           r <- run(clients, QualifiedName.assertFromString("MultiTest:multiTest"), dar = dar)
-        } yield assert(r == SInt64(42))
+        } yield assert(r == ValueInt64(42))
       }
     }
 
@@ -40,17 +40,17 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageVersion.Majo
       "respect party id hints" in {
         for {
           clients <- scriptClients()
-          SRecord(_, _, vals) <- run(
+          ValueRecord(_, vals) <- run(
             clients,
             QualifiedName.assertFromString("MultiTest:partyIdHintTest"),
             dar = dar,
           )
         } yield {
-          vals should have size 2
-          inside(vals(0)) { case SParty(p) =>
+          assert(vals.length == 2)
+          inside(vals(0)._2) { case ValueParty(p) =>
             p should startWith("alice::")
           }
-          inside(vals(1)) { case SParty(p) =>
+          inside(vals(1)._2) { case ValueParty(p) =>
             p should startWith("bob::")
           }
         }
@@ -61,27 +61,27 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageVersion.Majo
       "list parties on both participants" in {
         for {
           clients <- scriptClients()
-          SRecord(_, _, vals) <- run(
+          ValueRecord(_, vals) <- run(
             clients,
             QualifiedName.assertFromString("MultiTest:listKnownPartiesTest"),
             dar = dar,
           )
         } yield {
-          assert(vals.size == 2)
-          val first = SList(
+          assert(vals.length == 2)
+          val first = ValueList(
             FrontStack(
-              tuple(SText("p1"), SBool(true)),
-              tuple(SText("p2"), SBool(false)),
+              tuple(ValueText("p1"), ValueBool(true)),
+              tuple(ValueText("p2"), ValueBool(false)),
             )
           )
-          assert(vals(0) == first)
-          val second = SList(
+          assert(vals(0)._2 == first)
+          val second = ValueList(
             FrontStack(
-              tuple(SText("p1"), SBool(false)),
-              tuple(SText("p2"), SBool(true)),
+              tuple(ValueText("p1"), ValueBool(false)),
+              tuple(ValueText("p2"), ValueBool(true)),
             )
           )
-          assert(vals(1) == second)
+          assert(vals(1)._2 == second)
         }
 
       }
@@ -92,7 +92,7 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageVersion.Majo
         for {
           clients <- scriptClients()
           r <- run(clients, QualifiedName.assertFromString("MultiTest:disclosuresTest"), dar = dar)
-        } yield assert(r == SText("my secret"))
+        } yield assert(r == ValueText("my secret"))
       }
       "can be called by key" in {
         for {
@@ -102,7 +102,7 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageVersion.Majo
             QualifiedName.assertFromString("MultiTest:disclosuresByKeyTest"),
             dar = dar,
           )
-        } yield assert(r == SText("my secret"))
+        } yield assert(r == ValueText("my secret"))
       }
       "does not fail during submission if inactive" in {
         for {

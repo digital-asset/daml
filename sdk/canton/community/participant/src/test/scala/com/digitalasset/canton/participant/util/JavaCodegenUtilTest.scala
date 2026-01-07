@@ -16,7 +16,7 @@ class JavaCodegenUtilTest extends AsyncWordSpec with BaseTest {
       "work both ways" in {
         val discriminator = ExampleTransactionFactory.lfHash(1)
         val hash =
-          Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(0).finish()
+          Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).addInt(0).finish()
         val unicum = Unicum(hash)
         val lfCid = CantonContractIdVersion.maxV1.fromDiscriminator(discriminator, unicum)
 

@@ -4,8 +4,8 @@
 package com.digitalasset.canton.integration.tests.benchmarks
 
 import com.digitalasset.canton.concurrent.ExecutionContextMonitor
-import com.digitalasset.canton.config.{DbConfig, NonNegativeFiniteDuration}
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.config.NonNegativeFiniteDuration
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -76,5 +76,5 @@ trait BongBenchmark extends CommunityIntegrationTest with SharedEnvironment with
 
 class BongBenchmarkPostgres extends BongBenchmark {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

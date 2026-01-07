@@ -5,13 +5,12 @@ package com.digitalasset.canton.integration.tests.topology
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.data.topology.ListOwnerToKeyMappingResult
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.crypto.SigningKeyUsage.{Namespace, Protocol}
 import com.digitalasset.canton.crypto.{EncryptionPublicKey, SigningKeyUsage, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -499,10 +498,10 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
 
 // Default meaning in-memory
 //class TopologyConsoleCommandsTestDefault extends TopologyConsoleCommandsTest {
-//  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+//  registerPlugin(new UseBftSequencer(loggerFactory))
 //}
 
 class TopologyAdministrationTestPostgres extends TopologyAdministrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

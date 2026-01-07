@@ -5,9 +5,8 @@ package com.digitalasset.canton.integration.tests.topology
 
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{DbConfig, StorageConfig}
 import com.digitalasset.canton.console.InstanceReference
-import com.digitalasset.canton.integration.plugins.{UseH2, UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -74,15 +73,15 @@ trait ManualParticipantSetupIntegrationTest
 }
 
 class ManualParticipantSetupIntegrationTestInMemory extends ManualParticipantSetupIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[StorageConfig.Memory](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 class ManualParticipantSetupIntegrationTestPostgres extends ManualParticipantSetupIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 class ManualParticipantSetupIntegrationTestH2 extends ManualParticipantSetupIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

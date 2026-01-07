@@ -4,9 +4,10 @@
 package com.digitalasset.canton.ledger.api.benchtool.submission
 
 /** Allows to pseudo-randomly pick an index out of a set of indices according to their weights. */
+@SuppressWarnings(Array("org.wartremover.warts.IterableOps")) //Allow scanLeft(...).tail
 class Distribution[T](weights: List[Int], items: IndexedSeq[T]) {
   assert(weights.nonEmpty, "Weights list must not be empty.")
-  assert(weights.size == items.size, "The number of weights and items must be the same.")
+  assert(weights.sizeCompare(items) == 0, "The number of weights and items must be the same.")
   assert(!weights.exists(_ < 1), "Weights must be strictly positive.")
 
   private val totalWeight: Long = weights.map(_.toLong).sum

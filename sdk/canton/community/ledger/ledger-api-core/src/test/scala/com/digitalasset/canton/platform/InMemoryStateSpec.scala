@@ -155,6 +155,46 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
       } yield succeed
   }
 
+  // since cachesUpdatedUpto can be None to signify invalid caches, we need to ensure that we reset memory state when initializing to None
+  "InMemoryState.initializeTo(None)" should "should reset the in-memory state" in withTestFixture {
+    case (
+          inMemoryState,
+          mutableLedgerEndCache,
+          contractStateCaches,
+          inMemoryFanoutBuffer,
+          _,
+          dispatcherState,
+          _,
+          _,
+          _,
+          inOrder,
+        ) =>
+      when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
+      when(dispatcherState.isRunning).thenReturn(true)
+      when(mutableLedgerEndCache.apply()).thenReturn(None)
+      when(dispatcherState.getDispatcher).thenReturn(
+        Dispatcher(
+          name = "",
+          firstIndex = Offset.firstOffset,
+          headAtInitialization = None,
+        )
+      )
+
+      inMemoryState.ledgerEndCache() shouldBe None
+      dispatcherState.getDispatcher.getHead() shouldBe None
+      inMemoryState.cachesUpdatedUpto.get() shouldBe None
+
+      for {
+        _ <- inMemoryState.initializeTo(None)
+
+        _ = {
+          inOrder.verify(contractStateCaches).reset(None)
+          inOrder.verify(inMemoryFanoutBuffer).flush()
+          inOrder.verify(mutableLedgerEndCache).set(None)
+        }
+      } yield succeed
+  }
+
   private def withTestFixture(
       test: (
           InMemoryState,

@@ -6,6 +6,11 @@ package com.digitalasset.canton.console
 import ammonite.util.Bind
 import cats.syntax.either.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.canton.admin.api.client.data.{
+  GrpcSequencerConnection,
+  SequencerConnection,
+  SequencerConnections,
+}
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveInt}
@@ -23,11 +28,6 @@ import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.lifecycle.{FlagCloseable, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.sequencing.{
-  GrpcSequencerConnection,
-  SequencerConnection,
-  SequencerConnections,
-}
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.{
@@ -148,13 +148,16 @@ class ConsoleEnvironment(
       // due to the use of reflection to grab the help-items, i need to write the following, repetitive stuff explicitly
       val subItems =
         if (participants.local.nonEmpty)
-          participants.local.headOption.toList.flatMap(p =>
-            Help.getItems(p, baseTopic = Seq("$participant"), scope = scope)
+          Help.getItemsForClass[LocalParticipantReference](
+            baseTopic = Seq("$participant"),
+            scope = scope,
           )
         else if (participants.remote.nonEmpty)
-          participants.remote.headOption.toList.flatMap(p =>
-            Help.getItems(p, baseTopic = Seq("$participant"), scope = scope)
-          )
+          Help
+            .getItemsForClass[RemoteParticipantReference](
+              baseTopic = Seq("$participant"),
+              scope = scope,
+            )
         else Seq()
       Help.Item("$participant", None, Summary(""), Description(""), Topic(Seq()), subItems)
     }
@@ -318,10 +321,8 @@ class ConsoleEnvironment(
         Help.Item(
           "help",
           None,
-          Help.Summary(
-            "Help with console commands; type help(\"<command>\") for detailed help for <command>"
-          ),
-          Help.Description(""),
+          Help.Summary("Help with console commands"),
+          Help.Description("Type help(\"<command>\") for detailed help for <command>."),
           Help.Topic(Help.defaultTopLevelTopic),
         ),
       ) :+
@@ -565,13 +566,17 @@ object ConsoleEnvironment {
 
     implicit def toInstanceName(name: String): InstanceName = InstanceName.tryCreate(name)
 
-    implicit def toGrpcSequencerConnection(connection: String): SequencerConnection =
+    implicit def toGrpcSequencerConnection(connection: String)(implicit
+        consoleEnvironment: ConsoleEnvironment
+    ): SequencerConnection =
       GrpcSequencerConnection.tryCreate(connection)
 
     implicit def toSequencerAlias(alias: String): SequencerAlias =
       SequencerAlias.tryCreate(alias)
 
-    implicit def toSequencerConnections(connection: String): SequencerConnections =
+    implicit def toSequencerConnections(connection: String)(implicit
+        consoleEnvironment: ConsoleEnvironment
+    ): SequencerConnections =
       SequencerConnections.single(GrpcSequencerConnection.tryCreate(connection))
 
     implicit def toGSequencerConnection(

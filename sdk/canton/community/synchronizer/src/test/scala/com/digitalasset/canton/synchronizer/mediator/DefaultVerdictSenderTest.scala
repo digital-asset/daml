@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.mediator
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Signature, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
@@ -268,6 +269,7 @@ class DefaultVerdictSenderTest
       sequencerClientSend,
       synchronizerSyncCryptoApi,
       mediatorId,
+      BatchingConfig(),
       loggerFactory,
     )
 

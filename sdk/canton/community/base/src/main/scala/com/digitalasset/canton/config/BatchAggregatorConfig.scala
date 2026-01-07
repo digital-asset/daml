@@ -18,7 +18,7 @@ object BatchAggregatorConfig {
   val defaultMaximumBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(500)
 
   def defaultsForTesting: BatchAggregatorConfig =
-    AutoBatching(
+    Batching(
       maximumInFlight = PositiveNumeric.tryCreate(2),
       maximumBatchSize = PositiveNumeric.tryCreate(5),
     )
@@ -26,8 +26,8 @@ object BatchAggregatorConfig {
   def apply(
       maximumInFlight: PositiveNumeric[Int] = BatchAggregatorConfig.defaultMaximumInFlight,
       maximumBatchSize: PositiveNumeric[Int] = BatchAggregatorConfig.defaultMaximumBatchSize,
-  ): AutoBatching =
-    AutoBatching(
+  ): Batching =
+    Batching(
       maximumInFlight = maximumInFlight,
       maximumBatchSize = maximumBatchSize,
     )
@@ -37,14 +37,20 @@ object BatchAggregatorConfig {
     * @param maximumBatchSize
     *   Maximum number of queries in a batch.
     */
-  final case class AutoBatching(
+  final case class Batching(
       maximumInFlight: PositiveNumeric[Int] = BatchAggregatorConfig.defaultMaximumInFlight,
       override val maximumBatchSize: PositiveNumeric[Int] =
         BatchAggregatorConfig.defaultMaximumBatchSize,
   ) extends BatchAggregatorConfig
 
-  final case class NoAutoBatching(
+  /** @param maxParallelBatches
+    *   Maximum number of batches to execute in parallel when using runMany.
+    * @param maximumBatchSize
+    *   Maximum number of queries in a batch.
+    */
+  final case class NoBatching(
+      maxParallelBatches: PositiveNumeric[Int] = BatchAggregatorConfig.defaultMaximumInFlight,
       override val maximumBatchSize: PositiveNumeric[Int] =
-        BatchAggregatorConfig.defaultMaximumBatchSize
+        BatchAggregatorConfig.defaultMaximumBatchSize,
   ) extends BatchAggregatorConfig
 }

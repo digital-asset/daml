@@ -269,9 +269,7 @@ class ExternalTransactionProcessor(
     FutureUnlessShutdown,
     InteractiveSubmissionExecuteError.Reject,
     CommandExecutionResult,
-  ] = {
-    val routingSynchronizerState = syncService.getRoutingSynchronizerState
-
+  ] =
     for {
       _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
         !config.enforceSingleRootNode || executeRequest.preparedTransaction.transaction
@@ -280,6 +278,7 @@ class ExternalTransactionProcessor(
           "Transaction with multiple root nodes are not supported"
         ),
       )
+      routingSynchronizerState <- EitherT.liftF(syncService.getRoutingSynchronizerState)
       decoded <- EitherT
         .liftF[Future, InteractiveSubmissionExecuteError.Reject, ExecuteTransactionData](
           decoder.decode(executeRequest)
@@ -313,5 +312,4 @@ class ExternalTransactionProcessor(
       selectRoutingSynchronizer,
       routingSynchronizerState,
     )
-  }
 }

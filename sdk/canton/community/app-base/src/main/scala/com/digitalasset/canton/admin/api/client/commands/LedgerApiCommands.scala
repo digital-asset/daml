@@ -369,7 +369,7 @@ object LedgerApiCommands {
 
     }
 
-    final case class ListKnownParties(identityProviderId: String)
+    final case class ListKnownParties(identityProviderId: String, filterParty: String)
         extends BaseCommand[ListKnownPartiesRequest, ListKnownPartiesResponse, Seq[
           PartyDetails
         ]] {
@@ -379,6 +379,7 @@ object LedgerApiCommands {
             pageToken = "",
             pageSize = 0,
             identityProviderId = identityProviderId,
+            filterParty = filterParty,
           )
         )
       override protected def submitRequest(

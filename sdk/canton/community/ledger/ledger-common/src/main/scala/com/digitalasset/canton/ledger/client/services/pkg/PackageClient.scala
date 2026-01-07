@@ -19,6 +19,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.Future
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 final class PackageClient(
     service: PackageServiceStub,
     getDefaultToken: () => Option[String] = () => None,

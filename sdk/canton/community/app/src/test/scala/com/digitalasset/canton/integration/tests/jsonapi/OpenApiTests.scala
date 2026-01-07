@@ -3,15 +3,15 @@
 
 package com.digitalasset.canton.integration.tests.jsonapi
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.http.json.v2.ApiDocsGenerator
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import org.apache.pekko.http.scaladsl.model.{StatusCodes, Uri}
 
 final class OpenApiTests
     extends AbstractHttpServiceIntegrationTestFuns
     with HttpServiceUserFixture.UserToken {
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   private val apiDocsGenerator = new ApiDocsGenerator(loggerFactory)
   private val expectedOpenApiServices = Seq(
     "commands",
@@ -40,7 +40,7 @@ final class OpenApiTests
     val staticDocs = apiDocsGenerator.createStaticDocs(protoInfo)
 
     "should be consistent with live docs" in httpTestFixture { fixture =>
-      /** We generate documentation "statically" without starting an http server However, when the
+      /** We generate documentation "statically" without starting an http server. However, when the
         * server is running the documentation is generated from actually running endpoints This test
         * checks that both of them are matching
         * @see

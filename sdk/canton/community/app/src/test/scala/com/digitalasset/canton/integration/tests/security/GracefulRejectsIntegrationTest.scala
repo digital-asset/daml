@@ -28,7 +28,6 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble}
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -36,11 +35,7 @@ import com.digitalasset.canton.error.TransactionRoutingError
 import com.digitalasset.canton.examples.java.iou
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseBftSequencer,
-  UsePostgres,
-  UseReferenceBlockSequencer,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors.Interpreter
 import com.digitalasset.canton.ledger.error.groups.{CommandExecutionErrors, ConsistencyErrors}
@@ -671,7 +666,7 @@ sealed trait GracefulRejectsIntegrationTest
 class GracefulRejectsReferenceIntegrationTestPostgres extends GracefulRejectsIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2"))

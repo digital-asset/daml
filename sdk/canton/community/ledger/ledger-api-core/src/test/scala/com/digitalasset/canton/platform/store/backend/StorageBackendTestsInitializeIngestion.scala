@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.IdRange
 import com.digitalasset.canton.platform.store.backend.PersistentEventType
@@ -33,10 +34,10 @@ private[backend] trait StorageBackendTestsInitializeIngestion
   import StorageBackendTestValues.*
 
   private val signatory = Ref.Party.assertFromString("signatory")
-
+  private val participant = api.ParticipantId(Ref.ParticipantId.assertFromString("someParticipant"))
   val dtos = Vector(
     // 1: party allocation
-    dtoPartyEntry(offset(1), "party1")
+    dtoPartyEntry(offset(1), someParty)
   )
   it should "delete overspill entries - parties" in {
     fixture(
@@ -45,16 +46,16 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       lastEventSeqId1 = 0L,
       dtos2 = Vector(
         // 3: party allocation
-        dtoPartyEntry(offset(3), "party2")
+        dtoPartyEntry(offset(3), someParty2)
       ),
       lastOffset2 = 3L,
       lastEventSeqId2 = 0L,
       checkContentsBefore = () => {
-        val parties = executeSql(backend.party.knownParties(None, 10))
+        val parties = executeSql(backend.party.knownParties(None, None, 10))
         parties should have length 1
       },
       checkContentsAfter = () => {
-        val parties = executeSql(backend.party.knownParties(None, 10))
+        val parties = executeSql(backend.party.knownParties(None, None, 10))
         parties should have length 1
       },
     )
@@ -66,7 +67,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       lastOffset = 3,
       lastEventSeqId = 0L,
       checkContentsAfter = () => {
-        val parties2 = executeSql(backend.party.knownParties(None, 10))
+        val parties2 = executeSql(backend.party.knownParties(None, None, 10))
         parties2 shouldBe empty
       },
     )
@@ -130,13 +131,13 @@ private[backend] trait StorageBackendTestsInitializeIngestion
         offset(5),
         eventSequentialId = 6,
         party = someParty,
-        participant = "someParticipant",
+        participant = participant,
       ),
       dtoPartyToParticipant(
         offset(5),
         eventSequentialId = 7,
         party = someParty2,
-        participant = "someParticipant",
+        participant = participant,
       ),
     ),
   ).flatten
@@ -198,13 +199,13 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           offset(10),
           eventSequentialId = 13,
           party = someParty,
-          participant = "someParticipant",
+          participant = participant,
         ),
         dtoPartyToParticipant(
           offset(10),
           eventSequentialId = 14,
           party = someParty3,
-          participant = "someParticipant",
+          participant = participant,
         ),
       ),
     ).flatten

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.traffic
 
+import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.sequencing.traffic.EventCostCalculator
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerTrafficConfig
@@ -44,6 +45,7 @@ trait RateLimitManagerTesting { this: BaseTest with HasExecutionContext =>
       trafficConsumedStore,
       loggerFactory,
       timeouts,
+      BatchingConfig(),
       SequencerMetrics.noop("sequencer-rate-limit-manager-test"),
       cryptoClient,
       testedProtocolVersion,
@@ -57,6 +59,7 @@ trait RateLimitManagerTesting { this: BaseTest with HasExecutionContext =>
       trafficConsumedStore,
       loggerFactory,
       timeouts,
+      BatchingConfig(),
       SequencerMetrics.noop("sequencer-rate-limit-manager-test"),
       cryptoClient,
       testedProtocolVersion,
@@ -74,6 +77,7 @@ trait RateLimitManagerTesting { this: BaseTest with HasExecutionContext =>
       trafficConsumedStore,
       loggerFactory,
       timeouts,
+      BatchingConfig(),
       SequencerMetrics.noop("sequencer-rate-limit-manager-test"),
       cryptoClient,
       testedProtocolVersion,

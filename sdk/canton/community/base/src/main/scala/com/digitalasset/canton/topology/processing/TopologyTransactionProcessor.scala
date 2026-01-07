@@ -15,7 +15,12 @@ import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  HasCloseContext,
+  LifeCycle,
+}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.protocol.messages.{
@@ -73,14 +78,16 @@ class TopologyTransactionProcessor(
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
-    with FlagCloseable {
+    with FlagCloseable
+    with HasCloseContext {
 
   private val psid = store.storeId.psid
 
   protected lazy val stateProcessor: TopologyStateProcessor =
     TopologyStateProcessor.forTransactionProcessing(
       store,
-      RequiredTopologyMappingChecks(store, Some(staticSynchronizerParameters), loggerFactory),
+      lookup =>
+        RequiredTopologyMappingChecks(Some(staticSynchronizerParameters), lookup, loggerFactory),
       pureCrypto,
       loggerFactory,
     )
@@ -187,7 +194,7 @@ class TopologyTransactionProcessor(
       // of the approximate time subsequently
       val maxEffective = clientInitTimes.map { case (effective, _) => effective }.max1
       val minApproximate = clientInitTimes.map { case (_, approximate) => approximate }.min1
-      listenersUpdateHead(sequencedTs, maxEffective, minApproximate)
+      listenersUpdateHeadWithoutTopologyChanges(sequencedTs, maxEffective, minApproximate)
 
       val directExecutionContext = DirectExecutionContext(noTracingLogger)
       clientInitTimes.foreach { case (effective, _approximate) =>
@@ -195,7 +202,7 @@ class TopologyTransactionProcessor(
         synchronizerTimeTracker.awaitTick(effective.value) match {
           case None =>
             // The effective time is in the past. Directly advance our approximate time to the respective effective time
-            listenersUpdateHead(
+            listenersUpdateHeadWithoutTopologyChanges(
               sequencedTs,
               effective,
               effective.toApproximate,
@@ -203,7 +210,7 @@ class TopologyTransactionProcessor(
           case Some(tickF) =>
             FutureUtil.doNotAwait(
               tickF.map(_ =>
-                listenersUpdateHead(
+                listenersUpdateHeadWithoutTopologyChanges(
                   sequencedTs,
                   effective,
                   effective.toApproximate,
@@ -216,7 +223,7 @@ class TopologyTransactionProcessor(
     }
   }
 
-  private def listenersUpdateHead(
+  private def listenersUpdateHeadWithoutTopologyChanges(
       sequenced: SequencedTime,
       effective: EffectiveTime,
       approximate: ApproximateTime,
@@ -302,7 +309,7 @@ class TopologyTransactionProcessor(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     this.synchronizeWithClosingF(functionFullName) {
       Future {
-        listenersUpdateHead(
+        listenersUpdateHeadWithoutTopologyChanges(
           sequencedTimestamp,
           effectiveTimestamp,
           sequencedTimestamp.toApproximate,
@@ -536,8 +543,7 @@ object TopologyTransactionProcessor {
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(
-      headStateInitializer: SynchronizerTopologyClientHeadStateInitializer =
-        new DefaultHeadStateInitializer(topologyStore)
+      sequencerSnapshotTimestamp: Option[EffectiveTime] = None
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -566,7 +572,7 @@ object TopologyTransactionProcessor {
       parameters.processingTimeouts,
       futureSupervisor,
       loggerFactory,
-    )(headStateInitializer)
+    )(sequencerSnapshotTimestamp)
 
     cachingClientF.map { client =>
       processor.subscribe(client)

@@ -5,10 +5,9 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.daml.ledger.javaapi.data.Command
 import com.digitalasset.canton.BaseTest.UnsupportedExternalPartyTest.MultiRootNodeSubmission
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.multihostedparties.PartyActivationFlow.authorizeOnly
 import com.digitalasset.canton.integration.{EnvironmentDefinition, TestConsoleEnvironment}
 import com.digitalasset.canton.time.PositiveSeconds
@@ -176,5 +175,5 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
 final class OfflinePartyReplicationWorkflowIdsIntegrationTestPostgres
     extends OfflinePartyReplicationWorkflowIdsIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

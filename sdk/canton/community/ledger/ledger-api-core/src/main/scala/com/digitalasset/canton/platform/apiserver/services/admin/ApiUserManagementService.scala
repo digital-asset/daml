@@ -29,7 +29,6 @@ import com.digitalasset.canton.ledger.error.groups.{
   UserManagementServiceErrors,
 }
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
-import com.digitalasset.canton.ledger.participant.state.index.IndexPartyManagementService
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.withEnrichedLoggingContext
 import com.digitalasset.canton.logging.{
@@ -57,7 +56,6 @@ private[apiserver] final class ApiUserManagementService(
     partyRecordExist: PartyRecordsExist,
     maxUsersPageSize: Int,
     submissionIdGenerator: SubmissionIdGenerator,
-    indexPartyManagementService: IndexPartyManagementService,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
@@ -238,6 +236,8 @@ private[apiserver] final class ApiUserManagementService(
   override def deleteUser(request: proto.DeleteUserRequest): Future[proto.DeleteUserResponse] =
     withSubmissionId(loggerFactory, telemetry) { implicit loggingContext =>
       implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContext)
+      val authorizedUserContextF: Future[AuthenticatedUserContext] =
+        resolveAuthenticatedUserContext
       withValidation {
         for {
           userId <- requireUserId(request.userId, "user_id")
@@ -247,10 +247,25 @@ private[apiserver] final class ApiUserManagementService(
           )
         } yield (userId, identityProviderId)
       } { case (userId, identityProviderId) =>
-        userManagementStore
-          .deleteUser(userId, identityProviderId)
-          .flatMap(Utils.handleResult("deleting user"))
-          .map(_ => proto.DeleteUserResponse())
+        for {
+          authorizedUserContext <- authorizedUserContextF
+          _ <-
+            if (authorizedUserContext.userId.contains(userId)) {
+              Future.failed(
+                RequestValidationErrors.InvalidArgument
+                  .Reject(
+                    "Requesting user cannot delete itself"
+                  )
+                  .asGrpcError
+              )
+            } else {
+              Future.unit
+            }
+          resp <- userManagementStore
+            .deleteUser(userId, identityProviderId)
+            .flatMap(Utils.handleResult("deleting user"))
+            .map(_ => proto.DeleteUserResponse())
+        } yield resp
       }
     }
 
@@ -348,6 +363,11 @@ private[apiserver] final class ApiUserManagementService(
       ) { case (userId, rights, identityProviderId) =>
         for {
           authorizedUserContext <- authorizedUserContextF
+          _ <- verifyNotRemovingOwnAdminRights(
+            authorizedUserId = authorizedUserContext.userId.getOrElse(""),
+            userId = userId,
+            rights = rights,
+          )
           _ <- verifyPartiesExistInIdp(
             rights,
             identityProviderId,
@@ -443,7 +463,7 @@ private[apiserver] final class ApiUserManagementService(
     val parties = userParties(rights)
     val partiesKnownF =
       if (isParticipantAdmin)
-        indexKnownParties(parties)
+        Future.successful(parties)
       else
         partyRecordExist
           .filterPartiesExistingInPartyRecordStore(identityProviderId, parties)
@@ -458,12 +478,25 @@ private[apiserver] final class ApiUserManagementService(
       }
   }
 
-  private def indexKnownParties(
-      parties: Set[Ref.Party]
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Set[Ref.Party]] =
-    indexPartyManagementService.getParties(parties.toList).map { partyDetails =>
-      partyDetails.map(_.party).toSet
-    }
+  private def verifyNotRemovingOwnAdminRights(
+      authorizedUserId: String,
+      userId: String,
+      rights: Set[UserRight],
+  )(implicit errorLogger: ErrorLoggingContext): Future[Unit] =
+    if (
+      authorizedUserId == userId && rights.collect { case UserRight.ParticipantAdmin =>
+        true
+      }.nonEmpty
+    )
+      Future.failed(
+        RequestValidationErrors.InvalidArgument
+          .Reject(
+            "Requesting user cannot remove own admin rights"
+          )
+          .asGrpcError
+      )
+    else
+      Future.successful(())
 
   private def partiesNotExistsError(
       unknownParties: Set[Ref.Party],

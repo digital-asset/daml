@@ -9,6 +9,7 @@ import cats.syntax.show.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{
+  BatchingConfig,
   CacheConfig,
   CryptoConfig,
   CryptoProvider,
@@ -50,6 +51,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
+import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.version.{HasToByteString, ReleaseProtocolVersion}
 import com.google.protobuf.ByteString
 
@@ -271,10 +273,17 @@ trait SyncCryptoApi {
     *   the hash to sign
     * @param usage
     *   restricts signing to private keys that have at least one matching usage
+    * @param approximateTimestampOverride
+    *   optional timestamp to use for signing. Should only be set for signatures that end up, for
+    *   example, in submission requests, or of encrypted view messages, where the topology is not
+    *   yet fixed, i.e., when using a topology snapshot approximation. The current local clock
+    *   reading is often a suitable value. This timestamp will be used to pick a session signing key
+    *   with a suitable validity period, if needed.
     */
   def sign(
       hash: Hash,
       usage: NonEmpty[Set[SigningKeyUsage]],
+      approximateTimestampOverride: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature]
@@ -360,6 +369,7 @@ object Crypto {
       clock: Clock,
       executionContext: ExecutionContext,
       timeouts: ProcessingTimeout,
+      batchingConfig: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
       tracerProvider: TracerProvider,
   )(implicit
@@ -483,17 +493,15 @@ object Crypto {
           CryptoSchemes
             .selectKmsSchemes(cryptoSchemes, kmsSupportedSchemes)
             .toEitherT[FutureUnlessShutdown]
-        kms <- kmsClient()
-        kmsCryptoStatic <- createCryptoWithKmsProvider(
-          kms,
-          cryptoSchemes,
-          staticKmsSchemes,
-          cryptoPublicStore,
-        ) // TODO(#28253): replace with a "withResource..." that only closes a resource on failures.
-          .leftMap { err =>
-            kms.close()
-            err
-          }
+        kmsClient <- kmsClient()
+        kmsCryptoStatic <- ResourceUtil.withResourceCloseOnlyOnError(kmsClient) { kms =>
+          createCryptoWithKmsProvider(
+            kms,
+            cryptoSchemes,
+            staticKmsSchemes,
+            cryptoPublicStore,
+          )
+        }
       } yield kmsCryptoStatic
 
     // Creates a [[Crypto]] instance using a KMS driver and its supported schemes.
@@ -501,25 +509,19 @@ object Crypto {
         cryptoSchemes: CryptoSchemes,
         cryptoPublicStore: CryptoPublicStore,
     ): EitherT[FutureUnlessShutdown, String, Crypto] =
-      for {
-        kms <- kmsClient()
-        staticKmsSchemes <- resolveDriverKmsSupportedSchemes(cryptoSchemes, kms)
-          // TODO(#28253): replace with a "withResource..." that only closes a resource on failures.
-          .leftMap { err =>
-            kms.close()
-            err
-          }
-        kmsCryptoDriver <- createCryptoWithKmsProvider(
-          kms,
-          cryptoSchemes,
-          staticKmsSchemes,
-          cryptoPublicStore,
-        ) // TODO(#28253): replace with a "withResource..." that only closes a resource on failures.
-          .leftMap { err =>
-            kms.close()
-            err
-          }
-      } yield kmsCryptoDriver
+      kmsClient().flatMap(
+        ResourceUtil.withResourceCloseOnlyOnError(_) { kms =>
+          for {
+            staticKmsSchemes <- resolveDriverKmsSupportedSchemes(cryptoSchemes, kms)
+            kmsCryptoDriver <- createCryptoWithKmsProvider(
+              kms,
+              cryptoSchemes,
+              staticKmsSchemes,
+              cryptoPublicStore,
+            )
+          } yield kmsCryptoDriver
+        }
+      )
 
     for {
       // initial selection of schemes by intersecting those supported by the provider with
@@ -533,39 +535,34 @@ object Crypto {
         case CryptoProvider.Jce =>
           config.privateKeyStore.encryption match {
             case Some(EncryptedPrivateStoreConfig.Kms(wrapperKeyId, reverted)) =>
-              for {
-                kms <- kmsClient()
-                cryptoPrivateStore <- CryptoPrivateStore
-                  .createEncrypted(
-                    storage,
-                    kms,
-                    wrapperKeyId,
-                    reverted,
-                    replicaManager,
-                    releaseProtocolVersion,
-                    timeouts,
-                    loggerFactory,
-                  )
-                  // TODO(#28253): replace with a "withResource..." that only closes a resource on failures.
-                  .leftMap { err =>
-                    kms.close()
-                    show"Failed to create crypto private store: $err"
-                  }
-                jceCrypto <- createCryptoWithJceProvider(
-                  cryptoSchemes,
-                  cryptoPublicStore,
-                  cryptoPrivateStore,
-                )
-                  // TODO(#28253): replace with a "withResource..." that only closes a resource on failures.
-                  .leftMap { err =>
-                    kms.close()
-                    err
-                  }
-              } yield jceCrypto
+              kmsClient().flatMap(
+                ResourceUtil.withResourceCloseOnlyOnError(_) { kms =>
+                  for {
+                    cryptoPrivateStore <- CryptoPrivateStore
+                      .createEncrypted(
+                        storage,
+                        kms,
+                        wrapperKeyId,
+                        reverted,
+                        replicaManager,
+                        releaseProtocolVersion,
+                        timeouts,
+                        batchingConfig,
+                        loggerFactory,
+                      )
+                      .leftMap(err => show"Failed to create crypto private store: $err")
+                    jceCrypto <- createCryptoWithJceProvider(
+                      cryptoSchemes,
+                      cryptoPublicStore,
+                      cryptoPrivateStore,
+                    )
+                  } yield jceCrypto
+                }
+              )
             case None =>
               for {
                 cryptoPrivateStore <- CryptoPrivateStore
-                  .create(storage, releaseProtocolVersion, timeouts, loggerFactory)
+                  .create(storage, releaseProtocolVersion, timeouts, batchingConfig, loggerFactory)
                   .leftMap(err => show"Failed to create crypto private store: $err")
                 jceCrypto <- createCryptoWithJceProvider(
                   cryptoSchemes,

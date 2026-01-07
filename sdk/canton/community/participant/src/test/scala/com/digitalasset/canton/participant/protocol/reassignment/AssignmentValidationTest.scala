@@ -111,6 +111,7 @@ final class AssignmentValidationTest
     identityFactory
       .forOwnerAndSynchronizer(submittingParticipant, sourceSynchronizer.unwrap)
       .currentSnapshotApproximation
+      .futureValueUS
 
   private val pureCrypto = new SymbolicPureCrypto
 
@@ -131,7 +132,7 @@ final class AssignmentValidationTest
       recipients: Recipients = RecipientsTest.testInstance,
   ): ParsedReassignmentRequest[FullAssignmentTree] = {
     val signature = cryptoSnapshot
-      .sign(view.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+      .sign(view.rootHash.unwrap, SigningKeyUsage.ProtocolOnly, None)
       .futureValueUS
       .toOption
 

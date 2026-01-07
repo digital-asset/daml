@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Assistant.IntegrationTestUtils
   ( withSdkResource
+  , withDpmSdkResource
   , SandboxPorts(..)
   , sandboxPorts
   , throwError
@@ -39,37 +40,54 @@ import Test.Tasty
 -- This also adds the bin directory to PATH so calling assistant commands works without
 -- special hacks.
 withSdkResource :: (IO FilePath -> TestTree) -> TestTree
-withSdkResource f =
+withSdkResource = _withSdkResource (mainWorkspace </> "release" </> "sdk-release-tarball-ce.tar.gz") "DAML_HOME" $ \extractDir _ ->
+  if isWindows
+    then callProcessSilent
+        (extractDir </> "daml" </> damlInstallerName)
+        ["install", "--install-assistant=yes", "--set-path=no", "--install-with-internal-version=yes", extractDir]
+    else callProcessSilent (extractDir </> "install.sh") ["--install-with-internal-version=yes"]
+
+withDpmSdkResource :: (IO FilePath -> TestTree) -> TestTree
+withDpmSdkResource =
+  _withSdkResource (mainWorkspace </> "release" </> "dpm-sdk-release-tarball.tar.gz") "DPM_HOME" $ \extractDir targetDir ->
+    callProcessSilent "cp" ["-a", extractDir </> ".", targetDir]
+
+-- Takes path to tarball, HOME variable name, and installation action
+_withSdkResource :: FilePath -> String -> (FilePath -> FilePath -> IO ()) -> (IO FilePath -> TestTree) -> TestTree
+_withSdkResource tarball homeName install f = do
     withTempDirResource $ \getDir ->
-    withResource (installSdk =<< getDir) restoreEnv (const $ f getDir)
-  where installSdk targetDir = do
-            releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball-ce.tar.gz")
+      withResource (installSdk =<< getDir) restoreEnv (const $ f $ (</> "installation") <$> getDir)
+  where installSdk tmpDir = do
+            let targetDir = tmpDir </> "installation"
+                cacheDir = tmpDir </> "cache"
+            createDirectory targetDir
+            createDirectory cacheDir
+
+            releaseTarball <- locateRunfiles tarball
             oldPath <- getSearchPath
-            withTempDir $ \cacheDir -> do
+            setEnv "DAML_CACHE" cacheDir True
+            setEnv homeName targetDir True
+
             withTempDir $ \extractDir -> do
                 runConduitRes
                     $ sourceFileBS releaseTarball
                     .| Zlib.ungzip
                     .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError extractDir)
-                setEnv "DAML_HOME" targetDir True
                 setPermissions cacheDir emptyPermissions
-                setEnv "DAML_CACHE" cacheDir True
-                if isWindows
-                    then callProcessSilent
-                        (extractDir </> "daml" </> damlInstallerName)
-                        ["install", "--install-assistant=yes", "--set-path=no", "--install-with-internal-version=yes", extractDir]
-                    else callProcessSilent (extractDir </> "install.sh") ["--install-with-internal-version=yes"]
-                -- We restrict the permissions of the DAML_HOME directory to make sure everything
+                install extractDir targetDir
+                -- We restrict the permissions of the `homeName` directory to make sure everything
                 -- still works when the directory is read-only.
                 allFiles <- listFilesRecursive targetDir
                 forM_ allFiles $ \file -> do
                   getPermissions file >>= \p -> setPermissions file $ p {writable = False}
-                setPermissions targetDir emptyPermissions {executable = True}
+                setPermissions targetDir emptyPermissions {executable = True, readable = True, searchable = True}
+                setPermissions cacheDir emptyPermissions {readable = True, writable = True, searchable = True}
             setEnv "PATH" (intercalate [searchPathSeparator] ((targetDir </> "bin") : oldPath)) True
             pure oldPath
         restoreEnv oldPath = do
             setEnv "PATH" (intercalate [searchPathSeparator] oldPath) True
-            unsetEnv "DAML_HOME"
+            unsetEnv "DAML_CACHE"
+            unsetEnv homeName
 
 -- from DA.Daml.Helper.Util
 data SandboxPorts = SandboxPorts

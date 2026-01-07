@@ -3,9 +3,13 @@
 
 package com.digitalasset.canton.topology.store.memory
 
+import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.topology.store.{TopologyStoreId, TopologyStoreTest}
+import com.digitalasset.canton.version.HasTestCloseContext
 
-class InMemoryTopologyStoreTest extends TopologyStoreTest {
+class InMemoryTopologyStoreTest extends TopologyStoreTest with HasTestCloseContext {
+
+  override def closeContext: CloseContext = testCloseContext
 
   "InMemoryTopologyStore" should {
     behave like topologyStore { case (synchronizerId, testName) =>

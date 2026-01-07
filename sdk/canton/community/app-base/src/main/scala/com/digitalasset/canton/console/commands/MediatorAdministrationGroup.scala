@@ -13,6 +13,10 @@ import com.digitalasset.canton.admin.api.client.commands.{
   PruningSchedulerCommands,
   SynchronizerTimeCommands,
 }
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnectionValidation,
+  SequencerConnections,
+}
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
@@ -29,7 +33,6 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.mediator.admin.v30
 import com.digitalasset.canton.mediator.admin.v30.Verdict
 import com.digitalasset.canton.networking.grpc.RecordingStreamObserver
-import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.NoTracing
@@ -92,9 +95,12 @@ class MediatorPruningAdministrationGroup(
     "Prune the mediator of unnecessary data while keeping data for the default retention period"
   )
   @Help.Description(
-    """Removes unnecessary data from the Mediator that is earlier than the default retention period.
-          |The default retention period is set in the configuration of the canton node running this
-          |command under `parameters.retention-period-defaults.mediator`."""
+    """Removes unnecessary data from the Mediator that is earlier than the default retention
+      |period.
+      |
+      |The default retention period is set in the configuration of the canton node running this
+      |command under `parameters.retention-period-defaults.mediator`.
+      """
   )
   def prune(): Unit = {
     val defaultRetention =
@@ -120,8 +126,10 @@ class MediatorPruningAdministrationGroup(
   @Help.Description(
     """This command provides insight into the current state of mediator pruning when called with
       |the default value of `index` 1.
-      |When pruning the mediator manually via `prune_at` and with the intent to prune in batches, specify
-      |a value such as 1000 to obtain a pruning timestamp that corresponds to the "end" of the batch."""
+      |When pruning the mediator manually via `prune_at` and with the intent to prune in
+      |batches, specify a value such as 1000 to obtain a pruning timestamp that corresponds to
+      |the "end" of the batch.
+      """
   )
   def find_pruning_timestamp(
       index: PositiveInt = PositiveInt.tryCreate(1)
@@ -147,8 +155,8 @@ class MediatorSetupGroup(node: MediatorReference) extends ConsoleCommandGroup.Im
       runner.adminCommand(
         Initialize(
           synchronizerId,
-          sequencerConnections,
-          sequencerConnectionValidation,
+          sequencerConnections.toInternal,
+          sequencerConnectionValidation.toInternal,
         )
       )
     }

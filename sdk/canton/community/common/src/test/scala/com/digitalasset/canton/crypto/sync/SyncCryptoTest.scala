@@ -7,6 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.KmsConfig.Driver
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{
+  BatchingConfig,
   CachingConfigs,
   CryptoConfig,
   CryptoProvider,
@@ -132,6 +133,7 @@ trait SyncCryptoTest
       wallClock,
       executorService,
       timeouts,
+      BatchingConfig(),
       loggerFactory,
       NoReportingTracerProvider,
     )
@@ -158,6 +160,7 @@ trait SyncCryptoTest
       val signature = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -180,6 +183,7 @@ trait SyncCryptoTest
       val signature = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -203,6 +207,7 @@ trait SyncCryptoTest
       val signature_1 = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -212,6 +217,7 @@ trait SyncCryptoTest
       val signature_2 = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -236,6 +242,7 @@ trait SyncCryptoTest
       val signature1 = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -245,6 +252,7 @@ trait SyncCryptoTest
       val signature2 = syncCryptoSignerP2
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )

@@ -24,6 +24,7 @@ object PackageManagementClient {
 
 }
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 final class PackageManagementClient(
     service: PackageManagementServiceStub,
     getDefaultToken: () => Option[String] = () => None,

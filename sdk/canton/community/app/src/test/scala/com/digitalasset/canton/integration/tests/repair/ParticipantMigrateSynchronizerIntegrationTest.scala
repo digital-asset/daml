@@ -8,6 +8,11 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
   SynchronizerTimeRange,
   TimeRange,
 }
+import com.digitalasset.canton.admin.api.client.data.{
+  GrpcSequencerConnection,
+  SequencerConnections,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
@@ -40,12 +45,8 @@ import com.digitalasset.canton.participant.admin.grpc.PruningServiceError.Unsafe
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.ReceivedCmtState.Match
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.sync.{SyncServiceError, SynchronizerMigrationError}
-import com.digitalasset.canton.participant.synchronizer.{
-  SynchronizerConnectionConfig,
-  SynchronizerRegistryError,
-}
+import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{KnownPhysicalSynchronizerId, PartyId}

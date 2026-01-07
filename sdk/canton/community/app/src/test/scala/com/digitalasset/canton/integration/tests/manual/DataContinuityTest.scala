@@ -43,7 +43,7 @@ import com.digitalasset.canton.logging.{LogEntry, TracedLogger}
 import com.digitalasset.canton.synchronizer.sequencer.ProgrammableSequencer
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{BinaryFileUtil, MonadUtil}
+import com.digitalasset.canton.util.{BinaryFileUtil, MonadUtil, Mutex}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 import com.digitalasset.canton.{HasExecutionContext, HasTempDirectory, TempDirectory, config}
 import monocle.macros.syntax.lens.*
@@ -54,7 +54,7 @@ import java.util.{Calendar, TimeZone}
 import scala.annotation.unused
 import scala.compat.java8.OptionConverters.RichOptionalGeneric
 import scala.concurrent.duration.*
-import scala.concurrent.{Await, Future, blocking}
+import scala.concurrent.{Await, Future}
 import scala.jdk.CollectionConverters.*
 import scala.sys.process.*
 
@@ -97,7 +97,6 @@ trait DataContinuityTest
 
   protected def dbName: String // e.g., postgres
   protected def dumpFileExtension: String
-  protected def testAllPatchReleases: Boolean
 
   // Set to true if you want to persist the dumps locally even if a test container is found
   lazy val forceLocalDumps = false
@@ -168,6 +167,9 @@ trait DataContinuityTest
       folderName: FolderName
   ): TempDirectory =
     DataContinuityTest.baseDumpForVersion(protocolVersion) / folderName.name / dbName
+
+  protected def getDumpSaveConfigDirectory: TempDirectory =
+    DataContinuityTest.baseDumpForRelease / "config"
 
   protected def getDisclosureSaveDirectory(protocolVersion: ProtocolVersion)(implicit
       folderName: FolderName
@@ -300,8 +302,6 @@ trait DataContinuityTestFixturePostgres extends DataContinuityTest {
   val dumpFileExtension: String = "pg_dump"
   val dbName: String = "postgres"
 
-  protected val testAllPatchReleases = true
-
   override def beforeAll(): Unit = {
     super.beforeAll()
 
@@ -317,13 +317,7 @@ trait DataContinuityTestFixturePostgres extends DataContinuityTest {
     )
 }
 
-trait BasicDataContinuityTestSetup
-    extends DataContinuityTest
-    with HasCycleUtils
-    with HasTrailingNoneUtils
-    with BongTestScenarios
-    with BeforeAndAfterAll
-    with EntitySyntax {
+trait BasicDataContinuityTestEnvironment extends CommunityIntegrationTest with SharedEnvironment {
 
   protected val referenceBlockSequencerPlugin =
     new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
@@ -358,6 +352,12 @@ trait BasicDataContinuityTestSetup
             .replace(Some(RequireTypes.Port.tryCreate(9022)))
         ),
       )
+      .addConfigTransforms(
+        // We don't need it and it is one less port to worry about
+        ConfigTransforms.updateAllParticipantConfigs_(
+          _.focus(_.httpLedgerApi.enabled).replace(false)
+        )
+      )
       .addConfigTransforms(ConfigTransforms.setBetaSupport(testedProtocolVersion.isBeta)*)
       .addConfigTransform(ConfigTransforms.setStartupMemoryReportLevel(Ignore))
       .updateTestingConfig(
@@ -370,7 +370,16 @@ trait BasicDataContinuityTestSetup
           )
         )
       )
+}
 
+trait BasicDataContinuityTestSetup
+    extends DataContinuityTest
+    with BasicDataContinuityTestEnvironment
+    with HasCycleUtils
+    with HasTrailingNoneUtils
+    with BongTestScenarios
+    with BeforeAndAfterAll
+    with EntitySyntax {
   override val defaultParticipant = "participant1"
 }
 
@@ -395,6 +404,7 @@ trait BasicDataContinuityTest extends BasicDataContinuityTestSetup {
           val alice = participant1.parties.list(filterParty = "Alice").headOption.value.party
           val bob = participant1.parties.list(filterParty = "Bob").headOption.value.party
           actOnCycleData(alice)
+
           actOnDisclosedContract(
             alice,
             bob,
@@ -567,6 +577,12 @@ trait SynchronizerChangeDataContinuityTestSetup
             .replace(Some(RequireTypes.Port.tryCreate(11052)))
         ),
       )
+      .addConfigTransforms(
+        // We don't need it and it is one less port to worry about
+        ConfigTransforms.updateAllParticipantConfigs_(
+          _.focus(_.httpLedgerApi.enabled).replace(false)
+        )
+      )
       .addConfigTransform(ConfigTransforms.setStartupMemoryReportLevel(Ignore))
       .updateTestingConfig(
         _.focus(_.participantsWithoutLapiVerification).replace(
@@ -645,18 +661,24 @@ object DataContinuityTest {
   lazy val baseDbDumpPath: TempDirectory = TempDirectory(File("/tmp/canton/data-continuity-dumps/"))
   lazy val localBaseDbDumpPath: File =
     File.currentWorkingDirectory / "community/app/src/test/data-continuity-dumps"
-
+  private val lock = new Mutex()
   val releaseVersion: ReleaseVersion = ReleaseVersion.current
   val protocolVersionPrefix = "pv="
 
+  // /tmp/canton/data-continuity-dumps/release version
+  lazy val baseDumpForRelease: TempDirectory =
+    DataContinuityTest.baseDbDumpPath /
+      DataContinuityTest.releaseVersion.fullVersion
+
   // /tmp/canton/data-continuity-dumps/release version/pv=pv
   def baseDumpForVersion(protocolVersion: ProtocolVersion): TempDirectory =
-    DataContinuityTest.baseDbDumpPath /
-      DataContinuityTest.releaseVersion.fullVersion /
+    baseDumpForRelease /
       (DataContinuityTest.protocolVersionPrefix + protocolVersion.v)
 
+  lazy val baseDumpForConfig: TempDirectory = DataContinuityTest.baseDumpForRelease / "config"
+
   // IO around data continuity tests share directories. Allows to lock when required
-  def synchronizedOperation(f: => Unit): Unit = blocking(this.synchronized(f))
+  def synchronizedOperation(f: => Unit): Unit = lock.exclusive(f)
 
   final case class FolderName(name: String)
 

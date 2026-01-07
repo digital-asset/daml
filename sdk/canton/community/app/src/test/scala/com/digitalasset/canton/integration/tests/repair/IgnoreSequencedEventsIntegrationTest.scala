@@ -6,13 +6,17 @@ package com.digitalasset.canton.integration.tests.repair
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.admin.api.client.data.TemplateId.templateIdsFromJava
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  SynchronizerConnectionConfig,
+}
+import com.digitalasset.canton.config.PositiveDurationSeconds
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.crypto.store.db.DbCryptoPrivateStore
 import com.digitalasset.canton.crypto.{EncryptionPublicKey, KeyPurpose, SigningKeyUsage}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.integration.plugins.{UseH2, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -23,9 +27,7 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal as W
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceSynchronizerDisconnect
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription
 import com.digitalasset.canton.sequencing.protocol.{
   Deliver,
@@ -662,5 +664,5 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
 
 class IgnoreSequencedEventsIntegrationTestH2 extends IgnoreSequencedEventsIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

@@ -21,7 +21,7 @@ import scala.util.Using
 
 object ProtoParser {
 
-  private val ledgerApiProtoLocation = "com/daml/ledger/api/v2"
+  val ledgerApiProtoLocation = "com/daml/ledger/api/v2"
 
   // we need to load any proto file in order to get jarResource (to scan for others)
   private val startingProtoFile = s"$ledgerApiProtoLocation/transaction.proto"

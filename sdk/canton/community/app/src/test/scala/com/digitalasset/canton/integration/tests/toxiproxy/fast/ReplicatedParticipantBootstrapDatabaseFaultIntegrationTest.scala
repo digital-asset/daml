@@ -5,9 +5,9 @@ package com.digitalasset.canton.integration.tests.toxiproxy.fast
 
 import com.daml.test.evidence.scalatest.AccessTestScenario
 import com.daml.test.evidence.tag.Reliability.*
-import com.digitalasset.canton.config.{DbConfig, IdentityConfig}
+import com.digitalasset.canton.config.IdentityConfig
 import com.digitalasset.canton.integration.plugins.toxiproxy.*
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.*
 import com.digitalasset.canton.integration.tests.topology.TopologyManagementHelper
 import com.digitalasset.canton.integration.tests.toxiproxy.ToxiproxyHelpers
@@ -41,7 +41,7 @@ trait ReplicatedParticipantBootstrapDatabaseFaultIntegrationTest
 
   protected def setupPluginsWithToxiproxy(
       storagePlugin: EnvironmentSetupPlugin,
-      blockSequencerPlugin: UseReferenceBlockSequencer[?],
+      blockSequencerPlugin: UseBftSequencer,
   ): () => RunningProxy = {
     registerPlugin(storagePlugin)
     registerPlugin(blockSequencerPlugin)
@@ -141,6 +141,6 @@ class ParticipantBootstrapDatabaseFaultIntegrationTestPostgres
   override protected val getToxiProxy: () => RunningProxy =
     setupPluginsWithToxiproxy(
       new UsePostgres(loggerFactory),
-      new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory),
+      new UseBftSequencer(loggerFactory),
     )
 }

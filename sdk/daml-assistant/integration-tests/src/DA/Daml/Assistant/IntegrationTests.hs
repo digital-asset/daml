@@ -5,7 +5,6 @@ module DA.Daml.Assistant.IntegrationTests (main) where
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import Control.Concurrent
-import Control.Concurrent.STM
 import Control.Exception (onException)
 import Control.Lens
 import Control.Monad
@@ -41,6 +40,8 @@ main :: IO ()
 main = withSdkVersions $ do
     yarn : args <- getArgs
     withTempDir $ \tmpDir -> do
+        createDirectory $ tmpDir </> "daml"
+        createDirectory $ tmpDir </> "dpm"
         oldPath <- getSearchPath
         javaPath <- locateRunfiles "local_jdk/bin"
         yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
@@ -64,23 +65,29 @@ hardcodedToken alice = tokenFor (T.pack alice)
 authorizationHeaders :: String -> RequestHeaders
 authorizationHeaders alice = [("Authorization", "Bearer " <> T.encodeUtf8 (hardcodedToken alice))]
 
-withDamlServiceIn :: FilePath -> String -> [String] -> (ProcessHandle -> IO a) -> IO a
-withDamlServiceIn path command args act = withDevNull $ \devNull -> do
-    let proc' = (shell $ unwords $ ["daml", command, "--shutdown-stdin-close"] <> args)
+withDamlServiceIn :: Assistant -> FilePath -> String -> [String] -> (ProcessHandle -> IO a) -> IO a
+withDamlServiceIn assistant path command args act = withDevNull $ \devNull -> do
+    let proc' = (shell $ unwords $ ([show assistant, command] <> ["--shutdown-stdin-close" | assistant == Daml]) <> args)
           { std_out = UseHandle devNull
           , std_in = CreatePipe
           , cwd = Just path
+          , create_group = True
           }
     withCreateProcess proc' $ \stdin _ _ ph -> do
-        Just stdin <- pure stdin
         r <- act ph
-        hClose stdin
-        -- We tear things down gracefully instead of killing
-        -- the process group so that waiting for the parent process
-        -- ensures that all child processes are all dead too.
-        -- Going via closing stdin works on Windows whereas tearing things
-        -- down gracefully via SIGTERM isn’t as much of a thing so we use the former.
-        _ <- waitForProcess ph
+        if assistant == Daml then do
+          -- We tear things down gracefully instead of killing
+          -- the process group so that waiting for the parent process
+          -- ensures that all child processes are all dead too.
+          -- Going via closing stdin works on Windows whereas tearing things
+          -- down gracefully via SIGTERM isn’t as much of a thing so we use the former.
+          Just stdin <- pure stdin
+          hClose stdin
+          _ <- waitForProcess ph
+          pure ()
+        else
+          -- DPM runs sandbox via the jar directly, which doesn't stop when stdin is closed
+          interruptProcessGroupOf ph
         pure r
 
 data DamlStartResource = DamlStartResource
@@ -89,19 +96,20 @@ data DamlStartResource = DamlStartResource
     , packageRef :: String
     , alice :: String
     , aliceHeaders :: RequestHeaders
-    , startStdin :: Handle
-    , stdoutChan :: TChan String
     , stop :: IO ()
     , sandboxPort :: PortNumber
     , jsonApiPort :: PortNumber
     }
 
-damlStart :: SdkVersioned => FilePath -> IO DamlStartResource
-damlStart tmpDir = do
-    let projDir = tmpDir </> "assistant-integration-tests"
+data Assistant = Daml | DPM deriving Eq
+instance Show Assistant where
+  show Daml = "daml"
+  show DPM = "dpm"
+
+writeStartProject :: SdkVersioned => FilePath -> String -> IO ()
+writeStartProject projDir packageName = do
     createDirectoryIfMissing True (projDir </> "daml")
     let scriptOutputFile = "script-output.json"
-    let packageName = "assistant-integration-tests"
     writeFileUTF8 (projDir </> "daml.yaml") $
         unlines
             [ "sdk-version: " <> sdkVersion
@@ -141,6 +149,12 @@ damlStart tmpDir = do
             , "test : Int -> Script (Int, Int)"
             , "test x = pure (x, x + 1)"
             ]
+
+damlStart :: SdkVersioned => FilePath -> IO DamlStartResource
+damlStart tmpDir = do
+    let projDir = tmpDir </> "daml-integration-tests"
+    let packageName = "daml-integration-tests"
+    writeStartProject projDir packageName
     ports <- sandboxPorts
     jsonApiPort <- getFreePort
     env <- subprocessEnv []
@@ -156,13 +170,14 @@ damlStart tmpDir = do
                 , "--sandbox-option=--debug"
                 ]
             ) {std_in = CreatePipe, std_out = CreatePipe, cwd = Just projDir, create_group = True, env = Just env}
-    (Just startStdin, Just startStdout, _, startPh) <- createProcess startProc
-    outChan <- newBroadcastTChanIO
+    -- stdout of this process must be consumed by something.
+    -- Currently we consume in a reader to get better output logs when it fails. If we ever remove this, must use devnull
+    (Just _, Just startStdout, _, startPh) <- createProcess startProc
+    let scriptOutputFile = "script-output.json"
     historyRef <- newIORef []
     outReader <- forkIO $ forever $ do
         line <- hGetLine startStdout
         atomicModifyIORef' historyRef (\logs -> (line : logs, ()))
-        atomically $ writeTChan outChan line
     -- scriptOutput <- readPortFileWith Just startPh maxRetries (projDir </> scriptOutputFile)
     scriptOutput <- onException (readPortFileWith Just startPh maxRetries (projDir </> scriptOutputFile)) $ do
       storedLogs <- readIORef historyRef
@@ -175,48 +190,119 @@ damlStart tmpDir = do
             , packageRef = "#" <> packageName
             , sandboxPort = ledger ports
             , jsonApiPort = jsonApiPort
-            , startStdin = startStdin
             , alice = alice
             , aliceHeaders = authorizationHeaders "alice"
             , stop = do
-                interruptProcessGroupOf startPh
                 killThread outReader
-            , stdoutChan = outChan
+                interruptProcessGroupOf startPh
             }
+
+-- DPM doesn't have dpm start, so instead we'll use `dpm build`, `dpm sandbox --dar`, `dpm codegen` and `dpm script` to replicate the workflow
+-- If dpm ever adds `start`, we can replace this logic
+dpmStart :: SdkVersioned => FilePath -> IO DamlStartResource
+dpmStart tmpDir = do
+    let projDir = tmpDir </> "dpm-integration-tests"
+    let packageName = "dpm-integration-tests"
+    writeStartProject projDir packageName
+    ports <- sandboxPorts
+    jsonApiPort <- getFreePort
+    env <- subprocessEnv []
+    callCommandSilentIn projDir "dpm build"
+    callCommandSilentIn projDir "dpm codegen-js"
+    callCommandSilentIn projDir "dpm codegen-java"
+    let portFile = "port-file.json"
+    let sandboxProc =
+            (shell $ unwords
+                [ "dpm sandbox"
+                , "--ledger-api-port", show $ ledger ports
+                , "--admin-api-port", show $ admin ports
+                , "--sequencer-public-port", show $ sequencerPublic ports
+                , "--sequencer-admin-port", show $ sequencerAdmin ports
+                , "--mediator-admin-port", show $ mediatorAdmin ports
+                , "--json-api-port", show jsonApiPort
+                , "--canton-port-file", portFile
+                , "--dar", "./.daml/dist/" <> packageName <> "-1.0.dar"
+                ]
+            ) {std_in = CreatePipe, std_out = CreatePipe, cwd = Just projDir, create_group = True, env = Just env}
+    (Just _, Just _, _, sandboxPh) <- createProcess sandboxProc
+    _ <- readPortFileWith decodeCantonSandboxPort sandboxPh maxRetries (projDir </> portFile)
+    let scriptOutputFile = "script-output.json"
+    callCommandSilentIn projDir $ unwords
+      ["dpm", "script"
+      , "--dar", "./.daml/dist/" <> packageName <> "-1.0.dar"
+      , "--script-name", "Main:init"
+      , "--output-file", scriptOutputFile
+      , "--ledger-host", "localhost"
+      , "--ledger-port", show $ ledger ports
+      ]
+    scriptOutput <- readFile (projDir </> scriptOutputFile)
+    let alice = (read scriptOutput :: String)
+    pure $
+        DamlStartResource
+            { projDir = projDir
+            , tmpDir = tmpDir
+            , packageRef = "#" <> packageName
+            , sandboxPort = ledger ports
+            , jsonApiPort = jsonApiPort
+            , alice = alice
+            , aliceHeaders = authorizationHeaders "alice"
+            , stop = interruptProcessGroupOf sandboxPh
+            }
+
 
 tests :: SdkVersioned => FilePath -> TestTree
 tests tmpDir =
-    withSdkResource $ \_ ->
+  sequentialTestGroup
+    "Integration tests"
+    AllFinish
+    [ withSdkResource $ \_ ->
         testGroup
-            "Integration tests"
-            [ testCase "daml version" $
-                callCommandSilentIn tmpDir "daml version"
-            , testCase "daml --help" $
-                callCommandSilentIn tmpDir "daml --help"
-            , testCase "daml new --list" $
-                callCommandSilentIn tmpDir "daml new --list"
-            , packagingTests tmpDir
-            , withResource (damlStart (tmpDir </> "sandbox-canton-1")) stop damlStartTests
-            , cleanTests cleanDir
-            , templateTests
-            , codegenTests codegenDir
-            , cantonTests
-            ]
+          "Daml Assistant"
+          [ testCase "daml version" $
+              callCommandSilentIn damlDir "daml version"
+          , testCase "daml --help" $
+              callCommandSilentIn damlDir "daml --help"
+          , testCase "daml new --list" $
+              callCommandSilentIn damlDir "daml new --list"
+          , packagingTests Daml damlDir
+          , withResource (damlStart (damlDir </> "sandbox-canton-1")) stop (damlStartTests Daml)
+          , cleanTests Daml $ damlDir </> "clean"
+          , templateTests Daml
+          , codegenTests Daml $ damlDir </> "codegen"
+          , cantonTests Daml
+          ]
+    , withDpmSdkResource $ \_ ->
+        testGroup
+          "DPM"
+          [ testCase "dpm version" $
+              callCommandSilentIn dpmDir "dpm version"
+          , testCase "dpm --help" $
+              callCommandSilentIn dpmDir "dpm --help"
+          , testCase "dpm new --list" $
+              callCommandSilentIn dpmDir "dpm new --list"
+          , packagingTests DPM dpmDir
+          , withResource (dpmStart (dpmDir </> "sandbox-canton-1")) stop (damlStartTests DPM)
+          , cleanTests DPM $ dpmDir </> "clean"
+          , templateTests DPM
+          , codegenTests DPM $ dpmDir </> "codegen"
+          , cantonTests DPM
+          ]
+    ]
   where
-    cleanDir = tmpDir </> "clean"
-    codegenDir = tmpDir </> "codegen"
+    damlDir = tmpDir </> "daml"
+    dpmDir = tmpDir </> "dpm"
 
 -- Most of the packaging tests are in the a separate test suite in
 -- //compiler/damlc/tests:packaging. This only has a couple of
 -- integration tests.
-packagingTests :: SdkVersioned => FilePath -> TestTree
-packagingTests tmpDir =
+packagingTests :: SdkVersioned => Assistant -> FilePath -> TestTree
+packagingTests assistant tmpDir =
     testGroup
         "packaging"
         [ testCase "Build Daml script example" $ do
               let projDir = tmpDir </> "script-example"
-              callCommandSilent $ unwords ["daml", "new", projDir, "--template=script-example"]
-              callCommandSilentIn projDir "daml build"
+              callCommandSilent $ unwords [show assistant, "new", projDir, "--template=script-example"]
+              callCommandSilentIn projDir $ unwords [show assistant, "build"]
               let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
               assertFileExists dar
         -- TODO: re-enable this test when the script-example template no longer specifies 1.15
@@ -227,8 +313,8 @@ packagingTests tmpDir =
               let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
               assertFileExists dar -}
         , testCase "Package depending on daml-script can use data-dependencies" $ do
-              callCommandSilent $ unwords ["daml", "new", tmpDir </> "data-dependency"]
-              callCommandSilentIn (tmpDir </> "data-dependency") "daml build -o data-dependency.dar"
+              callCommandSilent $ unwords [show assistant, "new", "--template=skeleton-single-package", tmpDir </> "data-dependency"]
+              callCommandSilentIn (tmpDir </> "data-dependency") $ unwords [show assistant, "build", "-o", "data-dependency.dar"]
               createDirectoryIfMissing True (tmpDir </> "proj")
               writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $
                   unlines
@@ -249,7 +335,7 @@ packagingTests tmpDir =
                       , "f = setup >> allocateParty \"foobar\""
           -- This also checks that we get the same Script type within an SDK version.
                       ]
-              callCommandSilentIn (tmpDir </> "proj") "daml build"
+              callCommandSilentIn (tmpDir </> "proj") $ unwords [show assistant, "build"]
         , testCase "Unused dependency from daml-libs" $ do
               createDirectoryIfMissing True (tmpDir </> "unused-daml-libs")
               writeFileUTF8 (tmpDir </> "unused-daml-libs" </> "daml.yaml") $
@@ -261,7 +347,7 @@ packagingTests tmpDir =
                       , "dependencies: [daml-prim, daml-stdlib, daml-script]"
                       ]
               writeFileUTF8 (tmpDir </> "unused-daml-libs" </> "A.daml") "module A where"
-              (_out, err) <- callCommandIn (tmpDir </> "unused-daml-libs") "daml build"
+              (_out, err) <- callCommandIn (tmpDir </> "unused-daml-libs") $ unwords [show assistant, "build"]
               assertBool ("Warning not found in\n" <> err) $
                 "The following dependencies are not used:\n" `isInfixOf` err
                   && "(daml-script, " `isInfixOf` err
@@ -287,8 +373,8 @@ packagingTests tmpDir =
                       , "data-dependencies: [../unused-data-dependency-aux/.daml/dist/unused-data-dependency-aux-0.0.1.dar]"
                       ]
               writeFileUTF8 (tmpDir </> "unused-data-dependency" </> "A.daml") "module A where"
-              callCommandSilentIn (tmpDir </> "unused-data-dependency-aux") "daml build"
-              (_out, err) <- callCommandIn (tmpDir </> "unused-data-dependency") "daml build"
+              callCommandSilentIn (tmpDir </> "unused-data-dependency-aux") $ unwords [show assistant, "build"]
+              (_out, err) <- callCommandIn (tmpDir </> "unused-data-dependency") $ unwords [show assistant, "build"]
               assertBool ("Warning not found in\n" <> err) $
                 "The following dependencies are not used:\n" `isInfixOf` err
                   && "(unused-data-dependency-aux, 0.0.1)" `isInfixOf` err
@@ -318,8 +404,8 @@ packagingTests tmpDir =
                       ]
               -- Need to import the module for it to be used
               writeFileUTF8 (tmpDir </> "dep-on-upgrading-v2" </> "A.daml") "module A where\nimport V1.A ()"
-              callCommandSilentIn (tmpDir </> "dep-on-upgrading-v1") "daml build"
-              (_out, err) <- callCommandFailingIn (tmpDir </> "dep-on-upgrading-v2") "daml build"
+              callCommandSilentIn (tmpDir </> "dep-on-upgrading-v1") $ unwords [show assistant, "build"]
+              (_out, err) <- callCommandFailingIn (tmpDir </> "dep-on-upgrading-v2") $ unwords [show assistant, "build"]
               assertBool ("Error not found in\n" <> err) $
                 "Please remove the package " `isInfixOf` err
                   && "(dep-on-upgrading, 0.0.1)" `isInfixOf` err
@@ -339,7 +425,7 @@ packagingTests tmpDir =
                       , "import Daml.Script"
                       , "template Name with p : Party where signatory p"
                       ]
-              (_out, err) <- callCommandIn (tmpDir </> "template-depend-on-script") "daml build"
+              (_out, err) <- callCommandIn (tmpDir </> "template-depend-on-script") $ unwords [show assistant, "build"]
               assertBool ("Warning not found in\n" <> err) $
                 "This package defines templates or interfaces, and depends on daml-script." `isInfixOf` err
                   && "(daml-script, " `isInfixOf` err
@@ -387,7 +473,7 @@ packagingTests tmpDir =
                       , -- non-serializable data types are permitted, naturally
                         "data MyFunc = MyFunc with f : Int -> Int"
                       ]
-              callCommandSilentIn (tmpDir </> "allowed-util-defs") "daml build"
+              callCommandSilentIn (tmpDir </> "allowed-util-defs") $ unwords [show assistant, "build"]
               
         ]
     where
@@ -405,17 +491,15 @@ packagingTests tmpDir =
                         ]
                 writeFileUTF8 (tmpDir </> dirName </> "A.daml") $
                     "module A where\n" <> content
-                (_out, err) <- callCommandFailingIn (tmpDir </> dirName) "daml build"
+                (_out, err) <- callCommandFailingIn (tmpDir </> dirName) $ unwords [show assistant, "build"]
                 assertBool ("Error not found in\n" <> err) $
                     ("No " <> errName <> " definitions permitted in forced utility packages (Module A)") `isInfixOf` err
-          
 
-
--- We are trying to run as many tests with the same `daml start` process as possible to safe time.
-damlStartTests :: SdkVersioned => IO DamlStartResource -> TestTree
-damlStartTests getDamlStart =
+-- We are trying to run as many tests with the same `daml start` process as possible to save time.
+damlStartTests :: SdkVersioned => Assistant -> IO DamlStartResource -> TestTree
+damlStartTests assistant getDamlStart =
     -- We use testCaseSteps to make sure each of these tests runs in sequence, not in parallel.
-    testCaseSteps "daml start" $ \step -> do
+    testCaseSteps (show assistant <> " start") $ \step -> do
         let subtest :: forall t. String -> IO t -> IO t
             subtest m p = step m >> p
         subtest "sandbox and json-api come up" $ do
@@ -448,16 +532,20 @@ damlStartTests getDamlStart =
                         }
             createResponse <- httpLbs createRequest manager
             statusCode (responseStatus createResponse) @?= 200
-        subtest "daml start invokes codegen" $ do
+        subtest (show assistant <> " start invokes codegen") $ do
             DamlStartResource {projDir} <- getDamlStart
-            didGenerateJsCode <- doesFileExist (projDir </> "ui" </> "daml.js" </> "assistant-integration-tests-1.0" </> "package.json")
+            didGenerateJsCode <- doesFileExist (projDir </> "ui" </> "daml.js" </> show assistant <> "-integration-tests-1.0" </> "package.json")
             didGenerateJavaCode <- doesFileExist (projDir </> "ui" </> "java" </> "da" </> "internal" </> "template" </> "Archive.java")
             didGenerateJsCode @?= True
             didGenerateJavaCode @?= True
-        subtest "run a daml ledger command" $ do
-            DamlStartResource {projDir, sandboxPort} <- getDamlStart
-            callCommandSilentIn projDir $ unwords
-                ["daml", "ledger", "allocate-party", "--port", show sandboxPort, "Bob"]
+
+        -- DPM doesn't have the ledger commands
+        when (assistant == Daml) $
+            subtest "run a daml ledger command" $ do
+                DamlStartResource {projDir, sandboxPort} <- getDamlStart
+                callCommandSilentIn projDir $ unwords
+                    ["daml", "ledger", "allocate-party", "--port", show sandboxPort, "Bob"]
+
         subtest "Run init-script" $ do
             DamlStartResource {jsonApiPort, aliceHeaders, packageRef} <- getDamlStart
             ledgerEndRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v2/state/ledger-end"
@@ -502,53 +590,54 @@ damlStartTests getDamlStart =
             preview (_Array . to Vector.length) (responseBody queryResponse) @?= Just 2
         subtest "Daml Script --input-file and --output-file" $ do
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
-            let dar = projDir </> ".daml" </> "dist" </> "assistant-integration-tests-1.0.dar"
+            let dar = projDir </> ".daml" </> "dist" </> show assistant <> "-integration-tests-1.0.dar"
             writeFileUTF8 (projDir </> "input.json") "0"
             callCommandSilentIn projDir $ unwords
-                [ "daml script"
+                [ show assistant, "script"
                 , "--dar " <> dar <> " --script-name Main:test"
                 , "--input-file input.json --output-file output.json"
                 , "--ledger-host localhost --ledger-port " <> show sandboxPort
                 ]
             contents <- readFileUTF8 (projDir </> "output.json")
             lines contents @?= ["{", "  \"_1\": 0,", "  \"_2\": 1", "}"]
-        subtest "run a daml deploy without package parties" $ do
-            DamlStartResource {projDir, sandboxPort} <- getDamlStart
-            copyFile (projDir </> "daml.yaml") (projDir </> "daml.yaml.back")
-            writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-                [ "sdk-version: " <> sdkVersion
-                , "name: proj1"
-                , "version: 0.0.1"
-                , "source: daml"
-                , "dependencies:"
-                , "  - daml-prim"
-                , "  - daml-stdlib"
-                , "  - daml-script"
-                -- TODO(#14706): remove build-options once the default major version is 2
-                , "build-options: [--target=2.1]"
-                ]
-            callCommandSilentIn projDir $ unwords ["daml", "deploy", "--host localhost", "--port", show sandboxPort]
-            copyFile (projDir </> "daml.yaml.back") (projDir </> "daml.yaml")
+
+        -- DPM doesn't have the deploy command
+        when (assistant == Daml) $
+            subtest "run a daml deploy without package parties" $ do
+                DamlStartResource {projDir, sandboxPort} <- getDamlStart
+                copyFile (projDir </> "daml.yaml") (projDir </> "daml.yaml.back")
+                writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+                    [ "sdk-version: " <> sdkVersion
+                    , "name: proj1"
+                    , "version: 0.0.1"
+                    , "source: daml"
+                    , "dependencies:"
+                    , "  - daml-prim"
+                    , "  - daml-stdlib"
+                    , "  - daml-script"
+                    ]
+                callCommandSilentIn projDir $ unwords ["daml", "deploy", "--host localhost", "--port", show sandboxPort]
+                copyFile (projDir </> "daml.yaml.back") (projDir </> "daml.yaml")
 
 -- | Ensure that daml clean removes precisely the files created by daml build.
-cleanTests :: FilePath -> TestTree
-cleanTests baseDir = testGroup "daml clean"
-    [ cleanTestFor "skeleton"
+cleanTests :: Assistant -> FilePath -> TestTree
+cleanTests assistant baseDir = testGroup (show assistant <> " clean")
+    [ cleanTestFor "skeleton-single-package"
     , cleanTestFor "quickstart-java"
     ]
     where
         cleanTestFor :: String -> TestTree
         cleanTestFor templateName =
-            testCase ("daml clean test for " <> templateName <> " template") $ do
+            testCase (show assistant <> " clean test for " <> templateName <> " template") $ do
                 createDirectoryIfMissing True baseDir
                 let projectDir = baseDir </> ("proj-" <> templateName)
-                callCommandSilentIn baseDir $ unwords ["daml", "new", projectDir, "--template", templateName]
+                callCommandSilentIn baseDir $ unwords [show assistant, "new", projectDir, "--template", templateName]
                 filesAtStart <- sort <$> listFilesRecursive projectDir
-                callCommandSilentIn projectDir "daml build"
-                callCommandSilentIn projectDir "daml clean"
+                callCommandSilentIn projectDir $ unwords [show assistant, "build"]
+                callCommandSilentIn projectDir $ unwords [show assistant, "clean"]
                 filesAtEnd <- sort <$> listFilesRecursive projectDir
                 when (filesAtStart /= filesAtEnd) $ fail $ unlines
-                    [ "daml clean did not remove all files produced by daml build."
+                    [ show assistant <> " clean did not remove all files produced by " <> show assistant <> " build."
                     , ""
                     , "    files at start:"
                     , unlines (map ("       "++) filesAtStart)
@@ -556,45 +645,58 @@ cleanTests baseDir = testGroup "daml clean"
                     , unlines (map ("       "++) filesAtEnd)
                     ]
 
-templateTests :: TestTree
-templateTests = testGroup "templates" $
+templateTests :: Assistant -> TestTree
+templateTests assistant = testGroup "templates" $
     [ testCase name $ do
         withTempDir $ \tmpDir -> do
             let dir = tmpDir </> "foobar"
-            callCommandSilentIn tmpDir $ unwords ["daml", "new", dir, "--template", name]
-            callCommandSilentIn dir "daml build"
+            callCommandSilentIn tmpDir $ unwords [show assistant, "new", dir, "--template", name]
+            callCommandSilentIn dir $ unwords [show assistant, "build"]
     | name <- templateNames
+    ] <>
+    [ testCase name $ do
+        withTempDir $ \tmpDir -> do
+            let dir = tmpDir </> "foobar"
+            callCommandSilentIn tmpDir $ unwords [show assistant, "new", dir, "--template", name]
+            callCommandSilentIn dir $ unwords [show assistant, "build", "--all"]
+    | name <- multipackageTemplateNames
     ] <>
     [ testCase "quickstart-java, positional template" $ do
         withTempDir $ \tmpDir -> do
             let dir = tmpDir </> "foobar"
             -- Verify that the old syntax for `daml new` still works.
-            callCommandSilentIn tmpDir $ unwords ["daml","new", dir, "quickstart-java"]
+            callCommandSilentIn tmpDir $ unwords [show assistant, "new", dir, "quickstart-java"]
             contents <- readFileUTF8 $ dir </> "daml.yaml"
             assertInfixOf "name: quickstart" contents
+    | assistant == Daml -- Removed old syntax for DPM
     ]
   -- NOTE (MK) We might want to autogenerate this list at some point but for now
   -- this should be good enough.
-  where templateNames =
-            [ "daml-intro-choices"
-            , "daml-intro-compose"
-            , "daml-intro-constraints"
-            , "daml-intro-contracts"
-            , "daml-intro-daml-scripts"
-            , "daml-intro-data"
+  where
+    templateNames =
+      [ "daml-intro-choices"
+      , "daml-intro-compose"
+      , "daml-intro-constraints"
+      , "daml-intro-contracts"
+      , "daml-intro-daml-scripts"
+      , "daml-intro-data"
 --            , "daml-intro-exceptions"    -- warn for deprecated exceptions
-            , "daml-intro-functional-101"
-            , "daml-intro-parties"
---            , "daml-intro-test"          -- multi-package
-            , "daml-patterns"
-            , "quickstart-java"
-            , "script-example"
-            , "skeleton"
-            ]
+      , "daml-intro-functional-101"
+      , "daml-intro-parties"
+      , "daml-patterns"
+      , "quickstart-java"
+      , "script-example"
+      , "skeleton-single-package"
+      ]
+    multipackageTemplateNames =
+      [ "daml-intro-test"
+      , "multi-package-example"
+      , "skeleton"
+      ]
 
 -- | Check we can generate language bindings.
-codegenTests :: FilePath -> TestTree
-codegenTests codegenDir = testGroup "daml codegen" (
+codegenTests :: Assistant -> FilePath -> TestTree
+codegenTests assistant codegenDir = testGroup (show assistant <> " codegen") (
     [ codegenTestFor "java" Nothing
     ] ++
     -- The '@daml/types' NPM package is not available on Windows which
@@ -607,28 +709,31 @@ codegenTests codegenDir = testGroup "daml codegen" (
             testCase lang $ do
                 createDirectoryIfMissing True codegenDir
                 let projectDir = codegenDir </> ("proj-" ++ lang)
-                callCommandSilentIn codegenDir $ unwords ["daml new", projectDir, "--template=skeleton"]
-                callCommandSilentIn projectDir "daml build"
+                callCommandSilentIn codegenDir $ unwords [show assistant, "new", projectDir, "--template=skeleton-single-package"]
+                callCommandSilentIn projectDir $ unwords [show assistant, "build"]
                 let darFile = projectDir </> ".daml/dist/proj-" ++ lang ++ "-0.0.1.dar"
                     outDir  = projectDir </> "generated" </> lang
                 when (lang == "js") $ do
                     let workspaces = Workspaces [makeRelative codegenDir outDir]
                     setupYarnEnv codegenDir workspaces [DamlTypes]
+                let codegenCommand =
+                      case assistant of
+                        Daml -> ["daml", "codegen", lang]
+                        DPM -> ["dpm", "codegen-" <> lang]
                 callCommandSilentIn projectDir $
-                    unwords [ "daml", "codegen", lang
-                            , darFile ++ maybe "" ("=" ++) namespace
+                    unwords $ codegenCommand <>
+                            [ darFile ++ maybe "" ("=" ++) namespace
                             , "-o", outDir]
                 contents <- listDirectory (projectDir </> outDir)
                 assertBool "bindings were written" (not $ null contents)
 
-cantonTests :: TestTree
-cantonTests = testGroup "daml sandbox"
+cantonTests :: Assistant -> TestTree
+cantonTests assistant = testGroup (show assistant <> " sandbox")
     [ testCaseSteps "Can start Canton sandbox and run script" $ \step -> withTempDir $ \dir -> do
         step "Creating package"
-        callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton"]
+        callCommandSilentIn dir $ unwords [show assistant, "new", "skeleton", "--template=skeleton-single-package"]
         step "Building package"
-        -- TODO(#14706): remove explicit target once the default major version is 2
-        callCommandSilentIn (dir </> "skeleton") "daml build --target=2.1"
+        callCommandSilentIn (dir </> "skeleton") $ unwords [show assistant, "build"]
         step "Finding free ports"
         ledgerApiPort <- getFreePort
         adminApiPort <- getFreePort
@@ -638,23 +743,28 @@ cantonTests = testGroup "daml sandbox"
         jsonApiPort <- getFreePort
         step "Staring Canton sandbox"
         let portFile = dir </> "canton-portfile.json"
-        withDamlServiceIn (dir </> "skeleton") "sandbox"
-            [ "--port", show ledgerApiPort
-            , "--admin-api-port", show adminApiPort
-            , "--sequencer-public-port", show sequencerPublicApiPort
-            , "--sequencer-admin-port", show sequencerAdminApiPort
-            , "--mediator-admin-port", show mediatorAdminApiPort
-            , "--json-api-port", show jsonApiPort
-            , "--canton-port-file", portFile
-            ] $ \ ph -> do
+            flags =
+                [ if assistant == Daml then "--port" else "--ledger-api-port", show ledgerApiPort
+                , "--admin-api-port", show adminApiPort
+                , "--sequencer-public-port", show sequencerPublicApiPort
+                , "--sequencer-admin-port", show sequencerAdminApiPort
+                , "--mediator-admin-port", show mediatorAdminApiPort
+                , "--json-api-port", show jsonApiPort
+                , "--canton-port-file", portFile
+                ]
+                -- Dpm doesn't have an upload command, so we use the sandbox flag
+                <> ["--dar" | assistant == DPM]
+                <> [".daml/dist/skeleton-0.0.1.dar" | assistant == DPM]
+        withDamlServiceIn assistant (dir </> "skeleton") "sandbox" flags $ \ ph -> do
             -- wait for port file to be written
             _ <- readPortFileWith decodeCantonSandboxPort ph maxRetries portFile
-            step "Uploading DAR"
-            callCommandSilentIn (dir </> "skeleton") $ unwords
-                ["daml ledger upload-dar --host=localhost --port=" <> show ledgerApiPort, ".daml/dist/skeleton-0.0.1.dar"]
+            when (assistant == Daml) $ do
+                step "Uploading DAR"
+                callCommandSilentIn (dir </> "skeleton") $ unwords
+                    ["daml ledger upload-dar --host=localhost --port=" <> show ledgerApiPort, ".daml/dist/skeleton-0.0.1.dar"]
             step "Running script"
             callCommandSilentIn (dir </> "skeleton") $ unwords
-                [ "daml script"
+                [ show assistant, "script"
                 , "--dar", ".daml/dist/skeleton-0.0.1.dar"
                 , "--script-name Main:setup"
                 , "--ledger-host=localhost", "--ledger-port=" <> show ledgerApiPort
@@ -662,11 +772,11 @@ cantonTests = testGroup "daml sandbox"
             step "Start canton-console"
             env <- getEnvironment
             let cmd = unwords
-                    [ "daml canton-console"
+                    [ show assistant, "canton-console"
                     , "--port", show ledgerApiPort
                     , "--admin-api-port", show adminApiPort
-                    , "--domain-public-port", show sequencerPublicApiPort
-                    , "--domain-admin-port", show sequencerAdminApiPort
+                    , if assistant == Daml then "--domain-public-port" else "--sequencer-public-port", show sequencerPublicApiPort
+                    , if assistant == Daml then "--domain-admin-port" else "--sequencer-admin-port", show sequencerAdminApiPort
                     ]
                 -- NOTE (Sofia): We need to use `script` on Mac and Linux because of this Ammonite issue:
                 --    https://github.com/com-lihaoyi/Ammonite/issues/276
@@ -680,10 +790,10 @@ cantonTests = testGroup "daml sandbox"
                     [ "sandbox.health.is_running"
                     , "local.health.is_running"
                     , "exit" -- This "exit" is necessary on Linux, otherwise the REPL expects more input.
-                             -- script on Linux doesn't transmit the EOF/^D to the REPL, unlike on Mac.
+                            -- script on Linux doesn't transmit the EOF/^D to the REPL, unlike on Mac.
                     ]
                 env' | isWindows || isJust (lookup "TERM" env) = Nothing
-                     | otherwise = Just (("TERM", "xterm-256color") : env)
+                    | otherwise = Just (("TERM", "xterm-256color") : env)
                 proc' = (shell wrappedCmd) { cwd = Just dir, env = env' }
             output <- readCreateProcess proc' (unlines input)
             let outputLines = lines output

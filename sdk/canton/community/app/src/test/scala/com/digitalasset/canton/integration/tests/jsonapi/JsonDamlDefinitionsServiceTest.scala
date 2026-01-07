@@ -5,12 +5,11 @@ package com.digitalasset.canton.integration.tests.jsonapi
 
 import better.files.File
 import com.daml.ledger.api.v2.package_service.ListPackagesResponse
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.http.json.v2.JsPackageCodecs.*
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.AllTemplatesResponse
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.allTemplatesResponseCodec
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
 import com.digitalasset.canton.integration.tests.jsonapi.AbstractHttpServiceIntegrationTestFuns.HttpServiceTestFixtureData
 import com.digitalasset.canton.integration.{ConfigTransforms, EnvironmentDefinition}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -20,11 +19,10 @@ import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.typesig.reader.DamlLfArchiveReader
 import com.google.protobuf
 import com.google.protobuf.ByteString
-import io.circe.parser.decode
+import io.circe.parser.{decode, parse}
 import monocle.Monocle.toAppliedFocusOps
 import org.apache.pekko.http.scaladsl.model.{HttpHeader, StatusCode, StatusCodes, Uri}
 import org.scalatest.Assertion
-import spray.json.*
 
 import java.nio.file.Files
 import scala.concurrent.Future
@@ -57,7 +55,8 @@ class JsonDamlDefinitionsServiceTest
       )
     )
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   "Daml definitions service" should {
     "output the definitions of the reference DAR" onlyRunWithOrGreaterThan (ProtocolVersion.dev) in httpTestFixture {
@@ -80,7 +79,7 @@ class JsonDamlDefinitionsServiceTest
                 .getRequestString(Uri.Path(s"/v2/definitions/packages/$packageId"), headers)
                 .map { case (code, packageSigResult) =>
                   code should be(StatusCodes.OK)
-                  val prettyResult = packageSigResult.parseJson.sortedPrint
+                  val prettyResult = prettySortedJsonString(packageSigResult)
                   File(s"$RootTestResources/$packageId/package-signature.json")
                     .createFileIfNotExists()
                     .overwrite(prettyResult)
@@ -108,7 +107,7 @@ class JsonDamlDefinitionsServiceTest
 
                   val templateIdPath =
                     s"$RootTestResources/$packageId/${windowsSafeTemplateId(templateId.toString())}.json"
-                  val prettyResult = templateDefResult.parseJson.sortedPrint
+                  val prettyResult = prettySortedJsonString(templateDefResult)
                   File(templateIdPath)
                     .createFileIfNotExists()
                     .overwrite(prettyResult)
@@ -136,11 +135,11 @@ class JsonDamlDefinitionsServiceTest
             code should be(StatusCodes.OK)
 
             val expected =
-              File(
-                s"$RootTestResources/$pkgId/$goldenFile.json"
-              ).contentAsString.parseJson.sortedPrint
+              prettySortedJsonString(
+                File(s"$RootTestResources/$pkgId/$goldenFile.json").contentAsString
+              )
 
-            val prettyResult = result.parseJson.sortedPrint
+            val prettyResult = prettySortedJsonString(result)
             prettyResult shouldBe expected
           }
 
@@ -221,4 +220,10 @@ class JsonDamlDefinitionsServiceTest
 
   private def windowsSafeTemplateId(templateId: String): String =
     templateId.replaceAll("\\:", "_")
+
+  private def prettySortedJsonString(s: String): String =
+    parse(s) match {
+      case Left(err) => throw new RuntimeException(s"Failed to parse JSON", err)
+      case Right(j) => j.spaces2SortKeys
+    }
 }

@@ -26,7 +26,11 @@ import com.digitalasset.canton.admin.api.client.data.{
   ListPartiesResult,
   MediatorStatus,
   NodeStatus,
+  SequencerConnectionPoolDelays,
+  SequencerConnectionValidation,
+  SequencerConnections,
   SequencerStatus,
+  SubmissionRequestAmplification,
   TemplateId,
 }
 import com.digitalasset.canton.concurrent.Threading
@@ -45,12 +49,6 @@ import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.config.BaseParticipantConfig
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.{
-  SequencerConnectionPoolDelays,
-  SequencerConnectionValidation,
-  SequencerConnections,
-  SubmissionRequestAmplification,
-}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -91,13 +89,17 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
     @Help.Summary("Reflective inspection of object arguments, handy to inspect case class objects")
     @Help.Description(
-      "Return the list field names of the given object. Helpful function when inspecting the return result."
+      """Return the list field names of the given object.
+        |
+        |Helpful function when inspecting the return result."""
     )
     def object_args[T: TypeTag](@unused obj: T): List[String] = type_args[T]
 
-    @Help.Summary("Reflective inspection of type arguments, handy to inspect case class types")
+    @Help.Summary("Reflective inspection of type arguments")
     @Help.Description(
-      "Return the list of field names of the given type. Helpful function when creating new objects for requests."
+      """Return the list of field names of the given type.
+        |
+        |Helpful function when creating new objects for requests."""
     )
     def type_args[T: TypeTag]: List[String] =
       typeOf[T].members.collect {
@@ -106,8 +108,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
     @Help.Summary("Wait for a condition to become true, using default timeouts")
     @Help.Description("""
-        |Wait until condition becomes true, with a timeout taken from the parameters.timeouts.console.bounded
-        |configuration parameter.""")
+        |Wait until condition becomes true, with a timeout taken from the
+        |parameters.timeouts.console.bounded configuration parameter.""")
     final def retry_until_true(
         condition: => Boolean
     )(implicit
@@ -118,9 +120,13 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     )
 
     @Help.Summary("Wait for a condition to become true")
-    @Help.Description("""Wait `timeout` duration until `condition` becomes true.
-        | Retry evaluating `condition` with an exponentially increasing back-off up to `maxWaitPeriod` duration between retries.
-        |""")
+    @Help.Description(
+      """Wait `timeout` duration until `condition` becomes true.
+        |
+        |Retry evaluating `condition` with an exponentially increasing back-off up to
+        |`maxWaitPeriod` duration between retries.
+        """
+    )
     @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While"))
     final def retry_until_true(
         timeout: NonNegativeDuration,
@@ -237,9 +243,10 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
     @Help.Summary("Create a participants config for Daml script")
     @Help.Description(
-      """The generated config can be passed to `daml script` via the `participant-config` parameter.
-        |More information about the file format can be found in the `documentation <https://docs.daml.com/daml-script/index.html#using-daml-script-in-distributed-topologies>`_:
-        |It takes three arguments:
+      """The generated config can be passed to `daml script` via the `participant-config`
+        |parameter.
+        |
+        |Parameters:
         |- file (default to "participant-config.json")
         |- useParticipantAlias (default to true): participant aliases are used instead of UIDs
         |- defaultParticipant (default to None): adds a default participant if provided
@@ -265,13 +272,13 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         environment.environment.addUserCloseable(closeable)
       )
 
-    @Help.Summary("Writes several Protobuf messages to a file.")
+    @Help.Summary("Writes several Protobuf messages to a file")
     def write_to_file(data: Seq[scalapb.GeneratedMessage], fileName: String): Unit =
       File(fileName).outputStream.foreach { os =>
         data.foreach(_.writeDelimitedTo(os))
       }
 
-    @Help.Summary("Reads several Protobuf messages from a file.")
+    @Help.Summary("Reads several Protobuf messages from a file")
     @Help.Description("Fails with an exception, if the file can't be read or parsed.")
     def read_all_messages_from_file[A <: scalapb.GeneratedMessage](
         fileName: String
@@ -283,11 +290,11 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           }
         }
 
-    @Help.Summary("Writes a Protobuf message to a file.")
+    @Help.Summary("Writes a Protobuf message to a file")
     def write_to_file(data: scalapb.GeneratedMessage, fileName: String): Unit =
       write_to_file(Seq(data), fileName)
 
-    @Help.Summary("Reads a single Protobuf message from a file.")
+    @Help.Summary("Reads a single Protobuf message from a file")
     @Help.Description("Fails with an exception, if the file can't be read or parsed.")
     def read_first_message_from_file[A <: scalapb.GeneratedMessage](
         fileName: String
@@ -300,11 +307,11 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           )
         )
 
-    @Help.Summary("Writes a ByteString to a file.")
+    @Help.Summary("Writes a ByteString to a file")
     def write_to_file(data: ByteString, fileName: String): Unit =
       BinaryFileUtil.writeByteStringToFile(fileName, data)
 
-    @Help.Summary("Reads a ByteString from a file.")
+    @Help.Summary("Reads a ByteString from a file")
     @Help.Description("Fails with an exception, if the file can't be read.")
     def read_byte_string_from_file(fileName: String)(implicit env: ConsoleEnvironment): ByteString =
       env.runE(BinaryFileUtil.readByteStringFromFile(fileName))
@@ -482,19 +489,17 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
     @Help.Summary("Yields the timeout for running console commands")
     @Help.Description(
-      "Yields the timeout for running console commands. " +
-        "When the timeout has elapsed, the console stops waiting for the command result. " +
-        "The command will continue running in the background."
+      """When the timeout has elapsed, the console stops waiting for the command result.
+        |The command will continue running in the background."""
     )
     def command_timeout(implicit env: ConsoleEnvironment): NonNegativeDuration =
       env.commandTimeouts.bounded
 
-    @Help.Summary("Sets the timeout for running console commands.")
+    @Help.Summary("Sets the timeout for running console commands")
     @Help.Description(
-      "Sets the timeout for running console commands. " +
-        "When the timeout has elapsed, the console stops waiting for the command result. " +
-        "The command will continue running in the background. " +
-        "The new timeout must be positive."
+      """When the timeout has elapsed, the console stops waiting for the command result.
+        |The command will continue running in the background.
+        |The new timeout must be positive."""
     )
     def set_command_timeout(newTimeout: NonNegativeDuration)(implicit
         env: ConsoleEnvironment
@@ -516,11 +521,13 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
     @Help.Summary("Bootstraps a decentralized namespace for the provided owners")
     @Help.Description(
-      """Returns the decentralized namespace, the fully authorized transaction of its definition, as well
-        |as all root certificates of the owners. This allows other nodes to import and
+      """Returns the decentralized namespace, the fully authorized transaction of its definition,
+        |as well as all root certificates of the owners. This allows other nodes to import and
         |fully validate the decentralized namespace definition.
-        |After this call has finished successfully, all of the owners have stored the co-owners' identity topology
-        |transactions as well as the fully authorized decentralized namespace definition in the specified topology store."""
+        |
+        |After this call has finished successfully, all of the owners have stored the co-owners'
+        |identity topology transactions as well as the fully authorized decentralized namespace
+        |definition in the specified topology store."""
     )
     def decentralized_namespace(
         owners: Seq[InstanceReference],
@@ -791,10 +798,12 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
     @Help.Summary("Bootstraps a local synchronizer using default arguments")
     @Help.Description(
-      "This is a convenience method for bootstrapping a local synchronizer." +
-        "The synchronizer will include all sequencers and mediators that are currently running." +
-        "It will be owned by the sequencers, while the mediator threshold will be set to require" +
-        "all mediators to confirm."
+      """This is a convenience method for bootstrapping a local synchronizer.
+        |
+        |The synchronizer will include all sequencers and mediators that are currently running.
+        |It will be owned by the sequencers, while the mediator threshold will be set to require
+        |all mediators to confirm.
+        |"""
     )
     def synchronizer_local(
         synchronizerName: String = "local"
@@ -836,12 +845,11 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       ).logical
     }
 
-    @Help.Summary(
-      "Bootstraps a new synchronizer."
-    )
+    @Help.Summary("Bootstraps a new synchronizer")
     @Help.Description(
       """Bootstraps a new synchronizer with the given static synchronizer parameters and members.
-        |Any participants as synchronizer owners must still manually connect to the synchronizer afterwards.
+        |Any participants as synchronizer owners must still manually connect to the synchronizer
+        |afterwards.
         """
     )
     def synchronizer(
@@ -866,16 +874,16 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         mediatorThreshold,
       )
 
-    @Help.Summary(
-      "Bootstraps a new synchronizer."
-    )
+    @Help.Summary("Bootstraps a new synchronizer")
     @Help.Description(
       """Bootstraps a new synchronizer with the given static synchronizer parameters and members.
-        |Any participants as synchronizer owners must still manually connect to the synchronizer afterwards.
+        |Any participants as synchronizer owners must still manually connect to the synchronizer
+        |afterwards.
         |
         |Parameters:
-        |  mediatorsToSequencers: map of mediator reference to a tuple of a sequence of sequencer references,
-        |                         the sequencer trust threshold and the liveness margin for the given mediator.
+        |- mediatorsToSequencers: Map of mediator reference to a tuple of a sequence of sequencer
+        |  references, the sequencer trust threshold and the liveness margin for the given
+        |  mediator.
         """
     )
     def synchronizer(
@@ -926,12 +934,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       }
     }
 
-    @Help.Summary(
-      "Onboards a new Sequencer node."
-    )
-    @Help.Description(
-      "Onboards a new Sequencer node using an existing node from the network."
-    )
+    @Help.Summary("Onboards a new Sequencer node")
+    @Help.Description("Onboards a new Sequencer node using an existing node from the network.")
     def onboard_new_sequencer(
         synchronizerId: SynchronizerId,
         newSequencer: SequencerReference,
@@ -1037,8 +1041,11 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
   @Help.Group("Pruning")
   object pruning extends Helpful {
 
-    @Help.Summary(
-      "Sets the pruning schedule on all participants, mediators, and database sequencers in the environment"
+    @Help.Summary("Sets the pruning schedule on prunable nodes")
+    @Help.Description(
+      """Sets the pruning schedule on all participants, mediators, and database sequencers in the
+        |environment.
+        """
     )
     def set_schedule(
         cron: String,
@@ -1050,8 +1057,11 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         logger.info(s"Enabled pruning of node $name at $cron")
       }
 
-    @Help.Summary(
-      "Deactivates scheduled pruning on all participants, mediators, and database sequencers in the environment"
+    @Help.Summary("Deactivates scheduled pruning on all prunable nodes")
+    @Help.Description(
+      """Deactivates scheduled pruning on all participants, mediators, and database sequencers in
+        |the environment.
+        """
     )
     def clear_schedule()(implicit env: ConsoleEnvironment): Unit =
       allPrunableNodes.foreach { case (name, prunable) =>

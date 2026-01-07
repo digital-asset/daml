@@ -322,7 +322,7 @@ Divulgence from the previous section refers to parties learning about contracts 
 Disclosure is about such parties using contracts in their own transactions.
 
 Recall from the :ref:`running example <ledger-structure_running_example>`
-that Bob uses ``submitWithDisclosures`` for the exercising ``Settle`` choice.
+that Bob uses ``submit`` with a disclosure for the exercising ``Settle`` choice.
 This is because Bob (and its Participant Node) in general does not know about the ``SimpleAsset`` contract #2
 that Alice has allocated to the proposal.
 Disclosure means that Alice tells Bob via an off-ledger communication channel about this contract.

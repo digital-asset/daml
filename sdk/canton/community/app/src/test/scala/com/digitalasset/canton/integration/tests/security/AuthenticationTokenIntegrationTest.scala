@@ -9,10 +9,9 @@ import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authenticity
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.{DbConfig, StorageConfig}
 import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -284,10 +283,11 @@ trait AuthenticationTokenIntegrationTest
 }
 
 class AuthenticationTokenIntegrationTestInMemory extends AuthenticationTokenIntegrationTest {
-  registerPlugin(new UseReferenceBlockSequencer[StorageConfig.Memory](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 class AuthenticationTokenIntegrationTestPostgres extends AuthenticationTokenIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
+
 }

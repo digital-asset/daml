@@ -6,10 +6,9 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 import com.daml.ledger.javaapi.data.*
 import com.daml.ledger.javaapi.data.codegen.HasCommands
 import com.digitalasset.canton.admin.api.client.data.FlagNotSet
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.damltests.java.explicitdisclosure.PriceQuotation
 import com.digitalasset.canton.integration.EnvironmentDefinition
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors.ContractNotFound
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.topology.PartyId
@@ -130,5 +129,5 @@ sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
 final class OfflinePartyReplicationExplicitDisclosureIntegrationTestPostgres
     extends OfflinePartyReplicationExplicitDisclosureIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

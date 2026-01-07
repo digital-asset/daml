@@ -10,11 +10,11 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeProportion, PositiveInt}
-import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig, NonNegativeDuration}
-import com.digitalasset.canton.console.LocalParticipantReference
+import com.digitalasset.canton.config.{CommitmentSendDelay, NonNegativeDuration}
+import com.digitalasset.canton.console.{LocalParticipantReference, LocalSequencerReference}
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UseH2, UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2, UsePostgres}
 import com.digitalasset.canton.integration.tests.util.{CommitmentTestUtil, IntervalDuration}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -59,6 +59,9 @@ trait AcsCommitmentRepairIntegrationTest
           _.focus(_.parameters.engine.enableAdditionalConsistencyChecks)
             .replace(true)
         ),
+        ConfigTransforms.updateAllSequencerConfigs_(
+          _.focus(_.timeTracker.observationLatency).replace(config.NonNegativeFiniteDuration.Zero)
+        ),
       )
       .updateTestingConfig(
         _.focus(_.commitmentSendDelay)
@@ -95,13 +98,15 @@ trait AcsCommitmentRepairIntegrationTest
         passTopologyRegistrationTimeout(env)
       }
 
-  def createContractsAndCheck(synchronizerId: SynchronizerId)(implicit
-      env: FixtureParam
+  def createContractsAndCheck(sequencer: LocalSequencerReference, synchronizerId: SynchronizerId)(
+      implicit env: FixtureParam
   ): (Seq[Iou.Contract], CommitmentPeriod, AcsCommitment.HashedCommitmentType) = {
     import env.*
     val nContracts = PositiveInt.three
     val simClock = environment.simClock.value
-    simClock.advanceTo(simClock.uniqueTime().immediateSuccessor)
+
+    val initialTimestamp =
+      sequencer.underlying.value.sequencer.timeTracker.fetchTime().futureValueUS
 
     val createdCids =
       (1 to nContracts.value).map(_ =>
@@ -113,19 +118,29 @@ trait AcsCommitmentRepairIntegrationTest
         )
       )
 
-    val tick1 = tickAfter(simClock.uniqueTime())
+    // bump the time past the next reconciliation interval
+    val tick1 = tickAfter(initialTimestamp.immediateSuccessor)
     simClock.advanceTo(tick1.forgetRefinement.immediateSuccessor)
-
-    participant1.testing.fetch_synchronizer_times()
+    val now = simClock.now
 
     val p1Computed = eventually() {
+      // make sure sequencer has reached the reconciliation interval
+      sequencer.underlying.value.sequencer.timeTracker
+        .awaitTick(tick1.forgetRefinement.immediateSuccessor)
+        .foreach(
+          _.futureValue
+        )
+      // and the participant observes it as well, so that the commitments are computed
+      participant1.testing.fetch_synchronizer_times()
+
       val p1Computed = participant1.commitments
         .computed(
           daName,
-          tick1.toInstant.minusMillis(1),
-          tick1.toInstant,
+          initialTimestamp.toInstant,
+          now.toInstant,
           Some(participant2),
         )
+
       p1Computed.size shouldBe 1
       p1Computed
     }
@@ -141,8 +156,14 @@ trait AcsCommitmentRepairIntegrationTest
 
       val simClock = environment.simClock.value
 
+      val now = simClock.now
+      // make sure sequencer time is close to the sim clock time from the beginning
+      sequencers.local.foreach(
+        _.underlying.value.sequencer.timeTracker.awaitTick(now).foreach(_.futureValue)
+      )
+
       // Deploy three contracts. P1 and P2 exchange commitments
-      createContractsAndCheck(daId)
+      createContractsAndCheck(sequencer1, daId)
 
       // P1 reinitializes commitments on da and acme. We should see the reinit in the DB, but no errors or warnings
       // in particular regarding inconsistencies or commitment mismatches.
@@ -163,8 +184,8 @@ trait AcsCommitmentRepairIntegrationTest
       forAll(reinitCmtsResult)(_.acsTimestamp.isDefined shouldBe true)
       forAll(reinitCmtsResult)(_.acsTimestamp.value shouldBe >=(ts))
       // exchange commitments again, all should be fine
-      createContractsAndCheck(daId)
-      createContractsAndCheck(acmeId)
+      createContractsAndCheck(sequencer1, daId)
+      createContractsAndCheck(sequencer2, acmeId)
 
       // Corrupt P2's running commitments on da by emptying them in the DB. We do that while disconnecting P2 from da
       // so upon reconnect P2 initializes its running commitments from the DB. We expect that commitment exchange results
@@ -201,7 +222,7 @@ trait AcsCommitmentRepairIntegrationTest
           }
 
           // exchange commitments
-          val (_, period3da, _) = createContractsAndCheck(daId)
+          val (_, period3da, _) = createContractsAndCheck(sequencer1, daId)
           eventually() {
             val p1Received = participant1.commitments.lookup_received_acs_commitments(
               synchronizerTimeRanges = Seq(
@@ -271,7 +292,7 @@ trait AcsCommitmentRepairIntegrationTest
       )
 
       // the commitment should match the returned one
-      val (_, period4da, _) = createContractsAndCheck(daId)
+      val (_, period4da, _) = createContractsAndCheck(sequencer1, daId)
       eventually() {
         val p1Received = participant1.commitments.lookup_received_acs_commitments(
           synchronizerTimeRanges = Seq(
@@ -339,7 +360,7 @@ trait AcsCommitmentRepairIntegrationTest
 class AcsCommitmentRepairIntegrationTestPostgres extends AcsCommitmentRepairIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(
@@ -354,7 +375,7 @@ class AcsCommitmentRepairIntegrationTestPostgres extends AcsCommitmentRepairInte
 class AcsCommitmentRepairIntegrationTestH2 extends AcsCommitmentRepairIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.H2](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(

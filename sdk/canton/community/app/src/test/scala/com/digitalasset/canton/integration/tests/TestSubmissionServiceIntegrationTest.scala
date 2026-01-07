@@ -9,12 +9,11 @@ import com.daml.ledger.api.v2.transaction.Transaction.toJavaProto
 import com.daml.ledger.api.v2.value.Value
 import com.daml.ledger.api.v2.value.Value.Sum
 import com.daml.ledger.javaapi.data.Transaction
-import com.digitalasset.canton.config.DbConfig.Postgres
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.damltestsdev.java.basickeys.{BasicKey, KeyOps}
 import com.digitalasset.canton.examples.java.cycle.Cycle
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.util.TestSubmissionService
 import com.digitalasset.canton.integration.util.TestSubmissionService.{
   CommandsWithMetadata,
@@ -287,7 +286,7 @@ abstract sealed class TestSubmissionServiceIntegrationTestDevLf
 trait TestSubmissionServiceReferenceSequencerPostgresTest {
   self: SharedEnvironment =>
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseReferenceBlockSequencer[Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }
 
 class ReferenceTestSubmissionServiceIntegrationTestPostgresStableLf

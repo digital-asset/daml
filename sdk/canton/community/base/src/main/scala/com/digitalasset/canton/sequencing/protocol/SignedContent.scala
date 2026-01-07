@@ -180,11 +180,31 @@ object SignedContent
       Some(originalByteString),
     )
 
+  /** @param timestampOfSigningKey
+    *   indicates which topology snapshot’s timestamp was used when producing the signature. Leave
+    *   as [[scala.None$]] if the content itself provides enough information to deduce this
+    *   timestamp. This timestamp is currently only used by the traffic-cost primitives. During
+    *   traffic-cost validation, it is compared against the most recent known synchronizer timestamp
+    *   to decide whether to reject the request, use the current snapshot, or wait for a future one.
+    *   The value reflects the last perceived topology state rather than the "current" time, which
+    *   is why using `approximateTimestampOverride` (that takes the value 'clock.now') does not make
+    *   sense and would require adjusting the validation logic to also rely on the current time of
+    *   the validator node.
+    * @param approximateTimestampOverride
+    *   an optional timestamp used during signing to compute the validity period of session signing
+    *   keys. This should only be set when signing submission requests, encrypted view messages, or
+    *   any other cases where the topology is not yet fixed, i.e., when using a topology snapshot
+    *   approximation. The snapshot used during signing is still that snapshot approximation. The
+    *   local clock is often a suitable value for `approximateTimestampOverride`, as it reflects the
+    *   signer's current time. On the verifier side, the current node time must also be taken into
+    *   account when validating the signature (and the session signing key).
+    */
   def create[A <: HasCryptographicEvidence](
       cryptoApi: CryptoPureApi,
       cryptoPrivateApi: SyncCryptoApi,
       content: A,
       timestampOfSigningKey: Option[CantonTimestamp],
+      approximateTimestampOverride: Option[CantonTimestamp],
       purpose: HashPurpose,
       protocolVersion: ProtocolVersion,
   )(implicit
@@ -195,7 +215,7 @@ object SignedContent
     // so fine to call once for the hash here and then again when serializing to protobuf
     val hash = hashContent(cryptoApi, content, purpose)
     cryptoPrivateApi
-      .sign(hash, SigningKeyUsage.ProtocolOnly)
+      .sign(hash, SigningKeyUsage.ProtocolOnly, approximateTimestampOverride)
       .map(signature => SignedContent(content, signature, timestampOfSigningKey, protocolVersion))
   }
 
@@ -211,6 +231,7 @@ object SignedContent
       cryptoPrivateApi: SyncCryptoApi,
       content: A,
       timestampOfSigningKey: Option[CantonTimestamp],
+      approximateTimestampOverride: Option[CantonTimestamp],
       purpose: HashPurpose,
       protocolVersion: ProtocolVersion,
   )(implicit
@@ -222,6 +243,7 @@ object SignedContent
       cryptoPrivateApi,
       content,
       timestampOfSigningKey,
+      approximateTimestampOverride,
       purpose,
       protocolVersion,
     )

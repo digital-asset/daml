@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
+import com.digitalasset.canton.config.CantonRequireTypes.String185
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.{HasExecutionContext, LfPartyId}
 import org.scalatest.flatspec.AnyFlatSpec
@@ -19,6 +20,7 @@ private[backend] trait StorageBackendTestsParties
   behavior of "StorageBackend (parties)"
 
   import StorageBackendTestValues.*
+  import com.digitalasset.daml.lf.data.Ref.Party.assertFromString as party
 
   it should "ingest a single party update" in {
     val someOffset = offset(1)
@@ -28,11 +30,11 @@ private[backend] trait StorageBackendTestsParties
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(dtos, _))
-    val partiesBeforeLedgerEndUpdate = executeSql(backend.party.knownParties(None, 10))
+    val partiesBeforeLedgerEndUpdate = executeSql(backend.party.knownParties(None, None, 10))
     executeSql(
       updateLedgerEnd(someOffset, ledgerEndSequentialId = 0)
     )
-    val partiesAfterLedgerEndUpdate = executeSql(backend.party.knownParties(None, 10))
+    val partiesAfterLedgerEndUpdate = executeSql(backend.party.knownParties(None, None, 10))
 
     // The first query is executed before the ledger end is updated.
     // It should not see the already ingested party allocation.
@@ -45,31 +47,31 @@ private[backend] trait StorageBackendTestsParties
   it should "accumulate multiple party records into one response" in {
     val dtos = Vector(
       // singular non-local
-      dtoPartyEntry(offset(1), "aaf", isLocal = false),
+      dtoPartyEntry(offset(1), party("aaf"), isLocal = false),
       // singular local
-      dtoPartyEntry(offset(2), "bbt", isLocal = true),
+      dtoPartyEntry(offset(2), party("bbt"), isLocal = true),
       // desired values in last record
-      dtoPartyEntry(offset(3), "cct", isLocal = false),
-      dtoPartyEntry(offset(4), "cct", isLocal = false),
-      dtoPartyEntry(offset(5), "cct", isLocal = true),
+      dtoPartyEntry(offset(3), party("cct"), isLocal = false),
+      dtoPartyEntry(offset(4), party("cct"), isLocal = false),
+      dtoPartyEntry(offset(5), party("cct"), isLocal = true),
       // desired values in last record except of is-local
-      dtoPartyEntry(offset(6), "ddt", isLocal = false),
-      dtoPartyEntry(offset(7), "ddt", isLocal = true),
-      dtoPartyEntry(offset(8), "ddt", isLocal = false),
+      dtoPartyEntry(offset(6), party("ddt"), isLocal = false),
+      dtoPartyEntry(offset(7), party("ddt"), isLocal = true),
+      dtoPartyEntry(offset(8), party("ddt"), isLocal = false),
       // desired values in last record, reject coming in the middle
-      dtoPartyEntry(offset(9), "eef", isLocal = false),
-      dtoPartyEntry(offset(10), "eef", isLocal = true, reject = true),
-      dtoPartyEntry(offset(11), "eef", isLocal = false),
+      dtoPartyEntry(offset(9), party("eef"), isLocal = false),
+      dtoPartyEntry(offset(10), party("eef"), isLocal = true, reject = true),
+      dtoPartyEntry(offset(11), party("eef"), isLocal = false),
       // desired values in middle record, reject coming last
-      dtoPartyEntry(offset(12), "fff", isLocal = false),
-      dtoPartyEntry(offset(13), "fff", isLocal = false),
-      dtoPartyEntry(offset(14), "fff", isLocal = true, reject = true),
+      dtoPartyEntry(offset(12), party("fff"), isLocal = false),
+      dtoPartyEntry(offset(13), party("fff"), isLocal = false),
+      dtoPartyEntry(offset(14), party("fff"), isLocal = true, reject = true),
       // desired values before ledger end, undesired accept after ledger end
-      dtoPartyEntry(offset(15), "ggf", isLocal = false),
-      dtoPartyEntry(offset(17), "ggf", isLocal = true),
+      dtoPartyEntry(offset(15), party("ggf"), isLocal = false),
+      dtoPartyEntry(offset(17), party("ggf"), isLocal = true),
       // desired values before ledger end, undesired reject after ledger end
-      dtoPartyEntry(offset(16), "hhf", isLocal = false),
-      dtoPartyEntry(offset(18), "hhf", isLocal = true, reject = true),
+      dtoPartyEntry(offset(16), party("hhf"), isLocal = false),
+      dtoPartyEntry(offset(18), party("hhf"), isLocal = true, reject = true),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
@@ -82,11 +84,11 @@ private[backend] trait StorageBackendTestsParties
     def validateEntries(entry: IndexerPartyDetails): Unit =
       entry.isLocal shouldBe entry.party.lastOption.contains('t')
 
-    val allKnownParties = executeSql(backend.party.knownParties(None, 10))
+    val allKnownParties = executeSql(backend.party.knownParties(None, None, 10))
     allKnownParties.length shouldBe 8
     allKnownParties.foreach(validateEntries)
 
-    val pageOne = executeSql(backend.party.knownParties(None, 4))
+    val pageOne = executeSql(backend.party.knownParties(None, None, 4))
     pageOne.length shouldBe 4
     pageOne.foreach(validateEntries)
     pageOne.exists(_.party == "aaf") shouldBe true
@@ -95,7 +97,7 @@ private[backend] trait StorageBackendTestsParties
     pageOne.exists(_.party == "ddt") shouldBe true
 
     val pageTwo =
-      executeSql(backend.party.knownParties(Some(LfPartyId.assertFromString("ddt")), 10))
+      executeSql(backend.party.knownParties(Some(LfPartyId.assertFromString("ddt")), None, 10))
     pageTwo.length shouldBe 4
     pageTwo.foreach(validateEntries)
     pageTwo.exists(_.party == "eef") shouldBe true
@@ -106,12 +108,12 @@ private[backend] trait StorageBackendTestsParties
 
   it should "get all parties ordered by id using binary collation" in {
     val dtos = Vector(
-      dtoPartyEntry(offset(1), "a", isLocal = false),
-      dtoPartyEntry(offset(2), "a-", isLocal = false),
-      dtoPartyEntry(offset(3), "b", isLocal = false),
-      dtoPartyEntry(offset(4), "a_", isLocal = false),
-      dtoPartyEntry(offset(5), "-a", isLocal = false),
-      dtoPartyEntry(offset(6), "_a", isLocal = false),
+      dtoPartyEntry(offset(1), party("a"), isLocal = false),
+      dtoPartyEntry(offset(2), party("a-"), isLocal = false),
+      dtoPartyEntry(offset(3), party("b"), isLocal = false),
+      dtoPartyEntry(offset(4), party("a_"), isLocal = false),
+      dtoPartyEntry(offset(5), party("-a"), isLocal = false),
+      dtoPartyEntry(offset(6), party("_a"), isLocal = false),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
@@ -121,21 +123,26 @@ private[backend] trait StorageBackendTestsParties
       updateLedgerEnd(offset(6), ledgerEndSequentialId = 0)
     )
 
-    val allKnownParties = executeSql(backend.party.knownParties(None, 10))
+    val allKnownParties = executeSql(backend.party.knownParties(None, None, 10))
     allKnownParties.length shouldBe 6
+
+    val filteredParties =
+      executeSql(backend.party.knownParties(None, Some(String185.tryCreate("a-")), 10))
+    filteredParties.length shouldBe 1
 
     allKnownParties
       .map(_.party) shouldBe Seq("-a", "_a", "a", "a-", "a_", "b")
 
-    val pageOne = executeSql(backend.party.knownParties(None, 3))
+    val pageOne = executeSql(backend.party.knownParties(None, None, 3))
     pageOne.length shouldBe 3
     pageOne
       .map(_.party) shouldBe Seq("-a", "_a", "a")
 
     val pageTwo =
-      executeSql(backend.party.knownParties(Some(LfPartyId.assertFromString("a")), 10))
+      executeSql(backend.party.knownParties(Some(LfPartyId.assertFromString("a")), None, 10))
     pageTwo.length shouldBe 3
     pageTwo
       .map(_.party) shouldBe Seq("a-", "a_", "b")
   }
+
 }

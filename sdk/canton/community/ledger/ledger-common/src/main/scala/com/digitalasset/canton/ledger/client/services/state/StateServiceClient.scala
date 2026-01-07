@@ -25,6 +25,7 @@ import org.apache.pekko.stream.scaladsl.{Sink, Source}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class StateServiceClient(
     service: StateServiceStub,
     getDefaultToken: () => Option[String] = () => None,

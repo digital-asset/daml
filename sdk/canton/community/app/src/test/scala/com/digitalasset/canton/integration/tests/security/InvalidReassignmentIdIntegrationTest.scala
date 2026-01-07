@@ -5,16 +5,15 @@ package com.digitalasset.canton.integration.tests.security
 
 import com.daml.test.evidence.tag.Security.SecurityTestSuite
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.UnassignmentData
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UsePostgres,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.{AcsInspection, EntitySyntax, PartiesAllocator}
@@ -36,7 +35,6 @@ import com.digitalasset.canton.util.MaliciousParticipantNode
 import org.scalatest.Assertion
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.collection.immutable.Seq
 
 /** The intent of this test is to validate that a malicious node cannot cause other participants to
   * commit an assignment containing data that differs from data in the corresponding unassignment.
@@ -164,6 +162,7 @@ sealed trait InvalidReassignmentIdIntegrationTest
                 .submitAssignmentRequest(
                   signatory.toLf,
                   unassignment2,
+                  Some(environment.now),
                   overrideReassignmentId = Some(unassignment1.reassignmentId),
                 )
                 .futureValueUS
@@ -239,7 +238,7 @@ sealed trait InvalidReassignmentIdIntegrationTest
 class InvalidReassignmentIdIntegrationTestPostgres extends InvalidReassignmentIdIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2")).map(_.map(InstanceName.tryCreate))

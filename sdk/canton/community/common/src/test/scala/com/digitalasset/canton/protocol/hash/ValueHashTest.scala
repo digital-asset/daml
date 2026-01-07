@@ -15,7 +15,7 @@ import java.time.Instant
 
 class ValueHashTest extends BaseTest with AnyWordSpecLike with HashUtilsTest {
   "ValueBuilder" should {
-    def withValueBuilder(f: (LfValueBuilder, HashTracer.StringHashTracer) => Assertion) = {
+    def withValueBuilder(f: (LfValueHashBuilder, HashTracer.StringHashTracer) => Assertion) = {
       val hashTracer = HashTracer.StringHashTracer()
       val builder = LfValueHashBuilder.valueBuilderForV1Node(hashTracer)
       f(builder, hashTracer)

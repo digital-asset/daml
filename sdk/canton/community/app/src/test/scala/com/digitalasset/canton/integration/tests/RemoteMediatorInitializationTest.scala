@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration.tests
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.RemoteMediatorReference
 import com.digitalasset.canton.crypto.{KeyPurpose, SigningPublicKeyWithName}
@@ -11,7 +10,7 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.{UseExternalProcess, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseExternalProcess}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -46,7 +45,7 @@ class RemoteMediatorInitializationTest extends CommunityIntegrationTest with Sha
     }
 
   registerPlugin(externalPlugin)
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   protected def setup(env: TestConsoleEnvironment): Unit = {
     import env.*

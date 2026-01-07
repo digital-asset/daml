@@ -132,6 +132,7 @@ class DriverBlockSequencerFactory[C](
       nodeParameters.loggingConfig.eventDetails,
       nodeParameters.loggingConfig.api.printer,
       metrics,
+      nodeParameters.batchingConfig,
       synchronizerLoggerFactory,
       exitOnFatalFailures = nodeParameters.exitOnFatalFailures,
       runtimeReady = runtimeReady,

@@ -11,7 +11,6 @@ import com.daml.metrics.api.testing.MetricValues
 import com.digitalasset.canton.admin.api.client.data.TrafficControlParameters
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeInt,
   NonNegativeLong,
@@ -32,9 +31,9 @@ import com.digitalasset.canton.integration.bootstrap.{
 import com.digitalasset.canton.integration.plugins.toxiproxy.UseToxiproxy.ToxiproxyConfig
 import com.digitalasset.canton.integration.plugins.toxiproxy.{SequencerToPostgres, UseToxiproxy}
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UseExternalProcess,
   UsePostgres,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.TrafficBalanceSupport
 import com.digitalasset.canton.integration.tests.performance.BasePerformanceIntegrationTest
@@ -244,7 +243,7 @@ class SequencerCatchUpPerformanceIntegrationTest
     )
   )
   toxiproxyPluginOpt.foreach(registerPlugin)
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 
   externalProcessOpt.foreach(registerPlugin)
 

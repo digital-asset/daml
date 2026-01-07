@@ -1,11 +1,11 @@
-override-components:
-  damlc:
+override-components: 
+  damlc: 
     version: $DAML_VERSION
-  codegen-java: 
+  codegen: 
     version: $DAML_VERSION
 name: model-tests
 source: .
 version: 1.0.0
-dependencies:
-  - daml-prim
-  - daml-stdlib
+dependencies: 
+- daml-prim
+- daml-stdlib

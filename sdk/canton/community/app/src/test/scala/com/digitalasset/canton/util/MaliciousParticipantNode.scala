@@ -53,7 +53,14 @@ import com.digitalasset.canton.topology.transaction.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{BaseTest, LedgerCommandId, LfPartyId, WorkflowId, checked}
+import com.digitalasset.canton.{
+  BaseTest,
+  FutureHelpers,
+  LedgerCommandId,
+  LfPartyId,
+  WorkflowId,
+  checked,
+}
 import com.digitalasset.daml.lf.data.Ref.UserId
 import com.digitalasset.daml.lf.transaction.SubmittedTransaction
 import com.digitalasset.daml.lf.transaction.test.TestIdFactory
@@ -118,6 +125,7 @@ class MaliciousParticipantNode(
 
   def submitUnassignmentRequest(
       fullTree: FullUnassignmentTree,
+      approximateTimestampOverride: Option[CantonTimestamp],
       mediator: MediatorGroupRecipient = defaultMediatorGroup,
       cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi = defaultCryptoSnapshot(),
       sourceProtocolVersion: Source[ProtocolVersion] = Source(defaultProtocolVersion),
@@ -141,7 +149,7 @@ class MaliciousParticipantNode(
     ) { sessionKeyStore =>
       for {
         submittingParticipantSignature <- cryptoSnapshot
-          .sign(rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+          .sign(rootHash.unwrap, SigningKeyUsage.ProtocolOnly, approximateTimestampOverride)
           .leftMap(_.toString)
         mediatorMessage = fullTree.mediatorMessage(
           submittingParticipantSignature,
@@ -177,6 +185,7 @@ class MaliciousParticipantNode(
             fullTree,
             (viewKey, viewKeyMap),
             cryptoSnapshot,
+            approximateTimestampOverride,
             sourceProtocolVersion.unwrap,
           )
           .leftMap(_.toString)
@@ -212,6 +221,7 @@ class MaliciousParticipantNode(
   def submitAssignmentRequest(
       submitter: LfPartyId,
       reassignmentData: UnassignmentData,
+      approximateTimestampOverride: Option[CantonTimestamp],
       submittingParticipant: ParticipantId = participantId,
       mediator: MediatorGroupRecipient = defaultMediatorGroup,
       cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi = defaultCryptoSnapshot(),
@@ -282,7 +292,7 @@ class MaliciousParticipantNode(
 
         rootHash = fullTree.rootHash
         submittingParticipantSignature <- cryptoSnapshot
-          .sign(rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+          .sign(rootHash.unwrap, SigningKeyUsage.ProtocolOnly, approximateTimestampOverride)
           .leftMap(_.toString)
         mediatorMessage = fullTree.mediatorMessage(
           submittingParticipantSignature,
@@ -318,6 +328,7 @@ class MaliciousParticipantNode(
             fullTree,
             (viewKey, viewKeyMap),
             cryptoSnapshot,
+            approximateTimestampOverride,
             targetProtocolVersion.unwrap,
           )
           .leftMap(_.toString)
@@ -471,7 +482,7 @@ class MaliciousParticipantNode(
     }
 }
 
-object MaliciousParticipantNode {
+object MaliciousParticipantNode extends FutureHelpers {
   def apply(
       participant: LocalParticipantReference,
       synchronizerId: PhysicalSynchronizerId,
@@ -510,6 +521,7 @@ object MaliciousParticipantNode {
     def currentCryptoSnapshot(): SynchronizerSnapshotSyncCryptoApi = sync.syncCrypto
       .tryForSynchronizer(synchronizerId, BaseTest.defaultStaticSynchronizerParameters)
       .currentSnapshotApproximation
+      .futureValueUS
 
     new MaliciousParticipantNode(
       participant.id,

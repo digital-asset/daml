@@ -313,6 +313,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
   private val cryptoSnapshot = identityFactory
     .forOwnerAndSynchronizer(confirmingParticipant, sourceSynchronizer.unwrap)
     .currentSnapshotApproximation
+    .futureValueUS
 
   private val reassignmentId = ReassignmentId.tryCreate("00")
 
@@ -347,7 +348,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       reassigningParticipants.toSeq.tail*
     )
     val signature = cryptoSnapshot
-      .sign(fullUnassignmentTree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+      .sign(fullUnassignmentTree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly, None)
       .futureValueUS
       .value
     val parsed = mkParsedRequest(fullUnassignmentTree, recipients, Some(signature))

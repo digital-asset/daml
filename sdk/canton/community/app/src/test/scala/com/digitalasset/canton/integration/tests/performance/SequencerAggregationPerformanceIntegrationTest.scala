@@ -6,6 +6,12 @@ package com.digitalasset.canton.integration.tests.performance
 import cats.syntax.foldable.*
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnectionPoolDelays,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
@@ -16,7 +22,6 @@ import com.digitalasset.canton.integration.bootstrap.{
 }
 import com.digitalasset.canton.integration.plugins.UsePostgres
 import com.digitalasset.canton.integration.tests.performance.BasePerformanceIntegrationTest.toConnectivity
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.performance.PartyRole.{
   DvpIssuer,
   DvpTrader,
@@ -25,11 +30,6 @@ import com.digitalasset.canton.performance.PartyRole.{
 }
 import com.digitalasset.canton.performance.model.java.orchestration.runtype
 import com.digitalasset.canton.performance.{PerformanceRunner, PerformanceRunnerConfig}
-import com.digitalasset.canton.sequencing.{
-  SequencerConnectionPoolDelays,
-  SequencerConnections,
-  SubmissionRequestAmplification,
-}
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.util.SingleUseCell
 import com.digitalasset.canton.{BaseTest, SequencerAlias}

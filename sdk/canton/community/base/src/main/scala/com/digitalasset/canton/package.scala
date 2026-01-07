@@ -25,6 +25,8 @@ package object canton {
   type LfPartyId = Ref.Party
   val LfPartyId: Ref.Party.type = Ref.Party
 
+  type InternedPartyId = Int
+
   // Ledger participant id
   type LedgerParticipantId = Ref.ParticipantId
   val LedgerParticipantId: Ref.ParticipantId.type = Ref.ParticipantId

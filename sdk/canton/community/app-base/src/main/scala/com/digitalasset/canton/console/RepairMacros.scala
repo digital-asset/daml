@@ -6,12 +6,14 @@ package com.digitalasset.canton.console
 import better.files.*
 import cats.syntax.either.*
 import com.digitalasset.canton.SynchronizerAlias
-import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnections,
+  StaticSynchronizerParameters,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.data.ActiveContract
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -201,7 +203,9 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
       "Upload the identity, keys and initial topology transactions from the directory sourcePath to the node"
     )
     @Help.Description(
-      "The node must not have been initialized. Afterwards, the node will impersonate the one whose credentials were downloaded into the directory."
+      """The node must not have been initialized. Afterwards, the node will impersonate the one
+        |whose credentials were downloaded into the directory.
+        """
     )
     // TODO(#16009) improve repair UX: consider creating node-specific upload methods
     def upload(

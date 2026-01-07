@@ -5,13 +5,13 @@ package com.digitalasset.canton.integration.tests.bftsynchronizer
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BigDecimalImplicits.*
+import com.digitalasset.canton.admin.api.client.data.SequencerConnections
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -19,7 +19,6 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.{ForceFlag, PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SynchronizerAlias, config}
@@ -276,8 +275,6 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
 //}
 
 class ReassignmentTestPostgres extends ReassignmentTest {
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory, sequencerGroups)
-  )
   registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
 }

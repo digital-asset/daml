@@ -25,6 +25,7 @@ import com.digitalasset.canton.platform.store.interning.{
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{NameTypeConRef, PackageId, Party, UserId}
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -34,11 +35,11 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.sql.Connection
-import scala.concurrent.blocking
 
 class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
   behavior of "SequentialWriteDaoImpl"
+  private val lock = new Mutex()
 
   it should "store correctly in a happy path case" in {
     val storageBackendCaptor =
@@ -169,8 +170,8 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     override def batch(dbDtos: Vector[DbDto], stringInterning: StringInterning): Vector[DbDto] =
       dbDtos
 
-    override def insertBatch(connection: Connection, batch: Vector[DbDto]): Unit = blocking(
-      synchronized {
+    override def insertBatch(connection: Connection, batch: Vector[DbDto]): Unit = (
+      lock.exclusive {
         connection shouldBe someConnection
         captured = captured ++ batch
       }
@@ -185,14 +186,14 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
         params: ParameterStorageBackend.LedgerEnd,
         synchronizerIndexes: Map[SynchronizerId, SynchronizerIndex],
     )(connection: Connection): Unit =
-      blocking(synchronized {
+      (lock.exclusive {
         connection shouldBe someConnection
         captured = captured :+ params
       })
 
     private var ledgerEndCalled = false
     override def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd] =
-      blocking(synchronized {
+      (lock.exclusive {
         connection shouldBe someConnection
         ledgerEndCalled shouldBe false
         ledgerEndCalled = true
@@ -269,7 +270,7 @@ object SequentialWriteDaoSpec {
     ledger_offset = 1,
     recorded_at = 0,
     submission_id = null,
-    party = Some("party"),
+    party = Some(Ref.Party.assertFromString("party")),
     typ = "accept",
     rejection_reason = None,
     is_local = Some(true),
@@ -282,7 +283,7 @@ object SequentialWriteDaoSpec {
     workflow_id = None,
     submitters = None,
     node_id = 3,
-    representative_package_id = "3",
+    representative_package_id = Ref.PackageId.fromInt(3),
     create_key_hash = None,
     event_sequential_id = 0,
     synchronizer_id = SynchronizerId.tryFromString("x::synchronizer"),
@@ -307,9 +308,9 @@ object SequentialWriteDaoSpec {
     submitters = None,
     node_id = 3,
     contract_id = hashCid("24"),
-    template_id = "",
-    package_id = "2",
-    exercise_choice = Some(""),
+    template_id = Ref.NameTypeConRef.assertFromString("#p:m:t"),
+    package_id = Ref.PackageId.fromInt(2),
+    exercise_choice = Some(Ref.ChoiceName.assertFromString("choice")),
     exercise_choice_interface_id = None,
     exercise_argument = Some(Array.empty),
     exercise_result = None,
@@ -346,8 +347,22 @@ object SequentialWriteDaoSpec {
     partyAndCreateFixture.get.party -> List(someParty, someEventActivate),
     allEventsFixture.get.party -> List(
       someEventActivate,
-      DbDto.IdFilter(0L, "", "", first_per_sequential_id = true).activateStakeholder,
-      DbDto.IdFilter(0L, "", "", first_per_sequential_id = false).activateStakeholder,
+      DbDto
+        .IdFilter(
+          0L,
+          Ref.NameTypeConRef.assertFromString("#p:m:t"),
+          Ref.Party.assertFromString("party"),
+          first_per_sequential_id = true,
+        )
+        .activateStakeholder,
+      DbDto
+        .IdFilter(
+          0L,
+          Ref.NameTypeConRef.assertFromString("#p:m:t"),
+          Ref.Party.assertFromString("party"),
+          first_per_sequential_id = false,
+        )
+        .activateStakeholder,
       someEventDeactivate,
     ),
   )
@@ -363,9 +378,9 @@ object SequentialWriteDaoSpec {
     case iterable if iterable.sizeIs == 5 =>
       new DomainStringIterators(
         parties = Iterator.empty,
-        templateIds = List("1").iterator,
+        templateIds = Iterator.single("#p:m:1").map(Ref.NameTypeConRef.assertFromString),
         synchronizerIds = Iterator.empty,
-        packageIds = Iterator("2"),
+        packageIds = Iterator.single("2").map(Ref.PackageId.assertFromString),
         userIds = Iterator.empty,
         participantIds = Iterator.empty,
         choiceNames = Iterator.empty,

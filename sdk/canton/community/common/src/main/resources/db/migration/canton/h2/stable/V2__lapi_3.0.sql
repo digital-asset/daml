@@ -222,7 +222,7 @@ create table lapi_events_deactivate_contract (
 
    -- contract related columns
    contract_id binary large object not null, -- all event types
-   internal_contract_id bigint not null, -- all event types
+   internal_contract_id bigint, -- all event types
    template_id integer not null, -- all event types
    package_id integer not null, -- all event types
    stakeholders binary large object not null, -- all event types

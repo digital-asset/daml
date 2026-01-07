@@ -372,11 +372,16 @@ class SequencerStateManagerTest
         SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
       producePostOrderingTopologyTicks = false,
       SequencerTestMetrics,
+      BatchingConfig(),
       loggerFactory,
       memberValidator = new SequencerMemberValidator {
         override def isMemberRegisteredAt(member: Member, time: CantonTimestamp)(implicit
             tc: TraceContext
         ): FutureUnlessShutdown[Boolean] = ???
+
+        override def areMembersRegisteredAt(members: Seq[Member], time: CantonTimestamp)(implicit
+            tc: TraceContext
+        ): FutureUnlessShutdown[Map[Member, Boolean]] = ???
       },
     )(closeContext, NoReportingTracerProvider.tracer)
 

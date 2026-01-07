@@ -34,7 +34,8 @@ trait SecurityTestLensUtils {
     * case.
     */
   def traverseMessages[M <: SignedProtocolMessageContent](
-      updateSignatureWith: M => Option[SyncCryptoApi]
+      updateSignatureWith: M => Option[SyncCryptoApi],
+      approximateTimestampOverride: Option[CantonTimestamp] = None,
   )(implicit
       executionContext: ExecutionContext
   ): Traversal[SubmissionRequest, M] =
@@ -47,7 +48,7 @@ trait SecurityTestLensUtils {
           updateSignatureWith(newMessage) match {
             case Some(snapshot) =>
               val newSig = SignedProtocolMessage
-                .mkSignature(newTypedMessage, snapshot)
+                .mkSignature(newTypedMessage, snapshot, approximateTimestampOverride)
                 .failOnShutdown
                 .futureValue
               signedMessage.copy(typedMessage = newTypedMessage, signatures = NonEmpty(Seq, newSig))

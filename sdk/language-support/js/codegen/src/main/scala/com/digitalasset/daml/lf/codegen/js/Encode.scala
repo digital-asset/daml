@@ -38,7 +38,9 @@ private[codegen] final case class RecordEncode(fields: Seq[(Name, Ast.Type)]) ex
       if (fields.nonEmpty) {
         b.addBlock("return {", "};") {
           fields.foreach { case (name, tpe) =>
-            s"$name: ${TypeGen.renderSerializable(moduleId, tpe)}.encode(__typed__.$name),"
+            b.addLine(
+              s"$name: ${TypeGen.renderSerializable(moduleId, tpe)}.encode(__typed__.$name),"
+            )
           }
         }
       } else b.addLine("return {};")

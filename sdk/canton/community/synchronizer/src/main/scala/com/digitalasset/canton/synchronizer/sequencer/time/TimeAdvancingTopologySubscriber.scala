@@ -81,10 +81,10 @@ final class TimeAdvancingTopologySubscriberV1(
       transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     if (effectiveTimestamp.value > sequencedTimestamp.value) {
-      // Conservatively, use a snapshot with topology changes that are active "now".
-      val snapshot = topologyClient.currentSnapshotApproximation
 
       for {
+        // Conservatively, use a snapshot with topology changes that are active "now".
+        snapshot <- topologyClient.currentSnapshotApproximation
         maybeSequencerGroup <- snapshot.sequencerGroup()
       } yield {
         val topologyChangeDelay = topologyClient.staticSynchronizerParameters.topologyChangeDelay
@@ -125,10 +125,12 @@ final class TimeAdvancingTopologySubscriberV1(
       )
 
     val sendUS =
-      // Ask for a topology snapshot again to avoid races on topology changes after scheduling.
-      // This is only a best-effort check as the snapshot update may still happen concurrently.
-      topologyClient.currentSnapshotApproximation.sequencerGroup().flatMap { maybeSequencerGroup =>
-        val maybeAggregationRule = maybeSequencerGroup.flatMap { sequencerGroup =>
+      for {
+        // Ask for a topology snapshot again to avoid races on topology changes after scheduling.
+        // This is only a best-effort check as the snapshot update may still happen concurrently.
+        topologySnapshot <- topologyClient.currentSnapshotApproximation
+        maybeSequencerGroup <- topologySnapshot.sequencerGroup()
+        maybeAggregationRule = maybeSequencerGroup.flatMap { sequencerGroup =>
           NonEmpty.from(sequencerGroup.active).map { sequencerGroup =>
             AggregationRule(
               sequencerGroup,
@@ -140,26 +142,27 @@ final class TimeAdvancingTopologySubscriberV1(
             )
           }
         }
-        if (maybeSequencerGroup.exists(_.active.contains(thisSequencerId))) {
-          logger.debug(s"Sending a time-advancing message to hopefully reach $desiredTimestamp")
-          sequencerClient
-            .send(
-              batch,
-              topologyTimestamp = None,
-              maxSequencingTime = desiredTimestamp.value
-                .plus(TimeAdvancingTopologyConfig.defaultMaxSequencingTimeWindow.asJava),
-              aggregationRule = maybeAggregationRule,
-              messageId = mkTimeAdvanceBroadcastMessageId(),
-              callback = SendCallback.empty,
-            )
-            .valueOr(err =>
-              LoggerUtil.logAtLevel(
-                SendAsyncClientError.logLevel(err),
-                s"Could not send a time-advancing message: $err",
+        _ <-
+          if (maybeSequencerGroup.exists(_.active.contains(thisSequencerId))) {
+            logger.debug(s"Sending a time-advancing message to hopefully reach $desiredTimestamp")
+            sequencerClient
+              .send(
+                batch,
+                topologyTimestamp = None,
+                maxSequencingTime = desiredTimestamp.value
+                  .plus(TimeAdvancingTopologyConfig.defaultMaxSequencingTimeWindow.asJava),
+                aggregationRule = maybeAggregationRule,
+                messageId = mkTimeAdvanceBroadcastMessageId(),
+                callback = SendCallback.empty,
               )
-            )
-        } else FutureUnlessShutdown.unit
-      }
+              .valueOr(err =>
+                LoggerUtil.logAtLevel(
+                  SendAsyncClientError.logLevel(err),
+                  s"Could not send a time-advancing message: $err",
+                )
+              )
+          } else FutureUnlessShutdown.unit
+      } yield ()
 
     FutureUtil.doNotAwait(
       sendUS.onShutdown(logger.debug("Time-advancing broadcast aborted on shutdown")),
@@ -313,52 +316,55 @@ final class TimeAdvancingTopologySubscriberV2(
       retryCounter: Int,
   )(implicit traceContext: TraceContext): Unit = {
 
-    // Ask for a topology snapshot again to avoid races on topology changes after scheduling.
-    val currentSequencerGroupF = topologyClient.currentSnapshotApproximation.sequencerGroup()
-    val sendUS = currentSequencerGroupF.flatMap {
-      case Some(sequencerGroup) if sequencerGroup.active.contains(thisSequencerId) =>
-        val activeSequencers = NonEmptyUtil.fromUnsafe(sequencerGroup.active)
-        val batch = Batch.of(
-          protocolVersion,
-          TopologyTransactionsBroadcast(psid, Seq.empty) -> Recipients
-            .cc(AllMembersOfSynchronizer),
-        )
-        val aggregationRule = AggregationRule(
-          activeSequencers,
-          // We merely deduplicate here, so members eventually receive only one event; this means
-          //  that the mechanism is not BFT, and we still rely on sequencer client-triggered time proofs
-          //  for resilience against non-compliant sequencers.
-          threshold = PositiveInt.one,
-          protocolVersion,
-        )
-        val maxSequencingTime =
-          desiredTimestamp.value
-            .plus(config.maxSequencingTimeWindow.asJava)
-            // Change the max sequencing time to avoid running in deduplication due to the aggregation rule.
-            .addMicros(retryCounter.toLong)
-        val messageId = mkTimeAdvanceBroadcastMessageId()
-        logger.debug(
-          s"At $now, sending a time-advancing message to hopefully reach $desiredTimestamp with max sequencing time $maxSequencingTime (message ID $messageId)"
-        )
-        implicit val metricsContext: MetricsContext =
-          MetricsContext("type" -> "time-adv-broadcast")
-        val sendResult = sequencerClient.send(
-          batch,
-          topologyTimestamp = None,
-          maxSequencingTime = maxSequencingTime,
-          aggregationRule = Some(aggregationRule),
-          messageId = messageId,
-          callback = SendCallback.empty,
-        )
-        sendResult.valueOr(err =>
-          // Log only at INFO level because this sequencer might have been offboarded in between
-          // and then we'd get errors here. Any other error will be retried anyway.
-          logger.info(s"Could not send a time-advancing message: $err")
-        )
-      case _ =>
-        // Do nothing if this is not an active sequencer
-        FutureUnlessShutdown.unit
-    }
+    val sendUS = for {
+      // Ask for a topology snapshot again to avoid races on topology changes after scheduling.
+      topologySnapshot <- topologyClient.currentSnapshotApproximation
+      maybeSequencerGroup <- topologySnapshot.sequencerGroup()
+      _ <- maybeSequencerGroup match {
+        case Some(sequencerGroup) if sequencerGroup.active.contains(thisSequencerId) =>
+          val activeSequencers = NonEmptyUtil.fromUnsafe(sequencerGroup.active)
+          val batch = Batch.of(
+            protocolVersion,
+            TopologyTransactionsBroadcast(psid, Seq.empty) -> Recipients
+              .cc(AllMembersOfSynchronizer),
+          )
+          val aggregationRule = AggregationRule(
+            activeSequencers,
+            // We merely deduplicate here, so members eventually receive only one event; this means
+            //  that the mechanism is not BFT, and we still rely on sequencer client-triggered time proofs
+            //  for resilience against non-compliant sequencers.
+            threshold = PositiveInt.one,
+            protocolVersion,
+          )
+          val maxSequencingTime =
+            desiredTimestamp.value
+              .plus(config.maxSequencingTimeWindow.asJava)
+              // Change the max sequencing time to avoid running in deduplication due to the aggregation rule.
+              .addMicros(retryCounter.toLong)
+          val messageId = mkTimeAdvanceBroadcastMessageId()
+          logger.debug(
+            s"At $now, sending a time-advancing message to hopefully reach $desiredTimestamp with max sequencing time $maxSequencingTime (message ID $messageId)"
+          )
+          implicit val metricsContext: MetricsContext =
+            MetricsContext("type" -> "time-adv-broadcast")
+          val sendResult = sequencerClient.send(
+            batch,
+            topologyTimestamp = None,
+            maxSequencingTime = maxSequencingTime,
+            aggregationRule = Some(aggregationRule),
+            messageId = messageId,
+            callback = SendCallback.empty,
+          )
+          sendResult.valueOr(err =>
+            // Log only at INFO level because this sequencer might have been offboarded in between
+            // and then we'd get errors here. Any other error will be retried anyway.
+            logger.info(s"Could not send a time-advancing message: $err")
+          )
+        case _ =>
+          // Do nothing if this is not an active sequencer
+          FutureUnlessShutdown.unit
+      }
+    } yield ()
 
     FutureUtil.doNotAwait(
       sendUS.onShutdown(logger.debug("Time-advancing broadcast aborted on shutdown")),

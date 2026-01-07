@@ -398,8 +398,18 @@ final case class SignatureDelegationValidityPeriod(
         DeterministicEncoding.encodeLong(periodLength.duration.toSeconds)
       )
 
-  def computeCutOffTimestamp(cutOffDuration: Duration): CantonTimestamp =
-    this.toExclusive.minus(cutOffDuration)
+  /** If we know the timestamp is fixed (aka not an approximation) there's no reason to apply the
+    * cutoff at either end because there is no clock uncertainty. Otherwise, we apply the cutoff to
+    * both ends of the interval to account for any possible clock drifts, and thus only use the
+    * session signing key if its validity falls within those bounds and is therefore safe to use.
+    */
+  def computeCutOffTimestamp(
+      cutOffDuration: Duration,
+      approximateTimestamp: Boolean,
+  ): (CantonTimestamp, CantonTimestamp) =
+    if (approximateTimestamp)
+      (this.fromInclusive.add(cutOffDuration), this.toExclusive.minus(cutOffDuration))
+    else (this.fromInclusive, this.toExclusive)
 }
 
 /** An extension to the signature to accommodate the necessary information to be able to use session
@@ -519,12 +529,12 @@ object SignatureDelegation {
     val hashBuilder =
       HashBuilderFromMessageDigest(HashAlgorithm.Sha256, HashPurpose.SessionKeyDelegation)
     hashBuilder
-      .add(sessionKey.id.unwrap)
-      .add(sessionKey.keySpec.toProtoEnum.value)
-      .add(sessionKey.format.toProtoEnum.value)
-      .add(encodeUsageForHash(sessionKey.usage))
-      .add(validityPeriod.getCryptographicEvidence)
-      .add(synchronizerId.toProtoPrimitive)
+      .addString(sessionKey.id.unwrap)
+      .addInt(sessionKey.keySpec.toProtoEnum.value)
+      .addInt(sessionKey.format.toProtoEnum.value)
+      .addByteString(encodeUsageForHash(sessionKey.usage))
+      .addByteString(validityPeriod.getCryptographicEvidence)
+      .addString(synchronizerId.toProtoPrimitive)
       .finish()
   }
 
@@ -894,7 +904,6 @@ object SigningKeySpec {
     override val name: String = "EC-P256"
     override def toProtoEnum: v30.SigningKeySpec =
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_P256
-    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
     override val jcaCurveName: String = "secp256r1"
   }
 
@@ -905,7 +914,6 @@ object SigningKeySpec {
     override val name: String = "EC-P384"
     override def toProtoEnum: v30.SigningKeySpec =
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_P384
-    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
     override val jcaCurveName: String = "secp384r1"
   }
 
@@ -916,7 +924,6 @@ object SigningKeySpec {
     override val name: String = "EC-Secp256k1"
     override def toProtoEnum: v30.SigningKeySpec =
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_SECP256K1
-    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
     override val jcaCurveName: String = "secp256k1"
   }
 
@@ -988,6 +995,9 @@ sealed trait SigningAlgorithmSpec extends Product with Serializable with PrettyP
     */
   // TODO(i28366): Add a test
   def approximateSignatureSize: Int
+
+  /** Name of the signing algorithm as expected by Java's getInstance (JCA standard name) */
+  def jcaAlgorithmName: String
   override val pretty: Pretty[this.type] = prettyOfString(_.name)
 }
 
@@ -1007,6 +1017,7 @@ object SigningAlgorithmSpec {
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_ED25519
     override def approximateSignatureSize: Int = 64
+    override def jcaAlgorithmName: String = "Ed25519"
   }
 
   /** Elliptic Curve Digital Signature Algorithm with SHA256 as defined in
@@ -1021,6 +1032,7 @@ object SigningAlgorithmSpec {
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
     override def approximateSignatureSize: Int = 64
+    override def jcaAlgorithmName: String = "SHA256withECDSA"
   }
 
   /** Elliptic Curve Digital Signature Algorithm with SHA384 as defined in
@@ -1035,6 +1047,7 @@ object SigningAlgorithmSpec {
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384
     override def approximateSignatureSize: Int = 96
+    override def jcaAlgorithmName: String = "SHA384withECDSA"
   }
 
   def toProtoEnumOption(

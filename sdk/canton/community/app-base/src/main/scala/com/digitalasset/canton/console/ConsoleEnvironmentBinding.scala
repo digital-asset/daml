@@ -34,6 +34,7 @@ object ConsoleEnvironmentBinding {
        |import com.digitalasset.canton.crypto._
        |import com.digitalasset.canton.config._
        |import com.digitalasset.canton.admin.api.client.data._
+       |import com.digitalasset.canton.admin.api.client.data.SequencerConnectionValidation._
        |import com.digitalasset.canton.participant.admin.workflows.java.canton.internal.ping.Ping
        |$consoleMacrosImport
        |import ${classOf[com.digitalasset.canton.console.BootstrapScriptException].getName}
@@ -52,7 +53,6 @@ object ConsoleEnvironmentBinding {
     val importsSynchronizer =
       """
         |import com.digitalasset.canton.version.ProtocolVersion
-        |import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
         |import com.digitalasset.canton.synchronizer.config.SynchronizerParametersConfig
         |import com.digitalasset.canton.console.commands.SynchronizerChoice
         |""".stripMargin
@@ -80,11 +80,6 @@ object ConsoleEnvironmentBinding {
     val importsSequencing =
       """
          |import com.digitalasset.canton.SequencerAlias
-         |import com.digitalasset.canton.sequencing.SequencerConnection
-         |import com.digitalasset.canton.sequencing.SequencerConnections
-         |import com.digitalasset.canton.sequencing.SequencerConnectionValidation._
-         |import com.digitalasset.canton.sequencing.SubmissionRequestAmplification
-         |import com.digitalasset.canton.sequencing.GrpcSequencerConnection
          |""".stripMargin
 
     addToBuilder(builder, importStandard)

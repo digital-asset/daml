@@ -123,10 +123,9 @@ class IndexServiceImplSpec
         TemplatePartiesFilter(Map(template1 -> Some(Set(party))), Some(Set())),
         EventProjectionProperties(
           verbose = true,
-          templateWildcardCreatedEventBlobParties = Some(Set.empty),
           witnessTemplateProjections = Map(
             Some(party.toString) -> Map(
-              template1 -> Projection(Set(iface1Full), false)
+              Some(template1) -> Projection(Set(iface1Full), false)
             )
           ),
         )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
@@ -152,11 +151,10 @@ class IndexServiceImplSpec
         verbose = true,
         witnessTemplateProjections = Map(
           Some(party.toString) -> Map(
-            template1 -> Projection(Set(iface1Full), false),
-            template2 -> Projection(Set(iface1Full), false),
+            Some(template1) -> Projection(Set(iface1Full), false),
+            Some(template2) -> Projection(Set(iface1Full), false),
           )
         ),
-        templateWildcardCreatedEventBlobParties = Some(Set.empty),
       )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
     ) // filter gets even more complicated, filters template1 and template2 for iface1, projects iface1 for both templates
 

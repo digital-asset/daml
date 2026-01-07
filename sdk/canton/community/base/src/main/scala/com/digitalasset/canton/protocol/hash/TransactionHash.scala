@@ -48,7 +48,7 @@ object TransactionHash {
       HashPurpose.PreparedSubmission,
       hashTracer,
       enforceNodeSeedForCreateNodes = true,
-    ).addPurpose
+    ).addPurpose()
       .addHashingSchemeVersion(HashingSchemeVersion.V2)
       .addHash(
         TransactionHash
@@ -77,9 +77,9 @@ object TransactionHash {
       HashPurpose.PreparedSubmission,
       hashTracer,
       enforceNodeSeedForCreateNodes = true,
-    ).addPurpose
+    ).addPurpose()
       .withContext("Serialization Version")(
-        _.add(SerializationVersion.toProtoValue(versionedTransaction.version))
+        _.addString(SerializationVersion.toProtoValue(versionedTransaction.version))
       )
       .withContext("Root Nodes")(
         _.addNodesFromNodeIds(versionedTransaction.roots, versionedTransaction.nodes, nodeSeeds)

@@ -8,7 +8,6 @@ import cats.implicits.toFoldableOps
 import cats.instances.future.*
 import cats.syntax.bifunctor.*
 import cats.syntax.functorFilter.*
-import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
@@ -47,7 +46,7 @@ import com.digitalasset.canton.topology.{
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{EitherTUtil, FutureUnlessShutdownUtil, FutureUtil}
+import com.digitalasset.canton.util.{EitherTUtil, FutureUnlessShutdownUtil, FutureUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace.Tracer
@@ -94,7 +93,7 @@ private[mediator] class Mediator(
     )
 
   private val verdictSender =
-    VerdictSender(sequencerClient, syncCrypto, mediatorId, loggerFactory)
+    VerdictSender(sequencerClient, syncCrypto, mediatorId, parameters.batchingConfig, loggerFactory)
 
   private val processor = new ConfirmationRequestAndResponseProcessor(
     mediatorId,
@@ -104,6 +103,7 @@ private[mediator] class Mediator(
     state,
     loggerFactory,
     timeouts,
+    parameters.batchingConfig,
   )
 
   private val deduplicator = MediatorEventDeduplicator.create(
@@ -284,25 +284,28 @@ private[mediator] class Mediator(
               syncCrypto.crypto.pureCrypto,
             )
 
-            val rejectionsF = openingErrors.parTraverse_ { error =>
-              val cause =
-                s"Received an envelope at ${closedEvent.timestamp} that cannot be opened. Discarding envelope... Reason: $error"
-              val alarm = MediatorError.MalformedMessage.Reject(cause)
-              alarm.report()
+            val rejectionsF =
+              MonadUtil.parTraverseWithLimit_(parameters.batchingConfig.parallelism)(
+                openingErrors
+              ) { error =>
+                val cause =
+                  s"Received an envelope at ${closedEvent.timestamp} that cannot be opened. Discarding envelope... Reason: $error"
+                val alarm = MediatorError.MalformedMessage.Reject(cause)
+                alarm.report()
 
-              val rootHashMessages = openEvent.envelopes.mapFilter(
-                ProtocolMessage.select[RootHashMessage[SerializedRootHashMessagePayload]]
-              )
-
-              if (rootHashMessages.nonEmpty) {
-                // In this case, we assume it is a Mediator Confirmation Request message
-                sendMalformedRejection(
-                  rootHashMessages,
-                  closedEvent.timestamp,
-                  MediatorVerdict.MediatorReject(alarm),
+                val rootHashMessages = openEvent.envelopes.mapFilter(
+                  ProtocolMessage.select[RootHashMessage[SerializedRootHashMessagePayload]]
                 )
-              } else FutureUnlessShutdown.unit
-            }
+
+                if (rootHashMessages.nonEmpty) {
+                  // In this case, we assume it is a Mediator Confirmation Request message
+                  sendMalformedRejection(
+                    rootHashMessages,
+                    closedEvent.timestamp,
+                    MediatorVerdict.MediatorReject(alarm),
+                  )
+                } else FutureUnlessShutdown.unit
+              }
 
             (
               WithCounter(

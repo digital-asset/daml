@@ -12,6 +12,7 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ReassignmentCounter
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -351,9 +352,15 @@ class InMemoryActiveContractStore(
   ): Checked[AcsError, AcsWarning, Unit] =
     MapsUtil.updateWithConcurrentlyChecked_(table, contractId, f(ContractStatus.Nonexistent), f)
 
-  override def changesBetween(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
+  override def changesBetween(
+      fromExclusive: TimeOfChange,
+      toInclusive: TimeOfChange,
+      maxResultSize: PositiveInt,
+  )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[LazyList[(TimeOfChange, ActiveContractIdsChange)]] =
+  ): FutureUnlessShutdown[
+    (LazyList[(TimeOfChange, ActiveContractIdsChange)], Int)
+  ] =
     FutureUnlessShutdown.pure {
       ErrorUtil.requireArgument(
         fromExclusive <= toInclusive,
@@ -388,8 +395,7 @@ class InMemoryActiveContractStore(
             .mapFilter(identity)
         }.toMap
 
-      val changesByToc
-          : Map[TimeOfChange, List[(LfContractId, ActivenessChange, ActivenessChangeDetail)]] =
+      val filteredChanges: List[(LfContractId, ActivenessChange, ActivenessChangeDetail)] =
         table.toList
           .flatMap { case (coid, status) =>
             status.changes
@@ -399,48 +405,106 @@ class InMemoryActiveContractStore(
                 (coid, activenessChange, activenessChangeDetail)
               }
           }
-          .groupBy(_._2.toc)
+
+      val sortedChanges = filteredChanges.sortBy { case (cid, change, changeDetail) =>
+        (change.toc, cid, !changeDetail.isActivation)
+      } // sorts activation before deactivation
+
+      // we take limit+1 changes in order to check whether we might split changes with the same toc across batches
+      val sortedChangesTrimmed = sortedChanges.take(maxResultSize.value + 1)
+
+      // we keep limit results only if we don't split changes with the same toc across batches
+      // otherwise, we fetch as many extra changes as needed in order to not split changes with the same toc across batches
+      // changes with the same toc can only come from the same transaction. daml transactions have a recommended limit of 10000 changes
+      // transactions issued by the repair service, e.g., when importing contracts, have a limit of 1000 changes
+      // the two restrictions above ensure that we don't create too large batches despite the given limit
+      val sortedChangesTrimmedFinal =
+        if (sortedChangesTrimmed.sizeIs <= maxResultSize.value)
+          sortedChangesTrimmed
+        else {
+          val lastChange = sortedChangesTrimmed.takeRight(1).headOption
+          val changeBeforeLast = sortedChangesTrimmed.takeRight(2).headOption
+
+          if (
+            changeBeforeLast.map { case (_, change, _) => change.toc } == lastChange.map {
+              case (_, change, _) => change.toc
+            }
+          ) {
+            // get all changes with the last toc
+            val lastToc = lastChange.map { case (_, change, _) => change.toc }
+            lastToc match {
+              case Some(lastTocNE) =>
+                val changesAtLastToc
+                    : List[(LfContractId, ActivenessChange, ActivenessChangeDetail)] =
+                  table.toList
+                    .flatMap { case (coid, status) =>
+                      status.changes
+                        .filter { case (ch, _) => ch.toc == lastTocNE }
+                        .toList
+                        .map { case (activenessChange, activenessChangeDetail) =>
+                          (coid, activenessChange, activenessChangeDetail)
+                        }
+                    }
+                sortedChangesTrimmed.reverse
+                  .dropWhile(change => change._2.toc == lastTocNE)
+                  .reverse ++ changesAtLastToc
+              case None => List.empty
+            }
+          } else sortedChangesTrimmed.dropRight(1)
+        }
+
+      val changesByToc
+          : Seq[(TimeOfChange, List[(LfContractId, ActivenessChange, ActivenessChangeDetail)])] =
+        sortedChangesTrimmedFinal.groupBy { case (_, change, _) => change.toc }.toSeq.sortBy {
+          case (toc, _) => toc
+        }
 
       val byTsAndChangeType
-          : Map[TimeOfChange, Map[Boolean, List[(LfContractId, StateChangeType)]]] = changesByToc
-        .fmap(_.groupBy(_._2.isActivation).fmap(_.map {
-          case (coid, activenessChange, activenessChangeDetail) =>
-            val stateChange = activenessChangeDetail match {
-              case change: ActivenessChangeDetail.HasReassignmentCounter => change.toStateChangeType
+          : Seq[(TimeOfChange, Map[Boolean, List[(LfContractId, StateChangeType)]])] =
+        changesByToc
+          .map { case (toc, changes) =>
+            toc -> changes
+              .groupBy(_._2.isActivation)
+              .fmap(_.map { case (coid, activenessChange, activenessChangeDetail) =>
+                val stateChange = activenessChangeDetail match {
+                  case change: ActivenessChangeDetail.HasReassignmentCounter =>
+                    change.toStateChangeType
 
-              case ActivenessChangeDetail.Archive | ActivenessChangeDetail.Purge =>
-                val reassignmentCounter = latestActivationReassignmentCounterPerCid.getOrElse(
-                  (coid, activenessChange.toc),
-                  throw new IllegalStateException(
-                    s"Unable to find reassignment counter for $coid at ${activenessChange.toc}"
-                  ),
-                )
+                  case ActivenessChangeDetail.Archive | ActivenessChangeDetail.Purge =>
+                    val reassignmentCounter = latestActivationReassignmentCounterPerCid.getOrElse(
+                      (coid, activenessChange.toc),
+                      throw new IllegalStateException(
+                        s"Unable to find reassignment counter for $coid at ${activenessChange.toc}"
+                      ),
+                    )
+                    StateChangeType(ContractChange.Archived, reassignmentCounter)
+                }
+                (coid, stateChange)
+              })
+          }
 
-                StateChangeType(ContractChange.Archived, reassignmentCounter)
-            }
-
-            (coid, stateChange)
-        }))
-
-      byTsAndChangeType
-        .to(LazyList)
-        .sortBy { case (timeOfChange, _) => timeOfChange }
-        .map { case (toc, changes) =>
-          val activatedIds = changes.getOrElse(true, Iterable.empty).toMap
-          val deactivatedIds = changes.getOrElse(false, Iterable.empty).toMap
-          (
-            toc,
-            ActiveContractIdsChange(
-              activations = activatedIds,
-              deactivations = deactivatedIds,
-            ),
-          )
-        }
+      (
+        byTsAndChangeType
+          .to(LazyList)
+          .sortBy { case (timeOfChange, _) => timeOfChange }
+          .map { case (toc, changes) =>
+            val activatedIds = changes.getOrElse(true, Iterable.empty).toMap
+            val deactivatedIds = changes.getOrElse(false, Iterable.empty).toMap
+            (
+              toc,
+              ActiveContractIdsChange(
+                activations = activatedIds,
+                deactivations = deactivatedIds,
+              ),
+            )
+          },
+        sortedChangesTrimmedFinal.size,
+      )
     }
 
   override def packageUsage(pkg: PackageId, contractStore: ContractStore)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(LfContractId)]] =
+  ): FutureUnlessShutdown[Option[LfContractId]] =
     for {
       contracts <- contractStore.find(
         exactId = None,

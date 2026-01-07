@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.ledgerapi.auth
 
 import com.daml.grpc.{GrpcException, GrpcStatus}
-import com.daml.ledger.api.v2.admin.user_management_service as proto
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
 import com.daml.ledger.api.v2.transaction_filter.{
   EventFormat,
@@ -98,12 +97,5 @@ trait ServiceCallAuthTests
     )
 
   protected def participantBegin: Long = 0L
-
-  protected def updateUser(
-      accessToken: String,
-      req: proto.UpdateUserRequest,
-  ): Future[proto.UpdateUserResponse] =
-    stub(proto.UserManagementServiceGrpc.stub(channel), Some(accessToken))
-      .updateUser(req)
 
 }

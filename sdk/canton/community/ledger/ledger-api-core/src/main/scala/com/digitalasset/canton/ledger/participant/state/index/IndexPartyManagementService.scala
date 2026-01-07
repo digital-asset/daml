@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state.index
 
+import com.digitalasset.canton.config.CantonRequireTypes.String185
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.daml.lf.data.Ref.{ParticipantId, Party}
 
@@ -21,6 +22,7 @@ trait IndexPartyManagementService {
 
   def listKnownParties(
       fromExcl: Option[Party],
+      filterString: Option[String185],
       maxResults: Int,
   )(implicit
       loggingContext: LoggingContextWithTrace

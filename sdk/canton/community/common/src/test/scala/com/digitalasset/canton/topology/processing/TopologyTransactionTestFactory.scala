@@ -24,7 +24,12 @@ class TopologyTransactionTestFactory(
     loggerFactory: NamedLoggerFactory,
     initEc: ExecutionContext,
     multiHash: Boolean = false,
-) extends TestingOwnerWithKeys(sequencerId, loggerFactory, initEc, multiHash) {
+) extends TestingOwnerWithKeys(
+      sequencerId,
+      loggerFactory,
+      initEc,
+      multiHash,
+    ) {
 
   import SigningKeys.*
 

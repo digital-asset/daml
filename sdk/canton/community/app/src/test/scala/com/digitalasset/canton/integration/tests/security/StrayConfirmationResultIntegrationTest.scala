@@ -7,10 +7,10 @@ import com.daml.nonempty.NonEmpty
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Availability
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
+  UseH2,
   UseProgrammableSequencer,
-  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
@@ -38,7 +38,8 @@ class StrayConfirmationResultIntegrationTest
     with HasCycleUtils
     with SecurityTestSuite {
 
-  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 
   var sequencer: ProgrammableSequencer = _
@@ -95,6 +96,7 @@ class StrayConfirmationResultIntegrationTest
             val signedModifiedRequest = signModifiedSubmissionRequest(
               alsoSendToP2,
               mediator1.underlying.value.replicaManager.mediatorRuntime.value.mediator.syncCrypto,
+              Some(environment.now),
             )
             SendDecision.Replace(signedModifiedRequest)
           } else SendDecision.Process

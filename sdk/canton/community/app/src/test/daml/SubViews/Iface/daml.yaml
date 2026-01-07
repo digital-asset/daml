@@ -1,0 +1,17 @@
+module-prefixes: 
+  sub-views-asset-1.0.0: V1
+  sub-views-asset-2.0.0: V2
+override-components: 
+  damlc: 
+    version: $DAML_VERSION
+  codegen: 
+    version: $DAML_VERSION
+name: sub-views-iface
+data-dependencies: 
+- ../../../scala-2.13/resource_managed/test/sub-views-asset-1.0.0.dar
+- ../../../scala-2.13/resource_managed/test/sub-views-asset-2.0.0.dar
+source: .
+version: 1.0.0
+dependencies: 
+- daml-prim
+- daml-stdlib

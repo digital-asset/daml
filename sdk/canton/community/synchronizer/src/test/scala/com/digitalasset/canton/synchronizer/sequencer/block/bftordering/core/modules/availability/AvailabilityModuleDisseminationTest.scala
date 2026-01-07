@@ -14,7 +14,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   ProgrammableUnitTestContext,
   ProgrammableUnitTestEnv,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BlockNumber,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   OrderingRequest,
@@ -592,10 +595,16 @@ class AvailabilityModuleDisseminationTest
         EpochNumber(anEpochNumber + OrderingRequestBatch.BatchValidityDurationEpochs)
       availability.receive(
         Availability.Consensus
-          .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, expiringEpochNumber)
+          .CreateProposal(
+            BlockNumber.First,
+            expiringEpochNumber,
+            OrderingTopologyNode0,
+            failingCryptoProvider,
+          )
       )
       canAcceptBatch(AnotherBatchId) shouldBe true
     }
+
     "evict batches that are being tracked of after some epochs" in {
       implicit val ctx: ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
         new ProgrammableUnitTestContext()
@@ -623,7 +632,12 @@ class AvailabilityModuleDisseminationTest
         EpochNumber(anEpochNumber + OrderingRequestBatch.BatchValidityDurationEpochs)
       availability.receive(
         Availability.Consensus
-          .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, expiringEpochNumber)
+          .CreateProposal(
+            BlockNumber.First,
+            expiringEpochNumber,
+            OrderingTopologyNode0,
+            failingCryptoProvider,
+          )
       )
       verifyZeroInteractions(availabilityStore)
 
@@ -632,7 +646,12 @@ class AvailabilityModuleDisseminationTest
         EpochNumber(anEpochNumber + 2 * OrderingRequestBatch.BatchValidityDurationEpochs)
       availability.receive(
         Availability.Consensus
-          .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, evictionEpochNumber)
+          .CreateProposal(
+            BlockNumber.First,
+            evictionEpochNumber,
+            OrderingTopologyNode0,
+            failingCryptoProvider,
+          )
       )
 
       // the batch got evicted

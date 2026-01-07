@@ -13,12 +13,14 @@ import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
+import com.digitalasset.canton.topology.store.TopologyTransactionRejection.Authorization.NoSignatureProvided
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreHelper
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
   NoPackageDependencies,
   TopologyStore,
   TopologyStoreId,
+  TopologyTransactionRejection,
   ValidatedTopologyTransaction,
 }
 import com.digitalasset.canton.topology.transaction.*
@@ -70,7 +72,7 @@ trait StoreBasedTopologySnapshotTest
     class Fixture(val useTimeProofsToObserveEffectiveTime: Boolean = true) {
 
       val store: TopologyStore[TopologyStoreId.SynchronizerStore] = mk()
-      val client =
+      def mkClient() =
         new StoreBasedSynchronizerTopologyClient(
           mock[Clock],
           defaultStaticSynchronizerParameters,
@@ -82,9 +84,12 @@ trait StoreBasedTopologySnapshotTest
           loggerFactory,
         )
 
+      val client: StoreBasedSynchronizerTopologyClient = mkClient()
+
       def add(
           timestamp: CantonTimestamp,
           transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
+          rejectionReason: Option[TopologyTransactionRejection] = None,
       ): FutureUnlessShutdown[Unit] =
         for {
           _ <- store.update(
@@ -95,7 +100,7 @@ trait StoreBasedTopologySnapshotTest
               .map { case (kk, txs) =>
                 kk -> (txs.map(_.serial).maxOption, Set.empty[TxHash])
               },
-            additions = transactions.map(ValidatedTopologyTransaction(_)),
+            additions = transactions.map(ValidatedTopologyTransaction(_, rejectionReason)),
           )
           _ <- client
             .observed(timestamp, timestamp, SequencerCounter(1), transactions)
@@ -108,6 +113,86 @@ trait StoreBasedTopologySnapshotTest
         client
           .observed(st, et, SequencerCounter(0), List())
           .futureValueUS
+    }
+
+    "client initialization" should {
+      "get head state from store" in {
+        val fixture = new Fixture()
+        import fixture.*
+        val ts1 = CantonTimestamp.Epoch.plusSeconds(60)
+        val ts2 = ts1.plusSeconds(60)
+        val ts3 = ts2.plusSeconds(60)
+        val ts4 = ts3.plusSeconds(60)
+        val ts5 = ts4.plusSeconds(60)
+        val ts6 = ts5.plusSeconds(60)
+        for {
+          // Populate the store
+          _ <- add(ts1, Seq(dpc1, p1_otk, p1_dtc, party1participant1))
+          _ <- add(ts2, Seq(p2_otk, p2_dtc, party2participant1_2))
+          // we expect the rejections and proposals to not affect the latestTopologyChangeTimestamp
+          _ <- add(
+            ts2.plusMillis(100),
+            Seq(p3_otk.copy(isProposal = true), p3_dtc.copy(isProposal = true)),
+          )
+          _ <- add(
+            ts2.plusMillis(200),
+            Seq(p2_pdp_confirmation),
+            rejectionReason = Some(NoSignatureProvided),
+          )
+          // Get a new client and initialize it
+          newClient = mkClient()
+          _ <- newClient.initialize()
+          // Check that it initialized correctly
+          _ = newClient.topologyKnownUntilTimestamp shouldBe ts2.plusMillis(200).immediateSuccessor
+          _ = newClient.latestTopologyChangeTimestamp shouldBe ts2.immediateSuccessor
+          // Check that initialization works idempotently
+          _ <- newClient.initialize()
+          _ = newClient.topologyKnownUntilTimestamp shouldBe ts2.plusMillis(200).immediateSuccessor
+          _ = newClient.latestTopologyChangeTimestamp shouldBe ts2.immediateSuccessor
+          // Check that subsequent updates work correctly
+          _ = newClient.updateHead(
+            SequencedTime(ts3),
+            EffectiveTime(ts3),
+            ApproximateTime(ts3),
+          )
+          _ = newClient.topologyKnownUntilTimestamp shouldBe ts3.immediateSuccessor
+          _ = newClient.latestTopologyChangeTimestamp shouldBe ts2.immediateSuccessor
+          _ <- newClient.observed(
+            SequencedTime(ts4),
+            EffectiveTime(ts4),
+            SequencerCounter(0),
+            List(p1_nsk2),
+          )
+          // Check that late initialization does not change the state
+          _ <- newClient.initialize()
+          _ = newClient.topologyKnownUntilTimestamp shouldBe ts4.immediateSuccessor
+          _ = newClient.latestTopologyChangeTimestamp shouldBe ts4.immediateSuccessor
+
+          // Check that synchronizer upgrade is taken into account
+          newClient2 = mkClient()
+          _ <- newClient2.initialize(
+            sequencerSnapshotTimestamp = Some(ts5),
+            synchronizerUpgradeTime = Some(ts5),
+          )
+          _ =
+            newClient2.topologyKnownUntilTimestamp shouldBe (ts5 + defaultStaticSynchronizerParameters.topologyChangeDelay).immediateSuccessor
+          _ =
+            newClient2.latestTopologyChangeTimestamp shouldBe ts2.immediateSuccessor // from the store
+
+          // Check that sequencer snapshot is taken into account
+          newClient3 = mkClient()
+          _ <- newClient3.initialize(
+            sequencerSnapshotTimestamp = Some(ts6),
+            synchronizerUpgradeTime = Some(ts5),
+          )
+          _ = newClient3.topologyKnownUntilTimestamp shouldBe ts6.immediateSuccessor
+          _ =
+            newClient3.latestTopologyChangeTimestamp shouldBe ts2.immediateSuccessor // from the store
+
+        } yield {
+          succeed
+        }
+      }
     }
 
     "waiting for snapshots" should {
@@ -187,18 +272,31 @@ trait StoreBasedTopologySnapshotTest
         val awaitSequencedTimestampF =
           client.awaitSequencedTimestamp(ts2).getOrElse(fail("expected future"))
 
-        client.updateHead(
-          SequencedTime(ts1),
-          EffectiveTime(ts1),
-          ApproximateTime(ts1),
-        )
+        client
+          .observed(
+            SequencedTime(ts1),
+            EffectiveTime(ts1),
+            SequencerCounter(0),
+            List(p1_nsk2),
+          )
+          .futureValueUS
+
         awaitSequencedTimestampF.isCompleted shouldBe false
+        client.topologyKnownUntilTimestamp shouldBe ts1.immediateSuccessor
+        client.latestTopologyChangeTimestamp shouldBe ts1.immediateSuccessor
         client.updateHead(
           SequencedTime(ts2),
           EffectiveTime(ts1),
           ApproximateTime(ts1),
         )
         awaitSequencedTimestampF.isCompleted shouldBe true
+        client.updateHead(
+          SequencedTime(ts2),
+          EffectiveTime(ts2),
+          ApproximateTime(ts2),
+        )
+        client.topologyKnownUntilTimestamp shouldBe ts2.immediateSuccessor
+        client.latestTopologyChangeTimestamp shouldBe ts1.immediateSuccessor
       }
 
       "just return None if sequenced time already known" in {
@@ -212,7 +310,7 @@ trait StoreBasedTopologySnapshotTest
     "work with empty store" in {
       val fixture = new Fixture()
       import fixture.*
-      val _ = client.currentSnapshotApproximation
+      val _ = client.currentSnapshotApproximation.futureValueUS
       val mrt = client.approximateTimestamp
       val sp = client.trySnapshot(mrt)
       for {
@@ -254,7 +352,7 @@ trait StoreBasedTopologySnapshotTest
           SequencerCounter(0),
           Seq(),
         )
-        recent = fixture.client.currentSnapshotApproximation
+        recent <- fixture.client.currentSnapshotApproximation
         party1Mappings <- recent.activeParticipantsOf(party1.toLf)
         party2Mappings <- recent.activeParticipantsOf(party2.toLf)
         keys <- recent.signingKeys(participant1, SigningKeyUsage.All)

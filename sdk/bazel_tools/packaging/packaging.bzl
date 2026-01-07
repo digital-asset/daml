@@ -26,11 +26,11 @@ def _package_oci_component_impl(ctx):
     args.add(ctx.outputs.out.path)
     args.add(ctx.files.component_manifest[0].path)
     args.add(1 if ctx.attr.platform_agnostic else 0)
-    args.add_all(ctx.attr.resources, map_each = _get_resource_path)
+    args.add_all(ctx.attr.resources + [ctx.attr.license], map_each = _get_resource_path)
     ctx.actions.run(
         executable = ctx.executable.package_oci_component,
         outputs = [ctx.outputs.out],
-        inputs = ctx.files.resources + ctx.files.component_manifest,
+        inputs = ctx.files.resources + ctx.files.component_manifest + ctx.files.license,
         arguments = [args],
         progress_message = "Packaging OCI " + ctx.attr.name,
     )
@@ -95,6 +95,10 @@ package_oci_component = rule(
             cfg = "host",
             executable = True,
             allow_files = True,
+        ),
+        "license": attr.label(
+            default = Label("//:LICENSE"),
+            allow_single_file = True,
         ),
     }),
     outputs = {
