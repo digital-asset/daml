@@ -41,9 +41,9 @@
   type: jar-lib
 - target: //daml-lf/snapshot:snapshot_proto_java
   type: jar-proto
-- target: //daml-lf/transaction:transaction
+- target: //canton/community/daml-lf/transaction:transaction
   type: jar-scala
-- target: //daml-lf/transaction:transaction_proto_java
+- target: //canton/community/daml-lf/transaction:transaction_proto_java
   type: jar-proto
 - target: //canton/community/daml-lf/transaction-test-lib:transaction-test-lib
   type: jar-scala

@@ -27,7 +27,7 @@ da_scala_library(
     deps = [
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
-        "//daml-lf/transaction",
+        "//canton/community/daml-lf/transaction",
     ],
 )
 
@@ -64,7 +64,7 @@ da_scala_test(
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
-        "//daml-lf/transaction",
+        "//canton/community/daml-lf/transaction",
         "//canton/community/daml-lf/transaction-test-lib",
         "//ledger-service/utils",
         "@maven//:org_scalatest_scalatest_compatible",

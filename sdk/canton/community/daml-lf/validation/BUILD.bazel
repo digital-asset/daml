@@ -464,7 +464,7 @@ da_scala_benchmark_jmh(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/stable-packages",
-        "//daml-lf/transaction",
+        "//canton/community/daml-lf/transaction",
         "//canton/commmunity/daml-lf/validation",
         "//test-common:dar-files-default-lib",
         "@maven//:com_google_protobuf_protobuf_java",
