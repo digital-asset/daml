@@ -29,7 +29,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//canton:bindings-java",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/transaction",
         "//ledger-service/lf-value-json",
     ],

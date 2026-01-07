@@ -35,7 +35,7 @@ da_scala_library(
         "//canton:nameof",
         "//canton:safe-proto",
         "//canton:scala-utils",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
@@ -58,7 +58,7 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":transaction",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/transaction-test-lib",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
@@ -84,7 +84,7 @@ da_scala_test(
         ":transaction",
         "//canton:crypto",
         "//daml-lf/api-type-signature",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction-test-lib",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -100,6 +100,6 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":transaction",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
     ],
 )

@@ -76,5 +76,5 @@ da_scala_test(
 da_scala_benchmark_jmh(
     name = "treemap-bench",
     srcs = ["src/bench/scala/com/digitalasset/daml/lf/data/TreeMapBench.scala"],
-    deps = ["//daml-lf/data"],
+    deps = ["//canton/community/daml-lf/data"],
 )

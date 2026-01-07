@@ -29,7 +29,7 @@ da_scala_library(
     ],
     deps = [
         "//daml-assistant/scala-daml-package-config",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
         "//language-support/java/codegen:lib",
         "//language-support/js/codegen:lib",
         "@maven//:ch_qos_logback_logback_classic",
@@ -49,7 +49,7 @@ da_scala_binary(
     visibility = ["//visibility:public"],
     deps = [
         "//daml-assistant/scala-daml-package-config",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
         "//language-support/java/codegen:lib",
         "//language-support/js/codegen:lib",
         "@maven//:ch_qos_logback_logback_classic",
@@ -69,7 +69,7 @@ da_scala_test(
     deps = [
         ":codegen-main-lib",
         "//daml-assistant/scala-daml-package-config",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
         "//language-support/java/codegen:lib",
         "//language-support/js/codegen:lib",
         "@maven//:ch_qos_logback_logback_classic",

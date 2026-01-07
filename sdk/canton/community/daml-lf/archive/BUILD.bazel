@@ -101,7 +101,7 @@ da_scala_library(
         "//canton:nameof",
         "//canton:safe-proto",
         "//canton:scala-utils",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
@@ -138,7 +138,7 @@ da_scala_test_suite(
         "//canton:crypto",
         "//canton:safe-proto",
         "//canton:scalatest-utils",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
@@ -167,7 +167,7 @@ da_scala_binary(
     main_class = "com.daml.lf.archive.DecodeMain",
     deps = [
         ":daml_lf_archive_reader",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
     ],
 )

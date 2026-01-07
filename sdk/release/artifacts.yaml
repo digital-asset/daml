@@ -13,7 +13,7 @@
   type: jar-scala
 - target: //daml-lf/archive/encoder:encoder
   type: jar-scala
-- target: //daml-lf/data:data
+- target: //canton/community/daml-lf/data:data
   type: jar-scala
 - target: //canton/community/daml-lf/data-scalacheck:data-scalacheck
   type: jar-scala

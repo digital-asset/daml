@@ -22,6 +22,6 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-data-scalacheck:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
     ],
 )

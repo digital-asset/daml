@@ -15,7 +15,7 @@ da_scala_benchmark_jmh(
     visibility = ["//visibility:public"],
     deps = [
         "//canton:contextualized-logging",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/engine",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",

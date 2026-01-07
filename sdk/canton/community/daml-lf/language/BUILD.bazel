@@ -32,7 +32,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//canton:nameof",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -47,7 +47,7 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":language",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
     ],
 )
 
