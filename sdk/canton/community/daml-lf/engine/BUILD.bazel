@@ -47,7 +47,7 @@ da_scala_library(
         "//daml-lf/snapshot:snapshot_proto_java",
         "//daml-lf/stable-packages",
         "//daml-lf/transaction",
-        "//daml-lf/validation",
+        "//canton/commmunity/daml-lf/validation",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

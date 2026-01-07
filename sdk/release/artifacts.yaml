@@ -47,7 +47,7 @@
   type: jar-proto
 - target: //daml-lf/transaction-test-lib:transaction-test-lib
   type: jar-scala
-- target: //daml-lf/validation:validation
+- target: //canton/commmunity/daml-lf/validation:validation
   type: jar-scala
 - target: //daml-script/runner:script-runner-lib
   type: jar-scala

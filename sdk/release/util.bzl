@@ -106,7 +106,7 @@ dpm_inputs = {
     "daml-script": "//daml-script/runner:daml-script-oci.tar.gz",
     "codegen": "//language-support/codegen-main:codegen-oci.tar.gz",
     "daml-new": "//daml-assistant/daml-helper:daml-new-oci.tar.gz",
-    "upgrade-check": "//daml-lf/validation:upgrade-check-oci.tar.gz",
+    "upgrade-check": "//canton/commmunity/daml-lf/validation:upgrade-check-oci.tar.gz",
     "canton-enterprise": "//canton:canton-community-oci.tar.gz",
 }
 

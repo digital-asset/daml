@@ -949,7 +949,7 @@ build --build_tag_filters=-scaladoc
 You can still build an individual target by selecting it explicitly, e.g.
 
 ```
-bazel build //daml-lf/validation:validation_scaladoc
+bazel build //canton/commmunity/daml-lf/validation:validation_scaladoc
 ```
 
 ### Daml Packages
