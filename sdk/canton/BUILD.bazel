@@ -1463,7 +1463,7 @@ proto_gen(
     name = "ledger-api-java",
     srcs = [
         ":ledger_api_proto",
-        "//daml-lf/ledger-api-value:ledger_api_value_proto",
+        "//canton/community/daml-lf/ledger-api-value:ledger_api_value_proto",
     ],
     plugin_name = "java",
     visibility = [
@@ -1499,7 +1499,7 @@ proto_gen(
     name = "ledger-api-java-grpc",
     srcs = [
         ":ledger_api_proto",
-        "//daml-lf/ledger-api-value:ledger_api_value_proto",
+        "//canton/community/daml-lf/ledger-api-value:ledger_api_value_proto",
     ],
     plugin_exec = "@io_grpc_grpc_java//compiler:grpc_java_plugin",
     plugin_name = "java-grpc",
@@ -1648,7 +1648,7 @@ proto_jars(
     maven_artifact_prefix = "ledger-api",
     maven_artifact_scala_suffix = "scalapb",
     maven_group = "com.daml",
-    proto_deps = ["//daml-lf/ledger-api-value:ledger_api_value_proto"],
+    proto_deps = ["//canton/community/daml-lf/ledger-api-value:ledger_api_value_proto"],
     scalapb_options_files = [
         ":ledger-api-scala-file-into-proto",
     ],

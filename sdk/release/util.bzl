@@ -269,7 +269,7 @@ protos_zip = rule(
         ),
         "ledger_api_value_tarball": attr.label(
             allow_single_file = True,
-            default = Label("//daml-lf/ledger-api-value:ledger_api_value_proto_tar.tar.gz"),
+            default = Label("//canton/community/daml-lf/ledger-api-value:ledger_api_value_proto_tar.tar.gz"),
         ),
         "zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
