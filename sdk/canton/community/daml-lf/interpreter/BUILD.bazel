@@ -109,7 +109,7 @@ da_scala_test_suite(
         "//canton:contextualized-logging",
         "//canton:crypto",
         "//canton:scala-utils",
-        "//daml-lf/api-type-signature",
+        "//canton/community/daml-lf/api-type-signature",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/data:crypto-data-test",
         "//canton/community/daml-lf/language",

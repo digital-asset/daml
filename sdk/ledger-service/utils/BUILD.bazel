@@ -22,7 +22,7 @@ da_scala_library(
         "//canton:ledger_api_proto_scala",
         "//canton:logging-entries",
         "//canton:scala-utils",
-        "//daml-lf/api-type-signature",
+        "//canton/community/daml-lf/api-type-signature",
         "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
         "//canton/community/daml-lf/archive:daml_lf_archive_reader",
         "//canton/community/daml-lf/data",

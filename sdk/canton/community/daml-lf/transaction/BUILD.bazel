@@ -83,7 +83,7 @@ da_scala_test(
     deps = [
         ":transaction",
         "//canton:crypto",
-        "//daml-lf/api-type-signature",
+        "//canton/community/daml-lf/api-type-signature",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction-test-lib",

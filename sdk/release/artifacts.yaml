@@ -3,7 +3,7 @@
 
 - target: //daml-assistant/scala-daml-package-config:scala-daml-package-config
   type: jar-scala
-- target: //daml-lf/api-type-signature:api-type-signature
+- target: //canton/community/daml-lf/api-type-signature:api-type-signature
   type: jar-scala
 - target: //canton/community/daml-lf/archive:daml_lf_archive_proto_jar
   type: jar-lib
