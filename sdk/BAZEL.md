@@ -1061,7 +1061,7 @@ For an example, please see `compiler/daml-extension/BUILD.bazel`.
 ## Protocol buffers in Bazel
 
 We use protocol buffers for Daml-LF and the Ledger API. The Daml-LF protocol
-buffer build rules can be found from //daml-lf/archive/BUILD.bazel.
+buffer build rules can be found from //canton/community/daml-lf/archive/BUILD.bazel.
 It produces bindings for Java and Haskell (via proto3-suite).
 
 Bazel provides built-in rules for protocol buffer bindings for Java and C++.
@@ -1070,7 +1070,7 @@ See the following resources for more information on its usage:
 [Blog post: Protocol Buffers in Bazel](https://blog.bazel.build/2017/02/27/protocol-buffers.html)
 
 The rules for haskell are currently ad-hoc genrules and use the proto3-suite's compile-proto-file
-program directly. Please refer to //daml-lf/archive/BUILD.bazel for example usage.
+program directly. Please refer to //canton/community/daml-lf/archive/BUILD.bazel for example usage.
 If you find yourself writing similar rules, please take a moment to write some Starlark to abstract
 it out and document it here. Note that proto3-suite isn't compatible with protoc, so it is not currently
 possible to hook it up into the "proto_library" tooling.

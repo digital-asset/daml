@@ -49,7 +49,7 @@ da_scala_binary(
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:contextualized-logging",
-        "//daml-lf/archive:daml_lf_archive_reader",
+        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
@@ -76,7 +76,7 @@ da_scala_binary(
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:contextualized-logging",
-        "//daml-lf/archive:daml_lf_archive_reader",
+        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
@@ -108,7 +108,7 @@ da_scala_binary(
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:contextualized-logging",
-        "//daml-lf/archive:daml_lf_archive_reader",
+        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",

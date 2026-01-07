@@ -19,7 +19,7 @@ da_scala_binary(
     visibility = ["//visibility:public"],
     deps = [
         "//canton:contextualized-logging",
-        "//daml-lf/archive:daml_lf_archive_reader",
+        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",

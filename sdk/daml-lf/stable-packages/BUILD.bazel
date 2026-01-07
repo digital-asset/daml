@@ -28,7 +28,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-stable-packages:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-lf/archive:daml_lf_archive_reader",
+        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -60,7 +60,7 @@ da_scala_test_suite(
     deps = [
         ":stable-packages",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/archive:daml_lf_archive_reader",
+        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
     ],

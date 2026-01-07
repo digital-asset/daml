@@ -195,8 +195,8 @@ da_scala_benchmark_jmh(
     visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/archive:daml_lf_archive_proto_java",
-        "//daml-lf/archive:daml_lf_archive_reader",
+        "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
+        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/engine",
         "//canton/community/daml-lf/ide-ledger",

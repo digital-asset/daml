@@ -24,7 +24,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
-        "//daml-lf/archive:daml_lf_archive_haskell_proto",
+        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
     ],
 )
 

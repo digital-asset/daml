@@ -23,7 +23,7 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-encode:internal",
         "//compiler/daml-lf-proto-util",
-        "//daml-lf/archive:daml_lf_archive_haskell_proto",
+        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -53,7 +53,7 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-util",
         "//compiler/damlc/stable-packages:stable-package-list-reader",
-        "//daml-lf/archive:daml_lf_archive_haskell_proto",
+        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -80,7 +80,7 @@ da_haskell_test(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-encode:internal",
         "//compiler/daml-lf-proto-util",
-        "//daml-lf/archive:daml_lf_archive_haskell_proto",
+        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
 )
