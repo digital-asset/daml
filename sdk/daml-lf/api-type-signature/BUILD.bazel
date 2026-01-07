@@ -83,7 +83,7 @@ da_scala_test(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/language",
-        "//daml-lf/parser",
+        "//canton/community/daml-lf/parser",
         "//canton/community/daml-lf/transaction-test-lib",
         "@maven//:com_google_protobuf_protobuf_java",
     ],

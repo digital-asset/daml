@@ -108,7 +108,7 @@ da_scala_library(
     deps = [
         ":validation",
         "//daml-lf/language",
-        "//daml-lf/parser",
+        "//canton/community/daml-lf/parser",
     ],
 )
 
@@ -161,7 +161,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/encoder",
         "//daml-lf/language",
-        "//daml-lf/parser",
+        "//canton/community/daml-lf/parser",
         "//test-common/canton/it-lib",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:io_grpc_grpc_netty_shaded",
@@ -189,7 +189,7 @@ da_scala_test_suite(
         ":validation-test-lib",
         "//daml-lf/data",
         "//daml-lf/language",
-        "//daml-lf/parser",
+        "//canton/community/daml-lf/parser",
         "//canton/community/daml-lf/stable-packages",
     ],
 )
@@ -436,7 +436,7 @@ da_scala_test_suite(
             "//daml-lf/data",
             "//daml-lf/encoder",
             "//daml-lf/language",
-            "//daml-lf/parser",
+            "//canton/community/daml-lf/parser",
             "//canton/commmunity/daml-lf/validation:upgrade-check-main",
             "//test-common/canton/it-lib",
             "@maven//:com_google_protobuf_protobuf_java",
