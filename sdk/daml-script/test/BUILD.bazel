@@ -452,7 +452,7 @@ da_scala_test(
         "//canton:testing-utils",
         "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive/encoder",
+        "//canton/community/daml-lf/archive/encoder",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/engine:upgrade-test",
         "//canton/community/daml-lf/interpreter",

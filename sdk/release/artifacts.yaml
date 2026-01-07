@@ -11,7 +11,7 @@
   type: jar-proto
 - target: //daml-lf/archive:daml_lf_archive_reader
   type: jar-scala
-- target: //daml-lf/archive/encoder:encoder
+- target: //canton/community/daml-lf/archive/encoder:encoder
   type: jar-scala
 - target: //canton/community/daml-lf/data:data
   type: jar-scala
