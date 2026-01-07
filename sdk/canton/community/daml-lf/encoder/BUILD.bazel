@@ -122,12 +122,12 @@ da_scala_binary(
             name = "validate-dar-%s" % target,
             srcs = ["src/validate.sh"],
             args = [
-                "$(location //daml-lf/repl:repl)",
+                "$(location //canton/community/daml-lf/repl:repl)",
                 "$(location :testing-dar-%s)" % target,
                 "--dev" if lf_version_is_dev(target) else "",
             ],
             data = [
-                "//daml-lf/repl",
+                "//canton/community/daml-lf/repl",
                 "testing-dar-%s" % target,
             ],
             deps = [

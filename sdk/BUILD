@@ -146,7 +146,7 @@ alias(
 
 alias(
     name = "daml-lf-repl",
-    actual = "//daml-lf/repl:repl",
+    actual = "//canton/community/daml-lf/repl:repl",
 )
 
 alias(
