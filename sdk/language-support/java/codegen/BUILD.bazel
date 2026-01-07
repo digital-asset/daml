@@ -108,7 +108,7 @@ da_scala_test(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/stable-packages",
-        "//daml-lf/transaction-test-lib",
+        "//canton/community/daml-lf/transaction-test-lib",
         "@maven//:com_squareup_javapoet",
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
