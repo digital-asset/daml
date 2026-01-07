@@ -16,7 +16,7 @@ da_scala_benchmark_jmh(
     deps = [
         "//canton:contextualized-logging",
         "//daml-lf/data",
-        "//daml-lf/engine",
+        "//canton/community/daml-lf/engine",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/parser",

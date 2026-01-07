@@ -19,9 +19,9 @@
   type: jar-scala
 - target: //daml-lf/encoder:encoder
   type: jar-scala
-- target: //daml-lf/engine:engine
+- target: //canton/community/daml-lf/engine:engine
   type: jar-scala
-- target: //daml-lf/engine:script-engine
+- target: //canton/community/daml-lf/engine:script-engine
   type: jar-scala
 - target: //canton/community/daml-lf/interpreter:interpreter
   type: jar-scala
