@@ -299,7 +299,7 @@ where each contract has at least one signatory in `P`,
 then so is the (trans)action or ledger itself.
 This statement can be shown with a similar argument.
 
-Importantly, this property requires a *signatory* of the contracts in `P`, not just a stakeholder.
+Importantly, this dual property requires a *signatory* of the contracts in `P`, not just a stakeholder.
 The following example shows that the propery does not hold if `P` contains a stakeholder, but no signatory.
 To that end, we extend the ``SimpleAsset`` template with a non-consuming ``Present`` choice
 so that the issuer and owner can show the asset to a choice observer ``viewer``:
@@ -582,9 +582,13 @@ Authorization rules
 
 Well-authorization ensures that the authorizing parties and the required authorizers fit together.
 
-.. admonition:: Definition: well-authorization
+.. admonition:: Definition: Well-authorization
 
-   An action, transaction, or commit is **well-authorized** if for every subaction, the authorization context contains all the required authorizers of the subaction.
+   An action is **internally well-authorized** if for every proper subaction, the authorization context contains all the required authorizers of the subaction.
+   
+   An action is **well-authorized** if it is internally well-authorized and the authorization context of the action contains all the required authorizers of the action.
+   
+   A transaction or commit is **well-authorized** if every root action is well-authorized.
 
 In the running example, well-authorization requires that every non-empty cell in the :ref:`required authorizers table <da-dvp-ledger-create-auth-failure-required-authorizers>`
 is also non-empty in the :ref:`authorization context table <da-dvp-ledger-create-auth-failure-authorization-contexts>`.
@@ -607,12 +611,15 @@ When Bob accepts the proposal with the ``Accept`` choice,
 Alice's authority flows to the creation of the ``SimpleDvP`` contract #4,
 where both Alice and Bob are signatories.
 
-Authorization vs. conformance
-=============================
+Interaction with projection
+===========================
 
-The :ref:`third authorization violation example <da-dvp-ledger-nested-auth-failure>` illustrates the difference between authorization and conformance.
-Node ⑨ is not well-authorized because the required authorizers include Carol, but the authorization context contains only Alice and Bob, as they are signatories of the input contract #4 of node ⑧.
-Neither are the actions rooted at ⑧ and ④ well-authorized because they contain the action at ⑨ as a sub-action.
+The :ref:`third authorization violation example <da-dvp-ledger-nested-auth-failure>` illustrates the difference between well-authorization and internal well-authorization.
+The action rooted at node ⑨ is internally well-authorized
+because it has only one proper subaction with node ⑩ whose authorization context includes the required authorizer Bank1.
+Yet, the action itself is not well-authorized because the required authorizers of ⑨ include Carol,
+but its authorization context contains only Alice and Bob,
+as they are signatories of the input contract #4 of node ⑧.
 
 The authorization failure disappears in the projection to Bank1 though,
 because the projection of a ledger forgets the requesters of the commits.
@@ -624,15 +631,26 @@ So from Bank1's perspective, the asset transfer looks fine.
    :width: 100%
    :alt: Bank1's projection of the DvP with Carol's asset
 
-This reiterates that well-authorization of an action cannot be determined solely from the action alone,
+This example reiterates that well-authorization of an action cannot be determined solely from the action alone,
 and projections do not retain the context for root actions of the projection.
-Yet, the ledger and the projection both conform to the Daml model.
 
-Now, suppose that node ⑨ specifies Alice as the actor instead of Carol.
-Then, the action (and the ledger as a whole) is well-authorized, but it no longer conforms to the Daml model.
-And the conformance failure shows up in Bank1's projection!
+In contrast, internal well-authorization is a property of an action in isolation, independent of a context.
+For example, the actions rooted at ⑧ and ④ are not internally well-authorized because they contain the action at ⑨ as a sub-action
+and they define the authorization context for ⑨.
+Accordingly, internal well-authorization interacts with projection similar to conformance.
+That is, internal well-authorization is common knowledge, but not well-authorization.
 
-In summary, well-authorization is not common knowledge like conformance.
+Authorization vs. conformance
+=============================
+
+Well-authorization and conformance are both necessary to ensure that the Ledger contains only the intended changes.
+To illustrate this, we modify the :ref:`third authorization violation example <da-dvp-ledger-nested-auth-failure>` such that node ⑨ specifies Alice as the actor instead of Carol.
+Then, the action (and the ledger as a whole) is well-authorized.
+Yet, it no longer conforms to the Daml model,
+because the ``Transfer`` choice defines the ``controller`` to be the ``owner`` of the asset #1, which is Carol in this case.
+
+This conformance failure does show up in Bank 1's projection, unlike corresponding the well-authorization failure from the previous section.
+
 
 
 Valid Ledgers
@@ -640,29 +658,30 @@ Valid Ledgers
 
 Having formalized the three conditions consistency, conformance and well-authorization, we can now formally define validity.
 
-.. admonition:: Definition: Valid ledger
+.. admonition:: Definition: Valid Ledger
 
-   A Canton ledger is **valid** for a set of parties P if all of the following hold:
+   A Canton Ledger is **valid** for a set of parties `P` if all of the following hold:
 
-   - The Ledger is consistent for contracts whose signatories include one of the parties.
+   - The Ledger is consistent for contracts whose signatories include one of the parties in `P`.
 
    - The Ledger conforms to the Daml templates.
 
-   - The ledger is well-authorized for the set of parties.
+   - Every root action on the Ledger is internally well-authorized and its required authorizers in `P` are requesters of the commit.
 
    The Ledger is valid if it is valid for all parties.
 
+
+The restriction to a set of parties `P` comes from privacy.
+As discussed above, consistency and well-authorization are not common knowledge.
+The Canton protocol therefore relies on the relevant parties to check these conditions.
+Accordingly, the protocol only ensures these properties for the parties that follow the protocol.
    
 Virtual Global Ledger
 =====================
 
-
-.. wip::
-   Move this to a separate page?
-
 The Canton protocol creates a Virtual Global Ledger (VGL) that is valid for the honest parties
 and such that each of these parties sees their projection of VGL.
-Honesty here means that the all nodes that processes the transactions involving the party operate according to the Canton protocol,
+Honesty here means that the parties and the nodes they are using correctly follow the Canton protocol 
 subject to the Byzantine fault tolerance configured in the topology.
 
 This Virtual Global Ledger is not materialized anywhere due to privacy:
@@ -670,7 +689,7 @@ In general, no node knows the entirety of the ledger.
 Accordingly, the Canton protocol cannot ensure a valid Virtual Global Ledger as a whole.
 For example, if a group of signatories decides to commit a double spend of a contract,
 then this is their decision.
-Since each spend may be witnessed by an different honest party,
+Since each spend may be witnessed by a different honest party,
 the VGL contains both spends and is therefore inconsistent for this contract.
 
 

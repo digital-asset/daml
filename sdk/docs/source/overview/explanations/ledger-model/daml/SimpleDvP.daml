@@ -151,7 +151,7 @@ simpleDvpHelperContract = script do
   (_, eur, usd, proposeDvP, disclosedEur) <- setup alice bob bank1 bank2
 
   -- SNIPPET-ACCEPT_AND_SETTLE_DVP-BEGIN
-  (newUsd, newEur) <- submitWithDisclosures bob [disclosedEur] do
+  (newUsd, newEur) <- submit (actAs bob <> disclose disclosedEur) $ do
       createAndExerciseCmd (AcceptAndSettleDvP with counterparty = bob) $
         Execute with
           proposal = proposeDvP
@@ -222,7 +222,7 @@ nestedAuthError = script do
            allocated = chf
            expected = usdAsset
            
-      (newUsd, newEur) <- submitWithDisclosures bob [disclosedChf] do
+      (newUsd, newEur) <- submit (actAs bob <> disclose disclosedChf) $ do
           exerciseCmd proposeDvP $ AcceptAndSettle with toBeAllocated = usd
 -- SNIPPET-nested-auth-error-END
       pure ()
