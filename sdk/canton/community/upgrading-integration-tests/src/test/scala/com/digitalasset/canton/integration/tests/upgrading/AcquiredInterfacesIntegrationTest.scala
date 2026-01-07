@@ -125,9 +125,8 @@ class AcquiredInterfacesIntegrationTest extends CommunityIntegrationTest with Sh
           (
             NoVettedInterfaceImplementationPackage,
             (_: String) should include regex
-              s"""No vetted package for rendering the interface view for package-name '${TokenV1.PACKAGE_NAME}'.*
-                 |Candidates: ${TokenV1.PACKAGE_ID.toPackageId.show}.*
-                 |Filter: Package-ids with interface instances for the requested interface: ${TokenV1.PACKAGE_NAME} -> ${TokenV2.PACKAGE_ID.toPackageId.show}""".stripMargin,
+              s"""No vetted package for rendering the interface view for package-name '${TokenV1.PACKAGE_NAME}'.*Reason: No synchronizer satisfies the vetting requirements.*No vetted package candidate satisfies the package-id filter 'Package-ids with interface instances for the requested interface'=${TokenV1.PACKAGE_NAME} -> ${TokenV2.PACKAGE_ID.toPackageId.show}.*
+                 |Candidates: ${TokenV1.PACKAGE_ID.toPackageId.show}.*""".stripMargin,
           )
         assertViews(createdEvent)(
           HoldingV1.TEMPLATE_ID_WITH_PACKAGE_ID -> Left(expectedFailure)
@@ -287,7 +286,7 @@ class AcquiredInterfacesIntegrationTest extends CommunityIntegrationTest with Sh
           (
             NoVettedInterfaceImplementationPackage,
             (_: String) should include regex
-              s"No vetted package for rendering the interface view for package-name '${TokenV1.PACKAGE_NAME}'. Reason: No synchronizer satisfies the vetting requirements. Discarded synchronizers:.*${env.daId},Party ${env.participant1.id.adminParty.show} has no vetted packages for '${TokenV1.PACKAGE_NAME}'",
+              s"No vetted package for rendering the interface view for package-name '${TokenV1.PACKAGE_NAME}'. Reason: No synchronizer satisfies the vetting requirements. Discarded synchronizers:.*${env.daId},No package with package-name '${TokenV1.PACKAGE_NAME}' is consistently vetted by all hosting participants of party ${env.participant1.id.adminParty.show}",
           )
         assertViews(createdEvent)(
           HoldingV1.TEMPLATE_ID_WITH_PACKAGE_ID -> Left(expectedFailure)

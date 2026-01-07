@@ -7,7 +7,7 @@ import cats.instances.order.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.{Fingerprint, SigningPublicKey}
+import com.digitalasset.canton.crypto.{Fingerprint, SigningKeysWithThreshold, SigningPublicKey}
 import com.digitalasset.canton.protocol.{DynamicSynchronizerParameters, OnboardingRestriction}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.*
@@ -221,23 +221,29 @@ class RequiredTopologyMappingChecksTest
         import factory.SigningKeys.key1
         val (checks, _) = mk()
 
-        val removeNsdSerial1 = factory.mkRemove(
-          NamespaceDelegation.tryCreate(Namespace(key1.fingerprint), key1, CanSignAllMappings),
+        val mapping = PartyToParticipant.tryCreate(
+          PartyId.tryCreate("Alice", Namespace(key1.fingerprint)),
+          PositiveInt.one,
+          Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
+        )
+
+        val removePtpSerial1 = factory.mkRemove(
+          mapping,
           serial = PositiveInt.one,
         )
         // also check that for serial > 1
-        val removeNsdSerial3 = factory.mkRemove(
-          NamespaceDelegation.tryCreate(Namespace(key1.fingerprint), key1, CanSignAllMappings),
+        val removePtpSerial3 = factory.mkRemove(
+          mapping,
           serial = PositiveInt.three,
         )
-        checkTransaction(checks, removeNsdSerial1) shouldBe Left(
+        checkTransaction(checks, removePtpSerial1) shouldBe Left(
           TopologyTransactionRejection.RequiredMapping.NoCorrespondingActiveTxToRevoke(
-            removeNsdSerial1.mapping
+            removePtpSerial1.mapping
           )
         )
-        checkTransaction(checks, removeNsdSerial3) shouldBe Left(
+        checkTransaction(checks, removePtpSerial3) shouldBe Left(
           TopologyTransactionRejection.RequiredMapping.NoCorrespondingActiveTxToRevoke(
-            removeNsdSerial3.mapping
+            removePtpSerial3.mapping
           )
         )
       }
@@ -588,9 +594,133 @@ class RequiredTopologyMappingChecksTest
           TopologyTransactionRejection.RequiredMapping.NamespaceAlreadyInUse(`dnd_namespace`)
         )
       }
+
+      "allow revoking a root NSD without prior existing positive one" in {
+        val (checks, store) = mk()
+
+        val revoke = factory.mkRemove(
+          ns1k1.mapping,
+          NonEmpty.mk(Set, ns1k1.mapping.target),
+          serial = PositiveInt.one,
+        )
+
+        checkTransaction(checks, revoke, None) shouldBe Right(())
+      }
+
+      "reject re-creation if it has already been revoked" in {
+        val (checks, store) = mk()
+
+        val revoke = factory.mkRemove(
+          ns1k1.mapping,
+          NonEmpty.mk(Set, ns1k1.mapping.target),
+          serial = PositiveInt.one,
+        )
+        addToStore(store, revoke)
+
+        val recreate = factory.mkAdd(
+          ns1k1.mapping,
+          ns1k1.mapping.target,
+          serial = PositiveInt.two,
+        )
+
+        checkTransaction(checks, recreate, Some(revoke)) shouldBe Left(
+          TopologyTransactionRejection.RequiredMapping.NamespaceHasBeenRevoked(
+            ns1k1.mapping.namespace
+          )
+        )
+      }
+
+      "reject re-creation of an intermediate NSD if it has already been revoked" in {
+        val (checks, store) = mk()
+
+        val revokeIntermediate = factory.mkRemove(
+          ns1k2.mapping,
+          NonEmpty.mk(Set, factory.SigningKeys.key1, factory.SigningKeys.key2),
+          serial = PositiveInt.one,
+        )
+
+        val recreate = factory.mkAdd(
+          ns1k1.mapping,
+          ns1k2.mapping.target,
+          serial = PositiveInt.two,
+        )
+
+        checkTransaction(checks, recreate, Some(revokeIntermediate)) shouldBe Left(
+          TopologyTransactionRejection.RequiredMapping.NamespaceHasBeenRevoked(
+            ns1k2.mapping.namespace
+          )
+        )
+      }
+
     }
 
     "validating PartyToParticipant" should {
+
+      "reject self-signing with a key that has a stored revoked NSD with the same key" in {
+        val (checks, store) = mk()
+
+        val revokedNsd = factory.mkRemove(
+          ns1k1.mapping,
+          NonEmpty.mk(Set, ns1k1.mapping.target),
+        )
+
+        addToStore(store, p2_otk, p2_dtc, revokedNsd)
+
+        val ptp = factory.mkAdd(
+          PartyToParticipant.tryCreate(
+            PartyId.tryCreate("alice", ns1k1.mapping.namespace),
+            PositiveInt.one,
+            Seq(HostingParticipant(participant2, Submission)),
+            partySigningKeysWithThreshold = Some(
+              SigningKeysWithThreshold.tryCreate(
+                NonEmpty.mk(Seq, ns1k1.mapping.target),
+                PositiveInt.one,
+              )
+            ),
+          )
+        )
+
+        checkTransaction(checks, ptp) shouldBe Left(
+          TopologyTransactionRejection.RequiredMapping.NamespaceHasBeenRevoked(
+            ns1k1.mapping.namespace
+          )
+        )
+      }
+
+      "reject self-signing with a key that has a revocation pending for a NSD with the same key" in {
+        val (checks, store) = mk()
+
+        val revokedNd = factory.mkRemove(
+          ns1k1.mapping,
+          NonEmpty.mk(Set, ns1k1.mapping.target),
+        )
+
+        addToStore(store, p2_otk, p2_dtc)
+
+        val ptp = factory.mkAdd(
+          PartyToParticipant.tryCreate(
+            PartyId.tryCreate("alice", ns1k1.mapping.namespace),
+            PositiveInt.one,
+            Seq(HostingParticipant(participant2, Submission)),
+            partySigningKeysWithThreshold = Some(
+              SigningKeysWithThreshold.tryCreate(
+                NonEmpty.mk(Seq, ns1k1.mapping.target),
+                PositiveInt.one,
+              )
+            ),
+          )
+        )
+
+        checkTransaction(
+          checks,
+          ptp,
+          pendingChanges = Map(revokedNd.mapping.uniqueKey -> MaybePending(revokedNd)),
+        ) shouldBe Left(
+          TopologyTransactionRejection.RequiredMapping.NamespaceHasBeenRevoked(
+            ns1k1.mapping.namespace
+          )
+        )
+      }
 
       "reject when participants don't have a DTC" in {
         val (checks, store) = mk()

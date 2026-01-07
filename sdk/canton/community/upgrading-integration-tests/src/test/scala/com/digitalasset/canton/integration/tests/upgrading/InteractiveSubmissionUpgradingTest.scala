@@ -72,18 +72,17 @@ class InteractiveSubmissionUpgradingTest
           confirmingParticipant: LocalParticipantReference
       ): Unit =
         PartyToParticipantDeclarative(
-          Set(participant2, participant3),
-          Set(daId),
+          participants = Set(participant1, participant2, participant3),
+          synchronizerIds = Set(daId),
         )(
           owningParticipants = Map.empty,
           targetTopology = Map(
-            bob.partyId -> Map(
+            bob -> Map(
               daId -> (PositiveInt.one, Set(
                 (confirmingParticipant, ParticipantPermission.Confirmation)
               ))
             )
           ),
-          externalParties = Set(bob),
         )(executorService, env)
 
       // Set Bob confirmer to participant2 so that V2 gets used for the prepare step

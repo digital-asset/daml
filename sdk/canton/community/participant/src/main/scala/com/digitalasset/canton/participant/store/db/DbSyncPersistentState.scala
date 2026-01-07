@@ -76,6 +76,7 @@ class DbLogicalSyncPersistentState(
         parameters.activationFrequencyForWarnAboutConsistencyChecks
       ),
       parameters.stores.journalPruning.toInternal,
+      parameters.batchingConfig,
       indexedStringStore,
       timeouts,
       loggerFactory,

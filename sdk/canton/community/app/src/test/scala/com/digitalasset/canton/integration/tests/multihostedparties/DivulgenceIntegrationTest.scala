@@ -10,6 +10,7 @@ import com.daml.ledger.api.v2.transaction_filter.TransactionShape.{
   TRANSACTION_SHAPE_LEDGER_EFFECTS,
 }
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.examples.java.divulgence.DivulgeIouByExercise
@@ -23,6 +24,25 @@ import monocle.macros.syntax.lens.*
 
 trait DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBase {
   import DivulgenceIntegrationTest.*
+
+  // Make sure deduplication duration does not block pruning
+  private val maxDedupDuration = java.time.Duration.ofSeconds(2)
+  private val reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(1)
+
+  override def environmentDefinition: EnvironmentDefinition =
+    super.environmentDefinition.addConfigTransforms(
+      ConfigTransforms.updateMaxDeduplicationDurations(maxDedupDuration)
+    )
+
+  "make sure that ACS commitments do not block pruning (preparation for later part in this test)" in {
+    _.runOnAllInitializedSynchronizersForAllOwners((owner, synchronizer) =>
+      owner.topology.synchronizer_parameters
+        .propose_update(
+          synchronizer.synchronizerId,
+          _.update(reconciliationInterval = reconciliationInterval),
+        )
+    )
+  }
 
   "Divulgence should work as expected" in { implicit env =>
     import env.*
@@ -285,6 +305,9 @@ trait DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBa
       beforeActivationOffset,
       acsSnapshotPath,
     )
+
+    val targetOffsetBeforeImport = target.ledger_api.state.end()
+
     target.parties.import_party_acs(acsSnapshotPath)
 
     target.synchronizers.reconnect(daName)
@@ -324,6 +347,22 @@ trait DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBa
     aliceStakeholderCreatedP2Import.contractId shouldBe aliceStakeholderCreatedP1.contractId
     val immediateDivulged2P2Import = participant2.acsDeltas(alice)(3)._1
     immediateDivulged2P2Import.contractId shouldBe immediateDivulged2P1.contractId
+    participant2.ledgerEffects(alice) shouldBe List(
+      aliceBobStakeholderCreatedP2 -> Created,
+      divulgeIouByExerciseP2 -> Created,
+      // two events for the immediate divulgence follows with the same offset: first the nonconsuming exercise, and then the immediately divulged create
+      OffsetCid(immediateDivulged1P2.offset, divulgeIouByExerciseP2.contractId) -> NonConsumed,
+      immediateDivulged1P2 -> Created,
+      // two events for the immediate divulgence follows with the same offset: first the nonconsuming exercise, and then the immediately divulged create
+      OffsetCid(immediateDivulged2P2.offset, divulgeIouByExerciseP2.contractId) -> NonConsumed,
+      immediateDivulged2P2 -> Created,
+      aliceStakeholder2DivulgedArchiveP2.copy(contractId =
+        divulgeIouByExerciseP2.contractId
+      ) -> NonConsumed,
+      aliceStakeholder2DivulgedArchiveP2 -> Consumed,
+      aliceStakeholderCreatedP2Import -> Created,
+      immediateDivulged2P2Import -> Created,
+    )
     participant2.acsDeltas(alice) shouldBe List(
       aliceBobStakeholderCreatedP2 -> Created,
       divulgeIouByExerciseP2 -> Created,
@@ -372,11 +411,83 @@ trait DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBa
     assertEventNotFound(participant1, aliceStakeholderCreated2P1Archived.contractId, bob)
 
     // participant2 bob
+    participant2.ledgerEffects(bob) shouldBe List(
+      bobStakeholderCreatedP2 -> Created,
+      aliceBobStakeholderCreatedP2 -> Created,
+      divulgeIouByExerciseP2 -> Created,
+      immediateDivulged1P2.copy(contractId = divulgeIouByExerciseP2.contractId) -> NonConsumed,
+      immediateDivulged1P2 -> Created,
+      immediateDivulged2P2.copy(contractId = divulgeIouByExerciseP2.contractId) -> NonConsumed,
+      immediateDivulged2P2 -> Created,
+      aliceStakeholder2DivulgedArchiveP2.copy(contractId =
+        divulgeIouByExerciseP2.contractId
+      ) -> NonConsumed,
+      aliceStakeholder2DivulgedArchiveP2 -> Consumed,
+    )
     participant2.acsDeltas(bob) shouldBe List(
       bobStakeholderCreatedP2 -> Created,
       aliceBobStakeholderCreatedP2 -> Created,
       divulgeIouByExerciseP2 -> Created,
     )
+    participant2.acs(bob) shouldBe List(
+      bobStakeholderCreatedP2,
+      aliceBobStakeholderCreatedP2,
+      divulgeIouByExerciseP2,
+    )
+    // event query
+    assertEventNotFound(participant2, aliceStakeholderCreatedP1.contractId, bob)
+    checkCreatedEventFor(participant2, aliceBobStakeholderCreatedP1.contractId, bob)
+    checkCreatedEventFor(participant2, divulgeIouByExerciseP1.contractId, bob)
+    assertEventNotFound(participant2, immediateDivulged1P1.contractId, bob)
+    assertEventNotFound(participant2, immediateDivulged2P1.contractId, bob)
+    assertEventNotFound(participant2, immediateDivulged1ArchiveP1.contractId, bob)
+    checkCreatedEventFor(participant2, bobStakeholderCreatedP2.contractId, bob)
+    checkCreatedEventFor(participant2, aliceBobStakeholderCreatedP2.contractId, bob)
+    checkCreatedEventFor(participant2, divulgeIouByExerciseP2.contractId, bob)
+    assertEventNotFound(participant2, aliceStakeholderCreated2P1.contractId, bob)
+    assertEventNotFound(participant2, aliceStakeholderCreated2P1Archived.contractId, bob)
+
+    // pruning target/participant2 participant until activation of alice
+    eventually() {
+      target.health.ping(target)
+      target.pruning.find_safe_offset().value should be >= targetOffsetBeforeImport
+      target.pruning.prune(targetOffsetBeforeImport)
+    }
+
+    // participant2 alice
+    participant2.ledgerEffects(
+      alice,
+      beginOffsetExclusive = targetOffsetBeforeImport,
+    ) shouldBe List(
+      aliceStakeholderCreatedP2Import -> Created,
+      immediateDivulged2P2Import -> Created,
+    )
+    participant2.acsDeltas(alice, beginOffsetExclusive = targetOffsetBeforeImport) shouldBe List(
+      aliceStakeholderCreatedP2Import -> Created,
+      immediateDivulged2P2Import -> Created,
+    )
+    participant2.acs(alice) shouldBe List(
+      aliceBobStakeholderCreatedP2,
+      divulgeIouByExerciseP2,
+      aliceStakeholderCreatedP2Import,
+      immediateDivulged2P2Import,
+    )
+    // event query
+    checkCreatedEventFor(participant2, aliceStakeholderCreatedP1.contractId, alice)
+    checkCreatedEventFor(participant2, aliceBobStakeholderCreatedP1.contractId, alice)
+    checkCreatedEventFor(participant2, divulgeIouByExerciseP1.contractId, alice)
+    assertEventNotFound(participant2, immediateDivulged1P1.contractId, alice)
+    checkCreatedEventFor(participant2, immediateDivulged2P1.contractId, alice)
+    assertEventNotFound(participant2, immediateDivulged1ArchiveP1.contractId, alice)
+    assertEventNotFound(participant2, bobStakeholderCreatedP2.contractId, alice)
+    checkCreatedEventFor(participant2, aliceBobStakeholderCreatedP2.contractId, alice)
+    checkCreatedEventFor(participant2, divulgeIouByExerciseP2.contractId, alice)
+    assertEventNotFound(participant2, aliceStakeholderCreated2P1.contractId, alice)
+    assertEventNotFound(participant2, aliceStakeholderCreated2P1Archived.contractId, alice)
+
+    // participant2 bob
+    participant2.ledgerEffects(bob, beginOffsetExclusive = targetOffsetBeforeImport) shouldBe List()
+    participant2.acsDeltas(bob, beginOffsetExclusive = targetOffsetBeforeImport) shouldBe List()
     participant2.acs(bob) shouldBe List(
       bobStakeholderCreatedP2,
       aliceBobStakeholderCreatedP2,
@@ -412,14 +523,20 @@ object DivulgenceIntegrationTest {
         .flatMap(_.createdEvent)
         .map(c => OffsetCid(c.offset, c.contractId))
 
-    def acsDeltas(partyId: PartyId): Seq[(OffsetCid, EventType)] =
-      updates(TRANSACTION_SHAPE_ACS_DELTA, Seq(partyId))
+    def acsDeltas(
+        partyId: PartyId,
+        beginOffsetExclusive: Long = 0L,
+    ): Seq[(OffsetCid, EventType)] =
+      updates(TRANSACTION_SHAPE_ACS_DELTA, Seq(partyId), beginOffsetExclusive)
 
     def acsDeltas(parties: Seq[PartyId]): Seq[(OffsetCid, EventType)] =
       updates(TRANSACTION_SHAPE_ACS_DELTA, parties)
 
-    def ledgerEffects(partyId: PartyId): Seq[(OffsetCid, EventType)] =
-      updates(TRANSACTION_SHAPE_LEDGER_EFFECTS, Seq(partyId))
+    def ledgerEffects(
+        partyId: PartyId,
+        beginOffsetExclusive: Long = 0L,
+    ): Seq[(OffsetCid, EventType)] =
+      updates(TRANSACTION_SHAPE_LEDGER_EFFECTS, Seq(partyId), beginOffsetExclusive)
 
     def eventsWithAcsDelta(parties: Seq[PartyId]): Seq[Event] =
       updatesEvents(TRANSACTION_SHAPE_LEDGER_EFFECTS, parties).filter(_.event match {
@@ -471,6 +588,7 @@ object DivulgenceIntegrationTest {
     private def updatesEvents(
         transactionShape: TransactionShape,
         parties: Seq[PartyId],
+        beginOffsetExclusive: Long = 0L,
     ): Seq[Event] =
       participant.ledger_api.updates
         .updates(
@@ -492,6 +610,7 @@ object DivulgenceIntegrationTest {
           ),
           completeAfter = PositiveInt.tryCreate(1000000),
           endOffsetInclusive = Some(participant.ledger_api.state.end()),
+          beginOffsetExclusive = beginOffsetExclusive,
         )
         .collect { case TransactionWrapper(tx) =>
           tx.events
@@ -501,8 +620,13 @@ object DivulgenceIntegrationTest {
     private def updates(
         transactionShape: TransactionShape,
         parties: Seq[PartyId],
+        beginOffsetExclusive: Long = 0L,
     ): Seq[(OffsetCid, EventType)] =
-      updatesEvents(transactionShape = transactionShape, parties = parties)
+      updatesEvents(
+        transactionShape = transactionShape,
+        parties = parties,
+        beginOffsetExclusive = beginOffsetExclusive,
+      )
         .map(_.event)
         .collect {
           case Event.Event.Created(event) => OffsetCid(event.offset, event.contractId) -> Created

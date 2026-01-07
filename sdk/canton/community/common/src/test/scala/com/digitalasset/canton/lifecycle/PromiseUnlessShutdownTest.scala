@@ -69,8 +69,11 @@ class PromiseUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExec
         entries => {
           assert(entries.nonEmpty)
           forEvery(entries)(
-            _.warningMessage should include(
-              "supervised-promise-out-of-time has not completed after"
+            _.warningMessage should (
+              include("supervised-promise-out-of-time has not completed after") or
+                include(
+                  "Supervised futures for the following trace IDs have not completed with alert log level"
+                )
             )
           )
         },

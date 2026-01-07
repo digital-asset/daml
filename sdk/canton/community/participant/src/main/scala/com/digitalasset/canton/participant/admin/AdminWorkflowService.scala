@@ -39,9 +39,9 @@ trait AdminWorkflowService extends NamedLogging with AutoCloseable {
       operation: String
   )(result: CommandResult)(implicit traceContext: TraceContext): Either[String, Unit] =
     result match {
-      case CommandResult.Success(transactionId) =>
+      case CommandResult.Success(updateId) =>
         logger.info(
-          s"Successfully submitted $operation with transactionId=$transactionId, waiting for response"
+          s"Successfully submitted $operation with updateId=$updateId, waiting for response"
         )
         Either.unit[String]
       case CommandResult.Failed(_, errorStatus) =>

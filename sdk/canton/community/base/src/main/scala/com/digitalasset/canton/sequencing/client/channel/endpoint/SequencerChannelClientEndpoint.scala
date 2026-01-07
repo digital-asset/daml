@@ -83,8 +83,11 @@ private[channel] final class SequencerChannelClientEndpoint(
 )(implicit executionContext: ExecutionContext)
     extends ConsumesCancellableGrpcStreamObserver[
       String,
+      v30.ConnectToSequencerChannelRequest,
       v30.ConnectToSequencerChannelResponse,
     ](context, parentHasRunOnClosing, timeouts) {
+
+  override protected def useManualFlowControl: Boolean = false
 
   private val security: SequencerChannelSecurity =
     new SequencerChannelSecurity(synchronizerCryptoApi, protocolVersion, timestamp)

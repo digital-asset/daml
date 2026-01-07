@@ -437,35 +437,35 @@ object Cli {
             .required()
             .withFallback(() => "127.0.0.1"),
           opt[Int]("port")
-            .text("Port for the remote participant Ledger API (default 6865)")
+            .text("Port for the remote participant Ledger API")
             .action((port, cli) =>
               cli ++ ("canton.remote-participants.sandbox.ledger-api.port" -> port.toString)
             )
             .required()
             .withFallback(() => 6865),
           opt[Int]("admin-api-port")
-            .text("Port for the remote participant Admin API (default 6866)")
+            .text("Port for the remote participant Admin API")
             .action((port, cli) =>
               cli ++ ("canton.remote-participants.sandbox.admin-api.port" -> port.toString)
             )
             .required()
             .withFallback(() => 6866),
           opt[Int]("sequencer-public-port")
-            .text("Port for the remote sequencer Public API (default 6867)")
+            .text("Port for the remote sequencer Public API")
             .action((port, cli) =>
               cli ++ ("canton.remote-sequencers.local.public-api.port" -> port.toString)
             )
             .required()
             .withFallback(() => 6867),
           opt[Int]("sequencer-admin-port")
-            .text("Port for the remote sequencer Admin API (default 6868)")
+            .text("Port for the remote sequencer Admin API")
             .action((port, cli) =>
               cli ++ ("canton.remote-sequencers.local.admin-api.port" -> port.toString)
             )
             .required()
             .withFallback(() => 6868),
           opt[Int]("mediator-admin-port")
-            .text("Port for the remote mediator Admin API (default 6869)")
+            .text("Port for the remote mediator Admin API")
             .action((port, cli) =>
               cli ++ ("canton.remote-mediators.mediator1.admin-api.port" -> port.toString)
             )

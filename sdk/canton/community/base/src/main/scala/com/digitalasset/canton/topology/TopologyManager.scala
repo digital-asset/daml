@@ -371,6 +371,21 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
     EitherT.rightT(())
   }
 
+  private def checkConfirmingThresholdIsNotAboveNumberOfHostingNodes(
+      threshold: PositiveInt,
+      numberOfHostingNodes: Int,
+      forceFlags: ForceFlags,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+    EitherTUtil.condUnitET[FutureUnlessShutdown][TopologyManagerError](
+      (numberOfHostingNodes == 0 || threshold.value <= numberOfHostingNodes || forceFlags.permits(
+        ForceFlag.AllowConfirmingThresholdCanBeMet
+      )),
+      TopologyManagerError.ConfirmingThresholdCannotBeReached
+        .Reject(threshold, numberOfHostingNodes),
+    )
+
   def checkInsufficientSignatoryAssigningParticipantsForParty(
       @unused partyId: PartyId,
       @unused currentThreshold: PositiveInt,
@@ -872,11 +887,18 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         transaction.mapping.code,
       )
 
-    case PartyToParticipant(partyId, threshold, participants, _) =>
+    case PartyToKeyMapping(_, SigningKeysWithThreshold(keys, threshold)) =>
+      checkSigningThresholdCanBeReached(
+        threshold,
+        keys,
+      )
+
+    case PartyToParticipant(partyId, threshold, participants, signingKeysWithThreholdO) =>
       checkPartyToParticipantIsNotDangerous(
         partyId,
         threshold,
         participants,
+        signingKeysWithThreholdO,
         forceChanges,
         transaction.transaction.operation,
       )
@@ -1039,10 +1061,22 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
     EitherT(resF)
   }
 
+  private def checkSigningThresholdCanBeReached(
+      threshold: PositiveInt,
+      keys: NonEmpty[Set[SigningPublicKey]],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
+    EitherTUtil.condUnitET[FutureUnlessShutdown][TopologyManagerError](
+      keys.sizeIs >= threshold.value,
+      TopologyManagerError.SigningThresholdCannotBeReached.Reject(threshold, keys.size),
+    )
+
   private def checkPartyToParticipantIsNotDangerous(
       partyId: PartyId,
       threshold: PositiveInt,
       nextParticipants: Seq[HostingParticipant],
+      signingKeysWithThresholdO: Option[SigningKeysWithThreshold],
       forceChanges: ForceFlags,
       operation: TopologyChangeOp,
   )(implicit
@@ -1069,6 +1103,15 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         }
 
     for {
+      _ <- signingKeysWithThresholdO.traverse_ { case SigningKeysWithThreshold(keys, threshold) =>
+        checkSigningThresholdCanBeReached(threshold, keys)
+      }
+      _ <- checkConfirmingThresholdIsNotAboveNumberOfHostingNodes(
+        threshold,
+        nextParticipants.length,
+        forceChanges: ForceFlags,
+      )
+
       currentThresholdAndHostingParticipants <- EitherT.right(
         currentThresholdAndHostingParticipants
       )
@@ -1185,7 +1228,7 @@ object TopologyManager {
     mapping match {
       // Keys defined in Keymappings must prove the ownership of the mapped keys
       case keyMapping: KeyMapping if !strictNamespaceAuth =>
-        val mappedKeyIds = keyMapping.mappedKeys.toSet.map[Fingerprint](_.id)
+        val mappedKeyIds = keyMapping.mappedKeys.map[Fingerprint](_.id)
         val namespaceKeyForSelfAuthorization =
           keyMapping.namespaceKeyForSelfAuthorization.map(_.fingerprint)
         signingKeys.map {
@@ -1207,7 +1250,7 @@ object TopologyManager {
         }.toMap
 
       case _ =>
-        // If strict namespace authorization is not true, either a namespace key or an identity delegation can sign
+        // If strict namespace authorization is true, either a namespace key or an identity delegation can sign
         signingKeys.map(_ -> SigningKeyUsage.NamespaceOnly).toMap
 
     }

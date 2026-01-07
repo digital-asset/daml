@@ -7,7 +7,7 @@ import cats.syntax.functor.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.{SubmissionRequest, SubmissionRequestType}
-import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.metrics.{CircuitBreakerMetrics, SequencerMetrics}
 import com.digitalasset.canton.synchronizer.sequencer.BlockSequencerConfig.{
   CircuitBreakerConfig,
   IndividualCircuitBreakerConfig,
@@ -49,7 +49,8 @@ class BlockSequencerCircuitBreaker(
     scheduler: Scheduler,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends NamedLogging {
+    extends NamedLogging
+    with AutoCloseable {
 
   private val enabled: AtomicBoolean = new AtomicBoolean(config.enabled)
   private val previousTimestamp: AtomicReference[CantonTimestamp] =
@@ -75,14 +76,16 @@ class BlockSequencerCircuitBreaker(
         BlockSequencerCircuitBreaker.unexpectedSubmissionRequestTypeKey
       case x => x
     }
-    enabled.get() && pekkoCircuitBreakers.get(subTypeKey).forall(_.shouldRejectRequests)
+    enabled.get() && pekkoCircuitBreakers
+      .get(subTypeKey)
+      .forall(_.shouldRejectRequests(submissionRequestType.name))
   }
 
   def shouldRejectRequests(submissionRequest: SubmissionRequest): Boolean =
     shouldRejectRequests(submissionRequest.requestType)
 
   def shouldRejectAcknowledgements: Boolean =
-    enabled.get() && acknowledgmentPekkoCircuitBreaker.shouldRejectRequests
+    enabled.get() && acknowledgmentPekkoCircuitBreaker.shouldRejectRequests("acknowledgment")
 
   def enable(): Unit = enabled.set(true)
   def disable(): Unit = enabled.set(false)
@@ -93,14 +96,15 @@ class BlockSequencerCircuitBreaker(
   ) = {
     val messages = config.messages
     val configToCircuitBreaker: Map[IndividualCircuitBreakerConfig, IndividualCircuitBreaker] = Seq(
-      messages.confirmationResponse -> "confirmation response",
-      messages.confirmationRequest -> "confirmation request",
-      messages.verdict -> "verdict",
-      messages.commitment -> "commitment",
-      messages.topUp -> "top up",
-      messages.topology -> "topology",
-      messages.timeProof -> "time proof",
-      messages.unexpected -> "unexpected",
+      messages.confirmationResponse -> SubmissionRequestType.ConfirmationResponse.name,
+      messages.confirmationRequest -> SubmissionRequestType.ConfirmationRequest.name,
+      messages.verdict -> SubmissionRequestType.Verdict.name,
+      messages.commitment -> SubmissionRequestType.Commitment.name,
+      messages.topUp -> SubmissionRequestType.TopUp.name,
+      messages.topUp -> SubmissionRequestType.TopUpMed.name,
+      messages.topology -> SubmissionRequestType.TopologyTransaction.name,
+      messages.timeProof -> SubmissionRequestType.TimeProof.name,
+      messages.unexpected -> BlockSequencerCircuitBreaker.unexpectedSubmissionRequestTypeKey.name,
       messages.acknowledgement -> "acknowledgment",
     ).groupBy(_._1).map { case (config, group) =>
       val messageNames = group.map(_._2)
@@ -108,6 +112,7 @@ class BlockSequencerCircuitBreaker(
         config,
         messageNames,
         scheduler,
+        metrics,
         loggerFactory,
       )(ec, TraceContext.createNew("sequencer-circuit-breaker"))
     }
@@ -127,6 +132,7 @@ class BlockSequencerCircuitBreaker(
     )
   }
 
+  override def close(): Unit = pekkoCircuitBreakers.values.foreach(_.close())
 }
 
 object BlockSequencerCircuitBreaker {
@@ -136,19 +142,37 @@ object BlockSequencerCircuitBreaker {
       config: IndividualCircuitBreakerConfig,
       messageNames: Seq[String],
       scheduler: Scheduler,
+      metrics: SequencerMetrics,
       override val loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext, traceContext: TraceContext)
-      extends NamedLogging {
+      extends NamedLogging
+      with AutoCloseable {
 
     private val allowedBlockDelay = config.allowedBlockDelay.underlying
 
+    private val metricsPerMessageName = messageNames
+      .map(msgName =>
+        msgName -> new CircuitBreakerMetrics(
+          msgName,
+          metrics.prefix,
+          metrics.openTelemetryMetricsFactory,
+        )
+      )
+      .toMap
+
     def registerBlockDelay(blockDelay: time.Duration): Unit =
-      if (blockDelay.compareTo(allowedBlockDelay.toJava) > 0)
+      if (blockDelay.compareTo(allowedBlockDelay.toJava) > 0) {
+        metricsPerMessageName.values.foreach(_.failures.inc())
         pekkoCircuitBreaker.fail()
-      else
+      } else
         pekkoCircuitBreaker.succeed()
 
-    def shouldRejectRequests: Boolean = pekkoCircuitBreaker.isOpen
+    def shouldRejectRequests(name: String): Boolean = {
+      metricsPerMessageName(name).messages.inc()
+      val shouldReject = pekkoCircuitBreaker.isOpen
+      if (shouldReject) metricsPerMessageName(name).rejections.inc()
+      shouldReject
+    }
 
     private val pekkoCircuitBreaker = {
       val maxFailures = config.maxFailures
@@ -165,19 +189,24 @@ object BlockSequencerCircuitBreaker {
         // callTimeout is not used, because we are calling fail() explicitly instead of withCircuitBreaker()
         callTimeout = 0.seconds,
       ).onOpen {
+        metricsPerMessageName.values.foreach(_.state.updateValue(1d))
         logger.info(
           s"Sequencer not accepting requests momentarily for ${messageNames.mkString(" ,")} messages, after $maxFailures consecutive blocks behind more than $allowedBlockDelay"
         )
       }.onHalfOpen {
+        metricsPerMessageName.values.foreach(_.state.updateValue(0.5d))
         logger.debug(
           s"Sequencer temporarily taking requests for ${messageNames.mkString(" ,")} messages while assessing situation"
         )
       }.onClose {
+        metricsPerMessageName.values.foreach(_.state.updateValue(0d))
         logger.info(
           s"Sequencer now accepting requests again for ${messageNames.mkString(" ,")} messages, after seeing a block with delay below $allowedBlockDelay"
         )
       }
     }
+
+    override def close(): Unit = metricsPerMessageName.values.foreach(_.close())
   }
 
   def apply(

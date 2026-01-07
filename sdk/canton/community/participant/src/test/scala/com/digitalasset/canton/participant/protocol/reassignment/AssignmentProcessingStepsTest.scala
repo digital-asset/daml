@@ -11,11 +11,7 @@ import com.daml.logging.LoggingContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{
-  CachingConfigs,
-  DefaultProcessingTimeouts,
-  SessionEncryptionKeyCacheConfig,
-}
+import com.digitalasset.canton.config.{DefaultProcessingTimeouts, SessionEncryptionKeyCacheConfig}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
 import com.digitalasset.canton.data.*
@@ -167,7 +163,7 @@ final class AssignmentProcessingStepsTest
   private lazy val cryptoClient =
     identityFactory.forOwnerAndSynchronizer(participant, targetPSId.unwrap)
 
-  private lazy val cryptoSnapshot = cryptoClient.currentSnapshotApproximation
+  private lazy val cryptoSnapshot = cryptoClient.currentSnapshotApproximation.futureValueUS
 
   private lazy val assignmentProcessingSteps = testInstance(targetPSId, cryptoClient, None)
 
@@ -485,7 +481,7 @@ final class AssignmentProcessingStepsTest
     "succeed without errors" in {
       ResourceUtil.withResourceM(
         new SessionKeyStoreWithInMemoryCache(
-          CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+          SessionEncryptionKeyCacheConfig(),
           timeouts,
           loggerFactory,
         )
@@ -922,7 +918,7 @@ final class AssignmentProcessingStepsTest
       TestReassignmentCoordination.apply(
         Set(),
         CantonTimestamp.Epoch,
-        Some(snapshotOverride.currentSnapshotApproximation),
+        Some(snapshotOverride.currentSnapshotApproximation.futureValueUS),
         Some(awaitTimestampOverride),
         loggerFactory,
       ),

@@ -54,7 +54,9 @@ trait SequencerWriterStore extends AutoCloseable {
   ): FutureUnlessShutdown[Unit] =
     store.saveEvents(instanceIndex, events)
 
-  def bufferEvents(events: NonEmpty[Seq[Sequenced[IdOrPayload]]]): Unit =
+  def bufferEvents(events: NonEmpty[Seq[Sequenced[IdOrPayload]]])(implicit
+      traceContext: TraceContext
+  ): Unit =
     store.bufferEvents(events)
 
   def bufferPayload(payload: BytesPayload)(implicit tc: TraceContext): Unit =

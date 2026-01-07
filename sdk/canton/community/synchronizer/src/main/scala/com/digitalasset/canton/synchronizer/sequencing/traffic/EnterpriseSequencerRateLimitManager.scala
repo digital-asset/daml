@@ -269,29 +269,33 @@ class EnterpriseSequencerRateLimitManager(
   ): EitherT[FutureUnlessShutdown, SequencerRateLimitError, Unit] = if (
     isRateLimited(request.sender)
   ) {
-    // At submission time, we use the current snapshot approximation to validate the request cost.
-    // Obviously the request has not been sequenced yet so that's the best we can do.
-    // The optional submissionTimestamp provided in the request will only be used if the first validation fails
-    // It will allow us to differentiate between a benign submission with an outdated submission cost and
-    // a malicious submission with a truly incorrect cost.
-    // If the submitted cost diverges from the one computed using this snapshot, but is valid using the snapshot
-    // the sender claims to have used, and is within the tolerance window, we'll accept the submission.
-    // If not we'll reject it.
-    val topology = synchronizerSyncCryptoApi.currentSnapshotApproximation
-    val currentTopologySnapshot = topology.ipsSnapshot
 
-    validateRequest(
-      request,
-      submissionTimestampO,
-      currentTopologySnapshot,
-      orderingSequencerId = None,
-      latestSequencerEventTimestamp = lastSequencerEventTimestamp,
-      warnIfApproximate = true,
-      lastSequencedTimestamp,
-      // At submission time we allow submission timestamps slightly ahead of our current topology
-      allowSubmissionTimestampInFuture = true,
-    )
-      .flatMap {
+    for {
+      // At submission time, we use the current snapshot approximation to validate the request cost.
+      // Obviously the request has not been sequenced yet so that's the best we can do.
+      // The optional submissionTimestamp provided in the request will only be used if the first validation fails
+      // It will allow us to differentiate between a benign submission with an outdated submission cost and
+      // a malicious submission with a truly incorrect cost.
+      // If the submitted cost diverges from the one computed using this snapshot, but is valid using the snapshot
+      // the sender claims to have used, and is within the tolerance window, we'll accept the submission.
+      // If not we'll reject it.
+      currentTopologySnapshot <-
+        EitherT.liftF(
+          synchronizerSyncCryptoApi.currentSnapshotApproximation
+            .map(_.ipsSnapshot)
+        )
+      requestValidationResult <- validateRequest(
+        request,
+        submissionTimestampO,
+        currentTopologySnapshot,
+        orderingSequencerId = None,
+        latestSequencerEventTimestamp = lastSequencerEventTimestamp,
+        warnIfApproximate = true,
+        lastSequencedTimestamp,
+        // At submission time we allow submission timestamps slightly ahead of our current topology
+        allowSubmissionTimestampInFuture = true,
+      )
+      _ <- requestValidationResult match {
         // If there's a cost to validate against the current available traffic, do that
         case Some(ValidCost(cost, params, _)) =>
           // Pick the immediate successor of the lastSequencedTimestamp, as the event being validated would at least
@@ -304,8 +308,9 @@ class EnterpriseSequencerRateLimitManager(
             params,
           )
         // Otherwise let the request through
-        case None => EitherT.pure(())
+        case None => EitherT.pure[FutureUnlessShutdown, SequencerRateLimitError](())
       }
+    } yield ()
   } else EitherT.pure(())
 
   /** Compute the cost of a batch using the provided topology. If traffic control parameters are not

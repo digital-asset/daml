@@ -11,9 +11,10 @@ import com.digitalasset.canton.ledger.localstore.api.{
   IdentityProviderConfigUpdate,
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.util.Mutex
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{Future, blocking}
+import scala.concurrent.Future
 
 import IdentityProviderConfigStore.*
 
@@ -123,11 +124,10 @@ class InMemoryIdentityProviderConfigStore(
   private def checkIdExists(id: IdentityProviderId.Id): Result[IdentityProviderConfig] =
     state.get(id).toRight(IdentityProviderConfigNotFound(id))
 
+  private val lock = new Mutex()
   private def withState[T](t: => T): Future[T] =
-    blocking(
-      state.synchronized(
-        Future.successful(t)
-      )
-    )
+    Future.successful {
+      lock.exclusive(t)
+    }
 
 }

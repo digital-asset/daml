@@ -74,7 +74,7 @@ class MemberAuthenticationService(
   ): EitherT[FutureUnlessShutdown, AuthenticationError, (Nonce, NonEmpty[Seq[Fingerprint]])] =
     for {
       _ <- EitherT.right(waitForInitialized)
-      snapshot = cryptoApi.ips.currentSnapshotApproximation
+      snapshot <- EitherT.liftF(cryptoApi.ips.currentSnapshotApproximation)
       _ <- isActive(member)
       fingerprints <- EitherT(
         snapshot
@@ -127,7 +127,7 @@ class MemberAuthenticationService(
       StoredNonce(_, nonce, generatedAt, _expireAt) = value
       authentication <- EitherT.fromEither[FutureUnlessShutdown](MemberAuthentication(member))
       hash = authentication.hashSynchronizerNonce(nonce, synchronizerId, cryptoApi.pureCrypto)
-      snapshot = cryptoApi.currentSnapshotApproximation
+      snapshot <- EitherT.liftF(cryptoApi.currentSnapshotApproximation)
 
       _ <- snapshot
         .verifySignature(
@@ -175,7 +175,7 @@ class MemberAuthenticationService(
   ): Either[AuthenticationError, StoredAuthenticationToken] =
     for {
       _ <- correctSynchronizer(member, intendedSynchronizerId)
-      validTokenO = store.fetchTokens(member).filter(_.expireAt > clock.now).find(_.token == token)
+      validTokenO = store.tokenForMemberAt(member, token, clock.now)
       validToken <- validTokenO.toRight(MissingToken(member)).leftWiden[AuthenticationError]
     } yield validToken
 
@@ -186,13 +186,13 @@ class MemberAuthenticationService(
   ): FutureUnlessShutdown[Either[LogoutTokenDoesNotExist.type, Unit]] =
     for {
       _ <- waitForInitialized
-      storedTokenO = store.fetchToken(token)
-      res <- storedTokenO match {
+      memberO = store.fetchMemberOfTokenForInvalidation(token)
+      res <- memberO match {
         case None => FutureUnlessShutdown.pure(Left(LogoutTokenDoesNotExist))
-        case Some(storedToken) =>
+        case Some(member) =>
           // Force invalidation, whether the member is actually active or not
           invalidateAndExpire(isActiveCheck = (_: Member) => FutureUnlessShutdown.pure(false))(
-            storedToken.member
+            member
           ).map(Right(_))
       }
     } yield res
@@ -245,9 +245,9 @@ class MemberAuthenticationService(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean] =
     // we are a bit more conservative here. a member needs to be active NOW and the head state (i.e. effective in the future)
-    Seq(cryptoApi.headSnapshot, cryptoApi.currentSnapshotApproximation)
-      .map(_.ipsSnapshot)
-      .parTraverse(check(_))
+    Seq(FutureUnlessShutdown.pure(cryptoApi.headSnapshot), cryptoApi.currentSnapshotApproximation)
+      .map(_.map(_.ipsSnapshot))
+      .parTraverse(_.flatMap(check(_)))
       .map(_.forall(identity))
 
   protected def isParticipantActive(participant: ParticipantId)(implicit

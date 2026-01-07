@@ -17,9 +17,12 @@ message GetEventsByContractIdRequest {
   // Required
   string contract_id = 1;
 
+  reserved 2;
+  reserved "requesting_parties";
+
   // Format of the events in the result, the presentation will be of TRANSACTION_SHAPE_ACS_DELTA.
   // Required
-  EventFormat event_format = 2;
+  EventFormat event_format = 3;
 }
 
 // Query events by contract id.

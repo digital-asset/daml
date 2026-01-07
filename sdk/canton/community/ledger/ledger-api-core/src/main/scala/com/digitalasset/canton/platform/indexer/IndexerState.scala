@@ -22,11 +22,11 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.{FutureQueue, RecoveringFutureQueue}
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{PekkoUtil, TryUtil}
+import com.digitalasset.canton.util.{Mutex, PekkoUtil, TryUtil}
 import org.apache.pekko.Done
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success, Try}
 
@@ -40,6 +40,8 @@ class IndexerState(
   import IndexerState.*
 
   private var state: State = Normal(recoveringIndexerFactory(), shutdownInitiated = false)
+  private val lock = new Mutex()
+
   private implicit val traceContext: TraceContext = TraceContext.empty
 
   // Requesting a Repair Indexer turns off normal indexing, therefore it needs to be ensured, before calling:
@@ -264,7 +266,7 @@ class IndexerState(
     }
 
   private def withState[T](f: State => T): T =
-    blocking(synchronized(f(state)))
+    (lock.exclusive(f(state)))
 
   def withStateUnlessShutdown[T](f: State => Future[T]): Future[T] =
     withState(s =>

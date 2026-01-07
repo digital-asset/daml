@@ -225,6 +225,12 @@ final case class SynchronizerConnectionConfig(
       case Right(es) => es
     }
 
+  def withSequencerLivenessMargin(livenessMargin: NonNegativeInt): SynchronizerConnectionConfig =
+    copy(sequencerConnections =
+      sequencerConnections
+        .withLivenessMargin(sequencerLivenessMargin = livenessMargin)
+    )
+
   def withPriority(priority: Int): SynchronizerConnectionConfig =
     this.copy(priority = priority)
 

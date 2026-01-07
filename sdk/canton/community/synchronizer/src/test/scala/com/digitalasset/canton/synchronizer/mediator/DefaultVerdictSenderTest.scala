@@ -185,7 +185,7 @@ class DefaultVerdictSenderTest
     val informeeMessage =
       InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
     val rootHashMessage = RootHashMessage(
-      fullInformeeTree.transactionId.toRootHash,
+      fullInformeeTree.updateId.toRootHash,
       psid,
       ViewType.TransactionViewType,
       testTopologyTimestamp,

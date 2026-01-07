@@ -30,7 +30,7 @@ import com.digitalasset.canton.sequencing.client.{
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, Recipients}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil}
+import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, LoggerUtil}
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import org.slf4j.event.Level
 
@@ -144,7 +144,10 @@ abstract class AbstractMessageProcessor(
 
           case Right(inner: EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit]) =>
             FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-              inner.valueOr(err => logger.warn(s"$errorBody: ${err.show}")),
+              inner.valueOr { err =>
+                LoggerUtil
+                  .logAtLevel(SendAsyncClientError.logLevel(err), s"$errorBody: ${err.show}")
+              },
               failureMessage = errorBody,
               level = Level.INFO,
             )

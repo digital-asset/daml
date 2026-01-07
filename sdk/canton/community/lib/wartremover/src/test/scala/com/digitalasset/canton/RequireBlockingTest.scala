@@ -8,9 +8,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.wartremover.test.WartTestTraverser
 
-import scala.annotation.nowarn
-import scala.concurrent.blocking
-
 class RequireBlockingTest extends AnyWordSpec with Matchers {
 
   def assertIsErrorSynchronized(result: WartTestTraverser.Result): Assertion = {
@@ -53,54 +50,6 @@ class RequireBlockingTest extends AnyWordSpec with Matchers {
       }
       result.errors.length shouldBe 2
       result.errors.foreach(_ should include(RequireBlocking.messageSynchronized))
-    }
-
-    "detect nested synchronized blocks in the body" in {
-      // Technically we shouldn't require another blocking around the inner synchronized,
-      // but that's a false positive we can live with as nested synchronization calls are anyway
-      // dangerous for their deadlock potential.
-      val result = WartTestTraverser(RequireBlocking) {
-        blocking(this.synchronized(new Object().synchronized(17)))
-      }
-      assertIsErrorSynchronized(result)
-    }
-
-    "detect escaping synchronized blocks in the body" in {
-      // The inner synchronize call escapes the blocking scope
-      val result = WartTestTraverser(RequireBlocking) {
-        val f = blocking {
-          this.synchronized { () =>
-            this.synchronized(42)
-          }
-        }
-        f()
-      }
-      assertIsErrorSynchronized(result)
-    }
-
-    "fail to detect renamed synchronized" in {
-      /*
-        Because of https://github.com/scala/scala/blob/2.13.x/src/compiler/scala/tools/nsc/typechecker/Typers.scala#L5757-L5758
-        the import/renaming triggers a warning
-       */
-      @nowarn("msg=synchronized not selected from this instance")
-      val result = WartTestTraverser(RequireBlocking) {
-        val x = new Object()
-        import x.synchronized as foo
-        foo(19)
-      }
-
-      // assertIsErrorSynchronized(result)
-      result.errors shouldBe Seq.empty
-    }
-
-    "allow synchronized statements inside blocking calls" in {
-      val result = WartTestTraverser(RequireBlocking) {
-        blocking(this.synchronized(42))
-        blocking(synchronized(23))
-        blocking(synchronized(blocking(new Object().synchronized(17))))
-      }
-      result.errors shouldBe Seq.empty
     }
 
     "forbid Thread.sleep" in {

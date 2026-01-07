@@ -222,7 +222,7 @@ fi
 echo "== Preparing Certificate =="
 # For a revocation, deserialize the delegation and patch it to change the operation to TOPOLOGY_CHANGE_OP_REMOVE and increment the serial
 if [[ -n "$REVOKE_INTERMEDIATE_DELEGATION" ]]; then
-  TRANSACTION_TYPE="Delegation"
+  TRANSACTION_TYPE="Revocation"
   # The transaction to be revoked is expected to be a serialized versioned "TopologyTransaction"
   if ! TRANSACTION_TO_REVOKE=$(serialized_versioned_message_to_json "$BUF_PROTO_IMAGE" "com.digitalasset.canton.protocol.v30.TopologyTransaction" < "$REVOKE_INTERMEDIATE_DELEGATION"); then
     echo "Error: Failed to import canton delegation to be revoked: $REVOKE_INTERMEDIATE_DELEGATION"
@@ -233,10 +233,26 @@ if [[ -n "$REVOKE_INTERMEDIATE_DELEGATION" ]]; then
   NAMESPACE_TRANSACTION=$(echo "$TRANSACTION_TO_REVOKE" | jq '.operation = "TOPOLOGY_CHANGE_OP_REMOVE" | .serial += 1')
 # For a new delegation, build it from the key
 else
-  ROOT_NAMESPACE_FINGERPRINT=$(compute_canton_fingerprint < "$ROOT_PUB_KEY")
+
+  # If the target key spec is not set, try to detect it
+  DETECTED_ROOT_SPEC=$(detect_key_spec "$ROOT_PUB_KEY")
+  if [[ "$DETECTED_ROOT_SPEC" != "UNKNOWN" ]]; then
+    ROOT_KEY_SPEC="$DETECTED_ROOT_SPEC"
+  else
+    err "Error: Could not detect root key spec."
+    exit 1
+  fi
+  if [[ $ROOT_KEY_SPEC == "SIGNING_KEY_SPEC_EC_CURVE25519" ]]; then
+    # The fingerprint for ED25519 keys is computed from the raw key material, which is 32 bytes long
+    # and at the end of DER file
+    ROOT_NAMESPACE_FINGERPRINT=$(tail -c 32 "$ROOT_PUB_KEY" | compute_canton_fingerprint)
+  else
+    ROOT_NAMESPACE_FINGERPRINT=$(compute_canton_fingerprint < "$ROOT_PUB_KEY")
+  fi
   echo "Root namespace fingerprint: $ROOT_NAMESPACE_FINGERPRINT"
+
   NAMESPACE_MAPPING=""
-  TRANSACTION_TYPE="Revocation"
+  TRANSACTION_TYPE="Delegation"
   # Target pub key is a DER file
   if [[ -n "$TARGET_PUB_KEY" ]]; then
     # Verify the key is in DER format

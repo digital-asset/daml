@@ -89,8 +89,20 @@ class PruningProcessor(
     with HasCloseContext {
   import PruningProcessor.*
 
-  private val executionQueue = new SimpleExecutionQueue(
+  /** Queue for executing all iterations of one pruning
+    */
+  private val pruningQueue = new SimpleExecutionQueue(
     "pruning-processor-queue",
+    futureSupervisor,
+    timeouts,
+    loggerFactory,
+    crashOnFailure = exitOnFatalFailures,
+  )
+
+  /** Queue for executing one iteration of pruning
+    */
+  val pruningBatchQueue = new SimpleExecutionQueue(
+    "batch-pruning-queue",
     futureSupervisor,
     timeouts,
     loggerFactory,
@@ -111,7 +123,7 @@ class PruningProcessor(
     */
   private def reportUnfinishedPruning()(implicit traceContext: TraceContext): Unit =
     FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-      executionQueue
+      pruningQueue
         .executeUS(
           for {
             status <- participantNodePersistentState.value.pruningStore.pruningStatus()
@@ -168,7 +180,7 @@ class PruningProcessor(
           )
         } yield ()
       )
-    executionQueue.executeEUS(doPrune(), s"prune ledger events upto $pruneUpToInclusive")
+    pruningQueue.executeEUS(doPrune(), s"prune ledger events upto $pruneUpToInclusive")
   }
 
   /** Returns an offset of at most `boundInclusive` that is safe to prune and whose timestamp is
@@ -193,12 +205,18 @@ class PruningProcessor(
             .perform(
               rewoundBoundInclusive
             )
-            .map(
-              _.map(_.offset)
+            .map { firstUnsafeOffset =>
+              val result = firstUnsafeOffset
+                .map(_.offset)
                 .flatMap(_.decrement)
-                .filter(_ < rewoundBoundInclusive)
-                .orElse(Some(rewoundBoundInclusive))
-            )
+                .map(safeOffset =>
+                  if (safeOffset > rewoundBoundInclusive) rewoundBoundInclusive else safeOffset
+                )
+              logger.debug(
+                s"BoundInclusive: $boundInclusive, beforeOrAtPublicationTime: $beforeOrAt beforeOrAtOffset: $beforeOrAtOffset, rewoundBoundInclusive: $rewoundBoundInclusive, first unsafe offset for rewound-bound: $firstUnsafeOffset, result: $result"
+              )
+              result
+            }
             .value
 
         case None =>
@@ -245,21 +263,24 @@ class PruningProcessor(
       lastUpTo: Option[Offset],
       pruneUpToInclusiveBatchEnd: Offset,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] =
-    synchronizeWithClosing(functionFullName) {
-      logger.info(s"Start pruning up to $pruneUpToInclusiveBatchEnd...")
-      val pruningStore = participantNodePersistentState.value.pruningStore
-      for {
-        _ <- EitherT.right(
-          pruningStore.markPruningStarted(pruneUpToInclusiveBatchEnd)
-        )
-        _ <- EitherT.right(performPruning(lastUpTo, pruneUpToInclusiveBatchEnd))
-        _ <- EitherT.right(
-          pruningStore.markPruningDone(pruneUpToInclusiveBatchEnd)
-        )
-      } yield {
-        logger.info(s"Pruned up to $pruneUpToInclusiveBatchEnd")
-      }
-    }
+    pruningBatchQueue.executeEUS(
+      synchronizeWithClosing(functionFullName) {
+        logger.info(s"Start pruning up to $pruneUpToInclusiveBatchEnd...")
+        val pruningStore = participantNodePersistentState.value.pruningStore
+        for {
+          _ <- EitherT.right(
+            pruningStore.markPruningStarted(pruneUpToInclusiveBatchEnd)
+          )
+          _ <- EitherT.right(performPruning(lastUpTo, pruneUpToInclusiveBatchEnd))
+          _ <- EitherT.right(
+            pruningStore.markPruningDone(pruneUpToInclusiveBatchEnd)
+          )
+        } yield {
+          logger.info(s"Pruned up to $pruneUpToInclusiveBatchEnd")
+        }
+      },
+      s"prune ledger events batch from $lastUpTo to $pruneUpToInclusiveBatchEnd",
+    )
 
   private def lookUpSynchronizerAndParticipantPruningCutoffs(
       pruneFromExclusive: Option[Offset],
@@ -430,7 +451,7 @@ class PruningProcessor(
       .prune(globalOffset, publicationTime)
   }
 
-  override protected def onClosed(): Unit = LifeCycle.close(executionQueue)(logger)
+  override protected def onClosed(): Unit = LifeCycle.close(pruningBatchQueue, pruningQueue)(logger)
 
   def acsSetNoWaitCommitmentsFrom(
       configs: Seq[ConfigForNoWaitCounterParticipants]

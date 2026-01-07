@@ -121,6 +121,8 @@ object StoredTopologyTransactions
     StoredTopologyTransactions[TopologyChangeOp, TopologyMapping]
   type PositiveStoredTopologyTransactions =
     StoredTopologyTransactions[TopologyChangeOp.Replace, TopologyMapping]
+  type NegativeStoredTopologyTransactions =
+    StoredTopologyTransactions[TopologyChangeOp.Remove, TopologyMapping]
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(

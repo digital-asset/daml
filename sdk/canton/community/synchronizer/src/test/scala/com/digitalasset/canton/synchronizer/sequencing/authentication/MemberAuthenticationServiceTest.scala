@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencing.authentication
 import cats.data.EitherT
 import cats.implicits.*
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Nonce
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication
@@ -42,7 +43,8 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
       nonceDuration: JDuration = JDuration.ofMinutes(1),
       tokenDuration: JDuration = JDuration.ofHours(1),
       invalidateMemberCallback: Member => Unit = _ => (),
-      store: MemberAuthenticationStore = new MemberAuthenticationStore(),
+      store: MemberAuthenticationStore =
+        new MemberAuthenticationStore(PositiveInt.tryCreate(10), loggerFactory),
   ): MemberAuthenticationService =
     new MemberAuthenticationService(
       physicalSynchronizerId,
@@ -151,7 +153,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
     }
 
     "invalidate all tokens from a member when logging out" in {
-      val store = new MemberAuthenticationStore()
+      val store = new MemberAuthenticationStore(PositiveInt.tryCreate(10), loggerFactory)
       val sut = service(participantIsActive = true, store = store)
 
       for {

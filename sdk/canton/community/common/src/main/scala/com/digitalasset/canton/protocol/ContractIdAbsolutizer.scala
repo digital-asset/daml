@@ -161,7 +161,7 @@ object ContractIdAbsolutizer {
   }
 
   final case class ContractIdAbsolutizationDataV2(
-      creatingTransactionId: UpdateId,
+      creatingUpdateId: UpdateId,
       ledgerTimeOfTx: CantonTimestamp,
   ) extends ContractIdAbsolutizationData {
     override def updateLedgerTime(
@@ -182,9 +182,9 @@ object ContractIdAbsolutizer {
       case v2: ContractAuthenticationDataV2 =>
         for {
           _ <-
-            v2.creatingTransactionId.traverse_(transactionId =>
+            v2.creatingUpdateId.traverse_(updateId =>
               Either.left(
-                s"Cannot absolutize authentication data that already contains a transaction ID ${transactionId.toHexString}"
+                s"Cannot absolutize authentication data that already contains a transaction ID ${updateId.toHexString}"
               )
             )
           _ <- Either.cond(
@@ -195,7 +195,7 @@ object ContractIdAbsolutizer {
         } yield {
           ContractAuthenticationDataV2(
             v2.salt,
-            Some(creatingTransactionId),
+            Some(creatingUpdateId),
             relativeSuffixesInArg.toSeq.map(_.toBytes),
           )(v2.contractIdVersion)
         }
@@ -210,14 +210,14 @@ object ContractIdAbsolutizer {
       absolutizationData: ContractIdAbsolutizationData,
   ): Either[String, (RelativeContractIdSuffixV2, ContractId.V2)] =
     absolutizationData match {
-      case ContractIdAbsolutizationDataV2(transactionId, ledgerTime) =>
+      case ContractIdAbsolutizationDataV2(updateId, ledgerTime) =>
         for {
           version <- CantonContractIdVersion.extractCantonContractIdVersionV2(v2)
         } yield {
           val hash = hashOps
             .build(HashPurpose.ContractIdAbsolutization)
             .add(v2.suffix.toByteString)
-            .add(transactionId.getCryptographicEvidence)
+            .add(updateId.getCryptographicEvidence)
             .add(ledgerTime.toProtoPrimitive)
             .finish()
           val suffix = version.versionPrefixBytesAbsolute.toByteString.concat(hash.unwrap)

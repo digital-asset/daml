@@ -31,16 +31,23 @@ private[dao] trait JdbcLedgerDaoExceptionSpec
 
   it should "not find contracts created under rollback nodes" in {
 
-    val cid1 = newCid
-    val cid2 = newCid
+    val createNode1 = createNode(
+      signatories = Set(alice),
+      stakeholders = Set(alice),
+    )
+    val createNode2 = createNode(
+      signatories = Set(alice),
+      stakeholders = Set(alice),
+    )
+
+    val cid1 = createNode1.coid
+    val cid2 = createNode2.coid
 
     val tx = TreeTransactionBuilder.toCommittedTransaction(
       TestNodeBuilder
         .rollback()
-        .withChildren(
-          createNode(absCid = cid1, signatories = Set(alice), stakeholders = Set(alice))
-        ),
-      createNode(absCid = cid2, signatories = Set(alice), stakeholders = Set(alice)),
+        .withChildren(createNode1),
+      createNode2,
     )
     val offsetAndEntry = fromTransaction(tx)
 

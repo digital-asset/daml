@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.implicits.showInterpolator
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
-import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.ledger.participant.state.*
@@ -141,17 +141,16 @@ private[sync] class PartyAllocation(
         waitingSuccessful <- EitherT
           .right[SubmissionResult](
             if (externalPartyOnboardingDetails.forall(_.fullyAllocatesParty)) {
-              connectedSynchronizersLookup.snapshot.toSeq.parTraverse {
-                case (synchronizerId, connectedSynchronizer) =>
-                  connectedSynchronizer.topologyClient
-                    .awaitUS(
-                      _.inspectKnownParties(partyId.filterString, participantId.filterString)
-                        .map(_.nonEmpty),
-                      timeouts.network.duration,
-                    )
-                    .map(synchronizerId -> _)
+              connectedSynchronizersLookup.get(synchronizerId).traverse { connectedSynchronizer =>
+                connectedSynchronizer.topologyClient
+                  .awaitUS(
+                    _.hostedOn(Set(partyId.toLf), participantId)
+                      .map(_.nonEmpty),
+                    timeouts.network.duration,
+                  )
+                  .map(synchronizerId -> _)
               }
-            } else FutureUnlessShutdown.pure(Seq.empty)
+            } else FutureUnlessShutdown.pure(None)
           )
         _ = waitingSuccessful.foreach { case (synchronizerId, successful) =>
           if (!successful)

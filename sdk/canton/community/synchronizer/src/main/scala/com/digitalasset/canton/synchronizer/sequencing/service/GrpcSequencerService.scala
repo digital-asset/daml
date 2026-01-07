@@ -147,6 +147,7 @@ object GrpcSequencerService {
       new SubscriptionPool[GrpcManagedSubscription[?]](
         clock,
         metrics,
+        parameters.maxSubscriptionsPerMember,
         parameters.processingTimeouts,
         loggerFactory,
       ),

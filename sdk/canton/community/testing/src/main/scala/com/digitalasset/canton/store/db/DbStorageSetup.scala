@@ -25,7 +25,7 @@ import com.github.dockerjava.api.model.Bind
 import com.typesafe.config.{Config, ConfigFactory}
 import org.postgresql.util.PSQLException
 import org.scalatest.Assertions.fail
-import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*

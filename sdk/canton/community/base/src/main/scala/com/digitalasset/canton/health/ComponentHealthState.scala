@@ -14,7 +14,7 @@ import io.circe.generic.semiauto.deriveEncoder
 import org.slf4j.event.Level
 
 /** Generic State implementation of a component This can be used as a base health state for most
-  * component. However ComponentHealth (below) does not enforce the use of this class and a custom
+  * components. However, ComponentHealth (below) does not enforce the use of this class and a custom
   * State class can be used instead
   */
 sealed trait ComponentHealthState extends ToComponentHealthState with PrettyPrinting {

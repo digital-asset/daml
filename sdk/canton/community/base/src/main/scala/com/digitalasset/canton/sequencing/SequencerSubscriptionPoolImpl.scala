@@ -35,11 +35,11 @@ import com.digitalasset.canton.sequencing.client.{
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, LoggerUtil}
+import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, LoggerUtil, Mutex}
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong, AtomicReference}
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 final class SequencerSubscriptionPoolImpl private[sequencing] (
@@ -72,7 +72,7 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
   private val trackedSubscriptions = mutable.Set[SubscriptionManager]()
 
   /** Used to synchronize access to the mutable structure [[trackedSubscriptions]] */
-  private val lock = new Object()
+  private val lock = new Mutex()
 
   /** Holds the token for the current [[adjustConnectionsIfNeeded]] request */
   private val currentRequest = new AtomicLong(0)
@@ -118,8 +118,8 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
     // Overflow is harmless, it will just roll over to negative
     val myToken = currentRequest.incrementAndGet()
 
-    def adjustInternal(): Unit = blocking {
-      lock.synchronized {
+    def adjustInternal(): Unit =
+      lock.exclusive {
         if (!isClosing && currentRequest.get == myToken) {
           val activeThreshold = currentConfigWithThreshold.activeThreshold
 
@@ -172,6 +172,7 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
               // will register on the connection health, which will immediately trigger a `poke`. If the connection
               // has meanwhile gone bad (state != `Validated`), we will remove the connection from the subscription
               // pool (as this runs in the same thread and the lock is reentrant) and call back here to adjust.
+              // Similarly, a subscription that closes immediately could call back here to adjust.
               // This should however not interfere with our processing, and obtain a new connection.
               newSubscriptions.foreach(_.register())
 
@@ -190,7 +191,6 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
 
         } else logger.debug(s"Cancelling request with token = $myToken")
       }
-    }
 
     def scheduleNext()(implicit traceContext: TraceContext): Unit =
       if (!isClosing) {
@@ -215,43 +215,68 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
     val preSubscriptionEventO =
       subscriptionStartProvider.getLatestProcessedEventO.orElse(initialSubscriptionEventO)
 
-    val subscription = sequencerSubscriptionFactory.create(
+    sequencerSubscriptionFactory.create(
       connection,
       member,
       preSubscriptionEventO,
       subscriptionHandlerFactory,
+      parent = this,
     )
-
-    subscription.closeReason.onComplete(closeWithSubscriptionReason(connection))
-
-    subscription
   }
 
   private val closeReasonPromise = Promise[SequencerClient.CloseReason]()
 
   override def completion: Future[SequencerClient.CloseReason] = closeReasonPromise.future
 
-  private def closeWithSubscriptionReason(connection: SequencerConnectionX)(
+  // TODO(i28969): Clean up shutdown and notification mechanism
+  // When completing the subscription pool with a reason, we generally also update the health of the subscription pool.
+  // This is because other places in the code react to one or the other: for example, the sequencer client will watch
+  // the promise and close with the associated reason, which will propagate up to the synchronizer connection manager,
+  // whereas the liveness health of mediator nodes has the sequencer client's health as a critical dependency.
+  // If we are completing due to a lost subscription, it can trigger another fatal condition happening concurrently (e.g.
+  // threshold no longer reachable). Only the first reason will complete the promise, but the health change will be
+  // arbitrary.
+  // Furthermore, since the health of a component can freely change between any state, an arbitrary health change
+  // can mean that a Fatal health which should trigger the liveness to go to NOT_SERVING can be missed if the component
+  // closes before liveness sees it (as closing overrides the health to Failed).
+  // The following attempts to maintain coherency by limiting the changes to the first completion call, and updating the
+  // health before completing so that it has time to propagate.
+  // This whole shutdown and notification mechanism, partly inherited from the old transports, should definitely be
+  // revisited and cleaned up.
+  private val completed = new AtomicBoolean(false)
+  private def completeWithReason(
+      reason: Try[SequencerClient.CloseReason],
+      updateHealth: (SequencerSubscriptionPoolHealth, String) => Unit,
+  )(implicit traceContext: TraceContext): Unit =
+    if (!completed.getAndSet(true)) {
+      updateHealth(health, reason.toString)
+      logger.debug(s"Completing sequencer subscription pool with reason: $reason")
+      closeReasonPromise.tryComplete(reason).discard
+    }
+
+  private def closeWithSubscriptionReason(manager: SubscriptionManager)(
       subscriptionCloseReason: Try[SubscriptionCloseReason[SequencerClientSubscriptionError]]
   )(implicit traceContext: TraceContext): Unit = {
-    def isThresholdStillReachable(ignoreCurrent: Boolean): Boolean = blocking(lock.synchronized {
+    def isThresholdStillReachable(ignoreCurrent: Boolean): Boolean = lock.exclusive {
       val ignored: Set[ConnectionX.ConnectionXConfig] =
-        if (ignoreCurrent) Set(connection.config) else Set.empty
+        if (ignoreCurrent) Set(manager.connection.config) else Set.empty
       val trustThreshold = currentConfigWithThreshold.trustThreshold
       val result = pool.isThresholdStillReachable(trustThreshold, ignored)
       logger.debug(s"isThresholdStillReachable(ignored = $ignored) = $result")
       result
-    })
+    }
 
     def complete(
         reason: Try[SequencerClient.CloseReason]
     )(implicit traceContext: TraceContext): Unit = {
-      health.fatalOccurred(s"Closing with reason $reason")
-      closeReasonPromise.tryComplete(reason).discard
+      completeWithReason(reason, _.fatalOccurred(_))
       LifeCycle.close(this)(logger)
     }
 
     subscriptionCloseReason match {
+      case Success(SubscriptionCloseReason.TokenExpiration) =>
+        removeSubscriptionsFromPool(manager)
+
       case Success(SubscriptionCloseReason.HandlerException(ex)) =>
         complete(Success(SequencerClient.CloseReason.UnrecoverableException(ex)))
 
@@ -323,8 +348,10 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
       }
     }
 
-    def register(): Unit =
+    def register()(implicit traceContext: TraceContext): Unit = {
       connection.health.registerOnHealthChange(connectionListener).discard[Boolean]
+      subscription.closeReason.onComplete(closeWithSubscriptionReason(this))
+    }
 
     def close(): Unit = {
       // If the connection comes back, the listener will be a different instance,
@@ -348,8 +375,7 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
         )
       case _ if !pool.isThresholdStillReachable(currentConfig.trustThreshold, Set.empty) =>
         val reason = s"Trust threshold ${currentConfig.trustThreshold} is no longer reachable"
-        health.fatalOccurred(reason)
-        closeReasonPromise.tryComplete(Success(UnrecoverableError(reason))).discard
+        completeWithReason(Success(UnrecoverableError(reason)), _.fatalOccurred(_))
       case nb =>
         health.failureOccurred(
           s"only $nb subscription(s) available, trust threshold = ${currentConfig.trustThreshold}"
@@ -365,22 +391,18 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
     }
 
   override def onClosed(): Unit = {
-    val instances = blocking(lock.synchronized(trackedSubscriptions.toSeq))
+    val instances = lock.exclusive(trackedSubscriptions.toSeq)
     LifeCycle.close(instances*)(logger)
     super.onClosed()
   }
 
-  override def subscriptions: Set[SequencerSubscriptionX[SequencerClientSubscriptionError]] = {
-    val handlers = blocking {
-      lock.synchronized(trackedSubscriptions.toSet)
-    }
-    handlers.map(_.subscription)
-  }
+  override def subscriptions: Set[SequencerSubscriptionX[SequencerClientSubscriptionError]] =
+    lock.exclusive(trackedSubscriptions.toSet).map(_.subscription)
 
   private def removeSubscriptionsFromPool(managers: SubscriptionManager*)(implicit
       traceContext: TraceContext
-  ): Unit = blocking {
-    lock.synchronized {
+  ): Unit =
+    lock.exclusive {
       managers.foreach { manager =>
         logger.debug(s"Removing ${manager.connection.name} from the subscription pool")
         if (trackedSubscriptions.remove(manager)) {
@@ -398,7 +420,6 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
       // Immediately request new connections if needed
       adjustConnectionsIfNeeded()
     }
-  }
 }
 
 object SequencerSubscriptionPoolImpl {

@@ -74,7 +74,7 @@ final case class ContractAuthenticationDataV1(salt: Salt)(
 
 final case class ContractAuthenticationDataV2(
     salt: LfBytes,
-    creatingTransactionId: Option[UpdateId],
+    creatingUpdateId: Option[UpdateId],
     relativeArgumentSuffixes: Seq[LfBytes],
 )(val contractIdVersion: CantonContractIdV2Version)
     extends ContractAuthenticationData {
@@ -85,7 +85,7 @@ final case class ContractAuthenticationDataV2(
       case CantonContractIdV2Version0 =>
         val serialized = v31.ContractAuthenticationData(
           salt.toByteString,
-          creatingTransactionId.map(_.getCryptographicEvidence),
+          creatingUpdateId.map(_.getCryptographicEvidence),
           relativeArgumentSuffixes.map(_.toByteString),
         )
         LfBytes.fromByteString(serialized.toByteString)
@@ -97,7 +97,7 @@ final case class ContractAuthenticationDataV2(
 
   override protected def pretty: Pretty[ContractAuthenticationDataV2.this.type] = prettyOfClass(
     param("salt", _.salt.toByteString),
-    paramIfDefined("creating transaction id", _.creatingTransactionId),
+    paramIfDefined("creating transaction id", _.creatingUpdateId),
     paramIfNonEmpty(
       "relative argument suffixes",
       _.relativeArgumentSuffixes.map(_.toHexString),
@@ -157,9 +157,9 @@ object ContractAuthenticationData {
     case CantonContractIdV2Version0 =>
       for {
         proto <- ProtoConverter.protoParser(v31.ContractAuthenticationData.parseFrom)(bytes)
-        v31.ContractAuthenticationData(saltP, creatingTransactionIdP, relativeArgumentSuffixesP) =
+        v31.ContractAuthenticationData(saltP, creatingUpdateIdP, relativeArgumentSuffixesP) =
           proto
-        creatingTransactionId <- creatingTransactionIdP.traverse(UpdateId.fromProtoPrimitive)
+        creatingUpdateId <- creatingUpdateIdP.traverse(UpdateId.fromProtoPrimitive)
         _ <- Either.cond(
           IterableUtil.isSorted(relativeArgumentSuffixesP)(ByteStringUtil.orderingByteString),
           (),
@@ -167,7 +167,7 @@ object ContractAuthenticationData {
         )
       } yield ContractAuthenticationDataV2(
         LfBytes.fromByteString(saltP),
-        creatingTransactionId,
+        creatingUpdateId,
         relativeArgumentSuffixesP.map(LfBytes.fromByteString),
       )(version)
   }

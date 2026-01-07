@@ -7,6 +7,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CantonRequireTypes.String36
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.ParticipantPruningStore
@@ -16,6 +17,7 @@ import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.GetResult
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 
 class DbParticipantPruningStore(
@@ -77,4 +79,47 @@ class DbParticipantPruningStore(
         functionFullName,
       )
     } yield statusO.getOrElse(ParticipantPruningStatus(None, None))
+}
+
+// Wrapper for DbParticipantPruningStore that contains a simple cache for fetching ParticipantPruningStatus
+final class DbParticipantPruningStoreCached(
+    underlying: DbParticipantPruningStore,
+    initialStatus: ParticipantPruningStatus,
+)(implicit val ec: ExecutionContext)
+    extends ParticipantPruningStore {
+
+  private val statusCache = new AtomicReference[ParticipantPruningStatus](initialStatus)
+
+  override def markPruningStarted(upToInclusive: Offset)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    underlying
+      .markPruningStarted(upToInclusive)
+      .map(_ =>
+        statusCache.getAndUpdate {
+          case ParticipantPruningStatus(startedO, completedO) if Option(upToInclusive) > startedO =>
+            ParticipantPruningStatus(Some(upToInclusive), completedO)
+          case current => current
+        }.discard
+      )
+
+  override def markPruningDone(upToInclusive: Offset)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    underlying
+      .markPruningDone(upToInclusive)
+      .map(_ =>
+        statusCache.getAndUpdate {
+          case ParticipantPruningStatus(startedO, completedO)
+              if Option(upToInclusive) > completedO =>
+            ParticipantPruningStatus(startedO, Some(upToInclusive))
+          case current => current
+        }.discard
+      )
+
+  override def pruningStatus()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[ParticipantPruningStatus] = FutureUnlessShutdown.pure(statusCache.get())
+
+  override def close(): Unit = underlying.close()
 }

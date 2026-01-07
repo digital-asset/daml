@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology.transaction
 
 import cats.Monoid
+import cats.instances.order.*
 import cats.syntax.apply.*
 import cats.syntax.either.*
 import cats.syntax.foldable.*
@@ -115,7 +116,7 @@ object TopologyMapping {
       .flatMap(transaction => transaction.mapping.mappedSigningKeys)
       .toSet
 
-    current.mappedSigningKeys.toSet -- previouslyRegisteredKeys
+    current.mappedSigningKeys -- previouslyRegisteredKeys
   }
 
   def participantIdFromProtoPrimitive(
@@ -761,18 +762,26 @@ object DecentralizedNamespaceDefinition extends TopologyMappingCompanion {
   * namespace.
   */
 sealed trait KeyMapping extends TopologyMapping with Product with Serializable {
-  def mappedKeys: Seq[PublicKey]
-  final def mappedSigningKeys: Seq[SigningPublicKey] = mappedKeys.collect {
+  def mappedKeys: Set[PublicKey]
+  final def mappedSigningKeys: Set[SigningPublicKey] = mappedKeys.collect {
     case k: SigningPublicKey => k
   }
 
   def namespaceKeyForSelfAuthorization: Option[SigningPublicKey] = None
+
+  def isSelfSigned = namespaceKeyForSelfAuthorization.nonEmpty
 
   require(namespaceKeyForSelfAuthorization.forall(_.fingerprint == namespace.fingerprint))
 }
 
 object KeyMapping {
   val MaxKeys: Int = 20
+
+  def validateKeysSizeSet(
+      keys: NonEmpty[Set[SigningPublicKey]],
+      maxKeys: Int,
+  ): Either[String, Unit] =
+    Either.cond(keys.sizeIs <= maxKeys, (), s"At most $maxKeys can be specified.")
 
   def validateKeysSize(
       keys: NonEmpty[Seq[PublicKey]],
@@ -825,7 +834,7 @@ final case class OwnerToKeyMapping private (
 
   override def uniqueKey: MappingHash = OwnerToKeyMapping.uniqueKey(member)
 
-  override def mappedKeys: Seq[PublicKey] = keys.forgetNE
+  override def mappedKeys: Set[PublicKey] = keys.forgetNE.toSet[PublicKey]
 
   @VisibleForTesting
   private[transaction] def copy(
@@ -894,7 +903,7 @@ final case class PartyToKeyMapping private (
   def toProto: v30.PartyToKeyMapping = v30.PartyToKeyMapping(
     party = party.toProtoPrimitive,
     threshold = signingKeysWithThreshold.threshold.unwrap,
-    signingKeys = signingKeysWithThreshold.keys.map(_.toProtoV30),
+    signingKeys = signingKeysWithThreshold.keys.toSeq.sortBy(_.fingerprint).map(_.toProtoV30),
   )
 
   def toProtoV30: v30.TopologyMapping =
@@ -908,17 +917,15 @@ final case class PartyToKeyMapping private (
   def tryCopy(
       party: PartyId = party,
       threshold: PositiveInt = signingKeysWithThreshold.threshold,
-      signingKeys: NonEmpty[Seq[SigningPublicKey]] = signingKeysWithThreshold.keys,
+      signingKeys: NonEmpty[Set[SigningPublicKey]] = signingKeysWithThreshold.keys,
   ): PartyToKeyMapping =
     PartyToKeyMapping.tryCreate(
       party,
       threshold,
-      signingKeys,
+      signingKeys.toSeq,
     )
 
-  def signingKeysNE: NonEmpty[Seq[SigningPublicKey]] = signingKeysWithThreshold.keys
-
-  def signingKeys: Seq[SigningPublicKey] = signingKeysNE.forgetNE
+  def signingKeys: NonEmpty[Set[SigningPublicKey]] = signingKeysWithThreshold.keys
 
   def threshold: PositiveInt = signingKeysWithThreshold.threshold
 
@@ -941,7 +948,7 @@ final case class PartyToKeyMapping private (
 
   override def uniqueKey: MappingHash = PartyToKeyMapping.uniqueKey(party)
 
-  override def mappedKeys: Seq[PublicKey] = signingKeysWithThreshold.keys.forgetNE
+  override def mappedKeys: Set[PublicKey] = signingKeysWithThreshold.keys.forgetNE.toSet[PublicKey]
 
   @VisibleForTesting
   private[transaction] def copy(
@@ -966,11 +973,14 @@ object PartyToKeyMapping extends TopologyMappingCompanion {
       partyId: PartyId,
       threshold: PositiveInt,
       signingKeys: NonEmpty[Seq[SigningPublicKey]],
-  ): Either[String, PartyToKeyMapping] =
+  ): Either[String, PartyToKeyMapping] = {
+    val signingKeysWithThreshold = SigningKeysWithThreshold(signingKeys.toSet, threshold)
     for {
-      signingKeysWithThreshold <- SigningKeysWithThreshold.create(signingKeys, threshold)
-      _ <- KeyMapping.validateKeysSize(signingKeysWithThreshold.keys, MaxKeys)
+      // The toSet removes duplicate signing keys before creating the SigningKeysWithThreshold
+      // This is on purpose here because legacy existing P2Ks may have duplicate keys and we must be able to deserialize them
+      _ <- KeyMapping.validateKeysSizeSet(signingKeysWithThreshold.keys, MaxKeys)
     } yield PartyToKeyMapping(partyId, signingKeysWithThreshold)
+  }
 
   def tryCreate(
       partyId: PartyId,
@@ -1573,6 +1583,21 @@ final case class PartyToParticipant private (
       )
     )
 
+  @VisibleForTesting
+  def tryCopy(
+      party: PartyId = partyId,
+      threshold: PositiveInt = threshold,
+      participants: Seq[HostingParticipant] = participants,
+      partySigningKeysWithThreshold: Option[SigningKeysWithThreshold] =
+        partySigningKeysWithThreshold,
+  ): PartyToParticipant =
+    PartyToParticipant.tryCreate(
+      party,
+      threshold,
+      participants,
+      partySigningKeysWithThreshold,
+    )
+
   override def namespace: Namespace = partyId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(partyId.uid)
 
@@ -1580,11 +1605,11 @@ final case class PartyToParticipant private (
 
   def participantIds: Seq[ParticipantId] = participants.map(_.participantId)
 
-  def partySigningKeys: Seq[SigningPublicKey] =
+  def partySigningKeys: Set[SigningPublicKey] =
     // Signing keys have been added in 3.4 as Option, previously we didn't have them. So we fall back to an empty Seq.
-    partySigningKeysWithThreshold.map(_.keys.forgetNE).getOrElse(Seq.empty)
+    partySigningKeysWithThreshold.map(_.keys.forgetNE).getOrElse(Set.empty)
 
-  override def mappedKeys: Seq[PublicKey] = partySigningKeys
+  override def mappedKeys: Set[PublicKey] = partySigningKeys.toSet[PublicKey]
 
   override def namespaceKeyForSelfAuthorization: Option[SigningPublicKey] =
     partySigningKeys.find(_.fingerprint == partyId.fingerprint)
@@ -1722,42 +1747,35 @@ object PartyToParticipant extends TopologyMappingCompanion {
       participants: Seq[HostingParticipant],
       partySigningKeysWithThreshold: Option[SigningKeysWithThreshold] = None,
   ): Either[String, PartyToParticipant] = {
-    val noDuplicateParticipants = {
-      val duplicatePermissions =
-        participants.groupBy(_.participantId).values.filter(_.sizeIs > 1).toList
-      Either.cond(
-        duplicatePermissions.isEmpty,
-        (),
-        s"Participants may only be assigned one permission: $duplicatePermissions",
-      )
-    }
+
+    // If a participant is listed several times with different permissions, take the one with the higher
+    // Needed for backwards compatibility with existing topologies
+    val deduplicateParticipantsWithDifferentPermissionsMap =
+      participants
+        .groupMapReduce(_.participantId)(identity) { case (first, second) =>
+          Ordering.by[HostingParticipant, ParticipantPermission](_.permission).max(first, second)
+        }
+
+    val deduplicateParticipantsWithDifferentPermissions = participants
+      .map(_.participantId)
+      .distinct
+      .flatMap(deduplicateParticipantsWithDifferentPermissionsMap.get)
 
     val keysValid = partySigningKeysWithThreshold.traverse_(signingKeysWithThreshold =>
-      KeyMapping.validateKeysSize(
+      KeyMapping.validateKeysSizeSet(
         signingKeysWithThreshold.keys,
         MaxKeys,
       )
     )
 
-    val confirmationThresholdCanBeMet = {
-      val numConfirmingParticipants =
-        participants.count(_.permission >= ParticipantPermission.Confirmation)
-      Either
-        .cond(
-          // we allow to not meet the threshold criteria if there are only observing participants.
-          // but as soon as there is 1 confirming participant, the threshold must theoretically be satisfiable,
-          // otherwise the party can never confirm a transaction.
-          numConfirmingParticipants == 0 || threshold.value <= numConfirmingParticipants,
-          (),
-          s"Party $partyId cannot meet threshold of $threshold confirming participants with participants $participants",
-        )
-    }
-
     for {
-      _ <- noDuplicateParticipants
       _ <- keysValid
-      _ <- confirmationThresholdCanBeMet
-    } yield PartyToParticipant(partyId, threshold, participants, partySigningKeysWithThreshold)
+    } yield PartyToParticipant(
+      partyId,
+      threshold,
+      deduplicateParticipantsWithDifferentPermissions,
+      partySigningKeysWithThreshold,
+    )
   }
 
   def tryCreate(

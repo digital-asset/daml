@@ -78,7 +78,7 @@ object HashPurpose {
   val AssignmentView = HashPurpose(27, "AssignmentView")
   val _TransferViewTreeMessageSeed = HashPurpose(28, "TransferViewTreeMessageSeed")
   val Unicum = HashPurpose(29, "Unicum")
-  val RepairTransactionId = HashPurpose(30, "RepairTransactionId")
+  val RepairUpdateId = HashPurpose(30, "RepairUpdateId")
   val _MediatorLeadershipEvent = HashPurpose(31, "MediatorLeadershipEvent")
   val _LegalIdentityClaim = HashPurpose(32, "LegalIdentityClaim")
   val DbLockId = HashPurpose(33, "DbLockId")

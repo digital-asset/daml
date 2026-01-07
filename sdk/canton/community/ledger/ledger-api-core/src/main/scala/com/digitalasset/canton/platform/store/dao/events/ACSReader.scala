@@ -19,8 +19,8 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTr
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
-import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig
+import com.digitalasset.canton.platform.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.Ids
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
@@ -75,7 +75,7 @@ class ACSReader(
     queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
     lfValueTranslation: LfValueTranslation,
-    contractStore: ContractStore,
+    contractStore: LedgerApiContractStore,
     incompleteOffsets: (
         Offset,
         Option[Set[Ref.Party]],
@@ -191,7 +191,6 @@ class ACSReader(
           .lookupBatchedNonCached(
             payloads.map(internalContractId)
           )
-          .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
       } yield payloads.map { payload =>
         payload -> contractsM
           .get(internalContractId(payload))
@@ -222,7 +221,6 @@ class ACSReader(
                 eventStorageBackend.activeContractBatch(
                   eventSequentialIds = ids,
                   allFilterParties = allFilterParties,
-                  endInclusive = activeAtEventSeqId,
                 )
               }
               .flatMap(

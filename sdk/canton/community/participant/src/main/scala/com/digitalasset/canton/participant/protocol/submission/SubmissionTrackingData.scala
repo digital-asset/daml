@@ -118,7 +118,7 @@ final case class TransactionSubmissionTrackingData(
       loggingContext: NamedLoggingContext,
       traceContext: TraceContext,
   ): UnSequencedCommandRejected = {
-    val reasonTemplate = rejectionCause.asFinalReason(recordTime)
+    val reasonTemplate = rejectionCause.asFinalReason
     Update.UnSequencedCommandRejected(
       // notification will be tracked based on this as a non-sequenced in-flight reference
       completionInfo,
@@ -178,7 +178,7 @@ object TransactionSubmissionTrackingData {
 
   trait RejectionCause extends Product with Serializable with PrettyPrinting {
 
-    def asFinalReason(observedTimestamp: CantonTimestamp)(implicit
+    def asFinalReason(implicit
         loggingContext: ErrorLoggingContext
     ): Update.CommandRejected.FinalReason
 
@@ -204,10 +204,10 @@ object TransactionSubmissionTrackingData {
 
   case object TimeoutCause extends RejectionCause {
 
-    override def asFinalReason(
-        observedTimestamp: CantonTimestamp
-    )(implicit loggingContext: ErrorLoggingContext): Update.CommandRejected.FinalReason = {
-      val error = TransactionProcessor.SubmissionErrors.TimeoutError.Error(observedTimestamp)
+    override def asFinalReason(implicit
+        loggingContext: ErrorLoggingContext
+    ): Update.CommandRejected.FinalReason = {
+      val error = TransactionProcessor.SubmissionErrors.TimeoutError.Error()
       error.logWithContext()
       Update.CommandRejected.FinalReason(error.rpcStatus())
     }
@@ -226,7 +226,7 @@ object TransactionSubmissionTrackingData {
 
   final case class CauseWithTemplate(template: Update.CommandRejected.FinalReason)
       extends RejectionCause {
-    override def asFinalReason(_observedTimestamp: CantonTimestamp)(implicit
+    override def asFinalReason(implicit
         loggingContext: ErrorLoggingContext
     ): Update.CommandRejected.FinalReason = template
 

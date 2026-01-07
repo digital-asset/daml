@@ -14,10 +14,8 @@ import com.digitalasset.canton.integration.{
   IsolatedEnvironments,
 }
 import com.digitalasset.canton.logging.NamedLogging
-import com.digitalasset.canton.util.ConcurrentBufferedLogger
 import com.digitalasset.canton.util.ShowUtil.*
-
-import scala.concurrent.blocking
+import com.digitalasset.canton.util.{ConcurrentBufferedLogger, Mutex}
 
 abstract class ExampleIntegrationTest(configPaths: File*)
     extends BaseIntegrationTest
@@ -64,6 +62,7 @@ trait HasConsoleScriptRunner { this: NamedLogging =>
 }
 
 object `ExampleIntegrationTest` {
+  private val lock = new Mutex()
   lazy val dockerImagesPath: File = "docker" / "canton" / "images"
   lazy val examplesPath: File = "community" / "app" / "src" / "pack" / "examples"
   lazy val simpleTopology: File = examplesPath / "01-simple-topology"
@@ -75,7 +74,8 @@ object `ExampleIntegrationTest` {
   lazy val advancedConfTestEnv: File =
     "community" / "app" / "src" / "test" / "resources" / "advancedConfDef.env"
   lazy val bftSequencerConfigurationFolder: File = examplesPath / "11-bft-sequencer"
-  def ensureSystemProperties(kvs: (String, String)*): Unit = blocking(synchronized {
+
+  def ensureSystemProperties(kvs: (String, String)*): Unit = (lock.exclusive {
     kvs.foreach { case (key, value) =>
       Option(System.getProperty(key)) match {
         case Some(oldValue) =>

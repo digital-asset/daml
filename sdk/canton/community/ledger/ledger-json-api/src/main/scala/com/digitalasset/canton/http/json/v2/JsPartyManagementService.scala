@@ -67,21 +67,24 @@ class JsPartyManagementService(
       ),
     )
 
-  private val listKnownParties: CallerContext => TracedInput[PagedList[Unit]] => Future[
-    Either[JsCantonError, party_management_service.ListKnownPartiesResponse]
-  ] = ctx =>
-    req =>
+  private val listKnownParties
+      : CallerContext => TracedInput[PagedList[(Option[String], Option[String])]] => Future[
+        Either[JsCantonError, party_management_service.ListKnownPartiesResponse]
+      ] = ctx =>
+    req => {
+      val (idp, filterParty) = req.in.input
       partyManagementClient
         .serviceStub(ctx.token())(req.traceContext)
         .listKnownParties(
           party_management_service.ListKnownPartiesRequest(
             req.in.pageToken.getOrElse(""),
             req.in.pageSize.getOrElse(0),
-            "",
+            identityProviderId = idp.getOrElse(""),
+            filterParty = filterParty.getOrElse(""),
           )
         )
         .resultToRight
-
+    }
   private val getParty
       : CallerContext => TracedInput[(String, Option[String], List[String])] => Future[
         Either[JsCantonError, party_management_service.GetPartiesResponse]
@@ -194,6 +197,8 @@ object JsPartyManagementService extends DocumentationEndpoints {
   val listKnownPartiesEndpoint =
     parties.get
       .out(jsonBody[party_management_service.ListKnownPartiesResponse])
+      .in(query[Option[String]]("identity-provider-id"))
+      .in(query[Option[String]]("filter-party"))
       .inPagedListParams()
       .description("List all known parties.")
 

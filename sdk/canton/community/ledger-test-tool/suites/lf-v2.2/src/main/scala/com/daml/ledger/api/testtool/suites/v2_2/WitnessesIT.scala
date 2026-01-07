@@ -27,7 +27,7 @@ final class WitnessesIT extends LedgerTestSuite {
     for {
       // Create the Witnesses contract as Alice
       (_, witnesses) <- ledger
-        .createAndGetTransactionId(
+        .createAndGetUpdateId(
           alice,
           new Witnesses(alice, bob, charlie),
         )(Witnesses.COMPANION)

@@ -7,7 +7,12 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  BatchingConfig,
+  CachingConfigs,
+  ProcessingTimeout,
+  TopologyConfig,
+}
 import com.digitalasset.canton.crypto.SigningKeysWithThreshold
 import com.digitalasset.canton.data.{
   CantonTimestamp,
@@ -24,6 +29,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.client.CachingSynchronizerTopologyClient.SnapshotEntry
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.processing.*
 import com.digitalasset.canton.topology.store.{
@@ -34,13 +40,16 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
+import scala.collection.immutable.SortedMap
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 final class CachingSynchronizerTopologyClient(
     delegate: StoreBasedSynchronizerTopologyClient,
@@ -60,17 +69,12 @@ final class CachingSynchronizerTopologyClient(
       sequencedTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
       approximateTimestamp: ApproximateTime,
-      potentialTopologyChange: Boolean,
-  )(implicit traceContext: TraceContext): Unit = {
-    if (potentialTopologyChange)
-      appendSnapshotForInclusive(effectiveTimestamp)
+  )(implicit traceContext: TraceContext): Unit =
     delegate.updateHead(
       sequencedTimestamp,
       effectiveTimestamp,
       approximateTimestamp,
-      potentialTopologyChange,
     )
-  }
 
   private val maxTimestampCache: TracedAsyncLoadingCache[
     FutureUnlessShutdown,
@@ -85,108 +89,177 @@ final class CachingSynchronizerTopologyClient(
     loader = traceContext => delegate.awaitMaxTimestamp(_)(traceContext),
   )(logger, "maxTimestampCache")
 
-  /** An entry with a given `timestamp` refers to the topology snapshot at the same `timestamp`.
-    * This is the snapshot that covers all committed topology transactions with `validFrom <
-    * timestamp` and `validUntil.forall(timestamp <= _)`, following the topology snapshot and
-    * effective time semantics.
+  /** Map of snapshot intervals for which snapshots are cached. The keys of the map represent the
+    * smallest timestamp for which the respective snapshot is valid. Invariants:
+    *   - The intervals must not be overlapping.
+    *   - There may be gaps in the intervals, which get re-populated on-demand.
+    *   - The interval serving head and approximate snapshots (i.e. >=
+    *     latestTopologyChangeTimestamp) is managed explicitly (see [[snapshot]])
+    *
+    * An entry with a given `intervalStartInclusive` refers to the topology snapshot at the same
+    * timestamp `intervalStartInclusive`. This is the snapshot, that covers all committed topology
+    * transactions with `validFrom < intervalStartInclusive` and
+    * `validUntil.forall(intervalStartInclusive <= _)`, following the topology snapshot and
+    * effective time semantics: there are no topology changes strictly between
+    * `intervalStartInclusive` and `intervalEndExclusive`. In other words, there is no non-proposal
+    * or non-rejected topology transaction in the store with `intervalEndExclusive.forall(end =>
+    * intervalStartInclusive < validFrom && validFrom < end)`.
+    *
+    * Technical note: using SortedMap for log(n) lookups, inserts and deletes, assuming rare
+    * updates, and similarly we expect low contention on updateAndGet / getAndUpdate for the
+    * AtomicReference.
     */
-  protected class SnapshotEntry(val timestamp: CantonTimestamp) {
-    def get(): CachingTopologySnapshot = pointwise.get(timestamp)
-  }
+  private val snapshots =
+    new AtomicReference[SortedMap[CantonTimestamp, SnapshotEntry]](SortedMap.empty)
 
-  /** List of snapshot timestamps for which snapshots are cached. Invariants:
-    *   - Entries are sorted descending by timestamp.
-    *   - For every entry, a snapshot at `entry.timestamp` must be available.
-    *   - If it contains entries with timestamps `ts1` and `ts3`, if there is a valid topology
-    *     transaction at timestamp `ts2`, if `ts1 < ts2 < ts3`, then there must be an entry with
-    *     `ts2` as well.
+  /** Keys that we tried to evict but could not, for later retry of eviction.
     */
-  protected val snapshots = new AtomicReference[List[SnapshotEntry]](List.empty)
+  private val evictLater = ConcurrentHashMap.newKeySet[CantonTimestamp]()
+
+  private def findSnapshotEntry(timestamp: CantonTimestamp): Option[SnapshotEntry] =
+    snapshots
+      .get()
+      .maxBefore(
+        timestamp.immediateSuccessor
+      ) // immediateSuccessor because intervals are inclusive at start
+      .collect {
+        case (_, entry) if entry.intervalEndExclusive > timestamp => entry
+      }
+
+  /** Attempts eviction of interval keys from `snapshots`, preventing eviction of intervals covering
+    * current snapshot approximation. Returns not evicted keys for later retry.
+    */
+  private def tryEvict(keys: Seq[CantonTimestamp]): Seq[CantonTimestamp] = {
+    val updatedSnapshots = snapshots.updateAndGet { current =>
+      // We never evict intervals that cover current and future approximate timestamps
+      // as these are expected to be reused heavily.
+      val approximateTime = approximateTimestamp
+      val keysToRemove = keys.filter { key =>
+        val entryO = findSnapshotEntry(key)
+        entryO.forall(_.intervalEndExclusive <= approximateTime)
+      }
+      keysToRemove.foreach(key => evictLater.remove(key).discard)
+      current.removedAll(keysToRemove)
+    }
+    keys.filterNot(updatedSnapshots.contains)
+  }
 
   /** Cache of snapshots. We want to avoid loading redundant data from the database. Now, we know
     * that if there was no topology transaction between tx and ty, then snapshot(ty) ==
     * snapshot(tx). Therefore, we remember the list of timestamps when updates happened (in
-    * `snapshots`) and use that list in order to figure out which snapshot we can use instead of
+    * `snapshots`) and use that map in order to figure out which snapshot we can use instead of
     * loading the same data again and again. So we use `snapshots` to figure out the update
-    * timestamp and then we use the `pointwise` cache to load the corresponding snapshot.
+    * timestamp and then we use the `pointwise` cache to load the corresponding snapshot. Upon
+    * eviction of an entry in the pointwise cache, the entry in `snapshots` is removed as well,
+    * except for any interval past the current snapshot approximation.
     */
-  private val pointwise = cachingConfigs.topologySnapshot
-    .buildScaffeine()
-    .build[CantonTimestamp, CachingTopologySnapshot] { (ts: CantonTimestamp) =>
-      new CachingTopologySnapshot(
-        delegate.trySnapshot(ts)(TraceContext.empty),
-        cachingConfigs,
-        batchingConfig,
-        loggerFactory,
-        futureSupervisor,
+  private val pointwise =
+    cachingConfigs.topologySnapshot
+      .buildScaffeine()
+      .evictionListener[Traced[CantonTimestamp], CachingTopologySnapshot] {
+        case (tracedKey, _value, _cause) =>
+          val key = tracedKey.unwrap
+          tryEvict(key :: evictLater.asScala.toList).foreach(key => evictLater.add(key).discard)
+      }
+      .build[Traced[CantonTimestamp], CachingTopologySnapshot] {
+        (tracedTs: Traced[CantonTimestamp]) =>
+          tracedTs.withTraceContext(implicit tc =>
+            ts =>
+              new CachingTopologySnapshot(
+                delegate.trySnapshot(ts),
+                cachingConfigs,
+                batchingConfig,
+                loggerFactory,
+                futureSupervisor,
+              )
+          )
+      }
+
+  override def headSnapshot(implicit traceContext: TraceContext): TopologySnapshot =
+    pointwise.get(Traced(latestTopologyChangeTimestamp))
+
+  private def findAndCacheSnapshotEntry(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[SnapshotEntry]] =
+    findSnapshotEntry(timestamp).fold(
+      // we don't have a reference to the corresponding cached snapshot anymore.
+      // therefore, we recreate the snapshot interval for the given timestamp
+      delegate
+        .findTopologyIntervalForTimestamp(timestamp)
+        .map(_.map { case (validFrom, validUntil) =>
+          // topology snapshots are exclusive on effective time, the below "emulates" inclusivity for the given effective time,
+          // as we want to make topology changes observable as part of the topology snapshot for the given time
+          val validFromAsInclusive = validFrom.immediateSuccessor.value
+          val validUntilAsExclusive = validUntil
+            .map(_.immediateSuccessor.value)
+            .getOrElse(
+              ErrorUtil.invalidState(
+                s"Topology interval starting from $timestamp before latestTopologyChangeTimestamp = $latestTopologyChangeTimestamp is expected to have an upper bound."
+              )
+            )
+          val newEntry = SnapshotEntry(validFromAsInclusive, validUntilAsExclusive)
+          logger.debug(
+            s"Caching new snapshot interval for timestamp $timestamp, validFrom=$validFromAsInclusive, validUntil=$validUntilAsExclusive"
+          )
+          // If we lost the contention for the same key in the meantime, we take the existing one:
+          val newSnapshots = snapshots.updateAndGet { current =>
+            current.updated(newEntry.intervalStartInclusive, newEntry)
+          }
+          newSnapshots.getOrElse(
+            newEntry.intervalStartInclusive,
+            ErrorUtil.invalidState(
+              s"Could not find the interval $newEntry that we just inserted."
+            ),
+          )
+        })
+    ) { snapshotEntry =>
+      logger.debug(
+        s"Re-using existing snapshot interval for timestamp $timestamp, validFrom=${snapshotEntry.intervalStartInclusive}, validUntil=${snapshotEntry.intervalEndExclusive}"
       )
+      FutureUnlessShutdown.pure(Some(snapshotEntry))
     }
 
-  // note that this function is inclusive on effective time as opposed to other topology client (and snapshot) functions
-  private def appendSnapshotForInclusive(effectiveTime: EffectiveTime): Unit = {
-    // topology snapshots are exclusive on effective time, the below "emulates" inclusivity for the given effective time,
-    // as we want to make topology changes observable as part of the topology snapshot for the given time
-    val snapshotTimestamp = effectiveTime.value.immediateSuccessor
-    val _ = snapshots.updateAndGet { cur =>
-      if (cur.headOption.exists(_.timestamp >= snapshotTimestamp))
-        cur
-      else {
-        val entry = new SnapshotEntry(snapshotTimestamp)
-        val unexpiredEntries = cur.filter(
-          _.timestamp.plusMillis(
-            cachingConfigs.topologySnapshot.expireAfterAccess.duration.toMillis
-          ) >= snapshotTimestamp
+  override def snapshot(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[TopologySnapshotLoader] =
+    waitForTimestampWithLogging(timestamp).flatMap { _ =>
+      if (timestamp >= latestTopologyChangeTimestamp) {
+        // Returning effectively the head snapshot
+        FutureUnlessShutdown.pure(
+          new ForwardingTopologySnapshotClient(
+            timestamp,
+            pointwise.get(Traced(latestTopologyChangeTimestamp)),
+            loggerFactory,
+          )
         )
-        entry :: unexpiredEntries
+      } else {
+        // An interval covering `timestamp` will be found or recreated in the `snapshots` map
+        findAndCacheSnapshotEntry(timestamp).map {
+          case Some(snapshotEntry) =>
+            new ForwardingTopologySnapshotClient(
+              timestamp,
+              pointwise.get(Traced(snapshotEntry.intervalStartInclusive)),
+              loggerFactory,
+            )
+          case None =>
+            // only exceptionally this will be called, mostly during the node initialization
+            logger.info(
+              s"Using pointwise cached snapshot for timestamp $timestamp"
+            )
+            pointwise.get(Traced(timestamp))
+        }
       }
     }
-  }
 
-  private def findSnapshotEntry(
-      timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Option[SnapshotEntry] = {
-    ErrorUtil.requireArgument(
-      timestamp <= topologyKnownUntilTimestamp,
-      s"requested snapshot=$timestamp, available snapshot=$topologyKnownUntilTimestamp",
+  override def hypotheticalSnapshot(timestamp: CantonTimestamp, desiredTimestamp: CantonTimestamp)(
+      implicit traceContext: TraceContext
+  ): FutureUnlessShutdown[TopologySnapshotLoader] = snapshot(timestamp).map(
+    new ForwardingTopologySnapshotClient(
+      desiredTimestamp,
+      _,
+      loggerFactory,
     )
-    // find a matching existing snapshot
-    // including `<` is safe as it's guarded by the `topologyKnownUntilTimestamp` check,
-    //  i.e., there will be no other snapshots in between, and the snapshot timestamp can be safely "overridden"
-    snapshots.get().find(_.timestamp <= timestamp)
-  }
-
-  override def trySnapshot(
-      timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): TopologySnapshotLoader =
-    findSnapshotEntry(timestamp) match {
-      // we'll use the cached snapshot client which defines the time-period this timestamp is in
-      case Some(snapshotEntry) =>
-        new ForwardingTopologySnapshotClient(timestamp, snapshotEntry.get(), loggerFactory)
-      // this timestamp is outside the window where we have tracked the timestamps of changes.
-      // so let's do this pointwise
-      case None =>
-        pointwise.get(timestamp)
-    }
-
-  override def tryHypotheticalSnapshot(
-      timestamp: CantonTimestamp,
-      desiredTimestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext): TopologySnapshotLoader =
-    findSnapshotEntry(timestamp) match {
-      // we'll use the cached snapshot client which defines the time-period this desiredTimestamp is in
-      case Some(snapshotEntry) =>
-        new ForwardingTopologySnapshotClient(desiredTimestamp, snapshotEntry.get(), loggerFactory)
-      // This timestamp is outside the window where we have tracked the timestamps of changes. We create
-      // a new snapshot based on the original timestamp but with a forward timestamp reference. We do not
-      // cache this value because, in a BFT read of sequencer subscriptions, we need a snapshot prior to the
-      // sequencer aggregation and can be certain that no intervening message occurs after the aggregation.
-      case None =>
-        new ForwardingTopologySnapshotClient(
-          desiredTimestamp,
-          pointwise.get(timestamp),
-          loggerFactory,
-        )
-    }
+  )
 
   override def synchronizerId: SynchronizerId = delegate.synchronizerId
   override def psid: PhysicalSynchronizerId = delegate.psid
@@ -207,7 +280,7 @@ final class CachingSynchronizerTopologyClient(
 
   override def currentSnapshotApproximation(implicit
       traceContext: TraceContext
-  ): TopologySnapshotLoader = trySnapshot(approximateTimestamp)
+  ): FutureUnlessShutdown[TopologySnapshotLoader] = snapshot(approximateTimestamp)
 
   override def topologyKnownUntilTimestamp: CantonTimestamp = delegate.topologyKnownUntilTimestamp
 
@@ -217,7 +290,9 @@ final class CachingSynchronizerTopologyClient(
     Boolean
   ] = // we use our implementation such that we can benefit from cached data
     delegate.scheduleAwait(
-      FutureUnlessShutdown.outcomeF(condition(currentSnapshotApproximation)),
+      currentSnapshotApproximation.flatMap(snapshot =>
+        FutureUnlessShutdown.outcomeF(condition(snapshot))
+      ),
       timeout,
     )
 
@@ -229,7 +304,7 @@ final class CachingSynchronizerTopologyClient(
   ): FutureUnlessShutdown[
     Boolean
   ] = // we use our implementation such that we can benefit from cached data
-    delegate.scheduleAwait(condition(currentSnapshotApproximation), timeout)
+    delegate.scheduleAwait(currentSnapshotApproximation.flatMap(condition), timeout)
 
   override private[topology] def scheduleAwait(
       condition: => FutureUnlessShutdown[Boolean],
@@ -244,16 +319,8 @@ final class CachingSynchronizerTopologyClient(
       effectiveTimestamp: EffectiveTime,
       sequencerCounter: SequencerCounter,
       transactions: Seq[GenericSignedTopologyTransaction],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    if (transactions.nonEmpty) {
-      // if there is a transaction, we insert the effective timestamp as a snapshot
-      appendSnapshotForInclusive(effectiveTimestamp)
-    } else if (snapshots.get().isEmpty) {
-      // if we haven't seen any snapshot yet, we use the sequencer time to seed the first snapshot
-      appendSnapshotForInclusive(EffectiveTime(sequencedTimestamp.value))
-    }
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     delegate.observed(sequencedTimestamp, effectiveTimestamp, sequencerCounter, transactions)
-  }
 
   override def setSynchronizerTimeTracker(tracker: SynchronizerTimeTracker): Unit = {
     delegate.setSynchronizerTimeTracker(tracker)
@@ -272,6 +339,15 @@ final class CachingSynchronizerTopologyClient(
     maxTimestampCache.cleanUp()
     LifeCycle.close(delegate)(logger)
   }
+
+  override def latestTopologyChangeTimestamp: CantonTimestamp =
+    delegate.latestTopologyChangeTimestamp
+
+  override def initialize(
+      sequencerSnapshotTimestamp: Option[EffectiveTime],
+      synchronizerUpgradeTime: Option[SequencedTime],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    delegate.initialize(sequencerSnapshotTimestamp, synchronizerUpgradeTime)
 }
 
 object CachingSynchronizerTopologyClient {
@@ -284,12 +360,12 @@ object CachingSynchronizerTopologyClient {
       packageDependenciesResolver: PackageDependencyResolver,
       cachingConfigs: CachingConfigs,
       batchingConfig: BatchingConfig,
+      topologyConfig: TopologyConfig,
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(
-      headStateInitializer: SynchronizerTopologyClientHeadStateInitializer =
-        new DefaultHeadStateInitializer(store)
+      sequencerSnapshotTimestamp: Option[EffectiveTime] = None
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -300,6 +376,7 @@ object CachingSynchronizerTopologyClient {
         staticSynchronizerParameters,
         store,
         packageDependenciesResolver,
+        topologyConfig,
         timeouts,
         futureSupervisor,
         loggerFactory,
@@ -313,8 +390,17 @@ object CachingSynchronizerTopologyClient {
         futureSupervisor,
         loggerFactory,
       )
-    headStateInitializer.initialize(caching, synchronizerPredecessor, staticSynchronizerParameters)
+    val synchronizerUpgradeTime =
+      synchronizerPredecessor.map(predecessor => SequencedTime(predecessor.upgradeTime))
+    caching
+      .initialize(sequencerSnapshotTimestamp, synchronizerUpgradeTime)
+      .map(_ => caching)
   }
+
+  final case class SnapshotEntry(
+      intervalStartInclusive: CantonTimestamp,
+      intervalEndExclusive: CantonTimestamp,
+  )
 }
 
 /** A simple wrapper class in order to "override" the timestamp we are returning here when caching.

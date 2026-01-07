@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.testing.postgresql
 
 import org.postgresql.ds.PGSimpleDataSource
 import org.slf4j.LoggerFactory
-import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
 
 import java.sql.Statement
 import java.util.UUID
@@ -16,7 +16,7 @@ trait PostgresAround {
   import PostgresAround.*
 
   private val server: AtomicReference[PostgresServer] = new AtomicReference
-  private val ownedServerContainer: AtomicReference[Option[PostgreSQLContainer[?]]] =
+  private val ownedServerContainer: AtomicReference[Option[PostgreSQLContainer]] =
     new AtomicReference(None)
 
   protected def connectToPostgresqlServer(): Unit = {

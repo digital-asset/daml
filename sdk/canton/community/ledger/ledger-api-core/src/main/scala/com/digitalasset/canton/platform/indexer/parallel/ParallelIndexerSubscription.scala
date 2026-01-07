@@ -27,12 +27,11 @@ import com.digitalasset.canton.logging.{
   TracedLogger,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
-import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater
 import com.digitalasset.canton.platform.indexer.ha.Handle
 import com.digitalasset.canton.platform.indexer.parallel.AsyncSupport.*
+import com.digitalasset.canton.platform.store.LedgerApiContractStore
 import com.digitalasset.canton.platform.store.backend.*
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
@@ -79,7 +78,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
     reassignmentOffsetPersistence: ReassignmentOffsetPersistence,
     postProcessor: (Vector[PostPublishData], TraceContext) => Future[Unit],
     sequentialPostProcessor: Update => Unit,
-    contractStore: ContractStore,
+    contractStore: LedgerApiContractStore,
     disableMonotonicityChecks: Boolean,
     tracer: Tracer,
     loggerFactory: NamedLoggerFactory,
@@ -129,7 +128,6 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
       (contractIds: Iterable[ContractId]) =>
         contractStore
           .lookupBatchedNonCachedInternalIds(contractIds)(tc)
-          .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)(materializer.executionContext)
 
     val ((sourceQueue, uniqueKillSwitch), completionFuture) = Source
       .queue[(Long, Update)](
@@ -201,6 +199,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
                 inMemoryState.stringInterningView,
               ),
               logger,
+              metrics,
             )
           ),
           ingestingParallelism = ingestionParallelism,
@@ -708,9 +707,9 @@ object ParallelIndexerSubscription {
                     .flatMap(internalContractId =>
                       lastActivationsWithInternalContractIds
                         .get(synCon.synchronizerId -> internalContractId)
-                        .map(lastActivtionSequentialId =>
+                        .map(lastActivationSequentialId =>
                           ActivationRef(
-                            eventSeqId = lastActivtionSequentialId,
+                            eventSeqId = lastActivationSequentialId,
                             internalContractId = internalContractId,
                           )
                         )
@@ -724,7 +723,8 @@ object ParallelIndexerSubscription {
   }
 
   def refillMissingDeactivatedActivations(
-      logger: TracedLogger
+      metrics: LedgerApiServerMetrics,
+      logger: TracedLogger,
   )(batch: Batch[Vector[DbDto]]): Batch[Vector[DbDto]] = {
     def fillDeactivationRefFor(dbDto: DbDto.EventDeactivate): DbDto.EventDeactivate = {
       val synCon = dbDto.synCon
@@ -755,15 +755,24 @@ object ParallelIndexerSubscription {
 
       case noChange => noChange
     }
+    dbDtosWithDeactivationReferences.foreach {
+      case deactivate: DbDto.EventDeactivate =>
+        deactivate.deactivated_event_sequential_id.foreach { deactivated_event_sequential_id =>
+          val distance = deactivate.event_sequential_id - deactivated_event_sequential_id
+          metrics.indexer.deactivationDistances.update(distance)
+        }
+      case _ => ()
+    }
     batch.copy(batch = dbDtosWithDeactivationReferences)
   }
 
   def batcher[DB_BATCH](
       batchF: Vector[DbDto] => DB_BATCH,
       logger: TracedLogger,
+      metrics: LedgerApiServerMetrics,
   )(inBatch: Batch[Vector[DbDto]]): Batch[DB_BATCH] = {
     val dbBatch = inBatch
-      .pipe(refillMissingDeactivatedActivations(logger))
+      .pipe(refillMissingDeactivatedActivations(metrics, logger))
       .batch
       .pipe(batchF)
     inBatch.copy(batch = dbBatch)

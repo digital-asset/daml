@@ -11,6 +11,7 @@ import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTime
 import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.integration.{
   ConfigTransform,
   ConfigTransforms,
@@ -244,20 +245,16 @@ class ProgrammableSequencer(
     baseSequencer.disableMember(member)
 
   private def sendAsyncInternal(signedSubmission: SignedContent[SubmissionRequest])(
-      send: SignedContent[SubmissionRequest] => EitherT[
-        FutureUnlessShutdown,
-        SequencerDeliverError,
-        Unit,
-      ]
+      send: SignedContent[SubmissionRequest] => EitherT[FutureUnlessShutdown, CantonBaseError, Unit]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, CantonBaseError, Unit] = {
     val submission = signedSubmission.content
 
     def scheduleAt(
         at: CantonTimestamp
-    ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] = {
-      val promise = PromiseUnlessShutdown.unsupervised[Either[SequencerDeliverError, Unit]]()
+    ): EitherT[FutureUnlessShutdown, CantonBaseError, Unit] = {
+      val promise = PromiseUnlessShutdown.unsupervised[Either[CantonBaseError, Unit]]()
 
       def run(ts: CantonTimestamp): Unit = {
         logger.debug(s"Processing delayed message ${submission.messageId} at $ts")
@@ -273,7 +270,7 @@ class ProgrammableSequencer(
 
     def sendAndCheck(
         submission: SignedContent[SubmissionRequest]
-    ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
+    ): EitherT[FutureUnlessShutdown, CantonBaseError, Unit] =
       send(submission).map(_ => checkQueued(submission.content))
 
     blocking(semaphore.acquire())
@@ -331,7 +328,7 @@ class ProgrammableSequencer(
 
   override def sendAsyncSigned(signedSubmission: SignedContent[SubmissionRequest])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
+  ): EitherT[FutureUnlessShutdown, CantonBaseError, Unit] =
     sendAsyncInternal(signedSubmission) { toSend =>
       baseSequencer.sendAsyncSigned(toSend)
     }
@@ -482,7 +479,7 @@ trait HasProgrammableSequencer {
     SignedContent
       .create(
         syncCrypto.pureCrypto,
-        syncCrypto.currentSnapshotApproximation,
+        syncCrypto.currentSnapshotApproximation.futureValueUS,
         request,
         None,
         HashPurpose.SubmissionRequestSignature,
@@ -605,10 +602,10 @@ object ProgrammableSequencer {
 
   private final case class QueuedSubmission(
       submission: SignedContent[SubmissionRequest],
-      send: () => EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit],
+      send: () => EitherT[FutureUnlessShutdown, CantonBaseError, Unit],
       releaseAfter: SubmissionRequest => Boolean,
   ) {
-    val resultPromise: PromiseUnlessShutdown[Either[SequencerDeliverError, Unit]] =
+    val resultPromise: PromiseUnlessShutdown[Either[CantonBaseError, Unit]] =
       PromiseUnlessShutdown.unsupervised()
   }
 }

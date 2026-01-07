@@ -23,6 +23,7 @@ import com.digitalasset.canton.integration.plugins.{
   UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.{EntitySyntax, PartiesAllocator}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.protocol.*
@@ -49,6 +50,7 @@ import org.scalatest.{Assertion, Tag}
 import java.time.Duration
 import java.util.UUID
 import scala.annotation.nowarn
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Future, Promise}
 import scala.language.implicitConversions
 
@@ -66,12 +68,20 @@ sealed trait RepairServiceIntegrationTest
     with RepairTestUtil
     with NeedsNewLfContractIds {
 
+  // Make sure deduplication duration does not block pruning
+  private val maxDedupDuration = java.time.Duration.ofSeconds(2)
+  private val pruningReconciliationInterval = config.PositiveDurationSeconds.ofSeconds(5)
+  protected val defaultReconciliationInterval = config.PositiveDurationSeconds.ofSeconds(120)
+
   protected def cantonTestsPath: String
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1_S1M1
       .addConfigTransforms(
         ConfigTransforms.enableAdvancedCommands(FeatureFlag.Repair)
+      )
+      .addConfigTransforms(
+        ConfigTransforms.updateMaxDeduplicationDurations(maxDedupDuration)
       )
 
   override val defaultParticipant: String = "participant1"
@@ -128,6 +138,19 @@ sealed trait RepairServiceIntegrationTest
 
       // ensure all participants have observed a point after the topology changes before disconnecting them
       participants.local.foreach(_.testing.fetch_synchronizer_times())
+
+      // ensure the first offset is prunable for participant1
+      runOnAllInitializedSynchronizersForAllOwners((owner, synchronizer) =>
+        owner.topology.synchronizer_parameters
+          .propose_update(
+            synchronizer.synchronizerId,
+            _.update(reconciliationInterval = pruningReconciliationInterval),
+          )
+      )
+      eventually() {
+        participant1.health.ping(participant1)
+        participant1.pruning.find_safe_offset().value should be > (1L)
+      }
 
       participant1.synchronizers.disconnect(acmeName)
       participant1.synchronizers.disconnect(daName)
@@ -190,13 +213,13 @@ sealed trait RepairServiceIntegrationTestStableLf
         var runningRepair = false
         withParticipantsInitialized { (_, _) =>
           try {
-            val promise = Promise[Unit]()
+            val promise = Promise[UnlessShutdown[Unit]]()
             // Create a fake repair command that we push to the queue
             val repairF = participant1.underlying.value.sync.repairService.executionQueue
-              .execute(
+              .executeUS(
                 {
                   runningRepair = true
-                  promise.future
+                  FutureUnlessShutdown(promise.future)
                 },
                 "Test repair command",
               )
@@ -208,13 +231,13 @@ sealed trait RepairServiceIntegrationTestStableLf
 
             val synchronizerReconnectF = Future(participant1.synchronizers.reconnect(daName))
 
-            always() {
+            always(durationOfSuccess = 15.seconds) {
               repairF.isCompleted shouldBe false
               // Synchronizer reconnection should not run until the repair command is completed
               synchronizerReconnectF.isCompleted shouldBe false
             }
 
-            promise.success(())
+            promise.success(UnlessShutdown.unit)
 
             timeouts.default.await_("repair command")(repairF)
             timeouts.default.await_("reconnect command")(synchronizerReconnectF)
@@ -224,6 +247,57 @@ sealed trait RepairServiceIntegrationTestStableLf
         }
       }
     }
+  }
+
+  "RepairService" should {
+    "prevent concurrent pruning" when {
+      "a repair command is being processed" in { implicit env =>
+        import env.*
+        var runningRepair = false
+        withParticipantsInitialized { (_, _) =>
+          val promise = Promise[UnlessShutdown[Unit]]()
+          // Create a fake repair command that we push to the queue
+          val repairF = participant1.underlying.value.sync.repairService.executionQueue
+            .executeUS(
+              {
+                runningRepair = true
+                FutureUnlessShutdown(promise.future)
+              },
+              "Test repair command",
+            )
+            .unwrap
+
+          eventually() {
+            runningRepair shouldBe true
+          }
+
+          // Prune
+          val pruningF = Future(participant1.pruning.prune(1L))
+
+          always(durationOfSuccess = 15.seconds) {
+            repairF.isCompleted shouldBe false
+            // Pruning should not run until the repair command is completed
+            pruningF.isCompleted shouldBe false
+          }
+
+          promise.success(UnlessShutdown.unit)
+
+          timeouts.default.await_("repair command")(repairF)
+          timeouts.default.await_("pruning command")(pruningF)
+        }
+      }
+    }
+  }
+
+  "Ensure ACS commitment processing is not interfering with the rest of the repair tests" in {
+    env =>
+      env.runOnAllInitializedSynchronizersForAllOwners((owner, synchronizer) =>
+        owner.topology.synchronizer_parameters
+          .propose_update(
+            synchronizer.synchronizerId,
+            _.update(reconciliationInterval = defaultReconciliationInterval),
+          )
+      )
   }
 
   "RepairService.add_contract" should {

@@ -51,9 +51,6 @@ class GrpcMediatorAdministrationService(
             case e: PruningError.CannotPruneAtTimestamp =>
               exception(Status.INVALID_ARGUMENT, e.message)
 
-            case e: PruningError.MissingSynchronizerParametersForValidPruningTsComputation =>
-              exception(Status.INTERNAL, e.message)
-
             case e @ PruningError.NoDataAvailableForPruning =>
               exception(Status.FAILED_PRECONDITION, e.message)
           }

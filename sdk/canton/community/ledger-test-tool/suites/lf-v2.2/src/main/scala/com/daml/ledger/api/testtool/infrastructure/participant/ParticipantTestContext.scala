@@ -361,7 +361,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
   /** Managed version of transactionTrees, use this unless you need to tweak the request (i.e. to
     * test low-level details)
     */
-  def transactionTreeById(transactionId: String, parties: Party*): Future[Transaction]
+  def transactionTreeById(updateId: String, parties: Party*): Future[Transaction]
 
   /** Non-managed version of
     * [[updateById(request:com\.daml\.ledger\.api\.v2\.update_service\.GetUpdateByIdRequest):*]],
@@ -440,7 +440,7 @@ trait ParticipantTestContext extends UserManagementTestContext {
       readAs: List[Party],
       template: T,
   )(implicit companion: ContractCompanion[?, TCid, T]): Future[TCid]
-  def createAndGetTransactionId[TCid <: ContractId[T], T <: Template](
+  def createAndGetUpdateId[TCid <: ContractId[T], T <: Template](
       party: Party,
       template: T,
   )(implicit companion: ContractCompanion[?, TCid, T]): Future[(String, TCid)]

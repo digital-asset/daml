@@ -4,10 +4,10 @@ import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 
 val opensslScriptDirectory = Option(System.getProperty("canton-examples.openssl-script-dir")).getOrElse(".")
 val opensslKeysDirectory = Option(System.getProperty("canton-examples.openssl-keys-dir")).getOrElse(".")
+val signatureAlgorithm = Option(System.getProperty("canton-examples.openssl-signature-algorithm")).getOrElse("ecdsa256")
 
 // Assumes a delegation for a key named IntermediateKey was already created (see bootstrap.canton for an example)
 val keyToRevoke = participant1.keys.public.list().find(_.name.contains("IntermediateKey")).map(_.publicKey).get
-val delegationToRevoke = participant1.topology.namespace_delegations.list(TopologyStoreId.Authorized).find(_.item.target == keyToRevoke).get.toTopologyTransaction.toByteString
 val delegationToRevokePath = s"$opensslKeysDirectory/delegation_to_revoke.prep"
 participant1.topology.namespace_delegations.list(TopologyStoreId.Authorized)
   .find(_.item.target == keyToRevoke).get.toTopologyTransaction.writeToFile(delegationToRevokePath)
@@ -19,6 +19,7 @@ Process(
     s"$opensslScriptDirectory/openssl-revoke-delegation-example.sh",
     s"$opensslKeysDirectory/root_private_key.der",
     delegationToRevokePath,
+    signatureAlgorithm,
   ),
   cwd = File(opensslScriptDirectory).toJava,
   extraEnv = "OUTPUT_DIR" -> opensslKeysDirectory,

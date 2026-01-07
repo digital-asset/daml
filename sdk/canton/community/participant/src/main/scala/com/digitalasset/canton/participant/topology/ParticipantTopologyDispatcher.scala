@@ -163,7 +163,7 @@ class ParticipantTopologyDispatcher(
       Set.empty,
     )
 
-    def alreadyTrustedInStoreWithSupportedFeatures(
+    def alreadyTrustedInStore(
         store: TopologyStore[?]
     ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Boolean] =
       EitherT.right(
@@ -178,13 +178,7 @@ class ParticipantTopologyDispatcher(
               filterNamespace = None,
             )
             .map(_.toTopologyState.exists {
-              // If certificate is missing feature flags, re-issue the trust certificate with it
-              case SynchronizerTrustCertificate(
-                    `participantId`,
-                    `logicalSynchronizerId`,
-                    featureFlags,
-                  ) =>
-                featureFlagsForPV.diff(featureFlags.toSet).isEmpty
+              case SynchronizerTrustCertificate(`participantId`, `logicalSynchronizerId`, _) => true
               case _ => false
             })
         )
@@ -194,7 +188,7 @@ class ParticipantTopologyDispatcher(
         state: SyncPersistentState
     ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Unit] =
       MonadUtil.unlessM(
-        alreadyTrustedInStoreWithSupportedFeatures(manager.store)
+        alreadyTrustedInStore(manager.store)
       ) {
         synchronizeWithClosing(functionFullName) {
           manager
@@ -222,7 +216,7 @@ class ParticipantTopologyDispatcher(
     // check if cert already exists in the synchronizer store
     getState(synchronizerId).flatMap(state =>
       MonadUtil.unlessM(
-        alreadyTrustedInStoreWithSupportedFeatures(state.topologyStore)
+        alreadyTrustedInStore(state.topologyStore)
       )(
         trustSynchronizer(state)
       )

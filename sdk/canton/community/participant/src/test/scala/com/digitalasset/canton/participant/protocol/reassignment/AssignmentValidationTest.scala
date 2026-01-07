@@ -111,6 +111,7 @@ final class AssignmentValidationTest
     identityFactory
       .forOwnerAndSynchronizer(submittingParticipant, sourceSynchronizer.unwrap)
       .currentSnapshotApproximation
+      .futureValueUS
 
   private val pureCrypto = new SymbolicPureCrypto
 

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.InternedPartyId
 import com.digitalasset.canton.data.{BufferedAcsCommitment, CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.event.RecordTime
@@ -143,18 +143,6 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
       matchingState: CommitmentPeriodState,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
-  /** Marks a period for all counter participant as cleared by multi-hosted party tracking.
-    *
-    * Caller needs to ensure the periods are valid.
-    *
-    * Idempotent behavior.
-    *
-    * Any period marked by this will be considered fine to prune for the
-    * [[noOutstandingCommitments]].
-    */
-  def markMultiHostedCleared(period: CommitmentPeriod)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit]
   val runningCommitments: IncrementalCommitmentStore
 
   val queue: CommitmentQueue
@@ -260,7 +248,9 @@ trait IncrementalCommitmentStore {
     */
   def get()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[(RecordTime, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType])]
+  ): FutureUnlessShutdown[
+    (RecordTime, Map[SortedSet[InternedPartyId], AcsCommitment.CommitmentType])
+  ]
 
   /** Return the record time of the latest update.
     *
@@ -283,8 +273,8 @@ trait IncrementalCommitmentStore {
     */
   def update(
       rt: RecordTime,
-      updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
-      deletes: Set[SortedSet[LfPartyId]],
+      updates: Map[SortedSet[InternedPartyId], AcsCommitment.CommitmentType],
+      deletes: Set[SortedSet[InternedPartyId]],
       updateMode: UpdateMode,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 

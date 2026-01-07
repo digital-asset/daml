@@ -67,7 +67,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
 
   it should "present the contract state at a specific event sequential id" in {
     for {
-      (_, tx) <- store(singleCreate(create(_, signatories = Set(alice))))
+      (_, tx) <- store(singleCreate(create(signatories = Set(alice))))
       contractId = nonTransient(tx).loneElement
       _ <- store(singleNonConsumingExercise(contractId))
       Some(ledgerEndAtCreate) <- ledgerDao.lookupLedgerEnd()
@@ -162,7 +162,6 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
         .flatMap(resultsWithInternalContractIds =>
           contractStore
             .lookupBatchedNonCachedContractIds(resultsWithInternalContractIds.values)
-            .failOnShutdown
             .map(internalToContractIds =>
               keys.map { key =>
                 key -> resultsWithInternalContractIds

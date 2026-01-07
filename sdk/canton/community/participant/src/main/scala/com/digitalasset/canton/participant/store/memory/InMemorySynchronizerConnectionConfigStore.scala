@@ -39,17 +39,19 @@ import com.digitalasset.canton.topology.{
   UnknownPhysicalSynchronizerId,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.util.{EitherTUtil, Mutex}
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, blocking}
+import scala.concurrent.ExecutionContext
 
 class InMemorySynchronizerConnectionConfigStore(
     val aliasResolution: SynchronizerAliasResolution,
     protected override val loggerFactory: NamedLoggerFactory,
 ) extends SynchronizerConnectionConfigStore
     with NamedLogging {
+
   protected implicit val ec: ExecutionContext = DirectExecutionContext(noTracingLogger)
+  private val lock = new Mutex()
 
   private val configuredSynchronizerMap = TrieMap[
     (SynchronizerAlias, ConfiguredPhysicalSynchronizerId),
@@ -67,8 +69,8 @@ class InMemorySynchronizerConnectionConfigStore(
 
     val alias = config.synchronizerAlias
 
-    val res = blocking {
-      synchronized {
+    val res =
+      lock.exclusive {
         for {
           _ <- predecessorCompatibilityCheck(configuredPSId, synchronizerPredecessor)
 
@@ -103,7 +105,6 @@ class InMemorySynchronizerConnectionConfigStore(
             )
         } yield ()
       }
-    }
 
     EitherT.fromEither[FutureUnlessShutdown](res)
   }
@@ -240,8 +241,8 @@ class InMemorySynchronizerConnectionConfigStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, Unit] = {
 
-    val res = blocking {
-      synchronized {
+    val res =
+      lock.exclusive {
         for {
           // ensure that there is an existing config in the store
           _ <- get(alias, configuredPSId)
@@ -250,7 +251,6 @@ class InMemorySynchronizerConnectionConfigStore(
           _ <- replaceInternal(alias, configuredPSId, _.copy(status = status)).leftWiden[Error]
         } yield ()
       }
-    }
 
     EitherT.fromEither(res)
   }
@@ -284,31 +284,29 @@ class InMemorySynchronizerConnectionConfigStore(
     }
 
     def performChange(): Either[Error, Unit] =
-      blocking {
-        synchronized {
-          for {
-            _ <- checkAliasConsistent(psid, alias)
-            _ <- checkLogicalIdConsistent(psid, alias)
+      lock.exclusive {
+        for {
+          _ <- checkAliasConsistent(psid, alias)
+          _ <- checkLogicalIdConsistent(psid, alias)
 
-            // Check that there exist one entry for this alias without psid
-            config <- get(alias, UnknownPhysicalSynchronizerId)
+          // Check that there exist one entry for this alias without psid
+          config <- get(alias, UnknownPhysicalSynchronizerId)
 
-            _ <- predecessorCompatibilityCheck(
-              KnownPhysicalSynchronizerId(psid),
-              config.predecessor,
+          _ <- predecessorCompatibilityCheck(
+            KnownPhysicalSynchronizerId(psid),
+            config.predecessor,
+          )
+
+        } yield {
+          configuredSynchronizerMap.addOne(
+            (
+              (alias, KnownPhysicalSynchronizerId(psid)),
+              config.copy(configuredPSId = KnownPhysicalSynchronizerId(psid)),
             )
+          )
+          configuredSynchronizerMap.remove((alias, UnknownPhysicalSynchronizerId)).discard
 
-          } yield {
-            configuredSynchronizerMap.addOne(
-              (
-                (alias, KnownPhysicalSynchronizerId(psid)),
-                config.copy(configuredPSId = KnownPhysicalSynchronizerId(psid)),
-              )
-            )
-            configuredSynchronizerMap.remove((alias, UnknownPhysicalSynchronizerId)).discard
-
-            ()
-          }
+          ()
         }
       }
 

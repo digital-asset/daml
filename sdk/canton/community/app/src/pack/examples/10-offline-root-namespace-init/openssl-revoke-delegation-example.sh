@@ -16,6 +16,7 @@ SCRIPTS_ROOT="$(dirname "$0")/../../scripts/offline-root-key"
 PRIVATE_KEY="$1"
 # Path to file containing the namespace delegation to be revoked
 CANTON_NAMESPACE_DELEGATION_TO_REVOKE="$2"
+SIGNATURE_ALGORITHM=$3
 REVOKED_DELEGATION_PREFIX="$OUTPUT_DIR/revoked_delegation"
 # [end-docs-entry: script variables]
 
@@ -26,10 +27,10 @@ REVOKED_DELEGATION_PREFIX="$OUTPUT_DIR/revoked_delegation"
 
 # Sign hash
 # [start-docs-entry: sign revoked key cert]
-openssl pkeyutl -rawin -inkey "$PRIVATE_KEY" -keyform DER -sign < "$REVOKED_DELEGATION_PREFIX.hash" > "$REVOKED_DELEGATION_PREFIX.signature"
+openssl pkeyutl -rawin -inkey "$PRIVATE_KEY" -keyform DER -sign -in "$REVOKED_DELEGATION_PREFIX.hash" > "$REVOKED_DELEGATION_PREFIX.signature"
 # [end-docs-entry: sign revoked key cert]
 
 # Assemble signature and transaction
 # [start-docs-entry: assemble revoked key cert]
-"$SCRIPTS_ROOT/assemble-cert.sh" --prepared-transaction "$REVOKED_DELEGATION_PREFIX.prep" --signature "$REVOKED_DELEGATION_PREFIX.signature" --signature-algorithm ecdsa256 --output "$REVOKED_DELEGATION_PREFIX.cert"
+"$SCRIPTS_ROOT/assemble-cert.sh" --prepared-transaction "$REVOKED_DELEGATION_PREFIX.prep" --signature "$REVOKED_DELEGATION_PREFIX.signature" --signature-algorithm "$SIGNATURE_ALGORITHM" --output "$REVOKED_DELEGATION_PREFIX.cert"
 # [end-docs-entry: assemble revoked key cert]

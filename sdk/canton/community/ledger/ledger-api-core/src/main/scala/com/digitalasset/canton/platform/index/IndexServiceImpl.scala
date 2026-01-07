@@ -13,6 +13,7 @@ import com.digitalasset.base.error.DamlErrorWithDefiniteAnswer
 import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config
+import com.digitalasset.canton.config.CantonRequireTypes.String185
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
@@ -369,17 +370,18 @@ private[index] class IndexServiceImpl(
 
   override def listKnownParties(
       fromExcl: Option[Party],
+      filterString: Option[String185],
       maxResults: Int,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[List[IndexerPartyDetails]] =
-    ledgerDao.listKnownParties(fromExcl, maxResults)
+    ledgerDao.listKnownParties(fromExcl, filterString, maxResults)
 
   override def prune(
       previousPruneUpToInclusive: Option[Offset],
       previousIncompleteReassignmentOffsets: Vector[Offset],
       pruneUpToInclusive: Offset,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompleteReassignmentOffsets: Vector[Offset],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
@@ -388,7 +390,7 @@ private[index] class IndexServiceImpl(
       previousPruneUpToInclusive = previousPruneUpToInclusive,
       previousIncompleteReassignmentOffsets = previousIncompleteReassignmentOffsets,
       pruneUpToInclusive = pruneUpToInclusive,
-      incompletReassignmentOffsets = incompletReassignmentOffsets,
+      incompleteReassignmentOffsets = incompleteReassignmentOffsets,
     )
   }
 

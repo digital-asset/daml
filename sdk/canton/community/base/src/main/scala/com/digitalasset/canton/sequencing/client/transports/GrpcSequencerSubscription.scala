@@ -15,23 +15,25 @@ import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
 import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencing.SequencedEventHandler
+import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason.TokenExpiration
 import com.digitalasset.canton.sequencing.client.{SequencerSubscription, SubscriptionCloseReason}
 import com.digitalasset.canton.sequencing.protocol.SubscriptionResponse
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.tracing.TraceContext.withTraceContext
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
-import com.digitalasset.canton.util.FutureUtil
+import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.{FutureUtil, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.Context.CancellableContext
 import io.grpc.Status.Code.CANCELLED
-import io.grpc.stub.StreamObserver
+import io.grpc.stub.{ClientCallStreamObserver, ClientResponseObserver}
 import io.grpc.{Status, StatusRuntimeException}
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.*
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /** Supply the grpc error that caused the subscription to fail */
 final case class GrpcSubscriptionError(grpcError: GrpcError)
@@ -58,7 +60,8 @@ object HasProtoTraceContext {
 
 abstract class ConsumesCancellableGrpcStreamObserver[
     E,
-    R: HasProtoTraceContext,
+    Request,
+    Response: HasProtoTraceContext,
 ] private[client] (
     context: CancellableContext,
     parentHasRunOnClosing: HasRunOnClosing,
@@ -75,9 +78,10 @@ abstract class ConsumesCancellableGrpcStreamObserver[
   )
   protected lazy val cancelledByClient = new AtomicBoolean(false)
 
-  protected def callHandler: Traced[R] => EitherT[FutureUnlessShutdown, E, Unit]
+  protected def callHandler: Traced[Response] => EitherT[FutureUnlessShutdown, E, Unit]
   protected def onCompleteCloseReason: SubscriptionCloseReason[E]
   protected def request: String
+  protected def useManualFlowControl: Boolean
 
   locally {
     import TraceContext.Implicits.Empty.*
@@ -158,120 +162,171 @@ abstract class ConsumesCancellableGrpcStreamObserver[
     )
   }
 
-  private[sequencing] val observer = new StreamObserver[R] {
-    override def onNext(value: R): Unit = {
-      // we take the unusual step of immediately trying to deserialize the trace-context
-      // so it is available here for logging
-      implicit val traceContext: TraceContext =
-        SerializableTraceContext
-          .fromProtoSafeV30Opt(noTracingLogger)(
-            implicitly[HasProtoTraceContext[R]].traceContext(value)
-          )
-          .unwrap
+  @VisibleForTesting
+  private[sequencing] val requestStream = new SingleUseCell[ClientCallStreamObserver[Request]]
 
-      logger.debug("Received a message from the sequencer.")
+  private[sequencing] val observer: ClientResponseObserver[Request, Response] =
+    new ClientResponseObserver[Request, Response] {
+      override def beforeStart(requestStream: ClientCallStreamObserver[Request]): Unit =
+        if (useManualFlowControl) {
+          requestStream.disableAutoRequestWithInitial(1)
+          ConsumesCancellableGrpcStreamObserver.this.requestStream
+            .putIfAbsent(requestStream)
+            .foreach(_ => throw new IllegalStateException("beforeStart called multiple times"))
+        }
 
-      val current = Promise[Unit]()
-      val closeReasonOO = synchronizeWithClosingSync(functionFullName) {
-        try {
-          appendToCurrentProcessing(_ => current.future)
+      override def onNext(value: Response): Unit = {
+        // we take the unusual step of immediately trying to deserialize the trace-context
+        // so it is available here for logging
+        implicit val traceContext: TraceContext =
+          SerializableTraceContext
+            .fromProtoSafeV30Opt(noTracingLogger)(
+              implicitly[HasProtoTraceContext[Response]].traceContext(value)
+            )
+            .unwrap
+
+        logger.debug("Received a message from the sequencer.")
+
+        val current = Promise[Unit]()
+        val closeReasonOO = synchronizeWithClosingF(functionFullName) {
+          val handlerResult = for {
+            _ <- Future.fromTry(Try(appendToCurrentProcessing(_ => current.future)))
+            cancelableAwait = Promise[UnlessShutdown[Either[E, Unit]]]()
+            _ = currentAwaitOnNext.set(cancelableAwait)
+            _ = cancelableAwait.completeWith(
+              Future.delegate(callHandler(Traced(value)).value.unwrap)
+            )
+            result <- cancelableAwait.future
+          } yield result
 
           // as we're responsible for calling the handler we block onNext from processing further items
           // calls to onNext are guaranteed to happen in order
 
-          val handlerResult = Try {
-            val cancelableAwait = Promise[UnlessShutdown[Either[E, Unit]]]()
-            currentAwaitOnNext.set(cancelableAwait)
-            cancelableAwait.completeWith(callHandler(Traced(value)).value.unwrap)
-            timeouts.unbounded
-              .await(s"${this.getClass}: Blocking processing of further items")(
-                cancelableAwait.future
-              )
-          }
-
-          handlerResult.fold[Option[SubscriptionCloseReason[E]]](
-            ex => Some(SubscriptionCloseReason.HandlerException(ex)),
-            {
-              case Outcome(Left(err)) =>
-                Some(SubscriptionCloseReason.HandlerError(err))
-              case Outcome(Right(_)) =>
-                // we'll continue
-                None
-              case AbortedDueToShutdown =>
-                Some(SubscriptionCloseReason.Shutdown)
-            },
-          )
-        } finally current.success(())
-      }
-
-      // if a close reason was returned, close the subscription
-      closeReasonOO match {
-        case UnlessShutdown.Outcome(maybeCloseReason) =>
-          maybeCloseReason.foreach(complete)
-          logger.debug("Finished processing of the sequencer message.")
-        case UnlessShutdown.AbortedDueToShutdown =>
-          logger.debug(s"The message is not processed, as the node is closing.")
-      }
-    }
-
-    override def onError(t: Throwable): Unit = {
-      import TraceContext.Implicits.Empty.*
-      t match {
-        case s: StatusRuntimeException if s.getStatus.getCode == CANCELLED =>
-          if (cancelledByClient.get()) {
-            logger.info(
-              "gRPC subscription successfully closed due to client shutdown.",
-              s.getStatus.getCause,
+          handlerResult
+            .transform[Option[SubscriptionCloseReason[E]]](
+              (tryUSE: Try[UnlessShutdown[Either[E, Unit]]]) =>
+                tryUSE match {
+                  case Failure(ex) => Success(Some(SubscriptionCloseReason.HandlerException(ex)))
+                  case Success(Outcome(Left(err))) =>
+                    Success(Some(SubscriptionCloseReason.HandlerError(err)))
+                  case Success(Outcome(Right(_))) =>
+                    // we'll continue
+                    Success(None)
+                  case Success(AbortedDueToShutdown) =>
+                    Success(Some(SubscriptionCloseReason.Shutdown))
+                }
             )
-            complete(SubscriptionCloseReason.Closed)
-          } else {
-            // As the client has not cancelled the subscription, the problem must be on the server side.
-            val grpcError =
-              GrpcServiceUnavailable(
-                request,
-                "sequencer",
-                s.getStatus,
-                Option(s.getTrailers),
-                None,
-              )
-            complete(GrpcSubscriptionError(grpcError))
-          }
-        case s: StatusRuntimeException =>
-          val grpcError = GrpcError(request, "sequencer", s)
-          complete(
-            if (s.getStatus.getCode == Status.Code.PERMISSION_DENIED)
-              GrpcPermissionDeniedError(grpcError)
-            else GrpcSubscriptionError(grpcError)
+        }.map { result =>
+          result.foreach(complete)
+          logger.debug("Finished processing of the sequencer message.")
+          result
+        }.onShutdown {
+          logger.debug(s"The message is not processed, as the node is closing.")
+          Some(AbortedDueToShutdown)
+        }.thereafter(_ => current.success(()))
+
+        if (useManualFlowControl) {
+          FutureUtil.doNotAwait(
+            closeReasonOO.thereafter {
+              case Success(None) => requestStream.get.foreach(_.request(1))
+              case Success(Some(_)) | Failure(_) =>
+              // An error was signaled with `Success(Some(_))` or the processing failed completely (Failure(_)),
+              // therefore we don't request more data, as the entire request is going to be cancelled/closed anyway.
+            },
+            s"Processing of $value",
           )
-        case exception: Throwable =>
-          logger.error("The sequencer subscription failed unexpectedly.", t)
-          complete(GrpcSubscriptionUnexpectedException(exception))
+        } else {
+          timeouts.unbounded
+            .await(s"${this.getClass}: Blocking processing of further items")(closeReasonOO)
+            .discard
+        }
       }
-    }
 
-    override def onCompleted(): Unit = {
-      import TraceContext.Implicits.Empty.*
-      // Info level, as this occurs from time to time due to the invalidation of the authentication token.
-      logger.info("The sequencer subscription has been terminated by the server.")
-      complete(onCompleteCloseReason)
-    }
+      override def onError(t: Throwable): Unit = {
+        import TraceContext.Implicits.Empty.*
+        t match {
+          case s: StatusRuntimeException if s.getStatus.getCode == CANCELLED =>
+            if (cancelledByClient.get()) {
+              logger.info(
+                "gRPC subscription successfully closed due to client shutdown.",
+                s.getStatus.getCause,
+              )
+              complete(SubscriptionCloseReason.Closed)
+            } else {
+              // As the client has not cancelled the subscription, the problem must be on the server side.
+              val grpcError =
+                GrpcServiceUnavailable(
+                  request,
+                  "sequencer",
+                  s.getStatus,
+                  Option(s.getTrailers),
+                  None,
+                )
+              complete(GrpcSubscriptionError(grpcError))
+            }
+          case s: StatusRuntimeException =>
+            val grpcError = GrpcError(request, "sequencer", s)
+            if (
+              s.getStatus.getCode == Status.Code.UNAVAILABLE &&
+              s.getStatus.getDescription == ServerSubscriptionCloseReason.TokenExpired.description
+            ) {
+              logger.info(
+                "The sequencer subscription has been terminated by the server due to a token expiration."
+              )
+              complete(TokenExpiration)
+            } else if (s.getStatus.getCode == Status.Code.PERMISSION_DENIED) {
+              complete(GrpcPermissionDeniedError(grpcError))
+            } else {
+              complete(GrpcSubscriptionError(grpcError))
+            }
+          case exception: Throwable =>
+            logger.error("The sequencer subscription failed unexpectedly.", t)
+            complete(GrpcSubscriptionUnexpectedException(exception))
+        }
+      }
 
+      override def onCompleted(): Unit = {
+        import TraceContext.Implicits.Empty.*
+        // Info level, as this occurs from time to time when a member is disconnected.
+        logger.info("The sequencer subscription has been terminated by the server.")
+        complete(onCompleteCloseReason)
+      }
+
+    }
+}
+
+/** Reasons for closing a subscription on the server side. */
+object ServerSubscriptionCloseReason {
+
+  /** Transient reasons associated to an UNAVAILABLE status. */
+  sealed trait TransientCloseReason {
+    def description: String
   }
+
+  case object TokenExpired extends TransientCloseReason {
+    override def description: String = "Subscription token has expired"
+  }
+
+  case object TooManySubscriptions extends TransientCloseReason {
+    override def description: String = "Too many open subscriptions for member"
+  }
+
 }
 
 @VisibleForTesting
-class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] (
+class GrpcSequencerSubscription[E, Request, Response: HasProtoTraceContext] private[transports] (
     context: CancellableContext,
     parentHasRunOnClosing: HasRunOnClosing,
-    override protected val callHandler: Traced[R] => EitherT[FutureUnlessShutdown, E, Unit],
+    override protected val callHandler: Traced[Response] => EitherT[FutureUnlessShutdown, E, Unit],
     override val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends ConsumesCancellableGrpcStreamObserver[E, R](
+    extends ConsumesCancellableGrpcStreamObserver[E, Request, Response](
       context,
       parentHasRunOnClosing,
       timeouts,
     ) {
+  override protected def useManualFlowControl: Boolean = true
 
   override protected lazy val onCompleteCloseReason = GrpcSubscriptionError(
     GrpcError(
@@ -295,8 +350,8 @@ object GrpcSequencerSubscription {
       loggerFactory: NamedLoggerFactory,
   )(protocolVersion: ProtocolVersion)(implicit
       executionContext: ExecutionContext
-  ): ConsumesCancellableGrpcStreamObserver[E, v30.SubscriptionResponse] =
-    new GrpcSequencerSubscription(
+  ): ConsumesCancellableGrpcStreamObserver[E, v30.SubscriptionRequest, v30.SubscriptionResponse] =
+    new GrpcSequencerSubscription[E, v30.SubscriptionRequest, v30.SubscriptionResponse](
       context,
       hasRunOnClosing,
       deserializingSubscriptionHandler(

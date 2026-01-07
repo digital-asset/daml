@@ -28,6 +28,9 @@ import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
   * @param dispatchQueueBackpressureLimit
   *   new topology requests will be backpressured if the number of existing requests exceeds this
   *   number
+  * @param useTimeProofsToObserveEffectiveTime
+  *   Whether the node will use time proofs to observe when an effective time has been reached. If
+  *   false, no time proofs will be sent to the sequencers by any Canton node.
   */
 final case class TopologyConfig(
     topologyTransactionRegistrationTimeout: NonNegativeFiniteDuration =
@@ -39,6 +42,7 @@ final case class TopologyConfig(
     validateInitialTopologySnapshot: Boolean = true,
     disableOptionalTopologyChecks: Boolean = false,
     dispatchQueueBackpressureLimit: NonNegativeInt = defaultMaxUnsentTopologyQueueSize,
+    useTimeProofsToObserveEffectiveTime: Boolean = false,
 ) extends UniformCantonConfigValidation
 
 object TopologyConfig {

@@ -43,6 +43,9 @@ trait PartyManagementIntegrationTest extends CommunityIntegrationTest with Share
             .list(filterParty = "myparty", limit = 200)
             .map(_.party.uid) should have length (100)
         }
+        participant1.ledger_api.parties
+          .list(filterParty = "myparty")
+          .map(_.party) should have length (100)
       }
 
       "thrown on duplicate additions" in { implicit env =>

@@ -43,6 +43,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
 import com.digitalasset.canton.util.collection.MapsUtil
 import com.digitalasset.canton.util.{ContractValidator, ErrorUtil, RoseTree}
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
@@ -93,7 +94,7 @@ class ModelConformanceChecker(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ErrorWithSubTransaction[ViewEffect], Result] = {
-    val CommonData(transactionId, ledgerTime, preparationTime) = commonData
+    val CommonData(updateId, ledgerTime, preparationTime) = commonData
 
     // Previous checks in Phase 3 ensure that all the root views are sent to the same
     // mediator, and that they all have the same correct root hash, and therefore the
@@ -126,7 +127,7 @@ class ModelConformanceChecker(
       .parTraverse { case (view, effects, viewPos, submittingParticipantO) =>
         for {
           wfTxE <- checkView(
-            transactionId,
+            updateId,
             view,
             viewPos,
             mediator,
@@ -179,30 +180,19 @@ class ModelConformanceChecker(
     }
 
     val resultFE = findValidSubtransactions(rootViewsWithInfo).map { case (errors, viewsTxs) =>
-      val (views, effects, txs) = viewsTxs.unzip3
+      val (_views, effects, txs) = viewsTxs.unzip3
 
-      val wftxO = NonEmpty.from(txs).flatMap { txsNE =>
-        WellFormedTransaction
-          .merge(txsNE)
-          .leftMap(mergeError =>
-            // TODO(i14473): Handle failures to merge a transaction while preserving transparency
-            ErrorUtil.internalError(
-              new IllegalStateException(
-                s"Model conformance check failure when merging transaction $transactionId: $mergeError"
-              )
-            )
-          )
-          .toOption
-      }
+      val (wftxO, mergeErrorOO) = NonEmpty.from(txs).map(WellFormedTransaction.merge(_)).separate
+      val mergeErrorO = mergeErrorOO.flatten.map(MergeError.apply)
 
-      NonEmpty.from(errors) match {
+      NonEmpty.from(errors ++ mergeErrorO) match {
         case None =>
           wftxO match {
-            case Some(wftx) => Right(Result(transactionId, wftx))
+            case Some(wftx) => Right(Result(updateId, wftx))
             case _ =>
               ErrorUtil.internalError(
                 new IllegalStateException(
-                  s"Model conformance check for transaction $transactionId completed successfully but without a valid transaction"
+                  s"Model conformance check for transaction $updateId completed successfully but without a valid transaction"
                 )
               )
           }
@@ -289,7 +279,7 @@ class ModelConformanceChecker(
   }
 
   private def checkView(
-      transactionId: UpdateId,
+      updateId: UpdateId,
       view: TransactionView,
       viewPosition: ViewPosition,
       mediator: MediatorGroupRecipient,
@@ -355,7 +345,7 @@ class ModelConformanceChecker(
       absolutizationData = transactionTreeFactory.cantonContractIdVersion match {
         case _: CantonContractIdV1Version => ContractIdAbsolutizationDataV1
         case _: CantonContractIdV2Version =>
-          ContractIdAbsolutizationDataV2(transactionId, metadata.ledgerTime)
+          ContractIdAbsolutizationDataV2(updateId, metadata.ledgerTime)
       }
       absolutizer = new ContractIdAbsolutizer(hashOps, absolutizationData)
 
@@ -657,8 +647,12 @@ object ModelConformanceChecker {
     )
   }
 
+  final case class MergeError(cause: String) extends Error {
+    override protected def pretty: Pretty[MergeError] = prettyOfParam(_.cause.unquoted)
+  }
+
   final case class Result(
-      transactionId: UpdateId,
+      updateId: UpdateId,
       suffixedTransaction: WellFormedTransaction[WithSuffixesAndMerged],
   )
 

@@ -18,7 +18,6 @@ import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlo
 import com.digitalasset.canton.integration.util.{EntitySyntax, PartiesAllocator}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
-  ConfigTransforms,
   EnvironmentDefinition,
   HasCycleUtils,
   SharedEnvironment,
@@ -43,7 +42,6 @@ trait MediatorOnboardingTest
         numSequencers = 1,
         numMediators = 2,
       )
-      .addConfigTransform(ConfigTransforms.useStaticTime)
       .withNetworkBootstrap { implicit env =>
         import env.*
         new NetworkBootstrapper(

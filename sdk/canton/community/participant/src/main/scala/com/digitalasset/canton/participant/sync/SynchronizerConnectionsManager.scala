@@ -76,7 +76,7 @@ import org.apache.pekko.stream.Materializer
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContextExecutor, Future, blocking}
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Right, Success, Try}
 
@@ -1005,8 +1005,11 @@ private[sync] class SynchronizerConnectionsManager(
                 )
               ).discard
             case Success(UnlessShutdown.Outcome(CloseReason.ClientShutdown)) =>
-              logger.info(s"$synchronizerAlias disconnected because sequencer client was closed")
-              disconnectSynchronizer(synchronizerAlias).discard
+              if (!connectedSynchronizer.isClosing) {
+                logger.info(s"$synchronizerAlias disconnected because sequencer client was closed.")
+                // Only disconnect from the synchronizer, if the client wasn't shut down because of an explicit disconnect from the synchronizer.
+                disconnectSynchronizer(synchronizerAlias).discard
+              }
             case Success(UnlessShutdown.AbortedDueToShutdown) =>
               logger.info(s"$synchronizerAlias disconnected because of shutdown")
               disconnectSynchronizer(synchronizerAlias).discard
@@ -1062,13 +1065,14 @@ private[sync] class SynchronizerConnectionsManager(
   /** Disconnect the given synchronizer from the sync service. */
   def disconnectSynchronizer(
       synchronizerAlias: SynchronizerAlias
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
-    resolveReconnectAttempts(synchronizerAlias)
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     connectQueue.executeE(
-      EitherT.fromEither(performSynchronizerDisconnect(synchronizerAlias)),
+      {
+        resolveReconnectAttempts(synchronizerAlias)
+        EitherT.fromEither(performSynchronizerDisconnect(synchronizerAlias))
+      },
       s"disconnect from $synchronizerAlias",
     )
-  }
 
   def logout(synchronizerAlias: SynchronizerAlias)(implicit
       traceContext: TraceContext
@@ -1244,7 +1248,7 @@ private[sync] class SynchronizerConnectionsManager(
             s"Failed retrieving SynchronizerTopologyClient for synchronizer `$synchronizerId` with alias $synchronizerAlias"
           )
         )
-        .map(_.currentSnapshotApproximation)
+        .flatMap(_.currentSnapshotApproximation)
 
     val result = readySynchronizers
       // keep only healthy synchronizers
@@ -1355,6 +1359,7 @@ object SynchronizerConnectionsManager {
       */
     private val connected: TrieMap[PhysicalSynchronizerId, ConnectedSynchronizer] = TrieMap()
     private val lsidToPSId: BiMap[SynchronizerId, PhysicalSynchronizerId] = HashBiMap.create
+    private val lock = new Mutex()
 
     def get(psid: PhysicalSynchronizerId): Option[ConnectedSynchronizer] = connected.get(psid)
     def get(lsid: SynchronizerId): Option[ConnectedSynchronizer] =
@@ -1375,8 +1380,8 @@ object SynchronizerConnectionsManager {
       val lsid = connectedSynchronizer.psid.logical
       val psid = connectedSynchronizer.psid
 
-      blocking {
-        this.synchronized {
+      {
+        lock.exclusive {
           if (connected.isDefinedAt(psid))
             throw new IllegalArgumentException(
               s"Cannot add $psid because the node is already connected to it"
@@ -1394,11 +1399,9 @@ object SynchronizerConnectionsManager {
     }
 
     def remove(psid: PhysicalSynchronizerId): Option[ConnectedSynchronizer] =
-      blocking {
-        this.synchronized {
-          lsidToPSId.remove(psid.logical)
-          connected.remove(psid)
-        }
+      lock.exclusive {
+        lsidToPSId.remove(psid.logical)
+        connected.remove(psid)
       }
   }
 }

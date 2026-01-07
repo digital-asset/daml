@@ -110,15 +110,22 @@ class DbTrafficPurchasedStore(
 
   override def lookup(
       member: Member
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[TrafficPurchased]] = {
-    val query =
-      sql"""select member, sequencing_timestamp, balance, serial
-            from seq_traffic_control_balance_updates updates
-            inner join sequencer_members members on updates.member_id = members.id
-            where member = $member
-            order by sequencing_timestamp asc"""
-    storage.query(query.as[TrafficPurchased], functionFullName)
-  }
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[TrafficPurchased]] =
+    for {
+      registeredMemberO <- sequencerStore.lookupMember(member)
+      result <- registeredMemberO match {
+        case None =>
+          // Note: this is the expected behavior of this store
+          FutureUnlessShutdown.pure(Seq.empty)
+        case Some(registeredMember) =>
+          val query =
+            sql"""select $member, sequencing_timestamp, balance, serial
+              from seq_traffic_control_balance_updates
+              where member_id = ${registeredMember.memberId}
+              order by sequencing_timestamp asc"""
+          storage.query(query.as[TrafficPurchased], functionFullName)
+      }
+    } yield result
 
   override def lookupLatestBeforeInclusive(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext

@@ -32,7 +32,13 @@ import com.digitalasset.canton.platform.store.DbSupport.{ConnectionPoolConfig, D
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
 import com.digitalasset.canton.platform.store.interning.StringInterningView
-import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations, PruningOffsetService}
+import com.digitalasset.canton.platform.store.{
+  DbSupport,
+  FlywayMigrations,
+  LedgerApiContractStore,
+  LedgerApiContractStoreImpl,
+  PruningOffsetService,
+}
 import com.digitalasset.canton.protocol.ContractInstance
 import com.digitalasset.canton.resource.DbStorageSingle
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
@@ -113,13 +119,11 @@ trait IndexComponentTest
     // this mimics protocol processing that stores contracts and retrieves their internal contract ids afterward
     testServices.participantContractStore
       .storeContracts(contracts)
-      .failOnShutdown("storing contracts")
       .flatMap(_ =>
         testServices.participantContractStore
           .lookupBatchedNonCachedInternalIds(
             contracts.map(_.contractId)
           )
-          .failOnShutdown("retrieving internal contract ids")
       )
       .map { internalContractIds =>
         update match {
@@ -175,7 +179,7 @@ trait IndexComponentTest
                 loggerFactory = loggerFactory,
               )
           )
-        participantContractStore <-
+        contractStore <-
           ResourceOwner
             .forCloseable(() =>
               ContractStore.create(
@@ -186,6 +190,11 @@ trait IndexComponentTest
                 loggerFactory = loggerFactory,
               )
             )
+        participantContractStore = LedgerApiContractStoreImpl(
+          contractStore,
+          loggerFactory,
+          LedgerApiServerMetrics.ForTesting,
+        )
         (inMemoryState, updaterFlow) <- LedgerApiServerInternals.createInMemoryStateAndUpdater(
           participantId = participantId,
           commandProgressTracker = CommandProgressTracker.NoOp,
@@ -222,7 +231,7 @@ trait IndexComponentTest
           loggerFactory = loggerFactory,
           dataSourceProperties = IndexerConfig.createDataSourcePropertiesForTesting(indexerConfig),
           highAvailability = HaConfig(),
-          indexSericeDbDispatcher = Some(dbSupport.dbDispatcher),
+          indexSericeDbDispatcher = None,
           clock = clock,
           reassignmentOffsetPersistence = NoOpReassignmentOffsetPersistence,
           postProcessor = (_, _) => Future.unit,
@@ -312,6 +321,6 @@ object IndexComponentTest {
       indexResource: Resource[Any],
       index: IndexService,
       indexer: FutureQueue[Update],
-      participantContractStore: ContractStore,
+      participantContractStore: LedgerApiContractStore,
   )
 }

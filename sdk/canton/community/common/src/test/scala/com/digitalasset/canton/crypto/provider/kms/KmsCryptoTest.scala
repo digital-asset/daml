@@ -12,6 +12,7 @@ import com.digitalasset.canton.config.{
   EncryptionSchemeConfig,
   KmsConfig,
   PrivateKeyStoreConfig,
+  SessionEncryptionKeyCacheConfig,
   SigningSchemeConfig,
 }
 import com.digitalasset.canton.crypto.*
@@ -69,7 +70,7 @@ trait KmsCryptoTest
     Crypto
       .create(
         config,
-        CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+        SessionEncryptionKeyCacheConfig(),
         CachingConfigs.defaultPublicKeyConversionCache,
         new MemoryStorage(loggerFactory, timeouts),
         new CryptoPrivateStoreFactory(

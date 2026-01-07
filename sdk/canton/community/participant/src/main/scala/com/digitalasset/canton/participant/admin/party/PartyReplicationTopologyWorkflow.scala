@@ -193,6 +193,7 @@ class PartyReplicationTopologyWorkflow(
               participantPermission,
               onboarding = true,
             ),
+            ptpPrevious.partySigningKeysWithThreshold,
           )
       )
       existingProposalO <- EitherT.right[String](
@@ -436,6 +437,7 @@ class PartyReplicationTopologyWorkflow(
                 HostingParticipant(targetParticipantId, permission, onboarding = false)
               case otherParticipant => otherParticipant
             },
+            ptpHeadTxn.mapping.partySigningKeysWithThreshold,
           ),
           ptpHeadTxn.serial.increment,
         )

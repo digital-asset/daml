@@ -86,8 +86,11 @@ class GrpcSequencerConnectService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val resultF = for {
       participant <- EitherT.fromEither[FutureUnlessShutdown](getParticipantFromGrpcContext())
-      isActive <- EitherT(
+      topologySnapshot <- EitherT.liftF(
         cryptoApi.ips.currentSnapshotApproximation
+      )
+      isActive <- EitherT(
+        topologySnapshot
           .isParticipantActive(participant)
           .map(_.asRight[String])
       )

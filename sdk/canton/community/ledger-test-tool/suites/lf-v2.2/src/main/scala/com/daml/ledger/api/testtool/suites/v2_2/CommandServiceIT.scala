@@ -782,9 +782,9 @@ final class CommandServiceIT extends LedgerTestSuite with CommandSubmissionTestU
         LedgerEffects,
       )
     for {
-      transactionIdResponse <- ledger.submitAndWait(request)
+      updateIdResponse <- ledger.submitAndWait(request)
       retrievedTransaction <- ledger.transactionById(
-        transactionIdResponse.updateId,
+        updateIdResponse.updateId,
         Seq(party),
         LedgerEffects,
       )
@@ -792,7 +792,7 @@ final class CommandServiceIT extends LedgerTestSuite with CommandSubmissionTestU
       transactionTreeResponse <- ledger.submitAndWaitForTransaction(requestForTransactionTree)
     } yield {
       assert(
-        transactionIdResponse.completionOffset > 0 && transactionIdResponse.completionOffset == retrievedTransaction.offset,
+        updateIdResponse.completionOffset > 0 && updateIdResponse.completionOffset == retrievedTransaction.offset,
         "SubmitAndWait does not contain the expected completion offset",
       )
       assert(

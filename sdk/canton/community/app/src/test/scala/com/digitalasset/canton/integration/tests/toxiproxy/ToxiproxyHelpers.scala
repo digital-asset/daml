@@ -71,11 +71,11 @@ object ToxiproxyHelpers extends BaseTest with EntitySyntax {
 
   def assertNoToxics(proxy: RunningProxy): Unit = {
     import scala.jdk.CollectionConverters.*
-    val client = proxy.controllingToxiproxyClient
-    val proxies = client.getProxies.asScala.toList
-    val toxics = proxies.flatMap(p => p.toxics().getAll.asScala.toList.map(t => t.getName))
+    // Get toxics *only* from the specific proxy in question
+    val toxics = proxy.underlying.toxics().getAll.asScala.toList.map(_.getName)
     if (toxics.nonEmpty) {
-      logger.info(s"Observed toxics $toxics from proxies ${proxies.map(p => p.getName)}")
+      // Update logger to be more specific
+      logger.info(s"Observed toxics $toxics on proxy ${proxy.underlying.getName}")
     }
     toxics shouldBe List.empty
   }
@@ -286,11 +286,15 @@ object ToxiproxyHelpers extends BaseTest with EntitySyntax {
     try {
       closeFunc(env)
     } finally {
-      proxy.underlying.delete()
+      // Get the client and proxy name *before* deleting
       val client = proxy.controllingToxiproxyClient
+      val proxyName = proxy.underlying.getName
+      proxy.underlying.delete()
+
+      // Assert that *only this specific proxy* is no longer present
       eventually() {
-        val proxies = client.getProxies.asScala.toList.map(p => p.getName)
-        proxies shouldBe List.empty
+        val proxyNames = client.getProxies.asScala.toList.map(p => p.getName)
+        proxyNames should not contain proxyName
       }
     }
   }

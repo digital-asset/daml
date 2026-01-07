@@ -26,11 +26,12 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.platform.apiserver.execution.CommandExecutionResult
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.EnrichedTransactionData.ExternalInputContract
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.ExternalTransactionProcessor.PrepareResult
+import com.digitalasset.canton.platform.config.InteractiveSubmissionServiceConfig
 import com.digitalasset.canton.platform.store.dao.events.InputContractPackages
 import com.digitalasset.canton.protocol.LfFatContractInst
 import com.digitalasset.canton.protocol.hash.HashTracer
-import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.collection.MapsUtil
+import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.transaction.{SubmittedTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -86,6 +87,7 @@ class ExternalTransactionProcessor(
     enricher: InteractiveSubmissionEnricher,
     contractStore: ContractStore,
     syncService: state.SyncService,
+    config: InteractiveSubmissionServiceConfig,
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
   private val encoder = new PreparedTransactionEncoder(loggerFactory)
@@ -267,10 +269,16 @@ class ExternalTransactionProcessor(
     FutureUnlessShutdown,
     InteractiveSubmissionExecuteError.Reject,
     CommandExecutionResult,
-  ] = {
-    val routingSynchronizerState = syncService.getRoutingSynchronizerState
-
+  ] =
     for {
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+        !config.enforceSingleRootNode || executeRequest.preparedTransaction.transaction
+          .forall(_.roots.sizeIs == 1),
+        InteractiveSubmissionExecuteError.Reject(
+          "Transaction with multiple root nodes are not supported"
+        ),
+      )
+      routingSynchronizerState <- EitherT.liftF(syncService.getRoutingSynchronizerState)
       decoded <- EitherT
         .liftF[Future, InteractiveSubmissionExecuteError.Reject, ExecuteTransactionData](
           decoder.decode(executeRequest)
@@ -304,5 +312,4 @@ class ExternalTransactionProcessor(
       selectRoutingSynchronizer,
       routingSynchronizerState,
     )
-  }
 }

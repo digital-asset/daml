@@ -12,7 +12,12 @@ import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
 }
-import com.digitalasset.canton.config.{CachingConfigs, CantonConfig, CryptoConfig}
+import com.digitalasset.canton.config.{
+  CachingConfigs,
+  CantonConfig,
+  CryptoConfig,
+  SessionEncryptionKeyCacheConfig,
+}
 import com.digitalasset.canton.console.commands.GlobalSecretKeyAdministration
 import com.digitalasset.canton.console.{
   ConsoleEnvironment,
@@ -56,7 +61,7 @@ trait TestEnvironment
   private lazy val cryptoET: EitherT[FutureUnlessShutdown, String, Crypto] = Crypto
     .create(
       CryptoConfig(),
-      CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+      SessionEncryptionKeyCacheConfig(),
       CachingConfigs.defaultPublicKeyConversionCache,
       storage,
       CryptoPrivateStoreFactory.withoutKms(),
