@@ -56,7 +56,7 @@ STATIC_HEADER = """// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or
 // SPDX-License-Identifier: Apache-2.0
 
 //
-// THIS FILE IS-GENERATED FROM //daml-lf/language/daml-lf.bzl
+// THIS FILE IS-GENERATED FROM //canton/community/daml-lf/language/daml-lf.bzl
 // (via generate_features.py)
 // DO NOT EDIT MANUALLY
 //

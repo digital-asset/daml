@@ -35,7 +35,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
@@ -53,7 +53,7 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",
     ],
 )

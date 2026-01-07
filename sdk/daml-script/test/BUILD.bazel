@@ -14,7 +14,7 @@ load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_linux_intel", "is_windows")
 load("//rules_daml:daml.bzl", "daml_compile")
 load(
-    "//daml-lf/language:daml-lf.bzl",
+    "//canton/community/daml-lf/language:daml-lf.bzl",
     "DEFAULT_LF_VERSION",
     "DEV_LF_VERSION",
     "mangle_for_damlc",
@@ -264,7 +264,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/engine:script-engine",
         "//daml-lf/interpreter",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/stable-packages",
         "//canton/community/daml-lf/transaction",
         "//daml-script/converter",
@@ -371,7 +371,7 @@ da_scala_test_suite(
         "//daml-lf/engine",
         "//daml-lf/engine:script-engine",
         "//daml-lf/interpreter",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//test-common/canton/it-lib",
@@ -414,7 +414,7 @@ da_scala_test(
         "//daml-lf/data",
         "//daml-lf/engine:script-engine",
         "//daml-lf/interpreter",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//test-common/canton/it-lib",
@@ -456,7 +456,7 @@ da_scala_test(
         "//daml-lf/data",
         "//daml-lf/engine:upgrade-test",
         "//daml-lf/interpreter",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//test-common/canton/it-lib",
@@ -482,7 +482,7 @@ da_scala_test(
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
     ],
 )
 
@@ -504,7 +504,7 @@ da_scala_binary(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
     ],
 )
 
@@ -556,7 +556,7 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//daml-lf/engine:script-engine",
         "//daml-lf/interpreter",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//test-common/canton/it-lib",

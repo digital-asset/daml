@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //
-// THIS FILE WAS GENERATED FROM //daml-lf/language/daml-lf.bzl
+// THIS FILE WAS GENERATED FROM //canton/community/daml-lf/language/daml-lf.bzl
 // DO NOT EDIT MANUALLY
 //
 // IT IS CHECKED IN AS A TEMPORARY MEASURE FOR THE MIGRATION OF LF/ENGINE TO THE
@@ -27,7 +27,7 @@ trait LanguageVersionGenerated {
   val v1_dev: LanguageVersion = LanguageVersion(V1, Dev)
   val allLegacyLfVersions: List[LanguageVersion] = allStableLegacyLfVersions.appended(v1_dev)
 
-  // Start of code generated from //daml-lf/language/daml-lf.bzl
+  // Start of code generated from //canton/community/daml-lf/language/daml-lf.bzl
 
   val v2_1: LanguageVersion = LanguageVersion(V2, Stable(1))
   val v2_2: LanguageVersion = LanguageVersion(V2, Stable(2))

@@ -22,7 +22,7 @@ load(
     "test_exclusions",
 )
 load(
-    "//daml-lf/language:daml-lf.bzl",
+    "//canton/community/daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_VERSIONS",
     "DEFAULT_LF_VERSION",
 )
@@ -57,7 +57,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//language-support/build-info",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
@@ -106,7 +106,7 @@ da_scala_test(
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/stable-packages",
         "//canton/community/daml-lf/transaction-test-lib",
         "@maven//:com_squareup_javapoet",

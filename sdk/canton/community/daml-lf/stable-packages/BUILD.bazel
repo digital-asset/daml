@@ -8,7 +8,7 @@ load(
     "lf_scalacopts_stricter",
 )
 load(
-    "//daml-lf/language:daml-lf.bzl",
+    "//canton/community/daml-lf/language:daml-lf.bzl",
     "DEV_LF_VERSION",
     "mangle_for_damlc",
 )
@@ -30,7 +30,7 @@ da_scala_library(
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -62,6 +62,6 @@ da_scala_test_suite(
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
     ],
 )

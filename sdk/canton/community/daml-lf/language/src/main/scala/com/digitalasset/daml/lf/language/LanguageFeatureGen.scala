@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //
-// THIS FILE WAS GENERATED FROM //daml-lf/language/daml-lf.bzl
+// THIS FILE WAS GENERATED FROM //canton/community/daml-lf/language/daml-lf.bzl
 // (via generate_features.py)
 //
 // IT IS CHECKED IN AS A TEMPORARY MEASURE FOR THE MIGRATION OF LF/ENGINE TO THE

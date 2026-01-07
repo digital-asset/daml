@@ -18,7 +18,7 @@ da_scala_benchmark_jmh(
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/parser",
         "//canton/commmunity/daml-lf/validation",
     ],

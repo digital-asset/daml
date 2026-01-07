@@ -14,7 +14,7 @@ load(
     "lf_scalacopts_stricter",
 )
 load(
-    "//daml-lf/language:daml-lf.bzl",
+    "//canton/community/daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
     "DEFAULT_LF_VERSION",
 )
@@ -49,7 +49,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
@@ -65,7 +65,7 @@ da_scala_benchmark_jmh(
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",
     ],
 )
@@ -120,7 +120,7 @@ da_scala_benchmark_jmh(
             "//daml-lf/engine",
             "//daml-lf/engine:script-engine",
             "//daml-lf/interpreter",
-            "//daml-lf/language",
+            "//canton/community/daml-lf/language",
             "//canton/community/daml-lf/parser",
             "//canton/community/daml-lf/stable-packages",
             "//canton/community/daml-lf/transaction",
@@ -163,7 +163,7 @@ da_scala_benchmark_jmh(
             "//daml-lf/data",
             "//daml-lf/engine",
             "//daml-lf/interpreter",
-            "//daml-lf/language",
+            "//canton/community/daml-lf/language",
             "//canton/community/daml-lf/parser",
             "//canton/community/daml-lf/stable-packages",
             "//canton/community/daml-lf/transaction",
@@ -189,7 +189,7 @@ da_scala_benchmark_jmh(
             "//daml-lf/data",
             "//daml-lf/engine",
             "//daml-lf/interpreter",
-            "//daml-lf/language",
+            "//canton/community/daml-lf/language",
             "//canton/community/daml-lf/transaction",
         ],
     ),
@@ -208,7 +208,7 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",
     ],
 )

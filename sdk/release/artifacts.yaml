@@ -25,7 +25,7 @@
   type: jar-scala
 - target: //daml-lf/interpreter:interpreter
   type: jar-scala
-- target: //daml-lf/language:language
+- target: //canton/community/daml-lf/language:language
   type: jar-scala
 - target: //canton/community/daml-lf/ledger-api-value:ledger_api_value_proto_jar
   type: jar-lib

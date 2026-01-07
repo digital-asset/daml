@@ -10,7 +10,7 @@ load(
     "lf_scalacopts_stricter",
 )
 load(
-    "//daml-lf/language:daml-lf.bzl",
+    "//canton/community/daml-lf/language:daml-lf.bzl",
     "ALL_LF_VERSIONS",
     "ENGINE_LF_VERSIONS",
     "lf_version_is_dev",
@@ -36,7 +36,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -60,7 +60,7 @@ da_scala_test_suite(
         "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/parser",
         "//canton/community/daml-lf/stable-packages",
         "//canton/commmunity/daml-lf/validation",
@@ -85,7 +85,7 @@ da_scala_binary(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive/encoder",
         "//daml-lf/data",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/parser",
         "//canton/community/daml-lf/stable-packages",
         "//canton/commmunity/daml-lf/validation",

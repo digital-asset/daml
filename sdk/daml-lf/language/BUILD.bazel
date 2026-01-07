@@ -9,7 +9,7 @@ load(
     "lf_scalacopts_stricter",
 )
 load(
-    "//daml-lf/language:daml-lf.bzl",
+    "//canton/community/daml-lf/language:daml-lf.bzl",
     "FEATURES",
     "RAW_ALL_LF_VERSIONS",
     "RAW_COMPILER_INPUT_LF_VERSIONS",
@@ -106,11 +106,11 @@ EOF
 # genrule(
 #     name = "generated_scala_versions_src",
 #     srcs = [
-#         "//daml-lf/language:version_data_json",
+#         "//canton/community/daml-lf/language:version_data_json",
 #     ],
 #     outs = ["src/main/scala/com/digitalasset/daml/lf/language/LanguageVersionGen.scala"],
-#     cmd = "$(location //daml-lf/language:generate_scala_versions) $(location //daml-lf/language:version_data_json) $@",
-#     tools = ["//daml-lf/language:generate_scala_versions"],
+#     cmd = "$(location //canton/community/daml-lf/language:generate_scala_versions) $(location //canton/community/daml-lf/language:version_data_json) $@",
+#     tools = ["//canton/community/daml-lf/language:generate_scala_versions"],
 # )
 
 py_binary(
@@ -132,9 +132,9 @@ py_binary(
 # genrule(
 #     name = "generated_scala_features_src",
 #     srcs = [
-#         "//daml-lf/language:feature_data_json",
+#         "//canton/community/daml-lf/language:feature_data_json",
 #     ],
 #     outs = ["src/main/scala/com/digitalasset/daml/lf/language/LanguageFeatureGen.scala"],
-#     cmd = "$(location //daml-lf/language:generate_scala_features) $(location //daml-lf/language:feature_data_json) $@",
-#     tools = ["//daml-lf/language:generate_scala_features"],
+#     cmd = "$(location //canton/community/daml-lf/language:generate_scala_features) $(location //canton/community/daml-lf/language:feature_data_json) $@",
+#     tools = ["//canton/community/daml-lf/language:generate_scala_features"],
 # )

@@ -7,7 +7,7 @@ load(
     "daml_compile",
 )
 load(
-    "//daml-lf/language:daml-lf.bzl",
+    "//canton/community/daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
     "DEFAULT_LF_VERSION",
     "DEV_LF_VERSION",

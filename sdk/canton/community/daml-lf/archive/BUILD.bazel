@@ -14,7 +14,7 @@ load(
     "lf_scalacopts_stricter",
 )
 load(
-    "//daml-lf/language:daml-lf.bzl",
+    "//canton/community/daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
     "READABLE_LF_VERSIONS",
     "SUPPORTED_PROTO_STABLE_LF_VERSIONS",
@@ -102,7 +102,7 @@ da_scala_library(
         "//canton:safe-proto",
         "//canton:scala-utils",
         "//daml-lf/data",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -139,7 +139,7 @@ da_scala_test_suite(
         "//canton:safe-proto",
         "//canton:scalatest-utils",
         "//daml-lf/data",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
@@ -168,6 +168,6 @@ da_scala_binary(
     deps = [
         ":daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
     ],
 )

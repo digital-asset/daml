@@ -9,7 +9,7 @@ load("@build_environment//:configuration.bzl", "mvn_version", "sdk_version")
 load("@scala_version//:index.bzl", "scala_major_version")
 load("//bazel_tools:scala.bzl", "da_scala_test")
 load(
-    "//daml-lf/language:daml-lf.bzl",
+    "//canton/community/daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
     "DEV_LF_VERSION",
 )

@@ -58,7 +58,7 @@ STATIC_HEADER = """// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or
 // SPDX-License-Identifier: Apache-2.0
 
 //
-// THIS FILE IS-GENERATED FROM //daml-lf/language/daml-lf.bzl
+// THIS FILE IS-GENERATED FROM //canton/community/daml-lf/language/daml-lf.bzl
 // DO NOT EDIT MANUALLY
 //
 
@@ -95,7 +95,7 @@ def main(input_json_path, output_scala_path):
         data = json.load(f)
 
     output = [STATIC_HEADER]
-    output.append("  // Start of code generated from //daml-lf/language/daml-lf.bzl\n")
+    output.append("  // Start of code generated from //canton/community/daml-lf/language/daml-lf.bzl\n")
 
     # 1. Handle the definitions from `allLfVersions`. This list contains
     # the full struct-like dicts.

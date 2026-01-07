@@ -14,7 +14,7 @@ load("//rules_daml:daml.bzl", "daml_compile")
 load("//bazel_tools:proto.bzl", "proto_gen")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools/packaging:packaging.bzl", "package_oci_component")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
+load("//canton/community/daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
 
 # Should match RunnerMainTestBase.DAR_COUNT
 test_dar_count = 5
@@ -80,7 +80,7 @@ da_scala_library(
         "//daml-lf/engine:script-engine",
         "//daml-lf/ide-ledger",
         "//daml-lf/interpreter",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/stable-packages",
         "//canton/community/daml-lf/transaction",
         "//daml-script/auth-utils",
