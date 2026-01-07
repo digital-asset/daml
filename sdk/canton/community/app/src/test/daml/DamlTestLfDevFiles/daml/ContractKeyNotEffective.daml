@@ -1,4 +1,4 @@
--- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Error typically prefixed with `contract 000fffe8781952ace1141fabd7d28d48c8a157788c53392a6e698a534f89ee2779`, where the hash may change

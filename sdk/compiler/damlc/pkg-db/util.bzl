@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # A Daml package database contains a subdirectory for each Daml-LF
@@ -33,7 +33,7 @@ PACKAGE_CONF_TEMPLATE = """
 name: {name}
 version: __SDK_VERSION__
 id: __ID__
-copyright: 2020 Digital Asset Holdings
+copyright: 2026 Digital Asset Holdings
 maintainer: Digital Asset
 exposed: True
 exposed-modules: {modules}

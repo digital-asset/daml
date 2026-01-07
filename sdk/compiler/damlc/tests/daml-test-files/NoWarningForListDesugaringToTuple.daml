@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Check that no warning is emitted if the GHC desugarer generates large tuples from list destructuring

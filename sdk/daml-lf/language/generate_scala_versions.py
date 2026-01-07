@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import json
@@ -54,7 +54,7 @@ def generate_scala_singleton(name, version_dict):
 
 # This includes everything from the top of the file down to the
 # end of the hardcoded legacy section.
-STATIC_HEADER = """// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+STATIC_HEADER = """// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 //

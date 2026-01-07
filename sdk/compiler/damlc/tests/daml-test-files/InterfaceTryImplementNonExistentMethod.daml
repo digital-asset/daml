@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @ERROR range=17:5-17:26; Possible Daml-specific reason for the following type error: Tried to implement method ‘nonExistentMethod’, but interface ‘I’ does not have a method with that name.

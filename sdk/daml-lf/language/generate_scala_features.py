@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 import json
@@ -52,7 +52,7 @@ def to_scala_version_req(req_dict):
 
 # --- Static File Parts ---
 
-STATIC_HEADER = """// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+STATIC_HEADER = """// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 //
