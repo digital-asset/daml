@@ -26,8 +26,8 @@ bazel_dep(name = "protobuf", version = "26.0"                   # 26 -> 25.8?
 bazel_dep(name = "rules_rust", version = "0.68.1")
 
 # bazel_dep(name = "grpc-java", version = "1.75.0")
-bazel_dep(name = "grpc-java", version = "1.75.0"
-    , repo_name = "io_grpc_grpc_java")
+# bazel_dep(name = "grpc-java", version = "1.75.0"
+#     , repo_name = "io_grpc_grpc_java")
 
 
 register_toolchains("@rules_java//toolchains:all")
@@ -62,13 +62,22 @@ maven.install(
 
         "com.fasterxml.jackson.core:jackson-core:2.14.3",
 
+        "com.github.scopt:scopt_2.13:4.1.0",
+
         "ch.qos.logback:logback-classic:1.4.14",
         "com.auth0:java-jwt:4.2.1",
 
         "javax.annotation:javax.annotation-api:1.3.2",
 
         "io.spray:spray-json_2.13:1.3.6",
+
         "io.grpc:grpc-netty-shaded:1.77.0",
+        "io.grpc:grpc-api:1.77.0",
+        "io.grpc:grpc-stub:1.77.0",
+        "io.grpc:grpc-protobuf:1.77.0",
+        "io.grpc:grpc-services:1.77.0",
+        "io.grpc:grpc-inprocess:1.77.0",
+        "io.grpc:grpc-util:1.77.0",
 
         "io.opentelemetry:opentelemetry-context:1.43.0",
         "io.opentelemetry:opentelemetry-api:1.43.0",
