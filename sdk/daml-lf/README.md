@@ -129,7 +129,7 @@ scala_repl(
 
 This target can then be invoked with "bazel run":
 ```
-da$ bazel run //daml-lf/interpreter:interpreter@repl
+da$ bazel run //canton/community/daml-lf/interpreter:interpreter@repl
 
 or:
 

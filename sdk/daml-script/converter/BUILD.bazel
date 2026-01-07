@@ -19,7 +19,7 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/engine:script-engine",
-        "//daml-lf/interpreter",
+        "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/stable-packages",
         "//canton/community/daml-lf/transaction",

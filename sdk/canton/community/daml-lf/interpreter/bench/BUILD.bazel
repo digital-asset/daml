@@ -17,7 +17,7 @@ da_scala_benchmark_jmh(
         "//canton:contextualized-logging",
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/interpreter",
+        "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/parser",
         "//canton/commmunity/daml-lf/validation",

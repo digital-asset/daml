@@ -630,7 +630,7 @@ scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/interpreter",
+        "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",
         "@maven//:ch_qos_logback_logback_classic",

@@ -25,7 +25,7 @@ da_scala_binary(
     deps = [
         "//canton:contextualized-logging",
         "//daml-lf/data",
-        "//daml-lf/interpreter",
+        "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
     ],
 )
@@ -51,7 +51,7 @@ da_scala_binary(
         "//canton:contextualized-logging",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/interpreter",
+        "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
     ],
 )
@@ -78,7 +78,7 @@ da_scala_binary(
         "//canton:contextualized-logging",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/interpreter",
+        "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
     ],
 )
@@ -110,7 +110,7 @@ da_scala_binary(
         "//canton:contextualized-logging",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/interpreter",
+        "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
     ],
 )
