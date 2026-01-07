@@ -81,7 +81,7 @@ da_scala_library(
         "//daml-lf/ide-ledger",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/stable-packages",
+        "//canton/community/daml-lf/stable-packages",
         "//canton/community/daml-lf/transaction",
         "//daml-script/auth-utils",
         "//daml-script/converter",

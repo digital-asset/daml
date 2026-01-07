@@ -25,7 +25,7 @@ da_scala_library(
         "//canton:scala-utils",
         "//daml-lf/data",
         "//daml-lf/language",
-        "//daml-lf/stable-packages",
+        "//canton/community/daml-lf/stable-packages",
     ],
 )
 

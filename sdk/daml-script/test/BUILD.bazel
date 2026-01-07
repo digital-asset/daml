@@ -265,7 +265,7 @@ da_scala_library(
         "//daml-lf/engine:script-engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/stable-packages",
+        "//canton/community/daml-lf/stable-packages",
         "//canton/community/daml-lf/transaction",
         "//daml-script/converter",
         "//daml-script/runner:script-runner-lib",
