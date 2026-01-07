@@ -36,7 +36,7 @@ da_scala_binary(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine:script-engine",
-        "//daml-lf/ide-ledger",
+        "//canton/community/daml-lf/ide-ledger",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",

@@ -78,7 +78,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/engine",
         "//daml-lf/engine:script-engine",
-        "//daml-lf/ide-ledger",
+        "//canton/community/daml-lf/ide-ledger",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/stable-packages",

@@ -460,7 +460,7 @@ da_scala_benchmark_jmh(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/ide-ledger",
+        "//canton/community/daml-lf/ide-ledger",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/stable-packages",
