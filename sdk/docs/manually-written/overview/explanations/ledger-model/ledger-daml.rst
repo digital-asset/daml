@@ -70,8 +70,8 @@ of a simple IOU with a unit amount, shown earlier.
 
 .. literalinclude:: ./daml/SimpleIou.daml
    :language: daml
-   :start-after: SNIPPET-START
-   :end-before: SNIPPET-END
+   :start-after: SNIPPET-IOU-START
+   :end-before: SNIPPET-IOU-END
 
 .. _da-daml-model-controller-observer:
 
