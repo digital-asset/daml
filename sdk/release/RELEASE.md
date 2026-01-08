@@ -168,7 +168,7 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
    verify that the script result appears within 30 seconds.
 
 1. Add `+` at the end of line 11 after `allocateParty "Alice"`, verify that
-   you get an error on line 12, then remove the `+`.
+   you get an error on line 12, then undo the `+` changes.
 
 1. Right click `IOU` in `... createCmd Main.IOU with ...` on line 12 and click Go to definition.
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
@@ -224,7 +224,7 @@ You will now also need to test the release using DPM, please follow the instruct
    verify that the script result appears within 30 seconds.
 
 1. Add `+` at the end of line 11 after `allocateParty "Alice"`, verify that
-   you get an error on line 12, then remove the `+`.
+   you get an error on line 12, then undo the `+` changes.
 
 1. Right click `IOU` in `... createCmd Main.IOU with ...` on line 12 and click Go to definition.
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
@@ -362,7 +362,7 @@ You will now also need to test the release using DPM, please follow the instruct
    script results to appear.
 
 1. Add `+` at the end of line 11 after `allocateParty "Alice"` and verify that
-   you get an error on line 12.
+   you get an error on line 12. Then undo the `+` changes.
 
 1. Right click `IOU` in `... createCmd Main.IOU with ...` on line 12 and click Go to definition.
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
@@ -503,7 +503,7 @@ You will now also need to test the release using DPM, please follow the instruct
    script results to appear.
 
 1. Add `+` at the end of line 11 after `allocateParty "Alice"` and verify that
-   you get an error on line 12.
+   you get an error on line 12. Then undo the `+` changes.
 
 1. Right click `IOU` in `... createCmd Main.IOU with ...` on line 12 and click Go to definition.
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
