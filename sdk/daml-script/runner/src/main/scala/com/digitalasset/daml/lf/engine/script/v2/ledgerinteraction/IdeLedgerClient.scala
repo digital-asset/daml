@@ -21,6 +21,7 @@ import com.digitalasset.daml.lf.engine.ScriptEngine.{
   WarningLog,
   runExtendedValueComputation,
 }
+import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.Ast.PackageMetadata
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.script
@@ -279,6 +280,26 @@ class IdeLedgerClient(
     }
   }
 
+  private[this] def preprocessKey(templateId: Identifier, key: Value)(implicit
+      ec: ExecutionContext
+  ): Future[GlobalKey] =
+    Future(
+      preprocessor.unsafePreprocessApiContractKey(
+        Map.empty.withDefault((name: Ref.PackageName) =>
+          throw new IllegalStateException(
+            s"Unexpected package lookup by name (${name}) during contract key preprocessing."
+          )
+        ),
+        ApiContractKey(templateId.toRef, key),
+      )
+    ).recoverWith { case Error.Preprocessing.ContractIdInContractKey(key) =>
+      Future.failed(
+        new RuntimeException(
+          Pretty.prettyDamlException(ContractIdInContractKey(key)).renderWideStream.mkString
+        )
+      )
+    }
+
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -288,19 +309,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] =
     for {
-      // Keys passed to the IDE ledger by daml script are well typed and contract ID-free by virtue of having been
-      // type-checked by the compiler. So there is no need to prettify typechecking or hashing errors thrown by
-      // unsafePreprocessApiContractKey.
-      gkey <- Future(
-        preprocessor.unsafePreprocessApiContractKey(
-          Map.empty.withDefault((name: Ref.PackageName) =>
-            throw new IllegalStateException(
-              s"Unexpected package lookup by name during contract key preprocessing. The name is ${name}."
-            )
-          ),
-          ApiContractKey(templateId.toRef, key),
-        )
-      )
+      gkey <- preprocessKey(templateId, key)
       res <- ledger.ledgerData.activeKeys.get(gkey) match {
         case None => Future.successful(None)
         case Some(cid) => queryContractId(parties, templateId, cid)

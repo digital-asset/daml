@@ -373,6 +373,22 @@ class GrpcLedgerClient(
     }
   }
 
+  private[this] def computeKeyHash(templateId: Identifier, key: Value)(implicit
+      ec: ExecutionContext
+  ): Future[crypto.Hash] =
+    Future(
+      preprocessor
+        .unsafePreprocessApiContractKey(
+          Map.empty.withDefault((name: Ref.PackageName) =>
+            throw new IllegalStateException(
+              s"Unexpected package lookup by name (${name}) during contract key preprocessing."
+            )
+          ),
+          ApiContractKey(templateId.toRef, key),
+        )
+        .hash
+    )
+
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -384,16 +400,7 @@ class GrpcLedgerClient(
     // We cannot do better than a linear search over query here.
     for {
       activeContracts <- queryWithKey(parties, templateId)
-      ownHash = preprocessor
-        .unsafePreprocessApiContractKey(
-          Map.empty.withDefault((name: Ref.PackageName) =>
-            throw new IllegalStateException(
-              s"Unexpected package lookup by name during contract key preprocessing. The name is ${name}."
-            )
-          ),
-          ApiContractKey(templateId.toRef, key),
-        )
-        .hash
+      ownHash <- computeKeyHash(templateId, key)
     } yield {
       activeContracts.collectFirst({ case (c, Some(kHash)) if kHash == ownHash => c })
     }
