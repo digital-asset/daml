@@ -7,7 +7,6 @@ package grpcLedgerClient
 
 import java.time.Instant
 import java.util.UUID
-
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
@@ -18,8 +17,8 @@ import com.daml.ledger.api.v2.admin.package_management_service.{
 }
 import com.daml.ledger.api.v2.admin.package_management_service.VettedPackagesChange.{
   Operation,
-  Vet,
   Unvet,
+  Vet,
 }
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands._
@@ -45,11 +44,10 @@ import com.daml.timer.RetryStrategy
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.daml.lf.command
-import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.engine.script.v2.Converter
-import com.digitalasset.daml.lf.engine.{Enricher, ResultDone}
+import com.digitalasset.daml.lf.engine.{Enricher, ResultDone, preprocessing}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -61,6 +59,7 @@ import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
 }
 import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.command.ApiContractKey
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.protobuf.StatusProto
 import com.google.rpc.status.{Status => GoogleStatus}
@@ -70,6 +69,7 @@ import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
+import com.digitalasset.daml.lf.crypto
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
@@ -82,6 +82,11 @@ class GrpcLedgerClient(
 ) extends ScriptLedgerClient {
   override val transport = "gRPC API"
   implicit val traceContext: TraceContext = TraceContext.empty
+
+  private[this] val preprocessor = new preprocessing.CommandPreprocessor(
+    compiledPackages.pkgInterface,
+    forbidLocalContractIds = true,
+  )
 
   val enricher = new Enricher(
     compiledPackages = compiledPackages,
@@ -225,7 +230,7 @@ class GrpcLedgerClient(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value])]] = {
+  ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[crypto.Hash])]] = {
     val format = templateFormat(parties, templateId, verbose = false)
     val acsResponse =
       grpcClient.stateService.getLedgerEndOffset().flatMap { offset =>
@@ -244,23 +249,16 @@ class GrpcLedgerClient(
             case Left(err) => throw new ConverterException(err.toString)
             case Right(argument) => argument
           }
-        val key: Option[Value] = createdEvent.contractKey.map { key =>
-          NoLoggingValueValidator.validateValue(key) match {
-            case Left(err) => throw new ConverterException(err.toString)
-            case Right(key) => key
+        val keyHash: Option[crypto.Hash] = Option.when(!createdEvent.contractKeyHash.isEmpty)(
+          crypto.Hash.fromBytes(Bytes.fromByteString(createdEvent.contractKeyHash)) match {
+            case Right(hash) => hash
+            case Left(err) => throw new ConverterException(err)
           }
-        }
+        )
         val enrichedArgument = enricher.enrichContract(templateId, argument).consume() match {
           case Right(arg) => arg
           case Left(err) => throw new ConverterException(err.toString)
         }
-        val enrichedKey = key.map { key =>
-          enricher.enrichContractKey(templateId, key).consume() match {
-            case Right(key) => key
-            case Left(err) => throw new ConverterException(err.toString)
-          }
-        }
-
         val cid =
           ContractId
             .fromString(createdEvent.contractId)
@@ -285,7 +283,7 @@ class GrpcLedgerClient(
             enrichedArgument,
             blob,
           ),
-          enrichedKey,
+          keyHash,
         )
       })
     )
@@ -386,20 +384,18 @@ class GrpcLedgerClient(
     // We cannot do better than a linear search over query here.
     for {
       activeContracts <- queryWithKey(parties, templateId)
-      ownPackageName <- Converter.toFuture(
-        packageIdToUpgradeName(false, templateId.packageId).toRight("Cannot get package name")
-      )
-      speedyContracts = activeContracts.map { case (t, kOpt) =>
-        (t, kOpt.map(Hash.assertHashContractKey(templateId, ownPackageName, _)))
-      }
-      ownHash = Hash.assertHashContractKey(templateId, ownPackageName, key)
+      ownHash = preprocessor
+        .unsafePreprocessApiContractKey(
+          Map.empty.withDefault((name: Ref.PackageName) =>
+            throw new IllegalStateException(
+              s"Unexpected package lookup by name during contract key preprocessing. The name is ${name}."
+            )
+          ),
+          ApiContractKey(templateId.toRef, key),
+        )
+        .hash
     } yield {
-      // Note that the Equal instance on Value performs structural equality
-      // and also compares optional field and constructor names and is
-      // therefore not correct here.
-      // Equality.areEqual corresponds to the Daml-LF value equality
-      // which we want here.
-      speedyContracts.collectFirst({ case (c, Some(kHash)) if kHash == ownHash => c })
+      activeContracts.collectFirst({ case (c, Some(kHash)) if kHash == ownHash => c })
     }
   }
 

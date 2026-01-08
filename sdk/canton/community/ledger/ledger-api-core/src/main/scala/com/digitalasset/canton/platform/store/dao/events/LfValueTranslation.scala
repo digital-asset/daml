@@ -45,6 +45,7 @@ import io.grpc.Status.Code
 import java.io.ByteArrayInputStream
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.*
+import com.digitalasset.daml.lf.crypto
 
 /** Serializes and deserializes Daml-Lf values and events.
   *
@@ -300,7 +301,7 @@ final class LfValueTranslation(
       loggingContext: LoggingContextWithTrace,
   ): Future[CreatedEvent] = {
     val createArgument = fatContractInstance.createArg
-    val createKey = fatContractInstance.contractKeyWithMaintainers.map(_.globalKey.key)
+    val createKey = fatContractInstance.contractKeyWithMaintainers.map(_.globalKey)
 
     val representativeTemplateId =
       fatContractInstance.templateId
@@ -323,7 +324,8 @@ final class LfValueTranslation(
       templateId = Some(
         LfEngineToApi.toApiIdentifier(fatContractInstance.templateId)
       ),
-      contractKey = apiContractData.contractKey,
+      contractKey = apiContractData.contractKey.map(_._1),
+      contractKeyHash = apiContractData.contractKey.fold(ByteString.EMPTY)(_._2.bytes.toByteString),
       createArguments = Some(apiContractData.createArguments),
       createdEventBlob = apiContractData.createdEventBlob.getOrElse(ByteString.EMPTY),
       interfaceViews = apiContractData.interfaceViews,
@@ -342,7 +344,7 @@ final class LfValueTranslation(
 
   private def toApiContractData(
       value: Value,
-      keyO: Option[Value],
+      keyO: Option[GlobalKey],
       representativeTemplateId: FullIdentifier,
       witnesses: Set[String],
       eventProjectionProperties: EventProjectionProperties,
@@ -363,14 +365,14 @@ final class LfValueTranslation(
         .map(toContractArgumentApi(verbose))
     def asyncContractKey = keyO match {
       case None => Future.successful(None)
-      case Some(key) =>
+      case Some(gkey) =>
         enrichAsync(
           verbose = verbose,
-          value = key,
+          value = gkey.key,
           enrich = enricher.enrichContractKey(representativeTemplateId.toIdentifier, _),
         )
           .map(toContractKeyApi(verbose))
-          .map(Some(_))
+          .map(Some(_, gkey.hash))
     }
 
     def asyncInterfaceViews =
@@ -549,7 +551,7 @@ object LfValueTranslation {
   final case class ApiContractData(
       createArguments: ApiRecord,
       createdEventBlob: Option[ByteString],
-      contractKey: Option[ApiValue],
+      contractKey: Option[(ApiValue, crypto.Hash)],
       interfaceViews: Seq[InterfaceView],
   )
 }

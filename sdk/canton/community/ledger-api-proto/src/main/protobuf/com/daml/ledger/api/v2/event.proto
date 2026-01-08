@@ -64,6 +64,11 @@ message CreatedEvent {
   // Optional
   Value contract_key = 5;
 
+  // The hash of contract_key.
+  // This will be set if and only if ``template_id`` defines a contract key.
+  // Optional
+  bytes contract_key_hash = 16;
+
   // The arguments that have been used to create the contract.
   //
   // Required
