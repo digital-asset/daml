@@ -1,8 +1,9 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.ledger.api
 
+import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.entries.LoggingEntries
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
@@ -24,6 +25,7 @@ import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations}
 import com.digitalasset.canton.platform.{ResourceCloseable, ResourceOwnerFlagCloseableOps}
+import com.digitalasset.canton.resource.{DbStorage, Storage}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LedgerParticipantId, config}
@@ -251,6 +253,7 @@ class LedgerApiStore(
 object LedgerApiStore {
   def initialize(
       storageConfig: StorageConfig,
+      storage: Option[Storage],
       ledgerParticipantId: LedgerParticipantId,
       legderApiDatabaseConnectionTimeout: config.NonNegativeFiniteDuration,
       ledgerApiPostgresDataSourceConfig: PostgresDataSourceConfig,
@@ -292,27 +295,37 @@ object LedgerApiStore {
           )
         case _ => FutureUnlessShutdown.unit
       }
-      dbSupport = DbSupport
-        .owner(
-          serverRole = ServerRole.ApiServer,
-          metrics = metrics,
-          dbConfig = dbConfig,
-          loggerFactory = loggerFactory,
-        )
-        .map(dbSupport =>
-          new LedgerApiStore(
-            ledgerApiDbSupport = dbSupport,
-            ledgerApiStorage = ledgerApiStorage,
-            ledgerEndCache = MutableLedgerEndCache(),
-            stringInterningView = new StringInterningView(loggerFactory),
-            metrics = metrics,
-            loggerFactory = loggerFactory,
-            timeouts = timeouts,
+      dbSupportOwner = (storageConfig, storage) match {
+        case (_: com.digitalasset.canton.config.DbConfig.H2, Some(h2DbStorage: DbStorage)) =>
+          ResourceOwner.forValue(() =>
+            DbSupport.forH2DbStorage(
+              h2DbStorage = h2DbStorage,
+              metrics = metrics,
+              loggerFactory = loggerFactory,
+            )
           )
+        case _ =>
+          DbSupport.owner(
+            serverRole = ServerRole.ApiServer,
+            metrics = metrics,
+            dbConfig = dbConfig,
+            loggerFactory = loggerFactory,
+          )
+      }
+      ledgerApiStoreOwner = dbSupportOwner.map(dbSupport =>
+        new LedgerApiStore(
+          ledgerApiDbSupport = dbSupport,
+          ledgerApiStorage = ledgerApiStorage,
+          ledgerEndCache = MutableLedgerEndCache(),
+          stringInterningView = new StringInterningView(loggerFactory),
+          metrics = metrics,
+          loggerFactory = loggerFactory,
+          timeouts = timeouts,
         )
+      )
 
       ledgerApiStore <- FutureUnlessShutdown.outcomeF(
-        new ResourceOwnerFlagCloseableOps(dbSupport).acquireFlagCloseable(
+        new ResourceOwnerFlagCloseableOps(ledgerApiStoreOwner).acquireFlagCloseable(
           "Ledger API DB Support"
         )
       )

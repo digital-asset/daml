@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
@@ -59,7 +59,7 @@ import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.transaction_filter.{EventFormat, Filters, TransactionFormat}
 import com.daml.ledger.api.v2.update_service.*
 import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, ContractId, Exercised, Update}
-import com.daml.ledger.javaapi.data.{Command, Identifier, Template, Unit as UnitData, Value}
+import com.daml.ledger.javaapi.data.{Command, Identifier, Template, Value}
 import com.daml.timer.Delayed
 import com.digitalasset.base.error.ErrorCode
 import com.digitalasset.canton.ledger.api.TransactionShape
@@ -592,13 +592,6 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   )(implicit companion: ContractCompanion[?, TCid, T]): Future[TCid] = withTimeout(
     s"Exercise and get contract for party $party",
     delegate.exerciseAndGetContract[TCid, T](party, exercise),
-  )
-  override def exerciseAndGetContractNoDisclose[TCid <: ContractId[?]](
-      party: Party,
-      exercise: Update[Exercised[UnitData]],
-  )(implicit companion: ContractCompanion[?, TCid, ?]): Future[TCid] = withTimeout(
-    s"Exercise and get non disclosed contract for party $party",
-    delegate.exerciseAndGetContractNoDisclose[TCid](party, exercise),
   )
   override def exerciseByKey(
       party: Party,

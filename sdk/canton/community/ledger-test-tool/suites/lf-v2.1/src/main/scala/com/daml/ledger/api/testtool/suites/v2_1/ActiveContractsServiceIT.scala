@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -88,7 +88,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       _ <- archive(ledger, party)(dummy, dummyWithParam, dummyFactory)
     } yield {
       assert(
-        activeContracts.size == 3,
+        activeContracts.sizeIs == 3,
         s"Expected 3 contracts, but received ${activeContracts.size}.",
       )
 
@@ -154,19 +154,19 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       _ <- archive(ledger, party)(dummy, dummyWithParam, dummyFactory)
     } yield {
       assert(
-        activeContracts.size == 1,
+        activeContracts.sizeIs == 1,
         s"Expected 1 contract, but received ${activeContracts.size}.",
       )
 
       assert(
-        activeContracts.head.getTemplateId == Identifier.fromJavaProto(
+        activeContracts.headOption.value.getTemplateId == Identifier.fromJavaProto(
           Dummy.TEMPLATE_ID_WITH_PACKAGE_ID.toProto
         ),
-        s"Received contract is not of type Dummy, but ${activeContracts.head.templateId}.",
+        s"Received contract is not of type Dummy, but ${activeContracts.headOption.value.templateId}.",
       )
       assert(
-        activeContracts.head.contractId == dummy.contractId,
-        s"Expected contract with contractId $dummy, but received ${activeContracts.head.contractId}.",
+        activeContracts.headOption.value.contractId == dummy.contractId,
+        s"Expected contract with contractId $dummy, but received ${activeContracts.headOption.value.contractId}.",
       )
 
       assert(
@@ -194,7 +194,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     } yield {
       // check the contracts BEFORE the exercise
       assert(
-        contractsBeforeExercise.size == 3,
+        contractsBeforeExercise.sizeIs == 3,
         s"Expected 3 contracts, but received ${contractsBeforeExercise.size}.",
       )
 
@@ -207,7 +207,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
 
       // check the contracts AFTER the exercise
       assert(
-        contractsAfterExercise.size == 2,
+        contractsAfterExercise.sizeIs == 2,
         s"Expected 2 contracts, but received ${contractsAfterExercise.size}",
       )
 
@@ -236,20 +236,20 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       _ <- ledger.exercise(party, dummy.exerciseArchive())
       _ <- ledger.exercise(party, dummyWithParam.exerciseArchive())
     } yield {
-      assert(onlyDummy.size == 1)
+      assert(onlyDummy.sizeIs == 1)
       assert(
         onlyDummy.exists(_.contractId == dummy.contractId),
         s"Expected to receive $dummy in active contracts, but didn't receive it.",
       )
 
       assert(
-        transactions.size == 1,
+        transactions.sizeIs == 1,
         s"Expected to receive only 1 transaction from offset $offset, but received ${transactions.size}.",
       )
 
-      val transaction = transactions.head
+      val transaction = transactions.headOption.value
       assert(
-        transaction.events.size == 1,
+        transaction.events.sizeIs == 1,
         s"Expected only 1 event in the transaction, but received ${transaction.events.size}.",
       )
 
@@ -349,7 +349,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       _ <- (archive(ledger, bob) _).tupled(dummyBob)
     } yield {
       assert(
-        allContractsForAlice.size == 3,
+        allContractsForAlice.sizeIs == 3,
         s"$alice expected 3 events, but received ${allContractsForAlice.size}.",
       )
       assertTemplates(Seq(alice), allContractsForAlice, Dummy.TEMPLATE_ID_WITH_PACKAGE_ID, 1)
@@ -362,7 +362,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       assertTemplates(Seq(alice), allContractsForAlice, DummyFactory.TEMPLATE_ID_WITH_PACKAGE_ID, 1)
 
       assert(
-        allContractsForBob.size == 3,
+        allContractsForBob.sizeIs == 3,
         s"$bob expected 3 events, but received ${allContractsForBob.size}.",
       )
       assertTemplates(Seq(bob), allContractsForBob, Dummy.TEMPLATE_ID_WITH_PACKAGE_ID, 1)
@@ -370,7 +370,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       assertTemplates(Seq(bob), allContractsForBob, DummyFactory.TEMPLATE_ID_WITH_PACKAGE_ID, 1)
 
       assert(
-        allContractsForAliceAndBob.size == 6,
+        allContractsForAliceAndBob.sizeIs == 6,
         s"$alice and $bob expected 6 events, but received ${allContractsForAliceAndBob.size}.",
       )
       assertTemplates(
@@ -400,13 +400,13 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       )
 
       assert(
-        dummyContractsForAlice.size == 1,
+        dummyContractsForAlice.sizeIs == 1,
         s"$alice expected 1 event, but received ${dummyContractsForAlice.size}.",
       )
       assertTemplates(Seq(alice), dummyContractsForAlice, Dummy.TEMPLATE_ID_WITH_PACKAGE_ID, 1)
 
       assert(
-        dummyContractsForAliceAndBob.size == 2,
+        dummyContractsForAliceAndBob.sizeIs == 2,
         s"$alice and $bob expected 2 events, but received ${dummyContractsForAliceAndBob.size}.",
       )
       assertTemplates(
@@ -517,15 +517,15 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       _ <- ledger.exercise(bob, newWitnesses.exerciseArchive())
     } yield {
       assert(
-        bobContracts.size == 2,
+        bobContracts.sizeIs == 2,
         s"Expected to receive 2 active contracts for $bob, but received ${bobContracts.size}.",
       )
       assert(
-        aliceContracts.size == 1,
+        aliceContracts.sizeIs == 1,
         s"Expected to receive 1 active contracts for $alice, but received ${aliceContracts.size}.",
       )
       assert(
-        partyWildcardContracts.size == 2,
+        partyWildcardContracts.sizeIs == 2,
         s"Expected to receive 2 active contracts for all parties, but received ${partyWildcardContracts.size}.",
       )
     }
@@ -546,11 +546,11 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       _ <- ledger.exercise(bob, divulgence2.exerciseArchive())
     } yield {
       assert(
-        bobContracts.size == 1,
+        bobContracts.sizeIs == 1,
         s"Expected to receive 1 active contracts for $bob, but received ${bobContracts.size}.",
       )
       assert(
-        aliceContracts.size == 2,
+        aliceContracts.sizeIs == 2,
         s"Expected to receive 2 active contracts for $alice, but received ${aliceContracts.size}.",
       )
     }
@@ -601,12 +601,12 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     } yield {
       def assertWitnesses(contracts: Vector[CreatedEvent], requesters: Set[Party]): Unit = {
         assert(
-          contracts.size == 1,
+          contracts.sizeIs == 1,
           s"Expected to receive 1 active contracts for $requesters, but received ${contracts.size}.",
         )
         assert(
-          contracts.head.witnessParties.toSet == requesters.map(_.getValue),
-          s"Expected witness parties to equal to $requesters, but received ${contracts.head.witnessParties}",
+          contracts.headOption.value.witnessParties.toSet == requesters.map(_.getValue),
+          s"Expected witness parties to equal to $requesters, but received ${contracts.headOption.value.witnessParties}",
         )
       }
 
@@ -644,7 +644,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
     val w = -1
     type ACSFilter = Map[Option[Int], Set[Int]]
 
-    case class FilterCoord(templateId: Int, stakeholders: Set[Int])
+    final case class FilterCoord(templateId: Int, stakeholders: Set[Int])
 
     def filterCoordsForFilter(filter: ACSFilter): Set[FilterCoord] =
       (for {
@@ -720,7 +720,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
           (parties: Set[Party]) => withThreeParties(new TriAgreement(_, _, _))(parties),
           (parties: Set[Party]) => withThreeParties(new TriProposal(_, _, _))(parties),
           (parties: Set[Party]) =>
-            new WithObservers(parties.head, parties.toList.map(_.getValue).asJava),
+            new WithObservers(parties.headOption.value, parties.toList.map(_.getValue).asJava),
         )
 
       def createContractFor(
@@ -836,8 +836,8 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
           s"$hint expected FilterCoord(s) which do not exist(s): ${expected.filterNot(allContracts.contains)}",
         )
         assert(
-          actualSet.size == actual.size,
-          s"$hint ACS returned redundant entries ${actual.groupBy(identity).toList.filter(_._2.size > 1).map(_._1).mkString("\n")}",
+          actualSet.sizeIs == actual.size,
+          s"$hint ACS returned redundant entries ${actual.groupBy(identity).toList.filter(_._2.sizeIs > 1).map(_._1).mkString("\n")}",
         )
         val errors = allContracts.toList.flatMap {
           case (filterCoord, contracts) if expected(filterCoord) && contracts.forall(actualSet) =>

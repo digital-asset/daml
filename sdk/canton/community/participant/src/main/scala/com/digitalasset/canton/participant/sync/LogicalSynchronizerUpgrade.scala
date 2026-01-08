@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.sync
@@ -546,7 +546,13 @@ class ManualLogicalSynchronizerUpgrade(
               successorConfig,
               SynchronizerConnectionConfigStore.Active,
               KnownPhysicalSynchronizerId(successorPSId),
-              Some(SynchronizerPredecessor(currentPSId, synchronizerSuccessor.upgradeTime)),
+              Some(
+                SynchronizerPredecessor(
+                  currentPSId,
+                  synchronizerSuccessor.upgradeTime,
+                  isLateUpgrade = true,
+                )
+              ),
             )
             .leftMap(err => s"Unable to store connection config for $successorPSId: $err")
 

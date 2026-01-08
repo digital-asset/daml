@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -21,7 +21,19 @@ object HexString {
     )
   }
 
-  def toHexString(bytes: Array[Byte]): String = bytes.map(b => f"$b%02x").mkString("")
+  private val hexArray = "0123456789abcdef".toCharArray
+  @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While"))
+  def toHexString(bytes: Array[Byte]): String = {
+    val hexChars = new Array[Char](bytes.length * 2)
+    var ii = 0
+    while (ii < bytes.length) {
+      val v = bytes(ii) & 0xff // mask to unsigned int
+      hexChars(ii * 2) = hexArray(v >>> 4) // leading bits
+      hexChars(ii * 2 + 1) = hexArray(v & 0x0f) // trailing bits
+      ii += 1
+    }
+    new String(hexChars)
+  }
 
   /** Parse a hex-string `s` to a byte array. */
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation
@@ -346,19 +346,21 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
               val testClass =
                 s"""class <testName> extends BftOrderingSimulationTest {
                    |  override val numberOfRuns: Int = 1
-                   |  override val numberOfInitialNodes: Int = $numberOfInitialNodes
-                   |  override val epochLength: EpochLength = EpochLength($epochLength)
                    |
-                   |  override def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]] = NonEmpty(
-                   |    Seq,
-                   |    ${stages
+                   |  override def generateSettings: SimulationTestSettings = SimulationTestSettings(
+                   |    numberOfInitialNodes = $numberOfInitialNodes,
+                   |    epochLength = EpochLength($epochLength),
+                   |    stages = NonEmpty(
+                   |      Seq,
+                   |      ${stages
                     .map { stage =>
                       PPrinter(additionalHandlers = Simulation.fixupPrettyPrinting)(
                         stage,
-                        initialOffset = 4,
+                        initialOffset = 6,
                       )
                     }
                     .mkString(",\n")}
+                   |    ),
                    |  )
                    |}""".stripMargin
 

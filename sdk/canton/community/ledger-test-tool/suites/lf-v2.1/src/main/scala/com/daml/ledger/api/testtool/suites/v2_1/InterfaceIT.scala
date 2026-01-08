@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -31,7 +31,7 @@ class InterfaceIT extends LedgerTestSuite {
       update: Update[X],
       id: Identifier,
   ): JList[Command] = {
-    val command = update.commands.asScala.head
+    val command = update.commands.asScala.headOption.value
     val exe = command.asExerciseCommand.get
     val arg = exe.getChoiceArgument.asRecord.get
     JList.of(
@@ -55,8 +55,8 @@ class InterfaceIT extends LedgerTestSuite {
     } yield {
       val events = exercisedEvents(tree)
       assertLength(s"1 successful exercise", 1, events).discard
-      assertEquals(events.head.interfaceId, None)
-      assertEquals(events.head.getExerciseResult.getText, "Interface.T")
+      assertEquals(events.headOption.value.interfaceId, None)
+      assertEquals(events.headOption.value.getExerciseResult.getText, "Interface.T")
     }
   })
 
@@ -71,8 +71,11 @@ class InterfaceIT extends LedgerTestSuite {
     } yield {
       val events = exercisedEvents(tree)
       assertLength(s"1 successful exercise", 1, events).discard
-      assertEquals(events.head.interfaceId, Some(interface1.I.TEMPLATE_ID_WITH_PACKAGE_ID.toV1))
-      assertEquals(events.head.getExerciseResult.getText, "Interface1.I")
+      assertEquals(
+        events.headOption.value.interfaceId,
+        Some(interface1.I.TEMPLATE_ID_WITH_PACKAGE_ID.toV1),
+      )
+      assertEquals(events.headOption.value.getExerciseResult.getText, "Interface1.I")
     }
   })
 

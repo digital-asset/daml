@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend
@@ -252,11 +252,11 @@ trait EventStorageBackend {
       allFilterParties: Option[Set[Party]],
   )(connection: Connection): Vector[RawThinActiveContract]
 
-  def lookupAssignSequentialIdByOffset(
+  def lookupActivationSequentialIdByOffset(
       offsets: Iterable[Long]
   )(connection: Connection): Vector[Long]
 
-  def lookupUnassignSequentialIdByOffset(
+  def lookupDeactivationSequentialIdByOffset(
       offsets: Iterable[Long]
   )(connection: Connection): Vector[Long]
 
@@ -594,12 +594,6 @@ object EventStorageBackend {
       recordTime: Timestamp,
       synchronizerId: String,
       traceContext: Option[Array[Byte]],
-  )
-
-  final case class UnassignProperties(
-      contractId: ContractId,
-      synchronizerId: String,
-      sequentialId: Long,
   )
 
   sealed trait SequentialIdBatch

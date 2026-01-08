@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
 
@@ -7,6 +7,7 @@ import com.daml.ledger.api.testtool.infrastructure.FutureAssertions.ExpectedFail
 import com.daml.ledger.api.testtool.infrastructure.time.DelayMechanism
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.base.error.ErrorCode
+import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
@@ -84,7 +85,7 @@ object FutureAssertions {
   )(implicit ec: ExecutionContext, loggingContext: LoggingContext): Future[V] = {
     def internalSucceedsEventually(remainingDuration: FiniteDuration): Future[V] = {
       val nextRetryRemainingDuration = remainingDuration - retryDelay
-      if (nextRetryRemainingDuration < Duration.Zero) test.andThen { case Failure(exception) =>
+      if (nextRetryRemainingDuration < Duration.Zero) test.thereafterP { case Failure(exception) =>
         logger.error(
           s"Assertion never succeeded after $maxRetryDuration with a delay of $retryDelay. Description: $description",
           exception,
@@ -115,16 +116,18 @@ object FutureAssertions {
     )
     .map { results =>
       val (failures, successes) = results.partitionMap(identity)
-      if (failures.nonEmpty) {
-        failures
-          .foreach(res => logger.error(s"Failed parallel test case for input ${res._1}", res._2))
-        throw ParallelTestFailureException(
-          s"Failed parallel test case. Failures: ${failures.length}. Success: ${successes.length}\nFailed inputs: ${failures
-              .map(_._1)
-              .mkString("[", ",", "]")}",
-          failures.last._2,
-        )
-      }
+      failures
+        .foreach(res => logger.error(s"Failed parallel test case for input ${res._1}", res._2))
+
+      failures.lastOption
+        .foreach { case (_, ex) =>
+          throw ParallelTestFailureException(
+            s"Failed parallel test case. Failures: ${failures.length}. Success: ${successes.length}\nFailed inputs: ${failures
+                .map(_._1)
+                .mkString("[", ",", "]")}",
+            ex,
+          )
+        }
     }
 
   def optionalAssertion(runs: Boolean, description: String)(

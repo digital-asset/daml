@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites
 
@@ -11,6 +11,9 @@ import org.scalatest.wordspec.AnyWordSpec
 class NamesSpec_V2Dev
     extends NamesSpec(v2_dev.default(timeoutScaleFactor = 1) ++ v2_dev.optional(tlsConfig = None))
 
+// TODO(#29619): Make sure this file is identified as test or fix sbt target settings
+//               and remove this suppression
+@SuppressWarnings(Array("com.digitalasset.canton.NonUnitForEach"))
 class NamesSpec(val allTestSuites: Vector[LedgerTestSuite])
     extends AnyWordSpec
     with Matchers
@@ -41,7 +44,7 @@ class NamesSpec(val allTestSuites: Vector[LedgerTestSuite])
     }
 
     "not be a prefix of or equal to any other name, so that each test can be included independently (per each test suite)" in {
-      allTestIdentifiersPerTestSuite.map { case (testSuiteName, testIdentifiers) =>
+      allTestIdentifiersPerTestSuite.foreach { case (testSuiteName, testIdentifiers) =>
         testIdentifiers.zipWithIndex.foreach { case (testIdentifier, i) =>
           all(
             testIdentifiers.drop(i + 1)

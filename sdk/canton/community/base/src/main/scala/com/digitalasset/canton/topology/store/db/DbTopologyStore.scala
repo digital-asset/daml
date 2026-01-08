@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store.db
@@ -14,7 +14,7 @@ import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.crypto.topology.TopologyStateHash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, PromiseUnlessShutdown}
-import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.resource.DbStorage.{DbAction, SQLActionBuilderChain}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.store.IndexedTopologyStoreId
@@ -31,6 +31,7 @@ import com.digitalasset.canton.topology.store.TopologyStore.{
   EffectiveStateChange,
   TopologyStoreDeactivations,
 }
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -41,7 +42,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
   TxHash,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{DBIOUtil, LoggerUtil, MonadUtil, PekkoUtil}
+import com.digitalasset.canton.util.{DBIOUtil, ErrorUtil, LoggerUtil, MonadUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.NotUsed
@@ -54,10 +55,10 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 import scala.math.Ordering.Implicits.*
 
-class DbTopologyStore[StoreId <: TopologyStoreId](
+class DbTopologyStore[+StoreId <: TopologyStoreId](
     override protected val storage: DbStorage,
     val storeId: StoreId,
-    storeIndex: IndexedTopologyStoreId,
+    val storeIndex: IndexedTopologyStoreId,
     override val protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     protected val batchingConfig: BatchingConfig,
@@ -263,6 +264,54 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       operationName = "bulk-insert",
     )
 
+  }
+
+  override def copyFromPredecessorSynchronizerStore(
+      sourceStore: TopologyStore[SynchronizerStore]
+  )(implicit
+      ev: StoreId <:< SynchronizerStore,
+      errorLoggingContext: ErrorLoggingContext,
+  ): FutureUnlessShutdown[Unit] = {
+    implicit val tc = errorLoggingContext.traceContext
+    val targetPSId = ev(storeId).psid
+    val sourcePSId = sourceStore.storeId.psid
+
+    for {
+      _ <- ErrorUtil.requireArgumentAsyncShutdown(
+        targetPSId.logical == sourcePSId.logical,
+        s"unexpected logical synchronizer id: expected=${targetPSId.logical}, actual=${sourcePSId.logical}",
+      )
+      _ <- ErrorUtil.requireArgumentAsyncShutdown(
+        sourcePSId < targetPSId,
+        s"source synchronizer [$targetPSId] is not a predecessor of the target synchronizer [$targetPSId]",
+      )
+      sourceDbStore <- sourceStore match {
+        case dbStore: DbTopologyStore[SynchronizerStore] => FutureUnlessShutdown.pure(dbStore)
+        case store =>
+          ErrorUtil.invalidArgumentAsyncShutdown(
+            s"cannot transfer topology from a topology store of type ${store.getClass} to $this"
+          )
+      }
+      mappingTypeInClause = DbStorage.toInClause(
+        "transaction_type",
+        TopologyMapping.Code.lsuMappingsExcludedFromUpgrade,
+      )
+
+      // The filters here must be kept in sync with the filters in
+      // - GrpcTopologyManagerReadService.logicalUpgradeState
+      // - InMemoryTopologyStore.copyFromPredecessorSynchronizerStore
+      insert = sql"""
+               insert into common_topology_transactions (store_id, sequenced, valid_from, batch_idx, valid_until, transaction_type, namespace, identifier,
+                  mapping_key_hash, serial_counter, operation, instance, tx_hash, is_proposal, representative_protocol_version, hash_of_signatures)
+               select $storeIndex as store_id, sequenced, valid_from, batch_idx, valid_until, transaction_type, namespace,
+                  identifier, mapping_key_hash, serial_counter, operation, instance, tx_hash, is_proposal, representative_protocol_version, hash_of_signatures
+               from common_topology_transactions
+               where store_id = ${sourceDbStore.storeIndex} and (is_proposal = false or valid_until is null) and rejection_reason is null and not """ ++ mappingTypeInClause ++ sql" order by id" ++
+        sql" ON CONFLICT DO NOTHING" // idempotency-"conflict" based on common_topology_transactions unique constraint
+      numInserted <- storage.update(insert.asUpdate, functionFullName)
+    } yield {
+      logger.info(s"Transferred $numInserted topology transactions from $sourcePSId to $targetPSId")
+    }
   }
 
   @VisibleForTesting

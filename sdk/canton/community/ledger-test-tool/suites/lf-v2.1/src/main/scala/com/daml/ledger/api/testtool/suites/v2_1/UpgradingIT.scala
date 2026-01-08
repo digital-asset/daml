@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -530,7 +530,7 @@ class UpgradingIT extends LedgerTestSuite {
       verifyLength("Dummy template ACS before archive", 1, acsBeforeArchive)
       assertEquals(
         "Dummy template package name",
-        acsBeforeArchive.head.packageName,
+        acsBeforeArchive.headOption.value.packageName,
         Dummy.PACKAGE_NAME,
       )
 
@@ -604,7 +604,7 @@ class UpgradingIT extends LedgerTestSuite {
         assertSingleton(
           "ACS delta events",
           acsDeltaTx.events,
-        ).event.created.get.representativePackageId,
+        ).event.created.value.representativePackageId,
         Dummy.PACKAGE_ID,
       )
 
@@ -613,7 +613,7 @@ class UpgradingIT extends LedgerTestSuite {
         assertSingleton(
           "Ledger Effects events",
           ledgerFxTx.events,
-        ).event.created.get.representativePackageId,
+        ).event.created.value.representativePackageId,
         Dummy.PACKAGE_ID,
       )
     }
@@ -650,13 +650,13 @@ class UpgradingIT extends LedgerTestSuite {
       val v2TmplId = Fetcher_V2.TEMPLATE_ID_WITH_PACKAGE_ID
 
       // The first exercise reports template with package id per v1, and the second per v2
-      assertEquals(toJavaProto(exercised1.templateId.get), v1TmplId.toProto)
-      assertEquals(toJavaProto(exercised2.templateId.get), v2TmplId.toProto)
+      assertEquals(toJavaProto(exercised1.templateId.value), v1TmplId.toProto)
+      assertEquals(toJavaProto(exercised2.templateId.value), v2TmplId.toProto)
 
       // The first exercise has a result shape per v1, and the second per v2
-      assertExerciseResult(exercised1.exerciseResult.get, v1TmplId, new Fetcher_V1(party))
+      assertExerciseResult(exercised1.exerciseResult.value, v1TmplId, new Fetcher_V1(party))
       assertExerciseResult(
-        exercised2.exerciseResult.get,
+        exercised2.exerciseResult.value,
         v2TmplId,
         new Fetcher_V2(party, Optional.empty()),
       )
@@ -690,7 +690,7 @@ class UpgradingIT extends LedgerTestSuite {
       assertCreateArgs: Boolean,
       assertViewDecoding: Map[Identifier, DamlRecord => Unit],
   ): Unit = {
-    assertEquals(context, toJavaProto(createdEvent.templateId.get), templateId.toProto)
+    assertEquals(context, toJavaProto(createdEvent.templateId.value), templateId.toProto)
 
     if (assertCreateArgs)
       assertEquals(
@@ -782,7 +782,7 @@ object UpgradingIT {
           .flatMap(createdEvents)
           .filter { created =>
             subscriptionFilter.expectedTemplatesInResponses
-              .exists(_ matches (created.templateId.get, created.packageName))
+              .exists(_ matches (created.templateId.value, created.packageName))
           }
       } yield {
         verifyLength(
@@ -923,12 +923,12 @@ object UpgradingIT {
     def expectedTemplatesInResponses: Set[Ref.TypeConRef]
   }
 
-  case class SubTemplate(tpl: Ref.TypeConRef) extends TemplateOrInterfaceWithImpls {
+  final case class SubTemplate(tpl: Ref.TypeConRef) extends TemplateOrInterfaceWithImpls {
     override def expectedTemplatesInResponses: Set[Ref.TypeConRef] =
       Set(tpl)
   }
 
-  case class SubInterface(
+  final case class SubInterface(
       iface: ScalaPbIdentifier,
       // Used to filter out other templates that can not be excluded in the trees filters
       expectedTemplatesInResponses: Set[Ref.TypeConRef] = Set.empty,
