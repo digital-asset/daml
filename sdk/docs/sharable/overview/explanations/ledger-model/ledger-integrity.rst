@@ -15,7 +15,7 @@ This section addresses the question "Who can request which changes?" by defining
 Validity
 ********
 
-At the core is the concept of a *valid ledger*; a change is permissible if adding the corresponding commit to the ledger results in a valid ledger.
+At the core is the concept of a *valid ledger*: a change is permissible if adding the corresponding commit to the ledger results in a valid ledger.
 **Valid ledgers** are those that fulfill three conditions:
 
 * :ref:`Consistency <da-model-consistency>`:
@@ -137,7 +137,7 @@ The transaction structure provides no evidence that the actor Carol has agreed t
 Consistency
 ***********
 
-Consistency can be summarized on one sentence:
+Consistency can be summarized in one sentence:
 Contracts must be created before they are used, and they cannot be used after they are consumed.
 This section introduces the notions that are needed to make this precise.
 
@@ -160,9 +160,6 @@ and contract #4 is created and consumed in the same action.
    For a ledger, every node in commit `c`:sub:`1` **executes before** every node in commit `c`:sub:`2`
    if the commit `c`:sub:`1` happens before `c`:sub:`2`.
 
-..
-   Note: This definition assumes that all nodes inside a transaction are totally ordered.
-   This need to be revisited if we keep rollback nodes.
      
 Diagrammatically, the execution order is given by traversing the trees from root to leaf and left to right:
 the node of a parent action executes before the nodes in the subactions, and otherwise the nodes on the left precede the nodes on the right.
@@ -379,7 +376,8 @@ This essentially follows from two observations:
 * The Daml language is referentially transparent.
   That is, all inputs and outputs of a transaction are explicitly captured in contracts, choice arguments and exercise results.
 
-Not every such projection can be expressed as a set of commands on the Ledger API, though, for two reasons.
+Not every such projection can be expressed as a set of commands on the Ledger API, though.
+The Ledger Model considers this lack of expressivity artificial, because future versions of the Ledger API may remove such restrictions.
 First, a projection may contain a Fetch node at the root, like the :ref:`projection of the DvP <da-dvp-acceptandsettle-projection>` ``AcceptAndSettle`` choice for Bank 2.
 Yet, there is no Ledger API command to fetch a contract, as there are only commands for creating and exercising contracts.
 Second, the Ledger API command language does not support feeding the result of an Exercise as an argument to a subsequent command.
@@ -406,7 +404,7 @@ Accordingly, Alice's projection of this ``TX 3`` consists of two root actions, w
    :width: 100%
    :alt: Bob's transaction accepting and settling the DvP via the helper contract and Alice's projection thereof
 
-Even though such transactions cannot be expressed in the language of Ledger API commands,
+Even though such transactions cannot be currently expressed in the language of Ledger API commands,
 they are considered conformant Daml transactions according to the Ledger Model.
 In other words, conformance does not look at how values flow across actions,
 and this is what makes conformance behave well under projections.
@@ -588,14 +586,14 @@ Well-authorization ensures that the authorizing parties and the required authori
    
    An action is **well-authorized** if it is internally well-authorized and the authorization context of the action contains all the required authorizers of the action.
    
-   A transaction or commit is **well-authorized** if every root action is well-authorized.
+   A commit is **well-authorized** if every root action is well-authorized.
 
 In the running example, well-authorization requires that every non-empty cell in the :ref:`required authorizers table <da-dvp-ledger-create-auth-failure-required-authorizers>`
 is also non-empty in the :ref:`authorization context table <da-dvp-ledger-create-auth-failure-authorization-contexts>`.
-For example, ``TX 0`` is well-authorized because it contains only one subaction ①
+For example, the commit ``TX 0`` is well-authorized because it contains only one subaction ①
 and the required authorizer Bank1 is also the requester of the commit.
-Conversely, ``TX 2`` is not well-authorized because ③'s required authorizers include Alice who is not in ③'s authorization context.
-This authorization failure captures the problem with this transaction ``TX 2``:
+Conversely, the commit ``TX 2`` is not well-authorized because ③'s required authorizers include Alice who is not in ③'s authorization context.
+This authorization failure captures the problem with this commit ``TX 2``:
 The Ledger does not contain any record of Alice consenting to the DvP.
 
 In contrast, the Exercise action at ④ is well-authorized.
@@ -685,8 +683,8 @@ Honesty here means that the parties and the nodes they are using correctly follo
 subject to the Byzantine fault tolerance configured in the topology.
 
 This Virtual Global Ledger is not materialized anywhere due to privacy:
-In general, no node knows the entirety of the ledger.
-Accordingly, the Canton protocol cannot ensure a valid Virtual Global Ledger as a whole.
+in general, no node knows the entirety of the ledger.
+Accordingly, the Canton protocol cannot ensure the validity of the Virtual Global Ledger as a whole.
 For example, if a group of signatories decides to commit a double spend of a contract,
 then this is their decision.
 Since each spend may be witnessed by a different honest party,
