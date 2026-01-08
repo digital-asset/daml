@@ -401,7 +401,6 @@ da_scala_test(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:community_base_proto_scala",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-observability",
         "//canton:ledger-resources",
@@ -410,7 +409,6 @@ da_scala_test(
         "//canton:resources",
         "//canton:rs-grpc-bridge",
         "//canton:testing-utils",
-        "//canton:timer-utils",
         "//daml-lf/data",
         "//daml-lf/engine:script-engine",
         "//daml-lf/interpreter",

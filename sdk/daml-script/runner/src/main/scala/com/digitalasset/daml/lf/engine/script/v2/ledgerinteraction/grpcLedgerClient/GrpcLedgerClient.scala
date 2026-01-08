@@ -77,7 +77,6 @@ import scala.concurrent.duration.DurationInt
 class GrpcLedgerClient(
     val grpcClient: LedgerClient,
     val userId: Option[Ref.UserId],
-    val oAdminClient: Option[AdminLedgerClient],
     val compiledPackages: CompiledPackages,
 ) extends ScriptLedgerClient {
   override val transport = "gRPC API"
@@ -851,54 +850,4 @@ class GrpcLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
-
-  override def allocatePartyOnMultipleParticipants(
-      party: Ref.Party,
-      participantIds: Iterable[String],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException(
-        "Attempted to use exportParty without specifying a adminPort"
-      )
-    )
-    adminClient.allocatePartyOnMultipleParticipants(party, participantIds)
-  }
-
-  override def aggregateAllocatePartyOnMultipleParticipants(
-      clients: List[ScriptLedgerClient],
-      partyHint: String,
-      namespace: String,
-      participantIds: Iterable[String],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[Ref.Party] = {
-    val party = Party.assertFromString(partyHint + "::" + namespace)
-    for {
-      _ <- Future.traverse(clients)(_.allocatePartyOnMultipleParticipants(party, participantIds))
-    } yield party
-  }
-
-  override def waitUntilHostingVisible(
-      party: Ref.Party,
-      onParticipantUids: Iterable[String],
-  ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException(
-        "Attempted to use waitUntilHostingVisible without specifying a adminPort"
-      )
-    )
-    adminClient.waitUntilHostingVisible(party, onParticipantUids)
-  }
-
-  override def getParticipantUid: String = oAdminClient
-    .getOrElse(
-      throw new IllegalArgumentException(
-        "Attempted to use getParticipantUid without specifying a adminPort"
-      )
-    )
-    .participantUid
 }

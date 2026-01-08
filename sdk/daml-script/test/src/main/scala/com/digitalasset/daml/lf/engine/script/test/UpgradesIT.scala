@@ -5,29 +5,25 @@ package com.digitalasset.daml.lf.engine.script
 package test
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.timer.RetryStrategy
-import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.daml.lf.UpgradeTestUtil
 import com.digitalasset.daml.lf.UpgradeTestUtil.TestCase
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray}
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
-import com.digitalasset.daml.lf.engine.script.test.DarUtil.Dar
-import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
+import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.engine.ScriptEngine.{
-  newTraceLog,
-  newWarningLog,
-  defaultCompilerConfig,
-}
+import com.digitalasset.daml.lf.engine.ScriptEngine.{defaultCompilerConfig, newTraceLog, newWarningLog}
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.GrpcLedgerClient
 import com.digitalasset.daml.lf.value.Value
+import com.google.protobuf.ByteString
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.io.FileInputStream
 import java.nio.file.{Path, Paths}
 import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
 
 class UpgradesIT(
     runCantonInDevMode: Boolean,
@@ -57,11 +53,6 @@ class UpgradesIT(
 
   val testFileDir: Path = rlocation(Paths.get(testFilesDirPath))
   val testCases: Seq[TestCase] = UpgradeTestUtil.getTestCases(languageVersion, testFileDir)
-
-  private def traverseSequential[A, B](elems: Seq[A])(f: A => Future[B]): Future[Seq[B]] =
-    elems.foldLeft(Future.successful(Seq.empty[B])) { case (comp, elem) =>
-      comp.flatMap { elems => f(elem).map(elems :+ _) }
-    }
 
   // Maybe provide our own tracer that doesn't tag, it makes the logs very long
   "Multi-participant Daml Script Upgrades" should {
@@ -103,40 +94,36 @@ class UpgradesIT(
           // Build dars
           (testDarPath, deps) <- testUtil.buildTestCaseDarMemoized(languageVersion, testCase)
 
-          // Connection
-          clients <- scriptClients(provideAdminPorts = true)
-          adminClients <- traverseSequential(ledgerPorts) { portInfo =>
-            AdminLedgerClient
-              .singleHostWithUnknownParticipantId(
-                "localhost",
-                portInfo.adminPort.value,
-                None,
-                LedgerClientChannelConfiguration.InsecureDefaults,
-              )
-              .map(portInfo.ledgerPort.value -> _)
-          }
-          _ <- traverseSequential(adminClients) { case (ledgerPort, adminClient) =>
-            Future.traverse(deps.reverse) { dep =>
-              Thread.sleep(500)
-              println(
-                s"Uploading ${dep.versionedName} (${dep.mainPackageId}) to participant on port ${ledgerPort}"
-              )
-              adminClient
-                .uploadDar(dep.path.toFile)
-                .map(_.left.map(msg => throw new Exception(msg)))
-            }
+          // Upload dars
+          client <- defaultLedgerClient()
+          ledgerClient = new GrpcLedgerClient(
+            client,
+            None,
+            PureCompiledPackages.Empty(defaultCompilerConfig), // FIXME: likely source of protobuf issues - unable to encode/decode as pkg not compiled?
+          )
+          defaultParticipantId = "participant0"
+          _ <- Future.traverse(deps.reverse) { dep =>
+            Thread.sleep(500)
+            println(
+              s"Uploading ${dep.versionedName} (${dep.mainPackageId}) to default participant $defaultParticipantId"
+            )
+
+            client.packageManagementClient.uploadDarFile(ByteString.readFrom(new FileInputStream(dep.path.toFile)))
           }
 
-          // Wait for upload
-          _ <- RetryStrategy.constant(attempts = 20, waitTime = 1.seconds) { (_, _) =>
-            assertDepsVetted(adminClients.head._2, deps)
-          }
+          // Vet dars
+          pkgs = deps.map(dep =>
+            ScriptLedgerClient.ReadablePackageId.assertFromString(dep.versionedName)
+          ).toList
+          _ <- ledgerClient.vetPackages(pkgs)
+          _ <- ledgerClient.waitUntilVettingVisible(pkgs, defaultParticipantId)
           _ = println("All packages vetted on all participants")
 
           // Run tests
+          scriptClients <- scriptClients()
           testDar = CompiledDar.read(testDarPath, defaultCompilerConfig)
           _ <- run(
-            clients,
+            scriptClients,
             QualifiedName.assertFromString(s"${testCase.name}:main"),
             inputValue = Some(
               mkInitialTestState(
@@ -190,25 +177,6 @@ class UpgradesIT(
         ),
       ),
     )
-  }
-
-  private def assertDepsVetted(
-      client: AdminLedgerClient,
-      deps: Seq[Dar],
-  ): Future[Unit] = {
-    client
-      .listVettedPackages()
-      .map(_.foreach {
-        case (participantId, packages) => {
-          val packageIds = packages.view.map(_.packageId).toSet
-          deps.foreach { dep =>
-            if (!packageIds.contains(dep.mainPackageId))
-              throw new Exception(
-                s"Couldn't find package ${dep.versionedName} on participant $participantId"
-              )
-          }
-        }
-      })
   }
 }
 
