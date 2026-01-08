@@ -14,6 +14,7 @@ import           Safe (headMay)
 import           Text.ParserCombinators.ReadP (ReadP, pfail, readP_to_S, (+++), munch1)
 import qualified Text.ParserCombinators.ReadP as ReadP
 import qualified Data.Map.Strict as MS
+import qualified Data.Map        as M
 
 import Control.Lens (Getting, view)
 import Control.Monad.Reader.Class
@@ -101,11 +102,28 @@ readMajorVersion = do
 parseMajorVersion :: String -> Maybe MajorVersion
 parseMajorVersion = headMay . map fst . readP_to_S readMajorVersion
 
-readMinorVersion :: ReadP MinorVersion
-readMinorVersion = readStable +++ readDev
+readMinorVersion :: Int -> ReadP MinorVersion
+readMinorVersion p = readStableP +++ readDev
   where
-    readStable = PointStable <$> readSimpleInt
+    -- first try to read _with_ patch
+    readStableP = flip PointStableP p <$> readSimpleInt
     readDev = PointDev <$ ReadP.string "dev"
+
+legalPatchMap :: M.Map Int [Int]
+legalPatchMap = M.empty
+
+validatePatch :: MinorVersion -> Bool
+validatePatch PointDev = True
+validatePatch mv =
+    case M.lookup m legalPatchMap of
+        Nothing             -> False -- Minor version not found in map
+        Just allowedPatches -> p `elem` allowedPatches
+  where
+    (m, p) = case mv of
+      PointStableP  min pat -> (min, pat)
+      PointStagingP min pat -> (min, pat)
+      PointDev              -> error "Impossible: PointDev matches first equation"
+
 
 -- >>> parseMinorVersion "14"
 -- Just (PointStable 14)
@@ -113,24 +131,24 @@ readMinorVersion = readStable +++ readDev
 -- Just PointDev
 -- >>> parseMinorVersion "garbage"
 -- Nothing
-parseMinorVersion :: String -> Maybe MinorVersion
-parseMinorVersion = headMay . map fst . readP_to_S readMinorVersion
+parseMinorVersion :: String -> Int -> Maybe MinorVersion
+parseMinorVersion str p = (headMay . map fst . readP_to_S (readMinorVersion p)) str
 
-readVersion :: ReadP Version
-readVersion = do
-  major <- readMajorVersion
-  _ <- ReadP.char '.'
-  minor <- readMinorVersion
-  pure (Version major minor)
+-- readVersion :: ReadP Version
+-- readVersion = do
+--   major <- readMajorVersion
+--   _ <- ReadP.char '.'
+--   minor <- readMinorVersion
+--   pure (Version major minor)
 
--- >>> parseVersion "2.dev"
--- Just (Version {versionMajor = V2, versionMinor = PointDev})
--- >>> parseVersion "2.15"
--- Just (Version {versionMajor = V2, versionMinor = PointStable 15})
--- >>> parseVersion "2.garbage"
--- Nothing
-parseVersion :: String -> Maybe Version
-parseVersion = headMay . map fst . readP_to_S readVersion
+-- -- >>> parseVersion "2.dev"
+-- -- Just (Version {versionMajor = V2, versionMinor = PointDev})
+-- -- >>> parseVersion "2.15"
+-- -- Just (Version {versionMajor = V2, versionMinor = PointStable 15})
+-- -- >>> parseVersion "2.garbage"
+-- -- Nothing
+-- parseVersion :: String -> Maybe Version
+-- parseVersion = headMay . map fst . readP_to_S readVersion
 
 -- The extended implementation
 ifVersionWith :: MonadReader r m

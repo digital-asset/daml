@@ -12,6 +12,7 @@ da_haskell_library(
     hackage_deps = [
         "base",
         "bytestring",
+        "containers",
         "cryptonite",
         "memory",
         "text",
