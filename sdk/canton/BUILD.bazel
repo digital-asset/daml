@@ -81,6 +81,7 @@ da_scala_library(
         "//canton/community/daml-lf/validation:__subpackages__",
         "//daml-script:__subpackages__",
         "//test-common/canton:__subpackages__",
+        "//daml-assistant/upgrade-check-main:__subpackages__",
     ],
     deps = [
         ":ledger_api_proto_scala",
@@ -212,6 +213,7 @@ da_scala_library(
         "//daml-script:__subpackages__",
         "//language-support:__subpackages__",
         "//test-common/canton:__subpackages__",
+        "//daml-assistant/upgrade-check-main:__subpackages__",
     ],
     deps = [
         ":base_errors",
@@ -348,6 +350,7 @@ da_scala_library(
         "//language-support/java:__subpackages__",
         "//ledger-service/utils:__subpackages__",
         "//test-common/canton:__subpackages__",
+        "//daml-assistant/upgrade-check-main:__subpackages__",
     ],
     deps = [
         ":base_daml-jwt",
@@ -484,6 +487,7 @@ scala_library(
         "//canton/community/daml-lf/validation:__subpackages__",
         "//daml-script:__subpackages__",
         "//language-support:__subpackages__",
+        "//daml-assistant/upgrade-check-main:__subpackages__",
     ],
     runtime_deps = [
         #  not used at compile time, but required by com.digitalasset.canton.util.PekkoUtil.createActorSystem
@@ -734,6 +738,7 @@ scala_library(
         "//canton/community/daml-lf:__subpackages__",
         "//daml-script:__subpackages__",
         "//language-support/java:__subpackages__",
+        "//daml-assistant/upgrade-check-main:__subpackages__",
     ],
     deps = [
         ":base_daml-jwt",

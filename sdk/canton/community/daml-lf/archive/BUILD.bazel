@@ -30,7 +30,7 @@ load("@os_info//:os_info.bzl", "is_intel", "is_windows")
 
 filegroup(
     name = "daml_lf_archive_proto_srcs",
-    srcs = glob(["src/protobuf/com/digitalasset/daml/lf/archive/**/*.proto"]),
+    srcs = glob(["src/main/protobuf/com/digitalasset/daml/lf/archive/**/*.proto"]),
     visibility = ["//visibility:public"],
 )
 
@@ -40,7 +40,7 @@ proto_jars(
     javadoc_root_packages = ["com.digitalasset.daml.lf.archive"],
     maven_artifact_prefix = "daml-lf-archive",
     maven_group = "com.daml",
-    strip_import_prefix = "src/protobuf",
+    strip_import_prefix = "src/main/protobuf",
     visibility = ["//visibility:public"],
 )
 
@@ -55,7 +55,7 @@ genrule(
             [
                 """
                    $(location @proto3-suite//:compile-proto-file)  \
-                     --includeDir canton/community/daml-lf/archive/src/protobuf/        \
+                     --includeDir canton/community/daml-lf/archive/src/main/protobuf/        \
                      --proto com/digitalasset/daml/lf/archive/daml_lf%s.proto   \
                      --out $(@D)
                  """ % vx
