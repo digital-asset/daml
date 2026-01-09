@@ -55,14 +55,14 @@ sh_test(
     name = "validate",
     srcs = ["validate.sh"],
     args = [
-        "$(location @local_jdk//:bin/java.exe)" if is_windows else "$(location @local_jdk//:bin/java)",
+        "$(location @rules_java//toolchains:current_java_runtime.exe)" if is_windows else "$(location @rules_java//toolchains:current_java_runtime)",
         "$(location :sdk_distribute.jar)",
         "$(location :sdk_ee_distribute.jar)",
     ],
     data = [
         ":sdk_distribute.jar",
         ":sdk_ee_distribute.jar",
-        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+        "@rules_java//toolchains:current_java_runtime.exe" if is_windows else "@rules_java//toolchains:current_java_runtime",
     ],
     deps = [
         "@bazel_tools//tools/bash/runfiles",

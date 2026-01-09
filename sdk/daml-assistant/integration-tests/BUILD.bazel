@@ -116,7 +116,7 @@ da_haskell_test(
     ],
     data = [
         "//release:sdk-release-tarball",
-        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+        "@rules_java//toolchains:current_java_runtime.exe" if is_windows else "@rules_java//toolchains:current_java_runtime",
         "//:yarn",
         "//compiler/damlc/tests:generate-simple-dalf",
     ] + os_dependent_libraries,
@@ -163,7 +163,7 @@ da_haskell_test(
     data = [
         ":integration-tests-mvn",
         "//release:sdk-release-tarball",
-        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+        "@rules_java//toolchains:current_java_runtime.exe" if is_windows else "@rules_java//toolchains:current_java_runtime",
         "//compiler/damlc/tests:generate-simple-dalf",
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",

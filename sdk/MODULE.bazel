@@ -71,10 +71,14 @@ maven.install(
         "com.thesamet.scalapb:protoc-gen_2.13:0.9.5",
         "com.thesamet.scalapb:compilerplugin_2.13:0.11.14",
         "com.thesamet.scalapb:scalapb-runtime_2.13:0.11.14",
+        "com.thesamet.scalapb:scalapb-runtime-grpc_2.13:0.11.14",
 
         "com.fasterxml.jackson.core:jackson-core:2.14.3",
 
         "com.github.scopt:scopt_2.13:4.1.0",
+
+        "com.google.protobuf:protobuf-java:3.25.5",
+        "com.google.protobuf:protobuf-java-util:3.25.5",
 
         "ch.qos.logback:logback-classic:1.4.14",
         "com.auth0:java-jwt:4.2.1",
@@ -98,7 +102,10 @@ maven.install(
         "org.scalatest:scalatest-flatspec_2.13:3.2.11",
         "org.slf4j:slf4j-api:2.0.6",
         "org.scalatest:scalatest-shouldmatchers_2.13:3.2.11",
+        "org.typelevel:cats-core_2.13:2.9.0",
+        "org.typelevel:cats-kernel_2.13:2.9.0",
     ],
+     version_conflict_policy = "pinned",
 )
 use_repo(maven, "maven")
 

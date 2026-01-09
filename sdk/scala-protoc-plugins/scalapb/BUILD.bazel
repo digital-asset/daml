@@ -54,7 +54,7 @@ go_binary(
     name = "protoc-gen-scalapb",
     data = [
         ":compiler_plugin_distribute.jar",
-        "@bazel_tools//tools/jdk",
+        "@rules_java//toolchains:current_java_runtime",
     ],
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
