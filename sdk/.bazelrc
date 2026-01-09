@@ -1,4 +1,5 @@
-common --noenable_bzlmod
+common --enable_bzlmod
+common --noenable_workspace
 
 # Bazel distributed cache, can be temporarily disabled by passing the following
 # flag: --noremote_accept_cached
@@ -11,9 +12,6 @@ build --incompatible_remote_results_ignore_disk=true
 # Enable the disk cache in addition to the http cache.
 build:linux --disk_cache=.bazel-cache/disk
 build:darwin --disk_cache=.bazel-cache/disk
-# `--repository_cache` must be repeated for all relevant actions.
-# TODO: use `common` starting from Bazel 2.2.0
-# See https://github.com/bazelbuild/bazel/issues/11232
 build:linux --repository_cache=.bazel-cache/repo
 fetch:linux --repository_cache=.bazel-cache/repo
 sync:linux --repository_cache=.bazel-cache/repo
@@ -24,8 +22,8 @@ sync:darwin --repository_cache=.bazel-cache/repo
 test:oracle --repo_env DAML_ORACLE_TESTING=true --test_env ORACLE_USERNAME --test_env ORACLE_PORT --test_env ORACLE_PWD
 
 # set c++ compilation version to 14 (requiered for abseil)
-build --cxxopt=-std=c++14
-build --host_cxxopt=-std=c++14
+build --cxxopt=-std=c++17
+build --host_cxxopt=-std=c++17
 
 # Improve remote cache hit rate by exluding environment variables from the
 # sandbox that are not whitelisted using --action_env.
@@ -68,14 +66,17 @@ test --strategy=Scalac=worker
 #  https://github.com/grpc/grpc/pull/13929/files
 build --copt -DGRPC_BAZEL_BUILD
 
-build --java_language_version=17
-build:linux --java_runtime_version=nixpkgs_java_17
-build:linux --tool_java_runtime_version=nixpkgs_java_17
-build:darwin --java_runtime_version=nixpkgs_java_17
-build:darwin --tool_java_runtime_version=nixpkgs_java_17
+common --java_language_version=17
+common --java_runtime_version=remotejdk_17
+
+common --tool_java_language_version=17
+common --tool_java_runtime_version=remotejdk_17
+
+# build --java_runtime_version_flag_name=java_runtime_version
+
+
 build:windows --java_runtime_version=17
 build:windows --tool_java_runtime_version=17
-build --tool_java_language_version=17
 
 # Propagate locales and the java home to the test environment.
 build --test_env=LANG=en_US.utf8 --test_env=LOCALE_ARCHIVE --test_env=JAVA_HOME
@@ -97,8 +98,8 @@ build:linux --action_env=LOCALE_ARCHIVE
 build:windows --action_env=JAVA_HOME
 
 # Tell bazel to use the nixpkgs Haskell toolchain on Linux and Darwin
-build:linux --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
-build:darwin --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
+# build:linux --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
+# build:darwin --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
 # and GHC's gcc on Windows
 build:windows --crosstool_top=@rules_haskell_ghc_windows_amd64//:cc_toolchain
 build:windows --remote_accept_cached=true
@@ -125,3 +126,20 @@ test:windows --test_env=ComSpec
 build -c opt
 
 try-import %workspace%/.bazelrc.local
+
+
+# Migration
+
+# ERROR: /mnt/work/code/tms/virtuslab/digitalasset/daml/sdk/canton/BUILD.bazel:1508:16: Building canton/libbindings-java.jar (150 source files, 2 source jars) failed: (Exit 1): java failed: error executing Javac command (from target //canton:bindings-java)
+#   (cd /home/ormaniec/.cache/bazel/_bazel_ormaniec/25926e4f352a6882819daaf316b9e732/execroot/_main && \
+#   exec env - \
+#     LC_CTYPE=en_US.UTF-8 \
+#     PATH=/bin:/usr/bin:/usr/local/bin \
+#   external/rules_java~~toolchains~remotejdk25_linux/bin/java '--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED' '--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED' '--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED' '--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED' '--add-exports=jdk.compiler/com.sun.tools.javac.resources=ALL-UNNAMED' '--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED' '--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED' '--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED' '--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED' '--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED' '--add-opens=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED' '--add-opens=java.base/java.nio=ALL-UNNAMED' '--add-opens=java.base/java.lang=ALL-UNNAMED' '-Dsun.io.useCanonCaches=false' -XX:-CompactStrings -Xlog:disable '-Xlog:all=warning:stderr:uptime,level,tags' -jar external/rules_java~~toolchains~remote_java_tools/java_tools/JavaBuilder_deploy.jar @bazel-out/k8-opt/bin/canton/libbindings-java.jar-0.params @bazel-out/k8-opt/bin/canton/libbindings-java.jar-1.params)
+# # Configuration: faa54cc52a02c2f1242926fb2ccdddde847be32c5beb1d36d990490722cd8351
+# # Execution platform: @@local_config_platform//:host
+# canton/community/bindings-java/src/main/java/com/daml/ledger/javaapi/data/User.java:40: error: [ImpossibleNullComparison] This value cannot be null, and comparing it to null may be misleading.
+#     if (primaryParty == null || primaryParty.isEmpty()) {
+#                      ^
+#     (see https://errorprone.info/bugpattern/ImpossibleNullComparison)
+build --javacopt="-Xep:ImpossibleNullComparison:OFF"

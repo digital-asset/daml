@@ -4,7 +4,7 @@
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_buildfile")
-load("@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl", "nixpkgs_package")
+load("@rules_nixpkgs_core//nixpkgs:nixpkgs.bzl", "nixpkgs_package")
 load("@rules_sh//sh:sh.bzl", "sh_binaries")
 load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_binary_bundle")
 load("//nix:repositories.bzl", "common_nix_file_deps", "dev_env_nix_repos")

@@ -3,7 +3,7 @@
 
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("@build_bazel_rules_nodejs//:index.bzl", "npm_package_bin")
+load("@rules_nodejs//:index.bzl", "npm_package_bin")
 
 def ts_docs(pkg_name, srcs, deps):
     "Macro for Typescript documentation generation with typedoc"

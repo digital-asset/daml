@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows", "os_name")
-load("@io_bazel_rules_scala//scala:scala_cross_version.bzl", "default_maven_server_urls")
+load("@rules_scala//scala:scala_cross_version.bzl", "default_maven_server_urls")
 
 runfiles_library = """
 # Copy-pasted from the Bazel Bash runfiles library v2.

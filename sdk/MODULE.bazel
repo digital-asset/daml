@@ -1,0 +1,167 @@
+module(
+    name = "com_github_digital_asset_daml",
+    version = "3.4.x",
+)
+
+bazel_dep(name = "rules_go", version = "0.53.0")                # Match Old
+bazel_dep(name = "rules_sh", version = "0.5.0")                 # Latest -> Undef
+bazel_dep(name = "gazelle", version = "0.42.0")                 # Match Old
+bazel_dep(name = "buildifier_prebuilt", version = "7.3.1")      # New
+bazel_dep(name = "rules_nixpkgs_core", version = "0.12.0")
+bazel_dep(name = "rules_pkg", version = "1.1.0")                # Match Old
+bazel_dep(name = "bazel_jar_jar", version = "0.1.12")           # Latest -> 0.1.5
+bazel_dep(name = "bazel_skylib", version = "1.9.0")             # Latest -> Undef
+bazel_dep(name = "rules_scala", version = "7.1.1")              # 7.0.0 -> 6.6.0
+bazel_dep(name = "rules_haskell", version = "1.0")              # Latest -> Undef
+bazel_dep(name = "rules_jvm_external", version = "6.9")         # Latest -> 6.7
+bazel_dep(name = "rules_java", version = "9.3.0")               # New
+bazel_dep(name = "rules_proto", version = "7.1.0")              # Latest -> 6.0.0
+bazel_dep(name = "rules_nodejs", version = "6.6.2")             # Latest -> 5.8.5
+bazel_dep(name = "rules_cc", version = "0.2.16")                # New
+
+bazel_dep(name = "google_bazel_common", version = "0.0.1", repo_name = "com_github_google_bazel_common")
+# bazel_dep(name = "googleapis", version = "0.0.0-20251211-05f65958", repo_name = "go_googleapis")
+bazel_dep(name = "protobuf", version = "26.0"                   # 26 -> 25.8?
+    , repo_name = 'com_google_protobuf')
+bazel_dep(name = "rules_rust", version = "0.68.1")
+
+# bazel_dep(name = "grpc-java", version = "1.75.0")
+# bazel_dep(name = "grpc-java", version = "1.75.0"
+#     , repo_name = "io_grpc_grpc_java")
+
+
+register_toolchains("@rules_java//toolchains:all")
+
+go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
+go_sdk.download(version = "1.22.8")
+
+scala_config = use_extension("@rules_scala//scala/extensions:config.bzl", "scala_config")
+scala_config.settings(scala_version = "2.13.16")
+
+scala_deps = use_extension("@rules_scala//scala/extensions:deps.bzl", "scala_deps")
+scala_deps.scala()
+
+custom_scala_config = use_extension("//bazel_tools:scala_module_extension.bzl", "scala_extension")
+use_repo(custom_scala_config, "build_environment", "os_info", "scala_version")
+
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven.install(
+    name = "maven",
+    known_contributing_modules = ["com_github_digital_asset_daml", "protobuf"],
+    artifacts = [
+        "org.scala-lang:scala-compiler:2.13.16",
+        "org.scala-lang:scala-library:2.13.16",
+        "org.scala-lang:scala-reflect:2.13.16",
+        "org.scala-lang.modules:scala-parser-combinators_2.13:2.3.0",
+
+        "org.wartremover:wartremover_2.13.16:3.2.5",
+
+        "com.thesamet.scalapb:protoc-gen_2.13:0.9.5",
+        "com.thesamet.scalapb:compilerplugin_2.13:0.11.14",
+        "com.thesamet.scalapb:scalapb-runtime_2.13:0.11.14",
+
+        "com.fasterxml.jackson.core:jackson-core:2.14.3",
+
+        "com.github.scopt:scopt_2.13:4.1.0",
+
+        "ch.qos.logback:logback-classic:1.4.14",
+        "com.auth0:java-jwt:4.2.1",
+
+        "javax.annotation:javax.annotation-api:1.3.2",
+
+        "io.spray:spray-json_2.13:1.3.6",
+
+        "io.grpc:grpc-netty-shaded:1.77.0",
+        "io.grpc:grpc-api:1.77.0",
+        "io.grpc:grpc-stub:1.77.0",
+        "io.grpc:grpc-protobuf:1.77.0",
+        "io.grpc:grpc-services:1.77.0",
+        "io.grpc:grpc-inprocess:1.77.0",
+        "io.grpc:grpc-util:1.77.0",
+
+        "io.opentelemetry:opentelemetry-context:1.43.0",
+        "io.opentelemetry:opentelemetry-api:1.43.0",
+
+        "org.scalatest:scalatest-wordspec_2.13:3.2.11",
+        "org.scalatest:scalatest-flatspec_2.13:3.2.11",
+        "org.slf4j:slf4j-api:2.0.6",
+        "org.scalatest:scalatest-shouldmatchers_2.13:3.2.11",
+    ],
+)
+use_repo(maven, "maven")
+
+# npm = use_extension("@rules_nodejs//nodejs:extensions.bzl", "npm")
+# npm.npm_import(
+#     name = "language_support_js_deps",
+#     package_json = "//language-support/js/packages:package.json",
+#     package_lock_json = "//language-support/js/packages:yarn.lock",
+# )
+# use_repo(npm, "language_support_js_deps")
+
+# scalapb = use_extension("@rules_scala//scala_proto:extensions.bzl", "scala_proto")
+# use_repo(scalapb, "scalapb")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "go_googleapis",
+    urls = [
+        "https://mirror.bazel.build/github.com/googleapis/googleapis/archive/83c3605afb5a39952bf0a0809875d41cf2a558ca.zip",
+        "https://github.com/googleapis/googleapis/archive/83c3605afb5a39952bf0a0809875d41cf2a558ca.zip",
+    ],
+    sha256 = "ba694861340e792fd31cb77274eacaf6e4ca8bda97707898f41d8bebfd8a4984",
+    strip_prefix = "googleapis-83c3605afb5a39952bf0a0809875d41cf2a558ca",
+    patches = ["//bazel_tools:googleapis-status-proto.patch"],
+    patch_args = ["-E", "-p1"],
+)
+
+# http_archive(
+#     name = "go_googleapis",
+#     urls = [
+#         "https://mirror.bazel.build/github.com/googleapis/googleapis/archive/9a477cd3c26a704130e2a2fb44a40281d9312e4c.zip",
+#         "https://github.com/googleapis/googleapis/archive/9a477cd3c26a704130e2a2fb44a40281d9312e4c.zip",
+#     ],
+#     sha256 = "7583d0561d66dbba36e9b0a9b4e939d6c6e9123c53c94688441c59836cdb198c",
+#     strip_prefix = "googleapis-9a477cd3c26a704130e2a2fb44a40281d9312e4c",
+#     patches = ["//bazel_tools:googleapis-status-proto.patch"],
+#     patch_args = ["-E", "-p1"],
+# )
+
+http_archive(
+    name = "scalapb",
+    build_file_content = """
+proto_library(
+    name = "scalapb_proto",
+    srcs = ["protobuf/scalapb/scalapb.proto"],
+    strip_import_prefix = "protobuf/",
+    deps = [
+        "@com_google_protobuf//:descriptor_proto",
+    ],
+    visibility = ["//visibility:public"],
+)
+""",
+    sha256 = "5a5aebce78256ea9f4e227d166cfe078589cd2805d87e163ce1dcaa65a43dda5",
+    strip_prefix = "ScalaPB-0.11.14",
+    urls = ["https://github.com/scalapb/ScalaPB/archive/refs/tags/v0.11.14.tar.gz"],
+)
+
+googleapis_setup = use_extension("//bazel_tools:googleapis_extension.bzl", "googleapis_extension")
+use_repo(googleapis_setup, "com_google_googleapis_imports")
+
+# haskell = use_extension("@rules_haskell//extensions:haskell.bzl", "haskell")
+# haskell.toolchain(
+#     version = "9.0.2",  # Match your WORKSPACE version
+# )
+# use_repo(haskell, "stackage")
+#
+# stack = use_extension("@rules_haskell//extensions:stack_snapshot.bzl", "stack_snapshot")
+# stack.snapshot(
+#     name = "lts-18.18",
+# )
+#
+# stack.package(name = "ghc-lib")
+# stack.package(name = "ghc-lib-parser")
+# stack.package(name = "alex")
+# stack.package(name = "happy")
+#
+# use_repo(stack, "stackage", "stackage-exe")

@@ -4,10 +4,10 @@
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load(
-    "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
+    "@bazel_jar_jar//:jar_jar.bzl",
     "jar_jar",
 )
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_macro_library")
+load("@rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_macro_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
@@ -1633,7 +1633,7 @@ copy_file(
     out = "community/ledger-api-proto/src/main/protobuf/com/daml/ledger/api/scalapb/package.proto",
 )
 
-proto_jars(
+proto_jars (
     name = "ledger_api_proto",
     srcs = glob(["community/ledger-api-proto/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
     grpc = True,

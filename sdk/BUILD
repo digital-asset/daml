@@ -161,7 +161,7 @@ alias(
 
 alias(
     name = "java",
-    actual = "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+    actual = "@rules_java//toolchains:current_java_runtime",
 )
 
 exports_files([
@@ -172,41 +172,41 @@ exports_files([
 
 # Buildifier.
 
-load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
-
-buildifier_excluded_patterns = [
-    "./3rdparty/haskell/c2hs-package.bzl",
-    "./3rdparty/haskell/network-package.bzl",
-    "**/node_modules/*",
-]
-
-# Run this to check if BUILD files are well-formatted.
-buildifier(
-    name = "buildifier",
-    exclude_patterns = buildifier_excluded_patterns,
-    mode = "check",
-)
-
-# Run this to fix the errors in BUILD files.
-buildifier(
-    name = "buildifier-fix",
-    exclude_patterns = buildifier_excluded_patterns,
-    mode = "fix",
-    verbose = True,
-)
-
-# Run by the git pre-commit hook
-genrule(
-    name = "buildifier-pre-commit",
-    outs = ["buildifier-hook"],
-    cmd = """cat <<'EOF' > "$@"
-# !/usr/bin/env bash
-exec "$(execpath @com_github_bazelbuild_buildtools//buildifier)" "$$@"
-EOF
-""",
-    executable = True,
-    tools = ["@com_github_bazelbuild_buildtools//buildifier"],
-)
+# load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
+#
+# buildifier_excluded_patterns = [
+#     "./3rdparty/haskell/c2hs-package.bzl",
+#     "./3rdparty/haskell/network-package.bzl",
+#     "**/node_modules/*",
+# ]
+#
+# # Run this to check if BUILD files are well-formatted.
+# buildifier(
+#     name = "buildifier",
+#     exclude_patterns = buildifier_excluded_patterns,
+#     mode = "check",
+# )
+#
+# # Run this to fix the errors in BUILD files.
+# buildifier(
+#     name = "buildifier-fix",
+#     exclude_patterns = buildifier_excluded_patterns,
+#     mode = "fix",
+#     verbose = True,
+# )
+#
+# # Run by the git pre-commit hook
+# genrule(
+#     name = "buildifier-pre-commit",
+#     outs = ["buildifier-hook"],
+#     cmd = """cat <<'EOF' > "$@"
+# # !/usr/bin/env bash
+# exec "$(execpath @com_github_bazelbuild_buildtools//buildifier)" "$$@"
+# EOF
+# """,
+#     executable = True,
+#     tools = ["@com_github_bazelbuild_buildtools//buildifier"],
+# )
 
 # Default target for da-ghci, da-ghcid.
 da_haskell_repl(
@@ -236,7 +236,7 @@ da_haskell_repl(
     ],
 )
 
-load("@bazel_gazelle//:def.bzl", "gazelle")
+load("@gazelle//:def.bzl", "gazelle")
 
 gazelle(
     name = "gazelle-update-repos",
