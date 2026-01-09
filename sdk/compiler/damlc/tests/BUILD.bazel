@@ -183,6 +183,7 @@ da_haskell_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-encode",
         "//compiler/daml-lf-tools",
@@ -196,7 +197,6 @@ da_haskell_library(
         "//compiler/damlc/daml-rule-types",
         "//compiler/script-service/client",
         "//daml-assistant:daml-project-config",
-        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",

@@ -25,11 +25,11 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-decode:internal",
         "//compiler/daml-lf-proto-util",
         "//compiler/damlc/stable-packages:stable-packages-lib",
-        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -55,10 +55,10 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:private"],
     deps = [
+        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-util",
         "//compiler/damlc/stable-packages:stable-packages-lib",
-        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -78,10 +78,10 @@ da_haskell_test(
     src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
+        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-decode:internal",
         "//compiler/daml-lf-proto-util",
-        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
 )

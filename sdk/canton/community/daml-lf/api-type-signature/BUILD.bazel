@@ -31,8 +31,8 @@ da_scala_library(
     visibility = [
         "//canton:__subpackages__",
         "//canton-3x:__subpackages__",
-        "//daml-assistant/daml-sdk:__subpackages__",
         "//canton/community/daml-lf:__subpackages__",
+        "//daml-assistant/daml-sdk:__subpackages__",
         "//daml-script:__subpackages__",
         "//language-support:__subpackages__",
         "//ledger-service:__subpackages__",

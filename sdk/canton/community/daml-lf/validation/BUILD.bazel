@@ -29,8 +29,8 @@ da_scala_library(
     visibility = [
         "//canton:__subpackages__",
         "//canton-3x:__subpackages__",
-        "//compiler/script-service:__subpackages__",
         "//canton/community/daml-lf:__subpackages__",
+        "//compiler/script-service:__subpackages__",
         "//daml-assistant/upgrade-check-main:__subpackages__",
     ],
     deps = [
@@ -97,7 +97,6 @@ da_scala_library(
         "//canton:rs-grpc-bridge",
         "//canton:scala-utils",
         "//canton:testing-utils",
-        "//daml-assistant/daml-sdk:sdk",
         "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
         "//canton/community/daml-lf/archive:daml_lf_archive_reader",
         "//canton/community/daml-lf/archive/encoder",
@@ -105,6 +104,7 @@ da_scala_library(
         "//canton/community/daml-lf/encoder",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/parser",
+        "//daml-assistant/daml-sdk:sdk",
         "//test-common/canton/it-lib",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:io_grpc_grpc_netty_shaded",
