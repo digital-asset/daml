@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.digitalasset.daml.lf.testing.parser.{ParserParameters, parsePackage}
 import com.digitalasset.daml.lf.validation.Validation
-import com.daml.SdkVersion
+//import com.daml.SdkVersion
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 
 import scala.annotation.tailrec
@@ -92,7 +92,7 @@ private[daml] object DamlLfEncoder extends App {
         (stablePkg.packageId + ".dalf") -> stablePkg.bytes
     }.toList
     DarWriter.encode(
-      SdkVersion.sdkVersion,
+      "3.5.0-snapshot.20251219.14523.0.ve6110ab8", // SdkVersion.sdkVersion,
       Dar(("archive.dalf", Bytes.fromByteString(archive.toByteString)), deps),
       file.toPath,
     )

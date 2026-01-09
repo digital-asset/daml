@@ -3,12 +3,12 @@
 
 syntax = "proto3";
 
-import "scalapb/scalapb.proto";
-
 package com.daml.ledger.api;
+
+import "scalapb/scalapb.proto";
 
 option (scalapb.options) = {
   scope: PACKAGE
   preserve_unknown_fields: false
-  java_conversions : true
+  java_conversions: true
 };

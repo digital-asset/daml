@@ -4,7 +4,7 @@
 syntax = "proto3";
 package daml_lf;
 
-import "com/digitalasset/daml/lf/archive/daml_lf2.proto";
+//import "com/digitalasset/daml/lf/archive/daml_lf2.proto";
 
 option csharp_namespace = "Com.DigitalAsset.Daml.Lf.Archive.DamlLf";
 option java_package = "com.digitalasset.daml.lf.archive";

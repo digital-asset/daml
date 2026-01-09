@@ -12,13 +12,13 @@ syntax = "proto3";
 
 package com.digitalasset.daml.lf.value;
 
-option java_package = "com.digitalasset.daml.lf.value";
-
 import "google/protobuf/empty.proto";
 
+option java_package = "com.digitalasset.daml.lf.value";
+
 message VersionedValue {
-    string version = 1;
-    bytes value = 2;
+  string version = 1;
+  bytes value = 2;
 }
 
 // Each component of the module name and the name have additional
@@ -34,7 +34,6 @@ message Identifier {
 // architecture-handbook-entry-begin: Value
 message Value {
   oneof sum {
-
     // literals
 
     google.protobuf.Empty unit = 1;
@@ -92,10 +91,9 @@ message Value {
     repeated Field fields = 1;
 
     message Field {
-        Value value = 1;
+      Value value = 1;
     }
   }
-
 
   message Variant {
     string constructor = 1;
@@ -131,4 +129,3 @@ message Value {
     repeated Entry entries = 1;
   }
 }
-
