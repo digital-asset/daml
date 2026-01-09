@@ -5,5 +5,5 @@ def deps(edition):
     return [
         "//daml-script/runner:script-runner-lib",
         "//language-support/codegen-main:codegen-main-lib",
-        "//canton/community/daml-lf/validation:upgrade-check-main",
+        "//daml-assistant/upgrade-check-main",
     ]
