@@ -191,7 +191,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
 
   def testDar(v: LanguageVersion.Major) = s"a real LF $v dar" should {
     val file =
-      new File(rlocation(s"daml-lf/api-type-signature/InterfaceTestPackage-v${v.pretty}.dar"))
+      new File(rlocation(s"canton/community/daml-lf/api-type-signature/InterfaceTestPackage-v${v.pretty}.dar"))
 
     if (v == LanguageVersion.Major.V2 || file.exists()) {
 
