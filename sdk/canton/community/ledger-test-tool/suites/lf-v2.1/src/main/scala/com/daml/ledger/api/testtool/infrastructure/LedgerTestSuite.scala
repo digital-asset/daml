@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
 
@@ -14,6 +14,7 @@ import com.daml.ledger.api.v2.value.{GenMap, Identifier, List as ApiList, Option
 import com.daml.ledger.javaapi.data.{Command, Identifier as JavaIdentifier, Party}
 import com.daml.test.evidence.tag.EvidenceTag
 import com.digitalasset.daml.lf.data.Ref
+import org.scalatest.{EitherValues, LoneElement, OptionValues, TryValues}
 
 import java.util.List as JList
 import scala.collection.mutable.ListBuffer
@@ -21,7 +22,12 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
-abstract class LedgerTestSuite {
+// TODO(#29619): Use BaseTest
+abstract class LedgerTestSuite
+    extends OptionValues
+    with LoneElement
+    with TryValues
+    with EitherValues {
   private val testCaseBuffer: ListBuffer[LedgerTestCase] = ListBuffer()
 
   final lazy val tests: Vector[LedgerTestCase] = testCaseBuffer.toVector
@@ -155,6 +161,6 @@ sealed trait JsonSupported extends TestConstraints
 
 object TestConstraints {
   case object NoLimitations extends JsonSupported
-  case class JsonOnly(reason: String, grpcTest: Option[String] = None) extends JsonSupported
-  case class GrpcOnly(reason: String, jsonTest: Option[String] = None) extends TestConstraints
+  final case class JsonOnly(reason: String, grpcTest: Option[String] = None) extends JsonSupported
+  final case class GrpcOnly(reason: String, jsonTest: Option[String] = None) extends TestConstraints
 }

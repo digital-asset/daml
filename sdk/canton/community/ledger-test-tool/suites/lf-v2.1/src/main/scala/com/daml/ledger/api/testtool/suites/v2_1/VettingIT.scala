@@ -1,9 +1,8 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
-import cats.syntax.traverse.*
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   NoParties,
   Participant,
@@ -57,6 +56,7 @@ import com.digitalasset.canton.ledger.api.{
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError
 import com.digitalasset.canton.topology.TopologyManagerError
 import com.digitalasset.canton.topology.TopologyManagerError.ParticipantTopologyManagerError
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.timestamp.Timestamp
@@ -335,7 +335,7 @@ class VettingIT extends LedgerTestSuite with AppendedClues {
         new ZipInputStream(getClass.getClassLoader.getResourceAsStream(darName)),
       )
       .toOption
-      .get
+      .value
       .all
       .map(_._1)
 
@@ -346,7 +346,7 @@ class VettingIT extends LedgerTestSuite with AppendedClues {
         new ZipInputStream(getClass.getClassLoader.getResourceAsStream(darName)),
       )
       .toOption
-      .get
+      .value
       .main
       ._1
 
@@ -425,7 +425,9 @@ class VettingIT extends LedgerTestSuite with AppendedClues {
   )(implicit ec: ExecutionContext): Future[Unit] =
     for {
       syncIds <- participant.connectedSynchronizers()
-      _ <- syncIds.traverse(syncId =>
+      // TODO(#29619): try to replace with parTraverse. Used sequentialTraverse to avoid overloading DB queue
+      //               to be sure I'm not exposing a flake here that prevents progress
+      _ <- MonadUtil.sequentialTraverse(syncIds)(syncId =>
         unvetDARMains(
           participant,
           Seq(

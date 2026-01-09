@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.service
@@ -194,6 +194,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
   val params = new SequencerParameters {
     override def maxConfirmationRequestsBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.1)
     override def processingTimeouts: ProcessingTimeout = timeouts
+    override def maxSubscriptionsPerMember: PositiveInt = PositiveInt.three
   }
   private val service =
     new GrpcSequencerService(
@@ -204,6 +205,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
       new SubscriptionPool[GrpcManagedSubscription[?]](
         clock,
         SequencerTestMetrics,
+        PositiveInt.three,
         timeouts,
         loggerFactory,
       ),
@@ -536,6 +538,7 @@ class GrpcSequencerIntegrationTest
           new SubscriptionPool[GrpcManagedSubscription[?]](
             clock,
             SequencerTestMetrics,
+            PositiveInt.three,
             env.timeouts,
             env.loggerFactory,
           ),

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -18,11 +18,9 @@ trait RegisteredSynchronizersStoreTest extends FailOnShutdown {
 
   private def alias(a: String): SynchronizerAlias = SynchronizerAlias.tryCreate(a)
   private def id(a: String, serial: Int = 0): PhysicalSynchronizerId = PhysicalSynchronizerId(
-    SynchronizerId(
-      UniqueIdentifier.tryFromProtoPrimitive(s"$a::default")
-    ),
-    testedProtocolVersion,
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive(s"$a::default")),
     NonNegativeInt.tryCreate(serial),
+    testedProtocolVersion,
   )
 
   def registeredSynchronizersStore(mk: () => RegisteredSynchronizersStore): Unit = {

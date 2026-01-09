@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -11,6 +11,7 @@ import com.daml.ledger.api.v2.offset_checkpoint.OffsetCheckpoint
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
 import com.daml.ledger.test.java.model.test.Dummy
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -34,7 +35,7 @@ class CheckpointInTailingStreamsIT extends LedgerTestSuite {
       )
       // sleep for 3 * maxOffsetCheckpointEmissionDelay to ensure that the offset checkpoint cache is updated
       _ <- Future(
-        Thread.sleep(3 * ledger.maxOffsetCheckpointEmissionDelay.duration.toMillis)
+        Threading.sleep(3 * ledger.maxOffsetCheckpointEmissionDelay.duration.toMillis)
       )
       updates <- ledger.updates(
         within,
@@ -51,15 +52,15 @@ class CheckpointInTailingStreamsIT extends LedgerTestSuite {
       checkpoints: Vector[OffsetCheckpoint] = updates.flatMap(_.offsetCheckpoint)
     } yield {
       assert(
-        dummies.size == transactionsToSubmit,
+        dummies.sizeIs == transactionsToSubmit,
         s"$transactionsToSubmit should have been submitted but ${dummies.size} were instead",
       )
       assert(
-        updates.size > transactionsToRead,
+        updates.sizeIs > transactionsToRead,
         s"More than $transactionsToRead updates should have been received but ${updates.size} were instead",
       )
       assert(
-        txs.size == transactionsToRead,
+        txs.sizeIs == transactionsToRead,
         s"$transactionsToRead transactions should have been received but ${txs.size} were instead",
       )
       assert(
@@ -92,7 +93,7 @@ class CheckpointInTailingStreamsIT extends LedgerTestSuite {
       checkpoints: Vector[OffsetCheckpoint] = updates.flatMap(_.offsetCheckpoint)
     } yield {
       assert(
-        dummies.size == transactionsToSubmit,
+        dummies.sizeIs == transactionsToSubmit,
         s"$transactionsToSubmit should have been submitted but ${dummies.size} were instead",
       )
       assert(
@@ -122,7 +123,7 @@ class CheckpointInTailingStreamsIT extends LedgerTestSuite {
         Vector.fill(transactionsToSubmit)(ledger.create(party, new Dummy(party)))
       )
       // sleep for 3 * maxOffsetCheckpointEmissionDelay to ensure that the offset checkpoint cache is updated
-      _ <- Future(Thread.sleep(3 * ledger.maxOffsetCheckpointEmissionDelay.duration.toMillis))
+      _ <- Future(Threading.sleep(3 * ledger.maxOffsetCheckpointEmissionDelay.duration.toMillis))
       // fetching updates for party2 should return 0 txs
       updates <- ledger.updates(
         within,
@@ -136,7 +137,7 @@ class CheckpointInTailingStreamsIT extends LedgerTestSuite {
       checkpoints: Vector[OffsetCheckpoint] = updates.flatMap(_.offsetCheckpoint)
     } yield {
       assert(
-        dummies.size == transactionsToSubmit,
+        dummies.sizeIs == transactionsToSubmit,
         s"$transactionsToSubmit should have been submitted but ${dummies.size} were instead",
       )
       assert(
@@ -168,7 +169,7 @@ class CheckpointInTailingStreamsIT extends LedgerTestSuite {
         Vector.fill(transactionsToSubmit)(ledger.create(party, new Dummy(party)))
       )
       // sleep for 3 * maxOffsetCheckpointEmissionDelay to ensure that the offset checkpoint cache is updated
-      _ <- Future(Thread.sleep(3 * ledger.maxOffsetCheckpointEmissionDelay.duration.toMillis))
+      _ <- Future(Threading.sleep(3 * ledger.maxOffsetCheckpointEmissionDelay.duration.toMillis))
       responses <- ledger.completions(
         within,
         ledger
@@ -178,15 +179,15 @@ class CheckpointInTailingStreamsIT extends LedgerTestSuite {
       checkpoints: Vector[OffsetCheckpoint] = responses.flatMap(_.offsetCheckpoint)
     } yield {
       assert(
-        dummies.size == transactionsToSubmit,
+        dummies.sizeIs == transactionsToSubmit,
         s"$transactionsToSubmit should have been submitted but ${dummies.size} were instead",
       )
       assert(
-        responses.size > transactionsToRead,
+        responses.sizeIs > transactionsToRead,
         s"More than ${transactionsToRead + 1} responses should have been received but ${responses.size} were instead",
       )
       assert(
-        completions.size == transactionsToRead,
+        completions.sizeIs == transactionsToRead,
         s"$transactionsToRead completions should have been received but ${completions.size} were instead",
       )
       assert(
@@ -217,7 +218,7 @@ class CheckpointInTailingStreamsIT extends LedgerTestSuite {
       checkpoints: Vector[OffsetCheckpoint] = responses.flatMap(_.offsetCheckpoint)
     } yield {
       assert(
-        dummies.size == transactionsToSubmit,
+        dummies.sizeIs == transactionsToSubmit,
         s"$transactionsToSubmit should have been submitted but ${dummies.size} were instead",
       )
       assert(
@@ -248,7 +249,7 @@ class CheckpointInTailingStreamsIT extends LedgerTestSuite {
         Vector.fill(transactionsToSubmit)(ledger.create(party, new Dummy(party)))
       )
       // sleep for 3 * maxOffsetCheckpointEmissionDelay to ensure that the offset checkpoint cache is updated
-      _ <- Future(Thread.sleep(3 * ledger.maxOffsetCheckpointEmissionDelay.duration.toMillis))
+      _ <- Future(Threading.sleep(3 * ledger.maxOffsetCheckpointEmissionDelay.duration.toMillis))
       // fetching completions for party2 should return 0 completions
       responses <- ledger.completions(
         within,
@@ -259,7 +260,7 @@ class CheckpointInTailingStreamsIT extends LedgerTestSuite {
       checkpoints: Vector[OffsetCheckpoint] = responses.flatMap(_.offsetCheckpoint)
     } yield {
       assert(
-        dummies.size == transactionsToSubmit,
+        dummies.sizeIs == transactionsToSubmit,
         s"$transactionsToSubmit should have been submitted but ${dummies.size} were instead",
       )
       assert(

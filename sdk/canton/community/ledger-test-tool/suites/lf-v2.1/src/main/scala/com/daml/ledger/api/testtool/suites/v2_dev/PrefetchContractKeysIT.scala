@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_dev
 
@@ -45,8 +45,8 @@ class PrefetchContractKeysIT extends LedgerTestSuite {
       _ <- ledger.submitAndWait(request)
       active <- ledger.activeContracts(Some(Seq(party)))
     } yield {
-      assert(active.size == 1)
-      val dummyTemplateId = active.flatMap(_.templateId.toList).head
+      assert(active.sizeIs == 1)
+      val dummyTemplateId = active.flatMap(_.templateId.toList).headOption.value
       assert(dummyTemplateId == WithKey.TEMPLATE_ID_WITH_PACKAGE_ID.toV1)
     }
   })

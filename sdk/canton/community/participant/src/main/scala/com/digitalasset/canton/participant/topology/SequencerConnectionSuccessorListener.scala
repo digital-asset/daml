@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.topology
@@ -141,8 +141,9 @@ class SequencerConnectionSuccessorListener(
               config = updated,
               status = SynchronizerConnectionConfigStore.UpgradingTarget,
               configuredPSId = KnownPhysicalSynchronizerId(successorPSId),
-              synchronizerPredecessor =
-                Some(SynchronizerPredecessor(topologyClient.psid, upgradeTime)),
+              synchronizerPredecessor = Some(
+                SynchronizerPredecessor(topologyClient.psid, upgradeTime, isLateUpgrade = false)
+              ),
             )
             .toOption
         // TODO(#28724) Use subsumeMerge to reduce impact of races

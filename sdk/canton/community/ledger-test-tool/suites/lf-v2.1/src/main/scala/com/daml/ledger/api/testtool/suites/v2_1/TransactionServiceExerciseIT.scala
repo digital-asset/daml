@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -35,10 +35,10 @@ class TransactionServiceExerciseIT extends LedgerTestSuite {
     } yield {
       val events = transactions.events.filter(e => transactions.rootNodeIds().contains(e.nodeId))
       val exercised = events.filter(_.event.isExercised)
-      assert(exercised.size == 1, s"Only one exercise expected, got ${exercised.size}")
+      assert(exercised.sizeIs == 1, s"Only one exercise expected, got ${exercised.size}")
       assert(
-        exercised.head.getExercised.contractId == dummyFactory.contractId,
-        s"The identifier of the exercised contract should have been ${dummyFactory.contractId} but instead it was ${exercised.head.getExercised.contractId}",
+        exercised.headOption.value.getExercised.contractId == dummyFactory.contractId,
+        s"The identifier of the exercised contract should have been ${dummyFactory.contractId} but instead it was ${exercised.headOption.value.getExercised.contractId}",
       )
     }
   })

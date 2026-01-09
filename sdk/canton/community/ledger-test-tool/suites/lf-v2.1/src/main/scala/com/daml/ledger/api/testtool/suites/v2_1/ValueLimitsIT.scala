@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -32,12 +32,14 @@ final class ValueLimitsIT extends LedgerTestSuite {
         .submitAndWaitForTransactionRequest(
           actAs = parties.toList,
           readAs = parties.toList,
-          commands =
-            new DummyWithAnnotation(parties.head.getValue, "First submission").create.commands,
+          commands = new DummyWithAnnotation(
+            parties.headOption.value.getValue,
+            "First submission",
+          ).create.commands,
           transactionShape = AcsDelta,
         )
       _ <- ledger.submitAndWaitForTransaction(request)
-      contracts <- ledger.activeContracts(Some(Seq(parties.head)))
+      contracts <- ledger.activeContracts(Some(Seq(parties.headOption.value)))
     } yield {
       assertSingleton("Single create contract expected", contracts).discard
     }

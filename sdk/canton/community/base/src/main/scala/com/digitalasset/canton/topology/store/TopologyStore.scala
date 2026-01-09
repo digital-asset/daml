@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
@@ -15,7 +15,7 @@ import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -34,6 +34,7 @@ import com.digitalasset.canton.topology.store.TopologyStore.{
   EffectiveStateChange,
   TopologyStoreDeactivations,
 }
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.db.DbTopologyStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
@@ -577,6 +578,16 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   ): FutureUnlessShutdown[Seq[EffectiveStateChange]]
 
   def deleteAllData()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
+
+  /** Copies the topology state from an existing topology store. Should only be done if the local
+    * copy is functionally equivalent to downloading the topology state from the sequencer.
+    * @param sourceStore
+    *   The store from which the topology state should be copied.
+    */
+  def copyFromPredecessorSynchronizerStore(sourceStore: TopologyStore[SynchronizerStore])(implicit
+      ev: StoreID <:< SynchronizerStore,
+      errorLoggingContext: ErrorLoggingContext,
+  ): FutureUnlessShutdown[Unit]
 }
 
 object TopologyStore {

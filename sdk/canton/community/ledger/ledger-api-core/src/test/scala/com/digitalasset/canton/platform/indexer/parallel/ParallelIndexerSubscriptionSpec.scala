@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.indexer.parallel
@@ -253,16 +253,16 @@ class ParallelIndexerSubscriptionSpec
     ): Future[T] =
       Future.successful(sql(connection))
 
-    override val executor: QueueAwareExecutor & NamedExecutor = new QueueAwareExecutor
-      with NamedExecutor {
-      override def queueSize: Long = 0
-      override def name: String = "test"
-    }
+    override val executor: Option[QueueAwareExecutor & NamedExecutor] = Some(
+      new QueueAwareExecutor with NamedExecutor {
+        override def queueSize: Long = 0
+        override def name: String = "test"
+      }
+    )
 
-    override def executeSqlUS[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
-        loggingContext: LoggingContextWithTrace,
-        ec: ExecutionContext,
-    ): FutureUnlessShutdown[T] =
+    override def executeSqlUS[T](databaseMetrics: DatabaseMetrics)(
+        sql: Connection => T
+    )(implicit loggingContext: LoggingContextWithTrace): FutureUnlessShutdown[T] =
       FutureUnlessShutdown.pure(sql(connection))
   }
 

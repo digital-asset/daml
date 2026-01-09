@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.common
@@ -728,7 +728,7 @@ abstract class EventStorageBackendTemplate(
           .withFetchSize(Some(eventSequentialIds.size))
       )(connection)
 
-  override def lookupAssignSequentialIdByOffset(
+  override def lookupActivationSequentialIdByOffset(
       offsets: Iterable[Long]
   )(connection: Connection): Vector[Long] =
     SQL"""
@@ -740,7 +740,7 @@ abstract class EventStorageBackendTemplate(
         """
       .asVectorOf(long("event_sequential_id"))(connection)
 
-  override def lookupUnassignSequentialIdByOffset(
+  override def lookupDeactivationSequentialIdByOffset(
       offsets: Iterable[Long]
   )(connection: Connection): Vector[Long] =
     SQL"""

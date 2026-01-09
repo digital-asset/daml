@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -131,11 +131,11 @@ class UpdateServiceQueryIT extends LedgerTestSuite {
       byId <- ledger.transactionById(tx.updateId, Seq(party), AcsDelta)
       // archive the created contract to not pollute the ledger
       contractId = Dummy.COMPANION.toContractId(
-        new ContractId(tx.events.head.getCreated.contractId)
+        new ContractId(tx.events.headOption.value.getCreated.contractId)
       )
       _ <- ledger.exercise(party, contractId.exerciseArchive())
     } yield {
-      checkArgumentsNonEmpty(byId.events.head.getCreated)
+      checkArgumentsNonEmpty(byId.events.headOption.value.getCreated)
     }
   })
 
@@ -293,8 +293,8 @@ class UpdateServiceQueryIT extends LedgerTestSuite {
     for {
       dummy <- ledger.create(party, new Dummy(party))
       transaction <- ledger.exercise(party, dummy.exerciseDummyChoice1(), AcsDelta)
-      event = transaction.events.head.event
-      offset = event.archived.map(_.offset).get
+      event = transaction.events.headOption.value.event
+      offset = event.archived.map(_.offset).value
       byOffset <- ledger.transactionByOffset(offset, Seq(party), AcsDelta)
     } yield {
       assertEquals("The transaction fetched by offset does not match", transaction, byOffset)
@@ -314,11 +314,11 @@ class UpdateServiceQueryIT extends LedgerTestSuite {
       byOffset <- ledger.transactionByOffset(tx.offset, Seq(party), AcsDelta)
       // archive the created contract to not pollute the ledger
       contractId = Dummy.COMPANION.toContractId(
-        new ContractId(tx.events.head.getCreated.contractId)
+        new ContractId(tx.events.headOption.value.getCreated.contractId)
       )
       _ <- ledger.exercise(party, contractId.exerciseArchive())
     } yield {
-      checkArgumentsNonEmpty(byOffset.events.head.getCreated)
+      checkArgumentsNonEmpty(byOffset.events.headOption.value.getCreated)
     }
   })
 
@@ -433,7 +433,7 @@ class UpdateServiceQueryIT extends LedgerTestSuite {
           transactionShape = LedgerEffects,
         )
       )
-      offset = response.transaction.get.offset
+      offset = response.transaction.value.offset
       failure <- ledger
         .transactionByOffset(offset, Seq(owner), AcsDelta)
         .mustFail("acs delta lookup")
@@ -492,7 +492,7 @@ class UpdateServiceQueryIT extends LedgerTestSuite {
           contractId.exerciseDummyNonConsuming().commands,
         )
       )
-      offset = response.transaction.get.offset
+      offset = response.transaction.value.offset
       failure <- ledger
         .transactionByOffset(offset, Seq(owner), AcsDelta)
         .mustFail("looking up an non-existent transaction")

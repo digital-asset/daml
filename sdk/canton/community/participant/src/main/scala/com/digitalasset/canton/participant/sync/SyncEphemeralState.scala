@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.sync
@@ -35,7 +35,7 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
-import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.transaction.CreationTime
 
@@ -75,9 +75,6 @@ class SyncEphemeralState(
   override def initialHealthState: ComponentHealthState = ComponentHealthState.NotInitializedState
   override def closingState: ComponentHealthState =
     ComponentHealthState.failed("Disconnected from synchronizer")
-
-  val synchronizerId: PhysicalSynchronizerId =
-    persistentState.physicalSynchronizerIdx.synchronizerId
 
   // Key is the root hash of the reassignment tree
   val pendingUnassignmentSubmissions: TrieMap[RootHash, PendingReassignmentSubmission] =

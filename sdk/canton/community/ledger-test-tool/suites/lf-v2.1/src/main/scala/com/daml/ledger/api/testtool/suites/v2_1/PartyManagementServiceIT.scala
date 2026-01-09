@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -439,13 +439,13 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
         ),
         p.minSynchronizers,
       )
-      allocatedParty = allocate1.partyDetails.get.party
+      allocatedParty = allocate1.partyDetails.value.party
       expectedPartyDetails = PartyDetails(
         party = allocatedParty,
         isLocal = true,
         localMetadata = Some(
           ObjectMeta(
-            resourceVersion = allocate1.partyDetails.get.localMetadata.get.resourceVersion,
+            resourceVersion = allocate1.partyDetails.value.localMetadata.value.resourceVersion,
             annotations = Map(
               "key1" -> "val1",
               "key2" -> "val2",
@@ -1050,7 +1050,10 @@ final class PartyManagementServiceIT extends PartyManagementITBase {
         pageSizeOne.partyDetails.nonEmpty,
         "First page with requested pageSize zero should return some parties",
       )
-      assertEquals(pageSizeZero.partyDetails.head, pageSizeOne.partyDetails.head)
+      assertEquals(
+        pageSizeZero.partyDetails.headOption.value,
+        pageSizeOne.partyDetails.headOption.value,
+      )
     }
   })
 

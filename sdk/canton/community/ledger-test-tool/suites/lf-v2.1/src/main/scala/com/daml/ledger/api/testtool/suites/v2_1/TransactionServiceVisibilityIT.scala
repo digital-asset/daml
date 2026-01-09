@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -26,6 +26,7 @@ import com.daml.ledger.test.java.model.test.{
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.SecurityTest
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Privacy
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects}
 import com.digitalasset.canton.platform.store.utils.EventOps.EventOps
 
@@ -189,21 +190,21 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
         // both bob and alice see the entire transaction:
         // 1x Exercise IouTrade.IouTrade_Accept
         // 2 x Iou transfer with 4 nodes each (see below)
-        assert(aliceTree.events.size == 9)
-        assert(bobTree.events.size == 9)
+        assert(aliceTree.events.sizeIs == 9)
+        assert(bobTree.events.sizeIs == 9)
 
-        assert(aliceTree.rootNodeIds().size == 1)
-        assert(bobTree.rootNodeIds().size == 1)
+        assert(aliceTree.rootNodeIds().sizeIs == 1)
+        assert(bobTree.rootNodeIds().sizeIs == 1)
 
         // banks only see the transfer of their issued Iou:
         // Exercise Iou.Iou_Transfer -> Create IouTransfer
         // Exercise IouTransfer.IouTransfer_Accept -> Create Iou
-        assert(gbpTree.events.size == 4)
-        assert(dkkTree.events.size == 4)
+        assert(gbpTree.events.sizeIs == 4)
+        assert(dkkTree.events.sizeIs == 4)
 
         // the exercises are the root nodes
-        assert(gbpTree.rootNodeIds().size == 2)
-        assert(dkkTree.rootNodeIds().size == 2)
+        assert(gbpTree.rootNodeIds().sizeIs == 2)
+        assert(dkkTree.rootNodeIds().sizeIs == 2)
 
       }
   })
@@ -314,7 +315,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
                 )
                 val descendantNodeIds =
                   eventsToObserve.view.keys.filter(id => nodeId < id && id <= lastDescendantNodeId)
-                descendantNodeIds.foreach(eventsToObserve.remove)
+                descendantNodeIds.foreach(eventsToObserve.remove(_).discard)
               case Some(_) => ()
               case None =>
                 throw new AssertionError(
@@ -389,11 +390,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
         )
 
         assert(
-          txsFromStream.size == 1,
+          txsFromStream.sizeIs == 1,
           s"One transaction expected but got ${txsFromStream.size} instead.",
         )
 
-        val txFromStreamCommandId = txsFromStream.head.commandId
+        val txFromStreamCommandId = txsFromStream.headOption.value.commandId
         assert(
           txFromStreamCommandId.isEmpty,
           s"The command identifier for the transaction was supposed to be empty but it's `$txFromStreamCommandId` instead.",
@@ -428,11 +429,11 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
         )
 
         assert(
-          txsFromStream.size == 1,
+          txsFromStream.sizeIs == 1,
           s"One transaction expected but got ${txsFromStream.size} instead.",
         )
 
-        val txFromStreamCommandId = txsFromStream.head.commandId
+        val txFromStreamCommandId = txsFromStream.headOption.value.commandId
         assert(
           txFromStreamCommandId.isEmpty,
           s"The command identifier for the transaction was supposed to be empty but it's `$txFromStreamCommandId` instead.",
@@ -618,7 +619,7 @@ class TransactionServiceVisibilityIT extends LedgerTestSuite {
         .filter(event => event.templateId.exists(_.entityName == "Iou"))
 
       assert(
-        newIouList.length == 2,
+        newIouList.sizeIs == 2,
         s"Expected 2 new IOUs created, found: ${newIouList.length}",
       )
 
