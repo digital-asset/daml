@@ -11,7 +11,7 @@ bazel_dep(name = "rules_nixpkgs_core", version = "0.12.0")
 bazel_dep(name = "rules_pkg", version = "1.1.0")                # Match Old
 bazel_dep(name = "bazel_jar_jar", version = "0.1.12")           # Latest -> 0.1.5
 bazel_dep(name = "bazel_skylib", version = "1.9.0")             # Latest -> Undef
-bazel_dep(name = "rules_scala", version = "7.1.1")              # 7.0.0 -> 6.6.0
+# bazel_dep(name = "rules_scala", version = "6.6.0")
 bazel_dep(name = "rules_haskell", version = "1.0")              # Latest -> Undef
 bazel_dep(name = "rules_jvm_external", version = "6.9")         # Latest -> 6.7
 bazel_dep(name = "rules_java", version = "7.12.5")              # New
@@ -46,12 +46,6 @@ bazel_dep(name = "rules_rust", version = "0.68.1")
 
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(version = "1.22.8")
-
-scala_config = use_extension("@rules_scala//scala/extensions:config.bzl", "scala_config")
-scala_config.settings(scala_version = "2.13.16")
-
-scala_deps = use_extension("@rules_scala//scala/extensions:deps.bzl", "scala_deps")
-scala_deps.scala()
 
 custom_scala_config = use_extension("//bazel_tools:scala_module_extension.bzl", "scala_extension")
 use_repo(custom_scala_config, "build_environment", "os_info", "scala_version")
@@ -140,6 +134,27 @@ http_archive(
     urls = ["https://github.com/grpc/grpc-java/archive/v1.60.2.tar.gz"],
     sha256 = "4baf80f35488739d99515d71b8e72bd17a476c214a84106edc66b259fe8ac22c",
 )
+
+rules_scala_version = "6.6.0"
+rules_scala_sha256 = "e734eef95cf26c0171566bdc24d83bd82bdaf8ca7873bec6ce9b0d524bdaf05d"
+http_archive(
+    name = "io_bazel_rules_scala",
+    url = "https://github.com/bazelbuild/rules_scala/releases/download/v{}/rules_scala-v{}.tar.gz".format(rules_scala_version, rules_scala_version),
+    strip_prefix = "rules_scala-%s" % rules_scala_version,
+    sha256 = rules_scala_sha256,
+    patches = [
+        "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
+    ],
+    patch_args = ["-p1"],
+)
+
+scala_setup = use_extension("//bazel_tools:scala_setup_extension.bzl", "scala_setup")
+
+# scala_config = use_extension("@rules_scala//scala/extensions:config.bzl", "scala_config")
+# scala_config.settings(scala_version = "2.13.16")
+#
+# scala_deps = use_extension("@rules_scala//scala/extensions:deps.bzl", "scala_deps")
+# scala_deps.scala()
 
 # http_archive(
 #     name = "com_google_protobuf",

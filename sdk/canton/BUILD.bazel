@@ -7,7 +7,7 @@ load(
     "@bazel_jar_jar//:jar_jar.bzl",
     "jar_jar",
 )
-load("@rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_macro_library")
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary", "scala_library", "scala_macro_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version")

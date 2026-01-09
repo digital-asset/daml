@@ -4,7 +4,7 @@
 load("//bazel_tools:scala.bzl", "da_scala_library")
 load("//bazel_tools:proto.bzl", "proto_gen")
 load("//bazel_tools:scala.bzl", "scala_source_jar")
-load("@rules_scala//scala:scala.bzl", "scala_library")
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@scala_version//:index.bzl", "scala_major_version_suffix")
 
 proto_library(
