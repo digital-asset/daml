@@ -80,7 +80,6 @@ da_scala_binary(
     ],
     deps = [
         ":encoder",
-        "//:sdk-version-scala-lib",
         "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
         "//canton/community/daml-lf/archive:daml_lf_archive_reader",
         "//canton/community/daml-lf/archive/encoder",
