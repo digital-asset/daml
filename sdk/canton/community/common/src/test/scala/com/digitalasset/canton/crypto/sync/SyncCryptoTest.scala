@@ -160,6 +160,7 @@ trait SyncCryptoTest
       val signature = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -182,6 +183,7 @@ trait SyncCryptoTest
       val signature = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -205,6 +207,7 @@ trait SyncCryptoTest
       val signature_1 = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -214,6 +217,7 @@ trait SyncCryptoTest
       val signature_2 = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -238,6 +242,7 @@ trait SyncCryptoTest
       val signature1 = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -247,6 +252,7 @@ trait SyncCryptoTest
       val signature2 = syncCryptoSignerP2
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )

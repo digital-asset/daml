@@ -417,7 +417,7 @@ class SequencerRateLimitManagerImpl(
        * tolerance window start = validation timestamp - submissionCostTimestampTopologyTolerance
        * tolerance window end = validation timestamp + submissionTimestampInFutureTolerance
        *
-       * T1 and T4 are outside of the tolerance window (in the past and future respectively):
+       * T1 and T4 are outside the tolerance window (in the past and future respectively):
        *    We reject the submission without even verifying if the cost was correctly computed
        * T2 is before the validation timestamp but within the window: We grab the corresponding topology snapshot
        *    (which we have already because we have topology at least until "validation timestamp"), and check

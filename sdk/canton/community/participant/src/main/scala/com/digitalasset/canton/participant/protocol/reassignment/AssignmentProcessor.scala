@@ -19,6 +19,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
 import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.client.SequencerClient
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.util.ContractValidator
 import com.digitalasset.canton.util.ReassignmentTag.Target
@@ -37,6 +38,7 @@ class AssignmentProcessor(
     contractValidator: ContractValidator,
     seedGenerator: SeedGenerator,
     sequencerClient: SequencerClient,
+    clock: Clock,
     override protected val timeouts: ProcessingTimeout,
     targetProtocolVersion: Target[ProtocolVersion],
     loggerFactory: NamedLoggerFactory,
@@ -58,6 +60,7 @@ class AssignmentProcessor(
         seedGenerator,
         contractValidator,
         staticSynchronizerParameters,
+        clock,
         targetProtocolVersion,
         loggerFactory,
       ),

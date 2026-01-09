@@ -64,7 +64,7 @@ trait SequencerClientSend {
     *   [[com.digitalasset.canton.sequencing.SequencerConnections]]. If the sequencer client plans
     *   to send the submission request to multiple sequencers, it adds a suitable
     *   [[com.digitalasset.canton.sequencing.protocol.AggregationRule]] to the request for
-    *   deduplication, unless one is already present. False disables amplificaton for this request
+    *   deduplication, unless one is already present. False disables amplification for this request
     *   independent of the configuration.
     */
   def sendAsync(

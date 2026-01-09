@@ -185,6 +185,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
           cryptoSnapshot,
           request,
           signingTimestamp.orElse(Some(cryptoSnapshot.ipsSnapshot.timestamp)),
+          Some(clock.now),
           HashPurpose.SubmissionRequestSignature,
           testedProtocolVersion,
         )

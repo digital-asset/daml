@@ -165,6 +165,7 @@ trait ReplayedRequestsIntegrationTest
           modifiedRequest,
           participant1.underlying.value.sync.syncCrypto
             .tryForSynchronizer(daId, staticSynchronizerParameters1),
+          Some(environment.now),
         )
 
         SendDecision.Replace(signedModifiedRequest)

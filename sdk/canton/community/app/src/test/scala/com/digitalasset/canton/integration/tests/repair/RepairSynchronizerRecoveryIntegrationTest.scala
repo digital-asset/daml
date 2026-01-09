@@ -170,6 +170,7 @@ trait RepairSynchronizerRecoveryIntegrationTest
                           modifiedRequest,
                           participant1.underlying.value.sync.syncCrypto
                             .tryForSynchronizer(daId, staticSynchronizerParameters1),
+                          Some(environment.now),
                         )
                         dropSomeMessagesToP1.set(true)
                         SendDecision.Replace(signedModifiedRequest)

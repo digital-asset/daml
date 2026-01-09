@@ -164,6 +164,7 @@ class InvalidUnassignmentRequestIntegrationTest
     maliciousP2
       .submitUnassignmentRequest(
         updatedUnassignmentRequest,
+        Some(environment.now),
         overrideRecipients = overrideRecipients,
       )
       .futureValueUS

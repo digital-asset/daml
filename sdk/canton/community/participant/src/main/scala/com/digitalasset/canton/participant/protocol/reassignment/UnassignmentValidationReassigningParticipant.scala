@@ -72,7 +72,11 @@ private[reassignment] class UnassignmentValidationReassigningParticipant(
         targetTopology.unwrap.referenceTime,
       )
       .leftMap(unknownPackage =>
-        PackageIdUnknownOrUnvetted(request.contracts.contractIds.toSet, unknownPackage.unknownTo)
+        PackageIdUnknownOrUnvetted(
+          request.contracts.contractIds.toSet,
+          unknownPackage.unknownTo,
+          request.targetSynchronizer.unwrap,
+        )
       )
       .leftWiden[ReassignmentValidationError]
 }

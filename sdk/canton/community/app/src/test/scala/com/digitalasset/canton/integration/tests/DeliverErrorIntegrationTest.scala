@@ -71,6 +71,7 @@ trait DeliverErrorIntegrationTest
             signModifiedSubmissionRequest(
               modifiedRequest,
               syncCrypto.tryForSynchronizer(daId, staticSynchronizerParameters1),
+              Some(environment.now),
             )
           SendDecision.Replace(signedModifiedRequest)
 

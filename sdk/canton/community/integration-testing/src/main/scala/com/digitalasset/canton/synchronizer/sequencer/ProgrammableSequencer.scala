@@ -475,6 +475,7 @@ trait HasProgrammableSequencer {
   def signModifiedSubmissionRequest(
       request: SubmissionRequest,
       syncCrypto: SynchronizerCryptoClient,
+      approximateTimestampOverride: Option[CantonTimestamp],
   )(implicit executionContext: ExecutionContext): SignedContent[SubmissionRequest] =
     SignedContent
       .create(
@@ -482,6 +483,7 @@ trait HasProgrammableSequencer {
         syncCrypto.currentSnapshotApproximation.futureValueUS,
         request,
         None,
+        approximateTimestampOverride,
         HashPurpose.SubmissionRequestSignature,
         testedProtocolVersion,
       )

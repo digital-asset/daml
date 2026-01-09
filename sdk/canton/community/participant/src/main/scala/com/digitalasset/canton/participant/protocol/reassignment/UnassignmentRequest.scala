@@ -8,6 +8,7 @@ import cats.syntax.functor.*
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.*
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentValidationError.PackageIdUnknownOrUnvetted
 import com.digitalasset.canton.participant.protocol.submission.UsableSynchronizers
 import com.digitalasset.canton.protocol.ReassignmentId
@@ -101,7 +102,6 @@ object UnassignmentRequest {
     UnassignmentRequestValidated,
   ] = {
     val contractIds = contracts.contractIds.toSet
-    val packageIds = contracts.contracts.view.map(_.templateId.packageId).toSet
     val stakeholders = contracts.stakeholders
 
     for {
@@ -130,13 +130,24 @@ object UnassignmentRequest {
 
       _ <- UsableSynchronizers
         .checkPackagesVetted(
+          sourcePSId.unwrap,
+          sourceTopology.unwrap,
+          stakeholders.all.view.map(_ -> contracts.sourcePackageIds.unwrap).toMap,
+          sourceTopology.unwrap.referenceTime,
+        )
+        .leftMap[ReassignmentValidationError](unknownPackage =>
+          PackageIdUnknownOrUnvetted(contractIds, unknownPackage.unknownTo, sourcePSId.unwrap)
+        )
+
+      _ <- UsableSynchronizers
+        .checkPackagesVetted(
           targetPSId.unwrap,
           targetTopology.unwrap,
-          stakeholders.all.view.map(_ -> packageIds).toMap,
+          stakeholders.all.view.map(_ -> contracts.targetPackageIds.unwrap).toMap,
           targetTopology.unwrap.referenceTime,
         )
         .leftMap[ReassignmentValidationError](unknownPackage =>
-          PackageIdUnknownOrUnvetted(contractIds, unknownPackage.unknownTo)
+          PackageIdUnknownOrUnvetted(contractIds, unknownPackage.unknownTo, targetPSId.unwrap)
         )
 
       _ <- ReassignmentValidation.authenticateContracts(

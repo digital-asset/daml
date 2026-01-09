@@ -78,6 +78,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
           .trySignAndCreate(
             setTrafficPurchased,
             synchronizerCrypto.currentSnapshotApproximation.futureValueUS,
+            None,
           )
           .failOnShutdown
           .futureValue

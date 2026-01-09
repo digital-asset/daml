@@ -68,7 +68,7 @@ class MockKmsDriverSessionSigningKeysLifecycleIntegrationTestPostgres
     Set.empty
 
   override protected lazy val protectedNodes: Set[String] =
-    Set("sequencer1")
+    Set("participant1", "participant2", "mediator1", "sequencer1")
 
   setupPlugins(
     withAutoInit = true,

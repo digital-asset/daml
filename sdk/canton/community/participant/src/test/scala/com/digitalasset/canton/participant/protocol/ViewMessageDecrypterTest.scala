@@ -146,6 +146,7 @@ class ViewMessageDecrypterTest extends BaseTestWordSpec with HasExecutionContext
               lightTree(i),
               viewKeyData(i),
               snapshot,
+              None,
               testedProtocolVersion,
             )
             .futureValueUS

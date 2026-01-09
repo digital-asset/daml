@@ -243,7 +243,7 @@ class SequencedEventTestFixture(
     for {
       cryptoApi <- sequencerCryptoApi.snapshot(timestamp)
       signature <- cryptoApi
-        .sign(hash(bytes), SigningKeyUsage.ProtocolOnly)
+        .sign(hash(bytes), SigningKeyUsage.ProtocolOnly, None)
         .value
         .map(_.valueOr(err => fail(s"Failed to sign: $err")))(executionContext)
     } yield signature
