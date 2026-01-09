@@ -14,15 +14,27 @@ bazel_dep(name = "bazel_skylib", version = "1.9.0")             # Latest -> Unde
 bazel_dep(name = "rules_scala", version = "7.1.1")              # 7.0.0 -> 6.6.0
 bazel_dep(name = "rules_haskell", version = "1.0")              # Latest -> Undef
 bazel_dep(name = "rules_jvm_external", version = "6.9")         # Latest -> 6.7
-bazel_dep(name = "rules_java", version = "9.3.0")               # New
-bazel_dep(name = "rules_proto", version = "7.1.0")              # Latest -> 6.0.0
+bazel_dep(name = "rules_java", version = "7.12.5")              # New
+single_version_override(
+    module_name = "rules_java",
+    version = "7.12.5",
+)
+bazel_dep(name = "rules_proto", version = "6.0.0")              # Match Old
+single_version_override(
+    module_name = "rules_proto",
+    version = "6.0.0",
+)
 bazel_dep(name = "rules_nodejs", version = "6.6.2")             # Latest -> 5.8.5
 bazel_dep(name = "rules_cc", version = "0.2.16")                # New
 
 bazel_dep(name = "google_bazel_common", version = "0.0.1", repo_name = "com_github_google_bazel_common")
 # bazel_dep(name = "googleapis", version = "0.0.0-20251211-05f65958", repo_name = "go_googleapis")
-bazel_dep(name = "protobuf", version = "26.0"                   # 26 -> 25.8?
-    , repo_name = 'com_google_protobuf')
+bazel_dep(name = "protobuf", version = "25.6", repo_name = "com_google_protobuf")
+single_version_override(
+    module_name = "protobuf",
+    version = "25.6",
+)
+
 bazel_dep(name = "rules_rust", version = "0.68.1")
 
 # bazel_dep(name = "grpc-java", version = "1.75.0")
@@ -30,7 +42,7 @@ bazel_dep(name = "rules_rust", version = "0.68.1")
 #     , repo_name = "io_grpc_grpc_java")
 
 
-register_toolchains("@rules_java//toolchains:all")
+# register_toolchains("@rules_java//toolchains:remotejdk_17")
 
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(version = "1.22.8")
@@ -114,6 +126,20 @@ http_archive(
     patches = ["//bazel_tools:googleapis-status-proto.patch"],
     patch_args = ["-E", "-p1"],
 )
+
+http_archive(
+    name = "io_grpc_grpc_java",
+    strip_prefix = "grpc-java-1.60.2",
+    urls = ["https://github.com/grpc/grpc-java/archive/v1.60.2.tar.gz"],
+    sha256 = "4baf80f35488739d99515d71b8e72bd17a476c214a84106edc66b259fe8ac22c",
+)
+
+# http_archive(
+#     name = "com_google_protobuf",
+#     sha256 = "5a5d91be7a47b15cecebdc24188e5cfd0a2fc0af03ae93fa239e842c4a5128d0",
+#     strip_prefix = "protobuf-25.8",
+#     urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v25.8.tar.gz"],
+# )
 
 # http_archive(
 #     name = "go_googleapis",
