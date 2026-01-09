@@ -377,7 +377,6 @@ da_scala_library(
         "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_opentelemetry_opentelemetry_context",
-        "@maven//:io_spray_spray_json_2_13",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_apache_pekko_pekko_stream_2_13",
         "@maven//:org_scalaz_scalaz_core_2_13",
@@ -576,7 +575,6 @@ scala_library(
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:io_scalaland_chimney_2_13",
         "@maven//:io_scalaland_chimney_macro_commons_2_13",
-        "@maven//:io_spray_spray_json_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_apache_pekko_pekko_stream_2_13",
@@ -802,7 +800,6 @@ scala_library(
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_scalaland_chimney_2_13",
         "@maven//:io_scalaland_chimney_macro_commons_2_13",
-        "@maven//:io_spray_spray_json_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_apache_pekko_pekko_stream_2_13",
@@ -2072,7 +2069,6 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:io_spray_spray_json",
     ],
     scalacopts = canton_scalacopts + [
         "-language:postfixOps",
@@ -2256,9 +2252,7 @@ da_scala_test_suite(
 da_scala_library(
     name = "logging-entries",
     srcs = glob(["base/logging-entries/src/main/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:io_spray_spray_json",
-    ],
+    scala_deps = [],
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     tags = ["maven_coordinates=com.daml:logging-entries:__VERSION__"],
     visibility = [
