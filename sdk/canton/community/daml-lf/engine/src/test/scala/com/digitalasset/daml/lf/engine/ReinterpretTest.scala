@@ -54,7 +54,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageVersion.Major)
   }
 
   private val (miniTestsPkgId, miniTestsPkg, allPackages) = loadPackage(
-    s"daml-lf/tests/ReinterpretTests-v${majorLanguageVersion.pretty}.dar"
+    s"canton/community/daml-lf/tests/ReinterpretTests-v${majorLanguageVersion.pretty}.dar"
   )
 
   private val defaultContracts: Map[ContractId, FatContractInstance] =

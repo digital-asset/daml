@@ -102,7 +102,7 @@ class DamlLfEncoderTest
       forEvery(versions) { (version, expectedModules) =>
         val dar =
           DarReader
-            .readArchiveFromFile(new File(rlocation(s"daml-lf/encoder/test-$version.dar")))
+            .readArchiveFromFile(new File(rlocation(s"canton/community/daml-lf/encoder/test-$version.dar")))
 
         dar shouldBe a[Right[_, _]]
 
@@ -154,7 +154,7 @@ class DamlLfEncoderTest
         val Right(dar) =
           DarDecoder
             .readArchiveFromFile(
-              new File(rlocation(s"daml-lf/encoder/test-${version.pretty}.dar"))
+              new File(rlocation(s"canton/community/daml-lf/encoder/test-${version.pretty}.dar"))
             )
         val (_, mainPkg) = dar.main
         val builtinInModule = mainPkg

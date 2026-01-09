@@ -2060,7 +2060,7 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
     val (exceptionsPkgId, exceptionsPkg, allExceptionsPkgs) =
       // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert
       //  to non-dev dar
-      loadAndAddPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}dev.dar")
+      loadAndAddPackage(s"canton/community/daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}dev.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:T")
     val let = Time.Timestamp.now()
@@ -2222,7 +2222,7 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
     val (exceptionsPkgId, exceptionsPkg, allExceptionsPkgs) =
       // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert
       //  to non-dev dar
-      loadAndAddPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}dev.dar")
+      loadAndAddPackage(s"canton/community/daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}dev.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val seedId = Identifier(exceptionsPkgId, "Exceptions:NodeSeeds")
     val let = Time.Timestamp.now()
@@ -2312,7 +2312,7 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
     val (exceptionsPkgId, exceptionsPkg, allExceptionsPkgs) =
       // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert
       //  to non-dev dar
-      loadAndAddPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}dev.dar")
+      loadAndAddPackage(s"canton/community/daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}dev.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:GlobalLookups")
     val let = Time.Timestamp.now()
@@ -2429,7 +2429,7 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
     val devVersion = LanguageVersion.devLfVersion
     val (_, _, allPackagesDev) =
       new EngineTestHelpers(majorLanguageVersion, contractIdVersion).loadAndAddPackage(
-        s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
+        s"canton/community/daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
       )
     val compatibleLanguageVersions = LanguageVersion.allLfVersions
     // Following stable packages are deps of other stable packages, so we sort such that these are preloaded first
@@ -3058,7 +3058,7 @@ class EngineTestHelpers(
   val (basicTestsPkgId, basicTestsPkg, allPackages) = loadAndAddPackage(
     // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert to
     //  non-dev dar
-    s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
+    s"canton/community/daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
   )
 
   val basicTestsSignatures: PackageInterface =

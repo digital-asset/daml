@@ -39,7 +39,7 @@ class ReplayBenchmarkTest(contractIdVersion: ContractIdVersion) extends AnyWordS
   val alice = Ref.Party.assertFromString("Alice")
   val submissionSeed = crypto.Hash.hashPrivateKey("replay snapshot test")
   val (pkgId, darFile) = getMainPkgIdAndDarPath(
-    s"daml-lf/snapshot/ReplayBenchmark.dar"
+    s"canton/community/daml-lf/snapshot/ReplayBenchmark.dar"
   )
 
   "Generating a snapshot" should {

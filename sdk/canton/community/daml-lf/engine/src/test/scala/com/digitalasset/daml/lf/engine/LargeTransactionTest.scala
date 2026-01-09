@@ -111,7 +111,7 @@ class LargeTransactionTest(
   }
 
   private[this] val (largeTxId, largeTxPkg, allPackages) = loadPackage(
-    s"daml-lf/engine/LargeTransaction-v${majorLanguageVersion.pretty}.dar"
+    s"canton/community/daml-lf/engine/LargeTransaction-v${majorLanguageVersion.pretty}.dar"
   )
   private[this] val largeTx = (largeTxId, largeTxPkg)
 

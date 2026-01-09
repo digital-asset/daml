@@ -1507,7 +1507,7 @@ class DecodeV2Spec
   "decodeModuleRef" should {
 
     lazy val Right(ArchivePayload.Lf2(pkgId, pkgProto, minorVersion, _)) =
-      ArchiveReader.fromFile(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
+      ArchiveReader.fromFile(Paths.get(rlocation("canton/community/daml-lf/archive/DarReaderTest.dalf")))
 
     lazy val extId = {
       val dalf1 = pkgProto

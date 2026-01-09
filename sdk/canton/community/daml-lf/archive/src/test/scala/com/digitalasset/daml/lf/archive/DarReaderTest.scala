@@ -28,14 +28,14 @@ class DarReaderTest
   }
 
   "should reject a zip bomb with the proper error" in {
-    val darFile = resource("daml-lf/archive/DarReaderTest.dar")
+    val darFile = resource("canton/community/daml-lf/archive/DarReaderTest.dar")
     DarReader
       .readArchiveFromFile(darFile, entrySizeThreshold = 1024) shouldBe Left(Error.ZipBomb)
   }
 
   s"should read LF1 dar file, main archive: DarReaderTest returned first" in {
     assume(System.getProperty("hasLegacyDamlc").toLowerCase() != "false")
-    val darFile = resource("daml-lf/archive/DarReaderTest-v115.dar")
+    val darFile = resource("canton/community/daml-lf/archive/DarReaderTest-v115.dar")
     val Right(dar) = DarReader.readArchiveFromFile(darFile)
 
     forAll(dar.all) {
@@ -111,7 +111,7 @@ class DarReaderTest
   }
 
   s"should read LF2 dar file, main archive: DarReaderTest returned first" in {
-    val darFile = resource("daml-lf/archive/DarReaderTest.dar")
+    val darFile = resource("canton/community/daml-lf/archive/DarReaderTest.dar")
     val Right(dar) = DarReader.readArchiveFromFile(darFile)
 
     forAll(dar.all) {
@@ -202,7 +202,7 @@ class DarReaderTest
 
   val extraData = protobuf.ByteString.fromHex("0123456789abcdef")
 
-  val darFile = resource("daml-lf/archive/DarReaderTest.dar")
+  val darFile = resource("canton/community/daml-lf/archive/DarReaderTest.dar")
   val Right(dar) = DarParser.readArchiveFromFile(darFile)
   val archive: DamlLf.Archive = dar.main
 

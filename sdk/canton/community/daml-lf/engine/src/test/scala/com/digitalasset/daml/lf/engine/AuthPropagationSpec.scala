@@ -66,7 +66,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageVersion.Major)
   }
 
   private val (pkgId, pkg, allPackages) = loadPackage(
-    s"daml-lf/engine/AuthTests-v${majorLanguageVersion.pretty}.dar"
+    s"canton/community/daml-lf/engine/AuthTests-v${majorLanguageVersion.pretty}.dar"
   )
 
   implicit private def toIdentifier(s: String): Identifier =

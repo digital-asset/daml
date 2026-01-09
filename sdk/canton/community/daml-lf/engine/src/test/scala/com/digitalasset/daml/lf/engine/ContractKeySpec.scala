@@ -85,7 +85,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageVersion.Major)
   }
 
   private val (basicTestsPkgId, basicTestsPkg, allPackages) = loadAndAddPackage(
-    s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
+    s"canton/community/daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
   )
 
   val basicTestsSignatures = language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
@@ -294,7 +294,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageVersion.Major)
         )
       )
       val (multiKeysPkgId, multiKeysPkg, allMultiKeysPkgs) =
-        loadAndAddPackage(s"daml-lf/tests/MultiKeys-v${majorLanguageVersion.pretty}dev.dar")
+        loadAndAddPackage(s"canton/community/daml-lf/tests/MultiKeys-v${majorLanguageVersion.pretty}dev.dar")
       val keyedId = Identifier(multiKeysPkgId, "MultiKeys:Keyed")
       val opsId = Identifier(multiKeysPkgId, "MultiKeys:KeyOperations")
       val let = Time.Timestamp.now()

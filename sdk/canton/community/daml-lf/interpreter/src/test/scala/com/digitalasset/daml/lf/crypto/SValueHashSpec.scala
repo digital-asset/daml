@@ -298,13 +298,13 @@ class SValueHashSpec
     )
   }
 
-  /** Loads the contents of a bazel resource under daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/crypto
+  /** Loads the contents of a bazel resource under canton/community/daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/crypto
     * into a [[String]].
     */
   private def readGoldenFile(fileName: String): String =
     Using(
       Source.fromFile(
-        rlocation("daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/crypto/" + fileName),
+        rlocation("canton/community/daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/crypto/" + fileName),
         "UTF-8",
       )
     )(_.getLines().mkString(System.lineSeparator()))

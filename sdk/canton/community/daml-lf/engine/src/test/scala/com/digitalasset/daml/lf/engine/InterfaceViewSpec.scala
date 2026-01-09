@@ -55,7 +55,7 @@ class InterfaceViewSpec(majorLanguageVersion: LanguageVersion.Major)
   }
 
   private val (interfaceviewsPkgId, _, allPackages) = loadPackage(
-    s"daml-lf/tests/InterfaceViews-v${majorLanguageVersion.pretty}.dar"
+    s"canton/community/daml-lf/tests/InterfaceViews-v${majorLanguageVersion.pretty}.dar"
   )
 
   val engine = Engine.DevEngine

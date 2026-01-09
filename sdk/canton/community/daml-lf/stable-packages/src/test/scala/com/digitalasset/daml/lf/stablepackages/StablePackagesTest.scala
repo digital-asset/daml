@@ -35,7 +35,7 @@ class StablePackageTest(majorLanguageVersion: LanguageVersion.Major)
 
     // We rely on the fact a dar generated with target x.dev contains all the stable packages
     lazy val darFile =
-      resource(rlocation(s"daml-lf/stable-packages/Simple-v${majorLanguageVersion.pretty}dev.dar"))
+      resource(rlocation(s"canton/community/daml-lf/stable-packages/Simple-v${majorLanguageVersion.pretty}dev.dar"))
     lazy val depPkgs = DarDecoder.assertReadArchiveFromFile(darFile).dependencies.toMap
 
     // This should be all stable packages + `daml-prim` + `daml-stdlib`

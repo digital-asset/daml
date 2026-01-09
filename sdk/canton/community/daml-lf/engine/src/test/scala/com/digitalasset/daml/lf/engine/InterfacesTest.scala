@@ -64,7 +64,7 @@ class InterfacesTest(majorLanguageVersion: LanguageVersion.Major)
   "interfaces" should {
 
     val (interfacesPkgId, interfacesPkg, allInterfacesPkgs) =
-      loadAndAddPackage(s"daml-lf/tests/Interfaces-v${majorLanguageVersion.pretty}.dar")
+      loadAndAddPackage(s"canton/community/daml-lf/tests/Interfaces-v${majorLanguageVersion.pretty}.dar")
 
     val packageNameMap = Map(interfacesPkg.pkgName -> interfacesPkgId)
 

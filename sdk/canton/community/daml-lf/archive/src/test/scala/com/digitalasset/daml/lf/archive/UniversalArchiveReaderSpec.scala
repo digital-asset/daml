@@ -12,9 +12,9 @@ import org.scalatest.flatspec.AnyFlatSpec
 
 class UniversalArchiveReaderSpec extends AnyFlatSpec with Matchers with TryValues {
 
-  private val darFile = new File(rlocation("daml-lf/archive/DarReaderTest.dar"))
+  private val darFile = new File(rlocation("canton/community/daml-lf/archive/DarReaderTest.dar"))
 
-  private val dalfFile = new File(rlocation("daml-lf/archive/DarReaderTest.dalf"))
+  private val dalfFile = new File(rlocation("canton/community/daml-lf/archive/DarReaderTest.dalf"))
 
   behavior of UniversalArchiveReader.toString
 

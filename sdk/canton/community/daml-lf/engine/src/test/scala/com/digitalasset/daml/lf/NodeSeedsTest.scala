@@ -30,7 +30,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageVersion.Major) extends AnyWord
         BazelRunfiles.rlocation(
           // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and
           //  revert to non-dev dar
-          s"daml-lf/engine/Demonstrator-v${majorLanguageVersion.pretty}dev.dar"
+          s"canton/community/daml-lf/engine/Demonstrator-v${majorLanguageVersion.pretty}dev.dar"
         )
       )
     )
