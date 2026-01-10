@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.resource
@@ -26,9 +26,10 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureUnlessShutdownUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import slick.jdbc.JdbcBackend.Database
+import slick.jdbc.SimpleJdbcAction
 import slick.util.{AsyncExecutor, AsyncExecutorWithMetrics, QueryCostTrackerImpl}
 
-import java.sql.SQLTransientConnectionException
+import java.sql.{Connection, SQLTransientConnectionException}
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.ExecutionContext
@@ -205,6 +206,16 @@ final class DbStorageMulti private (
 
   def setSessionCloseContext(sessionContext: Option[CloseContext]): Unit =
     sessionCloseContext.set(sessionContext)
+
+  override def runJdbcWrite[T](
+      traceContext: TraceContext,
+      body: Connection => T,
+  ): FutureUnlessShutdown[T] =
+    runIfSessionIsOpen("writing", "runGenericJdbcWrite", 0)(
+      FutureUnlessShutdown.outcomeF(
+        writeDb.run(SimpleJdbcAction(c => body(c.connection)))
+      )
+    )(traceContext, closeContext)
 }
 
 object DbStorageMulti {

@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -509,7 +509,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
     for (event <- exercisedEvents) {
       assertEquals(
         "Exercised event of Dummy template ID",
-        event.templateId.get,
+        event.templateId.value,
         Dummy.TEMPLATE_ID_WITH_PACKAGE_ID.toV1,
       )
     }
@@ -530,7 +530,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
     val createdEvent1 = createdEvents(0)
     assertEquals(
       "Create event 1 template ID",
-      createdEvent1.templateId.get,
+      createdEvent1.templateId.value,
       T5.TEMPLATE_ID_WITH_PACKAGE_ID.toV1,
     )
     assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1).discard
@@ -550,7 +550,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
     val createdEvent2 = createdEvents(1)
     assertEquals(
       "Create event 2 template ID",
-      createdEvent2.templateId.get,
+      createdEvent2.templateId.value,
       T6.TEMPLATE_ID_WITH_PACKAGE_ID.toV1,
     )
     assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2)
@@ -571,7 +571,7 @@ class TransactionServiceFiltersIT extends LedgerTestSuite {
     val createdEvent3 = createdEvents(2)
     assertEquals(
       "Create event 3 template ID",
-      createdEvent3.templateId.get.toString,
+      createdEvent3.templateId.value.toString,
       T3.TEMPLATE_ID_WITH_PACKAGE_ID.toV1.toString,
     )
     assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3)

@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
 
@@ -239,7 +239,8 @@ final class LedgerTestCasesRunner(
     sessions
       .flatMap { (sessions: Vector[ParticipantSession]) =>
         // All the participants should support the same features (for testing at least)
-        val ledgerFeatures = sessions.head.features
+        val ledgerFeatures =
+          sessions.headOption.getOrElse(sys.error("No participant sessions")).features
         val (disabledTestCases, enabledTestCases) =
           testCases.partitionMap(testCase =>
             testCase
@@ -277,9 +278,10 @@ final class LedgerTestCasesRunner(
             )(materializer, executionContext)
           } yield concurrentTestResults ++ sequentialTestResults ++ excludedTestResults
 
-        testResults.recover {
-          case NonFatal(e) if !e.isInstanceOf[Errors.FrameworkException] =>
-            throw new LedgerTestCasesRunner.UncaughtExceptionError(e)
+        testResults.recoverWith {
+          case NonFatal(e: Errors.FrameworkException) => Future.failed(e)
+          case NonFatal(other) =>
+            Future.failed(new LedgerTestCasesRunner.UncaughtExceptionError(other))
         }
       }
   }

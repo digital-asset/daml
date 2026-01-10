@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites
 
@@ -14,7 +14,7 @@ import scala.concurrent.duration.DurationInt
 class EventuallySpec extends AsyncWordSpec with Matchers {
 
   "eventually" should {
-    "enhance the exception message with the assertion name" in {
+    "enhance the throwable message with the assertion name" in {
       recoverToExceptionIf[TooManyAttemptsException] {
         eventually(assertionName = "test", attempts = 1, firstWaitTime = 0.millis) {
           Future.failed(new RuntimeException())

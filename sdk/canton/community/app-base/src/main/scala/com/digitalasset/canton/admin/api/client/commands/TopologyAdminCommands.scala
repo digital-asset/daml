@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.commands
@@ -660,16 +660,15 @@ object TopologyAdminCommands {
     }
 
     final case class LogicalUpgradeState(
-        observer: StreamObserver[LogicalUpgradeStateResponse]
+        store: Option[TopologyStoreId],
+        observer: StreamObserver[LogicalUpgradeStateResponse],
     ) extends BaseCommand[
           v30.LogicalUpgradeStateRequest,
           CancellableContext,
           CancellableContext,
         ] {
       override protected def createRequest(): Either[String, v30.LogicalUpgradeStateRequest] =
-        Right(
-          v30.LogicalUpgradeStateRequest()
-        )
+        Right(v30.LogicalUpgradeStateRequest(store.map(_.toProtoV30)))
 
       override protected def submitRequest(
           service: TopologyManagerReadServiceStub,

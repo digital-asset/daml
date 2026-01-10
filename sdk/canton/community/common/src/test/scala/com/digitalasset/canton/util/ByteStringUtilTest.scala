@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -68,17 +68,25 @@ trait GzipCompressionTests extends AnyWordSpec with BaseTest {
   "decompress fails for bad inputs" in {
     val tests = Table[String, String, String](
       ("name", "compressed-hex", "error message"),
-      ("bad prefix", "1f8a08000000000000004b4ca41a0000a0ec9d324b000000", "Not in GZIP format"),
+      (
+        "bad prefix",
+        "1f8a08000000000000004b4ca41a0000a0ec9d324b000000",
+        "Input is not in the .gz format.",
+      ),
       (
         "bad compression method",
         "1f8b05000000000000004b4ca41a0000a0ec9d324b000000",
         "Unsupported compression method",
       ),
-      ("bad flags", "1f8a08080000000000004b4ca41a0000a0ec9d324b000000", "Not in GZIP format"),
+      (
+        "bad flags",
+        "1f8a08080000000000004b4ca41a0000a0ec9d324b000000",
+        "Input is not in the .gz format.",
+      ),
       (
         "bad block length",
         "1f8b080000000000000002000000000000000000",
-        "invalid stored block lengths",
+        "Gzip-compressed data is corrupt.",
       ),
       (
         "truncated",

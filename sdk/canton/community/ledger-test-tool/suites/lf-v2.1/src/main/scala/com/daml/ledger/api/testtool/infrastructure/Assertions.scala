@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
 
@@ -10,6 +10,7 @@ import com.google.rpc.ErrorInfo
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
 import munit.{Assertions as MUnit, ComparisonFailException}
+import org.scalatest.{LoneElement, OptionValues}
 
 import java.util.regex.Pattern
 import scala.annotation.tailrec
@@ -18,7 +19,7 @@ import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 import scala.util.Try
 
-object Assertions {
+object Assertions extends OptionValues with LoneElement {
   def fail(message: String): Nothing =
     throw new AssertionError(message)
 
@@ -26,7 +27,7 @@ object Assertions {
     throw new AssertionError(message, cause)
 
   def verifyLength[A, F[_] <: Seq[?]](context: String, length: Int, as: F[A]): Unit =
-    assert(as.length == length, s"$context: expected $length item(s), got ${as.length}, $as")
+    assert(as.sizeIs == length, s"$context: expected $length item(s), got ${as.length}, $as")
 
   def assertLength[A, F[_] <: Seq[?]](context: String, length: Int, as: F[A]): F[A] = {
     verifyLength(context, length, as)
@@ -34,7 +35,7 @@ object Assertions {
   }
 
   def assertSingleton[A](context: String, as: Seq[A]): A =
-    assertLength(context, 1, as).head
+    assertLength(context, 1, as).loneElement
 
   def assertEquals[T](context: String, actual: T, expected: T): Unit =
     try {
@@ -74,6 +75,8 @@ object Assertions {
       s"Actual |${actual.mkString(", ")}| should have the same elements as (expected): |${expected
           .mkString(", ")}|${Option(context).filter(_.nonEmpty).map(nonEmptyContext => s"Context: $nonEmptyContext").getOrElse("")}",
     )
+
+  def assertIsEmpty(actual: Option[?]): Unit = assertIsEmpty(actual.toList)
 
   def assertIsEmpty(actual: Iterable[?]): Unit =
     assertSameElements(actual, Seq.empty)
@@ -218,7 +221,7 @@ object Assertions {
 
   def assertDefined[T](option: Option[T], errorMessage: String): T = {
     assert(option.isDefined, errorMessage)
-    option.get
+    option.value
   }
 
   /** Allows for assertions with more information in the error messages. */

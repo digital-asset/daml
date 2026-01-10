@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -27,10 +27,8 @@ class BestFittingBatcher[ItemsT <: Sized](maxBatchSize: PositiveInt) {
 
   private type BatchT = NonEmpty[Vector[ItemsT]]
 
-  private val stateRef =
-    new AtomicReference(
-      Option.empty[BatchT] -> SortedMap.empty[CapacityLeft, NonEmpty[Vector[BatchT]]]
-    )
+  private val stateRef: AtomicReference[SortedMap[CapacityLeft, NonEmpty[Vector[BatchT]]]] =
+    new AtomicReference(SortedMap.empty[CapacityLeft, NonEmpty[Vector[BatchT]]])
 
   /** Inserts a set of items together into the fullest batch that can contain them.
     *
@@ -44,7 +42,7 @@ class BestFittingBatcher[ItemsT <: Sized](maxBatchSize: PositiveInt) {
     if (items.sizeIs > maxBatchSize.value) {
       false
     } else {
-      stateRef.updateAndGet { case (extracted, batches) =>
+      stateRef.updateAndGet { batches =>
         batches.iteratorFrom(items.size.value).nextOption() match {
 
           case Some((capacityLeft, batchesWithCapacityLeft)) =>
@@ -52,26 +50,18 @@ class BestFittingBatcher[ItemsT <: Sized](maxBatchSize: PositiveInt) {
               pollHead(batches, capacityLeft, batchesWithCapacityLeft)
             val updatedBatch = head :+ items
             val newCapacityLeft = capacityLeft - items.size.value
-            val updatedBatchesWithNewCapacityLeft =
-              updatedBatchesWithUpdatedCapacityLeft.updatedWith(newCapacityLeft) {
-                case Some(existingBatches) =>
-                  Some(existingBatches :+ updatedBatch)
-                case None =>
-                  Some(NonEmpty(Vector, updatedBatch))
-              }
-            (extracted, updatedBatchesWithNewCapacityLeft)
+            updatedBatchesWithUpdatedCapacityLeft.updatedWith(newCapacityLeft) {
+              case Some(existingBatches) => Some(existingBatches :+ updatedBatch)
+              case None => Some(NonEmpty(Vector, updatedBatch))
+            }
 
           case None =>
             val newBatch = NonEmpty(Vector, items)
             val newCapacityLeft = maxBatchSize.value - items.size.value
-            val updatedBatches =
-              batches.updatedWith(newCapacityLeft) {
-                case Some(existingBatches) =>
-                  Some(existingBatches :+ newBatch)
-                case None =>
-                  Some(NonEmpty(Vector, newBatch))
-              }
-            (extracted, updatedBatches)
+            batches.updatedWith(newCapacityLeft) {
+              case Some(existingBatches) => Some(existingBatches :+ newBatch)
+              case None => Some(NonEmpty(Vector, newBatch))
+            }
         }
       }.discard
       true
@@ -80,13 +70,13 @@ class BestFittingBatcher[ItemsT <: Sized](maxBatchSize: PositiveInt) {
   /** Extracts the fullest pending batch, if any.
     */
   def poll(): Option[BatchT] =
-    stateRef.updateAndGet { case (extracted, batches) =>
-      batches.headOption
-        .fold(Option.empty[BatchT] -> batches) { case (capacityLeft, fullestBatches) =>
+    AtomicUtil.updateAndGetComputed(stateRef) { batches =>
+      batches.headOption.fold(batches -> Option.empty[BatchT]) {
+        case (capacityLeft, fullestBatches) =>
           val (head, newBatches) = pollHead(batches, capacityLeft, fullestBatches)
-          Some(head) -> newBatches
-        }
-    }._1
+          newBatches -> Some(head)
+      }
+    }
 
   private def pollHead(
       batches: SortedMap[CapacityLeft, NonEmpty[Vector[BatchT]]],

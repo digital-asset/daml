@@ -1,8 +1,9 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
+import cats.implicits.{catsStdInstancesForFuture, toFunctorOps}
 import com.daml.ledger.api.testtool.infrastructure.Allocation.*
 import com.daml.ledger.api.testtool.infrastructure.Assertions.*
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEvents
@@ -107,7 +108,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         dummyTxs <- ownerParticipant.transactions(
           txReq
         )
-        dummyCreate = createdEvents(dummyTxs(0)).head
+        dummyCreate = createdEvents(dummyTxs(0)).headOption.value
         dummyDisclosedContract = createEventToDisclosedContract(dummyCreate)
 
         // Ensure participants are synchronized
@@ -185,7 +186,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
               transactions <- ledger1
                 .transactionsByTemplateId(Dummy.TEMPLATE_ID, Some(Seq(party1)))
-              create = createdEvents(transactions(0)).head
+              create = createdEvents(transactions(0)).headOption.value
               disclosedContract = createEventToDisclosedContract(create)
 
               // Submit concurrently two consuming exercise choices (with and without disclosed contract)
@@ -460,7 +461,8 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
               .update(_.commands.synchronizerId.set(synchronizer1))
           )
           .map(
-            _.getTransaction.events.head.getCreated.contractId.pipe(new Delegation.ContractId(_))
+            _.getTransaction.events.headOption.value.getCreated.contractId
+              .pipe(new Delegation.ContractId(_))
           )
 
         delegatedCid <- ownerParticipant
@@ -473,13 +475,14 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
               .update(_.commands.synchronizerId := synchronizer1)
           )
           .map(
-            _.getTransaction.events.head.getCreated.contractId.pipe(new Delegated.ContractId(_))
+            _.getTransaction.events.headOption.value.getCreated.contractId
+              .pipe(new Delegated.ContractId(_))
           )
 
         // Get the contract payload from the transaction stream of the owner
         txReq <- ownerParticipant.getTransactionsRequest(formatByPartyAndTemplate(owner))
         delegatedTx <- ownerParticipant.transactions(txReq)
-        createDelegatedEvent = createdEvents(delegatedTx.head).head
+        createDelegatedEvent = createdEvents(delegatedTx.headOption.value).headOption.value
 
         // Copy the actual Delegated contract to a disclosed contract (which can be shared out of band).
         disclosedContract = createEventToDisclosedContract(createDelegatedEvent)
@@ -549,15 +552,15 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
       assertError: Throwable => Unit
   ): Unit =
     (result1.isFailure, result2.isFailure) match {
-      case (true, false) => assertError(result1.failed.get)
-      case (false, true) => assertError(result2.failed.get)
+      case (true, false) => assertError(result1.failure.exception)
+      case (false, true) => assertError(result2.failure.exception)
       case (true, true) => fail("Exactly one request should have failed, but both failed")
       case (false, false) => fail("Exactly one request should have failed, but both succeeded")
     }
 }
 
 object ExplicitDisclosureIT {
-  case class TestContext(
+  final case class TestContext(
       ownerParticipant: ParticipantTestContext,
       delegateParticipant: ParticipantTestContext,
       owner: Party,
@@ -573,17 +576,21 @@ object ExplicitDisclosureIT {
       * disclosure contracts. This choice fetches the Delegation contract which is only visible to
       * the owner.
       */
-    def exerciseFetchDelegated(disclosedContracts: DisclosedContract*): Future[Unit] = {
+    def exerciseFetchDelegated(
+        disclosedContracts: DisclosedContract*
+    )(implicit executionContext: ExecutionContext): Future[Unit] = {
       val request = delegateParticipant
         .submitAndWaitRequest(
           delegate,
           delegationCid.exerciseFetchDelegated(delegatedCid).commands,
         )
         .update(_.commands.disclosedContracts := disclosedContracts)
-      delegateParticipant.submitAndWait(request).map(_ => ())(ExecutionContext.parasitic)
+      delegateParticipant.submitAndWait(request).void
     }
 
-    def dummyCreate(disclosedContracts: DisclosedContract*): Future[Unit] = {
+    def dummyCreate(
+        disclosedContracts: DisclosedContract*
+    )(implicit executionContext: ExecutionContext): Future[Unit] = {
       val request = delegateParticipant
         .submitAndWaitRequest(
           delegate,
@@ -595,7 +602,7 @@ object ExplicitDisclosureIT {
           ),
         )
         .update(_.commands.disclosedContracts := disclosedContracts)
-      delegateParticipant.submitAndWait(request).map(_ => ())(ExecutionContext.parasitic)
+      delegateParticipant.submitAndWait(request).void
     }
 
   }
@@ -624,7 +631,7 @@ object ExplicitDisclosureIT {
       // Get the contract payload from the transaction stream of the owner
       txReq <- ownerParticipant.getTransactionsRequest(transactionFormat)
       delegatedTx <- ownerParticipant.transactions(txReq)
-      createDelegatedEvent = createdEvents(delegatedTx.head).head
+      createDelegatedEvent = createdEvents(delegatedTx.headOption.value).headOption.value
 
       // Copy the actual Delegated contract to a disclosed contract (which can be shared out of band).
       disclosedContract = createEventToDisclosedContract(createDelegatedEvent)
@@ -697,7 +704,8 @@ object ExplicitDisclosureIT {
             )
         )
         .map(
-          _.getTransaction.events.head.getCreated.contractId.pipe(new Delegation.ContractId(_))
+          _.getTransaction.events.headOption.value.getCreated.contractId
+            .pipe(new Delegation.ContractId(_))
         )
 
       (delegatedCid, delegatedCreateUpdateId) <- ownerParticipant
@@ -710,7 +718,7 @@ object ExplicitDisclosureIT {
             .update(_.commands.synchronizerId := targetSynchronizer)
         )
         .map(resp =>
-          resp.getTransaction.events.head.getCreated.contractId
+          resp.getTransaction.events.headOption.value.getCreated.contractId
             .pipe(new Delegated.ContractId(_)) -> resp.getTransaction.updateId
         )
 
@@ -719,7 +727,7 @@ object ExplicitDisclosureIT {
       delegatedTx <- ownerParticipant
         .transactions(txReq)
         .map(_.filter(_.updateId == delegatedCreateUpdateId))
-      createDelegatedEvent = createdEvents(delegatedTx.head).head
+      createDelegatedEvent = createdEvents(delegatedTx.headOption.value).headOption.value
 
       // Copy the actual Delegated contract to a disclosed contract (which can be shared out of band).
       disclosedContract = createEventToDisclosedContract(createDelegatedEvent)

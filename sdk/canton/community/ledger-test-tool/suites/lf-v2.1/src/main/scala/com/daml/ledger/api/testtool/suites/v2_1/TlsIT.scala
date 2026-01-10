@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -97,12 +97,12 @@ abstract class TlsIT(
       { case _ =>
         // preconditions
         assume(testContexts.nonEmpty, "Missing an expected participant test context!")
-        val firstTextContext = testContexts.head
+        val firstTextContext = testContexts.headOption.value
         assume(
           clientTlsConfiguration.isDefined,
           "Missing required TLS configuration!",
         )
-        val tlsConfiguration = clientTlsConfiguration.get
+        val tlsConfiguration = clientTlsConfiguration.value
         val Endpoint.Remote(ledgerHostname, ledgerPort) =
           firstTextContext.ledgerEndpoint
             .getOrElse(
@@ -126,7 +126,9 @@ abstract class TlsIT(
 
         // when
         val response: Future[String] = serviceStubOwner.use { versionService =>
-          val response = versionService.getLedgerApiVersion(new GetLedgerApiVersionRequest())
+          @SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
+          val response =
+            versionService.getLedgerApiVersion(new GetLedgerApiVersionRequest())
           Future.successful(response.version)
         }(ResourceContext(ec))
 

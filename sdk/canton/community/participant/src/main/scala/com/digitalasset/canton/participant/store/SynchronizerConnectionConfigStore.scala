@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -176,7 +176,7 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
   ): Either[Error, Unit] =
     (configuredPSId.toOption, synchronizerPredecessor)
       .mapN((_, _))
-      .map { case (psid, SynchronizerPredecessor(predecessorPSId, _)) =>
+      .map { case (psid, SynchronizerPredecessor(predecessorPSId, _, _)) =>
         Either.cond(
           psid.logical == predecessorPSId.logical,
           (),

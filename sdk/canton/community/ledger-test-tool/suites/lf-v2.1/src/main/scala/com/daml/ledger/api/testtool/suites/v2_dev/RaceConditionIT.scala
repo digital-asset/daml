@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_dev
 
@@ -106,7 +106,7 @@ final class RaceConditionIT extends LedgerTestSuite {
       import RaceConditionIT.TransactionUtil.*
 
       assert(
-        isCreateNonTransient(transactions.head),
+        isCreateNonTransient(transactions.headOption.value),
         "The first transaction is expected to be a contract creation",
       )
       assert(
@@ -115,17 +115,20 @@ final class RaceConditionIT extends LedgerTestSuite {
       )
 
       val (_, valid) =
-        transactions.filterNot(isCreateDummyContract).tail.foldLeft((transactions.head, true)) {
-          case ((previousTx, isValidSoFar), currentTx) =>
-            if (isValidSoFar) {
-              val valid = (isArchival(previousTx) && isCreateNonTransient(
-                currentTx
-              )) || (isCreateNonTransient(previousTx) && isArchival(currentTx))
-              (currentTx, valid)
-            } else {
-              (previousTx, isValidSoFar)
-            }
-        }
+        transactions
+          .filterNot(isCreateDummyContract)
+          .drop(1)
+          .foldLeft((transactions.headOption.value, true)) {
+            case ((previousTx, isValidSoFar), currentTx) =>
+              if (isValidSoFar) {
+                val valid = (isArchival(previousTx) && isCreateNonTransient(
+                  currentTx
+                )) || (isCreateNonTransient(previousTx) && isArchival(currentTx))
+                (currentTx, valid)
+              } else {
+                (previousTx, isValidSoFar)
+              }
+          }
 
       if (!valid)
         fail(
@@ -275,7 +278,7 @@ object RaceConditionIT {
 
     private implicit class TransactionTestOps(tx: Transaction) {
       def hasEventsNumber(expectedNumberOfEvents: Int): Boolean =
-        tx.events.size == expectedNumberOfEvents
+        tx.events.sizeIs == expectedNumberOfEvents
 
       def containsEvent(condition: Event => Boolean): Boolean =
         tx.events.toList.exists(condition)

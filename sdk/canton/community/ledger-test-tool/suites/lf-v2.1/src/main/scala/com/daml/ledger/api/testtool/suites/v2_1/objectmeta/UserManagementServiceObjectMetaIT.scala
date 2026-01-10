@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1.objectmeta
 
@@ -98,7 +98,7 @@ class UserManagementServiceObjectMetaIT extends UserManagementServiceITBase with
   )(implicit ec: ExecutionContext, ledger: ParticipantTestContext): Future[Map[String, String]] =
     ledger.userManagement
       .getUser(GetUserRequest(userId = id, identityProviderId = ""))
-      .map(_.user.get.getMetadata.annotations)
+      .map(_.user.value.getMetadata.annotations)
 
   override private[objectmeta] def update(
       id: ResourceId,

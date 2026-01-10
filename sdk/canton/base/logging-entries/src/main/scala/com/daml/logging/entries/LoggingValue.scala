@@ -1,9 +1,7 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.logging.entries
-
-import spray.json.JsValue
 
 import scala.language.implicitConversions
 
@@ -35,8 +33,6 @@ object LoggingValue {
   object Nested {
     def fromEntries(entries: LoggingEntry*): Nested = Nested(LoggingEntries(entries*))
   }
-
-  final case class OfJson(json: JsValue) extends LoggingValue
 
   @inline
   implicit def from[T](value: T)(implicit toLoggingValue: ToLoggingValue[T]): LoggingValue =

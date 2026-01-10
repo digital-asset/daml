@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -168,7 +168,7 @@ final class InteractiveSubmissionServiceIT extends LedgerTestSuite with CommandS
               hash = response.preparedTransactionHash
             } yield {
               assert(
-                tx.get.metadata.get.synchronizerId == synchronizerId,
+                tx.value.metadata.value.synchronizerId == synchronizerId,
                 "Unexpected synchronizer ID.",
               )
             }
@@ -199,7 +199,7 @@ final class InteractiveSubmissionServiceIT extends LedgerTestSuite with CommandS
       response <- ledger.prepareSubmission(prepareRequest)
       tx = response.preparedTransaction
     } yield {
-      val minLet = tx.get.metadata.get.minLedgerEffectiveTime
+      val minLet = tx.value.metadata.value.minLedgerEffectiveTime
       val expected = LfTimestamp.assertFromInstant(time).micros
       assert(
         minLet.contains(expected),
@@ -225,7 +225,7 @@ final class InteractiveSubmissionServiceIT extends LedgerTestSuite with CommandS
       transactions <- ledger.transactions(LedgerEffects, externalParty)
     } yield {
       val transaction = assertSingleton("expected one transaction", transactions)
-      val event = transaction.events.head.event
+      val event = transaction.events.headOption.value.event
       assert(event.isCreated)
       assert(transaction.externalTransactionHash.contains(prepareResponse.preparedTransactionHash))
     }
@@ -254,7 +254,7 @@ final class InteractiveSubmissionServiceIT extends LedgerTestSuite with CommandS
         response.completionOffset == retrievedTransaction.offset,
         "ExecuteAndWait does not contain the expected completion offset",
       )
-      val event = retrievedTransaction.events.head.event
+      val event = retrievedTransaction.events.headOption.value.event
       assert(event.isCreated, "Expected created event")
       assert(
         retrievedTransaction.externalTransactionHash.contains(
@@ -372,8 +372,8 @@ final class InteractiveSubmissionServiceIT extends LedgerTestSuite with CommandS
         _ <- ledger.firstCompletions(stranger)
         transactions <- ledger.transactions(LedgerEffects, stranger)
       } yield {
-        val transaction = transactions.head
-        val event = transaction.events.head.event
+        val transaction = transactions.headOption.value
+        val event = transaction.events.headOption.value.event
         assert(event.isExercised)
         assert(
           transaction.externalTransactionHash.contains(prepareResponse.preparedTransactionHash)
@@ -499,7 +499,7 @@ final class InteractiveSubmissionServiceIT extends LedgerTestSuite with CommandS
         DummyFactory.ContractId
           .fromContractId(
             new com.daml.ledger.javaapi.data.codegen.ContractId(
-              transaction.events.head.getCreated.contractId
+              transaction.events.headOption.value.getCreated.contractId
             )
           )
           .exerciseDummyFactoryCall()
@@ -940,7 +940,7 @@ final class InteractiveSubmissionServiceIT extends LedgerTestSuite with CommandS
         } yield {
           DummyFlexibleController.ContractId.fromContractId(
             new com.daml.ledger.javaapi.data.codegen.ContractId(
-              transactions.head.events.head.getCreated.contractId
+              transactions.headOption.value.events.headOption.value.getCreated.contractId
             )
           )
         }

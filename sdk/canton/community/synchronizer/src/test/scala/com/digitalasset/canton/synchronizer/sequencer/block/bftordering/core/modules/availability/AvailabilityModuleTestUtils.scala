@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability
@@ -315,10 +315,10 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
   protected val AMissingBatchStatusFromStateTransferWithNoAttemptsLeft =
     AMissingBatchStatusNode1And2AcksWithNoAttemptsLeft
       .copy(mode = OrderedBlockForOutput.Mode.FromStateTransfer)
-  protected val AToBeProvidedToConsensus =
-    ToBeProvidedToConsensus(
+  protected val ANextToBeProvidedToConsensus =
+    NextToBeProvidedToConsensus(
       BlockNumber.First,
-      BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
+      Some(BftBlockOrdererConfig.DefaultMaxBatchesPerProposal),
     )
   protected val Node0To6 = (0 to 6).map(node).toSet
   protected val OrderingTopologyNodes0To6 = OrderingTopology.forTesting(Node0To6)

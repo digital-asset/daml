@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.topology
@@ -1557,7 +1557,7 @@ trait TopologyManagementIntegrationTest
       val announcementMapping = synchronizerOwners1
         .map { owner =>
           owner.topology.synchronizer_upgrade.announcement.propose(
-            PhysicalSynchronizerId(daId, testedProtocolVersion, serial = NonNegativeInt.two),
+            PhysicalSynchronizerId(daId, NonNegativeInt.two, testedProtocolVersion),
             upgradeTime,
           )
         }
@@ -1577,7 +1577,7 @@ trait TopologyManagementIntegrationTest
       }
       synchronizerOwners1.foreach(
         _.topology.synchronizer_upgrade.announcement.revoke(
-          PhysicalSynchronizerId(daId, testedProtocolVersion, serial = NonNegativeInt.two),
+          PhysicalSynchronizerId(daId, NonNegativeInt.two, testedProtocolVersion),
           upgradeTime,
         )
       )

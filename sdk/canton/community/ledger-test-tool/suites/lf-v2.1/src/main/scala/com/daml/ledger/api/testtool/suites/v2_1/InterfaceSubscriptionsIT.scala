@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -245,7 +245,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String) extends LedgerTestSu
     assertLength("Create event 1 has a view", 1, createdEvent1.interfaceViews).discard
     assertEquals(
       "Create event 1 template ID",
-      createdEvent1.templateId.get.toString,
+      createdEvent1.templateId.value.toString,
       T1.TEMPLATE_ID_WITH_PACKAGE_ID.toV1.toString,
     )
     assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1)
@@ -276,7 +276,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String) extends LedgerTestSu
     assertLength("Create event 2 has a view", 1, createdEvent2.interfaceViews).discard
     assertEquals(
       "Create event 2 template ID",
-      createdEvent2.templateId.get.toString,
+      createdEvent2.templateId.value.toString,
       T2.TEMPLATE_ID_WITH_PACKAGE_ID.toV1.toString,
     )
     assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2)
@@ -299,7 +299,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String) extends LedgerTestSu
     assertLength("Create event 3 has a view", 1, createdEvent3.interfaceViews).discard
     assertEquals(
       "Create event 3 template ID",
-      createdEvent3.templateId.get.toString,
+      createdEvent3.templateId.value.toString,
       T3.TEMPLATE_ID_WITH_PACKAGE_ID.toV1.toString,
     )
     assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3)
@@ -354,7 +354,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String) extends LedgerTestSu
       _ <- ledger.exercise(party1, c.exerciseArchive())
     } yield {
       assertLength("single transaction found", 1, mergedTransactions).discard
-      val createdEvent1 = createdEvents(mergedTransactions(0)).head
+      val createdEvent1 = createdEvents(mergedTransactions(0)).headOption.value
       assertEquals("Create event 1 contract ID", createdEvent1.contractId, c.contractId)
       assertViewEquals(createdEvent1.interfaceViews, I.TEMPLATE_ID_WITH_PACKAGE_ID.toV1) { value =>
         assertLength("View1 has 2 fields", 2, value.fields).discard
@@ -367,7 +367,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String) extends LedgerTestSu
       }
 
       assertLength("single transaction found", 1, party1Transactions).discard
-      val createdEvent2 = createdEvents(party1Transactions(0)).head
+      val createdEvent2 = createdEvents(party1Transactions(0)).headOption.value
       assertEquals("Create event 1 contract ID", createdEvent2.contractId, c.contractId)
       assertLength("single view found", 1, createdEvent2.interfaceViews).discard
       assertViewEquals(createdEvent2.interfaceViews, I.TEMPLATE_ID_WITH_PACKAGE_ID.toV1) { value =>
@@ -397,8 +397,8 @@ abstract class InterfaceSubscriptionsITBase(prefix: String) extends LedgerTestSu
       transactions <- transactions(txReq)
     } yield {
       assertLength("Two transactions found", 2, transactions).discard
-      val createdEvent = createdEvents(transactions(0)).head
-      val archivedEvent = archivedEvents(transactions(1)).head
+      val createdEvent = createdEvents(transactions(0)).headOption.value
+      val archivedEvent = archivedEvents(transactions(1)).headOption.value
       assertEquals("Create event with correct contract ID", createdEvent.contractId, c.contractId)
       assertViewEquals(createdEvent.interfaceViews, I.TEMPLATE_ID_WITH_PACKAGE_ID.toV1) { value =>
         assertLength("View1 has 2 fields", 2, value.fields).discard
@@ -470,9 +470,9 @@ abstract class InterfaceSubscriptionsITBase(prefix: String) extends LedgerTestSu
       // archive to avoid interference with subsequent tests
       _ <- archive(ledger, party)(c1, c2, c3, c4)
     } yield {
-      val createdEvent1 = createdEvents(transactions(0)).head
+      val createdEvent1 = createdEvents(transactions(0)).headOption.value
       assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.contractId)
-      val createdEvent2 = createdEvents(transactions(1)).head
+      val createdEvent2 = createdEvents(transactions(1)).headOption.value
       assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.contractId)
       // Expect view to be delivered even though there is an ambiguous
       // includeInterfaceView flag set to true and false at the same time (true wins)
@@ -485,7 +485,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String) extends LedgerTestSu
           s"Expected a view with no labels (verbose = false)",
         )
       }
-      val createdEvent3 = createdEvents(transactions(2)).head
+      val createdEvent3 = createdEvents(transactions(2)).headOption.value
       assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3.contractId)
     }
   })
@@ -512,14 +512,14 @@ abstract class InterfaceSubscriptionsITBase(prefix: String) extends LedgerTestSu
       // archive to avoid interference with subsequent tests
       _ <- archive(ledger, party)(c1, c2, c3, c4)
     } yield {
-      val createdEvent1 = createdEvents(transactions(0)).head
+      val createdEvent1 = createdEvents(transactions(0)).headOption.value
       assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.contractId)
       assertEquals(
         "Create event 1 createArguments must NOT be empty",
         createdEvent1.createArguments.isEmpty,
         false,
       )
-      val createdEvent2 = createdEvents(transactions(1)).head
+      val createdEvent2 = createdEvents(transactions(1)).headOption.value
       assertEquals("Create event 2 contract ID", createdEvent2.contractId, c2.contractId)
       // Expect view to be delivered even though there is an ambiguous
       // includeInterfaceView flag set to true and false at the same time.
@@ -528,7 +528,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String) extends LedgerTestSu
         assertEquals("View2.a", value.fields(0).getValue.getInt64, 2)
         assertEquals("View2.b", value.fields(1).getValue.getBool, false)
       }
-      val createdEvent3 = createdEvents(transactions(2)).head
+      val createdEvent3 = createdEvents(transactions(2)).headOption.value
       assertEquals("Create event 3 contract ID", createdEvent3.contractId, c3.contractId)
     }
   })
@@ -564,10 +564,10 @@ abstract class InterfaceSubscriptionsITBase(prefix: String) extends LedgerTestSu
       assertEquals("All 3 create arguments must be delivered", 3, createArgumentsCount)
 
       // T1
-      val createdEvent1 = createdEvents(transactions(0)).head
+      val createdEvent1 = createdEvents(transactions(0)).headOption.value
       assertEquals(
         "Create event 1 template ID",
-        createdEvent1.templateId.get.toString,
+        createdEvent1.templateId.value.toString,
         T1.TEMPLATE_ID_WITH_PACKAGE_ID.toV1.toString,
       )
       assertEquals("Create event 1 contract ID", createdEvent1.contractId, c1.contractId)
@@ -833,11 +833,11 @@ abstract class InterfaceSubscriptionsITBase(prefix: String) extends LedgerTestSu
       viewValue: Long,
   ): Unit = {
     assertLength("transaction should be found", 1, transactions).discard
-    val createdEvent = createdEvents(transactions(0)).head
+    val createdEvent = createdEvents(transactions(0)).headOption.value
     assertLength("Create event has a view", 1, createdEvent.interfaceViews).discard
     assertEquals(
       "Create event template ID",
-      createdEvent.templateId.get.toString,
+      createdEvent.templateId.value.toString,
       contractIdentifier.toString,
     )
     assertEquals("Create event contract ID", createdEvent.contractId, contractId)

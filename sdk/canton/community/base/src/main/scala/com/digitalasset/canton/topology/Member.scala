@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -228,8 +228,8 @@ object SynchronizerId {
 
 final case class PhysicalSynchronizerId(
     logical: SynchronizerId,
-    protocolVersion: ProtocolVersion,
     serial: NonNegativeInt,
+    protocolVersion: ProtocolVersion,
 ) extends Synchronizer {
   def suffix: String = s"$protocolVersion${PhysicalSynchronizerId.secondaryDelimiter}$serial"
   def uid: UniqueIdentifier = logical.uid
@@ -258,13 +258,13 @@ object PhysicalSynchronizerId {
   ): PhysicalSynchronizerId =
     PhysicalSynchronizerId(
       synchronizerId,
-      staticSynchronizerParameters.protocolVersion,
       staticSynchronizerParameters.serial,
+      staticSynchronizerParameters.protocolVersion,
     )
 
   implicit val physicalSynchronizerIdOrdering: Ordering[PhysicalSynchronizerId] =
     Ordering.by(psid =>
-      (psid.logical.toLengthLimitedString.unwrap, psid.protocolVersion, psid.serial)
+      (psid.logical.toLengthLimitedString.unwrap, psid.serial, psid.protocolVersion)
     )
 
   def fromString(raw: String): Either[String, PhysicalSynchronizerId] = {
@@ -286,7 +286,7 @@ object PhysicalSynchronizerId {
           s"Cannot parse ${suffixComponents(1)} to an int"
         )
         serial <- NonNegativeInt.create(serialInt).leftMap(_.message)
-      } yield PhysicalSynchronizerId(lsid, pv, serial)
+      } yield PhysicalSynchronizerId(lsid, serial, pv)
     } else
       Left(s"Unable to parse `$raw` as physical synchronizer id")
   }
