@@ -461,7 +461,7 @@ da_scala_test(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
     ],
-) if is_linux_intel else None
+) #if is_linux_intel else None
 
 da_scala_test(
     name = "utility-package-test",

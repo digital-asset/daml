@@ -204,10 +204,11 @@ abstract class UpgradesMatrixIntegration(upgradesMatrixCases: UpgradesMatrixCase
     else
       for {
         _ <- scriptClient.unvetPackages(packages)
-        _ <- scriptClient.waitUntilUnvettingVisible(packages, scriptClient.getParticipantUid)
+        participantUid <- scriptClient.getParticipantUid()
+        _ <- scriptClient.waitUntilUnvettingVisible(packages, participantUid)
         result <- action
         _ <- scriptClient.vetPackages(packages)
-        _ <- scriptClient.waitUntilVettingVisible(packages, scriptClient.getParticipantUid)
+        _ <- scriptClient.waitUntilVettingVisible(packages, participantUid)
       } yield result
   }
 
