@@ -579,7 +579,7 @@ class DecodeV1Spec
       lazy val ArchivePayload.Lf1(pkgId, dalfProto, minorVersion) =
         DarReader
           .assertReadArchiveFromFile(
-            Paths.get(rlocation("daml-lf/archive/DarReaderTest-v115.dar")).toFile
+            Paths.get(rlocation("canton/community/daml-lf/archive/DarReaderTest-v115.dar")).toFile
           )
           .main
 
