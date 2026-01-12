@@ -13,7 +13,11 @@ import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.engine.ScriptEngine.{defaultCompilerConfig, newTraceLog, newWarningLog}
+import com.digitalasset.daml.lf.engine.ScriptEngine.{
+  defaultCompilerConfig,
+  newTraceLog,
+  newWarningLog,
+}
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.GrpcLedgerClient
 import com.digitalasset.daml.lf.value.Value
 import com.google.protobuf.ByteString
@@ -53,6 +57,14 @@ class UpgradesIT(
 
   val testFileDir: Path = rlocation(Paths.get(testFilesDirPath))
   val testCases: Seq[TestCase] = UpgradeTestUtil.getTestCases(languageVersion, testFileDir)
+
+  override protected val cantonFixtureDebugMode: CantonFixtureDebugMode =
+    CantonFixtureDebugKeepTmpFiles
+
+  private def traverseSequential[A, B](elems: Seq[A])(f: A => Future[B]): Future[Seq[B]] =
+    elems.foldLeft(Future.successful(Seq.empty[B])) { case (comp, elem) =>
+      comp.flatMap { elems => f(elem).map(elems :+ _) }
+    }
 
   // Maybe provide our own tracer that doesn't tag, it makes the logs very long
   "Multi-participant Daml Script Upgrades" should {
@@ -99,28 +111,31 @@ class UpgradesIT(
           ledgerClient = new GrpcLedgerClient(
             client,
             None,
-            PureCompiledPackages.Empty(defaultCompilerConfig), // FIXME: likely source of protobuf issues - unable to encode/decode as pkg not compiled?
+            PureCompiledPackages.Empty(defaultCompilerConfig),
           )
-          defaultParticipantId = "participant0"
-          _ <- Future.traverse(deps.reverse) { dep =>
-            Thread.sleep(500)
-            println(
-              s"Uploading ${dep.versionedName} (${dep.mainPackageId}) to default participant $defaultParticipantId"
-            )
+          defaultParticipantUid <- ledgerClient.getParticipantUid()
+          scriptClients <- scriptClients()
+          _ <- traverseSequential(scriptClients.participants.toSeq) { case (participant, client) =>
+            Future.traverse(deps.reverse) { dep =>
+              Thread.sleep(500)
+              println(
+                s"Uploading ${dep.versionedName} (${dep.mainPackageId}) to participant ${participant.participant}"
+              )
 
-            client.packageManagementClient.uploadDarFile(ByteString.readFrom(new FileInputStream(dep.path.toFile)))
+              client.grpcClient.packageManagementClient
+                .uploadDarFile(ByteString.readFrom(new FileInputStream(dep.path.toFile)))
+            }
           }
 
           // Vet dars
-          pkgs = deps.map(dep =>
-            ScriptLedgerClient.ReadablePackageId.assertFromString(dep.versionedName)
-          ).toList
+          pkgs = deps
+            .map(dep => ScriptLedgerClient.ReadablePackageId.assertFromString(dep.versionedName))
+            .toList
           _ <- ledgerClient.vetPackages(pkgs)
-          _ <- ledgerClient.waitUntilVettingVisible(pkgs, defaultParticipantId)
+          _ <- ledgerClient.waitUntilVettingVisible(pkgs, defaultParticipantUid)
           _ = println("All packages vetted on all participants")
 
           // Run tests
-          scriptClients <- scriptClients()
           testDar = CompiledDar.read(testDarPath, defaultCompilerConfig)
           _ <- run(
             scriptClients,

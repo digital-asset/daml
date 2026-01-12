@@ -111,10 +111,15 @@ object ScriptLedgerClient {
     def assertFromString(versionedName: String): ReadablePackageId =
       versionedName match {
         case versionedNamePattern(pkgName, pkgVersion) =>
-          ReadablePackageId(name = PackageName.assertFromString(pkgName), version = PackageVersion.assertFromString(pkgVersion))
+          ReadablePackageId(
+            name = PackageName.assertFromString(pkgName),
+            version = PackageVersion.assertFromString(pkgVersion),
+          )
 
         case _ =>
-          throw new IllegalArgumentException(s"""versioned name "$versionedName" does not match regex "$versionedNamePattern"""")
+          throw new IllegalArgumentException(
+            s"""versioned name "$versionedName" does not match regex "$versionedNamePattern""""
+          )
       }
   }
 }
@@ -305,4 +310,6 @@ trait ScriptLedgerClient {
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]]
+
+  def getParticipantUid()(implicit ec: ExecutionContext): Future[String]
 }

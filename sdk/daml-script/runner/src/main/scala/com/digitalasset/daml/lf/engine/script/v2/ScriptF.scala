@@ -858,9 +858,9 @@ object ScriptF {
       for {
         client <- Converter.toFuture(env.clients.getParticipant(participant))
         _ <- client.vetPackages(packages)
-        participantId = participant.map(_.participant).getOrElse("") // FIXME:
+        participantUid <- client.getParticipantUid()
         _ <- Future.traverse(env.clients.participants.values)(
-          _.waitUntilVettingVisible(packages, participantId)
+          _.waitUntilVettingVisible(packages, participantUid)
         )
       } yield ValueUnit
   }
@@ -877,9 +877,9 @@ object ScriptF {
       for {
         client <- Converter.toFuture(env.clients.getParticipant(participant))
         _ <- client.unvetPackages(packages)
-        participantId = participant.map(_.participant).getOrElse("") // FIXME:
+        participantUid <- client.getParticipantUid()
         _ <- Future.traverse(env.clients.participants.values)(
-          _.waitUntilUnvettingVisible(packages, participantId)
+          _.waitUntilUnvettingVisible(packages, participantUid)
         )
       } yield ValueUnit
   }

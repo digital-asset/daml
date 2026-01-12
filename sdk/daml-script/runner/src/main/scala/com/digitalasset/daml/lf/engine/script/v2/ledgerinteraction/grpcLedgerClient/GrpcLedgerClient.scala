@@ -7,7 +7,6 @@ package grpcLedgerClient
 
 import java.time.Instant
 import java.util.UUID
-
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
@@ -18,8 +17,8 @@ import com.daml.ledger.api.v2.admin.package_management_service.{
 }
 import com.daml.ledger.api.v2.admin.package_management_service.VettedPackagesChange.{
   Operation,
-  Vet,
   Unvet,
+  Vet,
 }
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands._
@@ -850,4 +849,7 @@ class GrpcLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
+
+  override def getParticipantUid()(implicit ec: ExecutionContext): Future[String] =
+    grpcClient.partyManagementClient.getParticipantId().map(_.asInstanceOf[String])
 }

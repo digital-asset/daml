@@ -20,10 +20,10 @@ import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
+  ExtendedValueComputationMode,
   TraceLog,
   WarningLog,
   runExtendedValueComputation,
-  ExtendedValueComputationMode,
 }
 import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
@@ -1083,4 +1083,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
     Future.successful(getPackageIdMap().keys.toList)
+
+  override def getParticipantUid()(implicit ec: ExecutionContext): Future[String] =
+    Future.successful("")
 }
