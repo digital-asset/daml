@@ -657,7 +657,7 @@ tests damlc =
           , "  - daml-prim"
           , "  - daml-stdlib"
           , "build-options:"
-          , "  - --target=" <> LF.renderVersion lfVersion
+          , "  - --target=" <> LF.renderVersionWithPatch lfVersion
           ]
             ++ ["  - --typecheck-upgrades=no" | not doTypecheck]
             ++ ["  - -Wupgrade-interfaces" | warnBadInterfaceInstances ]

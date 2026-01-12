@@ -21,10 +21,13 @@ import           GHC.Generics
 import qualified DA.Daml.LF.Ast.Range as R
 import           DA.Pretty
 
+type Patch = Int
+
 -- | Daml-LF version of an archive payload.
-data Version = Version
+data Version = VersionP
     { versionMajor :: MajorVersion
     , versionMinor :: MinorVersion
+    , patch        :: Patch
     }
     deriving (Eq, Data, Generic, NFData, Show, Ord, Aeson.FromJSON, Aeson.ToJSON)
 
@@ -81,16 +84,28 @@ renderMinorVersion = \case
   PointStaging minor -> show minor
   PointDev -> "dev"
 
-renderVersion :: Version -> String
-renderVersion (Version major minor) =
+renderPatch :: Patch -> String
+renderPatch = show
+
+renderVersionWithPatch :: Version -> String
+renderVersionWithPatch (VersionP major minor patch) =
+    renderMajorVersion major <> "." <> renderMinorVersion minor <> "." <> renderPatch patch
+
+--TODO: convert usages of toBeDecidedRenderVersion to renderVersion
+--wherever we can, or (back to) renderTodoVersion everywhere else
+renderVersionWithoutPatch :: Version -> String
+renderVersionWithoutPatch (VersionP major minor _) =
     renderMajorVersion major <> "." <> renderMinorVersion minor
+
+renderTodoVersion :: Version -> String
+renderTodoVersion = renderVersionWithoutPatch
 
 -- | A datatype describing a set of language versions. Used in the definition of
 -- 'Feature' below.
 type VersionReq = R.Range Version
 
 instance Pretty Version where
-  pPrint = string . renderVersion
+  pPrint = string . renderTodoVersion
 
 data Feature = Feature
     { featureName :: !T.Text

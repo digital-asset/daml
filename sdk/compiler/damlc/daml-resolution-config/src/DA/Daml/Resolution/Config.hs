@@ -56,7 +56,7 @@ instance ToJSON DalfInfoCacheEntry where
   toJSON DalfInfoCacheEntry{..} = object
     [ "package_name" .= diPackageName
     , "package_version" .= diPackageVersion
-    , "lf_version" .= LF.renderVersion diLfVersion
+    , "lf_version" .= LF.renderTodoVersion diLfVersion
     , "timestamp" .= diTimestamp
     ]
 instance FromJSON DalfInfoCacheEntry where
@@ -174,8 +174,11 @@ findDarInDarInfos darInfos rawName lfVersion = do
   case availableVersions of
     [] -> do
       let allPackageNames = T.intercalate "," . nubOrd $ LF.unPackageName . diPackageName <$> Map.elems darInfos
+      let allPackageVersions = T.intercalate "," $ T.pack . show . diLfVersion <$> Map.elems darInfos
       Left $ "Package " <> rawName <> " could not be found, available packages are:\n"
         <> allPackageNames <> "\nIf your package is shown, it may not be compatible with your LF version."
+        <> "\nThis Lf version: " <> (T.pack . show) lfVersion
+        <> "\nAllPackageVersion: " <> (T.pack . show) allPackageVersions
     [_] ->
       -- Major LF versions aren't cross compatible, so all will be same major here due to canDependOn check above
       -- as such, we take maximum by minor version

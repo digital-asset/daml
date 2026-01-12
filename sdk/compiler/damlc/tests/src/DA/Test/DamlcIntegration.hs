@@ -122,7 +122,7 @@ withDamlScriptDep mLfVer = withDamlScriptDep' mLfVer []
 withDamlScriptDep' :: SdkVersioned => Maybe Version -> [(String, String, String)] -> (ScriptPackageData -> IO a) -> IO a
 withDamlScriptDep' mLfVer extraPackages =
   let
-    lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
+    lfVerStr = maybe "" (\lfVer -> "-" <> renderVersionWithPatch lfVer) mLfVer
     darPath = "daml-script" </> "daml" </> "daml-script" <> lfVerStr <> ".dar"
   in withVersionedDamlScriptDep ("daml-script-" <> sdkPackageVersion) darPath mLfVer extraPackages
 
@@ -130,8 +130,8 @@ withDamlScriptDep' mLfVer extraPackages =
 -- dar name, package name and package version
 externalPackages :: Version -> [(String, String, String)]
 externalPackages version =
-  [ ("package-vetting-package-a-" <> LF.renderVersion version, "package-vetting-package-a", "1.0.0")
-  , ("package-vetting-package-b-" <> LF.renderVersion version, "package-vetting-package-b", "1.0.0")
+  [ ("package-vetting-package-a-" <> LF.renderVersionWithPatch version, "package-vetting-package-a", "1.0.0")
+  , ("package-vetting-package-b-" <> LF.renderVersionWithPatch version, "package-vetting-package-b", "1.0.0")
   ]
 
 -- | Takes the bazel namespace, dar suffix (used for lf versions in v1) and lf version, installs relevant daml script and gives
@@ -439,13 +439,13 @@ damlFileTestTree version getService outdir registerTODO input
     diff ref new = [POSIX_DIFF, "-w", "--strip-trailing-cr", ref, new]
 
 containsVersion :: MS.Map LF.MajorVersion LF.MinorVersion -> LF.Version -> Bool
-containsVersion bounds (Version major minor) =
-  case major `MS.lookup` bounds of
+containsVersion bounds version =
+  case versionMajor version `MS.lookup` bounds of
     Nothing -> False
-    Just minorMinBound -> minor >= minorMinBound
+    Just minorMinBound -> versionMinor version >= minorMinBound
 
 extendsVersion :: MS.Map LF.MajorVersion LF.MinorVersion -> LF.Version -> Bool
-extendsVersion bounds (Version major minor) =
+extendsVersion bounds (VersionP major minor _) =
   case major `MS.lookup` bounds of
     Nothing -> False
     Just minorMinBound -> minor <= minorMinBound
@@ -594,7 +594,7 @@ parseMaybeVersions str = MS.fromList (pairUp sortedMajorVersions parsedMaybeVers
                 "expected a version with major version "
                     <> LF.renderMajorVersion major
                     <> ", got "
-                    <> LF.renderVersion version
+                    <> LF.renderVersionWithPatch version
         | otherwise = (major, versionMinor version) : pairUp majors versions
     pairUp majors@(_ : _) [] =
         error $

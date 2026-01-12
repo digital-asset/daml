@@ -1200,7 +1200,7 @@ tests Tools{damlc} = testGroup "Packaging" $
 -- | Test that a package build with --target=targetVersion never has a dependency on a package with version > targetVersion
 lfVersionTests :: SdkVersioned => FilePath -> TestTree
 lfVersionTests damlc = testGroup "LF version dependencies"
-    [ testCase ("Package in " <> LF.renderVersion version) $ withTempDir $ \projDir -> do
+    [ testCase ("Package in " <> LF.renderTodoVersion version) $ withTempDir $ \projDir -> do
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
               , "name: proj"
@@ -1210,7 +1210,7 @@ lfVersionTests damlc = testGroup "LF version dependencies"
               ]
           writeFileUTF8 (projDir </> "A.daml") $ unlines
               [ "module A where"]
-          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", projDir </> "proj.dar", "--target", LF.renderVersion version]
+          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", projDir </> "proj.dar", "--target", LF.renderTodoVersion version]
           archive <- Zip.toArchive <$> BSL.readFile (projDir </> "proj.dar")
           DalfManifest {mainDalfPath, dalfPaths} <- either fail pure $ readDalfManifest archive
           Dalfs main other <- either fail pure $ readDalfs archive

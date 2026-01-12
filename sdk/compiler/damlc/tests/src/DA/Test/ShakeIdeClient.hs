@@ -63,7 +63,7 @@ test lfVersion scriptLogger = do
 
 ideTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
 ideTests lfVersion mbGetScriptService getScriptPackageData =
-    Tasty.testGroup ("LF " <> LF.renderVersion lfVersion)
+    Tasty.testGroup ("LF " <> LF.renderVersionWithPatch lfVersion)
         [ -- Add categories of tests here
           basicTests lfVersion mbGetScriptService getScriptPackageData
         , minimalRebuildTests lfVersion mbGetScriptService

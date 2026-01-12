@@ -546,18 +546,18 @@ getUpgradedPackageErrs opts file mainPkg
         Just $
           ideErrorPretty file $ mconcat
             [ mainPackage <> " LF Version ("
-            , T.pack $ LF.renderVersion $ LF.packageLfVersion mainPkg
+            , T.pack $ LF.renderTodoVersion $ LF.packageLfVersion mainPkg
             , ") must have the same major LF version as " <> upgradedPackage <> " LF Version ("
-            , T.pack $ LF.renderVersion $ optDamlLfVersion opts
+            , T.pack $ LF.renderTodoVersion $ optDamlLfVersion opts
             , ")"
             ]
       else
         justIf (optDamlLfVersion opts `lfVersionMinorLt` LF.packageLfVersion mainPkg) $
           ideErrorPretty file $ mconcat
             [ mainPackage <> " LF Version ("
-            , T.pack $ LF.renderVersion $ optDamlLfVersion opts
+            , T.pack $ LF.renderTodoVersion $ optDamlLfVersion opts
             , ") cannot be lower than the " <> upgradedPackage <> " LF Version ("
-            , T.pack $ LF.renderVersion $ LF.packageLfVersion mainPkg
+            , T.pack $ LF.renderTodoVersion $ LF.packageLfVersion mainPkg
             , ")"
             ]
   , justIf (optMbPackageName opts /= Just (LF.packageName $ LF.packageMetadata mainPkg)) $

@@ -95,7 +95,7 @@ unpackDar miState darFile = do
         , "version: " <> T.unpack (LF.unPackageVersion $ LF.packageVersion $ LF.packageMetadata mainPkg)
         , "source: daml"
         , "build-options:"
-        , "  - --target=" <> LF.renderVersion (LF.packageLfVersion mainPkg)
+        , "  - --target=" <> LF.renderTodoVersion (LF.packageLfVersion mainPkg)
         , "dependencies:"
         ]
         <> fmap ("  - " <>) deps
