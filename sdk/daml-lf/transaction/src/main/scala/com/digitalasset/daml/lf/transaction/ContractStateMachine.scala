@@ -294,17 +294,13 @@ object ContractStateMachine {
         mbKey match {
           case None => Right(me)
           case Some(gk) =>
-            val conflict = lookupActiveKey(gk).exists(_ != KeyInactive)
-            val newKeyInputs =
-              if (globalKeyInputs.contains(gk)) globalKeyInputs
-              else globalKeyInputs.updated(gk, KeyCreate)
-            Either.cond(
-              !conflict || true,
+            Right(
               me.copy(
                 activeState = me.activeState.createKey(gk, contractId),
-                globalKeyInputs = newKeyInputs,
-              ),
-              CreateError.inject(DuplicateContractKey(gk)),
+                globalKeyInputs =
+                  if (globalKeyInputs.contains(gk)) globalKeyInputs
+                  else globalKeyInputs.updated(gk, KeyCreate),
+              )
             )
         }
       }
@@ -329,7 +325,7 @@ object ContractStateMachine {
       val state = witnessContractId(targetId)
       for {
         state <-
-          if (byKey || false)
+          if (byKey)
             state.assertKeyMapping(targetId, mbKey)
           else
             Right(state)
@@ -344,15 +340,10 @@ object ContractStateMachine {
     @VisibleForTesting
     private[transaction] override def handleLookup(
         lookup: Node.LookupByKey
-    ): Either[KeyInputError, State[Nid]] = {
-      // If the key has not yet been resolved, we use the resolution from the lookup node,
-      // but this only makes sense if `activeState.keys` is updated by every node and not only by by-key nodes.
-      if (true)
-        throw new UnsupportedOperationException(
-          "handleLookup can only be used if all key nodes are considered"
-        )
-      visitLookup(lookup.gkey, lookup.result, lookup.result).left.map(KeyInputError.inject)
-    }
+    ): Either[KeyInputError, State[Nid]] =
+      throw new UnsupportedOperationException(
+        "handleLookup can only be used if all key nodes are considered"
+      )
 
     /** Must be used to handle lookups iff in [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.Off]] mode
       * The second argument takes the contract key resolution to be given to the Daml interpreter instead of
@@ -368,13 +359,8 @@ object ContractStateMachine {
     private def handleLookupWith(
         lookup: Node.LookupByKey,
         keyInput: Option[ContractId],
-    ): Either[KeyInputError, State[Nid]] = {
-      if (false)
-        throw new UnsupportedOperationException(
-          "handleLookupWith can only be used if only by-key nodes are considered"
-        )
+    ): Either[KeyInputError, State[Nid]] =
       visitLookup(lookup.gkey, keyInput, lookup.result).left.map(KeyInputError.inject)
-    }
 
     override private[lf] def visitLookup(
         gk: GlobalKey,
@@ -440,7 +426,7 @@ object ContractStateMachine {
         byKey: Boolean,
     ): Either[InconsistentContractKey, State[Nid]] = {
       val state = witnessContractId(contractId)
-      if (byKey || false)
+      if (byKey)
         state.assertKeyMapping(contractId, mbKey)
       else
         Right(state)
@@ -508,10 +494,6 @@ object ContractStateMachine {
           case None =>
             substate.globalKeyInputs
               .find {
-                case (key, KeyCreate) =>
-                  lookupActiveKey(key).exists(
-                    _ != KeyInactive
-                  ) && false
                 case (key, NegativeKeyLookup) => lookupActiveKey(key).exists(_ != KeyInactive)
                 case (key, Transaction.KeyActive(cid)) =>
                   lookupActiveKey(key).exists(_ != KeyActive(cid))
@@ -533,33 +515,27 @@ object ContractStateMachine {
       } yield {
         val next = this.activeState.advance(substate.activeState)
         val globalKeyInputs =
-          if (false)
-            // In strict mode, `key`'s state is the same at `this` as at the beginning
-            // if `key` is not in `this.globalKeyInputs`.
-            // So just extend `this.globalKeyInputs` with the new stuff.
-            substate.globalKeyInputs ++ this.globalKeyInputs
-          else
-            substate.globalKeyInputs.foldLeft(this.globalKeyInputs) { case (acc, (key, keyInput)) =>
-              if (acc.contains(key)) acc
-              else {
-                val resolution = keyInput match {
-                  case KeyCreate =>
-                    // A create brought the contract key in scope without querying a resolver.
-                    // So the global key input for `key` does not depend on the resolver.
-                    KeyCreate
-                  case NegativeKeyLookup =>
-                    // A lookup-by-key brought the key in scope. Use the resolver's resolution instead
-                    // as the projected resolver's resolution might have been mapped to None.
-                    resolver(key) match {
-                      case None => keyInput
-                      case Some(cid) => Transaction.KeyActive(cid)
-                    }
-                  case active: Transaction.KeyActive =>
-                    active
-                }
-                acc.updated(key, resolution)
+          substate.globalKeyInputs.foldLeft(this.globalKeyInputs) { case (acc, (key, keyInput)) =>
+            if (acc.contains(key)) acc
+            else {
+              val resolution = keyInput match {
+                case KeyCreate =>
+                  // A create brought the contract key in scope without querying a resolver.
+                  // So the global key input for `key` does not depend on the resolver.
+                  KeyCreate
+                case NegativeKeyLookup =>
+                  // A lookup-by-key brought the key in scope. Use the resolver's resolution instead
+                  // as the projected resolver's resolution might have been mapped to None.
+                  resolver(key) match {
+                    case None => keyInput
+                    case Some(cid) => Transaction.KeyActive(cid)
+                  }
+                case active: Transaction.KeyActive =>
+                  active
               }
+              acc.updated(key, resolution)
             }
+          }
 
         this.copy(
           locallyCreated = this.locallyCreated.union(substate.locallyCreated),
@@ -694,7 +670,7 @@ object ContractStateMachine {
               if (globalKeyInputs.contains(gk)) globalKeyInputs
               else globalKeyInputs.updated(gk, KeyCreate)
             Either.cond(
-              !conflict || false,
+              !conflict,
               me.copy(
                 activeState = me.activeState.createKey(gk, contractId),
                 globalKeyInputs = newKeyInputs,
@@ -720,56 +696,22 @@ object ContractStateMachine {
         mbKey: Option[GlobalKey],
         byKey: Boolean,
         consuming: Boolean,
-    ): Either[InconsistentContractKey, State[Nid]] = {
-      val state = witnessContractId(targetId)
-      for {
-        state <-
-          if (byKey || true)
-            state.assertKeyMapping(targetId, mbKey)
-          else
-            Right(state)
-      } yield {
-        if (consuming) {
-          val consumedState = state.activeState.consume(targetId, nodeId)
-          state.copy(activeState = consumedState)
-        } else state
-      }
-    }
+    ): Either[InconsistentContractKey, State[Nid]] =
+      witnessContractId(targetId)
+        .assertKeyMapping(targetId, mbKey)
+        .map(state =>
+          if (consuming) {
+            state.copy(activeState = state.activeState.consume(targetId, nodeId))
+          } else {
+            state
+          }
+        )
 
     @VisibleForTesting
     private[transaction] override def handleLookup(
         lookup: Node.LookupByKey
-    ): Either[KeyInputError, State[Nid]] = {
-      // If the key has not yet been resolved, we use the resolution from the lookup node,
-      // but this only makes sense if `activeState.keys` is updated by every node and not only by by-key nodes.
-      if (false)
-        throw new UnsupportedOperationException(
-          "handleLookup can only be used if all key nodes are considered"
-        )
+    ): Either[KeyInputError, State[Nid]] =
       visitLookup(lookup.gkey, lookup.result, lookup.result).left.map(KeyInputError.inject)
-    }
-
-    /** Must be used to handle lookups iff in [[com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode.Off]] mode
-      * The second argument takes the contract key resolution to be given to the Daml interpreter instead of
-      * [[com.digitalasset.daml.lf.transaction.Node.LookupByKey.result]].
-      * This is because the iteration might currently be within a rollback scope
-      * that has already archived a contract with the key without a by-key operation
-      * (and for this reason the archival is not tracked in [[ContractStateMachine.ActiveLedgerState.keys]]),
-      * i.e., the lookup resolves to [[scala.None$]] but the correct key input is [[scala.Some$]] for some contract ID
-      * and this may matter after the rollback scope is left.
-      * Daml Engine will ask the ledger in that case to resolve the lookup and then perform an activeness check
-      * against the result potentially turning it into a negative lookup.
-      */
-    private def handleLookupWith(
-        lookup: Node.LookupByKey,
-        keyInput: Option[ContractId],
-    ): Either[KeyInputError, State[Nid]] = {
-      if (true)
-        throw new UnsupportedOperationException(
-          "handleLookupWith can only be used if only by-key nodes are considered"
-        )
-      visitLookup(lookup.gkey, keyInput, lookup.result).left.map(KeyInputError.inject)
-    }
 
     override private[lf] def visitLookup(
         gk: GlobalKey,
@@ -832,13 +774,8 @@ object ContractStateMachine {
         contractId: ContractId,
         mbKey: Option[GlobalKey],
         byKey: Boolean,
-    ): Either[InconsistentContractKey, State[Nid]] = {
-      val state = witnessContractId(contractId)
-      if (byKey || true)
-        state.assertKeyMapping(contractId, mbKey)
-      else
-        Right(state)
-    }
+    ): Either[InconsistentContractKey, State[Nid]] =
+      witnessContractId(contractId).assertKeyMapping(contractId, mbKey)
 
     private def witnessContractId(contractId: ContractId): UniqueContractKeyImpl[Nid] =
       if (locallyCreated.contains(contractId)) this
@@ -902,10 +839,7 @@ object ContractStateMachine {
           case None =>
             substate.globalKeyInputs
               .find {
-                case (key, KeyCreate) =>
-                  lookupActiveKey(key).exists(
-                    _ != KeyInactive
-                  ) && true
+                case (key, KeyCreate) => lookupActiveKey(key).exists(_ != KeyInactive)
                 case (key, NegativeKeyLookup) => lookupActiveKey(key).exists(_ != KeyInactive)
                 case (key, Transaction.KeyActive(cid)) =>
                   lookupActiveKey(key).exists(_ != KeyActive(cid))
@@ -927,33 +861,10 @@ object ContractStateMachine {
       } yield {
         val next = this.activeState.advance(substate.activeState)
         val globalKeyInputs =
-          if (true)
-            // In strict mode, `key`'s state is the same at `this` as at the beginning
-            // if `key` is not in `this.globalKeyInputs`.
-            // So just extend `this.globalKeyInputs` with the new stuff.
-            substate.globalKeyInputs ++ this.globalKeyInputs
-          else
-            substate.globalKeyInputs.foldLeft(this.globalKeyInputs) { case (acc, (key, keyInput)) =>
-              if (acc.contains(key)) acc
-              else {
-                val resolution = keyInput match {
-                  case KeyCreate =>
-                    // A create brought the contract key in scope without querying a resolver.
-                    // So the global key input for `key` does not depend on the resolver.
-                    KeyCreate
-                  case NegativeKeyLookup =>
-                    // A lookup-by-key brought the key in scope. Use the resolver's resolution instead
-                    // as the projected resolver's resolution might have been mapped to None.
-                    resolver(key) match {
-                      case None => keyInput
-                      case Some(cid) => Transaction.KeyActive(cid)
-                    }
-                  case active: Transaction.KeyActive =>
-                    active
-                }
-                acc.updated(key, resolution)
-              }
-            }
+          // In strict mode, `key`'s state is the same at `this` as at the beginning
+          // if `key` is not in `this.globalKeyInputs`.
+          // So just extend `this.globalKeyInputs` with the new stuff.
+          substate.globalKeyInputs ++ this.globalKeyInputs
 
         this.copy(
           locallyCreated = this.locallyCreated.union(substate.locallyCreated),
