@@ -58,9 +58,6 @@ class UpgradesIT(
   val testFileDir: Path = rlocation(Paths.get(testFilesDirPath))
   val testCases: Seq[TestCase] = UpgradeTestUtil.getTestCases(languageVersion, testFileDir)
 
-  override protected val cantonFixtureDebugMode: CantonFixtureDebugMode =
-    CantonFixtureDebugKeepTmpFiles
-
   private def traverseSequential[A, B](elems: Seq[A])(f: A => Future[B]): Future[Seq[B]] =
     elems.foldLeft(Future.successful(Seq.empty[B])) { case (comp, elem) =>
       comp.flatMap { elems => f(elem).map(elems :+ _) }

@@ -128,7 +128,6 @@ abstract class UpgradesMatrixIntegration(upgradesMatrixCases: UpgradesMatrixCase
         scriptClient = new GrpcLedgerClient(
           client,
           Some(Ref.UserId.assertFromString("upgrade-test-matrix")),
-          None,
           cases.compiledPackages,
         )
       } yield scriptClient,
