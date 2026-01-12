@@ -105,7 +105,7 @@ def _init_data():
             "name": "featureChoiceFuncs",
             "name_pretty": "choiceController and choiceObserver functions",
             "cpp_flag": "DAML_CHOICE_FUNCS",
-            # TODO: https://github.com/digital-asset/daml/issues/20786: complete implementing this feature
+            # TODO(#30144): https://github.com/digital-asset/daml/issues/20786: complete implementing this feature
             "version_req": {},
         },
         {
@@ -215,7 +215,7 @@ STAGING_LF_VERSION = _to_dotted_version(RAW_STAGING_LF_VERSION)
 # COMPILER_OUTPUT_VERSIONS we must eliminate COMPILER_VERSIONS
 COMPILER_LF_VERSIONS = ALL_LF_VERSIONS  #deprecated
 
-# TODO: When COMPILER_INPUT_VERSIONS <> COMPILER_OUTPUT_VERSIONS, eliminate
+# TODO(#30144): When COMPILER_INPUT_VERSIONS <> COMPILER_OUTPUT_VERSIONS, eliminate
 # COMPILER_VERSIONS
 COMPILER_INPUT_LF_VERSIONS = ALL_LF_VERSIONS
 COMPILER_OUTPUT_LF_VERSIONS = ALL_LF_VERSIONS

@@ -1,9 +1,7 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.logging.entries
-
-import spray.json.JsValue
 
 import java.time.{Duration, Instant}
 
@@ -14,8 +12,6 @@ trait ToLoggingValue[-T] {
 object ToLoggingValue {
   // This is not implicit because we only want to expose it for specific types.
   val ToStringToLoggingValue: ToLoggingValue[Any] = value => LoggingValue.OfString(value.toString)
-
-  implicit val `JsValue to LoggingValue`: ToLoggingValue[JsValue] = LoggingValue.OfJson(_)
 
   implicit val `String to LoggingValue`: ToLoggingValue[String] = LoggingValue.OfString(_)
 

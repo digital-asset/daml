@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -11,9 +11,11 @@ import com.daml.executors.executors.{
 }
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.entries.LoggingEntry
-import com.daml.metrics.DatabaseMetrics
 import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricName
+import com.daml.metrics.{DatabaseMetrics, Timed}
+import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.health.ComponentHealthState
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
@@ -25,10 +27,13 @@ import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
+  TracedLogger,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.platform.ResourceOwnerOps
 import com.digitalasset.canton.platform.config.ServerRole
+import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -40,23 +45,21 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 private[canton] trait DbDispatcher {
-  val executor: QueueAwareExecutor with NamedExecutor
+  val executor: Option[QueueAwareExecutor with NamedExecutor]
 
   /** consider using executeSqlUS if possible */
   def executeSql[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[T]
 
-  def executeSqlUS[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
-      loggingContext: LoggingContextWithTrace,
-      ec: ExecutionContext,
-  ): FutureUnlessShutdown[T]
-
+  def executeSqlUS[T](databaseMetrics: DatabaseMetrics)(
+      sql: Connection => T
+  )(implicit loggingContext: LoggingContextWithTrace): FutureUnlessShutdown[T]
 }
 
 private[dao] final class DbDispatcherImpl private[dao] (
     connectionProvider: JdbcConnectionProvider,
-    val executor: QueueAwareExecutionContextExecutorService,
+    executorService: QueueAwareExecutionContextExecutorService,
     overallWaitTimer: Timer,
     overallExecutionTimer: Timer,
     val loggerFactory: NamedLoggerFactory,
@@ -65,7 +68,7 @@ private[dao] final class DbDispatcherImpl private[dao] (
     with NamedLogging {
 
   private val executionContext = ExecutionContext.fromExecutor(
-    executor,
+    executorService,
     throwable =>
       logger.error("ExecutionContext has failed with an exception", throwable)(TraceContext.empty),
   )
@@ -83,60 +86,90 @@ private[dao] final class DbDispatcherImpl private[dao] (
   def executeSql[T](databaseMetrics: DatabaseMetrics)(
       sql: Connection => T
   )(implicit loggingContext: LoggingContextWithTrace): Future[T] =
-    withEnrichedLoggingContext(("metric" -> databaseMetrics.name): LoggingEntry) {
-      implicit loggingContext: LoggingContextWithTrace =>
-        val startWait = System.nanoTime()
+    DbDispatcher.withEnrichedLoggingContextAndStartWaitNanos(databaseMetrics) {
+      implicit loggingContext: LoggingContextWithTrace => startWait =>
         Future {
-          val waitNanos = System.nanoTime() - startWait
-          logger.trace(s"Waited ${(waitNanos / 1e6).toLong} ms to acquire connection.")
-          databaseMetrics.waitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
-          overallWaitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
-          val startExec = System.nanoTime()
-          try {
-            connectionProvider.runSQL(databaseMetrics)(sql)
-          } catch {
-            case throwable: Throwable => handleError(throwable)
-          } finally {
-            updateMetrics(databaseMetrics, startExec)
-          }
+          connectionProvider.runSQL(
+            DbDispatcher.executeSql(
+              databaseMetrics = databaseMetrics,
+              overallWaitTimer = overallWaitTimer,
+              overallExecutionTimer = overallExecutionTimer,
+              logger = logger,
+              startWaitNanos = startWait,
+            )(sql)
+          )
         }(executionContext)
+          .transform(identity, DbDispatcher.handleJdbcError(logger))(executionContext)
     }
 
-  def executeSqlUS[T](databaseMetrics: DatabaseMetrics)(sql: Connection => T)(implicit
-      loggingContext: LoggingContextWithTrace,
-      ec: ExecutionContext,
-  ): FutureUnlessShutdown[T] = FutureUnlessShutdown.outcomeF(executeSql(databaseMetrics)(sql))
+  def executeSqlUS[T](databaseMetrics: DatabaseMetrics)(
+      sql: Connection => T
+  )(implicit loggingContext: LoggingContextWithTrace): FutureUnlessShutdown[T] =
+    FutureUnlessShutdown.outcomeF(executeSql(databaseMetrics)(sql))(executionContext)
 
-  private def updateMetrics(databaseMetrics: DatabaseMetrics, startExec: Long)(implicit
-      traceContext: TraceContext
-  ): Unit =
-    try {
-      val execNanos = System.nanoTime() - startExec
-      logger.trace(s"Executed query in ${(execNanos / 1e6).toLong} ms")
-      databaseMetrics.executionTimer.update(execNanos, TimeUnit.NANOSECONDS)
-      overallExecutionTimer.update(execNanos, TimeUnit.NANOSECONDS)
-    } catch {
-      case NonFatal(e) =>
-        logger.info("Got an exception while updating timer metrics. Ignoring.", e)
+  override val executor: Option[QueueAwareExecutor with NamedExecutor] = Some(executorService)
+}
+
+private[dao] final class DbDispatcherOfStorage(
+    dbStorage: DbStorage,
+    overallWaitTimer: Timer,
+    overallExecutionTimer: Timer,
+    val loggerFactory: NamedLoggerFactory,
+) extends DbDispatcher
+    with ReportsHealth
+    with NamedLogging {
+  private implicit val directEc: ExecutionContext = DirectExecutionContext(logger)
+
+  override val executor: Option[QueueAwareExecutor with NamedExecutor] = None
+
+  /** consider using executeSqlUS if possible */
+  override def executeSql[T](databaseMetrics: DatabaseMetrics)(
+      sql: Connection => T
+  )(implicit loggingContext: LoggingContextWithTrace): Future[T] =
+    executeSqlUS(databaseMetrics)(sql)
+      .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
+
+  override def executeSqlUS[T](databaseMetrics: DatabaseMetrics)(
+      sql: Connection => T
+  )(implicit loggingContext: LoggingContextWithTrace): FutureUnlessShutdown[T] =
+    DbDispatcher.withEnrichedLoggingContextAndStartWaitNanos(databaseMetrics) {
+      implicit loggingContext: LoggingContextWithTrace => startWait =>
+        dbStorage
+          .runJdbcWrite(
+            loggingContext.traceContext,
+            DbDispatcher.executeSql(
+              databaseMetrics = databaseMetrics,
+              overallWaitTimer = overallWaitTimer,
+              overallExecutionTimer = overallExecutionTimer,
+              logger = logger,
+              startWaitNanos = startWait,
+            )(sql),
+          )
+          .transform(identity, DbDispatcher.handleJdbcError(logger))
     }
 
-  private def handleError(
-      throwable: Throwable
-  )(implicit loggingContext: LoggingContextWithTrace): Nothing = {
-    implicit val errorLoggingContext: ErrorLoggingContext =
-      ErrorLoggingContext(logger, loggingContext)
-
-    throwable match {
-      case NonFatal(e) => throw DatabaseSelfServiceError(e)
-      // fatal errors don't make it for some reason to the setUncaughtExceptionHandler
-      case t: Throwable =>
-        logger.error("Fatal error!", t)
-        throw t
-    }
+  /** Reports the current health of the object. This should always return immediately.
+    */
+  override def currentHealth(): HealthStatus = dbStorage.initialHealthState match {
+    case _: ComponentHealthState.Ok => HealthStatus.healthy
+    case _: ComponentHealthState.HasUnhealthyState => HealthStatus.unhealthy
   }
 }
 
 object DbDispatcher {
+
+  def ofDbStorage(
+      dbStorage: DbStorage,
+      overallWaitTimer: Timer,
+      overallExecutionTimer: Timer,
+      loggerFactory: NamedLoggerFactory,
+  ): DbDispatcher with ReportsHealth =
+    new DbDispatcherOfStorage(
+      dbStorage = dbStorage,
+      overallWaitTimer = overallWaitTimer,
+      overallExecutionTimer = overallExecutionTimer,
+      loggerFactory = loggerFactory,
+    )
 
   def owner(
       dataSource: DataSource,
@@ -165,9 +198,9 @@ object DbDispatcher {
         .afterReleased(log("DbDispatcher released", info = true))
       connectionProvider <- DataSourceConnectionProvider
         .owner(
-          hikariDataSource,
-          serverRole.threadPoolSuffix,
-          loggerFactory,
+          dataSource = hikariDataSource,
+          logMarker = serverRole.threadPoolSuffix,
+          loggerFactory = loggerFactory,
         )
         .afterReleased(log("DataSourceConnectionProvider released"))
       threadPoolName = MetricName(
@@ -196,10 +229,86 @@ object DbDispatcher {
         .afterReleased(log("ExecutorService released"))
     } yield new DbDispatcherImpl(
       connectionProvider = connectionProvider,
-      executor = executor,
+      executorService = executor,
       overallWaitTimer = metrics.index.db.waitAll,
       overallExecutionTimer = metrics.index.db.execAll,
       loggerFactory = loggerFactory,
     )
+  }
+
+  private[dao] def executeSql[T](
+      databaseMetrics: DatabaseMetrics,
+      overallWaitTimer: Timer,
+      overallExecutionTimer: Timer,
+      logger: TracedLogger,
+      startWaitNanos: Long,
+  )(sql: Connection => T)(implicit traceContext: TraceContext): Connection => T = { conn =>
+    val waitNanos = System.nanoTime() - startWaitNanos
+    logger.trace(s"Waited ${(waitNanos / 1e6).toLong} ms to acquire connection.")
+    databaseMetrics.waitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
+    overallWaitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
+    val startExecNanos = System.nanoTime()
+    conn.setAutoCommit(false)
+
+    def executeSqlInternal(): T =
+      try {
+        val res = Timed.value(
+          databaseMetrics.queryTimer,
+          sql(conn),
+        )
+        Timed.value(
+          databaseMetrics.commitTimer,
+          conn.commit(),
+        )
+        res
+      } catch {
+        case NonFatal(t) =>
+          // Log the error in the caller with access to more logging context (such as the sql statement description)
+          conn.rollback()
+          throw t
+      } finally {
+        conn.close()
+      }
+
+    def updateMetrics(): Unit =
+      try {
+        val execNanos = System.nanoTime() - startExecNanos
+        logger.trace(s"Executed query in ${(execNanos / 1e6).toLong} ms")
+        databaseMetrics.executionTimer.update(execNanos, TimeUnit.NANOSECONDS)
+        overallExecutionTimer.update(execNanos, TimeUnit.NANOSECONDS)
+      } catch {
+        case NonFatal(e) =>
+          logger.info("Got an exception while updating timer metrics. Ignoring.", e)
+      }
+
+    try {
+      executeSqlInternal()
+    } finally {
+      updateMetrics()
+    }
+  }
+
+  private[dao] def withEnrichedLoggingContextAndStartWaitNanos[T](
+      databaseMetrics: DatabaseMetrics
+  )(
+      block: LoggingContextWithTrace => Long => T
+  )(implicit loggingContextWithTrace: LoggingContextWithTrace): T =
+    withEnrichedLoggingContext(("metric" -> databaseMetrics.name): LoggingEntry) { loggingContext =>
+      val startWait = System.nanoTime()
+      block(loggingContext)(startWait)
+    }
+
+  private[dao] def handleJdbcError(logger: TracedLogger)(
+      throwable: Throwable
+  )(implicit loggingContext: LoggingContextWithTrace): Throwable = {
+    implicit val errorLoggingContext: ErrorLoggingContext =
+      ErrorLoggingContext(logger, loggingContext)
+    throwable match {
+      case NonFatal(e) => DatabaseSelfServiceError(e)
+      // fatal errors don't make it for some reason to the setUncaughtExceptionHandler
+      case t: Throwable =>
+        logger.error("Fatal error!", t)
+        t
+    }
   }
 }

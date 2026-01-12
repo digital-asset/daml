@@ -68,7 +68,7 @@ import com.digitalasset.daml.lf.language.LanguageVersion.Feature
 
 trait LanguageFeaturesGenerated extends LanguageVersionGenerated {
 
-  // TODO (FEATURE): Remove this hardcoded object once V1 features are also generated
+  // TODO(#30144): FEATURE: Remove this hardcoded object once V1 features are also generated
   object LegacyFeatures {
     val default = v1_6
     val internedPackageId = v1_6

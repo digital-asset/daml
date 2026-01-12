@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -94,7 +94,7 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
             .mkString(", ")}",
       )
       assert(
-        acsBefore.size == 1,
+        acsBefore.sizeIs == 1,
         "After the contract has been created there should be one active contract but there's none",
       )
       assert(

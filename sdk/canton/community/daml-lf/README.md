@@ -225,8 +225,8 @@ Scala house rules
 * Try to always define functions on user-provided data structures (of
     which we have a lot of in this codebase) to be tail recursive. The
     typical way to do this is by defining little "interpreters" to perform
-    your function. XXX put good example here once we have an established
-    pattern. In doubt, ask Francesco Mazzoli or Gyorgy Farkas about this.
+    your function. <!-- TODO(#30144) put good example here once we have an established
+    pattern. In doubt, ask Francesco Mazzoli or Gyorgy Farkas about this. -->
 
 * Disable "Optimize imports on the fly" and the "Optimize Imports" shortcut in
     IntelliJ IDEA, since they mess up diffs and can subtly, insidiously change

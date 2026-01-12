@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
@@ -31,7 +31,7 @@ import scala.concurrent.Future
  * - sequencers: only emit time proofs
  * - participants: time is not signalled to the indexer
  */
-class UpgradeTimeOldSynchronizerIntegrationTest
+final class UpgradeTimeOldSynchronizerIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with EntitySyntax

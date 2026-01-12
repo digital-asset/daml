@@ -44,7 +44,7 @@ proto_jars(
     visibility = ["//visibility:public"],
 )
 
-# FIXME(JM): Clean this up
+# TODO(#30144): JM: Clean this up
 genrule(
     name = "daml_lf_archive_haskell_proto_src",
     srcs = ["daml_lf_archive_proto_srcs"],

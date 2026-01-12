@@ -137,7 +137,7 @@ da_scala_test_suite(
     ],
 )
 
-# TODO https://github.com/digital-asset/daml/issues/17254
+# TODO(#30144): https://github.com/digital-asset/daml/issues/17254
 #  this test should not use canton and be part of the suite above
 [
     da_scala_test_suite(

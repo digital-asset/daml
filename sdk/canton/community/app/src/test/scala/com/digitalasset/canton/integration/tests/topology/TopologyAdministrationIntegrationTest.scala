@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.topology
@@ -490,7 +490,7 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
 
       loggerFactory.assertThrowsAndLogs[CommandFailure](
         participant1.topology.transactions.genesis_state(),
-        _.errorMessage should include("reason=>FieldNotSet(filter_synchronizer_store)"),
+        _.errorMessage should include("reason=>FieldNotSet(synchronizer_store)"),
       )
     }
   }

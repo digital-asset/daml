@@ -1,9 +1,9 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.indexer
 
-import com.digitalasset.canton.config.NonNegativeFiniteDuration
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.platform.indexer.IndexerConfig.*
 import com.digitalasset.canton.platform.store.DbSupport.{ConnectionPoolConfig, DataSourceProperties}
@@ -30,8 +30,8 @@ final case class IndexerConfig(
       NonNegativeInt.tryCreate(DefaultInputMappingParallelism),
     dbPrepareParallelism: NonNegativeInt = NonNegativeInt.tryCreate(DefaultDbPrepareParallelism),
     maxInputBufferSize: NonNegativeInt = NonNegativeInt.tryCreate(DefaultMaxInputBufferSize),
-    restartDelay: NonNegativeFiniteDuration =
-      NonNegativeFiniteDuration.ofSeconds(DefaultRestartDelay.toSeconds),
+    restartDelay: config.NonNegativeFiniteDuration =
+      config.NonNegativeFiniteDuration.ofSeconds(DefaultRestartDelay.toSeconds),
     submissionBatchSize: Long = DefaultSubmissionBatchSize,
     maxOutputBatchedBufferSize: Int = DefaultMaxOutputBatchedBufferSize,
     maxTailerBatchSize: Int = DefaultMaxTailerBatchSize,
@@ -44,11 +44,12 @@ final case class IndexerConfig(
     queueRecoveryRetryAttemptWarnThreshold: Int = DefaultQueueRecoveryRetryAttemptWarnThreshold,
     queueRecoveryRetryAttemptErrorThreshold: Int = DefaultQueueRecoveryRetryAttemptErrorThreshold,
     disableMonotonicityChecks: Boolean = false,
+    postgresDataSource: PostgresDataSourceConfig = DefaultPostgresDataSourceConfig,
 )
 
 object IndexerConfig {
 
-  // Exposed as public method so defaults can be overriden in the downstream code.
+  // Exposed as public method so defaults can be overridden in the downstream code.
   def createDataSourcePropertiesForTesting(
       indexerConfig: IndexerConfig
   ): DataSourceProperties = DataSourceProperties(
@@ -92,4 +93,6 @@ object IndexerConfig {
   val DefaultQueueRecoveryRetryMaxWaitMillis: Int = 5000
   val DefaultQueueRecoveryRetryAttemptWarnThreshold: Int = 50
   val DefaultQueueRecoveryRetryAttemptErrorThreshold: Int = 100
+  val DefaultPostgresDataSourceConfig: PostgresDataSourceConfig =
+    PostgresDataSourceConfig(networkTimeout = Some(config.NonNegativeFiniteDuration.ofSeconds(20)))
 }

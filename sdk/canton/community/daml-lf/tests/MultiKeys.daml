@@ -26,7 +26,7 @@ template Keyed
 -- All choices here are accepted in non-uck (unique contract key) mode.
 -- Behavior in uck-mode is documented in comments.
 -- Note that uck-mode here refers to the uck mode in the engine
--- (not yet implemented, TODO(MK) remove this comment once it is) which only detects
+-- (not yet implemented, TODO(#30144) MK: remove this comment once it is) which only detects
 -- a subset of unique key errors.
 -- Note: At the moment, we do not provide any stability guarantees for
 -- non-uck at this point so these tests serve only as an indication of the

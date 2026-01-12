@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -71,7 +71,7 @@ import com.daml.ledger.test.java.upgrade_iface.iface
 import com.digitalasset.canton.ledger.api.TransactionShape.LedgerEffects
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageRef, TypeConRef}
+import com.digitalasset.daml.lf.data.Ref.{PackageRef, TypeConRef}
 import org.scalatest.Inside.inside
 
 import java.util.Optional
@@ -79,9 +79,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
 
 class UpgradingIT extends LedgerTestSuite {
-  PackageRef.Id(PackageId.assertFromString(UA_V1.PACKAGE_ID))
-  PackageRef.Id(PackageId.assertFromString(UB_V2.PACKAGE_ID))
-  PackageRef.Id(PackageId.assertFromString(UB_V3.PACKAGE_ID))
   private val Iface1_Ref = ScalaPbIdentifier.fromJavaProto(iface.Iface1.TEMPLATE_ID.toProto)
   private val UA_Ref = ScalaPbIdentifier.fromJavaProto(UA_V1.TEMPLATE_ID.toProto)
   private val UB_Ref = ScalaPbIdentifier.fromJavaProto(UB_V2.TEMPLATE_ID.toProto)
@@ -371,6 +368,7 @@ class UpgradingIT extends LedgerTestSuite {
           context: String,
           create: CreatedEvent,
           expectedInterfaceViewValue: Option[String] = None,
+          expectedImplementationPackageId: Option[String] = None,
       )(implicit companion: ContractCompanion[?, TCid, T]): Unit =
         assertPayloadEquals(
           context,
@@ -391,6 +389,7 @@ class UpgradingIT extends LedgerTestSuite {
               }
             )
             .toMap,
+          expectedImplementationPackageId.getOrElse(""),
         )
 
       // Assert GetEventsByContractId
@@ -399,6 +398,7 @@ class UpgradingIT extends LedgerTestSuite {
         context = "GetEventsByContractId at v2",
         create = create1_fetched_by_contract_id_after_v2_upload.getCreated.getCreatedEvent,
         expectedInterfaceViewValue = Some("Iface1-UAv2"),
+        Some(UA_V2.PACKAGE_ID),
       )
 
       assertCreate(
@@ -406,13 +406,32 @@ class UpgradingIT extends LedgerTestSuite {
         context = "GetEventsByContractId at v3",
         create = create1_fetched_by_contract_id_after_v3_upload.getCreated.getCreatedEvent,
         expectedInterfaceViewValue = Some("Iface1-UAv3"),
+        Some(UA_V3.PACKAGE_ID),
       )
 
       // Assert interface subscriptions
       inside(creates_subscriptions_Iface1_at_v1) { case Vector(create2, create3, create4) =>
-        assertCreate(payloadUA_2, "2 - IFace1 subscription at v1", create2, Some("Iface1-UAv2"))
-        assertCreate(payloadUA_3, "3 - IFace1 subscription at v1", create3, Some("Iface1-UAv2"))
-        assertCreate(payloadUA_4, "4 - IFace1 subscription at v1", create4, Some("Iface1-UAv2"))
+        assertCreate(
+          payloadUA_2,
+          "2 - IFace1 subscription at v1",
+          create2,
+          Some("Iface1-UAv2"),
+          Some(UA_V2.PACKAGE_ID),
+        )
+        assertCreate(
+          payloadUA_3,
+          "3 - IFace1 subscription at v1",
+          create3,
+          Some("Iface1-UAv2"),
+          Some(UA_V2.PACKAGE_ID),
+        )
+        assertCreate(
+          payloadUA_4,
+          "4 - IFace1 subscription at v1",
+          create4,
+          Some("Iface1-UAv2"),
+          Some(UA_V2.PACKAGE_ID),
+        )
       }
 
       inside(creates_subscriptions_Iface1_at_v1_after_v1_create) {
@@ -422,57 +441,174 @@ class UpgradingIT extends LedgerTestSuite {
             "2 - IFace1 subscription after v1 create",
             create2,
             Some("Iface1-UAv2"),
+            Some(UA_V2.PACKAGE_ID),
           )
           assertCreate(
             payloadUA_3,
             "3 - IFace1 subscription after v1 create",
             create3,
             Some("Iface1-UAv2"),
+            Some(UA_V2.PACKAGE_ID),
           )
           assertCreate(
             payloadUA_4,
             "4 - IFace1 subscription after v1 create",
             create4,
             Some("Iface1-UAv2"),
+            Some(UA_V2.PACKAGE_ID),
           )
       }
 
       inside(creates_subscriptions_Iface1_at_v2) {
         case Vector(create1, create2, create3, create4) =>
-          assertCreate(payloadUA_1, "1 - Iface1 subscription at v2", create1, Some("Iface1-UAv2"))
-          assertCreate(payloadUA_2, "2 - Iface1 subscription at v2", create2, Some("Iface1-UAv2"))
-          assertCreate(payloadUA_3, "3 - Iface1 subscription at v2", create3, Some("Iface1-UAv2"))
-          assertCreate(payloadUA_4, "4 - Iface1 subscription at v2", create4, Some("Iface1-UAv2"))
+          assertCreate(
+            payloadUA_1,
+            "1 - Iface1 subscription at v2",
+            create1,
+            Some("Iface1-UAv2"),
+            Some(UA_V2.PACKAGE_ID),
+          )
+          assertCreate(
+            payloadUA_2,
+            "2 - Iface1 subscription at v2",
+            create2,
+            Some("Iface1-UAv2"),
+            Some(UA_V2.PACKAGE_ID),
+          )
+          assertCreate(
+            payloadUA_3,
+            "3 - Iface1 subscription at v2",
+            create3,
+            Some("Iface1-UAv2"),
+            Some(UA_V2.PACKAGE_ID),
+          )
+          assertCreate(
+            payloadUA_4,
+            "4 - Iface1 subscription at v2",
+            create4,
+            Some("Iface1-UAv2"),
+            Some(UA_V2.PACKAGE_ID),
+          )
       }
 
       inside(creates_subscriptions_Iface1_at_v3) {
         case Vector(create1, create2, create3, create4) =>
-          assertCreate(payloadUA_1, "1 - Iface1 subscription at v3", create1, Some("Iface1-UAv3"))
-          assertCreate(payloadUA_2, "2 - Iface1 subscription at v3", create2, Some("Iface1-UAv3"))
-          assertCreate(payloadUA_3, "3 - Iface1 subscription at v3", create3, Some("Iface1-UAv3"))
-          assertCreate(payloadUA_4, "4 - Iface1 subscription at v2", create4, Some("Iface1-UAv3"))
+          assertCreate(
+            payloadUA_1,
+            "1 - Iface1 subscription at v3",
+            create1,
+            Some("Iface1-UAv3"),
+            Some(UA_V3.PACKAGE_ID),
+          )
+          assertCreate(
+            payloadUA_2,
+            "2 - Iface1 subscription at v3",
+            create2,
+            Some("Iface1-UAv3"),
+            Some(UA_V3.PACKAGE_ID),
+          )
+          assertCreate(
+            payloadUA_3,
+            "3 - Iface1 subscription at v3",
+            create3,
+            Some("Iface1-UAv3"),
+            Some(UA_V3.PACKAGE_ID),
+          )
+          assertCreate(
+            payloadUA_4,
+            "4 - Iface1 subscription at v2",
+            create4,
+            Some("Iface1-UAv3"),
+            Some(UA_V3.PACKAGE_ID),
+          )
       }
 
       // Assert ACS interface subscription
       assertIsEmpty(acs_before_v2_upload)
       inside(acs_after_v2_upload) { case Vector(create1) =>
-        assertCreate(payloadUA_1, "1 - ACS after v2 upload", create1, Some("Iface1-UAv2"))
+        assertCreate(
+          payloadUA_1,
+          "1 - ACS after v2 upload",
+          create1,
+          Some("Iface1-UAv2"),
+          Some(UA_V2.PACKAGE_ID),
+        )
       }
       inside(acs_before_v3_upload) { case Vector(create1, create2, create3) =>
-        assertCreate(payloadUA_1, "1 - ACS after create 3", create1, Some("Iface1-UAv2"))
-        assertCreate(payloadUA_2, "2 - ACS after create 3", create2, Some("Iface1-UAv2"))
-        assertCreate(payloadUA_3, "3 - ACS after create 3", create3, Some("Iface1-UAv2"))
+        assertCreate(
+          payloadUA_1,
+          "1 - ACS after create 3",
+          create1,
+          Some("Iface1-UAv2"),
+          Some(UA_V2.PACKAGE_ID),
+        )
+        assertCreate(
+          payloadUA_2,
+          "2 - ACS after create 3",
+          create2,
+          Some("Iface1-UAv2"),
+          Some(UA_V2.PACKAGE_ID),
+        )
+        assertCreate(
+          payloadUA_3,
+          "3 - ACS after create 3",
+          create3,
+          Some("Iface1-UAv2"),
+          Some(UA_V2.PACKAGE_ID),
+        )
       }
       inside(acs_after_v3_upload) { case Vector(create1, create2, create3) =>
-        assertCreate(payloadUA_1, "1 - ACS after v3 upload", create1, Some("Iface1-UAv3"))
-        assertCreate(payloadUA_2, "2 - ACS after v3 upload", create2, Some("Iface1-UAv3"))
-        assertCreate(payloadUA_3, "3 - ACS after v3 upload", create3, Some("Iface1-UAv3"))
+        assertCreate(
+          payloadUA_1,
+          "1 - ACS after v3 upload",
+          create1,
+          Some("Iface1-UAv3"),
+          Some(UA_V3.PACKAGE_ID),
+        )
+        assertCreate(
+          payloadUA_2,
+          "2 - ACS after v3 upload",
+          create2,
+          Some("Iface1-UAv3"),
+          Some(UA_V3.PACKAGE_ID),
+        )
+        assertCreate(
+          payloadUA_3,
+          "3 - ACS after v3 upload",
+          create3,
+          Some("Iface1-UAv3"),
+          Some(UA_V3.PACKAGE_ID),
+        )
       }
       inside(acs_after_create_4) { case Vector(create1, create2, create3, create4) =>
-        assertCreate(payloadUA_1, "1 - ACS after create 4", create1, Some("Iface1-UAv3"))
-        assertCreate(payloadUA_2, "2 - ACS after create 4", create2, Some("Iface1-UAv3"))
-        assertCreate(payloadUA_3, "3 - ACS after create 4", create3, Some("Iface1-UAv3"))
-        assertCreate(payloadUA_4, "4 - ACS after create 4", create4, Some("Iface1-UAv3"))
+        assertCreate(
+          payloadUA_1,
+          "1 - ACS after create 4",
+          create1,
+          Some("Iface1-UAv3"),
+          Some(UA_V3.PACKAGE_ID),
+        )
+        assertCreate(
+          payloadUA_2,
+          "2 - ACS after create 4",
+          create2,
+          Some("Iface1-UAv3"),
+          Some(UA_V3.PACKAGE_ID),
+        )
+        assertCreate(
+          payloadUA_3,
+          "3 - ACS after create 4",
+          create3,
+          Some("Iface1-UAv3"),
+          Some(UA_V3.PACKAGE_ID),
+        )
+        assertCreate(
+          payloadUA_4,
+          "4 - ACS after create 4",
+          create4,
+          Some("Iface1-UAv3"),
+          Some(UA_V3.PACKAGE_ID),
+        )
       }
 
       // Assert template subscriptions
@@ -530,7 +666,7 @@ class UpgradingIT extends LedgerTestSuite {
       verifyLength("Dummy template ACS before archive", 1, acsBeforeArchive)
       assertEquals(
         "Dummy template package name",
-        acsBeforeArchive.head.packageName,
+        acsBeforeArchive.headOption.value.packageName,
         Dummy.PACKAGE_NAME,
       )
 
@@ -604,7 +740,7 @@ class UpgradingIT extends LedgerTestSuite {
         assertSingleton(
           "ACS delta events",
           acsDeltaTx.events,
-        ).event.created.get.representativePackageId,
+        ).event.created.value.representativePackageId,
         Dummy.PACKAGE_ID,
       )
 
@@ -613,7 +749,7 @@ class UpgradingIT extends LedgerTestSuite {
         assertSingleton(
           "Ledger Effects events",
           ledgerFxTx.events,
-        ).event.created.get.representativePackageId,
+        ).event.created.value.representativePackageId,
         Dummy.PACKAGE_ID,
       )
     }
@@ -650,13 +786,13 @@ class UpgradingIT extends LedgerTestSuite {
       val v2TmplId = Fetcher_V2.TEMPLATE_ID_WITH_PACKAGE_ID
 
       // The first exercise reports template with package id per v1, and the second per v2
-      assertEquals(toJavaProto(exercised1.templateId.get), v1TmplId.toProto)
-      assertEquals(toJavaProto(exercised2.templateId.get), v2TmplId.toProto)
+      assertEquals(toJavaProto(exercised1.templateId.value), v1TmplId.toProto)
+      assertEquals(toJavaProto(exercised2.templateId.value), v2TmplId.toProto)
 
       // The first exercise has a result shape per v1, and the second per v2
-      assertExerciseResult(exercised1.exerciseResult.get, v1TmplId, new Fetcher_V1(party))
+      assertExerciseResult(exercised1.exerciseResult.value, v1TmplId, new Fetcher_V1(party))
       assertExerciseResult(
-        exercised2.exerciseResult.get,
+        exercised2.exerciseResult.value,
         v2TmplId,
         new Fetcher_V2(party, Optional.empty()),
       )
@@ -689,8 +825,9 @@ class UpgradingIT extends LedgerTestSuite {
       templateId: Identifier,
       assertCreateArgs: Boolean,
       assertViewDecoding: Map[Identifier, DamlRecord => Unit],
+      expectedImplementationPackageId: String,
   ): Unit = {
-    assertEquals(context, toJavaProto(createdEvent.templateId.get), templateId.toProto)
+    assertEquals(context, toJavaProto(createdEvent.templateId.value), templateId.toProto)
 
     if (assertCreateArgs)
       assertEquals(
@@ -704,6 +841,7 @@ class UpgradingIT extends LedgerTestSuite {
     createdEvent.interfaceViews.foreach { ifaceView =>
       val viewRecord = DamlRecord.fromProto(value.Record.toJavaProto(ifaceView.getViewValue))
       assertViewDecoding(Identifier.fromProto(toJavaProto(ifaceView.getInterfaceId)))(viewRecord)
+      assertEquals(ifaceView.implementationPackageId, expectedImplementationPackageId)
     }
   }
 }
@@ -782,7 +920,7 @@ object UpgradingIT {
           .flatMap(createdEvents)
           .filter { created =>
             subscriptionFilter.expectedTemplatesInResponses
-              .exists(_ matches (created.templateId.get, created.packageName))
+              .exists(_ matches (created.templateId.value, created.packageName))
           }
       } yield {
         verifyLength(
@@ -923,12 +1061,12 @@ object UpgradingIT {
     def expectedTemplatesInResponses: Set[Ref.TypeConRef]
   }
 
-  case class SubTemplate(tpl: Ref.TypeConRef) extends TemplateOrInterfaceWithImpls {
+  final case class SubTemplate(tpl: Ref.TypeConRef) extends TemplateOrInterfaceWithImpls {
     override def expectedTemplatesInResponses: Set[Ref.TypeConRef] =
       Set(tpl)
   }
 
-  case class SubInterface(
+  final case class SubInterface(
       iface: ScalaPbIdentifier,
       // Used to filter out other templates that can not be excluded in the trees filters
       expectedTemplatesInResponses: Set[Ref.TypeConRef] = Set.empty,

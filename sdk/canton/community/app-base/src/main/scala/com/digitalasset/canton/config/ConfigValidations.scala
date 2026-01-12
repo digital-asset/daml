@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -11,7 +11,6 @@ import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.crypto.CryptoSchemes
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
@@ -79,7 +78,7 @@ object ConfigValidations extends NamedLogging {
       adminTokenConfigsMatchOnParticipants,
       eitherUserListsOrPrivilegedTokensOnParticipants,
       validateSelectedSchemes,
-      sessionSigningKeysOnlyWithKms,
+      sessionSigningKeysOnlyWithKmsAndSchemesAreSupported,
       distinctScopesAndAudiencesOnAuthServices,
       engineAdditionalConsistencyChecksParticipants,
       dbLockFeaturesRequireUsingLockSupportingStorage,
@@ -477,43 +476,56 @@ object ConfigValidations extends NamedLogging {
     toValidated(errors)
   }
 
-  private def sessionSigningKeysOnlyWithKms(
+  private def sessionSigningKeysOnlyWithKmsAndSchemesAreSupported(
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
-    val errors = config.allLocalNodes.toSeq.mapFilter { case (_, nodeConfig) =>
+    val errors: Seq[String] = config.allLocalNodes.toSeq.flatMap { case (nodeName, nodeConfig) =>
+      def prefixErrors(validated: Seq[String]): Seq[String] =
+        validated.map(err => s"Node $nodeName: $err")
+
       val cryptoConfig = nodeConfig.crypto
-      cryptoConfig.kms match {
-        case Some(kmsConfig) =>
-          val sessionSigningKeysConfig = kmsConfig.sessionSigningKeys
-          cryptoConfig.provider match {
-            case CryptoProvider.Kms =>
-              val schemesE = CryptoSchemes.fromConfig(cryptoConfig)
-              val supportedAlgoSpecs =
-                schemesE.map(_.signingSchemes.algorithmSpecs.allowed.forgetNE).getOrElse(Set.empty)
-              val supportedKeySpecs =
-                schemesE.map(_.signingSchemes.keySpecs.allowed.forgetNE).getOrElse(Set.empty)
+      val sessionSigningKeysConfig = cryptoConfig.sessionSigningKeys
 
-              // the signing algorithm spec configured for session keys is not supported
+      val errorList = if (sessionSigningKeysConfig.enabled) {
+        cryptoConfig.provider match {
+          case provider
+              if (provider == CryptoProvider.Kms && cryptoConfig.kms.isDefined) || config.parameters.nonStandardConfig =>
+            val supportedAlgoSpecs =
+              cryptoConfig.signing.algorithms.allowed
+                .getOrElse(cryptoConfig.provider.signingAlgorithms.supported)
+            val supportedKeySpecs =
+              cryptoConfig.signing.keys.allowed
+                .getOrElse(cryptoConfig.provider.signingKeys.supported)
+
+            // check that the signing algorithm spec configured for session keys is supported
+            val signingAlgoCheck: Seq[String] =
               if (!supportedAlgoSpecs.contains(sessionSigningKeysConfig.signingAlgorithmSpec))
-                Some(
+                Seq(
                   s"The selected signing algorithm specification, ${sessionSigningKeysConfig.signingAlgorithmSpec}, " +
-                    s"for session signing keys is not supported. Supported algorithms " +
-                    s"are: $supportedAlgoSpecs."
+                    s"for session signing keys is not supported. Supported algorithms: $supportedAlgoSpecs."
                 )
-              // the signing key spec configured for session keys is not supported
-              else if (!supportedKeySpecs.contains(sessionSigningKeysConfig.signingKeySpec))
-                Some(
-                  s"The selected signing key specification, ${sessionSigningKeysConfig.signingKeySpec}, " +
-                    s"for session signing keys is not supported. Supported keys " +
-                    s"are: $supportedKeySpecs."
-                )
-              else None
-            case _ => None
-          }
-        case None => None
-      }
-    }
+              else Nil
 
+            // check that the signing key spec configured for session keys is supported
+            val signingKeyCheck: Seq[String] =
+              if (!supportedKeySpecs.contains(sessionSigningKeysConfig.signingKeySpec))
+                Seq(
+                  s"The selected signing key specification, ${sessionSigningKeysConfig.signingKeySpec}, " +
+                    s"for session signing keys is not supported. Supported keys: $supportedKeySpecs."
+                )
+              else Nil
+
+            signingAlgoCheck ++ signingKeyCheck
+          case _ =>
+            Seq(
+              "Session signing keys should only be enabled when using a KMS provider, as they generate extra traffic " +
+                "and only provide a positive impact on latency and performance when a KMS is used. " +
+                "If you still want to enable session keys without a KMS, you must set `non-standard-config = true`."
+            )
+        }
+      } else Nil
+      prefixErrors(errorList)
+    }
     toValidated(errors)
   }
 

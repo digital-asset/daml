@@ -1,9 +1,10 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.runner.common
 
 import com.daml.jwt.JwtTimestampLeeway
+import com.digitalasset.canton.config
 import com.digitalasset.canton.ledger.runner.common.OptConfigValue.{
   optReaderEnabled,
   optWriterEnabled,
@@ -246,13 +247,18 @@ class PureConfigReaderWriterSpec
         |  synchronous-commit = on
         |  tcp-keepalives-idle = 9
         |  tcp-keepalives-interval = 99
-        |  tcp-keepalives-count = 999""".stripMargin
+        |  tcp-keepalives-count = 999
+        |  client-connection-check-interval = 111ms
+        |  network-timeout = 222s
+        """.stripMargin
 
     convert(dbConfigPostgresDataSourceConfigConvert, value).value shouldBe PostgresDataSourceConfig(
       synchronousCommit = Some(SynchronousCommitValue.On),
       tcpKeepalivesIdle = Some(9),
       tcpKeepalivesInterval = Some(99),
       tcpKeepalivesCount = Some(999),
+      clientConnectionCheckInterval = Some(config.NonNegativeFiniteDuration.ofMillis(111)),
+      networkTimeout = Some(config.NonNegativeFiniteDuration.ofSeconds(222)),
     )
   }
 
@@ -265,8 +271,6 @@ class PureConfigReaderWriterSpec
     convert(dbConfigPostgresDataSourceConfigConvert, value).value shouldBe PostgresDataSourceConfig(
       synchronousCommit = Some(SynchronousCommitValue.On),
       tcpKeepalivesIdle = Some(9),
-      tcpKeepalivesInterval = PostgresDataSourceConfig().tcpKeepalivesInterval,
-      tcpKeepalivesCount = PostgresDataSourceConfig().tcpKeepalivesCount,
     )
   }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability
@@ -115,10 +115,19 @@ final class DisseminationProtocolState(
       mutable.SortedMap.empty,
     var batchesReadyForOrdering: mutable.LinkedHashMap[BatchId, DisseminatedBatchMetadata] =
       mutable.LinkedHashMap(),
-    val toBeProvidedToConsensus: mutable.Queue[ToBeProvidedToConsensus] = mutable.Queue(),
+    var nextToBeProvidedToConsensus: NextToBeProvidedToConsensus =
+      NextToBeProvidedToConsensus.First,
     var lastProposalTime: Option[CantonTimestamp] = None,
     val disseminationQuotas: BatchDisseminationNodeQuotaTracker =
       new BatchDisseminationNodeQuotaTracker,
 )
 
-final case class ToBeProvidedToConsensus(forBlock: BlockNumber, maxBatchesPerProposal: Short)
+final case class NextToBeProvidedToConsensus(
+    forBlock: BlockNumber,
+    maxBatchesPerProposal: Option[
+      Short
+    ], // `None` means no actual proposal request from consensus yet
+)
+object NextToBeProvidedToConsensus {
+  val First: NextToBeProvidedToConsensus = NextToBeProvidedToConsensus(BlockNumber.First, None)
+}

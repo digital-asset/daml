@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -10,7 +10,7 @@ import com.digitalasset.canton.BaseTestWordSpec
 import com.digitalasset.canton.auth.AuthorizedUser
 import com.digitalasset.canton.config.CantonRequireTypes.{InstanceName, NonEmptyString}
 import com.digitalasset.canton.config.ConfigValidations.*
-import com.digitalasset.canton.config.CryptoProvider.Kms
+import com.digitalasset.canton.config.CryptoProvider.{Jce, Kms}
 import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.crypto.{
   EncryptionAlgorithmSpec,
@@ -660,26 +660,27 @@ class CommunityConfigValidationsTest extends BaseTestWordSpec {
     def sessionSigningKeysConfigWithAllowed(
         allowed: Option[NonEmpty[Set[SigningAlgorithmSpec]]],
         signingAlgorithmSpec: SigningAlgorithmSpec,
+        cryptoProvider: CryptoProvider = Kms,
+        nonStandardConfig: Boolean = false,
     ): CantonConfig =
       CantonConfig(
+        parameters = CantonParameters(nonStandardConfig = nonStandardConfig),
         participants = Map(
           InstanceName.tryCreate("p1") -> ParticipantNodeConfig(
             crypto = CryptoConfig(
-              provider = Kms,
+              provider = cryptoProvider,
               signing = SigningSchemeConfig(
                 algorithms = CryptoSchemeConfig(
                   default = Some(SigningAlgorithmSpec.EcDsaSha256),
                   allowed = allowed,
                 )
               ),
-              kms = Some(
-                KmsConfig.Aws.defaultTestConfig.copy(sessionSigningKeys =
-                  SessionSigningKeysConfig.default.copy(signingAlgorithmSpec = signingAlgorithmSpec)
-                )
-              ),
+              kms = Some(KmsConfig.Aws.defaultTestConfig),
+              sessionSigningKeys =
+                SessionSigningKeysConfig.default.copy(signingAlgorithmSpec = signingAlgorithmSpec),
             )
           )
-        )
+        ),
       )
 
     "pass config validation with a KMS supported session signing algorithm specification when allowed algorithms are not specified" in {
@@ -687,6 +688,19 @@ class CommunityConfigValidationsTest extends BaseTestWordSpec {
         val config = sessionSigningKeysConfigWithAllowed(None, signingAlgorithmSpec)
         assertValid(config)
       }
+    }
+
+    "fail config validation when session signing keys are enabled without a KMS unless non-standard config is set" in {
+      val algo = CryptoProvider.Kms.signingAlgorithms.supported.head
+      val nonStandardConfig =
+        sessionSigningKeysConfigWithAllowed(None, algo, Jce, nonStandardConfig = true)
+      assertValid(nonStandardConfig)
+      val config = sessionSigningKeysConfigWithAllowed(None, algo, Jce)
+      assertErrors(config)(
+        "Node p1: Session signing keys should only be enabled when using a KMS provider, as they generate extra traffic " +
+          "and only provide a positive impact on latency and performance when a KMS is used. " +
+          "If you still want to enable session keys without a KMS, you must set `non-standard-config = true`."
+      )
     }
 
     "fail config validation with unsupported session signing algorithm specification" in {
@@ -700,8 +714,8 @@ class CommunityConfigValidationsTest extends BaseTestWordSpec {
       )
 
       assertErrors(config)(
-        s"The selected signing algorithm specification, $signingAlgorithmSpec, for session signing keys is not " +
-          s"supported. Supported algorithms are: $supportedSigningAlgorithmSchemes."
+        s"Node p1: The selected signing algorithm specification, $signingAlgorithmSpec, for session signing keys is not " +
+          s"supported. Supported algorithms: $supportedSigningAlgorithmSchemes."
       )
     }
 
@@ -722,19 +736,17 @@ class CommunityConfigValidationsTest extends BaseTestWordSpec {
                   allowed = Some(supportedSigningKeySchemes),
                 )
               ),
-              kms = Some(
-                KmsConfig.Aws.defaultTestConfig.copy(sessionSigningKeys =
-                  SessionSigningKeysConfig.default.copy(signingKeySpec = sessionSigningKeySpec)
-                )
-              ),
+              kms = Some(KmsConfig.Aws.defaultTestConfig),
+              sessionSigningKeys =
+                SessionSigningKeysConfig.default.copy(signingKeySpec = sessionSigningKeySpec),
             )
           )
         )
       )
 
       assertErrors(config)(
-        s"The selected signing key specification, $sessionSigningKeySpec, for session signing keys is not " +
-          s"supported. Supported keys are: $supportedSigningKeySchemes."
+        s"Node p1: The selected signing key specification, $sessionSigningKeySpec, for session signing keys is not " +
+          s"supported. Supported keys: $supportedSigningKeySchemes."
       )
     }
   }

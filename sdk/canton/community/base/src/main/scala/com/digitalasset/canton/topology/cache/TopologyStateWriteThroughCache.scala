@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.cache
@@ -410,10 +410,11 @@ class TopologyStateWriteThroughCache(
         transaction = tx.transaction,
         rejectionReason = tx.rejectionReason.map(_.asString300),
       )
-      logger.debug(s"Adding $toStore")
+      val loggerDebug = TopologyMapping.loggerDebug(tx.transaction.mapping.code)
+      loggerDebug(s"Adding $toStore")
       def expire(toExpire: MaybeUpdatedTx): Unit = {
         val before = toExpire.expireAt(effective)
-        logger.debug("Marking transaction as expired:" + toExpire)
+        loggerDebug("Marking transaction as expired:" + toExpire)
         ErrorUtil.requireState(
           before.isEmpty,
           s"Trying to expire an already expired transaction $toExpire because of\n   $tx",
@@ -460,7 +461,7 @@ class TopologyStateWriteThroughCache(
           case None =>
             // This case might happen if somebody added an authorized transaction with serial > 1
             // It is odd but supported
-            logger.debug("No existing transaction to expire for " + tx.transaction)
+            loggerDebug("No existing transaction to expire for " + tx.transaction)
           case Some(toExpire) =>
             ErrorUtil.requireState(
               toExpire.stored.serial.value <= tx.serial.value,

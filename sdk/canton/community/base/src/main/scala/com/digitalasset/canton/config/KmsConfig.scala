@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -9,9 +9,6 @@ import com.digitalasset.canton.util.retry
 import com.typesafe.config.ConfigValue
 
 sealed trait KmsConfig {
-
-  /** Session signing keys configuration for KMS (by default session signing keys are enabled). */
-  def sessionSigningKeys: SessionSigningKeysConfig
 
   /** Retry configuration for KMS operations */
   def retries: RetryConfig
@@ -72,8 +69,6 @@ object KmsConfig {
       name: String,
       config: ConfigValue,
       healthCheckPeriod: PositiveFiniteDuration = PositiveFiniteDuration.ofSeconds(10),
-      // TODO(#27529): Enable after the topology snapshot problem has been fixed
-      override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
       override val retries: RetryConfig = RetryConfig(),
   ) extends KmsConfig
 
@@ -100,8 +95,6 @@ object KmsConfig {
       region: String,
       multiRegionKey: Boolean = false,
       auditLogging: Boolean = false,
-      // TODO(#27529): Enable after the topology snapshot problem has been fixed
-      override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
       override val retries: RetryConfig = RetryConfig(),
       disableSslVerification: Boolean = false,
       endpointOverride: Option[String] = None,
@@ -125,8 +118,6 @@ object KmsConfig {
     *   key-ring, which enables multi-region keys
     * @param auditLogging
     *   when enabled, all calls to KMS will be logged. Defaults to false.
-    * @param sessionSigningKeys
-    *   session signing keys' configuration
     * @param retries
     *   retry configuration
     * @param endpointOverride
@@ -137,8 +128,6 @@ object KmsConfig {
       projectId: String,
       keyRingId: String,
       auditLogging: Boolean = false,
-      // TODO(#27529): Enable after the topology snapshot problem has been fixed
-      override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
       override val retries: RetryConfig = RetryConfig(),
       endpointOverride: Option[String] = None,
   ) extends KmsConfig

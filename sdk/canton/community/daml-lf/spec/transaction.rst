@@ -538,7 +538,7 @@ there exists a  `party identifier`_ repeated in the concatenation of
 
 As of version dev, this field is required.
 
-.. TODO: https://github.com/digital-asset/daml/issues/15882
+.. TODO(#30144): https://github.com/digital-asset/daml/issues/15882
 .. -- update for choice authorizers
 
 .. _`identifier`: daml-lf.rst#Identifiers

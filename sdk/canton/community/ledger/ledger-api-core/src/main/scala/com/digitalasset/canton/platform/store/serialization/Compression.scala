@@ -1,10 +1,12 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.serialization
 
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
+
 import java.io.{InputStream, OutputStream}
-import java.util.zip.{GZIPInputStream, GZIPOutputStream}
+import java.util.zip.GZIPOutputStream
 
 private[platform] object Compression {
 
@@ -41,7 +43,9 @@ private[platform] object Compression {
         new GZIPOutputStream(stream)
 
       override def decompress(stream: InputStream): InputStream =
-        new GZIPInputStream(stream)
+        // prefer GzipCompressorInputStream over GZIPInputStream, because it doesn't use exceptions for internal
+        // control flow, as GZIPInputStream does.
+        new GzipCompressorInputStream(stream, false)
     }
 
   }

@@ -284,7 +284,7 @@ Version: 1.15
 Version: 1.dev (development)
 ............................
 
-.. TODO: https://github.com/digital-asset/daml/issues/15882
+.. TODO(#30144): https://github.com/digital-asset/daml/issues/15882
 ..   -- update for choice authorizers
 
 Abstract syntax
@@ -594,7 +594,7 @@ greatest rounding mode.
 Kinds, types, and expressions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. TODO We might want to consider changing the syntax for ``Mod``,
+.. TODO(#30144): We might want to consider changing the syntax for ``Mod``,
    since in our software we use the colon to separate the module name
    from the definition name inside the module.
 
@@ -1802,7 +1802,7 @@ it.
 Party literal restriction
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. TODO I think this is incorrect, and actually before the
+.. TODO(#30144): I think this is incorrect, and actually before the
    ``ForbidPartyLiterals`` feature flag party literals were
    allowed everywhere.
 
@@ -3871,7 +3871,7 @@ other one.
     —————————————————————————————————————————————————————————————————————— EvLessEqUpdate
       𝕆('LESS_EQ' @('Update' σ) v v' = Err 'Try to compare functions'
 
-.. FIXME: https://github.com/digital-asset/daml/issues/2256
+.. TODO(#30144): https://github.com/digital-asset/daml/issues/2256
     Handle contract IDs
 
 

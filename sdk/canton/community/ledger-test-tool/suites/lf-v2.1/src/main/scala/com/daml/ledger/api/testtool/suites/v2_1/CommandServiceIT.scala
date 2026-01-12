@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -68,21 +68,21 @@ final class CommandServiceIT extends LedgerTestSuite with CommandSubmissionTestU
 
       assert(updateId.nonEmpty, "The transaction identifier was empty but shouldn't.")
       assert(
-        transactions.size == 1,
+        transactions.sizeIs == 1,
         s"$party should see only one transaction but sees ${transactions.size}",
       )
 
-      val events = transactions.head.events
+      val events = transactions.headOption.value.events
 
-      assert(events.size == 1, s"$party should see only one event but sees ${events.size}")
+      assert(events.sizeIs == 1, s"$party should see only one event but sees ${events.size}")
       assert(
-        events.head.event.isCreated,
-        s"$party should see only one create but sees ${events.head.event}",
+        events.headOption.value.event.isCreated,
+        s"$party should see only one create but sees ${events.headOption.value.event}",
       )
-      val created = transactions.head.events.head.getCreated
+      val created = transactions.headOption.value.events.headOption.value.getCreated
 
       assert(
-        transactions.head.externalTransactionHash.isEmpty,
+        transactions.headOption.value.externalTransactionHash.isEmpty,
         "Expected empty external transaction hash for a local party transaction",
       )
 
@@ -94,7 +94,7 @@ final class CommandServiceIT extends LedgerTestSuite with CommandSubmissionTestU
         retrievedTransaction.events.sizeIs == 1,
         s"The retrieved transaction should contain a single event but contains ${retrievedTransaction.events.size}",
       )
-      val retrievedEvent = retrievedTransaction.events.head
+      val retrievedEvent = retrievedTransaction.events.headOption.value
 
       assert(
         retrievedEvent.event.isCreated,
@@ -145,15 +145,15 @@ final class CommandServiceIT extends LedgerTestSuite with CommandSubmissionTestU
         "The transaction identifier was empty but shouldn't.",
       )
       assert(
-        transaction.events.size == 2,
+        transaction.events.sizeIs == 2,
         s"The returned transaction should contain 2 events, but contained ${transaction.events.size}",
       )
-      val event1 = transaction.events.head
+      val event1 = transaction.events.headOption.value
       assert(
         event1.event.isCreated,
         s"The returned transaction should contain a created event, but was ${event1.event}",
       )
-      val event2 = transaction.events.last
+      val event2 = transaction.events.lastOption.value
       assert(
         event2.event.isExercised,
         s"The returned transaction should contain an exercised event, but was ${event2.event}",
@@ -392,14 +392,14 @@ final class CommandServiceIT extends LedgerTestSuite with CommandSubmissionTestU
     "CSsubmitAndWaitForTransactionPrescribedSynchronizerId",
     "SubmitAndWaitForTransaction should use the prescribed synchronizer id when routing the submission",
     allocate(SingleParty).expectingMinimumNumberOfSynchronizers(2),
-  )(
+  ) { implicit ec =>
     testValidSynchronizerIdSubmission(participant =>
       request =>
         participant
           .submitAndWaitForTransaction(request)
-          .map(_.getTransaction.synchronizerId)(ExecutionContext.parasitic)
-    )
-  )
+          .map(_.getTransaction.synchronizerId)
+    )(ec)
+  }
 
   test(
     "CSRefuseBadParameter",
@@ -551,7 +551,7 @@ final class CommandServiceIT extends LedgerTestSuite with CommandSubmissionTestU
       acs <- ledger.activeContracts(Some(Seq(party)))
     } yield {
       assert(
-        acs.size == target,
+        acs.sizeIs == target,
         s"Expected $target contracts to be created, got ${acs.size} instead",
       )
     }
@@ -667,7 +667,8 @@ final class CommandServiceIT extends LedgerTestSuite with CommandSubmissionTestU
           transactionsLedgerEffects.flatMap(createdEvents).map(_.getTemplateId),
           Vector(Dummy.TEMPLATE_ID_WITH_PACKAGE_ID.toV1),
         )
-        val contractId = transactionsLedgerEffects.flatMap(createdEvents).head.contractId
+        val contractId =
+          transactionsLedgerEffects.flatMap(createdEvents).headOption.value.contractId
         assertEquals(
           "Unexpected exercise event triple (choice, contractId, consuming)",
           transactionsLedgerEffects
@@ -820,7 +821,7 @@ final class CommandServiceIT extends LedgerTestSuite with CommandSubmissionTestU
           AcsDelta,
         )
       )
-      offset = response.transaction.get.offset
+      offset = response.transaction.value.offset
       transaction = assertDefined(
         response.transaction,
         "the transaction should have been returned",

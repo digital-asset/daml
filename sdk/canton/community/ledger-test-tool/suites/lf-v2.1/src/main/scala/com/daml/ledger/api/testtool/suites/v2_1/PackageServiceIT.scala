@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -20,7 +20,7 @@ final class PackageServiceIT extends LedgerTestSuite {
       for {
         knownPackages <- ledger.listPackages()
       } yield assert(
-        knownPackages.size >= 3,
+        knownPackages.sizeIs >= 3,
         s"List of packages was expected to contain at least 3 packages, got ${knownPackages.size} instead.",
       )
     }

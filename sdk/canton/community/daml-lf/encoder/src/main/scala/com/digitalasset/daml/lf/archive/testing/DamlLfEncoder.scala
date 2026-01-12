@@ -92,7 +92,7 @@ private[daml] object DamlLfEncoder extends App {
         (stablePkg.packageId + ".dalf") -> stablePkg.bytes
     }.toList
     DarWriter.encode(
-      "3.5.0-snapshot.20251219.14523.0.ve6110ab8", // SdkVersion.sdkVersion,
+      "0.0.0", // TODO(#30144) Use something sane/configurable here, used to be DamlVersion from Daml repo
       Dar(("archive.dalf", Bytes.fromByteString(archive.toByteString)), deps),
       file.toPath,
     )

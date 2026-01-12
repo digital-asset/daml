@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -38,7 +38,7 @@ class TransactionServiceAuthorizationIT extends LedgerTestSuite {
       assert(
         Record.fromJavaProto(
           template.toValue.toProtoRecord
-        ) == transactions.head.events.head.getCreated.getCreateArguments.clearValueIds
+        ) == transactions.headOption.value.events.headOption.value.getCreated.getCreateArguments.clearValueIds
       )
     }
   })

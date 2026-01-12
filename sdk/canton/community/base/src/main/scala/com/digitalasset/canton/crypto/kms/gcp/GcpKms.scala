@@ -1,10 +1,11 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.kms.gcp
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.{KmsConfig, ProcessingTimeout}
@@ -197,7 +198,7 @@ class GcpKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] =
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] = synchronizeWithClosing(functionFullName)(
     for {
       keySpec <- convertToGcpSigningScheme(signingKeySpec)
         .leftMap(err => KmsCreateKeyError(err))
@@ -209,19 +210,21 @@ class GcpKms(
         config.keyRingId,
       )
     } yield kmsKeyId
+  )
 
   override protected def generateSymmetricEncryptionKeyInternal(
       @unused name: Option[KeyName]
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] =
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] = synchronizeWithClosing(functionFullName)(
     // GCP KMS does not allow to store the name alongside the key
     createKey(
       CryptoKeyVersionAlgorithm.GOOGLE_SYMMETRIC_ENCRYPTION,
       CryptoKeyPurpose.ENCRYPT_DECRYPT,
       config.keyRingId,
     )
+  )
 
   override protected def generateAsymmetricEncryptionKeyPairInternal(
       encryptionKeySpec: EncryptionKeySpec,
@@ -229,7 +232,7 @@ class GcpKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] =
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] = synchronizeWithClosing(functionFullName)(
     for {
       keySpec <- convertToGcpAsymmetricKeyEncryptionSpec(encryptionKeySpec)
         .leftMap(err => KmsCreateKeyError(err))
@@ -241,6 +244,7 @@ class GcpKms(
         config.keyRingId,
       )
     } yield kmsKeyId
+  )
 
   private def getPublicKeyInternal(keyId: KmsKeyId)(implicit
       ec: ExecutionContext,
@@ -270,37 +274,41 @@ class GcpKms(
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, KmsSigningPublicKey] =
-    for {
-      pkResponse <- getPublicKeyInternal(keyId)
-      keySpec <- convertFromGcpSigningScheme(pkResponse.getAlgorithm)
-        .leftMap[KmsError](KmsGetPublicKeyError(keyId, _))
-        .toEitherT[FutureUnlessShutdown]
-      pubKeyRaw <- convertPublicKeyFromPemToDer(pkResponse.getPem)
-        .leftMap[KmsError](KmsGetPublicKeyError(keyId, _))
-        .toEitherT[FutureUnlessShutdown]
-      pubKey <- KmsSigningPublicKey
-        .create(pubKeyRaw, keySpec)
-        .leftMap[KmsError](err => KmsGetPublicKeyError(keyId, err.toString))
-        .toEitherT[FutureUnlessShutdown]
-    } yield pubKey
+    synchronizeWithClosing(functionFullName)(
+      for {
+        pkResponse <- getPublicKeyInternal(keyId)
+        keySpec <- convertFromGcpSigningScheme(pkResponse.getAlgorithm)
+          .leftMap[KmsError](KmsGetPublicKeyError(keyId, _))
+          .toEitherT[FutureUnlessShutdown]
+        pubKeyRaw <- convertPublicKeyFromPemToDer(pkResponse.getPem)
+          .leftMap[KmsError](KmsGetPublicKeyError(keyId, _))
+          .toEitherT[FutureUnlessShutdown]
+        pubKey <- KmsSigningPublicKey
+          .create(pubKeyRaw, keySpec)
+          .leftMap[KmsError](err => KmsGetPublicKeyError(keyId, err.toString))
+          .toEitherT[FutureUnlessShutdown]
+      } yield pubKey
+    )
 
   override protected def getPublicEncryptionKeyInternal(keyId: KmsKeyId)(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, KmsEncryptionPublicKey] =
-    for {
-      pkResponse <- getPublicKeyInternal(keyId)
-      keySpec <- convertFromGcpAsymmetricEncryptionSpec(pkResponse.getAlgorithm)
-        .leftMap[KmsError](KmsGetPublicKeyError(keyId, _))
-        .toEitherT[FutureUnlessShutdown]
-      pubKeyRaw <- convertPublicKeyFromPemToDer(pkResponse.getPem)
-        .leftMap[KmsError](KmsGetPublicKeyError(keyId, _))
-        .toEitherT[FutureUnlessShutdown]
-      pubKey <- KmsEncryptionPublicKey
-        .create(pubKeyRaw, keySpec)
-        .leftMap[KmsError](err => KmsGetPublicKeyError(keyId, err))
-        .toEitherT[FutureUnlessShutdown]
-    } yield pubKey
+    synchronizeWithClosing(functionFullName)(
+      for {
+        pkResponse <- getPublicKeyInternal(keyId)
+        keySpec <- convertFromGcpAsymmetricEncryptionSpec(pkResponse.getAlgorithm)
+          .leftMap[KmsError](KmsGetPublicKeyError(keyId, _))
+          .toEitherT[FutureUnlessShutdown]
+        pubKeyRaw <- convertPublicKeyFromPemToDer(pkResponse.getPem)
+          .leftMap[KmsError](KmsGetPublicKeyError(keyId, _))
+          .toEitherT[FutureUnlessShutdown]
+        pubKey <- KmsEncryptionPublicKey
+          .create(pubKeyRaw, keySpec)
+          .leftMap[KmsError](err => KmsGetPublicKeyError(keyId, err))
+          .toEitherT[FutureUnlessShutdown]
+      } yield pubKey
+    )
 
   private def convertToGcpSigningScheme(
       signingKeySpec: SigningKeySpec
@@ -359,7 +367,7 @@ class GcpKms(
   override protected def keyExistsAndIsActiveInternal(keyId: KmsKeyId)(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, Unit] =
+  ): EitherT[FutureUnlessShutdown, KmsError, Unit] = synchronizeWithClosing(functionFullName)(
     retrieveKeyMetadata(keyId)
       .leftMap[KmsError] {
         case err: KmsRetrieveKeyMetadataError if !err.retryable =>
@@ -388,6 +396,7 @@ class GcpKms(
             )
         }
       }
+  )
 
   override protected def encryptSymmetricInternal(
       keyId: KmsKeyId,
@@ -395,33 +404,34 @@ class GcpKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, ByteString6144] = {
-    val keyName =
-      gcp.CryptoKeyName.of(
-        config.projectId,
-        config.locationId,
-        config.keyRingId,
-        keyId.unwrap,
-      )
-    val encryptionAlgorithm = CryptoKeyVersionAlgorithm.GOOGLE_SYMMETRIC_ENCRYPTION
-    for {
-      dataEnc <- loggerKms.withLogging[ByteString](
-        loggerKms.encryptRequestMsg(keyId.unwrap, encryptionAlgorithm.name),
-        _ => loggerKms.encryptResponseMsg(keyId.unwrap, encryptionAlgorithm.name),
-      )(
-        wrapKmsCall((errStr, retryable) => KmsEncryptError(keyId, errStr, retryable))(
-          kmsClient.encrypt(keyName, data.unwrap).getCiphertext
+  ): EitherT[FutureUnlessShutdown, KmsError, ByteString6144] =
+    synchronizeWithClosing(functionFullName) {
+      val keyName =
+        gcp.CryptoKeyName.of(
+          config.projectId,
+          config.locationId,
+          config.keyRingId,
+          keyId.unwrap,
         )
-      )
-      ciphertext <- ByteString6144
-        .create(dataEnc)
-        .toEitherT[FutureUnlessShutdown]
-        .leftMap[KmsError](err =>
-          KmsError
-            .KmsEncryptError(keyId, s"generated ciphertext does not adhere to bound: $err)")
+      val encryptionAlgorithm = CryptoKeyVersionAlgorithm.GOOGLE_SYMMETRIC_ENCRYPTION
+      for {
+        dataEnc <- loggerKms.withLogging[ByteString](
+          loggerKms.encryptRequestMsg(keyId.unwrap, encryptionAlgorithm.name),
+          _ => loggerKms.encryptResponseMsg(keyId.unwrap, encryptionAlgorithm.name),
+        )(
+          wrapKmsCall((errStr, retryable) => KmsEncryptError(keyId, errStr, retryable))(
+            kmsClient.encrypt(keyName, data.unwrap).getCiphertext
+          )
         )
-    } yield ciphertext
-  }
+        ciphertext <- ByteString6144
+          .create(dataEnc)
+          .toEitherT[FutureUnlessShutdown]
+          .leftMap[KmsError](err =>
+            KmsError
+              .KmsEncryptError(keyId, s"generated ciphertext does not adhere to bound: $err)")
+          )
+      } yield ciphertext
+    }
 
   override protected def decryptSymmetricInternal(
       keyId: KmsKeyId,
@@ -429,32 +439,33 @@ class GcpKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, ByteString4096] = {
-    val keyName =
-      gcp.CryptoKeyName.of(
-        config.projectId,
-        config.locationId,
-        config.keyRingId,
-        keyId.unwrap,
-      )
-    val encryptionAlgorithm = CryptoKeyVersionAlgorithm.GOOGLE_SYMMETRIC_ENCRYPTION
-    for {
-      dataPlain <- loggerKms.withLogging[ByteString](
-        loggerKms.decryptRequestMsg(keyId.unwrap, encryptionAlgorithm.name),
-        _ => loggerKms.decryptResponseMsg(keyId.unwrap, encryptionAlgorithm.name),
-      )(
-        wrapKmsCall((errStr, retryable) => KmsDecryptError(keyId, errStr, retryable))(
-          kmsClient.decrypt(keyName, data.unwrap).getPlaintext
+  ): EitherT[FutureUnlessShutdown, KmsError, ByteString4096] =
+    synchronizeWithClosing(functionFullName) {
+      val keyName =
+        gcp.CryptoKeyName.of(
+          config.projectId,
+          config.locationId,
+          config.keyRingId,
+          keyId.unwrap,
         )
-      )
-      plaintext <- ByteString4096
-        .create(dataPlain)
-        .toEitherT[FutureUnlessShutdown]
-        .leftMap[KmsError](err =>
-          KmsError.KmsDecryptError(keyId, s"plaintext does not adhere to bound: $err)")
+      val encryptionAlgorithm = CryptoKeyVersionAlgorithm.GOOGLE_SYMMETRIC_ENCRYPTION
+      for {
+        dataPlain <- loggerKms.withLogging[ByteString](
+          loggerKms.decryptRequestMsg(keyId.unwrap, encryptionAlgorithm.name),
+          _ => loggerKms.decryptResponseMsg(keyId.unwrap, encryptionAlgorithm.name),
+        )(
+          wrapKmsCall((errStr, retryable) => KmsDecryptError(keyId, errStr, retryable))(
+            kmsClient.decrypt(keyName, data.unwrap).getPlaintext
+          )
         )
-    } yield plaintext
-  }
+        plaintext <- ByteString4096
+          .create(dataPlain)
+          .toEitherT[FutureUnlessShutdown]
+          .leftMap[KmsError](err =>
+            KmsError.KmsDecryptError(keyId, s"plaintext does not adhere to bound: $err)")
+          )
+      } yield plaintext
+    }
 
   override protected def decryptAsymmetricInternal(
       keyId: KmsKeyId,
@@ -463,35 +474,36 @@ class GcpKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, ByteString190] = {
-    val keyName =
-      gcp.CryptoKeyVersionName.of(
-        config.projectId,
-        config.locationId,
-        config.keyRingId,
-        keyId.unwrap,
-        gcpKeyversion,
-      )
-    for {
-      encryptionAlgorithm <- convertToGcpAsymmetricEncryptionSpec(encryptionAlgorithmSpec)
-        .leftMap(err => KmsDecryptError(keyId, err))
-        .toEitherT[FutureUnlessShutdown]
-      dataPlain <- loggerKms.withLogging[ByteString](
-        loggerKms.decryptRequestMsg(keyId.unwrap, encryptionAlgorithm.name),
-        _ => loggerKms.decryptResponseMsg(keyId.unwrap, encryptionAlgorithm.name),
-      )(
-        wrapKmsCall((errStr, retryable) => KmsDecryptError(keyId, errStr, retryable))(
-          kmsClient.asymmetricDecrypt(keyName, data.unwrap).getPlaintext
+  ): EitherT[FutureUnlessShutdown, KmsError, ByteString190] =
+    synchronizeWithClosing(functionFullName) {
+      val keyName =
+        gcp.CryptoKeyVersionName.of(
+          config.projectId,
+          config.locationId,
+          config.keyRingId,
+          keyId.unwrap,
+          gcpKeyversion,
         )
-      )
-      plaintext <- ByteString190
-        .create(dataPlain)
-        .toEitherT[FutureUnlessShutdown]
-        .leftMap[KmsError](err =>
-          KmsError.KmsDecryptError(keyId, s"plaintext does not adhere to bound: $err)")
+      for {
+        encryptionAlgorithm <- convertToGcpAsymmetricEncryptionSpec(encryptionAlgorithmSpec)
+          .leftMap(err => KmsDecryptError(keyId, err))
+          .toEitherT[FutureUnlessShutdown]
+        dataPlain <- loggerKms.withLogging[ByteString](
+          loggerKms.decryptRequestMsg(keyId.unwrap, encryptionAlgorithm.name),
+          _ => loggerKms.decryptResponseMsg(keyId.unwrap, encryptionAlgorithm.name),
+        )(
+          wrapKmsCall((errStr, retryable) => KmsDecryptError(keyId, errStr, retryable))(
+            kmsClient.asymmetricDecrypt(keyName, data.unwrap).getPlaintext
+          )
         )
-    } yield plaintext
-  }
+        plaintext <- ByteString190
+          .create(dataPlain)
+          .toEitherT[FutureUnlessShutdown]
+          .leftMap[KmsError](err =>
+            KmsError.KmsDecryptError(keyId, s"plaintext does not adhere to bound: $err)")
+          )
+      } yield plaintext
+    }
 
   private def signWithAlgorithm(
       keyId: KmsKeyId,
@@ -521,63 +533,64 @@ class GcpKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, ByteString] = {
-    val keyVersionName =
-      gcp.CryptoKeyVersionName.of(
-        config.projectId,
-        config.locationId,
-        config.keyRingId,
-        keyId.unwrap,
-        gcpKeyversion,
-      )
-    signingAlgorithmSpec match {
-      case SigningAlgorithmSpec.EcDsaSha256 =>
-        signingKeySpec match {
-          case SigningKeySpec.EcP256 =>
-            signWithAlgorithm(
-              keyId,
-              keyVersionName,
-              CryptoKeyVersionAlgorithm.EC_SIGN_P256_SHA256,
-              data.unwrap,
-            )
-          case SigningKeySpec.EcSecp256k1 =>
-            signWithAlgorithm(
-              keyId,
-              keyVersionName,
-              CryptoKeyVersionAlgorithm.EC_SIGN_SECP256K1_SHA256,
-              data.unwrap,
-            )
-          case SigningKeySpec.EcP384 | SigningKeySpec.EcCurve25519 =>
-            EitherT.leftT[FutureUnlessShutdown, ByteString](
-              KmsError.KmsSignError(
+  ): EitherT[FutureUnlessShutdown, KmsError, ByteString] =
+    synchronizeWithClosing(functionFullName) {
+      val keyVersionName =
+        gcp.CryptoKeyVersionName.of(
+          config.projectId,
+          config.locationId,
+          config.keyRingId,
+          keyId.unwrap,
+          gcpKeyversion,
+        )
+      signingAlgorithmSpec match {
+        case SigningAlgorithmSpec.EcDsaSha256 =>
+          signingKeySpec match {
+            case SigningKeySpec.EcP256 =>
+              signWithAlgorithm(
                 keyId,
-                s"unsupported signing key spec $signingKeySpec for algorithm $signingAlgorithmSpec",
+                keyVersionName,
+                CryptoKeyVersionAlgorithm.EC_SIGN_P256_SHA256,
+                data.unwrap,
               )
-            )
-        }
-      case SigningAlgorithmSpec.EcDsaSha384 =>
-        signWithAlgorithm(
-          keyId,
-          keyVersionName,
-          CryptoKeyVersionAlgorithm.EC_SIGN_P384_SHA384,
-          data.unwrap,
-        )
-      case SigningAlgorithmSpec.Ed25519 =>
-        signWithAlgorithm(
-          keyId,
-          keyVersionName,
-          CryptoKeyVersionAlgorithm.EC_SIGN_ED25519,
-          data.unwrap,
-        )
+            case SigningKeySpec.EcSecp256k1 =>
+              signWithAlgorithm(
+                keyId,
+                keyVersionName,
+                CryptoKeyVersionAlgorithm.EC_SIGN_SECP256K1_SHA256,
+                data.unwrap,
+              )
+            case SigningKeySpec.EcP384 | SigningKeySpec.EcCurve25519 =>
+              EitherT.leftT[FutureUnlessShutdown, ByteString](
+                KmsError.KmsSignError(
+                  keyId,
+                  s"unsupported signing key spec $signingKeySpec for algorithm $signingAlgorithmSpec",
+                )
+              )
+          }
+        case SigningAlgorithmSpec.EcDsaSha384 =>
+          signWithAlgorithm(
+            keyId,
+            keyVersionName,
+            CryptoKeyVersionAlgorithm.EC_SIGN_P384_SHA384,
+            data.unwrap,
+          )
+        case SigningAlgorithmSpec.Ed25519 =>
+          signWithAlgorithm(
+            keyId,
+            keyVersionName,
+            CryptoKeyVersionAlgorithm.EC_SIGN_ED25519,
+            data.unwrap,
+          )
+      }
     }
-  }
 
   override protected def deleteKeyInternal(
       keyId: KmsKeyId
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, KmsError, Unit] = synchronizeWithClosing(functionFullName) {
     val keyVersionName =
       gcp.CryptoKeyVersionName.of(
         config.projectId,

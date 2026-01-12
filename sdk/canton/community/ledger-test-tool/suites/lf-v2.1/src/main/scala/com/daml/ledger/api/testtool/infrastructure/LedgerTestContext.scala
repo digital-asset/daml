@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
 
@@ -9,6 +9,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   PartyAllocation,
 }
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.digitalasset.canton.util.Mutex
 
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
@@ -62,8 +63,7 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
       .map(participants => Participants(connectedSynchronizers, participants*))
   }
 
+  private val nextParticipantMutex = Mutex()
   private[this] def nextParticipant(): ParticipantTestContext =
-    participantsRing.synchronized {
-      participantsRing.next()
-    }
+    nextParticipantMutex.exclusive(participantsRing.next())
 }

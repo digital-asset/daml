@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.service
@@ -135,6 +135,7 @@ class GrpcSequencerServiceTest
       override def maxConfirmationRequestsBurstFactor: PositiveDouble =
         PositiveDouble.tryCreate(1e-6)
       override def processingTimeouts: ProcessingTimeout = timeouts
+      override def maxSubscriptionsPerMember: PositiveInt = PositiveInt.three
     }
 
     val maxItemsInTopologyBatch = 5

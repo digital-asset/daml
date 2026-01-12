@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -e -o pipefail
@@ -20,7 +20,7 @@ else
     COMMUNITY_PROTO_PATH=$ROOT_PATH/community
     LEDGER_API_PROTO_PATH=$ROOT_PATH/ledger-api-proto
     ADMIN_API_PROTO_PATH=$ROOT_PATH/admin-api
-    LAPI_VALUE_PROTO_PATH=$ROOT_PATH/daml-lf/ledger-api-value/com/daml/ledger/api/v2/value.proto # FIXME(dylant-da) Looks like you're supposed to drop community/ as a prefix and src/main/protobuf as an infix, not sure how to test this though
+    LAPI_VALUE_PROTO_PATH=$ROOT_PATH/ledger-api-value/com/daml/ledger/api/v2/value.proto
 fi
 
 COMMUNITY_CANTON_PROTO_PATH=$COMMUNITY_PROTO_PATH/com/digitalasset/canton

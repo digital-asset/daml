@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
@@ -25,9 +25,16 @@ import scala.jdk.DurationConverters.*
  * can be pruned after a logical synchronizer upgrade.
  * It uses 2 participants, 2 sequencers and 2 mediators.
  */
-abstract class LSUPruningIntegrationTest extends LSUBase {
+final class LSUPruningIntegrationTest extends LSUBase {
 
-  override protected def testName: String = "logical-synchronizer-upgrade"
+  override protected def testName: String = "lsu-pruning"
+
+  registerPlugin(
+    new UseBftSequencer(
+      loggerFactory,
+      MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
+    )
+  )
 
   registerPlugin(new UsePostgres(loggerFactory))
 
@@ -120,13 +127,4 @@ abstract class LSUPruningIntegrationTest extends LSUBase {
       }
     }
   }
-}
-
-final class LSUPruningBftOrderingIntegrationTest extends LSUPruningIntegrationTest {
-  registerPlugin(
-    new UseBftSequencer(
-      loggerFactory,
-      MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
-    )
-  )
 }
