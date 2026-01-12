@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.typesig
 import java.{util => j}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref
-import Ref.{Identifier, PackageId, PackageName, PackageVersion, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, PackageName, PackageVersion, QualifiedName}
 import reader.Errors
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.archive.ArchivePayload
@@ -26,8 +26,8 @@ final case class PackageMetadata(
 
 /** The interface of a single DALF archive.  Not expressive enough to
   * represent a whole dar, as a dar can contain multiple DALF archives
-  * with separate package IDs and overlapping [[QualifiedName]]s; for a
-  * dar use [[EnvironmentInterface]] instead.
+  * with separate package IDs and overlapping [[com.digitalasset.daml.lf.data.Ref.QualifiedName]]s; for a
+  * dar use [[EnvironmentSignature]] instead.
   */
 final case class PackageSignature(
     packageId: PackageId,
@@ -242,7 +242,7 @@ object PackageSignature {
     }
   }
 
-  /** An argument for [[PackageSignature#resolveChoices]] given a package database,
+  /** An argument for [[EnvironmentSignature#resolveChoices]] given a package database,
     * such as json-api's `LedgerReader.PackageStore`.
     */
   def findInterface(

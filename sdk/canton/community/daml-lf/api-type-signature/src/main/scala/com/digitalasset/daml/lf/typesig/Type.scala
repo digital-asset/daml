@@ -13,27 +13,10 @@ import scala.jdk.CollectionConverters._
 /** [[Type]] is an intermediate form from
   * which record/variant objects or type aliases are generated from.
   *
-  * You might be wondering, why so many data structures for types
-  * We've got [[Core.Type]] and [[Package.ParamType]], now why do we need
-  * yet another?
-  *
-  * The reason we have chosen to use the [[Core.Type]] in the
-  * `typeDecls` field of [[com.daml.core.Package.PackageInterface]]
-  * is because other programs besides the Daml Scala code generator inspect
-  * this data structure. (e.g. Integration Adapter as of 07 Sep 2017).
-  *
-  * The [[Package.ParamType]] structure represents all types that are valid
-  * parameters in app-side contract templates.
-  *
   * The [[Type]] structure defined in this module defines all types that
   * can validly have a Scala data structure generated from them.
-  * This is slightly more sophisticated data structure than Package.ParamType
-  * since it contains type variables which, when present, are used to generate
+  * It contains type variables which, when present, are used to generate
   * polymorphic Scala data structures.
-  *
-  * Only a subset of [[Core.Type]] values can be translated to [[Type]] values.
-  * The method [[com.daml.core.Package#validTypeSynonymRHS]]
-  * returns {{{true}}} when a [[Core.Type]] value can be translated.
   */
 sealed abstract class Type extends Product with Serializable {
 

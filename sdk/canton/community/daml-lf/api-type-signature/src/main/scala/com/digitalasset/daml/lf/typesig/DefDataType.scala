@@ -99,7 +99,7 @@ final case class DefTemplate[+Ty](
   private[daml] def choices = tChoices.directChoices
 
   /** Remove choices from `unresolvedInheritedChoices` and add to `choices`
-    * given the `astInterfaces` from an [[EnvironmentInterface]].  If the result
+    * given the `astInterfaces` from an [[EnvironmentSignature]].  If the result
     * has any `unresolvedInheritedChoices` left, these choices were not found.
     */
   def resolveChoices[O >: Ty](
@@ -210,10 +210,10 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
               getAstInterface(tcn).cata(
                 { astIf =>
                   val tcnResolved = astIf choicesAsResolved tcn
-                  FirstVal.subst[ResolutionResult, TemplateChoice[O]](
+                  FirstVal.subst[ResolutionResult, TemplateChoice[O]]((
                     Set.empty[Ref.TypeConId],
                     tcnResolved,
-                  )
+                  ))
                 },
                 (Set(tcn), Map.empty): ResolutionResult[Nothing],
               )
