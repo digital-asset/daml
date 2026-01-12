@@ -380,7 +380,6 @@ da_scala_library(
         "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_opentelemetry_opentelemetry_context",
-        "@maven//:io_spray_spray_json_2_13",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_apache_pekko_pekko_stream_2_13",
         "@maven//:org_scalaz_scalaz_core_2_13",
@@ -862,7 +861,6 @@ scala_library(
         "//canton:rs-grpc-bridge",
         "//canton:rs-grpc-pekko",
         "//canton:scala-utils",
-        "//canton:struct-spray-json",
         "//canton:tracing",
         "//canton/community/daml-lf/api-type-signature",
         "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
@@ -1765,35 +1763,6 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "struct-spray-json",
-    srcs = glob(["base/struct-json/struct-spray-json/src/main/scala/**/*.scala"]),
-    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    scala_deps = [
-        "@maven//:com_thesamet_scalapb_lenses",
-        "@maven//:com_thesamet_scalapb_scalapb_runtime",
-        "@maven//:io_spray_spray_json",
-    ],
-    tags = ["maven_coordinates=com.daml:struct-spray-json:__VERSION__"],
-    visibility = ["//visibility:public"],
-    deps = [],
-)
-
-da_scala_test_suite(
-    name = "struct-spray-json-test",
-    srcs = glob(["base/struct-json/struct-spray-json/src/test/scala/**/*.scala"]),
-    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    scala_deps = [
-        "@maven//:com_thesamet_scalapb_lenses",
-        "@maven//:com_thesamet_scalapb_scalapb_runtime",
-        "@maven//:io_spray_spray_json",
-        "@maven//:org_scalatest_scalatest_wordspec",
-    ],
-    deps = [
-        ":struct-spray-json",
-    ],
-)
-
-da_scala_library(
     name = "struct-circe-json",
     srcs = glob(["base/struct-json/struct-circe-json/src/main/scala/**/*.scala"]),
     scala_deps = [
@@ -2077,7 +2046,6 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:io_spray_spray_json",
     ],
     scalacopts = canton_scalacopts + [
         "-language:postfixOps",
@@ -2110,7 +2078,6 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_typelevel_cats_kernel",
-        "@maven//:io_spray_spray_json",
     ],
     deps = [
         ":contextualized-logging",

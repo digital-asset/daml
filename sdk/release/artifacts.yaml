@@ -135,8 +135,6 @@
   type: jar-scala
 - target: //canton:nameof
   type: jar-scala
-- target: //canton:struct-spray-json
-  type: jar-scala
 - target: //canton:executors
   type: jar-scala
 - target: //canton:metrics
