@@ -216,10 +216,14 @@ final case class LedgerApiKeepAliveServerConfig(
   *
   * @param time Sets the time without read activity before sending a keepalive ping. Do not set to small numbers (default is 40s)
   * @param timeout Sets the time waiting for read activity after sending a keepalive ping (default is 20s)
+  * @param keepAliveWithoutCalls Enables sending of keep alive even when there are no RPCs on the channel (default to false). This increases network resource consumption for idle connections.
+  * @param idleTimeout If there are no RPCs during this duration, the channel will close all connections and switch to Idle state (default is 30 min)
   */
 final case class KeepAliveClientConfig(
     time: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(40),
     timeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
+    keepAliveWithoutCalls: Boolean = false,
+    idleTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(30),
 )
 
 sealed trait ApiType extends PrettyPrinting {
