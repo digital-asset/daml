@@ -20,7 +20,6 @@ import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
-  NodeId,
   SubmittedTransaction,
 }
 import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
@@ -205,14 +204,19 @@ private[speedy] object SpeedyTestLib {
           contractId: ContractId,
           key: GlobalKey,
       ): UpdateMachine = {
-        machine.ptx = machine.ptx.copy(
-          contractState = machine.ptx.contractState
-            .asInstanceOf[ContractStateMachine.StateImpl[NodeId]]
-            .copy(
+        val state = machine.ptx.contractState match {
+          case state: ContractStateMachine.NonUniqueContractKeyImpl[_] =>
+            state.copy(
               locallyCreated = machine.ptx.contractState.locallyCreated + contractId,
               activeState = machine.ptx.contractState.activeState.createKey(key, contractId),
             )
-        )
+          case state: ContractStateMachine.UniqueContractKeyImpl[_] =>
+            state.copy(
+              locallyCreated = machine.ptx.contractState.locallyCreated + contractId,
+              activeState = machine.ptx.contractState.activeState.createKey(key, contractId),
+            )
+        }
+        machine.ptx = machine.ptx.copy(contractState = state)
         machine
       }
     }
