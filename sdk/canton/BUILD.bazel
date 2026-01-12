@@ -2256,9 +2256,6 @@ da_scala_test_suite(
 da_scala_library(
     name = "logging-entries",
     srcs = glob(["base/logging-entries/src/main/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:io_spray_spray_json",
-    ],
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     tags = ["maven_coordinates=com.daml:logging-entries:__VERSION__"],
     visibility = [
