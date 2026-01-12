@@ -299,7 +299,7 @@ object ContractStateMachine {
               if (globalKeyInputs.contains(gk)) globalKeyInputs
               else globalKeyInputs.updated(gk, KeyCreate)
             Either.cond(
-              !conflict || ContractKeyUniquenessMode.Off == ContractKeyUniquenessMode.Off,
+              !conflict || true,
               me.copy(
                 activeState = me.activeState.createKey(gk, contractId),
                 globalKeyInputs = newKeyInputs,
@@ -329,7 +329,7 @@ object ContractStateMachine {
       val state = witnessContractId(targetId)
       for {
         state <-
-          if (byKey || ContractKeyUniquenessMode.Off == ContractKeyUniquenessMode.Strict)
+          if (byKey || false)
             state.assertKeyMapping(targetId, mbKey)
           else
             Right(state)
@@ -347,7 +347,7 @@ object ContractStateMachine {
     ): Either[KeyInputError, State[Nid]] = {
       // If the key has not yet been resolved, we use the resolution from the lookup node,
       // but this only makes sense if `activeState.keys` is updated by every node and not only by by-key nodes.
-      if (ContractKeyUniquenessMode.Off != ContractKeyUniquenessMode.Strict)
+      if (true)
         throw new UnsupportedOperationException(
           "handleLookup can only be used if all key nodes are considered"
         )
@@ -369,7 +369,7 @@ object ContractStateMachine {
         lookup: Node.LookupByKey,
         keyInput: Option[ContractId],
     ): Either[KeyInputError, State[Nid]] = {
-      if (ContractKeyUniquenessMode.Off != ContractKeyUniquenessMode.Off)
+      if (false)
         throw new UnsupportedOperationException(
           "handleLookupWith can only be used if only by-key nodes are considered"
         )
@@ -440,7 +440,7 @@ object ContractStateMachine {
         byKey: Boolean,
     ): Either[InconsistentContractKey, State[Nid]] = {
       val state = witnessContractId(contractId)
-      if (byKey || ContractKeyUniquenessMode.Off == ContractKeyUniquenessMode.Strict)
+      if (byKey || false)
         state.assertKeyMapping(contractId, mbKey)
       else
         Right(state)
@@ -472,12 +472,7 @@ object ContractStateMachine {
     ): Either[KeyInputError, State[Nid]] = node match {
       case create: Node.Create => handleCreate(create)
       case fetch: Node.Fetch => handleFetch(fetch)
-      case lookup: Node.LookupByKey =>
-        ContractKeyUniquenessMode.Off match {
-          case ContractKeyUniquenessMode.Strict => handleLookup(lookup)
-          case ContractKeyUniquenessMode.Off => handleLookupWith(lookup, keyInput)
-        }
-
+      case lookup: Node.LookupByKey => handleLookupWith(lookup, keyInput)
       case exercise: Node.Exercise => handleExercise(id, exercise)
     }
 
@@ -516,7 +511,7 @@ object ContractStateMachine {
                 case (key, KeyCreate) =>
                   lookupActiveKey(key).exists(
                     _ != KeyInactive
-                  ) && ContractKeyUniquenessMode.Off == ContractKeyUniquenessMode.Strict
+                  ) && false
                 case (key, NegativeKeyLookup) => lookupActiveKey(key).exists(_ != KeyInactive)
                 case (key, Transaction.KeyActive(cid)) =>
                   lookupActiveKey(key).exists(_ != KeyActive(cid))
@@ -538,7 +533,7 @@ object ContractStateMachine {
       } yield {
         val next = this.activeState.advance(substate.activeState)
         val globalKeyInputs =
-          if (ContractKeyUniquenessMode.Off == ContractKeyUniquenessMode.Strict)
+          if (false)
             // In strict mode, `key`'s state is the same at `this` as at the beginning
             // if `key` is not in `this.globalKeyInputs`.
             // So just extend `this.globalKeyInputs` with the new stuff.
@@ -699,7 +694,7 @@ object ContractStateMachine {
               if (globalKeyInputs.contains(gk)) globalKeyInputs
               else globalKeyInputs.updated(gk, KeyCreate)
             Either.cond(
-              !conflict || ContractKeyUniquenessMode.Strict == ContractKeyUniquenessMode.Off,
+              !conflict || false,
               me.copy(
                 activeState = me.activeState.createKey(gk, contractId),
                 globalKeyInputs = newKeyInputs,
@@ -729,7 +724,7 @@ object ContractStateMachine {
       val state = witnessContractId(targetId)
       for {
         state <-
-          if (byKey || ContractKeyUniquenessMode.Strict == ContractKeyUniquenessMode.Strict)
+          if (byKey || true)
             state.assertKeyMapping(targetId, mbKey)
           else
             Right(state)
@@ -747,7 +742,7 @@ object ContractStateMachine {
     ): Either[KeyInputError, State[Nid]] = {
       // If the key has not yet been resolved, we use the resolution from the lookup node,
       // but this only makes sense if `activeState.keys` is updated by every node and not only by by-key nodes.
-      if (ContractKeyUniquenessMode.Strict != ContractKeyUniquenessMode.Strict)
+      if (false)
         throw new UnsupportedOperationException(
           "handleLookup can only be used if all key nodes are considered"
         )
@@ -769,7 +764,7 @@ object ContractStateMachine {
         lookup: Node.LookupByKey,
         keyInput: Option[ContractId],
     ): Either[KeyInputError, State[Nid]] = {
-      if (ContractKeyUniquenessMode.Strict != ContractKeyUniquenessMode.Off)
+      if (true)
         throw new UnsupportedOperationException(
           "handleLookupWith can only be used if only by-key nodes are considered"
         )
@@ -839,7 +834,7 @@ object ContractStateMachine {
         byKey: Boolean,
     ): Either[InconsistentContractKey, State[Nid]] = {
       val state = witnessContractId(contractId)
-      if (byKey || ContractKeyUniquenessMode.Strict == ContractKeyUniquenessMode.Strict)
+      if (byKey || true)
         state.assertKeyMapping(contractId, mbKey)
       else
         Right(state)
@@ -871,12 +866,7 @@ object ContractStateMachine {
     ): Either[KeyInputError, State[Nid]] = node match {
       case create: Node.Create => handleCreate(create)
       case fetch: Node.Fetch => handleFetch(fetch)
-      case lookup: Node.LookupByKey =>
-        ContractKeyUniquenessMode.Strict match {
-          case ContractKeyUniquenessMode.Strict => handleLookup(lookup)
-          case ContractKeyUniquenessMode.Off => handleLookupWith(lookup, keyInput)
-        }
-
+      case lookup: Node.LookupByKey => handleLookup(lookup)
       case exercise: Node.Exercise => handleExercise(id, exercise)
     }
 
@@ -915,7 +905,7 @@ object ContractStateMachine {
                 case (key, KeyCreate) =>
                   lookupActiveKey(key).exists(
                     _ != KeyInactive
-                  ) && ContractKeyUniquenessMode.Strict == ContractKeyUniquenessMode.Strict
+                  ) && true
                 case (key, NegativeKeyLookup) => lookupActiveKey(key).exists(_ != KeyInactive)
                 case (key, Transaction.KeyActive(cid)) =>
                   lookupActiveKey(key).exists(_ != KeyActive(cid))
@@ -937,7 +927,7 @@ object ContractStateMachine {
       } yield {
         val next = this.activeState.advance(substate.activeState)
         val globalKeyInputs =
-          if (ContractKeyUniquenessMode.Strict == ContractKeyUniquenessMode.Strict)
+          if (true)
             // In strict mode, `key`'s state is the same at `this` as at the beginning
             // if `key` is not in `this.globalKeyInputs`.
             // So just extend `this.globalKeyInputs` with the new stuff.
