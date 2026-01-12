@@ -100,7 +100,7 @@ withPackageDBAndIdeState lfVersion getScriptService action = do
 
 testScriptService :: SdkVersioned => LF.Version -> IO SS.Handle -> TestTree
 testScriptService lfVersion getScriptService =
-  testGroup ("LF " <> LF.renderVersion lfVersion)
+  testGroup ("LF " <> LF.renderTodoVersion lfVersion)
     [ withResourceCps (withPackageDBAndIdeState lfVersion getScriptService) $ \getIdeState ->
         testGroup "single module"
             [ testCase "createCmd + exerciseCmd + createAndExerciseCmd" $ do
@@ -803,7 +803,7 @@ testScriptServiceWithKeys :: SdkVersioned => LF.Version -> IO SS.Handle -> TestT
 testScriptServiceWithKeys lfVersion getScriptService =
   withResourceCps (withPackageDBAndIdeState lfVersion getScriptService) $ \getIdeState ->
           testGroup
-            ("LF " <> LF.renderVersion lfVersion)
+            ("LF " <> LF.renderTodoVersion lfVersion)
             [ testCase "exerciseByKeyCmd" $ do
                 rs <-
                   runScriptsInModule
@@ -1290,11 +1290,12 @@ runScriptsInAllPackages getScriptService lfVersion mainPackage packages = do
 
 
 locateDamlScriptDar :: LF.Version -> IO FilePath
-locateDamlScriptDar lfVersion = locateRunfiles $ case lfVersion of
-    (LF.Version LF.V2 LF.PointDev) -> prefix </> "daml-script-2.dev.dar"
-    (LF.Version LF.V2 _) -> prefix </> "daml-script.dar"
-  where
-    prefix = mainWorkspace </> "daml-script" </> "daml"
+locateDamlScriptDar lfVersion = locateRunfiles $
+  if LF.isDevVersion lfVersion
+    then prefix </> "daml-script-2.dev.dar"
+    else prefix </> "daml-script.dar"
+      where
+        prefix = mainWorkspace </> "daml-script" </> "daml"
 
 writeAndBuildPackage :: LF.Version -> FilePath -> (FilePath, [(FilePath, [T.Text])]) -> IO ()
 writeAndBuildPackage lfVersion damlc (packagePath, packageFiles) = do
@@ -1305,7 +1306,7 @@ writeAndBuildPackage lfVersion damlc (packagePath, packageFiles) = do
     [ "build"
     , "--package-root"
     , packagePath
-    , "--target=" <> LF.renderVersion lfVersion
+    , "--target=" <> LF.renderTodoVersion lfVersion
     ]
 
 withIdeState :: SdkVersioned => IO SS.Handle -> Options -> (IdeState -> IO a) -> IO a

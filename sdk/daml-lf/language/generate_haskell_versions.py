@@ -59,9 +59,31 @@ def main(input_json_path, output_hs_path):
 -- //compiler/daml-lf-ast:generated_haskell_features_src based on
 -- //compiler/daml-lf/language/daml-lf.bzl. DO NOT EDIT.
 
+{-# LANGUAGE PatternSynonyms #-}
+
 module DA.Daml.LF.Ast.Version.GeneratedVersions where
 
 import DA.Daml.LF.Ast.Version.VersionType
+
+import qualified Data.Map                 as M
+
+-- If we ever add a new MajorVersion, make these maps of map
+defaultPatchMap :: M.Map MinorVersion Int
+defaultPatchMap = M.fromList [(PointStable 2, 1)]
+
+allowedPatchMap :: M.Map MinorVersion [Int]
+allowedPatchMap = M.fromList [(PointStable 1, [0]), (PointStable 2, [0, 1])]
+
+defaultPatchForMinor :: MinorVersion -> Int
+defaultPatchForMinor minor = M.findWithDefault 0 minor defaultPatchMap
+
+-- | Pattern for the "old" Version.
+-- Matches: Ignores the patch field.
+-- Constructs: Defaults patch to default patch.
+pattern Version :: MajorVersion -> MinorVersion -> Version
+pattern Version major minor <- VersionP major minor _
+  where
+    Version major minor = VersionP major minor (defaultPatchForMinor minor)
 """
     ]
 

@@ -560,7 +560,7 @@ expandSdkPackages logger lfVersion dars = do
     mapM (expand mbSdkPath) (nubOrd dars)
   where
     isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
-    sdkSuffix = "-" <> LF.renderVersion lfVersion
+    sdkSuffix = "-" <> LF.renderTodoVersion lfVersion
     expand mbSdkPath fp
       | fp `elem` basePackages = pure fp
       | isSdkPackage fp = case mbSdkPath of
