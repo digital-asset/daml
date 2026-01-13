@@ -6,8 +6,9 @@ package transaction
 
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey.NoKey
-import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref}
+import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.transaction.Transaction.{
   AliasedNode,
   ChildrenRecursion,
@@ -314,14 +315,22 @@ class TransactionSpec
 
       def create(s: V.ContractId) = {
         println(s)
+        val templateId: Ref.TypeConId = s"Mod:t${s.coid}"
         builder
           .create(
             id = s,
-            templateId = s"Mod:t${s.coid}",
+            templateId = templateId,
             argument = V.ValueUnit,
             signatories = parties,
             observers = parties,
-            key = CreateKey.SignatoryMaintainerKey(V.ValueText(s.coid)),
+            key = CreateKey.SignatoryMaintainerKey(
+              V.ValueText(s.coid),
+              SValueHash.assertHashContractKey(
+                TestNodeBuilder.defaultPackageName,
+                templateId.qualifiedName,
+                SValue.SText(s.coid),
+              ),
+            ),
           )
       }
 
@@ -406,8 +415,15 @@ class TransactionSpec
           "RolledBackUnsuccessfulLookup",
         ).map(s => {
           val node = create(cid(s))
+          val keySValue = SValue.SText(cid(s).coid)
           GlobalKey
-            .assertBuild(node.templateId, V.ValueText(cid(s).coid), node.packageName)
+            .assertBuild(
+              node.templateId,
+              node.packageName,
+              keySValue.toNormalizedValue,
+              SValueHash
+                .assertHashContractKey(node.packageName, node.templateId.qualifiedName, keySValue),
+            )
         }).toSet
 
       builder.build().contractKeys shouldBe expectedResults
@@ -420,7 +436,13 @@ class TransactionSpec
     val parties = List("Alice")
     val keyPkgName = Ref.PackageName.assertFromString("key-package-name")
     def keyValue(s: String) = V.ValueText(s)
-    def globalKey(k: String) = GlobalKey.assertBuild("Mod:T", keyValue(k), keyPkgName)
+    def keyHash(s: String) = SValueHash.assertHashContractKey(keyPkgName, "Mod:T", SValue.SText(s))
+    def globalKey(k: String) = GlobalKey.assertBuild(
+      "Mod:T",
+      keyPkgName,
+      keyValue(k),
+      keyHash(k),
+    )
     def create(s: V.ContractId, k: String) = dummyBuilder
       .create(
         id = s,
@@ -428,7 +450,7 @@ class TransactionSpec
         argument = V.ValueUnit,
         signatories = parties,
         observers = parties,
-        key = CreateKey.SignatoryMaintainerKey(keyValue(k)),
+        key = CreateKey.SignatoryMaintainerKey(keyValue(k), keyHash(k)),
         packageName = keyPkgName,
       )
 
@@ -675,7 +697,16 @@ class TransactionSpec
       argument = V.ValueUnit,
       signatories = parties,
       observers = Seq(),
-      key = key.fold[CreateKey](NoKey)(s => CreateKey.SignatoryMaintainerKey(V.ValueText(s))),
+      key = key.fold[CreateKey](NoKey)(s =>
+        CreateKey.SignatoryMaintainerKey(
+          V.ValueText(s),
+          SValueHash.assertHashContractKey(
+            TestNodeBuilder.defaultPackageName,
+            "Mod:T",
+            SValue.SText(s),
+          ),
+        )
+      ),
     )
     (cid, node)
   }
@@ -750,7 +781,12 @@ class TransactionSpec
       builder.add(exercise(builder, create3, parties, true), rollback)
       builder.add(create4, rollback)
 
-      def key(s: String) = GlobalKey.assertBuild("Mod:T", V.ValueText(s), create0.packageName)
+      def key(s: String) = GlobalKey.assertBuild(
+        "Mod:T",
+        create0.packageName,
+        V.ValueText(s),
+        SValueHash.assertHashContractKey(create0.packageName, "Mod:T", SValue.SText(s)),
+      )
       builder.build().updatedContractKeys shouldBe
         Map(key("key0") -> Some(cid0), key("key1") -> None, key("key2") -> Some(cid3))
     }

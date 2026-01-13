@@ -23,7 +23,7 @@ import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.digitalasset.daml.lf.speedy.metrics.{StepCount, TxNodeCount}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.{InitialSeeding, SValue, svalue}
-import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.stablepackages.{StablePackages, StablePackagesV2}
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
@@ -497,18 +497,18 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
         )
         .consume(lookupContract, lookupPackage, lookupKey)
       inside(submitResult) { case Left(Error.Interpretation(err, _)) =>
+        val sKey = mkSValuePair(SValue.SParty(alice), SValue.SInt64(43))
         err shouldBe Interpretation.DamlException(
           interpretation.Error.ContractKeyNotFound(
             GlobalKey.assertBuild(
               templateId = BasicTests_WithKey,
-              key = ValueRecord(
-                Some(BasicTests_WithKey),
-                ImmArray(
-                  (Some[Ref.Name]("p"), ValueParty(alice)),
-                  (Some[Ref.Name]("k"), ValueInt64(43)),
-                ),
-              ),
               packageName = basicTestsPkg.pkgName,
+              key = sKey.toNormalizedValue,
+              keyHash = SValueHash.assertHashContractKey(
+                basicTestsPkg.pkgName,
+                templateId.qualifiedName,
+                sKey,
+              ),
             )
           )
         )
@@ -700,30 +700,27 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
     val templateId =
       Identifier(basicTestsPkgId, "BasicTests:TypedKey")
 
-    val keyValue = ValueRecord(
-      tycon = Some(Identifier(basicTestsPkgId, "BasicTests:NumericKey")),
-      fields = ImmArray.from(
-        Seq(
-          (Some[Ref.Name]("sig"), ValueParty(alice)),
-          (
-            Some[Ref.Name]("n4"),
-            ValueNumeric(com.digitalasset.daml.lf.data.Numeric.assertFromString("10.1200")),
-          ),
-          (Some[Ref.Name]("i"), ValueNone),
-        )
+    val keySValue = SValue.SRecord(
+      id = Identifier(basicTestsPkgId, "BasicTests:NumericKey"),
+      fields = ImmArray("sig", "n4", "i"),
+      values = ArraySeq(
+        SValue.SParty(alice),
+        SValue.SNumeric(com.digitalasset.daml.lf.data.Numeric.assertFromString("10.1200")),
+        SValue.SOptional(None),
       ),
     )
+    val keyValue = keySValue.toNormalizedValue.asInstanceOf[ValueRecord]
 
-    val expected = GlobalKey.assertBuild(templateId, keyValue, basicTestsPkg.pkgName)
+    val expected = GlobalKey.assertBuild(
+      templateId,
+      basicTestsPkg.pkgName,
+      keyValue,
+      SValueHash.assertHashContractKey(basicTestsPkg.pkgName, templateId.qualifiedName, keySValue),
+    )
 
     def translateAndCheck(fields: Seq[(Option[Name], Value)]): Assertion = {
-      val input = ValueRecord(
-        tycon = Some(Identifier(basicTestsPkgId, "BasicTests:NumericKey")),
-        fields = ImmArray.from(fields),
-      )
-
       val result = suffixLenientEngine
-        .buildGlobalKey(templateId, input)
+        .buildGlobalKey(templateId, ValueRecord(tycon = None, fields = ImmArray.from(fields)))
         .consume(lookupContract, lookupPackage, lookupKey)
 
       inside(result) { case Right(actual) =>
@@ -836,16 +833,9 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
     "error if the engine fails to find the key" in {
       val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
 
-      val cmds = ImmArray(
-        speedy.Command.FetchByKey(
-          templateId = templateId,
-          key = SRecord(
-            BasicTests_WithKey,
-            ImmArray("_1", "_2"),
-            ArraySeq(SParty(alice), SInt64(43)),
-          ),
-        )
-      )
+      val sKey = mkSValuePair(SValue.SParty(alice), SValue.SInt64(43))
+
+      val cmds = ImmArray(speedy.Command.FetchByKey(templateId = templateId, key = sKey))
 
       val submitters = Set(alice)
 
@@ -863,27 +853,27 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
       inside(result) { case Left(Error.Interpretation(err, _)) =>
-        err shouldBe
-          Interpretation.DamlException(
-            interpretation.Error.ContractKeyNotFound(
-              GlobalKey.assertBuild(
-                templateId = BasicTests_WithKey,
-                key = ValueRecord(
-                  Some(BasicTests_WithKey),
-                  ImmArray(
-                    (Some[Ref.Name]("p"), ValueParty(alice)),
-                    (Some[Ref.Name]("k"), ValueInt64(43)),
-                  ),
-                ),
-                packageName = basicTestsPkg.pkgName,
-              )
+        err shouldBe Interpretation.DamlException(
+          interpretation.Error.ContractKeyNotFound(
+            GlobalKey.assertBuild(
+              templateId = BasicTests_WithKey,
+              packageName = basicTestsPkg.pkgName,
+              key = sKey.toNormalizedValue,
+              keyHash = SValueHash.assertHashContractKey(
+                basicTestsPkg.pkgName,
+                templateId.qualifiedName,
+                sKey,
+              ),
             )
           )
+        )
       }
     }
 
     "error if Speedy fails to find the key" in {
       val templateId = Identifier(basicTestsPkgId, "BasicTests:FailedFetchByKey")
+
+      val sKey = mkSValuePair(SValue.SParty(alice), SValue.SInt64(43))
 
       // This first does a negative lookupByKey which succeeds
       // and then a fetchByKey which fails in speedy without calling back to the engine.
@@ -912,22 +902,20 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
       inside(result) { case Left(Error.Interpretation(err, _)) =>
-        err shouldBe
-          Interpretation.DamlException(
-            interpretation.Error.ContractKeyNotFound(
-              GlobalKey.assertBuild(
-                templateId = BasicTests_WithKey,
-                key = ValueRecord(
-                  Some(BasicTests_WithKey),
-                  ImmArray(
-                    (Some[Ref.Name]("p"), ValueParty(alice)),
-                    (Some[Ref.Name]("k"), ValueInt64(43)),
-                  ),
-                ),
-                packageName = basicTestsPkg.pkgName,
-              )
+        err shouldBe Interpretation.DamlException(
+          interpretation.Error.ContractKeyNotFound(
+            GlobalKey.assertBuild(
+              templateId = BasicTests_WithKey,
+              packageName = basicTestsPkg.pkgName,
+              key = sKey.toNormalizedValue,
+              keyHash = SValueHash.assertHashContractKey(
+                basicTestsPkg.pkgName,
+                Identifier(basicTestsPkgId, "BasicTests:WithKey").qualifiedName,
+                sKey,
+              ),
             )
           )
+        )
       }
     }
   }
@@ -2067,6 +2055,7 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
     val submissionSeed = hash("rollback")
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
+    val sKey = mkSValuePair(SValue.SParty(party), SValue.SInt64(666))
     val contracts = Map(
       cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = defaultSerializationVersion,
@@ -2086,7 +2075,12 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
             GlobalKey.assertBuild(
               templateId = TypeConId(exceptionsPkgId, "Exceptions:K"),
               packageName = exceptionsPkg.pkgName,
-              key = ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(666)))),
+              key = sKey.toNormalizedValue,
+              keyHash = SValueHash.assertHashContractKey(
+                exceptionsPkg.pkgName,
+                "Exceptions:K",
+                sKey,
+              ),
             ),
             Set(party),
           )
@@ -2229,6 +2223,7 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
     val submissionSeed = hash("rollback")
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
+    val sKey = mkSValuePair(SValue.SParty(party), SValue.SInt64(777))
     val contracts = Map(
       cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = defaultSerializationVersion,
@@ -2248,7 +2243,12 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
             GlobalKey.assertBuild(
               templateId = TypeConId(exceptionsPkgId, "Exceptions:K"),
               packageName = exceptionsPkg.pkgName,
-              key = ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(777)))),
+              key = sKey.toNormalizedValue,
+              keyHash = SValueHash.assertHashContractKey(
+                exceptionsPkg.pkgName,
+                "Exceptions:K",
+                sKey,
+              ),
             ),
             Set(party),
           )
@@ -2319,6 +2319,7 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
     val submissionSeed = hash("global-keys")
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
+    val sKey = mkSValuePair(SValue.SParty(party), SValue.SInt64(0))
     val contracts = Map(
       cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = defaultSerializationVersion,
@@ -2338,7 +2339,12 @@ class EngineTest(majorLanguageVersion: LanguageVersion.Major, contractIdVersion:
             GlobalKey.assertBuild(
               templateId = TypeConId(exceptionsPkgId, "Exceptions:K"),
               packageName = exceptionsPkg.pkgName,
-              key = ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
+              key = sKey.toNormalizedValue,
+              keyHash = SValueHash.assertHashContractKey(
+                exceptionsPkg.pkgName,
+                "Exceptions:K",
+                sKey,
+              ),
             ),
             Set(party),
           )
@@ -3074,7 +3080,8 @@ class EngineTestHelpers(
 
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey: lf.data.Ref.ValueRef = Identifier(basicTestsPkgId, withKeyTemplate)
-  val withKeyContractInst: FatContractInstance =
+  val withKeyContractInst: FatContractInstance = {
+    val sKey = mkSValuePair(SValue.SParty(alice), SValue.SInt64(42))
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
       defaultSerializationVersion,
       packageName = basicTestsPkg.pkgName,
@@ -3092,13 +3099,15 @@ class EngineTestHelpers(
         GlobalKeyWithMaintainers(
           GlobalKey.assertBuild(
             templateId = TypeConId(basicTestsPkgId, withKeyTemplate),
-            key = ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
             packageName = basicTestsPkg.pkgName,
+            key = sKey.toNormalizedValue,
+            keyHash = SValueHash.assertHashContractKey(basicTestsPkg.pkgName, withKeyTemplate, sKey),
           ),
           Set(alice),
         )
       ),
     )
+  }
 
   val defaultContracts: Map[ContractId, FatContractInstance] =
     Map(
@@ -3133,18 +3142,26 @@ class EngineTestHelpers(
         withKeyContractInst,
     )
 
-  val defaultKey = Map(
-    GlobalKeyWithMaintainers(
-      GlobalKey.assertBuild(
-        templateId = TypeConId(basicTestsPkgId, withKeyTemplate),
-        key = ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
-        packageName = basicTestsPkg.pkgName,
-      ),
-      Set(alice),
+  val defaultKey = {
+    val sKey = mkSValuePair(SValue.SParty(alice), SValue.SInt64(42))
+    Map(
+      GlobalKeyWithMaintainers(
+        GlobalKey.assertBuild(
+          templateId = TypeConId(basicTestsPkgId, withKeyTemplate),
+          packageName = basicTestsPkg.pkgName,
+          key = sKey.toNormalizedValue,
+          keyHash = SValueHash.assertHashContractKey(
+            basicTestsPkg.pkgName,
+            withKeyTemplate.qualifiedName,
+            sKey,
+          ),
+        ),
+        Set(alice),
+      )
+        ->
+          toContractId("BasicTests:WithKey:1")
     )
-      ->
-        toContractId("BasicTests:WithKey:1")
-  )
+  }
 
   val lookupContract = defaultContracts
 
@@ -3190,6 +3207,13 @@ class EngineTestHelpers(
 
   def suffix(tx: VersionedTransaction): VersionedTransaction =
     data.assertRight(tx.suffixCid(_ => dummySuffixV1, _ => dummySuffixV2))
+
+  def mkSValuePair(fst: SValue, snd: SValue) =
+    SValue.SRecord(
+      StablePackagesV2.Tuple2,
+      ImmArray(Ref.Name.assertFromString("_1"), Ref.Name.assertFromString("_2")),
+      ArraySeq(fst, snd),
+    )
 
   // Mimics Canton reinterpretation
   // requires a suffixed transaction.

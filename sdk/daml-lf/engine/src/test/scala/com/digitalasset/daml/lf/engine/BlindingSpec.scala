@@ -4,18 +4,22 @@
 package com.digitalasset.daml.lf
 package engine
 
+import com.digitalasset.daml.lf.crypto.SValueHash
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.BlindingSpec.TxBuilder
+import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Node}
 import com.digitalasset.daml.lf.transaction.test.{
   NodeIdTransactionBuilder,
-  TransactionBuilder,
   TestNodeBuilder,
+  TransactionBuilder,
 }
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ValueRecord
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
+
+import scala.collection.immutable.ArraySeq
 
 object BlindingSpec {
   class TxBuilder extends NodeIdTransactionBuilder with TestNodeBuilder
@@ -117,7 +121,15 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       argument = ValueRecord(None, ImmArray.empty),
       signatories = Seq("Alice", "Bob"),
       observers = Seq("Carl"),
-      key = CreateKey.KeyWithMaintainers(ValueRecord(None, ImmArray.empty), Seq("Alice")),
+      key = CreateKey.KeyWithMaintainers(
+        value = ValueRecord(None, ImmArray.empty),
+        hash = SValueHash.assertHashContractKey(
+          TestNodeBuilder.defaultPackageName,
+          "M:T",
+          SValue.SRecord("M:T", ImmArray.empty, ArraySeq.empty),
+        ),
+        maintainers = Seq("Alice"),
+      ),
     )
     val lookup = builder.lookupByKey(create)
     val nodeId = builder.add(lookup)
@@ -138,7 +150,15 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       argument = ValueRecord(None, ImmArray.empty),
       signatories = Seq("Alice", "Bob"),
       observers = Seq("Carl"),
-      key = CreateKey.KeyWithMaintainers(ValueRecord(None, ImmArray.empty), Seq("Alice")),
+      key = CreateKey.KeyWithMaintainers(
+        value = ValueRecord(None, ImmArray.empty),
+        hash = SValueHash.assertHashContractKey(
+          TestNodeBuilder.defaultPackageName,
+          "M:T",
+          SValue.SRecord("M:T", ImmArray.empty, ArraySeq.empty),
+        ),
+        maintainers = Seq("Alice"),
+      ),
     )
     val lookup = builder.lookupByKey(create, found = false)
     val nodeId = builder.add(lookup)

@@ -56,13 +56,13 @@ trait TestNodeBuilder {
     val keyOpt = key match {
       case CreateKey.NoKey =>
         None
-      case CreateKey.SignatoryMaintainerKey(value) =>
+      case CreateKey.SignatoryMaintainerKey(value, hash) =>
         Some(
-          GlobalKeyWithMaintainers.assertBuild(templateId, value, signatories, packageName)
+          GlobalKeyWithMaintainers.assertBuild(templateId, value, hash, signatories, packageName)
         )
-      case CreateKey.KeyWithMaintainers(value, maintainers) =>
+      case CreateKey.KeyWithMaintainers(value, hash, maintainers) =>
         Some(
-          GlobalKeyWithMaintainers.assertBuild(templateId, value, maintainers, packageName)
+          GlobalKeyWithMaintainers.assertBuild(templateId, value, hash, maintainers, packageName)
         )
     }
 
@@ -152,8 +152,9 @@ object TestNodeBuilder extends TestNodeBuilder {
   sealed trait CreateKey
   object CreateKey {
     case object NoKey extends CreateKey
-    final case class SignatoryMaintainerKey(value: Value) extends CreateKey
-    final case class KeyWithMaintainers(value: Value, maintainers: Set[Party]) extends CreateKey
+    final case class SignatoryMaintainerKey(value: Value, hash: crypto.Hash) extends CreateKey
+    final case class KeyWithMaintainers(value: Value, hash: crypto.Hash, maintainers: Set[Party])
+        extends CreateKey
   }
 
   sealed trait CreateSerializationVersion

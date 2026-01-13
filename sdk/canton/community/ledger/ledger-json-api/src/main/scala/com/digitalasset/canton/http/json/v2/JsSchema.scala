@@ -256,6 +256,7 @@ object JsSchema {
         contractId: String,
         templateId: Identifier,
         contractKey: Option[Json],
+        contractKeyHash: protobuf.ByteString,
         createArgument: Option[Json],
         createdEventBlob: protobuf.ByteString,
         interfaceViews: Seq[JsInterfaceView],

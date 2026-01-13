@@ -6,12 +6,13 @@ package engine
 
 import cats.Order
 import cats.data.NonEmptySet
-import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast.{TNat, TTyCon, Type}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
@@ -30,6 +31,8 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
+
+import scala.collection.immutable.ArraySeq
 
 class EnricherSpec extends AnyWordSpec with Matchers with Inside with TableDrivenPropertyChecks {
 
@@ -308,6 +311,7 @@ class EnricherSpec extends AnyWordSpec with Matchers with Inside with TableDrive
     def buildTransaction(
         contract: Value,
         key: Value,
+        keyHash: crypto.Hash,
         record: Value,
     ): CommittedTransaction = {
 
@@ -326,7 +330,7 @@ class EnricherSpec extends AnyWordSpec with Matchers with Inside with TableDrive
           argument = contract,
           signatories = Set("Alice"),
           observers = Set("Alice"),
-          key = CreateKey.SignatoryMaintainerKey(key),
+          key = CreateKey.SignatoryMaintainerKey(key, keyHash),
           version = CreateSerializationVersion.Version(SerializationVersion.minVersion),
         )
       txBuilder.toCommittedTransaction(
@@ -347,12 +351,18 @@ class EnricherSpec extends AnyWordSpec with Matchers with Inside with TableDrive
 
     "enrich transaction as expected" in {
 
-      val inputKey: ValueRecord = ValueRecord(
-        "",
-        ImmArray(
-          "" -> ValueParty("Alice"),
-          "" -> Value.ValueInt64(0),
-        ),
+      val inputKeySValue: SValue.SRecord = SValue.SRecord(
+        "Mod:Key",
+        ImmArray("party", "idx"),
+        ArraySeq(SValue.SParty("Alice"), SValue.SInt64(0)),
+      )
+
+      val inputKey: Value = inputKeySValue.toNormalizedValue
+
+      val inputKeyHash: Hash = SValueHash.assertHashContractKey(
+        TestNodeBuilder.defaultPackageName,
+        "Mod:Key",
+        inputKeySValue,
       )
 
       val inputContract: ValueRecord =
@@ -370,6 +380,7 @@ class EnricherSpec extends AnyWordSpec with Matchers with Inside with TableDrive
       val inputTransaction = buildTransaction(
         inputContract,
         inputKey,
+        inputKeyHash,
         inputRecord,
       )
 
@@ -396,6 +407,7 @@ class EnricherSpec extends AnyWordSpec with Matchers with Inside with TableDrive
       val outputTransaction = buildTransaction(
         outputContract,
         outputKey,
+        inputKeyHash,
         outputRecord,
       )
 

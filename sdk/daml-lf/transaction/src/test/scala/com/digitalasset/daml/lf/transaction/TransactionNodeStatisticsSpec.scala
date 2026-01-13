@@ -4,6 +4,8 @@
 package com.digitalasset.daml.lf
 package transaction
 
+import com.digitalasset.daml.lf.crypto.SValueHash
+import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateKey.NoKey
 import com.digitalasset.daml.lf.transaction.TransactionNodeStatistics.Actions
@@ -62,14 +64,22 @@ class TransactionNodeStatisticsSpec
 
     def create(b: TxBuilder, withKey: Boolean = false) = {
       val parties = Set(b.newParty)
+      val templateId = b.newIdentifier
+      val packageName = b.newPackageName
       b.create(
         id = b.newCid,
-        packageName = b.newPackageName,
-        templateId = b.newIdentifier,
+        packageName = packageName,
+        templateId = templateId,
         argument = Value.ValueUnit,
         signatories = parties,
         observers = Set.empty,
-        key = if (withKey) CreateKey.SignatoryMaintainerKey(Value.ValueUnit) else NoKey,
+        key =
+          if (withKey)
+            CreateKey.SignatoryMaintainerKey(
+              Value.ValueUnit,
+              SValueHash.assertHashContractKey(packageName, templateId.qualifiedName, SValue.SUnit),
+            )
+          else NoKey,
       )
     }
 

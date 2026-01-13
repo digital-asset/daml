@@ -302,7 +302,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           internal_contract_id = 42L,
           create_key_hash = Some(
             GlobalKey
-              .assertBuild(contractTemplate, keyValue, createNode.packageName)
+              .assertBuild(contractTemplate, key = keyValue, keyHash = null)
               .hash
               .bytes
               .toHexString
@@ -1344,11 +1344,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           internal_contract_id = 42L,
           create_key_hash = Some(
             GlobalKey
-              .assertBuild(
-                Ref.Identifier.assertFromString("P:M:T2"),
-                Value.ValueUnit,
-                createNodeC.packageName,
-              )
+              .assertBuild(Ref.Identifier.assertFromString("P:M:T2"), key = Value.ValueUnit, keyHash = null)
               .hash
               .bytes
               .toHexString

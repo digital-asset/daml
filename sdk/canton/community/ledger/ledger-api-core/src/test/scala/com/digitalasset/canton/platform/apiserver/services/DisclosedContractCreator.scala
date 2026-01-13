@@ -57,6 +57,7 @@ object DisclosedContractCreator {
           None -> LfValue.ValueText("some key"),
         ),
       ),
+      null,
       api.keyMaintainers,
       Ref.PackageName.assertFromString(api.packageName),
     )

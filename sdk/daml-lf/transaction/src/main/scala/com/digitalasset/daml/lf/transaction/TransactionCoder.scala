@@ -4,15 +4,15 @@
 package com.digitalasset.daml.lf
 package transaction
 
+import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.data.Ref.{Name, Party}
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
-import com.digitalasset.daml.lf.data.Ref.{Name, Party}
 import com.digitalasset.daml.lf.value.{DecodeError, EncodeError, Value, ValueOuterClass}
-import com.daml.scalautil.Statement.discard
 import com.google.protobuf.{ByteString, ProtocolStringList}
 
-import scala.annotation.nowarn
 import scala.Ordering.Implicits.infixOrderingOps
+import scala.annotation.nowarn
 import scala.collection.immutable.{HashMap, TreeSet}
 import scala.jdk.CollectionConverters._
 
@@ -155,9 +155,7 @@ class TransactionCoder(allowNullCharacters: Boolean) {
       if (version >= SerializationVersion.minVersion) {
         val builder = TransactionOuterClass.KeyWithMaintainers.newBuilder()
         TreeSet.from(key.maintainers).foreach(builder.addMaintainers(_))
-        ValueCoder
-          .encodeValue(valueVersion = version, v0 = key.value)
-          .map(builder.setKey(_).build())
+        ValueCoder.encodeKey(version, key.globalKey).map(bs => builder.setKey(bs).build)
       } else
         Left(EncodeError(s"Contract key are not supported by $version"))
 
@@ -352,14 +350,7 @@ class TransactionCoder(allowNullCharacters: Boolean) {
     ): Either[DecodeError, GlobalKeyWithMaintainers] = {
       for {
         maintainers <- toPartySet(msg.getMaintainersList)
-        value <- decodeValue(
-          version = version,
-          unversionedProto = msg.getKey,
-        )
-        gkey <- GlobalKey
-          .build(templateId, value, packageName)
-          .left
-          .map(hashErr => DecodeError(hashErr.msg))
+        gkey <- ValueCoder.decodeKey(templateId, packageName, version, msg.getKey)
       } yield GlobalKeyWithMaintainers(gkey, maintainers)
     }
 

@@ -475,6 +475,9 @@ private[events] object TransactionLogUpdatesConversions {
         GlobalKeyWithMaintainers.assertBuild(
           templateId = createdEvent.templateId,
           value = keyVersionedValue.unversioned,
+          valueHash = createdEvent.createKeyHash.getOrElse(
+            throw new IllegalStateException("contractKey is defined but createKeyHash is not")
+          ),
           maintainers = maintainers,
           packageName = createdEvent.packageName,
         )

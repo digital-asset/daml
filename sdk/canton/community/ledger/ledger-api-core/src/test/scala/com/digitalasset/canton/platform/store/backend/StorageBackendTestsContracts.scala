@@ -26,12 +26,12 @@ private[backend] trait StorageBackendTestsContracts
     val key1 = GlobalKey.assertBuild(
       Identifier.assertFromString("A:B:C"),
       ValueUnit,
-      someTemplateId.pkg.name,
+      keyHash = null,
     )
     val key2 = GlobalKey.assertBuild(
       Identifier.assertFromString("A:B:C"),
       ValueText("value"),
-      someTemplateId.pkg.name,
+      keyHash = null,
     )
     val internalContractId = 123L
     val internalContractId2 = 223L

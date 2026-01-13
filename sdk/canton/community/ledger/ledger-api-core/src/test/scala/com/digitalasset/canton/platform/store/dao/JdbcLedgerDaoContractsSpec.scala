@@ -91,10 +91,9 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     val aTextValue = ValueText(scala.util.Random.nextString(10))
 
     val key = GlobalKeyWithMaintainers.assertBuild(
-      someTemplateId,
-      aTextValue,
-      Set(alice, bob),
-      somePackageName,
+      value = aTextValue,
+      valueHash = null,
+      maintainers = Set(alice, bob),
     )
 
     for {
@@ -132,10 +131,9 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     def genContractWithKey(string: String = scala.util.Random.nextString(5)) = {
       val aTextValue = ValueText(string)
       val key = GlobalKeyWithMaintainers.assertBuild(
-        someTemplateId,
-        aTextValue,
-        Set(alice),
-        somePackageName,
+        value = aTextValue,
+        valueHash = null,
+        maintainers = Set(alice),
       )
       createAndStoreContract(
         submittingParties = Set(alice),

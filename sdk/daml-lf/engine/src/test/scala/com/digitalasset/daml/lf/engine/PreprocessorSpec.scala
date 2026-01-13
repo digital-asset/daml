@@ -6,11 +6,11 @@ package engine
 
 import com.daml.nameof.NameOf.qualifiedNameOfMember
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiContractKey}
-import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, PackageRef, PackageVersion, Party}
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError}
-import com.digitalasset.daml.lf.speedy.{Command, Compiler}
+import com.digitalasset.daml.lf.speedy.{Command, Compiler, SValue}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{
@@ -228,10 +228,21 @@ class PreprocessorSpec
     "prefetchContractIdsAndKeys" should {
       val priority = Map(pkgName -> defaultPackageId)
       val bob: Party = Ref.Party.assertFromString("Bob")
-      val bobKey = ValueList(FrontStack(ValueParty(bob)))
+      val bobKeySValue = SValue.SList(FrontStack(SValue.SParty(bob)))
+      val bobKey = bobKeySValue.toNormalizedValue
 
-      val globalKey1 = GlobalKey.assertBuild(withKeyTmplId, parties, pkgName)
-      val globalKey2 = GlobalKey.assertBuild(withKeyTmplId, bobKey, pkgName)
+      val globalKey1 = GlobalKey.assertBuild(
+        withKeyTmplId,
+        pkgName,
+        parties,
+        SValueHash.assertHashContractKey(pkgName, withKeyTmplId.qualifiedName, partiesSValue),
+      )
+      val globalKey2 = GlobalKey.assertBuild(
+        withKeyTmplId,
+        pkgName,
+        bobKey,
+        SValueHash.assertHashContractKey(pkgName, withKeyTmplId.qualifiedName, bobKeySValue),
+      )
 
       "extract the keys from ExerciseByKey commands" in {
         val preprocessor = preprocessing.Preprocessor.forTesting(compilerConfig)
@@ -364,7 +375,18 @@ class PreprocessorSpec
           )
         inside(resultAllPrefetch) { case ResultPrefetch(contractIds, keys, resume) =>
           contractIds.toSet shouldBe ((contractId +: moreContractIds).toSet)
-          keys shouldBe Seq(GlobalKey.assertBuild(withContractIdTmplId, parties, pkgName))
+          keys shouldBe Seq(
+            GlobalKey.assertBuild(
+              withContractIdTmplId,
+              pkgName,
+              parties,
+              SValueHash.assertHashContractKey(
+                pkgName,
+                withContractIdTmplId.qualifiedName,
+                partiesSValue,
+              ),
+            )
+          )
           resume() shouldBe ResultDone.Unit
         }
 
@@ -469,7 +491,8 @@ final class PreprocessorSpecHelpers {
   val alice: Party = Ref.Party.assertFromString("Alice")
   val bob: Party = Ref.Party.assertFromString("Bob")
   val signatories = immutable.TreeSet(alice)
-  val parties: ValueList = ValueList(FrontStack(ValueParty(alice)))
+  val partiesSValue = SValue.SList(FrontStack(SValue.SParty(alice)))
+  val parties = partiesSValue.toNormalizedValue
   val testKeyName: String = "test-key"
   val contractId: ContractId =
     Value.ContractId.V1.assertBuild(
@@ -529,8 +552,9 @@ final class PreprocessorSpecHelpers {
       ),
       signatories = signatories,
       stakeholders = signatories,
-      contractKeyWithMaintainers =
-        key.map(k => GlobalKeyWithMaintainers.assertBuild(templateId, k, signatories, pkgName)),
+      contractKeyWithMaintainers = key.map(k =>
+        GlobalKeyWithMaintainers.assertBuild(templateId, k, null, signatories, pkgName)
+      ),
       createdAt = CreationTime.CreatedAt(data.Time.Timestamp.Epoch),
       authenticationData = Bytes.Empty,
     )

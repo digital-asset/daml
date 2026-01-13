@@ -35,6 +35,7 @@ import com.digitalasset.daml.lf.transaction.Node.{Create, Exercise}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.FlowShape
 import org.apache.pekko.stream.scaladsl.{Broadcast, Flow, GraphDSL, Merge, Sink, Source}
+import com.digitalasset.daml.lf.crypto
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -383,8 +384,11 @@ private[platform] object InMemoryStateUpdater {
         globalKey = createdEvent.contractKey.map(k =>
           Key.assertBuild(
             createdEvent.templateId,
-            k.unversioned,
             createdEvent.packageName,
+            k.unversioned,
+            createdEvent.createKeyHash.getOrElse(
+              throw new IllegalStateException("contractKey is defined but createKeyHash is not")
+            ),
           )
         ),
       )
@@ -394,11 +398,14 @@ private[platform] object InMemoryStateUpdater {
         if exercisedEvent.consuming && exercisedEvent.flatEventWitnesses.nonEmpty =>
       ContractStateEvent.Archived(
         contractId = exercisedEvent.contractId,
-        globalKey = exercisedEvent.contractKey.map(k =>
-          Key.assertBuild(
-            exercisedEvent.templateId,
-            k.unversioned,
-            exercisedEvent.packageName,
+        globalKey = exercisedEvent.contractKey.flatMap(k =>
+          exercisedEvent.contractKeyHash.map(hash =>
+            Key.assertBuild(
+              exercisedEvent.templateId,
+              exercisedEvent.packageName,
+              k.unversioned,
+              hash,
+            )
           )
         ),
       )
@@ -486,6 +493,7 @@ private[platform] object InMemoryStateUpdater {
           contractKey = exercise.keyOpt.map(k =>
             com.digitalasset.daml.lf.transaction.Versioned(exercise.version, k.value)
           ),
+          contractKeyHash = exercise.keyOpt.map(_.globalKey.hash),
           treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty),
           flatEventWitnesses =
             if (exercise.consuming && txAccepted.isAcsDelta(exercise.targetCoid))
