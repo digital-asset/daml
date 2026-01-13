@@ -61,7 +61,7 @@ testsForRemoteDataDependencies damlc dar =
                             [ "sdk-version: " <> sdkVersion
                             , "name: a"
                             , "version: 0.0.1"
-                            , "build-options: ['--target=" <> LF.renderVersion lfVersion <> "']"
+                            , "build-options: ['--target=" <> LF.renderVersionWithPatch lfVersion <> "']"
                             , "source: ."
                             , "dependencies: [daml-prim, daml-stdlib]"
                             , "data-dependencies: [" ++ mainPkgId ++ "]"
@@ -90,7 +90,7 @@ testsForRemoteDataDependencies damlc dar =
                             [ "sdk-version: " <> sdkVersion
                             , "name: a"
                             , "version: 0.0.1"
-                            , "build-options: ['--target=" <> LF.renderVersion lfVersion <> "']"
+                            , "build-options: ['--target=" <> LF.renderVersionWithPatch lfVersion <> "']"
                             , "source: ."
                             , "dependencies: [daml-prim, daml-stdlib]"
                             , "data-dependencies: [pkg-manager-test:1.0.0]"
@@ -139,7 +139,7 @@ testsForRemoteDataDependencies damlc dar =
                             [ "sdk-version: " <> sdkVersion
                             , "name: a"
                             , "version: 0.0.1"
-                            , "build-options: ['--target=" <> LF.renderVersion lfVersion <> "']"
+                            , "build-options: ['--target=" <> LF.renderVersionWithPatch lfVersion <> "']"
                             , "source: ."
                             , "dependencies: [daml-prim, daml-stdlib]"
                             , "data-dependencies: [pkg-manager-test:1.0.0]"
@@ -184,7 +184,7 @@ testsForRemoteDataDependencies damlc dar =
                             [ "sdk-version: " <> sdkVersion
                             , "name: a"
                             , "version: 0.0.1"
-                            , "build-options: ['--target=" <> LF.renderVersion lfVersion <> "']"
+                            , "build-options: ['--target=" <> LF.renderVersionWithPatch lfVersion <> "']"
                             , "source: ."
                             , "dependencies: [daml-prim, daml-stdlib]"
                             , "data-dependencies: [" ++ mainPkgId ++ "]"
