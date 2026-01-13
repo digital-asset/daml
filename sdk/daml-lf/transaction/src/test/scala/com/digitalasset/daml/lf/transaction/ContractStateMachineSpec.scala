@@ -727,7 +727,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
                 withClue("input contract IDs") {
                   state.inputContractIds shouldBe contractsI
                 }
-                state.rollbackStack shouldBe List.empty
+                state.withinRollbackScope shouldBe false
               case _ => fail(s"$result was not equal to $expectedResult")
             }
           }

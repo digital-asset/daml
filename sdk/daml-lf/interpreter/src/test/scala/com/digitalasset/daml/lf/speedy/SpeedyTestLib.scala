@@ -16,9 +16,11 @@ import com.digitalasset.daml.lf.speedy.Speedy.UpdateMachine
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.{
+  ContractStateMachine,
   FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
+  NodeId,
   SubmittedTransaction,
 }
 import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
@@ -204,10 +206,12 @@ private[speedy] object SpeedyTestLib {
           key: GlobalKey,
       ): UpdateMachine = {
         machine.ptx = machine.ptx.copy(
-          contractState = machine.ptx.contractState.copy(
-            locallyCreated = machine.ptx.contractState.locallyCreated + contractId,
-            activeState = machine.ptx.contractState.activeState.createKey(key, contractId),
-          )
+          contractState = machine.ptx.contractState
+            .asInstanceOf[ContractStateMachine.StateImpl[NodeId]]
+            .copy(
+              locallyCreated = machine.ptx.contractState.locallyCreated + contractId,
+              activeState = machine.ptx.contractState.activeState.createKey(key, contractId),
+            )
         )
         machine
       }
