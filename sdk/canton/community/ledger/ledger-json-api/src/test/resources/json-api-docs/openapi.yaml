@@ -2273,6 +2273,54 @@ paths:
       security:
       - httpAuth: []
       - apiKeyAuth: []
+  /livez:
+    get:
+      description: Checks if the service is alive
+      operationId: getLivez
+      responses:
+        '200':
+          description: 'OK: service is alive'
+        '400':
+          description: Invalid value
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /readyz:
+    get:
+      description: Checks if the service is ready to serve requests
+      operationId: getReadyz
+      responses:
+        '200':
+          description: 'OK: readiness message'
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: Invalid value
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
 components:
   schemas:
     AllocateExternalPartyRequest:
@@ -5014,6 +5062,14 @@ components:
             Set if it was requested in the ``InterfaceFilter`` and it could be
             successfully computed.
             Optional
+        implementationPackageId:
+          description: |-
+            The package defining the interface implementation used to compute the view.
+            Can be different from the package that was used to create the contract itself,
+            as the contract arguments can be upgraded or downgraded using smart-contract upgrading
+            as part of computing the interface view.
+            Populated if the view computation is successful, otherwise empty.
+          type: string
     JsPrepareSubmissionRequest:
       title: JsPrepareSubmissionRequest
       type: object

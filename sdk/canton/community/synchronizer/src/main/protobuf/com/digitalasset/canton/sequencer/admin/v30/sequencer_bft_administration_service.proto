@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -9,6 +9,7 @@ service SequencerBftAdministrationService {
   rpc AddPeerEndpoint(AddPeerEndpointRequest) returns (AddPeerEndpointResponse);
   rpc RemovePeerEndpoint(RemovePeerEndpointRequest) returns (RemovePeerEndpointResponse);
   rpc GetPeerNetworkStatus(GetPeerNetworkStatusRequest) returns (GetPeerNetworkStatusResponse);
+  rpc GetWriteReadiness(GetWriteReadinessRequest) returns (GetWriteReadinessResponse);
   rpc GetOrderingTopology(GetOrderingTopologyRequest) returns (GetOrderingTopologyResponse);
   rpc SetPerformanceMetricsEnabled(SetPerformanceMetricsEnabledRequest) returns (SetPerformanceMetricsEnabledResponse);
 }
@@ -99,6 +100,27 @@ message GetPeerNetworkStatusRequest {
 
 message GetPeerNetworkStatusResponse {
   repeated PeerConnectionStatus statuses = 1;
+}
+
+message GetWriteReadinessRequest {}
+message GetWriteReadinessResponse {
+  message P2P {
+    int32 authenticated_peers_count = 1;
+    int32 required_quorum = 2;
+  }
+
+  message Ready {
+    P2P p2p = 1;
+  }
+
+  message P2PNotReady {
+    P2P p2p = 1;
+  }
+
+  oneof readiness {
+    Ready ready = 1;
+    P2PNotReady p2p_not_ready = 2;
+  }
 }
 
 message GetOrderingTopologyRequest {}

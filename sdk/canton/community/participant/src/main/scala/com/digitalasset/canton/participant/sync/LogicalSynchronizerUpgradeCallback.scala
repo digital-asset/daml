@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.sync
@@ -49,7 +49,9 @@ class LogicalSynchronizerUpgradeCallbackImpl(
 
   def registerCallback(
       successor: SynchronizerSuccessor
-  )(implicit traceContext: TraceContext): Unit =
+  )(implicit traceContext: TraceContext): Unit = {
+    implicit val logger = LSU.Logger(loggerFactory, getClass, successor)
+
     if (registered.compareAndSet(None, Some(successor))) {
       logger.info(s"Registering callback for upgrade of $psid to ${successor.psid}")
 
@@ -76,6 +78,7 @@ class LogicalSynchronizerUpgradeCallbackImpl(
       logger.info(
         s"Not registering callback for upgrade of $psid to ${successor.psid} because it was already done"
       )
+  }
 
   override def unregisterCallback(): Unit = registered.set(None)
 }

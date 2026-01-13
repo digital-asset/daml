@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.ledgerapi
@@ -447,7 +447,7 @@ trait LedgerApiOffsetCheckpointsConformanceTest extends SingleVersionLedgerApiCo
       .addConfigTransforms(
         updateAllParticipantConfigs_(
           _.focus(_.ledgerApi.indexService.offsetCheckpointCacheUpdateInterval)
-            .replace(config.NonNegativeFiniteDuration(java.time.Duration.ofMillis(1000)))
+            .replace(config.NonNegativeFiniteDuration(java.time.Duration.ofMillis(3000)))
             .focus(_.ledgerApi.indexService.idleStreamOffsetCheckpointTimeout)
             .replace(config.NonNegativeFiniteDuration(java.time.Duration.ofMillis(1000)))
         )

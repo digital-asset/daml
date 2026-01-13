@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -327,7 +327,10 @@ message GenesisStateV2Response {
   bytes chunk = 1;
 }
 
-message LogicalUpgradeStateRequest {}
+message LogicalUpgradeStateRequest {
+  // Must be specified if the node is configured with more than one active synchronizer.
+  optional StoreId synchronizer_store = 1;
+}
 
 message LogicalUpgradeStateResponse {
   // versioned stored topology transactions

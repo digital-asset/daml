@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.admin.api.client.commands
@@ -12,6 +12,8 @@ import com.digitalasset.canton.sequencer.admin.v30.{
   GetOrderingTopologyResponse,
   GetPeerNetworkStatusRequest,
   GetPeerNetworkStatusResponse,
+  GetWriteReadinessRequest,
+  GetWriteReadinessResponse,
   RemovePeerEndpointRequest,
   RemovePeerEndpointResponse,
   SequencerBftAdministrationServiceGrpc,
@@ -21,6 +23,7 @@ import com.digitalasset.canton.sequencer.admin.v30.{
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.{
   OrderingTopology,
   PeerNetworkStatus,
+  WriteReadiness,
   endpointIdToProto,
   endpointToProto,
 }
@@ -112,6 +115,28 @@ object SequencerBftAdminCommands {
         response: GetPeerNetworkStatusResponse
     ): Either[String, PeerNetworkStatus] =
       PeerNetworkStatus.fromProto(response)
+  }
+
+  final case object GetWriteReadiness
+      extends BaseSequencerBftAdministrationCommand[
+        GetWriteReadinessRequest,
+        GetWriteReadinessResponse,
+        WriteReadiness,
+      ] {
+
+    override protected def createRequest(): Either[String, GetWriteReadinessRequest] =
+      Right(GetWriteReadinessRequest())
+
+    override protected def submitRequest(
+        service: SequencerBftAdministrationServiceStub,
+        request: GetWriteReadinessRequest,
+    ): Future[GetWriteReadinessResponse] =
+      service.getWriteReadiness(request)
+
+    override protected def handleResponse(
+        response: GetWriteReadinessResponse
+    ): Either[String, WriteReadiness] =
+      WriteReadiness.fromProto(response)
   }
 
   final case class GetOrderingTopology()

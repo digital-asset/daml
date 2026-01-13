@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.transaction
@@ -20,6 +20,7 @@ import com.digitalasset.canton.ProtoDeserializationError.{
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.{Endpoint, UrlValidator}
 import com.digitalasset.canton.protocol.v30.Enums
@@ -50,12 +51,14 @@ import com.digitalasset.canton.topology.transaction.TopologyMapping.{
   RequiredAuth,
   newSigningKeys,
 }
+import com.digitalasset.canton.util.LoggerUtil
 import com.digitalasset.canton.version.ProtoVersion
 import com.digitalasset.canton.{LfPackageId, ProtoDeserializationError, SequencerAlias}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import monocle.Lens
 import monocle.macros.GenLens
+import org.slf4j.event.Level
 
 import scala.annotation.nowarn
 import scala.math.Ordering.Implicits.*
@@ -217,6 +220,9 @@ object TopologyMapping {
 
     val logicalSynchronizerUpgradeMappings: Set[Code] =
       Set[Code](Code.SynchronizerUpgradeAnnouncement, Code.SequencerConnectionSuccessor)
+
+    val lsuMappingsExcludedFromUpgrade: NonEmpty[Set[Code]] =
+      NonEmpty(Set, Code.SynchronizerUpgradeAnnouncement, Code.SequencerConnectionSuccessor: Code)
 
     def fromString(code: String): ParsingResult[Code] =
       all
@@ -393,6 +399,22 @@ object TopologyMapping {
       case Mapping.SequencerConnectionSuccessor(value) =>
         SequencerConnectionSuccessor.fromProtoV30(value)
     }
+
+  /** Determines the appropriate level for the given topology mappings.
+    */
+  def resolveLogLevel(default: Level, code: Code): Level = {
+    @inline def maxLevel(a: Level, b: Level): Level = if (a.toInt > b.toInt) a else b
+
+    code match {
+      // Promote level for LSU-related activity to at least INFO.
+      case Code.SynchronizerUpgradeAnnouncement | Code.SequencerConnectionSuccessor =>
+        maxLevel(default, Level.INFO)
+      case _ => default
+    }
+  }
+
+  def loggerDebug(code: Code)(msg: => String)(implicit lc: ErrorLoggingContext): Unit =
+    LoggerUtil.logAtLevel(resolveLogLevel(Level.DEBUG, code), msg)
 }
 
 /** Trait for all companion objects of topology mappings. This allows for a nicer console UX,

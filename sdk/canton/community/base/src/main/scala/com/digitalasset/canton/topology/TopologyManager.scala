@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -456,7 +456,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       if (signingKeys.nonEmpty)
         s"signed by ${signingKeys.mkString(", ")}"
       else ""
-    logger.debug(
+    logger.info(
       show"Attempting to build, sign, and $op $mapping with serial $serial $signingKeyString"
     )
     for {

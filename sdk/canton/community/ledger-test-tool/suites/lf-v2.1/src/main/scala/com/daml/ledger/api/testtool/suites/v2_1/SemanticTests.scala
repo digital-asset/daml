@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -261,7 +261,7 @@ final class SemanticTests extends LedgerTestSuite {
           )
         )
         iouTxsForHouseOwner <- alpha.transactions(txReq)
-        iouCreatedEvent = createdEvents(iouTxsForHouseOwner.head).head
+        iouCreatedEvent = createdEvents(iouTxsForHouseOwner.headOption.value).headOption.value
         iouDisclosedContract = DisclosedContract(
           templateId = iouCreatedEvent.templateId,
           contractId = iouCreatedEvent.contractId,
@@ -388,8 +388,8 @@ final class SemanticTests extends LedgerTestSuite {
         (newIouEvents, agreementEvents) = createdEvents(tree).partition(
           _.getTemplateId == Iou.TEMPLATE_ID_WITH_PACKAGE_ID.toV1
         )
-        newIouEvent <- Future(newIouEvents.head)
-        agreementEvent <- Future(agreementEvents.head)
+        newIouEvent <- Future(newIouEvents.headOption.value)
+        agreementEvent <- Future(agreementEvents.headOption.value)
         newIou = new Iou.ContractId(newIouEvent.contractId)
         agreement = new PaintAgree.ContractId(agreementEvent.contractId)
         _ <- p.synchronize

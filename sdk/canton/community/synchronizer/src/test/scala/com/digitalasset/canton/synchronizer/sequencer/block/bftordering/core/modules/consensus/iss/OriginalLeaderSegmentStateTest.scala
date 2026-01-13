@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
@@ -47,10 +47,12 @@ class OriginalLeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBase
   import OriginalLeaderSegmentStateTest.*
 
   "LeaderSegmentState" should {
+
     "assign blocks until all slots in segment are filled" in {
-      val slots = NonEmpty.apply(Seq, BlockNumber.First, 1L, 2L, 3L, 4L, 5L, 6L).map(BlockNumber(_))
+      val slots = NonEmpty.apply(Seq, 0L, 1L, 2L, 3L, 4L, 5L, 6L).map(BlockNumber(_))
       val segmentState = createSegmentState(slots)
-      val leaderSegmentState = new OriginalLeaderSegmentState(segmentState, epoch, Seq.empty)
+      val leaderSegmentState =
+        new OriginalLeaderSegmentState(segmentState, epoch, Seq.empty, Seq.empty, loggerFactory)
       // Emulate the first epoch behavior
       val initialCommits = Seq.empty
 
@@ -74,54 +76,114 @@ class OriginalLeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBase
       segmentState.isSegmentComplete shouldBe true
     }
 
-    "restore state correctly after a restart" in {
-      val completedBlocks =
-        Seq(BlockNumber.First, BlockNumber(2L)).map(n =>
-          Block(
-            EpochNumber.First,
-            BlockNumber(n),
-            CommitCertificate(
-              PrePrepare
-                .create(
-                  BlockMetadata(EpochNumber.First, n),
-                  ViewNumber.First,
-                  OrderingBlock.empty,
-                  CanonicalCommitSet(Set.empty),
-                  myId,
-                )
-                .fakeSign,
-              commits,
-            ),
+    "restore state correctly after a restart" when {
+
+      "some blocks are already completed and no blocks are in progress" in {
+        val completedBlocks =
+          Seq(BlockNumber.First, BlockNumber(2L)).map(n =>
+            Block(
+              EpochNumber.First,
+              BlockNumber(n),
+              CommitCertificate(
+                PrePrepare
+                  .create(
+                    BlockMetadata(EpochNumber.First, n),
+                    ViewNumber.First,
+                    OrderingBlock.empty,
+                    CanonicalCommitSet(Set.empty),
+                    myId,
+                  )
+                  .fakeSign,
+                commits,
+              ),
+            )
           )
-        )
-      val segmentState =
-        new SegmentState(
-          segment =
-            Segment(myId, NonEmpty.apply(Seq, BlockNumber.First, 2L, 4L, 6L).map(BlockNumber(_))),
-          epoch,
-          clock,
-          completedBlocks = completedBlocks,
-          abort = fail(_),
-          metrics,
-          loggerFactory,
-        )
-      val leaderSegmentState = new OriginalLeaderSegmentState(segmentState, epoch, completedBlocks)
+        val segmentState =
+          new SegmentState(
+            segment = Segment(
+              myId,
+              NonEmpty.apply(Seq, 0L, 2L, 4L).map(BlockNumber(_)),
+            ),
+            epoch,
+            clock,
+            completedBlocks = completedBlocks,
+            abort = fail(_),
+            metrics,
+            loggerFactory,
+          )
+        val leaderSegmentState =
+          new OriginalLeaderSegmentState(
+            segmentState,
+            epoch,
+            completedBlocks,
+            initialCurrentViewPrePrepareBlockNumbers = Seq.empty,
+            loggerFactory,
+          )
 
-      segmentState.isSegmentComplete shouldBe false
-      leaderSegmentState.canReceiveProposals shouldBe true
+        segmentState.isSegmentComplete shouldBe false
+        leaderSegmentState.canReceiveProposals shouldBe true
+        leaderSegmentState.nextBlockToPropose shouldBe 4L
 
-      // Self has one slot left to assign (block=4); assign and verify
-      val orderedBlock = leaderSegmentState.assignToSlot(OrderingBlock.empty, commits.take(1))
-      orderedBlock.metadata.blockNumber shouldBe 4L
-      orderedBlock.canonicalCommitSet.sortedCommits shouldBe commits
-      leaderSegmentState.canReceiveProposals shouldBe false
+        // Self has one slot left to assign (block=6); assign and verify
+        val orderedBlock = leaderSegmentState.assignToSlot(OrderingBlock.empty, commits.take(1))
+        orderedBlock.metadata.blockNumber shouldBe 4L
+        orderedBlock.canonicalCommitSet.sortedCommits shouldBe commits
+        leaderSegmentState.canReceiveProposals shouldBe false
+      }
+
+      "some blocks are already completed and a block is in progress" in {
+        val completedBlocks =
+          Seq(BlockNumber.First, BlockNumber(2L)).map(n =>
+            Block(
+              EpochNumber.First,
+              BlockNumber(n),
+              CommitCertificate(
+                PrePrepare
+                  .create(
+                    BlockMetadata(EpochNumber.First, n),
+                    ViewNumber.First,
+                    OrderingBlock.empty,
+                    CanonicalCommitSet(Set.empty),
+                    myId,
+                  )
+                  .fakeSign,
+                commits,
+              ),
+            )
+          )
+        val currentViewPrePrepareBlockNumbers = Seq(BlockNumber(4L))
+        val segmentState =
+          new SegmentState(
+            segment = Segment(
+              myId,
+              NonEmpty.apply(Seq, 0L, 2L, 4L, 6L).map(BlockNumber(_)),
+            ),
+            epoch,
+            clock,
+            completedBlocks = completedBlocks,
+            abort = fail(_),
+            metrics,
+            loggerFactory,
+          )
+        val leaderSegmentState =
+          new OriginalLeaderSegmentState(
+            segmentState,
+            epoch,
+            completedBlocks,
+            currentViewPrePrepareBlockNumbers,
+            loggerFactory,
+          )
+
+        segmentState.isSegmentComplete shouldBe false
+        leaderSegmentState.canReceiveProposals shouldBe false // Because the current block is not complete
+        leaderSegmentState.nextBlockToPropose shouldBe 6L
+      }
     }
 
     "assign block with empty canonical commit set just after genesis" in {
       val segmentState =
         new SegmentState(
-          segment =
-            Segment(myId, NonEmpty.apply(Seq, BlockNumber.First, 2L, 4L, 6L).map(BlockNumber(_))),
+          segment = Segment(myId, NonEmpty.apply(Seq, 0L, 2L, 4L, 6L).map(BlockNumber(_))),
           epoch,
           clock,
           completedBlocks = Seq.empty,
@@ -129,7 +191,8 @@ class OriginalLeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBase
           metrics,
           loggerFactory,
         )
-      val leaderSegmentState = new OriginalLeaderSegmentState(segmentState, epoch, Seq.empty)
+      val leaderSegmentState =
+        new OriginalLeaderSegmentState(segmentState, epoch, Seq.empty, Seq.empty, loggerFactory)
 
       val orderedBlock = leaderSegmentState.assignToSlot(
         OrderingBlock.empty,
@@ -163,7 +226,8 @@ class OriginalLeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBase
           metrics,
           loggerFactory,
         )
-      val leaderSegmentState = new OriginalLeaderSegmentState(segmentState, epoch, Seq.empty)
+      val leaderSegmentState =
+        new OriginalLeaderSegmentState(segmentState, epoch, Seq.empty, Seq.empty, loggerFactory)
 
       val anotherNodeSegment =
         epoch.segments

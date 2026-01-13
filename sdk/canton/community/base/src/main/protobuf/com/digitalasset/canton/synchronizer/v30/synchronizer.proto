@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -13,4 +13,8 @@ message SynchronizerPredecessor {
 
   // When the upgrade happened/is supposed to happen.
   google.protobuf.Timestamp upgrade_time = 2;
+
+  // Whether the participant is performing a late synchronizer upgrade.
+  // default: false
+  bool is_late_upgrade = 3;
 }

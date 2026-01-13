@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.resource
@@ -55,7 +55,7 @@ import slick.jdbc.{ActionBasedSQLInterpolation as _, SQLActionBuilder as _, *}
 import slick.lifted.Aliases
 import slick.util.{AsyncExecutor, AsyncExecutorWithMetrics, ClassLoaderUtil, QueryCostTrackerImpl}
 
-import java.sql.{Blob, SQLException, SQLTransientException, Statement}
+import java.sql.{Blob, Connection, SQLException, SQLTransientException, Statement}
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ScheduledExecutorService, TimeUnit}
@@ -358,6 +358,8 @@ trait DbStorage extends Storage { self: NamedLogging =>
       maxRetries: Int = defaultMaxRetries,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): FutureUnlessShutdown[A] =
     runWrite(action, operationName, maxRetries)
+
+  def runJdbcWrite[T](traceContext: TraceContext, body: Connection => T): FutureUnlessShutdown[T]
 }
 
 object DbStorage {

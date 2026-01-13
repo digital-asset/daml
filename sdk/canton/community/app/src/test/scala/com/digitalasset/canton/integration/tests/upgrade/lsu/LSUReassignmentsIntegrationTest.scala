@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
@@ -24,10 +24,16 @@ import com.digitalasset.canton.protocol.LfContractId
   *   - acme: sequencer2, mediator2
   *   - New da: sequencer3, mediator3
   */
-abstract class LSUReassignmentsIntegrationTest extends LSUBase {
+final class LSUReassignmentsIntegrationTest extends LSUBase {
 
   override protected def testName: String = "lsu-reassignments"
 
+  registerPlugin(
+    new UseBftSequencer(
+      loggerFactory,
+      MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2"), Set("sequencer3")),
+    )
+  )
   registerPlugin(new UsePostgres(loggerFactory))
 
   override protected lazy val newOldSequencers: Map[String, String] =
@@ -141,13 +147,4 @@ abstract class LSUReassignmentsIntegrationTest extends LSUBase {
       oldSynchronizerNodes.all.stop()
     }
   }
-}
-
-final class LSUReassignmentsBftOrderingIntegrationTest extends LSUReassignmentsIntegrationTest {
-  registerPlugin(
-    new UseBftSequencer(
-      loggerFactory,
-      MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2"), Set("sequencer3")),
-    )
-  )
 }

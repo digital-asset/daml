@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -336,8 +336,7 @@ class BatchAggregatorImpl[A, B](
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
   ): Unit = {
-    inFlight.decrementAndGet().discard
-    maybeRunQueuedQueries()
+    runQueuedQueriesWithoutIncrement()
     result.forFailed {
       implicit val prettyItem: Pretty[A] = processor.prettyItem
       processor.logger.error(
@@ -347,91 +346,94 @@ class BatchAggregatorImpl[A, B](
     }
   }
 
-  /*
-    If possible (i.e., if the number of in-flight items is not too big) and
-    if the queue is non-empty, execute a batch of items.
-   */
-  @SuppressWarnings(Array("org.wartremover.warts.While", "org.wartremover.warts.Var"))
+  /** If possible (i.e., if the number of in-flight items is not too big) and if the queue is
+    * non-empty, execute a batch of items.
+    */
   private def maybeRunQueuedQueries()(implicit
       ec: ExecutionContext,
       callerCloseContext: CloseContext,
   ): Unit = {
     val oldInFlight = inFlight.getAndUpdate(v => (v + 1).min(maximumInFlight))
-
     if (oldInFlight < maximumInFlight) {
-      batcher.poll() match {
-        case Some(itemsAndCompletionPromisesNE) =>
-          if (
-            itemsAndCompletionPromisesNE.sizeIs == 1 && itemsAndCompletionPromisesNE.head1.items.sizeIs == 1
-          ) {
-            val ItemsAndCompletionPromise(items, promise) = itemsAndCompletionPromisesNE.head1
-            val tracedItem = items.head1
-            tracedItem.withTraceContext { implicit traceContext => item =>
-              promise
-                .completeWithUS(runSingleWithoutIncrement(item).map(immutable.Iterable(_)))
-                .discard
-            }
-          } else {
-            val itemsNE = itemsAndCompletionPromisesNE.flatMap(_.items)
-            val responsesSizesAndPromisesNE = itemsAndCompletionPromisesNE.map { iap =>
-              iap.items.size -> iap.completionPromise
-            }
-            val batchTraceContext =
-              TraceContext.ofBatch("run_batch_queued_queries")(itemsNE)(processor.logger)
-
-            FutureUnlessShutdown
-              .fromTry(
-                Try(processor.executeBatch(itemsNE)(batchTraceContext, callerCloseContext))
-              )
-              .flatten
-              .onComplete { result =>
-                inFlight.decrementAndGet()
-                maybeRunQueuedQueries()
-                result match {
-                  case Success(UnlessShutdown.Outcome(responses)) =>
-                    var responseIterator = responses.iterator
-                    responsesSizesAndPromisesNE.foreach { case (size, promise) =>
-                      val (responses, newResponsesIterator) = responseIterator.splitAt(size)
-                      responseIterator = newResponsesIterator
-                      promise.success(UnlessShutdown.Outcome(responses.toSeq))
-                    }
-                    // Complain about too many items
-                    val excessItemsCount = itemsNE.size - responses.size
-                    if (excessItemsCount > 0) {
-                      processor.logger.error(
-                        s"Detected $excessItemsCount excess items for ${processor.kind} batch"
-                      )(batchTraceContext)
-                    }
-                    // Complain about too many responses
-                    val excessResponseCount = responseIterator.length
-                    if (excessResponseCount > 0) {
-                      processor.logger.error(
-                        s"Received $excessResponseCount excess responses for ${processor.kind} batch"
-                      )(batchTraceContext)
-                    }
-                  case Success(UnlessShutdown.AbortedDueToShutdown) =>
-                    responsesSizesAndPromisesNE.foreach { case (_, promise) =>
-                      promise.shutdown_()
-                    }
-                  case Failure(ex) =>
-                    implicit val prettyItem: Pretty[A] = processor.prettyItem
-                    processor.logger
-                      .error(
-                        show"Batch request failed for ${processor.kind.unquoted}s ${itemsNE.map(_.value).toList}",
-                        ex,
-                      )(
-                        batchTraceContext
-                      )
-                    responsesSizesAndPromisesNE.foreach { case (_, promise) =>
-                      promise.failure(ex)
-                    }
-                }
-              }
-          }
-        case None => inFlight.decrementAndGet().discard[Int]
-      }
+      runQueuedQueriesWithoutIncrement()
     } else ()
   }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private def runQueuedQueriesWithoutIncrement()(implicit
+      ec: ExecutionContext,
+      callerCloseContext: CloseContext,
+  ): Unit =
+    batcher.poll() match {
+      case Some(itemsAndCompletionPromisesNE) =>
+        if (
+          itemsAndCompletionPromisesNE.sizeIs == 1 && itemsAndCompletionPromisesNE.head1.items.sizeIs == 1
+        ) {
+          val ItemsAndCompletionPromise(items, promise) = itemsAndCompletionPromisesNE.head1
+          val tracedItem = items.head1
+          tracedItem.withTraceContext { implicit traceContext => item =>
+            promise
+              .completeWithUS(runSingleWithoutIncrement(item).map(immutable.Iterable(_)))
+              .discard
+          }
+        } else {
+          val itemsNE = itemsAndCompletionPromisesNE.flatMap(_.items)
+          val responsesSizesAndPromisesNE = itemsAndCompletionPromisesNE.map { iap =>
+            iap.items.size -> iap.completionPromise
+          }
+          val batchTraceContext =
+            TraceContext.ofBatch("run_batch_queued_queries")(itemsNE)(processor.logger)
+
+          FutureUnlessShutdown
+            .fromTry(
+              Try(processor.executeBatch(itemsNE)(batchTraceContext, callerCloseContext))
+            )
+            .flatten
+            .onComplete { result =>
+              runQueuedQueriesWithoutIncrement()
+              result match {
+                case Success(UnlessShutdown.Outcome(responses)) =>
+                  var responseIterator = responses.iterator
+                  responsesSizesAndPromisesNE.foreach { case (size, promise) =>
+                    val (responses, newResponsesIterator) = responseIterator.splitAt(size)
+                    responseIterator = newResponsesIterator
+                    promise.success(UnlessShutdown.Outcome(responses.toSeq))
+                  }
+                  // Complain about too many items
+                  val excessItemsCount = itemsNE.size - responses.size
+                  if (excessItemsCount > 0) {
+                    processor.logger.error(
+                      s"Detected $excessItemsCount excess items for ${processor.kind} batch"
+                    )(batchTraceContext)
+                  }
+                  // Complain about too many responses
+                  val excessResponseCount = responseIterator.length
+                  if (excessResponseCount > 0) {
+                    processor.logger.error(
+                      s"Received $excessResponseCount excess responses for ${processor.kind} batch"
+                    )(batchTraceContext)
+                  }
+                case Success(UnlessShutdown.AbortedDueToShutdown) =>
+                  responsesSizesAndPromisesNE.foreach { case (_, promise) =>
+                    promise.shutdown_()
+                  }
+                case Failure(ex) =>
+                  implicit val prettyItem: Pretty[A] = processor.prettyItem
+                  processor.logger
+                    .error(
+                      show"Batch request failed for ${processor.kind.unquoted}s ${itemsNE.map(_.value).toList}",
+                      ex,
+                    )(
+                      batchTraceContext
+                    )
+                  responsesSizesAndPromisesNE.foreach { case (_, promise) =>
+                    promise.failure(ex)
+                  }
+              }
+            }
+        }
+      case None => inFlight.decrementAndGet().discard[Int]
+    }
 }
 
 object BatchAggregatorImpl {

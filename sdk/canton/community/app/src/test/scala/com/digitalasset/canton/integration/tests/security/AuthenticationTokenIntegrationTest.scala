@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.security
@@ -11,6 +11,7 @@ import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -20,6 +21,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.SequencerServiceStub
 import com.digitalasset.canton.sequencing.authentication.AuthenticationToken
 import com.digitalasset.canton.sequencing.protocol.SequencerErrors.SubmissionRequestRefused
@@ -53,8 +55,10 @@ trait AuthenticationTokenIntegrationTest
           _.focus(_.publicApi.maxTokenExpirationInterval)
             .replace(config.NonNegativeFiniteDuration.ofHours(1))
         ),
-        // TODO(i26481): Enable new connection pool (issues with staticTime)
-        ConfigTransforms.disableConnectionPool,
+        // This is to prevent issues with the BFT orderer in tests with a simClock, as described in the Flaky Test Guide
+        ConfigTransforms.updateAllSequencerConfigs_(
+          _.focus(_.timeTracker.observationLatency).replace(config.NonNegativeFiniteDuration.Zero)
+        ),
       )
       .withSetup { implicit env =>
         import env.*
@@ -106,11 +110,34 @@ trait AuthenticationTokenIntegrationTest
       ) in { implicit env =>
         import env.*
 
+        val simClock = environment.simClock.value
+
         // advancing the clock will cause the sequencer subscription authentication token to expire
-        environment.simClock.foreach(_.advance(JDuration.ofHours(2)))
+        simClock.advance(JDuration.ofHours(2))
+
+        // make sure the sequencer is synchronized with the sim clock
+        sequencer1.underlying.value.sequencer.timeTracker
+          .awaitTick(simClock.now)
+          .foreach(_.futureValue)
+
+        // fetch the synchronizer time; this replicates a CN test that identified an issue
+        // (see https://github.com/DACH-NY/canton-network-internal/issues/2671 for details)
+        val synchronizerTime = participant1.testing.fetch_synchronizer_time(daId)
+        synchronizerTime shouldBe >(CantonTimestamp.ofEpochSecond(2 * 3600))
 
         // try pinging again
-        assertPingSucceeds(participant1, participant2)
+        loggerFactory.assertLoggedWarningsAndErrorsSeq(
+          assertPingSucceeds(participant1, participant2),
+          LogEntry.assertLogSeq(
+            mustContainWithClue = Seq.empty,
+            mayContain = Seq(
+              // Since we advanced the sim clock, the connection did not have a chance to renew the authentication token before it expired.
+              // Depending on the concurrency, if a resubscription is attempted before a new token has been obtained, it will fail and restart
+              // the connection to obtain a new token, which will result in a temporary "no connection available" for submissions.
+              _.warningMessage should include("No connection available")
+            ),
+          ),
+        )
       }
     }
 
@@ -235,10 +262,23 @@ trait AuthenticationTokenIntegrationTest
 
         assertPingSucceeds(participant1, participant1)
 
-        participant1.synchronizers.logout(daName)
-        mediator1.sequencer_connection.logout()
+        loggerFactory.assertLoggedWarningsAndErrorsSeq(
+          {
+            participant1.synchronizers.logout(daName)
+            mediator1.sequencer_connection.logout()
 
-        assertPingSucceeds(participant1, participant1)
+            assertPingSucceeds(participant1, participant1)
+          },
+          LogEntry.assertLogSeq(
+            mustContainWithClue = Seq.empty,
+            mayContain = Seq(
+              // The `logout` command will cause the sequencer connection to restart. If a submission happens during that time, it may
+              // receive a temporary "no connection available" error.
+              // The ping will eventually work because pings have an implicit retry mechanism that works even with sim clock.
+              _.warningMessage should include("No connection available")
+            ),
+          ),
+        )
       }
     }
   }

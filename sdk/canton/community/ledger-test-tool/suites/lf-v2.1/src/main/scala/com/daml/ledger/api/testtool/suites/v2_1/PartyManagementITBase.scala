@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -18,18 +18,6 @@ import com.google.protobuf.field_mask.FieldMask
 import scala.concurrent.{ExecutionContext, Future}
 
 trait PartyManagementITBase extends LedgerTestSuite {
-  def unsetResourceVersion[T](t: T): T = {
-    val t2: T = t match {
-      case u: PartyDetails => u.update(_.localMetadata.resourceVersion := "").asInstanceOf[T]
-      case u: AllocatePartyResponse =>
-        u.update(_.partyDetails.localMetadata.resourceVersion := "").asInstanceOf[T]
-      case u: UpdatePartyDetailsResponse =>
-        u.update(_.partyDetails.localMetadata.resourceVersion := "").asInstanceOf[T]
-      case other => sys.error(s"could not match $other")
-    }
-    t2
-  }
-
   def updateRequest(
       party: String,
       isLocal: Boolean = false,
@@ -53,12 +41,12 @@ trait PartyManagementITBase extends LedgerTestSuite {
   def extractUpdatedAnnotations(
       updateResp: UpdatePartyDetailsResponse
   ): Map[String, String] =
-    updateResp.partyDetails.get.localMetadata.get.annotations
+    updateResp.partyDetails.value.localMetadata.value.annotations
 
   def extractUpdatedAnnotations(
       allocateResp: AllocatePartyResponse
   ): Map[String, String] =
-    allocateResp.partyDetails.get.localMetadata.get.annotations
+    allocateResp.partyDetails.value.localMetadata.value.annotations
 
   def withFreshParty[T](
       connectedSynchronizers: Int,
@@ -80,7 +68,7 @@ trait PartyManagementITBase extends LedgerTestSuite {
     )
     for {
       (create, _) <- ledger.allocateParty(req, connectedSynchronizers)
-      v <- f(create.partyDetails.get)
+      v <- f(create.partyDetails.value)
     } yield v
   }
 
@@ -129,4 +117,11 @@ trait PartyManagementITBase extends LedgerTestSuite {
     localMetadata = Some(ObjectMeta(resourceVersion = "", annotations = annotations)),
     identityProviderId = "",
   )
+
+  protected def unsetResourceVersion(u: PartyDetails): PartyDetails =
+    u.update(_.localMetadata.resourceVersion := "")
+  protected def unsetResourceVersion(u: AllocatePartyResponse): AllocatePartyResponse =
+    u.update(_.partyDetails.localMetadata.resourceVersion := "")
+  protected def unsetResourceVersion(u: UpdatePartyDetailsResponse): UpdatePartyDetailsResponse =
+    u.update(_.partyDetails.localMetadata.resourceVersion := "")
 }

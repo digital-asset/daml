@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.authentication.grpc
@@ -29,6 +29,7 @@ object AuthenticationTokenManagerTest extends org.mockito.MockitoSugar with Argu
   val mockClock: Clock = mock[Clock]
   when(mockClock.scheduleAt(any[CantonTimestamp => Unit], any[CantonTimestamp]))
     .thenReturn(FutureUnlessShutdown.unit)
+  when(AuthenticationTokenManagerTest.mockClock.now).thenReturn(CantonTimestamp.Epoch)
 }
 
 class AuthenticationTokenManagerTest extends AnyWordSpec with BaseTest with HasExecutionContext {
@@ -36,7 +37,6 @@ class AuthenticationTokenManagerTest extends AnyWordSpec with BaseTest with HasE
   private val crypto = new SymbolicPureCrypto
   private val token1 = AuthenticationToken.generate(crypto)
   private val token2 = AuthenticationToken.generate(crypto)
-  private val now = CantonTimestamp.Epoch
 
   "first call to getToken will obtain it" in {
     val (tokenManager, mock, _) = setup()
@@ -110,11 +110,11 @@ class AuthenticationTokenManagerTest extends AnyWordSpec with BaseTest with HasE
     mock.succeed(token1)
 
     for {
-      result1 <- tokenManager.getToken.value.map(_.value)
+      result1 <- tokenManager.getToken
       _ = {
         tokenManager.invalidateToken(token2)
       }
-      result2 <- tokenManager.getToken.value.map(_.value)
+      result2 <- tokenManager.getToken
     } yield {
       result1 shouldBe result2
       mock.callCount shouldBe 1 // despite invalidation
@@ -129,6 +129,7 @@ class AuthenticationTokenManagerTest extends AnyWordSpec with BaseTest with HasE
         retryMe.getAndUpdate(_ => Some(action)) shouldBe empty
         FutureUnlessShutdown.unit
       }
+    when(clockMock.now).thenReturn(CantonTimestamp.Epoch)
 
     val (tokenManager, obtainMock, _) = setup(Some(clockMock))
     val call1 = clue("get token1") {
@@ -153,6 +154,32 @@ class AuthenticationTokenManagerTest extends AnyWordSpec with BaseTest with HasE
       t1 shouldBe token1
       t2 shouldBe token2
       t3 shouldBe token2
+    }
+  }.failOnShutdown.futureValue
+
+  "automatically refresh token when current one is expired" in {
+    val clockMock = mock[Clock]
+    when(clockMock.now).thenReturn(
+      CantonTimestamp.Epoch,
+      CantonTimestamp.ofEpochSecond(50),
+      CantonTimestamp.ofEpochSecond(200),
+    )
+    val (tokenManager, obtainMock, _) = setup(Some(clockMock))
+
+    obtainMock.succeed(token1)
+
+    for {
+      result1 <- tokenManager.getToken
+      _ = obtainMock.resetNextResult()
+      _ = obtainMock.succeed(token2)
+      result2 <- tokenManager.getToken
+      result3 <- tokenManager.getToken // expired -> refresh
+    } yield {
+      result1 shouldBe token1
+      result2 shouldBe token1
+      result3 shouldBe token2
+
+      obtainMock.callCount shouldBe 2
     }
   }.failOnShutdown.futureValue
 
@@ -181,7 +208,7 @@ class AuthenticationTokenManagerTest extends AnyWordSpec with BaseTest with HasE
     val clock = clockO.getOrElse(AuthenticationTokenManagerTest.mockClock)
     val tokenManager = new AuthenticationTokenManager(
       (_: TraceContext) => mck.obtain(),
-      false,
+      isClosed = false,
       AuthenticationTokenManagerConfig(),
       clock,
       loggerFactory,
@@ -202,7 +229,7 @@ class AuthenticationTokenManagerTest extends AnyWordSpec with BaseTest with HasE
       callCounter.incrementAndGet()
       EitherT(
         nextResult.get.futureUS.map(
-          _.map(token => AuthenticationTokenWithExpiry(token, now.plusSeconds(100)))
+          _.map(token => AuthenticationTokenWithExpiry(token, CantonTimestamp.ofEpochSecond(100)))
         )
       )
     }

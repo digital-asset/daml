@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -80,7 +80,7 @@ class TransactionServiceCorrectnessIT extends LedgerTestSuite {
       )
     } yield {
       assert(
-        results.toSet.size == 1,
+        results.toSet.sizeIs == 1,
         s"All requests are supposed to return the same results but there " +
           s"where differences: ${results.map(_.map(_.commandId)).mkString(", ")}",
       )
@@ -491,17 +491,17 @@ object TransactionServiceCorrectnessIT {
     val creations = cs.map { case (e, i) => e.getCreated.contractId -> i }
     val archivals = as.map { case (e, i) => e.getArchived.contractId -> i }
     assert(
-      creations.size == contracts && archivals.size == contracts,
+      creations.sizeIs == contracts && archivals.sizeIs == contracts,
       s"$context: either the number of archive events (${archivals.size}) or the number of create events (${creations.size}) doesn't match the expected number of $contracts.",
     )
     val createdContracts = creations.iterator.map(_._1).toSet
     val archivedContracts = archivals.iterator.map(_._1).toSet
     assert(
-      createdContracts.size == creations.size,
+      createdContracts.sizeIs == creations.size,
       s"$context: there are duplicate contract identifiers in the create events",
     )
     assert(
-      archivedContracts.size == archivals.size,
+      archivedContracts.sizeIs == archivals.size,
       s"$context: there are duplicate contract identifiers in the archive events",
     )
     assert(
@@ -524,7 +524,7 @@ object TransactionServiceCorrectnessIT {
       )
     }
 
-    transactions.map(_.recordTime.get.asJavaInstant).foldLeft(Instant.MIN) {
+    transactions.map(_.recordTime.value.asJavaInstant).foldLeft(Instant.MIN) {
       case (previous, current) if previous isBefore current => current
       case _ => fail(s"$context: record time of subsequent transactions was not increasing")
     }: Unit

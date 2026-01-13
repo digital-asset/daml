@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.event
@@ -179,9 +179,8 @@ class RecordOrderPublisher private (
     *   with timestamp.
     * @param onScheduled
     *   A function creating a FutureUnlessShutdown[T]. This function will be only executed, if the
-    *   scheduling is possible. This function will be executed before the
-    *   scheduleFloatingEventPublication returns. (if scheduling is possible) Execution of the
-    *   floating event publication will wait for the onScheduled operation to finish.
+    *   scheduling is possible. If scheduling is possible, execution of the floating event
+    *   publication will wait for the onScheduled operation to finish.
     * @param traceContext
     *   Should be the TraceContext of the event
     * @return
@@ -196,18 +195,15 @@ class RecordOrderPublisher private (
       traceContext: TraceContext
   ): UnlessShutdown[Either[CantonTimestamp, FutureUnlessShutdown[T]]] =
     synchronizeWithClosingSync(functionFullName) {
-      taskScheduler
-        .scheduleTaskIfLater(
-          desiredTimestamp = timestamp,
-          taskFactory = _ => {
-            val resultFUS = onScheduled()
-            FloatingEventPublicationTask(
-              waitFor = resultFUS,
-              timestamp = timestamp,
-            )(() => eventFactory(timestamp))
-          },
-        )
-        .map(_.waitFor)
+      // Unsupervised because it is to be expected that this promise never completes if scheduling is not possible.
+      val promise = PromiseUnlessShutdown.unsupervised[Unit]()
+      val waitFor = promise.futureUS.flatMap(_ => onScheduled())
+      val task = FloatingEventPublicationTask(waitFor, timestamp)(() => eventFactory(timestamp))
+      taskScheduler.scheduleTaskIfLater(desiredTimestamp = timestamp, task).toLeft(()).map {
+        (_: Unit) =>
+          promise.outcome_(())
+          waitFor
+      }
     }
 
   /** Schedule a floating event, if the current synchronizer time is earlier than timestamp.
@@ -297,14 +293,10 @@ class RecordOrderPublisher private (
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): UnlessShutdown[Either[CantonTimestamp, Unit]] =
     synchronizeWithClosingSync(functionFullName) {
+      val task = FloatingBufferEventsPublicationTask(timestamp = timestamp)
       taskScheduler
-        .scheduleTaskIfLater(
-          desiredTimestamp = timestamp,
-          taskFactory = _ => {
-            FloatingBufferEventsPublicationTask(timestamp = timestamp)
-          },
-        )
-        .map(_ => ())
+        .scheduleTaskIfLater(desiredTimestamp = timestamp, task)
+        .toLeft(())
     }
 
   /** Schedules publishing of an Online Party Replication ACS batch as soon as possible.

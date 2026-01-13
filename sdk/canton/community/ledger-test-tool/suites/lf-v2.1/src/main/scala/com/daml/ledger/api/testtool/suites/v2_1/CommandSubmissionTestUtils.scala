@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -15,7 +15,7 @@ trait CommandSubmissionTestUtils { this: LedgerTestSuite =>
       transaction.updateId.nonEmpty,
       "The transaction identifier was empty but shouldn't.",
     )
-    val event = transaction.events.head
+    val event = transaction.events.headOption.value
     assert(
       event.event.isCreated,
       s"The returned transaction should contain a created-event, but was ${event.event}",
