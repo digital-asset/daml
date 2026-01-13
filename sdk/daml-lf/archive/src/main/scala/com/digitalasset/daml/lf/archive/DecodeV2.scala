@@ -1808,6 +1808,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
       BuiltinFunctionInfo(SHA256_HEX, BSHA256Hex),
       BuiltinFunctionInfo(KECCAK256_TEXT, BKECCAK256Text),
+      BuiltinFunctionInfo(EXTERNAL_CALL, BExternalCall),
       BuiltinFunctionInfo(SECP256K1_BOOL, BSECP256K1Bool),
       BuiltinFunctionInfo(SECP256K1_WITH_ECDSA_BOOL, BSECP256K1WithEcdsaBool),
       BuiltinFunctionInfo(SECP256K1_VALIDATE_KEY, BSECP256K1ValidateKey),
