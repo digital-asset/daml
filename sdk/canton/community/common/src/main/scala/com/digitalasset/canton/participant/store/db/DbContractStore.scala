@@ -1,11 +1,10 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
 
 import cats.data.{EitherT, OptionT}
 import cats.implicits.{toBifunctorOps, toTraverseOps}
-import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.caching.ScaffeineCache
@@ -25,7 +24,6 @@ import com.digitalasset.canton.resource.DbStorage.{DbAction, SQLActionBuilderCha
 import com.digitalasset.canton.resource.{DbParameterUtils, DbStorage, DbStore}
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.EitherUtil.RichEitherIterable
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil, MonadUtil}
 import com.digitalasset.canton.{LfPartyId, checked}
@@ -270,16 +268,20 @@ class DbContractStore(
   override def storeContracts(contracts: Seq[ContractInstance])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[LfContractId, InternalContractId]] =
-    contracts.parTraverse(storeContract).map(_.toMap)
-
-  private def storeContract(contract: ContractInstance)(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): FutureUnlessShutdown[(LfContractId, InternalContractId)] =
-    batchAggregatorInsert
-      .run(contract)
-      .flatMap(FutureUnlessShutdown.fromTry)
-      .map(contract.contractId -> _)
+    NonEmpty.from(contracts.map(Traced(_))) match {
+      case Some(contractsNE) =>
+        batchAggregatorInsert.runMany(contractsNE).flatMap { results =>
+          val contractsWithResults = contracts.zip(results)
+          FutureUnlessShutdown
+            .fromTry(
+              MonadUtil.sequentialTraverse(contractsWithResults) { case (contract, internalId) =>
+                internalId.map(id => contract.contractId -> id)
+              }
+            )
+            .map(_.toMap)
+        }
+      case None => FutureUnlessShutdown.pure(Map.empty)
+    }
 
   private type InternalContractId = Long
 
@@ -366,7 +368,10 @@ class DbContractStore(
                   .toMap
               }
               // 2. insert the contracts that are not present in the db
-              toInsert = contracts.filterNot(c => foundData.contains(c.contractId))
+              // Note: distinctBy is needed to handle duplicates within the same batch
+              toInsert = contracts
+                .filterNot(c => foundData.contains(c.contractId))
+                .distinctBy(_.contractId)
               _ <- NonEmpty.from(toInsert) match {
                 case Some(toInsertNE) =>
                   getBaseQuery(toInsertNE).asUpdate
@@ -517,21 +522,42 @@ class DbContractStore(
       case None => EitherT.rightT(Map.empty)
 
       case Some(idsNel) =>
-        EitherT(
-          MonadUtil
-            .parTraverseWithLimit(BatchAggregatorConfig.defaultMaximumInFlight)(
-              idsNel.forgetNE.toSeq
-            )(id => lookup(id).toRight(id).value)
-            .map(_.collectRight)
-            .map { contracts =>
-              Either.cond(
-                contracts.sizeCompare(ids) == 0,
-                contracts
-                  .map(contract => contract.contractId -> contract.metadata)
-                  .toMap,
-                UnknownContracts(ids -- contracts.map(_.contractId).toSet),
-              )
+        val idsSeq = idsNel.forgetNE.toSeq
+        // Separate cached and uncached ids with a single cache lookup per id
+        val (cachedResults, uncachedIds) = idsSeq.foldLeft(
+          (Seq.empty[(LfContractId, PersistedContractInstance)], Seq.empty[LfContractId])
+        ) { case ((cached, uncached), id) =>
+          cache.getIfPresentSync(id) match {
+            case Some(Some(persisted)) => ((id, persisted) +: cached, uncached)
+            case Some(None) => (cached, uncached) // cached as not found, don't query again
+            case None => (cached, id +: uncached) // not in cache, need to query
+          }
+        }
+
+        val uncachedResultsF = NonEmpty.from(uncachedIds.map(Traced(_))) match {
+          case Some(uncachedIdsNE) =>
+            batchAggregatorLookup.runMany(uncachedIdsNE).map { results =>
+              uncachedIds.zip(results).flatMap { case (id, result) =>
+                // Populate cache with fetched values
+                cache.put(id, result)
+                result.map(persisted => (id, persisted))
+              }
             }
+          case None => FutureUnlessShutdown.pure(Seq.empty)
+        }
+
+        EitherT(
+          uncachedResultsF.map { uncachedResults =>
+            val allResults = cachedResults ++ uncachedResults
+            val contracts = allResults.map { case (_, persisted) => persisted.asContractInstance }
+            Either.cond(
+              contracts.sizeCompare(ids) == 0,
+              contracts
+                .map(contract => contract.contractId -> contract.metadata)
+                .toMap,
+              UnknownContracts(ids -- contracts.map(_.contractId).toSet),
+            )
+          }
         )
     }
 

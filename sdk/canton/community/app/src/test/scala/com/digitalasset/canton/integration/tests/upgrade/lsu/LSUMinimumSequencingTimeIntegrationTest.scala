@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
@@ -26,14 +26,15 @@ import org.slf4j.event.Level
  * This test is used to test the logical synchronizer upgrade.
  * It uses 1 participant, 1 sequencer, and 1 mediator.
  */
-abstract class MinimumSequencingTimeIntegrationTest
+final class LSUMinimumSequencingTimeIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with EntitySyntax
     with LogicalUpgradeUtils {
 
-  override protected def testName: String = "logical-synchronizer-upgrade"
+  override protected def testName: String = "lsu-minimum-sequencing-time"
 
+  registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(new UsePostgres(loggerFactory))
 
   private val sequencingTimeLowerBoundExclusive = CantonTimestamp.Epoch.plusSeconds(60)
@@ -99,10 +100,4 @@ abstract class MinimumSequencingTimeIntegrationTest
       participant1.health.maybe_ping(participant1) should not be empty
     }
   }
-}
-
-class MinimumSequencingTimeReferenceIntegrationTest extends MinimumSequencingTimeIntegrationTest
-
-class MinimumSequencingTimeBftOrderingIntegrationTest extends MinimumSequencingTimeIntegrationTest {
-  registerPlugin(new UseBftSequencer(loggerFactory))
 }

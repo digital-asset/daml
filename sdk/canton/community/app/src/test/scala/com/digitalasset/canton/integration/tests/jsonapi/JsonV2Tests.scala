@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.jsonapi
@@ -1740,6 +1740,31 @@ class JsonV2Tests
           result.noSpaces should be(
             s"""{"a":"1","b":"42"}"""
           )
+        }
+      }
+    }
+  }
+
+  "health service" should {
+    "return OK status for livez endpoint" in httpTestFixture { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (_, headers) =>
+        fixture.getRequestString(path = Uri.Path("/livez"), headers = headers).map {
+          case (status, result) =>
+            status should be(StatusCodes.OK)
+            result should be("")
+        }
+      }
+    }
+    "return OK response for readyz endpoint" in httpTestFixture { fixture =>
+      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (_, headers) =>
+        fixture.getRequestString(path = Uri.Path("/readyz"), headers = headers).map {
+          case (status, result) =>
+            status should be(StatusCodes.OK)
+            result should be(
+              """|[+] ledger ok (SERVING)
+              |readyz check passed
+              |""".stripMargin
+            )
         }
       }
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao.events
@@ -391,6 +391,7 @@ final class LfValueTranslation(
             verbose = eventProjectionProperties.verbose,
             interfaceId = interfaceId.toIdentifier,
             result = viewResult,
+            implementationPackageId = upgradedInstanceIdentifierResultE.toOption,
           )
         } yield interfaceView
       )
@@ -436,17 +437,19 @@ final class LfValueTranslation(
       verbose: Boolean,
       interfaceId: Identifier,
       result: Either[Status, Versioned[Value]],
+      implementationPackageId: Option[Identifier],
   )(implicit ec: ExecutionContext, loggingContext: LoggingContextWithTrace): Future[InterfaceView] =
     result match {
       case Right(versionedValue) =>
         enrichAsync(verbose, versionedValue.unversioned, enricher.enrichView(interfaceId, _))
-          .map(toInterfaceViewApi(verbose, interfaceId))
+          .map(toInterfaceViewApi(verbose, interfaceId, implementationPackageId))
       case Left(errorStatus) =>
         Future.successful(
           InterfaceView(
             interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
             viewStatus = Some(ProtoStatus.fromJavaProto(errorStatus)),
             viewValue = None,
+            implementationPackageId = implementationPackageId.map(_.packageId).getOrElse(""),
           )
         )
     }
@@ -479,11 +482,23 @@ final class LfValueTranslation(
   private def toContractKeyApi(verbose: Boolean)(value: Value): ApiValue =
     toApi(verbose, LfEngineToApi.lfValueToApiValue, "create key")(value)
 
-  private def toInterfaceViewApi(verbose: Boolean, interfaceId: Identifier)(value: Value) =
+  private def toInterfaceViewApi(
+      verbose: Boolean,
+      interfaceId: Identifier,
+      implementationPackageId: Option[Identifier],
+  )(value: Value)(implicit loggingContextWithTrace: LoggingContextWithTrace) =
     InterfaceView(
       interfaceId = Some(LfEngineToApi.toApiIdentifier(interfaceId)),
       viewStatus = Some(ProtoStatus.of(Code.OK.value(), "", Seq.empty)),
       viewValue = Some(toApi(verbose, LfEngineToApi.lfValueToApiRecord, "interface view")(value)),
+      implementationPackageId = implementationPackageId
+        .map(_.packageId)
+        .getOrElse {
+          logger.error(
+            s"Unexpected missing implementation package id for interface view of interface $interfaceId"
+          )(loggingContextWithTrace.traceContext)
+          ""
+        },
     )
 
   private def computeInterfaceView(

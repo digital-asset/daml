@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin
@@ -16,18 +16,26 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Consensus,
+  Mempool,
   P2PNetworkOut,
 }
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-import SequencerBftAdminData.{PeerNetworkStatus, endpointFromProto, endpointIdFromProto}
+import SequencerBftAdminData.{
+  PeerNetworkStatus,
+  WriteReadiness,
+  endpointFromProto,
+  endpointIdFromProto,
+}
 
 final class BftOrderingSequencerAdminService(
+    mempoolAdminRef: ModuleRef[Mempool.Admin],
     p2pNetworkOutAdminRef: ModuleRef[P2PNetworkOut.Admin],
     issConsensusAdminRef: ModuleRef[Consensus.Admin],
     override val loggerFactory: NamedLoggerFactory,
+    createWriteReadinessPromise: () => Promise[WriteReadiness] = () => Promise(),
     createBoolPromise: () => Promise[Boolean] = () => Promise(),
     createNetworkStatusPromise: () => Promise[PeerNetworkStatus] = () => Promise(),
     createOrderingTopologyPromise: () => Promise[(EpochNumber, Set[BftNodeId])] = () => Promise(),
@@ -136,5 +144,15 @@ final class BftOrderingSequencerAdminService(
       Consensus.Admin.SetPerformanceMetricsEnabled(request.enabled)
     )
     Future.successful(SetPerformanceMetricsEnabledResponse())
+  }
+
+  override def getWriteReadiness(
+      request: GetWriteReadinessRequest
+  ): Future[GetWriteReadinessResponse] = {
+    val resultPromise = createWriteReadinessPromise()
+    mempoolAdminRef.asyncSend(Mempool.Admin.GetWriteReadiness { readiness =>
+      resultPromise.success(readiness).discard
+    })
+    resultPromise.future.map(_.toProto)
   }
 }

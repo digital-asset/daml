@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.synchronizer
@@ -51,10 +51,10 @@ import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnect
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
-import com.digitalasset.canton.topology.processing.InitialTopologySnapshotValidator
+import com.digitalasset.canton.topology.processing.{InitialTopologySnapshotValidator, SequencedTime}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersionCompatibility
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
@@ -98,16 +98,6 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
     import sequencerAggregatedInfo.psid
 
     val synchronizerHandleET = for {
-      physicalSynchronizerIdx <- EitherT
-        .right(syncPersistentStateManager.getPhysicalSynchronizerIdx(psid))
-
-      synchronizerIdx <- EitherT
-        .right(syncPersistentStateManager.getSynchronizerIdx(psid.logical))
-
-      synchronizerTopologyStoreId <- EitherT.right(
-        syncPersistentStateManager.getSynchronizerTopologyStoreId(psid)
-      )
-
       _ <- EitherT
         .fromEither[Future](verifySynchronizerId(config, psid))
         .mapK(FutureUnlessShutdown.outcomeK)
@@ -115,13 +105,15 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       // fetch or create persistent state for the synchronizer
       persistentState <- syncPersistentStateManager
         .lookupOrCreatePersistentState(
-          config.synchronizerAlias,
-          physicalSynchronizerIdx,
-          synchronizerTopologyStoreId,
-          synchronizerIdx,
+          psid,
           sequencerAggregatedInfo.staticSynchronizerParameters,
         )
 
+      _ <- copyTopologyStateFromLocalPredecessorIfNeeded(
+        synchronizerPredecessor,
+        persistentState,
+        syncPersistentStateManager,
+      )
       // check and issue the synchronizer trust certificate
       _ <- EitherTUtil.ifThenET(!config.initializeFromTrustedSynchronizer)(
         topologyDispatcher.trustSynchronizer(psid)
@@ -129,7 +121,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
 
       synchronizerLoggerFactory = loggerFactory.append(
         "psid",
-        physicalSynchronizerIdx.synchronizerId.toString,
+        psid.toString,
       )
 
       topologyFactory <- syncPersistentStateManager
@@ -359,6 +351,34 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
     synchronizerHandleET
   }
 
+  private def copyTopologyStateFromLocalPredecessorIfNeeded(
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
+      persistentState: SyncPersistentState,
+      syncPersistentStateManager: SyncPersistentStateManager,
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Nothing, Option[Unit]] = {
+    val predecessorSyncStateO = synchronizerPredecessor
+      .flatMap(pre => syncPersistentStateManager.get(pre.psid).map(pre -> _))
+    EitherT.right(
+      predecessorSyncStateO
+        .traverse { case (predecessor, predecessorSyncState) =>
+          for {
+            maxTimestampO <- persistentState.topologyStore.maxTimestamp(
+              SequencedTime.MaxValue,
+              includeRejected = true,
+            )
+            // if the local synchronizer store is empty, transfer the topology state from the predecessor,
+            // but only if this is not a late upgrade
+            _ <- MonadUtil.when(maxTimestampO.isEmpty && !predecessor.isLateUpgrade)(
+              persistentState.topologyStore.copyFromPredecessorSynchronizerStore(
+                predecessorSyncState.topologyStore
+              )
+            )
+          } yield ()
+        }
+    )
+  }
+
+  // TODO(#30013): make topology initialization crash tolerant
   private def downloadSynchronizerTopologyStateForInitializationIfNeeded(
       syncPersistentStateManager: SyncPersistentStateManager,
       synchronizerId: PhysicalSynchronizerId,

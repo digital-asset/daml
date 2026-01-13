@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.provider.kms
@@ -22,7 +22,7 @@ import com.digitalasset.canton.health.{
   CompositeHealthElement,
   HealthQuasiComponent,
 }
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.tracing.TraceContext
@@ -311,7 +311,8 @@ class KmsPrivateCrypto(
     } yield plaintext
 
   override def onClosed(): Unit =
-    LifeCycle.close(kms)(logger)
+    // not closing kms here as that one will be closed by Crypto / KmsCryptoPrivateStore
+    ()
 
 }
 

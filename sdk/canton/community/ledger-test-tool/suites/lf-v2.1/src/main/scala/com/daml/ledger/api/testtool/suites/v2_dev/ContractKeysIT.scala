@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_dev
 
@@ -276,19 +276,19 @@ final class ContractKeysIT extends LedgerTestSuite {
           )
           .map(_.getTransaction)
         delegated1Id = new Delegated.ContractId(
-          delegated1Tx.events.head.getCreated.contractId
+          delegated1Tx.events.headOption.value.getCreated.contractId
         )
 
         delegated2TxTree <- ledger.exercise(owner, delegated1Id.exerciseRecreate())
       } yield {
-        assert(delegated2TxTree.events.size == 2)
-        val event = delegated2TxTree.events.filter(_.event.isCreated).head
+        assert(delegated2TxTree.events.sizeIs == 2)
+        val event = delegated2TxTree.events.find(_.event.isCreated).value
         assert(
           delegated1Id.contractId != event.getCreated.contractId,
           "New contract was not created",
         )
         assert(
-          event.getCreated.contractKey == delegated1Tx.events.head.getCreated.contractKey,
+          event.getCreated.contractKey == delegated1Tx.events.headOption.value.getCreated.contractKey,
           "Contract keys did not match",
         )
 
@@ -525,7 +525,7 @@ final class ContractKeysIT extends LedgerTestSuite {
           end = Some(end),
         )
       )
-      withKeyCreatedEvent = createdEvents(withKeyTxs.head).head
+      withKeyCreatedEvent = createdEvents(withKeyTxs.headOption.value).headOption.value
       disclosedWithKey = DisclosedContract(
         templateId = withKeyCreatedEvent.templateId,
         contractId = withKeyCreatedEvent.contractId,

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
@@ -17,10 +17,15 @@ import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import java.util.Optional
 import scala.jdk.CollectionConverters.*
 
-abstract class LSUExternalPartiesIntegrationTest extends LSUBase {
-
+final class LSUExternalPartiesIntegrationTest extends LSUBase {
   override protected def testName: String = "lsu-external-parties"
 
+  registerPlugin(
+    new UseBftSequencer(
+      loggerFactory,
+      MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
+    )
+  )
   registerPlugin(new UsePostgres(loggerFactory))
 
   override protected lazy val newOldSequencers: Map[String, String] =
@@ -94,13 +99,4 @@ abstract class LSUExternalPartiesIntegrationTest extends LSUBase {
       participant1.ledger_api.state.acs.of_party(alice.partyId) should have size 0
     }
   }
-}
-
-final class LSUExternalPartiesBftOrderingIntegrationTest extends LSUExternalPartiesIntegrationTest {
-  registerPlugin(
-    new UseBftSequencer(
-      loggerFactory,
-      MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
-    )
-  )
 }

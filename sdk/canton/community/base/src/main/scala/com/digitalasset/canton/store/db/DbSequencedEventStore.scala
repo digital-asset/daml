@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store.db
@@ -41,7 +41,7 @@ class DbSequencedEventStore(
       : SetParameter[IndexedPhysicalSynchronizer] = IndexedString.setParameterIndexedString
   override protected[this] def partitionColumn: String = "physical_synchronizer_idx"
 
-  private val protocolVersion = physicalSynchronizerIdx.synchronizerId.protocolVersion
+  private val protocolVersion = physicalSynchronizerIdx.psid.protocolVersion
   override protected[this] val partitionKey: IndexedPhysicalSynchronizer = physicalSynchronizerIdx
 
   override protected[this] def pruning_status_table: String = "common_sequenced_event_store_pruning"

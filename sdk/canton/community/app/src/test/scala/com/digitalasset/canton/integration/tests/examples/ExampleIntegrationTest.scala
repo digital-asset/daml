@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.examples
@@ -63,18 +63,23 @@ trait HasConsoleScriptRunner { this: NamedLogging =>
 
 object `ExampleIntegrationTest` {
   private val lock = new Mutex()
+  lazy val communityApp = "community" / "app"
+  lazy val communityAppSrc = "community" / "app" / "src"
   lazy val dockerImagesPath: File = "docker" / "canton" / "images"
-  lazy val examplesPath: File = "community" / "app" / "src" / "pack" / "examples"
+  lazy val examplesPath: File = communityAppSrc / "pack" / "examples"
   lazy val simpleTopology: File = examplesPath / "01-simple-topology"
-  lazy val referenceConfiguration: File = "community" / "app" / "src" / "pack" / "config"
+  lazy val referenceConfiguration: File = communityAppSrc / "pack" / "config"
   lazy val composabilityConfiguration: File = examplesPath / "05-composability"
   lazy val repairConfiguration: File = examplesPath / "07-repair"
-  lazy val interactiveSubmissionFolder: File =
-    examplesPath / "08-interactive-submission"
-  lazy val jsonApiFolder: File = examplesPath / "09-json-api"
-  lazy val jsonApiTypescriptFolder: File = jsonApiFolder / "typescript"
+  lazy val interactiveSubmissionFolder: File = examplesPath / "08-interactive-submission"
+
+  object JsonApiExample {
+    lazy val path = examplesPath / "09-json-api"
+    lazy val codegenOutput = communityApp / "target" / "test-daml-codegen-ts"
+  }
+
   lazy val advancedConfTestEnv: File =
-    "community" / "app" / "src" / "test" / "resources" / "advancedConfDef.env"
+    communityAppSrc / "test" / "resources" / "advancedConfDef.env"
   lazy val bftSequencerConfigurationFolder: File = examplesPath / "11-bft-sequencer"
 
   def ensureSystemProperties(kvs: (String, String)*): Unit = (lock.exclusive {

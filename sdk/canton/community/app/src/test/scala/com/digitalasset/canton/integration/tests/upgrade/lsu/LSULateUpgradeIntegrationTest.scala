@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
@@ -50,10 +50,16 @@ import com.digitalasset.canton.topology.PartyId
  * Other participants:
  * - P4 only registers the old synchronizer but neber connects to it
  */
-abstract class LSULateUpgradeIntegrationTest extends LSUBase {
+final class LSULateUpgradeIntegrationTest extends LSUBase {
 
-  override protected def testName: String = "logical-synchronizer-upgrade"
+  override protected def testName: String = "lsu-late-upgrade"
 
+  registerPlugin(
+    new UseBftSequencer(
+      loggerFactory,
+      MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
+    )
+  )
   registerPlugin(new UsePostgres(loggerFactory))
 
   override protected lazy val newOldSequencers: Map[String, String] =
@@ -306,13 +312,4 @@ abstract class LSULateUpgradeIntegrationTest extends LSUBase {
       participant3.ledger_api.state.acs.active_contracts_of_party(charlie) should have size 3
     }
   }
-}
-
-final class LSULateUpgradeBftOrderingIntegrationTest extends LSULateUpgradeIntegrationTest {
-  registerPlugin(
-    new UseBftSequencer(
-      loggerFactory,
-      MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
-    )
-  )
 }

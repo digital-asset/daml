@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
@@ -95,9 +95,23 @@ class IssSegmentModule[E <: Env[E]](
       segmentState.segment.firstBlockNumber,
     )
 
+  private val rehydrationMessages =
+    SegmentInProgress.rehydrationMessages(segmentState.segment, epochInProgress)
+
   private val maybeOriginalLeaderSegmentState: Option[OriginalLeaderSegmentState] =
     Option.when(thisNode == segmentState.segment.originalLeader)(
-      new OriginalLeaderSegmentState(segmentState, epoch, epochInProgress.completedBlocks)
+      new OriginalLeaderSegmentState(
+        segmentState,
+        epoch,
+        epochInProgress.completedBlocks,
+        initialCurrentViewPrePrepareBlockNumbers = rehydrationMessages.currentViewMessages
+          .map(_.message)
+          .collect { case m: PrePrepare => m }
+          .map(
+            _.blockMetadata.blockNumber
+          ),
+        loggerFactory,
+      )
     )
 
   private val segmentBlockMetadata =
@@ -125,9 +139,6 @@ class IssSegmentModule[E <: Env[E]](
     consensusMessage match {
       case ConsensusSegment.StartModuleClosingBehaviour =>
       case ConsensusSegment.Start =>
-        val rehydrationMessages =
-          SegmentInProgress.rehydrationMessages(segmentState.segment, epochInProgress)
-
         def processOldViewEvent(event: ConsensusSegment.ConsensusMessage.PbftEvent): Unit =
           // we don't want to send or store any messages as part of rehydrating old views
           // the main purpose here is simply to populate prepare certificates that may be used in future view changes
@@ -186,8 +197,12 @@ class IssSegmentModule[E <: Env[E]](
             )
           } else {
             // Ask availability for batches to be ordered if we have slots available.
-            logger.debug(s"initiating pull following segment Start signal")
-            initiatePull(mySegmentState.nextBlockToOrder)
+            val currentBlockBeingOrdered = mySegmentState.nextBlockToPropose
+            logger
+              .debug(
+                s"Initiating pull for block $currentBlockBeingOrdered following segment Start signal"
+              )
+            initiatePull(currentBlockBeingOrdered)
           }
         }
 
@@ -213,7 +228,7 @@ class IssSegmentModule[E <: Env[E]](
                 orderingBlock,
               ) =>
             val logPrefix =
-              s"$messageType: received block from local availability with batch IDs: " +
+              s"$messageType: received proposal for block $forBlock from local availability with batch IDs: " +
                 s"${orderingBlock.proofs.map(_.batchId)}"
 
             maybeOriginalLeaderSegmentState.foreach { mySegmentState =>
@@ -233,10 +248,10 @@ class IssSegmentModule[E <: Env[E]](
               if (mySegmentState.canReceiveProposals) {
                 // An outstanding proposal, requested before a view change, could end up coming after the epoch changes.
                 // In that case we also want to discard it by detecting that this request was not made during the current epoch.
-                if (forBlock != mySegmentState.nextBlockToOrder) {
+                if (forBlock != mySegmentState.nextBlockToPropose) {
                   resetWaitingForProposal()
                   logger.info(
-                    s"$logPrefix. Ignoring it because it is for block number $forBlock but the next block to order is ${mySegmentState.nextBlockToOrder}."
+                    s"$logPrefix. Ignoring it because it is for block number $forBlock but the next block to order is ${mySegmentState.nextBlockToPropose}."
                   )
                 } else {
                   emitProposalWaitLatency()
@@ -350,8 +365,11 @@ class IssSegmentModule[E <: Env[E]](
             if (originalLeaderSegmentStateOfBlock.canReceiveProposals) {
               // Ask availability for more batches to be ordered in the next block and contextually
               //  notify availability of ordered batches (if any)
-              logger.debug(s"initiating pull after OrderedBlockStored")
-              initiatePull(originalLeaderSegmentStateOfBlock.nextBlockToOrder, orderedBatchIds)
+              val nextBlockToOrder = originalLeaderSegmentStateOfBlock.nextBlockToPropose
+              logger.debug(
+                s"Initiating pull for block $nextBlockToOrder after OrderedBlockStored"
+              )
+              initiatePull(BlockNumber(nextBlockToOrder), orderedBatchIds)
             } else if (orderedBatchIds.nonEmpty) {
               // If the segment can't receive more proposals and some batches have been ordered,
               //  just notify availability about ordered batches
@@ -666,7 +684,7 @@ class IssSegmentModule[E <: Env[E]](
       traceContext: TraceContext,
       context: E#ActorContextT[ConsensusSegment.Message],
   ): Unit = {
-    logger.debug("Consensus requesting new proposal from local availability")
+    logger.debug(s"Consensus requesting a new proposal for block $forBlock from local availability")
     waitingForProposalSince = Some(Instant.now())
     blockStartTimeoutManager.scheduleTimeout(
       ConsensusSegment.Internal.BlockInactivityTimeout

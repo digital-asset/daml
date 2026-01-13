@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.topology
@@ -25,7 +25,7 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
-import com.digitalasset.canton.topology.{KnownPhysicalSynchronizerId, PhysicalSynchronizerId}
+import com.digitalasset.canton.topology.{KnownPhysicalSynchronizerId, LSU, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureUnlessShutdownUtil
 import com.digitalasset.canton.{SequencerCounter, SynchronizerAlias}
@@ -86,19 +86,21 @@ class SequencerConnectionSuccessorListener(
       (synchronizerUpgradeOngoing, _) <- OptionT(snapshot.synchronizerUpgradeOngoing())
       SynchronizerSuccessor(successorPSId, upgradeTime) = synchronizerUpgradeOngoing
 
-      _ = logger.debug(
+      logger = LSU.Logger(loggerFactory, getClass, synchronizerUpgradeOngoing)
+
+      _ = logger.info(
         s"Checking whether the participant can migrate $alias from ${activeConfig.configuredPSId} to $successorPSId"
       )
-      _ = logger.debug(s"Configured sequencer connections: $configuredSequencerIds")
+      _ = logger.info(s"Configured sequencer connections: $configuredSequencerIds")
 
       sequencerSuccessors <- OptionT.liftF(snapshot.sequencerConnectionSuccessors())
 
-      _ = logger.debug(s"Successors are currently known for: $sequencerSuccessors")
+      _ = logger.info(s"Successors are currently known for: $sequencerSuccessors")
 
       configuredSequencersWithoutSuccessor = configuredSequencerIds
         .diff(sequencerSuccessors.keySet)
       _ = if (configuredSequencersWithoutSuccessor.nonEmpty)
-        logger.debug(
+        logger.info(
           s"Some sequencer have not yet announced their endpoints on the successor synchronizer: $configuredSequencersWithoutSuccessor"
         )
       _ <- OptionT
@@ -112,7 +114,7 @@ class SequencerConnectionSuccessorListener(
         }.toSeq)
       )
 
-      _ = logger.debug(s"New set of sequencer connections for successors: $successorConnections")
+      _ = logger.info(s"New set of sequencer connections for successors: $successorConnections")
 
       sequencerConnections <- OptionT.fromOption[FutureUnlessShutdown](
         SequencerConnections
@@ -141,8 +143,9 @@ class SequencerConnectionSuccessorListener(
               config = updated,
               status = SynchronizerConnectionConfigStore.UpgradingTarget,
               configuredPSId = KnownPhysicalSynchronizerId(successorPSId),
-              synchronizerPredecessor =
-                Some(SynchronizerPredecessor(topologyClient.psid, upgradeTime)),
+              synchronizerPredecessor = Some(
+                SynchronizerPredecessor(topologyClient.psid, upgradeTime, isLateUpgrade = false)
+              ),
             )
             .toOption
         // TODO(#28724) Use subsumeMerge to reduce impact of races

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.signer
@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{CacheConfig, CryptoConfig, CryptoProvider, ProcessingTimeout}
+import com.digitalasset.canton.config.{CacheConfig, CryptoConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore
 import com.digitalasset.canton.crypto.{
   Hash,
@@ -109,30 +109,24 @@ object SyncCryptoSigner {
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): SyncCryptoSigner =
-    cryptoConfig.kms.map(_.sessionSigningKeys) match {
-      // session signing keys can only be used if we are directly storing all our private keys in an external KMS
-      case Some(sessionSigningKeysConfig)
-          if cryptoConfig.provider == CryptoProvider.Kms &&
-            cryptoConfig.privateKeyStore.encryption.isEmpty &&
-            sessionSigningKeysConfig.enabled =>
-        new SyncCryptoSignerWithSessionKeys(
-          synchronizerId,
-          staticSynchronizerParameters,
-          member,
-          crypto.privateCrypto,
-          crypto.cryptoPrivateStore,
-          sessionSigningKeysConfig,
-          publicKeyConversionCacheConfig,
-          futureSupervisor: FutureSupervisor,
-          timeouts,
-          loggerFactory,
-        )
-      case _ =>
-        SyncCryptoSigner.createWithLongTermKeys(
-          member,
-          crypto,
-          loggerFactory,
-        )
-    }
+    if (cryptoConfig.sessionSigningKeys.enabled)
+      new SyncCryptoSignerWithSessionKeys(
+        synchronizerId,
+        staticSynchronizerParameters,
+        member,
+        crypto.privateCrypto,
+        crypto.cryptoPrivateStore,
+        cryptoConfig.sessionSigningKeys,
+        publicKeyConversionCacheConfig,
+        futureSupervisor: FutureSupervisor,
+        timeouts,
+        loggerFactory,
+      )
+    else
+      SyncCryptoSigner.createWithLongTermKeys(
+        member,
+        crypto,
+        loggerFactory,
+      )
 
 }

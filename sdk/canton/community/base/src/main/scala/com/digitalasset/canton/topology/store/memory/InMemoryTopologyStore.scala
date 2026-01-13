@@ -1,8 +1,9 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store.memory
 
+import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -11,7 +12,7 @@ import com.digitalasset.canton.crypto.topology.TopologyStateHash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.*
@@ -25,6 +26,7 @@ import com.digitalasset.canton.topology.store.TopologyStore.{
   EffectiveStateChange,
   TopologyStoreDeactivations,
 }
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -34,7 +36,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
   TxHash,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{Mutex, PekkoUtil}
+import com.digitalasset.canton.util.{ErrorUtil, Mutex, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.NotUsed
@@ -754,5 +756,60 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       watermark.set(None)
     })
     FutureUnlessShutdown.unit
+  }
+
+  override def copyFromPredecessorSynchronizerStore(
+      sourceStore: TopologyStore[TopologyStoreId.SynchronizerStore]
+  )(implicit
+      ev: StoreId <:< TopologyStoreId.SynchronizerStore,
+      errorLoggingContext: ErrorLoggingContext,
+  ): FutureUnlessShutdown[Unit] = {
+    implicit val tc = errorLoggingContext.traceContext
+    val targetPSId = ev(storeId).psid
+    val sourcePSId = sourceStore.storeId.psid
+
+    for {
+      _ <- ErrorUtil.requireArgumentAsyncShutdown(
+        targetPSId.logical == sourcePSId.logical,
+        s"unexpected logical synchronizer id: expected=${targetPSId.logical}, actual=${sourcePSId.logical}",
+      )
+      _ <- ErrorUtil.requireArgumentAsyncShutdown(
+        sourcePSId < targetPSId,
+        s"source synchronizer [$sourcePSId] is not a predecessor of the target synchronizer [$targetPSId]",
+      )
+      sourceInMemoryStore <- sourceStore match {
+        case store: InMemoryTopologyStore[SynchronizerStore] => FutureUnlessShutdown.pure(store)
+        case _ =>
+          ErrorUtil.invalidArgumentAsyncShutdown(
+            s"cannot transfer topology from a topology store of type ${sourceStore.getClass} to $this"
+          )
+      }
+      sourceData = sourceInMemoryStore.lock.exclusive(
+        sourceInMemoryStore.topologyTransactionStore.toSeq
+      )
+      toCopy = sourceData.mapFilter { entry =>
+        // The filters here must be kept in sync with the filters in
+        // - GrpcTopologyManagerReadService.logicalUpgradeState
+        // - DbTopologyStore.copyFromPredecessorSynchronizerStore
+        val isNotRejected = entry.rejected.isEmpty
+        val isNonLSU =
+          !TopologyMapping.Code.lsuMappingsExcludedFromUpgrade.contains(
+            entry.transaction.mapping.code
+          )
+        val isFullyAuthorizedOrNotExpiredProposal =
+          !entry.transaction.isProposal || entry.until.isEmpty
+
+        Option.when(isNotRejected && isNonLSU && isFullyAuthorizedOrNotExpiredProposal)(
+          entry.toStoredTransaction
+        )
+      }
+
+      _ <- bulkInsert(StoredTopologyTransactions(toCopy))
+    } yield {
+      logger.info(
+        s"Transferred ${topologyTransactionStore.size} topology transactions from $sourcePSId to $targetPSId"
+      )
+    }
+
   }
 }

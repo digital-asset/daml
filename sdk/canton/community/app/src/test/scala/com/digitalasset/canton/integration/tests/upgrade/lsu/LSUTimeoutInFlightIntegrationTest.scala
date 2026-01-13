@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
@@ -43,10 +43,17 @@ import scala.jdk.CollectionConverters.*
   *     the upgrade time on the old synchronizer triggers such a time out (before the upgrade is
   *     done).
   */
-abstract class LSUTimeoutInFlightIntegrationTest extends LSUBase with HasProgrammableSequencer {
+final class LSUTimeoutInFlightIntegrationTest extends LSUBase with HasProgrammableSequencer {
 
-  override protected def testName: String = "lsu-restart"
+  override protected def testName: String = "lsu-timeout-in-flight"
 
+  registerPlugin(
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
+      loggerFactory,
+      MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
+    )
+  )
+  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
   registerPlugin(new UsePostgres(loggerFactory))
 
   override protected lazy val newOldSequencers: Map[String, String] =
@@ -229,14 +236,4 @@ abstract class LSUTimeoutInFlightIntegrationTest extends LSUBase with HasProgram
       )
     }
   }
-}
-
-final class LSUTimeoutInFlightReferenceIntegrationTest extends LSUTimeoutInFlightIntegrationTest {
-  registerPlugin(
-    new UseReferenceBlockSequencer[DbConfig.Postgres](
-      loggerFactory,
-      MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
-    )
-  )
-  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }
