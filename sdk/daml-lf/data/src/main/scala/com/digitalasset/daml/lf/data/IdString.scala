@@ -335,7 +335,7 @@ private[data] final class IdStringImpl extends IdString {
     new MatchingStringModule("Daml-LF Contract ID", """#[\w._:\-#/ ]{0,254}""")
 
   /** Identifiers for participant node users are non-empty strings with a length <= 128 that consist of
-    * ASCII alphanumeric characters and the symbols "@^$.!`-#+'~_|:".
+    * ASCII alphanumeric characters and the symbols "@^$.!`-#+'~_|:()".
     * This character set is chosen such that it maximizes the ease of integration with IAM systems.
     * Since the Ledger API needs to be compatible with JWT and uses the "sub" registered claim to
     * represent participant node users, the definition and use of these identifiers must keep in
@@ -343,6 +343,6 @@ private[data] final class IdStringImpl extends IdString {
     */
   override type UserId = String
   override val UserId: StringModule[UserId] =
-    new MatchingStringModule("User ID", """[a-zA-Z0-9@^$.!`\-#+'~_|:]{1,128}""")
+    new MatchingStringModule("User ID", """[a-zA-Z0-9@^$.!`\-#+'~_|:\(\)]{1,128}""")
 
 }

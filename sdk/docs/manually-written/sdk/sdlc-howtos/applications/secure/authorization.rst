@@ -218,7 +218,7 @@ To interpret the above notation:
 Requirements for User IDs
 =========================
 
-User IDs must be non-empty strings of at most 128 characters that are either alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
+User IDs must be non-empty strings of at most 128 characters that are either alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:()".
 
 Identity providers
 ==================
