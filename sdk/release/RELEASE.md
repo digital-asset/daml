@@ -174,7 +174,7 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
 
 1. Close the `Main.daml` tab, open `multi-package.yaml`, remove `- ./main`, save the file, then go to definition on IOU again as per previous instruction.
-  1. Verify that now (after a small delay), you are taken to a copy of `Main.daml` in a `.daml` directory at the root of the workspace.
+  1. Verify that now (after a small delay), you are taken to a read-only copy of `Main.daml`. This can be verified by attempting to make a change in this file.
 
 1. Close VSCode and delete the `myproject` directory ready for DPM testing using:
   `cd .. && rmdir /S /Q myproject`
@@ -230,7 +230,7 @@ You will now also need to test the release using DPM, please follow the instruct
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
 
 1. Close the `Main.daml` tab, open `multi-package.yaml`, remove `- ./main`, save the file, then go to definition on IOU again as per previous instruction
-  1. Verify that now (after a small delay), you are taken to a copy of `Main.daml` in a `.daml` directory at the root of the workspace.
+  1. Verify that now (after a small delay), you are taken to a read-only copy of `Main.daml`. This can be verified by attempting to make a change in this file.
 
 1. Close VSCode
 
@@ -368,7 +368,7 @@ You will now also need to test the release using DPM, please follow the instruct
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
 
 1. Close the `Main.daml` tab, open `multi-package.yaml`, remove `- ./main`, save the file, then go to definition on IOU again as per previous instruction.
-  1. Verify that now (after a small delay), you are taken to a copy of `Main.daml` in a `.daml` directory at the root of the workspace.
+  1. Verify that now (after a small delay), you are taken to a read-only copy of `Main.daml`. This can be verified by attempting to make a change in this file.
 
 1. Close VSCode and delete the `myproject` directory ready for DPM testing using:
   `cd .. && rm -rf myproject`
@@ -509,7 +509,7 @@ You will now also need to test the release using DPM, please follow the instruct
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
 
 1. Close the `Main.daml` tab, open `multi-package.yaml`, remove `- ./main`, save the file, then go to definition on IOU again as per previous instruction.
-  1. Verify that now (after a small delay), you are taken to a copy of `Main.daml` in a `.daml` directory at the root of the workspace.
+  1. Verify that now (after a small delay), you are taken to a read-only copy of `Main.daml`. This can be verified by attempting to make a change in this file.
 
 1. Close VSCode.
 
