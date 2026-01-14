@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -76,7 +76,7 @@ final class CommandDeduplicationIT(
       )
     } yield {
       assert(
-        response.commandId == request.commands.get.commandId,
+        response.commandId == request.commands.value.commandId,
         "The command ID of the first completion does not match the command ID of the submission",
       )
     }
@@ -462,7 +462,7 @@ final class CommandDeduplicationIT(
           )
         } yield {
           assert(
-            completionResponse.commandId == request.commands.get.commandId,
+            completionResponse.commandId == request.commands.value.commandId,
             "The command ID of the first completion does not match the command ID of the submission",
           )
         }
@@ -551,7 +551,7 @@ final class CommandDeduplicationIT(
       .activeContracts(Some(Seq(party)))
       .map(contracts =>
         assert(
-          contracts.length == noOfActiveContracts,
+          contracts.sizeIs == noOfActiveContracts,
           s"Expected $noOfActiveContracts active contracts for $party but found ${contracts.length} active contracts",
         )
       )
@@ -783,7 +783,7 @@ final class CommandDeduplicationIT(
       }
       .map { completions =>
         assert(
-          completions.head.offset > 0,
+          completions.headOption.value.offset > 0,
           "Expected a populated completion offset",
         )
         assertSingleton("Expected only one completion", completions)
@@ -840,9 +840,11 @@ final class CommandDeduplicationIT(
         case CompletionDeduplicationPeriod.DeduplicationOffset(_) =>
           defaultDuration
         case CompletionDeduplicationPeriod.DeduplicationDuration(value) =>
-          value.asScala
+          value.asScala match {
+            case infinite: Duration.Infinite =>
+              sys.error("infinite deduplication duration not supported")
+            case duration: FiniteDuration => duration
+          }
       }
       .getOrElse(defaultDuration + skews)
-      .asInstanceOf[FiniteDuration]
-
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -50,11 +50,19 @@ import com.digitalasset.canton.{
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.util.Random
+
 trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
   this: AsyncWordSpec with BaseTest with HasExecutionContext =>
 
   private val uid = DefaultTestIdentities.uid
-  private val psid = SynchronizerId(uid).toPhysical
+  private val psid =
+    PhysicalSynchronizerId(
+      logical = SynchronizerId(uid),
+      protocolVersion = testedProtocolVersion,
+      serial = NonNegativeInt.two,
+    )
+  private val predecessor = psid.copy(serial = NonNegativeInt.one)
 
   private val uid2 = UniqueIdentifier.tryCreate("acme", namespace)
   private val psid2 = SynchronizerId(uid2).toPhysical
@@ -126,16 +134,16 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
   private val daId = SynchronizerId(
     UniqueIdentifier.tryCreate("da", DefaultTestIdentities.namespace)
   )
-  private val daStable = PhysicalSynchronizerId(daId, ProtocolVersion.latest, NonNegativeInt.zero)
+  private val daStable = PhysicalSynchronizerId(daId, NonNegativeInt.zero, ProtocolVersion.latest)
   private val daBeta =
-    PhysicalSynchronizerId(daId, ProtocolVersion.parseUnchecked(3444).value, NonNegativeInt.zero)
-  private val daDev = PhysicalSynchronizerId(daId, ProtocolVersion.dev, NonNegativeInt.zero)
+    PhysicalSynchronizerId(daId, NonNegativeInt.zero, ProtocolVersion.parseUnchecked(3444).value)
+  private val daDev = PhysicalSynchronizerId(daId, NonNegativeInt.zero, ProtocolVersion.dev)
   private val daName = SynchronizerAlias.tryCreate("da")
 
   private val acmeId =
     SynchronizerId(UniqueIdentifier.tryCreate("acme", DefaultTestIdentities.namespace))
   private val acmeStable =
-    PhysicalSynchronizerId(acmeId, ProtocolVersion.latest, NonNegativeInt.zero)
+    PhysicalSynchronizerId(acmeId, NonNegativeInt.zero, ProtocolVersion.latest)
   private val acmeName = SynchronizerAlias.tryCreate("acme")
 
   def synchronizerConnectionConfigStore(
@@ -194,13 +202,14 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
       "be able to store and retrieve a config successfully" in {
         val synchronizerId2 = PhysicalSynchronizerId(
           psid.logical,
-          psid.protocolVersion,
           psid.serial.increment.toNonNegative,
+          psid.protocolVersion,
         )
 
         val predecessor = SynchronizerPredecessor(
           psid = psid,
           upgradeTime = CantonTimestamp.now(),
+          isLateUpgrade = Random.nextBoolean(),
         )
 
         for {
@@ -239,21 +248,45 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
       }
 
       "return error if config for (alias, id) already exists with a different value" in {
+        val synchronizerPredecessor =
+          SynchronizerPredecessor(predecessor, CantonTimestamp.Epoch, isLateUpgrade = false)
         for {
           sut <- mk
           _ <- sut
-            .put(config, Active, KnownPhysicalSynchronizerId(psid), None)
+            .put(config, Active, KnownPhysicalSynchronizerId(psid), Some(synchronizerPredecessor))
             .valueOrFail("first store of config")
-          result <- sut
+          resultChangedConfig <- sut
             .put(
               config.copy(manualConnect = true),
+              Active,
+              KnownPhysicalSynchronizerId(psid),
+              Some(synchronizerPredecessor),
+            )
+            .value
+          resultWithoutPredecessor <- sut
+            .put(
+              config,
               Active,
               KnownPhysicalSynchronizerId(psid),
               None,
             )
             .value
+          resultChangedPredecessor <- sut
+            .put(
+              config,
+              Active,
+              KnownPhysicalSynchronizerId(psid),
+              Some(synchronizerPredecessor.copy(isLateUpgrade = true)),
+            )
+            .value
         } yield {
-          result shouldBe Left(
+          resultChangedConfig shouldBe Left(
+            ConfigAlreadyExists(daAlias, KnownPhysicalSynchronizerId(psid))
+          )
+          resultWithoutPredecessor shouldBe Left(
+            ConfigAlreadyExists(daAlias, KnownPhysicalSynchronizerId(psid))
+          )
+          resultChangedPredecessor shouldBe Left(
             ConfigAlreadyExists(daAlias, KnownPhysicalSynchronizerId(psid))
           )
         }
@@ -263,6 +296,7 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
         val predecessor = SynchronizerPredecessor(
           psid = daStable,
           upgradeTime = CantonTimestamp.now(),
+          isLateUpgrade = false,
         )
 
         for {
@@ -305,7 +339,8 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
       }
 
       "return an error when trying to store a PSId which is incompatible with the predecessor" in {
-        val predecessor = SynchronizerPredecessor(acmeStable, CantonTimestamp.now())
+        val predecessor =
+          SynchronizerPredecessor(acmeStable, CantonTimestamp.now(), isLateUpgrade = false)
 
         for {
           sut <- mk
@@ -582,7 +617,7 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
             .valueOrFail("put") // no physical id known
           _ <- sut
             .put(getConfig(daDev), Inactive, KnownPhysicalSynchronizerId(daDev), None)
-            .valueOrFail("put") // no physical id known
+            .valueOrFail("put") // physical id known
 
           _ = sut
             .get(daName, UnknownPhysicalSynchronizerId)

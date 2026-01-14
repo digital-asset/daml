@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -233,7 +233,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         )
     } yield {
       assert(
-        transactionsAfterPrune.head.offset == offsetOfFirstSurvivingTransaction,
+        transactionsAfterPrune.headOption.value.offset == offsetOfFirstSurvivingTransaction,
         s"transactions not pruned at expected offset",
       )
       assertGrpcErrorRegex(
@@ -296,7 +296,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
         )
     } yield {
       assert(
-        txAfterPrune.head.offset == offsetOfFirstSurvivingTransaction,
+        txAfterPrune.headOption.value.offset == offsetOfFirstSurvivingTransaction,
         s"flat transactions not pruned at expected offset",
       )
       assertGrpcErrorRegex(
@@ -340,7 +340,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
           1,
           participant.completionStreamRequest(endOffsetAtTestStart)(submitter),
         )
-        .map(_.head)
+        .map(_.headOption.value)
 
       _ <- participant.prune(offsetToPruneUpTo)
 
@@ -350,7 +350,7 @@ class ParticipantPruningIT extends LedgerTestSuite {
           participant
             .completionStreamRequest(offsetToPruneUpTo)(submitter),
         )
-        .map(_.head)
+        .map(_.headOption.value)
 
       cannotReadAnymore <- participant
         .offsets(
@@ -561,27 +561,27 @@ class ParticipantPruningIT extends LedgerTestSuite {
 
     } yield {
       assert(
-        transactionsAfterPrune.size == offsets.size - (lastItemToPruneIndex + 1),
+        transactionsAfterPrune.sizeIs == offsets.size - (lastItemToPruneIndex + 1),
         s"transaction count after pruning does not match expected count",
       )
       assert(
-        transactionsAfterPrune.head.offset == offsetOfFirstSurvivingTransaction,
+        transactionsAfterPrune.headOption.value.offset == offsetOfFirstSurvivingTransaction,
         s"transaction not pruned at expected offset",
       )
       assert(
-        transactionsAfterRedundantPrune.size == offsets.size - (lastItemToPruneIndex + 1),
+        transactionsAfterRedundantPrune.sizeIs == offsets.size - (lastItemToPruneIndex + 1),
         s"transaction count after redundant pruning does not match expected count",
       )
       assert(
-        transactionsAfterRedundantPrune.head.offset == offsetOfFirstSurvivingTransaction,
+        transactionsAfterRedundantPrune.headOption.value.offset == offsetOfFirstSurvivingTransaction,
         s"transaction not pruned at expected offset after redundant prune",
       )
       assert(
-        transactionsAfterSecondPrune.size == offsets.size - 2 * (lastItemToPruneIndex + 1) + offsetsFollowingSecondRealPrune.size,
+        transactionsAfterSecondPrune.sizeIs == offsets.size - 2 * (lastItemToPruneIndex + 1) + offsetsFollowingSecondRealPrune.size,
         s"transaction count after second pruning does not match expected count",
       )
       assert(
-        transactionsAfterSecondPrune.head.offset == offsetOfFirstSurvivingTransactionInSecondPrune,
+        transactionsAfterSecondPrune.headOption.value.offset == offsetOfFirstSurvivingTransactionInSecondPrune,
         s"transaction not pruned at expected offset after second prune",
       )
     }

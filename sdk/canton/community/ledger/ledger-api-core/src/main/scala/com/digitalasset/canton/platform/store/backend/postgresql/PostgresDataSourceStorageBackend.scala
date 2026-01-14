@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.backend.postgresql
@@ -6,6 +6,8 @@ package com.digitalasset.canton.platform.store.backend.postgresql
 import anorm.SqlParser.get
 import anorm.SqlStringInterpolation
 import com.daml.resources.ProgramResource.StartupException
+import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.config
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.backend.DataSourceStorageBackend
 import com.digitalasset.canton.platform.store.backend.common.{
@@ -19,12 +21,39 @@ import org.postgresql.ds.PGSimpleDataSource
 import java.sql.Connection
 import javax.sql.DataSource
 
+/** Configuration for Postgres data source.
+  *
+  * @param synchronousCommit
+  *   Synchronous commit setting for Postgres.
+  * @param tcpKeepalivesIdle
+  *   TCP keepalive idle time in seconds. Corresponds to `tcp_keepalives_idle`. See
+  *   [[https://www.postgresql.org/docs/14/runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS]]
+  *   for details. A value of 0 selects the operating system's default.
+  * @param tcpKeepalivesInterval
+  *   TCP keepalive interval in seconds. Corresponds to `tcp_keepalives_interval`. A value of 0
+  *   selects the operating system's default.
+  * @param tcpKeepalivesCount
+  *   TCP keepalive count. Corresponds to `tcp_keepalives_count`. A value of 0 selects the operating
+  *   system's default.
+  * @param clientConnectionCheckInterval
+  *   Interval for client connection checks. Corresponds to `client_connection_check_interval`
+  *   (Postgres >= 14 only). Millisecond granularity is the lowest supported precision. A value of 0
+  *   disables connection checks.
+  * @param networkTimeout
+  *   Network timeout for database operations. Millisecond granularity is the lowest supported
+  *   precision. A value of 0 indicates no timeout.
+  */
 final case class PostgresDataSourceConfig(
     synchronousCommit: Option[SynchronousCommitValue] = None,
-    // TCP keepalive configuration for postgres. See https://www.postgresql.org/docs/13/runtime-config-connection.html#RUNTIME-CONFIG-CONNECTION-SETTINGS for details
-    tcpKeepalivesIdle: Option[Int] = Some(10), // corresponds to: tcp_keepalives_idle
-    tcpKeepalivesInterval: Option[Int] = Some(1), // corresponds to: tcp_keepalives_interval
-    tcpKeepalivesCount: Option[Int] = Some(5), // corresponds to: tcp_keepalives_count
+    tcpKeepalivesIdle: Option[Int] = Some(10),
+    tcpKeepalivesInterval: Option[Int] = Some(1),
+    tcpKeepalivesCount: Option[Int] = Some(5),
+    clientConnectionCheckInterval: Option[config.NonNegativeFiniteDuration] = Some(
+      config.NonNegativeFiniteDuration.ofSeconds(5)
+    ),
+    networkTimeout: Option[config.NonNegativeFiniteDuration] = Some(
+      config.NonNegativeFiniteDuration.ofSeconds(60)
+    ),
 )
 
 object PostgresDataSourceConfig {
@@ -57,6 +86,8 @@ class PostgresDataSourceStorageBackend(
       connectionInitHook: Option[Connection => Unit],
   ): DataSource = {
     import DataSourceStorageBackendImpl.exe
+    val directEc = DirectExecutionContext(noTracingLogger)
+
     val pgSimpleDataSource = new PGSimpleDataSource()
     pgSimpleDataSource.setUrl(dataSourceConfig.jdbcUrl)
 
@@ -69,6 +100,16 @@ class PostgresDataSourceStorageBackend(
         .map(i => exe(s"SET tcp_keepalives_interval TO $i")),
       dataSourceConfig.postgresConfig.tcpKeepalivesCount.toList
         .map(i => exe(s"SET tcp_keepalives_count TO $i")),
+      dataSourceConfig.postgresConfig.clientConnectionCheckInterval.toList
+        .map(i => exe(s"SET client_connection_check_interval TO '${i.duration.toMillis} ms'")),
+      dataSourceConfig.postgresConfig.networkTimeout.toList.map {
+        networkTimeout => (connection: Connection) =>
+          connection.setNetworkTimeout(
+            directEc,
+            // avoid overflow by capping to Int.MaxValue
+            networkTimeout.duration.toMillis.min(Int.MaxValue).toInt,
+          )
+      },
       connectionInitHook.toList,
     ).flatten
     InitHookDataSourceProxy(pgSimpleDataSource, hookFunctions, loggerFactory)
@@ -118,7 +159,7 @@ class PostgresDataSourceStorageBackend(
 
 object PostgresDataSourceStorageBackend {
   def apply(loggerFactory: NamedLoggerFactory): PostgresDataSourceStorageBackend =
-    new PostgresDataSourceStorageBackend(minMajorVersionSupported = 10, loggerFactory)
+    new PostgresDataSourceStorageBackend(minMajorVersionSupported = 14, loggerFactory)
 
   final class UnsupportedPostgresVersion(message: String)
       extends RuntimeException(message)

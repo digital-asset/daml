@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.traffic
@@ -189,7 +189,7 @@ class TrafficStateController(
         trafficControl.baseEventCost,
       )
       if (logCost) {
-        logger.debug(
+        logger.info(
           s"Computed following cost for submission request using topology at ${snapshot.timestamp}: $costDetails"
         )
       }

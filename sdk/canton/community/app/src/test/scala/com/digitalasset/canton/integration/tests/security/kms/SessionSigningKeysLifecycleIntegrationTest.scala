@@ -1,10 +1,10 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.security.kms
 
 import com.digitalasset.canton.config.DbConfig.Postgres
-import com.digitalasset.canton.config.{KmsConfig, PositiveFiniteDuration}
+import com.digitalasset.canton.config.{KmsConfig, PositiveFiniteDuration, SessionSigningKeysConfig}
 import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.security.kms.mock.MockKmsDriverCryptoIntegrationTestBase
 import com.digitalasset.canton.integration.tests.security.kms.mock.MockKmsDriverCryptoIntegrationTestBase.mockKmsDriverConfig
@@ -32,14 +32,38 @@ trait SessionSigningKeysLifecycleIntegrationTest
   protected val keyValidityDuration: PositiveFiniteDuration = PositiveFiniteDuration.ofMinutes(5)
   protected val advanceBy: PositiveFiniteDuration = PositiveFiniteDuration.ofMinutes(3)
 
+  private lazy val sessionSigningKeysConfigTest =
+    SessionSigningKeysConfig.default.copy(keyValidityDuration = keyValidityDuration)
+
   override protected def otherConfigTransforms: Seq[ConfigTransform] = Seq(
-    ConfigTransforms.useStaticTime
+    ConfigTransforms.useStaticTime,
+    // TODO(#30004): Simplify by using a plugin or a `ConfigTransform`,
+    ConfigTransforms.updateAllMediatorConfigs_(config =>
+      config
+        .focus(_.crypto.sessionSigningKeys.keyValidityDuration)
+        .replace(keyValidityDuration)
+    ),
+    ConfigTransforms.updateAllSequencerConfigs_(config =>
+      config
+        .focus(_.crypto.sessionSigningKeys.keyValidityDuration)
+        .replace(keyValidityDuration)
+    ),
+    ConfigTransforms.updateAllParticipantConfigs_(config =>
+      config
+        .focus(_.crypto.sessionSigningKeys.keyValidityDuration)
+        .replace(keyValidityDuration)
+    ),
   )
 
   "verify correct session key lifecycle with clock advances" in { implicit env =>
     import env.*
 
     val simClock = env.environment.simClock.value
+
+    // check that all nodes are using session signing keys
+    env.nodes.local.foreach { node =>
+      node.config.crypto.sessionSigningKeys shouldBe sessionSigningKeysConfigTest
+    }
 
     assertPingSucceeds(participant1, participant2)
 
@@ -61,8 +85,7 @@ class MockKmsDriverSessionSigningKeysLifecycleIntegrationTestPostgres
     extends SessionSigningKeysLifecycleIntegrationTest
     with MockKmsDriverCryptoIntegrationTestBase {
 
-  override protected val kmsConfig: KmsConfig =
-    mockKmsDriverConfig.focus(_.sessionSigningKeys.keyValidityDuration).replace(keyValidityDuration)
+  override protected val kmsConfig: KmsConfig = mockKmsDriverConfig
 
   override protected lazy val nodesWithSessionSigningKeysDisabled: Set[String] =
     Set.empty

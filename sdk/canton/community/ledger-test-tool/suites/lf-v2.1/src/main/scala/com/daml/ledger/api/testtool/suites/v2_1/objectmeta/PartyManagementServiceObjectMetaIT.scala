@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1.objectmeta
 
@@ -88,7 +88,7 @@ class PartyManagementServiceObjectMetaIT extends PartyManagementITBase with Obje
   )(implicit ec: ExecutionContext, ledger: ParticipantTestContext): Future[Map[String, String]] =
     ledger
       .getParties(GetPartiesRequest(parties = Seq(id), identityProviderId = ""))
-      .map(_.partyDetails.head.getLocalMetadata.annotations)
+      .map(_.partyDetails.headOption.value.getLocalMetadata.annotations)
 
   override private[objectmeta] def update(
       id: ResourceId,

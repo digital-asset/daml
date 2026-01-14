@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -31,7 +31,7 @@ final class DamlValuesIT extends LedgerTestSuite {
       resultTxTree <- ledger
         .exercise(alice, contract.exerciseWithTextMap_Expand(Map("marco" -> "polo").asJava))
     } yield {
-      val result = resultTxTree.events.head.getExercised.exerciseResult
+      val result = resultTxTree.events.headOption.value.getExercised.exerciseResult
         .getOrElse(fail("Expected return value"))
 
       val actualItems = PrimitiveValueDecoders

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.metrics
@@ -24,6 +24,7 @@ import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.metrics.Meter
 import io.opentelemetry.exporter.prometheus.PrometheusHttpServer
 import io.opentelemetry.instrumentation.runtimemetrics.java8.*
+import io.opentelemetry.instrumentation.runtimemetrics.java8.internal.ExperimentalBufferPools
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder
 import io.opentelemetry.sdk.metrics.`export`.{MetricExporter, MetricReader, PeriodicMetricReader}
 import io.opentelemetry.sdk.metrics.internal.state.MetricStorage
@@ -76,6 +77,7 @@ object MetricsConfig {
       memoryPools: Boolean = true,
       threads: Boolean = true,
       gc: Boolean = true,
+      buffers: Boolean = true,
   )
 
   object JvmMetrics {
@@ -87,6 +89,7 @@ object MetricsConfig {
         if (config.memoryPools) MemoryPools.registerObservers(openTelemetry).discard
         if (config.threads) Threads.registerObservers(openTelemetry).discard
         if (config.gc) GarbageCollector.registerObservers(openTelemetry).discard
+        if (config.buffers) ExperimentalBufferPools.registerObservers(openTelemetry).discard
       }
   }
 

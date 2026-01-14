@@ -1,9 +1,9 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
 
-case class NamePicker(alphabet: String) {
+final case class NamePicker(alphabet: String) {
   private[testtool] val canon: String = alphabet.sorted.foldLeft("") { (acc, e) =>
     acc.lastOption match {
       case Some(l) if l == e => acc
@@ -11,8 +11,8 @@ case class NamePicker(alphabet: String) {
     }
   }
 
-  private[testtool] val mx: Char = canon.last
-  private[testtool] val mn: Char = canon.head
+  private[testtool] val mx: Char = canon.lastOption.getOrElse(sys.error("last not present"))
+  private[testtool] val mn: Char = canon.headOption.getOrElse(sys.error("head not present"))
 
   private[testtool] def belongs(s: String): Boolean = s.foldLeft(true) {
     case (true, e) if canon.contains(e) => true
@@ -47,7 +47,7 @@ case class NamePicker(alphabet: String) {
     (high, low) match {
       case (h, l) if !belongs(h) || !belongs(l) => None
       case (h, l) if h <= l => None
-      case (h, l) if h.length == l.length + 1 && h.last == mn && h.dropRight(1) == l => None
+      case (h, l) if h.sizeIs == l.length + 1 && h.last == mn && h.dropRight(1) == l => None
       case (h, l) => lower(h).map(ld => if (ld == l) ld ++ (mx.toString * extendOnConflict) else ld)
     }
 }

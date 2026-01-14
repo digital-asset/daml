@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
@@ -113,7 +113,7 @@ class InMemorySynchronizerConnectionConfigStore(
             )
             .fold(Either.unit[ConfigAlreadyExists])(existingConfig =>
               Either.cond(
-                config == existingConfig.config,
+                config == existingConfig.config && synchronizerPredecessor == existingConfig.predecessor,
                 (),
                 ConfigAlreadyExists(config.synchronizerAlias, configuredPSId),
               )

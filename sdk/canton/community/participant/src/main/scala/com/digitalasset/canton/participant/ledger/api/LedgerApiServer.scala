@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.ledger.api
@@ -478,7 +478,7 @@ class LedgerApiServer(
   }
 
   private def getInterceptors(
-      indexDbExecutor: QueueAwareExecutor & NamedExecutor
+      indexDbExecutor: Option[QueueAwareExecutor & NamedExecutor]
   ): List[ServerInterceptor] = List(
     new GrpcRequestLoggingInterceptor(
       loggerFactory,
@@ -499,13 +499,14 @@ class LedgerApiServer(
             limit = rateLimit.maxApiServicesQueueSize,
             queue = executionContext,
             loggerFactory = loggerFactory,
-          ),
+          )
+        ) ++ indexDbExecutor.map(executor =>
           ThreadpoolCheck(
             name = "Index DB Threadpool",
             limit = rateLimit.maxApiServicesIndexDbQueueSize,
-            queue = indexDbExecutor,
+            queue = executor,
             loggerFactory = loggerFactory,
-          ),
+          )
         ),
       )
     )

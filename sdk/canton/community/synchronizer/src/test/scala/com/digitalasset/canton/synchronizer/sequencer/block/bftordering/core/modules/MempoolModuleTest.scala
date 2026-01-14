@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules
@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.WriteReadiness
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.UnitTestContext.DelayCount
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.mempool.{
@@ -336,6 +337,43 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     }
   }
 
+  "it receives a send service readiness inquiry" should {
+    "reply with the current readiness" in {
+      val mempoolState = createMempoolState()
+      val mempool =
+        createMempool[UnitTestEnv](fakeModuleExpectingSilence, mempoolState = mempoolState)
+      mempool.receiveInternal(AP2PConnectivityUpdate)
+
+      val readinessCell = new AtomicReference[Option[WriteReadiness]](None)
+      mempool.receiveInternal(
+        Mempool.Admin.GetWriteReadiness(readiness => readinessCell.set(Some(readiness)))
+      )
+
+      {
+        val readiness = readinessCell
+          .get()
+          .getOrElse(fail("No readiness reply received"))
+        readiness shouldBe WriteReadiness.P2PNotReady(
+          WriteReadiness.P2P(authenticatedPeersCount = 2, requiredQuorum = 3)
+        )
+      }
+
+      mempool.receiveInternal(AnotherP2PConnectivityUpdate)
+      mempool.receiveInternal(
+        Mempool.Admin.GetWriteReadiness(readiness => readinessCell.set(Some(readiness)))
+      )
+
+      {
+        val readiness = readinessCell
+          .get()
+          .getOrElse(fail("No readiness reply received"))
+        readiness shouldBe WriteReadiness.Ready(
+          WriteReadiness.P2P(authenticatedPeersCount = 3, requiredQuorum = 3)
+        )
+      }
+    }
+  }
+
   private def createMempool[E <: Env[E]](
       availability: ModuleRef[Availability.Message[E]],
       mempoolState: MempoolState = createMempoolState(),
@@ -377,5 +415,10 @@ private object MempoolModuleTest {
     Mempool.P2PConnectivityUpdate(
       Membership.forTesting(BftNodeId("myself"), (1 to 7).map(i => BftNodeId(i.toString)).toSet),
       2,
+    )
+  val AnotherP2PConnectivityUpdate =
+    Mempool.P2PConnectivityUpdate(
+      Membership.forTesting(BftNodeId("myself"), (1 to 7).map(i => BftNodeId(i.toString)).toSet),
+      3,
     )
 }

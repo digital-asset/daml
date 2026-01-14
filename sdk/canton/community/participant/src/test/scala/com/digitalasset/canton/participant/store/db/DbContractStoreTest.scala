@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -101,6 +101,222 @@ trait DbContractStoreTest extends AsyncWordSpec with BaseTest with ContractStore
       notDeleted shouldEqual Right(contract5)
       store.lookupPersistedIfCached(contractId) shouldBe Some(None) // already tried to be looked up
       store.lookupPersistedIfCached(contractId5).value.nonEmpty shouldBe true
+    }
+  }
+
+  "storeContracts handles empty list" in {
+    val store = createDbContractStoreForTesting(
+      storage,
+      loggerFactory,
+    )
+    for {
+      result <- store.storeContracts(Seq.empty).failOnShutdown
+    } yield {
+      result shouldBe Map.empty
+    }
+  }
+
+  "storeContracts preserves contract-to-result order mapping" in {
+    val store = createDbContractStoreForTesting(
+      storage,
+      loggerFactory,
+    )
+    val contracts = Seq(contract, contract2, contract3, contract4, contract5)
+
+    for {
+      internalIds <- store.storeContracts(contracts).failOnShutdown
+      // Verify all contracts got internal IDs
+      _ = contracts.foreach { c =>
+        internalIds.get(c.contractId) shouldBe defined
+      }
+      // Verify we can retrieve all contracts by their internal IDs
+      retrievedContracts <- store.lookupBatchedNonCached(internalIds.values).failOnShutdown
+    } yield {
+      retrievedContracts.size shouldBe contracts.size
+      // Each contract should map to its correct internal ID
+      contracts.foreach { c =>
+        val internalId = internalIds(c.contractId)
+        val retrieved = retrievedContracts(internalId)
+        retrieved.inst.contractId shouldBe c.contractId
+      }
+      succeed
+    }
+  }
+
+  "storeContracts handles duplicate contracts in the same batch" in {
+    val store = createDbContractStoreForTesting(
+      storage,
+      loggerFactory,
+    )
+    // Test with duplicates in the same batch: contract appears twice, contract2 appears three times
+    val duplicateContracts = Seq(contract, contract2, contract, contract3, contract2, contract2)
+
+    for {
+      internalIds <- store.storeContracts(duplicateContracts).failOnShutdown
+    } yield {
+      // Should return internal IDs for all unique contracts only
+      internalIds should have size 3
+      internalIds.keys should contain theSameElementsAs Set(
+        contractId,
+        contractId2,
+        contractId3,
+      )
+
+      // Verify each contract has a valid and distinct internal ID
+      internalIds.values.foreach { internalId =>
+        internalId should be > 0L
+      }
+      internalIds.values.toSeq.distinct should have size 3
+      succeed
+    }
+  }
+
+  "storeContracts handles mix of new and existing contracts with duplicates" in {
+    val store = createDbContractStoreForTesting(
+      storage,
+      loggerFactory,
+    )
+
+    for {
+      // First, store some contracts
+      firstBatch <- store.storeContracts(Seq(contract, contract2)).failOnShutdown
+      // Then store a batch with duplicates including already-stored contracts
+      secondBatch <- store
+        .storeContracts(Seq(contract, contract2, contract3, contract, contract3))
+        .failOnShutdown
+    } yield {
+      // First batch should have 2 contracts
+      firstBatch should have size 2
+      // Second batch should have all 3 unique contracts
+      secondBatch should have size 3
+      secondBatch.keys should contain theSameElementsAs Set(
+        contractId,
+        contractId2,
+        contractId3,
+      )
+      // Internal IDs for already-existing contracts should match
+      secondBatch(contractId) shouldBe firstBatch(contractId)
+      secondBatch(contractId2) shouldBe firstBatch(contractId2)
+    }
+  }
+
+  "storeContracts populates cache for all inserted contracts" in {
+    val store = createDbContractStoreForTesting(
+      storage,
+      loggerFactory,
+    )
+
+    // Verify contracts are not cached initially
+    store.lookupPersistedIfCached(contractId) shouldBe None
+    store.lookupPersistedIfCached(contractId2) shouldBe None
+
+    for {
+      // Store contracts
+      _ <- store.storeContracts(Seq(contract, contract2, contract3)).failOnShutdown
+    } yield {
+      // Verify they're now cached
+      val cached1 = store.lookupPersistedIfCached(contractId)
+      val cached2 = store.lookupPersistedIfCached(contractId2)
+      val cached3 = store.lookupPersistedIfCached(contractId3)
+
+      cached1 shouldBe defined
+      cached2 shouldBe defined
+      cached3 shouldBe defined
+      cached1.value.value.asContractInstance shouldBe contract
+      cached2.value.value.asContractInstance shouldBe contract2
+      cached3.value.value.asContractInstance shouldBe contract3
+    }
+  }
+
+  "storeContracts utilizes cache on lookups" in {
+    val store = createDbContractStoreForTesting(
+      storage,
+      loggerFactory,
+    )
+
+    for {
+      // Store contracts (populates cache)
+      _ <- store.storeContracts(Seq(contract, contract2)).failOnShutdown
+      // Verify contracts are cached
+      _ = store.lookupPersistedIfCached(contractId).value shouldBe defined
+      _ = store.lookupPersistedIfCached(contractId2).value shouldBe defined
+      // Lookup should use cache (not hit database again)
+      looked1 <- store.lookupPersisted(contractId).failOnShutdown
+      looked2 <- store.lookupPersisted(contractId2).failOnShutdown
+      // lookupMetadata should also benefit from cache
+      metadata <- store.lookupMetadata(Set(contractId, contractId2)).value.failOnShutdown
+    } yield {
+      looked1 shouldBe defined
+      looked2 shouldBe defined
+      looked1.value.asContractInstance shouldBe contract
+      looked2.value.asContractInstance shouldBe contract2
+
+      val metadataMap = metadata.value
+      metadataMap(contractId) shouldBe contract.metadata
+      metadataMap(contractId2) shouldBe contract2.metadata
+
+      // Cache should still contain the contracts
+      store.lookupPersistedIfCached(contractId).value shouldBe defined
+      store.lookupPersistedIfCached(contractId2).value shouldBe defined
+    }
+  }
+
+  "lookupMetadata uses cache instead of database when available" in {
+    import storage.api.*
+    val store = createDbContractStoreForTesting(
+      storage,
+      loggerFactory,
+    )
+
+    for {
+      // Store contracts and populate cache
+      _ <- store.storeContracts(Seq(contract, contract2)).failOnShutdown
+      // Verify cached
+      _ = store.lookupPersistedIfCached(contractId) shouldBe defined
+      _ = store.lookupPersistedIfCached(contractId2) shouldBe defined
+      // Delete contracts from database (but keep in cache!)
+      _ <- storage.update_(sqlu"delete from par_contracts", "test-delete").failOnShutdown
+      // Verify database is empty
+      count <- storage
+        .query(sql"select count(*) from par_contracts".as[Int].head, "test-count")
+        .failOnShutdown
+      _ = count shouldBe 0
+      // lookupMetadata should still work using cache
+      metadata <- store.lookupMetadata(Set(contractId, contractId2)).value.failOnShutdown
+    } yield {
+      // If cache wasn't used, this would fail (database is empty)
+      val metadataMap = metadata.value
+      metadataMap should have size 2
+      metadataMap(contractId) shouldBe contract.metadata
+      metadataMap(contractId2) shouldBe contract2.metadata
+    }
+  }
+
+  "lookupMetadata returns correct metadata for multiple contracts" in {
+    val store = createDbContractStoreForTesting(
+      storage,
+      loggerFactory,
+    )
+
+    for {
+      // Store multiple contracts
+      _ <- store
+        .storeContracts(Seq(contract, contract2, contract3, contract4, contract5))
+        .failOnShutdown
+      // Lookup metadata for all
+      metadata <- store
+        .lookupMetadata(Set(contractId, contractId2, contractId3, contractId4, contractId5))
+        .value
+        .failOnShutdown
+    } yield {
+      val metadataMap = metadata.value
+      // Verify all metadata is correct (order is preserved in batch processing)
+      metadataMap should have size 5
+      metadataMap(contractId) shouldBe contract.metadata
+      metadataMap(contractId2) shouldBe contract2.metadata
+      metadataMap(contractId3) shouldBe contract3.metadata
+      metadataMap(contractId4) shouldBe contract4.metadata
+      metadataMap(contractId5) shouldBe contract5.metadata
     }
   }
 }

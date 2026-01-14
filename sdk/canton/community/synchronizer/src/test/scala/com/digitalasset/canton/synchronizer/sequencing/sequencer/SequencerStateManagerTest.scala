@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.sequencer
@@ -350,6 +350,7 @@ class SequencerStateManagerTest
         sequencer1,
         blockSequencerMode = true,
         loggerFactory,
+        timeouts = timeouts,
         sequencerMetrics = SequencerMetrics.noop("sequencer-state-manager-test"),
       ),
       loggerFactory,

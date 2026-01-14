@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_dev
 
@@ -51,7 +51,7 @@ final class ContractKeysExplicitDisclosureIT extends LedgerTestSuite {
           )
           txs <- ownerParticipant.transactions(txReq)
           withKeyCreationTx = assertSingleton("Transaction expected non-empty", txs)
-          withKeyCreate = createdEvents(withKeyCreationTx).head
+          withKeyCreate = createdEvents(withKeyCreationTx).headOption.value
           withKeyDisclosedContract = createEventToDisclosedContract(withKeyCreate)
 
           // Ensure participants are synchronized

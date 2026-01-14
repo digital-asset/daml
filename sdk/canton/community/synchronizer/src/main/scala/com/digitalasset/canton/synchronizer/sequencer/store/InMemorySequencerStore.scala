@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.store
@@ -11,11 +11,11 @@ import cats.syntax.option.*
 import cats.syntax.order.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
-import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.sequencing.protocol.{Batch, ClosedEnvelope}
 import com.digitalasset.canton.synchronizer.block.UninitializedBlockHeight
@@ -47,10 +47,12 @@ class InMemorySequencerStore(
     override val sequencerMember: Member,
     override val blockSequencerMode: Boolean,
     protected val loggerFactory: NamedLoggerFactory,
+    protected override val timeouts: ProcessingTimeout,
     override protected val sequencerMetrics: SequencerMetrics,
 )(implicit
     protected val executionContext: ExecutionContext
-) extends SequencerStore {
+) extends SequencerStore
+    with FlagCloseable {
 
   override protected val batchingConfig: BatchingConfig = BatchingConfig()
 
@@ -451,8 +453,6 @@ class InMemorySequencerStore(
         payloads.size.toLong,
       )
     )
-
-  override def close(): Unit = ()
 
   override def readStateAtTimestamp(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext

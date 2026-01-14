@@ -1,0 +1,1415 @@
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.digitalasset.daml.lf.language
+
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data._
+import scala.collection.immutable.VectorMap
+
+object Ast {
+  //
+  // Identifiers
+  //
+
+  /** Fully applied type constructor. */
+  final case class TypeConApp(tycon: TypeConId, args: ImmArray[Type]) {
+    def pretty: String = this.toType.pretty
+    def toType: Type = args.foldLeft[Type](TTyCon(tycon))(TApp)
+  }
+
+  /* Expression variable name. */
+  type ExprVarName = Name
+
+  /* Type variable name. */
+  type TypeVarName = Name
+
+  /* Reference to a field in a record or variant. */
+  type FieldName = Name
+
+  /* Variant constructor name. */
+  type VariantConName = Name
+
+  /* Variant constructor name. */
+  type EnumConName = Name
+
+  /* Binding in a let/update block. */
+  final case class Binding(binder: Option[ExprVarName], typ: Type, bound: Expr)
+
+  //
+  // Expressions
+  //
+
+  sealed abstract class Expr extends Product with Serializable {
+
+    /** Infix alias for repeated [[EApp]] application. */
+    @inline final def eApp(arg: Expr, args: Expr*): EApp =
+      (args foldLeft EApp(this, arg))(EApp)
+
+    /** Infix alias for repeated [[ETyApp]] application. */
+    @inline final def eTyApp(typ: Type, typs: Type*): ETyApp =
+      (typs foldLeft ETyApp(this, typ))(ETyApp)
+  }
+
+  // We use this type to reduce depth of pattern matching
+  sealed abstract class ExprAtomic extends Expr
+
+  /** Reference to a variable in current lexical scope. */
+  final case class EVar(value: ExprVarName) extends ExprAtomic
+
+  /** Reference to a value definition. */
+  final case class EVal(value: ValueRef) extends ExprAtomic
+
+  /** Reference to a builtin function. */
+  final case class EBuiltinFun(value: BuiltinFunction) extends ExprAtomic
+
+  /** Builtin constructor, e.g. True, False or Unit. */
+  final case class EBuiltinCon(value: BuiltinCon) extends ExprAtomic
+
+  /** Builtin literal. */
+  final case class EBuiltinLit(value: BuiltinLit) extends ExprAtomic
+
+  /** Record construction. */
+  final case class ERecCon(tycon: TypeConApp, fields: ImmArray[(FieldName, Expr)]) extends Expr
+
+  /** Record projection. */
+  final case class ERecProj(tycon: TypeConApp, field: FieldName, record: Expr) extends Expr
+
+  /** Non-destructive record update. */
+  final case class ERecUpd(tycon: TypeConApp, field: FieldName, record: Expr, update: Expr)
+      extends Expr
+
+  /** Variant construction. */
+  final case class EVariantCon(tycon: TypeConApp, variant: VariantConName, arg: Expr) extends Expr
+
+  /** Variant construction. */
+  final case class EEnumCon(tyCon: TypeConId, con: EnumConName) extends ExprAtomic
+
+  /** Struct construction. */
+  final case class EStructCon(fields: ImmArray[(FieldName, Expr)]) extends Expr
+
+  /** Struct projection. */
+  final case class EStructProj(field: FieldName, struct: Expr) extends Expr
+
+  /** Struct update. */
+  final case class EStructUpd(field: FieldName, struct: Expr, update: Expr) extends Expr
+
+  /** Expression application. Function can be an abstraction or a builtin function. */
+  final case class EApp(fun: Expr, arg: Expr) extends Expr
+
+  /** Type application. */
+  final case class ETyApp(expr: Expr, typ: Type) extends Expr
+
+  /** Expression abstraction. */
+  final case class EAbs(binder: (ExprVarName, Type), body: Expr) extends Expr
+
+  /** Type abstraction. */
+  final case class ETyAbs(binder: (TypeVarName, Kind), body: Expr) extends Expr
+
+  /** Pattern matching. */
+  final case class ECase(scrut: Expr, alts: ImmArray[CaseAlt]) extends Expr
+
+  /** Let binding. */
+  final case class ELet(binding: Binding, body: Expr) extends Expr
+
+  /** Empty list constructor. */
+  final case class ENil(typ: Type) extends ExprAtomic
+
+  /** List construction. */
+  final case class ECons(typ: Type, front: ImmArray[Expr], tail: Expr) extends Expr
+
+  /** Update expression */
+  final case class EUpdate(update: Update) extends Expr
+
+  /** Location annotations */
+  final case class ELocation(loc: Location, expr: Expr) extends Expr
+
+  final case class ENone(typ: Type) extends ExprAtomic
+
+  final case class ESome(typ: Type, body: Expr) extends Expr
+
+  /** Any constructor * */
+  final case class EToAny(ty: Type, body: Expr) extends Expr
+
+  /** Extract the underlying value if it matches the ty * */
+  final case class EFromAny(ty: Type, body: Expr) extends Expr
+
+  /** Unique textual representation of template Id * */
+  final case class ETypeRep(typ: Type) extends Expr
+
+  /** Throw an exception */
+  final case class EThrow(returnType: Type, exceptionType: Type, exception: Expr) extends Expr
+
+  /** Construct an AnyException from its message and payload */
+  final case class EToAnyException(typ: Type, value: Expr) extends Expr
+
+  /** Extract the payload from an AnyException if it matches the given exception type */
+  final case class EFromAnyException(typ: Type, value: Expr) extends Expr
+
+  /** Extract the controllers from a contract and a choice */
+  final case class EChoiceController(
+      templateId: TypeConId,
+      choice: ChoiceName,
+      contractExpr: Expr,
+      choiceArgExpr: Expr,
+  ) extends Expr
+
+  /** Extract the observers from a contract and a choice */
+  final case class EChoiceObserver(
+      templateId: TypeConId,
+      choice: ChoiceName,
+      contractExpr: Expr,
+      choiceArgExpr: Expr,
+  ) extends Expr
+
+  // We use this type to reduce depth of pattern matching
+  sealed abstract class ExprInterface extends Expr
+
+  /** Convert template payload to interface it implements */
+  final case class EToInterface(interfaceId: TypeConId, templateId: TypeConId, value: Expr)
+      extends ExprInterface
+
+  /** Convert interface back to template payload if possible */
+  final case class EFromInterface(interfaceId: TypeConId, templateId: TypeConId, value: Expr)
+      extends ExprInterface
+
+  /** Convert interface back to template payload,
+    * or raise a WronglyTypedContract error if not possible
+    */
+  final case class EUnsafeFromInterface(
+      interfaceId: TypeConId,
+      templateId: TypeConId,
+      contractIdExpr: Expr,
+      ifaceExpr: Expr,
+  ) extends ExprInterface
+
+  /** Upcast from an interface payload to an interface it requires. */
+  final case class EToRequiredInterface(
+      requiredIfaceId: TypeConId,
+      requiringIfaceId: TypeConId,
+      body: Expr,
+  ) extends ExprInterface
+
+  /** Downcast from an interface payload to an interface that requires it, if possible. */
+  final case class EFromRequiredInterface(
+      requiredIfaceId: TypeConId,
+      requiringIfaceId: TypeConId,
+      body: Expr,
+  ) extends ExprInterface
+
+  /** Downcast from an interface payload to an interface that requires it,
+    * or raise a WronglyTypedContract error if not possible.
+    */
+  final case class EUnsafeFromRequiredInterface(
+      requiredIfaceId: TypeConId,
+      requiringIfaceId: TypeConId,
+      contractIdExpr: Expr,
+      ifaceExpr: Expr,
+  ) extends ExprInterface
+
+  /** Invoke an interface method */
+  final case class ECallInterface(interfaceId: TypeConId, methodName: MethodName, value: Expr)
+      extends ExprInterface
+
+  /** Obtain the type representation of a contract's template through an interface. */
+  final case class EInterfaceTemplateTypeRep(
+      ifaceId: TypeConId,
+      body: Expr,
+  ) extends ExprInterface
+
+  /** Obtain the signatories of a contract through an interface. */
+  final case class ESignatoryInterface(
+      ifaceId: TypeConId,
+      body: Expr,
+  ) extends ExprInterface
+
+  /** Obtain the observers of a contract through an interface. */
+  final case class EObserverInterface(
+      ifaceId: TypeConId,
+      body: Expr,
+  ) extends ExprInterface
+
+  /** Obtain the view of an interface. */
+  final case class EViewInterface(
+      ifaceId: TypeConId,
+      expr: Expr,
+  ) extends ExprInterface
+
+  //
+  // Kinds
+  //
+
+  sealed abstract class Kind extends Product with Serializable {
+    def pretty: String = Kind.prettyKind(this)
+  }
+
+  object Kind {
+
+    def prettyKind(kind: Kind, needParens: Boolean = false): String = kind match {
+      case KStar => "*"
+      case KNat => "nat"
+      case KArrow(fun, arg) if needParens =>
+        "(" + prettyKind(fun, true) + "->" + prettyKind(arg, false) +
+          ")"
+      case KArrow(fun, arg) =>
+        prettyKind(fun, true) + "->" + prettyKind(arg, false)
+    }
+  }
+
+  /** Kind of a proper data type. */
+  case object KStar extends Kind
+
+  /** Kind of nat tye */
+  case object KNat extends Kind
+
+  /** Kind of higher kinded type. */
+  final case class KArrow(param: Kind, result: Kind) extends Kind
+
+  //
+  // Types
+  //
+
+  // Note that we rely on the equality of Type so this must stay sealed
+  // and all inhabitants should be case classes or case objects.
+
+  sealed abstract class Type extends Product with Serializable {
+    def pretty: String = Type.prettyType(this)
+  }
+
+  object Type {
+
+    def prettyType(typ: Type): String = {
+      val precTApp = 2
+      val precTFun = 1
+      val precTForall = 0
+
+      def maybeParens(needParens: Boolean, s: String): String =
+        if (needParens) s"($s)" else s
+
+      def prettyType(t0: Type, prec: Int = precTForall): String = t0 match {
+        case TVar(n) => n
+        case TNat(n) => n.toString
+        case TSynApp(syn, args) =>
+          maybeParens(
+            prec > precTApp,
+            syn.qualifiedName.toString + " " +
+              args
+                .map(t => prettyType(t, precTApp + 1))
+                .toSeq
+                .mkString(" "),
+          )
+        case TTyCon(con) => con.qualifiedName.toString
+        case TBuiltin(BTArrow) => "(->)"
+        case TBuiltin(bt) => bt.toString.stripPrefix("BT")
+        case TApp(TApp(TBuiltin(BTArrow), param), result) =>
+          maybeParens(
+            prec > precTFun,
+            prettyType(param, precTFun + 1) + " → " + prettyType(result, precTFun),
+          )
+        case TApp(fun, arg) =>
+          maybeParens(
+            prec > precTApp,
+            prettyType(fun, precTApp) + " " + prettyType(arg, precTApp + 1),
+          )
+        case TForall((v, _), body) =>
+          maybeParens(prec > precTForall, "∀" + v + prettyForAll(body))
+        case TStruct(fields) =>
+          "(" + fields.iterator
+            .map { case (n, t) => n + ": " + prettyType(t, precTForall) }
+            .toSeq
+            .mkString(", ") + ")"
+      }
+
+      def prettyForAll(t: Type): String = t match {
+        case TForall((v, _), body) => " " + v + prettyForAll(body)
+        case _ => ". " + prettyType(t, precTForall)
+      }
+
+      prettyType(typ)
+    }
+  }
+
+  /** Reference to a type variable. */
+  final case class TVar(name: TypeVarName) extends Type
+
+  /** nat type */
+  // for now it can contains only a Numeric Scale
+  final case class TNat(n: Numeric.Scale) extends Type
+
+  object TNat {
+    // works because Numeric.Scale.MinValue = 0
+    val values = Numeric.Scale.values.map(new TNat(_))
+    def apply(n: Numeric.Scale): TNat = values(n)
+  }
+
+  /** Fully applied type synonym. */
+  final case class TSynApp(tysyn: TypeSynId, args: ImmArray[Type]) extends Type
+
+  /** Reference to a type constructor. */
+  final case class TTyCon(tycon: TypeConId) extends Type
+
+  /** Reference to builtin type. */
+  final case class TBuiltin(bt: BuiltinType) extends Type
+
+  /** Application of a type function to a type. */
+  final case class TApp(tyfun: Type, arg: Type) extends Type
+
+  /** Universally quantified type. */
+  final case class TForall(binder: (TypeVarName, Kind), body: Type) extends Type
+
+  /** Structs */
+  final case class TStruct(fields: Struct[Type]) extends Type
+
+  sealed abstract class BuiltinType extends Product with Serializable
+
+  case object BTInt64 extends BuiltinType
+  case object BTNumeric extends BuiltinType
+  case object BTText extends BuiltinType
+  case object BTTimestamp extends BuiltinType
+  case object BTParty extends BuiltinType
+  case object BTUnit extends BuiltinType
+  case object BTBool extends BuiltinType
+  case object BTList extends BuiltinType
+  case object BTOptional extends BuiltinType
+  case object BTTextMap extends BuiltinType
+  case object BTGenMap extends BuiltinType
+  case object BTUpdate extends BuiltinType
+  case object BTScenario
+      extends BuiltinType // Only kept for LF1, scenarios have been removed in LF2
+  case object BTDate extends BuiltinType
+  case object BTContractId extends BuiltinType
+  case object BTArrow extends BuiltinType
+  case object BTAny extends BuiltinType
+  case object BTTypeRep extends BuiltinType
+  case object BTAnyException extends BuiltinType
+  case object BTRoundingMode extends BuiltinType
+  case object BTBigNumeric extends BuiltinType
+  case object BTFailureCategory extends BuiltinType
+
+  //
+  // Builtin literals
+  //
+
+  sealed abstract class BuiltinLit extends Equals with Product with Serializable {
+    def value: Any
+  }
+
+  final case class BLInt64(override val value: Long) extends BuiltinLit
+  final case class BLNumeric(override val value: Numeric) extends BuiltinLit
+  // Text should be treated as Utf8, data.Utf8 provide emulation functions for that
+  final case class BLText(override val value: String) extends BuiltinLit
+  final case class BLTimestamp(override val value: Time.Timestamp) extends BuiltinLit
+  final case class BLDate(override val value: Time.Date) extends BuiltinLit
+  final case class BLRoundingMode(override val value: java.math.RoundingMode) extends BuiltinLit
+  final case class BLFailureCategory(override val value: FailureCategory) extends BuiltinLit
+
+  sealed abstract class FailureCategory(override val toString: String, val cantonCategoryId: Int)
+      extends Equals
+      with Product
+      with Serializable
+  // FailureCategory names and IDs must be kept up to date with canton error categories defined in `CommandExecutionErrors.scala`
+  final case object FCInvalidIndependentOfSystemState
+      extends FailureCategory("InvalidIndependentOfSystemState", 8)
+  final case object FCInvalidGivenCurrentSystemStateOther
+      extends FailureCategory("InvalidGivenCurrentSystemStateOther", 9)
+
+  object FailureCategory {
+    def all: Seq[FailureCategory] =
+      Seq(FCInvalidIndependentOfSystemState, FCInvalidGivenCurrentSystemStateOther)
+  }
+
+  //
+  // Builtin constructors
+  //
+
+  sealed abstract class BuiltinCon extends Product with Serializable
+
+  case object BCTrue extends BuiltinCon
+  case object BCFalse extends BuiltinCon
+  case object BCUnit extends BuiltinCon
+
+  //
+  // Builtin functions.
+  //
+
+  sealed abstract class BuiltinFunction extends Product with Serializable
+
+  final case object BTrace extends BuiltinFunction // : ∀a. Text -> a -> a
+
+  // Numeric arithmetic
+  final case object BAddNumeric extends BuiltinFunction // :  ∀s. Numeric s → Numeric s → Numeric s
+  final case object BSubNumeric extends BuiltinFunction // :  ∀s. Numeric s → Numeric s → Numeric s
+  final case object BMulNumeric
+      extends BuiltinFunction // :  ∀s1 s2 s. Numeric s → Numeric s1 → Numeric s2 → Numeric s
+  final case object BDivNumeric
+      extends BuiltinFunction // :  ∀s1 s2 s.  Numeric s → Numeric s1 → Numeric s2 → Numeric s
+  final case object BRoundNumeric extends BuiltinFunction // :  ∀s. Integer → Numeric s → Numeric s
+  final case object BCastNumeric
+      extends BuiltinFunction // : ∀s1 s2.  Numeric s → Numeric s1 → Numeric s2
+  final case object BShiftNumeric
+      extends BuiltinFunction // : ∀s1 s2.  Numeric s → Numeric s1 → Numeric s2
+
+  // Int64 arithmetic
+  final case object BAddInt64 extends BuiltinFunction // : Int64 → Int64 → Int64
+  final case object BSubInt64 extends BuiltinFunction // : Int64 → Int64 → Int64
+  final case object BMulInt64 extends BuiltinFunction // : Int64 → Int64 → Int64
+  final case object BDivInt64 extends BuiltinFunction // : Int64 → Int64 → Int64
+  final case object BModInt64 extends BuiltinFunction // : Int64 → Int64 → Int64
+  final case object BExpInt64 extends BuiltinFunction // : Int64 → Int64 → Int64
+
+  // Conversions
+  final case object BInt64ToNumeric extends BuiltinFunction // : ∀s.  Numeric s → Int64 → Numeric s
+  final case object BNumericToInt64 extends BuiltinFunction // : ∀s. Numeric s → Int64
+  final case object BDateToUnixDays extends BuiltinFunction // : Date -> Int64
+  final case object BUnixDaysToDate extends BuiltinFunction // : Int64 -> Date
+  final case object BTimestampToUnixMicroseconds extends BuiltinFunction // : Timestamp -> Int64
+  final case object BUnixMicrosecondsToTimestamp extends BuiltinFunction // : Int64 -> Timestamp
+
+  // Folds
+  final case object BFoldl extends BuiltinFunction // : ∀a b. (b → a → b) → b → List a → b
+  final case object BFoldr extends BuiltinFunction // : ∀a b. (a → b → b) → b → List a → b
+
+  // Maps
+  final case object BTextMapEmpty extends BuiltinFunction // : ∀ a. TextMap a
+  final case object BTextMapInsert
+      extends BuiltinFunction // : ∀ a. Text -> a -> TextMap a -> TextMap a
+  final case object BTextMapLookup extends BuiltinFunction // : ∀ a. Text -> TextMap a -> Optional a
+  final case object BTextMapDelete extends BuiltinFunction // : ∀ a. Text -> TextMap a -> TextMap a
+  final case object BTextMapToList
+      extends BuiltinFunction // : ∀ a. TextMap a -> [Struct("key":Text, "value":a)]
+  final case object BTextMapSize extends BuiltinFunction // : ∀ a. TextMap a -> Int64
+
+  // Generic Maps
+  final case object BGenMapEmpty extends BuiltinFunction // : ∀ a b. GenMap a b
+  final case object BGenMapInsert
+      extends BuiltinFunction // : ∀ a b. a -> b -> GenMap a b -> GenMap a b
+  final case object BGenMapLookup extends BuiltinFunction // : ∀ a b. a -> GenMap a b -> Optional b
+  final case object BGenMapDelete extends BuiltinFunction // : ∀ a b. a -> GenMap a b -> GenMap a b
+  final case object BGenMapKeys extends BuiltinFunction // : ∀ a b. GenMap a b -> [a]
+  final case object BGenMapValues extends BuiltinFunction // : ∀ a b. GenMap a b -> [b]
+  final case object BGenMapSize extends BuiltinFunction // : ∀ a b. GenMap a b -> Int64
+
+  // Text functions
+  final case object BExplodeText extends BuiltinFunction // : Text → List Char
+  final case object BImplodeText extends BuiltinFunction // : List Text -> Text
+  final case object BAppendText extends BuiltinFunction // : Text → Text → Text
+
+  final case object BInt64ToText extends BuiltinFunction //  Int64 → Text
+  final case object BNumericToText extends BuiltinFunction // : ∀s. Numeric s → Text
+  final case object BTimestampToText extends BuiltinFunction // : Timestamp → Text
+  final case object BPartyToText extends BuiltinFunction // : Party → Text
+  final case object BDateToText extends BuiltinFunction // : Date -> Text
+  final case object BContractIdToText
+      extends BuiltinFunction // : forall t. ContractId t -> Optional Text
+  final case object BPartyToQuotedText extends BuiltinFunction // : Party -> Text
+  final case object BCodePointsToText extends BuiltinFunction // : [Int64] -> Text
+  final case object BTextToParty extends BuiltinFunction // : Text -> Optional Party
+  final case object BTextToInt64 extends BuiltinFunction // : Text -> Optional Int64
+  final case object BTextToNumeric
+      extends BuiltinFunction // :  ∀s.  Numeric s → Text -> Optional (Numeric s)
+  final case object BTextToCodePoints extends BuiltinFunction // : Text -> List Int64
+
+  final case object BSHA256Text extends BuiltinFunction // : Text -> Text
+  final case object BSHA256Hex extends BuiltinFunction // : Text -> Text
+
+  final case object BKECCAK256Text extends BuiltinFunction // : Text -> Text
+  final case object BDecodeHex extends BuiltinFunction // : Text -> Text
+  final case object BEncodeHex extends BuiltinFunction // : Text -> Text
+
+  // Errors
+  final case object BError extends BuiltinFunction // : ∀a. Text → a
+
+  // Comparisons
+  final case object BLessNumeric extends BuiltinFunction // :  ∀s. Numeric s → Numeric s → Bool
+  final case object BLessEqNumeric extends BuiltinFunction // :  ∀s. Numeric →  ∀s. Numeric → Bool
+  final case object BGreaterNumeric extends BuiltinFunction // :  ∀s. Numeric s → Numeric s → Bool
+  final case object BGreaterEqNumeric extends BuiltinFunction // : ∀s. Numeric s → Numeric s → Bool
+  final case object BEqualNumeric
+      extends BuiltinFunction // :  ∀s. Numeric s ->  ∀s. Numeric s -> Bool
+
+  final case object BEqualList
+      extends BuiltinFunction // : ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
+  final case object BEqualContractId
+      extends BuiltinFunction // : ∀a. ContractId a -> ContractId a -> Bool
+  final case object BEqual extends BuiltinFunction // ∀a. a -> a -> Bool
+  final case object BLess extends BuiltinFunction // ∀a. a -> a -> Bool
+  final case object BLessEq extends BuiltinFunction // ∀a. a -> a -> Bool
+  final case object BGreater extends BuiltinFunction // ∀a. a -> a -> Bool
+  final case object BGreaterEq extends BuiltinFunction // ∀a. a -> a -> Bool
+
+  final case object BSECP256K1Bool extends BuiltinFunction // : Text -> Text -> Text -> Bool
+  final case object BSECP256K1WithEcdsaBool
+      extends BuiltinFunction // : Text -> Text -> Text -> Bool
+  final case object BSECP256K1ValidateKey extends BuiltinFunction // : Text -> Bool
+
+  final case object BCoerceContractId
+      extends BuiltinFunction // : ∀a b. ContractId a -> ContractId b
+
+  // Exceptions
+  final case object BAnyExceptionMessage extends BuiltinFunction // AnyException → Text
+
+  // Numeric arithmetic
+  final case object BScaleBigNumeric extends BuiltinFunction // : BigNumeric → Int64
+  final case object BPrecisionBigNumeric extends BuiltinFunction // : BigNumeric → Int64
+  final case object BAddBigNumeric extends BuiltinFunction // : BigNumeric → BigNumeric → BigNumeric
+  final case object BSubBigNumeric
+      extends BuiltinFunction // :  BigNumeric → BigNumeric → BigNumeric
+  final case object BMulBigNumeric extends BuiltinFunction // : BigNumeric → BigNumeric → BigNumeric
+  final case object BDivBigNumeric
+      extends BuiltinFunction // : Int64 -> RoundingMode → BigNumeric → BigNumeric → BigNumeric s
+  final case object BShiftRightBigNumeric
+      extends BuiltinFunction // : Int64 → BigNumeric → BigNumeric
+  final case object BBigNumericToNumeric
+      extends BuiltinFunction // :  ∀s.  Numeric s → BigNumeric → Numeric s
+  final case object BNumericToBigNumeric extends BuiltinFunction // :  ∀s. Numeric s → BigNumeric
+  final case object BBigNumericToText extends BuiltinFunction // : BigNumeric → Text
+
+  // TypeRep
+  final case object BTypeRepTyConName extends BuiltinFunction // : TypeRep → Optional Text
+
+  final case object BFailWithStatus
+      extends BuiltinFunction // : ∀a. Text → FailureCategory → Text → TextMap Text → a
+
+  final case class EExperimental(name: String, typ: Type) extends Expr
+
+  //
+  // Update expressions
+  //
+
+  sealed abstract class Update extends Product with Serializable
+
+  final case class UpdatePure(t: Type, expr: Expr) extends Update
+  final case class UpdateBlock(bindings: ImmArray[Binding], body: Expr) extends Update
+  final case class UpdateCreate(templateId: TypeConId, arg: Expr) extends Update
+  final case class UpdateCreateInterface(interfaceId: TypeConId, arg: Expr) extends Update
+  final case class UpdateFetchTemplate(templateId: TypeConId, contractId: Expr) extends Update
+  final case class UpdateFetchInterface(interfaceId: TypeConId, contractId: Expr) extends Update
+
+  final case class UpdateExercise(
+      templateId: TypeConId,
+      choice: ChoiceName,
+      cidE: Expr,
+      argE: Expr,
+  ) extends Update
+  final case class UpdateExerciseInterface(
+      interfaceId: TypeConId,
+      choice: ChoiceName,
+      cidE: Expr,
+      argE: Expr,
+      guardE: Option[Expr],
+      // `guardE` is an expression of type Interface -> Bool which is evaluated after
+      // fetching the contract but before running the exercise body. If the guard returns
+      // false, or an exception is raised during evaluation, the transaction is aborted.
+  ) extends Update
+  final case class UpdateExerciseByKey(
+      templateId: TypeConId,
+      choice: ChoiceName,
+      keyE: Expr,
+      argE: Expr,
+  ) extends Update
+  case object UpdateGetTime extends Update
+  final case class UpdateLedgerTimeLT(time: Expr) extends Update
+  final case class UpdateFetchByKey(templateId: TypeConId) extends Update
+  final case class UpdateLookupByKey(templateId: TypeConId) extends Update
+  final case class UpdateEmbedExpr(typ: Type, body: Expr) extends Update
+  final case class UpdateTryCatch(
+      typ: Type,
+      body: Expr,
+      binder: ExprVarName,
+      handler: Expr,
+  ) extends Update
+
+  //
+  // Pattern matching
+  //
+
+  sealed abstract class CasePat extends Product with Serializable
+
+  // Match on variant
+  final case class CPVariant(tycon: TypeConId, variant: VariantConName, binder: ExprVarName)
+      extends CasePat
+  // Match on enum
+  final case class CPEnum(tycon: TypeConId, constructor: EnumConName) extends CasePat
+  // Match on builtin constructor.
+  final case class CPBuiltinCon(pc: BuiltinCon) extends CasePat
+  // Match on an empty list.
+  case object CPNil extends CasePat
+  // Match on a non-empty list.
+  final case class CPCons(head: ExprVarName, tail: ExprVarName) extends CasePat
+  // Match on anything. Should be the last alternative.
+  case object CPDefault extends CasePat
+  // match on none
+  case object CPNone extends CasePat
+  // match on some
+  final case class CPSome(body: ExprVarName) extends CasePat
+
+  // Case alternative
+  final case class CaseAlt(pattern: CasePat, expr: Expr)
+
+  //
+  // Definitions
+  //
+
+  sealed abstract class GenDefinition[+E] extends Product with Serializable
+
+  final case class DTypeSyn(params: ImmArray[(TypeVarName, Kind)], typ: Type)
+      extends GenDefinition[Nothing]
+  final case class DDataType(
+      serializable: Boolean,
+      params: ImmArray[(TypeVarName, Kind)],
+      cons: DataCons,
+  ) extends GenDefinition[Nothing]
+  object DDataType {
+    val Interface = DDataType(false, ImmArray.empty, DataInterface)
+  }
+
+  final case class GenDValue[E](
+      typ: Type,
+      body: E,
+  ) extends GenDefinition[E]
+
+  final class GenDValueCompanion[E] private[Ast] {
+    def apply(typ: Type, body: E): GenDValue[E] =
+      GenDValue(typ = typ, body = body)
+
+    def unapply(arg: GenDValue[E]): Some[(Type, E)] =
+      Some((arg.typ, arg.body))
+  }
+
+  type DValue = GenDValue[Expr]
+  val DValue = new GenDValueCompanion[Expr]
+  type DValueSignature = GenDValue[Unit]
+  val DValueSignature = new GenDValueCompanion[Unit]
+
+  type Definition = GenDefinition[Expr]
+  type DefinitionSignature = GenDefinition[Unit]
+
+  // Data constructor in data type definition.
+  sealed abstract class DataCons extends Product with Serializable
+
+  final case class DataRecord(fields: ImmArray[(FieldName, Type)]) extends DataCons {
+    lazy val fieldInfo: Map[FieldName, (Type, Int)] =
+      fields.iterator.zipWithIndex.map { case ((field, typ), rank) => (field, (typ, rank)) }.toMap
+  }
+  final case class DataVariant(variants: ImmArray[(VariantConName, Type)]) extends DataCons {
+    lazy val constructorInfo: Map[VariantConName, (Type, Int)] =
+      variants.iterator.zipWithIndex.map { case ((cons, typ), rank) => (cons, (typ, rank)) }.toMap
+  }
+  final case class DataEnum(constructors: ImmArray[EnumConName]) extends DataCons {
+    lazy val constructorRank: Map[EnumConName, Int] = constructors.iterator.zipWithIndex.toMap
+  }
+  case object DataInterface extends DataCons
+
+  final case class GenTemplateKey[E](
+      typ: Type,
+      body: E,
+      // function from key type to [Party]
+      maintainers: E,
+  )
+
+  final class GenTemplateKeyCompanion[E] private[Ast] {
+    def apply(typ: Type, body: E, maintainers: E): GenTemplateKey[E] =
+      GenTemplateKey(typ = typ, body = body, maintainers = maintainers)
+
+    def unapply(arg: GenTemplateKey[E]): Some[(Type, E, E)] =
+      Some((arg.typ, arg.body, arg.maintainers))
+  }
+
+  type TemplateKey = GenTemplateKey[Expr]
+  val TemplateKey = new GenTemplateKeyCompanion[Expr]
+
+  type TemplateKeySignature = GenTemplateKey[Unit]
+  val TemplateKeySignature = new GenTemplateKeyCompanion[Unit]
+
+  final case class GenDefInterface[E](
+      requires: Set[TypeConId],
+      param: ExprVarName, // Binder for template argument.
+      choices: Map[ChoiceName, GenTemplateChoice[E]],
+      methods: Map[MethodName, InterfaceMethod],
+      coImplements: Map[TypeConId, GenInterfaceCoImplements[E]] = Map.empty, // Only used by LF 1.x
+      view: Type,
+  )
+
+  final class GenDefInterfaceCompanion[E] {
+    @throws[PackageError]
+    def build(
+        requires: Iterable[TypeConId],
+        param: ExprVarName, // Binder for template argument.
+        choices: Iterable[GenTemplateChoice[E]],
+        methods: Iterable[InterfaceMethod],
+        view: Type,
+        coImplements: Iterable[GenInterfaceCoImplements[E]] = List.empty, // Only used by LF 1.x
+    ): GenDefInterface[E] = {
+      val requiresSet = toSetWithoutDuplicate(
+        requires,
+        (tycon: TypeConId) => PackageError(s"repeated required interface $tycon"),
+      )
+      val choiceMap = toMapWithoutDuplicate(
+        choices.view.map(c => c.name -> c),
+        (name: ChoiceName) => PackageError(s"collision on interface choice name $name"),
+      )
+      val methodMap = toMapWithoutDuplicate(
+        methods.view.map(c => c.name -> c),
+        (name: MethodName) => PackageError(s"collision on interface method name $name"),
+      )
+      val coImplementsMap = toMapWithoutDuplicate(
+        coImplements.view.map(c => c.templateId -> c),
+        (templateId: TypeConId) =>
+          PackageError(s"repeated interface co-implementation ${templateId.toString}"),
+      )
+      GenDefInterface(requiresSet, param, choiceMap, methodMap, coImplementsMap, view)
+    }
+
+    def apply(
+        requires: Set[TypeConId],
+        param: ExprVarName,
+        choices: Map[ChoiceName, GenTemplateChoice[E]],
+        methods: Map[MethodName, InterfaceMethod],
+        view: Type,
+        coImplements: Map[TypeConId, GenInterfaceCoImplements[E]] = Map.empty, // Only used by LF 1.x
+    ): GenDefInterface[E] =
+      GenDefInterface(requires, param, choices, methods, coImplements, view)
+
+    def unapply(arg: GenDefInterface[E]): Some[
+      (
+          Set[TypeConId],
+          ExprVarName,
+          Map[ChoiceName, GenTemplateChoice[E]],
+          Map[MethodName, InterfaceMethod],
+          Type,
+          Map[TypeConId, GenInterfaceCoImplements[E]],
+      )
+    ] =
+      Some((arg.requires, arg.param, arg.choices, arg.methods, arg.view, arg.coImplements))
+  }
+
+  type DefInterface = GenDefInterface[Expr]
+  val DefInterface = new GenDefInterfaceCompanion[Expr]
+
+  type DefInterfaceSignature = GenDefInterface[Unit]
+  val DefInterfaceSignature = new GenDefInterfaceCompanion[Unit]
+
+  final case class InterfaceMethod(
+      name: MethodName,
+      returnType: Type,
+  )
+
+  final case class GenInterfaceCoImplements[E](
+      templateId: TypeConId,
+      body: GenInterfaceInstanceBody[E],
+  )
+
+  final class GenInterfaceCoImplementsCompanion[E] private[Ast] {
+    def build(
+        templateId: TypeConId,
+        body: GenInterfaceInstanceBody[E],
+    ): GenInterfaceCoImplements[E] =
+      new GenInterfaceCoImplements[E](
+        templateId = templateId,
+        body = body,
+      )
+
+    def apply(
+        templateId: TypeConId,
+        body: GenInterfaceInstanceBody[E],
+    ): GenInterfaceCoImplements[E] =
+      GenInterfaceCoImplements[E](templateId, body)
+
+    def unapply(
+        arg: GenInterfaceCoImplements[E]
+    ): Some[(TypeConId, GenInterfaceInstanceBody[E])] =
+      Some((arg.templateId, arg.body))
+  }
+
+  type InterfaceCoImplements = GenInterfaceCoImplements[Expr]
+  val InterfaceCoImplements = new GenInterfaceCoImplementsCompanion[Expr]
+
+  type InterfaceCoImplementsSignature = GenInterfaceCoImplements[Unit]
+  val InterfaceCoImplementsSignature = new GenInterfaceCoImplementsCompanion[Unit]
+
+  final case class GenTemplate[E](
+      param: ExprVarName, // Binder for template argument.
+      precond: E, // Template creation precondition.
+      signatories: E, // Parties agreeing to the contract.
+      choices: Map[ChoiceName, GenTemplateChoice[E]], // Choices available in the template.
+      observers: E, // Observers of the contract.
+      key: Option[GenTemplateKey[E]],
+      implements: VectorMap[TypeConId, GenTemplateImplements[
+        E
+      ]], // We use a VectorMap to preserve insertion order. The order of the implements determines the order in which to evaluate interface preconditions.
+  )
+
+  final class GenTemplateCompanion[E] private[Ast] {
+    @throws[PackageError]
+    def build(
+        param: ExprVarName,
+        precond: E,
+        signatories: E,
+        choices: Iterable[GenTemplateChoice[E]],
+        observers: E,
+        key: Option[GenTemplateKey[E]],
+        implements: Iterable[GenTemplateImplements[E]],
+    ): GenTemplate[E] =
+      GenTemplate[E](
+        param = param,
+        precond = precond,
+        signatories = signatories,
+        choices = toMapWithoutDuplicate(
+          choices.view.map(c => c.name -> c),
+          (choiceName: ChoiceName) => PackageError(s"collision on choice name $choiceName"),
+        ),
+        observers = observers,
+        key = key,
+        implements = toVectorMapWithoutDuplicate(
+          implements.map(i => i.interfaceId -> i),
+          (ifaceId: TypeConId) =>
+            PackageError(s"repeated interface implementation ${ifaceId.toString}"),
+        ),
+      )
+
+    def apply(
+        param: ExprVarName,
+        precond: E,
+        signatories: E,
+        choices: Map[ChoiceName, GenTemplateChoice[E]],
+        observers: E,
+        key: Option[GenTemplateKey[E]],
+        implements: VectorMap[TypeConId, GenTemplateImplements[E]],
+    ) = GenTemplate(
+      param = param,
+      precond = precond,
+      signatories = signatories,
+      choices = choices,
+      observers = observers,
+      key = key,
+      implements = implements,
+    )
+
+    def unapply(arg: GenTemplate[E]): Some[
+      (
+          ExprVarName,
+          E,
+          E,
+          Map[ChoiceName, GenTemplateChoice[E]],
+          E,
+          Option[GenTemplateKey[E]],
+          VectorMap[TypeConId, GenTemplateImplements[E]],
+      )
+    ] = Some(
+      (
+        arg.param,
+        arg.precond,
+        arg.signatories,
+        arg.choices,
+        arg.observers,
+        arg.key,
+        arg.implements,
+      )
+    )
+  }
+
+  type Template = GenTemplate[Expr]
+  val Template = new GenTemplateCompanion[Expr]
+
+  type TemplateSignature = GenTemplate[Unit]
+  val TemplateSignature = new GenTemplateCompanion[Unit]
+
+  final case class GenTemplateChoice[E](
+      name: ChoiceName, // Name of the choice.
+      consuming: Boolean, // Flag indicating whether exercising the choice consumes the contract.
+      controllers: E, // Parties that can exercise the choice.
+      choiceObservers: Option[E], // Additional informees for the choice.
+      choiceAuthorizers: Option[E], // Non-default authorizers for the choice.
+      selfBinder: ExprVarName, // Self ContractId binder.
+      argBinder: (ExprVarName, Type), // Choice argument binder.
+      returnType: Type, // Return type of the choice follow-up.
+      update: E, // The choice follow-up.
+  )
+
+  final class GenTemplateChoiceCompanion[E] private[Ast] {
+    def apply(
+        name: ChoiceName,
+        consuming: Boolean,
+        controllers: E,
+        choiceObservers: Option[E],
+        choiceAuthorizers: Option[E],
+        selfBinder: ExprVarName,
+        argBinder: (ExprVarName, Type),
+        returnType: Type,
+        update: E,
+    ): GenTemplateChoice[E] =
+      GenTemplateChoice(
+        name = name,
+        consuming = consuming,
+        controllers = controllers,
+        choiceObservers = choiceObservers,
+        choiceAuthorizers = choiceAuthorizers,
+        selfBinder = selfBinder,
+        argBinder = argBinder,
+        returnType = returnType,
+        update = update,
+      )
+
+    def unapply(
+        arg: GenTemplateChoice[E]
+    ): Some[
+      (ChoiceName, Boolean, E, Option[E], Option[E], ExprVarName, (ExprVarName, Type), Type, E)
+    ] =
+      Some(
+        (
+          arg.name,
+          arg.consuming,
+          arg.controllers,
+          arg.choiceObservers,
+          arg.choiceAuthorizers,
+          arg.selfBinder,
+          arg.argBinder,
+          arg.returnType,
+          arg.update,
+        )
+      )
+  }
+
+  type TemplateChoice = GenTemplateChoice[Expr]
+  val TemplateChoice = new GenTemplateChoiceCompanion[Expr]
+
+  type TemplateChoiceSignature = GenTemplateChoice[Unit]
+  val TemplateChoiceSignature = new GenTemplateChoiceCompanion[Unit]
+
+  final case class GenTemplateImplements[E](
+      interfaceId: TypeConId,
+      body: GenInterfaceInstanceBody[E],
+  )
+
+  final class GenTemplateImplementsCompanion[E] private[Ast] {
+    def build(
+        interfaceId: TypeConId,
+        body: GenInterfaceInstanceBody[E],
+    ): GenTemplateImplements[E] =
+      new GenTemplateImplements[E](
+        interfaceId = interfaceId,
+        body = body,
+      )
+
+    def apply(
+        interfaceId: TypeConId,
+        body: GenInterfaceInstanceBody[E],
+    ): GenTemplateImplements[E] =
+      new GenTemplateImplements[E](interfaceId, body)
+
+    def unapply(
+        arg: GenTemplateImplements[E]
+    ): Some[(TypeConId, GenInterfaceInstanceBody[E])] =
+      Some((arg.interfaceId, arg.body))
+  }
+
+  type TemplateImplements = GenTemplateImplements[Expr]
+  val TemplateImplements = new GenTemplateImplementsCompanion[Expr]
+
+  type TemplateImplementsSignature = GenTemplateImplements[Unit]
+  val TemplateImplementsSignature = new GenTemplateImplementsCompanion[Unit]
+
+  final case class GenInterfaceInstanceBody[E](
+      methods: Map[MethodName, GenInterfaceInstanceMethod[E]],
+      view: E,
+  )
+
+  final class GenInterfaceInstanceBodyCompanion[E] private[Ast] {
+    @throws[PackageError]
+    def build(
+        methods: Iterable[GenInterfaceInstanceMethod[E]],
+        view: E,
+    ): GenInterfaceInstanceBody[E] =
+      new GenInterfaceInstanceBody[E](
+        methods = toMapWithoutDuplicate(
+          methods.map(m => m.name -> m),
+          (name: MethodName) => PackageError(s"repeated method implementation $name"),
+        ),
+        view,
+      )
+
+    def apply(
+        methods: Map[MethodName, GenInterfaceInstanceMethod[E]],
+        view: E,
+    ): GenInterfaceInstanceBody[E] =
+      new GenInterfaceInstanceBody[E](methods, view)
+
+    def unapply(
+        arg: GenInterfaceInstanceBody[E]
+    ): Some[(Map[MethodName, GenInterfaceInstanceMethod[E]], E)] =
+      Some((arg.methods, arg.view))
+  }
+
+  type InterfaceInstanceBody = GenInterfaceInstanceBody[Expr]
+  val InterfaceInstanceBody = new GenInterfaceInstanceBodyCompanion[Expr]
+
+  type InterfaceInstanceBodySignature = GenInterfaceInstanceBody[Unit]
+  val InterfaceInstanceBodySignature = new GenInterfaceInstanceBodyCompanion[Unit]
+
+  final case class GenInterfaceInstanceMethod[E](
+      name: MethodName,
+      value: E,
+  )
+
+  final class GenInterfaceInstanceMethodCompanion[E] {
+    def apply(methodName: MethodName, value: E): GenInterfaceInstanceMethod[E] =
+      GenInterfaceInstanceMethod[E](methodName, value)
+
+    def unapply(
+        arg: GenInterfaceInstanceMethod[E]
+    ): Some[(MethodName, E)] =
+      Some((arg.name, arg.value))
+  }
+
+  type InterfaceInstanceMethod = GenInterfaceInstanceMethod[Expr]
+  val InterfaceInstanceMethod = new GenInterfaceInstanceMethodCompanion[Expr]
+
+  type InterfaceInstanceMethodSignature = GenInterfaceInstanceMethod[Unit]
+  val InterfaceInstanceMethodSignature = new GenInterfaceInstanceMethodCompanion[Unit]
+
+  final case class GenDefException[E](message: E)
+
+  final class GenDefExceptionCompanion[E] private[Ast] {
+    def apply(message: E): GenDefException[E] =
+      GenDefException(message = message)
+
+    def unapply(arg: GenDefException[E]): Some[E] =
+      Some(arg.message)
+  }
+
+  type DefException = GenDefException[Expr]
+  val DefException = new GenDefExceptionCompanion[Expr]
+
+  type DefExceptionSignature = GenDefException[Unit]
+  val DefExceptionSignature = GenDefException(())
+
+  final case class FeatureFlags()
+
+  object FeatureFlags {
+    val default = FeatureFlags()
+  }
+
+  //
+  // Modules and packages
+  //
+
+  final case class GenModule[E](
+      name: ModuleName,
+      definitions: Map[DottedName, GenDefinition[E]],
+      templates: Map[DottedName, GenTemplate[E]],
+      exceptions: Map[DottedName, GenDefException[E]],
+      interfaces: Map[DottedName, GenDefInterface[E]],
+      featureFlags: FeatureFlags,
+  ) {
+    if (
+      !(templates.keySet.intersect(exceptions.keySet).isEmpty
+        && templates.keySet.intersect(interfaces.keySet).isEmpty
+        && exceptions.keySet.intersect(interfaces.keySet).isEmpty)
+    )
+      throw PackageError(
+        s"Collision between exception and template/interface name ${name.toString}"
+      )
+
+    private[daml] def serializableDefinitions: Map[DottedName, DDataType] =
+      definitions.collect {
+        case (name, dataType: DDataType) if dataType.serializable => name -> dataType
+      }
+
+    /** A utility module is a module that does not contain any serializable type */
+    private[daml] def isUtilityModule: Boolean =
+      templates.isEmpty && interfaces.isEmpty && serializableDefinitions.isEmpty
+  }
+
+  private[this] def toMapWithoutDuplicate[Key, Value](
+      xs: Iterable[(Key, Value)],
+      error: Key => PackageError,
+  ): Map[Key, Value] =
+    xs.foldLeft(Map.empty[Key, Value]) { case (acc, (key, value)) =>
+      if (acc.contains(key))
+        throw error(key)
+      else
+        acc.updated(key, value)
+    }
+
+  private[this] def toVectorMapWithoutDuplicate[Key, Value](
+      xs: Iterable[(Key, Value)],
+      error: Key => PackageError,
+  ): VectorMap[Key, Value] =
+    xs.foldRight(VectorMap.empty[Key, Value]) { case ((key, value), acc) =>
+      if (acc.contains(key))
+        throw error(key)
+      else
+        acc.updated(key, value)
+    }
+
+  private[this] def toSetWithoutDuplicate[X](
+      xs: Iterable[X],
+      error: X => PackageError,
+  ): Set[X] =
+    xs.foldLeft(Set.empty[X])((acc, x) =>
+      if (acc.contains(x))
+        throw error(x)
+      else
+        acc + x
+    )
+
+  final class GenModuleCompanion[E] private[Ast] {
+    @throws[PackageError]
+    def build(
+        name: ModuleName,
+        definitions: Iterable[(DottedName, GenDefinition[E])],
+        templates: Iterable[(DottedName, GenTemplate[E])],
+        exceptions: Iterable[(DottedName, GenDefException[E])],
+        interfaces: Iterable[(DottedName, GenDefInterface[E])],
+        featureFlags: FeatureFlags,
+    ): GenModule[E] =
+      GenModule(
+        name = name,
+        definitions = toMapWithoutDuplicate(
+          definitions,
+          (name: DottedName) => PackageError(s"Collision on definition name ${name.toString}"),
+        ),
+        templates = toMapWithoutDuplicate(
+          templates,
+          (name: DottedName) => PackageError(s"Collision on template name ${name.toString}"),
+        ),
+        exceptions = toMapWithoutDuplicate(
+          exceptions,
+          (name: DottedName) => PackageError(s"Collision on exception name ${name.toString}"),
+        ),
+        interfaces = toMapWithoutDuplicate(
+          interfaces,
+          (name: DottedName) => PackageError(s"Collision on interface name ${name.toString}"),
+        ),
+        featureFlags = featureFlags,
+      )
+
+    def apply(
+        name: ModuleName,
+        definitions: Map[DottedName, GenDefinition[E]],
+        templates: Map[DottedName, GenTemplate[E]],
+        exceptions: Map[DottedName, GenDefException[E]],
+        interfaces: Map[DottedName, GenDefInterface[E]],
+        featureFlags: FeatureFlags,
+    ) =
+      GenModule(
+        name = name,
+        definitions = definitions,
+        templates = templates,
+        exceptions = exceptions,
+        interfaces = interfaces,
+        featureFlags = featureFlags,
+      )
+
+    def unapply(arg: GenModule[E]): Some[
+      (
+          ModuleName,
+          Map[DottedName, GenDefinition[E]],
+          Map[DottedName, GenTemplate[E]],
+          Map[DottedName, GenDefException[E]],
+          Map[DottedName, GenDefInterface[E]],
+          FeatureFlags,
+      )
+    ] = Some(
+      (arg.name, arg.definitions, arg.templates, arg.exceptions, arg.interfaces, arg.featureFlags)
+    )
+  }
+
+  type Module = GenModule[Expr]
+  val Module = new GenModuleCompanion[Expr]
+
+  type ModuleSignature = GenModule[Unit]
+  val ModuleSignature = new GenModuleCompanion[Unit]
+
+  final case class PackageMetadata(
+      name: PackageName,
+      version: PackageVersion,
+      upgradedPackageId: Option[PackageId],
+  ) {
+    def nameDashVersion: String = s"$name-$version"
+  }
+
+  sealed trait Imports {
+    val pkgIds: Set[PackageId]
+  }
+
+  // imports declared in the LF
+  final case class DeclaredImports(pkgIds: Set[PackageId]) extends Imports
+  // the replacement for directDeps
+  final case class GeneratedImports(reason: String, pkgIds: Set[PackageId]) extends Imports
+
+  /** @param directDeps will contain all packages that are referenced in [[modules]]
+    */
+  final case class GenPackage[E](
+      modules: Map[ModuleName, GenModule[E]],
+      directDeps: Set[PackageId],
+      languageVersion: LanguageVersion,
+      metadata: PackageMetadata,
+      // In lf, imports are set or unset. If they are unset, it has a reason _why_
+      // it is unset.
+      //
+      // Therefore, this field is a sum type. If the imports are unset, the reason
+      // is included in the datatype, along with a _generated_ set of pkgImports,
+      // usually generated by PackageDependencyTracker, which lives in the Decoder
+      // and is invoked every time a PackageId is occurred. This is also how the
+      // directDeps field is generated, and imports is set to fully replace th is
+      // directDeps field. Note that directDeps may include references to stable
+      // packages, whereas imports does not.
+      imports: Imports,
+      // Packages that do not define any serializable types are referred to as utility packages
+      // in the context of upgrades. They will not be considered for upgrade checks.
+      isUtilityPackage: Boolean,
+  ) {
+    def supportsUpgrades(pkgId: Ref.PackageId) =
+      LanguageVersion
+        .supportsPackageUpgrades(languageVersion) && (!UtilityDamlPackages.checkDamlPrim(
+        pkgId
+      ) && !UtilityDamlPackages.checkDamlStdlib(
+        pkgId
+      ) && !isUtilityPackage)
+    def isInvalidDamlPrimOrStdlib(pkgId: Ref.PackageId) =
+      if (metadata.name == "daml-prim") {
+        if (!LanguageVersion.supportsPackageUpgrades(languageVersion)) {
+          false
+        } else {
+          !isUtilityPackage && !UtilityDamlPackages.checkDamlPrim(pkgId)
+        }
+      } else if (metadata.name == "daml-stdlib") {
+        if (!LanguageVersion.supportsPackageUpgrades(languageVersion)) {
+          false
+        } else {
+          !isUtilityPackage && !UtilityDamlPackages.checkDamlStdlib(pkgId)
+        }
+      } else {
+        false
+      }
+    private[lf] def pkgName: Ref.PackageName = metadata.name
+    private[lf] def pkgVersion: Ref.PackageVersion = metadata.version
+
+    def importsWithStablePkgs: Set[PackageId] = {
+      // TODO[RB]: when we have our bazel-maintained stable packages list, we
+      // use it here to filter the stablepackages by lf version (right now it is
+      // ok since all stable packages are 2.1)
+      imports.pkgIds.union(stableIds)
+    }
+
+    private val stableIds: Set[PackageId] =
+      Seq(
+        "ee33fb70918e7aaa3d3fc44d64a399fb2bf5bcefc54201b1690ecd448551ba88", // daml-prim-DA-Exception-ArithmeticError
+        "6da1f43a10a179524e840e7288b47bda213339b0552d92e87ae811e52f59fc0e", // daml-prim-DA-Exception-AssertionFailed
+        "f181cd661f7af3a60bdaae4b0285a2a67beb55d6910fc8431dbae21a5825ec0f", // daml-prim-DA-Exception-GeneralError
+        "91e167fa7a256f21f990c526a0a0df840e99aeef0e67dc1f5415b0309486de74", // daml-prim-DA-Exception-PreconditionFailed
+        "0e4a572ab1fb94744abb02243a6bbed6c78fc6e3c8d3f60c655f057692a62816", // daml-prim-DA-Internal-Erased
+        "e5411f3d75f072b944bd88e652112a14a3d409c491fd9a51f5f6eede6d3a3348", // daml-prim-DA-Internal-NatSyn-
+        "ab068e2f920d0e06347975c2a342b71f8b8e3b4be0f02ead9442caac51aa8877", // daml-prim-DA-Internal-PromotedText
+        "5aee9b21b8e9a4c4975b5f4c4198e6e6e8469df49e2010820e792f393db870f4", // daml-prim-DA-Types
+        "fcee8dfc1b81c449b421410edd5041c16ab59c45bbea85bcb094d1b17c3e9df7", // daml-prim-GHC-Prim
+        "19f0df5fdaf5a96e137b6ea885fdb378f37bd3166bd9a47ee11518e33fa09a20", // daml-prim-GHC-Tuple
+        "e7e0adfa881e7dbbb07da065ae54444da7c4bccebcb8872ab0cb5dcf9f3761ce", // daml-prim-GHC-Types
+        "a1fa18133ae48cbb616c4c148e78e661666778c3087d099067c7fe1868cbb3a1", // daml-stdlib-DA-Action-State-Type
+        "fa79192fe1cce03d7d8db36471dde4cf6c96e6d0f07e1c391dd49e355af9b38c", // daml-stdlib-DA-Date-Types
+        "6f8e6085f5769861ae7a40dccd618d6f747297d59b37cab89b93e2fa80b0c024", // daml-stdlib-DA-Internal-Any
+        "86d888f34152dae8729900966b44abcb466b9c111699678de58032de601d2b04", // daml-stdlib-DA-Internal-Down
+        "7adc4c2d07fa3a51173c843cba36e610c1168b2dbbf53076e20c0092eae8763d", // daml-stdlib-DA-Internal-Fail-Types
+        "c280cc3ef501d237efa7b1120ca3ad2d196e089ad596b666bed59a85f3c9a074", // daml-stdlib-DA-Internal-Interface-AnyView-Types
+        "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69", // daml-stdlib-DA-Internal-Template
+        "cae345b5500ef6f84645c816f88b9f7a85a9f3c71697984abdf6849f81e80324", // daml-stdlib-DA-Logic-Types
+        "52854220dc199884704958df38befd5492d78384a032fd7558c38f00e3d778a2", // daml-stdlib-DA-Monoid-Types
+        "bde4bd30749e99603e5afa354706608601029e225d4983324d617825b634253a", // daml-stdlib-DA-NonEmpty-Types
+        "bfda48f9aa2c89c895cde538ec4b4946c7085959e031ad61bde616b9849155d7", // daml-stdlib-DA-Random-Types
+        "d095a2ccf6dd36b2415adc4fa676f9191ba63cd39828dc5207b36892ec350cbc", // daml-stdlib-DA-Semigroup-Types
+        "c3bb0c5d04799b3f11bad7c3c102963e115cf53da3e4afcbcfd9f06ebd82b4ff", // daml-stdlib-DA-Set-Types
+        "60c61c542207080e97e378ab447cc355ecc47534b3a3ebbff307c4fb8339bc4d", // daml-stdlib-DA-Stack-Types
+        "b70db8369e1c461d5c70f1c86f526a29e9776c655e6ffc2560f95b05ccb8b946", // daml-stdlib-DA-Time-Types
+        "3cde94fe9be5c700fc1d9a8ad2277e2c1214609f8c52a5b4db77e466875b8cb7", // daml-stdlib-DA-Validation-Types
+      ).map(s => eitherToParseError(PackageId.fromString(s))).toSet
+
+    private def eitherToParseError[A](x: Either[String, A]): A =
+      x.fold(err => throw new RuntimeException(err), identity)
+  }
+
+  final class GenPackageCompanion[E] private[Ast] {
+    @throws[PackageError]
+    def build(
+        modules: Iterable[GenModule[E]],
+        directDeps: Iterable[PackageId],
+        languageVersion: LanguageVersion,
+        metadata: PackageMetadata,
+        imports: Imports,
+        // Packages that do not define any serializable types are referred to as utility packages
+        // in the context of upgrades. They will not be considered for upgrade checks.
+    ): GenPackage[E] =
+      apply(
+        modules = toMapWithoutDuplicate(
+          modules.view.map(m => m.name -> m),
+          (modName: ModuleName) => PackageError(s"Collision on module name ${modName.toString}"),
+        ),
+        directDeps = directDeps.toSet,
+        languageVersion = languageVersion,
+        metadata = metadata,
+        imports = imports,
+      )
+    def apply(
+        modules: Map[ModuleName, GenModule[E]],
+        directDeps: Set[PackageId],
+        languageVersion: LanguageVersion,
+        metadata: PackageMetadata,
+        imports: Imports,
+    ): GenPackage[E] = {
+      GenPackage(
+        modules = modules,
+        directDeps = directDeps,
+        languageVersion = languageVersion,
+        metadata = metadata,
+        imports = imports,
+        isUtilityPackage = modules.values.forall(_.isUtilityModule),
+      )
+    }
+
+    def unapply(arg: GenPackage[E]): Some[
+      (
+          Map[ModuleName, GenModule[E]],
+          Set[PackageId],
+          LanguageVersion,
+          PackageMetadata,
+      )
+    ] = {
+      Some(
+        (
+          arg.modules,
+          arg.directDeps,
+          arg.languageVersion,
+          arg.metadata,
+        )
+      )
+    }
+
+  }
+
+  type Package = GenPackage[Expr]
+  val Package = new GenPackageCompanion[Expr]
+
+  // [PackageSignature] is a version of the AST that does not contain
+  // LF expression. This should save memory in the [CompiledPackages]
+  // where those expressions once compiled into Speedy Expression
+  // become useless.
+  // Here the term "Signature" refers to all the type information of
+  // all the (serializable or not) data of a given package including
+  // values and type synonyms. This contrasts with the term
+  // "Interface" we conventional use to speak only about all the
+  // types of the serializable data of a package. See for instance
+  // [InterfaceReader]
+  type PackageSignature = GenPackage[Unit]
+  val PackageSignature = new GenPackageCompanion[Unit]
+
+  val keyFieldName = Name.assertFromString("key")
+  val valueFieldName = Name.assertFromString("value")
+  val maintainersFieldName = Name.assertFromString("maintainers")
+  val contractIdFieldName = Name.assertFromString("contractId")
+  val contractFieldName = Name.assertFromString("contract")
+  val signatoriesFieldName = Name.assertFromString("signatories")
+  val observersFieldName = Name.assertFromString("observers")
+
+  final case class PackageError(error: String) extends RuntimeException(error)
+
+}

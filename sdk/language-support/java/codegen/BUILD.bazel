@@ -22,7 +22,7 @@ load(
     "test_exclusions",
 )
 load(
-    "//daml-lf/language:daml-lf.bzl",
+    "//canton/community/daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_VERSIONS",
     "DEFAULT_LF_VERSION",
 )
@@ -53,11 +53,11 @@ da_scala_library(
     deps = [
         "//canton:bindings-java",
         "//canton:nonempty",
-        "//daml-lf/api-type-signature",
-        "//daml-lf/archive:daml_lf_archive_proto_java",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/data",
-        "//daml-lf/language",
+        "//canton/community/daml-lf/api-type-signature",
+        "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
+        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/language",
         "//language-support/build-info",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
@@ -103,12 +103,12 @@ da_scala_test(
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:bindings-java",
         "//canton:nonempty",
-        "//daml-lf/api-type-signature",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/data",
-        "//daml-lf/language",
-        "//daml-lf/stable-packages",
-        "//daml-lf/transaction-test-lib",
+        "//canton/community/daml-lf/api-type-signature",
+        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/language",
+        "//canton/community/daml-lf/stable-packages",
+        "//canton/community/daml-lf/transaction-test-lib",
         "@maven//:com_squareup_javapoet",
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
@@ -217,7 +217,7 @@ scala_source_jar(
     [
         dar_to_java(
             name = "test-model-%s" % target,
-            src = "//daml-lf/encoder:testing-dar-%s" % target,
+            src = "//canton/community/daml-lf/encoder:testing-dar-%s" % target,
             package_prefix = "test",
         ),
         java_test(
@@ -441,7 +441,7 @@ da_scala_test(
         "//canton:rs-grpc-bridge",
         "//canton:testing-utils",
         "//canton:timer-utils",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
         "//test-common/canton/it-lib",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",

@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -59,8 +59,8 @@ final class WitnessesIT extends LedgerTestSuite {
         )
       )
       witnessesTransactions <- ledger.transactions(txReq)
-      witnessesTransaction = witnessesTransactions.head
-      witnessesFromTransaction = witnessesTransaction.events.head.getCreated
+      witnessesTransaction = witnessesTransactions.headOption.value
+      witnessesFromTransaction = witnessesTransaction.events.headOption.value.getCreated
       disclosedWitnesses = DisclosedContract(
         templateId = witnessesFromTransaction.templateId,
         contractId = witnessesFromTransaction.contractId,
@@ -110,7 +110,7 @@ final class WitnessesIT extends LedgerTestSuite {
       )
     } yield {
       assert(
-        witnessesTransactions.size == 1,
+        witnessesTransactions.sizeIs == 1,
         s"There should be one transaction for Witnesses, but there was ${witnessesTransactions.size}",
       )
 
@@ -118,7 +118,7 @@ final class WitnessesIT extends LedgerTestSuite {
         witnessesTransaction.events.sizeIs == 1,
         s"The transaction for creating the Witness contract should only contain a single event, but has ${witnessesTransaction.events.size}",
       )
-      val creationEvent = witnessesTransaction.events.head
+      val creationEvent = witnessesTransaction.events.headOption.value
       assert(
         creationEvent.event.isCreated,
         s"The event in the transaction for creating the Witness should be a CreatedEvent, but was ${creationEvent.event}",
@@ -130,10 +130,10 @@ final class WitnessesIT extends LedgerTestSuite {
         s"The parties for witnessing the CreatedEvent should be $expectedWitnessesOfCreation, but were ${creationEvent.getCreated.witnessParties}",
       )
       assert(
-        nonConsumingLedgerEffects.events.size == 1,
+        nonConsumingLedgerEffects.events.sizeIs == 1,
         s"The transaction for exercising the non-consuming choice should only contain a single event, but has ${nonConsumingLedgerEffects.events.size}",
       )
-      val nonConsumingEvent = nonConsumingLedgerEffects.events.head
+      val nonConsumingEvent = nonConsumingLedgerEffects.events.headOption.value
       assert(
         nonConsumingEvent.event.isExercised,
         s"The event in the transaction for exercising the non-consuming choice should be an ExercisedEvent, but was ${nonConsumingEvent.event}",
@@ -145,11 +145,11 @@ final class WitnessesIT extends LedgerTestSuite {
         s"The parties for witnessing the non-consuming ExercisedEvent should be $expectedWitnessesOfNonConsumingChoice, but were ${nonConsumingEvent.getCreated.witnessParties}",
       )
       assert(
-        consumingLedgerEffects.events.size == 1,
+        consumingLedgerEffects.events.sizeIs == 1,
         s"The transaction for exercising the consuming choice should only contain a single event, but has ${consumingLedgerEffects.events.size}",
       )
 
-      val consumingEvent = consumingLedgerEffects.events.head
+      val consumingEvent = consumingLedgerEffects.events.headOption.value
       assert(
         consumingEvent.event.isExercised,
         s"The event in the transaction for exercising the consuming choice should be an ExercisedEvent, but was ${consumingEvent.event}",

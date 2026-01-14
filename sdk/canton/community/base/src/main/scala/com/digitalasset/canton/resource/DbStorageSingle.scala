@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.resource
@@ -24,8 +24,9 @@ import com.digitalasset.canton.time.{Clock, PeriodicAction}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{LoggerUtil, ResourceUtil}
 import slick.jdbc.JdbcBackend.Database
+import slick.jdbc.SimpleJdbcAction
 
-import java.sql.SQLException
+import java.sql.{Connection, SQLException}
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future, blocking}
@@ -137,6 +138,16 @@ final class DbStorageSingle private (
           logger.info(s"Changed db storage instance to ${if (active) "active" else "passive"}.")
       }
     )
+
+  override def runJdbcWrite[T](
+      traceContext: TraceContext,
+      body: Connection => T,
+  ): FutureUnlessShutdown[T] =
+    run("pure-jdbc-writing", "", 0)(
+      FutureUnlessShutdown.outcomeF(
+        db.run(SimpleJdbcAction(c => body(c.connection)))
+      )
+    )(traceContext, CloseContext(this))
 }
 
 object DbStorageSingle {
