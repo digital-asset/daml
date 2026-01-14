@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
@@ -15,7 +15,7 @@ import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -34,6 +34,7 @@ import com.digitalasset.canton.topology.store.TopologyStore.{
   EffectiveStateChange,
   TopologyStoreDeactivations,
 }
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.db.DbTopologyStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
@@ -165,6 +166,10 @@ final case class StoredTopologyTransaction[+Op <: TopologyChangeOp, +M <: Topolo
   def selectOp[TargetOp <: TopologyChangeOp: ClassTag] = transaction
     .selectOp[TargetOp]
     .map(_ => this.asInstanceOf[StoredTopologyTransaction[TargetOp, M]])
+
+  def isActiveAsOf(asOfInclusive: EffectiveTime): Boolean =
+    validFrom.value <= asOfInclusive.value && validUntil.forall(x => x.value > asOfInclusive.value)
+
 }
 
 object StoredTopologyTransaction
@@ -200,6 +205,8 @@ object StoredTopologyTransaction
 
   type GenericStoredTopologyTransaction =
     StoredTopologyTransaction[TopologyChangeOp, TopologyMapping]
+  type PositiveStoredTopologyTransaction =
+    StoredTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]
 
   /** @return
     *   `true` if both transactions are the same without comparing the signatures, `false` otherwise
@@ -317,10 +324,6 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]]
 
-  def findProposalsByTxHash(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[TxHash]])(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]]
-
   def findTransactionsForMapping(asOfExclusive: EffectiveTime, hashes: NonEmpty[Set[MappingHash]])(
       implicit traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]]
@@ -357,7 +360,17 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       types: Seq[TopologyMapping.Code],
       filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
       filterNamespace: Option[NonEmpty[Seq[Namespace]]],
+      pagination: Option[(Option[UniqueIdentifier], Int)] = None,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[NegativeStoredTopologyTransactions]
+
+  /** Fetch all items for the given uids in descending order
+    *
+    * This function is used by the batch loader. As such, we assume that the request is already
+    * batched and therefore that the number of uids / ns loaded is limited
+    */
+  def fetchAllDescending(uids: Set[UniqueIdentifier], nss: Set[Namespace])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions]
 
   /** Updates topology transactions. The method proceeds as follows: For each mapping hash, it will
     * have optionally a serial and a set of tx hashes. The tx hashes represent proposals which must
@@ -565,6 +578,16 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
   ): FutureUnlessShutdown[Seq[EffectiveStateChange]]
 
   def deleteAllData()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
+
+  /** Copies the topology state from an existing topology store. Should only be done if the local
+    * copy is functionally equivalent to downloading the topology state from the sequencer.
+    * @param sourceStore
+    *   The store from which the topology state should be copied.
+    */
+  def copyFromPredecessorSynchronizerStore(sourceStore: TopologyStore[SynchronizerStore])(implicit
+      ev: StoreID <:< SynchronizerStore,
+      errorLoggingContext: ErrorLoggingContext,
+  ): FutureUnlessShutdown[Unit]
 }
 
 object TopologyStore {

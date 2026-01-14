@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -38,7 +38,7 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
-import com.digitalasset.canton.time.SynchronizerTimeTracker
+import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.TraceContext
@@ -58,6 +58,7 @@ private[reassignment] class AssignmentProcessingSteps(
     seedGenerator: SeedGenerator,
     override protected val contractValidator: ContractValidator,
     staticSynchronizerParameters: Target[StaticSynchronizerParameters],
+    clock: Clock,
     val protocolVersion: Target[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -113,6 +114,7 @@ private[reassignment] class AssignmentProcessingSteps(
     ReassignmentProcessorError,
     (Submission, PendingSubmissionData),
   ] = {
+    val approximateTimestampOverride = Some(clock.now)
 
     val SubmissionParam(
       submitterMetadata,
@@ -189,7 +191,7 @@ private[reassignment] class AssignmentProcessingSteps(
 
       rootHash = fullTree.rootHash
       submittingParticipantSignature <- recentSnapshot
-        .sign(rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+        .sign(rootHash.unwrap, SigningKeyUsage.ProtocolOnly, approximateTimestampOverride)
         .leftMap(ReassignmentSigningError.apply)
       mediatorMessage = fullTree.mediatorMessage(
         submittingParticipantSignature,
@@ -221,6 +223,7 @@ private[reassignment] class AssignmentProcessingSteps(
           fullTree,
           (viewKey, viewKeyMap),
           recentSnapshot,
+          approximateTimestampOverride,
           protocolVersion.unwrap,
         )
         .leftMap[ReassignmentProcessorError](

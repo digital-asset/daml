@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.index
@@ -128,7 +128,6 @@ private[platform] object InMemoryStateUpdaterFlow {
         Flow[(Vector[(Offset, Update)], LedgerEnd, TraceContext)]
           .map(_._1)
           .mapConcat(identity)
-          .map { case (off, tracedUpdate) => (off, tracedUpdate) }
           .map(Some(_))
 
       val updateCheckpointState: Flow[Option[(Offset, Update)], OffsetCheckpoint, NotUsed] =

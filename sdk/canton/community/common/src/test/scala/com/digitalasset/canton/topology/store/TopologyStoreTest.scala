@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store
@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.topology.TopologyStateHash
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.SuppressionRule.LevelAndAbove
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{
@@ -36,6 +36,8 @@ trait TopologyStoreTest
     with TopologyStoreTestBase
     with FailOnShutdown
     with HasActorSystem {
+
+  implicit def closeContext: CloseContext
 
   val testData = new TopologyStoreTestData(testedProtocolVersion, loggerFactory, executionContext)
   import testData.*
@@ -312,10 +314,6 @@ trait TopologyStoreTest
 
             positiveProposals <- findPositiveTransactions(store, ts6, isProposal = true)
 
-            txByTxHash <- store.findProposalsByTxHash(
-              EffectiveTime(ts1.immediateSuccessor), // increase since exclusive
-              NonEmpty(Set, dop_synchronizer1_proposal.hash),
-            )
             txByMappingHash <- store.findTransactionsForMapping(
               EffectiveTime(ts2.immediateSuccessor), // increase since exclusive
               NonEmpty(Set, otk_p1.mapping.uniqueKey),
@@ -370,7 +368,6 @@ trait TopologyStoreTest
             )
             expectTransactions(positiveProposals, Seq(dop_synchronizer1_proposal))
 
-            txByTxHash shouldBe Seq(dop_synchronizer1_proposal)
             txByMappingHash shouldBe Seq(otk_p1)
 
             tsWatermark shouldBe Some(ts1)
@@ -1786,6 +1783,65 @@ trait TopologyStoreTest
               ()
             }
           } yield succeed
+        }
+      }
+
+      "copy the topology state from a predecessor store" in {
+        val sourceStore = mk(synchronizer1_p1p2_physicalSynchronizerId, "case12")
+        val successor = synchronizer1_p1p2_physicalSynchronizerId.copy(serial =
+          synchronizer1_p1p2_physicalSynchronizerId.serial.increment.toNonNegative
+        )
+        val targetStore = mk(successor, "case12")
+
+        val storeWithUnrelatedLSId = mk(da_vp123_physicalSynchronizerId, "case12")
+
+        for {
+          // flip source and target to trigger the not predecessor error
+          notPredecessor <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
+            sourceStore.copyFromPredecessorSynchronizerStore(targetStore).failed,
+            _.loneElement.throwable.value.getMessage should include(
+              "is not a predecessor of the target synchronizer"
+            ),
+          )
+          // attempt to copy from a non-matching LSId
+          unexpectedLSId <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
+            targetStore
+              .copyFromPredecessorSynchronizerStore(storeWithUnrelatedLSId)
+              .failed,
+            _.loneElement.throwable.value.getMessage should include(
+              "unexpected logical synchronizer id"
+            ),
+          )
+
+          _ <- new InitialTopologySnapshotValidator(
+            pureCrypto = testData.factory.syncCryptoClient.crypto.pureCrypto,
+            store = sourceStore,
+            Some(defaultStaticSynchronizerParameters),
+            validateInitialSnapshot = true,
+            loggerFactory = loggerFactory.appendUnnamedKey("TestName", "case12"),
+          ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)
+            .valueOrFail("topology bootstrap")
+
+          targetDataBeforeCopy <- targetStore.dumpStoreContent()
+          _ = targetDataBeforeCopy.result shouldBe empty
+
+          _ <- targetStore.copyFromPredecessorSynchronizerStore(sourceStore)
+          sourceData <- sourceStore.dumpStoreContent()
+          targetData <- targetStore.dumpStoreContent()
+
+        } yield {
+          notPredecessor.getMessage should include(
+            "is not a predecessor of the target synchronizer"
+          )
+          unexpectedLSId.getMessage should include("unexpected logical synchronizer id")
+
+          val actual = targetData.result
+          val expected = sourceData.result.view
+            .filter(_.rejectionReason.isEmpty)
+            .filter((stored => !stored.transaction.isProposal || stored.validUntil.isEmpty))
+            .toSeq
+
+          actual should contain theSameElementsInOrderAs expected
         }
       }
 

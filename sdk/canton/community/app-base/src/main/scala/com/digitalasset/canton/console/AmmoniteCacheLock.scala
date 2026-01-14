@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.console
@@ -7,11 +7,11 @@ import ammonite.runtime.Storage
 import cats.syntax.either.*
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 
 import java.io.{File, RandomAccessFile}
 import java.nio.channels.OverlappingFileLockException
 import java.nio.file.Files
-import scala.concurrent.blocking
 import scala.util.control.NonFatal
 
 trait AmmoniteCacheLock {
@@ -21,6 +21,8 @@ trait AmmoniteCacheLock {
 }
 
 object AmmoniteCacheLock {
+
+  private val lock = new Mutex()
 
   // Don't change this to lazy val, as the underlying InMemory storage is not thread safe.
   def InMemory: AmmoniteCacheLock = new AmmoniteCacheLock {
@@ -56,7 +58,7 @@ object AmmoniteCacheLock {
         lock <- go(0)
       } yield lock
       attempt match {
-        case Right(lock) => lock
+        case Right(cacheLock) => cacheLock
         case Left(err) =>
           logger.warn(
             s"Failed to acquire ammonite cache directory due to $err. Will use in-memory instead."
@@ -87,7 +89,7 @@ object AmmoniteCacheLock {
 
   private def acquireLock(logger: TracedLogger, path: os.Path, isRepl: Boolean)(implicit
       traceContext: TraceContext
-  ): Either[Throwable, Option[AmmoniteCacheLock]] = blocking(synchronized {
+  ): Either[Throwable, Option[AmmoniteCacheLock]] = (lock.exclusive {
     try {
       val myLockFile = path / "lock"
       logger.debug(s"Attempting to obtain lock $myLockFile")
@@ -97,12 +99,12 @@ object AmmoniteCacheLock {
           logger.debug(s"Failed to acquire lock for $myLockFile")
           out.close()
           Right(None)
-        case Some(lock) =>
+        case Some(channelLock) =>
           Right(Some(new AmmoniteCacheLock {
             override def release(): Unit =
               try {
-                logger.debug(s"Releasing lock $myLockFile...")
-                lock.release()
+                logger.debug(s"Releasing channelLock $myLockFile...")
+                channelLock.release()
                 out.close()
                 if (!Files.deleteIfExists(myLockFile.toNIO)) { // throws when the file exists but cannot be deleted
                   logger.warn(s"Failed to delete lock file $myLockFile because it did not exist")

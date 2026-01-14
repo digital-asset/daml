@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer
@@ -475,6 +475,7 @@ trait HasProgrammableSequencer {
   def signModifiedSubmissionRequest(
       request: SubmissionRequest,
       syncCrypto: SynchronizerCryptoClient,
+      approximateTimestampOverride: Option[CantonTimestamp],
   )(implicit executionContext: ExecutionContext): SignedContent[SubmissionRequest] =
     SignedContent
       .create(
@@ -482,6 +483,7 @@ trait HasProgrammableSequencer {
         syncCrypto.currentSnapshotApproximation.futureValueUS,
         request,
         None,
+        approximateTimestampOverride,
         HashPurpose.SubmissionRequestSignature,
         testedProtocolVersion,
       )

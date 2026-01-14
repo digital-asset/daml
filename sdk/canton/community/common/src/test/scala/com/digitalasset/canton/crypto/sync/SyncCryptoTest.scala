@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.sync
@@ -107,13 +107,14 @@ trait SyncCryptoTest
       sessionSigningKeys: SessionSigningKeysConfig
   ): CryptoConfig =
     cryptoConfig
+      .focus(_.sessionSigningKeys)
+      .replace(sessionSigningKeys)
       .focus(_.kms)
       .replace(
         Some(
           Driver(
             "mock",
             ConfigValueFactory.fromAnyRef(0),
-            sessionSigningKeys = sessionSigningKeys,
           )
         )
       )
@@ -160,6 +161,7 @@ trait SyncCryptoTest
       val signature = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -182,6 +184,7 @@ trait SyncCryptoTest
       val signature = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -205,6 +208,7 @@ trait SyncCryptoTest
       val signature_1 = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -214,6 +218,7 @@ trait SyncCryptoTest
       val signature_2 = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -238,6 +243,7 @@ trait SyncCryptoTest
       val signature1 = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -247,6 +253,7 @@ trait SyncCryptoTest
       val signature2 = syncCryptoSignerP2
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.standalone
@@ -20,6 +20,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.sta
   StandaloneBftOrderingServiceGrpc,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 import io.grpc.stub.StreamObserver
 
 import scala.collection.mutable
@@ -33,10 +34,11 @@ class P2PGrpcStandaloneBftOrderingService(
     with AutoCloseable {
 
   private val readers = mutable.ListBuffer[(Long, StreamObserver[ReadOrderedResponse])]()
+  private val lock = new Mutex()
 
   def push(block: BlockFormat.Block): Unit = {
     val failed = mutable.ListBuffer[StreamObserver[ReadOrderedResponse]]()
-    mutex(this) {
+    mutex(lock) {
       readers.foreach { case (minHeight, peerSender) =>
         if (block.blockHeight >= minHeight) {
           val response =
@@ -59,7 +61,7 @@ class P2PGrpcStandaloneBftOrderingService(
         }
       }
     }
-    mutex(this) {
+    mutex(lock) {
       readers.filterInPlace { case (_, peerSender) =>
         !failed.contains(peerSender)
       }.discard
@@ -72,12 +74,12 @@ class P2PGrpcStandaloneBftOrderingService(
   override def readOrdered(
       request: ReadOrderedRequest,
       peerSender: StreamObserver[ReadOrderedResponse],
-  ): Unit = mutex(this) {
+  ): Unit = mutex(lock) {
     readers.addOne(request.startHeight -> peerSender).discard
   }
 
   override def close(): Unit =
-    mutex(this) {
+    mutex(lock) {
       readers.foreach { case (_, peerSender) =>
         completeGrpcStreamObserver(peerSender, logger)(TraceContext.empty)
       }

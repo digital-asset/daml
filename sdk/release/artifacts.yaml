@@ -3,57 +3,57 @@
 
 - target: //daml-assistant/scala-daml-package-config:scala-daml-package-config
   type: jar-scala
-- target: //daml-lf/api-type-signature:api-type-signature
+- target: //canton/community/daml-lf/api-type-signature:api-type-signature
   type: jar-scala
-- target: //daml-lf/archive:daml_lf_archive_proto_jar
+- target: //canton/community/daml-lf/archive:daml_lf_archive_proto_jar
   type: jar-lib
-- target: //daml-lf/archive:daml_lf_archive_proto_java
+- target: //canton/community/daml-lf/archive:daml_lf_archive_proto_java
   type: jar-proto
-- target: //daml-lf/archive:daml_lf_archive_reader
+- target: //canton/community/daml-lf/archive:daml_lf_archive_reader
   type: jar-scala
-- target: //daml-lf/archive/encoder:encoder
+- target: //canton/community/daml-lf/archive/encoder:encoder
   type: jar-scala
-- target: //daml-lf/data:data
+- target: //canton/community/daml-lf/data:data
   type: jar-scala
-- target: //daml-lf/data-scalacheck:data-scalacheck
+- target: //canton/community/daml-lf/data-scalacheck:data-scalacheck
   type: jar-scala
-- target: //daml-lf/encoder:encoder
+- target: //canton/community/daml-lf/encoder:encoder
   type: jar-scala
-- target: //daml-lf/engine:engine
+- target: //canton/community/daml-lf/engine:engine
   type: jar-scala
-- target: //daml-lf/engine:script-engine
+- target: //canton/community/daml-lf/engine:script-engine
   type: jar-scala
-- target: //daml-lf/interpreter:interpreter
+- target: //canton/community/daml-lf/interpreter:interpreter
   type: jar-scala
-- target: //daml-lf/language:language
+- target: //canton/community/daml-lf/language:language
   type: jar-scala
-- target: //daml-lf/ledger-api-value:ledger_api_value_proto_jar
+- target: //canton/community/daml-lf/ledger-api-value:ledger_api_value_proto_jar
   type: jar-lib
-- target: //daml-lf/ledger-api-value:ledger_api_value_proto_java
+- target: //canton/community/daml-lf/ledger-api-value:ledger_api_value_proto_java
   type: jar-proto
-- target: //daml-lf/ledger-api-value:ledger_api_value_proto_scala
+- target: //canton/community/daml-lf/ledger-api-value:ledger_api_value_proto_scala
   type: jar-scala
-- target: //daml-lf/parser:parser
+- target: //canton/community/daml-lf/parser:parser
   type: jar-scala
-- target: //daml-lf/ide-ledger:ide-ledger
+- target: //canton/community/daml-lf/ide-ledger:ide-ledger
   type: jar-scala
-- target: //daml-lf/snapshot:snapshot_proto_jar
+- target: //canton/community/daml-lf/snapshot:snapshot_proto_jar
   type: jar-lib
-- target: //daml-lf/snapshot:snapshot_proto_java
+- target: //canton/community/daml-lf/snapshot:snapshot_proto_java
   type: jar-proto
-- target: //daml-lf/transaction:transaction
+- target: //canton/community/daml-lf/transaction:transaction
   type: jar-scala
-- target: //daml-lf/transaction:transaction_proto_java
+- target: //canton/community/daml-lf/transaction:transaction_proto_java
   type: jar-proto
-- target: //daml-lf/transaction-test-lib:transaction-test-lib
+- target: //canton/community/daml-lf/transaction-test-lib:transaction-test-lib
   type: jar-scala
-- target: //daml-lf/validation:validation
+- target: //canton/community/daml-lf/validation:validation
   type: jar-scala
 - target: //daml-script/runner:script-runner-lib
   type: jar-scala
 - target: //daml-script/converter:converter
   type: jar-scala
-- target: //daml-lf/stable-packages:stable-packages
+- target: //canton/community/daml-lf/stable-packages:stable-packages
   type: jar-scala
 - target: //language-support/codegen-main:binary
   type: jar-jarjar
@@ -134,8 +134,6 @@
 - target: //canton:timer-utils
   type: jar-scala
 - target: //canton:nameof
-  type: jar-scala
-- target: //canton:struct-spray-json
   type: jar-scala
 - target: //canton:executors
   type: jar-scala

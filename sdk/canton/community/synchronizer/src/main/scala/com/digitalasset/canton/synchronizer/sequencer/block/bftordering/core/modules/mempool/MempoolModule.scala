@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.mempool
@@ -7,6 +7,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.WriteReadiness
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
@@ -53,6 +54,7 @@ class MempoolModule[E <: Env[E]](
 
       case Mempool.Start =>
         scheduleMempoolBatchCreationClockTick()
+
       // From clients
       case r @ Mempool.OrderRequest(tracedTx, from, sender) =>
         val orderingRequest = tracedTx.value
@@ -120,16 +122,28 @@ class MempoolModule[E <: Env[E]](
         createAndSendBatches()
         emitStateStats(metrics, mempoolState)
 
+      // From P2P output module
+      case Mempool.P2PConnectivityUpdate(membership, authenticatedCountIncludingSelf) =>
+        weakQuorum = membership.orderingTopology.weakQuorum
+        authenticatedCount = authenticatedCountIncludingSelf
+
+      // Admin
+      case Mempool.Admin.GetWriteReadiness(reply) =>
+        val p2p = WriteReadiness.P2P(authenticatedCount, weakQuorum)
+        val readiness =
+          if (canDisseminate)
+            WriteReadiness.Ready(p2p)
+          else
+            WriteReadiness.P2PNotReady(p2p)
+        reply(readiness)
+
+      // Internal
       case Mempool.MempoolBatchCreationClockTick =>
         logger.trace(
           s"Mempool received batch creation clock tick (maxRequestsInBatch: ${config.maxRequestsInBatch})"
         )
         createAndSendBatches()
         scheduleMempoolBatchCreationClockTick()
-
-      case Mempool.P2PConnectivityUpdate(membership, authenticatedCountIncludingSelf) =>
-        weakQuorum = membership.orderingTopology.weakQuorum
-        authenticatedCount = authenticatedCountIncludingSelf
     }
   }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.party
@@ -11,6 +11,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.protocol.party.PartyReplicationAcsReader.*
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.KillSwitches
@@ -42,6 +43,7 @@ private[party] final class PartyReplicationAcsReader(
 
   // Queue needs to be synchronized for thread-safety
   private val queue = mutable.Queue.empty[ActiveContract]
+  private val lock = new Mutex()
 
   // Completed flag set only once/if the ACS reader stream has completed successfully.
   private val hasAcsReaderCompletedSuccessfully = new AtomicBoolean(false)
@@ -61,27 +63,24 @@ private[party] final class PartyReplicationAcsReader(
               true // if closing, skip processing further active contracts to allow completing the flow
             } else if (spStore.initialContractOrdinalInclusiveO.isEmpty) {
               false // flow-control until initialized source participant processor is initialized
-            } else
-              blocking {
-                synchronized {
-                  if (queue.sizeIs >= maxQueueSize.unwrap) {
-                    false // flow-control until queue has space
-                  } else if (ordinal < spStore.contractOrdinalToSendUpToExclusive.unwrap.toLong) {
-                    // Skip any active contracts before the initial contract ordinal (if any).
-                    if (
-                      spStore.initialContractOrdinalInclusiveO.exists(ordinal >= _.unwrap.toLong)
-                    ) {
-                      logger.debug(
-                        s"Queue.appending active contract with ordinal $ordinal: ${activeContract.contract.getCreatedEvent.contractId}"
-                      )
-                      queue.append(activeContract)
-                    }
-                    true // proceed to next active contract
-                  } else {
-                    false // flow-control until TP requests more contracts
+            } else {
+              lock.exclusive {
+                if (queue.sizeIs >= maxQueueSize.unwrap) {
+                  false // flow-control until queue has space
+                } else if (ordinal < spStore.contractOrdinalToSendUpToExclusive.unwrap.toLong) {
+                  // Skip any active contracts before the initial contract ordinal (if any).
+                  if (spStore.initialContractOrdinalInclusiveO.exists(ordinal >= _.unwrap.toLong)) {
+                    logger.debug(
+                      s"Queue.appending active contract with ordinal $ordinal: ${activeContract.contract.getCreatedEvent.contractId}"
+                    )
+                    queue.append(activeContract)
                   }
+                  true // proceed to next active contract
+                } else {
+                  false // flow-control until TP requests more contracts
                 }
               }
+            }
 
           if (!canProceed) {
             blocking(Threading.sleep(flowControlBackoffMillis))
@@ -113,8 +112,8 @@ private[party] final class PartyReplicationAcsReader(
     */
   def readContracts(
       numContractsToRead: PositiveInt
-  ): (Boolean, Seq[ActiveContract]) = blocking {
-    synchronized {
+  ): (Boolean, Seq[ActiveContract]) =
+    lock.exclusive {
       // Return contract batch if numContractsToRead are in the queue or if the ACS replication has
       // completed successfully indicating that there might be fewer or no entries in the queue.
       val isAcsReaderFinished = hasAcsReaderCompletedSuccessfully.get()
@@ -126,7 +125,6 @@ private[party] final class PartyReplicationAcsReader(
       val isDone = isAcsReaderFinished && queue.isEmpty
       (isDone, batch)
     }
-  }
 
   override protected def onClosed(): Unit = {
     logger.info("Shutting down ACS source stream kill switch")(traceContext)

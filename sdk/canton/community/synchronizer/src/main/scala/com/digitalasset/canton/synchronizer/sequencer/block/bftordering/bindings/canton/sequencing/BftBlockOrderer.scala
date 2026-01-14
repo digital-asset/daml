@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.sequencing
@@ -629,7 +629,7 @@ final class BftBlockOrderer(
         .subscription()
         .map(tracedBlock => tracedBlock.map(BlockFormat.blockOrdererBlockToRawLedgerBlock(logger)))
     ) { _ =>
-      logger.warn("BFT standalone mode enabled: not subscribing to any blocks")
+      logger.info("BFT standalone mode enabled: not subscribing to any blocks")
       Source
         .empty[Traced[RawLedgerBlock]]
         .viaMat(KillSwitches.single)(
@@ -693,6 +693,7 @@ final class BftBlockOrderer(
     Seq(
       v30.SequencerBftAdministrationServiceGrpc.bindService(
         new BftOrderingSequencerAdminService(
+          mempoolRef,
           p2pNetworkOutAdminModuleRef,
           consensusAdminModuleRef,
           loggerFactory,

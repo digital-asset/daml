@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.store
@@ -16,7 +16,12 @@ import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  CloseContext,
+  FlagCloseable,
+  FutureUnlessShutdown,
+  HasCloseContext,
+}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage, ToDbPrimitive}
@@ -443,7 +448,11 @@ trait SequencerMemberValidator {
 /** Persistence for the Sequencer. Writers are expected to create a [[SequencerWriterStore]] which
   * may delegate to this underlying store through an appropriately managed storage instance.
   */
-trait SequencerStore extends SequencerMemberValidator with NamedLogging with AutoCloseable {
+trait SequencerStore
+    extends SequencerMemberValidator
+    with NamedLogging
+    with AutoCloseable
+    with HasCloseContext { self: FlagCloseable =>
 
   protected implicit val executionContext: ExecutionContext
 
@@ -465,6 +474,8 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   protected def sequencerMember: Member
 
   protected def batchingConfig: BatchingConfig
+
+  protected def timeouts: ProcessingTimeout
 
   protected def sequencerMetrics: SequencerMetrics
 
@@ -583,7 +594,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   /** In case of single instance sequencer we can use in-memory fanout buffer for events */
   final def bufferEvents(
       events: NonEmpty[Seq[Sequenced[IdOrPayload]]]
-  ): Unit =
+  )(implicit traceContext: TraceContext): Unit =
     if (eventsBufferEnabled) eventsBuffer.bufferEvents(events)
 
   final def resetAndPreloadBuffer()(implicit
@@ -1078,6 +1089,7 @@ object SequencerStore {
           sequencerMember,
           blockSequencerMode = blockSequencerMode,
           loggerFactory,
+          timeouts,
           sequencerMetrics = sequencerMetrics,
         )
       case dbStorage: DbStorage =>

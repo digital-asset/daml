@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
@@ -17,12 +17,18 @@ import scala.jdk.CollectionConverters.*
 
 /*
  * This test is used to test the logical synchronizer upgrade.
- * It uses 2 participants, 2 sequencers and 2 mediators.
+ * It uses 3 participants, 2 sequencers and 2 mediators.
  */
-abstract class LSUEndToEndIntegrationTest extends LSUBase {
+final class LSUEndToEndIntegrationTest extends LSUBase {
 
-  override protected def testName: String = "logical-synchronizer-upgrade"
+  override protected def testName: String = "lsu-end-to-end"
 
+  registerPlugin(
+    new UseBftSequencer(
+      loggerFactory,
+      MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
+    )
+  )
   registerPlugin(new UsePostgres(loggerFactory))
 
   override protected lazy val newOldSequencers: Map[String, String] =
@@ -31,7 +37,7 @@ abstract class LSUEndToEndIntegrationTest extends LSUBase {
   override protected lazy val upgradeTime: CantonTimestamp = CantonTimestamp.Epoch.plusSeconds(30)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2S2M2_Config
+    EnvironmentDefinition.P3S2M2_Config
       .withNetworkBootstrap { implicit env =>
         new NetworkBootstrapper(S1M1)
       }
@@ -58,6 +64,7 @@ abstract class LSUEndToEndIntegrationTest extends LSUBase {
 
       eventually() {
         participants.all.forall(_.synchronizers.is_connected(fixture.newPSId)) shouldBe true
+        participants.all.forall(_.synchronizers.is_connected(fixture.currentPSId)) shouldBe false
       }
 
       oldSynchronizerNodes.all.stop()
@@ -86,8 +93,16 @@ abstract class LSUEndToEndIntegrationTest extends LSUBase {
 
       val bobIou = participant1.ledger_api.javaapi.state.acs.await(IouSyntax.modelCompanion)(bob)
 
+      // Ensure that everything still works, even when a participant (3) had done no activity prior to LSU
+      participant3.health.ping(participant1)
+      val charlie = participant3.parties.enable("Charlie")
+      participant1.ledger_api.javaapi.commands
+        .submit(Seq(bob), bobIou.id.exerciseTransfer(charlie.toLf).commands().asScala.toSeq)
+      val charlieIou =
+        participant3.ledger_api.javaapi.state.acs.await(IouSyntax.modelCompanion)(charlie)
+
       participant2.ledger_api.javaapi.commands
-        .submit(Seq(bank), bobIou.id.exerciseArchive().commands().asScala.toSeq)
+        .submit(Seq(bank), charlieIou.id.exerciseArchive().commands().asScala.toSeq)
 
       // Subsequent call should be successful
       participant1.underlying.value.sync
@@ -96,13 +111,4 @@ abstract class LSUEndToEndIntegrationTest extends LSUBase {
         .value shouldBe ()
     }
   }
-}
-
-final class LSUEndToEndBftOrderingIntegrationTest extends LSUEndToEndIntegrationTest {
-  registerPlugin(
-    new UseBftSequencer(
-      loggerFactory,
-      MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2")),
-    )
-  )
 }

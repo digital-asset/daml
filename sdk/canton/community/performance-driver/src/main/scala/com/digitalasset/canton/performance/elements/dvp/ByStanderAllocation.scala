@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.performance.elements.dvp
@@ -10,12 +10,12 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{FutureUtil, TryUtil}
+import com.digitalasset.canton.util.{FutureUtil, Mutex, TryUtil}
 import io.grpc.{Status, StatusRuntimeException}
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{ExecutionContext, blocking}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 class ByStanderAllocation(
@@ -34,12 +34,12 @@ class ByStanderAllocation(
   private val allocated = new AtomicLong(0)
   private val pending = new AtomicInteger(0)
   private val pool = ArrayBuffer[Party]()
-  private val lock = new Object()
+  private val lock = new Mutex()
 
   def next(ratio: Long, poolSize: Int)(implicit traceContext: TraceContext): Party =
     if (ratio == 0) base
     else {
-      blocking(lock.synchronized {
+      lock.exclusive {
         reducePoolIfRequired(poolSize)
         if (requested.getAndIncrement() % ratio == 0 && pending.get() < maxPending)
           requestNext(poolSize)
@@ -51,7 +51,7 @@ class ByStanderAllocation(
           val randomIdx = PseudoRandom.randomUnsigned(pool.size)
           pool(randomIdx)
         }
-      })
+      }
     }
 
   private def reducePoolIfRequired(size: Int): Unit =
@@ -70,7 +70,7 @@ class ByStanderAllocation(
       .allocateParty(hint)
       .map(details => new com.daml.ledger.javaapi.data.Party(details.party))
       .map { party =>
-        blocking(lock.synchronized {
+        (lock.exclusive {
           logger.debug(s"Allocated new bystander party $party as pending=$count")
           metric.updateValue(x => Math.max(x, idx))
           if (poolSize > pool.size) {

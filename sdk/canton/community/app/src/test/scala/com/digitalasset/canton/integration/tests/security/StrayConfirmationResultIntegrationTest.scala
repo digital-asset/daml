@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.security
@@ -96,6 +96,7 @@ class StrayConfirmationResultIntegrationTest
             val signedModifiedRequest = signModifiedSubmissionRequest(
               alsoSendToP2,
               mediator1.underlying.value.replicaManager.mediatorRuntime.value.mediator.syncCrypto,
+              Some(environment.now),
             )
             SendDecision.Replace(signedModifiedRequest)
           } else SendDecision.Process

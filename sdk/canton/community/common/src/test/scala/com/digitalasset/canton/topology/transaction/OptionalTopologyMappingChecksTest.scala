@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.transaction
@@ -12,7 +12,7 @@ import com.digitalasset.canton.topology.store.{
   ValidatedTopologyTransaction,
 }
 import com.digitalasset.canton.topology.transaction.checks.OptionalTopologyMappingChecks
-import com.digitalasset.canton.topology.{DefaultTestIdentities, MediatorId, SequencerId}
+import com.digitalasset.canton.topology.{MediatorId, SequencerId}
 
 import scala.annotation.nowarn
 
@@ -29,33 +29,8 @@ class OptionalTopologyMappingChecksTest
     )
 
   "OptionalTopologyMappingChecks" when {
-    import DefaultTestIdentities.{synchronizerId, participant1, party1}
     import factory.TestingTransactions.*
 
-    "validating SynchronizerTrustCertificate" should {
-      "reject a removal when the participant still hosts a party" in {
-        val (checks, store) = mk()
-        val ptp = factory.mkAdd(
-          PartyToParticipant.tryCreate(
-            party1,
-            PositiveInt.one,
-            Seq(participant1 -> ParticipantPermission.Submission),
-          )
-        )
-        addToStore(
-          store,
-          ptp,
-        )
-        val prior = factory.mkAdd(SynchronizerTrustCertificate(participant1, synchronizerId))
-
-        val dtc =
-          factory.mkRemove(SynchronizerTrustCertificate(participant1, synchronizerId))
-        checkTransaction(checks, dtc, Some(prior)) shouldBe Left(
-          TopologyTransactionRejection.OptionalMapping
-            .ParticipantStillHostsParties(participant1, Seq(party1))
-        )
-      }
-    }
     "validating MediatorSynchronizerState" should {
 
       "report MembersCannotRejoinSynchronizer for mediators that are being re-onboarded" in {

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.cache
@@ -12,10 +12,10 @@ import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQuer
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.*
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
 import scala.collection.View
-import scala.concurrent.blocking
 
 /** The in-memory fan-out buffer.
   *
@@ -49,6 +49,7 @@ class InMemoryFanoutBuffer(
   private val pushTimer = bufferMetrics.push
   private val pruneTimer = bufferMetrics.prune
   private val bufferSizeHistogram = bufferMetrics.bufferSize
+  private val lock = new Mutex()
 
   /** Appends a new event to the buffer.
     *
@@ -60,7 +61,7 @@ class InMemoryFanoutBuffer(
   def push(entry: TransactionLogUpdate): Unit =
     Timed.value(
       pushTimer,
-      blocking(synchronized {
+      (lock.exclusive {
         _bufferLog.lastOption.foreach {
           // Encountering a non-strictly increasing offset is an error condition.
           case (lastOffset, _) if lastOffset >= entry.offset =>
@@ -164,7 +165,7 @@ class InMemoryFanoutBuffer(
   def prune(endInclusive: Offset): Unit =
     Timed.value(
       pruneTimer,
-      blocking(synchronized {
+      (lock.exclusive {
         val dropCount = _bufferLog.view.map(_._1).search(endInclusive) match {
           case Found(foundIndex) => foundIndex + 1
           case InsertionPoint(insertionPoint) => insertionPoint
@@ -175,13 +176,13 @@ class InMemoryFanoutBuffer(
     )
 
   /** Remove all buffered entries */
-  def flush(): Unit = blocking(synchronized {
+  def flush(): Unit = (lock.exclusive {
     _bufferLog = Vector.empty
     _lookupMap = Map.empty
   })
 
-  private def ensureSize(targetSize: Int)(implicit traceContext: TraceContext): Unit = blocking(
-    synchronized {
+  private def ensureSize(targetSize: Int)(implicit traceContext: TraceContext): Unit = (
+    lock.exclusive {
       val currentBufferLogSize = _bufferLog.size
       val currentLookupMapSize = _lookupMap.size
 
@@ -203,7 +204,7 @@ class InMemoryFanoutBuffer(
     }
   )
 
-  private def dropOldest(dropCount: Int): Unit = blocking(synchronized {
+  private def dropOldest(dropCount: Int): Unit = (lock.exclusive {
     val (evicted, remainingBufferLog) = _bufferLog.splitAt(dropCount)
     val lookupKeysToEvict: View[String] =
       evicted.view.map(_._2).flatMap(extractEntryFromMap).map(_._1)

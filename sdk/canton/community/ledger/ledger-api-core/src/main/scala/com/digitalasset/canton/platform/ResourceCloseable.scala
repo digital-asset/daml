@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform
@@ -7,8 +7,7 @@ import com.daml.ledger.resources.Resource
 import com.digitalasset.canton.lifecycle.{AsyncCloseable, AsyncOrSyncCloseable, FlagCloseableAsync}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.tracing.TraceContext
-
-import scala.concurrent.blocking
+import com.digitalasset.canton.util.Mutex
 
 /** This helper class serves as a bridge between FlagCloseable (canton's shutdown/resource manager
   * trait) and Resource (daml's shutdown/resource management container). Recommended usage:
@@ -22,7 +21,9 @@ import scala.concurrent.blocking
 abstract class ResourceCloseable extends FlagCloseableAsync with NamedLogging {
   private var closeableResource: Option[AsyncCloseable] = None
 
-  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = blocking(synchronized {
+  private val lock = new Mutex()
+
+  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = (lock.exclusive {
     List(
       closeableResource.getOrElse(
         throw new IllegalStateException(
@@ -34,7 +35,7 @@ abstract class ResourceCloseable extends FlagCloseableAsync with NamedLogging {
 
   def registerResource(resource: Resource[?], name: String)(implicit
       traceContext: TraceContext
-  ): this.type = blocking(synchronized {
+  ): this.type = (lock.exclusive {
     this.closeableResource.foreach(_ =>
       throw new IllegalStateException(
         "Programming error: resource registered multiple times. Please use ResourceOwnerFlagCloseableOps.acquireFlagCloseable."

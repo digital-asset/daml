@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.plugins
@@ -9,10 +9,11 @@ import com.digitalasset.canton.integration.TestConsoleEnvironment
 import com.digitalasset.canton.integration.util.CommandRunner
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
 import com.digitalasset.canton.store.db.PostgresTestContainerSetup
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.canton.{TempDirectory, TempFile}
 
 import java.nio.file.Path
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process.*
 
 /** The main purpose of this trait is to expose methods to dump and restore Postgres databases. The
@@ -124,13 +125,16 @@ final case class LocalPostgresDumpRestore(plugin: UsePostgres) extends PostgresD
 }
 
 object LocalPostgresDumpRestore {
+
+  private val lock = new Mutex()
+
   // in rare cases, this lead to issues with concurrent copying because in the jdk 11 `UnixCopyFile` implementation,
   // `overwrite` means first deleting and then writing the file - thus this is not thread-safe if copying to the same
   // directory
-  def copy(src: File, tempDirectory: TempDirectory): Unit = blocking(this.synchronized {
+  def copy(src: File, tempDirectory: TempDirectory): Unit = lock.exclusive {
     if (!tempDirectory.directory.exists) tempDirectory.directory.createDirectoryIfNotExists()
     src.copyToDirectory(tempDirectory.directory)(copyOptions = File.CopyOptions(overwrite = true))
-  })
+  }
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.Throw"))

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.data.memory
@@ -13,15 +13,16 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.data.P2PEndpointsStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 
 import scala.collection.mutable
-import scala.concurrent.blocking
 import scala.util.{Success, Try}
 
 abstract class GenericInMemoryP2PEndpointsStore[E <: Env[E]](
     initialEndpoints: Set[P2PEndpoint]
 ) extends P2PEndpointsStore[E] {
 
+  private val lock = new Mutex()
   private val endpoints = new mutable.HashMap[P2PEndpoint.Id, P2PEndpoint]
   initialEndpoints.foreach(endpoint => endpoints.put(endpoint.id, endpoint).discard)
 
@@ -30,55 +31,47 @@ abstract class GenericInMemoryP2PEndpointsStore[E <: Env[E]](
   override final def listEndpoints(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Seq[P2PEndpoint]] =
-    blocking {
-      synchronized {
-        createFuture("") { () =>
-          Success(
-            endpoints.keySet.toSeq.sorted.map(endpointId => endpoints(endpointId))
-          )
-        }
+    lock.exclusive {
+      createFuture("") { () =>
+        Success(
+          endpoints.keySet.toSeq.sorted.map(endpointId => endpoints(endpointId))
+        )
       }
     }
 
   override final def addEndpoint(endpoint: P2PEndpoint)(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Boolean] =
-    blocking {
-      synchronized {
-        createFuture("") { () =>
-          val endpointId = endpoint.id
-          val changed =
-            if (!endpoints.contains(endpointId)) {
-              endpoints.addOne(endpointId -> endpoint).discard
-              true
-            } else {
-              false
-            }
-          Success(changed)
-        }
+    lock.exclusive {
+      createFuture("") { () =>
+        val endpointId = endpoint.id
+        val changed =
+          if (!endpoints.contains(endpointId)) {
+            endpoints.addOne(endpointId -> endpoint).discard
+            true
+          } else {
+            false
+          }
+        Success(changed)
       }
     }
 
   override final def removeEndpoint(endpointId: P2PEndpoint.Id)(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Boolean] =
-    blocking {
-      synchronized {
-        createFuture("") { () =>
-          Success(endpoints.remove(endpointId).isDefined)
-        }
+    lock.exclusive {
+      createFuture("") { () =>
+        Success(endpoints.remove(endpointId).isDefined)
       }
     }
 
   override final def clearAllEndpoints()(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Unit] =
-    blocking {
-      synchronized {
-        createFuture("") { () =>
-          Success {
-            endpoints.clear()
-          }
+    lock.exclusive {
+      createFuture("") { () =>
+        Success {
+          endpoints.clear()
         }
       }
     }

@@ -1005,6 +1005,14 @@ components:
             Set if it was requested in the ``InterfaceFilter`` and it could be
             successfully computed.
             Optional
+        implementationPackageId:
+          description: |-
+            The package defining the interface implementation used to compute the view.
+            Can be different from the package that was used to create the contract itself,
+            as the contract arguments can be upgraded or downgraded using smart-contract upgrading
+            as part of computing the interface view.
+            Populated if the view computation is successful, otherwise empty.
+          type: string
     JsEmpty:
       title: JsEmpty
       type: object

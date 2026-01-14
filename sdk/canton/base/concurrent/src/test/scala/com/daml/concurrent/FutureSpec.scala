@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.concurrent
@@ -41,7 +41,7 @@ class FutureSpec extends AnyWordSpec with Matchers {
     "not lose its type to conversion" in {
       illTyped(
         "someCatFuture: sc.Future[Int]",
-        "type mismatch.*daml.concurrent.Future.*\\n.*scala.concurrent.Future.*",
+        "type mismatch.*daml.concurrent.Future.*(\\n|\\|).*scala.concurrent.Future.*",
       )
     }
   }
@@ -57,7 +57,7 @@ class FutureSpec extends AnyWordSpec with Matchers {
       import scalaz.syntax.bind.*, TestImplicits.Elephant
       illTyped(
         "someElephantFuture flatMap (_ => someCatFuture)",
-        "type mismatch.*Cat.*\\n.*Elephant.*",
+        "type mismatch.*Cat.*(\\n|\\|).*Elephant.*",
       )
     }
 

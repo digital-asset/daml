@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.store.db
@@ -14,7 +14,7 @@ import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.crypto.topology.TopologyStateHash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, PromiseUnlessShutdown}
-import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.resource.DbStorage.{DbAction, SQLActionBuilderChain}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.store.IndexedTopologyStoreId
@@ -31,6 +31,7 @@ import com.digitalasset.canton.topology.store.TopologyStore.{
   EffectiveStateChange,
   TopologyStoreDeactivations,
 }
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -41,7 +42,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
   TxHash,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{DBIOUtil, LoggerUtil, MonadUtil, PekkoUtil}
+import com.digitalasset.canton.util.{DBIOUtil, ErrorUtil, LoggerUtil, MonadUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.NotUsed
@@ -54,10 +55,10 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 import scala.math.Ordering.Implicits.*
 
-class DbTopologyStore[StoreId <: TopologyStoreId](
+class DbTopologyStore[+StoreId <: TopologyStoreId](
     override protected val storage: DbStorage,
     val storeId: StoreId,
-    storeIndex: IndexedTopologyStoreId,
+    val storeIndex: IndexedTopologyStoreId,
     override val protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     protected val batchingConfig: BatchingConfig,
@@ -74,7 +75,28 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       : GetResult[GenericSignedTopologyTransaction] =
     SignedTopologyTransaction.createGetResultSynchronizerTopologyTransaction
 
-  def findLatestTransactionsAndProposalsByTxHash(hashes: Set[TxHash])(implicit
+  override def fetchAllDescending(uids: Set[UniqueIdentifier], nss: Set[Namespace])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
+
+    // TODO(#29400) replace this with DbStorage.toInClause after we've merged identifier and namespace
+    val items = uids.map(uid =>
+      sql"(namespace = ${uid.namespace} AND identifier = ${uid.identifier})"
+    ) ++ nss.map(ns => sql"(namespace = $ns AND identifier = ${String185.empty})")
+
+    storage
+      .query(
+        buildQueryForTransactions(
+          sql" AND (" ++ items.intercalate(sql" OR ") ++ sql")",
+          orderBy = " ORDER BY valid_from DESC, batch_idx DESC",
+        ),
+        "fetch-all-topo",
+      )
+      .map(toStoredTopologyTransactions)
+
+  }
+
+  override def findLatestTransactionsAndProposalsByTxHash(hashes: Set[TxHash])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
     if (hashes.isEmpty) FutureUnlessShutdown.pure(Seq.empty)
@@ -97,36 +119,6 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         ).map(_.collectLatestByTxHash.result.map(_.transaction))
       }
     }
-
-  override def findProposalsByTxHash(
-      asOfExclusive: EffectiveTime,
-      hashes: NonEmpty[Set[TxHash]],
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] = {
-    logger.debug(
-      s"Querying proposals for tx hashes ${LoggerUtil.limitForLogging(hashes)} as of $asOfExclusive"
-    )
-    MonadUtil.batchedSequentialTraverse(
-      parallelism = batchingConfig.parallelism,
-      chunkSize = batchingConfig.maxItemsInBatch,
-    )(hashes.toSeq) { batch =>
-      toSignedTopologyTransactions(
-        storage.query(
-          buildQueryForTransactions(
-            asOfQuery(
-              asOfExclusive.value,
-              asOfInclusive = false,
-            ) ++ sql" AND is_proposal = true AND (" ++ batch
-              .map(txHash => sql"tx_hash = ${txHash.hash}")
-              .toList
-              .intercalate(sql" OR ") ++ sql")"
-          ),
-          operationName = "proposalsByTxHash",
-        )
-      )
-    }
-  }
 
   override def findTransactionsForMapping(
       asOfExclusive: EffectiveTime,
@@ -207,13 +199,17 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
             logger.debug(s"Processing addition batch $bulkIdx")
             insertSignedTransaction[(GenericValidatedTopologyTransaction, Int)] {
               case (vtx, batchIdx) =>
+                val validUntil = Option.when(
+                  vtx.rejectionReason.nonEmpty || vtx.expireImmediately
+                )(effective)
+                TopologyMapping.loggerDebug(vtx.transaction.mapping.code)(
+                  s"Adding as batch $effective / $validUntil ${vtx.transaction}"
+                )
                 TransactionEntry(
                   sequenced,
                   effective,
                   batchIdx = batchIdx,
-                  Option.when(
-                    vtx.rejectionReason.nonEmpty || vtx.expireImmediately
-                  )(effective),
+                  validUntil,
                   vtx.transaction,
                   vtx.rejectionReason.map(_.asString300),
                 )
@@ -270,6 +266,54 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       operationName = "bulk-insert",
     )
 
+  }
+
+  override def copyFromPredecessorSynchronizerStore(
+      sourceStore: TopologyStore[SynchronizerStore]
+  )(implicit
+      ev: StoreId <:< SynchronizerStore,
+      errorLoggingContext: ErrorLoggingContext,
+  ): FutureUnlessShutdown[Unit] = {
+    implicit val tc = errorLoggingContext.traceContext
+    val targetPSId = ev(storeId).psid
+    val sourcePSId = sourceStore.storeId.psid
+
+    for {
+      _ <- ErrorUtil.requireArgumentAsyncShutdown(
+        targetPSId.logical == sourcePSId.logical,
+        s"unexpected logical synchronizer id: expected=${targetPSId.logical}, actual=${sourcePSId.logical}",
+      )
+      _ <- ErrorUtil.requireArgumentAsyncShutdown(
+        sourcePSId < targetPSId,
+        s"source synchronizer [$targetPSId] is not a predecessor of the target synchronizer [$targetPSId]",
+      )
+      sourceDbStore <- sourceStore match {
+        case dbStore: DbTopologyStore[SynchronizerStore] => FutureUnlessShutdown.pure(dbStore)
+        case store =>
+          ErrorUtil.invalidArgumentAsyncShutdown(
+            s"cannot transfer topology from a topology store of type ${store.getClass} to $this"
+          )
+      }
+      mappingTypeInClause = DbStorage.toInClause(
+        "transaction_type",
+        TopologyMapping.Code.lsuMappingsExcludedFromUpgrade,
+      )
+
+      // The filters here must be kept in sync with the filters in
+      // - GrpcTopologyManagerReadService.logicalUpgradeState
+      // - InMemoryTopologyStore.copyFromPredecessorSynchronizerStore
+      insert = sql"""
+               insert into common_topology_transactions (store_id, sequenced, valid_from, batch_idx, valid_until, transaction_type, namespace, identifier,
+                  mapping_key_hash, serial_counter, operation, instance, tx_hash, is_proposal, representative_protocol_version, hash_of_signatures)
+               select $storeIndex as store_id, sequenced, valid_from, batch_idx, valid_until, transaction_type, namespace,
+                  identifier, mapping_key_hash, serial_counter, operation, instance, tx_hash, is_proposal, representative_protocol_version, hash_of_signatures
+               from common_topology_transactions
+               where store_id = ${sourceDbStore.storeIndex} and (is_proposal = false or valid_until is null) and rejection_reason is null and not """ ++ mappingTypeInClause ++ sql" order by id" ++
+        sql" ON CONFLICT DO NOTHING" // idempotency-"conflict" based on common_topology_transactions unique constraint
+      numInserted <- storage.update(insert.asUpdate, functionFullName)
+    } yield {
+      logger.info(s"Transferred $numInserted topology transactions from $sourcePSId to $targetPSId")
+    }
   }
 
   @VisibleForTesting
@@ -518,6 +562,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       types: Seq[TopologyMapping.Code],
       filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
       filterNamespace: Option[NonEmpty[Seq[Namespace]]],
+      pagination: Option[(Option[UniqueIdentifier], Int)] = None,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[NegativeStoredTopologyTransactions] =
     findTransactionsBatchingUidFilter(
       asOf,
@@ -527,6 +572,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       filterUid,
       filterNamespace,
       TopologyChangeOp.Remove.some,
+      pagination,
     ).map(_.collectOfType[TopologyChangeOp.Remove])
 
   override def findFirstSequencerStateForSequencer(sequencerId: SequencerId)(implicit
@@ -953,7 +999,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
       filterNamespace: Option[NonEmpty[Seq[Namespace]]],
       filterOp: Option[TopologyChangeOp],
-      pagination: Option[(Option[UniqueIdentifier], Int)] = None,
+      pagination: Option[(Option[UniqueIdentifier], Int)],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {

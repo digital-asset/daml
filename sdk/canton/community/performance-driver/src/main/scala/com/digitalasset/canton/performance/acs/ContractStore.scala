@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.performance.acs
@@ -6,10 +6,9 @@ package com.digitalasset.canton.performance.acs
 import com.daml.ledger.javaapi.data.codegen.{Contract, ContractCompanion, ContractId}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.{ErrorUtil, Mutex}
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.blocking
 
 /** A in-memory contract store with trivial indexing and query capabilities
   *
@@ -56,6 +55,7 @@ class ContractStore[TC <: Contract[TCid, T], TCid <: ContractId[T], T, L](
   // our contract store with a flag indicating if there is a pending command which will consume the
   // contract if it succeeds
   private val store = TrieMap[ContractId[T], (Boolean, TC)]()
+  private val lock = new Mutex()
 
   // lookup data structure which tracks a list of contract ids that map to a given index L and a counter of how many of
   // these contracts are pending.
@@ -87,7 +87,7 @@ class ContractStore[TC <: Contract[TCid, T], TCid <: ContractId[T], T, L](
   /** return total number of contracts in store, pending and non-pending */
   def totalNum: Int = store.size
 
-  def setPending(cid: ContractId[T], isPending: Boolean): Boolean = blocking(synchronized {
+  def setPending(cid: ContractId[T], isPending: Boolean): Boolean = (lock.exclusive {
     val current = store.get(cid)
     current.foreach { case (currentState, contract) =>
       logger.debug(s"Setting $cid to pending = $isPending")
@@ -120,7 +120,7 @@ class ContractStore[TC <: Contract[TCid, T], TCid <: ContractId[T], T, L](
 
   protected def update(before: TC): TC = before
 
-  override protected def processCreate_(create: TC): Unit = blocking(synchronized {
+  override protected def processCreate_(create: TC): Unit = (lock.exclusive {
     if (filter(create)) {
       store += (create.id -> ((false, update(create))))
       val idx = index(create)
@@ -136,7 +136,7 @@ class ContractStore[TC <: Contract[TCid, T], TCid <: ContractId[T], T, L](
     }
   })
 
-  override protected def processArchive_(archive: ContractId[T]): Unit = blocking(synchronized {
+  override protected def processArchive_(archive: ContractId[T]): Unit = (lock.exclusive {
     logger.debug(s"Observed archive ${name.unquoted} $archive")
     val contract = store.remove(archive)
     contract.foreach { case (pending, contract) =>

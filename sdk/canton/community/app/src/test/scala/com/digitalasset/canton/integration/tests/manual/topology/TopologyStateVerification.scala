@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.manual.topology
@@ -282,14 +282,15 @@ class TopologyStateVerification(
 
       processor = TopologyStateProcessor.forTransactionProcessing(
         topologyStore,
-        new TopologyMappingChecks.All(
-          RequiredTopologyMappingChecks(
-            topologyStore,
-            Some(crypto.staticSynchronizerParameters),
-            replayLoggerFactory,
+        lookup =>
+          new TopologyMappingChecks.All(
+            RequiredTopologyMappingChecks(
+              Some(crypto.staticSynchronizerParameters),
+              lookup,
+              replayLoggerFactory,
+            ),
+            new OptionalTopologyMappingChecks(topologyStore, replayLoggerFactory),
           ),
-          new OptionalTopologyMappingChecks(topologyStore, replayLoggerFactory),
-        ),
         crypto.pureCrypto,
         replayLoggerFactory,
       )

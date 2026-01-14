@@ -1,0 +1,140 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+    "lf_scalacopts",
+    "lf_scalacopts_stricter",
+)
+load(
+    "//canton/community/daml-lf/language:daml-lf.bzl",
+    "FEATURES",
+    "RAW_ALL_LF_VERSIONS",
+    "RAW_COMPILER_INPUT_LF_VERSIONS",
+    "RAW_COMPILER_OUTPUT_LF_VERSIONS",
+    "RAW_DEFAULT_LF_VERSION",
+    "RAW_DEV_LF_VERSION",
+    "RAW_LATEST_STABLE_LF_VERSION",
+    "RAW_STABLE_LF_VERSIONS",
+    "RAW_STAGING_LF_VERSION",
+)
+
+da_scala_library(
+    name = "language",
+    srcs = glob(["src/main/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    tags = ["maven_coordinates=com.daml:daml-lf-language:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//canton:nameof",
+        "//canton/community/daml-lf/data",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_test(
+    name = "language-test",
+    size = "small",
+    srcs = glob(["src/test/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_wordspec",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":language",
+        "//canton/community/daml-lf/data",
+    ],
+)
+
+_VERSION_GENERATING_PACKAGES = ["//compiler/daml-lf-ast:__pkg__"]
+
+genrule(
+    name = "version_data_json",
+    outs = ["versions.json"],
+    cmd = """
+cat << EOF > $@
+{json}
+EOF
+""".format(
+        json = json.encode({
+            "allLfVersions": RAW_ALL_LF_VERSIONS,
+            "stableLfVersions": RAW_STABLE_LF_VERSIONS,
+            "latestStableLfVersion": RAW_LATEST_STABLE_LF_VERSION,
+            "defaultLfVersion": RAW_DEFAULT_LF_VERSION,
+            "devLfVersion": RAW_DEV_LF_VERSION,
+            "stagingLfVersion": RAW_STAGING_LF_VERSION,
+            "compilerInputLfVersions": RAW_COMPILER_INPUT_LF_VERSIONS,
+            "compilerOutputLfVersions": RAW_COMPILER_OUTPUT_LF_VERSIONS,
+        }),
+    ),
+    visibility = _VERSION_GENERATING_PACKAGES,
+)
+
+py_binary(
+    name = "generate_haskell_versions",
+    srcs = ["generate_haskell_versions.py"],
+    visibility = _VERSION_GENERATING_PACKAGES,
+)
+
+py_binary(
+    name = "generate_scala_versions",
+    srcs = ["generate_scala_versions.py"],
+    visibility = _VERSION_GENERATING_PACKAGES,
+)
+
+genrule(
+    name = "feature_data_json",
+    outs = ["features.json"],
+    cmd = """
+cat << EOF > $@
+{json}
+EOF
+""".format(
+        json = json.encode(FEATURES),
+    ),
+    visibility = _VERSION_GENERATING_PACKAGES,
+)
+
+# TEMPORARILY DISABLED FOR MOVE TO CANTON, GENERATION TARGET CANNOT BE ACTIVE
+# EVEN IF UNUSED (NOT SURE WHY)
+#
+# genrule(
+#     name = "generated_scala_versions_src",
+#     srcs = [
+#         "//canton/community/daml-lf/language:version_data_json",
+#     ],
+#     outs = ["src/main/scala/com/digitalasset/daml/lf/language/LanguageVersionGen.scala"],
+#     cmd = "$(location //canton/community/daml-lf/language:generate_scala_versions) $(location //canton/community/daml-lf/language:version_data_json) $@",
+#     tools = ["//canton/community/daml-lf/language:generate_scala_versions"],
+# )
+
+py_binary(
+    name = "generate_haskell_features",
+    srcs = ["generate_haskell_features.py"],
+    visibility = _VERSION_GENERATING_PACKAGES,
+    deps = [],
+)
+
+py_binary(
+    name = "generate_scala_features",
+    srcs = ["generate_scala_features.py"],
+    visibility = _VERSION_GENERATING_PACKAGES,
+)
+
+# TEMPORARILY DISABLED FOR MOVE TO CANTON, GENERATION TARGET CANNOT BE ACTIVE
+# EVEN IF UNUSED (NOT SURE WHY)
+#
+# genrule(
+#     name = "generated_scala_features_src",
+#     srcs = [
+#         "//canton/community/daml-lf/language:feature_data_json",
+#     ],
+#     outs = ["src/main/scala/com/digitalasset/daml/lf/language/LanguageFeatureGen.scala"],
+#     cmd = "$(location //canton/community/daml-lf/language:generate_scala_features) $(location //canton/community/daml-lf/language:feature_data_json) $@",
+#     tools = ["//canton/community/daml-lf/language:generate_scala_features"],
+# )

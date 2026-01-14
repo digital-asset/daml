@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.reliability
@@ -101,8 +101,9 @@ trait AcsCommitmentRestartIntegrationTest
       LedgerApiStore
         .initialize(
           storageConfig = participant.config.storage,
+          storage = None,
           ledgerParticipantId = LedgerParticipantId.assertFromString("fakeid"),
-          legderApiDatabaseConnectionTimeout = LedgerApiServerConfig().databaseConnectionTimeout,
+          ledgerApiDatabaseConnectionTimeout = LedgerApiServerConfig().databaseConnectionTimeout,
           ledgerApiPostgresDataSourceConfig = PostgresDataSourceConfig(),
           timeouts = timeouts,
           loggerFactory = loggerFactory,

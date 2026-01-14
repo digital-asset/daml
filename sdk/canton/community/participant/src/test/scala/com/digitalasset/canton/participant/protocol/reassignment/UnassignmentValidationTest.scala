@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -14,6 +14,7 @@ import com.digitalasset.canton.data.{
   UnassignmentViewTree,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.*
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.mkActivenessResult
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentDataHelpers.TestValidator
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
@@ -33,6 +34,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{ContractValidator, ReassignmentTag}
 import org.scalatest.wordspec.AnyWordSpec
@@ -348,28 +350,37 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       reassigningParticipants.toSeq.tail*
     )
     val signature = cryptoSnapshot
-      .sign(fullUnassignmentTree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+      .sign(fullUnassignmentTree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly, None)
       .futureValueUS
       .value
     val parsed = mkParsedRequest(fullUnassignmentTree, recipients, Some(signature))
 
     val getTopologyAtTs = new GetTopologyAtTimestamp {
-      import com.digitalasset.canton.tracing.TraceContext
+
       override def maybeAwaitTopologySnapshot(
           targetPSId: Target[PhysicalSynchronizerId],
           requestedTimestamp: Target[CantonTimestamp],
-      )(implicit tc: TraceContext) = EitherT.rightT(targetTopology)
+      )(implicit
+          traceContext: TraceContext
+      ): EitherT[
+        FutureUnlessShutdown,
+        ReassignmentProcessorError,
+        Option[Target[TopologySnapshot]],
+      ] = EitherT.rightT[FutureUnlessShutdown, ReassignmentProcessorError](targetTopology)
+
     }
 
     val unassignmentValidation = UnassignmentValidation(
       isReassigningParticipant = true,
       participantId = confirmingParticipant,
       contractValidator = contractValidator,
-      activenessF = FutureUnlessShutdown.pure(mkActivenessResult()),
       getTopologyAtTs = getTopologyAtTs,
     )
 
-    unassignmentValidation.perform(parsedRequest = parsed)
+    unassignmentValidation.perform(
+      parsedRequest = parsed,
+      activenessF = FutureUnlessShutdown.pure(mkActivenessResult()),
+    )
   }
 
   private def performValidation(

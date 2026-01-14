@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -6,7 +6,7 @@ package com.digitalasset.canton.protocol
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{Salt, TestHash, TestSalt}
 import com.digitalasset.canton.util.{LfTransactionBuilder, TestContractHasher}
-import com.digitalasset.canton.{LfPartyId, protocol}
+import com.digitalasset.canton.{LfPackageId, LfPartyId, protocol}
 import com.digitalasset.daml.lf.data.Ref.PackageName
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.transaction.{
@@ -36,6 +36,7 @@ object ExampleContractFactory extends EitherValues {
   val observer: LfPartyId = LfPartyId.assertFromString("observer::default")
   val extra: LfPartyId = LfPartyId.assertFromString("extra::default")
 
+  val packageId: LfPackageId = LfTransactionBuilder.defaultPackageId
   val templateId: LfTemplateId = LfTransactionBuilder.defaultTemplateId
   val packageName: PackageName = LfTransactionBuilder.defaultPackageName
 

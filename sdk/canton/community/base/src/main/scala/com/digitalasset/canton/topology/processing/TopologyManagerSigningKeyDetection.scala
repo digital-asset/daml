@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -12,6 +12,10 @@ import com.digitalasset.canton.crypto.{CryptoPureApi, Fingerprint}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.topology.cache.{
+  StoreBasedTopologyStateLookupByNamespace,
+  TopologyStateLookupByNamespace,
+}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.TopologyMapping.{Code, ReferencedAuthorizations}
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.GenericTopologyTransaction
@@ -60,13 +64,16 @@ import scala.concurrent.ExecutionContext
   * available), it is deterministic.
   */
 class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
-    @VisibleForTesting override protected[processing] val store: TopologyStore[TopologyStoreId],
+    @VisibleForTesting val store: TopologyStore[TopologyStoreId],
     protected val pureCrypto: PureCrypto,
     protected val cryptoPrivateStore: CryptoPrivateStore,
     val loggerFactory: NamedLoggerFactory,
 )(implicit override val executionContext: ExecutionContext)
     extends TransactionAuthorizationCache[PureCrypto]
     with NamedLogging {
+
+  override protected val lookup: TopologyStateLookupByNamespace =
+    new StoreBasedTopologyStateLookupByNamespace(store)
 
   private def filterKnownKeysForNamespace(
       namespace: Namespace,

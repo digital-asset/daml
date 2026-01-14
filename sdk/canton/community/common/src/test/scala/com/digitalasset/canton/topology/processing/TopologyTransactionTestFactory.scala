@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -24,7 +24,12 @@ class TopologyTransactionTestFactory(
     loggerFactory: NamedLoggerFactory,
     initEc: ExecutionContext,
     multiHash: Boolean = false,
-) extends TestingOwnerWithKeys(sequencerId, loggerFactory, initEc, multiHash) {
+) extends TestingOwnerWithKeys(
+      sequencerId,
+      loggerFactory,
+      initEc,
+      multiHash,
+    ) {
 
   import SigningKeys.*
 

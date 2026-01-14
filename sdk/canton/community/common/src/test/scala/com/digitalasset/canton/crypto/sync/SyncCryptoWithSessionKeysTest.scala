@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.sync
@@ -51,6 +51,9 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
   private def cutOffDuration(p: SynchronizerCryptoClient) =
     p.syncCryptoSigner.asInstanceOf[SyncCryptoSignerWithSessionKeys].cutOffDuration
 
+  private def toleranceShiftDuration(p: SynchronizerCryptoClient) =
+    p.syncCryptoSigner.asInstanceOf[SyncCryptoSignerWithSessionKeys].toleranceShiftDuration
+
   private def setSessionKeyEvictionPeriod(
       p: SynchronizerCryptoClient,
       newPeriod: FiniteDuration,
@@ -70,6 +73,7 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
       p: SynchronizerCryptoClient = p1,
       validityPeriodLength: PositiveFiniteDuration =
         PositiveFiniteDuration.ofSeconds(validityDuration.underlying.toSeconds),
+      approximateTimestampOverride: Option[CantonTimestamp] = None,
   ): SignatureDelegation = {
 
     val cache = sessionKeysCache(p)
@@ -93,12 +97,11 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
     signature.signedBy shouldBe sessionKeyId
 
     // Verify it has the correct validity period
-    val margin = cutOffDuration(p).asJava.dividedBy(2)
-    validityPeriod shouldBe
-      SignatureDelegationValidityPeriod(
-        topologySnapshot.timestamp.minus(margin),
-        validityPeriodLength,
-      )
+    val ts = approximateTimestampOverride.getOrElse(topologySnapshot.timestamp)
+    validityPeriod shouldBe SignatureDelegationValidityPeriod(
+      ts.minus(toleranceShiftDuration(p1).asJava),
+      validityPeriodLength,
+    )
 
     sessionKeyAndDelegation.signatureDelegation
   }
@@ -126,6 +129,7 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
       val signature = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -166,6 +170,7 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
         val signature = syncCryptoSignerP1Other
           .sign(
             testSnapshot,
+            None,
             hash,
             defaultUsage,
           )
@@ -185,31 +190,86 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
       }
     }
 
-    "use a new session signing key when the cut-off period has elapsed" in {
+    "reuse session key when exact timestamp and past cut-off" in {
 
       val (_, currentSessionKey) = sessionKeysCache(p1).loneElement
-      // select a timestamp that is after the cut-off period
-      val cutOffTimestamp =
+
+      // select a timestamp that is after the "end" cut-off period
+      val (_, end) =
         currentSessionKey.signatureDelegation.validityPeriod
-          .computeCutOffTimestamp(cutOffDuration(p1).asJava)
+          .computeCutOffTimestamp(cutOffDuration(p1).asJava, approximateTimestamp = true)
 
-      val afterCutOffSnapshot =
-        testingTopology.topologySnapshot(timestampOfSnapshot = cutOffTimestamp)
+      val testSnapshotWithEndTimestamp = testingTopology.topologySnapshot(timestampOfSnapshot = end)
 
-      val signature = syncCryptoSignerP1
+      testSnapshotWithEndTimestamp.timestamp shouldBe end
+
+      // we use an "exact" timestamp to sign
+      val signatureEnd = syncCryptoSignerP1
         .sign(
-          afterCutOffSnapshot,
+          testSnapshotWithEndTimestamp,
+          None,
           hash,
           defaultUsage,
         )
         .valueOrFail("sign failed")
         .futureValueUS
 
-      checkSignatureDelegation(afterCutOffSnapshot, signature)
+      val signatureDelegation =
+        checkSignatureDelegation(testSnapshot, signatureEnd, p1)
+
+      signatureDelegation.sessionKey shouldBe currentSessionKey.signatureDelegation.sessionKey
+      sessionKeysCache(p1).loneElement
+
+    }
+
+    "use new session key when approximate timestamp and past cut-off" in {
+
+      val (_, currentSessionKey) = sessionKeysCache(p1).loneElement
+      // select a timestamp that is after the "end" cut-off period
+      val (start, end) =
+        currentSessionKey.signatureDelegation.validityPeriod
+          .computeCutOffTimestamp(cutOffDuration(p1).asJava, approximateTimestamp = true)
+
+      // we use an "approximate" timestamp to sign
+      val signatureEnd = syncCryptoSignerP1
+        .sign(
+          testSnapshot,
+          Some(end),
+          hash,
+          defaultUsage,
+        )
+        .valueOrFail("sign failed")
+        .futureValueUS
+
+      checkSignatureDelegation(
+        testSnapshot,
+        signatureEnd,
+        approximateTimestampOverride = Some(end),
+      )
 
       // There must be a second key in the cache because we used a different session key for the latest sign call.
-      // The previous key, although still valid, has exceeded its cutoff period.
+      // For the previous key, although still valid, the signing timestamp exceeds its "end" cutoff period.
       sessionKeysCache(p1).size shouldBe 2
+
+      val signatureStart = syncCryptoSignerP1
+        .sign(
+          testSnapshot,
+          Some(start),
+          hash,
+          defaultUsage,
+        )
+        .valueOrFail("sign failed")
+        .futureValueUS
+
+      checkSignatureDelegation(
+        testSnapshot,
+        signatureStart,
+        approximateTimestampOverride = Some(start),
+      )
+
+      // There must be a third key in the cache because we used a different session key for the latest sign call.
+      // For the previous key, although still valid, the signing timestamp does not yet exceed its "start" cutoff period.
+      sessionKeysCache(p1).size shouldBe 3
 
     }
 
@@ -223,7 +283,9 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
 
       testingTopology.getTopology().freshKeys.set(true)
 
-      val newSnapshotWithFreshKeys = testingTopology.topologySnapshot()
+      val tsWhenNewKeyIsValid = CantonTimestamp.Epoch.add(validityDuration.underlying)
+      val newSnapshotWithFreshKeys =
+        testingTopology.topologySnapshot(timestampOfSnapshot = tsWhenNewKeyIsValid)
       val newLongTermKeyId =
         newSnapshotWithFreshKeys
           .signingKeys(participant1.member, defaultUsage)
@@ -236,17 +298,23 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
       val signature = syncCryptoSignerP1
         .sign(
           newSnapshotWithFreshKeys,
+          None,
           hash,
           defaultUsage,
         )
         .valueOrFail("sign failed")
         .futureValueUS
 
-      checkSignatureDelegation(newSnapshotWithFreshKeys, signature)
+      val signatureDelegation = checkSignatureDelegation(newSnapshotWithFreshKeys, signature)
 
-      signature.signatureDelegation
-        .valueOrFail("no signature delegation")
-        .delegatingKeyId shouldBe newLongTermKeyId
+      signatureDelegation.delegatingKeyId shouldBe newLongTermKeyId
+
+      // The current implementation allows the validity period to reach back
+      // to before the key was created (i.e., before it became active), since we currently only look
+      // whether a key is valid in a given topology snapshot.
+      // We could change this behavior in the future if the topology processor ends up exposing
+      // future key-deactivation events.
+      signatureDelegation.validityPeriod.fromInclusive < tsWhenNewKeyIsValid
 
     }
 
@@ -261,6 +329,7 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
       val signature = syncCryptoSignerP1
         .sign(
           testSnapshot,
+          None,
           hash,
           defaultUsage,
         )
@@ -289,6 +358,7 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
       val signatureDelegation3 = syncCryptoSignerP1
         .sign(
           testingTopology.topologySnapshot(timestampOfSnapshot = CantonTimestamp.ofEpochSecond(3)),
+          None,
           hash,
           defaultUsage,
         )
@@ -300,6 +370,7 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
       val signatureDelegation2 = syncCryptoSignerP1
         .sign(
           testingTopology.topologySnapshot(timestampOfSnapshot = CantonTimestamp.ofEpochSecond(2)),
+          None,
           hash,
           defaultUsage,
         )
@@ -311,6 +382,7 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
       val signatureDelegation1 = syncCryptoSignerP1
         .sign(
           testingTopology.topologySnapshot(timestampOfSnapshot = CantonTimestamp.ofEpochSecond(1)),
+          None,
           hash,
           defaultUsage,
         )
@@ -331,6 +403,7 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
               .addMicros(validityDuration.unwrap.toMicros)
               .add(cutOffDuration(p1).asJava)
           ),
+          None,
           hash,
           defaultUsage,
         )

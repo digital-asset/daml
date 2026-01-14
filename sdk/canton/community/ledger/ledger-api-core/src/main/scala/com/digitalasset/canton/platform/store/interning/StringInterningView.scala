@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.interning
@@ -7,6 +7,7 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.daml.lf.data.Ref.{
   ChoiceName,
   Identifier,
@@ -16,7 +17,7 @@ import com.digitalasset.daml.lf.data.Ref.{
   UserId,
 }
 
-import scala.concurrent.{Future, blocking}
+import scala.concurrent.Future
 
 class DomainStringIterators(
     val parties: Iterator[Party],
@@ -97,6 +98,7 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
     with NamedLogging {
 
   private val directEc = DirectExecutionContext(noTracingLogger)
+  private val lock = new Mutex()
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   @volatile private var raw: RawStringInterning = RawStringInterning.from(Nil)
@@ -184,7 +186,7 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
   override private[platform] def internize(
       domainStringIterators: DomainStringIterators
   ): Iterable[(Int, String)] =
-    blocking(synchronized {
+    (lock.exclusive {
       val allPrefixedStrings =
         domainStringIterators.parties.map(PartyPrefix + _) ++
           domainStringIterators.templateIds.map(TemplatePrefix + _) ++
@@ -216,7 +218,7 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
         .map(updateView)(directEc)
     }
 
-  private def updateView(newEntries: Iterable[(Int, String)]): Unit = blocking(synchronized {
+  private def updateView(newEntries: Iterable[(Int, String)]): Unit = (lock.exclusive {
     if (newEntries.nonEmpty) {
       raw = RawStringInterning.from(
         entries = newEntries,

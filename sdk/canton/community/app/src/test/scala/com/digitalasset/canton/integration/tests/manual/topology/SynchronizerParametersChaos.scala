@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.manual.topology
@@ -9,6 +9,7 @@ import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.integration.TestConsoleEnvironment
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.canton.{ScalaFuturesWithPatience, config}
 
 import java.util.concurrent.atomic.AtomicReference
@@ -150,6 +151,7 @@ class SynchronizerParametersChaos(
       }
     }
   }
+  @SuppressWarnings(Array("com.digitalasset.canton.RequireBlocking"))
   private def setParameterBlocking(
       base: DynamicSynchronizerParameters,
       synchronizerId: SynchronizerId,
@@ -158,7 +160,7 @@ class SynchronizerParametersChaos(
   )(implicit loggingContext: ErrorLoggingContext, env: TestConsoleEnvironment): Unit = {
     import com.digitalasset.canton.integration.tests.manual.topology.SynchronizerParametersChaos.*
     blocking {
-      lock.synchronized {
+      lock.exclusive {
         withOperation_("setParameters")(
           s"setting synchronizer parameter $parameterToChange for $synchronizerId factor $multiplier"
         ) {
@@ -190,7 +192,7 @@ class SynchronizerParametersChaos(
 
 object SynchronizerParametersChaos extends TopologyOperationsCompanion {
   // shared lock for all instances
-  val lock = new Object()
+  val lock = new Mutex()
   sealed trait Param
 
   case object ConfirmationResponseTimeout extends Param

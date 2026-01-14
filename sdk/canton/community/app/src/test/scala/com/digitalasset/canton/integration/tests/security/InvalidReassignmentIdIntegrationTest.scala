@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.security
@@ -35,7 +35,6 @@ import com.digitalasset.canton.util.MaliciousParticipantNode
 import org.scalatest.Assertion
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.collection.immutable.Seq
 
 /** The intent of this test is to validate that a malicious node cannot cause other participants to
   * commit an assignment containing data that differs from data in the corresponding unassignment.
@@ -163,6 +162,7 @@ sealed trait InvalidReassignmentIdIntegrationTest
                 .submitAssignmentRequest(
                   signatory.toLf,
                   unassignment2,
+                  Some(environment.now),
                   overrideReassignmentId = Some(unassignment1.reassignmentId),
                 )
                 .futureValueUS

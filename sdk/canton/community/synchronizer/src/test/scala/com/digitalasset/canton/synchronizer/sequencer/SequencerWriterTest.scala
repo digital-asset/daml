@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer
@@ -77,6 +77,7 @@ class SequencerWriterTest extends AsyncWordSpec with BaseTest {
       sequencerMember = sequencerMember,
       blockSequencerMode = blockSequencerMode,
       loggerFactory = loggerFactory,
+      timeouts = timeouts,
       sequencerMetrics = SequencerMetrics.noop("sequencer-writer-test"),
     )
     val instanceIndex = 0

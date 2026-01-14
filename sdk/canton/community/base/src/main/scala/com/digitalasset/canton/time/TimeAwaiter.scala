@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.time
@@ -9,11 +9,11 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.{ErrorUtil, Mutex}
 
 import java.util.{ConcurrentModificationException, PriorityQueue}
 import scala.annotation.tailrec
-import scala.concurrent.{Promise, blocking}
+import scala.concurrent.Promise
 import scala.jdk.CollectionConverters.*
 
 /** Utility to implement a time awaiter
@@ -35,9 +35,9 @@ final class TimeAwaiter(
   }
 
   override def onClosed(): Unit =
-    blocking(awaitTimestampFuturesLock.synchronized {
+    awaitTimestampFuturesLock.exclusive {
       awaitTimestampFutures.iterator().asScala.foreach(_._2.shutdown().discard[Boolean])
-    })
+    }
 
   def awaitKnownTimestamp(
       timestamp: CantonTimestamp
@@ -59,9 +59,9 @@ final class TimeAwaiter(
       create: => ShutdownAwareAwaiting,
   )(implicit traceContext: TraceContext): ShutdownAwareAwaiting = {
     val awaiter = create
-    blocking(awaitTimestampFuturesLock.synchronized {
+    awaitTimestampFuturesLock.exclusive {
       awaitTimestampFutures.offer(timestamp -> awaiter).discard
-    })
+    }
     // If the timestamp has been advanced while we're inserting into the priority queue,
     // make sure that we're completing the future.
     val newCurrent = getCurrentKnownTime()
@@ -76,7 +76,7 @@ final class TimeAwaiter(
     new PriorityQueue[(CantonTimestamp, ShutdownAwareAwaiting)](
       Ordering.by[(CantonTimestamp, ShutdownAwareAwaiting), CantonTimestamp](_._1)
     )
-  private val awaitTimestampFuturesLock: AnyRef = new Object()
+  private val awaitTimestampFuturesLock = Mutex()
 
   def notifyAwaitedFutures(
       upToInclusive: CantonTimestamp
@@ -98,10 +98,9 @@ final class TimeAwaiter(
         go()
       case _ =>
     }
-
-    blocking(awaitTimestampFuturesLock.synchronized {
+    awaitTimestampFuturesLock.exclusive {
       go()
-    })
+    }
   }
 
 }

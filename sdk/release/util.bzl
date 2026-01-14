@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//daml-lf/language:daml-lf.bzl", "SUPPORTED_PROTO_STABLE_LF_VERSIONS")
+load("//canton/community/daml-lf/language:daml-lf.bzl", "SUPPORTED_PROTO_STABLE_LF_VERSIONS")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -106,7 +106,7 @@ dpm_inputs = {
     "daml-script": "//daml-script/runner:daml-script-oci.tar.gz",
     "codegen": "//language-support/codegen-main:codegen-oci.tar.gz",
     "daml-new": "//daml-assistant/daml-helper:daml-new-oci.tar.gz",
-    "upgrade-check": "//daml-lf/validation:upgrade-check-oci.tar.gz",
+    "upgrade-check": "//daml-assistant/upgrade-check-main:upgrade-check-oci.tar.gz",
     "canton-enterprise": "//canton:canton-community-oci.tar.gz",
 }
 
@@ -261,7 +261,7 @@ protos_zip = rule(
     attrs = {
         "daml_lf_tarballs": attr.label_list(
             allow_files = True,
-            default = ["//daml-lf/archive:daml_lf_archive_proto_tar.tar.gz"],
+            default = ["//canton/community/daml-lf/archive:daml_lf_archive_proto_tar.tar.gz"],
         ),
         "ledger_api_tarball": attr.label(
             allow_single_file = True,
@@ -269,7 +269,7 @@ protos_zip = rule(
         ),
         "ledger_api_value_tarball": attr.label(
             allow_single_file = True,
-            default = Label("//daml-lf/ledger-api-value:ledger_api_value_proto_tar.tar.gz"),
+            default = Label("//canton/community/daml-lf/ledger-api-value:ledger_api_value_proto_tar.tar.gz"),
         ),
         "zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),

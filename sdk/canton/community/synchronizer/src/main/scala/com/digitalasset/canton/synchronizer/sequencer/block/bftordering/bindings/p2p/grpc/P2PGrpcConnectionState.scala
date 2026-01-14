@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc
@@ -21,6 +21,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Mi
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 import io.grpc.stub.StreamObserver
 
 import scala.collection.mutable
@@ -35,6 +36,8 @@ final class P2PGrpcConnectionState(
     with PrettyPrinting {
 
   import P2PGrpcConnectionState.*
+
+  private val lock = new Mutex()
 
   // Node IDs and senders are in a 1:1 relationship, so we use a bidirectional mapping.
   private val bftNodeIdToPeerSender =
@@ -94,7 +97,7 @@ final class P2PGrpcConnectionState(
   override def connections(implicit
       traceContext: TraceContext
   ): Seq[(Option[P2PEndpoint.Id], Option[BftNodeId])] =
-    mutex(this) {
+    mutex(lock) {
       logger.debug(s"P2P connection state (`knownConnections`): $this")
       val endpoints = (
         // All active endpoints
@@ -120,22 +123,22 @@ final class P2PGrpcConnectionState(
   override def isDefined(p2pEndpointId: P2PEndpoint.Id)(implicit
       traceContext: TraceContext
   ): Boolean =
-    mutex(this)(connections.flatMap(_._1).contains(p2pEndpointId))
+    mutex(lock)(connections.flatMap(_._1).contains(p2pEndpointId))
 
   override def isOutgoing(p2pEndpointId: P2PEndpoint.Id): Boolean =
-    mutex(this)(p2pEndpointIdToNetworkRef.get(p2pEndpointId).exists(_.isOutgoingConnection))
+    mutex(lock)(p2pEndpointIdToNetworkRef.get(p2pEndpointId).exists(_.isOutgoingConnection))
 
   override def authenticatedCount: NonNegativeInt =
-    NonNegativeInt.tryCreate(mutex(this)(bftNodeIdToNetworkRef.size))
+    NonNegativeInt.tryCreate(mutex(lock)(bftNodeIdToNetworkRef.size))
 
   override def getBftNodeId(p2pEndpointId: P2PEndpoint.Id): Option[BftNodeId] =
-    mutex(this)(p2pEndpointIdToBftNodeId.get(p2pEndpointId))
+    mutex(lock)(p2pEndpointIdToBftNodeId.get(p2pEndpointId))
 
   override def getNetworkRef(bftNodeId: BftNodeId): Option[P2PNetworkRef[BftOrderingMessage]] =
     bftNodeIdToNetworkRef.get(bftNodeId).map(_.networkRef)
 
   def getSender(p2pAddressId: P2PAddress.Id): Option[StreamObserver[BftOrderingMessage]] =
-    mutex(this) {
+    mutex(lock) {
       p2pAddressId match {
         case Right(bftNodeId) =>
           bftNodeIdToPeerSender.get(bftNodeId)
@@ -174,7 +177,7 @@ final class P2PGrpcConnectionState(
       p2pEndpointId: P2PEndpoint.Id,
       bftNodeId: BftNodeId,
   )(implicit traceContext: TraceContext): P2PEndpointIdAssociationResult =
-    mutex(this) {
+    mutex(lock) {
       var result: P2PEndpointIdAssociationResult = Right(())
       var changesMade = false
       p2pEndpointIdToBftNodeId
@@ -220,7 +223,7 @@ final class P2PGrpcConnectionState(
       bftNodeId: BftNodeId,
       peerSender: StreamObserver[BftOrderingMessage],
   )(implicit traceContext: TraceContext): Boolean =
-    mutex(this) {
+    mutex(lock) {
       logger.debug(s"P2P connection state before `addSenderIfMissing`: $this")
       val result =
         if (!bftNodeIdToPeerSender.contains(bftNodeId)) {
@@ -247,7 +250,7 @@ final class P2PGrpcConnectionState(
   )(
       createNetworkRef: () => P2PNetworkRef[BftOrderingMessage]
   )(implicit traceContext: TraceContext): Unit =
-    mutex(this) {
+    mutex(lock) {
       logger.debug(s"P2P connection state before `addNetworkRefIfMissing`: $this")
       p2pAddressId match {
         case Left(p2pEndpointId) =>
@@ -302,7 +305,7 @@ final class P2PGrpcConnectionState(
       clearNetworkRefAssociations || !closeNetworkRef,
       "Cannot close network ref without clearing associations first",
     )
-    mutex(this) {
+    mutex(lock) {
       logger.debug(s"P2P connection state before `shutdownConnectionAndReturnPeerSender`: $this")
       val result = p2pAddressId match {
         case Right(bftNodeId) =>
@@ -345,7 +348,7 @@ final class P2PGrpcConnectionState(
   def unassociateSenderAndReturnEndpointIds(
       peerSender: StreamObserver[BftOrderingMessage]
   )(implicit traceContext: TraceContext): Seq[P2PEndpoint.Id] =
-    mutex(this) {
+    mutex(lock) {
       logger.debug(s"P2P connection state before `unassociateSenderAndReturnEndpointIds`: $this")
       val result = peerSenderToBftNodeId
         .remove(peerSender)
@@ -370,7 +373,7 @@ final class P2PGrpcConnectionState(
 
   // Used to simulate a restart
   def clear(): Unit =
-    mutex(this) {
+    mutex(lock) {
       logger.debug(s"P2P connection state before `clear`: $this")(TraceContext.empty)
       bftNodeIdToPeerSender.clear()
       peerSenderToBftNodeId.clear()

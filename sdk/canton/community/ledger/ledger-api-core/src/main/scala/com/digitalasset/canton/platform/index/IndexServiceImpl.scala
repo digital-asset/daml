@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.index
@@ -76,6 +76,7 @@ import org.apache.pekko.stream.scaladsl.{Flow, Source}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success, Try}
 
 private[index] class IndexServiceImpl(
@@ -167,6 +168,7 @@ private[index] class IndexServiceImpl(
           // when a tailing stream is requested add checkpoint messages
           .via(
             checkpointFlow(
+              startExclusive = startExclusive,
               cond = isTailingStream,
               fetchOffsetCheckpoint = fetchOffsetCheckpoint,
               responseFromCheckpoint = updatesResponse,
@@ -191,6 +193,7 @@ private[index] class IndexServiceImpl(
   //  and applied exactly after an element that has the same or greater offset
   // if the condition is not true the original elements are streamed and the range decorators are ignored
   private def checkpointFlow[T](
+      startExclusive: Option[Offset],
       cond: Boolean,
       fetchOffsetCheckpoint: () => Option[OffsetCheckpoint],
       responseFromCheckpoint: OffsetCheckpoint => T,
@@ -204,7 +207,18 @@ private[index] class IndexServiceImpl(
           idleStreamOffsetCheckpointTimeout.underlying,
           () => (Offset.MaxValue, Timeout), // the offset for timeout is ignored
         )
-        .via(injectCheckpoints(fetchOffsetCheckpoint, responseFromCheckpoint))
+        // send the first timeout almost immediately to fetch the initial checkpoint without waiting
+        .mergePreferred(
+          Source.single((Offset.MaxValue, Timeout)).delay(500.millis),
+          preferred = false,
+        )
+        .via(
+          injectCheckpoints(
+            fetchOffsetCheckpoint = fetchOffsetCheckpoint,
+            responseFromCheckpoint = responseFromCheckpoint,
+            startExclusive = startExclusive,
+          )
+        )
         .map(_._2)
     } else
       Flow[(Offset, Carrier[T])].collect { case (_offset, Element(elem)) =>
@@ -241,6 +255,7 @@ private[index] class IndexServiceImpl(
           )
           .via(
             checkpointFlow(
+              startExclusive = startExclusive,
               cond = true,
               fetchOffsetCheckpoint = fetchOffsetCheckpoint,
               responseFromCheckpoint = completionsResponse,
@@ -939,6 +954,7 @@ object IndexServiceImpl {
   def injectCheckpoints[T](
       fetchOffsetCheckpoint: () => Option[OffsetCheckpoint],
       responseFromCheckpoint: OffsetCheckpoint => T,
+      startExclusive: Option[Offset],
   ): Flow[(Offset, Carrier[T]), (Offset, T), NotUsed] =
     Flow[(Offset, Carrier[T])]
       .statefulMap[
@@ -996,9 +1012,12 @@ object IndexServiceImpl {
               val relevantCheckpointO = fetchOffsetCheckpoint().collect {
                 case c: OffsetCheckpoint
                     if lastStreamedCheckpointO.fold(true)(_.offset < c.offset) &&
-                      // check that we are not in the middle of a range
+                      // check that we are not in the middle of a range or no elements have been processed (either
+                      // because we are polling elements at ledger end or because Timeout arrived before any other element)
                       processedElemO
-                        .fold(false)(e => e._2.isRangeEnd && e._1 == c.offset) =>
+                        .fold(startExclusive == Option(c.offset))(e =>
+                          e._2.isRangeEnd && e._1 == c.offset
+                        ) =>
                   c
               }
               val response =

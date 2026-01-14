@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.traffic
@@ -28,14 +28,14 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.TrafficPurchasedM
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.{ErrorUtil, Mutex}
 import com.github.blemale.scaffeine.Scaffeine
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedMap
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, blocking}
+import scala.concurrent.ExecutionContext
 
 /** Manages traffic purchased entries for sequencer members. This borrows concepts from topology
   * management, in a simplified way. There is no "change delay", which has the direct consequence
@@ -56,6 +56,8 @@ class TrafficPurchasedManager(
     extends NamedLogging
     with FlagCloseable
     with HasCloseContext {
+
+  private val lock = new Mutex()
   private val lastUpdateAt: AtomicReference[Option[CantonTimestamp]] =
     new AtomicReference[Option[CantonTimestamp]](None)
   private val pendingBalanceUpdates = new mutable.PriorityQueue[PendingBalanceUpdate]()(
@@ -249,18 +251,17 @@ class TrafficPurchasedManager(
     val prev = lastUpdateAt.getAndSet(Some(timestamp))
 
     prev match {
-      case previous if previous.forall(_ <= timestamp) =>
-        blocking {
-          pendingBalanceUpdates.synchronized {
-            logger.trace(s"Dequeueing pending balances up until $timestamp")
-            dequeueUntil(timestamp).foreach { update =>
-              logger.trace(s"Providing balance update at timestamp ${update.desired}")
-              update.promise
-                .completeWithUS(getBalanceAt(update.member, update.desired).value)
-                .discard
-            }
+      case previous if previous.forall(_ <= timestamp) => {
+        lock.exclusive {
+          logger.trace(s"Dequeueing pending balances up until $timestamp")
+          dequeueUntil(timestamp).foreach { update =>
+            logger.trace(s"Providing balance update at timestamp ${update.desired}")
+            update.promise
+              .completeWithUS(getBalanceAt(update.member, update.desired).value)
+              .discard
           }
         }
+      }
       case _ =>
         ErrorUtil.invalidState(
           s"Received an update out of order: Update = $timestamp. Previous timestamp was $prev"
@@ -361,30 +362,28 @@ class TrafficPurchasedManager(
   ): Option[
     PromiseUnlessShutdown[Either[TrafficPurchasedManagerError, Option[TrafficPurchased]]]
   ] =
-    blocking {
-      pendingBalanceUpdates.synchronized {
-        // We need to check again here (specifically inside the synchronized block on pendingBalanceUpdates) if we haven't received an update between the beginning of the function and now.
-        // By getting lastUpdateAt in the synchronized block we're sure that we won't be dequeueing pending updates concurrently, which could lead to dequeuing before we had a chance to enqueue this promise,
-        // possibly leaving it in the queue forever if we don't receive anymore updates.
-        val possiblyNewLastUpdate = lastUpdateAt.get()
-        if (possiblyNewLastUpdate.exists(_ >= lastSeen)) {
-          // We got the update in the meantime, so respond with the balance
-          logger.trace(
-            s"Got an update during getTrafficPurchasedAt that satisfies the requested timestamp. Desired = $desired, lastSeen = $lastSeen, lastUpdatedAt = $possiblyNewLastUpdate. Responding with the balance."
-          )
-          None
-        } else {
-          logger.trace(
-            s"Balance for $member at $desired is not available yet. Waiting to observe an event at $lastSeen. Last update: $possiblyNewLastUpdate"
-          )
-          val promise = mkPromise[Either[TrafficPurchasedManagerError, Option[TrafficPurchased]]](
-            s"waiting for traffic purchased entry for $member at $lastSeen, requested timestamp: $desired, last update: $possiblyNewLastUpdate",
-            futureSupervisor,
-          )
-          val pendingUpdate = PendingBalanceUpdate(desired, lastSeen, member, promise)
-          pendingBalanceUpdates.addOne(pendingUpdate).discard
-          Some(promise)
-        }
+    lock.exclusive {
+      // We need to check again here (specifically inside the synchronized block on pendingBalanceUpdates) if we haven't received an update between the beginning of the function and now.
+      // By getting lastUpdateAt in the synchronized block we're sure that we won't be dequeueing pending updates concurrently, which could lead to dequeuing before we had a chance to enqueue this promise,
+      // possibly leaving it in the queue forever if we don't receive anymore updates.
+      val possiblyNewLastUpdate = lastUpdateAt.get()
+      if (possiblyNewLastUpdate.exists(_ >= lastSeen)) {
+        // We got the update in the meantime, so respond with the balance
+        logger.trace(
+          s"Got an update during getTrafficPurchasedAt that satisfies the requested timestamp. Desired = $desired, lastSeen = $lastSeen, lastUpdatedAt = $possiblyNewLastUpdate. Responding with the balance."
+        )
+        None
+      } else {
+        logger.trace(
+          s"Balance for $member at $desired is not available yet. Waiting to observe an event at $lastSeen. Last update: $possiblyNewLastUpdate"
+        )
+        val promise = mkPromise[Either[TrafficPurchasedManagerError, Option[TrafficPurchased]]](
+          s"waiting for traffic purchased entry for $member at $lastSeen, requested timestamp: $desired, last update: $possiblyNewLastUpdate",
+          futureSupervisor,
+        )
+        val pendingUpdate = PendingBalanceUpdate(desired, lastSeen, member, promise)
+        pendingBalanceUpdates.addOne(pendingUpdate).discard
+        Some(promise)
       }
     }
 

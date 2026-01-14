@@ -1,10 +1,11 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.service
 
 import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
+import cats.syntax.traverse.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
@@ -238,7 +239,7 @@ object GrpcSequencerConnectionService extends HasLoggerName {
                     .map((_, None))
               (newEndpointsInfo, newPoolConfigO) = newEndpointsInfoAndPoolConfigO
 
-              sequencerTransportsMapO = Option.when(!useNewConnectionPool)(
+              sequencerTransportsMapF = Option.when(!useNewConnectionPool)(
                 transportFactory
                   .makeTransport(
                     newEndpointsInfo.sequencerConnections,
@@ -248,7 +249,7 @@ object GrpcSequencerConnectionService extends HasLoggerName {
                     allowReplay = false,
                   )
               )
-
+              sequencerTransportsMapO <- EitherT.liftF(sequencerTransportsMapF.traverse(identity))
               sequencerTransports <- EitherT.fromEither[FutureUnlessShutdown](
                 SequencerTransports.from(
                   sequencerTransportsMapO,

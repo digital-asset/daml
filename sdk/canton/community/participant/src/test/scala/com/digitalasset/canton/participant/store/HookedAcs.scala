@@ -1,9 +1,10 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.ReassignmentCounter
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
@@ -195,10 +196,14 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   ): FutureUnlessShutdown[Int] =
     acs.contractCount(timestamp)
 
-  override def changesBetween(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
+  override def changesBetween(
+      fromExclusive: TimeOfChange,
+      toInclusive: TimeOfChange,
+      maxResultSize: PositiveInt,
+  )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[LazyList[(TimeOfChange, ActiveContractIdsChange)]] =
-    acs.changesBetween(fromExclusive, toInclusive)
+  ): FutureUnlessShutdown[(LazyList[(TimeOfChange, ActiveContractIdsChange)], Int)] =
+    acs.changesBetween(fromExclusive, toInclusive, maxResultSize)
 
   override def packageUsage(pkg: PackageId, contractStore: ContractStore)(implicit
       traceContext: TraceContext

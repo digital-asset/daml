@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.metrics
@@ -6,6 +6,7 @@ package com.digitalasset.canton.metrics
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.canton.util.Mutex
 import io.opentelemetry.sdk.common.CompletableResultCode
 import io.opentelemetry.sdk.metrics.InstrumentType
 import io.opentelemetry.sdk.metrics.`export`.MetricExporter
@@ -15,7 +16,6 @@ import java.io.{BufferedWriter, File, FileWriter}
 import java.util
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.blocking
 import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success, Try}
 
@@ -26,7 +26,7 @@ class CsvReporter(config: MetricsReporterConfig.Csv, val loggerFactory: NamedLog
 
   private val running = new AtomicBoolean(true)
   private val files = new TrieMap[String, (FileWriter, BufferedWriter)]
-  private val lock = new Object()
+  private val lock = new Mutex()
 
   def getAggregationTemporality(instrumentType: InstrumentType): AggregationTemporality =
     AggregationTemporality.CUMULATIVE
@@ -52,8 +52,8 @@ class CsvReporter(config: MetricsReporterConfig.Csv, val loggerFactory: NamedLog
   }
 
   def `export`(metrics: util.Collection[MetricData]): CompletableResultCode = {
-    blocking {
-      lock.synchronized {
+    {
+      lock.exclusive {
         if (running.get()) {
           val ts = CantonTimestamp.now()
           MetricValue.allFromMetricData(metrics.asScala).foreach { case (value, metadata) =>

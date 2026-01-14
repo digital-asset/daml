@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.repair
@@ -170,6 +170,7 @@ trait RepairSynchronizerRecoveryIntegrationTest
                           modifiedRequest,
                           participant1.underlying.value.sync.syncCrypto
                             .tryForSynchronizer(daId, staticSynchronizerParameters1),
+                          Some(environment.now),
                         )
                         dropSomeMessagesToP1.set(true)
                         SendDecision.Replace(signedModifiedRequest)

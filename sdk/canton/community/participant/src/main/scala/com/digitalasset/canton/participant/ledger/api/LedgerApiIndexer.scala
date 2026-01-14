@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.ledger.api
@@ -164,7 +164,7 @@ object LedgerApiIndexer {
               connectionTimeout =
                 ledgerApiIndexerConfig.serverConfig.databaseConnectionTimeout.underlying,
             ),
-          postgres = ledgerApiIndexerConfig.serverConfig.postgresDataSource,
+          postgres = ledgerApiIndexerConfig.indexerConfig.postgresDataSource,
         ),
         ledgerApiIndexerConfig.indexerHaConfig,
         Some(ledgerApiStore.value.ledgerApiDbSupport.dbDispatcher),

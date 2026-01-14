@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.dao
@@ -25,12 +25,13 @@ import com.digitalasset.canton.platform.store.interning.{
   StringInterning,
 }
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value.ContractId
 
 import java.sql.Connection
 import scala.collection.mutable
-import scala.concurrent.{Future, blocking}
+import scala.concurrent.Future
 import scala.util.chaining.scalaUtilChainingOps
 
 trait SequentialWriteDao {
@@ -90,6 +91,7 @@ private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var previousTransactionMetaToEventSeqId: Long = _
 
+  private val lock = new Mutex()
   private val acs: mutable.HashMap[(SynchronizerId, ContractId), (Long, Long)] = mutable.HashMap()
 
   private def lazyInit(connection: Connection): Unit =
@@ -143,7 +145,7 @@ private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
     }.toVector
 
   override def store(connection: Connection, offset: Offset, update: Option[Update]): Unit =
-    blocking(synchronized {
+    (lock.exclusive {
       lazyInit(connection)
 
       val dbDtos = update

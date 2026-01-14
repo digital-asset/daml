@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -28,10 +28,15 @@ final case class CacheConfig(
   def buildScaffeine(
       loggerFactory: NamedLoggerFactory
   )(implicit ec: ExecutionContext): Scaffeine[Any, Any] =
+    buildScaffeineWithoutExecutor()
+      .executor(new FallbackExecutor(ec, loggerFactory))
+
+  /** Can be used if there's no reasonable ExecutionContext instance to pass
+    */
+  def buildScaffeineWithoutExecutor(): Scaffeine[Any, Any] =
     Scaffeine()
       .maximumSize(maximumSize.value)
       .expireAfterAccess(expireAfterAccess.underlying)
-      .executor(new FallbackExecutor(ec, loggerFactory))
 }
 
 final case class CacheConfigWithMemoryBounds(

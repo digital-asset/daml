@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -e -o pipefail
@@ -13,14 +13,14 @@ if git rev-parse --is-inside-work-tree &>/dev/null || false; then
     COMMUNITY_PROTO_PATH=$ROOT_PATH/community/base/src/main/protobuf
     LEDGER_API_PROTO_PATH=$ROOT_PATH/community/ledger-api-proto/src/main/protobuf
     ADMIN_API_PROTO_PATH=$ROOT_PATH/community/admin-api/src/main/protobuf
-    LAPI_VALUE_PROTO_PATH=$ROOT_PATH/community/lib/ledger-api-value/target/protobuf_external/com/daml/ledger/api/v2/value.proto
+    LAPI_VALUE_PROTO_PATH=$ROOT_PATH/community/daml-lf/ledger-api-value/src/main/protobuf/com/daml/ledger/api/v2/value.proto
 else
     # Otherwise assume we're running from the release artifact, in which case the protobuf folder is a few levels above
     ROOT_PATH=../../protobuf
     COMMUNITY_PROTO_PATH=$ROOT_PATH/community
     LEDGER_API_PROTO_PATH=$ROOT_PATH/ledger-api-proto
     ADMIN_API_PROTO_PATH=$ROOT_PATH/admin-api
-    LAPI_VALUE_PROTO_PATH=$LEDGER_API_PROTO_PATH/com/daml/ledger/api/v2/value.proto
+    LAPI_VALUE_PROTO_PATH=$ROOT_PATH/ledger-api-value/com/daml/ledger/api/v2/value.proto
 fi
 
 COMMUNITY_CANTON_PROTO_PATH=$COMMUNITY_PROTO_PATH/com/digitalasset/canton

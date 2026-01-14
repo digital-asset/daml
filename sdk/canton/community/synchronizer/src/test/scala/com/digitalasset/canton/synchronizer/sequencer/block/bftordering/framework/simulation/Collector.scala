@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation
@@ -13,8 +13,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   P2PConnectionEventListener,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 
-import scala.concurrent.blocking
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
@@ -24,6 +24,7 @@ abstract class Collector[E] {
   private var msgs = Seq.empty[E]
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var tickCounter = 0
+  private val lock = new Mutex()
 
   protected def generateNewTickId(): Int = {
     val oldCount = tickCounter
@@ -33,15 +34,15 @@ abstract class Collector[E] {
 
   def addCancelTick(tickId: Int): Unit
 
-  protected def add(event: E): Unit = blocking(
+  protected def add(event: E): Unit = (
     // this code should in theory run in a single-threaded deterministic environment, thus there would
     // be no need for using this synchronization mechanism. However currently with the usage of
     // Pekko streams in the OutputModule, this assumption doesn't hold, so we need this for now.
-    synchronized {
+    lock.exclusive {
       msgs = msgs :+ event
     }
   )
-  def collect(): Seq[E] = blocking(synchronized {
+  def collect(): Seq[E] = (lock.exclusive {
     val current = msgs
     msgs = Seq.empty[E]
     current

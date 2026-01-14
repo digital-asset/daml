@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer
@@ -62,11 +62,13 @@ abstract class BaseSequencer(
       span.setAttribute("sender", submission.sender.toString)
       span.setAttribute("message_id", submission.messageId.unwrap)
       for {
+        estimatedSequencingTime <- EitherT.right(sequencingTime)
         signedSubmissionWithFixedTs <- signatureVerifier
           .verifySignature[SubmissionRequest](
             signedSubmission,
             HashPurpose.SubmissionRequestSignature,
             _.sender,
+            estimatedSequencingTime.getOrElse(clock.now),
           )
           .leftMap(e => SubmissionRequestRefused(e))
         isMemberEnabled <- EitherT.right[SequencerDeliverError](
@@ -86,11 +88,13 @@ abstract class BaseSequencer(
   override def acknowledgeSigned(signedAcknowledgeRequest: SignedContent[AcknowledgeRequest])(
       implicit traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = for {
+    estimatedSequencingTime <- EitherT.right(sequencingTime)
     signedAcknowledgeRequestWithFixedTs <- signatureVerifier
       .verifySignature[AcknowledgeRequest](
         signedAcknowledgeRequest,
         HashPurpose.AcknowledgementSignature,
         _.member,
+        estimatedSequencingTime.getOrElse(clock.now),
       )
     _ <- EitherT.right(acknowledgeSignedInternal(signedAcknowledgeRequestWithFixedTs))
   } yield ()

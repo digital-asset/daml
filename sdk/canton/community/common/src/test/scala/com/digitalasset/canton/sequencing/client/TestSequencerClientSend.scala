@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -23,8 +23,9 @@ import scala.jdk.CollectionConverters.*
 
 /** Test implementation that stores all requests in a queue.
   */
-class TestSequencerClientSend(implicit val executionContext: ExecutionContext)
-    extends SequencerClientSend {
+class TestSequencerClientSend(implicit
+    val executionContext: ExecutionContext
+) extends SequencerClientSend {
 
   val requestsQueue: java.util.concurrent.BlockingQueue[Request] =
     new java.util.concurrent.LinkedBlockingQueue()

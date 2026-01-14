@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -51,7 +51,11 @@ object ParticipantPruningStore {
       case dbStorage: DbStorage =>
         val dbStore = new DbParticipantPruningStore(dbStoreName, dbStorage, timeouts, loggerFactory)
         dbStore.pruningStatus().map { initialStatus =>
-          new DbParticipantPruningStoreCached(underlying = dbStore, initialStatus = initialStatus)
+          new DbParticipantPruningStoreCached(
+            underlying = dbStore,
+            initialStatus = initialStatus,
+            loggerFactory = loggerFactory,
+          )
         }
 
     }

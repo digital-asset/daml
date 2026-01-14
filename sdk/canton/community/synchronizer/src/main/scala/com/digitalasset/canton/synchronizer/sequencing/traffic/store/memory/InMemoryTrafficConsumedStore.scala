@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.traffic.store.memory
@@ -12,10 +12,10 @@ import com.digitalasset.canton.sequencing.traffic.TrafficConsumed
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficConsumedStore
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.SortedSet
-import scala.concurrent.blocking
 
 /** In memory implementation of the traffic balance store
   */
@@ -25,6 +25,8 @@ class InMemoryTrafficConsumedStore(override protected val loggerFactory: NamedLo
   implicit private val trafficConsumedOrdering: Ordering[TrafficConsumed] =
     Ordering.by(_.sequencingTimestamp)
   private val trafficConsumedMap = TrieMap.empty[Member, NonEmpty[SortedSet[TrafficConsumed]]]
+  private val lock = new Mutex()
+
   // Clearing the table can prevent memory leaks
   override def close(): Unit = trafficConsumedMap.clear()
   override def store(trafficUpdates: Seq[TrafficConsumed])(implicit
@@ -94,39 +96,37 @@ class InMemoryTrafficConsumedStore(override protected val loggerFactory: NamedLo
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[String] = FutureUnlessShutdown.pure {
-    blocking {
-      synchronized {
-        val pruned = this.trafficConsumedMap.keySet.map { member =>
-          val before = this.trafficConsumedMap.get(member).map(_.size).getOrElse(0)
-          this.trafficConsumedMap
-            .updateWith(member) {
-              case Some(balances) =>
-                val maxBelowTimestamp =
-                  balances.forgetNE
-                    .map(_.sequencingTimestamp)
-                    .maxBefore(upToExclusive.immediateSuccessor)
-                val (belowTimestamp, aboveTimestamp) =
-                  balances.partition(b => maxBelowTimestamp.forall(b.sequencingTimestamp < _))
-                val keptConsumptions =
-                  if (aboveTimestamp.isEmpty)
-                    NonEmpty.from(SortedSet.from(belowTimestamp.lastOption.toList))
-                  else NonEmpty.from(aboveTimestamp)
-                keptConsumptions
-              case None => None
-            }
-            .map(before - _.size)
-            .getOrElse(0)
-        }.sum
-        s"Removed $pruned traffic consumed entries"
-      }
+    lock.exclusive {
+      val pruned = this.trafficConsumedMap.keySet.map { member =>
+        val before = this.trafficConsumedMap.get(member).map(_.size).getOrElse(0)
+        this.trafficConsumedMap
+          .updateWith(member) {
+            case Some(balances) =>
+              val maxBelowTimestamp =
+                balances.forgetNE
+                  .map(_.sequencingTimestamp)
+                  .maxBefore(upToExclusive.immediateSuccessor)
+              val (belowTimestamp, aboveTimestamp) =
+                balances.partition(b => maxBelowTimestamp.forall(b.sequencingTimestamp < _))
+              val keptConsumptions =
+                if (aboveTimestamp.isEmpty)
+                  NonEmpty.from(SortedSet.from(belowTimestamp.lastOption.toList))
+                else NonEmpty.from(aboveTimestamp)
+              keptConsumptions
+            case None => None
+          }
+          .map(before - _.size)
+          .getOrElse(0)
+      }.sum
+      s"Removed $pruned traffic consumed entries"
     }
   }
 
   override def deleteRecordsPastTimestamp(
       timestampExclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    blocking {
-      synchronized {
+    {
+      lock.exclusive {
         trafficConsumedMap.foreach { case (member, _) =>
           trafficConsumedMap
             .updateWith(member) {

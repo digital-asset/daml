@@ -25,9 +25,9 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//daml-lf/api-type-signature",
-        "//daml-lf/data",
-        "//daml-lf/transaction",
+        "//canton/community/daml-lf/api-type-signature",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/transaction",
     ],
 )
 
@@ -62,10 +62,10 @@ da_scala_test(
     deps = [
         ":lf-value-json",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/api-type-signature",
-        "//daml-lf/data",
-        "//daml-lf/transaction",
-        "//daml-lf/transaction-test-lib",
+        "//canton/community/daml-lf/api-type-signature",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/transaction",
+        "//canton/community/daml-lf/transaction-test-lib",
         "//ledger-service/utils",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

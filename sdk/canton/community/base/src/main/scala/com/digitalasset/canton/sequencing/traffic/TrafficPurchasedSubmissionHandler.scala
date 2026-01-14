@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.traffic
@@ -67,6 +67,9 @@ class TrafficPurchasedSubmissionHandler(
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, TrafficControlError, Unit] = {
+    val now = clock.now
+    val approximateTimestampOverride = Some(now)
+
     val protocolVersion: ProtocolVersion = cryptoApi.psid.protocolVersion
 
     def send(
@@ -82,6 +85,7 @@ class TrafficPurchasedSubmissionHandler(
           logger.debug(
             s"Submitting traffic purchased entry request for $member with balance ${totalTrafficPurchased.value}, serial ${serial.value} and max sequencing time $maxSequencingTime"
           )
+          // in this particular case we must decouple the current timestamp we
           sendRequest(
             sequencerClient,
             synchronizerTimeTracker,
@@ -149,16 +153,17 @@ class TrafficPurchasedSubmissionHandler(
           SignedProtocolMessage.trySignAndCreate(
             setTrafficPurchasedMessage,
             topology,
+            approximateTimestampOverride,
           )
         )
       batch = Batch.of(
         protocolVersion = protocolVersion,
-        // This recipient tree structure allows the recipient of the top up to verify that the sequencers were also addressed
+        // This recipient tree structure allows the recipient of the top-up to verify that the sequencers were also addressed
         signedTrafficPurchasedMessage -> Recipients(
           NonEmpty.mk(
             Seq,
             RecipientsTree.ofMembers(
-              NonEmpty.mk(Set, member), // Root of recipient tree: recipient of the top up
+              NonEmpty.mk(Set, member), // Root of recipient tree: recipient of the top-up
               Seq(
                 RecipientsTree.recipientsLeaf( // Leaf of the tree: sequencers of synchronizer group
                   NonEmpty.mk(
@@ -171,7 +176,8 @@ class TrafficPurchasedSubmissionHandler(
           )
         ),
       )
-      maxSequencingTimes = computeMaxSequencingTimes(trafficParams)
+      // TODO(#29515): fix potential blow-up when using session signing keys with short validity periods
+      maxSequencingTimes = computeMaxSequencingTimes(trafficParams, now)
       _ <- send(maxSequencingTimes, batch, aggregationRule)
     } yield ()
   }
@@ -237,10 +243,10 @@ class TrafficPurchasedSubmissionHandler(
   }
 
   private def computeMaxSequencingTimes(
-      trafficParams: TrafficControlParameters
+      trafficParams: TrafficControlParameters,
+      now: CantonTimestamp,
   ): NonEmpty[Seq[CantonTimestamp]] = {
     val timeWindowSize = trafficParams.setBalanceRequestSubmissionWindowSize
-    val now = clock.now
     val windowUpperBound = CantonTimestamp.ofEpochMilli(
       timeWindowSize.duration
         .multipliedBy(

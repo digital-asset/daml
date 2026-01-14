@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -10,10 +10,10 @@ import com.digitalasset.canton.data.PeanoQueue.{
   NotInserted,
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.util.Mutex
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.mutable
-import scala.concurrent.blocking
 
 /** Implementation of [[PeanoQueue]] for [[Counter]] keys based on a tree map.
   *
@@ -136,22 +136,22 @@ object PeanoTreeQueue {
 class SynchronizedPeanoTreeQueue[Discr, V](initHead: Counter[Discr])
     extends PeanoQueue[Counter[Discr], V] {
   private[this] val queue: PeanoQueue[Counter[Discr], V] = new PeanoTreeQueue(initHead)
+  private val lock = new Mutex()
 
-  override def head: Counter[Discr] = blocking(queue synchronized queue.head)
+  override def head: Counter[Discr] = lock exclusive queue.head
 
-  override def front: Counter[Discr] = blocking(queue synchronized queue.front)
+  override def front: Counter[Discr] = lock exclusive queue.front
 
   override def insert(key: Counter[Discr], value: V): Boolean =
-    blocking(queue synchronized queue.insert(key, value))
+    lock exclusive queue.insert(key, value)
 
   override def alreadyInserted(key: Counter[Discr]): Boolean =
-    blocking(queue synchronized queue.alreadyInserted(key))
+    lock exclusive queue.alreadyInserted(key)
 
-  override def get(key: Counter[Discr]): AssociatedValue[V] = blocking {
-    queue synchronized queue.get(key)
-  }
+  override def get(key: Counter[Discr]): AssociatedValue[V] =
+    lock exclusive queue.get(key)
 
-  override def poll(): Option[(Counter[Discr], V)] = blocking(queue synchronized queue.poll())
+  override def poll(): Option[(Counter[Discr], V)] = lock exclusive queue.poll()
 
-  override def isEmpty: Boolean = blocking(queue synchronized (queue.isEmpty))
+  override def isEmpty: Boolean = lock exclusive (queue.isEmpty)
 }

@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -11,7 +11,6 @@ import com.daml.ledger.test.java.model.test.{CallablePayout, Dummy, WithObserver
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects}
 
 import scala.collection.immutable.Seq
-import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
 
 class TransactionServiceStakeholdersIT extends LedgerTestSuite {
@@ -38,10 +37,10 @@ class TransactionServiceStakeholdersIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, Seq(alice, bob))) =>
     for {
       _ <- ledger.create(alice, new WithObservers(alice, Seq(alice, bob).map(_.getValue).asJava))
-      acsDeltaTx <- ledger.transactions(AcsDelta, alice).flatMap(fs => Future(fs.head))
-      acsDeltaWo <- Future(createdEvents(acsDeltaTx).head)
-      ledgerEffectsTx <- ledger.transactions(LedgerEffects, alice).flatMap(fs => Future(fs.head))
-      ledgerEffectsWo <- Future(createdEvents(ledgerEffectsTx).head)
+      acsDeltaTx <- ledger.transactions(AcsDelta, alice).map(_.headOption.value)
+      acsDeltaWo = createdEvents(acsDeltaTx).headOption.value
+      ledgerEffectsTx <- ledger.transactions(LedgerEffects, alice).map(_.headOption.value)
+      ledgerEffectsWo = createdEvents(ledgerEffectsTx).headOption.value
     } yield {
       assert(
         acsDeltaWo.observers == Seq(bob.getValue),

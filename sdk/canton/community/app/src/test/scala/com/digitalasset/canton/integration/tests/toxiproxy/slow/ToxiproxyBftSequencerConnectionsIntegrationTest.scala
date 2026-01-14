@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.toxiproxy.slow
@@ -32,7 +32,7 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.util.collection.SeqUtil
-import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, LoggerUtil}
+import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, LoggerUtil, Mutex}
 import eu.rekawek.toxiproxy.model.{Toxic, ToxicDirection}
 import monocle.macros.syntax.lens.*
 import org.scalatest.Assertion
@@ -362,7 +362,7 @@ sealed trait ToxiproxyBftSequencerConnectionsIntegrationTest
     }
 
     private val availableProxies = mutable.Set(proxies*)
-    private val lock = new Object()
+    private val lock = new Mutex()
 
     private def run(disrupter: Int, iteration: Int): Unit =
       if (isRunning.get && !isClosing) {
@@ -377,7 +377,7 @@ sealed trait ToxiproxyBftSequencerConnectionsIntegrationTest
           env.environment.clock.scheduleAfter(
             { _ =>
               toxics.foreach(_.remove())
-              blocking(lock.synchronized(availableProxies += pickedProxy))
+              blocking(lock.exclusive(availableProxies += pickedProxy))
               run(disrupter, iteration + 1)
             },
             durationOfDisruption.asJava,
@@ -397,7 +397,7 @@ sealed trait ToxiproxyBftSequencerConnectionsIntegrationTest
       def pickTimeout(): Int =
         random.between(minTimeoutMillis, maxTimeoutMillis + 1)
 
-      val pickedProxy = blocking(lock.synchronized {
+      val pickedProxy = blocking(lock.exclusive {
         val pick = SeqUtil.randomSubsetShuffle(availableProxies.toIndexedSeq, 1, random).loneElement
         availableProxies -= pick
         pick

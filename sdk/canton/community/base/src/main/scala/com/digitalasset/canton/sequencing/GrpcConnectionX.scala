@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing
@@ -29,6 +29,7 @@ import com.digitalasset.canton.sequencing.ConnectionX.{
   ConnectionXState,
 }
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
+import com.digitalasset.canton.util.Mutex
 import io.grpc.Channel
 import io.grpc.Context.CancellableContext
 import io.grpc.stub.{AbstractStub, StreamObserver}
@@ -38,7 +39,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContextExecutor, Future, blocking}
+import scala.concurrent.{ExecutionContextExecutor, Future}
 
 /** Connection specialized for gRPC transport.
   */
@@ -52,6 +53,7 @@ final case class GrpcConnectionX(
     with PrettyPrinting {
 
   private val channelRef = new AtomicReference[Option[GrpcManagedChannel]](None)
+  private val lock = new Mutex()
 
   override val health: ConnectionXHealth = new ConnectionXHealth(
     name = name,
@@ -63,8 +65,8 @@ final case class GrpcConnectionX(
 
   override def name: String = s"connection-${config.name}"
 
-  override def start()(implicit traceContext: TraceContext): Unit = blocking {
-    synchronized {
+  override def start()(implicit traceContext: TraceContext): Unit =
+    lock.exclusive {
       channelRef.get match {
         case Some(_) => logger.warn("Starting an already-started connection. Ignoring.")
 
@@ -82,28 +84,28 @@ final case class GrpcConnectionX(
           health.reportHealthState(ConnectionXState.Started)
       }
     }
-  }
 
-  override def stop()(implicit traceContext: TraceContext): Unit = blocking {
-    synchronized {
+  override def stop()(implicit traceContext: TraceContext): Unit = {
+    lock.exclusive {
       channelRef.get match {
         case Some(_) =>
           closeChannel()
-          health.reportHealthState(ConnectionXState.Stopped)
-
+          Some(ConnectionXState.Stopped)
         // Not logging at WARN level because concurrent calls may happen (e.g. at closing time)
-        case None => logger.info("Stopping an already-stopped connection. Ignoring.")
+        case None =>
+          logger.info("Stopping an already-stopped connection. Ignoring.")
+          None
       }
     }
-  }
+  }.foreach(state => health.reportHealthState(state))
 
   override def onClosed(): Unit = closeChannel()
 
-  private def closeChannel(): Unit = blocking {
-    synchronized {
-      channelRef.getAndSet(None).foreach(LifeCycle.close(_)(logger))
+  private def closeChannel(): Unit = {
+    lock.exclusive {
+      channelRef.getAndSet(None)
     }
-  }
+  }.foreach(LifeCycle.close(_)(logger))
 
   @GrpcServiceInvocationMethod
   def sendRequest[Svc <: AbstractStub[Svc], Res](

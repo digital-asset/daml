@@ -63,18 +63,18 @@ da_haskell_test(
 genrule(
     name = "generated_haskell_versions_src",
     srcs = [
-        "//daml-lf/language:version_data_json",
+        "//canton/community/daml-lf/language:version_data_json",
         "src/DA/Daml/LF/Ast/Version/VersionType.hs",
     ],
     outs = ["src/DA/Daml/LF/Ast/Version/GeneratedVersions.hs"],
-    cmd = "$(location //daml-lf/language:generate_haskell_versions) $(location //daml-lf/language:version_data_json) $@",
-    tools = ["//daml-lf/language:generate_haskell_versions"],
+    cmd = "$(location //canton/community/daml-lf/language:generate_haskell_versions) $(location //canton/community/daml-lf/language:version_data_json) $@",
+    tools = ["//canton/community/daml-lf/language:generate_haskell_versions"],
 )
 
 genrule(
     name = "generated_haskell_features_src",
-    srcs = ["//daml-lf/language:feature_data_json"],
+    srcs = ["//canton/community/daml-lf/language:feature_data_json"],
     outs = ["src/DA/Daml/LF/Ast/Version/GeneratedFeatures.hs"],
-    cmd = "$(location //daml-lf/language:generate_haskell_features) $(location //daml-lf/language:feature_data_json) $@",
-    tools = ["//daml-lf/language:generate_haskell_features"],
+    cmd = "$(location //canton/community/daml-lf/language:generate_haskell_features) $(location //canton/community/daml-lf/language:feature_data_json) $@",
+    tools = ["//canton/community/daml-lf/language:generate_haskell_features"],
 )

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencing.service.channel
@@ -18,12 +18,13 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, blocking}
+import scala.concurrent.ExecutionContext
 import scala.util.control.NonFatal
 
 /** GrpcSequencerChannelPool tracks active sequencer channels.
@@ -37,6 +38,7 @@ import scala.util.control.NonFatal
   * As channels are initialized in a delayed fashion, the pool tracks initialized and uninitialized
   * channels separately.
   */
+@SuppressWarnings(Array("com.digitalasset.canton.RequireBlocking"))
 private[channel] final class GrpcSequencerChannelPool(
     clock: Clock,
     protocolVersion: ProtocolVersion, // technically the channel protocol is separate from the canton protocol, but use for now at least
@@ -52,6 +54,7 @@ private[channel] final class GrpcSequencerChannelPool(
   // to an initialized channel.
   private val initializedChannels = TrieMap[SequencerChannelId, GrpcSequencerChannel]()
   private val uninitializedChannels = mutable.Buffer[UninitializedGrpcSequencerChannel]()
+  private val lock = new Mutex()
 
   /** @param responseObserver
     *   GRPC response observer for messages to the client
@@ -72,111 +75,107 @@ private[channel] final class GrpcSequencerChannelPool(
       traceContext: TraceContext
   ): Either[String, StreamObserver[v30.ConnectToSequencerChannelRequest]] =
     synchronizeWithClosingSync(functionFullName) {
-      blocking {
-        synchronized {
-          val channel = new UninitializedGrpcSequencerChannel(
-            responseObserver,
-            authTokenExpiresAtO,
-            authenticationCheck,
-            onUninitializedChannelCompleted,
-            protocolVersion,
-            timeouts,
-            loggerFactory,
-          ) {
+      lock.exclusive {
+        val channel = new UninitializedGrpcSequencerChannel(
+          responseObserver,
+          authTokenExpiresAtO,
+          authenticationCheck,
+          onUninitializedChannelCompleted,
+          protocolVersion,
+          timeouts,
+          loggerFactory,
+        ) {
 
-            /** Transitions an uninitialized channel to a newly initialized channel or an existing
-              * channel already created by the "opposite" side/member.
-              *
-              * Also schedules closing of the channel upon member token expiration.
-              *
-              * @param metadata
-              *   Sequencer channel metadata that uniquely identifies the channel and includes the
-              *   members.
-              * @param uninitializedChannel
-              *   The uninitialized channel to initialize.
-              * @param tokenExpiresAt
-              *   Token expiration time
-              * @param createChannel
-              *   Helper to build the initialized channel from the metadata
-              * @return
-              *   the newly created "first" or "second" member message handler (determined by the
-              *   order in which the members connect)
-              */
-            override protected def ensureChannelAndConnect(
-                metadata: SequencerChannelMetadata,
-                uninitializedChannel: UninitializedGrpcSequencerChannel,
-                tokenExpiresAt: Option[CantonTimestamp],
-                createChannel: SequencerChannelMetadata => GrpcSequencerChannel,
-                tc: TraceContext,
-            ): Either[String, GrpcSequencerChannelMemberMessageHandler] = {
-              implicit val traceContext: TraceContext = tc
-              synchronizeWithClosingSync(functionFullName) {
-                blocking {
-                  GrpcSequencerChannelPool.this.synchronized {
-                    // Remove uninitialized channel even if adding initialized channel fails
-                    // as in the case of an initialization error below the caller closes the GRPC request.
-                    uninitializedChannels -= uninitializedChannel
-                    for {
-                      channelInfo <- initializedChannels.get(metadata.channelId) match {
-                        case None =>
-                          logger.debug(
-                            s"Creating new channel in response to connect request by first member ${metadata.initiatingMember}"
-                          )
-                          val newChannel = createChannel(metadata)
-                          initializedChannels.putIfAbsent(metadata.channelId, newChannel).discard
-                          newChannel.onClosed(() => removeChannel(metadata.channelId))
-                          Right((newChannel, newChannel.firstMemberHandler))
-                        case Some(existingChannel) =>
-                          for {
-                            _ <- Either.cond(
-                              !existingChannel.isFullyConnected,
-                              (),
-                              s"Sequencer channel ${metadata.channelId} already exists: $metadata",
-                            )
-                            _ = logger.debug(
-                              s"Attaching to existing channel in response to connect request by second member ${metadata.initiatingMember}"
-                            )
-                            // If channel already exists, we expect the opposite member positions to reflect that
-                            // channel.firstMemberToConnect has already connected and channel.secondMemberToConnect
-                            // is now connecting and that each request to the channel expects the other member.
-                            _ <- Either.cond(
-                              existingChannel.secondMember == metadata.initiatingMember,
-                              (),
-                              s"Sequencer channel ${metadata.channelId} initiating member mismatch: Expected ${existingChannel.secondMember}, but request contains ${metadata.initiatingMember}.",
-                            )
-                            _ <- Either.cond(
-                              existingChannel.firstMember == metadata.receivingMember,
-                              (),
-                              s"Sequencer channel ${metadata.channelId} connect-to member mismatch: Expected ${existingChannel.firstMember}, but request contains ${metadata.receivingMember}.",
-                            )
-                            handler <- existingChannel.addSecondMemberToConnectHandler(
-                              uninitializedChannel.responseObserver
-                            )
-                          } yield (existingChannel, handler)
-                      }
-                      (channel, handler) = channelInfo
-                      // schedule expiring the channel once token expires
-                      // this could potentially happen immediately if the expiration has already passed
-                      _ = tokenExpiresAt.foreach(ts =>
-                        clock.scheduleAt(
-                          _ => {
-                            logger.info(
-                              s"Closing channel ${metadata.channelId} because ${channel.firstMember} token has expired at $ts"
-                            )
-                            closeChannel(metadata.channelId, channel)
-                          },
-                          ts,
-                        )
+          /** Transitions an uninitialized channel to a newly initialized channel or an existing
+            * channel already created by the "opposite" side/member.
+            *
+            * Also schedules closing of the channel upon member token expiration.
+            *
+            * @param metadata
+            *   Sequencer channel metadata that uniquely identifies the channel and includes the
+            *   members.
+            * @param uninitializedChannel
+            *   The uninitialized channel to initialize.
+            * @param tokenExpiresAt
+            *   Token expiration time
+            * @param createChannel
+            *   Helper to build the initialized channel from the metadata
+            * @return
+            *   the newly created "first" or "second" member message handler (determined by the
+            *   order in which the members connect)
+            */
+          override protected def ensureChannelAndConnect(
+              metadata: SequencerChannelMetadata,
+              uninitializedChannel: UninitializedGrpcSequencerChannel,
+              tokenExpiresAt: Option[CantonTimestamp],
+              createChannel: SequencerChannelMetadata => GrpcSequencerChannel,
+              tc: TraceContext,
+          ): Either[String, GrpcSequencerChannelMemberMessageHandler] = {
+            implicit val traceContext: TraceContext = tc
+            synchronizeWithClosingSync(functionFullName) {
+              lock.exclusive {
+                // Remove uninitialized channel even if adding initialized channel fails
+                // as in the case of an initialization error below the caller closes the GRPC request.
+                uninitializedChannels -= uninitializedChannel
+                for {
+                  channelInfo <- initializedChannels.get(metadata.channelId) match {
+                    case None =>
+                      logger.debug(
+                        s"Creating new channel in response to connect request by first member ${metadata.initiatingMember}"
                       )
-                    } yield handler
+                      val newChannel = createChannel(metadata)
+                      initializedChannels.putIfAbsent(metadata.channelId, newChannel).discard
+                      newChannel.onClosed(() => removeChannel(metadata.channelId))
+                      Right((newChannel, newChannel.firstMemberHandler))
+                    case Some(existingChannel) =>
+                      for {
+                        _ <- Either.cond(
+                          !existingChannel.isFullyConnected,
+                          (),
+                          s"Sequencer channel ${metadata.channelId} already exists: $metadata",
+                        )
+                        _ = logger.debug(
+                          s"Attaching to existing channel in response to connect request by second member ${metadata.initiatingMember}"
+                        )
+                        // If channel already exists, we expect the opposite member positions to reflect that
+                        // channel.firstMemberToConnect has already connected and channel.secondMemberToConnect
+                        // is now connecting and that each request to the channel expects the other member.
+                        _ <- Either.cond(
+                          existingChannel.secondMember == metadata.initiatingMember,
+                          (),
+                          s"Sequencer channel ${metadata.channelId} initiating member mismatch: Expected ${existingChannel.secondMember}, but request contains ${metadata.initiatingMember}.",
+                        )
+                        _ <- Either.cond(
+                          existingChannel.firstMember == metadata.receivingMember,
+                          (),
+                          s"Sequencer channel ${metadata.channelId} connect-to member mismatch: Expected ${existingChannel.firstMember}, but request contains ${metadata.receivingMember}.",
+                        )
+                        handler <- existingChannel.addSecondMemberToConnectHandler(
+                          uninitializedChannel.responseObserver
+                        )
+                      } yield (existingChannel, handler)
                   }
-                }
-              } onShutdown Left("Sequencer channel pool closed")
-            }
+                  (channel, handler) = channelInfo
+                  // schedule expiring the channel once token expires
+                  // this could potentially happen immediately if the expiration has already passed
+                  _ = tokenExpiresAt.foreach(ts =>
+                    clock.scheduleAt(
+                      _ => {
+                        logger.info(
+                          s"Closing channel ${metadata.channelId} because ${channel.firstMember} token has expired at $ts"
+                        )
+                        closeChannel(metadata.channelId, channel)
+                      },
+                      ts,
+                    )
+                  )
+                } yield handler
+              }
+            } onShutdown Left("Sequencer channel pool closed")
           }
-          uninitializedChannels += channel
-          Right(channel.requestObserverAdapter)
         }
+        uninitializedChannels += channel
+        Right(channel.requestObserverAdapter)
       }
     } onShutdown Left("Sequencer channel pool closed")
 
@@ -184,10 +183,8 @@ private[channel] final class GrpcSequencerChannelPool(
       traceContext: TraceContext
   ): Unit = {
     logger.debug(s"Removing channel $channelId")
-    blocking {
-      synchronized {
-        initializedChannels.remove(channelId).discard
-      }
+    lock.exclusive {
+      initializedChannels.remove(channelId).discard
     }
   }
 
@@ -215,31 +212,27 @@ private[channel] final class GrpcSequencerChannelPool(
   )(implicit
       traceContext: TraceContext
   ): Unit =
-    blocking {
-      synchronized {
-        initializedChannels.foreach {
-          case (channelId, channel) if memberO.forall(_ == channel.firstMember) =>
-            closeChannel(channelId, channel, waitForClosed)
-          case _ => ()
-        }
+    lock.exclusive {
+      initializedChannels.foreach {
+        case (channelId, channel) if memberO.forall(_ == channel.firstMember) =>
+          closeChannel(channelId, channel, waitForClosed)
+        case _ => ()
+      }
 
-        // If we are closing all channels, also close uninitialized channels.
-        if (memberO.isEmpty) {
-          uninitializedChannels.foreach(_.close())
-          uninitializedChannels.clear()
-        }
+      // If we are closing all channels, also close uninitialized channels.
+      if (memberO.isEmpty) {
+        uninitializedChannels.foreach(_.close())
+        uninitializedChannels.clear()
       }
     }
 
   private def onUninitializedChannelCompleted(channel: UninitializedGrpcSequencerChannel): Unit =
-    blocking {
-      synchronized {
-        (uninitializedChannels -= channel).discard
-      }
+    lock.exclusive {
+      (uninitializedChannels -= channel).discard
     }
 
-  override def onClosed(): Unit = blocking {
-    synchronized {
+  override def onClosed(): Unit =
+    lock.exclusive {
       withNewTraceContext("close_grpc_channel") { implicit traceContext =>
         logger.debug("Closing all channels in pool")
         // Wait for the channels to actually close in case they are already in the process of closing
@@ -247,5 +240,4 @@ private[channel] final class GrpcSequencerChannelPool(
         closeChannels(waitForClosed = true)
       }
     }
-  }
 }

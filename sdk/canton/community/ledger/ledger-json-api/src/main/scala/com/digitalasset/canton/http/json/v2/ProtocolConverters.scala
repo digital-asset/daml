@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.http.json.v2
@@ -371,12 +371,14 @@ class ProtocolConverters(
         traceContext: TraceContext
     ): Future[JsInterfaceView] = {
       val viewStatus = obj.getViewStatus
+      val implementationPackageId = obj.implementationPackageId
       if (viewStatus.code != Code.OK.getNumber) {
         Future.successful(
           JsInterfaceView(
             interfaceId = obj.getInterfaceId,
             viewStatus = viewStatus,
             viewValue = None,
+            implementationPackageId = Option(implementationPackageId).filter(_.nonEmpty),
           )
         )
       } else
@@ -389,6 +391,7 @@ class ProtocolConverters(
           interfaceId = obj.getInterfaceId,
           viewStatus = viewStatus,
           viewValue = obj.viewValue.map(_ => record),
+          implementationPackageId = Some(implementationPackageId),
         )
     }
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.store
@@ -62,7 +62,9 @@ trait SequencerWriterStore extends AutoCloseable {
   ): FutureUnlessShutdown[Unit] =
     store.saveEvents(instanceIndex, events)
 
-  def bufferEvents(events: NonEmpty[Seq[Sequenced[IdOrPayload]]]): Unit =
+  def bufferEvents(events: NonEmpty[Seq[Sequenced[IdOrPayload]]])(implicit
+      traceContext: TraceContext
+  ): Unit =
     store.bufferEvents(events)
 
   def bufferPayload(payload: BytesPayload)(implicit tc: TraceContext): Unit =

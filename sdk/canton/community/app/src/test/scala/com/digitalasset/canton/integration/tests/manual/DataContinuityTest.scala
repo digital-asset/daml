@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.manual
@@ -43,7 +43,7 @@ import com.digitalasset.canton.logging.{LogEntry, TracedLogger}
 import com.digitalasset.canton.synchronizer.sequencer.ProgrammableSequencer
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{BinaryFileUtil, MonadUtil}
+import com.digitalasset.canton.util.{BinaryFileUtil, MonadUtil, Mutex}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 import com.digitalasset.canton.{HasExecutionContext, HasTempDirectory, TempDirectory, config}
 import monocle.macros.syntax.lens.*
@@ -54,7 +54,7 @@ import java.util.{Calendar, TimeZone}
 import scala.annotation.unused
 import scala.compat.java8.OptionConverters.RichOptionalGeneric
 import scala.concurrent.duration.*
-import scala.concurrent.{Await, Future, blocking}
+import scala.concurrent.{Await, Future}
 import scala.jdk.CollectionConverters.*
 import scala.sys.process.*
 
@@ -661,7 +661,7 @@ object DataContinuityTest {
   lazy val baseDbDumpPath: TempDirectory = TempDirectory(File("/tmp/canton/data-continuity-dumps/"))
   lazy val localBaseDbDumpPath: File =
     File.currentWorkingDirectory / "community/app/src/test/data-continuity-dumps"
-
+  private val lock = new Mutex()
   val releaseVersion: ReleaseVersion = ReleaseVersion.current
   val protocolVersionPrefix = "pv="
 
@@ -678,7 +678,7 @@ object DataContinuityTest {
   lazy val baseDumpForConfig: TempDirectory = DataContinuityTest.baseDumpForRelease / "config"
 
   // IO around data continuity tests share directories. Allows to lock when required
-  def synchronizedOperation(f: => Unit): Unit = blocking(this.synchronized(f))
+  def synchronizedOperation(f: => Unit): Unit = lock.exclusive(f)
 
   final case class FolderName(name: String)
 

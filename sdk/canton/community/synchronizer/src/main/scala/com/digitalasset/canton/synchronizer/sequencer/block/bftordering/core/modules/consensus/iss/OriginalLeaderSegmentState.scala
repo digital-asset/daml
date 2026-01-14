@@ -1,9 +1,10 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BlockNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
@@ -12,6 +13,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.OrderedBlock
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.Commit
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.mutable
 
@@ -23,7 +25,9 @@ class OriginalLeaderSegmentState(
     state: SegmentState,
     epoch: Epoch,
     initialCompletedBlocks: Seq[Block],
-) {
+    initialCurrentViewPrePrepareBlockNumbers: Seq[BlockNumber],
+    override val loggerFactory: NamedLoggerFactory,
+) extends NamedLogging {
   private val segment = state.segment
 
   private val completedBlockIsEmpty: mutable.Map[BlockNumber, Boolean] =
@@ -56,14 +60,24 @@ class OriginalLeaderSegmentState(
     completedBlockIsEmpty.put(blockNumber, isEmpty).discard
 
   def isProgressBlocked: Boolean =
-    canReceiveProposals && blockedProgressDetector.isProgressBlocked(nextRelativeBlockToOrder)
+    canReceiveProposals && blockedProgressDetector.isProgressBlocked(nextRelativeBlockToPropose)
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  private var nextRelativeBlockToOrder =
+  private var nextRelativeBlockToPropose =
     // TODO(#16761): This assumes that a node's locally-assigned slots complete in order
     // Right now, this is guaranteed since each leader only works on one block at a time.
     // However, this may change in the future as we look to improve performance.
-    segment.slotNumbers.count(initialCompletedBlocks.map(_.blockNumber).contains)
+    segment.slotNumbers.count(blockNumber =>
+      initialCompletedBlocks
+        .map(_.blockNumber)
+        .contains(blockNumber) || initialCurrentViewPrePrepareBlockNumbers
+        .contains(blockNumber)
+    )
+
+  logger.debug(
+    s"At segment creation with initialCompletedBlocks = ${initialCompletedBlocks.map(_.blockNumber)}, " +
+      s"next relative block to propose = $nextRelativeBlockToPropose$absoluteNextBlockToProposeLogSuffix"
+  )(TraceContext.empty)
 
   // `canReceiveProposals` determines whether this ordering node should request a proposal
   //  (of batches of submission requests) from the Availability module to sequence within the locally-owned segment.
@@ -78,10 +92,10 @@ class OriginalLeaderSegmentState(
   //  from being provided simultaneously, which would potentially exceed the Consensus segment module
   //  original leader's segment size, resulting in a potential `IndexOutOfBounds` exception in `assignToSlot`.
   def canReceiveProposals: Boolean =
-    segment.slotNumbers.sizeIs > nextRelativeBlockToOrder && // we haven't filled all slots
+    segment.slotNumbers.sizeIs > nextRelativeBlockToPropose && // we haven't filled all slots
       !viewChangeOccurred && // we haven't entered a view change ever in this epoch for our segment (view = 0)
-      (nextRelativeBlockToOrder == 0 || state.isBlockComplete(
-        segment.slotNumbers(nextRelativeBlockToOrder - 1)
+      (nextRelativeBlockToPropose == 0 || state.isBlockComplete(
+        segment.slotNumbers(nextRelativeBlockToPropose - 1)
       )) // we finished processing the current slot
 
   private def viewChangeOccurred: Boolean = state.currentView > 0
@@ -89,13 +103,13 @@ class OriginalLeaderSegmentState(
   def assignToSlot(
       blockToOrder: OrderingBlock,
       latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]],
-  ): OrderedBlock = {
-    val lastStableCommits = if (nextRelativeBlockToOrder > 0) {
-      val previousBlockNumberInSegment = segment.slotNumbers(nextRelativeBlockToOrder - 1)
+  )(implicit traceContext: TraceContext): OrderedBlock = {
+    val lastStableCommits = if (nextRelativeBlockToPropose > 0) {
+      val previousBlockNumberInSegment = segment.slotNumbers(nextRelativeBlockToPropose - 1)
       state.blockCommitMessages(previousBlockNumberInSegment)
     } else latestCompletedEpochLastCommits
 
-    val blockMetadata = BlockMetadata(state.epoch.info.number, nextBlockToOrder)
+    val blockMetadata = BlockMetadata(state.epoch.info.number, nextBlockToPropose)
     val orderedBlock =
       OrderedBlock(
         blockMetadata,
@@ -103,12 +117,22 @@ class OriginalLeaderSegmentState(
         CanonicalCommitSet(lastStableCommits.toSet),
       )
 
-    nextRelativeBlockToOrder += 1
+    nextRelativeBlockToPropose += 1
+
+    logger.debug(
+      s"Next relative block to propose after assigning slot = $nextRelativeBlockToPropose$absoluteNextBlockToProposeLogSuffix"
+    )
 
     orderedBlock
   }
 
-  def isNextSlotFirst: Boolean = nextRelativeBlockToOrder == 0
+  private def absoluteNextBlockToProposeLogSuffix =
+    s" (segment = ${segment.slotNumbers}, " +
+      (if (segment.slotNumbers.sizeIs > nextRelativeBlockToPropose)
+         s"absolute = $nextBlockToPropose)"
+       else s"beyond segment end at block ${segment.slotNumbers.last1})")
 
-  def nextBlockToOrder: BlockNumber = segment.slotNumbers(nextRelativeBlockToOrder)
+  def isNextSlotFirst: Boolean = nextRelativeBlockToPropose == 0
+
+  def nextBlockToPropose: BlockNumber = segment.slotNumbers(nextRelativeBlockToPropose)
 }

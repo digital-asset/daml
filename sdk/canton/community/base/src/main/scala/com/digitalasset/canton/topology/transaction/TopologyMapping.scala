@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.transaction
@@ -20,6 +20,7 @@ import com.digitalasset.canton.ProtoDeserializationError.{
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.{Endpoint, UrlValidator}
 import com.digitalasset.canton.protocol.v30.Enums
@@ -50,12 +51,14 @@ import com.digitalasset.canton.topology.transaction.TopologyMapping.{
   RequiredAuth,
   newSigningKeys,
 }
+import com.digitalasset.canton.util.LoggerUtil
 import com.digitalasset.canton.version.ProtoVersion
 import com.digitalasset.canton.{LfPackageId, ProtoDeserializationError, SequencerAlias}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import monocle.Lens
 import monocle.macros.GenLens
+import org.slf4j.event.Level
 
 import scala.annotation.nowarn
 import scala.math.Ordering.Implicits.*
@@ -79,6 +82,9 @@ sealed trait TopologyMapping extends Product with Serializable with PrettyPrinti
     * query results.
     */
   def maybeUid: Option[UniqueIdentifier]
+
+  /** The set of Uids referenced by this mapping */
+  def referencedUids: Set[UniqueIdentifier]
 
   /** Returns authorization information
     *
@@ -214,6 +220,9 @@ object TopologyMapping {
 
     val logicalSynchronizerUpgradeMappings: Set[Code] =
       Set[Code](Code.SynchronizerUpgradeAnnouncement, Code.SequencerConnectionSuccessor)
+
+    val lsuMappingsExcludedFromUpgrade: NonEmpty[Set[Code]] =
+      NonEmpty(Set, Code.SynchronizerUpgradeAnnouncement, Code.SequencerConnectionSuccessor: Code)
 
     def fromString(code: String): ParsingResult[Code] =
       all
@@ -390,6 +399,22 @@ object TopologyMapping {
       case Mapping.SequencerConnectionSuccessor(value) =>
         SequencerConnectionSuccessor.fromProtoV30(value)
     }
+
+  /** Determines the appropriate level for the given topology mappings.
+    */
+  def resolveLogLevel(default: Level, code: Code): Level = {
+    @inline def maxLevel(a: Level, b: Level): Level = if (a.toInt > b.toInt) a else b
+
+    code match {
+      // Promote level for LSU-related activity to at least INFO.
+      case Code.SynchronizerUpgradeAnnouncement | Code.SequencerConnectionSuccessor =>
+        maxLevel(default, Level.INFO)
+      case _ => default
+    }
+  }
+
+  def loggerDebug(code: Code)(msg: => String)(implicit lc: ErrorLoggingContext): Unit =
+    LoggerUtil.logAtLevel(resolveLogLevel(Level.DEBUG, code), msg)
 }
 
 /** Trait for all companion objects of topology mappings. This allows for a nicer console UX,
@@ -526,6 +551,8 @@ final case class NamespaceDelegation private (
       isRootDelegation = false,
       restriction = restriction.toProtoV30,
     )
+
+  override def referencedUids: Set[UniqueIdentifier] = Set.empty
 
   def canSign(mappingsToSign: Code): Boolean =
     restriction.canSign(mappingsToSign)
@@ -692,6 +719,7 @@ final case class DecentralizedNamespaceDefinition private (
     )
 
   override def maybeUid: Option[UniqueIdentifier] = None
+  override def referencedUids: Set[UniqueIdentifier] = Set.empty
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = None
 
@@ -849,6 +877,7 @@ final case class OwnerToKeyMapping private (
 
   override def namespace: Namespace = member.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(member.uid)
+  override def referencedUids: Set[UniqueIdentifier] = Set(member.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = None
 
@@ -970,6 +999,7 @@ final case class PartyToKeyMapping private (
   override def namespace: Namespace = party.namespace
 
   override def maybeUid: Option[UniqueIdentifier] = Some(party.uid)
+  override def referencedUids: Set[UniqueIdentifier] = Set(party.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = None
 
@@ -1094,6 +1124,7 @@ final case class SynchronizerTrustCertificate(
 
   override def namespace: Namespace = participantId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(participantId.uid)
+  override def referencedUids: Set[UniqueIdentifier] = Set(participantId.uid, synchronizerId.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
 
@@ -1288,6 +1319,7 @@ final case class ParticipantSynchronizerPermission(
 
   override def namespace: Namespace = participantId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(participantId.uid)
+  override def referencedUids: Set[UniqueIdentifier] = Set(participantId.uid, synchronizerId.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
 
@@ -1382,6 +1414,7 @@ final case class PartyHostingLimits(
 
   override def namespace: Namespace = partyId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(partyId.uid)
+  override def referencedUids: Set[UniqueIdentifier] = Set(partyId.uid, synchronizerId.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
 
@@ -1493,6 +1526,7 @@ final case class VettedPackages private (
 
   override def namespace: Namespace = participantId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(participantId.uid)
+  override def referencedUids: Set[UniqueIdentifier] = Set(participantId.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = None
 
@@ -1678,7 +1712,8 @@ final case class PartyToParticipant private (
 
   override def namespace: Namespace = partyId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(partyId.uid)
-
+  override def referencedUids: Set[UniqueIdentifier] =
+    (partyId.uid +: participants.map(_.participantId.uid)).toSet
   override def restrictedToSynchronizer: Option[SynchronizerId] = None
 
   def participantIds: Seq[ParticipantId] = participants.map(_.participantId)
@@ -1914,7 +1949,7 @@ final case class SynchronizerParametersState(
 
   override def namespace: Namespace = synchronizerId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
-
+  override def referencedUids: Set[UniqueIdentifier] = Set(synchronizerId.uid)
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
 
   override def requiredAuth(
@@ -1978,6 +2013,7 @@ final case class DynamicSequencingParametersState(
 
   override def namespace: Namespace = synchronizerId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
+  override def referencedUids: Set[UniqueIdentifier] = Set(synchronizerId.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
 
@@ -2053,6 +2089,8 @@ final case class MediatorSynchronizerState private (
 
   override def namespace: Namespace = synchronizerId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
+  override def referencedUids: Set[UniqueIdentifier] =
+    (synchronizerId.uid +: (active.map(_.uid) ++ observers.map(_.uid))).toSet
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
 
@@ -2162,7 +2200,8 @@ final case class SequencerSynchronizerState private (
 
   override def namespace: Namespace = synchronizerId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
-
+  override def referencedUids: Set[UniqueIdentifier] =
+    (synchronizerId.uid +: (active.map(_.uid) ++ observers.map(_.uid))).toSet
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
 
   override def requiredAuth(
@@ -2254,7 +2293,7 @@ final case class SynchronizerUpgradeAnnouncement(
 
   override def namespace: Namespace = successorSynchronizerId.namespace
   override def maybeUid: Option[UniqueIdentifier] = Some(successorSynchronizerId.uid)
-
+  override def referencedUids: Set[UniqueIdentifier] = Set(successorSynchronizerId.uid)
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(
     successorSynchronizerId.logical
   )
@@ -2344,7 +2383,7 @@ final case class SequencerConnectionSuccessor(
   override def namespace: Namespace = sequencerId.namespace
 
   override def maybeUid: Option[UniqueIdentifier] = Some(sequencerId.uid)
-
+  override def referencedUids: Set[UniqueIdentifier] = Set(sequencerId.uid, synchronizerId.uid)
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): RequiredAuth = RequiredNamespaces(Set(namespace))

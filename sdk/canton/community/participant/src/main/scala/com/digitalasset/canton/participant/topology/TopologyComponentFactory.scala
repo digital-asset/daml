@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.topology
@@ -13,7 +13,7 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.party.OnboardingClearanceScheduler
 import com.digitalasset.canton.participant.config.UnsafeOnlinePartyReplicationConfig
@@ -132,6 +132,7 @@ class TopologyComponentFactory(
       topologyConfig: TopologyConfig
   )(implicit
       executionContext: ExecutionContext,
+      closeContext: CloseContext,
       materializer: Materializer,
   ): InitialTopologySnapshotValidator =
     new InitialTopologySnapshotValidator(

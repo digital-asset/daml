@@ -24,11 +24,11 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-decode",
         "//compiler/daml-lf-proto-encode",
         "//compiler/daml-lf-proto-util",
-        "//daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -55,13 +55,13 @@ da_haskell_test(
     src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
+        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-proto-decode",
         "//compiler/daml-lf-proto-encode",
         "//compiler/damlc/daml-extract-dar",
         "//compiler/damlc/daml-ide-core",
-        "//daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

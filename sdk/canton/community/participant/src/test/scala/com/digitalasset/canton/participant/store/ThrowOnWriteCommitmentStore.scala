@@ -1,10 +1,10 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.InternedPartyId
 import com.digitalasset.canton.data.{BufferedAcsCommitment, CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -136,7 +136,9 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
   class ThrowOnWriteIncrementalCommitmentStore extends IncrementalCommitmentStore {
     override def get()(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[(RecordTime, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType])] =
+    ): FutureUnlessShutdown[
+      (RecordTime, Map[SortedSet[InternedPartyId], AcsCommitment.CommitmentType])
+    ] =
       FutureUnlessShutdown.pure((RecordTime.MinValue, Map.empty))
 
     override def watermark(implicit traceContext: TraceContext): FutureUnlessShutdown[RecordTime] =
@@ -144,8 +146,8 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
 
     override def update(
         rt: RecordTime,
-        updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
-        deletes: Set[SortedSet[LfPartyId]],
+        updates: Map[SortedSet[InternedPartyId], AcsCommitment.CommitmentType],
+        deletes: Set[SortedSet[InternedPartyId]],
         updateMode: UpdateMode,
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
       incrementCounterAndErr()

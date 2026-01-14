@@ -1,13 +1,14 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.utils
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.canton.util.Thereafter.syntax.*
 
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 trait ConcurrencyLimiter {
   def execute[T](task: => Future[T]): Future[T]
@@ -23,13 +24,14 @@ class QueueBasedConcurrencyLimiter(
   type Task = () => Unit
   private val waiting = mutable.Queue[Task]()
   private var running: Int = 0
+  private val lock = new Mutex()
 
   override def execute[T](task: => Future[T]): Future[T] = {
     val promise = Promise[T]()
     val waitingTask = () => {
       implicit val ec: ExecutionContext = executionContext
       task.thereafter { result =>
-        blocking(synchronized {
+        (lock.exclusive {
           running = running - 1
           promise.tryComplete(result).discard
           startTasks()
@@ -37,7 +39,7 @@ class QueueBasedConcurrencyLimiter(
       }.discard
     }
 
-    blocking(synchronized {
+    (lock.exclusive {
       waiting.enqueue(waitingTask)
       startTasks()
     })

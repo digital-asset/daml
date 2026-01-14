@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -23,6 +23,7 @@ import com.digitalasset.canton.participant.store.AcsCommitmentStore.{
   ReinitializationStatus,
 }
 import com.digitalasset.canton.participant.store.UpdateMode.Checkpoint
+import com.digitalasset.canton.platform.store.interning.MockStringInterning
 import com.digitalasset.canton.protocol.ContractMetadata
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
@@ -182,6 +183,12 @@ trait CommitmentStoreBaseTest
   lazy val alice: LfPartyId = LfPartyId.assertFromString("Alice")
   lazy val bob: LfPartyId = LfPartyId.assertFromString("bob")
   lazy val charlie: LfPartyId = LfPartyId.assertFromString("charlie")
+
+  lazy val mockStringInterning = new MockStringInterning
+
+  lazy val internalizedAlice: Int = mockStringInterning.party.internalize(alice)
+  lazy val internalizedBob: Int = mockStringInterning.party.internalize(bob)
+  lazy val internalizedCharlie: Int = mockStringInterning.party.internalize(charlie)
 }
 
 trait AcsCommitmentStoreTest
@@ -939,8 +946,6 @@ trait AcsCommitmentStoreTest
 }
 
 trait IncrementalCommitmentStoreTest extends CommitmentStoreBaseTest {
-  import com.digitalasset.canton.lfPartyOrdering
-
   def commitmentSnapshotStore(mkWith: ExecutionContext => IncrementalCommitmentStore): Unit = {
 
     def mk() = mkWith(executionContext)
@@ -964,7 +969,10 @@ trait IncrementalCommitmentStoreTest extends CommitmentStoreBaseTest {
 
           _ <- snapshot.update(
             rt(1, 0),
-            updates = Map(SortedSet(alice, bob) -> snapAB10, SortedSet(bob, charlie) -> snapBC10),
+            updates = Map(
+              SortedSet(internalizedAlice, internalizedBob) -> snapAB10,
+              SortedSet(internalizedBob, internalizedCharlie) -> snapBC10,
+            ),
             deletes = Set.empty,
             mode,
           )
@@ -973,7 +981,7 @@ trait IncrementalCommitmentStoreTest extends CommitmentStoreBaseTest {
 
           _ <- snapshot.update(
             rt(1, 1),
-            updates = Map(SortedSet(bob, charlie) -> snapBC11),
+            updates = Map(SortedSet(internalizedBob, internalizedCharlie) -> snapBC11),
             deletes = Set.empty,
             mode,
           )
@@ -982,8 +990,11 @@ trait IncrementalCommitmentStoreTest extends CommitmentStoreBaseTest {
 
           _ <- snapshot.update(
             rt(2, 0),
-            updates = Map(SortedSet(alice, bob) -> snapAB2, SortedSet(alice, charlie) -> snapAC2),
-            deletes = Set(SortedSet(bob, charlie)),
+            updates = Map(
+              SortedSet(internalizedAlice, internalizedBob) -> snapAB2,
+              SortedSet(internalizedAlice, internalizedCharlie) -> snapAC2,
+            ),
+            deletes = Set(SortedSet(internalizedBob, internalizedCharlie)),
             mode,
           )
           res2 <- snapshot.get()
@@ -992,7 +1003,10 @@ trait IncrementalCommitmentStoreTest extends CommitmentStoreBaseTest {
           _ <- snapshot.update(
             rt(3, 0),
             updates = Map.empty,
-            deletes = Set(SortedSet(alice, bob), SortedSet(alice, charlie)),
+            deletes = Set(
+              SortedSet(internalizedAlice, internalizedBob),
+              SortedSet(internalizedAlice, internalizedCharlie),
+            ),
             mode,
           )
           res3 <- snapshot.get()
@@ -1004,20 +1018,20 @@ trait IncrementalCommitmentStoreTest extends CommitmentStoreBaseTest {
 
           wm1 shouldBe rt(1, 0)
           res1 shouldBe (rt(1, 0) -> Map(
-            SortedSet(alice, bob) -> snapAB10,
-            SortedSet(bob, charlie) -> snapBC10,
+            SortedSet(internalizedAlice, internalizedBob) -> snapAB10,
+            SortedSet(internalizedBob, internalizedCharlie) -> snapBC10,
           ))
 
           wm11 shouldBe rt(1, 1)
           res11 shouldBe (rt(1, 1) -> Map(
-            SortedSet(alice, bob) -> snapAB10,
-            SortedSet(bob, charlie) -> snapBC11,
+            SortedSet(internalizedAlice, internalizedBob) -> snapAB10,
+            SortedSet(internalizedBob, internalizedCharlie) -> snapBC11,
           ))
 
           ts2 shouldBe rt(2, 0)
           res2 shouldBe (rt(2, 0) -> Map(
-            SortedSet(alice, bob) -> snapAB2,
-            SortedSet(alice, charlie) -> snapAC2,
+            SortedSet(internalizedAlice, internalizedBob) -> snapAB2,
+            SortedSet(internalizedAlice, internalizedCharlie) -> snapAC2,
           ))
 
           ts3 shouldBe rt(3, 0)

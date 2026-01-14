@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing
@@ -44,12 +44,12 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, SingleUseCell}
+import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, Mutex, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
 import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContextExecutor, blocking}
+import scala.concurrent.ExecutionContextExecutor
 import scala.util.Failure
 
 /** Sequencer connection specialized for gRPC transport.
@@ -70,6 +70,7 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
     with GrpcClientTransportHelpers {
   import GrpcInternalSequencerConnectionX.*
 
+  private val lock = Mutex()
   private val connection: GrpcConnectionX =
     GrpcConnectionX(config, metrics, timeouts, loggerFactory)
   private val connectionMetricsContext: MetricsContext = metricsContext.withExtraLabels(
@@ -179,8 +180,8 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
 
   override def start()(implicit
       traceContext: TraceContext
-  ): Either[SequencerConnectionXError, Unit] = blocking {
-    synchronized {
+  ): Either[SequencerConnectionXError, Unit] =
+    lock.exclusive {
       logger.info(s"Starting $name")
       val oldState = updateLocalState {
         // No need to trigger a new validation
@@ -202,10 +203,9 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
           Either.unit
       }
     }
-  }
 
-  override def fail(reason: String)(implicit traceContext: TraceContext): Unit = blocking {
-    synchronized {
+  override def fail(reason: String)(implicit traceContext: TraceContext): Unit =
+    lock.exclusive {
       logger.info(s"Stopping $name for non-fatal reason: $reason")
       lastFailureReasonRef.set(Some(reason))
 
@@ -226,10 +226,9 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
           connection.stop()
       }
     }
-  }
 
-  override def fatal(reason: String)(implicit traceContext: TraceContext): Unit = blocking {
-    synchronized {
+  override def fatal(reason: String)(implicit traceContext: TraceContext): Unit =
+    lock.exclusive {
       logger.info(s"Stopping $name for fatal reason: $reason")
       lastFailureReasonRef.set(Some(reason))
 
@@ -244,7 +243,6 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
           connection.stop()
       }
     }
-  }
 
   private def validate()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     def handleFailedValidation(error: SequencerConnectionXInternalError): Unit = error match {

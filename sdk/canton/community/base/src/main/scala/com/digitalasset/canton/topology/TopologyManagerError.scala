@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -229,7 +229,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     final case class Failure(actual: Option[PositiveInt], expected: Option[PositiveInt])(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"The given serial $expected did not match the actual serial $actual."
+          cause = s"The provided serial $actual did not match the expected serial $expected."
         )
         with TopologyManagerError
   }

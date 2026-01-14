@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing
@@ -51,7 +51,7 @@ import com.digitalasset.canton.topology.{
   SynchronizerId,
 }
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
-import com.digitalasset.canton.util.{PekkoUtil, ResourceUtil}
+import com.digitalasset.canton.util.{Mutex, PekkoUtil, ResourceUtil}
 import com.digitalasset.canton.version.{
   ProtocolVersion,
   ProtocolVersionCompatibility,
@@ -68,7 +68,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future, Promise, blocking}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future, Promise}
 import scala.util.Random
 
 trait ConnectionPoolTestHelpers {
@@ -553,26 +553,23 @@ protected object ConnectionPoolTestHelpers {
 
   protected class CreatedConnections {
     private val connectionsMap = TrieMap[Int, InternalSequencerConnectionX]()
-
+    private val lock = new Mutex()
     def apply(index: Int): InternalSequencerConnectionX = connectionsMap.apply(index)
 
     def add(index: Int, connection: InternalSequencerConnectionX): Unit =
-      blocking {
-        synchronized {
-          connectionsMap.updateWith(index) {
-            case Some(_) => throw new IllegalStateException("Connection already exists")
-            case None => Some(connection)
-          }
+      lock.exclusive {
+        connectionsMap.updateWith(index) {
+          case Some(_) => throw new IllegalStateException("Connection already exists")
+          case None => Some(connection)
         }
       }
 
-    def snapshotAndClear(): Map[Int, InternalSequencerConnectionX] = blocking {
-      synchronized {
+    def snapshotAndClear(): Map[Int, InternalSequencerConnectionX] =
+      lock.exclusive {
         val snapshot = connectionsMap.readOnlySnapshot().toMap
         connectionsMap.clear()
         snapshot
       }
-    }
 
     def size: Int = connectionsMap.size
   }
@@ -776,6 +773,7 @@ protected object ConnectionPoolTestHelpers {
     import scala.collection.mutable
     import BaseTest.eventuallyForever
 
+    private val lock = new Mutex()
     private val statesBuffer = mutable.ArrayBuffer[element.State]()
 
     def shouldStabilizeOn(state: element.State): Assertion =
@@ -789,13 +787,12 @@ protected object ConnectionPoolTestHelpers {
 
     override def name: String = s"${element.name}-test-listener"
 
-    override def poke()(implicit traceContext: TraceContext): Unit = blocking {
-      synchronized {
+    override def poke()(implicit traceContext: TraceContext): Unit =
+      lock.exclusive {
         val state = element.getState
 
         statesBuffer += state
       }
-    }
   }
 
   private class TestValidationBlocker(private val blockValidation: Int => Boolean)

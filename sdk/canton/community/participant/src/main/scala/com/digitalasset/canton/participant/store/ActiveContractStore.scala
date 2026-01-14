@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -7,6 +7,7 @@ import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.config.CantonRequireTypes.String36
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -380,6 +381,8 @@ object ActiveContractStore {
     def contractChange: ContractChange
 
     def isReassignment: Boolean
+
+    def isActivation: Boolean = changeType == ChangeType.Activation
   }
 
   object ActivenessChangeDetail {
@@ -416,6 +419,7 @@ object ActiveContractStore {
       override def contractChange: ContractChange = ContractChange.Created
 
       override def isReassignment: Boolean = false
+
       override protected def pretty: Pretty[Create.this.type] = prettyOfClass(
         param("reassignment counter", _.reassignmentCounter)
       )
@@ -878,6 +882,17 @@ trait ActiveContractSnapshot {
     *   The lower bound for the changes. Must not be larger than the upper bound.
     * @param toInclusive
     *   The upper bound for the changes. Must not be smaller than the lower bound.
+    * @param maxResultSize
+    *   The maximum number of changes to retrieve. When there are more than maxResultSize changes,
+    *   we retrieve the first maxResultSize ordered by timestamp, repair_counter. We never break a
+    *   batch in the middle of changes with the same (timestamp, repair_counter). If there are more
+    *   than maxResultSize for the same (timestamp, repair_counter), the batch continues until the
+    *   end of these changes. We could probably also return a Boolean to indicate whether there's
+    *   more to be fetched.
+    *
+    * @return
+    *   The changes and the nr of changes returned.
+    *
     * @throws java.lang.IllegalArgumentException
     *   If the intervals are in the wrong order.
     */
@@ -890,16 +905,27 @@ trait ActiveContractSnapshot {
    * lastActivationTime <= `fromExclusive`. Therefore, for retrieving the reassignment counter of archived contracts,
    * we may need to look at activations between (`fromExclusive`, `toInclusive`], and at activations taking
    * place at a time <= `fromExclusive`.
+   * The number of changes returned is at most `maxResultSize`, as long as for every toc returned, we return all changes.
+   * In other words, there is no toc in the returned result for which we return just some of the associated changes.
+   * For this reason, and only for this reason, the size of returned changes can grow larger than `maxResultSize`.
+   * Note that there is a natural limit to how many changes there can be at the same toc. Changes with the same toc can
+   * only come from the same transaction. Daml transactions have a recommended limit of 10000 changes. Transactions
+   * issued by the repair service, e.g., when importing contracts, have a limit of 1000 changes.
    *
    * The implementation assumes that:
    * - reassignment counters for a contract are strictly increasing for different activations of that contract
    * - the activations/deactivations retrieved from the DB really describe a well-formed
    * set of contracts, e.g., a contract is not archived twice, etc TODO(i12904)
    */
-  def changesBetween(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
+  def changesBetween(
+      fromExclusive: TimeOfChange,
+      toInclusive: TimeOfChange,
+      maxResultSize: PositiveInt,
+  )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[LazyList[(TimeOfChange, ActiveContractIdsChange)]]
-
+  ): FutureUnlessShutdown[
+    (LazyList[(TimeOfChange, ActiveContractIdsChange)], Int)
+  ]
 }
 
 object ActiveContractSnapshot {

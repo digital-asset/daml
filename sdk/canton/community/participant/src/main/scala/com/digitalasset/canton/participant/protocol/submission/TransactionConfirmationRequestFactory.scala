@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.submission
@@ -42,6 +42,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   Recipients,
 }
 import com.digitalasset.canton.store.SessionKeyStore
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
@@ -63,6 +64,7 @@ import scala.concurrent.ExecutionContext
   */
 class TransactionConfirmationRequestFactory(
     submitterNode: ParticipantId,
+    clock: Clock,
     loggingConfig: LoggingConfig,
     val loggerFactory: NamedLoggerFactory,
     parallel: Boolean = true,
@@ -158,16 +160,23 @@ class TransactionConfirmationRequestFactory(
     FutureUnlessShutdown,
     TransactionConfirmationRequestCreationError,
     TransactionConfirmationRequest,
-  ] =
+  ] = {
+    val approximateTimestampOverride = Some(clock.now)
+
     for {
       transactionViewEnvelopes <- createTransactionViewEnvelopes(
         transactionTree,
         cryptoSnapshot,
+        approximateTimestampOverride,
         sessionKeyStore,
         protocolVersion,
       )
       submittingParticipantSignature <- cryptoSnapshot
-        .sign(transactionTree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+        .sign(
+          transactionTree.rootHash.unwrap,
+          SigningKeyUsage.ProtocolOnly,
+          approximateTimestampOverride,
+        )
         .leftMap[TransactionConfirmationRequestCreationError](TransactionSigningError.apply)
     } yield {
       if (loggingConfig.eventDetails) {
@@ -184,6 +193,7 @@ class TransactionConfirmationRequestFactory(
         protocolVersion,
       )
     }
+  }
 
   private def assertNonLocalPartiesCanSubmit(
       submitterInfo: SubmitterInfo,
@@ -193,7 +203,7 @@ class TransactionConfirmationRequestFactory(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantAuthorizationError, Unit] = {
     // Signatures have been validated in the Ledger API when the execute request was received.
-    // Therefore we only do authorization checks at this point
+    // Therefore, we only do authorization checks at this point
     val signedAs = externallySignedSubmission.signatures.keySet.map(_.toLf)
     val unauthorized = submitterInfo.actAs.toSet -- signedAs
     for {
@@ -268,6 +278,7 @@ class TransactionConfirmationRequestFactory(
   private def createTransactionViewEnvelopes(
       transactionTree: GenTransactionTree,
       cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
+      approximateTimestampOverride: Option[CantonTimestamp],
       sessionKeyStore: SessionKeyStore,
       protocolVersion: ProtocolVersion,
   )(implicit
@@ -302,6 +313,7 @@ class TransactionConfirmationRequestFactory(
             lvt,
             (viewKey, viewKeyMap),
             cryptoSnapshot,
+            approximateTimestampOverride,
             protocolVersion,
           )
           .leftMap[TransactionConfirmationRequestCreationError](
@@ -362,6 +374,7 @@ object TransactionConfirmationRequestFactory {
   def apply(
       submitterNode: ParticipantId,
       synchronizerId: PhysicalSynchronizerId,
+      clock: Clock,
   )(
       cryptoOps: HashOps & HmacOps,
       hasher: ContractHasher,
@@ -381,7 +394,7 @@ object TransactionConfirmationRequestFactory {
         loggerFactory,
       )
 
-    new TransactionConfirmationRequestFactory(submitterNode, loggingConfig, loggerFactory)(
+    new TransactionConfirmationRequestFactory(submitterNode, clock, loggingConfig, loggerFactory)(
       transactionTreeFactory,
       seedGenerator,
     )

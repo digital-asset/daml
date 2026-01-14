@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
@@ -94,7 +94,11 @@ trait LSUBase
     newSynchronizerNodes = SynchronizerNodes(Seq(sequencer2), Seq(mediator2))
   }
 
-  protected def fixtureWithDefaults(upgradeTime: CantonTimestamp = upgradeTime)(implicit
+  protected def fixtureWithDefaults(
+      upgradeTime: CantonTimestamp = upgradeTime,
+      newPVOverride: Option[ProtocolVersion] = None,
+      newSerialOverride: Option[NonNegativeInt] = None,
+  )(implicit
       env: TestConsoleEnvironment
   ): Fixture = {
     val currentPSId = env.daId
@@ -106,9 +110,9 @@ trait LSUBase
       newSynchronizerNodes = newSynchronizerNodes,
       newOldNodesResolution = newOldNodesResolution,
       oldSynchronizerOwners = env.synchronizerOwners1,
-      newPV = ProtocolVersion.dev,
+      newPV = newPVOverride.getOrElse(ProtocolVersion.dev),
       // increasing the serial as well, so that the test also works when running with PV=dev
-      newSerial = currentPSId.serial.increment.toNonNegative,
+      newSerial = newSerialOverride.getOrElse(currentPSId.serial.increment.toNonNegative),
     )
   }
 

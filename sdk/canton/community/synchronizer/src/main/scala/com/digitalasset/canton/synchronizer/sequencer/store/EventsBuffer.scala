@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.store
@@ -8,10 +8,11 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
-import com.digitalasset.canton.util.BytesUnit
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.{BytesUnit, ErrorUtil}
 import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.blocking
+import java.util.concurrent.atomic.AtomicReference
 import scala.math.Numeric.Implicits.*
 import scala.math.Ordering.Implicits.*
 
@@ -52,22 +53,22 @@ class EventsBuffer(
   // (up to 3 orders of magnitudes) when dealing with 100_000 and max memory consumption of ~62MB with payloads of 0 bytes (for
   // testing just the overhead).
   // It becomes even more significant when increasing the order of magnitude by number of elements
-  @volatile
-  private var eventsBuffer: Vector[Sequenced[IdOrPayload]] = Vector.empty
-  @volatile
-  private var memoryUsed = BytesUnit(0)
+  private val eventsBuffer: AtomicReference[Vector[Sequenced[IdOrPayload]]] = new AtomicReference(
+    Vector.empty
+  )
+  private val memoryUsed = new AtomicReference[BytesUnit](BytesUnit(0))
 
   implicit private val metricsContext: MetricsContext = MetricsContext.Empty
 
-  sequencerMetrics.eventBuffer.registerSizeGauge(() => eventsBuffer.size.toLong)
-  sequencerMetrics.eventBuffer.registerWeightGauge(() => memoryUsed.bytes)
+  sequencerMetrics.eventBuffer.registerSizeGauge(() => eventsBuffer.get.size.toLong)
+  sequencerMetrics.eventBuffer.registerWeightGauge(() => memoryUsed.get.bytes)
 
   private def updateTimestampMetrics(): Unit = {
     sequencerMetrics.headTimestamp.updateValue(
-      eventsBuffer.headOption.map(_.timestamp.toMicros).getOrElse(0L)
+      eventsBuffer.get().headOption.map(_.timestamp.toMicros).getOrElse(0L)
     )
     sequencerMetrics.lastTimestamp.updateValue(
-      eventsBuffer.lastOption.map(_.timestamp.toMicros).getOrElse(0L)
+      eventsBuffer.get().lastOption.map(_.timestamp.toMicros).getOrElse(0L)
     )
   }
 
@@ -76,7 +77,7 @@ class EventsBuffer(
     */
   final def bufferEvents(
       events: NonEmpty[Seq[Sequenced[IdOrPayload]]]
-  ): Unit = addElementsInternal(events, append = true).discard
+  )(implicit traceContext: TraceContext): Unit = addElementsInternal(events, append = true).discard
 
   /** Prepends events to the buffer up to the memory limit. May not buffer all provided events to
     * stay within the memory limits.
@@ -84,71 +85,92 @@ class EventsBuffer(
     *   true if the buffer is at the memory limit or some events had to be dropped again to stay
     *   within the memory limit.
     */
-  final def prependEventsForPreloading(events: NonEmpty[Seq[Sequenced[IdOrPayload]]]): Boolean =
+  final def prependEventsForPreloading(events: NonEmpty[Seq[Sequenced[IdOrPayload]]])(implicit
+      traceContext: TraceContext
+  ): Boolean =
     addElementsInternal(events, append = false)
 
-  private def addElementsInternal(events: NonEmpty[Seq[Sequenced[IdOrPayload]]], append: Boolean) =
-    blocking(synchronized { // synchronized to enforce that there is only 1 writer
+  private def checkedUpdate(eventsBefore: Vector[Sequenced[IdOrPayload]], memoryBefore: BytesUnit)(
+      events: Vector[Sequenced[IdOrPayload]],
+      memory: BytesUnit,
+  )(implicit traceContext: TraceContext): Unit =
+    ErrorUtil.requireState(
+      eventsBuffer.compareAndSet(eventsBefore, events) &&
+        memoryUsed.compareAndSet(memoryBefore, memory),
+      "Concurrent modification of event buffer would lead to out of order events",
+    )
 
-      // prepare the buffer so that the backing array is prepared for the right size
-      val targetSize = eventsBuffer.size + events.size
-      val bufferWithAddedElements =
-        if (append) {
-          eventsBuffer.appendedAll(events)
-        } else {
-          eventsBuffer.prependedAll(events)
-        }
-      memoryUsed += EventsBuffer.approximateSize(events)
+  private def addElementsInternal(
+      events: NonEmpty[Seq[Sequenced[IdOrPayload]]],
+      append: Boolean,
+  )(implicit traceContext: TraceContext) = {
 
-      val memoryToFree = BytesUnit.zero.max(memoryUsed - maxEventsBufferMemory)
-      if (memoryToFree > BytesUnit.zero) {
-        // drop all events starting with the head of the deque (while keeping at least 1) until we are at or below the max memory usage
-        val indexToSplitAt = bufferWithAddedElements.iterator
-          .scanLeft((BytesUnit.zero, 0)) { case ((accumulatedMemoryFromOldest, index), event) =>
-            (accumulatedMemoryFromOldest + EventsBuffer.approximateEventSize(event), index + 1)
-          }
-          .find { case (accumulatedMemoryFromOldest, _) =>
-            accumulatedMemoryFromOldest >= memoryToFree
-          }
+    // prepare the buffer so that the backing array is prepared for the right size
+    val currentBuffer = eventsBuffer.get()
 
-        indexToSplitAt match {
-          // if we didn't find an index (which means that the last element exceeds the memory limit),
-          // or we would split at the index after the last element,
-          // we explicitly retain the last element only so that there's always something to serve
-          case None | Some((_, `targetSize`)) =>
-            val memoryUsedBefore = memoryUsed
-            eventsBuffer = bufferWithAddedElements.takeRight(1)
-            memoryUsed = EventsBuffer.approximateSize(eventsBuffer)
-            sequencerMetrics.eventBuffer.evictionWeight.inc((memoryUsedBefore - memoryUsed).bytes)
-            sequencerMetrics.eventBuffer.evictionCount.inc(targetSize.toLong - 1)
-            updateTimestampMetrics()
-          case Some((memoryFreedUp, indexToSplitAt)) =>
-            val (_, bufferBelowMemoryLimit) =
-              bufferWithAddedElements.splitAt(indexToSplitAt)
-            eventsBuffer = bufferBelowMemoryLimit
-            memoryUsed -= memoryFreedUp
-            sequencerMetrics.eventBuffer.evictionWeight.inc(memoryFreedUp.bytes)
-            sequencerMetrics.eventBuffer.evictionCount.inc(indexToSplitAt.toLong)
-            updateTimestampMetrics()
-        }
+    val targetSize = currentBuffer.size + events.size
+    val bufferWithAddedElements =
+      if (append) {
+        currentBuffer.appendedAll(events)
       } else {
-        eventsBuffer = bufferWithAddedElements
-        updateTimestampMetrics()
+        currentBuffer.prependedAll(events)
       }
+    val currentMemory = memoryUsed.get()
+    val newMemory = currentMemory + EventsBuffer.approximateSize(events)
 
-      // signal that the buffer is at or exceeded the memory limit
-      memoryUsed == maxEventsBufferMemory || eventsBuffer.sizeIs < targetSize
-    })
+    val memoryToFree = BytesUnit.zero.max(newMemory - maxEventsBufferMemory)
+    if (memoryToFree > BytesUnit.zero) {
+      // drop all events starting with the head of the deque (while keeping at least 1) until we are at or below the max memory usage
+      val indexToSplitAt = bufferWithAddedElements.iterator
+        .scanLeft((BytesUnit.zero, 0)) { case ((accumulatedMemoryFromOldest, index), event) =>
+          (accumulatedMemoryFromOldest + EventsBuffer.approximateEventSize(event), index + 1)
+        }
+        .find { case (accumulatedMemoryFromOldest, _) =>
+          accumulatedMemoryFromOldest >= memoryToFree
+        }
+
+      indexToSplitAt match {
+        // if we didn't find an index (which means that the last element exceeds the memory limit),
+        // or we would split at the index after the last element,
+        // we explicitly retain the last element only so that there's always something to serve
+        case None | Some((_, `targetSize`)) =>
+          val shrinkedBuffer = bufferWithAddedElements.takeRight(1)
+          val shrinkedMemory = EventsBuffer.approximateSize(shrinkedBuffer)
+          checkedUpdate(currentBuffer, currentMemory)(shrinkedBuffer, shrinkedMemory)
+          sequencerMetrics.eventBuffer.evictionWeight.inc((newMemory - shrinkedMemory).bytes)
+          sequencerMetrics.eventBuffer.evictionCount.inc(targetSize.toLong - 1)
+          updateTimestampMetrics()
+        case Some((memoryFreedUp, indexToSplitAt)) =>
+          val (_, bufferBelowMemoryLimit) =
+            bufferWithAddedElements.splitAt(indexToSplitAt)
+          checkedUpdate(currentBuffer, currentMemory)(
+            bufferBelowMemoryLimit,
+            newMemory - memoryFreedUp,
+          )
+          sequencerMetrics.eventBuffer.evictionWeight.inc(memoryFreedUp.bytes)
+          sequencerMetrics.eventBuffer.evictionCount.inc(indexToSplitAt.toLong)
+          updateTimestampMetrics()
+      }
+    } else {
+      checkedUpdate(currentBuffer, currentMemory)(bufferWithAddedElements, newMemory)
+      updateTimestampMetrics()
+    }
+
+    // signal that the buffer is at or exceeded the memory limit
+    memoryUsed.get() == maxEventsBufferMemory || eventsBuffer.get().sizeIs < targetSize
+  }
 
   /** Empty the buffer for events, i.e. in case of a writer failure
     */
-  final def invalidateBuffer(): Unit = blocking(synchronized {
-    eventsBuffer = Vector.empty
-    memoryUsed = BytesUnit.zero
+  final def invalidateBuffer()(implicit traceContext: TraceContext): Unit = {
+    checkedUpdate(eventsBefore = eventsBuffer.get(), memoryBefore = memoryUsed.get())(
+      Vector.empty,
+      BytesUnit.zero,
+    )
     updateTimestampMetrics()
-  })
+  }
 
-  final def snapshot(): Vector[Sequenced[IdOrPayload]] = eventsBuffer
+  final def snapshot(): Vector[Sequenced[IdOrPayload]] = eventsBuffer.get()
 }
 
 object EventsBuffer {
