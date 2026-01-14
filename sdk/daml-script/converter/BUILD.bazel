@@ -17,11 +17,11 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:script-converter:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-lf/data",
-        "//daml-lf/engine:script-engine",
-        "//daml-lf/interpreter",
-        "//daml-lf/language",
-        "//daml-lf/stable-packages",
-        "//daml-lf/transaction",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/engine:script-engine",
+        "//canton/community/daml-lf/interpreter",
+        "//canton/community/daml-lf/language",
+        "//canton/community/daml-lf/stable-packages",
+        "//canton/community/daml-lf/transaction",
     ],
 )
