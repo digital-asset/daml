@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
@@ -18,9 +18,10 @@ import com.digitalasset.canton.participant.store.SynchronizerAliasAndIdStore.{
 }
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, blocking}
+import scala.concurrent.ExecutionContext
 
 class InMemoryRegisteredSynchronizersStore(
     override protected val loggerFactory: NamedLoggerFactory
@@ -28,6 +29,7 @@ class InMemoryRegisteredSynchronizersStore(
     extends RegisteredSynchronizersStore
     with NamedLogging {
 
+  private val lock = new Mutex()
   private val synchronizerAliasToIds
       : TrieMap[SynchronizerAlias, NonEmpty[Set[PhysicalSynchronizerId]]] =
     new TrieMap()
@@ -36,8 +38,8 @@ class InMemoryRegisteredSynchronizersStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, Unit] = {
 
-    val result: Either[Error, Unit] = blocking {
-      this.synchronized {
+    val result: Either[Error, Unit] =
+      lock.exclusive {
         val inconsistentIdO = synchronizerAliasToIds
           .get(alias)
           .flatMap(_.find(_.logical != psid.logical))
@@ -67,7 +69,6 @@ class InMemoryRegisteredSynchronizersStore(
             .discard
         }
       }
-    }
 
     EitherT.fromEither[FutureUnlessShutdown](result)
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -23,10 +23,10 @@ import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
 }
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.{ErrorUtil, Mutex}
 import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.{ExecutionContext, blocking}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 
 /** Synchronizes the request processing of phases 3 and 7. At the end of phase 3, every request must
@@ -44,6 +44,8 @@ class Phase37Synchronizer(
 ) extends NamedLogging
     with FlagCloseable
     with HasCloseContext {
+
+  private val lock = new Mutex()
 
   /** Maps request timestamps to a promise and a future, which is used to chain each request's
     * evaluation (i.e. filter). The future completes with either the pending request data, if it's
@@ -83,13 +85,13 @@ class Phase37Synchronizer(
 
     logger.debug(s"Registering a new request $ts")
 
-    blocking(synchronized {
+    (lock.exclusive {
       val requestRelation: RequestRelation[requestType.PendingRequestData] = RequestRelation(
         promise.futureUS
           .transform {
             case Success(Outcome(None)) | Success(AbortedDueToShutdown) =>
               logger.debug(s"Removing request $requestId from pending requests.")
-              blocking(synchronized {
+              (lock.exclusive {
                 pendingRequests.remove_(ts)
               })
               Success(Outcome(None))
@@ -132,7 +134,7 @@ class Phase37Synchronizer(
     val ts = CantonTimestampWithRequestType[requestType.type](requestId.unwrap, requestType)
     implicit val evRequest = ts.pendingRequestRelation
 
-    blocking(synchronized {
+    (lock.exclusive {
       pendingRequests.get[ts.type, RequestRelation[requestType.PendingRequestData]](ts) match {
         case Some(rr @ RequestRelation(fut)) =>
           logger.debug(
@@ -156,7 +158,7 @@ class Phase37Synchronizer(
               filter(pData).transform {
                 case Success(Outcome(true)) =>
                   // we need a synchronized block here to avoid conflicts with the outer replace in awaitConfirmed
-                  blocking(synchronized {
+                  (lock.exclusive {
                     // the entry is removed when the first awaitConfirmed with a satisfied predicate is there
                     pendingRequests.remove_(ts)
                   })
@@ -198,7 +200,7 @@ class Phase37Synchronizer(
     val ts = CantonTimestampWithRequestType(requestId.unwrap, requestType)
     implicit val evRequest = ts.pendingRequestRelation
 
-    blocking(synchronized {
+    (lock.exclusive {
       pendingRequests.get[ts.type, RequestRelation[RequestType#PendingRequestData]](ts).isEmpty
     })
   }

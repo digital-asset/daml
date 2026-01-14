@@ -1,12 +1,12 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.auth
 
+import com.digitalasset.canton.util.Mutex
 import io.grpc.ServerCall
 
 import scala.collection.mutable
-import scala.concurrent.blocking
 
 /** This listener buffers all messages until `setNextListener` is called, at which point all
   * buffered messages are sent to the given listener. From then on, all future messages are sent
@@ -18,18 +18,18 @@ import scala.concurrent.blocking
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 abstract class AsyncForwardingListener[ReqT] extends ServerCall.Listener[ReqT] {
   protected type Listener = ServerCall.Listener[ReqT]
-  private[this] val lock = new Object
+  private[this] val lock = new Mutex()
   private[this] val stash: mutable.ListBuffer[Listener => Unit] = new mutable.ListBuffer
   private[this] var nextListener: Option[Listener] = None
 
-  private[this] def enqueueOrProcess(msg: Listener => Unit): Unit = blocking(lock.synchronized {
+  private[this] def enqueueOrProcess(msg: Listener => Unit): Unit = (lock.exclusive {
     val _ = nextListener.fold {
       val _ = stash.append(msg)
       ()
     }(msg)
   })
 
-  protected def setNextListener(listener: Listener): Unit = blocking(lock.synchronized {
+  protected def setNextListener(listener: Listener): Unit = (lock.exclusive {
     nextListener = Some(listener)
     stash.foreach(msg => msg(listener))
   })

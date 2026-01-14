@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
@@ -398,8 +398,18 @@ final case class SignatureDelegationValidityPeriod(
         DeterministicEncoding.encodeLong(periodLength.duration.toSeconds)
       )
 
-  def computeCutOffTimestamp(cutOffDuration: Duration): CantonTimestamp =
-    this.toExclusive.minus(cutOffDuration)
+  /** If we know the timestamp is fixed (aka not an approximation) there's no reason to apply the
+    * cutoff at either end because there is no clock uncertainty. Otherwise, we apply the cutoff to
+    * both ends of the interval to account for any possible clock drifts, and thus only use the
+    * session signing key if its validity falls within those bounds and is therefore safe to use.
+    */
+  def computeCutOffTimestamp(
+      cutOffDuration: Duration,
+      approximateTimestamp: Boolean,
+  ): (CantonTimestamp, CantonTimestamp) =
+    if (approximateTimestamp)
+      (this.fromInclusive.add(cutOffDuration), this.toExclusive.minus(cutOffDuration))
+    else (this.fromInclusive, this.toExclusive)
 }
 
 /** An extension to the signature to accommodate the necessary information to be able to use session

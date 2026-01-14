@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing
@@ -17,11 +17,11 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
-import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil}
+import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, Mutex}
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, blocking}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 /** Utility class to make BFT-style operations.
@@ -102,10 +102,10 @@ object BftSender {
       futureSupervisor,
     )
     // Provides an object on which to synchronize to avoid concurrency issues when checking results
-    val lock = new Object
+    val lock = new Mutex()
 
-    def addResult(operatorId: I, result: Try[UnlessShutdown[Either[E, A]]]): Unit = blocking {
-      lock.synchronized {
+    def addResult(operatorId: I, result: Try[UnlessShutdown[Either[E, A]]]): Unit =
+      lock.exclusive {
         if (promise.isCompleted) {
           logger.debug(
             s"Ignoring response $result from $operatorId for $description since the threshold has already been reached or the request has failed."
@@ -154,7 +154,6 @@ object BftSender {
           if (!promise.isCompleted) checkIfStillPossibleToReachThreshold()
         }
       }
-    }
 
     operators.foreach { case (operatorId, operator) =>
       FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
@@ -38,10 +38,15 @@ import scala.annotation.nowarn
   *   - Second LSU is performed
   */
 @nowarn("msg=dead code")
-abstract class LSUCancellationIntegrationTest extends LSUBase {
+final class LSUCancellationIntegrationTest extends LSUBase {
+  override protected def testName: String = "lsu-cancellation"
 
-  override protected def testName: String = "logical-synchronizer-upgrade"
-
+  registerPlugin(
+    new UseBftSequencer(
+      loggerFactory,
+      MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2"), Set("sequencer3")),
+    )
+  )
   registerPlugin(new UsePostgres(loggerFactory))
 
   override protected lazy val newOldSequencers: Map[String, String] =
@@ -64,25 +69,21 @@ abstract class LSUCancellationIntegrationTest extends LSUBase {
   )
 
   override protected def configTransforms: List[ConfigTransform] = {
-    val lowerBound1 = List("sequencer2") // successor of sequencer1 for the first upgrade
-      .map(sequencerName =>
-        ConfigTransforms
-          .updateSequencerConfig(sequencerName)(
-            _.focus(_.parameters.sequencingTimeLowerBoundExclusive).replace(Some(upgradeTime1))
-          )
+    val lowerBound1 = ConfigTransforms
+      .updateSequencerConfig("sequencer2")(
+        _.focus(_.parameters.sequencingTimeLowerBoundExclusive).replace(Some(upgradeTime1))
       )
 
-    val lowerBound2 = List("sequencer3") // successor of sequencer1 for the second upgrade
-      .map(sequencerName =>
-        ConfigTransforms
-          .updateSequencerConfig(sequencerName)(
-            _.focus(_.parameters.sequencingTimeLowerBoundExclusive).replace(Some(upgradeTime2))
-          )
+    val lowerBound2 = ConfigTransforms
+      .updateSequencerConfig("sequencer3")(
+        _.focus(_.parameters.sequencingTimeLowerBoundExclusive).replace(Some(upgradeTime2))
       )
 
     val allNewNodes = Set("sequencer2", "sequencer3", "mediator2", "mediator3")
 
-    lowerBound1 ++ lowerBound2 ++ List(
+    List(
+      lowerBound1,
+      lowerBound2,
       ConfigTransforms.disableAutoInit(allNewNodes),
       ConfigTransforms.useStaticTime,
     ) ++ ConfigTransforms.enableAlphaVersionSupport
@@ -274,13 +275,4 @@ abstract class LSUCancellationIntegrationTest extends LSUBase {
         .loneElement
     }
   }
-}
-
-final class LSUCancellationBftOrderingIntegrationTest extends LSUCancellationIntegrationTest {
-  registerPlugin(
-    new UseBftSequencer(
-      loggerFactory,
-      MultiSynchronizer.tryCreate(Set("sequencer1"), Set("sequencer2"), Set("sequencer3")),
-    )
-  )
 }

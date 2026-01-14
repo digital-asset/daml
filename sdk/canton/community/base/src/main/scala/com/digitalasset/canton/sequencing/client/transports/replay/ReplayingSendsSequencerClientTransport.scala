@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client.transports.replay
@@ -9,7 +9,7 @@ import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
-import com.digitalasset.canton.crypto.{Hash, HashPurpose}
+import com.digitalasset.canton.crypto.{Hash, HashPurpose, SyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.*
@@ -29,6 +29,7 @@ import com.digitalasset.canton.sequencing.{
   SequencedSerializedEvent,
   SequencerClientRecorder,
 }
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
@@ -141,6 +142,8 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     member: Member,
     underlyingTransport: SequencerClientTransportCommon,
     requestSigner: RequestSigner,
+    syncCryptoApi: SyncCryptoApi,
+    clock: Clock,
     metrics: SequencerClientMetrics,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -173,7 +176,9 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       )
 
   private def replaySubmit(
-      submission: SubmissionRequest
+      submission: SubmissionRequest,
+      snapshot: SyncCryptoApi,
+      approximateTimestampOverride: Option[CantonTimestamp],
   ): FutureUnlessShutdown[Either[SendAsyncClientError, Unit]] = {
     val startedAt = CantonTimestamp.now()
     // we'll correlate received events by looking at their message-id and calculate the
@@ -228,6 +233,8 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
           .signRequest(
             withExtendedMst,
             HashPurpose.SubmissionRequestSignature,
+            snapshot,
+            approximateTimestampOverride,
           )
           .leftMap(error => SendAsyncClientError.RequestFailed(error))
         _ <- underlyingTransport
@@ -266,7 +273,9 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
 
       val submissionReplay =
         intermediateSource
-          .mapAsyncUnordered(sendParallelism)(replaySubmit(_).unwrap)
+          .mapAsyncUnordered(sendParallelism)(sr =>
+            replaySubmit(sr, syncCryptoApi, Some(clock.now)).unwrap
+          )
           .toMat(Sink.fold(SendReplayReport()(sendDuration))(_.update(_)))(Keep.right)
 
       PekkoUtil.runSupervised(
@@ -478,6 +487,8 @@ class ReplayingSendsSequencerClientTransportImpl(
     member: Member,
     val underlyingTransport: SequencerClientTransport & SequencerClientTransportPekko,
     requestSigner: RequestSigner,
+    syncCryptoApi: SyncCryptoApi,
+    clock: Clock,
     metrics: SequencerClientMetrics,
     timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
@@ -489,6 +500,8 @@ class ReplayingSendsSequencerClientTransportImpl(
       member,
       underlyingTransport,
       requestSigner,
+      syncCryptoApi,
+      clock,
       metrics,
       timeouts,
       loggerFactory,
@@ -546,6 +559,8 @@ class ReplayingSendsSequencerClientTransportPekko(
     member: Member,
     underlyingTransport: SequencerClientTransportPekko & SequencerClientTransport,
     requestSigner: RequestSigner,
+    syncCryptoApi: SyncCryptoApi,
+    clock: Clock,
     metrics: SequencerClientMetrics,
     timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
@@ -558,6 +573,8 @@ class ReplayingSendsSequencerClientTransportPekko(
       member,
       underlyingTransport,
       requestSigner,
+      syncCryptoApi,
+      clock,
       metrics,
       timeouts,
       loggerFactory,

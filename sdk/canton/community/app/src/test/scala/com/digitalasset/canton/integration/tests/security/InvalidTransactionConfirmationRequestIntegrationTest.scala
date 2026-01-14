@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.security
@@ -696,6 +696,7 @@ trait InvalidTransactionConfirmationRequestIntegrationTest
               newLtvt,
               (viewKey, message.viewEncryptionKeyRandomness),
               crypto,
+              Some(environment.now),
               testedProtocolVersion,
             )
             .valueOrFail("create new envelope")

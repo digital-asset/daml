@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.store.memory
@@ -8,10 +8,10 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.store.{IndexedStringStore, IndexedStringType}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.blocking
 
 /** In memory version of an indexed string store.
   *
@@ -24,6 +24,7 @@ class InMemoryIndexedStringStore(val minIndex: Int, val maxIndex: Int) extends I
 
   private val cache = TrieMap[(String300, Int), Int]()
   private val list = ArrayBuffer[(String300, Int)]()
+  private val lock = Mutex()
 
   override def getOrCreateIndex(
       dbTyp: IndexedStringType,
@@ -34,8 +35,8 @@ class InMemoryIndexedStringStore(val minIndex: Int, val maxIndex: Int) extends I
   /** @throws java.lang.IllegalArgumentException
     *   if a new index is created and the new index would exceed `maxIndex`
     */
-  def getOrCreateIndexForTesting(dbTyp: IndexedStringType, str: String300): Int = blocking {
-    synchronized {
+  def getOrCreateIndexForTesting(dbTyp: IndexedStringType, str: String300): Int =
+    lock.exclusive {
       val key = (str, dbTyp.source)
       cache.get(key) match {
         case Some(value) => value
@@ -47,21 +48,18 @@ class InMemoryIndexedStringStore(val minIndex: Int, val maxIndex: Int) extends I
           idx
       }
     }
-  }
 
   override def getForIndex(
       dbTyp: IndexedStringType,
       idx: Int,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[String300]] =
     FutureUnlessShutdown.pure {
-      blocking {
-        synchronized {
-          val positionInList = idx - minIndex
-          if (positionInList >= 0 && list.lengthCompare(positionInList) > 0) {
-            val (str, source) = list(positionInList)
-            if (source == dbTyp.source) Some(str) else None
-          } else None
-        }
+      lock.exclusive {
+        val positionInList = idx - minIndex
+        if (positionInList >= 0 && list.lengthCompare(positionInList) > 0) {
+          val (str, source) = list(positionInList)
+          if (source == dbTyp.source) Some(str) else None
+        } else None
       }
     }
 

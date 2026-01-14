@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform
@@ -16,10 +16,11 @@ import com.digitalasset.canton.platform.DispatcherState.{
   DispatcherStateShutdown,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 import io.grpc.StatusRuntimeException
 
+import scala.concurrent.Future
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Future, blocking}
 import scala.util.{Failure, Success}
 
 /** Life-cycle manager for the Ledger API streams offset dispatcher. */
@@ -33,24 +34,24 @@ class DispatcherState(
   private val ServiceName = "Ledger API offset dispatcher"
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var dispatcherStateRef: DispatcherState.State = DispatcherNotRunning
-
+  private val lock = new Mutex()
   private val directEc = DirectExecutionContext(noTracingLogger)
 
-  def isRunning: Boolean = blocking(synchronized {
+  def isRunning: Boolean = (lock.exclusive {
     dispatcherStateRef match {
       case DispatcherRunning(_) => true
       case DispatcherNotRunning | DispatcherStateShutdown => false
     }
   })
 
-  def getDispatcher: Dispatcher[Offset] = blocking(synchronized {
+  def getDispatcher: Dispatcher[Offset] = (lock.exclusive {
     dispatcherStateRef match {
       case DispatcherStateShutdown | DispatcherNotRunning => throw dispatcherNotRunning
       case DispatcherRunning(dispatcher) => dispatcher
     }
   })
 
-  def startDispatcher(initializationOffset: Option[Offset]): Unit = blocking(synchronized {
+  def startDispatcher(initializationOffset: Option[Offset]): Unit = (lock.exclusive {
     dispatcherStateRef match {
       case DispatcherNotRunning =>
         val activeDispatcher = buildDispatcher(initializationOffset)
@@ -68,7 +69,7 @@ class DispatcherState(
   })
 
   def stopDispatcher(): Future[Unit] = {
-    val dispatcherToCancel = blocking(synchronized {
+    val dispatcherToCancel = (lock.exclusive {
       dispatcherStateRef match {
         case DispatcherNotRunning | DispatcherStateShutdown =>
           logger.debug(s"$ServiceName already stopped, shutdown or never started.")
@@ -97,7 +98,7 @@ class DispatcherState(
 
   private[platform] def shutdown(): Future[Unit] = {
     logger.info(s"Shutting down $ServiceName state.")
-    val currentDispatcherState = blocking(synchronized {
+    val currentDispatcherState = (lock.exclusive {
       val currentDispatcherState = dispatcherStateRef
       dispatcherStateRef = DispatcherStateShutdown
       currentDispatcherState

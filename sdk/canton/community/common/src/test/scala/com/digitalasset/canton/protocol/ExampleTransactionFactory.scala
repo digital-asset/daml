@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.protocol
@@ -438,7 +438,6 @@ object ExampleTransactionFactory {
   val submitters: List[LfPartyId] = List(submitter)
 
   // Request metadata
-
   val userId: UserId = DefaultDamlValues.userId()
   val commandId: CommandId = DefaultDamlValues.commandId()
   val workflowId: WorkflowId = WorkflowId.assertFromString("testWorkflowId")

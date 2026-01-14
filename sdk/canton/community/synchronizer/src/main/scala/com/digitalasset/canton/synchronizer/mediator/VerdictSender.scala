@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.mediator
@@ -227,7 +227,7 @@ private[mediator] class DefaultVerdictSender(
             )
 
         SignedProtocolMessage
-          .signAndCreate(result, snapshot)
+          .signAndCreate(result, snapshot, None)
           .map(signedResult => List(OpenEnvelope(signedResult, recipients)(protocolVersion)))
       }
 
@@ -342,7 +342,7 @@ private[mediator] class DefaultVerdictSender(
           val recipients = Recipients.recipientGroups(flatRecipients.map(r => NonEmpty(Set, r)))
 
           SignedProtocolMessage
-            .trySignAndCreate(rejection, snapshot)
+            .trySignAndCreate(rejection, snapshot, None)
             .map(_ -> recipients)
         }
         batches = envs.map(Batch.of(protocolVersion, _))

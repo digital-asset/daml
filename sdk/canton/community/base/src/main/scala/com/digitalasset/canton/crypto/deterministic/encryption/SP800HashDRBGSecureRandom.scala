@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.deterministic.encryption
@@ -7,7 +7,7 @@ import com.digitalasset.canton.crypto.{Fingerprint, SecureRandomness}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.DeterministicEncoding
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.{ErrorUtil, Mutex}
 import com.google.protobuf.ByteString
 import org.bouncycastle.crypto.digests.SHA512Digest
 import org.bouncycastle.crypto.prng.drbg.HashSP800DRBG
@@ -15,7 +15,6 @@ import org.bouncycastle.crypto.prng.{EntropySource, EntropyUtil}
 
 import java.security.{MessageDigest, NoSuchAlgorithmException, SecureRandom}
 import java.util.concurrent.atomic.AtomicBoolean
-import scala.concurrent.blocking
 
 /** A SP800-90A Hash (SHA512) Deterministic Random Bit Generator (DRBG). A DRBG mechanism uses an
   * algorithm (i.e., the 'hash' algorithm) that produces a sequence of bits from an initial value
@@ -48,6 +47,7 @@ private class SP800HashDRBGSecureRandom(entropySource: EntropySource) extends Se
    */
   val predictionResistant = false
 
+  private val lock = Mutex()
   private val hashSP800DRBG: HashSP800DRBG =
     new HashSP800DRBG(digest, securityStrength, entropySource, Array[Byte](), Array[Byte]())
 
@@ -59,9 +59,10 @@ private class SP800HashDRBGSecureRandom(entropySource: EntropySource) extends Se
   override def getAlgorithm: String = "HASH-DRBG-" ++ digest.getAlgorithmName
   override def generateSeed(numBytes: Int): Array[Byte] =
     EntropyUtil.generateSeed(entropySource, numBytes)
+
   override def nextBytes(bytes: Array[Byte]): Unit =
-    blocking(
-      this.synchronized {
+    (
+      lock.exclusive {
         if (hashSP800DRBG.generate(bytes, Array[Byte](), predictionResistant) < 0) {
           hashSP800DRBG.reseed(Array[Byte]())
           hashSP800DRBG.generate(bytes, Array[Byte](), predictionResistant)

@@ -1,0 +1,31 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+)
+
+da_scala_binary(
+    name = "repl",
+    srcs = glob(["src/main/**/*.scala"]),
+    main_class = "com.digitalasset.daml.lf.speedy.testing.Main",
+    max_heap_size = "8g",
+    scala_deps = [
+        "@maven//:org_typelevel_paiges_core",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    tags = ["maven_coordinates=com.daml:daml-lf-repl:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//canton:contextualized-logging",
+        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/interpreter",
+        "//canton/community/daml-lf/language",
+        "//canton/community/daml-lf/parser",
+        "//canton/community/daml-lf/transaction",
+        "//canton/community/daml-lf/validation",
+        "@maven//:org_jline_jline",
+    ],
+)

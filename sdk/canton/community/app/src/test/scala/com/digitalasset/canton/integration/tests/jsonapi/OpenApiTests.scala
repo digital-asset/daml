@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.jsonapi
@@ -27,6 +27,11 @@ final class OpenApiTests
     "authenticated-user",
     "users",
     "version",
+  )
+
+  private val expectedRootOpenApiServices = Seq(
+    "livez",
+    "readyz",
   )
 
   private val expectedAsyncApiServices = Seq(
@@ -77,9 +82,19 @@ final class OpenApiTests
       val yaml = io.circe.yaml.parser.parse(staticDocs.openApi)
       val openapiServices =
         (yaml.value \\ "paths").head.asObject.value.keys
+          .filter(_.split("/").length >= 3)
           .map(_.split("/").drop(2).head)
           .toSet
+
+      val openApiRootServices =
+        (yaml.value \\ "paths").head.asObject.value.keys
+          .filter(_.split("/").length < 3)
+          .map { path =>
+            path.split("/").drop(1).head
+          }
+          .toSet
       openapiServices should contain theSameElementsAs expectedOpenApiServices
+      openApiRootServices should contain theSameElementsAs expectedRootOpenApiServices
     }
 
     "contains expected async services " in { _ =>

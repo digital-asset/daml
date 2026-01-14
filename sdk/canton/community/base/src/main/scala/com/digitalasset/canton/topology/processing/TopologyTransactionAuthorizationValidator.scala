@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -12,6 +12,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.cache.TopologyStateLookupByNamespace
 import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransaction.{
   AuthorizedDecentralizedNamespaceDefinition,
   AuthorizedNamespaceDelegation,
@@ -63,7 +64,7 @@ private object AuthorizationKeys {
   */
 class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     val pureCrypto: PureCrypto,
-    val store: TopologyStore[TopologyStoreId],
+    override val lookup: TopologyStateLookupByNamespace,
     validationIsFinal: Boolean,
     val loggerFactory: NamedLoggerFactory,
 )(implicit override val executionContext: ExecutionContext)
@@ -272,7 +273,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       toValidate.signatures.map(_.authorizingLongTermKey) -- allKeysUsedForAuthorization.keys
 
     if (logger.underlying.isDebugEnabled()) {
-      logger.debug(
+      TopologyMapping.loggerDebug(toValidate.mapping.code)(
         s"Authorization details for ${toValidate.mapping.code}=${toValidate.transaction.hash}\n" +
           s"  Required: $requiredAuth\n" +
           s"  Provided for namespaces:" + renderAuthorizations(

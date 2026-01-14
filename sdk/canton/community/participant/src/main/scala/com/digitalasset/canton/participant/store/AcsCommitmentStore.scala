@@ -1,10 +1,10 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.InternedPartyId
 import com.digitalasset.canton.data.{BufferedAcsCommitment, CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.event.RecordTime
@@ -248,7 +248,9 @@ trait IncrementalCommitmentStore {
     */
   def get()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[(RecordTime, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType])]
+  ): FutureUnlessShutdown[
+    (RecordTime, Map[SortedSet[InternedPartyId], AcsCommitment.CommitmentType])
+  ]
 
   /** Return the record time of the latest update.
     *
@@ -271,8 +273,8 @@ trait IncrementalCommitmentStore {
     */
   def update(
       rt: RecordTime,
-      updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
-      deletes: Set[SortedSet[LfPartyId]],
+      updates: Map[SortedSet[InternedPartyId], AcsCommitment.CommitmentType],
+      deletes: Set[SortedSet[InternedPartyId]],
       updateMode: UpdateMode,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 

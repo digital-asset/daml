@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration
@@ -32,75 +32,86 @@ class LedgerApiStoreIntegrityChecker(
     def justWaitForIt[T](f: Future[T]) =
       Await.result(f, Duration(20, "seconds"))
 
+    // Encapsulates the check for 'participantsWithoutLapiVerification'
+    // to avoid duplicating the if/else logic and the log message.
+    def verifyOrBypass(participantName: String, participantLoggingName: String)(
+        verificationLogic: => Unit
+    ): Unit =
+      if (environment.testingConfig.participantsWithoutLapiVerification(participantName)) {
+        logger.info(
+          s"Checking participant Ledger API Store integrity, for $participantLoggingName bypassed as it is specified in testingConfig.participantsWithoutLapiVerification."
+        )
+      } else {
+        verificationLogic
+      }
+
     def verifyOverStore(
         participantName: String,
         participantLoggingName: String,
         storageConfig: StorageConfig,
     ): Unit =
-      storageConfig match {
-        case _ if environment.testingConfig.participantsWithoutLapiVerification(participantName) =>
-          logger.info(
-            s"Checking participant Ledger API Store integrity, for $participantLoggingName bypassed as it is specified in testingConfig.participantsWithoutLapiVerification."
-          )
+      verifyOrBypass(participantName, participantLoggingName) {
+        storageConfig match {
+          case _: StorageConfig.Memory =>
+            logger.error(
+              s"Checking participant Ledger API Store integrity, for $participantLoggingName is FAILED, as it is backed by an InMemory store. For safety please consider: 1) keep local in-memory participant running at the end of the test, 2) switch to persistent storage 3) or as a last resort exclude in-memory, not running participants explicitly via testingConfig.participantsWithoutLapiVerification."
+            )
 
-        case _: StorageConfig.Memory =>
-          logger.error(
-            s"Checking participant Ledger API Store integrity, for $participantLoggingName is FAILED, as it is backed by an InMemory store. For safety please consider: 1) keep local in-memory participant running at the end of the test, 2) switch to persistent storage 3) or as a last resort exclude in-memory, not running participants explicitly via testingConfig.participantsWithoutLapiVerification."
-          )
+          case nonInMemoryStorageConfig =>
+            logger.info(
+              s"Checking participant Ledger API Store integrity, for $participantLoggingName..."
+            )
 
-        case nonInMemoryStorageConfig =>
-          logger.info(
-            s"Checking participant Ledger API Store integrity, for $participantLoggingName..."
-          )
-
-          try {
-            Using.resource(
-              justWaitForIt(
-                LedgerApiStore
-                  .initialize(
-                    storageConfig = nonInMemoryStorageConfig,
-                    ledgerParticipantId = LedgerParticipantId.assertFromString("fakeid"),
-                    legderApiDatabaseConnectionTimeout =
-                      LedgerApiServerConfig().databaseConnectionTimeout,
-                    ledgerApiPostgresDataSourceConfig = PostgresDataSourceConfig(),
-                    timeouts = environmentTimeouts,
-                    loggerFactory = loggerFactory,
-                    metrics = LedgerApiServerMetrics.ForTesting,
-                    onlyForTesting_DoNotInitializeInMemoryState =
-                      true, // otherwise we emmit error logs and keep a DBDispatcher open for empty DBs
-                  )
-                  .failOnShutdownToAbortException("ledger api store initialization")
-              )
-            ) { ledgerApiStore =>
-              Try(
+            try {
+              Using.resource(
                 justWaitForIt(
-                  ledgerApiStore
-                    .verifyIntegrity(
-                      failForEmptyDB =
-                        false // sometimes configured participants are not even started once
+                  LedgerApiStore
+                    .initialize(
+                      storageConfig = nonInMemoryStorageConfig,
+                      storage = None,
+                      ledgerParticipantId = LedgerParticipantId.assertFromString("fakeid"),
+                      ledgerApiDatabaseConnectionTimeout =
+                        LedgerApiServerConfig().databaseConnectionTimeout,
+                      ledgerApiPostgresDataSourceConfig = PostgresDataSourceConfig(),
+                      timeouts = environmentTimeouts,
+                      loggerFactory = loggerFactory,
+                      metrics = LedgerApiServerMetrics.ForTesting,
+                      onlyForTesting_DoNotInitializeInMemoryState =
+                        true, // otherwise we emmit error logs and keep a DBDispatcher open for empty DBs
                     )
                     .failOnShutdownToAbortException("ledger api store initialization")
                 )
-              ) match {
-                case Success(_) =>
-                  logger.info(
-                    s"Checking participant Ledger API Store integrity, for $participantLoggingName...OK"
+              ) { ledgerApiStore =>
+                Try(
+                  justWaitForIt(
+                    ledgerApiStore
+                      .verifyIntegrity(
+                        failForEmptyDB =
+                          false // sometimes configured participants are not even started once
+                      )
+                      .failOnShutdownToAbortException("ledger api store initialization")
                   )
+                ) match {
+                  case Success(_) =>
+                    logger.info(
+                      s"Checking participant Ledger API Store integrity, for $participantLoggingName...OK"
+                    )
 
-                case Failure(t) =>
-                  logger.error(
-                    s"Checking participant Ledger API Store integrity, for $participantLoggingName...FAILED",
-                    t,
-                  )
+                  case Failure(t) =>
+                    logger.error(
+                      s"Checking participant Ledger API Store integrity, for $participantLoggingName...FAILED",
+                      t,
+                    )
+                }
               }
+            } catch {
+              case t: Throwable =>
+                logger.error(
+                  s"Checking participant Ledger API Store integrity, for $participantLoggingName...FAILED TO ACCESS DATABASE",
+                  t,
+                )
             }
-          } catch {
-            case t: Throwable =>
-              logger.error(
-                s"Checking participant Ledger API Store integrity, for $participantLoggingName...FAILED TO ACCESS DATABASE",
-                t,
-              )
-          }
+        }
       }
 
     logger.info("Checking participant Ledger API Store integrity after tests...")
@@ -114,8 +125,11 @@ class LedgerApiStoreIntegrityChecker(
             .getOrElse(false) // for passive replicas we need to go over store as well
       )
 
-    runningAndActiveParticipants
-      .foreach { runningParticipant =>
+    runningAndActiveParticipants.foreach { runningParticipant =>
+      verifyOrBypass(
+        participantName = runningParticipant.name,
+        participantLoggingName = s"local running participant ${runningParticipant.name}",
+      ) {
         runningParticipant.health.status
         logger.info(
           s"Checking participant Ledger API Store integrity, for local running participant ${runningParticipant.name}..."
@@ -133,6 +147,7 @@ class LedgerApiStoreIntegrityChecker(
             )
         }
       }
+    }
 
     notRunningParticipants
       .foreach { notRunningParticipant =>

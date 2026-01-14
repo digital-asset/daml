@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.provider.jce
@@ -801,11 +801,10 @@ object JcePureCrypto {
         sender.min(receiver)
       }
 
-    lazy val signingDurationOpt: Option[FiniteDuration] = config.kms.flatMap { kms =>
-      Option.when(kms.sessionSigningKeys.enabled)(
-        kms.sessionSigningKeys.keyEvictionPeriod.underlying
+    lazy val signingDurationOpt: Option[FiniteDuration] =
+      Option.when(config.sessionSigningKeys.enabled)(
+        config.sessionSigningKeys.keyEvictionPeriod.underlying
       )
-    }
 
     lazy val minimumPrivateKeyCacheDuration =
       Seq(encryptionDurationOpt, signingDurationOpt).flatten.minOption

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.manual.topology
@@ -103,6 +103,7 @@ private[topology] class PartyReplicationChaos(val logger: TracedLogger) extends 
 
   // Since the operations are ran asynchronously, I don't expect performance
   // issues with this synchronized block
+  @SuppressWarnings(Array("com.digitalasset.canton.RequireBlocking"))
   private def nextAction(
       sourceParticipant: LocalParticipantReference,
       targetParticipant: LocalParticipantReference,

@@ -1,13 +1,13 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils
 
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 
 import scala.collection.mutable
-import scala.concurrent.blocking
 
 private[bftordering] object Miscellaneous {
 
@@ -16,8 +16,8 @@ private[bftordering] object Miscellaneous {
     throw new RuntimeException(message)
   }
 
-  def mutex[T](lock: AnyRef)(action: => T): T =
-    blocking(lock.synchronized(action))
+  def mutex[T](lock: Mutex)(action: => T): T =
+    lock.exclusive(action)
 
   def dequeueN[ElementT, NumberT](
       queue: mutable.Queue[ElementT],

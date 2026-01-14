@@ -1,15 +1,15 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.performance.control
 
 import com.daml.ledger.javaapi.data.Party
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.util.Mutex
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.concurrent.blocking
 
 class Balancer {
 
@@ -23,9 +23,10 @@ class Balancer {
     }
   }
   private val ordered = mutable.ArrayBuffer[Item]()
+  private val lock = new Mutex()
 
   /** extend queue with new members */
-  def updateMembers(current: Seq[Party]): Unit = blocking(synchronized {
+  def updateMembers(current: Seq[Party]): Unit = (lock.exclusive {
     val members = ordered.map(_.party).toSet
     current.filter(!members.contains(_)).foreach { party =>
       val itm = new Item(party)
@@ -68,20 +69,20 @@ class Balancer {
     }
   }
 
-  def completed(party: Party): Unit = blocking(synchronized {
+  def completed(party: Party): Unit = (lock.exclusive {
     update(0, party, -1)
   })
 
   /** manually adjust stats on startup */
-  def adjust(party: Party, count: Int): Unit = blocking(synchronized {
+  def adjust(party: Party, count: Int): Unit = (lock.exclusive {
     update(0, party, count)
   })
 
-  def state(): Seq[(Party, Int, Int)] = blocking(synchronized {
+  def state(): Seq[(Party, Int, Int)] = (lock.exclusive {
     ordered.map(x => (x.party, x.outstanding.get(), x.counter.get())).toSeq
   })
 
-  def next(): Party = blocking(synchronized {
+  def next(): Party = (lock.exclusive {
     require(ordered.nonEmpty, "calling next on empty balancer will not work")
     val head = ordered(0).party
     update(0, head, 1)

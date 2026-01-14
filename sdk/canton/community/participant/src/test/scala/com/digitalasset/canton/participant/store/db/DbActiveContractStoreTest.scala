@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.db
@@ -126,11 +126,13 @@ class ActiveContractStoreTestPostgres extends DbActiveContractStoreTest with Pos
     val ts = CantonTimestamp.assertFromInstant(Instant.parse("2019-04-04T10:00:00.00Z"))
     val ts1 = ts.addMicros(1)
 
+    val tocExclusive = TimeOfChange(ts.immediatePredecessor, rc)
     val toc1 = TimeOfChange(ts, rc)
     val toc2 = TimeOfChange(ts1, rc1)
 
+    val nrContracts = 100_000
     val many =
-      (1 to 100_000).toList.map(n => ExampleTransactionFactory.suffixedId(n, n))
+      (1 to nrContracts).toList.map(n => ExampleTransactionFactory.suffixedId(n, n))
     for {
 
       _ <- valueOrFail(
@@ -145,12 +147,34 @@ class ActiveContractStoreTestPostgres extends DbActiveContractStoreTest with Pos
         )(acs.archiveContracts(_, toc2))
       )("archive many in chunks")
 
-      manyChanges <- acs.changesBetween(toc1, toc2)
+      largeLimit = PositiveInt.tryCreate(2 * nrContracts) // activations and deactivations
+      smallLimit = PositiveInt.tryCreate(100)
+      (manyChanges, manyChangesReturnedSize) <- acs.changesBetween(
+        tocExclusive,
+        toc2,
+        largeLimit,
+      )
+      (notSoManyChanges, notSoManyChangesReturnedSize) <- acs.changesBetween(
+        tocExclusive,
+        toc2,
+        smallLimit,
+      )
     } yield {
-      manyChanges.flatMap { case (_, changes) =>
-        changes.deactivations.keys
-      }.size shouldBe many.size.toLong
+      val manyChangesSize = manyChanges.flatMap { case (_, changes) =>
+        changes.deactivations.keys ++ changes.activations.keys
+      }.size
+      manyChangesSize shouldBe largeLimit.value
+      notSoManyChanges.flatMap { case (_, changes) =>
+        changes.deactivations.keys ++ changes.activations.keys
+      }.size shouldBe nrContracts
+      notSoManyChangesReturnedSize shouldBe nrContracts
+      manyChanges
+        .flatMap { case (_, changes) => changes.deactivations }
+        .toSet
+        .intersect(notSoManyChanges.flatMap { case (_, changes) => changes.deactivations }.toSet)
+        .size shouldBe notSoManyChanges.flatMap { case (_, changes) =>
+        changes.deactivations
+      }.size
     }
   }
-
 }

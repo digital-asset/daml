@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.index
@@ -843,7 +843,7 @@ class IndexServiceImplSpec
       .cause shouldBe "Interfaces do not exist: [PackageId:ModuleName:iface1, PackageId:ModuleName:iface2]."
   }
 
-  behavior of "IndexServiceImpl.injectCheckpoint"
+  behavior of "IndexServiceImpl.injectCheckpoints"
   val end = 10L
   def createSource(elements: Seq[Long]): Source[(Offset, Carrier[Unit]), NotUsed] = {
     val elementsSource = Source(elements).map(Offset.tryFromLong).map((_, ()))
@@ -870,7 +870,7 @@ class IndexServiceImplSpec
         val out: Seq[Long] =
           createSource(elements)
             .via(
-              injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => ())
+              injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => (), None)
             )
             .runWith(Sink.seq)
             .futureValue
@@ -888,7 +888,7 @@ class IndexServiceImplSpec
     val out: Seq[Long] =
       createSource(elements)
         .via(
-          injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => ())
+          injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => (), None)
         )
         .runWith(Sink.seq)
         .futureValue
@@ -913,7 +913,7 @@ class IndexServiceImplSpec
       val out: Seq[Option[Long]] =
         source
           .via(
-            injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => None)
+            injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => None, None)
           )
           .runWith(Sink.seq)
           .futureValue
@@ -926,19 +926,78 @@ class IndexServiceImplSpec
 
   it should "add a checkpoint invoked from timeout when its offset is at the last streamed element" in new Scope {
     val elements = 1L to end
-    val checkpoint = 10L
+    val checkpoint = end
 
     val out: Seq[Long] =
       createSource(elements)
         .concat(Source.single((Offset.MaxValue, Timeout)))
         .via(
-          injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => ())
+          injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => (), None)
         )
         .runWith(Sink.seq)
         .futureValue
         .map(_._1)
         .map(_.unwrap)
     out shouldBe elements :+ checkpoint
+  }
+
+  it should "add a checkpoint at the ledgerEnd invoked from timeout when requesting from ledgerEnd" in new Scope {
+    val checkpoint = end
+
+    val out: Seq[Long] =
+      Source
+        .single((Offset.MaxValue, Timeout))
+        .via(
+          injectCheckpoints(
+            fetchOffsetCheckpoint = fetchOffsetCheckpoint(checkpoint),
+            responseFromCheckpoint = _ => (),
+            startExclusive = Some(Offset.tryFromLong(end)),
+          )
+        )
+        .runWith(Sink.seq)
+        .futureValue
+        .map(_._1)
+        .map(_.unwrap)
+    out shouldBe Vector(checkpoint)
+  }
+
+  it should "not add the same checkpoint at the ledgerEnd invoked from timeout when requesting from ledgerEnd" in new Scope {
+    val checkpoint = end
+
+    val out: Seq[Long] =
+      Source(Seq((Offset.MaxValue, Timeout), (Offset.MaxValue, Timeout)))
+        .via(
+          injectCheckpoints(
+            fetchOffsetCheckpoint = fetchOffsetCheckpoint(checkpoint),
+            responseFromCheckpoint = _ => (),
+            startExclusive = Some(Offset.tryFromLong(end)),
+          )
+        )
+        .runWith(Sink.seq)
+        .futureValue
+        .map(_._1)
+        .map(_.unwrap)
+    out shouldBe Vector(checkpoint)
+  }
+
+  it should "not add a checkpoint invoked from timeout when its offset is before ledgerEnd and requesting from ledgerEnd" in new Scope {
+    val checkpoint = end - 1
+
+    val out: Seq[Long] =
+      Source
+        .single((Offset.MaxValue, Timeout))
+        .via(
+          injectCheckpoints(
+            fetchOffsetCheckpoint = fetchOffsetCheckpoint(checkpoint),
+            responseFromCheckpoint = _ => (),
+            startExclusive = Some(Offset.tryFromLong(end)),
+          )
+        )
+        .runWith(Sink.seq)
+        .futureValue
+        .map(_._1)
+        .map(_.unwrap)
+    out shouldBe empty
   }
 
   it should "not add a checkpoint invoked from timeout when its offset is less or equal to the last streamed checkpoint" in new Scope {
@@ -949,7 +1008,7 @@ class IndexServiceImplSpec
       createSource(elements)
         .concat(Source.single((Offset.MaxValue, Timeout)))
         .via(
-          injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => ())
+          injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => (), None)
         )
         .runWith(Sink.seq)
         .futureValue
@@ -966,7 +1025,7 @@ class IndexServiceImplSpec
       createSource(elements)
         .concat(Source(Seq((Offset.MaxValue, Timeout), (Offset.MaxValue, Timeout))))
         .via(
-          injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => ())
+          injectCheckpoints(fetchOffsetCheckpoint(checkpoint), _ => (), None)
         )
         .runWith(Sink.seq)
         .futureValue
@@ -1008,7 +1067,7 @@ class IndexServiceImplSpec
     val out: Seq[(Offset, Option[Unit])] =
       source
         .via(
-          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None, None)
         )
         .runWith(Sink.seq)
         .futureValue
@@ -1031,7 +1090,7 @@ class IndexServiceImplSpec
     val out: Seq[(Offset, Option[Unit])] =
       source
         .via(
-          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None, None)
         )
         .runWith(Sink.seq)
         .futureValue
@@ -1054,7 +1113,7 @@ class IndexServiceImplSpec
     val out: Seq[(Offset, Option[Unit])] =
       source
         .via(
-          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None, None)
         )
         .runWith(Sink.seq)
         .futureValue
@@ -1100,7 +1159,7 @@ class IndexServiceImplSpec
     val out: Seq[(Offset, Option[Unit])] =
       source
         .via(
-          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None, None)
         )
         .runWith(Sink.seq)
         .futureValue
@@ -1125,7 +1184,7 @@ class IndexServiceImplSpec
   }
 
   it should "add checkpoints for dormant streams" in new Scope {
-    // (1,RB), NC, 1, 2, 3, (3,RE), (TO), C4 -shouldBe> 1, 2, 3, C4
+    // (1,RB), NC, 1, 2, 3, (3,RE), (TO), C3 -shouldBe> 1, 2, 3, C3
 
     private val source = Source(
       Seq((1, RB), (1, e), (2, e), (3, e), (3, RE), TO)
@@ -1136,7 +1195,7 @@ class IndexServiceImplSpec
     val out: Seq[(Offset, Option[Unit])] =
       source
         .via(
-          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None, None)
         )
         .runWith(Sink.seq)
         .futureValue
@@ -1145,6 +1204,78 @@ class IndexServiceImplSpec
       Seq((1, u), (2, u), (3, u), (3, None)).map { case (o, elem) =>
         (Offset.tryFromLong(o.toLong), elem)
       }
+  }
+
+  it should "add checkpoints for dormant streams at ledger end" in new Scope {
+    // (TO), C3 -shouldBe> C3
+
+    private val source = Source(
+      Seq(TO)
+    ).map { case (o, elem) => (Offset.tryFromLong(o.toLong), elem) }
+
+    private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(Some(3))
+
+    val out: Seq[(Offset, Option[Unit])] =
+      source
+        .via(
+          injectCheckpoints(
+            fetchOffsetCheckpoint = fetchOffsetCheckpoints(checkpoints),
+            responseFromCheckpoint = _ => None,
+            startExclusive = Some(Offset.tryFromLong(3)),
+          )
+        )
+        .runWith(Sink.seq)
+        .futureValue
+
+    out shouldBe Seq((Offset.tryFromLong(3), None))
+  }
+
+  it should "add checkpoints for dormant streams at ledger end with slowly updated cache" in new Scope {
+    // (TO), NC, (TO), C2, (TO), C3 -shouldBe> C3
+
+    private val source = Source(
+      Seq(TO, TO, TO)
+    ).map { case (o, elem) => (Offset.tryFromLong(o.toLong), elem) }
+
+    private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(None, Some(2), Some(3))
+
+    val out: Seq[(Offset, Option[Unit])] =
+      source
+        .via(
+          injectCheckpoints(
+            fetchOffsetCheckpoint = fetchOffsetCheckpoints(checkpoints),
+            responseFromCheckpoint = _ => None,
+            startExclusive = Some(Offset.tryFromLong(3)),
+          )
+        )
+        .runWith(Sink.seq)
+        .futureValue
+
+    out shouldBe Seq((Offset.tryFromLong(3), None))
+  }
+
+  it should "not repeat checkpoints after dormant stream checkpoint" in new Scope {
+    // (TO), C3, (4, RB), C3, (4, RE) -shouldBe> C3
+
+    private val source = Source(
+      Seq(TO, (4, RB), (4, RE))
+    ).map { case (o, elem) => (Offset.tryFromLong(o.toLong), elem) }
+
+    private val checkpoints: mutable.Queue[Option[Int]] = mutable.Queue(Some(3), Some(3))
+
+    val out: Seq[(Offset, Option[Unit])] =
+      source
+        .via(
+          injectCheckpoints(
+            fetchOffsetCheckpoint = fetchOffsetCheckpoints(checkpoints),
+            responseFromCheckpoint = _ => None,
+            startExclusive = Some(Offset.tryFromLong(3)),
+          )
+        )
+        .runWith(Sink.seq)
+        .futureValue
+
+    out shouldBe Seq((Offset.tryFromLong(3), None))
   }
 
   it should "add checkpoints at the right spot when streaming far from history" in new Scope {
@@ -1160,7 +1291,7 @@ class IndexServiceImplSpec
     val out: Seq[(Offset, Option[Unit])] =
       source
         .via(
-          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None, None)
         )
         .runWith(Sink.seq)
         .futureValue
@@ -1184,7 +1315,7 @@ class IndexServiceImplSpec
     val out: Seq[(Offset, Option[Unit])] =
       source
         .via(
-          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None, None)
         )
         .runWith(Sink.seq)
         .futureValue
@@ -1207,7 +1338,7 @@ class IndexServiceImplSpec
     val out: Seq[(Offset, Option[Unit])] =
       source
         .via(
-          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None, None)
         )
         .runWith(Sink.seq)
         .futureValue
@@ -1230,7 +1361,7 @@ class IndexServiceImplSpec
     val out: Seq[(Offset, Option[Unit])] =
       source
         .via(
-          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None, None)
         )
         .runWith(Sink.seq)
         .futureValue
@@ -1253,7 +1384,7 @@ class IndexServiceImplSpec
     val out: Seq[(Offset, Option[Unit])] =
       source
         .via(
-          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None, None)
         )
         .runWith(Sink.seq)
         .futureValue(timeout = PatienceConfiguration.Timeout(1.second))
@@ -1276,7 +1407,7 @@ class IndexServiceImplSpec
     val out: Seq[(Offset, Option[Unit])] =
       source
         .via(
-          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None, None)
         )
         .runWith(Sink.seq)
         .futureValue
@@ -1314,7 +1445,11 @@ class IndexServiceImplSpec
     val out: Seq[(Offset, Option[Unit])] =
       source
         .via(
-          injectCheckpoints(fetchOffsetCheckpoints(checkpoints), _ => None)
+          injectCheckpoints(
+            fetchOffsetCheckpoint = fetchOffsetCheckpoints(checkpoints),
+            responseFromCheckpoint = _ => None,
+            startExclusive = None,
+          )
         )
         .runWith(Sink.seq)
         .futureValue

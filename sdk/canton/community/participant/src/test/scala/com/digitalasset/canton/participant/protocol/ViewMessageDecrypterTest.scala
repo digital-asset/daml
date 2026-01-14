@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
@@ -146,6 +146,7 @@ class ViewMessageDecrypterTest extends BaseTestWordSpec with HasExecutionContext
               lightTree(i),
               viewKeyData(i),
               snapshot,
+              None,
               testedProtocolVersion,
             )
             .futureValueUS

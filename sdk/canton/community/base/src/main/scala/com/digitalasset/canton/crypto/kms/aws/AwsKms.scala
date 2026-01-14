@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.kms.aws
@@ -6,6 +6,7 @@ package com.digitalasset.canton.crypto.kms.aws
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
+import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.{KmsConfig, ProcessingTimeout}
@@ -152,7 +153,7 @@ class AwsKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] =
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] = synchronizeWithClosing(functionFullName)(
     for {
       awsKeySpec <- convertToAwsKeySpec(signingKeySpec)
         .leftMap(err => KmsCreateKeyError(err))
@@ -163,18 +164,20 @@ class AwsKms(
         name,
       )
     } yield kmsKeyId
+  )
 
   override protected def generateSymmetricEncryptionKeyInternal(
       name: Option[KeyName]
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] =
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] = synchronizeWithClosing(functionFullName)(
     createKey(
       aws.KeySpec.SYMMETRIC_DEFAULT,
       aws.KeyUsageType.ENCRYPT_DECRYPT,
       name,
     )
+  )
 
   override protected def generateAsymmetricEncryptionKeyPairInternal(
       encryptionKeySpec: EncryptionKeySpec,
@@ -182,7 +185,7 @@ class AwsKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] =
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] = synchronizeWithClosing(functionFullName)(
     for {
       keySpec <- convertToAwsAsymmetricKeyEncryptionSpec(encryptionKeySpec)
         .leftMap(err => KmsCreateKeyError(err))
@@ -193,6 +196,7 @@ class AwsKms(
         name,
       )
     } yield kmsKeyId
+  )
 
   private def getPublicKeyInternal(keyId: KmsKeyId)(implicit
       ec: ExecutionContext,
@@ -222,55 +226,59 @@ class AwsKms(
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, KmsSigningPublicKey] =
-    getPublicKeyInternal(keyId).flatMap { pkResponse =>
-      pkResponse.keyUsage() match {
-        case aws.KeyUsageType.SIGN_VERIFY =>
-          val pubKeyRaw = ByteString.copyFrom(pkResponse.publicKey().asByteBuffer())
-          for {
-            keySpec <- convertFromAwsSigningKeySpec(pkResponse.keySpec())
-              .leftMap[KmsError](KmsGetPublicKeyError(keyId, _))
-              .toEitherT[FutureUnlessShutdown]
-            pubKey <- KmsSigningPublicKey
-              .create(pubKeyRaw, keySpec)
-              .leftMap[KmsError](err => KmsGetPublicKeyError(keyId, err))
-              .toEitherT[FutureUnlessShutdown]
-          } yield pubKey
-        case _ =>
-          EitherT.leftT[FutureUnlessShutdown, KmsSigningPublicKey](
-            KmsGetPublicKeyError(
-              keyId,
-              s"The selected key is defined for ${pkResponse.keyUsage()} and not for signing",
+    synchronizeWithClosing(functionFullName)(
+      getPublicKeyInternal(keyId).flatMap { pkResponse =>
+        pkResponse.keyUsage() match {
+          case aws.KeyUsageType.SIGN_VERIFY =>
+            val pubKeyRaw = ByteString.copyFrom(pkResponse.publicKey().asByteBuffer())
+            for {
+              keySpec <- convertFromAwsSigningKeySpec(pkResponse.keySpec())
+                .leftMap[KmsError](KmsGetPublicKeyError(keyId, _))
+                .toEitherT[FutureUnlessShutdown]
+              pubKey <- KmsSigningPublicKey
+                .create(pubKeyRaw, keySpec)
+                .leftMap[KmsError](err => KmsGetPublicKeyError(keyId, err))
+                .toEitherT[FutureUnlessShutdown]
+            } yield pubKey
+          case _ =>
+            EitherT.leftT[FutureUnlessShutdown, KmsSigningPublicKey](
+              KmsGetPublicKeyError(
+                keyId,
+                s"The selected key is defined for ${pkResponse.keyUsage()} and not for signing",
+              )
             )
-          )
+        }
       }
-    }
+    )
 
   override protected def getPublicEncryptionKeyInternal(keyId: KmsKeyId)(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, KmsEncryptionPublicKey] =
-    getPublicKeyInternal(keyId).flatMap { pkResponse =>
-      pkResponse.keyUsage() match {
-        case aws.KeyUsageType.ENCRYPT_DECRYPT =>
-          val pubKeyRaw = ByteString.copyFrom(pkResponse.publicKey().asByteBuffer())
-          for {
-            keySpec <- convertFromAwsAsymmetricKeyEncryptionSpec(pkResponse.keySpec())
-              .leftMap[KmsError](KmsGetPublicKeyError(keyId, _))
-              .toEitherT[FutureUnlessShutdown]
-            pubKey <- KmsEncryptionPublicKey
-              .create(pubKeyRaw, keySpec)
-              .leftMap[KmsError](err => KmsGetPublicKeyError(keyId, err))
-              .toEitherT[FutureUnlessShutdown]
-          } yield pubKey
-        case _ =>
-          EitherT.leftT[FutureUnlessShutdown, KmsEncryptionPublicKey](
-            KmsGetPublicKeyError(
-              keyId,
-              s"The selected key is defined for ${pkResponse.keyUsage()} and not for encryption",
+    synchronizeWithClosing(functionFullName)(
+      getPublicKeyInternal(keyId).flatMap { pkResponse =>
+        pkResponse.keyUsage() match {
+          case aws.KeyUsageType.ENCRYPT_DECRYPT =>
+            val pubKeyRaw = ByteString.copyFrom(pkResponse.publicKey().asByteBuffer())
+            for {
+              keySpec <- convertFromAwsAsymmetricKeyEncryptionSpec(pkResponse.keySpec())
+                .leftMap[KmsError](KmsGetPublicKeyError(keyId, _))
+                .toEitherT[FutureUnlessShutdown]
+              pubKey <- KmsEncryptionPublicKey
+                .create(pubKeyRaw, keySpec)
+                .leftMap[KmsError](err => KmsGetPublicKeyError(keyId, err))
+                .toEitherT[FutureUnlessShutdown]
+            } yield pubKey
+          case _ =>
+            EitherT.leftT[FutureUnlessShutdown, KmsEncryptionPublicKey](
+              KmsGetPublicKeyError(
+                keyId,
+                s"The selected key is defined for ${pkResponse.keyUsage()} and not for encryption",
+              )
             )
-          )
+        }
       }
-    }
+    )
 
   private def convertToAwsKeySpec(
       signingKeySpec: SigningKeySpec
@@ -362,7 +370,9 @@ class AwsKms(
   override protected def keyExistsAndIsActiveInternal(keyId: KmsKeyId)(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, Unit] = getMetadataForActiveKeys(keyId).map(_ => ())
+  ): EitherT[FutureUnlessShutdown, KmsError, Unit] = synchronizeWithClosing(functionFullName)(
+    getMetadataForActiveKeys(keyId).map(_ => ())
+  )
 
   private def encrypt(
       keyId: KmsKeyId,
@@ -399,14 +409,16 @@ class AwsKms(
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, ByteString6144] =
-    encrypt(keyId, data.unwrap, aws.EncryptionAlgorithmSpec.SYMMETRIC_DEFAULT).flatMap(dataEnc =>
-      ByteString6144
-        .create(dataEnc)
-        .toEitherT[FutureUnlessShutdown]
-        .leftMap(err =>
-          KmsError
-            .KmsEncryptError(keyId, s"generated ciphertext does not adhere to bound: $err)")
-        )
+    synchronizeWithClosing(functionFullName)(
+      encrypt(keyId, data.unwrap, aws.EncryptionAlgorithmSpec.SYMMETRIC_DEFAULT).flatMap(dataEnc =>
+        ByteString6144
+          .create(dataEnc)
+          .toEitherT[FutureUnlessShutdown]
+          .leftMap(err =>
+            KmsError
+              .KmsEncryptError(keyId, s"generated ciphertext does not adhere to bound: $err)")
+          )
+      )
     )
 
   private def decrypt(
@@ -443,7 +455,9 @@ class AwsKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, ByteString4096] =
+  ): EitherT[FutureUnlessShutdown, KmsError, ByteString4096] = synchronizeWithClosing(
+    functionFullName
+  )(
     decrypt(keyId, data.unwrap, aws.EncryptionAlgorithmSpec.SYMMETRIC_DEFAULT).flatMap(dataPlain =>
       ByteString4096
         .create(dataPlain)
@@ -452,6 +466,7 @@ class AwsKms(
           KmsError.KmsDecryptError(keyId, s"plaintext does not adhere to bound: $err)")
         )
     )
+  )
 
   override protected def decryptAsymmetricInternal(
       keyId: KmsKeyId,
@@ -460,7 +475,9 @@ class AwsKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, ByteString190] =
+  ): EitherT[FutureUnlessShutdown, KmsError, ByteString190] = synchronizeWithClosing(
+    functionFullName
+  )(
     for {
       encryptionAlgorithm <- convertToAwsAsymmetricEncryptionAlgorithmSpec(encryptionAlgorithmSpec)
         .leftMap(KmsDecryptError(keyId, _))
@@ -475,6 +492,7 @@ class AwsKms(
             )
         )
     } yield decryptedData
+  )
 
   override protected def signInternal(
       keyId: KmsKeyId,
@@ -484,7 +502,7 @@ class AwsKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, ByteString] =
+  ): EitherT[FutureUnlessShutdown, KmsError, ByteString] = synchronizeWithClosing(functionFullName)(
     for {
       signingAlgorithm <- convertToAwsAlgoSpec(signingAlgorithmSpec)
         .leftMap(KmsSignRequestError(keyId, _))
@@ -507,13 +525,14 @@ class AwsKms(
         err => errorHandler(err, (errStr, retryable) => KmsSignError(keyId, errStr, retryable)),
       )
     } yield ByteString.copyFrom(response.signature().asByteBuffer())
+  )
 
   override protected def deleteKeyInternal(
       keyId: KmsKeyId
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, Unit] =
+  ): EitherT[FutureUnlessShutdown, KmsError, Unit] = synchronizeWithClosing(functionFullName)(
     for {
       scheduleKeyDeletionRequest <-
         Either
@@ -535,6 +554,7 @@ class AwsKms(
         err => errorHandler(err, (errStr, retryable) => KmsDeleteKeyError(keyId, errStr, retryable)),
       )
     } yield ()
+  )
 
   private def retrieveKeyMetadata(
       keyId: KmsKeyId
@@ -567,7 +587,7 @@ class AwsKms(
     } yield response.keyMetadata()
 
   override def onClosed(): Unit =
-    LifeCycle.close(LifeCycle.toCloseableOption(httpClientO), kmsClient)(logger)
+    LifeCycle.close(kmsClient, LifeCycle.toCloseableOption(httpClientO))(logger)
 
 }
 
@@ -622,7 +642,7 @@ object AwsKms extends Kms.SupportedSchemes {
       /* We can access AWS in multiple ways, for example: (1) using the AWS security token service (sts)
          profile (2) setting up the following environment variables: AWS_ACCESS_KEY_ID,
          AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN */
-      .credentialsProvider(DefaultCredentialsProvider.create())
+      .credentialsProvider(DefaultCredentialsProvider.builder().build())
 
     config.endpointOverride.map(URI.create).foreach(kmsAsyncClientBuilder.endpointOverride)
 
@@ -664,7 +684,7 @@ object AwsKms extends Kms.SupportedSchemes {
             /* We can access AWS in multiple ways, for example: (1) using the AWS security token service (sts)
              profile (2) setting up the following environment variables: AWS_ACCESS_KEY_ID,
              AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN */
-            .credentialsProvider(DefaultCredentialsProvider.create())
+            .credentialsProvider(DefaultCredentialsProvider.builder().build())
             .build(),
           httpClientO,
           timeouts,

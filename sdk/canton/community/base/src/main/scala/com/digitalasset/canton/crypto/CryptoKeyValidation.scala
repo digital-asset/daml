@@ -1,15 +1,16 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto
 
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CachingConfigs
+import com.digitalasset.canton.config.{CacheConfig, CachingConfigs}
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.SigningKeyUsage.compatibleUsageForSignAndVerify
 import com.digitalasset.canton.crypto.provider.jce.{JceJavaKeyConverter, JceSecurityProvider}
 import com.digitalasset.canton.util.{EitherUtil, ErrorUtil}
+import com.github.blemale.scaffeine.Cache
 import com.google.common.annotations.VisibleForTesting
 import com.google.crypto.tink.internal.EllipticCurvesUtil
 import com.google.protobuf.ByteString
@@ -32,29 +33,30 @@ import java.security.{
   PublicKey as JPublicKey,
 }
 import scala.annotation.nowarn
-import scala.collection.concurrent.TrieMap
-import scala.concurrent.blocking
 
 object CryptoKeyValidation {
 
+  private val cacheConfig = CacheConfig(
+    maximumSize = CachingConfigs.defaultPublicKeyConversionCache.maximumSize
+  )
+
   // Keeps track of the public keys that have been validated.
-  private lazy val validatedPublicKeys
-      : TrieMap[Fingerprint, Either[KeyParseAndValidateError, Unit]] =
-    TrieMap.empty
+  private lazy val validatedPublicKeys: Cache[Fingerprint, Either[KeyParseAndValidateError, Unit]] =
+    cacheConfig
+      .buildScaffeineWithoutExecutor()
+      .build[Fingerprint, Either[KeyParseAndValidateError, Unit]]()
 
   private lazy val validatedPrivateKeys
-      : TrieMap[Fingerprint, Either[KeyParseAndValidateError, Unit]] =
-    TrieMap.empty
+      : Cache[Fingerprint, Either[KeyParseAndValidateError, Unit]] =
+    cacheConfig
+      .buildScaffeineWithoutExecutor()
+      .build[Fingerprint, Either[KeyParseAndValidateError, Unit]]()
 
   @VisibleForTesting
   def clearValidationCaches(): Unit = {
-    validatedPublicKeys.clear()
-    validatedPrivateKeys.clear()
+    validatedPublicKeys.invalidateAll()
+    validatedPrivateKeys.invalidateAll()
   }
-
-  // To prevent concurrent cache cleanups
-  private val cachePrivateLock = new Object
-  private val cachePublicLock = new Object
 
   /** Validates a symmetric key by checking:
     *   - Symmetric key format
@@ -355,19 +357,9 @@ object CryptoKeyValidation {
         Left(KeyParseAndValidateError(s"Invalid format for private key: $format"))
     }
 
-    // Temporary workaround to clear this TrieMap and prevent memory leaks.
-    blocking {
-      cachePrivateLock.synchronized {
-        if (
-          validatedPrivateKeys.size > CachingConfigs.defaultPublicKeyConversionCache.maximumSize.value
-        ) {
-          validatedPrivateKeys.clear()
-        }
-      }
-    }
     // If the result is already in the cache it means the key has already been validated.
     (if (cacheValidation)
-       validatedPrivateKeys.getOrElseUpdate(privateKey.id, parseRes)
+       validatedPrivateKeys.get(privateKey.id, _ => parseRes)
      else parseRes).leftMap(err =>
       errFn(s"Failed to deserialize or validate ${privateKey.format} private key: $err")
     )
@@ -411,19 +403,9 @@ object CryptoKeyValidation {
         Left(KeyParseAndValidateError(s"Invalid format for public key: $format"))
     }
 
-    // Temporary workaround to clear this TrieMap and prevent memory leaks.
-    blocking {
-      cachePublicLock.synchronized {
-        if (
-          validatedPublicKeys.size > CachingConfigs.defaultPublicKeyConversionCache.maximumSize.value
-        ) {
-          validatedPublicKeys.clear()
-        }
-      }
-    }
     // If the result is already in the cache it means the key has already been validated.
     (if (cacheValidation)
-       validatedPublicKeys.getOrElseUpdate(publicKey.id, parseRes)
+       validatedPublicKeys.get(publicKey.id, _ => parseRes)
      else parseRes).leftMap(err =>
       errFn(s"Failed to deserialize or validate ${publicKey.format} public key: $err")
     )

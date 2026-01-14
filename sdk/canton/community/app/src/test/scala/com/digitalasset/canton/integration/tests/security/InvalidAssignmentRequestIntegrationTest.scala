@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.security
@@ -30,7 +30,6 @@ import com.digitalasset.daml.lf.transaction.CreationTime
 import org.scalatest.Assertion
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.collection.immutable.Seq
 
 /** The goal is to check that an invalid assignment requests are rejected by an honest participant
   * in phase 3 and/or an honest participant in phase 7. This should lead to the assignment being
@@ -140,7 +139,7 @@ final class InvalidAssignmentRequestIntegrationTest
       val (iou, reassignmentData) = createContractAndUnassign()
 
       maliciousP2
-        .submitAssignmentRequest(observer.toLf, reassignmentData)
+        .submitAssignmentRequest(observer.toLf, reassignmentData, Some(environment.now))
         .futureValueUS
         .value
 
@@ -189,6 +188,7 @@ final class InvalidAssignmentRequestIntegrationTest
             .submitAssignmentRequest(
               observer.toLf,
               reassignmentData,
+              Some(environment.now),
               overrideRecipients = Recipients.ofSet(
                 Set(
                   participant1.member,
@@ -262,7 +262,11 @@ final class InvalidAssignmentRequestIntegrationTest
           withMediatorVerdict(mediatorApprove),
         ) {
           maliciousP2
-            .submitAssignmentRequest(observer.toLf, alteredUnassignmentData(reassignmentData))
+            .submitAssignmentRequest(
+              observer.toLf,
+              alteredUnassignmentData(reassignmentData),
+              Some(environment.now),
+            )
             .futureValueUS
             .value
 

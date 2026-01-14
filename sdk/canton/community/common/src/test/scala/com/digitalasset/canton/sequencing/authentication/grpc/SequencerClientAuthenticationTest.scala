@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.authentication.grpc
@@ -63,7 +63,10 @@ class SequencerClientAuthenticationTest extends FixtureAsyncWordSpec with BaseTe
       new AuthenticationTokenManager(
         (_: TraceContext) =>
           EitherT.pure[FutureUnlessShutdown, Status](
-            AuthenticationTokenWithExpiry(clientNextTokenRefresh.get(), CantonTimestamp.Epoch)
+            AuthenticationTokenWithExpiry(
+              clientNextTokenRefresh.get(),
+              CantonTimestamp.ofEpochSecond(100),
+            )
           ),
         false,
         AuthenticationTokenManagerConfig(),

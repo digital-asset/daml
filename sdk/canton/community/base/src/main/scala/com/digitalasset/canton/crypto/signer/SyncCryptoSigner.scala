@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.signer
@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{CacheConfig, CryptoConfig, CryptoProvider, ProcessingTimeout}
+import com.digitalasset.canton.config.{CacheConfig, CryptoConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore
 import com.digitalasset.canton.crypto.{
   Hash,
@@ -20,6 +20,7 @@ import com.digitalasset.canton.crypto.{
   SyncCryptoError,
   SynchronizerCrypto,
 }
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
@@ -37,9 +38,16 @@ trait SyncCryptoSigner extends NamedLogging with AutoCloseable {
   protected def cryptoPrivateStore: CryptoPrivateStore
 
   /** Signs a given hash using the currently active signing keys in the current topology state.
+    *
+    * @param approximateTimestampOverride
+    *   if defined use this timestamp to pick the validity timestamp of the session signing key.
+    *   This should only be done when you have to guess such a timestamp -
+    *   currentSnapShotApproximation (e.g., for a submission request, or a signature on an encrypted
+    *   view message).
     */
   def sign(
       topologySnapshot: TopologySnapshot,
+      approximateTimestampOverride: Option[CantonTimestamp],
       hash: Hash,
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
@@ -101,30 +109,24 @@ object SyncCryptoSigner {
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): SyncCryptoSigner =
-    cryptoConfig.kms.map(_.sessionSigningKeys) match {
-      // session signing keys can only be used if we are directly storing all our private keys in an external KMS
-      case Some(sessionSigningKeysConfig)
-          if cryptoConfig.provider == CryptoProvider.Kms &&
-            cryptoConfig.privateKeyStore.encryption.isEmpty &&
-            sessionSigningKeysConfig.enabled =>
-        new SyncCryptoSignerWithSessionKeys(
-          synchronizerId,
-          staticSynchronizerParameters,
-          member,
-          crypto.privateCrypto,
-          crypto.cryptoPrivateStore,
-          sessionSigningKeysConfig,
-          publicKeyConversionCacheConfig,
-          futureSupervisor: FutureSupervisor,
-          timeouts,
-          loggerFactory,
-        )
-      case _ =>
-        SyncCryptoSigner.createWithLongTermKeys(
-          member,
-          crypto,
-          loggerFactory,
-        )
-    }
+    if (cryptoConfig.sessionSigningKeys.enabled)
+      new SyncCryptoSignerWithSessionKeys(
+        synchronizerId,
+        staticSynchronizerParameters,
+        member,
+        crypto.privateCrypto,
+        crypto.cryptoPrivateStore,
+        cryptoConfig.sessionSigningKeys,
+        publicKeyConversionCacheConfig,
+        futureSupervisor: FutureSupervisor,
+        timeouts,
+        loggerFactory,
+      )
+    else
+      SyncCryptoSigner.createWithLongTermKeys(
+        member,
+        crypto,
+        loggerFactory,
+      )
 
 }

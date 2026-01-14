@@ -1863,6 +1863,12 @@ fileComments:
               Set if it was requested in the ``InterfaceFilter`` and it could be
               successfully computed.
               Optional
+            implementation_package_id: |-
+              The package defining the interface implementation used to compute the view.
+              Can be different from the package that was used to create the contract itself,
+              as the contract arguments can be upgraded or downgraded using smart-contract upgrading
+              as part of computing the interface view.
+              Populated if the view computation is successful, otherwise empty.
     oneOfs:
       ArchivedEvent: {}
       CreatedEvent: {}

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.security
@@ -395,9 +395,7 @@ sealed trait KeyManagementIntegrationTest
 
       val force = true
       // Delete the secret key before re-uploading
-      // user-manual-entry-begin: DeletePrivateKey
       node.keys.secret.delete(privateKeyId, force)
-      // user-manual-entry-end: DeletePrivateKey
       eventually() {
         node.keys.secret.list(filterFingerprint = privateKeyId.unwrap) should have size 0
         node.keys.public.list(filterFingerprint = privateKeyId.unwrap) should have size 0
@@ -583,24 +581,18 @@ sealed trait KeyManagementIntegrationTest
 
       val currentKeys = participant1.keys.secret.list()
       val p2Key =
-        // user-manual-entry-begin: ListPublicKeys
         participant2.keys.secret
           .list()
-          // user-manual-entry-end: ListPublicKeys
           .find(_.publicKey.fingerprint != participant2.fingerprint)
           .valueOrFail("could not find a valid key to rotate")
 
       // Rotate a participant's keys
-      // user-manual-entry-begin: RotateNodeKeys
       participant1.keys.secret.rotate_node_keys()
-      // user-manual-entry-end: RotateNodeKeys
 
-      // user-manual-entry-begin: RotateNodeKey
       val p2KeyNew = participant2.keys.secret.rotate_node_key(
         p2Key.publicKey.fingerprint.unwrap,
         "key_rotated",
       )
-      // user-manual-entry-end: RotateNodeKey
 
       val (p2StoredPubKey, p2StoredPubKeyName) = participant2.keys.secret
         .list(filterFingerprint = p2KeyNew.fingerprint.unwrap)
@@ -619,10 +611,8 @@ sealed trait KeyManagementIntegrationTest
       rotateAndTest(mediator1, environment.clock.now)
 
       // Rotate the synchronizer keys again (and use snippet for documentation)
-      // user-manual-entry-begin: RotateNodeKeys2
       sequencer1.keys.secret.rotate_node_keys()
       mediator1.keys.secret.rotate_node_keys()
-      // user-manual-entry-end: RotateNodeKeys2
 
       participant1.health.ping(participant2)
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.cache
@@ -10,10 +10,10 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.cache.StateCache.PendingUpdatesState
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.{ErrorUtil, Mutex}
 
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.{ExecutionContext, Future}
 
 /** This class is a wrapper around a Caffeine cache designed to handle correct resolution of
   * concurrent updates for the same key.
@@ -36,6 +36,7 @@ private[platform] case class StateCache[K, V](
   private[cache] val pendingUpdates = mutable.Map.empty[K, PendingUpdatesState]
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   @volatile private[cache] var cacheEventSeqIdIndex = initialCacheEventSeqIdIndex
+  private val lock = new Mutex()
 
   /** Fetch the corresponding value for an input key, if present.
     *
@@ -67,7 +68,7 @@ private[platform] case class StateCache[K, V](
   ): Unit =
     Timed.value(
       registerUpdateTimer,
-      blocking(pendingUpdates.synchronized {
+      (lock.exclusive {
         // The mutable contract state cache update stream should generally increase the cacheIndex strictly monotonically.
         // However, the most recent updates can be replayed in case of failure of the mutable contract state cache update stream.
         // In this case, we must ignore the already seen updates (i.e. that have `validAt` before or at the cacheIndex).
@@ -106,7 +107,7 @@ private[platform] case class StateCache[K, V](
   ): Future[V] =
     Timed.value(
       registerUpdateTimer,
-      blocking(pendingUpdates.synchronized {
+      (lock.exclusive {
         // dereferencing the mutable var to a val here is critical as it will be used asynchronously below
         val validAt = cacheEventSeqIdIndex
         val eventualValue = Future.delegate(fetchAsync(validAt))
@@ -141,7 +142,7 @@ private[platform] case class StateCache[K, V](
     *   The cache re-initialization event sequential ID
     */
   def reset(resetAtEventSeqId: Long): Unit =
-    blocking(pendingUpdates.synchronized {
+    (lock.exclusive {
       cacheEventSeqIdIndex = resetAtEventSeqId
       pendingUpdates.clear()
       cache.invalidateAll()
@@ -156,7 +157,7 @@ private[platform] case class StateCache[K, V](
       .map { (value: V) =>
         Timed.value(
           registerUpdateTimer,
-          blocking(pendingUpdates.synchronized {
+          (lock.exclusive {
             pendingUpdates.get(key) match {
               case Some(pendingForKey) =>
                 // Only update the cache if the current update is targeting the cacheIndex
@@ -179,11 +180,10 @@ private[platform] case class StateCache[K, V](
         )
       }
       .recover { case err =>
-        blocking(
-          pendingUpdates.synchronized(
-            removeFromPending(key)
-          )
+        lock.exclusive(
+          removeFromPending(key)
         )
+
         logger.info(s"Failure in pending cache update for key $key", err)
       }
 

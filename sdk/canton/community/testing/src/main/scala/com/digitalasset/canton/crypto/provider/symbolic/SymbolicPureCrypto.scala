@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.crypto.provider.symbolic
@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 class SymbolicPureCrypto extends CryptoPureApi {
 
   /** This flag is used to control the randomness during asymmetric encryption. This is only
-    * intended to be used for testing purposes and it overrides the randomization flag given to
+    * intended to be used for testing purposes, and it overrides the randomization flag given to
     * [[encryptWithInternal]].
     */
   private val neverRandomizeAsymmetricEncryption = new AtomicBoolean(false)

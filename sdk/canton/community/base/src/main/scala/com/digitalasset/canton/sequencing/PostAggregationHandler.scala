@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing
@@ -14,9 +14,10 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.client.RichSequencerClientImpl
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
 trait PostAggregationHandler {
@@ -47,7 +48,7 @@ class PostAggregationHandlerImpl private[sequencing] (
   private val handlerIdle: AtomicReference[Promise[Unit]] = new AtomicReference(
     Promise.successful(())
   )
-  private val handlerIdleLock: Object = new Object
+  private val handlerIdleLock = new Mutex()
 
   override def handlerIsIdleF: Future[Unit] = handlerIdle.get.future
 
@@ -76,12 +77,11 @@ class PostAggregationHandlerImpl private[sequencing] (
     hasSynchronizeWithClosing
       .synchronizeWithClosingSync(functionFullName) {
         logger.debug("Application handler has been signalled")
-        val isIdle = blocking {
-          handlerIdleLock.synchronized {
+        val isIdle =
+          handlerIdleLock.exclusive {
             val oldPromise = handlerIdle.getAndUpdate(p => if (p.isCompleted) Promise() else p)
             oldPromise.isCompleted
           }
-        }
         if (isIdle) {
           val handlingF = handleReceivedEventsUntilEmpty()
           addToFlushAndLogError("invoking the application handler")(
@@ -98,9 +98,8 @@ class PostAggregationHandlerImpl private[sequencing] (
       import scala.jdk.CollectionConverters.*
       val handlerEvents = javaEventList.asScala.toSeq
 
-      def stopHandler(): Unit = blocking {
-        handlerIdleLock.synchronized(handlerIdle.get().success(()).discard)
-      }
+      def stopHandler(): Unit =
+        handlerIdleLock.exclusive(handlerIdle.get().success(()).discard)
 
       eventBatchProcessor
         .process(handlerEvents)
@@ -115,8 +114,8 @@ class PostAggregationHandlerImpl private[sequencing] (
             FutureUnlessShutdown.unit
         }
     } else {
-      val stillBusy = blocking {
-        handlerIdleLock.synchronized {
+      val stillBusy =
+        handlerIdleLock.exclusive {
           val idlePromise = handlerIdle.get()
           if (sequencerAggregator.eventQueue.isEmpty) {
             // signalHandler must not be executed here, because that would lead to lost signals.
@@ -125,7 +124,6 @@ class PostAggregationHandlerImpl private[sequencing] (
           // signalHandler must not be executed here, because that would lead to duplicate invocations.
           !idlePromise.isCompleted
         }
-      }
 
       if (stillBusy) {
         handleReceivedEventsUntilEmpty()

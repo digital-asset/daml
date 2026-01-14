@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store.memory
@@ -33,27 +33,23 @@ import com.digitalasset.canton.participant.synchronizer.{
   SynchronizerAliasResolution,
   SynchronizerConnectionConfig,
 }
-import com.digitalasset.canton.topology.{
-  ConfiguredPhysicalSynchronizerId,
-  KnownPhysicalSynchronizerId,
-  PhysicalSynchronizerId,
-  SequencerId,
-  UnknownPhysicalSynchronizerId,
-}
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.util.{EitherTUtil, Mutex}
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
 import monocle.macros.syntax.lens.*
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, blocking}
+import scala.concurrent.ExecutionContext
 
 class InMemorySynchronizerConnectionConfigStore(
     val aliasResolution: SynchronizerAliasResolution,
     protected override val loggerFactory: NamedLoggerFactory,
 ) extends SynchronizerConnectionConfigStore
     with NamedLogging {
+
   protected implicit val ec: ExecutionContext = DirectExecutionContext(noTracingLogger)
+  private val lock = new Mutex()
 
   private val configuredSynchronizerMap = TrieMap[
     (SynchronizerAlias, ConfiguredPhysicalSynchronizerId),
@@ -88,8 +84,8 @@ class InMemorySynchronizerConnectionConfigStore(
 
     val alias = config.synchronizerAlias
 
-    val res = blocking {
-      synchronized {
+    val res =
+      lock.exclusive {
         for {
           _ <- predecessorCompatibilityCheck(configuredPSId, synchronizerPredecessor)
 
@@ -117,14 +113,13 @@ class InMemorySynchronizerConnectionConfigStore(
             )
             .fold(Either.unit[ConfigAlreadyExists])(existingConfig =>
               Either.cond(
-                config == existingConfig.config,
+                config == existingConfig.config && synchronizerPredecessor == existingConfig.predecessor,
                 (),
                 ConfigAlreadyExists(config.synchronizerAlias, configuredPSId),
               )
             )
         } yield ()
       }
-    }
 
     EitherT.fromEither[FutureUnlessShutdown](res)
   }
@@ -261,8 +256,8 @@ class InMemorySynchronizerConnectionConfigStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, Unit] = {
 
-    val res = blocking {
-      synchronized {
+    val res =
+      lock.exclusive {
         for {
           // ensure that there is an existing config in the store
           _ <- get(alias, configuredPSId)
@@ -271,7 +266,6 @@ class InMemorySynchronizerConnectionConfigStore(
           _ <- replaceInternal(alias, configuredPSId, _.copy(status = status)).leftWiden[Error]
         } yield ()
       }
-    }
 
     EitherT.fromEither(res)
   }
@@ -282,8 +276,8 @@ class InMemorySynchronizerConnectionConfigStore(
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Error, Unit] = {
     val id = ConfigIdentifier.WithPSId(psid)
 
-    val res = blocking {
-      synchronized {
+    val res =
+      lock.exclusive {
         for {
           storedConfig <- getInternal(id)
 
@@ -309,7 +303,6 @@ class InMemorySynchronizerConnectionConfigStore(
           )
           .discard
       }
-    }
 
     EitherT.fromEither[FutureUnlessShutdown](res)
   }
@@ -347,31 +340,29 @@ class InMemorySynchronizerConnectionConfigStore(
     }
 
     def performChange(): Either[Error, Unit] =
-      blocking {
-        synchronized {
-          for {
-            _ <- checkAliasConsistent(psid, alias)
-            _ <- checkLogicalIdConsistent(psid, alias)
+      lock.exclusive {
+        for {
+          _ <- checkAliasConsistent(psid, alias)
+          _ <- checkLogicalIdConsistent(psid, alias)
 
-            // Check that there exist one entry for this alias without psid
-            config <- get(alias, UnknownPhysicalSynchronizerId)
+          // Check that there exist one entry for this alias without psid
+          config <- get(alias, UnknownPhysicalSynchronizerId)
 
-            _ <- predecessorCompatibilityCheck(
-              KnownPhysicalSynchronizerId(psid),
-              config.predecessor,
+          _ <- predecessorCompatibilityCheck(
+            KnownPhysicalSynchronizerId(psid),
+            config.predecessor,
+          )
+
+        } yield {
+          configuredSynchronizerMap.addOne(
+            (
+              (alias, KnownPhysicalSynchronizerId(psid)),
+              config.copy(configuredPSId = KnownPhysicalSynchronizerId(psid)),
             )
+          )
+          configuredSynchronizerMap.remove((alias, UnknownPhysicalSynchronizerId)).discard
 
-          } yield {
-            configuredSynchronizerMap.addOne(
-              (
-                (alias, KnownPhysicalSynchronizerId(psid)),
-                config.copy(configuredPSId = KnownPhysicalSynchronizerId(psid)),
-              )
-            )
-            configuredSynchronizerMap.remove((alias, UnknownPhysicalSynchronizerId)).discard
-
-            ()
-          }
+          ()
         }
       }
 

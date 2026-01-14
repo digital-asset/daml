@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -14,6 +14,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.{DynamicSequencingParameters, DynamicSynchronizerParameters}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.DefaultTestIdentities.participant2
+import com.digitalasset.canton.topology.cache.StoreBasedTopologyStateLookupByNamespace
 import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.Authorization.{
@@ -75,7 +76,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
     val validator =
       new TopologyTransactionAuthorizationValidator(
         Factory.syncCryptoClient.crypto.pureCrypto,
-        store,
+        new StoreBasedTopologyStateLookupByNamespace(store),
         validationIsFinal = validationIsFinal,
         store.loggerFactory,
       )

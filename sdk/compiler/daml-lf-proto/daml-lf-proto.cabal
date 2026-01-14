@@ -35,7 +35,7 @@ library
       daml-lf-proto-decode,
       -- //compiler/daml-lf-proto-encode:daml-lf-proto-encode
       daml-lf-proto-encode,
-      -- //daml-lf/archive:daml_lf_archive_haskell_proto
+      -- //canton/community/daml-lf/archive:daml_lf_archive_haskell_proto
       daml-lf-proto-types,
       -- //compiler/daml-lf-proto-util:daml-lf-proto-util
       daml-lf-proto-util,

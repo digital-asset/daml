@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -120,11 +120,11 @@ class UpdateServiceStreamsIT extends LedgerTestSuite {
       transactions <- ledger.transactions(transactionsToRead, AcsDelta, party)
     } yield {
       assert(
-        dummies.size == transactionsToSubmit,
+        dummies.sizeIs == transactionsToSubmit,
         s"$transactionsToSubmit should have been submitted but ${dummies.size} were instead",
       )
       assert(
-        transactions.size == transactionsToRead,
+        transactions.sizeIs == transactionsToRead,
         s"$transactionsToRead should have been received but ${transactions.size} were instead",
       )
     }
@@ -154,11 +154,11 @@ class UpdateServiceStreamsIT extends LedgerTestSuite {
       transactions <- flats
     } yield {
       assert(
-        dummies.size == transactionsToSubmit,
+        dummies.sizeIs == transactionsToSubmit,
         s"$transactionsToSubmit should have been submitted but ${dummies.size} were instead",
       )
       assert(
-        transactions.size == transactionsToRead,
+        transactions.sizeIs == transactionsToRead,
         s"$transactionsToRead should have been received but ${transactions.size} were instead",
       )
     }
@@ -192,11 +192,11 @@ class UpdateServiceStreamsIT extends LedgerTestSuite {
       transactions <- flats
     } yield {
       assert(
-        dummies.size == transactionsToSubmit,
+        dummies.sizeIs == transactionsToSubmit,
         s"$transactionsToSubmit should have been submitted but ${dummies.size} were instead",
       )
       assert(
-        transactions.size == transactionsToRead,
+        transactions.sizeIs == transactionsToRead,
         s"$transactionsToRead should have been received but ${transactions.size} were instead",
       )
       assertAcsDelta(
@@ -236,11 +236,11 @@ class UpdateServiceStreamsIT extends LedgerTestSuite {
       transactions <- trees
     } yield {
       assert(
-        dummies.size == transactionsToSubmit,
+        dummies.sizeIs == transactionsToSubmit,
         s"$transactionsToSubmit should have been submitted but ${dummies.size} were instead",
       )
       assert(
-        transactions.size == transactionsToRead,
+        transactions.sizeIs == transactionsToRead,
         s"$transactionsToRead should have been received but ${transactions.size} were instead",
       )
       assertAcsDelta(
@@ -298,16 +298,16 @@ class UpdateServiceStreamsIT extends LedgerTestSuite {
       transactionTrees <- trees
     } yield {
       assert(
-        knownPackagesAfter.size == knownPackagesBefore.size + 1,
+        knownPackagesAfter.sizeIs == knownPackagesBefore.size + 1,
         s"the test package should not have been already uploaded," +
           s"already uploaded packages: $knownPackagesBefore",
       )
       assert(
-        flatTransactions.size == transactionsToRead,
+        flatTransactions.sizeIs == transactionsToRead,
         s"$transactionsToRead should have been received but ${flatTransactions.size} were instead",
       )
       assert(
-        transactionTrees.size == transactionsToRead,
+        transactionTrees.sizeIs == transactionsToRead,
         s"$transactionsToRead should have been received but ${transactionTrees.size} were instead",
       )
       assertAcsDelta(

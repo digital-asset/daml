@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.health
@@ -7,10 +7,10 @@ import cats.implicits.showInterpolator
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
+import com.digitalasset.canton.util.Mutex
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus
 import io.grpc.protobuf.services.HealthStatusManager
 
-import scala.concurrent.blocking
 import scala.util.Try
 
 /** This class updates gRPC health service with updates coming from Canton's ServiceHealth
@@ -22,6 +22,7 @@ class GrpcHealthReporter(override val loggerFactory: NamedLoggerFactory)
     extends NamedLogging
     with NoTracing {
 
+  private val lock = new Mutex()
   private def allServicesAreServing(healthStatusManager: ServiceHealthStatusManager): Boolean =
     healthStatusManager.services.map(_.getState).forall(_ == ServingStatus.SERVING)
 
@@ -29,11 +30,12 @@ class GrpcHealthReporter(override val loggerFactory: NamedLoggerFactory)
     * status will be updated to NOT_SERVING If all statuses are SERVING, the aggregated health
     * status will be updated to SERVING
     */
+  @SuppressWarnings(Array("com.digitalasset.canton.RequireBlocking"))
   private def updateHealthManager(
       healthStatusManager: ServiceHealthStatusManager,
       serviceHealth: HealthService,
-  ): Unit = blocking {
-    synchronized {
+  ): Unit =
+    lock.exclusive {
       val status = serviceHealth.getState
       logger.debug(
         show"${serviceHealth.name} in ${healthStatusManager.name} is ${status.name()}"
@@ -63,7 +65,6 @@ class GrpcHealthReporter(override val loggerFactory: NamedLoggerFactory)
         ()
       }
     }
-  }
 
   /** Registers a gRPC health manager with a set of service identifiers. These services will be
     * available for health check in the health manager. The "default" service aggregates all

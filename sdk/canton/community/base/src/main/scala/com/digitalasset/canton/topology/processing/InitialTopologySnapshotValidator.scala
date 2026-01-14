@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology.processing
 import cats.data.EitherT
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.topology.TopologyStateProcessor
@@ -20,10 +20,7 @@ import com.digitalasset.canton.topology.store.{
   TopologyStoreId,
 }
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
-import com.digitalasset.canton.topology.transaction.checks.{
-  MaybeEmptyTopologyStore,
-  RequiredTopologyMappingChecks,
-}
+import com.digitalasset.canton.topology.transaction.checks.RequiredTopologyMappingChecks
 import com.digitalasset.canton.topology.transaction.{
   SignedTopologyTransaction,
   TopologyChangeOp,
@@ -68,22 +65,19 @@ class InitialTopologySnapshotValidator(
     validateInitialSnapshot: Boolean,
     override val loggerFactory: NamedLoggerFactory,
     cleanupTopologySnapshot: Boolean = false,
-)(implicit ec: ExecutionContext, materializer: Materializer)
+)(implicit ec: ExecutionContext, materializer: Materializer, closeContext: CloseContext)
     extends NamedLogging {
 
   private val storeIsEmpty = new AtomicBoolean(false)
-  private val maybeEmptyStore = new MaybeEmptyTopologyStore {
-    override def store: TopologyStore[TopologyStoreId] = InitialTopologySnapshotValidator.this.store
-    override def skipLoadingFromStore: Boolean = storeIsEmpty.get()
-  }
   protected val stateProcessor: TopologyStateProcessor =
     TopologyStateProcessor.forInitialSnapshotValidation(
       store,
-      new RequiredTopologyMappingChecks(
-        maybeEmptyStore,
-        staticSynchronizerParameters,
-        loggerFactory,
-      ),
+      lookup =>
+        new RequiredTopologyMappingChecks(
+          staticSynchronizerParameters,
+          lookup,
+          loggerFactory,
+        ),
       pureCrypto,
       loggerFactory,
     )

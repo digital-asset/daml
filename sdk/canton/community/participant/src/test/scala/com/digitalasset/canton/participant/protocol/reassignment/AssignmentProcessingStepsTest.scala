@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -254,7 +254,7 @@ final class AssignmentProcessingStepsTest
       recipients: Recipients = RecipientsTest.testInstance,
   ): ParsedReassignmentRequest[FullAssignmentTree] = {
     val signature = cryptoSnapshot
-      .sign(view.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+      .sign(view.rootHash.unwrap, SigningKeyUsage.ProtocolOnly, None)
       .futureValueUS
       .value
 
@@ -876,7 +876,7 @@ final class AssignmentProcessingStepsTest
     "succeed when the signature is correct" in {
       for {
         signature <- cryptoSnapshot
-          .sign(assignmentTree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+          .sign(assignmentTree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly, None)
           .valueOrFailShutdown("signing failed")
 
         parsed = mkParsedRequest(
@@ -902,7 +902,7 @@ final class AssignmentProcessingStepsTest
     "fail when the signature is incorrect" in {
       for {
         signature <- cryptoSnapshot
-          .sign(TestHash.digest("wrong signature"), SigningKeyUsage.ProtocolOnly)
+          .sign(TestHash.digest("wrong signature"), SigningKeyUsage.ProtocolOnly, None)
           .valueOrFailShutdown("signing failed")
 
         parsed = mkParsedRequest(
@@ -943,6 +943,7 @@ final class AssignmentProcessingStepsTest
       seedGenerator,
       contractValidator,
       Target(defaultStaticSynchronizerParameters),
+      clock,
       Target(testedProtocolVersion),
       loggerFactory = loggerFactory,
     )
@@ -1039,6 +1040,7 @@ final class AssignmentProcessingStepsTest
           tree,
           (viewKey, viewKeyMap),
           cryptoSnapshot,
+          None,
           testedProtocolVersion,
         )
         .valueOrFailShutdown("cannot encrypt assignment request")

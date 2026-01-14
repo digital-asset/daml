@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer
@@ -103,6 +103,7 @@ abstract class SequencerApiTest
           cryptoSnapshot,
           request,
           Some(cryptoSnapshot.ipsSnapshot.timestamp),
+          Some(clock.now),
           HashPurpose.SubmissionRequestSignature,
           testedProtocolVersion,
         )
@@ -533,9 +534,9 @@ abstract class SequencerApiTest
           )
 
         for {
-          envs1 <- envelopes.parTraverse(signEnvelope(p11Crypto, _))
+          envs1 <- envelopes.parTraverse(signEnvelope(p11Crypto, _, clock))
           request1 = mkRequest(p11, messageId1, envs1)
-          envs2 <- envelopes.parTraverse(signEnvelope(p12Crypto, _))
+          envs2 <- envelopes.parTraverse(signEnvelope(p12Crypto, _, clock))
           request2 = mkRequest(p12, messageId2, envs2)
           _ <- sequencer
             .sendAsyncSigned(sign(request1))
@@ -552,7 +553,7 @@ abstract class SequencerApiTest
           )
 
           // participant13 is late to the party and its request is refused
-          envs3 <- envelopes.parTraverse(signEnvelope(p13Crypto, _))
+          envs3 <- envelopes.parTraverse(signEnvelope(p13Crypto, _, clock))
           request3 = mkRequest(p13, messageId3, envs3)
           _ <- sequencer
             .sendAsyncSigned(sign(request3))
@@ -654,11 +655,11 @@ abstract class SequencerApiTest
           )
 
         for {
-          env1 <- signEnvelope(p14Crypto, envelope)
+          env1 <- signEnvelope(p14Crypto, envelope, clock)
           request1 = mkRequest(p14, messageId1, env1)
-          env2 <- signEnvelope(p14Crypto, envelope)
+          env2 <- signEnvelope(p14Crypto, envelope, clock)
           request2 = mkRequest(p14, messageId2, env2)
-          env3 <- signEnvelope(p15Crypto, envelope)
+          env3 <- signEnvelope(p15Crypto, envelope, clock)
           request3 = mkRequest(p15, messageId3, env3)
           _ <- sequencer
             .sendAsyncSigned(sign(request1))
@@ -1156,10 +1157,11 @@ trait SequencerApiTestUtils
   def signEnvelope(
       crypto: SynchronizerCryptoClient,
       envelope: ClosedEnvelope,
+      clock: Clock,
   ): FutureUnlessShutdown[ClosedEnvelope] = {
     val hash = crypto.pureCrypto.digest(HashPurpose.SignedProtocolMessageSignature, envelope.bytes)
     crypto.currentSnapshotApproximation.futureValueUS
-      .sign(hash, SigningKeyUsage.ProtocolOnly)
+      .sign(hash, SigningKeyUsage.ProtocolOnly, Some(clock.now))
       .map(sig => envelope.copy(signatures = Seq(sig)))
       .valueOrFail(s"Failed to sign $envelope")
   }

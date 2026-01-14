@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol.reassignment
@@ -132,7 +132,7 @@ final class AssignmentValidationTest
       recipients: Recipients = RecipientsTest.testInstance,
   ): ParsedReassignmentRequest[FullAssignmentTree] = {
     val signature = cryptoSnapshot
-      .sign(view.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
+      .sign(view.rootHash.unwrap, SigningKeyUsage.ProtocolOnly, None)
       .futureValueUS
       .toOption
 

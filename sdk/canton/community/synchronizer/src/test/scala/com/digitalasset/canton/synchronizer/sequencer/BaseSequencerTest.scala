@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer
@@ -85,6 +85,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
               signedContent: SignedContent[A],
               hashPurpose: HashPurpose,
               sender: A => Member,
+              estimatedSequencingTimestamp: CantonTimestamp,
           )(implicit
               traceContext: TraceContext
           ): EitherT[FutureUnlessShutdown, String, SignedContent[A]] =
@@ -208,7 +209,8 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
 
     override def sequencingTime(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[Option[CantonTimestamp]] = ???
+    ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+      FutureUnlessShutdown.pure(None)
 
     override private[canton] def orderer: Option[BlockOrderer] = ???
   }

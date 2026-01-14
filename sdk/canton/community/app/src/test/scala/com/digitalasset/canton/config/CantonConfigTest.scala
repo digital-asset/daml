@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.config
@@ -18,6 +18,8 @@ import com.digitalasset.canton.config.ConfigErrors.{
 }
 import com.digitalasset.canton.config.InitConfigBase.NodeIdentifierConfig
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
+import com.digitalasset.canton.crypto.SigningAlgorithmSpec.EcDsaSha256
+import com.digitalasset.canton.crypto.SigningKeySpec.EcP256
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.version.HandshakeErrors.DeprecatedProtocolVersion
@@ -519,12 +521,26 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
   "deprecated configs" should {
 
     def deprecatedConfigChecks(config: CantonConfig) = {
+      // verify that `http-ledger-api` is configured with the expected values
       val participant = config.participants.headOption.value._2
       participant.httpLedgerApi.address shouldBe "127.0.0.101"
       participant.httpLedgerApi.port.unwrap shouldBe 102
       participant.httpLedgerApi.portFile shouldBe Some(Path.of("103"))
       participant.httpLedgerApi.pathPrefix shouldBe Some("104")
       participant.httpLedgerApi.requestTimeout.toMinutes shouldBe 105
+
+      // verify that `crypto.sessionSigningKeys` is configured with the expected values
+      participant.crypto.sessionSigningKeys.enabled shouldBe true
+      participant.crypto.sessionSigningKeys.keyValidityDuration shouldBe PositiveFiniteDuration
+        .ofMinutes(5)
+      participant.crypto.sessionSigningKeys.toleranceShiftDuration shouldBe NonNegativeFiniteDuration
+        .ofMinutes(2)
+      participant.crypto.sessionSigningKeys.cutOffDuration shouldBe NonNegativeFiniteDuration
+        .ofSeconds(30)
+      participant.crypto.sessionSigningKeys.keyEvictionPeriod shouldBe PositiveFiniteDuration
+        .ofMinutes(15)
+      participant.crypto.sessionSigningKeys.signingAlgorithmSpec shouldBe EcDsaSha256
+      participant.crypto.sessionSigningKeys.signingKeySpec shouldBe EcP256
     }
 
     // In this test case, both deprecated and new fields are set with opposite values, we make sure the new fields
@@ -533,7 +549,7 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
       val deprecatedConfigLogs = Seq[(LogEntry => Assertion, String)](
         (
           _.message should (include("Config field") and include("is deprecated")),
-          "moved field not logged",
+          "moved field",
         )
       )
       loggerFactory.assertLogsSeq(SuppressionRule.Level(org.slf4j.event.Level.INFO))(
@@ -563,8 +579,14 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
           _.message should include(
             "Config field at http-ledger-api.server is deprecated since 3.4.0"
           ),
-          "deprecated field not logged",
-        )
+          "deprecated field 'http-ledger-api.server'",
+        ),
+        (
+          _.message should include(
+            "Config field at kms.session-signing-keys is deprecated since 3.5.0"
+          ),
+          "deprecated field 'kms.session-signing-keys'",
+        ),
       )
       loggerFactory.assertLogsSeq(SuppressionRule.Level(org.slf4j.event.Level.INFO))(
         {
@@ -591,7 +613,7 @@ class CantonConfigTest extends AnyWordSpec with BaseTest {
           _.message should include(
             "Config path 'package-dependency-cache' is deprecated since 3.5.0"
           ),
-          "deprecated path not logged",
+          "deprecated path",
         )
       )
       loggerFactory.assertLogsSeq(SuppressionRule.Level(org.slf4j.event.Level.INFO))(

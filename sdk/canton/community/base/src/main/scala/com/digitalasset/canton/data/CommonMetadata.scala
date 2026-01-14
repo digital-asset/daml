@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -17,6 +17,15 @@ import com.google.protobuf.ByteString
 import java.util.UUID
 
 /** Information concerning every '''member''' involved in the underlying transaction.
+  *
+  * @param salt
+  *   Separate from UUID to be able to hide content of common metadata if it is blinded NOTE: we can
+  *   get rid of this as we never blind the common metadata
+  * @param uuid
+  *   The mediator will deduplicate based on the UUID. The UUID is used to ensure ContractId
+  *   uniqueness. The contract-ids are included in the computation of the update-id. So the chain is
+  *   UUID -> Contract ID -> Update ID. If you would dedup on Update ID then you wouldn't guarantee
+  *   unique contract IDs.
   */
 final case class CommonMetadata private (
     synchronizerId: PhysicalSynchronizerId,

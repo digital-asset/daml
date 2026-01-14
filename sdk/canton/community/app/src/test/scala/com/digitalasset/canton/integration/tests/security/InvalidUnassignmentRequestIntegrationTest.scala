@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.security
@@ -164,6 +164,7 @@ class InvalidUnassignmentRequestIntegrationTest
     maliciousP2
       .submitUnassignmentRequest(
         updatedUnassignmentRequest,
+        Some(environment.now),
         overrideRecipients = overrideRecipients,
       )
       .futureValueUS

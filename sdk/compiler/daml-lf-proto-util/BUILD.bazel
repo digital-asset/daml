@@ -23,8 +23,8 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//compiler/daml-lf-ast",
-        "//daml-lf/archive:daml_lf_archive_haskell_proto",
     ],
 )
 

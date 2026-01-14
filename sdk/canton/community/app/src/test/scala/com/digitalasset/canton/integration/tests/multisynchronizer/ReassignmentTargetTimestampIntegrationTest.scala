@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.multisynchronizer
@@ -88,7 +88,7 @@ class ReassignmentTargetTimestampIntegrationTest
 
       loggerFactory.assertEventuallyLogsSeq(SuppressionRule.Level(Level.INFO))(
         within = maliciousP1
-          .submitUnassignmentRequest(unvalidatableUnassignReq)
+          .submitUnassignmentRequest(unvalidatableUnassignReq, Some(environment.now))
           .futureValueUS
           .value,
         logs =>

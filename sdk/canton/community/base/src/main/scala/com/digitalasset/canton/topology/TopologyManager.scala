@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology
@@ -15,7 +15,12 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  HasCloseContext,
+  LifeCycle,
+}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
   DynamicSynchronizerParameters,
@@ -32,6 +37,7 @@ import com.digitalasset.canton.topology.TopologyManagerError.{
   TooManyPendingTopologyTransactions,
   ValueOutOfBounds,
 }
+import com.digitalasset.canton.topology.cache.TopologyStateLookup
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   SequencedTime,
@@ -113,19 +119,21 @@ class SynchronizerTopologyManager(
 
   override protected val processor: TopologyStateProcessor = {
 
-    val required =
-      RequiredTopologyMappingChecks(store, Some(staticSynchronizerParameters), loggerFactory)
-    val checks =
+    def makeChecks(lookup: TopologyStateLookup): TopologyMappingChecks = {
+      val required =
+        RequiredTopologyMappingChecks(Some(staticSynchronizerParameters), lookup, loggerFactory)
+
       if (!disableOptionalTopologyChecks)
         new TopologyMappingChecks.All(
           required,
           new OptionalTopologyMappingChecks(store, loggerFactory),
         )
       else required
+    }
     TopologyStateProcessor.forTopologyManager(
       store,
       Some(outboxQueue),
-      checks,
+      makeChecks,
       crypto.pureCrypto,
       loggerFactory,
     )
@@ -246,7 +254,7 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
     TopologyStateProcessor.forTopologyManager(
       store,
       None,
-      NoopTopologyMappingChecks,
+      _ => NoopTopologyMappingChecks,
       crypto.pureCrypto,
       loggerFactory,
     )
@@ -313,7 +321,8 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
 )(implicit ec: ExecutionContext)
     extends TopologyManagerStatus
     with NamedLogging
-    with FlagCloseable {
+    with FlagCloseable
+    with HasCloseContext {
 
   /** The timestamp that will be used for validating the topology transactions before submitting
     * them for sequencing to a synchronizer or storing it in the local store.
@@ -447,7 +456,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       if (signingKeys.nonEmpty)
         s"signed by ${signingKeys.mkString(", ")}"
       else ""
-    logger.debug(
+    logger.info(
       show"Attempting to build, sign, and $op $mapping with serial $serial $signingKeyString"
     )
     for {
@@ -562,7 +571,8 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
           EitherT.cond[FutureUnlessShutdown][TopologyManagerError, PositiveInt](
             proposed == PositiveInt.one,
             PositiveInt.one,
-            TopologyManagerError.SerialMismatch.Failure(Some(PositiveInt.one), Some(proposed)),
+            TopologyManagerError.SerialMismatch
+              .Failure(actual = Some(proposed), expected = Some(PositiveInt.one)),
           )
         // The stored mapping and the proposed mapping are the same. This likely only adds an additional signature.
         // If not, then duplicates will be filtered out down the line.
@@ -586,7 +596,8 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
           EitherT.cond[FutureUnlessShutdown](
             next == proposed,
             next,
-            TopologyManagerError.SerialMismatch.Failure(Some(next), Some(proposed)),
+            TopologyManagerError.SerialMismatch
+              .Failure(actual = Some(proposed), expected = Some(next)),
           )
       }): EitherT[FutureUnlessShutdown, TopologyManagerError, PositiveInt]
     } yield TopologyTransaction(op, theSerial, mapping, protocolVersion)

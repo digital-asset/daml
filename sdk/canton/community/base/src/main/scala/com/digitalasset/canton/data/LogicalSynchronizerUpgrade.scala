@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.data
@@ -22,11 +22,15 @@ import com.digitalasset.canton.version.{
   * @param psid
   *   Id of the predecessor.
   * @param upgradeTime
-  *   When the migration happened/is supposed to happen.
+  *   When the upgrade happened/is supposed to happen.
+  * @param isLateUpgrade
+  *   Whether the upgrade is considered a late upgrade, meaning the node is being upgraded to the
+  *   new synchronizer via manual repair steps.
   */
 final case class SynchronizerPredecessor(
     psid: PhysicalSynchronizerId,
     upgradeTime: CantonTimestamp,
+    isLateUpgrade: Boolean,
 ) extends HasVersionedWrapper[SynchronizerPredecessor] {
   override protected def companionObj: HasVersionedMessageCompanionCommon[SynchronizerPredecessor] =
     SynchronizerPredecessor
@@ -35,6 +39,7 @@ final case class SynchronizerPredecessor(
     SynchronizerPredecessorProto(
       psid.toProtoPrimitive,
       Some(upgradeTime.toProtoTimestamp),
+      isLateUpgrade = isLateUpgrade,
     )
 }
 
@@ -54,7 +59,7 @@ object SynchronizerPredecessor
   private def fromProtoV30(
       proto: SynchronizerPredecessorProto
   ): ParsingResult[SynchronizerPredecessor] = {
-    val SynchronizerPredecessorProto(psidP, upgradeTimePO) = proto
+    val SynchronizerPredecessorProto(psidP, upgradeTimePO, isLateUpgrade) = proto
 
     for {
       psid <- PhysicalSynchronizerId.fromProtoPrimitive(psidP, "predecessor_physical_id")
@@ -63,7 +68,7 @@ object SynchronizerPredecessor
         "upgrade_time",
         upgradeTimePO,
       )
-    } yield SynchronizerPredecessor(psid, upgradeTime)
+    } yield SynchronizerPredecessor(psid, upgradeTime, isLateUpgrade)
   }
 }
 

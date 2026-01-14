@@ -1,14 +1,13 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.platform.store.interning
 
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.google.common.annotations.VisibleForTesting
-
-import scala.concurrent.blocking
 
 /** This StringInterning implementation is interning in a transparent way everything it sees. This
   * is only for test purposes.
@@ -19,12 +18,13 @@ class MockStringInterning extends StringInterning {
   private var idToString: Map[Int, String] = Map.empty
   private var stringToId: Map[String, Int] = Map.empty
   private var lastId: Int = 0
+  private val lock = new Mutex()
 
   private val rawStringInterning: StringInterningAccessor[String] =
     new StringInterningAccessor[String] {
       override def internalize(t: String): Int = tryInternalize(t).get
 
-      override def tryInternalize(t: String): Option[Int] = blocking(synchronized {
+      override def tryInternalize(t: String): Option[Int] = (lock.exclusive {
         stringToId.get(t) match {
           case Some(id) => Some(id)
           case None =>
@@ -161,7 +161,7 @@ class MockStringInterning extends StringInterning {
         rawStringInterning.tryExternalize(id).map(Ref.Identifier.assertFromString)
     }
 
-  private[store] def reset(): Unit = blocking(synchronized {
+  private[store] def reset(): Unit = (lock.exclusive {
     idToString = Map.empty
     stringToId = Map.empty
     lastId = 0

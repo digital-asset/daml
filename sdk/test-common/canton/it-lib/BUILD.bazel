@@ -37,7 +37,7 @@ da_scala_library(
         "//canton:scala-utils",
         "//canton:testing-utils",
         "//canton:timer-utils",
-        "//daml-lf/data",
+        "//canton/community/daml-lf/data",
         "//test-common/canton/fs-utils",
         "//test-common/canton/ports-testing",
         "@maven//:ch_qos_logback_logback_classic",

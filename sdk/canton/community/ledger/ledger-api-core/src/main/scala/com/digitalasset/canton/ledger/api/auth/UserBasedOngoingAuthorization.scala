@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.api.auth
@@ -17,13 +17,14 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Mutex
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.ServerCallStreamObserver
 import org.apache.pekko.actor.Scheduler
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, blocking}
+import scala.concurrent.ExecutionContext
 
 private[auth] final class UserBasedOngoingAuthorization[A](
     observer: ServerCallStreamObserver[A],
@@ -43,6 +44,7 @@ private[auth] final class UserBasedOngoingAuthorization[A](
     loggerFactory
   )
   private val errorLogger = ErrorLoggingContext(logger, loggerFactory.properties, traceContext)
+  private val lock = new Mutex()
 
   // Guards against propagating calls to delegate observer after either
   // [[onComplete]] or [[onError]] has already been called once.
@@ -73,10 +75,10 @@ private[auth] final class UserBasedOngoingAuthorization[A](
       }
     )
 
-  override def isCancelled: Boolean = blocking(synchronized(observer.isCancelled))
+  override def isCancelled: Boolean = (lock.exclusive(observer.isCancelled))
 
-  override def setOnCancelHandler(runnable: Runnable): Unit = blocking(
-    synchronized {
+  override def setOnCancelHandler(runnable: Runnable): Unit = (
+    lock.exclusive {
       val newCancelHandler: Runnable = { () =>
         cancelUserRightsChecksO.foreach(_.apply())
         runnable.run()
@@ -86,26 +88,26 @@ private[auth] final class UserBasedOngoingAuthorization[A](
     }
   )
 
-  override def setCompression(s: String): Unit = blocking(synchronized(observer.setCompression(s)))
+  override def setCompression(s: String): Unit = (lock.exclusive(observer.setCompression(s)))
 
-  override def isReady: Boolean = blocking(synchronized(observer.isReady))
+  override def isReady: Boolean = (lock.exclusive(observer.isReady))
 
-  override def setOnReadyHandler(runnable: Runnable): Unit = blocking(
-    synchronized(
+  override def setOnReadyHandler(runnable: Runnable): Unit = (
+    lock.exclusive(
       observer.setOnReadyHandler(runnable)
     )
   )
 
-  override def disableAutoInboundFlowControl(): Unit = blocking(
-    synchronized(
+  override def disableAutoInboundFlowControl(): Unit = (
+    lock.exclusive(
       observer.disableAutoInboundFlowControl()
     )
   )
 
-  override def request(i: Int): Unit = blocking(synchronized(observer.request(i)))
+  override def request(i: Int): Unit = (lock.exclusive(observer.request(i)))
 
-  override def setMessageCompression(b: Boolean): Unit = blocking(
-    synchronized(
+  override def setMessageCompression(b: Boolean): Unit = (
+    lock.exclusive(
       observer.setMessageCompression(b)
     )
   )
@@ -134,8 +136,8 @@ private[auth] final class UserBasedOngoingAuthorization[A](
   }
 
   private def onlyBeforeCompletionOrError(body: => Unit): Unit =
-    blocking(
-      synchronized(
+    (
+      lock.exclusive(
         if (!afterCompletionOrError) {
           body
         }
@@ -172,7 +174,7 @@ private[auth] final class UserBasedOngoingAuthorization[A](
       .Reject()(errorLogger)
       .asGrpcError
 
-  private def abortGRPCStreamAndCancelUpstream(error: Throwable): Unit = blocking(synchronized {
+  private def abortGRPCStreamAndCancelUpstream(error: Throwable): Unit = (lock.exclusive {
     onError(error)
     onCancelHandler.run()
   })

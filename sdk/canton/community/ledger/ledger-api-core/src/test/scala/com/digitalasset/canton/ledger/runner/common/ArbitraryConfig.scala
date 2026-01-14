@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.ledger.runner.common
@@ -127,14 +127,19 @@ object ArbitraryConfig {
 
   val postgresDataSourceConfig = for {
     synchronousCommit <- Gen.option(Gen.oneOf(SynchronousCommitValue.All))
-    tcpKeepalivesIdle <- Gen.chooseNum(0, Int.MaxValue)
-    tcpKeepalivesInterval <- Gen.chooseNum(0, Int.MaxValue)
-    tcpKeepalivesCount <- Gen.chooseNum(0, Int.MaxValue)
+    nonNegativeInt = Gen.chooseNum(0, Int.MaxValue)
+    tcpKeepalivesIdle <- nonNegativeInt
+    tcpKeepalivesInterval <- nonNegativeInt
+    tcpKeepalivesCount <- nonNegativeInt
+    clientConnectionCheckInterval <- nonNegativeFiniteDurationGen
+    networkTimeout <- nonNegativeFiniteDurationGen
   } yield PostgresDataSourceConfig(
-    synchronousCommit,
-    Some(tcpKeepalivesIdle),
-    Some(tcpKeepalivesInterval),
-    Some(tcpKeepalivesCount),
+    synchronousCommit = synchronousCommit,
+    tcpKeepalivesIdle = Some(tcpKeepalivesIdle),
+    tcpKeepalivesInterval = Some(tcpKeepalivesInterval),
+    tcpKeepalivesCount = Some(tcpKeepalivesCount),
+    clientConnectionCheckInterval = Some(clientConnectionCheckInterval),
+    networkTimeout = Some(networkTimeout),
   )
 
   val dataSourceProperties = for {

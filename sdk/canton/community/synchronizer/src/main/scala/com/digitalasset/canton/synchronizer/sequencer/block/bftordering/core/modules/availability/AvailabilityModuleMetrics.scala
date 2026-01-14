@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability
@@ -28,10 +28,13 @@ private[availability] object AvailabilityModuleMetrics {
   )(implicit mc: MetricsContext): Unit = {
     import metrics.availability.*
 
-    requested.proposals.updateValue(state.toBeProvidedToConsensus.size)
-    requested.batches.updateValue(
-      state.toBeProvidedToConsensus.map(_.maxBatchesPerProposal.toInt).sum
-    )
+    val (requestsCount, requestedBatches) =
+      state.nextToBeProvidedToConsensus.maxBatchesPerProposal
+        .map(maxBatchesPerProposal => (1, maxBatchesPerProposal.toInt))
+        .getOrElse((0, 0))
+
+    requested.proposals.updateValue(requestsCount)
+    requested.batches.updateValue(requestedBatches)
 
     val readyForConsensusMc = mc.withExtraLabels(dissemination.labels.ReadyForConsensus -> "true")
     locally {

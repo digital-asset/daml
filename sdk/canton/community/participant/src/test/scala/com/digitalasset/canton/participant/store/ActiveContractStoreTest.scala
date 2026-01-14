@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.store
@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.store
 import cats.data.Chain
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.CantonRequireTypes.String300
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.PrettyPrinting
@@ -41,6 +42,7 @@ import scala.annotation.nowarn
 import scala.collection.immutable.SortedMap
 import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
+import scala.util.Random
 
 @nowarn("msg=match may not be exhaustive")
 trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
@@ -86,6 +88,9 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
     val rc3 = rc2.map(_ + 1)
     val rc4 = rc3.map(_ + 1)
     val rc5 = rc4.map(_ + 1)
+    val rc6 = rc5.map(_ + 1)
+    val rc7 = rc6.map(_ + 1)
+    val rc8 = rc7.map(_ + 1)
 
     val ts = CantonTimestamp.assertFromInstant(Instant.parse("2019-04-04T10:00:00.00Z"))
     val ts1 = ts.addMicros(1)
@@ -93,6 +98,9 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
     val ts3 = ts2.plusMillis(1)
     val ts4 = ts3.plusMillis(1)
     val ts5 = ts4.plusMillis(1)
+    val ts6 = ts5.addMicros(1)
+    val ts7 = ts6.plusMillis(1)
+    val ts8 = ts7.plusMillis(1)
 
     // synchronizer with index 2
     val synchronizer1Idx = 2
@@ -1880,7 +1888,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
       }
     }
 
-    "return correct changes" inUS {
+    "return correct changes simple" inUS {
       val acs = mk()
       val toc1 = TimeOfChange(ts, rc)
       val toc2 = TimeOfChange(ts1, rc1)
@@ -1930,9 +1938,9 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
         _ <- valueOrFail(acs.archiveContract(coid00, toc6))(
           s"archive contract $coid00"
         )
-        changes <- acs.changesBetween(toc1, toc5)
+        (changes, _) <- acs.changesBetween(toc1, toc5, PositiveInt.tryCreate(100))
       } yield {
-        changes.toList shouldBe List(
+        changes.toList should contain theSameElementsAs List(
           (
             toc2,
             ActiveContractIdsChange(
@@ -1972,6 +1980,339 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
             ),
           ),
         )
+      }
+    }
+
+    "return correct changes complex scenarios" inUS {
+      val acs = mk()
+      val toc1 = TimeOfChange(ts, rc)
+      val toc2 = TimeOfChange(ts1, rc)
+      val toc3 = TimeOfChange(ts2, rc2)
+      val toc4 = TimeOfChange(ts3, rc3)
+      val toc5 = TimeOfChange(ts4, rc4)
+      val toc6 = TimeOfChange(ts5, rc5)
+      val toc7 = TimeOfChange(ts6, rc6)
+      val toc8 = TimeOfChange(ts7, rc7)
+      val toc9 = TimeOfChange(ts8, rc8)
+
+      /*
+      We have 50 contracts. The first 10 cids get created at toc2, but their creation is in random order.
+      The same contracts get archived at toc3, but in some random order.
+      Getting 5 changes between toc1 and toc3 should retrieve 10 creations, because those have the same toc.
+
+      The next 15 contracts get created at toc4 in a random order, and archived at toc4 also in a random order
+      Retrieving 15 changes between toc3 and toc4 should retrieve actually 30 changes, because they all have the same toc.
+      So should retrieving 16 changes.
+
+      The next contract gets created at toc5 and archived at toc6. And the next two contracts gets created at tocs 7
+      and 8 in a random order, and archived at tocs 7 and 9 also in a random order
+      Retrieving 1 change between toc4 and toc9 should retrieve 1 change. Retrieving 3 changes should retrieve 4, because
+      of the contract created and archived at toc7. Retrieving 5 changes should retrieve 5.
+       */
+      val nrContracts = 50
+      val manyContracts = (1 to nrContracts).toList.map(n =>
+        ExampleTransactionFactory.suffixedId(n % (2 ^ 7), n / (2 ^ 7))
+      )
+
+      val changesSize1 = 10
+      val changesSize2 = 15
+
+      // we sort the contract ids so that we can reason in the collapsed changes whether the right contract ids are not present
+      // because they were both activated and deactivated. For example in some scenarios we care about "the first 10", or "the next 15",
+      // and sorting enables us to determine the cids that represent those sets
+      val sortedManyContracts = manyContracts.sortBy(identity)
+
+      def getActivations(changes: LazyList[(TimeOfChange, ActiveContractIdsChange)]) =
+        changes.toList
+          .map { case (toc, changes) =>
+            toc -> changes.activations.keys
+          }
+
+      def getDeactivations(changes: LazyList[(TimeOfChange, ActiveContractIdsChange)]) =
+        changes.toList
+          .map { case (toc, changes) =>
+            toc -> changes.deactivations.keys
+          }
+
+      val contractSet1 = sortedManyContracts.take(changesSize1)
+
+      for {
+        // create the first 10 contracts at toc2 and archive them at toc3
+        _ <- valueOrFail(
+          acs.markContractsCreated(
+            Random.shuffle(contractSet1.map(_ -> ReassignmentCounter(0))),
+            toc2,
+          )
+        )(
+          s"create contracts at $toc2"
+        )
+
+        _ <- valueOrFail(
+          acs.archiveContracts(Random.shuffle(contractSet1), toc3)
+        )(
+          s"archive contracts at $toc3"
+        )
+
+        // create the next 15 contracts at toc4 and also archive them at toc4
+        contractSet2 = sortedManyContracts.slice(changesSize1, changesSize1 + changesSize2)
+
+        _ <- valueOrFail(
+          acs.markContractsCreated(
+            Random.shuffle(
+              contractSet2
+                .map(_ -> ReassignmentCounter(0))
+            ),
+            toc4,
+          )
+        )(
+          s"create contracts at $toc4"
+        )
+
+        _ <- valueOrFail(
+          acs.archiveContracts(
+            Random.shuffle(contractSet2),
+            toc4,
+          )
+        )(
+          s"archive contracts at $toc4"
+        )
+
+        (changesS1, changesSizeS1) <- acs.changesBetween(
+          toc1,
+          toc3,
+          PositiveInt.tryCreate(changesSize1 / 2),
+        )
+
+        // create the next 1 contract at toc5 and archive it at toc6
+        // create the next contract at toc7 and also archive it at toc7
+        // create the next contract at toc8 and archive it at toc9
+        contract3 = sortedManyContracts
+          .drop(changesSize1 + changesSize2)
+          .sortBy(identity)
+          .take(1)
+        contract4 = sortedManyContracts
+          .drop(changesSize1 + changesSize2 + 1)
+          .sortBy(identity)
+          .take(1)
+        contract5 = sortedManyContracts
+          .drop(changesSize1 + changesSize2 + 2)
+          .sortBy(identity)
+          .take(1)
+
+        _ <- valueOrFail(
+          acs.markContractsCreated(
+            contract3.map(_ -> ReassignmentCounter(0)),
+            toc5,
+          )
+        )(
+          s"create contracts at $toc5"
+        )
+
+        _ <- valueOrFail(
+          acs.archiveContracts(
+            contract3,
+            toc6,
+          )
+        )(
+          s"archive contracts at $toc6"
+        )
+
+        _ <- valueOrFail(
+          acs.markContractsCreated(
+            contract4.map(_ -> ReassignmentCounter(0)),
+            toc7,
+          )
+        )(
+          s"create contracts at $toc7"
+        )
+
+        _ <- valueOrFail(
+          acs.archiveContracts(
+            contract4,
+            toc7,
+          )
+        )(
+          s"archive contracts at $toc7"
+        )
+
+        _ <- valueOrFail(
+          acs.markContractsCreated(
+            contract5.map(_ -> ReassignmentCounter(0)),
+            toc8,
+          )
+        )(
+          s"create contracts at $toc8"
+        )
+
+        _ <- valueOrFail(
+          acs.archiveContracts(
+            contract5,
+            toc9,
+          )
+        )(
+          s"archive contracts at $toc9"
+        )
+
+        (changesS1, changesSizeS1) <- acs.changesBetween(
+          toc1,
+          toc3,
+          PositiveInt.tryCreate(changesSize1 / 2),
+        )
+
+        (changesS2, changesSizeS2) <- acs.changesBetween(
+          toc1,
+          toc3,
+          PositiveInt.tryCreate(changesSize1 + 1),
+        )
+
+        (changesS3, changesSizeS3) <- acs.changesBetween(
+          toc3,
+          toc4,
+          PositiveInt.tryCreate(changesSize2),
+        )
+
+        (changesS4, changesSizeS4) <- acs.changesBetween(
+          toc3,
+          toc4,
+          PositiveInt.tryCreate(changesSize2 + 1),
+        )
+
+        (changesS5, changesSizeS5) <- acs.changesBetween(
+          toc4,
+          toc4,
+          PositiveInt.tryCreate(changesSize2 + 1),
+        )
+
+        (changesS6, changesSizeS6) <- acs.changesBetween(
+          toc4,
+          toc9,
+          PositiveInt.tryCreate(1),
+        )
+
+        (changesS7, changesSizeS7) <- acs.changesBetween(
+          toc4,
+          toc9,
+          PositiveInt.tryCreate(3),
+        )
+
+        (changesS8, changesSizeS8) <- acs.changesBetween(
+          toc4,
+          toc9,
+          PositiveInt.tryCreate(5),
+        )
+
+      } yield {
+        changesS1.size shouldBe 1 // just toc2
+        changesSizeS1 shouldBe changesSize1
+        val activationsS1 = getActivations(changesS1)
+        activationsS1.size shouldBe 1
+        activationsS1.headOption.value._1 shouldBe toc2
+        activationsS1.headOption.value._2 should contain theSameElementsAs contractSet1
+        val deactivationsS1 = getDeactivations(changesS1)
+        activationsS1.size shouldBe 1
+        deactivationsS1.head._2 shouldBe empty
+
+        changesS2.size shouldBe 2 // toc2 and toc3
+        changesSizeS2 shouldBe changesSize1 * 2
+        val activationsS2 = getActivations(changesS2)
+        activationsS2.size shouldBe 2
+        activationsS2.headOption.value._1 shouldBe toc2
+        activationsS2.headOption.value._2 should contain theSameElementsAs contractSet1
+        activationsS2(1)._1 shouldBe toc3
+        activationsS2(1)._2 shouldBe empty
+        val deactivationsS2 = getDeactivations(changesS2)
+        deactivationsS2.size shouldBe 2
+        deactivationsS2.headOption.value._1 shouldBe toc2
+        deactivationsS2.headOption.value._2 shouldBe empty
+        deactivationsS2(1)._1 shouldBe toc3
+        deactivationsS2(1)._2 should contain theSameElementsAs contractSet1
+
+        changesS3.size shouldBe 1 // toc4
+        changesSizeS3 shouldBe changesSize2 * 2
+        val activationsS3 = getActivations(changesS3)
+        activationsS3.size shouldBe 1
+        activationsS3.headOption.value._1 shouldBe toc4
+        activationsS3.headOption.value._2 should contain theSameElementsAs contractSet2
+          .sortBy(identity)
+          .take(changesSize2)
+
+        val deactivationsS3 = getDeactivations(changesS3)
+        deactivationsS3.size shouldBe 1
+        deactivationsS3.headOption.value._1 shouldBe toc4
+        deactivationsS3.headOption.value._2 should contain theSameElementsAs contractSet2
+          .sortBy(identity)
+          .take(changesSize2)
+
+        changesS4.size shouldBe 1 // toc4
+        changesSizeS4 shouldBe changesSize2 * 2
+        val activationsS4 = getActivations(changesS4)
+        activationsS3.size shouldBe 1
+        activationsS4.headOption.value._1 shouldBe toc4
+        activationsS4.headOption.value._2 should contain theSameElementsAs contractSet2
+          .sortBy(identity)
+          .take(changesSize2)
+        val deactivationsS4 = getDeactivations(changesS4)
+        deactivationsS4.size shouldBe 1
+        deactivationsS4.headOption.value._1 shouldBe toc4
+        deactivationsS4.headOption.value._2 should contain theSameElementsAs contractSet2
+          .sortBy(identity)
+          .take(changesSize2)
+
+        changesS5.size shouldBe 0
+        changesSizeS5 shouldBe 0
+
+        changesS6.size shouldBe 1 // toc5
+        changesSizeS6 shouldBe 1
+        val activationsS6 = getActivations(changesS6)
+        activationsS6.size shouldBe 1
+        activationsS6.headOption.value._1 shouldBe toc5
+        activationsS6.headOption.value._2 should contain theSameElementsAs contract3
+        val deactivationsS6 = getDeactivations(changesS6)
+        activationsS6.size shouldBe 1
+        deactivationsS6.head._2 shouldBe empty
+
+        changesS7.size shouldBe 3 // toc5, toc6, toc7
+        changesSizeS7 shouldBe 4
+        val activationsS7 = getActivations(changesS7)
+        activationsS7.size shouldBe 3
+        activationsS7.headOption.value._1 shouldBe toc5
+        activationsS7.headOption.value._2 should contain theSameElementsAs contract3
+        activationsS7(1)._1 shouldBe toc6
+        activationsS7(1)._2 shouldBe empty
+        activationsS7(2)._1 shouldBe toc7
+        activationsS7(2)._2 should contain theSameElementsAs contract4
+
+        val deactivationsS7 = getDeactivations(changesS7)
+        deactivationsS7.size shouldBe 3
+        deactivationsS7.head._1 shouldBe toc5
+        deactivationsS7.head._2 shouldBe empty
+        deactivationsS7(1)._1 shouldBe toc6
+        deactivationsS7(1)._2 should contain theSameElementsAs contract3
+        deactivationsS7(2)._1 shouldBe toc7
+        deactivationsS7(2)._2 should contain theSameElementsAs contract4
+
+        changesS8.size shouldBe 4 // toc5, 6, 7, 8
+        changesSizeS8 shouldBe 5
+        val activationsS8 = getActivations(changesS8)
+        activationsS8.size shouldBe 4
+        activationsS8.headOption.value._1 shouldBe toc5
+        activationsS8.headOption.value._2 should contain theSameElementsAs contract3
+        activationsS8(1)._1 shouldBe toc6
+        activationsS8(1)._2 shouldBe empty
+        activationsS8(2)._1 shouldBe toc7
+        activationsS8(2)._2 should contain theSameElementsAs contract4
+        activationsS8(3)._1 shouldBe toc8
+        activationsS8(3)._2 should contain theSameElementsAs contract5
+        val deactivationsS8 = getDeactivations(changesS8)
+        deactivationsS8.size shouldBe 4
+        deactivationsS8.head._1 shouldBe toc5
+        deactivationsS8.head._2 shouldBe empty
+        deactivationsS8(1)._1 shouldBe toc6
+        deactivationsS8(1)._2 should contain theSameElementsAs contract3
+        deactivationsS8(2)._1 shouldBe toc7
+        deactivationsS8(2)._2 should contain theSameElementsAs contract4
+        deactivationsS8(3)._1 shouldBe toc8
+        deactivationsS8(3)._2 shouldBe empty
       }
     }
 

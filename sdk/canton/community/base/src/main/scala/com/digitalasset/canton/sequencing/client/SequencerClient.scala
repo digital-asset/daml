@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.sequencing.client
@@ -557,11 +557,16 @@ abstract class SequencerClientImpl(
           request.updateAggregationRule(aggregationRule)
         } else request
 
+      // TODO(#22086): We must use a more recent timestamp because there can be delays when sending submission requests
+      // to avoid load spikes on the sequencer (e.g., for ACS commitments). By using a new clock measurement,
+      // we ensure that, when using session signing keys, the key will not expire by the time the submission
+      // request reaches the sequencer.
       val resF = requestSigner
         .signRequest(
           amplifiableRequest,
           HashPurpose.SubmissionRequestSignature,
-          Some(topologySnapshot),
+          topologySnapshot,
+          Some(clock.now),
         )
         .leftMap[SendAsyncClientError] { err =>
           val message = s"Error signing submission request $err"
@@ -925,7 +930,8 @@ abstract class SequencerClientImpl(
         signedRequest <- requestSigner.signRequest(
           request,
           HashPurpose.AcknowledgementSignature,
-          Some(approximateSnapshot),
+          approximateSnapshot,
+          Some(clock.now),
         )
         result <-
           if (config.useNewConnectionPool) {
@@ -1282,7 +1288,7 @@ class RichSequencerClientImpl(
   private val handlerIdle: AtomicReference[Promise[Unit]] = new AtomicReference(
     Promise.successful(())
   )
-  private val handlerIdleLock: Object = new Object
+  private val handlerIdleLock = new Mutex()
 
   override def getConnectionPoolHealthStatus: Seq[HealthQuasiComponent] = {
     val (connectionPoolHealth, connectionsHealth) =
@@ -1704,12 +1710,11 @@ class RichSequencerClientImpl(
     private def signalHandler(
         eventHandler: SequencedApplicationHandler[ClosedEnvelope]
     )(implicit traceContext: TraceContext): Unit = synchronizeWithClosingSync(functionFullName) {
-      val isIdle = blocking {
-        handlerIdleLock.synchronized {
+      val isIdle =
+        handlerIdleLock.exclusive {
           val oldPromise = handlerIdle.getAndUpdate(p => if (p.isCompleted) Promise() else p)
           oldPromise.isCompleted
         }
-      }
       if (isIdle) {
         val handlingF = handleReceivedEventsUntilEmpty(eventHandler)
         addToFlushAndLogError("invoking the application handler")(
@@ -1727,9 +1732,8 @@ class RichSequencerClientImpl(
         import scala.jdk.CollectionConverters.*
         val handlerEvents = javaEventList.asScala.toSeq
 
-        def stopHandler(): Unit = blocking {
-          handlerIdleLock.synchronized(handlerIdle.get().success(()).discard)
-        }
+        def stopHandler(): Unit =
+          handlerIdleLock.exclusive(handlerIdle.get().success(()).discard)
 
         processEventBatch(eventHandler, handlerEvents).value
           .transformWith {
@@ -1742,8 +1746,8 @@ class RichSequencerClientImpl(
               FutureUnlessShutdown.unit
           }
       } else {
-        val stillBusy = blocking {
-          handlerIdleLock.synchronized {
+        val stillBusy =
+          handlerIdleLock.exclusive {
             val idlePromise = handlerIdle.get()
             if (sequencerAggregator.eventQueue.isEmpty) {
               // signalHandler must not be executed here, because that would lead to lost signals.
@@ -1752,7 +1756,6 @@ class RichSequencerClientImpl(
             // signalHandler must not be executed here, because that would lead to duplicate invocations.
             !idlePromise.isCompleted
           }
-        }
 
         if (stillBusy) {
           handleReceivedEventsUntilEmpty(eventHandler)

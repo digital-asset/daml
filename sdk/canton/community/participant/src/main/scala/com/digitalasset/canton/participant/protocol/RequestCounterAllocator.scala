@@ -1,15 +1,13 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.participant.protocol
 
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.{ErrorUtil, Mutex}
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.google.common.annotations.VisibleForTesting
-
-import scala.concurrent.blocking
 
 /** Allocates [[com.digitalasset.canton.RequestCounter]]s for the transaction processor. */
 trait RequestCounterAllocator {
@@ -89,8 +87,8 @@ class RequestCounterAllocatorImpl(
   private var nextRc: RequestCounter = initRc
   private var boundSequenceCounter: SequencerCounter = cleanReplaySequencerCounter
 
-  private val lock = new Object()
-  private def withLock[A](body: => A): A = blocking(lock.synchronized(body))
+  private val lock = new Mutex()
+  private def withLock[A](body: => A): A = lock.exclusive(body)
 
   override def allocateFor(
       sc: SequencerCounter

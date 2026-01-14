@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.integration.tests.upgrade
@@ -73,11 +73,25 @@ trait LogicalUpgradeUtils { self: BaseTest =>
         node: InstanceReference
     ): Unit = {
       val publicKeysWithNames = node.keys.public.list()
-      publicKeysWithNames.foreach { pb =>
+      publicKeysWithNames.foreach { publicKey =>
+        /*
+        We want all keys to be saved in a file whose name is `nodeName-keyPurpose.keys`
+
+        If we don't change the name explicitly, then consecutive LSUs fail:
+        - First LSU: sequencer key is exported to `sequencer1-signing.keys`
+        - Second LSU: sequencer key is also exported to `sequencer1-signing.keys` (instead of `sequencer2-signing.keys`)
+         */
+
+        val keyName = publicKey.name.value.toProtoPrimitive
+
+        // Format of key name: sequencer1-sequencer-auth, sequencer1-signing
+        // Drop the initial component and use the node name
+        val keyPurpose = keyName.split("-").drop(1).mkString("-")
+        val filename = s"${node.name}-$keyPurpose.keys"
+
         node.keys.secret.download_to(
-          pb.id,
-          outputFile =
-            s"$baseExportDirectory/${pb.name.map(_.toProtoPrimitive).getOrElse("key")}.keys",
+          publicKey.id,
+          outputFile = s"$baseExportDirectory/$filename.keys",
         )
       }
     }

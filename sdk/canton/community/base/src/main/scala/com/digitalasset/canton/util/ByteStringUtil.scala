@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.util
@@ -12,9 +12,10 @@ import com.digitalasset.canton.serialization.{
   MaxByteToDecompressExceeded,
 }
 import com.google.protobuf.ByteString
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 
 import java.io.{ByteArrayOutputStream, EOFException, InputStream, OutputStream}
-import java.util.zip.{GZIPInputStream, GZIPOutputStream, ZipException}
+import java.util.zip.{GZIPOutputStream, ZipException}
 import scala.annotation.tailrec
 
 object ByteStringUtil {
@@ -56,8 +57,10 @@ object ByteStringUtil {
       bytes: ByteString,
       maxBytesLimit: MaxBytesToDecompress,
   ): Either[DeserializationError, ByteString] =
+    // prefer GzipCompressorInputStream over GZIPInputStream, because it doesn't use exceptions for internal
+    // control flow, as GZIPInputStream does.
     ResourceUtil
-      .withResourceEither(new GZIPInputStream(bytes.newInput())) { gunzipper =>
+      .withResourceEither(new GzipCompressorInputStream(bytes.newInput())) { gunzipper =>
         // Write to the output stream of the ByteString to avoid building an additional array copy.
         val out = ByteString.newOutput()
         val buf = new Array[Byte](8 * 1024) // 8k is the default used by BufferedInputStream.

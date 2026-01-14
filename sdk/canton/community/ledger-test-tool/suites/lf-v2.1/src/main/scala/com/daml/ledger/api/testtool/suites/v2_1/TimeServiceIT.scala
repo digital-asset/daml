@@ -1,5 +1,5 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
-// Proprietary code. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.suites.v2_1
 
@@ -9,6 +9,7 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.javaapi.data.codegen.ContractCompanion
 import com.daml.ledger.test.java.semantic.timetests.*
 import com.digitalasset.base.error.{ErrorCategory, ErrorCode}
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.ledger.error.groups.{CommandExecutionErrors, RequestValidationErrors}
 
 import scala.concurrent.Future
@@ -28,7 +29,7 @@ final class TimeServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, Seq())) =>
     for {
       initialTime <- ledger.time()
-      _ <- Future(Thread.sleep(100))
+      _ <- Future(Threading.sleep(100))
       laterTime <- ledger.time()
     } yield {
       assertEquals("ledger time should stand still", laterTime, initialTime)

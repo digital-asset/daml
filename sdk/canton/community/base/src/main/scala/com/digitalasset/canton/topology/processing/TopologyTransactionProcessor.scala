@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.canton.topology.processing
@@ -15,7 +15,12 @@ import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  HasCloseContext,
+  LifeCycle,
+}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.protocol.messages.{
@@ -73,14 +78,16 @@ class TopologyTransactionProcessor(
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
-    with FlagCloseable {
+    with FlagCloseable
+    with HasCloseContext {
 
   private val psid = store.storeId.psid
 
   protected lazy val stateProcessor: TopologyStateProcessor =
     TopologyStateProcessor.forTransactionProcessing(
       store,
-      RequiredTopologyMappingChecks(store, Some(staticSynchronizerParameters), loggerFactory),
+      lookup =>
+        RequiredTopologyMappingChecks(Some(staticSynchronizerParameters), lookup, loggerFactory),
       pureCrypto,
       loggerFactory,
     )
