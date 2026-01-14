@@ -63,6 +63,7 @@ import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class JsCommandService(
     ledgerClient: LedgerClient,
     protocolConverters: ProtocolConverters,
@@ -254,7 +255,8 @@ class JsCommandService(
   ): TracedInput[command_submission_service.SubmitReassignmentRequest] => Future[
     Either[JsCantonError, command_submission_service.SubmitReassignmentResponse]
   ] = req => {
-    commandSubmissionServiceClient(callerContext.token())(callerContext.traceContext())
+    implicit val tc: TraceContext = callerContext.traceContext()
+    commandSubmissionServiceClient(callerContext.token())
       .submitReassignment(req.in)
       .resultToRight
   }

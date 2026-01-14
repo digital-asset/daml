@@ -166,7 +166,7 @@ final case class NoRealData(any: String)
 class TestJsService(
     override protected val requestLogger: ApiRequestLogger,
     val loggerFactory: NamedLoggerFactory,
-)(implicit val ec: ExecutionContext)
+)(implicit val executionContext: ExecutionContext)
     extends Endpoints {
   implicit val config: Configuration = io.circe.generic.extras.Configuration.default.withDefaults
   implicit val codec: Codec[NoRealData] = deriveRelaxedCodec
@@ -175,7 +175,7 @@ class TestJsService(
     new AuthInterceptor(
       List(AuthServiceWildcard),
       loggerFactory,
-      ec,
+      executionContext,
     )
 
   private lazy val test = v2Endpoint.in(sttp.tapir.stringToPath("test"))

@@ -28,6 +28,7 @@ import sttp.tapir.{AnyEndpoint, Schema, path, query}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class JsPartyManagementService(
     partyManagementClient: PartyManagementClient,
     protocolConverters: ProtocolConverters,
@@ -72,11 +73,13 @@ class JsPartyManagementService(
   private val listKnownParties
       : CallerContext => TracedInput[PagedList[(Option[String], Option[String])]] => Future[
         Either[JsCantonError, party_management_service.ListKnownPartiesResponse]
-      ] = ctx =>
-    req => {
+      ] = ctx => {
+    implicit val traceContext: TraceContext = ctx.traceContext()
+
+    req =>
       val (idp, filterParty) = req.in.input
       partyManagementClient
-        .serviceStub(ctx.token())(ctx.traceContext())
+        .serviceStub(ctx.token())
         .listKnownParties(
           party_management_service.ListKnownPartiesRequest(
             req.in.pageToken.getOrElse(""),
@@ -86,29 +89,37 @@ class JsPartyManagementService(
           )
         )
         .resultToRight
-    }
+  }
+
   private val getParty
       : CallerContext => TracedInput[(String, Option[String], List[String])] => Future[
         Either[JsCantonError, party_management_service.GetPartiesResponse]
-      ] = ctx => { req =>
-    val parties = req.in._1 +: req.in._3
-    val partyRequest = party_management_service.GetPartiesRequest(
-      parties = parties,
-      identityProviderId = req.in._2.getOrElse(""),
-    )
-    partyManagementClient
-      .serviceStub(ctx.token())(ctx.traceContext())
-      .getParties(partyRequest)
-      .resultToRight
+      ] = ctx => {
+    implicit val traceContext: TraceContext = ctx.traceContext()
+
+    req =>
+      val parties = req.in._1 +: req.in._3
+      val partyRequest = party_management_service.GetPartiesRequest(
+        parties = parties,
+        identityProviderId = req.in._2.getOrElse(""),
+      )
+
+      partyManagementClient
+        .serviceStub(ctx.token())
+        .getParties(partyRequest)
+        .resultToRight
   }
 
   private val getParticipantId: CallerContext => TracedInput[Unit] => Future[
     Either[JsCantonError, party_management_service.GetParticipantIdResponse]
-  ] = ctx => { _ =>
-    partyManagementClient
-      .serviceStub(ctx.token())(ctx.traceContext())
-      .getParticipantId(party_management_service.GetParticipantIdRequest())
-      .resultToRight
+  ] = ctx => {
+    implicit val traceContext: TraceContext = ctx.traceContext()
+
+    _ =>
+      partyManagementClient
+        .serviceStub(ctx.token())
+        .getParticipantId(party_management_service.GetParticipantIdRequest())
+        .resultToRight
   }
 
   private val allocateParty: CallerContext => TracedInput[js.AllocatePartyRequest] => Future[
@@ -132,25 +143,29 @@ class JsPartyManagementService(
   ] => Future[
     Either[JsCantonError, party_management_service.AllocateExternalPartyResponse]
   ] =
-    caller =>
+    caller => {
+      implicit val traceContext: TraceContext = caller.traceContext()
+
       req =>
         partyManagementClient
-          .serviceStub(caller.token())(caller.traceContext())
+          .serviceStub(caller.token())
           .allocateExternalParty(req.in)
           .resultToRight
+    }
 
   private val updateParty: CallerContext => TracedInput[
     (String, party_management_service.UpdatePartyDetailsRequest)
   ] => Future[Either[JsCantonError, party_management_service.UpdatePartyDetailsResponse]] =
-    caller =>
+    caller => {
+      implicit val traceContext: TraceContext = caller.traceContext()
+
       req =>
         if (req.in._2.partyDetails.map(_.party).contains(req.in._1)) {
           partyManagementClient
-            .serviceStub(caller.token())(caller.traceContext())
+            .serviceStub(caller.token())
             .updatePartyDetails(req.in._2)
             .resultToRight
-        } else {
-          implicit val traceContext: TraceContext = caller.traceContext()
+        } else
           error(
             JsCantonError.fromErrorCode(
               InvalidArgument.Reject(
@@ -158,20 +173,19 @@ class JsPartyManagementService(
               )
             )
           )
-        }
+    }
 
   private val externalPartyGenerateTopology: CallerContext => TracedInput[
     party_management_service.GenerateExternalPartyTopologyRequest
   ] => Future[
     Either[JsCantonError, party_management_service.GenerateExternalPartyTopologyResponse]
-  ] =
-    caller =>
-      request => {
-        partyManagementClient
-          .serviceStub(caller.token())(caller.traceContext())
-          .generateExternalPartyTopology(request.in)
-          .resultToRight
-      }
+  ] = { caller => request =>
+    implicit val traceContext: TraceContext = caller.traceContext()
+    partyManagementClient
+      .serviceStub(caller.token())
+      .generateExternalPartyTopology(request.in)
+      .resultToRight
+  }
 
 }
 

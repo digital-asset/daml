@@ -20,13 +20,14 @@ import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
 import sttp.tapir.server.ServerEndpoint
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class JsIdentityProviderService(
     identityProviderConfigClient: IdentityProviderConfigClient,
     override protected val requestLogger: ApiRequestLogger,
     val loggerFactory: NamedLoggerFactory,
-)(implicit val authInterceptor: AuthInterceptor)
+)(implicit val authInterceptor: AuthInterceptor, val executionContext: ExecutionContext)
     extends Endpoints
     with NamedLogging {
 
@@ -58,24 +59,27 @@ class JsIdentityProviderService(
       callerContext: CallerContext
   ): TracedInput[Unit] => Future[
     Either[JsCantonError, identity_provider_config_service.ListIdentityProviderConfigsResponse]
-  ] = _ =>
+  ] = _ => {
+    implicit val traceContext: TraceContext = callerContext.traceContext()
     identityProviderConfigClient
-      .serviceStub(callerContext.token())(callerContext.traceContext())
+      .serviceStub(callerContext.token())
       .listIdentityProviderConfigs(
         new identity_provider_config_service.ListIdentityProviderConfigsRequest()
       )
       .resultToRight
+  }
 
   private def createIdps(
       callerContext: CallerContext
   ): TracedInput[identity_provider_config_service.CreateIdentityProviderConfigRequest] => Future[
     Either[JsCantonError, identity_provider_config_service.CreateIdentityProviderConfigResponse]
-  ] =
-    req =>
-      identityProviderConfigClient
-        .serviceStub(callerContext.token())(callerContext.traceContext())
-        .createIdentityProviderConfig(req.in)
-        .resultToRight
+  ] = { req =>
+    implicit val traceContext: TraceContext = callerContext.traceContext()
+    identityProviderConfigClient
+      .serviceStub(callerContext.token())
+      .createIdentityProviderConfig(req.in)
+      .resultToRight
+  }
 
   private def updateIdp(
       callerContext: CallerContext
@@ -83,15 +87,15 @@ class JsIdentityProviderService(
     (String, identity_provider_config_service.UpdateIdentityProviderConfigRequest)
   ] => Future[
     Either[JsCantonError, identity_provider_config_service.UpdateIdentityProviderConfigResponse]
-  ] =
+  ] = {
+    implicit val traceContext: TraceContext = callerContext.traceContext()
     req =>
       if (req.in._2.identityProviderConfig.map(_.identityProviderId).contains(req.in._1)) {
         identityProviderConfigClient
-          .serviceStub(callerContext.token())(callerContext.traceContext())
+          .serviceStub(callerContext.token())
           .updateIdentityProviderConfig(req.in._2)
           .resultToRight
-      } else {
-        implicit val traceContext: TraceContext = callerContext.traceContext()
+      } else
         error(
           JsCantonError.fromErrorCode(
             InvalidArgument.Reject(
@@ -99,35 +103,41 @@ class JsIdentityProviderService(
             )
           )
         )
-      }
+  }
 
   private def getIdp(
       callerContext: CallerContext
   ): TracedInput[String] => Future[
     Either[JsCantonError, identity_provider_config_service.GetIdentityProviderConfigResponse]
-  ] = { req =>
-    identityProviderConfigClient
-      .serviceStub(callerContext.token())(callerContext.traceContext())
-      .getIdentityProviderConfig(
-        identity_provider_config_service
-          .GetIdentityProviderConfigRequest(identityProviderId = req.in)
-      )
-      .resultToRight
+  ] = {
+    implicit val traceContext: TraceContext = callerContext.traceContext()
+
+    req =>
+      identityProviderConfigClient
+        .serviceStub(callerContext.token())
+        .getIdentityProviderConfig(
+          identity_provider_config_service
+            .GetIdentityProviderConfigRequest(identityProviderId = req.in)
+        )
+        .resultToRight
   }
 
   private def deleteIdp(
       callerContext: CallerContext
   ): TracedInput[String] => Future[
     Either[JsCantonError, identity_provider_config_service.DeleteIdentityProviderConfigResponse]
-  ] =
+  ] = {
+    implicit val traceContext: TraceContext = callerContext.traceContext()
+
     req =>
       identityProviderConfigClient
-        .serviceStub(callerContext.token())(callerContext.traceContext())
+        .serviceStub(callerContext.token())
         .deleteIdentityProviderConfig(
           identity_provider_config_service
             .DeleteIdentityProviderConfigRequest(identityProviderId = req.in)
         )
         .resultToRight
+  }
 
 }
 

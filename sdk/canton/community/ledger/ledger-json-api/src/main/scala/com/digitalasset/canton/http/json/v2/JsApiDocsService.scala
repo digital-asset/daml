@@ -19,7 +19,7 @@ class JsApiDocsService(
     override protected val requestLogger: ApiRequestLogger,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit
-    executionContext: ExecutionContext
+    val executionContext: ExecutionContext
 ) extends Endpoints {
   private val apidocsGenerator = new ApiDocsGenerator(loggerFactory)
   private lazy val docs: Endpoint[CallerContext, Unit, Unit, Unit, Any] =

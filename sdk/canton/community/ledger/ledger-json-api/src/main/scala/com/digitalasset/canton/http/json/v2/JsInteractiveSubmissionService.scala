@@ -41,6 +41,7 @@ import sttp.tapir.{AnyEndpoint, Endpoint, Schema, stringToPath}
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class JsInteractiveSubmissionService(
     ledgerClient: LedgerClient,
     protocolConverters: ProtocolConverters,
@@ -106,7 +107,9 @@ class JsInteractiveSubmissionService(
     implicit val tc: TraceContext = callerContext.traceContext()
     for {
       grpcReq <- protocolConverters.ExecuteSubmissionRequest.fromJson(req.in)
-      grpcResp <- interactiveSubmissionServiceClient(token).executeSubmission(grpcReq).resultToRight
+      grpcResp <- interactiveSubmissionServiceClient(token)
+        .executeSubmission(grpcReq)
+        .resultToRight
     } yield grpcResp
   }
 

@@ -46,6 +46,8 @@ trait Endpoints extends NamedLogging {
 
   protected def requestLogger: ApiRequestLogger
 
+  protected implicit def executionContext: ExecutionContext
+
   import Endpoints.*
   import com.digitalasset.canton.http.util.GrpcHttpErrorCodes.`gRPC status  as sttp`
 
@@ -101,10 +103,8 @@ trait Endpoints extends NamedLogging {
       .serverLogic(callerContext =>
         i =>
           Future
-            .delegate(service(callerContext)(i))(ExecutionContext.parasitic)
-            .transform(handleErrorResponse(callerContext.traceContext()))(
-              ExecutionContext.parasitic
-            )
+            .delegate(service(callerContext)(i))
+            .transform(handleErrorResponse(callerContext.traceContext()))
       )
 
   protected def websocket[HI, I, O](
@@ -192,8 +192,8 @@ trait Endpoints extends NamedLogging {
             .runWith(Sink.seq)
             .map(
               handleListLimit(systemListElementsLimit, _)
-            )(ExecutionContext.parasitic)
-            .transform(handleFailure)(ExecutionContext.parasitic)
+            )
+            .transform(handleFailure)
         }
       )
 
@@ -234,10 +234,8 @@ trait Endpoints extends NamedLogging {
       .serverLogic(caller =>
         tracedInput => {
           Future
-            .delegate(service(caller)(tracedInput))(ExecutionContext.parasitic)
-            .transform(
-              handleErrorResponse(caller.traceContext())
-            )(ExecutionContext.parasitic)
+            .delegate(service(caller)(tracedInput))
+            .transform(handleErrorResponse(caller.traceContext()))
         }
       )
 
@@ -253,10 +251,11 @@ trait Endpoints extends NamedLogging {
       .serverLogic(caller =>
         tracedInput => {
           Future
-            .delegate(service(caller)(tracedInput))(ExecutionContext.parasitic)
-            .transform(handleErrorResponse(caller.traceContext()))(ExecutionContext.parasitic)
+            .delegate(service(caller)(tracedInput))
+            .transform(handleErrorResponse(caller.traceContext()))
         }
       )
+
   private def validateJwtToken(endpointInfo: EndpointMetaOps)(caller: CallerContext)(implicit
       authInterceptor: AuthInterceptor
   ): Future[Either[CustomError, CallerContext]] = {
@@ -269,12 +268,9 @@ trait Endpoints extends NamedLogging {
       )
       .map { claims =>
         val authenticatedCaller = caller.copy(claimSet = Some(claims))
-        requestLogger.logAuth(
-          caller.call,
-          claims,
-        )
+        requestLogger.logAuth(caller.call, claims)
         Right(authenticatedCaller)
-      }(ExecutionContext.parasitic)
+      }
       .recoverWith { error =>
         requestLogger.logAuthError(caller.call, error)
         Future.successful(handleError(lc.traceContext)(error).left.map {
@@ -285,7 +281,7 @@ trait Endpoints extends NamedLogging {
               jsCantonError.copy(context = jsCantonError.context + JsCantonError.tokenProblemError),
             )
         })
-      }(ExecutionContext.parasitic)
+      }
   }
 
   protected def withTraceHeaders[P, E](
@@ -294,13 +290,12 @@ trait Endpoints extends NamedLogging {
     endpoint.mapIn(traceHeadersMapping[P]())
 
   implicit class FutureOps[R](future: Future[R]) {
-    implicit val executionContext: ExecutionContext = ExecutionContext.parasitic
+    // TODO(#27556): Pass TraceContext from caller
     implicit val traceContext: TraceContext = TraceContext.empty
     def resultToRight: Future[Either[JsCantonError, R]] =
       future
         .map(Right(_))
         .recover(handleError.andThen(_.left.map(_._2)))
-
   }
 
   /** Utility to prepare flow from a gRPC method with an observer.

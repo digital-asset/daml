@@ -16,7 +16,7 @@ package js {
   )
 
   final case class PrefetchContractKey(
-      templateId: Option[com.daml.ledger.api.v2.value.Identifier],
+      templateId: com.daml.ledger.api.v2.value.Identifier,
       contractKey: Json,
   )
 
