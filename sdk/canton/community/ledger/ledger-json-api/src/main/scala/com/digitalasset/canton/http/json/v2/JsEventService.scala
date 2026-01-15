@@ -20,6 +20,7 @@ import sttp.tapir.{AnyEndpoint, Schema}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class JsEventService(
     ledgerClient: LedgerClient,
     protocolConverters: ProtocolConverters,

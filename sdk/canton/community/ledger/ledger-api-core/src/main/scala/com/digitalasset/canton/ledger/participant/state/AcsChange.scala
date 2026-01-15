@@ -24,6 +24,12 @@ final case class AcsChange(
     activations: Map[LfContractId, ContractStakeholdersAndReassignmentCounter],
     deactivations: Map[LfContractId, ContractStakeholdersAndReassignmentCounter],
 ) extends GenericAcsChange[LfPartyId]
+    with PrettyPrinting {
+  override protected def pretty: Pretty[AcsChange] = prettyOfClass(
+    param("activations", _.activations),
+    param("deactivations", _.deactivations),
+  )
+}
 
 final case class InternalizedAcsChange(
     activations: Map[LfContractId, InternalizedContractStakeholdersAndReassignmentCounter],

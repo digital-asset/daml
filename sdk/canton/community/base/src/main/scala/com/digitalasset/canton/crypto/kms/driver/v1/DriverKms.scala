@@ -83,17 +83,21 @@ class DriverKms(
 
     val requestF =
       try {
-        futureSupervisor.supervised(s"KMS Driver: $operation") {
-          driverMethod(traceContext.context)
+        synchronizeWithClosing(functionFullName) {
+          FutureUnlessShutdown.recoverFromAbortException {
+            futureSupervisor.supervised(s"KMS Driver: $operation") {
+              driverMethod(traceContext.context)
+            }
+          }
         }
       } catch {
         case NonFatal(e) =>
           // Catch any exception thrown by the driver outside of a failed future and return a failed future
-          Future.failed(e)
+          FutureUnlessShutdown.failed(e)
       }
 
     EitherTUtil
-      .fromFuture(FutureUnlessShutdown.recoverFromAbortException(requestF), mapErr)
+      .fromFuture(requestF, mapErr)
       .thereafter {
         case Success(Outcome(Right(_))) =>
           logger.trace(s"KMS driver operation $operation succeeded")
@@ -114,7 +118,7 @@ class DriverKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] = synchronizeWithClosing(functionFullName)(
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] =
     for {
       keyId <- monitor("generate-signing-key", KmsError.KmsCreateKeyError.apply) {
         driver.generateSigningKeyPair(
@@ -127,14 +131,13 @@ class DriverKms(
         .leftMap[KmsError](err => KmsError.KmsCreateKeyError(err, retryable = false))
         .toEitherT[FutureUnlessShutdown]
     } yield kmsKeyId
-  )
 
   override protected def generateSymmetricEncryptionKeyInternal(
       name: Option[crypto.KeyName]
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] = synchronizeWithClosing(functionFullName)(
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] =
     for {
       keyId <- monitor("generate-symmetric-key", KmsError.KmsCreateKeyError.apply) {
         driver.generateSymmetricKey(name.map(_.unwrap))
@@ -144,7 +147,6 @@ class DriverKms(
         .leftMap[KmsError](err => KmsError.KmsCreateKeyError(err, retryable = false))
         .toEitherT[FutureUnlessShutdown]
     } yield kmsKeyId
-  )
 
   override protected def generateAsymmetricEncryptionKeyPairInternal(
       encryptionKeySpec: crypto.EncryptionKeySpec,
@@ -152,7 +154,7 @@ class DriverKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] = synchronizeWithClosing(functionFullName)(
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] =
     for {
       keyId <- monitor("generate-encryption-key", KmsError.KmsCreateKeyError.apply) {
         driver.generateEncryptionKeyPair(
@@ -165,7 +167,6 @@ class DriverKms(
         .leftMap[KmsError](err => KmsError.KmsCreateKeyError(err, retryable = false))
         .toEitherT[FutureUnlessShutdown]
     } yield kmsKeyId
-  )
 
   override protected def getPublicSigningKeyInternal(
       keyId: KmsKeyId
@@ -173,112 +174,103 @@ class DriverKms(
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, KmsSigningPublicKey] =
-    synchronizeWithClosing(functionFullName)(
-      for {
-        publicKey <- monitor("get-public-key", KmsError.KmsGetPublicKeyError(keyId, _, _)) {
-          driver.getPublicKey(keyId.unwrap)
-        }
-        spec <- publicKey.spec match {
-          case spec: api.v1.SigningKeySpec =>
-            KmsDriverSpecsConverter
-              .convertToCryptoSigningKeySpec(spec)
-              .asRight[KmsError]
-              .toEitherT[FutureUnlessShutdown]
-          case spec: api.v1.EncryptionKeySpec =>
-            EitherT
-              .leftT[FutureUnlessShutdown, crypto.SigningKeySpec](
-                KmsError.KmsGetPublicKeyError(
-                  keyId,
-                  s"Public key $keyId is not a signing public key, returned key spec: $spec",
-                  retryable = false,
-                )
+    for {
+      publicKey <- monitor("get-public-key", KmsError.KmsGetPublicKeyError(keyId, _, _)) {
+        driver.getPublicKey(keyId.unwrap)
+      }
+      spec <- publicKey.spec match {
+        case spec: api.v1.SigningKeySpec =>
+          KmsDriverSpecsConverter
+            .convertToCryptoSigningKeySpec(spec)
+            .asRight[KmsError]
+            .toEitherT[FutureUnlessShutdown]
+        case spec: api.v1.EncryptionKeySpec =>
+          EitherT
+            .leftT[FutureUnlessShutdown, crypto.SigningKeySpec](
+              KmsError.KmsGetPublicKeyError(
+                keyId,
+                s"Public key $keyId is not a signing public key, returned key spec: $spec",
+                retryable = false,
               )
-              .leftWiden[KmsError]
-        }
-        pubKeyRaw = ByteString.copyFrom(publicKey.key)
-        pubKey <- KmsSigningPublicKey
-          .create(pubKeyRaw, spec)
-          .leftMap[KmsError](err => KmsError.KmsGetPublicKeyError(keyId, err.toString))
-          .toEitherT[FutureUnlessShutdown]
-      } yield pubKey
-    )
+            )
+            .leftWiden[KmsError]
+      }
+      pubKeyRaw = ByteString.copyFrom(publicKey.key)
+      pubKey <- KmsSigningPublicKey
+        .create(pubKeyRaw, spec)
+        .leftMap[KmsError](err => KmsError.KmsGetPublicKeyError(keyId, err.toString))
+        .toEitherT[FutureUnlessShutdown]
+    } yield pubKey
 
   override protected def getPublicEncryptionKeyInternal(keyId: KmsKeyId)(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, KmsEncryptionPublicKey] =
-    synchronizeWithClosing(functionFullName)(
-      for {
-        publicKey <- monitor("get-public-key", KmsError.KmsGetPublicKeyError(keyId, _, _)) {
-          driver.getPublicKey(keyId.unwrap)
-        }
-        spec <- publicKey.spec match {
-          case spec: api.v1.EncryptionKeySpec =>
-            KmsDriverSpecsConverter
-              .convertToCryptoEncryptionKeySpec(spec)
-              .asRight[KmsError]
-              .toEitherT[FutureUnlessShutdown]
-          case spec: api.v1.SigningKeySpec =>
-            EitherT
-              .leftT[FutureUnlessShutdown, crypto.EncryptionKeySpec](
-                KmsError.KmsGetPublicKeyError(
-                  keyId,
-                  s"Public key $keyId is not an encryption public key, returned key spec: $spec",
-                  retryable = false,
-                )
+    for {
+      publicKey <- monitor("get-public-key", KmsError.KmsGetPublicKeyError(keyId, _, _)) {
+        driver.getPublicKey(keyId.unwrap)
+      }
+      spec <- publicKey.spec match {
+        case spec: api.v1.EncryptionKeySpec =>
+          KmsDriverSpecsConverter
+            .convertToCryptoEncryptionKeySpec(spec)
+            .asRight[KmsError]
+            .toEitherT[FutureUnlessShutdown]
+        case spec: api.v1.SigningKeySpec =>
+          EitherT
+            .leftT[FutureUnlessShutdown, crypto.EncryptionKeySpec](
+              KmsError.KmsGetPublicKeyError(
+                keyId,
+                s"Public key $keyId is not an encryption public key, returned key spec: $spec",
+                retryable = false,
               )
-              .leftWiden[KmsError]
-        }
-        pubKeyRaw = ByteString.copyFrom(publicKey.key)
-        pubKey <- KmsEncryptionPublicKey
-          .create(pubKeyRaw, spec)
-          .leftMap[KmsError](err => KmsError.KmsGetPublicKeyError(keyId, err))
-          .toEitherT[FutureUnlessShutdown]
-      } yield pubKey
-    )
+            )
+            .leftWiden[KmsError]
+      }
+      pubKeyRaw = ByteString.copyFrom(publicKey.key)
+      pubKey <- KmsEncryptionPublicKey
+        .create(pubKeyRaw, spec)
+        .leftMap[KmsError](err => KmsError.KmsGetPublicKeyError(keyId, err))
+        .toEitherT[FutureUnlessShutdown]
+    } yield pubKey
 
   override protected def keyExistsAndIsActiveInternal(
       keyId: KmsKeyId
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, Unit] = synchronizeWithClosing(functionFullName)(
+  ): EitherT[FutureUnlessShutdown, KmsError, Unit] =
     monitor("check key exists and active", KmsError.KmsKeyDisabledError(keyId, _, _)) {
       driver.keyExistsAndIsActive(keyId.unwrap)
     }
-  )
 
   override protected def encryptSymmetricInternal(keyId: KmsKeyId, data: ByteString4096)(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, ByteString6144] =
-    synchronizeWithClosing(functionFullName)(
-      for {
-        encrypted <- monitor("encrypt-symmetric", KmsError.KmsEncryptError(keyId, _, _)) {
-          driver.encryptSymmetric(data.unwrap.toByteArray, keyId.unwrap)
-        }
-        result <- ByteString6144
-          .create(ByteString.copyFrom(encrypted))
-          .leftMap[KmsError](err => KmsError.KmsEncryptError(keyId, err, retryable = false))
-          .toEitherT[FutureUnlessShutdown]
-      } yield result
-    )
+    for {
+      encrypted <- monitor("encrypt-symmetric", KmsError.KmsEncryptError(keyId, _, _)) {
+        driver.encryptSymmetric(data.unwrap.toByteArray, keyId.unwrap)
+      }
+      result <- ByteString6144
+        .create(ByteString.copyFrom(encrypted))
+        .leftMap[KmsError](err => KmsError.KmsEncryptError(keyId, err, retryable = false))
+        .toEitherT[FutureUnlessShutdown]
+    } yield result
 
   override protected def decryptSymmetricInternal(keyId: KmsKeyId, data: ByteString6144)(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, ByteString4096] =
-    synchronizeWithClosing(functionFullName)(
-      for {
-        decrypted <- monitor("decrypt-symmetric", KmsError.KmsDecryptError(keyId, _, _)) {
-          driver.decryptSymmetric(data.unwrap.toByteArray, keyId.unwrap)
-        }
-        result <- ByteString4096
-          .create(ByteString.copyFrom(decrypted))
-          .leftMap[KmsError](err => KmsError.KmsDecryptError(keyId, err, retryable = false))
-          .toEitherT[FutureUnlessShutdown]
-      } yield result
-    )
+    for {
+      decrypted <- monitor("decrypt-symmetric", KmsError.KmsDecryptError(keyId, _, _)) {
+        driver.decryptSymmetric(data.unwrap.toByteArray, keyId.unwrap)
+      }
+      result <- ByteString4096
+        .create(ByteString.copyFrom(decrypted))
+        .leftMap[KmsError](err => KmsError.KmsDecryptError(keyId, err, retryable = false))
+        .toEitherT[FutureUnlessShutdown]
+    } yield result
 
   override protected def decryptAsymmetricInternal(
       keyId: KmsKeyId,
@@ -288,21 +280,19 @@ class DriverKms(
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, ByteString190] =
-    synchronizeWithClosing(functionFullName)(
-      for {
-        decrypted <- monitor("decrypt-asymmetric", KmsError.KmsDecryptError(keyId, _, _)) {
-          driver.decryptAsymmetric(
-            data.unwrap.toByteArray,
-            keyId.unwrap,
-            KmsDriverSpecsConverter.convertToDriverEncryptionAlgoSpec(encryptionAlgorithmSpec),
-          )
-        }
-        result <- ByteString190
-          .create(ByteString.copyFrom(decrypted))
-          .leftMap[KmsError](err => KmsError.KmsDecryptError(keyId, err, retryable = false))
-          .toEitherT[FutureUnlessShutdown]
-      } yield result
-    )
+    for {
+      decrypted <- monitor("decrypt-asymmetric", KmsError.KmsDecryptError(keyId, _, _)) {
+        driver.decryptAsymmetric(
+          data.unwrap.toByteArray,
+          keyId.unwrap,
+          KmsDriverSpecsConverter.convertToDriverEncryptionAlgoSpec(encryptionAlgorithmSpec),
+        )
+      }
+      result <- ByteString190
+        .create(ByteString.copyFrom(decrypted))
+        .leftMap[KmsError](err => KmsError.KmsDecryptError(keyId, err, retryable = false))
+        .toEitherT[FutureUnlessShutdown]
+    } yield result
 
   override protected def signInternal(
       keyId: KmsKeyId,
@@ -312,7 +302,7 @@ class DriverKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, ByteString] = synchronizeWithClosing(functionFullName)(
+  ): EitherT[FutureUnlessShutdown, KmsError, ByteString] =
     for {
       signature <- monitor("sign", KmsError.KmsSignError(keyId, _, _)) {
         driver.sign(
@@ -322,18 +312,16 @@ class DriverKms(
         )
       }
     } yield ByteString.copyFrom(signature)
-  )
 
   override protected def deleteKeyInternal(
       keyId: KmsKeyId
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, Unit] = synchronizeWithClosing(functionFullName)(
+  ): EitherT[FutureUnlessShutdown, KmsError, Unit] =
     monitor("delete-key", KmsError.KmsDeleteKeyError(keyId, _, _)) {
       driver.deleteKey(keyId.unwrap)
     }
-  )
 
   override def onClosed(): Unit = {
     val driverEc = ExecutorServiceExtensions(driverExecutionContext)(logger, timeouts)

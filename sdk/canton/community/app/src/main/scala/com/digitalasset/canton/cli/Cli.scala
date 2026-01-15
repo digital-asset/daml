@@ -51,7 +51,7 @@ final case class Cli(
     logFileName: Option[String] = None,
     kmsLogFileName: Option[String] = None,
     logEncoder: LogEncoder = LogEncoder.Plain,
-    logLastErrors: Boolean = true,
+    logLastErrors: Boolean = false,
     logLastErrorsFileName: Option[String] = None,
     logAccess: Boolean = false,
     logAccessFileName: Option[String] = None,

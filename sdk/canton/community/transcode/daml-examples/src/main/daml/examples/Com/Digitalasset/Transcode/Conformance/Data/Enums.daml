@@ -1,0 +1,9 @@
+
+module Com.Digitalasset.Transcode.Conformance.Data.Enums where
+
+
+data Foo = Bar | Baz | Qux
+  deriving (Eq, Show, Ord)
+
+data This = This | That
+  deriving (Eq, Show, Ord)

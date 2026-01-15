@@ -1,0 +1,11 @@
+
+module Com.Digitalasset.Transcode.Conformance.Data.Recursive where
+
+
+data Recurs  = Recurs with self: Optional (Recurs )
+  deriving (Eq, Show, Ord)
+
+data ConsList a
+    = Nil
+    | Cons with head: a, tail: ConsList (a)
+  deriving (Eq, Show, Ord)

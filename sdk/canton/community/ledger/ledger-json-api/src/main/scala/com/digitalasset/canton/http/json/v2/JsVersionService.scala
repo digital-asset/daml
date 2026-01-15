@@ -12,6 +12,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.client.services.version.VersionClient
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.audit.ApiRequestLogger
+import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
 import sttp.tapir.AnyEndpoint
 import sttp.tapir.generic.auto.*
@@ -19,6 +20,7 @@ import sttp.tapir.json.circe.jsonBody
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class JsVersionService(
     versionClient: VersionClient,
     override protected val requestLogger: ApiRequestLogger,
@@ -34,16 +36,20 @@ class JsVersionService(
       getVersion,
     )
   )
+
   private def getVersion(
       caller: CallerContext
   ): TracedInput[Unit] => Future[
     Either[JsCantonError, version_service.GetLedgerApiVersionResponse]
-  ] =
+  ] = {
+    implicit val tc: TraceContext = caller.traceContext()
+
     _ =>
       versionClient
-        .serviceStub(caller.token())(caller.traceContext())
+        .serviceStub(caller.token())
         .getLedgerApiVersion(version_service.GetLedgerApiVersionRequest())
         .resultToRight
+  }
 }
 
 object JsVersionService extends DocumentationEndpoints {

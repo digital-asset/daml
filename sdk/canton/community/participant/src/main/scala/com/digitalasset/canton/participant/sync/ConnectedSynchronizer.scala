@@ -555,7 +555,7 @@ class ConnectedSynchronizer(
 
             _ <- NonEmpty.from(acsChangesToConsume) match {
               case Some(nonEmptyBatch) => // publish ACS changes
-                EitherT.rightT[FutureUnlessShutdown, ConnectedSynchronizerInitializationError](
+                EitherT.liftF[FutureUnlessShutdown, ConnectedSynchronizerInitializationError, Unit](
                   acsCommitmentProcessor.publish(nonEmptyBatch)
                 )
               case None => EitherTUtil.unitUS[ConnectedSynchronizerInitializationError]
