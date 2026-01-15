@@ -16,21 +16,22 @@ Validity
 ********
 
 At the core is the concept of a *valid ledger*: a change is permissible if adding the corresponding commit to the ledger results in a valid ledger.
-**Valid ledgers** are those that fulfill three conditions:
+**Valid ledgers** are those that fulfill three conditions, which are introduced formally below:
 
 * :ref:`Consistency <da-model-consistency>`:
-  Exercises and fetches on inactive contracts are not allowed, i.e. contracts that have not yet been created or have already been consumed by an exercise.
+  A consistent Ledger does not allow exercises and fetches on inactive contracts, i.e. contracts that have not yet been created or have already been consumed by an exercise.
 
 * :ref:`Conformance <da-model-conformance>`:
-  Only a restricted set of actions is allowed on a given contract.
-  This restriction is encoded via the Daml templates that implement the smart contract logic.
+  A conformant Ledger contains only actions that are allowed by the smart contract logic of the created or used contract.
+  In Daml, templates define this smart contract logic.
 
 * :ref:`Authorization <da-model-authorization>`:
-  The parties who may request a particular change are restricted.
+  In a well-authorized Ledger, the requesters of a change encompass the required authorizers as defined via the controllers and signatories.
 
-Later sections add further validity conditions as they increase the expressivity of the ledger model.
-Intuitively, the :ref:`running example of the DvP workflow <da-dvp-ledger>` should be and actually is valid.
-It is instructive to look at examples that violate some validity condition though,
+Later sections add further validity conditions as they increase the expressivity of the Ledger Model.
+
+For example, the :ref:`running example of the DvP workflow <da-dvp-ledger>` is an instance of a desirable workflow and should therefore be a valid Ledger (and it is).
+However, it is instructive to look at examples that violate some validity condition,
 even before they are defined precisely.
 
 .. _da-model-consistency-violation:
@@ -39,7 +40,7 @@ Consistency violation example
 =============================
 In this example, Alice tries to transfer her asset twice ("double spend"), once to Bob and once to Charlie,
 as shown in the following Daml script excerpt.
-This script is expected to fail at runtime.
+This script is expected to fail at runtime, because it violates consistency.
 
 .. literalinclude:: ./daml/SimpleAsset.daml
    :language: daml
@@ -59,9 +60,9 @@ one in ``TX 1`` and one in ``TX 2``.
 Conformance violation example
 =============================
          
-In the second example, the last transaction ``TX 4`` omits one leg of the DvP workflow:
+In the example below, the last transaction ``TX 4`` omits one leg of the :ref:`DvP workflow <ledger-structure_running_example>`:
 Bob exercises the ``Settle`` choice, but it has only one subaction, namely Alice transferring her IOU.
-This violates conformance because the implementation of the ``Settle`` choice on a ``SimpleAsset`` mandates that there are two consequences.
+This violates conformance because the ``Settle`` :ref:`choice body <da-ledgers-running-example>` of a ``SimpleDvP`` specifies via the two ``exercise`` calls that there are always two consequences.
 (This situation cannot be expressed as a Daml script scenario
 because Daml script ensures that all generated transactions conform to the Daml code.)
 
@@ -76,7 +77,7 @@ because Daml script ensures that all generated transactions conform to the Daml 
 Authorization violation examples
 ================================
          
-The next three examples show different kinds of authorization violations.
+Next, we give three examples that show different kinds of authorization violations.
 First, Alice attempts to steal Bob's asset by requesting a transfer in his name.
 This results in an authorization failure because for ``TX 1`` the actor of the exercise root action differs from the requester.
 
@@ -110,7 +111,7 @@ because Alice is a signatory of the contract #3 created in the first root action
    :width: 100%
    :alt: A ledger with an authorization violation on the creation of the DvP contract
 
-The third example shows that authorization failures may not only happen at root actions.
+The final example shows that authorization failures may not only happen at root actions.
 Here, Alice allocates Carol's CHF asset in the DvP proposal.
 When Bob tries to settle the DvP, the Exercise to transfer Carol's asset in the first leg is not properly authorized
 because Carol did not agree to have her asset transferred away.
@@ -131,7 +132,21 @@ The transaction structure provides no evidence that the actor Carol has agreed t
    :width: 100%
    :alt: A ledger with an authorization failure where Alice allocates Carol's asset to her DvP with Bob
 
+Interaction with projection
+===========================
 
+Apart from introducing the validity notion, this page also discusses how validity interacts with privacy, which is defined via :ref:`projection <da-model-projections>`.
+To that end, the sections on the different validity conditions analyse the prerequisites under what the following two properties hold:
+
+* **Preservation**: If the Ledger adheres to a condition, then so do the projections.
+  This property ensures that a valid Ledger does not appear as invalid to individual parties,
+  just because they are not privy to all actions on the Ledger.
+
+* **Reflection**: If the projections adhere to a condition, then so does the Ledger from which these projections were obtained.
+  This property ensures that the condition can be implemented by the distributed Canton protocol
+  where nobody sees the Ledger as a whole.
+
+         
 .. _da-model-consistency:
 
 Consistency
@@ -156,7 +171,7 @@ and contract #4 is created and consumed in the same action.
 .. admonition:: Definiton: execution order
 
    For two distinct nodes `n`:sub:`1` and `n`:sub:`2` within the same action or transaction, `n`:sub:`1` **executes before** `n`:sub:`2`
-   if `n`:sub:`1` appears before `n`:sub:`2` in the preorder traversal of the (trans)action, noting that the transaction is an ordered forest.
+   if `n`:sub:`1` appears before `n`:sub:`2` in the `preorder traversal <https://en.wikipedia.org/wiki/Tree_traversal#Pre-order,_NLR>`_ of the (trans)action, noting that the transaction is an ordered forest.
    For a ledger, every node in commit `c`:sub:`1` **executes before** every node in commit `c`:sub:`2`
    if the commit `c`:sub:`1` happens before `c`:sub:`2`.
 
@@ -187,6 +202,9 @@ Internal consistency
 
 Internal consistency ensures that if several nodes act on a contract within an action, transaction, or ledger,
 then those nodes execute in an appropriate order.
+Internal consistency does not require Create nodes for all contracts that are used.
+This way, internal consistency is meaningful for pieces of a ledger such as individual transactions or actions,
+which may use contracts created earlier as inputs.
 
 .. _def-contract-consistency:
 
@@ -242,16 +260,13 @@ but violated for `n`:sub:`1` = ④ and `n`:sub:`2` = ② as ④ does not execute
    So by the definition of the execution order, ``TX 0``, ``TX 1``, and ``TX 2`` all must happen before ``TX 3``
    (although internal consistency does not impose any particular order among ``TX 0``, ``TX 1``, and ``TX 2``).
 
-Internal consistency does not require Create nodes for all contracts that are used.
-This way, internal consistency is meaningful for pieces of a ledger such as individual transactions or actions,
-which may use contracts created earlier as inputs.
 
 .. _da-model-contract-consistency:
 
 Contract consistency
 ====================
 
-Contract consistency strengthens internal consistency in that used contracts actually have been created within the action, transaction, or ledger.
+Contract consistency, or just consistency, strengthens internal consistency in that used contracts actually have been created within the action, transaction, or ledger.
 
 .. admonition:: Definition: contract consistency
 
@@ -264,12 +279,18 @@ Contract consistency strengthens internal consistency in that used contracts act
    It is **consistent for a set of contracts** if it is consistent for all contracts in the set.
    It is **consistent** if it is consistent for all contracts.
 
-For example, the above DvP ledger is consistent because it is internally consistent and all used contracts are created.
+For example, the above :ref:`DvP ledger <da-dvp-ledger>` is consistent because it is internally consistent and all used contracts are created.
+In contrast, if the DvP ledger omitted the first commit ``TX 0`` and thus contains only commits ``TX 1`` to ``TX 3``, it is still internally consistent, but not consistent,
+because ``TX 3`` uses the contract #1, but there is no create node for #1 in ``TX 1`` to ``TX 3``.
+
+
+.. _da-model-consistency-projection:
 
 Interaction with projection
 ===========================
 
-:ref:`Projections <da-model-projections>` retain the execution order and preserve (internal) consistency only to some extent.
+This section looks at the conditions under which projections preserve and reflect (internal) consistency.
+For preservation, projections retain the execution order and preserve (internal) consistency only to some extent.
 For example, Alice's :ref:`projection of the DvP workflow <da-dvp-ledger-projections>` is not consistent
 because it lacks ``TX 1`` and therefore the creation of contract #2 used in ``TX 3``.
 
@@ -290,13 +311,13 @@ For ledgers, the same argument applies with the current simplification of totall
 The :ref:`causality section <local-ledger>` relaxes the ordering requirement, but makes sure
 that projections continue to preserve (internal) consistency for the parties' contracts.
 
-From Canton's perspective, the dual property is at least as important:
+From Canton's perspective, the reflection property is at least as important:
 If the projection of a (trans)action or ledger to a set of parties `P` is (internally) consistent for a set of contracts `C`
 where each contract has at least one signatory in `P`,
 then so is the (trans)action or ledger itself.
 This statement can be shown with a similar argument.
 
-Importantly, this dual property requires a *signatory* of the contracts in `P`, not just a stakeholder.
+Importantly, reflection requires a *signatory* of the contracts in `P`, not just a stakeholder.
 The following example shows that the propery does not hold if `P` contains a stakeholder, but no signatory.
 To that end, we extend the ``SimpleAsset`` template with a non-consuming ``Present`` choice
 so that the issuer and owner can show the asset to a choice observer ``viewer``:
@@ -336,7 +357,7 @@ Conformance
 ***********
 
 The *conformance* condition constrains the actions that may occur on the ledger.
-Formally, a **contract model** (or a **model** for short) specifies the set of all possible actions.
+The definitions in this section assume a given **contract model** (or a **model** for short) that specifies the set of all possible actions.
 In practice, Daml templates define such a model as follows:
 
 * Choices declare the controller and the choice observers and constrain via their body the valid values in the exercised contract and choice arguments.
@@ -417,16 +438,20 @@ and this is what makes conformance behave well under projections.
 
 
 Conformance of an action or transaction depends only on the Daml model of interest,
-which is unabiguously referenced via the package IDs.
-Therefore, witnesses, informees and third parties can independently check conformance of an action.
+which is unambiguously referenced via the package IDs.
+Therefore, witnesses, informees, and third parties can independently check conformance of an action.
 So conformance is common knowledge.
+This makes the reflection property irrelevant for a distributed implementation,
+as non-conformant actions simply can not occur on the Ledger by construction.
+
 
 .. _da-model-authorization:
 
 Authorization
 *************
 
-The last validity condition rules out the :ref:`authorization violation examples <da-model-authorization-violation>`.
+The last validity condition ensures that only the indended parties can request a change,
+and thereby rules out the :ref:`authorization violation examples <da-model-authorization-violation>`.
 Authorization requirements are expressed in Daml using the signatories and observers of a contract and the controllers of choices.
 
 .. _da-ledgers-required-authorizers:
@@ -635,8 +660,13 @@ and projections do not retain the context for root actions of the projection.
 In contrast, internal well-authorization is a property of an action in isolation, independent of a context.
 For example, the actions rooted at ⑧ and ④ are not internally well-authorized because they contain the action at ⑨ as a sub-action
 and they define the authorization context for ⑨.
-Accordingly, internal well-authorization interacts with projection similar to conformance.
-That is, internal well-authorization is common knowledge, but not well-authorization.
+Accordingly, internal well-authorization is common knowledge and therefore interacts with projection similar to conformance:
+projections preserve internal well-authorization; and reflection of internal well-authorization is irrelevant
+because only internally well-authorized actions can be part of the Ledger by construction.
+
+In contrast, well-authorization is not common knowledge and does not behave well under projections.
+The :ref:`validity definition <da-model-valid-ledger>` below therefore deals explicitly with it.
+
 
 Authorization vs. conformance
 =============================
@@ -650,6 +680,7 @@ because the ``Transfer`` choice defines the ``controller`` to be the ``owner`` o
 This conformance failure does show up in Bank 1's projection, unlike corresponding the well-authorization failure from the previous section.
 
 
+.. _da-model-valid-ledger:
 
 Valid Ledgers
 *************
@@ -690,11 +721,30 @@ then this is their decision.
 Since each spend may be witnessed by a different honest party,
 the VGL contains both spends and is therefore inconsistent for this contract.
 
+Interaction with projection
+===========================
+
+Preservation and reflection for validity is difficult to formalize because projections discard the requesters of a commit.
+Therefore, we analyze these two properties for a weak validity notion, namely validity without the constraint on the requesters of the commit.
+Then, projection preserves weak validity in the following sense:
+If a Ledger is weakly valid for a set of parties `P`, then its projection to a set of parties `Q` is weakly valid for the parties in both `P` and `Q`.
+The restriction of the parties to the intersection of `P` and `Q` takes care of the problem of the projected-away contract creations discussed in the :ref:`consistency section <da-model-consistency-projection>`.
+
+Reflection does not hold for weak validity in general when we look only at projections to sets of honest parties.
+For example, consider a Ledger with a root action that no honest party is allowed to see.
+So none of the projections contains this root action and therefore the projections cannot talk about its conformance or internal well-authorization.
+Fortunately, this is not necessary either, because we care only about the pieces of the Ledger that are visible to some honest party.
+
+More formally, two Ledgers are said to be **equivalent** for a set of parties `Q` if the projections of the two Ledgers to `Q` are the same.
+Then reflection holds in the sense that there is an equivalent weakly valid Ledger.
+Let `F` be a set of sets of parties whose union contains the set of parties `Q`.
+If for every set `P` in `F`, the projection of a Ledger `L` to `P` is weakly valid for `P` insterected with `Q`,
+then the projection of `L` to `Q` is weakly valid.
+Note that this projection of `L` to `Q` is equivalent to `L` for `Q` due to the :ref:`absorbtion property of projection <da-model-transaction-projection>`.
 
 
-   
 ..
-  Parking lot
+  parking lot
 
   Input and output contracts
   ==========================

@@ -389,7 +389,7 @@ This workflow gives rise to the ledger shown below with four commits:
   
 * In the second commit, Bank 2 requests the creation of the ``SimpleAsset`` of ``1 USD`` issued to Bob (contract #2).
 
-* In the thrid commit, Alice requests the creation of the ``SimpleDvpPoposal`` (contract #3).
+* In the third commit, Alice requests the creation of the ``SimpleDvpPoposal`` (contract #3).
 
 * In the forth commit, Bob requests to exercise the ``AcceptAndSettle`` choice on the DvP proposal.
 
