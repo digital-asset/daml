@@ -1,0 +1,14 @@
+-- Copyright (c) 2023, Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Other.ChoiceAsDatatype where
+
+template TheTemplate
+  with
+    party: Party
+    choice: TheChoice
+  where
+    signatory party
+    choice TheChoice : [()]
+      controller party
+      do return []

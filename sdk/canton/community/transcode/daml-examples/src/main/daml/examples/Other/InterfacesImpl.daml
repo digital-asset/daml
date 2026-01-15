@@ -1,0 +1,17 @@
+-- Copyright (c) 2023, Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Other.InterfacesImpl where
+
+import Other.Interfaces
+import Other.Foo
+
+template InterfaceTypes
+  with
+    party: Party
+    cid1: ContractId MyInterface
+    cid2: AnyContractId
+  where
+    signatory party
+    interface instance MyInterface for InterfaceTypes where
+      view = ViewType "foobar"

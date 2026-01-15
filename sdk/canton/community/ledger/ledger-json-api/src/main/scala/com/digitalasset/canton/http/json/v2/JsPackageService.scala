@@ -48,6 +48,7 @@ import scala.jdk.CollectionConverters.IteratorHasAsScala
 
 import JsPackageCodecs.*
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class JsPackageService(
     packageClient: PackageClient,
     packageManagementClient: PackageManagementClient,

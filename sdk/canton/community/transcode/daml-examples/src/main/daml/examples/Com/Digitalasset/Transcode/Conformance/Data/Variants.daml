@@ -1,0 +1,20 @@
+
+module Com.Digitalasset.Transcode.Conformance.Data.Variants where
+
+
+data Record  = Record with int: Int, text: Text
+  deriving (Eq, Show, Ord)
+
+data VariantWithParam a b
+    = NoCase
+    | ACase a
+    | BCase b
+    | TupleCase with aField: a, bField: b
+  deriving (Eq, Show, Ord)
+
+data Foo 
+    = Foo Record 
+    | Bar with int: Int, text: Text
+    | Baz Int
+    | Qux
+  deriving (Eq, Show, Ord)

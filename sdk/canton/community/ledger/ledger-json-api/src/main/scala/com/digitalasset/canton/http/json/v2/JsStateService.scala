@@ -25,6 +25,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
 import io.circe.generic.extras.semiauto.deriveConfiguredCodec
+import io.grpc.stub.StreamObserver
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Flow
@@ -35,6 +36,7 @@ import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, query, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class JsStateService(
     ledgerClient: LedgerClient,
     protocolConverters: ProtocolConverters,
@@ -80,35 +82,47 @@ class JsStateService(
       callerContext: CallerContext
   ): TracedInput[(Option[String], Option[String], Option[String])] => Future[
     Either[JsCantonError, state_service.GetConnectedSynchronizersResponse]
-  ] = req =>
-    stateServiceClient(callerContext.token())(callerContext.traceContext())
-      .getConnectedSynchronizers(
-        state_service
-          .GetConnectedSynchronizersRequest(
-            party = req.in._1.getOrElse(""),
-            participantId = req.in._2.getOrElse(""),
-            identityProviderId = req.in._3.getOrElse(""),
-          )
-      )
-      .resultToRight
+  ] = {
+    implicit val traceContext: TraceContext = callerContext.traceContext()
+
+    req =>
+      stateServiceClient(callerContext.token())
+        .getConnectedSynchronizers(
+          state_service
+            .GetConnectedSynchronizersRequest(
+              party = req.in._1.getOrElse(""),
+              participantId = req.in._2.getOrElse(""),
+              identityProviderId = req.in._3.getOrElse(""),
+            )
+        )
+        .resultToRight
+  }
 
   private def getLedgerEnd(
       callerContext: CallerContext
   ): TracedInput[Unit] => Future[
     Either[JsCantonError, state_service.GetLedgerEndResponse]
-  ] = _ =>
-    stateServiceClient(callerContext.token())(callerContext.traceContext())
-      .getLedgerEnd(state_service.GetLedgerEndRequest())
-      .resultToRight
+  ] = {
+    implicit val traceContext: TraceContext = callerContext.traceContext()
+
+    _ =>
+      stateServiceClient(callerContext.token())
+        .getLedgerEnd(state_service.GetLedgerEndRequest())
+        .resultToRight
+  }
 
   private def getLatestPrunedOffsets(
       callerContext: CallerContext
   ): TracedInput[Unit] => Future[
     Either[JsCantonError, state_service.GetLatestPrunedOffsetsResponse]
-  ] = _ =>
-    stateServiceClient(callerContext.token())(callerContext.traceContext())
-      .getLatestPrunedOffsets(state_service.GetLatestPrunedOffsetsRequest())
-      .resultToRight
+  ] = {
+    implicit val traceContext: TraceContext = callerContext.traceContext()
+
+    _ =>
+      stateServiceClient(callerContext.token())
+        .getLatestPrunedOffsets(state_service.GetLatestPrunedOffsetsRequest())
+        .resultToRight
+  }
 
   private def getActiveContractsStream(
       caller: CallerContext
@@ -118,12 +132,15 @@ class JsStateService(
     NotUsed,
   ] =
     _ => {
-      implicit val tc = caller.traceContext()
+      implicit val tc: TraceContext = caller.traceContext()
       Flow[LegacyDTOs.GetActiveContractsRequest].map {
         toGetActiveContractsRequest
       } via
         prepareSingleWsStream(
-          stateServiceClient(caller.token())(TraceContext.empty).getActiveContracts,
+          (
+              req: state_service.GetActiveContractsRequest,
+              obs: StreamObserver[state_service.GetActiveContractsResponse],
+          ) => stateServiceClient(caller.token()).getActiveContracts(req, obs),
           (r: state_service.GetActiveContractsResponse) =>
             protocolConverters.GetActiveContractsResponse.toJson(r),
         )

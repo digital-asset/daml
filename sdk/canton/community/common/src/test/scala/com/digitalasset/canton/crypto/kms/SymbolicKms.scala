@@ -6,7 +6,6 @@ package com.digitalasset.canton.crypto.kms
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
-import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.{KmsConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
@@ -79,7 +78,7 @@ class SymbolicKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] = synchronizeWithClosing(functionFullName)(
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] =
     for {
       keys <- crypto.privateCrypto match {
         case api: CryptoPrivateStoreApi =>
@@ -120,14 +119,13 @@ class SymbolicKms(
             ),
         )
     } yield kmsKeyId
-  )
 
   override protected def generateSymmetricEncryptionKeyInternal(
       name: Option[KeyName]
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] = synchronizeWithClosing(functionFullName)(
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] =
     (for {
       key <- crypto.pureCrypto
         .generateSymmetricKey()
@@ -149,7 +147,6 @@ class SymbolicKms(
             ),
         )
     } yield kmsKeyId).toEitherT
-  )
 
   override protected def generateAsymmetricEncryptionKeyPairInternal(
       encryptionKeySpec: EncryptionKeySpec,
@@ -157,7 +154,7 @@ class SymbolicKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] = synchronizeWithClosing(functionFullName)(
+  ): EitherT[FutureUnlessShutdown, KmsError, KmsKeyId] =
     for {
       keys <- crypto.privateCrypto match {
         case api: CryptoPrivateStoreApi =>
@@ -200,7 +197,6 @@ class SymbolicKms(
             ),
         )
     } yield kmsKeyId
-  )
 
   override protected def getPublicSigningKeyInternal(
       keyId: KmsKeyId
@@ -208,20 +204,18 @@ class SymbolicKms(
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, KmsSigningPublicKey] =
-    synchronizeWithClosing(functionFullName)(
-      for {
-        pubKey <- storedPublicSigningKeyMap
-          .get(keyId)
-          .toRight[KmsError](
-            KmsError.KmsGetPublicKeyError(keyId, "public signing key does not exist")
-          )
-          .toEitherT[FutureUnlessShutdown]
-        kmsPubKey <- EitherT.rightT[FutureUnlessShutdown, KmsError](
-          KmsSigningPublicKey
-            .createSymbolic(pubKey.key, pubKey.keySpec)
+    for {
+      pubKey <- storedPublicSigningKeyMap
+        .get(keyId)
+        .toRight[KmsError](
+          KmsError.KmsGetPublicKeyError(keyId, "public signing key does not exist")
         )
-      } yield kmsPubKey
-    )
+        .toEitherT[FutureUnlessShutdown]
+      kmsPubKey <- EitherT.rightT[FutureUnlessShutdown, KmsError](
+        KmsSigningPublicKey
+          .createSymbolic(pubKey.key, pubKey.keySpec)
+      )
+    } yield kmsPubKey
 
   override protected def getPublicEncryptionKeyInternal(
       keyId: KmsKeyId
@@ -229,32 +223,29 @@ class SymbolicKms(
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, KmsEncryptionPublicKey] =
-    synchronizeWithClosing(functionFullName)(
-      for {
-        pubKey <- storedPublicEncryptionKeyMap
-          .get(keyId)
-          .toRight[KmsError](
-            KmsError.KmsGetPublicKeyError(keyId, "public encryption key does not exist")
-          )
-          .toEitherT[FutureUnlessShutdown]
-        kmsPubKey <- EitherT.rightT[FutureUnlessShutdown, KmsError](
-          KmsEncryptionPublicKey
-            .createSymbolic(pubKey.key, pubKey.keySpec)
+    for {
+      pubKey <- storedPublicEncryptionKeyMap
+        .get(keyId)
+        .toRight[KmsError](
+          KmsError.KmsGetPublicKeyError(keyId, "public encryption key does not exist")
         )
-      } yield kmsPubKey
-    )
+        .toEitherT[FutureUnlessShutdown]
+      kmsPubKey <- EitherT.rightT[FutureUnlessShutdown, KmsError](
+        KmsEncryptionPublicKey
+          .createSymbolic(pubKey.key, pubKey.keySpec)
+      )
+    } yield kmsPubKey
 
   override protected def keyExistsAndIsActiveInternal(
       keyId: KmsKeyId
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, Unit] = synchronizeWithClosing(functionFullName)(
+  ): EitherT[FutureUnlessShutdown, KmsError, Unit] =
     EitherTUtil.condUnitET[FutureUnlessShutdown](
       storedPrivateKeyMap.contains(keyId),
       KmsError.KmsCannotFindKeyError(keyId, "cannot find key in KMS store"),
     )
-  )
 
   override protected def encryptSymmetricInternal(
       keyId: KmsKeyId,
@@ -263,32 +254,30 @@ class SymbolicKms(
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, ByteString6144] =
-    synchronizeWithClosing(functionFullName)(
-      storedPrivateKeyMap
-        .get(keyId) match {
-        case Some(key: SymmetricKey) =>
-          crypto.pureCrypto
-            .encryptSymmetricWith(SymbolicKmsMessage(data.unwrap), key)
-            .toEitherT[FutureUnlessShutdown]
-            .transform {
-              case Left(err) => Left(KmsError.KmsEncryptError(keyId, err.show))
-              case Right(enc) =>
-                ByteString6144
-                  .create(enc.ciphertext)
-                  .leftMap(err =>
-                    KmsError
-                      .KmsEncryptError(
-                        keyId,
-                        s"generated ciphertext does not adhere to bound: $err)",
-                      )
-                  )
-            }
-        case None =>
-          EitherT.leftT(KmsError.KmsEncryptError(keyId, "KMS key does not exists"))
-        case _ =>
-          EitherT.leftT(KmsError.KmsEncryptError(keyId, "KMS key is not a symmetric key"))
-      }
-    )
+    storedPrivateKeyMap
+      .get(keyId) match {
+      case Some(key: SymmetricKey) =>
+        crypto.pureCrypto
+          .encryptSymmetricWith(SymbolicKmsMessage(data.unwrap), key)
+          .toEitherT[FutureUnlessShutdown]
+          .transform {
+            case Left(err) => Left(KmsError.KmsEncryptError(keyId, err.show))
+            case Right(enc) =>
+              ByteString6144
+                .create(enc.ciphertext)
+                .leftMap(err =>
+                  KmsError
+                    .KmsEncryptError(
+                      keyId,
+                      s"generated ciphertext does not adhere to bound: $err)",
+                    )
+                )
+          }
+      case None =>
+        EitherT.leftT(KmsError.KmsEncryptError(keyId, "KMS key does not exists"))
+      case _ =>
+        EitherT.leftT(KmsError.KmsEncryptError(keyId, "KMS key is not a symmetric key"))
+    }
 
   override protected def decryptSymmetricInternal(
       keyId: KmsKeyId,
@@ -297,36 +286,34 @@ class SymbolicKms(
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, ByteString4096] =
-    synchronizeWithClosing(functionFullName)(
-      storedPrivateKeyMap
-        .get(keyId) match {
-        case Some(key: SymmetricKey) =>
-          val encryptedData = Encrypted.fromByteString[SymbolicKmsMessage](data.unwrap)
-          for {
-            decryptedData <- crypto.pureCrypto
-              .decryptWith[SymbolicKmsMessage](encryptedData, key)(
-                SymbolicKmsMessage.fromByteString(_)
-              )
-              .toEitherT[FutureUnlessShutdown]
-              .transform {
-                case Left(err) => Left(KmsError.KmsDecryptError(keyId, err.show))
-                case Right(dec) =>
-                  ByteString4096
-                    .create(dec.bytes)
-                    .leftMap[KmsError](err =>
-                      KmsError.KmsDecryptError(
-                        keyId,
-                        s"plaintext does not adhere to bound: $err)",
-                      )
+    storedPrivateKeyMap
+      .get(keyId) match {
+      case Some(key: SymmetricKey) =>
+        val encryptedData = Encrypted.fromByteString[SymbolicKmsMessage](data.unwrap)
+        for {
+          decryptedData <- crypto.pureCrypto
+            .decryptWith[SymbolicKmsMessage](encryptedData, key)(
+              SymbolicKmsMessage.fromByteString(_)
+            )
+            .toEitherT[FutureUnlessShutdown]
+            .transform {
+              case Left(err) => Left(KmsError.KmsDecryptError(keyId, err.show))
+              case Right(dec) =>
+                ByteString4096
+                  .create(dec.bytes)
+                  .leftMap[KmsError](err =>
+                    KmsError.KmsDecryptError(
+                      keyId,
+                      s"plaintext does not adhere to bound: $err)",
                     )
-              }
-          } yield decryptedData
-        case None =>
-          EitherT.leftT(KmsError.KmsDecryptError(keyId, "KMS key does not exists"))
-        case _ =>
-          EitherT.leftT(KmsError.KmsDecryptError(keyId, "KMS key is not a symmetric key"))
-      }
-    )
+                  )
+            }
+        } yield decryptedData
+      case None =>
+        EitherT.leftT(KmsError.KmsDecryptError(keyId, "KMS key does not exists"))
+      case _ =>
+        EitherT.leftT(KmsError.KmsDecryptError(keyId, "KMS key is not a symmetric key"))
+    }
 
   override protected def decryptAsymmetricInternal(
       keyId: KmsKeyId,
@@ -336,40 +323,38 @@ class SymbolicKms(
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, KmsError, ByteString190] =
-    synchronizeWithClosing(functionFullName)(
-      storedPrivateKeyMap
-        .get(keyId) match {
-        case Some(key: EncryptionPrivateKey) =>
-          for {
-            decryptedData <- crypto.pureCrypto
-              .decryptWith[SymbolicKmsMessage](
-                AsymmetricEncrypted(data.unwrap, encryptionAlgorithmSpec, key.id),
-                key,
-              )(
-                SymbolicKmsMessage.fromByteString(_)
-              )
-              .toEitherT[FutureUnlessShutdown]
-              .transform {
-                case Left(err) => Left(KmsError.KmsDecryptError(keyId, err.show))
-                case Right(dec) =>
-                  ByteString190
-                    .create(dec.bytes)
-                    .leftMap[KmsError](err =>
-                      KmsError.KmsDecryptError(
-                        keyId,
-                        s"plaintext does not adhere to bound: $err)",
-                      )
+    storedPrivateKeyMap
+      .get(keyId) match {
+      case Some(key: EncryptionPrivateKey) =>
+        for {
+          decryptedData <- crypto.pureCrypto
+            .decryptWith[SymbolicKmsMessage](
+              AsymmetricEncrypted(data.unwrap, encryptionAlgorithmSpec, key.id),
+              key,
+            )(
+              SymbolicKmsMessage.fromByteString(_)
+            )
+            .toEitherT[FutureUnlessShutdown]
+            .transform {
+              case Left(err) => Left(KmsError.KmsDecryptError(keyId, err.show))
+              case Right(dec) =>
+                ByteString190
+                  .create(dec.bytes)
+                  .leftMap[KmsError](err =>
+                    KmsError.KmsDecryptError(
+                      keyId,
+                      s"plaintext does not adhere to bound: $err)",
                     )
-              }
-          } yield decryptedData
-        case None =>
-          EitherT.leftT(KmsError.KmsDecryptError(keyId, "KMS key does not exists"))
-        case _ =>
-          EitherT.leftT(
-            KmsError.KmsDecryptError(keyId, "KMS key is not a private encryption key")
-          )
-      }
-    )
+                  )
+            }
+        } yield decryptedData
+      case None =>
+        EitherT.leftT(KmsError.KmsDecryptError(keyId, "KMS key does not exists"))
+      case _ =>
+        EitherT.leftT(
+          KmsError.KmsDecryptError(keyId, "KMS key is not a private encryption key")
+        )
+    }
 
   override protected def signInternal(
       keyId: KmsKeyId,
@@ -379,7 +364,7 @@ class SymbolicKms(
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, ByteString] = synchronizeWithClosing(functionFullName)(
+  ): EitherT[FutureUnlessShutdown, KmsError, ByteString] =
     storedPrivateKeyMap
       .get(keyId) match {
       case Some(key: SigningPrivateKey) =>
@@ -394,12 +379,11 @@ class SymbolicKms(
       case _ =>
         EitherT.leftT(KmsError.KmsSignError(keyId, "KMS key is not a signing key"))
     }
-  )
 
   override protected def deleteKeyInternal(keyId: KmsKeyId)(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, KmsError, Unit] = synchronizeWithClosing(functionFullName) {
+  ): EitherT[FutureUnlessShutdown, KmsError, Unit] = {
     storedPublicSigningKeyMap.remove(keyId).discard
     storedPublicEncryptionKeyMap.remove(keyId).discard
     storedPrivateKeyMap.remove(keyId) match {
