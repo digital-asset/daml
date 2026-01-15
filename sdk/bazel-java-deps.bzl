@@ -39,7 +39,7 @@ version_specific = {
 
 # grpc-netty-shaded than embedded netty and netty-boringssl-tcnative (shaded)
 
-apispec_version = "0.11.7"
+apispec_version = "0.11.8"
 grpc_version = "1.77.0"
 protobuf_version = "3.25.5"
 pekko_version = "1.2.1"
