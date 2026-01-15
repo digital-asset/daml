@@ -163,8 +163,6 @@ Functions
   \: `HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
 
   Vet a set of packages on all participants\.
-  Note that the Admin API port must be provided when using this with a Canton Ledger
-  Use ``--admin-port`` with the ``daml script`` CLI tool\.
 
 .. _function-daml-script-internal-questions-packages-vetpackagesonparticipant-8324:
 
@@ -172,8 +170,6 @@ Functions
   \: `HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
 
   Vet a set of packages on a single participant\.
-  Note that the Admin API port must be provided when using this with a Canton Ledger
-  Use ``--admin-port`` with the ``daml script`` CLI tool\.
 
 .. _function-daml-script-internal-questions-packages-unvetpackages-80050:
 
@@ -181,8 +177,6 @@ Functions
   \: `HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
 
   Unvet a set of packages on all participants\.
-  Note that the Admin API port must be provided when using this with a Canton Ledger
-  Use ``--admin-port`` with the ``daml script`` CLI tool\.
 
 .. _function-daml-script-internal-questions-packages-unvetpackagesonparticipant-47459:
 
@@ -190,44 +184,20 @@ Functions
   \: `HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
 
   Unvet a set of packages on a single participant\.
-  Note that the Admin API port must be provided when using this with a Canton Ledger
-  Use ``--admin-port`` with the ``daml script`` CLI tool\.
 
 .. _function-daml-script-internal-questions-packages-listvettedpackages-3001:
 
 `listVettedPackages <function-daml-script-internal-questions-packages-listvettedpackages-3001_>`_
   \: `HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\]
 
-  Lists the vetted packages on the default participant
-  Note that the Admin API port must be provided when using this with a Canton Ledger
-  Use ``--admin-port`` with the ``daml script`` CLI tool\.
+  Lists the vetted packages on the default participant\.
 
 .. _function-daml-script-internal-questions-packages-listallpackages-50063:
 
 `listAllPackages <function-daml-script-internal-questions-packages-listallpackages-50063_>`_
   \: `HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\]
 
-  Lists all packages (vetted and unvetted) on the default participant
-  Note that the Admin API port must be provided when using this with a Canton Ledger
-  Use ``--admin-port`` with the ``daml script`` CLI tool\.
-
-.. _function-daml-script-internal-questions-partymanagement-allocatereplicatedpartyon-96671:
-
-`allocateReplicatedPartyOn <function-daml-script-internal-questions-partymanagement-allocatereplicatedpartyon-96671_>`_
-  \: `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> \[:ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>`\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` `Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
-
-  Allocate a party with the given display name on the specified main participant using the party management service
-  and replicates it to the specified (possibly empty) list of additional participants\. Commands submitted by the
-  allocated party will be routed to the main participant\.
-
-.. _function-daml-script-internal-questions-partymanagement-allocatereplicatedpartywithhinton-30144:
-
-`allocateReplicatedPartyWithHintOn <function-daml-script-internal-questions-partymanagement-allocatereplicatedpartywithhinton-30144_>`_
-  \: `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> :ref:`PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540>` \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> \[:ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>`\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` `Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
-
-  Allocate a party with the given display name and id hint on the specified main participant using the party
-  management service and replicates it to the specified (possibly empty) list of additional participants\. Commands
-  submitted by the allocated party will be routed to the main participant\.
+  Lists all packages (vetted and unvetted) on the default participant\.
 
 .. _function-daml-script-internal-questions-exceptions-throwanyexception-70957:
 
