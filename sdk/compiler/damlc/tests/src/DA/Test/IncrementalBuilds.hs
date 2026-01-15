@@ -43,7 +43,7 @@ data TestArgs = TestArgs
   }
 
 tests :: SdkVersioned => TestArgs -> TestTree
-tests TestArgs{..} = testGroup ("LF " <> LF.renderVersionWithPatch lfVersion)
+tests TestArgs{..} = testGroup ("LF " <> LF.renderVersionFromTestWithPatch lfVersion)
     [ test "No changes"
         [ ("daml/A.daml", unlines
            [ "module A where"
@@ -182,13 +182,13 @@ tests TestArgs{..} = testGroup ("LF " <> LF.renderVersionWithPatch lfVersion)
             , dir
             , "-o"
             , dar
-            , "--target=" <> LF.renderVersionWithPatch lfVersion
+            , "--target=" <> LF.renderVersionFromTestWithPatch lfVersion
             , "--incremental=yes" ]
           callProcessSilent damlc
             [ "test"
             , "--package-root"
             , dir
-            , "--target=" <> LF.renderVersionWithPatch lfVersion
+            , "--target=" <> LF.renderVersionFromTestWithPatch lfVersion
             ]
           dalfFiles <- getDalfFiles $ dir </> ".daml/build"
           dalfModTimes <- for dalfFiles $ \f -> do
@@ -203,7 +203,7 @@ tests TestArgs{..} = testGroup ("LF " <> LF.renderVersionWithPatch lfVersion)
             , dir
             , "-o"
             , dar
-            , "--target=" <> LF.renderVersionWithPatch lfVersion
+            , "--target=" <> LF.renderVersionFromTestWithPatch lfVersion
             , "--incremental=yes" ]
           rebuilds <- forMaybeM dalfModTimes $ \(f, oldModTime) -> do
               newModTime <- getModificationTime f

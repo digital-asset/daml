@@ -12,7 +12,7 @@ import qualified Data.Text as T
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Util
-import DA.Daml.LF.Ast.Version (devLfVersion, Version, renderVersionWithPatch)
+import DA.Daml.LF.Ast.Version (devLfVersion, Version, renderVersionFromTestWithPatch)
 import DA.Daml.LF.Ast.World (initWorld)
 import DA.Daml.LF.Simplifier (simplifyModule)
 
@@ -25,7 +25,7 @@ main = defaultMain $ testGroup "DA.Daml.LF.Simplifier"
 -- flags. The simplifier may thus behave differently based on the version of LF
 -- and thus we may need to test different LF versions as they diverge over time.
 constantLiftingTests :: Version -> TestTree
-constantLiftingTests version = testGroup ("Constant Lifting " <> renderVersionWithPatch version)
+constantLiftingTests version = testGroup ("Constant Lifting " <> renderVersionFromTestWithPatch version)
     [ mkTestCase "empty module" [] []
     , mkTestCase "closed value"
         [ dval "foo" TInt64 (EBuiltinFun (BEInt64 10)) ]

@@ -94,7 +94,7 @@ import System.IO.Extra
 dependenciesDir :: Options -> NormalizedFilePath -> FilePath
 dependenciesDir opts packageRoot =
     fromNormalizedFilePath packageRoot </> packageDependenciesDatabasePath </>
-    lfVersionString (optDamlLfVersion opts)
+    LF.renderVersionWithPatch (optDamlLfVersion opts)
 
 packageDbLockPath :: NormalizedFilePath -> FilePath
 packageDbLockPath packageRoot = fromNormalizedFilePath packageRoot </> damlArtifactDir </> "setup-package-db.lock"
@@ -506,9 +506,6 @@ queryPkgIds markersM dir = do
 
 -- Utilities
 ------------
-lfVersionString :: LF.Version -> String
-lfVersionString = DA.Pretty.renderPretty
-
 write :: FilePath -> BSL.ByteString -> IO ()
 write fp bs = createDirectoryIfMissing True (takeDirectory fp) >> BSL.writeFile fp bs
 

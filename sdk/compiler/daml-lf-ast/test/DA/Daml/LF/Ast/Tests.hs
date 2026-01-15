@@ -296,7 +296,7 @@ substitutionTests = testGroup "substitution"
 typeSynTests :: TestTree
 typeSynTests =
   testGroup "type synonyms" $
-  [ testGroup (renderTodoVersion version)
+  [ testGroup (renderVersionFromTestWithPatch version)
     [ testGroup "happy" (map (mkHappyTestcase version) happyExamples)
     , testGroup "sad" (map (mkSadTestcase version) sadExamples)
     , testGroup "bad" (map (mkBadTestcase version) badDefSets)

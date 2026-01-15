@@ -217,7 +217,7 @@ createPackageDb packageRoot (disableScriptService -> opts) modulePrefixes
           packageRoot
           (PackageDbMetadata mainUnitIds validatedModulePrefixes depsFingerprint)
   where
-    dbPath = packageDatabasePath </> lfVersionString (optDamlLfVersion opts)
+    dbPath = packageDatabasePath </> LF.renderVersionWithPatch (optDamlLfVersion opts)
     depsDir = dependenciesDir opts packageRoot
     clearPackageDb = do
         -- Since we reinitialize the whole package db during `daml init` anyway,
@@ -587,9 +587,6 @@ getGhcPkgExe = locateResource Resource
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a
 mbErr err = maybe (hPutStrLn stderr err >> exitFailure) pure
-
-lfVersionString :: LF.Version -> String
-lfVersionString = DA.Pretty.renderPretty
 
 data BuildLfPackageGraphArgs' decodedDalfWithPath = BuildLfPackageGraphArgs
   { builtinDeps :: Set LF.PackageId

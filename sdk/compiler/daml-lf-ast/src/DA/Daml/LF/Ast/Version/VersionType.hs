@@ -100,12 +100,15 @@ renderVersionWithoutPatch (VersionP major minor _) =
 renderTodoVersion :: Version -> String
 renderTodoVersion = renderVersionWithoutPatch
 
+renderVersionFromTestWithPatch :: Version -> String
+renderVersionFromTestWithPatch = renderVersionWithPatch
+
 -- | A datatype describing a set of language versions. Used in the definition of
 -- 'Feature' below.
 type VersionReq = R.Range Version
 
 instance Pretty Version where
-  pPrint = string . renderTodoVersion
+  pPrint = string . renderVersionWithPatch
 
 data Feature = Feature
     { featureName :: !T.Text

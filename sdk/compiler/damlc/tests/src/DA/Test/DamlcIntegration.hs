@@ -122,7 +122,7 @@ withDamlScriptDep mLfVer = withDamlScriptDep' mLfVer []
 withDamlScriptDep' :: SdkVersioned => Maybe Version -> [(String, String, String)] -> (ScriptPackageData -> IO a) -> IO a
 withDamlScriptDep' mLfVer extraPackages =
   let
-    lfVerStr = maybe "" (\lfVer -> "-" <> renderVersionWithPatch lfVer) mLfVer
+    lfVerStr = maybe "" (\lfVer -> "-" <> renderVersionFromTestWithPatch lfVer) mLfVer
     darPath = "daml-script" </> "daml" </> "daml-script" <> lfVerStr <> ".dar"
   in withVersionedDamlScriptDep ("daml-script-" <> sdkPackageVersion) darPath mLfVer extraPackages
 
@@ -130,8 +130,8 @@ withDamlScriptDep' mLfVer extraPackages =
 -- dar name, package name and package version
 externalPackages :: Version -> [(String, String, String)]
 externalPackages version =
-  [ ("package-vetting-package-a-" <> LF.renderVersionWithPatch version, "package-vetting-package-a", "1.0.0")
-  , ("package-vetting-package-b-" <> LF.renderVersionWithPatch version, "package-vetting-package-b", "1.0.0")
+  [ ("package-vetting-package-a-" <> LF.renderVersionFromTestWithPatch version, "package-vetting-package-a", "1.0.0")
+  , ("package-vetting-package-b-" <> LF.renderVersionFromTestWithPatch version, "package-vetting-package-b", "1.0.0")
   ]
 
 -- | Takes the bazel namespace, dar suffix (used for lf versions in v1) and lf version, installs relevant daml script and gives
@@ -594,7 +594,7 @@ parseMaybeVersions str = MS.fromList (pairUp sortedMajorVersions parsedMaybeVers
                 "expected a version with major version "
                     <> LF.renderMajorVersion major
                     <> ", got "
-                    <> LF.renderVersionWithPatch version
+                    <> LF.renderVersionFromTestWithPatch version
         | otherwise = (major, versionMinor version) : pairUp majors versions
     pairUp majors@(_ : _) [] =
         error $

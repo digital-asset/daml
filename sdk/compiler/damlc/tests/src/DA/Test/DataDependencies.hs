@@ -85,8 +85,8 @@ lfVersionTestPairsV2 =
 
 tests :: SdkVersioned => TestArgs -> TestTree
 tests TestArgs{..} =
-    testGroup (LF.renderVersionWithPatch targetDevVersion) $
-    [ testCaseSteps ("Cross Daml-LF version: " <> LF.renderVersionWithPatch depLfVer <> " -> " <> LF.renderVersionWithPatch targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
+    testGroup (LF.renderVersionFromTestWithPatch targetDevVersion) $
+    [ testCaseSteps ("Cross Daml-LF version: " <> LF.renderVersionFromTestWithPatch depLfVer <> " -> " <> LF.renderVersionFromTestWithPatch targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
 
@@ -124,7 +124,7 @@ tests TestArgs{..} =
           callProcessSilent (damlcForTarget depLfVer)
                 ["build"
                 , "--package-root", proja
-                , "--target", LF.renderVersionWithPatch depLfVer
+                , "--target", LF.renderVersionFromTestWithPatch depLfVer
                 , "-o", proja </> "proja.dar"
                 ]
           projaPkgIds <- darPackageIds (proja </> "proja.dar")
@@ -163,7 +163,7 @@ tests TestArgs{..} =
           callProcessSilent damlc
             [ "build"
             , "--package-root", projb
-            , "--target", LF.renderVersionWithPatch targetLfVer
+            , "--target", LF.renderVersionFromTestWithPatch targetLfVer
             , "-o", projb </> "projb.dar" ]
           step "Validating DAR"
           validate $ projb </> "projb.dar"
@@ -178,7 +178,7 @@ tests TestArgs{..} =
               (if targetLfVer /= depLfVer then 2 else 0) -- different daml-stdlib/daml-prim
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
-    [ testCaseSteps ("Cross Daml-LF version with stdlib orphan instances: " <> LF.renderVersionWithPatch depLfVer <> " -> " <> LF.renderVersionWithPatch targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
+    [ testCaseSteps ("Cross Daml-LF version with stdlib orphan instances: " <> LF.renderVersionFromTestWithPatch depLfVer <> " -> " <> LF.renderVersionFromTestWithPatch targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
 
@@ -199,7 +199,7 @@ tests TestArgs{..} =
           callProcessSilent (damlcForTarget depLfVer)
                 ["build"
                 , "--package-root", proja
-                , "--target", LF.renderVersionWithPatch depLfVer
+                , "--target", LF.renderVersionFromTestWithPatch depLfVer
                 , "-o", proja </> "proja.dar"
                 ]
           projaPkgIds <- darPackageIds (proja </> "proja.dar")
@@ -225,13 +225,13 @@ tests TestArgs{..} =
           callProcessSilent damlc
             [ "build"
             , "--package-root", projb
-            , "--target", LF.renderVersionWithPatch targetLfVer
+            , "--target", LF.renderVersionFromTestWithPatch targetLfVer
             , "-o", projb </> "projb.dar" ]
           step "Validating DAR"
           validate $ projb </> "projb.dar"
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
-    [ testCaseSteps ("Cross Daml-LF version with custom orphan instance: " <> LF.renderVersionWithPatch depLfVer <> " -> " <> LF.renderVersionWithPatch targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
+    [ testCaseSteps ("Cross Daml-LF version with custom orphan instance: " <> LF.renderVersionFromTestWithPatch depLfVer <> " -> " <> LF.renderVersionFromTestWithPatch targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
           let projc = tmpDir </> "projc"
@@ -264,7 +264,7 @@ tests TestArgs{..} =
           callProcessSilent (damlcForTarget depLfVer)
                 ["build"
                 , "--package-root", proja
-                , "--target", LF.renderVersionWithPatch depLfVer
+                , "--target", LF.renderVersionFromTestWithPatch depLfVer
                 , "-o", proja </> "proja.dar"
                 ]
 
@@ -285,7 +285,7 @@ tests TestArgs{..} =
           callProcessSilent (damlcForTarget depLfVer)
             ["build"
             , "--package-root", projb
-            , "--target", LF.renderVersionWithPatch depLfVer
+            , "--target", LF.renderVersionFromTestWithPatch depLfVer
             , "-o", projb </> "projb.dar"
             ]
 
@@ -306,13 +306,13 @@ tests TestArgs{..} =
           callProcessSilent damlc
             [ "build"
             , "--package-root", projc
-            , "--target", LF.renderVersionWithPatch targetLfVer
+            , "--target", LF.renderVersionFromTestWithPatch targetLfVer
             , "-o", projc </> "projc.dar" ]
           step "Validating DAR"
           validate $ projc </> "projc.dar"
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
-    [ testCaseSteps ("Cross Daml-LF version with double data-dependency from old SDK: " <> LF.renderVersionWithPatch depLfVer <> " -> " <> LF.renderVersionWithPatch targetLfVer) $
+    [ testCaseSteps ("Cross Daml-LF version with double data-dependency from old SDK: " <> LF.renderVersionFromTestWithPatch depLfVer <> " -> " <> LF.renderVersionFromTestWithPatch targetLfVer) $
         -- Given a dar "Old" built with an older SDK, this tests that a package
         -- which depends on "Old" through different paths on its dependency graph
         -- will not end up with multiple copies of daml-prim and daml-stdlib
@@ -344,7 +344,7 @@ tests TestArgs{..} =
             callProcessSilent (damlcForTarget depLfVer)
                 ["build"
                 , "--package-root", proja
-                , "--target", LF.renderVersionWithPatch depLfVer
+                , "--target", LF.renderVersionFromTestWithPatch depLfVer
                 , "-o", proja </> "proja.dar"
                 ]
 
@@ -368,7 +368,7 @@ tests TestArgs{..} =
             callProcessSilent damlc
                 ["build"
                 , "--package-root", projb
-                , "--target", LF.renderVersionWithPatch targetLfVer
+                , "--target", LF.renderVersionFromTestWithPatch targetLfVer
                 , "-o", projb </> "projb.dar"
                 ]
 
@@ -714,26 +714,26 @@ tests TestArgs{..} =
             ]
         callProcessSilent genSimpleDalf $
             ["--with-archive-choice" | withArchiveChoice ] <>
-            ["--lf-version", LF.renderVersionWithPatch simpleDalfLfVersion
+            ["--lf-version", LF.renderVersionFromTestWithPatch simpleDalfLfVersion
             , projDir </> "simple-dalf-1.0.0.dalf"]
         callProcessSilent damlc
             [ "build"
             , "--package-root", projDir
             , "--target"
-            , LF.renderVersionWithPatch targetDevVersion
+            , LF.renderVersionFromTestWithPatch targetDevVersion
             , "--generated-src" ]
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertFileExists dar
         callProcessSilent damlc
             [ "test"
             , "--target"
-            , LF.renderVersionWithPatch targetDevVersion
+            , LF.renderVersionFromTestWithPatch targetDevVersion
             , "--package-root"
             , projDir
             , "--generated-src" ]
     | withArchiveChoice <- [False, True]
     ] <>
-    [ testCaseSteps ("Typeclasses and instances from Daml-LF " <> LF.renderVersionWithPatch depLfVer <> " to " <> LF.renderVersionWithPatch targetLfVer) $ \step -> withTempDir $ \tmpDir -> do
+    [ testCaseSteps ("Typeclasses and instances from Daml-LF " <> LF.renderVersionFromTestWithPatch depLfVer <> " to " <> LF.renderVersionFromTestWithPatch targetLfVer) $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
 
@@ -830,7 +830,7 @@ tests TestArgs{..} =
           callProcessSilent (damlcForTarget depLfVer)
               [ "build"
               , "--package-root", proja
-              , "--target", LF.renderVersionWithPatch depLfVer
+              , "--target", LF.renderVersionFromTestWithPatch depLfVer
               , "-o", proja </> "proja.dar"
               ]
 
@@ -926,7 +926,7 @@ tests TestArgs{..} =
           callProcessSilent damlc
               [ "build"
               , "--package-root", projb
-              , "--target=" <> LF.renderVersionWithPatch targetLfVer
+              , "--target=" <> LF.renderVersionFromTestWithPatch targetLfVer
               , "-o", projb </> "projb.dar" ]
           validate $ projb </> "projb.dar"
 
@@ -942,7 +942,7 @@ tests TestArgs{..} =
               , "data-dependencies:"
               , "  - " <> show oldProjDar
               , "build-options:"
-              , " - --target=" <> LF.renderVersionWithPatch targetDevVersion
+              , " - --target=" <> LF.renderVersionFromTestWithPatch targetDevVersion
               , " - --package=daml-prim"
               , " - --package=" <> unitIdString damlStdlib
               , " - --package=old-proj-0.0.1"
@@ -982,7 +982,7 @@ tests TestArgs{..} =
               , "source: ."
               , "version: 0.1.0"
               , "dependencies: [daml-prim, daml-stdlib]"
-              , "build-options: [--target=" <> LF.renderVersionWithPatch targetDevVersion <> "]"
+              , "build-options: [--target=" <> LF.renderVersionFromTestWithPatch targetDevVersion <> "]"
               ]
           writeFileUTF8 (tmpDir </> "type" </> "Proxy.daml") $ unlines
               [ "module Proxy where"
@@ -1002,7 +1002,7 @@ tests TestArgs{..} =
               , "version: 0.1.0"
               , "dependencies: [daml-prim, daml-stdlib]"
               , "data-dependencies: [" <> show (tmpDir </> "type" </> "type.dar") <> "]"
-              , "build-options: [--target=" <> LF.renderVersionWithPatch targetDevVersion <> "]"
+              , "build-options: [--target=" <> LF.renderVersionFromTestWithPatch targetDevVersion <> "]"
               ]
           writeFileUTF8 (tmpDir </> "dependency" </> "Dependency.daml") $ unlines
              [ "module Dependency where"
@@ -1024,7 +1024,7 @@ tests TestArgs{..} =
               , "version: 0.1.0"
               , "dependencies: [daml-prim, daml-stdlib]"
               , "data-dependencies: [" <> show (tmpDir </> "type" </> "type.dar") <> "]"
-              , "build-options: [--target=" <> LF.renderVersionWithPatch targetDevVersion <> "]"
+              , "build-options: [--target=" <> LF.renderVersionFromTestWithPatch targetDevVersion <> "]"
               ]
           writeFileUTF8 (tmpDir </> "data-dependency" </> "DataDependency.daml") $ unlines
              [ "module DataDependency where"
@@ -1049,7 +1049,7 @@ tests TestArgs{..} =
               , "version: 0.1.0"
               , "dependencies: [daml-prim, daml-stdlib, " <> show (tmpDir </> "dependency" </> "dependency.dar") <> ", " <> show (tmpDir </> "type/type.dar") <> "]"
               , "data-dependencies: [" <> show (tmpDir </> "data-dependency" </> "data-dependency.dar") <> "]"
-              , "build-options: [--target=" <> LF.renderVersionWithPatch targetDevVersion <> "]"
+              , "build-options: [--target=" <> LF.renderVersionFromTestWithPatch targetDevVersion <> "]"
               ]
           writeFileUTF8 (tmpDir </> "top" </> "Top.daml") $ unlines
               [ "module Top where"
@@ -2224,7 +2224,7 @@ tests TestArgs{..} =
           damlYamlBody name deps dataDeps = unlines
             [ "sdk-version: " <> sdkVersion
             , "name: " <> name
-            , "build-options: [--target=" <> LF.renderVersionWithPatch targetDevVersion <> "]"
+            , "build-options: [--target=" <> LF.renderVersionFromTestWithPatch targetDevVersion <> "]"
             , "source: ."
             , "version: 0.1.0"
             , "dependencies: [" <> intercalate ", " (["daml-prim", "daml-stdlib"] <> fmap dar deps) <> "]"
@@ -2298,7 +2298,7 @@ tests TestArgs{..} =
           damlYamlBody name extraDeps dataDeps = unlines
             [ "sdk-version: " <> sdkVersion
             , "name: " <> name
-            , "build-options: [--target="<> LF.renderVersionWithPatch targetDevVersion <>"]"
+            , "build-options: [--target="<> LF.renderVersionFromTestWithPatch targetDevVersion <>"]"
             , "source: ."
             , "version: 0.1.0"
             , "dependencies: [" <> intercalate ", " (["daml-prim", "daml-stdlib"] <> fmap show extraDeps) <> "]"
@@ -2523,7 +2523,7 @@ tests TestArgs{..} =
             [ "build"
             , "--package-root", tmpDir </> "lib"
             , "-o", tmpDir </> "lib" </> "lib.dar"
-            , "--target", LF.renderVersionWithPatch exceptionsVersion ]
+            , "--target", LF.renderVersionFromTestWithPatch exceptionsVersion ]
 
         step "building package that imports it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "main")
@@ -2556,7 +2556,7 @@ tests TestArgs{..} =
         callProcessSilent damlc
             [ "build"
             , "--package-root", tmpDir </> "main"
-            , "--target", LF.renderVersionWithPatch targetDevVersion ]
+            , "--target", LF.renderVersionFromTestWithPatch targetDevVersion ]
 
     , testCaseSteps "Package ids are stable across rebuilds" $ \step -> withTempDir $ \tmpDir -> do
         step "building lib (package to be imported via data-dependencies)"
@@ -2578,7 +2578,7 @@ tests TestArgs{..} =
             [ "build"
             , "--package-root", tmpDir </> "lib"
             , "-o", tmpDir </> "lib" </> "lib.dar"
-            , "--target", LF.renderVersionWithPatch targetDevVersion
+            , "--target", LF.renderVersionFromTestWithPatch targetDevVersion
             ]
 
         step "building main (package that imports lib via data-dependencies)"
@@ -2603,7 +2603,7 @@ tests TestArgs{..} =
             [ "build"
             , "--package-root", tmpDir </> "main"
             , "-o", tmpDir </> "main" </> "main.dar"
-            , "--target", LF.renderVersionWithPatch targetDevVersion
+            , "--target", LF.renderVersionFromTestWithPatch targetDevVersion
             ]
 
         step "building main again as main2.dar"
@@ -2611,7 +2611,7 @@ tests TestArgs{..} =
             [ "build"
             , "--package-root", tmpDir </> "main"
             , "-o", tmpDir </> "main" </> "main2.dar"
-            , "--target", LF.renderVersionWithPatch targetDevVersion
+            , "--target", LF.renderVersionFromTestWithPatch targetDevVersion
             ]
 
         step "compare package ids in main.dar and main2.dar"
@@ -2666,7 +2666,7 @@ tests TestArgs{..} =
             [ "build"
             , "--package-root", tmpDir </> "lib"
             , "-o", tmpDir </> "lib" </> "lib.dar"
-            , "--target", LF.renderVersionWithPatch exceptionsVersion ]
+            , "--target", LF.renderVersionFromTestWithPatch exceptionsVersion ]
 
         step "building package that imports it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "main")
@@ -2740,18 +2740,18 @@ tests TestArgs{..} =
         callProcessSilent damlc
             [ "build"
             , "--package-root", tmpDir </> "main"
-            , "--target", LF.renderVersionWithPatch targetDevVersion ]
+            , "--target", LF.renderVersionFromTestWithPatch targetDevVersion ]
         step "running damlc test"
         callProcessSilent damlc
             [ "test"
             , "--package-root", tmpDir </> "main"
-            , "--target", LF.renderVersionWithPatch targetDevVersion ]
+            , "--target", LF.renderVersionFromTestWithPatch targetDevVersion ]
     ]
   where
     defTestOptions :: DataDependenciesTestOptions
     defTestOptions = DataDependenciesTestOptions
         { buildOptions =
-            [ "--target=" <> LF.renderVersionWithPatch targetDevVersion
+            [ "--target=" <> LF.renderVersionFromTestWithPatch targetDevVersion
             , "-Wupgrade-interfaces"
             ]
         , extraDeps = []

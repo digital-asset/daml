@@ -100,7 +100,7 @@ withPackageDBAndIdeState lfVersion getScriptService action = do
 
 testScriptService :: SdkVersioned => LF.Version -> IO SS.Handle -> TestTree
 testScriptService lfVersion getScriptService =
-  testGroup ("LF " <> LF.renderTodoVersion lfVersion)
+  testGroup ("LF " <> LF.renderVersionFromTestWithPatch lfVersion)
     [ withResourceCps (withPackageDBAndIdeState lfVersion getScriptService) $ \getIdeState ->
         testGroup "single module"
             [ testCase "createCmd + exerciseCmd + createAndExerciseCmd" $ do
@@ -803,7 +803,7 @@ testScriptServiceWithKeys :: SdkVersioned => LF.Version -> IO SS.Handle -> TestT
 testScriptServiceWithKeys lfVersion getScriptService =
   withResourceCps (withPackageDBAndIdeState lfVersion getScriptService) $ \getIdeState ->
           testGroup
-            ("LF " <> LF.renderTodoVersion lfVersion)
+            ("LF " <> LF.renderVersionFromTestWithPatch lfVersion)
             [ testCase "exerciseByKeyCmd" $ do
                 rs <-
                   runScriptsInModule
@@ -1306,7 +1306,7 @@ writeAndBuildPackage lfVersion damlc (packagePath, packageFiles) = do
     [ "build"
     , "--package-root"
     , packagePath
-    , "--target=" <> LF.renderTodoVersion lfVersion
+    , "--target=" <> LF.renderVersionFromTestWithPatch lfVersion
     ]
 
 withIdeState :: SdkVersioned => IO SS.Handle -> Options -> (IdeState -> IO a) -> IO a
