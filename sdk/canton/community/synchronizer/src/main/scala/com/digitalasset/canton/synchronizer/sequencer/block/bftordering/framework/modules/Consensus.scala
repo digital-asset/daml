@@ -227,7 +227,7 @@ object Consensus {
           Some(originalByteString),
         )
 
-      override def versioningTable: VersioningTable =
+      override val versioningTable: VersioningTable =
         VersioningTable(
           SupportedVersions.ProtoData ->
             VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.StateTransferMessage)(
@@ -302,7 +302,7 @@ object Consensus {
           rpv <- protocolVersionRepresentativeFor(SupportedVersions.ProtoData)
         } yield BlockTransferResponse(commitCert, from)(rpv, Some(originalByteString))
 
-      override def versioningTable: VersioningTable = VersioningTable(
+      override val versioningTable: VersioningTable = VersioningTable(
         SupportedVersions.ProtoData ->
           VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.StateTransferMessage)(
             supportedProtoVersionMemoized(_)(fromProtoStateTransferMessage),

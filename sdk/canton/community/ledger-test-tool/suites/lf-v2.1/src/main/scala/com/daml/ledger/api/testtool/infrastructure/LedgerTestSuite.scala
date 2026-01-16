@@ -22,7 +22,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 
-// TODO(#29619): Use BaseTest
 abstract class LedgerTestSuite
     extends OptionValues
     with LoneElement

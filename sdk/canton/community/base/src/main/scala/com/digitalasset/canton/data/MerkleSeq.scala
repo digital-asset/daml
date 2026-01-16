@@ -164,7 +164,7 @@ object MerkleSeq
 
   override def name: String = "MerkleSeq"
 
-  override def versioningTable: VersioningTable = VersioningTable(
+  override val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.MerkleSeq)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
@@ -409,7 +409,7 @@ object MerkleSeq
       case Left(rootHash) => Seq(BlindedNode(rootHash))
     }
 
-    override def versioningTable: VersioningTable = VersioningTable(
+    override val versioningTable: VersioningTable = VersioningTable(
       ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.MerkleSeqElement)(
         supportedProtoVersion(_)(fromProtoV30),
         _.toProtoV30,

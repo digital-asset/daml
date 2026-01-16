@@ -210,7 +210,7 @@ object MerkleTreeTest {
       extends VersioningCompanion[VersionedAbstractLeaf]
       with IgnoreInSerializationTestExhaustivenessCheck {
     override def name: String = "AbstractLeaf"
-    override def versioningTable: VersioningTable = VersioningTable(
+    override val versioningTable: VersioningTable = VersioningTable(
       ProtoVersion(30) -> VersionedProtoCodec.raw(
         ProtocolVersion.v34,
         (_, _, bytes) => fromProto(30)(bytes),

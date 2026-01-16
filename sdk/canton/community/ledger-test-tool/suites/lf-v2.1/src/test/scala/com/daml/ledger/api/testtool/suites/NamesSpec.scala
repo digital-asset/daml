@@ -11,9 +11,6 @@ import org.scalatest.wordspec.AnyWordSpec
 class NamesSpec_V2Dev
     extends NamesSpec(v2_dev.default(timeoutScaleFactor = 1) ++ v2_dev.optional(tlsConfig = None))
 
-// TODO(#29619): Make sure this file is identified as test or fix sbt target settings
-//               and remove this suppression
-@SuppressWarnings(Array("com.digitalasset.canton.NonUnitForEach"))
 class NamesSpec(val allTestSuites: Vector[LedgerTestSuite])
     extends AnyWordSpec
     with Matchers

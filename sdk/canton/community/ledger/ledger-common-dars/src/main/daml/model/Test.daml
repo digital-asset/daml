@@ -480,3 +480,13 @@ template Sync
   where
     signatory from
     observer to
+
+data VariantTestVariant = VTInteger Integer | VTText Text
+  deriving (Eq, Show)
+
+template VariantTest
+  with
+    owner: Party
+    variantField: VariantTestVariant
+  where
+    signatory owner
