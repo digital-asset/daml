@@ -55,13 +55,13 @@ The steps to create a release are:
    **Only change a single line** in [`LATEST`](../LATEST), otherwise
    no release is going to be created.
 
-2. Make a PR **targeting the `main` branch** with just that one line added,
+2. Make a PR **targeting the `release-trigger` branch** with just that one line added,
    touching no other file. Add the `Standard-Change` label to that PR.
 
-   **The main branch is the only one that triggers releases, even for "release
+   **The `release-trigger` branch is the only one that triggers releases, even for "release
    line" releases.**
 
-3. When the PR is merged, the build of the corresponding commit on `main` will
+3. When the PR is merged, the build of the corresponding commit on `release-trigger` will
    create a "split release" bundle and push it to Artifactory. It then notifies
    on `#team-internal-releases` on Slack.
 
