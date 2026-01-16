@@ -248,7 +248,7 @@ object DbSequencerStateManagerStore {
       with ProtocolVersionedCompanionDbHelpers[AggregatedSignaturesOfSender] {
     override def name: String = "AggregatedSignaturesOfSender"
 
-    override def versioningTable: VersioningTable = VersioningTable(
+    override val versioningTable: VersioningTable = VersioningTable(
       ProtoVersion(30) -> VersionedProtoCodec.storage(
         ReleaseProtocolVersion(ProtocolVersion.v34),
         v30.AggregatedSignaturesOfSender,

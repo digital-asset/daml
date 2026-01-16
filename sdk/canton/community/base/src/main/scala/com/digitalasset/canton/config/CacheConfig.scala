@@ -182,7 +182,10 @@ object CachingConfigs {
   val defaultFinalizedMediatorConfirmationRequestsCache =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
   val defaultSequencerPayloadCache: CacheConfigWithMemoryBounds =
-    CacheConfigWithMemoryBounds(maximumMemory = PositiveNumeric.tryCreate(BytesUnit.MB(200L)))
+    CacheConfigWithMemoryBounds(
+      maximumMemory = PositiveNumeric.tryCreate(BytesUnit.MB(64L)),
+      expireAfterAccess = NonNegativeFiniteDuration.ofMinutes(10),
+    )
   @VisibleForTesting
   val testing =
     CachingConfigs(contractStore = CacheConfig(maximumSize = PositiveNumeric.tryCreate(100)))

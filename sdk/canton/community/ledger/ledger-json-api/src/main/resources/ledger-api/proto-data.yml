@@ -3749,7 +3749,7 @@ fileComments:
           for individual events depends on the transaction shape chosen.
 
           - ACS delta: a requesting party must be a stakeholder of an event for it to be included.
-          - ledger effects: a requesting party must be a witness of an en event for it to be included.
+          - ledger effects: a requesting party must be a witness of an event for it to be included.
       - name: GetUpdateByOffset
         comments: |-
           Lookup an update by its offset.
