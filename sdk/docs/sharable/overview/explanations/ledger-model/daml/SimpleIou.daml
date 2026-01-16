@@ -6,7 +6,7 @@ module SimpleIou where
 
 import Daml.Script
 
--- SNIPPET-START
+-- SNIPPET-IOU-START
 template MustPay with
     obligor : Party
     owner : Party
@@ -30,7 +30,7 @@ template Iou with
       : ContractId MustPay
       controller owner
       do create MustPay with obligor; owner
--- SNIPPET-END
+-- SNIPPET-IOU-END
 
 iou = script do
     p1 <- allocateParty "Alice"
@@ -39,3 +39,5 @@ iou = script do
     cashContract <- submit b do createCmd Iou with obligor = b; owner = p1
     newContract <- submit p1 do exerciseCmd cashContract Transfer with newOwner = p2
     submit p2 do exerciseCmd newContract Settle
+
+
