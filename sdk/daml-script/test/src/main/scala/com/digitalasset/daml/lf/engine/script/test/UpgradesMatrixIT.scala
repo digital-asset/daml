@@ -12,10 +12,7 @@ import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.ReadablePackageId
-import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{
-  AdminLedgerClient,
-  GrpcLedgerClient,
-}
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.GrpcLedgerClient
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.{ScriptLedgerClient, SubmitError}
 import com.digitalasset.daml.lf.engine.{
   UpgradesMatrix,
@@ -128,19 +125,9 @@ abstract class UpgradesMatrixIntegration(upgradesMatrixCases: UpgradesMatrixCase
         _ <- Future.traverse(
           List(commonDefsDar, templateDefsV1Dar, templateDefsV2Dar, clientLocalDar, clientGlobalDar)
         )(dar => client.packageManagementClient.uploadDarFile(dar))
-        adminClient <- {
-          import com.digitalasset.canton.ledger.client.configuration._
-          AdminLedgerClient.singleHostWithUnknownParticipantId(
-            hostIp = "localhost",
-            port = ledgerPorts.head.adminPort.value,
-            token = None,
-            channelConfig = LedgerClientChannelConfiguration.InsecureDefaults,
-          )
-        }
         scriptClient = new GrpcLedgerClient(
           client,
           Some(Ref.UserId.assertFromString("upgrade-test-matrix")),
-          Some(adminClient),
           cases.compiledPackages,
         )
       } yield scriptClient,
@@ -217,10 +204,11 @@ abstract class UpgradesMatrixIntegration(upgradesMatrixCases: UpgradesMatrixCase
     else
       for {
         _ <- scriptClient.unvetPackages(packages)
-        _ <- scriptClient.waitUntilUnvettingVisible(packages, scriptClient.getParticipantUid)
+        participantUid <- scriptClient.getParticipantUid()
+        _ <- scriptClient.waitUntilUnvettingVisible(packages, participantUid)
         result <- action
         _ <- scriptClient.vetPackages(packages)
-        _ <- scriptClient.waitUntilVettingVisible(packages, scriptClient.getParticipantUid)
+        _ <- scriptClient.waitUntilVettingVisible(packages, participantUid)
       } yield result
   }
 
