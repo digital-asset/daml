@@ -48,6 +48,7 @@ import com.daml.ledger.test.java.vetting_main_2_0_0.main.MainT as MainT_2_0_0
 import com.daml.ledger.test.java.vetting_main_3_0_0.main.MainT as MainT_3_0_0
 import com.daml.ledger.test.java.vetting_main_split_lineage_2_0_0.main.DifferentMainT as MainT_Split_Lineage_2_0_0
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.ledger.api.{
   DontVetAnyPackages,
   PackageMetadataFilter,
@@ -56,6 +57,7 @@ import com.digitalasset.canton.ledger.api.{
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError
 import com.digitalasset.canton.topology.TopologyManagerError
 import com.digitalasset.canton.topology.TopologyManagerError.ParticipantTopologyManagerError
+import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.Ref
@@ -425,9 +427,7 @@ class VettingIT extends LedgerTestSuite with AppendedClues {
   )(implicit ec: ExecutionContext): Future[Unit] =
     for {
       syncIds <- participant.connectedSynchronizers()
-      // TODO(#29619): try to replace with parTraverse. Used sequentialTraverse to avoid overloading DB queue
-      //               to be sure I'm not exposing a flake here that prevents progress
-      _ <- MonadUtil.sequentialTraverse(syncIds)(syncId =>
+      _ <- MonadUtil.parTraverseWithLimit(PositiveInt.four)(syncIds)(syncId =>
         unvetDARMains(
           participant,
           Seq(

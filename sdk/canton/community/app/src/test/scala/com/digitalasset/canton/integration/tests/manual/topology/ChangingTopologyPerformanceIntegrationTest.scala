@@ -468,9 +468,8 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
 
   private def proposalsAndAcceptsThusFar(runner: PerformanceRunner): (Int, Int) = runner
     .status()
-    .collect {
-      case DriverStatus.TraderStatus(_, _, _, _, _, _, _, _, _, proposals, accepts, _, _) =>
-        (proposals.observed, accepts.observed)
+    .collect { case traderStatus: DriverStatus.TraderStatus =>
+      (traderStatus.proposals.observed, traderStatus.accepts.observed)
     }
     .combineAll
 

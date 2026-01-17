@@ -131,7 +131,7 @@ object ClosedEnvelope extends VersioningCompanion[ClosedEnvelope] {
 
   override def name: String = "ClosedEnvelope"
 
-  override def versioningTable: VersioningTable = VersioningTable(
+  override val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec(
       ProtocolVersion.v34
     )(v30.Envelope)(

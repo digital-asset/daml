@@ -57,7 +57,12 @@ abstract class ParticipantDriver(
 
   override def updateRateSettings(update: RateSettings => RateSettings): Unit = {
     val upd = settings_.updateAndGet(update(_))
-    rate.updateSettings(upd.startRate, upd.targetLatencyMs, upd.adjustFactor)
+    rate match {
+      case latency: SubmissionRate.TargetLatency =>
+        latency.updateSettings(upd.startRate, upd.targetLatencyMs, upd.adjustFactor)
+
+      case _: SubmissionRate.FixedRate => ()
+    }
   }
 
   def name: String = role.name
@@ -102,8 +107,8 @@ abstract class ParticipantDriver(
     loggerFactory,
   )
 
-  protected val rate =
-    new SubmissionRate.I(
+  protected val rate: SubmissionRate =
+    new SubmissionRate.TargetLatency(
       role.settings.startRate,
       role.settings.targetLatencyMs,
       role.settings.adjustFactor,
@@ -295,7 +300,6 @@ trait StatsUpdater {
             maxRate = rate.maxRate,
             latencyMs = rate.latencyMs,
             pending = rate.pending,
-            backpressured = rate.backpressured,
             failed = rate.failed,
             proposals =
               StepStatus(proposalStats.submitted, proposalStats.observed, open = proposalsOpen),

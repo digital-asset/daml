@@ -5,9 +5,8 @@ package com.digitalasset.canton.integration.tests.upgrade
 
 import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.api.v2.transaction.Transaction
-import com.daml.ledger.javaapi.data.Identifier
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.digitalasset.canton.LfPackageId
-import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.integration.util.{EntitySyntax, PartiesAllocator}
 import com.digitalasset.canton.integration.{
@@ -23,7 +22,6 @@ import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.value.Value.ContractId
 
 import java.io.File
-import scala.concurrent.Future
 
 /*
 Creates a transaction of the following shape, then archives #cid2 in a second transaction. Since p1, p2, p3, p4 and p5
@@ -72,8 +70,6 @@ class DamlScriptUpgradeSubViewsIntegrationTest
   private val SubViewsAssetV1PkgId: LfPackageId = getPkgId(SubViewsAssetV1Path)
   private val SubViewsAssetV2PkgId: LfPackageId = getPkgId(SubViewsAssetV2Path)
   private val SubViewsMainV1PkgId: LfPackageId = getPkgId(SubViewsMainV1Path)
-  private val SubViewsAssetV2TemplateId: TemplateId =
-    TemplateId.fromJavaIdentifier(new Identifier("#sub-views-asset", "SubViewsAsset", "Asset"))
 
   private var p1: PartyId = _
   private var p2: PartyId = _
@@ -116,8 +112,8 @@ class DamlScriptUpgradeSubViewsIntegrationTest
           ),
           "p5" -> Map(
             daId -> (PositiveInt.one, Set(
-              (participant1.id, ParticipantPermission.Observation),
-              (participant5.id, ParticipantPermission.Submission),
+              participant1.id -> ParticipantPermission.Observation,
+              participant5.id -> ParticipantPermission.Submission,
             ))
           ),
         ),
@@ -175,27 +171,17 @@ class DamlScriptUpgradeSubViewsIntegrationTest
           .submit(Seq(p5), V2.createAssetFactory(p5, Some("extra")))
       )
 
-      participant1.ledger_api.commands
+      val mkTransaction = participant1.ledger_api.commands
         .submit(
           actAs = Seq(p1),
           readAs = Seq(p3, p5),
           commands = exerciseMkTransaction(top1, top2, factory1, factory2, top),
+          transactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
         )
-      // Wait for contract creation before archiving
-      for {
-        activeContracts <- eventually() {
-          Future {
-            val acs = participant1.ledger_api.state.acs
-              .active_contracts_of_party(p1, filterTemplates = Seq(SubViewsAssetV2TemplateId))
-            acs should not be empty
-            acs
-          }
-        }
-        asset = ContractId.assertFromString(activeContracts.loneElement.getCreatedEvent.contractId)
-      } yield {
-        participant5.ledger_api.commands
-          .submit(Seq(p5), V2.archive(asset))
-      }
+      val asset = ContractId.assertFromString(
+        mkTransaction.events.head.getExercised.getExerciseResult.getContractId
+      )
+      participant5.ledger_api.commands.submit(Seq(p5), V2.archiveAsset(asset))
   }
 
   private def getPkgId(darPath: String): LfPackageId =
@@ -288,7 +274,7 @@ class DamlScriptUpgradeSubViewsIntegrationTest
       )
     }
 
-    def archive(cid: ContractId)(implicit
+    def archiveAsset(cid: ContractId)(implicit
         env: TestConsoleEnvironment
     ): Seq[Command] = {
       import env.*
@@ -297,7 +283,7 @@ class DamlScriptUpgradeSubViewsIntegrationTest
         ledger_api_utils.exercise(
           SubViewsAssetV1PkgId,
           "SubViewsAsset",
-          "AssetFactory",
+          "Asset",
           "Archive",
           Map.empty,
           cid.coid,
@@ -323,7 +309,7 @@ class DamlScriptUpgradeSubViewsIntegrationTest
       )
     }
 
-    def archive(cid: ContractId)(implicit
+    def archiveAsset(cid: ContractId)(implicit
         env: TestConsoleEnvironment
     ): Seq[Command] = {
       import env.*
@@ -332,7 +318,7 @@ class DamlScriptUpgradeSubViewsIntegrationTest
         ledger_api_utils.exercise(
           SubViewsAssetV2PkgId,
           "SubViewsAsset",
-          "AssetFactory",
+          "Asset",
           "Archive",
           Map.empty,
           cid.coid,

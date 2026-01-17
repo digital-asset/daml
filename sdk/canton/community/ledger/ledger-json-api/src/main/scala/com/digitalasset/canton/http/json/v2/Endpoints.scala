@@ -20,7 +20,11 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Error.Preprocessing
 import com.digitalasset.daml.lf.language.Ast.TVar
 import com.digitalasset.daml.lf.value.Value.ValueUnit
-import com.digitalasset.transcode.{MissingFieldsException, UnexpectedFieldsException}
+import com.digitalasset.transcode.{
+  IncorrectVariantRepresentationException,
+  MissingFieldsException,
+  UnexpectedFieldsException,
+}
 import io.circe.{Decoder, Encoder}
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
@@ -376,6 +380,15 @@ trait Endpoints extends NamedLogging {
                 s"Missing non-optional fields: ${fieldMissing.missingFields}",
               )
             )
+          ),
+        )
+      )
+    case incorrectJson: IncorrectVariantRepresentationException =>
+      Left(
+        (
+          StatusCode.BadRequest,
+          JsCantonError.fromErrorCode(
+            InvalidArgument.Reject(incorrectJson.getMessage)
           ),
         )
       )

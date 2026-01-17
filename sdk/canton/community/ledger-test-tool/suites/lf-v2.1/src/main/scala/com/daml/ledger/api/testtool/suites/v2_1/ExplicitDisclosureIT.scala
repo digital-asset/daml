@@ -317,7 +317,7 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
 
   test(
     "EDDuplicates",
-    "Submission is rejected on duplicate contract ids or key hashes",
+    "Submission is accepted on duplicate contract ids or key hashes with the same payload",
     allocate(SingleParty, SingleParty),
   )(implicit ec => {
     case p @ Participants(
@@ -339,20 +339,10 @@ final class ExplicitDisclosureIT extends LedgerTestSuite {
         // Exercise a choice with a disclosed contract
         _ <- testContext.exerciseFetchDelegated(testContext.disclosedContract)
 
-        // Submission with disclosed contracts with the same contract id should be rejected
-        errorDuplicateContractId <- testContext
+        // Submission with disclosed contracts with the same contract id and same payload should be accepted
+        _ <- testContext
           .dummyCreate(testContext.disclosedContract, testContext.disclosedContract)
-          .mustFail("duplicate contract id")
-      } yield {
-        assertGrpcError(
-          errorDuplicateContractId,
-          RequestValidationErrors.InvalidArgument,
-          Some(
-            s"Disclosed contracts contain duplicate contract id (${testContext.disclosedContract.contractId})"
-          ),
-          checkDefiniteAnswerMetadata = true,
-        )
-      }
+      } yield ()
   })
 
   test(

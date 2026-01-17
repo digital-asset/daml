@@ -138,7 +138,7 @@ object SequencerWriterConfig {
 
   val DefaultCheckpointBackfillParallelism: PositiveInt = PositiveInt.two
 
-  val DefaultBufferedEventsMaxMemory: BytesUnit = BytesUnit.MB(2L)
+  val DefaultBufferedEventsMaxMemory: BytesUnit = BytesUnit.MB(8L)
   val DefaultBufferedEventsPreloadBatchSize: PositiveInt = PositiveInt.tryCreate(50)
 
   /** Use to have events immediately flushed to the database. Useful for decreasing latency however

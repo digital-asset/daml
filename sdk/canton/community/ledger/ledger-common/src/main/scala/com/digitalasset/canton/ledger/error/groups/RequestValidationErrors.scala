@@ -326,6 +326,28 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
   }
 
   @Explanation(
+    """This error is emitted when a submitted ledger API command contains disclosed contracts with conflicting payloads for the same contract ID."""
+  )
+  @Resolution(
+    "This may be considered a security incident or a defect on the server. Please contact support or the providers of the disclosed contract payloads."
+  )
+  object DisclosedContractsConflictingPayloads
+      extends ErrorCode(
+        id = "DISCLOSED_CONTRACTS_CONFLICTING_PAYLOADS",
+        ErrorCategory.SecurityAlert,
+      ) {
+    final case class Reject(conflictingContractPayloads: List[(String, Long, String)])(implicit
+        loggingContext: ErrorLoggingContext
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = conflictingContractPayloads
+            .map { case (contractId, payloadCounts, payloads) =>
+              s"The contractId $contractId for submitted request has conflicting $payloadCounts payloads for disclosed contracts: $payloads"
+            }
+            .mkString("\n")
+        )
+  }
+
+  @Explanation(
     """This error is emitted when a submitted ledger API command refers to a non-existing resource."""
   )
   @Resolution("Inspect the reason given and correct your application.")

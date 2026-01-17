@@ -144,7 +144,7 @@ class CliIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
     }
 
     "log last errors in separate file" in { processLogger =>
-      s"$cantonBin --config $cacheTurnOff --log-truncate --log-file-appender flat --config $simpleConf --no-tty --bootstrap $resourceDir/scripts/bootstrap-with-error.canton --log-file-name log/canton-without-debug.log" ! processLogger
+      s"$cantonBin --config $cacheTurnOff --log-truncate --log-last-errors=true --log-file-appender flat --config $simpleConf --no-tty --bootstrap $resourceDir/scripts/bootstrap-with-error.canton --log-file-name log/canton-without-debug.log" ! processLogger
 
       // Make sure the main log file does not contain debug-level log entries
       val logFile = File("log/canton-without-debug.log")
@@ -160,7 +160,7 @@ class CliIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
     }
 
     "dynamically set log level with log last errors enabled" in { processLogger =>
-      s"$cantonBin --config $cacheTurnOff --log-truncate --log-file-appender flat --config $simpleConf --no-tty --bootstrap $resourceDir/scripts/bootstrap-with-error-dynamic.canton --log-file-name log/canton-partial-debug.log" ! processLogger
+      s"$cantonBin --config $cacheTurnOff --log-truncate --log-last-errors=true --log-file-appender flat --config $simpleConf --no-tty --bootstrap $resourceDir/scripts/bootstrap-with-error-dynamic.canton --log-file-name log/canton-partial-debug.log" ! processLogger
 
       val logFile = File("log/canton-partial-debug.log")
       val logContents = logFile.contentAsString

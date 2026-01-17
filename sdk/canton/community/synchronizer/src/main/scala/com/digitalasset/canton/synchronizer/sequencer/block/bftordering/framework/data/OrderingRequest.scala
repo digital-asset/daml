@@ -148,7 +148,7 @@ object OrderingRequestBatch extends VersioningCompanion[OrderingRequestBatch] {
       EpochNumber(batch.epochNumber),
     )(rpv)
 
-  override def versioningTable: framework.data.OrderingRequestBatch.VersioningTable =
+  override val versioningTable: framework.data.OrderingRequestBatch.VersioningTable =
     VersioningTable(
       SupportedVersions.ProtoData ->
         VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.Batch)(

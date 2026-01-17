@@ -1014,7 +1014,8 @@ abstract class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks wit
           },
       )
 
-      val ELocation(expectedLocation, EVar("something")) = E"⸨ something ⸩"
+      // The exhaustivity checker loops on this match, hence the @unchecked.
+      val ELocation(expectedLocation, EVar("something")) = (E"⸨ something ⸩": @unchecked)
       val expectedContext = Context.Location(expectedLocation)
 
       forAll(testCases) { (exp, checkError) =>
