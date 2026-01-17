@@ -84,7 +84,7 @@ object ConsensusStatus {
         segments,
       )(rpv, Some(originalByteString))
 
-    override def versioningTable: VersioningTable = VersioningTable(
+    override val versioningTable: VersioningTable = VersioningTable(
       SupportedVersions.ProtoData ->
         VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.EpochStatus)(
           supportedProtoVersionMemoized(_)(fromProto),

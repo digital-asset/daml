@@ -466,7 +466,7 @@ abstract class BaseDriver(
     )
 
     val result = submitF.zip(submitDelayedF).transform {
-      // if we only submitted one and it succeeded, we are good
+      // if we only submitted one, and it succeeded, we are good
       case Success((Right(_), None)) =>
         handleSuccess(None)
       // if both succeeded, we have a problem
@@ -478,7 +478,7 @@ abstract class BaseDriver(
         handleSuccess(Some(status))
       case Success((Left(status), Some(Right(_)))) =>
         handleSuccess(Some(status))
-      // if we only had left and it failed, mark as failed
+      // if we only had left, and it failed, mark as failed
       case Success((Left(status), None)) =>
         handleFailed(Right(status))
       // if both failed, display both errors
