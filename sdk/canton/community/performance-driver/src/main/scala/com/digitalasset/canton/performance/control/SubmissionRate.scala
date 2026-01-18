@@ -4,7 +4,13 @@
 package com.digitalasset.canton.performance.control
 
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
-import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
+import com.daml.metrics.api.{
+  MetricHandle,
+  MetricInfo,
+  MetricName,
+  MetricQualification,
+  MetricsContext,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -16,31 +22,76 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
-trait SubmissionRate {
+sealed abstract class SubmissionRate(
+    prefix: MetricName,
+    metrics: LabeledMetricsFactory,
+    now: () => CantonTimestamp,
+)(implicit val metricsContext: MetricsContext) {
+  protected lazy val pending_ : MetricHandle.Gauge[Int] = metrics.gauge[Int](
+    MetricInfo(prefix :+ "pending", "How many pending commands", MetricQualification.Debug),
+    0,
+  )
+  protected lazy val succeeded_ : AtomicInteger = new AtomicInteger(0)
 
-  /** number of commands that can be submitted without exceeding the current rate */
+  protected lazy val observed_ : AtomicInteger = new AtomicInteger(0)
+  protected lazy val failed_ : MetricHandle.Gauge[Int] = metrics.gauge[Int](
+    MetricInfo(prefix :+ "failed", "How many commands failed", MetricQualification.Debug),
+    0,
+  )
+
+  protected lazy val latency_ : MetricHandle.Gauge[Double] =
+    metrics.gauge[Double](
+      MetricInfo(prefix :+ "latency", "Command latency", MetricQualification.Debug),
+      0,
+    )
+  protected lazy val lastObservation = new AtomicReference[CantonTimestamp](now())
+
+  // (number of accepted transactions, sum of the latencies)
+  protected lazy val newInformation: AtomicReference[(Int, Double)] = new AtomicReference((0, 0))
+
+  /** Number of commands that can be submitted without exceeding the current rate. Must not have any
+    * side effect.
+    */
   def available: Int
+
   def currentRate: Double
   def maxRate: Double
-  def pending: Int
-  def succeeded: Int
-  def observed: Int
-  def failed: Int
-  def backpressured: Int
-  def latencyMs: Double
-  def newSubmission(fut: Future[Boolean]): Unit
-  def latencyObservation(durationMs: Long): Unit
+  def pending: Int = pending_.getValue
+  def succeeded: Int = succeeded_.get()
+  def observed: Int = observed_.get()
+  def failed: Int = failed_.getValue
+  def latencyMs: Double = latency_.getValue
+
+  /** Take into account the result of a new submission
+    * @param result
+    *   True if the command was successful, false if it timed out
+    */
+  def newSubmission(result: Future[Boolean]): Unit
+
   def updateRate(now: CantonTimestamp): Unit
 
-  def updateSettings(maxRate: Double, targetLatencyMs: Int, adjustFactor: Double): Unit
-
+  /** Update the latency computation
+    * @param durationMs
+    *   Latest observed latency
+    */
+  def latencyObservation(durationMs: Long): Unit
 }
 
 object SubmissionRate extends NoTracing {
 
   private implicit val metricsContext: MetricsContext = MetricsContext.Empty
 
-  class I(
+  /** This instance aims to reach a given target latency.
+    * @param startMaxRate
+    *   Initial rate (in submissions/second)
+    * @param startTargetLatencyMs
+    *   Desired target latency
+    * @param startAdjustFactor
+    *   How quickly should the rate be adapted
+    * @param now
+    *   Current time retriever
+    */
+  class TargetLatency(
       startMaxRate: Double,
       startTargetLatencyMs: Int,
       startAdjustFactor: Double,
@@ -49,7 +100,7 @@ object SubmissionRate extends NoTracing {
       loggerFactoryE: NamedLoggerFactory,
       now: () => CantonTimestamp,
   )(implicit ec: ExecutionContext)
-      extends SubmissionRate
+      extends SubmissionRate(prefix, metrics, now = now)
       with NamedLogging {
 
     val loggerFactory: NamedLoggerFactory = loggerFactoryE
@@ -69,30 +120,11 @@ object SubmissionRate extends NoTracing {
         MetricInfo(prefix :+ "maxRate", "Current maximum rate", MetricQualification.Debug),
         startMaxRate,
       )
-    private val pending_ = metrics.gauge[Int](
-      MetricInfo(prefix :+ "pending", "How many pending commands", MetricQualification.Debug),
-      0,
-    )
-    private val succeeded_ = new AtomicInteger(0)
 
-    private val observed_ = new AtomicInteger(0)
-    private val failed_ = metrics.gauge[Int](
-      MetricInfo(prefix :+ "failed", "How many commands failed", MetricQualification.Debug),
-      0,
-    )
-    private val backpressured_ = new AtomicInteger(0)
-
-    private val latency_ =
-      metrics.gauge[Double](
-        MetricInfo(prefix :+ "latency", "Command latency", MetricQualification.Debug),
-        0,
-      )
-    private val lastObservation = new AtomicReference[CantonTimestamp](now())
     private val lastRateReduction = new AtomicReference[CantonTimestamp](now())
-    private val newInformation = new AtomicReference[(Int, Double)]((0, 0))
 
     override def toString: String =
-      s"rate(cur=${"%1.1f" format currentRate}, latency=${"%1.0f" format latencyMs}, max=${"%1.1f" format maxRate}, available=$available, pending=$pending, succeeded=$succeeded, observed=$observed, failed=$failed, backpressured=$backpressured)"
+      s"rate(cur=${"%1.1f" format currentRate}, latency=${"%1.0f" format latencyMs}, max=${"%1.1f" format maxRate}, available=$available, pending=$pending, succeeded=$succeeded, observed=$observed, failed=$failed)"
 
     override def available: Int = {
       val latencyRatio = Math.min(1.0, latencyMs / targetLatencyMs.get())
@@ -114,19 +146,7 @@ object SubmissionRate extends NoTracing {
 
     override def maxRate: Double = maxRate_.getValue
 
-    override def pending: Int = pending_.getValue
-
-    override def succeeded: Int = succeeded_.get()
-
-    override def observed: Int = observed_.get()
-
-    override def failed: Int = failed_.getValue
-
-    override def backpressured: Int = backpressured_.get()
-
-    override def latencyMs: Double = latency_.getValue
-
-    override def updateSettings(
+    def updateSettings(
         newMaxRate: Double,
         newTargetLatencyMs: Int,
         newAdjustFactor: Double,
@@ -136,13 +156,12 @@ object SubmissionRate extends NoTracing {
       adjustFactor.set(newAdjustFactor)
     }
 
-    override def newSubmission(fut: Future[Boolean]): Unit = {
-
+    override def newSubmission(result: Future[Boolean]): Unit = {
       pending_.updateValue(_ + 1)
       currentRate_.updateValue(_ + 1.0)
       updateRate(now())
 
-      def throttle(): Boolean = {
+      def throttle(): Unit = {
         failed_.updateValue(_ + 1)
         val current = maxRate_.getValue
         val updated = current * 0.9
@@ -150,21 +169,16 @@ object SubmissionRate extends NoTracing {
         val updatedS = "%1.2f" format updated
         val currentS = "%1.2f" format current
         logger.debug(s"Reducing max-rate to $updatedS from $currentS")
-        true
       }
 
-      fut.onComplete {
-        case Success(true) =>
-          succeeded_.incrementAndGet().discard
-        case Success(false) =>
-          throttle().discard
-        case _ =>
-          failed_.updateValue(_ + 1)
+      result.onComplete {
+        case Success(true) => succeeded_.incrementAndGet().discard
+        case Success(false) => throttle()
+        case _ => failed_.updateValue(_ + 1)
       }
-      fut.onComplete { _ =>
+      result.onComplete { _ =>
         pending_.updateValue(_ - 1)
       }
-
     }
 
     override def updateRate(now: CantonTimestamp): Unit = {
@@ -181,7 +195,7 @@ object SubmissionRate extends NoTracing {
       adjustMaxRate()
     }
 
-    override def latencyObservation(millis: Long): Unit = {
+    override def latencyObservation(durationMs: Long): Unit = {
       val obs = observed_.incrementAndGet()
       val tm = now()
       val last = lastObservation.getAndSet(tm)
@@ -189,11 +203,11 @@ object SubmissionRate extends NoTracing {
       val alphaObs = 1.0 / obs
       val alphaTau = Math.min((tm.toInstant.toEpochMilli - last.toInstant.toEpochMilli) / tau, 1.0)
       val alpha = Math.max(alphaTau, alphaObs)
-      val avgLatency = alpha * millis + (1.0 - alpha) * latency_.getValue
+      val avgLatency = alpha * durationMs + (1.0 - alpha) * latency_.getValue
       latency_.updateValue(avgLatency)
-      val _ = newInformation.updateAndGet { case (count, total) =>
-        (count + 1, total + millis)
-      }
+      newInformation.updateAndGet { case (count, total) =>
+        (count + 1, total + durationMs)
+      }.discard
     }
 
     def adjustMaxRate(): Unit = {
@@ -252,6 +266,72 @@ object SubmissionRate extends NoTracing {
         }
         maxRate_.updateValue(newRate)
       }
+    }
+  }
+
+  /** This instance aims at a fixed rate.
+    *
+    * @param rate
+    *   Desired rate in requests/second.
+    * @param now
+    *   Current time retriever
+    */
+  class FixedRate(
+      rate: Double,
+      prefix: MetricName,
+      metrics: LabeledMetricsFactory,
+      loggerFactoryE: NamedLoggerFactory,
+      now: () => CantonTimestamp,
+  )(implicit ec: ExecutionContext)
+      extends SubmissionRate(prefix, metrics, now = now)
+      with NamedLogging {
+    private val previousAvailableChange: AtomicReference[CantonTimestamp] =
+      new AtomicReference(now())
+
+    private val available_ : AtomicInteger = new AtomicInteger(0)
+
+    val loggerFactory: NamedLoggerFactory = loggerFactoryE
+
+    override def available: Int = available_.get()
+
+    override def currentRate: Double = rate
+
+    override def maxRate: Double = rate
+
+    override def newSubmission(fut: Future[Boolean]): Unit = {
+      pending_.updateValue(_ + 1)
+      available_.decrementAndGet().discard
+
+      fut.onComplete {
+        case Success(true) => succeeded_.incrementAndGet().discard
+        case _ => failed_.updateValue(_ + 1)
+      }
+
+      fut.onComplete(_ => pending_.updateValue(_ - 1))
+    }
+
+    override def updateRate(now: CantonTimestamp): Unit =
+      available_.updateAndGet { oldAvailable =>
+        // time since the last change in seconds
+        val deltaT = Math.max((now - previousAvailableChange.get()).toMillis, 0) / 1000.0
+
+        // Note: the `toInt` rounds down
+        val newAvailable = oldAvailable + (deltaT * rate).toInt
+
+        // Since we round down, we don't progress `previousAvailableChange` if there is no change
+        if (oldAvailable != newAvailable)
+          previousAvailableChange.set(now)
+
+        newAvailable
+      }.discard
+
+    override def latencyObservation(durationMs: Long): Unit = {
+      val (newCount, newTotalLatencies) = newInformation.updateAndGet {
+        case (curCount, curTotalLatencies) =>
+          (curCount + 1, curTotalLatencies + durationMs)
+      }
+
+      latency_.updateValue(_ => newTotalLatencies / newCount)
     }
   }
 }

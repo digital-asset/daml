@@ -11,7 +11,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{Hash, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.SynchronizerUpdate
 import com.digitalasset.canton.lifecycle.{
   AsyncOrSyncCloseable,
   FlagCloseableAsync,
@@ -99,7 +99,9 @@ final class PartyReplicationProcessorTest
     private def mkTP(): PartyReplicationTargetParticipantProcessor = {
       val rop = mock[RecordOrderPublisher]
       val requestTracker = mock[RequestTracker]
-      when(rop.schedulePublishAddContracts(any[CantonTimestamp => Update])(anyTraceContext))
+      when(
+        rop.schedulePublishAddContracts(any[CantonTimestamp => SynchronizerUpdate])(anyTraceContext)
+      )
         .thenReturn(UnlessShutdown.unit)
       when(rop.publishBufferedEvents()).thenReturn(UnlessShutdown.unit)
       when(

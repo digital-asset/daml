@@ -269,6 +269,7 @@ object RequireTypes {
     lazy val one: PositiveInt = PositiveInt.tryCreate(1)
     lazy val two: PositiveInt = PositiveInt.tryCreate(2)
     lazy val three: PositiveInt = PositiveInt.tryCreate(3)
+    lazy val four: PositiveInt = PositiveInt.tryCreate(4)
     lazy val MaxValue: PositiveInt = PositiveInt.tryCreate(Int.MaxValue)
   }
 

@@ -68,6 +68,7 @@ import org.slf4j.event.Level
 
 import java.sql.Connection
 import java.time.Instant
+import java.util.UUID
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.annotation.unused
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
@@ -110,11 +111,19 @@ class ParallelIndexerSubscriptionSpec
 
   private val someTime = Instant.now
 
-  private val somePartyAllocation = state.Update.PartyAddedToParticipant(
-    party = Ref.Party.assertFromString("party"),
-    participantId = Ref.ParticipantId.assertFromString("participant"),
-    recordTime = CantonTimestamp.assertFromInstant(someTime),
-    submissionId = Some(Ref.SubmissionId.assertFromString("abc")),
+  private val somePartyAllocation = state.Update.TopologyTransactionEffective(
+    updateId = TestUpdateId(UUID.randomUUID().toString),
+    events = Set(
+      TopologyTransactionEffective.TopologyEvent.PartyToParticipantAuthorization(
+        party = Ref.Party.assertFromString("party"),
+        participant = Ref.ParticipantId.assertFromString("participant"),
+        authorizationEvent = TopologyTransactionEffective.AuthorizationEvent.Added(
+          TopologyTransactionEffective.AuthorizationLevel.Confirmation
+        ),
+      )
+    ),
+    synchronizerId = SynchronizerId.tryFromString("invalid::deadbeef"),
+    effectiveTime = CantonTimestamp.assertFromInstant(someTime),
   )
 
   private val updateId = TestUpdateId("mock_hash")
@@ -242,8 +251,8 @@ class ParallelIndexerSubscriptionSpec
       .zip(
         Vector(
           somePartyAllocation,
-          somePartyAllocation.copy(recordTime = somePartyAllocation.recordTime.addMicros(1000)),
-          somePartyAllocation.copy(recordTime = somePartyAllocation.recordTime.addMicros(2000)),
+          somePartyAllocation.copy(effectiveTime = somePartyAllocation.recordTime.addMicros(1000)),
+          somePartyAllocation.copy(effectiveTime = somePartyAllocation.recordTime.addMicros(2000)),
         )
       )
 

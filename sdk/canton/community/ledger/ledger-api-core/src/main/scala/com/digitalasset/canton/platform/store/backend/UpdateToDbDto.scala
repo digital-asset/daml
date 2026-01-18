@@ -55,14 +55,6 @@ object UpdateToDbDto {
           commandRejected = u,
         )
 
-      case u: PartyAddedToParticipant =>
-        partyAddedToParticipantToDbDto(
-          metrics = metrics,
-          participantId = participantId,
-          offset = offset,
-          partyAddedToParticipant = u,
-        )
-
       case u: TopologyTransactionEffective =>
         topologyTransactionToDbDto(
           metrics = metrics,
@@ -141,30 +133,6 @@ object UpdateToDbDto {
         rejection_status_message = Some(commandRejected.reasonTemplate.message),
         rejection_status_details =
           Some(StatusDetails.of(commandRejected.reasonTemplate.status.details).toByteArray),
-      )
-    )
-  }
-
-  private def partyAddedToParticipantToDbDto(
-      metrics: LedgerApiServerMetrics,
-      participantId: Ref.ParticipantId,
-      offset: Offset,
-      partyAddedToParticipant: PartyAddedToParticipant,
-  )(implicit mc: MetricsContext): Iterator[DbDto] = {
-    incrementCounterForEvent(
-      metrics.indexer,
-      IndexerMetrics.Labels.eventType.partyAllocation,
-      IndexerMetrics.Labels.status.accepted,
-    )
-    Iterator(
-      DbDto.PartyEntry(
-        ledger_offset = offset.unwrap,
-        recorded_at = partyAddedToParticipant.recordTime.toMicros,
-        submission_id = partyAddedToParticipant.submissionId,
-        party = Some(partyAddedToParticipant.party),
-        typ = JdbcLedgerDao.acceptType,
-        rejection_reason = None,
-        is_local = Some(partyAddedToParticipant.participantId == participantId),
       )
     )
   }

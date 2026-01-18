@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.event
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.participant.state.Update
+import com.digitalasset.canton.ledger.participant.state.SynchronizerUpdate
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -28,7 +28,8 @@ private[event] final class EventBuffer(
 ) extends NamedLogging {
 
   // Buffered Ledger API indexer updates/events held back for the duration of Online Party Replication
-  private val bufferedEvents: ConcurrentLinkedQueue[Update] = new ConcurrentLinkedQueue[Update]()
+  private val bufferedEvents: ConcurrentLinkedQueue[SynchronizerUpdate] =
+    new ConcurrentLinkedQueue[SynchronizerUpdate]()
 
   // Track the last buffered update's record time so that we can ensure that events are buffered in non-decreasing
   // record time order.
@@ -37,7 +38,7 @@ private[event] final class EventBuffer(
   /** Buffer/hold back a concurrent Ledger API indexer update/event during OPR such that
     * OPR-replicated ACS contracts can be published "before" with respect to record time order.
     */
-  def bufferEvent(event: Update)(implicit traceContext: TraceContext): Unit = {
+  def bufferEvent(event: SynchronizerUpdate)(implicit traceContext: TraceContext): Unit = {
     ErrorUtil.requireState(
       event.recordTime >= lastBufferedRecordTime.get(),
       "Events must not be buffered out of record time order",
@@ -47,9 +48,9 @@ private[event] final class EventBuffer(
 
   /** Mark the OPR ACS batch event with the buffer begin timestamp as record time.
     */
-  def markEventsWithRecordTime(buildEventsWithRecordTime: CantonTimestamp => Update)(implicit
-      traceContext: TraceContext
-  ): Update = {
+  def markEventsWithRecordTime(buildEventsWithRecordTime: CantonTimestamp => SynchronizerUpdate)(
+      implicit traceContext: TraceContext
+  ): SynchronizerUpdate = {
     val queueRecordTime = recordTimeBufferBegin
     logger.debug(
       s"Marking replicated contracts indexer event with record time ${queueRecordTime.toMicros}"
@@ -59,6 +60,6 @@ private[event] final class EventBuffer(
 
   /** Extracts and clear the buffered events. This is meant to be called before closing the buffer.
     */
-  def extractAndClearBufferedEvents(): Seq[Update] =
+  def extractAndClearBufferedEvents(): Seq[SynchronizerUpdate] =
     bufferedEvents.iterator().asScala.toSeq.tap(_ => bufferedEvents.clear())
 }

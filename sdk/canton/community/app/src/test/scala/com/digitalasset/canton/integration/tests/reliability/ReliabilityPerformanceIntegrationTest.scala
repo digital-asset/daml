@@ -159,8 +159,7 @@ trait ReliabilityPerformanceIntegrationTest extends BasePerformanceIntegrationTe
     eventually(timeUntilSuccess = 200.seconds) {
       val runnerStatus = runner.status()
       runnerStatus.exists {
-        case DriverStatus.TraderStatus(_, _, _, _, _, _, _, _, _, proposals, _, _, _) =>
-          proposals.observed > 10
+        case traderStatus: DriverStatus.TraderStatus => traderStatus.proposals.observed > 10
         case _ => false
       } shouldBe true withClue s"Status did not have enough observed proposals: $runnerStatus"
     }

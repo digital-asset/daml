@@ -9,12 +9,7 @@ import com.daml.timer.RetryStrategy
 import com.daml.timer.RetryStrategy.UnhandledFailureException
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.CommitRepair
-import com.digitalasset.canton.ledger.participant.state.{
-  ParticipantUpdate,
-  RepairUpdate,
-  SynchronizerUpdate,
-  Update,
-}
+import com.digitalasset.canton.ledger.participant.state.{RepairUpdate, SynchronizerUpdate, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -204,22 +199,7 @@ class IndexerState(
           shutdownInitiated = true,
         )
       }
-      queue.done.transform { doneResult =>
-        queue.uncommittedQueueSnapshot
-          .collect { case (_, participantUpdate: ParticipantUpdate) =>
-            participantUpdate
-          }
-          .foreach(
-            _.persisted
-              .tryFailure(
-                new IllegalStateException(
-                  "Indexer is shutting down, this Update won't be persisted."
-                )
-              )
-              .discard
-          )
-        handleShutdownDoneResult(doneResult)
-      }
+      queue.done.transform(handleShutdownDoneResult)
 
     case Repair(queueF, repairDone, shutdownInitiated) =>
       if (!shutdownInitiated) {
@@ -245,7 +225,6 @@ class IndexerState(
                 recoveringQueue.uncommittedQueueSnapshot.iterator.map(_._2).exists {
                   case u: SynchronizerUpdate => u.synchronizerId == synchronizerId
                   case _: Update.CommitRepair => false
-                  case _: Update.PartyAddedToParticipant => false
                 }
               )
                 Future.failed(

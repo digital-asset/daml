@@ -25,7 +25,7 @@ object VersionedStatus extends VersioningCompanion2[VersionedStatus, VersionedSt
   /** Proto versions that are supported by `fromProtoVersioned` and `fromByteString` See the helper
     * `supportedProtoVersion` below to define a `Parser`.
     */
-  override def versioningTable: VersioningTable = VersioningTable(
+  override val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec
       .storage(
         ReleaseProtocolVersion(ProtocolVersion.v34),

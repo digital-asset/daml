@@ -45,8 +45,8 @@ import scala.util.{Failure, Success}
   * [[RecordOrderPublisher]] for documentation.
   */
 sealed trait PublishesOnlinePartyReplicationEvents {
-  def schedulePublishAddContracts(buildEventAtRecordTime: CantonTimestamp => Update)(implicit
-      traceContext: TraceContext
+  def schedulePublishAddContracts(buildEventAtRecordTime: CantonTimestamp => SynchronizerUpdate)(
+      implicit traceContext: TraceContext
   ): UnlessShutdown[Unit]
 
   def publishBufferedEvents()(implicit traceContext: TraceContext): UnlessShutdown[Unit]
@@ -305,7 +305,7 @@ class RecordOrderPublisher private (
     * [[publishBufferedEvents]] calls.
     */
   def schedulePublishAddContracts(
-      buildEventAtRecordTime: CantonTimestamp => Update
+      buildEventAtRecordTime: CantonTimestamp => SynchronizerUpdate
   )(implicit traceContext: TraceContext): UnlessShutdown[Unit] =
     scheduleBufferingEventTaskImmediately { timestamp =>
       logger.debug(s"Publish add contracts at $timestamp")
@@ -468,7 +468,7 @@ class RecordOrderPublisher private (
     override def close(): Unit = ()
   }
 
-  private def publishOrBuffer(event: Update, log: String)(implicit
+  private def publishOrBuffer(event: SynchronizerUpdate, log: String)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     ledgerApiIndexerBuffer
@@ -483,7 +483,7 @@ class RecordOrderPublisher private (
     }
 
   private def publishLedgerApiIndexerEvent(
-      event: Update
+      event: SynchronizerUpdate
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val successorO = synchronizerSuccessor.get()
 
