@@ -264,7 +264,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:base-grpc-utils:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
-        "//canton/community/daml-lf/validation:__subpackages__",
+        "//daml-assistant/upgrade-check-main:__subpackages__",
         "//daml-script:__subpackages__",
         "//test-common/canton:__subpackages__",
     ],
@@ -414,7 +414,7 @@ proto_gen(
         "grpc",
     ],
     visibility = [
-        "//canton/community/daml-lf/validation:__subpackages__",
+        "//daml-assistant/upgrade-check-main:__subpackages__",
         "//daml-script:__subpackages__",
     ],
 )
@@ -437,7 +437,7 @@ da_scala_library(
         ]
     ],
     tags = ["maven_coordinates=com.daml:community-admin-api:__VERSION__"],
-    visibility = ["//canton/community/daml-lf/validation:__subpackages__"],
+    visibility = ["//daml-assistant/upgrade-check-main:__subpackages__"],
 )
 
 ### community/base ###
