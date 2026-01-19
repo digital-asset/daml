@@ -1,8 +1,7 @@
-// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.validation
-package upgrade
 
 import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.{/*Dar,*/ DarReader /*, DarWriter*/}
@@ -14,10 +13,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 import java.nio.file.{Path, Paths}
 import java.io.File
 import org.scalatest.Inspectors.forEvery
-
-import com.digitalasset.daml.lf.validation.upgrade.{StringLoggerFactory}
-
-import com.digitalasset.daml.lf.validation.UpgradeCheckMain
 
 final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
   protected def loadPackageId(path: Path): PackageId = {
