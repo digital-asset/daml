@@ -23,6 +23,15 @@ object ValidationErrors {
       .Reject(message)
       .asGrpcError
 
+  def disclosedContractsConflictingPayloads(
+      contractConflictingPayloads: List[(String, Long, String)]
+  )(implicit
+      errorLoggingContext: ErrorLoggingContext
+  ): StatusRuntimeException =
+    RequestValidationErrors.DisclosedContractsConflictingPayloads
+      .Reject(contractConflictingPayloads)
+      .asGrpcError
+
   def invalidField(
       fieldName: String,
       message: String,

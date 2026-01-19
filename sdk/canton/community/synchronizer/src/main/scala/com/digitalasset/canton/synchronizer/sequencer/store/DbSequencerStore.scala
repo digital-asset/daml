@@ -355,7 +355,14 @@ class DbSequencerStore(
           traceContext: TraceContext,
           callerCloseContext: CloseContext,
       ): FutureUnlessShutdown[immutable.Iterable[BytesPayload]] =
-        readPayloadsFromStore(items.map(_.value)).map(_.values.toSeq)
+        readPayloadsFromStore(items.map(_.value)).map(payloads =>
+          items.map(payloadId =>
+            payloads.getOrElse(
+              payloadId.value,
+              ErrorUtil.invalidState(s"Payload with id ${payloadId.value} not found"),
+            )
+          )
+        )
       override def prettyItem: Pretty[PayloadId] = implicitly
     },
     batchingConfig.aggregator,
@@ -368,8 +375,6 @@ class DbSequencerStore(
         .buildScaffeine(loggerFactory)
         .weigher((_: Any, v: Any) => v.asInstanceOf[BytesPayload].content.size),
       loader = implicit traceContext => payloadId => aggregator.run(payloadId),
-      allLoader =
-        Some(implicit traceContext => payloadIds => readPayloadsFromStore(payloadIds.toSeq)),
       metrics = Some(sequencerMetrics.payloadCache),
     )(logger, "payloadCache")
 

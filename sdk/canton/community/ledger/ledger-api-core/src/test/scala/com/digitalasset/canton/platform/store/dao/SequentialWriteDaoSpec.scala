@@ -6,6 +6,8 @@ package com.digitalasset.canton.platform.store.dao
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
 import com.digitalasset.canton.crypto.{Hash, HashPurpose}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective
 import com.digitalasset.canton.ledger.participant.state.{SynchronizerIndex, Update}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -22,6 +24,7 @@ import com.digitalasset.canton.platform.store.interning.{
   StringInterning,
   StringInterningDomain,
 }
+import com.digitalasset.canton.protocol.TestUpdateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
@@ -35,6 +38,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.sql.Connection
+import java.util.UUID
 
 class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
@@ -258,11 +262,19 @@ object SequentialWriteDaoSpec {
     ContractId.V1(com.digitalasset.daml.lf.crypto.Hash.hashPrivateKey(key))
 
   private def someUpdate(key: String) = Some(
-    Update.PartyAddedToParticipant(
-      party = Ref.Party.assertFromString(key),
-      participantId = Ref.ParticipantId.assertFromString("participant"),
-      recordTime = CantonTimestamp.now(),
-      submissionId = Some(Ref.SubmissionId.assertFromString("abc")),
+    state.Update.TopologyTransactionEffective(
+      updateId = TestUpdateId(UUID.randomUUID().toString),
+      events = Set(
+        TopologyTransactionEffective.TopologyEvent.PartyToParticipantAuthorization(
+          party = Ref.Party.assertFromString(key),
+          participant = Ref.ParticipantId.assertFromString("participant"),
+          authorizationEvent = TopologyTransactionEffective.AuthorizationEvent.Added(
+            TopologyTransactionEffective.AuthorizationLevel.Confirmation
+          ),
+        )
+      ),
+      synchronizerId = SynchronizerId.tryFromString("invalid::deadbeef"),
+      effectiveTime = CantonTimestamp.now(),
     )(TraceContext.empty)
   )
 
@@ -334,18 +346,18 @@ object SequentialWriteDaoSpec {
     target_synchronizer_id = None,
   )
 
-  val singlePartyFixture: Option[Update.PartyAddedToParticipant] =
+  val singlePartyFixture: Option[Update.TopologyTransactionEffective] =
     someUpdate("singleParty")
-  val partyAndCreateFixture: Option[Update.PartyAddedToParticipant] =
+  val partyAndCreateFixture: Option[Update.TopologyTransactionEffective] =
     someUpdate("partyAndCreate")
-  val allEventsFixture: Option[Update.PartyAddedToParticipant] =
+  val allEventsFixture: Option[Update.TopologyTransactionEffective] =
     someUpdate("allEventsFixture")
 
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
   private val someUpdateToDbDtoFixture: Map[Ref.Party, List[DbDto]] = Map(
-    singlePartyFixture.get.party -> List(someParty),
-    partyAndCreateFixture.get.party -> List(someParty, someEventActivate),
-    allEventsFixture.get.party -> List(
+    Ref.Party.assertFromString("singleParty") -> List(someParty),
+    Ref.Party.assertFromString("partyAndCreate") -> List(someParty, someEventActivate),
+    Ref.Party.assertFromString("allEventsFixture") -> List(
       someEventActivate,
       DbDto
         .IdFilter(
@@ -369,8 +381,14 @@ object SequentialWriteDaoSpec {
 
   private val updateToDbDtoFixture: Offset => Update => Iterator[DbDto] =
     _ => {
-      case r: Update.PartyAddedToParticipant =>
-        someUpdateToDbDtoFixture(r.party).iterator
+      case r: Update.TopologyTransactionEffective =>
+        val party = r.events
+          .collectFirst {
+            case pa: Update.TopologyTransactionEffective.TopologyEvent.PartyToParticipantAuthorization =>
+              pa.party
+          }
+          .getOrElse(throw new IllegalStateException())
+        someUpdateToDbDtoFixture(party).iterator
       case _ => throw new Exception
     }
 

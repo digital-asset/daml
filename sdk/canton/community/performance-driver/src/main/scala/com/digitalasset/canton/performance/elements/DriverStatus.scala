@@ -38,7 +38,6 @@ object DriverStatus {
       maxRate: Double,
       latencyMs: Double,
       pending: Int,
-      backpressured: Int,
       failed: Int,
       proposals: StepStatus,
       accepts: StepStatus,
@@ -56,7 +55,6 @@ object DriverStatus {
          | pending=$pending,
          | proposals=$proposals,
          | accepts=$accepts,
-         | backpressured=$backpressured,
          | failed=$failed)
          |""".stripMargin.replaceAll("\n", "")
   }

@@ -1107,7 +1107,7 @@ paths:
         for individual events depends on the transaction shape chosen.
 
         - ACS delta: a requesting party must be a stakeholder of an event for it to be included.
-        - ledger effects: a requesting party must be a witness of an en event for it to be included.
+        - ledger effects: a requesting party must be a witness of an event for it to be included.
         Notice: This endpoint should be used for small results set.
         When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
         there will be an error (`413 Content Too Large`) returned.

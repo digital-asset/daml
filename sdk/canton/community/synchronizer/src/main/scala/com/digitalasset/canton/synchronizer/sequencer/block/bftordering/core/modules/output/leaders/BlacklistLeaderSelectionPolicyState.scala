@@ -170,7 +170,7 @@ object BlacklistLeaderSelectionPolicyState
     },
   )(rpv)
 
-  override def versioningTable: VersioningTable =
+  override val versioningTable: VersioningTable =
     VersioningTable(
       ProtoVersion(30) ->
         VersionedProtoCodec(

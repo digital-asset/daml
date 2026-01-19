@@ -43,7 +43,6 @@ import com.digitalasset.canton.platform.store.backend.StorageBackendTestValues.{
   somePackageId,
 }
 import com.digitalasset.canton.platform.store.backend.UpdateToDbDto.templateIdWithPackageName
-import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.{
   CompressionStrategy,
   FieldCompressionStrategy,
@@ -93,50 +92,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
   }
 
   "UpdateToDbDto" should {
-
-    "handle PartyAddedToParticipant (local party)" in {
-      val update = state.Update.PartyAddedToParticipant(
-        someParty,
-        someParticipantId,
-        someRecordTime,
-        Some(someSubmissionId),
-      )
-      val dtos = updateToDtos(update)
-
-      dtos should contain theSameElementsInOrderAs List(
-        DbDto.PartyEntry(
-          ledger_offset = someOffset.unwrap,
-          recorded_at = someRecordTime.toMicros,
-          submission_id = Some(someSubmissionId),
-          party = Some(someParty),
-          typ = JdbcLedgerDao.acceptType,
-          rejection_reason = None,
-          is_local = Some(true),
-        )
-      )
-    }
-
-    "handle PartyAddedToParticipant (remote party)" in {
-      val update = state.Update.PartyAddedToParticipant(
-        someParty,
-        otherParticipantId,
-        someRecordTime,
-        None,
-      )
-      val dtos = updateToDtos(update)
-
-      dtos should contain theSameElementsInOrderAs List(
-        DbDto.PartyEntry(
-          ledger_offset = someOffset.unwrap,
-          recorded_at = someRecordTime.toMicros,
-          submission_id = None,
-          party = Some(someParty),
-          typ = JdbcLedgerDao.acceptType,
-          rejection_reason = None,
-          is_local = Some(false),
-        )
-      )
-    }
 
     "handle CommandRejected (sequenced rejection)" in {
       val status = StatusProto.of(Status.Code.ABORTED.value(), "test reason", Seq.empty)

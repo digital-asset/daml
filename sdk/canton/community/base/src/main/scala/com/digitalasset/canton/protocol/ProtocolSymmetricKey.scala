@@ -29,7 +29,7 @@ final case class ProtocolSymmetricKey(key: SymmetricKey)(
 object ProtocolSymmetricKey extends VersioningCompanion[ProtocolSymmetricKey] {
   override def name: String = "ProtocolSymmetricKey"
 
-  override def versioningTable: VersioningTable = VersioningTable(
+  override val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.SymmetricKey)(
       supportedProtoVersion(_)(fromProtoV30),
       _.key.toProtoV30,

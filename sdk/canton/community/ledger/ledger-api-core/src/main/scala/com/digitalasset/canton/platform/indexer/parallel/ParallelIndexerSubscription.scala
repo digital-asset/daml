@@ -12,9 +12,8 @@ import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.CommitRepair
 import com.digitalasset.canton.ledger.participant.state.{
-  ParticipantUpdate,
   SynchronizerIndex,
-  SynchronizerIndexUpdate,
+  SynchronizerUpdate,
   Update,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -286,11 +285,6 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
         updates.lastOption.foreach { case (offset, _) =>
           commit(offset.unwrap)
         }
-        updates
-          .collect { case (_, participantUpdate: ParticipantUpdate) =>
-            participantUpdate
-          }
-          .foreach(_.persisted.trySuccess(()).discard)
       }
       .viaMat(KillSwitches.single)(Keep.both)
       .toMat(Sink.ignore)(Keep.both)
@@ -432,8 +426,8 @@ object ParallelIndexerSubscription {
       checkAndUpdateOffset(offset)
 
       Option(update)
-        .collect { case synchronizerIndexUpdate: SynchronizerIndexUpdate =>
-          synchronizerIndexUpdate.synchronizerIndex
+        .collect { case synchronizerUpdate: SynchronizerUpdate =>
+          synchronizerUpdate.synchronizerIndex
         }
         .map(idAndIndex => checkAndUpdateSynchronizerIndex(offset)(idAndIndex._1, idAndIndex._2))
         .getOrElse(Future.unit)
@@ -833,7 +827,7 @@ object ParallelIndexerSubscription {
           ledgerEndSynchronizerIndexFrom(
             batchOfBatches
               .flatMap(_.offsetsUpdates)
-              .collect { case (_, update: SynchronizerIndexUpdate) =>
+              .collect { case (_, update: SynchronizerUpdate) =>
                 update.synchronizerIndex
               }
           ),
@@ -889,7 +883,7 @@ object ParallelIndexerSubscription {
           val newLedgerEnd = lastBatch.ledgerEnd
           val synchronizerIndexesForBatchOfBatches = batchOfBatches
             .flatMap(_.offsetsUpdates)
-            .collect { case (_, update: SynchronizerIndexUpdate) =>
+            .collect { case (_, update: SynchronizerUpdate) =>
               update.synchronizerIndex
             }
           val newSynchronizerIndexes =
