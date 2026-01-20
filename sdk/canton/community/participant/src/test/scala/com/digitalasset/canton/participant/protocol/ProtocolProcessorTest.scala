@@ -18,6 +18,7 @@ import com.digitalasset.canton.config.{
   SessionEncryptionKeyCacheConfig,
   StorageConfig,
   TestingConfigInternal,
+  TopologyConfig,
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
@@ -288,6 +289,7 @@ class ProtocolProcessorTest
         IndexedPhysicalSynchronizer.tryCreate(psid, 1),
         defaultStaticSynchronizerParameters,
         parameters = ParticipantNodeParameters.forTestingOnly(testedProtocolVersion),
+        topologyConfig = TopologyConfig.forTesting,
         mock[PackageMetadataView],
         Eval.now(nodePersistentState.ledgerApiStore),
         logical,

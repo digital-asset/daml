@@ -39,7 +39,7 @@ import io.opentelemetry.api.trace
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 import BlockSequencerFactory.OrderingTimeFixMode
 
@@ -53,7 +53,7 @@ abstract class BlockSequencerFactory(
     override val loggerFactory: NamedLoggerFactory,
     testingInterceptor: Option[TestingInterceptor],
     metrics: SequencerMetrics,
-)(implicit ec: ExecutionContext)
+)(implicit ec: ExecutionContextExecutor)
     extends DatabaseSequencerFactory(
       blockSequencerConfig.toDatabaseSequencerConfig,
       storage,
@@ -104,7 +104,7 @@ abstract class BlockSequencerFactory(
       authenticationServices: Option[AuthenticationServices],
       synchronizerLoggerFactory: NamedLoggerFactory,
   )(implicit
-      ec: ExecutionContext,
+      ec: ExecutionContextExecutor,
       materializer: Materializer,
       tracer: Tracer,
   ): BlockOrderer

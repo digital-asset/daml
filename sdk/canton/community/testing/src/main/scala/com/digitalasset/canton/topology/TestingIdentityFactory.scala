@@ -7,6 +7,7 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest.{
+  RichSynchronizerIdO,
   defaultStaticSynchronizerParameters,
   testedReleaseProtocolVersion,
 }
@@ -525,7 +526,7 @@ class TestingIdentityFactory(
   ): TopologySnapshotLoader = {
 
     val store = new InMemoryTopologyStore(
-      TopologyStoreId.AuthorizedStore,
+      TopologyStoreId.SynchronizerStore(synchronizerId.toPhysical),
       BaseTest.testedProtocolVersion,
       loggerFactory,
       DefaultProcessingTimeouts.testing,
@@ -609,6 +610,7 @@ class TestingIdentityFactory(
     ) // The in-memory topology store should complete the state update immediately
 
     new StoreBasedTopologySnapshot(
+      store.storeId.psid,
       timestampOfSnapshot,
       store,
       packageDependencyResolver,

@@ -35,7 +35,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 class BftSequencerFactory(
     config: BftBlockOrdererConfig,
@@ -49,7 +49,7 @@ class BftSequencerFactory(
     metrics: SequencerMetrics,
     override val loggerFactory: NamedLoggerFactory,
     testingInterceptor: Option[TestingInterceptor],
-)(implicit ec: ExecutionContext)
+)(implicit ec: ExecutionContextExecutor)
     extends BlockSequencerFactory(
       health,
       blockSequencerConfig,
@@ -77,7 +77,7 @@ class BftSequencerFactory(
       authenticationServices: Option[AuthenticationServices],
       synchronizerLoggerFactory: NamedLoggerFactory,
   )(implicit
-      ec: ExecutionContext,
+      ec: ExecutionContextExecutor,
       materializer: Materializer,
       tracer: Tracer,
   ): BlockOrderer = {

@@ -37,7 +37,6 @@ import universe.*
   * openapi.yml.
   */
 object CirceRelaxedCodec {
-
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf", "org.wartremover.warts.Null"))
   def deriveRelaxedCodec[T: TypeTag](implicit
       c: Lazy[ConfiguredAsObjectCodec[T]]
@@ -100,22 +99,4 @@ object CirceRelaxedCodec {
       }
     }
   }
-
-  /** derived codec that supports using default scalar values */
-  def deriveRelaxedCodecWithDefaults[T: TypeTag](defaults: Map[String, Json])(implicit
-      c: Lazy[ConfiguredAsObjectCodec[T]]
-  ): Codec.AsObject[T] = {
-    val codec = deriveRelaxedCodec[T]
-    new Codec.AsObject[T] {
-      override def encodeObject(value: T): JsonObject = codec.encodeObject(value)
-      override def apply(c: HCursor): Result[T] =
-        codec.decodeJson(c.value.mapObject { jsonObj =>
-          val objMap = jsonObj.toMap
-          val resultMap = defaults ++ objMap
-          JsonObject.fromMap(resultMap)
-        })
-    }
-
-  }
-
 }

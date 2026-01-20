@@ -35,7 +35,7 @@ class SortedReconciliationIntervalsProviderFactory(
       .toRight(s"Can not obtain topology factory for $synchronizerId")
       .toEitherT[FutureUnlessShutdown]
     topologyClient <- EitherT.right(
-      topologyFactory.createCachingTopologyClient(NoPackageDependencies, synchronizerPredecessor)
+      topologyFactory.createTopologyClient(NoPackageDependencies, synchronizerPredecessor)
     )
   } yield {
     topologyClient.updateHead(

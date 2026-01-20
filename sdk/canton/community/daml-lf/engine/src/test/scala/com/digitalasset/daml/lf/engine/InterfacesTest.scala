@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.daml.bazeltools.BazelRunfiles
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command.ApiCommand
@@ -27,7 +26,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.io.File
+import java.util.zip.ZipInputStream
 import scala.language.implicitConversions
 
 class InterfacesTestV2 extends InterfacesTest(LanguageVersion.Major.V2)
@@ -43,8 +42,7 @@ class InterfacesTest(majorLanguageVersion: LanguageVersion.Major)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
-    with EitherValues
-    with BazelRunfiles {
+    with EitherValues {
 
   import InterfacesTest._
 
@@ -53,7 +51,8 @@ class InterfacesTest(majorLanguageVersion: LanguageVersion.Major)
   private[this] val preprocessor = preprocessing.Preprocessor.forTesting(compiledPackages)
 
   private def loadAndAddPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
+    val stream = getClass.getClassLoader.getResourceAsStream(resource)
+    val packages = DarDecoder.readArchive(resource, new ZipInputStream(stream)).toOption.get
     val (mainPkgId, mainPkg) = packages.main
     assert(
       compiledPackages.addPackage(mainPkgId, mainPkg).consume(pkgs = packages.all.toMap).isRight
@@ -64,7 +63,7 @@ class InterfacesTest(majorLanguageVersion: LanguageVersion.Major)
   "interfaces" should {
 
     val (interfacesPkgId, interfacesPkg, allInterfacesPkgs) =
-      loadAndAddPackage(s"canton/community/daml-lf/tests/Interfaces-v${majorLanguageVersion.pretty}.dar")
+      loadAndAddPackage(s"Interfaces-v${majorLanguageVersion.pretty}.dar")
 
     val packageNameMap = Map(interfacesPkg.pkgName -> interfacesPkgId)
 

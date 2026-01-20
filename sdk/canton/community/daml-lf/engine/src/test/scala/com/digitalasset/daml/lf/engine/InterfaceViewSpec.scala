@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.daml.bazeltools.BazelRunfiles
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -26,7 +25,7 @@ import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.io.File
+import java.util.zip.ZipInputStream
 import scala.language.implicitConversions
 
 class InterfaceViewSpecV2 extends InterfaceViewSpec(LanguageVersion.Major.V2)
@@ -41,21 +40,21 @@ class InterfaceViewSpecV2 extends InterfaceViewSpec(LanguageVersion.Major.V2)
 class InterfaceViewSpec(majorLanguageVersion: LanguageVersion.Major)
     extends AnyWordSpec
     with Matchers
-    with EitherValues
-    with BazelRunfiles {
+    with EitherValues {
 
   import InterfaceViewSpec._
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
+    val stream = getClass.getClassLoader.getResourceAsStream(resource)
+    val packages = DarDecoder.readArchive(resource, new ZipInputStream(stream)).toOption.get
     val (mainPkgId, mainPkg) = packages.main
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
   private val (interfaceviewsPkgId, _, allPackages) = loadPackage(
-    s"canton/community/daml-lf/tests/InterfaceViews-v${majorLanguageVersion.pretty}.dar"
+    s"InterfaceViews-v${majorLanguageVersion.pretty}.dar"
   )
 
   val engine = Engine.DevEngine

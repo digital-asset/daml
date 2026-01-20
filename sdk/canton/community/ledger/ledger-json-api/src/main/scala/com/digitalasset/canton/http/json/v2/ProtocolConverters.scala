@@ -1397,27 +1397,6 @@ class ProtocolConverters(
         .ExecuteSubmissionAndWaitForTransactionResponse(Some(transaction))
   }
 
-  object AllocatePartyRequest
-      extends ProtocolConverter[
-        lapi.admin.party_management_service.AllocatePartyRequest,
-        js.AllocatePartyRequest,
-      ] {
-    def fromJson(
-        obj: js.AllocatePartyRequest
-    )(implicit
-        traceContext: TraceContext
-    ): Future[lapi.admin.party_management_service.AllocatePartyRequest] =
-      Future.successful(
-        obj.into[lapi.admin.party_management_service.AllocatePartyRequest].transform
-      )
-
-    def toJson(
-        obj: lapi.admin.party_management_service.AllocatePartyRequest
-    )(implicit traceContext: TraceContext): Future[js.AllocatePartyRequest] = Future.successful(
-      obj.into[js.AllocatePartyRequest].transform
-    )
-  }
-
   object PrefetchContractKey
       extends ProtocolConverter[
         lapi.commands.PrefetchContractKey,

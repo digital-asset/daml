@@ -24,7 +24,12 @@ import com.digitalasset.base.error.{
 }
 import com.digitalasset.canton.admin.participant.v30.{ReceivedCommitmentState, SentCommitmentState}
 import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt, PositiveNumeric}
+import com.digitalasset.canton.config.RequireTypes.{
+  NonNegativeInt,
+  NonNegativeLong,
+  PositiveInt,
+  PositiveNumeric,
+}
 import com.digitalasset.canton.config.{
   BatchingConfig,
   CommitmentSendDelay,
@@ -100,6 +105,7 @@ import com.digitalasset.canton.{
   LfPartyId,
   ProtoDeserializationError,
   ReassignmentCounter,
+  checked,
 }
 import com.google.common.annotations.VisibleForTesting
 
@@ -196,6 +202,9 @@ import scala.math.Ordering.Implicits.*
   *   having to create a large number of commitments. This parameter does not influence neither the
   *   actual time spent to compute commitments, nor the compute metrics.
   *
+  * @param commitmentReduceParallelism
+  *   Reduce parallelism to reserve a few cores for other computations
+  *
   * The constructor of this class is private. Instances of this class can only be created using
   * [[AcsCommitmentProcessor.apply]], which in turn uses the Factory method in the companion object
   * to ensure that the class is properly initialized.
@@ -229,6 +238,7 @@ class AcsCommitmentProcessor private (
     commitmentCheckpointInterval: PositiveDurationSeconds,
     commitmentMismatchDebugging: Boolean,
     commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt],
+    commitmentReduceParallelism: NonNegativeInt,
     stringInterning: StringInterning,
 )(implicit ec: ExecutionContext)
     extends AcsChangeListener
@@ -261,8 +271,9 @@ class AcsCommitmentProcessor private (
   /** The parallelism to use when computing commitments */
   private val threadCount: PositiveNumeric[Int] = {
     val count = Threading.detectNumberOfThreads(noTracingLogger)
-    noTracingLogger.info(s"Will use parallelism $count when computing ACS commitments")
-    count
+    val use = Math.max(1, count.value - commitmentReduceParallelism.value)
+    noTracingLogger.info(s"Will use parallelism $use out of $count when computing ACS commitments")
+    checked(PositiveNumeric.tryCreate(use))
   }
 
   // used to generate randomized commitment sending delays
@@ -2768,6 +2779,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       commitmentCheckpointInterval: PositiveDurationSeconds,
       commitmentMismatchDebugging: Boolean = false,
       commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt] = None,
+      commitmentReduceParallelism: NonNegativeInt = NonNegativeInt.one,
       stringInterning: StringInterning,
   )(implicit
       ec: ExecutionContext,
@@ -2832,6 +2844,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         commitmentCheckpointInterval,
         commitmentMismatchDebugging,
         commitmentProcessorNrAcsChangesBehindToTriggerCatchUp,
+        commitmentReduceParallelism,
         stringInterning,
       )
       // We trigger the processing of the buffered commitments, but we do not wait for it to complete here,

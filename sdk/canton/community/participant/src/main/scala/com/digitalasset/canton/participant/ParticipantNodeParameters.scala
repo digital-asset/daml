@@ -37,6 +37,7 @@ final case class ParticipantNodeParameters(
     commitmentCheckpointInterval: PositiveDurationSeconds,
     commitmentMismatchDebugging: Boolean,
     commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt],
+    commitmentReduceParallelism: NonNegativeInt,
     autoSyncProtocolFeatureFlags: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
@@ -96,6 +97,7 @@ object ParticipantNodeParameters {
     commitmentCheckpointInterval = PositiveDurationSeconds.ofMinutes(1),
     commitmentMismatchDebugging = false,
     commitmentProcessorNrAcsChangesBehindToTriggerCatchUp = None,
+    commitmentReduceParallelism = NonNegativeInt.zero,
     autoSyncProtocolFeatureFlags = true,
   )
 }

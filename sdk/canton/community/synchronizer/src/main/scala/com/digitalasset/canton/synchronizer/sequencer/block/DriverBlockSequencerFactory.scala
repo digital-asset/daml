@@ -33,7 +33,7 @@ import org.apache.pekko.stream.Materializer
 import pureconfig.ConfigCursor
 
 import java.util.ServiceLoader
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.jdk.CollectionConverters.*
 
 import BlockSequencerFactory.OrderingTimeFixMode
@@ -51,7 +51,7 @@ class DriverBlockSequencerFactory[C](
     metrics: SequencerMetrics,
     override val loggerFactory: NamedLoggerFactory,
     testingInterceptor: Option[TestingInterceptor],
-)(implicit ec: ExecutionContext)
+)(implicit ec: ExecutionContextExecutor)
     extends BlockSequencerFactory(
       health: Option[SequencerHealthConfig],
       blockSequencerConfig,
@@ -76,7 +76,11 @@ class DriverBlockSequencerFactory[C](
       sequencerSnapshot: Option[SequencerSnapshot],
       authenticationServices: Option[AuthenticationServices],
       synchronizerLoggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext, materializer: Materializer, tracer: Tracer): BlockOrderer =
+  )(implicit
+      ec: ExecutionContextExecutor,
+      materializer: Materializer,
+      tracer: Tracer,
+  ): BlockOrderer =
     new DriverBlockOrderer(
       sequencerDriverFactory.create(
         config,
@@ -155,7 +159,7 @@ object DriverBlockSequencerFactory extends LazyLogging {
       metrics: SequencerMetrics,
       loggerFactory: NamedLoggerFactory,
       testingInterceptor: Option[TestingInterceptor],
-  )(implicit ec: ExecutionContext): DriverBlockSequencerFactory[C] = {
+  )(implicit ec: ExecutionContextExecutor): DriverBlockSequencerFactory[C] = {
     val driverFactory: SequencerDriverFactory { type ConfigType = C } = getSequencerDriverFactory(
       driverName,
       driverVersion,
@@ -197,7 +201,7 @@ object DriverBlockSequencerFactory extends LazyLogging {
       nodeParameters: SequencerNodeParameters,
       metrics: SequencerMetrics,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): DriverBlockSequencerFactory[C] =
+  )(implicit ec: ExecutionContextExecutor): DriverBlockSequencerFactory[C] =
     new DriverBlockSequencerFactory[C](
       getSequencerDriverFactory(driverName, driverVersion),
       config,

@@ -22,16 +22,15 @@ class JsonDecodingTest extends AnyWordSpecLike with Matchers with EitherValues {
       io.circe.parser.decode[UnassignedEvent](json).value.reassignmentId shouldBe "reId"
     }
 
-    "fail on extra/unspecified fields" in {
+    "do not fail on extra/unspecified fields" in {
       val json =
         """
            {
+           "contractId": "cid",
               "reBBassignmentId": "reId"
            }
         """
-      io.circe.parser.decode[UnassignedEvent](json).left.value.getMessage() should include(
-        "reBBassignmentId"
-      )
+      io.circe.parser.decode[UnassignedEvent](json).value.reassignmentId shouldBe ""
     }
   }
 }

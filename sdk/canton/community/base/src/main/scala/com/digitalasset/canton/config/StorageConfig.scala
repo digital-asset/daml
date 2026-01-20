@@ -130,6 +130,7 @@ final case class BatchingConfig(
     maxPruningBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxPruningBatchSize,
     maxPruningTimeInterval: PositiveFiniteDuration = BatchingConfig.defaultMaxPruningTimeInterval,
     pruningParallelism: PositiveNumeric[Int] = BatchingConfig.defaultPruningParallelism,
+    topologyCacheAggregator: BatchAggregatorConfig = BatchingConfig.defaultAggregator,
 )
 
 object BatchingConfig {

@@ -136,7 +136,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
 
       topologyClient <- EitherT.right(
         synchronizeWithClosing("create caching client")(
-          topologyFactory.createCachingTopologyClient(
+          topologyFactory.createTopologyClient(
             new PackageDependencyResolverImpl(participantId, packageMetadataView, loggerFactory),
             synchronizerPredecessor,
           )

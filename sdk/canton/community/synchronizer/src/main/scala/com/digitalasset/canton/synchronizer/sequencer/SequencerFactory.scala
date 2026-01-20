@@ -25,7 +25,7 @@ import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.ScheduledExecutorService
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 trait SequencerFactory extends FlagCloseable with HasCloseContext {
 
@@ -69,7 +69,7 @@ object SequencerMetaFactory {
   )(
       sequencerConfig: SequencerConfig,
       producePostOrderingTopologyTicks: Boolean,
-  )(implicit executionContext: ExecutionContext): SequencerFactory =
+  )(implicit executionContext: ExecutionContextExecutor): SequencerFactory =
     sequencerConfig match {
       case databaseConfig: SequencerConfig.Database =>
         // if we're configured for high availability switch to using a writer storage factory that will
