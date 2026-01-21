@@ -31,7 +31,7 @@ load("@os_info//:os_info.bzl", "is_intel")
 [
     daml_compile(
         name = "Exceptions-{}".format(mangle_for_damlc(version)),
-        srcs = ["Exceptions.daml"],
+        srcs = ["src/main/daml/exceptions/Exceptions.daml"],
         target = version,
         visibility = ["//canton/community/daml-lf:__subpackages__"],
     )
@@ -41,7 +41,7 @@ load("@os_info//:os_info.bzl", "is_intel")
 [
     daml_compile(
         name = "Interfaces-v{}".format(major),
-        srcs = ["Interfaces.daml"],
+        srcs = ["src/main/daml/interfaces/Interfaces.daml"],
         enable_interfaces = True,
         target = DEFAULT_LF_VERSION,
         visibility = ["//canton/community/daml-lf:__subpackages__"],
@@ -52,7 +52,7 @@ load("@os_info//:os_info.bzl", "is_intel")
 [
     daml_compile(
         name = "InterfaceViews-v{}".format(major),
-        srcs = ["InterfaceViews.daml"],
+        srcs = ["src/main/daml/interface-views/InterfaceViews.daml"],
         enable_interfaces = True,
         target = DEFAULT_LF_VERSION,
         visibility = ["//canton/community/daml-lf:__subpackages__"],
@@ -63,14 +63,14 @@ load("@os_info//:os_info.bzl", "is_intel")
 # TODO(#30144) Reimplement this in DamlPlugin
 daml_build_test(
     name = "ReinterpretTests-v2",
-    project_dir = "reinterpret",
+    project_dir = "src/main/daml/reinterpret",
     visibility = ["//canton/community/daml-lf:__subpackages__"],
 )
 
 [
     daml_compile(
         name = "MultiKeys-{}".format(mangle_for_damlc(version)),
-        srcs = ["MultiKeys.daml"],
+        srcs = ["src/main/daml/multi-keys/MultiKeys.daml"],
         target = version,
         visibility = ["//canton/community/daml-lf:__subpackages__"],
     )

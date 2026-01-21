@@ -272,6 +272,7 @@ def install_java_deps():
             "org.scalatestplus:testng-7-5_{}:3.2.11.0".format(scala_major_version),
             "org.scalaz:scalaz-core_{}:7.2.33".format(scala_major_version),
             "org.scalaz:scalaz-scalacheck-binding_{}:7.2.33-scalacheck-1.15".format(scala_major_version),
+            "org.semver4j:semver4j:6.0.0",
             "org.slf4j:jul-to-slf4j:2.0.6",
             "org.slf4j:jul-to-slf4j:2.0.6",
             "org.slf4j:slf4j-api:2.0.6",
