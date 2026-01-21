@@ -84,7 +84,7 @@ class HttpExtensionServiceClient(
             val requestBuilder = HttpRequest
               .newBuilder()
               .uri(endpoint)
-              .timeout(Duration.ofMillis(config.connectTimeout.toMillis))
+              .timeout(Duration.ofMillis(config.connectTimeout.underlying.toMillis))
               .header("Content-Type", "application/octet-stream")
               .header("X-Daml-External-Function-Id", "_health")
               .header("X-Daml-External-Config-Hash", "")
@@ -131,7 +131,7 @@ class HttpExtensionServiceClient(
       input: String,
       mode: String,
   )(implicit tc: TraceContext): Either[ExtensionCallError, String] = {
-    val deadlineMs = System.currentTimeMillis() + config.maxTotalTimeout.toMillis
+    val deadlineMs = System.currentTimeMillis() + config.maxTotalTimeout.underlying.toMillis
 
     def loop(attempt: Int, lastError: Option[ExtensionCallError]): Either[ExtensionCallError, String] = {
       val nowMs = System.currentTimeMillis()
@@ -210,7 +210,7 @@ class HttpExtensionServiceClient(
       val requestBuilder = HttpRequest
         .newBuilder()
         .uri(endpoint)
-        .timeout(Duration.ofMillis(config.requestTimeout.toMillis))
+        .timeout(Duration.ofMillis(config.requestTimeout.underlying.toMillis))
         .header("Content-Type", "application/octet-stream")
         .header("X-Daml-External-Function-Id", functionId)
         .header("X-Daml-External-Config-Hash", configHash)
@@ -330,12 +330,12 @@ class HttpExtensionServiceClient(
   }
 
   private def calculateBackoff(attempt: Int, retryAfter: Option[Int], remainingTimeMs: Long): Long = {
-    val connectTimeoutMs = config.connectTimeout.toMillis
-    val requestTimeoutMs = config.requestTimeout.toMillis
+    val connectTimeoutMs = config.connectTimeout.underlying.toMillis
+    val requestTimeoutMs = config.requestTimeout.underlying.toMillis
     val minTimeForNextRequest = connectTimeoutMs + requestTimeoutMs
     val availableForBackoff = (remainingTimeMs - minTimeForNextRequest).max(0L)
-    val retryInitialDelayMs = config.retryInitialDelay.toMillis
-    val retryMaxDelayMs = config.retryMaxDelay.toMillis
+    val retryInitialDelayMs = config.retryInitialDelay.underlying.toMillis
+    val retryMaxDelayMs = config.retryMaxDelay.underlying.toMillis
 
     val baseDelay = retryAfter match {
       case Some(seconds) =>
@@ -357,14 +357,6 @@ class HttpExtensionServiceClient(
     }
   }
 }
-
-/** Extension call error with retry-after header support */
-final case class ExtensionCallErrorWithRetry(
-    override val statusCode: Int,
-    override val message: String,
-    override val requestId: Option[String],
-    retryAfterSeconds: Option[Int],
-) extends ExtensionCallError(statusCode, message, requestId)
 
 object HttpExtensionServiceClient {
 

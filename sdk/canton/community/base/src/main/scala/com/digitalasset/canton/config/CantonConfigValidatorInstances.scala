@@ -16,6 +16,7 @@ import com.digitalasset.canton.config.RequireTypes.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.util.BytesUnit
+import org.slf4j.event.Level
 
 /** Collects [[com.digitalasset.canton.config.CantonConfigValidator]] instances that cannot be
   * declared in the companion object of the classes due to project dependencies.
@@ -61,5 +62,9 @@ object CantonConfigValidatorInstances {
 
   implicit def metricQualificationCantonConfigValidator
       : CantonConfigValidator[MetricQualification] =
+    CantonConfigValidator.validateAll
+
+  // SLF4J
+  implicit def slf4jLevelCantonConfigValidator: CantonConfigValidator[Level] =
     CantonConfigValidator.validateAll
 }

@@ -1,3 +1,15 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+
+#ifndef DAML_EXTERNAL_CALL
+
+-- | HIDE
+module DA.External where
+
+#else
+
 module DA.External
   ( externalCall
   , BytesHex
@@ -45,3 +57,5 @@ externalCall extensionId functionId configHex inputHex
   | not (isBytesHex configHex) = error ("External call failed: Invalid hex encoding in config: " <> configHex)
   | not (isBytesHex inputHex) = error ("External call failed: Invalid hex encoding in input: " <> inputHex)
   | otherwise = primitive @"BEExternalCall" extensionId functionId (Text.asciiToLower configHex) (Text.asciiToLower inputHex)
+
+#endif

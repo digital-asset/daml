@@ -147,6 +147,7 @@ object Enricher {
           keyOpt = keyOpt.map(impoverish),
           byKey = byKey,
           version = version,
+          externalCallResults = externalCallResults,
         )
       case rb: Node.Rollback => rb
     }

@@ -7,11 +7,36 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.tracing.TraceContext
 
 /** Error information from external call failures */
-final case class ExtensionCallError(
+sealed trait ExtensionCallError {
+  def statusCode: Int
+  def message: String
+  def requestId: Option[String]
+}
+
+object ExtensionCallError {
+  /** Create a simple ExtensionCallError without retry information */
+  def apply(statusCode: Int, message: String, requestId: Option[String]): ExtensionCallError =
+    ExtensionCallErrorSimple(statusCode, message, requestId)
+
+  /** Unapply for pattern matching */
+  def unapply(e: ExtensionCallError): Some[(Int, String, Option[String])] =
+    Some((e.statusCode, e.message, e.requestId))
+}
+
+/** Simple extension call error without retry information */
+final case class ExtensionCallErrorSimple(
     statusCode: Int,
     message: String,
     requestId: Option[String],
-)
+) extends ExtensionCallError
+
+/** Extension call error with retry-after header support */
+final case class ExtensionCallErrorWithRetry(
+    statusCode: Int,
+    message: String,
+    requestId: Option[String],
+    retryAfterSeconds: Option[Int],
+) extends ExtensionCallError
 
 /** Result of validating an extension service configuration */
 sealed trait ExtensionValidationResult

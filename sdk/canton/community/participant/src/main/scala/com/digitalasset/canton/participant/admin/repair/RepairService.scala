@@ -965,6 +965,7 @@ final class RepairService(
     exerciseResult = Some(LfValue.ValueNone),
     keyOpt = c.metadata.maybeKeyWithMaintainers,
     byKey = false,
+    externalCallResults = ImmArray.empty,
     version = c.rawContractInstance.contractInstance.version,
   )
 

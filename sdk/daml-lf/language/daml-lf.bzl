@@ -144,6 +144,12 @@ def _init_data():
             "cpp_flag": "DAML_EXPERIMENTAL",
             "version_req": dev_only,
         },
+        {
+            "name": "featureExternalCall",
+            "name_pretty": "External Call primitive",
+            "cpp_flag": "DAML_EXTERNAL_CALL",
+            "version_req": dev_only,
+        },
     ]
 
     return struct(

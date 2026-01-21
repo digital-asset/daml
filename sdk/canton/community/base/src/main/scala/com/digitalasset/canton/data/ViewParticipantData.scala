@@ -192,6 +192,7 @@ final case class ViewParticipantData private (
             byKey,
             _seed,
             failed,
+            _externalCallResults,
           ) =>
         val inputContract = coreInputs.getOrElse(
           inputContractId,

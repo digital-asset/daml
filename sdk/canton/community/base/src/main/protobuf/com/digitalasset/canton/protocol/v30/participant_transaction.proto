@@ -179,6 +179,17 @@ message ActionDescription {
     optional string interface_id = 9;
     string template_id = 10;
     repeated string package_preference = 11;
+    repeated ExternalCallResult external_call_results = 12;
+  }
+
+  // Result of an external call made during exercise execution
+  message ExternalCallResult {
+    string extension_id = 1;
+    string function_id = 2;
+    string config_hash = 3;
+    string input_hex = 4;
+    string output_hex = 5;
+    int32 call_index = 6;
   }
 
   message FetchActionDescription {

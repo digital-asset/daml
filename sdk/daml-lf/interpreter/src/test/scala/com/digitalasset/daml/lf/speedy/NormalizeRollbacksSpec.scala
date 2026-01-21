@@ -328,5 +328,6 @@ object NormalizeRollbackSpec {
       keyOpt = None,
       byKey = false,
       version = SerializationVersion.minVersion,
+      externalCallResults = ImmArray.Empty,
     )
 }

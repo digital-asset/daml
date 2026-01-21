@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.speedy.Speedy.{CachedKey, ContractInfo}
 import com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode
 import com.digitalasset.daml.lf.transaction.{
   ContractStateMachine,
+  ExternalCallResult,
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
@@ -196,6 +197,7 @@ private[lf] object PartialTransaction {
     contractState = ContractStateMachine.initial[NodeId](contractKeyUniqueness),
     actionNodeLocations = BackStack.empty,
     authorizationChecker = authorizationChecker,
+    externalCallResults = HashMap.empty,
   )
 
   @throws[SError.SErrorDamlException]
@@ -230,6 +232,7 @@ private[speedy] case class PartialTransaction(
     contractState: ContractStateMachine.State[NodeId],
     actionNodeLocations: BackStack[Option[Location]],
     authorizationChecker: AuthorizationChecker,
+    externalCallResults: HashMap[NodeId, BackStack[ExternalCallResult]],
 ) {
 
   import PartialTransaction._
@@ -578,6 +581,8 @@ private[speedy] case class PartialTransaction(
     }
 
   private[this] def makeExNode(ec: ExercisesContextInfo): Node.Exercise = {
+    // Get external call results for this exercise node, if any
+    val ecResults = externalCallResults.getOrElse(ec.nodeId, BackStack.empty).toImmArray
     Node.Exercise(
       targetCoid = ec.targetId,
       packageName = ec.packageName,
@@ -595,8 +600,41 @@ private[speedy] case class PartialTransaction(
       exerciseResult = None,
       keyOpt = ec.contractKey,
       byKey = normByKey(ec.version, ec.byKey),
+      externalCallResults = ecResults,
       version = ec.version,
     )
+  }
+
+  /** Record an external call result in the current exercise context.
+    * Returns None if not in an exercise context.
+    */
+  def recordExternalCallResult(
+      extensionId: String,
+      functionId: String,
+      configHash: String,
+      inputHex: String,
+      outputHex: String,
+  ): Option[PartialTransaction] = {
+    context.info match {
+      case ec: ExercisesContextInfo =>
+        val nodeId = ec.nodeId
+        val existing = externalCallResults.getOrElse(nodeId, BackStack.empty)
+        val callIndex = existing.length
+        val result = ExternalCallResult(
+          extensionId = extensionId,
+          functionId = functionId,
+          configHash = configHash,
+          inputHex = inputHex,
+          outputHex = outputHex,
+          callIndex = callIndex,
+        )
+        val updated = existing :+ result
+        Some(copy(externalCallResults = externalCallResults.updated(nodeId, updated)))
+      case _ =>
+        // External calls outside of exercise context are not stored
+        // (they would be at the root level, which is not supported)
+        None
+    }
   }
 
   /** Open a Try context.

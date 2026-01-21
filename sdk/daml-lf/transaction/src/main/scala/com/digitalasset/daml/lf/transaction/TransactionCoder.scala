@@ -325,6 +325,17 @@ class TransactionCoder(allowNullCharacters: Boolean) {
           case None =>
             Right(())
         }
+        _ = node.externalCallResults.foreach { ecr =>
+          val ecrBuilder = TransactionOuterClass.Node.ExternalCallResult
+            .newBuilder()
+            .setExtensionId(ecr.extensionId)
+            .setFunctionId(ecr.functionId)
+            .setConfigHash(ecr.configHash)
+            .setInputHex(ecr.inputHex)
+            .setOutputHex(ecr.outputHex)
+            .setCallIndex(ecr.callIndex)
+          discard(builder.addExternalCallResults(ecrBuilder.build()))
+        }
       } yield builder.build()
     }
 
@@ -539,6 +550,7 @@ class TransactionCoder(allowNullCharacters: Boolean) {
             Left(DecodeError(s"Exercise Authorizer not supported by version $nodeVersion"))
           else
             toPartySet(msg.getAuthorizersList).map(Some(_))
+        externalCallResults = decodeExternalCallResults(msg.getExternalCallResultsList)
       } yield Node.Exercise(
         targetCoid = fetch.coid,
         packageName = fetch.packageName,
@@ -556,8 +568,25 @@ class TransactionCoder(allowNullCharacters: Boolean) {
         exerciseResult = result,
         keyOpt = fetch.keyOpt,
         byKey = fetch.byKey,
+        externalCallResults = externalCallResults,
         version = fetch.version,
       )
+    }
+
+    private[this] def decodeExternalCallResults(
+        list: java.util.List[TransactionOuterClass.Node.ExternalCallResult]
+    ): ImmArray[ExternalCallResult] = {
+      val results = list.asScala.map { proto =>
+        ExternalCallResult(
+          extensionId = proto.getExtensionId,
+          functionId = proto.getFunctionId,
+          configHash = proto.getConfigHash,
+          inputHex = proto.getInputHex,
+          outputHex = proto.getOutputHex,
+          callIndex = proto.getCallIndex,
+        )
+      }
+      ImmArray.from(results)
     }
 
     private[this] def decodeLookup(

@@ -9,6 +9,7 @@ import com.digitalasset.daml.lf.command.ApiContractKey
 import com.digitalasset.daml.lf.{transaction => tx}
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
+  ExternalCallResult,
   FatContractInstance,
   FatContractInstanceImpl,
   GlobalKey,
@@ -410,8 +411,17 @@ private[lf] object CostModel {
             exerciseResult,
             keyOpt,
             byKey,
+            externalCallResults,
             version,
           ) =>
+        implicit def costOfExternalCallResult(ecr: ExternalCallResult): Cost =
+          1 + costOfString(ecr.extensionId) +
+            costOfString(ecr.functionId) +
+            costOfString(ecr.configHash) +
+            costOfString(ecr.inputHex) +
+            costOfString(ecr.outputHex) +
+            costOfInt(ecr.callIndex)
+
         1 + costOfContractId(targetCoid) +
           costOfString(packageName) +
           costOfIdentifier(templateId) +
@@ -428,6 +438,7 @@ private[lf] object CostModel {
           costOfOption(exerciseResult) +
           costOfOption(keyOpt) +
           costOfBoolean(byKey) +
+          costOfImmArray(externalCallResults) +
           costOfSerializationVersion(version)
       case Node.Rollback(children) =>
         1 + costOfImmArray(children)

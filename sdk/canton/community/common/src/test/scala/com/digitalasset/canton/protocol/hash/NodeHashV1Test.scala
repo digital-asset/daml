@@ -176,6 +176,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
     keyOpt = None,
     byKey = false,
     version = LfSerializationVersion.V1,
+    externalCallResults = ImmArray.Empty,
   )
 
   private val exerciseNodeHash = "070970eb4b2de72561dafb67017ca33850650a8103e5134e16044ba78991f48c"

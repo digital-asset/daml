@@ -271,6 +271,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       keyOpt = key,
       byKey = false,
       version = txVersion,
+      externalCallResults = ImmArray.Empty,
     )
 
   protected final def fetchNode(
@@ -731,6 +732,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         ),
         byKey = false,
         version = txVersion,
+        externalCallResults = ImmArray.Empty,
       )
     )
     nextOffset() -> LedgerEntry.Transaction(

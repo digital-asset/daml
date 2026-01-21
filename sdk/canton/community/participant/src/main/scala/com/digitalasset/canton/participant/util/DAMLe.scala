@@ -26,6 +26,7 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
 import com.digitalasset.daml.lf.engine.{Enricher as _, *}
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
+import com.digitalasset.canton.participant.extension.{ExtensionServiceManager, ExtensionCallError as CantonExtensionCallError}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.language.LanguageVersion.v2_dev
 import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, FatContractInstance}
@@ -109,6 +110,17 @@ object DAMLe {
   private val zeroSeed: LfHash =
     LfHash.assertFromByteArray(new Array[Byte](LfHash.underlyingHashLength))
 
+  /** Extracts stored external call results from a transaction for replay.
+    * Creates a map keyed by (extensionId, functionId, configHash, input) -> output.
+    */
+  def extractExternalCallResults(tx: LfVersionedTransaction): Engine.StoredExternalCallResults = {
+    tx.nodes.values.collect { case exercise: LfNodeExercises =>
+      exercise.externalCallResults.toSeq.map { result =>
+        (result.extensionId, result.functionId, result.configHash, result.inputHex) -> result.outputHex
+      }
+    }.flatten.toMap
+  }
+
   trait HasReinterpret {
     def reinterpret(
         contracts: ContractAndKeyLookup,
@@ -121,6 +133,7 @@ object DAMLe {
         packageResolution: Map[Ref.PackageName, Ref.PackageId],
         expectFailure: Boolean,
         getEngineAbortStatus: GetEngineAbortStatus,
+        storedExternalCallResults: Engine.StoredExternalCallResults = Map.empty,
     )(implicit traceContext: TraceContext): EitherT[
       FutureUnlessShutdown,
       ReinterpretationError,
@@ -144,6 +157,7 @@ class DAMLe(
     engine: Engine,
     engineLoggingConfig: EngineLoggingConfig,
     protected val loggerFactory: NamedLoggerFactory,
+    extensionServiceManager: Option[ExtensionServiceManager] = None,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
     with HasReinterpret {
@@ -200,6 +214,7 @@ class DAMLe(
       packageResolution: Map[PackageName, PackageId],
       expectFailure: Boolean,
       getEngineAbortStatus: GetEngineAbortStatus,
+      storedExternalCallResults: Engine.StoredExternalCallResults = Map.empty,
   )(implicit traceContext: TraceContext): EitherT[
     FutureUnlessShutdown,
     ReinterpretationError,
@@ -260,6 +275,7 @@ class DAMLe(
         engineLogger =
           engineLoggingConfig.toEngineLogger(loggerFactory.append("phase", "validation")),
         contractIdVersion = ContractIdVersion.V1,
+        storedExternalCallResults = storedExternalCallResults,
       )
     }
 
@@ -403,6 +419,51 @@ class DAMLe(
         case ResultPrefetch(_, _, resume) =>
           // we do not need to prefetch here as Canton includes the keys as a static map in Phase 3
           handleResultInternal(contracts, resume())
+
+        case ResultNeedExternalCall(extensionId, functionId, configHash, input, storedResult, resume) =>
+          // During reinterpretation (validation), we use stored results if available.
+          // If no stored result is available, we call the extension service in validation mode.
+          storedResult match {
+            case Some(output) =>
+              // Replay mode: use the stored result from the transaction
+              handleResultInternal(contracts, resume(Right(output)))
+            case None =>
+              // No stored result - call extension service in validation mode
+              extensionServiceManager match {
+                case Some(manager) =>
+                  // Call the extension service in validation mode
+                  // Validation mode expects deterministic responses matching submission
+                  manager
+                    .handleExternalCall(
+                      extensionId = extensionId,
+                      functionId = functionId,
+                      configHash = configHash,
+                      input = input,
+                      mode = "validation",
+                    )
+                    .flatMap {
+                      case Right(output) =>
+                        handleResultInternal(contracts, resume(Right(output)))
+                      case Left(cantonError) =>
+                        // Convert Canton error to engine-level error
+                        val engineError = ExternalCallError(
+                          statusCode = cantonError.statusCode,
+                          message = cantonError.message,
+                          requestId = cantonError.requestId,
+                        )
+                        handleResultInternal(contracts, resume(Left(engineError)))
+                    }
+                case None =>
+                  // No extension service manager configured - fail validation
+                  val error = ExternalCallError(
+                    statusCode = 503,
+                    message = s"External call result not available for extensionId=$extensionId, " +
+                      s"functionId=$functionId. Configure ExtensionServiceManager for validation.",
+                    requestId = None,
+                  )
+                  handleResultInternal(contracts, resume(Left(error)))
+              }
+          }
       }
     }
 

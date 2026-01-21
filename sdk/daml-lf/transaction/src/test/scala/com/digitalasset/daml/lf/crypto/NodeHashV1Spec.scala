@@ -188,6 +188,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
     keyOpt = None,
     byKey = false,
     version = SerializationVersion.V1,
+    externalCallResults = ImmArray.Empty,
   )
 
   private val exerciseNodeHash = "5b9af41fe9032a70a772063301907c823e933d2df5bae2b48293f33cf3992611"

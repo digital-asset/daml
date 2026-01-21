@@ -60,6 +60,38 @@ private[apiserver] trait CommandInterpreter {
   ): FutureUnlessShutdown[Either[ErrorCause, CommandInterpretationResult]]
 }
 
+/** Handler for external calls during command interpretation.
+  * Signature: (extensionId, functionId, configHash, input, mode) => result
+  */
+trait ExternalCallHandler {
+  def handleExternalCall(
+      extensionId: String,
+      functionId: String,
+      configHash: String,
+      input: String,
+      mode: String,
+  )(implicit tc: TraceContext): FutureUnlessShutdown[Either[ExternalCallError, String]]
+}
+
+object ExternalCallHandler {
+  /** Default handler that returns an error for all external calls. */
+  val notSupported: ExternalCallHandler = new ExternalCallHandler {
+    def handleExternalCall(
+        extensionId: String,
+        functionId: String,
+        configHash: String,
+        input: String,
+        mode: String,
+    )(implicit tc: TraceContext): FutureUnlessShutdown[Either[ExternalCallError, String]] = {
+      FutureUnlessShutdown.pure(Left(ExternalCallError(
+        statusCode = 503,
+        message = s"External calls not configured. extensionId=$extensionId, functionId=$functionId",
+        requestId = None,
+      )))
+    }
+  }
+}
+
 /** @param ec
   *   [[scala.concurrent.ExecutionContext]] that will be used for scheduling CPU-intensive
   *   computations performed by an [[com.digitalasset.daml.lf.engine.Engine]].
@@ -76,6 +108,7 @@ final class StoreBackedCommandInterpreter(
     val loggerFactory: NamedLoggerFactory,
     dynParamGetter: DynamicSynchronizerParameterGetter,
     timeProvider: TimeProvider,
+    externalCallHandler: ExternalCallHandler = ExternalCallHandler.notSupported,
 )(implicit
     ec: ExecutionContext
 ) extends CommandInterpreter
@@ -453,6 +486,32 @@ final class StoreBackedCommandInterpreter(
           FutureUnlessShutdown
             .outcomeF(loadContractsF)
             .flatMap(_ => resolveStep(resume()))
+
+        case ResultNeedExternalCall(extensionId, functionId, configHash, input, storedResult, resume) =>
+          // Use stored result if available (for replay/reinterpretation)
+          storedResult match {
+            case Some(output) =>
+              resolveStep(
+                Tracked.value(
+                  metrics.execution.engineRunning,
+                  trackSyncExecution(interpretationTimeNanos)(resume(Right(output))),
+                )
+              )
+            case None =>
+              // Call external service for submission mode
+              externalCallHandler
+                .handleExternalCall(extensionId, functionId, configHash, input, "submission")(
+                  loggingContext.traceContext
+                )
+                .flatMap { result =>
+                  resolveStep(
+                    Tracked.value(
+                      metrics.execution.engineRunning,
+                      trackSyncExecution(interpretationTimeNanos)(resume(result)),
+                    )
+                  )
+                }
+          }
       }
 
     resolveStep(result).thereafter { _ =>
