@@ -30,6 +30,7 @@ import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingCon
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandProgressTracker,
   DynamicSynchronizerParameterGetter,
+  ExternalCallHandler,
 }
 import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
@@ -110,6 +111,7 @@ object ApiServiceOwner {
       keepAlive: Option[KeepAliveServerConfig],
       packagePreferenceBackend: PackagePreferenceBackend,
       apiLoggingConfig: ApiLoggingConfig,
+      externalCallHandler: ExternalCallHandler = ExternalCallHandler.notSupported,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -204,6 +206,7 @@ object ApiServiceOwner {
         interactiveSubmissionEnricher = interactiveSubmissionEnricher,
         packagePreferenceBackend = packagePreferenceBackend,
         logger = loggerFactory.getTracedLogger(this.getClass),
+        externalCallHandler = externalCallHandler,
       )(materializer, executionSequencerFactory, tracer).withServices(otherServices)
       // for all the top level gRPC servicing apparatus we use the writeApiServicesExecutionContext
       apiService <- LedgerApiService(

@@ -57,11 +57,13 @@ import com.digitalasset.daml.lf.engine.{
   Engine,
   EngineConfig,
   Error,
+  ExternalCallError,
   Result,
   ResultDone,
   ResultError,
   ResultInterruption,
   ResultNeedContract,
+  ResultNeedExternalCall,
   ResultNeedKey,
   ResultNeedPackage,
   ResultPrefetch,
@@ -381,6 +383,22 @@ class TestSubmissionService(
         resolve(iterateOverInterrupts(continue))
 
       case ResultPrefetch(_, _, resume) => resolve(resume())
+
+      case ResultNeedExternalCall(extensionId, functionId, configHash, input, storedResult, resume) =>
+        // Use stored result if available (for replay)
+        storedResult match {
+          case Some(output) =>
+            resolve(resume(Right(output)))
+          case None =>
+            // External calls not supported in test submission service
+            val error = ExternalCallError(
+              statusCode = 503,
+              message = s"External calls not supported in test submission service. " +
+                s"extensionId=$extensionId, functionId=$functionId",
+              requestId = None,
+            )
+            resolve(resume(Left(error)))
+        }
     }
   }
 }

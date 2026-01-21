@@ -74,6 +74,18 @@ message Node {
     repeated string observers = 8;
     // No listed authorizers indicates default authorizers (signatories + actors)
     repeated string authorizers = 1001; // *since version dev*
+    repeated ExternalCallResult external_call_results = 1002;  // *since version dev*
+  }
+
+  // Result of an external call within an exercise node.
+  // *since version dev*
+  message ExternalCallResult {
+    string extension_id = 1;
+    string function_id = 2;
+    string config_hash = 3;
+    string input_hex = 4;
+    string output_hex = 5;
+    int32 call_index = 6;
   }
 
   message Rollback {

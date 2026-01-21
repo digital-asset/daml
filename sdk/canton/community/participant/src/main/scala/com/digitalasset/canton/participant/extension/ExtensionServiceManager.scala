@@ -3,7 +3,8 @@
 
 package com.digitalasset.canton.participant.extension
 
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.config.{EngineExtensionsConfig, ExtensionServiceConfig}
 import com.digitalasset.canton.tracing.TraceContext
@@ -32,6 +33,8 @@ class ExtensionServiceManager(
     extends NamedLogging
     with FlagCloseable {
 
+  override val timeouts: ProcessingTimeout = ProcessingTimeout()
+
   // Shared HTTP client with connection pooling
   // Using HTTP/1.1 for compatibility, but could be upgraded to HTTP/2 if needed
   private val httpClient: HttpClient = {
@@ -46,7 +49,7 @@ class ExtensionServiceManager(
       logger.warn(
         "WARNING: At least one extension service is configured with TLS insecure mode. " +
           "This should only be used in development!"
-      )
+      )(TraceContext.empty)
       builder.sslContext(HttpExtensionServiceClient.createInsecureSSLContext())
     }
 
@@ -56,7 +59,7 @@ class ExtensionServiceManager(
   // Extension clients by ID
   private val clients: Map[String, ExtensionServiceClient] = {
     if (engineExtensionsConfig.echoMode) {
-      logger.info("Extension services running in echo mode - external calls will return input as output")
+      logger.info("Extension services running in echo mode - external calls will return input as output")(TraceContext.empty)
       extensionConfigs.map { case (id, _) =>
         id -> new EchoExtensionServiceClient(id)
       }
@@ -140,7 +143,7 @@ class ExtensionServiceManager(
   override def onClosed(): Unit = {
     // HttpClient in Java 11+ doesn't need explicit closing
     // but we could add cleanup logic here if needed
-    logger.debug("ExtensionServiceManager closed")
+    logger.debug("ExtensionServiceManager closed")(TraceContext.empty)
   }
 }
 

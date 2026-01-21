@@ -104,8 +104,11 @@ convertPrim _ "BEEncodeHex" (TText :-> TText) =
     pure $ EBuiltinFun BEEncodeHex
 convertPrim _ "BEDecodeHex" (TText :-> TText) =
     pure $ EBuiltinFun BEDecodeHex
-convertPrim _ "BEExternalCall" (TText :-> TText :-> TText :-> TOptional TText) =
-    pure $ EBuiltinFun BEExternalCall
+convertPrim _ "BEExternalCall" (TText :-> TText :-> TText :-> TText :-> TUpdate TText) =
+    let v4 = mkVar "v4"
+    in pure $ ETmLam (varV1, TText) $ ETmLam (varV2, TText) $ ETmLam (varV3, TText) $ ETmLam (v4, TText) $
+        EUpdate $ UEmbedExpr TText $
+            EBuiltinFun BEExternalCall `ETmApp` EVar varV1 `ETmApp` EVar varV2 `ETmApp` EVar varV3 `ETmApp` EVar v4
 convertPrim _ "BETextToParty" (TText :-> TOptional TParty) =
     pure $ EBuiltinFun BETextToParty
 convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =

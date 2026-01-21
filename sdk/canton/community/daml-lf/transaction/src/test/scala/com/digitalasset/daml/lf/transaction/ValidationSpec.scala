@@ -156,6 +156,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
       keyOpt = key,
       byKey = samBool2,
       version = version,
+      externalCallResults = ImmArray.Empty,
     )
 
   // --[running tweaks]--

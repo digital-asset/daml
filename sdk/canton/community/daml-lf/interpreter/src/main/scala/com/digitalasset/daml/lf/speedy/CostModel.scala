@@ -6,7 +6,6 @@ package speedy
 
 import com.digitalasset.daml.lf.speedy.Speedy.Env
 import data.{FrontStack, Ref}
-import scala.util.Try
 
 abstract class CostModel {
 

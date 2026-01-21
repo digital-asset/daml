@@ -950,7 +950,25 @@ private[lf] object SBuiltinFun {
             input = inputHex,
           ) {
             case Right(responseBody) =>
-              Control.Value(SText(responseBody))
+              // Record the external call result in the transaction
+              machine.ptx.recordExternalCallResult(
+                extensionId = extensionId,
+                functionId = functionId,
+                configHash = configHex,
+                inputHex = inputHex,
+                outputHex = responseBody,
+              ) match {
+                case Some(updatedPtx) =>
+                  machine.ptx = updatedPtx
+                  Control.Value(SText(responseBody))
+                case None =>
+                  // External calls outside exercise context cannot be recorded
+                  // and would fail during validation/replay
+                  Control.Error(IE.UserError(
+                    s"External calls are only supported within exercise context. " +
+                      s"extensionId=$extensionId, functionId=$functionId"
+                  ))
+              }
             case Left(error) =>
               // Propagate error with full context for proper error handling
               val errorMsg = s"External call failed: ${error.message}" +

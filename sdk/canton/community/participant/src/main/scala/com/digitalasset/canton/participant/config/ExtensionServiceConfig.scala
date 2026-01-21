@@ -3,12 +3,11 @@
 
 package com.digitalasset.canton.participant.config
 
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
-import com.digitalasset.canton.config.{CantonConfigValidator, NonNegativeFiniteDuration}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
+import com.digitalasset.canton.config.{CantonConfigValidator, NonNegativeFiniteDuration, UniformCantonConfigValidation}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 
 import java.nio.file.Path
-import scala.concurrent.duration.DurationInt
 
 /** Configuration for a single engine extension service.
   *
@@ -48,9 +47,10 @@ final case class ExtensionServiceConfig(
     retryMaxDelay: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(10),
     requestIdHeader: String = "X-Request-Id",
     declaredFunctions: Seq[ExtensionFunctionDeclaration] = Seq.empty,
-)
+) extends UniformCantonConfigValidation
 
 object ExtensionServiceConfig {
+  import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
   implicit val extensionServiceConfigCantonConfigValidator
       : CantonConfigValidator[ExtensionServiceConfig] =
     CantonConfigValidatorDerivation[ExtensionServiceConfig]
@@ -66,7 +66,7 @@ object ExtensionServiceConfig {
 final case class ExtensionFunctionDeclaration(
     functionId: String,
     configHash: String,
-)
+) extends UniformCantonConfigValidation
 
 object ExtensionFunctionDeclaration {
   implicit val extensionFunctionDeclarationCantonConfigValidator
@@ -84,7 +84,7 @@ final case class EngineExtensionsConfig(
     validateExtensionsOnStartup: Boolean = true,
     failOnExtensionValidationError: Boolean = true,
     echoMode: Boolean = false,
-)
+) extends UniformCantonConfigValidation
 
 object EngineExtensionsConfig {
   val default: EngineExtensionsConfig = EngineExtensionsConfig()

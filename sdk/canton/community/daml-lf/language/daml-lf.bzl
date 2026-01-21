@@ -169,6 +169,12 @@ def _init_data():
             "cpp_flag": "DAML_UnsafeFromInterface",
             "version_req": {"high": V2_1},
         },
+        {
+            "name": "featureExternalCall",
+            "name_pretty": "External Call primitive",
+            "cpp_flag": "DAML_EXTERNAL_CALL",
+            "version_req": dev_only,
+        },
     ]
 
     return struct(

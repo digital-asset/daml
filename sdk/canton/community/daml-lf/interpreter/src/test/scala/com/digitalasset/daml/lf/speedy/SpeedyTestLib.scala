@@ -81,6 +81,9 @@ private[speedy] object SpeedyTestLib {
         }
       case Question.Update.NeedKey(key, _, callback) =>
         discard(callback(getKey.lift(key)))
+      case Question.Update.NeedExternalCall(_, _, _, _, callback) =>
+        // For tests, we just return an error since external calls are not supported
+        callback(Left(Question.Update.ExternalCallError(503, "External calls not supported in tests", None)))
     }
     runTxQ(onQuestion, machine) match {
       case Left(e) => Left(e)

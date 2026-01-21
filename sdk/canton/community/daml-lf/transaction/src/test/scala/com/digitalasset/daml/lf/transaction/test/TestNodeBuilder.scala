@@ -12,6 +12,7 @@ import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, Party, TypeConId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.{
+  ExternalCallResult,
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
@@ -91,6 +92,7 @@ trait TestNodeBuilder {
       result: Option[Value] = None,
       choiceObservers: Set[Ref.Party] = Set.empty,
       children: ImmArray[NodeId] = ImmArray.empty,
+      externalCallResults: ImmArray[ExternalCallResult] = ImmArray.Empty,
   ): Node.Exercise =
     Node.Exercise(
       choiceObservers = choiceObservers,
@@ -110,6 +112,7 @@ trait TestNodeBuilder {
       keyOpt = contract.keyOpt,
       byKey = byKey,
       version = contractSerializationVersion(contract),
+      externalCallResults = externalCallResults,
     )
 
   def fetch(
