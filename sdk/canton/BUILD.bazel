@@ -267,6 +267,7 @@ da_scala_library(
         "//daml-assistant/upgrade-check-main:__subpackages__",
         "//daml-script:__subpackages__",
         "//test-common/canton:__subpackages__",
+        "//canton/community/daml-lf/validation:__subpackages__",
     ],
     deps = [
         ":base_errors",
@@ -416,6 +417,7 @@ proto_gen(
     visibility = [
         "//daml-assistant/upgrade-check-main:__subpackages__",
         "//daml-script:__subpackages__",
+        "//canton/community/daml-lf/validation:__subpackages__",
     ],
 )
 
@@ -437,7 +439,10 @@ da_scala_library(
         ]
     ],
     tags = ["maven_coordinates=com.daml:community-admin-api:__VERSION__"],
-    visibility = ["//daml-assistant/upgrade-check-main:__subpackages__"],
+    visibility = [
+        "//daml-assistant/upgrade-check-main:__subpackages__",
+        "//canton/community/daml-lf/validation:__subpackages__",
+    ],
 )
 
 ### community/base ###
