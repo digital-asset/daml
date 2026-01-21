@@ -29,7 +29,11 @@ import com.digitalasset.canton.performance.PartyRole.{
   MasterDynamicConfig,
 }
 import com.digitalasset.canton.performance.model.java.orchestration.runtype
-import com.digitalasset.canton.performance.{PerformanceRunner, PerformanceRunnerConfig}
+import com.digitalasset.canton.performance.{
+  PerformanceRunner,
+  PerformanceRunnerConfig,
+  RateSettings,
+}
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.util.SingleUseCell
 import com.digitalasset.canton.{BaseTest, SequencerAlias}
@@ -68,10 +72,10 @@ class SequencerAggregationPerformanceIntegrationTest extends BasePerformanceInte
           case _ => throw new IllegalStateException("No synchronizers connected for " + node)
         }
       val issuers = (0 until issuersPerNode).map { ii =>
-        DvpIssuer(s"Issuer$index-$ii", selfRegistrar = false)
+        DvpIssuer(s"Issuer$index-$ii", selfRegistrar = false, settings = RateSettings.defaults)
       }
       val traders = (0 until tradersPerNode).map { tt =>
-        DvpTrader(s"Trader$index-$tt")
+        DvpTrader(s"Trader$index-$tt", settings = RateSettings.defaults)
       }
       val config = PerformanceRunnerConfig(
         master = masterName,

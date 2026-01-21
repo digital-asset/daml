@@ -476,7 +476,7 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
   override def peekThrough(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[BufferedAcsCommitment]] = sync {
-    queue.takeWhile(_.period.toInclusive <= timestamp).toList
+    queue.filter(_.period.toInclusive <= timestamp).toList
   }
 
   /** Returns all commitments whose period ends at or after the given timestamp.

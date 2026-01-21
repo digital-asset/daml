@@ -81,6 +81,26 @@ final case class MessageInfo(message: MessageData) {
       .get(name)
       .orElse(message.fieldComments.get(camelToSnake(name)))
 
+  def isFieldRequired(fieldName: String): Boolean =
+    getFieldComment(fieldName) match {
+      case Some(comment) =>
+        val lines = comment.split("\n")
+        lines.exists(line => ProtoInfo.requiredPattern.findFirstIn(line).isDefined)
+      case None => false
+    }
+
+  def isFieldOptional(fieldName: String): Boolean =
+    getFieldComment(fieldName) match {
+      case Some(comment) =>
+        val lines = comment.split("\n")
+        lines.exists(line =>
+          ProtoInfo.optionalPattern
+            .findFirstIn(line)
+            .isDefined || ProtoInfo.optionalWhenRequiredUnlessPattern.findFirstIn(line).isDefined
+        )
+      case None => false
+    }
+
   override def toString: String = getComments().getOrElse("")
 }
 
@@ -121,6 +141,9 @@ final case class ExtractedProtoFileComments(
 }
 
 object ProtoInfo {
+  val optionalPattern = raw"^\s*\bOptional\b".r
+  val requiredPattern = raw"^\s*\bRequired\b(?!\s+unless\b)".r
+  val optionalWhenRequiredUnlessPattern = raw"^\s*\bRequired\b(?:\s+unless\b)".r
   val LedgerApiDescriptionResourceLocation = "ledger-api/proto-data.yml"
   val CommentsOverridesApiDescriptionResourceLocation = "ledger-api/json-comments-overrides.yml"
   def camelToSnake(name: String): String =

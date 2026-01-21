@@ -404,6 +404,7 @@ final case class ParticipantNodeParameterConfig(
       config.PositiveDurationSeconds.ofMinutes(1),
     commitmentMismatchDebugging: Boolean = false,
     commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt] = None,
+    commitmentReduceParallelism: NonNegativeInt = NonNegativeInt.one,
     autoSyncProtocolFeatureFlags: Boolean = true,
 ) extends LocalNodeParametersConfig
 

@@ -14,6 +14,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.performance.Connectivity
 import com.digitalasset.canton.performance.PartyRole.DvpTrader
+import com.digitalasset.canton.performance.RateSettings.SubmissionRateSettings
 import com.digitalasset.canton.performance.acs.ContractStore
 import com.digitalasset.canton.performance.control.Balancer
 import com.digitalasset.canton.performance.elements.dvp.DvpPrettyInstances.*
@@ -337,20 +338,21 @@ class TraderDriver(
                 master.data.issuers.asScala.map(issuer => assets.num(new Party(issuer))).sum
               freeAssetsMetric.updateValue(freeAssets)
               val numOpenApprovals = proposals.num(false)
+
               val (maxNew, maxAccept) = TraderDriver.computeSubmissions(
                 freeAssets = freeAssets,
                 numOpenApprovals = numOpenApprovals,
                 proposalsSubmitted = proposalStats.submitted,
                 acceptanceSubmitted = acceptanceStats.submitted,
                 totalCycles = master.data.totalCycles.toInt,
-                targetLatencyMs = settings.targetLatencyMs,
+                submissionRateSettings = settings.submissionRateSettings,
                 maxSubmissionPerIterationFactor = settings.factorOfMaxSubmissionsPerIteration,
                 batchSize = settings.batchSize,
                 pending = rate.pending,
                 available = rate.available,
                 maxRate = rate.maxRate,
-                maxProposalsAheadBuffer =
-                  6, // throttle submissions if this trader is ahead by buffer * latency * batchSize of proposal submissions
+                // throttle submissions if this trader is ahead by buffer * latency * batchSize of proposal submissions
+                maxProposalsAheadBuffer = 6,
               )
               logger.debug(
                 s"Proposals $proposalStats, Accepts $acceptanceStats, max-new: $maxNew, max-accept: $maxAccept, mine ${proposals
@@ -644,7 +646,7 @@ object TraderDriver {
       proposalsSubmitted: Int,
       acceptanceSubmitted: Int,
       totalCycles: Int,
-      targetLatencyMs: Int,
+      submissionRateSettings: SubmissionRateSettings,
       maxSubmissionPerIterationFactor: Double,
       batchSize: Int,
       pending: Int,
@@ -657,13 +659,20 @@ object TraderDriver {
 
     // how many commands can we submit according to the max rate
     val submit1 = available
-    // number of pending (in-flight commands) should not exceed our current upper estimate of the max throughput
-    // i.e. if our max throughput is 100, then having 500 pending transactions means that they will have roughly a latency of 5 seconds
-    // as they are waiting in the queue to be processed. so 100 * target latency gives us the max number of pending commands we can have
-    val submit2 = Math.min(
-      submit1,
-      Math.max(0, Math.max(1, maxRate * targetLatencyMs / 1000.0).toInt - pending),
-    )
+
+    val submit2 = submissionRateSettings match {
+      case targetLatency: SubmissionRateSettings.TargetLatency =>
+        // number of pending (in-flight commands) should not exceed our current upper estimate of the max throughput
+        // i.e. if our max throughput is 100, then having 500 pending transactions means that they will have roughly a latency of 5 seconds
+        // as they are waiting in the queue to be processed. so 100 * target latency gives us the max number of pending commands we can have
+        Math.min(
+          submit1,
+          Math.max(0, Math.max(1, maxRate * targetLatency.targetLatencyMs / 1000.0).toInt - pending),
+        )
+
+      case _: SubmissionRateSettings.FixedRate => submit1
+    }
+
     // cap our submission at the max submission per iteration factor
     val submit3 = Math.min(submit2, Math.max(submit2 * maxSubmissionPerIterationFactor, 1).toInt)
 
@@ -682,17 +691,25 @@ object TraderDriver {
       val newProposals3 = newProposals2 + Math.max(totalCmds - numOpenApprovals - newProposals2, 0)
       // fourth, we must not use up all free assets
       val newProposals4 = Math.min(newProposals3, Math.max(0, freeAssets - leaveAssetsForAccept))
+
       // fifth, if others are slow, then we have to stop submitting proposals until they catch up
-      val newProposals5 =
-        if (
-          proposalsSubmitted - acceptanceSubmitted > maxProposalsAheadBuffer * batchSize * maxRate * (targetLatencyMs / 1000.0)
-        ) {
-          // prevent a deadlock if everything is quiet
-          if (numOpenApprovals == 0 && pending == 0)
-            Math.min(batchSize, newProposals4)
-          else
-            0
-        } else newProposals4
+      val newProposals5 = submissionRateSettings match {
+        case targetLatency: SubmissionRateSettings.TargetLatency =>
+          if (
+            proposalsSubmitted - acceptanceSubmitted > maxProposalsAheadBuffer * batchSize * maxRate * (targetLatency.targetLatencyMs / 1000.0)
+          ) {
+            // prevent a deadlock if everything is quiet
+            if (numOpenApprovals == 0 && pending == 0)
+              Math.min(batchSize, newProposals4)
+            else
+              0
+          } else newProposals4
+
+        case _: SubmissionRateSettings.FixedRate =>
+          // In this case, we hope the that others are not too slow (rate is low enough)
+          newProposals4
+      }
+
       // sixth, we shouldn't submit more than we have to
       val newProposals6 = Math.min(todo, newProposals5)
       require(totalCmds >= newProposals6)
@@ -709,6 +726,7 @@ object TraderDriver {
         if (todo > 0 && freeAssets > batchSize)
           newApprovals2 - newApprovals2 % batchSize
         else newApprovals2
+
       (newProposals7, newApprovals3)
     } else {
       (0, 0)

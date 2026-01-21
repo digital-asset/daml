@@ -281,7 +281,7 @@ trait FutureHelpers extends Assertions with ScalaFuturesWithPatience { self =>
     def failOnShutdown(clue: String)(implicit ec: ExecutionContext, pos: Position): Future[A] =
       fut.onShutdown(fail(s"Shutdown during $clue"))
     def failOnShutdown(implicit ec: ExecutionContext, pos: Position): Future[A] =
-      fut.onShutdown(fail(s"Unexpected shutdown"))
+      fut.onShutdown(fail("Unexpected shutdown"))
     def futureValueUS(implicit pos: Position): A =
       futureValueUS(PatienceConfiguration.Timeout(defaultPatience.timeout))(pos)
     def futureValueUS(timeout: PatienceConfiguration.Timeout)(implicit pos: Position): A =

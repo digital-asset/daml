@@ -2,6 +2,11 @@ openapi: 3.0.3
 info:
   title: JSON Ledger API HTTP endpoints
   version: 3.5.0-SNAPSHOT
+  description: |-
+    This specification version fixes the API inconsistencies where certain fields marked as required in the spec are in fact optional.
+    If you use code generation tool based on this file, you might need to adjust the existing application code to handle those fields as optional.
+    If you do not want to change your client code, continue using the OpenAPI specification for the latest Canton 3.4 patch release.
+    MINIMUM_CANTON_VERSION=3.5.0
 paths:
   /v2/commands/submit-and-wait:
     post:
@@ -2329,7 +2334,6 @@ components:
       type: object
       required:
       - synchronizer
-      - identityProviderId
       properties:
         synchronizer:
           description: |-
@@ -2369,8 +2373,6 @@ components:
     AllocateExternalPartyResponse:
       title: AllocateExternalPartyResponse
       type: object
-      required:
-      - partyId
       properties:
         partyId:
           description: ''
@@ -2379,11 +2381,6 @@ components:
       title: AllocatePartyRequest
       description: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
       type: object
-      required:
-      - partyIdHint
-      - identityProviderId
-      - synchronizerId
-      - userId
       properties:
         partyIdHint:
           description: |-
@@ -2501,8 +2498,6 @@ components:
       title: AssignCommand
       description: Assign a contract
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/AssignCommand1'
@@ -2660,8 +2655,6 @@ components:
       description: 'A completion represents the status of a submitted command on the
         ledger: it can be successful or failed.'
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/Completion1'
@@ -2672,10 +2665,6 @@ components:
       type: object
       required:
       - commandId
-      - updateId
-      - userId
-      - submissionId
-      - deduplicationPeriod
       - offset
       properties:
         commandId:
@@ -2774,9 +2763,6 @@ components:
     CompletionStreamRequest:
       title: CompletionStreamRequest
       type: object
-      required:
-      - userId
-      - beginExclusive
       properties:
         userId:
           description: |-
@@ -2800,13 +2786,12 @@ components:
             If not set the ledger uses the ledger begin offset instead.
             If specified, it must be a valid absolute offset (positive integer) or zero (ledger begin offset).
             If the ledger has been pruned, this parameter must be specified and greater than the pruning offset.
+            Optional
           type: integer
           format: int64
     CompletionStreamResponse:
       title: CompletionStreamResponse
       type: object
-      required:
-      - completionResponse
       properties:
         completionResponse:
           $ref: '#/components/schemas/CompletionResponse'
@@ -2837,10 +2822,6 @@ components:
         (or the one explicitly requested).
         The cost of re-assigning contracts to another synchronizer when necessary is not included in the estimation.
       type: object
-      required:
-      - confirmationRequestTrafficCostEstimation
-      - confirmationResponseTrafficCostEstimation
-      - totalTrafficCostEstimation
       properties:
         estimationTimestamp:
           description: Timestamp at which the estimation was made
@@ -2865,8 +2846,6 @@ components:
       title: CostEstimationHints
       description: Hints to improve cost estimation precision of a prepared transaction
       type: object
-      required:
-      - disabled
       properties:
         disabled:
           description: |-
@@ -2992,7 +2971,6 @@ components:
       - nodeId
       - contractId
       - templateId
-      - createdEventBlob
       - createdAt
       - packageName
       - representativePackageId
@@ -3141,8 +3119,6 @@ components:
         A filter that matches all contracts that are either an instance of one of
         the ``template_filters`` or that match one of the ``interface_filters``.
       type: object
-      required:
-      - identifierFilter
       properties:
         identifierFilter:
           $ref: '#/components/schemas/IdentifierFilter'
@@ -3282,9 +3258,7 @@ components:
         contract & contract key lookups.
       type: object
       required:
-      - contractId
       - createdEventBlob
-      - synchronizerId
       properties:
         templateId:
           description: |-
@@ -3403,9 +3377,6 @@ components:
         Note that some of the filtering behavior depends on the `TransactionShape`,
         which is expected to be specified alongside usages of `EventFormat`.
       type: object
-      required:
-      - filtersByParty
-      - verbose
       properties:
         filtersByParty:
           $ref: '#/components/schemas/Map_Filters'
@@ -3669,8 +3640,6 @@ components:
       title: ExperimentalCommandInspectionService
       description: Whether the Ledger API supports command inspection service
       type: object
-      required:
-      - supported
       properties:
         supported:
           description: ''
@@ -3690,8 +3659,6 @@ components:
       title: ExperimentalStaticTime
       description: Ledger is in the static time mode and exposes a time service.
       type: object
-      required:
-      - supported
       properties:
         supported:
           description: ''
@@ -3789,8 +3756,6 @@ components:
       required:
       - synchronizer
       - partyHint
-      - localParticipantObservationOnly
-      - confirmationThreshold
       properties:
         synchronizer:
           description: |-
@@ -3829,10 +3794,6 @@ components:
       description: Response message with topology transactions and the multi-hash
         to be signed.
       type: object
-      required:
-      - partyId
-      - publicKeyFingerprint
-      - multiHash
       properties:
         partyId:
           description: the generated party id
@@ -3862,7 +3823,6 @@ components:
         migration is not concerned with incomplete (un)assignments.
       type: object
       required:
-      - verbose
       - activeAtOffset
       properties:
         filter:
@@ -3932,9 +3892,6 @@ components:
     GetLatestPrunedOffsetsResponse:
       title: GetLatestPrunedOffsetsResponse
       type: object
-      required:
-      - participantPrunedUpToInclusive
-      - allDivulgedContractsPrunedUpToInclusive
       properties:
         participantPrunedUpToInclusive:
           description: |-
@@ -3957,8 +3914,6 @@ components:
     GetLedgerApiVersionResponse:
       title: GetLedgerApiVersionResponse
       type: object
-      required:
-      - version
       properties:
         version:
           description: The version of the ledger API.
@@ -3978,8 +3933,6 @@ components:
     GetLedgerEndResponse:
       title: GetLedgerEndResponse
       type: object
-      required:
-      - offset
       properties:
         offset:
           description: |-
@@ -3991,8 +3944,6 @@ components:
     GetPackageStatusResponse:
       title: GetPackageStatusResponse
       type: object
-      required:
-      - packageStatus
       properties:
         packageStatus:
           description: The status of the package.
@@ -4003,8 +3954,6 @@ components:
     GetParticipantIdResponse:
       title: GetParticipantIdResponse
       type: object
-      required:
-      - participantId
       properties:
         participantId:
           description: |-
@@ -4035,8 +3984,6 @@ components:
     GetPreferredPackagesRequest:
       title: GetPreferredPackagesRequest
       type: object
-      required:
-      - synchronizerId
       properties:
         packageVettingRequirements:
           description: |-
@@ -4196,9 +4143,6 @@ components:
     GetUpdatesRequest:
       title: GetUpdatesRequest
       type: object
-      required:
-      - beginExclusive
-      - verbose
       properties:
         beginExclusive:
           description: |-
@@ -4261,7 +4205,6 @@ components:
       type: object
       required:
       - userId
-      - identityProviderId
       properties:
         userId:
           description: |-
@@ -4332,10 +4275,8 @@ components:
       type: object
       required:
       - identityProviderId
-      - isDeactivated
       - issuer
       - jwksUrl
-      - audience
       properties:
         identityProviderId:
           description: |-
@@ -4378,8 +4319,6 @@ components:
       title: InterfaceFilter
       description: This filter matches contracts that implement a specific interface.
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/InterfaceFilter1'
@@ -4387,9 +4326,6 @@ components:
       title: InterfaceFilter
       description: This filter matches contracts that implement a specific interface.
       type: object
-      required:
-      - includeInterfaceView
-      - includeCreatedEventBlob
       properties:
         interfaceId:
           description: |-
@@ -4470,7 +4406,6 @@ components:
       - source
       - target
       - reassignmentId
-      - submitter
       - reassignmentCounter
       - createdEvent
       properties:
@@ -4746,9 +4681,7 @@ components:
       title: JsExecuteSubmissionAndWaitForTransactionRequest
       type: object
       required:
-      - deduplicationPeriod
       - submissionId
-      - userId
       - hashingSchemeVersion
       properties:
         preparedTransaction:
@@ -4821,9 +4754,7 @@ components:
       title: JsExecuteSubmissionAndWaitRequest
       type: object
       required:
-      - deduplicationPeriod
       - submissionId
-      - userId
       - hashingSchemeVersion
       properties:
         preparedTransaction:
@@ -4875,9 +4806,7 @@ components:
       title: JsExecuteSubmissionRequest
       type: object
       required:
-      - deduplicationPeriod
       - submissionId
-      - userId
       - hashingSchemeVersion
       properties:
         preparedTransaction:
@@ -4928,9 +4857,6 @@ components:
     JsGetActiveContractsResponse:
       title: JsGetActiveContractsResponse
       type: object
-      required:
-      - workflowId
-      - contractEntry
       properties:
         workflowId:
           description: |-
@@ -4982,8 +4908,6 @@ components:
     JsGetUpdateResponse:
       title: JsGetUpdateResponse
       type: object
-      required:
-      - update
       properties:
         update:
           $ref: '#/components/schemas/Update'
@@ -4992,16 +4916,12 @@ components:
       description: Provided for backwards compatibility, it will be removed in the
         Canton version 3.5.0.
       type: object
-      required:
-      - update
       properties:
         update:
           $ref: '#/components/schemas/Update1'
     JsGetUpdatesResponse:
       title: JsGetUpdatesResponse
       type: object
-      required:
-      - update
       properties:
         update:
           $ref: '#/components/schemas/Update'
@@ -5069,15 +4989,13 @@ components:
             as the contract arguments can be upgraded or downgraded using smart-contract upgrading
             as part of computing the interface view.
             Populated if the view computation is successful, otherwise empty.
+            Optional
           type: string
     JsPrepareSubmissionRequest:
       title: JsPrepareSubmissionRequest
       type: object
       required:
-      - userId
       - commandId
-      - synchronizerId
-      - verboseHashing
       properties:
         userId:
           description: |-
@@ -5196,9 +5114,6 @@ components:
       title: JsPrepareSubmissionResponse
       description: '[docs-entry-end: HashingSchemeVersion]'
       type: object
-      required:
-      - preparedTransactionHash
-      - hashingSchemeVersion
       properties:
         preparedTransaction:
           description: |-
@@ -5234,8 +5149,6 @@ components:
       type: object
       required:
       - updateId
-      - commandId
-      - workflowId
       - offset
       - recordTime
       - synchronizerId
@@ -5265,7 +5178,9 @@ components:
           type: integer
           format: int64
         events:
-          description: The collection of reassignment events. Required.
+          description: |-
+            The collection of reassignment events.
+            Required.
           type: array
           items:
             $ref: '#/components/schemas/JsReassignmentEvent'
@@ -5372,8 +5287,6 @@ components:
       description: Provided for backwards compatibility, it will be removed in the
         Canton version 3.5.0.
       type: object
-      required:
-      - transactionTree
       properties:
         transactionTree:
           $ref: '#/components/schemas/JsTransactionTree'
@@ -5436,8 +5349,6 @@ components:
       type: object
       required:
       - updateId
-      - commandId
-      - workflowId
       - effectiveAt
       - offset
       - synchronizerId
@@ -5522,8 +5433,6 @@ components:
       type: object
       required:
       - updateId
-      - commandId
-      - workflowId
       - offset
       - eventsById
       - synchronizerId
@@ -5593,8 +5502,6 @@ components:
       description: Records that a contract has been unassigned, and it becomes unusable
         on the source synchronizer
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/UnassignedEvent'
@@ -5662,8 +5569,6 @@ components:
     ListKnownPartiesResponse:
       title: ListKnownPartiesResponse
       type: object
-      required:
-      - nextPageToken
       properties:
         partyDetails:
           description: |-
@@ -5701,8 +5606,6 @@ components:
     ListUsersResponse:
       title: ListUsersResponse
       type: object
-      required:
-      - nextPageToken
       properties:
         users:
           description: A subset of users of the participant node that fit into this
@@ -5718,9 +5621,6 @@ components:
     ListVettedPackagesRequest:
       title: ListVettedPackagesRequest
       type: object
-      required:
-      - pageToken
-      - pageSize
       properties:
         packageMetadataFilter:
           $ref: '#/components/schemas/PackageMetadataFilter'
@@ -5767,8 +5667,6 @@ components:
     ListVettedPackagesResponse:
       title: ListVettedPackagesResponse
       type: object
-      required:
-      - nextPageToken
       properties:
         vettedPackages:
           description: |-
@@ -5806,8 +5704,6 @@ components:
     MinLedgerTime:
       title: MinLedgerTime
       type: object
-      required:
-      - time
       properties:
         time:
           $ref: '#/components/schemas/Time'
@@ -5838,9 +5734,6 @@ components:
         Based on ``ObjectMeta`` meta used in Kubernetes API.
         See https://github.com/kubernetes/apimachinery/blob/master/pkg/apis/meta/v1/generated.proto#L640
       type: object
-      required:
-      - resourceVersion
-      - annotations
       properties:
         resourceVersion:
           description: |-
@@ -5891,8 +5784,6 @@ components:
         - detect time out of commands.
         - provide an offset which can be used to restart consumption.
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/OffsetCheckpoint1'
@@ -5926,8 +5817,6 @@ components:
         - detect time out of commands.
         - provide an offset which can be used to restart consumption.
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/OffsetCheckpoint1'
@@ -5939,8 +5828,6 @@ components:
         - detect time out of commands.
         - provide an offset which can be used to restart consumption.
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/OffsetCheckpoint1'
@@ -5975,8 +5862,6 @@ components:
     PackageFeature:
       title: PackageFeature
       type: object
-      required:
-      - maxVettedPackagesPageSize
       properties:
         maxVettedPackagesPageSize:
           description: |-
@@ -6078,8 +5963,6 @@ components:
     ParticipantAuthorizationAdded:
       title: ParticipantAuthorizationAdded
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/ParticipantAuthorizationAdded1'
@@ -6108,8 +5991,6 @@ components:
     ParticipantAuthorizationChanged:
       title: ParticipantAuthorizationChanged
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/ParticipantAuthorizationChanged1'
@@ -6138,8 +6019,6 @@ components:
     ParticipantAuthorizationRevoked:
       title: ParticipantAuthorizationRevoked
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/ParticipantAuthorizationRevoked1'
@@ -6174,8 +6053,6 @@ components:
       type: object
       required:
       - party
-      - isLocal
-      - identityProviderId
       properties:
         party:
           description: |-
@@ -6206,8 +6083,6 @@ components:
     PartyManagementFeature:
       title: PartyManagementFeature
       type: object
-      required:
-      - maxPartiesPageSize
       properties:
         maxPartiesPageSize:
           description: The maximum number of parties the server can return in a single
@@ -6261,8 +6136,6 @@ components:
         The serial of last ``VettedPackages`` topology transaction on a given
         participant and synchronizer.
       type: object
-      required:
-      - serial
       properties:
         serial:
           $ref: '#/components/schemas/Serial'
@@ -6286,8 +6159,6 @@ components:
       title: Reassignment
       description: Complete view of an on-ledger reassignment.
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/JsReassignment'
@@ -6295,16 +6166,12 @@ components:
       title: Reassignment
       description: Complete view of an on-ledger reassignment.
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/JsReassignment'
     ReassignmentCommand:
       title: ReassignmentCommand
       type: object
-      required:
-      - command
       properties:
         command:
           $ref: '#/components/schemas/Command1'
@@ -6312,11 +6179,8 @@ components:
       title: ReassignmentCommands
       type: object
       required:
-      - workflowId
-      - userId
       - commandId
       - submitter
-      - submissionId
       properties:
         workflowId:
           description: |-
@@ -6371,7 +6235,6 @@ components:
       type: object
       required:
       - userId
-      - identityProviderId
       properties:
         userId:
           description: |-
@@ -6403,8 +6266,6 @@ components:
       title: Right
       description: A right granted to a user.
       type: object
-      required:
-      - kind
       properties:
         kind:
           $ref: '#/components/schemas/Kind'
@@ -6432,11 +6293,6 @@ components:
     Signature:
       title: Signature
       type: object
-      required:
-      - format
-      - signature
-      - signedBy
-      - signingAlgorithmSpec
       properties:
         format:
           description: ''
@@ -6466,10 +6322,6 @@ components:
     SigningPublicKey:
       title: SigningPublicKey
       type: object
-      required:
-      - format
-      - keyData
-      - keySpec
       properties:
         format:
           description: The serialization format of the public key
@@ -6571,8 +6423,6 @@ components:
       title: TemplateFilter
       description: This filter matches contracts of a specific template.
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/TemplateFilter1'
@@ -6580,8 +6430,6 @@ components:
       title: TemplateFilter
       description: This filter matches contracts of a specific template.
       type: object
-      required:
-      - includeCreatedEventBlob
       properties:
         templateId:
           description: |-
@@ -6624,8 +6472,6 @@ components:
     TopologyEvent:
       title: TopologyEvent
       type: object
-      required:
-      - event
       properties:
         event:
           $ref: '#/components/schemas/TopologyEventEvent'
@@ -6701,8 +6547,6 @@ components:
     TopologyTransaction:
       title: TopologyTransaction
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/JsTopologyTransaction'
@@ -6721,8 +6565,6 @@ components:
       description: Filtered view of an on-ledger transaction's create and archive
         events.
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/JsTransaction'
@@ -6732,8 +6574,6 @@ components:
         Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
         Used both for filtering create and archive events as well as for filtering transaction trees.
       type: object
-      required:
-      - filtersByParty
       properties:
         filtersByParty:
           $ref: '#/components/schemas/Map_Filters'
@@ -6781,8 +6621,6 @@ components:
         Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
         Complete view of an on-ledger transaction.
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/JsTransactionTree'
@@ -6821,8 +6659,6 @@ components:
       title: UnassignCommand
       description: Unassign a contract
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/UnassignCommand1'
@@ -6863,7 +6699,6 @@ components:
       - contractId
       - source
       - target
-      - submitter
       - reassignmentCounter
       - packageName
       - offset
@@ -7120,10 +6955,6 @@ components:
       title: UpdateUserIdentityProviderIdRequest
       description: 'Required authorization: ``HasRight(ParticipantAdmin)``'
       type: object
-      required:
-      - userId
-      - sourceIdentityProviderId
-      - targetIdentityProviderId
       properties:
         userId:
           description: User to update
@@ -7180,9 +7011,6 @@ components:
     UpdateVettedPackagesRequest:
       title: UpdateVettedPackagesRequest
       type: object
-      required:
-      - dryRun
-      - synchronizerId
       properties:
         changes:
           description: |-
@@ -7263,9 +7091,6 @@ components:
       type: object
       required:
       - id
-      - primaryParty
-      - isDeactivated
-      - identityProviderId
       properties:
         id:
           description: |-
@@ -7306,10 +7131,6 @@ components:
     UserManagementFeature:
       title: UserManagementFeature
       type: object
-      required:
-      - supported
-      - maxRightsPerUser
-      - maxUsersPageSize
       properties:
         supported:
           description: Whether the Ledger API server provides the user management
@@ -7356,10 +7177,6 @@ components:
         modelled after ``VettedPackage`` in `topology.proto <https://github.com/digital-asset/canton/blob/main/community/base/src/main/protobuf/com/digitalasset/canton/protocol/v30/topology.proto#L206>`_,
         enriched with the package name and version.
       type: object
-      required:
-      - packageId
-      - packageName
-      - packageVersion
       properties:
         packageId:
           description: Package ID of this package. Always present.
@@ -7394,10 +7211,6 @@ components:
         The list only contains packages that matched a filter in the query that
         originated it.
       type: object
-      required:
-      - participantId
-      - synchronizerId
-      - topologySerial
       properties:
         packages:
           description: |-
@@ -7422,8 +7235,6 @@ components:
       title: VettedPackagesChange
       description: A change to the set of vetted packages.
       type: object
-      required:
-      - operation
       properties:
         operation:
           $ref: '#/components/schemas/Operation'
@@ -7442,10 +7253,6 @@ components:
         If a reference does not match any package, the reference is considered
         unresolved and the entire update request is rejected.
       type: object
-      required:
-      - packageId
-      - packageName
-      - packageVersion
       properties:
         packageId:
           description: |-
@@ -7466,8 +7273,6 @@ components:
       title: WildcardFilter
       description: This filter matches all templates.
       type: object
-      required:
-      - value
       properties:
         value:
           $ref: '#/components/schemas/WildcardFilter1'
@@ -7475,8 +7280,6 @@ components:
       title: WildcardFilter
       description: This filter matches all templates.
       type: object
-      required:
-      - includeCreatedEventBlob
       properties:
         includeCreatedEventBlob:
           description: |-

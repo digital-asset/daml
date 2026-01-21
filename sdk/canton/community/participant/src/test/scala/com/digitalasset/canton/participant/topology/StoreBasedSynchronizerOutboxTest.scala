@@ -7,7 +7,12 @@ import cats.implicits.*
 import com.digitalasset.canton.common.sequencer.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout, TopologyConfig}
+import com.digitalasset.canton.config.{
+  BatchAggregatorConfig,
+  NonNegativeFiniteDuration,
+  ProcessingTimeout,
+  TopologyConfig,
+}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SynchronizerCrypto}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -115,6 +120,8 @@ class StoreBasedSynchronizerOutboxTest
       participant1.uid,
       clock,
       crypto,
+      BatchAggregatorConfig.defaultsForTesting,
+      topologyConfig,
       source,
       exitOnFatalFailures = true,
       // we don't need the validation logic to run, because we control the outcome of transactions manually

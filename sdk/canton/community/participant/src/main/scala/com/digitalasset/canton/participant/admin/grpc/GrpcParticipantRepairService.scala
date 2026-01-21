@@ -110,10 +110,7 @@ final class GrpcParticipantRepairService(
     } yield ()
 
     res.fold(
-      err => {
-        logger.info(s"Unable to purge contracts: $err")
-        Future.failed(err.asGrpcError)
-      },
+      err => Future.failed(err.asGrpcError),
       _ => Future.successful(PurgeContractsResponse()),
     )
   }

@@ -49,7 +49,7 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.logging.{LogEntry, NodeLoggingUtil}
 import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
 import com.digitalasset.canton.metrics.{MetricsConfig, MetricsReporterConfig}
-import com.digitalasset.canton.performance.PerformanceRunner
+import com.digitalasset.canton.performance.{PerformanceRunner, RateSettings}
 import com.digitalasset.canton.sequencing.TrafficControlParameters as InternalTrafficControlParameters
 import com.digitalasset.canton.synchronizer.sequencer.{
   BlockSequencerStreamInstrumentationConfig,
@@ -359,8 +359,9 @@ class SequencerCatchUpPerformanceIntegrationTest
         0,
         participant1,
         participant2,
-        totalCycles =
-          1000000000, // Any big number, we control the duration with other settings (private vals of this class)
+        rateSettings = RateSettings.defaults,
+        // Any big number, we control the duration with other settings (private vals of this class)
+        totalCycles = 1000000000,
       )
 
     val runnerP1 =

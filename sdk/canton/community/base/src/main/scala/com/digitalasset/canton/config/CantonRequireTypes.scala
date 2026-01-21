@@ -187,7 +187,7 @@ object CantonRequireTypes {
   object String1 extends LengthLimitedStringCompanion[String1] {
     def fromChar(c: Char): String1 = checked(new String1(c.toString)(None))
 
-    override def maxLength: PositiveInt = PositiveInt.one
+    override lazy val maxLength: PositiveInt = PositiveInt.one
 
     override protected def factoryMethod(str: String)(name: Option[String]): String1 =
       new String1(str)(name)
@@ -200,7 +200,7 @@ object CantonRequireTypes {
   }
 
   object String3 extends LengthLimitedStringCompanion[String3] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(3)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(3)
 
     override protected def factoryMethod(str: String)(name: Option[String]): String3 =
       new String3(str)(name)
@@ -215,7 +215,7 @@ object CantonRequireTypes {
   }
 
   object String36 extends LengthLimitedStringCompanion[String36] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(36)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(36)
 
     override protected def factoryMethod(str: String)(name: Option[String]): String36 =
       new String36(str)(name)
@@ -233,7 +233,7 @@ object CantonRequireTypes {
   }
 
   object String68 extends LengthLimitedStringCompanion[String68] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(68)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(68)
 
     override def factoryMethod(str: String)(name: Option[String]): String68 =
       new String68(str)(name)
@@ -246,7 +246,7 @@ object CantonRequireTypes {
   }
 
   object String73 extends LengthLimitedStringCompanion[String73] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(73)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(73)
 
     override protected def factoryMethod(str: String)(name: Option[String]): String73 =
       new String73(str)(name)
@@ -258,7 +258,7 @@ object CantonRequireTypes {
   }
 
   object String100 extends LengthLimitedStringCompanion[String100] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(100)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(100)
     override protected def factoryMethod(str: String)(name: Option[String]): String100 =
       new String100(str)(name)
   }
@@ -275,7 +275,7 @@ object CantonRequireTypes {
   }
 
   object String185 extends LengthLimitedStringCompanion[String185] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(185)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(185)
 
     override def factoryMethod(str: String)(name: Option[String]): String185 =
       new String185(str)(name)
@@ -340,7 +340,7 @@ object CantonRequireTypes {
   }
 
   object String2066 extends LengthLimitedStringCompanion[String2066] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(2066)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(2066)
 
     override protected def factoryMethod(str: String)(name: Option[String]): String2066 =
       new String2066(str)(name)
@@ -361,7 +361,7 @@ object CantonRequireTypes {
   }
 
   object String256M extends LengthLimitedStringCompanion[String256M] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(0x10000000)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(0x10000000)
 
     override protected def factoryMethod(str: String)(name: Option[String]): String256M =
       new String256M(str)(name)

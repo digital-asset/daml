@@ -12,9 +12,9 @@ import com.digitalasset.canton.crypto.provider.jce.{JceJavaKeyConverter, JceSecu
 import com.digitalasset.canton.util.{EitherUtil, ErrorUtil}
 import com.github.blemale.scaffeine.Cache
 import com.google.common.annotations.VisibleForTesting
-import com.google.crypto.tink.internal.EllipticCurvesUtil
 import com.google.protobuf.ByteString
 import org.bouncycastle.jcajce.provider.asymmetric.edec.{BCEdDSAPrivateKey, BCEdDSAPublicKey}
+import org.bouncycastle.math.ec.custom.sec.{SecP256K1Curve, SecP256R1Curve, SecP384R1Curve}
 import org.bouncycastle.math.ec.rfc8032.Ed25519.{SECRET_KEY_SIZE, validatePublicKeyFull}
 
 import java.math.BigInteger
@@ -219,8 +219,7 @@ object CryptoKeyValidation {
       )
     } yield ()
 
-  /** Validates the public key by ensuring that the EC public key point lies on the correct curve,
-    * using Tink `checkPointOnCurve` primitive.
+  /** Validates the public key by ensuring that the EC public key point lies on the correct curve.
     */
   private def validateEcPublicKey(
       pubKey: JPublicKey,
@@ -232,24 +231,35 @@ object CryptoKeyValidation {
         case _ =>
           Left(KeyParseAndValidateError(s"Public key is not an EC public key"))
       }
-      point = ecPublicKey.getW
 
-      paramSpec = new ECGenParameterSpec(ecKeySpec.jcaCurveName)
-      params = AlgorithmParameters.getInstance("EC", JceSecurityProvider.bouncyCastleProvider)
-      _ = params.init(paramSpec)
-      ecSpec = params.getParameterSpec(classOf[ECParameterSpec])
-      curve = ecSpec.getCurve
+      x = ecPublicKey.getW.getAffineX
+      y = ecPublicKey.getW.getAffineY
+
+      curve <- ecKeySpec match {
+        case EncryptionKeySpec.EcP256 | SigningKeySpec.EcP256 =>
+          Right(new SecP256R1Curve())
+        case SigningKeySpec.EcSecp256k1 =>
+          Right(new SecP256K1Curve())
+        case SigningKeySpec.EcP384 =>
+          Right(new SecP384R1Curve())
+        case other =>
+          Left(KeyParseAndValidateError(s"Unsupported elliptic curve key spec: $other"))
+      }
 
       // Ensures the point lies on the elliptic curve defined by the given parameters.
-      _ <- Either
-        .catchOnly[GeneralSecurityException](
-          EllipticCurvesUtil.checkPointOnCurve(point, curve)
-        )
+      point <- Either
+        .catchOnly[GeneralSecurityException](curve.createPoint(x, y))
         .leftMap(err =>
           KeyParseAndValidateError(
-            s"EC key not in curve $curve: ${ErrorUtil.messageWithStacktrace(err)}"
+            s"Failed to create point on curve '${ecKeySpec.jcaCurveName}': ${ErrorUtil.messageWithStacktrace(err)}"
           )
         )
+      _ <- EitherUtil.condUnit(
+        point.isValid && !point.isInfinity,
+        KeyParseAndValidateError(
+          s"EC key not in curve '${ecKeySpec.jcaCurveName}'."
+        ),
+      )
     } yield ()
 
   private def checkRsaModulus(modulus: BigInteger) =

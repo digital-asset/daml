@@ -243,6 +243,8 @@ abstract class CantonNodeBootstrapImpl[
       nodeId,
       clock,
       crypto,
+      parameters.batchingConfig.topologyCacheAggregator,
+      config.topology,
       authorizedStore,
       exitOnFatalFailures = parameters.exitOnFatalFailures,
       bootstrapStageCallback.timeouts,
@@ -740,10 +742,12 @@ abstract class CantonNodeBootstrapImpl[
       val snapshotValidator = new InitialTopologySnapshotValidator(
         crypto.pureCrypto,
         temporaryTopologyStore,
+        parameters.batchingConfig.topologyCacheAggregator,
+        config.topology,
         // there are no synchronizer parameters here, so we cannot pass them.
         // as we are only expecting namespace delegations that end up in the authorized store, this is fine
         staticSynchronizerParameters = None,
-        validateInitialSnapshot = config.topology.validateInitialTopologySnapshot,
+        timeouts = this.timeouts,
         loggerFactory = this.loggerFactory,
       )
 
@@ -940,6 +944,8 @@ abstract class CantonNodeBootstrapImpl[
         nodeId,
         clock,
         crypto,
+        parameters.batchingConfig.topologyCacheAggregator,
+        config.topology,
         futureSupervisor,
         parameters.processingTimeouts,
         bootstrapStageCallback.loggerFactory,

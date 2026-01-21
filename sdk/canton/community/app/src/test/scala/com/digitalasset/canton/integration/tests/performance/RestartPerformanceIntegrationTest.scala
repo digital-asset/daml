@@ -21,8 +21,14 @@ abstract class RestartPerformanceIntegrationTest extends BasePerformanceIntegrat
 
     logger.debug("Starting restart performance test")
 
-    val (p1Config, p2Config) =
-      defaultConfigs(2, participant1, participant2, reportFrequency = 10, totalCycles = 200)
+    val (p1Config, p2Config) = defaultConfigs(
+      index = 2,
+      participant1,
+      participant2,
+      reportFrequency = 10,
+      totalCycles = 200,
+      rateSettings = RateSettings.defaults,
+    )
     val runnerP1 =
       new PerformanceRunner(
         p1Config,

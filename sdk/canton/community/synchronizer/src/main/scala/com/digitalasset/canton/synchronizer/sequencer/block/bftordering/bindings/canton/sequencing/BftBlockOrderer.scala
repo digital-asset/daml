@@ -117,8 +117,9 @@ import org.apache.pekko.stream.{KillSwitch, KillSwitches, Materializer}
 
 import java.security.SecureRandom
 import java.time.Instant
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContextExecutor, Future, Promise}
 import scala.util.Random
 
 final class BftBlockOrderer(
@@ -138,7 +139,7 @@ final class BftBlockOrderer(
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
     queryCostMonitoring: Option[QueryCostMonitoringConfig],
-    executionContext: ExecutionContext,
+    executionContext: ExecutionContextExecutor,
 )(implicit materializer: Materializer, tracer: Tracer)
     extends BlockOrderer
     with NamedLogging
@@ -147,7 +148,7 @@ final class BftBlockOrderer(
 
   import BftBlockOrderer.*
 
-  implicit val ec: ExecutionContext =
+  implicit val ec: ExecutionContextExecutor =
     config.dedicatedExecutionContextDivisor.fold(executionContext) { divisor =>
       Threading.newExecutionContext(
         "bft-orderer-dedicated-ec",
@@ -162,6 +163,8 @@ final class BftBlockOrderer(
     sequencerSubscriptionInitialHeight >= BlockNumber.First,
     s"The sequencer subscription initial height must be non-negative, but was $sequencerSubscriptionInitialHeight",
   )
+
+  private val longRunningExecutor = Executors.newCachedThreadPool()
 
   private val psId: PhysicalSynchronizerId = cryptoApi.psid
 
@@ -483,6 +486,7 @@ final class BftBlockOrderer(
       p2pConnectionEventListener,
       p2pNetworkIn,
       metrics,
+      longRunningExecutor,
       timeouts,
       loggerFactory,
     )
@@ -491,10 +495,10 @@ final class BftBlockOrderer(
   // Called by the Scala gRPC service binding when we receive a request to establish the P2P gRPC streaming channel;
   //  it either returns a new receiver for the gRPC stream or throws, which fails the stream establishment and
   //  is propagated to the peer as an error.
-  private def tryCreatePeerReceiverForIncomingConnection(
+  private def createPeerReceiverForIncomingConnection(
       peerSender: StreamObserver[BftOrderingMessage]
-  )(implicit traceContext: TraceContext): P2PGrpcStreamingReceiver =
-    p2pNetworkManager.connectionManager.tryCreateServerSidePeerReceiver(
+  )(implicit traceContext: TraceContext): UnlessShutdown[StreamObserver[BftOrderingMessage]] =
+    p2pNetworkManager.connectionManager.createServerSidePeerReceiver(
       p2pNetworkInModuleRef,
       peerSender,
     )
@@ -521,7 +525,7 @@ final class BftBlockOrderer(
             ServerInterceptors.intercept(
               BftOrderingServiceGrpc.bindService(
                 new P2PGrpcBftOrderingService(
-                  tryCreatePeerReceiverForIncomingConnection,
+                  createPeerReceiverForIncomingConnection,
                   loggerFactory,
                 ),
                 executionContext,
@@ -686,7 +690,13 @@ final class BftBlockOrderer(
       // Shutdown the reused Canton member authentication services, if authentication is enabled
       maybeServerAuthenticatingFilter.map(_.closeAsync()).getOrElse(Seq.empty) ++
       standaloneServiceRef.get.toList
-        .map(s => SyncCloseable("standaloneServiceRef.close()", s.close()))
+        .map(s => SyncCloseable("standaloneServiceRef.close()", s.close())) ++
+      Seq(
+        SyncCloseable(
+          "longRunningExecutor.shutdown()",
+          longRunningExecutor.shutdown(),
+        )
+      )
   }
 
   override def adminServices: Seq[ServerServiceDefinition] =

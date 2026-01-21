@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests.upgrade
 
 import better.files.File
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
-import com.digitalasset.canton.config.BatchingConfig
+import com.digitalasset.canton.config.{BatchAggregatorConfig, BatchingConfig, TopologyConfig}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.plugins.UsePostgres
 import com.digitalasset.canton.integration.plugins.toxiproxy.UseToxiproxy.ToxiproxyConfig
@@ -134,8 +134,10 @@ final class CantonNetworkTopologyStateIntegrationTest
     val validator = new InitialTopologySnapshotValidator(
       participant1.underlying.value.cryptoPureApi,
       store,
+      BatchAggregatorConfig.defaultsForTesting,
+      TopologyConfig.forTesting.copy(validateInitialTopologySnapshot = true),
       Some(static),
-      validateInitialSnapshot = true,
+      timeouts,
       loggerFactory,
       cleanupTopologySnapshot = cleanupTopologyState,
     )

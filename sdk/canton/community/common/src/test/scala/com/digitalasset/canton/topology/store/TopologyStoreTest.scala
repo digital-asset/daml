@@ -7,6 +7,7 @@ import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{BatchAggregatorConfig, TopologyConfig}
 import com.digitalasset.canton.crypto.topology.TopologyStateHash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
@@ -439,8 +440,10 @@ trait TopologyStoreTest
             _ <- new InitialTopologySnapshotValidator(
               pureCrypto = testData.factory.syncCryptoClient.crypto.pureCrypto,
               store = store,
+              BatchAggregatorConfig.defaultsForTesting,
+              TopologyConfig.forTesting.copy(validateInitialTopologySnapshot = true),
               Some(defaultStaticSynchronizerParameters),
-              validateInitialSnapshot = true,
+              timeouts,
               loggerFactory = loggerFactory.appendUnnamedKey("TestName", "case6"),
             ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)
               .valueOrFail("topology bootstrap")
@@ -600,8 +603,10 @@ trait TopologyStoreTest
             _ <- new InitialTopologySnapshotValidator(
               factory.syncCryptoClient.crypto.pureCrypto,
               store,
+              BatchAggregatorConfig.defaultsForTesting,
+              TopologyConfig.forTesting.copy(validateInitialTopologySnapshot = true),
               Some(defaultStaticSynchronizerParameters),
-              validateInitialSnapshot = true,
+              timeouts,
               loggerFactory,
             ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)
               .valueOrFail("topology bootstrap")
@@ -810,8 +815,10 @@ trait TopologyStoreTest
             _ <- new InitialTopologySnapshotValidator(
               factory.syncCryptoClient.crypto.pureCrypto,
               store,
+              BatchAggregatorConfig.defaultsForTesting,
+              TopologyConfig.forTesting.copy(validateInitialTopologySnapshot = true),
               Some(defaultStaticSynchronizerParameters),
-              validateInitialSnapshot = true,
+              timeouts,
               loggerFactory,
               cleanupTopologySnapshot = false,
             ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)
@@ -1816,9 +1823,12 @@ trait TopologyStoreTest
           _ <- new InitialTopologySnapshotValidator(
             pureCrypto = testData.factory.syncCryptoClient.crypto.pureCrypto,
             store = sourceStore,
-            Some(defaultStaticSynchronizerParameters),
-            validateInitialSnapshot = true,
+            topologyCacheAggregatorConfig = BatchAggregatorConfig.defaultsForTesting,
+            topologyConfig = TopologyConfig.forTesting,
+            staticSynchronizerParameters = Some(defaultStaticSynchronizerParameters),
+            timeouts,
             loggerFactory = loggerFactory.appendUnnamedKey("TestName", "case12"),
+            cleanupTopologySnapshot = true,
           ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)
             .valueOrFail("topology bootstrap")
 

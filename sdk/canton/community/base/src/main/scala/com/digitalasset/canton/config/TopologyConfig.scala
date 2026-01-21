@@ -5,6 +5,7 @@ package com.digitalasset.canton.config
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.TopologyConfig.*
+import com.google.common.annotations.VisibleForTesting
 
 /** @param topologyTransactionRegistrationTimeout
   *   Used to determine the max sequencing time for topology transaction broadcasts.
@@ -19,8 +20,9 @@ import com.digitalasset.canton.config.TopologyConfig.*
   * @param broadcastRetryDelay
   *   The delay after which a failed dispatch cycle will be triggered again.
   * @param validateInitialTopologySnapshot
-  *   Whether or not the node will validate the initial topology snapshot when onboarding to a
-  *   synchronizer.
+  *   if false, the validation is skipped and the snapshot is directly imported. this is risky as it
+  *   might create a fork if the validation was changed. therefore, we only use this with great
+  *   care. the proper solution is to make validation so fast that it doesn't impact performance.
   * @param disableOptionalTopologyChecks
   *   if true (default is false), don't run the optional checks which prevent accidental damage to
   *   this node
@@ -30,6 +32,11 @@ import com.digitalasset.canton.config.TopologyConfig.*
   * @param useTimeProofsToObserveEffectiveTime
   *   Whether the node will use time proofs to observe when an effective time has been reached. If
   *   false, no time proofs will be sent to the sequencers by any Canton node.
+  * @param maxTopologyStateCacheItems
+  *   The maximum number of UIDs + namespaces that can be cached in the write through cache
+  * @param enableTopologyStateCacheConsistencyChecks
+  *   If true, the topology state cache runs additional consistency checks. This is costly and
+  *   should not be enabled in production environments.
   */
 final case class TopologyConfig(
     topologyTransactionRegistrationTimeout: NonNegativeFiniteDuration =
@@ -42,6 +49,8 @@ final case class TopologyConfig(
     disableOptionalTopologyChecks: Boolean = false,
     dispatchQueueBackpressureLimit: NonNegativeInt = defaultMaxUnsentTopologyQueueSize,
     useTimeProofsToObserveEffectiveTime: Boolean = false,
+    maxTopologyStateCacheItems: PositiveInt = defaultTopologyStateWriteThroughCacheSize,
+    enableTopologyStateCacheConsistencyChecks: Boolean = false,
 )
 
 object TopologyConfig {
@@ -59,6 +68,15 @@ object TopologyConfig {
     NonNegativeFiniteDuration.ofSeconds(10)
 
   private[TopologyConfig] val defaultBroadcastBatchSize: PositiveInt = PositiveInt.tryCreate(100)
+
+  private[TopologyConfig] val defaultTopologyStateWriteThroughCacheSize: PositiveInt =
+    PositiveInt.tryCreate(1000)
+
+  @VisibleForTesting
+  val forTesting: TopologyConfig = TopologyConfig(
+    maxTopologyStateCacheItems = PositiveInt.tryCreate(10),
+    enableTopologyStateCacheConsistencyChecks = true,
+  )
 
   def NotUsed: TopologyConfig = TopologyConfig(topologyTransactionRegistrationTimeout =
     NonNegativeFiniteDuration(NonNegativeDuration.maxTimeout)

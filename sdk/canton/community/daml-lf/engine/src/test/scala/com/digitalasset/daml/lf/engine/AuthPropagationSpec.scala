@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiCommands}
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Time}
@@ -39,7 +38,7 @@ import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.value.ContractIdVersion
 
-import java.io.File
+import java.util.zip.ZipInputStream
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -51,8 +50,7 @@ class AuthPropagationSpecV2 extends AuthPropagationSpec(LanguageVersion.Major.V2
 class AuthPropagationSpec(majorLanguageVersion: LanguageVersion.Major)
     extends AnyFreeSpec
     with Matchers
-    with Inside
-    with BazelRunfiles {
+    with Inside {
 
   private[this] implicit def loggingContext: LoggingContext = LoggingContext.ForTesting
 
@@ -60,13 +58,14 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageVersion.Major)
   implicit private def toParty(s: String): Party = Party.assertFromString(s)
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
+    val stream = getClass.getClassLoader.getResourceAsStream(resource)
+    val packages = DarDecoder.readArchive(resource, new ZipInputStream(stream)).toOption.get
     val (mainPkgId, mainPkg) = packages.main
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
   private val (pkgId, pkg, allPackages) = loadPackage(
-    s"canton/community/daml-lf/engine/AuthTests-v${majorLanguageVersion.pretty}.dar"
+    s"AuthTests-v${majorLanguageVersion.pretty}.dar"
   )
 
   implicit private def toIdentifier(s: String): Identifier =

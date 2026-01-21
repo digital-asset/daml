@@ -4,9 +4,8 @@
 package com.digitalasset.daml.lf
 package engine
 
-import java.io.File
+import java.util.zip.ZipInputStream
 import com.digitalasset.daml.lf.archive.DarDecoder
-import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
@@ -37,8 +36,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageVersion.Major)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
-    with EitherValues
-    with BazelRunfiles {
+    with EitherValues {
 
   import ReinterpretTest._
 
@@ -49,12 +47,13 @@ class ReinterpretTest(majorLanguageVersion: LanguageVersion.Major)
   private val party = Party.assertFromString("Party")
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
+    val stream = getClass.getClassLoader.getResourceAsStream(resource)
+    val packages = DarDecoder.readArchive(resource, new ZipInputStream(stream)).toOption.get
     (packages.main._1, packages.main._2, packages.all.toMap)
   }
 
   private val (miniTestsPkgId, miniTestsPkg, allPackages) = loadPackage(
-    s"canton/community/daml-lf/tests/ReinterpretTests-v${majorLanguageVersion.pretty}.dar"
+    s"ReinterpretTests-v${majorLanguageVersion.pretty}.dar"
   )
 
   private val defaultContracts: Map[ContractId, FatContractInstance] =

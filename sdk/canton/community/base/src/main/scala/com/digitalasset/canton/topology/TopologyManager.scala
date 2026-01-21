@@ -10,8 +10,8 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -92,6 +92,8 @@ class SynchronizerTopologyManager(
     clock: Clock,
     crypto: SynchronizerCrypto,
     staticSynchronizerParameters: StaticSynchronizerParameters,
+    topologyCacheAggregatorConfig: BatchAggregatorConfig,
+    topologyConfig: TopologyConfig,
     override val store: TopologyStore[SynchronizerStore],
     val outboxQueue: SynchronizerOutboxQueue,
     dispatchQueueBackpressureLimit: NonNegativeInt,
@@ -132,9 +134,12 @@ class SynchronizerTopologyManager(
     }
     TopologyStateProcessor.forTopologyManager(
       store,
+      topologyCacheAggregatorConfig,
+      topologyConfig,
       Some(outboxQueue),
       makeChecks,
       crypto.pureCrypto,
+      timeouts,
       loggerFactory,
     )
   }
@@ -184,6 +189,8 @@ class TemporaryTopologyManager(
     nodeId: UniqueIdentifier,
     clock: Clock,
     crypto: Crypto,
+    topologyCacheAggregatorConfig: BatchAggregatorConfig,
+    topologyConfig: TopologyConfig,
     store: TopologyStore[TemporaryStore],
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
@@ -193,6 +200,8 @@ class TemporaryTopologyManager(
       nodeId,
       clock,
       crypto,
+      topologyCacheAggregatorConfig,
+      topologyConfig,
       store,
       exitOnFatalFailures = false,
       timeouts,
@@ -207,6 +216,8 @@ class AuthorizedTopologyManager(
     nodeId: UniqueIdentifier,
     clock: Clock,
     crypto: Crypto,
+    topologyCacheAggregatorConfig: BatchAggregatorConfig,
+    topologyConfig: TopologyConfig,
     store: TopologyStore[AuthorizedStore],
     exitOnFatalFailures: Boolean,
     timeouts: ProcessingTimeout,
@@ -217,6 +228,8 @@ class AuthorizedTopologyManager(
       nodeId,
       clock,
       crypto,
+      topologyCacheAggregatorConfig,
+      topologyConfig,
       store,
       exitOnFatalFailures = exitOnFatalFailures,
       timeouts,
@@ -233,6 +246,8 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
     nodeId: UniqueIdentifier,
     clock: Clock,
     crypto: Crypto,
+    topologyCacheAggregatorConfig: BatchAggregatorConfig,
+    topologyConfig: TopologyConfig,
     store: TopologyStore[StoreId],
     exitOnFatalFailures: Boolean,
     timeouts: ProcessingTimeout,
@@ -253,9 +268,12 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
   override protected val processor: TopologyStateProcessor =
     TopologyStateProcessor.forTopologyManager(
       store,
+      topologyCacheAggregatorConfig,
+      topologyConfig,
       None,
       _ => NoopTopologyMappingChecks,
       crypto.pureCrypto,
+      timeouts,
       loggerFactory,
     )
 

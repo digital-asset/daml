@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -239,7 +240,7 @@ object BlockSequencerThroughputCap {
       lazy val overKbps = usageByMember.bytes > allowedBytesForMember
       lazy val overThresholdLevel = requestLevel > currentThresholdLevel
 
-      for {
+      val result = for {
         _ <- Either.cond(
           !overTps,
           (),
@@ -256,6 +257,17 @@ object BlockSequencerThroughputCap {
           s"Request at level $requestLevel is higher than the current threshold $currentThresholdLevel",
         )
       } yield ()
+
+      result.left.foreach { _ =>
+        metrics.rejections.mark()(
+          MetricsContext(
+            "member" -> key.member.toProtoPrimitive,
+            "rejection_type" -> "per_member",
+          )
+        )
+      }
+
+      result
     }
 
     // R_t = (R_max - R_A) / (1 + V_active) + B_i
@@ -271,7 +283,7 @@ object BlockSequencerThroughputCap {
         lazy val overThrottledTps = usageByMember.count > throttledCountForMember
         lazy val overThrottledKbps = usageByMember.bytes > throttledBytesForMember
 
-        for {
+        val result = for {
           _ <- Either.cond(
             !overThrottledTps,
             (),
@@ -283,6 +295,17 @@ object BlockSequencerThroughputCap {
             s"${usageByMember.bytes} bytes over the past $observationPeriodSeconds seconds is more than the allowed $throttledBytesForMember throttled amount for the period",
           )
         } yield ()
+
+        result.left.foreach { _ =>
+          metrics.rejections.mark()(
+            MetricsContext(
+              "member" -> key.member.toProtoPrimitive,
+              "rejection_type" -> "global",
+            )
+          )
+        }
+
+        result
       }
 
     // assumes that transactions are added in order of CantonTimestamp

@@ -171,6 +171,7 @@ message InterfaceView {
   // as the contract arguments can be upgraded or downgraded using smart-contract upgrading
   // as part of computing the interface view.
   // Populated if the view computation is successful, otherwise empty.
+  // Optional
   string implementation_package_id = 4;
 }
 

@@ -7,7 +7,7 @@ import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.crypto.{SyncCryptoApi, SynchronizerCryptoClient}
-import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime}
+import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime, SequencingTimeBound}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -111,7 +111,7 @@ class BlockUpdateGeneratorImpl(
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
-    sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
+    sequencingTimeLowerBoundExclusive: SequencingTimeBound,
     producePostOrderingTopologyTicks: Boolean,
     metrics: SequencerMetrics,
     batchingConfig: BatchingConfig,
@@ -167,7 +167,7 @@ class BlockUpdateGeneratorImpl(
               None
 
             case Right(event) =>
-              sequencingTimeLowerBoundExclusive match {
+              sequencingTimeLowerBoundExclusive.get match {
                 case Some(boundExclusive)
                     if !LogicalUpgradeTime.canProcessKnowingPastUpgrade(
                       upgradeTime = Some(boundExclusive),

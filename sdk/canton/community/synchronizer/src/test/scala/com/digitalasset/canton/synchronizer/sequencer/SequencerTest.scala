@@ -12,7 +12,7 @@ import com.digitalasset.canton.config.{
   ProcessingTimeout,
 }
 import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SequencingTimeBound}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.protocol.messages.{EnvelopeContent, UnsignedProtocolMessage}
@@ -136,8 +136,7 @@ class SequencerTest
         DefaultProcessingTimeouts.testing,
         storage,
         sequencerStore,
-        sequencingTimeLowerBoundExclusive =
-          SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
+        SequencingTimeBound(SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive),
         clock,
         topologyClientMember,
         crypto,

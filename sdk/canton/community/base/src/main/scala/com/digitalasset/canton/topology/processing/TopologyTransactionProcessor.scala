@@ -31,6 +31,7 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.protocol.{AllMembersOfSynchronizer, Deliver, DeliverError}
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
+import com.digitalasset.canton.topology.cache.TopologyStateWriteThroughCache
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor.subscriptionTimestamp
 import com.digitalasset.canton.topology.store.{
@@ -69,6 +70,7 @@ import scala.math.Ordering.Implicits.*
 class TopologyTransactionProcessor(
     pureCrypto: SynchronizerCryptoPureApi,
     store: TopologyStore[TopologyStoreId.SynchronizerStore],
+    cache: TopologyStateWriteThroughCache,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
     val terminateProcessing: TerminateProcessing,
@@ -86,6 +88,7 @@ class TopologyTransactionProcessor(
   protected lazy val stateProcessor: TopologyStateProcessor =
     TopologyStateProcessor.forTransactionProcessing(
       store,
+      cache,
       lookup =>
         RequiredTopologyMappingChecks(Some(staticSynchronizerParameters), lookup, loggerFactory),
       pureCrypto,
@@ -247,7 +250,7 @@ class TopologyTransactionProcessor(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = initialise(start, synchronizerTimeTracker)
 
-  /** process envelopes mostly asynchronously
+  /** process envelopes mostly asynchronously (used by participant)
     *
     * Here, we return a Future[Future[Unit]]. We need to ensure the outer future finishes processing
     * before we tick the record order publisher.
@@ -317,6 +320,7 @@ class TopologyTransactionProcessor(
       }
     }
 
+  /** create handler for mediator / sequencer */
   def createHandler(synchronizerId: PhysicalSynchronizerId): UnsignedProtocolEventHandler =
     new UnsignedProtocolEventHandler {
 
@@ -532,7 +536,7 @@ object TopologyTransactionProcessor {
     ): FutureUnlessShutdown[TopologyTransactionProcessor]
   }
 
-  def createProcessorAndClientForSynchronizer(
+  def createProcessorAndClientForSynchronizerWithWriteThroughCache(
       topologyStore: TopologyStore[TopologyStoreId.SynchronizerStore],
       synchronizerPredecessor: Option[SynchronizerPredecessor],
       pureCrypto: SynchronizerCryptoPureApi,
@@ -548,9 +552,19 @@ object TopologyTransactionProcessor {
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[(TopologyTransactionProcessor, SynchronizerTopologyClientWithInit)] = {
+    val cache = new TopologyStateWriteThroughCache(
+      topologyStore,
+      parameters.batchingConfig.topologyCacheAggregator,
+      maxCacheSize = topologyConfig.maxTopologyStateCacheItems,
+      enableConsistencyChecks = topologyConfig.enableTopologyStateCacheConsistencyChecks,
+      parameters.processingTimeouts,
+      loggerFactory,
+    )
+
     val processor = new TopologyTransactionProcessor(
       pureCrypto,
       topologyStore,
+      cache,
       staticSynchronizerParameters,
       _ => (),
       TerminateProcessing.NoOpTerminateTopologyProcessing,
@@ -560,21 +574,21 @@ object TopologyTransactionProcessor {
       loggerFactory,
     )
 
-    val cachingClientF = CachingSynchronizerTopologyClient.create(
+    val writeThroughCacheClientF = WriteThroughCacheSynchronizerTopologyClient.create(
       clock,
       staticSynchronizerParameters,
       topologyStore,
+      cache,
       synchronizerPredecessor,
       NoPackageDependencies,
       parameters.cachingConfigs,
-      parameters.batchingConfig,
       topologyConfig,
       parameters.processingTimeouts,
       futureSupervisor,
       loggerFactory,
     )(sequencerSnapshotTimestamp)
 
-    cachingClientF.map { client =>
+    writeThroughCacheClientF.map { client =>
       processor.subscribe(client)
       (processor, client)
     }

@@ -19,6 +19,7 @@ import com.digitalasset.canton.performance.PartyRole.{
   Master,
   MasterDynamicConfig,
 }
+import com.digitalasset.canton.performance.RateSettings.SubmissionRateSettings
 import com.digitalasset.canton.performance.model.java.orchestration.runtype
 import com.digitalasset.canton.protocol.LocalRejectError.ConsistencyRejections.InactiveContracts
 import com.digitalasset.canton.sequencing.protocol.SequencerErrors.SubmissionRequestRefused
@@ -84,7 +85,7 @@ object BasePerformanceIntegrationTest {
       totalCycles: Int = 30,
       numAssetsPerIssuer: Int = 20,
       withPartyGrowth: Int = 0,
-      rateSettings: RateSettings = RateSettings(),
+      rateSettings: RateSettings,
       otherSynchronizers: Seq[SynchronizerId] = Nil,
       otherSynchronizersRatio: Double = 0.0,
   )(implicit
@@ -161,7 +162,7 @@ trait BasePerformanceIntegrationTestCommon
 
   // completely overload the system on startup
   protected def whackOnStartup(config: PerformanceRunnerConfig): PerformanceRunnerConfig = {
-    val whackMe = RateSettings(startRate = 20)
+    val whackMe = RateSettings(SubmissionRateSettings.TargetLatency(startRate = 20))
     config
       .focus(_.localRoles)
       .replace(config.localRoles.map {

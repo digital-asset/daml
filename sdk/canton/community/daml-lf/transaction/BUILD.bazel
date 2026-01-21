@@ -6,6 +6,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test",
+    "kind_projector_plugin",
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
@@ -41,12 +42,42 @@ da_scala_library(
     ],
 )
 
+da_scala_library(
+    name = "transaction-test-lib",
+    srcs = glob([
+        "src/test/**/*Generators.scala",
+        "src/test/**/*Builder.scala",
+        "src/test/**/*Factory.scala",
+    ]),
+    plugins = [
+        kind_projector_plugin,
+    ],
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//canton/community/daml-lf/api-type-signature",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/data:data-scalacheck",
+        "//canton/community/daml-lf/transaction",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
 da_scala_test(
     name = "value-test",
-    srcs = glob([
-        "src/test/**/value/*.scala",
-        "src/test/**/EitherAssertions.scala",
-    ]),
+    srcs = glob(
+        [
+            "src/test/**/value/*.scala",
+            "src/test/**/EitherAssertions.scala",
+        ],
+        exclude = ["src/test/**/test/*.scala"],
+    ),
     max_heap_size = "3g",
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
@@ -59,7 +90,7 @@ da_scala_test(
     deps = [
         ":transaction",
         "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/transaction-test-lib",
+        "//canton/community/daml-lf/transaction:transaction-test-lib",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -67,11 +98,14 @@ da_scala_test(
 da_scala_test(
     name = "transaction-test",
     size = "medium",
-    srcs = glob([
-        "src/test/**/EitherAssertions.scala",
-        "src/test/**/crypto/*.scala",
-        "src/test/**/transaction/*.scala",
-    ]),
+    srcs = glob(
+        [
+            "src/test/**/EitherAssertions.scala",
+            "src/test/**/crypto/*.scala",
+            "src/test/**/transaction/*.scala",
+        ],
+        exclude = ["src/test/**/test/*.scala"],
+    ),
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalacheck_scalacheck",
@@ -86,7 +120,7 @@ da_scala_test(
         "//canton/community/daml-lf/api-type-signature",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/transaction-test-lib",
+        "//canton/community/daml-lf/transaction:transaction-test-lib",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

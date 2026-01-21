@@ -4,7 +4,7 @@
 package com.digitalasset.canton.topology.store
 
 import com.digitalasset.canton.crypto.Hash
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.SequencingTimeBound
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -35,7 +35,7 @@ trait TopologyStateForInitializationService {
 
 final class StoreBasedTopologyStateForInitializationService(
     synchronizerTopologyStore: TopologyStore[SynchronizerStore],
-    sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
+    sequencingTimeLowerBoundExclusive: SequencingTimeBound,
     val loggerFactory: NamedLoggerFactory,
 ) extends TopologyStateForInitializationService
     with NamedLogging {
@@ -74,7 +74,9 @@ final class StoreBasedTopologyStateForInitializationService(
           // * after the onboarding transaction has become effective
           // * with minimum sequencing time or later
           val sequencedTime = SequencedTime(
-            sequencingTimeLowerBoundExclusive.fold(effectiveFrom.value)(_.max(effectiveFrom.value))
+            sequencingTimeLowerBoundExclusive.get.fold(effectiveFrom.value)(
+              _.max(effectiveFrom.value)
+            )
           )
           (sequencedTime, effectiveFrom)
         }
