@@ -218,7 +218,6 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":engine",
-        "//bazel_tools/runfiles:scala_runfiles",
         "//canton:contextualized-logging",
         "//canton/community/daml-lf/archive:daml_lf_archive_reader",
         "//canton/community/daml-lf/data",
