@@ -201,14 +201,8 @@ You will now also need to test the release using DPM, please follow the instruct
    ```
    If running `dpm` fails with a "cannot find command" error, inform the language team on #team-daml-language, and then proceed with testing by running `setx /M PATH "%PATH%;%APPDATA%\dpm\bin"` in an administrator command prompt and restarting your existing terminals.
 
-1. Run `dpm versions` and verify the (green) version is what you expect. If you used the latest-download URL to get DPM and thus don't know what version to expect, ensure it is less than a week old for weekly testing.
-
 1. Run `dpm versions` and verify the (green) version is what you expect. If you did not know what version to expect, ensure it is less than a week old for weekly testing.
    (If it is too old, leave a message about this in #project-dpm and pause testing until you get a response. #project-dpm is US based so consider this for timezones.)
-
-1. On the [assembly] PR, add the comment (replacing $VERSION with the active DPM version string from above):
-
-   > Testing using DPM Version: $VERSION
 
 1. Run `dpm new myproject --template multi-package-example` to create a new project and switch to it
    `cd myproject`.
