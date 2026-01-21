@@ -933,6 +933,7 @@ scala_library(
         "@maven//:org_scala_lang_scala3_library_3",
         "@maven//:org_scala_lang_scala_reflect",
         "@maven//:org_scalaz_scalaz_core_2_13",
+        "@maven//:org_semver4j_semver4j",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",

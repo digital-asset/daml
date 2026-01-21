@@ -83,7 +83,7 @@ ENGINE_TEST_FILES = \
             name = name,
             major = major,
         ),
-        srcs = ["src/test/daml/%s.daml" % name],
+        srcs = ["src/test/daml/%s/%s.daml" % (name, name)],
         target = DEFAULT_LF_VERSION,
     )
     for name in ENGINE_TEST_FILES
@@ -96,7 +96,7 @@ ENGINE_TEST_FILES = \
             name = name,
             version = mangle_for_damlc(version),
         ),
-        srcs = ["src/test/daml/%s.daml" % name],
+        srcs = ["src/test/daml/%s/%s.daml" % (name, name)],
         target = version,
     )
     for name in ENGINE_TEST_FILES
@@ -187,7 +187,7 @@ da_scala_test_suite(
 [
     daml_compile(
         name = "LargeTransaction-v{}".format(major),
-        srcs = ["src/test/daml/LargeTransaction.daml"],
+        srcs = ["src/test/daml/LargeTransaction/LargeTransaction.daml"],
         target = DEFAULT_LF_VERSION,
     )
     for major in COMPILER_LF_MAJOR_VERSIONS
