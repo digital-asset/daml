@@ -340,7 +340,7 @@ Conversely, a sequence of commits `L` yields a causality graph `G`:sub:`L` by ta
 
 There are now two consistency definitions:
 
-* :ref:`Ledger Consistency <da-model-ledger-consistency>` according to Daml Ledger Model
+* :ref:`Ledger Consistency <da-model-contract-consistency>` according to Daml Ledger Model
 
 * :ref:`Consistency of causality graph <def-consistency-causality-graph>`
 
