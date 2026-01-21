@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:proto.bzl", "proto_jars")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_benchmark_jmh",
@@ -27,15 +26,6 @@ load(
     "daml_compile",
 )
 
-proto_jars(
-    name = "snapshot_proto",
-    srcs = ["../snapshot-proto/src/main/protobuf/com/digitalasset/daml/lf/snapshot.proto"],
-    maven_artifact_prefix = "daml-lf-snapshot",
-    maven_group = "com.daml",
-    strip_import_prefix = "../snapshot-proto/src/main/protobuf/",
-    visibility = ["//visibility:public"],
-)
-
 da_scala_library(
     name = "snapshot",
     srcs = glob(["src/main/**/TransactionSnapshot.scala"]),
@@ -43,7 +33,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
-        "snapshot_proto_java",
+        "//canton/community/daml-lf/snapshot-proto:snapshot_proto_java",
         "//canton:contextualized-logging",
         "//canton/community/daml-lf/archive:daml_lf_archive_reader",
         "//canton/community/daml-lf/data",
