@@ -15,7 +15,7 @@
   type: jar-scala
 - target: //canton/community/daml-lf/data:data
   type: jar-scala
-- target: //canton/community/daml-lf/data-scalacheck:data-scalacheck
+- target: //canton/community/daml-lf/data:data-scalacheck
   type: jar-scala
 - target: //canton/community/daml-lf/encoder:encoder
   type: jar-scala
@@ -45,7 +45,7 @@
   type: jar-scala
 - target: //canton/community/daml-lf/transaction:transaction_proto_java
   type: jar-proto
-- target: //canton/community/daml-lf/transaction-test-lib:transaction-test-lib
+- target: //canton/community/daml-lf/transaction:transaction-test-lib
   type: jar-scala
 - target: //canton/community/daml-lf/validation:validation
   type: jar-scala

@@ -65,7 +65,7 @@ da_scala_test(
         "//canton/community/daml-lf/api-type-signature",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/transaction",
-        "//canton/community/daml-lf/transaction-test-lib",
+        "//canton/community/daml-lf/transaction:transaction-test-lib",
         "//ledger-service/utils",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
