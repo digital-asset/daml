@@ -12,6 +12,7 @@ da_scala_benchmark_jmh(
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
+    scalacopts = ["-Xsource:3"],
     visibility = ["//visibility:public"],
     deps = [
         "//canton:contextualized-logging",
