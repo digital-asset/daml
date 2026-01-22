@@ -10,9 +10,6 @@ load(
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
-load("//rules_daml:daml.bzl", "daml_compile")
-load("//canton/community/daml-lf/language:daml-lf.bzl", "DEFAULT_LF_VERSION")
-load("@os_info//:os_info.bzl", "is_intel")
 
 proto_jars(
     name = "transaction_proto",
@@ -139,47 +136,5 @@ da_scala_test(
     deps = [
         ":transaction",
         "//canton/community/daml-lf/data",
-    ],
-)
-
-daml_compile(
-    name = "InterfaceTestPackage-v2",
-    srcs = glob(
-        ["src/test/daml/**/*.daml"],
-        exclude = ["src/test/daml/**/*Retro*.daml"],
-    ),
-    enable_interfaces = True,
-    target = DEFAULT_LF_VERSION,
-)
-
-daml_compile(
-    name = "InterfaceTestPackage-v1",
-    srcs = glob(["src/test/daml/**/*.daml"]),
-    target = "1.15",
-) if is_intel else None
-
-da_scala_test(
-    name = "tests",
-    size = "small",
-    srcs = glob([
-        "src/test/**/typesig/**/*.scala",
-    ]),
-    data = [":InterfaceTestPackage-v2.dar"] + ([":InterfaceTestPackage-v1.dar"] if is_intel else []),
-    scala_deps = [
-        "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    scalacopts = lf_scalacopts,
-    deps = [
-        "//canton:nonempty",
-        "//canton/community/daml-lf/api-type-signature",
-        "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/parser",
-        "//canton/community/daml-lf/transaction:transaction-test-lib",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

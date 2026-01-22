@@ -147,14 +147,14 @@ da_scala_test_suite(
 
 daml_compile_with_dalf(
     name = "DarReaderTest",
-    srcs = ["src/test/daml/DarReaderTest/DarReaderTest.daml"],
+    srcs = ["src/test/daml/DarReaderTest.daml"],
     target = "2.1",
 )
 
 [
     daml_compile(
         name = "DarReaderTest-{}".format(mangle_for_damlc(version)),
-        srcs = ["src/test/daml/DarReaderTest/DarReaderTest.daml"],
+        srcs = ["src/test/daml/DarReaderTest.daml"],
         target = version,
     )
     for version in READABLE_LF_VERSIONS

@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf.archive
 
 import java.nio.file.Paths
-import com.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.data.{Numeric, Ref}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion => LV}
@@ -574,12 +573,10 @@ class DecodeV1Spec
 
   "decodeModuleRef" should {
     "take a dar with interned IDs" in {
-      assume(System.getProperty("hasLegacyDamlc").toLowerCase() != "false")
-
       lazy val ArchivePayload.Lf1(pkgId, dalfProto, minorVersion) =
         DarReader
           .assertReadArchiveFromFile(
-            Paths.get(rlocation("canton/community/daml-lf/archive/DarReaderTest-v115.dar")).toFile
+            Paths.get(getClass.getClassLoader.getResource("DarReaderTest-v115.dar").toURI).toFile
           )
           .main
 

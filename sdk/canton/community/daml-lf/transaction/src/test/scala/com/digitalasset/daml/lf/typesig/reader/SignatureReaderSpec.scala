@@ -1,11 +1,10 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
 package typesig
 package reader
 
-import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref
@@ -191,7 +190,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
 
   def testDar(v: LanguageVersion.Major) = s"a real LF $v dar" should {
     val file =
-      new File(rlocation(s"canton/community/daml-lf/api-type-signature/InterfaceTestPackage-v${v.pretty}.dar"))
+      new File(getClass.getClassLoader.getResource(s"InterfaceTestPackage-v${v.pretty}.dar").getFile)
 
     if (v == LanguageVersion.Major.V2 || file.exists()) {
 
@@ -365,7 +364,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
 
         PackageSignature.resolveRetroImplements((), itpWithoutRetroImplements.all)((_, _) =>
           None
-        ) should ===((), itpWithoutRetroImplements.all)
+        ) should ===(((), itpWithoutRetroImplements.all))
         itpESWithoutRetroImplements.resolveRetroImplements should ===(itpESWithoutRetroImplements)
       }
 

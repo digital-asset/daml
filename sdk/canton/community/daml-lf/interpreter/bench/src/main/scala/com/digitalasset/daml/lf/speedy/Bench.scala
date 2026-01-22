@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -7,8 +7,8 @@ package speedy
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.speedy.metrics.{StepCount, TxNodeCount}
-import com.digitalasset.daml.lf.testing.parser._
-import org.openjdk.jmh.annotations._
+import com.digitalasset.daml.lf.testing.parser.*
+import org.openjdk.jmh.annotations.*
 
 import java.util.concurrent.TimeUnit
 import scala.collection.immutable.ArraySeq
@@ -33,7 +33,7 @@ class Bench {
 
   private[this] def defaultPackageId = parserParameters.defaultPackageId
 
-  private[this] def pkg = {
+  private[this] def pkg =
     p"""
          metadata ( 'bench' : '1.0.0' )
 
@@ -130,11 +130,10 @@ class Bench {
 
          }
        """
-  }
 
   private[this] var compiledPackages: PureCompiledPackages = _
   private[this] var sexpr: SExpr.SExpr = _
-  private var machine: Speedy.Machine[_] = _
+  private var machine: Speedy.Machine[?] = _
 
   @Param(
     Array(

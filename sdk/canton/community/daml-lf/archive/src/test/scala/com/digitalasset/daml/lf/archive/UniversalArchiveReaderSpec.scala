@@ -5,16 +5,15 @@ package com.digitalasset.daml.lf.archive
 
 import java.io.File
 
-import com.daml.bazeltools.BazelRunfiles._
 import org.scalatest.TryValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
 class UniversalArchiveReaderSpec extends AnyFlatSpec with Matchers with TryValues {
 
-  private val darFile = new File(rlocation("canton/community/daml-lf/archive/DarReaderTest.dar"))
+  private val darFile = new File(getClass.getClassLoader.getResource("DarReaderTest.dar").getFile)
 
-  private val dalfFile = new File(rlocation("canton/community/daml-lf/archive/DarReaderTest.dalf"))
+  private val dalfFile = new File(getClass.getClassLoader.getResource("DarReaderTest.dalf").getFile)
 
   behavior of UniversalArchiveReader.toString
 

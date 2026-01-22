@@ -3,8 +3,7 @@
 
 package com.digitalasset.daml.lf.archive
 
-import java.io.File
-import com.daml.bazeltools.BazelRunfiles
+import java.util.zip.ZipInputStream
 import com.daml.crypto.MessageDigestPrototype
 import com.google.protobuf
 import org.scalatest._
@@ -17,26 +16,23 @@ class DarReaderTest
     extends AnyWordSpec
     with Matchers
     with Inside
-    with BazelRunfiles
     with Inspectors
     with TryValues {
 
-  private def resource(path: String): File = {
-    val f = new File(rlocation(path)).getAbsoluteFile
-    require(f.exists, s"File does not exist: $f")
-    f
+  private def resource(path: String): ZipInputStream = {
+    val stream = getClass.getClassLoader.getResourceAsStream(path)
+    new ZipInputStream(stream)
   }
 
   "should reject a zip bomb with the proper error" in {
-    val darFile = resource("canton/community/daml-lf/archive/DarReaderTest.dar")
+    val darFile = "DarReaderTest.dar"
     DarReader
-      .readArchiveFromFile(darFile, entrySizeThreshold = 1024) shouldBe Left(Error.ZipBomb)
+      .readArchive(darFile, resource(darFile), entrySizeThreshold = 1024) shouldBe Left(Error.ZipBomb)
   }
 
   s"should read LF1 dar file, main archive: DarReaderTest returned first" in {
-    assume(System.getProperty("hasLegacyDamlc").toLowerCase() != "false")
-    val darFile = resource("canton/community/daml-lf/archive/DarReaderTest-v115.dar")
-    val Right(dar) = DarReader.readArchiveFromFile(darFile)
+    val darFile = "DarReaderTest-v115.dar"
+    val Right(dar) = DarReader.readArchive(darFile, resource(darFile))
 
     forAll(dar.all) {
       case ArchivePayload.Lf1(packageId, protoPkg, _) =>
@@ -111,8 +107,8 @@ class DarReaderTest
   }
 
   s"should read LF2 dar file, main archive: DarReaderTest returned first" in {
-    val darFile = resource("canton/community/daml-lf/archive/DarReaderTest.dar")
-    val Right(dar) = DarReader.readArchiveFromFile(darFile)
+    val darFile = "DarReaderTest.dar"
+    val Right(dar) = DarReader.readArchive(darFile, resource(darFile))
 
     forAll(dar.all) {
       case ArchivePayload.Lf1(_, _, _) =>
@@ -202,8 +198,8 @@ class DarReaderTest
 
   val extraData = protobuf.ByteString.fromHex("0123456789abcdef")
 
-  val darFile = resource("canton/community/daml-lf/archive/DarReaderTest.dar")
-  val Right(dar) = DarParser.readArchiveFromFile(darFile)
+  val darFile = "DarReaderTest.dar"
+  val Right(dar) = DarParser.readArchive(darFile, resource(darFile))
   val archive: DamlLf.Archive = dar.main
 
   def testRejectUnknownFields(
