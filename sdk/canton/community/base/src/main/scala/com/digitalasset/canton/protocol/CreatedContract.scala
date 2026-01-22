@@ -83,9 +83,12 @@ object CreatedContract {
     } yield createdContract
   }
 
+  /** DO NOT USE IN PRODUCTION, as it does not necessarily check object invariants. */
   @VisibleForTesting
-  val contractUnsafe: Lens[CreatedContract, NewContractInstance] =
-    GenLens[CreatedContract](_.contract)
+  object Optics {
+    val contractUnsafe: Lens[CreatedContract, NewContractInstance] =
+      GenLens[CreatedContract](_.contract)
+  }
 }
 
 /** @param consumedInView

@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref.{
@@ -37,13 +36,13 @@ import com.digitalasset.daml.lf.value.Value.{
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 
-import java.io.File
 import org.scalatest.EitherValues
 import org.scalatest.Inside.inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.util.zip.ZipInputStream
 import scala.language.implicitConversions
 
 class ContractKeySpecV2 extends ContractKeySpec(LanguageVersion.Major.V2)
@@ -59,8 +58,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageVersion.Major)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
-    with EitherValues
-    with BazelRunfiles {
+    with EitherValues {
 
   import ContractKeySpec._
 
@@ -76,7 +74,8 @@ class ContractKeySpec(majorLanguageVersion: LanguageVersion.Major)
   private[this] val preprocessor = preprocessing.Preprocessor.forTesting(compiledPackages)
 
   private def loadAndAddPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
+    val stream = getClass.getClassLoader.getResourceAsStream(resource)
+    val packages = DarDecoder.readArchive(resource, new ZipInputStream(stream)).toOption.get
     val (mainPkgId, mainPkg) = packages.main
     assert(
       compiledPackages.addPackage(mainPkgId, mainPkg).consume(pkgs = packages.all.toMap).isRight
@@ -85,7 +84,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageVersion.Major)
   }
 
   private val (basicTestsPkgId, basicTestsPkg, allPackages) = loadAndAddPackage(
-    s"canton/community/daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
+    s"BasicTests-v${majorLanguageVersion.pretty}dev.dar"
   )
 
   val basicTestsSignatures = language.PackageInterface(Map(basicTestsPkgId -> basicTestsPkg))
@@ -294,7 +293,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageVersion.Major)
         )
       )
       val (multiKeysPkgId, multiKeysPkg, allMultiKeysPkgs) =
-        loadAndAddPackage(s"canton/community/daml-lf/tests/MultiKeys-v${majorLanguageVersion.pretty}dev.dar")
+        loadAndAddPackage(s"MultiKeys-v${majorLanguageVersion.pretty}dev.dar")
       val keyedId = Identifier(multiKeysPkgId, "MultiKeys:Keyed")
       val opsId = Identifier(multiKeysPkgId, "MultiKeys:KeyOperations")
       val let = Time.Timestamp.now()

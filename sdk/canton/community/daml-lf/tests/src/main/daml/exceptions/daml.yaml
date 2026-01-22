@@ -1,0 +1,19 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+override-components:
+  damlc:
+    version: $DAML_VERSION
+  daml-script:
+    version: $DAML_VERSION
+name: Exceptions-v2dev
+version: 3.5.0
+build-options:
+  - --target=2.dev
+  - -Wupgrade-exceptions
+  - -Wno-deprecated-exceptions
+dependencies:
+  - daml-prim
+  - daml-stdlib
+parties: [Alice, Bob]
+source: .

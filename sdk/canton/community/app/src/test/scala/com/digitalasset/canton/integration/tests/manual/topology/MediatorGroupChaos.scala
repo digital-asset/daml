@@ -408,6 +408,4 @@ object MediatorGroupChaos extends TopologyOperationsCompanion {
     "GrpcClientError: INVALID_ARGUMENT/An error occurred. Please contact the operator and inquire about the request", // ... is submitted to a recently removed synchronizer owner
     "Sequencing result message timed out.", // mediator times out phase 6 response if another mediator has since been removed and sequencer considers mediator aggregation rule invalid
   )
-
-  override lazy val acceptableNonRetryableLogEntries: Seq[String] = Seq.empty
 }

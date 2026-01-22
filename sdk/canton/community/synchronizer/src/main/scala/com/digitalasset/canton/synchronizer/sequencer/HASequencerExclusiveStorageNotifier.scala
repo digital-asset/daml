@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer
 
-import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.HASequencerExclusiveStorageNotifier.{
   FailoverNotification,
@@ -33,11 +32,10 @@ class HASequencerExclusiveStorageNotifier(protected val loggerFactory: NamedLogg
       )
     }
 
-  private val directExecutionContext: DirectExecutionContext = DirectExecutionContext(logger)
   def onActive(): FutureUnlessShutdown[Unit] =
     getNotificationOrElseLogWarning(onActive = true)
-  def onPassive(): FutureUnlessShutdown[Option[CloseContext]] =
-    getNotificationOrElseLogWarning(onActive = false).map(_ => None)(directExecutionContext)
+  def onPassive(): FutureUnlessShutdown[Unit] =
+    getNotificationOrElseLogWarning(onActive = false)
 
   private def getNotificationOrElseLogWarning(onActive: Boolean): FutureUnlessShutdown[Unit] = {
     val notifications = this.notifications.getOrElse {

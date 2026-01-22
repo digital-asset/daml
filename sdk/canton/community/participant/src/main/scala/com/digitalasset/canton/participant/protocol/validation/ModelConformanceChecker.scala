@@ -14,6 +14,7 @@ import com.digitalasset.canton.crypto.{Hash, HashOps, HmacOps, InteractiveSubmis
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewParticipantData.RootAction
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.EngineController.{
@@ -84,7 +85,7 @@ class ModelConformanceChecker(
     * @return
     *   the resulting LfTransaction with [[com.digitalasset.canton.protocol.LfContractId]]s only
     */
-  private[protocol] def check[ViewEffect](
+  def check[ViewEffect](
       rootViewTrees: NonEmpty[Seq[(FullTransactionViewTree, RoseTree[ViewEffect])]],
       keyResolverFor: TransactionView => LfKeyResolver,
       topologySnapshot: TopologySnapshot,
@@ -180,7 +181,7 @@ class ModelConformanceChecker(
     }
 
     val resultFE = findValidSubtransactions(rootViewsWithInfo).map { case (errors, viewsTxs) =>
-      val (_views, effects, txs) = viewsTxs.unzip3
+      val (_, effects, txs) = viewsTxs.unzip3
 
       val (wftxO, mergeErrorOO) = NonEmpty.from(txs).map(WellFormedTransaction.merge(_)).separate
       val mergeErrorO = mergeErrorOO.flatten.map(MergeError.apply)

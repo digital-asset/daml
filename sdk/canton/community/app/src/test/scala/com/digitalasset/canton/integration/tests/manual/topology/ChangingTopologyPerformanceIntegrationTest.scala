@@ -8,8 +8,12 @@ import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.console.{InstanceReference, LocalInstanceReference}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.console.{
+  InstanceReference,
+  LocalInstanceReference,
+  LocalSequencerReference,
+}
 import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -17,7 +21,9 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.UsePostgres
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
+import com.digitalasset.canton.integration.tests.manual.topology.TopologyOperations.TransactionProgress
 import com.digitalasset.canton.integration.tests.performance.BasePerformanceIntegrationTest
 import com.digitalasset.canton.integration.{
   ConfigTransforms,
@@ -25,8 +31,10 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.logging.{LogEntry, NamedLogging}
+import com.digitalasset.canton.performance.RateSettings.SubmissionRateSettings
 import com.digitalasset.canton.performance.elements.DriverStatus
 import com.digitalasset.canton.performance.{PerformanceRunner, RateSettings}
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.topology.TopologyManagerError.SerialMismatch
 import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllButNamespaceDelegations
@@ -45,6 +53,7 @@ import org.scalatest.time.{Millis, Minutes, Span}
 import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicReference
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.*
 import scala.concurrent.{Future, Promise}
 import scala.util.Random
@@ -67,22 +76,35 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
   // Shorten the interval, as the default is 1 minute
   private val sequencerClientAcknowledgementIntervalMs: Int = 5000
 
-  private val rateSettings = RateSettings(targetLatencyMs = performanceRunnerTargetLatencyMs)
+  private lazy val containsLSUChaos: Boolean =
+    operations.exists(_.name == LogicalSynchronizerUpgradeChaos.name)
+
+  protected lazy val submissionRateSettings: SubmissionRateSettings =
+    SubmissionRateSettings.TargetLatency(targetLatencyMs = performanceRunnerTargetLatencyMs)
+
+  private lazy val rateSettings = RateSettings(submissionRateSettings)
   private val acceptableNumberOfFailedProgressChecks = 60
 
   private var performanceTestStart: CantonTimestamp = _
-  private val totalChaosTime = config.NonNegativeFiniteDuration.ofSeconds(150)
+  private val totalChaosTime = config.NonNegativeFiniteDuration.ofSeconds(180)
 
   private val shouldStopRunTest = new AtomicReference(false)
 
-  protected lazy val actorSystem = ActorSystem()
-  protected lazy val scheduler = actorSystem.scheduler
+  private lazy val actorSystem = ActorSystem()
+  private lazy val scheduler = actorSystem.scheduler
 
   protected def numMediators: Int
   protected def numSequencers: Int
   protected def numParticipants: Int
 
   protected def operations: NonEmpty[Seq[TopologyOperations]]
+
+  /*
+   Result of the progress checker:
+    - the key is the name of the runner and the timestamp
+    - value is the sum of acceptances and proposals
+   */
+  private val transactionProgress: TrieMap[(String, CantonTimestamp), Int] = TrieMap()
 
   override protected lazy val baseEnvironmentConfig: EnvironmentDefinition =
     EnvironmentDefinition
@@ -125,9 +147,7 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
           _.health.wait_for_ready_for_initialization()
         )
         // Participants are fully initialized already when starting up (and auto init is true)
-        Seq(participant1, participant2).foreach(
-          _.health.wait_for_identity()
-        )
+        Seq(participant1, participant2).foreach(_.health.wait_for_identity())
 
         new NetworkBootstrapper(
           NetworkTopologyDescription(
@@ -136,6 +156,11 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
             mediators = Seq(mediator1),
             synchronizerOwners = Seq(participant1),
             synchronizerThreshold = PositiveInt.one,
+            // It makes things easier to debug for LSU: sequencer1 and mediator1 are used for physical synchronizer with serial 1 (instead of 0)
+            overrideStaticSynchronizerParameters = Some(
+              EnvironmentDefinition.defaultStaticSynchronizerParameters
+                .copy(serial = NonNegativeInt.one)
+            ),
           )
         ).bootstrap()
 
@@ -192,7 +217,7 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
     PatienceConfig(timeout = scaled(Span(20, Minutes)), interval = scaled(Span(500, Millis)))
 
   "preliminary checks" in { () =>
-    def ensureNodeExclusivityUnique(proj: Reservations => Seq[String], nodeType: String) = {
+    def ensureNodeExclusivityUnique(proj: Reservations => Seq[String], nodeType: String): Unit = {
 
       // node name -> classes claiming exclusive usage of the node
       val exclusiveNodes: Seq[(String, Seq[String])] = operations.forgetNE
@@ -212,6 +237,16 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
     ensureNodeExclusivityUnique(_.exclusiveParticipants, "participants")
     ensureNodeExclusivityUnique(_.exclusiveMediators, "mediators")
     ensureNodeExclusivityUnique(_.exclusiveSequencers, "sequencers")
+
+    if (containsLSUChaos && operations.sizeIs != 1) {
+      /*
+      LSU chaos changes the performance runner from TargetLatency to FixedRate.
+      Since we did not think yet whether it would impact negatively the other chaos, we require that
+      it is run in isolation. That's potentially too restrictive and could be removed.
+       */
+
+      fail("LSU chaos should be used alone")
+    }
   }
 
   private implicit val globalReservations: Reservations = operations.forgetNE
@@ -229,12 +264,12 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
 
     val (p1Config, p2Config) =
       defaultConfigs(
-        0,
+        index = 0,
         participant1,
         participant2,
         withPartyGrowth = 0, // for now, don't add parties for additional topology activity
-        totalCycles =
-          1000000000, // run forever since we deactivate the workload after topology chaos is done
+        // run forever since we deactivate the workload after topology chaos is done
+        totalCycles = 1000000000,
         rateSettings = rateSettings,
       )
 
@@ -282,7 +317,7 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
           s"Wait for chaos to finish, still waiting for ${waitGroup.waitingForCurrently()}"
         )(waitGroup.waitF())
 
-        operations.foreach(_.finalAssertions())
+        operations.foreach(_.finalAssertions(TransactionProgress(transactionProgress.toMap)))
 
         runners.foreach(_.setActive(false))
 
@@ -290,64 +325,91 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
 
         runners.foreach(_.close())
 
+        val activeSequencer = getActiveSequencer()
+        val activePSId =
+          env.participant1.synchronizers.list_connected().loneElement.physicalSynchronizerId
+
         // Before leaving the suppressing logger scope, let the workload finish or time out, so that we
         // don't flake on expected warnings.
-        waitUntilWorkloadSubmissionsProcessed()
+        waitUntilWorkloadSubmissionsProcessed(activeSequencer)
         // Synchronize the participants so that they are all caught up by making them ping each others
         clue("[chaos testing] waiting until a final set of pings goes through") {
-          val allOnboardedParticipants = sequencer1.topology.synchronizer_trust_certificates
-            .list(daId)
+          val allOnboardedParticipants = activeSequencer.topology.synchronizer_trust_certificates
+            .list(activePSId)
             .map(_.item.participantId.identifier.unwrap)
             .distinct
             .map(p)
 
           eventually(timeUntilSuccess = waitTimeout.asFiniteApproximation) {
             allOnboardedParticipants.zip(allOnboardedParticipants.view.drop(1)).foreach {
-              case (from, to) =>
-                from.health.maybe_ping(to) shouldBe defined
+              case (from, to) => from.health.maybe_ping(to) shouldBe defined
             }
           }
         }
 
-        // Run one last topology transaction through the synchronizer and wait until all synchronizer members have observed
-        // that transaction to help ensure that no synchronizer member is behind consuming topology changes.
-        val sequencedTimeOfDummyTransaction =
-          waitUntilDummySynchronizerTopologyTransactionsProcessed()
+        /*
+      TODO(#30088) Consider relaxing this constraint
+      Checking the topology in with LSU chaos is more difficult because we need to track active nodes.
+         */
+        val operationsContainLSU = operations.exists(_.name == LogicalSynchronizerUpgradeChaos.name)
 
-        // Wait for the duration of a client sequencer acknowledgment interval (+margin) to ensure
-        // that all acknowledgements have been processed by the sequencers.
-        Threading.sleep((sequencerClientAcknowledgementIntervalMs + computationMarginMs).toLong)
+        if (!operationsContainLSU) {
+          // Run one last topology transaction through the synchronizer and wait until all synchronizer members have observed
+          // that transaction to help ensure that no synchronizer member is behind consuming topology changes.
+          val sequencedTimeOfDummyTransaction =
+            waitUntilDummySynchronizerTopologyTransactionsProcessed(activeSequencer, activePSId)
 
-        validateTopologyState(sequencedTimeOfDummyTransaction)
+          // Wait for the duration of a client sequencer acknowledgment interval (+margin) to ensure
+          // that all acknowledgements have been processed by the sequencers.
+          Threading.sleep((sequencerClientAcknowledgementIntervalMs + computationMarginMs).toLong)
+
+          validateTopologyState(activeSequencer, activePSId, sequencedTimeOfDummyTransaction)
+        }
       },
       forEvery(_)(acceptableLogMessageIncludingTopologyChangeWarnings),
     )
   }
 
-  private def waitUntilWorkloadSubmissionsProcessed()(implicit
+  /** If LSU chaos is enabled, sequencer1 is not the active sequencer at the end of the test.
+    */
+  private def getActiveSequencer()(implicit
       env: TestConsoleEnvironment
+  ): LocalSequencerReference = {
+    import env.*
+
+    sequencers.local.filter(_.is_running).maxBy { s =>
+      val index = s.name.replace("sequencer", "").toInt
+      index
+    }
+  }
+
+  private def waitUntilWorkloadSubmissionsProcessed(activeSequencer: LocalSequencerReference)(
+      implicit env: TestConsoleEnvironment
   ): Unit = clue("[chaos testing] wait until submitted transaction are fully processed") {
     import env.*
     val decisionTimeout =
-      sequencer1.topology.synchronizer_parameters
+      activeSequencer.topology.synchronizer_parameters
         .get_dynamic_synchronizer_parameters(daId)
         .decisionTimeout
     Threading.sleep((decisionTimeout + computationMarginMs.milli).underlying.toMillis)
   }
 
-  private def waitUntilDummySynchronizerTopologyTransactionsProcessed()(implicit
+  private def waitUntilDummySynchronizerTopologyTransactionsProcessed(
+      activeSequencer: LocalSequencerReference,
+      activePSId: PhysicalSynchronizerId,
+  )(implicit
       env: TestConsoleEnvironment
   ): CantonTimestamp = clue("[chaos testing] dummy topology transaction") {
     import env.*
     val signingKey =
-      clue(s"[chaos testing] propose dummy NSD transaction for sequencer1") {
-        val identifierKey = sequencer1.keys.secret
+      clue(s"[chaos testing] propose dummy NSD transaction for $activeSequencer on $activePSId") {
+        val identifierKey = activeSequencer.keys.secret
           .generate_signing_key(usage = SigningKeyUsage.NamespaceOnly)
-        sequencer1.topology.namespace_delegations.propose_delegation(
-          sequencer1.namespace,
+        activeSequencer.topology.namespace_delegations.propose_delegation(
+          activeSequencer.namespace,
           identifierKey,
           CanSignAllButNamespaceDelegations,
-          store = env.daId,
+          store = activePSId,
         )
         identifierKey
       }
@@ -356,9 +418,9 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
       TopologyOperations.topologyChangeTimeout.asFiniteApproximation,
       retryOnTestFailuresOnly = false,
     ) {
-      val synchronizerMembers = sequencer1.topology.transactions
+      val synchronizerMembers = activeSequencer.topology.transactions
         .list(
-          store = daId,
+          store = activePSId,
           operation = Some(TopologyChangeOp.Replace),
           filterMappings = Seq(
             Code.SynchronizerTrustCertificate,
@@ -387,8 +449,8 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
           logger.info(s"Checking dummy transaction for $member")
           def fetchNSD = member.topology.namespace_delegations
             .list(
-              store = env.daId,
-              filterNamespace = sequencer1.namespace.filterString,
+              store = activePSId,
+              filterNamespace = activeSequencer.namespace.filterString,
               filterTargetKey = Some(signingKey.fingerprint),
             )
           utils.retry_until_true(fetchNSD.nonEmpty)
@@ -405,21 +467,23 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
   }
 
   private def validateTopologyState(
-      timestampForTopologyChecks: CantonTimestamp
+      activeSequencer: LocalSequencerReference,
+      activePSId: PhysicalSynchronizerId,
+      timestampForTopologyChecks: CantonTimestamp,
   )(implicit env: TestConsoleEnvironment): Unit = {
     import env.*
     logger.info(s"Starting topology validations at timestamp $timestampForTopologyChecks")
 
-    val allOnboardedMediators = sequencer1.topology.mediators
-      .list(daId, timeQuery = TimeQuery.Snapshot(timestampForTopologyChecks))
+    val allOnboardedMediators = activeSequencer.topology.mediators
+      .list(activePSId, timeQuery = TimeQuery.Snapshot(timestampForTopologyChecks))
       .flatMap(group => group.item.allMediatorsInGroup)
       .map(_.identifier.unwrap)
       .distinct
       .map(m)
 
     val allOnboardedSequencers =
-      sequencer1.topology.sequencers
-        .list(daId, timeQuery = TimeQuery.Snapshot(timestampForTopologyChecks))
+      activeSequencer.topology.sequencers
+        .list(activePSId, timeQuery = TimeQuery.Snapshot(timestampForTopologyChecks))
         .loneElement
         .item
         .allSequencers
@@ -429,8 +493,8 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
         .map(s)
 
     val allOnboardedParticipants =
-      sequencer1.topology.synchronizer_trust_certificates
-        .list(daId, timeQuery = TimeQuery.Snapshot(timestampForTopologyChecks))
+      activeSequencer.topology.synchronizer_trust_certificates
+        .list(activePSId, timeQuery = TimeQuery.Snapshot(timestampForTopologyChecks))
         .map(_.item.participantId.identifier.unwrap)
         .distinct
         .map(p)
@@ -449,7 +513,7 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
     )
 
     clue(s"validating topology state of ${runningNodes.map(_.name)}")(
-      verification.ensureConsistentTopologyState(runningNodes, daId)
+      verification.ensureConsistentTopologyState(runningNodes, activePSId)
     )
 
     clue(s"validating sequencer snapshots of ${allOnboardedSequencers.map(_.name)}")(
@@ -458,9 +522,9 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
 
     clue(s"validating replayability of topology transactions")(
       verification.ensureTopologyHistoryCanBeReplayed(
-        sequencer1,
+        activeSequencer,
         unusedNode = lp("replay-config"),
-        daId,
+        activePSId,
         staticSynchronizerParameters1,
       )
     )
@@ -487,11 +551,15 @@ abstract class ChangingTopologyPerformanceIntegrationTest extends BasePerformanc
     val max = performanceTestStart.plus(totalChaosTime.asJava)
     val delay = config.NonNegativeFiniteDuration.ofSeconds(5)
 
-    if (environment.clock.now >= max || shouldStopRunTest.get()) {
+    val now = environment.clock.now
+
+    val (newNumberOfProposals, newNumberOfAccepts) = proposalsAndAcceptsThusFar(runner)
+    transactionProgress.put((runnerName, now), newNumberOfAccepts + newNumberOfProposals)
+
+    if (now >= max || shouldStopRunTest.get()) {
       logger.info("Chaos test time's up: progress check is done")
       waitGroup.done(runnerName)
     } else {
-      val (newNumberOfProposals, newNumberOfAccepts) = proposalsAndAcceptsThusFar(runner)
       val newFailedAttempts =
         if (
           newNumberOfProposals <= oldNumberOfProposals && newNumberOfAccepts <= oldNumberOfAccepts
@@ -688,6 +756,36 @@ class ChangingTopologyKeyRotationOwnerToKeyTest extends ChangingTopologyPerforma
     )
 }
 
+class ChangingTopologyLSUTest extends ChangingTopologyPerformanceIntegrationTest {
+  private lazy val maxLSU: Int = 3
+
+  protected val numMediators: Int = 1 + maxLSU
+  protected val numSequencers: Int = 1 + maxLSU
+
+  protected val numParticipants = 2
+
+  /*
+  For LSU we don't want to use the target latency settings.
+  The reason is that around upgrade time, many requests time out, which increases the perceived latency.
+  As a result, the performance runner stops sending new transactions.
+   */
+  override protected lazy val submissionRateSettings: SubmissionRateSettings =
+    SubmissionRateSettings.FixedRate(2.0)
+
+  registerPlugin(
+    new UseBftSequencer(
+      loggerFactory,
+      MultiSynchronizer.tryCreate((1 to numSequencers).map(i => Set(s"sequencer$i"))*),
+    )
+  )
+
+  override lazy val operations: NonEmpty[Seq[TopologyOperations]] =
+    NonEmpty.apply(
+      Seq,
+      new LogicalSynchronizerUpgradeChaos(PositiveInt.tryCreate(maxLSU), logger),
+    )
+}
+
 // If you add or remove a "specific" chaos test, adjust the number of
 // CI buckets in canton_nightly.yml:topology_chaos_test accordingly
 
@@ -723,7 +821,7 @@ trait AllTopologyChaosOperations {
 
   protected def chooseOperations(howMany: PositiveInt): NonEmpty[Seq[TopologyOperations]] = NonEmpty
     .from(
-      // Can be modify ad-hoc to get a specific combination of chaos modules.
+      // Can be modified ad-hoc to get a specific combination of chaos modules.
       Random.shuffle(allBuilders()).take(howMany.value)
     )
     .getOrElse(throw new IllegalStateException("cannot end up with an empty list of operations"))

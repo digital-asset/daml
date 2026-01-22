@@ -13,6 +13,7 @@ import com.digitalasset.canton.config.{
   SessionEncryptionKeyCacheConfig,
 }
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.CryptoKeyFormat.Raw
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.SigningKeySpec.EcSecp256k1
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -84,11 +85,38 @@ class JceCryptoTest
       Jce.symmetric.supported,
       jceCrypto(),
     )
-    behave like privateKeySerializerProvider(
-      Jce.signingKeys.supported,
-      Jce.encryptionKeys.supported,
-      jceCrypto(),
-    )
+
+    /* Checks that the JCE crypto provider can still symmetrically decrypt legacy ciphertexts.
+     * Fixed symmetric keys and ciphertexts are used as reference values, so
+     * any changes in the provider that break compatibility will be detected.
+     */
+    forAll(
+      Jce.symmetric.supported.forgetNE
+    ) { symmetricKeyScheme =>
+      s"${symmetricKeyScheme.name} should decrypt a legacy symmetric encrypted ciphertext" in {
+        symmetricKeyScheme match {
+          case scheme @ SymmetricKeyScheme.Aes128Gcm =>
+            val symmetricKey =
+              ByteString.copyFrom(Base64.getDecoder.decode("VZyHjKJHGWlwZU4d+9DFLw=="))
+
+            val message = ByteString.copyFromUtf8("foobar")
+            val ciphertext =
+              ByteString.copyFrom(
+                Base64.getDecoder.decode("J6fAsMnQGJ+Ca+mIKKQngybDYnneySmBJUHe/PJRtX4xXQ==")
+              )
+
+            for {
+              crypto <- jceCrypto()
+              plaintext = crypto.pureCrypto
+                .decryptWith(
+                  Encrypted[ByteString].apply(ciphertext),
+                  SymmetricKey.create(Raw, symmetricKey, scheme).valueOrFail("create symmetric key"),
+                )(plaintext => Right(plaintext))
+                .valueOrFail("symmetric decrypt")
+            } yield plaintext shouldBe message
+        }
+      }
+    }
 
     forAll(
       Jce.encryptionAlgorithms.supported.filter(_.supportDeterministicEncryption)
@@ -136,7 +164,7 @@ class JceCryptoTest
               } yield encrypted1.ciphertext shouldEqual encrypted2.ciphertext
             }
 
-            /* Ensures that changes in the crypto provider (e.g. a different version) do not break deterministic
+            /* Ensures that changes in the JCE crypto provider (e.g. a different version) do not break deterministic
              * encryption. A fixed set of public keys is embedded in the code, along with the ciphertexts obtained
              * by deterministically encrypting a test string with those keys. This test compares the provider’s output
              * against these reference values. If a newer version or provider produces different ciphertexts,
@@ -186,6 +214,12 @@ class JceCryptoTest
           }
       }
     }
+
+    behave like privateKeySerializerProvider(
+      Jce.signingKeys.supported,
+      Jce.encryptionKeys.supported,
+      jceCrypto(),
+    )
 
     behave like hmacProvider(
       Set(HmacAlgorithm.HmacSha256),

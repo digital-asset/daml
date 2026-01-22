@@ -110,7 +110,7 @@ private[topology] class PartyReplicationChaos(val logger: TracedLogger) extends 
   )(implicit
       env: TestConsoleEnvironment,
       loggingContext: ErrorLoggingContext,
-      gloabalReservations: Reservations,
+      globalReservations: Reservations,
   ): Action = {
     val now = env.environment.clock.now
 

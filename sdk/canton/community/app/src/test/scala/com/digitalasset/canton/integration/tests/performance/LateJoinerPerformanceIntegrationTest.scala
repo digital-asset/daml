@@ -6,6 +6,7 @@ package com.digitalasset.canton.integration.tests.performance
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.digitalasset.canton.integration.plugins.UsePostgres
 import com.digitalasset.canton.performance.*
+import com.digitalasset.canton.performance.RateSettings.SubmissionRateSettings
 
 trait LateJoinerPerformanceIntegrationTest extends BasePerformanceIntegrationTest {
   import BasePerformanceIntegrationTest.*
@@ -19,7 +20,8 @@ trait LateJoinerPerformanceIntegrationTest extends BasePerformanceIntegrationTes
       participant2,
       withPartyGrowth = 1,
       // adding full contention
-      rateSettings = RateSettings(duplicateSubmissionRatio = 1.0),
+      rateSettings =
+        RateSettings(SubmissionRateSettings.TargetLatency(duplicateSubmissionRatio = 1.0)),
     )
 
     val runnerP1 =

@@ -13,6 +13,7 @@ import com.digitalasset.canton.performance.PartyRole.{
   Master,
   MasterDynamicConfig,
 }
+import com.digitalasset.canton.performance.RateSettings.SubmissionRateSettings
 import com.digitalasset.canton.performance.elements.AmendMasterConfig.AmendMasterConfigDvp
 import com.digitalasset.canton.performance.elements.DriverStatus.MasterStatus
 import com.digitalasset.canton.performance.model.java.orchestration.{Role, TestRun, runtype}
@@ -25,7 +26,10 @@ sealed trait ChangeScenarioPerformanceIntegrationTest extends BasePerformanceInt
   "modify the run type after a while" in { implicit env =>
     import env.*
 
-    val rate = RateSettings(startRate = 0.5, batchSize = 1, targetLatencyMs = 2000)
+    val rate = RateSettings(
+      SubmissionRateSettings.TargetLatency(startRate = 0.5, targetLatencyMs = 2000),
+      batchSize = 1,
+    )
     val config = PerformanceRunnerConfig(
       master = s"Master",
       localRoles = Set(
@@ -65,8 +69,8 @@ sealed trait ChangeScenarioPerformanceIntegrationTest extends BasePerformanceInt
         DvpTrader(s"Tradie2", settings = rate),
         DvpTrader(s"Tradie3", settings = rate),
         DvpTrader(s"Tradie4", settings = rate),
-        DvpIssuer(s"Issuator1"),
-        DvpIssuer(s"Issuator2"),
+        DvpIssuer(s"Issuator1", settings = RateSettings.defaults),
+        DvpIssuer(s"Issuator2", settings = RateSettings.defaults),
       ),
       ledger = toConnectivity(participant1),
       baseSynchronizerId = daId,

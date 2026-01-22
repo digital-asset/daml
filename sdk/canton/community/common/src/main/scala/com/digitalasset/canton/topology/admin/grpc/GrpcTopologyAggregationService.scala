@@ -46,7 +46,13 @@ class GrpcTopologyAggregationService(
       asOf: CantonTimestamp,
       store: TopologyStore[TopologyStoreId.SynchronizerStore],
   ): TopologySnapshotLoader =
-    new StoreBasedTopologySnapshot(asOf, store, NoPackageDependencies, loggerFactory)
+    new StoreBasedTopologySnapshot(
+      store.storeId.psid,
+      asOf,
+      store,
+      NoPackageDependencies,
+      loggerFactory,
+    )
 
   private def snapshots(
       synchronizerIds: Set[SynchronizerId],

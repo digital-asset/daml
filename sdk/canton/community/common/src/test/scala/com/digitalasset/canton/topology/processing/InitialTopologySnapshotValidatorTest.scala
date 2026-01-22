@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology.processing
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{BatchAggregatorConfig, TopologyConfig}
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SynchronizerCryptoPureApi}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
@@ -48,8 +49,10 @@ abstract class InitialTopologySnapshotValidatorTest
     val validator = new InitialTopologySnapshotValidator(
       new SynchronizerCryptoPureApi(defaultStaticSynchronizerParameters, crypto),
       store,
+      BatchAggregatorConfig.defaultsForTesting,
+      TopologyConfig.forTesting.copy(validateInitialTopologySnapshot = true),
       staticSynchronizerParameters = Some(defaultStaticSynchronizerParameters),
-      validateInitialSnapshot = true,
+      timeouts,
       loggerFactory,
       cleanupTopologySnapshot = true,
     )

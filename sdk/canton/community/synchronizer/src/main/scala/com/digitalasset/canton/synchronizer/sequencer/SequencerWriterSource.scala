@@ -11,7 +11,7 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime}
+import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime, SequencingTimeBound}
 import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.*
@@ -203,7 +203,7 @@ object SequencerWriterSource {
       protocolVersion: ProtocolVersion,
       metrics: SequencerMetrics,
       blockSequencerMode: Boolean,
-      sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
+      sequencingTimeLowerBoundExclusive: SequencingTimeBound,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -514,7 +514,7 @@ object SequenceWritesFlow {
       writerConfig: SequencerWriterConfig,
       store: SequencerWriterStore,
       eventTimestampGenerator: PartitionedTimestampGenerator,
-      sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
+      sequencingTimeLowerBoundExclusive: SequencingTimeBound,
       loggerFactory: NamedLoggerFactory,
       protocolVersion: ProtocolVersion,
       blockSequencerMode: Boolean,
@@ -606,7 +606,7 @@ object SequenceWritesFlow {
       def checkSequencingTimeLowerBound(
           event: Presequenced[StoreEvent[BytesPayload]]
       ): Either[CantonBaseError, Unit] =
-        sequencingTimeLowerBoundExclusive match {
+        sequencingTimeLowerBoundExclusive.get match {
           case Some(bound) =>
             Either.cond(
               LogicalUpgradeTime.canProcessKnowingPastUpgrade(

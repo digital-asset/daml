@@ -14,8 +14,9 @@ import com.digitalasset.canton.protocol.{RootHash, v30}
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.HasProtocolVersionedWrapper
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
-import monocle.Lens
+import monocle.{Lens, Prism, Traversal}
 
 import scala.collection.mutable
 
@@ -257,4 +258,15 @@ object MerkleTree {
 
   def tryUnwrap[A <: MerkleTree[A]]: Lens[MerkleTree[A], A] =
     Lens[MerkleTree[A], A](_.tryUnwrap)(unwrapped => _ => unwrapped)
+
+  /** DO NOT USE IN PRODUCTION, as it does not necessarily check object invariants. */
+  @VisibleForTesting
+  object Optics {
+    def unblinded[M <: MerkleTree[M]]: Prism[MerkleTree[M], M] =
+      Prism[MerkleTree[M], M](_.unwrap.toOption)(identity)
+
+    def unblindedSeq[M <: MerkleTree[M]]: Traversal[Seq[MerkleTree[M]], M] =
+      Traversal.fromTraverse[Seq, MerkleTree[M]].andThen(unblinded)
+  }
+
 }

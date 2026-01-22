@@ -43,7 +43,8 @@ import com.digitalasset.canton.sequencing.client.{ReplayConfig, RequestSigner, S
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.client.CachingSynchronizerTopologyClient
+import com.digitalasset.canton.topology.cache.TopologyStateWriteThroughCache
+import com.digitalasset.canton.topology.client.WriteThroughCacheSynchronizerTopologyClient
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.{
   DbInitializationStore,
@@ -172,15 +173,22 @@ object ReplayingParticipant extends FutureHelpers with EitherValues with OptionV
         )
         .futureValueUS
     val synchronizerTopologyClient =
-      CachingSynchronizerTopologyClient
+      WriteThroughCacheSynchronizerTopologyClient
         .create(
           clock,
           defaultStaticSynchronizerParameters,
           topologyStore,
+          new TopologyStateWriteThroughCache(
+            topologyStore,
+            BatchAggregatorConfig.defaultsForTesting,
+            TopologyConfig.forTesting.maxTopologyStateCacheItems,
+            TopologyConfig.forTesting.enableTopologyStateCacheConsistencyChecks,
+            timeouts,
+            loggerFactory,
+          ),
           synchronizerPredecessor = None,
           NoPackageDependencies,
           CachingConfigs(),
-          BatchingConfig(),
           TopologyConfig(),
           timeouts,
           futureSupervisor,

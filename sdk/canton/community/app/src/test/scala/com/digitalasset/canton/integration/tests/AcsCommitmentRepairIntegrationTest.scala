@@ -124,12 +124,17 @@ trait AcsCommitmentRepairIntegrationTest
     val now = simClock.now
 
     val p1Computed = eventually() {
+      logger.debug(
+        s"Awaiting sequencer time tracker to reach ${tick1.forgetRefinement.immediateSuccessor} for commitment computation"
+      )
       // make sure sequencer has reached the reconciliation interval
-      sequencer.underlying.value.sequencer.timeTracker
-        .awaitTick(tick1.forgetRefinement.immediateSuccessor)
-        .foreach(
-          _.futureValue
-        )
+      sequencers.local.foreach(
+        _.underlying.value.sequencer.timeTracker
+          .awaitTick(tick1.forgetRefinement.immediateSuccessor)
+          .foreach(
+            _.futureValue
+          )
+      )
       // and the participant observes it as well, so that the commitments are computed
       participant1.testing.fetch_synchronizer_times()
 
@@ -161,6 +166,11 @@ trait AcsCommitmentRepairIntegrationTest
       sequencers.local.foreach(
         _.underlying.value.sequencer.timeTracker.awaitTick(now).foreach(_.futureValue)
       )
+
+      // make sure participants have observed the latest time before starting
+      participants.all.foreach { p =>
+        p.testing.fetch_synchronizer_times()
+      }
 
       // Deploy three contracts. P1 and P2 exchange commitments
       createContractsAndCheck(sequencer1, daId)

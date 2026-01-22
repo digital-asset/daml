@@ -3,20 +3,29 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
+import com.daml.ledger.api.v2.reassignment.ReassignmentEvent
 import com.daml.ledger.javaapi.data.Command
 import com.digitalasset.canton.BaseTest.UnsupportedExternalPartyTest.MultiRootNodeSubmission
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.multihostedparties.PartyActivationFlow.authorizeOnly
-import com.digitalasset.canton.integration.{EnvironmentDefinition, TestConsoleEnvironment}
+import com.digitalasset.canton.integration.{
+  ConfigTransforms,
+  EnvironmentDefinition,
+  TestConsoleEnvironment,
+}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.Party
+import monocle.syntax.all.*
 
+import java.time.Instant
 import java.util.Collections
 
-sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
-    extends OfflinePartyReplicationIntegrationTestBase
+abstract class OfflinePartyReplicationWorkflowIdsIntegrationTestBase(
+    alphaMultiSynchronizerSupport: Boolean = false
+) extends OfflinePartyReplicationIntegrationTestBase
     with UseSilentSynchronizerInTest {
 
   // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
@@ -26,21 +35,33 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
   private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S2M2.withSetup { implicit env =>
-      import env.*
+    EnvironmentDefinition.P3_S2M2
+      .addConfigTransforms(
+        ConfigTransforms.updateAllParticipantConfigs_(
+          _.focus(_.parameters.alphaMultiSynchronizerSupport)
+            .replace(alphaMultiSynchronizerSupport)
+        )
+      )
+      .withSetup { implicit env =>
+        import env.*
+        participant1.synchronizers.connect_local(sequencer1, alias = daName)
+        participant2.synchronizers.connect_local(sequencer2, alias = daName)
+        participant3.synchronizers.connect_local(sequencer2, alias = daName)
 
-      participant1.synchronizers.connect_local(sequencer1, alias = daName)
-      participant2.synchronizers.connect_local(sequencer2, alias = daName)
-      participant3.synchronizers.connect_local(sequencer2, alias = daName)
+        participants.all.dars.upload(CantonTestsPath)
 
-      participants.all.dars.upload(CantonTestsPath)
-
-      sequencers.all.foreach { s =>
-        adjustTimeouts(s)
-        s.topology.synchronizer_parameters
-          .propose_update(daId, _.update(reconciliationInterval = reconciliationInterval.toConfig))
+        sequencers.all.foreach { s =>
+          adjustTimeouts(s)
+          s.topology.synchronizer_parameters
+            .propose_update(
+              daId,
+              _.update(reconciliationInterval = reconciliationInterval.toConfig),
+            )
+        }
       }
-    }
+
+  // Normalized data structure to handle both Transactions (Standard) and Reassignments (Alpha Multi-Synchronizer Support)
+  private case class NormalizedEvent(timestamp: Instant, workflowId: String, eventCount: Int)
 
   "Migrations are grouped by ledger time and can be correlated through the workflow ID" onlyRunWithLocalParty (MultiRootNodeSubmission) in {
     implicit env =>
@@ -72,28 +93,27 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
 
       // Check that the transactions generated for the migration are actually grouped as
       // expected and that their workflow IDs can be used to correlate those transactions
-      val txs = participant2.ledger_api.javaapi.updates.transactions(Set(alice), completeAfter = 4)
-      withClue("Transactions should be grouped by ledger time") {
-        txs.map(_.getTransaction.get().getEffectiveAt.toEpochMilli).distinct should have size 4
+      val events = fetchEvents(participant2, alice, expectedCount = 4)
+
+      withClue("Events should be grouped by ledger time") {
+        events.map(_.timestamp).distinct should have size 4
       }
-      withClue("Transaction should share the same workflow ID prefix") {
-        txs.map(_.getTransaction.get().getWorkflowId.dropRight(4)).distinct should have size 1
+      withClue("Events should share the same workflow ID prefix") {
+        events.map(_.workflowId.dropRight(4)).distinct should have size 1
       }
-      inside(txs) { case Seq(tx1, tx2, tx3, tx4) =>
-        import scala.jdk.CollectionConverters.ListHasAsScala
 
-        tx1.getTransaction.get().getEvents.asScala should have size 3
-        tx1.getTransaction.get().getWorkflowId should endWith("-1-4")
+      inside(events) { case Seq(e1, e2, e3, e4) =>
+        e1.eventCount shouldBe 3
+        e1.workflowId should endWith("-1-4")
 
-        tx2.getTransaction.get().getEvents.asScala should have size 4
-        tx2.getTransaction.get().getWorkflowId should endWith("-2-4")
+        e2.eventCount shouldBe 4
+        e2.workflowId should endWith("-2-4")
 
-        tx3.getTransaction.get().getEvents.asScala should have size 1
-        tx3.getTransaction.get().getWorkflowId should endWith("-3-4")
+        e3.eventCount shouldBe 1
+        e3.workflowId should endWith("-3-4")
 
-        tx4.getTransaction.get().getEvents.asScala should have size 2
-        tx4.getTransaction.get().getWorkflowId should endWith("-4-4")
-
+        e4.eventCount shouldBe 2
+        e4.workflowId should endWith("-4-4")
       }
 
   }
@@ -109,8 +129,7 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
       participant1.ledger_api.javaapi.commands.submit(actAs = Seq(bob), commands = commands)
     }
 
-    val beforeActivationOffset =
-      authorizeOnly(bob, daId, participant1, participant3)
+    val beforeActivationOffset = authorizeOnly(bob, daId, participant1, participant3)
 
     silenceSynchronizerAndAwaitEffectiveness(daId, Seq(sequencer1, sequencer2), participant1)
 
@@ -125,13 +144,48 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
     resumeSynchronizerAndAwaitEffectiveness(daId, Seq(sequencer1, sequencer2), participant1)
 
     // Check that the workflow ID prefix is set as specified
-    val txs = participant3.ledger_api.javaapi.updates.transactions(Set(bob), completeAfter = 2)
-    inside(txs) { case Seq(tx1, tx2) =>
-      tx1.getTransaction.get().getWorkflowId shouldBe s"$workflowIdPrefix-1-2"
-      tx2.getTransaction.get().getWorkflowId shouldBe s"$workflowIdPrefix-2-2"
-    }
+    val events = fetchEvents(participant3, bob, expectedCount = 2)
 
+    inside(events) { case Seq(e1, e2) =>
+      e1.workflowId shouldBe s"$workflowIdPrefix-1-2"
+      e2.workflowId shouldBe s"$workflowIdPrefix-2-2"
+    }
   }
+
+  // Fetches either Transactions or Reassignments based on configuration and normalizes them
+  private def fetchEvents(
+      target: ParticipantReference,
+      party: Party,
+      expectedCount: Int,
+  ): Seq[NormalizedEvent] =
+    if (alphaMultiSynchronizerSupport) {
+      val reassignments = target.ledger_api.updates
+        .reassignments(Set(party), completeAfter = PositiveInt.tryCreate(expectedCount))
+      reassignments.map { r =>
+        // Extract timestamp from the first 'Assigned' event in the reassignment
+        val timestamp = r.reassignment.events
+          .collectFirst { case ReassignmentEvent(assigned: ReassignmentEvent.Event.Assigned) =>
+            assigned.assigned.value.createdEvent.value.createdAt.value
+          }
+          .getOrElse(
+            fail(s"Reassignment ${r.reassignment.updateId} had no Assigned event with timestamp")
+          )
+
+        NormalizedEvent(
+          timestamp.asJavaInstant,
+          r.reassignment.workflowId,
+          r.reassignment.events.size,
+        )
+      }
+    } else {
+      val txs = target.ledger_api.javaapi.updates
+        .transactions(Set(party), completeAfter = PositiveInt.tryCreate(expectedCount))
+      import scala.jdk.CollectionConverters.ListHasAsScala
+      txs.map { tx =>
+        val t = tx.getTransaction.get
+        NormalizedEvent(t.getEffectiveAt, t.getWorkflowId, t.getEvents.asScala.size)
+      }
+    }
 
   private def replicate(
       party: Party,
@@ -169,11 +223,18 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
       )
     Seq.fill(n)(iou).flatMap(_.create.commands.iterator.asScala)
   }
-
 }
 
-final class OfflinePartyReplicationWorkflowIdsIntegrationTestPostgres
-    extends OfflinePartyReplicationWorkflowIdsIntegrationTest {
+final class OfflinePartyReplicationWorkflowIdsIntegrationTest
+    extends OfflinePartyReplicationWorkflowIdsIntegrationTestBase {
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
+}
+
+final class OfflinePartyReplicationWorkflowIdsReassignmentIntegrationTest
+    extends OfflinePartyReplicationWorkflowIdsIntegrationTestBase(
+      alphaMultiSynchronizerSupport = true
+    ) {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(new UseBftSequencer(loggerFactory))
 }

@@ -3,6 +3,10 @@
 
 package com.digitalasset.canton.integration.tests
 
+import com.digitalasset.canton.BaseTest.UnsupportedExternalPartyTest.{
+  MultiPartySubmission,
+  MultiSynchronizerParties,
+}
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.console.CommandFailure
@@ -32,7 +36,7 @@ sealed trait GeneralSynchronizerRouterIntegrationTest
       connectToDefaultSynchronizers()
     }
 
-  "the auto reassignment transactions should fail gracefully" when {
+  "the auto reassignment transactions should fail gracefully" onlyRunWithLocalParty (MultiSynchronizerParties) when {
     "there is no common synchronizer" in { implicit env =>
       import env.*
 
@@ -319,7 +323,7 @@ sealed trait GeneralSynchronizerRouterIntegrationTest
       assertInAcsSync(List(participant1), synchronizer1, singleId.toLf)
     }
 
-    "reassign the contracts of a multi-party submission to a common synchronizer" in {
+    "reassign the contracts of a multi-party submission to a common synchronizer" onlyRunWithLocalParty (MultiPartySubmission) in {
       implicit env =>
         import env.*
 

@@ -245,16 +245,12 @@ class SubscriptionPool[Subscription <: ManagedSubscription](
 
   override def onClosed(): Unit =
     withNewTraceContext("close_subscription_pool") { implicit traceContext =>
-      logger.debug(s"Closing all subscriptions in pool: $poolDescription")
+      logger.debug(
+        s"Closing all subscriptions in pool with ${subscribersGauge.getValue} subscriptions"
+      )
       // wait for the subscriptions to actually close in case they are already in the process of closing
       // in which case FlagClosable doesn't wait.
       closeAllSubscriptions(waitForClosed = true)
     }
 
-  private def poolDescription: String =
-    pool
-      .map { case (member, subs) =>
-        s"$member has ${subs.size} subscriptions"
-      }
-      .mkString(", ")
 }

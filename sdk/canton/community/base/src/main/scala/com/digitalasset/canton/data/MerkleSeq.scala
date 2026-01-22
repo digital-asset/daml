@@ -647,13 +647,16 @@ object MerkleSeq
       )
   }
 
+  /** DO NOT USE IN PRODUCTION, as it does not necessarily check object invariants. */
   @VisibleForTesting
-  def unblindedElementsUnsafe[V <: VersionedMerkleTree[V]](
-      hashOps: HashOps,
-      protocolVersion: ProtocolVersion,
-  ): Lens[MerkleSeq[V], Seq[V]] =
-    Lens[MerkleSeq[V], Seq[V]](
-      _.unblindedElements
-    )((newSeq: Seq[V]) => _ => MerkleSeq.fromSeq(hashOps, protocolVersion)(newSeq))
+  object Optics {
+    def toSeq[M <: VersionedMerkleTree[M]](
+        hashOps: HashOps,
+        pv: ProtocolVersion,
+    ): Lens[MerkleSeq[M], Seq[MerkleTree[M]]] =
+      Lens[MerkleSeq[M], Seq[MerkleTree[M]]](_.toSeq)(newSeq =>
+        _ => MerkleSeq.fromSeq(hashOps, pv)(newSeq)
+      )
 
+  }
 }

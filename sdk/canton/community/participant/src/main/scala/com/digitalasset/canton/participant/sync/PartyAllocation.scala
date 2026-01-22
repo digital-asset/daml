@@ -8,6 +8,7 @@ import cats.implicits.showInterpolator
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.traverse.*
+import com.digitalasset.canton.LedgerSubmissionId
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.ledger.participant.state.*
@@ -21,10 +22,8 @@ import com.digitalasset.canton.topology.{
   ParticipantId,
   PartyId,
   PhysicalSynchronizerId,
-  UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
-import com.digitalasset.canton.{LedgerSubmissionId, LfPartyId}
 import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.ExecutionContext
@@ -41,7 +40,7 @@ private[sync] class PartyAllocation(
     extends Spanning
     with NamedLogging {
   def allocate(
-      hint: LfPartyId,
+      partyId: PartyId,
       rawSubmissionId: LedgerSubmissionId,
       synchronizerId: PhysicalSynchronizerId,
       externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],
@@ -49,11 +48,11 @@ private[sync] class PartyAllocation(
     withSpan("CantonSyncService.allocateParty") { implicit traceContext => span =>
       span.setAttribute("submission_id", rawSubmissionId)
 
-      allocateInternal(hint, rawSubmissionId, synchronizerId, externalPartyOnboardingDetails)
+      allocateInternal(partyId, rawSubmissionId, synchronizerId, externalPartyOnboardingDetails)
     }
 
   private def allocateInternal(
-      partyName: LfPartyId,
+      partyId: PartyId,
       rawSubmissionId: LedgerSubmissionId,
       synchronizerId: PhysicalSynchronizerId,
       externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],
@@ -71,18 +70,6 @@ private[sync] class PartyAllocation(
         _ <- EitherT
           .cond[FutureUnlessShutdown](isActive(), (), SyncServiceError.Synchronous.PassiveNode)
           .leftWiden[SubmissionResult]
-        // External parties have their own namespace
-        partyId <- externalPartyOnboardingDetails
-          .map(_.partyId)
-          .map(EitherT.pure[FutureUnlessShutdown, SubmissionResult](_))
-          .getOrElse {
-            UniqueIdentifier
-              // local parties re-use the participant's namespace
-              .create(partyName, participantId.uid.namespace)
-              .map(id => PartyId(id))
-              .leftMap(SyncServiceError.Synchronous.internalError)
-              .toEitherT[FutureUnlessShutdown]
-          }
         validatedSubmissionId <- EitherT.fromEither[FutureUnlessShutdown](
           String255
             .fromProtoPrimitive(rawSubmissionId, "LedgerSubmissionId")
@@ -146,11 +133,11 @@ private[sync] class PartyAllocation(
     result.fold(
       _.tap { l =>
         logger.info(
-          s"Failed to allocate party $partyName::${participantId.namespace}: ${l.toString}"
+          s"Failed to allocate party $partyId: ${l.toString}"
         )
       },
       _.tap { _ =>
-        logger.debug(s"Allocated party $partyName::${participantId.namespace}")
+        logger.debug(s"Allocated party $partyId")
       },
     )
   }

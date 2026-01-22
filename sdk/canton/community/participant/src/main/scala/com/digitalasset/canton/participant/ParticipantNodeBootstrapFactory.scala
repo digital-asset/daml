@@ -141,7 +141,7 @@ object ParticipantNodeBootstrapFactoryImpl extends ParticipantNodeBootstrapFacto
       DbLockCounters.PARTICIPANT_WRITERS,
       arguments.futureSupervisor,
       arguments.loggerFactory,
-      Some(replicaManager.getSessionContext),
+      Some(() => replicaManager.getSessionContext),
     )
     arguments
       .toCantonNodeBootstrapCommonArguments(

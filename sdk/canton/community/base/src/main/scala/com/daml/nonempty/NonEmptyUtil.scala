@@ -20,7 +20,7 @@ import scala.reflect.ClassTag
 object NonEmptyUtil {
 
   def fromElement[A](xs: A): NonEmpty[Set[A]] =
-    fromUnsafe(Set(xs))
+    NonEmpty(Set, xs)
 
   def fromUnsafe[A](xs: A with immutable.Iterable[?]): NonEmpty[A] =
     NonEmpty.from(xs).getOrElse(throw new NoSuchElementException)

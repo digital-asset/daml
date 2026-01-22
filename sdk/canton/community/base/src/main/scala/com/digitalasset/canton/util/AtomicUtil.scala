@@ -11,8 +11,8 @@ object AtomicUtil {
   /** Generalizes [[java.util.concurrent.atomic.AtomicReference.updateAndGet]] so that the update
     * function `f` computes both a new value and a result that is to be returned.
     *
-    * For a side-effect free function `f`, this is equivalent to
-    * `ref.getAndUpdate(f(_)._1)).pipe(f(_)._2)`, but it avoid the second call to `f`.
+    * For a side effect-free function `f`, this is equivalent to
+    * `ref.getAndUpdate(f(_)._1).pipe(f(_)._2)`, but it avoids the second call to `f`.
     */
   def updateAndGetComputed[A <: AnyRef, B](ref: AtomicReference[A])(f: A => (A, B)): B = {
     @tailrec def go(prev: A, next: A, computed: B): B =

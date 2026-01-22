@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf
 package testing.snapshot
 
-import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.integrationtest.CantonConfig
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
@@ -40,8 +39,12 @@ class ReplayBenchmarkIT(
   override protected def cantonConfig(): CantonConfig =
     super.cantonConfig().copy(snapshotDir = Some(snapshotDir.toFile.getAbsolutePath))
 
-  override lazy val darPath: Path =
-    Path.of(rlocation(s"canton/community/daml-lf/snapshot/ReplayBenchmark.dar"))
+  override lazy val darPath: Path = {
+    val darFile = "ReplayBenchmark.dar"
+    Option(getClass.getClassLoader.getResource(darFile))
+      .map(path => Path.of(path.getPath))
+      .getOrElse(throw new IllegalArgumentException(s"Cannot find resource $darFile"))
+  }
   override protected lazy val timeMode = ScriptTimeMode.WallClock
 
   override def afterEach(): Unit = {

@@ -20,7 +20,6 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-parser:__VERSION__"],
     visibility = [
         "//canton/community/daml-lf:__subpackages__",
-        "//daml-assistant/upgrade-check-main:__subpackages__",
     ],
     deps = [
         "//canton:scala-utils",

@@ -60,6 +60,7 @@ load("@os_info//:os_info.bzl", "is_intel")
     for major in COMPILER_LF_MAJOR_VERSIONS
 ]
 
+# TODO(#30144) Reimplement this in DamlPlugin
 daml_build_test(
     name = "ReinterpretTests-v2",
     project_dir = "reinterpret",

@@ -4,8 +4,7 @@
 package com.digitalasset.daml.lf
 package engine
 
-import java.io.File
-import com.daml.bazeltools.BazelRunfiles
+import java.util.zip.ZipInputStream
 import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
@@ -39,8 +38,7 @@ class LargeTransactionTest(
     majorLanguageVersion: LanguageVersion.Major,
     contractIdVersion: ContractIdVersion,
 ) extends AnyWordSpec
-    with Matchers
-    with BazelRunfiles {
+    with Matchers {
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
@@ -105,13 +103,14 @@ class LargeTransactionTest(
   private def loadPackage(
       resource: String
   ): (PackageId, Ast.Package, Map[PackageId, Ast.Package]) = {
-    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
+    val stream = getClass.getClassLoader.getResourceAsStream(resource)
+    val packages = DarDecoder.readArchive(resource, new ZipInputStream(stream)).toOption.get
     val (mainPkgId, mainPkg) = packages.main
     (mainPkgId, mainPkg, packages.all.toMap)
   }
 
   private[this] val (largeTxId, largeTxPkg, allPackages) = loadPackage(
-    s"canton/community/daml-lf/engine/LargeTransaction-v${majorLanguageVersion.pretty}.dar"
+    s"LargeTransaction-v${majorLanguageVersion.pretty}.dar"
   )
   private[this] val largeTx = (largeTxId, largeTxPkg)
 

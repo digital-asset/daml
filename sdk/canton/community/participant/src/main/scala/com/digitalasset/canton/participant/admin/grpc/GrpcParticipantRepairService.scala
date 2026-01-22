@@ -110,10 +110,7 @@ final class GrpcParticipantRepairService(
     } yield ()
 
     res.fold(
-      err => {
-        logger.info(s"Unable to purge contracts: $err")
-        Future.failed(err.asGrpcError)
-      },
+      err => Future.failed(err.asGrpcError),
       _ => Future.successful(PurgeContractsResponse()),
     )
   }
@@ -469,6 +466,7 @@ final class GrpcParticipantRepairService(
               representativePackageIdOverride = representativePackageIdOverride,
               sync = sync,
               batching = batching,
+              alphaMultiSynchronizerSupport = parameters.alphaMultiSynchronizerSupport,
             )
           )
         } yield ()
@@ -501,7 +499,7 @@ final class GrpcParticipantRepairService(
     val resultET = for {
       repairContracts <- contracts
         .toEitherT[FutureUnlessShutdown]
-        .ensure( // TODO(#23073) - Remove this restriction once #27325 has been re-implemented
+        .ensure(
           "Found at least one contract with a non-zero reassignment counter. ACS import does not yet support it."
         )(_.forall(_.reassignmentCounter == ReassignmentCounter.Genesis))
 

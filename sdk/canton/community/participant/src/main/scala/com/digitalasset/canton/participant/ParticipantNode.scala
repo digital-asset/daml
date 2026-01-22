@@ -220,6 +220,8 @@ class ParticipantNodeBootstrap(
       nodeId,
       clock,
       crypto,
+      parameters.batchingConfig.topologyCacheAggregator,
+      config.topology,
       authorizedStore,
       exitOnFatalFailures = parameters.exitOnFatalFailures,
       bootstrapStageCallback.timeouts,

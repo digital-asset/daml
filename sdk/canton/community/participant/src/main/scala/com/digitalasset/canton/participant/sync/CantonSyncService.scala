@@ -700,7 +700,7 @@ class CantonSyncService(
       .map(_.synchronizerHandle.staticParameters.protocolVersion)
 
   override def allocateParty(
-      hint: LfPartyId,
+      partyId: PartyId,
       rawSubmissionId: LedgerSubmissionId,
       synchronizerIdO: Option[SynchronizerId],
       externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],
@@ -720,7 +720,7 @@ class CantonSyncService(
           Left(
             SubmissionResult.SynchronousError(
               PartyAllocationCannotDetermineSynchronizer
-                .Error(hint)
+                .Error(partyId.toLf)
                 .asGrpcStatus
             )
           )
@@ -744,7 +744,7 @@ class CantonSyncService(
       specifiedSynchronizer.getOrElse(onlyConnectedSynchronizer)
 
     synchronizerIdOrDetectionError
-      .map(partyAllocation.allocate(hint, rawSubmissionId, _, externalPartyOnboardingDetails))
+      .map(partyAllocation.allocate(partyId, rawSubmissionId, _, externalPartyOnboardingDetails))
       .leftMap(FutureUnlessShutdown.pure)
       .merge
   }

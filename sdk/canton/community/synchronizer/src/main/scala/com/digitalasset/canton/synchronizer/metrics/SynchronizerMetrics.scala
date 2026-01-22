@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.metrics
 
+import cats.Eval
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.*
 import com.daml.metrics.api.noop.NoOpMetricsFactory
@@ -33,6 +34,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
 import scala.annotation.unused
+import scala.collection.concurrent.TrieMap
 
 class SequencerHistograms(val parent: MetricName)(implicit
     inventory: HistogramInventory
@@ -147,19 +149,36 @@ class SequencerMetrics(
       )
     )
 
-    val subscriptionLastTimestamp: Gauge[Long] =
-      openTelemetryMetricsFactory.gauge[Long](
-        MetricInfo(
-          prefix :+ "subscription-last-timestamp",
-          summary = "Last timestamp read via subscription per member",
-          description =
-            """This metric tracks the last timestamp that was read via a subscription for each member.
-              |The timestamp is reported in microseconds since epoch. This metric is labeled with the
-              |subscriber member to allow tracking per-member progress.""",
-          qualification = MetricQualification.Debug,
-        ),
-        0L,
-      )
+    // Gauges don't support metrics context per update. So instead create a map with a gauge per context.
+    private val subscriptionLastTimestampMetrics: TrieMap[MetricsContext, Eval[Gauge[Long]]] =
+      TrieMap.empty
+
+    def subscriptionLastTimestamp(mc: MetricsContext): Gauge[Long] = {
+      def createSubscriptionLastTimestampGauge: Gauge[Long] =
+        openTelemetryMetricsFactory.gauge[Long](
+          MetricInfo(
+            prefix :+ "subscription-last-timestamp",
+            summary = "Last timestamp read via subscription per member",
+            description =
+              """This metric tracks the last timestamp that was read via a subscription for each member.
+                |The timestamp is reported in microseconds since epoch. This metric is labeled with the
+                |subscriber member to allow tracking per-member progress.""",
+            qualification = MetricQualification.Debug,
+            labelsWithDescription = Map(
+              "subscriber" -> "The member subscribing to sequencer events"
+            ),
+          ),
+          0L,
+        )(mc)
+
+      // Two concurrent calls with the same context may cause getOrElseUpdate to evaluate the new value expression twice,
+      // even though only one of the results will be stored in the map.
+      // Eval.later ensures that we actually create only one instance of the gauge in such a case by delaying the creation
+      // until the getOrElseUpdate call has finished.
+      subscriptionLastTimestampMetrics
+        .getOrElseUpdate(mc, Eval.later(createSubscriptionLastTimestampGauge))
+        .value
+    }
   }
 
   val publicApi = new PublicApiMetrics

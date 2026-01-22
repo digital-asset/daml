@@ -29,7 +29,7 @@ import com.google.common.annotations.VisibleForTesting
 import java.time.Instant
 import scala.collection.concurrent.TrieMap
 
-/** When a we make a send request to the sequencer it will not be sequenced until some point in the
+/** When we make a send request to the sequencer it will not be sequenced until some point in the
   * future and may not be sequenced at all. To track a request call `send` with the messageId and
   * max-sequencing-time of the request, the tracker then observes sequenced events and will notify
   * the provided handler whether the send times out. For aggregatable submission requests, the send

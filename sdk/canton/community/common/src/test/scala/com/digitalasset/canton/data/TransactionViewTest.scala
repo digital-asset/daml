@@ -97,7 +97,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
       "reject creation if child exercise based view is different from its parent" in {
 
         val subview =
-          TransactionView.viewParticipantDataUnsafe
+          TransactionView.Optics.viewParticipantDataUnsafe
             .modify { vpd =>
               val actionDescription = vpd.tryUnwrap.actionDescription.toProtoV30
               actionDescription.getExercise.withPackagePreference(Seq(unexpectedPackage))
@@ -123,7 +123,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
       "reject creation if child fetch based view is different from its parent" in {
 
         val subview =
-          TransactionView.viewParticipantDataUnsafe
+          TransactionView.Optics.viewParticipantDataUnsafe
             .modify { vpd =>
               val actionDescription = vpd.tryUnwrap.actionDescription.toProtoV30
               val ex = actionDescription.getExercise

@@ -16,8 +16,13 @@ abstract class HardCodedMasterPerformanceIntegrationTest extends BasePerformance
       import env.*
 
       // issue 1000 assets, because this has caused trouble from time to time
-      val (p1Config, p2Config) =
-        defaultConfigs(1, participant1, participant2, numAssetsPerIssuer = 1000)
+      val (p1Config, p2Config) = defaultConfigs(
+        1,
+        participant1,
+        participant2,
+        numAssetsPerIssuer = 1000,
+        rateSettings = RateSettings.defaults,
+      )
       val runnerP1 =
         new PerformanceRunner(
           p1Config,

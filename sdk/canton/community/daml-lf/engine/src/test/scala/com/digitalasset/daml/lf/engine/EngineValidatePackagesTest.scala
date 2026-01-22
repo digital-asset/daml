@@ -15,17 +15,15 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.nio.file.Path
-import com.daml.bazeltools.BazelRunfiles
+import java.util.zip.ZipInputStream
 import com.digitalasset.daml.lf.archive.DarDecoder
 
 class EngineValidatePackagesTest extends AnyWordSpec with Matchers with Inside {
 
-  // TODO: extend with a (set of) compat dar(s), script-test-v2.dev.dar is
+  // TODO(#30144): extend with a (set of) compat dar(s), script-test-v2.dev.dar is
   // tested here as placeholder https://github.com/digital-asset/daml/pull/22101
-  val testDarPath = "daml-script/test/script-test-v2.dev.dar"
-  val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
-  val dar: Dar[(Ref.PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(testDar.toFile)
+  val stream = getClass.getClassLoader.getResourceAsStream("Exceptions-v2dev.dar")
+  val dar: Dar[(Ref.PackageId, Package)] = DarDecoder.readArchive("Exceptions-v2dev.dar", new ZipInputStream(stream)).toOption.get
 
   val langVersion = LanguageVersion.latestStableLfVersion
 

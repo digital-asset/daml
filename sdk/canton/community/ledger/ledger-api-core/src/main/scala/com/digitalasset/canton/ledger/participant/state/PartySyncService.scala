@@ -8,6 +8,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.{
   ExternalPartyOnboardingDetails,
   ParticipantId,
+  PartyId,
   SynchronizerId,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -45,7 +46,7 @@ trait PartySyncService {
     *   an async result of a SubmissionResult
     */
   def allocateParty(
-      hint: Ref.Party,
+      partyId: PartyId,
       submissionId: Ref.SubmissionId,
       synchronizerIdO: Option[SynchronizerId],
       externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],

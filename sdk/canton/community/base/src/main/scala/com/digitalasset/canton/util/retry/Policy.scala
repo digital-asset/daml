@@ -209,6 +209,9 @@ abstract class RetryWithDelay(
               val errorKind = retryable.logAndDetermineErrorKind(outcome, logger, lastErrorKind)
               val retriesOfErrorKind =
                 if (lastErrorKind.contains(errorKind)) retriesOfLastErrorKind else 0
+              logger.trace(
+                s"Determined kind $errorKind with $retriesOfErrorKind retries (max ${errorKind.maxRetries}) for outcome $outcome of '$operationName'; "
+              )
               if (
                 errorKind.maxRetries == Int.MaxValue || retriesOfErrorKind < errorKind.maxRetries
               ) {

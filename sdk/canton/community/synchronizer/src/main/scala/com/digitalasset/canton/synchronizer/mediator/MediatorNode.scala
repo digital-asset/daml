@@ -440,6 +440,8 @@ class MediatorNodeBootstrap(
           clock = clock,
           crypto = crypto,
           staticSynchronizerParameters = staticSynchronizerParameters,
+          topologyCacheAggregatorConfig = parameters.batchingConfig.topologyCacheAggregator,
+          topologyConfig = config.topology,
           store = synchronizerTopologyStore,
           outboxQueue = outboxQueue,
           disableOptionalTopologyChecks = config.topology.disableOptionalTopologyChecks,
@@ -589,17 +591,18 @@ class MediatorNodeBootstrap(
       topologyProcessorAndClient <-
         EitherT
           .right(
-            TopologyTransactionProcessor.createProcessorAndClientForSynchronizer(
-              synchronizerTopologyStore,
-              synchronizerPredecessor = None,
-              crypto.pureCrypto,
-              arguments.parameterConfig,
-              arguments.config.topology,
-              arguments.clock,
-              staticSynchronizerParameters,
-              arguments.futureSupervisor,
-              synchronizerLoggerFactory,
-            )()
+            TopologyTransactionProcessor
+              .createProcessorAndClientForSynchronizerWithWriteThroughCache(
+                synchronizerTopologyStore,
+                synchronizerPredecessor = None,
+                crypto.pureCrypto,
+                arguments.parameterConfig,
+                arguments.config.topology,
+                arguments.clock,
+                staticSynchronizerParameters,
+                arguments.futureSupervisor,
+                synchronizerLoggerFactory,
+              )()
           )
       (topologyProcessor, topologyClient) = topologyProcessorAndClient
       _ = ips.add(topologyClient)
@@ -742,8 +745,10 @@ class MediatorNodeBootstrap(
             new InitialTopologySnapshotValidator(
               new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
               synchronizerTopologyStore,
+              parameters.batchingConfig.topologyCacheAggregator,
+              topologyConfig,
               Some(staticSynchronizerParameters),
-              validateInitialSnapshot = topologyConfig.validateInitialTopologySnapshot,
+              timeouts,
               synchronizerLoggerFactory,
             ),
             topologyClient,

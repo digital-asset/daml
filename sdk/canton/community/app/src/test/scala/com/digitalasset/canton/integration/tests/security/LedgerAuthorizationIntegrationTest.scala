@@ -1002,7 +1002,7 @@ trait LedgerAuthorizationIntegrationTest
     lazy val setOneThresholdToZero: GenTransactionTree => GenTransactionTree =
       GenTransactionTree.rootViewsUnsafe
         .andThen(firstElement[TransactionView])
-        .andThen(TransactionView.viewCommonDataUnsafe)
+        .andThen(TransactionView.Optics.viewCommonDataUnsafe)
         .andThen(MerkleTree.tryUnwrap[ViewCommonData])
         .andThen(GenLens[ViewCommonData](_.viewConfirmationParameters))
         .modify { oldViewConfirmationParameters =>
@@ -1030,7 +1030,7 @@ trait LedgerAuthorizationIntegrationTest
           .andThen(FullInformeeTree.genTransactionTreeUnsafe)
           .andThen(GenTransactionTree.rootViewsUnsafe)
           .andThen(firstElement[TransactionView])
-          .andThen(TransactionView.viewCommonDataUnsafe)
+          .andThen(TransactionView.Optics.viewCommonDataUnsafe)
           .modify(_.blindFully)
 
       def checkError(code: ErrorCode, loggerName: String, member: String, rx: String)(

@@ -52,11 +52,12 @@ object SequencerNodeBootstrapFactoryImpl extends SequencerNodeBootstrapFactory {
       exitOnFatalFailures = arguments.parameters.exitOnFatalFailures,
       arguments.config.replication,
       () => FutureUnlessShutdown.unit,
-      () => FutureUnlessShutdown.pure(None),
+      () => FutureUnlessShutdown.unit,
       DbLockCounters.SEQUENCER_INIT,
       DbLockCounters.SEQUENCER_INIT_WORKER,
       arguments.futureSupervisor,
       arguments.loggerFactory,
+      None,
     )
 
     toNodeCommonArguments(arguments, storageFactory)

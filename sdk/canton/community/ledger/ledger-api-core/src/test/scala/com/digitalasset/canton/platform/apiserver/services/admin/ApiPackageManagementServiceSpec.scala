@@ -50,6 +50,7 @@ import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
   ExternalPartyOnboardingDetails,
   ParticipantId,
+  PartyId,
   PhysicalSynchronizerId,
   SynchronizerId,
 }
@@ -237,7 +238,7 @@ object ApiPackageManagementServiceSpec {
       throw new UnsupportedOperationException()
 
     override def allocateParty(
-        hint: Party,
+        partyId: PartyId,
         submissionId: SubmissionId,
         synchronizerIdO: Option[SynchronizerId],
         externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],

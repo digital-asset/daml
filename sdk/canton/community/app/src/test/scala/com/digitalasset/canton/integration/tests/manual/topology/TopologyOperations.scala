@@ -5,6 +5,8 @@ package com.digitalasset.canton.integration.tests.manual.topology
 
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.integration.tests.manual.topology.TopologyOperations.TransactionProgress
 import com.digitalasset.canton.integration.{ConfigTransform, TestConsoleEnvironment}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.topology.PartyId
@@ -55,7 +57,12 @@ trait TopologyOperations extends TopologyChaosLogging with TopologyOperationsHel
       globalReservations: Reservations,
   ): Unit = ()
 
-  def finalAssertions()(implicit
+  /** @param transactionProgress
+    *   Result of the progress checker:
+    *   - the key is the name of the runner and the timestamp
+    *   - value is the sum of acceptances and proposals
+    */
+  def finalAssertions(transactionProgress: TransactionProgress)(implicit
       loggingContext: ErrorLoggingContext,
       env: TestConsoleEnvironment,
       globalReservations: Reservations,
@@ -81,6 +88,15 @@ trait TopologyOperationsCompanion {
 
 object TopologyOperations {
   lazy val isCi: Boolean = sys.env.isDefinedAt("CI")
+
+  /** @param progress
+    *   Result of the progress checker:
+    *   - the key is the name of the runner and the timestamp
+    *   - value is the sum of acceptances and proposals
+    */
+  final case class TransactionProgress(
+      progress: Map[(String, CantonTimestamp), Int]
+  )
 
   // How long to wait to apply a single topology change and also how long to wait for the change to be applied.
   // E.g. to apply and wait for a topology change to be applied, use topologyChangeTimeout * 2.

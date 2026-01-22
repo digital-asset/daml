@@ -50,6 +50,7 @@ import com.digitalasset.canton.performance.{
   PartyRole,
   PerformanceRunner,
   PerformanceRunnerConfig,
+  RateSettings,
 }
 import com.digitalasset.canton.sequencing.client.RecordingConfig
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeBootstrap
@@ -207,10 +208,10 @@ trait PerformanceRunnerRecorder extends CommunityIntegrationTest with SharedEnvi
       participantReference: ParticipantReference
   ): Set[PartyRole] = {
     val issuers = (1 to NumberOfIssuersPerParticipant).map(i =>
-      DvpIssuer(s"${participantReference.name}-issuer$i")
+      DvpIssuer(s"${participantReference.name}-issuer$i", settings = RateSettings.defaults)
     )
     val traders = (1 to numberOfTradersPerParticipant).map(i =>
-      DvpTrader(s"${participantReference.name}-trader$i")
+      DvpTrader(s"${participantReference.name}-trader$i", settings = RateSettings.defaults)
     )
 
     (issuers ++ traders).toSet

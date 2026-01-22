@@ -160,4 +160,54 @@ class CommitmentMetrics private[metrics] (
     )
   )
 
+  val lastIncomingReceived: Gauge[Long] = metricsFactory.gauge(
+    MetricInfo(
+      prefix :+ "last-incoming-received",
+      summary =
+        "Timestamp of the latest received incoming ACS commitment period end in microseconds since unix epoch",
+      description =
+        """Timestamp of the latest incoming ACS commitment period end that has been received and enqueued,
+          |but not yet processed by the participant. To measure the latency of particular counter participants,
+          |use one of the counter-participant-latency metrics.""".stripMargin,
+      qualification = MetricQualification.Latency,
+    ),
+    0L,
+  )
+
+  val lastIncomingProcessed: Gauge[Long] = metricsFactory.gauge(
+    MetricInfo(
+      prefix :+ "last-incoming-processed",
+      summary =
+        "Timestamp of the latest processed incoming ACS commitment period end in microseconds since unix epoch",
+      description =
+        """Timestamp of the latest incoming ACS commitment period end that was fully processed by the participant.""",
+      qualification = MetricQualification.Latency,
+    ),
+    0L,
+  )
+
+  val lastLocallyCompleted: Gauge[Long] = metricsFactory.gauge(
+    MetricInfo(
+      prefix :+ "last-locally-completed",
+      summary =
+        "Timestamp of the latest locally completed ACS commitment interval in microseconds since unix epoch",
+      description =
+        """Timestamp of the latest locally completed ACS commitment interval. Crash recovery will start reingesting from this timestamp on or from the latest checkpointed ACS commitment interval on, whichever is later.""",
+      qualification = MetricQualification.Latency,
+    ),
+    0L,
+  )
+
+  val lastLocallyCheckpointed: Gauge[Long] = metricsFactory.gauge(
+    MetricInfo(
+      prefix :+ "last-locally-checkpointed",
+      summary =
+        "Record time of the latest checkpointed ACS commitment in microseconds since unix epoch",
+      description =
+        """Timestamp of the latest checkpointed ACS commitment in microseconds. Crash recovery will start reingesting from this timestamp on or from the latest locally completed ACS commitment interval on, whichever is later.""",
+      qualification = MetricQualification.Latency,
+    ),
+    0L,
+  )
+
 }

@@ -13,7 +13,7 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.party.OnboardingClearanceScheduler
 import com.digitalasset.canton.participant.config.UnsafeOnlinePartyReplicationConfig
@@ -24,6 +24,7 @@ import com.digitalasset.canton.participant.sync.LogicalSynchronizerUpgradeCallba
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.cache.TopologyStateWriteThroughCache
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
@@ -56,7 +57,17 @@ class TopologyComponentFactory(
     exitOnFatalFailures: Boolean,
     topologyStore: TopologyStore[SynchronizerStore],
     loggerFactory: NamedLoggerFactory,
-) {
+)(implicit executionContext: ExecutionContext) {
+
+  private val topologyStateCache = new TopologyStateWriteThroughCache(
+    topologyStore,
+    batching.topologyCacheAggregator,
+    maxCacheSize = topology.maxTopologyStateCacheItems,
+    enableConsistencyChecks = topology.enableTopologyStateCacheConsistencyChecks,
+    timeouts,
+    loggerFactory,
+  )
+
   def createTopologyProcessorFactory(
       missingKeysAlerter: MissingKeysAlerter,
       sequencerConnectionSuccessorListener: SequencerConnectionSuccessorListener,
@@ -111,6 +122,7 @@ class TopologyComponentFactory(
         val processor = new TopologyTransactionProcessor(
           crypto.pureCrypto,
           topologyStore,
+          topologyStateCache,
           crypto.staticSynchronizerParameters,
           acsCommitmentScheduleEffectiveTime,
           terminateTopologyProcessing,
@@ -132,51 +144,59 @@ class TopologyComponentFactory(
       topologyConfig: TopologyConfig
   )(implicit
       executionContext: ExecutionContext,
-      closeContext: CloseContext,
       materializer: Materializer,
   ): InitialTopologySnapshotValidator =
     new InitialTopologySnapshotValidator(
       crypto.pureCrypto,
       topologyStore,
+      batching.topologyCacheAggregator,
+      topologyConfig,
       Some(crypto.staticSynchronizerParameters),
-      validateInitialSnapshot = topologyConfig.validateInitialTopologySnapshot,
-      loggerFactory = loggerFactory,
+      timeouts,
+      loggerFactory,
     )
 
-  def createCachingTopologyClient(
+  def createTopologyClient(
       packageDependencyResolver: PackageDependencyResolver,
       synchronizerPredecessor: Option[SynchronizerPredecessor],
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
-    CachingSynchronizerTopologyClient.create(
+    WriteThroughCacheSynchronizerTopologyClient.create(
       clock,
       crypto.staticSynchronizerParameters,
       topologyStore,
+      topologyStateCache,
       synchronizerPredecessor,
       packageDependencyResolver,
       caching,
-      batching,
       topology,
       timeouts,
       futureSupervisor,
       loggerFactory,
     )()
-
   def createTopologySnapshot(
       asOf: CantonTimestamp,
       packageDependencyResolver: PackageDependencyResolver,
       preferCaching: Boolean,
   )(implicit executionContext: ExecutionContext): TopologySnapshot = {
     val snapshot = new StoreBasedTopologySnapshot(
+      psid,
       asOf,
       topologyStore,
       packageDependencyResolver,
       loggerFactory,
     )
     if (preferCaching) {
-      new CachingTopologySnapshot(snapshot, caching, batching, loggerFactory, futureSupervisor)
+      new WriteThroughCacheTopologySnapshot(
+        psid,
+        topologyStateCache,
+        topologyStore,
+        packageDependencyResolver,
+        asOf,
+        loggerFactory,
+      )
     } else
       snapshot
   }

@@ -1263,6 +1263,7 @@ object ConnectedSynchronizer {
           commitmentMismatchDebugging = parameters.commitmentMismatchDebugging,
           commitmentProcessorNrAcsChangesBehindToTriggerCatchUp =
             parameters.commitmentProcessorNrAcsChangesBehindToTriggerCatchUp,
+          commitmentReduceParallelism = parameters.commitmentReduceParallelism,
           stringInterning = participantNodePersistentState.value.ledgerApiStore.stringInterningView,
         )
         topologyProcessor <- topologyProcessorFactory.create(

@@ -4,9 +4,10 @@
 package com.digitalasset.canton.topology.processing
 
 import cats.data.EitherT
+import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.topology.TopologyStateProcessor
@@ -50,10 +51,6 @@ import scala.concurrent.ExecutionContext
   *
   * Any inconsistency between the topology snapshot and the outcome of the validation is reported.
   *
-  * @param validateInitialSnapshot
-  *   if false, the validation is skipped and the snapshot is directly imported. this is risky as it
-  *   might create a fork if the validation was changed. therefore, we only use this with great
-  *   care. the proper solution is to make validation so fast that it doesn't impact performance.
   * @param cleanupTopologySnapshot
   *   if true, then we will clean up the topology snapshot (used for hard migration to clean up the
   *   genesis state)
@@ -61,17 +58,21 @@ import scala.concurrent.ExecutionContext
 class InitialTopologySnapshotValidator(
     pureCrypto: CryptoPureApi,
     store: TopologyStore[TopologyStoreId],
+    topologyCacheAggregatorConfig: BatchAggregatorConfig,
+    topologyConfig: TopologyConfig,
     staticSynchronizerParameters: Option[StaticSynchronizerParameters],
-    validateInitialSnapshot: Boolean,
+    timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
     cleanupTopologySnapshot: Boolean = false,
-)(implicit ec: ExecutionContext, materializer: Materializer, closeContext: CloseContext)
+)(implicit ec: ExecutionContext, materializer: Materializer)
     extends NamedLogging {
 
   private val storeIsEmpty = new AtomicBoolean(false)
   protected val stateProcessor: TopologyStateProcessor =
     TopologyStateProcessor.forInitialSnapshotValidation(
       store,
+      topologyCacheAggregatorConfig,
+      topologyConfig,
       lookup =>
         new RequiredTopologyMappingChecks(
           staticSynchronizerParameters,
@@ -79,6 +80,7 @@ class InitialTopologySnapshotValidator(
           loggerFactory,
         ),
       pureCrypto,
+      timeouts,
       loggerFactory,
     )
 
@@ -96,7 +98,7 @@ class InitialTopologySnapshotValidator(
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
     val finalSnapshot =
       if (cleanupTopologySnapshot) preprocessInitialSnapshot(initialSnapshot) else initialSnapshot
-    if (!validateInitialSnapshot) {
+    if (!topologyConfig.validateInitialTopologySnapshot) {
       logger.info("Skipping initial topology snapshot validation")
       EitherT.right(store.bulkInsert(finalSnapshot))
     } else {

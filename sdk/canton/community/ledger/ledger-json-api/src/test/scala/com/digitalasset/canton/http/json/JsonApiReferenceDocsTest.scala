@@ -94,4 +94,5 @@ object GenerateJSONApiDocs extends App {
       .overwrite(apiDocs.asyncApi)
       .discard
   }
+
 }
