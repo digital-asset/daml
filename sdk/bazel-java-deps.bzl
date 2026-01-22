@@ -90,6 +90,7 @@ def install_java_deps():
                 # exclude conflicting Scala 3 dependencies, we use fastparse_2.13 instead
                 exclusions = ["com.lihaoyi:fastparse_3"],
             ),
+            "com.daml:daml-lf-stable-packages_{}:{}".format(scala_major_version, transcode_version),
             "com.fasterxml.jackson.core:jackson-core:2.14.3",
             "com.fasterxml.jackson.core:jackson-databind:2.14.3",
             "com.github.ben-manes.caffeine:caffeine:3.1.2",

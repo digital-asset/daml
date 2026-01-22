@@ -37,7 +37,7 @@ da_scala_library(
         "//canton:scala-utils",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/stable-packages",
+        "@maven//:com_daml_daml_lf_stable_packages_2_13",
     ],
 )
 
@@ -75,7 +75,7 @@ da_scala_test_suite(
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/parser",
-        "//canton/community/daml-lf/stable-packages",
+        "@maven//:com_daml_daml_lf_stable_packages_2_13",
     ],
 )
 
@@ -98,7 +98,7 @@ da_scala_benchmark_jmh(
         "//canton/community/daml-lf/ide-ledger",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/stable-packages",
+        "@maven//:com_daml_daml_lf_stable_packages_2_13",
         "//canton/community/daml-lf/transaction",
         "//canton/community/daml-lf/validation",
         "//test-common:dar-files-default-lib",

@@ -53,7 +53,7 @@
   type: jar-scala
 - target: //daml-script/converter:converter
   type: jar-scala
-- target: //canton/community/daml-lf/stable-packages:stable-packages
+- target: @maven//:com_daml_daml_lf_stable_packages_2_13
   type: jar-scala
 - target: //language-support/codegen-main:binary
   type: jar-jarjar
