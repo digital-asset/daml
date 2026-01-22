@@ -162,7 +162,7 @@ da_scala_test(
     name = "tests",
     size = "small",
     srcs = glob([
-      "src/test/**/typesig/**/*.scala"
+        "src/test/**/typesig/**/*.scala",
     ]),
     data = [":InterfaceTestPackage-v2.dar"] + ([":InterfaceTestPackage-v1.dar"] if is_intel else []),
     scala_deps = [
@@ -172,8 +172,8 @@ da_scala_test(
     ],
     scalacopts = lf_scalacopts,
     deps = [
-        "//canton/community/daml-lf/api-type-signature",
         "//canton:nonempty",
+        "//canton/community/daml-lf/api-type-signature",
         "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
         "//canton/community/daml-lf/archive:daml_lf_archive_reader",
         "//canton/community/daml-lf/data",
