@@ -1010,6 +1010,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                   userPackageSelectionPreference,
                   transactionShape,
                   includeCreatedEventBlob = includeCreatedEventBlob,
+                  optTimeout,
                 )
               )
             }
@@ -2911,6 +2912,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                     userPackageSelectionPreference,
                     transactionShape,
                     includeCreatedEventBlob = includeCreatedEventBlob,
+                    optTimeout,
                   )
                 )
               }

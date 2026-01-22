@@ -7,7 +7,6 @@ import com.daml.SafeProto
 
 import java.math.BigDecimal
 import java.nio.file.Paths
-import com.daml.bazeltools.BazelRunfiles._
 import com.daml.crypto.MessageDigestPrototype
 import com.digitalasset.daml.lf.archive.{DamlLf2 => PLF}
 import com.digitalasset.daml.lf.data.{Numeric, Ref}
@@ -1507,7 +1506,7 @@ class DecodeV2Spec
   "decodeModuleRef" should {
 
     lazy val Right(ArchivePayload.Lf2(pkgId, pkgProto, minorVersion, _)) =
-      ArchiveReader.fromFile(Paths.get(rlocation("canton/community/daml-lf/archive/DarReaderTest.dalf")))
+      ArchiveReader.fromFile(Paths.get(getClass.getClassLoader.getResource("DarReaderTest.dalf").toURI))
 
     lazy val extId = {
       val dalf1 = pkgProto

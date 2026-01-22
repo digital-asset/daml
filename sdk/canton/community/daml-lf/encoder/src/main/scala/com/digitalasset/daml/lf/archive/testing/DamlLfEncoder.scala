@@ -23,9 +23,7 @@ private[daml] object DamlLfEncoder extends App {
   import Encode._
 
   private def error[X](message: String): X = {
-    System.err.println(message)
-    System.exit(1)
-    throw new Error("You should not get this error")
+    sys.error(message) // Throws a RuntimeException with the message
   }
 
   private val pkgId = Ref.PackageId.assertFromString("-self-")
