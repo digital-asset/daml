@@ -88,7 +88,6 @@ class ProtocolConvertersTest extends AnyWordSpec with BaseTest with HasExecution
 //    JsMapping(converters.PrepareSubmissionRequest),//we only need toJson
 //    JsMapping(converters.PrepareSubmissionResponse), // we only need toJson
 //    JsMapping(converters.ExecuteSubmissionRequest), // we only need fromJson
-    JsMapping(converters.AllocatePartyRequest),
     JsMapping(converters.PrefetchContractKey),
   )
 }

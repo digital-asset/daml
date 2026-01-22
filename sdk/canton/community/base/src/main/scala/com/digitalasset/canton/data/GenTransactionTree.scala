@@ -110,7 +110,7 @@ final case class GenTransactionTree private (
     * @throws java.lang.UnsupportedOperationException
     *   if the path does not lead to a view
     */
-  private[data] def tryBlindForTransactionViewTree(
+  private[canton] def tryBlindForTransactionViewTree(
       viewPos: ViewPositionFromRoot
   ): GenTransactionTree =
     viewPos.position match {

@@ -8,14 +8,24 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
 import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
-import com.digitalasset.canton.ledger.participant.state.Update.ContractInfo
 import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageId.DedicatedRepresentativePackageId
-import com.digitalasset.canton.ledger.participant.state.{RepairUpdate, TransactionMeta, Update}
+import com.digitalasset.canton.ledger.participant.state.Update.{
+  ContractInfo,
+  RepairReassignmentAccepted,
+}
+import com.digitalasset.canton.ledger.participant.state.{
+  Reassignment,
+  ReassignmentInfo,
+  RepairUpdate,
+  TransactionMeta,
+  Update,
+}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
@@ -39,6 +49,7 @@ import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.PekkoUtil.FutureQueue
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.CantonOnly
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
 import com.digitalasset.daml.lf.transaction.CreationTime
@@ -317,16 +328,27 @@ final class RepairServiceContractsImporter(
                       )
                     )
 
-                    // Commit and publish added contracts via the indexer to the ledger api.
-                    _ <- EitherT.right[String](
-                      writeContractsAddedEvents(
-                        synchronizer.psid.logical,
-                        recordTime = synchronizer.currentRecordTime,
-                        contractsToAddWithInternalIds,
-                        workflowIds,
-                        repairIndexer,
-                      )
-                    )
+                    _ <-
+                      if (parameters.alphaMultiSynchronizerSupport) {
+                        // Publish added contracts via the indexer to the ledger api.
+                        publishAddEvents(
+                          repair,
+                          contractsToAddWithInternalIds,
+                          workflowIds,
+                          repairIndexer,
+                        )
+                      } else {
+                        // Commit and publish added contracts via the indexer to the ledger api.
+                        EitherT.right[String](
+                          writeContractsAddedEvents(
+                            synchronizer.psid.logical,
+                            recordTime = synchronizer.currentRecordTime,
+                            contractsToAddWithInternalIds,
+                            workflowIds,
+                            repairIndexer,
+                          )
+                        )
+                      }
                   } yield ()
                 },
               )
@@ -590,6 +612,90 @@ final class RepairServiceContractsImporter(
           )
           .map(_ => ())
     })
+
+  /** Build assignment events to be offered to the indexer to signal imported contracts. Assigned
+    * event allows to preserve reassignment counters and shall be used until we have a dedicated
+    * `add` event in the indexer.
+    * @return
+    *   - None if `contractsAdded` is empty
+    *   - Some(Left) if contract authentication data cannot be computed
+    *   - Some(Right) otherwise
+    */
+  private def prepareAssignedEvent(
+      repair: RepairRequest,
+      repairCounter: RepairCounter,
+      ledgerCreateTime: CreationTime.CreatedAt,
+      contractsAdded: Seq[(ContractToAdd, Long)],
+      workflowIdProvider: () => Option[LfWorkflowId],
+  )(implicit traceContext: TraceContext): Option[Either[String, RepairReassignmentAccepted]] = {
+
+    // Assignments set the same source and target synchronizerIds since they are artificial
+    // assigns without an actual target synchronizer (this is used for adding a contract)
+    val reassignmentId = ReassignmentId(
+      Source(repair.synchronizer.psid.logical),
+      Target(repair.synchronizer.psid.logical),
+      unassignmentTs = repair.timestamp,
+      contractIdCounters = contractsAdded.view.map { case (c, _internalContractId) =>
+        (c.cid, c.reassignmentCounter)
+      },
+    )
+
+    val assigns = contractsAdded.zipWithIndex
+      .traverse { case ((c, internalContractId), nodeId) =>
+        c.contract.contractAuthenticationData.map { contractAuthenticationData =>
+          Reassignment.Assign(
+            ledgerEffectiveTime = ledgerCreateTime.time,
+            createNode = c.contract.toLf,
+            contractAuthenticationData = contractAuthenticationData.toLfBytes,
+            reassignmentCounter = c.reassignmentCounter.unwrap,
+            nodeId = nodeId,
+            internalContractId = internalContractId,
+          )
+        }
+      }
+      .map(NonEmpty.from)
+
+    assigns.traverse(_.map { assignsNE =>
+      RepairReassignmentAccepted(
+        workflowId = workflowIdProvider(),
+        updateId = randomUpdateId(syncCrypto),
+        reassignmentInfo = ReassignmentInfo(
+          sourceSynchronizer = Source(repair.synchronizer.psid.logical),
+          targetSynchronizer = Target(repair.synchronizer.psid.logical),
+          submitter = None,
+          reassignmentId = reassignmentId,
+          isReassigningParticipant = false,
+        ),
+        reassignment = Reassignment.Batch(assignsNE),
+        repairCounter = repairCounter,
+        recordTime = repair.timestamp,
+        synchronizerId = repair.synchronizer.psid.logical,
+      )
+    })
+  }
+
+  private def publishAddEvents(
+      repair: RepairRequest,
+      contractsAdded: Seq[(TimeOfRepair, (CreationTime.CreatedAt, Seq[(ContractToAdd, Long)]))],
+      workflowIds: Iterator[Option[LfWorkflowId]],
+      repairIndexer: FutureQueue[RepairUpdate],
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
+    MonadUtil
+      .sequentialTraverse_(contractsAdded) { case (timeOfChange, (timestamp, contractsToAdd)) =>
+        prepareAssignedEvent(
+          repair,
+          timeOfChange.repairCounter,
+          timestamp,
+          contractsToAdd,
+          () => workflowIds.next(),
+        ) match {
+          case Some(value) =>
+            EitherT(value.traverse(repairIndexer.offer)).map(_ => ())
+
+          case None => EitherTUtil.unit[String]
+        }
+      }
+      .mapK(FutureUnlessShutdown.outcomeK)
 
   private def packageKnown(
       lfPackageId: LfPackageId

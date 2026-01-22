@@ -1,0 +1,52 @@
+{-# LANGUAGE CPP #-}
+
+module ModelConformanceExamples where
+
+import Daml.Script
+
+template MultiReader with
+  reader : Party
+  observer : Party
+ where
+
+  signatory reader
+  observer observer
+
+  nonconsuming choice MultiReader_Lookup : ()
+    with
+      cid1: ContractId MultiReader
+      cid2: ContractId MultiReader
+    controller reader
+      do
+        c1 <- fetch cid1
+        c2 <- fetch cid2
+        pure()
+
+  nonconsuming choice MultiReader_NewObserver : ()
+    with
+      newObserver : Party
+    controller reader
+      do
+        create this with observer = newObserver
+        create this with observer = newObserver
+        pure()
+
+
+  nonconsuming choice MultiReader_Clone : ContractId MultiReader
+    controller reader
+      do
+        create this
+
+
+test: Script ()
+test = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  mr1Cid <- submit alice $ createCmd MultiReader with reader = alice, observer = alice
+  mr2Cid <- submit alice $ createCmd MultiReader with reader = alice, observer = alice
+  mr3Cid <- submit alice $ createCmd MultiReader with reader = alice, observer = alice
+  submit alice $ exerciseCmd mr1Cid (MultiReader_Lookup with cid1 = mr2Cid, cid2 = mr3Cid)
+  submit alice $ exerciseCmd mr1Cid MultiReader_Clone
+  pure ()
+
+

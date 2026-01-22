@@ -184,11 +184,10 @@ class TestEngine(
   def submitAndConsume(
       command: com.daml.ledger.javaapi.data.Command,
       actAs: String,
-      disclosedContracts: Seq[FatContractInstance] = Seq.empty,
-      storedContracts: Seq[FatContractInstance] = Seq.empty,
+      contracts: Seq[FatContractInstance] = Seq.empty,
   ): (SubmittedTransaction, Transaction.Metadata) = {
 
-    val engineCommands = validateCommand(command, actAs, disclosedContracts)
+    val engineCommands = validateCommand(command, actAs)
 
     val result: Result[TxAndMeta] = engine.submit(
       packageMap = engineCommands.packageMap,
@@ -202,7 +201,7 @@ class TestEngine(
       contractIdVersion = ContractIdVersion.V1,
     )
 
-    val contractMap = storedContracts.map(c => c.contractId -> c).toMap
+    val contractMap = contracts.map(c => c.contractId -> c).toMap
 
     consume(result, contracts = contractMap)
 
@@ -271,13 +270,16 @@ class TestEngine(
       nodeSeed: Hash,
       contracts: Map[ContractId, FatContractInstance] = Map.empty,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
+      preparationTime: Time.Timestamp = testTimestamp,
+      ledgerEffectiveTime: Time.Timestamp = testTimestamp,
   ): TxAndMeta = {
+
     val result = engine.reinterpret(
       submitters = submitters,
       command = command,
       nodeSeed = Some(nodeSeed),
-      preparationTime = testTimestamp,
-      ledgerEffectiveTime = testTimestamp,
+      preparationTime = preparationTime,
+      ledgerEffectiveTime = ledgerEffectiveTime,
       packageResolution = packageResolution,
       contractIdVersion = ContractIdVersion.V1,
     )
@@ -289,6 +291,7 @@ class TestEngine(
       tx: SubmittedTransaction,
       meta: Transaction.Metadata,
       contracts: Map[ContractId, FatContractInstance] = Map.empty,
+      ledgerTime: Time.Timestamp = testTimestamp,
   ): (SubmittedTransaction, Transaction.Metadata) = {
 
     val nodeSeeds = Map.from(meta.nodeSeeds.toList)
@@ -311,6 +314,8 @@ class TestEngine(
       nodeSeed = nodeSeed,
       contracts = contracts,
       packageResolution = packageResolution,
+      preparationTime = meta.preparationTime,
+      ledgerEffectiveTime = ledgerTime,
     )
   }
 

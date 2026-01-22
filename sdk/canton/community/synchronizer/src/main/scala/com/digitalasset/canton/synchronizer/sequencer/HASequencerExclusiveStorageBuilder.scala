@@ -8,7 +8,12 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, QueryCostMonitoringConfig}
 import com.digitalasset.canton.crypto.PseudoRandom
-import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  CloseContext,
+  FlagCloseable,
+  HasCloseContext,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.*
 import com.digitalasset.canton.synchronizer.sequencer.HASequencerExclusiveStorageBuilder.*
@@ -56,6 +61,7 @@ private[sequencer] class HASequencerExclusiveStorageBuilder(
 
         failoverNotifier = new HASequencerExclusiveStorageNotifier(loggerFactory)
 
+        unusedSessionContext = CloseContext(FlagCloseable(logger, timeouts))
         multiStorage <- DbStorageMulti
           .create(
             dbConfig = dbConfig,
@@ -75,6 +81,7 @@ private[sequencer] class HASequencerExclusiveStorageBuilder(
             futureSupervisor = futureSupervisor,
             loggerFactory =
               loggerFactory.append("exclusiveWriterId", PseudoRandom.randomAlphaNumericString(4)),
+            getSessionContext = () => unusedSessionContext,
           )
           .value match {
           case UnlessShutdown.Outcome(either) => either.leftMap(FailedToCreateDbStorageMulti.apply)

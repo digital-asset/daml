@@ -244,52 +244,70 @@ abstract class ConsumesCancellableGrpcStreamObserver[
 
       override def onError(t: Throwable): Unit = {
         import TraceContext.Implicits.Empty.*
-        t match {
-          case s: StatusRuntimeException if s.getStatus.getCode == CANCELLED =>
-            if (cancelledByClient.get()) {
-              logger.info(
-                "gRPC subscription successfully closed due to client shutdown.",
-                s.getStatus.getCause,
-              )
-              complete(SubscriptionCloseReason.Closed)
-            } else {
-              // As the client has not cancelled the subscription, the problem must be on the server side.
-              val grpcError =
-                GrpcServiceUnavailable(
-                  request,
-                  "sequencer",
-                  s.getStatus,
-                  Option(s.getTrailers),
-                  None,
-                )
-              complete(GrpcSubscriptionError(grpcError))
-            }
-          case s: StatusRuntimeException =>
-            val grpcError = GrpcError(request, "sequencer", s)
-            if (
-              s.getStatus.getCode == Status.Code.UNAVAILABLE &&
-              s.getStatus.getDescription == ServerSubscriptionCloseReason.TokenExpired.description
-            ) {
-              logger.info(
-                "The sequencer subscription has been terminated by the server due to a token expiration."
-              )
-              complete(TokenExpiration)
-            } else if (s.getStatus.getCode == Status.Code.PERMISSION_DENIED) {
-              complete(GrpcPermissionDeniedError(grpcError))
-            } else {
-              complete(GrpcSubscriptionError(grpcError))
-            }
-          case exception: Throwable =>
-            logger.error("The sequencer subscription failed unexpectedly.", t)
-            complete(GrpcSubscriptionUnexpectedException(exception))
-        }
+        FutureUtil.doNotAwait(
+          // re-sync on onNext processing but proceed even if the handler threw an exception
+          currentProcessing
+            .get()
+            // onNext failures are already logged. We only want to log issues with the thereafter.
+            // therefore, remapping any prior failures to unit here.
+            .recover(_ => ())
+            .thereafter { _ =>
+              t match {
+                case s: StatusRuntimeException if s.getStatus.getCode == CANCELLED =>
+                  if (cancelledByClient.get()) {
+                    logger.info(
+                      "gRPC subscription successfully closed due to client shutdown.",
+                      s.getStatus.getCause,
+                    )
+                    complete(SubscriptionCloseReason.Closed)
+                  } else {
+                    // As the client has not cancelled the subscription, the problem must be on the server side.
+                    val grpcError =
+                      GrpcServiceUnavailable(
+                        request,
+                        "sequencer",
+                        s.getStatus,
+                        Option(s.getTrailers),
+                        None,
+                      )
+                    complete(GrpcSubscriptionError(grpcError))
+                  }
+                case s: StatusRuntimeException =>
+                  val grpcError = GrpcError(request, "sequencer", s)
+                  if (
+                    s.getStatus.getCode == Status.Code.UNAVAILABLE &&
+                    s.getStatus.getDescription == ServerSubscriptionCloseReason.TokenExpired.description
+                  ) {
+                    logger.info(
+                      "The sequencer subscription has been terminated by the server due to a token expiration."
+                    )
+                    complete(TokenExpiration)
+                  } else if (s.getStatus.getCode == Status.Code.PERMISSION_DENIED) {
+                    complete(GrpcPermissionDeniedError(grpcError))
+                  } else {
+                    complete(GrpcSubscriptionError(grpcError))
+                  }
+                case exception: Throwable =>
+                  logger.error("The sequencer subscription failed unexpectedly.", t)
+                  complete(GrpcSubscriptionUnexpectedException(exception))
+              }
+            },
+          "on-error-after-processing",
+        )
+
       }
 
       override def onCompleted(): Unit = {
         import TraceContext.Implicits.Empty.*
-        // Info level, as this occurs from time to time when a member is disconnected.
-        logger.info("The sequencer subscription has been terminated by the server.")
-        complete(onCompleteCloseReason)
+        FutureUtil.doNotAwait(
+          // re-sync on onNext processing but proceed even if the handler threw an exception
+          currentProcessing.get().thereafter { _ =>
+            // Info level, as this occurs from time to time when a member is disconnected.
+            logger.info("The sequencer subscription has been terminated by the server.")
+            complete(onCompleteCloseReason)
+          },
+          "on-completed-after-processing",
+        )
       }
 
     }

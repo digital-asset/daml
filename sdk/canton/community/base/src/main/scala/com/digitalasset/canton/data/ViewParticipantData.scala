@@ -40,6 +40,8 @@ import com.digitalasset.canton.{
 }
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
+import monocle.Lens
+import monocle.macros.GenLens
 
 /** Information concerning every '''participant''' involved in processing the underlying view.
   *
@@ -507,4 +509,18 @@ object ViewParticipantData
 
   /** Indicates an attempt to create an invalid [[ViewParticipantData]]. */
   final case class InvalidViewParticipantData(message: String) extends RuntimeException(message)
+
+  /** DO NOT USE IN PRODUCTION, as it does not necessarily check object invariants. */
+  @VisibleForTesting
+  object Optics {
+    val coreInputsUnsafe: Lens[ViewParticipantData, Map[LfContractId, InputContract]] =
+      GenLens[ViewParticipantData](_.coreInputs)
+    val createdCoreUnsafe: Lens[ViewParticipantData, Seq[CreatedContract]] =
+      GenLens[ViewParticipantData](_.createdCore)
+    val actionDescriptionUnsafe: Lens[ViewParticipantData, ActionDescription] =
+      GenLens[ViewParticipantData](_.actionDescription)
+    val saltUnsafe: Lens[ViewParticipantData, Salt] =
+      GenLens[ViewParticipantData](_.salt)
+  }
+
 }

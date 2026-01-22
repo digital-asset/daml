@@ -8,6 +8,7 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
+import com.digitalasset.canton.data.SequencingTimeBound
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
@@ -39,7 +40,7 @@ import io.opentelemetry.api.trace
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 import BlockSequencerFactory.OrderingTimeFixMode
 
@@ -53,7 +54,7 @@ abstract class BlockSequencerFactory(
     override val loggerFactory: NamedLoggerFactory,
     testingInterceptor: Option[TestingInterceptor],
     metrics: SequencerMetrics,
-)(implicit ec: ExecutionContext)
+)(implicit ec: ExecutionContextExecutor)
     extends DatabaseSequencerFactory(
       blockSequencerConfig.toDatabaseSequencerConfig,
       storage,
@@ -104,7 +105,7 @@ abstract class BlockSequencerFactory(
       authenticationServices: Option[AuthenticationServices],
       synchronizerLoggerFactory: NamedLoggerFactory,
   )(implicit
-      ec: ExecutionContext,
+      ec: ExecutionContextExecutor,
       materializer: Materializer,
       tracer: Tracer,
   ): BlockOrderer
@@ -123,6 +124,7 @@ abstract class BlockSequencerFactory(
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       synchronizerLoggerFactory: NamedLoggerFactory,
+      sequencingTimeLowerBoundExclusive: SequencingTimeBound,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
       executionContext: ExecutionContext,
@@ -190,6 +192,7 @@ abstract class BlockSequencerFactory(
       synchronizerSyncCryptoApi: SynchronizerCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
+      sequencingTimeLowerBoundExclusive: SequencingTimeBound,
       runtimeReady: FutureUnlessShutdown[Unit],
       sequencerSnapshot: Option[SequencerSnapshot] = None,
       authenticationServices: Option[AuthenticationServices] = None,
@@ -277,6 +280,7 @@ abstract class BlockSequencerFactory(
         rateLimitManager,
         orderingTimeFixMode,
         synchronizerLoggerFactory,
+        sequencingTimeLowerBoundExclusive,
         runtimeReady,
       )
       testingInterceptor

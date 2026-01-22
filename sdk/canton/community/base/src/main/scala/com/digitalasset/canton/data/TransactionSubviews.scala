@@ -11,6 +11,9 @@ import com.digitalasset.canton.protocol.{RootHash, ViewHash, v30}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.ProtocolVersion
+import com.google.common.annotations.VisibleForTesting
+import monocle.Lens
+import monocle.macros.GenLens
 
 /** Abstraction over the subviews of a [[TransactionView]] Implementation of [[TransactionSubviews]]
   * where the subviews are a merkle tree
@@ -95,6 +98,7 @@ final case class TransactionSubviews private[data] (
     */
   def assertAllUnblinded(makeMessage: RootHash => String): Unit =
     blindedElements.headOption.foreach(hash => throw new IllegalStateException(makeMessage(hash)))
+
 }
 
 object TransactionSubviews {
@@ -129,4 +133,12 @@ object TransactionSubviews {
     */
   def indices(nbOfSubviews: Int): Seq[MerklePathElement] =
     MerkleSeq.indicesFromSeq(nbOfSubviews)
+
+  /** DO NOT USE IN PRODUCTION, as it does not necessarily check object invariants. */
+  @VisibleForTesting
+  object Optics {
+    val subviewsUnsafe: Lens[TransactionSubviews, MerkleSeq[TransactionView]] =
+      GenLens[TransactionSubviews](_.subviews)
+  }
+
 }

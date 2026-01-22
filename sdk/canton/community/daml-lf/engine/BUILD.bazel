@@ -4,8 +4,6 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test",
-    "da_scala_test_suite",
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
@@ -44,7 +42,7 @@ da_scala_library(
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/snapshot:snapshot_proto_java",
+        "//canton/community/daml-lf/snapshot-proto:snapshot_proto_java",
         "//canton/community/daml-lf/stable-packages",
         "//canton/community/daml-lf/transaction",
         "//canton/community/daml-lf/validation",
@@ -83,7 +81,7 @@ ENGINE_TEST_FILES = \
             name = name,
             major = major,
         ),
-        srcs = ["src/test/daml/%s.daml" % name],
+        srcs = ["src/test/daml/%s/%s.daml" % (name, name)],
         target = DEFAULT_LF_VERSION,
     )
     for name in ENGINE_TEST_FILES
@@ -96,156 +94,37 @@ ENGINE_TEST_FILES = \
             name = name,
             version = mangle_for_damlc(version),
         ),
-        srcs = ["src/test/daml/%s.daml" % name],
+        srcs = ["src/test/daml/%s/%s.daml" % (name, name)],
         target = version,
     )
     for name in ENGINE_TEST_FILES
     for version in [DEV_LF_VERSION]
 ]
 
-da_scala_test_suite(
-    name = "tests",
-    srcs = glob(
-        [
-            "src/test/**/*Spec.scala",
-            "src/test/**/*Test.scala",
-        ],
-        exclude = [
-            "src/test/**/LargeTransactionTest.scala",
-            "src/test/**/MinVersionTest.scala",
-            "src/test/**/UpgradesMatrix.scala",
-            "src/test/**/UpgradesMatrixUnit.scala",
-        ],
-    ),
-    data = [
-        "//daml-script/test:script-test-v2.dev.dar",
-    ] + [
-        "{name}-v{major}.dar".format(
-            name = name,
-            major = major,
-        )
-        for name in [
-            # TODO(#30144): https://github.com/digital-asset/daml/issues/18457 split
-            #  //canton/community/daml-lf/tests:Exceptions into templates that use keys and those
-            #  that don't. Split the corresponding test, and add it back here.
-            "//canton/community/daml-lf/tests:Interfaces",
-            "//canton/community/daml-lf/tests:InterfaceViews",
-            "//canton/community/daml-lf/tests:ReinterpretTests",
-        ]
-        for major in COMPILER_LF_MAJOR_VERSIONS
-    ] + [
-        ":{name}-v{major}.dar".format(
-            name = name,
-            major = major,
-        )
-        for name in ENGINE_TEST_FILES
-        for major in COMPILER_LF_MAJOR_VERSIONS
-    ] + [
-        "{name}-{version}.dar".format(
-            name = prefix,
-            version = mangle_for_damlc(version),
-        )
-        for prefix in [
-            ":BasicTests",
-            ":Demonstrator",
-            "//canton/community/daml-lf/tests:MultiKeys",
-            "//canton/community/daml-lf/tests:Exceptions",
-        ]
-        for version in [DEV_LF_VERSION]
-    ],
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_typelevel_cats_core",
-        "@maven//:org_typelevel_cats_kernel",
-        "@maven//:com_lihaoyi_sourcecode",
-    ],
-    scalacopts = lf_scalacopts,
-    deps = [
-        ":engine",
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:contextualized-logging",
-        "//canton:nameof",
-        "//canton:test-evidence-scalatest",
-        "//canton:test-evidence-tag",
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/interpreter",
-        "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/parser",
-        "//canton/community/daml-lf/stable-packages",
-        "//canton/community/daml-lf/transaction",
-        "//canton/community/daml-lf/transaction-test-lib",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
-
 [
     daml_compile(
         name = "LargeTransaction-v{}".format(major),
-        srcs = ["src/test/daml/LargeTransaction.daml"],
+        srcs = ["src/test/daml/LargeTransaction/LargeTransaction.daml"],
         target = DEFAULT_LF_VERSION,
     )
     for major in COMPILER_LF_MAJOR_VERSIONS
 ]
 
-da_scala_test(
-    name = "test-large-transaction",
-    timeout = "moderate",
-    srcs = glob([
-        "src/test/**/LargeTransactionTest.scala",
-        "src/test/**/InMemoryPrivateLedgerData.scala",
-    ]),
-    data = [
-        ":LargeTransaction-v{}.dar".format(major)
-        for major in COMPILER_LF_MAJOR_VERSIONS
-    ],
-    # We setup a large heap size to reduce as much as possible GC overheads.
-    initial_heap_size = "2g",
-    max_heap_size = "2g",
-    scala_deps = [
-        "@maven//:com_storm_enroute_scalameter_core",
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    scalacopts = lf_scalacopts,
-    deps = [
-        ":engine",
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:contextualized-logging",
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/interpreter",
-        "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/transaction",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
-
-da_scala_test(
+da_scala_library(
     name = "upgrade-test",
-    timeout = "moderate",
     srcs = glob([
         "src/test/**/UpgradesMatrix.scala",
         "src/test/**/UpgradesMatrixUnit.scala",
     ]),
-    args = ["-P"],  # run suites in parallel
-    max_heap_size = "4g",
     scala_deps = [
+        "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_freespec",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_typelevel_cats_kernel",
         "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
     ],
     scalacopts = lf_scalacopts,
     visibility = ["//daml-script:__subpackages__"],
@@ -260,7 +139,7 @@ da_scala_test(
         "//canton/community/daml-lf/parser",
         "//canton/community/daml-lf/stable-packages",
         "//canton/community/daml-lf/transaction",
-        "//canton/community/daml-lf/transaction-test-lib",
+        "//canton/community/daml-lf/transaction:transaction-test-lib",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

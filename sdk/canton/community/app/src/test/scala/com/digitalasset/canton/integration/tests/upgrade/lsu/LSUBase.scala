@@ -147,11 +147,12 @@ trait LSUBase
   protected def migrateSynchronizerNodes(
       fixture: Fixture
   )(implicit consoleEnvironment: ConsoleEnvironment): Unit = {
-    exportNodesData(
+    val exportDirectory = exportNodesData(
       SynchronizerNodes(
         sequencers = fixture.oldSynchronizerNodes.sequencers,
         mediators = fixture.oldSynchronizerNodes.mediators,
-      )
+      ),
+      successorPSId = fixture.newPSId,
     )
 
     // Migrate nodes preserving their data (and IDs)
@@ -161,7 +162,7 @@ trait LSUBase
         newStaticSynchronizerParameters = fixture.newStaticSynchronizerParameters,
         synchronizerId = fixture.currentPSId,
         newSequencers = fixture.newSynchronizerNodes.sequencers,
-        exportDirectory = baseExportDirectory,
+        exportDirectory = exportDirectory,
         sourceNodeNames = fixture.newOldNodesResolution,
       )
     }

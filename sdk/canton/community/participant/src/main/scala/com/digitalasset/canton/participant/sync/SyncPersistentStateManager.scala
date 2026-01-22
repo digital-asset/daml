@@ -445,6 +445,7 @@ class SyncPersistentStateManager(
         clock,
         synchronizerCryptoFactory(staticSynchronizerParameters),
         parameters,
+        topologyConfig,
         packageMetadataView,
         ledgerApiStore,
         logicalSyncPersistentState,

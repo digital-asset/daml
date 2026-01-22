@@ -281,7 +281,7 @@ trait FutureHelpers extends Assertions with ScalaFuturesWithPatience { self =>
     def failOnShutdown(clue: String)(implicit ec: ExecutionContext, pos: Position): Future[A] =
       fut.onShutdown(fail(s"Shutdown during $clue"))
     def failOnShutdown(implicit ec: ExecutionContext, pos: Position): Future[A] =
-      fut.onShutdown(fail(s"Unexpected shutdown"))
+      fut.onShutdown(fail("Unexpected shutdown"))
     def futureValueUS(implicit pos: Position): A =
       futureValueUS(PatienceConfiguration.Timeout(defaultPatience.timeout))(pos)
     def futureValueUS(timeout: PatienceConfiguration.Timeout)(implicit pos: Position): A =
@@ -600,6 +600,8 @@ object BaseTest {
     case object MultiPartySubmission extends UnsupportedExternalPartyTest
     // TODO(i29530): Support multi root node submissions for external parties
     case object MultiRootNodeSubmission extends UnsupportedExternalPartyTest
+    // TODO(i30256): Synchronizer routing for external parties
+    case object MultiSynchronizerParties extends UnsupportedExternalPartyTest
   }
 
   lazy val testedProtocolVersion: ProtocolVersion = ProtocolVersion.forSynchronizer

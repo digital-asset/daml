@@ -366,6 +366,12 @@ object TestingTimeServiceConfig {
   * @param autoSyncProtocolFeatureFlags
   *   When true (default), protocol feature flags will be automatically updated when the node
   *   connects to a synchronizer.
+  * @param alphaMultiSynchronizerSupport
+  *   Determines whether ACS imports use Create/Archive or Assign/Unassign events. Only enable if
+  *   your Ledger API consumers can process (un)assign events and require non-zero reassignment
+  *   counters.
+  *   - false (Default): Uses Create/Archive; resets reassignment counters to zero.
+  *   - true: Uses Assign/Unassign; preserves existing reassignment counters.
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -404,7 +410,9 @@ final case class ParticipantNodeParameterConfig(
       config.PositiveDurationSeconds.ofMinutes(1),
     commitmentMismatchDebugging: Boolean = false,
     commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt] = None,
+    commitmentReduceParallelism: NonNegativeInt = NonNegativeInt.one,
     autoSyncProtocolFeatureFlags: Boolean = true,
+    alphaMultiSynchronizerSupport: Boolean = false,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

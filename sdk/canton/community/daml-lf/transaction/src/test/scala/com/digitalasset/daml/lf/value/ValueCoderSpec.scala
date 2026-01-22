@@ -34,11 +34,20 @@ class ValueCoderSpec
 
       val ver = SerializationVersion.StableVersions.max
 
-      val value0 = ValueText("a" * (1024 * 1024 * 1024))
-      val value1 = ValueList(FrontStack(value0, value0))
+      // We maximize structural sharing to limit the JVM heap memory usage.
+      // This allows us to create objects that would serialize to massive sizes (e.g. > 512MB or 4GB)
+      // without actually consuming that much RAM.
+      val values = LazyList.iterate[Value](ValueText("a" * 1024))(x => ValueList(FrontStack(x, x)))
 
-      ValueCoder.encodeValue(valueVersion = ver, v0 = value0) shouldBe a[Right[_, _]]
-      ValueCoder.encodeValue(valueVersion = ver, v0 = value1) shouldBe a[Left[_, _]]
+      // values(19), and  values(20) are technically serializable, but their serialization requires over 500 MB of memory.
+      // We skip it to avoid excessive memory pressure on CI agents.
+      val value18 = values(18) // serialization needs a bit more than 256MB
+      val value21 = values(21) // serialization would need a bit more than 2GB
+      val value22 = values(22) // serialization would need a bit more than 4GB
+
+      ValueCoder.encodeValue(valueVersion = ver, v0 = value18) shouldBe a[Right[_, _]]
+      ValueCoder.encodeValue(valueVersion = ver, v0 = value21) shouldBe a[Left[_, _]]
+      ValueCoder.encodeValue(valueVersion = ver, v0 = value22) shouldBe a[Left[_, _]]
     }
 
     val valuesWithNullCharacters = Table(

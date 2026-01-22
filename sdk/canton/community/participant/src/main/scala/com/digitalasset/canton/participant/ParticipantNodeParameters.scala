@@ -37,7 +37,9 @@ final case class ParticipantNodeParameters(
     commitmentCheckpointInterval: PositiveDurationSeconds,
     commitmentMismatchDebugging: Boolean,
     commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt],
+    commitmentReduceParallelism: NonNegativeInt,
     autoSyncProtocolFeatureFlags: Boolean,
+    alphaMultiSynchronizerSupport: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -96,6 +98,8 @@ object ParticipantNodeParameters {
     commitmentCheckpointInterval = PositiveDurationSeconds.ofMinutes(1),
     commitmentMismatchDebugging = false,
     commitmentProcessorNrAcsChangesBehindToTriggerCatchUp = None,
+    commitmentReduceParallelism = NonNegativeInt.zero,
     autoSyncProtocolFeatureFlags = true,
+    alphaMultiSynchronizerSupport = false,
   )
 }

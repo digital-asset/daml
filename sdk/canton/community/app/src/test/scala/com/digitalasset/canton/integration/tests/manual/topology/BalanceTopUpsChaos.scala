@@ -19,6 +19,7 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.TestConsoleEnvironment
+import com.digitalasset.canton.integration.tests.manual.topology.TopologyOperations.TransactionProgress
 import com.digitalasset.canton.integration.util.OnboardsNewSequencerNode
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.sequencing.TrafficControlParameters as InternalTrafficControlParameters
@@ -237,7 +238,7 @@ class BalanceTopUpsChaos(override val logger: TracedLogger)
     balanceUpdaters.set(updaters.toSet)
   }
 
-  override def finalAssertions()(implicit
+  override def finalAssertions(transactionProgress: TransactionProgress)(implicit
       loggingContext: ErrorLoggingContext,
       env: TestConsoleEnvironment,
       globalReservations: Reservations,

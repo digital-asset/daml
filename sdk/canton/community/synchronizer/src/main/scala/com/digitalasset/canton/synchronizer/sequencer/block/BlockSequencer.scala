@@ -13,7 +13,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{Signature, SynchronizerCryptoClient}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SequencingTimeBound}
 import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
@@ -87,7 +87,7 @@ class BlockSequencer(
     clock: Clock,
     blockRateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
-    sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
+    sequencingTimeLowerBoundExclusive: SequencingTimeBound,
     processingTimeouts: ProcessingTimeout,
     logEventDetails: Boolean,
     prettyPrinter: CantonPrettyPrinter,
@@ -145,7 +145,7 @@ class BlockSequencer(
     new TrafficPurchasedSubmissionHandler(clock, loggerFactory)
 
   override protected def resetWatermarkTo: SequencerWriter.ResetWatermark =
-    sequencingTimeLowerBoundExclusive match {
+    sequencingTimeLowerBoundExclusive.get match {
       case Some(boundExclusive) =>
         SequencerWriter.ResetWatermarkToTimestamp(
           stateManager.getHeadState.block.lastTs.max(boundExclusive)
@@ -349,7 +349,7 @@ class BlockSequencer(
       : EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] = {
     val currentTime = clock.now
 
-    sequencingTimeLowerBoundExclusive match {
+    sequencingTimeLowerBoundExclusive.get match {
       case Some(boundExclusive) =>
         EitherTUtil.condUnitET[FutureUnlessShutdown](
           currentTime > boundExclusive,

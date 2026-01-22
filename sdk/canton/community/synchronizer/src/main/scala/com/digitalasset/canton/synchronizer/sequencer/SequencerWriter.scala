@@ -11,7 +11,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SequencingTimeBound}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -524,7 +524,7 @@ object SequencerWriter {
       protocolVersion: ProtocolVersion,
       loggerFactory: NamedLoggerFactory,
       blockSequencerMode: Boolean,
-      sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
+      sequencingTimeLowerBoundExclusive: SequencingTimeBound,
       metrics: SequencerMetrics,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): SequencerWriter = {
     implicit val loggingContext: ErrorLoggingContext = ErrorLoggingContext(

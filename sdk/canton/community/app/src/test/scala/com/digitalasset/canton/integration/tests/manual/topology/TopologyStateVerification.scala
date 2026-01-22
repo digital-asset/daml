@@ -29,6 +29,7 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.synchronizer.sequencer.SequencerSnapshot
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId as AdminTopologyStoreId
+import com.digitalasset.canton.topology.cache.TopologyStateWriteThroughCache
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.{TimeQuery, TopologyStore, TopologyStoreId}
@@ -282,6 +283,14 @@ class TopologyStateVerification(
 
       processor = TopologyStateProcessor.forTransactionProcessing(
         topologyStore,
+        new TopologyStateWriteThroughCache(
+          topologyStore,
+          BatchAggregatorConfig(), // use default batch aggregator config
+          maxCacheSize = node.config.topology.maxTopologyStateCacheItems,
+          enableConsistencyChecks = node.config.topology.enableTopologyStateCacheConsistencyChecks,
+          timeouts,
+          loggerFactory,
+        ),
         lookup =>
           new TopologyMappingChecks.All(
             RequiredTopologyMappingChecks(

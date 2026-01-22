@@ -166,9 +166,10 @@ class TopologyStateWriteThroughCacheTest
       // only one parallel loader so we can structure the test incrementally
       BatchAggregatorConfig(maximumInFlight = PositiveInt.one),
       maxCacheSize = PositiveInt.two,
-      loggerFactoryExt,
       enableConsistencyChecks = true,
-    )(parallelExecutionContext, testCloseContext)
+      timeouts,
+      loggerFactoryExt,
+    )(parallelExecutionContext)
 
     def grabNs(
         timestamp: CantonTimestamp,

@@ -46,6 +46,7 @@ import com.digitalasset.canton.topology.{
 
 import java.util.UUID
 import scala.concurrent.Future
+import scala.util.Try
 
 trait ExternalPartyOnboardingIntegrationTestSetup
     extends CommunityIntegrationTest
@@ -539,7 +540,7 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
             Seq(
               (
                 _.errorMessage should include(
-                  s"Party ${partyE.partyId.uid.identifier.str} is in the process of being allocated on this node."
+                  s"Party ${partyE.partyId.toProtoPrimitive} is in the process of being allocated on this node."
                 ),
                 "Expected party already exists error",
               )
@@ -556,6 +557,42 @@ class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingInte
 
         // Check the party was still allocated
         participant1.ledger_api.parties.list().find(_.party == partyE.partyId) shouldBe defined
+    }
+
+    "allow concurrent onboarding of several party with same hint but different namespace" in {
+      implicit env =>
+        import env.*
+
+        /*
+         * This allocates a new external party on every call via
+         * participant1.parties.testing.external.onboarding_transactions
+         * which generates a new key pair and therefore party namespace
+         */
+        def allocate() = {
+          val (onboardingTransactions, _) =
+            participant1.parties.testing.external.onboarding_transactions("Flo").futureValueUS.value
+
+          participant1.ledger_api.parties.allocate_external(
+            synchronizer1Id,
+            onboardingTransactions.transactionsWithSingleSignature,
+            onboardingTransactions.multiTransactionSignatures,
+          )
+        }
+
+        val results = timeouts.default.await("Waiting for concurrent allocation attempts")(
+          Seq
+            .fill(10)(
+              Future(Try(allocate()).toEither)
+            )
+            .sequence
+        )
+        // All of them should succeeed
+        results.count(_.isRight) shouldBe 10
+
+        // Check the parties were allocated
+        participant1.ledger_api.parties
+          .list()
+          .filter(_.party.uid.identifier.unwrap == "Flo") should have size 10
     }
   }
 }

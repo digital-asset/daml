@@ -36,8 +36,8 @@ import com.digitalasset.canton.{LfChoiceName, LfInterfaceId, LfPackageId, LfPart
 import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
-import monocle.Lens
-import monocle.macros.GenLens
+import monocle.macros.{GenLens, GenPrism}
+import monocle.{Lens, Prism}
 
 /** Summarizes the information that is needed in addition to the other fields of
   * [[ViewParticipantData]] for determining the root action of a view.
@@ -397,18 +397,29 @@ object ActionDescription extends VersioningCompanion[ActionDescription] {
     )
 
     @VisibleForTesting
-    private[data] def copy(packagePreference: Set[LfPackageId]): ExerciseActionDescription =
+    private[data] def copy(
+        inputContractId: LfContractId = this.inputContractId,
+        templateId: LfTemplateId = this.templateId,
+        choice: LfChoiceName = this.choice,
+        interfaceId: Option[LfInterfaceId] = this.interfaceId,
+        packagePreference: Set[LfPackageId] = this.packagePreference,
+        chosenValue: LfVersioned[Value] = this.chosenValue,
+        actors: Set[LfPartyId] = this.actors,
+        byKey: Boolean = this.byKey,
+        seed: LfHash = this.seed,
+        failed: Boolean = this.failed,
+    ): ExerciseActionDescription =
       ExerciseActionDescription(
-        inputContractId = this.inputContractId,
-        templateId = this.templateId,
-        choice = this.choice,
-        interfaceId = this.interfaceId,
-        packagePreference = packagePreference,
-        chosenValue = this.chosenValue,
-        actors = this.actors,
-        byKey = this.byKey,
-        seed = this.seed,
-        failed = this.failed,
+        inputContractId,
+        templateId,
+        choice,
+        interfaceId,
+        packagePreference,
+        chosenValue,
+        actors,
+        byKey,
+        seed,
+        failed,
       )(representativeProtocolVersion)
 
   }
@@ -468,10 +479,16 @@ object ActionDescription extends VersioningCompanion[ActionDescription] {
         )(protocolVersion)
       )
 
+    /** DO NOT USE IN PRODUCTION, as it does not necessarily check object invariants. */
     @VisibleForTesting
-    val packagePreferenceUnsafe: Lens[ExerciseActionDescription, Set[LfPackageId]] =
-      GenLens[ExerciseActionDescription].apply(_.packagePreference)
-
+    object Optics {
+      val packagePreferenceUnsafe: Lens[ExerciseActionDescription, Set[LfPackageId]] =
+        GenLens[ExerciseActionDescription].apply(_.packagePreference)
+      val templateIdUnsafe: Lens[ExerciseActionDescription, LfTemplateId] =
+        GenLens[ExerciseActionDescription].apply(_.templateId)
+      val choiceUnsafe: Lens[ExerciseActionDescription, LfChoiceName] =
+        GenLens[ExerciseActionDescription].apply(_.choice)
+    }
   }
 
   final case class FetchActionDescription(
@@ -555,4 +572,17 @@ object ActionDescription extends VersioningCompanion[ActionDescription] {
       Either.catchOnly[InvalidActionDescription](tryCreate(key, protocolVersion))
 
   }
+
+  @VisibleForTesting
+  object Optics {
+    val create: Prism[ActionDescription, CreateActionDescription] =
+      GenPrism[ActionDescription, CreateActionDescription]
+    val exercise: Prism[ActionDescription, ExerciseActionDescription] =
+      GenPrism[ActionDescription, ExerciseActionDescription]
+    val fetch: Prism[ActionDescription, FetchActionDescription] =
+      GenPrism[ActionDescription, FetchActionDescription]
+    val lookupByKey: Prism[ActionDescription, LookupByKeyActionDescription] =
+      GenPrism[ActionDescription, LookupByKeyActionDescription]
+  }
+
 }

@@ -9,6 +9,7 @@ import com.daml.ledger.api.v2.transaction_filter.TransactionShape.{
   TRANSACTION_SHAPE_ACS_DELTA,
   TRANSACTION_SHAPE_LEDGER_EFFECTS,
 }
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
@@ -20,9 +21,24 @@ import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
 import com.digitalasset.canton.topology.{Party, PartyId}
 import monocle.macros.syntax.lens.*
+import org.scalatest.OptionValues.*
 
 trait DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBase {
+
   import DivulgenceIntegrationTest.*
+
+  // Whether to use Assign/Unassign (multi-synchronizer) or Create/Archive for the ACS import
+  def alphaMultiSynchronizerSupport: Boolean
+
+  // Inject this setting into the implicit scope for the helper class
+  implicit def alphaSupportImplicit: Boolean = alphaMultiSynchronizerSupport
+
+  override def environmentDefinition: EnvironmentDefinition =
+    super.environmentDefinition.addConfigTransforms(
+      ConfigTransforms.updateAllParticipantConfigs_(
+        _.focus(_.parameters.alphaMultiSynchronizerSupport).replace(alphaMultiSynchronizerSupport)
+      )
+    )
 
   "Divulgence should work as expected" in { implicit env =>
     import env.*
@@ -45,10 +61,9 @@ trait DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBa
         participant: LocalParticipantReference,
         contractId: String,
         party: Party,
-    ) =
-      participant.ledger_api.javaapi.event_query
-        .by_contract_id(contractId, Seq(party))
-        .hasCreated shouldBe true
+    ) = participant.ledger_api.javaapi.event_query
+      .by_contract_id(contractId, Seq(party))
+      .hasCreated shouldBe true
 
     def checkArchivedEventFor(
         participant: LocalParticipantReference,
@@ -66,14 +81,25 @@ trait DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBa
         participant: LocalParticipantReference,
         contractId: String,
         party: Party,
-    ) =
-      loggerFactory.assertLogs(
-        a[CommandFailure] shouldBe thrownBy {
-          participant.ledger_api.event_query
-            .by_contract_id(contractId, Seq(party))
-        },
-        _.commandFailureMessage should include("Contract events not found, or not visible."),
-      )
+    ) = loggerFactory.assertLogs(
+      a[CommandFailure] shouldBe thrownBy {
+        participant.ledger_api.event_query
+          .by_contract_id(contractId, Seq(party))
+      },
+      _.commandFailureMessage should include("Contract events not found, or not visible."),
+    )
+
+    // With enabled multi-synchronizer support, imported contracts appear as Assignments (hidden from GetEvents).
+    // Otherwise, they appear as "Created" events (visible).
+    def checkImportedEvent(
+        participant: LocalParticipantReference,
+        contractId: String,
+        party: Party,
+    ) = if (alphaMultiSynchronizerSupport) {
+      assertEventNotFound(participant, contractId, party)
+    } else {
+      checkCreatedEventFor(participant, contractId, party)
+    }
 
     // baseline Iou-s to test views / stakeholders / projections on the two participants, and ensure correct party migration baseline
     val (aliceStakeholderCreatedP1, _) = participant1.createIou(alice, alice)
@@ -274,7 +300,6 @@ trait DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBa
 
     val source = participant1
     val target = participant2
-
     val beforeActivationOffset = authorizeAliceWithTargetDisconnect(daId, source, target)
 
     // Replicate `alice` from `source` (`participant1`) to `target` (`participant2`)
@@ -286,7 +311,6 @@ trait DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBa
       acsSnapshotPath,
     )
     target.parties.import_party_acs(acsSnapshotPath)
-
     target.synchronizers.reconnect(daName)
 
     // participant1 alice
@@ -337,11 +361,22 @@ trait DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBa
       immediateDivulged2P2Import,
     )
     // event query
-    checkCreatedEventFor(participant2, aliceStakeholderCreatedP1.contractId, alice)
+    // Pure import (Created on P1, P2 never saw it):
+    // Multi-Sync: Hidden (Assignment). Legacy: Visible (Created).
+    checkImportedEvent(participant2, aliceStakeholderCreatedP1.contractId, alice)
+
+    // Shared import (Created on P1, Bob on P2 witnessed it):
+    // Visible in both modes because P2 has the event history from Bob.
     checkCreatedEventFor(participant2, aliceBobStakeholderCreatedP1.contractId, alice)
+
+    // Local events (Created on P2): Visible.
     checkCreatedEventFor(participant2, divulgeIouByExerciseP1.contractId, alice)
     assertEventNotFound(participant2, immediateDivulged1P1.contractId, alice)
-    checkCreatedEventFor(participant2, immediateDivulged2P1.contractId, alice)
+
+    // Divulged import (Created on P1, divulged to P2 Bob):
+    // Multi-Sync: Hidden (Divulgence != Stakeholder Create). Legacy: Visible.
+    checkImportedEvent(participant2, immediateDivulged2P1.contractId, alice)
+
     assertEventNotFound(participant2, immediateDivulged1ArchiveP1.contractId, alice)
     assertEventNotFound(participant2, bobStakeholderCreatedP2.contractId, alice)
     checkCreatedEventFor(participant2, aliceBobStakeholderCreatedP2.contractId, alice)
@@ -404,8 +439,10 @@ object DivulgenceIntegrationTest {
   case object Consumed extends EventType
   case object NonConsumed extends EventType
 
-  implicit class ParticipantSimpleStreamHelper(val participant: LocalParticipantReference)
-      extends AnyVal {
+  implicit class ParticipantSimpleStreamHelper(val participant: LocalParticipantReference)(implicit
+      val alphaMultiSynchronizerSupport: Boolean = false
+  ) {
+
     def acs(party: Party): Seq[OffsetCid] =
       participant.ledger_api.state.acs
         .active_contracts_of_party(party)
@@ -419,7 +456,7 @@ object DivulgenceIntegrationTest {
       updates(TRANSACTION_SHAPE_ACS_DELTA, Seq(party.partyId), beginOffsetExclusive)
 
     def acsDeltas(parties: Seq[Party]): Seq[(OffsetCid, EventType)] =
-      updates(TRANSACTION_SHAPE_ACS_DELTA, parties.map(_.partyId))
+      updates(TRANSACTION_SHAPE_ACS_DELTA, parties.map(_.partyId), 0L)
 
     def ledgerEffects(
         party: Party,
@@ -428,11 +465,19 @@ object DivulgenceIntegrationTest {
       updates(TRANSACTION_SHAPE_LEDGER_EFFECTS, Seq(party.partyId), beginOffsetExclusive)
 
     def eventsWithAcsDelta(parties: Seq[PartyId]): Seq[Event] =
-      updatesEvents(TRANSACTION_SHAPE_LEDGER_EFFECTS, parties).filter(_.event match {
-        case Event.Event.Created(created) => created.acsDelta
-        case Event.Event.Exercised(ex) => ex.acsDelta
-        case _ => false
-      })
+      updatesEvents(TRANSACTION_SHAPE_LEDGER_EFFECTS, parties, 0L).collect {
+        case TransactionWrapper(tx) =>
+          tx.events.filter(_.event match {
+            case Event.Event.Created(created) => created.acsDelta
+            case Event.Event.Exercised(ex) => ex.acsDelta
+            case _ => false
+          })
+        case assigned: UpdateService.AssignedWrapper =>
+          assigned.events.flatMap(_.createdEvent).collect {
+            case createdEvent if createdEvent.acsDelta =>
+              Event(Event.Event.Created(createdEvent))
+          }
+      }.flatten
 
     def createIou(payer: Party, owner: Party): (OffsetCid, Iou.Contract) = {
       val (contract, transaction, _) = IouSyntax.createIouComplete(participant)(payer, owner)
@@ -477,60 +522,71 @@ object DivulgenceIntegrationTest {
     private def updatesEvents(
         transactionShape: TransactionShape,
         parties: Seq[PartyId],
-        beginOffsetExclusive: Long = 0L,
-    ): Seq[Event] =
-      participant.ledger_api.updates
-        .updates(
-          updateFormat = UpdateFormat(
-            includeTransactions = Some(
-              TransactionFormat(
-                eventFormat = Some(
-                  EventFormat(
-                    filtersByParty = parties.map(party => party.toLf -> Filters(Nil)).toMap,
-                    filtersForAnyParty = if (parties.isEmpty) Some(Filters(Nil)) else None,
-                    verbose = false,
-                  )
-                ),
-                transactionShape = transactionShape,
-              )
-            ),
-            includeReassignments = None,
-            includeTopologyEvents = None,
-          ),
-          completeAfter = PositiveInt.tryCreate(1000000),
-          endOffsetInclusive = Some(participant.ledger_api.state.end()),
-          beginOffsetExclusive = beginOffsetExclusive,
+        beginOffsetExclusive: Long,
+    ): Seq[UpdateService.UpdateWrapper] = {
+      val reassignmentsFilter = if (alphaMultiSynchronizerSupport) {
+        Some(
+          EventFormat(
+            filtersByParty = parties.map(party => party.toLf -> Filters(Nil)).toMap,
+            filtersForAnyParty = if (parties.isEmpty) Some(Filters(Nil)) else None,
+            verbose = false,
+          )
         )
-        .collect { case TransactionWrapper(tx) =>
-          tx.events
-        }
-        .flatten
+      } else None
+
+      participant.ledger_api.updates.updates(
+        updateFormat = UpdateFormat(
+          includeTransactions = Some(
+            TransactionFormat(
+              eventFormat = Some(
+                EventFormat(
+                  filtersByParty = parties.map(party => party.toLf -> Filters(Nil)).toMap,
+                  filtersForAnyParty = if (parties.isEmpty) Some(Filters(Nil)) else None,
+                  verbose = false,
+                )
+              ),
+              transactionShape = transactionShape,
+            )
+          ),
+          includeReassignments = reassignmentsFilter,
+          includeTopologyEvents = None,
+        ),
+        completeAfter = PositiveInt.tryCreate(1000000),
+        endOffsetInclusive = Some(participant.ledger_api.state.end()),
+        beginOffsetExclusive = beginOffsetExclusive,
+      )
+    }
 
     private def updates(
         transactionShape: TransactionShape,
         parties: Seq[PartyId],
-        beginOffsetExclusive: Long = 0L,
+        beginOffsetExclusive: Long,
     ): Seq[(OffsetCid, EventType)] =
-      updatesEvents(
-        transactionShape = transactionShape,
-        parties = parties,
-        beginOffsetExclusive = beginOffsetExclusive,
-      )
-        .map(_.event)
-        .collect {
-          case Event.Event.Created(event) => OffsetCid(event.offset, event.contractId) -> Created
-          case Event.Event.Archived(event) => OffsetCid(event.offset, event.contractId) -> Consumed
-          case Event.Event.Exercised(event) if event.consuming =>
-            OffsetCid(event.offset, event.contractId) -> Consumed
-          case Event.Event.Exercised(event) if !event.consuming =>
-            OffsetCid(event.offset, event.contractId) -> NonConsumed
-        }
+      updatesEvents(transactionShape, parties, beginOffsetExclusive).collect {
+        case TransactionWrapper(tx) =>
+          tx.events.map(_.event).collect {
+            case Event.Event.Created(event) =>
+              OffsetCid(event.offset, event.contractId) -> Created
+            case Event.Event.Archived(event) =>
+              OffsetCid(event.offset, event.contractId) -> Consumed
+            case Event.Event.Exercised(event) if event.consuming =>
+              OffsetCid(event.offset, event.contractId) -> Consumed
+            case Event.Event.Exercised(event) if !event.consuming =>
+              OffsetCid(event.offset, event.contractId) -> NonConsumed
+          }
+        case assigned: UpdateService.AssignedWrapper =>
+          assigned.events.map { event =>
+            OffsetCid(assigned.reassignment.offset, event.createdEvent.value.contractId) -> Created
+          }
+        case unassigned: UpdateService.UnassignedWrapper =>
+          unassigned.events.map { event =>
+            OffsetCid(unassigned.reassignment.offset, event.contractId) -> Consumed
+          }
+      }.flatten
   }
 }
 
-class DivulgenceIntegrationTestWithCache extends DivulgenceIntegrationTest
-
-class DivulgenceIntegrationTestWithoutCache extends DivulgenceIntegrationTest {
+trait DivulgenceIntegrationTestWithoutCache extends DivulgenceIntegrationTest {
   override def environmentDefinition: EnvironmentDefinition =
     super.environmentDefinition.addConfigTransforms(
       ConfigTransforms.updateAllParticipantConfigs { (_: String, c: ParticipantNodeConfig) =>
@@ -547,4 +603,21 @@ class DivulgenceIntegrationTestWithoutCache extends DivulgenceIntegrationTest {
           .replace(0)
       }
     )
+}
+
+class DivulgenceIntegrationTestReassignmentWithCache extends DivulgenceIntegrationTest {
+  override def alphaMultiSynchronizerSupport: Boolean = true
+}
+
+class DivulgenceIntegrationTestLegacyWithCache extends DivulgenceIntegrationTest {
+  override def alphaMultiSynchronizerSupport: Boolean = false
+}
+
+class DivulgenceIntegrationTestReassignmentWithoutCache
+    extends DivulgenceIntegrationTestWithoutCache {
+  override def alphaMultiSynchronizerSupport: Boolean = true
+}
+
+class DivulgenceIntegrationTestLegacyWithoutCache extends DivulgenceIntegrationTestWithoutCache {
+  override def alphaMultiSynchronizerSupport: Boolean = false
 }

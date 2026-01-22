@@ -108,6 +108,7 @@ private[participant] object ParticipantCommon {
       representativePackageIdOverride: RepresentativePackageIdOverride,
       sync: CantonSyncService,
       workflowIdPrefix: String,
+      alphaMultiSynchronizerSupport: Boolean,
   )(implicit
       ec: ExecutionContext,
       elc: ErrorLoggingContext,
@@ -119,6 +120,7 @@ private[participant] object ParticipantCommon {
       workflowIdPrefix,
       contractImportMode,
       representativePackageIdOverride,
+      alphaMultiSynchronizerSupport,
     ).runImport(acsSnapshot, excludedStakeholders)
 
   private final class AcsImporter(
@@ -127,6 +129,7 @@ private[participant] object ParticipantCommon {
       workflowIdPrefix: String,
       contractImportMode: ContractImportMode,
       representativePackageIdOverride: RepresentativePackageIdOverride,
+      alphaMultiSynchronizerSupport: Boolean,
   )(implicit
       ec: ExecutionContext,
       elc: ErrorLoggingContext,
@@ -151,19 +154,24 @@ private[participant] object ParticipantCommon {
           )
       }
 
-      importAcsContracts(contractsE, contractImportMode)
+      importAcsContracts(contractsE, contractImportMode, alphaMultiSynchronizerSupport)
     }
 
     private def importAcsContracts(
         contracts: Either[String, List[RepairContract]],
         contractImportMode: ContractImportMode,
+        alphaMultiSynchronizerSupport: Boolean,
     ): Future[Unit] = {
       val resultET = for {
         repairContracts <- contracts
           .toEitherT[FutureUnlessShutdown]
-          .ensure( // TODO(#23073) - Remove this restriction once #27325 has been re-implemented
-            "Found at least one contract with a non-zero reassignment counter. ACS import does not yet support it."
-          )(_.forall(_.reassignmentCounter == ReassignmentCounter.Genesis))
+          .ensure(
+            "Found at least one contract with a non-zero reassignment counter. ACS import does not yet support it unless `alpha-multi-synchronizer-support` is enabled."
+          )(contracts =>
+            alphaMultiSynchronizerSupport || contracts.forall(
+              _.reassignmentCounter == ReassignmentCounter.Genesis
+            )
+          )
 
         _ <- repairContracts.groupBy(_.synchronizerId).toSeq.parTraverse_ {
           case (synchronizerId, contracts) =>

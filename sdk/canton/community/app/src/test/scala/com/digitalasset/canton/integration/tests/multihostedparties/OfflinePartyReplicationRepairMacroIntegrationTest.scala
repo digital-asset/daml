@@ -13,8 +13,6 @@ import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.tests.multihostedparties.PartyActivationFlow.authorizeOnly
 import com.digitalasset.canton.integration.util.AcsInspection
 import com.digitalasset.canton.integration.{ConfigTransforms, EnvironmentDefinition}
-import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
-import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
 
@@ -116,38 +114,6 @@ sealed trait OfflinePartyReplicationRepairMacroIntegrationTest
       }
   }
 
-  private var reassignedContractCid: LfContractId = _
-
-  // TODO(#23073) - Un-ignore this test once #27325 has been re-implemented
-  "setup our test scenario: reassign Alice's active contract to another synchronizer, and back again to increment its reassignment counter" ignore {
-    implicit env =>
-      import env.*
-
-      reassignedContractCid = findIOU(participant1, alice, bob).id.toLf
-
-      participant1.synchronizers.connect_local(sequencer4, alias = acmeName)
-      participant2.synchronizers.connect_local(sequencer4, alias = acmeName)
-
-      participant1.testing.fetch_synchronizer_times()
-      participant2.testing.fetch_synchronizer_times()
-
-      participant1.ledger_api.commands.submit_reassign(
-        alice,
-        Seq(reassignedContractCid),
-        daId,
-        acmeId,
-        submissionId = "some-submission-id",
-      )
-
-      participant1.ledger_api.commands.submit_reassign(
-        alice,
-        Seq(reassignedContractCid),
-        acmeId,
-        daId,
-        submissionId = "some-submission-id",
-      )
-  }
-
   "replicate alice from p1 to p3, step 1" in { implicit env =>
     import env.*
 
@@ -210,20 +176,6 @@ sealed trait OfflinePartyReplicationRepairMacroIntegrationTest
     val contracts = participant3.ledger_api.state.acs.of_party(alice)
 
     contracts should have length 6
-
-    /* TODO(#23073) - Un-comment this test part once #27325 has been re-implemented
-    val acs = participant3.underlying.value.sync.stateInspection
-      .findAcs(daName)
-      .valueOrFail(s"get ACS on $daName for $participant3")
-      .futureValueUS
-
-    val (_, counter) =
-      acs.get(reassignedContractCid).valueOrFail("get contract with 2 reassignments")
-
-    withClue("Reassignment counter should be two after two reassignments") {
-      counter shouldBe ReassignmentCounter(2)
-    }
-     */
 
     val transfer = findIOU(participant3, alice, _.data.owner == alice.toProtoPrimitive)
 

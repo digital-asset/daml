@@ -7,7 +7,7 @@ import com.daml.metrics.api.{HistogramInventory, MetricName}
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.PositiveDouble
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.metrics.MetricsUtils
+import com.digitalasset.canton.metrics.{MetricValue, MetricsUtils}
 import com.digitalasset.canton.sequencing.protocol.SubmissionRequestType
 import com.digitalasset.canton.sequencing.protocol.SubmissionRequestType.{
   ConfirmationRequest,
@@ -547,6 +547,156 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest with M
       tpsCap.addEvent(clock.now, m2, eventSize)
       tpsCap.getMemberUsage(m1) shouldBe empty
       tpsCap.getMemberUsage(m2).map(_.count) should contain(1)
+    }
+
+    "track per-member rejection metrics when individual caps are exceeded" in {
+      val observationPeriodSeconds = 1
+      val clock = new SimClock(CantonTimestamp.Epoch, loggerFactory)
+      val tpsCap = new IndividualBlockSequencerThroughputCap(
+        observationPeriodSeconds,
+        createIndividualConfig(),
+        SubmissionRequestType.ConfirmationRequest,
+        clock,
+        sequencerMetrics,
+        loggerFactory = loggerFactory,
+      )
+      val eventSize: Long = 128
+
+      tpsCap.addEvent(clock.now, m1, eventSize)
+      clock.advance(
+        Duration.ofSeconds(observationPeriodSeconds.toLong).plus(Duration.ofNanos(1000))
+      )
+      tpsCap.addEvent(clock.now, m1, eventSize)
+
+      // Exceed the per-client TPS cap (1.0) for m1
+      tpsCap.addEvent(clock.now, m1, eventSize)
+      tpsCap.shouldRejectTransaction(m1, 0).isLeft shouldBe true
+
+      // Submit another event to bring # of rejections to 2
+      tpsCap.addEvent(clock.now, m1, eventSize)
+      tpsCap.shouldRejectTransaction(m1, 0).isLeft shouldBe true
+
+      // Verify that m1's rejection is recorded with "per_member" label and count
+      val metric = "confirmation-request.rejections"
+      val rejectionMetrics = getMetricValues[MetricValue.LongPoint](metric)
+      rejectionMetrics should not be empty
+      val m1Rejections = rejectionMetrics.filter { metric =>
+        metric.attributes.get("member").contains(m1.toProtoPrimitive) &&
+        metric.attributes.get("rejection_type").contains("per_member")
+      }
+      m1Rejections should not be empty
+      m1Rejections.head.value shouldBe 2L
+    }
+
+    "track global rejection metrics when throttled rate is exceeded" in {
+      val observationPeriodSeconds = 1
+      val clock = new SimClock(CantonTimestamp.Epoch, loggerFactory)
+      val tpsCap = new IndividualBlockSequencerThroughputCap(
+        observationPeriodSeconds,
+        createIndividualConfig(perClientTpsCap = defaultGlobalTpsCap * 0.4),
+        SubmissionRequestType.ConfirmationRequest,
+        clock,
+        sequencerMetrics,
+        loggerFactory = loggerFactory,
+      )
+      val eventSize: Long = 128
+
+      // Initialize the cap logic
+      tpsCap.addEvent(clock.now, m1, eventSize)
+      clock.advance(
+        Duration.ofSeconds(observationPeriodSeconds.toLong).plus(Duration.ofMillis(1))
+      )
+
+      // Push to highest threshold level (90%+) to trigger global throttling
+      val rounds = 3
+      (1 to rounds).foreach { _ =>
+        tpsCap.addEvent(clock.now, m1, eventSize)
+        tpsCap.addEvent(clock.now, m2, eventSize)
+        tpsCap.addEvent(clock.now, m3, eventSize)
+        clock.advance(Duration.ofMillis(1))
+      }
+
+      // m1 should be throttled due to global cap, not per-member cap
+      val rejection1 = tpsCap.shouldRejectTransaction(m1, 0)
+      rejection1.isLeft shouldBe true
+      rejection1.left.getOrElse("") should include("throttled amount")
+
+      // Verify the rejection metric is tracked
+      val metric = "confirmation-request.rejections"
+      val rejectionMetrics = getMetricValues[MetricValue.LongPoint](metric)
+      rejectionMetrics should not be empty
+
+      // Check that m1's rejection is recorded with "global" label
+      val m1GlobalRejections = rejectionMetrics.filter { metric =>
+        metric.attributes.get("member").contains(m1.toProtoPrimitive) &&
+        metric.attributes.get("rejection_type").contains("global")
+      }
+      m1GlobalRejections should not be empty
+      m1GlobalRejections.head.value shouldBe 1L
+    }
+
+    "track rejection metrics independently for multiple members" in {
+      val observationPeriodSeconds = 1
+      val clock = new SimClock(CantonTimestamp.Epoch, loggerFactory)
+      val tpsCap = new IndividualBlockSequencerThroughputCap(
+        observationPeriodSeconds,
+        createIndividualConfig(),
+        SubmissionRequestType.ConfirmationRequest,
+        clock,
+        sequencerMetrics,
+        loggerFactory = loggerFactory,
+      )
+      val eventSize: Long = 128
+
+      // Initialize the cap logic
+      tpsCap.addEvent(clock.now, m1, eventSize)
+      tpsCap.addEvent(clock.now, m2, eventSize)
+      clock.advance(
+        Duration.ofSeconds(observationPeriodSeconds.toLong).plus(Duration.ofNanos(1000))
+      )
+      tpsCap.addEvent(clock.now, m1, eventSize)
+      tpsCap.addEvent(clock.now, m2, eventSize)
+
+      // Exceed per-client TPS cap (1.0) for m1 - trigger 2 rejections for m1
+      tpsCap.addEvent(clock.now, m1, eventSize)
+      tpsCap.shouldRejectTransaction(m1, 0).isLeft shouldBe true
+      tpsCap.shouldRejectTransaction(m1, 0).isLeft shouldBe true
+
+      // Exceed per-client TPS cap (1.0) for m2 - trigger 3 rejections for m2
+      tpsCap.addEvent(clock.now, m2, eventSize)
+      tpsCap.shouldRejectTransaction(m2, 0).isLeft shouldBe true
+      tpsCap.shouldRejectTransaction(m2, 0).isLeft shouldBe true
+      tpsCap.shouldRejectTransaction(m2, 0).isLeft shouldBe true
+
+      // m3 should not be rejected (no events added for m3)
+      tpsCap.shouldRejectTransaction(m3, 0) shouldBe Right(())
+
+      // Verify rejection metrics are tracked independently
+      val metricName = "confirmation-request.rejections"
+      val rejectionMetrics = getMetricValues[MetricValue.LongPoint](metricName)
+      rejectionMetrics should not be empty
+
+      // Check m1's rejection count (should be 2)
+      val m1Rejections = rejectionMetrics.filter { metric =>
+        metric.attributes.get("member").contains(m1.toProtoPrimitive) &&
+        metric.attributes.get("rejection_type").contains("per_member")
+      }
+      m1Rejections should have size 1
+      m1Rejections.head.value shouldBe 2L
+
+      // Check m2's rejection count (should be 3)
+      val m2Rejections = rejectionMetrics.filter { metric =>
+        metric.attributes.get("member").contains(m2.toProtoPrimitive) &&
+        metric.attributes.get("rejection_type").contains("per_member")
+      }
+      m2Rejections should have size 1
+      m2Rejections.head.value shouldBe 3L
+
+      // Check that m3 has no rejection metrics
+      val m3Rejections = rejectionMetrics.filter { metric =>
+        metric.attributes.get("member").contains(m3.toProtoPrimitive)
+      }
+      m3Rejections shouldBe empty
     }
   }
 }

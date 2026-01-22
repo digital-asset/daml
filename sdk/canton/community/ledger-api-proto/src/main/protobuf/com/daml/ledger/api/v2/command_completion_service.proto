@@ -48,6 +48,7 @@ message CompletionStreamRequest {
   // If not set the ledger uses the ledger begin offset instead.
   // If specified, it must be a valid absolute offset (positive integer) or zero (ledger begin offset).
   // If the ledger has been pruned, this parameter must be specified and greater than the pruning offset.
+  // Optional
   int64 begin_exclusive = 3;
 }
 

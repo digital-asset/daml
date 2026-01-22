@@ -587,10 +587,7 @@ private final class LedgerServicesJson(
       )
 
     override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
-      for {
-        jsRequest <- protocolConverters.AllocatePartyRequest.toJson(request)
-        resp <- clientCall(JsPartyManagementService.allocatePartyEndpoint, jsRequest)
-      } yield resp
+      clientCall(JsPartyManagementService.allocatePartyEndpoint, request)
 
     override def updatePartyDetails(
         request: UpdatePartyDetailsRequest

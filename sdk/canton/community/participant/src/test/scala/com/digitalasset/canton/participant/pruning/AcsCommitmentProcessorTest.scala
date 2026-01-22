@@ -360,6 +360,11 @@ sealed trait AcsCommitmentProcessorBaseTest
     ParticipantTestMetrics.synchronizer.commitments.largestDistinguishedCounterParticipantLatency
       .updateValue(0)
     ParticipantTestMetrics.synchronizer.commitments.largestCounterParticipantLatency.updateValue(0)
+    ParticipantTestMetrics.synchronizer.commitments.lastIncomingReceived.updateValue(0)
+    ParticipantTestMetrics.synchronizer.commitments.lastIncomingProcessed.updateValue(0)
+    ParticipantTestMetrics.synchronizer.commitments.lastLocallyCompleted.updateValue(0)
+    ParticipantTestMetrics.synchronizer.commitments.lastLocallyCheckpointed.updateValue(0)
+
     val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
 
     val acsCommitmentProcessor = AcsCommitmentProcessor(
@@ -1310,6 +1315,12 @@ class AcsCommitmentProcessorTest
         computed <- store.searchComputedBetween(CantonTimestamp.Epoch, timeProofs.lastOption.value)
         received <- store.searchReceivedBetween(CantonTimestamp.Epoch, timeProofs.lastOption.value)
       } yield {
+        import ParticipantTestMetrics.synchronizer.commitments
+        commitments.lastIncomingReceived.getValue shouldBe ts(10).toMicros
+        commitments.lastIncomingProcessed.getValue shouldBe ts(10).toMicros
+        commitments.lastLocallyCompleted.getValue shouldBe ts(15).toMicros
+        commitments.lastLocallyCheckpointed.getValue shouldBe ts(15).toMicros
+
         sequencerClient.requests.size shouldBe 2
         assert(computed.size === 2)
         assert(received.size === 2)
@@ -3714,9 +3725,7 @@ class AcsCommitmentProcessorTest
               changes.foreach { case (recordTime, change) =>
                 processor.publish(recordTime, change)
               }
-              for {
-                _ <- processor.flush()
-              } yield ()
+              processor.flush()
             },
             // there should be two mismatches
             // however, since buffered remote commitments are deleted asynchronously, it can happen that they
@@ -3757,6 +3766,12 @@ class AcsCommitmentProcessorTest
           assert(received.size === 5)
           // cannot prune past the mismatch 25-30, because there are no commitments that match past this point
           assert(outstanding.contains(toc(25).timestamp))
+
+          import ParticipantTestMetrics.synchronizer.commitments
+          commitments.lastIncomingReceived.getValue shouldBe ts(30).toMicros
+          commitments.lastIncomingProcessed.getValue shouldBe ts(30).toMicros
+          commitments.lastLocallyCompleted.getValue shouldBe ts(55).toMicros
+          commitments.lastLocallyCheckpointed.getValue shouldBe ts(55).toMicros
         })
       }
 

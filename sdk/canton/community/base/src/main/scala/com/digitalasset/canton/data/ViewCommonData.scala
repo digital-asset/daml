@@ -147,6 +147,7 @@ object ViewCommonData
       rpv,
       Some(bytes),
     )
+
 }
 
 /** Stores the necessary information necessary to confirm a view.

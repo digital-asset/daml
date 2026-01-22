@@ -118,7 +118,6 @@ object V2Routes {
     val partyManagementService =
       new JsPartyManagementService(
         ledgerClient.partyManagementClient,
-        protocolConverters,
         requestLogger,
         loggerFactory,
       )

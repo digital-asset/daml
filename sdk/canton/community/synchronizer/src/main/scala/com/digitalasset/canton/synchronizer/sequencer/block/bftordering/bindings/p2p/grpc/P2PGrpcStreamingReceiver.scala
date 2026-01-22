@@ -14,7 +14,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcStreamingReceiver.AuthenticationTimeout
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.abort
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.{
+  abort,
+  objIdC,
+}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -37,6 +40,8 @@ abstract class P2PGrpcStreamingReceiver(
     extends StreamObserver[BftOrderingMessage]
     with NamedLogging
     with AutoCloseable {
+
+  override def toString: String = objIdC(this)
 
   def shutdown(): Unit
 

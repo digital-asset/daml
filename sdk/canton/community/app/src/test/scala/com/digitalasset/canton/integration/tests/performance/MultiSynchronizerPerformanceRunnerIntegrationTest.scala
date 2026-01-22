@@ -17,7 +17,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
-import com.digitalasset.canton.performance.PerformanceRunner
+import com.digitalasset.canton.performance.{PerformanceRunner, RateSettings}
 import org.scalatest.time.{Millis, Minutes, Span}
 
 import scala.concurrent.duration.DurationInt
@@ -79,6 +79,7 @@ class MultiSynchronizerPerformanceRunnerIntegrationTest
         totalCycles = 40,
         otherSynchronizers = Seq(acmeId),
         otherSynchronizersRatio = 0.9,
+        rateSettings = RateSettings.defaults,
       )
 
     val runnerP1 =
@@ -117,7 +118,6 @@ class MultiSynchronizerPerformanceRunnerIntegrationTest
     val traderUnassignments = participant1.ledger_api.updates
       .reassignments(
         partyIds = Set(trader),
-        filterTemplates = Seq.empty,
         completeAfter = 100,
         beginOffsetExclusive = ledgerEndInitial,
       )

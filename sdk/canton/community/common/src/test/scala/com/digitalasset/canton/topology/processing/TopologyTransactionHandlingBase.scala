@@ -13,6 +13,7 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyChangeOp,
   TopologyMapping,
 }
+import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
@@ -23,7 +24,8 @@ import org.scalatest.wordspec.AsyncWordSpec
 abstract class TopologyTransactionHandlingBase
     extends AsyncWordSpec
     with BaseTest
-    with HasExecutionContext {
+    with HasExecutionContext
+    with HasTestCloseContext {
 
   protected val crypto = new SymbolicPureCrypto()
   object Factory extends TopologyTransactionTestFactory(loggerFactory, parallelExecutionContext)

@@ -496,6 +496,7 @@ class GrpcPartyManagementService(
               representativePackageIdOverride = representativePackageIdOverride,
               sync = sync,
               workflowIdPrefix = workflowIdPrefix,
+              alphaMultiSynchronizerSupport = parameters.alphaMultiSynchronizerSupport,
             )
           )
         } yield ()

@@ -216,7 +216,7 @@ abstract sealed class LedgerIntegrityIntegrationTest
       val remove_party12_fromSignatories: GenTransactionTree => GenTransactionTree =
         GenTransactionTree.rootViewsUnsafe
           .andThen(firstElement[TransactionView])
-          .andThen(TransactionView.viewParticipantDataUnsafe)
+          .andThen(TransactionView.Optics.viewParticipantDataUnsafe)
           .andThen(MerkleTree.tryUnwrap[ViewParticipantData])
           .andThen(GenLens[ViewParticipantData](_.coreInputs))
           .modify(_.map {

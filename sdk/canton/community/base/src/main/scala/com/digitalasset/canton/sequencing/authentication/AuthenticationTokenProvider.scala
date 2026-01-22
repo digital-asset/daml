@@ -29,6 +29,7 @@ import com.digitalasset.canton.sequencer.api.v30.SequencerAuthentication.{
   LogoutRequest,
 }
 import com.digitalasset.canton.sequencer.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub
+import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenProvider.unavailableDueToChannelShutdown
 import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenWithExpiry
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
@@ -123,6 +124,11 @@ class AuthenticationTokenProvider(
             .toEitherT[FutureUnlessShutdown]
           token <- authenticate(endpoint, authenticationClient, nonce, challenge.fingerprints)
         } yield token).value
+      }.map {
+        case Left(status) if unavailableDueToChannelShutdown(status) =>
+          // Produce an exception so `exceptionRetryPolicy` can detect that the channel is shut down and stop retrying
+          throw new StatusRuntimeException(status)
+        case s => s
       }
 
     val operation = "generate sequencer authentication token"
@@ -277,18 +283,16 @@ class AuthenticationTokenProvider(
     } yield ()
 }
 
-object AuthenticationTokenProvider {
-  private val exceptionRetryPolicy: ExceptionRetryPolicy =
+private object AuthenticationTokenProvider {
+
+  val exceptionRetryPolicy: ExceptionRetryPolicy =
     new ExceptionRetryPolicy {
       override protected def determineExceptionErrorKind(
           exception: Throwable,
           logger: TracedLogger,
       )(implicit tc: TraceContext): ErrorKind =
         exception match {
-          case ex: StatusRuntimeException
-              if ex.getStatus.getCode == Status.Code.UNAVAILABLE &&
-                (ex.getStatus.getDescription.contains("Channel shutdown invoked") ||
-                  ex.getStatus.getDescription.contains("Channel shutdownNow invoked")) =>
+          case ex: StatusRuntimeException if unavailableDueToChannelShutdown(ex.getStatus) =>
             FatalErrorKind
 
           // Ideally we would like to retry only on retryable gRPC status codes (such as `UNAVAILABLE`),
@@ -298,4 +302,9 @@ object AuthenticationTokenProvider {
           case _ => FatalErrorKind
         }
     }
+
+  def unavailableDueToChannelShutdown(status: Status): Boolean =
+    status.getCode == Status.Code.UNAVAILABLE &&
+      (status.getDescription.contains("Channel shutdown invoked") ||
+        status.getDescription.contains("Channel shutdownNow invoked"))
 }

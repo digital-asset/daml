@@ -346,10 +346,4 @@ private[topology] trait NamespaceChaos extends TopologyOperations with Matchers 
     s"{${namespaceDefinition.threshold.value},(${getOwnerNodes(namespaceDefinition).map(_.name).mkString(",")})}"
 }
 
-object NamespaceChaos extends TopologyOperationsCompanion {
-  override lazy val acceptableLogEntries: Seq[String] = Seq(
-  )
-
-  override lazy val acceptableNonRetryableLogEntries: Seq[String] = Seq(
-  )
-}
+object NamespaceChaos extends TopologyOperationsCompanion {}

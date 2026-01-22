@@ -172,23 +172,19 @@ class PackageOpsImpl(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] =
-    vettingExecutionQueue.executeEUS(
-      for {
-        _ <- modifyVettedPackages(psid, synchronizeVetting, ForceFlags.none) { existingPackages =>
-          val existingAndUpdatedPackages = existingPackages.map { existingVettedPackage =>
-            // if a package to vet has been previously vetted, make sure it has no time bounds
-            if (packages.contains(existingVettedPackage.packageId))
-              existingVettedPackage.asUnbounded
-            else existingVettedPackage
-          }
-          // now determine the actually new packages that need to be vetted
-          val actuallyNewPackages =
-            VettedPackage.unbounded(packages).toSet -- existingAndUpdatedPackages
-          existingAndUpdatedPackages ++ actuallyNewPackages
+    modifyVettedPackages(psid, synchronizeVetting, ForceFlags.none, "vet packages") {
+      existingPackages =>
+        val existingAndUpdatedPackages = existingPackages.map { existingVettedPackage =>
+          // if a package to vet has been previously vetted, make sure it has no time bounds
+          if (packages.contains(existingVettedPackage.packageId))
+            existingVettedPackage.asUnbounded
+          else existingVettedPackage
         }
-      } yield (),
-      "vet packages",
-    )
+        // now determine the actually new packages that need to be vetted
+        val actuallyNewPackages =
+          VettedPackage.unbounded(packages).toSet -- existingAndUpdatedPackages
+        existingAndUpdatedPackages ++ actuallyNewPackages
+    }.void
 
   override def revokeVettingForPackages(
       mainPkg: LfPackageId,
@@ -196,19 +192,15 @@ class PackageOpsImpl(
       darDescriptor: DarDescription,
       psid: PhysicalSynchronizerId,
       forceFlags: ForceFlags,
-  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, RpcError, Unit] =
-    vettingExecutionQueue.executeEUS(
-      {
-        val packagesToUnvet = packages.toSet
-
-        modifyVettedPackages(
-          psid,
-          PackageVettingSynchronization.NoSync,
-          forceFlags,
-        )(_.filterNot(vp => packagesToUnvet(vp.packageId))).leftWiden[RpcError].void
-      },
-      "revoke vetting",
-    )
+  )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, RpcError, Unit] = {
+    val packagesToUnvet = packages.toSet
+    modifyVettedPackages(
+      psid = psid,
+      synchronizeVetting = PackageVettingSynchronization.NoSync,
+      forceFlags = forceFlags,
+      operationName = "revoke vetting",
+    )(_.filterNot(vp => packagesToUnvet(vp.packageId))).leftWiden[RpcError].void
+  }
 
   override def updateVettedPackages(
       targetStates: Seq[SinglePackageTargetVetting[PackageId]],
@@ -223,78 +215,32 @@ class PackageOpsImpl(
     FutureUnlessShutdown,
     ParticipantTopologyManagerError,
     (Option[ParticipantVettedPackages], Option[ParticipantVettedPackages]),
-  ] =
-    vettingExecutionQueue.executeEUS(
-      {
-        val targetStatesMap: Map[PackageId, SinglePackageTargetVetting[PackageId]] =
-          targetStates.map((x: SinglePackageTargetVetting[PackageId]) => x.ref -> x).toMap
+  ] = {
+    val targetStatesMap: Map[PackageId, SinglePackageTargetVetting[PackageId]] =
+      targetStates.map((x: SinglePackageTargetVetting[PackageId]) => x.ref -> x).toMap
 
-        def toChange(previousState: VettedPackage): VettedPackageChange =
-          targetStatesMap.get(previousState.packageId) match {
-            case None => VettedPackageChange.Unchanged(previousState)
-            case Some(target) =>
-              VettedPackageChange.Changed(Some(previousState), target.toVettedPackage)
-          }
+    def toNextState(previousState: VettedPackage) =
+      targetStatesMap.get(previousState.packageId) match {
+        case None => Some(previousState)
+        case Some(target) => target.toVettedPackage
+      }
 
-        val forceFlags = updateForceFlags.map(_.toForceFlags).getOrElse(ForceFlags.none)
+    val forceFlags = updateForceFlags.map(_.toForceFlags).getOrElse(ForceFlags.none)
 
-        for {
-          topologyManager <- topologyManagerLookup.byPhysicalSynchronizerId(psid)
-          currentPackagesAndSerial <-
-            getVettedPackageForSynchronizerAndParticipant(topologyManager, participantId)
-          currentPackages = currentPackagesAndSerial.map(_.packages).getOrElse(Seq.empty)
-          currentSerial = currentPackagesAndSerial.map(_.serial)
-          _ <- EitherT.fromEither[FutureUnlessShutdown](
-            checkCurrentSerial(currentSerial, expectedSerial = expectedTopologySerial)
-          )
-          notInCurrentPackages = targetStatesMap -- currentPackages.map(_.packageId)
-          updateInstructions =
-            currentPackages.map(toChange) ++ notInCurrentPackages.values.map(
-              _.toFreshVettedPackageChange
-            )
-          newAllPackages = updateInstructions.flatMap(_.newState)
-          newPackagesAndSerial <-
-            if (dryRunSnapshot.isDefined) {
-              topologyManager
-                .validatePackageVetting(
-                  currentlyVettedPackages = currentPackages.map(_.packageId).toSet,
-                  nextPackageIds = newAllPackages.map(_.packageId).toSet,
-                  dryRunSnapshot = dryRunSnapshot,
-                  forceFlags = forceFlags,
-                )
-                .leftMap[ParticipantTopologyManagerError](IdentityManagerParentError(_))
-                .map { _ =>
-                  if (newAllPackages == currentPackages) currentPackagesAndSerial
-                  else {
-                    val nextSerial = currentSerial.map(_.increment).getOrElse(PositiveInt.one)
-                    Some(
-                      ParticipantVettedPackages(
-                        newAllPackages,
-                        participantId,
-                        psid.logical,
-                        nextSerial,
-                      )
-                    )
-                  }
-                }
-            } else {
-              // Fails if a new topology change is submitted between getVettedPackages
-              // above and this call to setVettedPackages, since currentSerial will no
-              // longer be valid.
-              setVettedPackages(
-                topologyManager,
-                currentPackagesAndSerial,
-                newAllPackages,
-                psid,
-                synchronizeVetting,
-                forceFlags = forceFlags,
-              )
-                .map(_.orElse(currentPackagesAndSerial))
-            }
-        } yield (currentPackagesAndSerial, newPackagesAndSerial)
-      },
-      "update vetted packages",
-    )
+    modifyVettedPackages(
+      psid = psid,
+      synchronizeVetting = synchronizeVetting,
+      forceFlags = forceFlags,
+      operationName = "update vetted packages",
+      dryRunSnapshot = dryRunSnapshot,
+      expectedTopologySerial = expectedTopologySerial,
+    ) { currentVettedPackages =>
+      val notInCurrentPackages = targetStatesMap -- currentVettedPackages.map(_.packageId)
+      currentVettedPackages.flatMap(toNextState) ++ notInCurrentPackages.values.flatMap(
+        _.toVettedPackage
+      )
+    }
+  }
 
   override def getVettedPackages(
       opts: ListVettedPackagesOpts
@@ -307,9 +253,7 @@ class PackageOpsImpl(
       opts.pageToken.sortAndFilterSynchronizers(synchronizers, opts.participants)
 
     pageSynchronizers
-      .foldM(
-        (opts.pageSize.value, Seq.empty[ParticipantVettedPackages])
-      ) {
+      .foldM(opts.pageSize.value -> Seq.empty[ParticipantVettedPackages]) {
         case (
               state @ (remainingPageSize, resultsSoFar),
               (synchronizerId, participantStartExclusive, participantsFilter),
@@ -334,19 +278,6 @@ class PackageOpsImpl(
       .map(_._2)
   }
 
-  private def getVettedPackageForSynchronizerAndParticipant(
-      topologyManager: SynchronizerTopologyManager,
-      participantId: ParticipantId,
-  )(implicit
-      tc: TraceContext
-  ): EitherT[
-    FutureUnlessShutdown,
-    ParticipantTopologyManagerError,
-    Option[ParticipantVettedPackages],
-  ] =
-    getVettedPackagesForSynchronizer(topologyManager, Some(NonEmpty(Set, participantId)), 1)
-      .map(_.headOption)
-
   private def getVettedPackagesForSynchronizer(
       topologyManager: SynchronizerTopologyManager,
       participantsFilter: Option[NonEmpty[Set[ParticipantId]]],
@@ -358,8 +289,8 @@ class PackageOpsImpl(
     FutureUnlessShutdown,
     ParticipantTopologyManagerError,
     Seq[ParticipantVettedPackages],
-  ] =
-    EitherT.right(
+  ] = for {
+    vettedPackages <- EitherT.right(
       synchronizeWithClosing(functionFullName)(
         topologyManager.store
           .findPositiveTransactions(
@@ -371,24 +302,22 @@ class PackageOpsImpl(
             filterNamespace = None,
             pagination = Some((participantStartExclusive.map(_.uid), pageLimit)),
           )
-          .map { result =>
-            val transactions = result
-              .collectOfMapping[VettedPackages]
-              .result
-
-            transactions
-              .map { currentMapping =>
-                ParticipantVettedPackages(
-                  currentMapping.mapping.packages,
-                  currentMapping.mapping.participantId,
-                  topologyManager.psid.logical,
-                  currentMapping.serial,
-                )
-              }
-              .sorted(PageToken.orderingVettedPackages)
-          }
       )
     )
+
+    transactions = vettedPackages.collectOfMapping[VettedPackages].result
+
+    participantVettedPackages = transactions
+      .map { currentMapping =>
+        ParticipantVettedPackages(
+          currentMapping.mapping.packages,
+          currentMapping.mapping.participantId,
+          topologyManager.psid.logical,
+          currentMapping.serial,
+        )
+      }
+      .sorted(PageToken.orderingVettedPackages)
+  } yield participantVettedPackages
 
   private def checkCurrentSerial(
       currentSerial: Option[PositiveInt],
@@ -423,115 +352,123 @@ class PackageOpsImpl(
         )
     }
 
-  /** Returns true if a new VettedPackages transaction was authorized. modifyVettedPackages should
-    * not be called concurrently
+  /** Modifies the existing vetted packages for the specified synchronizer and returns the
+    * before-and-after participant vetting state.
     */
   private def modifyVettedPackages(
       psid: PhysicalSynchronizerId,
       synchronizeVetting: PackageVettingSynchronization,
       forceFlags: ForceFlags,
+      operationName: String,
+      // If defined, do not persist changes, just validate them
+      dryRunSnapshot: Option[PackageMetadata] = None,
+      expectedTopologySerial: Option[PriorTopologySerial] = None,
   )(
       action: Seq[VettedPackage] => Seq[VettedPackage]
   )(implicit
       tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Option[
-    ParticipantVettedPackages
-  ]] =
-    for {
-      topologyManager <- topologyManagerLookup.byPhysicalSynchronizerId(psid)
-      currentPackagesAndSerial <-
-        getVettedPackageForSynchronizerAndParticipant(topologyManager, participantId)
-      currentPackages = currentPackagesAndSerial.map(_.packages).getOrElse(Seq.empty)
+  ): EitherT[
+    FutureUnlessShutdown,
+    ParticipantTopologyManagerError,
+    (Option[ParticipantVettedPackages], Option[ParticipantVettedPackages]),
+  ] =
+    vettingExecutionQueue.executeEUS(
+      description = operationName,
+      execution = for {
+        topologyManager <- topologyManagerLookup.byPhysicalSynchronizerId(psid)
 
-      newVettedPackagesState = action(currentPackages)
-      result <- setVettedPackages(
-        topologyManager,
-        currentPackagesAndSerial,
-        newVettedPackagesState,
-        psid,
-        synchronizeVetting,
-        forceFlags,
-      )
-    } yield result
+        currentState <-
+          getVettedPackagesForSynchronizer(topologyManager, Some(NonEmpty(Set, participantId)), 1)
+            .map(_.headOption)
 
-  private def setVettedPackages(
-      topologyManager: SynchronizerTopologyManager,
-      currentPackagesAndSerial: Option[ParticipantVettedPackages],
-      newVettedPackagesState: Seq[VettedPackage],
-      psid: PhysicalSynchronizerId,
-      synchronizeVetting: PackageVettingSynchronization,
-      forceFlags: ForceFlags,
-  )(implicit
-      tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Option[
-    ParticipantVettedPackages
-  ]] =
-    for {
-      mapping <- EitherT
-        .fromEither[FutureUnlessShutdown](
-          VettedPackages.create(
-            participantId = participantId,
-            newVettedPackagesState,
-          )
+        currentVettedPackages = currentState.map(_.packages)
+        currentVettedPackagesSet = currentVettedPackages.map(_.toSet)
+        currentSerial = currentState.map(_.serial)
+
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          checkCurrentSerial(currentSerial, expectedSerial = expectedTopologySerial)
         )
-        .leftMap(err =>
-          ParticipantTopologyManagerError.IdentityManagerParentError(
-            TopologyManagerError.InvalidTopologyMapping.Reject(err)
-          )
+        newVettedPackages = action(currentVettedPackages.getOrElse(Seq.empty))
+        newVettedPackagesSet = newVettedPackages.toSet
+
+        dryRun = dryRunSnapshot.isDefined
+        nextSerial = currentSerial.map(_.increment).getOrElse(PositiveInt.one)
+        nextParticipantState = ParticipantVettedPackages(
+          packages = newVettedPackages,
+          participantId = participantId,
+          synchronizerId = psid.logical,
+          serial = nextSerial,
         )
-      newSerialOpt <-
-        if (currentPackagesAndSerial.forall(_.packages != newVettedPackagesState)) {
-          synchronizeWithClosing(functionFullName)(
+        newState <-
+          if (!currentVettedPackagesSet.contains(newVettedPackagesSet) && !dryRun)
+            setVettedPackages(
+              forceFlags = forceFlags,
+              topologyManager = topologyManager,
+              nextSerial = nextSerial,
+              newVettedPackagesState = newVettedPackages,
+              synchronizeVetting = synchronizeVetting,
+            ).map(nextSerial => Some(nextParticipantState.copy(serial = nextSerial)))
+          else if (dryRun)
             topologyManager
-              .proposeAndAuthorize(
-                op = TopologyChangeOp.Replace,
-                mapping = mapping,
-                serial = currentPackagesAndSerial.map(_.serial.increment),
-                signingKeys = Seq.empty,
-                protocolVersion = initialProtocolVersion,
-                expectFullAuthorization = true,
-                forceChanges = forceFlags,
-                waitToBecomeEffective = None,
+              .validatePackageVetting(
+                currentlyVettedPackages =
+                  currentVettedPackagesSet.getOrElse(Set.empty).map(_.packageId),
+                nextPackageIds = newVettedPackagesSet.map(_.packageId),
+                dryRunSnapshot = dryRunSnapshot,
+                forceFlags = forceFlags,
               )
               .leftMap[ParticipantTopologyManagerError](IdentityManagerParentError(_))
-              .map[Option[PositiveInt]](signedTx => Some(signedTx.transaction.serial))
-          )
-        } else
-          EitherT.pure[FutureUnlessShutdown, ParticipantTopologyManagerError](
-            Option.empty[PositiveInt]
-          )
-      // only synchronize with the connected synchronizers if a new transaction was actually issued
-      _ <- newSerialOpt.traverse_ { _ =>
-        synchronizeVetting
-          .sync(newVettedPackagesState.toSet, psid)
-          .mapK(FutureUnlessShutdown.outcomeK)
-      }
-    } yield newSerialOpt.map(serial =>
-      ParticipantVettedPackages(newVettedPackagesState, participantId, psid.logical, serial)
+              .map { _ =>
+                if (currentVettedPackagesSet.contains(newVettedPackagesSet)) currentState
+                else Some(nextParticipantState)
+              }
+          else
+            EitherT.pure[FutureUnlessShutdown, ParticipantTopologyManagerError](currentState)
+      } yield currentState -> newState,
     )
+
+  private def setVettedPackages(
+      forceFlags: ForceFlags,
+      topologyManager: SynchronizerTopologyManager,
+      nextSerial: PositiveInt,
+      newVettedPackagesState: Seq[VettedPackage],
+      synchronizeVetting: PackageVettingSynchronization,
+  )(implicit
+      tc: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, PositiveInt] =
+    for {
+      mapping <-
+        VettedPackages
+          .create(participantId, newVettedPackagesState)
+          .toEitherT[FutureUnlessShutdown]
+          .leftMap(err =>
+            ParticipantTopologyManagerError.IdentityManagerParentError(
+              TopologyManagerError.InvalidTopologyMapping.Reject(err)
+            )
+          )
+      signedTx <- synchronizeWithClosing(functionFullName)(
+        topologyManager
+          .proposeAndAuthorize(
+            op = TopologyChangeOp.Replace,
+            mapping = mapping,
+            serial = Some(nextSerial),
+            signingKeys = Seq.empty,
+            protocolVersion = initialProtocolVersion,
+            expectFullAuthorization = true,
+            forceChanges = forceFlags,
+            waitToBecomeEffective = None,
+          )
+          .leftMap[ParticipantTopologyManagerError](IdentityManagerParentError(_))
+      )
+      _ <- synchronizeVetting
+        .sync(newVettedPackagesState.toSet, topologyManager.psid)
+        .mapK(FutureUnlessShutdown.outcomeK)
+    } yield signedTx.transaction.serial
 }
 
 object PackageOpsImpl {
-  sealed trait VettedPackageChange {
-    def newState: Option[VettedPackage]
-  }
-
-  object VettedPackageChange {
-    final case class Unchanged(state: VettedPackage) extends VettedPackageChange {
-      override def newState = Some(state)
-    }
-
-    final case class Changed(
-        previousState: Option[VettedPackage],
-        newState: Option[VettedPackage],
-    ) extends VettedPackageChange
-  }
-
   implicit class TargetVettingToVettedPackage(target: SinglePackageTargetVetting[PackageId]) {
     def toVettedPackage: Option[VettedPackage] =
       target.bounds.map { case (lower, upper) => VettedPackage(target.ref, lower, upper) }
-
-    def toFreshVettedPackageChange: VettedPackageChange.Changed =
-      VettedPackageChange.Changed(None, toVettedPackage)
   }
 }

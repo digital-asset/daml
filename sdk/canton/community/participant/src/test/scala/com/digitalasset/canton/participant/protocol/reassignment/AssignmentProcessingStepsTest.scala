@@ -9,7 +9,11 @@ import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{DefaultProcessingTimeouts, SessionEncryptionKeyCacheConfig}
+import com.digitalasset.canton.config.{
+  DefaultProcessingTimeouts,
+  SessionEncryptionKeyCacheConfig,
+  TopologyConfig,
+}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
 import com.digitalasset.canton.data.*
@@ -198,6 +202,7 @@ final class AssignmentProcessingStepsTest
       logicalSyncPersistentState = logical,
       loggerFactory = loggerFactory,
       parameters = ParticipantNodeParameters.forTestingOnly(testedProtocolVersion),
+      topologyConfig = TopologyConfig.forTesting,
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
     )

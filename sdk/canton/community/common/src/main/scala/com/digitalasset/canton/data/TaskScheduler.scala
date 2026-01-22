@@ -465,7 +465,8 @@ class TaskScheduler[Task <: TimedTask](
 
   private[this] def executeTask(task: TimedTask): Unit = {
     implicit val traceContext: TraceContext = task.traceContext
-    val taskName = task.toString
+
+    val taskName = s"${task.getClass.getName}(${task.timestamp})"
     val queued = queue
       .executeUS(
         futureSupervisor.supervisedUS(taskName, timeouts.slowFutureWarn.duration)(

@@ -47,8 +47,6 @@ import scala.concurrent.duration.FiniteDuration
   *   CantonSyncService, which uses it for synchronizer connections. Sharing it ensures that we
   *   cannot connect to the synchronizer while an upgrade action is running and vice versa.
   *
-  * @param connectSynchronizer
-  *   Function to connect to a synchronizer. Needs to be synchronized using the `executionQueue`.
   * @param disconnectSynchronizer
   *   Function to disconnect to a synchronizer. Needs to be synchronized using the `executionQueue`.
   *
@@ -210,7 +208,10 @@ abstract class LogicalSynchronizerUpgrade[Param](
 }
 
 /** This class implements automatic LSU. It should be called for participants that are not upgrading
-  * too late (after the old synchronizer has been decomissioned).
+  * too late (after the old synchronizer has been decommissioned).
+  *
+  * @param connectSynchronizer
+  *   Function to connect to a synchronizer. Needs to be synchronized using the `executionQueue`.
   */
 class AutomaticLogicalSynchronizerUpgrade(
     synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,

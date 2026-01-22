@@ -31,7 +31,6 @@ import com.digitalasset.canton.util.{EitherUtil, ErrorUtil, ShowUtil}
 import com.digitalasset.canton.version.HasToByteString
 import com.github.blemale.scaffeine.Cache
 import com.google.common.annotations.VisibleForTesting
-import com.google.crypto.tink.subtle.*
 import com.google.protobuf.ByteString
 import org.bouncycastle.crypto.DataLengthException
 import org.bouncycastle.crypto.generators.Argon2BytesGenerator
@@ -50,7 +49,7 @@ import java.security.{
   Security,
   Signature as JSignature,
 }
-import javax.crypto.spec.SecretKeySpec
+import javax.crypto.spec.{GCMParameterSpec, SecretKeySpec}
 import javax.crypto.{Cipher, Mac}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
@@ -124,6 +123,16 @@ class JcePureCrypto(
   @VisibleForTesting
   private[crypto] def isJavaPrivateKeyInCache(keyId: Fingerprint): Boolean =
     javaPrivateKeyCache.getIfPresent(keyId).exists(_.isRight)
+
+  // security parameters for Aes128Gcm symmetric encryption scheme.
+  private object Aes128GcmParams {
+    // the internal jce designation for this scheme
+    val jceInternalName: String = "AES/GCM/NoPadding"
+    // the IV for AES-128-GCM is 12 bytes
+    val ivSizeForAesGcmInBytes: Int = 12
+    // the authentication tag for AES-128-GCM is recommended to be 128bits
+    val gcmTagBits: Int = 128
+  }
 
   /* security parameters for EciesP256HmacSha256Aes128Cbc encryption scheme,
     in particular for the HMAC and symmetric crypto algorithms.
@@ -214,27 +223,73 @@ class JcePureCrypto(
       symmetricKey: ByteString,
   ): Either[EncryptionError, ByteString] =
     for {
+      _ <- EitherUtil.condUnit(
+        symmetricKey.size() == SymmetricKeyScheme.Aes128Gcm.keySizeInBytes,
+        EncryptionError.InvalidSymmetricKey(
+          s"AES-128 key must be ${SymmetricKeyScheme.Aes128Gcm.keySizeInBytes} bytes, " +
+            s"but got ${symmetricKey.size()} bytes."
+        ),
+      )
+      // this encryption scheme AES-128-GCM requires an IV/nonce of 12bytes.
+      iv = JceSecureRandom.generateRandomBytes(Aes128GcmParams.ivSizeForAesGcmInBytes)
       encrypter <- Either
-        .catchOnly[GeneralSecurityException](new AesGcmJce(symmetricKey.toByteArray))
+        .catchOnly[GeneralSecurityException] {
+          val keySpec = new SecretKeySpec(symmetricKey.toByteArray, Aes128GcmParams.jceInternalName)
+          val cipher = Cipher.getInstance(
+            Aes128GcmParams.jceInternalName,
+            JceSecurityProvider.bouncyCastleProvider,
+          )
+          cipher.init(
+            Cipher.ENCRYPT_MODE,
+            keySpec,
+            new GCMParameterSpec(Aes128GcmParams.gcmTagBits, iv),
+          )
+          cipher
+        }
         .leftMap(err => EncryptionError.InvalidSymmetricKey(err.toString))
       ciphertext <- Either
         .catchOnly[GeneralSecurityException](
-          encrypter.encrypt(plaintext.toByteArray, Array[Byte]())
+          encrypter.doFinal(plaintext.toByteArray)
         )
         .leftMap(err => EncryptionError.FailedToEncrypt(err.toString))
-    } yield ByteString.copyFrom(ciphertext)
+
+      /* Prepend our IV to the ciphertext. BouncyCastle's AES-GCM encryption does not deal with the AES IV by itself,
+       * and we have to randomly generate it and manually prepend it to the ciphertext.
+       */
+    } yield ByteString.copyFrom(iv ++ ciphertext)
 
   private def decryptAes128Gcm(
       ciphertext: ByteString,
       symmetricKey: ByteString,
   ): Either[DecryptionError, ByteString] =
     for {
+      _ <- EitherUtil.condUnit(
+        symmetricKey.size() == SymmetricKeyScheme.Aes128Gcm.keySizeInBytes,
+        DecryptionError.InvalidSymmetricKey(
+          s"AES-128 key must be ${SymmetricKeyScheme.Aes128Gcm.keySizeInBytes} bytes, " +
+            s"but got ${symmetricKey.size()} bytes."
+        ),
+      )
+      iv = ciphertext.toByteArray.take(Aes128GcmParams.ivSizeForAesGcmInBytes)
+      rawCiphertext = ciphertext.toByteArray.drop(Aes128GcmParams.ivSizeForAesGcmInBytes)
       decrypter <- Either
-        .catchOnly[GeneralSecurityException](new AesGcmJce(symmetricKey.toByteArray))
+        .catchOnly[GeneralSecurityException] {
+          val keySpec = new SecretKeySpec(symmetricKey.toByteArray, Aes128GcmParams.jceInternalName)
+          val cipher = Cipher.getInstance(
+            Aes128GcmParams.jceInternalName,
+            JceSecurityProvider.bouncyCastleProvider,
+          )
+          cipher.init(
+            Cipher.DECRYPT_MODE,
+            keySpec,
+            new GCMParameterSpec(Aes128GcmParams.gcmTagBits, iv),
+          )
+          cipher
+        }
         .leftMap(err => DecryptionError.InvalidSymmetricKey(err.toString))
       plaintext <- Either
         .catchOnly[GeneralSecurityException](
-          decrypter.decrypt(ciphertext.toByteArray, Array[Byte]())
+          decrypter.doFinal(rawCiphertext)
         )
         .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
     } yield ByteString.copyFrom(plaintext)
@@ -474,8 +529,7 @@ class JcePureCrypto(
         )
         .leftMap(err => EncryptionError.FailedToEncrypt(ErrorUtil.messageWithStacktrace(err)))
     } yield new AsymmetricEncrypted[M](
-      /* Prepend our IV to the ciphertext. On contrary to the Tink library, BouncyCastle's
-       * ECIES encryption does not deal with the AES IV by itself and we have to randomly generate it and
+      /* Prepend our IV to the ciphertext. BouncyCastle's ECIES encryption does not deal with the AES IV by itself, and we have to randomly generate it and
        * manually prepend it to the ciphertext.
        */
       ByteString.copyFrom(iv ++ ciphertext),

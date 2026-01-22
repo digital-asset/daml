@@ -186,6 +186,15 @@ class RequiredTopologyMappingChecksTest
     RequiredTopologyMappingChecks(
       Some(defaultStaticSynchronizerParameters),
       new TopologyStateLookup {
+        override def lookupHistoryForUid(
+            asOf: EffectiveTime,
+            asOfInclusive: Boolean,
+            uid: UniqueIdentifier,
+            transactionType: Code,
+            op: TopologyChangeOp,
+        )(implicit
+            traceContext: TraceContext
+        ): FutureUnlessShutdown[Seq[GenericStoredTopologyTransaction]] = ???
 
         override def synchronizerId: Option[PhysicalSynchronizerId] = store.storeId.forSynchronizer
 

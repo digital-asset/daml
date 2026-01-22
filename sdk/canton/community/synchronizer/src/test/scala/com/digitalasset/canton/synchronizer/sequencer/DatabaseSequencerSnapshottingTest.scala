@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SequencingTimeBound}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.resource.DbStorage
@@ -65,8 +65,7 @@ trait DatabaseSequencerSnapshottingTest extends SequencerApiTest with DbTest {
       DefaultProcessingTimeouts.testing,
       storage,
       sequencerStore,
-      sequencingTimeLowerBoundExclusive =
-        SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
+      SequencingTimeBound(SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive),
       clock,
       sequencerId,
       crypto,

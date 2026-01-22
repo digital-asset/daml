@@ -174,12 +174,12 @@ class InvalidPackagePreferenceIntegrationTest
                 ),
                 transactionTreeInterceptor = GenTransactionTree.rootViewsUnsafe
                   .andThen(firstElement[TransactionView])
-                  .andThen(TransactionView.viewParticipantDataUnsafe)
+                  .andThen(TransactionView.Optics.viewParticipantDataUnsafe)
                   .andThen(MerkleTree.tryUnwrap[ViewParticipantData])
                   .andThen(GenLens[ViewParticipantData].apply(_.actionDescription))
                   .modify {
                     case ex: ExerciseActionDescription =>
-                      ExerciseActionDescription.packagePreferenceUnsafe
+                      ExerciseActionDescription.Optics.packagePreferenceUnsafe
                         .replace(packagePreference)(ex)
                     case other => other
                   },

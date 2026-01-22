@@ -268,13 +268,14 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
   }
 }
 
-//class ReassignmentTestDefault extends ReassignmentTest {
+//class ReassignmentTestReferencePostgres extends ReassignmentTest {
+//  registerPlugin(new UsePostgres(loggerFactory))
 //  registerPlugin(
-//    new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory, sequencerGroups)
+//    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory, sequencerGroups)
 //  )
 //}
 
-class ReassignmentTestPostgres extends ReassignmentTest {
+class ReassignmentTestBFTOrderingPostgres extends ReassignmentTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(new UseBftSequencer(loggerFactory))
 }
