@@ -302,6 +302,9 @@ private[bftordering] final class P2PGrpcConnectionManager(
     }
   }
 
+  // Note that we loc gRPC channels with their native `toString` be able to correlated
+  //  with orphaned warnings from gRPC itself and avoid leaking channels.
+
   private def connect(
       p2pEndpoint: P2PEndpoint
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
@@ -318,7 +321,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                 )
               ) =>
             logger.info(
-              s"Created a gRPC channel ${objId(ch)} to $p2pEndpointId, starting a connect worker"
+              s"Created a gRPC channel $ch to $p2pEndpointId, starting a connect worker"
             )
 
             p2pConnectionEventListener.onConnect(p2pEndpointId)
@@ -453,7 +456,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
     logger.info(s"Creating a gRPC channel to $p2pEndpointId")
 
     val channel = createChannelBuilder(p2pEndpoint.endpointConfig).build()
-    val channelId = objId(channel)
+    val channelId = channel.toString
 
     val authenticationContextO =
       authenticationInitialState.map(auth =>
@@ -579,7 +582,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
     StreamObserver[BftOrderingMessage],
   ] =
     synchronizeWithClosing("p2p-create-peer-sender") {
-      val channelId = objId(channel)
+      val channelId = channel.toString
       val authenticationContextId = authenticationContextO.map(objId)
       val p2pEndpointId = p2pEndpoint.id
       val logPrefix = s"[Connect worker for channel $channelId w/authctx $authenticationContextId]:"
@@ -882,7 +885,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
       channel: ManagedChannel,
       authenticationContextO: Option[GrpcSequencerClientAuth],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    val channelId = objId(channel)
+    val channelId = channel.toString
     if (!channel.isShutdown) {
       val authenticationContextId = authenticationContextO.map(objId)
       FutureUnlessShutdown.outcomeF(Future {
@@ -1014,7 +1017,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
     ) match {
       case Left(fus) => fus
       case Right(channel -> authenticationContextO) =>
-        val channelId = objId(channel)
+        val channelId = channel.toString
         val authenticationContextId = authenticationContextO.map(objId)
         logger.debug(
           s"Shutting down the gRPC channel $channelId " +
@@ -1042,6 +1045,8 @@ private[bftordering] final class P2PGrpcConnectionManager(
           abort(logger, "Authentication is enabled but the peer is not a sequencer!")
       }
 
+  // Lock-free state transitions follow.
+
   private def attemptTransitionToConnecting(
       p2pEndpointId: P2PEndpoint.Id
   )(implicit traceContext: TraceContext): AnnotatedResult[Boolean] =
@@ -1066,7 +1071,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
 
               case P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw) =>
                 // Connect worker still active on a gRPC channel and asked to disconnect, cancel request
-                lazy val chId = objId(ch)
+                lazy val chId = ch.toString
                 lazy val acId = acO.map(objId)
                 lazy val cwId = objId(cw)
                 UnlessShutdown.Outcome(
@@ -1096,7 +1101,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                 // Already connecting
                 s -> AnnotatedResult(
                   false,
-                  () => s"ConnectingOnChannel(ch: ${objId(ch)}, cw: ${cw.map(objId)}) (unchanged)",
+                  () => s"ConnectingOnChannel(ch: $ch, cw: ${cw.map(objId)}) (unchanged)",
                   debug,
                 )
 
@@ -1104,7 +1109,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                 // Already connected
                 s -> AnnotatedResult(
                   false,
-                  () => s"Connected(ch: ${objId(ch)}, ac: ${acO.map(objId)}) (unchanged)",
+                  () => s"Connected(ch: $ch, ac: ${acO.map(objId)}) (unchanged)",
                   debug,
                 )
             }
@@ -1141,7 +1146,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                 ) -> AnnotatedResult(
                   true,
                   () =>
-                    s"Connecting -> ConnectingOnChannel(ch: ${objId(channel)}, ac: ${authenticationContextO
+                    s"Connecting -> ConnectingOnChannel(ch: $channel, ac: ${authenticationContextO
                         .map(objId)}, cw: None)",
                   debug,
                 )
@@ -1149,7 +1154,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
               case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
                 s -> AnnotatedResult(
                   false,
-                  () => s"Connected(ch: ${objId(ch)}, ac: ${acO.map(objId)}) (unchanged)",
+                  () => s"Connected(ch: $ch, ac: ${acO.map(objId)}) (unchanged)",
                   logUnexpected,
                 )
 
@@ -1157,7 +1162,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                 s -> AnnotatedResult(
                   false,
                   () =>
-                    s"ConnectingOnChannel(ch: ${objId(ch)}, ac: ${acO.map(objId)}, cw: ${cwO.map(objId)}) (unchanged)",
+                    s"ConnectingOnChannel(ch: $ch, ac: ${acO.map(objId)}, cw: ${cwO.map(objId)}) (unchanged)",
                   logUnexpected,
                 )
 
@@ -1165,7 +1170,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                 s -> AnnotatedResult(
                   false,
                   () =>
-                    s"DisconnectingFromChannel(ch: ${objId(ch)}, ac: ${acO.map(objId)}, cw: ${objId(cw)}) (unchanged)",
+                    s"DisconnectingFromChannel(ch: $ch, ac: ${acO.map(objId)}, cw: ${objId(cw)}) (unchanged)",
                   logUnexpected,
                 )
             }
@@ -1201,7 +1206,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
             status match {
 
               case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cwO) =>
-                lazy val chId = objId(ch)
+                lazy val chId = ch.toString
                 if (ch == channel && cwO.isEmpty)
                   // Record the connect worker
                   UnlessShutdown.Outcome(
@@ -1232,7 +1237,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                 s -> AnnotatedResult(
                   (),
                   () =>
-                    s"DisconnectingFromChannel(ch: ${objId(ch)}, ac: ${acO.map(objId)}, cw: ${objId(cw)}) (unchanged)",
+                    s"DisconnectingFromChannel(ch: $ch, ac: ${acO.map(objId)}, cw: ${objId(cw)}) (unchanged)",
                   logUnexpected,
                 )
 
@@ -1246,7 +1251,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
               case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
                 s -> AnnotatedResult(
                   (),
-                  () => s"ConnectedOnChannel(ch: ${objId(ch)}, ac: ${acO.map(objId)}) (unchanged)",
+                  () => s"ConnectedOnChannel(ch: $ch, ac: ${acO.map(objId)}) (unchanged)",
                   logUnexpected,
                 )
             }
@@ -1280,7 +1285,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
             status match {
 
               case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cwO) =>
-                lazy val chId = objId(ch)
+                lazy val chId = ch.toString
                 lazy val acId = acO.map(objId)
                 lazy val cwId = cwO.map(objId)
                 if (ch == channel)
@@ -1300,7 +1305,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                   )
 
               case P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw) =>
-                lazy val chId = objId(ch)
+                lazy val chId = ch.toString
                 lazy val acId = acO.map(objId)
                 lazy val cwId = objId(cw)
                 if (ch == channel)
@@ -1325,7 +1330,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                   )
 
               case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
-                lazy val chId = objId(ch)
+                lazy val chId = ch.toString
                 lazy val acId = acO.map(objId)
                 s -> AnnotatedResult(
                   false,
@@ -1376,7 +1381,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
             status match {
 
               case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cwO) =>
-                lazy val chId = objId(ch)
+                lazy val chId = ch.toString
                 lazy val acId = acO.map(objId)
                 lazy val cwId = cwO.map(objId)
                 if (ch == channel)
@@ -1404,7 +1409,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
 
               case P2POutgoingConnectionStatus
                     .DisconnectingFromChannel(ch, acO, cw) =>
-                lazy val chId = objId(ch)
+                lazy val chId = ch.toString
                 lazy val acId = acO.map(objId)
                 lazy val cwId = objId(cw)
                 if (ch == channel)
@@ -1428,7 +1433,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                   )
 
               case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
-                lazy val chId = objId(ch)
+                lazy val chId = ch.toString
                 lazy val acId = acO.map(objId)
                 s -> AnnotatedResult(
                   None,
@@ -1480,7 +1485,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
             status match {
 
               case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
-                lazy val chId = objId(ch)
+                lazy val chId = ch.toString
                 lazy val acId = acO.map(objId)
                 if (ch == channel)
                   UnlessShutdown.Outcome(
@@ -1503,7 +1508,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                   )
 
               case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cwO) =>
-                lazy val chId = objId(ch)
+                lazy val chId = ch.toString
                 lazy val acId = acO.map(objId)
                 lazy val cwId = cwO.map(objId)
                 if (ch == channel)
@@ -1527,7 +1532,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                   )
 
               case P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw) =>
-                lazy val chId = objId(ch)
+                lazy val chId = ch.toString
                 lazy val acId = acO.map(objId)
                 lazy val cwId = objId(cw)
                 if (ch == channel)
@@ -1590,7 +1595,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
             p2pConnectionStatus match {
 
               case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
-                lazy val chId = objId(ch)
+                lazy val chId = ch.toString
                 lazy val acId = acO.map(objId)
                 if (onlyIfNotConnected) {
                   s -> AnnotatedResult(
@@ -1622,7 +1627,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
 
               case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, Some(cw)) =>
                 // Let the connect worker orderly abort the connection attempt
-                lazy val chId = objId(ch)
+                lazy val chId = ch.toString
                 lazy val acId = acO.map(objId)
                 lazy val cwId = objId(cw)
                 UnlessShutdown.Outcome(

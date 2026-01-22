@@ -9,7 +9,7 @@ import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
@@ -202,6 +202,7 @@ class WriteThroughCacheSynchronizerTopologyClient(
   }
 
   override def close(): Unit = {
+    LifeCycle.close(delegate)(logger)
     maxTimestampCache.invalidateAll()
     maxTimestampCache.cleanUp()
   }
