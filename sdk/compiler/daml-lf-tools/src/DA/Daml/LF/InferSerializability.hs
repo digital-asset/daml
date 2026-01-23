@@ -41,13 +41,13 @@ inferModule world0 forceUtilityPackage mod0 =
       let eqs =
             [ (dataTypeCon dataType, serializable, deps)
             | dataType <- NM.toList dataTypes
-            -- NOTE(jaspervdj): Explicitly Serializable: the LFConversion will
-            -- only set IsSerializable if the datatype has a Serializable
-            -- instance.  Here, we limit ourselves to only infering
-            -- serializability for those types.
-            , getIsSerializable (dataSerializable dataType)
             , let (serializable, deps) =
                     case serializabilityConditionsDataType world0 (Just $ CurrentModule modName interfaces) dataType of
+                      -- NOTE(jaspervdj): Explicitly Serializable: the LFConversion will
+                      -- only set IsSerializable if the datatype has a Serializable
+                      -- instance.  Here, we limit ourselves to only infering
+                      -- serializability for those types.
+                      _ | not (getIsSerializable (dataSerializable dataType)) -> (False, [])
                       Left _ -> (False, [])
                       Right deps0 -> (True, HS.toList deps0)
             ]
