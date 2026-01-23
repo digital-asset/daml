@@ -15,7 +15,7 @@ da_scala_benchmark_jmh(
     scalacopts = ["-Xsource:3"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:contextualized-logging",
+        "@maven//:com_daml_contextualized_logging_2_13",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/engine",
         "//canton/community/daml-lf/interpreter",

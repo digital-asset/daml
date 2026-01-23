@@ -29,7 +29,7 @@ da_scala_binary(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        "//canton:contextualized-logging",
+        "@maven//:com_daml_contextualized_logging_2_13",
         "//canton:rs-grpc-bridge",
         "//canton:rs-grpc-pekko",
         "//canton/community/daml-lf/archive:daml_lf_archive_reader",

@@ -18,7 +18,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:http-json-utils:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:contextualized-logging",
+        "@maven//:com_daml_contextualized_logging_2_13",
         "//canton:ledger_api_proto_scala",
         "//canton:logging-entries",
         "//canton:scala-utils",

@@ -35,7 +35,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-engine:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:contextualized-logging",
+        "@maven//:com_daml_contextualized_logging_2_13",
         "//canton:nameof",
         "//canton:scala-utils",
         "//canton/community/daml-lf/archive:daml_lf_archive_reader",
@@ -60,7 +60,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-script-engine:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:contextualized-logging",
+        "@maven//:com_daml_contextualized_logging_2_13",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
@@ -130,7 +130,7 @@ da_scala_library(
     visibility = ["//daml-script:__subpackages__"],
     deps = [
         ":engine",
-        "//canton:contextualized-logging",
+        "@maven//:com_daml_contextualized_logging_2_13",
         "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/encoder",

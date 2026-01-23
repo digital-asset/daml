@@ -444,7 +444,7 @@ da_scala_test(
         "//:sdk-version-scala-lib",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-observability",
-        "//canton:contextualized-logging",
+        "@maven//:com_daml_contextualized_logging_2_13",
         "//canton:ledger-resources",
         "//canton:ports",
         "//canton:resources",

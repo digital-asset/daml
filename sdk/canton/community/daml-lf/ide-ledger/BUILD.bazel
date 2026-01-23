@@ -30,7 +30,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:contextualized-logging",
+        "@maven//:com_daml_contextualized_logging_2_13",
         "//canton:scala-utils",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/engine",
@@ -49,7 +49,7 @@ da_scala_test_suite(
     scalacopts = lf_scalacopts,
     deps = [
         ":ide-ledger",
-        "//canton:contextualized-logging",
+        "@maven//:com_daml_contextualized_logging_2_13",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/engine",
         "//canton/community/daml-lf/interpreter",

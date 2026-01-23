@@ -36,7 +36,7 @@ da_scala_library(
         "//daml-script:__subpackages__",
     ],
     deps = [
-        "//canton:contextualized-logging",
+        "@maven//:com_daml_contextualized_logging_2_13",
         "//canton:crypto",
         "//canton:nameof",
         "//canton:scala-utils",
@@ -60,7 +60,7 @@ da_scala_library(
     scalacopts = lf_scalacopts_stricter,
     deps = [
         ":interpreter",
-        "//canton:contextualized-logging",
+        "@maven//:com_daml_contextualized_logging_2_13",
         "//canton:scala-utils",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
@@ -106,7 +106,7 @@ da_scala_test_suite(
         ":interpreter",
         ":interpreter-test-lib",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:contextualized-logging",
+        "@maven//:com_daml_contextualized_logging_2_13",
         "//canton:crypto",
         "//canton:scala-utils",
         "//canton/community/daml-lf/api-type-signature",
@@ -137,7 +137,7 @@ da_scala_test(
     deps = [
         ":interpreter",
         ":interpreter-test-lib",
-        "//canton:contextualized-logging",
+        "@maven//:com_daml_contextualized_logging_2_13",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/parser",
@@ -214,7 +214,7 @@ da_scala_benchmark_jmh(
     srcs = glob(["src/bench/**/StructProjBench.scala"]),
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:contextualized-logging",
+        "@maven//:com_daml_contextualized_logging_2_13",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",

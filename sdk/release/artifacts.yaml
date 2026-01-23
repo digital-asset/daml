@@ -93,7 +93,7 @@
   type: jar-scala
 - target: //canton:concurrent
   type: jar-scala
-- target: //canton:contextualized-logging
+- target: @maven//:com_daml_contextualized_logging_2_13
   type: jar-scala
 - target: //canton:crypto
   type: jar-scala
