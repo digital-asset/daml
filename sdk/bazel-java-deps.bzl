@@ -45,7 +45,7 @@ protobuf_version = "3.25.5"
 pekko_version = "1.2.1"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
-transcode_version = "3.5.0-snapshot.20260116.17794.0.vef594bb3"
+transcode_version = "3.5.0-ad-hoc.20260123.17854.0.v590ddd17"
 upickle_version = "4.1.0"
 ujson_version = "4.0.2"
 
@@ -90,6 +90,23 @@ def install_java_deps():
                 # exclude conflicting Scala 3 dependencies, we use fastparse_2.13 instead
                 exclusions = ["com.lihaoyi:fastparse_3"],
             ),
+            "com.daml:daml-lf-stable-packages_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-api-type-signature_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-archive-encoder_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-archive_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-data_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-encoder_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-engine_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-ide-ledger_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-interpreter_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-language_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-parser_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-repl_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-stable-packages_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-transaction_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-validation_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:contextualized-logging_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-snapshot-proto_{}:{}".format(scala_major_version, transcode_version),
             "com.fasterxml.jackson.core:jackson-core:2.14.3",
             "com.fasterxml.jackson.core:jackson-databind:2.14.3",
             "com.github.ben-manes.caffeine:caffeine:3.1.2",
