@@ -53,7 +53,7 @@ da_scala_test(
         ":json",
         "//canton:bindings-java",
         "//canton/community/daml-lf/transaction",
-        "//canton/community/daml-lf/transaction:transaction-test-lib",
+        "@maven//:com_daml_daml_lf_transaction_2_13-test-lib",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
