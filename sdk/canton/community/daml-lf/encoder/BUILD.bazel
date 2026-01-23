@@ -58,8 +58,8 @@ da_scala_binary(
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/parser",
-        "@maven//:com_daml_daml_lf_stable_packages_2_13",
         "//canton/community/daml-lf/validation",
+        "@maven//:com_daml_daml_lf_stable_packages_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
