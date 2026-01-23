@@ -45,7 +45,7 @@ protobuf_version = "3.25.5"
 pekko_version = "1.2.1"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
-transcode_version = "3.5.0-ad-hoc.20260123.17852.0.v9968d973"
+transcode_version = "3.5.0-ad-hoc.20260123.17854.0.v590ddd17"
 upickle_version = "4.1.0"
 ujson_version = "4.0.2"
 
