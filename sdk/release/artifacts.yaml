@@ -33,7 +33,7 @@
   type: jar-proto
 - target: //canton/community/daml-lf/ledger-api-value:ledger_api_value_proto_scala
   type: jar-scala
-- target: //canton/community/daml-lf/parser:parser
+- target: @maven//:com_daml_daml_lf_parser_2_13
   type: jar-scala
 - target: //canton/community/daml-lf/ide-ledger:ide-ledger
   type: jar-scala
