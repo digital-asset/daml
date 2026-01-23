@@ -17,7 +17,7 @@
   type: jar-scala
 - target: //canton/community/daml-lf/data:data-scalacheck
   type: jar-scala
-- target: //canton/community/daml-lf/encoder:encoder
+- target: @maven//:com_daml_daml_lf_encoder_2_13
   type: jar-scala
 - target: //canton/community/daml-lf/engine:engine
   type: jar-scala
