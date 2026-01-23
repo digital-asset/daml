@@ -35,7 +35,7 @@
   type: jar-scala
 - target: @maven//:com_daml_daml_lf_parser_2_13
   type: jar-scala
-- target: //canton/community/daml-lf/ide-ledger:ide-ledger
+- target: @maven//:com_daml_daml_lf_ide_ledger_2_13
   type: jar-scala
 - target: //canton/community/daml-lf/snapshot-proto:snapshot_proto_jar
   type: jar-lib
