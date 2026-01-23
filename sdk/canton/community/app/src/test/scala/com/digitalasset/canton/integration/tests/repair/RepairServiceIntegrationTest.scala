@@ -281,7 +281,7 @@ sealed trait RepairServiceIntegrationTestStableLf
         }
       }
 
-      // TODO(#23073) - Un-ignore this test part once #27325 has been re-implemented
+      // TODO(#24610) - Un-ignore this test part once #27325 has been re-implemented; depends on repair.add
       "contract has been unassigned" taggedAs SecurityTest(
         SecurityTest.Property.Integrity,
         "virtual shared ledger",
@@ -325,7 +325,7 @@ sealed trait RepairServiceIntegrationTestStableLf
             contract.copy(reassignmentCounter = ReassignmentCounter(2))
           }
 
-          // TODO(#23073) - Note that the repair.add fails because it goes through ACS import (Old)
+          // TODO(#24610) - Note that the repair.add fails because it goes through ACS import (Old)
           participant1.repair.add(daId, testedProtocolVersion, Seq(contractInstance))
 
           // Ideally we should be able to query the contract as active

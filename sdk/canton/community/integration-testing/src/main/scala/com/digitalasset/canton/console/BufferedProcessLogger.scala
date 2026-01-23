@@ -23,4 +23,6 @@ class BufferedProcessLogger extends ProcessLogger {
     buffer.map(l => s"$linePrefix$l").mkString(System.lineSeparator)
   )
 
+  def outputLines(): Seq[String] = buffer.toSeq
+
 }

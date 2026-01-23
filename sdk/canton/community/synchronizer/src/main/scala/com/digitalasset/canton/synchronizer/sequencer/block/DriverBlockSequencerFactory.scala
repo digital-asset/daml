@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
+import com.digitalasset.canton.data.SequencingTimeBound
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
@@ -33,7 +34,7 @@ import org.apache.pekko.stream.Materializer
 import pureconfig.ConfigCursor
 
 import java.util.ServiceLoader
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.jdk.CollectionConverters.*
 
 import BlockSequencerFactory.OrderingTimeFixMode
@@ -51,7 +52,7 @@ class DriverBlockSequencerFactory[C](
     metrics: SequencerMetrics,
     override val loggerFactory: NamedLoggerFactory,
     testingInterceptor: Option[TestingInterceptor],
-)(implicit ec: ExecutionContext)
+)(implicit ec: ExecutionContextExecutor)
     extends BlockSequencerFactory(
       health: Option[SequencerHealthConfig],
       blockSequencerConfig,
@@ -76,7 +77,11 @@ class DriverBlockSequencerFactory[C](
       sequencerSnapshot: Option[SequencerSnapshot],
       authenticationServices: Option[AuthenticationServices],
       synchronizerLoggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext, materializer: Materializer, tracer: Tracer): BlockOrderer =
+  )(implicit
+      ec: ExecutionContextExecutor,
+      materializer: Materializer,
+      tracer: Tracer,
+  ): BlockOrderer =
     new DriverBlockOrderer(
       sequencerDriverFactory.create(
         config,
@@ -104,6 +109,7 @@ class DriverBlockSequencerFactory[C](
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       synchronizerLoggerFactory: NamedLoggerFactory,
+      sequencingTimeLowerBoundExclusive: SequencingTimeBound,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
       ec: ExecutionContext,
@@ -127,7 +133,7 @@ class DriverBlockSequencerFactory[C](
       clock,
       rateLimitManager,
       orderingTimeFixMode,
-      sequencingTimeLowerBoundExclusive = nodeParameters.sequencingTimeLowerBoundExclusive,
+      sequencingTimeLowerBoundExclusive = sequencingTimeLowerBoundExclusive,
       nodeParameters.processingTimeouts,
       nodeParameters.loggingConfig.eventDetails,
       nodeParameters.loggingConfig.api.printer,
@@ -155,7 +161,7 @@ object DriverBlockSequencerFactory extends LazyLogging {
       metrics: SequencerMetrics,
       loggerFactory: NamedLoggerFactory,
       testingInterceptor: Option[TestingInterceptor],
-  )(implicit ec: ExecutionContext): DriverBlockSequencerFactory[C] = {
+  )(implicit ec: ExecutionContextExecutor): DriverBlockSequencerFactory[C] = {
     val driverFactory: SequencerDriverFactory { type ConfigType = C } = getSequencerDriverFactory(
       driverName,
       driverVersion,
@@ -197,7 +203,7 @@ object DriverBlockSequencerFactory extends LazyLogging {
       nodeParameters: SequencerNodeParameters,
       metrics: SequencerMetrics,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): DriverBlockSequencerFactory[C] =
+  )(implicit ec: ExecutionContextExecutor): DriverBlockSequencerFactory[C] =
     new DriverBlockSequencerFactory[C](
       getSequencerDriverFactory(driverName, driverVersion),
       config,

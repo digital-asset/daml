@@ -960,7 +960,7 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
             openapi.JsGetActiveContractsResponse.fromJson
           ),
           Mapping[
-            json.js.AllocatePartyRequest,
+            v2.admin.party_management_service.AllocatePartyRequest,
             openapi.AllocatePartyRequest,
           ](
             openapi.AllocatePartyRequest.fromJson

@@ -37,10 +37,10 @@ import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.*
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
+import org.bouncycastle.asn1.ASN1OctetString
 import org.bouncycastle.asn1.edec.EdECObjectIdentifiers
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
 import org.bouncycastle.asn1.x509.{AlgorithmIdentifier, SubjectPublicKeyInfo}
-import org.bouncycastle.asn1.{ASN1OctetString, DEROctetString}
 import slick.jdbc.GetResult
 
 import java.time.Duration
@@ -1530,7 +1530,7 @@ final case class SigningPrivateKey private (
     v30.PrivateKey.Key.SigningPrivateKey(toProtoV30)
 
   @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
-  private[crypto] def migrate(): Option[SigningPrivateKey] = {
+  private[crypto] def migrate(): Either[String, Option[SigningPrivateKey]] = {
     def mkNewKeyO(newKey: ByteString): Option[SigningPrivateKey] = {
       val newFormat = CryptoKeyFormat.DerPkcs8Pki
       Some(SigningPrivateKey(id, newFormat, newKey, keySpec, usage)(migrated = true))
@@ -1538,20 +1538,13 @@ final case class SigningPrivateKey private (
 
     (keySpec, format) match {
       case (SigningKeySpec.EcCurve25519, CryptoKeyFormat.Raw) =>
-        // The key is stored as pure bytes; we need to convert it to a PrivateKeyInfo structure
-        val algoId = new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519)
-        val privateKeyInfo = new PrivateKeyInfo(
-          algoId,
-          new DEROctetString(key.toByteArray),
-        ).getEncoded
-
-        mkNewKeyO(ByteString.copyFrom(privateKeyInfo))
-
+        // Encode the private key with a PKCS#8 DER-encoded PrivateKeyInfo structure
+        JcePrivateCrypto.encodeEd25519PrivateKey(key).map(mkNewKeyO)
       case (SigningKeySpec.EcP256, CryptoKeyFormat.Der) |
           (SigningKeySpec.EcP384, CryptoKeyFormat.Der) =>
-        mkNewKeyO(key)
+        Right(mkNewKeyO(key))
 
-      case _ => None
+      case _ => Right(None)
     }
   }
 
@@ -1630,7 +1623,10 @@ object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey]
         // prove ownership for OwnerToKeyMapping and PartyToKeyMapping requests.
         SigningKeyUsage.addProofOfOwnership(usage),
       )()
-      keyAfterMigration = keyBeforeMigration.migrate().getOrElse(keyBeforeMigration)
+      keyAfterMigrationO <- keyBeforeMigration
+        .migrate()
+        .leftMap(SigningKeyCreationError.CreatePrivateKeyError.apply)
+      keyAfterMigration = keyAfterMigrationO.getOrElse(keyBeforeMigration)
       validatedKey <- keyAfterMigration.validated
     } yield validatedKey
 
@@ -1764,7 +1760,7 @@ object SigningKeyGenerationError extends CantonErrorGroups.CommandErrorGroup {
         extends CantonBaseError.Impl(cause = "Unable to create signing key")
   }
 
-  final case class GeneralError(error: Exception) extends SigningKeyGenerationError {
+  final case class GeneralError(error: Throwable) extends SigningKeyGenerationError {
     override protected def pretty: Pretty[GeneralError] = prettyOfClass(unnamedParam(_.error))
   }
 
@@ -1837,6 +1833,11 @@ object SigningKeyCreationError extends CantonErrorGroups.CommandErrorGroup {
   }
   final case class KeyParseAndValidateError(error: String) extends SigningKeyCreationError {
     override protected def pretty: Pretty[KeyParseAndValidateError] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
+  }
+  final case class CreatePrivateKeyError(error: String) extends SigningKeyCreationError {
+    override protected def pretty: Pretty[CreatePrivateKeyError] = prettyOfClass(
       unnamedParam(_.error.unquoted)
     )
   }

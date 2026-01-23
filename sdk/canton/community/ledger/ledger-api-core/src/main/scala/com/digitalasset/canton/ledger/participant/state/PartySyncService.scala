@@ -8,6 +8,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.{
   ExternalPartyOnboardingDetails,
   ParticipantId,
+  PartyId,
   SynchronizerId,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -28,9 +29,9 @@ trait PartySyncService {
     *   - Use the given hint as is, and reject the call if such a party already exists
     *
     * Successful party allocations will result in a
-    * [[com.digitalasset.canton.ledger.participant.state.Update.PartyAddedToParticipant]] message.
-    * See the comments on [[com.digitalasset.canton.ledger.participant.state.Update]] for further
-    * details.
+    * [[com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective]]
+    * message. See the comments on [[com.digitalasset.canton.ledger.participant.state.Update]] for
+    * further details.
     *
     * @param hint
     *   A party identifier suggestion
@@ -45,7 +46,7 @@ trait PartySyncService {
     *   an async result of a SubmissionResult
     */
   def allocateParty(
-      hint: Ref.Party,
+      partyId: PartyId,
       submissionId: Ref.SubmissionId,
       synchronizerIdO: Option[SynchronizerId],
       externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],

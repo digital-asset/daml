@@ -166,7 +166,6 @@ sealed trait ReassignmentPruningIntegrationTest
     val unassignOffsetP1 = participant1.ledger_api.updates
       .reassignments(
         partyIds = Set(alice),
-        filterTemplates = Seq.empty,
         completeAfter = 1,
         beginOffsetExclusive = ledgerEndP1BeforeUnassign,
       )
@@ -192,7 +191,6 @@ sealed trait ReassignmentPruningIntegrationTest
     val assignOffsetP2 = participant2.ledger_api.updates
       .reassignments(
         partyIds = Set(bank),
-        filterTemplates = Seq.empty,
         completeAfter = 1,
         beginOffsetExclusive = ledgerEndP2BeforeAssign,
       )

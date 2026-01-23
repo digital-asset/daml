@@ -18,6 +18,8 @@ import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.MetricsFactoryProvider
 import com.digitalasset.canton.performance.PartyRole.{DvpIssuer, DvpTrader, Master}
+import com.digitalasset.canton.performance.RateSettings.SubmissionRateSettings
+import com.digitalasset.canton.performance.RateSettings.SubmissionRateSettings.TargetLatency
 import com.digitalasset.canton.performance.elements.*
 import com.digitalasset.canton.performance.model.java as M
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, WallClock}
@@ -44,43 +46,65 @@ sealed trait PartyRole extends Product with Serializable {
 }
 sealed trait ActivePartyRole extends PartyRole {
   def role: M.orchestration.Role
-  def settings: RateSettings = RateSettings()
+  def settings: RateSettings
 }
 
-/** Control the rate of submissions
-  *
-  * @param duplicateSubmissionRatio
-  *   how many of the idempotent commands should be submitted twice to simulate race conditions
-  */
+/** Control the rate of submissions */
 final case class RateSettings(
-    startRate: Double = 3,
-    adjustFactor: Double = 1.15,
-    targetLatencyMs: Int = 5000,
+    submissionRateSettings: SubmissionRateSettings,
     batchSize: Int = 3,
     factorOfMaxSubmissionsPerIteration: Double = 0.5,
     commandExpiryCheckSeconds: Int = 240,
     commandClientConfiguration: CommandClientConfiguration =
       RateSettings.defaultCommandClientConfiguration,
-    duplicateSubmissionRatio: Double = 0.0,
 ) {
 
   def duplicateSubmissionDelay: Option[NonNegativeFiniteDuration] =
-    // if commands should be sent twice, then we delay the submission up to the target latency
-    // such that we sample rejections during different phases of the synchronisation
-    if (duplicateSubmissionRatio > 0.0 && (1.0 - duplicateSubmissionRatio) < Math.random())
-      Some(NonNegativeFiniteDuration.tryOfMillis((Math.random() * targetLatencyMs).toLong))
-    else
-      None
+    submissionRateSettings.duplicateSubmissionDelay
 
-  require(startRate > 0)
-  require(targetLatencyMs > 0)
   require(batchSize > 0)
-  require(adjustFactor >= 1.0)
   require(factorOfMaxSubmissionsPerIteration > 0)
   require(commandExpiryCheckSeconds > 0)
 }
 
 object RateSettings {
+  def defaults: RateSettings = RateSettings(TargetLatency())
+
+  sealed trait SubmissionRateSettings extends Product with Serializable {
+    def duplicateSubmissionDelay: Option[NonNegativeFiniteDuration]
+  }
+
+  object SubmissionRateSettings {
+
+    /** @param duplicateSubmissionRatio
+      *   how many of the idempotent commands should be submitted twice to simulate race conditions
+      */
+    final case class TargetLatency(
+        startRate: Double = 3,
+        adjustFactor: Double = 1.15,
+        targetLatencyMs: Int = 5000,
+        duplicateSubmissionRatio: Double = 0.0,
+    ) extends SubmissionRateSettings {
+      require(startRate > 0)
+      require(targetLatencyMs > 0)
+      require(adjustFactor >= 1.0)
+
+      override def duplicateSubmissionDelay: Option[NonNegativeFiniteDuration] =
+        // if commands should be sent twice, then we delay the submission up to the target latency
+        // such that we sample rejections during different phases of the synchronisation
+        if (duplicateSubmissionRatio > 0.0 && (1.0 - duplicateSubmissionRatio) < Math.random())
+          Some(NonNegativeFiniteDuration.tryOfMillis((Math.random() * targetLatencyMs).toLong))
+        else
+          None
+    }
+
+    final case class FixedRate(rate: Double) extends SubmissionRateSettings {
+      require(rate > 0)
+
+      override def duplicateSubmissionDelay: Option[NonNegativeFiniteDuration] = None
+    }
+  }
+
   val defaultCommandClientConfiguration: CommandClientConfiguration = CommandClientConfiguration(
     maxCommandsInFlight = 1000,
     maxParallelSubmissions =
@@ -91,7 +115,7 @@ object RateSettings {
 
 object PartyRole {
 
-  final case class DvpTrader(name: String, override val settings: RateSettings = RateSettings())
+  final case class DvpTrader(name: String, override val settings: RateSettings)
       extends ActivePartyRole {
     override def role: M.orchestration.Role = M.orchestration.Role.TRADER
 
@@ -101,7 +125,7 @@ object PartyRole {
 
   final case class DvpIssuer(
       name: String,
-      override val settings: RateSettings = RateSettings(),
+      override val settings: RateSettings,
       selfRegistrar: Boolean = true,
   ) extends ActivePartyRole {
     override def role: M.orchestration.Role = M.orchestration.Role.ISSUER

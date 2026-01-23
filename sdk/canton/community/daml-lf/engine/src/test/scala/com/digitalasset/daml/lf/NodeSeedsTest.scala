@@ -3,7 +3,6 @@
 
 package com.digitalasset.daml.lf
 
-import com.daml.bazeltools.BazelRunfiles
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
@@ -16,7 +15,7 @@ import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.io.File
+import java.util.zip.ZipInputStream
 
 class NodeSeedsTestV2 extends NodeSeedsTest(LanguageVersion.Major.V2)
 
@@ -25,15 +24,8 @@ class NodeSeedsTest(majorLanguageVersion: LanguageVersion.Major) extends AnyWord
   // Test for https://github.com/DACH-NY/canton/issues/14712
 
   val (mainPkgId, mainPkg, packages) = {
-    val packages = DarDecoder.assertReadArchiveFromFile(
-      new File(
-        BazelRunfiles.rlocation(
-          // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and
-          //  revert to non-dev dar
-          s"canton/community/daml-lf/engine/Demonstrator-v${majorLanguageVersion.pretty}dev.dar"
-        )
-      )
-    )
+    val stream = getClass.getClassLoader.getResourceAsStream(s"Demonstrator-v${majorLanguageVersion.pretty}dev.dar")
+    val packages = DarDecoder.readArchive(s"Demonstrator-v${majorLanguageVersion.pretty}dev.dar", new ZipInputStream(stream)).toOption.get
     (packages.main._1, packages.main._2, packages.all.toMap)
   }
 

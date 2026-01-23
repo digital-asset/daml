@@ -28,7 +28,7 @@ import com.digitalasset.canton.http.LfValue
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
-import com.digitalasset.canton.integration.tests.ActiveContractsIntegrationTest.*
+import com.digitalasset.canton.integration.tests.ActiveContractsIntegrationTestBase.*
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.GrpcAdminCommandSupport.ParticipantReferenceOps
 import com.digitalasset.canton.integration.util.GrpcServices.StateService
@@ -51,6 +51,7 @@ import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder
 import com.digitalasset.daml.lf.transaction.{CreationTime, SerializationVersion}
+import monocle.macros.syntax.lens.*
 import org.scalatest.Assertion
 
 import java.util.UUID
@@ -58,7 +59,7 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters.*
 
-class ActiveContractsIntegrationTest
+abstract class ActiveContractsIntegrationTestBase(alphaMultiSynchronizerSupport: Boolean = false)
     extends CommunityIntegrationTest
     with SharedEnvironment
     with AcsInspection
@@ -84,7 +85,10 @@ class ActiveContractsIntegrationTest
     EnvironmentDefinition.P2_S1M1_S1M1_S1M1
       .addConfigTransforms(
         // Ensure reassignments are not tripped up by some participants being a little behind.
-        ConfigTransforms.updateTargetTimestampForwardTolerance(30.seconds)
+        ConfigTransforms.updateTargetTimestampForwardTolerance(30.seconds),
+        ConfigTransforms.updateAllParticipantConfigs_(
+          _.focus(_.parameters.alphaMultiSynchronizerSupport).replace(alphaMultiSynchronizerSupport)
+        ),
       )
       .withSetup { implicit env =>
         import env.*
@@ -247,13 +251,25 @@ class ActiveContractsIntegrationTest
     participant1.synchronizers.reconnect_all()
     val createdEvent = eventually() {
       val endOffset = participant1.ledger_api.state.end()
-      val updates = participant1.ledger_api.updates.transactions(
-        partyIds = Set(signatory),
-        completeAfter = Int.MaxValue,
-        beginOffsetExclusive = startOffset,
-        endOffsetInclusive = Some(endOffset),
-      )
-      updates.map(_.createEvents)
+
+      if (participant1.config.parameters.alphaMultiSynchronizerSupport) {
+        participant1.ledger_api.updates
+          .reassignments(
+            partyIds = Set(signatory),
+            completeAfter = Int.MaxValue,
+            beginOffsetExclusive = startOffset,
+            endOffsetInclusive = Some(endOffset),
+          )
+          .map(_.createEvents)
+      } else {
+        val updates = participant1.ledger_api.updates.transactions(
+          partyIds = Set(signatory),
+          completeAfter = Int.MaxValue,
+          beginOffsetExclusive = startOffset,
+          endOffsetInclusive = Some(endOffset),
+        )
+        updates.map(_.createEvents)
+      }
     }.flatten.loneElement
     val contract = Iou.Contract.fromCreatedEvent(createdEventFromProto(toJavaProto(createdEvent)))
     ContractData(contract, createdEvent)
@@ -839,7 +855,6 @@ class ActiveContractsIntegrationTest
     val unassignedUniqueId = participant.ledger_api.updates
       .reassignments(
         partyIds = Set(observer),
-        filterTemplates = Seq.empty,
         beginOffsetExclusive = startFromExclusive,
         completeAfter = PositiveInt.one,
         resultFilter = _.isUnassignment,
@@ -861,8 +876,13 @@ class ActiveContractsIntegrationTest
       .value
 }
 
-private object ActiveContractsIntegrationTest {
+private object ActiveContractsIntegrationTestBase {
   final case class ContractData(contract: Iou.Contract, createdEvent: CreatedEvent) {
     val cid: LfContractId = contract.id.toLf
   }
 }
+
+final class ActiveContractsIntegrationTest extends ActiveContractsIntegrationTestBase
+
+final class ActiveContractsReassignmentIntegrationTest
+    extends ActiveContractsIntegrationTestBase(alphaMultiSynchronizerSupport = true)

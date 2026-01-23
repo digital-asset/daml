@@ -265,6 +265,7 @@ da_scala_library(
     unused_dependency_checker_mode = "error",
     visibility = [
         "//canton/community/daml-lf/validation:__subpackages__",
+        "//daml-assistant/upgrade-check-main:__subpackages__",
         "//daml-script:__subpackages__",
         "//test-common/canton:__subpackages__",
     ],
@@ -415,6 +416,7 @@ proto_gen(
     ],
     visibility = [
         "//canton/community/daml-lf/validation:__subpackages__",
+        "//daml-assistant/upgrade-check-main:__subpackages__",
         "//daml-script:__subpackages__",
     ],
 )
@@ -437,7 +439,10 @@ da_scala_library(
         ]
     ],
     tags = ["maven_coordinates=com.daml:community-admin-api:__VERSION__"],
-    visibility = ["//canton/community/daml-lf/validation:__subpackages__"],
+    visibility = [
+        "//canton/community/daml-lf/validation:__subpackages__",
+        "//daml-assistant/upgrade-check-main:__subpackages__",
+    ],
 )
 
 ### community/base ###
@@ -548,7 +553,6 @@ scala_library(
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
-        "@maven//:com_google_crypto_tink_tink",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_lihaoyi_fansi_2_13",
@@ -928,6 +932,7 @@ scala_library(
         "@maven//:org_scala_lang_scala3_library_3",
         "@maven//:org_scala_lang_scala_reflect",
         "@maven//:org_scalaz_scalaz_core_2_13",
+        "@maven//:org_semver4j_semver4j",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
@@ -1160,7 +1165,6 @@ scala_library(
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
-        "@maven//:com_google_crypto_tink_tink",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_lihaoyi_pprint_2_13",

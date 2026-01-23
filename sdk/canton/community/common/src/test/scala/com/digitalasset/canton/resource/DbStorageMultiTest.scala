@@ -132,8 +132,7 @@ trait DbStorageMultiTest
   protected def createStorage(
       customClock: Option[Clock] = None,
       onActive: () => FutureUnlessShutdown[Unit] = () => FutureUnlessShutdown.unit,
-      onPassive: () => FutureUnlessShutdown[Option[CloseContext]] = () =>
-        FutureUnlessShutdown.pure(None),
+      onPassive: () => FutureUnlessShutdown[Unit] = () => FutureUnlessShutdown.unit,
       name: String,
       mainLockCounter: DbLockCounter,
       poolLockCounter: DbLockCounter,
@@ -144,6 +143,7 @@ trait DbStorageMultiTest
       withWriteConnectionPool = true,
       withMainConnection = false,
     )
+    val unusedSessionContext = CloseContext(FlagCloseable(logger, timeouts))
     DbStorageMulti
       .create(
         setup.config,
@@ -162,6 +162,7 @@ trait DbStorageMultiTest
         exitOnFatalFailures = true,
         futureSupervisor,
         loggerFactory.append("storageId", name),
+        () => unusedSessionContext,
       )
       .valueOrFailShutdown("create DB storage")
   }

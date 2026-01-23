@@ -1,0 +1,23 @@
+
+module Com.Digitalasset.Transcode.Conformance.Data.TypeVars where
+
+
+data SelfThing a = SelfThing with next: Optional (SelfThing (Optional (a)))
+  deriving (Eq, Show, Ord)
+
+data Thing a b c
+    = SimpleThing a
+    | ListThing [b]
+    | ListOfThings [Thing (a) (b) (c)]
+  deriving (Eq, Show, Ord)
+
+data SelfThing2 a = SelfThing2 with next: DiyOptional (SelfThing (DiyOptional (a)))
+  deriving (Eq, Show, Ord)
+
+data DiyOptional a
+    = DiySome a
+    | DiyNone
+  deriving (Eq, Show, Ord)
+
+data Things a = Things with things: [a], contractIds: [ContractId a]
+  deriving (Eq, Show, Ord)

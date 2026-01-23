@@ -555,7 +555,7 @@ class ConnectedSynchronizer(
 
             _ <- NonEmpty.from(acsChangesToConsume) match {
               case Some(nonEmptyBatch) => // publish ACS changes
-                EitherT.rightT[FutureUnlessShutdown, ConnectedSynchronizerInitializationError](
+                EitherT.liftF[FutureUnlessShutdown, ConnectedSynchronizerInitializationError, Unit](
                   acsCommitmentProcessor.publish(nonEmptyBatch)
                 )
               case None => EitherTUtil.unitUS[ConnectedSynchronizerInitializationError]
@@ -1263,6 +1263,7 @@ object ConnectedSynchronizer {
           commitmentMismatchDebugging = parameters.commitmentMismatchDebugging,
           commitmentProcessorNrAcsChangesBehindToTriggerCatchUp =
             parameters.commitmentProcessorNrAcsChangesBehindToTriggerCatchUp,
+          commitmentReduceParallelism = parameters.commitmentReduceParallelism,
           stringInterning = participantNodePersistentState.value.ledgerApiStore.stringInterningView,
         )
         topologyProcessor <- topologyProcessorFactory.create(

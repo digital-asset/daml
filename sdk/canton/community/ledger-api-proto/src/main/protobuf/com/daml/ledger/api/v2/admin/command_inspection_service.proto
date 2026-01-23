@@ -37,9 +37,15 @@ enum CommandState {
 }
 
 message GetCommandStatusRequest {
-  string command_id_prefix = 1; // optional filter by command id
-  CommandState state = 2; // optional filter by state
-  uint32 limit = 3; // optional limit of returned statuses, defaults to 100
+  // filter by command id
+  // Optional
+  string command_id_prefix = 1;
+  // filter by state
+  // Optional
+  CommandState state = 2;
+  // limit of returned statuses, defaults to 100
+  // Optional
+  uint32 limit = 3;
 }
 
 message GetCommandStatusResponse {

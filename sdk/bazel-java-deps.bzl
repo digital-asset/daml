@@ -45,7 +45,7 @@ protobuf_version = "3.25.5"
 pekko_version = "1.2.1"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
-transcode_version = "3.5.0-snapshot.20251205.150.903.vc31b0a4"
+transcode_version = "3.5.0-snapshot.20260116.17794.0.vef594bb3"
 upickle_version = "4.1.0"
 ujson_version = "4.0.2"
 
@@ -272,6 +272,7 @@ def install_java_deps():
             "org.scalatestplus:testng-7-5_{}:3.2.11.0".format(scala_major_version),
             "org.scalaz:scalaz-core_{}:7.2.33".format(scala_major_version),
             "org.scalaz:scalaz-scalacheck-binding_{}:7.2.33-scalacheck-1.15".format(scala_major_version),
+            "org.semver4j:semver4j:6.0.0",
             "org.slf4j:jul-to-slf4j:2.0.6",
             "org.slf4j:jul-to-slf4j:2.0.6",
             "org.slf4j:slf4j-api:2.0.6",
@@ -313,6 +314,7 @@ def install_java_deps():
         },
         repositories = [
             "https://repo1.maven.org/maven2",
+            "https://europe-maven.pkg.dev/da-images/public-maven-unstable",
         ],
         # The strict_visibility attribute controls whether all artifacts should
         # be visible (including transitive dependencies), or whether only

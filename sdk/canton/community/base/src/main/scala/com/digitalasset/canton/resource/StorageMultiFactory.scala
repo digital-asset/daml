@@ -7,7 +7,12 @@ import cats.data.EitherT
 import cats.syntax.functor.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  CloseContext,
+  FlagCloseable,
+  FutureUnlessShutdown,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.DbStorageMetrics
 import com.digitalasset.canton.time.Clock
@@ -21,12 +26,12 @@ class StorageMultiFactory(
     exitOnFatalFailures: Boolean,
     replicationConfig: Option[ReplicationConfig],
     onActive: () => FutureUnlessShutdown[Unit],
-    onPassive: () => FutureUnlessShutdown[Option[CloseContext]],
+    onPassive: () => FutureUnlessShutdown[Unit],
     mainLockCounter: DbLockCounter,
     poolLockCounter: DbLockCounter,
     futureSupervisor: FutureSupervisor,
     override protected val loggerFactory: NamedLoggerFactory,
-    initialSessionContext: Option[CloseContext] = None,
+    getSessionContextO: Option[() => CloseContext],
 ) extends StorageFactory
     with NamedLogging {
 
@@ -62,6 +67,10 @@ class StorageMultiFactory(
                 withMainConnection = false,
               )
 
+            val getSessionContext = getSessionContextO.getOrElse {
+              val ctx = CloseContext(FlagCloseable(logger, timeouts))
+              () => ctx
+            }
             DbStorageMulti
               .create(
                 dbConfig,
@@ -80,7 +89,7 @@ class StorageMultiFactory(
                 exitOnFatalFailures = exitOnFatalFailures,
                 futureSupervisor,
                 loggerFactory,
-                initialSessionContext,
+                getSessionContext,
               )
               .widen[Storage]
           case _ =>

@@ -61,6 +61,10 @@ class BftSequencerInvalidAuthenticationConfigIntegrationTest
         ),
         (
           LogEntryOptionality.OptionalMany,
+          _.warningMessage should include("Token refresh failed"),
+        ),
+        (
+          LogEntryOptionality.OptionalMany,
           _.warningMessage should include("Token refresh encountered error"),
         ),
         (

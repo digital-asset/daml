@@ -1070,8 +1070,7 @@ private[sync] class SynchronizerConnectionsManager(
 
           _ = connectedSynchronizers.tryAdd(connectedSynchronizer)
 
-          // Start sequencer client subscription only after synchronizer has been added to connectedSynchronizers, e.g. to
-          // prevent sending PartyAddedToParticipantEvents before the synchronizer is available for command submission. (#2279)
+          // Start sequencer client subscription only after synchronizer has been added to connectedSynchronizers
           _ <-
             if (startConnectedSynchronizerProcessing) {
               logger.info(

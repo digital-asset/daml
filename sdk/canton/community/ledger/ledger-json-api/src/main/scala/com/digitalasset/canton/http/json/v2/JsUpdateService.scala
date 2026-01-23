@@ -53,6 +53,7 @@ import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, path, query, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class JsUpdateService(
     ledgerClient: LedgerClient,
     protocolConverters: ProtocolConverters,
@@ -193,7 +194,7 @@ class JsUpdateService(
     Either[JsCantonError, JsGetTransactionResponse]
   ] =
     req => {
-      implicit val tc = caller.traceContext()
+      implicit val tc: TraceContext = caller.traceContext()
       updateServiceClient(caller.token())
         .getUpdateByOffset(
           update_service.GetUpdateByOffsetRequest(

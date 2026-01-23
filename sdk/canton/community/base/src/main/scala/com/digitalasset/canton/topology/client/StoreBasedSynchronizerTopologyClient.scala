@@ -311,7 +311,7 @@ class StoreBasedSynchronizerTopologyClient(
       timestamp <= topologyKnownUntilTimestamp,
       s"requested snapshot=$timestamp, topology known until=$topologyKnownUntilTimestamp",
     )
-    new StoreBasedTopologySnapshot(timestamp, store, packageDependencyResolver, loggerFactory)
+    new StoreBasedTopologySnapshot(psid, timestamp, store, packageDependencyResolver, loggerFactory)
   }
 
   def findTopologyIntervalForTimestamp(timestamp: CantonTimestamp)(implicit

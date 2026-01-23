@@ -83,7 +83,7 @@ import com.digitalasset.canton.topology.{
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{BaseTest, HasExecutorService}
+import com.digitalasset.canton.{BaseTest, HasExecutorService, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.ByteString
 import io.grpc.Status.Code
@@ -120,10 +120,14 @@ class ApiPartyManagementServiceSpec
   val partiesPageSize = PositiveInt.tryCreate(100)
 
   val aPartyAllocationTracker =
-    PartyAllocation.TrackerKey("aParty", DefaultTestIdentities.participant1.toLf, Added(Submission))
+    PartyAllocation.TrackerKey(
+      DefaultTestIdentities.party1.toLf,
+      DefaultTestIdentities.participant1.toLf,
+      Added(Submission),
+    )
   val createSubmissionId = new CreateSubmissionId {
     override def apply(
-        partyIdHint: String,
+        partyIdHint: LfPartyId,
         authorizationLevel: TopologyTransactionEffective.AuthorizationLevel,
     ): PartyAllocation.TrackerKey = aPartyAllocationTracker
   }
@@ -1227,7 +1231,7 @@ object ApiPartyManagementServiceSpec {
 
   private final case class TestPartySyncService(tracer: Tracer) extends state.PartySyncService {
     override def allocateParty(
-        hint: Ref.Party,
+        partyId: PartyId,
         submissionId: Ref.SubmissionId,
         synchronizerIdO: Option[SynchronizerId],
         externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],

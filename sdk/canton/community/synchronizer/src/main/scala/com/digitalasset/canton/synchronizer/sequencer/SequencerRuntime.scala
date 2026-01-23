@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SynchronizerCryptoClient}
-import com.digitalasset.canton.data.SynchronizerSuccessor
+import com.digitalasset.canton.data.{CantonTimestamp, SequencingTimeBound, SynchronizerSuccessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
@@ -104,6 +104,7 @@ class SequencerRuntime(
     @VisibleForTesting val client: SequencerClient,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     localNodeParameters: SequencerNodeParameters,
+    sequencingTimeLowerBoundExclusive: SequencingTimeBound,
     val timeTracker: SynchronizerTimeTracker,
     val metrics: SequencerMetrics,
     physicalIndexedSynchronizer: IndexedPhysicalSynchronizer,
@@ -115,6 +116,7 @@ class SequencerRuntime(
     topologyProcessor: TopologyTransactionProcessor,
     topologyManagerStatusO: Option[TopologyManagerStatus],
     topologyConfig: TopologyConfig,
+    producePostOrderingTopologyTicks: Boolean,
     storage: Storage,
     clock: Clock,
     staticMembersToRegister: Seq[Member],
@@ -278,12 +280,9 @@ class SequencerRuntime(
             synchronizerTopologyManager,
             syncCrypto,
             clock,
-            sequencingTimeLowerBoundExclusive =
-              localNodeParameters.sequencingTimeLowerBoundExclusive,
+            sequencingTimeLowerBoundExclusive = sequencingTimeLowerBoundExclusive,
             loggerFactory,
-          )(
-            ec
-          ),
+          )(ec),
           executionContext,
         ),
         new SequencerConnectServerInterceptor(loggerFactory),
@@ -399,8 +398,10 @@ class SequencerRuntime(
         timeouts,
         loggerFactory,
       )
-  logger.info("Subscribing to topology transactions for time-advancing broadcast")
-  topologyProcessor.subscribe(timeAdvancingTopologySubscriber)
+  if (!producePostOrderingTopologyTicks) {
+    logger.info("Subscribing to topology transactions for time-advancing broadcast")
+    topologyProcessor.subscribe(timeAdvancingTopologySubscriber)
+  }
 
   private lazy val synchronizerOutboxO: Option[SynchronizerOutboxHandle] =
     maybeSynchronizerOutboxFactory
@@ -439,6 +440,10 @@ class SequencerRuntime(
       staticSynchronizerParameters,
       loggerFactory,
     )
+
+  @VisibleForTesting
+  def setSequencingTimeLowerBoundExclusive(lowerBound: Option[CantonTimestamp]): Unit =
+    sequencingTimeLowerBoundExclusive.set(lowerBound)
 
   def initializeAll()(implicit
       traceContext: TraceContext

@@ -63,6 +63,7 @@ import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class JsCommandService(
     ledgerClient: LedgerClient,
     protocolConverters: ProtocolConverters,
@@ -254,7 +255,8 @@ class JsCommandService(
   ): TracedInput[command_submission_service.SubmitReassignmentRequest] => Future[
     Either[JsCantonError, command_submission_service.SubmitReassignmentResponse]
   ] = req => {
-    commandSubmissionServiceClient(callerContext.token())(callerContext.traceContext())
+    implicit val tc: TraceContext = callerContext.traceContext()
+    commandSubmissionServiceClient(callerContext.token())
       .submitReassignment(req.in)
       .resultToRight
   }
@@ -514,6 +516,39 @@ object JsCommandServiceCodecs {
   implicit val disclosedContractRW: Codec[
     commands.DisclosedContract
   ] = deriveRelaxedCodec
+
+  // Normally tapir first decodes right value if that fails then left
+  // As long as we do not use strict decoding it can happen that JsCantonError is
+  // interpreted as an empty CommandCompletionResponse
+  // to prevent that we switch decoding logic for that case
+  // It is possible that same trick should be applied for other WS endpoints
+  // TODO (i30190) generalize or remove this fix when possible
+  implicit val fixForCompletionStreamWSFrameCodec
+      : Codec[Either[JsCantonError, command_completion_service.CompletionStreamResponse]] = {
+
+    val completionStreamWSFrameDecoder
+        : Decoder[Either[JsCantonError, command_completion_service.CompletionStreamResponse]] =
+      Decoder[JsCantonError].either(
+        Decoder[command_completion_service.CompletionStreamResponse]
+      )
+
+    val completionStreamWSFrameEncoder =
+      new Encoder[Either[JsCantonError, command_completion_service.CompletionStreamResponse]] {
+        override def apply(
+            value: Either[JsCantonError, command_completion_service.CompletionStreamResponse]
+        ): Json =
+          value match {
+            case Left(err) => Encoder[JsCantonError].apply(err)
+            case Right(resp) =>
+              Encoder[command_completion_service.CompletionStreamResponse].apply(resp)
+          }
+      }
+
+    Codec.from(
+      completionStreamWSFrameDecoder,
+      completionStreamWSFrameEncoder,
+    )
+  }
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
   implicit val reassignmentCommandCommandSchema

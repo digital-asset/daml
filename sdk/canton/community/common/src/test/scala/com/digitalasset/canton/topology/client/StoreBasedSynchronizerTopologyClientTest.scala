@@ -29,6 +29,15 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, SequencerCounter}
 import org.scalatest.wordspec.AsyncWordSpec
 
+object EffectiveTimeTestHelpers {
+
+  import scala.language.implicitConversions
+
+  implicit def toSequencedTime(ts: CantonTimestamp): SequencedTime = SequencedTime(ts)
+  implicit def toEffectiveTime(ts: CantonTimestamp): EffectiveTime = EffectiveTime(ts)
+
+}
+
 @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
 trait StoreBasedTopologySnapshotTest
     extends AsyncWordSpec

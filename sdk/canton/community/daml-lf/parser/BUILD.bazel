@@ -20,6 +20,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-parser:__VERSION__"],
     visibility = [
         "//canton/community/daml-lf:__subpackages__",
+        "//daml-assistant/upgrade-check-main:__subpackages__",
     ],
     deps = [
         "//canton:scala-utils",
@@ -38,7 +39,7 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalatestplus_scalacheck_1_15",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = lf_scalacopts + ["-Wconf:msg=match may not be exhaustive:s"],
     visibility = [
         "//canton/community/daml-lf:__subpackages__",
     ],

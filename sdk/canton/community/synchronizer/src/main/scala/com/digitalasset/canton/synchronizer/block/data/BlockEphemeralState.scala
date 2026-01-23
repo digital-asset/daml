@@ -27,6 +27,7 @@ final case class BlockInfo(
     height: Long,
     lastTs: CantonTimestamp,
     latestSequencerEventTimestamp: Option[CantonTimestamp],
+    latestPendingTopologyTransactionTimestamp: Option[CantonTimestamp],
 ) {
   require(
     latestSequencerEventTimestamp.forall(lastTs >= _),
@@ -36,19 +37,21 @@ final case class BlockInfo(
 
 object BlockInfo {
   val initial: BlockInfo =
-    BlockInfo(UninitializedBlockHeight, lastTs = CantonTimestamp.Epoch, None)
+    BlockInfo(UninitializedBlockHeight, lastTs = CantonTimestamp.Epoch, None, None)
 
   implicit val getResultBlockInfo: GetResult[BlockInfo] = GetResult { r =>
     val height = r.<<[Long]
     val lastTs = r.<<[CantonTimestamp]
     val latestSequencerEventTs = r.<<[Option[CantonTimestamp]]
-    BlockInfo(height, lastTs, latestSequencerEventTs)
+    val latestPendingTopologyTransactionTimestamp = r.<<[Option[CantonTimestamp]]
+    BlockInfo(height, lastTs, latestSequencerEventTs, latestPendingTopologyTransactionTimestamp)
   }
 
   def fromSequencerInitialState(initial: SequencerInitialState): BlockInfo = BlockInfo(
     initial.snapshot.latestBlockHeight,
     initial.snapshot.lastTs,
     initial.latestSequencerEventTimestamp,
+    None,
   )
 }
 
@@ -96,6 +99,7 @@ object BlockEphemeralState {
       initialState.snapshot.latestBlockHeight,
       initialState.snapshot.lastTs,
       initialState.latestSequencerEventTimestamp,
+      None,
     )
     BlockEphemeralState(
       block,

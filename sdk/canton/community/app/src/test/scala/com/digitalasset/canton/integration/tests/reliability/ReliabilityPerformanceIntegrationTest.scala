@@ -23,6 +23,7 @@ import com.digitalasset.canton.performance.PartyRole.{
   Master,
   MasterDynamicConfig,
 }
+import com.digitalasset.canton.performance.RateSettings.SubmissionRateSettings
 import com.digitalasset.canton.performance.elements.DriverStatus
 import com.digitalasset.canton.performance.model.java.orchestration.runtype
 import com.digitalasset.canton.performance.{
@@ -111,10 +112,12 @@ trait ReliabilityPerformanceIntegrationTest extends BasePerformanceIntegrationTe
   )(implicit env: TestConsoleEnvironment): Unit = {
     import env.*
 
-    val settings =
-      new RateSettings(
+    val settings = new RateSettings(
+      SubmissionRateSettings.TargetLatency(
+        // introduce contention by turning off pending tracking
         duplicateSubmissionRatio = duplicateSubmissionRatio
-      ) // introduce contention by turning off pending tracking
+      )
+    )
     val config = PerformanceRunnerConfig(
       master = s"RestartMaster",
       localRoles = Set(
@@ -136,8 +139,8 @@ trait ReliabilityPerformanceIntegrationTest extends BasePerformanceIntegrationTe
         DvpTrader(s"RestartTradie1", settings = settings),
         DvpTrader(s"RestartTradie2", settings = settings),
         DvpTrader(s"RestartTradie3", settings = settings),
-        DvpIssuer(s"RestartIssuator1"),
-        DvpIssuer(s"RestartIssuator2"),
+        DvpIssuer(s"RestartIssuator1", settings = RateSettings.defaults),
+        DvpIssuer(s"RestartIssuator2", settings = RateSettings.defaults),
       ),
       ledger = Connectivity(name = participantName, port = ledgerApiPort),
       baseSynchronizerId = daId,
@@ -159,8 +162,7 @@ trait ReliabilityPerformanceIntegrationTest extends BasePerformanceIntegrationTe
     eventually(timeUntilSuccess = 200.seconds) {
       val runnerStatus = runner.status()
       runnerStatus.exists {
-        case DriverStatus.TraderStatus(_, _, _, _, _, _, _, _, _, proposals, _, _, _) =>
-          proposals.observed > 10
+        case traderStatus: DriverStatus.TraderStatus => traderStatus.proposals.observed > 10
         case _ => false
       } shouldBe true withClue s"Status did not have enough observed proposals: $runnerStatus"
     }
@@ -170,7 +172,7 @@ trait ReliabilityPerformanceIntegrationTest extends BasePerformanceIntegrationTe
     val fut = loggerFactory.assertLoggedWarningsAndErrorsSeq(
       {
         introduceFailure(() => runnerStartup.isCompleted)
-        runner.updateRateSettings(_.copy(startRate = 3))
+        runner.updateRateSettings(_.copy(SubmissionRateSettings.TargetLatency(startRate = 3)))
         logger.info("Waiting for runner startup to complete")
         for {
           _ <- runnerStartup

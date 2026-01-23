@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
@@ -12,13 +13,13 @@ import com.digitalasset.daml.lf.data.Ref
 object PartyAllocation {
 
   final case class TrackerKey(
-      party: String,
+      partyId: LfPartyId,
       participantId: Ref.ParticipantId,
       authorizationEvent: AuthorizationEvent,
   ) {
     lazy val submissionId = {
       val builder = Hash.build(HashPurpose.PartyUpdateId, HashAlgorithm.Sha256)
-      builder.addString(party.split("::")(0))
+      builder.addString(partyId)
       builder.addString(participantId)
       builder.addString(authorizationEvent.toString)
       val hash = builder.finish()

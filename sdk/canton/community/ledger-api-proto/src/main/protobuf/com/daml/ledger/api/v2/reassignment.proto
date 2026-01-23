@@ -35,7 +35,8 @@ message Reassignment {
   // Required, must be a valid absolute offset (positive integer).
   int64 offset = 4;
 
-  // The collection of reassignment events. Required.
+  // The collection of reassignment events.
+  // Required.
   repeated ReassignmentEvent events = 5;
 
   // Optional; ledger API trace context

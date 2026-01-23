@@ -113,6 +113,7 @@ object NetworkTopologyDescription {
       overrideMediatorToSequencers: Option[
         Map[MediatorReference, (Seq[SequencerReference], PositiveInt, NonNegativeInt)]
       ] = None,
+      overrideStaticSynchronizerParameters: Option[StaticSynchronizerParameters] = None,
       mediatorThreshold: PositiveInt = PositiveInt.one,
   )(implicit env: TestConsoleEnvironment): NetworkTopologyDescription =
     NetworkTopologyDescription(
@@ -121,7 +122,9 @@ object NetworkTopologyDescription {
       synchronizerThreshold,
       sequencers,
       mediators,
-      EnvironmentDefinition.defaultStaticSynchronizerParameters,
+      overrideStaticSynchronizerParameters.getOrElse(
+        EnvironmentDefinition.defaultStaticSynchronizerParameters
+      ),
       mediatorRequestAmplification,
       overrideMediatorToSequencers,
       mediatorThreshold,

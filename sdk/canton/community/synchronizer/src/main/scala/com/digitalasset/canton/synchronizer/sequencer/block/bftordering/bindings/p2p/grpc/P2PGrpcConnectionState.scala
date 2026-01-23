@@ -18,6 +18,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.{
   abort,
   mutex,
+  objId,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 import com.digitalasset.canton.tracing.TraceContext
@@ -228,13 +229,13 @@ final class P2PGrpcConnectionState(
       val result =
         if (!bftNodeIdToPeerSender.contains(bftNodeId)) {
           logger.debug(
-            s"Associating $bftNodeId <-> $peerSender "
+            s"Associating peer sender $bftNodeId <-> ${objId(peerSender)} "
           )
           biAssociateBftNodeIdWithPeerSender(bftNodeId, peerSender)
           true
         } else {
           logger.debug(
-            s"Not Associating $bftNodeId <-> $peerSender because a sender for this node already exists"
+            s"Not associating peer sender $bftNodeId <-> ${objId(peerSender)} because one for this node already exists"
           )
           false
         }
@@ -324,11 +325,11 @@ final class P2PGrpcConnectionState(
                 .foreach { case P2PNetworkRefEntry(networkRef, _) =>
                   if (clearNetworkRefAssociations) {
                     p2pEndpointIdToNetworkRef.remove(p2pEndpointId).discard
-                    logger.debug(s"Removed $networkRef for $p2pEndpointId")
+                    logger.debug(s"Removed network ref ${objId(networkRef)} for $p2pEndpointId")
                   }
                   if (closeNetworkRef) {
                     networkRef.close()
-                    logger.debug(s"Closed network ref $networkRef for $p2pEndpointId")
+                    logger.debug(s"Closed network ref ${objId(networkRef)} for $p2pEndpointId")
                   }
                 }
               Option.empty[StreamObserver[BftOrderingMessage]]
@@ -357,13 +358,13 @@ final class P2PGrpcConnectionState(
           val endpointIds =
             p2pEndpointIdToBftNodeId.filter(_._2 == bftNodeId).keys.toSeq
           logger.debug(
-            s"Removed $bftNodeId <-> $peerSender"
+            s"Removed peer sender $bftNodeId <-> ${objId(peerSender)}"
           )
           endpointIds
         }
         .getOrElse {
           logger.debug(
-            s"Not removing $peerSender because it does not exist yet (or possibly removed as duplicate)"
+            s"Not removing peer sender ${objId(peerSender)} because it does not exist yet (or possibly removed as duplicate)"
           )
           Seq.empty
         }
@@ -423,7 +424,7 @@ final class P2PGrpcConnectionState(
             .foreach(impossibleNetworkRefEntry =>
               abort(
                 logger,
-                s"Unexpected existing network ref ${impossibleNetworkRefEntry.networkRef} associated to node ID $bftNodeId",
+                s"Unexpected existing network ref ${objId(impossibleNetworkRefEntry.networkRef)} associated to node ID $bftNodeId",
               )
             )
           updateEndpointsNetworkRef(p2pEndpointIds, e)
@@ -459,10 +460,10 @@ final class P2PGrpcConnectionState(
             p2pEndpointIdToNetworkRef.remove(endpointId).discard
           case _ => ()
         }
-        logger.debug(s"Removed $networkRef for $bftNodeId")
+        logger.debug(s"Removed network ref ${objId(networkRef)} for $bftNodeId")
         if (closeNetworkRef) {
           networkRef.close()
-          logger.debug(s"Closed $networkRef for $bftNodeId")
+          logger.debug(s"Closed network ref ${objId(networkRef)} for $bftNodeId")
         }
       }
     }
@@ -474,7 +475,7 @@ final class P2PGrpcConnectionState(
     bftNodeIdToPeerSender
       .remove(bftNodeId)
       .map { peerSender =>
-        logger.debug(s"Removing $bftNodeId <-> $peerSender")
+        logger.debug(s"Removing peer sender $bftNodeId <-> ${objId(peerSender)}")
         peerSenderToBftNodeId.remove(peerSender).discard
         peerSender
       }
@@ -493,13 +494,13 @@ final class P2PGrpcConnectionState(
   )(implicit traceContext: TraceContext): Unit =
     if (toBeClosedIfDuplicate != kept) {
       logger.debug(
-        s"Replaced network ref $toBeClosedIfDuplicate (for $connectionId) with $kept " +
+        s"Replaced network ref ${objId(toBeClosedIfDuplicate)} (for $connectionId) with ${objId(kept)} " +
           "and closing the previous one"
       )
       toBeClosedIfDuplicate.close()
     } else {
       logger.debug(
-        s"Keeping network ref $toBeClosedIfDuplicate for $connectionId, no change"
+        s"Keeping network ref ${objId(toBeClosedIfDuplicate)} for $connectionId, no change"
       )
     }
 }

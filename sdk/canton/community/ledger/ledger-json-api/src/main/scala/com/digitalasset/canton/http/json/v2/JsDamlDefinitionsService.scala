@@ -17,13 +17,13 @@ import com.digitalasset.canton.logging.audit.ApiRequestLogger
 import sttp.tapir.path
 
 import scala.annotation.unused
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class JsDamlDefinitionsService(
     damlDefinitionsView: DamlDefinitionsView,
     override protected val requestLogger: ApiRequestLogger,
     val loggerFactory: NamedLoggerFactory,
-)(implicit val authInterceptor: AuthInterceptor)
+)(implicit val authInterceptor: AuthInterceptor, val executionContext: ExecutionContext)
     extends Endpoints {
   import JsDamlDefinitionsService.*
   private val packageSignatureSelectorPath = "package-signature"

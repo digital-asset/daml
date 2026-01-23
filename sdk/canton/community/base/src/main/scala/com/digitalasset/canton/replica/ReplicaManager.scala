@@ -74,13 +74,13 @@ abstract class ReplicaManager(
 
   private def changeState[A](newState: ReplicaState, setNewStateEagerly: Boolean)(
       body: => FutureUnlessShutdown[A]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[A]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     logger.info(s"Transitioning replica state to $newState")
     execQueue.executeUS(
       synchronizeWithClosing(functionFullName) {
         if (replicaStateRef.get().contains(newState)) {
           logger.debug(s"Replica already in state $newState, ignoring replica state change")
-          FutureUnlessShutdown.pure(None)
+          FutureUnlessShutdown.unit
         } else {
           if (setNewStateEagerly) {
             // Set the state to transition from one state to another before running the body
@@ -93,11 +93,10 @@ abstract class ReplicaManager(
               body,
               s"Failed to run replica state transition to $newState",
             )
-            .map { res =>
+            .map { _ =>
               if (!setNewStateEagerly)
                 setState(newState)
               logger.info(s"Successfully performed replica state change to $newState")
-              Some(res)
             }
         }
       },
@@ -132,14 +131,13 @@ abstract class ReplicaManager(
           _ <- transitionToActive()
         } yield ()
       }
-        .map(_ => ())
         .recover {
           case exception if exitOnFatalFailures =>
             FatalError.exitOnFatalError("Failed to transition node to active", exception, logger)
         }
   }
 
-  def setPassive(): FutureUnlessShutdown[Option[CloseContext]] =
+  def setPassive(): FutureUnlessShutdown[Unit] =
     withNewTraceContext("passive_replica") { implicit traceContext =>
       // Close the session context first but then don't wait for the close to be done before transitioning to passive.
       // Once transition is complete, make sure the session context has closed.
@@ -149,16 +147,20 @@ abstract class ReplicaManager(
       // and try to perform more DB queries.
       // But we also want the session context to be closing while we transition to passive to stop any DB retries.
       changeState(ReplicaState.Passive, setNewStateEagerly = true) {
-        val newContext = makeCloseContext
-        val oldContext = sessionCloseContext.getAndSet(newContext)
+        val oldContext = sessionCloseContext.get
         val sessionContextIsClosed =
           FutureUnlessShutdown.outcomeF(Future(oldContext.close()))
         logger.debug("Starting transition to passive")
         for {
           _ <- transitionToPassive()
-          _ = logger.debug("Waiting for session context to be closed")
+          _ = logger.debug("Passivation complete. Waiting for old session context to be closed")
           _ <- sessionContextIsClosed
-        } yield CloseContext(newContext)
+          _ = if (!sessionCloseContext.compareAndSet(oldContext, makeCloseContext)) {
+            logger.debug("Lost race to update context to another thread")
+          }
+        } yield {
+          logger.debug("Successfully transitioned node to passive")
+        }
       }.recover {
         case exception if exitOnFatalFailures =>
           FatalError.exitOnFatalError("Failed to transition node to passive", exception, logger)

@@ -660,9 +660,11 @@ class SequencerReader(
           signValidatedEvent(unsignedEventData).value.map { errorOrEvent =>
             // Update subscription last timestamp metric on successful event delivery
             errorOrEvent.foreach { signedEvent =>
-              metrics.publicApi.subscriptionLastTimestamp.updateValue(
-                signedEvent.timestamp.toMicros
-              )(metricsContext)
+              metrics.publicApi
+                .subscriptionLastTimestamp(metricsContext)
+                .updateValue(
+                  signedEvent.timestamp.toMicros
+                )
             }
             errorOrEvent
           }

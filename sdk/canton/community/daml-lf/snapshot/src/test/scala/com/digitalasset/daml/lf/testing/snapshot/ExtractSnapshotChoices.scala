@@ -5,33 +5,48 @@ package com.digitalasset.daml.lf
 package testing.snapshot
 
 import com.digitalasset.daml.lf.data.Ref
-import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.{Assertion, BeforeAndAfterAll}
+import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.nio.file.{Files, FileSystems, Path}
 
-class ExtractSnapshotChoices extends AsyncWordSpec with Matchers {
+class ExtractSnapshotChoices extends AnyWordSpec with Matchers with BeforeAndAfterAll {
 
-  if (
-    Seq("DAR_FILE", "SCRIPT_NAME", "SNAPSHOT_DIR")
-      .exists(envVar => sys.env.get(envVar).isEmpty)
-  ) {
-    throw new AssertionError(
+  private var snapshotBaseDir: Path = _
+  private var darFile: Path = _
+  private var scriptEntryPoint: Ref.QualifiedName = _
+
+  override protected def beforeAll(): Unit = {
+    assume(
+      Seq("DAR_FILE", "SCRIPT_NAME", "SNAPSHOT_DIR")
+        .forall(envVar => sys.env.get(envVar).nonEmpty),
       "The environment variables DAR_FILE, SCRIPT_NAME and SNAPSHOT_DIR all need to be set"
     )
+
+    snapshotBaseDir = Path.of(sys.env("SNAPSHOT_DIR"))
+    darFile = Path.of(sys.env("DAR_FILE"))
+    scriptEntryPoint = Ref.QualifiedName.assertFromString(sys.env("SCRIPT_NAME"))
   }
 
-  val snapshotBaseDir = Path.of(sys.env("SNAPSHOT_DIR"))
-  val darFile = Path.of(sys.env("DAR_FILE"))
-  val scriptEntryPoint = Ref.QualifiedName.assertFromString(sys.env("SCRIPT_NAME"))
-  val snapshotDir = snapshotBaseDir.resolve(s"${darFile.getFileName}/${scriptEntryPoint.name}")
-  val participantId = Ref.ParticipantId.assertFromString("participant0")
-  val snapshotFileMatcher =
+  lazy val snapshotDir = snapshotBaseDir.resolve(s"${darFile.getFileName}/${scriptEntryPoint.name}")
+  lazy val participantId = Ref.ParticipantId.assertFromString("participant0")
+  lazy val snapshotFileMatcher =
     FileSystems
       .getDefault()
       .getPathMatcher(s"glob:$snapshotDir/snapshot-$participantId*.bin")
 
-  s"Extract choices from snapshot data ${darFile.getFileName}/${scriptEntryPoint.name}" in {
+  private def runWhenEnvVarSet(name: String)(testFun: => Assertion): Unit = {
+    if (sys.env.get("STANDALONE").nonEmpty) {
+      name.in(testFun)
+    } else {
+      name.ignore(testFun)
+    }
+  }
+
+  runWhenEnvVarSet("Extract choices from snapshot data") {
+    println(s"Using snapshot data ${darFile.getFileName}/${scriptEntryPoint.name}")
+
     val snapshotFiles = Files.list(snapshotDir).filter(snapshotFileMatcher.matches).toList
     snapshotFiles.size() should be(1)
 

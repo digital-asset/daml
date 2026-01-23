@@ -220,6 +220,8 @@ class ParticipantNodeBootstrap(
       nodeId,
       clock,
       crypto,
+      parameters.batchingConfig.topologyCacheAggregator,
+      config.topology,
       authorizedStore,
       exitOnFatalFailures = parameters.exitOnFatalFailures,
       bootstrapStageCallback.timeouts,
@@ -551,15 +553,7 @@ class ParticipantNodeBootstrap(
           }
         }
 
-        ephemeralState = ParticipantNodeEphemeralState(
-          ledgerApiIndexerContainer.asEval,
-          inFlightSubmissionTracker,
-          clock,
-          exitOnFatalFailures = parameters.exitOnFatalFailures,
-          timeouts = parameters.processingTimeouts,
-          futureSupervisor,
-          loggerFactory,
-        )
+        ephemeralState = ParticipantNodeEphemeralState(inFlightSubmissionTracker)
 
         packageService = PackageService(
           clock = clock,
@@ -849,7 +843,6 @@ class ParticipantNodeBootstrap(
         persistentState.map(addCloseable).discard
         addCloseable(packageService)
         addCloseable(indexedStringStore)
-        addCloseable(ephemeralState.participantEventPublisher)
         addCloseable(topologyDispatcher)
         addCloseable(schedulers)
         addCloseable(ledgerApiServerContainer.currentAutoCloseable())

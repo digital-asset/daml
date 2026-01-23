@@ -53,7 +53,7 @@ object MediatorNodeBootstrapFactoryImpl extends MediatorNodeBootstrapFactory {
           DbLockCounters.MEDIATOR_WRITERS,
           arguments.futureSupervisor,
           arguments.loggerFactory,
-          initialSessionContext = Some(replicaManager.getSessionContext),
+          Some(() => replicaManager.getSessionContext),
         ),
         Some(replicaManager),
       )

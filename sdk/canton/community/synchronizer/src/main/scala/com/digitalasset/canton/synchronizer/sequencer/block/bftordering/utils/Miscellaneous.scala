@@ -32,4 +32,8 @@ private[bftordering] object Miscellaneous {
       left > num.zero
     }.toSeq
   }
+
+  def objId(obj: Any): Int = System.identityHashCode(obj)
+
+  def objIdC(obj: Any): String = s"[${obj.getClass.getName}@${objId(obj)}]"
 }

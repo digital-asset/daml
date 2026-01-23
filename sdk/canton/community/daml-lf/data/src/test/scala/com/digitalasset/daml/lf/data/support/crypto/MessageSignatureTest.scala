@@ -4,13 +4,17 @@
 package com.digitalasset.daml.lf.data
 package support.crypto
 
+import org.bouncycastle.jce.provider.BouncyCastleProvider
+
 import java.security.interfaces.ECPublicKey
 import java.security.spec.ECGenParameterSpec
-import java.security.{InvalidKeyException, KeyPairGenerator, SignatureException}
+import java.security.{InvalidKeyException, KeyPairGenerator, Security, SignatureException}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
 class MessageSignatureTest extends AnyFreeSpec with Matchers {
+
+  Security.addProvider(new BouncyCastleProvider())
 
   "correctly sign and verify secp256k1 signatures" in {
     val keyPair = MessageSignatureUtil.generateKeyPair

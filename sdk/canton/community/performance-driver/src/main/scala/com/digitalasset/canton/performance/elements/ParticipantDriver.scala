@@ -11,6 +11,7 @@ import com.daml.metrics.api.MetricName
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.performance.RateSettings.SubmissionRateSettings
 import com.digitalasset.canton.performance.acs.ContractStore
 import com.digitalasset.canton.performance.control.{LatencyMonitor, SubmissionRate}
 import com.digitalasset.canton.performance.elements.DriverStatus.{StepStatus, TraderStatus}
@@ -57,7 +58,26 @@ abstract class ParticipantDriver(
 
   override def updateRateSettings(update: RateSettings => RateSettings): Unit = {
     val upd = settings_.updateAndGet(update(_))
-    rate.updateSettings(upd.startRate, upd.targetLatencyMs, upd.adjustFactor)
+
+    (upd.submissionRateSettings, rate) match {
+      case (
+            targetLatencySettings: SubmissionRateSettings.TargetLatency,
+            targetLatency: SubmissionRate.TargetLatency,
+          ) =>
+        targetLatency.updateSettings(
+          targetLatencySettings.startRate,
+          targetLatencySettings.targetLatencyMs,
+          targetLatencySettings.adjustFactor,
+        )
+
+      case (_: SubmissionRateSettings.FixedRate, _: SubmissionRate) =>
+        ()
+
+      case (srs, sr) =>
+        throw new IllegalArgumentException(
+          s"Illegal combination of SubmissionRateSettings and SubmissionRate: $srs, $sr"
+        )
+    }
   }
 
   def name: String = role.name
@@ -102,16 +122,27 @@ abstract class ParticipantDriver(
     loggerFactory,
   )
 
-  protected val rate =
-    new SubmissionRate.I(
-      role.settings.startRate,
-      role.settings.targetLatencyMs,
-      role.settings.adjustFactor,
-      prefix,
-      metricsFactory,
-      loggerFactory,
-      () => CantonTimestamp.now(),
-    )
+  protected val rate: SubmissionRate = role.settings.submissionRateSettings match {
+    case targetLatency: SubmissionRateSettings.TargetLatency =>
+      new SubmissionRate.TargetLatency(
+        targetLatency.startRate,
+        targetLatency.targetLatencyMs,
+        targetLatency.adjustFactor,
+        prefix,
+        metricsFactory,
+        loggerFactory,
+        () => CantonTimestamp.now(),
+      )
+
+    case fixedRate: SubmissionRateSettings.FixedRate =>
+      new SubmissionRate.FixedRate(
+        rate = fixedRate.rate,
+        prefix,
+        metricsFactory,
+        loggerFactory,
+        () => CantonTimestamp.now(),
+      )
+  }
   private val monitor = new LatencyMonitor(rate)
 
   override def latencyMonitor: Option[LatencyMonitor] = Some(monitor)
@@ -295,7 +326,6 @@ trait StatsUpdater {
             maxRate = rate.maxRate,
             latencyMs = rate.latencyMs,
             pending = rate.pending,
-            backpressured = rate.backpressured,
             failed = rate.failed,
             proposals =
               StepStatus(proposalStats.submitted, proposalStats.observed, open = proposalsOpen),

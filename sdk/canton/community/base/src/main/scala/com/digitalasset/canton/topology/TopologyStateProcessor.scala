@@ -6,11 +6,11 @@ package com.digitalasset.canton.topology
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
-import com.digitalasset.canton.config.BatchAggregatorConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.AsyncResult
 import com.digitalasset.canton.topology.cache.{TopologyStateLookup, TopologyStateWriteThroughCache}
@@ -38,11 +38,12 @@ import scala.concurrent.ExecutionContext
   */
 class TopologyStateProcessor private (
     val store: TopologyStore[TopologyStoreId],
+    cache: TopologyStateWriteThroughCache,
     outboxQueue: Option[SynchronizerOutboxQueue],
     topologyMappingChecksFactory: TopologyStateLookup => TopologyMappingChecks,
     pureCrypto: CryptoPureApi,
     loggerFactoryParent: NamedLoggerFactory,
-)(implicit ec: ExecutionContext, closeContext: CloseContext)
+)(implicit ec: ExecutionContext)
     extends NamedLogging {
 
   override protected val loggerFactory: NamedLoggerFactory =
@@ -51,15 +52,6 @@ class TopologyStateProcessor private (
     if (store.storeId == AuthorizedStore) {
       loggerFactoryParent.append("store", store.storeId.toString)
     } else loggerFactoryParent
-
-  private val cache =
-    new TopologyStateWriteThroughCache(
-      store,
-      // TODO(#29400) expose options via configuration
-      BatchAggregatorConfig(),
-      maxCacheSize = PositiveInt.tryCreate(1000),
-      loggerFactory,
-    )
 
   private val topologyMappingChecks = topologyMappingChecksFactory(cache)
 
@@ -342,13 +334,24 @@ object TopologyStateProcessor {
     */
   def forTopologyManager[PureCrypto <: CryptoPureApi](
       store: TopologyStore[TopologyStoreId],
+      topologyCacheAggregatorConfig: BatchAggregatorConfig,
+      topologyConfig: TopologyConfig,
       outboxQueue: Option[SynchronizerOutboxQueue],
       topologyMappingChecksFactory: TopologyStateLookup => TopologyMappingChecks,
       pureCrypto: PureCrypto,
+      timeouts: ProcessingTimeout,
       loggerFactoryParent: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext, closeContext: CloseContext) =
+  )(implicit ec: ExecutionContext) =
     new TopologyStateProcessor(
       store,
+      new TopologyStateWriteThroughCache(
+        store,
+        topologyCacheAggregatorConfig,
+        maxCacheSize = topologyConfig.maxTopologyStateCacheItems,
+        enableConsistencyChecks = topologyConfig.enableTopologyStateCacheConsistencyChecks,
+        timeouts,
+        loggerFactoryParent.append("purpose", store.storeId.toString),
+      ),
       outboxQueue,
       topologyMappingChecksFactory,
       pureCrypto,
@@ -359,12 +362,23 @@ object TopologyStateProcessor {
     */
   def forInitialSnapshotValidation[PureCrypto <: CryptoPureApi](
       store: TopologyStore[TopologyStoreId],
+      topologyCacheAggregatorConfig: BatchAggregatorConfig,
+      topologyConfig: TopologyConfig,
       topologyMappingChecksFactory: TopologyStateLookup => TopologyMappingChecks,
       pureCrypto: PureCrypto,
+      timeouts: ProcessingTimeout,
       loggerFactoryParent: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext, closeContext: CloseContext) =
+  )(implicit ec: ExecutionContext) =
     new TopologyStateProcessor(
       store,
+      new TopologyStateWriteThroughCache(
+        store,
+        topologyCacheAggregatorConfig,
+        maxCacheSize = topologyConfig.maxTopologyStateCacheItems,
+        enableConsistencyChecks = topologyConfig.enableTopologyStateCacheConsistencyChecks,
+        timeouts,
+        loggerFactoryParent.append("purpose", "initial-validation"),
+      ),
       outboxQueue = None,
       topologyMappingChecksFactory,
       pureCrypto,
@@ -376,12 +390,14 @@ object TopologyStateProcessor {
     */
   def forTransactionProcessing[PureCrypto <: CryptoPureApi](
       store: TopologyStore[TopologyStoreId],
+      cache: TopologyStateWriteThroughCache,
       topologyMappingChecksFactory: TopologyStateLookup => TopologyMappingChecks,
       pureCrypto: PureCrypto,
       loggerFactoryParent: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext, closeContext: CloseContext) =
+  )(implicit ec: ExecutionContext) =
     new TopologyStateProcessor(
       store,
+      cache,
       outboxQueue = None,
       topologyMappingChecksFactory,
       pureCrypto,

@@ -12,7 +12,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.{Crypto, SynchronizerCrypto, SynchronizerCryptoClient}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SequencingTimeBound}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.*
@@ -436,6 +436,8 @@ class SequencerNodeBootstrap(
           clock,
           SynchronizerCrypto(crypto, synchronizerParameters),
           synchronizerParameters,
+          parameters.batchingConfig.topologyCacheAggregator,
+          config.topology,
           topologyStore,
           outboxQueue = new SynchronizerOutboxQueue(loggerFactory),
           dispatchQueueBackpressureLimit = parameters.general.dispatchQueueBackpressureLimit,
@@ -514,8 +516,10 @@ class SequencerNodeBootstrap(
                 val topologySnapshotValidator = new InitialTopologySnapshotValidator(
                   crypto.pureCrypto,
                   synchronizerTopologyStore,
+                  parameters.batchingConfig.topologyCacheAggregator,
+                  config.topology,
                   Some(crypto.staticSynchronizerParameters),
-                  validateInitialSnapshot = config.topology.validateInitialTopologySnapshot,
+                  timeouts,
                   loggerFactory,
                   // only filter out completed proposals if this is a bootstrap from genesis.
                   cleanupTopologySnapshot = sequencerSnapshot.isEmpty,
@@ -590,17 +594,18 @@ class SequencerNodeBootstrap(
             .map(sequencerSnapshot => EffectiveTime(sequencerSnapshot.lastTs))
           processorAndClient <- EitherT
             .right(
-              TopologyTransactionProcessor.createProcessorAndClientForSynchronizer(
-                synchronizerTopologyStore,
-                synchronizerPredecessor = None,
-                crypto.pureCrypto,
-                parameters,
-                arguments.config.topology,
-                clock,
-                crypto.staticSynchronizerParameters,
-                futureSupervisor,
-                synchronizerLoggerFactory,
-              )(sequencerSnapshotTimestamp)
+              TopologyTransactionProcessor
+                .createProcessorAndClientForSynchronizerWithWriteThroughCache(
+                  synchronizerTopologyStore,
+                  synchronizerPredecessor = None,
+                  crypto.pureCrypto,
+                  parameters,
+                  arguments.config.topology,
+                  clock,
+                  crypto.staticSynchronizerParameters,
+                  futureSupervisor,
+                  synchronizerLoggerFactory,
+                )(sequencerSnapshotTimestamp)
             )
           (topologyProcessor, topologyClient) = processorAndClient
           _ = addCloseable(topologyProcessor)
@@ -702,10 +707,14 @@ class SequencerNodeBootstrap(
               loggerFactory,
             )
 
+          sequencingTimeLowerBoundExclusive = SequencingTimeBound(
+            parameters.sequencingTimeLowerBoundExclusive
+          )
+
           topologyStateForInitializationService =
             new StoreBasedTopologyStateForInitializationService(
               synchronizerTopologyStore,
-              config.parameters.sequencingTimeLowerBoundExclusive,
+              sequencingTimeLowerBoundExclusive,
               synchronizerLoggerFactory,
             )
 
@@ -780,6 +789,7 @@ class SequencerNodeBootstrap(
                 syncCryptoWithOptionalSessionKeys,
                 futureSupervisor,
                 config.trafficConfig,
+                sequencingTimeLowerBoundExclusive,
                 runtimeReadyPromise.futureUS,
                 topologyAndSequencerSnapshot.flatMap { case (_, sequencerSnapshot) =>
                   sequencerSnapshot
@@ -873,6 +883,7 @@ class SequencerNodeBootstrap(
             sequencerClient,
             staticSynchronizerParameters,
             parameters,
+            sequencingTimeLowerBoundExclusive,
             timeTracker,
             arguments.metrics,
             physicalSynchronizerIdx,
@@ -886,6 +897,7 @@ class SequencerNodeBootstrap(
               TopologyManagerStatus.combined(authorizedTopologyManager, synchronizerTopologyManager)
             ),
             arguments.config.topology,
+            arguments.config.parameters.producePostOrderingTopologyTicks,
             storage,
             clock,
             Seq(sequencerId) ++ membersToRegister,

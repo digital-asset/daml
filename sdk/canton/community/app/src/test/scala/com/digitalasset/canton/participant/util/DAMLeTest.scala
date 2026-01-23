@@ -106,7 +106,7 @@ class DAMLeTest
       val (tx, meta) = testEngine.submitAndConsume(
         command = contractId.exerciseRepeat().commands().loneElement,
         actAs = contract.signatories.head,
-        storedContracts = Seq(contract.inst),
+        contracts = Seq(contract.inst),
       )
       val rootId = tx.roots.toSeq.loneElement
       val exerciseNode = tx.nodes.get(rootId).value

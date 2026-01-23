@@ -339,7 +339,7 @@ object TransactionView
       (HashOps, ProtocolVersion),
     ] {
   override def name: String = "TransactionView"
-  override def versioningTable: VersioningTable = VersioningTable(
+  override val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ViewNode)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
@@ -416,13 +416,14 @@ object TransactionView
 
   /** DO NOT USE IN PRODUCTION, as it does not necessarily check object invariants. */
   @VisibleForTesting
-  val viewCommonDataUnsafe: Lens[TransactionView, MerkleTree[ViewCommonData]] =
-    GenLens[TransactionView](_.viewCommonData)
-
-  /** DO NOT USE IN PRODUCTION, as it does not necessarily check object invariants. */
-  @VisibleForTesting
-  val viewParticipantDataUnsafe: Lens[TransactionView, MerkleTree[ViewParticipantData]] =
-    GenLens[TransactionView](_.viewParticipantData)
+  object Optics {
+    val subviewsUnsafe: Lens[TransactionView, TransactionSubviews] =
+      GenLens[TransactionView](_.subviews)
+    val viewCommonDataUnsafe: Lens[TransactionView, MerkleTree[ViewCommonData]] =
+      GenLens[TransactionView](_.viewCommonData)
+    val viewParticipantDataUnsafe: Lens[TransactionView, MerkleTree[ViewParticipantData]] =
+      GenLens[TransactionView](_.viewParticipantData)
+  }
 
   private def fromProtoV30(
       context: (HashOps, ProtocolVersion),

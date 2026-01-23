@@ -51,27 +51,17 @@ import scala.concurrent.Promise
   * earlier's [[Update.TransactionAccepted]]. A [[Update.CommandRejected]] completion does not
   * trigger deduplication and implementations SHOULD process such resubmissions normally.
   */
-sealed trait Update extends Product with Serializable with PrettyPrinting with HasTraceContext {
+sealed trait Update extends Product with Serializable with PrettyPrinting with HasTraceContext
+
+/** Update which defines a recordTime, synchronizerId and SynchronizerIndex.
+  */
+sealed trait SynchronizerUpdate extends Update {
 
   /** The record time at which the state change was committed. */
   def recordTime: CantonTimestamp
-}
 
-// TODO(i25076) this will be removed later as Topology Event project progresses
-sealed trait ParticipantUpdate extends Update {
-  def withRecordTime(recordTime: CantonTimestamp): Update
-
-  def persisted: Promise[Unit]
-}
-
-sealed trait SynchronizerUpdate extends Update {
   def synchronizerId: SynchronizerId
-}
 
-/** Update which defines a SynchronizerIndex, and therefore contribute to SynchronizerIndex moving
-  * ahead.
-  */
-sealed trait SynchronizerIndexUpdate extends SynchronizerUpdate {
   def repairCounterO: Option[RepairCounter]
 
   def sequencerIndexO: Option[SequencerIndex]
@@ -84,19 +74,19 @@ sealed trait SynchronizerIndexUpdate extends SynchronizerUpdate {
     )
 }
 
-sealed trait SequencedUpdate extends SynchronizerIndexUpdate {
+sealed trait SequencedUpdate extends SynchronizerUpdate {
   final override def sequencerIndexO: Option[SequencerIndex] = Some(SequencerIndex(recordTime))
 
   final override def repairCounterO: Option[RepairCounter] = None
 }
 
-sealed trait FloatingUpdate extends SynchronizerIndexUpdate {
+sealed trait FloatingUpdate extends SynchronizerUpdate {
   final override def sequencerIndexO: Option[SequencerIndex] = None
 
   final override def repairCounterO: Option[RepairCounter] = None
 }
 
-sealed trait RepairUpdate extends SynchronizerIndexUpdate {
+sealed trait RepairUpdate extends SynchronizerUpdate {
   def repairCounter: RepairCounter
 
   final override def repairCounterO: Option[RepairCounter] = Some(repairCounter)
@@ -112,62 +102,6 @@ object Update {
     */
   def noOpSeed: LfHash =
     LfHash.assertFromString("00" * LfHash.underlyingHashLength)
-
-  /** Signal that a party is hosted at a participant.
-    *
-    * Repeated `PartyAddedToParticipant` updates are interpreted in the order of their offsets as
-    * follows:
-    *   - set-union semantics for `participantId`; i.e., parties can only be added to, but not
-    *     removed from a participant The `recordTime` and `submissionId` are always metadata for
-    *     their specific `PartyAddedToParticipant` update.
-    *
-    * @param party
-    *   The party identifier.
-    * @param participantId
-    *   The participant that this party was added to.
-    * @param recordTime
-    *   The ledger-provided timestamp at which the party was allocated.
-    * @param submissionId
-    *   The submissionId of the command which requested party to be added.
-    */
-  final case class PartyAddedToParticipant(
-      party: Ref.Party,
-      participantId: Ref.ParticipantId,
-      recordTime: CantonTimestamp,
-      submissionId: Option[Ref.SubmissionId],
-      persisted: Promise[Unit] = Promise(),
-  )(implicit override val traceContext: TraceContext)
-      extends ParticipantUpdate {
-    override protected def pretty: Pretty[PartyAddedToParticipant] =
-      prettyOfClass(
-        param("recordTime", _.recordTime),
-        param("party", _.party),
-        param("participantId", _.participantId),
-        indicateOmittedFields,
-      )
-
-    override def withRecordTime(recordTime: CantonTimestamp): Update =
-      this.copy(recordTime = recordTime)
-  }
-
-  object PartyAddedToParticipant {
-    implicit val `PartyAddedToParticipant to LoggingValue`
-        : ToLoggingValue[PartyAddedToParticipant] = {
-      case PartyAddedToParticipant(
-            party,
-            participantId,
-            recordTime,
-            submissionId,
-            _,
-          ) =>
-        LoggingValue.Nested.fromEntries(
-          Logging.recordTime(recordTime.toLf),
-          Logging.submissionIdOpt(submissionId),
-          Logging.participantId(participantId),
-          Logging.party(party),
-        )
-    }
-  }
 
   final case class TopologyTransactionEffective(
       updateId: UpdateId,
@@ -230,13 +164,13 @@ object Update {
     }
   }
 
-  sealed trait AcsChangeSequencedUpdate extends SynchronizerIndexUpdate {
+  sealed trait AcsChangeSequencedUpdate extends SynchronizerUpdate {
     def acsChangeFactory: AcsChangeFactory
   }
 
   /** Signal the acceptance of a transaction.
     */
-  trait TransactionAccepted extends SynchronizerIndexUpdate {
+  trait TransactionAccepted extends SynchronizerUpdate {
 
     /** The information provided by the submitter of the command that created this transaction. It
       * must be provided if this participant hosts one of the [[SubmitterInfo.actAs]] parties and
@@ -376,7 +310,7 @@ object Update {
     override def isAcsDelta(contractId: Value.ContractId): Boolean = true
   }
 
-  trait ReassignmentAccepted extends SynchronizerIndexUpdate {
+  trait ReassignmentAccepted extends SynchronizerUpdate {
 
     /** The information provided by the submitter of the command that created this reassignment. It
       * must be provided if this participant hosts the submitter and shall output a completion event
@@ -475,7 +409,7 @@ object Update {
 
   /** Signal that a command submitted via [[SyncService]] was rejected.
     */
-  sealed trait CommandRejected extends SynchronizerIndexUpdate {
+  sealed trait CommandRejected extends SynchronizerUpdate {
 
     /** The completion information for the submission
       */
@@ -645,13 +579,9 @@ object Update {
     val persisted: Promise[Unit] = Promise()
 
     override protected def pretty: Pretty[CommitRepair] = prettyOfClass()
-
-    override val recordTime: CantonTimestamp = CantonTimestamp.now()
   }
 
   implicit val `Update to LoggingValue`: ToLoggingValue[Update] = {
-    case update: PartyAddedToParticipant =>
-      PartyAddedToParticipant.`PartyAddedToParticipant to LoggingValue`.toLoggingValue(update)
     case update: TopologyTransactionEffective =>
       TopologyTransactionEffective.`TopologyTransactionEffective to LoggingValue`.toLoggingValue(
         update

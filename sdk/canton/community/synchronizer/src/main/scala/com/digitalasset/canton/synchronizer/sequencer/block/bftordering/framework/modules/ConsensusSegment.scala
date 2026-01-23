@@ -302,7 +302,7 @@ object ConsensusSegment {
           actualSender,
         )(rpv, Some(originalByteString))
 
-      override def versioningTable: VersioningTable = VersioningTable(
+      override val versioningTable: VersioningTable = VersioningTable(
         SupportedVersions.ProtoData ->
           VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.ConsensusMessage)(
             supportedProtoVersionMemoized(_)(PrePrepare.fromProtoConsensusMessage),
@@ -394,7 +394,7 @@ object ConsensusSegment {
           actualSender,
         )(rpv, Some(originalByteString))
 
-      override def versioningTable: VersioningTable = VersioningTable(
+      override val versioningTable: VersioningTable = VersioningTable(
         SupportedVersions.ProtoData ->
           VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.ConsensusMessage)(
             supportedProtoVersionMemoized(_)(Prepare.fromProtoConsensusMessage),
@@ -487,7 +487,7 @@ object ConsensusSegment {
           actualSender,
         )(rpv, Some(originalByteString))
 
-      override def versioningTable: VersioningTable = VersioningTable(
+      override val versioningTable: VersioningTable = VersioningTable(
         SupportedVersions.ProtoData ->
           VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.ConsensusMessage)(
             supportedProtoVersionMemoized(_)(Commit.fromProtoConsensusMessage),
@@ -584,7 +584,7 @@ object ConsensusSegment {
           actualSender,
         )(rpv, Some(originalByteString))
 
-      override def versioningTable: VersioningTable = VersioningTable(
+      override val versioningTable: VersioningTable = VersioningTable(
         SupportedVersions.ProtoData ->
           VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.ConsensusMessage)(
             supportedProtoVersionMemoized(_)(ViewChange.fromProtoConsensusMessage),
@@ -704,7 +704,7 @@ object ConsensusSegment {
           actualSender,
         )(rpv, Some(originalByteString))
 
-      override def versioningTable: VersioningTable = VersioningTable(
+      override val versioningTable: VersioningTable = VersioningTable(
         SupportedVersions.ProtoData ->
           VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.ConsensusMessage)(
             supportedProtoVersionMemoized(_)(NewView.fromProtoConsensusMessage),

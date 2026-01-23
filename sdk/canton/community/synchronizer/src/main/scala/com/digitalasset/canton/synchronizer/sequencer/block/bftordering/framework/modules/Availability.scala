@@ -134,7 +134,7 @@ object Availability {
 
       override def name: String = "RemoteBatch"
 
-      override def versioningTable: VersioningTable =
+      override val versioningTable: VersioningTable =
         VersioningTable(
           SupportedVersions.ProtoData -> {
             VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.AvailabilityMessage)(
@@ -211,7 +211,7 @@ object Availability {
 
       override def name: String = "RemoteBatchAcknowledged"
 
-      override def versioningTable: VersioningTable = VersioningTable(
+      override val versioningTable: VersioningTable = VersioningTable(
         SupportedVersions.ProtoData ->
           VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.AvailabilityMessage)(
             supportedProtoVersionMemoized(_)(RemoteBatchAcknowledged.fromAvailabilityMessage),
@@ -325,7 +325,7 @@ object Availability {
 
       override def name: String = "FetchRemoteBatchData"
 
-      override def versioningTable: VersioningTable = VersioningTable(
+      override val versioningTable: VersioningTable = VersioningTable(
         SupportedVersions.ProtoData ->
           VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.AvailabilityMessage)(
             supportedProtoVersionMemoized(_)(
@@ -400,7 +400,7 @@ object Availability {
 
       override def name: String = "RemoteBatchDataFetched"
 
-      override def versioningTable: VersioningTable =
+      override val versioningTable: VersioningTable =
         VersioningTable(
           SupportedVersions.ProtoData ->
             VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.AvailabilityMessage)(

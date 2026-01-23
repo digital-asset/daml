@@ -91,14 +91,14 @@ class DbSequencerBlockStore(
   private def findBlockForCrashRecoveryForWatermark(
       beforeInclusive: CantonTimestamp
   ): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
-    (sql"""select height, latest_event_ts, latest_sequencer_event_ts from seq_block_height where latest_event_ts <= $beforeInclusive order by height desc """ ++ topRow)
+    (sql"""select height, latest_event_ts, latest_sequencer_event_ts, latest_pending_topology_ts from seq_block_height where latest_event_ts <= $beforeInclusive order by height desc """ ++ topRow)
       .as[BlockInfo]
       .headOption
 
   private def findBlockContainingTimestampDBIO(
       timestamp: CantonTimestamp
   ): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
-    (sql"""select height, latest_event_ts, latest_sequencer_event_ts from seq_block_height where latest_event_ts >= $timestamp order by height """ ++ topRow)
+    (sql"""select height, latest_event_ts, latest_sequencer_event_ts, latest_pending_topology_ts from seq_block_height where latest_event_ts >= $timestamp order by height """ ++ topRow)
       .as[BlockInfo]
       .headOption
 
@@ -169,12 +169,13 @@ class DbSequencerBlockStore(
 
   private def updateBlockHeightDBIO(blocks: Seq[BlockInfo])(implicit traceContext: TraceContext) = {
     val insertSql =
-      """insert into seq_block_height (height, latest_event_ts, latest_sequencer_event_ts)
-            values (?,?,?) on conflict do nothing"""
+      """insert into seq_block_height (height, latest_event_ts, latest_sequencer_event_ts, latest_pending_topology_ts)
+            values (?,?,?,?) on conflict do nothing"""
     DbStorage.bulkOperation_(insertSql, blocks, storage.profile) { pp => block =>
       pp >> block.height
       pp >> block.lastTs
       pp >> block.latestSequencerEventTimestamp
+      pp >> block.latestPendingTopologyTransactionTimestamp
     }
 
   }

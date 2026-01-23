@@ -77,7 +77,7 @@ private[topology] class DecentralizedPartyChaos(
     decentralizedNamespace.set(Some(namespace))
   }
 
-  override def finalAssertions()(implicit
+  override def finalAssertions(transactionProgress: TransactionProgress)(implicit
       loggingContext: ErrorLoggingContext,
       env: TestConsoleEnvironment,
       globalReservations: Reservations,

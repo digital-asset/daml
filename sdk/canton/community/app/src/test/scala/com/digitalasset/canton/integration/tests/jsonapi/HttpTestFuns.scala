@@ -4,11 +4,13 @@
 package com.digitalasset.canton.integration.tests.jsonapi
 
 import com.daml.jwt.Jwt
-import com.daml.ledger.api.v2.admin.party_management_service.AllocatePartyResponse
+import com.daml.ledger.api.v2.admin.party_management_service.{
+  AllocatePartyRequest,
+  AllocatePartyResponse,
+}
 import com.digitalasset.canton.config.TlsClientConfig
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.http.json.v2.JsPartyManagementCodecs.*
-import com.digitalasset.canton.http.json.v2.js.AllocatePartyRequest as JsAllocatePartyRequest
 import com.digitalasset.canton.http.{HttpService, Party, UserId}
 import com.digitalasset.canton.integration.tests.jsonapi.HttpServiceTestFixture.*
 import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
@@ -230,7 +232,13 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
         uriOverride: Uri = uri,
     ): Future[(Party, Jwt, UserId, List[HttpHeader])] = {
       val party = getUniqueParty(name)
-      val jsAllocate: Json = JsAllocatePartyRequest(partyIdHint = party.toString).asJson
+      val jsAllocate: Json = AllocatePartyRequest(
+        partyIdHint = party.toString,
+        localMetadata = None,
+        identityProviderId = "",
+        synchronizerId = "",
+        userId = "",
+      ).asJson
       for {
         newParty <-
           postJsonRequest(

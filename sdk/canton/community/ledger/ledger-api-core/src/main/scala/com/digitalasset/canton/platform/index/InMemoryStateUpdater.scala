@@ -138,11 +138,10 @@ private[platform] object InMemoryStateUpdaterFlow {
               // update the latest checkpoint
               case (lastOffsetCheckpointO, Some((off, update))) =>
                 val synchronizerTimeO = update match {
-                  case _: Update.PartyAddedToParticipant => None
                   case tx: Update.TransactionAccepted =>
-                    Some((tx.synchronizerId, update.recordTime))
+                    Some((tx.synchronizerId, tx.recordTime))
                   case reassignment: Update.ReassignmentAccepted =>
-                    Some((reassignment.synchronizerId, update.recordTime))
+                    Some((reassignment.synchronizerId, reassignment.recordTime))
                   case commandRejected: Update.CommandRejected =>
                     Some((commandRejected.synchronizerId, commandRejected.recordTime))
                   case tt: Update.TopologyTransactionEffective =>

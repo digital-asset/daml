@@ -200,8 +200,8 @@ messages:
           The event as it appeared in the context of its original daml transaction on this participant node.
           In particular, the offset, node_id pair of the daml transaction are preserved.
           Required
-# oneOfs overrides are not implemented in ovverides (update code if needed)
+# oneOfs overrides are not implemented in overrides (update code if needed)
 oneOfs: {}
-# services overrides are not implemented in ovverides (update code if needed)
+# services overrides are not implemented in overrides (update code if needed)
 services: {}
 

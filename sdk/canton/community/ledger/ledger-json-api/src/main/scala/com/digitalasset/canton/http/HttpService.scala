@@ -53,6 +53,7 @@ import javax.net.ssl.SSLContext
 import scala.concurrent.Future
 import scala.util.Using
 
+@SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
 class HttpService(
     startSettings: JsonApiConfig,
     httpsConfiguration: Option[TlsServerConfig],

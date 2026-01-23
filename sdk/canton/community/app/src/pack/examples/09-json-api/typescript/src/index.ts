@@ -73,7 +73,8 @@ async function acs(userParty: string, templateId: string, ledger_offset: number)
     if (data === undefined)
         return Promise.reject(error);
     else {
-        const contracts: components["schemas"]["CreatedEvent"][] = data.map((res) => res.contractEntry).filter((res) => "JsActiveContract" in res).map(
+        const contracts: components["schemas"]["CreatedEvent"][] =
+            data.map((res) => res.contractEntry!).filter((res) => "JsActiveContract" in res).map(
             (res) => res.JsActiveContract.createdEvent
         );
         return Promise.resolve(contracts);
@@ -99,11 +100,11 @@ async function updateContracts(startOffset: number, endOffset: number, userParty
         return Promise.reject(error);
     else {
         const updatedContracts: components["schemas"]["CreatedEvent"][] = contracts;
-        data.map((res) => res.update)
+        data.map((res) => res.update!)
             .filter((res) => "Transaction" in res).map(
             (res) => res.Transaction as components["schemas"]["Transaction"]
         )
-            .map((res) => res.value)
+            .map((res) => res.value!)
             .filter((res) => res.events !== undefined)
             .flatMap((res) => res.events)
             .filter((res) => res !== undefined)

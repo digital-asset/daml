@@ -1,0 +1,12 @@
+
+module Com.Digitalasset.Transcode.Conformance.Data.Records where
+
+
+data RecordWithParam a b = RecordWithParam with aField: a, bField: b
+  deriving (Eq, Show, Ord)
+
+data Record  = Record with int: Int, text: Text, upgraded: Optional (())
+  deriving (Eq, Show, Ord)
+
+data NestedRecordWithParam a b c = NestedRecordWithParam with nested: RecordWithParam (a) (b), cField: c
+  deriving (Eq, Show, Ord)

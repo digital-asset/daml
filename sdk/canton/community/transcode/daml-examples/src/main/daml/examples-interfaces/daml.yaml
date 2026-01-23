@@ -1,0 +1,11 @@
+override-components:
+  damlc:
+    version: $DAML_VERSION
+name: examples-interfaces
+source: .
+version: 1.0.0
+build-options:
+- --enable-interfaces=yes
+dependencies:
+- daml-prim
+- daml-stdlib
