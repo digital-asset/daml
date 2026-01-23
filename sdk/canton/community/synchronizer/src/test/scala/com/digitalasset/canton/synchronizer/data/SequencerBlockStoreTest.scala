@@ -94,18 +94,18 @@ trait SequencerBlockStoreTest
             sequencerStore.registerMember(member, CantonTimestamp.now())
           )
           _ <- addBlockUpdates(store)(
-            block = BlockInfo(2, t2, Some(t2)),
+            block = BlockInfo(2, t2, Some(t2), Some(t2)),
             inFlightAggregationUpdates =
               Map(aggregationId1 -> agg1.asUpdate, aggregationId2 -> agg2.asUpdate),
           )
           _ <- addBlockUpdates(store)(
-            block = BlockInfo(3, t2, Some(t2))
+            block = BlockInfo(3, t2, Some(t2), Some(t2))
           )
           _ <- addBlockUpdates(store)(
-            block = BlockInfo(4, t2, Some(t2))
+            block = BlockInfo(4, t2, Some(t2), Some(t2))
           )
           _ <- addBlockUpdates(store)(
-            block = BlockInfo(5, t3, Some(t2)),
+            block = BlockInfo(5, t3, Some(t2), Some(t2)),
             inFlightAggregationUpdates = Map(
               aggregationId1 -> InFlightAggregationUpdate.sender(
                 AggregatedSender(
@@ -146,7 +146,7 @@ trait SequencerBlockStoreTest
             sequencerStore.registerMember(member, CantonTimestamp.now())
           )
           _ <- addBlockUpdates(store)(
-            block = BlockInfo(1L, t2, Some(t1)),
+            block = BlockInfo(1L, t2, Some(t1), Some(t1)),
             inFlightAggregationUpdates = Map(aggregationId1 -> agg1.asUpdate),
           )
           _ <- partialBlockUpdate(store)(
@@ -157,7 +157,7 @@ trait SequencerBlockStoreTest
           headO <- store.readHead
         } yield {
           val head = headO.value
-          head.latestBlock shouldBe BlockInfo(1L, t2, Some(t1))
+          head.latestBlock shouldBe BlockInfo(1L, t2, Some(t1), Some(t1))
           head.inFlightAggregations shouldBe Map(aggregationId1 -> agg1)
         }
       }
@@ -186,20 +186,20 @@ trait SequencerBlockStoreTest
             sequencerStore.registerMember(member, CantonTimestamp.now())
           )
           _ <- addBlockUpdates(store)(
-            block = BlockInfo(1, t2, Some(t2)),
+            block = BlockInfo(1, t2, Some(t2), Some(t2)),
             inFlightAggregationUpdates =
               Map(aggregationId1 -> agg1.asUpdate, aggregationId2 -> agg2.asUpdate),
           )
           _ <- addBlockUpdates(store)(
-            block = BlockInfo(2, t4, Some(t3)),
+            block = BlockInfo(2, t4, Some(t3), Some(t3)),
             inFlightAggregationUpdates =
               Map(aggregationId2 -> InFlightAggregationUpdate.sender(agg2Update)),
           )
           _ <- addBlockUpdates(store)(
-            block = BlockInfo(3, t4, Some(t3))
+            block = BlockInfo(3, t4, Some(t3), Some(t3))
           )
           _ <- addBlockUpdates(store)(
-            block = BlockInfo(4, t6, Some(t3))
+            block = BlockInfo(4, t6, Some(t3), Some(t3))
           )
           stateAtT1 <- store
             .readStateForBlockContainingTimestamp(
@@ -244,16 +244,16 @@ trait SequencerBlockStoreTest
             .value
         } yield {
           val block1 = BlockEphemeralState(
-            BlockInfo(1, t2, Some(t2)),
+            BlockInfo(1, t2, Some(t2), Some(t2)),
             // aggregationId1 had already been expired by the latest block, but here we're getting an old snapshot
             Map(aggregationId1 -> agg1, aggregationId2 -> agg2),
           )
           val block2 = BlockEphemeralState(
-            BlockInfo(2, t4, Some(t3)),
+            BlockInfo(2, t4, Some(t3), Some(t3)),
             Map(aggregationId2 -> agg2a),
           )
           val block3 = BlockEphemeralState(
-            BlockInfo(3, t4, Some(t3)),
+            BlockInfo(3, t4, Some(t3), Some(t3)),
             Map(aggregationId2 -> agg2a),
           )
 
@@ -272,9 +272,9 @@ trait SequencerBlockStoreTest
 
       "correctly deal with conflicts on bulk block info inserts" in {
         val (seqStore, store) = mkBothStores()
-        val block1 = BlockInfo(1L, t2, Some(t2))
-        val block2 = BlockInfo(2L, t3, Some(t2))
-        val block3 = BlockInfo(3L, t4, Some(t3))
+        val block1 = BlockInfo(1L, t2, Some(t2), Some(t2))
+        val block2 = BlockInfo(2L, t3, Some(t2), Some(t2))
+        val block3 = BlockInfo(3L, t4, Some(t3), Some(t3))
         for {
           _ <- store.finalizeBlockUpdates(Seq(block1))
           _ <- seqStore.saveWatermark(0, t2).value
@@ -313,7 +313,7 @@ trait SequencerBlockStoreTest
             sequencerStore.registerMember(member, CantonTimestamp.now())
           )
           _ <- addBlockUpdates(store)(
-            block = BlockInfo(0L, CantonTimestamp.Epoch, None)
+            block = BlockInfo(0L, CantonTimestamp.Epoch, None, None)
           )
           _ <- partialBlockUpdate(store)(
             inFlightAggregationUpdates =
@@ -336,7 +336,7 @@ trait SequencerBlockStoreTest
               aggregationId2 -> agg2.asUpdate,
             )
           )
-          _ <- store.finalizeBlockUpdates(Seq(BlockInfo(1L, t2, Some(t2))))
+          _ <- store.finalizeBlockUpdates(Seq(BlockInfo(1L, t2, Some(t2), Some(t2))))
           head <- store
             .readStateForBlockContainingTimestamp(
               t2,
@@ -344,7 +344,7 @@ trait SequencerBlockStoreTest
             )
             .value
         } yield {
-          head.value.latestBlock shouldBe BlockInfo(1L, t2, Some(t2))
+          head.value.latestBlock shouldBe BlockInfo(1L, t2, Some(t2), Some(t2))
         }
       }
     }
@@ -385,7 +385,7 @@ trait SequencerBlockStoreTest
           _ <- sequencerStore.saveWatermark(0, t3).valueOrFail("save watermark")
           result <- store.readHead
         } yield result.value shouldBe BlockEphemeralState(
-          BlockInfo(5, t3, None),
+          BlockInfo(5, t3, None, None),
           Map(aggregationId1 -> agg1),
         )
       }

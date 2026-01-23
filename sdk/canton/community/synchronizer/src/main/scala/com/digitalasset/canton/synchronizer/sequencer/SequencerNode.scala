@@ -897,6 +897,7 @@ class SequencerNodeBootstrap(
               TopologyManagerStatus.combined(authorizedTopologyManager, synchronizerTopologyManager)
             ),
             arguments.config.topology,
+            arguments.config.parameters.producePostOrderingTopologyTicks,
             storage,
             clock,
             Seq(sequencerId) ++ membersToRegister,
