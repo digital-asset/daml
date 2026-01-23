@@ -843,7 +843,7 @@ convertTypeDef env mii o@(ATyCon t) = withRange (convNameLoc t) $ if
     -- Enum types. These are algebraic types without any type arguments,
     -- with two or more constructors that have no arguments.
     | isEnumTyCon t
-    -> convertEnumDef env t
+    -> convertEnumDef env mii t
 
     -- Type classes
     | isClassTyCon t
@@ -863,19 +863,20 @@ convertTypeDef env mii o@(ATyCon t) = withRange (convNameLoc t) $ if
     -- Variants are algebraic types that are not enums and not simple
     -- record types. This includes most 'data' types.
     | isVariantTyCon t
-    -> convertVariantDef env t
+    -> convertVariantDef env mii t
 
     | otherwise
     -> unsupported ("Data definition, of type " ++ prettyPrint (tyConFlavour t) ++ ".") o
 
 convertTypeDef env _ x = pure []
 
-convertEnumDef :: Env -> TyCon -> ConvertM [Definition]
-convertEnumDef env t =
-    pure [defDataType tconName [] $ DataEnum ctorNames]
+convertEnumDef :: Env -> ModInstanceInfo -> TyCon -> ConvertM [Definition]
+convertEnumDef env mii t =
+    pure [defDataType tconName serializable [] $ DataEnum ctorNames]
   where
     tconName = mkTypeCon [getOccText t]
     ctorNames = map (mkVariantCon . getOccText) (tyConDataCons t)
+    serializable = IsSerializable $ t `elementOfUniqSet` miiSerializable mii
 
 convertSimpleRecordDef :: Env -> ModInstanceInfo -> TyCon -> ConvertM [Definition]
 convertSimpleRecordDef env mii tycon = do
@@ -884,8 +885,8 @@ convertSimpleRecordDef env mii tycon = do
         labels = ctorLabels con
         (_, theta, args, _) = dataConSig con
 
-    let serializable = tycon `elementOfUniqSet` miiSerializable mii
-    when (serializable) $ flip trace (pure ()) $
+    let serializable = IsSerializable $ tycon `elementOfUniqSet` miiSerializable mii
+    when (getIsSerializable serializable) $ flip trace (pure ()) $
         "This datatype has been marked as Serializable: " ++
         showSDocUnsafe (ppr tycon)
 
@@ -894,7 +895,7 @@ convertSimpleRecordDef env mii tycon = do
 
     let fields = zipExact labels fieldTypes
         tconName = mkTypeCon [getOccText tycon]
-        typeDef = defDataType tconName tyVars (DataRecord fields)
+        typeDef = defDataType tconName serializable tyVars (DataRecord fields)
         workerDef = defNewtypeWorker env tycon tconName con tyVars fields
 
     pure $ typeDef : [workerDef | flavour == NewtypeFlavour]
@@ -1078,18 +1079,20 @@ defNewtypeWorker env loc tconName con tyVars fields =
             ERecCon tcon [(label, EVar (fieldToVar label)) | (label,_) <- fields]
     in defValue loc (workerName, workerType) workerBody
 
-convertVariantDef :: Env -> TyCon -> ConvertM [Definition]
-convertVariantDef env tycon = do
+convertVariantDef :: Env -> ModInstanceInfo -> TyCon -> ConvertM [Definition]
+convertVariantDef env mii tycon = do
     (env', tyVars) <- bindTypeVars env (tyConTyVars tycon)
     (constrs, moreDefs) <- mapAndUnzipM
-        (convertVariantConDef env' tycon tyVars)
+        (convertVariantConDef env' tycon serializable tyVars)
         (tyConDataCons tycon)
     let tconName = mkTypeCon [getOccText tycon]
-        typeDef = defDataType tconName tyVars (DataVariant constrs)
+        typeDef = defDataType tconName serializable tyVars (DataVariant constrs)
     pure $ [typeDef] ++ concat moreDefs
+  where
+    serializable = IsSerializable $ tycon `elementOfUniqSet` miiSerializable mii
 
-convertVariantConDef :: Env -> TyCon -> [(TypeVarName, LF.Kind)] -> DataCon -> ConvertM ((VariantConName, LF.Type), [Definition])
-convertVariantConDef env tycon tyVars con =
+convertVariantConDef :: Env -> TyCon -> IsSerializable -> [(TypeVarName, LF.Kind)] -> DataCon -> ConvertM ((VariantConName, LF.Type), [Definition])
+convertVariantConDef env tycon serializable tyVars con =
     case (ctorLabels con, dataConOrigArgTys con) of
         ([], []) ->
             pure ((ctorName, TUnit), [])
@@ -1101,7 +1104,7 @@ convertVariantConDef env tycon tyVars con =
         (labels, args) -> do
             fields <- zipExact labels <$> mapM (convertType env) args
             let recName = synthesizeVariantRecord ctorName tconName
-                recDef = defDataType recName tyVars (DataRecord fields)
+                recDef = defDataType recName serializable tyVars (DataRecord fields)
                 recType = TConApp
                     (qualifyLocally env recName)
                     (map (TVar . fst) tyVars)
@@ -2582,9 +2585,9 @@ convertKind x = unhandled "Kind" x
 ---------------------------------------------------------------------
 -- SMART CONSTRUCTORS
 
-defDataType :: TypeConName -> [(TypeVarName, LF.Kind)] -> DataCons -> Definition
-defDataType name params constrs =
-  DDataType $ DefDataType Nothing name (IsSerializable False) params constrs
+defDataType :: TypeConName -> IsSerializable -> [(TypeVarName, LF.Kind)] -> DataCons -> Definition
+defDataType name isSerializable params constrs =
+  DDataType $ DefDataType Nothing name isSerializable params constrs
 
 defTypeSyn :: TypeSynName -> [(TypeVarName, LF.Kind)] -> LF.Type -> Definition
 defTypeSyn name params ty =
