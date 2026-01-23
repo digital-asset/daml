@@ -12,6 +12,7 @@ import qualified Data.HashSet as HS
 import qualified Data.NameMap as NM
 import           Data.Semigroup.FixedPoint (leastFixedPointBy)
 import qualified Data.Text as T
+import Debug.Trace (traceM)
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.TypeChecker.Serializability (CurrentModule(..), serializabilityConditionsDataType)
@@ -40,6 +41,11 @@ inferModule world0 forceUtilityPackage mod0 =
       let eqs =
             [ (dataTypeCon dataType, serializable, deps)
             | dataType <- NM.toList dataTypes
+            -- NOTE(jaspervdj): Explicitly Serializable: the LFConversion will
+            -- only set IsSerializable if the datatype has a Serializable
+            -- instance.  Here, we limit ourselves to only infering
+            -- serializability for those types.
+            , getIsSerializable (dataSerializable dataType)
             , let (serializable, deps) =
                     case serializabilityConditionsDataType world0 (Just $ CurrentModule modName interfaces) dataType of
                       Left _ -> (False, [])
@@ -48,6 +54,7 @@ inferModule world0 forceUtilityPackage mod0 =
       case leastFixedPointBy (&&) eqs of
         Left name -> throwError ("Reference to unknown data type: " ++ show name)
         Right serializabilities -> do
+          traceM ("serializabilities: " ++ show (HMS.keys serializabilities))
           let updateDataType dataType =
                 dataType{dataSerializable = IsSerializable (HMS.lookupDefault False (dataTypeCon dataType) serializabilities)}
           pure mod0{moduleDataTypes = NM.map updateDataType dataTypes}
