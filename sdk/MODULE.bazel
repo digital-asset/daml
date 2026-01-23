@@ -1,0 +1,1 @@
+bazel_dep(name = "rules_haskell", version = "1.0")
