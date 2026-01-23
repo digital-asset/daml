@@ -43,7 +43,7 @@ class InMemorySequencerBlockStore(
     * timestamp up to and including this block
     */
   private val blockToTimestampMap =
-    new TrieMap[Long, (CantonTimestamp, Option[CantonTimestamp])]
+    new TrieMap[Long, (CantonTimestamp, Option[CantonTimestamp], Option[CantonTimestamp])]
 
   override def setInitialState(
       initialSequencerState: SequencerInitialState,
@@ -74,7 +74,14 @@ class InMemorySequencerBlockStore(
 
   private def updateBlockHeight(block: BlockInfo): Unit =
     blockToTimestampMap
-      .put(block.height, block.lastTs -> block.latestSequencerEventTimestamp)
+      .put(
+        block.height,
+        (
+          block.lastTs,
+          block.latestSequencerEventTimestamp,
+          block.latestPendingTopologyTransactionTimestamp,
+        ),
+      )
       .discard
 
   override def readHead(implicit
@@ -107,8 +114,9 @@ class InMemorySequencerBlockStore(
     .readOnlySnapshot()
     .toSeq
     .collect {
-      case (height, (latestEventTs, latestSequencerEventTsO)) if latestEventTs <= beforeInclusive =>
-        BlockInfo(height, latestEventTs, latestSequencerEventTsO)
+      case (height, (latestEventTs, latestSequencerEventTsO, latestPendingTopologyTsO))
+          if latestEventTs <= beforeInclusive =>
+        BlockInfo(height, latestEventTs, latestSequencerEventTsO, latestPendingTopologyTsO)
     }
     .maxByOption(_.height)
 
@@ -131,8 +139,8 @@ class InMemorySequencerBlockStore(
       .find(_._2._1 >= timestamp)
       .fold[EitherT[FutureUnlessShutdown, SequencerError, BlockEphemeralState]](
         EitherT.leftT(BlockNotFound.InvalidTimestamp(timestamp))
-      ) { case (blockHeight, (blockTimestamp, latestSequencerEventTs)) =>
-        val block = BlockInfo(blockHeight, blockTimestamp, latestSequencerEventTs)
+      ) { case (blockHeight, (blockTimestamp, latestSequencerEventTs, latestTopologyTs)) =>
+        val block = BlockInfo(blockHeight, blockTimestamp, latestSequencerEventTs, latestTopologyTs)
         EitherT
           .right(
             sequencerStore
@@ -146,7 +154,7 @@ class InMemorySequencerBlockStore(
   ): FutureUnlessShutdown[String] = {
     sequencerStore.pruneExpiredInFlightAggregationsInternal(requestedTimestamp).discard
     val blocksToBeRemoved = blockToTimestampMap.collect {
-      case (height, (latestEventTs, _)) if latestEventTs < requestedTimestamp =>
+      case (height, (latestEventTs, _, _)) if latestEventTs < requestedTimestamp =>
         height
     }
     blockToTimestampMap.subtractAll(blocksToBeRemoved)

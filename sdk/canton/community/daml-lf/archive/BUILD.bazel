@@ -107,6 +107,59 @@ da_scala_library(
     ],
 )
 
+da_scala_test_suite(
+    name = "daml_lf_archive_reader_tests",
+    size = "small",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    data = [
+        ":DarReaderTest.dalf",
+        ":DarReaderTest.dar",
+    ] + [
+        ":DarReaderTest-{}.dar".format(mangle_for_damlc(version))
+        for version in READABLE_LF_VERSIONS
+    ],
+    jvm_flags = ["-DhasLegacyDamlc=" + ("true" if is_intel else "false")],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":daml_lf_archive_proto_java",
+        ":daml_lf_archive_reader",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:crypto",
+        "//canton:safe-proto",
+        "//canton:scalatest-utils",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/language",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+daml_compile_with_dalf(
+    name = "DarReaderTest",
+    srcs = ["src/test/daml/DarReaderTest.daml"],
+    target = "2.1",
+)
+
+[
+    daml_compile(
+        name = "DarReaderTest-{}".format(mangle_for_damlc(version)),
+        srcs = ["src/test/daml/DarReaderTest.daml"],
+        target = version,
+    )
+    for version in READABLE_LF_VERSIONS
+]
+
 # An ad-hoc tool for testing, benchmarking and profiling package decoding performance in isolation.
 da_scala_binary(
     name = "decode-tester",
