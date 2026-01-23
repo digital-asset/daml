@@ -326,7 +326,6 @@ def install_java_deps():
             "org.scala-tools.testing:test-interface": "//:org_scala_sbt_test_interface",
             "org.scalactic:scalactic_{}".format(scala_major_version): "@io_bazel_rules_scala_scalactic//:io_bazel_rules_scala_scalactic",
             "org.scalatest:scalatest_{}".format(scala_major_version): "@io_bazel_rules_scala_scalatest//:io_bazel_rules_scala_scalatest",
-
             "com.daml:contextualized-logging_{}:{}".format(scala_major_version, transcode_version): "//canton:contextualized-logging",
             "com.digitalasset.canton:daml-lf-snapshot-proto_{}:{}".format(scala_major_version, transcode_version): "//canton/community/daml-lf/snapshot-proto",
         },
