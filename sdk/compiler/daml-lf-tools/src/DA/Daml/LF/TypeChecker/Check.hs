@@ -918,6 +918,8 @@ checkDefDataType m (DefDataType _loc name _serializable params dataCons) = do
   checkUnique EDuplicateTypeParam $ map fst params
   mapM_ (checkKind . snd) params
   foldr (uncurry introTypeVar) base params
+  -- TODO (jaspervdj): check that iff this datatype has an `instance Serialize`
+  -- declaration, that it doesn't contain functions etc.
   where
     base = case dataCons of
       DataRecord  fields  -> checkRecordType fields

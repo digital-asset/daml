@@ -411,11 +411,31 @@ scrapeExceptionBinds binds = MS.fromList
     , hasDamlExceptionCtx exn
     ]
 
-type ModInstanceInfo = MS.Map DFunId OverlapMode
+data ModInstanceInfo = ModInstanceInfo
+    { miiOverlapMode :: MS.Map DFunId OverlapMode
+    , miiSerializable :: UniqSet TyCon
+        -- ^ Types that have a @Serializable@ typeclass instance.
+        -- Note that we don't verify whether these are actually serializable,
+        -- that happens later in the LF TypeChecker.
+    }
 
 modInstanceInfoFromDetails :: ModDetails -> ModInstanceInfo
-modInstanceInfoFromDetails ModDetails{..} = MS.fromList
-    [ (is_dfun, overlapMode is_flag) | ClsInst{..} <- md_insts ]
+modInstanceInfoFromDetails ModDetails{..} = ModInstanceInfo
+    { miiOverlapMode = MS.fromList
+        [ (is_dfun, overlapMode is_flag) | ClsInst{..} <- md_insts ]
+    , miiSerializable = mkUniqSet $ do
+        inst@ClsInst {..} <- md_insts
+        NameIn DA_Internal_LF "Serializable" <- pure is_cls_nm
+        maybeToList $ tyHead (head is_tys)
+    }
+  where
+    tyHead (TyCoRep.TyConApp tc _) = Just tc
+    tyHead (TyCoRep.TyVarTy _)     = Nothing
+    tyHead (TyCoRep.ForAllTy _ _)  = Nothing
+    tyHead (TyCoRep.FunTy _ _)     = Nothing
+    tyHead (TyCoRep.LitTy _)       = Nothing
+    tyHead (TyCoRep.CastTy _ _)    = Nothing
+    tyHead (TyCoRep.CoercionTy _)  = Nothing
 
 -- | Represents the contents of some interface instance
 data InterfaceBinds = InterfaceBinds
@@ -779,10 +799,11 @@ data Consuming = PreConsuming
                deriving (Eq)
 
 convertTypeDefs :: Env -> ModuleContents -> ConvertM [Definition]
-convertTypeDefs env mc = concatMapM (convertTypeDef env) (mcTypeDefs mc)
+convertTypeDefs env mc =
+    concatMapM (convertTypeDef env (mcModInstanceInfo mc)) (mcTypeDefs mc)
 
-convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
-convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
+convertTypeDef :: Env -> ModInstanceInfo -> TyThing -> ConvertM [Definition]
+convertTypeDef env mii o@(ATyCon t) = withRange (convNameLoc t) $ if
     -- Internal types (i.e. already defined in LF)
     | NameIn DA_Internal_LF n <- t
     , n `elementOfUniqSet` internalTypes
@@ -837,7 +858,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     -- single constructor algebraic types with no fields or with
     -- labelled fields.
     | isSimpleRecordTyCon t
-    -> convertSimpleRecordDef env t
+    -> convertSimpleRecordDef env mii t
 
     -- Variants are algebraic types that are not enums and not simple
     -- record types. This includes most 'data' types.
@@ -847,7 +868,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     | otherwise
     -> unsupported ("Data definition, of type " ++ prettyPrint (tyConFlavour t) ++ ".") o
 
-convertTypeDef env x = pure []
+convertTypeDef env _ x = pure []
 
 convertEnumDef :: Env -> TyCon -> ConvertM [Definition]
 convertEnumDef env t =
@@ -856,12 +877,17 @@ convertEnumDef env t =
     tconName = mkTypeCon [getOccText t]
     ctorNames = map (mkVariantCon . getOccText) (tyConDataCons t)
 
-convertSimpleRecordDef :: Env -> TyCon -> ConvertM [Definition]
-convertSimpleRecordDef env tycon = do
+convertSimpleRecordDef :: Env -> ModInstanceInfo -> TyCon -> ConvertM [Definition]
+convertSimpleRecordDef env mii tycon = do
     let con = tyConSingleDataCon tycon
         flavour = tyConFlavour tycon
         labels = ctorLabels con
         (_, theta, args, _) = dataConSig con
+
+    let serializable = tycon `elementOfUniqSet` miiSerializable mii
+    when (serializable) $ flip trace (pure ()) $
+        "This datatype has been marked as Serializable: " ++
+        showSDocUnsafe (ppr tycon)
 
     (env', tyVars) <- bindTypeVars env (tyConTyVars tycon)
     fieldTypes <- mapM (convertType env') (theta ++ args)
@@ -1453,7 +1479,7 @@ convertBind env mc (name, x)
     -- OVERLAP* annotations
     let overlapModeName' = overlapModeName (fst name')
         overlapModeDef = maybeToList $ do
-            overlapMode <- MS.lookup name (mcModInstanceInfo mc)
+            overlapMode <- MS.lookup name (miiOverlapMode $ mcModInstanceInfo mc)
             overlapModeType <- encodeOverlapMode overlapMode
             Just (DValue (mkMetadataStub overlapModeName' overlapModeType))
 

@@ -40,6 +40,7 @@ module DA.Internal.LF
 
   , AnyException
 
+  , Serializable
   ) where
 
 import GHC.Stack.Types (HasCallStack)
@@ -203,3 +204,5 @@ instance Ord TypeRep where
 -- | A wrapper for all exception types.
 data AnyException = AnyException Opaque
 
+-- | This is probably not the right place for this.
+class Serializable a
