@@ -1279,18 +1279,17 @@ class ProtocolConverters(
         traceContext: TraceContext
     ): Future[lapi.interactive.interactive_submission_service.ExecuteSubmissionRequest] =
       Future {
-        val preparedTransaction = obj.preparedTransaction.map { proto =>
+        val preparedTransaction =
           ProtoConverter
             .protoParser(
               lapi.interactive.interactive_submission_service.PreparedTransaction.parseFrom
-            )(proto)
+            )(obj.preparedTransaction)
             .getOrElse(jsFail("Cannot parse prepared_transaction"))
-        }
+
         obj
           .into[lapi.interactive.interactive_submission_service.ExecuteSubmissionRequest]
-          .withFieldConst(_.preparedTransaction, preparedTransaction)
+          .withFieldConst(_.preparedTransaction, Some(preparedTransaction))
           .transform
-
       }
 
     // No need to go through Canton's version wrappers here as this is a Ledger API payload, not
@@ -1301,7 +1300,16 @@ class ProtocolConverters(
     )(implicit traceContext: TraceContext): Future[JsExecuteSubmissionRequest] = Future.successful(
       lapi
         .into[JsExecuteSubmissionRequest]
-        .withFieldConst(_.preparedTransaction, lapi.preparedTransaction.map(_.toByteString))
+        .withFieldConst(
+          _.preparedTransaction,
+          lapi.preparedTransaction
+            .map(_.toByteString)
+            .getOrElse(jsFail("preparedTransaction is required")),
+        )
+        .withFieldConst(
+          _.partySignatures,
+          lapi.partySignatures.getOrElse(jsFail("partySignatures are required")),
+        )
         .transform
     )
   }

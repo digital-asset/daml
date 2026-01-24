@@ -9,12 +9,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.config.CantonRequireTypes.String2066
-import com.digitalasset.canton.config.{
-  BatchAggregatorConfig,
-  BatchingConfig,
-  CacheConfig,
-  ProcessingTimeout,
-}
+import com.digitalasset.canton.config.{BatchAggregatorConfig, CacheConfig, ProcessingTimeout}
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
@@ -190,20 +185,12 @@ class DbContractStore(
       )
       .getOrElse(EitherT.rightT(List.empty))
 
-  // TODO(#27996): optimize: pass-as-array the parameters instead of variable sized list of params - this is not needed in that case anymore
   private def lookupManyUncachedInternal(
       ids: NonEmpty[Seq[LfContractId]]
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[Option[PersistedContractInstance]]] =
-    MonadUtil
-      .batchedSequentialTraverseNE(
-        parallelism = BatchingConfig().parallelism,
-        // chunk the ids to query to avoid hitting prepared statement limits
-        chunkSize = DbStorage.maxSqlParameters,
-      )(
-        ids
-      )(chunk => storage.query(lookupQuery(chunk), functionFullName))
+    storage.query(lookupQuery(ids), functionFullName)
 
   override def find(
       exactId: Option[String],

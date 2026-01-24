@@ -154,10 +154,15 @@ private[repair] final class RepairServiceHelpers(
       )
     } yield repairRequest
 
-  def initRepairRequestAndVerifyPreconditions(
-      synchronizer: RepairRequest.SynchronizerData,
-      repairCountersToAllocate: PositiveInt,
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, RepairRequest] = {
+  /** Ensures repair can be run.
+    * @return
+    *   Next RepairCounter
+    */
+  def verifyRepairPreconditions(
+      synchronizer: RepairRequest.SynchronizerData
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, RepairCounter] = {
     val rtRepair = RecordTime.fromTimeOfChange(
       TimeOfChange(
         synchronizer.currentRecordTime,
@@ -183,9 +188,28 @@ private[repair] final class RepairServiceHelpers(
            |and the repair command would be assigned a record time of $rtRepair.
            |Reconnect to the synchronizer to reprocess inflight validation requests and retry repair afterwards.""".stripMargin,
       )
+    } yield synchronizer.nextRepairCounter
+  }
+
+  /** Ensures repair can be run and return [[RepairRequest]]
+    */
+  def initRepairRequestAndVerifyPreconditions(
+      synchronizer: RepairRequest.SynchronizerData,
+      repairCountersToAllocate: PositiveInt,
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, RepairRequest] = {
+    val rtRepair = RecordTime.fromTimeOfChange(
+      TimeOfChange(
+        synchronizer.currentRecordTime,
+        Some(synchronizer.nextRepairCounter),
+      )
+    )
+    logger.debug(s"Starting repair request on ${synchronizer.persistentState.psid} at $rtRepair.")
+
+    for {
+      nextRepairCounter <- verifyRepairPreconditions(synchronizer)
       repairCounters <- EitherT.fromEither[FutureUnlessShutdown](
         repairCounterSequence(
-          synchronizer.nextRepairCounter,
+          nextRepairCounter,
           repairCountersToAllocate,
         )
       )

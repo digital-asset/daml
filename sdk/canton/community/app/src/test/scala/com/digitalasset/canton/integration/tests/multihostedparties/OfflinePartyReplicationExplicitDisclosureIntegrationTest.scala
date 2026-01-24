@@ -68,7 +68,7 @@ sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
       beforeActivationOffset,
       acsSnapshotPath,
     )
-    target.parties.import_party_acs(acsSnapshotPath)
+    target.parties.import_party_acsV2(acsSnapshotPath, daId)
 
     val beforeTargetReconnectOffset = target.ledger_api.state.end()
 

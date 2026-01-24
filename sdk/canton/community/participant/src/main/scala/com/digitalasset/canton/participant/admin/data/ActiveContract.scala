@@ -10,6 +10,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.util.{GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.version.*
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 
 import java.io.InputStream
 
@@ -71,11 +72,12 @@ object ActiveContract extends VersioningCompanion[ActiveContract] {
   }
 
   def fromFile(fileInput: File): Either[Throwable, Iterator[ActiveContract]] =
-    ResourceUtil.withResourceEither(fileInput.newGzipInputStream(8192)) { fileInput =>
-      loadFromSource(fileInput) match {
-        case Left(error) => throw new Exception(error) // caught by `withResourceEither`
-        case Right(value) => value.iterator
-      }
+    ResourceUtil.withResourceEither(new GzipCompressorInputStream(fileInput.newFileInputStream)) {
+      fileInput =>
+        loadFromSource(fileInput) match {
+          case Left(error) => throw new Exception(error) // caught by `withResourceEither`
+          case Right(value) => value.iterator
+        }
     }
 
   private def loadFromSource(

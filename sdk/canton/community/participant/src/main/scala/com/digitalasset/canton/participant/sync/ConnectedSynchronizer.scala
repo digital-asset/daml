@@ -488,7 +488,7 @@ class ConnectedSynchronizer(
       FutureUnlessShutdown,
       ConnectedSynchronizerInitializationError,
       (
-          LazyList[
+          Seq[
             (RecordTime, AcsChange)
           ],
           Int,
@@ -497,7 +497,9 @@ class ConnectedSynchronizer(
       liftF(for {
         (contractIdChanges, count) <- persistent.activeContractStore
           .changesBetween(fromExclusive, toInclusive, batchSize)
-        changes <- contractIdChanges.parTraverse { case (toc, change) =>
+        changes <- MonadUtil.parTraverseWithLimit(parameters.batchingConfig.parallelism)(
+          contractIdChanges
+        ) { case (toc, change) =>
           val changeWithAdjustedReassignmentCountersForUnassignments = ActiveContractIdsChange(
             change.activations,
             change.deactivations.fmap {

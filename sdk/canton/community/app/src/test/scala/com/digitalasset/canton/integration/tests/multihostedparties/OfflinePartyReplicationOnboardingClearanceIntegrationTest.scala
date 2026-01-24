@@ -99,7 +99,7 @@ final class OffPROnboardingFlagClearanceIntegrationTest
       exportFilePath = acsSnapshotPath,
     )
 
-    target.parties.import_party_acs(acsSnapshotPath)
+    target.parties.import_party_acsV2(acsSnapshotPath, daId)
 
     // Advance time to allow topology transactions to be processed
     clock.advance(Duration.ofSeconds(30))
