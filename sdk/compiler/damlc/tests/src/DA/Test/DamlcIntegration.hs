@@ -562,6 +562,9 @@ readFileAnns file = do
     where
         f :: String -> Maybe Ann
         f (stripPrefix "-- @" . trim -> Just x) = case word1 $ trim x of
+            -- TODO(jaspervdj): Consider adding a new pragma here so we can
+            -- invoke damlc with different flags (in particular opt-in to the
+            -- explicit serializability).
             ("IGNORE",_) -> Just Ignore
             ("SINCE-LF", x) -> Just $ SinceLF $ parseMaybeVersions x
             ("UNTIL-LF", x) -> Just $ UntilLF $ parseMaybeVersions x
