@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@io_bazel_rules_scala//scala:scala_toolchain.bzl", "scala_toolchain")
+load("@rules_scala//scala:scala_toolchain.bzl", "scala_toolchain")
 
 scala_toolchain(
     name = "toolchain_impl",
@@ -12,6 +12,6 @@ scala_toolchain(
 toolchain(
     name = "toolchain",
     toolchain = "toolchain_impl",
-    toolchain_type = "@io_bazel_rules_scala//scala:toolchain_type",
+    toolchain_type = "@rules_scala//scala:toolchain_type",
     visibility = ["//visibility:public"],
 )

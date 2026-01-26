@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-    "@io_bazel_rules_scala//scala:scala.bzl",
+    "@rules_scala//scala:scala.bzl",
     "scala_binary",
     "scala_library",
     "scala_library_suite",
@@ -12,9 +12,9 @@ load(
     "scala_test_suite",
 )
 load("@rules_java//java:defs.bzl", "JavaInfo")
-load("@io_bazel_rules_scala//scala/private:common.bzl", "sanitize_string_for_usage")
+load("@rules_scala//scala/private:common.bzl", "sanitize_string_for_usage")
 load(
-    "@io_bazel_rules_scala//jmh:jmh.bzl",
+    "@rules_scala//jmh:jmh.bzl",
     "scala_benchmark_jmh",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
