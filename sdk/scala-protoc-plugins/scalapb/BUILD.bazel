@@ -39,7 +39,7 @@ da_scala_binary(
 # protoc_gen_scala_deploy.jar'.  Either figure out how to do this in java
 # directly or write the wrapper in C++ ot remove the go dependency here.
 #
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "go_default_library",
