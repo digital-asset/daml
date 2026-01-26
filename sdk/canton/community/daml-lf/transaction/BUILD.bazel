@@ -91,7 +91,7 @@ da_scala_test(
     deps = [
         ":transaction",
         "//canton/community/daml-lf/data",
-        "@maven//:com_daml_daml_lf_transaction_2_13-test-lib",
+        "@maven//:com_daml_daml_lf_transaction_test_lib_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -121,7 +121,7 @@ da_scala_test(
         "//canton/community/daml-lf/api-type-signature",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
-        "@maven//:com_daml_daml_lf_transaction_2_13-test-lib",
+        "@maven//:com_daml_daml_lf_transaction_test_lib_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
