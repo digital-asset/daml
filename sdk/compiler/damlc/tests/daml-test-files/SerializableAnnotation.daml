@@ -4,7 +4,7 @@
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Unserializable"]) | has("serializable") | not
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["UnserializableReferenced"]) | has("serializable") | not
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["UnserializableImported"]) | has("serializable") | not
--- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Serializable"]) | .serializable
+-- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Serializable1"]) | .serializable
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SerializableReferenced"]) | .serializable
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SerializableImported"]) | .serializable
 
@@ -20,7 +20,7 @@ data UnserializableReferenced =
   UnseriabliableReferenced UnserializableImported
 
 data SerializableImported =
-  SerializableImported I.Serializable
+  SerializableImported I.Serializable1
 
 data SerializableReferenced =
   SerializableReferenced SerializableImported
