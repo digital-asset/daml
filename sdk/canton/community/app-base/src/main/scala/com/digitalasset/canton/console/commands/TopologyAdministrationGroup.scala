@@ -1797,7 +1797,7 @@ class TopologyAdministrationGroup(
           adds = adds,
           removes = removes,
         )
-        .valueOr(err => throw new IllegalArgumentException(err))
+        .valueOr(err => consoleEnvironment.raiseError(s"Unable to compute new permissions: $err"))
 
       (existingPermissions, newPermissions, newSerial, threshold, partySigningKeys)
     }

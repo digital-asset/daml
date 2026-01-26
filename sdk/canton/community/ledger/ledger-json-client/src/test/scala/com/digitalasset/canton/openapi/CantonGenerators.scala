@@ -5,6 +5,7 @@ package com.digitalasset.canton.openapi
 
 import com.daml.ledger.api.v2 as lapi
 import com.digitalasset.canton.http.json.v2.JsSchema.{JsInterfaceView, JsReassignmentEvent}
+import com.google.protobuf
 import org.scalacheck.{Arbitrary, Gen}
 import scalapb.{GeneratedEnum, GeneratedEnumCompanion}
 
@@ -51,6 +52,48 @@ object CantonGenerators {
     smallSeqArbitrary
   implicit val arbOptIdentifier: Arbitrary[Option[com.daml.ledger.api.v2.value.Identifier]] =
     arbSomeOnly[com.daml.ledger.api.v2.value.Identifier]
+
+  implicit val arbOptTimestamp: Arbitrary[Option[protobuf.timestamp.Timestamp]] =
+    arbSomeOnly[protobuf.timestamp.Timestamp]
+
+  implicit val arbOptEventFormat: Arbitrary[Option[lapi.transaction_filter.EventFormat]] =
+    arbSomeOnly[lapi.transaction_filter.EventFormat]
+
+  implicit val arbOptSynchronizerTime: Arbitrary[Option[lapi.offset_checkpoint.SynchronizerTime]] =
+    arbSomeOnly[lapi.offset_checkpoint.SynchronizerTime]
+
+  implicit val arbOptIPC
+      : Arbitrary[Option[lapi.admin.identity_provider_config_service.IdentityProviderConfig]] =
+    arbSomeOnly[lapi.admin.identity_provider_config_service.IdentityProviderConfig]
+
+  implicit val arbOptUser: Arbitrary[Option[lapi.admin.user_management_service.User]] =
+    arbSomeOnly[lapi.admin.user_management_service.User]
+
+  implicit val arbOptPRPackageReference
+      : Arbitrary[Option[lapi.package_reference.PackageReference]] =
+    arbSomeOnly[lapi.package_reference.PackageReference]
+
+  implicit val arbOptPackageReference
+      : Arbitrary[Option[lapi.interactive.interactive_submission_service.PackagePreference]] =
+    arbSomeOnly[lapi.interactive.interactive_submission_service.PackagePreference]
+
+  implicit val arbOptUpdateFormat: Arbitrary[Option[lapi.transaction_filter.UpdateFormat]] =
+    arbSomeOnly[lapi.transaction_filter.UpdateFormat]
+
+  implicit val arbOptReassignmentCommands
+      : Arbitrary[Option[lapi.reassignment_commands.ReassignmentCommands]] =
+    arbSomeOnly[lapi.reassignment_commands.ReassignmentCommands]
+
+  implicit val arbOptUpdateMask: Arbitrary[Option[protobuf.field_mask.FieldMask]] =
+    arbSomeOnly[protobuf.field_mask.FieldMask]
+
+  implicit val arbOptPartyDetails
+      : Arbitrary[Option[lapi.admin.party_management_service.PartyDetails]] =
+    arbSomeOnly[lapi.admin.party_management_service.PartyDetails]
+
+  implicit val arbOptSigningPublicKey: Arbitrary[Option[lapi.crypto.SigningPublicKey]] =
+    arbSomeOnly[lapi.crypto.SigningPublicKey]
+
   // we do not provide unknownFields, as they are not used in the JSON API
   implicit val arbJsStatus: Arbitrary[com.google.rpc.status.Status] =
     Arbitrary {

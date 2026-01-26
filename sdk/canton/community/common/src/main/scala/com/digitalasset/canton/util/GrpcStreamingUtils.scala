@@ -5,9 +5,16 @@ package com.digitalasset.canton.util
 
 import better.files.*
 import better.files.File.newTemporaryFile
+import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.grpc.ByteStringStreamObserverWithContext
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
+import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
+import com.digitalasset.canton.util.TryUtil.ForFailedOps
 import com.digitalasset.canton.version.{
   HasRepresentativeProtocolVersion,
   HasVersionedMessageCompanion,
@@ -16,6 +23,9 @@ import com.digitalasset.canton.version.{
 import com.google.protobuf.ByteString
 import io.grpc.Context
 import io.grpc.stub.StreamObserver
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Source, Source as PekkoSource}
 
 import java.io.{
   BufferedInputStream,
@@ -23,8 +33,10 @@ import java.io.{
   ByteArrayOutputStream,
   InputStream,
   OutputStream,
+  PipedInputStream,
+  PipedOutputStream,
 }
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.annotation.tailrec
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, Promise, blocking}
@@ -65,10 +77,155 @@ object GrpcStreamingUtils {
     observer
   }
 
+  /** Streams requests of gzipped bytes from the client in multiple stages, allowing efficient
+    * memory usage.
+    *
+    *   1. The first request can contain some context `RequestContext`, which is extracted with
+    *      `contextFromFirstElement` and passed along with the source.
+    *   1. The gzipped bytes from each request are extracted with `getGzippedBytes`.
+    *   1. Messages from the decompressed InputStream can be extracted via `parseMessage`.
+    *   1. The source, which the caller uses for further processing, continually parses new messages
+    *      from the decompressed input stream.
+    *
+    * @param responseObserver
+    *   the response observer to signal errors or completion to the client
+    * @param responseIfNoRequests
+    *   the response if no requests were actually submitted.
+    * @param getGzippedBytes
+    *   the extractor method to get a `ByteString` from the request `Req`
+    * @param parseMessage
+    *   should return `None` if there is no more input to read, `Some(Right(_))` for a successful
+    *   parse, and `Some(Left(_))` if an error occurred during parsing. Any parsing errors bubbled
+    *   up and the processing is aborted.
+    * @param contextFromFirstRequest
+    *   extract context from the first request
+    * @param action
+    *   the main processing pipeline
+    */
+  def streamGzippedChunksFromClient[Req, Resp, RequestContext, ParsedMessage](
+      responseObserver: StreamObserver[Resp],
+      responseIfNoRequests: Try[Resp],
+      getGzippedBytes: Req => ByteString,
+      parseMessage: InputStream => Option[ParsingResult[ParsedMessage]],
+  )(
+      contextFromFirstRequest: Req => Try[RequestContext]
+  )(action: (RequestContext, Source[ParsedMessage, NotUsed]) => FutureUnlessShutdown[Resp])(implicit
+      ec: ExecutionContext,
+      elc: ErrorLoggingContext,
+  ): StreamObserver[Req] = {
+    // for extracting the context on the first request and creating the pekko source
+    val isFirst = new AtomicBoolean(true)
+    // this Piped*Stream setup connects the incoming requests containing the gzipped bytes
+    // with the pekko parsing source
+    val output = new PipedOutputStream()
+    val input = new PipedInputStream(output)
+
+    // when reporting the error, also close the output stream, since there will be no more data to be processed
+    def reportError(err: Throwable): Unit = {
+      responseObserver.onError(err)
+      output.close()
+    }
+
+    // blocking write the request bytes to the output stream
+    def writeRequestBytes(request: Req): Unit = Try {
+      // gRPC backpressure works by "blocking" the onNext call.
+      blocking(getGzippedBytes(request).writeTo(output))
+    }.forFailed(reportError)
+
+    new StreamObserver[Req] {
+      override def onNext(value: Req): Unit =
+        if (isFirst.getAndSet(false)) {
+          // only extract the context from the first request
+          contextFromFirstRequest(value) match {
+            case Failure(exception) =>
+              reportError(exception)
+
+            case Success(context) =>
+              // hold a lazy reference, because the constructor of GZIPInputStream immediately executes a blocking read
+              lazy val gunzip = new GzipCompressorInputStream(input)
+              // construct the source by repeatedly reading from the gunzip input stream until there's no more data.
+              // we don't really have a "state", so we use Unit.
+              val parsedMessagesSource = PekkoSource.unfold(())(_ =>
+                blocking(parseMessage(gunzip))
+                  .map {
+                    case Left(err) =>
+                      // throw the parsing error to cancel the source
+                      throw ProtoDeserializationError.ProtoDeserializationFailure
+                        .Wrap(err)
+                        .asGrpcError
+                    case Right(value) =>
+                      () -> value
+                  }
+              )
+              // the main processing pipeline is also only triggered after the first request
+              val resultFUS = action(context, parsedMessagesSource)
+              GrpcStreamingUtils.futureUnlessShutdownToStreamObserver(
+                resultFUS.thereafter { _ =>
+                  // after the main processing pipeline is finished for whatever reason, we can safely close the input
+                  input.close()
+                },
+                responseObserver,
+              )
+              writeRequestBytes(value)
+          }
+        } else writeRequestBytes(value)
+
+      override def onError(t: Throwable): Unit =
+        reportError(t)
+
+      override def onCompleted(): Unit =
+        if (isFirst.get()) {
+          // If no request has been received (which means that the main processing pipeline has not been triggered),
+          // complete the stream according to `responseIfNoRequests` and close the Piped*Streams.
+          GrpcStreamingUtils.futureUnlessShutdownToStreamObserver(
+            FutureUnlessShutdown.fromTry(responseIfNoRequests.thereafter { _ =>
+              input.close()
+              output.close()
+            }),
+            responseObserver,
+          )
+        } else {
+          // if any requests were processed, simply close the output pipe. the final response will be triggered by the
+          // processing pipeline
+          output.close()
+        }
+    }
+  }
+
+  /** Stream the provided bytestring to the server. To avoid loading the whole byte string into
+    * memory, the other variant of `streamToServer` can be used.
+    *
+    * @param load
+    *   Loader (endpoint of the service)
+    * @param requestBuilder
+    *   Builds a request from an array of bytes
+    * @param byteString
+    *   The byte string to be streamed.
+    */
   def streamToServer[Req, Resp](
       load: StreamObserver[Resp] => StreamObserver[Req],
       requestBuilder: Array[Byte] => Req,
       byteString: ByteString,
+  ): Future[Resp] = {
+    val it = byteString.toByteArray.grouped(defaultChunkSize)
+    def readNextChunk(): Option[Either[Throwable, Req]] =
+      it.nextOption().map(bytes => Right(requestBuilder(bytes)))
+
+    streamToServer(load, _ => readNextChunk())
+  }
+
+  /** Stream data to the server
+    * @param load
+    *   Loader (endpoint of the service)
+    * @param readNextChunk
+    *   Method to read the data to be streamed. Streaming happens as long as the method returns
+    *   Some(Right()).
+    *   - If Some(Left()) is encountered, the stream is terminated with an error.
+    *   - When None is encountered, the stream is completed.
+    */
+  def streamToServer[Req, Resp](
+      load: StreamObserver[Resp] => StreamObserver[Req],
+      readNextChunk: Unit => Option[Either[Throwable, Req]],
   ): Future[Resp] = {
     val requestComplete = Promise[Resp]()
     val ref = new AtomicReference[Option[Resp]](None)
@@ -89,18 +246,24 @@ object GrpcStreamingUtils {
                 .asRuntimeException()
             )
         }
-
     }
     val requestObserver = load(responseObserver)
 
-    byteString.toByteArray
-      .grouped(defaultChunkSize)
-      .foreach { bytes =>
-        blocking {
-          requestObserver.onNext(requestBuilder(bytes))
-        }
+    @tailrec
+    def read(): Unit =
+      readNextChunk(()) match {
+        case Some(Right(nextRequest)) =>
+          blocking(requestObserver.onNext(nextRequest))
+          read()
+
+        case Some(Left(error)) =>
+          requestObserver.onError(error)
+
+        case None =>
+          requestObserver.onCompleted()
       }
-    requestObserver.onCompleted()
+
+    read()
     requestComplete.future
   }
 
@@ -248,6 +411,18 @@ object GrpcStreamingUtils {
           ()
         }
     }
+
+  def futureUnlessShutdownToStreamObserver[A](
+      fus: FutureUnlessShutdown[A],
+      observer: StreamObserver[A],
+  )(implicit ec: ExecutionContext, elc: ErrorLoggingContext): Unit = fus.unwrap.onComplete {
+    case Failure(exception) => observer.onError(exception)
+    case Success(Outcome(value)) =>
+      observer.onNext(value)
+      observer.onCompleted()
+    case Success(AbortedDueToShutdown) =>
+      observer.onError(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
+  }
 }
 
 // Define a type class for converting ByteString to the generic type T

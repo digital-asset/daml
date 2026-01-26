@@ -55,19 +55,6 @@ trait RepairTestUtil {
 
   protected def readContractInstance(
       participant: LocalParticipantReference,
-      synchronizerAlias: String,
-      synchronizerId: SynchronizerId,
-      contractId: ContractId[?],
-  ): RepairContract =
-    readContractInstance(
-      participant,
-      SynchronizerAlias.tryCreate(synchronizerAlias),
-      synchronizerId,
-      contractId,
-    )
-
-  protected def readContractInstance(
-      participant: LocalParticipantReference,
       synchronizerAlias: SynchronizerAlias,
       synchronizerId: SynchronizerId,
       contractId: ContractId[?],

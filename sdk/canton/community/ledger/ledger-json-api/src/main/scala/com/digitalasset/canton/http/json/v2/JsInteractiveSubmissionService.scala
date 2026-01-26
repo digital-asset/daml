@@ -203,8 +203,8 @@ final case class JsPrepareSubmissionResponse(
 )
 
 final case class JsExecuteSubmissionRequest(
-    preparedTransaction: Option[protobuf.ByteString],
-    partySignatures: Option[interactive_submission_service.PartySignatures],
+    preparedTransaction: protobuf.ByteString,
+    partySignatures: interactive_submission_service.PartySignatures,
     deduplicationPeriod: interactive_submission_service.ExecuteSubmissionRequest.DeduplicationPeriod,
     submissionId: String,
     userId: String = "",
@@ -213,8 +213,8 @@ final case class JsExecuteSubmissionRequest(
 )
 
 final case class JsExecuteSubmissionAndWaitRequest(
-    preparedTransaction: Option[protobuf.ByteString],
-    partySignatures: Option[interactive_submission_service.PartySignatures],
+    preparedTransaction: protobuf.ByteString,
+    partySignatures: interactive_submission_service.PartySignatures,
     deduplicationPeriod: interactive_submission_service.ExecuteSubmissionRequest.DeduplicationPeriod,
     submissionId: String,
     userId: String = "",
@@ -223,8 +223,8 @@ final case class JsExecuteSubmissionAndWaitRequest(
 )
 
 final case class JsExecuteSubmissionAndWaitForTransactionRequest(
-    preparedTransaction: Option[protobuf.ByteString],
-    partySignatures: Option[interactive_submission_service.PartySignatures],
+    preparedTransaction: protobuf.ByteString,
+    partySignatures: interactive_submission_service.PartySignatures,
     deduplicationPeriod: interactive_submission_service.ExecuteSubmissionRequest.DeduplicationPeriod,
     submissionId: String,
     userId: String = "",

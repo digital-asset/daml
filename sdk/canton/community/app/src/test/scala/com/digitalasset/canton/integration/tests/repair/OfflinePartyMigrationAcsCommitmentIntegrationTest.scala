@@ -72,7 +72,7 @@ sealed trait OfflinePartyMigrationAcsCommitmentIntegrationTest
 
       // Create a contract for Alice
       val iouId = createContract(participant1, alice, alice)
-      val iouInst = readContractInstance(participant1, daName.unwrap, daId, iouId)
+      val iouInst = readContractInstance(participant1, daName, daId, iouId)
 
       @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While"))
       def awaitMismatches(): Unit = {

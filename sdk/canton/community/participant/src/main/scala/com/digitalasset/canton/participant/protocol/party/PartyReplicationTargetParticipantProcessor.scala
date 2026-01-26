@@ -257,7 +257,7 @@ class PartyReplicationTargetParticipantProcessor(
       contracts.toNEF
         .traverse(activeContract =>
           for {
-            repairContract <- RepairContract.toRepairContract(activeContract.contract)
+            repairContract <- RepairContract.fromLapiActiveContract(activeContract.contract)
             _ <- Either.cond(
               repairContract.synchronizerId == psid.logical,
               (),

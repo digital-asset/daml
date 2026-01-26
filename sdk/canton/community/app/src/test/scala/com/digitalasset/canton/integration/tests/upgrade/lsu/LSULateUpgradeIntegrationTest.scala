@@ -229,13 +229,13 @@ final class LSULateUpgradeIntegrationTest extends LSUBase {
           )
           .filter(_.getCreatedEvent.contractId == cid.coid)
 
-        participant1.repair.write_contracts_to_file(
+        repair.acs.write_contracts_to_file(
           contracts,
           testedProtocolVersion,
           acsFile,
         )
 
-        p.repair.import_acs(acsFile)
+        p.repair.import_acsV2(acsFile, fixture.newPSId.logical)
 
         if (!upgradeBeforeACSRepair) {
           manualLSU(p)

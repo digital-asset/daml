@@ -100,7 +100,7 @@ object JsSchema {
       updateId: String,
       commandId: String,
       workflowId: String,
-      effectiveAt: Option[protobuf.timestamp.Timestamp],
+      effectiveAt: protobuf.timestamp.Timestamp,
       offset: Long,
       eventsById: Map[Int, JsTreeEvent.TreeEvent],
       synchronizerId: String,

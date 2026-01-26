@@ -343,7 +343,7 @@ final class OfflinePartyReplicationAtOffsetIntegrationTest
         exportFilePath = acsSnapshotPath,
       )
 
-      target.parties.import_party_acs(acsSnapshotPath)
+      target.parties.import_party_acsV2(acsSnapshotPath, daId)
 
       target.synchronizers.reconnect(daName)
 
@@ -429,8 +429,9 @@ final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
 
       target.synchronizers.disconnect_all()
 
-      target.repair.import_acs(
+      target.repair.import_acsV2(
         acsSnapshotPath,
+        daId,
         contractImportMode = ContractImportMode.Accept,
       )
 
@@ -511,7 +512,7 @@ final class OfflinePartyReplicationFilterAcsExportIntegrationTest
         stakeholders.intersect(Set(charlie.toProtoPrimitive)).isEmpty
       }
 
-      target.parties.import_party_acs(acsSnapshotPath)
+      target.parties.import_party_acsV2(acsSnapshotPath, daId)
 
       target.synchronizers.reconnect(daName)
 

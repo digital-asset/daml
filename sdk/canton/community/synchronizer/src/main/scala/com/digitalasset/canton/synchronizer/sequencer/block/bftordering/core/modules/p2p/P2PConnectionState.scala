@@ -27,6 +27,10 @@ trait P2PConnectionState {
       p2pAddress: P2PAddress
   )(implicit traceContext: TraceContext): P2PEndpointIdAssociationResult
 
+  /** Called by the P2P network output module to ensure connectivity with a peer. It must call
+    * either `createNetworkRef` to create a new network reference or `actionIfPresent` if a network
+    * reference already exists for the given P2P address ID.
+    */
   def addNetworkRefIfMissing(
       p2pAddressId: P2PAddress.Id
   )(

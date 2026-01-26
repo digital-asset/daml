@@ -10,7 +10,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
   completeGrpcStreamObserver,
   failGrpcStreamObserver,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.mutex
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.standalone.v1.{
   Ordered as ProtoOrdered,
   ReadOrderedRequest,
@@ -20,9 +19,9 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.sta
   StandaloneBftOrderingServiceGrpc,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.Mutex
 import io.grpc.stub.StreamObserver
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
 import scala.concurrent.Future
 
@@ -33,39 +32,37 @@ class P2PGrpcStandaloneBftOrderingService(
     with NamedLogging
     with AutoCloseable {
 
-  private val readers = mutable.ListBuffer[(Long, StreamObserver[ReadOrderedResponse])]()
-  private val lock = new Mutex()
+  private val readersRef =
+    new AtomicReference[Seq[(Long, StreamObserver[ReadOrderedResponse])]](Seq.empty)
 
   def push(block: BlockFormat.Block): Unit = {
     val failed = mutable.ListBuffer[StreamObserver[ReadOrderedResponse]]()
-    mutex(lock) {
-      readers.foreach { case (minHeight, peerSender) =>
-        if (block.blockHeight >= minHeight) {
-          val response =
-            ReadOrderedResponse(
-              block.blockHeight,
-              block.requests.map(r => ProtoOrdered(r.value.tag, r.value.body)),
-            )
-          try {
-            peerSender.onNext(response)
-          } catch {
-            case e: Throwable =>
-              logger.error(
-                s"Failed to push block ${block.blockHeight} to reader $peerSender " +
-                  s"with minHeight $minHeight: ${e.getMessage}",
-                e,
-              )(TraceContext.empty)
-              failGrpcStreamObserver(peerSender, e, logger)(TraceContext.empty)
-              failed.addOne(peerSender).discard
-          }
+    readersRef.get().foreach { case (minHeight, peerSender) =>
+      if (block.blockHeight >= minHeight) {
+        val response =
+          ReadOrderedResponse(
+            block.blockHeight,
+            block.requests.map(r => ProtoOrdered(r.value.tag, r.value.body)),
+          )
+        try {
+          peerSender.onNext(response)
+        } catch {
+          case e: Throwable =>
+            logger.error(
+              s"Failed to push block ${block.blockHeight} to reader $peerSender " +
+                s"with minHeight $minHeight: ${e.getMessage}",
+              e,
+            )(TraceContext.empty)
+            failGrpcStreamObserver(peerSender, e, logger)(TraceContext.empty)
+            failed.addOne(peerSender).discard
         }
       }
     }
-    mutex(lock) {
-      readers.filterInPlace { case (_, peerSender) =>
+    readersRef.updateAndGet { readers =>
+      readers.filter { case (_, peerSender) =>
         !failed.contains(peerSender)
-      }.discard
-    }
+      }
+    }.discard
   }
 
   override def send(request: SendRequest): Future[SendResponse] =
@@ -74,15 +71,13 @@ class P2PGrpcStandaloneBftOrderingService(
   override def readOrdered(
       request: ReadOrderedRequest,
       peerSender: StreamObserver[ReadOrderedResponse],
-  ): Unit = mutex(lock) {
-    readers.addOne(request.startHeight -> peerSender).discard
-  }
+  ): Unit =
+    readersRef.updateAndGet { readers =>
+      (request.startHeight -> peerSender) +: readers
+    }.discard
 
   override def close(): Unit =
-    mutex(lock) {
-      readers.foreach { case (_, peerSender) =>
-        completeGrpcStreamObserver(peerSender, logger)(TraceContext.empty)
-      }
-      readers.clear()
+    readersRef.getAndUpdate(_ => Seq.empty).foreach { case (_, peerSender) =>
+      completeGrpcStreamObserver(peerSender, logger)(TraceContext.empty)
     }
 }

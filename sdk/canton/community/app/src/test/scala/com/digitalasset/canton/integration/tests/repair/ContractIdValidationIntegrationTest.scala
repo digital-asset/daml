@@ -184,7 +184,7 @@ final class ContractIdValidationIntegrationTest
         withExport(break = zeroOutSuffixes) { (brokenExportFile, _, alice) =>
           participant2.synchronizers.disconnect_all()
           loggerFactory.assertThrowsAndLogs[CommandFailure](
-            participant2.repair.import_acs(brokenExportFile.canonicalPath),
+            participant2.repair.import_acsV2(brokenExportFile.canonicalPath, daId),
             _.errorMessage should include("Malformed contract ID"),
           )
 

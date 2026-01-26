@@ -109,8 +109,8 @@ sealed trait AcsImportNoSynchronizerConnectionIntegrationTest
       val examplesMainPackageId =
         participant3.dars.upload(CantonExamplesPath, vetAllPackages = false)
 
-      participant2.repair.import_acs(acsFilename.canonicalPath)
-      participant3.repair.import_acs(acsFilename.canonicalPath)
+      participant2.repair.import_acsV2(acsFilename.canonicalPath, daId)
+      participant3.repair.import_acsV2(acsFilename.canonicalPath, daId)
 
       participants.all.synchronizers.reconnect_all()
       participant2.dars.vetting.enable(examplesMainPackageId)
