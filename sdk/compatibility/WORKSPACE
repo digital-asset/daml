@@ -142,6 +142,23 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
+nixpkgs_package(
+    name = "jq_nix",
+    attribute_path = "jq",
+    fail_not_supported = False,
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+nixpkgs_package(
+    name = "grpcurl_nix",
+    attribute_path = "grpcurl",
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
 haskell_register_ghc_bindists(
     compiler_flags = [],
     version = "9.0.2",
