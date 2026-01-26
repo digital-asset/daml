@@ -213,8 +213,6 @@ private[participant] object ParticipantCommon {
           sync.repairService.addContracts(
             alias,
             contracts,
-            ignoreAlreadyAdded = true,
-            ignoreStakeholderCheck = true,
             contractImportMode,
             sync.getPackageMetadataSnapshot,
             representativePackageIdOverride,

@@ -104,16 +104,16 @@ abstract class OfflinePartyReplicationWorkflowIdsIntegrationTestBase(
 
       inside(events) { case Seq(e1, e2, e3, e4) =>
         e1.eventCount shouldBe 3
-        e1.workflowId should endWith("-1-4")
+        e1.workflowId should endWith("-1")
 
         e2.eventCount shouldBe 4
-        e2.workflowId should endWith("-2-4")
+        e2.workflowId should endWith("-2")
 
         e3.eventCount shouldBe 1
-        e3.workflowId should endWith("-3-4")
+        e3.workflowId should endWith("-3")
 
         e4.eventCount shouldBe 2
-        e4.workflowId should endWith("-4-4")
+        e4.workflowId should endWith("-4")
       }
 
   }
@@ -147,8 +147,8 @@ abstract class OfflinePartyReplicationWorkflowIdsIntegrationTestBase(
     val events = fetchEvents(participant3, bob, expectedCount = 2)
 
     inside(events) { case Seq(e1, e2) =>
-      e1.workflowId shouldBe s"$workflowIdPrefix-1-2"
-      e2.workflowId shouldBe s"$workflowIdPrefix-2-2"
+      e1.workflowId shouldBe s"$workflowIdPrefix-1"
+      e2.workflowId shouldBe s"$workflowIdPrefix-2"
     }
   }
 
@@ -195,21 +195,18 @@ abstract class OfflinePartyReplicationWorkflowIdsIntegrationTestBase(
       workflowIdPrefix: String = "",
   )(implicit env: TestConsoleEnvironment): Unit = {
     import env.*
-    repair.party_replication.step1_hold_and_store_acs(
-      party,
-      daId,
-      source,
-      target.id,
-      acsSnapshotPath,
-      beforeActivationOffset,
-    )
-    repair.party_replication.step2_import_acs(
+
+    source.parties.export_party_acs(
       party,
       daId,
       target,
-      acsSnapshotPath,
-      workflowIdPrefix,
+      beforeActivationOffset,
+      exportFilePath = acsSnapshotPath,
     )
+
+    target.synchronizers.disconnect_all()
+    target.repair.import_acsV2(acsSnapshotPath, daId, workflowIdPrefix)
+    target.synchronizers.reconnect_all()
   }
 
   private def ious(party: Party, n: Int): Seq[Command] = {

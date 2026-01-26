@@ -14,28 +14,31 @@ import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.{InternalIndexService, SynchronizerIndex}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.mapErrNewEUS
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.{GrpcErrors, mapErrNewEUS}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.data.{
+  ActiveContract,
   ContractImportMode,
   PartyOnboardingFlagStatus,
+  RepairContract,
   RepresentativePackageIdOverride,
 }
 import com.digitalasset.canton.participant.admin.party.*
 import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow.PartyReplicationArguments
+import com.digitalasset.canton.participant.admin.repair.RepairServiceError
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SynchronizerOffset
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherUtil.*
-import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
-import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
+import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, OptionUtil}
 import com.google.protobuf.ByteString
 import com.google.protobuf.duration.Duration
 import io.grpc.stub.StreamObserver
@@ -80,7 +83,7 @@ class GrpcPartyManagementService(
       hash <- adminWorkflow.partyReplicator
         .addPartyAsync(args, adminWorkflow)
         .leftMap(toStatusRuntimeException(Status.FAILED_PRECONDITION))
-        .onShutdown(Left(AbortedDueToShutdown.Error().asGrpcError))
+        .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
     } yield v30.AddPartyAsyncResponse(addPartyRequestId = hash.toHexString))
   }
 
@@ -513,6 +516,85 @@ class GrpcPartyManagementService(
           }
       }
     }
+  }
+
+  /** Parse the global parameters that can be set only in the first message of the stream.
+    */
+  private def parseImportPartyAcsStreamingRequestGlobal(
+      request: ImportPartyAcsV2Request
+  ): ParsingResult[
+    (SynchronizerId, Option[String], ContractImportMode, RepresentativePackageIdOverride)
+  ] =
+    for {
+      synchronizerId <- ProtoConverter.parseRequired(
+        SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"),
+        "synchronizer_id",
+        request.synchronizerId,
+      )
+
+      representativePackageIdOverride <- request.representativePackageIdOverride
+        .traverse(RepresentativePackageIdOverride.fromProtoV30)
+        .map(_.getOrElse(RepresentativePackageIdOverride.NoOverride))
+
+      contractImportMode <- ProtoConverter.parseRequired(
+        ContractImportMode.fromProtoV30,
+        "contract_import_mode",
+        request.contractImportMode,
+      )
+      workflowIdPrefix = request.workflowIdPrefix.flatMap(OptionUtil.emptyStringAsNone)
+    } yield (synchronizerId, workflowIdPrefix, contractImportMode, representativePackageIdOverride)
+
+  override def importPartyAcsV2(
+      responseObserver: StreamObserver[ImportPartyAcsV2Response]
+  ): StreamObserver[ImportPartyAcsV2Request] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    type ImportContext =
+      (SynchronizerId, Option[String], ContractImportMode, RepresentativePackageIdOverride)
+
+    GrpcStreamingUtils.streamGzippedChunksFromClient[
+      ImportPartyAcsV2Request,
+      ImportPartyAcsV2Response,
+      ImportContext,
+      ActiveContract,
+    ](
+      responseObserver,
+      Success(ImportPartyAcsV2Response()),
+      getGzippedBytes = _.acsSnapshot,
+      parseMessage = ActiveContract.parseDelimitedFromTrusted,
+    )(contextFromFirstRequest =
+      firstRequest =>
+        parseImportPartyAcsStreamingRequestGlobal(firstRequest)
+          .leftMap(error => RepairServiceError.ImportAcsError.Error(error.message).asGrpcError)
+          .toTry
+    ) {
+      case (
+            (synchronizerId, workflowIdPrefix, contractImportMode, representativePackageIdOverride),
+            source,
+          ) =>
+        val repairContractSource = source
+          .map { case (activeContract) =>
+            RepairContract
+              .fromLapiActiveContract(activeContract.contract)
+              .valueOr(err => throw RepairServiceError.ImportAcsError.Error(err).asGrpcError)
+          }
+        val resultET = sync.repairService
+          .addContractsPekko(
+            synchronizerId = synchronizerId,
+            contracts = repairContractSource,
+            contractImportMode = contractImportMode,
+            packageMetadataSnapshot = sync.getPackageMetadataSnapshot,
+            representativePackageIdOverride = representativePackageIdOverride,
+            workflowIdPrefix = workflowIdPrefix,
+          )
+          .bimap(
+            err => RepairServiceError.ImportAcsError.Error(err).asGrpcError,
+            _ => ImportPartyAcsV2Response(),
+          )
+
+        EitherTUtil.toFutureUnlessShutdown(resultET)
+    }
+
   }
 
   override def getHighestOffsetByTimestamp(

@@ -43,9 +43,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   P2PConnectionEventListener,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.{
+  AnnotatedResult,
   abort,
   objId,
+  toUnitFutureUS,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.NamedLoggingUtils
 import com.digitalasset.canton.synchronizer.sequencing.authentication.grpc.IdentityContextHelper
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
   BftOrderingMessage,
@@ -86,6 +89,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContextExecutor, metricsContext: MetricsContext)
     extends NamedLogging
+    with NamedLoggingUtils
     with FlagCloseableAsync { self =>
 
   import P2PGrpcConnectionManager.*
@@ -1681,12 +1685,6 @@ private[bftordering] final class P2PGrpcConnectionManager(
           debug,
         )
     }
-
-  private def debug(s: => String)(implicit traceContext: TraceContext): Unit =
-    logger.debug(s)
-
-  private def logUnexpected(s: => String)(implicit traceContext: TraceContext): Unit =
-    logger.warn(s"[UNEXPECTED] $s")
 }
 
 private[bftordering] object P2PGrpcConnectionManager {
@@ -1733,20 +1731,4 @@ private[bftordering] object P2PGrpcConnectionManager {
       ],
       asyncStub: BftOrderingServiceGrpc.BftOrderingServiceStub,
   )
-
-  final case class AnnotatedResult[T](
-      private val result: T,
-      private val annotation: () => String,
-      private val logger: (=> String) => Unit,
-  ) {
-    def logAndExtract(prefix: String): T = {
-      logger(s"$prefix ${annotation()}")
-      result
-    }
-  }
-
-  private def toUnitFutureUS[X](optionT: OptionT[FutureUnlessShutdown, X])(implicit
-      ec: ExecutionContext
-  ): FutureUnlessShutdown[Unit] =
-    optionT.value.map(_ => ())
 }

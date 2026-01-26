@@ -33,8 +33,8 @@ import com.digitalasset.canton.participant.admin.data.{
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
+import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{
   HasExecutionContext,
@@ -94,6 +94,7 @@ abstract class AcsImportRepresentativePackageIdSelectionIntegrationTest
       packageNameOverride: Map[LfPackageName, LfPackageId],
       contractImportMode: ContractImportMode,
       file: File,
+      synchronizerId: SynchronizerId,
   ): Unit
 
   private def createUniqueParty(
@@ -532,6 +533,7 @@ abstract class AcsImportRepresentativePackageIdSelectionIntegrationTest
             packageNameOverride,
             contractImportMode,
             file,
+            daId,
           )
         } finally {
           importParticipant.synchronizers.reconnect_all()
@@ -579,10 +581,12 @@ trait WithRepairServiceImportAcs {
       packageNameOverride: Map[LfPackageName, LfPackageId],
       contractImportMode: ContractImportMode,
       file: File,
+      synchronizerId: SynchronizerId,
   ): Unit =
     importParticipant.repair
-      .import_acs(
+      .import_acsV2(
         importFilePath = file.canonicalPath,
+        synchronizerId = synchronizerId,
         representativePackageIdOverride = RepresentativePackageIdOverride(
           contractOverride = contractRpIdOverride,
           packageIdOverride = packageIdOverride,
@@ -603,9 +607,11 @@ trait WithImportPartyAcs {
       packageNameOverride: Map[LfPackageName, LfPackageId],
       contractImportMode: ContractImportMode,
       file: File,
+      synchronizerId: SynchronizerId,
   ): Unit = importParticipant.parties
-    .import_party_acs(
+    .import_party_acsV2(
       importFilePath = file.canonicalPath,
+      synchronizerId = synchronizerId,
       representativePackageIdOverride = RepresentativePackageIdOverride(
         contractOverride = contractRpIdOverride,
         packageIdOverride = packageIdOverride,

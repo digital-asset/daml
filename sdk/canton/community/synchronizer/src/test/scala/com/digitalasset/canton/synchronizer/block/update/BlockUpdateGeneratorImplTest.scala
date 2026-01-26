@@ -19,7 +19,6 @@ import com.digitalasset.canton.synchronizer.block.update.BlockUpdateGenerator.{
   EndOfBlock,
   MaybeTopologyTickChunk,
   NextChunk,
-  TopologyTickChunk,
 }
 import com.digitalasset.canton.synchronizer.block.{BlockEvents, LedgerBlockEvent, RawLedgerBlock}
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
@@ -296,10 +295,10 @@ class BlockUpdateGeneratorImplTest
                         )
                       ),
                     ),
-                    TopologyTickChunk(
+                    MaybeTopologyTickChunk(
                       1L,
-                      `topologyTickEventTimestamp`,
-                      addressee,
+                      `aTimestamp`,
+                      Some(TickTopology(`topologyTickEventTimestamp`, addressee)),
                     ),
                     EndOfBlock(1L),
                   ) if addressee == expectedTickRecipient =>
@@ -375,6 +374,7 @@ class BlockUpdateGeneratorImplTest
                     MaybeTopologyTickChunk(
                       1L,
                       `aTimestamp`,
+                      None,
                     ),
                     EndOfBlock(1L),
                   ) =>
@@ -382,100 +382,100 @@ class BlockUpdateGeneratorImplTest
           }
         }.failOnShutdown
       }
-    }
 
-    "process a maybe tick chunk" when {
-      "receiving the MaybeTopologyTickChunk at the end of the block" in {
-        val epsilon = defaultStaticSynchronizerParameters.topologyChangeDelay.duration
-        val blockUpdateGenerator =
-          new BlockUpdateGeneratorImpl(
-            testedProtocolVersion,
-            synchronizerSyncCryptoApi =
-              TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(
-                sequencerId,
-                physicalSynchronizerId,
-                aTimestamp,
+      "process a maybe tick chunk" when {
+        "receiving the MaybeTopologyTickChunk at the end of the block" in {
+          val epsilon = defaultStaticSynchronizerParameters.topologyChangeDelay.duration
+          val blockUpdateGenerator =
+            new BlockUpdateGeneratorImpl(
+              testedProtocolVersion,
+              synchronizerSyncCryptoApi =
+                TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(
+                  sequencerId,
+                  physicalSynchronizerId,
+                  aTimestamp,
+                ),
+              sequencerId,
+              mock[SequencerRateLimitManager],
+              OrderingTimeFixMode.ValidateOnly,
+              SequencingTimeBound(
+                SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive
               ),
-            sequencerId,
-            mock[SequencerRateLimitManager],
-            OrderingTimeFixMode.ValidateOnly,
-            SequencingTimeBound(
-              SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive
-            ),
-            producePostOrderingTopologyTicks = true,
-            SequencerTestMetrics,
-            BatchingConfig(),
-            loggerFactory,
-            mock[SequencerMemberValidator],
-          )
+              producePostOrderingTopologyTicks = true,
+              SequencerTestMetrics,
+              BatchingConfig(),
+              loggerFactory,
+              mock[SequencerMemberValidator],
+            )
 
-        val state = BlockUpdateGeneratorImpl.State(
-          lastBlockTs = aTimestamp.immediatePredecessor,
-          lastChunkTs = aTimestamp,
-          latestSequencerEventTimestamp = None,
-          inFlightAggregations = Map.empty,
-          latestPendingTopologyTransactionTimestamp = None,
-        )
-
-        val t1 = aTimestamp.minus(epsilon)
-        val t2 = t1.immediateSuccessor
-        val t3 = aTimestamp.immediateSuccessor.immediateSuccessor
-
-        for {
-          noOpResult <- blockUpdateGenerator.processBlockChunk(
-            state,
-            MaybeTopologyTickChunk(1L, aTimestamp),
-          )
-
-          result2 <- blockUpdateGenerator.processBlockChunk(
-            state.copy(latestPendingTopologyTransactionTimestamp = Some(t1)),
-            MaybeTopologyTickChunk(1L, aTimestamp),
-          )
-
-          result3 <- blockUpdateGenerator.processBlockChunk(
-            state.copy(latestPendingTopologyTransactionTimestamp = Some(t2)),
-            MaybeTopologyTickChunk(1L, aTimestamp),
-          )
-
-          result4 <- blockUpdateGenerator.processBlockChunk(
-            state.copy(latestPendingTopologyTransactionTimestamp = Some(t2)),
-            MaybeTopologyTickChunk(1L, t3),
-          )
-        } yield {
-          // no pending topology transaction timestamps, so nothing to do
-          noOpResult shouldBe (state, ChunkUpdate.noop)
-
-          // in this case t1 is considered the highest newly effective topology timestamp, so a tick is created
-          result2._1 shouldBe state.copy(
-            lastChunkTs = aTimestamp.immediateSuccessor,
-            latestSequencerEventTimestamp = Some(aTimestamp.immediateSuccessor),
-            latestPendingTopologyTransactionTimestamp = None,
-          )
-          result2._2 should matchPattern {
-            // the tick is created
-            case c: ChunkUpdate if c.submissionsOutcomes.sizeIs == 1 =>
-          }
-
-          // in this case t2 is not yet effective (by a microsecond), so no tick is created
-          result3 shouldBe (state.copy(
+          val state = BlockUpdateGeneratorImpl.State(
+            lastBlockTs = aTimestamp.immediatePredecessor,
             lastChunkTs = aTimestamp,
             latestSequencerEventTimestamp = None,
-            latestPendingTopologyTransactionTimestamp = Some(t2),
-          ), ChunkUpdate.noop)
-
-          // in this case, the block is empty and the baseBlockSequencingTime was taken into account
-          // to conclude that t2 is effective.
-          result4._1 shouldBe state.copy(
-            lastChunkTs = t3,
-            latestSequencerEventTimestamp = Some(t3),
+            inFlightAggregations = Map.empty,
             latestPendingTopologyTransactionTimestamp = None,
           )
-          result4._2 should matchPattern {
-            // the tick is created
-            case c: ChunkUpdate if c.submissionsOutcomes.sizeIs == 1 =>
+
+          val t1 = aTimestamp.minus(epsilon)
+          val t2 = t1.immediateSuccessor
+          val t3 = aTimestamp.immediateSuccessor.immediateSuccessor
+
+          for {
+            noOpResult <- blockUpdateGenerator.processBlockChunk(
+              state,
+              MaybeTopologyTickChunk(1L, aTimestamp, None),
+            )
+
+            result2 <- blockUpdateGenerator.processBlockChunk(
+              state.copy(latestPendingTopologyTransactionTimestamp = Some(t1)),
+              MaybeTopologyTickChunk(1L, aTimestamp, None),
+            )
+
+            result3 <- blockUpdateGenerator.processBlockChunk(
+              state.copy(latestPendingTopologyTransactionTimestamp = Some(t2)),
+              MaybeTopologyTickChunk(1L, aTimestamp, None),
+            )
+
+            result4 <- blockUpdateGenerator.processBlockChunk(
+              state.copy(latestPendingTopologyTransactionTimestamp = Some(t2)),
+              MaybeTopologyTickChunk(1L, t3, None),
+            )
+          } yield {
+            // no pending topology transaction timestamps, so nothing to do
+            noOpResult shouldBe (state, ChunkUpdate.noop)
+
+            // in this case t1 is considered the highest newly effective topology timestamp, so a tick is created
+            result2._1 shouldBe state.copy(
+              lastChunkTs = aTimestamp.immediateSuccessor,
+              latestSequencerEventTimestamp = Some(aTimestamp.immediateSuccessor),
+              latestPendingTopologyTransactionTimestamp = None,
+            )
+            result2._2 should matchPattern {
+              // the tick is created
+              case c: ChunkUpdate if c.submissionsOutcomes.sizeIs == 1 =>
+            }
+
+            // in this case t2 is not yet effective (by a microsecond), so no tick is created
+            result3 shouldBe (state.copy(
+              lastChunkTs = aTimestamp,
+              latestSequencerEventTimestamp = None,
+              latestPendingTopologyTransactionTimestamp = Some(t2),
+            ), ChunkUpdate.noop)
+
+            // in this case, the block is empty and the baseBlockSequencingTime was taken into account
+            // to conclude that t2 is effective.
+            result4._1 shouldBe state.copy(
+              lastChunkTs = t3,
+              latestSequencerEventTimestamp = Some(t3),
+              latestPendingTopologyTransactionTimestamp = None,
+            )
+            result4._2 should matchPattern {
+              // the tick is created
+              case c: ChunkUpdate if c.submissionsOutcomes.sizeIs == 1 =>
+            }
           }
-        }
-      }.failOnShutdown
+        }.failOnShutdown
+      }
     }
   }
 }

@@ -696,7 +696,7 @@ final class ParticipantMigrateSynchronizerCrashRecoveryIntegrationTest
       source
         .runWith(Sink.seq)
         .futureValue
-        .map(resp => RepairContract.toRepairContract(resp.getActiveContract).value)
+        .map(resp => RepairContract.fromLapiActiveContract(resp.getActiveContract).value)
         .toList
 
     participant3.synchronizers.disconnect_all()

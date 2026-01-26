@@ -93,14 +93,10 @@ object BlockUpdateGenerator {
       chunkIndex: Int,
       events: NonEmpty[Seq[Traced[LedgerBlockEvent]]],
   ) extends BlockChunk
-  final case class TopologyTickChunk(
-      blockHeight: Long,
-      tickAtLeastAt: CantonTimestamp,
-      groupRecipient: Either[AllMembersOfSynchronizer.type, SequencersOfSynchronizer.type],
-  ) extends BlockChunk
   final case class MaybeTopologyTickChunk(
       blockHeight: Long,
       baseBlockSequencingTime: CantonTimestamp,
+      tickTopology: Option[TickTopology],
   ) extends BlockChunk
   final case class EndOfBlock(blockHeight: Long) extends BlockChunk
 }
@@ -206,21 +202,11 @@ class BlockUpdateGeneratorImpl(
     val blockHeight = blockEvents.height
     metrics.block.height.updateValue(blockHeight)
 
-    val ticks =
-      (if (protocolVersion >= ProtocolVersion.v35 && producePostOrderingTopologyTicks)
-         // Starting with protocol version 35, topology ticks can be deterministically injected post-ordering
-         // by sequencers, making time proofs unnecessary for observing topology transactions becoming effective.
-         Seq(
-           MaybeTopologyTickChunk(
-             blockHeight,
-             blockEvents.baseBlockSequencingTime,
-           )
-         )
-       else Seq.empty) ++
-        // Up to and including protocol version 34, only the BFT sequencer can request to inject topology ticks.
-        blockEvents.tickTopology.map { case TickTopology(micros, recipient) =>
-          TopologyTickChunk(blockHeight, micros, recipient)
-        }
+    val tick = MaybeTopologyTickChunk(
+      blockHeight,
+      blockEvents.baseBlockSequencingTime,
+      blockEvents.tickTopology,
+    )
 
     // We must start a new chunk whenever the chunk processing advances lastSequencerEventTimestamp,
     //  otherwise the logic for retrieving a topology snapshot or traffic state could deadlock.
@@ -230,10 +216,10 @@ class BlockUpdateGeneratorImpl(
       .zipWithIndex
       .map { case (events, index) =>
         NextChunk(blockHeight, index, events)
-      } ++ ticks ++ Seq(EndOfBlock(blockHeight))
+      } ++ Seq(tick) ++ Seq(EndOfBlock(blockHeight))
 
     logger.debug(
-      s"Chunked block $blockHeight into ${chunks.size} data chunks and ${ticks.toList.size} topology tick chunks"
+      s"Chunked block $blockHeight into ${chunks.size} data chunks and 1 topology tick chunk"
     )
 
     chunks
@@ -268,10 +254,8 @@ class BlockUpdateGeneratorImpl(
         FutureUnlessShutdown.pure(newState -> update)
       case NextChunk(height, index, chunksEvents) =>
         blockChunkProcessor.processDataChunk(state, height, index, chunksEvents)
-      case TopologyTickChunk(blockHeight, tickAtLeastAt, groupRecipient) =>
-        blockChunkProcessor.emitTick(state, blockHeight, tickAtLeastAt, groupRecipient)
-      case MaybeTopologyTickChunk(blockHeight, baseBlockSequencingTime) =>
-        val createTick = state.latestPendingTopologyTransactionTimestamp.exists { ts =>
+      case MaybeTopologyTickChunk(blockHeight, baseBlockSequencingTime, tickTopology) =>
+        lazy val createTick = state.latestPendingTopologyTransactionTimestamp.exists { ts =>
           // If the latest topology transaction becomes effective between the end of the previous block and the end of
           // the current block, we will broadcast a tick at the end of the current block so all sequencer clients can
           // notice that enough time has passed for the topology state to be effective.
@@ -290,7 +274,11 @@ class BlockUpdateGeneratorImpl(
           state.lastBlockTs < latestTopologyTransactionEffectiveTime && latestTopologyTransactionEffectiveTime < blockEnd
         }
 
-        if (createTick) {
+        // Starting with protocol version 35, topology ticks can be deterministically injected post-ordering
+        // by sequencers, making time proofs unnecessary for observing topology transactions becoming effective.
+        if (
+          protocolVersion >= ProtocolVersion.v35 && producePostOrderingTopologyTicks && createTick
+        ) {
           blockChunkProcessor.emitTick(
             state.copy(
               // important to do this update from here instead of from inside emitTick,
@@ -302,7 +290,16 @@ class BlockUpdateGeneratorImpl(
             state.lastChunkTs.max(baseBlockSequencingTime),
             Left(AllMembersOfSynchronizer),
           )
-        } else FutureUnlessShutdown.pure((state, ChunkUpdate.noop))
+        } else {
+          tickTopology match {
+            // The pre-protocol version 35 topology ticks is also still supported and
+            // only the BFT sequencer can request to inject these topology ticks
+            case Some(TickTopology(tickAtLeastAt, groupRecipient)) =>
+              blockChunkProcessor.emitTick(state, blockHeight, tickAtLeastAt, groupRecipient)
+            case None =>
+              FutureUnlessShutdown.pure((state, ChunkUpdate.noop))
+          }
+        }
     }
 }
 

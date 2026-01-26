@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http.json.v2
 
-import com.digitalasset.canton.http.json.v2.ProtoInfo.{camelToSnake, normalizeName}
+import com.digitalasset.canton.http.json.v2.ProtoInfo.{camelToSnake, fixedName, normalizeName}
 import io.circe.yaml.Printer
 
 import scala.collection.immutable.SortedMap
@@ -80,6 +80,7 @@ final case class MessageInfo(message: MessageData) {
     message.fieldComments
       .get(name)
       .orElse(message.fieldComments.get(camelToSnake(name)))
+      .orElse(message.fieldComments.get(fixedName(name)))
 
   def isFieldRequired(fieldName: String): Boolean =
     getFieldComment(fieldName) match {
@@ -151,6 +152,12 @@ object ProtoInfo {
       .replaceAll("([a-z0-9])([A-Z])", "$1_$2")
       .replaceAll("([A-Z]+)([A-Z][a-z])", "$1_$2")
       .toLowerCase
+
+  // Special cases for names that (due to mistake) do not follow the usual convention
+  def fixedName(name: String): String = name match {
+    case "createArgument" => "create_arguments"
+    case other => other
+  }
 
   /** We drop initial `Js` prefix and single digits suffixes.
     */
