@@ -33,7 +33,7 @@ da_scala_binary(
         "//canton:rs-grpc-bridge",
         "//canton:rs-grpc-pekko",
         "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/engine:script-engine",
         "//canton/community/daml-lf/ide-ledger",
         "//canton/community/daml-lf/interpreter",

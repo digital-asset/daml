@@ -32,7 +32,7 @@ da_scala_library(
     deps = [
         "@maven//:com_daml_contextualized_logging_2_13",
         "//canton:scala-utils",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/engine",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
@@ -50,7 +50,7 @@ da_scala_test_suite(
     deps = [
         ":ide-ledger",
         "@maven//:com_daml_contextualized_logging_2_13",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/engine",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",

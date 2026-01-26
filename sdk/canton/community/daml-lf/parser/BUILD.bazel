@@ -24,7 +24,7 @@ da_scala_library(
     ],
     deps = [
         "//canton:scala-utils",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",
         "@maven//:com_daml_daml_lf_stable_packages_2_13",
     ],
@@ -45,7 +45,7 @@ da_scala_test(
     ],
     deps = [
         ":parser",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",
     ],
 )

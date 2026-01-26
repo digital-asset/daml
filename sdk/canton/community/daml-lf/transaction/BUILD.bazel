@@ -36,7 +36,7 @@ da_scala_library(
         "//canton:nameof",
         "//canton:safe-proto",
         "//canton:scala-utils",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
@@ -63,7 +63,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//canton/community/daml-lf/api-type-signature",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/data:data-scalacheck",
         "//canton/community/daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -90,7 +90,7 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":transaction",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_lf_transaction_test_lib_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
@@ -119,7 +119,7 @@ da_scala_test(
         ":transaction",
         "//canton:crypto",
         "//canton/community/daml-lf/api-type-signature",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",
         "@maven//:com_daml_daml_lf_transaction_test_lib_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -135,6 +135,6 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":transaction",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_data_2_13",
     ],
 )

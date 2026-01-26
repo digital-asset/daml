@@ -29,7 +29,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
@@ -61,7 +61,7 @@ da_scala_test_suite(
         ":stable-packages",
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",
     ],
 )
