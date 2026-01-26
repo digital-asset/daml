@@ -45,7 +45,7 @@
   type: jar-scala
 - target: @maven//:com_daml_daml_lf_transaction_2_13_proto_java
   type: jar-proto
-- target: @maven//:com_daml_daml_lf_transaction_2_13 # was transaction-test-lib
+- target: @maven//:com_daml_daml_lf_transaction_2_13-test-lib
   type: jar-scala
 - target: @maven//:com_daml_daml_lf_validation_2_13
   type: jar-scala
