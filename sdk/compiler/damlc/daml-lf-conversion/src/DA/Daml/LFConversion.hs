@@ -905,16 +905,12 @@ convertSimpleRecordDef env msi tycon = do
         labels = ctorLabels con
         (_, theta, args, _) = dataConSig con
 
-    let serializable = IsSerializable $ tycon `elementOfUniqSet` msiSerializable msi
-    when (getIsSerializable serializable) $ flip trace (pure ()) $
-        "This datatype has been marked as Serializable: " ++
-        showSDocUnsafe (ppr tycon)
-
     (env', tyVars) <- bindTypeVars env (tyConTyVars tycon)
     fieldTypes <- mapM (convertType env') (theta ++ args)
 
     let fields = zipExact labels fieldTypes
         tconName = mkTypeCon [getOccText tycon]
+        serializable = IsSerializable $ tycon `elementOfUniqSet` msiSerializable msi
         typeDef = defDataType tconName serializable tyVars (DataRecord fields)
         workerDef = defNewtypeWorker env tycon tconName con tyVars fields
 
