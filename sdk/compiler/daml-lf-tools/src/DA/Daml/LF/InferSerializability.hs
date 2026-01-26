@@ -13,7 +13,6 @@ import qualified Data.HashSet as HS
 import qualified Data.NameMap as NM
 import           Data.Semigroup.FixedPoint (leastFixedPointBy)
 import qualified Data.Text as T
-import Debug.Trace (traceM, trace)
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.TypeChecker.Serializability (CurrentModule(..), serializabilityConditionsDataType)
@@ -53,10 +52,8 @@ inferModule world0 opts@Options {..} mod0 =
       case leastFixedPointBy (&&) eqs of
         Left name -> throwError ("Reference to unknown data type: " ++ show name)
         Right serializabilities -> do
-          traceM ("serializabilities: " ++ show (HMS.keys serializabilities))
           let updateDataType dataType =
                 let serializable = IsSerializable (HMS.lookupDefault False (dataTypeCon dataType) serializabilities) in
-                trace (show (dataTypeCon dataType) ++ " marking as " ++ show serializable) $
                 dataType {dataSerializable = serializable}
           pure mod0{moduleDataTypes = NM.map updateDataType dataTypes}
 
