@@ -116,7 +116,7 @@ final class BlockChunkProcessor(
       latestTopologyTimestamp = validatedSequencedSubmissions
         .findLast(_.submissionRequest.content.requestType == TopologyTransaction)
         .map(_.sequencingTimestamp)
-        .getOrElse(state.latestTopologyTransactionTimestamp)
+        .orElse(state.latestPendingTopologyTransactionTimestamp)
 
       acksValidationResult <- acksValidationResultF
       (acksByMember, invalidAcks) = acksValidationResult

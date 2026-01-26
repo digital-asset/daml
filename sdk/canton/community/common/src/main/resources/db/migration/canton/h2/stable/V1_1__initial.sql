@@ -388,7 +388,8 @@ create table seq_block_height (
     -- there is no further event addressed to the sequencer between this timestamp
     -- and the last event in the block.
     -- NULL if no such timestamp is known, e.g., because this block was added before this column was added.
-    latest_sequencer_event_ts bigint
+    latest_sequencer_event_ts bigint,
+    latest_pending_topology_ts bigint
 );
 
 create table mediator_deduplication_store (

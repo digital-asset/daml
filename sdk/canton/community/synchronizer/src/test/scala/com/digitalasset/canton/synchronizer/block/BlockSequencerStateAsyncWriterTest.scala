@@ -162,7 +162,8 @@ class BlockSequencerStateAsyncWriterTest
     Chain.one(sender2),
   )
 
-  private lazy val block1 = BlockInfo(10L, CantonTimestamp.Epoch, Some(CantonTimestamp.Epoch))
+  private lazy val block1 =
+    BlockInfo(10L, CantonTimestamp.Epoch, Some(CantonTimestamp.Epoch), Some(CantonTimestamp.Epoch))
   private def unwrap(t: EitherT[FutureUnlessShutdown, String, Assertion]): Future[Assertion] =
     t.failOnShutdown.value.map(_.valueOrFail("EitherT returned left"))
 

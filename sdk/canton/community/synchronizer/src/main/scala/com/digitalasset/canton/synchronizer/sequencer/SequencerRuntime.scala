@@ -116,6 +116,7 @@ class SequencerRuntime(
     topologyProcessor: TopologyTransactionProcessor,
     topologyManagerStatusO: Option[TopologyManagerStatus],
     topologyConfig: TopologyConfig,
+    producePostOrderingTopologyTicks: Boolean,
     storage: Storage,
     clock: Clock,
     staticMembersToRegister: Seq[Member],
@@ -397,8 +398,10 @@ class SequencerRuntime(
         timeouts,
         loggerFactory,
       )
-  logger.info("Subscribing to topology transactions for time-advancing broadcast")
-  topologyProcessor.subscribe(timeAdvancingTopologySubscriber)
+  if (!producePostOrderingTopologyTicks) {
+    logger.info("Subscribing to topology transactions for time-advancing broadcast")
+    topologyProcessor.subscribe(timeAdvancingTopologySubscriber)
+  }
 
   private lazy val synchronizerOutboxO: Option[SynchronizerOutboxHandle] =
     maybeSynchronizerOutboxFactory
