@@ -45,7 +45,8 @@ protobuf_version = "3.25.5"
 pekko_version = "1.2.1"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
-transcode_version = "3.5.0-ad-hoc.20260123.17854.0.v590ddd17"
+#transcode_version = "3.5.0-ad-hoc.20260126.17857.0.v9b5df6af"
+transcode_version = "3.5.0-SNAPSHOT"
 upickle_version = "4.1.0"
 ujson_version = "4.0.2"
 
@@ -332,6 +333,7 @@ def install_java_deps():
         repositories = [
             "https://repo1.maven.org/maven2",
             "https://europe-maven.pkg.dev/da-images/public-maven-unstable",
+            "m2local",
         ],
         # The strict_visibility attribute controls whether all artifacts should
         # be visible (including transitive dependencies), or whether only
