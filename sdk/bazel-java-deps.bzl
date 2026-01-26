@@ -96,6 +96,7 @@ def install_java_deps():
             "com.daml:daml-lf-archive-encoder_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:daml-lf-archive_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:daml-lf-data_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-data-scalacheck_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:daml-lf-encoder_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:daml-lf-engine_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:daml-lf-ide-ledger_{}:{}".format(scala_major_version, transcode_version),
