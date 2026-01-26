@@ -16,7 +16,6 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import scala.collection.immutable.VectorMap
 import scala.language.implicitConversions
 
-@scala.annotation.nowarn("cat=other-match-analysis")
 class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matchers {
 
   implicit val parserParameters: ParserParameters[this.type] = ParserParameters.default
