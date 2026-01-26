@@ -105,6 +105,7 @@ def install_java_deps():
             "com.daml:daml-lf-repl_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:daml-lf-stable-packages_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:daml-lf-transaction_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-upgrades-matrix_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:daml-lf-validation_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:contextualized-logging_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:daml-lf-snapshot-proto_{}:{}".format(scala_major_version, transcode_version),
