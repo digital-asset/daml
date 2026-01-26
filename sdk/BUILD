@@ -231,7 +231,7 @@ da_haskell_repl(
     ],
 )
 
-load("@bazel_gazelle//:def.bzl", "gazelle")
+load("@gazelle//:def.bzl", "gazelle")
 
 gazelle(
     name = "gazelle-update-repos",
