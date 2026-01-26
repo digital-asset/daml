@@ -38,8 +38,8 @@ da_scala_library(
         "//canton:scala-utils",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
-        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 
