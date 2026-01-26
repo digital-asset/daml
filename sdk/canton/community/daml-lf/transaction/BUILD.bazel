@@ -64,7 +64,7 @@ da_scala_library(
     deps = [
         "//canton/community/daml-lf/api-type-signature",
         "@maven//:com_daml_daml_lf_data_2_13",
-        "//canton/community/daml-lf/data:data-scalacheck",
+        "@maven//:com_daml_daml_lf_data_scalacheck_2_13",
         "//canton/community/daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
     ],

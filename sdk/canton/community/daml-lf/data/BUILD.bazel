@@ -72,7 +72,7 @@ da_scala_test(
     deps = [
         ":data",
         "//canton:scalatest-utils",
-        "//canton/community/daml-lf/data:data-scalacheck",
+        "@maven//:com_daml_daml_lf_data_scalacheck_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
