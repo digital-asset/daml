@@ -1,5 +1,6 @@
 bazel_dep(name = "rules_haskell", version = "1.0")
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "rules_scala", version = "7.1.6")
 
 module_temporary_extension = use_extension("//bazel_tools:module_temporary_extension.bzl", "temporary_extension")
 use_repo(module_temporary_extension, "build_environment", "os_info", "scala_version")
