@@ -69,7 +69,7 @@ da_scala_library(
         "//canton/community/daml-lf/transaction",
         "//canton/community/daml-lf/validation",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_bouncycastle_bcprov_jdk15on",
+        "@maven//:org_bouncycastle_bcprov_jdk18on",
     ],
 )
 
@@ -118,7 +118,7 @@ da_scala_test_suite(
         "//canton/community/daml-lf/transaction",
         "//canton/community/daml-lf/transaction:transaction-test-lib",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_bouncycastle_bcprov_jdk15on",
+        "@maven//:org_bouncycastle_bcprov_jdk18on",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
