@@ -2,7 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.InferSerializability
-  ( inferModule
+  ( Options (..)
+  , inferModule
   ) where
 
 import           Control.Monad (when)
@@ -17,8 +18,13 @@ import Debug.Trace (traceM, trace)
 import DA.Daml.LF.Ast
 import DA.Daml.LF.TypeChecker.Serializability (CurrentModule(..), serializabilityConditionsDataType)
 
-inferModule :: World -> Bool -> Module -> Either String Module
-inferModule world0 forceUtilityPackage mod0 =
+data Options = Options
+  { oForceUtilityPackage  :: Bool
+  , oExplicitSerializable :: Bool
+  } deriving (Show)
+
+inferModule :: World -> Options -> Module -> Either String Module
+inferModule world0 opts@Options {..} mod0 =
   case moduleName mod0 of
     -- Unstable parts of stdlib mustn't contain serializable types, because if they are 
     -- serializable, then the upgrading checks run on the datatypes and this causes problems. 
@@ -27,7 +33,7 @@ inferModule world0 forceUtilityPackage mod0 =
     -- https://github.com/digital-asset/daml/issues/19338
     ModuleName ["GHC", "Stack", "Types"] -> pure mod0
     ModuleName ["DA", "Numeric"] -> pure mod0
-    _ | forceUtilityPackage -> do
+    _ | oForceUtilityPackage -> do
       let mkErr name =
             throwError $ T.unpack $ "No " <> name <> " definitions permitted in forced utility packages (Module " <> moduleNameString (moduleName mod0) <> ")"
       when (not $ NM.null $ moduleTemplates mod0) $ mkErr "template"
@@ -41,21 +47,8 @@ inferModule world0 forceUtilityPackage mod0 =
       let eqs =
             [ (dataTypeCon dataType, serializable, deps)
             | dataType <- NM.toList dataTypes
-            , let (serializable, deps) =
-                    case serializabilityConditionsDataType world0 (Just $ CurrentModule modName interfaces) dataType of
-                      -- NOTE(jaspervdj): Explicitly Serializable: the
-                      -- LFConversion will only set IsSerializable if the
-                      -- datatype has a Serializable instance.  Here, we limit
-                      -- ourselves to only infering serializability for those
-                      -- types.
-                      _ | not (getIsSerializable (dataSerializable dataType)) -> (False, [])
-                      -- NOTE (jaspervdj): If the datatype is marked explicitly
-                      -- as serializable, but the conditions fail, just return
-                      -- true, we will produce a better error later in the
-                      -- typechecker.
-                      Left _ | getIsSerializable (dataSerializable dataType) -> (True, [])
-                      Left _ -> (False, [])
-                      Right deps0 -> (True, HS.toList deps0)
+            , let (serializable, deps) = inferDataType
+                    world0 opts (CurrentModule modName interfaces) dataType
             ]
       case leastFixedPointBy (&&) eqs of
         Left name -> throwError ("Reference to unknown data type: " ++ show name)
@@ -66,3 +59,22 @@ inferModule world0 forceUtilityPackage mod0 =
                 trace (show (dataTypeCon dataType) ++ " marking as " ++ show serializable) $
                 dataType {dataSerializable = serializable}
           pure mod0{moduleDataTypes = NM.map updateDataType dataTypes}
+
+inferDataType
+    :: World -> Options -> CurrentModule -> DefDataType -> (Bool, [TypeConName])
+inferDataType world0 Options {..} currentModule dataType =
+  case serializabilityConditionsDataType world0 (Just currentModule) dataType of
+    -- NOTE(jaspervdj): ExplicitSerializable: the LFConversion will only set
+    -- IsSerializable if the datatype has an explicit Serializable instance.
+    --
+    -- If ExplicitSerializable is on and this type is not marked as
+    -- serializable, always return false.
+    _ | oExplicitSerializable && not (getIsSerializable (dataSerializable dataType)) -> (False, [])
+    -- If ExplicitSerializable is on, and this datatype is has a Serializable
+    -- instance, but we get a Left, that means this datatype inherently isn't
+    -- serializable (e.g. it contains functions).  We could return an error
+    -- here; but currently we mark it as serializable and let the checker reject
+    -- it later.
+    Left _ | oExplicitSerializable && getIsSerializable (dataSerializable dataType) -> (True, [])
+    Left _ -> (False, [])
+    Right deps0 -> (True, HS.toList deps0)
