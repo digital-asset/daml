@@ -174,7 +174,7 @@ java_library(
     name = "community_lib_Blake2b",
     srcs = glob(["community/lib/Blake2b/src/main/**/*.java"]),
     deps = [
-        "@maven//:org_bouncycastle_bcprov_jdk15on",
+        "@maven//:org_bouncycastle_bcprov_jdk18on",
     ],
 )
 
@@ -486,8 +486,9 @@ scala_library(
         "@maven//:io_spray_spray_json_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
-        "@maven//:org_bouncycastle_bcpkix_jdk15on",
-        "@maven//:org_bouncycastle_bcprov_jdk15on",
+        "@maven//:org_bouncycastle_bcpkix_jdk18on",
+        "@maven//:org_bouncycastle_bcprov_jdk18on",
+        "@maven//:org_bouncycastle_bcutil_jdk18on",
         "@maven//:org_postgresql_postgresql",
         "@maven//:org_scala_lang_modules_scala_collection_compat_2_13",
         "@maven//:org_scala_lang_modules_scala_collection_contrib_2_13",
@@ -566,7 +567,7 @@ scala_library(
         "@maven//:net_logstash_logback_logstash_logback_encoder",
         "@maven//:org_apache_logging_log4j_log4j_core",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
-        "@maven//:org_bouncycastle_bcprov_jdk15on",
+        "@maven//:org_bouncycastle_bcprov_jdk18on",
         "@maven//:org_scala_lang_scala_reflect",
         "@maven//:org_scalaz_scalaz_core_2_13",
         "@maven//:org_slf4j_slf4j_api",
