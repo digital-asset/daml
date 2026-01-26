@@ -12,7 +12,7 @@ import qualified Data.HashSet as HS
 import qualified Data.NameMap as NM
 import           Data.Semigroup.FixedPoint (leastFixedPointBy)
 import qualified Data.Text as T
-import Debug.Trace (traceM)
+import Debug.Trace (traceM, trace)
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.TypeChecker.Serializability (CurrentModule(..), serializabilityConditionsDataType)
@@ -43,11 +43,17 @@ inferModule world0 forceUtilityPackage mod0 =
             | dataType <- NM.toList dataTypes
             , let (serializable, deps) =
                     case serializabilityConditionsDataType world0 (Just $ CurrentModule modName interfaces) dataType of
-                      -- NOTE(jaspervdj): Explicitly Serializable: the LFConversion will
-                      -- only set IsSerializable if the datatype has a Serializable
-                      -- instance.  Here, we limit ourselves to only infering
-                      -- serializability for those types.
+                      -- NOTE(jaspervdj): Explicitly Serializable: the
+                      -- LFConversion will only set IsSerializable if the
+                      -- datatype has a Serializable instance.  Here, we limit
+                      -- ourselves to only infering serializability for those
+                      -- types.
                       _ | not (getIsSerializable (dataSerializable dataType)) -> (False, [])
+                      -- NOTE (jaspervdj): If the datatype is marked explicitly
+                      -- as serializable, but the conditions fail, just return
+                      -- true, we will produce a better error later in the
+                      -- typechecker.
+                      Left _ | getIsSerializable (dataSerializable dataType) -> (True, [])
                       Left _ -> (False, [])
                       Right deps0 -> (True, HS.toList deps0)
             ]
@@ -56,5 +62,7 @@ inferModule world0 forceUtilityPackage mod0 =
         Right serializabilities -> do
           traceM ("serializabilities: " ++ show (HMS.keys serializabilities))
           let updateDataType dataType =
-                dataType{dataSerializable = IsSerializable (HMS.lookupDefault False (dataTypeCon dataType) serializabilities)}
+                let serializable = IsSerializable (HMS.lookupDefault False (dataTypeCon dataType) serializabilities) in
+                trace (show (dataTypeCon dataType) ++ " marking as " ++ show serializable) $
+                dataType {dataSerializable = serializable}
           pure mod0{moduleDataTypes = NM.map updateDataType dataTypes}
