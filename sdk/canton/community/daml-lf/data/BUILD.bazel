@@ -29,7 +29,7 @@ da_scala_library(
     deps = [
         "@maven//:com_daml_crypto",
         "@maven//:com_daml_logging_entries",
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_slf4j_slf4j_api",

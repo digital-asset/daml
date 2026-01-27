@@ -222,7 +222,7 @@ da_scala_library(
         "@maven//:com_daml_logging_entries",
         "//canton:metrics",
         "@maven//:com_daml_nonempty",
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
         "//canton:tracing",
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
@@ -521,7 +521,7 @@ scala_library(
         "@maven//:com_daml_nonempty_cats",
         "@maven//:com_daml_rs_grpc_bridge",
         "@maven//:com_daml_rs_grpc_pekko",
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
         "//canton:tracing",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",
@@ -771,7 +771,7 @@ scala_library(
         "@maven//:com_daml_resources_pekko",
         "@maven//:com_daml_rs_grpc_bridge",
         "@maven//:com_daml_rs_grpc_pekko",
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
         "//canton:timer-utils",
         "//canton:tracing",
         "@maven//:com_daml_daml_lf_archive_2_13",
@@ -865,7 +865,7 @@ scala_library(
         "@maven//:com_daml_resources_pekko",
         "@maven//:com_daml_rs_grpc_bridge",
         "@maven//:com_daml_rs_grpc_pekko",
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
         "//canton:tracing",
         "//canton/community/daml-lf/api-type-signature",
         "@maven//:com_daml_daml_lf_archive_2_13",
@@ -995,7 +995,7 @@ scala_library(
         "@maven//:com_daml_nonempty_cats",
         "@maven//:com_daml_rs_grpc_bridge",
         "@maven//:com_daml_rs_grpc_pekko",
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
         "//canton:tracing",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/transaction",
@@ -1152,7 +1152,7 @@ scala_library(
         "@maven//:com_daml_resources_grpc",
         "@maven//:com_daml_resources_pekko",
         "@maven//:com_daml_rs_grpc_bridge",
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
         "//canton:timer-utils",
         "//canton:tracing",
         "@maven//:com_daml_daml_lf_archive_2_13",
@@ -1345,7 +1345,7 @@ scala_library(
         "@maven//:com_daml_nonempty",
         "@maven//:com_daml_nonempty_cats",
         "@maven//:com_daml_rs_grpc_bridge",
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
         "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/transaction",
@@ -1738,7 +1738,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
     ],
 )
 
@@ -1760,7 +1760,7 @@ da_scala_library(
     ],
     deps = [
         "@maven//:com_daml_nonempty",
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
     ],
 )
 
@@ -2037,7 +2037,7 @@ da_scala_test_suite(
         ":resources-pekko",
         "@maven//:com_daml_daml_resources",
         "//canton:resources-test-lib",
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
         "//canton:timer-utils",
     ],
 )
@@ -2101,7 +2101,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
         "@maven//:org_bouncycastle_bcprov_jdk18on",
         "@maven//:org_slf4j_slf4j_api",
     ],
@@ -2135,7 +2135,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:executors:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
     ],
 )
 
@@ -2694,7 +2694,7 @@ da_scala_library(
     runtime_deps = [],
     deps = [
         "@maven//:com_daml_concurrent",
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
@@ -2718,6 +2718,6 @@ da_scala_library(
     runtime_deps = [],
     deps = [
         ":metrics",
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
     ],
 )

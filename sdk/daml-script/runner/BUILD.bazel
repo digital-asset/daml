@@ -137,7 +137,7 @@ da_scala_test(
         "@maven//:com_daml_ports",
         "@maven//:com_daml_daml_resources",
         "@maven//:com_daml_rs_grpc_bridge",
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils",
         "@maven//:com_daml_testing_utils",
         "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
