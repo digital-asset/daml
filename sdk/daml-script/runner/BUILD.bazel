@@ -60,7 +60,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//canton:base_daml-tls",
-        "//canton:base_errors",
+        "@maven//:com_daml_base_errors",
         "//canton:base_grpc-utils",
         "@maven//:com_daml_bindings_java",
         "//canton:community_base_proto_scala",
