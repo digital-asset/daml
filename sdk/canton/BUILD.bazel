@@ -1849,7 +1849,7 @@ da_scala_test(
     deps = [
         ":rs-grpc-bridge",
         ":rs-grpc-bridge-test-lib",
-        "//canton:rs-grpc-testing-utils",
+        "@maven//:com_daml_rs_grpc_testing_utils",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_reactivestreams_reactive_streams",
         "@maven//:org_reactivestreams_reactive_streams_examples",
