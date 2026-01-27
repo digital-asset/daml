@@ -205,4 +205,5 @@ instance Ord TypeRep where
 data AnyException = AnyException Opaque
 
 -- | This is probably not the right place for this.
+-- TODO(jaspervdj): where should this be placed?
 class Serializable a

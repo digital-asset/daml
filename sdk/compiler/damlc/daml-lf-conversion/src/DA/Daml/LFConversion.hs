@@ -432,6 +432,7 @@ modSerializableInfo ModDetails{..} templates = ModSerializableInfo
     { msiSerializable =
         mkUniqSet fromInstances <>
         mkUniqSet fromTemplates
+        -- TODO(jaspervdj): check that we also cover interfaces, choices, etc.
     }
   where
     fromInstances = do
