@@ -16,6 +16,6 @@ import qualified Data.ByteString.Lazy     as BSL
 
 encodePayload :: Package -> ArchivePayload
 encodePayload package = case packageLfVersion package of
-    (Version V2 minor) ->
+    (VersionP V2 minor patch) ->
         let payload = ArchivePayloadSumDamlLf2 $ BSL.toStrict $ Proto.toLazyByteString (EncodeV2.encodePackage package)
-        in ArchivePayload (TL.pack $ renderMinorVersion minor) 0 (Just payload)
+        in ArchivePayload (TL.pack $ renderMinorVersion minor) (fromIntegral patch) (Just payload)

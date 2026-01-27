@@ -22,14 +22,16 @@ def _init_data():
 
     # Encapsulated in _init_data, NOT TO BE USED OUTSIDE (use VARIABLES like
     # DEFAULT_LF_VERSION instead)
-    V2_1 = struct(major = "2", minor = "1", status = "stable")
-    V2_2 = struct(major = "2", minor = "2", status = "stable", default = True)
+    V2_1_0 = struct(major = "2", minor = "1", status = "stable", patch="0", default_patch = True)
+    V2_2_0 = struct(major = "2", minor = "2", status = "stable", patch="0", default_patch = True, default_minor = True)
+    V2_2_1 = struct(major = "2", minor = "2", status = "stable", patch="1")
 
     V2_DEV = struct(major = "2", minor = "dev", status = "dev")
 
     all_versions = [
-        V2_1,
-        V2_2,
+        V2_1_0,
+        V2_2_0,
+        V2_2_1,
         V2_DEV,
     ]
 
@@ -37,16 +39,29 @@ def _init_data():
         """Filters the master list by status."""
         return [v for v in all_versions if v.status == status]
 
+
     stable_versions = _get_by_status("stable")
 
     if not stable_versions:
         fail("No stable versions were found. Cannot determine the latest stable version.")
     latest_stable_version = stable_versions[-1]
 
-    _default_versions = [v for v in all_versions if hasattr(v, "default") and v.default]
-    if len(_default_versions) != 1:
-        fail("Expected exactly one version to be marked with 'default: True', but found {}.".format(len(_default_versions)))
-    default_version = _default_versions[0]
+    _default_minor_versions = [v for v in all_versions if hasattr(v, "default_minor") and v.default_minor]
+    if len(_default_minor_versions) != 1:
+        fail("Expected exactly one version to be marked with 'default_minor: True', but found {}.".format(len(_default_minor_versions)))
+    default_version = _default_minor_versions[0]
+
+    _default_v2_1 = [v for v in all_versions if hasattr(v, "default_path") and v.default_minor and v.minor = "1"]
+    if len(_default_v2_1) != 1:
+        fail("Expected exactly one default 2.1.x to be marked with 'default_patch: True', but found {}.".format(len(_default_v2_1)))
+    V2_1 = _default_v2_1[0]
+
+    _default_v2_2 = [v for v in all_versions if hasattr(v, "default_path") and v.default_minor and v.minor = "2"]
+    if len(_default_v2_2) != 1:
+        fail("Expected exactly one default 2.0.x to be marked with 'default_patch: True', but found {}.".format(len(_default_v2_2)))
+    V2_2 = _default_v2_2[0]
+
+    all_versions_defaultpatch = [V2_1, V2_2, V2_DEV]
 
     _dev_versions = _get_by_status("dev")
     if len(_dev_versions) != 1:
@@ -93,7 +108,7 @@ def _init_data():
             "name": "featureExceptions",
             "name_pretty": "Daml Exceptions",
             "cpp_flag": "DAML_EXCEPTIONS",
-            "version_req": {"low": V2_1},
+            "version_req": {"low": V2_1_0},
         },
         {
             "name": "featureExtendedInterfaces",
@@ -124,13 +139,13 @@ def _init_data():
             "name": "featureFlatArchive",
             "name_pretty": "Flat Archive",
             "cpp_flag": "DAML_FLATARCHIVE",
-            "version_req": {"low": V2_2},
+            "version_req": {"low": V2_2_0},
         },
         {
             "name": "featurePackageImports",
             "name_pretty": "Explicit package imports",
             "cpp_flag": "DAML_PackageImports",
-            "version_req": {"low": V2_2},
+            "version_req": {"low": V2_2_0},
         },
         {
             "name": "featureComplexAnyType",
@@ -155,7 +170,7 @@ def _init_data():
             "name": "featurePackageUpgrades",
             "name_pretty": "Package upgrades",
             "cpp_flag": "DAML_PackageUpgrades",
-            "version_req": {"low": V2_1},
+            "version_req": {"low": V2_1_0},
         },
         {
             "name": "featureChoiceAuthority",
@@ -167,7 +182,7 @@ def _init_data():
             "name": "featureUnsafeFromInterface",
             "name_pretty": "UnsafeFromInterface builtin",
             "cpp_flag": "DAML_UnsafeFromInterface",
-            "version_req": {"high": V2_1},
+            "version_req": {"high": V2_1_0},
         },
     ]
 
@@ -176,6 +191,7 @@ def _init_data():
         stable_versions = stable_versions,
         latest_stable_version = latest_stable_version,
         default_version = default_version,
+        all_versions_defaultpatch = all_versions_defaultpatch,
         dev_version = dev_version,
         staging_version = staging_version,
         features = features_definitions,

@@ -51,13 +51,13 @@ renderVersionsFile versions =
           , "# Update versions/UpdateVersions.hs instead."
           ]
         , [ "sdk_versions = [" ]
-        , map renderVersion (Map.keys versions <> [headVersion])
+        , map renderTodoVersion (Map.keys versions <> [headVersion])
         , [ "]"]
         , [ "platform_versions = [" ]
-        , map renderVersion (Map.keys versions <> [headVersion])
+        , map renderTodoVersion (Map.keys versions <> [headVersion])
         , [ "]" ]
         , [ "stable_versions = [" ]
-        , map renderVersion (Map.keys stableVersions <> [headVersion])
+        , map renderTodoVersion (Map.keys stableVersions <> [headVersion])
         , [ "]" ]
         , [ "latest_stable_version = \"" <> SemVer.toText latestVersion <> "\"" ]
         , [ "version_sha256s = {"]
@@ -79,7 +79,7 @@ renderVersionsFile versions =
       , [ "    }," ]
       ]
     renderDigest digest = T.pack $ show (convertToBase Base16 digest :: ByteString)
-    renderVersion ver = "    \"" <> SemVer.toText ver <> "\","
+    renderTodoVersion ver = "    \"" <> SemVer.toText ver <> "\","
     stableVersions = Map.filterWithKey (const . null . view SemVer.release) versions
     firstVersion = SemVer.version 3 3 0 [fromJust $ SemVer.textual "snapshot", SemVer.numeric 20250930, SemVer.numeric 0] []
     latestVersion = if Map.null versions then firstVersion else fst $ Map.findMax versions

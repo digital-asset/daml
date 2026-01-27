@@ -10,8 +10,20 @@ load("//canton/community/daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
 
 daml_package_db(
     name = "package_db_for_daml-prim",
-    daml_lf_versions = COMPILER_LF_VERSIONS,
+    # daml_lf_versions = COMPILER_LF_VERSIONS,
+    daml_lf_versions = ["2.1.0", "2.1.1"],
     pkgs = [],
+    visibility = ["//visibility:public"],
+)
+
+daml_package_rule(
+    name = "TEST-daml-prim-2.1.0",
+    srcs = "//compiler/damlc/daml-prim-src",
+    daml_lf_version = "2.1.0",
+    disable_deprecated_exceptions = True,
+    package_db = ":package_db_for_daml-prim",
+    pkg_name = "daml-prim",
+    pkg_root = "compiler/damlc/daml-prim-src",
     visibility = ["//visibility:public"],
 )
 
