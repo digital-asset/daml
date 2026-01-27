@@ -858,7 +858,7 @@ scala_library(
         "@maven//:com_daml_logging_entries",
         "@maven//:com_daml_observability_metrics",
         "@maven//:com_daml_nonempty",
-        "//canton:pekko-http-metrics",
+        "@maven//:com_daml_observability_pekko_http_metrics",
         "@maven//:com_daml_ports",
         "@maven//:com_daml_daml_resources",
         "@maven//:com_daml_resources_grpc",
