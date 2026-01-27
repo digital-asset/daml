@@ -110,6 +110,7 @@ def install_java_deps():
             "com.daml:daml-lf-upgrades-matrix_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:daml-lf-validation_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:contextualized-logging_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:daml-lf-snapshot_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:daml-lf-snapshot-proto_{}:{}".format(scala_major_version, transcode_version),
             "com.fasterxml.jackson.core:jackson-core:2.14.3",
             "com.fasterxml.jackson.core:jackson-databind:2.14.3",
