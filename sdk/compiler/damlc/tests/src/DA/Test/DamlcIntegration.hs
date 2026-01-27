@@ -677,6 +677,10 @@ parseExtraOptions args = case result of
     result = Options.Applicative.execParserPure prefs info args
     prefs = Options.Applicative.prefs mempty
     info = flip Options.Applicative.info mempty $
+      -- NOTE(jaspervdj): Can add more option parsers here if we need them for
+      -- tests. We should not let this list become too big, as we currently
+      -- create a new IDE instance for each unique combination of options in
+      -- the tests.
       (\opt opts -> opts {optExplicitSerializable = opt}) <$> explicitSerializable
 
 mainProj :: IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO (LF.Package, FilePath, HashMap.HashMap ScriptName T.Text)
