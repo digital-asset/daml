@@ -35,7 +35,7 @@ da_scala_library(
         "//canton:resources",
         "@maven//:com_daml_rs_grpc_bridge",
         "//canton:scala-utils",
-        "//canton:testing-utils",
+        "@maven//:com_daml_testing_utils",
         "//canton:timer-utils",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//test-common/canton/fs-utils",

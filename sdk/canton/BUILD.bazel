@@ -2401,7 +2401,7 @@ da_scala_library(
     ],
     deps = [
         ":sample-service-scalapb",
-        "//canton:testing-utils",
+        "@maven//:com_daml_testing_utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
@@ -2607,7 +2607,7 @@ da_scala_test_suite(
         ":pekko-http-metrics-tests-lib",
         "//canton:metrics",
         "@maven//:com_daml_rs_grpc_bridge",
-        "//canton:testing-utils",
+        "@maven//:com_daml_testing_utils",
         "@maven//:com_typesafe_config",
     ],
 )
