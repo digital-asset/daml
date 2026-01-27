@@ -400,7 +400,7 @@ da_scala_test(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:community_base_proto_scala",
+        "@maven//:com_daml_community_base",
         "@maven//:com_daml_ledger_common",
         "@maven//:com_daml_util_observability",
         "@maven//:com_daml_ledger_resources",

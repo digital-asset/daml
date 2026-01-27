@@ -63,7 +63,7 @@ da_scala_library(
         "@maven//:com_daml_base_errors",
         "@maven//:com_daml_daml_grpc_utils",
         "@maven//:com_daml_bindings_java",
-        "//canton:community_base_proto_scala",
+        "@maven//:com_daml_community_base",
         "@maven//:com_daml_ledger_common",
         "@maven//:com_daml_util_observability",
         "@maven//:com_daml_contextualized_logging_2_13",
