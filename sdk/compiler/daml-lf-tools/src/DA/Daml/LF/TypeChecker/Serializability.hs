@@ -153,14 +153,6 @@ checkDataType modName dataType =
   when (getIsSerializable (dataSerializable dataType)) $ do
     world0 <- getWorld
     case serializabilityConditionsDataType world0 Nothing dataType of
-      -- TODO(jaspervdj): Here, we are throwing an error in the current context.
-      -- Old serializable assumed this was in the context of an interface,
-      -- template, etc., so the error is good.
-      --
-      -- However, with explicit serializability, we want to set the context to
-      -- something more specific, since we want unserializable types that
-      -- have an instance to error on their own, even if they are not used in
-      -- a template.
       Left reason -> do
         let typ = TCon (Qualified SelfPackageId modName (dataTypeCon dataType))
         throwWithContext (EExpectedSerializableType SRDataType typ reason)
