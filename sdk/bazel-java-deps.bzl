@@ -340,7 +340,7 @@ def install_java_deps():
             "com.google.auth:google-auth-library-oauth2-http:1.28.0",
             "com.google.auth:google-auth-library-credentials:1.28.0",
             "com.google.cloud:google-cloud-kms:2.55.0",
-            "org.flywaydb:flyway-core:9.15.2",
+            "org.flywaydb:flyway-core:10.22.0",
             "software.amazon.awssdk:auth:{}".format(aws_version),
             "software.amazon.awssdk:aws-core:{}".format(aws_version),
             "software.amazon.awssdk:http-client-spi:{}".format(aws_version),
