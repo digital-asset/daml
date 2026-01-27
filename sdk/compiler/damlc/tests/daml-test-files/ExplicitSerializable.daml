@@ -2,25 +2,37 @@
 -- All rights reserved.
 
 -- @OPTIONS --explicit-serializable=yes
--- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Currency"]) | has("serializable")
+-- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriDataType"]) | has("serializable")
+-- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriEnum"]) | has("serializable")
+-- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriVariant"]) | has("serializable")
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Helper"]) | has("serializable") | not
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Asset"]) | has("serializable")
 module ExplicitSerializable where
 
-data Currency = Currency with
-  admin : Party
-  instrument : Text
+data SeriDataType = SeriDataType with
+  foo : Int
+  bar : Party
     deriving (Eq, Show)
 
-instance Serializable Currency
+instance Serializable SeriDataType
+
+data SeriEnum = Green | Blue deriving (Eq, Show)
+
+instance Serializable SeriEnum
+
+data SeriVariant = SVEnum SeriEnum | SVDataType SeriDataType
+  deriving (Eq, Show)
+
+instance Serializable SeriVariant
 
 data Helper = Helper with
-  currencies : [Currency]
+  children : [SeriDataType]
 
 template Asset
   with
-    amount : Decimal
     party : Party
-    currency : Currency
+    seriDataType : SeriDataType
+    seriEnum : SeriEnum
+    seriVariant : SeriVariant
   where
     signatory party
