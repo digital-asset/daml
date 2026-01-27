@@ -24,7 +24,6 @@ da_scala_library(
         "//canton:scala-utils",
         "//canton/community/daml-lf/api-type-signature",
         "@maven//:com_daml_daml_lf_archive_2_13",
-        "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",
         "@maven//:com_google_api_grpc_proto_google_common_protos",

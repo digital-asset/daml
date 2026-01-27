@@ -55,7 +55,6 @@ da_scala_library(
         "//canton:nonempty",
         "//canton/community/daml-lf/api-type-signature",
         "@maven//:com_daml_daml_lf_archive_2_13",
-        "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",
         "//language-support/build-info",
