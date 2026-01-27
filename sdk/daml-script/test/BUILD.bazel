@@ -248,7 +248,7 @@ da_scala_library(
     deps = [
         "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:base_daml-tls",
+        "@maven//:com_daml_daml_tls",
         "//canton:community_base",
         "@maven//:com_daml_ledger_common",
         "@maven//:com_daml_util_observability",
