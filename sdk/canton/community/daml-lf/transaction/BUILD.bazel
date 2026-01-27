@@ -33,7 +33,7 @@ da_scala_library(
     deps = [
         ":transaction_proto_java",
         "@maven//:com_daml_crypto",
-        "//canton:nameof",
+        "@maven//:com_daml_nameof",
         "@maven//:com_daml_safe_proto",
         "@maven//:com_daml_scala_utils",
         "@maven//:com_daml_daml_lf_data_2_13",
