@@ -9,6 +9,8 @@
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Asset"]) | has("serializable")
 module ExplicitSerializable where
 
+import qualified ExplicitSerializable.Imported as I
+
 data SeriDataType = SeriDataType with
   foo : Int
   bar : Party
@@ -34,5 +36,6 @@ template Asset
     seriDataType : SeriDataType
     seriEnum : SeriEnum
     seriVariant : SeriVariant
+    seriImported : I.SeriImported
   where
     signatory party
