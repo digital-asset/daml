@@ -61,7 +61,7 @@ da_scala_library(
     deps = [
         "@maven//:com_daml_daml_tls",
         "@maven//:com_daml_base_errors",
-        "//canton:base_grpc-utils",
+        "@maven//:com_daml_daml_grpc_utils",
         "@maven//:com_daml_bindings_java",
         "//canton:community_base_proto_scala",
         "@maven//:com_daml_ledger_common",

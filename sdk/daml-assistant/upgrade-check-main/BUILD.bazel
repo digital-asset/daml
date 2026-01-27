@@ -92,7 +92,7 @@ da_scala_library(
     deps = [
         "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:base_grpc-utils",
+        "@maven//:com_daml_daml_grpc_utils",
         "//canton:community_admin-api",
         "@maven//:com_daml_ledger_common",
         "@maven//:com_daml_util_observability",
