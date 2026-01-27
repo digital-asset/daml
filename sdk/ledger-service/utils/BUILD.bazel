@@ -19,7 +19,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "@maven//:com_daml_contextualized_logging_2_13",
-        "//canton:ledger_api_proto_scala",
+        "@maven//:com_daml_ledger_api_proto",
         "//canton:logging-entries",
         "//canton:scala-utils",
         "//canton/community/daml-lf/api-type-signature",
