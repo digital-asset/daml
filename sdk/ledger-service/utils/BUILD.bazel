@@ -20,7 +20,7 @@ da_scala_library(
     deps = [
         "@maven//:com_daml_contextualized_logging_2_13",
         "@maven//:com_daml_ledger_api_proto",
-        "//canton:logging-entries",
+        "@maven//:com_daml_logging_entries",
         "//canton:scala-utils",
         "//canton/community/daml-lf/api-type-signature",
         "@maven//:com_daml_daml_lf_archive_2_13",
