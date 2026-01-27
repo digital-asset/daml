@@ -409,7 +409,7 @@ da_scala_test(
         "@maven//:com_daml_daml_resources",
         "@maven//:com_daml_rs_grpc_bridge",
         "@maven//:com_daml_testing_utils",
-        "//canton:timer-utils",
+        "@maven//:com_daml_timer_utils",
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_lf_engine_2_13",
         "//canton/community/daml-lf/interpreter",
