@@ -70,7 +70,7 @@ da_scala_library(
         "@maven//:com_daml_ledger_api_proto",
         "//canton:nonempty",
         "//canton:rs-grpc-bridge",
-        "//canton:rs-grpc-pekko",
+        "@maven//:com_daml_rs_grpc_pekko",
         "//canton:timer-utils",
         "//canton/community/daml-lf/api-type-signature",
         "@maven//:com_daml_daml_lf_archive_2_13",
