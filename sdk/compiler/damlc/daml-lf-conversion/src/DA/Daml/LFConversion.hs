@@ -414,15 +414,11 @@ scrapeExceptionBinds binds = MS.fromList
     , hasDamlExceptionCtx exn
     ]
 
-data ModInstanceInfo = ModInstanceInfo
-    { miiOverlapMode :: MS.Map DFunId OverlapMode
-    }
+type ModInstanceInfo = MS.Map DFunId OverlapMode
 
 modInstanceInfoFromDetails :: ModDetails -> ModInstanceInfo
-modInstanceInfoFromDetails ModDetails{..} = ModInstanceInfo
-    { miiOverlapMode = MS.fromList
-        [ (is_dfun, overlapMode is_flag) | ClsInst{..} <- md_insts ]
-    }
+modInstanceInfoFromDetails ModDetails{..} = MS.fromList
+    [ (is_dfun, overlapMode is_flag) | ClsInst{..} <- md_insts ]
 
 data ModSerializableInfo = ModSerializableInfo
     { msiSerializable :: UniqSet TyCon
@@ -446,8 +442,6 @@ modSerializableInfo ModDetails{..} templates = ModSerializableInfo
     fromTemplates = do
         Just tyCon <- map tbTyCon $ templates
         pure tyCon
-
-    -- fromTemplates =
 
     tyHead (TyCoRep.TyConApp tc _) = Just tc
     tyHead (TyCoRep.TyVarTy _)     = Nothing
@@ -1499,7 +1493,7 @@ convertBind env mc (name, x)
     -- OVERLAP* annotations
     let overlapModeName' = overlapModeName (fst name')
         overlapModeDef = maybeToList $ do
-            overlapMode <- MS.lookup name (miiOverlapMode $ mcModInstanceInfo mc)
+            overlapMode <- MS.lookup name (mcModInstanceInfo mc)
             overlapModeType <- encodeOverlapMode overlapMode
             Just (DValue (mkMetadataStub overlapModeName' overlapModeType))
 
