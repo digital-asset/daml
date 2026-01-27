@@ -7,5 +7,16 @@ bazel_dep(name = "rules_go", version = "0.59.0")
 bazel_dep(name = "rules_sh", version = "0.5.0")
 bazel_dep(name = "buildifier_prebuilt", version = "8.2.1.1")
 
+haskell = use_extension("@rules_haskell//extensions:haskell.bzl", "haskell")
+haskell.toolchain(version = "9.12.3")
+use_repo(haskell, "ghc_toolchains")
+
+stack = use_extension("//bazel_tools:MODULE_MIGRATION/haskell_deps_extension.bzl", "haskell_deps")
+stack.snapshot(
+    name = "stackage",
+    local_snapshot = "//:stack-snapshot.yaml",
+)
+use_repo(stack, "stackage")
+
 module_temporary_extension = use_extension("//bazel_tools:MODULE_MIGRATION/module_temporary_extension.bzl", "temporary_extension")
 use_repo(module_temporary_extension, "build_environment", "os_info", "scala_version")
