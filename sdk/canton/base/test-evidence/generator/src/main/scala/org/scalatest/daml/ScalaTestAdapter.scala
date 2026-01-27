@@ -21,7 +21,7 @@ object ScalaTestAdapter {
       testSuiteName <- testSuiteNames.toList
     } yield DiscoverySuite.getSuiteInstance(testSuiteName, loader)
 
-    val abortedSuites = suites.collect { case DeferredAbortedSuite(suiteClassName, throwable) =>
+    val abortedSuites = suites.collect { case DeferredAbortedSuite(suiteClassName, _, throwable) =>
       Console.err.println(s"warning: Could not load suite $suiteClassName.")
       throwable.printStackTrace()
       suiteClassName
