@@ -39,7 +39,7 @@ da_scala_library(
         "//canton/community/daml-lf/engine",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/snapshot-proto:snapshot_proto_java",
+        "@maven//:com_daml_daml_lf_snapshot_proto_2_13",
         "//canton/community/daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
