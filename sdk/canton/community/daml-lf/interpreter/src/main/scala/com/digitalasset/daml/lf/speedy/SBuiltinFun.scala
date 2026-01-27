@@ -922,10 +922,11 @@ private[lf] object SBuiltinFun {
     *   1: functionId - Function identifier within the extension
     *   2: configHex - Configuration hash (hex) for version validation
     *   3: inputHex - Input data (hex)
+    *   4: token - Update token (required for do-block compilation)
     *
     * Returns: The response from the external service as Text
     */
-  final case object SBExternalCall extends UpdateBuiltin(4) {
+  final case object SBExternalCall extends UpdateBuiltin(5) {
     override protected def executeUpdate(
         args: ArraySeq[SValue],
         machine: UpdateMachine,
@@ -934,6 +935,7 @@ private[lf] object SBuiltinFun {
       val functionId = getSText(args, 1)
       val configRaw = getSText(args, 2)
       val inputRaw = getSText(args, 3)
+      checkToken(args, 4)
       val configHex = configRaw.trim.toLowerCase(java.util.Locale.ROOT)
       val inputHex = inputRaw.trim.toLowerCase(java.util.Locale.ROOT)
 

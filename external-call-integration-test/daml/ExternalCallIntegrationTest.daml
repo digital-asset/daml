@@ -1,0 +1,48 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | Integration test contract for external call feature.
+-- Tests that:
+-- 1. Signatory can make external calls during submission
+-- 2. Observer can see transaction results without external service
+module ExternalCallIntegrationTest where
+
+import DA.External
+
+-- | Contract with signatory and observer to test external call replay.
+-- The signatory makes external calls, the observer should be able to
+-- see the transaction without needing access to the external service.
+template ObservedExternalCall
+  with
+    signatory_ : Party   -- The party who can exercise choices (makes external calls)
+    observer_ : Party    -- The party who observes (should NOT need external service)
+  where
+    signatory signatory_
+    observer observer_
+
+    -- | Simple echo call - returns input unchanged.
+    -- Used to verify external call results are stored and replayed.
+    choice CallEcho : Text
+      with
+        inputHex : Text  -- Must be valid hex (even length, 0-9a-f)
+      controller signatory_
+      do
+        -- This external call:
+        -- 1. During submission: makes HTTP call to extension service
+        -- 2. During validation on signatory: uses stored result (or calls service)
+        -- 3. During observation on observer: uses stored result (NO HTTP call)
+        result <- externalCall "test-oracle" "echo" "00000000" inputHex
+        pure result
+
+    -- | Multiple external calls in one choice.
+    -- Tests that all results are stored with correct indices.
+    choice CallMultiple : (Text, Text)
+      with
+        input1 : Text
+        input2 : Text
+      controller signatory_
+      do
+        r1 <- externalCall "test-oracle" "echo" "00000000" input1
+        r2 <- externalCall "test-oracle" "echo" "00000000" input2
+        pure (r1, r2)
+

@@ -1,0 +1,9 @@
+sdk-version: 2.11.0-externalcall
+name: external-call-integration-test
+version: 1.0.0
+source: daml
+dependencies:
+  - daml-prim
+  - daml-stdlib
+build-options:
+  - --target=2.dev

@@ -1,0 +1,9 @@
+# Daml build artifacts
+.daml/
+
+# Logs
+log/
+*.log
+
+# Temp files
+/tmp/
