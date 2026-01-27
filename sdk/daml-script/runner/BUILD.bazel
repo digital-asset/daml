@@ -132,7 +132,7 @@ da_scala_test(
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-observability",
-        "//canton:ledger-resources",
+        "@maven//:com_daml_ledger_resources",
         "@maven//:com_daml_ledger_api_proto",
         "//canton:ports",
         "//canton:resources",

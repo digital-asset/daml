@@ -432,7 +432,7 @@ da_scala_test(
         "@maven//:com_daml_bindings_java",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-observability",
-        "//canton:ledger-resources",
+        "@maven//:com_daml_ledger_resources",
         "//canton:ledger-resources-test-lib",
         "@maven//:com_daml_ledger_api_proto",
         "//canton:ports",
