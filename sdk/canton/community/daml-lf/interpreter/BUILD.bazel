@@ -86,9 +86,9 @@ da_scala_test_suite(
     ),
     data =
         [
-            "src/test/scala/com/digitalasset/daml/lf/crypto/expected-stability-contract-id-hashes.txt",
-            "src/test/scala/com/digitalasset/daml/lf/crypto/expected-stability-values-contract-hashes.txt",
-            "src/test/scala/com/digitalasset/daml/lf/crypto/expected-stability-values-key-hashes.txt",
+            "src/test/resources/expected-stability-contract-id-hashes.txt",
+            "src/test/resources/expected-stability-values-contract-hashes.txt",
+            "src/test/resources/expected-stability-values-key-hashes.txt",
         ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
