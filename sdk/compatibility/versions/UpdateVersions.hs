@@ -74,7 +74,6 @@ renderVersionsFile versions =
         , "        \"macos\": " <> renderDigest macosHash <> ","
         , "        \"windows\": " <> renderDigest windowsHash <> ","
         , "        \"daml_types\": " <> renderDigest damlTypesHash <> ","
-        , "        \"daml_ledger\": " <> renderDigest damlLedgerHash <> ","
         ]
       , [ "    }," ]
       ]
@@ -94,7 +93,6 @@ data Checksums = Checksums
   , macosHash :: Digest SHA256
   , windowsHash :: Digest SHA256
   , damlTypesHash :: Digest SHA256
-  , damlLedgerHash :: Digest SHA256
   -- ^ Nothing for older versions
   }
 
@@ -133,10 +131,9 @@ getChecksums releaseVer = do
             (base16Hash : _) <- find (\line -> path == line !! 1) lines
             byteHash <- (eitherToMaybe . convertFromBase Base16 . T.encodeUtf8) base16Hash
             digestFromByteString @SHA256 @ByteString byteHash
-    [ damlTypesHash, damlLedgerHash] <-
+    [ damlTypesHash ] <-
         forConcurrently
             [ tsLib damlVer "types"
-            , tsLib damlVer "ledger"
             ] getHash
     pure (damlVer, Checksums {..})
   where sdkFilePath damlVer platform = T.pack $
