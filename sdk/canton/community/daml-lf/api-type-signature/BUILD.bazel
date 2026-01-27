@@ -36,7 +36,7 @@ da_scala_library(
     deps = [
         "//canton:nonempty",
         "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
+        "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",

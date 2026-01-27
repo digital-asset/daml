@@ -38,7 +38,7 @@ da_scala_library(
         "@maven//:com_daml_contextualized_logging_2_13",
         "//canton:nameof",
         "//canton:scala-utils",
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
+        "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
