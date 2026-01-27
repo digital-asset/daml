@@ -1,0 +1,45 @@
+// External Call Integration Test - Bootstrap Script
+// Simplified version based on simple-topology example
+
+println("=" * 60)
+println("External Call Integration Test - Bootstrap")
+println("=" * 60)
+
+// Start all local instances
+nodes.local.start()
+println("All nodes started.")
+
+// Bootstrap the synchronizer
+bootstrap.synchronizer_local()
+println("Synchronizer bootstrapped.")
+
+// Connect participants
+participant1.synchronizers.connect_local(sequencer1, alias = "da")
+participant2.synchronizers.connect_local(sequencer1, alias = "da")
+
+// Wait for connections
+utils.retry_until_true {
+  participant1.synchronizers.active("da") &&
+  participant2.synchronizers.active("da")
+}
+println("Both participants connected.")
+
+// Allocate parties
+val alice = participant1.parties.enable("Alice")
+val bob = participant2.parties.enable("Bob")
+println(s"Alice: ${alice}")
+println(s"Bob: ${bob}")
+
+// Upload DAR
+val darPath = Option(System.getProperty("dar.path"))
+  .getOrElse("external-call-integration-test/.daml/dist/external-call-integration-test-1.0.0.dar")
+println(s"DAR path: ${darPath}")
+
+val synchronizerId = participant1.synchronizers.id_of(SynchronizerAlias.tryCreate("da"))
+participant1.dars.upload(darPath, synchronizerId = synchronizerId)
+participant2.dars.upload(darPath, synchronizerId = synchronizerId)
+println("DAR uploaded to both participants.")
+
+println("=" * 60)
+println("Bootstrap complete!")
+println("=" * 60)

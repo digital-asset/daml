@@ -4,8 +4,11 @@
 package com.digitalasset.canton.participant.extension
 
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.platform.apiserver.execution.{ExternalCallError, ExternalCallHandler}
+import com.digitalasset.canton.platform.apiserver.execution.ExternalCallHandler
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.engine.ExternalCallError
+
+import scala.concurrent.ExecutionContext
 
 /** ExternalCallHandler implementation that delegates to ExtensionServiceManager.
   *
@@ -15,7 +18,7 @@ import com.digitalasset.canton.tracing.TraceContext
   */
 class ExtensionServiceExternalCallHandler(
     extensionServiceManager: ExtensionServiceManager
-) extends ExternalCallHandler {
+)(implicit ec: ExecutionContext) extends ExternalCallHandler {
 
   override def handleExternalCall(
       extensionId: String,
@@ -44,7 +47,7 @@ object ExtensionServiceExternalCallHandler {
     */
   def create(
       extensionServiceManagerOpt: Option[ExtensionServiceManager]
-  ): ExternalCallHandler =
+  )(implicit ec: ExecutionContext): ExternalCallHandler =
     extensionServiceManagerOpt match {
       case Some(manager) => new ExtensionServiceExternalCallHandler(manager)
       case None => ExternalCallHandler.notSupported
