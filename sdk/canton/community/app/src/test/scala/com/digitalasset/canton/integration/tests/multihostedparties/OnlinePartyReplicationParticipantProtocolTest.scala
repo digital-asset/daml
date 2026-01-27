@@ -211,7 +211,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         ),
         testedProtocolVersion,
         replicationO = Some(
-          PartyReplicationStatus.AcsReplicationProgressSerializable(
+          PartyReplicationStatus.PersistentProgress(
             processedContractCount = NonNegativeInt.zero,
             nextPersistenceCounter = RepairCounter.Genesis,
             fullyProcessedAcs = false,
@@ -265,7 +265,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         PartyReplicationTestInterceptorImpl
           .targetParticipantProceedsIf(
             // wait for a handful of contracts
-            canTargetParticipantProceed || _.processedContractsCount.unwrap < handfulOfContractsCountToProcessBeforePausing
+            canTargetParticipantProceed || _.processedContractCount.unwrap < handfulOfContractsCountToProcessBeforePausing
           ),
       )
 

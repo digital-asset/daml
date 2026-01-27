@@ -40,7 +40,6 @@ object ContractStateMachine {
       */
 
     def locallyCreated: Set[ContractId]
-    def withLocallyCreated(modify: Set[ContractId] => Set[ContractId]): State[Nid]
 
     val inputContractIds: Set[ContractId]
 
@@ -75,7 +74,8 @@ object ContractStateMachine {
       * which is cached in `rollbackStack`.
       */
     val activeState: ActiveLedgerState[Nid]
-    def withActiveState(modify: ActiveLedgerState[Nid] => ActiveLedgerState[Nid]): State[Nid]
+
+    protected val rollbackStack: List[ContractStateMachine.ActiveLedgerState[Nid]]
 
     /** The return value indicates if the given contract is either consumed, inactive, or otherwise
       * - Some(Left(nid)) -- consumed by a specified node-id
@@ -185,6 +185,15 @@ object ContractStateMachine {
 
     /** @see advance */
     def projectKeyResolver(resolver: KeyResolver): KeyResolver
+
+    def copy_(
+      locallyCreated: Set[ContractId] = locallyCreated,
+      inputContractIds: Set[ContractId] = inputContractIds,
+      globalKeyInputs: Map[GlobalKey, KeyInput] = globalKeyInputs,
+      activeState: ContractStateMachine.ActiveLedgerState[Nid] = activeState,
+      rollbackStack: List[ContractStateMachine.ActiveLedgerState[Nid]] = rollbackStack,
+      mode: ContractKeyUniquenessMode = mode,
+    ): State[Nid]
   }
 
   /** @param locallyCreated
@@ -238,15 +247,9 @@ object ContractStateMachine {
       override val inputContractIds: Set[ContractId],
       override val globalKeyInputs: Map[GlobalKey, KeyInput],
       override val activeState: ContractStateMachine.ActiveLedgerState[Nid],
-      rollbackStack: List[ContractStateMachine.ActiveLedgerState[Nid]],
+      protected val rollbackStack: List[ContractStateMachine.ActiveLedgerState[Nid]],
       override val mode: ContractKeyUniquenessMode,
   ) extends State[Nid] {
-
-    override def withLocallyCreated(modify: Set[ContractId] => Set[ContractId]): State[Nid] =
-      this.copy(locallyCreated = modify(this.locallyCreated))
-
-    override def withActiveState(modify: ActiveLedgerState[Nid] => ActiveLedgerState[Nid]): StateImpl[Nid] =
-      this.copy(activeState = modify(this.activeState))
 
     override def consumedByOrInactive(cid: Value.ContractId): Option[Either[Nid, Unit]] = {
       activeState.consumedBy.get(cid) match {
@@ -419,7 +422,7 @@ object ContractStateMachine {
               case Some(cid) => Transaction.KeyActive(cid)
             }
             val newKeyInputs = globalKeyInputs.updated(gkey, keyInput)
-            val state = this.copy(globalKeyInputs = newKeyInputs)
+            val state : StateImpl[Nid] = this.copy(globalKeyInputs = newKeyInputs)
             result match {
               case Some(cid) if !activeState.consumedBy.contains(cid) =>
                 KeyActive(cid) -> state
@@ -589,6 +592,15 @@ object ContractStateMachine {
         key -> newKeyInput
       }
     }
+
+    override def copy_(
+       locallyCreated: Set[ContractId] = this.locallyCreated,
+       inputContractIds: Set[ContractId] = this.inputContractIds,
+       globalKeyInputs: Map[GlobalKey, KeyInput] = this.globalKeyInputs,
+       activeState: ContractStateMachine.ActiveLedgerState[Nid] = this.activeState,
+       rollbackStack: List[ContractStateMachine.ActiveLedgerState[Nid]] = this.rollbackStack,
+       mode: ContractKeyUniquenessMode = this.mode,
+    ): State[Nid] = copy(locallyCreated, inputContractIds, globalKeyInputs, activeState, rollbackStack, mode)
   }
 
   object State {
