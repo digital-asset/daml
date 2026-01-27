@@ -1,7 +1,7 @@
 -- Copyright (c) 2026, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @OPTIONS --explicit-serializable=yes
+-- @BUILD-OPTIONS --explicit-serializable=yes
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriDataType"]) | has("serializable")
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriEnum"]) | has("serializable")
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriVariant"]) | has("serializable")

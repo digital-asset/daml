@@ -289,7 +289,7 @@ getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = d
     let damlTestsByExtraOpts :: MS.Map [String] [DamlTestInput]
         damlTestsByExtraOpts = MS.fromListWith (++) $ do
             damlTest <- damlTests
-            let opts = [opt | ExtraOptions opts <- anns damlTest, opt <- opts]
+            let opts = [opt | BuildOptions opts <- anns damlTest, opt <- opts]
             pure (opts, [damlTest])
 
     -- initialise the compiler service
@@ -569,7 +569,7 @@ data Ann
     | Ledger String FilePath
       -- ^ I expect the output of running the script named <first argument> to match the golden file <second argument>.
       -- The path of the golden file is relative to the `.daml` test file.
-    | ExtraOptions [String]
+    | BuildOptions [String]
       -- ^ Extra options passed to damlc.  Note that this only supports a subset
       -- of real options, currently:
       --
@@ -597,7 +597,7 @@ readFileAnns file = do
             ("QUERY-LF-STREAM", x) -> Just $ QueryLF x True
             ("TODO",x) -> Just $ Todo x
             ("LEDGER", words -> [script, path]) -> Just $ Ledger script path
-            ("OPTIONS", x) -> Just $ ExtraOptions $ words x
+            ("BUILD-OPTIONS", x) -> Just $ BuildOptions $ words x
             _ -> error $ "Can't understand test annotation in " ++ show file ++ ", got " ++ show x
         f _ = Nothing
 

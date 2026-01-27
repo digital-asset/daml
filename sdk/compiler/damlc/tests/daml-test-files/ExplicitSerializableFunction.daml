@@ -1,7 +1,7 @@
 -- Copyright (c) 2026, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @OPTIONS --explicit-serializable=yes
+-- @BUILD-OPTIONS --explicit-serializable=yes
 module ExplicitSerializableFunction where
 
 data BadCurrency = BadCurrency with
