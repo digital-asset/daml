@@ -39,7 +39,6 @@ import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Numeric.Natural
 import qualified Data.List as L
-import Debug.Trace (trace)
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Pretty
@@ -465,9 +464,7 @@ contextLocation = \case
   ContextNone                -> Nothing
   ContextDefModule _         -> Nothing
   ContextDefTypeSyn _ s      -> synLocation s
-  ctx@(ContextDefDataType _ d) ->
-      trace ("context: " ++ show ctx) $
-      dataLocation d
+  ContextDefDataType _ d     -> dataLocation d
   ContextTemplate _ t tp     -> templateLocation t tp <|> tplLocation t -- Fallback to template header location if other locations are missing
   ContextDefValue _ v        -> dvalLocation v
   ContextDefException _ e    -> exnLocation e

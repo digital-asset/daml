@@ -231,9 +231,7 @@ getDamlTestFiles :: FilePath -> IO [DamlTestInput]
 getDamlTestFiles location = do
     -- test files are declared as data in BUILD.bazel
     testsLocation <- locateRunfiles $ mainWorkspace </> location
-    files <-
-        filter ("ExplicitSerializable" `isInfixOf`) .
-        filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
+    files <- filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
     forM files $ \file -> do
         anns <- readFileAnns file
         pure DamlTestInput
