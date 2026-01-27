@@ -9,5 +9,5 @@ data BadCurrency = BadCurrency with
   instrument : Int -> Int
 
 -- This should error regardless of whether or not it occurs in a template
--- @ERROR range=1:1-2:1; error type checking data type ExplicitSerializableFunction.BadCurrency
+-- @ERROR range=7:1-9:26; error type checking data type ExplicitSerializableFunction.BadCurrency
 instance Serializable BadCurrency

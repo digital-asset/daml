@@ -911,7 +911,8 @@ convertSimpleRecordDef env msi tycon = do
     let fields = zipExact labels fieldTypes
         tconName = mkTypeCon [getOccText tycon]
         serializable = IsSerializable $ tycon `elementOfUniqSet` msiSerializable msi
-        typeDef = defDataType tconName serializable tyVars (DataRecord fields)
+        typeDef = DDataType $
+            DefDataType (convNameLoc tycon) tconName serializable tyVars (DataRecord fields)
         workerDef = defNewtypeWorker env tycon tconName con tyVars fields
 
     pure $ typeDef : [workerDef | flavour == NewtypeFlavour]
