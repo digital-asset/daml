@@ -47,7 +47,7 @@ final class RemoteDumpIntegrationTest
     with StatusIntegrationTestUtil {
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1_Config
+    EnvironmentDefinition.P3S1M1_Config
       .addConfigTransform(
         _.focus(_.monitoring.dumpNumRollingLogFiles).replace(NonNegativeInt.tryCreate(100))
       )

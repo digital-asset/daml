@@ -40,7 +40,6 @@ object ContractStateMachine {
       */
 
     def locallyCreated: Set[ContractId]
-    def withLocallyCreated(modify: Set[ContractId] => Set[ContractId]): State[Nid]
 
     val inputContractIds: Set[ContractId]
 
@@ -75,7 +74,6 @@ object ContractStateMachine {
       * which is cached in `rollbackStack`.
       */
     val activeState: ActiveLedgerState[Nid]
-    def withActiveState(modify: ActiveLedgerState[Nid] => ActiveLedgerState[Nid]): State[Nid]
 
     /** The return value indicates if the given contract is either consumed, inactive, or otherwise
       * - Some(Left(nid)) -- consumed by a specified node-id
@@ -241,12 +239,6 @@ object ContractStateMachine {
       rollbackStack: List[ContractStateMachine.ActiveLedgerState[Nid]],
       override val mode: ContractKeyUniquenessMode,
   ) extends State[Nid] {
-
-    override def withLocallyCreated(modify: Set[ContractId] => Set[ContractId]): State[Nid] =
-      this.copy(locallyCreated = modify(this.locallyCreated))
-
-    override def withActiveState(modify: ActiveLedgerState[Nid] => ActiveLedgerState[Nid]): StateImpl[Nid] =
-      this.copy(activeState = modify(this.activeState))
 
     override def consumedByOrInactive(cid: Value.ContractId): Option[Either[Nid, Unit]] = {
       activeState.consumedBy.get(cid) match {
