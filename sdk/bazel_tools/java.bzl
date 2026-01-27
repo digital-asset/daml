@@ -3,7 +3,7 @@
 
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
-load("@com_github_google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
+load("@google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
 load("@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl", "nixpkgs_package")
 load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_tool_home", "dadew_where")
