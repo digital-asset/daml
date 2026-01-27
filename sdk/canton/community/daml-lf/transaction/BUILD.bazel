@@ -32,10 +32,10 @@ da_scala_library(
     exports = [":transaction_proto_java"],
     deps = [
         ":transaction_proto_java",
-        "@maven//:com_daml_crypto",
-        "@maven//:com_daml_nameof",
-        "@maven//:com_daml_safe_proto",
-        "@maven//:com_daml_scala_utils",
+        "@maven//:com_daml_crypto_2_13",
+        "@maven//:com_daml_nameof_2_13",
+        "@maven//:com_daml_safe_proto_2_13",
+        "@maven//:com_daml_scala_utils_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",
         "@maven//:com_google_guava_guava",
@@ -118,7 +118,7 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":transaction",
-        "@maven//:com_daml_crypto",
+        "@maven//:com_daml_crypto_2_13",
         "//canton/community/daml-lf/api-type-signature",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",

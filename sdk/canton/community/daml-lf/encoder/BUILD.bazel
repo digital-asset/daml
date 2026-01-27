@@ -31,8 +31,8 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-encoder:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "@maven//:com_daml_crypto",
-        "@maven//:com_daml_safe_proto",
+        "@maven//:com_daml_crypto_2_13",
+        "@maven//:com_daml_safe_proto_2_13",
         "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",
