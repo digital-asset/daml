@@ -544,7 +544,7 @@ da_scala_test_suite(
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-observability",
         "@maven//:com_daml_ledger_resources",
-        "//canton:metrics",
+        "@maven//:com_daml_observability_metrics",
         "@maven//:com_daml_ports",
         "@maven//:com_daml_daml_resources",
         "@maven//:com_daml_rs_grpc_bridge",
