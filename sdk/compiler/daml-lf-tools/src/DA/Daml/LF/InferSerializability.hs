@@ -13,6 +13,7 @@ import qualified Data.HashSet as HS
 import qualified Data.NameMap as NM
 import           Data.Semigroup.FixedPoint (leastFixedPointBy)
 import qualified Data.Text as T
+import Debug.Trace
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.TypeChecker.Serializability (CurrentModule(..), serializabilityConditionsDataType)
@@ -49,11 +50,16 @@ inferModule world0 opts@Options {..} mod0 =
             , let (serializable, deps) = inferDataType
                     world0 opts (CurrentModule modName interfaces) dataType
             ]
+      -- TODO(jaspervdj): we probably can get rid of this leastFixedPointBy if
+      -- we're doing explicit serializability.  The issue is that this is
+      -- marking dependents as False, so they don't get checked at all.
+      -- We want to be explicit about things.
       case leastFixedPointBy (&&) eqs of
         Left name -> throwError ("Reference to unknown data type: " ++ show name)
         Right serializabilities -> do
           let updateDataType dataType =
                 let serializable = IsSerializable (HMS.lookupDefault False (dataTypeCon dataType) serializabilities) in
+                trace ("storing serializable " ++ show serializable ++ " for dt " ++ show (dataTypeCon dataType))
                 dataType {dataSerializable = serializable}
           pure mod0{moduleDataTypes = NM.map updateDataType dataTypes}
 
@@ -66,7 +72,9 @@ inferDataType world0 Options {..} currentModule dataType =
     --
     -- If ExplicitSerializable is on and this type is not marked as
     -- serializable, always return false.
-    _ | oExplicitSerializable && not (getIsSerializable (dataSerializable dataType)) -> (False, [])
+    _ | oExplicitSerializable && not (getIsSerializable (dataSerializable dataType)) ->
+        trace ("skipping datatype " ++ show (dataTypeCon dataType)) $
+        (False, [])
     -- If ExplicitSerializable is on, and this datatype is has a Serializable
     -- instance, but we get a Left, that means this datatype inherently isn't
     -- serializable (e.g. it contains functions).  We could return an error

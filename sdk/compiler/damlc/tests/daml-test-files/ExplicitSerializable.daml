@@ -2,8 +2,9 @@
 -- All rights reserved.
 
 -- @OPTIONS --explicit-serializable=yes
--- @ERROR range=1:1-2:1; error type checking data type ExplicitSerializable.BadCurrency
 module ExplicitSerializable where
+
+--------------------------------------------------------------------------------
 
 data Currency = Currency with
   admin : Party
@@ -11,6 +12,16 @@ data Currency = Currency with
     deriving (Eq, Show)
 
 instance Serializable Currency
+
+--------------------------------------------------------------------------------
+
+template Asset
+  with
+    amount : Decimal
+    party : Party
+    currency : Currency
+  where
+    signatory party
 
 data BadCurrency = BadCurrency with
   admin : Party
@@ -20,12 +31,15 @@ instance Show BadCurrency where show _ = "BadCurrency"
 instance Eq BadCurrency where _ == _ = True
 
 -- This should error regardless of whether or not it occurs in a template
+-- @ERROR range=1:1-2:1; error type checking data type ExplicitSerializable.BadCurrency
 instance Serializable BadCurrency
 
-template Asset
-  with
-    amount : Decimal
-    party : Party
-    currency : Currency
-  where
-    signatory party
+--------------------------------------------------------------------------------
+
+data BadDependency = BadInt Int | BadFun (Int -> Int)
+
+data IndirectBadSerializable = IndirectBadSerializable with
+  good : Decimal
+  bad : BadDependency
+
+instance Serializable IndirectBadSerializable

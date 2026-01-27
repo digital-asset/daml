@@ -25,6 +25,7 @@ import           Control.Monad.Extra
 import Data.List
 import           Data.Foldable (for_)
 import qualified Data.HashSet as HS
+import Debug.Trace (trace)
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Numeric (numericMaxScale)
@@ -150,7 +151,8 @@ checkType req typ = do
 -- | Check whether a data type definition satisfies all serializability constraints.
 checkDataType :: MonadGamma m => ModuleName -> DefDataType -> m ()
 checkDataType modName dataType =
-  when (getIsSerializable (dataSerializable dataType)) $ do
+  when (getIsSerializable (dataSerializable dataType)) $
+  trace ("checking datatype: " ++ show (dataTypeCon dataType)) $ do
     world0 <- getWorld
     case serializabilityConditionsDataType world0 Nothing dataType of
       -- TODO(jaspervdj): Here, we are throwing an error in the current context.
