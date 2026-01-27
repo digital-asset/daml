@@ -5,6 +5,7 @@
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriDataType"]) | has("serializable")
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriEnum"]) | has("serializable")
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriVariant"]) | has("serializable")
+-- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriImported"]) | has("serializable")
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Helper"]) | has("serializable") | not
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Asset"]) | has("serializable")
 module ExplicitSerializable where
