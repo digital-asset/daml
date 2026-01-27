@@ -29,7 +29,8 @@ data SeriVariant = SVEnum SeriEnum | SVDataType SeriDataType
 instance Serializable SeriVariant
 
 data Helper = Helper with
-  children : [SeriDataType]
+  seri : SeriDataType
+  foo : Int
 
 template Asset
   with
@@ -38,5 +39,6 @@ template Asset
     seriEnum : SeriEnum
     seriVariant : SeriVariant
     seriImported : I.SeriImported
+    seriList : [SeriDataType]
   where
     signatory party
