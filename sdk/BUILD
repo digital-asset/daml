@@ -151,7 +151,7 @@ alias(
 
 alias(
     name = "bindings-java",
-    actual = "//canton:bindings-java",
+    actual = "@maven//:com_daml_bindings_java",
 )
 
 alias(

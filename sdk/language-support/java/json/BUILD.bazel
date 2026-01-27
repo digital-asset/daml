@@ -28,7 +28,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:codegen-json-java:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:bindings-java",
+        "@maven//:com_daml_bindings_java",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/transaction",
         "//ledger-service/lf-value-json",
@@ -51,7 +51,7 @@ da_scala_test(
     ],
     deps = [
         ":json",
-        "//canton:bindings-java",
+        "@maven//:com_daml_bindings_java",
         "//canton/community/daml-lf/transaction",
         "@maven//:com_daml_daml_lf_transaction_test_lib_2_13",
         "@maven//:org_scalatest_scalatest_compatible",

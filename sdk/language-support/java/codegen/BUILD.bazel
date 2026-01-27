@@ -51,7 +51,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:codegen-java-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:bindings-java",
+        "@maven//:com_daml_bindings_java",
         "//canton:nonempty",
         "//canton/community/daml-lf/api-type-signature",
         "@maven//:com_daml_daml_lf_archive_2_13",
@@ -100,7 +100,7 @@ da_scala_test(
         ":test-daml-java",
         ":test-daml-java-baz",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:bindings-java",
+        "@maven//:com_daml_bindings_java",
         "//canton:nonempty",
         "//canton/community/daml-lf/api-type-signature",
         "@maven//:com_daml_daml_lf_archive_2_13",
@@ -228,7 +228,7 @@ scala_source_jar(
             test_class = "com.daml.testing.AllTestsFor%s" % mangle_for_java(target),
             deps = [
                 ":test-model-%s" % target,
-                "//canton:bindings-java",
+                "@maven//:com_daml_bindings_java",
                 "@maven//:com_google_protobuf_protobuf_java",
                 "@maven//:org_junit_jupiter_junit_jupiter_api",
                 "@maven//:org_junit_jupiter_junit_jupiter_engine",
@@ -328,7 +328,7 @@ java_library(
     name = "pkg-root.jar",
     srcs = [":pkg-root.srcjar"],
     deps = [
-        "//canton:bindings-java",
+        "@maven//:com_daml_bindings_java",
     ],
 )
 
@@ -375,7 +375,7 @@ java_test(
             test_class = "com.daml.AllTests",
             deps = [
                 ":integration-tests-model-%s" % target,
-                "//canton:bindings-java",
+                "@maven//:com_daml_bindings_java",
                 "@maven//:com_google_protobuf_protobuf_java",
                 "@maven//:org_junit_jupiter_junit_jupiter_api",
                 "@maven//:org_junit_jupiter_junit_jupiter_engine",
@@ -429,7 +429,7 @@ da_scala_test(
     deps = [
         ":ledger-tests-model",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:bindings-java",
+        "@maven//:com_daml_bindings_java",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-observability",
         "//canton:ledger-resources",
@@ -456,7 +456,7 @@ da_scala_benchmark_jmh(
     visibility = ["//visibility:public"],
     deps = [
         ":test-model-2.dev",
-        "//canton:bindings-java",
+        "@maven//:com_daml_bindings_java",
     ],
 )
 
@@ -466,7 +466,7 @@ da_scala_benchmark_jmh(
     visibility = ["//visibility:public"],
     deps = [
         ":test-model-2.dev",
-        "//canton:bindings-java",
+        "@maven//:com_daml_bindings_java",
     ],
 )
 
