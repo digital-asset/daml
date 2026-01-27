@@ -9,6 +9,7 @@ bazel_dep(name = "buildifier_prebuilt", version = "8.2.1.1")
 bazel_dep(name = "zlib", version = "1.3.1.bcr.8")
 bazel_dep(name = "rules_pkg", version = "1.2.0")
 bazel_dep(name = "google_bazel_common", version = "0.0.1")
+bazel_dep(name = "bazel_jar_jar", version = "0.1.14")
 
 haskell = use_extension("@rules_haskell//extensions:haskell.bzl", "haskell")
 haskell.toolchain(version = "9.12.3")
