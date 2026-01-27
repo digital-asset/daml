@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.InferSerializability
-  ( Options (..)
+  ( SerializabilityOptions (..)
   , inferModule
   ) where
 
@@ -17,13 +17,13 @@ import qualified Data.Text as T
 import DA.Daml.LF.Ast
 import DA.Daml.LF.TypeChecker.Serializability (CurrentModule(..), serializabilityConditionsDataType)
 
-data Options = Options
-  { oForceUtilityPackage  :: Bool
-  , oExplicitSerializable :: Bool
+data SerializabilityOptions = SerializabilityOptions
+  { soForceUtilityPackage  :: Bool
+  , soExplicitSerializable :: Bool
   } deriving (Show)
 
-inferModule :: World -> Options -> Module -> Either String Module
-inferModule world0 Options {..} mod0 =
+inferModule :: World -> SerializabilityOptions -> Module -> Either String Module
+inferModule world0 SerializabilityOptions {..} mod0 =
   case moduleName mod0 of
     -- Unstable parts of stdlib mustn't contain serializable types, because if they are 
     -- serializable, then the upgrading checks run on the datatypes and this causes problems. 
@@ -32,7 +32,7 @@ inferModule world0 Options {..} mod0 =
     -- https://github.com/digital-asset/daml/issues/19338
     ModuleName ["GHC", "Stack", "Types"] -> pure mod0
     ModuleName ["DA", "Numeric"] -> pure mod0
-    _ | oForceUtilityPackage -> do
+    _ | soForceUtilityPackage -> do
       let mkErr name =
             throwError $ T.unpack $ "No " <> name <> " definitions permitted in forced utility packages (Module " <> moduleNameString (moduleName mod0) <> ")"
       when (not $ NM.null $ moduleTemplates mod0) $ mkErr "template"
@@ -43,7 +43,7 @@ inferModule world0 Options {..} mod0 =
     -- LFConversion will have already added the IsSerializable annotation where
     -- an instance exists.  Then TypeChecker/Serializability will check
     -- consistency of these instances later.
-    _ | oExplicitSerializable -> do
+    _ | soExplicitSerializable -> do
       pure mod0
     -- If ExplicitSerializable is not on, we do some inference to decide on
     -- which types to put the serializability annotations.

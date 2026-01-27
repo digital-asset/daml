@@ -274,9 +274,9 @@ generateRawDalfRule opts =
                             pkgs <- getExternalPackages file
                             let world = LF.initWorldSelf pkgs pkg
                                 simplified = LF.simplifyModule world lfVersion v
-                                serializabilityOptions = Serializability.Options
-                                  { oForceUtilityPackage = getForceUtilityPackage $ optForceUtilityPackage opts
-                                  , oExplicitSerializable = getExplicitSerializable $ optExplicitSerializable opts
+                                serializabilityOptions = Serializability.SerializabilityOptions
+                                  { soForceUtilityPackage = getForceUtilityPackage $ optForceUtilityPackage opts
+                                  , soExplicitSerializable = getExplicitSerializable $ optExplicitSerializable opts
                                   }
                             pure $! case Serializability.inferModule world serializabilityOptions simplified of
                               Left err -> ([ideErrorPretty file err], Nothing)
@@ -456,9 +456,9 @@ generateSerializedDalfRule options =
                                         -- use ABI changes to determine whether to rebuild the module, so if an implementaion
                                         -- changes without a corresponding ABI change, we would end up with an outdated
                                         -- implementation.
-                                        serializabilityOptions = Serializability.Options
-                                            { oForceUtilityPackage = getForceUtilityPackage $ optForceUtilityPackage options
-                                            , oExplicitSerializable = getExplicitSerializable $ optExplicitSerializable options
+                                        serializabilityOptions = Serializability.SerializabilityOptions
+                                            { soForceUtilityPackage = getForceUtilityPackage $ optForceUtilityPackage options
+                                            , soExplicitSerializable = getExplicitSerializable $ optExplicitSerializable options
                                             }
 
                                     case Serializability.inferModule world serializabilityOptions simplified of
