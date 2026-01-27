@@ -134,7 +134,7 @@ da_scala_test(
         "//canton:community_util-observability",
         "@maven//:com_daml_ledger_resources",
         "@maven//:com_daml_ledger_api_proto",
-        "//canton:ports",
+        "@maven//:com_daml_ports",
         "//canton:resources",
         "@maven//:com_daml_rs_grpc_bridge",
         "//canton:scala-utils",

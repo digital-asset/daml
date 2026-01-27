@@ -31,7 +31,7 @@ da_scala_library(
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-observability",
         "@maven//:com_daml_ledger_resources",
-        "//canton:ports",
+        "@maven//:com_daml_ports",
         "//canton:resources",
         "@maven//:com_daml_rs_grpc_bridge",
         "//canton:scala-utils",
