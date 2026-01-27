@@ -12,6 +12,6 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:fs-utils:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:resources",
+        "@maven//:com_daml_daml_resources",
     ],
 )
