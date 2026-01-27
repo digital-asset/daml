@@ -65,7 +65,7 @@ da_scala_library(
         "@maven//:com_daml_bindings_java",
         "//canton:community_base_proto_scala",
         "@maven//:com_daml_ledger_common",
-        "//canton:community_util-observability",
+        "@maven//:com_daml_util_observability",
         "@maven//:com_daml_contextualized_logging_2_13",
         "@maven//:com_daml_ledger_api_proto",
         "@maven//:com_daml_nonempty",
@@ -131,7 +131,7 @@ da_scala_test(
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "@maven//:com_daml_ledger_common",
-        "//canton:community_util-observability",
+        "@maven//:com_daml_util_observability",
         "@maven//:com_daml_ledger_resources",
         "@maven//:com_daml_ledger_api_proto",
         "@maven//:com_daml_ports",

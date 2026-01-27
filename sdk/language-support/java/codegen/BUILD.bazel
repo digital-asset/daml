@@ -431,7 +431,7 @@ da_scala_test(
         "//bazel_tools/runfiles:scala_runfiles",
         "@maven//:com_daml_bindings_java",
         "@maven//:com_daml_ledger_common",
-        "//canton:community_util-observability",
+        "@maven//:com_daml_util_observability",
         "@maven//:com_daml_ledger_resources",
         "//canton:ledger-resources-test-lib",
         "@maven//:com_daml_ledger_api_proto",
