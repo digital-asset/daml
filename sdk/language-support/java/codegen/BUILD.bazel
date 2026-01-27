@@ -437,7 +437,7 @@ da_scala_test(
         "@maven//:com_daml_ledger_api_proto",
         "//canton:ports",
         "//canton:resources",
-        "//canton:rs-grpc-bridge",
+        "@maven//:com_daml_rs_grpc_bridge",
         "//canton:testing-utils",
         "//canton:timer-utils",
         "@maven//:com_daml_daml_lf_data_2_13",

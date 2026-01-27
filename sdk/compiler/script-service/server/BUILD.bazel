@@ -30,7 +30,7 @@ da_scala_binary(
     ],
     deps = [
         "@maven//:com_daml_contextualized_logging_2_13",
-        "//canton:rs-grpc-bridge",
+        "@maven//:com_daml_rs_grpc_bridge",
         "@maven//:com_daml_rs_grpc_pekko",
         "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
