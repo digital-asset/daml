@@ -37,7 +37,7 @@ da_scala_library(
     ],
     deps = [
         "@maven//:com_daml_contextualized_logging_2_13",
-        "//canton:crypto",
+        "@maven//:com_daml_crypto",
         "//canton:nameof",
         "//canton:scala-utils",
         "@maven//:com_daml_daml_lf_data_2_13",
@@ -107,7 +107,7 @@ da_scala_test_suite(
         ":interpreter-test-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "@maven//:com_daml_contextualized_logging_2_13",
-        "//canton:crypto",
+        "@maven//:com_daml_crypto",
         "//canton:scala-utils",
         "//canton/community/daml-lf/api-type-signature",
         "@maven//:com_daml_daml_lf_data_2_13",

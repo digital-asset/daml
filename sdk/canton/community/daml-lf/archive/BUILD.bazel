@@ -97,7 +97,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         ":daml_lf_archive_proto_java",
-        "//canton:crypto",
+        "@maven//:com_daml_crypto",
         "//canton:nameof",
         "//canton:safe-proto",
         "//canton:scala-utils",

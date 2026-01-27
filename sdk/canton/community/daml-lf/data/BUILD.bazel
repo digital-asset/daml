@@ -27,7 +27,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:crypto",
+        "@maven//:com_daml_crypto",
         "//canton:logging-entries",
         "//canton:scala-utils",
         "@maven//:com_google_guava_guava",
