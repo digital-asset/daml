@@ -430,7 +430,7 @@ da_scala_test(
         ":ledger-tests-model",
         "//bazel_tools/runfiles:scala_runfiles",
         "@maven//:com_daml_bindings_java",
-        "//canton:community_ledger_ledger-common",
+        "@maven//:com_daml_ledger_common",
         "//canton:community_util-observability",
         "@maven//:com_daml_ledger_resources",
         "//canton:ledger-resources-test-lib",

@@ -28,7 +28,7 @@ da_scala_library(
         "//bazel_tools/runfiles:scala_runfiles",
         "@maven//:com_daml_daml_jwt",
         "//canton:base_daml-tls",
-        "//canton:community_ledger_ledger-common",
+        "@maven//:com_daml_ledger_common",
         "//canton:community_util-observability",
         "@maven//:com_daml_ledger_resources",
         "@maven//:com_daml_ports",
