@@ -2474,7 +2474,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:test-evidence-scalatest",
+        "@maven//:com_daml_test_evidence_scalatest",
         "//canton:test-evidence-tag",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
