@@ -68,7 +68,7 @@ da_scala_library(
         "//canton:community_util-observability",
         "@maven//:com_daml_contextualized_logging_2_13",
         "@maven//:com_daml_ledger_api_proto",
-        "//canton:nonempty",
+        "@maven//:com_daml_nonempty",
         "@maven//:com_daml_rs_grpc_bridge",
         "@maven//:com_daml_rs_grpc_pekko",
         "//canton:timer-utils",
