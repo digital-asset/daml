@@ -34,7 +34,7 @@ da_scala_library(
         ":transaction_proto_java",
         "@maven//:com_daml_crypto",
         "//canton:nameof",
-        "//canton:safe-proto",
+        "@maven//:com_daml_safe_proto",
         "//canton:scala-utils",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",
