@@ -26,14 +26,16 @@ for ((i=0;i<$SIZE;++i)); do
   SCRIPTS_SIZE=$(cat "$SNAPSHOT_CONFIG" | jq ".[$i].scripts|length")
   for ((j=0;j<$SCRIPTS_SIZE;++j)); do
     SCRIPT=$(cat "$SNAPSHOT_CONFIG" | jq -r ".[$i].scripts[$j]")
+    STANDALONE=True \
     DAR_FILE="$REPO/$DAR_DIR/$DAR_NAME" \
     SCRIPT_NAME="$SCRIPT" \
     SNAPSHOT_DIR="$SNAPSHOT_DIR" \
-      bazel run --sandbox_debug //canton/community/daml-lf/snapshot:generate-snapshots || true
+      sbt "daml-lf-snapshot/testOnly *GenerateSnapshots" || true
+    STANDALONE=True \
     DAR_FILE="$REPO/$DAR_DIR/$DAR_NAME" \
     SCRIPT_NAME="$SCRIPT" \
     SNAPSHOT_DIR="$SNAPSHOT_DIR" \
-      bazel run --sandbox_debug //canton/community/daml-lf/snapshot:extract-snapshot-choices || true
+      sbt "daml-lf-snapshot/testOnly *ExtractSnapshotChoices" || true
   done
 done
 

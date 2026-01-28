@@ -100,7 +100,7 @@ class ParticipantTopologyDispatcher(
     synchronizers.remove(synchronizerId) match {
       case Some(outboxes) =>
         disconnectOutboxes(synchronizerId)
-        outboxes.foreach(_.close())
+        LifeCycle.close(outboxes*)(logger)
       case None =>
         logger.debug(s"Topology pusher already disconnected from $synchronizerId")
     }

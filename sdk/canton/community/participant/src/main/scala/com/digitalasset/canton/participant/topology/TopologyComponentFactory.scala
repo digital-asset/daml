@@ -168,7 +168,7 @@ class TopologyComponentFactory(
       crypto.staticSynchronizerParameters,
       topologyStore,
       topologyStateCache,
-      synchronizerPredecessor,
+      synchronizerUpgradeTime = synchronizerPredecessor.map(_.upgradeTime),
       packageDependencyResolver,
       caching,
       topology,

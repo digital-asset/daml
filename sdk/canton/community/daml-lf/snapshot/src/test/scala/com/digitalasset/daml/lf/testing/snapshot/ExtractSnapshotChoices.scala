@@ -20,7 +20,7 @@ class ExtractSnapshotChoices extends AnyWordSpec with Matchers with BeforeAndAft
   override protected def beforeAll(): Unit = {
     assume(
       Seq("DAR_FILE", "SCRIPT_NAME", "SNAPSHOT_DIR")
-        .forall(envVar => sys.env.get(envVar).nonEmpty),
+        .forall(envVar => sys.env.contains(envVar)),
       "The environment variables DAR_FILE, SCRIPT_NAME and SNAPSHOT_DIR all need to be set"
     )
 
@@ -30,7 +30,7 @@ class ExtractSnapshotChoices extends AnyWordSpec with Matchers with BeforeAndAft
   }
 
   lazy val snapshotDir = snapshotBaseDir.resolve(s"${darFile.getFileName}/${scriptEntryPoint.name}")
-  lazy val participantId = Ref.ParticipantId.assertFromString("participant0")
+  lazy val participantId = Ref.ParticipantId.assertFromString("participant1")
   lazy val snapshotFileMatcher =
     FileSystems
       .getDefault()

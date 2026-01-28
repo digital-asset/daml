@@ -1573,6 +1573,51 @@ fileComments:
 
                 Must be non-negative.
     services: {}
+  contract_service.proto:
+    messages:
+      GetContractRequest:
+        message:
+          comments: null
+          fieldComments:
+            contract_id: |-
+              The ID of the contract.
+              Must be a valid LedgerString (as described in ``value.proto``).
+              Required
+            querying_parties: |-
+              The list of querying parties
+              The stakeholders of the referenced contract must have an intersection with any of these parties
+              to return the result.
+              Optional, if no querying_parties specified, all possible contracts could be returned.
+      GetContractResponse:
+        message:
+          comments: null
+          fieldComments:
+            created_event: |-
+              The representative_package_id will be always set to the contract package ID, therefore this endpoint should
+              not be used to lookup contract which entered the participant via party replication or repair service.
+              The witnesses field will contain only the querying_parties which are also stakeholders of the contract as well.
+              The following fields of the created event cannot be populated, so those should not be used / parsed:
+
+              - offset
+              - node_id
+              - created_event_blob
+              - interface_views
+              - acs_delta
+
+              Required
+    oneOfs:
+      GetContractRequest: {}
+      GetContractResponse: {}
+    services:
+      ContractService:
+      - name: GetContract
+        comments: |-
+          Looking up contract data by contract ID.
+          This endpoint is experimental / alpha, therefore no backwards compatibility is guaranteed.
+          This endpoint must not be used to look up contracts which entered the participant via party replication
+          or repair service.
+          If there is no contract exist with the contract ID, or there is no intersection with the querying_parties,
+          an CONTRACT_PAYLOAD_NOT_FOUND error will be raised.
   crypto.proto:
     messages:
       Signature:

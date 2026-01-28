@@ -259,6 +259,11 @@ trait ParticipantTestContext extends UserManagementTestContext {
       verbose: Boolean = true,
   ): Future[Vector[CreatedEvent]]
 
+  def contract(
+      queryingParties: Option[Seq[Party]],
+      contractId: String,
+  ): Future[Option[CreatedEvent]]
+
   /** Create an EventFormat with a set of Party objects.
     *
     * You should use this only when you need to tweak the request of

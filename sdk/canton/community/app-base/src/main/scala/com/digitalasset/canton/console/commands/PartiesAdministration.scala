@@ -421,14 +421,14 @@ class ParticipantPartiesAdministrationGroup(
       .discard
   }
 
-  @Help.Summary("Add a previously existing party to the local participant", FeatureFlag.Preview)
+  @Help.Summary("Add an already hosted party to the participant", FeatureFlag.Preview)
   @Help.Description(
-    """Initiate adding a previously existing party to this participant on the specified
-      |synchronizer.
+    """Initiate adding a party that is already hosted on other participants to this
+      |participant on the specified synchronizer.
       |
       |Performs some checks synchronously and then initiates party replication asynchronously.
-      |The returned `addPartyRequestId` parameter allows identifying asynchronous progress and
-      |errors.
+      |The returned `addPartyRequestId` parameter allows identifying asynchronous progress or
+      |errors and is stable across each retry with the same request parameters.
       """
   )
   def add_party_async(
@@ -441,6 +441,43 @@ class ParticipantPartiesAdministrationGroup(
     consoleEnvironment.run {
       reference.adminCommand(
         ParticipantAdminCommands.PartyManagement.AddPartyAsync(
+          party,
+          synchronizerId,
+          sourceParticipant,
+          serial,
+          participantPermission,
+        )
+      )
+    }
+  }
+
+  @Help.Summary(
+    "Add an already hosted party to the participant using an ACS snapshot file",
+    FeatureFlag.Preview,
+  )
+  @Help.Description(
+    """Add a party that is already hosted on other participants to this participant on the
+      |specified synchronizer using the Active Contract Set (ACS) provided in the specified
+      |file.
+      |
+      |Performs some checks and imports the ACS synchronously and then completes party
+      |replication asynchronously. The returned `addPartyRequestId` parameter allows tracking
+      |progress or identifying errors and is stable across each retry with the same request
+      |parameters.
+      """
+  )
+  def add_party_with_acs_async(
+      importFilePath: String = "canton-acs-export.gz",
+      party: PartyId,
+      synchronizerId: SynchronizerId,
+      sourceParticipant: ParticipantId,
+      serial: PositiveInt,
+      participantPermission: ParticipantPermission,
+  ): String = check(FeatureFlag.Preview) {
+    consoleEnvironment.run {
+      reference.adminCommand(
+        ParticipantAdminCommands.PartyManagement.AddPartyWithAcsAsync(
+          new java.io.File(importFilePath),
           party,
           synchronizerId,
           sourceParticipant,

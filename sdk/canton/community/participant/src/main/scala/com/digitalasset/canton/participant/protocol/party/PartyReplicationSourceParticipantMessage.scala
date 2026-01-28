@@ -57,7 +57,7 @@ object PartyReplicationSourceParticipantMessage
             )
         } yield AcsBatch(nonEmptyContracts)
       case v30.PartyReplicationSourceParticipantMessage.DataOrStatus
-            .EndOfAcs(v30.PartyReplicationSourceParticipantMessage.EndOfACS()) =>
+            .EndOfAcs(v30.PartyReplicationSourceParticipantMessage.EndOfAcs()) =>
         Right(EndOfACS)
     }
   } yield PartyReplicationSourceParticipantMessage(dataOrStatus)(rpv)
@@ -77,7 +77,7 @@ object PartyReplicationSourceParticipantMessage
   object EndOfACS extends DataOrStatus {
     override def toProtoV30: v30.PartyReplicationSourceParticipantMessage.DataOrStatus =
       v30.PartyReplicationSourceParticipantMessage.DataOrStatus.EndOfAcs(
-        v30.PartyReplicationSourceParticipantMessage.EndOfACS()
+        v30.PartyReplicationSourceParticipantMessage.EndOfAcs()
       )
   }
 

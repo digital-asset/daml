@@ -24,9 +24,9 @@ import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.retry.RetryEither
-import com.digitalasset.canton.util.{LoggerUtil, ResourceUtil}
+import com.digitalasset.canton.util.{LoggerUtil, MonadUtil, ResourceUtil}
 import org.flywaydb.core.Flyway
-import org.flywaydb.core.api.FlywayException
+import org.flywaydb.core.api.{FlywayException, MigrationInfo}
 import slick.jdbc.JdbcBackend.Database
 import slick.jdbc.hikaricp.HikariCPJdbcDataSource
 import slick.jdbc.{DataSourceJdbcDataSource, JdbcBackend, JdbcDataSource}
@@ -112,7 +112,10 @@ class DbMigrations(
       withDb() { createdDb =>
         ResourceUtil.withResource(createdDb) { db =>
           val flyway = createFlyway(DbMigrations.createDataSource(db.source))
-          migrateDatabaseInternal(flyway)
+          for {
+            _ <- validateRepeatableMigrations(dbConfig).toEitherT[UnlessShutdown]
+            migrationResult <- migrateDatabaseInternal(flyway)
+          } yield migrationResult
         }
       }
     }
@@ -140,7 +143,29 @@ class DbMigrations(
     withDb() { createdDb =>
       ResourceUtil.withResource(createdDb) { db =>
         val flyway = createFlyway(DbMigrations.createDataSource(db.source))
-        fn(flyway)
+        for {
+          _ <- validateRepeatableMigrations(dbConfig).toEitherT[UnlessShutdown]
+          result <- fn(flyway)
+        } yield result
+      }
+    }
+
+  private def validateRepeatableMigrations(dbConfig: DbConfig): Either[DbMigrations.Error, Unit] =
+    // verify that only repeatable migration files are under the `repeatableMigrationsPaths`
+    MonadUtil.sequentialTraverse_(dbConfig.parameters.repeatableMigrationsPaths) { path =>
+      val pathWithoutPrefix = path.stripPrefix("filesystem:")
+      val files = better.files.File(pathWithoutPrefix).list
+      MonadUtil.sequentialTraverse_(files) { file =>
+        if (file.name.startsWith("R__") && file.extension.contains(".sql") && file.isRegularFile) {
+          Right(())
+        } else {
+          Left(
+            DbMigrations.DatabaseConfigError(
+              s"Invalid migration file ${file.name} under repeatable migrations path '$path'. " +
+                s"Only repeatable migration files starting with 'R__' are allowed."
+            )
+          )
+        }
       }
     }
 
@@ -183,6 +208,7 @@ class DbMigrations(
           _ <- connectionCheck(db.source, params.processingTimeouts)
           _ <- DbVersionCheck(params.processingTimeouts, standardConfig, dbConfig, db)
           _ <- DbStringEncodingCheck(params.processingTimeouts, dbConfig, db)
+          _ <- validateRepeatableMigrations(dbConfig).toEitherT[UnlessShutdown]
           _ <-
             if (params.dbMigrateAndStart)
               migrateAndStartInternal(flyway)
@@ -231,6 +257,7 @@ class DbMigrations(
       for {
         _ <- migrateIfFreshInternal(flyway)
         _ <- checkPendingMigrationInternal(flyway).toEitherT[UnlessShutdown]
+        _ <- migrateRepeatableMigrationsInternal(flyway)
       } yield ()
     }
 
@@ -241,7 +268,9 @@ class DbMigrations(
       info <- Either
         .catchOnly[FlywayException](flyway.info())
         .leftMap(DbMigrations.FlywayError.apply)
-      pendingMigrations = info.pending()
+      pendingMigrations = info
+        .pending()
+        .filterNot(_.isRepeatable) // Repeatable migrations are handled separately
       _ <-
         if (pendingMigrations.isEmpty) Either.unit
         else {
@@ -254,6 +283,29 @@ class DbMigrations(
               s"$pendingMsg. Currently on version $version."
             )
           Left(DbMigrations.PendingMigrationError(msg))
+        }
+    } yield ()
+
+  private def migrateRepeatableMigrationsInternal(
+      flyway: Flyway
+  )(implicit traceContext: TraceContext): EitherT[UnlessShutdown, DbMigrations.Error, Unit] =
+    for {
+      info <- EitherT.fromEither[UnlessShutdown](
+        Either
+          .catchOnly[FlywayException](flyway.info())
+          .leftMap(DbMigrations.FlywayError.apply)
+      )
+      repeatable = info.pending().filter(_.isRepeatable)
+      _ <-
+        if (repeatable.nonEmpty) {
+          def repeatableStr(m: MigrationInfo): String =
+            s"\t- '${m.getPhysicalLocation}'"
+          logger.info(
+            s"Applying ${repeatable.length} new or updated repeatable migrations:\n${repeatable.map(repeatableStr).mkString("\n")}"
+          )
+          migrateDatabaseInternal(flyway)
+        } else {
+          EitherT.rightT[UnlessShutdown, DbMigrations.Error](())
         }
     } yield ()
 

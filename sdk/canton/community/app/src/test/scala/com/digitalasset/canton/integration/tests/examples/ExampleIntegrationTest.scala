@@ -5,6 +5,7 @@ package com.digitalasset.canton.integration.tests.examples
 
 import better.files.*
 import com.digitalasset.canton.ConsoleScriptRunner
+import com.digitalasset.canton.console.BufferedProcessLogger
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.integration.{
@@ -14,8 +15,8 @@ import com.digitalasset.canton.integration.{
   IsolatedEnvironments,
 }
 import com.digitalasset.canton.logging.NamedLogging
+import com.digitalasset.canton.util.Mutex
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ConcurrentBufferedLogger, Mutex}
 
 abstract class ExampleIntegrationTest(configPaths: File*)
     extends BaseIntegrationTest
@@ -24,7 +25,7 @@ abstract class ExampleIntegrationTest(configPaths: File*)
 
   protected def runAndAssertCommandSuccess(
       pb: scala.sys.process.ProcessBuilder,
-      processLogger: ConcurrentBufferedLogger,
+      processLogger: BufferedProcessLogger,
   ): Unit = {
     val exitCode = pb.!(processLogger)
     if (exitCode != 0) {
@@ -34,7 +35,7 @@ abstract class ExampleIntegrationTest(configPaths: File*)
 
   protected def runAndAssertCommandFailure(
       pb: scala.sys.process.ProcessBuilder,
-      processLogger: ConcurrentBufferedLogger,
+      processLogger: BufferedProcessLogger,
       expectedFailure: String,
   ): Unit = {
     val exitCode = pb.!(processLogger)

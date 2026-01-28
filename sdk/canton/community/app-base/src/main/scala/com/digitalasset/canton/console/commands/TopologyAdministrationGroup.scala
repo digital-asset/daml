@@ -2892,7 +2892,7 @@ class TopologyAdministrationGroup(
           observerRemoves,
           updateThreshold,
         )
-        .valueOr(err => throw new IllegalArgumentException(err))
+        .valueOr(err => consoleEnvironment.raiseError(err))
 
       val (serial, threshold, active, observers) = maybeSerialAndMediatorSynchronizerState match {
         case Some((currentSerial, mds)) =>

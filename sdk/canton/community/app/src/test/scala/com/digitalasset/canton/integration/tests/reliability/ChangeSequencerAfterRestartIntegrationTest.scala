@@ -34,7 +34,7 @@ class ChangeSequencerAfterRestartIntegrationTest
   registerPlugin(new UseBftSequencer(loggerFactory))
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P1_S2M1_Manual
+    EnvironmentDefinition.P1S2M1_Manual
       .withSetup { implicit env =>
         import env.*
         Seq[LocalInstanceReference](mediator1, sequencer1, sequencer2, participant1)

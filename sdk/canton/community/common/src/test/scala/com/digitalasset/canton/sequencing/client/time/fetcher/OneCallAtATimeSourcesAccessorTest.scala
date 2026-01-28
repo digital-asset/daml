@@ -5,7 +5,6 @@ package com.digitalasset.canton.sequencing.client.time.fetcher
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, PromiseUnlessShutdown}
 import com.digitalasset.canton.sequencing.client.time.fetcher.OneCallAtATimeSourcesAccessor.QueryTimeSourcesRunningTask
 import com.digitalasset.canton.sequencing.client.time.fetcher.SequencingTimeFetcherTest.{
@@ -203,12 +202,12 @@ class OneCallAtATimeSourcesAccessorTest
           val runningTaskRef = new AtomicReference(Option.empty[QueryTimeSourcesRunningTask])
           val timeSourcesAccessor = newTimeSourcesAccessor(readings, simClock, runningTaskRef)
 
-          timeSourcesAccessor
-            .queryTimeSources(
-              timeSourcesPool.timeSources(PositiveInt.tryCreate(2), exclusions = Set.empty).toMap,
-              aTimeout,
-            )
-            .discard
+          val f1 =
+            timeSourcesAccessor
+              .queryTimeSources(
+                timeSourcesPool.timeSources(PositiveInt.tryCreate(2), exclusions = Set.empty).toMap,
+                aTimeout,
+              )
           eventually() {
             runningTaskRef.get().isDefined shouldBe true
           }
@@ -227,7 +226,13 @@ class OneCallAtATimeSourcesAccessorTest
           sequencingTimePromises(1).outcome_(Some(ts(0)))
           sequencingTimePromises(2).outcome_(Some(ts(0)))
           simClock.advance(aTimeout.duration)
-          f2.map { result =>
+          for {
+            result <- f2
+            // Time source 0 times out as requested, unblocking f1, which we await
+            //  to ensure that time source 1 has registered its result
+            _ = sequencingTimePromises(0).outcome_(None)
+            _ <- f1
+          } yield {
             for (i <- 1 to 2)
               verify(readings, times(1)).recordReading(
                 eqTo(sequencerIds(i)),
@@ -235,11 +240,9 @@ class OneCallAtATimeSourcesAccessorTest
                 any[CantonTimestamp],
               )
             result shouldBe Map(sequencerIds(2) -> Some(ts(0)))
-            eventually() {
-              timeSources.map(_.invocationsCountRef.get()) should contain only 1
-              timeSources.flatMap(_.timeoutsRef.get()) should contain theSameElementsAs
-                Seq.fill(3)(aTimeout)
-            }
+            timeSources.map(_.invocationsCountRef.get()) should contain only 1
+            timeSources.flatMap(_.timeoutsRef.get()) should contain theSameElementsAs
+              Seq.fill(3)(aTimeout)
           }
         }.failOnShutdown
       }

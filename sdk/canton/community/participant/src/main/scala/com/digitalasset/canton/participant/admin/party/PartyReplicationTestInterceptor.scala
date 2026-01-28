@@ -4,10 +4,7 @@
 package com.digitalasset.canton.participant.admin.party
 
 import com.digitalasset.canton.participant.admin.party.PartyReplicationTestInterceptor.*
-import com.digitalasset.canton.participant.protocol.party.{
-  SourceParticipantStore,
-  TargetParticipantStore,
-}
+import com.digitalasset.canton.participant.protocol.party.SourceParticipantStore
 import com.digitalasset.canton.tracing.TraceContext
 
 /** OnPR test interceptor interface
@@ -25,11 +22,11 @@ trait PartyReplicationTestInterceptor {
       traceContext: TraceContext
   ): ProceedOrWait = Proceed
 
-  /** Specifies whether the TP proceeds or waits depending on the contents of the store.
+  /** Specifies whether the TP proceeds or waits depending on ACS replication progress.
     * @return
     *   Proceed to execute as normal or Wait to do nothing.
     */
-  def onTargetParticipantProgress(store: TargetParticipantStore)(implicit
+  def onTargetParticipantProgress(progress: PartyReplicationStatus.AcsReplicationProgress)(implicit
       traceContext: TraceContext
   ): ProceedOrWait = Proceed
 }

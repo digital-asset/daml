@@ -54,9 +54,7 @@ trait TopologyManagementHelper { this: BaseTest =>
       val encryptionKmsKeyId = kmsKeys.encryptionKeyId
         .valueOrFail(s"node [${node.name}] expects an encryption key id")
 
-      // To refer in docs
       val intermediateNsKmsKeyId = namespaceKmsKeyId
-      // user-manual-entry-begin: ManualRegisterKmsIntermediateNamespaceKey
       val intermediateKey = node.keys.secret
         .register_kms_signing_key(
           intermediateNsKmsKeyId,

@@ -204,10 +204,7 @@ private[speedy] object SpeedyTestLib {
           key: GlobalKey,
       ): UpdateMachine = {
         machine.ptx = machine.ptx.copy(
-          contractState =
-            machine.ptx.contractState
-              .withLocallyCreated(_ + contractId)
-              .withActiveState(_.createKey(key, contractId)),
+          contractState = machine.ptx.contractState.withLocalContractKey(contractId, key)
         )
         machine
       }

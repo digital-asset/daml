@@ -246,7 +246,7 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
       // This test is about starving the supervision, so the warnings are not the main point.
       // Yet, we do not completely disable them because warnings indicate a long-running
       // future supervision scheduling problem.
-      val warnLimit = config.NonNegativeDuration.ofSeconds(1)
+      val warnLimit = config.NonNegativeDuration.ofSeconds(2)
       val supervisor = new FutureSupervisor.Impl(warnLimit, loggerFactory)(scheduledExecutor())
 
       val baseLoad = 100000
@@ -285,13 +285,13 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
       val samplesPerCheckDelay = 5
       val samples = samplesPerCheckDelay * expectedGcs
       val sampleDelay = FutureSupervisor.Impl.defaultCheckMs / samplesPerCheckDelay
-      for (i <- 1 to samples) {
+      for (_ <- 1 to samples) {
         val size = supervisor.inspectApproximateSize
         scheduledSizeSamplesB += size
         Threading.sleep(sampleDelay)
       }
 
-      // If the scheduler runs frequently, we should see the scheduled tasks not grow significantly beyong what's added during one waiting period
+      // If the scheduler runs frequently, we should see the scheduled tasks not grow significantly beyond what's added during one waiting period
 
       stopLoad.set(true)
       loadF.futureValue

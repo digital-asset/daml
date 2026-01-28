@@ -161,7 +161,6 @@ class MediatorSetupGroup(node: MediatorReference) extends ConsoleCommandGroup.Im
       )
     }
   }
-
 }
 
 class MediatorInspectionGroup(

@@ -52,6 +52,10 @@ import scala.jdk.CollectionConverters.*
   * @param migrateAndStart
   *   if true, db migrations will be applied to the database (default is to abort start if db
   *   migrates are pending to force an explicit upgrade)
+  * @param repeatableMigrationsPaths
+  *   Additional locations to scan for migrations. The goal is to be able to provide additional
+  *   database table settings under this path, i.e. vacuum/analyze settings for Postgres. The paths
+  *   should only contain repeatable migrations (files like `R__table_settings.sql`).
   */
 final case class DbParametersConfig(
     maxConnections: Option[PositiveInt] = None,
@@ -66,6 +70,9 @@ final case class DbParametersConfig(
     unsafeCleanOnValidationError: Boolean = false,
     unsafeBaselineOnMigrate: Boolean = false,
     migrateAndStart: Boolean = false,
+
+    // Make the default settings a part of repeatable migrations
+    repeatableMigrationsPaths: Seq[String] = Seq.empty,
 ) extends PrettyPrinting {
   override protected def pretty: Pretty[DbParametersConfig] =
     prettyOfClass(
@@ -74,6 +81,13 @@ final case class DbParametersConfig(
         x =>
           if (x.migrationsPaths.nonEmpty)
             Some(x.migrationsPaths.map(_.doubleQuoted))
+          else None,
+      ),
+      paramIfDefined(
+        "repeatableMigrationsPaths",
+        x =>
+          if (x.repeatableMigrationsPaths.nonEmpty)
+            Some(x.repeatableMigrationsPaths.map(_.doubleQuoted))
           else None,
       ),
       paramIfDefined("maxConnections", _.maxConnections),
@@ -331,11 +345,15 @@ sealed trait DbConfig extends StorageConfig with PrettyPrinting {
     if (parameters.migrationsPaths.nonEmpty)
       parameters.migrationsPaths
     else if (alphaVersionSupport)
-      Seq(stableMigrationPath, devMigrationPath)
-    else Seq(stableMigrationPath)
+      Seq(stableMigrationPath, devMigrationPath, defaultTableSettingsPath) ++
+        parameters.repeatableMigrationsPaths
+    else
+      Seq(stableMigrationPath, defaultTableSettingsPath) ++
+        parameters.repeatableMigrationsPaths
 
   protected def devMigrationPath: String
   protected def stableMigrationPath: String
+  protected def defaultTableSettingsPath: String
 
   override protected def pretty: Pretty[DbConfig] =
     prettyOfClass(
@@ -369,6 +387,7 @@ object DbConfig {
 
     protected val devMigrationPath: String = DbConfig.h2MigrationsPathDev
     protected val stableMigrationPath: String = DbConfig.h2MigrationsPathStable
+    protected val defaultTableSettingsPath: String = DbConfig.h2DefaultTableSettingsPath
 
     def modify(config: Config = this.config, parameters: DbParametersConfig = this.parameters): H2 =
       H2(config, parameters)
@@ -385,6 +404,7 @@ object DbConfig {
   ) extends ModifiableDbConfig[Postgres] {
     protected def devMigrationPath: String = DbConfig.postgresMigrationsPathDev
     protected val stableMigrationPath: String = DbConfig.postgresMigrationsPathStable
+    protected val defaultTableSettingsPath: String = DbConfig.postgresDefaultTableSettingsPath
 
     def modify(
         config: Config = this.config,
@@ -406,12 +426,15 @@ object DbConfig {
 
   private val stableDir = "stable"
   private val devDir = "dev"
+  private val tableSettingsDir = "table_settings"
   private val basePostgresMigrationsPath: String = "classpath:db/migration/canton/postgres/"
   private val baseH2MigrationsPath: String = "classpath:db/migration/canton/h2/"
   val postgresMigrationsPathStable: String = basePostgresMigrationsPath + stableDir
   val h2MigrationsPathStable: String = baseH2MigrationsPath + stableDir
   val postgresMigrationsPathDev: String = basePostgresMigrationsPath + devDir
   val h2MigrationsPathDev: String = baseH2MigrationsPath + devDir
+  val postgresDefaultTableSettingsPath: String = basePostgresMigrationsPath + tableSettingsDir
+  val h2DefaultTableSettingsPath: String = baseH2MigrationsPath + tableSettingsDir
 
   def postgresUrl(host: String, port: Int, dbName: String): String =
     s"jdbc:postgresql://$host:$port/$dbName"

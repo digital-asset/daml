@@ -241,6 +241,7 @@ class AcsCommitmentProcessor private (
     commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt],
     commitmentReduceParallelism: NonNegativeInt,
     stringInterning: StringInterning,
+    // disableCommitmentProcessor: Boolean = false,
 )(implicit ec: ExecutionContext)
     extends AcsChangeListener
     with FlagCloseable
@@ -1109,7 +1110,7 @@ class AcsCommitmentProcessor private (
               )
             )
             // snapshot still needs to run on the publish queue, so it needs to be taken here, not lower
-            val snapshot = runningCommitments.snapshot(gc = false)
+            val snapshot = runningCommitments.snapshot()
             val res = checkpointQueue.executeUS(
               persistRunningCommitments(snapshot, isCheckpointAtTimestamp = Some(checkpointTs)),
               s"persist running commitments for checkpointing as a result of time of change $toc checkpoint ts $checkpointTs",
@@ -1121,7 +1122,7 @@ class AcsCommitmentProcessor private (
         _ <- completedPeriod match {
           case Some(period) =>
             // snapshot still needs to run on the publish queue, so it needs to be taken here, not lower
-            val snapshot = runningCommitments.snapshot(gc = false)
+            val snapshot = runningCommitments.snapshot()
             val recordTime = period.toInclusive.forgetRefinement
             val res = checkpointQueue.executeUS(
               persistRunningCommitments(snapshot, isCheckpointAtTimestamp = Some(recordTime)),
@@ -1268,7 +1269,7 @@ class AcsCommitmentProcessor private (
             } else {
               updateRunningCommitments(rt, AcsChange.empty)
               val snapshot: CommitmentSnapshot[InternedPartyId] =
-                runningCommitments.snapshot(gc = false)
+                runningCommitments.snapshot()
               for {
                 _ <- checkpointQueue.executeUS(
                   persistRunningCommitments(snapshot, isCheckpointAtTimestamp = Some(rt.timestamp)),
@@ -2473,7 +2474,7 @@ class AcsCommitmentProcessor private (
               batchingConfig,
             )
 
-            snapshot = rc.snapshot(gc = false)
+            snapshot = rc.snapshot()
             _ <- checkpointQueue.executeUS(
               persistRunningCommitments(snapshot, isCheckpointAtTimestamp = Some(timestamp)),
               s"persist running commitments for checkpointing as a result of reinitialization at time $timestamp",

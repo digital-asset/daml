@@ -21,6 +21,24 @@ import scala.util.{Success, Try}
 
 class LedgerTimeTest extends AnyFreeSpec with Matchers with Inside with TableDrivenPropertyChecks {
 
+  class TestTraceLog extends TraceLog {
+    private val messages: ArrayBuffer[(String, Option[Location])] = new ArrayBuffer()
+
+    override def add(message: String, optLocation: Option[Location])(implicit
+        loggingContext: LoggingContext
+    ) = {
+      messages += ((message, optLocation))
+    }
+
+    def tracePF[X, Y](text: String, pf: PartialFunction[X, Y]): PartialFunction[X, Y] = {
+      case x if { add(text, None)(LoggingContext.ForTesting); pf.isDefinedAt(x) } => pf(x)
+    }
+
+    override def iterator = messages.iterator
+
+    def getMessages: Seq[String] = messages.view.map(_._1).toSeq
+  }
+
   private[this] implicit val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters.default
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
@@ -208,22 +226,4 @@ class LedgerTimeTest extends AnyFreeSpec with Matchers with Inside with TableDri
 
     (result, machine.getTimeBoundaries, traceLog.getMessages)
   }
-}
-
-class TestTraceLog extends TraceLog {
-  private val messages: ArrayBuffer[(String, Option[Location])] = new ArrayBuffer()
-
-  override def add(message: String, optLocation: Option[Location])(implicit
-      loggingContext: LoggingContext
-  ) = {
-    messages += ((message, optLocation))
-  }
-
-  def tracePF[X, Y](text: String, pf: PartialFunction[X, Y]): PartialFunction[X, Y] = {
-    case x if { add(text, None)(LoggingContext.ForTesting); pf.isDefinedAt(x) } => pf(x)
-  }
-
-  override def iterator = messages.iterator
-
-  def getMessages: Seq[String] = messages.view.map(_._1).toSeq
 }

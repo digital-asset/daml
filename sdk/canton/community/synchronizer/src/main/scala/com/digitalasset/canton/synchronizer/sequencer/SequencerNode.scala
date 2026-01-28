@@ -597,7 +597,7 @@ class SequencerNodeBootstrap(
               TopologyTransactionProcessor
                 .createProcessorAndClientForSynchronizerWithWriteThroughCache(
                   synchronizerTopologyStore,
-                  synchronizerPredecessor = None,
+                  synchronizerUpgradeTime = parameters.sequencingTimeLowerBoundExclusive,
                   crypto.pureCrypto,
                   parameters,
                   arguments.config.topology,

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.integration
 
 import com.daml.ledger.javaapi.data.Event
-import com.digitalasset.canton.console.{CommandFailure, ParticipantReference}
+import com.digitalasset.canton.console.{BufferedProcessLogger, CommandFailure, ParticipantReference}
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.{
@@ -72,6 +72,18 @@ private[integration] trait BaseIntegrationTest
 
     super[RepeatableTestSuiteTest].withFixture(new TestWithSetup(test))
   }
+
+  protected def mkProcessLogger(logErrors: Boolean = true): BufferedProcessLogger =
+    new BufferedProcessLogger {
+      override def out(s: => String): Unit = {
+        logger.info(s)
+        super.out(s)
+      }
+      override def err(s: => String): Unit = {
+        if (logErrors) logger.error(s)
+        super.err(s)
+      }
+    }
 
   /** Version of [[com.digitalasset.canton.logging.SuppressingLogger.assertThrowsAndLogs]] that is
     * specifically tailored to [[com.digitalasset.canton.console.CommandFailure]].

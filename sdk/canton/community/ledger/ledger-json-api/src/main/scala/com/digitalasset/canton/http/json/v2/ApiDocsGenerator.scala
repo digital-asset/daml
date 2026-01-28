@@ -46,6 +46,7 @@ class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
         JsIdentityProviderService,
         JsInteractiveSubmissionService,
         JsHealthService,
+        JsContractService,
       )
     services.flatMap(service => service.documentation)
   }
