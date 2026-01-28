@@ -287,7 +287,7 @@ getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = d
     -- that we allow toggling in tests, so the size of this map should be small
     -- (< 20).
     let damlTestsByExtraOpts :: MS.Map [String] [DamlTestInput]
-        damlTestsByExtraOpts = MS.fromListWith (++) $ do
+        damlTestsByExtraOpts = fmap reverse $ MS.fromListWith (++) $ do
             damlTest <- damlTests
             let opts = [opt | BuildOptions opts <- anns damlTest, opt <- opts]
             pure (opts, [damlTest])
