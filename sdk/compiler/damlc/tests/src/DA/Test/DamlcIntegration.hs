@@ -270,7 +270,7 @@ getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = d
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
-    damlTests <-
+    damlTests <- fmap reverse $
         mconcat @(IO [DamlTestInput])
             [ getDamlTestFiles "compiler/damlc/tests/daml-test-files"
             , getBondTradingTestFiles

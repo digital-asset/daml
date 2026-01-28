@@ -551,6 +551,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "proto3-wire",
             "QuickCheck",
             "random",
+            "random-shuffle",
             "recursion-schemes",
             "regex-tdfa",
             "repline",

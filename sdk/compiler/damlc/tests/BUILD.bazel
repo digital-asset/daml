@@ -168,6 +168,7 @@ da_haskell_library(
         "pcre-utils",
         "process",
         "proto3-suite",
+        "random-shuffle",
         "shake",
         "tagged",
         "tasty",
