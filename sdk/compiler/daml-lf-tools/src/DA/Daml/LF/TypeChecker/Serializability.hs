@@ -115,7 +115,7 @@ serializabilityConditionsType world0 mbCurrentModule vars = go
       TStruct{} -> Left URStruct
 
 -- | Determine whether a data type preserves serializability. When a module
--- name is given, -- data types in this module are returned rather than lookup
+-- name is given, data types in this module are returned rather than lookup
 -- up in the world. If no module name is given, the returned set is always empty.
 serializabilityConditionsDataType
   :: World

@@ -226,6 +226,7 @@ data ModuleContents = ModuleContents
     -- ^ Maps a template to the interface instances defined in it.
   , mcChoiceData :: MS.Map TypeConName [ChoiceData]
   , mcModInstanceInfo :: !ModInstanceInfo
+  , mcModSerializableInfo :: !ModSerializableInfo
   , mcDepOrphanModules :: [GHC.Module]
   , mcExports :: [GHC.AvailInfo]
   , mcFixities :: [(OccName, GHC.Fixity)]
@@ -272,6 +273,11 @@ extractModuleContents env@Env{..} coreModule modIface details = do
             MS.empty
 
     mcModInstanceInfo = modInstanceInfoFromDetails details
+    mcModSerializableInfo = modSerializableInfo details
+        (snd <$> MS.toList mcTemplateBinds)
+        (snd <$> MS.toList mcExceptionBinds)
+        (snd <$> MS.toList mcInterfaceBinds)
+
     mcDepOrphanModules = getDepOrphanModules modIface
     mcExports = md_exports details
     mcFixities = mi_fixities modIface
@@ -416,6 +422,41 @@ type ModInstanceInfo = MS.Map DFunId OverlapMode
 modInstanceInfoFromDetails :: ModDetails -> ModInstanceInfo
 modInstanceInfoFromDetails ModDetails{..} = MS.fromList
     [ (is_dfun, overlapMode is_flag) | ClsInst{..} <- md_insts ]
+
+data ModSerializableInfo = ModSerializableInfo
+    { msiSerializable :: UniqSet TyCon
+        -- ^ Types that have a @Serializable@ typeclass instance.
+        -- Note that we don't verify whether these are actually serializable,
+        -- that happens later in the LF TypeChecker.
+    }
+
+modSerializableInfo
+    :: ModDetails
+    -> [TemplateBinds]
+    -> [ExceptionBinds]
+    -> [InterfaceBinds]
+    -> ModSerializableInfo
+modSerializableInfo ModDetails{..}
+        templates exceptions interfaces = ModSerializableInfo
+    { msiSerializable =
+        mkUniqSet fromTypeclassInstances <>
+        mkUniqSet (mapMaybe tbTyCon templates) <>
+        mkUniqSet (map ebTyCon exceptions) <>
+        mkUniqSet (map ibTyCon interfaces)
+    }
+  where
+    fromTypeclassInstances = do
+        inst@ClsInst {..} <- md_insts
+        NameIn DA_Internal_LF "Serializable" <- pure is_cls_nm
+        maybeToList $ tyHead (head is_tys)
+
+    tyHead (TyCoRep.TyConApp tc _) = Just tc
+    tyHead (TyCoRep.TyVarTy _)     = Nothing
+    tyHead (TyCoRep.ForAllTy _ _)  = Nothing
+    tyHead (TyCoRep.FunTy _ _)     = Nothing
+    tyHead (TyCoRep.LitTy _)       = Nothing
+    tyHead (TyCoRep.CastTy _ _)    = Nothing
+    tyHead (TyCoRep.CoercionTy _)  = Nothing
 
 -- | Represents the contents of some interface instance
 data InterfaceBinds = InterfaceBinds
@@ -779,10 +820,11 @@ data Consuming = PreConsuming
                deriving (Eq)
 
 convertTypeDefs :: Env -> ModuleContents -> ConvertM [Definition]
-convertTypeDefs env mc = concatMapM (convertTypeDef env) (mcTypeDefs mc)
+convertTypeDefs env mc =
+    concatMapM (convertTypeDef env (mcModSerializableInfo mc)) (mcTypeDefs mc)
 
-convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
-convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
+convertTypeDef :: Env -> ModSerializableInfo -> TyThing -> ConvertM [Definition]
+convertTypeDef env msi o@(ATyCon t) = withRange (convNameLoc t) $ if
     -- Internal types (i.e. already defined in LF)
     | NameIn DA_Internal_LF n <- t
     , n `elementOfUniqSet` internalTypes
@@ -822,7 +864,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     -- Enum types. These are algebraic types without any type arguments,
     -- with two or more constructors that have no arguments.
     | isEnumTyCon t
-    -> convertEnumDef env t
+    -> convertEnumDef env msi t
 
     -- Type classes
     | isClassTyCon t
@@ -837,27 +879,28 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     -- single constructor algebraic types with no fields or with
     -- labelled fields.
     | isSimpleRecordTyCon t
-    -> convertSimpleRecordDef env t
+    -> convertSimpleRecordDef env msi t
 
     -- Variants are algebraic types that are not enums and not simple
     -- record types. This includes most 'data' types.
     | isVariantTyCon t
-    -> convertVariantDef env t
+    -> convertVariantDef env msi t
 
     | otherwise
     -> unsupported ("Data definition, of type " ++ prettyPrint (tyConFlavour t) ++ ".") o
 
-convertTypeDef env x = pure []
+convertTypeDef env _ x = pure []
 
-convertEnumDef :: Env -> TyCon -> ConvertM [Definition]
-convertEnumDef env t =
-    pure [defDataType tconName [] $ DataEnum ctorNames]
+convertEnumDef :: Env -> ModSerializableInfo -> TyCon -> ConvertM [Definition]
+convertEnumDef env msi t =
+    pure [defDataType tconName serializable [] $ DataEnum ctorNames]
   where
     tconName = mkTypeCon [getOccText t]
     ctorNames = map (mkVariantCon . getOccText) (tyConDataCons t)
+    serializable = IsSerializable $ t `elementOfUniqSet` msiSerializable msi
 
-convertSimpleRecordDef :: Env -> TyCon -> ConvertM [Definition]
-convertSimpleRecordDef env tycon = do
+convertSimpleRecordDef :: Env -> ModSerializableInfo -> TyCon -> ConvertM [Definition]
+convertSimpleRecordDef env msi tycon = do
     let con = tyConSingleDataCon tycon
         flavour = tyConFlavour tycon
         labels = ctorLabels con
@@ -868,7 +911,9 @@ convertSimpleRecordDef env tycon = do
 
     let fields = zipExact labels fieldTypes
         tconName = mkTypeCon [getOccText tycon]
-        typeDef = defDataType tconName tyVars (DataRecord fields)
+        serializable = IsSerializable $ tycon `elementOfUniqSet` msiSerializable msi
+        typeDef = DDataType $
+            DefDataType (convNameLoc tycon) tconName serializable tyVars (DataRecord fields)
         workerDef = defNewtypeWorker env tycon tconName con tyVars fields
 
     pure $ typeDef : [workerDef | flavour == NewtypeFlavour]
@@ -1052,18 +1097,20 @@ defNewtypeWorker env loc tconName con tyVars fields =
             ERecCon tcon [(label, EVar (fieldToVar label)) | (label,_) <- fields]
     in defValue loc (workerName, workerType) workerBody
 
-convertVariantDef :: Env -> TyCon -> ConvertM [Definition]
-convertVariantDef env tycon = do
+convertVariantDef :: Env -> ModSerializableInfo -> TyCon -> ConvertM [Definition]
+convertVariantDef env msi tycon = do
     (env', tyVars) <- bindTypeVars env (tyConTyVars tycon)
     (constrs, moreDefs) <- mapAndUnzipM
-        (convertVariantConDef env' tycon tyVars)
+        (convertVariantConDef env' tycon serializable tyVars)
         (tyConDataCons tycon)
     let tconName = mkTypeCon [getOccText tycon]
-        typeDef = defDataType tconName tyVars (DataVariant constrs)
+        typeDef = defDataType tconName serializable tyVars (DataVariant constrs)
     pure $ [typeDef] ++ concat moreDefs
+  where
+    serializable = IsSerializable $ tycon `elementOfUniqSet` msiSerializable msi
 
-convertVariantConDef :: Env -> TyCon -> [(TypeVarName, LF.Kind)] -> DataCon -> ConvertM ((VariantConName, LF.Type), [Definition])
-convertVariantConDef env tycon tyVars con =
+convertVariantConDef :: Env -> TyCon -> IsSerializable -> [(TypeVarName, LF.Kind)] -> DataCon -> ConvertM ((VariantConName, LF.Type), [Definition])
+convertVariantConDef env tycon serializable tyVars con =
     case (ctorLabels con, dataConOrigArgTys con) of
         ([], []) ->
             pure ((ctorName, TUnit), [])
@@ -1075,7 +1122,7 @@ convertVariantConDef env tycon tyVars con =
         (labels, args) -> do
             fields <- zipExact labels <$> mapM (convertType env) args
             let recName = synthesizeVariantRecord ctorName tconName
-                recDef = defDataType recName tyVars (DataRecord fields)
+                recDef = defDataType recName serializable tyVars (DataRecord fields)
                 recType = TConApp
                     (qualifyLocally env recName)
                     (map (TVar . fst) tyVars)
@@ -2556,9 +2603,9 @@ convertKind x = unhandled "Kind" x
 ---------------------------------------------------------------------
 -- SMART CONSTRUCTORS
 
-defDataType :: TypeConName -> [(TypeVarName, LF.Kind)] -> DataCons -> Definition
-defDataType name params constrs =
-  DDataType $ DefDataType Nothing name (IsSerializable False) params constrs
+defDataType :: TypeConName -> IsSerializable -> [(TypeVarName, LF.Kind)] -> DataCons -> Definition
+defDataType name isSerializable params constrs =
+  DDataType $ DefDataType Nothing name isSerializable params constrs
 
 defTypeSyn :: TypeSynName -> [(TypeVarName, LF.Kind)] -> LF.Type -> Definition
 defTypeSyn name params ty =
