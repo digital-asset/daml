@@ -594,7 +594,7 @@ class MediatorNodeBootstrap(
             TopologyTransactionProcessor
               .createProcessorAndClientForSynchronizerWithWriteThroughCache(
                 synchronizerTopologyStore,
-                synchronizerPredecessor = None,
+                synchronizerUpgradeTime = None,
                 crypto.pureCrypto,
                 arguments.parameterConfig,
                 arguments.config.topology,

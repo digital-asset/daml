@@ -37,9 +37,9 @@ abstract class GenericRunningCommitments[T: Pretty](
 
   /** The latest (immutable) snapshot. Taking the snapshot also garbage collects empty commitments.
     */
-  def snapshot(gc: Boolean = true): CommitmentSnapshot[T] = {
+  def snapshot(): CommitmentSnapshot[T] = {
 
-    /* Delete all hashes that have gone empty since the last snapshot if gc is true;
+    /* Delete all hashes that have gone empty since the last snapshot;
       returns the corresponding stakeholder sets */
     def garbageCollect(
         candidates: Map[SortedSet[T], LtHash16]
@@ -48,7 +48,7 @@ abstract class GenericRunningCommitments[T: Pretty](
       candidates.foreach { case (stkhs, h) =>
         if (h.isEmpty) {
           deletedB += stkhs
-          if (gc) commitments -= stkhs
+          commitments -= stkhs
         }
       }
       deletedB.result()
@@ -57,7 +57,7 @@ abstract class GenericRunningCommitments[T: Pretty](
     {
       lock.exclusive {
         val delta = deltaB.result()
-        if (gc) deltaB.clear()
+        deltaB.clear()
         val deleted = garbageCollect(delta)
         val activeDelta = (delta -- deleted).fmap(_.getByteString())
         // Note that it's crucial to eagerly (via fmap, as opposed to, say mapValues) snapshot the LtHash16 values,

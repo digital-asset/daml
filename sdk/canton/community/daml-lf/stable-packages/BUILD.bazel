@@ -38,7 +38,7 @@ da_scala_library(
 [
     daml_compile(
         name = "Simple-{}".format(mangle_for_damlc(version)),
-        srcs = ["src/test/daml/Simple.daml"],
+        srcs = ["src/test/daml/Simple/Simple.daml"],
         target = version,
     )
     for version in [DEV_LF_VERSION]

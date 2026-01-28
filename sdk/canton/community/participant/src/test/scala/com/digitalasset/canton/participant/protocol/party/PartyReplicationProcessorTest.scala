@@ -28,7 +28,7 @@ import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker
 import com.digitalasset.canton.participant.store.PartyReplicationStateManager
 import com.digitalasset.canton.participant.util.{CreatesActiveContracts, TimeOfChange}
-import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -54,6 +54,7 @@ import org.scalatest.FutureOutcome
 import org.scalatest.wordspec.FixtureAsyncWordSpec
 
 import scala.collection.mutable
+import scala.concurrent.ExecutionContext
 import scala.util.chaining.scalaUtilChainingOps
 
 /** The PartyReplicationProcessorTest tests that the OnPR ACS replication protocol implemented by
@@ -84,15 +85,6 @@ final class PartyReplicationProcessorTest
     var tpSendErrorOverrides: Map[String, String] = Map.empty
     var persistContractMaybeInjectedError: EitherT[FutureUnlessShutdown, String, Unit] =
       EitherTUtil.unitUS
-
-    def persistContracts: PartyReplicationTargetParticipantProcessor.PersistContracts = contracts =>
-      _ =>
-        _ =>
-          persistContractMaybeInjectedError.map(_ =>
-            contracts.zipWithIndex.map { case (contract, idx) =>
-              contract.contractId -> idx.toLong
-            }.toMap
-          )
 
     def targetProcessor: PartyReplicationTargetParticipantProcessor = tp
 
@@ -135,7 +127,7 @@ final class PartyReplicationProcessorTest
         ),
         testedProtocolVersion,
         replicationO = Some(
-          PartyReplicationStatus.AcsReplicationProgressSerializable(
+          PartyReplicationStatus.PersistentProgress(
             processedContractCount = NonNegativeInt.zero,
             nextPersistenceCounter = RepairCounter.Genesis,
             fullyProcessedAcs = false,
@@ -152,6 +144,20 @@ final class PartyReplicationProcessorTest
           timeouts,
         ).tap(_.add(initialStatus).value.futureValueUS.value)
 
+      val persistsContracts = new TargetParticipantAcsPersistence.PersistsContracts {
+        def persistContracts(
+            contracts: NonEmpty[Seq[ContractInstance]]
+        )(implicit
+            executionContext: ExecutionContext,
+            traceContext: TraceContext,
+        ): EitherT[FutureUnlessShutdown, String, Map[LfContractId, Long]] =
+          persistContractMaybeInjectedError.map(_ =>
+            contracts.forgetNE.zipWithIndex.map { case (contract, idx) =>
+              contract.contractId -> idx.toLong
+            }.toMap
+          )
+      }
+
       new PartyReplicationTargetParticipantProcessor(
         partyId = alice,
         requestId = addPartyRequestId,
@@ -160,7 +166,7 @@ final class PartyReplicationProcessorTest
         replicationProgressState = inMemoryStateManager,
         onError = logger.info(_),
         onDisconnect = logger.info(_)(_),
-        persistContracts = persistContracts,
+        persistsContracts = persistsContracts,
         recordOrderPublisher = rop,
         requestTracker = requestTracker,
         pureCrypto = testSymbolicCrypto,
@@ -169,7 +175,9 @@ final class PartyReplicationProcessorTest
         timeouts = timeouts,
         loggerFactory = loggerFactory,
         testOnlyInterceptor = new PartyReplicationTestInterceptor {
-          override def onTargetParticipantProgress(store: TargetParticipantStore)(implicit
+          override def onTargetParticipantProgress(
+              progress: PartyReplicationStatus.AcsReplicationProgress
+          )(implicit
               traceContext: TraceContext
           ): PartyReplicationTestInterceptor.ProceedOrWait = tpProceedOrWait
         },
@@ -278,7 +286,7 @@ final class PartyReplicationProcessorTest
             NonNegativeInt.zero
           )
           val firstBatchEndOrdinal =
-            PartyReplicationTargetParticipantProcessor.contractsToRequestEachTime.decrement
+            TargetParticipantAcsPersistence.contractsToRequestEachTime.decrement
           messagesSent(1)._2 shouldBe PartyReplicationTargetParticipantMessage.SendAcsUpTo(
             firstBatchEndOrdinal
           )
@@ -298,7 +306,7 @@ final class PartyReplicationProcessorTest
 
       "handle single ACS batch" onlyRunWith ProtocolVersion.dev inUS { env =>
         import env.*
-        val firstBatchSize = PartyReplicationTargetParticipantProcessor.contractsToRequestEachTime
+        val firstBatchSize = TargetParticipantAcsPersistence.contractsToRequestEachTime
         for {
           _ <- execUntilDone(tp, "initialize tp")(_.onConnected())
           _ <- execUntilDone(tp, "receive acs batch")(
@@ -342,7 +350,7 @@ final class PartyReplicationProcessorTest
       "complain if SP sends more contract batches than requested" onlyRunWith ProtocolVersion.dev inUS {
         env =>
           import env.*
-          val batchSize = PartyReplicationTargetParticipantProcessor.contractsToRequestEachTime
+          val batchSize = TargetParticipantAcsPersistence.contractsToRequestEachTime
           for {
             _ <- execUntilDone(tp, "initialize tp")(_.onConnected())
             // Make the TP processor wait to prevent it from automatically requesting more contracts
@@ -363,7 +371,7 @@ final class PartyReplicationProcessorTest
         env =>
           import env.*
           val batchSizeTooLarge =
-            PartyReplicationTargetParticipantProcessor.contractsToRequestEachTime.increment
+            TargetParticipantAcsPersistence.contractsToRequestEachTime.increment
           for {
             _ <- execUntilDone(tp, "initialize tp")(_.onConnected())
             // Make the TP processor wait to prevent it from automatically requesting more contracts
@@ -408,7 +416,7 @@ final class PartyReplicationProcessorTest
       "log upon problem sending message to SP" onlyRunWith ProtocolVersion.dev inUS { env =>
         import env.*
         // Fail TP send on the second message to request more contracts
-        val acsBatchSize = PartyReplicationTargetParticipantProcessor.contractsToRequestEachTime
+        val acsBatchSize = TargetParticipantAcsPersistence.contractsToRequestEachTime
         val secondRequestUpperBound = acsBatchSize.unwrap * 2 - 1
         tpSendErrorOverrides = Map(
           s"request next set of contracts up to ordinal $secondRequestUpperBound" -> "simulated request batch error"
@@ -419,7 +427,7 @@ final class PartyReplicationProcessorTest
             _ <- execUntilDone(tp, "receive acs batch")(
               _.handlePayload(
                 createAcsBatch(
-                  PartyReplicationTargetParticipantProcessor.contractsToRequestEachTime
+                  TargetParticipantAcsPersistence.contractsToRequestEachTime
                 )
               )
             )

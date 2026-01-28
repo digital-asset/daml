@@ -15,7 +15,7 @@ import com.digitalasset.canton.platform.apiserver.services.command.interactive.c
   PreparedTransactionEncoder,
 }
 import com.digitalasset.canton.protocol.hash.HashTracer
-import com.digitalasset.canton.util.{ConcurrentBufferedLogger, HexString, ResourceUtil}
+import com.digitalasset.canton.util.{HexString, ResourceUtil}
 import com.digitalasset.canton.version.{CommonGenerators, HashingSchemeVersion}
 import monocle.macros.syntax.lens.*
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
@@ -43,16 +43,6 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
   override protected def additionalConfigTransform: Seq[ConfigTransform] = Seq(
     _.focus(_.parameters.portsFile).replace(Option(portsFiles.pathAsString))
   )
-  private def mkProcessLogger(logErrors: Boolean = true) = new ConcurrentBufferedLogger {
-    override def out(s: => String): Unit = {
-      logger.info(s)
-      super.out(s)
-    }
-    override def err(s: => String): Unit = {
-      if (logErrors) logger.error(s)
-      super.err(s)
-    }
-  }
   private val processLogger = mkProcessLogger()
 
   override def beforeAll(): Unit = {

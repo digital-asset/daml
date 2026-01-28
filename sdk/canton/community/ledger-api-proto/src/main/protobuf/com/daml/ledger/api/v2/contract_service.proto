@@ -1,0 +1,52 @@
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+import "com/daml/ledger/api/v2/event.proto";
+
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+option java_outer_classname = "ContractServiceOuterClass";
+option java_package = "com.daml.ledger.api.v2";
+
+// This service is experimental / alpha, therefore no backwards compatibility is guaranteed.
+service ContractService {
+  // Looking up contract data by contract ID.
+  // This endpoint is experimental / alpha, therefore no backwards compatibility is guaranteed.
+  // This endpoint must not be used to look up contracts which entered the participant via party replication
+  // or repair service.
+  // If there is no contract exist with the contract ID, or there is no intersection with the querying_parties,
+  // an CONTRACT_PAYLOAD_NOT_FOUND error will be raised.
+  rpc GetContract(GetContractRequest) returns (GetContractResponse);
+}
+
+message GetContractRequest {
+  // The ID of the contract.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string contract_id = 1;
+
+  // The list of querying parties
+  // The stakeholders of the referenced contract must have an intersection with any of these parties
+  // to return the result.
+  // Optional, if no querying_parties specified, all possible contracts could be returned.
+  repeated string querying_parties = 2;
+}
+
+message GetContractResponse {
+  // The representative_package_id will be always set to the contract package ID, therefore this endpoint should
+  // not be used to lookup contract which entered the participant via party replication or repair service.
+  // The witnesses field will contain only the querying_parties which are also stakeholders of the contract as well.
+  // The following fields of the created event cannot be populated, so those should not be used / parsed:
+  //
+  // - offset
+  // - node_id
+  // - created_event_blob
+  // - interface_views
+  // - acs_delta
+  //
+  // Required
+  CreatedEvent created_event = 1;
+}

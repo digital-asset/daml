@@ -11,8 +11,8 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.admin.party.PartyReplicationStatus.{
   AcsIndexingProgress,
   AcsReplicationProgress,
-  AcsReplicationProgressRuntime,
   Disconnected,
+  EphemeralSequencerChannelProgress,
   PartyReplicationAuthorization,
   PartyReplicationError,
   PartyReplicationFailed,
@@ -20,7 +20,10 @@ import com.digitalasset.canton.participant.admin.party.PartyReplicationStatus.{
   SequencerChannelAgreement,
 }
 import com.digitalasset.canton.participant.admin.party.PartyReplicator.AddPartyRequestId
-import com.digitalasset.canton.participant.protocol.party.PartyReplicationProcessor
+import com.digitalasset.canton.participant.protocol.party.{
+  PartyReplicationFileImporter,
+  PartyReplicationProcessor,
+}
 import com.digitalasset.canton.participant.protocol.v30
 import com.digitalasset.canton.protocol.{LfContractId, v30 as v30Topology}
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -69,7 +72,7 @@ final case class PartyReplicationStatus(
   ): PartyReplicationStatus = modifyReplication {
     case None => AcsReplicationProgress.initialize(processor)
     case Some(previous) =>
-      AcsReplicationProgressRuntime(
+      EphemeralSequencerChannelProgress(
         previous.processedContractCount,
         previous.nextPersistenceCounter,
         previous.fullyProcessedAcs,
@@ -376,6 +379,7 @@ object PartyReplicationStatus extends VersioningCompanion[PartyReplicationStatus
     def nextPersistenceCounter: RepairCounter
     def fullyProcessedAcs: Boolean
     def processorO: Option[PartyReplicationProcessor]
+    def fileImporterO: Option[PartyReplicationFileImporter]
 
     def toProtoV30: v30.PartyReplicationStatus.AcsReplicationProgress =
       v30.PartyReplicationStatus.AcsReplicationProgress(
@@ -395,27 +399,49 @@ object PartyReplicationStatus extends VersioningCompanion[PartyReplicationStatus
     }
   }
 
-  final case class AcsReplicationProgressSerializable(
+  /** PersistentProgress contains the db-persisted portion of the ACS replication progress. Before
+    * the progress needs to be updated, this case class needs to be turned into one of the ephemeral
+    * AcsReplicationProgress case classes.
+    */
+  final case class PersistentProgress(
       processedContractCount: NonNegativeInt,
       nextPersistenceCounter: RepairCounter,
       fullyProcessedAcs: Boolean,
   ) extends AcsReplicationProgress {
     override def processorO: Option[PartyReplicationProcessor] = None
+    override def fileImporterO: Option[PartyReplicationFileImporter] = None
   }
 
-  final case class AcsReplicationProgressRuntime(
+  /** EphemeralSequencerChannelProgress holds the ephemeral sequencer channel based ACS replication
+    * status of a party replication source or target participant processor.
+    */
+  final case class EphemeralSequencerChannelProgress(
       processedContractCount: NonNegativeInt,
       nextPersistenceCounter: RepairCounter,
       fullyProcessedAcs: Boolean,
       processor: PartyReplicationProcessor,
   ) extends AcsReplicationProgress {
     override def processorO: Option[PartyReplicationProcessor] = Some(processor)
+    override def fileImporterO: Option[PartyReplicationFileImporter] = None
+  }
+
+  /** EphemeralFileImporterProgress holds the ephemeral file-based ACS import status of a party
+    * replication target participant.
+    */
+  final case class EphemeralFileImporterProgress(
+      processedContractCount: NonNegativeInt,
+      nextPersistenceCounter: RepairCounter,
+      fullyProcessedAcs: Boolean,
+      fileImporter: PartyReplicationFileImporter,
+  ) extends AcsReplicationProgress {
+    override def processorO: Option[PartyReplicationProcessor] = None
+    override def fileImporterO: Option[PartyReplicationFileImporter] = Some(fileImporter)
   }
 
   object AcsReplicationProgress {
     def fromProtoV30(
         proto: v30.PartyReplicationStatus.AcsReplicationProgress
-    ): ParsingResult[AcsReplicationProgressSerializable] = for {
+    ): ParsingResult[PersistentProgress] = for {
       replicatedContractCount <- ProtoConverter.parseNonNegativeInt(
         "replicated_contract_count",
         proto.processedContractCount,
@@ -424,18 +450,26 @@ object PartyReplicationStatus extends VersioningCompanion[PartyReplicationStatus
         "next_persistence_counter",
         proto.nextPersistenceCounter,
       )
-    } yield AcsReplicationProgressSerializable(
+    } yield PersistentProgress(
       replicatedContractCount,
       RepairCounter(nextPersistenceCounter.unwrap),
       proto.fullyProcessedAcs,
     )
 
     def initialize(processor: PartyReplicationProcessor): AcsReplicationProgress =
-      AcsReplicationProgressRuntime(
+      EphemeralSequencerChannelProgress(
         NonNegativeInt.zero,
         RepairCounter.Genesis,
         fullyProcessedAcs = false,
         processor,
+      )
+
+    def initialize(fileImporter: PartyReplicationFileImporter): AcsReplicationProgress =
+      EphemeralFileImporterProgress(
+        NonNegativeInt.zero,
+        RepairCounter.Genesis,
+        fullyProcessedAcs = false,
+        fileImporter,
       )
   }
 

@@ -1,0 +1,7 @@
+-- Note: this file is a repeatable migration, this means that:
+--  - This file can be edited safely
+--  - It is not tracked under Flyways schema V__ versioning
+--  - Flyway still tracks this files application, and will only apply it one time or whenever the file changes
+--  - Do not remove this file, as Flyway will raise an error
+--  - This file is prefixed with triple _ to take precedence among externally dbConfig's parameter repeatable-migrations-paths
+--  - It is only meant to hold idempotent operations like table setting defaults

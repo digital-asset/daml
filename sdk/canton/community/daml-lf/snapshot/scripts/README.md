@@ -22,7 +22,7 @@ graphing data as a multi-row bar chart where:
 Prior to running any of these scripts, it is necessary to first configure which project Dar files and daml-script functions
 should be called. This is done by manually defining a JSON snapshot configuration file for each Daml multi-project.
 
-JSON snapshot configuration files should 
+JSON snapshot configuration files should
 
 ```json
 [
@@ -38,7 +38,7 @@ JSON snapshot configuration files should
 
 To generate and save transaction snapshot and choice name data, run the following shell script:
 ```shell
-./daml-lf/snapshot/scripts/generate-snapshots.sh $SNAPSHOT_CONFIG $DAML_PROJECT $DATA_DIR
+./community/daml-lf/snapshot/scripts/generate-snapshots.sh $SNAPSHOT_CONFIG $DAML_PROJECT $DATA_DIR
 ```
 
 Here:
@@ -50,7 +50,7 @@ Here:
 
 To generate and save JMH benchmarking data, by replaying transaction snapshot files, run the following shell script:
 ```shell
-./daml-lf/snapshot/scripts/generate-benchmarks.sh $SNAPSHOT_CONFIG $DAML_PROJECT $DATA_DIR
+./community/daml-lf/snapshot/scripts/generate-benchmarks.sh $SNAPSHOT_CONFIG $DAML_PROJECT $DATA_DIR
 ```
 
 Here:
@@ -64,7 +64,7 @@ Having generated JMH benchmarking data for 2 versions of a project (e.g. where o
 a revision introduces some Daml choice implementation changes), then the benchmarking results can be graphed and compared
 using:
 ```shell
-python3 ./daml-lf/snapshot/scripts/display-benchmarks.py $BASE_DATA_DIR $UPDATED_DATA_DIR
+python3 ./community/daml-lf/snapshot/scripts/display-benchmarks.py $BASE_DATA_DIR $UPDATED_DATA_DIR
 ```
 
 Here:

@@ -1101,6 +1101,19 @@ object DebuggingHelpers extends LazyLogging {
       alias => ref.testing.pcs_search(alias, activeSet = true, limit = limit),
     )
 
+  /** Helper to query the ACS as seen via the Ledger API and the canton-internal sync state useful
+    * to have the caller compare the contract ids and associated template ids for mismatches.
+    * @param ref
+    *   local or remote participant reference
+    * @param state
+    *   the sync state inspection used to query canton-internal sync state
+    * @param limit
+    *   the maximum number of expected contracts, needs to be large enough to avoid any false
+    *   mismatch warning entries
+    * @return
+    *   a tuple of two maps: first the sync state contract-id to template-id map, second the ledger
+    *   api contract-id to template-id map
+    */
   def get_active_contracts_from_internal_db_state(
       ref: ParticipantReference,
       state: SyncStateInspection,

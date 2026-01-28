@@ -140,6 +140,8 @@ object PartyToParticipantDeclarativeCommon {
   *   For each party mentioned in the target topology, owning participant
   * @param targetTopology
   *   For each party, the required target state
+  * @param onboarding
+  *   For each added participant in the target state, whether to specify the onboarding flag
   *
   * Preconditions:
   *   - `participants` is non-empty
@@ -156,6 +158,7 @@ class PartyToParticipantDeclarative(
       Party,
       Map[PhysicalSynchronizerId, PartyHostingState],
     ],
+    onboarding: Boolean,
 )(implicit executionContext: ExecutionContext, env: TestEnvironment)
     extends PartyToParticipantDeclarativeCommon[Party] {
 
@@ -287,6 +290,11 @@ class PartyToParticipantDeclarative(
 
     val owningParticipant = getOwningParticipantIdO(party).toList.toSet
     val authorizingParticipants = newParticipants ++ owningParticipant
+    val onboardingParticipants =
+      if (onboarding) (targetHosting.map { case (pid, _) =>
+        pid
+      } -- currentParticipantToPermission.keySet)
+      else Set.empty[ParticipantId]
 
     val participantAuthorizations = authorizingParticipants
       .map(getParticipantReference)
@@ -301,6 +309,7 @@ class PartyToParticipantDeclarative(
               forceFlags = forceFlags,
               serial = Some(currentSerialO.fold(PositiveInt.one)(_.increment)),
               partySigningKeys = targetPartySigningKeys,
+              participantsRequiringPartyToBeOnboarded = onboardingParticipants.toSeq,
             )
             .discard
         }
@@ -317,6 +326,7 @@ class PartyToParticipantDeclarative(
           targetHosting,
           currentSerialO,
           targetPartySigningKeys,
+          onboardingParticipants,
         )
 
         defaultParticipant.topology.transactions.load(
@@ -336,6 +346,7 @@ class PartyToParticipantDeclarative(
       targetHosting: Set[(ParticipantId, ParticipantPermission)],
       currentSerialO: Option[Serial],
       signingKeysWithThreshold: Option[SigningKeysWithThreshold],
+      onboardingParticipants: Set[ParticipantId],
   ): TopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant] = TopologyTransaction(
     TopologyChangeOp.Replace,
     serial = currentSerialO.fold(PositiveInt.one)(_.increment),
@@ -344,7 +355,11 @@ class PartyToParticipantDeclarative(
         partyId,
         threshold = targetThreshold,
         targetHosting.map { case (participant, permission) =>
-          HostingParticipant(participant, permission, onboarding = false)
+          HostingParticipant(
+            participant,
+            permission,
+            onboarding = onboardingParticipants.contains(participant),
+          )
         }.toSeq,
         partySigningKeysWithThreshold = signingKeysWithThreshold,
       )
@@ -388,6 +403,7 @@ object PartyToParticipantDeclarative {
         Map[PhysicalSynchronizerId, (PositiveInt, Set[(ParticipantId, ParticipantPermission)])],
       ],
       forceFlags: ForceFlags = ForceFlags.none,
+      onboarding: Boolean = false, // participants added in target topology are marked as onboarding
   )(implicit executionContext: ExecutionContext, env: TestEnvironment): Unit = {
     val participantReference = participants.headOption.getOrElse(
       fail("No participant set in PartyToParticipantDeclarative")
@@ -424,6 +440,7 @@ object PartyToParticipantDeclarative {
             .mapValues((PartyHostingState.apply _).tupled)
             .toMap
       },
+      onboarding,
     ).run(forceFlags)
   }
 

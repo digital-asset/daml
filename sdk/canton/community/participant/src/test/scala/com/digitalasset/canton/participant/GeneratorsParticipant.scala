@@ -14,11 +14,11 @@ import com.digitalasset.canton.participant.admin.party.PartyReplicationStatus
 import com.digitalasset.canton.participant.admin.party.PartyReplicationStatus.{
   AcsIndexingProgress,
   AcsReplicationProgress,
-  AcsReplicationProgressSerializable,
   Disconnected,
   PartyReplicationAuthorization,
   PartyReplicationError,
   PartyReplicationFailed,
+  PersistentProgress,
   ReplicationParams,
   SequencerChannelAgreement,
 }
@@ -206,7 +206,7 @@ final class GeneratorsParticipant(
         fullyReplicatedAcs <- Arbitrary.arbitrary[Boolean]
       } yield {
         // Alternative AcsReplicationProgressRuntime is not serializable (due to processor field)
-        AcsReplicationProgressSerializable(
+        PersistentProgress(
           replicatedContractCount,
           nextPersistenceCounter,
           fullyReplicatedAcs,

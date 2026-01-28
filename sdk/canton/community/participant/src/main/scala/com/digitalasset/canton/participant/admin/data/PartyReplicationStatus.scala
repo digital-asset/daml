@@ -265,8 +265,10 @@ object PartyReplicationStatus {
   private object AcsReplicationProgress {
     def fromInternal(internal: InternalStatus.AcsReplicationProgress): AcsReplicationProgress = {
       val (processedContractCount, fullyProcessedAcs) = internal match {
-        case InternalStatus.AcsReplicationProgressSerializable(a, _b, c) => (a, c)
-        case InternalStatus.AcsReplicationProgressRuntime(a, _b, c, _processor) => (a, c)
+        case InternalStatus.PersistentProgress(count, _, done) => (count, done)
+        case InternalStatus.EphemeralSequencerChannelProgress(count, _, done, _) =>
+          (count, done)
+        case InternalStatus.EphemeralFileImporterProgress(count, _, done, _) => (count, done)
       }
       AcsReplicationProgress(processedContractCount, fullyProcessedAcs)
     }

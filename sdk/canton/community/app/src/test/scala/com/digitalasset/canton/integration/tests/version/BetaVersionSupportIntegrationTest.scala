@@ -24,7 +24,7 @@ trait BetaVersionSupportIntegrationTest
     with HasCloseContext {
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1_S1M1_Manual
+    EnvironmentDefinition.P3S2M2_Manual
       .addConfigTransforms(ConfigTransforms.setBetaSupport(true)*)
       .addConfigTransforms(ConfigTransforms.setAlphaVersionSupport(false)*)
       .addConfigTransforms(

@@ -121,6 +121,7 @@ object ApiServices {
       interactiveSubmissionEnricher: InteractiveSubmissionEnricher,
       logger: TracedLogger,
       packagePreferenceBackend: PackagePreferenceBackend,
+      apiContractService: ApiContractService,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -206,6 +207,7 @@ object ApiServices {
             new PackageServiceAuthorization(apiPackageService, authorizer),
             new UpdateServiceAuthorization(apiUpdateService, authorizer),
             new StateServiceAuthorization(apiStateService, authorizer),
+            new ContractServiceAuthorization(apiContractService, authorizer),
             apiVersionService,
           )
 

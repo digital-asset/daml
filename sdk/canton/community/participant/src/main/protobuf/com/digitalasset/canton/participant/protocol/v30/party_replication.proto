@@ -57,13 +57,13 @@ message PartyReplicationSourceParticipantMessage {
     repeated com.digitalasset.canton.admin.participant.v30.ActiveContract contracts = 1;
   }
 
-  message EndOfACS {
+  message EndOfAcs {
     option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   }
 
   oneof data_or_status {
     AcsBatch acs_batch = 1;
-    EndOfACS end_of_acs = 2;
+    EndOfAcs end_of_acs = 2;
   }
 }
 
