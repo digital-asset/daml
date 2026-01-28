@@ -25,6 +25,7 @@ da_scala_library(
     scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
     deps = [
+        "@maven//:org_slf4j_slf4j_api",
         "//bazel_tools/runfiles:scala_runfiles",
         "@maven//:com_daml_daml_jwt_2_13",
         "@maven//:com_daml_daml_tls_2_13",

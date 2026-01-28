@@ -375,6 +375,7 @@ java_test(
             test_class = "com.daml.AllTests",
             deps = [
                 ":integration-tests-model-%s" % target,
+                "@maven//:com_daml_ledger_api_value_2_13",
                 "@maven//:com_daml_bindings_java",
                 "@maven//:com_google_protobuf_protobuf_java",
                 "@maven//:org_junit_jupiter_junit_jupiter_api",
@@ -429,12 +430,17 @@ da_scala_test(
     deps = [
         ":ledger-tests-model",
         "//bazel_tools/runfiles:scala_runfiles",
-        "@maven//:com_daml_bindings_java",
+        #"@maven//:com_daml_bindings_java",
         "@maven//:com_daml_ledger_common_2_13",
         "@maven//:com_daml_util_observability_2_13",
         "@maven//:com_daml_ledger_resources_2_13",
         "//canton:ledger-resources-test-lib",
-        "@maven//:com_daml_ledger_api_proto",
+        #"//canton:ledger_api_proto",
+        "@maven//:org_slf4j_slf4j_api",
+        "//canton:ledger_api_proto_scala",
+        "//canton:bindings-java",
+        #"@maven//:com_daml_ledger_api_proto",
+        #"@maven//:com_daml_ledger_api_scala_2_13",
         "@maven//:com_daml_ports_2_13",
         "@maven//:com_daml_daml_resources_2_13",
         "@maven//:com_daml_rs_grpc_bridge",
@@ -447,6 +453,8 @@ da_scala_test(
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_reactivex_rxjava2_rxjava",
         "@maven//:org_scalatest_scalatest_compatible",
+        "@maven//:com_thesamet_scalapb_lenses_2_13",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
     ],
 )
 

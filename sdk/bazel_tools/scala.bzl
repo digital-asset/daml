@@ -11,6 +11,7 @@ load(
     "scala_test",
     "scala_test_suite",
 )
+load("@rules_java//java:defs.bzl", "JavaInfo")
 load("@io_bazel_rules_scala//scala/private:common.bzl", "sanitize_string_for_usage")
 load(
     "@io_bazel_rules_scala//jmh:jmh.bzl",

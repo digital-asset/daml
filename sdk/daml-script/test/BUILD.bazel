@@ -253,7 +253,7 @@ da_scala_library(
         "@maven//:com_daml_ledger_common_2_13",
         "@maven//:com_daml_util_observability_2_13",
         "@maven//:com_daml_ledger_resources_2_13",
-        "@maven//:com_daml_ledger_api_proto",
+        #"@maven//:com_daml_ledger_api_proto",
         "@maven//:com_daml_ports_2_13",
         "@maven//:com_daml_daml_resources_2_13",
         "@maven//:com_daml_rs_grpc_bridge",
@@ -273,6 +273,8 @@ da_scala_library(
         "@maven//:com_daml_daml_lf_stable_packages_2_13",
         "@maven//:io_grpc_grpc_api",
         "@maven//:org_scalatest_scalatest_compatible",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -374,6 +376,7 @@ da_scala_test_suite(
         "//canton/community/daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//test-common/canton/it-lib",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -404,7 +407,7 @@ da_scala_test(
         "@maven//:com_daml_ledger_common_2_13",
         "@maven//:com_daml_util_observability_2_13",
         "@maven//:com_daml_ledger_resources_2_13",
-        "@maven//:com_daml_ledger_api_proto",
+        #"@maven//:com_daml_ledger_api_proto",
         "@maven//:com_daml_ports_2_13",
         "@maven//:com_daml_daml_resources_2_13",
         "@maven//:com_daml_rs_grpc_bridge",
@@ -417,6 +420,9 @@ da_scala_test(
         "//canton/community/daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//test-common/canton/it-lib",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:com_thesamet_scalapb_lenses_2_13",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
     ],
 ) if not is_windows else None
 # skipping windows for now, it doesn't seem to like the filegroup `:upgrade-test-files`
@@ -461,6 +467,7 @@ da_scala_test(
         "//test-common/canton/it-lib",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 ) if is_linux_intel else None
 
@@ -559,5 +566,6 @@ da_scala_test_suite(
         "//daml-script/runner:script-runner-lib",
         "//test-common/canton/it-lib",
         "@maven//:com_auth0_java_jwt",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )

@@ -354,6 +354,8 @@ java_binary(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_slf4j_slf4j_api",
+        "//canton:ledger_api_proto_scala",
+        "//canton:bindings-java",
     ],
 )
 
