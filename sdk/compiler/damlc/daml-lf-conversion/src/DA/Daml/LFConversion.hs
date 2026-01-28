@@ -275,6 +275,9 @@ extractModuleContents env@Env{..} coreModule modIface details = do
     mcModInstanceInfo = modInstanceInfoFromDetails details
     mcModSerializableInfo = modSerializableInfo details
         (snd <$> MS.toList mcTemplateBinds)
+        (snd <$> MS.toList mcExceptionBinds)
+        (snd <$> MS.toList mcInterfaceBinds)
+
     mcDepOrphanModules = getDepOrphanModules modIface
     mcExports = md_exports details
     mcFixities = mi_fixities modIface
@@ -427,22 +430,25 @@ data ModSerializableInfo = ModSerializableInfo
         -- that happens later in the LF TypeChecker.
     }
 
-modSerializableInfo :: ModDetails -> [TemplateBinds] -> ModSerializableInfo
-modSerializableInfo ModDetails{..} templates = ModSerializableInfo
+modSerializableInfo
+    :: ModDetails
+    -> [TemplateBinds]
+    -> [ExceptionBinds]
+    -> [InterfaceBinds]
+    -> ModSerializableInfo
+modSerializableInfo ModDetails{..}
+        templates exceptions interfaces = ModSerializableInfo
     { msiSerializable =
-        mkUniqSet fromInstances <>
-        mkUniqSet fromTemplates
-        -- TODO(jaspervdj): check that we also cover interfaces, choices, etc.
+        mkUniqSet fromTypeclassInstances <>
+        mkUniqSet (mapMaybe tbTyCon templates) <>
+        mkUniqSet (map ebTyCon exceptions) <>
+        mkUniqSet (map ibTyCon interfaces)
     }
   where
-    fromInstances = do
+    fromTypeclassInstances = do
         inst@ClsInst {..} <- md_insts
         NameIn DA_Internal_LF "Serializable" <- pure is_cls_nm
         maybeToList $ tyHead (head is_tys)
-
-    fromTemplates = do
-        Just tyCon <- map tbTyCon $ templates
-        pure tyCon
 
     tyHead (TyCoRep.TyConApp tc _) = Just tc
     tyHead (TyCoRep.TyVarTy _)     = Nothing
