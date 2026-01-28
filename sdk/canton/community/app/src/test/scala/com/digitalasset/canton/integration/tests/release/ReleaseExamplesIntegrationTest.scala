@@ -14,21 +14,6 @@ import scala.sys.process.Process
   */
 class ReleaseExamplesIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
   "The release examples" should {
-    "successfully initialize participant with offline root namespace key" in { processLogger =>
-      val offlineExampleDir = File(s"$cantonDir/examples/10-offline-root-namespace-init")
-      val cantonBinRel = offlineExampleDir.relativize(File(cantonBin))
-      Process(
-        s"$cantonBinRel run --config manual-init-example.conf bootstrap.canton",
-        cwd = offlineExampleDir.toJava,
-      ).!(processLogger) shouldBe 0
-      checkOutput(
-        processLogger,
-        shouldContain = Seq(
-          "participant initialization completed successfully"
-        ),
-      )
-    }
-
     "successfully run the interactive topology example" in { processLogger =>
       val interactiveTopologyDir = File(s"$cantonDir/examples/08-interactive-submission")
       val cantonBinRel = interactiveTopologyDir.relativize(File(cantonBin))

@@ -10,9 +10,11 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.util.{GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.version.*
+import com.google.protobuf.ByteString
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 
 import java.io.InputStream
+import java.util.zip.GZIPInputStream
 
 /** Intended as small wrapper around a LAPI active contract, so that its use is versioned.
   */
@@ -86,4 +88,16 @@ object ActiveContract extends VersioningCompanion[ActiveContract] {
     GrpcStreamingUtils
       .parseDelimitedFromTrusted[ActiveContract](source, ActiveContract)
       .map(_.toList)
+
+  def loadAcsSnapshot(
+      acsSnapshot: ByteString
+  ): Either[String, List[ActiveContract]] =
+    for {
+      contracts <- ResourceUtil.withResource(
+        // TODO(i28137): This is vulnerable to zip bombs.
+        new GZIPInputStream(acsSnapshot.newInput())
+      ) { decompressed =>
+        GrpcStreamingUtils.parseDelimitedFromTrusted[ActiveContract](decompressed, ActiveContract)
+      }
+    } yield contracts
 }

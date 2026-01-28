@@ -442,7 +442,7 @@ class OfflineRootNamespaceIntegrationTest
     extends SnippetGenerator(
       File("docs-open/src/sphinx/participant/howtos/secure/keys/namespace_key.rst"),
       File(
-        "community/app/src/pack/examples/10-offline-root-namespace-init/manual-init-example.conf"
+        "community/app/src/test/resources/manual-init-example.conf"
       ),
     ) {
   override final def useStaticIdentity: Boolean = false
@@ -453,11 +453,6 @@ class OfflineRootNamespaceIntegrationTest
     environment.copy(testingConfig =
       environment.testingConfig.copy(participantsWithoutLapiVerification = Set("participant1"))
     )
-  }
-
-  override def afterAll(): Unit = {
-    super.afterAll()
-    better.files.File("tmp/certs").delete(swallowIOExceptions = true)
   }
 }
 

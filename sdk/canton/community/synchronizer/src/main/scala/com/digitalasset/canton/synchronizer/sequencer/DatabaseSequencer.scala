@@ -258,6 +258,7 @@ class DatabaseSequencer(
       cryptoApi,
       eventSignaller,
       topologyClientMember,
+      sequencingTimeBoundExclusiveO = sequencingTimeLowerBoundExclusive,
       metrics,
       timeouts,
       loggerFactory,
