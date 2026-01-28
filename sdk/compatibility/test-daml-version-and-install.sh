@@ -61,10 +61,13 @@ fi
 if [[ $(grep -E '^  1.[0-9]+.[0-9]+' daml-version-all-output | wc -l) -gt 1 ]]; then
   exit_with_message '`daml version --all` returns more than one version of 1.x.y'
 fi
+if [[ $(grep -E '^  2.[0-9]+.[0-9]+' daml-version-all-output | wc -l) -gt 1 ]]; then
+  exit_with_message '`daml version --all` returns more than one version of 2.x.y'
+fi
 
-minor_versions=$(grep -oE '^  2.[0-9]+' daml-version-all-output | grep -oE '[0-9]+$' | sort -g | uniq)
+minor_versions=$(grep -oE '^  3.[0-9]+' daml-version-all-output | grep -oE '[0-9]+$' | sort -g | uniq)
 maximum_minor_version=$(echo "$minor_versions" | tail -n1)
-if [[ "$minor_versions" != "`seq 0 $maximum_minor_version`" ]]; then
+if [[ "$minor_versions" != "`seq 4 $maximum_minor_version`" ]]; then
   exit_with_message '`daml version --all` does not return a full list of every minor version.' "$minor_versions" "$maximum_minor_version"
 fi
 
