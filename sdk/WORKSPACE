@@ -722,7 +722,7 @@ node_repositories(
 
 # TODO use fine-grained managed dependency
 yarn_install(
-    name = "daml_extension_deps_2x",
+    name = "daml_extension_deps_2_10",
     args = ["--frozen-lockfile"],
     package_json = "//compiler/daml-extension:package.json",
     symlink_node_modules = False,
@@ -740,18 +740,18 @@ yarn_install(
 
 # We’ve had a bunch of problems with typescript rules on Windows.
 # Therefore we’ve disabled them completely for now.
-# Since we need to @load stuff in @language_support_ts_deps_2x
+# Since we need to @load stuff in @language_support_ts_deps_2_10
 # and load statements can’t be conditional, we create a dummy
 # workspace on Windows.
 # See #4162 for more details.
 yarn_install(
-    name = "language_support_ts_deps_2x",
+    name = "language_support_ts_deps_2_10",
     args = ["--frozen-lockfile"],
     package_json = "//language-support/ts/packages:package.json",
     symlink_node_modules = False,
     yarn_lock = "//language-support/ts/packages:yarn.lock",
 ) if not is_windows else create_workspace(
-    name = "language_support_ts_deps_2x",
+    name = "language_support_ts_deps_2_10",
     files = {
         "eslint/BUILD.bazel": 'exports_files(["index.bzl"])',
         "eslint/index.bzl": "def eslint_test(*args, **kwargs):\n    pass",
