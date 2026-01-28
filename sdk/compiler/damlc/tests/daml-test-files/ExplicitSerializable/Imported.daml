@@ -9,3 +9,10 @@ data SeriImported = SeriImported with
     deriving (Eq, Show)
 
 instance Serializable SeriImported
+
+data SeriImportedHOT a = SeriImportedHOT with
+  foo : a
+  bar : Party
+    deriving (Eq, Show)
+
+instance Serializable a => Serializable (SeriImportedHOT a)
