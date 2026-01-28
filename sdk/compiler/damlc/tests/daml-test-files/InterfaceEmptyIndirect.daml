@@ -7,7 +7,7 @@
 -- | Test that empty interfaces work fine across modules.
 module InterfaceEmptyIndirect where
 
-import InterfaceEmpty (I, EmptyInterfaceView(..))
+import InterfaceEmptyIndirect.InterfaceEmpty (I, EmptyInterfaceView(..))
 
 template T
   with

@@ -58,6 +58,7 @@ import           System.Directory.Extra
 import           System.Environment.Blank (setEnv)
 import           System.FilePath
 import           System.Process (readProcess)
+import           System.Random.Shuffle (shuffleM)
 import           System.IO
 import           System.IO.Extra
 import           System.Info.Extra (isWindows)
@@ -270,12 +271,13 @@ getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = d
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
-    damlTests <- fmap reverse $
+    damlTests <-
         mconcat @(IO [DamlTestInput])
             [ getDamlTestFiles "compiler/damlc/tests/daml-test-files"
             , getBondTradingTestFiles
             , getCantSkipPreprocessorTestFiles
             ]
+        >>= shuffleM  -- Make sure we can run the tests in any order.
 
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
