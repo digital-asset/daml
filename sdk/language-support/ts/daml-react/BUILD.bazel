@@ -24,7 +24,7 @@ da_ts_library(
     deps = [
         "//language-support/ts/daml-ledger",
         "//language-support/ts/daml-types",
-        "@language_support_ts_deps_2_10//:node_modules",
+        "@language_support_ts_deps_2x_0//:node_modules",
     ],
 ) if not is_windows else None
 
@@ -68,8 +68,8 @@ jest_test(
     deps = [
         "//language-support/ts/daml-ledger",
         "//language-support/ts/daml-types",
-        "@language_support_ts_deps_2_10//@testing-library/react-hooks",
-        "@language_support_ts_deps_2_10//react",
-        "@language_support_ts_deps_2_10//react-test-renderer",
+        "@language_support_ts_deps_2x_0//@testing-library/react-hooks",
+        "@language_support_ts_deps_2x_0//react",
+        "@language_support_ts_deps_2x_0//react-test-renderer",
     ],
 )
