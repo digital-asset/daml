@@ -292,6 +292,11 @@ class (Action m) => CanAbort m
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-lf-abort-93286
 abort :: (CanAbort m) => Text -> m a
 
+-- | This is probably not the right place for this.
+--   TODO(jaspervdj): where should this be placed?
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-lf-serializable-80925
+class Serializable a
+
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-prelude-applicative-9257
 class (Functor f) => Applicative f
 

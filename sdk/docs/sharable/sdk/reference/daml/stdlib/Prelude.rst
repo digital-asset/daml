@@ -105,6 +105,13 @@ Typeclasses
 
   **instance** `CanAbort <class-da-internal-lf-canabort-29060_>`_ (`Either <type-da-types-either-56020_>`_ `Text <type-ghc-types-text-51952_>`_)
 
+.. _class-da-internal-lf-serializable-80925:
+
+**class** `Serializable <class-da-internal-lf-serializable-80925_>`_ a **where**
+
+  This is probably not the right place for this\.
+  TODO(jaspervdj)\: where should this be placed?
+
 .. _class-da-internal-prelude-applicative-9257:
 
 **class** `Functor <class-ghc-base-functor-31205_>`_ f \=\> `Applicative <class-da-internal-prelude-applicative-9257_>`_ f **where**
