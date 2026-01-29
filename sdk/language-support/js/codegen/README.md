@@ -23,7 +23,7 @@ you specify via the `-o` option.
 
 The integration-test suite is started via
 ```
-bazel test //language-support/ts/codegen/tests/...
+bazel test //language-support/js/codegen/tests/...
 ```
 
 Unfortunately, this is a bit slow and not suitable for repeated running during
