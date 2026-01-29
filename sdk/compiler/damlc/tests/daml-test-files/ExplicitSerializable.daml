@@ -9,6 +9,7 @@
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriImportedHOT"]) | has("serializable")
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Helper"]) | has("serializable") | not
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Asset"]) | has("serializable")
+-- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Asset_Increase"]) | has("serializable")
 module ExplicitSerializable where
 
 import qualified ExplicitSerializable.Imported as I
@@ -49,6 +50,7 @@ data Helper = Helper with
 template Asset
   with
     party : Party
+    amount : Decimal
     seriDataType : SeriDataType
     seriEnum : SeriEnum
     seriVariant : SeriVariant
@@ -58,3 +60,11 @@ template Asset
     seriOptional : Optional SeriVariant
   where
     signatory party
+
+    choice Asset_Increase : ContractId Asset
+      with
+        amount : Decimal
+      controller party
+      do
+        create this with
+          amount = amount + this.amount
