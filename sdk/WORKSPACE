@@ -724,7 +724,7 @@ node_repositories(
 # CACHE_BUMP: Change the suffix if you encounter Windows "Cache Poisoning"  in CI.
 #   daml_extension_deps_2x_0 daml_extension_deps_2x_1, ...
 yarn_install(
-    name = "daml_extension_deps_2x_0",
+    name = "daml_extension_deps_2x_1",
     args = ["--frozen-lockfile"],
     package_json = "//compiler/daml-extension:package.json",
     symlink_node_modules = False,
