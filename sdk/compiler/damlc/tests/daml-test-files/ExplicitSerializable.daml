@@ -20,6 +20,19 @@ data SeriDataType = SeriDataType with
 
 instance Serializable SeriDataType
 
+-- NOTE(jaspervdj): We want to check that we don't include the typeclass
+-- instances for Serializable in the LF, since this information is stored
+-- using in the relevant field already.
+--
+-- We create an unrelated typeclass to make sure we get the name encoding
+-- right (since it seems easy to get wrong), ensure that typeclass is
+-- present in the output, and then also unsure the correspondingly-named
+-- Serializable instance isn't there.
+-- @QUERY-LF [ $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_dotted_name($pkg) == ["$$fUnrelatedClassSeriDataType" ]) ] | length == 1
+-- @QUERY-LF [ $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_dotted_name($pkg) == ["$$fSerializableSeriDataType" ]) ] | length == 0
+class UnrelatedClass t
+instance UnrelatedClass SeriDataType
+
 data SeriEnum = Green | Blue deriving (Eq, Show)
 
 instance Serializable SeriEnum
