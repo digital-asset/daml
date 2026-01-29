@@ -2,6 +2,10 @@
 -- All rights reserved.
 
 -- @BUILD-OPTIONS --explicit-serializable=yes
+-- @WARN -Wno-upgrade-exceptions
+-- @WARN -Wno-deprecated-exceptions
+-- @WARN -Wno-deprecated-exceptions
+-- @WARN -Wno-deprecated-exceptions
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriDataType"]) | has("serializable")
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriEnum"]) | has("serializable")
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriVariant"]) | has("serializable")
@@ -43,6 +47,10 @@ data SeriVariant = SVEnum SeriEnum | SVDataType SeriDataType
 
 instance Serializable SeriVariant
 
+exception SeriError
+  where
+    message "SeriError exception"
+
 data Helper = Helper with
   seri : SeriDataType
   foo : Int
@@ -68,3 +76,12 @@ template Asset
       do
         create this with
           amount = amount + this.amount
+
+    nonconsuming choice TryErrorGuard : ()
+      controller party
+      do
+        try do
+          _ <- create this
+          pure ()
+        catch
+          SeriError {} -> pure ()
