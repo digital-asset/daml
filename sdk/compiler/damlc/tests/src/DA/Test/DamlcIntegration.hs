@@ -288,10 +288,10 @@ getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = d
     -- different compiler options.  Fortunately there are not that many options
     -- that we allow toggling in tests, so the size of this map should be small
     -- (< 20).
-    let damlTestsByExtraOpts :: MS.Map [String] [DamlTestInput]
+    let damlTestsByExtraOpts :: MS.Map (S.Set String) [DamlTestInput]
         damlTestsByExtraOpts = fmap reverse $ MS.fromListWith (++) $ do
             damlTest <- damlTests
-            let opts = [opt | BuildOptions opts <- anns damlTest, opt <- opts]
+            let opts = S.fromList [opt | BuildOption opt <- anns damlTest]
             pure (opts, [damlTest])
 
     -- initialise the compiler service
@@ -333,8 +333,9 @@ getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = d
                   vfs
           in
           testGroup ("Tests for Daml-LF " ++ renderPretty version) $ do
-            (extraOpts, tests) <- MS.toList damlTestsByExtraOpts
-            let customOpts = parseExtraOptions extraOpts opts
+            (optsSet, tests) <- MS.toList damlTestsByExtraOpts
+            let extraOpts = S.toList optsSet
+                customOpts = parseExtraOptions extraOpts opts
             pure $ withResource
               (mkIde customOpts)
               shutdown
@@ -571,9 +572,9 @@ data Ann
     | Ledger String FilePath
       -- ^ I expect the output of running the script named <first argument> to match the golden file <second argument>.
       -- The path of the golden file is relative to the `.daml` test file.
-    | BuildOptions [String]
-      -- ^ Extra options passed to damlc.  Note that this only supports a subset
-      -- of real options, currently:
+    | BuildOption String
+      -- ^ Extra build option passed to damlc.  Note that this only supports a
+      -- subset of real options, currently:
       --
       -- * explicit-serializable
 
@@ -599,7 +600,7 @@ readFileAnns file = do
             ("QUERY-LF-STREAM", x) -> Just $ QueryLF x True
             ("TODO",x) -> Just $ Todo x
             ("LEDGER", words -> [script, path]) -> Just $ Ledger script path
-            ("BUILD-OPTIONS", x) -> Just $ BuildOptions $ words x
+            ("BUILD-OPTION", x) -> Just $ BuildOption $ trim x
             _ -> error $ "Can't understand test annotation in " ++ show file ++ ", got " ++ show x
         f _ = Nothing
 

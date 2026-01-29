@@ -1,7 +1,7 @@
 -- Copyright (c) 2026, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @BUILD-OPTIONS --explicit-serializable=yes
+-- @BUILD-OPTION --explicit-serializable=yes
 -- @ERROR range=10:10-13:33; error type checking data type ExplicitSerializableBadImported.Asset: expected serializable type
 module ExplicitSerializableBadImported where
 
