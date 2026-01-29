@@ -721,6 +721,8 @@ node_repositories(
 )
 
 # TODO use fine-grained managed dependency
+# CACHE_BUMP: Change the suffix if you encounter Windows "Cache Poisoning"  in CI.
+#   daml_extension_deps_2x_0 daml_extension_deps_2x_1, ...
 yarn_install(
     name = "daml_extension_deps_2x_0",
     args = ["--frozen-lockfile"],
