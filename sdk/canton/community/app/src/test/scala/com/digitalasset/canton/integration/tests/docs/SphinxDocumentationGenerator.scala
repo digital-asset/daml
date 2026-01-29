@@ -9,7 +9,11 @@ import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameter
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.console.{BufferedProcessLogger, HeadlessConsole, InstanceReference}
+import com.digitalasset.canton.console.{
+  HeadlessConsole,
+  InstanceReference,
+  SplitBufferedProcessLogger,
+}
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
@@ -38,6 +42,7 @@ import org.flywaydb.core.Flyway
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable
 import scala.concurrent.blocking
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 import scala.sys.process.Process
 import scala.util.{Failure, Success, Using}
 
@@ -160,6 +165,7 @@ abstract class SphinxDocumentationGenerator(
       }
       val stepOutputLines = if (out.isEmpty) Array.empty[String] else out.split("\n")
       stepOutputLines.foreach(line => sb.append(s"$indent    $line\n"))
+      if (stepOutputLines.isEmpty) sb.append("\n")
       acc + sb.toString()
     }
 
@@ -175,9 +181,14 @@ abstract class SphinxDocumentationGenerator(
     )
   }
 
+  protected def runAtScenarioStart(scenarioName: String)(implicit
+      env: TestConsoleEnvironment
+  ): Unit = ()
+
   "documentation snippets" should {
     fetchTestScenarios.foreach { scenario =>
       scenario.name onlyRunWith ProtocolVersion.latest in { implicit env =>
+        runAtScenarioStart(scenario.name)
         clue(s"Running scenario ${scenario.name}") {
           val result = Using(new HeadlessConsole(env, logger = logger)) { console =>
             val res = new ScenarioRunner(console, scenario)(logger, loggerFactory).run()
@@ -234,12 +245,23 @@ private object SnippetGenerator {
   }
 }
 
+object ScenarioRunner {
+  // Regex to capture shell commands which output is stored in a variable
+  private val varCaptureRegex = """^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*\$\(([\s\S]*?)\)\s*$""".r
+}
+
 class ScenarioRunner(console: HeadlessConsole, scenario: SnippetScenario)(
     logger: TracedLogger,
     loggerFactory: SuppressingLogger,
 )(implicit env: TestConsoleEnvironment, traceContext: TraceContext) {
   import org.scalatest.Assertions.*
   import org.scalatest.EitherValues.*
+
+  // Records the output of shell commands as the scenario plays out
+  private val shellOutputs = mutable.Map.empty[String, String]
+  // Shared temp directory for shell commands that can be run from anywhere but need a persisting directory
+  // For instance because they write files to the directory
+  private val shellTemporaryDir = File.newTemporaryDirectory(prefix = scenario.name)
 
   def run(): Seq[Seq[SnippetStepResult]] = {
     val counter = new AtomicInteger(0)
@@ -355,9 +377,13 @@ class ScenarioRunner(console: HeadlessConsole, scenario: SnippetScenario)(
 
   private def runShellStep(step: SnippetStep.Shell) = {
     val cmd = step.cmd
-    val cwd = step.cwd.map(better.files.File(_)).getOrElse(File.currentWorkingDirectory)
+    val cwd = step.cwd match {
+      case Some("CANTON") => File.currentWorkingDirectory
+      case Some(path) => File(path)
+      case None => shellTemporaryDir
+    }
 
-    val processLogger = new BufferedProcessLogger {
+    val processLogger = new SplitBufferedProcessLogger {
       override def out(s: => String): Unit = {
         logger.info(s)
         super.out(s)
@@ -368,11 +394,39 @@ class ScenarioRunner(console: HeadlessConsole, scenario: SnippetScenario)(
       }
     }
 
-    logger.debug(s"Running shell $cmd of line ${step.line}")
-    assert(
-      Process(Seq("/bin/sh", "-c", cmd), cwd = cwd.toJava).!(processLogger) == 0,
-      s"Shell command $cmd exited with non 0 code:\n ${processLogger.output()}",
-    )
+    // Capture the variable the command output is assigned to, if any
+    val (varCaptureO, actualCommand) = cmd match {
+      case ScenarioRunner.varCaptureRegex(variable, cmd) =>
+        (Some(variable.trim), cmd.trim)
+      case _ =>
+        (None, cmd)
+    }
+
+    // Strip all indentation on multiline commands
+    val trimmedCommand = actualCommand.lines().map(_.stripIndent()).toList.asScala.mkString("\n")
+
+    logger.debug(s"Running shell $trimmedCommand of line ${step.line}")
+    val run = Process(
+      Seq("/bin/sh", "-c", trimmedCommand),
+      cwd = cwd.toJava,
+      extraEnv = shellOutputs.toSeq *,
+    ).run(processLogger)
+
+    val exitCode = run.exitValue()
+
+    val output = processLogger.output()
+
+    if (exitCode != 0) {
+      fail(
+        s"Shell command $trimmedCommand exited with $exitCode code:\n Stdout: $output Stderr: ${processLogger
+            .error()} \n Env:\n${shellOutputs.map { case (k, v) => s"$k=$v" }.mkString("\n")}"
+      )
+    }
+
+    // If the result is captured in a variable, record it so we can add it to the environment for next commands
+    varCaptureO.foreach { varName =>
+      shellOutputs.put(varName, output.stripLineEnd)
+    }
     SnippetStepResult(step, Seq())
   }
 
@@ -420,6 +474,23 @@ class ExternalSigningOnboardingIntegrationTest
       ),
     )
 
+class ExternalSigningOnboardingLapiIntegrationTest
+    extends SnippetGenerator(
+      File("docs-open/src/sphinx/sdk/tutorials/app-dev/external_signing_onboarding_lapi.rst"),
+      File(
+        "community/app/src/test/resources/examples/08-interactive-submission/interactive-submission.conf"
+      ),
+    ) {
+  override protected def runAtScenarioStart(scenarioName: String)(implicit
+      env: TestConsoleEnvironment
+  ): Unit =
+    env.environment.writePortsFile()
+  override def afterAll(): Unit = {
+    super.afterAll()
+    File("canton_ports.json").delete(swallowIOExceptions = true)
+  }
+}
+
 class ExternalSigningSubmissionIntegrationTest
     extends SnippetGenerator(
       File("docs-open/src/sphinx/sdk/tutorials/app-dev/external_signing_submission.rst"),
@@ -434,15 +505,24 @@ class ExternalMultiHostedPartyOnboardingDocsIntegrationTest
         "docs-open/src/sphinx/sdk/tutorials/app-dev/external_signing_onboarding_multihosted.rst"
       ),
       File(
-        "community/app/src/test/resources/examples/01-simple-topology/simple-topology.conf"
+        "community/app/src/test/resources/examples/08-interactive-submission/interactive-submission.conf"
       ),
-    )
+    ) {
+  override protected def runAtScenarioStart(scenarioName: String)(implicit
+      env: TestConsoleEnvironment
+  ): Unit =
+    env.environment.writePortsFile()
+  override def afterAll(): Unit = {
+    super.afterAll()
+    File("canton_ports.json").delete(swallowIOExceptions = true)
+  }
+}
 
 class OfflineRootNamespaceIntegrationTest
     extends SnippetGenerator(
       File("docs-open/src/sphinx/participant/howtos/secure/keys/namespace_key.rst"),
       File(
-        "community/app/src/pack/examples/10-offline-root-namespace-init/manual-init-example.conf"
+        "community/app/src/test/resources/manual-init-example.conf"
       ),
     ) {
   override final def useStaticIdentity: Boolean = false
@@ -453,11 +533,6 @@ class OfflineRootNamespaceIntegrationTest
     environment.copy(testingConfig =
       environment.testingConfig.copy(participantsWithoutLapiVerification = Set("participant1"))
     )
-  }
-
-  override def afterAll(): Unit = {
-    super.afterAll()
-    better.files.File("tmp/certs").delete(swallowIOExceptions = true)
   }
 }
 
@@ -684,6 +759,12 @@ class IdentityManagementCookbook
     super.afterAll()
   }
 }
+
+class ExternalPartiesDocumentationIntegrationTest
+    extends SnippetGenerator(
+      File("docs-open/src/sphinx/participant/howtos/operate/parties/external_parties.rst"),
+      File("community/app/src/test/resources/examples/01-simple-topology/simple-topology.conf"),
+    )
 
 class PartyReplicationDocumentationIntegrationTest
     extends SnippetGenerator(

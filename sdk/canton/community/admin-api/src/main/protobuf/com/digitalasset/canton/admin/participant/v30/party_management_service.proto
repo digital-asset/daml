@@ -30,13 +30,25 @@ service PartyManagementService {
   // this target participant authorizes the topology proposal as part of this endpoint in
   // a specific, intermediate step, and therefore the target participant signature must not
   // already be in place prior to the call.
+  //
+  // Returns a 'request_id' that is stable across each retry with the same request parameters.
   rpc AddPartyAsync(AddPartyAsyncRequest) returns (AddPartyAsyncResponse);
+
+  // Online party replication endpoint.
+  //
+  // Add a party already hosted on one or more source participants to this target participant
+  // in the specified synchronizer along with the party's Active Contract Set (ACS) streamed
+  // in the request.
+  // Uploads the ACS synchronously and then performs the party addition asynchronously.
+  //
+  // Returns a 'request_id' that is stable across each retry with the same request parameters.
+  rpc AddPartyWithAcsAsync(stream AddPartyWithAcsAsyncRequest) returns (AddPartyWithAcsAsyncResponse);
 
   // Online party replication endpoint.
   //
   // Status endpoint that given an add_party_request_id returns status information about progress,
   // completion, or errors of a previous call to AddPartyAsync on the source or target
-  // participant.
+  // participant, or a previous call to AddPartyWithAcs on the target participant.
   //
   // Note that the status reflects the state as perceived by this participant and does not
   // imply the state of other participants. The status on the target participant is more
@@ -45,12 +57,12 @@ service PartyManagementService {
   // successfully.
   rpc GetAddPartyStatus(GetAddPartyStatusRequest) returns (GetAddPartyStatusResponse);
 
-  // Offline party replication focused ACS export.
+  // Online and offline party replication ACS export.
   //
   // Exports the ACS of a single party from a source participant, so that the party can be
   // replicated onto a target participant.
   //
-  // This endpoint works in conjunction with the ImportPartyAcs endpoint.
+  // This endpoint works in conjunction with the AddPartyWithAcs and ImportPartyAcs endpoints.
   rpc ExportPartyAcs(ExportPartyAcsRequest) returns (stream ExportPartyAcsResponse);
 
   // Offline party replication focused ACS import.
@@ -100,6 +112,14 @@ service PartyManagementService {
 message AddPartyAsyncRequest {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
+  // Arguments common among AddPartyAsync and AddPartyWithAcs requests.
+  // Required
+  AddPartyArguments arguments = 1;
+}
+
+message AddPartyArguments {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
   // The party to replicate
   // Required
   string party_id = 1;
@@ -119,6 +139,28 @@ message AddPartyAsyncRequest {
 }
 
 message AddPartyAsyncResponse {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
+  // The identifier used to uniquely track the add party request.
+  string add_party_request_id = 1;
+}
+
+message AddPartyWithAcsAsyncRequest {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
+  // The raw binary of the ACS snapshot to be imported
+  // The binary content does not align on individual active contracts! It may contain bytes that are part of
+  // an active contract, or include several active contracts - depending on how much data fits into the
+  // configured gRPC message size.
+  // Required
+  bytes acs_snapshot = 1;
+
+  // The add party arguments used for request validation and initialization.
+  // Required for the first message of the stream, should be empty for subsequent messages.
+  AddPartyArguments arguments = 2;
+}
+
+message AddPartyWithAcsAsyncResponse {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   // The identifier used to uniquely track the add party request.

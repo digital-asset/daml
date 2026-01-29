@@ -60,14 +60,7 @@ import com.digitalasset.canton.platform.{
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.store.packagemeta.PackageMetadata.PackageResolution
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{
-  FullIdentifier,
-  Identifier,
-  NameTypeConRef,
-  PackageId,
-  PackageRef,
-  TypeConRef,
-}
+import com.digitalasset.daml.lf.data.Ref.{FullIdentifier, Identifier, NameTypeConRef, PackageId}
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.google.rpc.Status
 import io.grpc.StatusRuntimeException
@@ -599,33 +592,26 @@ object IndexServiceImpl {
       contextualizedErrorLogger: ErrorLoggingContext
   ): Either[DamlErrorWithDefiniteAnswer, Unit] = {
     val unknownPackageNames = Set.newBuilder[Ref.PackageName]
-    val unknownTemplateIds = Set.newBuilder[Identifier]
-    val unknownInterfaceIds = Set.newBuilder[Identifier]
     val packageNamesWithNoTemplatesForQualifiedNameBuilder =
       Set.newBuilder[(Ref.PackageName, Ref.QualifiedName)]
     val packageNamesWithNoInterfacesForQualifiedNameBuilder =
       Set.newBuilder[(Ref.PackageName, Ref.QualifiedName)]
 
-    def checkTypeConRef(
+    def checkNameTypeConRef(
         knownIds: Set[Identifier],
-        handleUnknownIdForPkgName: (((Ref.PackageName, Ref.QualifiedName)) => Unit),
-        handleUnknownId: (Identifier => Unit),
-        handleUnknownPkgName: (Ref.PackageName => Unit),
-    )(typeConRef: TypeConRef): Unit = typeConRef match {
-      case TypeConRef(PackageRef.Name(packageName), qualifiedName) =>
-        metadata.packageNameMap.get(packageName) match {
-          case Some(PackageResolution(_, allPackageIdsForName))
-              if !allPackageIdsForName.view
-                .map(Ref.Identifier(_, qualifiedName))
-                .exists(knownIds) =>
-            handleUnknownIdForPkgName(packageName -> qualifiedName)
-          case None => handleUnknownPkgName(packageName)
-          case _ => ()
-        }
-
-      case TypeConRef(PackageRef.Id(packageId), qName) =>
-        val id = Identifier(packageId, qName)
-        if (!knownIds.contains(id)) handleUnknownId(id)
+        handleUnknownIdForPkgName: ((Ref.PackageName, Ref.QualifiedName)) => Unit,
+        handleUnknownPkgName: Ref.PackageName => Unit,
+    )(nameTypeConRef: NameTypeConRef): Unit = {
+      val packageName = nameTypeConRef.pkg.name
+      metadata.packageNameMap.get(packageName) match {
+        case Some(PackageResolution(_, allPackageIdsForName))
+            if !allPackageIdsForName.view
+              .map(Ref.Identifier(_, nameTypeConRef.qualifiedName))
+              .exists(knownIds) =>
+          handleUnknownIdForPkgName(packageName -> nameTypeConRef.qualifiedName)
+        case None => handleUnknownPkgName(packageName)
+        case _ => ()
+      }
     }
 
     val cumulativeFilters = apiEventFormat.filtersByParty.iterator.map(
@@ -637,28 +623,24 @@ object IndexServiceImpl {
         templateFilters.iterator
           .map(_.templateTypeRef)
           .foreach(
-            checkTypeConRef(
+            checkNameTypeConRef(
               metadata.templates,
-              (packageNamesWithNoTemplatesForQualifiedNameBuilder += _),
-              (unknownTemplateIds += _),
-              (unknownPackageNames += _),
+              packageNamesWithNoTemplatesForQualifiedNameBuilder += _,
+              unknownPackageNames += _,
             )
           )
         interfaceFilters.iterator
           .map(_.interfaceTypeRef)
           .foreach(
-            checkTypeConRef(
+            checkNameTypeConRef(
               metadata.interfaces,
-              (packageNamesWithNoInterfacesForQualifiedNameBuilder += _),
-              (unknownInterfaceIds += _),
-              (unknownPackageNames += _),
+              packageNamesWithNoInterfacesForQualifiedNameBuilder += _,
+              unknownPackageNames += _,
             )
           )
     }
 
     val packageNames = unknownPackageNames.result()
-    val templateIds = unknownTemplateIds.result()
-    val interfaceIds = unknownInterfaceIds.result()
     val packageNamesWithNoTemplatesForQualifiedName =
       packageNamesWithNoTemplatesForQualifiedNameBuilder.result()
     val packageNamesWithNoInterfacesForQualifiedName =
@@ -683,14 +665,6 @@ object IndexServiceImpl {
         RequestValidationErrors.NotFound.NoInterfaceForPackageNameAndQualifiedName.Reject(
           packageNamesWithNoInterfacesForQualifiedName
         ),
-      )
-      _ <- Either.cond(
-        templateIds.isEmpty && interfaceIds.isEmpty,
-        (),
-        RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound
-          .Reject(unknownTemplatesOrInterfaces =
-            (templateIds.view.map(Left(_)) ++ interfaceIds.view.map(Right(_))).toSeq
-          ),
       )
     } yield ()
   }
@@ -850,7 +824,7 @@ object IndexServiceImpl {
           )
         metadata
           .resolveTypeConRef(
-            Ref.TypeConRef(
+            Ref.NameTypeConRef(
               Ref.PackageRef.Name(packageName),
               originalInterfaceImplementation.qualifiedName,
             )

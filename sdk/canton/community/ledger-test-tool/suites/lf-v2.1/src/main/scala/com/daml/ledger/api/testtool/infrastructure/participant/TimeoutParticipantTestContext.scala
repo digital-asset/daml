@@ -796,4 +796,10 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
       transactionFormat: Option[TransactionFormat],
   ): ExecuteSubmissionAndWaitForTransactionRequest =
     delegate.executeSubmissionAndWaitForTransactionRequest(party, preparedTx, transactionFormat)
+
+  override def contract(
+      queryingParties: Option[Seq[Party]],
+      contractId: String,
+  ): Future[Option[CreatedEvent]] =
+    delegate.contract(queryingParties, contractId)
 }

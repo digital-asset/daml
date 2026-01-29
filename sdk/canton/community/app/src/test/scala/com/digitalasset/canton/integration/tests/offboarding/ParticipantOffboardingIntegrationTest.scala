@@ -30,7 +30,7 @@ class ParticipantOffboardingIntegrationTest
   registerPlugin(new UseBftSequencer(loggerFactory))
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1_Manual
+    EnvironmentDefinition.P3S1M1_Manual
 
   private var synchronizerId: SynchronizerId = _
   private var staticParameters: StaticSynchronizerParameters = _

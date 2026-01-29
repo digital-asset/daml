@@ -97,7 +97,7 @@ trait PackageOps extends NamedLogging {
 class PackageOpsImpl(
     val participantId: ParticipantId,
     stateManager: SyncPersistentStateManager,
-    topologyManagerLookup: TopologyManagerLookup,
+    topologyLookup: TopologyLookup,
     initialProtocolVersion: ProtocolVersion,
     val loggerFactory: NamedLoggerFactory,
     val timeouts: ProcessingTimeout,
@@ -262,12 +262,14 @@ class PackageOpsImpl(
             EitherT.pure[FutureUnlessShutdown, ParticipantTopologyManagerError](state)
           else
             for {
-              topologyManager <- topologyManagerLookup.activeBySynchronizerId(synchronizerId)
+              topologyManager <- topologyLookup.activeBySynchronizerId(synchronizerId)
               newResultsWithinPage <- getVettedPackagesForSynchronizer(
                 topologyManager = topologyManager,
                 participantsFilter = participantsFilter,
                 pageLimit = remainingPageSize,
                 participantStartExclusive = participantStartExclusive,
+                // ListVettedPackages returns the state as of the approximate topology snapshot
+                useApproximateTopologySnapshot = true,
               )
             } yield {
               val newRemainingPageSize = remainingPageSize - newResultsWithinPage.length
@@ -283,6 +285,7 @@ class PackageOpsImpl(
       participantsFilter: Option[NonEmpty[Set[ParticipantId]]],
       pageLimit: Int,
       participantStartExclusive: Option[ParticipantId] = None,
+      useApproximateTopologySnapshot: Boolean,
   )(implicit
       tc: TraceContext
   ): EitherT[
@@ -290,11 +293,18 @@ class PackageOpsImpl(
     ParticipantTopologyManagerError,
     Seq[ParticipantVettedPackages],
   ] = for {
+    asOf <-
+      if (useApproximateTopologySnapshot)
+        topologyLookup.lookupTopologyClientByPsId(topologyManager.psid).map(_.approximateTimestamp)
+      else
+        EitherT.pure[FutureUnlessShutdown, ParticipantTopologyManagerError](
+          CantonTimestamp.MaxValue
+        )
     vettedPackages <- EitherT.right(
       synchronizeWithClosing(functionFullName)(
         topologyManager.store
           .findPositiveTransactions(
-            asOf = CantonTimestamp.MaxValue,
+            asOf = asOf,
             asOfInclusive = true,
             isProposal = false,
             types = Seq(VettedPackages.code),
@@ -375,11 +385,15 @@ class PackageOpsImpl(
     vettingExecutionQueue.executeEUS(
       description = operationName,
       execution = for {
-        topologyManager <- topologyManagerLookup.byPhysicalSynchronizerId(psid)
+        topologyManager <- topologyLookup.lookupTopologyManagerByPsId(psid)
 
         currentState <-
-          getVettedPackagesForSynchronizer(topologyManager, Some(NonEmpty(Set, participantId)), 1)
-            .map(_.headOption)
+          getVettedPackagesForSynchronizer(
+            topologyManager = topologyManager,
+            participantsFilter = Some(NonEmpty(Set, participantId)),
+            pageLimit = 1,
+            useApproximateTopologySnapshot = false,
+          ).map(_.headOption)
 
         currentVettedPackages = currentState.map(_.packages)
         currentVettedPackagesSet = currentVettedPackages.map(_.toSet)

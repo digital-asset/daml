@@ -1438,6 +1438,27 @@ class ProtocolConverters(
       .withFieldConst(_.contractKey, toCirce(contractKey.getOrElse(ujson.Null)))
       .transform
   }
+
+  object GetContractResponse
+      extends ProtocolConverter[
+        lapi.contract_service.GetContractResponse,
+        JsContractService.GetContractResponse,
+      ] {
+    def toJson(response: lapi.contract_service.GetContractResponse)(implicit
+        traceContext: TraceContext
+    ): Future[JsContractService.GetContractResponse] =
+      CreatedEvent
+        .toJson(response.createdEvent.getOrElse(invalidArgument("empty", "non-empty transaction")))
+        .map(JsContractService.GetContractResponse(_))
+
+    def fromJson(response: JsContractService.GetContractResponse)(implicit
+        traceContext: TraceContext
+    ): Future[lapi.contract_service.GetContractResponse] =
+      CreatedEvent
+        .fromJson(response.createdEvent)
+        .map(Some(_))
+        .map(lapi.contract_service.GetContractResponse(_))
+  }
 }
 
 object IdentifierConverter extends ConversionErrorSupport {

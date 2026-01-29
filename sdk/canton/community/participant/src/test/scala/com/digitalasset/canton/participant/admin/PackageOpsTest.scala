@@ -26,11 +26,11 @@ import com.digitalasset.canton.participant.topology.{
   PackageOps,
   PackageOpsImpl,
   TopologyComponentFactory,
-  TopologyManagerLookup,
+  TopologyLookup,
 }
 import com.digitalasset.canton.store.{IndexedPhysicalSynchronizer, IndexedSynchronizer}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, TopologySnapshot}
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.{
@@ -316,7 +316,7 @@ class PackageOpsTest extends PackageOpsTestBase {
     "query synchronizers in the correct order" in withTestSetupSync2 { env =>
       import env.*
 
-      arrangeCurrentlyVetted(List(pkgId1))
+      arrangeCurrentlyVetted(List(pkgId1), queryAtApproximateTime = true)
       packageOps
         .getVettedPackages(
           ListVettedPackagesOpts(None, None, InitialPageToken, PositiveInt.tryCreate(100))
@@ -338,35 +338,28 @@ class PackageOpsTest extends PackageOpsTestBase {
   protected class TestSetup(override val includeSync2InStateManager: Boolean)
       extends CommonTestSetup {
     val topologyManagerSync1 = mock[SynchronizerTopologyManager]
-    when(topologyManagerSync1.psid).thenReturn(synchronizerId1)
     val topologyManagerSync2 = mock[SynchronizerTopologyManager]
-    when(topologyManagerSync2.psid).thenReturn(synchronizerId2)
     val topologyManagerSync3 = mock[SynchronizerTopologyManager]
-    when(topologyManagerSync3.psid).thenReturn(synchronizerId3)
 
-    for {
-      topologyManager <- Seq(topologyManagerSync1, topologyManagerSync2, topologyManagerSync3)
-    } yield {
-      val topologyStore = mock[TopologyStore[SynchronizerStore]]
-      when(topologyManager.store).thenReturn(topologyStore)
-    }
+    val topologyTestSetup: Map[
+      PhysicalSynchronizerId,
+      (SynchronizerTopologyManager, SynchronizerTopologyClient, CantonTimestamp),
+    ] = Map(
+      synchronizerId1 -> (topologyManagerSync1, mock[SynchronizerTopologyClient], CantonTimestamp
+        .assertFromLong(1337L)),
+      synchronizerId2 -> (topologyManagerSync2, mock[SynchronizerTopologyClient], CantonTimestamp
+        .assertFromLong(1338L)),
+      synchronizerId3 -> (topologyManagerSync3, mock[SynchronizerTopologyClient], CantonTimestamp
+        .assertFromLong(1339L)),
+    )
 
     val packageOps = new PackageOpsImpl(
       participantId = participantId1,
       stateManager = stateManager,
-      topologyManagerLookup = new TopologyManagerLookup(
-        lookupByPsid = { psid =>
-          if (psid == topologyManagerSync1.psid) Some(topologyManagerSync1)
-          else if (psid == topologyManagerSync2.psid) Some(topologyManagerSync2)
-          else if (psid == topologyManagerSync3.psid) Some(topologyManagerSync3)
-          else None
-        },
-        lookupActivePsidByLsid = { lsid =>
-          if (lsid == topologyManagerSync1.psid.logical) Some(topologyManagerSync1.psid)
-          else if (lsid == topologyManagerSync2.psid.logical) Some(topologyManagerSync2.psid)
-          else if (lsid == topologyManagerSync3.psid.logical) Some(topologyManagerSync3.psid)
-          else None
-        },
+      topologyLookup = new TopologyLookup(
+        lookupTopologyManagerByPsid = topologyTestSetup.get(_).map(_._1),
+        lookupActivePsidByLsid = lsid => topologyTestSetup.keySet.find(_.logical == lsid),
+        lookupTopologyClientByPsid = topologyTestSetup.view.mapValues(_._2).get,
       ),
       initialProtocolVersion = testedProtocolVersion,
       loggerFactory = loggerFactory,
@@ -374,13 +367,20 @@ class PackageOpsTest extends PackageOpsTestBase {
       futureSupervisor = futureSupervisor,
     )
 
-    def arrangeCurrentlyVetted(currentlyVettedPackages: List[LfPackageId]) =
+    def arrangeCurrentlyVetted(
+        currentlyVettedPackages: List[LfPackageId],
+        queryAtApproximateTime: Boolean = false,
+    ) =
       for {
-        topologyManager <- Seq(topologyManagerSync1, topologyManagerSync2, topologyManagerSync3)
+        (psId, (topologyManager, topologyClient, approxTime)) <- topologyTestSetup
       } yield {
+        when(topologyManager.store).thenReturn(mock[TopologyStore[SynchronizerStore]])
+        when(topologyManager.psid).thenReturn(psId)
+        when(topologyClient.approximateTimestamp).thenReturn(approxTime)
+        val asOfExpectedTime = if (queryAtApproximateTime) approxTime else CantonTimestamp.MaxValue
         when(
           topologyManager.store.findPositiveTransactions(
-            eqTo(CantonTimestamp.MaxValue),
+            eqTo(asOfExpectedTime),
             eqTo(true),
             eqTo(false),
             eqTo(Seq(VettedPackages.code)),
@@ -396,7 +396,7 @@ class PackageOpsTest extends PackageOpsTestBase {
 
         when(
           topologyManager.store.findPositiveTransactions(
-            eqTo(CantonTimestamp.MaxValue),
+            eqTo(asOfExpectedTime),
             eqTo(true),
             eqTo(false),
             eqTo(Seq(VettedPackages.code)),

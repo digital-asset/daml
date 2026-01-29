@@ -353,12 +353,13 @@ class ParticipantNodeBootstrap(
       val packageOps = new PackageOpsImpl(
         participantId = participantId,
         stateManager = manager,
-        topologyManagerLookup = new TopologyManagerLookup(
-          lookupByPsid = psid =>
+        topologyLookup = new TopologyLookup(
+          lookupTopologyManagerByPsid = psid =>
             cantonSyncService.get
               .flatMap(_.syncPersistentStateManager.get(psid))
               .map(_.topologyManager),
           lookupActivePsidByLsid = lookupActivePSId,
+          lookupTopologyClientByPsid = psId => lookupTopologyClient(SynchronizerStore(psId)),
         ),
         initialProtocolVersion = ProtocolVersion.latest,
         loggerFactory = ParticipantNodeBootstrap.this.loggerFactory,

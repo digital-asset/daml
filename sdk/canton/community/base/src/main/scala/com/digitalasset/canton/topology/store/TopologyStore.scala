@@ -5,6 +5,7 @@ package com.digitalasset.canton.topology.store
 
 import cats.Monoid
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
@@ -205,30 +206,6 @@ object StoredTopologyTransaction
 
   type GenericStoredTopologyTransaction =
     StoredTopologyTransaction[TopologyChangeOp, TopologyMapping]
-  type PositiveStoredTopologyTransaction =
-    StoredTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]
-
-  /** @return
-    *   `true` if both transactions are the same without comparing the signatures, `false` otherwise
-    */
-  def equalIgnoringSignatures(
-      a: GenericStoredTopologyTransaction,
-      b: GenericStoredTopologyTransaction,
-  ): Boolean = a match {
-    case StoredTopologyTransaction(
-          b.sequenced,
-          b.validFrom,
-          b.validUntil,
-          SignedTopologyTransaction(
-            b.transaction.transaction,
-            _ignoreSignatures,
-            b.transaction.isProposal,
-          ),
-          b.rejectionReason,
-        ) =>
-      true
-    case _ => false
-  }
 }
 
 final case class ValidatedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapping](

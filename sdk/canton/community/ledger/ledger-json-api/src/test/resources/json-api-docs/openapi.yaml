@@ -2326,6 +2326,42 @@ paths:
       security:
       - httpAuth: []
       - apiKeyAuth: []
+  /v2/contracts/contract-by-id:
+    post:
+      description: |-
+        Looking up contract data by contract ID.
+        This endpoint is experimental / alpha, therefore no backwards compatibility is guaranteed.
+        This endpoint must not be used to look up contracts which entered the participant via party replication
+        or repair service.
+      operationId: postV2ContractsContract-by-id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetContractRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetContractResponse'
+        '400':
+          description: 'Invalid value, Invalid value for: body'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
 components:
   schemas:
     AllocateExternalPartyRequest:
@@ -3886,6 +3922,48 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ConnectedSynchronizer'
+    GetContractRequest:
+      title: GetContractRequest
+      type: object
+      required:
+      - contractId
+      properties:
+        contractId:
+          description: |-
+            The ID of the contract.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Required
+          type: string
+        queryingParties:
+          description: |-
+            The list of querying parties
+            The stakeholders of the referenced contract must have an intersection with any of these parties
+            to return the result.
+            Optional, if no querying_parties specified, all possible contracts could be returned.
+          type: array
+          items:
+            type: string
+    GetContractResponse:
+      title: GetContractResponse
+      type: object
+      required:
+      - createdEvent
+      properties:
+        createdEvent:
+          $ref: '#/components/schemas/CreatedEvent'
+          description: |-
+            The representative_package_id will be always set to the contract package ID, therefore this endpoint should
+            not be used to lookup contract which entered the participant via party replication or repair service.
+            The witnesses field will contain only the querying_parties which are also stakeholders of the contract as well.
+            The following fields of the created event cannot be populated, so those should not be used / parsed:
+
+            - offset
+            - node_id
+            - created_event_blob
+            - interface_views
+            - acs_delta
+
+            Required
     GetEventsByContractIdRequest:
       title: GetEventsByContractIdRequest
       type: object
@@ -7168,7 +7246,7 @@ components:
         id:
           description: |-
             The user identifier, which must be a non-empty string of at most 128
-            characters that are either alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
+            characters that are either alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:()".
             Required
           type: string
         primaryParty:
