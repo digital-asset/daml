@@ -1528,6 +1528,7 @@ internalTypes = mkUniqSet
     , "Pair", "TextMap", "Map", "Any", "TypeRep"
     , "AnyException"
     , "Experimental"
+    , "Serializable"
     ]
 
 desugarTypes :: UniqSet FastString
