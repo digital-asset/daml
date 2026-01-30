@@ -96,7 +96,7 @@ da_scala_binary(
                 "--dev" if lf_version_is_dev(target) else "",
             ],
             data = [
-                "//canton/community/daml-lf/repl",
+                "@maven//:com_daml_daml_lf_repl_2_13",
                 "testing-dar-%s" % target,
             ],
             deps = [
