@@ -98,10 +98,10 @@ da_scala_library(
     deps = [
         ":daml_lf_archive_proto_java",
         "@maven//:com_daml_crypto_2_13",
-        "@maven//:com_daml_nameof_2_13",
-        "@maven//:com_daml_scala_utils_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_lf_language_2_13",
+        "@maven//:com_daml_nameof_2_13",
+        "@maven//:com_daml_scala_utils_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

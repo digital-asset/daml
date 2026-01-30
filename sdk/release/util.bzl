@@ -261,15 +261,15 @@ protos_zip = rule(
     attrs = {
         "daml_lf_tarballs": attr.label_list(
             allow_files = True,
-            default = ["//canton/community/daml-lf/archive:daml_lf_archive_proto_tar.tar.gz"], # TODO(#30144): Create this from @maven//:com_daml_daml_lf_archive_2_13 instead
+            default = ["//canton/community/daml-lf/archive:daml_lf_archive_proto_tar.tar.gz"],  # TODO(#30144): Create this from @maven//:com_daml_daml_lf_archive_2_13 instead
         ),
         "ledger_api_tarball": attr.label(
             allow_single_file = True,
-            default = Label("//canton:ledger_api_proto_tar.tar.gz"), # TODO(#30144): Create this from @maven//:com_daml_ledger_api_proto instead
+            default = Label("//canton:ledger_api_proto_tar.tar.gz"),  # TODO(#30144): Create this from @maven//:com_daml_ledger_api_proto instead
         ),
         "ledger_api_value_tarball": attr.label(
             allow_single_file = True,
-            default = Label("//canton/community/daml-lf/ledger-api-value:ledger_api_value_proto_tar.tar.gz"), # TODO(#30144): Create this from @maven//:com_daml_ledger_api_value_2_13 instead
+            default = Label("//canton/community/daml-lf/ledger-api-value:ledger_api_value_proto_tar.tar.gz"),  # TODO(#30144): Create this from @maven//:com_daml_ledger_api_value_2_13 instead
         ),
         "zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),

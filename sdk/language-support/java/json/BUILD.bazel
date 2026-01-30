@@ -28,10 +28,10 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:codegen-json-java:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//ledger-service/lf-value-json",
         "@maven//:com_daml_bindings_java",
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_lf_transaction_2_13",
-        "//ledger-service/lf-value-json",
     ],
 )
 
