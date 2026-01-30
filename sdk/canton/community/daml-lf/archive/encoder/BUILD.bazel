@@ -17,8 +17,8 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-archive-encoder:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_archive_2_13",
+        "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
