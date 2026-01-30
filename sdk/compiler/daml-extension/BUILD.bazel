@@ -48,7 +48,7 @@ sh_test(
 genrule(
     name = "node_deps_cache",
     srcs = [
-        "@daml_extension_deps_2_10//:node_modules",
+        "@daml_extension_deps_2x_1//:node_modules",
         "//compiler/daml-extension:yarn.lock",
     ],
     outs = ["node_modules.tar.gz"],
@@ -58,14 +58,14 @@ genrule(
         fi
         mkdir node_modules
         cd node_modules
-        for f in $(locations @daml_extension_deps_2_10//:node_modules); do
+        for f in $(locations @daml_extension_deps_2x_1//:node_modules); do
             # exclude @bazel and @types directories that will be copied later
             if [[ $$f != *"@"* ]]; then
               cp -r ../$$f ./
             fi
         done
-        cp -r ../$(BINDIR)/external/daml_extension_deps_2_10/node_modules/@types ./
-        cp -r ../$(BINDIR)/external/daml_extension_deps_2_10/node_modules/@bazel ./
+        cp -r ../$(BINDIR)/external/daml_extension_deps_2x_1/node_modules/@types ./
+        cp -r ../$(BINDIR)/external/daml_extension_deps_2x_1/node_modules/@bazel ./
         cd ..
         # Check for poison!
         # Avoid file path too long errors on Windows of the form
@@ -126,10 +126,10 @@ genrule(
         # NPM can't find npm-cli.js for some reason and won't run
         # So for now, we explicitly depend on concat-map in `package.json` to avoid this
         # Check for poison!
-        PATH=$$(dirname $$DIR/$(location //:yarn)):$$PATH $$DIR/$(location @daml_extension_deps_2_10//@vscode/vsce/bin:vsce) package --yarn -o $$DIR/$@
+        PATH=$$(dirname $$DIR/$(location //:yarn)):$$PATH $$DIR/$(location @daml_extension_deps_2x_1//@vscode/vsce/bin:vsce) package --yarn -o $$DIR/$@
     """.format(npm = npm_version),
     tools = [
         "//:yarn",
-        "@daml_extension_deps_2_10//@vscode/vsce/bin:vsce",
+        "@daml_extension_deps_2x_1//@vscode/vsce/bin:vsce",
     ],
 )

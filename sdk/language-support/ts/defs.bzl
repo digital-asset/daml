@@ -3,7 +3,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@build_bazel_rules_nodejs//:index.bzl", "js_library")
-load("@language_support_ts_deps_2_10//@bazel/typescript:index.bzl", "ts_project")
+load("@language_support_ts_deps_2x_0//@bazel/typescript:index.bzl", "ts_project")
 load("//language-support/ts:typedoc.bzl", "ts_docs")
 
 def da_ts_library(
