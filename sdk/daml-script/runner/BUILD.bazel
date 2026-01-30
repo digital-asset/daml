@@ -27,8 +27,6 @@ da_scala_library(
         ) +
         #  we depend on sources to avoid pushing a canton artifact to maven
         [
-            "@maven//:com_daml_community_admin_api_2_13",
-            "//canton:community_admin-api-src",
         ],
     override_scalacopts = [
         copt
@@ -59,6 +57,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "@maven//:com_daml_community_admin_api_2_13",
         "@maven//:com_daml_daml_tls_2_13",
         "@maven//:com_daml_base_errors_2_13",
         "@maven//:com_daml_daml_grpc_utils_2_13",

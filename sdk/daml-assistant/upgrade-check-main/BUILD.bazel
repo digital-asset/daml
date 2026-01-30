@@ -30,6 +30,7 @@ da_scala_library(
     deps = [
         "@maven//:com_daml_base_errors_2_13",
         "@maven//:com_daml_community_base_2_13",
+        "@maven//:com_daml_ledger_api_core_2_13",
         "@maven//:com_daml_ledger_api_scala_2_13",
         "@maven//:com_daml_ledger_common_2_13",
         "@maven//:com_daml_magnolify_addon_2_13",
@@ -73,7 +74,6 @@ da_scala_library(
     srcs = ["src/test/scala/com/digitalasset/daml/lf/validation/UpgradesCheckSpecUtil.scala"] +
     #  we depend on sources to avoid pushing a canton artifact to maven
     [
-        "@maven//:com_daml_community_admin_api_2_13",
     ],
     override_scalacopts = ["-Wconf:cat=deprecation&msg=in\\ proto\\ file:s"],
     scala_deps = [
@@ -93,6 +93,7 @@ da_scala_library(
         "//bazel_tools/runfiles:scala_runfiles",
         "@maven//:com_daml_daml_grpc_utils_2_13",
         "@maven//:com_daml_community_admin_api_2_13",
+        "@maven//:com_daml_ledger_api_core_2_13",
         "@maven//:com_daml_ledger_common_2_13",
         "@maven//:com_daml_util_observability_2_13",
         "@maven//:com_daml_crypto_2_13",
