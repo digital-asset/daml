@@ -63,6 +63,7 @@ import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.slf4j.event.Level
 
+import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -505,6 +506,7 @@ class BlockSequencer(
     )
   }
 
+  @nowarn("cat=deprecation")
   override def snapshot(
       timestamp: CantonTimestamp
   )(implicit
@@ -768,6 +770,7 @@ class BlockSequencer(
       )
     } yield ()
 
+  @nowarn("cat=deprecation")
   override def trafficStatus(requestedMembers: Seq[Member], selector: TimestampSelector)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerTrafficStatus] =

@@ -5,6 +5,7 @@ package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v2.TraceContextOuterClass;
 import com.daml.ledger.api.v2.TransactionOuterClass;
+import com.google.protobuf.ByteString;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.time.Instant;
@@ -38,6 +39,8 @@ public final class Transaction {
   @NonNull private final List<@NonNull Node> rootNodes;
 
   @NonNull private final List<@NonNull Integer> rootNodeIds;
+
+  @NonNull private final ByteString externalTransactionHash;
 
   public static class Node {
     private final Integer nodeId;
@@ -92,8 +95,8 @@ public final class Transaction {
       @NonNull Long offset,
       @NonNull String synchronizerId,
       TraceContextOuterClass.@NonNull TraceContext traceContext,
-      @NonNull Instant recordTime) {
-
+      @NonNull Instant recordTime,
+      @NonNull ByteString externalTransactionHash) {
     // Check if events are sorted by nodeId
     for (int i = 1; i < events.size(); i++) {
       if (events.get(i - 1).getNodeId() > events.get(i).getNodeId()) {
@@ -128,6 +131,36 @@ public final class Transaction {
     this.rootNodes = buildNodeForest(nodes);
 
     this.rootNodeIds = rootNodes.stream().map(node -> node.nodeId).toList();
+    this.externalTransactionHash = externalTransactionHash;
+  }
+
+  @Deprecated
+  Transaction(
+      @NonNull String updateId,
+      @NonNull String commandId,
+      @NonNull String workflowId,
+      @NonNull Instant effectiveAt,
+      @NonNull List<@NonNull Event> events,
+      @NonNull Long offset,
+      @NonNull String synchronizerId,
+      TraceContextOuterClass.@NonNull TraceContext traceContext,
+      @NonNull Instant recordTime) {
+    this(
+        updateId,
+        commandId,
+        workflowId,
+        effectiveAt,
+        events,
+        offset,
+        synchronizerId,
+        traceContext,
+        recordTime,
+        ByteString.EMPTY);
+  }
+
+  @NonNull
+  public ByteString getExternalTransactionHash() {
+    return externalTransactionHash;
   }
 
   @NonNull
@@ -310,7 +343,8 @@ public final class Transaction {
         transaction.getOffset(),
         transaction.getSynchronizerId(),
         transaction.getTraceContext(),
-        Utils.instantFromProto(transaction.getRecordTime()));
+        Utils.instantFromProto(transaction.getRecordTime()),
+        transaction.getExternalTransactionHash());
   }
 
   public TransactionOuterClass.Transaction toProto() {
@@ -328,6 +362,7 @@ public final class Transaction {
         .setSynchronizerId(synchronizerId)
         .setTraceContext(traceContext)
         .setRecordTime(Utils.instantToProto(recordTime))
+        .setExternalTransactionHash(externalTransactionHash)
         .build();
   }
 
@@ -357,6 +392,8 @@ public final class Transaction {
         + traceContext
         + ", recordTime="
         + recordTime
+        + ", externalTransactionHash="
+        + externalTransactionHash
         + '}';
   }
 
@@ -373,7 +410,8 @@ public final class Transaction {
         && Objects.equals(offset, that.offset)
         && Objects.equals(synchronizerId, that.synchronizerId)
         && Objects.equals(traceContext, that.traceContext)
-        && Objects.equals(recordTime, that.recordTime);
+        && Objects.equals(recordTime, that.recordTime)
+        && Objects.equals(externalTransactionHash, that.externalTransactionHash);
   }
 
   @Override
@@ -388,6 +426,7 @@ public final class Transaction {
         offset,
         synchronizerId,
         traceContext,
-        recordTime);
+        recordTime,
+        externalTransactionHash);
   }
 }

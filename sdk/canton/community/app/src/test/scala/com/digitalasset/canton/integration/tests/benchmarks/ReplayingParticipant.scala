@@ -186,7 +186,7 @@ object ReplayingParticipant extends FutureHelpers with EitherValues with OptionV
             timeouts,
             loggerFactory,
           ),
-          synchronizerPredecessor = None,
+          synchronizerUpgradeTime = None,
           NoPackageDependencies,
           CachingConfigs(),
           TopologyConfig(),

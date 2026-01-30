@@ -129,6 +129,16 @@ trait LSUBase
       _.topology.synchronizer_upgrade.announcement.propose(fixture.newPSId, fixture.upgradeTime)
     )
 
+    // Ensure all nodes see the announcement
+    eventually() {
+      forAll(fixture.oldSynchronizerNodes.all)(
+        _.topology.synchronizer_upgrade.announcement
+          .list(store = Some(fixture.currentPSId))
+          .filter(_.item.successorSynchronizerId == fixture.newPSId)
+          .loneElement
+      )
+    }
+
     migrateSynchronizerNodes(fixture)
 
     fixture.oldSynchronizerNodes.sequencers.zip(fixture.newSynchronizerNodes.sequencers).foreach {

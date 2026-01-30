@@ -10,7 +10,17 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.participant.state.Update.CommitRepair
+import com.digitalasset.canton.ledger.participant.state.Update.{
+  CommitRepair,
+  EmptyAcsPublicationRequired,
+  LogicalSynchronizerUpgradeTimeReached,
+  ReassignmentAccepted,
+  SequencedCommandRejected,
+  SequencerIndexMoved,
+  TopologyTransactionEffective,
+  TransactionAccepted,
+  UnSequencedCommandRejected,
+}
 import com.digitalasset.canton.ledger.participant.state.{
   SynchronizerIndex,
   SynchronizerUpdate,
@@ -27,6 +37,7 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater
+import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
 import com.digitalasset.canton.platform.indexer.ha.Handle
 import com.digitalasset.canton.platform.indexer.parallel.AsyncSupport.*
 import com.digitalasset.canton.platform.store.LedgerApiContractStore
@@ -38,8 +49,8 @@ import com.digitalasset.canton.platform.store.dao.events.{CompressionStrategy, L
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.PekkoUtil.{Commit, FutureQueue, PekkoSourceQueueToFutureQueue}
+import com.digitalasset.canton.util.{BatchN, ErrorUtil}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value.ContractId
 import io.opentelemetry.api.trace.Tracer
@@ -66,7 +77,9 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
     dbPrepareParallelism: Int,
     batchingParallelism: Int,
     ingestionParallelism: Int,
+    useWeightedBatching: Boolean,
     submissionBatchSize: Long,
+    submissionBatchInsertionSize: Long,
     maxOutputBatchedBufferSize: Int,
     maxTailerBatchSize: Int,
     postProcessingParallelism: Int,
@@ -127,6 +140,17 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
       (contractIds: Iterable[ContractId]) =>
         contractStore
           .lookupBatchedNonCachedInternalIds(contractIds)(tc)
+    def updateBatchWeightMetrics(w: Long): Unit = metrics.indexer.inputMapping.batchWeight.update(w)
+    val batchingFlow: Flow[(Offset, Update), Iterable[(Offset, Update)], NotUsed] =
+      if (useWeightedBatching) {
+        val submissionBatchWeight = submissionBatchInsertionSize * InsertWeight
+        metrics.indexer.inputMapping.submissionBatchConfiguredWeight
+          .updateValue(submissionBatchWeight)
+        BatchN.weighted(submissionBatchWeight, inputMappingParallelism)(
+          updateWeightEstimator,
+          updateBatchWeightMetrics,
+        )
+      } else BatchN(submissionBatchSize.toInt, inputMappingParallelism)
 
     val ((sourceQueue, uniqueKillSwitch), completionFuture) = Source
       .queue[(Long, Update)](
@@ -156,7 +180,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
       )
       .via(
         BatchingParallelIngestionPipe(
-          submissionBatchSize = submissionBatchSize,
+          batchingFlow = batchingFlow,
           inputMappingParallelism = inputMappingParallelism,
           inputMapper = inputMapperExecutor.execute(
             inputMapper(
@@ -1005,6 +1029,28 @@ object ParallelIndexerSubscription {
       activeContracts = EmptyActiveContracts, // not used anymore
       missingDeactivatedActivations = Map.empty, // not used anymore
     )
+
+  val LightWeight = 1L;
+  val InsertWeight = 100L;
+
+  def updateWeightEstimator(input: (Offset, Update)): Long = input match {
+    case (_, u: CommitRepair) => LightWeight
+    case (_, u: LogicalSynchronizerUpgradeTimeReached) => LightWeight
+    case (_, u: SequencerIndexMoved) => LightWeight
+    case (_, u: EmptyAcsPublicationRequired) => LightWeight
+    case (_, u: TransactionAccepted) =>
+      (2 + TransactionTraversalUtils
+        .executionOrderTraversalForIngestion(u.transaction.transaction)
+        .map(_.nodeId)
+        .flatMap(u.blindingInfo.disclosure.get)
+        .map(_.size + 1)
+        .sum) * InsertWeight
+    case (_, TopologyTransactionEffective(_, events, _, _)) => (events.size + 1) * InsertWeight
+    case (_, u: SequencedCommandRejected) => InsertWeight
+    case (_, u: UnSequencedCommandRejected) => InsertWeight
+    case (_, u: ReassignmentAccepted) =>
+      (2 + u.reassignment.iterator.map(_.stakeholders.size + 1).sum) * InsertWeight
+  }
 }
 
 trait ReassignmentOffsetPersistence {

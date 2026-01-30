@@ -101,6 +101,11 @@ class ForwardingTopologySnapshot(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[SequencerGroup]] = parent.sequencerGroup()
 
+  @deprecated(
+    message =
+      "Do not use methods that scan the topology state as they don’t scale and don’t work with topology scalability.",
+    since = "3.5.0",
+  )
   override def allMembers()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Set[Member]] =
@@ -131,6 +136,11 @@ class ForwardingTopologySnapshot(
     parent.findDynamicSequencingParameters()
 
   /** List all the dynamic synchronizer parameters (past and current) */
+  @deprecated(
+    message =
+      "Do not use methods that scan the topology state as they don’t scale and don’t work with topology scalability.",
+    since = "3.5.0",
+  )
   override def listDynamicSynchronizerParametersChanges()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[DynamicSynchronizerParametersWithValidity]] =
@@ -361,6 +371,11 @@ class CachingTopologySnapshot(
     getAndCache(sequencerGroupCache, parent.sequencerGroup())
 
   /** returns the set of all known members */
+  @deprecated(
+    message =
+      "Do not use methods that scan the topology state as they don’t scale and don’t work with topology scalability.",
+    since = "3.5.0",
+  )
   override def allMembers()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Set[Member]] =
@@ -407,6 +422,11 @@ class CachingTopologySnapshot(
     getAndCache(sequencingDynamicParametersCache, parent.findDynamicSequencingParameters())
 
   /** List all the dynamic synchronizer parameters (past and current) */
+  @deprecated(
+    message =
+      "Do not use methods that scan the topology state as they don’t scale and don’t work with topology scalability.",
+    since = "3.5.0",
+  )
   override def listDynamicSynchronizerParametersChanges()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[DynamicSynchronizerParametersWithValidity]] =

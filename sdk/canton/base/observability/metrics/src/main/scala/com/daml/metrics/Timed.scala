@@ -8,31 +8,12 @@ import com.daml.metrics.api.MetricHandle.{Counter, Timer}
 import org.apache.pekko.Done
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
 
-import java.util.concurrent.CompletionStage
 import scala.concurrent.{ExecutionContext, Future}
 
 object Timed {
 
   def value[T](timer: Timer, value: => T): T =
     timer.time(value)
-
-  def timedAndTrackedValue[T](timer: Timer, counter: Counter, value: => T): T =
-    Timed.value(timer, Tracked.value(counter, value))
-
-  def completionStage[T](timer: Timer, future: => CompletionStage[T]): CompletionStage[T] = {
-    val timerHandle = timer.startAsync()
-    future.whenComplete { (_, _) =>
-      timerHandle.stop()
-      ()
-    }
-  }
-
-  def timedAndTrackedCompletionStage[T](
-      timer: Timer,
-      counter: Counter,
-      future: => CompletionStage[T],
-  ): CompletionStage[T] =
-    Timed.completionStage(timer, Tracked.completionStage(counter, future))
 
   def future[T](timer: Timer, future: => Future[T]): Future[T] =
     timer.timeFuture(future)

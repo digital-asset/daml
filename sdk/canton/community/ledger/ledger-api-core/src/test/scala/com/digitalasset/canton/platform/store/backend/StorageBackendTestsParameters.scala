@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
+import anorm.SqlStringInterpolation
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{
   RepairIndex,
@@ -143,10 +144,10 @@ private[backend] trait StorageBackendTestsParameters
     )
     resultSynchronizerIndexSecond.value.repairIndex shouldBe someSynchronizerIndexSecond.repairIndex
     resultSynchronizerIndexSecond.value.sequencerIndex shouldBe someSynchronizerIndex.sequencerIndex
+    resultSynchronizerIndexSecond.value.recordTime shouldBe someSynchronizerIndexSecond.recordTime
     val resultSynchronizerIndexSecond2 = executeSql(
       backend.parameter.cleanSynchronizerIndex(StorageBackendTestValues.someSynchronizerId2)
     )
-    resultSynchronizerIndexSecond.value.recordTime shouldBe someSynchronizerIndexSecond.recordTime
     resultSynchronizerIndexSecond2.value.repairIndex shouldBe None
     resultSynchronizerIndexSecond2.value.sequencerIndex shouldBe someSynchronizerIndex2.sequencerIndex
     resultSynchronizerIndexSecond2.value.recordTime shouldBe someSynchronizerIndex2.recordTime
@@ -180,6 +181,39 @@ private[backend] trait StorageBackendTestsParameters
     resultSynchronizerIndexThird.value.repairIndex shouldBe someSynchronizerIndexSecond.repairIndex
     resultSynchronizerIndexThird.value.sequencerIndex shouldBe someSynchronizerIndex.sequencerIndex
     resultSynchronizerIndexThird.value.recordTime shouldBe someSequencerTime.plusSeconds(20)
+
+    // resetting and disabling interning
+    backend.stringInterningSupport.reset()
+    backend.stringInterningSupport.setAutoIntern(false)
+
+    // ensuring that auto-interning indeed does not work
+    backend.stringInterningSupport.synchronizerId.tryInternalize(
+      StorageBackendTestValues.someSynchronizerId
+    ) shouldBe None
+    backend.stringInterningSupport.synchronizerId.tryInternalize(
+      StorageBackendTestValues.someSynchronizerId2
+    ) shouldBe None
+
+    // ensuring the same results
+    executeSql(
+      backend.parameter.cleanSynchronizerIndex(StorageBackendTestValues.someSynchronizerId)
+    ) shouldBe resultSynchronizerIndexThird
+    executeSql(
+      backend.parameter.cleanSynchronizerIndex(StorageBackendTestValues.someSynchronizerId2)
+    ) shouldBe resultSynchronizerIndexSecond2
+
+    // and if string interning table is wiped
+    executeSql { c =>
+      SQL"delete from lapi_string_interning".executeUpdate()(c) shouldBe 2
+    }
+
+    // cleanSynchronizerIndex returns empty
+    executeSql(
+      backend.parameter.cleanSynchronizerIndex(StorageBackendTestValues.someSynchronizerId)
+    ) shouldBe None
+    executeSql(
+      backend.parameter.cleanSynchronizerIndex(StorageBackendTestValues.someSynchronizerId2)
+    ) shouldBe None
   }
 
   it should "store and retrieve post processing end correctly" in {

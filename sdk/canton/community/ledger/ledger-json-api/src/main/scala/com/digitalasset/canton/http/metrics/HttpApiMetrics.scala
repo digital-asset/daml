@@ -6,12 +6,6 @@ package com.digitalasset.canton.http.metrics
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.{HistogramInventory, MetricName}
-import com.daml.metrics.http.{
-  DamlHttpHistograms,
-  DamlHttpMetrics,
-  DamlWebSocketMetrics,
-  DamlWebSocketsHistograms,
-}
 
 import scala.annotation.unused
 

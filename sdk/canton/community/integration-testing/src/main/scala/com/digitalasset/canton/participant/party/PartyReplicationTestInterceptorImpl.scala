@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.participant.party
 
-import com.digitalasset.canton.participant.admin.party.PartyReplicationTestInterceptor
-import com.digitalasset.canton.participant.protocol.party.{
-  SourceParticipantStore,
-  TargetParticipantStore,
+import com.digitalasset.canton.participant.admin.party.{
+  PartyReplicationStatus,
+  PartyReplicationTestInterceptor,
 }
+import com.digitalasset.canton.participant.protocol.party.SourceParticipantStore
 import com.digitalasset.canton.tracing.TraceContext
 
 class PartyReplicationTestInterceptorImpl extends PartyReplicationTestInterceptor {
@@ -16,8 +16,8 @@ class PartyReplicationTestInterceptorImpl extends PartyReplicationTestIntercepto
       traceContext: TraceContext
   ): PartyReplicationTestInterceptor.ProceedOrWait = PartyReplicationTestInterceptor.Proceed
 
-  override def onTargetParticipantProgress(store: TargetParticipantStore)(implicit
-      traceContext: TraceContext
+  override def onTargetParticipantProgress(progress: PartyReplicationStatus.AcsReplicationProgress)(
+      implicit traceContext: TraceContext
   ): PartyReplicationTestInterceptor.ProceedOrWait = PartyReplicationTestInterceptor.Proceed
 }
 
@@ -39,12 +39,14 @@ object PartyReplicationTestInterceptorImpl {
     * of the target participant store).
     */
   def targetParticipantProceedsIf(
-      canProceed: TargetParticipantStore => Boolean
+      canProceed: PartyReplicationStatus.AcsReplicationProgress => Boolean
   ): PartyReplicationTestInterceptorImpl =
     new PartyReplicationTestInterceptorImpl {
-      override def onTargetParticipantProgress(store: TargetParticipantStore)(implicit
+      override def onTargetParticipantProgress(
+          progress: PartyReplicationStatus.AcsReplicationProgress
+      )(implicit
           traceContext: TraceContext
-      ): PartyReplicationTestInterceptor.ProceedOrWait = proceedIf(canProceed(store))
+      ): PartyReplicationTestInterceptor.ProceedOrWait = proceedIf(canProceed(progress))
     }
 
   private def proceedIf(canProceed: Boolean): PartyReplicationTestInterceptor.ProceedOrWait =

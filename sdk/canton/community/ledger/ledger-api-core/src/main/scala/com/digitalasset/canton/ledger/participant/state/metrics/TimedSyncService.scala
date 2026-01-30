@@ -49,7 +49,6 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.SubmittedTransaction
 import com.google.protobuf.ByteString
 
-import java.util.concurrent.CompletionStage
 import scala.concurrent.Future
 
 final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetrics)
@@ -67,8 +66,8 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       processedDisclosedContracts: ImmArray[LfFatContractInst],
   )(implicit
       traceContext: TraceContext
-  ): CompletionStage[SubmissionResult] =
-    Timed.timedAndTrackedCompletionStage(
+  ): Future[SubmissionResult] =
+    Timed.timedAndTrackedFuture(
       metrics.services.write.submitTransaction,
       metrics.services.write.submitTransactionRunning,
       delegate.submitTransaction(
@@ -92,8 +91,8 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       reassignmentCommands: Seq[ReassignmentCommand],
   )(implicit
       traceContext: TraceContext
-  ): CompletionStage[SubmissionResult] =
-    Timed.timedAndTrackedCompletionStage(
+  ): Future[SubmissionResult] =
+    Timed.timedAndTrackedFuture(
       metrics.services.write.submitReassignment,
       metrics.services.write.submitReassignmentRunning,
       delegate.submitReassignment(
@@ -135,8 +134,8 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
-  ): CompletionStage[PruningResult] =
-    Timed.completionStage(
+  ): Future[PruningResult] =
+    Timed.future(
       metrics.services.write.prune,
       delegate.prune(pruneUpToInclusive, submissionId),
     )

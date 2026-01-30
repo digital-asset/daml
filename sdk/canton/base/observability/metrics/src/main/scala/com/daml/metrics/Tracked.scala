@@ -7,7 +7,6 @@ import com.daml.metrics.api.MetricHandle.{Counter, Meter}
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
 
-import java.util.concurrent.CompletionStage
 import scala.concurrent.{ExecutionContext, Future}
 
 object Tracked {
@@ -19,18 +18,6 @@ object Tracked {
       counter.dec()
       result
   }
-
-  def completionStage[T](
-      counter: Counter,
-      future: => CompletionStage[T],
-  ): CompletionStage[T] =
-    withEmptyMetricsContext { implicit metricsContext =>
-      counter.inc()
-      future.whenComplete { (_, _) =>
-        counter.dec()
-        ()
-      }
-    }
 
   def future[T](counter: Counter, future: => Future[T]): Future[T] = {
     counter.inc()

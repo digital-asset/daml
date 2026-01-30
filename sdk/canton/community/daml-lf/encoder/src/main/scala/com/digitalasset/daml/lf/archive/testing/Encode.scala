@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package archive.testing
 
-import com.daml.SafeProto
+import com.digitalasset.daml.SafeProto
 import com.daml.crypto.MessageDigestPrototype
 import com.digitalasset.daml.lf.archive.{DamlLf => PLF}
 import com.digitalasset.daml.lf.data.Ref.PackageId

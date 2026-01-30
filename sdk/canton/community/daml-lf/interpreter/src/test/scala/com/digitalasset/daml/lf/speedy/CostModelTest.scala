@@ -41,11 +41,11 @@ class CostModelV0Test extends AnyWordSpec with Matchers with ScalaCheckPropertyC
         val approximativeShallowSize = sized.approximateShallowFootprint(x)
 
         val s = compare(shallowFootprint, approximativeShallowSize)
-        println(
-          s"Sized: ${name}, actualShallowSize: $shallowFootprint, approximativeShallowSize: $approximativeShallowSize ($s), ${compare(shallowFootprint, approximativeShallowSize)}, x=`${x.toString
-              .take(60)}`"
-        )
         if (verbose) {
+          println(
+            s"Sized: ${name}, actualShallowSize: $shallowFootprint, approximativeShallowSize: $approximativeShallowSize ($s), ${compare(shallowFootprint, approximativeShallowSize)}, x=`${x.toString
+                .take(60)}`"
+          )
           println(classLayout(x))
           println(graphLayout(x))
         }
@@ -71,7 +71,7 @@ class CostModelV0Test extends AnyWordSpec with Matchers with ScalaCheckPropertyC
     test[Array[Byte]]("Array[Byte]", minSucc = 100)
     test[String]("String", minSucc = 100)
 
-    test[protobuf.ByteString]("BytesString", verbose = true)
+    test[protobuf.ByteString]("BytesString")
 
     /* Generic data structures */
     test[Option[MyLong]]("Option[MyLong]")

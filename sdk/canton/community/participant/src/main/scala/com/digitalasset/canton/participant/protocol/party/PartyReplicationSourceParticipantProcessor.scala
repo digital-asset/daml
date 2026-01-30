@@ -17,7 +17,7 @@ import com.digitalasset.canton.ledger.participant.state.InternalIndexService
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.ActiveContract
-import com.digitalasset.canton.participant.admin.party.PartyReplicationStatus.AcsReplicationProgressRuntime
+import com.digitalasset.canton.participant.admin.party.PartyReplicationStatus.EphemeralSequencerChannelProgress
 import com.digitalasset.canton.participant.admin.party.{
   LapiAcsHelper,
   PartyReplicationTestInterceptor,
@@ -224,7 +224,7 @@ final class PartyReplicationSourceParticipantProcessor private (
 
         _ <- replicationProgressState.updateAcsReplicationProgress(
           requestId,
-          AcsReplicationProgressRuntime(
+          EphemeralSequencerChannelProgress(
             sentContractCount,
             RepairCounter.Genesis, // write-persistence not used by SP
             // Let the PartyReplicator know the SP is done, but let the TP, the channel owner, close the channel.

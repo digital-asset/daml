@@ -91,6 +91,7 @@ private[interactive] sealed trait EnrichedTransactionData {
       synchronizerId,
       transactionMeta.timeBoundaries,
       transactionMeta.preparationTime,
+      submitterInfo.externallySignedSubmission.flatMap(_.maxRecordTime),
       // The hash is computed from the enriched contract because that's what the external party signs
       inputContracts.view.mapValues(_.enrichedContract).toMap,
     )

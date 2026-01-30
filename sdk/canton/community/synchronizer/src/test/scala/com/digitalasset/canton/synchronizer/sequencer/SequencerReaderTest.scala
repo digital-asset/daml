@@ -11,7 +11,7 @@ import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SequencingTimeBound}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.SuppressionRule.FullSuppression
@@ -154,6 +154,7 @@ class SequencerReaderTest
       cryptoD,
       eventSignaller,
       topologyClientMember,
+      SequencingTimeBound(None),
       sequencerMetrics,
       timeouts,
       loggerFactory,
@@ -491,7 +492,7 @@ class SequencerReaderTest
             logs =>
               forAtLeast(1, logs)(
                 _.message should include(
-                  s"latest topology client timestamp = Some(${ts(1)})"
+                  s"latest topology client timestamp = Some(${ts(2)})"
                 )
               ),
           )
@@ -646,7 +647,7 @@ class SequencerReaderTest
           import env.*
 
           val expectedMessage =
-            "Subscription for PAR::alice::default would require reading data from the beginning, but this sequencer cannot serve timestamps at or before 1970-01-01T00:00:10Z or below the member's registration timestamp 1970-01-01T00:00:00Z."
+            "Subscription for PAR::alice::default would require reading data from the beginning, but this sequencer cannot serve timestamps at or before 1970-01-01T00:00:10Z or at or before the member's registration timestamp 1970-01-01T00:00:00Z."
 
           for {
             _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
@@ -679,7 +680,7 @@ class SequencerReaderTest
         import env.*
 
         val expectedMessage =
-          "Subscription for PAR::alice::default would require reading data from 1970-01-01T00:00:10Z (inclusive), but this sequencer cannot serve timestamps at or before 1970-01-01T00:00:10Z or below the member's registration timestamp 1970-01-01T00:00:00Z."
+          "Subscription for PAR::alice::default would require reading data from 1970-01-01T00:00:10Z (inclusive), but this sequencer cannot serve timestamps at or before 1970-01-01T00:00:10Z or at or before the member's registration timestamp 1970-01-01T00:00:00Z."
 
         for {
           _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
