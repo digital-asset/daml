@@ -113,6 +113,7 @@ def install_java_deps():
             "com.daml:daml-lf-snapshot_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:daml-lf-snapshot-proto_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:bindings-java:{}".format(transcode_version),
+            "com.daml:ledger-api-core_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:ledger-api-proto:{}".format(transcode_version),
             "com.daml:ledger-api-scala_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:rs-grpc-pekko_{}:{}".format(scala_major_version, transcode_version),
