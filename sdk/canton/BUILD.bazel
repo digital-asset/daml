@@ -511,7 +511,6 @@ scala_library(
         ":community_lib_wartremover-annotations",
         ":community_util-observability",
         ":ledger_api_proto_scala",
-        "@maven//:com_daml_concurrent_2_13",
         "@maven//:com_daml_contextualized_logging_2_13",
         "@maven//:com_daml_executors_2_13",
         "@maven//:com_daml_logging_entries_2_13",
@@ -628,7 +627,6 @@ scala_library(
         ":community_lib_wartremover-annotations",
         ":community_util-observability",
         ":ledger_api_proto_scala",
-        "@maven//:com_daml_concurrent_2_13",
         "@maven//:com_daml_contextualized_logging_2_13",
         "@maven//:com_daml_executors_2_13",
         "@maven//:com_daml_observability_metrics_2_13",
@@ -757,7 +755,6 @@ scala_library(
         ":community_ledger_ledger-common",
         ":community_util-observability",
         ":ledger_api_proto_scala",
-        "@maven//:com_daml_concurrent_2_13",
         "@maven//:com_daml_contextualized_logging_2_13",
         "@maven//:com_daml_executors_2_13",
         "@maven//:com_daml_ledger_resources_2_13",
@@ -1900,39 +1897,6 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "concurrent",
-    srcs = glob(["base/concurrent/src/main/scala/**/*.scala"]),
-    plugins = [
-        kind_projector_plugin,
-    ],
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    scalacopts = canton_scalacopts + [
-        "-language:postfixOps",
-        "-Wconf:cat=unused-nowarn:s",
-    ],
-    tags = ["maven_coordinates=com.daml:concurrent:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-)
-
-da_scala_test(
-    name = "concurrent-test",
-    srcs = glob(["base/concurrent/src/test/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:com_chuusai_shapeless",
-        "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    deps = [
-        ":concurrent",
-    ],
-)
-
-da_scala_library(
     name = "resources",
     srcs = glob(["base/resources/src/main/scala/**/*.scala"]) + glob(["base/resources/src/main/{}/**/*.scala".format(scala_major_version)]),
     scalacopts = canton_scalacopts + [
@@ -2694,7 +2658,6 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
-        "@maven//:com_daml_concurrent_2_13",
         "@maven//:com_daml_scala_utils_2_13",
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_protobuf_protobuf_java",
