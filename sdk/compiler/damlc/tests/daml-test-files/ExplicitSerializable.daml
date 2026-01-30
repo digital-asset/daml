@@ -2,10 +2,8 @@
 -- All rights reserved.
 
 -- @BUILD-OPTION --explicit-serializable=yes
+-- @BUILD-OPTION -Wno-deprecated-exceptions
 -- @WARN -Wno-upgrade-exceptions
--- @WARN -Wno-deprecated-exceptions
--- @WARN -Wno-deprecated-exceptions
--- @WARN -Wno-deprecated-exceptions
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriDataType"]) | has("serializable")
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriEnum"]) | has("serializable")
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriVariant"]) | has("serializable")
@@ -77,7 +75,7 @@ template Asset
         create this with
           amount = amount + this.amount
 
-    nonconsuming choice TryErrorGuard : ()
+    nonconsuming choice Asset_TryCatch : ()
       controller party
       do
         try do

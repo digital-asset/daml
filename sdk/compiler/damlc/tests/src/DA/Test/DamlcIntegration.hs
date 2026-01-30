@@ -335,7 +335,7 @@ getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = d
           testGroup ("Tests for Daml-LF " ++ renderPretty version) $ do
             (optsSet, tests) <- MS.toList damlTestsByExtraOpts
             let extraOpts = S.toList optsSet
-                customOpts = parseExtraOptions extraOpts opts
+                customOpts = parseBuildOptions extraOpts opts
             pure $ withResource
               (mkIde customOpts)
               shutdown
@@ -577,6 +577,7 @@ data Ann
       -- subset of real options, currently:
       --
       -- * explicit-serializable
+      -- * toggling InlineDamlCustomWarnings
 
 readFileAnns :: FilePath -> IO [Ann]
 readFileAnns file = do
@@ -669,8 +670,8 @@ parseRange s =
         (Position (rowEnd - 1) (colEnd - 1))
     _ -> error $ "Failed to parse range, got " ++ s
 
-parseExtraOptions :: [String] -> (Options -> Options)
-parseExtraOptions args = case result of
+parseBuildOptions :: [String] -> (Options -> Options)
+parseBuildOptions args = case result of
   Options.Applicative.Failure failure ->
     error $ fst $ Options.Applicative.renderFailure failure ""
   Options.Applicative.Success f -> f
@@ -679,12 +680,19 @@ parseExtraOptions args = case result of
   where
     result = Options.Applicative.execParserPure prefs info args
     prefs = Options.Applicative.prefs mempty
-    info = flip Options.Applicative.info mempty $
+    info = flip Options.Applicative.info mempty $ (.)
       -- NOTE(jaspervdj): Can add more option parsers here if we need them for
       -- tests. We should not let this list become too big, as we currently
       -- create a new IDE instance for each unique combination of options in
       -- the tests.
-      (\opt opts -> opts {optExplicitSerializable = opt}) <$> explicitSerializable
+      <$> ((\opt opts -> opts {optExplicitSerializable = opt}) <$>
+              explicitSerializable)
+      <*> ((\wf opts -> opts
+              { optInlineDamlCustomWarningFlags = WarningFlags.addWarningFlags
+                  (WarningFlags.wfFlags wf)
+                  (optInlineDamlCustomWarningFlags opts)
+              }) <$>
+              WarningFlags.runParser warningFlagParserInlineDamlCustom)
 
 mainProj :: IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO (LF.Package, FilePath, HashMap.HashMap ScriptName T.Text)
 mainProj service outdir log file = do
