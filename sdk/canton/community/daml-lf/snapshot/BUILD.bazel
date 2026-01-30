@@ -36,7 +36,7 @@ da_scala_library(
         "@maven//:com_daml_contextualized_logging_2_13",
         "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
-        "//canton/community/daml-lf/engine",
+        "@maven//:com_daml_daml_lf_engine_2_13",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
         "@maven//:com_daml_daml_lf_snapshot_proto_2_13",
@@ -53,7 +53,7 @@ da_scala_benchmark_jmh(
     deps = [
         ":snapshot",
         "@maven//:com_daml_daml_lf_data_2_13",
-        "//canton/community/daml-lf/engine",
+        "@maven//:com_daml_daml_lf_engine_2_13",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",
@@ -71,7 +71,7 @@ da_scala_binary(
     deps = [
         ":snapshot",
         "@maven//:com_daml_daml_lf_data_2_13",
-        "//canton/community/daml-lf/engine",
+        "@maven//:com_daml_daml_lf_engine_2_13",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",

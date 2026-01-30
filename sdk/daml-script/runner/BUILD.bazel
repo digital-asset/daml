@@ -74,7 +74,7 @@ da_scala_library(
         "@maven//:com_daml_daml_lf_api_type_signature_2_13",
         "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
-        "//canton/community/daml-lf/engine",
+        "@maven//:com_daml_daml_lf_engine_2_13",
         "@maven//:com_daml_daml_lf_engine_2_13",
         "//canton/community/daml-lf/ide-ledger",
         "//canton/community/daml-lf/interpreter",
