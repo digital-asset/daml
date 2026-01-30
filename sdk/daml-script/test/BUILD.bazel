@@ -369,7 +369,6 @@ da_scala_test_suite(
         "@maven//:com_daml_testing_utils_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_lf_engine_2_13",
-        "@maven//:com_daml_daml_lf_engine_2_13",
         "@maven//:com_daml_daml_lf_interpreter_2_13",
         "@maven//:com_daml_daml_lf_language_2_13",
         "@maven//:com_daml_daml_lf_transaction_2_13",
