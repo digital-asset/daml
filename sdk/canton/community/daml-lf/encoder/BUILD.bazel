@@ -31,12 +31,41 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-encoder:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "@maven//:com_daml_crypto_2_13",
-        "@maven//:com_daml_safe_proto_2_13",
-        "@maven//:com_daml_daml_lf_archive_2_13",
-        "@maven//:com_daml_daml_lf_data_2_13",
-        "@maven//:com_daml_daml_lf_language_2_13",
+        "//daml-lf:data",
+        "//canton:crypto",
+        "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
+        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_test_suite(
+    name = "tests",
+    size = "small",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    data = [":testing-dar-%s" % target for target in ENGINE_LF_VERSIONS],
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":encoder",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
+        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/language",
+        "//canton/community/daml-lf/parser",
+        "//canton/community/daml-lf/stable-packages",
+        "//canton/community/daml-lf/validation",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 
@@ -51,13 +80,14 @@ da_scala_binary(
     ],
     deps = [
         ":encoder",
-        "@maven//:com_daml_daml_lf_archive_2_13",
-        "@maven//:com_daml_daml_lf_archive_encoder_2_13",
-        "@maven//:com_daml_daml_lf_data_2_13",
-        "@maven//:com_daml_daml_lf_language_2_13",
-        "@maven//:com_daml_daml_lf_parser_2_13",
-        "@maven//:com_daml_daml_lf_validation_2_13",
-        "@maven//:com_daml_daml_lf_stable_packages_2_13",
+        "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
+        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
+        "//canton/community/daml-lf/archive/encoder",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/language",
+        "//canton/community/daml-lf/parser",
+        "//canton/community/daml-lf/stable-packages",
+        "//canton/community/daml-lf/validation",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -91,12 +121,12 @@ da_scala_binary(
             name = "validate-dar-%s" % target,
             srcs = ["src/validate.sh"],
             args = [
-                "$(location @maven//:com_daml_daml_lf_repl_2_13)",
+                "$(location //canton/community/daml-lf/repl:repl)",
                 "$(location :testing-dar-%s)" % target,
                 "--dev" if lf_version_is_dev(target) else "",
             ],
             data = [
-                "@maven//:com_daml_daml_lf_repl_2_13",
+                "//canton/community/daml-lf/repl",
                 "testing-dar-%s" % target,
             ],
             deps = [

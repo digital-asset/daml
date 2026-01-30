@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.admin.grpc
 
 import cats.data.EitherT
-import cats.implicits.catsSyntaxParallelTraverse_
 import cats.syntax.either.*
 import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.config.BatchingConfig
@@ -173,20 +172,23 @@ private[participant] object ParticipantCommon {
             )
           )
 
-        _ <- repairContracts.groupBy(_.synchronizerId).toSeq.parTraverse_ {
-          case (synchronizerId, contracts) =>
-            MonadUtil.batchedSequentialTraverse_(
-              batching.parallelism,
-              batching.maxAcsImportBatchSize,
-            )(contracts)(
-              writeContractsBatch(
-                synchronizerId,
-                _,
-                contractImportMode,
-                representativePackageIdOverride,
-              )
-                .mapK(FutureUnlessShutdown.outcomeK)
+        _ <- MonadUtil.sequentialTraverse_(
+          repairContracts
+            .groupBy(_.synchronizerId)
+            .toSeq
+        ) { case (synchronizerId, contracts) =>
+          MonadUtil.batchedSequentialTraverse_(
+            batching.parallelism,
+            batching.maxAcsImportBatchSize,
+          )(contracts)(
+            writeContractsBatch(
+              synchronizerId,
+              _,
+              contractImportMode,
+              representativePackageIdOverride,
             )
+              .mapK(FutureUnlessShutdown.outcomeK)
+          )
         }
       } yield ()
 

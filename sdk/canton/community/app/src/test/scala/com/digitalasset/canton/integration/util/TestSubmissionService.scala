@@ -13,7 +13,6 @@ import com.daml.ledger.api.v2.transaction.Transaction as ApiTransaction
 import com.daml.ledger.api.v2.transaction_filter.*
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.daml.ledger.javaapi.data.codegen.ContractTypeCompanion
-import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
@@ -273,7 +272,6 @@ class TestSubmissionService(
           keyResolver = keyMapping,
           processedDisclosedContracts = ImmArray.Empty, // TODO(#9795) wire proper value
         )
-        .toScalaUnwrapped
     } yield submissionResult
 
   def interpret(commands: CommandsWithMetadata)(implicit

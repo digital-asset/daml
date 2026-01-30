@@ -575,7 +575,7 @@ abstract class ParticipantRestartTest
 class ParticipantRestartCausalityIntegrationTest extends ParticipantRestartTest with EntitySyntax {
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P4_S1M1_S1M1_Manual
+    EnvironmentDefinition.P4S2M2Manual
       .addConfigTransforms(ConfigTransforms.updateTargetTimestampForwardTolerance(30.seconds))
       .withSetup { implicit env =>
         NetworkBootstrapper(EnvironmentDefinition.S1M1_S1M1)
@@ -938,7 +938,7 @@ class ParticipantRestartRealClockIntegrationTest extends ParticipantRestartTest 
   private lazy val reconciliationInterval = PositiveSeconds.tryOfSeconds(1)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1_S1M1_Manual
+    EnvironmentDefinition.P3S2M2_Manual
       .addConfigTransforms(ProgrammableSequencer.configOverride(getClass.toString, loggerFactory))
 
   private def startSynchronizers(synchronizers: Seq[NetworkTopologyDescription])(implicit

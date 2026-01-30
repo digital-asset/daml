@@ -11,6 +11,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.store.ContractStore.InternalContractId
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -34,7 +35,7 @@ class InMemoryContractStore(
     *   - Every [[LfFatContractInst]] is stored under [[LfFatContractInst.contractId]].
     */
   private[this] val contracts = TrieMap.empty[LfContractId, PersistedContractInstance]
-  private[this] val internalIds = TrieMap.empty[Long, LfContractId]
+  private[this] val internalIds = TrieMap.empty[InternalContractId, LfContractId]
   private[this] val index = new AtomicLong(0)
 
   /** Debug find utility to search pcs
@@ -99,12 +100,14 @@ class InMemoryContractStore(
       contracts: Seq[ContractInstance]
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[LfContractId, Long]] =
+  ): FutureUnlessShutdown[Map[LfContractId, InternalContractId]] =
     FutureUnlessShutdown.pure(
       contracts.map(contract => contract.contractId -> store(contract)).toMap
     )
 
-  private def store(storedContract: ContractInstance)(implicit traceContext: TraceContext): Long = {
+  private def store(
+      storedContract: ContractInstance
+  )(implicit traceContext: TraceContext): InternalContractId = {
     val newIdx = index.getAndIncrement()
     // use a new index only if the contract is not already present
     val idx =
@@ -181,9 +184,9 @@ class InMemoryContractStore(
   ): FutureUnlessShutdown[Option[PersistedContractInstance]] =
     FutureUnlessShutdown.pure(contracts.get(id))
 
-  override def lookupBatchedNonCached(internalContractIds: Iterable[Long])(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[Long, PersistedContractInstance]] =
+  override def lookupBatchedNonReadThrough(internalContractIds: Iterable[InternalContractId])(
+      implicit traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[InternalContractId, PersistedContractInstance]] =
     FutureUnlessShutdown.pure(
       internalContractIds
         .flatMap(internalIds.get(_).flatMap(contracts.get))
@@ -193,9 +196,9 @@ class InMemoryContractStore(
         .toMap
     )
 
-  override def lookupBatchedNonCachedInternalIds(contractIds: Iterable[LfContractId])(implicit
+  override def lookupBatchedInternalIdsNonReadThrough(contractIds: Iterable[LfContractId])(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[LfContractId, Long]] =
+  ): FutureUnlessShutdown[Map[LfContractId, InternalContractId]] =
     FutureUnlessShutdown.pure(
       contractIds
         .flatMap(cid =>
@@ -206,9 +209,11 @@ class InMemoryContractStore(
         .toMap
     )
 
-  override def lookupBatchedNonCachedContractIds(internalContractIds: Iterable[Long])(implicit
+  override def lookupBatchedContractIdsNonReadThrough(
+      internalContractIds: Iterable[InternalContractId]
+  )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[Long, LfContractId]] =
+  ): FutureUnlessShutdown[Map[InternalContractId, LfContractId]] =
     FutureUnlessShutdown.pure(
       internalContractIds
         .flatMap(iid => internalIds.get(iid).map(iid -> _))

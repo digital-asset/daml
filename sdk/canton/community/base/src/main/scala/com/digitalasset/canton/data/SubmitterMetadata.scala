@@ -73,6 +73,19 @@ final case class SubmitterMetadata private (
     maxSequencingTime = maxSequencingTime.toProtoPrimitive,
     externalAuthorization = externalAuthorization.map(_.toProtoV30),
   )
+
+  protected def toProtoV31: v31.SubmitterMetadata = v31.SubmitterMetadata(
+    actAs = actAs.toSeq,
+    userId = userId.toProtoPrimitive,
+    commandId = commandId.toProtoPrimitive,
+    submittingParticipantUid = submittingParticipant.uid.toProtoPrimitive,
+    salt = Some(salt.toProtoV30),
+    submissionId = submissionId.getOrElse(""),
+    dedupPeriod = Some(SerializableDeduplicationPeriod(dedupPeriod).toProtoV30),
+    maxSequencingTime = maxSequencingTime.toProtoPrimitive,
+    externalAuthorization = externalAuthorization.map(_.toProtoV31),
+  )
+
 }
 
 object SubmitterMetadata
@@ -86,7 +99,11 @@ object SubmitterMetadata
     ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.SubmitterMetadata)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
-    )
+    ),
+    ProtoVersion(31) -> VersionedProtoCodec(ProtocolVersion.v35)(v31.SubmitterMetadata)(
+      supportedProtoVersionMemoized(_)(fromProtoV31),
+      _.toProtoV31,
+    ),
   )
 
   def apply(
@@ -158,6 +175,75 @@ object SubmitterMetadata
     ) = metaDataP
 
     for {
+      externalAuthorizationO <- externalAuthorizationOP.traverse(
+        ExternalAuthorization.fromProtoV30
+      )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+      result <- fromProto(hashOps, bytes)(
+        saltOP,
+        actAsP,
+        userIdP,
+        commandIdP,
+        submittingParticipantUidP,
+        submissionIdP,
+        dedupPeriodOP,
+        maxSequencingTimeOP,
+        externalAuthorizationO,
+        rpv,
+      )
+
+    } yield result
+
+  }
+
+  private def fromProtoV31(hashOps: HashOps, metaDataP: v31.SubmitterMetadata)(
+      bytes: ByteString
+  ): ParsingResult[SubmitterMetadata] = {
+    val v31.SubmitterMetadata(
+      saltOP,
+      actAsP,
+      userIdP,
+      commandIdP,
+      submittingParticipantUidP,
+      submissionIdP,
+      dedupPeriodOP,
+      maxSequencingTimeOP,
+      externalAuthorizationOP,
+    ) = metaDataP
+
+    for {
+      externalAuthorizationO <- externalAuthorizationOP.traverse(
+        ExternalAuthorization.fromProtoV31
+      )
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(31))
+      result <- fromProto(hashOps, bytes)(
+        saltOP,
+        actAsP,
+        userIdP,
+        commandIdP,
+        submittingParticipantUidP,
+        submissionIdP,
+        dedupPeriodOP,
+        maxSequencingTimeOP,
+        externalAuthorizationO,
+        rpv,
+      )
+    } yield result
+  }
+
+  private def fromProto(hashOps: HashOps, bytes: DataByteString)(
+      saltOP: Option[com.digitalasset.canton.crypto.v30.Salt],
+      actAsP: Seq[String],
+      userIdP: String,
+      commandIdP: String,
+      submittingParticipantUidP: String,
+      submissionIdP: String,
+      dedupPeriodOP: Option[v30.DeduplicationPeriod],
+      maxSequencingTimeOP: Long,
+      externalAuthorizationO: Option[ExternalAuthorization],
+      rpv: RepresentativeProtocolVersion[SubmitterMetadata.type],
+  ): ParsingResult[SubmitterMetadata] =
+    for {
       submittingParticipant <- UniqueIdentifier
         .fromProtoPrimitive(
           submittingParticipantUidP,
@@ -200,10 +286,6 @@ object SubmitterMetadata
           ProtoDeserializationError.ValueConversionError("acsAs", "actAs set must not be empty.")
         )
       maxSequencingTime <- CantonTimestamp.fromProtoPrimitive(maxSequencingTimeOP)
-      externalAuthorizationO <- externalAuthorizationOP.traverse(
-        ExternalAuthorization.fromProtoV30
-      )
-      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SubmitterMetadata(
       actAsNes,
       userId,
@@ -215,5 +297,5 @@ object SubmitterMetadata
       maxSequencingTime,
       externalAuthorizationO,
     )(hashOps, rpv, Some(bytes))
-  }
+
 }

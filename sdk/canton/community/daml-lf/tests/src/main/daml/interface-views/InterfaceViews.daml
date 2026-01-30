@@ -1,0 +1,69 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module InterfaceViews where
+
+data Nat = S Nat | Z
+
+intToNat : Int -> Nat
+intToNat 0 = Z
+intToNat n = S (intToNat (n - 1))
+
+data View = View with
+  a : Int
+  b : Bool
+  c : Nat
+
+interface I where
+    viewtype View
+
+template T1
+  with
+    p : Party
+    a : Int
+  where
+    signatory p
+    interface instance I for T1 where
+      view = View with
+        a
+        b = True
+        c = Z
+
+template T2
+  with
+    p : Party
+    a : Int
+  where
+    signatory p
+    interface instance I for T2 where
+      view = View with
+        a
+        b = False
+        c = Z
+
+template T3
+  with
+    p : Party
+    a : Int
+  where
+    signatory p
+    interface instance I for T3 where
+      view = error "view crashed"
+
+template T4
+  with
+    p : Party
+    a : Int
+  where
+    signatory p
+
+template T5
+  with
+    p : Party
+  where
+    signatory p
+    interface instance I for T5 where
+      view = View with
+        a = 42
+        b = True
+        c = intToNat 100

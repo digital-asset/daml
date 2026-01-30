@@ -12,7 +12,6 @@ import com.daml.ledger.api.v2.command_submission_service.{
 }
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.metrics.Timed
-import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.Telemetry
 import com.digitalasset.base.error.ErrorCode.LoggedApiException
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
@@ -183,7 +182,6 @@ final class ApiCommandSubmissionService(
                     )
                 },
               )
-              .toScalaUnwrapped
               .transform(handleSubmissionResult)
               .thereafter(logger.logErrorsOnCall[SubmitReassignmentResponse])
           ),

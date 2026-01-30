@@ -5,10 +5,8 @@ package com.digitalasset.canton.participant.admin.repair
 
 import cats.Functor
 import cats.data.EitherT
-import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
-import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
@@ -241,13 +239,22 @@ private final class ChangeAssignation(
     for {
       filtered <- EitherT.fromEither[FutureUnlessShutdown](filteredE)
       filteredContractIds = filtered.map(_._1)
-      stakeholders <- stakeholders(filteredContractIds.toSet)
-      _ <- filteredContractIds.parTraverse_ { contractId =>
-        atLeastOneHostedStakeholderAtTarget(
-          contractId,
-          stakeholders.getOrElse(contractId, Set.empty),
-        )
-      }
+      stakeholdersPerCid <- stakeholders(filteredContractIds.toSet)
+
+      hostedStakeholders <- EitherT.liftF(
+        repairTarget.unwrap.synchronizer.topologySnapshot
+          .hostedOn(stakeholdersPerCid.view.values.flatten.toSet, participantId)
+      )
+
+      _ <- EitherT.fromEither[FutureUnlessShutdown](
+        MonadUtil.sequentialTraverse_(stakeholdersPerCid) { case (cid, stakeholders) =>
+          Either.cond(
+            stakeholders.exists(hostedStakeholders.isDefinedAt),
+            (),
+            show"Not allowed to change assignation of contract $cid without at least one stakeholder of $stakeholders existing locally on the target synchronizer asOf=${repairTarget.unwrap.synchronizer.topologySnapshot.timestamp}",
+          )
+        }
+      )
     } yield filtered
   }
 
@@ -258,75 +265,33 @@ private final class ChangeAssignation(
       .lookupStakeholders(contractIds)
       .leftMap(e => s"Failed to look up stakeholder of contracts in synchronizer $sourceLSId: $e")
 
-  private def atLeastOneHostedStakeholderAtTarget(
-      contractId: LfContractId,
-      stakeholders: Set[LfPartyId],
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] =
-    EitherT(
-      repairTarget.unwrap.synchronizer.topologySnapshot
-        .hostedOn(stakeholders, participantId)
-        .map(_.keySet)
-        .map { hosted =>
-          Either.cond(
-            hosted.nonEmpty,
-            (),
-            show"Not allowed to change assignation of contract $contractId without at least one stakeholder of $stakeholders existing locally on the target synchronizer asOf=${repairTarget.unwrap.synchronizer.topologySnapshot.timestamp}",
-          )
-        }
-    )
-
-  /** Read contract instances from [[ContractStore]]
-    */
-  private def readContractsInstances(
-      contractIds: Seq[LfContractId]
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, List[ContractInstance]] =
-    contractStore
-      .lookupManyExistingUncached(contractIds)
-      .leftMap(contractId => s"Failed to look up contract $contractId in synchronizer $sourceLSId")
-
   private def readContracts(
       contractIds: Seq[(LfContractId, ReassignmentCounter)]
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Changes] =
-    readContractsInstances(contractIds.map(_._1))
-      .flatMap {
-        _.parTraverse { serializableContract =>
-          val contractId = serializableContract.contractId
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Changes] = {
+    val cids = contractIds.map(_._1)
 
-          for {
-            serializedTargetO <- EitherT.right(contractStore.lookup(contractId).value)
-            _ <- serializedTargetO
-              .traverse_ { serializedTarget =>
-                EitherTUtil.condUnitET[FutureUnlessShutdown](
-                  serializedTarget == serializableContract,
-                  s"Contract $contractId already exists in the contract store, but differs from contract to be created. Contract to be created $serializableContract versus existing contract $serializedTarget.",
-                )
-              }
-          } yield (contractId, serializableContract, serializedTargetO.isEmpty)
-        }
-      }
-      .flatMap { changed =>
-        val contractsById = changed.view.map { case (cid, contract, _) => cid -> contract }.toMap
-        val newContractIds = changed.view.collect { case (cid, contract, true) => cid }.toSet
-
-        val contractCounters =
-          contractIds.flatMap { case (cid, counter) =>
-            // TODO(#26468): Use representative package
-            contractsById.get(cid).map { contract =>
-              (
-                contract,
-                Source(contract.templateId.packageId),
-                Target(contract.templateId.packageId),
-                counter,
-              )
-            }
+    contractStore
+      .lookupManyExistingUncached(cids)
+      .leftMap(contractId => s"Failed to look up contract $contractId in synchronizer $sourceLSId")
+      .flatMap { contracts =>
+        val contractsById = contracts.view.map(contract => contract.contractId -> contract).toMap
+        val contractCounters = contractIds.flatMap { case (cid, counter) =>
+          // TODO(#26468): Use representative package
+          contractsById.get(cid).map { contract =>
+            (
+              contract,
+              Source(contract.templateId.packageId),
+              Target(contract.templateId.packageId),
+              counter,
+            )
           }
+        }
+
         val batches = ContractsReassignmentBatch.partition(contractCounters)
-        EitherT.rightT[FutureUnlessShutdown, String](Changes(batches, newContractIds))
+
+        EitherT.rightT[FutureUnlessShutdown, String](Changes(batches))
       }
+  }
 
   /** Write contracts in [[ContractStore]]
     */
@@ -406,7 +371,7 @@ private final class ChangeAssignation(
         assignment(unassignmentTs, changes, internalContractIds)
     for {
       _ <- FutureUnlessShutdown.outcomeF(
-        MonadUtil.sequentialTraverse(updates)(repairIndexer.offer(_))
+        MonadUtil.sequentialTraverse(updates)(repairIndexer.offer)
       )
     } yield ()
   }
@@ -543,11 +508,8 @@ private[repair] object ChangeAssignation {
 
   /** @param batches
     *   Contracts that are reassigned, in batches
-    * @param isNew
-    *   Contract ids of the contract that were not seen before.
     */
   final case class Changes(
-      batches: Seq[ContractsReassignmentBatch],
-      isNew: Set[LfContractId],
+      batches: Seq[ContractsReassignmentBatch]
   )
 }

@@ -5,7 +5,6 @@ package com.digitalasset.canton.integration.tests.ledgerapi.submission
 
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.PrepareSubmissionResponse
 import com.daml.nonempty.NonEmpty
-import com.daml.scalautil.future.FutureConversion.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.crypto.InteractiveSubmission.TransactionMetadataForHashing
@@ -390,6 +389,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
             sequencer1.synchronizer_id,
             deserialized.transactionMeta.timeBoundaries,
             deserialized.transactionMeta.preparationTime,
+            maxRecordTime = None,
             deserialized.processedDisclosedContracts.map(fci => fci.contractId -> fci).toList.toMap,
           ),
           deserialized.transactionMeta.optNodeSeeds.value.toSeq.toMap,
@@ -450,7 +450,6 @@ final class InteractiveSubmissionConfirmationIntegrationTest
               deserialized.globalKeyMapping,
               ImmArray.empty,
             )
-            .toScalaUnwrapped
             .futureValue
         },
         LogEntry.assertLogSeq(

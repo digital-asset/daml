@@ -1,0 +1,140 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:proto.bzl", "proto_jars")
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+    "kind_projector_plugin",
+    "lf_scalacopts",
+    "lf_scalacopts_stricter",
+)
+
+proto_jars(
+    name = "transaction_proto",
+    srcs = glob(["src/main/protobuf/com/digitalasset/daml/lf/**/*.proto"]),
+    maven_artifact_prefix = "daml-lf-transaction",
+    maven_group = "com.daml",
+    strip_import_prefix = "src/main/protobuf/",
+    deps = ["@com_google_protobuf//:empty_proto"],
+)
+
+da_scala_library(
+    name = "transaction",
+    srcs = glob(["src/main/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    tags = ["maven_coordinates=com.daml:daml-lf-transaction:__VERSION__"],
+    visibility = ["//visibility:public"],
+    exports = [":transaction_proto_java"],
+    deps = [
+        ":transaction_proto_java",
+        "//daml-lf:data",
+        "//canton:crypto",
+        "//canton:nameof",
+        "//canton:scala-utils",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/language",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_library(
+    name = "transaction-test-lib",
+    srcs = glob([
+        "src/test/**/*Generators.scala",
+        "src/test/**/*Builder.scala",
+        "src/test/**/*Factory.scala",
+    ]),
+    plugins = [
+        kind_projector_plugin,
+    ],
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    tags = ["maven_coordinates=com.daml:daml-lf-transaction-test-lib:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//canton/community/daml-lf/api-type-signature",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/data:data-scalacheck",
+        "//canton/community/daml-lf/transaction",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_test(
+    name = "value-test",
+    srcs = glob(
+        [
+            "src/test/**/value/*.scala",
+            "src/test/**/EitherAssertions.scala",
+        ],
+        exclude = ["src/test/**/test/*.scala"],
+    ),
+    max_heap_size = "3g",
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":transaction",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/transaction:transaction-test-lib",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_test(
+    name = "transaction-test",
+    size = "medium",
+    srcs = glob(
+        [
+            "src/test/**/EitherAssertions.scala",
+            "src/test/**/crypto/*.scala",
+            "src/test/**/transaction/*.scala",
+        ],
+        exclude = ["src/test/**/test/*.scala"],
+    ),
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":transaction",
+        "//canton:crypto",
+        "//canton/community/daml-lf/api-type-signature",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/language",
+        "//canton/community/daml-lf/transaction:transaction-test-lib",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_test(
+    name = "validation-test",
+    size = "medium",
+    srcs = glob([
+        "src/test/**/validation/*.scala",
+    ]),
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":transaction",
+        "//canton/community/daml-lf/data",
+    ],
+)

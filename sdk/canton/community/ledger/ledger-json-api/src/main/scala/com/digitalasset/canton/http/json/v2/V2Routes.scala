@@ -38,6 +38,7 @@ class V2Routes(
     partyManagementService: JsPartyManagementService,
     stateService: JsStateService,
     updateService: JsUpdateService,
+    contractService: JsContractService,
     userManagementService: JsUserManagementService,
     versionService: JsVersionService,
     metadataServiceIfEnabled: Option[JsDamlDefinitionsService],
@@ -55,7 +56,7 @@ class V2Routes(
       .endpoints() ++ identityProviderService
       .endpoints() ++ interactiveSubmissionService
       .endpoints() ++ metadataServiceIfEnabled.toList.flatMap(_.endpoints()) ++ jsHealthService
-      .endpoints()
+      .endpoints() ++ contractService.endpoints()
 
   private val docs =
     new JsApiDocsService(
@@ -133,6 +134,9 @@ object V2Routes {
     val updateService =
       new JsUpdateService(ledgerClient, protocolConverters, requestLogger, loggerFactory)
 
+    val contractService =
+      new JsContractService(ledgerClient, protocolConverters, requestLogger, loggerFactory)
+
     val userManagementService =
       new JsUserManagementService(ledgerClient.userManagementClient, requestLogger, loggerFactory)
     val identityProviderService = new JsIdentityProviderService(
@@ -167,6 +171,7 @@ object V2Routes {
       partyManagementService,
       stateService,
       updateService,
+      contractService,
       userManagementService,
       versionService,
       damlDefinitionsServiceIfEnabled,

@@ -41,7 +41,7 @@ object Reader {
     if (schemaMode)
       Right(())
     else
-      com.daml.SafeProto.ensureNoUnknownFields(m).left.map(Error.Parsing)
+      com.digitalasset.daml.SafeProto.ensureNoUnknownFields(m).left.map(Error.Parsing)
 
   /* Convert an Archive proto message into a scala ArchivePayload.
    *

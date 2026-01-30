@@ -3,10 +3,15 @@
 
 package com.digitalasset.canton.caching
 
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.CachingConfigs
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.metrics.CommonMockMetrics
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.{BaseTest, FailOnShutdown}
+import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
@@ -17,7 +22,11 @@ import java.util.concurrent.{
   RejectedExecutionException,
   TimeUnit,
 }
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{
+  ExecutionContext,
+  ExecutionContextExecutor,
+  Future,
+} // Ensure implicits for FlatMap are in scope
 
 class ScaffeineCacheTest extends AsyncWordSpec with BaseTest with FailOnShutdown {
 
@@ -134,6 +143,273 @@ class ScaffeineCacheTest extends AsyncWordSpec with BaseTest with FailOnShutdown
     }
   }
 
+  "buildMappedAsync" should {
+
+    "Handle AbortDueToShutdown in getFuture" in {
+      val keysCache =
+        ScaffeineCache.buildMappedAsync[Int, Int](
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(loggerFactory)
+        )(logger, "")
+
+      for {
+        result <- keysCache.getFuture(10, _ => FutureUnlessShutdown.abortedDueToShutdown).unwrap
+      } yield {
+        result shouldBe UnlessShutdown.AbortedDueToShutdown
+      }
+    }
+
+    "Handle AbortedDueToShutdown in compute" in {
+      val keysCache =
+        ScaffeineCache.buildMappedAsync[Int, Int](
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(loggerFactory)
+        )(logger, "")
+
+      for {
+        result <- keysCache
+          .compute(10)(_ => Some(FutureUnlessShutdown.abortedDueToShutdown))
+          .value
+          .unwrap
+      } yield {
+        result shouldBe UnlessShutdown.AbortedDueToShutdown
+      }
+    }
+
+    "Pass cached value to compute" in {
+      val keysCache =
+        ScaffeineCache.buildMappedAsync[Int, Int](
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(loggerFactory)
+        )(logger, "")
+      val previousValue = new AtomicReference[Option[FutureUnlessShutdown[Int]]]()
+      for {
+        _ <- keysCache.getFuture(10, _ => FutureUnlessShutdown.pure(11))
+        newValue <- keysCache
+          .compute(10) { previousO =>
+            previousValue.set(previousO)
+            Some(FutureUnlessShutdown.pure(20))
+          }
+          .value
+        getNewValue = keysCache.getIfPresentSync(10)
+      } yield {
+        newValue shouldBe 20
+        getNewValue shouldBe Some(newValue)
+        previousValue.get.value.futureValueUS shouldBe 11
+      }
+    }
+
+    "Remove cached value through compute" in {
+      val keysCache =
+        ScaffeineCache.buildMappedAsync[Int, Int](
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(loggerFactory)
+        )(logger, "")
+
+      for {
+        _ <- keysCache.getFuture(10, _ => FutureUnlessShutdown.pure(11))
+        previousValue = keysCache.getIfPresentSync(10)
+        newValue = keysCache.compute(10)(_ => None)
+        getNewValue = keysCache.getIfPresentSync(10)
+      } yield {
+        newValue should not be defined
+        getNewValue shouldBe newValue
+        previousValue should contain(11)
+      }
+    }
+
+    "handle compute atomically" in {
+      val executor = Executors.newFixedThreadPool(16)
+      implicit val executionContext: ExecutionContextExecutor =
+        ExecutionContext.fromExecutor(executor)
+
+      val numFutures = 10000
+      var counter = 0
+
+      val keysCache =
+        ScaffeineCache.buildMappedAsync[Int, Int](
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(loggerFactory)
+        )(logger, "")
+
+      val futures = (1 to numFutures).map { i =>
+        Future(
+          keysCache
+            .compute(1) { _ =>
+              counter = counter + 1
+              Some(FutureUnlessShutdown(Future.apply(UnlessShutdown.Outcome(i))))
+            }
+            .value
+        )
+      }
+
+      (for {
+        resultsFUS <- Future.sequence(futures)
+        results <- FutureUnlessShutdown.sequence(resultsFUS)
+      } yield {
+        counter shouldBe numFutures
+        results.sorted shouldBe (1 to numFutures)
+      }).thereafter { _ =>
+        executor.shutdown()
+        executor.awaitTermination(5, TimeUnit.SECONDS)
+      }
+    }
+  }
+
+  "TunnelledAsyncCacheWithAuxCache" should {
+
+    implicit val executionContext: ExecutionContextExecutor =
+      ExecutionContext.fromExecutor(Executors.newFixedThreadPool(16))
+
+    val longRunningComputation: Int => FutureUnlessShutdown[Int] = { i =>
+      // Simulate long-running computation
+      FutureUnlessShutdown {
+        Future {
+          UnlessShutdown.Outcome {
+            Threading.sleep(1000)
+            i
+          }
+        }
+      }
+    }
+
+    "add a long-running computation to the aux cache eventually" in {
+
+      val keysCache =
+        new ScaffeineCache.TunnelledAsyncCacheWithAuxCache[Int, Int, Int](
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(loggerFactory),
+          getAuxKeyO = x => Some(x + 1),
+          sizeMetric = CommonMockMetrics.dbStorage.internalContractIdsCacheSize,
+          tracedLogger = logger,
+          context = "",
+          loggerFactory = loggerFactory,
+        )
+
+      val computationF = keysCache.getFuture(10, longRunningComputation)
+      val auxCacheEntry0 = keysCache.getIfPresentAuxKey(11) // check the auxiliary cache
+      val cacheEntry0 = keysCache.getIfPresentSync(10) // check the main cache
+      for {
+        _ <- computationF // wait for the computation to finish
+      } yield {
+        auxCacheEntry0 shouldBe None
+        cacheEntry0 shouldBe None
+        // we need eventually here since the auxiliary cache is populated after the main cache in the onComplete
+        // callback of getFuture, and we do not have a way to wait until this happens
+        eventually(timeUntilSuccess = 5.seconds) {
+          keysCache.getIfPresentAuxKey(11) shouldBe Some(10) // check the auxiliary cache
+          keysCache.getIfPresentSync(10) shouldBe Some(10) // check the main cache
+        }
+      }
+    }
+
+    "ignore a long-running computation for an entry that has already been removed" in {
+
+      val keysCache =
+        new ScaffeineCache.TunnelledAsyncCacheWithAuxCache[Int, Int, Int](
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(loggerFactory),
+          getAuxKeyO = x => Some(x + 1),
+          sizeMetric = CommonMockMetrics.dbStorage.internalContractIdsCacheSize,
+          tracedLogger = logger,
+          context = "",
+          loggerFactory = loggerFactory,
+        )
+
+      val computationF = keysCache.getFuture(10, longRunningComputation)
+      keysCache.invalidate(10) // evict the cache entry
+      for {
+        _ <- computationF // wait for the computation to finish
+        // wait a bit more to ensure the auxiliary cache update would have happened
+        _ = Threading.sleep(500)
+        _ = keysCache.cleanUp()
+        auxCacheEntry = keysCache.getIfPresentAuxKey(11) // check the auxiliary cache
+        cacheEntry = keysCache.getIfPresentSync(10) // check the main cache
+      } yield {
+        auxCacheEntry shouldBe None
+        cacheEntry shouldBe None
+      }
+    }
+
+    "respect a newer addition even for a long-running computation for an entry that has already been removed" in {
+
+      val keysCache =
+        new ScaffeineCache.TunnelledAsyncCacheWithAuxCache[Int, Int, Int](
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(loggerFactory),
+          getAuxKeyO = x => Some(x + 1),
+          sizeMetric = CommonMockMetrics.dbStorage.internalContractIdsCacheSize,
+          tracedLogger = logger,
+          context = "",
+          loggerFactory = loggerFactory,
+        )
+
+      val computationF = keysCache.getFuture(10, longRunningComputation)
+      keysCache.invalidate(10) // evict the cache entry
+      keysCache.getFuture(10, _ => FutureUnlessShutdown.pure(42)).discard
+      for {
+        _ <- computationF // wait for the computation to finish
+        // wait a bit more to ensure the auxiliary cache update would have happened
+        _ = Threading.sleep(500)
+        auxCacheEntry0 = keysCache.getIfPresentAuxKey(11) // first addition should not be present
+        auxCacheEntry1 = keysCache.getIfPresentAuxKey(43) // newer addition should be present
+        cacheEntry = keysCache.getIfPresentSync(10) // should be the newer addition
+      } yield {
+        auxCacheEntry0 shouldBe None
+        auxCacheEntry1 shouldBe Some(10)
+        cacheEntry shouldBe Some(42)
+      }
+    }
+
+    "respect a newer addition for a long-running computation for an entry that has not been removed" in {
+
+      val keysCache =
+        new ScaffeineCache.TunnelledAsyncCacheWithAuxCache[Int, Int, Int](
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(loggerFactory),
+          getAuxKeyO = x => Some(x + 1),
+          sizeMetric = CommonMockMetrics.dbStorage.internalContractIdsCacheSize,
+          tracedLogger = logger,
+          context = "",
+          loggerFactory = loggerFactory,
+        )
+
+      val computationF = keysCache.getFuture(10, longRunningComputation)
+      keysCache.put(10, 42)
+      for {
+        _ <- computationF // wait for the computation to finish
+        // wait a bit more to ensure the auxiliary cache update would have happened
+        _ = Threading.sleep(500)
+        auxCacheEntry0 = keysCache.getIfPresentAuxKey(11) // first addition should not be present
+        auxCacheEntry1 = keysCache.getIfPresentAuxKey(43) // newer addition should be present
+        cacheEntry = keysCache.getIfPresentSync(10) // should be the newer addition
+      } yield {
+        auxCacheEntry0 shouldBe None
+        auxCacheEntry1 shouldBe Some(10)
+        cacheEntry shouldBe Some(42)
+      }
+    }
+
+    "handle two evictions of the same entry" in {
+
+      val keysCache =
+        new ScaffeineCache.TunnelledAsyncCacheWithAuxCache[Int, Int, Int](
+          cache = CachingConfigs.testing.keyCache.buildScaffeine(loggerFactory),
+          getAuxKeyO = x => Some(x + 1),
+          sizeMetric = CommonMockMetrics.dbStorage.internalContractIdsCacheSize,
+          tracedLogger = logger,
+          context = "",
+          loggerFactory = loggerFactory,
+        )
+
+      for {
+        _ <- keysCache.getFuture(10, _ => FutureUnlessShutdown.pure(41))
+        _ = eventually() {
+          keysCache.getIfPresentAuxKey(42) shouldBe Some(10)
+        }
+        _ = keysCache.invalidate(10)
+        auxCacheEntry1 = keysCache.getIfPresentAuxKey(42)
+        _ = keysCache.invalidate(10)
+        auxCacheEntry2 = keysCache.getIfPresentAuxKey(42)
+      } yield {
+        auxCacheEntry1 shouldBe None
+        auxCacheEntry2 shouldBe None
+      }
+    }
+
+  }
+
   "buildTracedAsync" should {
     "ignore the trace context stored with a key" in {
       val counter = new AtomicInteger()
@@ -204,7 +480,7 @@ class ScaffeineCacheTest extends AsyncWordSpec with BaseTest with FailOnShutdown
       val testExecutor = new TestExecutor()
 
       // Calling buildMappedAsync calls buildAsync
-      val cache: ScaffeineCache.TunnelledAsyncCache[Int, Int] =
+      val cache: ScaffeineCache.TunnelledAsyncCacheImpl[Int, Int] =
         ScaffeineCache.buildMappedAsync[Int, Int](
           cache = CachingConfigs.testing.keyCache.buildScaffeine(loggerFactory)(
             ExecutionContext.fromExecutor(testExecutor)

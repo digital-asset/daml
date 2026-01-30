@@ -150,6 +150,11 @@ class WriteThroughCacheTopologySnapshot(
           )
     }
 
+  @deprecated(
+    message =
+      "Do not use methods that scan the topology state as they don’t scale and don’t work with topology scalability.",
+    since = "3.5.0",
+  )
   override def listDynamicSynchronizerParametersChanges()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[DynamicSynchronizerParametersWithValidity]] =
@@ -169,6 +174,11 @@ class WriteThroughCacheTopologySnapshot(
         )
       })
 
+  @deprecated(
+    message =
+      "Do not use methods that scan the topology state as they don’t scale and don’t work with topology scalability.",
+    since = "3.5.0",
+  )
   override def allMembers()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Set[Member]] =

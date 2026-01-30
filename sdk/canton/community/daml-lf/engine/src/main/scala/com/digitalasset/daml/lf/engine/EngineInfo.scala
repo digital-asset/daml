@@ -22,11 +22,5 @@ class EngineInfo(config: EngineConfig) {
   }
 
   private[this] def formatLangVersions(versions: Iterable[LV]) =
-    versions
-      .map { case LV(major, minor) =>
-        val ap = minor.toProtoIdentifier
-        s"${major.pretty}${if (ap.isEmpty) "" else s".$ap"}"
-      }
-      .mkString(", ")
-
+    versions.map(_.pretty).mkString(", ")
 }

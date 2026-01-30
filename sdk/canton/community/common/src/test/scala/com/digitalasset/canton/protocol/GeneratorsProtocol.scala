@@ -408,13 +408,17 @@ final class GeneratorsProtocol(
     )
   }
 
+  implicit val hashingSchemeVersionArb: Arbitrary[HashingSchemeVersion] = Arbitrary(
+    Gen.oneOf(HashingSchemeVersion.getHashingSchemeVersionsForProtocolVersion(protocolVersion))
+  )
+
   implicit val externalAuthorizationArb: Arbitrary[ExternalAuthorization] = Arbitrary(
     for {
       parties <- boundedListGen[PartyId]
       signatures <- Gen.sequence(
         parties.map(p => boundedListGen[Signature].map(p -> _))
       )
-      hashingSchemeVersion <- Arbitrary.arbitrary[HashingSchemeVersion]
+      hashingSchemeVersion <- hashingSchemeVersionArb.arbitrary
     } yield ExternalAuthorization.create(
       signatures.asScala.toMap,
       hashingSchemeVersion,

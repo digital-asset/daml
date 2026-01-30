@@ -13,6 +13,9 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.nowarn
+
+@nowarn("cat=deprecation")
 class SortedReconciliationIntervalsProviderTest
     extends AnyWordSpec
     with BaseTest
