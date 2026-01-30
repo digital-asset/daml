@@ -233,7 +233,6 @@ genrule(
     name = "non-sphinx-html-docs",
     srcs = [
         ":hoogle_db.tar.gz",
-        "//language-support/java:javadoc",
         "//language-support/js/daml-types:docs",
     ],
     outs = ["non-sphinx-html-docs.tar.gz"],
@@ -242,11 +241,6 @@ genrule(
     DIR=$$(mktemp -d)
     trap "rm -rf DIR" EXIT
     mkdir -p $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-java/javadocs
-
-    # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
-    unzip -q -o $(locations //language-support/java:javadoc) -d $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-java/javadocs
-    # Remove JAR metadata
-    rm -r $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-java/javadocs/META-INF
 
     # Copy generated documentation for typescript libraries
     mkdir -p $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-types
