@@ -53,7 +53,7 @@ da_scala_library(
     deps = [
         "@maven//:com_daml_bindings_java",
         "@maven//:com_daml_nonempty_2_13",
-        "//canton/community/daml-lf/api-type-signature",
+        "@maven//:com_daml_daml_lf_api_type_signature_2_13",
         "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",
@@ -102,7 +102,7 @@ da_scala_test(
         "//bazel_tools/runfiles:scala_runfiles",
         "@maven//:com_daml_bindings_java",
         "@maven//:com_daml_nonempty_2_13",
-        "//canton/community/daml-lf/api-type-signature",
+        "@maven//:com_daml_daml_lf_api_type_signature_2_13",
         "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",

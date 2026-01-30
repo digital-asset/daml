@@ -63,7 +63,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-transaction-test-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton/community/daml-lf/api-type-signature",
+        "@maven//:com_daml_daml_lf_api_type_signature_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_lf_data_scalacheck_2_13",
         "//canton/community/daml-lf/transaction",
@@ -119,7 +119,7 @@ da_scala_test(
     deps = [
         ":transaction",
         "@maven//:com_daml_crypto_2_13",
-        "//canton/community/daml-lf/api-type-signature",
+        "@maven//:com_daml_daml_lf_api_type_signature_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/language",
         "@maven//:com_daml_daml_lf_transaction_test_lib_2_13",

@@ -71,7 +71,7 @@ da_scala_library(
         "@maven//:com_daml_rs_grpc_bridge",
         "@maven//:com_daml_rs_grpc_pekko_2_13",
         "@maven//:com_daml_timer_utils_2_13",
-        "//canton/community/daml-lf/api-type-signature",
+        "@maven//:com_daml_daml_lf_api_type_signature_2_13",
         "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "//canton/community/daml-lf/engine",
