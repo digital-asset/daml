@@ -19,5 +19,13 @@ use_repo(haskell, "ghc_toolchains")
 haskell_non_module_deps = use_extension("//bazel_tools/MODULE_MIGRATION:haskell_non_module_deps_extension.bzl", "haskell_non_module_deps_extension")
 use_repo(haskell_non_module_deps, "Cabal")
 
+stack_snapshot = use_extension(
+    "@rules_haskell//extensions:stack_snapshot.bzl",
+    "stack_snapshot",
+)
+use_repo(stack_snapshot, "stackage")
+
+stack_snapshot.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
+
 module_temporary_extension = use_extension("//bazel_tools/MODULE_MIGRATION:module_temporary_extension.bzl", "temporary_extension")
 use_repo(module_temporary_extension, "build_environment", "os_info", "scala_version")
