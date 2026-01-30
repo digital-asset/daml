@@ -2649,7 +2649,6 @@ da_scala_library(
         "@maven//:com_thesamet_scalapb_scalapb_runtime",
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     tags = ["maven_coordinates=com.daml:metrics:__VERSION__"],
