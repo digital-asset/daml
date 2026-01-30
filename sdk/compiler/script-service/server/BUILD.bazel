@@ -35,7 +35,7 @@ da_scala_binary(
         "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_lf_engine_2_13",
-        "//canton/community/daml-lf/ide-ledger",
+        "@maven//:com_daml_daml_lf_ide_ledger_2_13",
         "//canton/community/daml-lf/interpreter",
         "//canton/community/daml-lf/language",
         "//canton/community/daml-lf/transaction",
