@@ -265,7 +265,7 @@ protos_zip = rule(
         ),
         "ledger_api_tarball": attr.label(
             allow_single_file = True,
-            default = Label("//canton:ledger_api_proto_tar.tar.gz"),
+            default = Label("//canton:ledger_api_proto_tar.tar.gz"), # TODO(#30144): Create this from @maven//:com_daml_ledger_api_proto instead
         ),
         "ledger_api_value_tarball": attr.label(
             allow_single_file = True,
