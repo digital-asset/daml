@@ -262,7 +262,7 @@ da_scala_library(
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_lf_engine_2_13",
         "@maven//:com_daml_daml_lf_interpreter_2_13",
-        "//canton/community/daml-lf/language",
+        "@maven//:com_daml_daml_lf_language_2_13",
         "//canton/community/daml-lf/transaction",
         "//daml-script/converter",
         "//daml-script/runner:script-runner-lib",
@@ -371,7 +371,7 @@ da_scala_test_suite(
         "@maven//:com_daml_daml_lf_engine_2_13",
         "@maven//:com_daml_daml_lf_engine_2_13",
         "@maven//:com_daml_daml_lf_interpreter_2_13",
-        "//canton/community/daml-lf/language",
+        "@maven//:com_daml_daml_lf_language_2_13",
         "//canton/community/daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//test-common/canton/it-lib",
@@ -414,7 +414,7 @@ da_scala_test(
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_lf_engine_2_13",
         "@maven//:com_daml_daml_lf_interpreter_2_13",
-        "//canton/community/daml-lf/language",
+        "@maven//:com_daml_daml_lf_language_2_13",
         "//canton/community/daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//test-common/canton/it-lib",
@@ -459,7 +459,7 @@ da_scala_test(
         #"//canton/community/daml-lf/engine:upgrade-test",
         "@maven//:com_daml_daml_lf_upgrades_matrix_2_13",
         "@maven//:com_daml_daml_lf_interpreter_2_13",
-        "//canton/community/daml-lf/language",
+        "@maven//:com_daml_daml_lf_language_2_13",
         "//canton/community/daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//test-common/canton/it-lib",
@@ -486,7 +486,7 @@ da_scala_test(
         "//bazel_tools/runfiles:scala_runfiles",
         "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
-        "//canton/community/daml-lf/language",
+        "@maven//:com_daml_daml_lf_language_2_13",
     ],
 )
 
@@ -508,7 +508,7 @@ da_scala_binary(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton/community/daml-lf/language",
+        "@maven//:com_daml_daml_lf_language_2_13",
     ],
 )
 
@@ -559,7 +559,7 @@ da_scala_test_suite(
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_lf_engine_2_13",
         "@maven//:com_daml_daml_lf_interpreter_2_13",
-        "//canton/community/daml-lf/language",
+        "@maven//:com_daml_daml_lf_language_2_13",
         "//canton/community/daml-lf/transaction",
         "//daml-script/runner:script-runner-lib",
         "//test-common/canton/it-lib",
