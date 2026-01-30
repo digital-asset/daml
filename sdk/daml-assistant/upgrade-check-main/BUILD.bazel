@@ -74,7 +74,7 @@ da_scala_library(
     srcs = ["src/test/scala/com/digitalasset/daml/lf/validation/UpgradesCheckSpecUtil.scala"] +
     #  we depend on sources to avoid pushing a canton artifact to maven
     [
-        "//canton:community_admin-api_proto_scala",
+        "@maven//:com_daml_community_admin_api_2_13",
     ],
     override_scalacopts = ["-Wconf:cat=deprecation&msg=in\\ proto\\ file:s"],
     scala_deps = [

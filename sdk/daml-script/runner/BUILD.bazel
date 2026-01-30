@@ -27,7 +27,7 @@ da_scala_library(
         ) +
         #  we depend on sources to avoid pushing a canton artifact to maven
         [
-            "//canton:community_admin-api_proto_scala",
+            "@maven//:com_daml_community_admin_api_2_13",
             "//canton:community_admin-api-src",
         ],
     override_scalacopts = [
