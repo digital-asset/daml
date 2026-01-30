@@ -97,12 +97,12 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         ":daml_lf_archive_proto_java",
-        "//daml-lf:data",
         "//canton:crypto",
         "//canton:nameof",
         "//canton:scala-utils",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
+        "//daml-lf:data",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

@@ -31,12 +31,12 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-encoder:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-lf:data",
         "//canton:crypto",
         "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
         "//canton/community/daml-lf/archive:daml_lf_archive_reader",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
+        "//daml-lf:data",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
