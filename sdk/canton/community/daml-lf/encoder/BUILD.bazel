@@ -91,7 +91,7 @@ da_scala_binary(
             name = "validate-dar-%s" % target,
             srcs = ["src/validate.sh"],
             args = [
-                "$(location //canton/community/daml-lf/repl:repl)",
+                "$(location @maven//:com_daml_daml_lf_repl_2_13)",
                 "$(location :testing-dar-%s)" % target,
                 "--dev" if lf_version_is_dev(target) else "",
             ],
