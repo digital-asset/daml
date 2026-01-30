@@ -29,7 +29,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "@maven//:com_daml_base_errors_2_13",
-        "//canton:community_base",
+        "@maven//:com_daml_community_base_2_13",
         "//canton:community_ledger_ledger-api-core",
         "@maven//:com_daml_ledger_common_2_13",
         "//canton:community_magnolify-addon",
