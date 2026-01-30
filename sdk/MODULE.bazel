@@ -16,10 +16,8 @@ haskell = use_extension("@rules_haskell//extensions:haskell.bzl", "haskell")
 haskell.toolchain(version = "9.12.3")
 use_repo(haskell, "ghc_toolchains")
 
-local_haskell_extension = use_extension(
-    "//bazel_tools:MODULE_MIGRATION/haskell_deps_extension.bzl",
-     "haskell_extension"
- )
+haskell_non_module_deps = use_extension("//bazel_tools/MODULE_MIGRATION:haskell_non_module_deps_extension.bzl", "haskell_non_module_deps_extension")
+use_repo(haskell_non_module_deps, "Cabal")
 
-module_temporary_extension = use_extension("//bazel_tools:MODULE_MIGRATION/module_temporary_extension.bzl", "temporary_extension")
+module_temporary_extension = use_extension("//bazel_tools/MODULE_MIGRATION:module_temporary_extension.bzl", "temporary_extension")
 use_repo(module_temporary_extension, "build_environment", "os_info", "scala_version")
