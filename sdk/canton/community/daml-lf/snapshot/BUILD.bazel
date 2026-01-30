@@ -40,7 +40,7 @@ da_scala_library(
         "@maven//:com_daml_daml_lf_interpreter_2_13",
         "@maven//:com_daml_daml_lf_language_2_13",
         "@maven//:com_daml_daml_lf_snapshot_proto_2_13",
-        "//canton/community/daml-lf/transaction",
+        "@maven//:com_daml_daml_lf_transaction_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -56,7 +56,7 @@ da_scala_benchmark_jmh(
         "@maven//:com_daml_daml_lf_engine_2_13",
         "@maven//:com_daml_daml_lf_interpreter_2_13",
         "@maven//:com_daml_daml_lf_language_2_13",
-        "//canton/community/daml-lf/transaction",
+        "@maven//:com_daml_daml_lf_transaction_2_13",
     ],
 )
 
@@ -74,6 +74,6 @@ da_scala_binary(
         "@maven//:com_daml_daml_lf_engine_2_13",
         "@maven//:com_daml_daml_lf_interpreter_2_13",
         "@maven//:com_daml_daml_lf_language_2_13",
-        "//canton/community/daml-lf/transaction",
+        "@maven//:com_daml_daml_lf_transaction_2_13",
     ],
 )
