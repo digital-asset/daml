@@ -25,7 +25,7 @@ da_scala_binary(
         "@maven//:com_daml_daml_lf_language_2_13",
         "@maven//:com_daml_daml_lf_parser_2_13",
         "@maven//:com_daml_daml_lf_transaction_2_13",
-        "//canton/community/daml-lf/validation",
+        "@maven//:com_daml_daml_lf_validation_2_13",
         "@maven//:org_jline_jline",
     ],
 )
