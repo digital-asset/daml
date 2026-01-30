@@ -109,8 +109,13 @@ Typeclasses
 
 **class** `Serializable <class-da-internal-lf-serializable-80925_>`_ a **where**
 
-  This is probably not the right place for this\.
-  TODO(jaspervdj)\: where should this be placed?
+  A class to explicitly indicate that a type is serializable\. Values of
+  types instantiating this class can be stored on the ledger\. These types will
+  be subject to strict upgrade checks, as newer code must continue to be able
+  to read historical ledger data\.
+
+  Note that explicit serializability is off by default and hidden behind the
+  \-\-explicit\-serializable\=yes flag in Canton 3\.5\.
 
 .. _class-da-internal-prelude-applicative-9257:
 
