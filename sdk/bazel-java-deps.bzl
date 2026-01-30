@@ -211,6 +211,7 @@ def install_java_deps():
             "com.thesamet.scalapb:scalapb-json4s_{}:0.11.1".format(scala_major_version),
             "com.thesamet.scalapb:scalapb-runtime-grpc_{}:{}".format(scala_major_version, scalapb_version),
             "com.thesamet.scalapb:scalapb-runtime_{}:{}".format(scala_major_version, scalapb_version),
+            "com.thesamet.scalapb.common-protos:proto-google-common-protos-scalapb_0.11_{}:2.9.6-0".format(scala_major_version),
             "com.typesafe.scala-logging:scala-logging_{}:3.9.5".format(scala_major_version),
             "com.typesafe.slick:slick-hikaricp_{}:3.5.2".format(scala_major_version),
             "com.typesafe.slick:slick_{}:3.5.2".format(scala_major_version),
