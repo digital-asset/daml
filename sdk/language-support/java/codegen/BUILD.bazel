@@ -434,7 +434,7 @@ da_scala_test(
         "@maven//:com_daml_ledger_common_2_13",
         "@maven//:com_daml_util_observability_2_13",
         "@maven//:com_daml_ledger_resources_2_13",
-        "//canton:ledger-resources-test-lib",
+        "@maven//:com_daml_ledger_resources_test_lib_2_13",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:com_daml_ports_2_13",
         "@maven//:com_daml_daml_resources_2_13",
