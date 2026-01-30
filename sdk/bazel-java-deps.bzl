@@ -153,6 +153,7 @@ def install_java_deps():
             "com.daml:util-external_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:community-base_{}:{}".format(scala_major_version, transcode_version),
             "com.daml:community-admin-api_{}:{}".format(scala_major_version, transcode_version),
+            "com.daml:magnolify-addon_{}:{}".format(scala_major_version, transcode_version),
             "com.fasterxml.jackson.core:jackson-core:2.14.3",
             "com.fasterxml.jackson.core:jackson-databind:2.14.3",
             "com.github.ben-manes.caffeine:caffeine:3.1.2",
