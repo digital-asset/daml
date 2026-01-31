@@ -124,6 +124,8 @@ class StoreBasedSynchronizerTopologyClient(
     override val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
+    override val executionOrder: Int =
+      2, // overriding the executionOrder during creation (default is 10)
 )(implicit val executionContext: ExecutionContext)
     extends SynchronizerTopologyClientWithInit
     with TopologyAwaiter

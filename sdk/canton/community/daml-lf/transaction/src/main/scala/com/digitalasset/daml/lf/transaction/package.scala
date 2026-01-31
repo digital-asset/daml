@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf
 
-import com.daml.SafeProto
+import com.digitalasset.daml.SafeProto
 import com.digitalasset.daml.lf.value.ValueCoder
 import com.google.protobuf
 

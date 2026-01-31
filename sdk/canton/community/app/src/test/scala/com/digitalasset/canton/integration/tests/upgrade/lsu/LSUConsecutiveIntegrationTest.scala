@@ -140,7 +140,7 @@ final class LSUConsecutiveIntegrationTest extends LSUBase {
       )
 
       val fixture2 = Fixture(
-        currentPSId = daId,
+        currentPSId = fixture1.newPSId,
         upgradeTime = upgradeTime2,
         oldSynchronizerNodes = fixture1.newSynchronizerNodes,
         newSynchronizerNodes = SynchronizerNodes(Seq(sequencer3), Seq(mediator3)),

@@ -32,7 +32,7 @@ import com.digitalasset.canton.ledger.api.{
 }
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.daml.lf.data.Ref.{PackageRef, TypeConRef}
+import com.digitalasset.daml.lf.data.Ref.{NameTypeConRef, PackageRef}
 import io.grpc.StatusRuntimeException
 import scalaz.std.either.*
 import scalaz.std.list.*
@@ -170,7 +170,7 @@ object FormatValidator {
   ): Either[StatusRuntimeException, TemplateFilter] =
     for {
       templateId <- requirePresence(filter.templateId, "templateId")
-      typeConRef <- validateTypeConRefWithWarning(templateId)
+      typeConRef <- validateNameTypeConRef(templateId)
     } yield TemplateFilter(
       templateTypeRef = typeConRef,
       includeCreatedEventBlob = filter.includeCreatedEventBlob,
@@ -181,28 +181,29 @@ object FormatValidator {
   ): Either[StatusRuntimeException, InterfaceFilter] =
     for {
       interfaceId <- requirePresence(filter.interfaceId, "interfaceId")
-      typeConRef <- validateTypeConRefWithWarning(interfaceId)
+      typeConRef <- validateNameTypeConRef(interfaceId)
     } yield InterfaceFilter(
       interfaceTypeRef = typeConRef,
       includeView = filter.includeInterfaceView,
       includeCreatedEventBlob = filter.includeCreatedEventBlob,
     )
 
-  private def validateTypeConRefWithWarning(identifier: Identifier)(implicit
+  private def validateNameTypeConRef(identifier: Identifier)(implicit
       errorLoggingContext: ErrorLoggingContext
-  ): Either[StatusRuntimeException, TypeConRef] =
+  ): Either[StatusRuntimeException, NameTypeConRef] =
     for {
       typeConRef <- validateTypeConRef(identifier)
-      _ = typeConRef.pkg match {
-        case PackageRef.Name(_) => ()
+      nameTypeConRef <- typeConRef.pkg match {
+        case n: PackageRef.Name => Right(NameTypeConRef(n, typeConRef.qualifiedName))
         case PackageRef.Id(id) =>
-          errorLoggingContext.logger.warn(
-            s"Received an identifier with package ID $id, but expected a package name. " +
-              "The query will be resolved for the package-name pertaining to the requested package-id instead. " +
-              "The usage of package IDs in identifiers is deprecated and will be removed in a future release."
-          )(errorLoggingContext.traceContext)
+          Left(
+            invalidField(
+              "packageId",
+              s"Received an identifier with package ID $id, but expected a package name.",
+            )
+          )
       }
-    } yield typeConRef
+    } yield nameTypeConRef
 
   private def validateNonEmptyFilters(
       templateFilters: Seq[ProtoTemplateFilter],

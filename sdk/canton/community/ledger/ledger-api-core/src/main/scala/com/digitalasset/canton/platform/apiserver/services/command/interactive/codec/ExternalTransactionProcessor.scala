@@ -247,9 +247,7 @@ class ExternalTransactionProcessor(
         .mapK(FutureUnlessShutdown.outcomeK)
       // Compute the pre-computed hash for convenience
       protocolVersion = commandExecutionResult.synchronizerRank.synchronizerId.protocolVersion
-      hashVersion = HashingSchemeVersion
-        .getHashingSchemeVersionsForProtocolVersion(protocolVersion)
-        .max1
+      hashVersion = HashingSchemeVersion.V2
       hash <- EitherT
         .fromEither[FutureUnlessShutdown](
           enriched

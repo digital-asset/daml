@@ -36,6 +36,7 @@ class SynchronizersFilterTest
     with HasExecutionContext
     with FailOnShutdown
     with ProtocolVersionChecksAnyWordSpec {
+
   "SynchronizersFilter (simple create)" should {
     import SimpleTopology.*
 
@@ -59,36 +60,37 @@ class SynchronizersFilterTest
 
     "reject synchronizers when the hashing scheme version is not supported" in {
       val allHashingSchemes =
-        HashingSchemeVersion.MinimumProtocolVersionToHashingVersion.values.flatten.toList
-      HashingSchemeVersion.MinimumProtocolVersionToHashingVersion.foreach {
-        case (pv, supportedHashingSchemes) =>
-          allHashingSchemes.filterNot(supportedHashingSchemes.contains).foreach {
-            unsupportedHashingScheme =>
-              val lfSerializationVersion =
-                LfSerializationVersionToProtocolVersions.lfSerializationVersionToMinimumProtocolVersions.collectFirst {
-                  case (lfSerialization, minimumPv) if pv >= minimumPv => lfSerialization
-                }.value
-              val filter =
-                SynchronizersFilterForTx(
-                  Transactions.Create.tx(lfSerializationVersion),
-                  ledgerTime,
-                  pv,
-                  Some(unsupportedHashingScheme),
-                )
+        HashingSchemeVersion.MinimumProtocolVersionToHashingVersion.values.flatten.toSet
+      val supportedHashingSchemes = HashingSchemeVersion
+        .getHashingSchemeVersionsForProtocolVersion(testedProtocolVersion)
+        .forgetNE
+      val unsupportedSchemes = allHashingSchemes -- supportedHashingSchemes
+      forAll(unsupportedSchemes) { unsupportedHashingScheme =>
+        unsupportedHashingScheme shouldBe unsupportedHashingScheme
+        val lfSerializationVersion =
+          LfSerializationVersionToProtocolVersions.lfSerializationVersionToMinimumProtocolVersions.collectFirst {
+            case (lfSerialization, minimumPv) if testedProtocolVersion >= minimumPv =>
+              lfSerialization
+          }.value
+        val filter =
+          SynchronizersFilterForTx(
+            Transactions.Create.tx(lfSerializationVersion),
+            ledgerTime,
+            testedProtocolVersion,
+            Some(unsupportedHashingScheme),
+          )
 
-              val (unusableSynchronizers, usableSynchronizers) =
-                filter.split(correctTopology, correctPackages).futureValueUS
+        val (unusableSynchronizers, usableSynchronizers) =
+          filter.split(correctTopology, correctPackages).futureValueUS
 
-              unusableSynchronizers shouldBe List(
-                UnsupportedMinimumProtocolVersionForInteractiveSubmission(
-                  synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
-                  requiredPV =
-                    HashingSchemeVersion.minProtocolVersionForHSV(unsupportedHashingScheme),
-                  isVersion = unsupportedHashingScheme,
-                )
-              )
-              usableSynchronizers shouldBe empty
-          }
+        unusableSynchronizers shouldBe List(
+          UnsupportedMinimumProtocolVersionForInteractiveSubmission(
+            synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
+            requiredPV = HashingSchemeVersion.minProtocolVersionForHSV(unsupportedHashingScheme),
+            isVersion = unsupportedHashingScheme,
+          )
+        )
+        usableSynchronizers shouldBe empty
       }
     }
 

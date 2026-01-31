@@ -310,6 +310,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Boolean] =
     decryptionKey(decryptionKeyId).map(_.nonEmpty)
 
+  // TODO(#30380): Use `CacheItem` to represent cached items that may already be loaded or are still loading.
   private def retrieveAndUpdateCache[KN <: PrivateKeyWithName, T](
       cache: TrieMap[Fingerprint, KN],
       readKeys: NonEmpty[Seq[Fingerprint]] => EitherT[
@@ -324,7 +325,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
       fingerprintExtractor: T => Fingerprint,
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[(T, KN#K)]] = {
     val missingKeys =
-      NonEmpty.from((keyIds.toSet.map(fingerprintExtractor) -- signingKeyMap.keySet).toSeq)
+      NonEmpty.from((keyIds.toSet.map(fingerprintExtractor) -- cache.keySet).toSeq)
     for {
       missingKeyMap <- missingKeys.traverse(readKeys)
       _ = missingKeyMap.foreach(update =>

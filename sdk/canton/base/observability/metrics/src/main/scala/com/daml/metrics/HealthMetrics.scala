@@ -18,7 +18,7 @@ class HealthMetrics(val factory: LabeledMetricsFactory) {
 
   def registerHealthGauge(componentName: String, supplier: () => Boolean): CloseableGauge = {
     val asLong = () => if (supplier()) 1L else 0L
-    factory.gaugeWithSupplier(healthGaugeInfo, asLong)(
+    factory.closeableGaugeWithSupplier(healthGaugeInfo, asLong)(
       MetricsContext((ComponentLabel, componentName))
     )
   }

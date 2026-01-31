@@ -293,7 +293,6 @@ class EventsBufferTest extends FixtureAnyWordSpec with BaseTest {
   override protected def withFixture(test: OneArgTest): Outcome = {
     val fixture = new MetricsFixture()
     val result = test(fixture)
-    fixture.sequencerMetrics.eventBuffer.closeAcquired()
     result
   }
 

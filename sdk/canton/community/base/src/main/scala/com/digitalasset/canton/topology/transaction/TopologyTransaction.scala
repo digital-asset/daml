@@ -82,6 +82,7 @@ trait DelegatedTopologyTransactionLike[+Op <: TopologyChangeOp, +M <: TopologyMa
   override final def serial: PositiveInt = transactionLikeDelegate.serial
   override final def mapping: M = transactionLikeDelegate.mapping
   override final def hash: TxHash = transactionLikeDelegate.hash
+
 }
 
 /** Change to the distributed synchronizer topology

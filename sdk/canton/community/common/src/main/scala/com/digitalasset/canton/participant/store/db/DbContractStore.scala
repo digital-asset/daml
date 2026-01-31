@@ -14,6 +14,7 @@ import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.store.ContractStore.InternalContractId
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.resource.DbStorage.{DbAction, SQLActionBuilderChain}
 import com.digitalasset.canton.resource.{DbParameterUtils, DbStorage, DbStore}
@@ -49,7 +50,6 @@ class DbContractStore(
 
   override protected[store] def logger: TracedLogger = super.logger
 
-  // TODO(#27996): optimize: evict proto deserialization from the DB threads (suggested: using a proper pekko-stream with deser stage over the batches, or do deser on client thread -but then it might be redundant-)
   private implicit def contractGetResult(implicit
       getResultByteArray: GetResult[Array[Byte]]
   ): GetResult[PersistedContractInstance] = GetResult { r =>
@@ -93,14 +93,18 @@ class DbContractStore(
         pp = pp,
       )
 
-  private val cache
-      : ScaffeineCache.TunnelledAsyncCache[LfContractId, Option[PersistedContractInstance]] =
-    ScaffeineCache.buildMappedAsync[LfContractId, Option[PersistedContractInstance]](
-      cacheConfig.buildScaffeine(loggerFactory)
-    )(logger, "DbContractStore.cache")
+  private val cache = new ScaffeineCache.TunnelledAsyncCacheWithAuxCache[LfContractId, Option[
+    PersistedContractInstance
+  ], InternalContractId](
+    cache = cacheConfig.buildScaffeine(loggerFactory),
+    getAuxKeyO = persistedO => persistedO.map(_.internalContractId),
+    tracedLogger = logger,
+    context = "DbContractStore.cache",
+    sizeMetric = storage.metrics.internalContractIdsCacheSize,
+    loggerFactory = loggerFactory,
+  )
 
-  private def invalidateCache(key: LfContractId): Unit =
-    cache.invalidate(key)
+  private def invalidateCache(key: LfContractId): Unit = cache.invalidate(key)
 
   // batch aggregator used for single point queries: damle will run many "lookups"
   // during interpretation. they will hit the db like a nail gun. the batch
@@ -178,19 +182,15 @@ class DbContractStore(
     NonEmpty
       .from(ids)
       .map(ids =>
-        EitherT(lookupManyUncachedInternal(ids).map(ids.toList.zip(_).traverse {
-          case (id, contract) =>
-            contract.toRight(id).map(_.asContractInstance)
-        }))
+        EitherT(
+          storage
+            .query(lookupQuery(ids), functionFullName)
+            .map(ids.toList.zip(_).traverse { case (id, contract) =>
+              contract.toRight(id).map(_.asContractInstance)
+            })
+        )
       )
       .getOrElse(EitherT.rightT(List.empty))
-
-  private def lookupManyUncachedInternal(
-      ids: NonEmpty[Seq[LfContractId]]
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[Option[PersistedContractInstance]]] =
-    storage.query(lookupQuery(ids), functionFullName)
 
   override def find(
       exactId: Option[String],
@@ -269,8 +269,6 @@ class DbContractStore(
         }
       case None => FutureUnlessShutdown.pure(Map.empty)
     }
-
-  private type InternalContractId = Long
 
   private val batchAggregatorInsert: BatchAggregator[ContractInstance, Try[InternalContractId]] = {
     val processor = new BatchAggregator.Processor[ContractInstance, Try[InternalContractId]] {
@@ -376,16 +374,18 @@ class DbContractStore(
                   case None => DBIO.successful(Map.empty[LfContractId, PersistedContractInstance])
                 }
             } yield foundData -> insertedData).transactionally
-            for {
-              (foundData, insertedData) <- storage.queryAndUpdate(action, s"$queryBaseName update")(
+            storage
+              .queryAndUpdate(action, s"$queryBaseName update")(
                 traceContext,
                 self.closeContext,
               )
-            } yield processBatchResults(
-              items = items,
-              insertedData = insertedData,
-              foundData = foundData,
-            )
+              .map { case (foundData, insertedData) =>
+                processBatchResults(
+                  items = items,
+                  insertedData = insertedData,
+                  foundData = foundData,
+                )
+              }
         }
       }
 
@@ -478,7 +478,9 @@ class DbContractStore(
             (sql"""delete from par_contracts where """ ++ inClause).asUpdate,
             functionFullName,
           )
-          .thereafter(_ => cache.invalidateAll(contractIds))
+          .thereafter { _ =>
+            cache.invalidateAll(contractIds)
+          }
     }
   }
 
@@ -490,7 +492,10 @@ class DbContractStore(
         sqlu"""delete from par_contracts""",
         functionFullName,
       )
-      .thereafter(_ => cache.invalidateAll())
+      .thereafter { _ =>
+        // purge is not used for DBContractStore, so we leave it without atomicity guarantees
+        cache.invalidateAll()
+      }
 
   override def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
@@ -560,12 +565,24 @@ class DbContractStore(
     super.onClosed()
   }
 
-  override def lookupBatchedNonCached(internalContractIds: Iterable[Long])(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[Long, PersistedContractInstance]] =
+  /** Lookup multiple contracts from cache if existent or from persistence without updating the
+    * cache.
+    */
+  override def lookupBatchedNonReadThrough(internalContractIds: Iterable[InternalContractId])(
+      implicit traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[InternalContractId, PersistedContractInstance]] =
+    fetchWithFallbackToPersistence[InternalContractId, PersistedContractInstance](
+      items = internalContractIds,
+      fetchFromCache = internalContractId => lookupPersistedIfCached(internalContractId).flatten,
+      fetchFromPersistence = lookupBatchedFromPersistence,
+    )
+
+  private[db] def lookupBatchedFromPersistence(internalContractIds: Iterable[InternalContractId])(
+      implicit traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[InternalContractId, PersistedContractInstance]] =
     NonEmpty
       .from(internalContractIds.toSeq)
-      .fold(FutureUnlessShutdown.pure(Map.empty[Long, PersistedContractInstance])) {
+      .fold(FutureUnlessShutdown.pure(Map.empty[InternalContractId, PersistedContractInstance])) {
         nonEmptyInternalContractIds =>
           import DbStorage.Implicits.BuilderChain.*
 
@@ -580,45 +597,100 @@ class DbContractStore(
             .map(_.map(persisted => persisted.internalContractId -> persisted).toMap)
       }
 
-  override def lookupBatchedNonCachedInternalIds(
-      contractIds: Iterable[LfContractId]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[LfContractId, Long]] =
-    NonEmpty
-      .from(contractIds.toSeq)
-      .fold(FutureUnlessShutdown.pure(Map.empty[LfContractId, Long])) { nonEmptyContractIds =>
-        import DbStorage.Implicits.BuilderChain.*
-
-        val inClause = DbStorage.toInClause("contract_id", nonEmptyContractIds)
-        val query =
-          (sql"""select contract_id, internal_contract_id from par_contracts where """ ++ inClause)
-            .as[(LfContractId, Long)]
-        storage
-          .query(
-            query,
-            functionFullName,
-          )
-          .map(_.toMap)
+  /** Fetches data for the given items, attempting to retrieve them from the cache first. If some
+    * items are not found in the cache, they are fetched from persistence. The results from the
+    * cache and persistence are then combined into a single map.
+    */
+  private def fetchWithFallbackToPersistence[K, V](
+      items: Iterable[K],
+      fetchFromCache: K => Option[V],
+      fetchFromPersistence: Iterable[K] => FutureUnlessShutdown[Map[K, V]],
+  ): FutureUnlessShutdown[Map[K, V]] = {
+    val (notInCache, cached) = items.partitionMap(k =>
+      fetchFromCache(k) match {
+        case Some(v) => Right(k -> v)
+        case None => Left(k)
       }
+    )
+    fetchFromPersistence(notInCache).map(cached.toMap ++ _)
+  }
 
-  // TODO(#27996): Add unit test if still needed
-  override def lookupBatchedNonCachedContractIds(internalContractIds: Iterable[Long])(implicit
+  /** Lookup multiple internal contract ids from cache if existent or from persistence without
+    * updating the cache.
+    */
+  override def lookupBatchedInternalIdsNonReadThrough(
+      contractIds: Iterable[LfContractId]
+  )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[Long, LfContractId]] =
+  ): FutureUnlessShutdown[Map[LfContractId, InternalContractId]] =
+    fetchWithFallbackToPersistence[LfContractId, InternalContractId](
+      items = contractIds,
+      fetchFromCache = contractId =>
+        lookupPersistedIfCached(contractId) match {
+          case Some(Some(persisted)) => Some(persisted.internalContractId)
+          case _ => None
+        },
+      fetchFromPersistence = { contractIds =>
+        NonEmpty
+          .from(contractIds.toSeq)
+          .fold(FutureUnlessShutdown.pure(Map.empty[LfContractId, InternalContractId])) {
+            nonEmptyContractIds =>
+              import DbStorage.Implicits.BuilderChain.*
+
+              val inClause = DbStorage.toInClause("contract_id", nonEmptyContractIds)
+              val query =
+                (sql"""select contract_id, internal_contract_id from par_contracts where """ ++ inClause)
+                  .as[(LfContractId, InternalContractId)]
+              storage
+                .query(
+                  query,
+                  functionFullName,
+                )
+                .map(_.toMap)
+          }
+      },
+    )
+
+  /** Lookup multiple contract ids from cache if existent or from persistence without updating the
+    * cache.
+    */
+  override def lookupBatchedContractIdsNonReadThrough(
+      internalContractIds: Iterable[InternalContractId]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[InternalContractId, LfContractId]] =
+    fetchWithFallbackToPersistence[InternalContractId, LfContractId](
+      items = internalContractIds,
+      fetchFromCache = cache.getIfPresentAuxKey,
+      fetchFromPersistence = lookupBatchedContractIdsFromPersistence,
+    )
+
+  private[db] def lookupBatchedContractIdsFromPersistence(
+      internalContractIds: Iterable[InternalContractId]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[InternalContractId, LfContractId]] =
     NonEmpty
       .from(internalContractIds.toSeq)
-      .fold(FutureUnlessShutdown.pure(Map.empty[Long, LfContractId])) { nonEmptyContractIds =>
-        import DbStorage.Implicits.BuilderChain.*
+      .fold(FutureUnlessShutdown.pure(Map.empty[InternalContractId, LfContractId])) {
+        nonEmptyContractIds =>
+          import DbStorage.Implicits.BuilderChain.*
 
-        val inClause = DbStorage.toInClause("internal_contract_id", nonEmptyContractIds)
-        val query =
-          (sql"""select internal_contract_id, contract_id from par_contracts where """ ++ inClause)
-            .as[(Long, LfContractId)]
-        storage
-          .query(
-            query,
-            functionFullName,
-          )
-          .map(_.toMap)
+          val inClause = DbStorage.toInClause("internal_contract_id", nonEmptyContractIds)
+          val query =
+            (sql"""select internal_contract_id, contract_id from par_contracts where """ ++ inClause)
+              .as[(InternalContractId, LfContractId)]
+          storage
+            .query(
+              query,
+              functionFullName,
+            )
+            .map(_.toMap)
       }
+
+  private[db] def lookupPersistedIfCached(internalContractId: InternalContractId)(implicit
+      traceContext: TraceContext
+  ): Option[Option[PersistedContractInstance]] =
+    cache.getIfPresentAuxKey(internalContractId).flatMap(lookupPersistedIfCached)
 
 }

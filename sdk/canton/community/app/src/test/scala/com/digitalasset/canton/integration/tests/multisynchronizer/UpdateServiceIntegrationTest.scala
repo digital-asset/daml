@@ -194,14 +194,12 @@ abstract class UpdateServiceIntegrationTest
     )
 
     // reassignments for specific party and single specific template
-    suppressPackageIdWarning(
-      checkReassignments(
-        partyIds = Set(submittingParty.toLf),
-        templateIds = Seq(Iou.TEMPLATE_ID_WITH_PACKAGE_ID),
-        ledgerEndBeforeUnassignments = ledgerEndBeforeUnassignments,
-        ledgerEndAfterAssignments = ledgerEndAfterAssignments,
-        expectedReassignmentsSize = 2,
-      )
+    checkReassignments(
+      partyIds = Set(submittingParty.toLf),
+      templateIds = Seq(Iou.TEMPLATE_ID),
+      ledgerEndBeforeUnassignments = ledgerEndBeforeUnassignments,
+      ledgerEndAfterAssignments = ledgerEndAfterAssignments,
+      expectedReassignmentsSize = 2,
     )
 
     checkReassignmentsPointwise(

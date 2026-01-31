@@ -153,7 +153,7 @@ protected abstract class LargeAcsExportAndImportTestBase
   protected val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
 
   protected val baseEnvironmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1_Manual
+    EnvironmentDefinition.P3S1M1_Manual
       .addConfigTransforms(ConfigTransforms.allDefaultsButGloballyUniquePorts*)
       .addConfigTransforms(
         // Hard-coded ports ensure connectivity across node restarts. To save time,

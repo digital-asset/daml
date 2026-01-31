@@ -24,7 +24,7 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.CostEstimationHints
 import com.digitalasset.canton.topology.{PartyId as TopologyPartyId, SynchronizerId}
 import com.digitalasset.canton.version.HashingSchemeVersion
-import com.digitalasset.canton.version.HashingSchemeVersion.V2
+import com.digitalasset.canton.version.HashingSchemeVersion.{V2, V3}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.*
 
@@ -174,6 +174,7 @@ class SubmitRequestValidator(
       errorLoggingContext: ErrorLoggingContext
   ): Either[RpcError, HashingSchemeVersion] = protoVersion match {
     case iss.HashingSchemeVersion.HASHING_SCHEME_VERSION_V2 => Right(V2)
+    case iss.HashingSchemeVersion.HASHING_SCHEME_VERSION_V3 => Right(V3)
     case iss.HashingSchemeVersion.HASHING_SCHEME_VERSION_UNSPECIFIED =>
       Left(
         RequestValidationErrors.InvalidField

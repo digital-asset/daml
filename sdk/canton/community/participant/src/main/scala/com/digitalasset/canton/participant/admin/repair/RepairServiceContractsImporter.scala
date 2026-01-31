@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.admin.repair
 import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*
-import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import cats.syntax.traverseFilter.*
 import com.daml.nonempty.NonEmpty
@@ -300,7 +299,7 @@ final class RepairServiceContractsImporter(
 
                     internalContractIdsForContractsAdded <-
                       helpers.logOnFailureWithInfoLevel(
-                        contractStore.value.lookupBatchedNonCachedInternalIds(
+                        contractStore.value.lookupBatchedInternalIdsNonReadThrough(
                           contractsWithTimeOfChange.map(_._1.contract.contractId)
                         ),
                         "Unable to lookup internal contract ids in contract store",
@@ -405,14 +404,12 @@ final class RepairServiceContractsImporter(
     val batchSize = nodeParameters.batchingConfig.maxAcsImportBatchSize.unwrap
     val parallelism = nodeParameters.batchingConfig.parallelism.unwrap
 
-    for {
-      synchronizer <- helpers.readSynchronizerData(synchronizerId)
+    helpers.withRepairIndexer { repairIndexer =>
+      val indexedContractBatches: PekkoSource[(Seq[RepairContract], Long), NotUsed] =
+        contracts.grouped(batchSize).zipWithIndex
 
-      _ <- helpers.withRepairIndexer { repairIndexer =>
-        val indexedContractBatches: PekkoSource[(Seq[RepairContract], Long), NotUsed] =
-          contracts.grouped(batchSize).zipWithIndex
-
-        val doneF = indexedContractBatches
+      val doneF = toFuture(helpers.readSynchronizerData(synchronizerId)).flatMap { synchronizer =>
+        indexedContractBatches
           .mapAsync(parallelism) { data =>
             toFuture(
               validateAndPersistContracts(
@@ -447,10 +444,10 @@ final class RepairServiceContractsImporter(
           }
           .toMat(Sink.ignore)(Keep.right)
           .run()
-
-        EitherT.liftF(doneF.map(_ => ()))
       }
-    } yield ()
+
+      EitherT.liftF(doneF.map(_ => ()))
+    }
   }
 
   /** Validate the contracts in the batch and insert data in Canton stores.
@@ -563,7 +560,7 @@ final class RepairServiceContractsImporter(
 
       internalContractIdsForContractsAdded <-
         helpers.logOnFailureWithInfoLevel(
-          contractStore.value.lookupBatchedNonCachedInternalIds(
+          contractStore.value.lookupBatchedInternalIdsNonReadThrough(
             contractsWithTimeOfChange.map(_._1.contract.contractId)
           ),
           "Unable to lookup internal contract ids in contract store",
@@ -605,23 +602,24 @@ final class RepairServiceContractsImporter(
       storedContracts: Map[LfContractId, ContractInstance],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] =
+  ): EitherT[FutureUnlessShutdown, String, Unit] = {
+    // We compute first which changes we need to persist
+    val missingContractsE: Either[String, Seq[MissingContract]] =
+      contractsToAdd.traverseFilter[Either[String, *], MissingContract] { case (contractToAdd, _) =>
+        storedContracts.get(contractToAdd.cid) match {
+          case None => Right(Some(contractToAdd.contract))
+          case Some(storedContract) =>
+            Either.cond(
+              storedContract == contractToAdd.contract,
+              Option.empty[MissingContract],
+              s"Contract ${contractToAdd.cid} already exists in the contract store, but differs from contract to be created. Contract to be created $contractToAdd versus existing contract $storedContract.",
+            )
+        }
+      }
+
     for {
       // We compute first which changes we need to persist
-      missingContracts <- contractsToAdd
-        .parTraverseFilter[EitherT[FutureUnlessShutdown, String, *], MissingContract] {
-          case (contractToAdd, _) =>
-            storedContracts.get(contractToAdd.cid) match {
-              case None =>
-                EitherT.rightT[FutureUnlessShutdown, String](Some(contractToAdd.contract))
-              case Some(storedContract) =>
-                EitherT.cond[FutureUnlessShutdown](
-                  storedContract == contractToAdd.contract,
-                  Option.empty[MissingContract],
-                  s"Contract ${contractToAdd.cid} already exists in the contract store, but differs from contract to be created. Contract to be created $contractToAdd versus existing contract $storedContract.",
-                )
-            }
-        }
+      missingContracts <- EitherT.fromEither[FutureUnlessShutdown](missingContractsE)
 
       (missingAssignments, missingAdds) = contractsToAdd.foldLeft(
         (Seq.empty[MissingAssignment], Seq.empty[MissingAdd])
@@ -658,6 +656,7 @@ final class RepairServiceContractsImporter(
           s"Failed to assign ${missingAssignments.map { case (cid, _, _, _) => cid }} in ActiveContractStore: $e"
         )
     } yield ()
+  }
 
   private def prepareAddedEvents(
       synchronizerId: SynchronizerId,

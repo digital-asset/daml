@@ -19,7 +19,7 @@ import com.daml.ledger.api.v2.value.Identifier
 import com.digitalasset.canton.ledger.api.{CumulativeFilter, InterfaceFilter, TemplateFilter}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.TypeConRef
+import com.digitalasset.daml.lf.data.Ref.NameTypeConRef
 import io.grpc.Status.Code.*
 import org.mockito.MockitoSugar
 import org.scalatest.wordspec.AnyWordSpec
@@ -30,7 +30,8 @@ class UpdateServiceRequestValidatorTest
     with MockitoSugar {
   private implicit val noLogging: ErrorLoggingContext = NoLogging
 
-  private val templateId = Identifier(packageId, includedModule, includedTemplate)
+  private val templateId =
+    Identifier(Ref.PackageRef.Name(packageName).toString, includedModule, includedTemplate)
 
   private def getFiltersByParty(templateIdsForParty: Seq[Identifier]): Map[String, Filters] =
     Map(
@@ -51,7 +52,7 @@ class UpdateServiceRequestValidatorTest
                     ProtoInterfaceFilter(
                       interfaceId = Some(
                         Identifier(
-                          packageId,
+                          packageNameRefEncoded,
                           moduleName = includedModule,
                           entityName = includedTemplate,
                         )
@@ -103,12 +104,10 @@ class UpdateServiceRequestValidatorTest
     )
 
   private val txReq = updatesReqBuilder(Some(Seq(templateId)))
+  private val txReqWithId = updatesReqBuilder(Some(Seq(templateId.copy(packageId = packageId))))
   private val reassignmentsReq = updatesReqBuilder(
     transactionTemplateIdsO = None,
     reassignmentsTemplateIdsO = Some(Seq(templateId)),
-  )
-  private val txReqWithPackageNameScoping = updatesReqBuilder(
-    Some(Seq(templateId.copy(packageId = Ref.PackageRef.Name(packageName).toString)))
   )
 
   private val txByOffsetReq =
@@ -390,6 +389,16 @@ class UpdateServiceRequestValidatorTest
         )
       }
 
+      "return the correct error when package id is used in filters" in {
+        requestMustFailWith(
+          request = UpdateServiceRequestValidator.validate(txReqWithId, ledgerEnd),
+          code = INVALID_ARGUMENT,
+          description =
+            "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field packageId: Received an identifier with package ID packageId, but expected a package name.",
+          metadata = Map.empty,
+        )
+      }
+
       "tolerate missing end" in {
         inside(
           UpdateServiceRequestValidator.validate(
@@ -466,30 +475,6 @@ class UpdateServiceRequestValidatorTest
         }
       }
 
-      "allow package-name scoped templates" in {
-        inside(
-          UpdateServiceRequestValidator.validate(txReqWithPackageNameScoping, ledgerEnd)
-        ) { case Right(req) =>
-          req.startExclusive shouldEqual None
-          req.endInclusive shouldEqual offset
-          hasExpectedFilters(
-            req,
-            expectedTemplates =
-              Set(Ref.TypeConRef(Ref.PackageRef.Name(packageName), templateQualifiedName)),
-          )
-          req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
-        }
-      }
-
-      "still allow populated packageIds in templateIds (for backwards compatibility)" in {
-        inside(UpdateServiceRequestValidator.validate(txReq, ledgerEnd)) { case Right(req) =>
-          req.startExclusive shouldEqual None
-          req.endInclusive shouldEqual offset
-          hasExpectedFilters(req)
-          req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
-        }
-      }
-
       "current definition populate the right api request" in {
         val result = UpdateServiceRequestValidator.validate(
           updatesReqBuilder(Some(Seq.empty)).update(
@@ -528,14 +513,16 @@ class UpdateServiceRequestValidatorTest
               CumulativeFilter(
                 templateFilters = Set(
                   TemplateFilter(
-                    TypeConRef.assertFromString("packageId:includedModule:includedTemplate"),
+                    NameTypeConRef.assertFromString(
+                      "#somePackageName:includedModule:includedTemplate"
+                    ),
                     includeCreatedEventBlob = true,
                   )
                 ),
                 interfaceFilters = Set(
                   InterfaceFilter(
-                    interfaceTypeRef = Ref.TypeConRef.assertFromString(
-                      "packageId:includedModule:includedTemplate"
+                    interfaceTypeRef = Ref.NameTypeConRef.assertFromString(
+                      "#somePackageName:includedModule:includedTemplate"
                     ),
                     includeView = true,
                     includeCreatedEventBlob = true,

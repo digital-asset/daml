@@ -28,12 +28,13 @@ object SerializationVersion {
     "dev" -> VDev,
   )
 
-  private[lf] val assign: LanguageVersion => SerializationVersion =
-    Map(
-      LanguageVersion.v2_1 -> V1,
-      LanguageVersion.v2_2 -> V1,
-      LanguageVersion.v2_dev -> VDev,
+  private[lf] def assign(lv: LanguageVersion):  SerializationVersion = lv.major match {
+    case LanguageVersion.Major.V2 =>
+      if (lv.minor.isDevVersion) VDev else V1
+    case _ => throw new IllegalArgumentException(
+      s"Mapping failed: LanguageVersion '${lv.pretty}' is not supported by SerializationVersion."
     )
+  }
 
   private[this] val fromIntMapping = All.view.map(v => v.idx -> v).toMap
 

@@ -15,7 +15,6 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
 }
 import com.daml.ledger.api.v2.transaction_filter.TransactionFormat
 import com.daml.ledger.api.v2.update_service.GetUpdateResponse
-import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.digitalasset.base.error.ErrorCode.LoggedApiException
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.LfTimestamp
@@ -312,7 +311,6 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         result.commandInterpretationResult.globalKeyMapping,
         result.commandInterpretationResult.processedDisclosedContracts,
       )
-      .toScalaUnwrapped
   }
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit

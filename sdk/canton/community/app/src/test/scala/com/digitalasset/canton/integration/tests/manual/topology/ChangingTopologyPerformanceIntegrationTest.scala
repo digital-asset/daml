@@ -6,6 +6,7 @@ package com.digitalasset.canton.integration.tests.manual.topology
 import cats.syntax.foldable.*
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
@@ -756,6 +757,8 @@ class ChangingTopologyKeyRotationOwnerToKeyTest extends ChangingTopologyPerforma
     )
 }
 
+// TODO (#26983): this is known to be flaky
+@UnstableTest
 class ChangingTopologyLSUTest extends ChangingTopologyPerformanceIntegrationTest {
   private lazy val maxLSU: Int = 3
 

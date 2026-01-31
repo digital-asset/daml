@@ -430,7 +430,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         executeRequest.signatures,
         transactionUUID = transactionUUID,
         mediatorGroup = mediatorGroup,
-        maxRecordTimeO = maxLedgerTimeO,
+        maxRecordTime = maxLedgerTimeO,
       )
       submitterInfo <- submitterInfoProto
         .intoPartial[SubmitterInfo]

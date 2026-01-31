@@ -257,7 +257,7 @@ private class JdbcLedgerWriteDao(
       transaction.nodes.values
         .collect { case create: Node.Create => create.coid }
 
-    internalContractIds <- contractStore.lookupBatchedNonCachedInternalIds(contractIds)
+    internalContractIds <- contractStore.lookupBatchedInternalIds(contractIds)
 
     _ <- Future.successful(logger.info("Storing transaction"))
     _ <- dbDispatcher

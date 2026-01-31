@@ -32,13 +32,12 @@ da_scala_library(
     exports = [":transaction_proto_java"],
     deps = [
         ":transaction_proto_java",
+        "//daml-lf:data",
         "//canton:crypto",
         "//canton:nameof",
-        "//canton:safe-proto",
         "//canton:scala-utils",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
-        "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

@@ -34,30 +34,30 @@ import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success, Try}
 
-class TestTraceLog extends TraceLog {
-  private val messages: ArrayBuffer[(String, Option[Location])] = new ArrayBuffer()
-
-  override def add(message: String, optLocation: Option[Location])(implicit
-      loggingContext: LoggingContext
-  ) = {
-    messages += ((message, optLocation))
-  }
-
-  def tracePF[X, Y](text: String, pf: PartialFunction[X, Y]): PartialFunction[X, Y] = {
-    case x if { add(text, None)(LoggingContext.ForTesting); pf.isDefinedAt(x) } => pf(x)
-  }
-
-  override def iterator = messages.iterator
-
-  def getMessages: Seq[String] = messages.view.map(_._1).toSeq
-}
-
 class EvaluationOrderTest_V2 extends EvaluationOrderTest(LanguageVersion.v2_dev)
 
 abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     extends AnyFreeSpec
     with Matchers
     with Inside {
+
+  class TestTraceLog extends TraceLog {
+    private val messages: ArrayBuffer[(String, Option[Location])] = new ArrayBuffer()
+
+    override def add(message: String, optLocation: Option[Location])(implicit
+        loggingContext: LoggingContext
+    ) = {
+      messages += ((message, optLocation))
+    }
+
+    def tracePF[X, Y](text: String, pf: PartialFunction[X, Y]): PartialFunction[X, Y] = {
+      case x if { add(text, None)(LoggingContext.ForTesting); pf.isDefinedAt(x) } => pf(x)
+    }
+
+    override def iterator = messages.iterator
+
+    def getMessages: Seq[String] = messages.view.map(_._1).toSeq
+  }
 
   val serializationVersion = SerializationVersion.assign(languageVersion)
 
