@@ -245,16 +245,14 @@ object CryptoPrivateStoreError extends CantonErrorGroups.CommandErrorGroup {
 
   final case class FailedToReadKey(keyId: Fingerprint, reason: String)
       extends CryptoPrivateStoreError {
-    override protected def pretty: Pretty[FailedToReadKey] = prettyOfClass(
-      unnamedParam(_.reason.unquoted)
-    )
+    override protected def pretty: Pretty[FailedToReadKey] =
+      prettyOfClass(param("keyId", _.keyId), param("reason", _.reason.unquoted))
   }
 
   final case class InvariantViolation(keyId: Fingerprint, reason: String)
       extends CryptoPrivateStoreError {
-    override protected def pretty: Pretty[InvariantViolation] = prettyOfClass(
-      unnamedParam(_.reason.unquoted)
-    )
+    override protected def pretty: Pretty[InvariantViolation] =
+      prettyOfClass(param("keyId", _.keyId), param("reason", _.reason.unquoted))
   }
 
   final case class FailedToInsertKey(keyId: Fingerprint, reason: String)

@@ -19,6 +19,7 @@ import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, Topo
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
 trait SortedReconciliationIntervalsHelpers {
@@ -109,6 +110,7 @@ trait SortedReconciliationIntervalsHelpers {
     * @param synchronizerBootstrappingTime
     *   `validFrom` time of the synchronizer parameters
     */
+  @nowarn("cat=deprecation")
   protected def constantSortedReconciliationIntervalsProvider(
       reconciliationInterval: PositiveSeconds,
       synchronizerBootstrappingTime: CantonTimestamp = CantonTimestamp.MinValue,

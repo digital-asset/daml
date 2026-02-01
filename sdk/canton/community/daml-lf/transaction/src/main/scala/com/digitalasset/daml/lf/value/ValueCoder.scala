@@ -5,7 +5,7 @@ package com.digitalasset.daml
 package lf
 package value
 
-import com.daml.SafeProto
+import com.digitalasset.daml.SafeProto
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.transaction.{

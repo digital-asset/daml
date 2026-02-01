@@ -43,6 +43,7 @@ import org.slf4j.event.Level
 
 import java.time.Duration
 import java.util.UUID
+import scala.annotation.nowarn
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 abstract class SequencerApiTest
@@ -1193,6 +1194,7 @@ trait SequencerApiTestUtils
     * testing sequencers. During the normal sequencer operation members are registered via topology
     * subscription or sequencer startup in SequencerRuntime.
     */
+  @nowarn("cat=deprecation")
   def registerAllTopologyMembers(headSnapshot: TopologySnapshot, sequencer: Sequencer): Unit =
     (for {
       allMembers <- EitherT

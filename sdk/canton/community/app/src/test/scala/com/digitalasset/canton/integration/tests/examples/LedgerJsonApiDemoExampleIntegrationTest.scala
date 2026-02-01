@@ -6,7 +6,6 @@ package com.digitalasset.canton.integration.tests.examples
 import better.files.File
 import com.digitalasset.canton.integration.CommunityIntegrationTest
 import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest.JsonApiExample
-import com.digitalasset.canton.util.ConcurrentBufferedLogger
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 import scala.sys.process.Process
@@ -102,17 +101,6 @@ class LedgerJsonApiDemoExampleIntegrationTest
     import env.environment
     ExampleIntegrationTest.ensureSystemProperties("model-tests-examples.dar-path" -> ModelTestsPath)
     runScript(JsonApiExample.path / "json.canton")(environment)
-  }
-
-  private def mkProcessLogger(logErrors: Boolean = true) = new ConcurrentBufferedLogger {
-    override def out(s: => String): Unit = {
-      logger.info(s)
-      super.out(s)
-    }
-    override def err(s: => String): Unit = {
-      if (logErrors) logger.error(s)
-      super.err(s)
-    }
   }
 
 }

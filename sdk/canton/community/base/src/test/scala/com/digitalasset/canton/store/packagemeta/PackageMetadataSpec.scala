@@ -197,7 +197,7 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
       )
 
       packageMetadata.resolveTypeConRef(
-        Ref.TypeConRef(Ref.PackageRef.Name(pkgName1), template1B.qualifiedName)
+        Ref.NameTypeConRef(Ref.PackageRef.Name(pkgName1), template1B.qualifiedName)
       ) shouldBe Set(template1B_v2, template1B_v3).map(_.toFullIdentifier(pkgName1))
     }
 
@@ -219,12 +219,13 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
       )
 
       packageMetadata.resolveTypeConRef(
-        Ref.TypeConRef(Ref.PackageRef.Name(pkgName1), interface1.qualifiedName)
+        Ref.NameTypeConRef(Ref.PackageRef.Name(pkgName1), interface1.qualifiedName)
       ) shouldBe Set(interface1).map(_.toFullIdentifier(pkgName1))
     }
 
     "return an empty set if any of the resolution sets in PackageMetadata are empty" in new Scope {
-      val typeConRef = Ref.TypeConRef(Ref.PackageRef.Name(pkgName1), template1B.qualifiedName)
+      val nameTypeConRef =
+        Ref.NameTypeConRef(Ref.PackageRef.Name(pkgName1), template1B.qualifiedName)
 
       PackageMetadata(
         templates = Set.empty, // No known templates
@@ -234,13 +235,13 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
             preference = irrelevantPackagePreference,
           )
         ),
-      ).resolveTypeConRef(typeConRef) shouldBe Set.empty
+      ).resolveTypeConRef(nameTypeConRef) shouldBe Set.empty
 
       intercept[IllegalArgumentException](
         PackageMetadata(
           templates = Set(template1B), // We know about a template...
           packageNameMap = Map.empty, // But not about package names.
-        ).resolveTypeConRef(typeConRef)
+        ).resolveTypeConRef(nameTypeConRef)
       ).getMessage shouldBe s"Unknown package id: $pkgId1"
     }
   }

@@ -312,7 +312,7 @@ class TransactionProcessingSteps(
           val maxSequencingTimeFromLET = CantonTimestamp(transactionMeta.ledgerEffectiveTime)
             .add(synchronizerParameters.ledgerTimeRecordTimeTolerance.unwrap)
           submitterInfo.externallySignedSubmission
-            .flatMap(_.maxRecordTimeO)
+            .flatMap(_.maxRecordTime)
             .map(CantonTimestamp.apply)
             .map(_.min(maxSequencingTimeFromLET))
             .getOrElse(maxSequencingTimeFromLET)

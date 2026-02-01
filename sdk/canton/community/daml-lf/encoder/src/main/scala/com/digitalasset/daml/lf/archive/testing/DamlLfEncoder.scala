@@ -31,11 +31,12 @@ private[daml] object DamlLfEncoder extends App {
   private def main() =
     try {
 
-      System.err.println(
-        "Daml-LF encoder is designed for testing purpose only, and provided without any guarantee of stability."
-      )
-
       val appArgs = parseArgs()
+
+      if (!appArgs.suppressWarning)
+        System.err.println(
+          "Daml-LF encoder is designed for testing purpose only, and provided without any guarantee of stability."
+        )
 
       implicit val parserParameters: ParserParameters[this.type] =
         ParserParameters(
@@ -53,7 +54,7 @@ private[daml] object DamlLfEncoder extends App {
       case e: EncodeError =>
         error(s"Encoding error: ${e.message}")
       case NonFatal(e) =>
-        error(s"error: $e")
+        throw e
     }
 
   private def readSources(files: Seq[String]): String =
@@ -101,6 +102,7 @@ private[daml] object DamlLfEncoder extends App {
       outputFile: String,
       languageVersion: LanguageVersion,
       validation: Boolean,
+      suppressWarning: Boolean,
   )
 
   private def parseArgs() = {
@@ -113,6 +115,8 @@ private[daml] object DamlLfEncoder extends App {
           go(appArgs.copy(outputFile = file), tail)
         case "--skip-validation" :: tail =>
           go(appArgs.copy(validation = false), tail)
+        case "--suppress-testing-purpose-warning" :: tail =>
+          go(appArgs.copy(suppressWarning = true), tail)
         case option :: _ if option.startsWith("-") =>
           error(
             s"usage: encoder_binary inputFile1 ... inputFileN --output outputFile [--target version]"
@@ -128,7 +132,7 @@ private[daml] object DamlLfEncoder extends App {
           go(appArgs.copy(inputFiles = appArgs.inputFiles.enqueue(x)), tail)
       }
 
-    go(Arguments(Queue.empty, "", LanguageVersion.defaultLfVersion, true), args.toList)
+    go(Arguments(Queue.empty, "", LanguageVersion.defaultLfVersion, true, false), args.toList)
   }
 
   main()

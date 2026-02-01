@@ -17,6 +17,7 @@ import org.bouncycastle.asn1.{
 import org.scalacheck.{Arbitrary, Gen}
 
 import java.math.BigInteger
+import scala.util.Try
 
 object DERTestLib {
   object DERUtil {
@@ -45,7 +46,7 @@ object DERTestLib {
           suffix <- Gen.nonEmptyListOf(Gen.posNum[Int])
         } yield (prefix +: suffix).mkString(".")),
         99 -> Gen.oneOf("1.2.840.10045.2.1", "1.3.132.0.10"),
-      )
+      ).suchThat(txt => Try(new ASN1ObjectIdentifier(txt)).isSuccess)
     } yield new ASN1ObjectIdentifier(label)
   }
 

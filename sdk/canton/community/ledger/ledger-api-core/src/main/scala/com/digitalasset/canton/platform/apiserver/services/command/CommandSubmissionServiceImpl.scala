@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.apiserver.services.command
 
 import cats.data.EitherT
-import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.timer.Delayed
 import com.digitalasset.base.error.ErrorCode.LoggedApiException
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
@@ -223,7 +222,6 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
         result.commandInterpretationResult.globalKeyMapping,
         result.commandInterpretationResult.processedDisclosedContracts,
       )
-      .toScalaUnwrapped
   }
 
   override def close(): Unit = ()

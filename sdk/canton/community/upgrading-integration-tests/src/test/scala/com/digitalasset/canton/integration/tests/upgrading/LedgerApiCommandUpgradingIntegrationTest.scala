@@ -140,18 +140,16 @@ sealed abstract class LedgerApiCommandUpgradingIntegrationTest
               synchronizeParticipants = Seq(env.participant1),
             )
 
-        suppressPackageIdWarning(
-          testExplicitDisclosureUpDowngrading(
-            discloser = alice,
-            disclosee = bob,
-            sourceTemplate =
-              new v1.upgrade.Upgrading(alice.toProtoPrimitive, alice.toProtoPrimitive, 0),
-            sourceTemplateId = v1.upgrade.Upgrading.TEMPLATE_ID_WITH_PACKAGE_ID,
-            exerciseFetchOnTargetVersion = new v2.upgrade.Upgrading.ContractId(_)
-              .exerciseUpgrading_Fetch(bob.toProtoPrimitive)
-              .commands()
-              .overridePackageId(v2.upgrade.Upgrading.PACKAGE_ID),
-          )
+        testExplicitDisclosureUpDowngrading(
+          discloser = alice,
+          disclosee = bob,
+          sourceTemplate =
+            new v1.upgrade.Upgrading(alice.toProtoPrimitive, alice.toProtoPrimitive, 0),
+          sourceTemplateId = v1.upgrade.Upgrading.TEMPLATE_ID,
+          exerciseFetchOnTargetVersion = new v2.upgrade.Upgrading.ContractId(_)
+            .exerciseUpgrading_Fetch(bob.toProtoPrimitive)
+            .commands()
+            .overridePackageId(v2.upgrade.Upgrading.PACKAGE_ID),
         )
       }
     }
@@ -171,21 +169,19 @@ sealed abstract class LedgerApiCommandUpgradingIntegrationTest
               synchronizeParticipants = Seq(env.participant1),
             )
 
-        suppressPackageIdWarning(
-          testExplicitDisclosureUpDowngrading(
-            discloser = alice,
-            disclosee = bob,
-            sourceTemplate = new v2.upgrade.Upgrading(
-              alice.toProtoPrimitive,
-              alice.toProtoPrimitive,
-              0,
-              java.util.Optional.empty(),
-            ),
-            sourceTemplateId = v2.upgrade.Upgrading.TEMPLATE_ID_WITH_PACKAGE_ID,
-            exerciseFetchOnTargetVersion = new v1.upgrade.Upgrading.ContractId(_)
-              .exerciseUpgrading_Fetch(bob.toProtoPrimitive)
-              .commands(),
-          )
+        testExplicitDisclosureUpDowngrading(
+          discloser = alice,
+          disclosee = bob,
+          sourceTemplate = new v2.upgrade.Upgrading(
+            alice.toProtoPrimitive,
+            alice.toProtoPrimitive,
+            0,
+            java.util.Optional.empty(),
+          ),
+          sourceTemplateId = v2.upgrade.Upgrading.TEMPLATE_ID,
+          exerciseFetchOnTargetVersion = new v1.upgrade.Upgrading.ContractId(_)
+            .exerciseUpgrading_Fetch(bob.toProtoPrimitive)
+            .commands(),
         )
       }
     }
@@ -210,7 +206,7 @@ sealed abstract class LedgerApiCommandUpgradingIntegrationTest
             disclosee = bob,
             sourceTemplate =
               new v1.upgrade.Upgrading(alice.toProtoPrimitive, alice.toProtoPrimitive, 0),
-            sourceTemplateId = v1.upgrade.Upgrading.TEMPLATE_ID_WITH_PACKAGE_ID,
+            sourceTemplateId = v1.upgrade.Upgrading.TEMPLATE_ID,
             exerciseFetchOnTargetVersion = new v2.upgrade.Upgrading.ContractId(_)
               .exerciseUpgrading_Fetch(bob.toProtoPrimitive)
               .commands(),
@@ -227,7 +223,6 @@ sealed abstract class LedgerApiCommandUpgradingIntegrationTest
                 disclosedContract.contractId,
               ),
           ),
-          _.warningMessage should include regex "Received an identifier with package ID .*, but expected a package name.",
           _.commandFailureMessage should
             (include(s"Request failed for participant2") and
               include("INVALID_ARGUMENT/INTERPRETATION_UPGRADE_ERROR_AUTHENTICATION_FAILED") and

@@ -12,7 +12,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
-import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{
@@ -538,7 +538,7 @@ object TopologyTransactionProcessor {
 
   def createProcessorAndClientForSynchronizerWithWriteThroughCache(
       topologyStore: TopologyStore[TopologyStoreId.SynchronizerStore],
-      synchronizerPredecessor: Option[SynchronizerPredecessor],
+      synchronizerUpgradeTime: Option[CantonTimestamp],
       pureCrypto: SynchronizerCryptoPureApi,
       parameters: CantonNodeParameters,
       topologyConfig: TopologyConfig,
@@ -579,7 +579,7 @@ object TopologyTransactionProcessor {
       staticSynchronizerParameters,
       topologyStore,
       cache,
-      synchronizerPredecessor,
+      synchronizerUpgradeTime,
       NoPackageDependencies,
       parameters.cachingConfigs,
       topologyConfig,
@@ -589,7 +589,9 @@ object TopologyTransactionProcessor {
     )(sequencerSnapshotTimestamp)
 
     writeThroughCacheClientF.map { client =>
+      // Subscribe the new client object to updates from the subscriber
       processor.subscribe(client)
+      // return the processor and the client to the application
       (processor, client)
     }
   }

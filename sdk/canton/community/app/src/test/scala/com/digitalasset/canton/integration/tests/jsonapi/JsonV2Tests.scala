@@ -82,9 +82,7 @@ import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.Offse
 import com.digitalasset.canton.ledger.service.MetadataReader
 import com.digitalasset.canton.logging.NamedLogging.loggerWithoutTracing
 import com.digitalasset.canton.logging.SuppressionRule
-import com.digitalasset.canton.testing.utils.TestModels
 import com.digitalasset.canton.tracing.{SerializableTraceContextConverter, W3CTraceContext}
-import com.digitalasset.canton.util.JarResourceUtils
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -101,7 +99,7 @@ import org.apache.pekko.http.scaladsl.model.{HttpHeader, HttpMethods, StatusCode
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import scalaz.syntax.tag.*
 
-import java.nio.file.Files
+import java.nio.file.{Files, Paths}
 import java.util.UUID
 import scala.concurrent.Future
 import scala.concurrent.duration.*
@@ -125,13 +123,13 @@ class JsonV2Tests
 
   "package management" should {
     "upload and download dar" in httpTestFixture { fixture =>
-      val darPath = JarResourceUtils
-        .resourceFile(
-          TestModels.daml_lf_encoder_test_dar(
-            LanguageVersion.stableLfVersionsRange.max.pretty
-          )
+      val darPath =
+        Paths.get(
+          getClass.getClassLoader
+            .getResource(s"test-${LanguageVersion.latestStableLfVersion.pretty}.dar")
+            .toURI
         )
-        .toPath
+
       val darContent: ByteString = protobuf.ByteString.copyFrom(Files.readAllBytes(darPath))
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (_, headers) =>
         for {
@@ -340,7 +338,7 @@ class JsonV2Tests
   "user management service" should {
     "create, update and delete user" in httpTestFixture { fixture =>
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (_, headers) =>
-        val userId = "CreatedUser@^$.!`-#+'~_|:"
+        val userId = "CreatedUser@^$.!`-#+'~_|:()"
         val user = user_management_service.User.defaultInstance.copy(id = userId)
         val updated_user =
           user_management_service.User.defaultInstance.copy(id = userId, isDeactivated = true)

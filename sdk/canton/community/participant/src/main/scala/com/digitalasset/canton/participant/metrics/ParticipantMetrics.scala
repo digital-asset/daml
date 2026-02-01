@@ -86,7 +86,8 @@ class ParticipantMetrics(
   override def grpcMetrics: GrpcServerMetricsX = (ledgerApiServer.grpc, ledgerApiServer.requests)
   override def healthMetrics: HealthMetrics = ledgerApiServer.health
   override def storageMetrics: DbStorageMetrics = dbStorage
-
+  override def topologyCache: CacheMetrics =
+    new CacheMetrics("topology-par", openTelemetryMetricsFactory)
   val dbStorage = new DbStorageMetrics(inventory.dbStorage, openTelemetryMetricsFactory)
 
   // Private constructor to avoid being instantiated multiple times by accident
@@ -176,7 +177,7 @@ class ParticipantMetrics(
     )
 
   def registerMaxInflightValidationRequest(value: () => Option[Int]): Gauge.CloseableGauge =
-    openTelemetryMetricsFactory.gaugeWithSupplier(
+    openTelemetryMetricsFactory.closeableGaugeWithSupplier(
       maxInflightValidationRequestGaugeForDocs.info,
       () => value().getOrElse(-1),
     )
@@ -285,7 +286,7 @@ class ConnectedSynchronizerMetrics private[metrics] (
     )
 
     def taskQueue(size: () => Int): CloseableGauge =
-      factory.gaugeWithSupplier(taskQueueForDoc.info, size)
+      factory.closeableGaugeWithSupplier(taskQueueForDoc.info, size)
   }
 
   // Private constructor to avoid being instantiated multiple times by accident

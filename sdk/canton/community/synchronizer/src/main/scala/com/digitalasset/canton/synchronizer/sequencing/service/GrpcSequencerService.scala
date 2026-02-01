@@ -498,7 +498,7 @@ class GrpcSequencerService(
         subscription <- subscriptionPool
           .create(
             () =>
-              createSubscriptionV2[T](
+              createSubscription[T](
                 member,
                 authenticationTokenO.map(_.expireAt),
                 timestamp,
@@ -585,7 +585,7 @@ class GrpcSequencerService(
     result.asGrpcResponse
   }
 
-  private def createSubscriptionV2[T](
+  private def createSubscription[T](
       member: Member,
       expireAt: Option[CantonTimestamp],
       timestamp: Option[CantonTimestamp],

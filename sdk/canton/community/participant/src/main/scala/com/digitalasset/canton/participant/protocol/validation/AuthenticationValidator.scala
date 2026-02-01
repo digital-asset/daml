@@ -302,16 +302,17 @@ private[protocol] object AuthenticationValidator {
 
           reInterpretedTopLevelView
             .computeHash(
-              externalAuthorization.hashingSchemeVersion,
-              submitterMetadata.actAs,
-              submitterMetadata.commandId.unwrap,
-              viewTree.transactionUuid,
-              viewTree.mediator.group.value,
-              synchronizerId.logical,
-              protocolVersion,
-              transactionEnricher,
-              createNodeEnricher,
-              hashTracer.getOrElse[HashTracer](HashTracer.NoOp),
+              hashingSchemeVersion = externalAuthorization.hashingSchemeVersion,
+              actAs = submitterMetadata.actAs,
+              commandId = submitterMetadata.commandId.unwrap,
+              transactionUUID = viewTree.transactionUuid,
+              mediatorGroup = viewTree.mediator.group.value,
+              synchronizerId = synchronizerId.logical,
+              maxSequencingTime = submitterMetadata.maxSequencingTime,
+              protocolVersion = protocolVersion,
+              transactionEnricher = transactionEnricher,
+              contractEnricher = createNodeEnricher,
+              hashTracer = hashTracer.getOrElse[HashTracer](HashTracer.NoOp),
             )
             // If Hash computation is successful, verify the signature is valid
             .flatMap { hash =>

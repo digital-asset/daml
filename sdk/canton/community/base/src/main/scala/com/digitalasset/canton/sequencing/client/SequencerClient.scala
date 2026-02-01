@@ -1786,6 +1786,7 @@ class RichSequencerClientImpl(
           val lastTimestamp = eventBatchNE.last1.timestamp
           val firstEvent = eventBatchNE.head1
           val firstTimestamp = firstEvent.timestamp
+          import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.TimerOnShutdownSyntax
           metrics.handler.numEvents.inc(eventBatch.size.toLong)(MetricsContext.Empty)
           logger.debug(
             s"Passing ${eventBatch.size} events to the application handler ${eventHandler.name}."
@@ -1795,7 +1796,7 @@ class RichSequencerClientImpl(
           val asyncResultFT =
             Try(
               Timed
-                .future(metrics.handler.applicationHandle, eventHandler(Traced(eventBatch)))
+                .futureUS(metrics.handler.applicationHandle, eventHandler(Traced(eventBatch)))
             )
 
           def putApplicationHandlerFailure(

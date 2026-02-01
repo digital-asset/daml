@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
 import com.digitalasset.canton.BigDecimalImplicits.*
-import com.digitalasset.canton.admin.api.client.data.SequencerConnections
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
@@ -174,10 +173,7 @@ trait MediatorOnboardingConcurrentTrafficTest
         .forgetNE should contain(mediator2.id)
     }
 
-    mediator2.setup.assign(
-      synchronizer1Id,
-      SequencerConnections.single(sequencer1.sequencerConnection),
-    )
+    mediator2.setup.assign(synchronizer1Id, sequencer1)
     mediator2.health.wait_for_initialized()
 
     participant3.health.ping(participant1)

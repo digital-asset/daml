@@ -318,7 +318,9 @@ class SequencerRuntime(
 
   logger.info("Subscribing to topology transactions for auto-registering members")
   topologyProcessor.subscribe(new TopologyTransactionProcessingSubscriber {
-    override val executionOrder: Int = 5
+    override val executionOrder: Int = 1
+    // member registration comes first in the list as it has the highest priority for receiving topology updates
+    // the default value is 10, cryptoApi is assigned value 2
 
     override def observed(
         sequencedTimestamp: SequencedTime,

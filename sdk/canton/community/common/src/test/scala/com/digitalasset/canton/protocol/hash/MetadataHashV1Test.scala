@@ -5,6 +5,7 @@ package com.digitalasset.canton.protocol.hash
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.Hash
+import com.digitalasset.canton.version.HashingSchemeVersion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
@@ -12,19 +13,21 @@ class MetadataHashV1Test extends BaseTest with AnyWordSpecLike with Matchers wit
 
   "Metadata Encoding" should {
     val expectedMetadataHash = Hash
-      .fromHexStringRaw("2a0690693367f70fbe83e5e99df6930dbd2336618a3a0721bb6fa3bcc88d5a53")
+      .fromHexStringRaw("6e89fcbcc9605179a47919b5e65a864e470e7a133f4f9f39b1e4545b223db769")
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
-      TransactionMetadataHashBuilder
-        .hashTransactionMetadataV1(metadata)
-        .toHexString shouldBe expectedMetadataHash.toHexString
+      val actual = TransactionMetadataHasher
+        .tryHashMetadata(HashingSchemeVersion.V2, metadata)
+        .toHexString
+      actual shouldBe expectedMetadataHash.toHexString
     }
 
     "explain encoding" in {
       val hashTracer = HashTracer.StringHashTracer(true)
 
-      val actualMetadataHash = TransactionMetadataHashBuilder.hashTransactionMetadataV1(
+      val actualMetadataHash = TransactionMetadataHasher.tryHashMetadata(
+        HashingSchemeVersion.V2,
         metadata,
         hashTracer,
       )
@@ -46,8 +49,8 @@ class MetadataHashV1Test extends BaseTest with AnyWordSpecLike with Matchers wit
                                    |# Mediator Group
                                    |'00000000' # 0 (int)
                                    |# Synchronizer Id
-                                   |'0000000e' # 14 (int)
-                                   |'73796e6368726f6e697a65724964' # synchronizerId (string)
+                                   |'00000010' # 16 (int)
+                                   |'73796e6368726f6e697a65723a3a6964' # synchronizer::id (string)
                                    |# Min Time Boundary
                                    |'01' # Some
                                    |'000000000000aaaa' # 43690 (long)

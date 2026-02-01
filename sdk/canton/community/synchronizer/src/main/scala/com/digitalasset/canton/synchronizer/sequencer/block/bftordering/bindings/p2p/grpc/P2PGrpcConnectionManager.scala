@@ -43,7 +43,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   P2PConnectionEventListener,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.{
-  AnnotatedResult,
+  ResultWithLogs,
   abort,
   objId,
   toUnitFutureUS,
@@ -63,6 +63,7 @@ import com.digitalasset.canton.util.{AtomicUtil, DelayUtil}
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.stub.{AbstractStub, StreamObserver}
 import io.grpc.{Channel, ClientInterceptors, ManagedChannel}
+import org.slf4j.event.Level
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
@@ -100,10 +101,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
 
   private val longRunningExecutionContext = ExecutionContext.fromExecutor(longRunningExecutor)
 
-  private val p2pOutgoingConnectionsStatusRef =
-    new AtomicReference[UnlessShutdown[Map[P2PEndpoint.Id, P2POutgoingConnectionStatus]]](
-      UnlessShutdown.Outcome(Map.empty)
-    )
+  private val stateRef = new AtomicReference[State](State())
 
   // Called by the connection-managing actor when establishing a connection to an endpoint
   def getPeerSenderOrStartConnection(
@@ -239,9 +237,10 @@ private[bftordering] final class P2PGrpcConnectionManager(
       closeConnectionState(),
       timeouts.closing,
     ) +:
-      (p2pOutgoingConnectionsStatusRef
-        .getAndUpdate(_ => UnlessShutdown.AbortedDueToShutdown) match {
-        case UnlessShutdown.Outcome(state) =>
+      (stateRef
+        .getAndUpdate(_ => State(UnlessShutdown.AbortedDueToShutdown)) match {
+
+        case State(UnlessShutdown.Outcome(state)) =>
           state
             .map { case (p2pEndpointId, outgoingConnectionStatus) =>
               p2pEndpointId -> outgoingConnectionStatus.channelO
@@ -258,7 +257,9 @@ private[bftordering] final class P2PGrpcConnectionManager(
               )
             }
             .toSeq
-        case UnlessShutdown.AbortedDueToShutdown => Seq.empty
+
+        case State(UnlessShutdown.AbortedDueToShutdown) =>
+          Seq.empty
       })
   }
 
@@ -293,9 +294,14 @@ private[bftordering] final class P2PGrpcConnectionManager(
     val p2pEndpointId = p2pEndpoint.id
     logger.debug(s"Ensuring connection to $p2pEndpointId")
     val startConnection =
-      attemptTransitionToConnecting(p2pEndpointId)
-        .logAndExtract(prefix =
-          s"State transition for $p2pEndpointId when attempting to start outgoing connection: "
+      AtomicUtil
+        .updateAndGetComputed(stateRef)(
+          _.attemptTransitionToConnecting(p2pEndpointId)
+        )
+        .logAndExtract(
+          logger,
+          prefix =
+            s"State transition for $p2pEndpointId when attempting to start outgoing connection: ",
         )
     if (startConnection) {
       logger.debug(s"Starting connection for $p2pEndpointId")
@@ -343,13 +349,19 @@ private[bftordering] final class P2PGrpcConnectionManager(
                 asyncStub,
                 sequencerIdUS,
               )
-            attemptTransitionToConnectingWithChannelAndWorker(
-              p2pEndpointId,
-              ch,
-              connectWorker,
-            ).logAndExtract(prefix =
-              s"State transition for $p2pEndpointId when attempting to connect over gRPC channel with worker: "
-            )
+            AtomicUtil
+              .updateAndGetComputed(stateRef)(
+                _.attemptTransitionToConnectingWithChannelAndWorker(
+                  p2pEndpointId,
+                  ch,
+                  connectWorker,
+                )
+              )
+              .logAndExtract(
+                logger,
+                prefix =
+                  s"State transition for $p2pEndpointId when attempting to connect over gRPC channel with worker: ",
+              )
             connectWorker
 
           case None =>
@@ -397,8 +409,14 @@ private[bftordering] final class P2PGrpcConnectionManager(
             exception,
           )
           val doShutdownChannel =
-            attemptTransitionToDisconnectedAfterConnectWorkerFailed(p2pEndpointId, channel)
-              .logAndExtract(s"State transition for $p2pEndpointId after connect worker failure: ")
+            AtomicUtil
+              .updateAndGetComputed(stateRef)(
+                _.attemptTransitionToDisconnectedAfterConnectWorkerFailed(p2pEndpointId, channel)
+              )
+              .logAndExtract(
+                logger,
+                s"State transition for $p2pEndpointId after connect worker failure: ",
+              )
           if (doShutdownChannel) {
             shutdownGrpcChannelIfNeeded(p2pEndpointId, channel, authenticationContextO)
           } else {
@@ -482,9 +500,18 @@ private[bftordering] final class P2PGrpcConnectionManager(
     val authenticationContextId = authenticationContextO.map(objId)
 
     val success =
-      attemptTransitionToConnectingWithChannel(p2pEndpointId, channel, authenticationContextO)
-        .logAndExtract(prefix =
-          s"State transition for $p2pEndpointId when attempting to start outgoing connection after creating a channel: "
+      AtomicUtil
+        .updateAndGetComputed(stateRef)(
+          _.attemptTransitionToConnectingWithChannel(
+            p2pEndpointId,
+            channel,
+            authenticationContextO,
+          )
+        )
+        .logAndExtract(
+          logger,
+          prefix =
+            s"State transition for $p2pEndpointId when attempting to start outgoing connection after creating a channel: ",
         )
 
     if (success) {
@@ -640,9 +667,17 @@ private[bftordering] final class P2PGrpcConnectionManager(
                   .map(Some(_))
               )
             success =
-              attemptTransitionToRetryConnecting(p2pEndpointId, channel)
+              AtomicUtil
+                .updateAndGetComputed(stateRef)(
+                  _.attemptTransitionToRetryConnecting(
+                    p2pEndpointId,
+                    channel,
+                  )
+                )
                 .logAndExtract(
-                  s"$logPrefix State transition for $p2pEndpointId when attempting to retry outgoing connection:"
+                  logger,
+                  prefix =
+                    s"$logPrefix State transition for $p2pEndpointId when attempting to retry outgoing connection:",
                 )
             result <-
               if (success) {
@@ -794,14 +829,19 @@ private[bftordering] final class P2PGrpcConnectionManager(
                                 s"successfully authenticated as ${sequencerId.toProtoPrimitive}"
                             )
                             val channelToShutdownO =
-                              attemptConnectionOrDisconnectionCompletion(
-                                p2pEndpointId,
-                                channel,
-                                authenticationContextO,
-                              )
-                                .logAndExtract(prefix =
-                                  s"$logPrefix State transition for $p2pEndpointId when attempting to complete " +
-                                    "outgoing connection (or its disconnection, if requested): "
+                              AtomicUtil
+                                .updateAndGetComputed(stateRef)(
+                                  _.attemptConnectionOrDisconnectionCompletion(
+                                    p2pEndpointId,
+                                    channel,
+                                    authenticationContextO,
+                                  )
+                                )
+                                .logAndExtract(
+                                  logger,
+                                  prefix =
+                                    s"$logPrefix State transition for $p2pEndpointId when attempting to complete " +
+                                      "outgoing connection (or its disconnection, if requested): ",
                                 )
                             channelToShutdownO.fold {
                               logger.info(
@@ -826,9 +866,11 @@ private[bftordering] final class P2PGrpcConnectionManager(
                               s"$logPrefix Connection to $p2pEndpointId aborted due to shutdown"
                             )
                             transitionToDisconnected(p2pEndpointId, onlyIfNotConnected = false)
-                              .logAndExtract(prefix =
-                                s"$logPrefix State transition when shutting down outgoing connection " +
-                                  s"for $p2pEndpointId due to shutdown"
+                              .logAndExtract(
+                                logger,
+                                prefix =
+                                  s"$logPrefix State transition when shutting down outgoing connection " +
+                                    s"for $p2pEndpointId due to shutdown",
                               ) match {
                               case Left(_) =>
                                 // The future is either unit or this very worker, so no need to wait for it, just terminate
@@ -1015,9 +1057,11 @@ private[bftordering] final class P2PGrpcConnectionManager(
       p2pEndpointId: P2PEndpoint.Id,
       onlyIfNotFullyConnected: Boolean,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    transitionToDisconnected(p2pEndpointId, onlyIfNotFullyConnected).logAndExtract(prefix =
-      s"State transition when potentially shutting down outgoing connection for $p2pEndpointId " +
-        s"(onlyIfNotFullyConnected: $onlyIfNotFullyConnected): "
+    transitionToDisconnected(p2pEndpointId, onlyIfNotFullyConnected).logAndExtract(
+      logger,
+      prefix =
+        s"State transition when potentially shutting down outgoing connection for $p2pEndpointId " +
+          s"(onlyIfNotFullyConnected: $onlyIfNotFullyConnected): ",
     ) match {
       case Left(fus) => fus
       case Right(channel -> authenticationContextO) =>
@@ -1049,645 +1093,722 @@ private[bftordering] final class P2PGrpcConnectionManager(
           abort(logger, "Authentication is enabled but the peer is not a sequencer!")
       }
 
-  // Lock-free state transitions follow.
-
-  private def attemptTransitionToConnecting(
-      p2pEndpointId: P2PEndpoint.Id
-  )(implicit traceContext: TraceContext): AnnotatedResult[Boolean] =
-    AtomicUtil.updateAndGetComputed(p2pOutgoingConnectionsStatusRef) {
-      case s @ UnlessShutdown.Outcome(p2pConnectionsStatus) =>
-        p2pConnectionsStatus.get(p2pEndpointId) match {
-          case None =>
-            // No connection [attempt], create gRPC channel and connect
-            UnlessShutdown.Outcome(
-              p2pConnectionsStatus.updated(
-                p2pEndpointId,
-                P2POutgoingConnectionStatus.Connecting,
-              )
-            ) -> AnnotatedResult(
-              true, // Start connection
-              () => "Disconnected (not in state) -> Connecting",
-              debug,
-            )
-
-          case Some(status) =>
-            status match {
-
-              case P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw) =>
-                // Connect worker still active on a gRPC channel and asked to disconnect, cancel request
-                lazy val chId = ch.toString
-                lazy val acId = acO.map(objId)
-                lazy val cwId = objId(cw)
-                UnlessShutdown.Outcome(
-                  p2pConnectionsStatus
-                    .updated(
-                      p2pEndpointId,
-                      P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, Some(cw)),
-                    )
-                ) ->
-                  AnnotatedResult(
-                    false,
-                    () =>
-                      s"DisconnectingFromChannel(ch: $chId, ac: $acId, cw: $cwId -> " +
-                        s"ConnectingOnChannel(ch: $chId, ac: $acId, cw: $cwId)",
-                    debug,
-                  )
-
-              case P2POutgoingConnectionStatus.Connecting =>
-                // Already connecting
-                s -> AnnotatedResult(
-                  false,
-                  () => "Connecting (unchanged)",
-                  debug,
-                )
-
-              case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cw) =>
-                // Already connecting
-                s -> AnnotatedResult(
-                  false,
-                  () => s"ConnectingOnChannel(ch: $ch, cw: ${cw.map(objId)}) (unchanged)",
-                  debug,
-                )
-
-              case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
-                // Already connected
-                s -> AnnotatedResult(
-                  false,
-                  () => s"Connected(ch: $ch, ac: ${acO.map(objId)}) (unchanged)",
-                  debug,
-                )
-            }
-        }
-
-      case s @ UnlessShutdown.AbortedDueToShutdown =>
-        s -> AnnotatedResult(
-          false,
-          () => "Disconnected (state shut down, unchanged)",
-          debug,
-        )
-    }
-
-  private def attemptTransitionToConnectingWithChannel(
-      p2pEndpointId: P2PEndpoint.Id,
-      channel: ManagedChannel,
-      authenticationContextO: Option[GrpcSequencerClientAuth],
-  )(implicit traceContext: TraceContext): AnnotatedResult[Boolean] =
-    AtomicUtil.updateAndGetComputed(p2pOutgoingConnectionsStatusRef) {
-      case s @ UnlessShutdown.Outcome(p2pConnectionsStatus) =>
-        p2pConnectionsStatus.get(p2pEndpointId) match {
-
-          case Some(status) =>
-            status match {
-
-              case P2POutgoingConnectionStatus.Connecting =>
-                UnlessShutdown.Outcome(
-                  p2pConnectionsStatus
-                    .updated(
-                      p2pEndpointId,
-                      P2POutgoingConnectionStatus
-                        .ConnectingOnChannel(channel, authenticationContextO, connectWorkerO = None),
-                    )
-                ) -> AnnotatedResult(
-                  true,
-                  () =>
-                    s"Connecting -> ConnectingOnChannel(ch: $channel, ac: ${authenticationContextO
-                        .map(objId)}, cw: None)",
-                  debug,
-                )
-
-              case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
-                s -> AnnotatedResult(
-                  false,
-                  () => s"Connected(ch: $ch, ac: ${acO.map(objId)}) (unchanged)",
-                  logUnexpected,
-                )
-
-              case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cwO) =>
-                s -> AnnotatedResult(
-                  false,
-                  () =>
-                    s"ConnectingOnChannel(ch: $ch, ac: ${acO.map(objId)}, cw: ${cwO.map(objId)}) (unchanged)",
-                  logUnexpected,
-                )
-
-              case P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw) =>
-                s -> AnnotatedResult(
-                  false,
-                  () =>
-                    s"DisconnectingFromChannel(ch: $ch, ac: ${acO.map(objId)}, cw: ${objId(cw)}) (unchanged)",
-                  logUnexpected,
-                )
-            }
-
-          case None =>
-            // gRPC channel shut down before recording the new channel
-            s -> AnnotatedResult(
-              false,
-              () => "Disconnected (not in state) (unchanged)",
-              debug,
-            )
-        }
-
-      case s @ UnlessShutdown.AbortedDueToShutdown =>
-        s -> AnnotatedResult(
-          false,
-          () => "Disconnected (state shut down, unchanged)",
-          debug,
-        )
-    }
-
-  private def attemptTransitionToConnectingWithChannelAndWorker(
-      p2pEndpointId: P2PEndpoint.Id,
-      channel: ManagedChannel,
-      connectWorker: FutureUnlessShutdown[Unit],
-  )(implicit traceContext: TraceContext): AnnotatedResult[Unit] =
-    AtomicUtil.updateAndGetComputed(p2pOutgoingConnectionsStatusRef) {
-      case s @ UnlessShutdown.Outcome(p2pConnectionsStatus) =>
-        val connectWorkerId = objId(connectWorker)
-        p2pConnectionsStatus.get(p2pEndpointId) match {
-
-          case Some(status) =>
-            status match {
-
-              case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cwO) =>
-                lazy val chId = ch.toString
-                if (ch == channel && cwO.isEmpty)
-                  // Record the connect worker
-                  UnlessShutdown.Outcome(
-                    p2pConnectionsStatus
-                      .updated(
-                        p2pEndpointId,
-                        P2POutgoingConnectionStatus.ConnectingOnChannel(
-                          channel,
-                          acO,
-                          Some(connectWorker),
-                        ),
-                      )
-                  ) -> AnnotatedResult(
-                    (),
-                    () =>
-                      s"ConnectingOnChannel(ch: $chId, cw: None) -> " +
-                        s"ConnectingOnChannel(ch: $chId, cw: Some($connectWorkerId)",
-                    debug,
-                  )
-                else
-                  s -> AnnotatedResult(
-                    (),
-                    () => s"ConnectingOnChannel(ch: $chId, cw: ${cwO.map(objId)}) (unchanged)",
-                    logUnexpected,
-                  )
-
-              case P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw) =>
-                s -> AnnotatedResult(
-                  (),
-                  () =>
-                    s"DisconnectingFromChannel(ch: $ch, ac: ${acO.map(objId)}, cw: ${objId(cw)}) (unchanged)",
-                  logUnexpected,
-                )
-
-              case P2POutgoingConnectionStatus.Connecting =>
-                s -> AnnotatedResult(
-                  (),
-                  () => "Connecting (unchanged)",
-                  logUnexpected,
-                )
-
-              case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
-                s -> AnnotatedResult(
-                  (),
-                  () => s"ConnectedOnChannel(ch: $ch, ac: ${acO.map(objId)}) (unchanged)",
-                  logUnexpected,
-                )
-            }
-
-          case None =>
-            // Disconnection requested, the connect worker will see that and clean up
-            s -> AnnotatedResult(
-              (),
-              () => "Disconnected (not in state) (unchanged)",
-              debug,
-            )
-        }
-
-      case s @ UnlessShutdown.AbortedDueToShutdown =>
-        s -> AnnotatedResult(
-          (),
-          () => "Disconnected (state shut down, unchanged)",
-          debug,
-        )
-    }
-
-  private def attemptTransitionToRetryConnecting(
-      p2pEndpointId: P2PEndpoint.Id,
-      channel: ManagedChannel,
-  )(implicit traceContext: TraceContext): AnnotatedResult[Boolean] =
-    AtomicUtil.updateAndGetComputed(p2pOutgoingConnectionsStatusRef) {
-      case s @ UnlessShutdown.Outcome(p2pConnectionsStatus) =>
-        p2pConnectionsStatus.get(p2pEndpointId) match {
-
-          case Some(status) =>
-            status match {
-
-              case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cwO) =>
-                lazy val chId = ch.toString
-                lazy val acId = acO.map(objId)
-                lazy val cwId = cwO.map(objId)
-                if (ch == channel)
-                  // This connect worker is still valid
-                  s -> AnnotatedResult(
-                    true,
-                    () =>
-                      s"ConnectingOnChannel(ch: $chId = this worker's channel, ac: $acId, cw: $cwId) (unchanged)",
-                    debug,
-                  )
-                else
-                  s -> AnnotatedResult(
-                    false,
-                    () =>
-                      s"ConnectingOnChannel(ch: $chId = another worker's channel, ac: $acId, cw: $cwId) (unchanged)",
-                    logUnexpected,
-                  )
-
-              case P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw) =>
-                lazy val chId = ch.toString
-                lazy val acId = acO.map(objId)
-                lazy val cwId = objId(cw)
-                if (ch == channel)
-                  // Requested to disconnect
-                  UnlessShutdown.Outcome(
-                    p2pConnectionsStatus.removed(
-                      p2pEndpointId
-                    )
-                  ) -> AnnotatedResult(
-                    false,
-                    () =>
-                      s"DisconnectingFromChannel(ch: $chId = this worker's channel, ac: $acId, cw: $cwId) -> " +
-                        "Disconnected (not in state)",
-                    debug,
-                  )
-                else
-                  s -> AnnotatedResult(
-                    false,
-                    () =>
-                      s"ConnectingOnChannel(ch: $chId = another worker's channel, ac: $acId, cw: $cwId) (unchanged)",
-                    logUnexpected,
-                  )
-
-              case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
-                lazy val chId = ch.toString
-                lazy val acId = acO.map(objId)
-                s -> AnnotatedResult(
-                  false,
-                  () =>
-                    if (ch == channel)
-                      s"ConnectedOnChannel(ch: $chId = this worker's channel, ac: $acId) (unchanged)"
-                    else
-                      s"ConnectedOnChannel(ch: $chId = another worker's channel, ac: $acId) (unchanged)",
-                  logUnexpected,
-                )
-
-              case P2POutgoingConnectionStatus.Connecting =>
-                s -> AnnotatedResult(
-                  false,
-                  () => "Connecting (unchanged)",
-                  logUnexpected,
-                )
-            }
-
-          case None =>
-            s -> AnnotatedResult(
-              false,
-              () => "Disconnected (not in state) (unchanged)",
-              logUnexpected,
-            )
-        }
-
-      case s @ UnlessShutdown.AbortedDueToShutdown =>
-        s -> AnnotatedResult(
-          false,
-          () => "Disconnected (state shut down, unchanged)",
-          debug,
-        )
-    }
-
-  private def attemptConnectionOrDisconnectionCompletion(
-      p2pEndpointId: P2PEndpoint.Id,
-      channel: ManagedChannel,
-      authenticationContextO: Option[GrpcSequencerClientAuth],
-  )(implicit
-      traceContext: TraceContext
-  ): AnnotatedResult[Option[(ManagedChannel, Option[GrpcSequencerClientAuth])]] =
-    AtomicUtil.updateAndGetComputed(p2pOutgoingConnectionsStatusRef) {
-      case s @ UnlessShutdown.Outcome(p2pConnectionsStatus) =>
-        p2pConnectionsStatus.get(p2pEndpointId) match {
-
-          case Some(status) =>
-            status match {
-
-              case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cwO) =>
-                lazy val chId = ch.toString
-                lazy val acId = acO.map(objId)
-                lazy val cwId = cwO.map(objId)
-                if (ch == channel)
-                  // Mark connection as complete
-                  UnlessShutdown.Outcome(
-                    p2pConnectionsStatus
-                      .updated(
-                        p2pEndpointId,
-                        P2POutgoingConnectionStatus.ConnectedOnChannel(channel, acO),
-                      )
-                  ) -> AnnotatedResult(
-                    None,
-                    () =>
-                      s"ConnectingOnChannel(ch: $chId = this worker's channel, ac: $acId, cw: $cwId) -> " +
-                        s"ConnectedOnChannel(ch: $chId)",
-                    debug,
-                  )
-                else
-                  s -> AnnotatedResult(
-                    Some(channel -> acO),
-                    () =>
-                      s"ConnectingOnChannel(ch: $chId = another worker's channel, ac: $acId, cw: $cwId) (unchanged)",
-                    logUnexpected,
-                  )
-
-              case P2POutgoingConnectionStatus
-                    .DisconnectingFromChannel(ch, acO, cw) =>
-                lazy val chId = ch.toString
-                lazy val acId = acO.map(objId)
-                lazy val cwId = objId(cw)
-                if (ch == channel)
-                  // Complete disconnection request
-                  UnlessShutdown.Outcome(
-                    p2pConnectionsStatus.removed(p2pEndpointId)
-                  ) -> AnnotatedResult(
-                    Some(channel -> acO),
-                    () =>
-                      s"DisconnectingFromChannel(ch: $chId = this worker's channel, ac: $acId, cw: $cwId) -> " +
-                        "Disconnected (not in state)",
-                    debug,
-                  )
-                else
-                  s -> AnnotatedResult(
-                    Some(channel -> acO),
-                    () =>
-                      s"DisconnectingFromChannel(ch: $chId = another worker's channel, ac: $acId, cw: $cwId) " +
-                        "(unchanged)",
-                    logUnexpected,
-                  )
-
-              case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
-                lazy val chId = ch.toString
-                lazy val acId = acO.map(objId)
-                s -> AnnotatedResult(
-                  None,
-                  () =>
-                    if (ch == channel)
-                      s"ConnectedOnChannel(ch: $chId = this worker's channel, ac: $acId) (unchanged)"
-                    else
-                      s"ConnectedOnChannel(ch: $chId = another worker's channel, ac: $acId) (unchanged)",
-                  logUnexpected,
-                )
-
-              case P2POutgoingConnectionStatus.Connecting =>
-                s -> AnnotatedResult(
-                  Some(channel -> authenticationContextO),
-                  () => "Connecting (unchanged)",
-                  logUnexpected,
-                )
-            }
-
-          case None =>
-            // gRPC channel shut down before the running worker was recorded as assigned to it
-            s -> AnnotatedResult(
-              Some(channel -> authenticationContextO),
-              () => "Disconnected (not in state) (unchanged)",
-              debug,
-            )
-        }
-
-      case s @ UnlessShutdown.AbortedDueToShutdown =>
-        s -> AnnotatedResult(
-          Some(channel -> authenticationContextO),
-          () => "Disconnected (state shut down, unchanged)",
-          debug,
-        )
-    }
-
-  private def attemptTransitionToDisconnectedAfterConnectWorkerFailed(
-      p2pEndpointId: P2PEndpoint.Id,
-      channel: ManagedChannel,
-  )(implicit traceContext: TraceContext): AnnotatedResult[Boolean] =
-    AtomicUtil.updateAndGetComputed(p2pOutgoingConnectionsStatusRef) {
-      case s @ UnlessShutdown.Outcome(p2pConnectionsStatus) =>
-        p2pConnectionsStatus.get(p2pEndpointId) match {
-
-          case Some(status) =>
-            // Shut down the channel whenever it's associated to this connect worker that failed
-            //  and transition to Disconnected
-
-            status match {
-
-              case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
-                lazy val chId = ch.toString
-                lazy val acId = acO.map(objId)
-                if (ch == channel)
-                  UnlessShutdown.Outcome(
-                    p2pConnectionsStatus.removed(
-                      p2pEndpointId
-                    )
-                  ) -> AnnotatedResult(
-                    true,
-                    () =>
-                      s"ConnectedOnChannel(ch: $chId = this worker's channel, ac: $acId) -> " +
-                        "Disconnected (not in state)",
-                    debug,
-                  )
-                else
-                  s -> AnnotatedResult(
-                    false,
-                    () =>
-                      s"ConnectedOnChannel(ch: $chId = another worker's channel, ac: $acId) (unchanged)",
-                    debug,
-                  )
-
-              case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cwO) =>
-                lazy val chId = ch.toString
-                lazy val acId = acO.map(objId)
-                lazy val cwId = cwO.map(objId)
-                if (ch == channel)
-                  UnlessShutdown.Outcome(
-                    p2pConnectionsStatus.removed(
-                      p2pEndpointId
-                    )
-                  ) -> AnnotatedResult(
-                    true,
-                    () =>
-                      s"ConnectingOnChannel(ch: $chId = this worker's channel, ac: $acId, cw: $cwId) -> " +
-                        "Disconnected (not in state)",
-                    debug,
-                  )
-                else
-                  s -> AnnotatedResult(
-                    false,
-                    () =>
-                      s"ConnectingOnChannel(ch: $ch = another worker's channel, ac: $acId, cw: $cwId) (unchanged)",
-                    debug,
-                  )
-
-              case P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw) =>
-                lazy val chId = ch.toString
-                lazy val acId = acO.map(objId)
-                lazy val cwId = objId(cw)
-                if (ch == channel)
-                  UnlessShutdown.Outcome(
-                    p2pConnectionsStatus.removed(
-                      p2pEndpointId
-                    )
-                  ) -> AnnotatedResult(
-                    true,
-                    () =>
-                      s"DisconnectingFromChannel(ch: $chId = this worker's channel, ac: $acId, cw: $cwId) -> " +
-                        "Disconnected (not in state)",
-                    debug,
-                  )
-                else
-                  s -> AnnotatedResult(
-                    false,
-                    () =>
-                      s"DisconnectingFromChannel(ch: $chId = another worker's channel, ac: $acId, cw: $cwId) (unchanged)",
-                    debug,
-                  )
-
-              case P2POutgoingConnectionStatus.Connecting =>
-                s -> AnnotatedResult(
-                  false,
-                  () => "Connecting (unchanged)",
-                  debug,
-                )
-            }
-
-          case None =>
-            s -> AnnotatedResult(
-              true,
-              () => "Disconnected (not in state) (unchanged)",
-              debug,
-            )
-        }
-
-      case s @ UnlessShutdown.AbortedDueToShutdown =>
-        s -> AnnotatedResult(
-          true,
-          () => "Disconnected (state shut down, unchanged)",
-          debug,
-        )
-    }
-
   private def transitionToDisconnected(
       p2pEndpointId: P2PEndpoint.Id,
       onlyIfNotConnected: Boolean,
-  )(implicit
-      traceContext: TraceContext
-  ): AnnotatedResult[
+  ): ResultWithLogs[
     Either[FutureUnlessShutdown[Unit], (ManagedChannel, Option[GrpcSequencerClientAuth])]
   ] =
-    AtomicUtil.updateAndGetComputed(p2pOutgoingConnectionsStatusRef) {
-      case s @ UnlessShutdown.Outcome(p2pConnectionsStatus) =>
-        p2pConnectionsStatus.get(p2pEndpointId) match {
-
-          case Some(p2pConnectionStatus) =>
-            p2pConnectionStatus match {
-
-              case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
-                lazy val chId = ch.toString
-                lazy val acId = acO.map(objId)
-                if (onlyIfNotConnected) {
-                  s -> AnnotatedResult(
-                    Left(FutureUnlessShutdown.unit),
-                    () => s"ConnectedOnChannel(ch: $chId, ac: $acId) (unchanged)",
-                    debug,
-                  )
-                } else {
-                  // No connect worker, just close the channel
-                  UnlessShutdown.Outcome(
-                    p2pConnectionsStatus.removed(p2pEndpointId)
-                  ) -> AnnotatedResult(
-                    Right(ch -> acO),
-                    () =>
-                      s"ConnectedOnChannel(ch: $chId, ac: $acId) -> Disconnected (not in state)",
-                    debug,
-                  )
-                }
-
-              case P2POutgoingConnectionStatus.Connecting =>
-                // Let the gRPC channel setup logic orderly abort the connection attempt
-                UnlessShutdown.Outcome(
-                  p2pConnectionsStatus.removed(p2pEndpointId)
-                ) -> AnnotatedResult(
-                  Left(FutureUnlessShutdown.unit),
-                  () => "Connecting -> Disconnected (not in state)",
-                  debug,
-                )
-
-              case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, Some(cw)) =>
-                // Let the connect worker orderly abort the connection attempt
-                lazy val chId = ch.toString
-                lazy val acId = acO.map(objId)
-                lazy val cwId = objId(cw)
-                UnlessShutdown.Outcome(
-                  p2pConnectionsStatus.updated(
-                    p2pEndpointId,
-                    P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw),
-                  )
-                ) -> AnnotatedResult(
-                  Left(cw),
-                  () =>
-                    s"ConnectingOnChannel(ch: $chId, ac: $acId, cw: $cwId) -> " +
-                      s"DisconnectingFromChannel(ch: $chId, ac: $acId, cw: $cwId)",
-                  debug,
-                )
-
-              case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, None) =>
-                // Let the connect worker orderly abort the connection attempt
-                UnlessShutdown.Outcome(
-                  p2pConnectionsStatus.removed(p2pEndpointId)
-                ) -> AnnotatedResult(
-                  Right(ch -> acO),
-                  () =>
-                    s"ConnectingOnChannel(ch: $ch, ac: ${acO.map(objId)}, cw: None) -> " +
-                      "Disconnected (not in state)",
-                  debug,
-                )
-
-              case P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw) =>
-                // Let the connect worker finish aborting the connection attempt
-                s -> AnnotatedResult(
-                  Left(cw),
-                  () =>
-                    s"DisconnectingFromChannel(ch: $ch, ac: ${acO.map(objId)}, cw: ${objId(cw)}) (unchanged)",
-                  debug,
-                )
-            }
-
-          case None =>
-            // No connection established nor in progress
-            s -> AnnotatedResult(
-              Left(FutureUnlessShutdown.unit),
-              () => "Disconnected (not in state) (unchanged)",
-              debug,
-            )
-        }
-
-      case s @ UnlessShutdown.AbortedDueToShutdown =>
-        s -> AnnotatedResult(
-          Left(FutureUnlessShutdown.unit),
-          () => "Disconnected (state shut down, unchanged)",
-          debug,
-        )
-    }
+    AtomicUtil.updateAndGetComputed(stateRef)(
+      _.transitionToDisconnected(p2pEndpointId, onlyIfNotConnected)
+    )
 }
 
 private[bftordering] object P2PGrpcConnectionManager {
+
+  private final case class State(
+      p2pOutgoingConnectionsStatus: UnlessShutdown[
+        Map[P2PEndpoint.Id, P2POutgoingConnectionStatus]
+      ] = UnlessShutdown.Outcome(Map.empty)
+  ) {
+
+    def attemptTransitionToConnecting(
+        p2pEndpointId: P2PEndpoint.Id
+    ): (State, ResultWithLogs[Boolean]) =
+      p2pOutgoingConnectionsStatus match {
+        case UnlessShutdown.Outcome(p2pConnectionsStatus) =>
+          p2pConnectionsStatus.get(p2pEndpointId) match {
+            case None =>
+              // No connection [attempt], create gRPC channel and connect
+              State(
+                UnlessShutdown.Outcome(
+                  p2pConnectionsStatus.updated(
+                    p2pEndpointId,
+                    P2POutgoingConnectionStatus.Connecting,
+                  )
+                )
+              ) ->
+                ResultWithLogs(
+                  true, // Start connection
+                  Level.DEBUG -> (() => "Disconnected (not in state) -> Connecting"),
+                )
+
+            case Some(status) =>
+              status match {
+
+                case P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw) =>
+                  // Connect worker still active on a gRPC channel and asked to disconnect, cancel request
+                  lazy val chId = ch.toString
+                  lazy val acId = acO.map(objId)
+                  lazy val cwId = objId(cw)
+                  State(
+                    UnlessShutdown.Outcome(
+                      p2pConnectionsStatus
+                        .updated(
+                          p2pEndpointId,
+                          P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, Some(cw)),
+                        )
+                    )
+                  ) ->
+                    ResultWithLogs(
+                      false,
+                      Level.DEBUG -> (() =>
+                        s"DisconnectingFromChannel(ch: $chId, ac: $acId, cw: $cwId -> " +
+                          s"ConnectingOnChannel(ch: $chId, ac: $acId, cw: $cwId)"
+                      ),
+                    )
+
+                case P2POutgoingConnectionStatus.Connecting =>
+                  // Already connecting
+                  this ->
+                    ResultWithLogs(
+                      false,
+                      Level.DEBUG -> (() => "Connecting (unchanged)"),
+                    )
+
+                case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cw) =>
+                  // Already connecting
+                  this ->
+                    ResultWithLogs(
+                      false,
+                      Level.DEBUG -> (() =>
+                        s"ConnectingOnChannel(ch: $ch, cw: ${cw.map(objId)}) (unchanged)"
+                      ),
+                    )
+
+                case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
+                  // Already connected
+                  this ->
+                    ResultWithLogs(
+                      false,
+                      Level.DEBUG -> (() =>
+                        s"Connected(ch: $ch, ac: ${acO.map(objId)}) (unchanged)"
+                      ),
+                    )
+              }
+          }
+
+        case UnlessShutdown.AbortedDueToShutdown =>
+          this ->
+            ResultWithLogs(
+              false,
+              Level.DEBUG -> (() => "Disconnected (state shut down, unchanged)"),
+            )
+      }
+
+    def attemptTransitionToConnectingWithChannel(
+        p2pEndpointId: P2PEndpoint.Id,
+        channel: ManagedChannel,
+        authenticationContextO: Option[GrpcSequencerClientAuth],
+    ): (State, ResultWithLogs[Boolean]) =
+      p2pOutgoingConnectionsStatus match {
+        case UnlessShutdown.Outcome(p2pConnectionsStatus) =>
+          p2pConnectionsStatus.get(p2pEndpointId) match {
+
+            case Some(status) =>
+              status match {
+
+                case P2POutgoingConnectionStatus.Connecting =>
+                  State(
+                    UnlessShutdown.Outcome(
+                      p2pConnectionsStatus
+                        .updated(
+                          p2pEndpointId,
+                          P2POutgoingConnectionStatus
+                            .ConnectingOnChannel(
+                              channel,
+                              authenticationContextO,
+                              connectWorkerO = None,
+                            ),
+                        )
+                    )
+                  ) ->
+                    ResultWithLogs(
+                      true,
+                      Level.DEBUG -> (() =>
+                        s"Connecting -> ConnectingOnChannel(ch: $channel, ac: ${authenticationContextO
+                            .map(objId)}, cw: None)"
+                      ),
+                    )
+
+                case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
+                  this ->
+                    ResultWithLogs(
+                      false,
+                      Level.WARN -> (() => s"Connected(ch: $ch, ac: ${acO.map(objId)}) (unchanged)"),
+                    )
+
+                case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cwO) =>
+                  this ->
+                    ResultWithLogs(
+                      false,
+                      Level.WARN -> (() =>
+                        s"ConnectingOnChannel(ch: $ch, ac: ${acO.map(objId)}, cw: ${cwO.map(objId)}) (unchanged)"
+                      ),
+                    )
+
+                case P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw) =>
+                  this ->
+                    ResultWithLogs(
+                      false,
+                      Level.WARN -> (() =>
+                        s"DisconnectingFromChannel(ch: $ch, ac: ${acO.map(objId)}, cw: ${objId(cw)}) (unchanged)"
+                      ),
+                    )
+              }
+
+            case None =>
+              // gRPC channel shut down before recording the new channel
+              this ->
+                ResultWithLogs(
+                  false,
+                  Level.DEBUG -> (() => "Disconnected (not in state) (unchanged)"),
+                )
+          }
+
+        case UnlessShutdown.AbortedDueToShutdown =>
+          this ->
+            ResultWithLogs(
+              false,
+              Level.DEBUG -> (() => "Disconnected (state shut down, unchanged)"),
+            )
+      }
+
+    def attemptTransitionToConnectingWithChannelAndWorker(
+        p2pEndpointId: P2PEndpoint.Id,
+        channel: ManagedChannel,
+        connectWorker: FutureUnlessShutdown[Unit],
+    ): (State, ResultWithLogs[Unit]) =
+      p2pOutgoingConnectionsStatus match {
+        case UnlessShutdown.Outcome(p2pConnectionsStatus) =>
+          val connectWorkerId = objId(connectWorker)
+          p2pConnectionsStatus.get(p2pEndpointId) match {
+
+            case Some(status) =>
+              status match {
+
+                case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cwO) =>
+                  lazy val chId = ch.toString
+                  if (ch == channel && cwO.isEmpty)
+                    // Record the connect worker
+                    State(
+                      UnlessShutdown.Outcome(
+                        p2pConnectionsStatus
+                          .updated(
+                            p2pEndpointId,
+                            P2POutgoingConnectionStatus.ConnectingOnChannel(
+                              channel,
+                              acO,
+                              Some(connectWorker),
+                            ),
+                          )
+                      )
+                    ) ->
+                      ResultWithLogs(
+                        (),
+                        Level.DEBUG -> (() =>
+                          s"ConnectingOnChannel(ch: $chId, cw: None) -> " +
+                            s"ConnectingOnChannel(ch: $chId, cw: Some($connectWorkerId)"
+                        ),
+                      )
+                  else
+                    this ->
+                      ResultWithLogs(
+                        (),
+                        Level.WARN -> (() =>
+                          s"ConnectingOnChannel(ch: $chId, cw: ${cwO.map(objId)}) (unchanged)"
+                        ),
+                      )
+
+                case P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw) =>
+                  this ->
+                    ResultWithLogs(
+                      (),
+                      Level.WARN -> (() =>
+                        s"DisconnectingFromChannel(ch: $ch, ac: ${acO.map(objId)}, cw: ${objId(cw)}) (unchanged)"
+                      ),
+                    )
+
+                case P2POutgoingConnectionStatus.Connecting =>
+                  this ->
+                    ResultWithLogs(
+                      (),
+                      Level.WARN -> (() => "Connecting (unchanged)"),
+                    )
+
+                case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
+                  this ->
+                    ResultWithLogs(
+                      (),
+                      Level.WARN -> (() =>
+                        s"ConnectedOnChannel(ch: $ch, ac: ${acO.map(objId)}) (unchanged)"
+                      ),
+                    )
+              }
+
+            case None =>
+              // Disconnection requested, the connect worker will see that and clean up
+              this ->
+                ResultWithLogs(
+                  (),
+                  Level.DEBUG -> (() => "Disconnected (not in state) (unchanged)"),
+                )
+          }
+
+        case UnlessShutdown.AbortedDueToShutdown =>
+          this ->
+            ResultWithLogs(
+              (),
+              Level.DEBUG -> (() => "Disconnected (state shut down, unchanged)"),
+            )
+      }
+
+    def attemptTransitionToRetryConnecting(
+        p2pEndpointId: P2PEndpoint.Id,
+        channel: ManagedChannel,
+    ): (State, ResultWithLogs[Boolean]) =
+      p2pOutgoingConnectionsStatus match {
+        case UnlessShutdown.Outcome(p2pConnectionsStatus) =>
+          p2pConnectionsStatus.get(p2pEndpointId) match {
+
+            case Some(status) =>
+              status match {
+
+                case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cwO) =>
+                  lazy val chId = ch.toString
+                  lazy val acId = acO.map(objId)
+                  lazy val cwId = cwO.map(objId)
+                  if (ch == channel)
+                    // This connect worker is still valid
+                    this ->
+                      ResultWithLogs(
+                        true,
+                        Level.DEBUG -> (() =>
+                          s"ConnectingOnChannel(ch: $chId = this worker's channel, ac: $acId, cw: $cwId) (unchanged)"
+                        ),
+                      )
+                  else
+                    this ->
+                      ResultWithLogs(
+                        false,
+                        Level.WARN -> (() =>
+                          s"ConnectingOnChannel(ch: $chId = another worker's channel, ac: $acId, cw: $cwId) (unchanged)"
+                        ),
+                      )
+
+                case P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw) =>
+                  lazy val chId = ch.toString
+                  lazy val acId = acO.map(objId)
+                  lazy val cwId = objId(cw)
+                  if (ch == channel)
+                    // Requested to disconnect
+                    State(
+                      UnlessShutdown.Outcome(
+                        p2pConnectionsStatus.removed(
+                          p2pEndpointId
+                        )
+                      )
+                    ) -> ResultWithLogs(
+                      false,
+                      Level.DEBUG -> (() =>
+                        s"DisconnectingFromChannel(ch: $chId = this worker's channel, ac: $acId, cw: $cwId) -> " +
+                          "Disconnected (not in state)"
+                      ),
+                    )
+                  else
+                    this ->
+                      ResultWithLogs(
+                        false,
+                        Level.WARN -> (() =>
+                          s"ConnectingOnChannel(ch: $chId = another worker's channel, ac: $acId, cw: $cwId) (unchanged)"
+                        ),
+                      )
+
+                case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
+                  lazy val chId = ch.toString
+                  lazy val acId = acO.map(objId)
+                  this ->
+                    ResultWithLogs(
+                      false,
+                      Level.WARN -> (() =>
+                        if (ch == channel)
+                          s"ConnectedOnChannel(ch: $chId = this worker's channel, ac: $acId) (unchanged)"
+                        else
+                          s"ConnectedOnChannel(ch: $chId = another worker's channel, ac: $acId) (unchanged)"
+                      ),
+                    )
+
+                case P2POutgoingConnectionStatus.Connecting =>
+                  this ->
+                    ResultWithLogs(
+                      false,
+                      Level.WARN -> (() => "Connecting (unchanged)"),
+                    )
+              }
+
+            case None =>
+              this ->
+                ResultWithLogs(
+                  false,
+                  Level.WARN -> (() => "Disconnected (not in state) (unchanged)"),
+                )
+          }
+
+        case UnlessShutdown.AbortedDueToShutdown =>
+          this ->
+            ResultWithLogs(
+              false,
+              Level.DEBUG -> (() => "Disconnected (state shut down, unchanged)"),
+            )
+      }
+
+    def attemptConnectionOrDisconnectionCompletion(
+        p2pEndpointId: P2PEndpoint.Id,
+        channel: ManagedChannel,
+        authenticationContextO: Option[GrpcSequencerClientAuth],
+    ): (State, ResultWithLogs[Option[(ManagedChannel, Option[GrpcSequencerClientAuth])]]) =
+      p2pOutgoingConnectionsStatus match {
+        case UnlessShutdown.Outcome(p2pConnectionsStatus) =>
+          p2pConnectionsStatus.get(p2pEndpointId) match {
+
+            case Some(status) =>
+              status match {
+
+                case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cwO) =>
+                  lazy val chId = ch.toString
+                  lazy val acId = acO.map(objId)
+                  lazy val cwId = cwO.map(objId)
+                  if (ch == channel)
+                    // Mark connection as complete
+                    State(
+                      UnlessShutdown.Outcome(
+                        p2pConnectionsStatus
+                          .updated(
+                            p2pEndpointId,
+                            P2POutgoingConnectionStatus.ConnectedOnChannel(channel, acO),
+                          )
+                      )
+                    ) ->
+                      ResultWithLogs(
+                        None,
+                        Level.DEBUG -> (() =>
+                          s"ConnectingOnChannel(ch: $chId = this worker's channel, ac: $acId, cw: $cwId) -> " +
+                            s"ConnectedOnChannel(ch: $chId)"
+                        ),
+                      )
+                  else
+                    this ->
+                      ResultWithLogs(
+                        Some(channel -> acO),
+                        Level.WARN -> (() =>
+                          s"ConnectingOnChannel(ch: $chId = another worker's channel, ac: $acId, cw: $cwId) (unchanged)"
+                        ),
+                      )
+
+                case P2POutgoingConnectionStatus
+                      .DisconnectingFromChannel(ch, acO, cw) =>
+                  lazy val chId = ch.toString
+                  lazy val acId = acO.map(objId)
+                  lazy val cwId = objId(cw)
+                  if (ch == channel)
+                    // Complete disconnection request
+                    State(
+                      UnlessShutdown.Outcome(
+                        p2pConnectionsStatus.removed(p2pEndpointId)
+                      )
+                    ) ->
+                      ResultWithLogs(
+                        Some(channel -> acO),
+                        Level.DEBUG -> (() =>
+                          s"DisconnectingFromChannel(ch: $chId = this worker's channel, ac: $acId, cw: $cwId) -> " +
+                            "Disconnected (not in state)"
+                        ),
+                      )
+                  else
+                    this ->
+                      ResultWithLogs(
+                        Some(channel -> acO),
+                        Level.WARN -> (() =>
+                          s"DisconnectingFromChannel(ch: $chId = another worker's channel, ac: $acId, cw: $cwId) " +
+                            "(unchanged)"
+                        ),
+                      )
+
+                case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
+                  lazy val chId = ch.toString
+                  lazy val acId = acO.map(objId)
+                  this ->
+                    ResultWithLogs(
+                      None,
+                      Level.WARN -> (() =>
+                        if (ch == channel)
+                          s"ConnectedOnChannel(ch: $chId = this worker's channel, ac: $acId) (unchanged)"
+                        else
+                          s"ConnectedOnChannel(ch: $chId = another worker's channel, ac: $acId) (unchanged)"
+                      ),
+                    )
+
+                case P2POutgoingConnectionStatus.Connecting =>
+                  this ->
+                    ResultWithLogs(
+                      Some(channel -> authenticationContextO),
+                      Level.WARN -> (() => "Connecting (unchanged)"),
+                    )
+              }
+
+            case None =>
+              // gRPC channel shut down before the running worker was recorded as assigned to it
+              this ->
+                ResultWithLogs(
+                  Some(channel -> authenticationContextO),
+                  Level.DEBUG -> (() => "Disconnected (not in state) (unchanged)"),
+                )
+          }
+
+        case UnlessShutdown.AbortedDueToShutdown =>
+          this ->
+            ResultWithLogs(
+              Some(channel -> authenticationContextO),
+              Level.DEBUG -> (() => "Disconnected (state shut down, unchanged)"),
+            )
+      }
+
+    def attemptTransitionToDisconnectedAfterConnectWorkerFailed(
+        p2pEndpointId: P2PEndpoint.Id,
+        channel: ManagedChannel,
+    ): (State, ResultWithLogs[Boolean]) =
+      p2pOutgoingConnectionsStatus match {
+        case UnlessShutdown.Outcome(p2pConnectionsStatus) =>
+          p2pConnectionsStatus.get(p2pEndpointId) match {
+
+            case Some(status) =>
+              // Shut down the channel whenever it's associated to this connect worker that failed
+              //  and transition to Disconnected
+
+              status match {
+
+                case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
+                  lazy val chId = ch.toString
+                  lazy val acId = acO.map(objId)
+                  if (ch == channel)
+                    State(
+                      UnlessShutdown.Outcome(
+                        p2pConnectionsStatus.removed(
+                          p2pEndpointId
+                        )
+                      )
+                    ) ->
+                      ResultWithLogs(
+                        true,
+                        Level.DEBUG -> (() =>
+                          s"ConnectedOnChannel(ch: $chId = this worker's channel, ac: $acId) -> " +
+                            "Disconnected (not in state)"
+                        ),
+                      )
+                  else
+                    this ->
+                      ResultWithLogs(
+                        false,
+                        Level.DEBUG -> (() =>
+                          s"ConnectedOnChannel(ch: $chId = another worker's channel, ac: $acId) (unchanged)"
+                        ),
+                      )
+
+                case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, cwO) =>
+                  lazy val chId = ch.toString
+                  lazy val acId = acO.map(objId)
+                  lazy val cwId = cwO.map(objId)
+                  if (ch == channel)
+                    State(
+                      UnlessShutdown.Outcome(
+                        p2pConnectionsStatus.removed(
+                          p2pEndpointId
+                        )
+                      )
+                    ) ->
+                      ResultWithLogs(
+                        true,
+                        Level.DEBUG -> (() =>
+                          s"ConnectingOnChannel(ch: $chId = this worker's channel, ac: $acId, cw: $cwId) -> " +
+                            "Disconnected (not in state)"
+                        ),
+                      )
+                  else
+                    this ->
+                      ResultWithLogs(
+                        false,
+                        Level.DEBUG -> (() =>
+                          s"ConnectingOnChannel(ch: $ch = another worker's channel, ac: $acId, cw: $cwId) (unchanged)"
+                        ),
+                      )
+
+                case P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw) =>
+                  lazy val chId = ch.toString
+                  lazy val acId = acO.map(objId)
+                  lazy val cwId = objId(cw)
+                  if (ch == channel)
+                    State(
+                      UnlessShutdown.Outcome(
+                        p2pConnectionsStatus.removed(
+                          p2pEndpointId
+                        )
+                      )
+                    ) ->
+                      ResultWithLogs(
+                        true,
+                        Level.DEBUG -> (() =>
+                          s"DisconnectingFromChannel(ch: $chId = this worker's channel, ac: $acId, cw: $cwId) -> " +
+                            "Disconnected (not in state)"
+                        ),
+                      )
+                  else
+                    this ->
+                      ResultWithLogs(
+                        false,
+                        Level.DEBUG -> (() =>
+                          s"DisconnectingFromChannel(ch: $chId = another worker's channel, ac: $acId, cw: $cwId) (unchanged)"
+                        ),
+                      )
+
+                case P2POutgoingConnectionStatus.Connecting =>
+                  this ->
+                    ResultWithLogs(
+                      false,
+                      Level.DEBUG -> (() => "Connecting (unchanged)"),
+                    )
+              }
+
+            case None =>
+              this ->
+                ResultWithLogs(
+                  true,
+                  Level.DEBUG -> (() => "Disconnected (not in state) (unchanged)"),
+                )
+          }
+
+        case UnlessShutdown.AbortedDueToShutdown =>
+          this ->
+            ResultWithLogs(
+              true,
+              Level.DEBUG -> (() => "Disconnected (state shut down, unchanged)"),
+            )
+      }
+
+    def transitionToDisconnected(p2pEndpointId: P2PEndpoint.Id, onlyIfNotConnected: Boolean): (
+        State,
+        ResultWithLogs[
+          Either[FutureUnlessShutdown[Unit], (ManagedChannel, Option[GrpcSequencerClientAuth])]
+        ],
+    ) =
+      p2pOutgoingConnectionsStatus match {
+        case UnlessShutdown.Outcome(p2pConnectionsStatus) =>
+          p2pConnectionsStatus.get(p2pEndpointId) match {
+
+            case Some(p2pConnectionStatus) =>
+              p2pConnectionStatus match {
+
+                case P2POutgoingConnectionStatus.ConnectedOnChannel(ch, acO) =>
+                  lazy val chId = ch.toString
+                  lazy val acId = acO.map(objId)
+                  if (onlyIfNotConnected) {
+                    this ->
+                      ResultWithLogs(
+                        Left(FutureUnlessShutdown.unit),
+                        Level.DEBUG -> (() =>
+                          s"ConnectedOnChannel(ch: $chId, ac: $acId) (unchanged)"
+                        ),
+                      )
+                  } else {
+                    // No connect worker, just close the channel
+                    State(
+                      UnlessShutdown.Outcome(
+                        p2pConnectionsStatus.removed(p2pEndpointId)
+                      )
+                    ) ->
+                      ResultWithLogs(
+                        Right(ch -> acO),
+                        Level.DEBUG -> (() =>
+                          s"ConnectedOnChannel(ch: $chId, ac: $acId) -> Disconnected (not in state)"
+                        ),
+                      )
+                  }
+
+                case P2POutgoingConnectionStatus.Connecting =>
+                  // Let the gRPC channel setup logic orderly abort the connection attempt
+                  State(
+                    UnlessShutdown.Outcome(
+                      p2pConnectionsStatus.removed(p2pEndpointId)
+                    )
+                  ) ->
+                    ResultWithLogs(
+                      Left(FutureUnlessShutdown.unit),
+                      Level.DEBUG -> (() => "Connecting -> Disconnected (not in state)"),
+                    )
+
+                case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, Some(cw)) =>
+                  // Let the connect worker orderly abort the connection attempt
+                  lazy val chId = ch.toString
+                  lazy val acId = acO.map(objId)
+                  lazy val cwId = objId(cw)
+                  State(
+                    UnlessShutdown.Outcome(
+                      p2pConnectionsStatus.updated(
+                        p2pEndpointId,
+                        P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw),
+                      )
+                    )
+                  ) ->
+                    ResultWithLogs(
+                      Left(cw),
+                      Level.DEBUG -> (() =>
+                        s"ConnectingOnChannel(ch: $chId, ac: $acId, cw: $cwId) -> " +
+                          s"DisconnectingFromChannel(ch: $chId, ac: $acId, cw: $cwId)"
+                      ),
+                    )
+
+                case P2POutgoingConnectionStatus.ConnectingOnChannel(ch, acO, None) =>
+                  // Let the connect worker orderly abort the connection attempt
+                  State(
+                    UnlessShutdown.Outcome(
+                      p2pConnectionsStatus.removed(p2pEndpointId)
+                    )
+                  ) ->
+                    ResultWithLogs(
+                      Right(ch -> acO),
+                      Level.DEBUG -> (() =>
+                        s"ConnectingOnChannel(ch: $ch, ac: ${acO.map(objId)}, cw: None) -> " +
+                          "Disconnected (not in state)"
+                      ),
+                    )
+
+                case P2POutgoingConnectionStatus.DisconnectingFromChannel(ch, acO, cw) =>
+                  // Let the connect worker finish aborting the connection attempt
+                  this ->
+                    ResultWithLogs(
+                      Left(cw),
+                      Level.DEBUG -> (() =>
+                        s"DisconnectingFromChannel(ch: $ch, ac: ${acO.map(objId)}, cw: ${objId(cw)}) (unchanged)"
+                      ),
+                    )
+              }
+
+            case None =>
+              // No connection established nor in progress
+              this ->
+                ResultWithLogs(
+                  Left(FutureUnlessShutdown.unit),
+                  Level.DEBUG -> (() => "Disconnected (not in state) (unchanged)"),
+                )
+          }
+
+        case UnlessShutdown.AbortedDueToShutdown =>
+          this ->
+            ResultWithLogs(
+              Left(FutureUnlessShutdown.unit),
+              Level.DEBUG -> (() => "Disconnected (state shut down, unchanged)"),
+            )
+      }
+  }
 
   sealed trait P2POutgoingConnectionStatus extends Product with Serializable {
     val channelO: Option[(ManagedChannel, Option[GrpcSequencerClientAuth])]

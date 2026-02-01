@@ -37,7 +37,7 @@ sealed trait AcsReplicationProgress {
 
   def updateAcsReplicationProgress(
       requestId: AddPartyRequestId,
-      progress: PartyReplicationStatus.AcsReplicationProgressRuntime,
+      progress: PartyReplicationStatus.AcsReplicationProgress,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit]
 }
 
@@ -217,7 +217,7 @@ final class PartyReplicationStateManager(
 
   override def updateAcsReplicationProgress(
       requestId: AddPartyRequestId,
-      progress: PartyReplicationStatus.AcsReplicationProgressRuntime,
+      progress: PartyReplicationStatus.AcsReplicationProgress,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     update_(requestId, _.modifyReplication(_ => progress))
 

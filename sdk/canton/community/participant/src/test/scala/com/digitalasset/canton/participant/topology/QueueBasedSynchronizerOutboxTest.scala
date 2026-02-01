@@ -41,7 +41,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
   TxHash,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.MonadUtil
+import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, MonadUtil}
 import com.digitalasset.canton.{
   BaseTest,
   FailOnShutdown,
@@ -53,10 +53,10 @@ import com.digitalasset.canton.{
 import org.scalatest.wordspec.AsyncWordSpec
 import org.slf4j.event.Level
 
-import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
 import scala.annotation.nowarn
-import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
+import scala.jdk.CollectionConverters.*
 import scala.util.chaining.scalaUtilChainingOps
 
 class QueueBasedSynchronizerOutboxTest
@@ -115,12 +115,13 @@ class QueueBasedSynchronizerOutboxTest
         Iterator.continually(TopologyTransactionsBroadcast.State.Accepted),
       rejections: Iterator[Option[TopologyTransactionRejection]] = Iterator.continually(None),
       dropSequencedBroadcast: Iterator[Boolean] = Iterator.continually(false),
+      autoFlush: Boolean = true,
   ): FutureUnlessShutdown[
     (
         InMemoryTopologyStore[TopologyStoreId.SynchronizerStore],
         SynchronizerTopologyManager,
         MockHandle,
-        StoreBasedSynchronizerTopologyClient,
+        SynchronizerTopologyClientWithInit,
     )
   ] = {
     val target = new InMemoryTopologyStore(
@@ -165,6 +166,7 @@ class QueueBasedSynchronizerOutboxTest
         targetClient = client,
         rejections = rejections,
         dropSequencedBroadcast = dropSequencedBroadcast,
+        autoFlush = autoFlush,
       )
 
     for {
@@ -187,18 +189,25 @@ class QueueBasedSynchronizerOutboxTest
       expectI: Int,
       responses: Iterator[State],
       store: TopologyStore[TopologyStoreId],
-      targetClient: StoreBasedSynchronizerTopologyClient,
+      targetClient: SynchronizerTopologyClientWithInit,
       rejections: Iterator[Option[TopologyTransactionRejection]] = Iterator.continually(None),
       dropSequencedBroadcast: Iterator[Boolean] = Iterator.continually(false),
+      autoFlush: Boolean = true,
   ) extends RegisterTopologyTransactionHandle {
-    val buffer: mutable.ListBuffer[GenericSignedTopologyTransaction] = ListBuffer()
-    val batches: mutable.ListBuffer[Seq[GenericSignedTopologyTransaction]] = ListBuffer()
-    private val promise = new AtomicReference(
+    val transactionsBuffer: CopyOnWriteArrayList[GenericSignedTopologyTransaction] =
+      new CopyOnWriteArrayList()
+    val batches: CopyOnWriteArrayList[Seq[GenericSignedTopologyTransaction]] =
+      new CopyOnWriteArrayList()
+    private val allTransactionsObservedPromise = new AtomicReference(
       PromiseUnlessShutdown.supervised[Seq[Seq[GenericSignedTopologyTransaction]]](
         "promise",
         futureSupervisor,
       )
     )
+    val preFlushNotification = new AtomicReference(PromiseUnlessShutdown.unsupervised[Unit]())
+    val flushBlocker = new AtomicReference(PromiseUnlessShutdown.unsupervised[Unit]())
+    val topologyClientConnected = new AtomicBoolean(true)
+
     private val expect = new AtomicInteger(expectI)
 
     override def submit(
@@ -211,30 +220,35 @@ class QueueBasedSynchronizerOutboxTest
       val dropBroadcast = dropSequencedBroadcast.next()
 
       if (!dropBroadcast) {
-        buffer ++= transactions
-        batches += transactions
+        transactionsBuffer.addAll(transactions.asJava)
+        batches.add(transactions)
       }
       val finalResult = transactions.map(_ => responses.next())
-      for {
+      val localProcessingF = for {
         _ <- MonadUtil.sequentialTraverse(transactions) { x =>
           if (dropBroadcast) logger.debug(s"Dropping $x")
           else logger.debug(s"Processing $x")
+          if (autoFlush) flushBlocker.get().outcome_(())
           val ts = CantonTimestamp.now()
-          if (finalResult.forall(_ == State.Accepted) && !dropBroadcast)
-            store
-              .update(
-                SequencedTime(ts),
-                EffectiveTime(ts),
-                additions = List(ValidatedTopologyTransaction(x, rejections.next())),
-                // dumbed down version of how to "append" ValidatedTopologyTransactions:
-                removals = Option
-                  .when(x.operation == TopologyChangeOp.Remove)(
-                    x.mapping.uniqueKey -> (x.serial.some, Set.empty[TxHash])
-                  )
-                  .toList
-                  .toMap,
-              )
-              .flatMap(_ =>
+          if (finalResult.forall(_ == State.Accepted) && !dropBroadcast) {
+            preFlushNotification.getAndSet(PromiseUnlessShutdown.unsupervised()).outcome_(())
+            for {
+              _ <- flushBlocker.get().futureUS
+              _ = flushBlocker.set(PromiseUnlessShutdown.unsupervised())
+              _ <- store
+                .update(
+                  SequencedTime(ts),
+                  EffectiveTime(ts),
+                  additions = List(ValidatedTopologyTransaction(x, rejections.next())),
+                  // dumbed down version of how to "append" ValidatedTopologyTransactions:
+                  removals = Option
+                    .when(x.operation == TopologyChangeOp.Remove)(
+                      x.mapping.uniqueKey -> (x.serial.some, Set.empty[TxHash])
+                    )
+                    .toList
+                    .toMap,
+                )
+              _ <- MonadUtil.when(topologyClientConnected.get())(
                 targetClient
                   .observed(
                     SequencedTime(ts),
@@ -243,27 +257,36 @@ class QueueBasedSynchronizerOutboxTest
                     if (rejections.isEmpty) Seq(x) else Seq.empty,
                   )
               )
-          else FutureUnlessShutdown.unit
+
+            } yield ()
+          } else FutureUnlessShutdown.unit
         }
-        _ = if (buffer.sizeIs >= expect.get()) {
-          promise.get().success(UnlessShutdown.Outcome(batches.toSeq))
+        _ = if (transactionsBuffer.size() >= expect.get()) {
+          allTransactionsObservedPromise
+            .get()
+            .success(UnlessShutdown.Outcome(batches.asScala.toSeq))
         }
       } yield {
         logger.debug(s"Done with observed ${transactions.length} transactions")
-        finalResult
       }
+      FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(localProcessingF, "local processing failed")
+      FutureUnlessShutdown.pure(finalResult)
     }
 
+    def disconnectTopologyClient(): Unit = topologyClientConnected.set(false)
+
+    def buffer: Seq[GenericSignedTopologyTransaction] = transactionsBuffer.asScala.toSeq
+
     def clear(expectI: Int): Seq[GenericSignedTopologyTransaction] = {
-      val ret = buffer.toList
-      buffer.clear()
+      val ret = buffer
+      transactionsBuffer.clear()
       expect.set(expectI)
-      promise.set(PromiseUnlessShutdown.unsupervised())
+      allTransactionsObservedPromise.set(PromiseUnlessShutdown.unsupervised())
       ret
     }
 
     def allObserved(): FutureUnlessShutdown[Unit] =
-      promise.get().futureUS.void
+      allTransactionsObservedPromise.get().futureUS.void
 
     override protected def timeouts: ProcessingTimeout = ProcessingTimeout()
     override protected def logger: TracedLogger = QueueBasedSynchronizerOutboxTest.this.logger
@@ -532,7 +555,124 @@ class QueueBasedSynchronizerOutboxTest
       } yield {
         res1.value.map(_.transaction) shouldBe transactions.take(1)
       }
-
     }
+
+    // TODO(#30401) re-enable when fixed
+    "handle being closed while transactions are pending" in {
+      // This test executes the following scenario:
+      // 1. submit TB1 (topology broadcast 1) and keep it from being fully flushed to the topology store.
+      //    this is only needed to reconstruct the failure observed in production.
+      // 2. submit TB2, which just gets put into the unsent-queue, because TB1 has not yet been fully processed.
+      //    there is now 1 pending transaction and 1 unsent transaction.
+      // 3. simulate disconnecting from the synchronizer, by disconnecting the topology client from the processing.
+      //    in the production code, this happens by shutting down the topology processor for the synchronizer. in
+      //    this test, we do it via handle.disconnectTopologyClient. Additionally, close the outbox and the topology client.
+      // 4. d
+
+      for {
+        (target, manager, handle, client) <- mk(
+          0,
+          autoFlush = false,
+        )
+        outbox <- outboxConnected(
+          manager,
+          handle,
+          client,
+          target,
+          // make the observation timeout long, so that we surely can shut down while
+          // the transaction is still pending
+          topologyConfig.copy(topologyTransactionObservationTimeout =
+            NonNegativeFiniteDuration.ofMinutes(2)
+          ),
+        )
+        preFlushF = handle.preFlushNotification.get().futureUS
+
+        _ = push(
+          manager,
+          transactions.take(1),
+          None,
+        )
+
+        // wait until we get just before flushing the topology cache to the store, so that we can push
+        // another transaction that will end up in the unsent-queue, while the first one is still being processed.
+        _ <- preFlushF
+
+        // push another transaction, so that we have one pending and one unsent transaction
+        _ = push(
+          manager,
+          transactions.slice(1, 2),
+          None,
+        )
+
+        _ = eventually() {
+          manager.outboxQueue.numInProcessTransactions shouldBe 1
+          manager.outboxQueue.numUnsentTransactions shouldBe 1
+        }
+
+        // disconnect the topology client from the processing pipeline to simulate a disconnection from the synchronizer
+        // at exactly that moment.
+        _ = handle.disconnectTopologyClient()
+
+        // shut down the topology client and outbox and disconnect the outbox from the topology manager
+        _ = client.close()
+        _ = manager.clearObservers()
+        _ = outbox.close()
+
+        // if the shutdown procedure is properly wired up, the pending transactions gets put into the unsent queue
+        _ = eventually() {
+          manager.outboxQueue.numInProcessTransactions shouldBe 0
+          manager.outboxQueue.numUnsentTransactions shouldBe 2
+        }
+
+        // release the flush blocker to write the transaction to the store.
+        _ = handle.flushBlocker.get().outcome_(())
+
+        // now simulate reconnecting to the synchronizer by setting up a new
+        // * topology client
+        // * handle
+        // * outbox
+
+        client2 = new StoreBasedSynchronizerTopologyClient(
+          clock,
+          defaultStaticSynchronizerParameters,
+          store = target,
+          packageDependencyResolver = NoPackageDependencies,
+          topologyConfig = TopologyConfig(),
+          timeouts = timeouts,
+          futureSupervisor = futureSupervisor,
+          loggerFactory = loggerFactory,
+        )
+
+        handle2 = new MockHandle(
+          // even though we pushed two transactions before, the one that was pending ultimately made it into the store
+          // and therefore will be filtered out.
+          // the test pushes another transaction to this new outbox, to show that the state recovers properly.
+          2,
+          responses = Iterator.continually(TopologyTransactionsBroadcast.State.Accepted),
+          store = manager.store,
+          targetClient = client2,
+          autoFlush = true,
+        )
+
+        // connecting the outbox is where the production error happened, because
+        // the outbox tried to dequeue, while there were still pending transactions.
+        // this doesn't happen anymore, because the shutdown logic now works correctly.
+        _ <- outboxConnected(manager, handle2, client2, target)
+
+        _ = push(manager, transactions.slice(2, 3))
+
+        _ <- handle2.allObserved()
+
+      } yield {
+        eventually() {
+          manager.outboxQueue.numUnsentTransactions shouldBe 0
+          manager.outboxQueue.numInProcessTransactions shouldBe 0
+        }
+        handle2.buffer
+          .map(_.transaction) should contain theSameElementsInOrderAs (transactions.slice(1, 3))
+
+      }
+    }
+
   }
 }

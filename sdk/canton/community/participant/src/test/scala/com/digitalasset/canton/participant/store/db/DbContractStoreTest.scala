@@ -63,12 +63,46 @@ trait DbContractStoreTest extends AsyncWordSpec with BaseTest with ContractStore
       _ <- store.lookupPersistedIfCached(contractId) shouldBe Some(None)
       _ <- store.storeContract(contract).failOnShutdown
       p <- store.lookupPersisted(contractId).failOnShutdown
+      pByIid <- store.lookupBatchedNonReadThrough(Seq(p.value.internalContractId)).failOnShutdown
       c <- store.lookupE(contractId)
     } yield {
       p0 shouldBe None
       c shouldEqual contract
       p.value.asContractInstance shouldEqual contract
+      pByIid.get(p.value.internalContractId) shouldEqual p
       store.lookupPersistedIfCached(contractId).value.value.asContractInstance shouldEqual contract
+      store.lookupPersistedIfCached(p.value.internalContractId) shouldEqual store
+        .lookupPersistedIfCached(contractId)
+    }
+  }
+
+  "store and retrieve created contracts by their internal contract ids" in {
+    val store = createDbContractStoreForTesting(
+      storage,
+      loggerFactory,
+    )
+
+    store.lookupPersistedIfCached(contractId) shouldBe None
+
+    val contracts = Seq(contract, contract2, contract3, contract4)
+
+    for {
+      internalIdsFromStore <- store
+        .storeContracts(contracts)
+        .failOnShutdown
+      internalContractIds = internalIdsFromStore.values
+      contractIdsFromStore = internalIdsFromStore.map(_.swap)
+      contractIdsCached <- store
+        .lookupBatchedContractIdsNonReadThrough(internalContractIds)
+        .failOnShutdown
+      contractIdsNonCached <- store
+        .lookupBatchedContractIdsFromPersistence(internalContractIds)
+        .failOnShutdown
+    } yield {
+      contractIdsFromStore.values should contain theSameElementsAs contracts.map(_.contractId)
+      internalContractIds.toSet.size shouldBe internalContractIds.size
+      contractIdsCached should contain theSameElementsAs contractIdsFromStore
+      contractIdsNonCached should contain theSameElementsAs contractIdsFromStore
     }
   }
 
@@ -82,11 +116,20 @@ trait DbContractStoreTest extends AsyncWordSpec with BaseTest with ContractStore
       _ <- List(contract, contract2, contract4, contract5)
         .parTraverse(store.storeContract)
         .failOnShutdown
-      _ = store.lookupPersistedIfCached(contractId).value.nonEmpty shouldBe true
+      p = store.lookupPersistedIfCached(contractId)
+      internalContractId = p.value.value.internalContractId
+      internalContractId5 = store
+        .lookupPersistedIfCached(contractId5)
+        .value
+        .value
+        .internalContractId
+      _ = p.value.nonEmpty shouldBe true
+      _ = store.lookupPersistedIfCached(internalContractId) shouldEqual p
       _ <- store
         .deleteIgnoringUnknown(Seq(contractId, contractId2, contractId3, contractId4))
         .failOnShutdown
       _ = store.lookupPersistedIfCached(contractId) shouldBe None
+      _ = store.lookupPersistedIfCached(internalContractId) shouldBe None
       notFounds <- List(contractId, contractId2, contractId3, contractId4).parTraverse(
         store.lookupE(_).value
       )
@@ -100,7 +143,12 @@ trait DbContractStoreTest extends AsyncWordSpec with BaseTest with ContractStore
       )
       notDeleted shouldEqual Right(contract5)
       store.lookupPersistedIfCached(contractId) shouldBe Some(None) // already tried to be looked up
+      // the entry from the internal id cache is removed when the contract is deleted
+      store.lookupPersistedIfCached(internalContractId) shouldBe None
       store.lookupPersistedIfCached(contractId5).value.nonEmpty shouldBe true
+      store.lookupPersistedIfCached(internalContractId5) shouldEqual store.lookupPersistedIfCached(
+        contractId5
+      )
     }
   }
 
@@ -130,7 +178,7 @@ trait DbContractStoreTest extends AsyncWordSpec with BaseTest with ContractStore
         internalIds.get(c.contractId) shouldBe defined
       }
       // Verify we can retrieve all contracts by their internal IDs
-      retrievedContracts <- store.lookupBatchedNonCached(internalIds.values).failOnShutdown
+      retrievedContracts <- store.lookupBatchedFromPersistence(internalIds.values).failOnShutdown
     } yield {
       retrievedContracts.size shouldBe contracts.size
       // Each contract should map to its correct internal ID

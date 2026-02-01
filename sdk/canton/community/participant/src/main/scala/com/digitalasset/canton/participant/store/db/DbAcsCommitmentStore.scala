@@ -141,8 +141,8 @@ class DbAcsCommitmentStore(
             using (
               select cast(? as int) synchronizer_idx, cast(? as varchar) counter_participant, cast(? as bigint) from_exclusive,
               cast(? as bigint) to_inclusive, cast(? as binary large object) commitment from dual)
-            excluded on (cs.synchronizer_idx = excluded.synchronizer_idx and cs.counter_participant = excluded.counter_participant and
-            cs.from_exclusive = excluded.from_exclusive and cs.to_inclusive = excluded.to_inclusive)
+            excluded on (cs.synchronizer_idx = excluded.synchronizer_idx and cs.counter_participant = excluded.counter_participant
+               and cs.from_exclusive = excluded.from_exclusive and cs.to_inclusive = excluded.to_inclusive)
             when matched and cs.commitment = excluded.commitment
               then update set cs.commitment = excluded.commitment
             when not matched then
@@ -355,7 +355,11 @@ class DbAcsCommitmentStore(
     // we completely prune the outstanding table, the matching is "best effort" and the assumption is that we achieved unison with all counter-participants somewhere after pruning time.
     // we might lose old mismatches and outstanding, but we are not able to validate anything received before pruning time anyway (we cant recomputed, and we don't have it in the computed table).
     val query3 =
-      sqlu"delete from par_outstanding_acs_commitments where synchronizer_idx=$indexedSynchronizer and to_inclusive < $before"
+      // The filter on `fromExclusive` is logically redundant as `fromExclusive <= toInclusive`, but it ensures
+      // that the index `idx_par_outstanding_acs_commitments` can be used instead of a sequential scan.
+      // With this trick, we don't need a separate by-time index for `par_outstanding_acs_commitment`
+      // because `idx_par_outstanding_acs_commitments` should work for all queries.
+      sqlu"delete from par_outstanding_acs_commitments where synchronizer_idx=$indexedSynchronizer and from_exclusive < $before and to_inclusive < $before"
     storage
       .queryAndUpdate(
         query1.zip(query2.zip(query3)),
