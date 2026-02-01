@@ -46,8 +46,8 @@ pekko_version = "1.2.1"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
 
-#canton_version = "3.5.0-ad-hoc.20260126.17857.0.v9b5df6af"
-canton_version = "3.5.0-SNAPSHOT"
+canton_version = "3.5.0-ad-hoc.20260130.17932.0.vae31a063"
+#canton_version = "3.5.0-SNAPSHOT"
 upickle_version = "4.1.0"
 ujson_version = "4.0.2"
 
