@@ -1,5 +1,4 @@
-// Full External Call Integration Test
-// Using dev protocol version for external call feature
+// Full external call integration test
 
 import com.digitalasset.canton.protocol.LfContractId
 
@@ -7,12 +6,11 @@ println("=" * 60)
 println("External Call Integration Test")
 println("=" * 60)
 
-// ==== BOOTSTRAP ====
+// Bootstrap
 println("\n[Phase 1] Bootstrapping...")
 
 nodes.local.start()
 
-// Bootstrap synchronizer with DEV protocol version (required for external calls)
 bootstrap.synchronizer(
   "da",
   sequencers = Seq(sequencer1),
@@ -38,7 +36,6 @@ val bob = participant2.parties.enable("Bob")
 println(s"Alice: $alice")
 println(s"Bob: $bob")
 
-// Upload DAR
 val darPath = Option(System.getProperty("dar.path"))
   .getOrElse("external-call-integration-test/.daml/dist/external-call-integration-test-1.0.0.dar")
 val synchronizerId = participant1.synchronizers.id_of(SynchronizerAlias.tryCreate("da"))
@@ -46,10 +43,9 @@ participant1.dars.upload(darPath, synchronizerId = synchronizerId)
 participant2.dars.upload(darPath, synchronizerId = synchronizerId)
 println("DAR uploaded.")
 
-// ==== TEST ====
+// Run tests
 println("\n[Phase 2] Running Test...")
 
-// Find package
 val pkg = participant1.packages.find_by_module("ExternalCallIntegrationTest").headOption
   .getOrElse(sys.error("Package not found"))
 println(s"Package: ${pkg.packageId}")
@@ -60,22 +56,14 @@ val createCmd = ledger_api_utils.create(
   pkg.packageId,
   "ExternalCallIntegrationTest",
   "ObservedExternalCall",
-  Map(
-    "signatory_" -> alice,
-    "observer_" -> bob
-  )
+  Map("signatory_" -> alice, "observer_" -> bob)
 )
 
-participant1.ledger_api.commands.submit(
-  Seq(alice),
-  Seq(createCmd),
-  synchronizerId = Some(synchronizerId)
-)
+participant1.ledger_api.commands.submit(Seq(alice), Seq(createCmd), synchronizerId = Some(synchronizerId))
 
-println("Create command submitted. Querying ACS for contract...")
+println("Create command submitted. Querying ACS...")
 Thread.sleep(2000)
 
-// Query ACS for the contract
 val contracts = participant1.ledger_api.state.acs.of_party(alice)
   .filter(_.templateId.toString.contains("ObservedExternalCall"))
 
@@ -86,16 +74,14 @@ if (contracts.isEmpty) {
 val contractEntry = contracts.head
 println(s"Contract found: ${contractEntry.contractId}")
 
-// Convert contract ID string to LfContractId
 val lfContractId = LfContractId.assertFromString(contractEntry.contractId)
 
-// Wait for contract on participant2
 println("Waiting for contract on participant2...")
 participant2.ledger_api.state.acs.await_active_contract(bob, lfContractId)
 println("Contract visible on participant2!")
 
 // Test 2: Exercise choice with external call
-println("\n[Test 2] Exercising CallEcho choice (this triggers external call)...")
+println("\n[Test 2] Exercising CallEcho choice...")
 val inputHex = "aabbccdd"
 println(s"Input: $inputHex")
 
@@ -105,7 +91,6 @@ val exerciseCmd = ledger_api_utils.exercise(
   contractEntry.event
 )
 
-// Submit exercise - the external call should happen here
 val exerciseResult = participant1.ledger_api.commands.submit(
   Seq(alice),
   Seq(exerciseCmd),
@@ -114,7 +99,6 @@ val exerciseResult = participant1.ledger_api.commands.submit(
 
 println(s"Exercise completed! Transaction: ${exerciseResult.updateId}")
 
-// Verify contract was archived
 println("Verifying contract was archived...")
 Thread.sleep(2000)
 
@@ -140,7 +124,7 @@ if (Files.exists(countsFile)) {
   println("Note: Mock service counts file not found")
 }
 
-// ==== SUMMARY ====
+// Summary
 println("\n" + "=" * 60)
 println("TEST SUMMARY")
 println("=" * 60)
@@ -148,9 +132,7 @@ println("  [PASS] Contract created with signatory and observer")
 println("  [PASS] Observer (participant2) saw the contract")
 println("  [PASS] External call choice was exercised")
 println("  [PASS] Both participants processed the transaction")
-println("\nNOTE: Check mock service counts above to verify:")
-println("      - submission count > 0 (signatory made HTTP call)")
-println("      - validation count = 0 (observer used stored results)")
-println("\n" + "=" * 60)
-println("TEST COMPLETE!")
-println("=" * 60)
+println("\nCheck mock service counts to verify:")
+println("  - submission count > 0 (signatory made HTTP call)")
+println("  - validation count = 0 (observer used stored results)")
+println("\nTEST COMPLETE!")

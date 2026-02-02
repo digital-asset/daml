@@ -5,6 +5,7 @@
 -- Tests that:
 -- 1. Signatory can make external calls during submission
 -- 2. Observer can see transaction results without external service
+-- 3. Various error conditions are handled correctly
 module ExternalCallIntegrationTest where
 
 import DA.External
@@ -19,6 +20,10 @@ template ObservedExternalCall
   where
     signatory signatory_
     observer observer_
+
+    -- =========================================================================
+    -- HAPPY PATH TESTS
+    -- =========================================================================
 
     -- | Simple echo call - returns input unchanged.
     -- Used to verify external call results are stored and replayed.
@@ -46,3 +51,208 @@ template ObservedExternalCall
         r2 <- externalCall "test-oracle" "echo" "00000000" input2
         pure (r1, r2)
 
+    -- =========================================================================
+    -- ERROR HANDLING TESTS
+    -- The function_id controls mock service behavior
+    -- =========================================================================
+
+    -- | Generic call with configurable function ID.
+    -- Use function_id to trigger different mock behaviors:
+    -- - "echo"         -> Normal echo
+    -- - "error-400"    -> HTTP 400 Bad Request
+    -- - "error-401"    -> HTTP 401 Unauthorized
+    -- - "error-403"    -> HTTP 403 Forbidden
+    -- - "error-404"    -> HTTP 404 Not Found
+    -- - "error-500"    -> HTTP 500 Internal Server Error
+    -- - "error-503"    -> HTTP 503 Service Unavailable
+    -- - "retry-once"   -> 503 first, then 200
+    -- - "retry-always" -> Always 503
+    -- - "rate-limit"   -> 429 with Retry-After
+    -- - "delay-{ms}"   -> Delay response by ms
+    choice CallWithFunctionId : Text
+      with
+        functionId : Text
+        inputHex : Text
+      controller signatory_
+      do
+        externalCall "test-oracle" functionId "00000000" inputHex
+
+    -- =========================================================================
+    -- SPECIFIC ERROR TEST CHOICES (for clarity in tests)
+    -- =========================================================================
+
+    -- | Test HTTP 400 Bad Request error
+    choice TestError400 : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "error-400" "00000000" inputHex
+
+    -- | Test HTTP 401 Unauthorized error
+    choice TestError401 : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "error-401" "00000000" inputHex
+
+    -- | Test HTTP 403 Forbidden error
+    choice TestError403 : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "error-403" "00000000" inputHex
+
+    -- | Test HTTP 404 Not Found error
+    choice TestError404 : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "error-404" "00000000" inputHex
+
+    -- | Test HTTP 500 Internal Server Error
+    choice TestError500 : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "error-500" "00000000" inputHex
+
+    -- | Test HTTP 502 Bad Gateway (triggers retry)
+    choice TestError502 : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "error-502" "00000000" inputHex
+
+    -- | Test HTTP 503 Service Unavailable (triggers retry)
+    choice TestError503 : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "error-503" "00000000" inputHex
+
+    -- | Test HTTP 504 Gateway Timeout
+    choice TestError504 : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "error-504" "00000000" inputHex
+
+    -- =========================================================================
+    -- RETRY LOGIC TESTS
+    -- =========================================================================
+
+    -- | Test retry success - returns 503 first time, 200 second time
+    choice TestRetryOnce : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "retry-once" "00000000" inputHex
+
+    -- | Test max retries - always returns 503
+    choice TestRetryAlways : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "retry-always" "00000000" inputHex
+
+    -- | Test rate limiting - returns 429 with Retry-After header
+    choice TestRateLimit : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "rate-limit" "00000000" inputHex
+
+    -- =========================================================================
+    -- TIMEOUT TESTS
+    -- =========================================================================
+
+    -- | Test with configurable delay (for timeout testing)
+    -- Use delayMs values larger than request-timeout to trigger timeouts
+    choice TestDelay : Text
+      with
+        delayMs : Int
+        inputHex : Text
+      controller signatory_
+      do
+        let functionId = "delay-" <> show delayMs
+        externalCall "test-oracle" functionId "00000000" inputHex
+
+    -- =========================================================================
+    -- JWT AUTHENTICATION TESTS
+    -- =========================================================================
+
+    -- | Test that JWT token is sent correctly
+    -- Mock checks for valid "Bearer test-token" header
+    choice TestJwtRequired : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "jwt-required" "00000000" inputHex
+
+    -- | Test JWT echo - returns Authorization header value
+    -- Used to verify the JWT is being sent by Canton
+    choice TestJwtEcho : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "jwt-echo" "00000000" inputHex
+
+    -- | Test server-side JWT rejection (always returns 401)
+    -- Simulates when the server decides the token is invalid
+    choice TestJwtInvalid : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "jwt-invalid" "00000000" inputHex
+
+    -- =========================================================================
+    -- TLS TESTS
+    -- =========================================================================
+
+    -- | Test TLS connection to extension service
+    -- Verifies TLS connectivity works with self-signed certificates
+    choice TestTls : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "tls-test" "00000000" inputHex
+
+    -- =========================================================================
+    -- EDGE CASE TESTS
+    -- =========================================================================
+
+    -- | Test large output response (100KB)
+    -- Verifies that large responses are handled correctly
+    choice TestLargeOutput : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "large-output" "00000000" inputHex
+
+    -- =========================================================================
+    -- CONFIG EDGE CASE TESTS
+    -- =========================================================================
+
+    -- | Test calling an unknown extension ID (T8.1)
+    -- Should fail with "extension not configured" error
+    choice TestUnknownExtension : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "unknown-extension" "echo" "00000000" inputHex
+
+    -- | Test calling an unknown function ID (T8.2)
+    -- Extension is configured but function is not declared
+    -- Behavior depends on strict mode setting
+    choice TestUnknownFunction : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "undeclared-function" "00000000" inputHex
+
+    -- | Test with wrong config hash (T8.3)
+    -- Sends a config hash that doesn't match the declared hash
+    choice TestWrongConfigHash : Text
+      with inputHex : Text
+      controller signatory_
+      do externalCall "test-oracle" "echo" "deadbeef" inputHex
+
+
+-- | Helper template for tests that need a fresh contract per test
+template TestHelper
+  with
+    owner : Party
+  where
+    signatory owner
+
+    -- | Create a new ObservedExternalCall contract
+    choice CreateObservedContract : ContractId ObservedExternalCall
+      with
+        observer_ : Party
+      controller owner
+      do
+        create ObservedExternalCall with
+          signatory_ = owner
+          observer_ = observer_

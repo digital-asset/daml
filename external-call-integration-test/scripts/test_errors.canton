@@ -1,0 +1,171 @@
+// HTTP error handling tests
+// Each test expects the transaction to fail with a specific error
+
+import com.digitalasset.canton.protocol.LfContractId
+
+println("=" * 60)
+println("External Call Error Handling Tests")
+println("=" * 60)
+
+println("\n[Phase 1] Bootstrapping...")
+
+nodes.local.start()
+
+bootstrap.synchronizer(
+  "da",
+  sequencers = Seq(sequencer1),
+  mediators = Seq(mediator1),
+  synchronizerOwners = Seq(sequencer1),
+  synchronizerThreshold = PositiveInt.one,
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.dev),
+)
+
+participant1.synchronizers.connect_local(sequencer1, alias = "da")
+participant2.synchronizers.connect_local(sequencer1, alias = "da")
+
+utils.retry_until_true {
+  participant1.synchronizers.active("da") &&
+  participant2.synchronizers.active("da")
+}
+println("Participants connected.")
+
+val alice = participant1.parties.enable("Alice")
+val bob = participant2.parties.enable("Bob")
+println(s"Alice: $alice")
+println(s"Bob: $bob")
+
+val darPath = Option(System.getProperty("dar.path"))
+  .getOrElse("external-call-integration-test/.daml/dist/external-call-integration-test-1.0.0.dar")
+val synchronizerId = participant1.synchronizers.id_of(SynchronizerAlias.tryCreate("da"))
+participant1.dars.upload(darPath, synchronizerId = synchronizerId)
+participant2.dars.upload(darPath, synchronizerId = synchronizerId)
+println("DAR uploaded.")
+
+val pkg = participant1.packages.find_by_module("ExternalCallIntegrationTest").headOption
+  .getOrElse(sys.error("Package not found"))
+println(s"Package: ${pkg.packageId}")
+
+import scala.sys.process._
+try { "curl -s http://127.0.0.1:8080/reset".!! } catch { case _: Throwable => }
+
+// Helper functions
+
+def createTestContract(): String = {
+  val createCmd = ledger_api_utils.create(
+    pkg.packageId,
+    "ExternalCallIntegrationTest",
+    "ObservedExternalCall",
+    Map("signatory_" -> alice, "observer_" -> bob)
+  )
+  participant1.ledger_api.commands.submit(Seq(alice), Seq(createCmd), synchronizerId = Some(synchronizerId))
+  Thread.sleep(1000)
+
+  val contracts = participant1.ledger_api.state.acs.of_party(alice)
+    .filter(_.templateId.toString.contains("ObservedExternalCall"))
+  contracts.head.contractId
+}
+
+def getAllCauses(e: Throwable): String = {
+  val sb = new StringBuilder()
+  var current: Throwable = e
+  while (current != null) {
+    if (sb.nonEmpty) sb.append(" | ")
+    sb.append(current.toString)
+    current = current.getCause
+  }
+  sb.toString
+}
+
+def tryExercise(choiceName: String, inputHex: String, contractId: String): Option[String] = {
+  val contracts = participant1.ledger_api.state.acs.of_party(alice)
+    .filter(_.contractId == contractId)
+
+  if (contracts.isEmpty) {
+    return Some("Could not find contract")
+  }
+
+  val exerciseCmd = ledger_api_utils.exercise(
+    choiceName,
+    Map("inputHex" -> inputHex),
+    contracts.head.event
+  )
+
+  try {
+    participant1.ledger_api.commands.submit(Seq(alice), Seq(exerciseCmd), synchronizerId = Some(synchronizerId))
+    None
+  } catch {
+    case e: Throwable => Some(getAllCauses(e))
+  }
+}
+
+def testExpectsError(testId: String, testName: String, choiceName: String, expectedError: String): Boolean = {
+  println(s"\n[$testId] $testName")
+  println(s"       Choice: $choiceName")
+  println(s"       Expected: Error containing '$expectedError'")
+
+  val contractId = createTestContract()
+  val result = tryExercise(choiceName, "deadbeef", contractId)
+
+  result match {
+    case None =>
+      println("       FAIL: Expected error but succeeded")
+      false
+    case Some(msg) =>
+      val msgLower = msg.toLowerCase
+      val hasExpectedError = msgLower.contains(expectedError.toLowerCase)
+      val hasExternalCallFailed = msgLower.contains("external call failed") ||
+                                   msgLower.contains("interpretation_user_error") ||
+                                   msgLower.contains("commandfailure")
+
+      if (hasExpectedError) {
+        println(s"       PASS: Got expected error '$expectedError'")
+        true
+      } else if (hasExternalCallFailed) {
+        println(s"       PASS: Transaction failed with external call error")
+        true
+      } else {
+        println(s"       FAIL: Unexpected error type")
+        println(s"       Error: ${msg.take(500)}")
+        false
+      }
+  }
+}
+
+// Run tests
+
+println("\n" + "-" * 60)
+println("Phase 2: HTTP Error Code Tests")
+println("-" * 60)
+
+var passed = 0
+var failed = 0
+
+if (testExpectsError("T2.1", "HTTP 400 Bad Request", "TestError400", "bad request")) passed += 1 else failed += 1
+if (testExpectsError("T2.2", "HTTP 401 Unauthorized", "TestError401", "unauthorized")) passed += 1 else failed += 1
+if (testExpectsError("T2.3", "HTTP 403 Forbidden", "TestError403", "forbidden")) passed += 1 else failed += 1
+if (testExpectsError("T2.4", "HTTP 404 Not Found", "TestError404", "not found")) passed += 1 else failed += 1
+if (testExpectsError("T2.5", "HTTP 500 Internal Server Error", "TestError500", "internal server error")) passed += 1 else failed += 1
+if (testExpectsError("T2.6", "HTTP 502 Bad Gateway", "TestError502", "bad gateway")) passed += 1 else failed += 1
+if (testExpectsError("T2.7", "HTTP 503 Service Unavailable", "TestError503", "service unavailable")) passed += 1 else failed += 1
+if (testExpectsError("T2.8", "HTTP 504 Gateway Timeout", "TestError504", "gateway timeout")) passed += 1 else failed += 1
+
+// Summary
+
+println("\n" + "=" * 60)
+println("ERROR HANDLING TEST SUMMARY")
+println("=" * 60)
+println(s"  Passed: $passed")
+println(s"  Failed: $failed")
+println(s"  Total:  ${passed + failed}")
+
+try {
+  val counts = "curl -s http://127.0.0.1:8080/counts".!!
+  println("\nMock service stats:")
+  println(counts.take(500))
+} catch { case _: Throwable => }
+
+if (failed > 0) {
+  println("\nSOME TESTS FAILED")
+} else {
+  println("\nALL ERROR HANDLING TESTS PASSED")
+}

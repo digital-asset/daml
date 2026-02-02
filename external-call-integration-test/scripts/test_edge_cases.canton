@@ -1,0 +1,321 @@
+// Input/output edge case tests
+
+import com.digitalasset.canton.protocol.LfContractId
+
+println("=" * 60)
+println("External Call Edge Case Tests")
+println("=" * 60)
+
+println("\n[Phase 1] Bootstrapping...")
+
+nodes.local.start()
+
+bootstrap.synchronizer(
+  "da",
+  sequencers = Seq(sequencer1),
+  mediators = Seq(mediator1),
+  synchronizerOwners = Seq(sequencer1),
+  synchronizerThreshold = PositiveInt.one,
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.dev),
+)
+
+participant1.synchronizers.connect_local(sequencer1, alias = "da")
+participant2.synchronizers.connect_local(sequencer1, alias = "da")
+
+utils.retry_until_true {
+  participant1.synchronizers.active("da") &&
+  participant2.synchronizers.active("da")
+}
+println("Participants connected.")
+
+val alice = participant1.parties.enable("Alice")
+val bob = participant2.parties.enable("Bob")
+println(s"Alice: $alice")
+println(s"Bob: $bob")
+
+val darPath = Option(System.getProperty("dar.path"))
+  .getOrElse("external-call-integration-test/.daml/dist/external-call-integration-test-1.0.0.dar")
+val synchronizerId = participant1.synchronizers.id_of(SynchronizerAlias.tryCreate("da"))
+participant1.dars.upload(darPath, synchronizerId = synchronizerId)
+participant2.dars.upload(darPath, synchronizerId = synchronizerId)
+println("DAR uploaded.")
+
+val pkg = participant1.packages.find_by_module("ExternalCallIntegrationTest").headOption
+  .getOrElse(sys.error("Package not found"))
+println(s"Package: ${pkg.packageId}")
+
+import scala.sys.process._
+try { "curl -s http://127.0.0.1:8080/reset".!! } catch { case _: Throwable => }
+
+// Helpers
+
+def createTestContract(): String = {
+  val createCmd = ledger_api_utils.create(
+    pkg.packageId,
+    "ExternalCallIntegrationTest",
+    "ObservedExternalCall",
+    Map("signatory_" -> alice, "observer_" -> bob)
+  )
+  participant1.ledger_api.commands.submit(Seq(alice), Seq(createCmd), synchronizerId = Some(synchronizerId))
+  Thread.sleep(1000)
+
+  val contracts = participant1.ledger_api.state.acs.of_party(alice)
+    .filter(_.templateId.toString.contains("ObservedExternalCall"))
+  contracts.head.contractId
+}
+
+def getAllCauses(e: Throwable): String = {
+  val sb = new StringBuilder()
+  var current: Throwable = e
+  while (current != null) {
+    if (sb.nonEmpty) sb.append(" | ")
+    sb.append(current.toString)
+    current = current.getCause
+  }
+  sb.toString
+}
+
+def tryExercise(choiceName: String, inputHex: String, contractId: String): (Boolean, String) = {
+  val contracts = participant1.ledger_api.state.acs.of_party(alice)
+    .filter(_.contractId == contractId)
+
+  if (contracts.isEmpty) {
+    return (false, "Could not find contract")
+  }
+
+  val exerciseCmd = ledger_api_utils.exercise(
+    choiceName,
+    Map("inputHex" -> inputHex),
+    contracts.head.event
+  )
+
+  try {
+    val result = participant1.ledger_api.commands.submit(Seq(alice), Seq(exerciseCmd), synchronizerId = Some(synchronizerId))
+    (true, result.toString)
+  } catch {
+    case e: Throwable => (false, getAllCauses(e))
+  }
+}
+
+// Tests
+
+var passed = 0
+var failed = 0
+
+// T5.4 - Missing JWT (canton.conf has no JWT, mock requires auth)
+println("\n" + "-" * 60)
+println("T5.4: Missing JWT Token")
+println("-" * 60)
+
+val contractId1 = createTestContract()
+val (success1, result1) = tryExercise("TestJwtRequired", "aabbccdd", contractId1)
+
+if (!success1) {
+  val msgLower = result1.toLowerCase
+  val hasUnauthorized = msgLower.contains("401") || msgLower.contains("unauthorized")
+  val hasExternalCallFailed = msgLower.contains("external call failed") ||
+                               msgLower.contains("interpretation_user_error") ||
+                               msgLower.contains("commandfailure")
+  if (hasUnauthorized || hasExternalCallFailed) {
+    println("PASS: Failed with auth error as expected")
+    passed += 1
+  } else {
+    println(s"FAIL: Wrong error type")
+    println(s"Error: ${result1.take(500)}")
+    failed += 1
+  }
+} else {
+  println("FAIL: Expected failure but succeeded")
+  failed += 1
+}
+
+// T7.1 - Empty Input
+println("\n" + "-" * 60)
+println("T7.1: Empty Input")
+println("-" * 60)
+
+val contractId2 = createTestContract()
+val (success2, _) = tryExercise("CallEcho", "", contractId2)
+
+if (!success2) {
+  println("PASS: Empty input correctly rejected")
+  passed += 1
+} else {
+  println("FAIL: Expected empty input to fail")
+  failed += 1
+}
+
+// T7.2 - Large Input (10KB)
+println("\n" + "-" * 60)
+println("T7.2: Large Input (10KB)")
+println("-" * 60)
+
+val contractId3 = createTestContract()
+val largeInput = "ab" * 10240
+println(s"Input size: ${largeInput.length} hex chars")
+
+val (success3, result3) = tryExercise("CallEcho", largeInput, contractId3)
+
+if (success3) {
+  println("PASS: Large input handled correctly")
+  passed += 1
+} else {
+  println(s"FAIL: Large input caused error")
+  println(s"Error: ${result3.take(300)}")
+  failed += 1
+}
+
+// T7.4 - Special Characters (unicode bytes)
+println("\n" + "-" * 60)
+println("T7.4: Special Characters")
+println("-" * 60)
+
+val contractId4 = createTestContract()
+val specialInput = "48656c6c6fe4b896e7958c"
+
+val (success4, result4) = tryExercise("CallEcho", specialInput, contractId4)
+
+if (success4) {
+  println("PASS: Special characters handled correctly")
+  passed += 1
+} else {
+  println(s"FAIL: Special characters caused error")
+  println(s"Error: ${result4.take(300)}")
+  failed += 1
+}
+
+// T7.5 - Binary Data (all byte values 00-FF)
+println("\n" + "-" * 60)
+println("T7.5: Binary Data (all bytes 00-FF)")
+println("-" * 60)
+
+val contractId5 = createTestContract()
+val binaryInput = (0 to 255).map(b => f"$b%02x").mkString
+
+val (success5, result5) = tryExercise("CallEcho", binaryInput, contractId5)
+
+if (success5) {
+  println("PASS: All byte values handled correctly")
+  passed += 1
+} else {
+  println(s"FAIL: Binary data caused error")
+  println(s"Error: ${result5.take(300)}")
+  failed += 1
+}
+
+// T7.6 - Invalid Hex Input
+println("\n" + "-" * 60)
+println("T7.6: Invalid Hex Input")
+println("-" * 60)
+
+val contractId6 = createTestContract()
+val (success6, _) = tryExercise("CallEcho", "aabbccgg", contractId6)
+
+if (!success6) {
+  println("PASS: Invalid hex input correctly rejected")
+  passed += 1
+} else {
+  println("FAIL: Expected invalid hex to fail")
+  failed += 1
+}
+
+// T1.3 - Multiple External Calls
+println("\n" + "-" * 60)
+println("T1.3: Multiple External Calls in Single Choice")
+println("-" * 60)
+
+val contractId7 = createTestContract()
+val contracts7 = participant1.ledger_api.state.acs.of_party(alice)
+  .filter(_.contractId == contractId7)
+
+if (contracts7.nonEmpty) {
+  val exerciseCmd7 = ledger_api_utils.exercise(
+    "CallMultiple",
+    Map("input1" -> "aabbccdd", "input2" -> "11223344"),
+    contracts7.head.event
+  )
+
+  try {
+    participant1.ledger_api.commands.submit(Seq(alice), Seq(exerciseCmd7), synchronizerId = Some(synchronizerId))
+    println("PASS: Multiple external calls succeeded")
+    passed += 1
+  } catch {
+    case e: Throwable =>
+      println(s"FAIL: Multiple external calls failed")
+      println(s"Error: ${getAllCauses(e).take(300)}")
+      failed += 1
+  }
+} else {
+  println("FAIL: Could not find contract")
+  failed += 1
+}
+
+// T1.4 - Different Function IDs
+println("\n" + "-" * 60)
+println("T1.4: Different Function IDs")
+println("-" * 60)
+
+val contractId8 = createTestContract()
+val contracts8 = participant1.ledger_api.state.acs.of_party(alice)
+  .filter(_.contractId == contractId8)
+
+if (contracts8.nonEmpty) {
+  val exerciseCmd8 = ledger_api_utils.exercise(
+    "CallWithFunctionId",
+    Map("functionId" -> "echo", "inputHex" -> "cafebabe"),
+    contracts8.head.event
+  )
+
+  try {
+    participant1.ledger_api.commands.submit(Seq(alice), Seq(exerciseCmd8), synchronizerId = Some(synchronizerId))
+    println("PASS: Different function ID worked")
+    passed += 1
+  } catch {
+    case e: Throwable =>
+      println(s"FAIL: Different function ID failed")
+      println(s"Error: ${getAllCauses(e).take(300)}")
+      failed += 1
+  }
+} else {
+  println("FAIL: Could not find contract")
+  failed += 1
+}
+
+// T7.3 - Large Output (100KB)
+println("\n" + "-" * 60)
+println("T7.3: Large Output (100KB)")
+println("-" * 60)
+
+val contractId9 = createTestContract()
+val (success9, result9) = tryExercise("TestLargeOutput", "deadbeef", contractId9)
+
+if (success9) {
+  println("PASS: Large output handled correctly")
+  passed += 1
+} else {
+  println(s"FAIL: Large output caused error")
+  println(s"Error: ${result9.take(300)}")
+  failed += 1
+}
+
+// Summary
+
+println("\n" + "=" * 60)
+println("EDGE CASE TEST SUMMARY")
+println("=" * 60)
+println(s"  Passed: $passed")
+println(s"  Failed: $failed")
+println(s"  Total:  ${passed + failed}")
+
+try {
+  val counts = "curl -s http://127.0.0.1:8080/counts".!!
+  println("\nMock service stats:")
+  println(counts.take(500))
+} catch { case _: Throwable => }
+
+if (failed > 0) {
+  println("\nSOME EDGE CASE TESTS FAILED")
+  sys.exit(1)
+} else {
+  println("\nALL EDGE CASE TESTS PASSED")
+}
