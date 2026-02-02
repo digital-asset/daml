@@ -46,7 +46,7 @@ pekko_version = "1.2.1"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
 
-canton_version = "3.5.0-ad-hoc.20260202.17944.0.va0d9d048"
+canton_version = "3.5.0-ad-hoc.20260202.17945.0.va0aa0639"
 
 #canton_version = "3.5.0-SNAPSHOT"
 upickle_version = "4.1.0"
@@ -98,7 +98,6 @@ def install_java_deps():
             "com.daml:daml-lf-archive-encoder_{}:{}".format(scala_major_version, canton_version),
             "com.daml:daml-lf-archive_{}:{}".format(scala_major_version, canton_version),
             "com.daml:daml-lf-data_{}:{}".format(scala_major_version, canton_version),
-            "com.daml:daml-lf-data-scalacheck_{}:{}".format(scala_major_version, canton_version),
             "com.daml:daml-lf-encoder_{}:{}".format(scala_major_version, canton_version),
             "com.daml:daml-lf-engine_{}:{}".format(scala_major_version, canton_version),
             "com.daml:daml-lf-ide-ledger_{}:{}".format(scala_major_version, canton_version),
@@ -108,8 +107,6 @@ def install_java_deps():
             "com.daml:daml-lf-repl_{}:{}".format(scala_major_version, canton_version),
             "com.daml:daml-lf-stable-packages_{}:{}".format(scala_major_version, canton_version),
             "com.daml:daml-lf-transaction_{}:{}".format(scala_major_version, canton_version),
-            "com.daml:daml-lf-transaction-test-lib_{}:{}".format(scala_major_version, canton_version),
-            "com.daml:daml-lf-upgrades-matrix_{}:{}".format(scala_major_version, canton_version),
             "com.daml:daml-lf-validation_{}:{}".format(scala_major_version, canton_version),
             "com.daml:contextualized-logging_{}:{}".format(scala_major_version, canton_version),
             "com.daml:daml-lf-snapshot_{}:{}".format(scala_major_version, canton_version),
@@ -125,7 +122,7 @@ def install_java_deps():
             "com.daml:daml-jwt_{}:{}".format(scala_major_version, canton_version),
             "com.daml:contextualized-logging_{}:{}".format(scala_major_version, canton_version),
             "com.daml:crypto_{}:{}".format(scala_major_version, canton_version),
-            "com.daml:grpc-test-utils_{}:{}".format(scala_major_version, canton_version),
+            #"com.daml:grpc-test-utils_{}:{}".format(scala_major_version, canton_version),
             "com.daml:http-test-utils_{}:{}".format(scala_major_version, canton_version),
             "com.daml:ledger-resources_{}:{}".format(scala_major_version, canton_version),
             "com.daml:ledger-resources-test-lib_{}:{}".format(scala_major_version, canton_version),
@@ -137,7 +134,7 @@ def install_java_deps():
             "com.daml:resources-pekko_{}:{}".format(scala_major_version, canton_version),
             "com.daml:resources-grpc_{}:{}".format(scala_major_version, canton_version),
             "com.daml:scala-utils_{}:{}".format(scala_major_version, canton_version),
-            "com.daml:scalatest-utils_{}:{}".format(scala_major_version, canton_version),
+            #"com.daml:scalatest-utils_{}:{}".format(scala_major_version, canton_version),
             "com.daml:test-evidence-scalatest_{}:{}".format(scala_major_version, canton_version),
             "com.daml:test-evidence-tag_{}:{}".format(scala_major_version, canton_version),
             "com.daml:test-evidence-generator_{}:{}".format(scala_major_version, canton_version),

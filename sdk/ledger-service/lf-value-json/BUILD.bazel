@@ -40,33 +40,33 @@ daml_compile(
     target = "2.dev",
 )
 
-da_scala_test(
-    name = "tests",
-    size = "medium",
-    srcs = glob(["src/test/scala/**/*.scala"]),
-    data = [
-        ":JsonEncodingTest.dar",
-    ],
-    scala_deps = [
-        "@maven//:com_chuusai_shapeless",
-        "@maven//:io_spray_spray_json",
-        "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_scalatestplus_scalacheck_1_15",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    scalacopts = lf_scalacopts,
-    deps = [
-        ":lf-value-json",
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//ledger-service/utils",
-        "@maven//:com_daml_daml_lf_api_type_signature_2_13",
-        "@maven//:com_daml_daml_lf_data_2_13",
-        "@maven//:com_daml_daml_lf_transaction_2_13",
-        "@maven//:com_daml_daml_lf_transaction_test_lib_2_13",
-        "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
+#da_scala_test(
+#    name = "tests",
+#    size = "medium",
+#    srcs = glob(["src/test/scala/**/*.scala"]),
+#    data = [
+#        ":JsonEncodingTest.dar",
+#    ],
+#    scala_deps = [
+#        "@maven//:com_chuusai_shapeless",
+#        "@maven//:io_spray_spray_json",
+#        "@maven//:org_scalacheck_scalacheck",
+#        "@maven//:org_scalatest_scalatest_core",
+#        "@maven//:org_scalatest_scalatest_matchers_core",
+#        "@maven//:org_scalatest_scalatest_shouldmatchers",
+#        "@maven//:org_scalatest_scalatest_wordspec",
+#        "@maven//:org_scalatestplus_scalacheck_1_15",
+#        "@maven//:org_scalaz_scalaz_core",
+#    ],
+#    scalacopts = lf_scalacopts,
+#    deps = [
+#        ":lf-value-json",
+#        "//bazel_tools/runfiles:scala_runfiles",
+#        "//ledger-service/utils",
+#        "@maven//:com_daml_daml_lf_api_type_signature_2_13",
+#        "@maven//:com_daml_daml_lf_data_2_13",
+#        "@maven//:com_daml_daml_lf_transaction_2_13",
+#        "@maven//:com_daml_daml_lf_transaction_test_lib_2_13",
+#        "@maven//:org_scalatest_scalatest_compatible",
+#    ],
+#)

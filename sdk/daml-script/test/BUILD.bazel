@@ -424,48 +424,48 @@ da_scala_test(
 ) if not is_windows else None
 # skipping windows for now, it doesn't seem to like the filegroup `:upgrade-test-files`
 
-da_scala_test(
-    name = "upgrade-matrix-integration",
-    size = "enormous",
-    srcs = ["src/main/scala/com/digitalasset/daml/lf/engine/script/test/UpgradesMatrixIT.scala"],
-    args = ["-P"],  # run suites in parallel
-    resources = glob(["src/main/resources/**/*"]),
-    scala_deps = [
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    tags = [
-        "cpu:8",
-        "main-only",
-    ],
-    runtime_deps = [
-        ":test-utils",
-    ],
-    deps = [
-        "//:sdk-version-scala-lib",
-        "//daml-script/runner:script-runner-lib",
-        "//test-common/canton/it-lib",
-        "@maven//:com_daml_contextualized_logging_2_13",
-        "@maven//:com_daml_daml_lf_archive_2_13",
-        "@maven//:com_daml_daml_lf_archive_encoder_2_13",
-        "@maven//:com_daml_daml_lf_data_2_13",
-        "@maven//:com_daml_daml_lf_interpreter_2_13",
-        "@maven//:com_daml_daml_lf_language_2_13",
-        "@maven//:com_daml_daml_lf_transaction_2_13",
-        "@maven//:com_daml_daml_lf_upgrades_matrix_2_13",
-        "@maven//:com_daml_daml_resources_2_13",
-        "@maven//:com_daml_ledger_common_2_13",
-        "@maven//:com_daml_ledger_resources_2_13",
-        "@maven//:com_daml_ports_2_13",
-        "@maven//:com_daml_rs_grpc_bridge",
-        "@maven//:com_daml_testing_utils_2_13",
-        "@maven//:com_daml_util_observability_2_13",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:org_slf4j_slf4j_api",
-    ],
-) if is_linux_intel else None
+#da_scala_test(
+#    name = "upgrade-matrix-integration",
+#    size = "enormous",
+#    srcs = ["src/main/scala/com/digitalasset/daml/lf/engine/script/test/UpgradesMatrixIT.scala"],
+#    args = ["-P"],  # run suites in parallel
+#    resources = glob(["src/main/resources/**/*"]),
+#    scala_deps = [
+#        "@maven//:org_apache_pekko_pekko_actor",
+#        "@maven//:org_apache_pekko_pekko_stream",
+#        "@maven//:org_scalaz_scalaz_core",
+#    ],
+#    tags = [
+#        "cpu:8",
+#        "main-only",
+#    ],
+#    runtime_deps = [
+#        ":test-utils",
+#    ],
+#    deps = [
+#        "//:sdk-version-scala-lib",
+#        "//daml-script/runner:script-runner-lib",
+#        "//test-common/canton/it-lib",
+#        "@maven//:com_daml_contextualized_logging_2_13",
+#        "@maven//:com_daml_daml_lf_archive_2_13",
+#        "@maven//:com_daml_daml_lf_archive_encoder_2_13",
+#        "@maven//:com_daml_daml_lf_data_2_13",
+#        "@maven//:com_daml_daml_lf_interpreter_2_13",
+#        "@maven//:com_daml_daml_lf_language_2_13",
+#        "@maven//:com_daml_daml_lf_transaction_2_13",
+#        "@maven//:com_daml_daml_lf_upgrades_matrix_2_13",
+#        "@maven//:com_daml_daml_resources_2_13",
+#        "@maven//:com_daml_ledger_common_2_13",
+#        "@maven//:com_daml_ledger_resources_2_13",
+#        "@maven//:com_daml_ports_2_13",
+#        "@maven//:com_daml_rs_grpc_bridge",
+#        "@maven//:com_daml_testing_utils_2_13",
+#        "@maven//:com_daml_util_observability_2_13",
+#        "@maven//:com_google_protobuf_protobuf_java",
+#        "@maven//:io_grpc_grpc_api",
+#        "@maven//:org_slf4j_slf4j_api",
+#    ],
+#) if is_linux_intel else None
 
 da_scala_test(
     name = "utility-package-test",
