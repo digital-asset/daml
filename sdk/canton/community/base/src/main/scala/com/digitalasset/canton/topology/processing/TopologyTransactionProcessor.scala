@@ -589,7 +589,9 @@ object TopologyTransactionProcessor {
     )(sequencerSnapshotTimestamp)
 
     writeThroughCacheClientF.map { client =>
+      // Subscribe the new client object to updates from the subscriber
       processor.subscribe(client)
+      // return the processor and the client to the application
       (processor, client)
     }
   }

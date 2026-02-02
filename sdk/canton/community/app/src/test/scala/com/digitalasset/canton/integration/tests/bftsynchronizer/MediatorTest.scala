@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
 import com.digitalasset.canton.SynchronizerAlias
-import com.digitalasset.canton.admin.api.client.data.SequencerConnections
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseH2}
@@ -132,14 +131,8 @@ sealed trait MediatorTest extends CommunityIntegrationTest with SharedEnvironmen
       mdsSerial shouldBe Some(PositiveInt.tryCreate(3))
     }
 
-    mediator2.setup.assign(
-      synchronizerId,
-      SequencerConnections.single(sequencer2.sequencerConnection),
-    )
-    mediator3.setup.assign(
-      synchronizerId,
-      SequencerConnections.single(sequencer3.sequencerConnection),
-    )
+    mediator2.setup.assign(synchronizerId, sequencer2)
+    mediator3.setup.assign(synchronizerId, sequencer3)
   }
 
   s"Run ping on $synchronizer with BFT-mediators" in { implicit env =>

@@ -3,10 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
-import com.digitalasset.canton.admin.api.client.data.{
-  SequencerConnections,
-  SynchronizerConnectionConfig,
-}
+import com.digitalasset.canton.admin.api.client.data.SynchronizerConnectionConfig
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
 import com.digitalasset.canton.console.InstanceReference
@@ -98,15 +95,12 @@ final class LSUConsecutiveIntegrationTest extends LSUBase {
       .withSetup { implicit env =>
         import env.*
 
-        val daSequencerConnection =
-          SequencerConnections.single(sequencer1.sequencerConnection.withAlias(daName.toString))
-
         participants.local.start()
 
         participants.all.synchronizers.connect(
           SynchronizerConnectionConfig(
             synchronizerAlias = daName,
-            sequencerConnections = daSequencerConnection,
+            sequencerConnections = sequencer1,
             timeTracker = SynchronizerTimeTrackerConfig(observationLatency =
               config.NonNegativeFiniteDuration.Zero
             ),

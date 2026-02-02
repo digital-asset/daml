@@ -43,6 +43,7 @@ object GroupAddressResolver {
           if (!groupRecipients.contains(AllMembersOfSynchronizer)) {
             FutureUnlessShutdown.pure(Map.empty[GroupRecipient, Set[Member]])
           } else {
+
             topologyOrSequencingSnapshot
               .allMembers()
               .map(members => Map((AllMembersOfSynchronizer: GroupRecipient, members)))

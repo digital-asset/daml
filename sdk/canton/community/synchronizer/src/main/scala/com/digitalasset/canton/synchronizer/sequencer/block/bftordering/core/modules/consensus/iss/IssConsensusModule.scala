@@ -549,7 +549,11 @@ final class IssConsensusModule[E <: Env[E]](
     } else {
       // The current epoch can be completed
 
-      if (!initInProgress) {
+      if (initInProgress) {
+        // Ensure that the retransmissions manager can provide commit certificates for the completing epoch
+        retransmissionsManager.startEpoch(epochState, initInProgress = true)
+        retransmissionsManager.epochEnded(completeEpochCommitCertificates, initInProgress = true)
+      } else {
         // When initializing, the retransmission manager is inactive and segment modules are not started
         retransmissionsManager.epochEnded(completeEpochCommitCertificates)
         epochState.notifyEpochCompletionToSegments(completeEpochNumber)

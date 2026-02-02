@@ -48,9 +48,9 @@ import com.digitalasset.canton.topology.PartyId
  * - Check that PTP updates are correct at the end
  *
  * Other participants:
- * - P4 only registers the old synchronizer but neber connects to it
+ * - P4 only registers the old synchronizer but never connects to it
  */
-final class LSULateUpgradeIntegrationTest extends LSUBase {
+final class LSULateParticipantUpgradeIntegrationTest extends LSUBase {
 
   override protected def testName: String = "lsu-late-upgrade"
 

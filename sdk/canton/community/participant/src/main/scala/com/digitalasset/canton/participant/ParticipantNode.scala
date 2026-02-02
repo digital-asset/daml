@@ -847,17 +847,6 @@ class ParticipantNodeBootstrap(
         addCloseable(topologyDispatcher)
         addCloseable(schedulers)
         addCloseable(ledgerApiServerContainer.currentAutoCloseable())
-        // TODO(#25118) clean up cache metrics on shutdown wherever they are initialized
-        addCloseable(new AutoCloseable {
-          override def close(): Unit =
-            Seq(
-              metrics.ledgerApiServer.execution.cache.keyState.stateCache,
-              metrics.ledgerApiServer.execution.cache.contractState.stateCache,
-              metrics.ledgerApiServer.identityProviderConfigStore.verifierCache,
-              metrics.ledgerApiServer.identityProviderConfigStore.idpConfigCache,
-              metrics.ledgerApiServer.userManagement.cache,
-            ).foreach(_.closeAcquired())
-        })
         addCloseable(ledgerApiDependentServices)
         addCloseable(mutablePackageMetadataView)
 

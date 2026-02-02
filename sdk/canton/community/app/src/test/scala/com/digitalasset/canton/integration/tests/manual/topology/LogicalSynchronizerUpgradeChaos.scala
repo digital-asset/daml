@@ -233,7 +233,7 @@ private[topology] class LogicalSynchronizerUpgradeChaos(
         synchronizerId = currentPSId,
         newSequencers = Seq(newSequencer),
         exportDirectory = exportDirectory,
-        sourceNodeNames =
+        newNodeToOldNodeName =
           Map(newSequencer.name -> currentSequencer.name, newMediator.name -> currentMediator.name),
       )
 

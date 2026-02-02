@@ -6,7 +6,6 @@ package com.digitalasset.canton.integration.tests
 import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.admin.api.client.data.{
   GrpcSequencerConnection,
-  SequencerConnections,
   SynchronizerConnectionConfig,
 }
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
@@ -30,10 +29,7 @@ trait SynchronizerConnectivityIsolatedIntegrationTest
       participant1.synchronizers.active(daName) shouldBe true
 
       participant2.synchronizers.connect_by_config(
-        SynchronizerConnectionConfig(
-          daName,
-          SequencerConnections.single(sequencer1.sequencerConnection),
-        )
+        SynchronizerConnectionConfig(daName, sequencer1)
       )
       participant2.synchronizers.active(daName) shouldBe true
       participant2.synchronizers.disconnect(daName)
@@ -45,7 +41,7 @@ trait SynchronizerConnectivityIsolatedIntegrationTest
       participant3.synchronizers.connect_by_config(
         SynchronizerConnectionConfig(
           daName,
-          SequencerConnections.single(sequencer1.sequencerConnection),
+          sequencer1,
           manualConnect = true,
         )
       )
@@ -60,12 +56,7 @@ trait SynchronizerConnectivityIsolatedIntegrationTest
       Seq(participant1, participant2).foreach(_.synchronizers.active(daName) shouldBe true)
 
       Seq(participant3, participant4).synchronizers
-        .register(
-          SynchronizerConnectionConfig(
-            daName,
-            SequencerConnections.single(sequencer1.sequencerConnection),
-          )
-        )
+        .register(SynchronizerConnectionConfig(daName, sequencer1))
       Seq(participant3, participant4).foreach(_.synchronizers.active(daName) shouldBe false)
       Seq(participant3, participant4).synchronizers.reconnect_all()
       Seq(participant3, participant4).foreach(_.synchronizers.active(daName) shouldBe true)
@@ -79,7 +70,7 @@ trait SynchronizerConnectivityIsolatedIntegrationTest
         .register(
           SynchronizerConnectionConfig(
             acmeName,
-            SequencerConnections.single(sequencer2.sequencerConnection),
+            sequencer2,
             manualConnect = true,
           )
             .withCertificates(SequencerAlias.Default, acmeCertificate)

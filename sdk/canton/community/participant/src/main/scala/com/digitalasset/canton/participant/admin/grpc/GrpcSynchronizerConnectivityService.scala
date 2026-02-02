@@ -88,7 +88,7 @@ class GrpcSynchronizerConnectivityService(
               .toRight(
                 SynchronizerIsMissingInternally(
                   synchronizerAlias.unwrap,
-                  "physical synchronizer id not set",
+                  "synchronizer topology client not found",
                 )
               )
           )

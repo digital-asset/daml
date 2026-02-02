@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.caching
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.metrics.CacheMetrics
 import com.github.benmanes.caffeine.cache as caffeine
 
@@ -68,9 +69,9 @@ object CaffeineCache {
       metrics: CacheMetrics,
       cache: caffeine.Cache[?, ?],
   ): Unit = {
-    metrics.registerSizeGauge(() => cache.estimatedSize())
+    metrics.registerSizeGauge(() => cache.estimatedSize())(MetricsContext.Empty)
     metrics.registerWeightGauge(() =>
       cache.policy().eviction().toScala.flatMap(_.weightedSize.toScala).getOrElse(0)
-    )
+    )(MetricsContext.Empty)
   }
 }

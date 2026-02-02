@@ -3,10 +3,7 @@
 
 package com.digitalasset.canton.integration.tests
 
-import com.digitalasset.canton.admin.api.client.data.{
-  SequencerConnections,
-  SynchronizerConnectionConfig,
-}
+import com.digitalasset.canton.admin.api.client.data.SynchronizerConnectionConfig
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeProportion}
@@ -130,19 +127,16 @@ trait AcsCommitmentToolingIntegrationTest
         def connect(
             participant: ParticipantReference,
             minObservationDuration: NonNegativeFiniteDuration,
-        ): Unit = {
-          val daSequencerConnection =
-            SequencerConnections.single(sequencer1.sequencerConnection.withAlias(daName.toString))
+        ): Unit =
           participant.synchronizers.connect_by_config(
             SynchronizerConnectionConfig(
               synchronizerAlias = daName,
-              sequencerConnections = daSequencerConnection,
+              sequencerConnections = sequencer1,
               timeTracker = SynchronizerTimeTrackerConfig(minObservationDuration =
                 minObservationDuration.toConfig
               ),
             )
           )
-        }
 
         connect(participant1, minObservationDuration1)
         connect(participant2, minObservationDuration2)

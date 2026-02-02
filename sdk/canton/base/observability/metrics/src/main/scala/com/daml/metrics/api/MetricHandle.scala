@@ -76,6 +76,14 @@ object MetricHandle {
         gaugeSupplier: () => T,
     )(implicit
         context: MetricsContext
+    ): Unit
+
+    /** Same as above but gauge needs to be manually closed */
+    def closeableGaugeWithSupplier[T](
+        info: MetricInfo,
+        gaugeSupplier: () => T,
+    )(implicit
+        context: MetricsContext
     ): CloseableGauge
 
     /** A meter represents a monotonically increasing value. In Prometheus this is actually
@@ -99,6 +107,8 @@ object MetricHandle {
     def histogram(info: MetricInfo)(implicit
         context: MetricsContext = MetricsContext.Empty
     ): Histogram
+
+    def closeAcquired(): Unit
 
   }
 

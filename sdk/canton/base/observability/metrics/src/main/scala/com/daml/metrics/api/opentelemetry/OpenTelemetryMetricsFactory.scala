@@ -35,6 +35,8 @@ class QualificationFilteringMetricsFactory(
     filter: MetricsInfoFilter,
 ) extends LabeledMetricsFactory {
 
+  def closeAcquired(): Unit = parent.closeAcquired()
+
   private def include(info: MetricInfo): Boolean =
     filter.includeMetric(info)
 
@@ -52,10 +54,16 @@ class QualificationFilteringMetricsFactory(
 
   override def gaugeWithSupplier[T](info: MetricInfo, gaugeSupplier: () => T)(implicit
       context: MetricsContext
-  ): CloseableGauge = if (include(info))
+  ): Unit = if (include(info))
     parent.gaugeWithSupplier(info, gaugeSupplier)
+
+  override def closeableGaugeWithSupplier[T](info: MetricInfo, gaugeSupplier: () => T)(implicit
+      context: MetricsContext
+  ): CloseableGauge = if (include(info))
+    parent.closeableGaugeWithSupplier(info, gaugeSupplier)
   else
-    NoOpMetricsFactory.gaugeWithSupplier(info, gaugeSupplier)
+    NoOpMetricsFactory.closeableGaugeWithSupplier(info, gaugeSupplier)
+
   override def meter(info: MetricInfo)(implicit context: MetricsContext): Meter = if (include(info))
     parent.meter(info)
   else
@@ -81,6 +89,11 @@ class OpenTelemetryMetricsFactory(
     globalMetricsContext: MetricsContext = MetricsContext(),
 ) extends LabeledMetricsFactory {
 
+  private val acquired = new AtomicReference[Seq[CloseableGauge]](Seq.empty)
+
+  def closeAcquired(): Unit =
+    acquired.getAndSet(Seq.empty).foreach(_.close())
+
   override def timer(info: MetricInfo)(implicit
       context: MetricsContext
   ): MetricHandle.Timer = {
@@ -88,7 +101,6 @@ class OpenTelemetryMetricsFactory(
       val msg =
         s"Timer with name ${info.name} is not a known histogram. Please add the name of this timer to the list of known histograms."
       onlyLogMissingHistograms match {
-        // TODO(#17917) switch to warn
         case Some(logger) => logger.info(msg)
         case None => throw new IllegalArgumentException(msg)
       }
@@ -145,6 +157,16 @@ class OpenTelemetryMetricsFactory(
       valueSupplier: () => T,
   )(implicit
       context: MetricsContext = MetricsContext.Empty
+  ): Unit = {
+    val ret = closeableGaugeWithSupplier(info, valueSupplier)
+    val _ = acquired.updateAndGet(ret +: _)
+  }
+
+  override def closeableGaugeWithSupplier[T](
+      info: MetricInfo,
+      valueSupplier: () => T,
+  )(implicit
+      context: MetricsContext = MetricsContext.Empty
   ): CloseableGauge = {
     val gaugeBuilder = otelMeter.gaugeBuilder(info.name).setDescription(info.summary)
     val attributes = globalMetricsContext.merge(context).asAttributes
@@ -176,6 +198,7 @@ class OpenTelemetryMetricsFactory(
       case _ =>
         throw new IllegalArgumentException("Only Int, Long and Double gauges are supported.")
     }
+
   }
 
   override def meter(info: MetricInfo)(implicit

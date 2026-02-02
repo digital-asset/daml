@@ -14,8 +14,8 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.TagContainer
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.base.error.ErrorCode
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.{DbConfig, SessionSigningKeysConfig}
 import com.digitalasset.canton.console.{CommandFailure, ParticipantReference}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.damltests.java.universal.UniversalContract
@@ -217,7 +217,11 @@ trait LedgerAuthorizationIntegrationTest
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
-      .addConfigTransforms(ConfigTransforms.useStaticTime)
+      .addConfigTransforms(
+        ConfigTransforms.useStaticTime,
+        // TODO(#30068): Enable session keys after sim clock advances are synced
+        ConfigTransforms.setSessionSigningKeys(SessionSigningKeysConfig.disabled),
+      )
       .withSetup { implicit env =>
         import env.*
 

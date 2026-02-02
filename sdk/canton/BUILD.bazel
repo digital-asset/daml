@@ -2663,7 +2663,6 @@ da_scala_library(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -2673,7 +2672,10 @@ da_scala_library(
     srcs = glob(["base/observability/metrics/src/test/lib/scala/**/*.scala"]),
     scala_deps = [
     ],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
+    scalacopts = canton_scalacopts + [
+        "-language:postfixOps",
+        "-Wconf:cat=w-flag-value-discard:s",
+    ],
     tags = ["maven_coordinates=com.daml:metrics-test-lib:__VERSION__"],
     visibility = [
         "//visibility:public",

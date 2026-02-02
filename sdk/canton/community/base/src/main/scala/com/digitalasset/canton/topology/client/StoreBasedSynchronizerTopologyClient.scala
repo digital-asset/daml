@@ -110,10 +110,10 @@ trait TopologyAwaiter extends FlagCloseable {
 
 /** The synchronizer topology client that reads data from a topology store
   *
-  * @param synchronizerId
-  *   The synchronizer id corresponding to this store
+  * @param staticSynchronizerParameters
+  *   The static synchronizer parameters of the synchronizer
   * @param store
-  *   The store
+  *   The store used by the client
   */
 class StoreBasedSynchronizerTopologyClient(
     val clock: Clock,
@@ -124,6 +124,8 @@ class StoreBasedSynchronizerTopologyClient(
     override val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
+    override val executionOrder: Int =
+      2, // overriding the executionOrder during creation (default is 10)
 )(implicit val executionContext: ExecutionContext)
     extends SynchronizerTopologyClientWithInit
     with TopologyAwaiter

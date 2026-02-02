@@ -49,7 +49,6 @@ trait AwsKmsCryptoIntegrationTestBase extends KmsCryptoIntegrationTestBase {
     registerPlugin(
       new UseAwsKms(
         nodes = protectedNodes,
-        nodesWithSessionSigningKeysDisabled = nodesWithSessionSigningKeysDisabled,
         enableEncryptedPrivateStore = EncryptedPrivateStoreStatus.Disable,
         timeouts = timeouts,
         loggerFactory = loggerFactory,

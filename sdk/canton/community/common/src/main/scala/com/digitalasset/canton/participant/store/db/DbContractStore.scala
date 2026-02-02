@@ -50,7 +50,6 @@ class DbContractStore(
 
   override protected[store] def logger: TracedLogger = super.logger
 
-  // TODO(#27996): optimize: evict proto deserialization from the DB threads (suggested: using a proper pekko-stream with deser stage over the batches, or do deser on client thread -but then it might be redundant-)
   private implicit def contractGetResult(implicit
       getResultByteArray: GetResult[Array[Byte]]
   ): GetResult[PersistedContractInstance] = GetResult { r =>

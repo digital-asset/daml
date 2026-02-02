@@ -104,7 +104,6 @@ class WriteThroughCacheTopologySnapshot(
   // actual implementations specific to the
   // state write through cache
   // ===============================================
-
   override def memberFirstKnownAt(member: Member)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
@@ -117,7 +116,9 @@ class WriteThroughCacheTopologySnapshot(
             uid,
             TopologyMapping.Code.SynchronizerTrustCertificate,
           )
-          .map(_.headOption.map(stored => (stored.sequenced, stored.validFrom)))
+          .map(
+            _.minByOption(_.validFrom.value).map(stored => (stored.sequenced, stored.validFrom))
+          )
       case med @ MediatorId(_) =>
         stateLookup
           .lookupHistoryForUid(

@@ -35,19 +35,11 @@ abstract class UseKms extends EnvironmentSetupPlugin with AutoCloseable with NoT
 
   protected def keyId: Option[KmsKeyId]
   protected def nodes: Set[String]
-  protected def nodesWithSessionSigningKeysDisabled: Set[String]
   protected def enableEncryptedPrivateStore: EncryptedPrivateStoreStatus
   protected def kmsConfig: KmsConfig
 
   protected val timeouts: ProcessingTimeout
   protected val loggerFactory: NamedLoggerFactory
-
-  // ensure that all nodes with session signing keys `disabled` are part of the full protected node set
-  require(
-    nodesWithSessionSigningKeysDisabled.subsetOf(nodes),
-    s"`nodesWithSessionSigningKeysDisabled` must be a subset of `nodes`, but found: " +
-      s"${nodesWithSessionSigningKeysDisabled.diff(nodes).mkString(", ")}",
-  )
 
   private val clock = new WallClock(timeouts, loggerFactory)
 
@@ -83,24 +75,22 @@ abstract class UseKms extends EnvironmentSetupPlugin with AutoCloseable with NoT
       cryptoConfig: CryptoConfig,
   ): CryptoConfig =
     if (nodes.contains(name))
-      changeCryptoConfig(cryptoConfig, disableSessionSigningKeysForNode(name))
+      changeCryptoConfig(cryptoConfig)
     else cryptoConfig
 
-  private def changeCryptoConfig(conf: CryptoConfig, disableSessionKeys: Boolean): CryptoConfig =
+  private def changeCryptoConfig(conf: CryptoConfig): CryptoConfig =
     enableEncryptedPrivateStore match {
       case EncryptedPrivateStoreStatus.Enable =>
-        enableEncryptedPrivateStore(addKmsConfig(conf, disableSessionKeys = true))
+        enableEncryptedPrivateStore(addKmsConfig(conf))
       case EncryptedPrivateStoreStatus.Revert =>
-        revertEncryptedPrivateStore(addKmsConfig(conf, disableSessionKeys = true))
+        revertEncryptedPrivateStore(addKmsConfig(conf))
       // if the encrypted private store is disabled, the private crypto API must be backed by an external KMS
       case EncryptedPrivateStoreStatus.Disable =>
-        enableExternalKms(disableEncryptedPrivateStore(addKmsConfig(conf, disableSessionKeys)))
+        enableExternalKms(disableEncryptedPrivateStore(addKmsConfig(conf)))
     }
 
-  private def addKmsConfig(conf: CryptoConfig, disableSessionKeys: Boolean): CryptoConfig =
+  private def addKmsConfig(conf: CryptoConfig): CryptoConfig =
     conf
-      .focus(_.sessionSigningKeys.enabled)
-      .replace(!disableSessionKeys)
       .focus(_.kms)
       .replace(Some(kmsConfig))
 
@@ -118,9 +108,6 @@ abstract class UseKms extends EnvironmentSetupPlugin with AutoCloseable with NoT
     conf
       .focus(_.privateKeyStore.encryption)
       .replace(None)
-
-  private def disableSessionSigningKeysForNode(name: String): Boolean =
-    nodesWithSessionSigningKeysDisabled.contains(name)
 
   private def enableExternalKms(conf: CryptoConfig): CryptoConfig =
     conf

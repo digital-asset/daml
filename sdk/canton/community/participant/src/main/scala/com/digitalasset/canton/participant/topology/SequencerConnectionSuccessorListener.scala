@@ -16,7 +16,6 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.sync.SyncServiceError
-import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
@@ -117,15 +116,7 @@ class SequencerConnectionSuccessorListener(
       _ = logger.info(s"New set of sequencer connections for successors: $successorConnections")
 
       sequencerConnections <- OptionT.fromOption[FutureUnlessShutdown](
-        SequencerConnections
-          .many(
-            connections = successorConnections,
-            activeConfig.config.sequencerConnections.sequencerTrustThreshold,
-            activeConfig.config.sequencerConnections.sequencerLivenessMargin,
-            activeConfig.config.sequencerConnections.submissionRequestAmplification,
-            activeConfig.config.sequencerConnections.sequencerConnectionPoolDelays,
-          )
-          .toOption
+        activeConfig.config.sequencerConnections.modifyConnections(successorConnections).toOption
       )
 
       currentSuccessorConfigO =

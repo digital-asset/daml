@@ -12,7 +12,7 @@ import com.digitalasset.base.error.GrpcStatuses
 import com.digitalasset.canton.BaseTest.UnsupportedExternalPartyTest.MultiPartySubmission
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.{DbConfig, StorageConfig}
+import com.digitalasset.canton.config.{DbConfig, SessionSigningKeysConfig, StorageConfig}
 import com.digitalasset.canton.console.{
   CommandFailure,
   LocalSequencerReference,
@@ -82,6 +82,8 @@ trait CommandDeduplicationIntegrationTest
     EnvironmentDefinition.P2_S1M1_S1M1
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
+        // TODO(#30068): Enable session keys after sim clock advances are synced
+        ConfigTransforms.setSessionSigningKeys(SessionSigningKeysConfig.disabled),
         ConfigTransforms.updateMaxDeduplicationDurations(maxDedupDuration),
       )
       .withSetup { implicit env =>
@@ -821,6 +823,8 @@ abstract class CommandDeduplicationPruningIntegrationTest
     EnvironmentDefinition.P2_S1M1
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
+        // TODO(#30068): Enable session keys after sim clock advances are synced
+        ConfigTransforms.setSessionSigningKeys(SessionSigningKeysConfig.disabled),
         ConfigTransforms.updateMaxDeduplicationDurations(maxDedupDuration),
       )
       .withSetup { implicit env =>

@@ -27,7 +27,6 @@ class UseAwsKms(
     protected val keyId: Option[KmsKeyId] = Some(UseAwsKms.DefaultCantonTestKeyId),
     protected val multiRegion: Boolean = false,
     protected val nodes: Set[String],
-    protected val nodesWithSessionSigningKeysDisabled: Set[String] = Set.empty,
     protected val enableEncryptedPrivateStore: EncryptedPrivateStoreStatus =
       EncryptedPrivateStoreStatus.Enable,
     protected val timeouts: ProcessingTimeout,

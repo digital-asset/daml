@@ -140,12 +140,103 @@ trait LogicalUpgradeUtils extends FutureHelpers {
       sequencerTrustThreshold: PositiveInt = PositiveInt.one,
       sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
       exportDirectory: File,
-      sourceNodeNames: Map[String, String] = Map.empty,
-  )(implicit consoleEnvironment: ConsoleEnvironment): Unit = {
-    val files = UpgradeDataFiles.from(
-      sourceNodeNames.getOrElse(migratedNode.name, migratedNode.name),
-      exportDirectory,
+      newNodeToOldNodeName: Map[String, String],
+  )(implicit consoleEnvironment: ConsoleEnvironment): Unit =
+    migratedNode match {
+      case newSequencer: SequencerReference =>
+        migrateSequencer(
+          newSequencer,
+          newStaticSynchronizerParameters,
+          exportDirectory,
+          newNodeToOldNodeName.get(migratedNode.name).value,
+        )
+
+      case newMediator: MediatorReference =>
+        migrateMediator(
+          newMediator,
+          PhysicalSynchronizerId(synchronizerId, newStaticSynchronizerParameters.toInternal),
+          newSequencers,
+          exportDirectory,
+          newNodeToOldNodeName.get(migratedNode.name).value,
+          sequencerTrustThreshold,
+          sequencerLivenessMargin,
+        )
+
+      case _ =>
+        throw new IllegalStateException(s"Unsupported of $migratedNode")
+    }
+
+  /** This method is used to migrate a sequencer from the old version to the current version.
+    *
+    *   - Import all keys
+    *   - Import transactions to the authorized store
+    *   - Initialize the node
+    *   - Initialize the sequencer
+    *
+    * Note that the IDs of the old nodes are preserved.
+    */
+  def migrateSequencer(
+      migratedSequencer: SequencerReference,
+      newStaticSynchronizerParameters: StaticSynchronizerParameters,
+      exportDirectory: File,
+      oldNodeName: String,
+  ): Unit = {
+    migrateNodeGeneric(migratedSequencer, exportDirectory, oldNodeName)
+
+    val files = UpgradeDataFiles.from(oldNodeName, exportDirectory)
+    initializeSequencer(
+      migratedSequencer,
+      files.genesisState,
+      newStaticSynchronizerParameters,
     )
+  }
+
+  /** This method is used to migrate a mediator from the old version to the current version.
+    *
+    *   - Import all keys
+    *   - Import transactions to the authorized store
+    *   - Initialize the node
+    *   - Initialize the mediator
+    *
+    * Note that the IDs of the old nodes are preserved.
+    */
+  def migrateMediator(
+      migratedMediator: MediatorReference,
+      newPSId: PhysicalSynchronizerId,
+      newSequencers: Seq[SequencerReference],
+      exportDirectory: File,
+      oldNodeName: String,
+      sequencerTrustThreshold: PositiveInt = PositiveInt.one,
+      sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
+  )(implicit consoleEnvironment: ConsoleEnvironment): Unit = {
+    migrateNodeGeneric(migratedMediator, exportDirectory, oldNodeName)
+
+    migratedMediator.setup.assign(
+      newPSId,
+      SequencerConnections.tryMany(
+        newSequencers
+          .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
+        sequencerTrustThreshold,
+        sequencerLivenessMargin,
+        SubmissionRequestAmplification.NoAmplification,
+        SequencerConnectionPoolDelays.default,
+      ),
+    )
+  }
+
+  /** This method is used to migrate a node from the old version to the current version.
+    *
+    *   - Import all keys
+    *   - Import transactions to the authorized store
+    *
+    * Note that the ID of the node is preserved
+    */
+  private def migrateNodeGeneric(
+      migratedNode: InstanceReference,
+      exportDirectory: File,
+      oldNodeName: String,
+  ): Unit = {
+    val files = UpgradeDataFiles.from(oldNodeName, exportDirectory)
 
     files.keys.foreach { case (keys, name) =>
       migratedNode.keys.secret.upload(keys, name)
@@ -154,30 +245,6 @@ trait LogicalUpgradeUtils extends FutureHelpers {
     migratedNode.health.wait_for_ready_for_node_topology()
     migratedNode.topology.transactions
       .import_topology_snapshotV2(files.authorizedStore, TopologyStoreId.Authorized)
-    migratedNode match {
-      case newSequencer: SequencerReference =>
-        initializeSequencer(
-          newSequencer,
-          files.genesisState,
-          newStaticSynchronizerParameters,
-        )
-
-      case newMediator: MediatorReference =>
-        newMediator.setup.assign(
-          PhysicalSynchronizerId(synchronizerId, newStaticSynchronizerParameters.toInternal),
-          SequencerConnections.tryMany(
-            newSequencers
-              .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
-            sequencerTrustThreshold,
-            sequencerLivenessMargin,
-            SubmissionRequestAmplification.NoAmplification,
-            SequencerConnectionPoolDelays.default,
-          ),
-        )
-
-      case _ =>
-        throw new IllegalStateException(s"Unsupported of $migratedNode")
-    }
   }
 
   def waitForTargetTimeOnSequencer(
