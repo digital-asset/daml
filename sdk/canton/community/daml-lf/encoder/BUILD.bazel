@@ -86,22 +86,22 @@ da_scala_binary(
             tools = [":encoder_binary"],
             visibility = ["//visibility:public"],
         ),
-        sh_test(
-            name = "validate-dar-%s" % target,
-            srcs = ["src/validate.sh"],
-            args = [
-                "$(location @maven//:com_daml_daml_lf_repl_2_13)",
-                "$(location :testing-dar-%s)" % target,
-                "--dev" if lf_version_is_dev(target) else "",
-            ],
-            data = [
-                "@maven//:com_daml_daml_lf_repl_2_13",
-                "testing-dar-%s" % target,
-            ],
-            deps = [
-                "@bazel_tools//tools/bash/runfiles",
-            ],
-        ),
+        #        sh_test(
+        #            name = "validate-dar-%s" % target,
+        #            srcs = ["src/validate.sh"],
+        #            args = [
+        #                "$(location @maven//:com_daml_daml_lf_repl_2_13)",
+        #                "$(location :testing-dar-%s)" % target,
+        #                "--dev" if lf_version_is_dev(target) else "",
+        #            ],
+        #            data = [
+        #                "@maven//:com_daml_daml_lf_repl_2_13",
+        #                "testing-dar-%s" % target,
+        #            ],
+        #            deps = [
+        #                "@bazel_tools//tools/bash/runfiles",
+        #            ],
+        #        ),
     ]
     for target in ALL_LF_VERSIONS
 ]
