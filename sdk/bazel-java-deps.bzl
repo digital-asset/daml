@@ -46,7 +46,7 @@ pekko_version = "1.2.1"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
 
-canton_version = "3.5.0-ad-hoc.20260130.17932.0.vae31a063"
+canton_version = "3.5.0-ad-hoc.20260201.17934.0.v1cd4e45a"
 #canton_version = "3.5.0-SNAPSHOT"
 upickle_version = "4.1.0"
 ujson_version = "4.0.2"
@@ -122,7 +122,6 @@ def install_java_deps():
             "com.daml:rs-grpc-testing-utils_{}:{}".format(scala_major_version, canton_version),
             "com.daml:testing-utils_{}:{}".format(scala_major_version, canton_version),
             "com.daml:daml-jwt_{}:{}".format(scala_major_version, canton_version),
-            "com.daml:concurrent_{}:{}".format(scala_major_version, canton_version),
             "com.daml:contextualized-logging_{}:{}".format(scala_major_version, canton_version),
             "com.daml:crypto_{}:{}".format(scala_major_version, canton_version),
             "com.daml:grpc-test-utils_{}:{}".format(scala_major_version, canton_version),
@@ -136,7 +135,6 @@ def install_java_deps():
             "com.daml:daml-resources_{}:{}".format(scala_major_version, canton_version),
             "com.daml:resources-pekko_{}:{}".format(scala_major_version, canton_version),
             "com.daml:resources-grpc_{}:{}".format(scala_major_version, canton_version),
-            "com.daml:safe-proto_{}:{}".format(scala_major_version, canton_version),
             "com.daml:scala-utils_{}:{}".format(scala_major_version, canton_version),
             "com.daml:scalatest-utils_{}:{}".format(scala_major_version, canton_version),
             "com.daml:test-evidence-scalatest_{}:{}".format(scala_major_version, canton_version),
@@ -147,7 +145,6 @@ def install_java_deps():
             "com.daml:executors_{}:{}".format(scala_major_version, canton_version),
             "com.daml:observability-metrics_{}:{}".format(scala_major_version, canton_version),
             "com.daml:observability-tracing_{}:{}".format(scala_major_version, canton_version),
-            "com.daml:observability-pekko-http-metrics_{}:{}".format(scala_major_version, canton_version),
             "com.daml:ledger-common_{}:{}".format(scala_major_version, canton_version),
             "com.daml:util-observability_{}:{}".format(scala_major_version, canton_version),
             "com.daml:base-errors_{}:{}".format(scala_major_version, canton_version),
