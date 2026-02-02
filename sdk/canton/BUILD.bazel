@@ -863,7 +863,6 @@ scala_library(
         "@maven//:com_daml_logging_entries_2_13",
         "@maven//:com_daml_nonempty_2_13",
         "@maven//:com_daml_observability_metrics_2_13",
-        "@maven//:com_daml_observability_pekko_http_metrics_2_13",
         "@maven//:com_daml_observability_tracing_2_13",
         "@maven//:com_daml_ports_2_13",
         "@maven//:com_daml_resources_grpc_2_13",

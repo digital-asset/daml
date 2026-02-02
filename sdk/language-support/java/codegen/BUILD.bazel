@@ -450,6 +450,7 @@ da_scala_test(
         "@maven//:io_reactivex_rxjava2_rxjava",
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
+        "@maven//:com_daml_ledger_api_scala_2_13",
     ],
 )
 
