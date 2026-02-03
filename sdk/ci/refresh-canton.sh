@@ -69,6 +69,7 @@ EXCLUDED_DIRS=(
   "base/http-test-utils"
   "base/ledger-resources"
   "base/logging-entries"
+  "base/observability/metrics"
 )
 
 is_excluded() {
