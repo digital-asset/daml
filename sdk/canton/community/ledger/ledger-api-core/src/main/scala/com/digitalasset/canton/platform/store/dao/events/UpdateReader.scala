@@ -564,7 +564,7 @@ private[dao] object UpdateReader {
       ecl: ErrorLoggingContext,
   ): Future[Vector[(RawThinEvent, Option[FatContract])]] =
     contractStore
-      .lookupBatchedNonCached(rawEvents.flatMap(getInternalContractIdO))(ecl.traceContext)
+      .lookupBatched(rawEvents.flatMap(getInternalContractIdO))(ecl.traceContext)
       .map(contracts =>
         rawEvents.map(event =>
           event -> getInternalContractIdO(event)

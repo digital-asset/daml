@@ -48,7 +48,6 @@ trait MockKmsDriverCryptoIntegrationTestBase extends KmsCryptoIntegrationTestBas
     registerPlugin(
       new UseKmsDriver(
         nodes = protectedNodes,
-        nodesWithSessionSigningKeysDisabled = nodesWithSessionSigningKeysDisabled,
         enableEncryptedPrivateStore = EncryptedPrivateStoreStatus.Disable,
         driverName = mockKmsDriverName,
         timeouts = timeouts,

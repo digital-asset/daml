@@ -36,6 +36,7 @@ import com.digitalasset.canton.topology.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -366,6 +367,7 @@ class PartyReplicationTopologyWorkflow(
     res.map(_.status match { case (isFlagCleared, _tsSafeToClearO) => isFlagCleared })
   }
 
+  @nowarn("cat=deprecation")
   private[admin] def authorizeClearingOnboardingFlag(
       partyId: PartyId,
       targetParticipantId: ParticipantId,

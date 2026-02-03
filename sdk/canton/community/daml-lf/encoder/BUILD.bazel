@@ -31,13 +31,41 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-encoder:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//daml-lf:data",
         "//canton:crypto",
-        "//canton:safe-proto",
         "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
         "//canton/community/daml-lf/archive:daml_lf_archive_reader",
         "//canton/community/daml-lf/data",
         "//canton/community/daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
+    ],
+)
+
+da_scala_test_suite(
+    name = "tests",
+    size = "small",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    data = [":testing-dar-%s" % target for target in ENGINE_LF_VERSIONS],
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":encoder",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
+        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
+        "//canton/community/daml-lf/data",
+        "//canton/community/daml-lf/language",
+        "//canton/community/daml-lf/parser",
+        "//canton/community/daml-lf/stable-packages",
+        "//canton/community/daml-lf/validation",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
 

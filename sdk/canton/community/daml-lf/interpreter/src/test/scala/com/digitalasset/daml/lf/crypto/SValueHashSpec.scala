@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf
 package crypto
 
-import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
 import com.digitalasset.daml.lf.speedy.{SValue => SV}
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -22,8 +21,7 @@ class SValueHashSpec
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
-    with Inside
-    with BazelRunfiles {
+    with Inside {
 
   private val packageId0 = Ref.PackageId.assertFromString("package")
   private val packageId1 = Ref.PackageId.assertFromString("package-1")
@@ -298,13 +296,12 @@ class SValueHashSpec
     )
   }
 
-  /** Loads the contents of a bazel resource under canton/community/daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/crypto
-    * into a [[String]].
+  /** Loads the contents of a resource into a [[String]].
     */
   private def readGoldenFile(fileName: String): String =
     Using(
       Source.fromFile(
-        rlocation("canton/community/daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/crypto/" + fileName),
+        getClass.getClassLoader.getResource(fileName).toURI,
         "UTF-8",
       )
     )(_.getLines().mkString(System.lineSeparator()))

@@ -14,7 +14,6 @@ import com.digitalasset.canton.integration.{
   ConfigTransforms,
   SharedEnvironment,
 }
-import monocle.macros.syntax.lens.*
 
 /** TODO(#27529): In some scenarios clock advances still fails due to the current snapshot
   * approximation problems. For example, since participants rely on the current snapshot
@@ -37,22 +36,7 @@ trait SessionSigningKeysLifecycleIntegrationTest
 
   override protected def otherConfigTransforms: Seq[ConfigTransform] = Seq(
     ConfigTransforms.useStaticTime,
-    // TODO(#30004): Simplify by using a plugin or a `ConfigTransform`,
-    ConfigTransforms.updateAllMediatorConfigs_(config =>
-      config
-        .focus(_.crypto.sessionSigningKeys.keyValidityDuration)
-        .replace(keyValidityDuration)
-    ),
-    ConfigTransforms.updateAllSequencerConfigs_(config =>
-      config
-        .focus(_.crypto.sessionSigningKeys.keyValidityDuration)
-        .replace(keyValidityDuration)
-    ),
-    ConfigTransforms.updateAllParticipantConfigs_(config =>
-      config
-        .focus(_.crypto.sessionSigningKeys.keyValidityDuration)
-        .replace(keyValidityDuration)
-    ),
+    ConfigTransforms.setSessionSigningKeys(sessionSigningKeysConfigTest),
   )
 
   "verify correct session key lifecycle with clock advances" in { implicit env =>
@@ -86,9 +70,6 @@ class MockKmsDriverSessionSigningKeysLifecycleIntegrationTestPostgres
     with MockKmsDriverCryptoIntegrationTestBase {
 
   override protected val kmsConfig: KmsConfig = mockKmsDriverConfig
-
-  override protected lazy val nodesWithSessionSigningKeysDisabled: Set[String] =
-    Set.empty
 
   override protected lazy val protectedNodes: Set[String] =
     Set("participant1", "participant2", "mediator1", "sequencer1")

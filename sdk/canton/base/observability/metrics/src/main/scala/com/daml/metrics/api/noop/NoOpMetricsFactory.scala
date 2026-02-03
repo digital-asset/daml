@@ -9,6 +9,8 @@ import com.daml.metrics.api.{MetricHandle, MetricInfo, MetricsContext}
 
 class NoOpMetricsFactory extends LabeledMetricsFactory {
 
+  override def closeAcquired(): Unit = ()
+
   override def timer(info: MetricInfo)(implicit
       metricsContext: MetricsContext
   ): MetricHandle.Timer = NoOpTimer(info)
@@ -20,10 +22,15 @@ class NoOpMetricsFactory extends LabeledMetricsFactory {
       metricsContext: MetricsContext
   ): MetricHandle.Gauge[T] = NoOpGauge(info, initial)
 
-  override def gaugeWithSupplier[T](
+  override def closeableGaugeWithSupplier[T](
       info: MetricInfo,
       gaugeSupplier: () => T,
   )(implicit metricsContext: MetricsContext): CloseableGauge = SimpleCloseableGauge(info, () => ())
+
+  override def gaugeWithSupplier[T](
+      info: MetricInfo,
+      gaugeSupplier: () => T,
+  )(implicit metricsContext: MetricsContext): Unit = ()
 
   override def meter(
       info: MetricInfo

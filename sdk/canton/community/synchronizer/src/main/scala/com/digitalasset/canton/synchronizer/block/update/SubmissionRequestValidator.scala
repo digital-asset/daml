@@ -32,6 +32,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, MonadUtil}
 import monocle.Monocle.toAppliedFocusOps
 
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
 import SubmissionRequestValidator.*
@@ -303,6 +304,7 @@ private[update] final class SubmissionRequestValidator(
       )
   }
 
+  @nowarn("cat=deprecation")
   private def expandAllMembersOfSynchronizerGroupRecipients(
       topologyOrSequencingSnapshot: SyncCryptoApi,
       groupRecipients: Set[GroupRecipient],

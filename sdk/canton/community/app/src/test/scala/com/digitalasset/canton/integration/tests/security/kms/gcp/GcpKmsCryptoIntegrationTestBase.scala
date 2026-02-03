@@ -49,7 +49,6 @@ trait GcpKmsCryptoIntegrationTestBase extends KmsCryptoIntegrationTestBase {
     registerPlugin(
       new UseGcpKms(
         nodes = protectedNodes,
-        nodesWithSessionSigningKeysDisabled = nodesWithSessionSigningKeysDisabled,
         enableEncryptedPrivateStore = EncryptedPrivateStoreStatus.Disable,
         timeouts = timeouts,
         loggerFactory = loggerFactory,

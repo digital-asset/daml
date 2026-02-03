@@ -568,6 +568,19 @@ class AuthServiceJWTCodecSpec
           "Access token with unknown scope"
         )
       }
+      "support standard JWT claims with sub containing all supported characters" in {
+        val userId = "someUserId@^$.!`-#+'~_|:()"
+        val serialized =
+          s"""{
+            |  "iss": "issuer",
+            |  "aud": "someParticipantId",
+            |  "sub": "$userId",
+            |  "exp": 100,
+            |  "scope": "${AuthServiceJWTCodec.scopeLedgerApiFull}"
+            |}
+          """.stripMargin
+        parse(serialized) shouldBe Success(expected.copy(userId = userId))
+      }
     }
   }
 }

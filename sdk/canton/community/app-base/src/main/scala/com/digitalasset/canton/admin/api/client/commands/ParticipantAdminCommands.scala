@@ -515,12 +515,16 @@ object ParticipantAdminCommands {
       override protected def createRequest(): Either[String, v30.AddPartyAsyncRequest] =
         Right(
           v30.AddPartyAsyncRequest(
-            partyId = party.toProtoPrimitive,
-            synchronizerId = synchronizerId.toProtoPrimitive,
-            sourceParticipantUid = sourceParticipant.uid.toProtoPrimitive,
-            topologySerial = serial.value,
-            participantPermission =
-              PartyParticipantPermission.toProtoPrimitive(participantPermission),
+            Some(
+              v30.AddPartyArguments(
+                partyId = party.toProtoPrimitive,
+                synchronizerId = synchronizerId.toProtoPrimitive,
+                sourceParticipantUid = sourceParticipant.uid.toProtoPrimitive,
+                topologySerial = serial.value,
+                participantPermission =
+                  PartyParticipantPermission.toProtoPrimitive(participantPermission),
+              )
+            )
           )
         )
 
@@ -531,6 +535,61 @@ object ParticipantAdminCommands {
 
       override protected def handleResponse(
           response: v30.AddPartyAsyncResponse
+      ): Either[String, String] = Right(response.addPartyRequestId)
+    }
+
+    final case class AddPartyWithAcsAsync(
+        importFile: File,
+        party: PartyId,
+        synchronizerId: SynchronizerId,
+        sourceParticipant: ParticipantId,
+        serial: PositiveInt,
+        participantPermission: ParticipantPermission,
+    ) extends GrpcAdminCommand[
+          Unit,
+          v30.AddPartyWithAcsAsyncResponse,
+          String,
+        ] {
+
+      override type Svc = PartyManagementServiceStub
+
+      override def createService(channel: ManagedChannel): PartyManagementServiceStub =
+        v30.PartyManagementServiceGrpc.stub(channel)
+
+      override protected def createRequest(): Either[String, Unit] =
+        Right(())
+
+      override protected def submitRequest(
+          service: PartyManagementServiceStub,
+          request: Unit,
+      ): Future[v30.AddPartyWithAcsAsyncResponse] = {
+        val acsSnapshotBytes =
+          ByteString.copyFrom(better.files.File(importFile.getAbsolutePath).loadBytes)
+        val isFirstChunk = new AtomicBoolean(true)
+        GrpcStreamingUtils.streamToServer(
+          service.addPartyWithAcsAsync,
+          bytes => {
+            val isFirst = isFirstChunk.getAndSet(false)
+            v30.AddPartyWithAcsAsyncRequest(
+              ByteString.copyFrom(bytes),
+              arguments = Option.when(isFirst)(
+                v30.AddPartyArguments(
+                  partyId = party.toProtoPrimitive,
+                  synchronizerId = synchronizerId.toProtoPrimitive,
+                  sourceParticipantUid = sourceParticipant.uid.toProtoPrimitive,
+                  topologySerial = serial.value,
+                  participantPermission =
+                    PartyParticipantPermission.toProtoPrimitive(participantPermission),
+                )
+              ),
+            )
+          },
+          acsSnapshotBytes,
+        )
+      }
+
+      override protected def handleResponse(
+          response: v30.AddPartyWithAcsAsyncResponse
       ): Either[String, String] = Right(response.addPartyRequestId)
     }
 

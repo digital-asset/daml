@@ -10,6 +10,8 @@ import com.digitalasset.canton.integration.tests.security.kms.gcp.GcpKmsCryptoIn
 import com.digitalasset.canton.integration.tests.security.kms.mock.MockKmsDriverCryptoIntegrationTestBase
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
+  ConfigTransform,
+  ConfigTransforms,
   EnvironmentSetupPlugin,
   SharedEnvironment,
 }
@@ -22,17 +24,24 @@ trait SessionSigningKeysIntegrationTest
     with SharedEnvironment
     with KmsCryptoIntegrationTestBase {
 
+  protected lazy val nodesWithSessionSigningKeysDisabled: Set[String] = Set.empty
+
+  override protected def otherConfigTransforms: Seq[ConfigTransform] = Seq(
+    // By default session signing keys are enabled for all integration tests
+    ConfigTransforms.setSessionSigningKeys(
+      SessionSigningKeysConfig.disabled,
+      nodeFilter = name => nodesWithSessionSigningKeysDisabled.contains(name),
+    )
+  )
+
   s"ping succeeds with nodes $protectedNodes using session signing keys" in { implicit env =>
     import env.*
 
     env.nodes.local.foreach { node =>
-      if (protectedNodes.contains(node.name)) {
-        val sessionSigningKeysConfig = node.config.crypto.sessionSigningKeys
-        if (nodesWithSessionSigningKeysDisabled.contains(node.name))
-          sessionSigningKeysConfig shouldBe SessionSigningKeysConfig.disabled
-        else sessionSigningKeysConfig shouldBe SessionSigningKeysConfig.default
-        node.config.crypto.kms should not be empty
-      } else node.config.crypto.kms shouldBe empty
+      if (nodesWithSessionSigningKeysDisabled.contains(node.name))
+        node.config.crypto.sessionSigningKeys shouldBe SessionSigningKeysConfig.disabled
+      else
+        node.config.crypto.sessionSigningKeys shouldBe SessionSigningKeysConfig.default
     }
 
     assertPingSucceeds(participant1, participant2)

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.protocol.hash
 
+import com.digitalasset.canton.crypto.InteractiveSubmission.TransactionMetadataForHashing
 import com.digitalasset.canton.crypto.{Hash, HashPurpose}
 import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.version.HashingSchemeVersion
@@ -23,7 +24,6 @@ object TransactionHash {
               .getOrElse(nodeHashVersion, Set.empty)
               .mkString(", ")}"
         )
-
     final case class UnsupportedHashingVersion(version: HashingSchemeVersion)
         extends NodeHashingError(
           s"Cannot hash node with hashing version $version. Supported versions: ${NodeBuilder.HashingVersionToSupportedLFSerializationVersionMapping.keySet
@@ -38,10 +38,11 @@ object TransactionHash {
     *   tracer that can be used to debug encoding of the transaction.
     */
   @throws[NodeHashingError]
-  def tryHashTransactionWithMetadataV1(
+  def tryHashTransactionWithMetadata(
+      hashVersion: HashingSchemeVersion,
       versionedTransaction: VersionedTransaction,
       nodeSeeds: Map[NodeId, LfHash],
-      metadata: TransactionMetadataHashBuilder.MetadataV1,
+      metadata: TransactionMetadataForHashing,
       hashTracer: HashTracer = HashTracer.NoOp,
   ): Hash =
     new NodeBuilderV1(
@@ -51,51 +52,18 @@ object TransactionHash {
     ).addPurpose()
       .addHashingSchemeVersion(HashingSchemeVersion.V2)
       .addHash(
-        TransactionHash
-          .tryHashTransactionV1(versionedTransaction, nodeSeeds, hashTracer.subNodeTracer),
+        VersionedTransactionHasher.tryHashTransaction(
+          hashVersion,
+          versionedTransaction,
+          nodeSeeds,
+          hashTracer.subNodeTracer,
+        ),
         "Transaction",
       )
       .addHash(
-        TransactionMetadataHashBuilder
-          .hashTransactionMetadataV1(metadata, hashTracer.subNodeTracer),
+        TransactionMetadataHasher.tryHashMetadata(hashVersion, metadata, hashTracer.subNodeTracer),
         "Metadata",
       )
       .finish()
 
-  /** Deterministically hash a versioned transaction using the Version 1 of the hashing algorithm.
-    *
-    * @param hashTracer
-    *   tracer that can be used to debug encoding of the transaction.
-    */
-  @throws[NodeHashingError]
-  private[hash] def tryHashTransactionV1(
-      versionedTransaction: VersionedTransaction,
-      nodeSeeds: Map[NodeId, LfHash],
-      hashTracer: HashTracer = HashTracer.NoOp,
-  ): Hash =
-    new NodeBuilderV1(
-      HashPurpose.PreparedSubmission,
-      hashTracer,
-      enforceNodeSeedForCreateNodes = true,
-    ).addPurpose()
-      .withContext("Serialization Version")(
-        _.addString(SerializationVersion.toProtoValue(versionedTransaction.version))
-      )
-      .withContext("Root Nodes")(
-        _.addNodesFromNodeIds(versionedTransaction.roots, versionedTransaction.nodes, nodeSeeds)
-      )
-      .finish()
-
-  // For testing only
-  @throws[NodeHashingError]
-  private[hash] def tryHashNodeV1(
-      node: Node,
-      nodeSeeds: Map[NodeId, LfHash] = Map.empty,
-      nodeSeed: Option[LfHash] = None,
-      subNodes: Map[NodeId, Node] = Map.empty,
-      hashTracer: HashTracer = HashTracer.NoOp,
-      enforceNodeSeedForCreateNodes: Boolean = true,
-  ): Hash =
-    new NodeBuilderV1(HashPurpose.PreparedSubmission, hashTracer, enforceNodeSeedForCreateNodes)
-      .hashNode(node, nodeSeed, subNodes, nodeSeeds)
 }

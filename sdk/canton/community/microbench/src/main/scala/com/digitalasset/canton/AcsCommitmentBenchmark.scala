@@ -92,6 +92,7 @@ import org.scalatest.Inspectors
 import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.TimeUnit
+import scala.annotation.nowarn
 import scala.concurrent.Await
 import scala.concurrent.duration.{Duration, DurationInt}
 
@@ -493,6 +494,7 @@ class AcsCommitmentBenchmark
       this.connectedSynchronizerMetrics(SynchronizerAlias.tryCreate("test"))
   }
 
+  @nowarn("cat=deprecation")
   private def constantSortedReconciliationIntervalsProvider(
       reconciliationInterval: PositiveSeconds,
       domainBootstrappingTime: CantonTimestamp = CantonTimestamp.MinValue,

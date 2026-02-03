@@ -414,7 +414,7 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
   }
 
   "UserId" - {
-    val validCharacters = ('a' to 'z') ++ ('A' to 'Z') ++ ('0' to '9') ++ "._-#!|@^$`+'~:"
+    val validCharacters = ('a' to 'z') ++ ('A' to 'Z') ++ ('0' to '9') ++ "._-#!|@^$`+'~:()"
     val validUserIds =
       validCharacters.flatMap(c => Vector(c.toString, s"$c$c")) ++
         Vector(
@@ -430,6 +430,9 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
           "windowslive|4cf0a30169d55031",
           "office365|10030000838d23ad@microsoftonline.com",
           "adfs|john@fabrikam.com",
+          "mailto:john@fabrikam.com",
+          "(usr!67324682736476)",
+
         )
 
     "accept valid user ids" in {
@@ -437,7 +440,7 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
     }
 
     "reject user ids containing invalid characters" in {
-      val invalidCharacters = "àá \\%&*()=[]{};<>,?\""
+      val invalidCharacters = "àá \\%&*=[]{};<>,?\""
       val invalidUserIds = invalidCharacters.map(_.toString) :+ "john/doe"
       invalidUserIds.foreach(userId => UserId.fromString(userId) shouldBe a[Left[_, _]])
     }

@@ -4,8 +4,11 @@
 package com.digitalasset.canton.synchronizer.sequencer.block
 
 import com.daml.metrics.api.MetricsContext
+import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.{FlagCloseable, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.SubmissionRequestType
 import com.digitalasset.canton.synchronizer.block.update.{ChunkUpdate, OrderedBlockUpdate}
@@ -21,6 +24,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerThroug
 }
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.Member
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Mutex
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.actor.{Cancellable, Scheduler}
@@ -59,6 +63,7 @@ class BlockSequencerThroughputCap(
     clock: Clock,
     scheduler: Scheduler,
     metrics: SequencerMetrics,
+    timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
@@ -87,6 +92,7 @@ class BlockSequencerThroughputCap(
       requestType,
       clock,
       metrics,
+      timeouts,
       loggerFactory,
     )
 
@@ -190,9 +196,10 @@ object BlockSequencerThroughputCap {
       requestType: SubmissionRequestType,
       clock: Clock,
       parentMetrics: SequencerMetrics,
+      override protected val timeouts: ProcessingTimeout,
       override val loggerFactory: NamedLoggerFactory,
   ) extends NamedLogging
-      with AutoCloseable {
+      with FlagCloseable {
 
     private var initialized: Boolean = false
 
@@ -373,8 +380,11 @@ object BlockSequencerThroughputCap {
 
       calculateAndSetThresholdLevel()
 
-      metrics.tps.updateValue(capWindow.size.toDouble / observationPeriodSeconds.toDouble)
-      metrics.bps.updateValue(totalWindowBytes.toDouble / observationPeriodSeconds.toDouble)
+      // Update the metrics unless we are closing
+      synchronizeWithClosingSync(functionFullName) {
+        metrics.tps.updateValue(capWindow.size.toDouble / observationPeriodSeconds.toDouble)
+        metrics.bps.updateValue(totalWindowBytes.toDouble / observationPeriodSeconds.toDouble)
+      }(TraceContext.empty).discard
     }
 
     private def calculateAndSetThresholdLevel(): Unit = {
@@ -397,6 +407,7 @@ object BlockSequencerThroughputCap {
     private[block] def getMemberUsage(member: Member): Option[ThroughputCapValue] =
       memberUsage.get(ThroughputCapKey(member))
 
-    override def close(): Unit = metrics.close()
+    override def onClosed(): Unit = LifeCycle.close(metrics)(logger)
+
   }
 }

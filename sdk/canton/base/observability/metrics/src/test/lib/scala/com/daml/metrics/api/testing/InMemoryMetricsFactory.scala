@@ -31,6 +31,8 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 class InMemoryMetricsFactory extends LabeledMetricsFactory {
 
+  override def closeAcquired(): Unit = ()
+
   val metrics: MetricsState =
     MetricsState(
       timers = TrieMap.empty,
@@ -49,7 +51,7 @@ class InMemoryMetricsFactory extends LabeledMetricsFactory {
       context: MetricsContext
   ): MetricHandle.Gauge[T] = metrics.addGauge(context, InMemoryGauge(info, context, initial))
 
-  override def gaugeWithSupplier[T](
+  override def closeableGaugeWithSupplier[T](
       info: MetricInfo,
       gaugeSupplier: () => T,
   )(implicit context: MetricsContext): CloseableGauge = {
@@ -59,6 +61,12 @@ class InMemoryMetricsFactory extends LabeledMetricsFactory {
       () => discard(metrics.asyncGauges.get(info.name).foreach(_.remove(context))),
     )
   }
+
+  override def gaugeWithSupplier[T](
+      info: MetricInfo,
+      gaugeSupplier: () => T,
+  )(implicit context: MetricsContext): Unit =
+    metrics.addAsyncGauge(info.name, context, gaugeSupplier)
 
   override def meter(info: MetricInfo)(implicit
       context: MetricsContext

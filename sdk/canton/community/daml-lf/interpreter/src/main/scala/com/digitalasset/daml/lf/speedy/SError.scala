@@ -20,7 +20,7 @@ object SError {
     * hence we do not have separate errors for e.g. unknown values.
     */
   final case class SErrorCrash(location: String, reason: String) extends SError {
-    override def getMessage: String = s"CRASH ($location): $reason"
+    override def getMessage: String = s"SPEEDY CRASH ($location): $reason"
   }
 
   /** Daml exceptions that should be reported to the user. */

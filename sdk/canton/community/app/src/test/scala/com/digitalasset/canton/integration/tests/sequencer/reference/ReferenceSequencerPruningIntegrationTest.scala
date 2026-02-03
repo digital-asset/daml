@@ -5,12 +5,12 @@ package com.digitalasset.canton.integration.tests.sequencer.reference
 
 import com.digitalasset.canton.admin.api.client.data.TrafficControlParameters
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeLong,
   NonNegativeNumeric,
   PositiveInt,
 }
+import com.digitalasset.canton.config.{DbConfig, SessionSigningKeysConfig}
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.{
   UseConfigTransforms,
@@ -36,7 +36,11 @@ class ReferenceSequencerPruningIntegrationTest extends SequencerPruningIntegrati
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
-      .addConfigTransform(ConfigTransforms.useStaticTime)
+      .addConfigTransforms(
+        ConfigTransforms.useStaticTime,
+        // TODO(#30068): Enable session keys after sim clock advances are synced
+        ConfigTransforms.setSessionSigningKeys(SessionSigningKeysConfig.disabled),
+      )
       .withSetup { implicit env =>
         import env.*
 

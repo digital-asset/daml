@@ -51,6 +51,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace.Tracer
 
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
 /** Responsible for events processing. Reads mediator confirmation requests and confirmation
@@ -160,6 +161,7 @@ private[mediator] class Mediator(
     * the provided timestamp is before the prehead position of the sequenced events store, meaning
     * that all events up until this point have completed processing and can be safely removed.
     */
+  @nowarn("cat=deprecation")
   def prune(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, PruningError, Unit] =

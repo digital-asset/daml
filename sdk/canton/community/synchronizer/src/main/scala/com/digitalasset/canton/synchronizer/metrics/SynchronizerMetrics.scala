@@ -63,6 +63,8 @@ class SequencerMetrics(
     )
 
   override val healthMetrics: HealthMetrics = new HealthMetrics(openTelemetryMetricsFactory)
+  override val topologyCache: CacheMetrics =
+    new CacheMetrics("topology-seq", openTelemetryMetricsFactory)
 
   val bftOrdering: BftOrderingMetrics =
     new BftOrderingMetrics(
@@ -296,7 +298,6 @@ class SequencerMetrics(
         )
       )
   }
-  // TODO(i14580): add testing
   val trafficControl = new TrafficControlMetrics
 }
 
@@ -357,7 +358,8 @@ class MediatorMetrics(
       new ActiveRequestsMetrics(openTelemetryMetricsFactory, "mediator"),
     )
   override val healthMetrics: HealthMetrics = new HealthMetrics(openTelemetryMetricsFactory)
-
+  override val topologyCache: CacheMetrics =
+    new CacheMetrics("topology-med", openTelemetryMetricsFactory)
   override val prefix: MetricName = histograms.prefix
 
   override val declarativeApiMetrics: DeclarativeApiMetrics =

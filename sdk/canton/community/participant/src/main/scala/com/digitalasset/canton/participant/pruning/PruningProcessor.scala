@@ -351,9 +351,8 @@ class PruningProcessor(
         fromExclusive = fromExclusive,
         upToInclusive = upToInclusive,
       )
-      // TODO(i27996) not needed as soon as we can support natively internal IDs in the contract store
       prunableContractIds <- participantNodePersistentState.value.contractStore
-        .lookupBatchedNonCachedContractIds(prunableInternalContractIds)
+        .lookupBatchedContractIdsNonReadThrough(prunableInternalContractIds)
         .map(_.values)
 
       // We must prune the contract store even if the event log is empty, because there is not necessarily an

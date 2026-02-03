@@ -47,7 +47,8 @@ trait TopologyTransactionProcessingSubscriber {
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   /** The order in which the subscriber should be executed among all the subscriptions. Lower values
-    * are executed first.
+    * are executed first. We set the default to 10. The values for member registration and cryptoApi
+    * are overriden to 1 and 2, respectively.
     */
   def executionOrder: Int = 10
 }

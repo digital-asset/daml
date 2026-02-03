@@ -5,21 +5,25 @@ package com.digitalasset.canton.protocol.hash
 
 import com.daml.crypto.MessageDigestPrototype
 import com.digitalasset.canton.LfTimestamp
-import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
+import com.digitalasset.canton.crypto.InteractiveSubmission.TransactionMetadataForHashing
+import com.digitalasset.canton.crypto.{Hash, HashPurpose}
 import com.digitalasset.canton.data.LedgerTimeBoundaries
 import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.protocol.hash.HashTracer.StringHashTracer
+import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.daml.lf.data.Ref.IdString
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
   Node,
+  NodeId,
   SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.{Value, Value as V}
 import com.google.protobuf.ByteString
+import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 
 import java.time.Duration
@@ -27,6 +31,7 @@ import java.util.UUID
 import scala.collection.immutable.{SortedMap, SortedSet}
 
 trait HashUtilsTest { this: Matchers =>
+
   val packageId0: IdString.PackageId = Ref.PackageId.assertFromString("package")
   val packageName0: IdString.PackageName = Ref.PackageName.assertFromString("package-name-0")
 
@@ -50,12 +55,17 @@ trait HashUtilsTest { this: Matchers =>
     CreationTime.CreatedAt(LfTimestamp.Epoch.add(Duration.ofDays(20))),
     Bytes.assertFromString("0050"),
   )
-  val metadata = TransactionMetadataHashBuilder.MetadataV1(
+
+  val sychronizerId: SynchronizerId = SynchronizerId(
+    UniqueIdentifier.tryCreate("synchronizer", "id")
+  )
+
+  val metadata: TransactionMetadataForHashing = TransactionMetadataForHashing.create(
     actAs = SortedSet(alice, bob),
     commandId = Ref.CommandId.assertFromString("command-id"),
     transactionUUID = transactionUUID,
     mediatorGroup = 0,
-    synchronizerId = "synchronizerId",
+    synchronizerId = sychronizerId,
     timeBoundaries = LedgerTimeBoundaries(
       Time.Range(
         Time.Timestamp.assertFromLong(0xaaaa),
@@ -63,13 +73,14 @@ trait HashUtilsTest { this: Matchers =>
       )
     ),
     preparationTime = Time.Timestamp.Epoch,
+    maxRecordTime = Some(LfTimestamp.Epoch.add(Duration.ofDays(30))),
     disclosedContracts = SortedMap(
       cid1 -> node1,
       cid2 -> node2,
     ),
   )
 
-  def assertStringTracer(stringHashTracer: StringHashTracer, hash: Hash) = {
+  def assertStringTracer(stringHashTracer: StringHashTracer, hash: Hash): Assertion = {
     val messageDigest = MessageDigestPrototype.Sha256.newDigest
     messageDigest.update(stringHashTracer.asByteArray)
     Hash.tryFromByteStringRaw(ByteString.copyFrom(messageDigest.digest()), Sha256) shouldBe hash
@@ -101,4 +112,16 @@ trait HashUtilsTest { this: Matchers =>
         Ref.DottedName.assertFromString(name),
       ),
     )
+
+  def tryHashNodeV1(
+      node: Node,
+      nodeSeeds: Map[NodeId, LfHash] = Map.empty,
+      nodeSeed: Option[LfHash] = None,
+      subNodes: Map[NodeId, Node] = Map.empty,
+      hashTracer: HashTracer = HashTracer.NoOp,
+      enforceNodeSeedForCreateNodes: Boolean = true,
+  ): Hash =
+    new NodeBuilderV1(HashPurpose.PreparedSubmission, hashTracer, enforceNodeSeedForCreateNodes)
+      .hashNode(node, nodeSeed, subNodes, nodeSeeds)
+
 }

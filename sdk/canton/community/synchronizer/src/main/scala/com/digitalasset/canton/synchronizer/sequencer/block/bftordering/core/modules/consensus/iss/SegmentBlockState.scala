@@ -57,7 +57,7 @@ class SegmentBlockState(
     if (isComplete || unconfirmedStorageCommitCertificate.isDefined) Seq.empty
     else {
       unconfirmedStorageCommitCertificate = Some(cc)
-      Seq(CompletedBlock(cc, currentViewNumber))
+      Seq(CompletedBlock(cc))
     }
 
   def confirmCompleteBlockStored(): Unit = unconfirmedStorageCommitCertificate match {

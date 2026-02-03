@@ -350,7 +350,6 @@ final class GrpcParticipantRepairService(
   ): StreamObserver[ImportAcsRequest] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-    // TODO(#23818): This buffer will contain the whole ACS snapshot.
     val outputStream = new ByteArrayOutputStream()
 
     // (workflowIdPrefix, ContractImportMode, excludedStakeholders, representativePackageIdOverride)
@@ -615,15 +614,18 @@ final class GrpcParticipantRepairService(
 
       workflowIdPrefixO = Option.when(workflowIdPrefix != "")(workflowIdPrefix)
 
-      _ <- repairContracts.groupBy(_.synchronizerId).toSeq.parTraverse_ {
-        case (synchronizerId, contracts) =>
-          MonadUtil.batchedSequentialTraverse_(
-            batching.parallelism,
-            batching.maxAcsImportBatchSize,
-          )(contracts)(
-            writeContractsBatchOld(workflowIdPrefixO)(synchronizerId, _)
-              .mapK(FutureUnlessShutdown.outcomeK)
-          )
+      _ <- MonadUtil.sequentialTraverse_(
+        repairContracts
+          .groupBy(_.synchronizerId)
+          .toSeq
+      ) { case (synchronizerId, contracts) =>
+        MonadUtil.batchedSequentialTraverse_(
+          batching.parallelism,
+          batching.maxAcsImportBatchSize,
+        )(contracts)(
+          writeContractsBatchOld(workflowIdPrefixO)(synchronizerId, _)
+            .mapK(FutureUnlessShutdown.outcomeK)
+        )
       }
 
     } yield ()

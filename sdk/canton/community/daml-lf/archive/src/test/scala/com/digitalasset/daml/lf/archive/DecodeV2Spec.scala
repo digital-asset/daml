@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.archive
 
-import com.daml.SafeProto
+import com.digitalasset.daml.SafeProto
 
 import java.math.BigDecimal
 import java.nio.file.Paths

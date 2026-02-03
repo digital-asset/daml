@@ -47,6 +47,7 @@ import com.daml.ledger.api.v2.command_service.{
 import com.daml.ledger.api.v2.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v2.commands.{Command as ApiCommand, Commands}
 import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.contract_service.GetContractRequest
 import com.daml.ledger.api.v2.event.Event.Event.Created
 import com.daml.ledger.api.v2.event.{CreatedEvent, Event}
 import com.daml.ledger.api.v2.event_query_service.{
@@ -633,6 +634,19 @@ final class SingleParticipantTestContext private[participant] (
         )
       )
     } yield acs
+
+  override def contract(
+      queryingParties: Option[Seq[Party]],
+      contractId: String,
+  ): Future[Option[CreatedEvent]] =
+    services.contract
+      .getContract(
+        GetContractRequest(
+          contractId = contractId,
+          queryingParties = queryingParties.getOrElse(Set.empty).toList.map(_.underlying.getValue),
+        )
+      )
+      .map(_.createdEvent)
 
   def eventFormat(
       verbose: Boolean,

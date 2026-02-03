@@ -64,7 +64,7 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.ActiveRequestsMetrics.GrpcServerMetricsX
-import com.digitalasset.canton.metrics.{DbStorageMetrics, DeclarativeApiMetrics}
+import com.digitalasset.canton.metrics.{CacheMetrics, DbStorageMetrics, DeclarativeApiMetrics}
 import com.digitalasset.canton.networking.grpc.{
   CantonGrpcUtil,
   CantonMutableHandlerRegistry,
@@ -178,7 +178,7 @@ trait BaseMetrics {
   def openTelemetryMetricsFactory: LabeledMetricsFactory
 
   def grpcMetrics: GrpcServerMetricsX
-
+  def topologyCache: CacheMetrics
   def healthMetrics: HealthMetrics
   def storageMetrics: DbStorageMetrics
   val declarativeApiMetrics: DeclarativeApiMetrics
@@ -446,6 +446,10 @@ abstract class CantonNodeBootstrapImpl[
             }
 
           addCloseable(storage)
+          addCloseable(new AutoCloseable {
+            override def close(): Unit =
+              arguments.metrics.openTelemetryMetricsFactory.closeAcquired()
+          })
           Some(new SetupCrypto(storage, healthService, livenessService))
         }
     }

@@ -248,7 +248,7 @@ class TrafficCostEstimator(
                   signatures = signatures,
                   transactionUUID = UUID.randomUUID(),
                   mediatorGroup = mediatorGroupIndex,
-                  maxRecordTimeO = None,
+                  maxRecordTime = None,
                 )
               )
             )

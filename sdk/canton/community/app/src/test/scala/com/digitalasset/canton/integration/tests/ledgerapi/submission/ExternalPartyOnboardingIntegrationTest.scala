@@ -75,6 +75,16 @@ trait ExternalPartyOnboardingIntegrationTestSetup
 
 class ExternalPartyOnboardingIntegrationTest extends ExternalPartyOnboardingIntegrationTestSetup {
   "External party onboarding" should {
+    "allocate a simple external party" in { implicit env =>
+      import env.*
+
+      val patrick = participant1.parties.testing.external.enable("Patrick")
+      participant1.parties
+        .list(filterParty = patrick.filterString)
+        .loneElement
+        .party shouldBe patrick.partyId
+    }
+
     "allocate a party with a PartyToKeyMapping" in { implicit env =>
       import env.*
       val namespaceKey = global_secret.keys.secret

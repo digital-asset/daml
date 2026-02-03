@@ -203,6 +203,7 @@ enum HashingSchemeVersion {
   HASHING_SCHEME_VERSION_UNSPECIFIED = 0;
   reserved 1; // Hashing Scheme V1 - unsupported
   HASHING_SCHEME_VERSION_V2 = 2;
+  HASHING_SCHEME_VERSION_V3 = 3;
 }
 // [docs-entry-end: HashingSchemeVersion]
 
