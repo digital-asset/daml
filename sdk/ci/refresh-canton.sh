@@ -73,6 +73,7 @@ EXCLUDED_DIRS=(
   "base/nameof"
   "base/nonempty"
   "base/nonempty-cats"
+  "base/ports"
 )
 
 is_excluded() {

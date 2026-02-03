@@ -1765,23 +1765,6 @@ da_scala_library(
     deps = ["@maven//:com_google_protobuf_protobuf_java"],
 )
 
-da_scala_library(
-    name = "ports",
-    srcs = [
-        "base/ports/src/main/scala/com/daml/ports/Port.scala",
-        "base/ports/src/main/scala/com/daml/ports/PortFiles.scala",
-        "base/ports/src/main/scala/com/daml/ports/PortLock.scala",
-    ],
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    tags = ["maven_coordinates=com.daml:ports:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-)
-
 proto_library(
     name = "sample-service-proto",
     srcs = ["base/sample-service/src/main/protobuf/com/daml/platform/hello/package.proto"],
