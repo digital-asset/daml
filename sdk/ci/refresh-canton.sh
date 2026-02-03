@@ -70,6 +70,7 @@ EXCLUDED_DIRS=(
   "base/ledger-resources"
   "base/logging-entries"
   "base/observability/metrics"
+  "base/nameof"
 )
 
 is_excluded() {

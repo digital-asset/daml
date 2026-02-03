@@ -1806,24 +1806,6 @@ da_scala_library(
     deps = ["@maven//:com_google_protobuf_protobuf_java"],
 )
 
-da_scala_macro_library(
-    name = "nameof",
-    srcs = glob(["base/nameof/src/main/scala/**/*.scala"]),
-    scalacopts = canton_scalacopts + ["-Wconf:cat=unused-imports:s"],
-    tags = ["maven_coordinates=com.daml:nameof:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    runtime_deps = [
-        "@maven//:org_scala_lang_scala_compiler",
-        "@maven//:org_scala_lang_scala_reflect",
-    ],
-    deps = [
-        "@maven//:org_scala_lang_scala_compiler",
-        "@maven//:org_scala_lang_scala_reflect",
-    ],
-)
-
 da_scala_library(
     name = "ports",
     srcs = [
