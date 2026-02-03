@@ -189,7 +189,7 @@ findPackageResolutionData path (ResolutionData packages) =
   Map.lookup (toPosixFilePath path) packages & \case
     Just (ErrorPackageResolutionData errs) -> Left $ ResolutionError $ "Couldn't resolve package " <> path <> ":\n" <> unlines (show <$> errs)
     Just (ValidPackageResolutionData res) -> Right res
-    Nothing -> Left $ ResolutionError $ "Failed to find DPM package resolution for " <> path <> ". This should never happen, contact support."
+    Nothing -> Left $ ResolutionError $ "DPM did not provide information for package at " <> path <> ". Is this a valid package? If you have a multi-package.yaml, is this package included?"
 
 resolutionFileEnvVar :: String
 resolutionFileEnvVar = "DPM_RESOLUTION_FILE"
