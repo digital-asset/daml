@@ -19,11 +19,22 @@ External calls are fully compatible with Daml's execution model and security
 guarantees. They maintain deterministic execution and consensus properties
 through the following design:
 
+**Update Monad Integration**: External calls are ``Update`` actions, ensuring
+they are properly recorded in the transaction structure. This allows the ledger
+to track external interactions and maintain auditability.
+
+**Question/Answer Interface**: The engine delegates HTTP calls to the participant
+via a question/answer interface. This ensures connection pooling is managed at
+the participant level and the engine does not make direct network calls.
+
+**Multiple Extension Support**: Participants can configure multiple extension
+services, each with its own endpoint, authentication, and function declarations.
+This enables different use cases (oracles, KYC, etc.) to coexist.
+
 **Deterministic Services**: The external service must be fully deterministic.
-Given identical inputs (``functionId``, ``configHex``, and ``inputHex``), it
-must always produce the same output. This is enforced by requiring all
-participants to use the same service configuration and/or binary, verified through
-the ``configHex`` hash parameter.
+Given identical inputs, it must always produce the same output. This is enforced
+by requiring all participants to use the same service configuration and/or binary,
+verified through the ``configHash`` parameter.
 
 **Local Execution**: Each participant runs its own local instance of the
 external service. This eliminates network dependencies and single points of
@@ -35,13 +46,9 @@ external call, each participant independently executes the same call with
 identical parameters. The transaction is only accepted if all participants
 obtain identical results from their respective service instances.
 
-**Consensus Preservation**: Since all participants must arrive at the same
-result, external calls preserve the consensus properties of the ledger. If any
-participant's service produces a different result, the transaction is rejected,
-maintaining ledger integrity.
-
-The external service becomes part of the deterministic execution environment,
-similar to built-in functions, while enabling integration with external systems.
+**Startup Validation**: On participant startup, the system validates that all
+DARs have their extension requirements satisfied by the participant's
+configuration. This detects misconfigurations and version drift early.
 
 Types
 -----
@@ -55,57 +62,52 @@ Types
   contain only hexadecimal characters (0-9, a-f, A-F) and have an even length
   (each pair of hex characters represents one byte).
 
-  Note: This is a separate type alias from ``DA.Crypto.Text.BytesHex``, though
-  both represent the same concept (``Text``). They are kept separate because
-  ``DA.Crypto.Text`` is an alpha feature, while ``DA.External`` is stable. This
-  avoids coupling stable functionality to alpha features.
-
 Functions
 ---------
 
 .. _function-da-external-externalcall-71234:
 
 `externalCall <function-da-external-externalcall-71234_>`_
-  \: :ref:`Text <type-ghc-types-text-51952>` \-\> :ref:`BytesHex <type-da-external-byteshex-28451>` \-\> :ref:`BytesHex <type-da-external-byteshex-28451>` \-\> :ref:`Optional <type-da-internal-prelude-optional-37153>` :ref:`BytesHex <type-da-external-byteshex-28451>`
+  \: :ref:`Text <type-ghc-types-text-51952>` \-\> :ref:`Text <type-ghc-types-text-51952>` \-\> :ref:`BytesHex <type-da-external-byteshex-28451>` \-\> :ref:`BytesHex <type-da-external-byteshex-28451>` \-\> :ref:`Update <type-da-internal-lf-update-68702>` :ref:`BytesHex <type-da-external-byteshex-28451>`
 
-  Makes an external call to a deterministic service identified by ``functionId``
-  with the provided configuration hash and input data, both encoded as
-  hexadecimal strings.
+  Makes an external call to a configured extension service. This is an
+  ``Update`` action that records the external call in the transaction.
 
   **Parameters:**
 
-  * ``functionId``: The identifier of the external function to call (e.g.,
-    "echo", "oracle", "price-feed"). This value is sent as the
-    ``X-Daml-External-Function-Id`` HTTP header, allowing the external service
-    to route requests to different handlers or endpoints.
+  * ``extensionId``: The identifier of the configured extension (must match
+    a key in the Canton participant's ``engine.extensions`` configuration).
 
-  * ``configHex``: A hash (encoded in hex) of the external service's
+  * ``functionId``: The identifier of the function within the extension to call
+    (e.g., "get-price", "verify-identity"). This value is sent as the
+    ``X-Daml-External-Function-Id`` HTTP header.
+
+  * ``configHash``: A hash (encoded in hex) of the external service's
     configuration and/or binary. Must be valid hex-encoded bytes (even length,
     characters 0-9, a-f, A-F). This parameter ensures all participants use the
-    same service version by comparing the hash of their local service against
-    this value. Essential for maintaining consensus.
+    same service version.
 
   * ``inputHex``: Input data for the external call, encoded as a hex string.
     Must be valid hex-encoded bytes (even length, characters 0-9, a-f, A-F).
 
   **Returns:**
 
-  * ``Some result``: If the call succeeds and both input arguments are valid
-    hex-encoded bytes. The result is normalized to lowercase hexadecimal.
+  * The response from the external service as a hex string (normalized to
+    lowercase).
 
-  * ``None``: If either input argument is invalid (not hex-encoded or odd
-    length), or if the external call fails (HTTP errors, timeouts, connection
-    failures).
+  **Errors:**
 
-  **Behavior:**
+  The function throws an error (aborting the transaction) if:
 
-  * Input validation occurs before making the external call. Invalid inputs
-    result in ``None`` without attempting the HTTP request.
+  * Either ``configHash`` or ``inputHex`` is invalid hex (not hex-encoded or
+    odd length).
 
-  * All hex inputs are normalized to lowercase before being passed to the
-    external call primitive.
+  * The extension is not configured on the participant.
 
-  * Successful results are returned as lowercase hexadecimal strings.
+  * The HTTP call fails (network error, timeout, non-200 response).
+
+  Error messages include detailed context (HTTP status, request ID, extension
+  ID, function ID) for debugging.
 
 .. _function-da-external-ishex-17968:
 
@@ -113,8 +115,7 @@ Functions
   \: :ref:`Text <type-ghc-types-text-51952>` \-\> :ref:`Bool <type-ghc-types-bool-66265>`
 
   Checks whether a text string contains only valid hexadecimal characters
-  (0-9, a-f, A-F). Does not check the length of the string. An empty string
-  returns ``True`` (vacuously, as all characters are valid hex).
+  (0-9, a-f, A-F). Does not check the length of the string.
 
 .. _function-da-external-isbyteshex-48261:
 
@@ -125,103 +126,97 @@ Functions
   ``True`` if the string has an even length and contains only valid hexadecimal
   characters (0-9, a-f, A-F).
 
-Configuration
--------------
+Canton Configuration
+--------------------
 
-External calls are configured via environment variables or system properties:
+External calls are configured in the Canton participant configuration file:
 
-**DAML_EXTERNAL_CALL_ENDPOINT** (or ``daml.external.call.endpoint`` system property)
-  The full URL for the external call endpoint, including the path. Must be a valid HTTP or HTTPS URL.
-  
-  Default: ``http://127.0.0.1:1606/api/v1/external-call``
-  
-  Example: ``export DAML_EXTERNAL_CALL_ENDPOINT="https://api.example.com/api/v1/external-call"``
+.. code-block:: hocon
 
-**DAML_EXTERNAL_CALL_ECHO** (or ``daml.external.call.echo`` system property)
-  Enables echo mode for testing. When enabled, returns the input hex string as
-  output without making an HTTP request.
-  
-  Accepts: ``1``, ``true``, ``yes`` (case-insensitive)
-  
-  Default: Echo mode is disabled (HTTP requests are made)
-  
-  Example: ``export DAML_EXTERNAL_CALL_ECHO="true"``
+   canton.participants.mynode.parameters.engine {
+     # Map of extension ID to extension configuration
+     extensions {
+       price-oracle {
+         name = "Price Oracle Service"
+         host = "oracle.example.com"
+         port = 8443
+         use-tls = true
+         jwt-file = "/secrets/oracle-jwt.txt"
+         connect-timeout = 500ms
+         request-timeout = 8s
+         max-retries = 3
 
-**DAML_EXTERNAL_CALL_COST_<FUNCTION_ID>** (or ``daml.external.call.cost.<functionId>`` system property)
-  Configures the cost/weight for external calls on a per-function basis. This allows
-  different functions to have different costs based on their computational requirements.
-  
-  The cost is looked up dynamically each time an external call is made, allowing
-  configuration changes without code modifications.
-  
-  **Environment Variable Format:**
-  
-  * Pattern: ``DAML_EXTERNAL_CALL_COST_<FUNCTION_ID>`` where ``<FUNCTION_ID>`` is the
-    function identifier in uppercase (e.g., ``ECHO``, ``ORACLE``, ``PRICE_FEED``)
-  * Value: A positive integer representing the cost/weight
-  * Default: ``0`` (if not set or if the value cannot be parsed)
-  
-  **System Property Format:**
-  
-  * Pattern: ``daml.external.call.cost.<functionId>`` where ``<functionId>`` is the
-    function identifier in lowercase (e.g., ``echo``, ``oracle``, ``price-feed``)
-  * Value: A positive integer representing the cost/weight
-  * Default: ``0`` (if not set or if the value cannot be parsed)
-  
-  **Lookup Order:**
-  
-  1. Environment variable (checked first)
-  2. System property (checked if environment variable is not set)
-  3. Default value of ``0`` (used if neither is set or if the value is invalid)
-  
-  **Examples:**
-  
-  .. code-block:: bash
-  
-     # Set cost for "echo" function via environment variable
-     export DAML_EXTERNAL_CALL_COST_ECHO=1000
-     
-     # Set cost for "oracle" function via environment variable
-     export DAML_EXTERNAL_CALL_COST_ORACLE=5000
-     
-     # Set cost via system property (lowercase function ID)
-     -Ddaml.external.call.cost.echo=1000
-     -Ddaml.external.call.cost.oracle=5000
-  
-  **Note:** Function IDs in environment variable names must be uppercase, while system
-  property names use lowercase function IDs. Invalid values (non-numeric strings) are
-  silently ignored and the default cost of ``0`` is used.
+         # Declared functions for startup validation
+         declared-functions = [
+           { function-id = "get-price", config-hash = "a1b2c3d4..." }
+           { function-id = "get-volatility", config-hash = "e5f6g7h8..." }
+         ]
+       }
+
+       kyc-service {
+         name = "KYC Verification Service"
+         host = "kyc.internal"
+         port = 8080
+         use-tls = false
+         jwt = "eyJhbGciOiJIUzI1NiIs..."
+
+         declared-functions = [
+           { function-id = "verify-identity", config-hash = "..." }
+         ]
+       }
+     }
+
+     extension-settings {
+       # Validate extension configurations on startup
+       validate-extensions-on-startup = true
+
+       # Fail startup if validation fails
+       fail-on-extension-validation-error = true
+
+       # Echo mode for testing (returns input as output)
+       echo-mode = false
+     }
+   }
+
+**Configuration Options:**
+
+* ``name``: Human-readable name for the extension
+* ``host``: Hostname of the extension service
+* ``port``: Port of the extension service
+* ``use-tls``: Whether to use TLS for the connection (default: true)
+* ``tls-insecure``: Skip TLS certificate validation (dev only, default: false)
+* ``jwt``: JWT token for authentication
+* ``jwt-file``: Path to file containing JWT token
+* ``connect-timeout``: Connection timeout (default: 500ms)
+* ``request-timeout``: Request timeout (default: 8s)
+* ``max-total-timeout``: Maximum total time including retries (default: 25s)
+* ``max-retries``: Maximum retry attempts (default: 3)
+* ``declared-functions``: Functions this extension provides (for validation)
 
 HTTP Protocol
 -------------
 
-When echo mode is disabled, ``externalCall`` makes HTTP POST requests with the
-following format:
+The participant makes HTTP POST requests with the following format:
 
-**Request URL**: Configured via ``DAML_EXTERNAL_CALL_ENDPOINT`` (default:
-``http://127.0.0.1:1606/api/v1/external-call``)
+**Request URL**: ``https://<host>:<port>/api/v1/external-call``
 
 **HTTP Headers**:
 
 * ``Content-Type: application/octet-stream``
 * ``X-Daml-External-Function-Id: <functionId>``
-* ``X-Daml-External-Config-Hash: <configHex>`` (normalized to lowercase)
+* ``X-Daml-External-Config-Hash: <configHash>`` (normalized to lowercase)
 * ``X-Daml-External-Mode: <mode>`` where mode is one of:
-  
+
   * ``validation``: Transaction validation phase
   * ``submission``: Transaction submission phase
-  * ``pure``: Pure computation context
 
-**Request Body**: The normalized (lowercase) hex-encoded input data as a plain
-text string.
+* ``X-Request-Id: <uuid>`` (for request tracking)
+* ``Authorization: Bearer <jwt>`` (if JWT is configured)
 
-**Timeouts**: Connection timeout 500ms, request timeout 1500ms
+**Request Body**: The normalized (lowercase) hex-encoded input data.
 
-**HTTP Version**: HTTP/1.1
-
-**Response**: HTTP 200 returns ``Some`` with the response body (expected to be
-hex-encoded, normalized to lowercase). Any other status code or network error
-returns ``None``.
+**Response**: HTTP 200 with the hex-encoded response body. Any other status
+code triggers retries (for 408, 429, 500, 502, 503, 504) or immediate failure.
 
 Examples
 --------
@@ -231,26 +226,21 @@ Basic usage:
 .. code-block:: daml
 
    import DA.External
-   import DA.Assert
 
-   testSuccess : ()
-   testSuccess =
-     -- configHex should be a cryptographic hash of the service configuration
-     case externalCall "echo" "a1b2c3d4e5f6" "cafebabe" of
-       Some res -> assert (res == "cafebabe")
-       None -> abort "unexpected failure"
+   template PriceOracle
+     with
+       owner : Party
+     where
+       signatory owner
 
-Handling invalid input:
-
-.. code-block:: daml
-
-   import DA.External
-
-   testFailure : ()
-   testFailure =
-     case externalCall "echo" "xyz" "00" of
-       Some _ -> abort "expected failure"
-       None -> ()  -- Invalid hex input "xyz" causes None
+       choice GetPrice : Text
+         with
+           asset : Text
+         controller owner
+         do
+           -- Make external call to price oracle
+           result <- externalCall "price-oracle" "get-price" "a1b2c3d4" asset
+           pure result
 
 Using validation helpers:
 
@@ -258,39 +248,27 @@ Using validation helpers:
 
    import DA.External
 
-   validateInput : Text -> Optional BytesHex
-   validateInput input =
-     if isBytesHex input
-       then Some input
-       else None
-
-   safeExternalCall : Text -> Text -> Text -> Optional BytesHex
-   safeExternalCall functionId config input =
-     case (validateInput config, validateInput input) of
-       (Some configHex, Some inputHex) -> externalCall functionId configHex inputHex
-       _ -> None
+   validateAndCall : Text -> Text -> Text -> Text -> Update (Optional Text)
+   validateAndCall extId funcId config input = do
+     if isBytesHex config && isBytesHex input
+       then do
+         result <- externalCall extId funcId config input
+         pure (Some result)
+       else pure None
 
 Security Best Practices
 -----------------------
 
 * **Service Determinism**: The external service must be fully deterministic.
-  Same inputs must always produce same outputs. Non-deterministic services will
-  cause transaction validation failures.
+  Same inputs must always produce same outputs.
 
 * **Configuration Hash**: Use a cryptographic hash (e.g., SHA-256) of the
-  service's configuration and/or binary for ``configHex``. This ensures all
-  participants use the same service version.
+  service's configuration for ``configHash``.
 
-* **HTTPS in Production**: Use HTTPS endpoints to ensure data confidentiality
-  and integrity in transit.
+* **HTTPS in Production**: Always use TLS in production environments.
 
-* **Response Validation**: Always validate and sanitize responses from external
-  services before using them in critical business logic.
+* **Startup Validation**: Enable ``validate-extensions-on-startup`` to catch
+  configuration issues early.
 
-* **Timeout Handling**: External calls have strict timeouts (500ms connection,
-  1500ms request). Design services to respond within these limits, or handle
-  timeouts gracefully in Daml code.
-
-* **Service Verification**: The external service should verify the
-  ``X-Daml-External-Config-Hash`` header matches its own configuration hash to
-  ensure it's being called with the expected configuration.
+* **Function Declarations**: Declare all functions in the extension config
+  to enable version drift detection.

@@ -3,35 +3,62 @@ module ExternalCall where
 import DA.Assert
 import DA.External
 
--- Test successful external call
--- When echo mode is enabled (DAML_EXTERNAL_CALL_ECHO=true), 
--- the function returns the input as output
-testExternalCallSuccess : ()
-testExternalCallSuccess =
-  let res = externalCall "echo" "AaBb" "AaBb"
-  in assert (res == "aabb")
+-- Test template that makes an external call
+template ExternalCallTest
+  with
+    owner : Party
+  where
+    signatory owner
+
+    choice MakeExternalCall : Text
+      with
+        extensionId : Text
+        functionId : Text
+        configHex : Text
+        inputHex : Text
+      controller owner
+      do
+        -- externalCall is now an Update action
+        result <- externalCall extensionId functionId configHex inputHex
+        pure result
+
+-- Test helper functions (pure, don't require Update monad)
+testIsHex : ()
+testIsHex = do
+  assert (isHex "0123456789abcdef")
+  assert (isHex "ABCDEF")
+  assert (not (isHex "ghij"))
+  assert (not (isHex "!@#$"))
+
+testIsBytesHex : ()
+testIsBytesHex = do
+  assert (isBytesHex "00")
+  assert (isBytesHex "aabb")
+  assert (isBytesHex "AABBCCDD")
+  assert (not (isBytesHex "a"))  -- odd length
+  assert (not (isBytesHex "abc"))  -- odd length
+  assert (not (isBytesHex "gg"))  -- invalid chars
 
 -- The following tests demonstrate error cases.
 -- They are commented out because they throw errors that abort the transaction.
 
--- testExternalCallInvalidHexConfig : ()
--- testExternalCallInvalidHexConfig =
---   let _ = externalCall "echo" "g1" "00"
---   in ()
+-- testExternalCallInvalidHexConfig : Party -> Update ()
+-- testExternalCallInvalidHexConfig party = do
+--   _ <- externalCall "echo" "test" "g1" "00"
+--   pure ()
 --   -- Throws: "External call failed: Invalid hex encoding in config: g1"
 
--- testExternalCallOddLengthHex : ()
--- testExternalCallOddLengthHex =
---   let _ = externalCall "echo" "abc" "00"
---   in ()
---   -- Throws: "External call failed: Invalid hex encoding in input: abc"
+-- testExternalCallOddLengthHex : Party -> Update ()
+-- testExternalCallOddLengthHex party = do
+--   _ <- externalCall "echo" "test" "abc" "00"
+--   pure ()
+--   -- Throws: "External call failed: Invalid hex encoding in config: abc"
 
--- testExternalCallHttpFailure : ()
--- testExternalCallHttpFailure =
---   let _ = externalCall "nonexistent" "00" "00"
---   in ()
---   -- Throws with detailed HTTP error information:
---   -- "External call failed: Function not found (status=404, requestId=<uuid>, functionId=nonexistent, mode=pure)"
+-- testExternalCallMissingExtension : Party -> Update ()
+-- testExternalCallMissingExtension party = do
+--   _ <- externalCall "nonexistent" "test" "00" "00"
+--   pure ()
+--   -- Throws: "External call failed: Extension 'nonexistent' not configured"
 
 -- Error Handling Behavior:
 --
@@ -41,13 +68,37 @@ testExternalCallSuccess =
 --    - Caught at the Daml layer before calling the external service
 --    - Error message includes the invalid input
 --
--- 2. HTTP errors (timeouts, non-200 responses, connection failures):
---    - Propagated from the ExternalHttpClient with full context
+-- 2. Extension not configured:
+--    - The extension ID must match a configured extension in Canton config
+--    - Error includes available extension IDs
+--
+-- 3. HTTP errors (timeouts, non-200 responses, connection failures):
+--    - Propagated from the participant's extension service client
 --    - Error message includes:
 --      * HTTP status code (e.g., 404, 500, 503)
 --      * Request ID for traceability
---      * Function ID
---      * Execution mode (submission/validation/pure)
+--      * Extension ID and Function ID
 --
 -- All errors are returned to the transaction initiator as INTERPRETATION_USER_ERROR
 -- through the Canton error handling system, providing complete debugging context.
+--
+-- Example Canton Configuration:
+--
+-- canton.participants.mynode.parameters.engine {
+--   extensions {
+--     price-oracle {
+--       name = "Price Oracle Service"
+--       host = "oracle.example.com"
+--       port = 8443
+--       jwt-file = "/secrets/oracle-jwt.txt"
+--       declared-functions = [
+--         { function-id = "get-price", config-hash = "a1b2c3d4" }
+--       ]
+--     }
+--   }
+--   extension-settings {
+--     validate-extensions-on-startup = true
+--     fail-on-extension-validation-error = true
+--     echo-mode = false  -- Set to true for testing
+--   }
+-- }
