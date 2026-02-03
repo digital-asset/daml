@@ -75,6 +75,7 @@ EXCLUDED_DIRS=(
   "base/nonempty-cats"
   "base/ports"
   "base/resources"
+  "base/resources-grpc"
 )
 
 is_excluded() {
