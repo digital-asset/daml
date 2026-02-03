@@ -80,6 +80,7 @@ EXCLUDED_DIRS=(
   "base/rs-grpc-bridge"
   "base/rs-grpc-pekko"
   "base/rs-grpc-testing-utils"
+  "base/safe-proto"
 )
 
 is_excluded() {
