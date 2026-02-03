@@ -1811,14 +1811,6 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "executors",
-    srcs = glob(["base/executors/src/main/scala/**/*.scala"]),
-    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    tags = ["maven_coordinates=com.daml:executors:__VERSION__"],
-    visibility = ["//visibility:public"],
-)
-
-da_scala_library(
     name = "http-test-utils",
     srcs = glob(["base/http-test-utils/src/main/scala/**/*.scala"]),
     scala_deps = [
