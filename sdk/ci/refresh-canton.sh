@@ -59,6 +59,7 @@ EXCLUDED_DIRS=(
   "community/daml-lf/transaction-test-lib"
   "community/daml-lf/transaction-tests"
   "community/daml-lf/upgrades-matrix"
+  "community/daml-lf/engine"
 )
 
 is_excluded() {
