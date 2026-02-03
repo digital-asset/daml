@@ -86,6 +86,7 @@ EXCLUDED_DIRS=(
   "base/scala-utils"
   "base/struct-json"
   "base/test-evidence"
+  "base/testing-utils"
 )
 
 is_excluded() {
