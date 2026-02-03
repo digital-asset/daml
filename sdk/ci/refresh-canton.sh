@@ -72,6 +72,7 @@ EXCLUDED_DIRS=(
   "base/observability/metrics"
   "base/nameof"
   "base/nonempty"
+  "base/nonempty-cats"
 )
 
 is_excluded() {
