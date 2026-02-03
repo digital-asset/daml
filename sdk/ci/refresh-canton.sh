@@ -66,6 +66,7 @@ EXCLUDED_DIRS=(
   "base/crypto"
   "base/executors"
   "base/grpc-test-utils"
+  "base/http-test-utils"
 )
 
 is_excluded() {
