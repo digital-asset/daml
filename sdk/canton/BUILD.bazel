@@ -1603,25 +1603,6 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "nonempty",
-    srcs = glob(["base/nonempty/src/main/scala/**/*.scala"]),
-    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    plugins = [
-        kind_projector_plugin,
-    ],
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    tags = ["maven_coordinates=com.daml:nonempty:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        "@maven//:com_daml_scala_utils_2_13",
-    ],
-)
-
-da_scala_library(
     name = "nonempty-cats",
     srcs = glob(["base/nonempty-cats/src/main/scala/**/*.scala"]),
     override_scalacopts = canton_scalacopts + ["-language:postfixOps"],

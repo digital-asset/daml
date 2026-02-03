@@ -71,6 +71,7 @@ EXCLUDED_DIRS=(
   "base/logging-entries"
   "base/observability/metrics"
   "base/nameof"
+  "base/nonempty"
 )
 
 is_excluded() {
