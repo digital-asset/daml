@@ -209,6 +209,7 @@ class Engine(val config: EngineConfig) {
       contractIdVersion: ContractIdVersion,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
+      storedExternalCallResults: Engine.StoredExternalCallResults = Map.empty,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       speedyCommand <- preprocessor.preprocessReplayCommand(command)
@@ -229,6 +230,7 @@ class Engine(val config: EngineConfig) {
         packageResolution = packageResolution,
         engineLogger = engineLogger,
         submissionInfo = None,
+        storedExternalCallResults = storedExternalCallResults,
       )
       (tx, meta, _) = result
     } yield (tx, meta)
@@ -458,6 +460,7 @@ class Engine(val config: EngineConfig) {
       engineLogger: Option[EngineLogger] = None,
       submissionInfo: Option[Engine.SubmissionInfo] = None,
       metricPlugins: Seq[MetricPlugin] = Seq.empty,
+      storedExternalCallResults: Engine.StoredExternalCallResults = Map.empty,
   )(implicit
       loggingContext: LoggingContext
   ): Result[(SubmittedTransaction, Tx.Metadata, Speedy.Metrics)] = {
@@ -480,7 +483,7 @@ class Engine(val config: EngineConfig) {
       initialGasBudget = config.gasBudget,
       metricPlugins = metricPlugins,
     )
-    interpretLoop(machine, ledgerTime, submissionInfo)
+    interpretLoop(machine, ledgerTime, submissionInfo, storedExternalCallResults)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
@@ -526,6 +529,7 @@ class Engine(val config: EngineConfig) {
       machine: UpdateMachine,
       time: Time.Timestamp,
       submissionInfo: Option[Engine.SubmissionInfo] = None,
+      storedExternalCallResults: Engine.StoredExternalCallResults = Map.empty,
   ): Result[(SubmittedTransaction, Tx.Metadata, Speedy.Metrics)] = {
     val abort = () => {
       machine.abort()
@@ -658,7 +662,7 @@ class Engine(val config: EngineConfig) {
                 { pkg: Package =>
                   compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
                     callback(compiledPackages)
-                    interpretLoop(machine, time, submissionInfo)
+                    interpretLoop(machine, time, submissionInfo, storedExternalCallResults)
                   }
                 },
               )
@@ -668,7 +672,7 @@ class Engine(val config: EngineConfig) {
                 coid,
                 { (coinst, hashMethod, authenticator) =>
                   callback(coinst, hashMethod, authenticator)
-                  interpretLoop(machine, time, submissionInfo)
+                  interpretLoop(machine, time, submissionInfo, storedExternalCallResults)
                 },
               )
 
@@ -677,13 +681,32 @@ class Engine(val config: EngineConfig) {
                 gk,
                 { coid: Option[ContractId] =>
                   discard[Boolean](callback(coid))
-                  interpretLoop(machine, time, submissionInfo)
+                  interpretLoop(machine, time, submissionInfo, storedExternalCallResults)
+                },
+              )
+
+            case Question.Update.NeedExternalCall(extensionId, functionId, configHash, input, callback) =>
+              // Look up stored result for replay mode
+              val storedResult = storedExternalCallResults.get((extensionId, functionId, configHash, input))
+              ResultNeedExternalCall(
+                extensionId,
+                functionId,
+                configHash,
+                input,
+                storedResult = storedResult,
+                { result: Either[ExternalCallError, String] =>
+                  // Convert engine-level ExternalCallError to speedy-level ExternalCallError
+                  val speedyResult = result.left.map { e =>
+                    Question.Update.ExternalCallError(e.statusCode, e.message, e.requestId)
+                  }
+                  callback(speedyResult)
+                  interpretLoop(machine, time, submissionInfo, storedExternalCallResults)
                 },
               )
           }
 
         case SResultInterruption =>
-          ResultInterruption(() => interpretLoop(machine, time, submissionInfo), abort)
+          ResultInterruption(() => interpretLoop(machine, time, submissionInfo, storedExternalCallResults), abort)
 
         case _: SResultFinal =>
           finish
@@ -976,6 +999,12 @@ class Engine(val config: EngineConfig) {
 object Engine {
 
   type Packages = Map[PackageId, Package]
+
+  /** External call results stored during initial transaction execution.
+    * Key: (extensionId, functionId, configHash, inputHex)
+    * Value: outputHex
+    */
+  type StoredExternalCallResults = Map[(String, String, String, String), String]
 
   private[engine] final case class SubmissionInfo(
       participantId: Ref.ParticipantId,

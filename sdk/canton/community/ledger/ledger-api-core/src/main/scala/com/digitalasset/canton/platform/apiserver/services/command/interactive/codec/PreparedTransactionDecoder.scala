@@ -239,6 +239,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         .withFieldConst(_.keyOpt, None)
         .withFieldConst(_.byKey, false)
         .withFieldConst(_.choiceAuthorizers, None)
+        .withFieldConst(_.externalCallResults, lf.data.ImmArray.Empty)
         .buildTransformer
 
     private implicit val rollbackTransformer

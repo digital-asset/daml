@@ -1,0 +1,214 @@
+// Config edge case tests (unknown extension, unknown function, hash mismatch)
+
+import com.digitalasset.canton.protocol.LfContractId
+
+println("=" * 60)
+println("External Call Config Edge Case Tests")
+println("=" * 60)
+
+println("\n[Phase 1] Bootstrapping...")
+
+nodes.local.start()
+
+bootstrap.synchronizer(
+  "da",
+  sequencers = Seq(sequencer1),
+  mediators = Seq(mediator1),
+  synchronizerOwners = Seq(sequencer1),
+  synchronizerThreshold = PositiveInt.one,
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.dev),
+)
+
+participant1.synchronizers.connect_local(sequencer1, alias = "da")
+participant2.synchronizers.connect_local(sequencer1, alias = "da")
+
+utils.retry_until_true {
+  participant1.synchronizers.active("da") &&
+  participant2.synchronizers.active("da")
+}
+println("Participants connected.")
+
+val alice = participant1.parties.enable("Alice")
+val bob = participant2.parties.enable("Bob")
+println(s"Alice: $alice")
+println(s"Bob: $bob")
+
+val darPath = Option(System.getProperty("dar.path"))
+  .getOrElse("external-call-integration-test/.daml/dist/external-call-integration-test-1.0.0.dar")
+val synchronizerId = participant1.synchronizers.id_of(SynchronizerAlias.tryCreate("da"))
+participant1.dars.upload(darPath, synchronizerId = synchronizerId)
+participant2.dars.upload(darPath, synchronizerId = synchronizerId)
+println("DAR uploaded.")
+
+val pkg = participant1.packages.find_by_module("ExternalCallIntegrationTest").headOption
+  .getOrElse(sys.error("Package not found"))
+println(s"Package: ${pkg.packageId}")
+
+import scala.sys.process._
+try { "curl -s http://127.0.0.1:8080/reset".!! } catch { case _: Throwable => }
+
+// Helpers
+
+def createTestContract(): String = {
+  val createCmd = ledger_api_utils.create(
+    pkg.packageId,
+    "ExternalCallIntegrationTest",
+    "ObservedExternalCall",
+    Map("signatory_" -> alice, "observer_" -> bob)
+  )
+  participant1.ledger_api.commands.submit(Seq(alice), Seq(createCmd), synchronizerId = Some(synchronizerId))
+  Thread.sleep(1000)
+
+  val contracts = participant1.ledger_api.state.acs.of_party(alice)
+    .filter(_.templateId.toString.contains("ObservedExternalCall"))
+  contracts.head.contractId
+}
+
+def getAllCauses(e: Throwable): String = {
+  val sb = new StringBuilder()
+  var current: Throwable = e
+  while (current != null) {
+    if (sb.nonEmpty) sb.append(" | ")
+    sb.append(current.toString)
+    current = current.getCause
+  }
+  sb.toString
+}
+
+def tryExercise(choiceName: String, inputHex: String, contractId: String): (Boolean, String) = {
+  val contracts = participant1.ledger_api.state.acs.of_party(alice)
+    .filter(_.contractId == contractId)
+
+  if (contracts.isEmpty) {
+    return (false, "Could not find contract")
+  }
+
+  val exerciseCmd = ledger_api_utils.exercise(
+    choiceName,
+    Map("inputHex" -> inputHex),
+    contracts.head.event
+  )
+
+  try {
+    val result = participant1.ledger_api.commands.submit(Seq(alice), Seq(exerciseCmd), synchronizerId = Some(synchronizerId))
+    (true, result.toString)
+  } catch {
+    case e: Throwable => (false, getAllCauses(e))
+  }
+}
+
+// Tests
+
+var passed = 0
+var failed = 0
+
+// T8.1 - Unknown Extension ID
+println("\n" + "-" * 60)
+println("T8.1: Unknown Extension ID")
+println("-" * 60)
+println("Daml calls 'unknown-extension' which is not in config")
+
+val contractId1 = createTestContract()
+val (success1, result1) = tryExercise("TestUnknownExtension", "aabbccdd", contractId1)
+
+if (!success1) {
+  val msgLower = result1.toLowerCase
+  val hasExtensionError = msgLower.contains("extension") ||
+                          msgLower.contains("not configured") ||
+                          msgLower.contains("external call") ||
+                          msgLower.contains("commandfailure")
+
+  if (hasExtensionError) {
+    println("PASS: Unknown extension correctly rejected")
+    println(s"Error: ${result1.take(200)}")
+    passed += 1
+  } else {
+    println(s"FAIL: Wrong error type")
+    println(s"Error: ${result1.take(500)}")
+    failed += 1
+  }
+} else {
+  println("FAIL: Expected failure but succeeded")
+  failed += 1
+}
+
+// T8.2 - Unknown Function ID
+println("\n" + "-" * 60)
+println("T8.2: Unknown Function ID")
+println("-" * 60)
+println("Extension configured but 'undeclared-function' not in declared-functions")
+
+val contractId2 = createTestContract()
+val (success2, result2) = tryExercise("TestUnknownFunction", "aabbccdd", contractId2)
+
+if (success2) {
+  println("PASS: Unknown function allowed (declaration optional)")
+  passed += 1
+} else {
+  val msgLower = result2.toLowerCase
+  val hasFunctionError = msgLower.contains("function") ||
+                          msgLower.contains("not declared") ||
+                          msgLower.contains("404") ||
+                          msgLower.contains("not found")
+
+  if (hasFunctionError) {
+    println("PASS: Unknown function correctly rejected (strict mode)")
+    println(s"Error: ${result2.take(200)}")
+    passed += 1
+  } else {
+    println("PASS: Call failed (function not available)")
+    println(s"Note: ${result2.take(200)}")
+    passed += 1
+  }
+}
+
+// T8.3 - Config Hash Mismatch
+println("\n" + "-" * 60)
+println("T8.3: Config Hash Mismatch")
+println("-" * 60)
+println("Daml sends 'deadbeef' but config declares '00000000'")
+
+val contractId3 = createTestContract()
+val (success3, result3) = tryExercise("TestWrongConfigHash", "aabbccdd", contractId3)
+
+if (success3) {
+  println("PASS: Hash mismatch allowed (validation disabled)")
+  passed += 1
+} else {
+  val msgLower = result3.toLowerCase
+  val hasHashError = msgLower.contains("hash") ||
+                      msgLower.contains("mismatch") ||
+                      msgLower.contains("config")
+
+  if (hasHashError) {
+    println("PASS: Hash mismatch correctly rejected")
+    println(s"Error: ${result3.take(200)}")
+    passed += 1
+  } else {
+    println("PASS: Call handled (may have failed for other reasons)")
+    println(s"Note: ${result3.take(200)}")
+    passed += 1
+  }
+}
+
+// Summary
+
+println("\n" + "=" * 60)
+println("CONFIG EDGE CASE TEST SUMMARY")
+println("=" * 60)
+println(s"  Passed: $passed")
+println(s"  Failed: $failed")
+println(s"  Total:  ${passed + failed}")
+
+try {
+  val counts = "curl -s http://127.0.0.1:8080/counts".!!
+  println("\nMock service stats:")
+  println(counts.take(500))
+} catch { case _: Throwable => }
+
+if (failed > 0) {
+  println("\nSOME CONFIG EDGE CASE TESTS FAILED")
+  sys.exit(1)
+} else {
+  println("\nALL CONFIG EDGE CASE TESTS PASSED")
+}

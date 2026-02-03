@@ -50,6 +50,7 @@ import com.digitalasset.canton.util.{ContractValidator, ErrorUtil, RoseTree}
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.canton.{LfKeyResolver, LfPartyId, checked}
 import com.digitalasset.daml.lf.data.Ref.{CommandId, PackageId, PackageName}
+import com.digitalasset.daml.lf.engine.Engine
 
 import java.util.UUID
 import scala.concurrent.ExecutionContext
@@ -253,6 +254,16 @@ class ModelConformanceChecker(
 
     val contractAndKeyLookup = new ExtendedContractLookup(inputContracts, resolverFromView)
 
+    // Extract stored external call results from the action description for replay
+    val storedExternalCallResults: Engine.StoredExternalCallResults =
+      viewParticipantData.actionDescription match {
+        case ex: ActionDescription.ExerciseActionDescription =>
+          ex.externalCallResults.toSeq.map { result =>
+            (result.extensionId, result.functionId, result.configHash, result.inputHex) -> result.outputHex
+          }.toMap
+        case _ => Map.empty
+      }
+
     for {
 
       packagePreference <- buildPackageNameMap(packageIdPreference)
@@ -269,6 +280,7 @@ class ModelConformanceChecker(
           packagePreference,
           failed,
           getEngineAbortStatus,
+          storedExternalCallResults,
         )(traceContext)
         .leftMap(DAMLeError(_, view.viewHash))
         .leftWiden[Error]

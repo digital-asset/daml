@@ -461,6 +461,7 @@ object ValueGenerators {
       keyOpt = key,
       byKey = byKey,
       version = version,
+      externalCallResults = ImmArray.Empty,
     )
 
   val lookupNodeGen: Gen[Node.LookupByKey] =

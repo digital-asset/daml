@@ -58,6 +58,10 @@ import com.digitalasset.canton.participant.store.{
   PruningOffsetServiceImpl,
 }
 import com.digitalasset.canton.participant.sync.CantonSyncService
+import com.digitalasset.canton.participant.extension.{
+  ExtensionServiceExternalCallHandler,
+  ExtensionServiceManager,
+}
 import com.digitalasset.canton.participant.{
   LedgerApiServerBootstrapUtils,
   ParticipantNodeParameters,
@@ -343,6 +347,19 @@ class LedgerApiServer(
 
       contractValidator = ContractValidator(syncService.pureCryptoApi, engine, packageResolver)
 
+      // Create ExtensionServiceManager for handling external calls during command submission
+      extensionServiceManager = if (cantonParameterConfig.engine.extensions.nonEmpty) {
+        Some(new ExtensionServiceManager(
+          cantonParameterConfig.engine.extensions,
+          cantonParameterConfig.engine.extensionSettings,
+          loggerFactory,
+        ))
+      } else {
+        None
+      }
+
+      externalCallHandler = ExtensionServiceExternalCallHandler.create(extensionServiceManager)
+
       // TODO(i21582) The prepare endpoint of the interactive submission service does not suffix
       // contract IDs of the transaction yet. This means enrichment of the transaction may fail
       // when processing unsuffixed contract IDs. For that reason we disable this requirement via the flag below.
@@ -408,6 +425,7 @@ class LedgerApiServer(
         keepAlive = serverConfig.keepAliveServer,
         packagePreferenceBackend = packagePreferenceBackend,
         apiLoggingConfig = cantonParameterConfig.loggingConfig.api,
+        externalCallHandler = externalCallHandler,
       )
       _ <- startHttpApiIfEnabled(
         timedSyncService,

@@ -1,0 +1,190 @@
+// JWT authentication tests
+// Uses canton-auth.conf which has jwt = "test-token"
+
+import com.digitalasset.canton.protocol.LfContractId
+
+println("=" * 60)
+println("External Call JWT Authentication Tests")
+println("=" * 60)
+
+println("\n[Phase 1] Bootstrapping...")
+
+nodes.local.start()
+
+bootstrap.synchronizer(
+  "da",
+  sequencers = Seq(sequencer1),
+  mediators = Seq(mediator1),
+  synchronizerOwners = Seq(sequencer1),
+  synchronizerThreshold = PositiveInt.one,
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.dev),
+)
+
+participant1.synchronizers.connect_local(sequencer1, alias = "da")
+participant2.synchronizers.connect_local(sequencer1, alias = "da")
+
+utils.retry_until_true {
+  participant1.synchronizers.active("da") &&
+  participant2.synchronizers.active("da")
+}
+println("Participants connected.")
+
+val alice = participant1.parties.enable("Alice")
+val bob = participant2.parties.enable("Bob")
+println(s"Alice: $alice")
+println(s"Bob: $bob")
+
+val darPath = Option(System.getProperty("dar.path"))
+  .getOrElse("external-call-integration-test/.daml/dist/external-call-integration-test-1.0.0.dar")
+val synchronizerId = participant1.synchronizers.id_of(SynchronizerAlias.tryCreate("da"))
+participant1.dars.upload(darPath, synchronizerId = synchronizerId)
+participant2.dars.upload(darPath, synchronizerId = synchronizerId)
+println("DAR uploaded.")
+
+val pkg = participant1.packages.find_by_module("ExternalCallIntegrationTest").headOption
+  .getOrElse(sys.error("Package not found"))
+println(s"Package: ${pkg.packageId}")
+
+import scala.sys.process._
+try { "curl -s http://127.0.0.1:8080/reset".!! } catch { case _: Throwable => }
+
+// Helpers
+
+def createTestContract(): String = {
+  val createCmd = ledger_api_utils.create(
+    pkg.packageId,
+    "ExternalCallIntegrationTest",
+    "ObservedExternalCall",
+    Map("signatory_" -> alice, "observer_" -> bob)
+  )
+  participant1.ledger_api.commands.submit(Seq(alice), Seq(createCmd), synchronizerId = Some(synchronizerId))
+  Thread.sleep(1000)
+
+  val contracts = participant1.ledger_api.state.acs.of_party(alice)
+    .filter(_.templateId.toString.contains("ObservedExternalCall"))
+  contracts.head.contractId
+}
+
+def getAllCauses(e: Throwable): String = {
+  val sb = new StringBuilder()
+  var current: Throwable = e
+  while (current != null) {
+    if (sb.nonEmpty) sb.append(" | ")
+    sb.append(current.toString)
+    current = current.getCause
+  }
+  sb.toString
+}
+
+def tryExercise(choiceName: String, inputHex: String, contractId: String): (Boolean, String) = {
+  val contracts = participant1.ledger_api.state.acs.of_party(alice)
+    .filter(_.contractId == contractId)
+
+  if (contracts.isEmpty) {
+    return (false, "Could not find contract")
+  }
+
+  val exerciseCmd = ledger_api_utils.exercise(
+    choiceName,
+    Map("inputHex" -> inputHex),
+    contracts.head.event
+  )
+
+  try {
+    val result = participant1.ledger_api.commands.submit(Seq(alice), Seq(exerciseCmd), synchronizerId = Some(synchronizerId))
+    (true, result.toString)
+  } catch {
+    case e: Throwable => (false, getAllCauses(e))
+  }
+}
+
+// Tests
+
+var passed = 0
+var failed = 0
+
+// T5.1 - Valid JWT Token
+println("\n" + "-" * 60)
+println("T5.1: Valid JWT Token")
+println("-" * 60)
+println("Expected: Canton sends 'Bearer test-token', mock accepts")
+
+val contractId1 = createTestContract()
+val (success1, result1) = tryExercise("TestJwtRequired", "aabbccdd", contractId1)
+
+if (success1) {
+  println("PASS: Transaction succeeded with valid JWT")
+  passed += 1
+} else {
+  println(s"FAIL: Transaction failed unexpectedly")
+  println(s"Error: ${result1.take(300)}...")
+  failed += 1
+}
+
+// T5.2 - JWT Echo
+println("\n" + "-" * 60)
+println("T5.2: JWT Echo")
+println("-" * 60)
+println("Expected: Mock echoes back the Authorization header")
+
+val contractId2 = createTestContract()
+val (success2, result2) = tryExercise("TestJwtEcho", "11223344", contractId2)
+
+if (success2) {
+  println("PASS: JWT echo call succeeded")
+  passed += 1
+} else {
+  println(s"FAIL: JWT echo call failed unexpectedly")
+  println(s"Error: ${result2.take(300)}...")
+  failed += 1
+}
+
+// T5.3 - Server-side JWT Rejection
+println("\n" + "-" * 60)
+println("T5.3: Server-side JWT Rejection")
+println("-" * 60)
+println("Expected: Mock always returns 401, transaction fails")
+
+val contractId3 = createTestContract()
+val (success3, result3) = tryExercise("TestJwtInvalid", "55667788", contractId3)
+
+if (!success3) {
+  val msgLower = result3.toLowerCase
+  val hasUnauthorized = msgLower.contains("401") || msgLower.contains("unauthorized")
+  val hasExternalCallFailed = msgLower.contains("external call failed") ||
+                               msgLower.contains("interpretation_user_error") ||
+                               msgLower.contains("commandfailure")
+
+  if (hasUnauthorized || hasExternalCallFailed) {
+    println("PASS: Transaction failed with auth error as expected")
+    passed += 1
+  } else {
+    println(s"FAIL: Wrong error type")
+    println(s"Error: ${result3.take(500)}")
+    failed += 1
+  }
+} else {
+  println("FAIL: Expected transaction to fail but it succeeded")
+  failed += 1
+}
+
+// Summary
+
+println("\n" + "=" * 60)
+println("JWT AUTHENTICATION TEST SUMMARY")
+println("=" * 60)
+println(s"  Passed: $passed")
+println(s"  Failed: $failed")
+println(s"  Total:  ${passed + failed}")
+
+try {
+  val counts = "curl -s http://127.0.0.1:8080/counts".!!
+  println("\nMock service stats:")
+  println(counts.take(800))
+} catch { case _: Throwable => }
+
+if (failed > 0) {
+  println("\nSOME TESTS FAILED")
+} else {
+  println("\nALL JWT AUTHENTICATION TESTS PASSED")
+}

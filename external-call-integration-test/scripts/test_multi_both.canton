@@ -1,0 +1,188 @@
+// Multi-participant test: both have extension (T9.2)
+// Uses canton-both-extensions.conf
+
+import com.digitalasset.canton.protocol.LfContractId
+
+println("=" * 60)
+println("Multi-Participant Test: Both Have Extension (T9.2)")
+println("=" * 60)
+
+println("\n[Phase 1] Bootstrapping...")
+
+nodes.local.start()
+
+bootstrap.synchronizer(
+  "da",
+  sequencers = Seq(sequencer1),
+  mediators = Seq(mediator1),
+  synchronizerOwners = Seq(sequencer1),
+  synchronizerThreshold = PositiveInt.one,
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.dev),
+)
+
+participant1.synchronizers.connect_local(sequencer1, alias = "da")
+participant2.synchronizers.connect_local(sequencer1, alias = "da")
+
+utils.retry_until_true {
+  participant1.synchronizers.active("da") &&
+  participant2.synchronizers.active("da")
+}
+println("Participants connected.")
+
+val alice = participant1.parties.enable("Alice")
+val bob = participant2.parties.enable("Bob")
+println(s"Alice: $alice")
+println(s"Bob: $bob")
+
+val darPath = Option(System.getProperty("dar.path"))
+  .getOrElse("external-call-integration-test/.daml/dist/external-call-integration-test-1.0.0.dar")
+val synchronizerId = participant1.synchronizers.id_of(SynchronizerAlias.tryCreate("da"))
+participant1.dars.upload(darPath, synchronizerId = synchronizerId)
+participant2.dars.upload(darPath, synchronizerId = synchronizerId)
+println("DAR uploaded.")
+
+val pkg = participant1.packages.find_by_module("ExternalCallIntegrationTest").headOption
+  .getOrElse(sys.error("Package not found"))
+println(s"Package: ${pkg.packageId}")
+
+import scala.sys.process._
+try { "curl -s http://127.0.0.1:8080/reset".!! } catch { case _: Throwable => }
+
+// Helpers
+
+def createTestContract(): String = {
+  val createCmd = ledger_api_utils.create(
+    pkg.packageId,
+    "ExternalCallIntegrationTest",
+    "ObservedExternalCall",
+    Map("signatory_" -> alice, "observer_" -> bob)
+  )
+  participant1.ledger_api.commands.submit(Seq(alice), Seq(createCmd), synchronizerId = Some(synchronizerId))
+  Thread.sleep(1000)
+
+  val contracts = participant1.ledger_api.state.acs.of_party(alice)
+    .filter(_.templateId.toString.contains("ObservedExternalCall"))
+  contracts.head.contractId
+}
+
+def getAllCauses(e: Throwable): String = {
+  val sb = new StringBuilder()
+  var current: Throwable = e
+  while (current != null) {
+    if (sb.nonEmpty) sb.append(" | ")
+    sb.append(current.toString)
+    current = current.getCause
+  }
+  sb.toString
+}
+
+def tryExercise(choiceName: String, inputHex: String, contractId: String): (Boolean, String) = {
+  val contracts = participant1.ledger_api.state.acs.of_party(alice)
+    .filter(_.contractId == contractId)
+
+  if (contracts.isEmpty) {
+    return (false, "Could not find contract")
+  }
+
+  val exerciseCmd = ledger_api_utils.exercise(
+    choiceName,
+    Map("inputHex" -> inputHex),
+    contracts.head.event
+  )
+
+  try {
+    val result = participant1.ledger_api.commands.submit(Seq(alice), Seq(exerciseCmd), synchronizerId = Some(synchronizerId))
+    (true, result.toString)
+  } catch {
+    case e: Throwable => (false, getAllCauses(e))
+  }
+}
+
+// Tests
+
+var passed = 0
+var failed = 0
+
+// T9.2 - Both have extension
+println("\n" + "-" * 60)
+println("T9.2: Both Participants Have Extension")
+println("-" * 60)
+
+val contractId1 = createTestContract()
+val lfContractId1 = LfContractId.assertFromString(contractId1)
+
+println("Verifying contract visible on participant2...")
+participant2.ledger_api.state.acs.await_active_contract(bob, lfContractId1)
+println("Contract visible.")
+
+val (success1, result1) = tryExercise("CallEcho", "aabbccdd", contractId1)
+
+if (success1) {
+  println("PASS: External call succeeded when both have extension")
+  passed += 1
+} else {
+  println(s"FAIL: External call failed")
+  println(s"Error: ${result1.take(300)}")
+  failed += 1
+}
+
+println("\nChecking mock service stats...")
+try {
+  val counts = "curl -s http://127.0.0.1:8080/counts".!!
+  println(s"Mock stats: ${counts.take(500)}")
+  if (counts.contains("\"submission\": 1")) {
+    println("Confirmed: 1 submission call made")
+  }
+} catch { case _: Throwable => }
+
+// T9.2b - Observer visibility
+println("\n" + "-" * 60)
+println("T9.2b: Observer Transaction Visibility")
+println("-" * 60)
+
+val contractId2 = createTestContract()
+val lfContractId2 = LfContractId.assertFromString(contractId2)
+
+participant2.ledger_api.state.acs.await_active_contract(bob, lfContractId2)
+
+val (success2, _) = tryExercise("CallEcho", "cafebabe", contractId2)
+
+if (success2) {
+  Thread.sleep(2000)
+
+  val remaining = participant1.ledger_api.state.acs.of_party(alice)
+    .filter(_.contractId == contractId2)
+
+  if (remaining.isEmpty) {
+    println("PASS: Transaction completed and visible to both participants")
+    passed += 1
+  } else {
+    println("FAIL: Contract still exists")
+    failed += 1
+  }
+} else {
+  println("FAIL: Second transaction failed")
+  failed += 1
+}
+
+// Summary
+
+println("\n" + "=" * 60)
+println("MULTI-PARTICIPANT (BOTH) TEST SUMMARY")
+println("=" * 60)
+println(s"  Passed: $passed")
+println(s"  Failed: $failed")
+println(s"  Total:  ${passed + failed}")
+
+try {
+  val counts = "curl -s http://127.0.0.1:8080/counts".!!
+  println("\nFinal mock service stats:")
+  println(counts.take(800))
+} catch { case _: Throwable => }
+
+if (failed > 0) {
+  println("\nSOME TESTS FAILED")
+  sys.exit(1)
+} else {
+  println("\nALL MULTI-PARTICIPANT (BOTH) TESTS PASSED")
+}

@@ -370,7 +370,8 @@ enum BuiltinFunction {
   SHA256_HEX = 71;
   SECP256K1_WITH_ECDSA_BOOL = 72;
 
-  // Next id is 73.
+  EXTERNAL_CALL = 74;
+  // Next id is 75.
 
   /* Dev Builtins */
   // We use fields above 1000 for dev features

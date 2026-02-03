@@ -1,0 +1,179 @@
+// Timeout tests (config has request-timeout = 5s)
+
+import com.digitalasset.canton.protocol.LfContractId
+
+println("=" * 60)
+println("External Call Timeout Tests")
+println("=" * 60)
+
+println("\n[Phase 1] Bootstrapping...")
+
+nodes.local.start()
+
+bootstrap.synchronizer(
+  "da",
+  sequencers = Seq(sequencer1),
+  mediators = Seq(mediator1),
+  synchronizerOwners = Seq(sequencer1),
+  synchronizerThreshold = PositiveInt.one,
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.dev),
+)
+
+participant1.synchronizers.connect_local(sequencer1, alias = "da")
+participant2.synchronizers.connect_local(sequencer1, alias = "da")
+
+utils.retry_until_true {
+  participant1.synchronizers.active("da") &&
+  participant2.synchronizers.active("da")
+}
+println("Participants connected.")
+
+val alice = participant1.parties.enable("Alice")
+val bob = participant2.parties.enable("Bob")
+println(s"Alice: $alice")
+println(s"Bob: $bob")
+
+val darPath = Option(System.getProperty("dar.path"))
+  .getOrElse("external-call-integration-test/.daml/dist/external-call-integration-test-1.0.0.dar")
+val synchronizerId = participant1.synchronizers.id_of(SynchronizerAlias.tryCreate("da"))
+participant1.dars.upload(darPath, synchronizerId = synchronizerId)
+participant2.dars.upload(darPath, synchronizerId = synchronizerId)
+println("DAR uploaded.")
+
+val pkg = participant1.packages.find_by_module("ExternalCallIntegrationTest").headOption
+  .getOrElse(sys.error("Package not found"))
+println(s"Package: ${pkg.packageId}")
+
+import scala.sys.process._
+try { "curl -s http://127.0.0.1:8080/reset".!! } catch { case _: Throwable => }
+
+// Helpers
+
+def createTestContract(): String = {
+  val createCmd = ledger_api_utils.create(
+    pkg.packageId,
+    "ExternalCallIntegrationTest",
+    "ObservedExternalCall",
+    Map("signatory_" -> alice, "observer_" -> bob)
+  )
+  participant1.ledger_api.commands.submit(Seq(alice), Seq(createCmd), synchronizerId = Some(synchronizerId))
+  Thread.sleep(1000)
+
+  val contracts = participant1.ledger_api.state.acs.of_party(alice)
+    .filter(_.templateId.toString.contains("ObservedExternalCall"))
+  contracts.head.contractId
+}
+
+def getAllCauses(e: Throwable): String = {
+  val sb = new StringBuilder()
+  var current: Throwable = e
+  while (current != null) {
+    if (sb.nonEmpty) sb.append(" | ")
+    sb.append(current.toString)
+    current = current.getCause
+  }
+  sb.toString
+}
+
+def tryExerciseDelay(delayMs: Int, contractId: String): Option[String] = {
+  val contracts = participant1.ledger_api.state.acs.of_party(alice)
+    .filter(_.contractId == contractId)
+
+  if (contracts.isEmpty) {
+    return Some("Could not find contract")
+  }
+
+  val exerciseCmd = ledger_api_utils.exercise(
+    "TestDelay",
+    Map("delayMs" -> delayMs, "inputHex" -> "deadbeef"),
+    contracts.head.event
+  )
+
+  try {
+    participant1.ledger_api.commands.submit(Seq(alice), Seq(exerciseCmd), synchronizerId = Some(synchronizerId))
+    None
+  } catch {
+    case e: Throwable => Some(getAllCauses(e))
+  }
+}
+
+var passed = 0
+var failed = 0
+
+// Tests
+
+println("\n" + "-" * 60)
+println("Phase 2: Timeout Tests")
+println("-" * 60)
+
+// T3.2: 6s delay > 5s timeout
+println("\n[T3.2] Request Timeout")
+println("       Delay: 6000ms (> request-timeout of 5s)")
+println("       Expected: Timeout error")
+
+val startTime1 = System.currentTimeMillis()
+val contractId1 = createTestContract()
+val result1 = tryExerciseDelay(6000, contractId1)
+val elapsed1 = System.currentTimeMillis() - startTime1
+
+result1 match {
+  case None =>
+    println("       FAIL: Expected timeout but succeeded")
+    failed += 1
+  case Some(msg) =>
+    val msgLower = msg.toLowerCase
+    val hasTimeoutError = msgLower.contains("timeout") ||
+                          msgLower.contains("timed out") ||
+                          msgLower.contains("external call failed") ||
+                          msgLower.contains("commandfailure")
+    if (hasTimeoutError) {
+      println(s"       PASS: Got timeout error (elapsed: ${elapsed1}ms)")
+      passed += 1
+    } else {
+      println(s"       FAIL: Unexpected error type")
+      println(s"       Error: ${msg.take(300)}")
+      failed += 1
+    }
+}
+
+// T3.2b: 1s delay < 5s timeout (sanity check)
+println("\n[T3.2b] Delay Under Timeout")
+println("        Delay: 1000ms (< request-timeout of 5s)")
+println("        Expected: Success")
+
+val contractId2 = createTestContract()
+val startTime2 = System.currentTimeMillis()
+val result2 = tryExerciseDelay(1000, contractId2)
+val elapsed2 = System.currentTimeMillis() - startTime2
+
+result2 match {
+  case None =>
+    println(s"        PASS: Completed successfully (elapsed: ${elapsed2}ms)")
+    passed += 1
+  case Some(msg) =>
+    println(s"        FAIL: Expected success but got error")
+    println(s"        Error: ${msg.take(200)}")
+    failed += 1
+}
+
+// Summary
+
+println("\n" + "=" * 60)
+println("TIMEOUT TEST SUMMARY")
+println("=" * 60)
+println(s"  Passed: $passed")
+println(s"  Failed: $failed")
+println(s"  Total:  ${passed + failed}")
+
+try {
+  val counts = "curl -s http://127.0.0.1:8080/counts".!!
+  println("\nMock service stats:")
+  println(counts.take(500))
+} catch { case _: Throwable => }
+
+if (failed > 0) {
+  println("\nSOME TIMEOUT TESTS FAILED")
+  sys.exit(1)
+} else {
+  println("\nALL TIMEOUT TESTS PASSED")
+}

@@ -306,6 +306,7 @@ instance Pretty BuiltinExpr where
     BEKecCak256Text -> "KECCAK256_TEXT"
     BEEncodeHex -> "TEXT_TO_HEX"
     BEDecodeHex -> "HEX_TO_TEXT"
+    BEExternalCall -> "EXTERNAL_CALL"
     BESecp256k1Bool -> "SECP256K1_BOOL"
     BESecp256k1WithEcdsaBool -> "SECP256K1_WITH_ECDSA_BOOL"
     BESecp256k1ValidateKey -> "SECP256K1_VALIDATE_KEY"

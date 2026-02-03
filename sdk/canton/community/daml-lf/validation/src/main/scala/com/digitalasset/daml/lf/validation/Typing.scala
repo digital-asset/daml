@@ -247,6 +247,7 @@ private[validation] object Typing {
       BKECCAK256Text -> (TText ->: TText),
       BDecodeHex -> (TText ->: TText),
       BEncodeHex -> (TText ->: TText),
+      BExternalCall -> (TText ->: TText ->: TText ->: TText ->: TUpdate(TText)),
       BPartyToQuotedText -> (TParty ->: TText),
       BCodePointsToText -> (TList(TInt64) ->: TText),
       BTextToParty -> (TText ->: TOptional(TParty)),

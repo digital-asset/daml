@@ -58,6 +58,7 @@ abstract class CostModel {
   val BSHA256Text: CostFunction1[Text]
   val BSHA256Hex: CostFunction1[Text]
   val BKECCAK256Text: CostFunction1[Text]
+  val BExternalCall: CostFunction1[Text]
   val BSECP256K1Bool: CostFunction3[Text, Text, Text]
   val BSECP256K1WithEcdsaBool: CostFunction3[Text, Text, Text]
   val BSECP256K1ValidateKey: CostFunction1[Text]
@@ -271,6 +272,7 @@ object CostModel {
     override val BSHA256Text: CostFunction1[Text] = CostFunction1.Null
     override val BSHA256Hex: CostFunction1[Text] = CostFunction1.Null
     override val BKECCAK256Text: CostFunction1[Text] = CostFunction1.Null
+    override val BExternalCall: CostFunction1[Text] = CostFunction1.Null
     override val BSECP256K1Bool: CostFunction3[Text, Text, Text] = CostFunction3.Null
     override val BSECP256K1WithEcdsaBool: CostFunction3[Text, Text, Text] = CostFunction3.Null
     override val BSECP256K1ValidateKey: CostFunction1[Text] = CostFunction1.Null
@@ -853,6 +855,23 @@ object CostModel {
       CostFunction1.Constant(STextWrapperSize + AsciiStringSize.calculate(64))
     override val BKECCAK256Text: CostFunction1[Text] =
       CostFunction1.Constant(STextWrapperSize + AsciiStringSize.calculate(64))
+    /** External call costs.
+      *
+      * External calls are delegated to the participant via the question/answer interface,
+      * so the engine-side cost is minimal. The actual HTTP call overhead is handled at
+      * the participant level.
+      *
+      * The cost is based on the function ID length as a simple proxy.
+      *
+      * @param functionId The function identifier
+      * @return A small constant cost
+      */
+    override val BExternalCall: CostFunction1[Text] = new CostFunction1[Text] {
+      override def cost(functionId: String): Cost = {
+        // Base cost plus small per-character cost for the function ID
+        100L + functionId.length.toLong
+      }
+    }
     override val BSECP256K1Bool: CostFunction3[Text, Text, Text] =
       CostFunction3.Constant(SBoolSize)
     override val BSECP256K1WithEcdsaBool: CostFunction3[Text, Text, Text] =

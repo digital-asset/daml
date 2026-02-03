@@ -363,6 +363,38 @@ private[lf] object Speedy {
         )
       )
 
+    /** Request an external call to be made by the participant.
+      * The participant handles the actual HTTP call with connection pooling.
+      *
+      * @param extensionId Identifier of the configured extension
+      * @param functionId Function identifier within the extension
+      * @param configHash Configuration hash (hex) for version validation
+      * @param input Input data (hex)
+      * @param continue Callback to handle the result
+      */
+    final private[speedy] def needExternalCall(
+        extensionId: String,
+        functionId: String,
+        configHash: String,
+        input: String,
+    )(
+        continue: Either[Question.Update.ExternalCallError, String] => Control[Question.Update]
+    ): Control.Question[Question.Update] =
+      Control.Question(
+        Question.Update.NeedExternalCall(
+          extensionId = extensionId,
+          functionId = functionId,
+          configHash = configHash,
+          input = input,
+          callback = result =>
+            safelyContinue(
+              NameOf.qualifiedNameOfCurrentFunc,
+              "NeedExternalCall",
+              continue(result),
+            ),
+        )
+      )
+
     private[speedy] def lookupContract(coid: V.ContractId)(
         f: (FatContractInstance, Hash.HashingMethod, Hash => Boolean) => Control[Question.Update]
     ): Control[Question.Update] =

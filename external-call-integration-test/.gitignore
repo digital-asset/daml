@@ -1,0 +1,12 @@
+# Daml build artifacts
+.daml/
+
+# Logs
+log/
+*.log
+
+# Temp files
+/tmp/
+
+# Generated TLS certificates (contain private keys)
+certs/

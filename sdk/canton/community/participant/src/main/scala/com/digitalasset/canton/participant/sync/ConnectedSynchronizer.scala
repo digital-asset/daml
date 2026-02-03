@@ -71,6 +71,7 @@ import com.digitalasset.canton.participant.traffic.{
   ParticipantTrafficControlSubscriber,
   TrafficCostEstimator,
 }
+import com.digitalasset.canton.participant.extension.ExtensionServiceManager
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.CostEstimationHints
@@ -257,12 +258,26 @@ class ConnectedSynchronizer(
       costHints,
     )
 
+  // Create ExtensionServiceManager for external calls if extensions are configured
+  private val extensionServiceManager: Option[ExtensionServiceManager] = {
+    if (parameters.engine.extensions.nonEmpty) {
+      Some(new ExtensionServiceManager(
+        parameters.engine.extensions,
+        parameters.engine.extensionSettings,
+        loggerFactory,
+      ))
+    } else {
+      None
+    }
+  }
+
   private val damle =
     new DAMLe(
       packageResolver,
       engine,
       parameters.engine.validationPhaseLogging,
       loggerFactory,
+      extensionServiceManager,
     )
 
   private val transactionProcessor: TransactionProcessor = new TransactionProcessor(

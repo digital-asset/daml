@@ -52,6 +52,7 @@ import DA.Semigroup
 import DA.Set
 import DA.Stack
 import DA.Text
+import DA.External
 import DA.TextMap
 import DA.Time
 import DA.Traversable

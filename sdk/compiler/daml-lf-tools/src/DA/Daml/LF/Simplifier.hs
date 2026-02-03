@@ -149,6 +149,7 @@ safetyStep = \case
       BEKecCak256Text     -> Safe 0
       BEEncodeHex         -> Safe 1
       BEDecodeHex         -> Safe 0
+      BEExternalCall      -> Safe 0
       BESecp256k1Bool     -> Safe 0
       BESecp256k1WithEcdsaBool -> Safe 0
       BESecp256k1ValidateKey -> Safe 0

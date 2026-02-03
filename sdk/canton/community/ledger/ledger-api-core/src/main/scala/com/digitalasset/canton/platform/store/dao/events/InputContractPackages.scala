@@ -20,7 +20,7 @@ object InputContractPackages {
     tx.fold(data.Relation.empty[ContractId, LfPackageId]) {
       case (
             acc,
-            (_, Node.Exercise(coid, _, templateId, _, _, _, _, _, _, _, _, _, _, _, _, _, _)),
+            (_, Node.Exercise(coid, _, templateId, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)),
           ) =>
         Relation.update(acc, coid, templateId.packageId)
       case (acc, (_, Node.Fetch(coid, _, templateId, _, _, _, _, _, _, _))) =>

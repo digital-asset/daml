@@ -1,0 +1,162 @@
+// TLS tests
+// Requires mock service on port 8443 with self-signed certs
+// Uses canton-tls.conf (use-tls = true, tls-insecure = true)
+
+import com.digitalasset.canton.protocol.LfContractId
+
+println("=" * 60)
+println("TLS Integration Tests")
+println("=" * 60)
+
+println("\n[Phase 1] Bootstrapping...")
+
+nodes.local.start()
+
+bootstrap.synchronizer(
+  "da",
+  sequencers = Seq(sequencer1),
+  mediators = Seq(mediator1),
+  synchronizerOwners = Seq(sequencer1),
+  synchronizerThreshold = PositiveInt.one,
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.dev),
+)
+
+println("Synchronizer bootstrapped.")
+
+participant1.synchronizers.connect_local(sequencer1, alias = "da")
+participant2.synchronizers.connect_local(sequencer1, alias = "da")
+
+utils.retry_until_true {
+  participant1.synchronizers.active("da") &&
+  participant2.synchronizers.active("da")
+}
+println("Participants connected.")
+
+val alice = participant1.parties.enable("Alice")
+val bob = participant2.parties.enable("Bob")
+println(s"Alice: $alice")
+println(s"Bob: $bob")
+
+val darPath = Option(System.getProperty("dar.path"))
+  .getOrElse("external-call-integration-test/.daml/dist/external-call-integration-test-1.0.0.dar")
+val synchronizerId = participant1.synchronizers.id_of(SynchronizerAlias.tryCreate("da"))
+participant1.dars.upload(darPath, synchronizerId = synchronizerId)
+participant2.dars.upload(darPath, synchronizerId = synchronizerId)
+println("DAR uploaded.")
+
+val pkg = participant1.packages.find_by_module("ExternalCallIntegrationTest").headOption
+  .getOrElse(sys.error("Package not found"))
+println(s"Package: ${pkg.packageId}")
+
+// Helpers
+
+var testsPassed = 0
+var testsFailed = 0
+
+def testPass(testId: String, testName: String): Unit = {
+  println(s"  [PASS] $testId: $testName")
+  testsPassed += 1
+}
+
+def testFail(testId: String, testName: String, reason: String): Unit = {
+  println(s"  [FAIL] $testId: $testName - $reason")
+  testsFailed += 1
+}
+
+def getAllCauses(e: Throwable): String = {
+  val sb = new StringBuilder()
+  var current: Throwable = e
+  while (current != null) {
+    if (sb.nonEmpty) sb.append(" | ")
+    sb.append(current.toString)
+    current = current.getCause
+  }
+  sb.toString
+}
+
+// Tests
+
+println("\n" + "=" * 60)
+println("TLS TESTS")
+println("=" * 60)
+
+// T6.2: TLS with self-signed cert
+println("\n--- T6.2: TLS with self-signed certificate ---")
+
+val createCmd1 = ledger_api_utils.create(
+  pkg.packageId,
+  "ExternalCallIntegrationTest",
+  "ObservedExternalCall",
+  Map("signatory_" -> alice, "observer_" -> bob)
+)
+
+participant1.ledger_api.commands.submit(Seq(alice), Seq(createCmd1), synchronizerId = Some(synchronizerId))
+Thread.sleep(2000)
+
+val contracts1 = participant1.ledger_api.state.acs.of_party(alice)
+  .filter(_.templateId.toString.contains("ObservedExternalCall"))
+
+if (contracts1.isEmpty) {
+  testFail("T6.2", "TLS with self-signed certificate", "Failed to create contract")
+} else {
+  try {
+    val exerciseCmd = ledger_api_utils.exercise(
+      "TestTls",
+      Map("inputHex" -> "deadbeef"),
+      contracts1.head.event
+    )
+    participant1.ledger_api.commands.submit(Seq(alice), Seq(exerciseCmd), synchronizerId = Some(synchronizerId))
+    testPass("T6.2", "TLS with self-signed certificate")
+  } catch {
+    case e: Exception =>
+      testFail("T6.2", "TLS with self-signed certificate", s"${getAllCauses(e).take(200)}")
+  }
+}
+
+// T6.1: Basic TLS connectivity
+println("\n--- T6.1: Basic TLS connectivity ---")
+
+val createCmd2 = ledger_api_utils.create(
+  pkg.packageId,
+  "ExternalCallIntegrationTest",
+  "ObservedExternalCall",
+  Map("signatory_" -> alice, "observer_" -> bob)
+)
+
+participant1.ledger_api.commands.submit(Seq(alice), Seq(createCmd2), synchronizerId = Some(synchronizerId))
+Thread.sleep(2000)
+
+val contracts2 = participant1.ledger_api.state.acs.of_party(alice)
+  .filter(_.templateId.toString.contains("ObservedExternalCall"))
+
+if (contracts2.isEmpty) {
+  testFail("T6.1", "Basic TLS connectivity", "Failed to create contract")
+} else {
+  try {
+    val exerciseCmd = ledger_api_utils.exercise(
+      "CallEcho",
+      Map("inputHex" -> "cafebabe"),
+      contracts2.head.event
+    )
+    participant1.ledger_api.commands.submit(Seq(alice), Seq(exerciseCmd), synchronizerId = Some(synchronizerId))
+    testPass("T6.1", "Basic TLS connectivity")
+  } catch {
+    case e: Exception =>
+      testFail("T6.1", "Basic TLS connectivity", s"${getAllCauses(e).take(200)}")
+  }
+}
+
+// Summary
+
+println("\n" + "=" * 60)
+println("TLS TEST RESULTS")
+println("=" * 60)
+println(s"Passed: $testsPassed")
+println(s"Failed: $testsFailed")
+
+if (testsFailed > 0) {
+  println("\nTLS TESTS FAILED")
+  sys.exit(1)
+} else {
+  println("\nALL TLS TESTS PASSED")
+}
