@@ -123,7 +123,7 @@ trait IndexComponentTest
       .storeContracts(contracts)
       .flatMap(_ =>
         testServices.participantContractStore
-          .lookupBatchedNonCachedInternalIds(
+          .lookupBatchedInternalIds(
             contracts.map(_.contractId)
           )
       )

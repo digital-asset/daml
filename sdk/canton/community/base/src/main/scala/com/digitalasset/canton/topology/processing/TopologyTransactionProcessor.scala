@@ -12,7 +12,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
-import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{
@@ -22,6 +22,7 @@ import com.digitalasset.canton.lifecycle.{
   LifeCycle,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.metrics.CacheMetrics
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
@@ -415,7 +416,7 @@ class TopologyTransactionProcessor(
   }
 
   override def onClosed(): Unit =
-    LifeCycle.close(serializer)(logger)
+    LifeCycle.close(cache, serializer)(logger)
 
   private val maxSequencedTimeAtInitializationF =
     TraceContext.withNewTraceContext("max_sequenced_time")(implicit traceContext =>
@@ -538,12 +539,13 @@ object TopologyTransactionProcessor {
 
   def createProcessorAndClientForSynchronizerWithWriteThroughCache(
       topologyStore: TopologyStore[TopologyStoreId.SynchronizerStore],
-      synchronizerPredecessor: Option[SynchronizerPredecessor],
+      synchronizerUpgradeTime: Option[CantonTimestamp],
       pureCrypto: SynchronizerCryptoPureApi,
       parameters: CantonNodeParameters,
       topologyConfig: TopologyConfig,
       clock: Clock,
       staticSynchronizerParameters: StaticSynchronizerParameters,
+      topologyCacheMetrics: CacheMetrics,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(
@@ -555,8 +557,11 @@ object TopologyTransactionProcessor {
     val cache = new TopologyStateWriteThroughCache(
       topologyStore,
       parameters.batchingConfig.topologyCacheAggregator,
+      cacheEvictionThreshold = topologyConfig.topologyStateCacheEvictionThreshold,
       maxCacheSize = topologyConfig.maxTopologyStateCacheItems,
       enableConsistencyChecks = topologyConfig.enableTopologyStateCacheConsistencyChecks,
+      topologyCacheMetrics,
+      futureSupervisor,
       parameters.processingTimeouts,
       loggerFactory,
     )
@@ -579,7 +584,7 @@ object TopologyTransactionProcessor {
       staticSynchronizerParameters,
       topologyStore,
       cache,
-      synchronizerPredecessor,
+      synchronizerUpgradeTime,
       NoPackageDependencies,
       parameters.cachingConfigs,
       topologyConfig,
@@ -589,7 +594,9 @@ object TopologyTransactionProcessor {
     )(sequencerSnapshotTimestamp)
 
     writeThroughCacheClientF.map { client =>
+      // Subscribe the new client object to updates from the subscriber
       processor.subscribe(client)
+      // return the processor and the client to the application
       (processor, client)
     }
   }

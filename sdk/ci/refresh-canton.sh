@@ -41,13 +41,43 @@ fi
 sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' "$DIR/../build.sh"
 
 CODE_DROP_DIR="$DIR"/../canton
+EXCLUDED_DIRS=(
+  "community/daml-lf/api-type-signature"
+  "community/daml-lf/ide-ledger"
+  "community/daml-lf/interpreter"
+  "community/daml-lf/notes"
+  "community/daml-lf/parser"
+  "community/daml-lf/snapshot-proto"
+  "community/daml-lf/spec"
+  "community/daml-lf/stable-packages"
+  "community/daml-lf/tests"
+  "community/daml-lf/transaction"
+  "community/daml-lf/verification"
+  "community/daml-lf/data"
+  "community/daml-lf/data-scalacheck"
+  "community/daml-lf/data-tests"
+  "community/daml-lf/transaction-test-lib"
+  "community/daml-lf/transaction-tests"
+  "community/daml-lf/upgrades-matrix"
+)
+
+is_excluded() {
+  local file="$1"
+  for dir in "${EXCLUDED_DIRS[@]}"; do
+    if [[ "$file" == "$dir"* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 for path in community base README.md VERSION; do
   rm -rf "$CODE_DROP_DIR/$path"
-  for f in  $(git -C "$CANTON_DIR" ls-files "$path"); do
-    # we're only interested in copying files, not directories, as git-ls has
-    # explicitly expanded all directories
+  for f in $(git -C "$CANTON_DIR" ls-files "$path"); do
+    if is_excluded "$f"; then
+      continue
+    fi
     if [[ -f "$CANTON_DIR/$f" ]]; then
-      # we create the parent directories of f under canton/ if they don't exist
       mkdir -p "$CODE_DROP_DIR/$(dirname $f)"
       cp "$CANTON_DIR/$f" "$CODE_DROP_DIR/$f"
     fi

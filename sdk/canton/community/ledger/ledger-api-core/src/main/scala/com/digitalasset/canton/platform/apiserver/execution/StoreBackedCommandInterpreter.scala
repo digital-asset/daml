@@ -81,6 +81,8 @@ final class StoreBackedCommandInterpreter(
 ) extends CommandInterpreter
     with NamedLogging {
 
+  import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.*
+
   override def interpret(
       commands: api.Commands,
       submissionSeed: crypto.Hash,
@@ -194,7 +196,7 @@ final class StoreBackedCommandInterpreter(
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): FutureUnlessShutdown[Result[(SubmittedTransaction, Transaction.Metadata)]] =
-    Tracked.future(
+    Tracked.futureUS(
       metrics.execution.engineRunning,
       FutureUnlessShutdown.outcomeF(Future(trackSyncExecution(interpretationTimeNanos) {
         // The actAs and readAs parties are used for two kinds of checks by the ledger API server:
@@ -255,6 +257,7 @@ final class StoreBackedCommandInterpreter(
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): FutureUnlessShutdown[Either[ErrorCause, A]] = {
+    import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.TimerOnShutdownSyntax
     val readers = actAs ++ readAs
 
     val lookupActiveContractTime = new AtomicLong(0L)
@@ -278,7 +281,7 @@ final class StoreBackedCommandInterpreter(
     def timedLookup(acoid: ContractId): FutureUnlessShutdown[Option[LfFatContractInst]] = {
       val start = System.nanoTime
       Timed
-        .future(
+        .futureUS(
           metrics.execution.lookupActiveContract,
           FutureUnlessShutdown.outcomeF(contractStore.lookupActiveContract(readers, acoid)),
         )
@@ -301,7 +304,7 @@ final class StoreBackedCommandInterpreter(
     def timedKeyLookup(key: GlobalKeyWithMaintainers): FutureUnlessShutdown[Option[ContractId]] = {
       val start = System.nanoTime
       Timed
-        .future(
+        .futureUS(
           metrics.execution.lookupContractKey,
           FutureUnlessShutdown.outcomeF(contractStore.lookupContractKey(readers, key.globalKey)),
         )

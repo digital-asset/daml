@@ -50,6 +50,17 @@ final case class SequencerConnections private (
       m: SequencerConnection => SequencerConnection,
   ): SequencerConnections = modifyM[Id](sequencerAlias, m)
 
+  def modifyConnections(
+      connections: NonEmpty[Seq[SequencerConnection]]
+  ): Either[String, SequencerConnections] = SequencerConnections
+    .many(
+      connections = connections,
+      sequencerTrustThreshold = sequencerTrustThreshold,
+      sequencerLivenessMargin = sequencerLivenessMargin,
+      submissionRequestAmplification = submissionRequestAmplification,
+      sequencerConnectionPoolDelays = sequencerConnectionPoolDelays,
+    )
+
   private def modifyM[M[_]](
       sequencerAlias: SequencerAlias,
       m: SequencerConnection => M[SequencerConnection],

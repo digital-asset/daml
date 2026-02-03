@@ -108,6 +108,7 @@ abstract class TopologyMappingChecksWithStateLookup(
           filterNamespace,
           codes,
           op = op,
+          warnIfUncached = true,
         )
         .map(_.toSeq.flatMap { case (_, tx) => tx.map(_.transaction) })
     )
@@ -123,7 +124,13 @@ abstract class TopologyMappingChecksWithStateLookup(
     SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]
   ]] = EitherT.right(
     stateLookups
-      .lookupForUids(asOf = effective, asOfInclusive = true, filterUid, codes)
+      .lookupForUids(
+        asOf = effective,
+        asOfInclusive = true,
+        filterUid,
+        codes,
+        warnIfUncached = true,
+      )
       .map(_.toSeq.flatMap { case (_, tx) =>
         tx.flatMap(_.transaction.selectOp[TopologyChangeOp.Replace].toList)
       })

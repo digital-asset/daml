@@ -97,12 +97,11 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         ":daml_lf_archive_proto_java",
-        "//canton:crypto",
-        "//canton:nameof",
-        "//canton:safe-proto",
-        "//canton:scala-utils",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/language",
+        "@maven//:com_daml_crypto_2_13",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_language_2_13",
+        "@maven//:com_daml_nameof_2_13",
+        "@maven//:com_daml_scala_utils_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -114,7 +113,7 @@ da_scala_binary(
     main_class = "com.daml.lf.archive.DecodeMain",
     deps = [
         ":daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/language",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_language_2_13",
     ],
 )

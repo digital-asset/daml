@@ -57,7 +57,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.time.{Duration, Instant}
-import java.util.concurrent.CompletableFuture
+import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 class CommandSubmissionServiceImplSpec
@@ -334,7 +334,7 @@ class CommandSubmissionServiceImplSpec
         eqTo(Map.empty),
         eqTo(processedDisclosedContracts),
       )(any[TraceContext])
-    ).thenReturn(CompletableFuture.completedFuture(SubmissionResult.Acknowledged))
+    ).thenReturn(Future(SubmissionResult.Acknowledged))
 
     def apiSubmissionService(
         checkOverloaded: TraceContext => Option[state.SubmissionResult] = _ => None

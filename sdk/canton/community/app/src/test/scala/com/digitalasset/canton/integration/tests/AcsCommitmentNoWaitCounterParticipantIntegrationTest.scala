@@ -7,10 +7,7 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
   NoWaitCommitments,
   WaitCommitments,
 }
-import com.digitalasset.canton.admin.api.client.data.{
-  SequencerConnections,
-  SynchronizerConnectionConfig,
-}
+import com.digitalasset.canton.admin.api.client.data.SynchronizerConnectionConfig
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeProportion
 import com.digitalasset.canton.config.{CommitmentSendDelay, SynchronizerTimeTrackerConfig}
@@ -115,19 +112,16 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
         def connect(
             participant: ParticipantReference,
             minObservationDuration: NonNegativeFiniteDuration,
-        ): Unit = {
-          val daSequencerConnection =
-            SequencerConnections.single(sequencer1.sequencerConnection.withAlias(daName.toString))
+        ): Unit =
           participant.synchronizers.connect_by_config(
             SynchronizerConnectionConfig(
               synchronizerAlias = daName,
-              sequencerConnections = daSequencerConnection,
+              sequencerConnections = sequencer1,
               timeTracker = SynchronizerTimeTrackerConfig(minObservationDuration =
                 minObservationDuration.toConfig
               ),
             )
           )
-        }
 
         connect(participant1, minObservationDuration)
         connect(participant2, minObservationDuration)

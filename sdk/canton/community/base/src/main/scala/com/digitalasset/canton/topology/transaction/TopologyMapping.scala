@@ -1507,7 +1507,7 @@ final case class VettedPackages private (
   override def companion: VettedPackages.type = VettedPackages
   override protected def pretty: Pretty[VettedPackages] = prettyOfClass(
     param("participantId", _.participantId),
-    param("packages", _.packages),
+    param("packages", _.packages.limit(5).mkShow(",")),
   )
 
   def toProto: v30.VettedPackages =

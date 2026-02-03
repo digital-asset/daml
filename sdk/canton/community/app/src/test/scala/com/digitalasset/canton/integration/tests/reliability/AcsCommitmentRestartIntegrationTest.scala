@@ -6,7 +6,12 @@ package com.digitalasset.canton.integration.tests.reliability
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.RequireTypes.NonNegativeProportion
-import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig, PositiveDurationSeconds}
+import com.digitalasset.canton.config.{
+  CommitmentSendDelay,
+  DbConfig,
+  PositiveDurationSeconds,
+  SessionSigningKeysConfig,
+}
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
@@ -59,6 +64,8 @@ trait AcsCommitmentRestartIntegrationTest
     EnvironmentDefinition.P2_S1M1
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
+        // TODO(#30068): Enable session keys after sim clock advances are synced
+        ConfigTransforms.setSessionSigningKeys(SessionSigningKeysConfig.disabled),
         ProgrammableSequencer.configOverride(this.getClass.toString, loggerFactory),
         ConfigTransforms.updateCommitmentCheckpointInterval(
           PositiveDurationSeconds.ofSeconds(checkpointInterval.duration.getSeconds)
@@ -117,7 +124,7 @@ trait AcsCommitmentRestartIntegrationTest
       import env.*
 
       val simClock = environment.simClock.value
-// Advance the sim clock so that we can be sure that the reconciliation interval of one minute is used
+      // Advance the sim clock so that we can be sure that the reconciliation interval of one minute is used
       simClock.advance(java.time.Duration.ofDays(1))
       val start = simClock.uniqueTime()
       preCommitmentTs = start

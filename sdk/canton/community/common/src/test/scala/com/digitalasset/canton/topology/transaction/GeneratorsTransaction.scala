@@ -111,6 +111,8 @@ final class GeneratorsTransaction(
       upgradeTime <- Arbitrary.arbitrary[CantonTimestamp]
     } yield SynchronizerUpgradeAnnouncement(psid, upgradeTime))
 
+  implicit val keyMappingArb: Arbitrary[KeyMapping] = genArbitrary
+
   implicit val topologyMappingArb: Arbitrary[TopologyMapping] = genArbitrary
 
   implicit val decentralizedNamespaceDefinitionArb: Arbitrary[DecentralizedNamespaceDefinition] =

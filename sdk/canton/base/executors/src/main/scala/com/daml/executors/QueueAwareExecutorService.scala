@@ -4,17 +4,12 @@
 package com.daml.executors
 
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
-import com.daml.scalautil.Statement.discard
 
 import java.util
-import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{Callable, ExecutorService, Future, TimeUnit}
 import scala.jdk.CollectionConverters.{CollectionHasAsScala, SeqHasAsJava}
 
-/** Keeps track of the number of tasks submitted to the executor but that have not started execution
-  * just yet. We use this wrapper to access the queue size in performance critical code paths
-  * because reading the queue size from the executor itself can take an amount of time linear with
-  * the number of tasks waiting in the queues.
+/** REMOVE ME (it's really a bad idea to sync all threads)
   */
 class QueueAwareExecutorService(
     delegate: ExecutorService,
@@ -22,10 +17,6 @@ class QueueAwareExecutorService(
 ) extends ExecutorService
     with QueueAwareExecutor
     with NamedExecutor {
-
-  private val queueTracking = new AtomicLong(0)
-
-  def getQueueSize: Long = queueTracking.get()
 
   override def shutdown(): Unit = delegate.shutdown()
   override def shutdownNow(): util.List[Runnable] = delegate.shutdownNow()
@@ -36,73 +27,53 @@ class QueueAwareExecutorService(
 
   override def submit[T](
       callable: Callable[T]
-  ): Future[T] = {
-    discard(queueTracking.incrementAndGet())
+  ): Future[T] =
     delegate.submit(new TrackingCallable[T](callable))
-  }
 
   override def submit[T](
       runnable: Runnable,
       t: T,
-  ): Future[T] = {
-    discard(queueTracking.incrementAndGet())
+  ): Future[T] =
     delegate.submit(new TrackingRunnable(runnable), t)
-  }
 
-  override def submit(runnable: Runnable): Future[?] = {
-    discard(queueTracking.incrementAndGet())
+  override def submit(runnable: Runnable): Future[?] =
     delegate.submit(new TrackingRunnable(runnable))
-  }
 
   override def invokeAll[T](
       collection: util.Collection[? <: Callable[T]]
-  ): util.List[Future[T]] = {
-    discard(queueTracking.updateAndGet(_ + collection.size()))
+  ): util.List[Future[T]] =
     delegate.invokeAll(collection.asScala.map(new TrackingCallable[T](_)).toSeq.asJava)
-  }
 
   override def invokeAll[T](
       collection: util.Collection[? <: Callable[T]],
       l: Long,
       timeUnit: TimeUnit,
-  ): util.List[Future[T]] = {
-    discard(queueTracking.updateAndGet(_ + collection.size()))
+  ): util.List[Future[T]] =
     delegate.invokeAll(collection.asScala.map(new TrackingCallable[T](_)).toSeq.asJava, l, timeUnit)
-  }
 
   override def invokeAny[T](
       collection: util.Collection[? <: Callable[T]]
-  ): T = {
-    discard(queueTracking.updateAndGet(_ + collection.size()))
+  ): T =
     delegate.invokeAny(collection.asScala.map(new TrackingCallable[T](_)).toSeq.asJava)
-  }
 
   override def invokeAny[T](
       collection: util.Collection[? <: Callable[T]],
       l: Long,
       timeUnit: TimeUnit,
-  ): T = {
-    discard(queueTracking.updateAndGet(_ + collection.size()))
+  ): T =
     delegate.invokeAny(collection.asScala.map(new TrackingCallable[T](_)).toSeq.asJava, l, timeUnit)
-  }
 
-  override def execute(runnable: Runnable): Unit = {
-    discard(queueTracking.incrementAndGet())
+  override def execute(runnable: Runnable): Unit =
     delegate.execute(new TrackingRunnable(runnable))
-  }
 
   class TrackingRunnable(delegate: Runnable) extends Runnable {
-    override def run(): Unit = {
-      discard(queueTracking.decrementAndGet())
+    override def run(): Unit =
       delegate.run()
-    }
   }
 
   class TrackingCallable[T](delegate: Callable[T]) extends Callable[T] {
-    override def call(): T = {
-      discard(queueTracking.decrementAndGet())
+    override def call(): T =
       delegate.call()
-    }
   }
-  override def queueSize: Long = queueTracking.get()
+  override def queueSize: Long = 0L
 }

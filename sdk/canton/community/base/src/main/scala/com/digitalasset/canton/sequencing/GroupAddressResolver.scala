@@ -9,10 +9,12 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorGroup, Member}
 import com.digitalasset.canton.tracing.TraceContext
 
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
 object GroupAddressResolver {
 
+  @nowarn("cat=deprecation")
   def resolveGroupsToMembers(
       groupRecipients: Set[GroupRecipient],
       topologyOrSequencingSnapshot: TopologySnapshot,
@@ -41,6 +43,7 @@ object GroupAddressResolver {
           if (!groupRecipients.contains(AllMembersOfSynchronizer)) {
             FutureUnlessShutdown.pure(Map.empty[GroupRecipient, Set[Member]])
           } else {
+
             topologyOrSequencingSnapshot
               .allMembers()
               .map(members => Map((AllMembersOfSynchronizer: GroupRecipient, members)))

@@ -32,6 +32,7 @@ import com.digitalasset.canton.sequencing.protocol.channel.{
 }
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.sequencer.store.VersionedStatus
+import com.digitalasset.canton.synchronizer.sequencer.traffic.LSUTrafficState
 import com.digitalasset.canton.synchronizer.sequencer.{
   GeneratorsSequencer,
   OnboardingStateForSequencer,
@@ -159,6 +160,7 @@ final class SerializationDeserializationTest
         test(SequencerSnapshot, version)
         test(OnboardingStateForSequencer, version)
         test(OnboardingStateForSequencerV2, version)
+        test(LSUTrafficState, version)
 
         testContext(ViewParticipantData, TestHash, version)
         // the generated recipient trees can be quite big, even they are already limited

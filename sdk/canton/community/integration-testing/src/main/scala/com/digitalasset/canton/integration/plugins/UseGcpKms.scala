@@ -14,7 +14,6 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 class UseGcpKms(
     protected val keyId: Option[KmsKeyId] = Some(UseGcpKms.DefaultCantonTestKeyId),
     protected val nodes: Set[String],
-    protected val nodesWithSessionSigningKeysDisabled: Set[String] = Set.empty,
     protected val enableEncryptedPrivateStore: EncryptedPrivateStoreStatus =
       EncryptedPrivateStoreStatus.Enable,
     protected val kmsConfig: KmsConfig.Gcp = KmsConfig.Gcp.defaultTestConfig,

@@ -360,7 +360,8 @@ class SegmentState(
         logger.info(
           s"Segment received early PbftNormalCaseMessage; peer = ${msg.from}, actual sender = $actualSender" +
             s"message view = ${msg.message.viewNumber}, " +
-            s"current view = $currentViewNumber, inViewChange = $inViewChange"
+            s"current view = $currentViewNumber, inViewChange = $inViewChange, " +
+            s"for block number = ${msg.message.blockMetadata.blockNumber}"
         )
         futureViewMessagesQueue.enqueue(actualSender, msg) match {
           case EnqueueResult.PerNodeQuotaExceeded(nodeId) =>

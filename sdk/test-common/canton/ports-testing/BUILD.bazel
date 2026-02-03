@@ -16,6 +16,6 @@ da_scala_library(
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:ports",
+        "@maven//:com_daml_ports_2_13",
     ],
 )

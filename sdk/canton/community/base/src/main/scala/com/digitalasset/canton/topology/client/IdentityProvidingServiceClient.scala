@@ -621,6 +621,11 @@ trait SynchronizerGovernanceSnapshotClient {
   ): FutureUnlessShutdown[Either[String, DynamicSequencingParametersWithValidity]]
 
   /** List all the dynamic synchronizer parameters (past and current) */
+  @deprecated(
+    message =
+      "Do not use methods that scan the topology state as they don’t scale and don’t work with topology scalability.",
+    since = "3.5.0",
+  )
   def listDynamicSynchronizerParametersChanges()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[DynamicSynchronizerParametersWithValidity]]
@@ -630,6 +635,11 @@ trait MembersTopologySnapshotClient {
   this: BaseTopologySnapshotClient =>
 
   /** Convenience method to determine all members with `isMemberKnown`. */
+  @deprecated(
+    message =
+      "Do not use methods that scan the topology state as they don’t scale and don’t work with topology scalability.",
+    since = "3.5.0",
+  )
   def allMembers()(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[Member]]
 
   /** Determines if a member is known on the synchronizer (through a SynchronizerTrustCertificate,

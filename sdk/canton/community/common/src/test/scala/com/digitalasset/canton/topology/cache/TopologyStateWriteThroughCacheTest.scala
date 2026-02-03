@@ -3,7 +3,9 @@
 
 package com.digitalasset.canton.topology.cache
 
+import com.daml.metrics.api.noop.NoOpMetricsFactory
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.BatchAggregatorConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
@@ -12,29 +14,28 @@ import com.digitalasset.canton.lifecycle.{
   PromiseUnlessShutdown,
   UnlessShutdown,
 }
+import com.digitalasset.canton.metrics.CacheMetrics
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   SequencedTime,
   TopologyTransactionTestFactory,
 }
+import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
-import com.digitalasset.canton.topology.store.TopologyStore.TopologyStoreDeactivations
-import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
-import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransaction,
-  StoredTopologyTransactions,
-  TopologyStore,
-  TopologyStoreId,
-  ValidatedTopologyTransaction,
+import com.digitalasset.canton.topology.store.TopologyStore.{
+  StateKeyFetch,
+  TopologyStoreDeactivations,
 }
+import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
 import com.digitalasset.canton.topology.transaction.{
   HostingParticipant,
+  NamespaceDelegation,
   ParticipantPermission,
   PartyToParticipant,
 }
-import com.digitalasset.canton.topology.{Namespace, UniqueIdentifier}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, Namespace, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
@@ -45,6 +46,10 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
+object CacheTestMetrics {
+  val metrics = new CacheMetrics("test", new NoOpMetricsFactory)
+}
+
 class TopologyStateWriteThroughCacheTest
     extends FixtureAsyncWordSpec
     with BaseTest
@@ -54,6 +59,15 @@ class TopologyStateWriteThroughCacheTest
   private implicit def toEffectiveTime(ts: CantonTimestamp): EffectiveTime = EffectiveTime(ts)
   private implicit def toSequencedTime(ts: CantonTimestamp): SequencedTime = SequencedTime(ts)
 
+  private def wrapAppend[T](wrap: => T): T =
+    loggerFactory.assertLogs(
+      wrap,
+      // append will access a state which we haven't fetched yet.
+      // this is correct but inefficient. therefore we need to ignore this
+      // warning in this test.
+      _.warningMessage should include("Trying to access topology state"),
+    )
+
   private def unpack[T](res: UnlessShutdown[T]): T = res match {
     case UnlessShutdown.Outcome(result) => result
     case UnlessShutdown.AbortedDueToShutdown => fail("shouldn't have shutdown here")
@@ -61,25 +75,29 @@ class TopologyStateWriteThroughCacheTest
 
   class TestFixture(val testName: String, testPos: Int)
       extends TopologyTransactionTestFactory(loggerFactory, parallelExecutionContext) {
-    val loggerFactoryExt = loggerFactory.appendUnnamedKey("testPos", testPos.toString)
-    val logger = loggerFactoryExt.getLogger(getClass)
+    private[cache] val loggerFactoryExt =
+      loggerFactory.appendUnnamedKey("testPos", testPos.toString)
+    private[cache] val logger = loggerFactoryExt.getLogger(getClass)
 
-    val store = mock[TopologyStore[TopologyStoreId]]
-    val fetchSync =
+    private[cache] val store = mock[TopologyStore[TopologyStoreId]]
+    when(store.storeId).thenReturn(
+      TopologyStoreId.SynchronizerStore(DefaultTestIdentities.physicalSynchronizerId)
+    )
+    private[cache] val fetchSync =
       new AtomicReference[List[
         (
-            PromiseUnlessShutdown[(Set[UniqueIdentifier], Set[Namespace])],
+            PromiseUnlessShutdown[Seq[StateKeyFetch]],
             PromiseUnlessShutdown[Unit],
         )
       ]](
         List.empty
       )
-    val updateSync = new AtomicReference[
+    private[cache] val updateSync = new AtomicReference[
       PromiseUnlessShutdown[(TopologyStoreDeactivations, Seq[GenericValidatedTopologyTransaction])]
     ](
       PromiseUnlessShutdown.unsupervised()
     )
-    def syncWrite(): FutureUnlessShutdown[
+    private[cache] def syncWrite(): FutureUnlessShutdown[
       (TopologyStoreDeactivations, Seq[GenericValidatedTopologyTransaction])
     ] = {
       val updateP = updateSync.get()
@@ -89,19 +107,21 @@ class TopologyStateWriteThroughCacheTest
       }
     }
 
-    def expect(requests: Int) = {
-      val invoked = List.fill(requests)(
-        PromiseUnlessShutdown.unsupervised[(Set[UniqueIdentifier], Set[Namespace])]()
+    private[cache] def expect(requests: Seq[GenericStoredTopologyTransaction]*) = {
+
+      result.set(requests.map(_.sortBy(_.validFrom).reverse))
+      val invoked = List.fill(requests.length)(
+        PromiseUnlessShutdown.unsupervised[Seq[StateKeyFetch]]()
       )
-      val completed = List.fill(requests)(PromiseUnlessShutdown.unsupervised[Unit]())
-      val invokedAndCompleted = invoked.zip(completed)
-      fetchSync.set(invokedAndCompleted)
-      invokedAndCompleted
+
+      val completed = List.fill(requests.length)(PromiseUnlessShutdown.unsupervised[Unit]())
+      fetchSync.set(invoked.zip(completed))
+      invoked.map(_.futureUS).zip(completed)
     }
 
-    def ts(off: Int): CantonTimestamp = CantonTimestamp.Epoch.plusMillis(off.toLong)
+    private[cache] def ts(off: Int): CantonTimestamp = CantonTimestamp.Epoch.plusMillis(off.toLong)
 
-    def toStored(
+    private[cache] def toStored(
         tx: GenericSignedTopologyTransaction,
         from: CantonTimestamp,
         until: Option[CantonTimestamp],
@@ -114,13 +134,10 @@ class TopologyStateWriteThroughCacheTest
         None,
       )
 
-    def set(txs: GenericStoredTopologyTransaction*): Unit =
-      result.set(txs.sortBy(_.validFrom).reverse)
-
-    def next(
+    private[cache] def next(
         cur: AtomicReference[List[
           (
-              PromiseUnlessShutdown[(Set[UniqueIdentifier], Set[Namespace])],
+              PromiseUnlessShutdown[Seq[StateKeyFetch]],
               PromiseUnlessShutdown[Unit],
           )
         ]]
@@ -133,15 +150,20 @@ class TopologyStateWriteThroughCacheTest
         case Nil => fail("No more fake promises!")
       }
 
-    val result = new AtomicReference[Seq[GenericStoredTopologyTransaction]](Seq.empty)
-    when(store.fetchAllDescending(anySet[UniqueIdentifier], anySet[Namespace])(any[TraceContext]))
-      .thenAnswer[Set[UniqueIdentifier], Set[Namespace], TraceContext] { case (uids, ns, _) =>
-        logger.debug(s"Fetch of $uids / $ns")
+    val result = new AtomicReference[Seq[Seq[GenericStoredTopologyTransaction]]](Seq.empty)
+    when(
+      store.fetchAllDescending(anySeq[StateKeyFetch])(
+        any[TraceContext]
+      )
+    )
+      .thenAnswer[Seq[StateKeyFetch], TraceContext] { case (items, _) =>
+        logger.debug(s"Fetch of $items")
         // get current result future
         val (invoked, completed) = next(fetchSync)
+        // fetch payload and reset result
+        val allTxs = result.getAndUpdate(_.drop(1)).headOption.getOrElse(Seq.empty)
         // mark invoked
-        invoked.outcome_((uids, ns))
-        val allTxs = result.get()
+        invoked.outcome_(items)
         completed.futureUS.map { _ =>
           StoredTopologyTransactions(allTxs)
         }
@@ -165,13 +187,16 @@ class TopologyStateWriteThroughCacheTest
       store,
       // only one parallel loader so we can structure the test incrementally
       BatchAggregatorConfig(maximumInFlight = PositiveInt.one),
+      cacheEvictionThreshold = PositiveInt.one,
       maxCacheSize = PositiveInt.two,
       enableConsistencyChecks = true,
+      CacheTestMetrics.metrics,
+      FutureSupervisor.Noop,
       timeouts,
       loggerFactoryExt,
     )(parallelExecutionContext)
 
-    def grabNs(
+    private[cache] def grabNs(
         timestamp: CantonTimestamp,
         ns: Namespace,
     ): Future[Seq[GenericStoredTopologyTransaction]] = {
@@ -186,7 +211,7 @@ class TopologyStateWriteThroughCacheTest
         .onShutdown(Seq())
     }
 
-    def grabUid(
+    private[cache] def grabUid(
         timestamp: CantonTimestamp,
         uid: UniqueIdentifier,
     ): Future[Seq[GenericStoredTopologyTransaction]] = {
@@ -196,7 +221,7 @@ class TopologyStateWriteThroughCacheTest
           EffectiveTime(timestamp),
           asOfInclusive = true,
           uid,
-          transactionTypes = Code.all.toSet,
+          transactionTypes = Set(Code.OwnerToKeyMapping),
         )
         .onShutdown(Seq())
     }
@@ -214,31 +239,28 @@ class TopologyStateWriteThroughCacheTest
   "topology-write-through cache" when {
 
     "loading" should {
-      "correctly return existing data" in { f =>
+      "correctly return existing data including history fetches" in { f =>
         import f.*
         val tx1 = toStored(ns1k1_k1, ts(0), None)
-        val tx2 = toStored(okm1bk5k1E_k1, ts(1), Some(ts(5)))
-        set(tx1, tx2)
 
-        expect(3).foreach { case (_, completed) => completed.outcome_(()) }
+        val tx2 = toStored(okm1bk5k1E_k2, ts(0), Some(ts(1)))
+        val tx3 = toStored(okm1bk5k1E_k1, ts(1), Some(ts(5)))
 
-        val currentF1 = grabNs(ts(0), ns1)
-        val currentF2 = grabNs(ts(1), ns2)
-        val currentF3 = grabUid(ts(1), okm1bk5k1E_k1.mapping.member.uid)
-        val currentF4 = grabUid(ts(0), okm1bk5k1E_k1.mapping.member.uid)
-        val currentF5 = grabUid(ts(7), okm1bk5k1E_k1.mapping.member.uid)
+        expect(Seq(tx1), Seq.empty, Seq(tx3), Seq(tx2, tx3)).foreach(_._2.outcome_(()))
 
         for {
-          c1 <- currentF1
-          c2 <- currentF2
-          c3 <- currentF3
-          c4 <- currentF4
-          c5 <- currentF5
+          c1 <- grabNs(ts(0), ns1)
+          c2 <- grabNs(ts(1), ns2)
+          // this one will only load the history up until ts(2), omitting tx3
+          c3 <- grabUid(ts(2), okm1bk5k1E_k1.mapping.member.uid)
+          // this one will now trigger the loading of tx2
+          c4 <- grabUid(ts(0), okm1bk5k1E_k1.mapping.member.uid)
+          c5 <- grabUid(ts(7), okm1bk5k1E_k1.mapping.member.uid)
         } yield {
           c1 shouldBe Seq(tx1)
           c2 shouldBe empty
-          c3 shouldBe Seq(tx2)
-          c4 shouldBe empty
+          c3 shouldBe Seq(tx3)
+          c4 shouldBe Seq(tx2) // should return history lookup
           c5 shouldBe empty
         }
 
@@ -248,9 +270,8 @@ class TopologyStateWriteThroughCacheTest
         import f.*
         val tx1 = toStored(ns1k1_k1, ts(0), None)
 
-        set(tx1)
         // only expect one fetch invocation
-        val (invoked, completed) = expect(1) match {
+        val (invoked, completed) = expect(Seq(tx1)) match {
           case one :: Nil => one
           case _ => fail("bad")
         }
@@ -260,7 +281,7 @@ class TopologyStateWriteThroughCacheTest
 
         for {
           // wait until fetch is invoked
-          _ <- invoked.future
+          _ <- invoked.failOnShutdown
           currentF3 = grabNs(ts(2), ns1)
           _ = completed.outcome_(())
           c1 <- currentF1
@@ -281,10 +302,12 @@ class TopologyStateWriteThroughCacheTest
       "add and flush" in { f =>
         import f.*
         // expect one fetch
-        expect(1).foreach { case (_, completedP) => completedP.outcome_(()) }
-        val addF = cache
-          .append(ts(0), ts(0), ValidatedTopologyTransaction(ns1k1_k1))
-          .onShutdown(())
+        expect(Seq.empty).foreach { case (_, completedP) => completedP.outcome_(()) }
+        val addF = wrapAppend(
+          cache
+            .append(ts(0), ts(0), ValidatedTopologyTransaction(ns1k1_k1))
+            .onShutdown(())
+        )
         for {
           _ <- addF
           c1 <- grabNs(ts(1), ns1)
@@ -302,11 +325,15 @@ class TopologyStateWriteThroughCacheTest
       "replace" in { f =>
         import f.*
         // start with one in the store
-        set(toStored(ns1k1_k1, ts(0), None))
+
         val ns1k1_k1_remove = mkRemoveTx(ns1k1_k1)
-        expect(1).foreach { case (_, completedP) => completedP.outcome_(()) }
-        val addAndRemoveF = cache
-          .append(ts(1), ts(1), ValidatedTopologyTransaction(ns1k1_k1_remove))
+        expect(Seq(toStored(ns1k1_k1, ts(0), None))).foreach { case (_, completedP) =>
+          completedP.outcome_(())
+        }
+        val addAndRemoveF = wrapAppend(
+          cache
+            .append(ts(1), ts(1), ValidatedTopologyTransaction(ns1k1_k1_remove))
+        )
 
         (for {
           _ <- addAndRemoveF
@@ -348,9 +375,11 @@ class TopologyStateWriteThroughCacheTest
 
         val p1p1_k1_s3 = mkRemoveTx(p1p1_k1_s2)
 
-        expect(1).foreach { case (_, completedP) => completedP.outcome_(()) }
+        expect(Seq.empty).foreach { case (_, completedP) => completedP.outcome_(()) }
         (for {
-          _ <- cache.append(ts(0), ts(0), ValidatedTopologyTransaction(p1p1_k1_s1, None))
+          _ <- wrapAppend(
+            cache.append(ts(0), ts(0), ValidatedTopologyTransaction(p1p1_k1_s1, None))
+          )
           _ <- cache.append(ts(0), ts(0), ValidatedTopologyTransaction(p1p1_k1_s2, None))
           _ <- cache.flush(ts(0), ts(0))
           resultAtT0 <- syncWrite()
@@ -410,11 +439,14 @@ class TopologyStateWriteThroughCacheTest
         serial = PositiveInt.two,
       )
 
-      set(toStored(p1p1_k1_s1, ts(-1), None), toStored(p1p1_k1_s2_p, ts(0), None))
-      expect(1).foreach { case (_, completedP) => completedP.outcome_(()) }
+      expect(Seq(toStored(p1p1_k1_s1, ts(-1), None), toStored(p1p1_k1_s2_p, ts(0), None))).foreach {
+        case (_, completedP) => completedP.outcome_(())
+      }
 
       (for {
-        _ <- cache.append(ts(1), ts(1), ValidatedTopologyTransaction(p1p1_k1_s2_p2, None))
+        _ <- wrapAppend(
+          cache.append(ts(1), ts(1), ValidatedTopologyTransaction(p1p1_k1_s2_p2, None))
+        )
         _ <- cache.flush(ts(1), ts(1))
         res <- syncWrite()
         // duplicate
@@ -452,13 +484,14 @@ class TopologyStateWriteThroughCacheTest
       "keep below threshold" in { f =>
         import f.*
 
-        set(
-          toStored(ns1k1_k1, ts(0), None),
-          toStored(ns2k2_k2, ts(0), None),
-          toStored(ns3k3_k3, ts(0), None),
-          toStored(ns6k6_k6, ts(0), None),
-        )
-        val ((invoke1, outcome1), (invoke2, outcome2)) = expect(2) match {
+        val ((invoke1, outcome1), (invoke2, outcome2)) = expect(
+          Seq(toStored(ns1k1_k1, ts(0), None)),
+          Seq(
+            toStored(ns2k2_k2, ts(0), None),
+            toStored(ns3k3_k3, ts(0), None),
+            toStored(ns6k6_k6, ts(0), None),
+          ),
+        ) match {
           case one :: two :: Nil => (one, two)
           case _ => fail("invalid")
         }
@@ -471,12 +504,12 @@ class TopologyStateWriteThroughCacheTest
 
         for {
           // flush loading
-          fetch1 <- invoke1.futureUS.failOnShutdown
+          fetch1 <- invoke1.failOnShutdown
           _ = outcome1.outcome_(())
           // sync on first load
           c1 <- c1F
           // flush rest
-          fetch2 <- invoke2.futureUS.failOnShutdown
+          fetch2 <- invoke2.failOnShutdown
           // run eviction during loading of rest (will not do anything, because so far only ns1 is loaded)
           cacheSizeL = cache.evict()
           _ = cacheSizeL shouldBe 1
@@ -490,8 +523,12 @@ class TopologyStateWriteThroughCacheTest
           cacheSize = cache.evict()
           cacheSize2 = cache.evict()
         } yield {
-          fetch1 shouldBe (Set(), Set(ns1))
-          fetch2 shouldBe (Set(), Set(ns2, ns3))
+          val et = EffectiveTime(ts(0))
+          fetch1.toSet shouldBe Set(StateKeyFetch(NamespaceDelegation.code, ns1, None, et))
+          fetch2.toSet shouldBe Set(
+            StateKeyFetch(NamespaceDelegation.code, ns2, None, et),
+            StateKeyFetch(NamespaceDelegation.code, ns3, None, et),
+          )
           c1.map(_.transaction) shouldBe Seq(ns1k1_k1)
           c2.map(_.transaction) shouldBe Seq(ns2k2_k2)
           c3.map(_.transaction) shouldBe Seq(ns3k3_k3)
@@ -501,6 +538,68 @@ class TopologyStateWriteThroughCacheTest
         }
 
       }
+
+      "don't start concurrent evictions" in { f =>
+        import f.*
+
+        val invokedAndOutcome = expect(
+          Seq(toStored(ns1k1_k1, ts(0), None)),
+          Seq(
+            toStored(ns2k2_k2, ts(0), None),
+            toStored(ns3k3_k3, ts(0), None),
+            toStored(ns6k6_k6, ts(0), None),
+          ),
+        )
+
+        // acquire eviction lock
+        val lockP = cache.acquireEvictionLock()
+
+        // loaded in first batch
+        val c1F = grabNs(ts(0), ns1)
+        // grabbed in snd batch
+        val c2F = grabNs(ts(0), ns2)
+        val c3F = grabNs(ts(0), ns3)
+        val c4F = grabNs(ts(0), ns6)
+        cache.cacheSize() shouldBe (0, 0)
+        f.logger.debug("waiting on eviction lock")
+        for {
+          unlockP <- lockP.failOnShutdown
+          lockP2 = cache.acquireEvictionLock()
+          _ = {
+            // immediately complete second wait here
+            lockP2.map(_.outcome_(()))
+          }
+          _ = cache.evictIfNecessary()
+          // complete first read
+          _ = invokedAndOutcome(0)._2.outcome_(())
+          _ <- invokedAndOutcome(0)._1.failOnShutdown
+          _ <- c1F
+          _ = invokedAndOutcome(1)._2.outcome_(())
+          _ <- invokedAndOutcome(1)._1.failOnShutdown
+          _ <- c2F
+          _ <- c3F
+          _ = f.logger.debug("cache eviction should not start")
+          // this one should fire a cache eviction to bring it down to 2, but this eviction
+          // is blocked on us releasing the unlock
+          _ <- c4F
+          _ = cache.cacheSize() shouldBe (0, 4)
+          // second lock should still be pending
+          _ = lockP2.isCompleted shouldBe false
+          _ = unlockP.outcome_(())
+          // next grab should trigger eviction
+          _ = f.logger.debug("cache eviction should start now")
+
+        } yield {
+          // we might need a few iterations due to race conditions
+          eventually() {
+            cache.evictIfNecessary()
+            cache.cacheSize() shouldBe (2, 0)
+          }
+          succeed
+        }
+
+      }
+
     }
 
   }

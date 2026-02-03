@@ -65,12 +65,15 @@ import scala.util.{Random, Success}
   * @param customDbNames
   *   optionally defines a mapping from identifier to db name (String => String) and a suffix to add
   *   to the db name
+  * @param dropDatabaseAfterTest
+  *   default true, otherwise preserve the database after the test
   */
 class UsePostgres(
     protected val loggerFactory: NamedLoggerFactory,
     customDbNames: Option[(String => String, String)] = None,
     customMaxConnectionsByNode: Option[String => Option[PositiveInt]] = None,
     forceTestContainer: Boolean = false,
+    dropDatabaseAfterTest: Boolean = true,
 ) extends EnvironmentSetupPlugin
     with FlagCloseable
     with HasCloseContext
@@ -179,8 +182,13 @@ class UsePostgres(
   // Comment out to keep the databases after tests
   override def afterEnvironmentDestroyed(config: CantonConfig): Unit = {
     val nodes = nodeNamesOfConfig(config)
-    val drops = dropDatabases(nodes)
-    Await.result(drops, config.parameters.timeouts.processing.io.duration)
+    if (dropDatabaseAfterTest) {
+      val drops = dropDatabases(nodes)
+      Await.result(drops, config.parameters.timeouts.processing.io.duration)
+    } else {
+      val dbNames = nodes.map(generateDbName).distinct
+      logger.info(s"Preserving the following database names:\n  ${dbNames.mkString("\n  ")}")
+    }
   }
 
   private def logOpenQueries(storage: DbStorage): FutureUnlessShutdown[Unit] = {

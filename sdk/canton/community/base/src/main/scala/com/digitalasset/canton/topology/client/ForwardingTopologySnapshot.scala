@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology.client
 import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs}
+import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.crypto.SigningKeysWithThreshold
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.discard.Implicits.*
@@ -22,7 +22,6 @@ import com.digitalasset.canton.topology.processing.*
 import com.digitalasset.canton.topology.store.UnknownOrUnvettedPackages
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import java.util.concurrent.atomic.AtomicReference
@@ -101,6 +100,11 @@ class ForwardingTopologySnapshot(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[SequencerGroup]] = parent.sequencerGroup()
 
+  @deprecated(
+    message =
+      "Do not use methods that scan the topology state as they don’t scale and don’t work with topology scalability.",
+    since = "3.5.0",
+  )
   override def allMembers()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Set[Member]] =
@@ -131,6 +135,11 @@ class ForwardingTopologySnapshot(
     parent.findDynamicSequencingParameters()
 
   /** List all the dynamic synchronizer parameters (past and current) */
+  @deprecated(
+    message =
+      "Do not use methods that scan the topology state as they don’t scale and don’t work with topology scalability.",
+    since = "3.5.0",
+  )
   override def listDynamicSynchronizerParametersChanges()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[DynamicSynchronizerParametersWithValidity]] =
@@ -163,7 +172,6 @@ class ForwardingTopologySnapshot(
 class CachingTopologySnapshot(
     parent: TopologySnapshotLoader,
     cachingConfigs: CachingConfigs,
-    batchingConfig: BatchingConfig,
     val loggerFactory: NamedLoggerFactory,
     val futureSupervisor: FutureSupervisor,
 )(implicit
@@ -307,7 +315,7 @@ class CachingTopologySnapshot(
         Map[ParticipantId, ParticipantAttributes]
       ],
   )(implicit traceContext: TraceContext) =
-    getAllBatched(parties)(partyCache.getAll(_)(traceContext))
+    partyCache.getAll(parties)(traceContext)
 
   override def loadParticipantStates(
       participants: Seq[ParticipantId]
@@ -324,7 +332,7 @@ class CachingTopologySnapshot(
   override def loadVettedPackages(participants: Set[ParticipantId])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[ParticipantId, Map[PackageId, VettedPackage]]] =
-    getAllBatched(participants.toSeq)(packageVettingCache.getAll(_)(traceContext))
+    packageVettingCache.getAll(participants)
 
   private[client] override def findUnvettedPackagesOrDependencies(
       participant: ParticipantId,
@@ -361,6 +369,11 @@ class CachingTopologySnapshot(
     getAndCache(sequencerGroupCache, parent.sequencerGroup())
 
   /** returns the set of all known members */
+  @deprecated(
+    message =
+      "Do not use methods that scan the topology state as they don’t scale and don’t work with topology scalability.",
+    since = "3.5.0",
+  )
   override def allMembers()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Set[Member]] =
@@ -407,6 +420,11 @@ class CachingTopologySnapshot(
     getAndCache(sequencingDynamicParametersCache, parent.findDynamicSequencingParameters())
 
   /** List all the dynamic synchronizer parameters (past and current) */
+  @deprecated(
+    message =
+      "Do not use methods that scan the topology state as they don’t scale and don’t work with topology scalability.",
+    since = "3.5.0",
+  )
   override def listDynamicSynchronizerParametersChanges()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[DynamicSynchronizerParametersWithValidity]] =
@@ -419,17 +437,6 @@ class CachingTopologySnapshot(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[SigningKeysWithThreshold]] =
     signingKeysWithThresholdCache.get(party)
-
-  private def getAllBatched[K, V](
-      keys: Seq[K]
-  )(fetchAll: Seq[K] => FutureUnlessShutdown[Map[K, V]]): FutureUnlessShutdown[Map[K, V]] =
-    // split up the request into separate chunks so that we don't block the cache for too long
-    // when loading very large batches
-    MonadUtil
-      .batchedSequentialTraverse(batchingConfig.parallelism, batchingConfig.maxItemsInBatch)(keys)(
-        fetchAll(_).map(_.toSeq)
-      )
-      .map(_.toMap)
 
   override def synchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext

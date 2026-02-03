@@ -19,6 +19,7 @@ import com.digitalasset.canton.synchronizer.sequencer.traffic.{
   TimestampSelector,
 }
 import com.digitalasset.canton.topology.*
+import com.google.protobuf.ByteString
 
 class TrafficControlSequencerAdministrationGroup(
     runner: AdminCommandRunner,
@@ -150,6 +151,42 @@ class TrafficControlSequencerAdministrationGroup(
       runner.adminCommand(
         SequencerAdminCommands.SetTrafficPurchased(member, serial, newBalance)
       )
+    )
+
+  // TODO(#30533): Make sure the naming is consistent with other LSU commands
+  @Help.Summary(
+    "Get the traffic control state to be transferred to a new sequencer during a logical synchronizer upgrade"
+  )
+  @Help.Description(
+    """Use this command on the old synchronizer to get the input for `set_lsu_state`
+      | to be run on the new synchronizer.
+      | A logical synchronizer upgrade must be ongoing and sequencer must have reached
+      | the upgrade time for this call to succeed.
+      """
+  )
+  def get_lsu_state(): ByteString =
+    consoleEnvironment.run(
+      runner.adminCommand(SequencerAdminCommands.GetLSUTrafficControlState)
+    )
+
+  // TODO(#30533): Make sure the naming is consistent with other LSU commands
+  @Help.Summary(
+    "Set the traffic control state on a fresh sequencer during a logical synchronizer upgrade"
+  )
+  @Help.Description(
+    """Use this command on the new synchronizer with an output of
+      | `get_lsu_traffic_control_state` from the old synchronizer.
+      | A logical synchronizer upgrade must be ongoing and the command must be called only once
+      | on the successor synchronizer sequencer.
+      | Parameters:
+      | - memberTraffic: ByteString produced by `get_lsu_state`.
+      """
+  )
+  def set_lsu_state(
+      memberTraffic: ByteString
+  ): Unit =
+    consoleEnvironment.run(
+      runner.adminCommand(SequencerAdminCommands.SetLSUTrafficControlState(memberTraffic))
     )
 
 }

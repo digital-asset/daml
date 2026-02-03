@@ -19,15 +19,19 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencer.admin.v30.{
+  GetLSUTrafficControlStateRequest,
+  GetLSUTrafficControlStateResponse,
   OnboardingStateResponse,
   OnboardingStateV2Request,
   OnboardingStateV2Response,
+  SetLSUTrafficControlStateRequest,
+  SetLSUTrafficControlStateResponse,
   SetTrafficPurchasedRequest,
   SetTrafficPurchasedResponse,
 }
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.synchronizer.sequencer.traffic.TimestampSelector
+import com.digitalasset.canton.synchronizer.sequencer.traffic.{LSUTrafficState, TimestampSelector}
 import com.digitalasset.canton.synchronizer.sequencer.{
   OnboardingStateForSequencer,
   OnboardingStateForSequencerV2,
@@ -49,6 +53,7 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
+import com.digitalasset.canton.version.ProtoVersion
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
@@ -384,6 +389,47 @@ class GrpcSequencerAdministrationService(
         )
         .leftWiden[RpcError]
     } yield SetTrafficPurchasedResponse()
+
+    mapErrNewEUS(result)
+  }
+
+  /** Get the traffic control state at the Logical Synchronizer Upgrade time. Only available once
+    * sequencer node has reached the upgrade time, otherwise returns an empty map.
+    */
+  override def getLSUTrafficControlState(
+      request: GetLSUTrafficControlStateRequest
+  ): Future[GetLSUTrafficControlStateResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val result = sequencer.getLSUTrafficControlState
+      .map(trafficState => GetLSUTrafficControlStateResponse(trafficState.toByteString))
+      .leftMap(_.toCantonRpcError)
+    mapErrNewEUS(result)
+  }
+
+  /** Set the traffic control state at the Logical Synchronizer Upgrade time. Can only to be used
+    * during the upgrade process, can be called successfully once, only works if sequencer node
+    * hasn't progressed beyond the upgrade time, otherwise returns an error.
+    */
+  override def setLSUTrafficControlState(
+      request: SetLSUTrafficControlStateRequest
+  ): Future[SetLSUTrafficControlStateResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    val result = for {
+      protocolVersionForProtoV30 <- wrapErrUS(
+        LSUTrafficState.protocolVersionRepresentativeFor(ProtoVersion(30))
+      )
+      trafficStates <- wrapErrUS(
+        LSUTrafficState.fromByteString(
+          protocolVersionForProtoV30.representative,
+          request.lsuTrafficState,
+        )
+      )
+      _ <-
+        sequencer
+          .setLSUTrafficControlState(trafficStates)
+          .leftMap(_.toCantonRpcError)
+    } yield SetLSUTrafficControlStateResponse()
 
     mapErrNewEUS(result)
   }

@@ -70,7 +70,6 @@ final class LSUEndToEndIntegrationTest extends LSUBase {
       oldSynchronizerNodes.all.stop()
 
       environment.simClock.value.advance(Duration.ofSeconds(1))
-
       waitForTargetTimeOnSequencer(sequencer2, environment.clock.now)
 
       /*

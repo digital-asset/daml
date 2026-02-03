@@ -72,22 +72,14 @@ final case class PackageMetadata(
     * package-version), we filter the previous result by intersection with the set of all known
     * identifiers (both template-ids and interface-ids).
     */
-  def resolveTypeConRef(ref: Ref.TypeConRef): Set[Ref.FullIdentifier] = ref match {
-    case Ref.TypeConRef(Ref.PackageRef.Name(packageName), qualifiedName) =>
-      packageNameMap
-        .get(packageName)
-        .map(_.allPackageIdsForName.iterator)
-        .getOrElse(Iterator.empty)
-        .map(packageId => Ref.FullIdentifier(packageId, packageName, qualifiedName))
-        .toSet
-        .intersect(allTypeConIds)
-    case Ref.TypeConRef(Ref.PackageRef.Id(packageId), qName) =>
-      val packageName = packageIdVersionMap
-        .get(packageId)
-        .map(_._1)
-        .getOrElse(throw new IllegalArgumentException(s"Unknown package id: $packageId"))
-      Set(Ref.FullIdentifier(packageId, packageName, qName))
-  }
+  def resolveTypeConRef(ref: Ref.NameTypeConRef): Set[Ref.FullIdentifier] =
+    packageNameMap
+      .get(ref.pkg.name)
+      .map(_.allPackageIdsForName.iterator)
+      .getOrElse(Iterator.empty)
+      .map(packageId => Ref.FullIdentifier(packageId, ref.pkg.name, ref.qualifiedName))
+      .toSet
+      .intersect(allTypeConIds)
 
   lazy val allTypeConIds: Set[Ref.FullIdentifier] = templates.union(interfaces).map { id =>
     val packageName =

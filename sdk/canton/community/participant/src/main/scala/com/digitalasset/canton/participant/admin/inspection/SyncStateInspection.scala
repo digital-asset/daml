@@ -84,6 +84,7 @@ import com.google.common.annotations.VisibleForTesting
 
 import java.io.OutputStream
 import java.time.Instant
+import scala.annotation.nowarn
 import scala.collection.immutable.SortedMap
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -1072,6 +1073,7 @@ final class SyncStateInspection(
   /** Return the list of all known participants. If several physical synchronizer are known for a
     * given [[com.digitalasset.canton.topology.SynchronizerId]], only the latest one is considered
     */
+  @nowarn("cat=deprecation")
   def findAllKnownParticipants(
       synchronizerFilter: Option[NonEmpty[Seq[SynchronizerId]]],
       participantFilter: Option[NonEmpty[Seq[ParticipantId]]],

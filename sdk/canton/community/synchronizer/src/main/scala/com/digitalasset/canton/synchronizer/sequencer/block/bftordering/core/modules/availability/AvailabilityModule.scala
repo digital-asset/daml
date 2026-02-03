@@ -544,6 +544,9 @@ final class AvailabilityModule[E <: Env[E]](
 
     consensusMessage match {
       case Availability.Consensus.Ordered(batchIds) =>
+        logger.debug(
+          s"Consensus acknowledged ordered batches $batchIds without requesting a block proposal"
+        )
         removeOrderedBatchesAndPullFromMempool(messageType, batchIds)
         spanManager.finishBlockSpan(batchIds)
 

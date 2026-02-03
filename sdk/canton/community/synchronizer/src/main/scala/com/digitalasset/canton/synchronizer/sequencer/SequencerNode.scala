@@ -233,18 +233,6 @@ class SequencerNodeBootstrap(
     })
     addCloseable(sequencerPublicApiHealthService)
     addCloseable(sequencerHealth)
-    // TODO(#25118) clean up manual cache removal
-    addCloseable(new AutoCloseable {
-      override def close(): Unit = {
-        // This is a pretty ugly work around for the fact that cache metrics are left dangling and
-        // are not closed properly
-        arguments.metrics.trafficControl.purchaseCache.closeAcquired()
-        arguments.metrics.trafficControl.consumedCache.closeAcquired()
-        arguments.metrics.eventBuffer.closeAcquired()
-        arguments.metrics.memberCache.closeAcquired()
-        arguments.metrics.payloadCache.closeAcquired()
-      }
-    })
 
     private def createSequencerFactory(
         protocolVersion: ProtocolVersion
@@ -597,12 +585,13 @@ class SequencerNodeBootstrap(
               TopologyTransactionProcessor
                 .createProcessorAndClientForSynchronizerWithWriteThroughCache(
                   synchronizerTopologyStore,
-                  synchronizerPredecessor = None,
+                  synchronizerUpgradeTime = parameters.sequencingTimeLowerBoundExclusive,
                   crypto.pureCrypto,
                   parameters,
                   arguments.config.topology,
                   clock,
                   crypto.staticSynchronizerParameters,
+                  arguments.metrics.topologyCache,
                   futureSupervisor,
                   synchronizerLoggerFactory,
                 )(sequencerSnapshotTimestamp)

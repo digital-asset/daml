@@ -106,7 +106,6 @@ theParser = some line <* eof
 
 data Category
   = Authorization
-  | Availability
   | Confidentiality
   | Integrity
   deriving (Eq,Ord,Bounded,Enum,Show)
@@ -145,6 +144,5 @@ ppDescription Description{filename,lineno,freeText} =
 ppCategory :: Category -> String
 ppCategory = \case
   Authorization -> "Authorization"
-  Availability -> "Availability"
   Confidentiality -> "Confidentiality"
   Integrity -> "Integrity"

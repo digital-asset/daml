@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.indexer.parallel
 
-import com.digitalasset.canton.util.BatchN
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
 
@@ -12,7 +11,7 @@ import scala.concurrent.Future
 object BatchingParallelIngestionPipe {
 
   def apply[IN, IN_BATCH, DB_BATCH](
-      submissionBatchSize: Long,
+      batchingFlow: Flow[IN, Iterable[IN], NotUsed],
       inputMappingParallelism: Int,
       inputMapper: Iterable[IN] => Future[IN_BATCH],
       seqMapperZero: IN_BATCH,
@@ -29,7 +28,7 @@ object BatchingParallelIngestionPipe {
     // The stream coming from ReadService, involves deserialization and translation to Update-s
     Flow[IN]
       // Batching plus mapping to Database DTOs encapsulates all the CPU intensive computation of the ingestion. Executed in parallel.
-      .via(BatchN(submissionBatchSize.toInt, inputMappingParallelism))
+      .via(batchingFlow)
       .mapAsync(inputMappingParallelism)(inputMapper)
       // Encapsulates sequential/stateful computation (generation of sequential IDs for events)
       .scan(seqMapperZero)(seqMapper)

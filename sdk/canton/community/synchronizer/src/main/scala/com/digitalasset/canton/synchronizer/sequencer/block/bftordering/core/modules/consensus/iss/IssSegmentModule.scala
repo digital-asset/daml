@@ -255,6 +255,9 @@ class IssSegmentModule[E <: Env[E]](
                   )
                 } else {
                   emitProposalWaitLatency()
+                  logger.debug(
+                    s"$logPrefix. Expected proposal for block number $forBlock. ordering a new block."
+                  )
                   orderBlock(orderingBlock, mySegmentState, logPrefix)
                 }
               } else {
@@ -273,7 +276,7 @@ class IssSegmentModule[E <: Env[E]](
           // it considers itself to be blocking progress for other segments, then it will start ordering an empty block
           if (mySegmentState.canReceiveProposals && mySegmentState.isProgressBlocked) {
             val logPrefix =
-              s"$messageType: new block completed and we are not blocking progress"
+              s"$messageType: new block completed and we are blocking progress"
             orderBlock(OrderingBlock.empty, mySegmentState, logPrefix)
           }
         }
@@ -322,12 +325,12 @@ class IssSegmentModule[E <: Env[E]](
         }
 
       case blockStored @ ConsensusSegment.Internal.OrderedBlockStored(
-            commitCertificate,
-            viewNumber,
+            commitCertificate
           ) =>
         val orderedBlock = blockStored.orderedBlock
         val blockNumber = orderedBlock.metadata.blockNumber
         val orderedBatchIds = orderedBlock.batchRefs.map(_.batchId)
+        val viewNumber = commitCertificate.prePrepare.message.viewNumber
 
         blockSpanMap.remove(blockNumber).foreach(_.end())
 
@@ -362,12 +365,14 @@ class IssSegmentModule[E <: Env[E]](
         maybeOriginalLeaderSegmentStateOfBlock(blockNumber).foreach {
           originalLeaderSegmentStateOfBlock =>
             val orderedBatchIds = orderedBlock.batchRefs.map(_.batchId)
+            originalLeaderSegmentStateOfBlock.observedOrderedBlock(viewNumber)
+
             if (originalLeaderSegmentStateOfBlock.canReceiveProposals) {
               // Ask availability for more batches to be ordered in the next block and contextually
               //  notify availability of ordered batches (if any)
               val nextBlockToOrder = originalLeaderSegmentStateOfBlock.nextBlockToPropose
               logger.debug(
-                s"Initiating pull for block $nextBlockToOrder after OrderedBlockStored"
+                s"Initiating pull for block $nextBlockToOrder after OrderedBlockStored($blockNumber)"
               )
               initiatePull(BlockNumber(nextBlockToOrder), orderedBatchIds)
             } else if (orderedBatchIds.nonEmpty) {
@@ -398,7 +403,8 @@ class IssSegmentModule[E <: Env[E]](
           Consensus.ConsensusMessage.BlockOrdered(
             orderedBlock,
             commitCertificate,
-            hasCompletedLedSegment = maybeOriginalLeaderSegmentState.exists(!_.canReceiveProposals),
+            hasCompletedLedSegment =
+              maybeOriginalLeaderSegmentState.exists(_ => segmentState.isSegmentComplete),
           )
         )
 
@@ -532,7 +538,7 @@ class IssSegmentModule[E <: Env[E]](
               s"DB stored ${vcMessage.message match {
                   case _: ViewChange => "view change"
                   case _: NewView => "new view"
-                }} for view ${vcMessage.message.viewNumber} and segment ${vcMessage.message.blockMetadata.blockNumber}"
+                }} for view ${vcMessage.message.viewNumber} and segment at block ${vcMessage.message.blockMetadata.blockNumber}"
             )
             vcMessage.message match {
               case vc: NewView =>
@@ -605,11 +611,14 @@ class IssSegmentModule[E <: Env[E]](
           case _ => sendMessage()
         }
 
-      case CompletedBlock(commitCertificate, viewNumber) =>
-        storeOrderedBlock(commitCertificate, viewNumber)
+      case CompletedBlock(commitCertificate) =>
+        logger.debug(
+          s"CompletedBlock commitCertificate: View=${commitCertificate.prePrepare.message.viewNumber}, From=${commitCertificate.prePrepare.from}, Block=${commitCertificate.prePrepare.message.blockMetadata}"
+        )
+        storeOrderedBlock(commitCertificate)
 
       case ViewChangeStartNestedTimer(blockMetadata, viewNumber) =>
-        logger.debug(
+        logger.info(
           s"View change w/ strong quorum support; starting nested timer; metadata: $blockMetadata, view: $viewNumber"
         )
         viewChangeTimeoutManager.scheduleTimeout(
@@ -617,7 +626,7 @@ class IssSegmentModule[E <: Env[E]](
         )
 
       case ViewChangeCompleted(blockMetadata, viewNumber, storeOption) =>
-        logger.debug(s"View change completed; metadata: $blockMetadata, view: $viewNumber")
+        logger.info(s"View change completed; metadata: $blockMetadata, view: $viewNumber")
         viewChangeTimeoutManager.scheduleTimeout(PbftNormalTimeout(blockMetadata, viewNumber))
         if (storeMessages)
           storeOption.foreach(storeResult => handleStore(storeResult, () => ()))
@@ -627,8 +636,7 @@ class IssSegmentModule[E <: Env[E]](
   }
 
   private def storeOrderedBlock(
-      commitCertificate: CommitCertificate,
-      viewNumber: ViewNumber,
+      commitCertificate: CommitCertificate
   )(implicit
       context: E#ActorContextT[ConsensusSegment.Message],
       traceContext: TraceContext,
@@ -642,7 +650,7 @@ class IssSegmentModule[E <: Env[E]](
     ) {
       case Failure(exception) => Some(ConsensusSegment.Internal.AsyncException(exception))
       case Success(_) =>
-        Some(ConsensusSegment.Internal.OrderedBlockStored(commitCertificate, viewNumber))
+        Some(ConsensusSegment.Internal.OrderedBlockStored(commitCertificate))
     }
 
   private def logAsyncException(exception: Throwable)(implicit traceContext: TraceContext): Unit =

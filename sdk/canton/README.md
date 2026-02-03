@@ -1,6 +1,9 @@
-# Canton
+<picture>
+ <source media="(prefers-color-scheme: dark)" srcset="https://github.com/digital-asset/.github/raw/main/images/Canton - Horizontal-stack-Logo-White.png">
+ <img alt="Canton" src="https://github.com/digital-asset/.github/raw/main/images/Canton-Vertical-logo-Black-logo-Yellow-C-Black-diamond.png" width="50%">
+</picture>
 
-[![CircleCI](https://circleci.com/gh/DACH-NY/canton.svg?style=svg&circle-token=5cf96f68761df465e62cf13b03cf75f4e9f67eb7)](https://circleci.com/gh/DACH-NY/canton)
+<br/><br/>
 
 Canton is a next-generation Daml ledger interoperability protocol that implements Daml's built-in models of
 authorization and privacy faithfully.
@@ -15,20 +18,15 @@ authorization and privacy faithfully.
 
 * Synchronizers can be deployed at will to address scalability, operational or trust concerns.
 
-* Synchronizers can be implemented on top of various technologies, depending on the trust requirements.
-
 * Synchronizers are permissioned but can be federated at no interoperability cost, yielding a virtual global ledger that
   enables truly global workflow composition.
 
 Refer to the [Canton Whitepaper](https://www.canton.io/publications/canton-whitepaper.pdf) for further details.
 
-## Running
+## Documentation
 
-Please read [Getting Started](https://docs.daml.com/canton/tutorials/getting_started.html)
-for instructions on how to get started with Canton.
-
-Consult the [Canton User Manual](https://docs.daml.com/canton/about.html) for further
-references of Canton's configuration, command-line arguments, or its console.
+Please refer to the [Documentation](https://docs.digitalasset.com/) for
+for instructions on how to operate a participant node or a synchronizer.
 
 ## Development
 

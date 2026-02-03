@@ -6,7 +6,7 @@ package com.digitalasset.canton.admin.api.client.data
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.{Id, Monad}
-import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.ConsoleEnvironment
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -191,9 +191,7 @@ object SequencerConnections {
       sequencerConnectionPoolDelays: SequencerConnectionPoolDelays,
   )(implicit consoleEnvironment: ConsoleEnvironment): SequencerConnections = {
     val resultE = for {
-      connectionsNE <- Either
-        .catchOnly[NoSuchElementException](NonEmptyUtil.fromUnsafe(connections))
-        .leftMap(_.toString)
+      connectionsNE <- NonEmpty.from(connections).toRight("connections should not be empty")
       result <- many(
         connectionsNE,
         sequencerTrustThreshold,

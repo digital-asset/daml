@@ -37,14 +37,6 @@ import java.util.UUID
   * @param submissionId
   *   An identifier for the submission that allows an application to correlate completions to its
   *   submissions.
-  * @param transactionUUID
-  *   Optionally explicitly chosen TransactionUUID. This is set in externally signed transactions
-  *   where the external party has included the transactionUUID in the signature. It acts as a
-  *   replay protection mechanism by allowing the mediator to deduplicate requests.
-  * @param mediatorGroup
-  *   Optionally explicitly chosen mediator group. This is set in externally signed transactions
-  *   where the external party has included the mediator group in the signature.
-  *
   * @param externallySignedSubmission
   *   If this is provided then the authorization for all acting parties will be provided by the
   *   enclosed signatures.
@@ -119,7 +111,7 @@ object SubmitterInfo {
       signatures: Map[PartyId, Seq[Signature]],
       transactionUUID: UUID,
       mediatorGroup: MediatorGroupIndex,
-      maxRecordTimeO: Option[LfTimestamp],
+      maxRecordTime: Option[LfTimestamp],
   )
 
 }

@@ -4,14 +4,20 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import com.digitalasset.canton.admin.api.client.data.{
+  SequencerConnectionPoolDelays,
   SequencerConnections,
   StaticSynchronizerParameters,
+  SubmissionRequestAmplification,
   SynchronizerConnectionConfig,
 }
-import com.digitalasset.canton.config
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
-import com.digitalasset.canton.console.{ConsoleEnvironment, InstanceReference, ParticipantReference}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.{SessionSigningKeysConfig, SynchronizerTimeTrackerConfig}
+import com.digitalasset.canton.console.{
+  ConsoleEnvironment,
+  InstanceReference,
+  ParticipantReference,
+  SequencerReference,
+}
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UsePostgres
@@ -21,6 +27,7 @@ import com.digitalasset.canton.integration.tests.upgrade.lsu.LSUBase.Fixture
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{SequencerAlias, config}
 import monocle.macros.syntax.lens.*
 
 /** This trait provides helpers for the logical synchronizer upgrade tests. The main goal is to
@@ -55,6 +62,8 @@ trait LSUBase
     ++ List(
       ConfigTransforms.disableAutoInit(newOldNodesResolution.keySet),
       ConfigTransforms.useStaticTime,
+      // TODO(#30068): Enable session keys after sim clock advances are synced
+      ConfigTransforms.setSessionSigningKeys(SessionSigningKeysConfig.disabled),
     ) ++ ConfigTransforms.enableAlphaVersionSupport
 
   /** Prepare the environment for LSU with default values.
@@ -69,13 +78,10 @@ trait LSUBase
 
     val participants = participantsOverride.getOrElse(env.participants.all)
 
-    val daSequencerConnection =
-      SequencerConnections.single(env.sequencer1.sequencerConnection.withAlias(daName.toString))
-
     participants.synchronizers.connect(
       SynchronizerConnectionConfig(
         synchronizerAlias = daName,
-        sequencerConnections = daSequencerConnection,
+        sequencerConnections = sequencer1,
         timeTracker =
           SynchronizerTimeTrackerConfig(observationLatency = config.NonNegativeFiniteDuration.Zero),
       )
@@ -92,6 +98,40 @@ trait LSUBase
 
     oldSynchronizerNodes = SynchronizerNodes(Seq(sequencer1), Seq(mediator1))
     newSynchronizerNodes = SynchronizerNodes(Seq(sequencer2), Seq(mediator2))
+  }
+
+  protected def synchronizerConnectionConfig(
+      seq: SequencerReference
+  )(implicit env: TestConsoleEnvironment): SynchronizerConnectionConfig = {
+    import env.*
+
+    SynchronizerConnectionConfig(
+      synchronizerAlias = daName,
+      sequencerConnections = seq,
+      timeTracker =
+        SynchronizerTimeTrackerConfig(observationLatency = config.NonNegativeFiniteDuration.Zero),
+    )
+  }
+
+  protected def synchronizerConnectionConfig(
+      seqs: Seq[SequencerReference],
+      threshold: Int,
+  )(implicit env: TestConsoleEnvironment): SynchronizerConnectionConfig = {
+    import env.*
+
+    SynchronizerConnectionConfig(
+      synchronizerAlias = daName,
+      sequencerConnections = SequencerConnections.tryMany(
+        connections =
+          seqs.map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
+        sequencerTrustThreshold = PositiveInt.tryCreate(threshold),
+        sequencerLivenessMargin = NonNegativeInt.zero,
+        submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
+        sequencerConnectionPoolDelays = SequencerConnectionPoolDelays.default,
+      ),
+      timeTracker =
+        SynchronizerTimeTrackerConfig(observationLatency = config.NonNegativeFiniteDuration.Zero),
+    )
   }
 
   protected def fixtureWithDefaults(
@@ -129,6 +169,16 @@ trait LSUBase
       _.topology.synchronizer_upgrade.announcement.propose(fixture.newPSId, fixture.upgradeTime)
     )
 
+    // Ensure all nodes see the announcement
+    eventually() {
+      forAll(fixture.oldSynchronizerNodes.all)(
+        _.topology.synchronizer_upgrade.announcement
+          .list(store = Some(fixture.currentPSId))
+          .filter(_.item.successorSynchronizerId == fixture.newPSId)
+          .loneElement
+      )
+    }
+
     migrateSynchronizerNodes(fixture)
 
     fixture.oldSynchronizerNodes.sequencers.zip(fixture.newSynchronizerNodes.sequencers).foreach {
@@ -163,7 +213,7 @@ trait LSUBase
         synchronizerId = fixture.currentPSId,
         newSequencers = fixture.newSynchronizerNodes.sequencers,
         exportDirectory = exportDirectory,
-        sourceNodeNames = fixture.newOldNodesResolution,
+        newNodeToOldNodeName = fixture.newOldNodesResolution,
       )
     }
   }

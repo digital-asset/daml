@@ -90,13 +90,13 @@ final case class EventFormat(
 )
 
 final case class InterfaceFilter(
-    interfaceTypeRef: Ref.TypeConRef, // TODO(#26879) use only NameTypeConRef and do not accept IdTypeConRef in 3.5
+    interfaceTypeRef: Ref.NameTypeConRef,
     includeView: Boolean,
     includeCreatedEventBlob: Boolean,
 )
 
 final case class TemplateFilter(
-    templateTypeRef: Ref.TypeConRef, // TODO(#26879) use only NameTypeConRef and do not accept IdTypeConRef in 3.5
+    templateTypeRef: Ref.NameTypeConRef,
     includeCreatedEventBlob: Boolean,
 )
 

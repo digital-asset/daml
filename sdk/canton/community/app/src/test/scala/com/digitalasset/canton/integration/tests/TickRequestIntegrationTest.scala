@@ -15,7 +15,7 @@ import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeNumeric,
   PositiveInt,
 }
-import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
+import com.digitalasset.canton.config.{SessionSigningKeysConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.LocalSequencerReference
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UseProgrammableSequencer}
@@ -86,6 +86,8 @@ sealed trait TickRequestIntegrationTest
     EnvironmentDefinition.P2_S1M1_S1M1
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
+        // TODO(#30068): Enable session keys after sim clock advances are synced
+        ConfigTransforms.setSessionSigningKeys(SessionSigningKeysConfig.disabled),
         ConfigTransforms.updateSynchronizerTimeTrackerConfigs_(_ => synchronizerTimeTrackerConfig),
         ConfigTransforms.updateTargetTimestampForwardTolerance(Duration.ofHours(1)),
       )

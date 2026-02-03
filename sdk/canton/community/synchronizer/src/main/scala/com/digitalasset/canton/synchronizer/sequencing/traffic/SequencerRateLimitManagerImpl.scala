@@ -47,7 +47,7 @@ import scala.concurrent.ExecutionContext
 
 class SequencerRateLimitManagerImpl(
     @VisibleForTesting
-    private[canton] val trafficPurchasedManager: TrafficPurchasedManager,
+    override private[canton] val trafficPurchasedManager: TrafficPurchasedManager,
     override val trafficConsumedStore: TrafficConsumedStore,
     override protected val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
@@ -63,7 +63,6 @@ class SequencerRateLimitManagerImpl(
     extends SequencerRateLimitManager
     with NamedLogging
     with FlagCloseable {
-
   // We keep traffic consumed records per member to avoid unnecessary db lookups and enable async db writes.
   // We don't use a cache here, as it is not safe to retrieve invalidated member records from the database,
   // as it is only written to the database at the end of the chunk processing together with events

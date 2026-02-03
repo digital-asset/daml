@@ -5,35 +5,48 @@ package com.digitalasset.canton.caching
 
 import cats.syntax.flatMap.*
 import cats.{FlatMap, Functor}
+import com.daml.metrics.api.MetricHandle.Gauge
+import com.digitalasset.canton.checked
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.CacheMetrics
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.FutureUtil
+import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
+import com.github.benmanes.caffeine.cache.RemovalCause
 import com.github.blemale.scaffeine.{AsyncCache, AsyncLoadingCache, Scaffeine}
 
 import java.util.concurrent.CompletableFuture
 import java.util.function.BiFunction
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters.ConcurrentMapHasAsScala
 import scala.jdk.javaapi.FutureConverters
+import scala.util.chaining.scalaUtilChainingOps
 
 object ScaffeineCache {
 
   def buildMappedAsync[K, V](
       cache: Scaffeine[Any, Any],
       metrics: Option[CacheMetrics] = None,
+      evictionListener: Option[(K, V, RemovalCause) => Unit] = None,
   )(
       tracedLogger: TracedLogger,
       context: String,
-  ): TunnelledAsyncCache[K, V] = {
+  ): TunnelledAsyncCacheImpl[K, V] = {
     val contextWithLoggerName = s"${tracedLogger.underlying.getName}:$context"
     val cacheWithMetrics =
       metrics.fold(cache)(m => cache.recordStats(() => new StatsCounterMetrics(m)))
-    val asyncCache = cacheWithMetrics.buildAsync[K, V]()
+    val cacheWithEviction = evictionListener match {
+      case Some(listener) =>
+        cacheWithMetrics.evictionListener[K, V](listener)
+      case None =>
+        cacheWithMetrics
+    }
+    val asyncCache = cacheWithEviction.buildAsync[K, V]()
     metrics.foreach(CaffeineCache.installMetrics(_, asyncCache.underlying.synchronous()))
-    new TunnelledAsyncCache[K, V](
+    new TunnelledAsyncCacheImpl[K, V](
       asyncCache,
       tracedLogger,
       contextWithLoggerName,
@@ -97,18 +110,37 @@ object ScaffeineCache {
     })
   }
 
-  class TunnelledAsyncCache[K, V] private[ScaffeineCache] (
+  trait TunnelledAsyncCache[K, V] {
+    def getFuture(
+        key: K,
+        mappingFunction: K => FutureUnlessShutdown[V],
+    )(implicit traceContext: TraceContext): FutureUnlessShutdown[V]
+
+    def invalidate(key: K): Unit
+
+    def put(key: K, value: V): Unit
+
+    def invalidateAll(keys: Iterable[K]): Unit
+
+    def invalidateAll(): Unit
+
+    def cleanUp(): Unit
+
+    def getIfPresentSync(key: K): Option[V]
+  }
+
+  class TunnelledAsyncCacheImpl[K, V] private[ScaffeineCache] (
       underlying: AsyncCache[K, V],
       tracedLogger: TracedLogger,
       context: String,
-  ) {
+  ) extends TunnelledAsyncCache[K, V] {
     implicit private[this] val ec: ExecutionContext = DirectExecutionContext(tracedLogger)
     val tunnel: EffectTunnel[FutureUnlessShutdown, Future] =
       EffectTunnel.effectTunnelFutureUnlessShutdown
     def getFuture(
         key: K,
         mappingFunction: K => FutureUnlessShutdown[V],
-    ): FutureUnlessShutdown[V] =
+    )(implicit _traceContext: TraceContext): FutureUnlessShutdown[V] =
       tunnel.exit(underlying.getFuture(key, k => tunnel.enter(mappingFunction(k), context)))
 
     def invalidate(key: K): Unit = underlying.synchronous().invalidate(key)
@@ -122,6 +154,176 @@ object ScaffeineCache {
     def cleanUp(): Unit = underlying.synchronous().cleanUp()
 
     def getIfPresentSync(key: K): Option[V] = underlying.synchronous().getIfPresent(key)
+
+    private val concurrentMap: scala.collection.concurrent.Map[K, CompletableFuture[V]] =
+      underlying.underlying.asMap().asScala
+
+    private def toFUSValue(v: CompletableFuture[V]): FutureUnlessShutdown[V] =
+      tunnel.exit(
+        FutureUtil.unwrapCompletionException(
+          FutureConverters.asScala(v)
+        )
+      )
+
+    private def toCompletableFutureValue(v: FutureUnlessShutdown[V]): CompletableFuture[V] =
+      FutureConverters
+        .asJava(
+          tunnel.enter(v, context)
+        )
+        .toCompletableFuture
+
+    def compute(key: K)(
+        remappingFunction: Option[FutureUnlessShutdown[V]] => Option[FutureUnlessShutdown[V]]
+    ): Option[FutureUnlessShutdown[V]] =
+      concurrentMap
+        .updateWith(key)(
+          _.map(toFUSValue).pipe(remappingFunction).map(toCompletableFutureValue)
+        )
+        .map(toFUSValue)
+  }
+
+  class TunnelledAsyncCacheWithAuxCache[K, V, K2](
+      val cache: Scaffeine[Any, Any],
+      getAuxKeyO: V => Option[K2],
+      tracedLogger: TracedLogger,
+      context: String,
+      sizeMetric: Gauge[Int],
+      val loggerFactory: NamedLoggerFactory,
+  )(implicit executionContext: ExecutionContext)
+      extends TunnelledAsyncCache[K, V]
+      with NamedLogging {
+
+    private val auxCache: TrieMap[K2, K] = TrieMap.empty[K2, K]
+
+    private def putAuxCache(key: K2, value: K): Unit = {
+      auxCache.put(key, value).discard
+      updateMetrics()
+    }
+
+    private def removeAuxCache(key: K2): Unit = {
+      auxCache.remove(key).discard
+      updateMetrics()
+    }
+
+    private val mainCache = ScaffeineCache.buildMappedAsync[K, V](
+      cache = cache,
+      evictionListener = Some { (_, v, _) =>
+        getAuxKeyO(v).foreach(p => removeAuxCache(p))
+      },
+    )(tracedLogger, context)
+
+    private def updateMetrics(): Unit =
+      sizeMetric.updateValue(auxCache.size)
+
+    def getFuture(
+        key: K,
+        mappingFunction: K => FutureUnlessShutdown[V],
+    )(implicit traceContext: TraceContext): FutureUnlessShutdown[V] =
+      // first check the main cache without compute to avoid unnecessary synchronization
+      getIfPresentSync(key) match {
+        case Some(value) => FutureUnlessShutdown.pure(value)
+        case None =>
+          // oncompleteGuard is used to determine whether we have just created a new entry in the cache without nesting
+          // compute() calls which could lead to deadlocks for single-threaded executors
+          @SuppressWarnings(Array("org.wartremover.warts.Var"))
+          var oncompleteGuard = false
+          val result =
+            mainCache
+              .compute(key) {
+                case Some(f) => Some(f)
+                // if the entry is not present, we set the oncomplete guard to true so that we know to update
+                // the auxiliary cache when the future completes
+                case None =>
+                  oncompleteGuard = true
+                  Some(mappingFunction(key))
+              }
+              .getOrElse(
+                checked(
+                  ErrorUtil.invalidState("Cache returned None while it was just populated")
+                )
+              )
+          if (oncompleteGuard) {
+            result.onComplete(_.foreach(_.foreach { _ =>
+              // very important to not work on the result of the future, this is just a signal to execute the
+              // computation, and the decisions need to be based on the current cache value
+              mainCache
+                .compute(key) {
+                  case None => None //  already evicted, the aux cache should not be extended
+                  case old @ Some(currentF) =>
+                    currentF.unwrap.value match {
+                      case Some(completed) =>
+                        completed.foreach(
+                          _.foreach(v => getAuxKeyO(v).foreach(keyAux => putAuxCache(keyAux, key)))
+                        )
+                      // another entry has already overwritten and is not completed yet, the auxiliary cache will be
+                      // updated when the future is completed
+                      case None => ()
+                    }
+                    old
+                }
+                .discard
+            }))
+          }
+          result
+      }
+
+    def invalidate(key: K): Unit =
+      mainCache
+        .compute(key) {
+          case None => None //  already evicted, the auxiliary cache should not be changed
+          case Some(completed) if completed.isCompleted =>
+            completed.unwrap.value.foreach(
+              _.foreach(_.foreach(v => getAuxKeyO(v).foreach(keyAux => removeAuxCache(keyAux))))
+            )
+            None
+          // compute() is atomic, so if we observe a non-completed future here, we know that the onComplete's compute()
+          // added by getFuture() will happen after this block. The entry will not be present (None will be returned)
+          // and thus the aux cache will not be updated by the onComplete code.
+          // This ensures that the auxiliary cache entry is not added in the case of an eviction racing with the
+          // completion of the future previously inserted.
+          case Some(_notCompleted) => None
+        }
+        .discard
+
+    def invalidateAll(keys: Iterable[K]): Unit = keys.foreach(invalidate)
+
+    def invalidateAll(): Unit = {
+      auxCache.clear()
+      updateMetrics()
+      mainCache.invalidateAll()
+    }
+
+    def cleanUp(): Unit = mainCache.cleanUp()
+
+    def put(key: K, value: V): Unit =
+      mainCache
+        .compute(key) { v =>
+          v.foreach(currentF =>
+            currentF.unwrap.value match {
+              case Some(completed) =>
+                completed.foreach(
+                  _.foreach(oldValue =>
+                    // remove old auxiliary key mapping since it will be invalid now if the aux key has changed
+                    getAuxKeyO(oldValue).foreach(keyAuxOld => removeAuxCache(keyAuxOld))
+                  )
+                )
+              // compute() is atomic so if we observe a non-completed future here, we know that the onComplete's
+              // compute() added by getFuture() will happen after this block. So, the aux cache does not contain any
+              // mapping changed by the getFuture() yet. Since in the getFuture()'s onComplete callback we check for the
+              // current entry of the cache we know that the aux cache can only be identically updated.
+              // This ensures that the auxiliary cache entry does not contain an outdated mapping in the case of an
+              // addition with put() racing with the completion of the future previously inserted.
+              case None => ()
+            }
+          )
+          getAuxKeyO(value).foreach(putAuxCache(_, key).discard)
+          Some(FutureUnlessShutdown.pure(value))
+        }
+        .discard
+
+    def getIfPresentSync(key: K): Option[V] = mainCache.getIfPresentSync(key: K)
+
+    def getIfPresentAuxKey(keyAux: K2): Option[K] = auxCache.get(keyAux)
   }
 
   class TunnelledAsyncLoadingCache[F[_], K, V] private[ScaffeineCache] (

@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration.tests.bftsynchronizer
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.BigDecimalImplicits.*
-import com.digitalasset.canton.admin.api.client.data.{SequencerConnections, TemplateId}
+import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.bootstrap.{
@@ -154,10 +154,7 @@ trait MediatorOnboardingTest
 
     // initialize the mediator
     // user-manual-entry-begin: DynamicallyOnboardMediator-Initialize
-    mediator2.setup.assign(
-      synchronizer1Id,
-      SequencerConnections.single(sequencer1.sequencerConnection),
-    )
+    mediator2.setup.assign(synchronizer1Id, sequencer1)
     mediator2.health.wait_for_initialized()
     // user-manual-entry-end: DynamicallyOnboardMediator-Initialize
 

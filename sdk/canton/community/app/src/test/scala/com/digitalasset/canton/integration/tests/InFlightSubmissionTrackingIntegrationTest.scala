@@ -6,6 +6,7 @@ package com.digitalasset.canton.integration.tests
 import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.error.TransactionRoutingError.ConfigurationErrors.SubmissionSynchronizerNotReady
@@ -59,6 +60,8 @@ trait InFlightSubmissionTrackingIntegrationTest
     EnvironmentDefinition.P1_S1M1
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
+        // TODO(#30068): Enable session keys after sim clock advances are synced
+        ConfigTransforms.setSessionSigningKeys(SessionSigningKeysConfig.disabled),
         // Set a small request size for the participant so that the participant's sequencer client refuses to
         // send big requests to the sequencer and thus the participant can produce a rejection event
         // without having to wait for the max sequencing time elapsing.

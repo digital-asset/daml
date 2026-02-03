@@ -486,8 +486,10 @@ final class IssConsensusModule[E <: Env[E]](
           )
           emitConsensusLatencyStats(metrics)
 
-          if (hasCompletedLedSegment)
+          if (hasCompletedLedSegment) {
+            logger.debug(s"Locally-led segment in epoch $thisNodeEpochNumber is complete")
             consensusWaitingForEpochCompletionSince = Some(Instant.now())
+          }
 
           epochState.confirmBlockCompleted(orderedBlock.metadata, commitCertificate)
 
@@ -549,7 +551,11 @@ final class IssConsensusModule[E <: Env[E]](
     } else {
       // The current epoch can be completed
 
-      if (!initInProgress) {
+      if (initInProgress) {
+        // Ensure that the retransmissions manager can provide commit certificates for the completing epoch
+        retransmissionsManager.startEpoch(epochState, initInProgress = true)
+        retransmissionsManager.epochEnded(completeEpochCommitCertificates, initInProgress = true)
+      } else {
         // When initializing, the retransmission manager is inactive and segment modules are not started
         retransmissionsManager.epochEnded(completeEpochCommitCertificates)
         epochState.notifyEpochCompletionToSegments(completeEpochNumber)

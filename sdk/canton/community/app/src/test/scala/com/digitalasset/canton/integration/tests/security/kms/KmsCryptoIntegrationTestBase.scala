@@ -24,9 +24,6 @@ trait KmsCryptoIntegrationTestBase extends TopologyManagementHelper {
   // Defines which nodes will run an external KMS.
   protected lazy val protectedNodes: Set[String] = Set("participant1")
 
-  // Defines which nodes will not use session signing keys.
-  protected lazy val nodesWithSessionSigningKeysDisabled: Set[String] = Set.empty
-
   protected def otherConfigTransforms: Seq[ConfigTransform] = Seq.empty
 
   protected def kmsConfig: KmsConfig

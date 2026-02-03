@@ -17,7 +17,7 @@ import com.digitalasset.canton.util.EitherUtil.*
 
 import java.security.InvalidParameterException
 import java.util.concurrent.atomic.AtomicReference
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.concurrent.ExecutionContext
 import scala.util.chaining.*
 
@@ -36,6 +36,7 @@ class SortedReconciliationIntervalsProvider(
       : Option[SortedReconciliationIntervals.ReconciliationInterval] =
     approximateLatestReconciliationInterval.get()
 
+  @nowarn("cat=deprecation")
   private def getAll(validAt: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[SynchronizerParameters.WithValidity[PositiveSeconds]]] =

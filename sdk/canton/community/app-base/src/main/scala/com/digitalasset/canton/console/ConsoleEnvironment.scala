@@ -390,8 +390,11 @@ class ConsoleEnvironment(
       ),
     )
 
-  protected def helpText(typeName: String, name: String) =
-    s"Manage $typeName '$name'; type '$name help' or '$name help" + "(\"<methodName>\")' for more help"
+  protected def helpText(typeName: String, name: String): String = {
+    // Need to place the name in back-ticks if it contains a hyphen to avoid scala syntax errors
+    val newName = if (name.contains("-")) s"`$name`" else name
+    s"Manage $typeName '$name'; type '$newName help' or '$newName help" + "(\"<methodName>\")' for more help"
+  }
 
   protected val topicNodeReferences = "Node References"
   protected val topicGenericNodeReferences = "Generic Node References"

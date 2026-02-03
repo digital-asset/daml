@@ -79,6 +79,7 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest with M
         clock,
         mockScheduler(clock),
         sequencerMetrics,
+        timeouts,
         loggerFactory,
       )
 
@@ -146,6 +147,7 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest with M
         SubmissionRequestType.ConfirmationRequest,
         clock,
         sequencerMetrics,
+        timeouts,
         loggerFactory = loggerFactory,
       )
       val thresholdLevel = 0
@@ -181,6 +183,7 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest with M
         SubmissionRequestType.ConfirmationRequest,
         clock,
         sequencerMetrics,
+        timeouts,
         loggerFactory = loggerFactory,
       )
       val thresholdLevel = 0
@@ -218,6 +221,7 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest with M
         SubmissionRequestType.ConfirmationRequest,
         clock,
         sequencerMetrics,
+        timeouts,
         loggerFactory = loggerFactory,
       )
       val thresholdLevel = 0
@@ -282,6 +286,7 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest with M
         SubmissionRequestType.ConfirmationRequest,
         clock,
         sequencerMetrics,
+        timeouts,
         loggerFactory = loggerFactory,
       )
       val eventSize: Long = 128
@@ -344,6 +349,7 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest with M
         SubmissionRequestType.ConfirmationRequest,
         clock,
         sequencerMetrics,
+        timeouts,
         loggerFactory = loggerFactory,
       )
       val bytesCap = config.globalKbpsCap.value * 1024 * observationPeriodSeconds
@@ -408,6 +414,7 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest with M
         SubmissionRequestType.ConfirmationRequest,
         clock,
         sequencerMetrics,
+        timeouts,
         loggerFactory = loggerFactory,
       )
       val eventSize: Long = 128
@@ -472,6 +479,7 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest with M
         SubmissionRequestType.ConfirmationRequest,
         clock,
         sequencerMetrics,
+        timeouts,
         loggerFactory = loggerFactory,
       )
       val eventSize = (bytesCap * 0.1).toLong
@@ -536,6 +544,7 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest with M
         SubmissionRequestType.ConfirmationRequest,
         clock,
         sequencerMetrics,
+        timeouts,
         loggerFactory = loggerFactory,
       )
       val eventSize: Long = 128
@@ -558,6 +567,7 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest with M
         SubmissionRequestType.ConfirmationRequest,
         clock,
         sequencerMetrics,
+        timeouts,
         loggerFactory = loggerFactory,
       )
       val eventSize: Long = 128
@@ -597,6 +607,7 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest with M
         SubmissionRequestType.ConfirmationRequest,
         clock,
         sequencerMetrics,
+        timeouts,
         loggerFactory = loggerFactory,
       )
       val eventSize: Long = 128
@@ -644,6 +655,7 @@ class BlockSequencerThroughputCapTest extends AsyncWordSpec with BaseTest with M
         SubmissionRequestType.ConfirmationRequest,
         clock,
         sequencerMetrics,
+        timeouts,
         loggerFactory = loggerFactory,
       )
       val eventSize: Long = 128

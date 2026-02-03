@@ -22,6 +22,7 @@ import org.apache.pekko.http.scaladsl.model.{StatusCodes, Uri}
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.UUID
+import java.util.regex.Pattern
 
 class JsonRequestLoggingTest
     extends CantonFixture
@@ -80,9 +81,14 @@ class JsonRequestLoggingTest
             }
         } yield result,
         { logSeq =>
+          val content: String =
+            Pattern.quote(
+              "\nContentType: Some(application/json)\nContentLength: Some(157)\nParameters: []" +
+                s"\nBody: {\"user\":{\"id\":\"$randomUser\",\"primaryParty\":\"\",\"isDeactivated\":false,\"metadata\":null,\"identityProviderId\":\"\"},\"rights\":[]}"
+            )
           val expectedLogsRegex = Seq(
-            "Request POST /v2/users by http.* received a message",
             "Request POST /v2/users by http.* auth claims",
+            s"Request POST /v2/users by http.* received a message $content",
             "Request .*CreateUser by in-process-grpc.* auth claims",
             "Request .*CreateUser by in-process-grpc.* received a message",
             "Request .*CreateUser by in-process-grpc.* sending response",
@@ -114,7 +120,6 @@ class JsonRequestLoggingTest
         },
       )
     }
-
   }
 
   case class ExpectedScopeOverrideConfig(
@@ -124,6 +129,24 @@ class JsonRequestLoggingTest
       config
         .focus(_.monitoring.logging.api)
         .modify(_.copy(messagePayloads = true, debugInProcessRequests = true))
+  }
+
+  case class LoggingConfigPlugin(
+      enablePayloads: Boolean,
+      maxLength: Int,
+      protected val loggerFactory: NamedLoggerFactory,
+  ) extends EnvironmentSetupPlugin {
+    override def beforeEnvironmentCreated(config: CantonConfig): CantonConfig =
+      config
+        .focus(_.monitoring.logging.api)
+        .modify(
+          _.copy(
+            messagePayloads = enablePayloads,
+            maxStringLength = maxLength,
+            debugInProcessRequests = true,
+          )
+        )
+
   }
 
   private def toScopeContext(

@@ -9,8 +9,10 @@ import com.daml.metrics.api.{MetricHandle, MetricInfo, MetricsContext}
 
 import scala.collection.mutable.ListBuffer
 
-/** Fake labelled factory used to collect metrics */
+/** Fake labeled factory used to collect metrics */
 class MetricsDocGenerator extends LabeledMetricsFactory {
+
+  override def closeAcquired(): Unit = ()
 
   private val noop = NoOpMetricsFactory
 
@@ -41,12 +43,17 @@ class MetricsDocGenerator extends LabeledMetricsFactory {
     noop.gauge(info, initial)
   }
 
-  override def gaugeWithSupplier[T](info: MetricInfo, gaugeSupplier: () => T)(implicit
+  override def closeableGaugeWithSupplier[T](info: MetricInfo, gaugeSupplier: () => T)(implicit
       context: MetricsContext
   ): Gauge.CloseableGauge = {
     assembled.addOne(("gauge", info))
-    noop.gaugeWithSupplier(info, gaugeSupplier)
+    noop.closeableGaugeWithSupplier(info, gaugeSupplier)
   }
+
+  override def gaugeWithSupplier[T](info: MetricInfo, gaugeSupplier: () => T)(implicit
+      context: MetricsContext
+  ): Unit =
+    assembled.addOne(("gauge", info))
 
   override def meter(info: MetricInfo)(implicit context: MetricsContext): MetricHandle.Meter = {
     assembled.addOne(("meter", info))

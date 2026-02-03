@@ -70,7 +70,7 @@ object EventProjectionProperties {
   def apply(
       eventFormat: EventFormat,
       interfaceImplementedBy: FullIdentifier => Set[FullIdentifier],
-      resolveTypeConRef: TypeConRef => Set[FullIdentifier],
+      resolveTypeConRef: NameTypeConRef => Set[FullIdentifier],
       interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade,
   ): EventProjectionProperties =
     EventProjectionProperties(
@@ -93,7 +93,7 @@ object EventProjectionProperties {
   def apply(
       eventFormat: EventFormat,
       interfaceImplementedBy: FullIdentifier => Set[FullIdentifier],
-      resolveTypeConRef: TypeConRef => Set[FullIdentifier],
+      resolveTypeConRef: NameTypeConRef => Set[FullIdentifier],
   ): EventProjectionProperties =
     EventProjectionProperties(
       eventFormat = eventFormat,
@@ -108,7 +108,7 @@ object EventProjectionProperties {
   private def witnessTemplateProjections(
       apiEventFormat: EventFormat,
       interfaceImplementedBy: FullIdentifier => Set[FullIdentifier],
-      resolveTypeConRef: TypeConRef => Set[FullIdentifier],
+      resolveTypeConRef: NameTypeConRef => Set[FullIdentifier],
   ): Map[Option[String], Map[Option[NameTypeConRef], Projection]] = {
     val partyFilterPairs =
       apiEventFormat.filtersByParty.view.map { case (p, f) =>
@@ -144,7 +144,7 @@ object EventProjectionProperties {
 
   private def getTemplateProjections(
       cumulativeFilter: CumulativeFilter,
-      resolveTypeConRef: TypeConRef => Set[FullIdentifier],
+      resolveTypeConRef: NameTypeConRef => Set[FullIdentifier],
   ): View[(NameTypeConRef, Projection)] =
     for {
       templateFilter <- cumulativeFilter.templateFilters.view

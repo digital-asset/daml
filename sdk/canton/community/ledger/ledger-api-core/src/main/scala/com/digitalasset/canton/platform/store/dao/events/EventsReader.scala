@@ -51,7 +51,7 @@ private[dao] sealed class EventsReader(
       internalEventFormat <- OptionT.fromOption[Future](internalEventFormatO)
       internalContractId <- OptionT(
         contractStore
-          .lookupBatchedNonCachedInternalIds(List(contractId))
+          .lookupBatchedInternalIds(List(contractId))
           .map(_.values.headOption)
       )
       (create, archiveO) <- OptionT(

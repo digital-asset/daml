@@ -19,8 +19,6 @@ load(
     "da_scala_benchmark_jmh",
     "da_scala_library",
     "da_scala_macro_library",
-    "da_scala_test",
-    "da_scala_test_suite",
     "default_scalacopts",
     "kind_projector_plugin",
     "lf_scalacopts_stricter",
@@ -134,25 +132,6 @@ da_scala_library(
     ],
 )
 
-da_scala_test(
-    name = "base_daml-jwt-tests",
-    size = "medium",
-    srcs = glob(["base/daml-jwt/src/test/scala/**/*.scala"]),
-    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    resources = glob(["base/daml-jwt/src/test/resources/**/*"]),
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalatest_scalatest_wordspec",
-    ],
-    deps = [
-        ":base_daml-jwt",
-        "@maven//:com_auth0_java_jwt",
-        "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
-
 ### community/lib/Blake2b ###
 
 java_library(
@@ -218,13 +197,13 @@ da_scala_library(
     deps = [
         ":base_errors",
         ":base_grpc-utils",
-        "//canton:contextualized-logging",
-        "//canton:logging-entries",
-        "//canton:metrics",
-        "//canton:nonempty",
-        "//canton:scala-utils",
-        "//canton:tracing",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_contextualized_logging_2_13",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_logging_entries_2_13",
+        "@maven//:com_daml_nonempty_2_13",
+        "@maven//:com_daml_observability_metrics_2_13",
+        "@maven//:com_daml_observability_tracing_2_13",
+        "@maven//:com_daml_scala_utils_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -303,8 +282,8 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:base-util-external:__VERSION__"],
     unused_dependency_checker_mode = "error",
     deps = [
-        "//canton:nonempty",
         "@maven//:com_chuusai_shapeless_2_13",
+        "@maven//:com_daml_nonempty_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
         "@maven//:com_typesafe_config",
@@ -360,19 +339,19 @@ da_scala_library(
         ":base_util-external",
         ":community_util-observability",
         ":ledger_api_proto_scala",
-        "//canton:contextualized-logging",
-        "//canton:ledger-resources",
-        "//canton:logging-entries",
-        "//canton:metrics",
-        "//canton:resources",
-        "//canton:rs-grpc-bridge",
-        "//canton:rs-grpc-pekko",
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/engine",
-        "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/transaction",
-        "//canton/community/daml-lf/validation",
+        "@maven//:com_daml_contextualized_logging_2_13",
+        "@maven//:com_daml_daml_lf_archive_2_13",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_engine_2_13",
+        "@maven//:com_daml_daml_lf_language_2_13",
+        "@maven//:com_daml_daml_lf_transaction_2_13",
+        "@maven//:com_daml_daml_lf_validation_2_13",
+        "@maven//:com_daml_daml_resources_2_13",
+        "@maven//:com_daml_ledger_resources_2_13",
+        "@maven//:com_daml_logging_entries_2_13",
+        "@maven//:com_daml_observability_metrics_2_13",
+        "@maven//:com_daml_rs_grpc_bridge",
+        "@maven//:com_daml_rs_grpc_pekko_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
@@ -511,21 +490,6 @@ scala_library(
         ":community_lib_wartremover-annotations",
         ":community_util-observability",
         ":ledger_api_proto_scala",
-        "//canton:concurrent",
-        "//canton:contextualized-logging",
-        "//canton:executors",
-        "//canton:logging-entries",
-        "//canton:metrics",
-        "//canton:nameof",
-        "//canton:nonempty",
-        "//canton:nonempty-cats",
-        "//canton:rs-grpc-bridge",
-        "//canton:rs-grpc-pekko",
-        "//canton:scala-utils",
-        "//canton:tracing",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/transaction",
         "@canton_maven//:com_google_api_api_common",
         "@canton_maven//:com_google_api_gax",
         "@canton_maven//:com_google_api_gax_grpc",
@@ -548,6 +512,20 @@ scala_library(
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_auth0_jwks_rsa",
         "@maven//:com_chuusai_shapeless_2_13",
+        "@maven//:com_daml_contextualized_logging_2_13",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_language_2_13",
+        "@maven//:com_daml_daml_lf_transaction_2_13",
+        "@maven//:com_daml_executors_2_13",
+        "@maven//:com_daml_logging_entries_2_13",
+        "@maven//:com_daml_nameof_2_13",
+        "@maven//:com_daml_nonempty_2_13",
+        "@maven//:com_daml_nonempty_cats_2_13",
+        "@maven//:com_daml_observability_metrics_2_13",
+        "@maven//:com_daml_observability_tracing_2_13",
+        "@maven//:com_daml_rs_grpc_bridge",
+        "@maven//:com_daml_rs_grpc_pekko_2_13",
+        "@maven//:com_daml_scala_utils_2_13",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_blemale_scaffeine_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
@@ -628,21 +606,20 @@ scala_library(
         ":community_lib_wartremover-annotations",
         ":community_util-observability",
         ":ledger_api_proto_scala",
-        "//canton:concurrent",
-        "//canton:contextualized-logging",
-        "//canton:executors",
-        "//canton:metrics",
-        "//canton:nameof",
-        "//canton:nonempty",
-        "//canton:tracing",
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/engine",
-        "//canton/community/daml-lf/interpreter",
-        "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/transaction",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_daml_contextualized_logging_2_13",
+        "@maven//:com_daml_daml_lf_archive_2_13",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_engine_2_13",
+        "@maven//:com_daml_daml_lf_interpreter_2_13",
+        "@maven//:com_daml_daml_lf_language_2_13",
+        "@maven//:com_daml_daml_lf_transaction_2_13",
+        "@maven//:com_daml_executors_2_13",
+        "@maven//:com_daml_nameof_2_13",
+        "@maven//:com_daml_nonempty_2_13",
+        "@maven//:com_daml_observability_metrics_2_13",
+        "@maven//:com_daml_observability_tracing_2_13",
         "@maven//:com_github_blemale_scaffeine_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
@@ -757,33 +734,31 @@ scala_library(
         ":community_ledger_ledger-common",
         ":community_util-observability",
         ":ledger_api_proto_scala",
-        "//canton:concurrent",
-        "//canton:contextualized-logging",
-        "//canton:executors",
-        "//canton:ledger-resources",
-        "//canton:logging-entries",
-        "//canton:metrics",
-        "//canton:nameof",
-        "//canton:nonempty",
-        "//canton:ports",
-        "//canton:resources",
-        "//canton:resources-grpc",
-        "//canton:resources-pekko",
-        "//canton:rs-grpc-bridge",
-        "//canton:rs-grpc-pekko",
-        "//canton:scala-utils",
-        "//canton:timer-utils",
-        "//canton:tracing",
-        "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/engine",
-        "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/transaction",
-        "//canton/community/daml-lf/validation",
         "@canton_maven//:org_flywaydb_flyway_core",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_chuusai_shapeless_2_13",
+        "@maven//:com_daml_contextualized_logging_2_13",
+        "@maven//:com_daml_daml_lf_archive_2_13",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_engine_2_13",
+        "@maven//:com_daml_daml_lf_language_2_13",
+        "@maven//:com_daml_daml_lf_transaction_2_13",
+        "@maven//:com_daml_daml_lf_validation_2_13",
+        "@maven//:com_daml_daml_resources_2_13",
+        "@maven//:com_daml_executors_2_13",
+        "@maven//:com_daml_ledger_resources_2_13",
+        "@maven//:com_daml_logging_entries_2_13",
+        "@maven//:com_daml_nameof_2_13",
+        "@maven//:com_daml_nonempty_2_13",
+        "@maven//:com_daml_observability_metrics_2_13",
+        "@maven//:com_daml_observability_tracing_2_13",
+        "@maven//:com_daml_ports_2_13",
+        "@maven//:com_daml_resources_grpc_2_13",
+        "@maven//:com_daml_resources_pekko_2_13",
+        "@maven//:com_daml_rs_grpc_bridge",
+        "@maven//:com_daml_rs_grpc_pekko_2_13",
+        "@maven//:com_daml_scala_utils_2_13",
+        "@maven//:com_daml_timer_utils_2_13",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_blemale_scaffeine_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
@@ -854,33 +829,32 @@ scala_library(
         ":community_magnolify-addon",
         ":community_util-observability",
         ":ledger_api_proto_scala",
-        "//canton:contextualized-logging",
-        "//canton:ledger-resources",
-        "//canton:logging-entries",
-        "//canton:metrics",
-        "//canton:nonempty",
-        "//canton:pekko-http-metrics",
-        "//canton:ports",
-        "//canton:resources",
-        "//canton:resources-grpc",
-        "//canton:resources-pekko",
-        "//canton:rs-grpc-bridge",
-        "//canton:rs-grpc-pekko",
-        "//canton:scala-utils",
-        "//canton:tracing",
-        "//canton/community/daml-lf/api-type-signature",
-        "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/engine",
-        "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/transaction",
         "@maven//:com_chuusai_shapeless_2_13",
+        "@maven//:com_daml_contextualized_logging_2_13",
+        "@maven//:com_daml_daml_lf_api_type_signature_2_13",
+        "@maven//:com_daml_daml_lf_archive_2_13",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_engine_2_13",
+        "@maven//:com_daml_daml_lf_language_2_13",
+        "@maven//:com_daml_daml_lf_transaction_2_13",
+        "@maven//:com_daml_daml_resources_2_13",
+        "@maven//:com_daml_ledger_resources_2_13",
+        "@maven//:com_daml_logging_entries_2_13",
+        "@maven//:com_daml_nonempty_2_13",
+        "@maven//:com_daml_observability_metrics_2_13",
+        "@maven//:com_daml_observability_tracing_2_13",
+        "@maven//:com_daml_ports_2_13",
+        "@maven//:com_daml_resources_grpc_2_13",
+        "@maven//:com_daml_resources_pekko_2_13",
+        "@maven//:com_daml_rs_grpc_bridge",
+        "@maven//:com_daml_rs_grpc_pekko_2_13",
+        "@maven//:com_daml_scala_utils_2_13",
         "@maven//:com_daml_transcode_codec_json_3",
         "@maven//:com_daml_transcode_codec_proto_scala_3",
         "@maven//:com_daml_transcode_daml_lf_3",
         "@maven//:com_daml_transcode_schema_3",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
+        "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_google_protobuf_protobuf_java_util",
         "@maven//:com_lihaoyi_fastparse_2_13",
@@ -990,17 +964,17 @@ scala_library(
         ":community_sequencer-driver",
         ":community_util-observability",
         ":ledger_api_proto_scala",
-        "//canton:executors",
-        "//canton:metrics",
-        "//canton:nameof",
-        "//canton:nonempty",
-        "//canton:nonempty-cats",
-        "//canton:rs-grpc-bridge",
-        "//canton:rs-grpc-pekko",
-        "//canton:scala-utils",
-        "//canton:tracing",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/transaction",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_transaction_2_13",
+        "@maven//:com_daml_executors_2_13",
+        "@maven//:com_daml_nameof_2_13",
+        "@maven//:com_daml_nonempty_2_13",
+        "@maven//:com_daml_nonempty_cats_2_13",
+        "@maven//:com_daml_observability_metrics_2_13",
+        "@maven//:com_daml_observability_tracing_2_13",
+        "@maven//:com_daml_rs_grpc_bridge",
+        "@maven//:com_daml_rs_grpc_pekko_2_13",
+        "@maven//:com_daml_scala_utils_2_13",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_blemale_scaffeine_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
@@ -1142,28 +1116,27 @@ scala_library(
         ":community_participant_party-replication_java",
         ":community_util-observability",
         ":ledger_api_proto_scala",
-        "//canton:contextualized-logging",
-        "//canton:executors",
-        "//canton:ledger-resources",
-        "//canton:logging-entries",
-        "//canton:metrics",
-        "//canton:nameof",
-        "//canton:nonempty",
-        "//canton:nonempty-cats",
-        "//canton:resources",
-        "//canton:resources-grpc",
-        "//canton:resources-pekko",
-        "//canton:rs-grpc-bridge",
-        "//canton:scala-utils",
-        "//canton:timer-utils",
-        "//canton:tracing",
-        "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/engine",
-        "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/transaction",
         "@maven//:com_chuusai_shapeless_2_13",
+        "@maven//:com_daml_contextualized_logging_2_13",
+        "@maven//:com_daml_daml_lf_archive_2_13",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_engine_2_13",
+        "@maven//:com_daml_daml_lf_language_2_13",
+        "@maven//:com_daml_daml_lf_transaction_2_13",
+        "@maven//:com_daml_daml_resources_2_13",
+        "@maven//:com_daml_executors_2_13",
+        "@maven//:com_daml_ledger_resources_2_13",
+        "@maven//:com_daml_logging_entries_2_13",
+        "@maven//:com_daml_nameof_2_13",
+        "@maven//:com_daml_nonempty_2_13",
+        "@maven//:com_daml_nonempty_cats_2_13",
+        "@maven//:com_daml_observability_metrics_2_13",
+        "@maven//:com_daml_observability_tracing_2_13",
+        "@maven//:com_daml_resources_grpc_2_13",
+        "@maven//:com_daml_resources_pekko_2_13",
+        "@maven//:com_daml_rs_grpc_bridge",
+        "@maven//:com_daml_scala_utils_2_13",
+        "@maven//:com_daml_timer_utils_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
@@ -1237,10 +1210,10 @@ scala_library(
         ":community_lib_slick_slick-fork",
         ":community_sequencer-driver",
         ":community_util-observability",
-        "//canton:metrics",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/transaction",
         "@maven//:com_chuusai_shapeless_2_13",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_transaction_2_13",
+        "@maven//:com_daml_observability_metrics_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -1299,7 +1272,7 @@ scala_library(
     deps = [
         ":base_util-external",
         ":community_util-observability",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
@@ -1340,22 +1313,21 @@ scala_library(
         ":community_synchronizer",
         ":community_util-observability",
         ":ledger_api_proto_scala",
-        "//canton:contextualized-logging",
-        "//canton:executors",
-        "//canton:logging-entries",
-        "//canton:metrics",
-        "//canton:nameof",
-        "//canton:nonempty",
-        "//canton:nonempty-cats",
-        "//canton:rs-grpc-bridge",
-        "//canton:scala-utils",
-        "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/transaction",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_chuusai_shapeless_2_13",
+        "@maven//:com_daml_contextualized_logging_2_13",
+        "@maven//:com_daml_daml_lf_archive_2_13",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_transaction_2_13",
+        "@maven//:com_daml_executors_2_13",
+        "@maven//:com_daml_logging_entries_2_13",
+        "@maven//:com_daml_nameof_2_13",
+        "@maven//:com_daml_nonempty_2_13",
+        "@maven//:com_daml_nonempty_cats_2_13",
+        "@maven//:com_daml_observability_metrics_2_13",
+        "@maven//:com_daml_rs_grpc_bridge",
+        "@maven//:com_daml_scala_utils_2_13",
         "@maven//:com_fasterxml_jackson_core_jackson_core",
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_cats_2_13",
@@ -1434,10 +1406,10 @@ scala_library(
         ":community_synchronizer",
         ":community_util-observability",
         ":ledger_api_proto_scala",
-        "//canton:nonempty",
-        "//canton/community/daml-lf/data",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_nonempty_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_scopt_scopt_2_13",
@@ -1595,30 +1567,6 @@ da_scala_library(
     ],
 )
 
-da_scala_test_suite(
-    name = "bindings-java-tests",
-    srcs = glob([
-        "community/bindings-java/src/test/**/*Spec.scala",
-        "community/bindings-java/src/test/**/*Test.scala",
-    ]),
-    scala_deps = [
-        "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalatestplus_scalacheck_1_15",
-    ],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    deps = [
-        ":bindings-java",
-        ":bindings-java-test-helpers",
-        ":bindings-java-tests-lib",
-        "@maven//:com_google_api_grpc_proto_google_common_protos",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
-
 filegroup(
     name = "bindings-java-sources",
     srcs = glob(["community/bindings-java/src/main/java/**/*.java"]),
@@ -1742,7 +1690,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils_2_13",
     ],
 )
 
@@ -1763,8 +1711,8 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:nonempty",
-        "//canton:scala-utils",
+        "@maven//:com_daml_nonempty_2_13",
+        "@maven//:com_daml_scala_utils_2_13",
     ],
 )
 
@@ -1781,23 +1729,6 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:struct-circe-json:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [],
-)
-
-da_scala_test_suite(
-    name = "struct-circe-json-test",
-    srcs = glob(["base/struct-json/struct-circe-json/src/test/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:com_thesamet_scalapb_lenses",
-        "@maven//:com_thesamet_scalapb_scalapb_runtime",
-        "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_typelevel_cats_core",
-        "@maven//:org_typelevel_cats_kernel",
-        "@maven//:io_circe_circe_core",
-        "@maven//:io_circe_circe_parser",
-    ],
-    deps = [
-        ":struct-circe-json",
-    ],
 )
 
 da_java_library(
@@ -1829,38 +1760,6 @@ da_scala_library(
     ],
     deps = [
         ":rs-grpc-bridge",
-    ],
-)
-
-da_scala_test(
-    name = "rs-grpc-bridge-test",
-    srcs = glob([
-        "base/rs-grpc-bridge/src/test/suite/scala/**/*.scala",
-    ]),
-    resource_strip_prefix = "canton/base/rs-grpc-bridge/src/test/suite/resources/",
-    resources = glob(["base/rs-grpc-bridge/src/test/suite/resources/**/*"]),
-    scala_deps = [
-        "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_scalatestplus_testng_7_5",
-    ],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        ":rs-grpc-bridge",
-        ":rs-grpc-bridge-test-lib",
-        "//canton:rs-grpc-testing-utils",
-        "@maven//:io_grpc_grpc_stub",
-        "@maven//:org_reactivestreams_reactive_streams",
-        "@maven//:org_reactivestreams_reactive_streams_examples",
-        "@maven//:org_reactivestreams_reactive_streams_tck",
-        "@maven//:org_scalatest_scalatest_compatible",
-        "@maven//:org_slf4j_slf4j_api",
-        "@maven//:org_testng_testng",
     ],
 )
 
@@ -1904,39 +1803,6 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "concurrent",
-    srcs = glob(["base/concurrent/src/main/scala/**/*.scala"]),
-    plugins = [
-        kind_projector_plugin,
-    ],
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    scalacopts = canton_scalacopts + [
-        "-language:postfixOps",
-        "-Wconf:cat=unused-nowarn:s",
-    ],
-    tags = ["maven_coordinates=com.daml:concurrent:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-)
-
-da_scala_test(
-    name = "concurrent-test",
-    srcs = glob(["base/concurrent/src/test/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:com_chuusai_shapeless",
-        "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    deps = [
-        ":concurrent",
-    ],
-)
-
-da_scala_library(
     name = "resources",
     srcs = glob(["base/resources/src/main/scala/**/*.scala"]) + glob(["base/resources/src/main/{}/**/*.scala".format(scala_major_version)]),
     scalacopts = canton_scalacopts + [
@@ -1948,7 +1814,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:contextualized-logging",
+        "@maven//:com_daml_contextualized_logging_2_13",
     ],
 )
 
@@ -1963,19 +1829,6 @@ da_scala_library(
     ],
 )
 
-da_scala_test_suite(
-    name = "resources-tests",
-    srcs = glob(["base/resources/src/test/suite/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_wordspec",
-    ],
-    deps = [
-        ":resources",
-        ":resources-test-lib",
-        "//canton:timer-utils",
-    ],
-)
-
 da_scala_library(
     name = "resources-grpc",
     srcs = glob(["base/resources-grpc/src/main/scala/**/*.scala"]),
@@ -1984,32 +1837,9 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:resources",
+        "@maven//:com_daml_daml_resources_2_13",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_netty_shaded",
-    ],
-)
-
-da_scala_test_suite(
-    name = "resources-grpc-test",
-    srcs = glob(["base/resources-grpc/src/test/scala/**/*.scala"]),
-    resource_strip_prefix = "canton/base/resources-grpc/src/test/resources/",
-    resources = [
-        ":base/resources-grpc/src/test/resources/logback-test.xml",
-    ],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
-    ],
-    deps = [
-        ":resources-grpc",
-        "//canton:resources",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_inprocess",
-        "@maven//:io_grpc_grpc_netty_shaded",
-        "@maven//:io_grpc_grpc_services",
-        "@maven//:io_grpc_grpc_stub",
     ],
 )
 
@@ -2025,24 +1855,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:resources",
-    ],
-)
-
-da_scala_test_suite(
-    name = "resources-pekko-tests",
-    srcs = glob(["base/resources-pekko/src/test/suite/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:org_scalatest_scalatest_wordspec",
-    ],
-    deps = [
-        ":resources-pekko",
-        "//canton:resources",
-        "//canton:resources-test-lib",
-        "//canton:scala-utils",
-        "//canton:timer-utils",
+        "@maven//:com_daml_daml_resources_2_13",
     ],
 )
 
@@ -2062,37 +1875,9 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:logging-entries",
+        "@maven//:com_daml_logging_entries_2_13",
         "@maven//:com_fasterxml_jackson_core_jackson_core",
         "@maven//:net_logstash_logback_logstash_logback_encoder",
-        "@maven//:org_slf4j_slf4j_api",
-    ],
-)
-
-da_scala_test_suite(
-    name = "contextualized-logging-tests",
-    srcs = glob(["base/contextualized-logging/src/test/suite/**/*.scala"]),
-    resources = glob(["base/contextualized-logging/src/test/suite/resources/**/*"]),
-    scala_deps = [
-        "@maven//:com_chuusai_shapeless",
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:io_circe_circe_core",
-        "@maven//:io_circe_circe_generic",
-        "@maven//:io_circe_circe_parser",
-        "@maven//:org_mockito_mockito_scala",
-        "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_typelevel_cats_core",
-        "@maven//:org_typelevel_cats_kernel",
-    ],
-    deps = [
-        ":contextualized-logging",
-        "//canton:logging-entries",
-        "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:ch_qos_logback_logback_core",
-        "@maven//:com_fasterxml_jackson_core_jackson_core",
-        "@maven//:net_logstash_logback_logstash_logback_encoder",
-        "@maven//:org_mockito_mockito_core",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -2105,21 +1890,9 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils_2_13",
         "@maven//:org_bouncycastle_bcprov_jdk18on",
         "@maven//:org_slf4j_slf4j_api",
-    ],
-)
-
-da_scala_test(
-    name = "crypto-tests",
-    size = "small",
-    srcs = glob(["base/crypto/src/test/scala/**/*.scala"]),
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        ":crypto",
     ],
 )
 
@@ -2138,9 +1911,6 @@ da_scala_library(
     override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
     tags = ["maven_coordinates=com.daml:executors:__VERSION__"],
     visibility = ["//visibility:public"],
-    deps = [
-        "//canton:scala-utils",
-    ],
 )
 
 da_scala_library(
@@ -2167,17 +1937,6 @@ da_scala_library(
     deps = [],
 )
 
-da_scala_test_suite(
-    name = "timer-utils-test",
-    srcs = glob(["base/timer-utils/src/test/suite/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_wordspec",
-    ],
-    deps = [
-        ":timer-utils",
-    ],
-)
-
 da_scala_library(
     name = "safe-proto",
     srcs = glob(["base/safe-proto/src/main/scala/**/*.scala"]),
@@ -2185,20 +1944,6 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:safe-proto:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = ["@maven//:com_google_protobuf_protobuf_java"],
-)
-
-da_scala_test_suite(
-    name = "safe-protot-test",
-    srcs = glob(["base/safe-proto/src/test/scala/**/*.scala"]),
-    max_heap_size = "3g",
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_wordspec",
-    ],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    deps = [
-        ":safe-proto",
-        "@maven//:com_google_protobuf_protobuf_java",
-    ],
 )
 
 da_scala_macro_library(
@@ -2219,18 +1964,6 @@ da_scala_macro_library(
     ],
 )
 
-da_scala_test_suite(
-    name = "nameof-tests",
-    srcs = glob(["base/nameof/src/test/suite/**/*.scala"]),
-    resources = glob(["base/nameof/src/test/suite/resources/**/*"]),
-    scala_deps = [
-    ],
-    deps = [
-        ":nameof",
-        "@maven//:org_scala_lang_scala_reflect",
-    ],
-)
-
 da_scala_library(
     name = "logging-entries",
     srcs = glob(["base/logging-entries/src/main/scala/**/*.scala"]),
@@ -2239,17 +1972,6 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:logging-entries:__VERSION__"],
     visibility = [
         "//visibility:public",
-    ],
-)
-
-da_scala_test_suite(
-    name = "logging-entries-tests",
-    srcs = glob(["base/logging-entries/src/test/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_wordspec",
-    ],
-    deps = [
-        ":logging-entries",
     ],
 )
 
@@ -2267,9 +1989,9 @@ da_scala_library(
         "//:__subpackages__",
     ],
     deps = [
-        "//canton:resources",
-        "//canton:resources-grpc",
-        "//canton:timer-utils",
+        "@maven//:com_daml_daml_resources_2_13",
+        "@maven//:com_daml_resources_grpc_2_13",
+        "@maven//:com_daml_timer_utils_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_inprocess",
@@ -2292,9 +2014,9 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:resources",
-        "//canton:resources-grpc",
-        "//canton:resources-pekko",
+        "@maven//:com_daml_daml_resources_2_13",
+        "@maven//:com_daml_resources_grpc_2_13",
+        "@maven//:com_daml_resources_pekko_2_13",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_netty_shaded",
     ],
@@ -2331,19 +2053,6 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:ports:__VERSION__"],
     visibility = [
         "//visibility:public",
-    ],
-)
-
-da_scala_test(
-    name = "ports-tests",
-    srcs = glob(["base/ports/src/test/suite/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    deps = [
-        ":ports",
-        "//test-common/canton/ports-testing",
     ],
 )
 
@@ -2385,35 +2094,6 @@ scala_library(
 )
 
 da_scala_library(
-    name = "sample-service",
-    srcs = glob(["base/sample-service/src/**/*.scala"]),
-    scala_deps = [
-        "@maven//:com_thesamet_scalapb_lenses",
-        "@maven//:com_thesamet_scalapb_scalapb_runtime",
-        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc",
-        "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalatest_scalatest_wordspec",
-    ],
-    visibility = [
-        "//visibility:public",
-    ],
-    exports = [
-        ":sample-service-scalapb",
-    ],
-    deps = [
-        ":sample-service-scalapb",
-        "//canton:testing-utils",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_stub",
-        "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
-
-da_scala_library(
     name = "testing-utils",
     srcs = glob(["base/testing-utils/src/main/scala/**/*.scala"]),
     scala_deps = [
@@ -2431,13 +2111,13 @@ da_scala_library(
         "@maven//:org_slf4j_slf4j_api",
     ],
     deps = [
-        "//canton:contextualized-logging",
-        "//canton:ledger-resources",
-        "//canton:resources",
-        "//canton:resources-grpc",
-        "//canton:resources-pekko",
-        "//canton:rs-grpc-bridge",
-        "//canton:rs-grpc-pekko",
+        "@maven//:com_daml_contextualized_logging_2_13",
+        "@maven//:com_daml_daml_resources_2_13",
+        "@maven//:com_daml_ledger_resources_2_13",
+        "@maven//:com_daml_resources_grpc_2_13",
+        "@maven//:com_daml_resources_pekko_2_13",
+        "@maven//:com_daml_rs_grpc_bridge",
+        "@maven//:com_daml_rs_grpc_pekko_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_typesafe_config",
         "@maven//:io_grpc_grpc_api",
@@ -2445,17 +2125,6 @@ da_scala_library(
         "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
-    ],
-)
-
-da_scala_test_suite(
-    name = "testing-utils-tests",
-    srcs = glob(["base/testing-utils/src/test/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_wordspec",
-    ],
-    deps = [
-        ":testing-utils",
     ],
 )
 
@@ -2478,8 +2147,8 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:test-evidence-scalatest",
-        "//canton:test-evidence-tag",
+        "@maven//:com_daml_test_evidence_scalatest_2_13",
+        "@maven//:com_daml_test_evidence_tag_2_13",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
@@ -2510,7 +2179,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//canton:test-evidence-tag",
+        "@maven//:com_daml_test_evidence_tag_2_13",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
@@ -2557,7 +2226,7 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
-        "//canton:metrics",
+        "@maven//:com_daml_observability_metrics_2_13",
         "@maven//:com_google_guava_guava",
     ],
 )
@@ -2579,40 +2248,6 @@ da_scala_library(
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     visibility = ["//visibility:public"],
     deps = [
-    ],
-)
-
-da_scala_test_suite(
-    name = "pekko-http-metrics-tests",
-    size = "small",
-    srcs = glob([
-        "base/observability/pekko-http-metrics/src/test/**/*Spec.scala",
-        "base/observability/pekko-http-metrics/src/test/**/*Test.scala",
-    ]),
-    scala_deps = [
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:org_apache_pekko_pekko_http",
-        "@maven//:org_apache_pekko_pekko_http_core",
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_apache_pekko_pekko_http_testkit",
-    ],
-    scala_runtime_deps = [
-        "@maven//:org_apache_pekko_pekko_stream_testkit",
-    ],
-    scalacopts = canton_scalacopts + [
-        "-language:postfixOps",
-        "-Wconf:msg=lambda-parens:s",
-    ],
-    deps = [
-        ":metrics-test-lib",
-        ":pekko-http-metrics",
-        ":pekko-http-metrics-tests-lib",
-        "//canton:metrics",
-        "//canton:rs-grpc-bridge",
-        "//canton:testing-utils",
-        "@maven//:com_typesafe_config",
     ],
 )
 
@@ -2657,29 +2292,6 @@ da_scala_library(
     ],
 )
 
-da_scala_test_suite(
-    name = "tracing-tests",
-    size = "small",
-    srcs = glob(["base/observability/tracing/src/test/suite/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalatest_scalatest_wordspec",
-    ],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    deps = [
-        ":tracing",
-        ":tracing-test-lib",
-        "@maven//:io_opentelemetry_opentelemetry_api",
-        "@maven//:io_opentelemetry_opentelemetry_context",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
-        "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
-
 da_scala_library(
     name = "metrics",
     srcs = glob(["base/observability/metrics/src/main/scala/**/*.scala"]),
@@ -2688,7 +2300,6 @@ da_scala_library(
         "@maven//:com_thesamet_scalapb_scalapb_runtime",
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     tags = ["maven_coordinates=com.daml:metrics:__VERSION__"],
@@ -2697,14 +2308,12 @@ da_scala_library(
     ],
     runtime_deps = [],
     deps = [
-        "//canton:concurrent",
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils_2_13",
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
-        "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -2714,7 +2323,10 @@ da_scala_library(
     srcs = glob(["base/observability/metrics/src/test/lib/scala/**/*.scala"]),
     scala_deps = [
     ],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
+    scalacopts = canton_scalacopts + [
+        "-language:postfixOps",
+        "-Wconf:cat=w-flag-value-discard:s",
+    ],
     tags = ["maven_coordinates=com.daml:metrics-test-lib:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -2722,6 +2334,6 @@ da_scala_library(
     runtime_deps = [],
     deps = [
         ":metrics",
-        "//canton:scala-utils",
+        "@maven//:com_daml_scala_utils_2_13",
     ],
 )

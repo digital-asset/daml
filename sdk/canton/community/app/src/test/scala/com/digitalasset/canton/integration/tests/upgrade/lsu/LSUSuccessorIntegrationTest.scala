@@ -80,6 +80,8 @@ sealed abstract class LSUSuccessorAcceptedIntegrationTest(
         eventually() {
           participants.all.forall(_.synchronizers.is_connected(fixture.newPSId)) shouldBe true
         }
+
+        waitForTargetTimeOnSequencer(sequencer2, environment.clock.now)
     }
   }
 }
