@@ -486,8 +486,10 @@ final class IssConsensusModule[E <: Env[E]](
           )
           emitConsensusLatencyStats(metrics)
 
-          if (hasCompletedLedSegment)
+          if (hasCompletedLedSegment) {
+            logger.debug(s"Locally-led segment in epoch $thisNodeEpochNumber is complete")
             consensusWaitingForEpochCompletionSince = Some(Instant.now())
+          }
 
           epochState.confirmBlockCompleted(orderedBlock.metadata, commitCertificate)
 

@@ -600,6 +600,7 @@ class MediatorNodeBootstrap(
                 arguments.config.topology,
                 arguments.clock,
                 staticSynchronizerParameters,
+                arguments.metrics.topologyCache,
                 arguments.futureSupervisor,
                 synchronizerLoggerFactory,
               )()

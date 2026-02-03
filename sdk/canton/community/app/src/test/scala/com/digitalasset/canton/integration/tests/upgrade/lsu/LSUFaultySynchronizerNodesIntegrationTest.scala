@@ -174,6 +174,7 @@ final class LSUFaultySynchronizerNodesIntegrationTest extends LSUBase {
           _.synchronizers.is_connected(fixture.currentPSId) shouldBe false
         )
       }
+      waitForTargetTimeOnSequencer(sequencer3, environment.clock.now)
 
       participant1.underlying.value.sync
         .connectedSynchronizerForAlias(daName)

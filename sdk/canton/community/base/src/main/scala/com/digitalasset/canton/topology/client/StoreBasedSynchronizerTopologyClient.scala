@@ -316,11 +316,6 @@ class StoreBasedSynchronizerTopologyClient(
     new StoreBasedTopologySnapshot(psid, timestamp, store, packageDependencyResolver, loggerFactory)
   }
 
-  def findTopologyIntervalForTimestamp(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(EffectiveTime, Option[EffectiveTime])]] =
-    store.findTopologyIntervalForTimestamp(timestamp)
-
   override def snapshot(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[TopologySnapshotLoader] =
@@ -346,6 +341,15 @@ class StoreBasedSynchronizerTopologyClient(
 
   override def latestTopologyChangeTimestamp: CantonTimestamp =
     head.get().lastChangeTimestamp.value.immediateSuccessor
+
+  /** return both values above consistently */
+  def knownUntilAndLatestChangeTimestamps: (CantonTimestamp, CantonTimestamp) = {
+    val tmp = head.get()
+    (
+      tmp.effectiveTimestamp.value.immediateSuccessor,
+      tmp.lastChangeTimestamp.value.immediateSuccessor,
+    )
+  }
 
   /** returns the current approximate timestamp
     *

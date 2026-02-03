@@ -5,7 +5,8 @@ package com.digitalasset.canton.topology.store.memory
 
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CantonRequireTypes.String300
+import com.daml.nonempty.NonEmptyReturningOps.`NE Iterable Ops`
+import com.digitalasset.canton.config.CantonRequireTypes.{String185, String300}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.crypto.topology.TopologyStateHash
@@ -24,6 +25,7 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
 }
 import com.digitalasset.canton.topology.store.TopologyStore.{
   EffectiveStateChange,
+  StateKeyFetch,
   TopologyStoreDeactivations,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
@@ -70,6 +72,12 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       rejected: Option[String300],
       until: Option[EffectiveTime],
   ) extends DelegatedTopologyTransactionLike[TopologyChangeOp, TopologyMapping] {
+
+    val indexKey: (TopologyMapping.Code, Namespace, Option[String185]) = (
+      transaction.mapping.code,
+      transaction.mapping.namespace,
+      transaction.mapping.maybeUid.map(_.identifier),
+    )
 
     override protected def transactionLikeDelegate
         : TopologyTransactionLike[TopologyChangeOp, TopologyMapping] = transaction
@@ -190,21 +198,29 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     FutureUnlessShutdown.unit
   }
 
-  override def fetchAllDescending(uids: Set[UniqueIdentifier], nss: Set[Namespace])(implicit
+  def fetchAllDescending(
+      items: Seq[StateKeyFetch]
+  )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
-
-    val items = topologyTransactionStore
-      .filter(entry =>
-        entry.rejected.isEmpty &&
-          (entry.mapping.maybeUid.exists(uids.contains) ||
-            (entry.mapping.maybeUid.isEmpty && nss.contains(entry.mapping.namespace)))
-      )
-      .sortBy(c => (c.from.value, c.batchIdx))
+    val itemsMap =
+      items
+        .groupMap1(key => (key.code, key.namespace, key.identifier))(_.validUntilCutoff)
+        .view
+        .mapValues(_.min1)
+        .toMap
+    val found = topologyTransactionStore
+      .filter { entry =>
+        itemsMap.get(entry.indexKey).exists { validUntil =>
+          entry.rejected.isEmpty
+          && entry.until.forall(ts => ts >= validUntil)
+        }
+      }
+      .sortBy(c => (c.until.map(_.value).getOrElse(CantonTimestamp.MaxValue), c.batchIdx))
       .reverse
       .map(_.toStoredTransaction)
       .toSeq
-    FutureUnlessShutdown.pure(StoredTopologyTransactions(items))
+    FutureUnlessShutdown.pure(StoredTopologyTransactions(found))
   }
 
   override def bulkInsert(
@@ -599,27 +615,6 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         topologyTransactionStore
           .findLast(entry => entry.rejected.isEmpty && !entry.transaction.isProposal)
           .map(x => (x.sequenced, x.from))
-      }
-    }
-
-  override def findTopologyIntervalForTimestamp(
-      timestamp: CantonTimestamp
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(EffectiveTime, Option[EffectiveTime])]] =
-    FutureUnlessShutdown.wrap {
-      lock.exclusive {
-        val lowerBound = topologyTransactionStore
-          .findLast(entry =>
-            entry.from.value < timestamp && entry.rejected.isEmpty && !entry.transaction.isProposal
-          )
-          .map(_.from)
-        val upperBound = topologyTransactionStore
-          .find(entry =>
-            entry.from.value >= timestamp && entry.rejected.isEmpty && !entry.transaction.isProposal
-          )
-          .map(_.from)
-        lowerBound.map(_ -> upperBound)
       }
     }
 

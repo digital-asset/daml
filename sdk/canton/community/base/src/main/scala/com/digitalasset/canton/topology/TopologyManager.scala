@@ -139,6 +139,7 @@ class SynchronizerTopologyManager(
       Some(outboxQueue),
       makeChecks,
       crypto.pureCrypto,
+      futureSupervisor,
       timeouts,
       loggerFactory,
     )
@@ -273,6 +274,7 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
       None,
       _ => NoopTopologyMappingChecks,
       crypto.pureCrypto,
+      futureSupervisor,
       timeouts,
       loggerFactory,
     )
@@ -1206,7 +1208,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       .map(_ => ())
 
   override protected def onClosed(): Unit =
-    LifeCycle.close(sequentialQueue, store)(logger)
+    LifeCycle.close(sequentialQueue, processor.cache, store)(logger)
 
   override def toString: String = s"TopologyManager[${store.storeId}]"
 }

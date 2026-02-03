@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
+import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.CryptoPureApi
@@ -13,6 +14,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.AsyncResult
+import com.digitalasset.canton.topology.cache.TopologyStateWriteThroughCache.StateKeyTuple
 import com.digitalasset.canton.topology.cache.{TopologyStateLookup, TopologyStateWriteThroughCache}
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
@@ -23,8 +25,28 @@ import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
 import com.digitalasset.canton.topology.transaction.checks.TopologyMappingChecks
+import com.digitalasset.canton.topology.transaction.{
+  DecentralizedNamespaceDefinition,
+  DynamicSequencingParametersState,
+  MediatorSynchronizerState,
+  NamespaceDelegation,
+  OwnerToKeyMapping,
+  ParticipantSynchronizerPermission,
+  PartyHostingLimits,
+  PartyToKeyMapping,
+  PartyToParticipant,
+  SequencerConnectionSuccessor,
+  SequencerSynchronizerState,
+  SynchronizerParametersState,
+  SynchronizerTrustCertificate,
+  SynchronizerUpgradeAnnouncement,
+  TopologyMapping,
+  VettedPackages,
+}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -38,7 +60,7 @@ import scala.concurrent.ExecutionContext
   */
 class TopologyStateProcessor private (
     val store: TopologyStore[TopologyStoreId],
-    cache: TopologyStateWriteThroughCache,
+    val cache: TopologyStateWriteThroughCache,
     outboxQueue: Option[SynchronizerOutboxQueue],
     topologyMappingChecksFactory: TopologyStateLookup => TopologyMappingChecks,
     pureCrypto: CryptoPureApi,
@@ -94,9 +116,13 @@ class TopologyStateProcessor private (
 
     type Lft = Seq[GenericValidatedTopologyTransaction]
 
+    val lockP = cache.acquireEvictionLock()
     val ret = for {
+      // synchronise with any pending cache eviction and lock the cache
+      _ <- EitherT.right(lockP)
       // first, preload the currently existing state for the given transactions
       _ <- EitherT.right[Lft](preloadCaches(effective, transactions, storeIsEmpty))
+
       // iterate over all transactions, validate and merge them
       validatedTx <- EitherT.right(MonadUtil.sequentialTraverse(transactions) { tx =>
         for {
@@ -116,7 +142,7 @@ class TopologyStateProcessor private (
         (), {
           logger.info("Topology transactions failed:\n  " + validatedTx.mkString("\n  "))
           // reset caches as they are broken now if we abort
-          clearCaches()
+          dropCaches()
           validatedTx
         }: Lft,
       ): EitherT[FutureUnlessShutdown, Lft, Unit]
@@ -140,7 +166,7 @@ class TopologyStateProcessor private (
         case Some(queue) =>
           // if we use the synchronizer outbox queue, we must also reset the caches, because the local validation
           // doesn't automatically imply successful validation once the transactions have been sequenced.
-          clearCaches()
+          dropCaches()
           EitherT
             .rightT[FutureUnlessShutdown, Lft](queue.enqueue(validatedTx.map(_.transaction)))
             .map { result =>
@@ -171,11 +197,12 @@ class TopologyStateProcessor private (
     ret
       .leftMap(_ -> AsyncResult.immediate)
       .merge
-  }
-
-  private def clearCaches(): Unit = {
-    cache.dropEverything()
-    authValidator.reset()
+      .thereafter { _ =>
+        // Unlock the Topology state cache eviction lock (cache is thread safe / eviction not)
+        lockP.map { promise =>
+          promise.outcome(()).discard
+        }.discard
+      }
   }
 
   private def preloadCaches(
@@ -183,15 +210,102 @@ class TopologyStateProcessor private (
       transactions: Seq[GenericSignedTopologyTransaction],
       storeIsEmpty: Boolean,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    val (uids, nss) = transactions.foldLeft((Set.empty[UniqueIdentifier], Set.empty[Namespace])) {
-      case ((uids, nss), item) =>
-        val auth = item.mapping.requiredAuth(None).referenced
-        // collect all uids / namespaces we need to fetch to have them active in the cache
-        // we include the mapping namespace for decentralized namespaces (their namespace is not included in the
-        // required auth ... )
-        (uids ++ item.mapping.referencedUids, nss ++ auth.namespaces + item.mapping.namespace)
+
+    def prefetchAuth(item: TopologyMapping): Set[StateKeyTuple] =
+      // collect all namespaces we need to fetch to have them active in the cache for auth checking
+      // we include the mapping namespace for decentralized namespaces (their namespace is not included in the
+      // required auth ... )
+      (item.requiredAuth(None).referenced.namespaces + item.namespace).flatMap { ns =>
+        Set(
+          (NamespaceDelegation.code, ns, None),
+          (DecentralizedNamespaceDefinition.code, ns, None),
+        )
+      }
+
+    def uidKey(code: TopologyMapping.Code, uid: UniqueIdentifier): StateKeyTuple =
+      (code, uid.namespace, Some(uid.identifier))
+
+    // prefetching optimization for mapping checks
+    // the prefetches here are not required but make things more efficient
+    def prefetchDependencies(item: TopologyMapping): Set[StateKeyTuple] = item match {
+      case PartyToParticipant(pid, _, participants, _) =>
+        (pid.uid +: participants.map(_.participantId.uid))
+          .flatMap(uid =>
+            Set(
+              uidKey(Code.SynchronizerTrustCertificate, uid),
+              uidKey(Code.OwnerToKeyMapping, uid),
+            )
+          )
+          .toSet
+      case NamespaceDelegation(_, _, _) => Set.empty
+      case OwnerToKeyMapping(ParticipantId(uid), _) =>
+        Set(uidKey(Code.SynchronizerTrustCertificate, uid))
+      case OwnerToKeyMapping(MediatorId(_), _) =>
+        store.storeId.forSynchronizer
+          .map(syncId => uidKey(Code.MediatorSynchronizerState, syncId.uid))
+          .toList
+          .toSet
+      case OwnerToKeyMapping(SequencerId(_), _) =>
+        store.storeId.forSynchronizer
+          .map(syncId => uidKey(Code.SequencerSynchronizerState, syncId.uid))
+          .toList
+          .toSet
+      case DecentralizedNamespaceDefinition(_, _, _) => Set.empty
+      case SynchronizerTrustCertificate(participantId, _, _) =>
+        val tmp = Set(
+          uidKey(Code.OwnerToKeyMapping, participantId.uid),
+          uidKey(Code.PartyToParticipant, participantId.uid),
+          uidKey(Code.ParticipantSynchronizerPermission, participantId.uid),
+        )
+        store.storeId.forSynchronizer
+          .map(syncId => uidKey(Code.SynchronizerParametersState, syncId.uid))
+          .map(tmp + _)
+          .getOrElse(tmp)
+      case PartyToKeyMapping(_, _) => Set.empty
+      case ParticipantSynchronizerPermission(_, _, _, _, _) => Set.empty
+      case PartyHostingLimits(_, _) => Set.empty
+      case VettedPackages(_, _) => Set.empty
+      case SynchronizerParametersState(_, _) => Set.empty
+      case DynamicSequencingParametersState(_, _) => Set.empty
+      case MediatorSynchronizerState(_, _, _, active, observers) =>
+        (active.forgetNE ++ observers).map(mid => uidKey(Code.OwnerToKeyMapping, mid.uid)).toSet
+      case SequencerSynchronizerState(_, _, active, observers) =>
+        (active.forgetNE ++ observers).map(sid => uidKey(Code.OwnerToKeyMapping, sid.uid)).toSet
+      case SynchronizerUpgradeAnnouncement(_, _) => Set.empty
+      case SequencerConnectionSuccessor(_, _, _) => Set.empty
     }
-    cache.fetch(effective, uids, nss, storeIsEmpty)
+
+    val start = this.store.storeId.forSynchronizer
+      .map(psid => uidKey(Code.SynchronizerUpgradeAnnouncement, psid.uid))
+      .toList
+      .toSet
+
+    val prefetch =
+      transactions.foldLeft(start) { case (acc, item) =>
+        acc +
+          // prefetch for this mapping type
+          ((
+            item.mapping.code,
+            item.mapping.namespace,
+            item.mapping.maybeUid.map(_.identifier),
+          )) ++
+          // prefetch auth
+          prefetchAuth(
+            item.mapping
+          ) ++
+          prefetchDependencies(item.mapping)
+      }
+    cache.fetch(effective, prefetch, storeIsEmpty)
+  }
+
+  // TODO(#29400) we do need to drop caches here as in the topology manager we need to read from the synchroniser store
+  //    but we might add temporarily some changes to it.
+  //    if we don't drop the full cache we might end up with stale caches
+  //    however, if we instead of loading from the db populate the cache here using the processing cache,
+  //    then we might save quite a bit of additional queries
+  private def dropCaches(): Unit = {
+    cache.dropPending()
+    authValidator.reset()
   }
 
   private def serialIsMonotonicallyIncreasing(
@@ -260,10 +374,11 @@ class TopologyStateProcessor private (
     }
 
   private def mergeWithPendingProposal(
-      toValidate: GenericSignedTopologyTransaction
+      effective: EffectiveTime,
+      toValidate: GenericSignedTopologyTransaction,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[GenericSignedTopologyTransaction] =
     cache
-      .lookupPendingProposal(toValidate.transaction)
+      .lookupPendingProposal(effective, toValidate.transaction)
       .map {
         case None => toValidate
         case Some(existingProposal) =>
@@ -282,11 +397,11 @@ class TopologyStateProcessor private (
 
     val ret = for {
       tx_inStore <- EitherT.right(
-        cache.lookupActiveForMapping(txA.mapping).map(_.map(_.transaction))
+        cache.lookupActiveForMapping(effective, txA.mapping).map(_.map(_.transaction))
       )
       // first, merge a pending proposal with this transaction. we do this as it might
       // subsequently activate the given transaction
-      tx_mergedProposalSignatures <- EitherT.right(mergeWithPendingProposal(txA))
+      tx_mergedProposalSignatures <- EitherT.right(mergeWithPendingProposal(effective, txA))
       (isMerge, tx_deduplicatedAndMerged) = mergeSignatures(tx_inStore, tx_mergedProposalSignatures)
       // Run mapping specific semantic checks
       _ <- topologyMappingChecks.checkTransaction(
@@ -339,6 +454,7 @@ object TopologyStateProcessor {
       outboxQueue: Option[SynchronizerOutboxQueue],
       topologyMappingChecksFactory: TopologyStateLookup => TopologyMappingChecks,
       pureCrypto: PureCrypto,
+      futureSupervisor: FutureSupervisor,
       timeouts: ProcessingTimeout,
       loggerFactoryParent: NamedLoggerFactory,
   )(implicit ec: ExecutionContext) =
@@ -347,8 +463,11 @@ object TopologyStateProcessor {
       new TopologyStateWriteThroughCache(
         store,
         topologyCacheAggregatorConfig,
+        cacheEvictionThreshold = topologyConfig.topologyStateCacheEvictionThreshold,
         maxCacheSize = topologyConfig.maxTopologyStateCacheItems,
         enableConsistencyChecks = topologyConfig.enableTopologyStateCacheConsistencyChecks,
+        metrics = TopologyStateWriteThroughCache.noOpCacheMetrics,
+        futureSupervisor,
         timeouts,
         loggerFactoryParent.append("purpose", store.storeId.toString),
       ),
@@ -374,8 +493,11 @@ object TopologyStateProcessor {
       new TopologyStateWriteThroughCache(
         store,
         topologyCacheAggregatorConfig,
+        cacheEvictionThreshold = topologyConfig.topologyStateCacheEvictionThreshold,
         maxCacheSize = topologyConfig.maxTopologyStateCacheItems,
         enableConsistencyChecks = topologyConfig.enableTopologyStateCacheConsistencyChecks,
+        metrics = TopologyStateWriteThroughCache.noOpCacheMetrics,
+        FutureSupervisor.Noop,
         timeouts,
         loggerFactoryParent.append("purpose", "initial-validation"),
       ),

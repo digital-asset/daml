@@ -457,6 +457,7 @@ class ParticipantNodeBootstrap(
           mutablePackageMetadataView,
           persistentState.map(_.ledgerApiStore),
           persistentState.map(_.contractStore),
+          arguments.metrics,
           futureSupervisor,
           loggerFactory,
         )

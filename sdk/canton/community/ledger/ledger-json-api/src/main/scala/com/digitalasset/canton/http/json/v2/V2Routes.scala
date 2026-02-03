@@ -17,9 +17,11 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CallMetadata
 import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
-import org.apache.pekko.http.scaladsl.model.{AttributeKeys, HttpRequest}
+import org.apache.pekko.http.scaladsl.model.{AttributeKeys, HttpRequest, MediaType, MediaTypes}
 import org.apache.pekko.http.scaladsl.server.RequestContext
 import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Flow, Sink}
+import org.apache.pekko.util.ByteString
 import sttp.model.{Header, StatusCode, StatusText}
 import sttp.tapir.model.{ConnectionInfo, ServerRequest}
 import sttp.tapir.server.interceptor.RequestInterceptor.RequestResultTransform
@@ -46,7 +48,7 @@ class V2Routes(
     requestLogger: ApiRequestLogger,
     val loggerFactory: NamedLoggerFactory,
     jsHealthService: JsHealthService,
-)(implicit ec: ExecutionContext)
+)(implicit ec: ExecutionContext, apiLoggingConfig: ApiLoggingConfig)
     extends NamedLogging {
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   private val serverEndpoints =
@@ -179,50 +181,96 @@ object V2Routes {
       requestLogger,
       loggerFactory,
       jsHealthService,
-    )(executionContext)
+    )(executionContext, apiLoggingConfig)
   }
 }
 
 class RequestInterceptors(
     private val auditLogger: ApiRequestLogger,
     val loggerFactory: NamedLoggerFactory,
-) extends NamedLogging {
+)(implicit executionContext: ExecutionContext, apiLoggingConfig: ApiLoggingConfig)
+    extends NamedLogging {
 
   def loggingInterceptor() =
     RequestInterceptor.transformServerRequest { request =>
       val incomingHeaders = request.headers.map(h => (h.name, h.value)).toMap
       val extractedW3cTrace = W3CTraceContext.fromHeaders(incomingHeaders)
+      val requestParameters =
+        s"[${request.queryParameters.toSeq.map { case (k, v) => s"$k=$v" }.mkString(", ")}]"
 
-      def logIncomingRequest()(implicit traceContext: TraceContext): Unit =
-        auditLogger.logIncomingRequest(
-          RequestInterceptorsUtil.extractCallMetadata(request),
-          // TODO (i28332) investigate if we can provide request body here
-          s"ContentType:${request.contentType} ContentLength:${request.contentLength}",
-        )
+      def logIncomingRequest()(implicit traceContext: TraceContext): Future[ServerRequest] =
+        request.underlying match {
+          case ctx: RequestContext =>
+            val meta = RequestInterceptorsUtil.extractCallMetadata(request)
+
+            val newServerRequest =
+              if (shouldLogRequestBody(request.contentType.getOrElse(""))) {
+
+                val loggingSink = Sink
+                  .fold[ByteString, ByteString](ByteString.empty)(_ ++ _)
+                  .mapMaterializedValue { futureBytes =>
+                    futureBytes
+                      .map(_.utf8String)
+                      .foreach { body =>
+                        val msg =
+                          s"\nContentType: ${request.contentType}\nContentLength: ${request.contentLength}\nParameters: $requestParameters\nBody: $body"
+                        auditLogger.logIncomingRequest(meta, msg)
+                      }
+                  }
+
+                val newEntity = ctx.request.entity.transformDataBytes(
+                  Flow[ByteString].alsoTo(loggingSink)
+                )
+                val newReq = ctx.request.withEntity(newEntity)
+                val newCtx = ctx.withRequest(newReq)
+                request.withUnderlying(newCtx)
+              } else {
+                val msg =
+                  s"\nContentType: ${request.contentType}\nContentLength: ${request.contentLength}\nParameters: $requestParameters"
+                auditLogger.logIncomingRequest(meta, msg)
+                request
+              }
+
+            Future.successful(newServerRequest)
+
+          case _ =>
+            auditLogger.logIncomingRequest(
+              RequestInterceptorsUtil.extractCallMetadata(request),
+              s"\nContentType: ${request.contentType}\nContentLength: ${request.contentLength}\nParameters: $requestParameters",
+            )
+            Future.successful(request)
+        }
+
       extractedW3cTrace match {
         case Some(trace) =>
           implicit val tc: TraceContext = trace.toTraceContext
           logIncomingRequest()
-          Future.successful(request)
 
         case None =>
           implicit val newTraceContext: TraceContext = TraceContext.createNew("request")
           logger.trace(s"No TraceContext in headers, created new for ${request.showShort}")
-          logIncomingRequest()
+          val overwrittenServerRequest = logIncomingRequest()
           val remote = RequestInterceptorsUtil.extractAddress(request)
           val enrichedHeaders = request.headers ++ W3CTraceContext
             .extractHeaders(newTraceContext)
             .map { case (name, value) => Header(name, value) }
 
-          Future.successful(
-            request.withOverride(
+          overwrittenServerRequest.map { req =>
+            req.withOverride(
               headersOverride = Some(enrichedHeaders),
               protocolOverride = None,
               connectionInfoOverride = Some(ConnectionInfo(None, remote.toOption, None)),
             )
-          )
+          }
       }
     }
+
+  private def shouldLogRequestBody(contentType: String) =
+    apiLoggingConfig.messagePayloads && (MediaType.parse(contentType) match {
+      case Right(mt) if mt.isText || mt == MediaTypes.`application/json` =>
+        true
+      case _ => false
+    })
 
   object LoggingResultTransformer extends RequestResultTransform[scala.concurrent.Future] {
 

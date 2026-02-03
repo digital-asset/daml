@@ -137,7 +137,7 @@ trait ShowUtil extends cats.syntax.ShowSyntax {
 
     def limit(n: Int): Iterable[Shown] = {
       val (prefix, remainder) = trav.splitAt(n)
-      val ellipsis = if (remainder.isEmpty) Seq.empty else Seq(Shown("..."))
+      val ellipsis = if (remainder.isEmpty) Seq.empty else Seq(Shown(s"... ${remainder.size} more"))
       prefix.map(e => e: Shown) ++ ellipsis
     }
   }

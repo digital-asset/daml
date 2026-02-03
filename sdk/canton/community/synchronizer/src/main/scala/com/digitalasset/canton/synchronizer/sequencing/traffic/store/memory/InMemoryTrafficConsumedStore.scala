@@ -140,4 +140,14 @@ class InMemoryTrafficConsumedStore(override protected val loggerFactory: NamedLo
     }
     FutureUnlessShutdown.unit
   }
+
+  /** Truncates the entire traffic consumed store. To be used only on sequencer initialization to
+    * clean up partial state.
+    */
+  override def truncate()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.pure {
+      lock.exclusive {
+        trafficConsumedMap.clear()
+      }
+    }
 }

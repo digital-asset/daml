@@ -42,6 +42,7 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
 /** A topology snapshot backed by the TopologyStateWriteThroughCache for most methods. Some data
@@ -104,6 +105,7 @@ class WriteThroughCacheTopologySnapshot(
   // actual implementations specific to the
   // state write through cache
   // ===============================================
+  @nowarn("cat=deprecation")
   override def memberFirstKnownAt(member: Member)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =

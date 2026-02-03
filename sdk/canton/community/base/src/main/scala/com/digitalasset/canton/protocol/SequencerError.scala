@@ -25,7 +25,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   SubmissionRequest,
 }
-import com.digitalasset.canton.topology.Member
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.util.LoggerUtil
 
 import scala.concurrent.duration.Duration
@@ -276,5 +276,137 @@ object SequencerError extends SequencerErrorGroup {
           cause = s"Invalid timestamp $timestamp"
         )
         with SequencerError
+  }
+
+  sealed trait LSUSequencerError extends SequencerError
+
+  @Explanation(
+    """This error indicates that the sequencer is missing logical upgrade predecessor information."""
+  )
+  @Resolution(
+    """Verify that the sequencer node has been properly configured with logical upgrade predecessor information for the new sequencer.
+      |Currently it is expected that a config option `canton.sequencers.<sequencer>.parameters.sequencing-time-lower-bound-exclusive`
+      |has been specified and is set to the announced LSU upgrade time."""
+  )
+  object MissingSynchronizerPredecessor
+      extends ErrorCode(
+        "MISSING_SYNCHRONIZER_PREDECESSOR",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(synchronizerId: PhysicalSynchronizerId, sequencerId: SequencerId)
+        extends CantonBaseError.Impl(
+          cause =
+            s"Synchronizer $synchronizerId is missing predecessor information for sequencer $sequencerId"
+        )
+        with LSUSequencerError
+  }
+
+  @Explanation(
+    """This error indicates that the sequencer has already been initialized and cannot be used for a synchronizer upgrade."""
+  )
+  @Resolution(
+    """Verify that the sequencer has been properly configured with logical upgrade predecessor information for the new sequencer.
+    | Currently it is expected that a config option `canton.sequencers.<sequencer>.parameters.sequencing-time-lower-bound-exclusive`
+    | has been specified and is set to the announced LSU upgrade time.
+    | It may be necessary to start with a fresh sequencer node for the upgrade to succeed."""
+  )
+  object SequencerPastUpgradeTime
+      extends ErrorCode(
+        "SEQUENCER_LSU_PAST_UPGRADE_TIME",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(
+        synchronizerId: PhysicalSynchronizerId,
+        currentTime: CantonTimestamp,
+        upgradeTime: CantonTimestamp,
+    ) extends CantonBaseError.Impl(
+          cause =
+            s"Synchronizer $synchronizerId is currently at $currentTime which is past the upgrade time $upgradeTime"
+        )
+        with LSUSequencerError
+  }
+
+  @Explanation(
+    """This error indicates that a sequencer has already been initialized with traffic data from the upgrade predecessor."""
+  )
+  @Resolution(
+    """Sequencer traffic initialization should only be called once during a logical synchronizer upgrade."""
+  )
+  object LSUTrafficAlreadyInitialized
+      extends ErrorCode(
+        "SEQUENCER_LSU_TRAFFIC_ALREADY_INITIALIZED",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(
+        synchronizerId: PhysicalSynchronizerId
+    ) extends CantonBaseError.Impl(
+          cause =
+            s"Synchronizer $synchronizerId has already been initialized with the traffic control from its LSU predecessor"
+        )
+        with LSUSequencerError
+  }
+
+  @Explanation(
+    """This error indicates that sequencer is not aware of an ongoing logical upgrade on the synchronizer."""
+  )
+  @Resolution(
+    """Either there's no ongoing upgrade or sequencer is not caught up with processing on the synchronizer.
+      | Need to make sure that has indeed been announced and became effective
+      | and that sequencer has caught up past it becoming effective. Can be retried safely."""
+  )
+  object NoOngoingLSU
+      extends ErrorCode(
+        "SEQUENCER_LSU_NO_ONGOING",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(
+        synchronizerId: PhysicalSynchronizerId,
+        currentTopologyTimestamp: CantonTimestamp,
+    ) extends CantonBaseError.Impl(
+          cause =
+            s"No ongoing LSU found on the synchronizer $synchronizerId as of $currentTopologyTimestamp"
+        )
+        with LSUSequencerError
+  }
+
+  @Explanation(
+    """This error indicates that sequencer has not yet reached the upgrade time of a logical upgrade."""
+  )
+  @Resolution(
+    """Traffic accounting cannot know the traffic state until sequencer has reached the upgrade time.
+      | Need to wait until sequencer catches up to the upgrade time. Can be retried safely."""
+  )
+  object NotAtUpgradeTimeOrBeyond
+      extends ErrorCode(
+        "SEQUENCER_LSU_NOT_AT_UPGRADE_TIME_OR_BEYOND",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(
+        upgradeTime: CantonTimestamp,
+        currentTimestampO: Option[CantonTimestamp],
+    ) extends CantonBaseError.Impl(
+          cause =
+            s"Sequencer hasn't reached upgrade time $upgradeTime, currently observed time is $currentTimestampO"
+        )
+        with LSUSequencerError
+  }
+
+  @Explanation(
+    """This error indicates a bug in Canton. Please report it through the support channels."""
+  )
+  @Resolution(
+    """Traffic not found for a synchronizer member. Cannot be retried."""
+  )
+  object LSUTrafficNotFound
+      extends ErrorCode(
+        "SEQUENCER_LSU_TRAFFIC_NOT_FOUND",
+        ErrorCategory.SystemInternalAssumptionViolated,
+      ) {
+    final case class Error(
+        errorMessage: String
+    ) extends CantonBaseError.Impl(
+          cause = s"Traffic control error: $errorMessage"
+        )
+        with LSUSequencerError
   }
 }

@@ -463,8 +463,7 @@ object PbftBlockState {
       store: Option[StoreResult],
   ) extends ProcessResult
   final case class CompletedBlock(
-      commitCertificate: CommitCertificate,
-      viewNumber: ViewNumber,
+      commitCertificate: CommitCertificate
   ) extends ProcessResult
   final case class ViewChangeStartNestedTimer(blockMetadata: BlockMetadata, viewNumber: ViewNumber)
       extends ProcessResult

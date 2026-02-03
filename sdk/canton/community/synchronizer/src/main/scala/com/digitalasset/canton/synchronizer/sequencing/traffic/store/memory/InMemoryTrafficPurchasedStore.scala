@@ -128,4 +128,13 @@ class InMemoryTrafficPurchasedStore(override protected val loggerFactory: NamedL
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] =
     FutureUnlessShutdown.pure(initTimestamp.get())
+
+  /** Truncates the entire traffic purchased store. To be used only on sequencer initialization to
+    * clean up partial state.
+    */
+  override def truncate()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.pure {
+      trafficPurchaseds.clear()
+      initTimestamp.set(None)
+    }
 }

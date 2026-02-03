@@ -981,7 +981,7 @@ object SequencerReader {
       eventTraceContext: TraceContext,
   )
 
-  private[SequencerReader] final case class OngoingSynchronizerUpgrade(
+  private[sequencer] final case class OngoingSynchronizerUpgrade(
       successor: SynchronizerSuccessor,
       announcementEffectiveTime: EffectiveTime,
       override val loggerFactory: NamedLoggerFactory,

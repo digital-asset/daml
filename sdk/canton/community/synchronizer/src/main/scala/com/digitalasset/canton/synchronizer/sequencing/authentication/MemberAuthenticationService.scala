@@ -506,7 +506,6 @@ class MemberAuthenticationServiceImpl(
               ),
             ) =>
           FutureUnlessShutdown.unit
-
       })
     }.map(_ => ())
 }

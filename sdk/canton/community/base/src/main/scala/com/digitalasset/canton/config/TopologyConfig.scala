@@ -32,8 +32,11 @@ import com.google.common.annotations.VisibleForTesting
   * @param useTimeProofsToObserveEffectiveTime
   *   Whether the node will use time proofs to observe when an effective time has been reached. If
   *   false, no time proofs will be sent to the sequencers by any Canton node.
+  * @param topologyStateCacheEvictionThreshold
+  *   How far should the topology cache be "emptied" during an eviction run
   * @param maxTopologyStateCacheItems
-  *   The maximum number of UIDs + namespaces that can be cached in the write through cache
+  *   The maximum number of (UIDs + namespaces, transaction types) that can be cached in the write
+  *   through cache
   * @param enableTopologyStateCacheConsistencyChecks
   *   If true, the topology state cache runs additional consistency checks. This is costly and
   *   should not be enabled in production environments.
@@ -49,6 +52,8 @@ final case class TopologyConfig(
     disableOptionalTopologyChecks: Boolean = false,
     dispatchQueueBackpressureLimit: NonNegativeInt = defaultMaxUnsentTopologyQueueSize,
     useTimeProofsToObserveEffectiveTime: Boolean = false,
+    topologyStateCacheEvictionThreshold: PositiveInt =
+      defaultTopologyStateWriteThroughCacheEvictionThreshold,
     maxTopologyStateCacheItems: PositiveInt = defaultTopologyStateWriteThroughCacheSize,
     enableTopologyStateCacheConsistencyChecks: Boolean = false,
 )
@@ -69,8 +74,10 @@ object TopologyConfig {
 
   private[TopologyConfig] val defaultBroadcastBatchSize: PositiveInt = PositiveInt.tryCreate(100)
 
+  private[TopologyConfig] val defaultTopologyStateWriteThroughCacheEvictionThreshold: PositiveInt =
+    PositiveInt.tryCreate(250)
   private[TopologyConfig] val defaultTopologyStateWriteThroughCacheSize: PositiveInt =
-    PositiveInt.tryCreate(1000)
+    PositiveInt.tryCreate(10000)
 
   @VisibleForTesting
   val forTesting: TopologyConfig = TopologyConfig(

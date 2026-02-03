@@ -6,7 +6,10 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BlockNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BlockNumber,
+  ViewNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.OrderingBlock
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
@@ -74,6 +77,12 @@ class OriginalLeaderSegmentState(
         .contains(blockNumber)
     )
 
+  // `true` whenever at least one ordered block's CommitCertificate has a ViewNumber > 0,
+  //  indicating that this segment has undergone a view change and thus cannot accept new proposals anymore.
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private var observedOrderedBlockWithNonZeroView =
+    initialCompletedBlocks.exists(_.commitCertificate.prePrepare.message.viewNumber > 0)
+
   logger.debug(
     s"At segment creation with initialCompletedBlocks = ${initialCompletedBlocks.map(_.blockNumber)}, " +
       s"next relative block to propose = $nextRelativeBlockToPropose$absoluteNextBlockToProposeLogSuffix"
@@ -94,6 +103,7 @@ class OriginalLeaderSegmentState(
   def canReceiveProposals: Boolean =
     segment.slotNumbers.sizeIs > nextRelativeBlockToPropose && // we haven't filled all slots
       !viewChangeOccurred && // we haven't entered a view change ever in this epoch for our segment (view = 0)
+      !observedOrderedBlockWithNonZeroView &&
       (nextRelativeBlockToPropose == 0 || state.isBlockComplete(
         segment.slotNumbers(nextRelativeBlockToPropose - 1)
       )) // we finished processing the current slot
@@ -135,4 +145,8 @@ class OriginalLeaderSegmentState(
   def isNextSlotFirst: Boolean = nextRelativeBlockToPropose == 0
 
   def nextBlockToPropose: BlockNumber = segment.slotNumbers(nextRelativeBlockToPropose)
+
+  def observedOrderedBlock(view: ViewNumber): Unit =
+    if (view > 0)
+      observedOrderedBlockWithNonZeroView = true
 }

@@ -221,6 +221,7 @@ trait TopologyManagementIntegrationTest
       )
       // propose a decentralized namespace with many owners, so that we have multiple
       // transactions with the same hash. This should not trip up the idempotent import.
+
       val dns = nodes.all
         .map { node =>
           node.topology.decentralized_namespaces
@@ -228,6 +229,7 @@ trait TopologyManagementIntegrationTest
               nodes.all.map(_.namespace).toSet,
               PositiveInt.tryCreate(nodes.all.size),
               daId,
+              synchronize = None,
             )
             .mapping
         }

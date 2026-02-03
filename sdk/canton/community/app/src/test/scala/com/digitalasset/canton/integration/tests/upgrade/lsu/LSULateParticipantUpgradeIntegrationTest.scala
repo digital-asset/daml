@@ -31,6 +31,7 @@ import com.digitalasset.canton.topology.PartyId
  * - P1: on time (regular LSU)
  * - P2: late (misses the announcement and the upgrade time)
  * - P3: late (sees the announcement but is offline during upgrade)
+ * - P4: only registers the synchronizer (no activity prior to LSU)
  *
  * Scenario:
  * - Some activity happens involving P1, P2 and P3
@@ -159,6 +160,8 @@ final class LSULateParticipantUpgradeIntegrationTest extends LSUBase {
       eventually() {
         participant1.synchronizers.is_connected(fixture.newPSId) shouldBe true
       }
+
+      waitForTargetTimeOnSequencer(sequencer2, environment.clock.now)
 
       sequencer1.stop()
       mediator1.stop()

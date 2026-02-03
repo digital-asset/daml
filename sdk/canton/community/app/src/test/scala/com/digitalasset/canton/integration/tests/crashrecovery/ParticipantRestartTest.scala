@@ -458,6 +458,7 @@ abstract class ParticipantRestartTest
             mock[PackageMetadataView],
             Eval.now(pnps.ledgerApiStore),
             Eval.now(pnps.contractStore),
+            ParticipantTestMetrics,
             futureSupervisor,
             loggerFactory,
           )

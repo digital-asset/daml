@@ -591,6 +591,7 @@ class SequencerNodeBootstrap(
                   arguments.config.topology,
                   clock,
                   crypto.staticSynchronizerParameters,
+                  arguments.metrics.topologyCache,
                   futureSupervisor,
                   synchronizerLoggerFactory,
                 )(sequencerSnapshotTimestamp)

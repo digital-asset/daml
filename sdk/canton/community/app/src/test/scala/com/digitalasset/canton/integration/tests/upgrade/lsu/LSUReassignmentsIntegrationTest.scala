@@ -127,6 +127,7 @@ final class LSUReassignmentsIntegrationTest extends LSUBase {
       eventually() {
         participants.all.forall(_.synchronizers.is_connected(fixture.newPSId)) shouldBe true
       }
+      waitForTargetTimeOnSequencer(sequencer3, environment.clock.now)
 
       participant1.ledger_api.commands
         .submit_assign(alice, reassignment1Id, acmeId, daId)

@@ -302,4 +302,15 @@ class DbTrafficConsumedStore(
         )
       }
   }
+
+  /** Truncates the entire traffic consumed store. To be used only on sequencer initialization to
+    * clean up partial state.
+    */
+  override def truncate()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    val truncateQuery =
+      sqlu"""truncate table seq_traffic_control_consumed_journal"""
+    storage
+      .queryAndUpdate(truncateQuery, functionFullName)
+      .map(_ => logger.debug("Truncated traffic consumed store"))
+  }
 }

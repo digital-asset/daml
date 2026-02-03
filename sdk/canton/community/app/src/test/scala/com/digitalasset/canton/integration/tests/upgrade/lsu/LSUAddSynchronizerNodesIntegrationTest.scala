@@ -183,6 +183,7 @@ abstract class LSUAddSynchronizerNodesIntegrationTest extends LSUBase {
         participants.all.forall(_.synchronizers.is_connected(fixture.currentPSId)) shouldBe false
       }
       oldSynchronizerNodes.all.stop()
+      waitForTargetTimeOnSequencer(sequencer3, environment.clock.now)
 
       environment.simClock.value.advance(Duration.ofSeconds(1))
 

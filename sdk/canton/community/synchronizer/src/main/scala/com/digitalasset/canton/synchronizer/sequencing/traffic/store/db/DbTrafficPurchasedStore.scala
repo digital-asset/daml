@@ -203,4 +203,18 @@ class DbTrafficPurchasedStore(
 
     storage.query(query.as[CantonTimestamp].headOption, functionFullName)
   }
+
+  /** Truncates the entire traffic purchased store. To be used only on sequencer initialization to
+    * clean up partial state.
+    */
+  override def truncate()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    val truncateBalances =
+      sqlu"truncate table seq_traffic_control_balance_updates"
+    val truncateInitialTimestamp =
+      sqlu"truncate table seq_traffic_control_initial_timestamp"
+
+    storage
+      .update(truncateBalances.andThen(truncateInitialTimestamp), functionFullName)
+      .map(_ => ())
+  }
 }

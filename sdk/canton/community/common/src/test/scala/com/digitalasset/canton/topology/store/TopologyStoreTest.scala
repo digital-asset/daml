@@ -18,8 +18,11 @@ import com.digitalasset.canton.topology.processing.{
   InitialTopologySnapshotValidator,
   SequencedTime,
 }
-import com.digitalasset.canton.topology.store.StoredTopologyTransactions.PositiveStoredTopologyTransactions
-import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
+import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
+  GenericStoredTopologyTransactions,
+  PositiveStoredTopologyTransactions,
+}
+import com.digitalasset.canton.topology.store.TopologyStore.{EffectiveStateChange, StateKeyFetch}
 import com.digitalasset.canton.topology.store.db.DbTopologyStore
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
@@ -1036,6 +1039,96 @@ trait TopologyStoreTest
             )
           } yield txsAtTs2.result.loneElement.transaction shouldBe good_otk
         }
+
+        "return the right transactions on state key requests" in {
+          val store = mk(synchronizer1_p1p2_physicalSynchronizerId, "case10")
+
+          def validate(s: GenericStoredTopologyTransactions)(
+              expected: Set[
+                (GenericSignedTopologyTransaction, CantonTimestamp, Option[CantonTimestamp])
+              ]
+          ): Assertion = {
+            val have = s.result
+              .map(r => (r.mapping, r.validFrom.value, r.validUntil.map(_.value)))
+              .toSet
+
+            val converted = expected.map { case (a, b, c) => (a.mapping, b, c) }
+            val missing = converted -- have
+            val excess = have -- converted
+
+            if (missing.nonEmpty || excess.nonEmpty) {
+              logger.warn(
+                s"Missing:\n  ${missing.mkString("\n  ")}\nExcess:\n  ${excess.mkString("\n  ")}"
+              )
+            }
+            missing shouldBe empty
+            excess shouldBe empty
+
+          }
+
+          val et = EffectiveTime(ts1)
+
+          for {
+            _ <- update(store, ts1, add = Seq(nsd_p1, nsd_p2, otk_p1))
+            _ <- update(store, ts2, add = Seq(otk_p2))
+            _ <- update(
+              store,
+              ts3,
+              add = Seq(),
+              removals = Map(
+                nsd_p2.mapping.uniqueKey -> (Some(nsd_p2.serial), Set.empty),
+                otk_p2.mapping.uniqueKey -> (Some(otk_p2.serial), Set.empty),
+              ),
+            )
+            _ <- update(store, ts4, add = Seq(dtc_p2_synchronizer1))
+            _ <- update(store, ts5, add = Seq(mds_med1_synchronizer1))
+            allNsF <- store.fetchAllDescending(
+              Seq(
+                StateKeyFetch(nsd_p1.mapping.code, nsd_p1.mapping.namespace, None, et),
+                StateKeyFetch(nsd_p2.mapping.code, nsd_p2.mapping.namespace, None, et),
+              )
+            )
+            onlyNs1 <- store.fetchAllDescending(
+              Seq(
+                StateKeyFetch(nsd_p1.mapping.code, nsd_p1.mapping.namespace, None, et)
+              )
+            )
+            mix <- store.fetchAllDescending(
+              Seq(
+                StateKeyFetch(nsd_p1.mapping.code, nsd_p1.mapping.namespace, None, et),
+                StateKeyFetch(
+                  otk_p2.mapping.code,
+                  otk_p2.mapping.namespace,
+                  otk_p2.mapping.maybeUid.map(_.identifier),
+                  et,
+                ),
+              )
+            )
+            onlyUid <- store.fetchAllDescending(
+              Seq(
+                StateKeyFetch(
+                  otk_p2.mapping.code,
+                  otk_p2.mapping.namespace,
+                  otk_p2.mapping.maybeUid.map(_.identifier),
+                  et,
+                ),
+                StateKeyFetch(
+                  otk_p1.mapping.code,
+                  otk_p1.mapping.namespace,
+                  otk_p1.mapping.maybeUid.map(_.identifier),
+                  et,
+                ),
+              )
+            )
+          } yield {
+            validate(onlyUid)(Set((otk_p2, ts2, ts3.some), (otk_p1, ts1, None)))
+            validate(mix)(Set((otk_p2, ts2, ts3.some), (nsd_p1, ts1, None)))
+            validate(onlyNs1)(Set((nsd_p1, ts1, None)))
+            validate(allNsF)(Set((nsd_p1, ts1, None), (nsd_p2, ts1, ts3.some)))
+
+          }
+        }
+
       }
 
       "compute correctly effective state changes" when {

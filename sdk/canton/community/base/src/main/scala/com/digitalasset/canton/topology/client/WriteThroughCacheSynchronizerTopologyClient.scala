@@ -24,6 +24,7 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -49,50 +50,87 @@ class WriteThroughCacheSynchronizerTopologyClient(
 ) extends SynchronizerTopologyClientWithInit
     with NamedLogging {
 
+  // The write through cache is already very fast, but in order to avoid any regression and excessive recomputation,
+  // we also preserve a caffeine cache based version of the snapshot (which was tuned on 2.x) to reduce the amount
+  // of computation even more. If we invalidate the cache, we'll just rebuild it from the topology state cache.
+  // TODO(#29400) instead of just the last one, keep a few of them around like in the good old times
+  //   otherwise we'll start to recompute a bit too much data if there are lots of topology changes
+  private val cachedHeadState =
+    new AtomicReference[Option[(CantonTimestamp, CachingTopologySnapshot)]](None)
+
+  private def buildSnapshotFor(
+      timestamp: CantonTimestamp,
+      desiredTimestamp: CantonTimestamp,
+  ): TopologySnapshotLoader = {
+
+    def mkSnapshot(targetTimestamp: CantonTimestamp) = new WriteThroughCacheTopologySnapshot(
+      delegate.psid,
+      stateLookup,
+      store,
+      packageDependencyResolver,
+      targetTimestamp,
+      loggerFactory,
+    )
+    val lastChange = latestTopologyChangeTimestamp
+    // if the cache is up to date, return the cached snapshot
+    val snapshot = cachedHeadState.get().filter { case (ts, _) => ts == lastChange } match {
+      // if access in the future and we have a valid cached snapshot, so let's use it
+      case Some((_, cached)) if timestamp >= lastChange => cached
+      // access is in the future but we don't have a valid cached snapshot, let's create it
+      case None if timestamp >= lastChange =>
+        // create cached snapshot at last change. yep, this means we are adding a cache on top of a cache
+        val caching =
+          new CachingTopologySnapshot(
+            mkSnapshot(lastChange),
+            cachingConfigs,
+            loggerFactory,
+            futureSupervisor,
+          )
+        // update it gracefully
+        cachedHeadState.updateAndGet {
+          // if the stored snapshot or another snapshot that was racily added is older, use this on
+          case Some((ts, _)) if ts < timestamp => Some((lastChange, caching))
+          // if there is none, update it
+          case None => Some((lastChange, caching))
+          // otherwise don't touch it
+          case other => other
+        }
+        // we return the caching snapshot that was generated for requested timestamp, regardless of whether it
+        // was actually stored in `cachedHeadState` or not. Another call for buildSnapshotFor might have won the race with a new timestamp,
+        caching
+      // access is in the past, just create a write through snapshot
+      case _ => mkSnapshot(timestamp)
+    }
+    // check if we need to wrap it into a forwarding snapshot
+    if (snapshot.timestamp != desiredTimestamp)
+      new ForwardingTopologySnapshot(
+        desiredTimestamp,
+        snapshot,
+        loggerFactory,
+      )
+    else snapshot
+  }
+
   /** Returns a snapshot with the state of [[latestTopologyChangeTimestamp]], but using
     * [[topologyKnownUntilTimestamp]] as the timestamp for the snapshot.
     *
     * If these timestamps are the same, the event most recently processed by the topology processor
     * was a topology transaction.
     */
-  override def headSnapshot(implicit traceContext: TraceContext): TopologySnapshot =
-    new ForwardingTopologySnapshot(
-      topologyKnownUntilTimestamp,
-      new WriteThroughCacheTopologySnapshot(
-        delegate.psid,
-        stateLookup,
-        store,
-        packageDependencyResolver,
-        latestTopologyChangeTimestamp,
-        loggerFactory,
-      ),
-      loggerFactory,
-    )
+  override def headSnapshot(implicit traceContext: TraceContext): TopologySnapshot = {
+    val (knownUntil, lastChange) = delegate.knownUntilAndLatestChangeTimestamps
+    buildSnapshotFor(lastChange, knownUntil)
+  }
 
   override def hypotheticalSnapshot(timestamp: CantonTimestamp, desiredTimestamp: CantonTimestamp)(
       implicit traceContext: TraceContext
   ): FutureUnlessShutdown[TopologySnapshot] =
-    snapshot(timestamp).map(
-      new ForwardingTopologySnapshot(
-        desiredTimestamp,
-        _,
-        loggerFactory,
-      )
-    )
+    waitForTimestampWithLogging(timestamp).map(_ => buildSnapshotFor(timestamp, desiredTimestamp))
 
   override def snapshot(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[TopologySnapshotLoader] =
-    waitForTimestampWithLogging(timestamp).map(_ =>
-      new WriteThroughCacheTopologySnapshot(
-        delegate.psid,
-        stateLookup,
-        store,
-        packageDependencyResolver,
-        timestamp,
-        loggerFactory,
-      )
-    )
+    waitForTimestampWithLogging(timestamp).map(_ => buildSnapshotFor(timestamp, timestamp))
 
   private val maxTimestampCache: TracedAsyncLoadingCache[
     FutureUnlessShutdown,

@@ -14,14 +14,15 @@ import com.digitalasset.canton.crypto.{SigningPublicKey, SynchronizerCryptoPureA
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
-import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
+import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.cache.TopologyStateWriteThroughCache
+import com.digitalasset.canton.topology.cache.{CacheTestMetrics, TopologyStateWriteThroughCache}
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreHelper
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
   TopologyStore,
   TopologyStoreId,
+  TopologyTransactionRejection,
   ValidatedTopologyTransaction,
 }
 import com.digitalasset.canton.topology.transaction.*
@@ -56,8 +57,11 @@ abstract class TopologyTransactionProcessorTest
       new TopologyStateWriteThroughCache(
         store,
         BatchAggregatorConfig.defaultsForTesting,
+        cacheEvictionThreshold = TopologyConfig.forTesting.topologyStateCacheEvictionThreshold,
         maxCacheSize = TopologyConfig.forTesting.maxTopologyStateCacheItems,
         enableConsistencyChecks = true,
+        CacheTestMetrics.metrics,
+        futureSupervisor,
         timeouts,
         loggerFactory,
       ),
@@ -116,6 +120,7 @@ abstract class TopologyTransactionProcessorTest
 
         validate(st1, block1 ++ block2Adds)
         validate(st2, ns1k1_k1 +: block2Adds :+ dmp1_k1_bis)
+
       }
 
       "deal with incremental additions" in {
@@ -142,7 +147,6 @@ abstract class TopologyTransactionProcessorTest
         process(proc, ts(1), 1, block2)
         val st1 = fetch(store, ts(0).immediateSuccessor)
         val st2 = fetch(store, ts(1).immediateSuccessor)
-
         validate(st1, block1)
         st2 shouldBe empty
       }
@@ -154,7 +158,88 @@ abstract class TopologyTransactionProcessorTest
         validate(st1, List(ns1k1_k1))
       }
 
+      "deal with add, remove and readd" in {
+        import SigningKeys.*
+        val (proc, store) = mkDefault()
+
+        val p1s =
+          mkAdd(
+            PartyToParticipant.tryCreate(
+              party1b,
+              threshold = PositiveInt.one,
+              Seq(
+                HostingParticipant(participant1, ParticipantPermission.Submission)
+              ),
+            ),
+            key1,
+          )
+        val rm2 = Factory.mkRemoveTx(p1s)
+        val p3s_fail =
+          mkAdd(
+            PartyToParticipant.tryCreate(
+              party1b,
+              threshold = PositiveInt.one,
+              Seq(HostingParticipant(participant1, ParticipantPermission.Observation)),
+            ),
+            key1,
+            serial = PositiveInt.one,
+          )
+        val p3s =
+          mkAdd(
+            PartyToParticipant.tryCreate(
+              party1b,
+              threshold = PositiveInt.one,
+              Seq(HostingParticipant(participant1, ParticipantPermission.Observation)),
+            ),
+            key1,
+            serial = PositiveInt.three,
+          )
+        process(proc, ts(0), 0, List(ns1k1_k1, dmp1_k1, okm1bk5k1E_k1, dtcp1_k1, p1s))
+        // this will remove the p2p
+        process(proc, ts(1), 1, List(rm2))
+
+        // this should fail as the p2p has serial = 1, but we already added the remove with serial = 2
+        process(proc, ts(2), 2, List(p3s_fail))
+        validate(
+          fetch(store, ts(0).immediateSuccessor),
+          List(ns1k1_k1, dmp1_k1, okm1bk5k1E_k1, dtcp1_k1, p1s),
+        )
+        // we need to make sure that the prior remove remains the active one
+        val ret =
+          store.dumpStoreContent().futureValueUS.result.filter(_.mapping.code == p1s.mapping.code)
+        ret.map(tx =>
+          (tx.transaction.operation, tx.validUntil.map(_.value), tx.rejectionReason)
+        ) shouldBe Seq(
+          (TopologyChangeOp.Replace, Some(ts(1)), None),
+          (TopologyChangeOp.Remove, None, None),
+          (
+            TopologyChangeOp.Replace,
+            Some(ts(2)),
+            Some("The actual serial 1 does not match the expected serial 3"),
+          ),
+        )
+
+        // removal should have succeeded
+        val st1 = fetch(store, ts(2).immediateSuccessor)
+        validate(st1, List(ns1k1_k1, dmp1_k1, okm1bk5k1E_k1, dtcp1_k1))
+        // good readditon works
+        process(proc, ts(3), 3, List(p3s))
+        validate(
+          fetch(store, ts(3).immediateSuccessor),
+          List(ns1k1_k1, dmp1_k1, okm1bk5k1E_k1, dtcp1_k1, p3s),
+        )
+        val (proc2, _) = mk(store)
+        process(proc2, ts(2), 2, List(p3s_fail))
+        process(proc2, ts(3), 3, List(p3s))
+        validate(
+          fetch(store, ts(3).immediateSuccessor),
+          List(ns1k1_k1, dmp1_k1, okm1bk5k1E_k1, dtcp1_k1, p3s),
+        )
+        succeed
+      }
+
       "idempotent / crash recovery" in {
+
         val (proc, store) = mkDefault("idempotent")
         val block1 = List(ns1k1_k1, dmp1_k1, ns2k2_k2, ns3k3_k3)
         val block2 = List(ns1k2_k1, okm1bk5k1E_k1)
@@ -240,10 +325,23 @@ abstract class TopologyTransactionProcessorTest
               SequencedTime(ts(-1)),
               EffectiveTime(ts(-1)),
               removals = Map(),
-              additions = Seq(ns1k1_k1, dmp1_k1).map(ValidatedTopologyTransaction(_, None)),
+              additions = Seq(
+                (ns1k1_k1, None),
+                (dmp1_k1, None),
+                (
+                  p1p1B_k2,
+                  Some(
+                    TopologyTransactionRejection.Authorization.NoDelegationFoundForKeys(
+                      Set(SigningKeys.key2.fingerprint)
+                    )
+                  ),
+                ),
+              ).map { case (tx, reason) =>
+                ValidatedTopologyTransaction(tx, reason)
+              },
             )
             .futureValueUS
-          (proc, store, List(ns6k6_k6, okm1bk5k1E_k1, dtcp1_k1))
+          (proc, store, List(ns6k6_k6, ns1k3_k2, okm1bk5k1E_k1, dtcp1_k1))
         }
 
         def runScenarios(
@@ -254,11 +352,15 @@ abstract class TopologyTransactionProcessorTest
             check: TopologyStore[TopologyStoreId] => Assertion
         ): Assertion = {
           def checkAndValidate(store: TopologyStore[TopologyStoreId]): Assertion = {
-            val rejected = store
+            val rejectedRaw = store
               .dumpStoreContent()
               .futureValueUS
               .result
               .filter(_.rejectionReason.nonEmpty)
+            val garbage = Seq(p1p1B_k2, ns1k3_k2)
+            val (expectedGarbage, rejected) =
+              rejectedRaw.partition(c => garbage.contains(c.transaction))
+            expectedGarbage should have length (2)
             forAll(rejected.zip(expectRejections)) { case (tx, reason) =>
               tx.rejectionReason.value.str should include(reason)
             }
@@ -1060,3 +1162,9 @@ class TopologyTransactionProcessorTestPostgres
     with DbTest
     with DbTopologyStoreHelper
     with PostgresTest
+
+class TopologyTransactionProcessorTestH2
+    extends TopologyTransactionProcessorTest
+    with DbTest
+    with DbTopologyStoreHelper
+    with H2Test

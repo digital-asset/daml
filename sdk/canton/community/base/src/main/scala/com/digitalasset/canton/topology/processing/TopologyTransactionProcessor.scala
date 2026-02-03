@@ -22,6 +22,7 @@ import com.digitalasset.canton.lifecycle.{
   LifeCycle,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.metrics.CacheMetrics
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
@@ -415,7 +416,7 @@ class TopologyTransactionProcessor(
   }
 
   override def onClosed(): Unit =
-    LifeCycle.close(serializer)(logger)
+    LifeCycle.close(cache, serializer)(logger)
 
   private val maxSequencedTimeAtInitializationF =
     TraceContext.withNewTraceContext("max_sequenced_time")(implicit traceContext =>
@@ -544,6 +545,7 @@ object TopologyTransactionProcessor {
       topologyConfig: TopologyConfig,
       clock: Clock,
       staticSynchronizerParameters: StaticSynchronizerParameters,
+      topologyCacheMetrics: CacheMetrics,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(
@@ -555,8 +557,11 @@ object TopologyTransactionProcessor {
     val cache = new TopologyStateWriteThroughCache(
       topologyStore,
       parameters.batchingConfig.topologyCacheAggregator,
+      cacheEvictionThreshold = topologyConfig.topologyStateCacheEvictionThreshold,
       maxCacheSize = topologyConfig.maxTopologyStateCacheItems,
       enableConsistencyChecks = topologyConfig.enableTopologyStateCacheConsistencyChecks,
+      topologyCacheMetrics,
+      futureSupervisor,
       parameters.processingTimeouts,
       loggerFactory,
     )
