@@ -111,27 +111,6 @@ da_scala_library(
     ],
 )
 
-da_scala_library(
-    name = "base_daml-jwt-tests-lib",
-    srcs = glob(["base/daml-jwt/src/test/scala/**/*.scala"]),
-    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    resources = glob(["base/daml-jwt/src/test/resources/**/*"]),
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_scalatest_scalatest_flatspec",
-        "@maven//:org_scalactic_scalactic",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":base_daml-jwt",
-        "@maven//:com_auth0_java_jwt",
-        "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
-
 ### community/lib/Blake2b ###
 
 java_library(
@@ -1525,28 +1504,6 @@ da_java_library(
     ],
 )
 
-java_test_suite(
-    name = "bindings-java-java-tests",
-    srcs = glob(["community/bindings-java/src/test/java/**/*Test.java"]),
-    strip = "src/test/java/",
-    use_short_names = is_windows,
-    deps = [
-        ":bindings-java",
-        ":bindings-java-test-helpers",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_junit_jupiter_junit_jupiter_api",
-        "@maven//:org_junit_jupiter_junit_jupiter_engine",
-        "@maven//:org_junit_platform_junit_platform_runner",
-    ],
-)
-
-java_library(
-    name = "bindings-java-test-helpers",
-    testonly = True,
-    srcs = glob(["community/bindings-java/src/test/java/**/TestHelpers.java"]),
-    deps = [":bindings-java"],
-)
-
 da_scala_library(
     name = "bindings-java-tests-lib",
     srcs = glob(
@@ -1565,12 +1522,6 @@ da_scala_library(
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
-)
-
-filegroup(
-    name = "bindings-java-sources",
-    srcs = glob(["community/bindings-java/src/main/java/**/*.java"]),
-    visibility = ["//visibility:public"],
 )
 
 filegroup(
