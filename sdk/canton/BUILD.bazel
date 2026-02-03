@@ -1836,44 +1836,6 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "ledger-resources",
-    srcs = glob(["base/ledger-resources/src/main/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_stream",
-    ],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    tags = ["maven_coordinates=com.daml:ledger-resources:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        "@maven//:com_daml_daml_resources_2_13",
-        "@maven//:com_daml_resources_grpc_2_13",
-        "@maven//:com_daml_resources_pekko_2_13",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_netty_shaded",
-    ],
-)
-
-da_scala_library(
-    name = "ledger-resources-test-lib",
-    srcs = glob(["base/ledger-resources/src/test/lib/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalatest_scalatest_core",
-    ],
-    tags = ["maven_coordinates=com.daml:ledger-resources-test-lib:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        ":ledger-resources",
-        "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
-
-da_scala_library(
     name = "ports",
     srcs = [
         "base/ports/src/main/scala/com/daml/ports/Port.scala",
