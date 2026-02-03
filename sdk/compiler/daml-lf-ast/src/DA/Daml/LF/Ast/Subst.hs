@@ -302,6 +302,7 @@ applySubstInUpdate subst = \case
         (applySubstInType subst t)
         (applySubstInExpr subst e)
     e@(ULookupByKey _) -> e
+    e@(UQueryNByKey _) -> e
     e@(UFetchByKey _) -> e
     UTryCatch t e1 x e2 ->
         substWithBoundExprVar subst x $ \subst' x' -> UTryCatch
