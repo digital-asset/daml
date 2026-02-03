@@ -82,6 +82,7 @@ EXCLUDED_DIRS=(
   "base/rs-grpc-testing-utils"
   "base/safe-proto"
   "base/sample-service"
+  "base/scalatest-utils"
 )
 
 is_excluded() {
