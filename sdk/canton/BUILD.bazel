@@ -1431,30 +1431,6 @@ proto_gen(
     ],
 )
 
-# this is only needed for the uber-javadoc in //language-support/java:javadoc
-java_library(
-    name = "ledger-api-java-lib-for-javadocs",
-    srcs = [
-        ":ledger-api-java",
-        ":ledger-api-java-grpc",
-    ],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        "@maven//:com_google_api_grpc_proto_google_common_protos",
-        "@maven//:com_google_guava_guava",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
-        "@maven//:io_grpc_grpc_netty_shaded",
-        "@maven//:io_grpc_grpc_protobuf",
-        "@maven//:io_grpc_grpc_stub",
-        "@maven//:javax_annotation_javax_annotation_api",
-    ],
-)
-
 proto_gen(
     name = "ledger-api-java-grpc",
     srcs = [
