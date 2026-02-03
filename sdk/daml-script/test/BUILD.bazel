@@ -424,6 +424,7 @@ da_scala_test(
 ) if not is_windows else None
 # skipping windows for now, it doesn't seem to like the filegroup `:upgrade-test-files`
 
+# TODO(https://github.com/DACH-NY/canton/issues/30144): migrate this test to the canton repo
 #da_scala_test(
 #    name = "upgrade-matrix-integration",
 #    size = "enormous",

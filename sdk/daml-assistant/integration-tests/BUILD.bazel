@@ -186,7 +186,11 @@ da_haskell_test(
         "tasty-hunit",
     ],
     main_function = "DA.Daml.Assistant.QuickstartTests.main",
-    tags = ["cpu:1"],
+    # TODO(https://github.com/DACH-NY/canton/issues/30144): fix or migrate this test to the assembly repo
+    tags = [
+        "cpu:1",
+        "manual",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":integration-test-utils",

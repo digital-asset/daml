@@ -86,6 +86,7 @@ da_scala_binary(
             tools = [":encoder_binary"],
             visibility = ["//visibility:public"],
         ),
+        # TODO(https://github.com/DACH-NY/canton/issues/30144): migrate to the canton repo
         #        sh_test(
         #            name = "validate-dar-%s" % target,
         #            srcs = ["src/validate.sh"],
