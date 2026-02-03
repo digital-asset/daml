@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.participant.config
 
-import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
-import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 
 /** Configure the behaviour of the Daml Engine
@@ -38,10 +36,4 @@ final case class CantonEngineConfig(
     enableAdditionalConsistencyChecks: Boolean = false,
     extensions: Map[String, ExtensionServiceConfig] = Map.empty,
     extensionSettings: EngineExtensionsConfig = EngineExtensionsConfig.default,
-) extends UniformCantonConfigValidation
-object CantonEngineConfig {
-  import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
-  import EngineLoggingConfig.engineLoggingConfigCantonConfigValidator
-  implicit val cantonEngineConfigCantonConfigValidator: CantonConfigValidator[CantonEngineConfig] =
-    CantonConfigValidatorDerivation[CantonEngineConfig]
-}
+)

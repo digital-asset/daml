@@ -5,7 +5,6 @@ package com.digitalasset.canton.platform.apiserver.configuration
 
 import cats.implicits.catsSyntaxOptionId
 import com.daml.logging.LoggingContext
-import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.engine.EngineLogger
@@ -26,7 +25,7 @@ final case class EngineLoggingConfig(
     enabled: Boolean = true,
     logLevel: Level = Level.DEBUG,
     matching: Seq[String] = Seq.empty,
-) extends UniformCantonConfigValidation {
+) {
 
   private val matcher: String => Boolean =
     if (matching.isEmpty) _ => true
@@ -62,10 +61,4 @@ final case class EngineLoggingConfig(
           }
       }).some
     }
-}
-
-object EngineLoggingConfig {
-  implicit val engineLoggingConfigCantonConfigValidator
-      : CantonConfigValidator[EngineLoggingConfig] =
-    CantonConfigValidator.validateAll
 }
