@@ -51,7 +51,7 @@ da_scala_test(
     ],
     deps = [
         ":json",
-        "//transaction-test-lib",
+        "//value-test-lib",
         "@maven//:com_daml_bindings_java",
         "@maven//:com_daml_daml_lf_transaction_2_13",
         "@maven//:org_scalatest_scalatest_compatible",

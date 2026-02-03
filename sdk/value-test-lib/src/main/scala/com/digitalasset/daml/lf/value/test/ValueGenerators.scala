@@ -17,7 +17,6 @@ import com.digitalasset.daml.lf.transaction.{
   Versioned,
   VersionedTransaction,
 }
-import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
@@ -289,8 +288,7 @@ object ValueGenerators {
   def versionedValueGen: Gen[VersionedValue] =
     for {
       value <- valueGen()
-      minVersion = TransactionBuilder.assignVersion()
-      version <- SerializationVersionGen(minVersion)
+      version <- SerializationVersionGen()
     } yield Versioned(version, value)
 
   private[lf] val genMaybeEmptyParties: Gen[Set[Party]] = Gen.listOf(party).map(_.toSet)
