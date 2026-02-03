@@ -76,6 +76,7 @@ EXCLUDED_DIRS=(
   "base/ports"
   "base/resources"
   "base/resources-grpc"
+  "base/resources-pekko"
 )
 
 is_excluded() {

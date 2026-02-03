@@ -1689,22 +1689,6 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "resources-pekko",
-    srcs = glob(["base/resources-pekko/src/main/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_stream",
-    ],
-    tags = ["maven_coordinates=com.daml:resources-pekko:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        "@maven//:com_daml_daml_resources_2_13",
-    ],
-)
-
-da_scala_library(
     name = "timer-utils",
     srcs = glob(["base/timer-utils/src/main/scala/**/*.scala"]),
     scalacopts = canton_scalacopts + ["-Wconf:cat=unused-imports:s"],
