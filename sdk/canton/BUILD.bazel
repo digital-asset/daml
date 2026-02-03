@@ -1553,19 +1553,6 @@ proto_jars(
     ],
 )
 
-# libs-scala
-
-da_scala_library(
-    name = "timer-utils",
-    srcs = glob(["base/timer-utils/src/main/scala/**/*.scala"]),
-    scalacopts = canton_scalacopts + ["-Wconf:cat=unused-imports:s"],
-    tags = ["maven_coordinates=com.daml:timer-utils:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [],
-)
-
 # For DPM!
 package_oci_component(
     name = "canton-community-oci",

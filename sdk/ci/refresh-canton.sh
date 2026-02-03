@@ -87,6 +87,7 @@ EXCLUDED_DIRS=(
   "base/struct-json"
   "base/test-evidence"
   "base/testing-utils"
+  "base/timer-utils"
 )
 
 is_excluded() {
