@@ -195,7 +195,7 @@ cd "$SDK_DIR"
 ./dev-env/bin/bazel build //release:sdk-release-tarball-ce 2>&1 | tail -20
 
 # Find the built tarball
-TARBALL=$(find bazel-bin/release -name "daml-sdk-*-linux-intel.tar.gz" -o -name "daml-sdk-*.tar.gz" 2>/dev/null | head -1)
+TARBALL=$(find bazel-bin/release -name "daml-sdk-*-linux-intel.tar.gz" -o -name "daml-sdk-*.tar.gz" -o -name "sdk-release-tarball-ce.tar.gz" 2>/dev/null | head -1)
 
 if [ -z "$TARBALL" ] || [ ! -f "$TARBALL" ]; then
   echo -e "${RED}ERROR: SDK tarball not found after build${NC}"
