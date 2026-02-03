@@ -1936,48 +1936,6 @@ package_oci_component(
 # observability
 
 da_scala_library(
-    name = "pekko-http-metrics",
-    srcs = glob(["base/observability/pekko-http-metrics/src/main/scala/**/*.scala"]),
-    resources = glob(["base/observability/pekko-http-metrics/src/main/resources/**/*"]),
-    scala_deps = [
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:org_apache_pekko_pekko_http",
-        "@maven//:org_apache_pekko_pekko_http_core",
-    ],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    tags = ["maven_coordinates=com.daml:pekko-http-metrics:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    runtime_deps = [],
-    deps = [
-        "@maven//:com_daml_observability_metrics_2_13",
-        "@maven//:com_google_guava_guava",
-    ],
-)
-
-da_scala_library(
-    name = "pekko-http-metrics-tests-lib",
-    srcs = glob(
-        ["base/observability/pekko-http-metrics/src/test/**/*.scala"],
-        exclude = [
-            "base/observability/pekko-http-metrics/src/test/**/*Spec.scala",
-            "base/observability/pekko-http-metrics/src/test/**/*Test.scala",
-        ],
-    ),
-    scala_deps = [
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:org_apache_pekko_pekko_http_core",
-    ],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    visibility = ["//visibility:public"],
-    deps = [
-    ],
-)
-
-da_scala_library(
     name = "tracing",
     srcs = glob(["base/observability/tracing/src/main/scala/**/*.scala"]),
     resources = glob(["base/observability/tracing/src/main/resources/**/*"]),
