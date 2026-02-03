@@ -68,6 +68,7 @@ EXCLUDED_DIRS=(
   "base/grpc-test-utils"
   "base/http-test-utils"
   "base/ledger-resources"
+  "base/logging-entries"
 )
 
 is_excluded() {

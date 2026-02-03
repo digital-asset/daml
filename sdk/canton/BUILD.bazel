@@ -1825,17 +1825,6 @@ da_scala_macro_library(
 )
 
 da_scala_library(
-    name = "logging-entries",
-    srcs = glob(["base/logging-entries/src/main/scala/**/*.scala"]),
-    scala_deps = [],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    tags = ["maven_coordinates=com.daml:logging-entries:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-)
-
-da_scala_library(
     name = "ports",
     srcs = [
         "base/ports/src/main/scala/com/daml/ports/Port.scala",
