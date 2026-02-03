@@ -84,6 +84,7 @@ EXCLUDED_DIRS=(
   "base/sample-service"
   "base/scalatest-utils"
   "base/scala-utils"
+  "base/struct-json"
 )
 
 is_excluded() {
