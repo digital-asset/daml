@@ -1911,9 +1911,6 @@ da_scala_library(
     override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
     tags = ["maven_coordinates=com.daml:executors:__VERSION__"],
     visibility = ["//visibility:public"],
-    deps = [
-        "@maven//:com_daml_scala_utils_2_13",
-    ],
 )
 
 da_scala_library(
