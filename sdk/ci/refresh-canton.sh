@@ -61,6 +61,7 @@ EXCLUDED_DIRS=(
   "community/daml-lf/upgrades-matrix"
   "community/daml-lf/engine"
   "community/daml-lf/snapshot"
+  "community/daml-lf/validation"
 )
 
 is_excluded() {
