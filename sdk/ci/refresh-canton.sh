@@ -83,6 +83,7 @@ EXCLUDED_DIRS=(
   "base/safe-proto"
   "base/sample-service"
   "base/scalatest-utils"
+  "base/scala-utils"
 )
 
 is_excluded() {

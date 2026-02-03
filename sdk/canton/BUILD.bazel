@@ -1556,24 +1556,6 @@ proto_jars(
 # libs-scala
 
 da_scala_library(
-    name = "scala-utils",
-    srcs = glob(["base/scala-utils/src/main/scala/**/*.scala"]),
-    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    plugins = [
-        kind_projector_plugin,
-    ],
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    tags = ["maven_coordinates=com.daml:scala-utils:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-    ],
-)
-
-da_scala_library(
     name = "struct-circe-json",
     srcs = glob(["base/struct-json/struct-circe-json/src/main/scala/**/*.scala"]),
     scala_deps = [
