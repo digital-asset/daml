@@ -63,6 +63,7 @@ EXCLUDED_DIRS=(
   "community/daml-lf/snapshot"
   "community/daml-lf/validation"
   "base/contextualized-logging"
+  "base/crypto"
 )
 
 is_excluded() {

@@ -1811,29 +1811,6 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "crypto",
-    srcs = glob(["base/crypto/src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.daml:crypto:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        "@maven//:com_daml_scala_utils_2_13",
-        "@maven//:org_bouncycastle_bcprov_jdk18on",
-        "@maven//:org_slf4j_slf4j_api",
-    ],
-)
-
-da_scala_benchmark_jmh(
-    name = "crypto-perf",
-    srcs = glob(["base/crypto/src/jmh/scala/**/*.scala"]),
-    visibility = ["//visibility:public"],
-    deps = [
-        ":crypto",
-    ],
-)
-
-da_scala_library(
     name = "executors",
     srcs = glob(["base/executors/src/main/scala/**/*.scala"]),
     override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
