@@ -1811,29 +1811,6 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "contextualized-logging",
-    srcs = glob(["base/contextualized-logging/src/main/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_apache_pekko_pekko_actor",
-        "@maven//:org_apache_pekko_pekko_stream",
-    ],
-    scalacopts = canton_scalacopts + [
-        "-language:postfixOps",
-        "-Wconf:cat=unused-nowarn:s",
-    ],
-    tags = ["maven_coordinates=com.daml:contextualized-logging:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        "@maven//:com_daml_logging_entries_2_13",
-        "@maven//:com_fasterxml_jackson_core_jackson_core",
-        "@maven//:net_logstash_logback_logstash_logback_encoder",
-        "@maven//:org_slf4j_slf4j_api",
-    ],
-)
-
-da_scala_library(
     name = "crypto",
     srcs = glob(["base/crypto/src/main/scala/**/*.scala"]),
     tags = ["maven_coordinates=com.daml:crypto:__VERSION__"],
