@@ -77,6 +77,9 @@ EXCLUDED_DIRS=(
   "base/resources"
   "base/resources-grpc"
   "base/resources-pekko"
+  "base/rs-grpc-bridge"
+  "base/rs-grpc-pekko"
+  "base/rs-grpc-testing-utils"
 )
 
 is_excluded() {
