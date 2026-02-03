@@ -65,6 +65,7 @@ EXCLUDED_DIRS=(
   "base/contextualized-logging"
   "base/crypto"
   "base/executors"
+  "base/grpc-test-utils"
 )
 
 is_excluded() {

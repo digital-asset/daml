@@ -1873,32 +1873,6 @@ da_scala_library(
 )
 
 da_scala_library(
-    name = "grpc-test-utils",
-    srcs = glob(["base/grpc-test-utils/src/main/scala/**/*.scala"]),
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_flatspec",
-        "@maven//:org_scalactic_scalactic",
-    ],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    tags = ["maven_coordinates=com.daml:grpc-test-utils:__VERSION__"],
-    visibility = [
-        "//:__subpackages__",
-    ],
-    deps = [
-        "@maven//:com_daml_daml_resources_2_13",
-        "@maven//:com_daml_resources_grpc_2_13",
-        "@maven//:com_daml_timer_utils_2_13",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_inprocess",
-        "@maven//:io_grpc_grpc_services",
-        "@maven//:io_grpc_grpc_stub",
-        "@maven//:org_scalatest_scalatest_compatible",
-    ],
-)
-
-da_scala_library(
     name = "ledger-resources",
     srcs = glob(["base/ledger-resources/src/main/scala/**/*.scala"]),
     scala_deps = [
