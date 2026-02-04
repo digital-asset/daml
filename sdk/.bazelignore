@@ -1,4 +1,5 @@
 .bazel-cache
+.canton
 dev-env/var
 scratch/
 node_modules/
