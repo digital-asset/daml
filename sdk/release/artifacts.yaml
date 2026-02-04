@@ -11,8 +11,6 @@
   type: jar-scala
 - target: //canton/community/daml-lf/archive/encoder:encoder
   type: jar-scala
-- target: //canton/community/daml-lf/engine:script-engine
-  type: jar-scala
 - target: //canton/community/daml-lf/ledger-api-value:ledger_api_value_proto_jar
   type: jar-lib
 - target: //canton/community/daml-lf/ledger-api-value:ledger_api_value_proto_java
@@ -37,14 +35,6 @@
   type: jar-scala
 - target: //language-support/js/codegen:binary
   type: jar-jarjar
-- target: //canton:rs-grpc-pekko
-  type: jar-scala
-- target: //canton:rs-grpc-bridge
-  type: jar-lib
-- target: //canton:rs-grpc-testing-utils
-  type: jar-scala
-- target: //canton:testing-utils
-  type: jar-scala
 - target: //ledger-service/lf-value-json:lf-value-json
   type: jar-scala
 - target: //canton:base_daml-jwt
@@ -54,52 +44,6 @@
 - target: //daml-script/auth-utils:auth-utils
   type: jar-scala
 - target: //language-support/build-info:build-info
-  type: jar-scala
-- target: //canton:crypto
-  type: jar-scala
-- target: //canton:grpc-test-utils
-  type: jar-scala
-- target: //canton:http-test-utils
-  type: jar-scala
-- target: //canton:ledger-resources
-  type: jar-scala
-- target: //canton:logging-entries
-  type: jar-scala
-- target: //canton:nonempty
-  type: jar-scala
-- target: //canton:nonempty-cats
-  type: jar-scala
-- target: //canton:ports
-  type: jar-scala
-- target: //canton:resources
-  type: jar-scala
-- target: //canton:resources-pekko
-  type: jar-scala
-- target: //canton:resources-grpc
-  type: jar-scala
-- target: //canton:scala-utils
-  type: jar-scala
-- target: //canton:scalatest-utils
-  type: jar-scala
-- target: //canton:test-evidence-scalatest
-  type: jar-scala
-- target: //canton:test-evidence-tag
-  type: jar-scala
-- target: //canton:test-evidence-generator
-  type: jar-scala
-- target: //canton:timer-utils
-  type: jar-scala
-- target: //canton:nameof
-  type: jar-scala
-- target: //canton:executors
-  type: jar-scala
-- target: //canton:metrics
-  type: jar-scala
-- target: //canton:metrics-test-lib
-  type: jar-scala
-- target: //canton:tracing
-  type: jar-scala
-- target: //canton:tracing-test-lib
   type: jar-scala
 - target: //canton:community_ledger_ledger-common
   type: jar-scala
