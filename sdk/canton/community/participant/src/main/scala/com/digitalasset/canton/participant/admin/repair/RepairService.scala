@@ -53,6 +53,9 @@ import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.daml.lf.CantonOnly
 import com.digitalasset.daml.lf.data.ImmArray
 import com.google.common.annotations.VisibleForTesting
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
@@ -91,7 +94,7 @@ final class RepairService(
     @VisibleForTesting
     private[canton] val executionQueue: SimpleExecutionQueue,
     protected val loggerFactory: NamedLoggerFactory,
-)(implicit ec: ExecutionContext)
+)(implicit ec: ExecutionContext, mat: Materializer)
     extends NamedLogging
     with FlagCloseable
     with HasCloseContext {
@@ -110,7 +113,6 @@ final class RepairService(
   )
 
   private val contractsImporter = new RepairServiceContractsImporter(
-    participantId,
     syncCrypto,
     syncPersistentStateLookup,
     packageMetadataView,
@@ -142,11 +144,6 @@ final class RepairService(
     *   template-id (LfThinContractInst), contractId, ledgerCreateTime, salt (to be added to
     *   SerializableContract), and witnesses, SerializableContract.metadata is only validated, but
     *   otherwise ignored as stakeholder and signatories can be recomputed from contracts.
-    * @param ignoreAlreadyAdded
-    *   whether to ignore and skip over contracts already added/present in the synchronizer. Setting
-    *   this to true (at least on retries) enables writing idempotent repair scripts.
-    * @param ignoreStakeholderCheck
-    *   do not check for stakeholder presence for the given parties
     * @param contractImportMode
     *   Whether contract ids should be validated
     * @param packageMetadataSnapshot
@@ -161,22 +158,36 @@ final class RepairService(
   def addContracts(
       synchronizerAlias: SynchronizerAlias,
       contracts: Seq[RepairContract],
-      ignoreAlreadyAdded: Boolean,
-      ignoreStakeholderCheck: Boolean,
       contractImportMode: ContractImportMode,
       packageMetadataSnapshot: PackageMetadata,
       representativePackageIdOverride: RepresentativePackageIdOverride,
-      workflowIdPrefix: Option[String] = None,
+      workflowIdPrefix: Option[String],
   )(implicit traceContext: TraceContext): Either[String, Unit] = contractsImporter.addContracts(
     synchronizerAlias = synchronizerAlias,
     contracts = contracts,
-    ignoreAlreadyAdded = ignoreAlreadyAdded,
-    ignoreStakeholderCheck = ignoreStakeholderCheck,
     contractImportMode = contractImportMode,
     packageMetadataSnapshot = packageMetadataSnapshot,
     representativePackageIdOverride = representativePackageIdOverride,
     workflowIdPrefix = workflowIdPrefix,
   )
+
+  // TODO(#30342) - Consolidate with addContracts, or separate it clearly
+  def addContractsPekko(
+      synchronizerId: SynchronizerId,
+      contracts: Source[RepairContract, NotUsed],
+      contractImportMode: ContractImportMode,
+      packageMetadataSnapshot: PackageMetadata,
+      representativePackageIdOverride: RepresentativePackageIdOverride,
+      workflowIdPrefix: Option[String],
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
+    contractsImporter.addContractsPekko(
+      synchronizerId = synchronizerId,
+      contracts = contracts,
+      contractImportMode = contractImportMode,
+      packageMetadataSnapshot = packageMetadataSnapshot,
+      representativePackageIdOverride = representativePackageIdOverride,
+      workflowIdPrefix = workflowIdPrefix,
+    )
 
   /** Participant repair utility for manually purging (archiving) contracts in an offline fashion.
     *

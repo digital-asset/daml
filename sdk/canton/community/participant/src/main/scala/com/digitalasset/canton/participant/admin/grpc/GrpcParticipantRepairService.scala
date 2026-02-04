@@ -19,6 +19,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.data.ActiveContractOld.loadFromByteString
 import com.digitalasset.canton.participant.admin.data.{
+  ActiveContract,
   ContractImportMode,
   ManualLSURequest,
   RepairContract,
@@ -54,6 +55,7 @@ import com.digitalasset.canton.util.{
 }
 import com.digitalasset.canton.{
   LfPartyId,
+  ProtoDeserializationError,
   ReassignmentCounter,
   SequencerCounter,
   SynchronizerAlias,
@@ -348,7 +350,6 @@ final class GrpcParticipantRepairService(
   ): StreamObserver[ImportAcsRequest] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-    // TODO(#23818): This buffer will contain the whole ACS snapshot.
     val outputStream = new ByteArrayOutputStream()
 
     // (workflowIdPrefix, ContractImportMode, excludedStakeholders, representativePackageIdOverride)
@@ -492,6 +493,114 @@ final class GrpcParticipantRepairService(
     }
   }
 
+  // TODO(#30342) - Consolidate with importAcs, or separate it clearly
+  override def importAcsV2(
+      responseObserver: StreamObserver[ImportAcsV2Response]
+  ): StreamObserver[ImportAcsV2Request] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    type ImportArgs =
+      (
+          Option[String],
+          ContractImportMode,
+          Set[LfPartyId],
+          RepresentativePackageIdOverride,
+          SynchronizerId,
+      )
+
+    def extractImportArgs(
+        request: ImportAcsV2Request
+    ): Try[ImportArgs] = {
+      val resultE = for {
+        contractImportMode <- ProtoConverter.parseRequired(
+          ContractImportMode.fromProtoV30,
+          "contract_import_mode",
+          request.contractImportMode,
+        )
+        excludedStakeholders <- request.excludedStakeholderIds
+          .traverse(party =>
+            UniqueIdentifier
+              .fromProtoPrimitive(party, "excluded_stakeholder_ids")
+              .map(PartyId(_).toLf)
+          )
+        representativePackageIdOverrideO <- request.representativePackageIdOverride
+          .traverse(RepresentativePackageIdOverride.fromProtoV30)
+        synchronizerId <- ProtoConverter.parseRequired(
+          SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"),
+          "synchronizer_id",
+          request.synchronizerId,
+        )
+      } yield (
+        request.workflowIdPrefix,
+        contractImportMode,
+        excludedStakeholders.toSet,
+        representativePackageIdOverrideO.getOrElse(RepresentativePackageIdOverride.NoOverride),
+        synchronizerId,
+      )
+
+      resultE
+        .leftMap(ProtoDeserializationError.ProtoDeserializationFailure.Wrap(_).asGrpcError)
+        .toTry
+    }
+
+    GrpcStreamingUtils
+      .streamGzippedChunksFromClient[
+        ImportAcsV2Request,
+        ImportAcsV2Response,
+        ImportArgs,
+        ActiveContract,
+      ](
+        responseObserver,
+        Success(ImportAcsV2Response()),
+        getGzippedBytes = _.acsSnapshot,
+        parseMessage = ActiveContract.parseDelimitedFromTrusted(_),
+      )(contextFromFirstRequest = extractImportArgs) {
+        case (
+              (
+                workFlowIdPrefix,
+                contractImportMode,
+                excludedStakeholders,
+                representativePackageIdOverride,
+                synchronizerId,
+              ),
+              source,
+            ) =>
+          val repairSource = source
+            .map(activeContract =>
+              RepairContract
+                .fromLapiActiveContract(activeContract.contract)
+                .valueOr(err =>
+                  throw ProtoDeserializationError.ProtoDeserializationFailure
+                    .Wrap(ProtoDeserializationError.ValueConversionError("contract", err))
+                    .asGrpcError
+                )
+            )
+
+          val filteredSource = if (excludedStakeholders.isEmpty) {
+            repairSource
+          } else {
+            repairSource.filter(
+              _.contract.stakeholders.intersect(excludedStakeholders).isEmpty
+            )
+          }
+          val resultEUS = sync.repairService.addContractsPekko(
+            synchronizerId,
+            filteredSource,
+            contractImportMode,
+            sync.getPackageMetadataSnapshot,
+            representativePackageIdOverride,
+            workflowIdPrefix = workFlowIdPrefix,
+          )
+          EitherTUtil.toFutureUnlessShutdown(
+            resultEUS.bimap(
+              err => RepairServiceError.ImportAcsError.Error(err).asGrpcError,
+              _ => ImportAcsV2Response(),
+            )
+          )
+
+      }
+  }
+
   private def importAcsContractsOld(
       contracts: Either[String, List[RepairContract]],
       workflowIdPrefix: String,
@@ -505,15 +614,18 @@ final class GrpcParticipantRepairService(
 
       workflowIdPrefixO = Option.when(workflowIdPrefix != "")(workflowIdPrefix)
 
-      _ <- repairContracts.groupBy(_.synchronizerId).toSeq.parTraverse_ {
-        case (synchronizerId, contracts) =>
-          MonadUtil.batchedSequentialTraverse_(
-            batching.parallelism,
-            batching.maxAcsImportBatchSize,
-          )(contracts)(
-            writeContractsBatchOld(workflowIdPrefixO)(synchronizerId, _)
-              .mapK(FutureUnlessShutdown.outcomeK)
-          )
+      _ <- MonadUtil.sequentialTraverse_(
+        repairContracts
+          .groupBy(_.synchronizerId)
+          .toSeq
+      ) { case (synchronizerId, contracts) =>
+        MonadUtil.batchedSequentialTraverse_(
+          batching.parallelism,
+          batching.maxAcsImportBatchSize,
+        )(contracts)(
+          writeContractsBatchOld(workflowIdPrefixO)(synchronizerId, _)
+            .mapK(FutureUnlessShutdown.outcomeK)
+        )
       }
 
     } yield ()
@@ -543,8 +655,6 @@ final class GrpcParticipantRepairService(
           contractImportMode = ContractImportMode.Validation,
           packageMetadataSnapshot = sync.getPackageMetadataSnapshot,
           representativePackageIdOverride = RepresentativePackageIdOverride.NoOverride,
-          ignoreAlreadyAdded = true,
-          ignoreStakeholderCheck = true,
           workflowIdPrefix = workflowIdPrefixO,
         )
       )

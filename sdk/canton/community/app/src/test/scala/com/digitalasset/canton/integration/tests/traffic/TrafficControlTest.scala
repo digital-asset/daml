@@ -10,13 +10,13 @@ import com.digitalasset.canton.admin.api.client.data.{
   ComponentHealthState,
   TrafficControlParameters,
 }
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeLong,
   NonNegativeNumeric,
   PositiveInt,
   PositiveLong,
 }
+import com.digitalasset.canton.config.{DbConfig, SessionSigningKeysConfig}
 import com.digitalasset.canton.console.{
   CommandFailure,
   LocalInstanceReference,
@@ -106,6 +106,8 @@ trait TrafficControlTest
       }
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
+        // TODO(#30068): Enable session keys after sim clock advances are synced
+        ConfigTransforms.setSessionSigningKeys(SessionSigningKeysConfig.disabled),
         ConfigTransforms.updateAllSequencerClientConfigs_(
           // Force the participant to notice quickly that the synchronizer is down
           _.focus(_.warnDisconnectDelay).replace(config.NonNegativeFiniteDuration.ofMillis(1))

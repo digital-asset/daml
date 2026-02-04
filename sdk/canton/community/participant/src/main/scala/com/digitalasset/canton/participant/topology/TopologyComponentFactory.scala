@@ -15,6 +15,7 @@ import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.metrics.CacheMetrics
 import com.digitalasset.canton.participant.admin.party.OnboardingClearanceScheduler
 import com.digitalasset.canton.participant.config.UnsafeOnlinePartyReplicationConfig
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
@@ -56,14 +57,18 @@ class TopologyComponentFactory(
     unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig],
     exitOnFatalFailures: Boolean,
     topologyStore: TopologyStore[SynchronizerStore],
+    topologyCacheMetrics: CacheMetrics,
     loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext) {
 
   private val topologyStateCache = new TopologyStateWriteThroughCache(
     topologyStore,
     batching.topologyCacheAggregator,
+    cacheEvictionThreshold = topology.topologyStateCacheEvictionThreshold,
     maxCacheSize = topology.maxTopologyStateCacheItems,
     enableConsistencyChecks = topology.enableTopologyStateCacheConsistencyChecks,
+    topologyCacheMetrics,
+    futureSupervisor,
     timeouts,
     loggerFactory,
   )
@@ -168,7 +173,7 @@ class TopologyComponentFactory(
       crypto.staticSynchronizerParameters,
       topologyStore,
       topologyStateCache,
-      synchronizerPredecessor,
+      synchronizerUpgradeTime = synchronizerPredecessor.map(_.upgradeTime),
       packageDependencyResolver,
       caching,
       topology,

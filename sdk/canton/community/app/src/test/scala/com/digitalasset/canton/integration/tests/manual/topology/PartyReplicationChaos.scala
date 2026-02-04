@@ -266,7 +266,7 @@ private[topology] class PartyReplicationChaos(val logger: TracedLogger) extends 
         }
       }
 
-      to.repair.import_acs(importFilePath = file.canonicalPath)
+      to.repair.import_acsV2(importFilePath = file.canonicalPath, synchronizerId = daId)
       logOperationStep("party replication")(
         s"Done replicating party $party from ${from.id} to ${to.id}; reconnecting ${to.id} to the synchronizer"
       )

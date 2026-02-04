@@ -188,7 +188,7 @@ class ACSReader(
     )(payloads: Vector[T]): Future[Vector[(T, Option[FatContract])]] =
       for {
         contractsM <- contractStore
-          .lookupBatchedNonCached(
+          .lookupBatched(
             payloads.map(internalContractId)
           )
       } yield payloads.map { payload =>

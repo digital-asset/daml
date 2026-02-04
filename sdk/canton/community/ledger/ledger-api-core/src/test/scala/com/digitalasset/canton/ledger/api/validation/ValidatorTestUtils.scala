@@ -46,8 +46,8 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues with Eit
   protected val refTemplateId2 = Ref.Identifier(packageId2, templateQualifiedName)
 
   private val expectedTemplates = Set(
-    Ref.TypeConRef(
-      Ref.PackageRef.Id(Ref.PackageId.assertFromString(packageId)),
+    Ref.NameTypeConRef(
+      Ref.PackageRef.Name(packageName),
       Ref.QualifiedName(
         Ref.DottedName.assertFromString(includedModule),
         Ref.DottedName.assertFromString(includedTemplate),
@@ -57,7 +57,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues with Eit
 
   protected def hasExpectedFilters(
       req: update.GetUpdatesRequest,
-      expectedTemplates: Set[Ref.TypeConRef] = expectedTemplates,
+      expectedTemplates: Set[Ref.NameTypeConRef] = expectedTemplates,
   ): Assertion = {
     val filtersByParty = req.updateFormat.includeTransactions.value.eventFormat.filtersByParty
     filtersByParty should have size 1
@@ -69,8 +69,8 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues with Eit
             expectedTemplates.map(TemplateFilter(_, includeCreatedEventBlob = false)),
           interfaceFilters = Set(
             InterfaceFilter(
-              interfaceTypeRef = Ref.TypeConRef(
-                Ref.PackageRef.assertFromString(packageId),
+              interfaceTypeRef = Ref.NameTypeConRef(
+                Ref.PackageRef.Name(packageName),
                 Ref.QualifiedName(
                   Ref.DottedName.assertFromString(includedModule),
                   Ref.DottedName.assertFromString(includedTemplate),

@@ -6,8 +6,8 @@ package com.digitalasset.canton.participant.admin.repair
 import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*
-import cats.syntax.parallel.*
 import cats.syntax.traverse.*
+import cats.syntax.traverseFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -38,6 +38,7 @@ import com.digitalasset.canton.participant.admin.repair.RepairServiceContractsIm
   ContractToAdd,
   workflowIdsFromPrefix,
 }
+import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.PackageMetadataView
 import com.digitalasset.canton.participant.sync.SyncPersistentStateLookup
@@ -45,7 +46,7 @@ import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.PekkoUtil.FutureQueue
@@ -53,23 +54,25 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.CantonOnly
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
 import com.digitalasset.daml.lf.transaction.CreationTime
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source as PekkoSource}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Implements the ACS import repair comments
   */
 final class RepairServiceContractsImporter(
-    participantId: ParticipantId,
     syncCrypto: SyncCryptoApiParticipantProvider,
     syncPersistentStateLookup: SyncPersistentStateLookup,
     packageMetadataView: PackageMetadataView,
     contractStore: Eval[ContractStore],
     aliasManager: SynchronizerAliasManager,
-    parameters: ParticipantNodeParameters,
+    nodeParameters: ParticipantNodeParameters,
     helpers: RepairServiceHelpers,
     contractValidator: ContractValidator,
     protected val loggerFactory: NamedLoggerFactory,
-)(implicit ec: ExecutionContext)
+)(implicit ec: ExecutionContext, mat: Materializer)
     extends NamedLogging
     with FlagCloseable
     with HasCloseContext {
@@ -79,7 +82,7 @@ final class RepairServiceContractsImporter(
     (LfContractId, ReassignmentTag.Source[SynchronizerId], ReassignmentCounter, TimeOfChange)
   private type MissingAdd = (LfContractId, ReassignmentCounter, TimeOfChange)
 
-  override protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
+  override protected def timeouts: ProcessingTimeout = nodeParameters.processingTimeouts
 
   /** Decide whether contract `repairContract` needs to be added to the stores.
     *
@@ -87,8 +90,6 @@ final class RepairServiceContractsImporter(
     *
     * @param repairContract
     *   Imported contracts
-    * @param ignoreAlreadyAdded
-    *   If false, fails if the contract already exists in the store.
     * @param acsState
     *   Current state of the contract
     * @param storedContract
@@ -98,55 +99,47 @@ final class RepairServiceContractsImporter(
     */
   private def contractToAdd(
       repairContract: RepairContract,
-      ignoreAlreadyAdded: Boolean,
       acsState: Option[ActiveContractStore.Status],
       storedContract: Option[ContractInstance],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] = {
+  ): Either[String, Option[ContractToAdd]] = {
     val contractId = repairContract.contract.contractId
 
     def addContract(
         reassigningFrom: Option[ReassignmentTag.Source[SynchronizerId]]
-    ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] =
-      for {
-        contractInstance <- EitherT.fromEither[FutureUnlessShutdown](
-          ContractInstance.create(repairContract.contract)
+    ): Either[String, Option[ContractToAdd]] =
+      ContractInstance
+        .create(repairContract.contract)
+        .map(contractInstance =>
+          Option(
+            ContractToAdd(
+              contract = contractInstance,
+              reassignmentCounter = repairContract.reassignmentCounter,
+              reassigningFrom = reassigningFrom,
+              representativePackageId = repairContract.representativePackageId,
+            )
+          )
         )
-      } yield Option(
-        ContractToAdd(
-          contract = contractInstance,
-          reassignmentCounter = repairContract.reassignmentCounter,
-          reassigningFrom = reassigningFrom,
-          representativePackageId = repairContract.representativePackageId,
-        )
-      )
 
     acsState match {
       case None => addContract(reassigningFrom = None)
 
       case Some(ActiveContractStore.Active(_)) =>
-        if (ignoreAlreadyAdded) {
-          logger.debug(s"Skipping contract $contractId because it is already active")
-          for {
-            contractAlreadyThere <- EitherT.fromEither[FutureUnlessShutdown](
-              storedContract.toRight {
-                s"Contract ${repairContract.contract.contractId} is active but is not found in the stores"
-              }
-            )
-            _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-              contractAlreadyThere.inst == repairContract.contract,
-              s"Contract $contractId exists in synchronizer, but does not match with contract being added. "
-                + s"Existing contract is $contractAlreadyThere while contract supposed to be added ${repairContract.contract}",
-            )
-          } yield None
-        } else {
-          EitherT.leftT(
-            s"A contract with $contractId is already active. Set ignoreAlreadyAdded = true to skip active contracts."
+        logger.debug(s"Skipping contract $contractId because it is already active")
+        for {
+          contractAlreadyThere <-
+            storedContract.toRight {
+              s"Contract ${repairContract.contract.contractId} is active but is not found in the stores"
+            }
+          _ <- EitherUtil.condUnit(
+            contractAlreadyThere.inst == repairContract.contract,
+            s"Contract $contractId exists in synchronizer, but does not match with contract being added. "
+              + s"Existing contract is $contractAlreadyThere while contract supposed to be added ${repairContract.contract}",
           )
-        }
+        } yield None
       case Some(ActiveContractStore.Archived) =>
-        EitherT.leftT(
+        Left(
           s"Cannot add previously archived contract ${repairContract.contract.contractId} as archived contracts cannot become active."
         )
       case Some(ActiveContractStore.Purged) => addContract(reassigningFrom = None)
@@ -162,7 +155,7 @@ final class RepairServiceContractsImporter(
         if (isReassignmentCounterIncreasing) {
           addContract(reassigningFrom = Option(ReassignmentTag.Source(targetSynchronizer.unwrap)))
         } else {
-          EitherT.leftT(
+          Left(
             s"The reassignment counter ${repairContract.reassignmentCounter} of the contract " +
               s"${repairContract.contract.contractId} needs to be strictly larger than the reassignment counter " +
               s"$reassignmentCounter at the time of the unassignment."
@@ -182,11 +175,6 @@ final class RepairServiceContractsImporter(
     *   template-id (LfThinContractInst), contractId, ledgerCreateTime, salt (to be added to
     *   SerializableContract), and witnesses, SerializableContract.metadata is only validated, but
     *   otherwise ignored as stakeholder and signatories can be recomputed from contracts.
-    * @param ignoreAlreadyAdded
-    *   whether to ignore and skip over contracts already added/present in the synchronizer. Setting
-    *   this to true (at least on retries) enables writing idempotent repair scripts.
-    * @param ignoreStakeholderCheck
-    *   do not check for stakeholder presence for the given parties
     * @param contractImportMode
     *   Whether contract ids should be validated
     * @param packageMetadataSnapshot
@@ -204,15 +192,13 @@ final class RepairServiceContractsImporter(
   def addContracts(
       synchronizerAlias: SynchronizerAlias,
       contracts: Seq[RepairContract],
-      ignoreAlreadyAdded: Boolean,
-      ignoreStakeholderCheck: Boolean,
       contractImportMode: ContractImportMode,
       packageMetadataSnapshot: PackageMetadata,
       representativePackageIdOverride: RepresentativePackageIdOverride,
       workflowIdPrefix: Option[String] = None,
   )(implicit traceContext: TraceContext): Either[String, Unit] = {
     logger.info(
-      s"Adding ${contracts.length} contracts to synchronizer $synchronizerAlias with ignoreAlreadyAdded=$ignoreAlreadyAdded and ignoreStakeholderCheck=$ignoreStakeholderCheck"
+      s"Adding ${contracts.length} contracts to synchronizer $synchronizerAlias"
     )
     if (contracts.isEmpty) {
       Either.right(logger.info("No contracts to add specified"))
@@ -264,21 +250,18 @@ final class RepairServiceContractsImporter(
                 .map(_.flatten)
 
             storedContracts = contractInstances.map(c => c.contractId -> c).toMap
-            filteredContracts <- contractsWithOverriddenRpId.zip(contractStates).parTraverseFilter {
-              case (contract, acsState) =>
-                contractToAdd(
-                  repairContract = contract,
-                  ignoreAlreadyAdded = ignoreAlreadyAdded,
-                  acsState = acsState,
-                  storedContract = storedContracts.get(contract.contract.contractId),
-                )
-            }
-
-            _ <- addContractsCheck(
-              synchronizer,
-              ignoreStakeholderCheck = ignoreStakeholderCheck,
-              filteredContracts,
+            filteredContracts <- EitherT.fromEither[FutureUnlessShutdown](
+              contractsWithOverriddenRpId.zip(contractStates).traverseFilter {
+                case (contract, acsState) =>
+                  contractToAdd(
+                    repairContract = contract,
+                    acsState = acsState,
+                    storedContract = storedContracts.get(contract.contract.contractId),
+                  )
+              }
             )
+
+            _ <- EitherT.fromEither[FutureUnlessShutdown](addContractsCheck(filteredContracts))
 
             contractsByCreation = filteredContracts
               .groupBy(_.contract.inst.createdAt)
@@ -316,7 +299,7 @@ final class RepairServiceContractsImporter(
 
                     internalContractIdsForContractsAdded <-
                       helpers.logOnFailureWithInfoLevel(
-                        contractStore.value.lookupBatchedNonCachedInternalIds(
+                        contractStore.value.lookupBatchedInternalIdsNonReadThrough(
                           contractsWithTimeOfChange.map(_._1.contract.contractId)
                         ),
                         "Unable to lookup internal contract ids in contract store",
@@ -329,10 +312,11 @@ final class RepairServiceContractsImporter(
                     )
 
                     _ <-
-                      if (parameters.alphaMultiSynchronizerSupport) {
+                      if (nodeParameters.alphaMultiSynchronizerSupport) {
                         // Publish added contracts via the indexer to the ledger api.
                         publishAddEvents(
-                          repair,
+                          synchronizer.psid.logical,
+                          recordTime = synchronizer.currentRecordTime,
                           contractsToAddWithInternalIds,
                           workflowIds,
                           repairIndexer,
@@ -381,102 +365,228 @@ final class RepairServiceContractsImporter(
       (timeOfRepair, (createdAt, batchWithInternalIds))
     }
 
-  /** Checks that the contracts can be added (packages known, stakeholders hosted, ...)
-    */
-  private def addContractsCheck(
-      synchronizer: RepairRequest.SynchronizerData,
-      ignoreStakeholderCheck: Boolean,
-      contracts: Seq[ContractToAdd],
+  def addContractsPekko(
+      synchronizerId: SynchronizerId,
+      contracts: PekkoSource[RepairContract, NotUsed],
+      contractImportMode: ContractImportMode,
+      packageMetadataSnapshot: PackageMetadata,
+      representativePackageIdOverride: RepresentativePackageIdOverride,
+      workflowIdPrefix: Option[String] = None,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val allStakeholders = contracts
-      .flatMap(_.contract.stakeholders)
-      .toSet
+    val parameters = Map(
+      "workflowIdPrefix" -> workflowIdPrefix.toString
+    )
 
-    for {
-      allLocallyHostedStakeholders <- EitherT.right(
-        synchronizer.topologySnapshot
-          .hostedOn(allStakeholders, participantId)
-          .map(_.keySet)
-      )
+    logger.info(s"Adding contracts to synchronizer $synchronizerId with parameters: $parameters")
 
-      allHostedStakeholders <- EitherT.liftF(
-        synchronizer.topologySnapshot
-          .allHaveActiveParticipants(allStakeholders)
-          .fold(
-            missingParties => allStakeholders.diff(missingParties),
-            _ => allStakeholders,
-          )
-      )
-
-      // Check that the representative package-id is known
-      _ <- EitherT.fromEither[FutureUnlessShutdown](
-        contracts.map(_.representativePackageId).distinct.traverse(packageKnown)
-      )
-
-      _ <- MonadUtil.parTraverseWithLimit_(parameters.batchingConfig.parallelism)(contracts)(
-        addContractChecks(
-          synchronizer,
-          allLocallyHostedStakeholders = allLocallyHostedStakeholders,
-          allHostedStakeholders = allHostedStakeholders,
-          ignoreStakeholderCheck = ignoreStakeholderCheck,
+    def toFuture[T](resET: EitherT[FutureUnlessShutdown, String, T]): Future[T] = resET.value
+      .flatMap(
+        _.fold(
+          err => FutureUnlessShutdown.failed[T](ImportAcsError.Error(err).asGrpcError),
+          res => FutureUnlessShutdown.pure(res),
         )
       )
-    } yield ()
+      .failOnShutdownToAbortException("addContractsPekko")
+
+    val workflowProvider =
+      Iterator
+        .from(1)
+        .map(i => workflowIdPrefix.map(prefix => LfWorkflowId.assertFromString(s"$prefix-$i")))
+
+    val selectRepresentativePackageIds = new SelectRepresentativePackageIds(
+      representativePackageIdOverride = representativePackageIdOverride,
+      knownPackages = packageMetadataSnapshot.packages.keySet,
+      packageNameMap = packageMetadataSnapshot.packageNameMap,
+      contractImportMode = contractImportMode,
+      loggerFactory = loggerFactory,
+    )
+
+    val batchSize = nodeParameters.batchingConfig.maxAcsImportBatchSize.unwrap
+    val parallelism = nodeParameters.batchingConfig.parallelism.unwrap
+
+    helpers.withRepairIndexer { repairIndexer =>
+      val indexedContractBatches: PekkoSource[(Seq[RepairContract], Long), NotUsed] =
+        contracts.grouped(batchSize).zipWithIndex
+
+      val doneF = toFuture(helpers.readSynchronizerData(synchronizerId)).flatMap { synchronizer =>
+        indexedContractBatches
+          .mapAsync(parallelism) { data =>
+            toFuture(
+              validateAndPersistContracts(
+                synchronizer = synchronizer,
+                contractImportMode = contractImportMode,
+                selectRepresentativePackageIds = selectRepresentativePackageIds,
+                batchSize = batchSize,
+              )(data)
+            )
+          }
+          // Publish events to the indexer
+          .mapAsync(1) { contractsToAddWithInternalContractIds =>
+            if (nodeParameters.alphaMultiSynchronizerSupport) {
+              toFuture(
+                publishAddEvents(
+                  synchronizerId,
+                  synchronizer.currentRecordTime,
+                  contractsToAddWithInternalContractIds,
+                  workflowProvider,
+                  repairIndexer,
+                )
+              )
+            } else {
+              writeContractsAddedEvents(
+                synchronizerId,
+                recordTime = synchronizer.currentRecordTime,
+                contractsToAddWithInternalContractIds,
+                workflowProvider,
+                repairIndexer,
+              ).failOnShutdownToAbortException("addContracts")
+            }
+          }
+          .toMat(Sink.ignore)(Keep.right)
+          .run()
+      }
+
+      EitherT.liftF(doneF.map(_ => ()))
+    }
   }
 
-  /** Checks that one contract can be added (stakeholders hosted, ...)
-    *
-    * DB calls: None
-    *
-    * @param allLocallyHostedStakeholders
-    *   All parties that are a stakeholder of one of the contracts and are hosted locally
-    * @param allHostedStakeholders
-    *   All parties that are a stakeholder of one of the contracts and are hosted on some
-    *   participant
+  /** Validate the contracts in the batch and insert data in Canton stores.
+    * @param batchSize
+    *   Should correspond to the batch size used in the source
+    * @return
     */
-  private def addContractChecks(
+  private def validateAndPersistContracts(
       synchronizer: RepairRequest.SynchronizerData,
-      allLocallyHostedStakeholders: Set[LfPartyId],
-      allHostedStakeholders: Set[LfPartyId],
-      ignoreStakeholderCheck: Boolean,
+      contractImportMode: ContractImportMode,
+      selectRepresentativePackageIds: SelectRepresentativePackageIds,
+      batchSize: Int,
   )(
-      contractToAdd: ContractToAdd
-  ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val contract = contractToAdd.contract
-    val contractId = contractToAdd.cid
+      data: (Seq[RepairContract], Long)
+  )(implicit traceContext: TraceContext): EitherT[
+    FutureUnlessShutdown,
+    String,
+    Seq[(TimeOfRepair, (CreationTime.CreatedAt, Seq[(ContractToAdd, Long)]))],
+  ] = {
+    val (contractsUnchecked, idx) = data
+
     for {
-      _warnOnEmptyMaintainers <- EitherT.cond[FutureUnlessShutdown](
-        !contract.contractKeyWithMaintainers.exists(_.maintainers.isEmpty),
-        (),
-        s"Contract $contractId has key without maintainers.",
+      contracts <- selectRepresentativePackageIds(contractsUnchecked)
+        .toEitherT[FutureUnlessShutdown]
+
+      contractsWithUnexpectedReassignmentCounter =
+        if (nodeParameters.alphaMultiSynchronizerSupport) {
+          Nil
+        } else {
+          contracts.filter(_.reassignmentCounter != ReassignmentCounter.Genesis)
+        }
+
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+        contractsWithUnexpectedReassignmentCounter.isEmpty,
+        s"Contracts with a non-zero reassignment counter found with disabled multi-synchronizer support: ${contractsWithUnexpectedReassignmentCounter
+            .map(c => (c.contractId, c.reassignmentCounter))}",
       )
 
-      _ <-
-        if (ignoreStakeholderCheck) EitherT.rightT[FutureUnlessShutdown, String](())
-        else {
-          val localStakeholders =
-            contractToAdd.contract.stakeholders.intersect(allLocallyHostedStakeholders)
+      contractsWithWrongSynchronizer = contracts.filter(
+        _.synchronizerId != synchronizer.psid.logical
+      )
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+        contractsWithWrongSynchronizer.isEmpty,
+        s"Contracts with wrong synchronizer: expected=${synchronizer.psid.logical}, actual=${contractsWithWrongSynchronizer
+            .map(c => (c.contractId, c.synchronizerId))}",
+      )
 
-          val missingHostedStakeholders =
-            contractToAdd.contract.stakeholders.diff(allHostedStakeholders)
+      _ <- ContractAuthenticationImportProcessor.validate(
+        loggerFactory,
+        syncPersistentStateLookup,
+        contractValidator,
+        contractImportMode,
+      )(contracts)
 
-          for {
-            // At least one stakeholder is hosted locally
-            _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-              localStakeholders.nonEmpty,
-              s"Contract ${contract.contractId} has stakeholders ${contract.stakeholders} but none of them are hosted locally",
-            )
+      contractStates <- EitherT.right[String](
+        helpers.readContractAcsStates(
+          synchronizer.persistentState,
+          contracts.map(_.contract.contractId),
+        )
+      )
 
-            // All stakeholders exist on the synchronizer
-            _ <- EitherT.cond[FutureUnlessShutdown](
-              missingHostedStakeholders.isEmpty,
-              (),
-              s"Synchronizer ${synchronizer.psid} missing stakeholders $missingHostedStakeholders of contract ${contract.contractId}",
-            )
-          } yield ()
+      contractInstances <-
+        helpers
+          .logOnFailureWithInfoLevel(
+            contractStore.value.lookupManyUncached(contracts.map(_.contract.contractId)),
+            "Unable to lookup contracts in contract store",
+          )
+          .map(_.flatten)
+
+      storedContracts = contractInstances.map(c => c.contractId -> c).toMap
+      filteredContracts <- EitherT.fromEither[FutureUnlessShutdown](
+        contracts.zip(contractStates).traverseFilter { case (contract, acsState) =>
+          contractToAdd(
+            repairContract = contract,
+            acsState = acsState,
+            storedContract = storedContracts.get(contract.contract.contractId),
+          )
         }
-    } yield ()
+      )
+
+      _ <- EitherT.fromEither[FutureUnlessShutdown](addContractsCheck(filteredContracts))
+
+      contractsByCreationTime = filteredContracts
+        .groupBy(_.contract.inst.createdAt)
+        .toList
+        .sortBy { case (ledgerCreateTime, _) => ledgerCreateTime.time }
+
+      /*
+      Repair counters need to be strictly increasing but gaps are allowed.
+      - monotonicity is guaranteed by pekko ordering guarantee
+      - gaps can happen because of the grouping per create time
+       */
+      timesOfRepair = Iterator
+        .from(idx.toInt * batchSize, 1)
+        .map(i => TimeOfRepair(synchronizer.currentRecordTime, synchronizer.nextRepairCounter + i))
+
+      contractsToAdd = timesOfRepair.zip(contractsByCreationTime).toSeq
+
+      _ = logger.debug(s"Persisting ${filteredContracts.size} added contracts")
+
+      contractsWithTimeOfChange = contractsToAdd.flatMap { case (tor, (_, cs)) =>
+        cs.map(_ -> tor.toToc)
+      }
+
+      _ <- persistAddContracts(
+        synchronizer,
+        contractsToAdd = contractsWithTimeOfChange,
+        storedContracts = storedContracts,
+      )
+
+      internalContractIdsForContractsAdded <-
+        helpers.logOnFailureWithInfoLevel(
+          contractStore.value.lookupBatchedInternalIdsNonReadThrough(
+            contractsWithTimeOfChange.map(_._1.contract.contractId)
+          ),
+          "Unable to lookup internal contract ids in contract store",
+        )
+
+    } yield checked(tryAddInternalContractIds(contractsToAdd, internalContractIdsForContractsAdded))
   }
+
+  /** Checks that the contracts can be added (packages known, contract keys have maintainers)
+    */
+  private def addContractsCheck(
+      contracts: Seq[ContractToAdd]
+  )(implicit traceContext: TraceContext): Either[String, Unit] =
+    for {
+      // Check that the representative package-id is known
+      _ <- contracts.map(_.representativePackageId).distinct.traverse(packageKnown)
+
+      _ <- contracts.traverse { contractToAdd =>
+        val contract = contractToAdd.contract
+        val contractId = contractToAdd.cid
+        EitherUtil.condUnit(
+          !contract.contractKeyWithMaintainers.exists(_.maintainers.isEmpty),
+          s"Contract $contractId has key without maintainers.",
+        )
+      }
+    } yield ()
 
   /** Actual persistence work
     * @param synchronizer
@@ -492,23 +602,24 @@ final class RepairServiceContractsImporter(
       storedContracts: Map[LfContractId, ContractInstance],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] =
+  ): EitherT[FutureUnlessShutdown, String, Unit] = {
+    // We compute first which changes we need to persist
+    val missingContractsE: Either[String, Seq[MissingContract]] =
+      contractsToAdd.traverseFilter[Either[String, *], MissingContract] { case (contractToAdd, _) =>
+        storedContracts.get(contractToAdd.cid) match {
+          case None => Right(Some(contractToAdd.contract))
+          case Some(storedContract) =>
+            Either.cond(
+              storedContract == contractToAdd.contract,
+              Option.empty[MissingContract],
+              s"Contract ${contractToAdd.cid} already exists in the contract store, but differs from contract to be created. Contract to be created $contractToAdd versus existing contract $storedContract.",
+            )
+        }
+      }
+
     for {
       // We compute first which changes we need to persist
-      missingContracts <- contractsToAdd
-        .parTraverseFilter[EitherT[FutureUnlessShutdown, String, *], MissingContract] {
-          case (contractToAdd, _) =>
-            storedContracts.get(contractToAdd.cid) match {
-              case None =>
-                EitherT.rightT[FutureUnlessShutdown, String](Some(contractToAdd.contract))
-              case Some(storedContract) =>
-                EitherT.cond[FutureUnlessShutdown](
-                  storedContract == contractToAdd.contract,
-                  Option.empty[MissingContract],
-                  s"Contract ${contractToAdd.cid} already exists in the contract store, but differs from contract to be created. Contract to be created $contractToAdd versus existing contract $storedContract.",
-                )
-            }
-        }
+      missingContracts <- EitherT.fromEither[FutureUnlessShutdown](missingContractsE)
 
       (missingAssignments, missingAdds) = contractsToAdd.foldLeft(
         (Seq.empty[MissingAssignment], Seq.empty[MissingAdd])
@@ -545,6 +656,7 @@ final class RepairServiceContractsImporter(
           s"Failed to assign ${missingAssignments.map { case (cid, _, _, _) => cid }} in ActiveContractStore: $e"
         )
     } yield ()
+  }
 
   private def prepareAddedEvents(
       synchronizerId: SynchronizerId,
@@ -622,7 +734,8 @@ final class RepairServiceContractsImporter(
     *   - Some(Right) otherwise
     */
   private def prepareAssignedEvent(
-      repair: RepairRequest,
+      synchronizerId: SynchronizerId,
+      recordTime: CantonTimestamp,
       repairCounter: RepairCounter,
       ledgerCreateTime: CreationTime.CreatedAt,
       contractsAdded: Seq[(ContractToAdd, Long)],
@@ -632,9 +745,9 @@ final class RepairServiceContractsImporter(
     // Assignments set the same source and target synchronizerIds since they are artificial
     // assigns without an actual target synchronizer (this is used for adding a contract)
     val reassignmentId = ReassignmentId(
-      Source(repair.synchronizer.psid.logical),
-      Target(repair.synchronizer.psid.logical),
-      unassignmentTs = repair.timestamp,
+      Source(synchronizerId),
+      Target(synchronizerId),
+      unassignmentTs = recordTime,
       contractIdCounters = contractsAdded.view.map { case (c, _internalContractId) =>
         (c.cid, c.reassignmentCounter)
       },
@@ -660,22 +773,23 @@ final class RepairServiceContractsImporter(
         workflowId = workflowIdProvider(),
         updateId = randomUpdateId(syncCrypto),
         reassignmentInfo = ReassignmentInfo(
-          sourceSynchronizer = Source(repair.synchronizer.psid.logical),
-          targetSynchronizer = Target(repair.synchronizer.psid.logical),
+          sourceSynchronizer = Source(synchronizerId),
+          targetSynchronizer = Target(synchronizerId),
           submitter = None,
           reassignmentId = reassignmentId,
           isReassigningParticipant = false,
         ),
         reassignment = Reassignment.Batch(assignsNE),
         repairCounter = repairCounter,
-        recordTime = repair.timestamp,
-        synchronizerId = repair.synchronizer.psid.logical,
+        recordTime = recordTime,
+        synchronizerId = synchronizerId,
       )
     })
   }
 
   private def publishAddEvents(
-      repair: RepairRequest,
+      synchronizerId: SynchronizerId,
+      recordTime: CantonTimestamp,
       contractsAdded: Seq[(TimeOfRepair, (CreationTime.CreatedAt, Seq[(ContractToAdd, Long)]))],
       workflowIds: Iterator[Option[LfWorkflowId]],
       repairIndexer: FutureQueue[RepairUpdate],
@@ -683,7 +797,8 @@ final class RepairServiceContractsImporter(
     MonadUtil
       .sequentialTraverse_(contractsAdded) { case (timeOfChange, (timestamp, contractsToAdd)) =>
         prepareAssignedEvent(
-          repair,
+          synchronizerId,
+          recordTime,
           timeOfChange.repairCounter,
           timestamp,
           contractsToAdd,

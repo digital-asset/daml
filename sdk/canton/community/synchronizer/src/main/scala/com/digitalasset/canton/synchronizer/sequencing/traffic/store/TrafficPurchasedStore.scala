@@ -102,4 +102,11 @@ trait TrafficPurchasedStore extends AutoCloseable {
   def getInitialTimestamp(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]]
+
+  /** Truncates the entire traffic purchased store. To be used only on sequencer initialization to
+    * clean up partial state.
+    */
+  def truncate()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
 }

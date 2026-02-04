@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.integration.tests
 
+import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.damltests.java.statictimetest.Pass
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.plugins.UseBftSequencer
@@ -23,6 +24,8 @@ trait StaticTimeIntegrationTest extends CommunityIntegrationTest with SharedEnvi
     EnvironmentDefinition.P1_S1M1
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
+        // TODO(#30068): Enable session keys after sim clock advances are synced
+        ConfigTransforms.setSessionSigningKeys(SessionSigningKeysConfig.disabled),
         ConfigTransforms.updateAllParticipantConfigs_(ConfigTransforms.useTestingTimeService),
       )
 

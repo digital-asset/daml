@@ -14,28 +14,31 @@ import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.{InternalIndexService, SynchronizerIndex}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
-import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.mapErrNewEUS
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.{GrpcErrors, mapErrNewEUS}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.data.{
+  ActiveContract,
   ContractImportMode,
   PartyOnboardingFlagStatus,
+  RepairContract,
   RepresentativePackageIdOverride,
 }
 import com.digitalasset.canton.participant.admin.party.*
 import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow.PartyReplicationArguments
+import com.digitalasset.canton.participant.admin.repair.RepairServiceError
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SynchronizerOffset
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherUtil.*
-import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
-import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
+import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, OptionUtil}
 import com.google.protobuf.ByteString
 import com.google.protobuf.duration.Duration
 import io.grpc.stub.StreamObserver
@@ -44,7 +47,7 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Sink
 
 import java.io.{ByteArrayOutputStream, OutputStream}
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import java.util.zip.GZIPOutputStream
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
@@ -73,40 +76,144 @@ class GrpcPartyManagementService(
         ensureAdminWorkflowIfOnlinePartyReplicationEnabled()
       )
 
+      argsP <- EitherT
+        .fromEither[Future](
+          ProtoConverter
+            .required("arguments", request.arguments)
+            .leftMap(err => toStatusRuntimeException(Status.INVALID_ARGUMENT)(err.message))
+        )
+
       args <- EitherT.fromEither[Future](
-        verifyArguments(request).leftMap(toStatusRuntimeException(Status.INVALID_ARGUMENT))
+        verifyArguments(argsP).leftMap(toStatusRuntimeException(Status.INVALID_ARGUMENT))
       )
 
       hash <- adminWorkflow.partyReplicator
         .addPartyAsync(args, adminWorkflow)
         .leftMap(toStatusRuntimeException(Status.FAILED_PRECONDITION))
-        .onShutdown(Left(AbortedDueToShutdown.Error().asGrpcError))
+        .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
     } yield v30.AddPartyAsyncResponse(addPartyRequestId = hash.toHexString))
   }
 
+  override def addPartyWithAcsAsync(
+      responseObserver: StreamObserver[AddPartyWithAcsAsyncResponse]
+  ): StreamObserver[AddPartyWithAcsAsyncRequest] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    // TODO(#23818): This buffer will contain the whole ACS snapshot.
+    val outputStream = new ByteArrayOutputStream()
+    val arguments = new AtomicReference[Option[PartyReplicationArguments]](None)
+    // for extracting the arguments on the first request
+    val isFirst = new AtomicBoolean(true)
+
+    new StreamObserver[AddPartyWithAcsAsyncRequest] {
+
+      override def onNext(request: AddPartyWithAcsAsyncRequest): Unit = {
+        val processedNext = if (isFirst.getAndSet(false)) {
+          for {
+            argsP <- ProtoConverter
+              .required("arguments", request.arguments)
+              .leftMap(err => s"Arguments must be set on the first request: $err")
+            args <- verifyArguments(argsP)
+          } yield {
+            arguments.set(Some(args))
+            outputStream.write(request.acsSnapshot.toByteArray)
+          }
+        } else {
+          for {
+            _ <- Either.cond(
+              request.arguments.isEmpty,
+              (),
+              s"Arguments must not be set on any request other that the first request: ${request.arguments}",
+            )
+          } yield {
+            outputStream.write(request.acsSnapshot.toByteArray)
+          }
+        }
+
+        processedNext.valueOr(errorMessage =>
+          // On failure: Signal the error, that is throw an exception.
+          // Observer's top-level onError will handle cleanup.
+          responseObserver.onError(new IllegalArgumentException(errorMessage))
+        )
+      }
+
+      override def onError(t: Throwable): Unit =
+        try {
+          outputStream.close()
+        } finally {
+          responseObserver.onError(t)
+        }
+
+      override def onCompleted(): Unit = {
+        // Synchronously try to get the snapshot and start the import
+        val result = for {
+          args <- EitherT.fromEither[Future](
+            arguments
+              .get()
+              .toRight(toStatusRuntimeException(Status.INVALID_ARGUMENT)("Arguments not set"))
+          )
+          partyReplicator <- EitherT.fromEither[Future](
+            adminWorkflowO
+              .map(_.partyReplicator)
+              .toRight(
+                toStatusRuntimeException(Status.FAILED_PRECONDITION)(
+                  "PartyReplicator not initialized"
+                )
+              )
+          )
+          acsByteString <- EitherT.fromEither[Future](
+            Try(ByteString.copyFrom(outputStream.toByteArray)).toEither.leftMap(t =>
+              toStatusRuntimeException(Status.FAILED_PRECONDITION)(t.getMessage)
+            )
+          )
+          activeContracts <- EitherT.fromEither[Future](
+            ActiveContract
+              .loadAcsSnapshot(acsByteString)
+              .leftMap(toStatusRuntimeException(Status.INVALID_ARGUMENT))
+          )
+          requestId <- partyReplicator
+            .addPartyWithAcsAsync(args, activeContracts.iterator)
+            .leftMap(toStatusRuntimeException(Status.FAILED_PRECONDITION))
+            .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
+        } yield requestId
+
+        result
+          .thereafter(_ => outputStream.close())
+          .value
+          .onComplete {
+            case Failure(exception) => responseObserver.onError(exception)
+            case Success(Left(exception)) => responseObserver.onError(exception)
+            case Success(Right(requestId)) =>
+              responseObserver.onNext(AddPartyWithAcsAsyncResponse(requestId.toHexString))
+              responseObserver.onCompleted()
+          }
+      }
+    }
+  }
+
   private def verifyArguments(
-      request: v30.AddPartyAsyncRequest
+      argsP: v30.AddPartyArguments
   ): Either[String, PartyReplicationArguments] =
     for {
-      partyId <- convert(request.partyId, "party_id", PartyId(_))
+      partyId <- convert(argsP.partyId, "party_id", PartyId(_))
       sourceParticipantId <- convert(
-        request.sourceParticipantUid,
+        argsP.sourceParticipantUid,
         "source_participant_uid",
         ParticipantId(_),
       )
       synchronizerId <- convert(
-        request.synchronizerId,
+        argsP.synchronizerId,
         "synchronizer_id",
         SynchronizerId(_),
       )
       serial <- ProtoConverter
-        .parsePositiveInt("topology_serial", request.topologySerial)
+        .parsePositiveInt("topology_serial", argsP.topologySerial)
         .leftMap(_.message)
       participantPermission <- ProtoConverter
         .parseEnum[ParticipantPermission, v30.ParticipantPermission](
           PartyParticipantPermission.fromProtoV30,
           "participant_permission",
-          request.participantPermission,
+          argsP.participantPermission,
         )
         .leftMap(_.message)
     } yield PartyReplicationArguments(
@@ -399,7 +506,6 @@ class GrpcPartyManagementService(
   ): StreamObserver[ImportPartyAcsRequest] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
-    // TODO(#23818): This buffer will contain the whole ACS snapshot.
     val outputStream = new ByteArrayOutputStream()
 
     // TODO(#24610): Deduplicate ImportArgs setting with logic from `ParticipantRepairService.ImportAcs`
@@ -513,6 +619,85 @@ class GrpcPartyManagementService(
           }
       }
     }
+  }
+
+  /** Parse the global parameters that can be set only in the first message of the stream.
+    */
+  private def parseImportPartyAcsStreamingRequestGlobal(
+      request: ImportPartyAcsV2Request
+  ): ParsingResult[
+    (SynchronizerId, Option[String], ContractImportMode, RepresentativePackageIdOverride)
+  ] =
+    for {
+      synchronizerId <- ProtoConverter.parseRequired(
+        SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"),
+        "synchronizer_id",
+        request.synchronizerId,
+      )
+
+      representativePackageIdOverride <- request.representativePackageIdOverride
+        .traverse(RepresentativePackageIdOverride.fromProtoV30)
+        .map(_.getOrElse(RepresentativePackageIdOverride.NoOverride))
+
+      contractImportMode <- ProtoConverter.parseRequired(
+        ContractImportMode.fromProtoV30,
+        "contract_import_mode",
+        request.contractImportMode,
+      )
+      workflowIdPrefix = request.workflowIdPrefix.flatMap(OptionUtil.emptyStringAsNone)
+    } yield (synchronizerId, workflowIdPrefix, contractImportMode, representativePackageIdOverride)
+
+  override def importPartyAcsV2(
+      responseObserver: StreamObserver[ImportPartyAcsV2Response]
+  ): StreamObserver[ImportPartyAcsV2Request] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    type ImportContext =
+      (SynchronizerId, Option[String], ContractImportMode, RepresentativePackageIdOverride)
+
+    GrpcStreamingUtils.streamGzippedChunksFromClient[
+      ImportPartyAcsV2Request,
+      ImportPartyAcsV2Response,
+      ImportContext,
+      ActiveContract,
+    ](
+      responseObserver,
+      Success(ImportPartyAcsV2Response()),
+      getGzippedBytes = _.acsSnapshot,
+      parseMessage = ActiveContract.parseDelimitedFromTrusted,
+    )(contextFromFirstRequest =
+      firstRequest =>
+        parseImportPartyAcsStreamingRequestGlobal(firstRequest)
+          .leftMap(error => RepairServiceError.ImportAcsError.Error(error.message).asGrpcError)
+          .toTry
+    ) {
+      case (
+            (synchronizerId, workflowIdPrefix, contractImportMode, representativePackageIdOverride),
+            source,
+          ) =>
+        val repairContractSource = source
+          .map { case (activeContract) =>
+            RepairContract
+              .fromLapiActiveContract(activeContract.contract)
+              .valueOr(err => throw RepairServiceError.ImportAcsError.Error(err).asGrpcError)
+          }
+        val resultET = sync.repairService
+          .addContractsPekko(
+            synchronizerId = synchronizerId,
+            contracts = repairContractSource,
+            contractImportMode = contractImportMode,
+            packageMetadataSnapshot = sync.getPackageMetadataSnapshot,
+            representativePackageIdOverride = representativePackageIdOverride,
+            workflowIdPrefix = workflowIdPrefix,
+          )
+          .bimap(
+            err => RepairServiceError.ImportAcsError.Error(err).asGrpcError,
+            _ => ImportPartyAcsV2Response(),
+          )
+
+        EitherTUtil.toFutureUnlessShutdown(resultET)
+    }
+
   }
 
   override def getHighestOffsetByTimestamp(

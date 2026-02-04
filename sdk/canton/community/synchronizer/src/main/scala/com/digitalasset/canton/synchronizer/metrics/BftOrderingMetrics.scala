@@ -12,6 +12,7 @@ import com.digitalasset.canton.environment.BaseMetrics
 import com.digitalasset.canton.logging.pretty.PrettyNameOnlyCase
 import com.digitalasset.canton.metrics.ActiveRequestsMetrics.GrpcServerMetricsX
 import com.digitalasset.canton.metrics.{
+  CacheMetrics,
   DbStorageHistograms,
   DbStorageMetrics,
   DeclarativeApiMetrics,
@@ -210,7 +211,8 @@ class BftOrderingMetrics private[metrics] (
     new DeclarativeApiMetrics(prefix, openTelemetryMetricsFactory)
 
   override def storageMetrics: DbStorageMetrics = dbStorage
-
+  override val topologyCache: CacheMetrics =
+    new CacheMetrics("topology-ord", openTelemetryMetricsFactory)
   // Private constructor to avoid being instantiated multiple times by accident
   final class PerformanceMetrics private[BftOrderingMetrics] {
 

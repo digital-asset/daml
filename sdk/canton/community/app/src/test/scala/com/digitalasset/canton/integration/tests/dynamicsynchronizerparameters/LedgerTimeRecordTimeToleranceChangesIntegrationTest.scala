@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.integration.tests.dynamicsynchronizerparameters
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.{DbConfig, SessionSigningKeysConfig}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
@@ -42,7 +42,11 @@ trait LedgerTimeRecordTimeToleranceChangesIntegrationTest
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P1_S1M1
-      .addConfigTransforms(ConfigTransforms.useStaticTime)
+      .addConfigTransforms(
+        ConfigTransforms.useStaticTime,
+        // TODO(#30068): Enable session keys after sim clock advances are synced
+        ConfigTransforms.setSessionSigningKeys(SessionSigningKeysConfig.disabled),
+      )
       .withSetup { implicit env =>
         import env.*
 

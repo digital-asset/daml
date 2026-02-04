@@ -13,8 +13,11 @@ import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedIncompleteUnassigned
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.NonNegativeFiniteDuration as NonNegativeFiniteDurationConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{
+  NonNegativeFiniteDuration as NonNegativeFiniteDurationConfig,
+  SessionSigningKeysConfig,
+}
 import com.digitalasset.canton.console.{
   CommandFailure,
   LocalParticipantReference,
@@ -95,7 +98,11 @@ abstract class SynchronizerChangeIntegrationTest(config: SynchronizerChangeInteg
     .value
 
   protected lazy val simClockTransform: ConfigTransform =
-    if (config.simClock) ConfigTransforms.useStaticTime
+    if (config.simClock)
+      ConfigTransforms.useStaticTime.compose(
+        // TODO(#30068): Enable session keys after sim clock advances are synced
+        ConfigTransforms.setSessionSigningKeys(SessionSigningKeysConfig.disabled)
+      )
     else ConfigTransforms.identity
 
   protected lazy val exclusivityTimeout: NonNegativeFiniteDuration =

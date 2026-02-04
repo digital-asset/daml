@@ -130,10 +130,8 @@ trait ImportContractsIntegrationTestBase
             }
           } else {
             assertThrowsAndLogsCommandFailures(
-              participant3.repair.import_acs(file.canonicalPath),
-              _.errorMessage should include(
-                "at least one contract with a non-zero reassignment counter"
-              ),
+              participant3.repair.import_acsV2(file.canonicalPath, daId),
+              _.errorMessage should include("with a non-zero reassignment counter"),
             )
           }
         }
@@ -145,7 +143,7 @@ final class ImportContractsIntegrationTest extends ImportContractsIntegrationTes
   override protected def enableAlphaMultiSynchronizerSupport: Boolean = false
 }
 
-final class ImportContractsWithAlphaSupportIntegrationTest
+final class ImportContractsWithReassignmentIntegrationTest
     extends ImportContractsIntegrationTestBase {
   override protected def enableAlphaMultiSynchronizerSupport: Boolean = true
 }

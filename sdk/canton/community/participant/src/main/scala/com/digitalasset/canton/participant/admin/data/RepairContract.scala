@@ -12,8 +12,7 @@ import com.digitalasset.canton.util.{GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.{LfPackageId, ReassignmentCounter}
 import com.digitalasset.daml.lf.transaction.{CreationTime, TransactionCoder}
 import com.google.protobuf.ByteString
-
-import java.util.zip.GZIPInputStream
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 
 /** A contract to add/import with admin repairs.
   */
@@ -41,14 +40,14 @@ object RepairContract {
     for {
       contracts <- ResourceUtil.withResource(
         // TODO(i28137): This is vulnerable to zip bombs.
-        new GZIPInputStream(acsSnapshot.newInput())
+        new GzipCompressorInputStream(acsSnapshot.newInput())
       ) { decompressed =>
         GrpcStreamingUtils.parseDelimitedFromTrusted[ActiveContract](decompressed, ActiveContract)
       }
-      repairContracts <- contracts.traverse(c => toRepairContract(c.contract))
+      repairContracts <- contracts.traverse(c => fromLapiActiveContract(c.contract))
     } yield repairContracts
 
-  def toRepairContract(contract: LapiActiveContract): Either[String, RepairContract] =
+  def fromLapiActiveContract(contract: LapiActiveContract): Either[String, RepairContract] =
     for {
       event <- Either.fromOption(
         contract.createdEvent,

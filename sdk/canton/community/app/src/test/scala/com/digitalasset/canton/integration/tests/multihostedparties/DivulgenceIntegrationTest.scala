@@ -310,7 +310,8 @@ trait DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBa
       beforeActivationOffset,
       acsSnapshotPath,
     )
-    target.parties.import_party_acs(acsSnapshotPath)
+    target.parties.import_party_acsV2(acsSnapshotPath, daId)
+
     target.synchronizers.reconnect(daName)
 
     // participant1 alice

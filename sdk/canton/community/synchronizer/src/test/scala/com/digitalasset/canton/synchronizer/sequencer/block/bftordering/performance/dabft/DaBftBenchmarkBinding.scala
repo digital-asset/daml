@@ -12,7 +12,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.performa
   BftBinding,
   BftBindingFactory,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.mutex
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.standalone.v1.StandaloneBftOrderingServiceGrpc.StandaloneBftOrderingServiceStub
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.standalone.v1.{
   ReadOrderedRequest,
@@ -30,6 +29,7 @@ import java.util.concurrent.*
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 import scala.language.existentials
+import scala.util.chaining.*
 import scala.util.{Failure, Success}
 
 object DaBftBindingFactory extends BftBindingFactory {
@@ -80,35 +80,36 @@ final class DaBftBinding(payload: ByteString) extends BftBinding {
       txId: String,
   ): CompletionStage[Unit] = {
     val result = new CompletableFuture[Unit]()
-    val (_, stub, lock) = channelAndStub(node)
+    val (stub, lock) = stubAndLockFor(node)
 
     writeExecutor.submit(new Runnable {
       override def run(): Unit = {
 
         val request = SendRequest(txId, payload)
 
-        mutex(lock) { // The writer is not thread-safe
-          stub
-            .send(request)
-            .transform {
-              case Success(response) =>
-                response.rejectionReason.fold {
-                  log.debug(s"Wrote txId $txId to node $node")
-                  result.complete(()).discard
-                } { reason =>
-                  val exception =
-                    new RuntimeException(s"Request $txId was rejected by node $node: $reason")
-                  log.error(s"Rejected writing to node $node", exception)
-                  result.completeExceptionally(exception).discard
-                }
-                Success(())
-              case Failure(exception) =>
-                log.error(s"Error writing to node $node", exception)
+        lock
+          .exclusive {
+            // The writer is not thread-safe
+            stub.send(request)
+          }
+          .transform {
+            case Success(response) =>
+              response.rejectionReason.fold {
+                log.debug(s"Wrote txId $txId to node $node")
+                result.complete(()).discard
+              } { reason =>
+                val exception =
+                  new RuntimeException(s"Request $txId was rejected by node $node: $reason")
+                log.error(s"Rejected writing to node $node", exception)
                 result.completeExceptionally(exception).discard
-                Success(())
-            }(scalaFutureExecutionContext)
-            .discard
-        }
+              }
+              Success(())
+            case Failure(exception) =>
+              log.error(s"Error writing to node $node", exception)
+              result.completeExceptionally(exception).discard
+              Success(())
+          }(scalaFutureExecutionContext)
+          .discard
       }
     })
 
@@ -180,33 +181,35 @@ final class DaBftBinding(payload: ByteString) extends BftBinding {
     ()
   }
 
-  private def channelAndStub(
+  private def stubAndLockFor(
       writeNode: BftBenchmarkConfig.WriteNode[?]
-  ): (ManagedChannel, StandaloneBftOrderingServiceStub, Mutex) =
-    writeChannels.computeIfAbsent(
-      writeNode,
-      _ => {
-        val channelBuilder =
-          writeNode match {
-            case BftBenchmarkConfig.InProcessWriteOnlyNode(_, writePort) =>
-              InProcessChannelBuilder.forName(writePort)
-            case BftBenchmarkConfig.InProcessReadWriteNode(_, writePort, _) =>
-              InProcessChannelBuilder.forName(writePort)
-            case BftBenchmarkConfig.NetworkedWriteOnlyNode(host, writePort) =>
-              ManagedChannelBuilder.forTarget(s"$host:$writePort")
-            case BftBenchmarkConfig.NetworkedReadWriteNode(host, writePort, _) =>
-              ManagedChannelBuilder.forTarget(s"$host:$writePort")
-          }
-        channelBuilder.usePlaintext().discard
-        val channel = channelBuilder.build()
-        val stub =
-          StandaloneBftOrderingServiceGrpc
-            .stub(channel)
-            .withMaxInboundMessageSize(MaxReadGrpcBytes)
-            .withMaxOutboundMessageSize(MaxReadGrpcBytes)
-        (channel, stub, new Mutex())
-      },
-    )
+  ): (StandaloneBftOrderingServiceStub, Mutex) =
+    writeChannels
+      .computeIfAbsent(
+        writeNode,
+        _ => {
+          val channelBuilder =
+            writeNode match {
+              case BftBenchmarkConfig.InProcessWriteOnlyNode(_, writePort) =>
+                InProcessChannelBuilder.forName(writePort)
+              case BftBenchmarkConfig.InProcessReadWriteNode(_, writePort, _) =>
+                InProcessChannelBuilder.forName(writePort)
+              case BftBenchmarkConfig.NetworkedWriteOnlyNode(host, writePort) =>
+                ManagedChannelBuilder.forTarget(s"$host:$writePort")
+              case BftBenchmarkConfig.NetworkedReadWriteNode(host, writePort, _) =>
+                ManagedChannelBuilder.forTarget(s"$host:$writePort")
+            }
+          channelBuilder.usePlaintext().discard
+          val channel = channelBuilder.build()
+          val stub =
+            StandaloneBftOrderingServiceGrpc
+              .stub(channel)
+              .withMaxInboundMessageSize(MaxReadGrpcBytes)
+              .withMaxOutboundMessageSize(MaxReadGrpcBytes)
+          (channel, stub, Mutex())
+        },
+      )
+      .pipe { case (_, stub, lock) => (stub, lock) }
 
   override def close(): Unit = {
     writeChannels.values().asScala.map(_._1).foreach(closeGrpcChannel)

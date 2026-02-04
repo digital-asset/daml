@@ -31,12 +31,10 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-encoder:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:crypto",
-        "//canton:safe-proto",
-        "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/language",
+        "@maven//:com_daml_crypto_2_13",
+        "@maven//:com_daml_daml_lf_archive_2_13",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_language_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -52,14 +50,13 @@ da_scala_binary(
     ],
     deps = [
         ":encoder",
-        "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/archive/encoder",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/parser",
-        "//canton/community/daml-lf/stable-packages",
-        "//canton/community/daml-lf/validation",
+        "@maven//:com_daml_daml_lf_archive_2_13",
+        "@maven//:com_daml_daml_lf_archive_encoder_2_13",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_language_2_13",
+        "@maven//:com_daml_daml_lf_parser_2_13",
+        "@maven//:com_daml_daml_lf_stable_packages_2_13",
+        "@maven//:com_daml_daml_lf_validation_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -89,22 +86,23 @@ da_scala_binary(
             tools = [":encoder_binary"],
             visibility = ["//visibility:public"],
         ),
-        sh_test(
-            name = "validate-dar-%s" % target,
-            srcs = ["src/validate.sh"],
-            args = [
-                "$(location //canton/community/daml-lf/repl:repl)",
-                "$(location :testing-dar-%s)" % target,
-                "--dev" if lf_version_is_dev(target) else "",
-            ],
-            data = [
-                "//canton/community/daml-lf/repl",
-                "testing-dar-%s" % target,
-            ],
-            deps = [
-                "@bazel_tools//tools/bash/runfiles",
-            ],
-        ),
+        # TODO(i30144): migrate to the canton repo
+        #        sh_test(
+        #            name = "validate-dar-%s" % target,
+        #            srcs = ["src/validate.sh"],
+        #            args = [
+        #                "$(location @maven//:com_daml_daml_lf_repl_2_13)",
+        #                "$(location :testing-dar-%s)" % target,
+        #                "--dev" if lf_version_is_dev(target) else "",
+        #            ],
+        #            data = [
+        #                "@maven//:com_daml_daml_lf_repl_2_13",
+        #                "testing-dar-%s" % target,
+        #            ],
+        #            deps = [
+        #                "@bazel_tools//tools/bash/runfiles",
+        #            ],
+        #        ),
     ]
     for target in ALL_LF_VERSIONS
 ]

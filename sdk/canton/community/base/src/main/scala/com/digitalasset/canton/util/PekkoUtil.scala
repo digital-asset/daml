@@ -906,6 +906,14 @@ object PekkoUtil extends HasLoggerName {
       ): U#Repr[Iterable[A]] =
         graph.via(BatchN(maxBatchSize, maxBatchCount, catchUpMode))
 
+      def batchNWeighted(
+          maxBatchWeight: Long,
+          maxBatchCount: Int,
+          catchUpMode: CatchUpMode = MaximizeConcurrency,
+          weightFn: A => Long,
+      ): U#Repr[Iterable[A]] =
+        graph.via(BatchN.weighted(maxBatchWeight, maxBatchCount, catchUpMode)(weightFn))
+
       def dropIf(count: Int)(condition: A => Boolean): U#Repr[A] =
         PekkoUtil.dropIf(graph, count, condition)
     }

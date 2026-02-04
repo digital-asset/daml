@@ -6,20 +6,27 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 import com.digitalasset.canton.admin.api.client.data.DynamicSynchronizerParameters as ConsoleDynamicSynchronizerParameters
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.console.{InstanceReference, ParticipantReference}
+import com.digitalasset.canton.console.{
+  DebuggingHelpers,
+  InstanceReference,
+  LocalParticipantReference,
+  ParticipantReference,
+}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.tests.multihostedparties.OnlinePartyReplicationTestHelpers.PreparedOnPRSetup
 import com.digitalasset.canton.participant.admin.data.PartyReplicationStatus
-import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.{
   ParticipantPermission,
   PartyToParticipant,
   SignedTopologyTransaction,
   TopologyChangeOp,
 }
+import com.digitalasset.canton.topology.{Party, PartyId}
 import com.digitalasset.canton.{BaseTest, config, integration}
+import org.scalatest.Assertion
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.*
 import scala.util.Try
 
@@ -257,15 +264,12 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
         Try(sourceParticipant.parties.get_add_party_status(addPartyRequestId)).toOption
       val tpStatus = targetParticipant.parties.get_add_party_status(addPartyRequestId)
 
-      def finished(status: PartyReplicationStatus) =
-        status.hasCompleted && status.errorO.isEmpty
-      def countsMatch(status: PartyReplicationStatus) =
-        finished(status) && status.replicationO.exists(r =>
-          r.fullyProcessedAcs && r.processedContractCount == expectedNumContracts
-        )
-
       (spStatusO, tpStatus) match {
-        case (Some(spStatus), tp) if countsMatch(spStatus) && countsMatch(tp) =>
+        case (Some(spStatus), tp)
+            if countsMatch(spStatus, expectedNumContracts) && countsMatch(
+              tp,
+              expectedNumContracts,
+            ) =>
           logger.info(
             s"SP and TP completed party replication with status $spStatus and $tpStatus"
           )
@@ -279,6 +283,91 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
           )
       }
     }
+
+  protected def eventuallyOnPRCompletesOnTP(
+      targetParticipant: ParticipantReference,
+      addPartyRequestId: String,
+      expectedNumContracts: NonNegativeInt,
+      waitAtMost: FiniteDuration = 2.minutes, // default enough for ~400 contracts
+  ): Unit =
+    eventually(
+      timeUntilSuccess = waitAtMost,
+      retryOnTestFailuresOnly = false,
+      maxPollInterval = 1.second,
+    ) {
+      targetParticipant.parties.get_add_party_status(addPartyRequestId) match {
+        case tpStatus if countsMatch(tpStatus, expectedNumContracts) =>
+          logger.info(s"TP completed party replication with status $tpStatus")
+        case tpStatus if finished(tpStatus) =>
+          logger.warn(
+            s"TP completed party replication but had unexpected number of contracts: $tpStatus, expected $expectedNumContracts"
+          )
+        case tpStatus =>
+          fail(s"TP did not complete party replication. TP status $tpStatus")
+      }
+    }
+
+  private def finished(status: PartyReplicationStatus) =
+    status.hasCompleted && status.errorO.isEmpty
+  private def countsMatch(status: PartyReplicationStatus, expectedNumContracts: NonNegativeInt) =
+    finished(status) && status.replicationO.exists(r =>
+      r.fullyProcessedAcs && r.processedContractCount == expectedNumContracts
+    )
+
+  @nowarn("msg=match may not be exhaustive")
+  protected def eventuallyLedgerApiAcsInSyncBetweenSPAndTP(
+      sourceParticipant: ParticipantReference,
+      targetParticipant: ParticipantReference,
+      replicatedParty: Party,
+      limit: PositiveInt,
+  ): Assertion =
+    eventually() {
+      val Seq(acsSP, acsTP) = Seq(sourceParticipant, targetParticipant).map(
+        _.ledger_api.state.acs
+          .of_party(replicatedParty, limit, verbose = false)
+          .map(entry => entry.contractId -> entry)
+          .toMap
+      )
+
+      val missingFromTP = acsSP -- acsTP.keySet
+      val missingFromSP = acsTP -- acsSP.keySet
+
+      assert(
+        missingFromTP.isEmpty,
+        s"These ${missingFromTP.size} contracts are missing from the TP: $missingFromTP",
+      )
+      assert(
+        missingFromSP.isEmpty,
+        s"These I${missingFromSP.size} contracts are missing from the SP: $missingFromSP",
+      )
+    }
+
+  protected def ensureActiveContractsInSyncBetweenLedgerApiAndSyncService(
+      participant: LocalParticipantReference,
+      limit: PositiveInt,
+  ): Assertion = {
+    val (syncAcs, lapiAcs) =
+      DebuggingHelpers.get_active_contracts_from_internal_db_state(
+        participant,
+        participant.testing.state_inspection,
+        limit,
+      )
+
+    val missingFromLapi = syncAcs.keySet.diff(lapiAcs.keySet)
+    val missingFromSync = lapiAcs.keySet.diff(syncAcs.keySet)
+
+    val mismatchErrors = Option
+      .when(missingFromLapi.nonEmpty)(
+        s"contracts missing from Ledger API: ${missingFromLapi.mkString(", ")}"
+      )
+      .toList ++ Option
+      .when(missingFromSync.nonEmpty)(
+        s"contracts missing from sync state: ${missingFromSync.mkString(", ")}"
+      )
+      .toList
+
+    mismatchErrors shouldBe List.empty
+  }
 }
 
 private[tests] object OnlinePartyReplicationTestHelpers {

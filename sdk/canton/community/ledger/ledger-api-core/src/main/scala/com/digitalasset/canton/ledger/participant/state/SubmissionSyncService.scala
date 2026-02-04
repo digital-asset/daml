@@ -9,7 +9,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.SubmittedTransaction
 
-import java.util.concurrent.CompletionStage
+import scala.concurrent.Future
 
 trait SubmissionSyncService {
 
@@ -99,7 +99,7 @@ trait SubmissionSyncService {
       processedDisclosedContracts: ImmArray[LfFatContractInst],
   )(implicit
       traceContext: TraceContext
-  ): CompletionStage[SubmissionResult]
+  ): Future[SubmissionResult]
 
   /** Submit a reassignment command for acceptance to the ledger.
     *
@@ -135,6 +135,6 @@ trait SubmissionSyncService {
       reassignmentCommands: Seq[ReassignmentCommand],
   )(implicit
       traceContext: TraceContext
-  ): CompletionStage[SubmissionResult]
+  ): Future[SubmissionResult]
 
 }

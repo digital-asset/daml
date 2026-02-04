@@ -10,7 +10,6 @@ import com.daml.ledger.api.v2.admin.participant_pruning_service.{
 }
 import com.daml.metrics.Tracked
 import com.daml.metrics.api.MetricsContext
-import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.ValidationLogger
@@ -159,7 +158,6 @@ final class ApiParticipantPruningService private (
     )
     syncService
       .prune(pruneUpTo, submissionId)
-      .toScalaUnwrapped
       .flatMap {
         case NotPruned(status) =>
           Future.failed(new ApiException(StatusProto.toStatusRuntimeException(status)))

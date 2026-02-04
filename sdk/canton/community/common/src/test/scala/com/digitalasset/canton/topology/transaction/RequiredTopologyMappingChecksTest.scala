@@ -192,6 +192,7 @@ class RequiredTopologyMappingChecksTest
             uid: UniqueIdentifier,
             transactionType: Code,
             op: TopologyChangeOp,
+            warnIfUncached: Boolean = false,
         )(implicit
             traceContext: TraceContext
         ): FutureUnlessShutdown[Seq[GenericStoredTopologyTransaction]] = ???
@@ -204,6 +205,7 @@ class RequiredTopologyMappingChecksTest
             uid: UniqueIdentifier,
             transactionTypes: Set[Code],
             op: TopologyChangeOp,
+            warnIfUncached: Boolean = false,
         )(implicit
             traceContext: TraceContext
         ): FutureUnlessShutdown[Seq[GenericStoredTopologyTransaction]] = op match {
@@ -227,6 +229,7 @@ class RequiredTopologyMappingChecksTest
             ns: Namespace,
             transactionTypes: Set[Code],
             op: TopologyChangeOp,
+            warnIfUncached: Boolean = false,
         )(implicit
             traceContext: TraceContext
         ): FutureUnlessShutdown[Seq[GenericStoredTopologyTransaction]] =
@@ -239,6 +242,7 @@ class RequiredTopologyMappingChecksTest
             ns: NonEmpty[Seq[Namespace]],
             transactionTypes: Set[Code],
             op: TopologyChangeOp,
+            warnIfUncached: Boolean = false,
         )(implicit
             traceContext: TraceContext,
             executionContext: ExecutionContext,

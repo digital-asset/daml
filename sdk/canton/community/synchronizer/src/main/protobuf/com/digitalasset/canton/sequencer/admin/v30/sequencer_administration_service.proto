@@ -27,6 +27,19 @@ service SequencerAdministrationService {
   // The new balance will only become valid once authorized by a quorum of sequencers of the synchronizer
   rpc SetTrafficPurchased(SetTrafficPurchasedRequest) returns (SetTrafficPurchasedResponse);
 
+  // Get the traffic control state for a logical synchronizer upgrade (LSU) at upgrade time
+  // Only available once:
+  // - an LSU has been announced
+  // - the sequencer node has reached the upgrade time
+  // Otherwise returns an error.
+  rpc GetLSUTrafficControlState(GetLSUTrafficControlStateRequest) returns (GetLSUTrafficControlStateResponse);
+
+  // Set the traffic control state at the Logical Synchronizer Upgrade time.
+  // Can only to be used during the upgrade process on a fresh sequencer node.
+  // Can be safely retried if failed, only works if sequencer node hasn't progressed beyond the upgrade time,
+  // otherwise returns an error.
+  rpc SetLSUTrafficControlState(SetLSUTrafficControlStateRequest) returns (SetLSUTrafficControlStateResponse);
+
   // fetch a snapshot of the sequencer state based on the given timestamp
   rpc Snapshot(SnapshotRequest) returns (SnapshotResponse);
 
@@ -82,6 +95,24 @@ message SetTrafficPurchasedRequest {
 }
 
 message SetTrafficPurchasedResponse {}
+
+message GetLSUTrafficControlStateRequest {}
+
+message LSUTrafficState {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  map<string, com.digitalasset.canton.protocol.v30.TrafficState> lsu_traffic_states = 1;
+}
+
+message GetLSUTrafficControlStateResponse {
+  bytes lsu_traffic_state = 1;
+}
+
+message SetLSUTrafficControlStateRequest {
+  bytes lsu_traffic_state = 1;
+}
+
+message SetLSUTrafficControlStateResponse {}
 
 message SnapshotRequest {
   google.protobuf.Timestamp timestamp = 1;

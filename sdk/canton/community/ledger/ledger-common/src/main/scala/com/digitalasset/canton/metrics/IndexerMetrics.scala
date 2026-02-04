@@ -29,6 +29,15 @@ class IndexerHistograms(val prefix: MetricName)(implicit
     qualification = MetricQualification.Debug,
   )
 
+  private[metrics] val inputMappingBatchWeight: Item = Item(
+    inputMappingPrefix :+ "batch_weight",
+    summary = "The batch weights in the indexer.",
+    description =
+      """The calculated weights of state updates contained in a batch used in the indexer for
+                    |database submission, if useWeightedBatching was specified.""",
+    qualification = MetricQualification.Debug,
+  )
+
   private[metrics] val seqMappingDuration: Item = Item(
     prefix :+ "seqmapping" :+ "duration",
     summary = "The duration of the seq-mapping stage.",
@@ -97,6 +106,23 @@ class IndexerMetrics(
 
     val batchSize: Histogram =
       factory.histogram(histograms.inputMappingBatchSize.info)
+
+    val batchWeight: Histogram =
+      factory.histogram(histograms.inputMappingBatchWeight.info)
+
+    val submissionBatchConfiguredWeight: Gauge[Long] =
+      factory.gauge(
+        MetricInfo(
+          prefix :+ "submission_batch_configured_weight",
+          summary = "The configured weight of each submission batch.",
+          description =
+            """This value is calculated from `submissionBatchInsertionSize` of the indexer config by multiplying
+              |the default weight of one insert operation.""".stripMargin,
+          qualification = MetricQualification.Debug,
+        ),
+        0L,
+      )
+
   }
 
   // Batching stage

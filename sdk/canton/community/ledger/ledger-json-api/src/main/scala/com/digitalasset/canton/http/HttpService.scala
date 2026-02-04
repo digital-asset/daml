@@ -7,7 +7,6 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
-import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
 import com.daml.tls.TlsVersion
 import com.digitalasset.canton.auth.AuthInterceptor
@@ -20,7 +19,7 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.http.HttpService.HttpServiceHandle
 import com.digitalasset.canton.http.json.v2.V2Routes
-import com.digitalasset.canton.http.metrics.HttpApiMetrics
+import com.digitalasset.canton.http.metrics.{HttpApiMetrics, HttpMetricsInterceptor}
 import com.digitalasset.canton.http.util.FutureUtil.*
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.UserId

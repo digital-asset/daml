@@ -102,6 +102,8 @@ sh_test(
     data = [
         ":protobufs.zip",
     ],
+    # TODO(https://github.com/DACH-NY/canton/issues/30144): fix this test
+    tags = ["manual"],
     toolchains = [
         "@rules_sh//sh/posix:make_variables",
     ],

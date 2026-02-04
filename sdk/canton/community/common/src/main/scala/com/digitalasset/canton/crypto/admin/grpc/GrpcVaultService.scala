@@ -274,7 +274,10 @@ class GrpcVaultService(
       case kmsCrypto: KmsPrivateCrypto =>
         Right(kmsCrypto)
       case _ =>
-        Left(GrpcVaultServiceError.NoEncryptedPrivateKeyStoreError.Failure())
+        Left(
+          GrpcVaultServiceError.RegisterKmsKeyInternalError
+            .Failure("The private crypto API in use is not backed by a KMS")
+        )
     }
 
   private def registerKmsKey[A <: PublicKey](

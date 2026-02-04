@@ -32,6 +32,16 @@ class DbStorageMetrics(
 
   val write: DbQueueMetrics = new DbQueueMetrics(histograms.write, metricsFactory)
 
+  val internalContractIdsCacheSize: Gauge[Int] = metricsFactory.gauge(
+    MetricInfo(
+      histograms.prefix :+ "internal_contract_ids_cache_size",
+      summary = "Size of the internal contract IDs cache",
+      description = """The number of entries in the internal contract IDs cache.""",
+      qualification = MetricQualification.Debug,
+    ),
+    0,
+  )
+
 }
 
 private[metrics] class DbQueueHistograms(val parent: MetricName)(implicit

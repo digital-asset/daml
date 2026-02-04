@@ -14,10 +14,12 @@ import com.digitalasset.canton.sequencing.protocol.{
   AggregationId,
   AggregationRule,
   GeneratorsProtocol as GeneratorsProtocolSeq,
+  TrafficState,
 }
 import com.digitalasset.canton.sequencing.traffic.{TrafficConsumed, TrafficPurchased}
 import com.digitalasset.canton.synchronizer.sequencer.InFlightAggregation.AggregationBySender
 import com.digitalasset.canton.synchronizer.sequencer.store.VersionedStatus
+import com.digitalasset.canton.synchronizer.sequencer.traffic.LSUTrafficState
 import com.digitalasset.canton.synchronizer.sequencing.integrations.state.DbSequencerStateManagerStore.AggregatedSignaturesOfSender
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
@@ -122,6 +124,20 @@ final class GeneratorsSequencer(
       protocolVersion,
     )
   )
+
+  implicit val lsuTrafficState: Arbitrary[LSUTrafficState] = {
+    implicit val arbMemberTrafficState: Arbitrary[(Member, TrafficState)] = Arbitrary(
+      for {
+        member <- Arbitrary.arbitrary[Member]
+        trafficState <- Arbitrary.arbitrary[TrafficState]
+      } yield (member, trafficState)
+    )
+    Arbitrary(
+      boundedMapGen.map(
+        LSUTrafficState(_)(LSUTrafficState.protocolVersionRepresentativeFor(protocolVersion))
+      )
+    )
+  }
 
   implicit val versionedStatusArb: Arbitrary[VersionedStatus] = {
     implicit val protoAnyArb: Arbitrary[com.google.protobuf.any.Any] = Arbitrary(

@@ -199,11 +199,6 @@ final class ExecutionMetrics private[metrics] (
 
     val contractState: ContractStateMetrics = new ContractStateMetrics
 
-    def closeAcquiredMetrics(): Unit = {
-      contractState.stateCache.closeAcquired()
-      keyState.stateCache.closeAcquired()
-    }
-
   }
 
   val cache: ExecutionCacheMetrics = new ExecutionCacheMetrics

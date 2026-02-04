@@ -56,6 +56,7 @@ while [[ $# -gt 0 ]]; do
     --signature-algorithm)
       SIGNATURE_ALGORITHM_SPEC="$2"
       case "$SIGNATURE_ALGORITHM_SPEC" in
+        # [start-doc-entry: algo spec]
         ed25519)
           SIGNATURE_ALGORITHM_SPEC="SIGNING_ALGORITHM_SPEC_ED25519"
           SIGNATURE_FORMAT="SIGNATURE_FORMAT_CONCAT"
@@ -68,6 +69,7 @@ while [[ $# -gt 0 ]]; do
           SIGNATURE_ALGORITHM_SPEC="SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384"
           SIGNATURE_FORMAT="SIGNATURE_FORMAT_DER"
           ;;
+        # [end-doc-entry: algo spec]
         *)
           echo "Error: Invalid value for --signature-algorithm. Valid values are: ed25519, ecdsa256, ecdsa384."
           exit 1
@@ -115,5 +117,5 @@ CANTON_SIGNATURES=("$CANTON_SIGNATURE")
 PROPOSAL="false" # Proposal = false means the transaction must be fully authorized with the provided signatures
 SIGNED_TRANSACTION=$(build_signed_transaction "$PROPOSAL" "$PREPARED_TRANSACTION_BASE64" "${CANTON_SIGNATURES[@]}")
 echo "Certificate: $SIGNED_TRANSACTION"
-json_to_serialized_versioned_message "$SIGNED_TRANSACTION" "$BUF_PROTO_IMAGE" "com.digitalasset.canton.protocol.v30.SignedTopologyTransaction" > "$OUTPUT"
-echo "Certificate written to $OUTPUT"
+json_to_serialized_versioned_message "$SIGNED_TRANSACTION" "$BUF_PROTO_IMAGE" "com.digitalasset.canton.protocol.v30.SignedTopologyTransaction" > "$OUTPUT.cert"
+echo "Certificate written to $OUTPUT.cert"

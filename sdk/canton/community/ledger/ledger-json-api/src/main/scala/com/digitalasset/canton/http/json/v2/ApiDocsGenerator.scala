@@ -46,6 +46,7 @@ class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
         JsIdentityProviderService,
         JsInteractiveSubmissionService,
         JsHealthService,
+        JsContractService,
       )
     services.flatMap(service => service.documentation)
   }
@@ -205,6 +206,14 @@ class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
         val required = componentSchema.required.filter { fieldName =>
           message.isFieldRequired(fieldName)
         }
+
+        val requiredFieldsWronglyAssumedOptional = componentSchema.properties.keys.filter {
+          propertyName =>
+            message.isFieldRequired(propertyName) &&
+            !componentSchema.required.contains(propertyName)
+        }
+        val allRequired = (required ++ requiredFieldsWronglyAssumedOptional).toList.distinct
+
         val properties = componentSchema.properties.map { case (propertyName, propertySchema) =>
           message
             .getFieldComment(propertyName)
@@ -227,7 +236,7 @@ class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
           componentSchema.copy(
             description = message.getComments(),
             properties = properties,
-            required = required,
+            required = allRequired,
           ),
         )
       }

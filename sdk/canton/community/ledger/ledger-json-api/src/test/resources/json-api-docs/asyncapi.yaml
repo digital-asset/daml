@@ -135,6 +135,8 @@ components:
     CompletionStreamRequest:
       title: CompletionStreamRequest
       type: object
+      required:
+      - parties
       properties:
         userId:
           description: |-
@@ -214,6 +216,7 @@ components:
       required:
       - commandId
       - offset
+      - synchronizerTime
       properties:
         commandId:
           description: |-
@@ -428,6 +431,7 @@ components:
       type: object
       required:
       - synchronizerId
+      - recordTime
       properties:
         synchronizerId:
           description: |-
@@ -618,6 +622,8 @@ components:
       title: InterfaceFilter
       description: This filter matches contracts that implement a specific interface.
       type: object
+      required:
+      - interfaceId
       properties:
         interfaceId:
           description: |-
@@ -653,6 +659,8 @@ components:
       title: TemplateFilter
       description: This filter matches contracts of a specific template.
       type: object
+      required:
+      - templateId
       properties:
         templateId:
           description: |-
@@ -815,6 +823,10 @@ components:
       - packageName
       - representativePackageId
       - acsDelta
+      - createArgument
+      - witnessParties
+      - signatories
+      - observers
       properties:
         offset:
           description: |-
@@ -851,7 +863,11 @@ components:
             The key of the created contract.
             This will be set if and only if ``template_id`` defines a contract key.
             Optional
-        createArgument: {}
+        createArgument:
+          description: |-
+            The arguments that have been used to create the contract.
+
+            Required
         createdEventBlob:
           description: |-
             Opaque representation of contract create event payload intended for forwarding
@@ -1080,6 +1096,8 @@ components:
       - packageName
       - offset
       - nodeId
+      - templateId
+      - witnessParties
       properties:
         reassignmentId:
           description: |-
@@ -1240,6 +1258,7 @@ components:
       type: object
       required:
       - transactionShape
+      - eventFormat
       properties:
         eventFormat:
           $ref: '#/components/schemas/EventFormat'
@@ -1342,6 +1361,7 @@ components:
       - offset
       - recordTime
       - synchronizerId
+      - events
       properties:
         updateId:
           description: |-
@@ -1458,6 +1478,8 @@ components:
       - updateId
       - offset
       - synchronizerId
+      - recordTime
+      - events
       properties:
         updateId:
           description: |-
@@ -1633,6 +1655,7 @@ components:
       - offset
       - synchronizerId
       - recordTime
+      - events
       properties:
         updateId:
           description: |-
@@ -1748,6 +1771,7 @@ components:
       - contractId
       - templateId
       - packageName
+      - witnessParties
       properties:
         offset:
           description: |-
@@ -1827,6 +1851,8 @@ components:
       - exerciseResult
       - packageName
       - acsDelta
+      - actingParties
+      - witnessParties
       properties:
         offset:
           description: |-
@@ -2017,6 +2043,7 @@ components:
       type: object
       required:
       - updateId
+      - effectiveAt
       - offset
       - eventsById
       - synchronizerId

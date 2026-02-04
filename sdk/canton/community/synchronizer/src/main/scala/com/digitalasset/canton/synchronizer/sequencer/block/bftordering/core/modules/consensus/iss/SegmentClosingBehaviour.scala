@@ -57,11 +57,23 @@ final class SegmentClosingBehaviour[E <: Env[E]](
         haveReceivedStartModuleClosingBehaviourMessage = true
         stopIfWeShould()
 
+      case _: ConsensusSegment.ConsensusMessage.PbftTimeout =>
+        ignoreMessage(message)
+      case ConsensusSegment.Internal.BlockInactivityTimeout =>
+        ignoreMessage(message)
+
       case _ =>
         logger.error(
           s"Segment module $firstBlockNumber $actionName epoch $epochNumber but got unexpected message: $message"
         )
     }
+
+  private def ignoreMessage(
+      message: ConsensusSegment.Message
+  )(implicit traceContext: TraceContext): Unit =
+    logger.debug(
+      s"Segment module $firstBlockNumber $actionName epoch $epochNumber is closing, received $message (ignore)"
+    )
 
   private def stopIfWeShould()(implicit
       context: E#ActorContextT[ConsensusSegment.Message],

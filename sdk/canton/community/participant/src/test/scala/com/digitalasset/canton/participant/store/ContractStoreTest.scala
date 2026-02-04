@@ -275,8 +275,8 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
 
       for {
         internalIdsMapFromStored <- store.storeContracts(contracts)
-        internalIdsMap <- store.lookupBatchedNonCachedInternalIds(contractIds)
-        persistedMap <- store.lookupBatchedNonCached(internalIdsMap.values)
+        internalIdsMap <- store.lookupBatchedInternalIdsNonReadThrough(contractIds)
+        persistedMap <- store.lookupBatchedNonReadThrough(internalIdsMap.values)
       } yield {
         internalIdsMap should contain theSameElementsAs internalIdsMapFromStored
         internalIdsMap.keys should contain theSameElementsAs contractIds
@@ -301,7 +301,7 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
       for {
         internalIdsStored <- store.storeContracts(contracts)
         internalIdsExisting <- store.storeContracts(contracts)
-        internalIdsLookup <- store.lookupBatchedNonCachedInternalIds(contractIds)
+        internalIdsLookup <- store.lookupBatchedInternalIdsNonReadThrough(contractIds)
       } yield {
         internalIdsExisting should contain theSameElementsAs internalIdsStored
         internalIdsLookup should contain theSameElementsAs internalIdsStored

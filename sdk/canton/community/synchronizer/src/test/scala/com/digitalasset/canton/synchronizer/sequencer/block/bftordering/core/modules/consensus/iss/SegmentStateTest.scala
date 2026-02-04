@@ -474,7 +474,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         ),
         // as a result of processing the new-view that contains a commit certificate for block1,
         // block one gets completed as see in the presence of the result below and the absence of prepares for it
-        CompletedBlock(CommitCertificate(pp1, commits), view2),
+        CompletedBlock(CommitCertificate(pp1, commits)),
         SignPbftMessage(
           createPrepare(slotNumbers(1), view2, myId, bottomPP1.message.hash).message
         ),
@@ -1613,7 +1613,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       )
 
       results should contain theSameElementsInOrderAs List(
-        CompletedBlock(CommitCertificate(pp1, commits), view1)
+        CompletedBlock(CommitCertificate(pp1, commits))
       )
 
       // should also take the commit cert during a view change
@@ -1635,7 +1635,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       )
 
       results2 should contain theSameElementsInOrderAs List(
-        CompletedBlock(CommitCertificate(pp2, commits2), view1)
+        CompletedBlock(CommitCertificate(pp2, commits2))
       )
     }
   }

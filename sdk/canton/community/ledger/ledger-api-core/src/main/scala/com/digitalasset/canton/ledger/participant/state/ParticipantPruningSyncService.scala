@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.daml.lf.data.Ref
 
-import java.util.concurrent.CompletionStage
+import scala.concurrent.Future
 
 /** An interface to prune participant ledger updates to manage participant ledger space and enable
   * GDPR-style right-to-be-forgotten support.
@@ -51,6 +51,6 @@ trait ParticipantPruningSyncService {
   def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
-  ): CompletionStage[PruningResult]
+  ): Future[PruningResult]
 
 }

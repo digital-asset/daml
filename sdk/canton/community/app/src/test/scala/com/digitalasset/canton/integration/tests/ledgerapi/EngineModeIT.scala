@@ -26,14 +26,12 @@ import com.digitalasset.canton.ledger.client.configuration.{
   LedgerClientConfiguration,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.testing.utils.TestModels
-import com.digitalasset.canton.util.JarResourceUtils
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.google.protobuf
 import monocle.macros.syntax.lens.*
 
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 import java.util.UUID
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
@@ -102,6 +100,7 @@ abstract class BaseEngineModeIT(supportDevLanguageVersions: Boolean)
           partyDetails <- client.partyManagementClient.allocateParty(Some(party))
           // Uploading the package is not enough.
           // We have to submit a request that forces the engine to load the package.
+          _ = println(s"diff head: ${(pkgsAfter diff pkgsBefore).head}")
           request = buildRequest(
             (pkgsAfter diff pkgsBefore).head.packageId,
             partyDetails.party,
@@ -121,13 +120,11 @@ abstract class BaseEngineModeIT(supportDevLanguageVersions: Boolean)
     def load(langVersion: LanguageVersion, serverPort: Port)(implicit
         ec: ExecutionContext,
         esf: ExecutionSequencerFactory,
-    ) =
-      run(
-        JarResourceUtils
-          .resourceFile(TestModels.daml_lf_encoder_test_dar(langVersion.pretty))
-          .toPath,
-        serverPort,
-      )
+    ) = {
+      val darPath =
+        Paths.get(getClass.getClassLoader.getResource(s"test-${langVersion.pretty}.dar").toURI)
+      run(darPath, serverPort)
+    }
 
     def accept(langVersion: LanguageVersion, version: String, mode: String) = {
       val protocolVersion =

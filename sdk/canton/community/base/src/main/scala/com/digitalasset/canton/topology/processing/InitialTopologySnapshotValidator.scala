@@ -147,9 +147,10 @@ class InitialTopologySnapshotValidator(
                 .zipWithIndex
                 .dropWhile { case ((fromInitial, fromStore), _) =>
                   // we don't do a complete == comparison, because the snapshot might contain transactions with superfluous
-                  // signatures that are now filtered out. As long as the hash, validFrom, validUntil, isProposal and rejection reason
+                  // signatures that are now filtered out. As long as the hash, validFrom, validUntil, isProposal and rejection status
+                  // (i.e. just checking whether both transactions are rejected or not without looking at the concrete reasons)
                   // agree between initial and stored topology transaction, we accept the result.
-                  StoredTopologyTransaction.equalIgnoringSignatures(fromInitial, fromStore)
+                  equalIgnoringSignaturesAndRejectionReasonDetails(fromInitial, fromStore)
                 }
                 runWith (Sink.headOption)
             )
@@ -169,6 +170,31 @@ class InitialTopologySnapshotValidator(
         )
       }
     }
+  }
+
+  /** @return
+    *   `true` if both transactions are the same without comparing the signatures and without
+    *   comparing the content of the rejection reason. `false` otherwise.
+    */
+  private def equalIgnoringSignaturesAndRejectionReasonDetails(
+      a: GenericStoredTopologyTransaction,
+      b: GenericStoredTopologyTransaction,
+  ): Boolean = a match {
+    case StoredTopologyTransaction(
+          b.sequenced,
+          b.validFrom,
+          b.validUntil,
+          SignedTopologyTransaction(
+            b.transaction.transaction,
+            _ignoreSignatures,
+            b.transaction.isProposal,
+          ),
+          _ignoreRejectionReason,
+        ) =>
+      // two transactions are considered equal, if all of the fields above are the same,
+      // and if both transactions have been rejected (for whatever reason) or neither has been rejected.
+      a.rejectionReason.isEmpty == b.rejectionReason.isEmpty
+    case _ => false
   }
 
   /** Fix the initial snapshot from mainnet

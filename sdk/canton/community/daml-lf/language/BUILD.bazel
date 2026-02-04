@@ -31,8 +31,8 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-language:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:nameof",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_nameof_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -47,7 +47,7 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":language",
-        "//canton/community/daml-lf/data",
+        "@maven//:com_daml_daml_lf_data_2_13",
     ],
 )
 

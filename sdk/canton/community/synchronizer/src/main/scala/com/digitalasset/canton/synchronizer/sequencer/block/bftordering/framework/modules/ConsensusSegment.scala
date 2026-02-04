@@ -62,8 +62,7 @@ object ConsensusSegment {
   sealed trait Internal extends Message
   object Internal {
     final case class OrderedBlockStored(
-        commitCertificate: CommitCertificate,
-        viewNumber: ViewNumber,
+        commitCertificate: CommitCertificate
     ) extends Message {
       private val prePrepare = commitCertificate.prePrepare
       val orderedBlock: OrderedBlock =

@@ -80,21 +80,21 @@ class OriginalLeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBase
 
       "some blocks are already completed and no blocks are in progress" in {
         val completedBlocks =
-          Seq(BlockNumber.First, BlockNumber(2L)).map(n =>
+          Seq(BlockNumber.First, BlockNumber(2L)).map(blockNumber =>
             Block(
               EpochNumber.First,
-              BlockNumber(n),
+              BlockNumber(blockNumber),
               CommitCertificate(
                 PrePrepare
                   .create(
-                    BlockMetadata(EpochNumber.First, n),
+                    BlockMetadata(EpochNumber.First, blockNumber),
                     ViewNumber.First,
                     OrderingBlock.empty,
                     CanonicalCommitSet(Set.empty),
                     myId,
                   )
                   .fakeSign,
-                commits,
+                commits(blockNumber),
               ),
             )
           )
@@ -124,30 +124,31 @@ class OriginalLeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBase
         leaderSegmentState.canReceiveProposals shouldBe true
         leaderSegmentState.nextBlockToPropose shouldBe 4L
 
-        // Self has one slot left to assign (block=6); assign and verify
-        val orderedBlock = leaderSegmentState.assignToSlot(OrderingBlock.empty, commits.take(1))
+        // Self has one slot left to assign (block=4L); assign and verify
+        val orderedBlock =
+          leaderSegmentState.assignToSlot(OrderingBlock.empty, commits(BlockNumber(2L)).take(1))
         orderedBlock.metadata.blockNumber shouldBe 4L
-        orderedBlock.canonicalCommitSet.sortedCommits shouldBe commits
+        orderedBlock.canonicalCommitSet.sortedCommits shouldBe commits(BlockNumber(2L))
         leaderSegmentState.canReceiveProposals shouldBe false
       }
 
       "some blocks are already completed and a block is in progress" in {
         val completedBlocks =
-          Seq(BlockNumber.First, BlockNumber(2L)).map(n =>
+          Seq(BlockNumber.First, BlockNumber(2L)).map(blockNumber =>
             Block(
               EpochNumber.First,
-              BlockNumber(n),
+              BlockNumber(blockNumber),
               CommitCertificate(
                 PrePrepare
                   .create(
-                    BlockMetadata(EpochNumber.First, n),
+                    BlockMetadata(EpochNumber.First, blockNumber),
                     ViewNumber.First,
                     OrderingBlock.empty,
                     CanonicalCommitSet(Set.empty),
                     myId,
                   )
                   .fakeSign,
-                commits,
+                commits(blockNumber),
               ),
             )
           )
@@ -177,6 +178,57 @@ class OriginalLeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBase
         segmentState.isSegmentComplete shouldBe false
         leaderSegmentState.canReceiveProposals shouldBe false // Because the current block is not complete
         leaderSegmentState.nextBlockToPropose shouldBe 6L
+      }
+
+      "some blocks completed via CommitCertificate with view > 0" in {
+        val completedBlocks =
+          Seq(BlockNumber.First, BlockNumber(2L)).map(blockNumber =>
+            Block(
+              EpochNumber.First,
+              BlockNumber(blockNumber),
+              CommitCertificate(
+                PrePrepare
+                  .create(
+                    BlockMetadata(EpochNumber.First, blockNumber),
+                    viewNumber =
+                      if (blockNumber == BlockNumber.First) ViewNumber.First
+                      else ViewNumber(ViewNumber.First + 1),
+                    OrderingBlock.empty,
+                    CanonicalCommitSet(Set.empty),
+                    otherIds.head,
+                  )
+                  .fakeSign,
+                commits(blockNumber),
+              ),
+            )
+          )
+        val segmentState =
+          new SegmentState(
+            segment = Segment(
+              myId,
+              NonEmpty.apply(Seq, 0L, 2L, 4L).map(BlockNumber(_)),
+            ),
+            epoch,
+            clock,
+            completedBlocks = completedBlocks,
+            abort = fail(_),
+            metrics,
+            loggerFactory,
+          )
+        val leaderSegmentState =
+          new OriginalLeaderSegmentState(
+            segmentState,
+            epoch,
+            completedBlocks,
+            initialCurrentViewPrePrepareBlockNumbers = Seq.empty,
+            loggerFactory,
+          )
+
+        segmentState.isSegmentComplete shouldBe false
+        leaderSegmentState.nextBlockToPropose shouldBe 4L
+        // at least one completed block in view > 0 indicates that there was a view change,
+        // and thus no more proposals should be created for the local segment in this epoch.
+        leaderSegmentState.canReceiveProposals shouldBe false
       }
     }
 
@@ -318,11 +370,13 @@ object OriginalLeaderSegmentStateTest {
       previousMembership = currentMembership, // not relevant
     )
 
-  private def commits(implicit synchronizerProtocolVersion: ProtocolVersion) = (otherIds + myId)
+  private def commits(
+      blockNumber: BlockNumber
+  )(implicit synchronizerProtocolVersion: ProtocolVersion) = (otherIds + myId)
     .map { node =>
       Commit
         .create(
-          BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
+          BlockMetadata.mk(EpochNumber.First, blockNumber),
           ViewNumber.First,
           Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
           CantonTimestamp.Epoch,

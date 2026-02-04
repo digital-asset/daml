@@ -71,7 +71,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import org.slf4j.event.Level.DEBUG
 
-import java.util.concurrent.CompletionStage
 import scala.concurrent.Future
 
 // TODO(#17635) Very thin layer. Revisit utility of testing
@@ -224,7 +223,7 @@ object ApiPackageManagementServiceSpec {
         processedDisclosedContracts: ImmArray[LfFatContractInst],
     )(implicit
         traceContext: TraceContext
-    ): CompletionStage[SubmissionResult] =
+    ): Future[SubmissionResult] =
       throw new UnsupportedOperationException()
 
     override def submitReassignment(
@@ -234,7 +233,7 @@ object ApiPackageManagementServiceSpec {
         submissionId: Option[SubmissionId],
         workflowId: Option[WorkflowId],
         reassignmentCommands: Seq[ReassignmentCommand],
-    )(implicit traceContext: TraceContext): CompletionStage[SubmissionResult] =
+    )(implicit traceContext: TraceContext): Future[SubmissionResult] =
       throw new UnsupportedOperationException()
 
     override def allocateParty(
@@ -248,7 +247,7 @@ object ApiPackageManagementServiceSpec {
     override def prune(
         pruneUpToInclusive: Offset,
         submissionId: SubmissionId,
-    ): CompletionStage[PruningResult] =
+    ): Future[PruningResult] =
       throw new UnsupportedOperationException()
 
     override def computePartyVettingMap(

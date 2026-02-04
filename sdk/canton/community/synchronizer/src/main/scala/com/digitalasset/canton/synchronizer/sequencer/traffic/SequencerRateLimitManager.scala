@@ -15,8 +15,11 @@ import com.digitalasset.canton.sequencing.protocol.{SubmissionRequest, TrafficSt
 import com.digitalasset.canton.sequencing.traffic.EventCostCalculator.EventCostDetails
 import com.digitalasset.canton.sequencing.traffic.TrafficConsumedManager.NotEnoughTraffic
 import com.digitalasset.canton.sequencing.traffic.{TrafficPurchased, TrafficReceipt}
-import com.digitalasset.canton.synchronizer.sequencing.traffic.SequencerTrafficControlSubscriber
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficConsumedStore
+import com.digitalasset.canton.synchronizer.sequencing.traffic.{
+  SequencerTrafficControlSubscriber,
+  TrafficPurchasedManager,
+}
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -27,6 +30,8 @@ import scala.concurrent.ExecutionContext
 trait SequencerRateLimitManager extends AutoCloseable {
 
   def trafficConsumedStore: TrafficConsumedStore
+
+  private[synchronizer] def trafficPurchasedManager: TrafficPurchasedManager
 
   /** Create a traffic state for a new member at the given timestamp. Its base traffic remainder
     * will be equal to the max burst window configured at that point in time.

@@ -3,21 +3,14 @@
 
 package com.digitalasset.canton.metrics
 
-import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory}
 import com.daml.metrics.api.MetricQualification.Debug
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricsContext}
-
-import java.util.concurrent.atomic.AtomicReference
 
 final class CacheMetrics(cacheName: String, factory: LabeledMetricsFactory) {
 
   private val prefix = MetricName.Daml :+ "cache"
   private implicit val mc: MetricsContext = MetricsContext("cache" -> cacheName)
-  private val acquired = new AtomicReference[Seq[CloseableGauge]](Seq.empty)
-
-  def closeAcquired(): Unit =
-    acquired.getAndSet(Seq.empty).foreach(_.close())
 
   val hitCount: Counter = factory.counter(
     MetricInfo(
@@ -57,21 +50,18 @@ final class CacheMetrics(cacheName: String, factory: LabeledMetricsFactory) {
     )
   )
 
-  def registerSizeGauge(sizeSupplier: () => Long): Unit = {
-    // TODO(#25118) here we used to acquire a gauge and then just discard it
-    //    this caused ugly error messages in the logs
-    //    a proper fix will let the classes that really acquired the gauge clean up after it
-    val m = factory
+  def registerSizeGauge(sizeSupplier: () => Long)(implicit metricsContext: MetricsContext): Unit = {
+    val _ = factory
       .gaugeWithSupplier(
         MetricInfo(prefix :+ "size", summary = "The size of the cache", qualification = Debug),
         sizeSupplier,
-      )
-    val _ = acquired.updateAndGet(m +: _)
+      )(mc.merge(metricsContext))
   }
 
-  def registerWeightGauge(weightSupplier: () => Long): Unit = {
-    // TODO(#25118) same as above
-    val m = factory
+  def registerWeightGauge(
+      weightSupplier: () => Long
+  )(implicit metricsContext: MetricsContext): Unit = {
+    val _ = factory
       .gaugeWithSupplier(
         MetricInfo(
           prefix :+ "weight",
@@ -79,7 +69,6 @@ final class CacheMetrics(cacheName: String, factory: LabeledMetricsFactory) {
           qualification = Debug,
         ),
         weightSupplier,
-      )
-    val _ = acquired.updateAndGet(m +: _)
+      )(mc.merge(metricsContext))
   }
 }

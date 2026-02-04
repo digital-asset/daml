@@ -198,7 +198,7 @@ class GrpcLedgerClient(
         Seq(
           CumulativeFilter(
             IdentifierFilter.InterfaceFilter(
-              InterfaceFilter(Some(toApiIdentifier(interfaceId)), true, false)
+              InterfaceFilter(Some(toApiIdentifierUpgrades(interfaceId.toRef, false)), true, false)
             )
           )
         )

@@ -5,6 +5,7 @@ package com.digitalasset.canton.topology.store
 
 import cats.Monoid
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
@@ -32,6 +33,7 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
 }
 import com.digitalasset.canton.topology.store.TopologyStore.{
   EffectiveStateChange,
+  StateKeyFetch,
   TopologyStoreDeactivations,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
@@ -167,8 +169,11 @@ final case class StoredTopologyTransaction[+Op <: TopologyChangeOp, +M <: Topolo
     .selectOp[TargetOp]
     .map(_ => this.asInstanceOf[StoredTopologyTransaction[TargetOp, M]])
 
-  def isActiveAsOf(asOfInclusive: EffectiveTime): Boolean =
-    validFrom.value <= asOfInclusive.value && validUntil.forall(x => x.value > asOfInclusive.value)
+  def isActiveAsOf(asOf: EffectiveTime, asOfInclusive: Boolean): Boolean =
+    if (asOfInclusive)
+      validFrom.value <= asOf.value && validUntil.forall(x => x.value > asOf.value)
+    else
+      validFrom.value < asOf.value && validUntil.forall(x => x.value >= asOf.value)
 
 }
 
@@ -205,30 +210,7 @@ object StoredTopologyTransaction
 
   type GenericStoredTopologyTransaction =
     StoredTopologyTransaction[TopologyChangeOp, TopologyMapping]
-  type PositiveStoredTopologyTransaction =
-    StoredTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]
 
-  /** @return
-    *   `true` if both transactions are the same without comparing the signatures, `false` otherwise
-    */
-  def equalIgnoringSignatures(
-      a: GenericStoredTopologyTransaction,
-      b: GenericStoredTopologyTransaction,
-  ): Boolean = a match {
-    case StoredTopologyTransaction(
-          b.sequenced,
-          b.validFrom,
-          b.validUntil,
-          SignedTopologyTransaction(
-            b.transaction.transaction,
-            _ignoreSignatures,
-            b.transaction.isProposal,
-          ),
-          b.rejectionReason,
-        ) =>
-      true
-    case _ => false
-  }
 }
 
 final case class ValidatedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapping](
@@ -295,15 +277,6 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]]
 
-  /** Returns the closest effective time before exclusive and after inclusive the provided
-    * timestamp.
-    */
-  def findTopologyIntervalForTimestamp(
-      timestamp: CantonTimestamp
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(EffectiveTime, Option[EffectiveTime])]]
-
   /** returns the current dispatching watermark
     *
     * for topology transaction dispatching, we keep track up to which point in time we have mirrored
@@ -363,12 +336,14 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       pagination: Option[(Option[UniqueIdentifier], Int)] = None,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[NegativeStoredTopologyTransactions]
 
-  /** Fetch all items for the given uids in descending order
+  /** Fetch all items for the given state keys in descending order
     *
     * This function is used by the batch loader. As such, we assume that the request is already
-    * batched and therefore that the number of uids / ns loaded is limited
+    * batched and therefore that the number of items is capped
     */
-  def fetchAllDescending(uids: Set[UniqueIdentifier], nss: Set[Namespace])(implicit
+  def fetchAllDescending(
+      items: Seq[StateKeyFetch]
+  )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericStoredTopologyTransactions]
 
@@ -719,6 +694,34 @@ object TopologyStore {
       // of appearance in mappings
       .to(mutable.LinkedHashSet)
     validParties.take(limit).toSet
+  }
+
+  /** Data type to instruct state fetching
+    *
+    * @param identifier
+    *   the identifier if we are fetching by uid, empty for NSD and DND
+    * @param validUntilCutoff
+    *   fetch all state changes which are relevant starting from validUntilCutOff (including) until
+    *   infinity
+    */
+  final case class StateKeyFetch(
+      code: TopologyMapping.Code,
+      namespace: Namespace,
+      identifier: Option[String185],
+      validUntilCutoff: EffectiveTime,
+  ) extends PrettyPrinting {
+    override protected def pretty: Pretty[StateKeyFetch] = StateKeyFetch.pretty
+  }
+  object StateKeyFetch {
+    import com.digitalasset.canton.logging.pretty.PrettyUtil.*
+    import com.digitalasset.canton.util.ShowUtil.*
+
+    val pretty: Pretty[StateKeyFetch] = prettyOfClass[StateKeyFetch](
+      param("code", _.code.code.unquoted),
+      param("namespace", _.namespace),
+      paramIfDefined("identifier", _.identifier.map(_.str.unquoted)),
+      param("cutoff", _.validUntilCutoff.value),
+    )
   }
 
 }

@@ -69,7 +69,7 @@ sealed trait OfflinePartyReplicationSharedContractIntegrationTest
       exportFilePath = file.canonicalPath,
     )
 
-    participant2.parties.import_party_acs(file.canonicalPath)
+    participant2.parties.import_party_acsV2(file.canonicalPath, daId)
     participant2.synchronizers.reconnect_all()
   }
 

@@ -619,7 +619,7 @@ class IssConsensusModuleTest
         }
       }
 
-      "advance epoch and wait for the next epoch's topology" when {
+      "initialize the retransmissions manager, advance epoch and wait for the next epoch's topology" when {
         "the current epoch is complete" in {
           val commits =
             Seq(
@@ -673,12 +673,14 @@ class IssConsensusModuleTest
                     from = myId,
                   )
                   .fakeSign
+              val retransmissionsManager = mock[RetransmissionsManager[ProgrammableUnitTestEnv]]
+              val commitCertificate = CommitCertificate(prePrepare, commits)
               val completedBlocks =
                 Seq(
                   EpochStore.Block(
                     EpochNumber(1),
                     BlockNumber(0),
-                    CommitCertificate(prePrepare, commits),
+                    commitCertificate,
                   )
                 )
               when(epochStore.latestEpoch(includeInProgress = eqTo(false))(any[TraceContext]))
@@ -695,6 +697,7 @@ class IssConsensusModuleTest
                 createIssConsensusModule(
                   epochStore = epochStore,
                   segmentModuleFactoryFunction = _ => fakeModuleExpectingSilence,
+                  maybeRetransmissionsManager = Some(retransmissionsManager),
                   completedBlocks = completedBlocks,
                   resolveAwaits = true,
                 )
@@ -704,6 +707,11 @@ class IssConsensusModuleTest
 
               when(epochStore.completeEpoch(epoch1.info.number)).thenReturn(() => ())
               consensus.receive(Consensus.Start)
+
+              verify(retransmissionsManager, times(1))
+                .startEpoch(consensus.getEpochState, initInProgress = true)
+              verify(retransmissionsManager, times(1))
+                .epochEnded(Seq(commitCertificate), initInProgress = true)
 
               // Regardless if the epoch completion was stored before the consensus module started, it must be now.
               verify(epochStore, times(1)).completeEpoch(epoch1.info.number)

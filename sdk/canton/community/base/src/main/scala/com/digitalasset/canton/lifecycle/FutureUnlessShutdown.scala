@@ -517,12 +517,12 @@ object FutureUnlessShutdownImpl {
   }
 
   implicit class TimerOnShutdownSyntax(private val timed: Timed.type) extends AnyVal {
-    def future[T](timer: Timer, future: => FutureUnlessShutdown[T]): FutureUnlessShutdown[T] =
+    def futureUS[T](timer: Timer, future: => FutureUnlessShutdown[T]): FutureUnlessShutdown[T] =
       FutureUnlessShutdown(timed.future(timer, future.unwrap))
   }
 
   implicit class TrackOnShutdownSyntax(private val tracked: Tracked.type) extends AnyVal {
-    def future[T](track: Counter, future: => FutureUnlessShutdown[T]): FutureUnlessShutdown[T] =
+    def futureUS[T](track: Counter, future: => FutureUnlessShutdown[T]): FutureUnlessShutdown[T] =
       FutureUnlessShutdown(tracked.future(track, future.unwrap))
   }
 
@@ -534,6 +534,6 @@ object FutureUnlessShutdownImpl {
         track: Counter,
         future: => FutureUnlessShutdown[T],
     ): FutureUnlessShutdown[T] =
-      timed.future(timer, Tracked.future(track, future))
+      FutureUnlessShutdown(timed.future(timer, Tracked.future(track, future.unwrap)))
   }
 }
