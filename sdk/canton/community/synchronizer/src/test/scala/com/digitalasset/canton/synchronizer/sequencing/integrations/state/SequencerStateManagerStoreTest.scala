@@ -5,10 +5,12 @@ package com.digitalasset.canton.synchronizer.sequencing.integrations.state
 
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.PositiveFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.sequencer.InFlightAggregation
 import com.digitalasset.canton.synchronizer.sequencer.InFlightAggregation.AggregationBySender
@@ -20,11 +22,11 @@ import com.google.protobuf.ByteString
 import monocle.macros.syntax.lens.*
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
-import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.{Assertion, BeforeAndAfterAll}
 
-import scala.concurrent.Await
 import scala.concurrent.duration.*
+import scala.concurrent.{Await, Future}
 
 trait SequencerStateManagerStoreTest
     extends AsyncWordSpec
@@ -50,16 +52,43 @@ trait SequencerStateManagerStoreTest
       Await.result(actorSystem.terminate(), 10.seconds)
     }
 
+  def ts(epochSeconds: Int): CantonTimestamp =
+    CantonTimestamp.Epoch.plusSeconds(epochSeconds.toLong)
+
+  def conditionallySuppressLogWarnings(
+      maxSequencingTimeUpperBound: CantonTimestamp = CantonTimestamp.MaxValue,
+      inFlightAggregationsQueryInterval: Option[PositiveFiniteDuration] = None,
+  )(testCode: => Future[Assertion]): Future[Assertion] =
+    if (
+      inFlightAggregationsQueryInterval.isDefined && maxSequencingTimeUpperBound == CantonTimestamp.MaxValue
+    ) {
+      loggerFactory.assertLoggedWarningsAndErrorsSeq(
+        testCode,
+        LogEntry.assertLogSeq(
+          Seq(
+            (
+              _.warningMessage should include(
+                "Disabling aggregator time interval batching as an excessive number of aggregator batches would otherwise be generated"
+              ),
+              "warning that in-flight aggregation queries are not being batched",
+            )
+          )
+        ),
+      )
+    } else {
+      testCode
+    }
+
   def sequencerStateManagerStore(
+      maxSequencingTimeUpperBound: CantonTimestamp = CantonTimestamp.MaxValue,
+      inFlightAggregationsQueryInterval: Option[PositiveFiniteDuration] = None,
+  )(
       mk: () => (SequencerStateManagerStore, SequencerStore)
   ): Unit = {
     val alice = ParticipantId(UniqueIdentifier.tryCreate("participant", "alice"))
     val bob = ParticipantId(UniqueIdentifier.tryCreate("participant", "bob"))
     val carlos = ParticipantId(UniqueIdentifier.tryCreate("participant", "carlos"))
     val allMembers = Seq(alice, bob, carlos)
-
-    def ts(epochSeconds: Int): CantonTimestamp =
-      CantonTimestamp.Epoch.plusSeconds(epochSeconds.toLong)
 
     val t1 = ts(1)
     val t2 = ts(2)
@@ -69,18 +98,24 @@ trait SequencerStateManagerStoreTest
     "read at timestamp" should {
       "hydrate a correct empty state when there have been no updates" in {
         val (store, sequencerStore) = mk()
-        (for {
-          _ <- allMembers.parTraverse(member =>
-            sequencerStore.registerMember(member, CantonTimestamp.now())
-          )
-          lowerBoundAndInFlightAggregations <- store.readInFlightAggregations(
-            CantonTimestamp.Epoch,
-            maxSequencingTimeUpperBound = CantonTimestamp.MaxValue,
-          )
-        } yield {
-          val inFlightAggregations = lowerBoundAndInFlightAggregations
-          inFlightAggregations shouldBe Map.empty
-        }).failOnShutdown
+
+        conditionallySuppressLogWarnings(
+          maxSequencingTimeUpperBound,
+          inFlightAggregationsQueryInterval,
+        ) {
+          (for {
+            _ <- allMembers.parTraverse(member =>
+              sequencerStore.registerMember(member, CantonTimestamp.now())
+            )
+            lowerBoundAndInFlightAggregations <- store.readInFlightAggregations(
+              CantonTimestamp.Epoch,
+              maxSequencingTimeUpperBound = maxSequencingTimeUpperBound,
+            )
+          } yield {
+            val inFlightAggregations = lowerBoundAndInFlightAggregations
+            inFlightAggregations shouldBe Map.empty
+          }).failOnShutdown
+        }
       }
 
       "reconstruct the aggregation state" in withNewTraceContext("test") { implicit traceContext =>
@@ -133,57 +168,62 @@ trait SequencerStateManagerStoreTest
           ),
         )
 
-        (for {
-          _ <- allMembers.parTraverse(member =>
-            sequencerStore.registerMember(member, CantonTimestamp.now())
-          )
-          _ <- store.addInFlightAggregationUpdates(
-            Map(
-              aggregationId1 -> inFlightAggregation1.asUpdate,
-              aggregationId2 -> inFlightAggregation2.asUpdate,
-              aggregationId3 -> inFlightAggregation3.asUpdate,
+        conditionallySuppressLogWarnings(
+          maxSequencingTimeUpperBound,
+          inFlightAggregationsQueryInterval,
+        ) {
+          (for {
+            _ <- allMembers.parTraverse(member =>
+              sequencerStore.registerMember(member, CantonTimestamp.now())
             )
-          )
-          head2pred <- store.readInFlightAggregations(
-            t2.immediatePredecessor,
-            maxSequencingTimeUpperBound = CantonTimestamp.MaxValue,
-          )
-          head2 <- store.readInFlightAggregations(
-            t2,
-            maxSequencingTimeUpperBound = CantonTimestamp.MaxValue,
-          )
-          head3 <- store.readInFlightAggregations(
-            t3,
-            maxSequencingTimeUpperBound = CantonTimestamp.MaxValue,
-          )
-          head4pred <- store.readInFlightAggregations(
-            t4.immediatePredecessor,
-            maxSequencingTimeUpperBound = CantonTimestamp.MaxValue,
-          )
-          head4 <- store.readInFlightAggregations(
-            t4,
-            maxSequencingTimeUpperBound = CantonTimestamp.MaxValue,
-          )
-        } yield {
-          // All aggregations by sender have later timestamps and the in-flight aggregations are therefore considered inexistent
-          head2pred shouldBe Map.empty
-          head2 shouldBe Map(
-            aggregationId1 -> inFlightAggregation1
-              .focus(_.aggregatedSenders)
-              // bob's aggregation happened later
-              .modify(_.removed(bob))
-          )
-          head3 shouldBe Map(
-            aggregationId1 -> inFlightAggregation1
-          )
-          head4pred shouldBe Map(
-            aggregationId1 -> inFlightAggregation1,
-            // aggregationId2 has already expired
-            aggregationId3 -> inFlightAggregation3,
-          )
-          // All in-flight aggregations have expired
-          head4 shouldBe Map.empty
-        }).failOnShutdown
+            _ <- store.addInFlightAggregationUpdates(
+              Map(
+                aggregationId1 -> inFlightAggregation1.asUpdate,
+                aggregationId2 -> inFlightAggregation2.asUpdate,
+                aggregationId3 -> inFlightAggregation3.asUpdate,
+              )
+            )
+            head2pred <- store.readInFlightAggregations(
+              t2.immediatePredecessor,
+              maxSequencingTimeUpperBound = maxSequencingTimeUpperBound,
+            )
+            head2 <- store.readInFlightAggregations(
+              t2,
+              maxSequencingTimeUpperBound = maxSequencingTimeUpperBound,
+            )
+            head3 <- store.readInFlightAggregations(
+              t3,
+              maxSequencingTimeUpperBound = maxSequencingTimeUpperBound,
+            )
+            head4pred <- store.readInFlightAggregations(
+              t4.immediatePredecessor,
+              maxSequencingTimeUpperBound = maxSequencingTimeUpperBound,
+            )
+            head4 <- store.readInFlightAggregations(
+              t4,
+              maxSequencingTimeUpperBound = maxSequencingTimeUpperBound,
+            )
+          } yield {
+            // All aggregations by sender have later timestamps and the in-flight aggregations are therefore considered inexistent
+            head2pred shouldBe Map.empty
+            head2 shouldBe Map(
+              aggregationId1 -> inFlightAggregation1
+                .focus(_.aggregatedSenders)
+                // bob's aggregation happened later
+                .modify(_.removed(bob))
+            )
+            head3 shouldBe Map(
+              aggregationId1 -> inFlightAggregation1
+            )
+            head4pred shouldBe Map(
+              aggregationId1 -> inFlightAggregation1,
+              // aggregationId2 has already expired
+              aggregationId3 -> inFlightAggregation3,
+            )
+            // All in-flight aggregations have expired
+            head4 shouldBe Map.empty
+          }).failOnShutdown
+        }
       }
     }
 
@@ -230,59 +270,64 @@ trait SequencerStateManagerStoreTest
           aggregatedSenders = alice -> AggregationBySender(t2, Seq.fill(3)(Seq.empty)),
         )
 
-        (for {
-          _ <- allMembers.parTraverse(member =>
-            sequencerStore.registerMember(member, CantonTimestamp.now())
-          )
-          _ <- store.addInFlightAggregationUpdates(
-            Map(
-              aggregationId1 -> inFlightAggregation1.asUpdate,
-              aggregationId2 -> inFlightAggregation2.asUpdate,
+        conditionallySuppressLogWarnings(
+          maxSequencingTimeUpperBound,
+          inFlightAggregationsQueryInterval,
+        ) {
+          (for {
+            _ <- allMembers.parTraverse(member =>
+              sequencerStore.registerMember(member, CantonTimestamp.now())
             )
-          )
-          _ <- store.pruneExpiredInFlightAggregations(t2)
-          head2 <- store.readInFlightAggregations(
-            t2,
-            maxSequencingTimeUpperBound = CantonTimestamp.MaxValue,
-          )
-          head2WithBound1 <- store.readInFlightAggregations(
-            t2,
-            maxSequencingTimeUpperBound = t3,
-          )
-          head2WithBound2 <- store.readInFlightAggregations(
-            t2,
-            maxSequencingTimeUpperBound = t3.immediateSuccessor,
-          )
-          _ <- store.pruneExpiredInFlightAggregations(t3)
-          head3 <- store.readInFlightAggregations(
-            t3,
-            maxSequencingTimeUpperBound = CantonTimestamp.MaxValue,
-          )
-          // We're using here the ability to read actually inconsistent data (for crash recovery)
-          // for an already expired block to check that the expiry actually deletes the data.
-          head2expired <- store.readInFlightAggregations(
-            t2,
-            maxSequencingTimeUpperBound = CantonTimestamp.MaxValue,
-          )
-        } yield {
-          head2 shouldBe Map(
-            aggregationId1 -> inFlightAggregation1,
-            aggregationId2 -> inFlightAggregation2,
-          )
-          head2WithBound1 shouldBe Map(
-            aggregationId1 -> inFlightAggregation1
-          )
-          head2WithBound2 shouldBe Map(
-            aggregationId1 -> inFlightAggregation1,
-            aggregationId2 -> inFlightAggregation2,
-          )
-          head3 shouldBe Map(
-            aggregationId2 -> inFlightAggregation2
-          )
-          head2expired shouldBe Map(
-            aggregationId2 -> inFlightAggregation2
-          )
-        }).failOnShutdown
+            _ <- store.addInFlightAggregationUpdates(
+              Map(
+                aggregationId1 -> inFlightAggregation1.asUpdate,
+                aggregationId2 -> inFlightAggregation2.asUpdate,
+              )
+            )
+            _ <- store.pruneExpiredInFlightAggregations(t2)
+            head2 <- store.readInFlightAggregations(
+              t2,
+              maxSequencingTimeUpperBound = maxSequencingTimeUpperBound,
+            )
+            head2WithBound1 <- store.readInFlightAggregations(
+              t2,
+              maxSequencingTimeUpperBound = t3,
+            )
+            head2WithBound2 <- store.readInFlightAggregations(
+              t2,
+              maxSequencingTimeUpperBound = t3.immediateSuccessor,
+            )
+            _ <- store.pruneExpiredInFlightAggregations(t3)
+            head3 <- store.readInFlightAggregations(
+              t3,
+              maxSequencingTimeUpperBound = maxSequencingTimeUpperBound,
+            )
+            // We're using here the ability to read actually inconsistent data (for crash recovery)
+            // for an already expired block to check that the expiry actually deletes the data.
+            head2expired <- store.readInFlightAggregations(
+              t2,
+              maxSequencingTimeUpperBound = maxSequencingTimeUpperBound,
+            )
+          } yield {
+            head2 shouldBe Map(
+              aggregationId1 -> inFlightAggregation1,
+              aggregationId2 -> inFlightAggregation2,
+            )
+            head2WithBound1 shouldBe Map(
+              aggregationId1 -> inFlightAggregation1
+            )
+            head2WithBound2 shouldBe Map(
+              aggregationId1 -> inFlightAggregation1,
+              aggregationId2 -> inFlightAggregation2,
+            )
+            head3 shouldBe Map(
+              aggregationId2 -> inFlightAggregation2
+            )
+            head2expired shouldBe Map(
+              aggregationId2 -> inFlightAggregation2
+            )
+          }).failOnShutdown
+        }
       }
     }
   }

@@ -119,10 +119,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
         topologyDispatcher.trustSynchronizer(psid)
       )
 
-      synchronizerLoggerFactory = loggerFactory.append(
-        "psid",
-        psid.toString,
-      )
+      synchronizerLoggerFactory = loggerFactory.append("psid", psid.toString)
 
       topologyFactory <- syncPersistentStateManager
         .topologyFactoryFor(psid)

@@ -24,10 +24,8 @@ import com.digitalasset.canton.participant.store.{
   SyncPersistentState,
   SynchronizerConnectionConfigStore,
 }
-import com.digitalasset.canton.participant.sync.AutomaticLogicalSynchronizerUpgrade.{
-  NegativeResult,
-  UpgradabilityCheckResult,
-}
+import com.digitalasset.canton.participant.sync.AutomaticLogicalSynchronizerUpgrade.UpgradabilityCheckResult
+import com.digitalasset.canton.participant.sync.LogicalSynchronizerUpgrade.NegativeResult
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.resource.DbExceptionRetryPolicy
 import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnections}
@@ -97,6 +95,38 @@ abstract class LogicalSynchronizerUpgrade[Param](
     operationName = "lsu",
   )
 
+  /** Run the operation using the specified retry strategy. The reason we have a more complicated
+    * logic is that we schedule many operations on a `executionQueue` (that is also used for
+    * synchronizer connections) and any failed task switches the queue to `failure` mode which
+    * prevents other operations to be scheduled. Hence, we avoid signalling failed operations as a
+    * failed future.
+    *
+    * Behavior depending on the result of `operation`:
+    *   - Failed future: the failed future bubbles up. Note that if the task is scheduled on the
+    *     `executionQueue`, the queue will be on failure mode.
+    *   - Left: will lead to a retry if the NegativeResult is retryable. If not, the error will be
+    *     returned.
+    *   - Right: result is returned.
+    */
+  protected def runWithRetries[T](operation: => FutureUnlessShutdown[Either[NegativeResult, T]])(
+      implicit traceContext: TraceContext
+  ): FutureUnlessShutdown[Either[String, T]] =
+    retryPolicy
+      .unlessShutdown(
+        operation.map {
+          case Left(NegativeResult(details, isRetryable)) =>
+            if (isRetryable)
+              Left[String, Either[String, T]](details)
+            else
+              Right[String, Either[String, T]](Left(details))
+
+          case Right(success) =>
+            Right[String, Either[String, T]](Right(success))
+        },
+        DbExceptionRetryPolicy,
+      )
+      .map(_.flatten)
+
   /** Performs the upgrade. Fails if the upgrade cannot be performed.
     *
     * Prerequisite:
@@ -114,17 +144,13 @@ abstract class LogicalSynchronizerUpgrade[Param](
   ): EitherT[FutureUnlessShutdown, String, Unit]
 
   /** Run `operation` only if connectivity to `lsid` matches `shouldBeConnected`.
-    * @return
-    *   - Left if the operation should be retried
-    *   - Right if the operation was successful
-    *   - Errors are reported as failed future.
     */
   protected def enqueueOperation[T](
       lsid: SynchronizerId,
       operation: => FutureUnlessShutdown[Either[NegativeResult, T]],
       description: String,
       shouldBeConnected: Boolean,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Either[String, T]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Either[NegativeResult, T]] =
     executionQueue.executeUS(
       {
         val isConnected = connectedSynchronizersLookup.isConnected(lsid)
@@ -132,17 +158,16 @@ abstract class LogicalSynchronizerUpgrade[Param](
 
         if (isConnected == shouldBeConnected) {
           logger.info(s"Scheduling $description")
-          operation.flatMap {
-            case Left(NegativeResult(details, isRetryable)) =>
-              if (isRetryable) FutureUnlessShutdown.pure(details.asLeft)
-              else FutureUnlessShutdown.failed(new RuntimeException(details))
-
-            case Right(result) => FutureUnlessShutdown.pure(result.asRight)
-          }
+          operation
         } else {
           logger.info(s"Not scheduling $description because the node is ${text}connected to $lsid")
           FutureUnlessShutdown.pure(
-            Left(s"Not scheduling $description because the node is ${text}connected to $lsid")
+            Left(
+              NegativeResult(
+                s"Not scheduling $description because the node is ${text}connected to $lsid",
+                isRetryable = true,
+              )
+            )
           )
         }
       },
@@ -151,15 +176,15 @@ abstract class LogicalSynchronizerUpgrade[Param](
 
   /** Runs `f` if the upgrade was not done yet.
     */
-  protected def performIfNotUpgradedYet(
+  protected def performIfNotUpgradedYet[E](
       successorPSId: PhysicalSynchronizerId
   )(
-      f: => EitherT[FutureUnlessShutdown, String, Unit],
+      f: => EitherT[FutureUnlessShutdown, E, Unit],
       operation: String,
   )(implicit
       traceContext: TraceContext,
       logger: LSU.Logger,
-  ): EitherT[FutureUnlessShutdown, String, Unit] =
+  ): EitherT[FutureUnlessShutdown, E, Unit] =
     synchronizerConnectionConfigStore.get(successorPSId) match {
       case Right(
             StoredSynchronizerConnectionConfig(_, SynchronizerConnectionConfigStore.Active, _, _)
@@ -182,17 +207,15 @@ abstract class LogicalSynchronizerUpgrade[Param](
   )(implicit
       traceContext: TraceContext,
       logger: LSU.Logger,
-  ): EitherT[FutureUnlessShutdown, String, Unit] = {
+  ): EitherT[FutureUnlessShutdown, NegativeResult, Unit] = {
     val successorPSId = synchronizerSuccessor.psid
     val lsid = currentPSId.logical
 
     performIfNotUpgradedYet(successorPSId)(
       for {
-        /*
-          We can discard the result because failure of the disconnect call will prevent the operation to be performed,
-          which will lead to a retry.
-         */
-        _disconnect <- disconnectSynchronizer(Traced(alias)).leftMap(_.toString)
+        _disconnect <- disconnectSynchronizer(Traced(alias)).leftMap(err =>
+          NegativeResult(err.toString, isRetryable = true)
+        )
 
         _ <- EitherT(
           enqueueOperation(
@@ -202,21 +225,16 @@ abstract class LogicalSynchronizerUpgrade[Param](
               currentPSId,
               synchronizerSuccessor,
               param,
-            ).value
-              .flatMap {
-                /*
+            ).leftMap { error =>
+              /*
                 Because preconditions are checked, a failure of the upgrade is not something that can be automatically
-                recovered from (except DB exceptions). Hence, we transform the left into a failed future which will bubble
-                up and interrupt the upgrade. Manual intervention will be required.
-                 */
-                case Left(error) =>
-                  val err =
-                    s"Unable to upgrade $currentPSId to $successorPSId. Not retrying. Cause: $error"
-                  logger.error(err)
-                  FutureUnlessShutdown.failed(new RuntimeException(err))
-
-                case Right(()) => FutureUnlessShutdown.pure(().asRight[NegativeResult])
-              },
+                recovered from (except DB exceptions).
+               */
+              NegativeResult(
+                s"Unable to upgrade $currentPSId to $successorPSId. Not retrying. Cause: $error",
+                isRetryable = false,
+              )
+            }.value,
             description = s"$kind-lsu-upgrade",
             shouldBeConnected = false,
           )
@@ -328,11 +346,8 @@ class AutomaticLogicalSynchronizerUpgrade(
       for {
         _ <- ensureUpgradeOngoing()
 
-        upgradabilityCheckResult <- EitherT[FutureUnlessShutdown, String, UpgradabilityCheckResult](
-          retryPolicy.unlessShutdown(
-            upgradabilityCheck(alias, currentPSId, synchronizerSuccessor),
-            DbExceptionRetryPolicy,
-          )
+        upgradabilityCheckResult <- EitherT(
+          runWithRetries(upgradabilityCheck(alias, currentPSId, synchronizerSuccessor))
         )
 
         _ <- upgradabilityCheckResult match {
@@ -405,7 +420,8 @@ class AutomaticLogicalSynchronizerUpgrade(
     } yield logger.info("Automatic upgrade was successful")
 
   /** Check whether the upgrade can be done.
-    *   - A left indicates that the upgrade cannot be done (yet) and that it can be retried.
+    *   - A left indicates that the upgrade cannot be done (yet). Retryability is encoded in
+    *     [[NegativeResult]].
     *   - A right indicates that the upgrade can be attempted or was already done.
     */
   private def upgradabilityCheck(
@@ -415,7 +431,7 @@ class AutomaticLogicalSynchronizerUpgrade(
   )(implicit
       traceContext: TraceContext,
       logger: LSU.Logger,
-  ): FutureUnlessShutdown[Either[String, UpgradabilityCheckResult]] = {
+  ): FutureUnlessShutdown[Either[NegativeResult, UpgradabilityCheckResult]] = {
     val successorPSId = synchronizerSuccessor.psid
     val lsid = currentPSId.logical
 
@@ -424,7 +440,9 @@ class AutomaticLogicalSynchronizerUpgrade(
     connectSynchronizer(Traced(alias)).value.flatMap {
       case Left(error) =>
         // Left will lead to a retry
-        FutureUnlessShutdown.pure(s"Unable to connect to $alias: $error".asLeft)
+        FutureUnlessShutdown.pure(
+          NegativeResult(s"Unable to connect to $alias: $error", isRetryable = true).asLeft
+        )
 
       case Right(Some(`successorPSId`)) =>
         FutureUnlessShutdown.pure(UpgradabilityCheckResult.UpgradeDone.asRight)
@@ -668,16 +686,6 @@ private object AutomaticLogicalSynchronizerUpgrade {
     final case object ReadyToUpgrade extends UpgradabilityCheckResult
     final case object UpgradeDone extends UpgradabilityCheckResult
   }
-
-  /** Indicate that an operations or a check (e.g., whether upgrade can be done) has negative
-    * result.
-    * @param details
-    *   Context about the failure.
-    * @param isRetryable
-    *   - True when the operation can be retried (e.g., if the upgrade is not ready *yet*)
-    *   - False when the operation shoult not be retried (e.g., invariant of a store violated)
-    */
-  final case class NegativeResult(details: String, isRetryable: Boolean)
 }
 
 /** This class implements manual LSU. It should be called for participants that are upgrading
@@ -718,18 +726,15 @@ class ManualLogicalSynchronizerUpgrade(
     val synchronizerSuccessor = SynchronizerSuccessor(successorPSId, upgradeTime)
     implicit val logger = LSU.Logger(loggerFactory, getClass, synchronizerSuccessor)
 
-    EitherT.liftF[FutureUnlessShutdown, String, Unit](
-      retryPolicy
-        .unlessShutdown(
-          performUpgrade(
-            alias,
-            currentPSId,
-            synchronizerSuccessor,
-            request.successorConfig,
-          ).value,
-          DbExceptionRetryPolicy,
-        )
-        .map(_ => ())
+    EitherT(
+      runWithRetries(
+        performUpgrade(
+          alias,
+          currentPSId,
+          synchronizerSuccessor,
+          request.successorConfig,
+        ).value
+      )
     )
   }
 
@@ -786,7 +791,17 @@ class ManualLogicalSynchronizerUpgrade(
   }
 }
 
-private object LogicalSynchronizerUpgrade {
+protected object LogicalSynchronizerUpgrade {
   private val RetryInitialDelay: FiniteDuration = FiniteDuration(200, TimeUnit.MILLISECONDS)
   private val RetryMaxDelay: FiniteDuration = FiniteDuration(5, TimeUnit.SECONDS)
+
+  /** Indicate that an operations or a check (e.g., whether upgrade can be done) has negative
+    * result.
+    * @param details
+    *   Context about the failure.
+    * @param isRetryable
+    *   - True when the operation can be retried (e.g., if the upgrade is not ready *yet*)
+    *   - False when the operation should not be retried (e.g., invariant of a store violated)
+    */
+  final case class NegativeResult(details: String, isRetryable: Boolean)
 }

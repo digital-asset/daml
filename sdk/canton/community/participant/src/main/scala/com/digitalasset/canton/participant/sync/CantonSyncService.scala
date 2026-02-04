@@ -1218,16 +1218,16 @@ class CantonSyncService(
     }
 
   /** Perform a handshake with the given synchronizer.
-    * @param synchronizerId
+    * @param psid
     *   the physical synchronizer id of the synchronizer.
     * @return
     */
   def connectToPSIdWithHandshake(
-      synchronizerId: PhysicalSynchronizerId
+      psid: PhysicalSynchronizerId
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SyncServiceError, PhysicalSynchronizerId] =
-    connectionsManager.connectToPSIdWithHandshake(synchronizerId)
+  ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
+    connectionsManager.connectToPSIdWithHandshake(psid)
 
   /** Disconnect the given synchronizer from the sync service. */
   def disconnectSynchronizer(

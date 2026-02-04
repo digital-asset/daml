@@ -12,6 +12,7 @@ import com.digitalasset.canton.config.{
   PositiveFiniteDuration,
 }
 import com.digitalasset.canton.crypto.Fingerprint
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
@@ -48,39 +49,70 @@ trait DbSequencerBlockStoreTest
     storage.update(DBIO.seq(deletes*), functionFullName)
   }
 
+  private def sequencerStateManagerStoreWithConfig(
+      maxSequencingTimeUpperBound: CantonTimestamp = CantonTimestamp.MaxValue,
+      inFlightAggregationsQueryInterval: Option[PositiveFiniteDuration] = None,
+  ): Unit =
+    sequencerStateManagerStore(maxSequencingTimeUpperBound, inFlightAggregationsQueryInterval) {
+      () =>
+        val sequencerStore = new DbSequencerStore(
+          storage = storage,
+          protocolVersion = testedProtocolVersion,
+          bufferedEventsMaxMemory = SequencerWriterConfig.DefaultBufferedEventsMaxMemory,
+          bufferedEventsPreloadBatchSize =
+            SequencerWriterConfig.DefaultBufferedEventsPreloadBatchSize,
+          timeouts = DefaultProcessingTimeouts.testing,
+          loggerFactory = loggerFactory,
+          sequencerMember = SequencerId(DefaultTestIdentities.physicalSynchronizerId.uid),
+          blockSequencerMode = true,
+          cachingConfigs = CachingConfigs(),
+          batchingConfig = BatchingConfig(),
+          sequencerMetrics = SequencerMetrics.noop(getClass.getName),
+        )
+
+        (
+          new DbSequencerStateManagerStore(
+            storage,
+            testedProtocolVersion,
+            timeouts,
+            loggerFactory,
+            batchingConfig = BatchingConfig(
+              // Required to test the aggregation pruning query batching
+              maxPruningTimeInterval = PositiveFiniteDuration.ofSeconds(1),
+              inFlightAggregationsQueryInterval = inFlightAggregationsQueryInterval,
+            ),
+            sequencerStore,
+          ),
+          sequencerStore,
+        )
+    }
+
   // testing DbSequencerStateManagerStore here since DbSequencerBlockStore uses DbSequencerStateManagerStore
   // and if they were in different test suites, parallel test runs could cause interference
   "DbSequencerStateManagerStore" should {
-    behave like sequencerStateManagerStore { () =>
-      val sequencerStore = new DbSequencerStore(
-        storage = storage,
-        protocolVersion = testedProtocolVersion,
-        bufferedEventsMaxMemory = SequencerWriterConfig.DefaultBufferedEventsMaxMemory,
-        bufferedEventsPreloadBatchSize =
-          SequencerWriterConfig.DefaultBufferedEventsPreloadBatchSize,
-        timeouts = DefaultProcessingTimeouts.testing,
-        loggerFactory = loggerFactory,
-        sequencerMember = SequencerId(DefaultTestIdentities.physicalSynchronizerId.uid),
-        blockSequencerMode = true,
-        cachingConfigs = CachingConfigs(),
-        batchingConfig = BatchingConfig(),
-        sequencerMetrics = SequencerMetrics.noop(getClass.getName),
-      )
+    "without any inFlightAggregationsQueryInterval configuration" should {
+      "with maxSequencingTimeUpperBound being the timestamp end" should {
+        behave like sequencerStateManagerStoreWithConfig()
+      }
 
-      (
-        new DbSequencerStateManagerStore(
-          storage,
-          testedProtocolVersion,
-          timeouts,
-          loggerFactory,
-          batchingConfig = BatchingConfig(
-            // Required to test the aggregation pruning query batching
-            maxPruningTimeInterval = PositiveFiniteDuration.ofSeconds(1)
-          ),
-          sequencerStore,
-        ),
-        sequencerStore,
-      )
+      "with maxSequencingTimeUpperBound being a finite timestamp value" should {
+        behave like sequencerStateManagerStoreWithConfig(maxSequencingTimeUpperBound = ts(10))
+      }
+    }
+
+    "with inFlightAggregationsQueryInterval configured" should {
+      "with a maxSequencingTimeUpperBound being the timestamp end" should {
+        behave like sequencerStateManagerStoreWithConfig(inFlightAggregationsQueryInterval =
+          Some(PositiveFiniteDuration.ofSeconds(10))
+        )
+      }
+
+      "with maxSequencingTimeUpperBound being a finite timestamp value" should {
+        behave like sequencerStateManagerStoreWithConfig(
+          maxSequencingTimeUpperBound = ts(10),
+          inFlightAggregationsQueryInterval = Some(PositiveFiniteDuration.ofSeconds(1)),
+        )
+      }
     }
   }
 

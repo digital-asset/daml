@@ -8,6 +8,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.CommonData
 import com.digitalasset.canton.participant.protocol.validation.TimeValidator.{
+  ExternallySignedRecordTimeExceedsMaximum,
   LedgerTimeRecordTimeDeltaTooLargeError,
   PreparationTimeRecordTimeDeltaTooLargeError,
 }
@@ -16,6 +17,8 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.Duration
+
+import CantonTimestamp.Epoch
 
 class TimeValidatorTest extends AnyWordSpec with BaseTest {
   private val ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration =
@@ -28,12 +31,14 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
       ledgerTime: CantonTimestamp,
       preparationTime: CantonTimestamp,
       sequencerTimestamp: CantonTimestamp,
+      maxRecordTime: Option[CantonTimestamp],
   ) =
     TimeValidator.checkTimestamps(
       CommonData(updateId, ledgerTime, preparationTime),
       sequencerTimestamp,
       ledgerTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
       preparationTimeRecordTimeTolerance = preparationTimeRecordTimeTolerance,
+      maxRecordTime = maxRecordTime,
       amSubmitter = false,
       logger,
     )
@@ -53,11 +58,13 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
             ledgerTimeEarliest,
             preparationTime,
             sequencerTime,
+            maxRecordTime = None,
           )
         val latestRes = checkTimestamps(
           ledgerTimeLatest,
           preparationTime,
           sequencerTime,
+          maxRecordTime = None,
         )
 
         earliestRes shouldBe Either.unit
@@ -81,12 +88,14 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
             ledgerTime,
             preparationTime,
             sequencerTimestamp = futureSeqTimestamp,
+            maxRecordTime = None,
           )
         val tooEarly =
           checkTimestamps(
             ledgerTime,
             preparationTime,
             pastSeqTimestamp,
+            maxRecordTime = None,
           )
 
         tooLate shouldBe Left(
@@ -121,11 +130,13 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
             ledgerTime,
             preparationTimeEarliest,
             sequencerTime,
+            maxRecordTime = None,
           )
         val latestRes = checkTimestamps(
           ledgerTime,
           preparationTimeLatest,
           sequencerTime,
+          maxRecordTime = None,
         )
 
         earliestRes shouldBe Either.unit
@@ -148,6 +159,7 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
             ledgerTime = futureSeqTimestamp, // Set the ledger time to the seq time to make it valid
             preparationTimeBeforeSeq,
             futureSeqTimestamp,
+            maxRecordTime = None,
           )
 
         val tooEarly =
@@ -155,6 +167,7 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
             ledgerTime = pastSeqTimestamp, // Set the ledger time to the seq time to make it valid
             preparationTimeAfterSeq,
             pastSeqTimestamp,
+            maxRecordTime = None,
           )
 
         tooLate shouldBe Left(
@@ -173,6 +186,60 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
         )
       }
     }
+  }
+
+  "max record time " when {
+
+    "unset" should {
+      "pass" in {
+        checkTimestamps(
+          ledgerTime = Epoch,
+          preparationTime = Epoch,
+          sequencerTimestamp = Epoch,
+          maxRecordTime = None,
+        ) shouldBe Either.unit
+      }
+    }
+
+    "in the future" should {
+      "pass" in {
+        checkTimestamps(
+          ledgerTime = Epoch,
+          preparationTime = Epoch,
+          sequencerTimestamp = Epoch,
+          maxRecordTime = None,
+        ) shouldBe Either.unit
+      }
+    }
+
+    "exactly the sequencing time" should {
+      "pass" in {
+        checkTimestamps(
+          ledgerTime = Epoch,
+          preparationTime = Epoch,
+          sequencerTimestamp = Epoch,
+          maxRecordTime = Some(Epoch),
+        ) shouldBe Either.unit
+      }
+    }
+
+    "in the past" should {
+      val maxTime = Epoch.plusMillis(1)
+      val sequencerTimestamp = Epoch.plusMillis(2)
+      "fail" in {
+        inside(
+          checkTimestamps(
+            ledgerTime = Epoch,
+            preparationTime = Epoch,
+            sequencerTimestamp = sequencerTimestamp,
+            maxRecordTime = Some(maxTime),
+          )
+        ) { case Left(ExternallySignedRecordTimeExceedsMaximum(`sequencerTimestamp`, `maxTime`)) =>
+          succeed
+        }
+      }
+    }
+
   }
 
 }

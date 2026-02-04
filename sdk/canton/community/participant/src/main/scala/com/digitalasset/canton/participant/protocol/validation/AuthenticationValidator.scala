@@ -308,7 +308,7 @@ private[protocol] object AuthenticationValidator {
               transactionUUID = viewTree.transactionUuid,
               mediatorGroup = viewTree.mediator.group.value,
               synchronizerId = synchronizerId.logical,
-              maxSequencingTime = submitterMetadata.maxSequencingTime,
+              maxRecordTime = externalAuthorization.maxRecordTime,
               protocolVersion = protocolVersion,
               transactionEnricher = transactionEnricher,
               contractEnricher = createNodeEnricher,

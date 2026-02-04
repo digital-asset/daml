@@ -732,17 +732,16 @@ private[sync] class SynchronizerConnectionsManager(
   /** Perform a handshake with the given synchronizer.
     * @param psid
     *   the physical synchronizer id of the synchronizer.
-    * @return
     */
   def connectToPSIdWithHandshake(
       psid: PhysicalSynchronizerId
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SyncServiceError, PhysicalSynchronizerId] =
+  ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     connectQueue.executeEUS(
       if (connectedSynchronizers.isConnected(psid)) {
         logger.debug(s"Already connected to $psid, no need to register $psid")
-        EitherT.rightT(psid)
+        EitherT.rightT(())
       } else {
         logger.debug(s"About to perform handshake with synchronizer: $psid")
 
@@ -775,7 +774,7 @@ private[sync] class SynchronizerConnectionsManager(
 
           _ = syncCrypto.remove(psid)
           _ = synchronizerHandle.close()
-        } yield psid
+        } yield ()
       },
       s"handshake with physical synchronizer $psid",
     )
@@ -998,7 +997,7 @@ private[sync] class SynchronizerConnectionsManager(
                   psid: PhysicalSynchronizerId
               )(implicit
                   traceContext: TraceContext
-              ): EitherT[FutureUnlessShutdown, SyncServiceError, PhysicalSynchronizerId] =
+              ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
                 connectToPSIdWithHandshake(psid)
             },
             automaticallyConnectToUpgradedSynchronizer =

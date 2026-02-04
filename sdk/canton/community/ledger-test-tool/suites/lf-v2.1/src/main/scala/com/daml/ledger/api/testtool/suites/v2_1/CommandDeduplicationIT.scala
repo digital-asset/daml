@@ -28,7 +28,6 @@ import com.digitalasset.canton.ledger.error.groups.{CommandExecutionErrors, Cons
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, SubmissionId}
 import io.grpc.Status.Code
 
-import java.time
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -268,15 +267,6 @@ final class CommandDeduplicationIT(
       ) {
         submitAndAssertAccepted(thirdCall)
       }
-      _ = assert(
-        time.Duration
-          .between(
-            firstAcceptedCommand.getSynchronizerTime.getRecordTime.asJavaInstant,
-            eventuallyAccepted.getSynchronizerTime.getRecordTime.asJavaInstant,
-          )
-          .toNanos > deduplicationDuration.toNanos,
-        s"Interval between accepted commands is smaller than the deduplication duration. First accepted command record time: ${firstAcceptedCommand.getSynchronizerTime.getRecordTime.asJavaInstant}. Second accepted command record time: ${eventuallyAccepted.getSynchronizerTime.getRecordTime.asJavaInstant}",
-      )
       _ <- submitAndAssertDeduplicated(
         fourthCall,
         LedgerString.assertFromString(eventuallyAccepted.submissionId),

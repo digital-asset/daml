@@ -22,7 +22,11 @@ message SubmitterMetadata {
   string submitting_participant_uid = 5;
   string submission_id = 6; // optional; absent if not specified by submitter
   v30.DeduplicationPeriod dedup_period = 7;
+
+  // Max sequencing time is the time allowed for a submitted transaction to be sequenced. Typically
+  // seconds or minutes in the future.
   int64 max_sequencing_time = 8; // in microseconds of UTC time since Unix epoch
+
   ExternalAuthorization external_authorization = 9; // optional
 }
 
@@ -40,4 +44,9 @@ message ExternalAuthorization {
 
   repeated v30.ExternalPartyAuthorization authentications = 1;
   HashingSchemeVersion hashing_scheme_version = 2;
+
+  // Max record time is an optional bit of signed metadata the allows an external signer to
+  // know an upper limit on when it must be processed by the executing participant node to be
+  // valid. Typically hours or days in the future.
+  optional int64 max_record_time = 3;
 }

@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.validation
 
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -221,6 +222,13 @@ class TransactionConfirmationResponsesFactory(
                         ) =>
                       LocalRejectError.TimeRejects.PreparationTime.Reject(
                         s"preparationTime=$preparationTime, recordTime=$recordTime, maxDelta=$maxDelta"
+                      )
+                    case TimeValidator.ExternallySignedRecordTimeExceedsMaximum(
+                          recordTime: CantonTimestamp,
+                          maxRecordTime: CantonTimestamp,
+                        ) =>
+                      LocalRejectError.TimeRejects.MaxRecordTimeExceeded.Reject(
+                        s"recordTime=$recordTime, maxRecordTime=$maxRecordTime"
                       )
                   }
                   .map(logged(requestId, _))
