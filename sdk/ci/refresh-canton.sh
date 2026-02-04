@@ -13,9 +13,18 @@ trap "cat $LOG" EXIT
 
 CANTON_DIR=${1:-//unset}
 
+get_latest_canton_snapshot_version() {
+  local CANTON_VERSION=3.5 # bump after cutting a release branch
+  local REPO_URL="europe-docker.pkg.dev/da-images/public-unstable/components/canton-open-source:$CANTON_VERSION"
+  local REPO_URL=$(oras manifest fetch "$REPO_URL" | jq -r '.annotations["com.digitalasset.version"]')
+}
+
 if [ "//unset" = "$CANTON_DIR" ]; then
   CANTON_DIR=$(realpath "$DIR/../.canton")
   echo "> Using '$CANTON_DIR' as '\$1' was not provided." >&2
+  CANTON_VERSION=$(get_latest_canton_snapshot_version)
+  echo "> Latest canton snapshot: $CANTON_VERSION" >&2
+  CANTON_COMMIT_HASH="${CANTON_VERSION##*v}"
   if [ -z "${GITHUB_TOKEN:-}" ]; then
     echo "> GITHUB_TOKEN is not set, assuming ssh." >&2
     canton_github=git@github.com:DACH-NY/canton.git
@@ -28,9 +37,10 @@ if [ "//unset" = "$CANTON_DIR" ]; then
   fi
   (
     cd "$CANTON_DIR"
-    git checkout main >$LOG 2>&1
-    git pull >$LOG 2>&1
+    git fetch origin >$LOG 2>&1
+    git checkout $CANTON_COMMIT_HASH >$LOG 2>&1
   )
+  sed -i "s|^canton_version = \".*\"|canton_version = \"$CANTON_VERSION\"|" bazel-java-deps.bzl
 fi
 
 if ! [ -d "$CANTON_DIR" ]; then
@@ -100,6 +110,10 @@ is_excluded() {
   return 1
 }
 
+# repin dependencies
+REPIN=1 bazel run @maven//:pin >$LOG 2>&1
+
+# copy files from canton repo to code drop
 for path in community base README.md VERSION; do
   rm -rf "$CODE_DROP_DIR/$path"
   for f in $(git -C "$CANTON_DIR" ls-files "$path"); do

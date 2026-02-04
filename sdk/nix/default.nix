@@ -210,7 +210,9 @@ in rec {
     bq = gcloud;
     gsutil = gcloud;
     docker-credential-gcloud = gcloud;
-    # used to set up the webide CI pipeline in azure-cron.yml
+    oras = pkgs.oras;
+    
+# used to set up the webide CI pipeline in azure-cron.yml
     docker-credential-gcr = pkgs.docker-credential-gcr;
     nix-store-gcs-proxy = pkgs.callPackage ./tools/nix-store-gcs-proxy {};
   };
