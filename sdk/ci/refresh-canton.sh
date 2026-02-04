@@ -24,6 +24,7 @@ if [ "//unset" = "$CANTON_DIR" ]; then
   echo "> Using '$CANTON_DIR' as '\$1' was not provided." >&2
   CANTON_VERSION=$(get_latest_canton_snapshot_version)
   echo "> Latest canton snapshot: $CANTON_VERSION" >&2
+  # version strings look like "3.5.0-snapshot.20260203.17930.0.v8a849517", this extracts the part after the last 'v'
   CANTON_COMMIT_HASH="${CANTON_VERSION##*v}"
   if [ -z "${GITHUB_TOKEN:-}" ]; then
     echo "> GITHUB_TOKEN is not set, assuming ssh." >&2
