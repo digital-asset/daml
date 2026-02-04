@@ -10,13 +10,13 @@ genrule(
         "com/digitalasset/daml/lf/archive/daml_lf.proto",
         "com/digitalasset/daml/lf/archive/daml_lf2.proto",
     ],
-    tools = ["@bazel_tools//tools/zip:zipper"],
     cmd = """
         for out in $(OUTS); do
           $(location @bazel_tools//tools/zip:zipper) x $(SRCS) -d $(RULEDIR) \
             $${out#$(RULEDIR)/}
         done
-    """
+    """,
+    tools = ["@bazel_tools//tools/zip:zipper"],
 )
 
 genrule(
