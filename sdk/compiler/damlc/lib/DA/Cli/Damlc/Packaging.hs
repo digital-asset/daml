@@ -503,6 +503,7 @@ baseImports =
            , "DA.Internal.Erased"
            , "DA.Internal.NatSyn"
            , "DA.Internal.PromotedText"
+           , "DA.Internal.Serializable"
            , "DA.Exception.GeneralError"
            , "DA.Exception.ArithmeticError"
            , "DA.Exception.AssertionFailed"

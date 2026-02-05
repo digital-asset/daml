@@ -860,12 +860,11 @@ mkConRdr env thisModule
  | envQualifyThisModule env = mkOrig thisModule
  | otherwise = mkRdrUnqual
 
-mkDataDecl :: Env -> Module -> LHsContext GhcPs -> OccName -> LF.IsSerializable -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> Gen (LHsDecl GhcPs)
+mkDataDecl :: SdkVersioned => Env -> Module -> LHsContext GhcPs -> OccName -> LF.IsSerializable -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> Gen (LHsDecl GhcPs)
 mkDataDecl env thisModule ctxt occName isSerializable tyVars cons = do
     tyVars' <- mapM (convTyVarBinder env) tyVars
     derivs <- if LF.getIsSerializable isSerializable
-        then pure []
-        else do
+        then do
             serializeClass <- mkSerializeType env
             pure
                 [ noLoc $ HsDerivingClause
@@ -876,6 +875,7 @@ mkDataDecl env thisModule ctxt occName isSerializable tyVars cons = do
                         ]
                     }
                 ]
+        else pure []
     pure . noLoc . TyClD noExt $ DataDecl
         { tcdDExt = noExt
         , tcdLName = noLoc $ mkConRdr env thisModule occName
@@ -1197,7 +1197,7 @@ mkDesugarType :: Env -> String -> Gen (HsType GhcPs)
 mkDesugarType env = mkStableType env primUnitId $
     LF.ModuleName ["DA", "Internal", "Desugar"]
 
-mkSerializeType :: Env -> Gen (HsType GhcPs)
+mkSerializeType :: SdkVersioned => Env -> Gen (HsType GhcPs)
 mkSerializeType env = mkStableType env primUnitId
     (LF.ModuleName ["DA", "Internal", "Serializable"])
     "Serializable"
