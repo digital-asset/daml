@@ -33,7 +33,7 @@ import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, DamlEnum,
 import GHC.Types (primitive)
 import GHC.Tuple.Check()
 
-import DA.Internal.Serializable
+import DA.Internal.Serializable (Serializable)
 import DA.Internal.Down
 
 -- | Turn a function that takes a pair into a function that takes two arguments.

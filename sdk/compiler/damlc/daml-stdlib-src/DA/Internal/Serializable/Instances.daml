@@ -1,0 +1,16 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE NoImplicitPrelude #-}
+module DA.Internal.Serializable.Instances () where
+
+import DA.Internal.Serializable
+import DA.Internal.LF
+import GHC.Types
+
+-- prim types
+instance Serializable Decimal where witness _ z = z -- TODO: Numeric instead?
+instance Serializable Text where witness _ z = z
+
+-- stdlib types
+instance Serializable (ContractId a) where witness _ z = z

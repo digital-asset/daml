@@ -7,8 +7,7 @@ module DA.Internal.Serializable (
     Serializable (..),
 ) where
 
-import GHC.Tuple ()
-import GHC.Types
+import GHC.Types ()
 
 -- | A class to explicitly indicate that a type is serializable.  Values of
 -- types instantiating this class can be stored on the ledger.  These types will
@@ -19,6 +18,3 @@ import GHC.Types
 -- --explicit-serializable=yes flag in Canton 3.5.
 class Serializable a where
     witness : a -> b -> b
-
-instance Serializable Decimal where witness _ z = z
-instance Serializable Text where witness _ z = z
