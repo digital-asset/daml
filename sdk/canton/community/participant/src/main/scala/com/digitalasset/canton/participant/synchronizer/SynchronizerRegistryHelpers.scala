@@ -16,7 +16,6 @@ import com.digitalasset.canton.config.{
   NonNegativeFiniteDuration as NonNegativeFiniteDurationConfig,
   ProcessingTimeout,
   TestingConfigInternal,
-  TopologyConfig,
 }
 import com.digitalasset.canton.crypto.{
   SyncCryptoApiParticipantProvider,
@@ -86,7 +85,6 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       cryptoApiProvider: SyncCryptoApiParticipantProvider,
       clock: Clock,
       testingConfig: TestingConfigInternal,
-      topologyConfig: TopologyConfig,
       recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
       replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
       topologyDispatcher: ParticipantTopologyDispatcher,
@@ -119,10 +117,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
         topologyDispatcher.trustSynchronizer(psid)
       )
 
-      synchronizerLoggerFactory = loggerFactory.append(
-        "psid",
-        psid.toString,
-      )
+      synchronizerLoggerFactory = loggerFactory.append("psid", psid.toString)
 
       topologyFactory <- syncPersistentStateManager
         .topologyFactoryFor(psid)
@@ -305,7 +300,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       _ <- downloadSynchronizerTopologyStateForInitializationIfNeeded(
         syncPersistentStateManager,
         psid,
-        topologyFactory.createInitialTopologySnapshotValidator(topologyConfig),
+        topologyFactory.createInitialTopologySnapshotValidator(),
         topologyClient,
         sequencerClient,
         sequencerAggregatedInfo,

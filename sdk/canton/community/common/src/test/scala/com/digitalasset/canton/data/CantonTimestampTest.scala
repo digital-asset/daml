@@ -62,4 +62,16 @@ class CantonTimestampTest extends AnyWordSpec with BaseTest {
       exception.getMessage should include(s"Unable to parse $str as CantonTimestamp")
     }
   }
+
+  "minus" should {
+    "measure the duration" in {
+      CantonTimestamp.ofEpochSecond(1) - CantonTimestamp.Epoch shouldBe
+        java.time.Duration.ofSeconds(1)
+    }
+
+    "not overflow" in {
+      CantonTimestamp.Epoch - CantonTimestamp.MinValue shouldBe
+        java.time.Duration.ofSeconds(CantonTimestamp.MinValue.toMicros / -1_000_000L)
+    }
+  }
 }

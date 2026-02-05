@@ -16,6 +16,7 @@ import com.digitalasset.canton.performance.PartyRole.{
 import com.digitalasset.canton.performance.RateSettings.SubmissionRateSettings
 import com.digitalasset.canton.performance.elements.AmendMasterConfig.AmendMasterConfigDvp
 import com.digitalasset.canton.performance.elements.DriverStatus.MasterStatus
+import com.digitalasset.canton.performance.elements.dvp.TraderDriver
 import com.digitalasset.canton.performance.model.java.orchestration.{Role, TestRun, runtype}
 
 import scala.concurrent.duration.*
@@ -42,7 +43,7 @@ sealed trait ChangeScenarioPerformanceIntegrationTest extends BasePerformanceInt
               20L,
               0,
               0,
-              1,
+              TraderDriver.toPartyGrowth(1),
             ),
           ),
           amendments = Seq(new AmendMasterConfigDvp("test run") {
@@ -59,7 +60,7 @@ sealed trait ChangeScenarioPerformanceIntegrationTest extends BasePerformanceInt
                       dvp.numAssetsPerIssuer,
                       1,
                       dvp.payloadSize,
-                      dvp.withPartyGrowth,
+                      dvp.partyGrowth,
                     ),
                   )
               )

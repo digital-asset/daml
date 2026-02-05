@@ -86,8 +86,6 @@ class ParticipantMetrics(
   override def grpcMetrics: GrpcServerMetricsX = (ledgerApiServer.grpc, ledgerApiServer.requests)
   override def healthMetrics: HealthMetrics = ledgerApiServer.health
   override def storageMetrics: DbStorageMetrics = dbStorage
-  override def topologyCache: CacheMetrics =
-    new CacheMetrics("topology-par", openTelemetryMetricsFactory)
   val dbStorage = new DbStorageMetrics(inventory.dbStorage, openTelemetryMetricsFactory)
 
   // Private constructor to avoid being instantiated multiple times by accident

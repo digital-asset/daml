@@ -514,6 +514,8 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           builder.setFetchByKey(rbk)
         case UpdateLookupByKey(rbk) =>
           builder.setLookupByKey(rbk)
+        case UpdateQueryNByKey(tmplId) =>
+          builder.setQueryNByKey(PLF.Update.QueryNByKey.newBuilder().setTemplate(tmplId).build())
         case UpdateEmbedExpr(typ, body) =>
           builder.setEmbedExpr(PLF.Update.EmbedExpr.newBuilder().setType(typ).setBody(body))
         case UpdateTryCatch(retTy, tryExpr, binder, catchExpr) =>

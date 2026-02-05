@@ -121,6 +121,9 @@ final case class DbParametersConfig(
   *   number of parallel queries to the db. defaults to 8
   * @param aggregator
   *   batching configuration for DB queries
+  * @param inFlightAggregationsQueryInterval
+  *   (optionally) split aggregator queries into intervals of this duration to avoid sequential
+  *   scans. When too many query intervals are generated, query interval splitting does not occur.
   * @param maxPruningBatchSize
   *   maximum number of events to prune from a participant at a time, used to break up canton
   *   participant-internal batches
@@ -128,6 +131,8 @@ final case class DbParametersConfig(
   *   split pruning queries into intervals of this duration to avoid sequential scans
   * @param pruningParallelism
   *   number of parallel pruning queries to the db. defaults to 2
+  * @param topologyCacheAggregator
+  *   number of parallel requests for the toplogy cache read side
   */
 final case class BatchingConfig(
     maxItemsInBatch: PositiveNumeric[Int] = BatchingConfig.defaultMaxItemsBatch,
@@ -140,6 +145,8 @@ final case class BatchingConfig(
     maxAcsImportBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxAcsImportBatchSize,
     parallelism: PositiveNumeric[Int] = BatchingConfig.defaultBatchingParallelism,
     aggregator: BatchAggregatorConfig = BatchingConfig.defaultAggregator,
+    inFlightAggregationsQueryInterval: Option[PositiveFiniteDuration] =
+      BatchingConfig.defaultInFlightAggregationsQueryInterval,
     contractStoreAggregator: BatchAggregatorConfig = BatchingConfig.defaultContractStoreAggregator,
     maxPruningBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxPruningBatchSize,
     maxPruningTimeInterval: PositiveFiniteDuration = BatchingConfig.defaultMaxPruningTimeInterval,
@@ -157,6 +164,7 @@ object BatchingConfig {
   private val defaultMaxAcsImportBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(1000)
   private val defaultAggregator: BatchAggregatorConfig.Batching =
     BatchAggregatorConfig.Batching()
+  private val defaultInFlightAggregationsQueryInterval: Option[PositiveFiniteDuration] = None
   private val defaultContractStoreAggregator: BatchAggregatorConfig.Batching =
     BatchAggregatorConfig.Batching(
       maximumInFlight = PositiveNumeric.tryCreate(5),

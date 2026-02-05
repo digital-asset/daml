@@ -200,7 +200,7 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
           {
             val delay = config.subscriptionRequestDelay
             logger.debug(
-              s"Scheduling new check in ${LoggerUtil.roundDurationForHumans(delay.toScala)}"
+              s"Scheduling new check in ${LoggerUtil.roundDurationForHumans(delay.duration)}"
             )
             wallClock.scheduleAfter(_ => adjustInternal(), delay.duration)
           },

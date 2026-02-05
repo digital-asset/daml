@@ -930,8 +930,8 @@ class TopologyStateWriteThroughCache(
 
   /** Find the current transaction active for the given unique key
     *
-    * Used by the [[com.digitalasset.canton.topology.TopologyStateProcessor]] to get the current
-    * inStore transaction.
+    * Used by the [[com.digitalasset.canton.topology.processing.TopologyStateProcessor]] to get the
+    * current inStore transaction.
     *
     * @param timeHint
     *   an initial time hint to have a reference time for how much history we load into the cache by
@@ -957,8 +957,8 @@ class TopologyStateWriteThroughCache(
 
   /** Lookup the pending proposal for the given transaction
     *
-    * Used by [[com.digitalasset.canton.topology.TopologyStateProcessor]] to check for any pending
-    * proposal for the given transaction
+    * Used by [[com.digitalasset.canton.topology.processing.TopologyStateProcessor]] to check for
+    * any pending proposal for the given transaction
     */
   def lookupPendingProposal(
       timeHint: EffectiveTime,

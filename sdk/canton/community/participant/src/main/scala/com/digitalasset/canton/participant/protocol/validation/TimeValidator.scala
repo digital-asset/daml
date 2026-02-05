@@ -17,6 +17,7 @@ object TimeValidator {
       sequencerTimestamp: CantonTimestamp,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
       preparationTimeRecordTimeTolerance: NonNegativeFiniteDuration,
+      maxRecordTime: Option[CantonTimestamp],
       amSubmitter: Boolean,
       logger: TracedLogger,
   )(implicit tc: TraceContext): Either[TimeCheckFailure, Unit] = {
@@ -63,8 +64,16 @@ object TimeValidator {
         )
       )
 
-    } else Either.unit
-
+    } else {
+      maxRecordTime match {
+        case Some(maxTime) if sequencerTimestamp > maxTime =>
+          log(
+            s"The record time $sequencerTimestamp exceeds the maximum record time $maxTime}"
+          )
+          Left(ExternallySignedRecordTimeExceedsMaximum(sequencerTimestamp, maxTime))
+        case _ => Either.unit
+      }
+    }
   }
 
   sealed trait TimeCheckFailure extends Product with Serializable
@@ -79,6 +88,11 @@ object TimeValidator {
       preparationTime: CantonTimestamp,
       recordTime: CantonTimestamp,
       maxDelta: NonNegativeFiniteDuration,
+  ) extends TimeCheckFailure
+
+  final case class ExternallySignedRecordTimeExceedsMaximum(
+      recordTime: CantonTimestamp,
+      maxRecordTime: CantonTimestamp,
   ) extends TimeCheckFailure
 
 }

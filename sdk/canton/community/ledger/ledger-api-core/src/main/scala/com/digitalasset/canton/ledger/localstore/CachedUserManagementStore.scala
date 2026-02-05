@@ -4,6 +4,7 @@
 package com.digitalasset.canton.ledger.localstore
 
 import com.digitalasset.canton.caching.ScaffeineCache
+import com.digitalasset.canton.config.FallbackExecutor
 import com.digitalasset.canton.ledger.api.{IdentityProviderId, User, UserRight}
 import com.digitalasset.canton.ledger.localstore.api.{UserManagementStore, UserUpdate}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -32,10 +33,10 @@ class CachedUserManagementStore(
 
   private val cache: ScaffeineCache.TunnelledAsyncLoadingCache[Future, CacheKey, Result[UserInfo]] =
     ScaffeineCache.buildAsync[Future, CacheKey, Result[UserInfo]](
-      Scaffeine()
+      cache = Scaffeine()
         .expireAfterWrite(expiryAfterWriteInSeconds.seconds)
         .maximumSize(maximumCacheSize.toLong)
-        .executor(executionContext.execute(_)),
+        .executor(new FallbackExecutor(executionContext, loggerFactory)),
       loader = key => delegate.getUserInfo(key.id, key.identityProviderId),
       metrics = Some(metrics.userManagement.cache),
     )(logger, "cache")

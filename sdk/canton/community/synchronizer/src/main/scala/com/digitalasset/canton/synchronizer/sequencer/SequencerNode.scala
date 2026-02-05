@@ -583,7 +583,7 @@ class SequencerNodeBootstrap(
           processorAndClient <- EitherT
             .right(
               TopologyTransactionProcessor
-                .createProcessorAndClientForSynchronizerWithWriteThroughCache(
+                .createProcessorAndClientForSynchronizer(
                   synchronizerTopologyStore,
                   synchronizerUpgradeTime = parameters.sequencingTimeLowerBoundExclusive,
                   crypto.pureCrypto,

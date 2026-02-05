@@ -250,9 +250,12 @@ final class StorageBackendSpecPostgres
         loggerFactory = loggerFactory,
       )
 
+    val clientConnectionCheckInterval = config.NonNegativeFiniteDuration.ofSeconds(1)
+    val networkTimeout = config.NonNegativeFiniteDuration.ofSeconds(2)
+
     val postgresConfig = PostgresDataSourceConfig(
-      clientConnectionCheckInterval = Some(config.NonNegativeFiniteDuration.ofSeconds(1)),
-      networkTimeout = Some(config.NonNegativeFiniteDuration.ofSeconds(2)),
+      clientConnectionCheckInterval = Some(clientConnectionCheckInterval),
+      networkTimeout = Some(networkTimeout),
     )
 
     val dataSource = backend.createDataSource(
@@ -281,12 +284,12 @@ final class StorageBackendSpecPostgres
       SQL"SELECT pg_advisory_lock(123456);".execute()(connection2)
     )(parallelExecutionContext)
 
-    // long-running query
+    // long-running query that will violate the network timeout
     val longRunning = Future(
-      SQL"SELECT pg_sleep(5);".execute()(connection1)
+      SQL"SELECT pg_sleep(60);".execute()(connection1)
     )(parallelExecutionContext)
 
-    Threading.sleep(500) // let some time for db to start the long-running query
+    Threading.sleep(500L) // let some time for db to start the long-running query
     acquired2.isCompleted shouldBe false
     val startTime = System.nanoTime()
 
@@ -299,19 +302,20 @@ final class StorageBackendSpecPostgres
 
     val networkTimeoutTime = System.nanoTime()
     val timeUntilNetworkTimeout = TimeUnit.NANOSECONDS.toMillis(networkTimeoutTime - startTime)
-    // should take at most 2 seconds for the client to check that the network timeout has been violated
-    timeUntilNetworkTimeout should be < 2000L
+    // should take at most networkTimeout for the client to check that the network timeout has been violated
+    timeUntilNetworkTimeout should be < networkTimeout.duration.toMillis
 
     acquired2.futureValue
     val endTime = System.nanoTime()
 
-    // should take at most 1 more second for the server to check that the client is disconnected, abort the long-running query
+    val leewayForSchedulingDelaysMillis = 500L
+    // should take at most clientConnectionCheckInterval more for the server to check that the client is disconnected, abort the long-running query
     // and release the lock so that the second connection can acquire it
     val timeToAbortAfterTimeout = TimeUnit.NANOSECONDS.toMillis(endTime - networkTimeoutTime)
-    timeToAbortAfterTimeout should be < 1000L
+    timeToAbortAfterTimeout should be < clientConnectionCheckInterval.duration.toMillis + leewayForSchedulingDelaysMillis
 
     val getLockDurationMillis = TimeUnit.NANOSECONDS.toMillis(endTime - startTime)
-    getLockDurationMillis should be < (postgresConfig.networkTimeout.value.duration.toMillis + postgresConfig.clientConnectionCheckInterval.value.duration.toMillis)
+    getLockDurationMillis should be < (postgresConfig.networkTimeout.value.duration.toMillis + postgresConfig.clientConnectionCheckInterval.value.duration.toMillis + leewayForSchedulingDelaysMillis)
 
     connection1.close()
     connection2.close()

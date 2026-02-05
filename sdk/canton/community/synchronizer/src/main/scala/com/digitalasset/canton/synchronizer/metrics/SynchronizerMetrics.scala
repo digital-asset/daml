@@ -63,8 +63,6 @@ class SequencerMetrics(
     )
 
   override val healthMetrics: HealthMetrics = new HealthMetrics(openTelemetryMetricsFactory)
-  override val topologyCache: CacheMetrics =
-    new CacheMetrics("topology-seq", openTelemetryMetricsFactory)
 
   val bftOrdering: BftOrderingMetrics =
     new BftOrderingMetrics(
@@ -358,8 +356,7 @@ class MediatorMetrics(
       new ActiveRequestsMetrics(openTelemetryMetricsFactory, "mediator"),
     )
   override val healthMetrics: HealthMetrics = new HealthMetrics(openTelemetryMetricsFactory)
-  override val topologyCache: CacheMetrics =
-    new CacheMetrics("topology-med", openTelemetryMetricsFactory)
+
   override val prefix: MetricName = histograms.prefix
 
   override val declarativeApiMetrics: DeclarativeApiMetrics =
@@ -389,9 +386,8 @@ class MediatorMetrics(
     MetricInfo(
       prefix :+ "requests",
       summary = "Total number of processed confirmation requests (approved and rejected)",
-      description =
-        """This metric provides the number of processed confirmation requests since the system
-           |has been started.""",
+      description = """This metric provides the number of processed confirmation requests since the system
+           |has been started. Requests that are rejected because they reuse the request UUID are labelled with `duplicate_reject`.""",
       qualification = MetricQualification.Debug,
     )
   )
@@ -423,4 +419,10 @@ class MediatorMetrics(
     )(
       MetricsContext.Empty
     )
+}
+
+object MediatorMetrics {
+  val duplicateRejectLabel = "duplicate_reject"
+  val duplicateRejectContext: MetricsContext = MetricsContext(duplicateRejectLabel -> "true")
+  val nonduplicateRejectContext: MetricsContext = MetricsContext(duplicateRejectLabel -> "false")
 }

@@ -141,7 +141,7 @@ private[mediator] class MediatorState(
           s"Unexpected pre-existing request for $requestId",
         )
 
-        metrics.requests.mark()
+        metrics.requests.mark()(MediatorMetrics.nonduplicateRejectContext)
         updateNumRequests(1)
         FutureUnlessShutdown.unit
       case Some(finalizedResponse) => add(finalizedResponse)

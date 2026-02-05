@@ -4,7 +4,8 @@
 package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.BaseTest.CantonLfV21
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.HasTempDirectory
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.iou.Iou
@@ -15,7 +16,6 @@ import com.digitalasset.canton.integration.plugins.{
   UseProgrammableSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
-import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -50,6 +50,7 @@ sealed trait OnlinePartyReplicationFileBasedTest
     extends CommunityIntegrationTest
     with OnlinePartyReplicationTestHelpers
     with HasProgrammableSequencer
+    with HasTempDirectory
     with SharedEnvironment {
 
   registerPlugin(new UseBftSequencer(loggerFactory))
@@ -60,7 +61,8 @@ sealed trait OnlinePartyReplicationFileBasedTest
 
   private lazy val darPaths: Seq[String] = Seq(CantonLfV21, CantonExamplesPath)
 
-  private lazy val acsSnapshotFilename = s"canton-acs-export-${this.getClass.getSimpleName}.gz"
+  private lazy val acsSnapshotFilename =
+    tempDirectory.toTempFile(s"canton-acs-export-${this.getClass.getSimpleName}.gz").toString
 
   private val numContractsInCreateBatch = 100
   // false means to block OnPR (temporarily) once the TP imports a certain number of contracts
@@ -116,7 +118,6 @@ sealed trait OnlinePartyReplicationFileBasedTest
       }
 
   private var externalParty: ExternalParty = _
-  private var previousSerial: PositiveInt = _
   private var aliceToEp: Seq[Iou.Contract] = _
   private var sourceParticipant: ParticipantReference = _
   private var targetParticipant: LocalParticipantReference = _
@@ -125,22 +126,6 @@ sealed trait OnlinePartyReplicationFileBasedTest
     import env.*
 
     externalParty = participant1.parties.testing.external.enable("external-party")
-
-    // Wait until all participants see the party hosted on the expected participant.
-    previousSerial = eventually() {
-      participants.all
-        .map { p =>
-          val ptp = p.topology.party_to_participant_mappings
-            .list(daId, filterParty = externalParty.filterString)
-            .loneElement
-          ptp.item.participants.map(_.participantId) should contain theSameElementsAs Seq(
-            participant1.id
-          )
-          ptp.context.serial
-        }
-        .toSet
-        .loneElement
-    }
 
     val amounts = (1 to numContractsInCreateBatch)
     IouSyntax.createIous(participant1, alice, externalParty, amounts)
@@ -158,46 +143,22 @@ sealed trait OnlinePartyReplicationFileBasedTest
 
     sourceParticipant = participant1
     targetParticipant = participant2
-    val serial = previousSerial.increment
-
-    val spOffsetBeforePartyAddedToTargetParticipant = sourceParticipant.ledger_api.state.end()
 
     // 1. In file-based OnPR, onboarding the party is authorized via topology as the first step
     // before the SP or TP begin ACS export and import.
-    clue(
-      "External party and target participants agree to have target participant onboard the party"
-    ) {
-      PartyToParticipantDeclarative(participants.all.toSet, Set(daId))(
-        owningParticipants = Map.empty,
-        targetTopology = Map(
-          externalParty -> Map(
-            daId -> (PositiveInt.one, Set(
-              (sourceParticipant, ParticipantPermission.Confirmation),
-              (targetParticipant, ParticipantPermission.Confirmation),
-            ))
-          )
-        ),
-        onboarding = true,
+    val authorizedOnPRSetup =
+      authorizeOnboardingTopologyForFileBasedOnPR(
+        sourceParticipant,
+        targetParticipant,
+        externalParty,
       )
-    }
-
-    eventually() {
-      participants.all.foreach(
-        _.topology.party_to_participant_mappings
-          .list(daId, filterParty = externalParty.filterString)
-          .flatMap(_.item.participants.map(_.participantId)) shouldBe Seq(
-          sourceParticipant.id,
-          targetParticipant.id,
-        )
-      )
-    }
 
     // 2. Export the ACS snapshot from SP
     sourceParticipant.parties.export_party_acs(
       externalParty,
       daId,
       targetParticipant,
-      spOffsetBeforePartyAddedToTargetParticipant,
+      authorizedOnPRSetup.spOffsetBeforePartyOnboardingToTargetParticipant,
       acsSnapshotFilename,
     )
 
@@ -253,7 +214,7 @@ sealed trait OnlinePartyReplicationFileBasedTest
         party = externalParty,
         synchronizerId = daId,
         sourceParticipant = sourceParticipant,
-        serial = serial,
+        serial = authorizedOnPRSetup.topologySerial,
         participantPermission = ParticipantPermission.Confirmation,
       )
     )
@@ -265,11 +226,7 @@ sealed trait OnlinePartyReplicationFileBasedTest
     val expectedNumContracts = NonNegativeInt.tryCreate(numContractsInCreateBatch) * 2
 
     // Wait until TP reports that party replication has completed.
-    eventuallyOnPRCompletesOnTP(
-      targetParticipant,
-      addPartyRequestId,
-      expectedNumContracts,
-    )
+    eventuallyOnPRCompletesOnTP(targetParticipant, addPartyRequestId, Some(expectedNumContracts))
   }
 
   "Ensure source and target participant Ledger Api ACS match" onlyRunWith ProtocolVersion.dev in {

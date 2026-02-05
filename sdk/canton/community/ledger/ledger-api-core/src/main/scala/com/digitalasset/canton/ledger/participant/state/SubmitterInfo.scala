@@ -75,14 +75,14 @@ object SubmitterInfo {
           signatures,
           transactionUUID,
           mediatorGroup,
-          maxRecordTimeO,
+          maxRecordTime,
         ) =>
       LoggingValue.Nested.fromEntries(
         "version" -> version.index,
         "signatures" -> signatures.keys.map(_.toProtoPrimitive),
         "transactionUUID" -> transactionUUID.toString,
         "mediatorGroup" -> mediatorGroup.toString,
-        "maxRecordTimeO" -> maxRecordTimeO,
+        "maxRecordTime" -> maxRecordTime,
       )
   }
   implicit val `SubmitterInfo to LoggingValue`: ToLoggingValue[SubmitterInfo] = {

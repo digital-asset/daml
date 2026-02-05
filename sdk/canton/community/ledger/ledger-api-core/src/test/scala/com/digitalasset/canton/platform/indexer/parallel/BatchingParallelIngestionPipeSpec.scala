@@ -86,18 +86,20 @@ class BatchingParallelIngestionPipeSpec
     runPipe(
       inputMapperHook = () => Threading.sleep(1L),
       ingesterHook = batch => {
-        // due to timing issues it can be that other than full batches are formed, so we check if the batch contains 21
+        // due to timing issues it can be that other than full batches are formed, so we check if the batch contains 201
         val max = batch.map(_._1).max
-        if (max < 210) {
+        if (max < 201) {
           ingestedTailAcc.accumulateAndGet(max, _ max _)
         }
-        if (batch.map(_._1).contains(210)) Threading.sleep(1000)
+        if (batch.map(_._1).contains(201)) Threading.sleep(1000)
       },
       timeout = FiniteDuration(100, "milliseconds"),
     ).map { case (ingested, ingestedTail, err) =>
       err.value.getMessage shouldBe "timed out"
-      ingested.size should be <= 270
-      ingestedTail.last should be < 210
+      // worst case: 200 elements will be ingested before 201
+      // + 300 elements in the batch that does not contain it and is back-pressured by the batch containing 201
+      ingested.size should be <= 500
+      ingestedTail.last should be < 201
       ingestedTail.last shouldBe ingestedTailAcc.get()
     }
   }

@@ -5,6 +5,9 @@ import DA.Assert
 
 data Mode = PrepareIssuer | PrepareTrader | Throughput | Done deriving (Eq, Show)
 data ParticipantFlag = Initialising | Ready | Finished deriving (Eq, Show)
+data PartyGrowth = NoPartyGrowth |
+                   LocalGrowth with ratio : Int, maxNum : Int, poolSize: Int, maxPending: Int |
+                   RemoteGrowth with ratio : Int, maxNum: Int, poolSize: Int, prefix: Text deriving (Eq, Show)
 data Role = Issuer | Trader deriving (Eq, Show)
 data RunType =
   DvpRun
@@ -13,14 +16,19 @@ data RunType =
       -- optional growth factor which means that the ACS will grow by x on every transfer
       withAcsGrowth: Int
       payloadSize: Int
-      -- optional party growth factor to simulate many parties
-      withPartyGrowth: Int |
+      partyGrowth: PartyGrowth |
     NoRun
     deriving (Eq, Show)
 
+validPartyGrowth : PartyGrowth -> Bool
+validPartyGrowth a = case a of
+  NoPartyGrowth -> True
+  LocalGrowth ratio maxNum poolSize maxPending -> ratio > 0 && maxNum > 0 && poolSize > 0 && maxPending > 0
+  RemoteGrowth ratio maxNum poolSize prefix -> ratio > 0 && maxNum > 0 && poolSize > 0
+
 validRunType : RunType -> Bool
 validRunType a = case a of
-  DvpRun numAssets acsGrowth payloadSize partyGrowth -> numAssets > 0 && acsGrowth > -1 && payloadSize >= 0 && partyGrowth >= 0
+  DvpRun numAssets acsGrowth payloadSize partyGrowth -> numAssets > 0 && acsGrowth > -1 && payloadSize >= 0 && validPartyGrowth partyGrowth
   NoRun -> False
 
 runTypeCode : RunType -> Int

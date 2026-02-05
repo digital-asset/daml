@@ -44,6 +44,7 @@ import com.digitalasset.canton.performance.PartyRole.{
   Master,
   MasterDynamicConfig,
 }
+import com.digitalasset.canton.performance.elements.dvp.TraderDriver
 import com.digitalasset.canton.performance.model.java.orchestration.runtype
 import com.digitalasset.canton.performance.{
   Connectivity,
@@ -193,7 +194,7 @@ trait PerformanceRunnerRecorder extends CommunityIntegrationTest with SharedEnvi
         1000, // Be generous here so that we won't throttle due to a shortage of assets.
         0,
         0,
-        0,
+        TraderDriver.toPartyGrowth(0),
       ),
     ),
   )

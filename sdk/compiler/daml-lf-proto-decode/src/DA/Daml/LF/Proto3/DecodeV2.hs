@@ -708,6 +708,8 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> mayDecode "update_EmbedExprBody" update_EmbedExprBody decodeExpr
   LF2.UpdateSumLookupByKey retrieveByKey ->
     fmap (EUpdate . ULookupByKey) (decodeRetrieveByKey retrieveByKey)
+  LF2.UpdateSumQueryNByKey LF2.Update_QueryNByKey{} ->
+      error "not yet implemented"
   LF2.UpdateSumFetchByKey retrieveByKey ->
     fmap (EUpdate . UFetchByKey) (decodeRetrieveByKey retrieveByKey)
   LF2.UpdateSumTryCatch LF2.Update_TryCatch{..} ->

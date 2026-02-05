@@ -46,8 +46,6 @@ import scala.concurrent.ExecutionContext
   *   - requests contracts in a strictly increasing contract ordinal order,
   *   - and sends only deserializable payloads.
   *
-  * @param partyId
-  *   The party id of the party to replicate active contracts for.
   * @param requestId
   *   The "add party" request id that this replication is associated with.
   * @param psid
@@ -64,7 +62,6 @@ import scala.concurrent.ExecutionContext
   *   Test interceptor only alters behavior in integration tests.
   */
 class PartyReplicationTargetParticipantProcessor(
-    partyId: PartyId,
     requestId: AddPartyRequestId,
     protected val psid: PhysicalSynchronizerId,
     partyOnboardingAt: EffectiveTime,
@@ -82,7 +79,6 @@ class PartyReplicationTargetParticipantProcessor(
     protected val testOnlyInterceptor: PartyReplicationTestInterceptor,
 )(implicit override val executionContext: ExecutionContext)
     extends TargetParticipantAcsPersistence(
-      partyId,
       requestId,
       psid,
       partyOnboardingAt,
@@ -294,7 +290,6 @@ object PartyReplicationTargetParticipantProcessor {
         PartyReplicationTestInterceptor.AlwaysProceed,
   )(implicit executionContext: ExecutionContext): PartyReplicationTargetParticipantProcessor =
     new PartyReplicationTargetParticipantProcessor(
-      partyId,
       requestId,
       connectedSynchronizer.psid,
       partyOnboardingAt,

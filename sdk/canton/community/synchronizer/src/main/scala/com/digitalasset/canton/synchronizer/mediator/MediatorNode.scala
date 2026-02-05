@@ -592,7 +592,7 @@ class MediatorNodeBootstrap(
         EitherT
           .right(
             TopologyTransactionProcessor
-              .createProcessorAndClientForSynchronizerWithWriteThroughCache(
+              .createProcessorAndClientForSynchronizer(
                 synchronizerTopologyStore,
                 synchronizerUpgradeTime = None,
                 crypto.pureCrypto,

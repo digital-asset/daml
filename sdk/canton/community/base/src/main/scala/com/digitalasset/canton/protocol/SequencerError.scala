@@ -29,7 +29,6 @@ import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId, Sequenc
 import com.digitalasset.canton.util.LoggerUtil
 
 import scala.concurrent.duration.Duration
-import scala.jdk.DurationConverters.*
 
 sealed trait SequencerError extends CantonBaseError
 object SequencerError extends SequencerErrorGroup {
@@ -182,7 +181,7 @@ object SequencerError extends SequencerErrorGroup {
         message: String,
     ) extends CantonBaseError.Impl(
           cause =
-            s"The sequencer time [$ts] has exceeded by ${LoggerUtil.roundDurationForHumans((ts - maxSequencingTime).toScala)} the max-sequencing-time of the send request [$maxSequencingTime]: $message"
+            s"The sequencer time [$ts] has exceeded by ${LoggerUtil.roundDurationForHumans(ts - maxSequencingTime)} the max-sequencing-time of the send request [$maxSequencingTime]: $message"
         )
   }
 

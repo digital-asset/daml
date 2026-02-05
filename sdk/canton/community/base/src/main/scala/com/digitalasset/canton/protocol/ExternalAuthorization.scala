@@ -5,6 +5,7 @@ package com.digitalasset.canton.protocol
 
 import cats.implicits.toTraverseOps
 import com.digitalasset.canton.crypto.Signature
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30.ExternalPartyAuthorization
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -14,6 +15,7 @@ import com.digitalasset.canton.version.*
 final case class ExternalAuthorization(
     signatures: Map[PartyId, Seq[Signature]],
     hashingSchemeVersion: HashingSchemeVersion,
+    maxRecordTime: Option[CantonTimestamp],
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       ExternalAuthorization.type
@@ -31,6 +33,7 @@ final case class ExternalAuthorization(
     }.toSeq
 
   private[canton] def toProtoV30: v30.ExternalAuthorization =
+    // In PV34 max record time enforced via the max sequencing time
     v30.ExternalAuthorization(
       authentications = authenticationsV30,
       hashingSchemeVersion.toProtoV30,
@@ -39,7 +42,8 @@ final case class ExternalAuthorization(
   private[canton] def toProtoV31: v31.ExternalAuthorization =
     v31.ExternalAuthorization(
       authentications = authenticationsV30,
-      hashingSchemeVersion.toProtoV31,
+      hashingSchemeVersion = hashingSchemeVersion.toProtoV31,
+      maxRecordTime = maxRecordTime.map(_.toProtoPrimitive),
     )
 
   @transient override protected lazy val companionObj: ExternalAuthorization.type =
@@ -54,9 +58,10 @@ object ExternalAuthorization
   def create(
       signatures: Map[PartyId, Seq[Signature]],
       hashingSchemeVersion: HashingSchemeVersion,
+      maxRecordTime: Option[CantonTimestamp],
       protocolVersion: ProtocolVersion,
   ): ExternalAuthorization =
-    ExternalAuthorization(signatures, hashingSchemeVersion)(
+    ExternalAuthorization(signatures, hashingSchemeVersion, maxRecordTime)(
       protocolVersionRepresentativeFor(protocolVersion)
     )
 
@@ -89,18 +94,19 @@ object ExternalAuthorization
       signatures <- signaturesP.traverse(fromProtoV30)
       hashingSchemeVersion <- HashingSchemeVersion.fromProtoV30(proto.hashingSchemeVersion)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield create(signatures.toMap, hashingSchemeVersion, rpv.representative)
+    } yield create(signatures.toMap, hashingSchemeVersion, None, rpv.representative)
   }
 
   def fromProtoV31(
       proto: v31.ExternalAuthorization
   ): ParsingResult[ExternalAuthorization] = {
-    val v31.ExternalAuthorization(signaturesP, _) = proto
+    val v31.ExternalAuthorization(signaturesP, hashingSchemeVersionP, maxRecordTimeP) = proto
     for {
       signatures <- signaturesP.traverse(fromProtoV30)
-      hashingSchemeVersion <- HashingSchemeVersion.fromProtoV31(proto.hashingSchemeVersion)
+      hashingSchemeVersion <- HashingSchemeVersion.fromProtoV31(hashingSchemeVersionP)
+      maxRecordTime <- maxRecordTimeP.traverse(CantonTimestamp.fromProtoPrimitive)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(31))
-    } yield create(signatures.toMap, hashingSchemeVersion, rpv.representative)
+    } yield create(signatures.toMap, hashingSchemeVersion, maxRecordTime, rpv.representative)
   }
 
 }

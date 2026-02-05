@@ -30,7 +30,6 @@ import java.sql.{Connection, SQLException}
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future, blocking}
-import scala.jdk.DurationConverters.JavaDurationOps
 
 /** DB Storage implementation that assumes a single process accessing the underlying database. */
 final class DbStorageSingle private (
@@ -108,7 +107,7 @@ final class DbStorageSingle private (
         valid
       } catch {
         case e: SQLException =>
-          val failedToFatalDelay = dbConfig.parameters.failedToFatalDelay.duration
+          val failedToFatalDelay = dbConfig.parameters.failedToFatalDelay.asJavaApproximation
           val now = clock.now
 
           val failureDurationExceededDelay = timeWhenFailureStartedRef.getAndUpdate {
@@ -117,11 +116,11 @@ final class DbStorageSingle private (
           } match {
             case None => false
             case Some(timeWhenFailureStarted) =>
-              val failureDuration = (now - timeWhenFailureStarted).toScala
+              val failureDuration = now - timeWhenFailureStarted
               logger.debug(
                 s"Storage has been failing since $timeWhenFailureStarted (${LoggerUtil.roundDurationForHumans(failureDuration)} ago)"
               )
-              failureDuration > failedToFatalDelay
+              failureDuration.compareTo(failedToFatalDelay) > 0
           }
 
           if (failureDurationExceededDelay)

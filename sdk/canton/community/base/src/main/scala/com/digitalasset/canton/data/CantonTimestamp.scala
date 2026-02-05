@@ -68,7 +68,7 @@ final case class CantonTimestamp(underlying: LfTimestamp)
   def max(that: CantonTimestamp): CantonTimestamp = if (compare(that) > 0) this else that
 
   def -(other: CantonTimestamp): Duration =
-    Duration.ofNanos(1000L * (this.underlying.micros - other.underlying.micros))
+    Duration.between(other.underlying.toInstant, this.underlying.toInstant)
 
   def +(duration: RefinedDuration): CantonTimestamp = plus(duration.unwrap)
   def -(duration: RefinedDuration): CantonTimestamp = minus(duration.unwrap)

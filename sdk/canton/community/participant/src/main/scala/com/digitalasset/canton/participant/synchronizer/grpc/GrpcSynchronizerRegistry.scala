@@ -12,12 +12,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader.SequencerAggregatedInfo
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
-import com.digitalasset.canton.config.{
-  CryptoConfig,
-  ProcessingTimeout,
-  TestingConfigInternal,
-  TopologyConfig,
-}
+import com.digitalasset.canton.config.{CryptoConfig, ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{
   CryptoHandshakeValidator,
   SyncCryptoApiParticipantProvider,
@@ -79,7 +74,6 @@ class GrpcSynchronizerRegistry(
     topologyDispatcher: ParticipantTopologyDispatcher,
     cryptoApiProvider: SyncCryptoApiParticipantProvider,
     cryptoConfig: CryptoConfig,
-    topologyConfig: TopologyConfig,
     clock: Clock,
     val participantNodeParameters: ParticipantNodeParameters,
     aliasManager: SynchronizerAliasManager,
@@ -326,7 +320,6 @@ class GrpcSynchronizerRegistry(
         cryptoApiProvider,
         clock,
         testingConfig,
-        topologyConfig,
         recordSequencerInteractions,
         replaySequencerConfig,
         topologyDispatcher,

@@ -1327,6 +1327,68 @@ class DecodeV2Spec
         }
       }
     }
+
+    "accept well-formed QueryNByKey for lf features that support it)" in {
+     val protoPkgId = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build
+     val protoModId =
+       DamlLf2.ModuleId.newBuilder().setPackageId(protoPkgId).setModuleNameInternedDname(0).build()
+      val protoTemplateTyConId =
+        DamlLf2.TypeConId.newBuilder().setModule(protoModId).setNameInternedDname(1)
+
+      val query = DamlLf2.Update.QueryNByKey
+        .newBuilder()
+        .setTemplate(protoTemplateTyConId)
+      val update = DamlLf2.Update
+        .newBuilder()
+        .setQueryNByKey(query)
+      val expr = DamlLf2.Expr
+        .newBuilder()
+        .setUpdate(update)
+        .build()
+
+      forEveryVersionSuchThat(LV.featureNUCK.enabledIn(_)) { version =>
+        val decoder = new DecodeV2(version.minor)
+        val env = decoder.Env(
+         packageId = Ref.PackageId.assertFromString("noPkgId"),
+          internedDottedNames = ImmArraySeq("Mod", "T").map(Ref.DottedName.assertFromString),
+        )
+        inside(env.decodeExprForTest(expr, "test")) {
+          case Ast.EUpdate(u) =>
+            u shouldBe Ast.UpdateQueryNByKey(Ref.TypeConId.assertFromString("noPkgId:Mod:T"))
+        }
+      }
+    }
+
+    "reject well-formed QueryNByKey for lf features that do not support it" in {
+     val protoPkgId = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build
+     val protoModId =
+       DamlLf2.ModuleId.newBuilder().setPackageId(protoPkgId).setModuleNameInternedDname(0).build()
+      val protoTemplateTyConId =
+        DamlLf2.TypeConId.newBuilder().setModule(protoModId).setNameInternedDname(1)
+
+      val query = DamlLf2.Update.QueryNByKey
+        .newBuilder()
+        .setTemplate(protoTemplateTyConId)
+      val update = DamlLf2.Update
+        .newBuilder()
+        .setQueryNByKey(query)
+      val expr = DamlLf2.Expr
+        .newBuilder()
+        .setUpdate(update)
+        .build()
+
+      forEveryVersionSuchThat(!LV.featureNUCK.enabledIn(_)) { version =>
+        val decoder = new DecodeV2(version.minor)
+        val env = decoder.Env(
+         packageId = Ref.PackageId.assertFromString("noPkgId"),
+          internedDottedNames = ImmArraySeq("Mod", "T").map(Ref.DottedName.assertFromString),
+        )
+        inside(Try(env.decodeExprForTest(expr, "test"))) {
+          case Failure(Error.Parsing(message)) =>
+            message should include("Non-unique contract keys is not supported by Daml-LF")
+        }
+      }
+    }
   }
 
   "decodeModule" should {

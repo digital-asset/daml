@@ -25,6 +25,7 @@ import com.digitalasset.canton.performance.PartyRole.{
 }
 import com.digitalasset.canton.performance.RateSettings.SubmissionRateSettings
 import com.digitalasset.canton.performance.elements.DriverStatus
+import com.digitalasset.canton.performance.elements.dvp.TraderDriver
 import com.digitalasset.canton.performance.model.java.orchestration.runtype
 import com.digitalasset.canton.performance.{
   Connectivity,
@@ -132,7 +133,7 @@ trait ReliabilityPerformanceIntegrationTest extends BasePerformanceIntegrationTe
               numAssetsPerIssuer.toLong,
               0,
               0,
-              withPartyGrowth.toLong,
+              TraderDriver.toPartyGrowth(withPartyGrowth),
             ),
           ),
         ),

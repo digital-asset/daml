@@ -95,6 +95,7 @@ import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, LoggerUtil, RoseTree}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   LedgerSubmissionId,
   LfKeyResolver,
@@ -311,11 +312,18 @@ class TransactionProcessingSteps(
         synchronizerParameters =>
           val maxSequencingTimeFromLET = CantonTimestamp(transactionMeta.ledgerEffectiveTime)
             .add(synchronizerParameters.ledgerTimeRecordTimeTolerance.unwrap)
-          submitterInfo.externallySignedSubmission
-            .flatMap(_.maxRecordTime)
-            .map(CantonTimestamp.apply)
-            .map(_.min(maxSequencingTimeFromLET))
-            .getOrElse(maxSequencingTimeFromLET)
+          // For PV34 we didn't want to change the protocol so used adjusted the max sequencing time
+          // not to exceed the max record time if provided. For PV35 onwards we do this checking in phase 3
+          // so we restore the pre-existing.
+          if (protocolVersion >= ProtocolVersion.v35) {
+            maxSequencingTimeFromLET
+          } else {
+            submitterInfo.externallySignedSubmission
+              .flatMap(_.maxRecordTime)
+              .map(CantonTimestamp.apply)
+              .map(_.min(maxSequencingTimeFromLET))
+              .getOrElse(maxSequencingTimeFromLET)
+          }
       }
     )
 
@@ -774,12 +782,16 @@ class TransactionProcessingSteps(
         amSubmitter = parsedRequest.submitterMetadataO.exists(
           _.submittingParticipant == participantId
         )
+
         timeValidationE = TimeValidator.checkTimestamps(
           commonData,
           requestTimestamp,
           ledgerTimeRecordTimeTolerance = synchronizerParameters.ledgerTimeRecordTimeTolerance,
           preparationTimeRecordTimeTolerance =
             synchronizerParameters.preparationTimeRecordTimeTolerance,
+          maxRecordTime = parsedRequest.submitterMetadataO
+            .flatMap(_.externalAuthorization)
+            .flatMap(_.maxRecordTime),
           amSubmitter = amSubmitter,
           logger,
         )

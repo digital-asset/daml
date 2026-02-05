@@ -14,7 +14,11 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
-import com.digitalasset.canton.integration.tests.multihostedparties.OnlinePartyReplicationTestHelpers.PreparedOnPRSetup
+import com.digitalasset.canton.integration.tests.multihostedparties.OnlinePartyReplicationTestHelpers.{
+  AuthorizedOnPRSetup,
+  PreparedOnPRSetup,
+}
+import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
 import com.digitalasset.canton.participant.admin.data.PartyReplicationStatus
 import com.digitalasset.canton.topology.transaction.{
   ParticipantPermission,
@@ -22,7 +26,7 @@ import com.digitalasset.canton.topology.transaction.{
   SignedTopologyTransaction,
   TopologyChangeOp,
 }
-import com.digitalasset.canton.topology.{Party, PartyId}
+import com.digitalasset.canton.topology.{ExternalParty, Party, PartyId}
 import com.digitalasset.canton.{BaseTest, config, integration}
 import org.scalatest.Assertion
 
@@ -34,6 +38,58 @@ import scala.util.Try
   */
 private[tests] trait OnlinePartyReplicationTestHelpers {
   this: BaseTest =>
+
+  /** Authorize the onboarding of the specified external party from SP to TP.
+    *
+    * @param sourceParticipant
+    *   the source participant to export the ACS from
+    * @param targetParticipant
+    *   the target participant to onboard the party and import the ACS to
+    * @param partyToReplicate
+    *   the external party to replicate
+    * @return
+    *   AuthorizedOnPRSetup with parameters needed for file-based ACS export and import
+    */
+  protected def authorizeOnboardingTopologyForFileBasedOnPR(
+      sourceParticipant: ParticipantReference,
+      targetParticipant: ParticipantReference,
+      partyToReplicate: ExternalParty,
+  )(implicit
+      env: integration.TestConsoleEnvironment
+  ): AuthorizedOnPRSetup = {
+    import env.*
+    val spOffsetBeforePartyAddedToTargetParticipant = sourceParticipant.ledger_api.state.end()
+
+    clue("External party and TP agree to have target participant onboard the party")(
+      PartyToParticipantDeclarative(participants.all.toSet, Set(daId))(
+        owningParticipants = Map.empty,
+        targetTopology = Map(
+          partyToReplicate -> Map(
+            daId -> (PositiveInt.one, Set(
+              (sourceParticipant, ParticipantPermission.Confirmation),
+              (targetParticipant, ParticipantPermission.Confirmation),
+            ))
+          )
+        ),
+        onboarding = true,
+      )
+    )
+
+    val serial = eventually() {
+      participants.all.map { p =>
+        val res = p.topology.party_to_participant_mappings
+          .list(daId, filterParty = partyToReplicate.filterString)
+          .loneElement
+        res.item.participants.map(_.participantId) shouldBe Seq(
+          sourceParticipant.id,
+          targetParticipant.id,
+        )
+        res.context.serial
+      }
+    }.head
+
+    AuthorizedOnPRSetup(serial, spOffsetBeforePartyAddedToTargetParticipant)
+  }
 
   protected def updateSynchronizerParameters(
       synchronizerOwner: InstanceReference,
@@ -253,6 +309,20 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
       addPartyRequestId: String,
       expectedNumContracts: NonNegativeInt,
       waitAtMost: FiniteDuration = 2.minutes, // default enough for ~400 contracts
+  ): Unit = eventuallyOnPRCompletes(
+    sourceParticipant,
+    targetParticipant,
+    addPartyRequestId,
+    Some(expectedNumContracts),
+    waitAtMost,
+  )
+
+  protected def eventuallyOnPRCompletes(
+      sourceParticipant: ParticipantReference,
+      targetParticipant: ParticipantReference,
+      addPartyRequestId: String,
+      expectedNumContractsO: Option[NonNegativeInt],
+      waitAtMost: FiniteDuration,
   ): Unit =
     eventually(
       timeUntilSuccess = waitAtMost,
@@ -266,16 +336,16 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
 
       (spStatusO, tpStatus) match {
         case (Some(spStatus), tp)
-            if countsMatch(spStatus, expectedNumContracts) && countsMatch(
+            if countsMatch(spStatus, expectedNumContractsO) && countsMatch(
               tp,
-              expectedNumContracts,
+              expectedNumContractsO,
             ) =>
           logger.info(
             s"SP and TP completed party replication with status $spStatus and $tpStatus"
           )
         case (Some(spStatus), tp) if finished(spStatus) && finished(tp) =>
           logger.warn(
-            s"SP and TP completed party replication but had unexpected number of contracts: $spStatus and $tpStatus, expected $expectedNumContracts"
+            s"SP and TP completed party replication but had unexpected number of contracts: $spStatus and $tpStatus, expected $expectedNumContractsO"
           )
         case (sourceStatusO, targetStatus) =>
           fail(
@@ -287,7 +357,7 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
   protected def eventuallyOnPRCompletesOnTP(
       targetParticipant: ParticipantReference,
       addPartyRequestId: String,
-      expectedNumContracts: NonNegativeInt,
+      expectedNumContractsO: Option[NonNegativeInt],
       waitAtMost: FiniteDuration = 2.minutes, // default enough for ~400 contracts
   ): Unit =
     eventually(
@@ -296,11 +366,11 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
       maxPollInterval = 1.second,
     ) {
       targetParticipant.parties.get_add_party_status(addPartyRequestId) match {
-        case tpStatus if countsMatch(tpStatus, expectedNumContracts) =>
+        case tpStatus if countsMatch(tpStatus, expectedNumContractsO) =>
           logger.info(s"TP completed party replication with status $tpStatus")
         case tpStatus if finished(tpStatus) =>
           logger.warn(
-            s"TP completed party replication but had unexpected number of contracts: $tpStatus, expected $expectedNumContracts"
+            s"TP completed party replication but had unexpected number of contracts: $tpStatus, expected $expectedNumContractsO"
           )
         case tpStatus =>
           fail(s"TP did not complete party replication. TP status $tpStatus")
@@ -309,10 +379,12 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
 
   private def finished(status: PartyReplicationStatus) =
     status.hasCompleted && status.errorO.isEmpty
-  private def countsMatch(status: PartyReplicationStatus, expectedNumContracts: NonNegativeInt) =
-    finished(status) && status.replicationO.exists(r =>
-      r.fullyProcessedAcs && r.processedContractCount == expectedNumContracts
-    )
+  private def countsMatch(
+      status: PartyReplicationStatus,
+      expectedNumContractsO: Option[NonNegativeInt],
+  ) = finished(status) && status.replicationO.exists(progress =>
+    progress.fullyProcessedAcs && expectedNumContractsO.forall(progress.processedContractCount == _)
+  )
 
   @nowarn("msg=match may not be exhaustive")
   protected def eventuallyLedgerApiAcsInSyncBetweenSPAndTP(
@@ -338,7 +410,7 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
       )
       assert(
         missingFromSP.isEmpty,
-        s"These I${missingFromSP.size} contracts are missing from the SP: $missingFromSP",
+        s"These ${missingFromSP.size} contracts are missing from the SP: $missingFromSP",
       )
     }
 
@@ -372,4 +444,8 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
 
 private[tests] object OnlinePartyReplicationTestHelpers {
   final case class PreparedOnPRSetup(topologySerial: PositiveInt, expectedNumContracts: PositiveInt)
+  final case class AuthorizedOnPRSetup(
+      topologySerial: PositiveInt,
+      spOffsetBeforePartyOnboardingToTargetParticipant: Long,
+  )
 }

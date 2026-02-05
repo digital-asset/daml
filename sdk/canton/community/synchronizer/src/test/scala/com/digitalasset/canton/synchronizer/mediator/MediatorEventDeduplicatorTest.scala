@@ -80,6 +80,7 @@ class MediatorEventDeduplicatorTest
       _ => FutureUnlessShutdown.outcomeF(delayed(deduplicationTimeout)),
       _ => FutureUnlessShutdown.outcomeF(delayed(decisionTime)),
       testedProtocolVersion,
+      MediatorTestMetrics,
       loggerFactory,
     )
     (deduplicator, verdictSender, store)
@@ -399,6 +400,7 @@ class MediatorEventDeduplicatorTest
       _ => FutureUnlessShutdown.pure(deduplicationTimeout),
       _ => FutureUnlessShutdown.pure(decisionTime),
       testedProtocolVersion,
+      MediatorTestMetrics,
       loggerFactory,
     )
   }

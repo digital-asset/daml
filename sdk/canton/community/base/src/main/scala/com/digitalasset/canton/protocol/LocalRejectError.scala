@@ -159,6 +159,23 @@ object LocalRejectError extends LocalRejectionGroup {
     }
 
     @Explanation(
+      "This error happens when there is a maximum record time provided for an externally signed transaction but the transaction was not executed (sequenced) before this time."
+    )
+    @Resolution(
+      "The externally signed transaction will need to be re-prepared with a future dated maximum record time, re-signed, then re-submitted."
+    )
+    object MaxRecordTimeExceeded
+        extends LocalRejectErrorCode(
+          id = "LOCAL_VERDICT_MAX_RECORD_TIME_EXCEEDED",
+          ErrorCategory.ContentionOnSharedResources,
+        ) {
+      final case class Reject(override val _details: String)
+          extends LocalRejectErrorImpl(
+            _causePrefix = "Rejected transaction as record time exceeds the maximum record time: "
+          )
+    }
+
+    @Explanation(
       """This rejection is sent if the participant locally determined a timeout."""
     )
     @Resolution("""In the first instance, resubmit your transaction.
