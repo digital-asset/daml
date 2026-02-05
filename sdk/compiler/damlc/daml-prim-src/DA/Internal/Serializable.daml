@@ -1,4 +1,4 @@
--- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -10,8 +10,6 @@ module DA.Internal.Serializable (
 import GHC.Tuple ()
 import GHC.Types
 
-data Witness
-
 -- | A class to explicitly indicate that a type is serializable.  Values of
 -- types instantiating this class can be stored on the ledger.  These types will
 -- be subject to strict upgrade checks, as newer code must continue to be able
@@ -20,7 +18,7 @@ data Witness
 -- Note that explicit serializability is off by default and hidden behind the
 -- --explicit-serializable=yes flag in Canton 3.5.
 class Serializable a where
-    witness : a -> Witness -> Witness
+    witness : a -> b -> b
 
 instance Serializable Decimal where witness _ z = z
 instance Serializable Text where witness _ z = z
