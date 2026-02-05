@@ -28,8 +28,10 @@ import com.digitalasset.canton.resource.{Storage, StorageSingleFactory}
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.synchronizer.sequencer.SequencerSnapshot
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId as AdminTopologyStoreId
 import com.digitalasset.canton.topology.cache.{CacheTestMetrics, TopologyStateWriteThroughCache}
+import com.digitalasset.canton.topology.processing.TopologyStateProcessor
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.{TimeQuery, TopologyStore, TopologyStoreId}
@@ -38,7 +40,6 @@ import com.digitalasset.canton.topology.transaction.checks.{
   RequiredTopologyMappingChecks,
   TopologyMappingChecks,
 }
-import com.digitalasset.canton.topology.{SynchronizerId, TopologyStateProcessor}
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext}
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ReleaseProtocolVersion

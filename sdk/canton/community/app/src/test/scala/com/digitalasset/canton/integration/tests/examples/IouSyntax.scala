@@ -194,6 +194,9 @@ object IouSyntax {
   def archive(participant: ParticipantReference, synchronizerId: Option[SynchronizerId] = None)(
       contract: Iou.Contract,
       submittingParty: Party,
+      optTimeout: Option[config.NonNegativeDuration] = Some(
+        participant.consoleEnvironment.commandTimeouts.ledgerCommand
+      ),
   ): Unit =
     participant.ledger_api.commands
       .submit(
@@ -205,6 +208,28 @@ object IouSyntax {
           .toSeq
           .map(c => Command.fromJavaProto(c.toProtoCommand)),
         synchronizerId,
+        optTimeout = optTimeout,
+      )
+      .discard
+
+  def call(participant: ParticipantReference, synchronizerId: Option[SynchronizerId] = None)(
+      contract: Iou.Contract,
+      submittingParty: Party,
+      optTimeout: Option[config.NonNegativeDuration] = Some(
+        participant.consoleEnvironment.commandTimeouts.ledgerCommand
+      ),
+  ): Unit =
+    participant.ledger_api.commands
+      .submit(
+        Seq(submittingParty),
+        contract.id
+          .exerciseCall()
+          .commands
+          .asScala
+          .toSeq
+          .map(c => Command.fromJavaProto(c.toProtoCommand)),
+        synchronizerId,
+        optTimeout = optTimeout,
       )
       .discard
 

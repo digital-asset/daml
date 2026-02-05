@@ -145,9 +145,7 @@ class TopologyComponentFactory(
     }
   }
 
-  def createInitialTopologySnapshotValidator(
-      topologyConfig: TopologyConfig
-  )(implicit
+  def createInitialTopologySnapshotValidator()(implicit
       executionContext: ExecutionContext,
       materializer: Materializer,
   ): InitialTopologySnapshotValidator =
@@ -155,7 +153,7 @@ class TopologyComponentFactory(
       crypto.pureCrypto,
       topologyStore,
       batching.topologyCacheAggregator,
-      topologyConfig,
+      topology,
       Some(crypto.staticSynchronizerParameters),
       timeouts,
       loggerFactory,

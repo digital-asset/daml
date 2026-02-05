@@ -584,9 +584,10 @@ final class BlockChunkProcessor(
               )
             // record the timestamp of the acknowledgment
             metrics.block
-              .updateAcknowledgementGauge(
-                requestContent.member.toString,
-                requestContent.timestamp.underlying.micros,
+              .acknowledgmentGauge(requestContent.member.toString)
+              .updateValue(
+                // Keep only the maximum to not disturb the metric when old acknowledgements are replayed / resent
+                _ max requestContent.timestamp.underlying.micros
               )
         }
       })

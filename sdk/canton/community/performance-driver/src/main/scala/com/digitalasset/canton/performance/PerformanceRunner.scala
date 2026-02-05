@@ -115,10 +115,11 @@ object RateSettings {
 
 object PartyRole {
 
-  final case class DvpTrader(name: String, override val settings: RateSettings)
-      extends ActivePartyRole {
+  final case class DvpTrader(
+      name: String,
+      override val settings: RateSettings = RateSettings.defaults,
+  ) extends ActivePartyRole {
     override def role: M.orchestration.Role = M.orchestration.Role.TRADER
-
     override def commandClientConfiguration: CommandClientConfiguration =
       settings.commandClientConfiguration
   }

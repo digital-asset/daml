@@ -9,7 +9,8 @@ import com.digitalasset.canton.tracing.TraceContext
 import org.slf4j.event.Level
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.Duration
+import scala.annotation.tailrec
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -53,8 +54,8 @@ object LoggerUtil {
     logger.debug(s"Starting $message")
     val st = System.nanoTime()
     val ret = if (logNonFatalThrowable) logOnThrow(run) else run
-    val end = roundDurationForHumans(Duration(System.nanoTime() - st, TimeUnit.NANOSECONDS))
-    logger.debug(s"Finished $message after $end")
+    val delay = roundDurationForHumans(Duration(System.nanoTime() - st, TimeUnit.NANOSECONDS))
+    logger.debug(s"Finished $message after $delay")
     ret
   }
 
@@ -68,8 +69,8 @@ object LoggerUtil {
     val st = System.nanoTime()
     val ret = if (logNonFatalThrowable) logOnThrow(run) else run
     ret.onComplete { _ =>
-      val end = roundDurationForHumans(Duration(System.nanoTime() - st, TimeUnit.NANOSECONDS))
-      logger.debug(s"Finished $message after $end")
+      val delay = roundDurationForHumans(Duration(System.nanoTime() - st, TimeUnit.NANOSECONDS))
+      logger.debug(s"Finished $message after $delay")
 
     }
     ret
@@ -84,28 +85,82 @@ object LoggerUtil {
     val st = System.nanoTime()
     val ret = if (logNonFatalThrowable) logOnThrow(run) else run
     ret.onComplete { _ =>
-      val end = roundDurationForHumans(Duration(System.nanoTime() - st, TimeUnit.NANOSECONDS))
-      logger.debug(s"Finished $message after $end")
+      val delay = roundDurationForHumans(Duration(System.nanoTime() - st, TimeUnit.NANOSECONDS))
+      logger.debug(s"Finished $message after $delay")
 
     }
     ret
   }
 
-  /** Round a duration such that humans can easier grasp the numbers
-    *
-    * Duration offers a method .toCoarsest that will figure out the coarsest time unit. However,
-    * this method doesn't really do anything if we have nanoseconds as it only truncates 0.
-    *
-    * Therefore, this method allows to set lower digits to 0 and only keep the leading digits as
-    * non-zeros.
+  /** Round a duration such that humans can grasp the numbers more easily, namely to the coarsest
+    * unit (up to days) that retains at least 2 significant digits or does not lose any remaining
+    * precision.
     */
-  def roundDurationForHumans(duration: Duration, keep: Int = 2): Duration =
-    if (duration.isFinite && duration.length != 0) {
-      val length = Math.abs(duration.length)
-      val adjusted = length - length % math
-        .pow(10, Math.max(0, math.floor(math.log10(length.toDouble)) - keep))
-      Duration(if (duration.length > 0) adjusted else -adjusted, duration.unit).toCoarsest
-    } else duration
+  def roundDurationForHumans(duration: Duration): String =
+    roundDurationForHumans(duration, keep = 2)
+
+  /** Round a duration such that humans can grasp the numbers more easily, namely to the coarsest
+    * unit (up to days) that retains at least `keep` many significant digits or does not lose any
+    * remaining precision.
+    */
+  def roundDurationForHumans(duration: Duration, keep: Int): String =
+    duration match {
+      case finite: FiniteDuration =>
+        import scala.jdk.DurationConverters.*
+        roundDurationForHumans(finite.toJava, keep)
+      case infinite => infinite.toString
+    }
+
+  /** Round a duration such that humans can grasp the numbers more easily, namely to the coarsest
+    * unit (up to days) that retains at least 2 significant digits or does not lose any remaining
+    * precision.
+    */
+  def roundDurationForHumans(duration: java.time.Duration): String =
+    roundDurationForHumans(duration, keep = 2)
+
+  /** Round a duration such that humans can grasp the numbers more easily, namely to the coarsest
+    * unit (up to days) that retains at least `keep` many significant digits or does not lose any
+    * remaining precision.
+    */
+  def roundDurationForHumans(duration: java.time.Duration, keep: Int): String =
+    if (duration.isZero) "0 seconds"
+    else {
+      val keepBound = BigInt(10).pow(keep)
+
+      @tailrec def go(length: BigInt, unit: TimeUnit): (BigInt, TimeUnit) = {
+        val (coarser, divider) = unit match {
+          case TimeUnit.NANOSECONDS => (TimeUnit.MICROSECONDS, 1000)
+          case TimeUnit.MICROSECONDS => (TimeUnit.MILLISECONDS, 1000)
+          case TimeUnit.MILLISECONDS => (TimeUnit.SECONDS, 1000)
+          case TimeUnit.SECONDS => (TimeUnit.MINUTES, 60)
+          case TimeUnit.MINUTES => (TimeUnit.HOURS, 60)
+          case TimeUnit.HOURS => (TimeUnit.DAYS, 24)
+          case TimeUnit.DAYS => (TimeUnit.DAYS, 1)
+        }
+        if (divider == 1) (length, unit)
+        else {
+          val scaled = length / divider
+          if (scaled >= keepBound) go(scaled, coarser)
+          else if (length % divider == 0) go(scaled, coarser)
+          else (length, unit)
+        }
+      }
+
+      val totalNanos =
+        BigInt(duration.toSeconds) * BigInt(1_000_000_000L) + BigInt(duration.getNano)
+      val (scaled, unit) = go(totalNanos, TimeUnit.NANOSECONDS)
+      val singularUnitName = unit match {
+        case TimeUnit.NANOSECONDS => "nano"
+        case TimeUnit.MICROSECONDS => "microsecond"
+        case TimeUnit.MILLISECONDS => "millisecond"
+        case TimeUnit.SECONDS => "second"
+        case TimeUnit.MINUTES => "minute"
+        case TimeUnit.HOURS => "hour"
+        case TimeUnit.DAYS => "day"
+      }
+      val unitName = if (scaled == 1) singularUnitName else singularUnitName + "s"
+      scaled.toString() + " " + unitName
+    }
 
   def logOnThrow[T](task: => T)(implicit loggingContext: ErrorLoggingContext): T =
     try {

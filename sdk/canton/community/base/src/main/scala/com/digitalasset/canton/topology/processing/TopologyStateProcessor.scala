@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.topology
+package com.digitalasset.canton.topology.processing
 
 import cats.data.EitherT
 import cats.syntax.either.*
@@ -14,37 +14,16 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.AsyncResult
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.cache.TopologyStateWriteThroughCache.StateKeyTuple
 import com.digitalasset.canton.topology.cache.{TopologyStateLookup, TopologyStateWriteThroughCache}
-import com.digitalasset.canton.topology.processing.{
-  EffectiveTime,
-  SequencedTime,
-  TopologyTransactionAuthorizationValidator,
-}
 import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
 import com.digitalasset.canton.topology.transaction.checks.TopologyMappingChecks
-import com.digitalasset.canton.topology.transaction.{
-  DecentralizedNamespaceDefinition,
-  DynamicSequencingParametersState,
-  MediatorSynchronizerState,
-  NamespaceDelegation,
-  OwnerToKeyMapping,
-  ParticipantSynchronizerPermission,
-  PartyHostingLimits,
-  PartyToKeyMapping,
-  PartyToParticipant,
-  SequencerConnectionSuccessor,
-  SequencerSynchronizerState,
-  SynchronizerParametersState,
-  SynchronizerTrustCertificate,
-  SynchronizerUpgradeAnnouncement,
-  TopologyMapping,
-  VettedPackages,
-}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
@@ -52,13 +31,40 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
+trait TopologyStateProcessor extends AutoCloseable {
+
+  /** validate the authorization and the signatures of the given transactions
+    *
+    * The function is NOT THREAD SAFE AND MUST RUN SEQUENTIALLY
+    * @param relaxChecksForBackwardsCompatibility
+    *   in order to import mainnet topology state after hard migration, we need to relax certain
+    *   checks which we added subsequently but which are not honored with older transactions.
+    *   exceptions are:
+    *   - no proof-of-ownership for signing keys on older OTKs
+    *   - adding members before adding OTKs
+    * @param storeIsEmpty
+    *   if set to true, the store is considered empty. no check will load from the store. this is
+    *   useful for importing large genesis timestamps. for all other scenarios it will blow up.
+    */
+  def validateAndApplyAuthorization(
+      sequenced: SequencedTime,
+      effective: EffectiveTime,
+      transactions: Seq[GenericSignedTopologyTransaction],
+      expectFullAuthorization: Boolean,
+      relaxChecksForBackwardsCompatibility: Boolean,
+      storeIsEmpty: Boolean = false,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[(Seq[GenericValidatedTopologyTransaction], AsyncResult[Unit])]
+}
+
 /** A non-thread safe class which validates and stores topology transactions
   *
   * @param outboxQueue
   *   If a [[SynchronizerOutboxQueue]] is provided, the processed transactions are not directly
   *   stored, but rather sent to the synchronizer via an ephemeral queue (i.e. no persistence).
   */
-class TopologyStateProcessor private (
+class TopologyStateProcessorImpl private[processing] (
     val store: TopologyStore[TopologyStoreId],
     val cache: TopologyStateWriteThroughCache,
     outboxQueue: Option[SynchronizerOutboxQueue],
@@ -66,7 +72,8 @@ class TopologyStateProcessor private (
     pureCrypto: CryptoPureApi,
     loggerFactoryParent: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends NamedLogging {
+    extends TopologyStateProcessor
+    with NamedLogging {
 
   override protected val loggerFactory: NamedLoggerFactory =
     // only add the `store` key for the authorized store. In case this TopologyStateProcessor is for a synchronizer,
@@ -87,19 +94,8 @@ class TopologyStateProcessor private (
       loggerFactory.append("role", if (outboxQueue.isEmpty) "incoming" else "outgoing"),
     )
 
-  /** validate the authorization and the signatures of the given transactions
-    *
-    * The function is NOT THREAD SAFE AND MUST RUN SEQUENTIALLY
-    * @param relaxChecksForBackwardsCompatibility
-    *   in order to import mainnet topology state after hard migration, we need to relax certain
-    *   checks which we added subsequently but which are not honored with older transactions.
-    *   exceptions are:
-    *   - no proof-of-ownership for signing keys on older OTKs
-    *   - adding members before adding OTKs
-    * @param storeIsEmpty
-    *   if set to true, the store is considered empty. no check will load from the store. this is
-    *   useful for importing large genesis timestamps. for all other scenarios it will blow up.
-    */
+  override def close(): Unit = cache.close()
+
   def validateAndApplyAuthorization(
       sequenced: SequencedTime,
       effective: EffectiveTime,
@@ -457,8 +453,8 @@ object TopologyStateProcessor {
       futureSupervisor: FutureSupervisor,
       timeouts: ProcessingTimeout,
       loggerFactoryParent: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext) =
-    new TopologyStateProcessor(
+  )(implicit ec: ExecutionContext): TopologyStateProcessor =
+    new TopologyStateProcessorImpl(
       store,
       new TopologyStateWriteThroughCache(
         store,
@@ -488,7 +484,7 @@ object TopologyStateProcessor {
       timeouts: ProcessingTimeout,
       loggerFactoryParent: NamedLoggerFactory,
   )(implicit ec: ExecutionContext) =
-    new TopologyStateProcessor(
+    new TopologyStateProcessorImpl(
       store,
       new TopologyStateWriteThroughCache(
         store,
@@ -517,7 +513,7 @@ object TopologyStateProcessor {
       pureCrypto: PureCrypto,
       loggerFactoryParent: NamedLoggerFactory,
   )(implicit ec: ExecutionContext) =
-    new TopologyStateProcessor(
+    new TopologyStateProcessorImpl(
       store,
       cache,
       outboxQueue = None,

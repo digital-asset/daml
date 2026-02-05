@@ -286,12 +286,13 @@ object FutureSupervisor {
               val time = elapsed(itm)
               if (time > warnAfter) {
                 errorLoggingContext.info(
-                  s"$description succeed successfully but slow after $time"
+                  s"$description succeed successfully but slow after ${LoggerUtil.roundDurationForHumans(time)}"
                 )
               }
             case Failure(exception) =>
+              val time = elapsed(itm)
               log(
-                s"$description failed with exception after ${elapsed(itm)}",
+                s"$description failed with exception after ${LoggerUtil.roundDurationForHumans(time)}",
                 logLevel,
                 errorLoggingContext,
                 Some(exception),
@@ -305,10 +306,8 @@ object FutureSupervisor {
         }
       }
 
-    private def elapsed(item: ScheduledFuture): Duration = {
-      val dur = Duration.fromNanos(System.nanoTime() - item.startNanos)
-      LoggerUtil.roundDurationForHumans(dur)
-    }
+    private def elapsed(item: ScheduledFuture): Duration =
+      Duration.fromNanos(System.nanoTime() - item.startNanos)
 
     @SuppressWarnings(Array("org.wartremover.warts.Null"))
     def stop(): Unit = {

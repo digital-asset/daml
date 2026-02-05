@@ -33,8 +33,6 @@ import com.digitalasset.canton.util.{MonadUtil, retry}
 import com.google.protobuf.ByteString
 
 import java.io.{FileInputStream, InputStream}
-import java.util.concurrent.atomic.AtomicInteger
-import scala.collection.mutable
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -114,13 +112,13 @@ class SetupDriver(
           }
         }
       }
-      relevantParties <- grabAllRelevantParties(client, config.master)
       mapped <- mapOrAddParties(
         x => allocateParty(client, participantId, config.synchronizerIds(x))(x),
+        findParty(client),
         config.localRoles.map(_.name),
-        relevantParties,
       )
-      master <- relevantParties.find(_.startsWith(config.master)) match {
+      masterParty <- findParty(client)(config.master)
+      master <- masterParty match {
         case Some(master) => Future.successful(master)
         case None =>
           // Try a few times until the master party is observed.
@@ -137,31 +135,10 @@ class SetupDriver(
     }
   }
 
-  private def grabAllRelevantParties(client: LedgerClient, master: String) = {
-    val assembled = mutable.ListBuffer[LfPartyId]()
-    logger.info("Grabbing all relevant parties")
-    val count = 1000
-    val counter = new AtomicInteger(0)
-    def go(pageToken: String): Future[Seq[LfPartyId]] =
-      client.partyManagementClient
-        .listKnownParties(pageToken = pageToken, pageSize = count)
-        .flatMap { case (found, nextPage) =>
-          val filtered = found
-            .filter(d =>
-              (d.isLocal || d.party.startsWith(master)) && !d.party.contains("bystander")
-            )
-            .map(_.party)
-          val _ = assembled.appendAll(filtered)
-          if (found.sizeIs == count) {
-            logger.info("Grabbing batch at offset " + (counter.getAndIncrement() * count))
-            go(nextPage)
-          } else {
-            logger.info(s"Finished finding with ${found.size}, with filtered=${assembled.size}")
-            Future.successful(assembled.toSeq)
-          }
-        }
-    go("")
-  }
+  private def findParty(client: LedgerClient)(prefix: String): Future[Option[LfPartyId]] =
+    client.partyManagementClient
+      .listKnownParties(filterParty = prefix)
+      .map(_._1.headOption.map(_.party))
 
   private def observeParty(
       client: LedgerClient,
@@ -240,22 +217,24 @@ class SetupDriver(
 
   private def mapOrAddParties(
       mkParty: String => Future[LfPartyId],
+      findParty: String => Future[Option[LfPartyId]],
       expected: Set[String],
-      localParties: Seq[LfPartyId],
   )(implicit ec: ExecutionContext): Future[Map[String, LfPartyId]] =
-    Future
-      .sequence(
-        expected.toSeq.map(party =>
-          localParties
-            .find(x => x.startsWith(party)) // if existing party starts with this name
-            .map { x =>
-              logger.debug(s"Mapping party $party to existing $x")
-              Future.successful(x)
+    MonadUtil
+      .sequentialTraverse(expected.toSeq) { prefix =>
+        for {
+          findR <- findParty(prefix)
+          party <- (findR
+            .map { existing =>
+              logger.debug(s"Found existing party $existing")
+              Future.successful(existing)
             }
-            .getOrElse(mkParty(party)) // otherwise create new
-            .map(x => (party, x))
-        )
-      )
+            .getOrElse {
+              logger.debug(s"Creating new party $prefix")
+              mkParty(prefix)
+            }): Future[LfPartyId]
+        } yield (prefix, party)
+      }
       .map(_.toMap)
 
 }

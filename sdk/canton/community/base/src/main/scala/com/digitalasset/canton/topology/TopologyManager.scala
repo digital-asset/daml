@@ -42,6 +42,7 @@ import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   SequencedTime,
   TopologyManagerSigningKeyDetection,
+  TopologyStateProcessor,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.{
   AuthorizedStore,
@@ -1208,7 +1209,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       .map(_ => ())
 
   override protected def onClosed(): Unit =
-    LifeCycle.close(sequentialQueue, processor.cache, store)(logger)
+    LifeCycle.close(sequentialQueue, processor, store)(logger)
 
   override def toString: String = s"TopologyManager[${store.storeId}]"
 }

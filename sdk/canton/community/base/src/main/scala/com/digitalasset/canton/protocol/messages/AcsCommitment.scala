@@ -30,6 +30,7 @@ import com.digitalasset.canton.version.{
   VersionedProtoCodec,
   VersioningCompanionMemoization,
 }
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import io.scalaland.chimney.dsl.*
 import slick.jdbc.{GetResult, GetTupleResult}
@@ -190,6 +191,26 @@ object AcsCommitment extends VersioningCompanionMemoization[AcsCommitment] {
   ): Either[DeserializationError, HashedCommitmentType] = Hash.fromByteString(bytes)
   def hashCommitment(commitment: CommitmentType): HashedCommitmentType =
     Hash.digest(HashPurpose.HashedAcsCommitment, commitment, HashAlgorithm.Sha256)
+
+  @VisibleForTesting
+  def create(
+      synchronizerId: PhysicalSynchronizerId,
+      sender: ParticipantId,
+      counterParticipant: ParticipantId,
+      period: CommitmentPeriod,
+      commitment: HashedCommitmentType,
+      protocolVersion: ProtocolVersion,
+  ): AcsCommitment =
+    new AcsCommitment(
+      synchronizerId,
+      sender,
+      counterParticipant,
+      period,
+      commitment,
+    )(
+      protocolVersionRepresentativeFor(protocolVersion),
+      None,
+    ) {}
 
   def create(
       synchronizerId: PhysicalSynchronizerId,

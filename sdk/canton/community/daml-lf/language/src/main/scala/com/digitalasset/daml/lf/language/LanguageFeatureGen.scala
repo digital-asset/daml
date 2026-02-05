@@ -124,6 +124,13 @@ trait LanguageFeaturesGenerated extends LanguageVersionGenerated {
     versionRange = VersionRange.Until(v2_1),
   )
 
+  // TODO(#30571): move nuck to staging (also update in proto)
+  // manually added since generation broken since shuffle
+  val featureNUCK: Feature = Feature(
+    name = "Non-unique contract keys",
+    versionRange = VersionRange.From(v2_dev), // dev whilst developing, then 2.3(-rcn)
+  )
+
   val allFeatures: List[Feature] = List(
     featureUnstable,
     featureTextMap,

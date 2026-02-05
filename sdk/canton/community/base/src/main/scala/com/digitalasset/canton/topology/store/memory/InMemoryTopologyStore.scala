@@ -202,7 +202,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       items: Seq[StateKeyFetch]
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = lock.exclusive {
     val itemsMap =
       items
         .groupMap1(key => (key.code, key.namespace, key.identifier))(_.validUntilCutoff)
@@ -225,7 +225,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
 
   override def bulkInsert(
       initialSnapshot: GenericStoredTopologyTransactions
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = lock.exclusive {
     initialSnapshot.result
       .foldLeft((CantonTimestamp.MinValue, -1)) { case ((prevTs, prevBatch), tx) =>
         val batchIdx = if (prevTs < tx.validFrom.value || prevBatch == -1) 0 else prevBatch + 1

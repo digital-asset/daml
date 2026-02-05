@@ -30,11 +30,11 @@ import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 
+import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, blocking}
 
 class PartyReplicationFileImporter(
-    partyId: PartyId,
     requestId: AddPartyRequestId,
     protected val psid: PhysicalSynchronizerId,
     partyOnboardingAt: EffectiveTime,
@@ -48,7 +48,6 @@ class PartyReplicationFileImporter(
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val executionContext: ExecutionContext)
     extends TargetParticipantAcsPersistence(
-      partyId,
       requestId,
       psid,
       partyOnboardingAt,
@@ -61,36 +60,42 @@ class PartyReplicationFileImporter(
 
   def importEntireAcsSnapshotInOneGo()(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] = for {
-    _ <- MonadUtil.sequentialTraverse_(
-      acsReader.grouped(TargetParticipantAcsPersistence.contractsToRequestEachTime.unwrap)
-    ) { contracts =>
-      awaitTestInterceptor()
-      val contractsNE =
-        NonEmpty
-          .from(contracts)
-          .getOrElse(throw new IllegalStateException("Grouped ACS must be nonempty"))
-      importContracts(contractsNE)
-    }
-    progress <- EitherT.fromEither[FutureUnlessShutdown](
-      replicationProgressState
-        .getAcsReplicationProgress(requestId)
-        .toRight(s"Party replication $requestId is unexpectedly unknown")
-    )
-    _ <- replicationProgressState.updateAcsReplicationProgress(
-      requestId,
-      PartyReplicationStatus.EphemeralFileImporterProgress(
-        progress.processedContractCount,
-        progress.nextPersistenceCounter,
-        fullyProcessedAcs = true,
-        this,
-      ),
-    )
-    // Unpause the indexer
-    _ <- EitherT.right[String](
-      FutureUnlessShutdown.lift(recordOrderPublisher.publishBufferedEvents())
-    )
-  } yield ()
+  ): EitherT[FutureUnlessShutdown, String, Unit] = {
+    val numContractsImported = new AtomicInteger(0)
+    for {
+      _ <- MonadUtil.sequentialTraverse_(
+        acsReader.grouped(TargetParticipantAcsPersistence.contractsToRequestEachTime.unwrap)
+      ) { contracts =>
+        awaitTestInterceptor()
+        logger.info(s"About to import contracts starting at ordinal ${numContractsImported.get}")
+        val contractsNE =
+          NonEmpty
+            .from(contracts)
+            .getOrElse(throw new IllegalStateException("Grouped ACS must be nonempty"))
+        importContracts(contractsNE).map(totalNumContractsImported =>
+          numContractsImported.set(totalNumContractsImported.unwrap)
+        )
+      }
+      progress <- EitherT.fromEither[FutureUnlessShutdown](
+        replicationProgressState
+          .getAcsReplicationProgress(requestId)
+          .toRight(s"Party replication $requestId is unexpectedly unknown")
+      )
+      _ <- replicationProgressState.updateAcsReplicationProgress(
+        requestId,
+        PartyReplicationStatus.EphemeralFileImporterProgress(
+          progress.processedContractCount,
+          progress.nextPersistenceCounter,
+          fullyProcessedAcs = true,
+          this,
+        ),
+      )
+      // Unpause the indexer
+      _ <- EitherT.right[String](
+        FutureUnlessShutdown.lift(recordOrderPublisher.publishBufferedEvents())
+      )
+    } yield ()
+  }
 
   private def awaitTestInterceptor()(implicit
       traceContext: TraceContext
@@ -134,7 +139,6 @@ object PartyReplicationFileImporter {
       testOnlyInterceptorO: Option[PartyReplicationTestInterceptor],
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext) = new PartyReplicationFileImporter(
-    partyId,
     requestId,
     connectedSynchronizer.psid,
     partyOnboardingAt,
@@ -145,6 +149,9 @@ object PartyReplicationFileImporter {
     connectedSynchronizer.synchronizerHandle.syncPersistentState.pureCryptoApi,
     acsReader,
     testOnlyInterceptorO,
-    loggerFactory,
+    loggerFactory
+      .append("psid", connectedSynchronizer.psid.toProtoPrimitive)
+      .append("partyId", partyId.toProtoPrimitive)
+      .append("requestId", requestId.toHexString),
   )
 }

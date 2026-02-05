@@ -611,6 +611,7 @@ object Ast {
   final case class UpdateLedgerTimeLT(time: Expr) extends Update
   final case class UpdateFetchByKey(templateId: TypeConId) extends Update
   final case class UpdateLookupByKey(templateId: TypeConId) extends Update
+  final case class UpdateQueryNByKey(templateId: TypeConId) extends Update
   final case class UpdateEmbedExpr(typ: Type, body: Expr) extends Update
   final case class UpdateTryCatch(
       typ: Type,

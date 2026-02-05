@@ -178,7 +178,8 @@ trait BaseMetrics {
   def openTelemetryMetricsFactory: LabeledMetricsFactory
 
   def grpcMetrics: GrpcServerMetricsX
-  def topologyCache: CacheMetrics
+  final lazy val topologyCache: CacheMetrics =
+    new CacheMetrics("topology", openTelemetryMetricsFactory)
   def healthMetrics: HealthMetrics
   def storageMetrics: DbStorageMetrics
   val declarativeApiMetrics: DeclarativeApiMetrics

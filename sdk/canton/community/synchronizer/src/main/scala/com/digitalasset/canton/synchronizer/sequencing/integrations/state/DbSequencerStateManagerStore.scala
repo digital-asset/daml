@@ -8,11 +8,11 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmptyUtil
-import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.{BatchingConfig, PositiveFiniteDuration, ProcessingTimeout}
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -27,8 +27,8 @@ import com.digitalasset.canton.synchronizer.sequencer.store.{
 }
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.collection.MapsUtil
+import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.*
 import slick.jdbc.SetParameter
 
@@ -59,47 +59,64 @@ class DbSequencerStateManagerStore(
   override def readInFlightAggregations(
       timestamp: CantonTimestamp,
       maxSequencingTimeUpperBound: CantonTimestamp,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[InFlightAggregations] =
-    storage.query(
-      readInFlightAggregationsDBIO(timestamp, maxSequencingTimeUpperBound),
-      functionFullName,
-    )
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[InFlightAggregations] = {
+    val aggregationIntervals = if (timestamp < maxSequencingTimeUpperBound) {
+      batchingConfig.inFlightAggregationsQueryInterval.fold(
+        Seq(timestamp -> maxSequencingTimeUpperBound)
+      ) { value =>
+        getInFlightAggregationIntervals(value, timestamp, maxSequencingTimeUpperBound)
+      }
+    } else {
+      Seq.empty
+    }
+
+    MonadUtil
+      .parTraverseWithLimit(batchingConfig.parallelism)(aggregationIntervals) {
+        case (lower, upper) =>
+          storage.query(
+            readInFlightAggregationsDBIO(timestamp, lower, upper),
+            functionFullName,
+          )
+      }
+      .map(_.fold(Map.empty)(_ ++ _))
+  }
 
   /** Compute the state up until (inclusive) the given timestamp. */
   def readInFlightAggregationsDBIO(
       timestamp: CantonTimestamp,
-      maxSequencingTimeUpperBound: CantonTimestamp,
+      sequencingTimeLowerBound: CantonTimestamp,
+      sequencingTimeUpperBound: CantonTimestamp,
   ): DBIOAction[
     InFlightAggregations,
     NoStream,
     Effect.Read with Effect.Transactional,
   ] = {
-    val aggregationsQ =
-      sql"""
-            select aggregation.aggregation_id,
-                   aggregation.max_sequencing_time,
-                   aggregation.aggregation_rule,
-                   member.member,
-                   sender.sequencing_timestamp,
-                   sender.signatures
-            from
-              seq_in_flight_aggregation aggregation
-              inner join seq_in_flight_aggregated_sender sender on aggregation.aggregation_id = sender.aggregation_id
-              inner join sequencer_members member on sender.sender_id = member.id
-            where
-              aggregation.max_sequencing_time > $timestamp and aggregation.max_sequencing_time <= $maxSequencingTimeUpperBound
-                and sender.sequencing_timestamp <= $timestamp
-          """.as[
-        (
-            AggregationId,
-            CantonTimestamp,
-            AggregationRule,
-            Member,
-            CantonTimestamp,
-            AggregatedSignaturesOfSender,
-        )
-      ]
-    aggregationsQ.map { aggregations =>
+    val query = sql"""
+        select aggregation.aggregation_id,
+               aggregation.max_sequencing_time,
+               aggregation.aggregation_rule,
+               member.member,
+               sender.sequencing_timestamp,
+               sender.signatures
+        from
+          seq_in_flight_aggregation aggregation
+          inner join seq_in_flight_aggregated_sender sender on aggregation.aggregation_id = sender.aggregation_id
+          inner join sequencer_members member on sender.sender_id = member.id
+        where
+          aggregation.max_sequencing_time > $sequencingTimeLowerBound and aggregation.max_sequencing_time <= $sequencingTimeUpperBound
+            and sender.sequencing_timestamp <= $timestamp
+      """.as[
+      (
+          AggregationId,
+          CantonTimestamp,
+          AggregationRule,
+          Member,
+          CantonTimestamp,
+          AggregatedSignaturesOfSender,
+      )
+    ]
+
+    query.map { aggregations =>
       val byAggregationId = aggregations.groupBy { case (aggregationId, _, _, _, _, _) =>
         aggregationId
       }
@@ -242,6 +259,40 @@ object DbSequencerStateManagerStore {
         )
       )
   }
+
+  def getInFlightAggregationIntervals(
+      queryInterval: PositiveFiniteDuration,
+      sequencingTimeLowerBound: CantonTimestamp,
+      sequencingTimeUpperBound: CantonTimestamp,
+  )(implicit logContext: ErrorLoggingContext): Seq[(CantonTimestamp, CantonTimestamp)] =
+    if (sequencingTimeLowerBound < sequencingTimeUpperBound) {
+      val numBatches =
+        (sequencingTimeUpperBound - sequencingTimeLowerBound).dividedBy(queryInterval.asJava)
+
+      // When too many batches are generated, we log a warning and perform no query interval batching
+      if (0L <= numBatches && numBatches < 10000L) {
+        (0L to numBatches).flatMap { n =>
+          val start =
+            sequencingTimeLowerBound
+              .add(queryInterval.underlying * n)
+              .min(sequencingTimeUpperBound)
+          val end = start.add(queryInterval.underlying).min(sequencingTimeUpperBound)
+
+          if (start < end) {
+            Some(start -> end)
+          } else {
+            None
+          }
+        }
+      } else {
+        logContext.warn(
+          "Disabling aggregator time interval batching as an excessive number of aggregator batches would otherwise be generated"
+        )
+        Seq(sequencingTimeLowerBound -> sequencingTimeUpperBound)
+      }
+    } else {
+      Seq.empty
+    }
 
   object AggregatedSignaturesOfSender
       extends VersioningCompanion[AggregatedSignaturesOfSender]

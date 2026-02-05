@@ -1052,6 +1052,10 @@ message Update {
     reserved 2; // was key.
   }
 
+  message QueryNByKey {
+    TypeConId template = 1;
+  }
+
   // Try-catch block.
   message TryCatch {
     Type return_type = 1;
@@ -1072,6 +1076,8 @@ message Update {
     Fetch fetch = 5;
     Unit get_time = 6;
     RetrieveByKey lookup_by_key = 8;
+    // TODO(#30571): move nuck to staging
+    QueryNByKey query_n_by_key = 16; // from 2.dev
     RetrieveByKey fetch_by_key = 9;
     EmbedExpr embed_expr = 7;
     TryCatch try_catch = 11;
@@ -1080,6 +1086,8 @@ message Update {
     FetchInterface fetch_interface = 14;
 
     Expr ledger_time_lt = 15;
+
+    // Next id is 17.
   }
 }
 

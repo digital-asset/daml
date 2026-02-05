@@ -159,7 +159,6 @@ final class PartyReplicationProcessorTest
       }
 
       new PartyReplicationTargetParticipantProcessor(
-        partyId = alice,
         requestId = addPartyRequestId,
         psid = psid,
         partyOnboardingAt = EffectiveTime(CantonTimestamp.ofEpochSecond(10)),

@@ -20,6 +20,7 @@ import com.digitalasset.canton.performance.PartyRole.{
   MasterDynamicConfig,
 }
 import com.digitalasset.canton.performance.RateSettings.SubmissionRateSettings
+import com.digitalasset.canton.performance.elements.dvp.TraderDriver
 import com.digitalasset.canton.performance.model.java.orchestration.runtype
 import com.digitalasset.canton.protocol.LocalRejectError.ConsistencyRejections.InactiveContracts
 import com.digitalasset.canton.sequencing.protocol.SequencerErrors.SubmissionRequestRefused
@@ -77,6 +78,7 @@ trait BasePerformanceIntegrationTest extends BasePerformanceIntegrationTestCommo
 }
 
 object BasePerformanceIntegrationTest {
+
   def defaultConfigs(
       index: Int,
       participant1: LocalParticipantReference,
@@ -103,7 +105,7 @@ object BasePerformanceIntegrationTest {
               numAssetsPerIssuer.toLong,
               0,
               0,
-              withPartyGrowth.toLong,
+              TraderDriver.toPartyGrowth(withPartyGrowth),
             ),
           ),
         ),

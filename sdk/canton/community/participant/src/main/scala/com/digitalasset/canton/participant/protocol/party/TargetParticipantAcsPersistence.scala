@@ -26,8 +26,8 @@ import com.digitalasset.canton.participant.store.{
 }
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{ContractInstance, LfContractId, ReassignmentId, UpdateId}
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.topology.processing.EffectiveTime
-import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, ReassignmentTag}
 import com.digitalasset.canton.{RepairCounter, checked}
@@ -36,8 +36,6 @@ import scala.concurrent.ExecutionContext
 
 /** Target participant ACS persistence functionality shared between the OnPR sequencer channel
   * target processor and the file-based ACS importer.
-  * @param partyId
-  *   the party whose ACS is being imported or replicated
   * @param requestId
   *   the online party replication, party add request identifier
   * @param partyOnboardingAt
@@ -52,7 +50,6 @@ import scala.concurrent.ExecutionContext
   *   request tracker to update the active contract store journal along with in-memory state
   */
 abstract class TargetParticipantAcsPersistence(
-    partyId: PartyId,
     requestId: AddPartyRequestId,
     psid: PhysicalSynchronizerId,
     partyOnboardingAt: EffectiveTime,
@@ -63,14 +60,6 @@ abstract class TargetParticipantAcsPersistence(
     pureCrypto: CryptoPureApi,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
-
-  // The base hash for all indexer UpdateIds to avoid repeating this for all ACS batches.
-  private lazy val indexerUpdateIdBaseHash = pureCrypto
-    .build(HashPurpose.OnlinePartyReplicationId)
-    .addString(partyId.toProtoPrimitive)
-    .addString(psid.toProtoPrimitive)
-    .addLong(partyOnboardingAt.value.toProtoPrimitive)
-    .finish()
 
   /** Import contracts as part of online party replication performing the following activities.
     *   - validate the contracts and contract ids
@@ -120,11 +109,13 @@ abstract class TargetParticipantAcsPersistence(
           internalContractIdsForActiveContracts,
         )
       )
-      _ <- EitherT.rightT[FutureUnlessShutdown, String](
-        recordOrderPublisher.schedulePublishAddContracts(
-          repairEventFromSerializedContract(
-            repairCounter = repairCounter,
-            activeContracts = validatedActivationsWithInternalContractIds,
+      _ <- EitherT.right[String](
+        FutureUnlessShutdown.lift(
+          recordOrderPublisher.schedulePublishAddContracts(
+            repairEventFromActiveContracts(
+              repairCounter = repairCounter,
+              activeContracts = validatedActivationsWithInternalContractIds,
+            )
           )
         )
       )
@@ -201,19 +192,19 @@ abstract class TargetParticipantAcsPersistence(
     * @return
     *   the event to publish
     */
-  private def repairEventFromSerializedContract(
+  private def repairEventFromActiveContracts(
       repairCounter: RepairCounter,
       activeContracts: NonEmpty[Seq[(ContractReassignment, Long)]],
   )(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Update.OnPRReassignmentAccepted = {
     val uniqueUpdateId = {
-      // Add the repairCounter and contract-id to the hash to arrive at unique per-OPR updateIds.
+      // Add the repairCounter to the hash to arrive at unique per-OPR updateIds.
       val hash = activeContracts
         .foldLeft {
           pureCrypto
             .build(HashPurpose.OnlinePartyReplicationId)
-            .addByteString(indexerUpdateIdBaseHash.unwrap)
+            .addByteString(requestId.unwrap)
             .addLong(repairCounter.unwrap)
         } {
           // TODO(#26468): Use validation packages

@@ -9,6 +9,7 @@ import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authenticity
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.admin.api.client.data.OnboardingRestriction.*
+import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.SessionSigningKeysConfig
@@ -668,6 +669,8 @@ trait AuthenticationTokenIntegrationTest
   }
 }
 
+// TODO (#30542) this test is known to be flaky
+@UnstableTest
 class AuthenticationTokenIntegrationTestInMemory extends AuthenticationTokenIntegrationTest {
   registerPlugin(new UseBftSequencer(loggerFactory))
 }

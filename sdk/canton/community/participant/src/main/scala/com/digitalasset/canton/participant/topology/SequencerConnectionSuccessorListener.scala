@@ -170,7 +170,7 @@ class SequencerConnectionSuccessorListener(
             else
               logger.error(s"Unable to perform handshake with $successorPSId: $error")
 
-          case Right(_: PhysicalSynchronizerId) =>
+          case Right(()) =>
             logger.info(s"Handshake with $successorPSId was successful")
         },
       level = Level.INFO,
@@ -181,5 +181,5 @@ class SequencerConnectionSuccessorListener(
 trait HandshakeWithPSId {
   def performHandshake(psid: PhysicalSynchronizerId)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SyncServiceError, PhysicalSynchronizerId]
+  ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit]
 }

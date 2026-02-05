@@ -17,7 +17,6 @@ import com.digitalasset.canton.performance.PartyRole.DvpTrader
 import com.digitalasset.canton.performance.RateSettings.SubmissionRateSettings
 import com.digitalasset.canton.performance.acs.ContractStore
 import com.digitalasset.canton.performance.control.Balancer
-import com.digitalasset.canton.performance.elements.dvp.DvpPrettyInstances.*
 import com.digitalasset.canton.performance.elements.{
   DriverControl,
   ParticipantDriver,
@@ -26,8 +25,13 @@ import com.digitalasset.canton.performance.elements.{
 }
 import com.digitalasset.canton.performance.model.java as M
 import com.digitalasset.canton.performance.model.java.dvp.trade.Propose
+import com.digitalasset.canton.performance.model.java.orchestration.partygrowth.{
+  LocalGrowth,
+  NoPartyGrowth,
+  RemoteGrowth,
+}
 import com.digitalasset.canton.performance.model.java.orchestration.runtype.DvpRun
-import com.digitalasset.canton.performance.model.java.orchestration.{Mode, TestRun}
+import com.digitalasset.canton.performance.model.java.orchestration.{Mode, PartyGrowth, TestRun}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ShowUtil.*
 import com.typesafe.scalalogging.LazyLogging
@@ -35,7 +39,7 @@ import org.apache.pekko.actor.ActorSystem
 
 import java.time.Instant
 import java.util.UUID
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
 import scala.collection.mutable
 import scala.concurrent.ExecutionContextExecutor
 import scala.jdk.CollectionConverters.*
@@ -134,8 +138,6 @@ class TraderDriver(
     otherSynchronizersRatio >= 0.0 && otherSynchronizersRatio <= 1.0,
     s"otherSynchronizersRation should be in [0, 1]; found $otherSynchronizersRatio",
   )
-
-  private val partyPoolSize = 1000;
 
   protected val assets = new ContractStore[
     M.dvp.asset.Asset.Contract,
@@ -251,23 +253,46 @@ class TraderDriver(
   private val issuerBalancer = new Balancer()
   private val traderBalancer = new Balancer()
 
-  private val bystanders = new ByStanderAllocation(
-    party,
-    role.name,
-    ledgerClient,
-    metricsFactory.gauge(
-      MetricInfo(
-        prefix :+ "parties" :+ "allocated",
-        "How many parties have been allocated",
-        MetricQualification.Debug,
-      ),
-      0L,
-    )(
-      MetricsContext.Empty
+  private val bystanderMetric = metricsFactory.gauge(
+    MetricInfo(
+      prefix :+ "parties" :+ "allocated",
+      "How many parties have been allocated",
+      MetricQualification.Debug,
     ),
-    maxPending = 10,
-    loggerFactory,
+    0L,
+  )(
+    MetricsContext.Empty
   )
+  private val bystanderAllocator = new AtomicReference[Option[ByStanderAllocation]](None)
+  private def getBystanderAllocator(cfg: PartyGrowth): ByStanderAllocation =
+    (cfg, bystanderAllocator.get()) match {
+      case (_, Some(allocator)) if allocator.config == cfg => allocator
+      case (growth: LocalGrowth, _) =>
+        val allocator = new LocalByStanderAllocation(
+          party,
+          role.name,
+          ledgerClient,
+          bystanderMetric,
+          growth,
+          loggerFactory,
+        )
+        bystanderAllocator.set(Some(allocator))
+        allocator
+      case (growth: RemoteGrowth, _) =>
+        val allocator = new RemoteByStanderAllocation(
+          party,
+          ledgerClient,
+          bystanderMetric,
+          growth,
+          loggerFactory,
+        )
+        bystanderAllocator.set(Some(allocator))
+        allocator
+      case (growth, _) =>
+        val allocator = new NoOpBystanderAllocation(growth, party)
+        bystanderAllocator.set(Some(allocator))
+        allocator
+    }
 
   override protected def masterCreated(master: TestRun.Contract): Unit = {
     issuerBalancer.updateMembers(master.data.issuers.asScala.toSeq.map(new Party(_)))
@@ -399,7 +424,7 @@ class TraderDriver(
           val cmd = propose.id
             .exerciseAccept(
               asset.id,
-              bystanders.next(param.withPartyGrowth, partyPoolSize).getValue,
+              getBystanderAllocator(param.partyGrowth).next().getValue,
               Random.nextString(32),
             )
             .commands
@@ -510,7 +535,7 @@ class TraderDriver(
                     asset.id,
                     counterParty.getValue,
                     params.withAcsGrowth,
-                    bystanders.next(params.withPartyGrowth, partyPoolSize).getValue,
+                    getBystanderAllocator(params.partyGrowth).next().getValue,
                   )
                   .commands
                   .asScala
@@ -635,6 +660,10 @@ class TraderDriver(
 }
 
 object TraderDriver {
+
+  def toPartyGrowth(factor: Int): PartyGrowth = if (factor > 0)
+    new LocalGrowth(factor.toLong, Integer.MAX_VALUE, 1000, 10)
+  else new NoPartyGrowth(com.daml.ledger.javaapi.data.Unit.getInstance())
 
   /** computes the number of submissions we can do now
     * @return

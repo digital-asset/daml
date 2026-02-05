@@ -64,7 +64,12 @@ class LogicalSynchronizerUpgradeCallbackImpl(
               .upgradeSynchronizerTo(psid, successor)
               .value
               .map(
-                _.fold(err => logger.error(s"Upgrade to ${successor.psid} failed: $err"), _ => ())
+                _.fold(
+                  err => logger.error(s"""Upgrade to ${successor.psid} failed: $err
+                       |Consult the documentation to perform manual upgrade.
+                       |""".stripMargin),
+                  _ => (),
+                )
               )
 
             FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(

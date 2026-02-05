@@ -62,7 +62,7 @@ object AmendMasterConfig {
             dvp.numAssetsPerIssuer,
             dvp.withAcsGrowth,
             target,
-            dvp.withPartyGrowth,
+            dvp.partyGrowth,
           ),
         )
       )

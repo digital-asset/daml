@@ -29,7 +29,7 @@ trait PostAggregationHandler {
   def signalHandler()(implicit traceContext: TraceContext): Unit
 }
 
-class PostAggregationHandlerImpl private[sequencing] (
+class PostAggregationHandlerImpl private[canton] (
     sequencerAggregator: SequencerAggregator,
     addToFlushAndLogError: String => Future[?] => Unit,
     eventInboxSize: PositiveInt,

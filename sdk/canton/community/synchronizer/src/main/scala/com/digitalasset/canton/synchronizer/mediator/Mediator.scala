@@ -112,6 +112,7 @@ private[mediator] class Mediator(
     verdictSender,
     syncCrypto.ips,
     protocolVersion,
+    metrics,
     loggerFactory,
   )
 

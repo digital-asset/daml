@@ -265,7 +265,7 @@ final class PartyReplicator(
     * @param acsReader
     *   iterator over ACS contracts
     * @return
-    *   a request id that case be used to query for progress or errors via [[getAddPartyStatus]]
+    *   a request id that can be used to query for progress or errors via [[getAddPartyStatus]]
     */
   private[admin] def addPartyWithAcsAsync(
       args: PartyReplicationArguments,
@@ -284,7 +284,7 @@ final class PartyReplicator(
           _ <- EitherT.cond[FutureUnlessShutdown](
             syncService.isActive(),
             logger.info(
-              s"Initiating replication of party $partyId with ACS from participant $sourceParticipantId on synchronizer $synchronizerId"
+              s"Initiating import of party $partyId with ACS from participant $sourceParticipantId on synchronizer $synchronizerId"
             ),
             s"Participant $participantId is inactive",
           )
@@ -675,7 +675,7 @@ final class PartyReplicator(
   private def authorizeOnboardingTopology(requestId: AddPartyRequestId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
-    ensureParticipantStateAndSynchronizerConnected(requestId) {
+    ensureParticipantStateAndSynchronizerConnectedWithChannelSupport(requestId) {
       case (
             PartyReplicationStatus(params, _, None, _, _, _, _),
             connectedSynchronizer,
@@ -786,7 +786,7 @@ final class PartyReplicator(
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
     val ownsSessionKey = true
     val noSessionKey = false
-    ensureParticipantStateAndSynchronizerConnected(requestId) {
+    ensureParticipantStateAndSynchronizerConnectedWithChannelSupport(requestId) {
       case (
             PartyReplicationStatus(
               params,
@@ -903,7 +903,7 @@ final class PartyReplicator(
   private def attemptToReconnectToSequencerChannel(
       requestId: AddPartyRequestId
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
-    ensureParticipantStateAndSynchronizerConnected(requestId) {
+    ensureParticipantStateAndSynchronizerConnectedWithChannelSupport(requestId) {
       case (
             PartyReplicationStatus(
               params,
@@ -996,7 +996,6 @@ final class PartyReplicator(
               None,
             ),
             connectedSynchronizer,
-            _,
           ) =>
         for {
           isAgreementArchived <- EitherT.right[String](
@@ -1287,7 +1286,9 @@ final class PartyReplicator(
     * any prerequisite is not met other than synchronizer connectivity such that progress can resume
     * upon reconnect.
     */
-  private def ensureParticipantStateAndSynchronizerConnected[T](requestId: AddPartyRequestId)(
+  private def ensureParticipantStateAndSynchronizerConnectedWithChannelSupport(
+      requestId: AddPartyRequestId
+  )(
       matchIfStateIsAsExpected: PartialFunction[
         (PartyReplicationStatus, ConnectedSynchronizer, SequencerChannelClient),
         EitherT[FutureUnlessShutdown, String, Unit],
@@ -1303,7 +1304,7 @@ final class PartyReplicator(
       status <- EitherT.fromEither[FutureUnlessShutdown](
         partyReplicationStateManager
           .get(requestId)
-          .toRight(AddPartyError.Other.Failure(requestId, "Unknown request id"))
+          .toRight(AddPartyError.Other.Failure(requestId, s"Unknown request id $requestId"))
       )
       connectedSynchronizer <-
         EitherT.fromEither[FutureUnlessShutdown](
@@ -1342,6 +1343,35 @@ final class PartyReplicator(
         EitherT.leftT[FutureUnlessShutdown, Unit](err.cause)
     }
   }
+
+  private def ensureParticipantStateAndSynchronizerConnected(requestId: AddPartyRequestId)(
+      matchIfStateIsAsExpected: PartialFunction[
+        (PartyReplicationStatus, ConnectedSynchronizer),
+        EitherT[FutureUnlessShutdown, String, Unit],
+      ]
+  ): EitherT[FutureUnlessShutdown, String, Unit] = for {
+    _ <- EitherT.cond[FutureUnlessShutdown](
+      syncService.isActive(),
+      (),
+      s"Stopping as participant $participantId is inactive",
+    )
+    status <- EitherT.fromEither[FutureUnlessShutdown](
+      partyReplicationStateManager
+        .get(requestId)
+        .toRight(s"Unknown request id $requestId")
+    )
+    connectedSynchronizer <-
+      EitherT.fromEither[FutureUnlessShutdown](
+        syncService
+          .readyConnectedSynchronizerById(status.params.synchronizerId)
+          .toRight(
+            s"Synchronizer ${status.params.synchronizerId} not connected during $status"
+          )
+      )
+    _ <- matchIfStateIsAsExpected
+      .lift((status, connectedSynchronizer))
+      .getOrElse(EitherT.leftT[FutureUnlessShutdown, Unit](s"Unexpected status $status"))
+  } yield ()
 
   private[party] def retryUntilLocalStoreUpdatedInExpectedState[T](
       operation: String

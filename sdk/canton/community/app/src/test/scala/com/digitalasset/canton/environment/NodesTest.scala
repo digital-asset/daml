@@ -30,7 +30,6 @@ import com.digitalasset.canton.health.{
 import com.digitalasset.canton.lifecycle.{LifeCycle, ShutdownFailedException}
 import com.digitalasset.canton.metrics.ActiveRequestsMetrics.GrpcServerMetricsX
 import com.digitalasset.canton.metrics.{
-  CacheMetrics,
   CommonMockMetrics,
   DbStorageMetrics,
   DeclarativeApiMetrics,
@@ -128,8 +127,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       healthMetrics: HealthMetrics = LedgerApiServerMetrics.ForTesting.health,
       storageMetrics: DbStorageMetrics = CommonMockMetrics.dbStorage,
   ) extends BaseMetrics {
-    override val topologyCache: CacheMetrics =
-      new CacheMetrics("topology", metricsFactory)
+
     override val declarativeApiMetrics: DeclarativeApiMetrics =
       new DeclarativeApiMetrics(prefix, openTelemetryMetricsFactory)(MetricsContext.Empty)
   }

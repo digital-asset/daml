@@ -179,7 +179,7 @@ class SequencerConnectionXPoolImplTest
         val exponentialDelays = (0 until 4).map(minRestartConnectionDelay << _)
 
         def retryLogEntry(delayMs: Long) =
-          s"Scheduling restart after ${LoggerUtil.roundDurationForHumans(NonNegativeFiniteDuration.tryOfMillis(delayMs).toScala)}"
+          s"Scheduling restart after ${LoggerUtil.roundDurationForHumans(NonNegativeFiniteDuration.tryOfMillis(delayMs).duration)}"
 
         val warningRegex =
           raw"""(?s)Connection has failed validation since \S+ \((\d+) (\w+) ago\). Last failure reason: "Network error: .*"""".r

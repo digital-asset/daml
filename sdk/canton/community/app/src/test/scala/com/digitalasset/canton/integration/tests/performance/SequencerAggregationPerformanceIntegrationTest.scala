@@ -28,6 +28,7 @@ import com.digitalasset.canton.performance.PartyRole.{
   Master,
   MasterDynamicConfig,
 }
+import com.digitalasset.canton.performance.elements.dvp.TraderDriver
 import com.digitalasset.canton.performance.model.java.orchestration.runtype
 import com.digitalasset.canton.performance.{
   PerformanceRunner,
@@ -61,7 +62,7 @@ class SequencerAggregationPerformanceIntegrationTest extends BasePerformanceInte
           1000L, // change this to increase the number of assets per issuer,
           0,
           0,
-          0,
+          TraderDriver.toPartyGrowth(0),
         ),
       ),
     )

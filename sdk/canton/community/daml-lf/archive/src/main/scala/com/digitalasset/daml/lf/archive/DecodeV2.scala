@@ -1527,6 +1527,12 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             Ret(UpdateLookupByKey(tmplId))
           }
 
+
+        case PLF.Update.SumCase.QUERY_N_BY_KEY =>
+          assertVersionSupports(LV.featureNUCK)
+          val queryNByKey = lfUpdate.getQueryNByKey
+          Ret(UpdateQueryNByKey(decodeTypeConId(queryNByKey.getTemplate)))
+
         case PLF.Update.SumCase.EMBED_EXPR =>
           val embedExpr = lfUpdate.getEmbedExpr
           decodeType(embedExpr.getType) { typ =>

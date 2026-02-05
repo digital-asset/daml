@@ -49,7 +49,6 @@ import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.{immutable, mutable}
-import scala.compat.java8.DurationConverters.DurationOps
 import scala.concurrent.ExecutionContextExecutor
 import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.Random
@@ -284,8 +283,10 @@ class SequencerConnectionXPoolImpl private[sequencing] (
         }
 
       initialStartTimeO.foreach { initialStartTime =>
-        val durationSinceInitialStart = (wallClock.now - initialStartTime).toScala
-        if (durationSinceInitialStart > config.warnConnectionValidationDelay.toScala) {
+        val durationSinceInitialStart = wallClock.now - initialStartTime
+        if (
+          durationSinceInitialStart.compareTo(config.warnConnectionValidationDelay.duration) > 0
+        ) {
           logger.warn(
             s"Connection has failed validation since $initialStartTime" +
               s" (${LoggerUtil.roundDurationForHumans(durationSinceInitialStart)} ago)." +
@@ -298,7 +299,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
         logger.debug("Restart already scheduled -- ignoring")
       else {
         logger.info(
-          s"Scheduling restart after ${LoggerUtil.roundDurationForHumans(delay.toScala)}"
+          s"Scheduling restart after ${LoggerUtil.roundDurationForHumans(delay.duration)}"
         )
         FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
           wallClock.scheduleAfter(_ => restart(), delay.duration),
