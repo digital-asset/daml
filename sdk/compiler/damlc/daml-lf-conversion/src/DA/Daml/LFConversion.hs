@@ -441,7 +441,7 @@ modSerializableInfo ModDetails{..}
   where
     fromTypeclassInstances = do
         inst@ClsInst {..} <- md_insts
-        NameIn DA_Internal_LF "Serializable" <- pure is_cls_nm
+        NameIn DA_Internal_Serializable "Serializable" <- pure is_cls_nm
         maybeToList $ tyHead (head is_tys)
 
     tyHead (TyCoRep.TyConApp tc _) = Just tc
@@ -1449,9 +1449,11 @@ convertBind env mc (name, x)
     | Just iface <- T.stripPrefix "$W" (getOccText name)
     , mkTypeCon [iface] `MS.member` mcInterfaceBinds mc = pure []
 
+    {- TODO(jaspervdj): double check if we can remove this
     -- Remove Serializable typeclass instances.
     | DesugarDFunId _ _ (NameIn DA_Internal_LF "Serializable") _ <- name
     = pure []
+    -}
 
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
     -- recursive functions. We currently don't support local letrecs.
@@ -1537,7 +1539,6 @@ internalTypes = mkUniqSet
     , "Pair", "TextMap", "Map", "Any", "TypeRep"
     , "AnyException"
     , "Experimental"
-    , "Serializable"
     ]
 
 desugarTypes :: UniqSet FastString

@@ -44,6 +44,7 @@ module DA.Internal.LF
 import GHC.Stack.Types (HasCallStack)
 import GHC.Types (Opaque, Symbol, primitive, magic)
 import DA.Internal.Prelude
+import DA.Internal.Serializable
 
 -- This module should not define any new types. It should only provide the Daml equivalent for LF
 -- builtins using Opaque.
@@ -124,6 +125,7 @@ data Map a b =
 data ContractId a =
   ContractId Opaque
 instance Eq (ContractId a) where (==) = primitive @"BEEqual"
+instance Serializable (ContractId a) where witness _ z = z
 
 instance Ord (ContractId a) where
   (<) = primitive @"BELess"
