@@ -16,7 +16,7 @@ CANTON_DIR=${1:-//unset}
 get_latest_canton_snapshot_version() {
   local CANTON_VERSION=3.5 # bump after cutting a release branch
   local REPO_URL="europe-docker.pkg.dev/da-images/public-unstable/components/canton-open-source:$CANTON_VERSION"
-  local REPO_URL=$(oras manifest fetch "$REPO_URL" | jq -r '.annotations["com.digitalasset.version"]')
+  oras manifest fetch "$REPO_URL" | jq -r '.annotations["com.digitalasset.version"]'
 }
 
 if [ "//unset" = "$CANTON_DIR" ]; then
