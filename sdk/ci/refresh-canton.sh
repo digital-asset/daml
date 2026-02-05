@@ -14,7 +14,7 @@ trap "cat $LOG" EXIT
 CANTON_DIR=${1:-//unset}
 
 get_latest_canton_snapshot_version() {
-  local CANTON_VERSION=3.5 # bump after cutting a release branch
+  local CANTON_VERSION=$(grep -E -o '^[0-9]+\.[0-9]+' NIGHTLY_PREFIX)
   local REPO_URL="europe-docker.pkg.dev/da-images/public-unstable/components/canton-open-source:$CANTON_VERSION"
   oras manifest fetch "$REPO_URL" | jq -r '.annotations["com.digitalasset.version"]'
 }
