@@ -17,6 +17,7 @@ load(
     "scalapb_protoc_version",
     "scalapb_version",
 )
+load("//canton:canton_version.bzl", "CANTON_OPEN_SOURCE_TAG")
 
 version_specific = {
 }
@@ -46,7 +47,7 @@ pekko_version = "1.2.1"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
 
-canton_version = "3.5.0-snapshot.20260204.17953.0.vb0f21292"
+canton_version = CANTON_OPEN_SOURCE_TAG
 
 upickle_version = "4.1.0"
 ujson_version = "4.0.2"
