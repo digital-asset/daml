@@ -580,7 +580,7 @@ generateSrcFromLf env = noLoc mod
                   | NM.name dtype `NM.member` LF.moduleInterfaces (envMod env) -> [interfaceCtx]
                   | otherwise -> []
             cons <- convDataCons dataTypeCon0 dataCons
-            mkDataDecl env thisModule ctxt occName dataParams cons
+            mkDataDecl env thisModule ctxt occName dataSerializable dataParams cons
 
     valueDecls :: [Gen (LHsDecl GhcPs)]
     valueDecls = do
@@ -860,9 +860,22 @@ mkConRdr env thisModule
  | envQualifyThisModule env = mkOrig thisModule
  | otherwise = mkRdrUnqual
 
-mkDataDecl :: Env -> Module -> LHsContext GhcPs -> OccName -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> Gen (LHsDecl GhcPs)
-mkDataDecl env thisModule ctxt occName tyVars cons = do
+mkDataDecl :: Env -> Module -> LHsContext GhcPs -> OccName -> LF.IsSerializable -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> Gen (LHsDecl GhcPs)
+mkDataDecl env thisModule ctxt occName isSerializable tyVars cons = do
     tyVars' <- mapM (convTyVarBinder env) tyVars
+    derivs <- if LF.getIsSerializable isSerializable
+        then pure []
+        else do
+            serializeClass <- mkSerializeType env
+            pure
+                [ noLoc $ HsDerivingClause
+                    { deriv_clause_ext = noExt
+                    , deriv_clause_strategy = Nothing
+                    , deriv_clause_tys = noLoc
+                        [ HsIB noExt $ noLoc serializeClass
+                        ]
+                    }
+                ]
     pure . noLoc . TyClD noExt $ DataDecl
         { tcdDExt = noExt
         , tcdLName = noLoc $ mkConRdr env thisModule occName
@@ -876,7 +889,7 @@ mkDataDecl env thisModule ctxt occName tyVars cons = do
                 , dd_cType = Nothing
                 , dd_kindSig = Nothing
                 , dd_cons = cons
-                , dd_derivs = noLoc []
+                , dd_derivs = noLoc derivs
                 }
         }
 
@@ -1183,6 +1196,11 @@ mkLfInternalType env = mkStableType env damlStdlib $
 mkDesugarType :: Env -> String -> Gen (HsType GhcPs)
 mkDesugarType env = mkStableType env primUnitId $
     LF.ModuleName ["DA", "Internal", "Desugar"]
+
+mkSerializeType :: Env -> Gen (HsType GhcPs)
+mkSerializeType env = mkStableType env primUnitId
+    (LF.ModuleName ["DA", "Internal", "Serializable"])
+    "Serializable"
 
 mkLfInternalPrelude :: SdkVersioned => Env -> String -> Gen (HsType GhcPs)
 mkLfInternalPrelude env = mkStableType env damlStdlib $

@@ -1449,11 +1449,12 @@ convertBind env mc (name, x)
     | Just iface <- T.stripPrefix "$W" (getOccText name)
     , mkTypeCon [iface] `MS.member` mcInterfaceBinds mc = pure []
 
-    {- TODO(jaspervdj): double check if we can remove this
     -- Remove Serializable typeclass instances.
-    | DesugarDFunId _ _ (NameIn DA_Internal_LF "Serializable") _ <- name
+    | DesugarDFunId _ _ (NameIn DA_Internal_Serializable "Serializable") _ <- name
     = pure []
-    -}
+    -- TODO(jaspervdj): should we rename this to make it's clearer that
+    -- 'witness' belongs to 'Serializable'?
+    | "$cwitness" `T.isPrefixOf` getOccText name = pure []
 
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
     -- recursive functions. We currently don't support local letrecs.
