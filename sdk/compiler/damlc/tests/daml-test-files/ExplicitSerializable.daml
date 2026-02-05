@@ -19,9 +19,7 @@ import qualified ExplicitSerializable.Imported as I
 data SeriDataType = SeriDataType with
   foo : Int
   bar : Party
-    deriving (Eq, Show)
-
-instance Serializable SeriDataType
+    deriving (Eq, Show, Serializable)
 
 -- NOTE(jaspervdj): We want to check that we don't include the typeclass
 -- instances for Serializable in the LF, since this information is stored
@@ -36,14 +34,10 @@ instance Serializable SeriDataType
 class UnrelatedClass t
 instance UnrelatedClass SeriDataType
 
-data SeriEnum = Green | Blue deriving (Eq, Show)
-
-instance Serializable SeriEnum
+data SeriEnum = Green | Blue deriving (Eq, Show, Serializable)
 
 data SeriVariant = SVEnum SeriEnum | SVDataType SeriDataType
-  deriving (Eq, Show)
-
-instance Serializable SeriVariant
+  deriving (Eq, Show, Serializable)
 
 exception SeriError
   where

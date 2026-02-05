@@ -6,13 +6,9 @@ module ExplicitSerializable.Imported where
 data SeriImported = SeriImported with
   foo : Int
   bar : Party
-    deriving (Eq, Show)
-
-instance Serializable SeriImported
+    deriving (Eq, Serializable, Show)
 
 data SeriImportedHOT a = SeriImportedHOT with
   foo : a
   bar : Party
-    deriving (Eq, Show)
-
-instance Serializable a => Serializable (SeriImportedHOT a)
+    deriving (Eq, Serializable, Show)

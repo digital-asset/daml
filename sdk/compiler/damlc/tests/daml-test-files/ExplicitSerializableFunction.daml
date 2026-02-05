@@ -4,10 +4,9 @@
 -- @BUILD-OPTION --explicit-serializable=yes
 module ExplicitSerializableFunction where
 
+-- This should error regardless of whether or not it occurs in a template
+-- @ERROR range=12:15-12:27; No instance for (Serializable (Int -> Int))
 data BadCurrency = BadCurrency with
   admin : Party
   instrument : Int -> Int
-
--- This should error regardless of whether or not it occurs in a template
--- @ERROR range=7:1-9:26; error type checking data type ExplicitSerializableFunction.BadCurrency
-instance Serializable BadCurrency
+    deriving (Serializable)

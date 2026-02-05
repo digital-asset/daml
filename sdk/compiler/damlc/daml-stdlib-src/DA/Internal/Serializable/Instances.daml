@@ -9,9 +9,10 @@ import DA.Internal.LF
 import GHC.Types
 
 -- prim types
-instance Serializable Decimal where witness _ z = z -- TODO: Numeric instead?
-instance Serializable Text where witness _ z = z
+instance Serializable Decimal where serializable _ z = z -- TODO: Numeric instead?
+instance Serializable Int where serializable _ z = z
+instance Serializable Text where serializable _ z = z
 
 -- stdlib types
-instance Serializable (ContractId a) where witness _ z = z
-instance Serializable Party where witness _ z = z
+instance Serializable (ContractId a) where serializable _ z = z
+instance Serializable Party where serializable _ z = z

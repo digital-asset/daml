@@ -17,4 +17,4 @@ import GHC.Types ()
 -- Note that explicit serializability is off by default and hidden behind the
 -- --explicit-serializable=yes flag in Canton 3.5.
 class Serializable a where
-    witness : a -> b -> b
+    serializable : a -> b -> b

@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @BUILD-OPTION --explicit-serializable=yes
--- @ERROR range=20:10-23:42; error type checking data type ExplicitSerializableBadHOT.Asset: expected serializable type
+-- @ERROR range=18:10-21:42; error type checking data type ExplicitSerializableBadHOT.Asset: expected serializable type
 module ExplicitSerializableBadHOT where
 
 data NonSerializable = NonSerializable with
@@ -13,9 +13,7 @@ data NonSerializable = NonSerializable with
 data SeriHOT a = SeriHOT with
   payload : a
   label : Text
-    deriving (Eq, Show)
-
-instance Serializable a => Serializable (SeriHOT a)
+    deriving (Eq, Serializable, Show)
 
 template Asset
   with
