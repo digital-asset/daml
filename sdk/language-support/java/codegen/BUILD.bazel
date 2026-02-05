@@ -22,7 +22,7 @@ load(
     "test_exclusions",
 )
 load(
-    "//canton/community/daml-lf/language:daml-lf.bzl",
+    "//daml-lf:daml-lf.bzl",
     "COMPILER_LF_VERSIONS",
     "DEFAULT_LF_VERSION",
 )

@@ -4,7 +4,7 @@
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@build_environment//:configuration.bzl", "ghc_version")
 load("//rules_daml:daml.bzl", "daml_compile")
-load("//canton/community/daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION")
+load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION")
 
 [
     daml_compile(

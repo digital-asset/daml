@@ -14,7 +14,7 @@ load("//rules_daml:daml.bzl", "daml_compile")
 load("//bazel_tools:proto.bzl", "proto_gen")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools/packaging:packaging.bzl", "package_oci_component")
-load("//canton/community/daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
+load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS")
 
 # Should match RunnerMainTestBase.DAR_COUNT
 test_dar_count = 5
