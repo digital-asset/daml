@@ -1,0 +1,33 @@
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+module QueryNByKey where
+
+-- import Daml.Script
+
+template WithKey
+  with
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+
+template Helper
+  with
+    p : Party
+  where
+    signatory p
+    choice PerformQuery : ()
+      controller p
+      do contracts <- queryNByKey @WithKey 1 p
+         case contracts of
+           (contract :: _) -> do
+             pure ()
+           [] ->
+             abort "Assertion failed: queryNByKey returned an empty list."
+
+-- Test just here to assert that queryNByKey compiles
+-- When we have an ledger implementation, assert things actually run
+-- test = script do
+--   p <- allocateParty "p"
+--   submit p $ createAndExerciseCmd (Helper p) PerformQuery
