@@ -14,3 +14,4 @@ instance Serializable Text where witness _ z = z
 
 -- stdlib types
 instance Serializable (ContractId a) where witness _ z = z
+instance Serializable Party where witness _ z = z
