@@ -3,7 +3,7 @@
 
 load("//bazel_tools:scala.bzl", "da_scala_library")
 load("//rules_daml:daml.bzl", "daml_compile")
-load("//canton/community/daml-lf/language:daml-lf.bzl", "mangle_for_java")
+load("//daml-lf:daml-lf.bzl", "mangle_for_java")
 
 def to_camel_case(name):
     return "".join([part.capitalize() for part in name.split("_")])
