@@ -37,7 +37,6 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
 import java.io.FileInputStream
 
 import com.google.protobuf.ByteString
-import java.util.concurrent.atomic.AtomicBoolean
 import java.io.File
 
 import com.digitalasset.canton.tracing.TraceContext
@@ -139,7 +138,7 @@ object RunnerMain {
               traceLog,
               warningLog,
             )
-          _ <- Future {
+          result <- Future {
             outputFile.foreach { outputFile =>
               val pureResult = Value
                 .castExtendedValue(result)
@@ -151,12 +150,48 @@ object RunnerMain {
               }
               Files.write(outputFile.toPath, Seq(jsVal.prettyPrint).asJava)
             }
+            result
           }
-        } yield ()
+        } yield result
+
+      runManyTests = (testScripts: Seq[Identifier]) => {
+        sequentialTraverse(testScripts.sorted) { id =>
+          runScript(id, None, None, None)
+            .transform {
+              case Failure(exception) => Success((id, Left(exception)))
+              case Success(result) => Success((id, Right(result)))
+            }
+        }.map { case results =>
+          config.resultMode match {
+            case RunnerMainConfig.ResultMode.Text =>
+              results.foreach {
+                case (id, Left(exception)) => println(s"${id.qualifiedName} FAILURE ($exception)")
+                case (id, Right(_)) => println(s"${id.qualifiedName} SUCCESS")
+              }
+            case RunnerMainConfig.ResultMode.Json =>
+              println(JsObject(Map.from(results).map {
+                case (id, Left(exception)) =>
+                  (
+                    id.qualifiedName.toString,
+                    JsObject(Map(("error", JsString(exception.toString)))),
+                  )
+                case (id, Right(result)) =>
+                  val pureResult = Value
+                    .castExtendedValue(result)
+                    .fold(throw _, identity)
+                  (
+                    id.qualifiedName.toString,
+                    JsObject(Map(("result", LfValueCodec.apiValueToJsValue(pureResult)))),
+                  )
+              }).prettyPrint)
+          }
+
+          !results.exists(_._2.isLeft)
+        }
+      }
 
       success <- config.runMode match {
         case RunnerMainConfig.RunMode.RunAll => {
-          val success = new AtomicBoolean(true)
           val testScripts: Seq[Identifier] = dar.main._2.modules.flatMap {
             case (moduleName, module) =>
               module.definitions.collect(Function.unlift { case (name, _) =>
@@ -170,19 +205,14 @@ object RunnerMain {
               })
           }.toSeq
 
-          sequentialTraverse(testScripts.sorted) { id =>
-            runScript(id, None, None, None)
-              .andThen {
-                case Failure(exception) =>
-                  success.set(false)
-                  println(s"${id.qualifiedName} FAILURE ($exception)")
-                case Success(_) =>
-                  println(s"${id.qualifiedName} SUCCESS")
-              }
-              // Do not abort in case of failure, but complete all test runs.
-              .recover { case _ => () }
-          }.map { case _ => success.get() }
+          runManyTests(testScripts)
         }
+        case RunnerMainConfig.RunMode.RunSome(ids) =>
+          runManyTests(
+            ids.map(scriptName =>
+              Identifier(dar.main._1, QualifiedName.assertFromString(scriptName))
+            )
+          )
         case RunnerMainConfig.RunMode.RunOne(scriptName, inputFile, outputFile) => {
           val scriptId: Identifier =
             Identifier(dar.main._1, QualifiedName.assertFromString(scriptName))
