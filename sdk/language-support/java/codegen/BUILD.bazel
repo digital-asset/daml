@@ -212,36 +212,37 @@ scala_source_jar(
     srcs = [],
 )
 
-[
-    [
-        dar_to_java(
-            name = "test-model-%s" % target,
-            src = "//canton/community/daml-lf/encoder:testing-dar-%s" % target,
-            package_prefix = "test",
-        ),
-        java_test(
-            name = "tests-%s" % target,
-            srcs = glob([
-                "src/test/java/**/*ForAll*.java",
-                "src/test/java/**/*For%s*.java" % mangle_for_java(target),
-            ]),
-            test_class = "com.daml.testing.AllTestsFor%s" % mangle_for_java(target),
-            deps = [
-                ":test-model-%s" % target,
-                "@maven//:com_daml_bindings_java",
-                "@maven//:com_google_protobuf_protobuf_java",
-                "@maven//:org_junit_jupiter_junit_jupiter_api",
-                "@maven//:org_junit_jupiter_junit_jupiter_engine",
-                "@maven//:org_junit_platform_junit_platform_runner",
-            ],
-        ),
-    ]
-    for target in COMPILER_LF_VERSIONS
-    # we skip 1.13 as their serializable types are the same as 1.12.
-    # We include 1.14 since while it has no new serializable types
-    # it is the earliest version supported by HEAD damlc.
-    if target != "1.13"
-]
+#TODO(https://github.com/DACH-NY/canton/issues/30666): re-enable these tests after migrating codegen to Canton
+#[
+#    [
+#        dar_to_java(
+#            name = "test-model-%s" % target,
+#            src = "//canton/community/daml-lf/encoder:testing-dar-%s" % target,
+#            package_prefix = "test",
+#        ),
+#        java_test(
+#            name = "tests-%s" % target,
+#            srcs = glob([
+#                "src/test/java/**/*ForAll*.java",
+#                "src/test/java/**/*For%s*.java" % mangle_for_java(target),
+#            ]),
+#            test_class = "com.daml.testing.AllTestsFor%s" % mangle_for_java(target),
+#            deps = [
+#                ":test-model-%s" % target,
+#                "@maven//:com_daml_bindings_java",
+#                "@maven//:com_google_protobuf_protobuf_java",
+#                "@maven//:org_junit_jupiter_junit_jupiter_api",
+#                "@maven//:org_junit_jupiter_junit_jupiter_engine",
+#                "@maven//:org_junit_platform_junit_platform_runner",
+#            ],
+#        ),
+#    ]
+#    for target in COMPILER_LF_VERSIONS
+#    # we skip 1.13 as their serializable types are the same as 1.12.
+#    # We include 1.14 since while it has no new serializable types
+#    # it is the earliest version supported by HEAD damlc.
+#    if target != "1.13"
+#]
 
 ########################################################
 ####  Integration Tests
@@ -454,24 +455,26 @@ da_scala_test(
     ],
 )
 
-da_scala_benchmark_jmh(
-    name = "from-json-bench",
-    srcs = glob(["src/bench/**/FromJsonBench.scala"]),
-    visibility = ["//visibility:public"],
-    deps = [
-        ":test-model-2.dev",
-        "@maven//:com_daml_bindings_java",
-    ],
-)
-
-da_scala_benchmark_jmh(
-    name = "to-json-bench",
-    srcs = glob(["src/bench/**/ToJsonBench.scala"]),
-    visibility = ["//visibility:public"],
-    deps = [
-        ":test-model-2.dev",
-        "@maven//:com_daml_bindings_java",
-    ],
-)
+#TODO(https://github.com/DACH-NY/canton/issues/30666): re-enable this benchmark after migrating codegen to Canton
+#da_scala_benchmark_jmh(
+#    name = "from-json-bench",
+#    srcs = glob(["src/bench/**/FromJsonBench.scala"]),
+#    visibility = ["//visibility:public"],
+#    deps = [
+#        ":test-model-2.dev",
+#        "@maven//:com_daml_bindings_java",
+#    ],
+#)
+#
+#TODO(https://github.com/DACH-NY/canton/issues/30666): re-enable this benchmark after migrating codegen to Canton
+#da_scala_benchmark_jmh(
+#    name = "to-json-bench",
+#    srcs = glob(["src/bench/**/ToJsonBench.scala"]),
+#    visibility = ["//visibility:public"],
+#    deps = [
+#        ":test-model-2.dev",
+#        "@maven//:com_daml_bindings_java",
+#    ],
+#)
 
 exports_files(["src/main/resources/logback.xml"])

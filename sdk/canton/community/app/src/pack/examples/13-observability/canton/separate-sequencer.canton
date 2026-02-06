@@ -1,6 +1,0 @@
-logger.info("Separate sequencer start")
-
-nodes.all.foreach { node =>
-  logger.info(s"Waiting for ${node.name} to be running")
-  node.health.wait_for_running()
-}

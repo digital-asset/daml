@@ -1,9 +1,0 @@
-
-module Com.Digitalasset.Transcode.Conformance.Data.Traversables where
-
-
-data Record  = Record with int: Int, text: Text
-  deriving (Eq, Show, Ord)
-
-data RecordWithOptional  = RecordWithOptional with field: Optional (Int)
-  deriving (Eq, Show, Ord)

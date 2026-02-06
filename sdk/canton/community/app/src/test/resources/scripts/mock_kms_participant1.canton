@@ -1,6 +1,0 @@
-import $file.community.app.src.test.resources.scripts.simple_ping
-
-simple_ping.bootstrapSynchronizer()
-simple_ping.runPing()
-
-sys.exit(0)
