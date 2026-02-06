@@ -815,6 +815,12 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     , NameIn DA_Internal_Template_Functions "HasChoiceObserver" <- cls
     -> pure []
 
+    -- Remove HasQuerNByKey instances when NUCK unsupported
+    | not (envLfVersion env `supports` featureNUCK)
+    , Just cls <- tyConClass_maybe t
+    , NameIn DA_Internal_Template_Functions "HasQueryNByKey" <- cls
+    -> pure []
+
     -- Constraint tuples are represented by LF structs.
     | isConstraintTupleTyCon t
     -> pure []
