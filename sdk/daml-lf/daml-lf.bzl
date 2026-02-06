@@ -171,7 +171,7 @@ def _init_data():
         },
         {
             "name": "featureNUCK",
-            "name_pretty": " builtin",
+            "name_pretty": "Non-unique contract keys",
             "cpp_flag": "DAML_NUCK",
             "version_req": dev_only,
         },
