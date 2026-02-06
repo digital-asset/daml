@@ -145,11 +145,6 @@ alias(
 )
 
 alias(
-    name = "daml-lf-repl",
-    actual = "//canton/community/daml-lf/repl:repl",
-)
-
-alias(
     name = "bindings-java",
     actual = "@maven//:com_daml_bindings_java",
 )
