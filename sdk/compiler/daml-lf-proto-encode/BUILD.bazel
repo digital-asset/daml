@@ -35,6 +35,7 @@ da_haskell_library(
         "src/DA/Daml/LF/Proto3/Interned.hs",
         "src/DA/Daml/LF/Proto3/InternedArr.hs",
         "src/DA/Daml/LF/Proto3/InternedMap.hs",
+        "src/DA/Daml/LF/Proto3/WellInterned.hs",
     ],
     hackage_deps = [
         "base",
@@ -45,6 +46,7 @@ da_haskell_library(
         "text",
         "vector",
         "proto3-suite",
+        "syb",
         "unordered-containers",
     ],
     src_strip_prefix = "src",
@@ -70,7 +72,6 @@ da_haskell_test(
         "tasty-hunit",
         "proto3-suite",
         "text",
-        "syb",
         "vector",
     ],
     main_function = "DA.Daml.LF.Proto3.EncodeTest.entry",
