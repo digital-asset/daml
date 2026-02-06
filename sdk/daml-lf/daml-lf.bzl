@@ -169,6 +169,12 @@ def _init_data():
             "cpp_flag": "DAML_UnsafeFromInterface",
             "version_req": {"high": V2_1},
         },
+        {
+            "name": "featureNUCK",
+            "name_pretty": "Non-unique contract keys",
+            "cpp_flag": "DAML_NUCK",
+            "version_req": dev_only,
+        },
     ]
 
     return struct(

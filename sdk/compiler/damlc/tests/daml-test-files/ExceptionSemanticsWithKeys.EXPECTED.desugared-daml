@@ -103,6 +103,8 @@ instance DA.Internal.Desugar.HasFetchByKey K (Party, Int) where
   fetchByKey = GHC.Types.primitive @"UFetchByKey"
 instance DA.Internal.Desugar.HasLookupByKey K (Party, Int) where
   lookupByKey = GHC.Types.primitive @"ULookupByKey"
+instance DA.Internal.Desugar.HasQueryNByKey K (Party, Int) where
+  queryNByKey = GHC.Types.primitive @"UQueryNByKey"
 instance DA.Internal.Desugar.HasToAnyContractKey K (Party,
                                                     Int) where
   _toAnyContractKey = GHC.Types.primitive @"EToAnyContractKey"
