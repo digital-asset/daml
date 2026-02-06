@@ -105,6 +105,18 @@ Typeclasses
 
   **instance** `CanAbort <class-da-internal-lf-canabort-29060_>`_ (`Either <type-da-types-either-56020_>`_ `Text <type-ghc-types-text-51952_>`_)
 
+.. _class-da-internal-lf-serializable-80925:
+
+**class** `Serializable <class-da-internal-lf-serializable-80925_>`_ a **where**
+
+  A class to explicitly indicate that a type is serializable\. Values of
+  types instantiating this class can be stored on the ledger\. These types will
+  be subject to strict upgrade checks, as newer code must continue to be able
+  to read historical ledger data\.
+
+  Note that explicit serializability is off by default and hidden behind the
+  \-\-explicit\-serializable\=yes flag in Canton 3\.5\.
+
 .. _class-da-internal-prelude-applicative-9257:
 
 **class** `Functor <class-ghc-base-functor-31205_>`_ f \=\> `Applicative <class-da-internal-prelude-applicative-9257_>`_ f **where**
