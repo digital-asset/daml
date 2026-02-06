@@ -186,7 +186,7 @@ object RunnerMain {
               }).prettyPrint)
           }
 
-          !results.exists(_._2.isRight)
+          !results.exists(_._2.isLeft)
         }
       }
 
