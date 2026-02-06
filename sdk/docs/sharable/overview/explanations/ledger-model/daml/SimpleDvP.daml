@@ -5,6 +5,8 @@
 module SimpleDvP where
 
 import Daml.Script
+import Daml.Script.Internal
+import DA.Either
 import DA.Optional
 import SimpleAsset
 
@@ -60,6 +62,22 @@ template ProposeSimpleDvP with
         dvp <- exercise self $ Accept with ..
         exercise dvp $ Settle with actor = counterparty
 -- SNIPPET-PROPOSAL-END
+
+-- SNIPPET-ACCEPTANDSETTLEDVP-BEGIN
+template AcceptAndSettleDvP with
+    counterparty : Party
+  where
+    signatory counterparty
+
+    choice Execute : (ContractId SimpleAsset, ContractId SimpleAsset)
+      with
+        proposal : ContractId ProposeSimpleDvP
+        toBeAllocated: ContractId SimpleAsset
+      controller counterparty
+      do
+        dvp <- exercise proposal $ Accept with ..
+        exercise dvp $ Settle with actor = counterparty
+-- SNIPPET-ACCEPTANDSETTLEDVP-END
 
 setup alice bob bank1 bank2 = script do
     -- SNIPPET-SCRIPT-BEGIN
@@ -124,3 +142,88 @@ simpleDvp = script do
   submit bank2 do exerciseCmd newEur Archive
   submit bank1 do exerciseCmd newUsd Archive
 
+simpleDvpHelperContract = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  bank1 <- allocateParty "Bank1"
+  bank2 <- allocateParty "Bank2"
+
+  (_, eur, usd, proposeDvP, disclosedEur) <- setup alice bob bank1 bank2
+
+  -- SNIPPET-ACCEPT_AND_SETTLE_DVP-BEGIN
+  (newUsd, newEur) <- submit (actAs bob <> disclose disclosedEur) $ do
+      createAndExerciseCmd (AcceptAndSettleDvP with counterparty = bob) $
+        Execute with
+          proposal = proposeDvP
+          toBeAllocated = usd
+  -- SNIPPET-ACCEPT_AND_SETTLE_DVP-END
+  submit bank2 do exerciseCmd newEur Archive
+  submit bank1 do exerciseCmd newUsd Archive
+
+
+createAuthError = script do
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    bank1 <- allocateParty "Bank1"
+    bank2 <- allocateParty "Bank2"
+
+    result <- tryCommands do
+-- SNIPPET-create-auth-error-START
+      let eurAsset = SimpleAsset with
+            issuer = bank1
+            owner = alice
+            asset = "1 EUR"
+      eur <- submit bank1 do createCmd eurAsset
+    
+      let usdAsset = SimpleAsset with
+            issuer = bank2
+            owner = bob
+            asset = "1 USD"
+      usd <- submit bank2 do createCmd usdAsset
+
+      let dvp = SimpleDvP with
+            party1 = alice
+            party2 = bob
+            asset1 = eur
+            asset2 = usd
+      (newUsd, newEur) <- submit bob $ do
+         createAndExerciseCmd dvp $ Settle with actor = bob
+-- SNIPPET-create-auth-error-END
+      pure ()
+    assert $ isLeft result
+
+
+nestedAuthError = script do
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    carol <- allocateParty "Carol"
+    bank1 <- allocateParty "Bank1"
+    bank2 <- allocateParty "Bank2"
+
+    result <- tryCommands do
+-- SNIPPET-nested-auth-error-START
+      let chfAsset = SimpleAsset with
+            issuer = bank1
+            owner = carol
+            asset = "1 CHF"
+      chf <- submit bank1 do createCmd chfAsset
+      disclosedChf <- fromSome <$> queryDisclosure carol chf
+    
+      let usdAsset = SimpleAsset with
+            issuer = bank2
+            owner = bob
+            asset = "1 USD"
+      usd <- submit bank2 do createCmd usdAsset
+
+      proposeDvP <- submit alice $ do
+        createCmd ProposeSimpleDvP with
+           proposer = alice
+           counterparty = bob
+           allocated = chf
+           expected = usdAsset
+           
+      (newUsd, newEur) <- submit (actAs bob <> disclose disclosedChf) $ do
+          exerciseCmd proposeDvP $ AcceptAndSettle with toBeAllocated = usd
+-- SNIPPET-nested-auth-error-END
+      pure ()
+    assert $ isLeft result
