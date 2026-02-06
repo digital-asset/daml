@@ -11,137 +11,18 @@ LOG=$(mktemp)
 
 trap "cat $LOG" EXIT
 
-CANTON_DIR=${1:-//unset}
+CANTON_VERSION=$(grep -E -o '^[0-9]+\.[0-9]+' NIGHTLY_PREFIX)
+REPO_URL="europe-docker.pkg.dev/da-images/public-unstable/components/canton-open-source:$CANTON_VERSION"
+MANIFEST_JSON=$(oras manifest fetch "$REPO_URL")
+CANTON_VERSION=$(echo "$MANIFEST_JSON" | jq -r '.annotations["com.digitalasset.version"]')
+CANTON_DIGEST=$(echo "$MANIFEST_JSON" | jq -r '.manifests[0].digest')
+echo "> Latest canton snapshot: $CANTON_VERSION" >&2
 
-get_latest_canton_snapshot_info() {
-  local CANTON_VERSION=$(grep -E -o '^[0-9]+\.[0-9]+' NIGHTLY_PREFIX)
-  local REPO_URL="europe-docker.pkg.dev/da-images/public-unstable/components/canton-open-source:$CANTON_VERSION"
-  local manifest_json
-  manifest_json=$(oras manifest fetch "$REPO_URL")
-  local version digest
-  version=$(echo "$manifest_json" | jq -r '.annotations["com.digitalasset.version"]')
-  digest=$(echo "$manifest_json" | jq -r '.manifests[0].digest')
-  echo "$version $digest"
-}
-
-if [ "//unset" = "$CANTON_DIR" ]; then
-  CANTON_DIR=$(realpath "$DIR/../.canton")
-  echo "> Using '$CANTON_DIR' as '\$1' was not provided." >&2
-  read CANTON_VERSION CANTON_DIGEST < <(get_latest_canton_snapshot_info)
-  echo "> Latest canton snapshot: $CANTON_VERSION" >&2
-  # version strings look like "3.5.0-snapshot.20260203.17930.0.v8a849517", this extracts the part after the last 'v'
-  CANTON_COMMIT_HASH="${CANTON_VERSION##*v}"
-  if [ -z "${GITHUB_TOKEN:-}" ]; then
-    echo "> GITHUB_TOKEN is not set, assuming ssh." >&2
-    canton_github=git@github.com:DACH-NY/canton.git
-  else
-    canton_github=https://$GITHUB_TOKEN@github.com/DACH-NY/canton.git
-  fi
-  if ! [ -d "$CANTON_DIR" ]; then
-    echo "> Cloning canton for the first time, this may take a while..." >&2
-    git clone $canton_github "$CANTON_DIR" >$LOG 2>&1
-  fi
-  (
-    cd "$CANTON_DIR"
-    git fetch origin >$LOG 2>&1
-    git checkout $CANTON_COMMIT_HASH >$LOG 2>&1
-  )
-  cat > canton/canton_version.bzl <<EOF
+cat > canton/canton_version.bzl <<EOF
 CANTON_OPEN_SOURCE_TAG = "${CANTON_VERSION}"
 CANTON_OPEN_SOURCE_SHA = "${CANTON_DIGEST}"
 EOF
-fi
 
-if ! [ -d "$CANTON_DIR" ]; then
-  echo "> CANTON_DIR '$CANTON_DIR' does not seem to exist." >&2
-  exit 1
-fi
-
-sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' "$DIR/../build.sh"
-
-CODE_DROP_DIR="$DIR"/../canton
-EXCLUDED_DIRS=(
-  "community/daml-lf/api-type-signature"
-  "community/daml-lf/ide-ledger"
-  "community/daml-lf/interpreter"
-  "community/daml-lf/notes"
-  "community/daml-lf/parser"
-  "community/daml-lf/snapshot-proto"
-  "community/daml-lf/spec"
-  "community/daml-lf/stable-packages"
-  "community/daml-lf/tests"
-  "community/daml-lf/transaction"
-  "community/daml-lf/verification"
-  "community/daml-lf/data"
-  "community/daml-lf/data-scalacheck"
-  "community/daml-lf/data-tests"
-  "community/daml-lf/transaction-test-lib"
-  "community/daml-lf/transaction-tests"
-  "community/daml-lf/upgrades-matrix"
-  "community/daml-lf/engine"
-  "community/daml-lf/snapshot"
-  "community/daml-lf/validation"
-  "base/contextualized-logging"
-  "base/crypto"
-  "base/executors"
-  "base/grpc-test-utils"
-  "base/http-test-utils"
-  "base/ledger-resources"
-  "base/logging-entries"
-  "base/observability"
-  "base/nameof"
-  "base/nonempty"
-  "base/nonempty-cats"
-  "base/ports"
-  "base/resources"
-  "base/resources-grpc"
-  "base/resources-pekko"
-  "base/rs-grpc-bridge"
-  "base/rs-grpc-pekko"
-  "base/rs-grpc-testing-utils"
-  "base/safe-proto"
-  "base/sample-service"
-  "base/scalatest-utils"
-  "base/scala-utils"
-  "base/struct-json"
-  "base/test-evidence"
-  "base/testing-utils"
-  "base/timer-utils"
-)
-
-is_excluded() {
-  local file="$1"
-  for dir in "${EXCLUDED_DIRS[@]}"; do
-    if [[ "$file" == "$dir"* ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
-
-# repin dependencies
 REPIN=1 bazel run @maven//:pin >$LOG 2>&1
-
-# copy files from canton repo to code drop
-for path in community base README.md VERSION; do
-  rm -rf "$CODE_DROP_DIR/$path"
-  for f in $(git -C "$CANTON_DIR" ls-files "$path"); do
-    if is_excluded "$f"; then
-      continue
-    fi
-    if [[ -f "$CANTON_DIR/$f" ]]; then
-      mkdir -p "$CODE_DROP_DIR/$(dirname $f)"
-      cp "$CANTON_DIR/$f" "$CODE_DROP_DIR/$f"
-    fi
-  done
-done
-
-commit_sha_8=$(git -C "$CANTON_DIR" log -n1 --format=%h --abbrev=8 HEAD)
-commit_date=$(git -C "$CANTON_DIR" log -n1 --format=%cd --date=format:%Y%m%d HEAD)
-number_of_commits=$(git -C "$CANTON_DIR" rev-list --count HEAD)
-is_modified=$(if ! git -C "$CANTON_DIR" diff-index --quiet HEAD; then echo "-dirty"; fi)
-
-echo $commit_date.$number_of_commits.v$commit_sha_8$is_modified > canton/ref
-echo $commit_date.$number_of_commits.v$commit_sha_8$is_modified
 
 trap - EXIT
