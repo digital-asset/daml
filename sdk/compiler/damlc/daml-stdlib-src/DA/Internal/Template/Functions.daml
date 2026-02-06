@@ -207,7 +207,7 @@ class HasFetchByKey t k | t -> k where
 #ifdef DAML_NUCK
 -- TODO(https://github.com/digital-asset/daml/issues/22673): document
 class HasQueryNByKey t k | t -> k where
-  queryNByKey : Int -> k -> Update [ContractId t]
+  queryNByKey : Int -> k -> Update [(ContractId t, t)]
 #endif
 
 -- | Exposes `maintainer` function. Part of the `TemplateKey` constraint.
