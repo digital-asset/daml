@@ -13,16 +13,21 @@ trap "cat $LOG" EXIT
 
 CANTON_DIR=${1:-//unset}
 
-get_latest_canton_snapshot_version() {
+get_latest_canton_snapshot_info() {
   local CANTON_VERSION=$(grep -E -o '^[0-9]+\.[0-9]+' NIGHTLY_PREFIX)
   local REPO_URL="europe-docker.pkg.dev/da-images/public-unstable/components/canton-open-source:$CANTON_VERSION"
-  oras manifest fetch "$REPO_URL" | jq -r '.annotations["com.digitalasset.version"]'
+  local manifest_json
+  manifest_json=$(oras manifest fetch "$REPO_URL")
+  local version digest
+  version=$(echo "$manifest_json" | jq -r '.annotations["com.digitalasset.version"]')
+  digest=$(echo "$manifest_json" | jq -r '.manifests[0].digest')
+  echo "$version $digest"
 }
 
 if [ "//unset" = "$CANTON_DIR" ]; then
   CANTON_DIR=$(realpath "$DIR/../.canton")
   echo "> Using '$CANTON_DIR' as '\$1' was not provided." >&2
-  CANTON_VERSION=$(get_latest_canton_snapshot_version)
+  read CANTON_VERSION CANTON_DIGEST < <(get_latest_canton_snapshot_info)
   echo "> Latest canton snapshot: $CANTON_VERSION" >&2
   # version strings look like "3.5.0-snapshot.20260203.17930.0.v8a849517", this extracts the part after the last 'v'
   CANTON_COMMIT_HASH="${CANTON_VERSION##*v}"
@@ -41,7 +46,10 @@ if [ "//unset" = "$CANTON_DIR" ]; then
     git fetch origin >$LOG 2>&1
     git checkout $CANTON_COMMIT_HASH >$LOG 2>&1
   )
-  sed -i "s|^canton_version = \".*\"|canton_version = \"$CANTON_VERSION\"|" bazel-java-deps.bzl
+  cat > canton/canton_version.bzl <<EOF
+CANTON_OPEN_SOURCE_TAG = "${CANTON_VERSION}"
+CANTON_OPEN_SOURCE_SHA = "${CANTON_DIGEST}"
+EOF
 fi
 
 if ! [ -d "$CANTON_DIR" ]; then
