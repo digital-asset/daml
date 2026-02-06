@@ -41,45 +41,6 @@ scala_binary(
     deps = [":community_app-lib"],
 )
 
-copy_file(
-    name = "ledger-api-scala-file-into-proto",
-    src = ":community/ledger-api-scala/src/main/protobuf/com/daml/ledger/api/scalapb/package.proto",
-    out = "community/ledger-api-proto/src/main/protobuf/com/daml/ledger/api/scalapb/package.proto",
-)
-
-proto_jars(
-    name = "ledger_api_proto",
-    srcs = glob(["community/ledger-api-proto/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
-    grpc = True,
-    java_conversions = True,
-    java_deps = [
-        "@maven//:com_google_api_grpc_proto_google_common_protos",
-        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
-    ],
-    maven_artifact_prefix = "ledger-api",
-    maven_artifact_scala_suffix = "scalapb",
-    maven_group = "com.daml",
-    proto_deps = ["//canton/community/daml-lf/ledger-api-value:ledger_api_value_proto"],
-    scalapb_options_files = [
-        ":ledger-api-scala-file-into-proto",
-    ],
-    strip_import_prefix = "community/ledger-api-proto/src/main/protobuf",
-    visibility = ["//visibility:public"],
-    deps = [
-        "@com_google_protobuf//:any_proto",
-        "@com_google_protobuf//:descriptor_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:empty_proto",
-        "@com_google_protobuf//:field_mask_proto",
-        "@com_google_protobuf//:struct_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:wrappers_proto",
-        "@go_googleapis//google/rpc:error_details_proto",
-        "@go_googleapis//google/rpc:status_proto",
-        "@scalapb//:scalapb_proto",
-    ],
-)
-
 # For DPM!
 package_oci_component(
     name = "canton-community-oci",
