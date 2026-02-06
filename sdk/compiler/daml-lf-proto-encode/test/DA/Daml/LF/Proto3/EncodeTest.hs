@@ -11,17 +11,17 @@ import           Data.Vector                              (Vector, (!), singleto
 import           Text.Printf
 
 import           Data.Data
-import           Data.Generics.Aliases
 
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Proto3.EncodeV2
 import           DA.Daml.LF.Proto3.Util
-import           DA.Daml.LF.Proto3.DerivingData           ()
 
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as P
 
 import           Test.Tasty.HUnit                               (Assertion, testCase, assertBool, (@?=))
 import           Test.Tasty
+
+import           DA.Daml.LF.Proto3.WellInterned
 
 entry :: IO ()
 entry = defaultMain $ testGroup "All tests"
@@ -29,81 +29,13 @@ entry = defaultMain $ testGroup "All tests"
   , unitTests
   ]
 
-------------------------------------------------------------------------
--- Property definition
-------------------------------------------------------------------------
+-- countConcreteConstrs' :: Data a => a -> ConcreteConstrCount
+-- countConcreteConstrs' =
+--   let
+--     countETE (_ :: EncodeTestEnv) =
+--       error "you probably meant to call assertInternedEnv with an EncodeTestEnv (no sensible implementation for EncodeTestEnv exists)"
 
-
-{-
-Assumptions:
-
-- The AST the Com.Digitalasset.Daml.Lf.Archive.DamlLf2 has _strictly more_ nodes
-  than the actual protobuff spec, so therefore, the height of the
-  Com.Digitalasset.Daml.Lf.Archive.DamlLf2 AST is an underestimation of the
-  protobuff spec's height. Therefore, if the
-  Com.Digitalasset.Daml.Lf.Archive.DamlLf2 AST is flat enough, it for sure is in
-  the protobuff spec.
--}
-
-data ConcreteConstrCount = ConcreteConstrCount
-    { kinds :: Int
-    , types :: Int
-    , exprs :: Int
-    }
-    deriving Show
-
-instance Semigroup ConcreteConstrCount where
-    (ConcreteConstrCount k1 t1 e1) <> (ConcreteConstrCount k2 t2 e2) =
-        ConcreteConstrCount (k1 + k2) (t1 + t2) (e1 + e2)
-
-instance Monoid ConcreteConstrCount where
-    mempty = ConcreteConstrCount 0 0 0
-
-singleKind, singleType, singleExpr :: ConcreteConstrCount
-singleKind = mempty{kinds = 1}
-singleType = mempty{types = 1}
-singleExpr = mempty{exprs = 1}
-
-maxCount :: ConcreteConstrCount -> ConcreteConstrCount -> ConcreteConstrCount
-maxCount (ConcreteConstrCount k1 t1 e1) (ConcreteConstrCount k2 t2 e2) =
-    ConcreteConstrCount (max k1 k2) (max t1 t2) (max e1 e2)
-
-{-
-Count the number of concrete constructors for kinds, types, and expressions.
-This code would be a lot simpler if we would simply return a bool or another
-pass/failiure (such as Either), simply asserting at the point of a concrete
-constructor that children do not contain concrete constructors. However, giving
-the counts is a bit more inforamative for debugging, and this code will change
-anyways if and when we allow for trees of size n
--}
-countConcreteConstrs :: Data a => a -> ConcreteConstrCount
-countConcreteConstrs =
-  let
-    countKinds (k :: P.KindSum) = case k of
-      (P.KindSumInternedKind _) -> mempty
-      _                         -> singleKind <> mconcat (gmapQ countConcreteConstrs k)
-
-    countTypes (t :: P.TypeSum) = case t of
-      (P.TypeSumInternedType _) -> mempty
-      _                         -> singleType <> mconcat (gmapQ countConcreteConstrs t)
-
-    countExprs (e :: P.ExprSum) = case e of
-      (P.ExprSumInternedExpr _) -> mempty
-      _                         -> singleExpr <> mconcat (gmapQ countConcreteConstrs e)
-
-    countETE (_ :: EncodeTestEnv) =
-      error "you probably meant to call assertInternedEnv with an EncodeTestEnv (no sensible implementation for EncodeTestEnv exists)"
-
-    genericCase x = mconcat (gmapQ countConcreteConstrs x)
-
-  in genericCase `extQ` countETE `extQ` countKinds `extQ` countTypes `extQ` countExprs
-
-checkWellInterned :: ConcreteConstrCount -> Bool
-checkWellInterned ConcreteConstrCount{..} =
-    kinds + types + exprs <= 1
-
-wellInterned :: Data a => a -> Bool
-wellInterned = checkWellInterned . countConcreteConstrs
+--   in countETE `extQ` countConcreteConstrs
 
 assertInterned :: Data a => a -> Assertion
 assertInterned (countConcreteConstrs -> count) = do
