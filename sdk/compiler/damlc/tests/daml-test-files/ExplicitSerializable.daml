@@ -58,6 +58,7 @@ template Asset
     seriImportedHOT : I.SeriImportedHOT Decimal
     seriList : [SeriDataType]
     seriOptional : Optional SeriVariant
+    seriNumeric : Numeric 37
   where
     signatory party
 

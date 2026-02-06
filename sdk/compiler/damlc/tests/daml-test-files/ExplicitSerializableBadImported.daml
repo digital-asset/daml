@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @BUILD-OPTION --explicit-serializable=yes
--- @ERROR range=10:10-13:33; error type checking data type ExplicitSerializableBadImported.Asset: expected serializable type
+-- @ERROR range=10:10-10:15; No instance for (Serializable I.NotSerializable)
 module ExplicitSerializableBadImported where
 
 import qualified ExplicitSerializableBadImported.Imported as I

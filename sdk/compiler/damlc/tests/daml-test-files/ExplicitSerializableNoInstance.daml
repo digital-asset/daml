@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @BUILD-OPTION --explicit-serializable=yes
--- @ERROR range=13:10-17:21; unserializable data type ExplicitSerializableNoInstance:Currency
+-- @ERROR range=13:10-13:15; No instance for (Serializable Currency)
 module ExplicitSerializableNoInstance where
 
 data Currency = Currency with
