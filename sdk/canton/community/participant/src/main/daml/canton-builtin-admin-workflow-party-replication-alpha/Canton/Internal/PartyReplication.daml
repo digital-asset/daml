@@ -3,8 +3,7 @@
 
 module Canton.Internal.PartyReplication where
 
--- TODO(jaspervdj): Remove this instance again.
-data ParticipantPermission = Submission | Confirmation | Observation deriving (Eq, Show, Serializable)
+data ParticipantPermission = Submission | Confirmation | Observation deriving (Eq, Show)
 
 -- A PartyReplicationProposal is created by the target participant to reach an agreement with the source participant to
 -- replicate the specified party via one of the specified sequencers.
