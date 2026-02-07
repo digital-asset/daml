@@ -78,3 +78,10 @@ template Asset
           pure ()
         catch
           SeriError {} -> pure ()
+
+template ReuseAsset
+  with
+    party : Party
+    asset : Asset
+  where
+    signatory party
