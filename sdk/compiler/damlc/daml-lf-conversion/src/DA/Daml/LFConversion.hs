@@ -432,6 +432,9 @@ modSerializableInfo
 modSerializableInfo ModDetails{..}
         templates choiceData exceptions interfaces = ModSerializableInfo
     { msiSerializable =
+        -- TODO(jaspervdj): GHC is now generating deriving(Serializable) for
+        -- templates, exceptions, choice data and interfaces, so we should be
+        -- able to remove those here and purely rely on the instance.
         mkUniqSet (mapMaybe tyHead [_choiceDatArgTy cd | cd <- choiceData]) <>
         mkUniqSet fromTypeclassInstances <>
         mkUniqSet (mapMaybe tbTyCon templates) <>
