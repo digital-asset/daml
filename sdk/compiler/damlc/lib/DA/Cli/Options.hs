@@ -291,8 +291,7 @@ forceUtilityPackageOpt = ForceUtilityPackage <$>
 
 explicitSerializable :: Parser ExplicitSerializable
 explicitSerializable = ExplicitSerializable <$>
-    -- TODO(jaspervdj): should this be `internal`?
-    flagYesNoAuto "explicit-serializable" False desc internal
+    flagYesNoAuto "explicit-serializable" False desc idm
     where
         desc =
             "Require explicit Serializable instances on data types in order to use them in templates and choices. \

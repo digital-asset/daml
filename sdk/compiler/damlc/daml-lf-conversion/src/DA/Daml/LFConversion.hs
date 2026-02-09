@@ -265,10 +265,6 @@ extractModuleContents env@Env{..} coreModule modIface details = do
 
     mcModInstanceInfo = modInstanceInfoFromDetails details
     mcModSerializableInfo = modSerializableInfo details
-        (snd <$> MS.toList mcTemplateBinds)
-        (snd =<< MS.toList mcChoiceData)
-        (snd <$> MS.toList mcExceptionBinds)
-        (snd <$> MS.toList mcInterfaceBinds)
 
     mcDepOrphanModules = getDepOrphanModules modIface
     mcExports = md_exports details
@@ -422,24 +418,9 @@ data ModSerializableInfo = ModSerializableInfo
         -- that happens later in the LF TypeChecker.
     }
 
-modSerializableInfo
-    :: ModDetails
-    -> [TemplateBinds]
-    -> [ChoiceData]
-    -> [ExceptionBinds]
-    -> [InterfaceBinds]
-    -> ModSerializableInfo
-modSerializableInfo ModDetails{..}
-        templates choiceData exceptions interfaces = ModSerializableInfo
-    { msiSerializable =
-        -- TODO(jaspervdj): GHC is now generating deriving(Serializable) for
-        -- templates, exceptions, choice data and interfaces, so we should be
-        -- able to remove those here and purely rely on the instance.
-        mkUniqSet (mapMaybe tyHead [_choiceDatArgTy cd | cd <- choiceData]) <>
-        mkUniqSet fromTypeclassInstances <>
-        mkUniqSet (mapMaybe tbTyCon templates) <>
-        mkUniqSet (map ebTyCon exceptions) <>
-        mkUniqSet (map ibTyCon interfaces)
+modSerializableInfo :: ModDetails -> ModSerializableInfo
+modSerializableInfo ModDetails{..} = ModSerializableInfo
+    { msiSerializable = mkUniqSet fromTypeclassInstances
     }
   where
     fromTypeclassInstances = do

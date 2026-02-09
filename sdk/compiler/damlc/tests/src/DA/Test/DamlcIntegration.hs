@@ -586,9 +586,6 @@ readFileAnns file = do
     where
         f :: String -> Maybe Ann
         f (stripPrefix "-- @" . trim -> Just x) = case word1 $ trim x of
-            -- TODO(jaspervdj): Consider adding a new pragma here so we can
-            -- invoke damlc with different flags (in particular opt-in to the
-            -- explicit serializability).
             ("IGNORE",_) -> Just Ignore
             ("SINCE-LF", x) -> Just $ SinceLF $ parseMaybeVersions x
             ("UNTIL-LF", x) -> Just $ UntilLF $ parseMaybeVersions x
@@ -680,19 +677,20 @@ parseBuildOptions args = case result of
   where
     result = Options.Applicative.execParserPure prefs info args
     prefs = Options.Applicative.prefs mempty
-    info = flip Options.Applicative.info mempty $ (.)
+    info = flip Options.Applicative.info mempty $ fmap (foldr (.) id) $ sequenceA
       -- NOTE(jaspervdj): Can add more option parsers here if we need them for
       -- tests. We should not let this list become too big, as we currently
       -- create a new IDE instance for each unique combination of options in
       -- the tests.
-      <$> ((\opt opts -> opts {optExplicitSerializable = opt}) <$>
-              explicitSerializable)
-      <*> ((\wf opts -> opts
+      [ (\seri opts -> opts {optExplicitSerializable = seri}) <$>
+              explicitSerializable
+      , (\wf opts -> opts
               { optInlineDamlCustomWarningFlags = WarningFlags.addWarningFlags
                   (WarningFlags.wfFlags wf)
                   (optInlineDamlCustomWarningFlags opts)
               }) <$>
-              WarningFlags.runParser warningFlagParserInlineDamlCustom)
+              WarningFlags.runParser warningFlagParserInlineDamlCustom
+      ]
 
 mainProj :: IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO (LF.Package, FilePath, HashMap.HashMap ScriptName T.Text)
 mainProj service outdir log file = do
