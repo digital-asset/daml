@@ -160,9 +160,7 @@ type TemplateKey t k =
   , HasKey t k
   , HasLookupByKey t k
   , HasFetchByKey t k
-#ifdef DAML_NUCK
   , HasQueryNByKey t k
-#endif
   , HasMaintainer t k
   , HasToAnyContractKey t k
   , HasFromAnyContractKey t k
@@ -204,11 +202,10 @@ class HasFetchByKey t k | t -> k where
   --    stakeholders of the fetched contract are, which requires
   --    getting the contract instance.
 
-#ifdef DAML_NUCK
 -- TODO(https://github.com/digital-asset/daml/issues/22673): document
 class HasQueryNByKey t k | t -> k where
-  queryNByKey : Int -> k -> Update [ContractId t]
-#endif
+  -- | HIDE
+  queryNByKey : Int -> k -> Update [(ContractId t, t)]
 
 -- | Exposes `maintainer` function. Part of the `TemplateKey` constraint.
 class HasMaintainer t k | t -> k where
