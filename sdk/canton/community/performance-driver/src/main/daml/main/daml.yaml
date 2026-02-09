@@ -9,7 +9,7 @@ build-options:
 - --target=2.1
 name: PerformanceTest
 source: PerformanceTest.daml
-version: 3.5.0
+version: 3.4.0
 dependencies: 
 - daml-prim
 - daml-stdlib
