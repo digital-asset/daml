@@ -318,6 +318,7 @@ installDataDep InstallDataDepArgs {..} = do
         , configDependencyInfo = dependencyInfo
         , configSdkPrefix = [T.pack currentSdkPrefix]
         , configIgnoreExplicitExports = getIgnoreDataDepVisibility $ optIgnoreDataDepVisibility opts
+        , configExplicitSerializable = optExplicitSerializable opts
         }
 
     pkg = LF.extPackagePkg (LF.dalfPackagePkg dalfPackage)

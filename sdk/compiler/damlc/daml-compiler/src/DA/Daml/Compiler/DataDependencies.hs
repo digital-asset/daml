@@ -58,6 +58,7 @@ import qualified DA.Daml.LF.TypeChecker.Env as LF
 import qualified DA.Daml.LF.TypeChecker.Error as LF
 import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options
+import DA.Daml.Options.Types
 import DA.Daml.StablePackages (stablePackageByModuleName)
 import DA.Daml.UtilGHC (fsFromText)
 
@@ -88,6 +89,8 @@ data Config = Config
         -- ^ prefix to use for current SDK in data-dependencies
     , configIgnoreExplicitExports :: Bool
         -- ^ Should explicit export information be disregarded, and all definitions in this module be exported
+    , configExplicitSerializable :: ExplicitSerializable
+        -- ^ If Serializable instances are derived for types tagged as serializable in the LF.
     }
 
 data Env = Env
@@ -863,8 +866,8 @@ mkConRdr env thisModule
 mkDataDecl :: Env -> Module -> LHsContext GhcPs -> OccName -> LF.IsSerializable -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> Gen (LHsDecl GhcPs)
 mkDataDecl env thisModule ctxt occName isSerializable tyVars cons = do
     tyVars' <- mapM (convTyVarBinder env) tyVars
-    derivs <- if LF.getIsSerializable isSerializable
-        then do
+    derivs <- case configExplicitSerializable (envConfig env) of
+        ExplicitSerializable True | LF.getIsSerializable isSerializable -> do
             serializeClass <- mkDesugarType env "Serializable"
             pure
                 [ noLoc $ HsDerivingClause
@@ -875,7 +878,7 @@ mkDataDecl env thisModule ctxt occName isSerializable tyVars cons = do
                         ]
                     }
                 ]
-        else pure []
+        _ -> pure []
     pure . noLoc . TyClD noExt $ DataDecl
         { tcdDExt = noExt
         , tcdLName = noLoc $ mkConRdr env thisModule occName
