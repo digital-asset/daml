@@ -27,6 +27,8 @@ REPIN=1 bazel run @maven//:pin >$LOG 2>&1
 
 ./fmt.sh --diff >$LOG 2>&1
 
+# The caller of this script (ci/cron/daily-compat.yml) expects it to ouput the canton version
+# and interpolates it in the title of the code drop PR it creates.
 echo "${CANTON_VERSION}"
 
 trap - EXIT
