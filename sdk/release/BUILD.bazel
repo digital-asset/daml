@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
-load("util.bzl", "dpm_sdk_tarball", "protos_zip", "sdk_tarball")
+load("util.bzl", "dpm_sdk_tarball", "sdk_tarball")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -66,11 +66,6 @@ da_haskell_binary(
     ],
 )
 
-# Disabled on Windows since directory outputs can cause issues.
-protos_zip(
-    name = "protobufs",
-) if not is_windows else None
-
 [
     sdk_tarball(
         "sdk-release-tarball-{}".format(edition),
@@ -90,22 +85,3 @@ alias(
     actual = "sdk-release-tarball-ce",
     visibility = ["//visibility:public"],
 )
-
-sh_test(
-    name = "test-protobuf-structure",
-    srcs = ["test-protobuf-structure.sh"],
-    args = [
-        "$(location :protobufs.zip)",
-        "$(POSIX_DIFF)",
-        "$(POSIX_SORT)",
-    ],
-    data = [
-        ":protobufs.zip",
-    ],
-    toolchains = [
-        "@rules_sh//sh/posix:make_variables",
-    ],
-    deps = [
-        "@bazel_tools//tools/bash/runfiles",
-    ],
-) if not is_windows else None

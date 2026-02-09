@@ -1,6 +1,0 @@
-
-module Com.Digitalasset.Transcode.Conformance.Data.Keywords.Enums where
-
-
-data Enum = Byte | Class | Enum | Int | Integer | Long | Object | Promise | Short | Unit | Variant
-  deriving (Eq, Show, Ord)

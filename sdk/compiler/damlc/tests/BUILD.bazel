@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_and_track_dar_hash_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//canton/community/daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "mangle_for_damlc")
+load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "mangle_for_damlc")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # A REPL with all tests, used as bios for HLS
@@ -184,8 +184,8 @@ da_haskell_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto:daml_lf_archive_haskell_proto",
         "//compiler/daml-lf-proto-encode",
         "//compiler/daml-lf-tools",
         "//compiler/damlc:damlc-lib",

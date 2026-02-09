@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
-load("//canton/community/daml-lf/language:daml-lf.bzl", "LF_DOCS_VERSION")
+load("//daml-lf:daml-lf.bzl", "LF_DOCS_VERSION")
 load("//rules_daml:daml.bzl", "daml_doc_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools/packaging:packaging.bzl", "package_app", "package_oci_component")
@@ -265,10 +265,10 @@ da_haskell_library(
     src_strip_prefix = "lib",
     visibility = ["//visibility:public"],
     deps = [
-        "//canton/community/daml-lf/archive:daml_lf_archive_haskell_proto",
         "//compiler/daml-dar-reader",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-proto:daml_lf_archive_haskell_proto",
         "//compiler/daml-lf-reader",
         "//compiler/daml-lf-tools",
         "//compiler/daml-lf-tools-util",

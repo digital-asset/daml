@@ -1,6 +1,0 @@
-
-module Com.Digitalasset.Transcode.Conformance.Data.Keywords.RecordFields where
-
-
-data Record  = Record with abstract: (), assert: (), boolean: (), break: (), byte: (), char: (), clone: (), const: (), continue: (), def: (), double: (), enum: (), equals: (), extends: (), false: (), final: (), finalize: (), finally: (), float: (), for: (), getClass: (), goto: (), hashCode: (), implicit: (), instanceof: (), int: (), lazy: (), long: (), match: (), native: (), new: (), notifyAll: (), null: (), object: (), override: (), package: (), private: (), protected: (), public: (), return: (), sealed: (), short: (), static: (), strictfp: (), super: (), switch: (), synchronized: (), this: (), throw: (), throws: (), toString: (), trait: (), transient: (), true: (), val: (), var: (), void: (), volatile: (), while: (), yield: ()
-  deriving (Eq, Show, Ord)

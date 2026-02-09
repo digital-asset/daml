@@ -6,7 +6,7 @@ load(
     "dar_to_java",
 )
 load(
-    "//canton/community/daml-lf/language:daml-lf.bzl",
+    "//daml-lf:daml-lf.bzl",
     "lf_version_configuration",
     "mangle_for_damlc",
     "version_in",
@@ -14,7 +14,7 @@ load(
 load("//test-common:test-common.bzl", "da_scala_dar_resources_library")
 load("//test-common:test-common.bzl", "opts_get_lf_version")
 load("//rules_daml:daml.bzl", "daml_compile", "default_damlc_opts")
-load("//canton/community/daml-lf/language:daml-lf.bzl", "mangle_for_java")
+load("//daml-lf:daml-lf.bzl", "mangle_for_java")
 
 alias(
     name = "dar-files",

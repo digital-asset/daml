@@ -22,7 +22,7 @@ load(
     "test_exclusions",
 )
 load(
-    "//canton/community/daml-lf/language:daml-lf.bzl",
+    "//daml-lf:daml-lf.bzl",
     "COMPILER_LF_VERSIONS",
     "DEFAULT_LF_VERSION",
 )
@@ -51,16 +51,15 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:codegen-java-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//canton:bindings-java",
-        "//canton:nonempty",
-        "//canton/community/daml-lf/api-type-signature",
-        "//canton/community/daml-lf/archive:daml_lf_archive_proto_java",
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/language",
         "//language-support/build-info",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_daml_bindings_java",
+        "@maven//:com_daml_daml_lf_api_type_signature_2_13",
+        "@maven//:com_daml_daml_lf_archive_2_13",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_language_2_13",
+        "@maven//:com_daml_nonempty_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_squareup_javapoet",
         "@maven//:org_slf4j_slf4j_api",
@@ -101,14 +100,14 @@ da_scala_test(
         ":test-daml-java",
         ":test-daml-java-baz",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:bindings-java",
-        "//canton:nonempty",
-        "//canton/community/daml-lf/api-type-signature",
-        "//canton/community/daml-lf/archive:daml_lf_archive_reader",
-        "//canton/community/daml-lf/data",
-        "//canton/community/daml-lf/language",
-        "//canton/community/daml-lf/stable-packages",
-        "//canton/community/daml-lf/transaction:transaction-test-lib",
+        "//value-test-lib",
+        "@maven//:com_daml_bindings_java",
+        "@maven//:com_daml_daml_lf_api_type_signature_2_13",
+        "@maven//:com_daml_daml_lf_archive_2_13",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_language_2_13",
+        "@maven//:com_daml_daml_lf_stable_packages_2_13",
+        "@maven//:com_daml_nonempty_2_13",
         "@maven//:com_squareup_javapoet",
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",
@@ -213,36 +212,37 @@ scala_source_jar(
     srcs = [],
 )
 
-[
-    [
-        dar_to_java(
-            name = "test-model-%s" % target,
-            src = "//canton/community/daml-lf/encoder:testing-dar-%s" % target,
-            package_prefix = "test",
-        ),
-        java_test(
-            name = "tests-%s" % target,
-            srcs = glob([
-                "src/test/java/**/*ForAll*.java",
-                "src/test/java/**/*For%s*.java" % mangle_for_java(target),
-            ]),
-            test_class = "com.daml.testing.AllTestsFor%s" % mangle_for_java(target),
-            deps = [
-                ":test-model-%s" % target,
-                "//canton:bindings-java",
-                "@maven//:com_google_protobuf_protobuf_java",
-                "@maven//:org_junit_jupiter_junit_jupiter_api",
-                "@maven//:org_junit_jupiter_junit_jupiter_engine",
-                "@maven//:org_junit_platform_junit_platform_runner",
-            ],
-        ),
-    ]
-    for target in COMPILER_LF_VERSIONS
-    # we skip 1.13 as their serializable types are the same as 1.12.
-    # We include 1.14 since while it has no new serializable types
-    # it is the earliest version supported by HEAD damlc.
-    if target != "1.13"
-]
+#TODO(https://github.com/DACH-NY/canton/issues/30666): re-enable these tests after migrating codegen to Canton
+#[
+#    [
+#        dar_to_java(
+#            name = "test-model-%s" % target,
+#            src = "//canton/community/daml-lf/encoder:testing-dar-%s" % target,
+#            package_prefix = "test",
+#        ),
+#        java_test(
+#            name = "tests-%s" % target,
+#            srcs = glob([
+#                "src/test/java/**/*ForAll*.java",
+#                "src/test/java/**/*For%s*.java" % mangle_for_java(target),
+#            ]),
+#            test_class = "com.daml.testing.AllTestsFor%s" % mangle_for_java(target),
+#            deps = [
+#                ":test-model-%s" % target,
+#                "@maven//:com_daml_bindings_java",
+#                "@maven//:com_google_protobuf_protobuf_java",
+#                "@maven//:org_junit_jupiter_junit_jupiter_api",
+#                "@maven//:org_junit_jupiter_junit_jupiter_engine",
+#                "@maven//:org_junit_platform_junit_platform_runner",
+#            ],
+#        ),
+#    ]
+#    for target in COMPILER_LF_VERSIONS
+#    # we skip 1.13 as their serializable types are the same as 1.12.
+#    # We include 1.14 since while it has no new serializable types
+#    # it is the earliest version supported by HEAD damlc.
+#    if target != "1.13"
+#]
 
 ########################################################
 ####  Integration Tests
@@ -329,7 +329,7 @@ java_library(
     name = "pkg-root.jar",
     srcs = [":pkg-root.srcjar"],
     deps = [
-        "//canton:bindings-java",
+        "@maven//:com_daml_bindings_java",
     ],
 )
 
@@ -376,7 +376,8 @@ java_test(
             test_class = "com.daml.AllTests",
             deps = [
                 ":integration-tests-model-%s" % target,
-                "//canton:bindings-java",
+                "@maven//:com_daml_bindings_java",
+                "@maven//:com_daml_ledger_api_value_2_13",
                 "@maven//:com_google_protobuf_protobuf_java",
                 "@maven//:org_junit_jupiter_junit_jupiter_api",
                 "@maven//:org_junit_jupiter_junit_jupiter_engine",
@@ -430,45 +431,50 @@ da_scala_test(
     deps = [
         ":ledger-tests-model",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//canton:bindings-java",
-        "//canton:community_ledger_ledger-common",
-        "//canton:community_util-observability",
-        "//canton:ledger-resources",
-        "//canton:ledger-resources-test-lib",
-        "//canton:ledger_api_proto_scala",
-        "//canton:ports",
-        "//canton:resources",
-        "//canton:rs-grpc-bridge",
-        "//canton:testing-utils",
-        "//canton:timer-utils",
-        "//canton/community/daml-lf/data",
         "//test-common/canton/it-lib",
+        "@maven//:com_daml_bindings_java",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_resources_2_13",
+        "@maven//:com_daml_ledger_api_scala_2_13",
+        "@maven//:com_daml_ledger_common_2_13",
+        "@maven//:com_daml_ledger_resources_2_13",
+        "@maven//:com_daml_ledger_resources_test_lib_2_13",
+        "@maven//:com_daml_ports_2_13",
+        "@maven//:com_daml_rs_grpc_bridge",
+        "@maven//:com_daml_testing_utils_2_13",
+        "@maven//:com_daml_timer_utils_2_13",
+        "@maven//:com_daml_util_observability_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_thesamet_scalapb_lenses_2_13",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_reactivex_rxjava2_rxjava",
         "@maven//:org_scalatest_scalatest_compatible",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
-da_scala_benchmark_jmh(
-    name = "from-json-bench",
-    srcs = glob(["src/bench/**/FromJsonBench.scala"]),
-    visibility = ["//visibility:public"],
-    deps = [
-        ":test-model-2.dev",
-        "//canton:bindings-java",
-    ],
-)
-
-da_scala_benchmark_jmh(
-    name = "to-json-bench",
-    srcs = glob(["src/bench/**/ToJsonBench.scala"]),
-    visibility = ["//visibility:public"],
-    deps = [
-        ":test-model-2.dev",
-        "//canton:bindings-java",
-    ],
-)
+#TODO(https://github.com/DACH-NY/canton/issues/30666): re-enable this benchmark after migrating codegen to Canton
+#da_scala_benchmark_jmh(
+#    name = "from-json-bench",
+#    srcs = glob(["src/bench/**/FromJsonBench.scala"]),
+#    visibility = ["//visibility:public"],
+#    deps = [
+#        ":test-model-2.dev",
+#        "@maven//:com_daml_bindings_java",
+#    ],
+#)
+#
+#TODO(https://github.com/DACH-NY/canton/issues/30666): re-enable this benchmark after migrating codegen to Canton
+#da_scala_benchmark_jmh(
+#    name = "to-json-bench",
+#    srcs = glob(["src/bench/**/ToJsonBench.scala"]),
+#    visibility = ["//visibility:public"],
+#    deps = [
+#        ":test-model-2.dev",
+#        "@maven//:com_daml_bindings_java",
+#    ],
+#)
 
 exports_files(["src/main/resources/logback.xml"])
