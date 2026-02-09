@@ -124,7 +124,7 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
         jsonScriptTestDar,
         """{
           |  "JsonDamlScriptTest:failingTestData": {
-          |    "error": "com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command AllocateParty failed: INVALID_ARGUMENT: INVALID_ARGUMENT(8,XXXXXXXX): The submitted request has invalid arguments: Party already exists: party party... is already allocated on this node\nDaml stacktrace:\nallocatePartyByHint at XXXXXXXX:JsonDamlScriptTest:15"
+          |    "error": "com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command AllocateParty failed: INVALID_ARGUMENT: INVALID_ARGUMENT(8,XXXXXXXX): The submitted request has invalid arguments: Party already exists: party party... is already allocated on this node\nDaml stacktrace:\nallocatePartyByHint at XXXXXXXX:JsonDamlScriptTest:18"
           |  },
           |  "JsonDamlScriptTest:succeedingTestData": {
           |    "result": {
