@@ -71,6 +71,8 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
 
     val actual = cleanedIter
       .mkString("", f"%n", f"%n")
+      // Normalize escaped Windows line endings in JSON strings
+      .replace("\\r\\n", "\\n")
       // rename package Ids and contractId
       .replaceAll(raw"in choice [0-9a-f]{8}:([\w_\.:]+)+", "in choice XXXXXXXX:$1")
       .replaceAll(raw"in ([\w\-]+) command [0-9a-f]{8}:([\w_\.:]+)+", "in $1 command XXXXXXXX:$2")
