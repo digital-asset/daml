@@ -1,0 +1,276 @@
+-- | Asset Holding System for Canton Network
+-- CIP-0056 Token Standard Compatible
+-- UTXO-style holdings with memo support for exchange deposits
+module AssetHolding where
+
+import DA.TextMap (TextMap)
+import qualified DA.TextMap as TM
+import Daml.Script
+
+-------------------------------------------------------------------------------
+-- DATA TYPES
+-------------------------------------------------------------------------------
+
+data InstrumentId = InstrumentId
+  with
+    admin : Party
+    id : Text
+  deriving (Eq, Show)
+
+data AssetLock = AssetLock
+  with
+    lockHolder : Party
+    lockReason : Text
+    lockedUntil : Optional Time
+  deriving (Eq, Show)
+
+data Metadata = Metadata
+  with
+    values : TextMap Text
+  deriving (Eq, Show)
+
+-------------------------------------------------------------------------------
+-- METADATA HELPERS
+-------------------------------------------------------------------------------
+
+createMemo : Text -> Metadata
+createMemo memo = Metadata with
+  values = TM.fromList [("splice.lfdecentralizedtrust.org/reason", memo)]
+
+getMemo : Metadata -> Optional Text
+getMemo (Metadata values) = TM.lookup "splice.lfdecentralizedtrust.org/reason" values
+
+emptyMetadata : Metadata
+emptyMetadata = Metadata with values = TM.empty
+
+-------------------------------------------------------------------------------
+-- MAIN ASSET CONTRACT
+-------------------------------------------------------------------------------
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+    symbol : Text
+    instrumentId : InstrumentId
+    lock : Optional AssetLock
+    meta : Metadata
+  where
+    signatory issuer, owner
+    observer (case lock of
+      Some l -> [l.lockHolder]
+      None -> [])
+
+    ensure 
+      amount > 0.0 &&
+      instrumentId.admin == issuer
+
+    choice Transfer : ContractId Asset
+      with
+        newOwner : Party
+        transferMeta : Metadata
+      controller owner
+      do
+        assertMsg "Cannot transfer locked asset" (isNone lock)
+        assertMsg "Cannot transfer to self" (newOwner /= owner)
+        create this with
+          owner = newOwner
+          meta = transferMeta
+
+    choice ProposeTransfer : ContractId TransferOffer
+      with
+        newOwner : Party
+        offerMeta : Metadata
+        expiresAt : Time
+      controller owner
+      do
+        assertMsg "Cannot propose transfer of locked asset" (isNone lock)
+        now <- getTime
+        assertMsg "Expiry must be in future" (expiresAt > now)
+        
+        create TransferOffer with
+          assetCid = self
+          asset = this
+          sender = owner
+          receiver = newOwner
+          offerMetadata = offerMeta
+          createdAt = now
+          expiresAt = expiresAt
+
+    choice Split : (ContractId Asset, ContractId Asset)
+      with
+        splitAmount : Decimal
+      controller owner
+      do
+        assertMsg "Split amount must be positive" (splitAmount > 0.0)
+        assertMsg "Insufficient amount for split" (amount > splitAmount)
+        assertMsg "Cannot split locked asset" (isNone lock)
+        
+        asset1 <- create this with
+          amount = splitAmount
+          meta = createMemo "Split from parent holding"
+        
+        asset2 <- create this with
+          amount = amount - splitAmount
+          meta = createMemo "Split from parent holding"
+        
+        return (asset1, asset2)
+
+    choice Merge : ContractId Asset
+      with
+        otherAssetCid : ContractId Asset
+      controller owner
+      do
+        other <- fetch otherAssetCid
+        
+        assertMsg "Issuers must match" (other.issuer == issuer)
+        assertMsg "Symbols must match" (other.symbol == symbol)
+        assertMsg "Owners must match" (other.owner == owner)
+        assertMsg "InstrumentIds must match" (other.instrumentId == instrumentId)
+        assertMsg "Cannot merge locked assets" (isNone lock && isNone other.lock)
+        
+        exercise otherAssetCid Archive
+        
+        create this with
+          amount = amount + other.amount
+          meta = createMemo "Merged from multiple holdings"
+
+    choice LockAsset : ContractId Asset
+      with
+        lockData : AssetLock
+      controller owner
+      do
+        assertMsg "Asset is already locked" (isNone lock)
+        create this with lock = Some lockData
+
+    choice UnlockAsset : ContractId Asset
+      with
+        unlockTime : Time
+        lockHolder : Party
+      controller lockHolder
+      do
+        assertMsg "Asset is not locked" (isSome lock)
+        
+        case lock of
+          Some l -> do
+            assertMsg "Not the lock holder" (l.lockHolder == lockHolder)
+            case l.lockedUntil of
+              Some until -> assertMsg "Lock period not expired" (unlockTime >= until)
+              None -> return ()
+          None -> abort "Asset is not locked"
+        
+        create this with lock = None
+
+    choice Burn : ()
+      controller owner
+      do
+        assertMsg "Cannot burn locked asset" (isNone lock)
+        return ()
+
+template TransferOffer
+  with
+    assetCid : ContractId Asset
+    asset : Asset
+    sender : Party
+    receiver : Party
+    offerMetadata : Metadata
+    createdAt : Time
+    expiresAt : Time
+  where
+    signatory sender
+    observer receiver
+
+    choice AcceptTransfer : ContractId Asset
+      controller receiver
+      do
+        now <- getTime
+        assertMsg "Transfer offer has expired" (now <= expiresAt)
+        
+        exercise assetCid Archive
+        
+        create asset with
+          owner = receiver
+          meta = offerMetadata
+
+    choice RejectTransfer : ContractId Asset
+      with
+        rejectionReason : Text
+      controller receiver
+      do
+        return assetCid
+
+    choice WithdrawOffer : ContractId Asset
+      controller sender
+      do
+        return assetCid
+
+-------------------------------------------------------------------------------
+-- EXCHANGE DEPOSIT TEMPLATE
+-------------------------------------------------------------------------------
+
+template ExchangeDepositAddress
+  with
+    exchange : Party
+    exchangeVault : Party
+    depositMemo : Text
+    supportedInstruments : [InstrumentId]
+  where
+    signatory exchange
+    observer exchangeVault
+
+    nonconsuming choice DepositToExchange : ContractId Asset
+      with
+        userAssetCid : ContractId Asset
+        user : Party
+      controller user, exchange
+      do
+        asset <- fetch userAssetCid
+        
+        assertMsg "Instrument not supported" 
+          (asset.instrumentId `elem` supportedInstruments)
+        
+        exercise userAssetCid Transfer with
+          newOwner = exchangeVault
+          transferMeta = createMemo depositMemo
+
+-------------------------------------------------------------------------------
+-- HELPER FUNCTIONS
+-------------------------------------------------------------------------------
+
+isNone : Optional a -> Bool
+isNone opt = case opt of
+  None -> True
+  Some _ -> False
+
+isSome : Optional a -> Bool
+isSome opt = not (isNone opt)
+
+-------------------------------------------------------------------------------
+-- TEST SCRIPTS
+-------------------------------------------------------------------------------
+
+setup : Script ()
+setup = do
+  issuer <- allocateParty "AssetIssuer"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  
+  let instrumentId = InstrumentId with
+        admin = issuer
+        id = "GOLD-TOKEN"
+  
+  assetCid <- submitMulti [issuer, alice] [] $ createCmd Asset with
+    issuer = issuer
+    owner = alice
+    amount = 1000.0
+    symbol = "GOLD"
+    instrumentId = instrumentId
+    lock = None
+    meta = createMemo "Initial issuance"
+  
+  submitMulti [alice, issuer] [] $ exerciseCmd assetCid Transfer with
+    newOwner = bob
+    transferMeta = createMemo "Payment to Bob"
+  
+  return ()

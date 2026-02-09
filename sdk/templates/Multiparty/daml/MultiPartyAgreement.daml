@@ -1,0 +1,256 @@
+-- | Multi-Party Agreement System for Canton Network
+-- Supports incremental signing, governance, multi-sig workflows
+module MultiPartyAgreement where
+
+import DA.List (delete, sort)
+import Daml.Script
+
+-------------------------------------------------------------------------------
+-- DATA TYPES
+-------------------------------------------------------------------------------
+
+data AgreementType
+  = Governance
+  | Transaction
+  | Legal
+  | Policy
+  | Custom Text
+  deriving (Eq, Show)
+
+data AgreementMetadata = AgreementMetadata
+  with
+    agreementType : AgreementType
+    createdAt : Time
+    description : Text
+    attachmentHashes : [Text]
+  deriving (Eq, Show)
+
+data Signature = Signature
+  with
+    signer : Party
+    signedAt : Time
+    comments : Optional Text
+  deriving (Eq, Show)
+
+-------------------------------------------------------------------------------
+-- FINALIZED AGREEMENT
+-------------------------------------------------------------------------------
+
+template Agreement
+  with
+    signatories : [Party]
+    terms : Text
+    agreementId : Text
+    metadata : AgreementMetadata
+    signatures : [Signature]
+    finalizedAt : Time
+  where
+    signatory signatories
+
+    ensure uniqueParties signatories
+
+    choice ArchiveAgreement : ()
+      controller signatories
+      do
+        return ()
+
+    choice ProposeAmendment : ContractId AgreementProposal
+      with
+        proposer : Party
+        newTerms : Text
+        amendmentReason : Text
+      controller proposer
+      do
+        assertMsg "Proposer must be a signatory" (proposer `elem` signatories)
+        now <- getTime
+        create AgreementProposal with
+          proposer = proposer
+          allParties = signatories
+          alreadySigned = [proposer]
+          pendingParties = delete proposer signatories
+          terms = newTerms
+          agreementId = agreementId <> "-amendment"
+          metadata = metadata with
+            description = amendmentReason
+            createdAt = now
+          signatures = [Signature with
+            signer = proposer
+            signedAt = now
+            comments = Some amendmentReason]
+          requiredSignatures = length signatories
+          expiresAt = None
+
+-------------------------------------------------------------------------------
+-- AGREEMENT PROPOSAL
+-------------------------------------------------------------------------------
+
+template AgreementProposal
+  with
+    proposer : Party
+    allParties : [Party]
+    alreadySigned : [Party]
+    pendingParties : [Party]
+    terms : Text
+    agreementId : Text
+    metadata : AgreementMetadata
+    signatures : [Signature]
+    requiredSignatures : Int
+    expiresAt : Optional Time
+  where
+    signatory alreadySigned
+    observer allParties
+
+    ensure 
+      uniqueParties allParties &&
+      uniqueParties alreadySigned &&
+      requiredSignatures > 0 &&
+      requiredSignatures <= length allParties &&
+      length alreadySigned <= requiredSignatures
+
+    choice Sign : ContractId AgreementProposal
+      with
+        signer : Party
+        signatureComments : Optional Text
+      controller signer
+      do
+        now <- getTime
+        
+        assertMsg "Party is not in required signatories" (signer `elem` allParties)
+        assertMsg "Party has already signed" (signer `notElem` alreadySigned)
+        assertMsg "Party is not in pending list" (signer `elem` pendingParties)
+        
+        case expiresAt of
+          Some expiry -> assertMsg "Proposal has expired" (now <= expiry)
+          None -> return ()
+        
+        let newSignature = Signature with
+              signer = signer
+              signedAt = now
+              comments = signatureComments
+        
+        create this with
+          alreadySigned = signer :: alreadySigned
+          pendingParties = delete signer pendingParties
+          signatures = newSignature :: signatures
+
+    choice Finalize : ContractId Agreement
+      controller proposer
+      do
+        now <- getTime
+        assertMsg "Not enough signatures" 
+          (length alreadySigned >= requiredSignatures)
+        
+        case expiresAt of
+          Some expiry -> assertMsg "Cannot finalize expired proposal" (now <= expiry)
+          None -> return ()
+        
+        create Agreement with
+          signatories = sort alreadySigned
+          terms = terms
+          agreementId = agreementId
+          metadata = metadata
+          signatures = reverse signatures
+          finalizedAt = now
+
+    choice Reject : ()
+      with
+        rejector : Party
+        reason : Text
+      controller rejector
+      do
+        assertMsg "Only proposer or signatories can reject" 
+          (rejector == proposer || rejector `elem` allParties)
+        return ()
+
+    choice UpdateExpiration : ContractId AgreementProposal
+      with
+        newExpiry : Optional Time
+      controller proposer
+      do
+        now <- getTime
+        case newExpiry of
+          Some expiry -> assertMsg "New expiry must be in future" (expiry > now)
+          None -> return ()
+        create this with expiresAt = newExpiry
+
+    choice AddRequiredParty : ContractId AgreementProposal
+      with
+        newParty : Party
+      controller proposer
+      do
+        assertMsg "Party is already required" (newParty `notElem` allParties)
+        create this with
+          allParties = newParty :: allParties
+          pendingParties = newParty :: pendingParties
+          requiredSignatures = requiredSignatures + 1
+
+    choice RemoveRequiredParty : ContractId AgreementProposal
+      with
+        partyToRemove : Party
+      controller proposer
+      do
+        assertMsg "Cannot remove party who has signed" 
+          (partyToRemove `notElem` alreadySigned)
+        assertMsg "Party is not in required list" 
+          (partyToRemove `elem` allParties)
+        
+        create this with
+          allParties = delete partyToRemove allParties
+          pendingParties = delete partyToRemove pendingParties
+          requiredSignatures = requiredSignatures - 1
+
+-------------------------------------------------------------------------------
+-- HELPER FUNCTIONS
+-------------------------------------------------------------------------------
+
+uniqueParties : [Party] -> Bool
+uniqueParties parties = length parties == length (dedup parties)
+
+dedup : Eq a => [a] -> [a]
+dedup [] = []
+dedup (x::xs) = x :: dedup (filter (/= x) xs)
+
+-------------------------------------------------------------------------------
+-- TEST SCRIPTS
+-------------------------------------------------------------------------------
+
+setup : Script ()
+setup = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+  
+  now <- getTime
+  
+  let meta = AgreementMetadata with
+        agreementType = Governance
+        createdAt = now
+        description = "Partnership agreement"
+        attachmentHashes = []
+  
+  proposalCid <- submit alice $ createCmd AgreementProposal with
+    proposer = alice
+    allParties = [alice, bob, charlie]
+    alreadySigned = [alice]
+    pendingParties = [bob, charlie]
+    terms = "All parties agree to cooperate on the project"
+    agreementId = "AGREEMENT-001"
+    metadata = meta
+    signatures = [Signature with
+      signer = alice
+      signedAt = now
+      comments = Some "Initiated by Alice"]
+    requiredSignatures = 3
+    expiresAt = None
+  
+  proposalCid2 <- submit bob $ exerciseCmd proposalCid Sign with
+    signer = bob
+    signatureComments = Some "Approved by Bob"
+  
+  proposalCid3 <- submit charlie $ exerciseCmd proposalCid2 Sign with
+    signer = charlie
+    signatureComments = Some "Approved by Charlie"
+  
+  submit alice $ exerciseCmd proposalCid3 Finalize
+  
+  return ()

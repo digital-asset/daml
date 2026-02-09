@@ -1,0 +1,222 @@
+-- | Token Transfer System for Canton Network
+-- Supports 1-step and 2-step transfers, split/merge, locking
+module Token where
+
+import Daml.Script
+
+-------------------------------------------------------------------------------
+-- DATA TYPES
+-------------------------------------------------------------------------------
+
+data TransferMetadata = TransferMetadata
+  with
+    reason : Optional Text
+    reference : Optional Text
+    timestamp : Time
+  deriving (Eq, Show)
+
+data TokenLock = TokenLock
+  with
+    lockHolder : Party
+    unlockCondition : Text
+    expiresAt : Optional Time
+  deriving (Eq, Show)
+
+-------------------------------------------------------------------------------
+-- MAIN TOKEN CONTRACT
+-------------------------------------------------------------------------------
+
+template Token
+  with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+    tokenId : Text
+    symbol : Text
+    lock : Optional TokenLock
+    metadata : TransferMetadata
+  where
+    signatory issuer, owner
+    observer (case lock of
+      Some l -> [l.lockHolder]
+      None -> [])
+
+    ensure amount > 0.0
+
+    choice Transfer : ContractId Token
+      with
+        newOwner : Party
+        newMetadata : TransferMetadata
+      controller owner
+      do
+        assertMsg "Cannot transfer locked tokens" (isNone lock)
+        assertMsg "Cannot transfer to self" (newOwner /= owner)
+        create this with
+          owner = newOwner
+          metadata = newMetadata
+
+    choice ProposeTransfer : ContractId TransferProposal
+      with
+        newOwner : Party
+        proposalMetadata : TransferMetadata
+        expiresAt : Time
+      controller owner
+      do
+        assertMsg "Cannot propose transfer of locked tokens" (isNone lock)
+        assertMsg "Expiry must be in the future" (expiresAt > proposalMetadata.timestamp)
+        create TransferProposal with
+          tokenCid = self
+          currentOwner = owner
+          proposedOwner = newOwner
+          token = this
+          metadata = proposalMetadata
+          expiresAt = expiresAt
+
+    choice Split : (ContractId Token, ContractId Token)
+      with
+        splitAmount : Decimal
+        splitTime : Time
+      controller owner
+      do
+        assertMsg "Split amount must be positive" (splitAmount > 0.0)
+        assertMsg "Split amount must be less than total" (splitAmount < amount)
+        assertMsg "Cannot split locked tokens" (isNone lock)
+        
+        let newMetadata = TransferMetadata with
+              reason = Some "Token split"
+              reference = metadata.reference
+              timestamp = splitTime
+        
+        t1 <- create this with
+          amount = splitAmount
+          metadata = newMetadata
+        t2 <- create this with
+          amount = amount - splitAmount
+          metadata = newMetadata
+        
+        return (t1, t2)
+
+    choice MergeToken : ContractId Token
+      with
+        otherTokenCid : ContractId Token
+        mergeTime : Time
+      controller owner
+      do
+        other <- fetch otherTokenCid
+        assertMsg "Issuers must match" (other.issuer == issuer)
+        assertMsg "Token IDs must match" (other.tokenId == tokenId)
+        assertMsg "Owners must match" (other.owner == owner)
+        assertMsg "Cannot merge locked tokens" (isNone lock && isNone other.lock)
+        
+        exercise otherTokenCid Archive
+        
+        create this with
+          amount = amount + other.amount
+          metadata = TransferMetadata with
+            reason = Some "Token merge"
+            reference = metadata.reference
+            timestamp = mergeTime
+
+    choice LockTokens : ContractId Token
+      with
+        lockData : TokenLock
+      controller owner
+      do
+        assertMsg "Token is already locked" (isNone lock)
+        create this with lock = Some lockData
+
+    choice UnlockTokens : ContractId Token
+      with
+        lockHolder : Party
+      controller lockHolder
+      do
+        assertMsg "Token is not locked" (isSome lock)
+        case lock of
+          Some l -> assertMsg "Not the lock holder" (l.lockHolder == lockHolder)
+          None -> abort "Token is not locked"
+        create this with lock = None
+
+    choice Burn : ()
+      controller owner
+      do
+        assertMsg "Cannot burn locked tokens" (isNone lock)
+        return ()
+
+template TransferProposal
+  with
+    tokenCid : ContractId Token
+    currentOwner : Party
+    proposedOwner : Party
+    token : Token
+    metadata : TransferMetadata
+    expiresAt : Time
+  where
+    signatory currentOwner
+    observer proposedOwner
+
+    choice AcceptTransfer : ContractId Token
+      with
+        acceptTime : Time
+      controller proposedOwner
+      do
+        assertMsg "Transfer proposal has expired" (acceptTime <= expiresAt)
+        exercise tokenCid Archive
+        create token with
+          owner = proposedOwner
+          metadata = metadata with timestamp = acceptTime
+
+    choice RejectTransfer : ContractId Token
+      controller proposedOwner
+      do
+        return tokenCid
+
+    choice WithdrawProposal : ContractId Token
+      controller currentOwner
+      do
+        return tokenCid
+
+-------------------------------------------------------------------------------
+-- HELPER FUNCTIONS
+-------------------------------------------------------------------------------
+
+isNone : Optional a -> Bool
+isNone opt = case opt of
+  None -> True
+  Some _ -> False
+
+isSome : Optional a -> Bool
+isSome opt = not (isNone opt)
+
+-------------------------------------------------------------------------------
+-- TEST SCRIPTS
+-------------------------------------------------------------------------------
+
+setup : Script ()
+setup = do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  issuer <- allocateParty "TokenIssuer"
+  
+  now <- getTime
+  
+  let transferMeta = TransferMetadata with
+        reason = Some "Initial allocation"
+        reference = None
+        timestamp = now
+  
+  tokenCid <- submitMulti [issuer, alice] [] $ createCmd Token with
+    issuer = issuer
+    owner = alice
+    amount = 1000.0
+    tokenId = "TEST-TOKEN"
+    symbol = "TEST"
+    lock = None
+    metadata = transferMeta
+  
+  submitMulti [alice, issuer] [] $ exerciseCmd tokenCid Transfer with
+    newOwner = bob
+    newMetadata = transferMeta with
+      reason = Some "Payment to Bob"
+      timestamp = now
+  
+  return ()
