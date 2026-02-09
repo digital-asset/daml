@@ -23,6 +23,7 @@ case class RunnerMainConfig(
     // and specifying the default for better error messages.
     userId: Option[Option[Ref.UserId]],
     uploadDar: Boolean,
+    resultMode: RunnerMainConfig.ResultMode,
 )
 
 object RunnerMainConfig {
@@ -38,6 +39,9 @@ object RunnerMainConfig {
         inputFile: Option[File],
         outputFile: Option[File],
     ) extends RunMode
+    final case class RunSome(
+        scriptIds: List[String]
+    ) extends RunMode
   }
 
   def parse(args: Array[String]): Option[RunnerMainConfig] =
@@ -52,6 +56,12 @@ object RunnerMainConfig {
           Some(_),
         )
     } yield config
+
+  sealed trait ResultMode
+  object ResultMode {
+    final case object Text extends ResultMode
+    final case object Json extends ResultMode
+  }
 }
 
 private[script] case class RunnerMainConfigIntermediate(
@@ -74,6 +84,7 @@ private[script] case class RunnerMainConfigIntermediate(
     // and specifying the default for better error messages.
     userId: Option[Option[Ref.UserId]],
     uploadDar: Boolean,
+    resultMode: RunnerMainConfig.ResultMode,
 ) {
   import RunnerMainConfigIntermediate._
 
@@ -88,6 +99,17 @@ private[script] case class RunnerMainConfigIntermediate(
           _ <- incompatible("input-file", inputFile.isEmpty)
           _ <- incompatible("output-file", outputFile.isEmpty)
         } yield RunnerMainConfig.RunMode.RunAll
+      case CliMode.RunSome(ids) =>
+        def incompatible(name: String, isValid: Boolean): Either[String, Unit] =
+          Either.cond(
+            isValid,
+            (),
+            s"--${name} is incompatible with several --script-name definitions",
+          )
+        for {
+          _ <- incompatible("input-file", inputFile.isEmpty)
+          _ <- incompatible("output-file", outputFile.isEmpty)
+        } yield RunnerMainConfig.RunMode.RunSome(ids)
     }
 
   def validateUploadDar(participantMode: ParticipantMode): Either[String, Unit] =
@@ -114,6 +136,7 @@ private[script] case class RunnerMainConfigIntermediate(
         maxInboundMessageSize = maxInboundMessageSize,
         userId = userId,
         uploadDar = uploadDar,
+        resultMode = resultMode,
       )
     } yield config
 
@@ -131,10 +154,12 @@ private[script] case class RunnerMainConfigIntermediate(
 private[script] object RunnerMainConfigIntermediate {
   sealed abstract class CliMode extends Product with Serializable
   object CliMode {
-    // Run a single script in the DAR
+    // Run a single script in the DAR, allows input and output file
     final case class RunOne(scriptId: String) extends CliMode
     // Run all scripts in the DAR
     final case object RunAll extends CliMode
+    // Run many scripts in the DAR
+    final case class RunSome(scriptIds: List[String]) extends CliMode
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -148,6 +173,7 @@ private[script] object RunnerMainConfigIntermediate {
 
     opt[String]("script-name")
       .optional()
+      .unbounded()
       .action((t, c) => setMode(c, CliMode.RunOne(t)))
       .text("Identifier of the script that should be run in the format Module.Name:Entity.Name")
 
@@ -246,6 +272,12 @@ private[script] object RunnerMainConfigIntermediate {
         s"Upload the dar before running. Only available over GRPC. Defaults to false"
       )
 
+    opt[Unit]("json-output")
+      .action((_, c) => c.copy(resultMode = RunnerMainConfig.ResultMode.Json))
+      .text(
+        s"Print test result output in json form. Only works when running multiple cases."
+      )
+
     help("help").text("Print this usage text")
 
     checkConfig(c => {
@@ -281,12 +313,18 @@ private[script] object RunnerMainConfigIntermediate {
       config: RunnerMainConfigIntermediate,
       mode: CliMode,
   ): RunnerMainConfigIntermediate = {
-    if (config.mode.exists(_ != mode)) {
-      throw new IllegalStateException(
-        "--script-name and --all are mutually exclusive."
-      )
+    (config.mode, mode) match {
+      case (Some(CliMode.RunSome(ids)), CliMode.RunOne(id)) =>
+        config.copy(mode = Some(CliMode.RunSome(ids :+ id)))
+      case (Some(CliMode.RunOne(id1)), CliMode.RunOne(id2)) =>
+        config.copy(mode = Some(CliMode.RunSome(List(id1, id2))))
+      case (Some(cMode), mode) if cMode != mode =>
+        throw new IllegalStateException(
+          "--script-name and --all are mutually exclusive."
+        )
+      case _ =>
+        config.copy(mode = Some(mode))
     }
-    config.copy(mode = Some(mode))
   }
 
   private[script] def parse(args: Array[String]): Option[RunnerMainConfigIntermediate] =
@@ -308,6 +346,7 @@ private[script] object RunnerMainConfigIntermediate {
         maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
         userId = None,
         uploadDar = false,
+        resultMode = RunnerMainConfig.ResultMode.Text,
       ),
     )
 }
