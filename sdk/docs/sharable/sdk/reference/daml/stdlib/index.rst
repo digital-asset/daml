@@ -32,7 +32,6 @@ Here is a complete list of modules in the standard library:
 * :doc:`DA.Functor <DA-Functor>`
 * :doc:`DA.Internal.Interface.AnyView <DA-Internal-Interface-AnyView>`
 * :doc:`DA.Internal.Interface.AnyView.Types <DA-Internal-Interface-AnyView-Types>`
-* :doc:`DA.Internal.Serializable.Instances <DA-Internal-Serializable-Instances>`
 * :doc:`DA.List <DA-List>`
 * :doc:`DA.List.BuiltinOrder <DA-List-BuiltinOrder>`
 * :doc:`DA.List.Total <DA-List-Total>`
