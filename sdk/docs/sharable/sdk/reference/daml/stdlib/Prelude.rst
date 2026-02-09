@@ -105,18 +105,6 @@ Typeclasses
 
   **instance** `CanAbort <class-da-internal-lf-canabort-29060_>`_ (`Either <type-da-types-either-56020_>`_ `Text <type-ghc-types-text-51952_>`_)
 
-.. _class-da-internal-lf-serializable-80925:
-
-**class** `Serializable <class-da-internal-lf-serializable-80925_>`_ a **where**
-
-  A class to explicitly indicate that a type is serializable\. Values of
-  types instantiating this class can be stored on the ledger\. These types will
-  be subject to strict upgrade checks, as newer code must continue to be able
-  to read historical ledger data\.
-
-  Note that explicit serializability is off by default and hidden behind the
-  \-\-explicit\-serializable\=yes flag in Canton 3\.5\.
-
 .. _class-da-internal-prelude-applicative-9257:
 
 **class** `Functor <class-ghc-base-functor-31205_>`_ f \=\> `Applicative <class-da-internal-prelude-applicative-9257_>`_ f **where**
@@ -1488,6 +1476,8 @@ Data Types
   The ``ContractId a`` type represents an ID for a contract created from a template ``a``\.
   You can use the ID to fetch the contract, among other things\.
 
+  **instance** Serializable (`ContractId <type-da-internal-lf-contractid-95282_>`_ a)
+
   **instance** `Eq <class-ghc-classes-eq-22713_>`_ (`ContractId <type-da-internal-lf-contractid-95282_>`_ a)
 
   **instance** `Ord <class-ghc-classes-ord-6395_>`_ (`ContractId <type-da-internal-lf-contractid-95282_>`_ a)
@@ -1500,6 +1490,8 @@ Data Types
 
   The ``Date`` type represents a date, for example ``date 2007 Apr 5``\.
   The bounds for Date are 0001\-01\-01 and 9999\-12\-31\.
+
+  **instance** Serializable `Date <type-da-internal-lf-date-32253_>`_
 
   **instance** `Eq <class-ghc-classes-eq-22713_>`_ `Date <type-da-internal-lf-date-32253_>`_
 
@@ -1526,6 +1518,8 @@ Data Types
   **instance** `Ord <class-ghc-classes-ord-6395_>`_ k \=\> `Semigroup <class-da-internal-prelude-semigroup-78998_>`_ (`Map <type-da-internal-lf-map-90052_>`_ k v)
 
   **instance** `Ord <class-ghc-classes-ord-6395_>`_ k \=\> :ref:`Traversable <class-da-traversable-traversable-18144>` (`Map <type-da-internal-lf-map-90052_>`_ k)
+
+  **instance** (Serializable a, Serializable b) \=\> Serializable (`Map <type-da-internal-lf-map-90052_>`_ a b)
 
   **instance** `Ord <class-ghc-classes-ord-6395_>`_ k \=\> `Functor <class-ghc-base-functor-31205_>`_ (`Map <type-da-internal-lf-map-90052_>`_ k)
 
@@ -1555,6 +1549,8 @@ Data Types
 
   **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ \[`Party <type-da-internal-lf-party-57932_>`_\]
 
+  **instance** Serializable `Party <type-da-internal-lf-party-57932_>`_
+
   **instance** `Eq <class-ghc-classes-eq-22713_>`_ `Party <type-da-internal-lf-party-57932_>`_
 
   **instance** `Ord <class-ghc-classes-ord-6395_>`_ `Party <type-da-internal-lf-party-57932_>`_
@@ -1576,6 +1572,8 @@ Data Types
 
   **instance** :ref:`Traversable <class-da-traversable-traversable-18144>` `TextMap <type-da-internal-lf-textmap-11691_>`_
 
+  **instance** Serializable a \=\> Serializable (`TextMap <type-da-internal-lf-textmap-11691_>`_ a)
+
   **instance** `Functor <class-ghc-base-functor-31205_>`_ `TextMap <type-da-internal-lf-textmap-11691_>`_
 
   **instance** `Eq <class-ghc-classes-eq-22713_>`_ a \=\> `Eq <class-ghc-classes-eq-22713_>`_ (`TextMap <type-da-internal-lf-textmap-11691_>`_ a)
@@ -1592,6 +1590,8 @@ Data Types
   for example ``time (date 2007 Apr 5) 14 30 05``\.
   The bounds for Time are 0001\-01\-01T00\:00\:00\.000000Z and
   9999\-12\-31T23\:59\:59\.999999Z\.
+
+  **instance** Serializable `Time <type-da-internal-lf-time-63886_>`_
 
   **instance** `Eq <class-ghc-classes-eq-22713_>`_ `Time <type-da-internal-lf-time-63886_>`_
 
@@ -1669,6 +1669,8 @@ Data Types
   **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ (`Optional <type-da-internal-prelude-optional-37153_>`_ `Party <type-da-internal-lf-party-57932_>`_)
 
   **instance** :ref:`Traversable <class-da-traversable-traversable-18144>` `Optional <type-da-internal-prelude-optional-37153_>`_
+
+  **instance** Serializable a \=\> Serializable (`Optional <type-da-internal-prelude-optional-37153_>`_ a)
 
   **instance** `Functor <class-ghc-base-functor-31205_>`_ `Optional <type-da-internal-prelude-optional-37153_>`_
 
