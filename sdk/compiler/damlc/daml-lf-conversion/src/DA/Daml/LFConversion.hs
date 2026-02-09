@@ -234,8 +234,6 @@ data ModuleContents = ModuleContents
 
 data ChoiceData = ChoiceData
   { _choiceDatTy :: GHC.Type
-  , _choiceDatArgTy :: GHC.Type
-  , _choiceDatResTy :: GHC.Type
   , _choiceDatExpr :: GHC.Expr GHC.CoreBndr
   }
 
@@ -255,7 +253,18 @@ extractModuleContents env@Env{..} coreModule modIface details = do
     mcTypeDefs = eltsUFM (cm_types coreModule)
     mcInterfaceBinds = scrapeInterfaceBinds envLfVersion mcTypeDefs mcBinds
     mcInterfaceInstanceBinds = scrapeInterfaceInstanceBinds env mcBinds
-    mcChoiceData = scrapeChoiceData mcBinds
+    mcChoiceData = MS.fromListWith (++)
+        [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
+        | (name, v) <- mcBinds
+        , "_choice$_" `T.isPrefixOf` getOccText name
+        , ty@(TypeCon _
+               [TypeCon _ [TypeCon tplTy _]
+               , _controller
+               , _observer
+               , _authority
+               , _action -- choiceTupleExpr
+               ]) <- [varType name]
+        ]
     mcTemplateBinds = scrapeTemplateBinds mcBinds
     mcExceptionBinds
         | envLfVersion `supports` featureExceptions =
@@ -649,21 +658,6 @@ scrapeInterfaceInstanceBinds env binds =
             -> Just (parent, insertInterfaceInstanceMethod interface template methodName expr)
           _ -> Nothing
       ]
-
-scrapeChoiceData :: [(Var, GHC.Expr CoreBndr)] -> MS.Map TypeConName [ChoiceData]
-scrapeChoiceData binds = MS.fromListWith (++)
-    [ (mkTypeCon [getOccText tplTy], [ChoiceData ty argTy resTy v])
-    | (name, v) <- binds
-    , "_choice$_" `T.isPrefixOf` getOccText name
-    , ty@(TypeCon _
-           [TypeCon _ [TypeCon tplTy _]
-           , _controller
-           , _observer
-           , _authority
-           , action -- choiceTupleExpr
-           ]) <- [varType name]
-    , ([_, _, argTy], TypeCon _ [resTy]) <- [splitFunTys action]
-    ]
 
 convertDamlTyCon ::
      (TyCon -> Bool)
@@ -1282,7 +1276,7 @@ convertChoices env mc tplTypeCon tbinds =
         (MS.findWithDefault [] tplTypeCon (mcChoiceData mc))
 
 convertChoice :: SdkVersioned => Env -> TemplateBinds -> ChoiceData -> ConvertM TemplateChoice
-convertChoice env tbinds (ChoiceData ty _ _ expr) = do
+convertChoice env tbinds (ChoiceData ty expr) = do
     -- The desuaged representation of a Daml Choice is a five tuple.
     -- Constructed by mkChoiceDecls in RdrHsSyn.hs in the ghc repo.
     -- We match against that 5-tuple expression or type in 3 places in this file.
