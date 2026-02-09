@@ -25,4 +25,8 @@ EOF
 
 REPIN=1 bazel run @maven//:pin >$LOG 2>&1
 
+./fmt.sh --diff >$LOG 2>&1
+
+echo "${CANTON_VERSION}"
+
 trap - EXIT
