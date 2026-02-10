@@ -160,7 +160,6 @@ type TemplateKey t k =
   , HasKey t k
   , HasLookupByKey t k
   , HasFetchByKey t k
-  , HasQueryNByKey t k
   , HasMaintainer t k
   , HasToAnyContractKey t k
   , HasFromAnyContractKey t k

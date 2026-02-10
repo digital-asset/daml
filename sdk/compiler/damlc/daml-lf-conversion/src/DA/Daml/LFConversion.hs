@@ -816,10 +816,10 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     -> pure []
 
     -- Remove HasQueryNByKey instances when NUCK is unsupported
-    -- | not (envLfVersion env `supports` featureNUCK)
-    -- , Just cls <- tyConClass_maybe t
-    -- , NameIn DA_Internal_Template_Functions "HasQueryNByKey" <- cls
-    -- -> pure []
+    | not (envLfVersion env `supports` featureNUCK)
+    , Just cls <- tyConClass_maybe t
+    , NameIn DA_Internal_Template_Functions "HasQueryNByKey" <- cls
+    -> pure []
 
     -- Constraint tuples are represented by LF structs.
     | isConstraintTupleTyCon t
@@ -1338,18 +1338,32 @@ convertBind env mc (name, x)
     | "_view$_" `T.isPrefixOf` getOccText name
     = pure []
 
-    -- Remove guarded exercise when Extended Interfaces are unsupported
     | not (envLfVersion env `supports` featureExtendedInterfaces)
     , "$cexerciseGuarded" `T.isPrefixOf` getOccText name
     = pure []
 
-    -- Remove guarded exercise when Extended Interfaces are unsupported
+    -- Remove exerciseGuarded (of HasExerciseGuarded) declartation when Extended
+    -- Interfaces are unsupported
     | not (envLfVersion env `supports` featureExtendedInterfaces)
     , NameIn DA_Internal_Template_Functions "exerciseGuarded" <- name
     = pure []
 
+    -- Remove HasExerciseGuarded declaration when Extended Interfaces are
+    -- unsupported
     | not (envLfVersion env `supports` featureExtendedInterfaces)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasExerciseGuarded") _ <- name
+    = pure []
+
+
+    -- Remove queryNByKey (of HasQueryNByKey) declartation when NUCK is
+    -- unsupported
+    | not (envLfVersion env `supports` featureNUCK)
+    , NameIn DA_Internal_Template_Functions "queryNByKey" <- name
+    = pure []
+
+    -- Remove HasQueryNByKey declartation when NUCK is unsupported
+    | not (envLfVersion env `supports` featureNUCK)
+    , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasQueryNByKey") _ <- name
     = pure []
 
     -- Remove choice controller when Choice Functions are unsupported
@@ -1645,6 +1659,9 @@ convertExpr env0 e = do
     go env (VarIn DA_Internal_Template_Functions "exerciseGuarded") _
         | not $ envLfVersion env `supports` featureExtendedInterfaces
         = conversionError $ OnlySupportedOnDev "Guarded exercises are"
+    go env (VarIn DA_Internal_Template_Functions "queryNByKey") _
+        | not $ envLfVersion env `supports` featureNUCK
+        = conversionError $ FeatureNotSupported "NUCK is"
     go env (VarIn DA_Internal_Template_Functions "choiceController") _
         | not $ envLfVersion env `supports` featureChoiceFuncs
         = conversionError $ OnlySupportedOnDev "The function `choiceController` is"

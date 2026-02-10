@@ -52,6 +52,7 @@ data StandaloneError
   = Unhandled String Constr String
   | Unsupported String String
   | OnlySupportedOnDev String
+  | FeatureNotSupported String
   | UnknownPackage GHC.UnitId (MS.Map GHC.UnitId DalfPackage)
   | UnknownPrimitive String LF.Type
   | RawError String
@@ -85,7 +86,9 @@ ppStandaloneError = \case
     (typ ++ " with " ++ lower (show constr)) ++ "\n" ++
     x
   OnlySupportedOnDev feature ->
-    feature <> " only available with --target=1.dev"
+    feature <> " only available with --target=2.dev"
+  FeatureNotSupported feature ->
+    feature <> " not supported on current lf version"
   UnknownPackage unitId pkgMap ->
     "Unknown package: " ++ GHC.unitIdString unitId
     ++ "\n" ++  "Loaded packages are:" ++ prettyPrint (MS.keys pkgMap)
