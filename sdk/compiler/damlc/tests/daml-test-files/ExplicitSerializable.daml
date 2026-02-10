@@ -59,6 +59,7 @@ template Asset
     seriList : [SeriDataType]
     seriOptional : Optional SeriVariant
     seriNumeric : Numeric 37
+    seriTuple : (Bool, Decimal, Int)
   where
     signatory party
 

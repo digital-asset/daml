@@ -9,7 +9,6 @@ import DA.Internal.LF
 import GHC.Types
 
 -- Primitives
-instance Serializable () where serializable _ z = z
 instance Serializable a => Serializable [a] where serializable _ z = z
 instance Serializable Int where serializable _ z = z
 instance Serializable Text where serializable _ z = z
@@ -54,6 +53,15 @@ instance Serializable (Numeric 34) where serializable _ z = z
 instance Serializable (Numeric 35) where serializable _ z = z
 instance Serializable (Numeric 36) where serializable _ z = z
 instance Serializable (Numeric 37) where serializable _ z = z
+
+-- Tuples
+instance Serializable () where serializable _ z = z
+instance (Serializable a, Serializable b) => Serializable (a, b) where serializable _ z = z
+instance (Serializable a, Serializable b, Serializable c) => Serializable (a, b, c) where serializable _ z = z
+instance (Serializable a, Serializable b, Serializable c, Serializable d) => Serializable (a, b, c, d) where serializable _ z = z
+instance (Serializable a, Serializable b, Serializable c, Serializable d, Serializable e) => Serializable (a, b, c, d, e) where serializable _ z = z
+-- Eq and Show instances are deliberately only defined up to quintuples, so we
+-- do the same for Serializable.
 
 -- DA.Internal.LF
 instance Serializable (ContractId a) where serializable _ z = z
