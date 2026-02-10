@@ -144,7 +144,7 @@ type Template t = (HasTemplateTypeRep t, HasToAnyTemplate t, HasFromAnyTemplate 
 
 -- | Constraint satisfied by template keys.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-template-functions-templatekey-95200
-type TemplateKey t k = (Template t, HasKey t k, HasLookupByKey t k, HasFetchByKey t k, HasMaintainer t k, HasToAnyContractKey t k, HasFromAnyContractKey t k)
+type TemplateKey t k = (Template t, HasKey t k, HasLookupByKey t k, HasFetchByKey t k, HasQueryNByKey t k, HasMaintainer t k, HasToAnyContractKey t k, HasFromAnyContractKey t k)
 
 -- | The `Either` type represents values with two possibilities: a value of
 --   type `Either a b` is either `Left a` or `Right b`.
@@ -502,6 +502,9 @@ class HasFetchByKey t k
 --   key `k`, you must call `fetchByKey @Account k`.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-fetchbykey-95464
 fetchByKey :: (HasFetchByKey t k) => k -> Update (ContractId t, t)
+
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasquerynbykey-53843
+class HasQueryNByKey t k
 
 -- | Exposes `maintainer` function. Part of the `TemplateKey` constraint.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasmaintainer-28932

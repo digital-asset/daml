@@ -525,6 +525,11 @@ Typeclasses
     instance, if you want to fetch a contract of template ``Account`` by its
     key ``k``, you must call ``fetchByKey @Account k``\.
 
+.. _class-da-internal-template-functions-hasquerynbykey-53843:
+
+**class** `HasQueryNByKey <class-da-internal-template-functions-hasquerynbykey-53843_>`_ t k **where**
+
+
 .. _class-da-internal-template-functions-hasmaintainer-28932:
 
 **class** `HasMaintainer <class-da-internal-template-functions-hasmaintainer-28932_>`_ t k **where**
@@ -1698,7 +1703,7 @@ Data Types
 .. _type-da-internal-template-functions-templatekey-95200:
 
 **type** `TemplateKey <type-da-internal-template-functions-templatekey-95200_>`_ t k
-  \= (`Template <type-da-internal-template-functions-template-31804_>`_ t, `HasKey <class-da-internal-template-functions-haskey-87616_>`_ t k, `HasLookupByKey <class-da-internal-template-functions-haslookupbykey-92299_>`_ t k, `HasFetchByKey <class-da-internal-template-functions-hasfetchbykey-54638_>`_ t k, `HasMaintainer <class-da-internal-template-functions-hasmaintainer-28932_>`_ t k, `HasToAnyContractKey <class-da-internal-template-functions-hastoanycontractkey-35010_>`_ t k, `HasFromAnyContractKey <class-da-internal-template-functions-hasfromanycontractkey-95587_>`_ t k)
+  \= (`Template <type-da-internal-template-functions-template-31804_>`_ t, `HasKey <class-da-internal-template-functions-haskey-87616_>`_ t k, `HasLookupByKey <class-da-internal-template-functions-haslookupbykey-92299_>`_ t k, `HasFetchByKey <class-da-internal-template-functions-hasfetchbykey-54638_>`_ t k, `HasQueryNByKey <class-da-internal-template-functions-hasquerynbykey-53843_>`_ t k, `HasMaintainer <class-da-internal-template-functions-hasmaintainer-28932_>`_ t k, `HasToAnyContractKey <class-da-internal-template-functions-hastoanycontractkey-35010_>`_ t k, `HasFromAnyContractKey <class-da-internal-template-functions-hasfromanycontractkey-95587_>`_ t k)
 
   Constraint satisfied by template keys\.
 
