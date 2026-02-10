@@ -21,6 +21,8 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
   val scriptTestDar = Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test-v2.dev.dar"))
   val fakeScriptTestDar =
     Paths.get(BazelRunfiles.rlocation("daml-script/test/legacy-script-test.dar"))
+  val jsonScriptTestDar =
+    Paths.get(BazelRunfiles.rlocation("daml-script/test/json-script-test.dar"))
 
   "daml-script command line" should {
     "pick up all scripts and returns somewhat sensible outputs" in
@@ -116,6 +118,36 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
         """FakeDamlScriptTest:myScript FAILURE (com.digitalasset.daml.lf.script.converter.ConverterException: Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK)
           |""".stripMargin,
         false,
+      )
+    "Json output correctly" in
+      assertDamlScriptRunnerResult(
+        jsonScriptTestDar,
+        """{
+          |  "JsonDamlScriptTest:failingTestData": {
+          |    "error": "com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command AllocateParty failed: INVALID_ARGUMENT: INVALID_ARGUMENT(8,XXXXXXXX): The submitted request has invalid arguments: Party already exists: party party... is already allocated on this node\nDaml stacktrace:\nallocatePartyByHint at XXXXXXXX:JsonDamlScriptTest:18"
+          |  },
+          |  "JsonDamlScriptTest:succeedingTestData": {
+          |    "result": {
+          |      "i": 10
+          |    }
+          |  },
+          |  "JsonDamlScriptTest:succeedingTestUnit": {
+          |    "result": {
+          |
+          |    }
+          |  }
+          |}
+          |""".stripMargin,
+        shouldUpload = false,
+        jsonOutput = true,
+        // Explicitly not running JsonDamlScriptTest:testWeDontRun and asserting it doesnt show in output
+        explicitTestNames = Some(
+          List(
+            "JsonDamlScriptTest:succeedingTestUnit",
+            "JsonDamlScriptTest:succeedingTestData",
+            "JsonDamlScriptTest:failingTestData",
+          )
+        ),
       )
   }
 }
