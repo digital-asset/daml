@@ -25,11 +25,19 @@ data SerializabilityOptions = SerializabilityOptions
 inferModule :: World -> SerializabilityOptions -> Module -> Either String Module
 inferModule world0 SerializabilityOptions {..} mod0 =
   case moduleName mod0 of
+    -- If ExplicitSerializable is on, we want to do nothing at all.
+    -- LFConversion will have already added the IsSerializable annotation where
+    -- an instance exists.  Then TypeChecker/Serializability will check
+    -- consistency of these instances later.
+    _ | soExplicitSerializable -> do
+      pure mod0
     -- Unstable parts of stdlib mustn't contain serializable types, because if they are 
     -- serializable, then the upgrading checks run on the datatypes and this causes problems. 
     -- Therefore, we mark the datatypes as not-serializable, so that upgrades checks don't trigger.
     -- For more information on this issue, refer to issue 
     -- https://github.com/digital-asset/daml/issues/19338
+    --
+    -- Note that we will no longer need this hack when ExplicitSerializable is on.
     ModuleName ["GHC", "Stack", "Types"] -> pure mod0
     ModuleName ["DA", "Numeric"] -> pure mod0
     _ | soForceUtilityPackage -> do
@@ -38,12 +46,6 @@ inferModule world0 SerializabilityOptions {..} mod0 =
       when (not $ NM.null $ moduleTemplates mod0) $ mkErr "template"
       when (not $ NM.null $ moduleInterfaces mod0) $ mkErr "interface"
       when (not $ NM.null $ moduleExceptions mod0) $ mkErr "exception"
-      pure mod0
-    -- If ExplicitSerializable is on, we want to do nothing at all.
-    -- LFConversion will have already added the IsSerializable annotation where
-    -- an instance exists.  Then TypeChecker/Serializability will check
-    -- consistency of these instances later.
-    _ | soExplicitSerializable -> do
       pure mod0
     -- If ExplicitSerializable is not on, we do some inference to decide on
     -- which types to put the serializability annotations.
