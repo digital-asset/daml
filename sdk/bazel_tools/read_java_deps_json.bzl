@@ -1,3 +1,6 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 def _read_java_deps_json_impl(ctx):
     json_file = ctx.path(ctx.attr.json_file)
     json_content = ctx.read(json_file)
