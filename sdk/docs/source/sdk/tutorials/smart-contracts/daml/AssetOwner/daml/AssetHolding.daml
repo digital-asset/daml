@@ -3,6 +3,8 @@
 -- UTXO-style holdings with memo support for exchange deposits
 module AssetHolding where
 
+import qualified Splice.Api.Token.MetadataV1
+import qualified Splice.Api.Token.HoldingV1
 import DA.TextMap (TextMap)
 import qualified DA.TextMap as TM
 import Daml.Script
@@ -167,6 +169,17 @@ template Asset
       do
         assertMsg "Cannot burn locked asset" (isNone lock)
         return ()
+
+    interface instance Splice.Api.Token.HoldingV1.Holding for Asset where
+      view = Splice.Api.Token.HoldingV1.HoldingView with
+        instrumentId = Splice.Api.Token.HoldingV1.InstrumentId with
+          admin = instrumentId.admin
+          id = instrumentId.id
+        owner
+        amount
+        lock = None
+        meta = Splice.Api.Token.MetadataV1.Metadata with
+          values = meta.values
 
 template TransferOffer
   with
