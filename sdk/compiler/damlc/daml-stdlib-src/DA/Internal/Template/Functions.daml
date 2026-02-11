@@ -201,6 +201,11 @@ class HasFetchByKey t k | t -> k where
   --    stakeholders of the fetched contract are, which requires
   --    getting the contract instance.
 
+-- TODO(https://github.com/digital-asset/daml/issues/22673): document
+class HasQueryNByKey t k | t -> k where
+  -- | HIDE
+  queryNByKey : Int -> k -> Update [(ContractId t, t)]
+
 -- | Exposes `maintainer` function. Part of the `TemplateKey` constraint.
 class HasMaintainer t k | t -> k where
   -- | HIDE
