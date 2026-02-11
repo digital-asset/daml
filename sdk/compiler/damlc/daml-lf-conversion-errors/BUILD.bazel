@@ -16,6 +16,7 @@ da_haskell_library(
         "extra",
         "ghc-lib",
         "ghcide",
+        "text",
     ],
     # hie-bios depends on "ghc" which conflicts with ghc-lib(-parser)
     repl_ghci_args = ["-hide-package=ghc"],

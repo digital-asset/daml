@@ -1661,7 +1661,7 @@ convertExpr env0 e = do
         = conversionError $ OnlySupportedOnDev "Guarded exercises are"
     go env (VarIn DA_Internal_Template_Functions "queryNByKey") _
         | not $ envLfVersion env `supports` featureNUCK
-        = conversionError $ FeatureNotSupported "NUCK is"
+        = conversionError $ FeatureNotSupported featureNUCK (envLfVersion env)
     go env (VarIn DA_Internal_Template_Functions "choiceController") _
         | not $ envLfVersion env `supports` featureChoiceFuncs
         = conversionError $ OnlySupportedOnDev "The function `choiceController` is"
