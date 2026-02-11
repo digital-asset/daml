@@ -650,6 +650,14 @@ switched_rules_by_language(
     java = True,
 )
 
+load("//bazel_tools:read_java_deps_json.bzl", "read_java_deps_json")
+
+read_java_deps_json(
+    name = "java_deps_json",
+    json_file = "//canton:shared_dependencies.json",
+    output_file = "java_deps.bzl",
+)
+
 load("//:bazel-java-deps.bzl", "install_java_deps")
 
 install_java_deps()
