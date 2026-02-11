@@ -1,0 +1,61 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Library where
+
+import DA.List (replace)
+import Library.CatalogItem
+
+-- LIBRARY_HEAD_BEGIN
+template Library
+  with
+    items : [ContractId CatalogItem] -- both books and discs
+    members : [Party]
+  where
+    signatory members
+    observer members
+
+    choice Library_Donate : (ContractId Library, ContractId CatalogItem)
+      with
+        owner : Party
+        item : ContractId CatalogItem
+      controller owner
+      do
+        itemView <- view <$> fetch item
+        assertMsg "Only owner can donate item"  (itemView.owner == owner)
+        assertMsg "Owner must be member of library" (owner `elem` members)
+        assertMsg "Item already present in library" (not (item `elem` items))
+        newItem <- exercise item CatalogItem_Disclose with observers = members
+        newLibrary <- create this with items = newItem :: items
+        pure (newLibrary, newItem)
+-- LIBRARY_HEAD_END
+
+    choice Library_TakeOut : (ContractId Library, ContractId CatalogItem)
+      with
+        borrower : Party
+        item : ContractId CatalogItem
+      controller borrower
+      do
+        assertMsg "Item is not part of library" (item `elem` items)
+        assertMsg "Borrower is not a library member" (borrower `elem` members)
+        loanedItem <- exercise item CatalogItem_LoanTo with ..
+        let newItems = replace [item] [loanedItem] this.items
+        newLibrary <- create this with items = newItems
+        pure (newLibrary, loanedItem)
+
+    choice Library_GiveBack : (ContractId Library, ContractId CatalogItem)
+      with
+        borrower : Party
+        item : ContractId CatalogItem -- a book or disc
+      controller borrower
+      do
+        itemView <- view <$> fetch item
+        assertMsg "Item is not part of library" (item `elem` items)
+        assertMsg "Borrower is not a library member" (borrower `elem` members)
+        assertMsg "Item can only be returned by borrower"
+             (itemView.loanedTo == Some borrower)
+        returnedItem <- exercise item CatalogItem_ReturnToOwner
+        let newItems = replace [item] [returnedItem] this.items
+        newLibrary <- create this with items = newItems
+        pure (newLibrary, returnedItem)
+

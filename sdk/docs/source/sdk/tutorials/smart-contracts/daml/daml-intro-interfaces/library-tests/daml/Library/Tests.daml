@@ -1,0 +1,69 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Library.Tests where
+
+import Library
+import Library.Book
+import Library.Disc
+
+import Daml.Script
+
+test = do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  charlie <- allocateParty "charlie"
+
+  library1 <- submit [bob, alice, charlie] do
+    createCmd Library with
+      items = []
+      members = [alice, bob, charlie]
+
+  book1 <- submit alice do
+    createCmd Book with
+      owner = alice
+      author = "Tolkien"
+      title = "The Hobbit"
+      loanedTo = None
+      observers = []
+
+  (library2, book2) <- submit alice do
+      exerciseCmd library1 Library_Donate with
+        owner = alice
+        item = toInterfaceContractId book1
+
+  disc1 <- submit bob do
+    createCmd Disc with
+      owner = bob
+      title = "The Hobbit"
+      format = BluRay
+      borrowedBy = None
+      observers = []
+
+  (library3, disc2) <- submit bob do
+    exerciseCmd library2 Library_Donate with
+      owner = bob
+      item = toInterfaceContractId disc1
+
+  (library4, book3) <- submit bob do
+    exerciseCmd library3 Library_TakeOut with
+      borrower = bob
+      item = book2
+
+  submitMustFail charlie do
+    exerciseCmd library4 Library_TakeOut with
+      borrower = charlie
+      item = book3
+
+  (library5, book4) <- submit bob do
+    exerciseCmd library4 Library_GiveBack with
+      borrower = bob
+      item = book3
+
+  (library6, book5) <- submit charlie do
+    exerciseCmd library5 Library_TakeOut with
+      borrower = charlie
+      item = book4
+
+  pure ()
+

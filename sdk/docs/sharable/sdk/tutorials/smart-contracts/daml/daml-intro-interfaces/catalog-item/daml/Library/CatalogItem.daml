@@ -1,0 +1,48 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Library.CatalogItem where
+
+import DA.Optional (isNone)
+
+-- CATALOG_ITEM_VIEW_BEGIN
+data CatalogItemView = CatalogItemView
+  with
+    owner : Party
+    media : Text
+    title : Text
+    loanedTo : Optional Party
+-- CATALOG_ITEM_VIEW_END
+
+-- CATALOG_ITEM_HEAD_BEGIN
+interface CatalogItem where
+  viewtype CatalogItemView
+-- CATALOG_ITEM_HEAD_END
+
+-- CATALOG_ITEM_METHODS_BEGIN
+  discloseTo : [Party] -> Update (ContractId CatalogItem)
+  loanTo : Party -> Update (ContractId CatalogItem)
+  returnToOwner : Update (ContractId CatalogItem)
+-- CATALOG_ITEM_METHODS_END
+
+-- CATALOG_ITEM_CHOICES_BEGIN
+  choice CatalogItem_LoanTo : ContractId CatalogItem
+    with
+      borrower : Party
+    controller (view this).owner
+    do
+      assert (isNone (view this).loanedTo)
+      loanTo this borrower
+
+  choice CatalogItem_ReturnToOwner : ContractId CatalogItem
+    controller (view this).loanedTo
+    do
+      returnToOwner this
+
+  choice CatalogItem_Disclose : ContractId CatalogItem
+    with
+      observers : [Party]
+    controller (view this).owner
+    do
+      discloseTo this observers
+-- CATALOG_ITEM_CHOICES_END
