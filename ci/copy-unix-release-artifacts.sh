@@ -58,13 +58,10 @@ copy_oci damlc bazel-bin/compiler/damlc/damlc-oci.tar.gz
 copy_oci daml-script bazel-bin/daml-script/runner/daml-script-oci.tar.gz
 copy_oci codegen bazel-bin/language-support/codegen-main/codegen-oci.tar.gz
 copy_oci daml-new bazel-bin/daml-assistant/daml-helper/daml-new-oci.tar.gz
-copy_oci upgrade-check bazel-bin/daml-lf/validation/upgrade-check-oci.tar.gz
+copy_oci upgrade-check bazel-bin/daml-assistant/upgrade-check-main/upgrade-check-oci.tar.gz
 
 # Platform independent artifacts are only built on Linux.
 if [[ "${NAME}" == "linux-intel" ]]; then
-    PROTOS_ZIP="protobufs-${RELEASE_TAG}.zip"
-    ${copy} bazel-bin/release/protobufs.zip "${OUTPUT_DIR}/github/${PROTOS_ZIP}"
-
     SCRIPT="daml-script-${RELEASE_TAG}.jar"
     ${copy} bazel-bin/daml-script/runner/daml-script-binary_distribute.jar "${OUTPUT_DIR}/artifactory/${SCRIPT}"
 

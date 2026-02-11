@@ -79,7 +79,8 @@ The ``counterparty`` can accept the proposal with the ``Accept`` choice to creat
 .. .. toctree::
    :maxdepth: 3
    ledger-structure
-   ledger-integrity
    ledger-privacy
+   ledger-validity
+   ledger-integrity
    ledger-daml
    ledger-exceptions

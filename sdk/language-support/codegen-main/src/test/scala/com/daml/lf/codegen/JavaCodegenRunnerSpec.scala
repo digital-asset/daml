@@ -135,7 +135,7 @@ class JavaCodegenRunnerSpec extends AnyFlatSpec with Matchers with ScalaCheckPro
       |version: 1.2.3""".stripMargin
 
     codegenConf(badConfigStr) shouldBe Left(
-      ConfigParseError("Missing required field: DownField(codegen)")
+      ConfigParseError("DecodingFailure at .codegen: Missing required field")
     )
   }
 
@@ -147,7 +147,7 @@ class JavaCodegenRunnerSpec extends AnyFlatSpec with Matchers with ScalaCheckPro
 
     codegenConf(badConfigStr) shouldBe Left(
       ConfigParseError(
-        "Missing required field: DownField(java),DownField(codegen)"
+        "DecodingFailure at .codegen.java: Missing required field"
       )
     )
   }
@@ -233,7 +233,7 @@ class JavaCodegenRunnerSpec extends AnyFlatSpec with Matchers with ScalaCheckPro
       |  a: a""".stripMargin
 
     codegenConf(badConfigStr) shouldBe Left(
-      ConfigParseError("Couldn't decode key.: DownField(a),DownField(module-prefixes)")
+      ConfigParseError("DecodingFailure at .module-prefixes.a: Couldn't decode key.")
     )
   }
 
@@ -250,7 +250,7 @@ class JavaCodegenRunnerSpec extends AnyFlatSpec with Matchers with ScalaCheckPro
                           |  a-: a""".stripMargin
 
     codegenConf(badConfigStr) shouldBe Left(
-      ConfigParseError("Couldn't decode key.: DownField(a-),DownField(module-prefixes)")
+      ConfigParseError("DecodingFailure at .module-prefixes.a-: Couldn't decode key.")
     )
   }
 
@@ -267,7 +267,7 @@ class JavaCodegenRunnerSpec extends AnyFlatSpec with Matchers with ScalaCheckPro
                           |  -1.2.3: a""".stripMargin
 
     codegenConf(badConfigStr) shouldBe Left(
-      ConfigParseError("Couldn't decode key.: DownField(-1.2.3),DownField(module-prefixes)")
+      ConfigParseError("DecodingFailure at .module-prefixes.-1.2.3: Couldn't decode key.")
     )
   }
 
@@ -284,7 +284,7 @@ class JavaCodegenRunnerSpec extends AnyFlatSpec with Matchers with ScalaCheckPro
                           |  -: a""".stripMargin
 
     codegenConf(badConfigStr) shouldBe Left(
-      ConfigParseError("Couldn't decode key.: DownField(-),DownField(module-prefixes)")
+      ConfigParseError("DecodingFailure at .module-prefixes.-: Couldn't decode key.")
     )
   }
 

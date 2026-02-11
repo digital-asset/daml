@@ -23,8 +23,7 @@ fi
 
 if [ "$(uname)-$(uname -m)" = "Linux-x86_64" ]; then
   # These are platform-independent so we only need to build them once
-  extra_build_targets="//release:protobufs \
-                       //daml-script/runner:daml-script-binary_distribute.jar \
+  extra_build_targets="//daml-script/runner:daml-script-binary_distribute.jar \
                        //daml-script/daml:daml-script-dars \
                        //docs:sphinx-source-tree \
                        //docs:pdf-fonts-tar \
@@ -42,7 +41,6 @@ $bazel build \
   //release:sdk-release-tarball-ee \
   //compiler/damlc:damlc-dist \
   $(bazel query "kind('package_oci_component', //...)") \
-  //release:protobufs \
   $extra_build_targets \
   --profile build-profile.json \
   --experimental_profile_include_target_label \

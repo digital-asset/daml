@@ -650,6 +650,14 @@ switched_rules_by_language(
     java = True,
 )
 
+load("//bazel_tools:read_java_deps_json.bzl", "read_java_deps_json")
+
+read_java_deps_json(
+    name = "java_deps_json",
+    json_file = "//canton:shared_dependencies.json",
+    output_file = "java_deps.bzl",
+)
+
 load("//:bazel-java-deps.bzl", "install_java_deps")
 
 install_java_deps()
@@ -657,10 +665,6 @@ install_java_deps()
 load("@maven//:defs.bzl", "pinned_maven_install")
 
 pinned_maven_install()
-
-load("@canton_maven//:defs.bzl", pinned_canton_maven_install = "pinned_maven_install")
-
-pinned_canton_maven_install()
 
 load("@io_bazel_rules_scala//:scala_config.bzl", "scala_config")
 

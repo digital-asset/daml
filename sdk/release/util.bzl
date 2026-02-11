@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//daml-lf/language:daml-lf.bzl", "SUPPORTED_PROTO_STABLE_LF_VERSIONS")
+load("//daml-lf:daml-lf.bzl", "SUPPORTED_PROTO_STABLE_LF_VERSIONS")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -106,7 +106,7 @@ dpm_inputs = {
     "daml-script": "//daml-script/runner:daml-script-oci.tar.gz",
     "codegen": "//language-support/codegen-main:codegen-oci.tar.gz",
     "daml-new": "//daml-assistant/daml-helper:daml-new-oci.tar.gz",
-    "upgrade-check": "//daml-lf/validation:upgrade-check-oci.tar.gz",
+    "upgrade-check": "//daml-assistant/upgrade-check-main:upgrade-check-oci.tar.gz",
     "canton-enterprise": "//canton:canton-community-oci.tar.gz",
 }
 
@@ -204,94 +204,3 @@ EOF
         ),
         visibility = ["//visibility:public"],
     )
-
-def _protos_zip_impl(ctx):
-    posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
-    tmp_dir = ctx.actions.declare_directory("tmp_dir")
-    zipper_args_file = ctx.actions.declare_file(
-        ctx.label.name + ".zipper_args",
-    )
-    tools = [ctx.executable.tar, ctx.executable.gzip]
-    ctx.actions.run_shell(
-        inputs = [ctx.file.ledger_api_tarball] + ctx.files.daml_lf_tarballs + ctx.files.ledger_api_value_tarball,
-        outputs = [tmp_dir],
-        tools = tools,
-        command = """
-          set -eou pipefail
-          export PATH=$PATH:{path}
-          tar xf {ledger_api_tarball} -C {tmp_dir}
-          for file in {lf_tarballs}
-          do
-              tar xf $file -C {tmp_dir}
-          done
-          tar xf {ledger_api_value_tarball} -C {tmp_dir}
-        """.format(
-            ledger_api_tarball = ctx.file.ledger_api_tarball.path,
-            ledger_api_value_tarball = ctx.file.ledger_api_value_tarball.path,
-            tmp_dir = tmp_dir.path,
-            lf_tarballs = " ".join([f.path for f in ctx.files.daml_lf_tarballs]),
-            path = ":".join(["$PWD/`dirname {tool}`".format(tool = tool.path) for tool in tools]),
-        ),
-    )
-
-    # zipper does not have an option to recursively zip files so we
-    # use find to list the files.
-    ctx.actions.run_shell(
-        outputs = [zipper_args_file],
-        inputs = [tmp_dir],
-        command = """
-        {find} -L {tmp_dir} -type f -printf "protos-{version}/%P=%p\n" > {args_file}
-        """.format(
-            version = sdk_version,
-            find = posix.commands["find"],
-            sed = posix.commands["sed"],
-            tmp_dir = tmp_dir.path,
-            args_file = zipper_args_file.path,
-        ),
-    )
-    ctx.actions.run(
-        outputs = [ctx.outputs.out],
-        inputs = [zipper_args_file, tmp_dir],
-        executable = ctx.executable.zipper,
-        arguments = ["cC", ctx.outputs.out.path, "@" + zipper_args_file.path],
-    )
-
-protos_zip = rule(
-    implementation = _protos_zip_impl,
-    attrs = {
-        "daml_lf_tarballs": attr.label_list(
-            allow_files = True,
-            default = ["//daml-lf/archive:daml_lf_archive_proto_tar.tar.gz"],
-        ),
-        "ledger_api_tarball": attr.label(
-            allow_single_file = True,
-            default = Label("//canton:ledger_api_proto_tar.tar.gz"),
-        ),
-        "ledger_api_value_tarball": attr.label(
-            allow_single_file = True,
-            default = Label("//daml-lf/ledger-api-value:ledger_api_value_proto_tar.tar.gz"),
-        ),
-        "zipper": attr.label(
-            default = Label("@bazel_tools//tools/zip:zipper"),
-            cfg = "host",
-            executable = True,
-            allow_files = True,
-        ),
-        "tar": attr.label(
-            default = Label("@tar_dev_env//:tar"),
-            cfg = "host",
-            executable = True,
-            allow_files = True,
-        ),
-        "gzip": attr.label(
-            default = Label("@gzip_dev_env//:gzip"),
-            cfg = "host",
-            executable = True,
-            allow_files = True,
-        ),
-    },
-    outputs = {
-        "out": "%{name}.zip",
-    },
-    toolchains = ["@rules_sh//sh/posix:toolchain_type"],
-)

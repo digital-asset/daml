@@ -6,7 +6,7 @@ load(
     "daml_package_db",
     "daml_package_rule",
 )
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
+load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS")
 
 daml_package_db(
     name = "package_db_for_daml-prim",

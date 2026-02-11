@@ -503,6 +503,9 @@ class HasFetchByKey t k
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-fetchbykey-95464
 fetchByKey :: (HasFetchByKey t k) => k -> Update (ContractId t, t)
 
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasquerynbykey-53843
+class HasQueryNByKey t k
+
 -- | Exposes `maintainer` function. Part of the `TemplateKey` constraint.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasmaintainer-28932
 class HasMaintainer t k

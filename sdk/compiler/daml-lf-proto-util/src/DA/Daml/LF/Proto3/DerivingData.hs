@@ -105,6 +105,7 @@ deriving instance Data P.Update_FetchInterface
 deriving instance Data P.Update_EmbedExpr
 deriving instance Data P.Update_RetrieveByKey
 deriving instance Data P.Update_TryCatch
+deriving instance Data P.Update_QueryNByKey
 deriving instance Data P.UpdateSum
 deriving instance Data P.TemplateChoice
 deriving instance Data P.InterfaceInstanceBody

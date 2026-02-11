@@ -11,55 +11,45 @@ LOG=$(mktemp)
 
 trap "cat $LOG" EXIT
 
-CANTON_DIR=${1:-//unset}
+CANTON_VERSION=$(grep -E -o '^[0-9]+\.[0-9]+' NIGHTLY_PREFIX)
+REPO_URL="europe-docker.pkg.dev/da-images/public-unstable/components/canton-open-source:$CANTON_VERSION"
+MANIFEST_JSON=$(oras manifest fetch "$REPO_URL")
+CANTON_VERSION=$(echo "$MANIFEST_JSON" | jq -r '.annotations["com.digitalasset.version"]')
+CANTON_DIGEST=$(echo "$MANIFEST_JSON" | jq -r '.manifests[0].digest')
+echo "> Latest canton snapshot: $CANTON_VERSION" >&2
 
-if [ "//unset" = "$CANTON_DIR" ]; then
-  CANTON_DIR=$(realpath "$DIR/../.canton")
-  echo "> Using '$CANTON_DIR' as '\$1' was not provided." >&2
-  if [ -z "${GITHUB_TOKEN:-}" ]; then
-    echo "> GITHUB_TOKEN is not set, assuming ssh." >&2
-    canton_github=git@github.com:DACH-NY/canton.git
-  else
-    canton_github=https://$GITHUB_TOKEN@github.com/DACH-NY/canton.git
-  fi
-  if ! [ -d "$CANTON_DIR" ]; then
-    echo "> Cloning canton for the first time, this may take a while..." >&2
-    git clone $canton_github "$CANTON_DIR" >$LOG 2>&1
-  fi
-  (
-    cd "$CANTON_DIR"
-    git checkout main >$LOG 2>&1
-    git pull >$LOG 2>&1
-  )
+echo "> Writing canton/canton_version.bzl" >&2
+cat > canton/canton_version.bzl <<EOF
+CANTON_OPEN_SOURCE_TAG = "${CANTON_VERSION}"
+CANTON_OPEN_SOURCE_SHA = "${CANTON_DIGEST}"
+EOF
+
+
+# version strings look like "3.5.0-snapshot.20260203.17930.0.v8a849517", this extracts the part after the last 'v'
+CANTON_COMMIT="${CANTON_VERSION##*v}"
+TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TMPDIR"' EXIT
+echo "> Checking out shared_dependencies.json at revision $CANTON_COMMIT into $TMPDIR" >&2
+# We can't use sparse checkouts without full commit hashes, so we use the next best thing: --filter=blob:none and
+# --no-checkout to download the commit history, followed by a checkout of just the file we need.
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+  echo "> GITHUB_TOKEN is not set, assuming ssh." >&2
+  CANTON_GITHUB=git@github.com:DACH-NY/canton.git
+else
+  CANTON_GITHUB=https://$GITHUB_TOKEN@github.com/DACH-NY/canton.git
 fi
+git clone --filter=blob:none --no-checkout "$CANTON_GITHUB" "$TMPDIR" >$LOG 2>&1
+git -C "$TMPDIR" show $CANTON_COMMIT:shared_dependencies.json > canton/shared_dependencies.json
+rm -rf "$TMPDIR"
 
-if ! [ -d "$CANTON_DIR" ]; then
-  echo "> CANTON_DIR '$CANTON_DIR' does not seem to exist." >&2
-  exit 1
-fi
+echo "> Pinning the maven dependences" >&2
+REPIN=1 bazel run @maven//:pin >$LOG 2>&1
 
-sed -i 's|SKIP_DEV_CANTON_TESTS=.*|SKIP_DEV_CANTON_TESTS=false|' "$DIR/../build.sh"
+echo "> Formatting changed files" >&2
+./fmt.sh --diff >$LOG 2>&1
 
-CODE_DROP_DIR="$DIR"/../canton
-for path in community base README.md VERSION; do
-  rm -rf "$CODE_DROP_DIR/$path"
-  for f in  $(git -C "$CANTON_DIR" ls-files "$path"); do
-    # we're only interested in copying files, not directories, as git-ls has
-    # explicitly expanded all directories
-    if [[ -f "$CANTON_DIR/$f" ]]; then
-      # we create the parent directories of f under canton/ if they don't exist
-      mkdir -p "$CODE_DROP_DIR/$(dirname $f)"
-      cp "$CANTON_DIR/$f" "$CODE_DROP_DIR/$f"
-    fi
-  done
-done
-
-commit_sha_8=$(git -C "$CANTON_DIR" log -n1 --format=%h --abbrev=8 HEAD)
-commit_date=$(git -C "$CANTON_DIR" log -n1 --format=%cd --date=format:%Y%m%d HEAD)
-number_of_commits=$(git -C "$CANTON_DIR" rev-list --count HEAD)
-is_modified=$(if ! git -C "$CANTON_DIR" diff-index --quiet HEAD; then echo "-dirty"; fi)
-
-echo $commit_date.$number_of_commits.v$commit_sha_8$is_modified > canton/ref
-echo $commit_date.$number_of_commits.v$commit_sha_8$is_modified
+# The caller of this script (ci/cron/daily-compat.yml) expects it to ouput the canton version
+# and interpolates it in the title of the code drop PR it creates.
+echo "${CANTON_VERSION}"
 
 trap - EXIT

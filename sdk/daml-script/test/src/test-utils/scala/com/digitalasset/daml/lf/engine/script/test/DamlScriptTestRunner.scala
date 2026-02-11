@@ -26,6 +26,8 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
       darPath: Path,
       expected: String,
       shouldUpload: Boolean = true,
+      jsonOutput: Boolean = false,
+      explicitTestNames: Option[List[String]] = None,
   ): Assertion = {
     val port = ports.head.value
 
@@ -33,9 +35,8 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
     val builder = new StringBuilder
     def log(s: String) = discard(builder.append(s).append('\n'))
 
-    val cmd = Seq(
+    val mainCmd = Seq(
       scriptPath,
-      "--all",
       "--static-time",
       "--dar",
       darPath.toString,
@@ -49,13 +50,29 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
       if (shouldUpload) "yes" else "no",
     )
 
+    val jsonArg = if (jsonOutput) Seq("--json-output") else Seq()
+    val testNameArgs = explicitTestNames match {
+      case Some(names) => names.map(name => s"--script-name=$name").toSeq
+      case None => Seq("--all")
+    }
+
+    val cmd = mainCmd ++ jsonArg ++ testNameArgs
+
     discard(cmd ! ProcessLogger(log, log))
 
-    val actual = builder
+    val iter = builder
       .toString()
       .linesIterator
-      .filter(s => s.endsWith("SUCCESS") || s.contains("FAILURE") || s.startsWith("    in "))
+
+    val cleanedIter =
+      if (jsonOutput) iter
+      else
+        iter.filter(s => s.endsWith("SUCCESS") || s.contains("FAILURE") || s.startsWith("    in "))
+
+    val actual = cleanedIter
       .mkString("", f"%n", f"%n")
+      // Normalize escaped Windows line endings in JSON strings
+      .replace("\\r\\n", "\\n")
       // rename package Ids and contractId
       .replaceAll(raw"in choice [0-9a-f]{8}:([\w_\.:]+)+", "in choice XXXXXXXX:$1")
       .replaceAll(raw"in ([\w\-]+) command [0-9a-f]{8}:([\w_\.:]+)+", "in $1 command XXXXXXXX:$2")
