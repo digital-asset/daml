@@ -191,14 +191,15 @@ object RunnerMain {
       }
 
       success <- config.runMode match {
-        case RunnerMainConfig.RunMode.RunAll => {
+        case RunnerMainConfig.RunMode.RunExcluding(excludes) => {
           val testScripts: Seq[Identifier] = dar.main._2.modules.flatMap {
             case (moduleName, module) =>
               module.definitions.collect(Function.unlift { case (name, _) =>
                 val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
                 ScriptAction.fromIdentifier(compiledPackages, id) match {
                   // We exclude generated identifiers starting with `$`.
-                  case Right(_: ScriptAction.NoParam) if !name.dottedName.startsWith("$") =>
+                  case Right(_: ScriptAction.NoParam)
+                      if !name.dottedName.startsWith("$") && !excludes.contains(id) =>
                     Some(id)
                   case _ => None
                 }
@@ -207,13 +208,13 @@ object RunnerMain {
 
           runManyTests(testScripts)
         }
-        case RunnerMainConfig.RunMode.RunSome(ids) =>
+        case RunnerMainConfig.RunMode.RunIncluding(ids) =>
           runManyTests(
             ids.map(scriptName =>
               Identifier(dar.main._1, QualifiedName.assertFromString(scriptName))
             )
           )
-        case RunnerMainConfig.RunMode.RunOne(scriptName, inputFile, outputFile) => {
+        case RunnerMainConfig.RunMode.RunSingle(scriptName, inputFile, outputFile) => {
           val scriptId: Identifier =
             Identifier(dar.main._1, QualifiedName.assertFromString(scriptName))
           val converter = (json: JsValue, typ: Type) =>
