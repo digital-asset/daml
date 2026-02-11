@@ -797,25 +797,28 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     | hasDamlInterfaceCtx t
     -> pure []
 
-    -- Remove guarded exercise instances when Extended Interfaces are unsupported
+    -- Remove HasExerciseGuarded class declaration when instances when Extended
+    -- Interfaces are unsupported
     | not (envLfVersion env `supports` featureExtendedInterfaces)
     , Just cls <- tyConClass_maybe t
     , NameIn DA_Internal_Template_Functions "HasExerciseGuarded" <- cls
     ->  pure []
 
-    -- Remove HasChoiceController instances when choice functions are unsupported
+    -- Remove HasChoiceController class declaration when instances when choice
+    -- functions are unsupported
     | not (envLfVersion env `supports` featureChoiceFuncs)
     , Just cls <- tyConClass_maybe t
     , NameIn DA_Internal_Template_Functions "HasChoiceController" <- cls
     -> pure []
 
-    -- Remove HasChoiceObserver instances when choice functions are unsupported
+    -- Remove HasChoiceObserver class declaration when instances when choice
+    -- functions are unsupported
     | not (envLfVersion env `supports` featureChoiceFuncs)
     , Just cls <- tyConClass_maybe t
     , NameIn DA_Internal_Template_Functions "HasChoiceObserver" <- cls
     -> pure []
 
-    -- Remove HasQueryNByKey instances when NUCK is unsupported
+    -- Remove HasQueryNByKey class declaration when NUCK is unsupported
     | not (envLfVersion env `supports` featureNUCK)
     , Just cls <- tyConClass_maybe t
     , NameIn DA_Internal_Template_Functions "HasQueryNByKey" <- cls
@@ -1342,7 +1345,7 @@ convertBind env mc (name, x)
     , "$cexerciseGuarded" `T.isPrefixOf` getOccText name
     = pure []
 
-    -- Remove exerciseGuarded (of HasExerciseGuarded) declartation when Extended
+    -- Remove exerciseGuarded (of HasExerciseGuarded) declaration when Extended
     -- Interfaces are unsupported
     | not (envLfVersion env `supports` featureExtendedInterfaces)
     , NameIn DA_Internal_Template_Functions "exerciseGuarded" <- name
@@ -1354,14 +1357,12 @@ convertBind env mc (name, x)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasExerciseGuarded") _ <- name
     = pure []
 
-
-    -- Remove queryNByKey (of HasQueryNByKey) declartation when NUCK is
-    -- unsupported
+    -- Remove queryNByKey wrapper defintition when NUCK is unsupported
     | not (envLfVersion env `supports` featureNUCK)
     , NameIn DA_Internal_Template_Functions "queryNByKey" <- name
     = pure []
 
-    -- Remove HasQueryNByKey declartation when NUCK is unsupported
+    -- Remove HasQueryNByKey dictionary declaration when NUCK is unsupported
     | not (envLfVersion env `supports` featureNUCK)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasQueryNByKey") _ <- name
     = pure []
@@ -1659,6 +1660,8 @@ convertExpr env0 e = do
     go env (VarIn DA_Internal_Template_Functions "exerciseGuarded") _
         | not $ envLfVersion env `supports` featureExtendedInterfaces
         = conversionError $ OnlySupportedOnDev "Guarded exercises are"
+    -- convert usages of queryNByKey to errorr wen NUCK is unsupported since the
+    -- defintion won't exist
     go env (VarIn DA_Internal_Template_Functions "queryNByKey") _
         | not $ envLfVersion env `supports` featureNUCK
         = conversionError $ FeatureNotSupported featureNUCK (envLfVersion env)
