@@ -7,6 +7,7 @@ module DA.Daml.LF.Proto3.WellInterned (
 
 import           Data.Data
 import           Data.Generics.Aliases
+import qualified Data.Vector as Hs (all)
 
 import           DA.Daml.LF.Proto3.DerivingData           ()
 
@@ -78,3 +79,22 @@ checkWellInterned ConcreteConstrCount{..} =
 
 wellInterned :: Data a => a -> Bool
 wellInterned = checkWellInterned . countConcreteConstrs
+
+packageWellInternedBools :: P.Package -> [Bool]
+packageWellInternedBools P.Package{..} =
+  [ wellInterned packageModules
+  , wellInterned packageInternedStrings
+  , wellInterned packageInternedDottedNames
+  , wellInterned packageMetadata
+  , Hs.all wellInterned packageInternedTypes
+  , Hs.all wellInterned packageInternedKinds
+  , Hs.all wellInterned packageInternedExprs
+  , wellInterned packageImportsSum
+  ]
+
+packageWellInterned :: P.Package -> Either String ()
+packageWellInterned p =
+  if b then Right () else Left $ "Package not well interned, results: " ++ show bs
+    where
+      bs = packageWellInternedBools p
+      b = and bs
