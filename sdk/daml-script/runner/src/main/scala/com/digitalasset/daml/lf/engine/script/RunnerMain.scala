@@ -199,7 +199,8 @@ object RunnerMain {
                 ScriptAction.fromIdentifier(compiledPackages, id) match {
                   // We exclude generated identifiers starting with `$`.
                   case Right(_: ScriptAction.NoParam)
-                      if !name.dottedName.startsWith("$") && !excludes.contains(id) =>
+                      if !name.dottedName.startsWith("$") &&
+                        !excludes.contains(id.qualifiedName.toString) =>
                     Some(id)
                   case _ => None
                 }
