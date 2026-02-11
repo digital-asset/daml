@@ -1120,9 +1120,9 @@ encodePackage (Package version mods metadata imports) =
         packageImportsSum = encodePkgImports version importList
         package = P.Package{..}
     in
-      if wellInterned package
+      if not (version `supports` featureFlatArchive) || wellInterned package
         then package
-        else error "not well-interned"
+        else error $ "LF version " <> renderPretty version <> " supports flatArchive but package not well-interned"
 
 -- | NOTE(MH): This functions is used for sanity checking. The actual checks
 -- are done in the conversion to Daml-LF.
