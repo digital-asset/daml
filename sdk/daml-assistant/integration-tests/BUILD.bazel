@@ -11,70 +11,7 @@ da_haskell_repl(
     deps = [
         ":integration-test-utils",
         ":integration-tests",
-        ":quickstart-tests",
     ],
-)
-
-genrule(
-    name = "integration-tests-mvn",
-    srcs = [
-        "@mvn_dev_env//:mvn",
-        "@maven//:com_daml_bindings_java",
-        "//language-support/java/codegen:binary.jar",
-        "//language-support/java/codegen:binary_pom.xml",
-        "//language-support/js/codegen:binary.jar",
-        "//language-support/js/codegen:binary_pom.xml",
-        "@maven//:com_daml_rs_grpc_bridge",
-        "@maven//:io_grpc_grpc_stub",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "//docs:quickstart-java.tar.gz",
-    ],
-    outs = ["integration-tests-mvn.tar"],
-    cmd = """
-      set -euo pipefail
-      TMP_DIR=$$(mktemp -d)
-      MVN_DB="$$TMP_DIR/m2"
-      MVN=($(locations @mvn_dev_env//:mvn))
-      MVN="$${{MVN[0]}}"
-      install_mvn() {{
-        local POM_ARG="-DgeneratePom=true"
-        if [[ "$$#" -eq 4 ]]; then
-          local POM_ARG="-DpomFile=$$4"
-        fi
-        "$$MVN" -q install:install-file \\
-          -Dmaven.repo.local=$$MVN_DB \\
-          "-DgroupId=$$1" \\
-          "-DartifactId=$$2" \\
-          "-Dfile=$$3" \\
-          "$$POM_ARG" \\
-          -Dpackaging=jar \\
-          -Dversion={mvn}
-      }}
-      tar xf $(location //docs:quickstart-java.tar.gz) -C "$$TMP_DIR"
-      install_mvn \\
-        "com.daml" "bindings-java" \\
-        $(location @maven//:com_daml_bindings_java)
-      install_mvn \\
-        "io.grpc" "grpc-stub" \\
-        $(location @maven//:io_grpc_grpc_stub)
-      install_mvn \\
-        "com.google.protobuf" "protobuf-java" \\
-        $(location @maven//:com_google_protobuf_protobuf_java)
-      install_mvn \\
-        "com.daml" "codegen-java" \\
-        $(location //language-support/java/codegen:binary.jar) \\
-        $(location //language-support/java/codegen:binary_pom.xml)
-      install_mvn \\
-        "com.daml" "codegen-js" \\
-        $(location //language-support/js/codegen:binary.jar) \\
-        $(location //language-support/js/codegen:binary_pom.xml)
-      install_mvn \\
-        "com.daml" "rs-grpc-bridge" \\
-        $(location @maven//:com_daml_rs_grpc_bridge)
-      "$$MVN" -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
-      $(execpath //bazel_tools/sh:mktar) $@ -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB)
-    """.format(mvn = mvn_version),
-    tools = ["//bazel_tools/sh:mktar"],
 )
 
 os_dependent_libraries = [] if is_windows else [
@@ -154,52 +91,5 @@ da_haskell_test(
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
         "//sdk-version/hs:sdk-version-lib",
-    ],
-)
-
-da_haskell_test(
-    name = "quickstart-tests",
-    timeout = "long",
-    srcs = [
-        "src/DA/Daml/Assistant/QuickstartTests.hs",
-    ],
-    data = [
-        ":integration-tests-mvn",
-        "//release:sdk-release-tarball",
-        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
-        "//compiler/damlc/tests:generate-simple-dalf",
-        "@mvn_dev_env//:mvn",
-        "@tar_dev_env//:tar",
-    ] + os_dependent_libraries,
-    # I’m sure the mvn stuff will be flaky.
-    flaky = True,
-    hackage_deps = [
-        "base",
-        "bytestring",
-        "conduit",
-        "extra",
-        "filepath",
-        "http-client",
-        "http-types",
-        "process",
-        "tasty",
-        "tasty-hunit",
-    ],
-    main_function = "DA.Daml.Assistant.QuickstartTests.main",
-    # TODO(https://github.com/DACH-NY/canton/issues/30144): fix or migrate this test to the assembly repo
-    tags = [
-        "cpu:1",
-        "manual",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":integration-test-utils",
-        "//daml-assistant:daml-project-config",
-        "//daml-assistant/daml-helper:daml-helper-lib",
-        "//language-support/hs/bindings:hs-ledger",
-        "//libs-haskell/bazel-runfiles",
-        "//libs-haskell/da-hs-base",
-        "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )
