@@ -1,3 +1,0 @@
-println("The last emperor is always the worst.")
-// TODO(i7023) remove stop again
-nodes.local.stop()

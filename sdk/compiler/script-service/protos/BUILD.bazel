@@ -91,7 +91,6 @@ genrule(
     srcs = [
         "test_results.proto",
         "script_service.proto",
-        "//daml-lf/archive:daml_lf_archive_proto_srcs",
     ],
     outs = ["TestResults.hs"],
     cmd = """
@@ -99,7 +98,6 @@ genrule(
     cd compiler/script-service/protos
     $$ORIGPWD/$(location @proto3-suite//:compile-proto-file) \
       --includeDir ./                                        \
-      --includeDir $$ORIGPWD/daml-lf/archive/src/protobuf/        \
       --proto test_results.proto --out "$$ORIGPWD/$(@D)"
   """,
     tools = [
@@ -126,6 +124,6 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         ":script_service_haskell_proto",
-        "//daml-lf/archive:daml_lf_archive_haskell_proto",
+        "//compiler/daml-lf-proto:daml_lf_archive_haskell_proto",
     ],
 )

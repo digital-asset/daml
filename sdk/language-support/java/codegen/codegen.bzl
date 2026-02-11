@@ -44,7 +44,7 @@ def dar_to_java(**kwargs):
             ":%s" % src_jar,
         ],
         deps = [
-            "//canton:bindings-java",
+            "@maven//:com_daml_bindings_java",
         ],
         tags = kwargs.get("tags", []),
         visibility = visibility,

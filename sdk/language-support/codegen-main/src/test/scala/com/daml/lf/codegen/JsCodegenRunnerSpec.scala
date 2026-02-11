@@ -85,7 +85,7 @@ class JsCodegenRunnerSpec extends AnyFlatSpec with Matchers {
       |version: 1.2.3""".stripMargin
 
     codegenConf(badConfigStr) shouldBe Left(
-      ConfigParseError("Missing required field: DownField(codegen)")
+      ConfigParseError("DecodingFailure at .codegen: Missing required field")
     )
   }
 
@@ -97,7 +97,7 @@ class JsCodegenRunnerSpec extends AnyFlatSpec with Matchers {
 
     codegenConf(badConfigStr) shouldBe Left(
       ConfigParseError(
-        "Missing required field: DownField(js),DownField(codegen)"
+        "DecodingFailure at .js: Missing required field"
       )
     )
   }

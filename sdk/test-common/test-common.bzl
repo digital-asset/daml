@@ -3,7 +3,7 @@
 
 load("//bazel_tools:scala.bzl", "da_scala_library")
 load("//rules_daml:daml.bzl", "daml_compile")
-load("//daml-lf/language:daml-lf.bzl", "mangle_for_java")
+load("//daml-lf:daml-lf.bzl", "mangle_for_java")
 
 def to_camel_case(name):
     return "".join([part.capitalize() for part in name.split("_")])
@@ -78,7 +78,7 @@ echo "case object %sTestDar extends TestDar { val path = \\"%s/%s-tests-%s.dar\\
             "srcs": [":test-dar-lookup-%s" % lf_version],
             "generated_srcs": [":test-dar-files-%s.scala" % lf_version],  # required for scaladoc
             "resources": ["dar-files-%s" % lf_version],
-            "deps": ["//daml-lf/language"],
+            "deps": ["@maven//:com_daml_daml_lf_language_2_13"],
         }
         if add_maven_tag:
             da_scala_library_kwargs.update({"tags": ["maven_coordinates=com.daml:%s-dar-files-%s-lib:__VERSION__" % (maven_name_prefix, lf_version)]})

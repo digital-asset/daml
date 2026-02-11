@@ -26,10 +26,10 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto:daml_lf_archive_haskell_proto",
         "//compiler/daml-lf-proto-decode:internal",
         "//compiler/daml-lf-proto-util",
         "//compiler/damlc/stable-packages:stable-packages-lib",
-        "//daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -56,9 +56,9 @@ da_haskell_library(
     visibility = ["//visibility:private"],
     deps = [
         "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto:daml_lf_archive_haskell_proto",
         "//compiler/daml-lf-proto-util",
         "//compiler/damlc/stable-packages:stable-packages-lib",
-        "//daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -79,9 +79,9 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto:daml_lf_archive_haskell_proto",
         "//compiler/daml-lf-proto-decode:internal",
         "//compiler/daml-lf-proto-util",
-        "//daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
 )

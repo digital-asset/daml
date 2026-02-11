@@ -196,11 +196,11 @@ jobs:
 
           branch="main-canton-update-$version"
 
-          if git diff --exit-code origin/$(Build.SourceBranchName) -- canton build.sh >/dev/null; then
+          if git diff --exit-code origin/$(Build.SourceBranchName) -- canton >/dev/null; then
               echo "Already up-to-date with latest Canton source & snapshot."
           else
               if [ "main" = "$(Build.SourceBranchName)" ]; then
-                  git add build.sh canton
+                  git add canton/canton_version.bzl canton/shared_dependencies.json maven_install_2.13.json
                   open_pr "$branch" "update canton to $version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
                   az pipelines build queue --branch "$branch" \
                                            --definition-name "PRs" \

@@ -1,9 +1,0 @@
--- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
--- SPDX-License-Identifier: Apache-2.0
-
-module Dep where
-
-template DepT with
-    p: Party
-  where
-    signatory p

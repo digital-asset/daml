@@ -55,13 +55,13 @@ The steps to create a release are:
    **Only change a single line** in [`LATEST`](../LATEST), otherwise
    no release is going to be created.
 
-2. Make a PR **targeting the `main` branch** with just that one line added,
+2. Make a PR **targeting the `release-trigger` branch** with just that one line added,
    touching no other file. Add the `Standard-Change` label to that PR.
 
-   **The main branch is the only one that triggers releases, even for "release
+   **The `release-trigger` branch is the only one that triggers releases, even for "release
    line" releases.**
 
-3. When the PR is merged, the build of the corresponding commit on `main` will
+3. When the PR is merged, the build of the corresponding commit on `release-trigger` will
    create a "split release" bundle and push it to Artifactory. It then notifies
    on `#team-internal-releases` on Slack.
 
@@ -168,13 +168,13 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
    verify that the script result appears within 30 seconds.
 
 1. Add `+` at the end of line 11 after `allocateParty "Alice"`, verify that
-   you get an error on line 12, then remove the `+`.
+   you get an error on line 12, then undo the `+` changes.
 
 1. Right click `IOU` in `... createCmd Main.IOU with ...` on line 12 and click Go to definition.
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
 
 1. Close the `Main.daml` tab, open `multi-package.yaml`, remove `- ./main`, save the file, then go to definition on IOU again as per previous instruction.
-  1. Verify that now (after a small delay), you are taken to a copy of `Main.daml` in a `.daml` directory at the root of the workspace.
+  1. Verify that now (after a small delay), you are taken to a read-only copy of `Main.daml`. This can be verified by attempting to make a change in this file.
 
 1. Close VSCode and delete the `myproject` directory ready for DPM testing using:
   `cd .. && rmdir /S /Q myproject`
@@ -201,14 +201,8 @@ You will now also need to test the release using DPM, please follow the instruct
    ```
    If running `dpm` fails with a "cannot find command" error, inform the language team on #team-daml-language, and then proceed with testing by running `setx /M PATH "%PATH%;%APPDATA%\dpm\bin"` in an administrator command prompt and restarting your existing terminals.
 
-1. Run `dpm versions` and verify the (green) version is what you expect. If you used the latest-download URL to get DPM and thus don't know what version to expect, ensure it is less than a week old for weekly testing.
-
 1. Run `dpm versions` and verify the (green) version is what you expect. If you did not know what version to expect, ensure it is less than a week old for weekly testing.
    (If it is too old, leave a message about this in #project-dpm and pause testing until you get a response. #project-dpm is US based so consider this for timezones.)
-
-1. On the [assembly] PR, add the comment (replacing $VERSION with the active DPM version string from above):
-
-   > Testing using DPM Version: $VERSION
 
 1. Run `dpm new myproject --template multi-package-example` to create a new project and switch to it
    `cd myproject`.
@@ -224,13 +218,13 @@ You will now also need to test the release using DPM, please follow the instruct
    verify that the script result appears within 30 seconds.
 
 1. Add `+` at the end of line 11 after `allocateParty "Alice"`, verify that
-   you get an error on line 12, then remove the `+`.
+   you get an error on line 12, then undo the `+` changes.
 
 1. Right click `IOU` in `... createCmd Main.IOU with ...` on line 12 and click Go to definition.
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
 
 1. Close the `Main.daml` tab, open `multi-package.yaml`, remove `- ./main`, save the file, then go to definition on IOU again as per previous instruction
-  1. Verify that now (after a small delay), you are taken to a copy of `Main.daml` in a `.daml` directory at the root of the workspace.
+  1. Verify that now (after a small delay), you are taken to a read-only copy of `Main.daml`. This can be verified by attempting to make a change in this file.
 
 1. Close VSCode
 
@@ -362,13 +356,13 @@ You will now also need to test the release using DPM, please follow the instruct
    script results to appear.
 
 1. Add `+` at the end of line 11 after `allocateParty "Alice"` and verify that
-   you get an error on line 12.
+   you get an error on line 12. Then undo the `+` changes.
 
 1. Right click `IOU` in `... createCmd Main.IOU with ...` on line 12 and click Go to definition.
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
 
 1. Close the `Main.daml` tab, open `multi-package.yaml`, remove `- ./main`, save the file, then go to definition on IOU again as per previous instruction.
-  1. Verify that now (after a small delay), you are taken to a copy of `Main.daml` in a `.daml` directory at the root of the workspace.
+  1. Verify that now (after a small delay), you are taken to a read-only copy of `Main.daml`. This can be verified by attempting to make a change in this file.
 
 1. Close VSCode and delete the `myproject` directory ready for DPM testing using:
   `cd .. && rm -rf myproject`
@@ -503,13 +497,13 @@ You will now also need to test the release using DPM, please follow the instruct
    script results to appear.
 
 1. Add `+` at the end of line 11 after `allocateParty "Alice"` and verify that
-   you get an error on line 12.
+   you get an error on line 12. Then undo the `+` changes.
 
 1. Right click `IOU` in `... createCmd Main.IOU with ...` on line 12 and click Go to definition.
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
 
 1. Close the `Main.daml` tab, open `multi-package.yaml`, remove `- ./main`, save the file, then go to definition on IOU again as per previous instruction.
-  1. Verify that now (after a small delay), you are taken to a copy of `Main.daml` in a `.daml` directory at the root of the workspace.
+  1. Verify that now (after a small delay), you are taken to a read-only copy of `Main.daml`. This can be verified by attempting to make a change in this file.
 
 1. Close VSCode.
 

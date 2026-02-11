@@ -1,0 +1,50 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @ WARN -Werror=upgrade-interfaces
+-- @ WARN -Werror=upgrade-interfaces
+{-# LANGUAGE ApplicativeDo #-}
+
+module QualifiedInterface.Interface where
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+-- | An interface comment.
+interface Token where
+  viewtype EmptyInterfaceView
+  getOwner : Party -- ^ A method comment.
+  getAmount : Int
+  setAmount : Int -> Token
+
+  splitImpl : Int -> Update (ContractId Token, ContractId Token)
+  transferImpl : Party -> Update (ContractId Token)
+  noopImpl : () -> Update ()
+
+  choice Split : (ContractId Token, ContractId Token) -- ^ An interface choice comment.
+    with
+      splitAmount : Int -- ^ A choice field comment.
+    controller getOwner this
+    do
+      splitImpl this splitAmount
+
+  choice Transfer : ContractId Token
+    with
+      newOwner : Party
+    controller getOwner this, newOwner
+    do
+      transferImpl this newOwner
+
+  nonconsuming choice Noop : ()
+    with
+      nothing : ()
+    controller getOwner this
+    do
+      noopImpl this nothing
+
+  choice GetRich : ContractId Token
+    with
+      byHowMuch : Int
+    controller getOwner this
+    do
+        assert (byHowMuch > 0)
+        create $ setAmount this (getAmount this + byHowMuch)

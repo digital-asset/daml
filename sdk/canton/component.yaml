@@ -1,3 +1,6 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 apiVersion: digitalasset.com/v1
 kind: Component
 spec:
@@ -10,3 +13,4 @@ spec:
       name: canton-console
       desc: Run a canton console connecting to a remote participant and synchronizer (defaulting to sandbox)
       jar-args: [sandbox-console]
+
