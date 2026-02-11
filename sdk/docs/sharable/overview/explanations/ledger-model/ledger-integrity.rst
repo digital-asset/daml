@@ -767,7 +767,7 @@ subject to the Byzantine fault tolerance configured in the topology.
 
 This Virtual Global Ledger is not materialized anywhere due to privacy:
 in general, no node knows the entirety of the ledger.
-In the :ref:`DvP ledger <<da-dvp-ledger>`, for example, if the Banks, Alice, and Bob are hosted on different systems,
+In the :ref:`DvP ledger <da-dvp-ledger>`, for example, if the Banks, Alice, and Bob are hosted on different systems,
 only the :ref:`projections to the Banks, to Alice, and to Bob <da-dvp-ledger-projections>` materialize on these systems,
 but none of them sees the unprojected Ledger as a whole.
 
