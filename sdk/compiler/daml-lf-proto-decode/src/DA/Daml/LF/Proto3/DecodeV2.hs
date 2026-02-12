@@ -718,6 +718,12 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> mayDecode "update_TryCatchTryExpr" update_TryCatchTryExpr decodeExpr
       <*> decodeNameId ExprVarName update_TryCatchVarInternedStr
       <*> mayDecode "update_TryCatchCatchExpr" update_TryCatchCatchExpr decodeExpr
+  LF2.UpdateSumTryCatchV2 LF2.Update_TryCatchV2{..} ->
+    fmap EUpdate $ UTryCatch
+      <$> mayDecode "update_TryCatchReturnType" update_TryCatchReturnType decodeType
+      <*> mayDecode "update_TryCatchTryExpr" update_TryCatchTryExpr decodeExpr
+      <*> decodeNameId ExprVarName update_TryCatchVarInternedStr
+      <*> mayDecode "update_TryCatchCatchExpr" update_TryCatchCatchExpr decodeExpr
 
 decodeRetrieveByKey :: LF2.Update_RetrieveByKey -> Decode (Qualified TypeConName)
 decodeRetrieveByKey LF2.Update_RetrieveByKey{..} =

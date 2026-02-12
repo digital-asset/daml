@@ -75,6 +75,9 @@ makeLenses ''EncodeConfig
 
 type Encode a = ReaderT EncodeConfig (StateT EncodeState Identity) a
 
+ifSupportsNUCK :: Encode a -> Encode a -> Encode a
+ifSupportsNUCK = ifSupports version featureNUCK
+
 ifSupportsFlattening :: Encode a -> Encode a -> Encode a
 ifSupportsFlattening = ifSupports version featureFlatArchive
 
@@ -84,7 +87,7 @@ ifSupportsFlattening_ b1 b2 = ifSupports version featureFlatArchive (return b1) 
 whenSupportsFlattening :: Encode ()
 whenSupportsFlattening =
   whenSupports version featureFlatArchive $ \v ->
-    error $ printf "assertion failiure: lf version %s does not support flattening" (show v)
+    error $ printf "assertion failure: lf version %s does not support flattening" (show v)
 
 initEncodeState :: EncodeState
 initEncodeState =
@@ -845,7 +848,9 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_TryCatchTryExpr <- encodeExpr tryCatchExpr
         update_TryCatchVarInternedStr <- encodeNameId unExprVarName tryCatchVar
         update_TryCatchCatchExpr <- encodeExpr tryCatchHandler
-        pure $ P.UpdateSumTryCatch P.Update_TryCatch{..}
+        pure $ ifSupportsNUCK
+           {-then-} (P.UpdateSumTryCatch P.Update_TryCatchV2{..})
+           {-else-} (P.UpdateSumTryCatch P.Update_TryCatch{..})
 
 encodeRetrieveByKey :: Qualified TypeConName -> Encode P.Update_RetrieveByKey
 encodeRetrieveByKey tmplId = do
