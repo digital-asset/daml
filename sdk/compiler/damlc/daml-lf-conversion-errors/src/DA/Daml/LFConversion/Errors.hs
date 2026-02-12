@@ -11,6 +11,7 @@ import           Development.IDE.GHC.Util
 import           DA.Daml.LF.Ast as LF
 import           Data.Data hiding (TyCon)
 import           Data.List.Extra
+import qualified Data.Text            as T
 import qualified Data.Map.Strict as MS
 import           "ghc-lib" GHC
 import           "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
@@ -52,6 +53,7 @@ data StandaloneError
   = Unhandled String Constr String
   | Unsupported String String
   | OnlySupportedOnDev String
+  | FeatureNotSupported LF.Feature LF.Version
   | UnknownPackage GHC.UnitId (MS.Map GHC.UnitId DalfPackage)
   | UnknownPrimitive String LF.Type
   | RawError String
@@ -85,7 +87,9 @@ ppStandaloneError = \case
     (typ ++ " with " ++ lower (show constr)) ++ "\n" ++
     x
   OnlySupportedOnDev feature ->
-    feature <> " only available with --target=1.dev"
+    feature <> " only available with --target=2.dev"
+  FeatureNotSupported Feature{..} version ->
+    T.unpack featureName <> " not supported on current lf version (" <> renderPretty version <> "), feature supported in " <> renderPretty featureVersionReq
   UnknownPackage unitId pkgMap ->
     "Unknown package: " ++ GHC.unitIdString unitId
     ++ "\n" ++  "Loaded packages are:" ++ prettyPrint (MS.keys pkgMap)

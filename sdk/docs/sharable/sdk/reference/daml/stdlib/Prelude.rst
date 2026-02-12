@@ -525,6 +525,11 @@ Typeclasses
     instance, if you want to fetch a contract of template ``Account`` by its
     key ``k``, you must call ``fetchByKey @Account k``\.
 
+.. _class-da-internal-template-functions-hasquerynbykey-53843:
+
+**class** `HasQueryNByKey <class-da-internal-template-functions-hasquerynbykey-53843_>`_ t k **where**
+
+
 .. _class-da-internal-template-functions-hasmaintainer-28932:
 
 **class** `HasMaintainer <class-da-internal-template-functions-hasmaintainer-28932_>`_ t k **where**

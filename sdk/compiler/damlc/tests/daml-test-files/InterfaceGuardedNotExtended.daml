@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @DOES-NOT-SUPPORT-LF-FEATURE DAML_INTERFACE_EXTENDED
--- @ERROR Guarded exercises are only available with --target=1.dev
+-- @ERROR Guarded exercises are only available with --target=2.dev
 
 {-# OPTIONS_GHC -Wno-x-exceptions #-}
 

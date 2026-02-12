@@ -125,6 +125,8 @@ instance DA.Internal.Desugar.HasFetchByKey T (Party, Text) where
   fetchByKey = GHC.Types.primitive @"UFetchByKey"
 instance DA.Internal.Desugar.HasLookupByKey T (Party, Text) where
   lookupByKey = GHC.Types.primitive @"ULookupByKey"
+instance DA.Internal.Desugar.HasQueryNByKey T (Party, Text) where
+  queryNByKey = GHC.Types.primitive @"UQueryNByKey"
 instance DA.Internal.Desugar.HasToAnyContractKey T (Party,
                                                     Text) where
   _toAnyContractKey = GHC.Types.primitive @"EToAnyContractKey"
