@@ -91,8 +91,22 @@ class EnterpriseSequencerRateLimitManager(
     )
   }
 
+  private def isSubjectToTraffic(
+      submissionRequest: SubmissionRequest,
+      paramsO: Option[TrafficControlParameters],
+  ): Boolean =
+    isSenderSubjectToTraffic(submissionRequest.sender) && {
+      val freeConfirmationResponses = paramsO.exists(_.freeConfirmationResponses)
+      val isConfirmationResponse = submissionRequest.isConfirmationResponse
+
+      // If it's not a confirmation response we charge
+      !isConfirmationResponse ||
+      // If it is a confirmation response, we charge if it has been configured in the parameters
+      !freeConfirmationResponses
+    }
+
   // Only participants and mediators are rate limited
-  private def isRateLimited(member: Member): Boolean = member match {
+  private def isSenderSubjectToTraffic(sender: Member): Boolean = sender match {
     case _: ParticipantId => true
     case _: MediatorId => true
     case _: SequencerId => false
@@ -266,24 +280,8 @@ class EnterpriseSequencerRateLimitManager(
   )(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): EitherT[FutureUnlessShutdown, SequencerRateLimitError, Unit] = if (
-    isRateLimited(request.sender)
-  ) {
-
-    for {
-      // At submission time, we use the current snapshot approximation to validate the request cost.
-      // Obviously the request has not been sequenced yet so that's the best we can do.
-      // The optional submissionTimestamp provided in the request will only be used if the first validation fails
-      // It will allow us to differentiate between a benign submission with an outdated submission cost and
-      // a malicious submission with a truly incorrect cost.
-      // If the submitted cost diverges from the one computed using this snapshot, but is valid using the snapshot
-      // the sender claims to have used, and is within the tolerance window, we'll accept the submission.
-      // If not we'll reject it.
-      currentTopologySnapshot <-
-        EitherT.liftF(
-          synchronizerSyncCryptoApi.currentSnapshotApproximation
-            .map(_.ipsSnapshot)
-        )
+  ): EitherT[FutureUnlessShutdown, SequencerRateLimitError, Unit] = {
+    def validate(currentTopologySnapshot: TopologySnapshot) = for {
       requestValidationResult <- validateRequest(
         request,
         submissionTimestampO,
@@ -311,7 +309,27 @@ class EnterpriseSequencerRateLimitManager(
         case None => EitherT.pure[FutureUnlessShutdown, SequencerRateLimitError](())
       }
     } yield ()
-  } else EitherT.pure(())
+
+    for {
+      // At submission time, we use the current snapshot approximation to validate the request cost.
+      // Obviously the request has not been sequenced yet so that's the best we can do.
+      // The optional submissionTimestamp provided in the request will only be used if the first validation fails
+      // It will allow us to differentiate between a benign submission with an outdated submission cost and
+      // a malicious submission with a truly incorrect cost.
+      // If the submitted cost diverges from the one computed using this snapshot, but is valid using the snapshot
+      // the sender claims to have used, and is within the tolerance window, we'll accept the submission.
+      // If not we'll reject it.
+      currentTopologySnapshot <-
+        EitherT.liftF(
+          synchronizerSyncCryptoApi.currentSnapshotApproximation
+            .map(_.ipsSnapshot)
+        )
+      paramsO <- EitherT.liftF(currentTopologySnapshot.trafficControlParameters(protocolVersion))
+      _ <-
+        if (isSubjectToTraffic(request, paramsO)) validate(currentTopologySnapshot)
+        else EitherT.pure[FutureUnlessShutdown, SequencerRateLimitError](())
+    } yield ()
+  }
 
   /** Compute the cost of a batch using the provided topology. If traffic control parameters are not
     * set in the topology, return None. Otherwise return the cost and the parameters used for the
@@ -585,7 +603,7 @@ class EnterpriseSequencerRateLimitManager(
     FutureUnlessShutdown,
     SequencerRateLimitError,
     Option[TrafficReceipt],
-  ] = if (isRateLimited(request.sender)) {
+  ] = {
     val sender = request.sender
     implicit val memberMetricsContext: MetricsContext = MetricsContext("member" -> sender.toString)
 
@@ -714,9 +732,12 @@ class EnterpriseSequencerRateLimitManager(
           warnIfApproximate,
         )
       )
-      result <- processWithTopologySnapshot(cryptoApi)
+      paramsO <- EitherT.liftF(cryptoApi.ipsSnapshot.trafficControlParameters(protocolVersion))
+      result <-
+        if (isSubjectToTraffic(request, paramsO)) processWithTopologySnapshot(cryptoApi)
+        else EitherT.pure[FutureUnlessShutdown, SequencerRateLimitError](None)
     } yield result
-  } else EitherT.pure(None)
+  }
 
   // Get the traffic state for the provided traffic consumed
   // Optionally provide a minTimestamp. If provided, the traffic state returned will be at least at minTimestamp
@@ -801,7 +822,7 @@ class EnterpriseSequencerRateLimitManager(
         trafficConsumedPerMember.keySet
       } else requestedMembers
     }.toSeq
-      .filter(isRateLimited)
+      .filter(isSenderSubjectToTraffic)
 
     membersToGetTrafficFor.toList
       .parTraverse { member =>

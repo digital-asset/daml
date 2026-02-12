@@ -9,6 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config as cantonConfig
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
+import com.digitalasset.canton.health.HealthQuasiComponent
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.Endpoint
@@ -75,6 +76,10 @@ class DirectSequencerConnectionXPool(
 
   override val health: SequencerConnectionXPoolHealth =
     new SequencerConnectionXPoolHealth.AlwaysHealthy("direct-pool-health", logger)
+
+  override def getConnectionsHealthStatus: Seq[HealthQuasiComponent] = Seq(
+    directConnection.health
+  )
 
   override def nbSequencers: NonNegativeInt = NonNegativeInt.one
 

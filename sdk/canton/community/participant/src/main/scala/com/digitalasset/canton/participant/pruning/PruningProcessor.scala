@@ -41,6 +41,7 @@ import com.digitalasset.canton.participant.store.{
 }
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -147,7 +148,8 @@ class PruningProcessor(
     * Safe to call multiple times concurrently.
     */
   def pruneLedgerEvents(
-      pruneUpToInclusive: Offset
+      pruneUpToInclusive: Offset,
+      safeToPruneCommitmentState: Option[SafeToPruneCommitmentState],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] = {
@@ -174,7 +176,10 @@ class PruningProcessor(
             .right(
               participantNodePersistentState.value.pruningStore.pruningStatus()
             )
-          _ensuredSafeToPrune <- ensurePruningOffsetIsSafe(pruneUpToInclusive)
+          _ensuredSafeToPrune <- ensurePruningOffsetIsSafe(
+            pruneUpToInclusive,
+            safeToPruneCommitmentState,
+          )
           _prunedAllEventBatches <- EitherT(
             Monad[FutureUnlessShutdown].tailRecM(pruningStatus.completedO)(go)
           )
@@ -188,9 +193,16 @@ class PruningProcessor(
     *
     * @param boundInclusive
     *   The caller must choose a bound so that the ledger API server never requests an offset at or
-    *   below `boundInclusive`. Offsets at or below ledger end are typically a safe choice.
+    *   below `boundInclusive`. Offsets at or below ledger end are typically a safe choice
+    * @param safeToPruneCommitmentState
+    *   Optionally specify in which conditions counter-participants that have not sent matching
+    *   commitments cannot block pruning.
     */
-  def safeToPrune(beforeOrAt: CantonTimestamp, boundInclusive: Offset)(implicit
+  def safeToPrune(
+      beforeOrAt: CantonTimestamp,
+      boundInclusive: Offset,
+      safeToPruneCommitmentState: Option[SafeToPruneCommitmentState],
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[Offset]] = EitherT(
     participantNodePersistentState.value.ledgerApiStore
@@ -201,9 +213,11 @@ class PruningProcessor(
           // under the hood this computation not only pushes back the boundInclusive bound according to the beforeOrAt publication timestamp, but also pushes it back before the ledger-end
           val rewoundBoundInclusive: Offset =
             if (beforeOrAtOffset >= boundInclusive) boundInclusive else beforeOrAtOffset
+          // wiring through, needed
           firstUnsafeOffsetComputation
             .perform(
-              rewoundBoundInclusive
+              rewoundBoundInclusive,
+              safeToPruneCommitmentState,
             )
             .map { firstUnsafeOffset =>
               val result = firstUnsafeOffset
@@ -327,13 +341,16 @@ class PruningProcessor(
     )
 
   private def ensurePruningOffsetIsSafe(
-      offset: Offset
+      offset: Offset,
+      safeToPruneCommitmentState: Option[
+        SafeToPruneCommitmentState
+      ],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] =
     for {
       firstUnsafeOffsetO <- firstUnsafeOffsetComputation
-        .perform(offset)
+        .perform(offset, safeToPruneCommitmentState)
         // if nothing to prune we go on with this iteration regardless to ensure that iterative and scheduled pruning is not stuck in a window where nothing to prune
         .recover { case LedgerPruningNothingToPrune => None }
       _ <- firstUnsafeOffsetO match {
@@ -592,6 +609,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
       acsCommitmentStore: AcsCommitmentStore,
       inFlightSubmissionStore: InFlightSubmissionStore,
       synchronizerId: SynchronizerId,
+      // TODO(#30038) remove checkForOutstandingCommitments, because all callers set it to false
       checkForOutstandingCommitments: Boolean,
   )(implicit
       ec: ExecutionContext,
@@ -602,7 +620,9 @@ private[pruning] object PruningProcessor extends HasLoggerName {
 
     val commitmentsPruningBound =
       if (checkForOutstandingCommitments)
-        CommitmentsPruningBound.Outstanding(ts => acsCommitmentStore.noOutstandingCommitments(ts))
+        CommitmentsPruningBound.Outstanding(ts =>
+          acsCommitmentStore.noOutstandingCommitments(ts, None)
+        )
       else
         CommitmentsPruningBound.LastComputedAndSent(
           acsCommitmentStore.lastComputedAndSent.map(_.map(_.forgetRefinement))

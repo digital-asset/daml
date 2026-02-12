@@ -11,6 +11,7 @@ package com.digitalasset.canton.config
 import cats.data.Validated
 import cats.syntax.either.*
 import cats.syntax.functor.*
+import ch.qos.logback.classic.Level
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.metrics.api.MetricQualification
 import com.daml.metrics.{HistogramDefinition, MetricsFilterConfig}
@@ -65,6 +66,7 @@ import com.digitalasset.canton.platform.config.{
   TopologyAwarePackageSelectionConfig,
 }
 import com.digitalasset.canton.pureconfigutils.SharedConfigReaders.catchConvertError
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState
 import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationTokenManagerConfig,
   AuthenticationTokenManagerExponentialBackoffConfig,
@@ -493,10 +495,13 @@ final case class CantonConfig(
         doNotAwaitOnCheckingIncomingCommitments =
           participantParameters.doNotAwaitOnCheckingIncomingCommitments,
         disableOptionalTopologyChecks = participantConfig.topology.disableOptionalTopologyChecks,
+        commitmentAsynchronousInitialization =
+          participantParameters.commitmentAsynchronousInitialization,
         commitmentCheckpointInterval = participantParameters.commitmentCheckpointInterval,
         commitmentMismatchDebugging = participantParameters.commitmentMismatchDebugging,
         commitmentProcessorNrAcsChangesBehindToTriggerCatchUp =
           participantParameters.commitmentProcessorNrAcsChangesBehindToTriggerCatchUp,
+        commitmentReduceParallelism = participantParameters.commitmentReduceParallelism,
         autoSyncProtocolFeatureFlags = participantParameters.autoSyncProtocolFeatureFlags,
       )
     }
@@ -525,6 +530,7 @@ final case class CantonConfig(
           sequencerNodeConfig.parameters.unsafeEnableOnlinePartyReplication,
         requestLimits = sequencerNodeConfig.publicApi.limits,
         maxAuthTokensPerMember = sequencerNodeConfig.publicApi.maxAuthTokensPerMember,
+        progressSupervisor = sequencerNodeConfig.parameters.progressSupervisor,
       )
     }
 
@@ -662,6 +668,7 @@ private[canton] object CantonNodeParameterConverter {
       loggingConfig = parent.monitoring.logging,
       enableAdditionalConsistencyChecks = parent.parameters.enableAdditionalConsistencyChecks,
       enablePreviewFeatures = parent.features.enablePreviewCommands,
+      enableTestingFeatures = parent.features.enableTestingCommands,
       processingTimeouts = parent.parameters.timeouts.processing,
       sequencerClient = node.sequencerClient,
       cachingConfigs = node.parameters.caching,
@@ -1226,6 +1233,21 @@ object CantonConfig {
           deriveReader[ApiLoggingConfig]
         implicit val gcLoggingConfigReader: ConfigReader[GCLoggingConfig] =
           deriveReader[GCLoggingConfig]
+        implicit val logbackLogLevelReader: ConfigReader[Level] = (cur: ConfigCursor) =>
+          cur.asString.flatMap { s =>
+            Try {
+              Level.toLevel(s)
+            }.toOption match {
+              case Some(level) => Right(level)
+              case None =>
+                val failureReason =
+                  CannotConvert(s, "ch.qos.logback.classic.Level", s"Log level is not valid: $s")
+                Left(ConfigReaderFailures(ConvertFailure(failureReason, cur)))
+            }
+          }
+
+        implicit val startupLoggingConfigReader: ConfigReader[StartupLoggingConfig] =
+          deriveReader[StartupLoggingConfig]
         deriveReader[LoggingConfig]
       }
       deriveReader[MonitoringConfig]
@@ -1289,6 +1311,9 @@ object CantonConfig {
       implicit val participantStoreConfigReader: ConfigReader[ParticipantStoreConfig] = {
         implicit val journalPruningConfigReader: ConfigReader[JournalPruningConfig] =
           deriveReader[JournalPruningConfig]
+        implicit val safeToPruneCommitmentStateConfigReader
+            : ConfigReader[SafeToPruneCommitmentState] =
+          SafeToPruneCommitmentState.reader
         deriveReader[ParticipantStoreConfig]
       }
       implicit val adminWorkflowConfigReader: ConfigReader[AdminWorkflowConfig] =
@@ -1349,6 +1374,11 @@ object CantonConfig {
       deriveReader[CantonFeatures]
     lazy implicit final val cantonWatchdogConfigReader: ConfigReader[WatchdogConfig] =
       deriveReader[WatchdogConfig]
+    lazy implicit final val progressSupervisorWarnActionConfigReader
+        : ConfigReader[ProgressSupervisorConfig.WarnAction] =
+      deriveEnumerationReader[ProgressSupervisorConfig.WarnAction]
+    lazy implicit final val progressSupervisorConfigReader: ConfigReader[ProgressSupervisorConfig] =
+      deriveReader[ProgressSupervisorConfig]
 
     lazy implicit final val reportingLevelReader
         : ConfigReader[StartupMemoryCheckConfig.ReportingLevel] =
@@ -1918,6 +1948,10 @@ object CantonConfig {
       lazy implicit val loggingConfigWriter: ConfigWriter[LoggingConfig] = {
         implicit val gcLoggingConfigWriter: ConfigWriter[GCLoggingConfig] =
           deriveWriter[GCLoggingConfig]
+        implicit val logLevelConfigWriter: ConfigWriter[Level] = (value: Level) =>
+          ConfigValueFactory.fromAnyRef(value.levelStr)
+        implicit val startupLoggingConfigWriter: ConfigWriter[StartupLoggingConfig] =
+          deriveWriter[StartupLoggingConfig]
         deriveWriter[LoggingConfig]
       }
       deriveWriter[MonitoringConfig]
@@ -1960,6 +1994,9 @@ object CantonConfig {
       implicit val participantStoreConfigWriter: ConfigWriter[ParticipantStoreConfig] = {
         implicit val journalPruningConfigWriter: ConfigWriter[JournalPruningConfig] =
           deriveWriter[JournalPruningConfig]
+        implicit val safeToPruneCommitmentStateConfigWriter
+            : ConfigWriter[SafeToPruneCommitmentState] =
+          SafeToPruneCommitmentState.writer
         deriveWriter[ParticipantStoreConfig]
       }
       implicit val adminWorkflowConfigWriter: ConfigWriter[AdminWorkflowConfig] =
@@ -2020,6 +2057,12 @@ object CantonConfig {
       deriveWriter[CantonFeatures]
     lazy implicit final val cantonWatchdogConfigWriter: ConfigWriter[WatchdogConfig] =
       deriveWriter[WatchdogConfig]
+    lazy implicit final val cantonProgressSupervisorWarnActionWriter
+        : ConfigWriter[ProgressSupervisorConfig.WarnAction] =
+      deriveEnumerationWriter[ProgressSupervisorConfig.WarnAction]
+    lazy implicit final val cantonProgressSupervisorConfigWriter
+        : ConfigWriter[ProgressSupervisorConfig] =
+      deriveWriter[ProgressSupervisorConfig]
 
     lazy implicit final val reportingLevelWriter
         : ConfigWriter[StartupMemoryCheckConfig.ReportingLevel] =

@@ -79,15 +79,17 @@ final class ParticipantPruningScheduler(
     schedule,
     reportMaxEventAgeMetric(),
   ) { pruningSchedule =>
-    val pruneInternallyOnly = pruningSchedule match {
-      case pse: ParticipantPruningCronSchedule => pse.pruneInternallyOnly
-      case _: PruningCronSchedule =>
-        ErrorUtil.internalError(
-          new IllegalStateException(
-            "Participant are only ever initialized with a participant pruning scheduler"
+    val (pruneInternallyOnly, safeToPruneCommitmentState) =
+      pruningSchedule match {
+        case pse: ParticipantPruningCronSchedule =>
+          (pse.pruneInternallyOnly, pse.safeToPruneCommitmentState)
+        case _: PruningCronSchedule =>
+          ErrorUtil.internalError(
+            new IllegalStateException(
+              "Participant are only ever initialized with a participant pruning scheduler"
+            )
           )
-        )
-    }
+      }
     val timestampByRetention = clock.now.minus(pruningSchedule.retention.duration)
 
     (for {
@@ -102,8 +104,13 @@ final class ParticipantPruningScheduler(
       offsetDone <- offsetByRetention match {
         case None => EitherT.pure[FutureUnlessShutdown, ScheduledRunResult](None)
         case Some(offset) =>
+          // ideally we want to prune at offset
           pruningProcessor
-            .safeToPrune(timestampByRetention, offset)
+            .safeToPrune(
+              timestampByRetention,
+              offset,
+              safeToPruneCommitmentState,
+            )
             .bimap(
               err =>
                 Error(
@@ -172,7 +179,7 @@ final class ParticipantPruningScheduler(
               : EitherT[FutureUnlessShutdown, ScheduledRunResult, ScheduledRunResult] =
             EitherT(
               pruningProcessor
-                .pruneLedgerEvents(offsetToPruneUpTo)
+                .pruneLedgerEvents(offsetToPruneUpTo, safeToPruneCommitmentState)
                 .bimap(err => Error(err.message), _ => doneOrMoreWorkToPerform)
                 .value
             )
@@ -223,6 +230,8 @@ final class ParticipantPruningScheduler(
       val metricsUpdateSchedule = pruningConfig.pruningMetricUpdateInterval.map(interval =>
         new IntervalSchedule(PositiveSeconds.fromConfig(interval))
       )
+      val safeToPruneCommitmentState =
+        pruningConfig.safeToPruneCommitmentState
       // Pruning schedule may not always exist.
       val maybePruningSchedule = maybeSchedule.map { es =>
         val ps = es.schedule
@@ -231,6 +240,7 @@ final class ParticipantPruningScheduler(
           ps.maxDuration,
           ps.retention,
           es.pruneInternallyOnly,
+          safeToPruneCommitmentState,
           clock,
           logger,
         )

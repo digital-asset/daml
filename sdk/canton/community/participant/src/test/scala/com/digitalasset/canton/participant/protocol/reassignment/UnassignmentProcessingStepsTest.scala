@@ -8,7 +8,11 @@ import cats.data.EitherT
 import cats.implicits.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{DefaultProcessingTimeouts, SessionEncryptionKeyCacheConfig}
+import com.digitalasset.canton.config.{
+  DefaultProcessingTimeouts,
+  SessionEncryptionKeyCacheConfig,
+  TopologyConfig,
+}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
   Signature,
@@ -184,6 +188,7 @@ final class UnassignmentProcessingStepsTest
     IndexedPhysicalSynchronizer.tryCreate(sourceSynchronizer.unwrap, 1),
     defaultStaticSynchronizerParameters,
     parameters = ParticipantNodeParameters.forTestingOnly(testedProtocolVersion),
+    TopologyConfig.forTesting,
     packageMetadataView = mock[PackageMetadataView],
     Eval.now(mock[LedgerApiStore]),
     logicalPersistentState,

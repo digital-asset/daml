@@ -77,6 +77,7 @@ trait TrafficControlTest
     setBalanceRequestSubmissionWindowSize = config.PositiveFiniteDuration.ofMinutes(5L),
     enforceRateLimiting = true,
     baseEventCost = NonNegativeLong.tryCreate(baseEventCost),
+    freeConfirmationResponses = true,
   )
 
   protected val pruningWindow = config.NonNegativeFiniteDuration.ofSeconds(5)

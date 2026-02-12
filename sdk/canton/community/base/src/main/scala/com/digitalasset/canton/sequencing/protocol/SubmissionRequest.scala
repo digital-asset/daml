@@ -16,7 +16,7 @@ import com.digitalasset.canton.serialization.{
   ProtoConverter,
   ProtocolVersionedMemoizedEvidence,
 }
-import com.digitalasset.canton.topology.{Member, ParticipantId}
+import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.version.{
   DefaultValueUntilExclusive,
   HasProtocolVersionedWrapper,
@@ -63,17 +63,8 @@ final case class SubmissionRequest private (
 
   @transient override protected lazy val companionObj: SubmissionRequest.type = SubmissionRequest
 
-  def isConfirmationRequest: Boolean = {
-    val hasParticipantRecipient = batch.allRecipients.exists {
-      case MemberRecipient(_: ParticipantId) => true
-      case _ => false
-    }
-    val hasMediatorRecipient = batch.allRecipients.exists {
-      case _: MediatorGroupRecipient => true
-      case _: Recipient => false
-    }
-    hasParticipantRecipient && hasMediatorRecipient
-  }
+  def isConfirmationRequest: Boolean = requestType == SubmissionRequestType.ConfirmationRequest
+  def isConfirmationResponse: Boolean = requestType == SubmissionRequestType.ConfirmationResponse
 
   lazy val requestType: SubmissionRequestType =
     SubmissionRequestType.submissionRequestType(batch.allRecipients, sender)

@@ -15,7 +15,7 @@ import com.digitalasset.canton.crypto.topology.TopologyStateHash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, PromiseUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.resource.DbStorage.{DbAction, SQLActionBuilderChain}
+import com.digitalasset.canton.resource.DbStorage.{DbAction, Profile, SQLActionBuilderChain}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.store.IndexedTopologyStoreId
 import com.digitalasset.canton.topology.*
@@ -29,6 +29,7 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
 }
 import com.digitalasset.canton.topology.store.TopologyStore.{
   EffectiveStateChange,
+  StateKeyFetch,
   TopologyStoreDeactivations,
 }
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
@@ -73,6 +74,68 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   private implicit val getResultSignedTopologyTransaction
       : GetResult[GenericSignedTopologyTransaction] =
     SignedTopologyTransaction.createGetResultSynchronizerTopologyTransaction
+
+  override def fetchAllDescending(
+      items: Seq[StateKeyFetch]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = if (items.nonEmpty) {
+
+    val isH2 = storage.profile match {
+      case Profile.H2(_) => true
+      case Profile.Postgres(_) => false
+    }
+
+    // TODO(#29400) try out whether the array based unnesting provides another win
+    /*
+    val (codes, nss, ids, validUntils) = items.foldMap { stateKeyFetch =>
+      val id = stateKeyFetch.identifier.map(_.str).getOrElse("")
+      (
+        Seq(stateKeyFetch.code.code),
+        Seq(stateKeyFetch.namespace.unwrap),
+        Seq(id),
+        Seq(stateKeyFetch.validUntilCutoff.value),
+      )
+    }
+    sql"unnest(${codes.toArray}, ${nss.toArray}, ${ids.toArray}, ${validUntils.toArray}) criteria(tx_type, ns, ident, v_until) "
+     */
+
+    val criteriaSql = {
+      val criteria = items
+        .map { stateKeyFetch =>
+          val id = stateKeyFetch.identifier.map(_.str).getOrElse("")
+          sql"(${stateKeyFetch.code}, ${stateKeyFetch.namespace}, $id, ${stateKeyFetch.validUntilCutoff.value})"
+        }
+        .intercalate(sql",")
+        .toActionBuilder
+      (sql"(VALUES" ++ criteria ++ sql") AS criteria(tx_type, ns, ident, v_until) ").toActionBuilder
+    }
+    val query =
+      sql"SELECT t.instance, t.sequenced, t.valid_from, t.valid_until, t.rejection_reason FROM " ++
+        criteriaSql ++
+        sql"JOIN common_topology_transactions t ON store_id = $storeIndex " ++
+        sql"AND t.transaction_type = criteria.tx_type " ++
+        sql"AND t.namespace = criteria.ns " ++
+        sql"AND t.identifier = criteria.ident " ++
+        sql"AND (t.valid_until IS NULL OR t.valid_until >= criteria.v_until) " ++
+        sql"AND t.rejection_reason is NULL " ++
+        sql"ORDER BY valid_until DESC, batch_idx DESC ";
+    storage
+      .query(query.as[QueryResult], "fetch-all-topo")
+      .map { r =>
+        // deduplicate results (the join might create duplicates)
+        val deduped = r.distinct
+
+        // H2 seems to struggle with ordering, therefore we'll reorder here
+        if (isH2)
+          deduped.sortBy { case (_, _, _, to, _) =>
+            to.getOrElse(CantonTimestamp.MaxValue)
+          }.reverse
+        else deduped
+      }
+      .map(toStoredTopologyTransactions)
+
+  } else FutureUnlessShutdown.pure(StoredTopologyTransactions(Seq.empty))
 
   def findLatestTransactionsAndProposalsByTxHash(hashes: Set[TxHash])(implicit
       traceContext: TraceContext

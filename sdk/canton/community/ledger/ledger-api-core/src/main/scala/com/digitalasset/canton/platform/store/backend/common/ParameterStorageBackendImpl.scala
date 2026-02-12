@@ -249,13 +249,17 @@ private[backend] class ParameterStorageBackendImpl(
   override def cleanSynchronizerIndex(synchronizerId: SynchronizerId)(
       connection: Connection
   ): Option[SynchronizerIndex] =
-    // not using stringInterning here to allow broader usage with tricky state inspection integration tests
-    SQL"""
-      SELECT internal_id
-      FROM lapi_string_interning
-      WHERE external_string = ${"d|" + synchronizerId.toProtoPrimitive}
-      """
-      .asSingleOpt(int("internal_id"))(connection)
+    stringInterning.synchronizerId
+      .tryInternalize(synchronizerId)
+      .orElse(
+        // allow fallback to stringInterning persistence here to allow broader usage with tricky state inspection integration tests
+        SQL"""
+          SELECT internal_id
+          FROM lapi_string_interning
+          WHERE external_string = ${"d|" + synchronizerId.toProtoPrimitive}
+          """
+          .asSingleOpt(int("internal_id"))(connection)
+      )
       .flatMap(internedSynchronizerId =>
         SQL"""
             SELECT

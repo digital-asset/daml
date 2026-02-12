@@ -43,6 +43,8 @@ object NodeLoggingUtil {
     logger
   }
 
+  val originalRootLoggerLevel: Level = rootLogger.getLevel
+
   private def getAppenders(logger: Logger): List[Appender[ILoggingEvent]] = {
     def go(currentAppender: Appender[ILoggingEvent]): List[Appender[ILoggingEvent]] =
       currentAppender match {

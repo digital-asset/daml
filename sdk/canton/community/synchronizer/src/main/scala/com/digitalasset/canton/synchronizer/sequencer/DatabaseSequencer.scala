@@ -260,6 +260,8 @@ class DatabaseSequencer(
       topologyClientMember,
       timeouts,
       loggerFactory,
+      config.streamInstrumentation,
+      metrics,
     )
 
   override def isRegistered(member: Member)(implicit

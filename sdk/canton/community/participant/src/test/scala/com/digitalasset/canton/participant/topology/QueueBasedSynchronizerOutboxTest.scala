@@ -7,7 +7,12 @@ import cats.implicits.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.common.sequencer.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout, TopologyConfig}
+import com.digitalasset.canton.config.{
+  BatchAggregatorConfig,
+  NonNegativeFiniteDuration,
+  ProcessingTimeout,
+  TopologyConfig,
+}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SynchronizerCrypto}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -130,6 +135,8 @@ class QueueBasedSynchronizerOutboxTest
       clock,
       synchronizerCrypto,
       defaultStaticSynchronizerParameters,
+      BatchAggregatorConfig.NoBatching,
+      TopologyConfig.forTesting,
       target,
       queue,
       dispatchQueueBackpressureLimit = NonNegativeInt.tryCreate(10),

@@ -78,10 +78,26 @@ class BlockMetrics private[metrics] (
 
   private val ackGaugeInfo: MetricInfo = MetricInfo(
     prefix :+ "acknowledgments_micros",
-    "Acknowledgments by members in Micros",
+    "Acknowledgments by members in micros",
     MetricQualification.Latency,
     labelsWithDescription = Map("member" -> "The sender of the acknowledgment"),
   )
+
+  def acknowledgmentGauge(member: String): Gauge[Long] = {
+    def creatAcknowledgementGauge: Gauge[Long] = {
+      val memberContext = MetricsContext("member" -> member)
+      openTelemetryMetricsFactory.gauge[Long](
+        ackGaugeInfo,
+        0L,
+      )(memberContext)
+    }
+
+    // Two concurrent calls with the same context may cause getOrElseUpdate to evaluate the new value expression twice,
+    // even though only one of the results will be stored in the map.
+    // Eval.later ensures that we actually create only one instance of the gauge in such a case by delaying the creation
+    // until the getOrElseUpdate call has finished.
+    acknowledgments.getOrElseUpdate(member, Eval.later(creatAcknowledgementGauge)).value
+  }
 
   // The metrics documentation generation requires all metrics to be registered in the factory.
   // However, the following metric is registered on-demand during normal operation. Therefore,
@@ -91,25 +107,19 @@ class BlockMetrics private[metrics] (
     openTelemetryMetricsFactory.gauge(ackGaugeInfo, 0L)(MetricsContext.Empty).discard
   }
 
-  val stramBufferSize: Counter = openTelemetryMetricsFactory.counter(
+  val streamBufferSize: Counter = openTelemetryMetricsFactory.counter(
     MetricInfo(
       name = prefix :+ "stream-buffer-size",
-      summary = "Size of the buffer used by Pekko streams, tagged by stream element",
+      summary = "Size of the buffer of Pekko streams after the flow, tagged by stream flow name",
       qualification = MetricQualification.Saturation,
     )
   )
 
-  def updateAcknowledgementGauge(member: String, value: Long): Unit =
-    acknowledgments
-      .getOrElseUpdate(
-        member,
-        Eval.later(
-          openTelemetryMetricsFactory.gauge(ackGaugeInfo, value)(
-            MetricsContext("member" -> member)
-          )
-        ),
-      )
-      .value
-      .updateValue(value)
-
+  val streamElementCount: Counter = openTelemetryMetricsFactory.counter(
+    MetricInfo(
+      name = prefix :+ "stream-element-count",
+      summary = "Number of elements passing through a Pekko streams flow, tagged by stream element",
+      qualification = MetricQualification.Traffic,
+    )
+  )
 }

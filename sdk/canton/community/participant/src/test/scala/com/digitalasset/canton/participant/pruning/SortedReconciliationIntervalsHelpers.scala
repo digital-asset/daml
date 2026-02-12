@@ -14,10 +14,9 @@ import com.digitalasset.canton.protocol.{
   SynchronizerParameters,
   TestSynchronizerParameters,
 }
-import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
+import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, TopologySnapshot}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
@@ -30,12 +29,11 @@ trait SortedReconciliationIntervalsHelpers {
       validFrom: Long,
       validTo: Long,
       reconciliationInterval: Long,
-      protocolVersion: ProtocolVersion,
   ): DynamicSynchronizerParametersWithValidity =
     DynamicSynchronizerParametersWithValidity(
       DynamicSynchronizerParameters.tryInitialValues(
         reconciliationInterval = PositiveSeconds.tryOfSeconds(reconciliationInterval),
-        protocolVersion = protocolVersion,
+        protocolVersion = testedProtocolVersion,
       ),
       fromEpoch(validFrom),
       Some(fromEpoch(validTo)),
@@ -44,12 +42,11 @@ trait SortedReconciliationIntervalsHelpers {
   protected def mkDynamicSynchronizerParameters(
       validFrom: Long,
       reconciliationInterval: Long,
-      protocolVersion: ProtocolVersion,
   ): DynamicSynchronizerParametersWithValidity =
     DynamicSynchronizerParametersWithValidity(
       DynamicSynchronizerParameters.tryInitialValues(
         reconciliationInterval = PositiveSeconds.tryOfSeconds(reconciliationInterval),
-        protocolVersion = protocolVersion,
+        protocolVersion = testedProtocolVersion,
       ),
       fromEpoch(validFrom),
       None,
@@ -87,7 +84,7 @@ trait SortedReconciliationIntervalsHelpers {
     )
 
   protected def fromEpoch(seconds: Long): CantonTimestamp =
-    CantonTimestamp.Epoch + NonNegativeFiniteDuration.tryOfSeconds(seconds)
+    CantonTimestamp.ofEpochSecond(seconds)
 
   protected def fromEpochSecond(seconds: Long): CantonTimestampSecond =
     CantonTimestampSecond.ofEpochSecond(seconds)

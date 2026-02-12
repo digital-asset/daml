@@ -1078,6 +1078,7 @@ trait SequencerApiTestUtils
   protected def checkMessages(
       expectedMessages: Seq[EventDetails],
       receivedMessages: Seq[(Member, SequencedSerializedEvent)],
+      expectEnvelopes: Boolean = true,
   ): Assertion = {
 
     receivedMessages.length shouldBe expectedMessages.length
@@ -1102,8 +1103,10 @@ trait SequencerApiTestUtils
 
       event match {
         case Deliver(_, _, _, messageIdO, batch, _, trafficReceipt) =>
-          withClue(s"Received the wrong number of envelopes for recipient $member") {
-            batch.envelopes.length shouldBe expectedMessage.envs.length
+          if (expectEnvelopes) {
+            withClue(s"Received the wrong number of envelopes for recipient $member") {
+              batch.envelopes.length shouldBe expectedMessage.envs.length
+            }
           }
 
           if (messageIdO.isDefined) {

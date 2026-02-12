@@ -14,7 +14,7 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerMemberId
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{LoggerUtil, PekkoUtil}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.*
@@ -22,6 +22,7 @@ import org.apache.pekko.stream.scaladsl.{BroadcastHub, Keep, Sink, Source, Sourc
 import org.slf4j.event.Level
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /** If all Sequencer writes are occurring locally we pipe write notifications to read subscriptions
   * allowing the [[SequencerReader]] to immediately read from the backing store rather than polling.
@@ -46,13 +47,26 @@ class LocalSequencerStateEventSignaller(
     implicit val traceContext: TraceContext = TraceContext.empty
     PekkoUtil.runSupervised(
       Source
-        .queue[WriteNotification](1, OverflowStrategy.backpressure)
+        .queue[Traced[WriteNotification]](1, OverflowStrategy.backpressure)
         // this conflate kicks in, when there is no downstream consumer, to not exert backpressure to the upstream producer
-        .conflate(_ union _)
+        .conflate((left, right) =>
+          Traced(left.value.union(right.value))(right.traceContext)
+        ) // keep the trace context of the latest notification
         .toMat(BroadcastHub.sink(1))(Keep.both),
       errorLogMessagePrefix = "LocalStateEventSignaller flow failed",
     )
   }
+
+  private val notificationsHubSourceWithLogging =
+    notificationsHubSource.map { tracedNotification =>
+      tracedNotification.withTraceContext { implicit traceContext => notification =>
+        // TODO(#26818): clean up excessive debug logging
+        logger.debug(
+          s"Broadcasting notification: $notification"
+        )
+      }
+      tracedNotification
+    }
 
   override def notifyOfLocalWrite(
       notification: WriteNotification
@@ -67,17 +81,33 @@ class LocalSequencerStateEventSignaller(
   override def readSignalsForMember(
       member: Member,
       memberId: SequencerMemberId,
-  )(implicit traceContext: TraceContext): Source[ReadSignal, NotUsed] = {
-    logger.info(s"Creating signal source for $member")
-    notificationsHubSource
-      .filter(_.isBroadcastOrIncludes(memberId))
-      .map(_ => ReadSignal)
+  )(implicit traceContext: TraceContext): Source[Traced[ReadSignal], NotUsed] = {
+    logger.info(
+      s"Creating signal source for $member (id: $memberId)"
+    ) // TODO(i28037): remove extra logging
+    notificationsHubSourceWithLogging
+      .filter(_.value.isBroadcastOrIncludes(memberId))
+      .map { notification =>
+        // TODO(#26818): clean up excessive debug logging
+        logger.debug(s"Processing read signal for $member due to $notification")(
+          notification.traceContext
+        )
+        notification.map(_ => ReadSignal)
+      }
       // this conflate ensures that a slow consumer doesn't cause backpressure and therefore
       // block the stream of signals for other consumers
-      .conflate((_, _) => ReadSignal)
+      .conflate((_, right) => right)
+      .map { tracedReadSignal =>
+        // TODO(#26818): clean up excessive debug logging
+        logger.debug(s"Emitting read signal for $member")(tracedReadSignal.traceContext)
+        tracedReadSignal
+      }
   }
 
-  private def queueWithLogging(name: String, queue: SourceQueueWithComplete[WriteNotification])(
+  private def queueWithLogging(
+      name: String,
+      queue: SourceQueueWithComplete[Traced[WriteNotification]],
+  )(
       item: WriteNotification
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val logLevel = item match {
@@ -85,13 +115,23 @@ class LocalSequencerStateEventSignaller(
       case _: WriteNotification.Members => Level.DEBUG
     }
     LoggerUtil.logAtLevel(logLevel, s"Pushing item to $name: $item")
-    queue.offer(item) map {
-      case result: QueueCompletionResult =>
-        logger.warn(s"Failed to queue item on $name: $result")
-      case QueueOfferResult.Enqueued =>
-      case QueueOfferResult.Dropped =>
-        logger.warn(s"Dropped item while trying to queue on $name")
-    }
+    queue
+      .offer(Traced(item)(traceContext))
+      .transform { // TODO(i28037): remove extra logging, use map instead of transform
+        case Success(result: QueueCompletionResult) =>
+          logger.warn(s"Failed to queue item on $name: $result")
+          Success(())
+        case Success(QueueOfferResult.Enqueued) =>
+          // TODO(#26818): clean up excessive debug logging
+          logger.debug("Push successful.")
+          Success(())
+        case Success(QueueOfferResult.Dropped) =>
+          logger.warn(s"Dropped item while trying to queue on $name")
+          Success(())
+        case Failure(ex) =>
+          logger.warn(s"Pushing item failed with an exception", ex)
+          Failure(ex)
+      }
   }
 
   protected override def closeAsync(): Seq[AsyncOrSyncCloseable] = {

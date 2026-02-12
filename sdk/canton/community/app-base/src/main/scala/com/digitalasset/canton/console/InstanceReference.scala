@@ -8,11 +8,13 @@ import com.digitalasset.canton.admin.api.client.commands.SequencerAdminCommands.
 import com.digitalasset.canton.admin.api.client.data.topology.ListParticipantSynchronizerPermissionResult
 import com.digitalasset.canton.admin.api.client.data.{
   MediatorStatus,
+  MemberAuthenticationToken,
   NodeStatus,
   ParticipantStatus,
   SequencerStatus,
   StaticSynchronizerParameters as ConsoleStaticSynchronizerParameters,
 }
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.console.CommandErrors.NodeNotStarted
@@ -61,7 +63,9 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ErrorUtil
+import com.google.protobuf.ByteString
 
+import java.util.Base64
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
@@ -993,6 +997,58 @@ abstract class SequencerReference(
             parameters
         }
     }
+  }
+
+  @Help.Summary("Sequencer authentication related commands")
+  object authentication {
+    @Help.Summary(
+      "Generate an authentication token for a given member on this sequencer",
+      FeatureFlag.Testing,
+    )
+    @Help.Description(
+      """Generates a token that can be used to authenticate on behalf of a member on this sequencer.
+        |If expiresIn is empty, the configure maxTokenExpirationInterval config on the sequencer will be used.
+        |Only use for troubleshooting. Requires enable-testing-commands to be enabled.
+        |
+        |Parameters:
+        |- member: Member to generate the token for
+        |- expiresIn: Optional duration after which the token will expire.
+        |  When empty, the maxTokenExpirationInterval configured on the sequencer is used
+        |"""
+    )
+    def generate_authentication_token(
+        member: Member,
+        expiresIn: Option[config.NonNegativeFiniteDuration] = None,
+    ): MemberAuthenticationToken = check(FeatureFlag.Testing) {
+      consoleEnvironment.run {
+        runner.adminCommand(
+          SequencerAdminCommands.GenerateAuthenticationToken(member, expiresIn.map(_.toInternal))
+        )
+      }
+    }
+
+    @Help.Summary(
+      "Invalidates an authentication token on the sequencer and disconnects the corresponding member"
+    )
+    @Help.Description(
+      """Invalidates the authentication token and disconnects the sequencer client of its member"""
+    )
+    def logout(token: ByteString): Unit = doLogout(token)
+
+    @Help.Summary(
+      "Invalidates a base64 encoded authentication token on the sequencer and disconnects the corresponding member"
+    )
+    @Help.Description(
+      """Invalidates the authentication token and disconnects the sequencer client of its member"""
+    )
+    def logout(token: String): Unit = doLogout(ByteString.copyFrom(Base64.getDecoder.decode(token)))
+
+    private def doLogout(token: ByteString): Unit =
+      consoleEnvironment.run {
+        publicApiClient.publicApiCommand(
+          SequencerPublicCommands.Logout(token)
+        )
+      }
   }
 
   @Help.Summary("Pruning of the sequencer")

@@ -54,6 +54,7 @@ abstract class SubmissionRequestAmplificationIntegrationTest
     setBalanceRequestSubmissionWindowSize = config.PositiveFiniteDuration.ofMinutes(5L),
     enforceRateLimiting = true,
     baseEventCost = NonNegativeLong.zero,
+    freeConfirmationResponses = true,
   )
 
   override lazy val environmentDefinition: EnvironmentDefinition =

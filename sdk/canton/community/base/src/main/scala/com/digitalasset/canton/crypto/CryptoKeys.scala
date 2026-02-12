@@ -15,6 +15,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.{
 }
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.resource.ToDbPrimitive
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
@@ -58,8 +59,8 @@ object Fingerprint {
   implicit val fingerprintOrder: Order[Fingerprint] =
     Order.by[Fingerprint, String](_.unwrap)
 
-  implicit val setParameterFingerprint: SetParameter[Fingerprint] = (f, pp) =>
-    pp >> f.toLengthLimitedString
+  implicit val fingerprintToDbPrimitive: ToDbPrimitive[Fingerprint, String68] =
+    ToDbPrimitive(_.toLengthLimitedString)
   implicit val getResultFingerprint: GetResult[Fingerprint] = GetResult { r =>
     Fingerprint
       .fromProtoPrimitive(r.nextString())

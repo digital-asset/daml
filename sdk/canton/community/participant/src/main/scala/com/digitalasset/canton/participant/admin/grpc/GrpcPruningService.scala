@@ -26,6 +26,7 @@ import com.digitalasset.canton.participant.scheduler.{
 }
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
@@ -61,7 +62,20 @@ class GrpcPruningService(
                     .asGrpcError
                 )
             )
-          _ <- CantonGrpcUtil.mapErrNewETUS(sync.pruneInternally(ledgerSyncOffset))
+          safeToPruneCommitmentState <- EitherT.fromEither[Future](
+            request.counterParticipantsCommitmentsState
+              .traverse(SafeToPruneCommitmentState.fromProtoV30)
+              .leftMap(deserializationErr =>
+                InvalidArgument
+                  .Reject(
+                    s"The counter_participants_commitments_state field (${request.counterParticipantsCommitmentsState}) is invalid: $deserializationErr"
+                  )
+                  .asGrpcError
+              )
+          )
+          _ <- CantonGrpcUtil.mapErrNewETUS(
+            sync.pruneInternally(ledgerSyncOffset, safeToPruneCommitmentState)
+          )
         } yield PruneResponse()
       }
     }
@@ -70,7 +84,9 @@ class GrpcPruningService(
       request: GetSafePruningOffsetRequest
   ): Future[GetSafePruningOffsetResponse] = TraceContextGrpc.withGrpcTraceContext {
     implicit traceContext =>
-      val validatedRequestE: ParsingResult[(CantonTimestamp, Offset)] = for {
+      val validatedRequestE: ParsingResult[
+        (CantonTimestamp, Offset, Option[SafeToPruneCommitmentState])
+      ] = for {
         beforeOrAt <-
           ProtoConverter.parseRequired(
             CantonTimestamp.fromProtoTimestamp,
@@ -81,7 +97,10 @@ class GrpcPruningService(
         ledgerEndOffset <- Offset
           .fromLong(request.ledgerEnd)
           .leftMap(err => ProtoDeserializationError.ValueConversionError("ledger_end", err))
-      } yield (beforeOrAt, ledgerEndOffset)
+
+        safeToPruneCommitmentState <- request.counterParticipantsCommitmentsState
+          .traverse(SafeToPruneCommitmentState.fromProtoV30)
+      } yield (beforeOrAt, ledgerEndOffset, safeToPruneCommitmentState)
 
       val res = for {
         validatedRequest <- EitherT.fromEither[FutureUnlessShutdown](
@@ -92,10 +111,10 @@ class GrpcPruningService(
           )
         )
 
-        (beforeOrAt, ledgerEndOffset) = validatedRequest
+        (beforeOrAt, ledgerEndOffset, safeToPruneCommitmentState) = validatedRequest
 
         safeOffsetO <- sync.pruningProcessor
-          .safeToPrune(beforeOrAt, ledgerEndOffset)
+          .safeToPrune(beforeOrAt, ledgerEndOffset, safeToPruneCommitmentState)
           .leftFlatMap[Option[Offset], StatusRuntimeException] {
             case e @ Pruning.LedgerPruningNothingToPrune =>
               // Let the user know that no internal canton data exists prior to the specified

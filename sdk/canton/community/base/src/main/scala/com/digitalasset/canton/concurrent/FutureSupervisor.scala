@@ -38,16 +38,18 @@ trait FutureSupervisor {
       description: => String,
       warnAfter: Duration = 10.seconds,
       logLevel: Level = Level.WARN,
+      warnAction: => Unit = (),
   )(fut: Future[T])(implicit errorLoggingContext: ErrorLoggingContext): Future[T]
 
   def supervisedUS[T](
       description: => String,
       warnAfter: Duration = 10.seconds,
       logLevel: Level = Level.WARN,
+      warnAction: => Unit = (),
   )(fut: FutureUnlessShutdown[T])(implicit
       errorLoggingContext: ErrorLoggingContext
   ): FutureUnlessShutdown[T] =
-    FutureUnlessShutdown(supervised(description, warnAfter, logLevel)(fut.unwrap))
+    FutureUnlessShutdown(supervised(description, warnAfter, logLevel, warnAction)(fut.unwrap))
 
 }
 
@@ -58,6 +60,7 @@ object FutureSupervisor {
         description: => String,
         warnAfter: Duration,
         logLevel: Level = Level.WARN,
+        warnAction: => Unit = (),
     )(fut: Future[T])(implicit
         errorLoggingContext: ErrorLoggingContext
     ): Future[T] = fut
@@ -163,6 +166,7 @@ object FutureSupervisor {
                           val message =
                             s"${blocked.description()} has not completed after ${LoggerUtil.roundDurationForHumans(dur)}"
                           log(message, blocked.logLevel, blocked.errorLoggingContext)
+                          blocked.warnAction()
                         case AlertWithSummary =>
                           val level = blocked.logLevel
                           val traceId =
@@ -174,6 +178,7 @@ object FutureSupervisor {
                           val summary =
                             summariesForLevel.getOrElseUpdate(traceId, new AlertStatistics())
                           summary.add(now - blocked.startNanos)
+                          blocked.warnAction()
                       }
                       go(blocked)
                     }
@@ -259,6 +264,7 @@ object FutureSupervisor {
         description: => String,
         warnAfter: Duration = defaultWarningInterval.duration,
         logLevel: Level = Level.WARN,
+        warnAction: => Unit = (),
     )(fut: Future[T])(implicit
         errorLoggingContext: ErrorLoggingContext
     ): Future[T] =
@@ -272,6 +278,7 @@ object FutureSupervisor {
           warnAfter.toNanos,
           errorLoggingContext,
           logLevel,
+          () => warnAction,
         )
 
         if (insertAtHead(itm)) {
@@ -363,6 +370,7 @@ object FutureSupervisor {
         warnNanos: Long,
         errorLoggingContext: ErrorLoggingContext,
         logLevel: Level,
+        warnAction: () => Unit,
     ) extends ScheduledEntry {
       @SuppressWarnings(Array("org.wartremover.warts.Var"))
       // Must only be accessed by the `checkSlow` method that runs sequentially

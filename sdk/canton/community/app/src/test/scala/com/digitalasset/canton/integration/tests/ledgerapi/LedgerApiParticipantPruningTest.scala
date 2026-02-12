@@ -273,12 +273,12 @@ trait LedgerApiParticipantPruningTest
       val (participant, offsetToPruneUpTo) = (participant2, pruningOffset)
       // user-manual-entry-begin: ManualPruneParticipantNodeInternalPrune
       // The prune() method prunes more comprehensively and should be used in most cases.
-      participant.pruning.prune_internally(offsetToPruneUpTo)
+      participant.pruning.prune_internally(offsetToPruneUpTo, None)
       // user-manual-entry-end: ManualPruneParticipantNodeInternalPrune
       logger.info(s"pruned internally at $pruningOffset")
 
       // Pruning internally with lower offset should succeed and be a no-op.
-      participant2.pruning.prune_internally(offsetInMiddleOfPrunedHistory)
+      participant2.pruning.prune_internally(offsetInMiddleOfPrunedHistory, None)
 
       // Starting after the last pruned event should be fine:
       participant2.ledger_api.updates
@@ -320,7 +320,7 @@ trait LedgerApiParticipantPruningTest
         val endBeforePrune = participant2.ledger_api.state.end()
         loggerFactory.assertLogs(
           a[CommandFailure] shouldBe thrownBy {
-            participant2.pruning.prune_internally(endBeforePrune)
+            participant2.pruning.prune_internally(endBeforePrune, None)
 
             // should not get here - if we do, check that the end has since moved:
             val endAfterPrune = participant2.ledger_api.state.end(): @unchecked
@@ -343,7 +343,7 @@ trait LedgerApiParticipantPruningTest
       val pruneUpTo = -12345678L
       loggerFactory.assertLogs(
         a[CommandFailure] shouldBe thrownBy {
-          participant2.pruning.prune_internally(pruneUpTo)
+          participant2.pruning.prune_internally(pruneUpTo, None)
         },
         logEntry => {
           logEntry.commandFailureMessage should include(

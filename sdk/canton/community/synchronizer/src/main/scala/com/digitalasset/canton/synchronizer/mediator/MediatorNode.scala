@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.mediator
 
+import cats.Eval
 import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -231,6 +232,9 @@ class MediatorNodeBootstrap(
   private lazy val deferredSequencerClientHealth =
     MutableHealthComponent(loggerFactory, SequencerClient.healthName, timeouts)
 
+  private val deferredSequencerConnectionPoolHealthRef =
+    new AtomicReference[() => Seq[HealthQuasiComponent]](() => Seq.empty)
+
   override protected def mkNodeHealthService(
       storage: Storage
   ): (DependenciesHealthService, LivenessHealthService) = {
@@ -239,8 +243,11 @@ class MediatorNodeBootstrap(
         "mediator",
         logger,
         timeouts,
-        Seq(storage),
-        softDependencies = Seq(deferredSequencerClientHealth),
+        criticalDependencies = Seq(storage),
+        softDependencies = Eval.always(
+          deferredSequencerClientHealth +:
+            deferredSequencerConnectionPoolHealthRef.get.apply()
+        ),
       )
 
     val liveness = LivenessHealthService(
@@ -454,6 +461,8 @@ class MediatorNodeBootstrap(
           clock = clock,
           crypto = crypto,
           staticSynchronizerParameters = staticSynchronizerParameters,
+          parameters.batchingConfig.topologyCacheAggregator,
+          config.topology,
           store = synchronizerTopologyStore,
           outboxQueue = outboxQueue,
           disableOptionalTopologyChecks = config.topology.disableOptionalTopologyChecks,
@@ -498,7 +507,6 @@ class MediatorNodeBootstrap(
                   synchronizerTopologyStore,
                   topologyManagerStatus = TopologyManagerStatus
                     .combined(authorizedTopologyManager, synchronizerTopologyManager),
-                  config.topology,
                   synchronizerOutboxFactory,
                 ),
               storage.isActive,
@@ -555,7 +563,6 @@ class MediatorNodeBootstrap(
       staticSynchronizerParameters: StaticSynchronizerParameters,
       synchronizerTopologyStore: TopologyStore[SynchronizerStore],
       topologyManagerStatus: TopologyManagerStatus,
-      topologyConfig: TopologyConfig,
       synchronizerOutboxFactory: SynchronizerOutboxFactory,
   ): EitherT[FutureUnlessShutdown, String, MediatorRuntime] = {
     val synchronizerLoggerFactory = loggerFactory.append("psid", psid.toString)
@@ -611,6 +618,7 @@ class MediatorNodeBootstrap(
               arguments.config.topology,
               arguments.clock,
               staticSynchronizerParameters,
+              metrics.topologyCache,
               arguments.futureSupervisor,
               synchronizerLoggerFactory,
             )()
@@ -734,6 +742,9 @@ class MediatorNodeBootstrap(
 
       _ = sequencerClientRef.set(sequencerClient)
       _ = deferredSequencerClientHealth.set(sequencerClient.healthComponent)
+      _ = deferredSequencerConnectionPoolHealthRef.set(() =>
+        sequencerClient.getConnectionPoolHealthStatus
+      )
 
       timeTracker = SynchronizerTimeTracker(
         config.timeTracker,
@@ -753,8 +764,10 @@ class MediatorNodeBootstrap(
             new InitialTopologySnapshotValidator(
               new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
               synchronizerTopologyStore,
+              parameters.batchingConfig.topologyCacheAggregator,
+              config.topology,
               Some(staticSynchronizerParameters),
-              validateInitialSnapshot = topologyConfig.validateInitialTopologySnapshot,
+              timeouts,
               synchronizerLoggerFactory,
             ),
             topologyClient,

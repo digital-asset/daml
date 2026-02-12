@@ -24,7 +24,7 @@ import com.digitalasset.canton.lifecycle.{
   LifeCycle,
   PromiseUnlessShutdown,
 }
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NodeLoggingUtil}
 import com.digitalasset.canton.networking.grpc.ratelimiting.ActiveRequestCounterInterceptor
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, CantonMutableHandlerRegistry}
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
@@ -105,14 +105,15 @@ import com.digitalasset.canton.topology.transaction.{
   SynchronizerTrustCertificate,
 }
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell}
+import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell, StackTraceUtil}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.actor.ActorSystem
+import org.slf4j.event.Level
 
 import java.util.concurrent.ScheduledExecutorService
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
 object SequencerNodeBootstrap {
 
@@ -436,6 +437,8 @@ class SequencerNodeBootstrap(
           clock,
           SynchronizerCrypto(crypto, synchronizerParameters),
           synchronizerParameters,
+          parameters.batchingConfig.topologyCacheAggregator,
+          config.topology,
           topologyStore,
           outboxQueue = new SynchronizerOutboxQueue(loggerFactory),
           dispatchQueueBackpressureLimit = parameters.general.dispatchQueueBackpressureLimit,
@@ -514,8 +517,10 @@ class SequencerNodeBootstrap(
                 val topologySnapshotValidator = new InitialTopologySnapshotValidator(
                   crypto.pureCrypto,
                   synchronizerTopologyStore,
+                  parameters.batchingConfig.topologyCacheAggregator,
+                  config.topology,
                   Some(crypto.staticSynchronizerParameters),
-                  validateInitialSnapshot = config.topology.validateInitialTopologySnapshot,
+                  timeouts,
                   loggerFactory,
                   // only filter out completed proposals if this is a bootstrap from genesis.
                   cleanupTopologySnapshot = sequencerSnapshot.isEmpty,
@@ -598,6 +603,7 @@ class SequencerNodeBootstrap(
                 arguments.config.topology,
                 clock,
                 crypto.staticSynchronizerParameters,
+                metrics.topologyCache,
                 futureSupervisor,
                 synchronizerLoggerFactory,
               )(sequencerSnapshotTimestamp)
@@ -770,7 +776,56 @@ class SequencerNodeBootstrap(
               sequencerAuthInterceptor,
             )
           }
+          progressSupervisorO = parameters.progressSupervisor.filter(_.enabled).map {
+            supervisorConfig =>
+              logger.info(
+                s"Progress supervisor enabled for this sequencer with action: ${supervisorConfig.warnAction}"
+              )
+              val warningState: AtomicBoolean = new AtomicBoolean(false)
+              def warnAction(): Unit = supervisorConfig.warnAction match {
+                case ProgressSupervisorConfig.EnableDebugLogging =>
+                  if (warningState.compareAndSet(false, true)) {
+                    logger.error(
+                      s"Sequencer looks to be stuck, switching logging level from ${NodeLoggingUtil.originalRootLoggerLevel} to DEBUG for ${supervisorConfig.logAtDebugLevelDuration}..."
+                    )
+                    logger.warn(s"Stack traces:\n${StackTraceUtil.formatStackTrace()}")
+                    NodeLoggingUtil.setLevel(level = "DEBUG")
+                    scheduler
+                      .schedule(
+                        (() => {
+                          val levelBefore = Some(NodeLoggingUtil.originalRootLoggerLevel)
+                            .map(_.toString)
+                            .getOrElse("INFO")
+                          NodeLoggingUtil.setLevel(level = levelBefore)
+                          logger.info(
+                            s"Switching logging back to $levelBefore"
+                          )
+                          warningState.set(false)
+                        }): Runnable,
+                        supervisorConfig.logAtDebugLevelDuration.asJava.toSeconds,
+                        java.util.concurrent.TimeUnit.SECONDS,
+                      )
+                      .discard
+                  } else {
+                    logger.debug(
+                      "Not triggering progress monitor again as we are already in warning state"
+                    )
+                  }
+                case ProgressSupervisorConfig.RestartSequencer =>
+                  com.digitalasset.canton.error.FatalError.exitOnFatalError(
+                    "Sequencer looks to be stuck, taking the poison pill...",
+                    logger,
+                  )
+              }
 
+              new ProgressSupervisor(
+                logLevel = Level.DEBUG,
+                logAfter = supervisorConfig.stuckDetectionTimeout.duration,
+                futureSupervisor = futureSupervisor,
+                loggerFactory = loggerFactory,
+                warnAction = warnAction(),
+              )
+          }
           sequencer <- EitherT
             .right[String](
               sequencerFactory.create(
@@ -778,6 +833,7 @@ class SequencerNodeBootstrap(
                 clock,
                 syncCryptoWithOptionalSessionKeys,
                 futureSupervisor,
+                progressSupervisorO,
                 config.trafficConfig,
                 config.parameters.sequencingTimeLowerBoundExclusive,
                 runtimeReadyPromise.futureUS,
@@ -824,6 +880,7 @@ class SequencerNodeBootstrap(
                 parameters.processingTimeouts,
                 loggerFactory,
                 staticSynchronizerParameters.protocolVersion,
+                progressSupervisorO,
               ),
             ),
             connectionPool = directPool,

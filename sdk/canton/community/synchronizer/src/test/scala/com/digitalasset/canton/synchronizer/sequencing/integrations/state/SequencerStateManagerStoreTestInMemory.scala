@@ -9,7 +9,7 @@ import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
 
 class SequencerStateManagerStoreTestInMemory extends SequencerStateManagerStoreTest {
   "InMemorySequencerStateManagerStore" should {
-    behave like sequencerStateManagerStore(() =>
+    behave like sequencerStateManagerStore() { () =>
       (
         new InMemorySequencerStateManagerStore(loggerFactory),
         new InMemorySequencerStore(
@@ -17,9 +17,10 @@ class SequencerStateManagerStoreTestInMemory extends SequencerStateManagerStoreT
           SequencerId(DefaultTestIdentities.physicalSynchronizerId.uid),
           true,
           loggerFactory,
+          timeouts,
           SequencerMetrics.noop(getClass.getName),
         ),
       )
-    )
+    }
   }
 }

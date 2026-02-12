@@ -14,6 +14,7 @@ import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.metrics.CacheMetrics
 import com.digitalasset.canton.participant.config.UnsafeOnlinePartyReplicationConfig
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
@@ -22,6 +23,7 @@ import com.digitalasset.canton.participant.sync.LogicalSynchronizerUpgradeCallba
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.cache.TopologyStateWriteThroughCache
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
@@ -49,8 +51,24 @@ class TopologyComponentFactory(
     unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig],
     exitOnFatalFailures: Boolean,
     topologyStore: TopologyStore[SynchronizerStore],
+    topologyCacheMetrics: CacheMetrics,
     loggerFactory: NamedLoggerFactory,
-) {
+)(implicit executionContext: ExecutionContext) {
+
+  private val topologyStateCache = Option.when(topology.useNewProcessor)(
+    new TopologyStateWriteThroughCache(
+      topologyStore,
+      batching.topologyCacheAggregator,
+      cacheEvictionThreshold = topology.topologyStateCacheEvictionThreshold,
+      maxCacheSize = topology.maxTopologyStateCacheItems,
+      enableConsistencyChecks = topology.enableTopologyStateCacheConsistencyChecks,
+      topologyCacheMetrics,
+      futureSupervisor,
+      timeouts,
+      loggerFactory,
+    )
+  )
+
   def createTopologyProcessorFactory(
       partyNotifier: LedgerServerPartyNotifier,
       missingKeysAlerter: MissingKeysAlerter,
@@ -99,6 +117,8 @@ class TopologyComponentFactory(
         val processor = new TopologyTransactionProcessor(
           crypto.pureCrypto,
           topologyStore,
+          topologyStateCache,
+          topology,
           crypto.staticSynchronizerParameters,
           acsCommitmentScheduleEffectiveTime,
           terminateTopologyProcessing,
@@ -117,40 +137,57 @@ class TopologyComponentFactory(
     }
   }
 
-  def createInitialTopologySnapshotValidator(
-      topologyConfig: TopologyConfig
-  )(implicit
+  def createInitialTopologySnapshotValidator()(implicit
       executionContext: ExecutionContext,
       materializer: Materializer,
   ): InitialTopologySnapshotValidator =
     new InitialTopologySnapshotValidator(
       crypto.pureCrypto,
       topologyStore,
+      batching.topologyCacheAggregator,
+      topology,
       Some(crypto.staticSynchronizerParameters),
-      validateInitialSnapshot = topologyConfig.validateInitialTopologySnapshot,
+      timeouts,
       loggerFactory = loggerFactory,
     )
 
-  def createCachingTopologyClient(
+  def createTopologyClient(
       packageDependencyResolver: PackageDependencyResolver,
       synchronizerPredecessor: Option[SynchronizerPredecessor],
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
-    CachingSynchronizerTopologyClient.create(
-      clock,
-      crypto.staticSynchronizerParameters,
-      topologyStore,
-      synchronizerPredecessor,
-      packageDependencyResolver,
-      caching,
-      batching,
-      topology,
-      timeouts,
-      futureSupervisor,
-      loggerFactory,
-    )()
+    if (topology.useNewClient)
+      WriteThroughCacheSynchronizerTopologyClient.create(
+        clock,
+        crypto.staticSynchronizerParameters,
+        topologyStore,
+        topologyStateCache.getOrElse(
+          throw new IllegalStateException("Cannot use new topology client without new processor")
+        ),
+        synchronizerUpgradeTime = synchronizerPredecessor.map(_.upgradeTime),
+        packageDependencyResolver,
+        caching,
+        topology,
+        timeouts,
+        futureSupervisor,
+        loggerFactory,
+      )()
+    else
+      CachingSynchronizerTopologyClient.create(
+        clock,
+        crypto.staticSynchronizerParameters,
+        topologyStore,
+        synchronizerPredecessor,
+        packageDependencyResolver,
+        caching,
+        batching,
+        topology,
+        timeouts,
+        futureSupervisor,
+        loggerFactory,
+      )()
 
   def createTopologySnapshot(
       asOf: CantonTimestamp,

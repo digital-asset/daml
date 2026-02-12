@@ -27,6 +27,7 @@ final class OpenApiTests
     "authenticated-user",
     "users",
     "version",
+    "contracts",
   )
 
   private val expectedAsyncApiServices = Seq(

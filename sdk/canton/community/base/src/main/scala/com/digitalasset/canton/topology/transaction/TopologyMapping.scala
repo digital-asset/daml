@@ -31,6 +31,7 @@ import com.digitalasset.canton.protocol.{
   DynamicSynchronizerParameters,
   v30,
 }
+import com.digitalasset.canton.resource.ToDbPrimitive
 import com.digitalasset.canton.sequencing.GrpcSequencerConnection
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -55,7 +56,6 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import monocle.Lens
 import monocle.macros.GenLens
-import slick.jdbc.SetParameter
 
 import scala.annotation.nowarn
 import scala.math.Ordering.Implicits.*
@@ -227,8 +227,7 @@ object TopologyMapping {
         .find(_.toProtoV30 == code)
         .toRight(UnrecognizedEnum("Enumis.TopologyMappingCode", code.value))
 
-    implicit val setParameterTopologyMappingCode: SetParameter[Code] =
-      (v, pp) => pp.setInt(v.dbInt)
+    implicit val topologyMappingCodeToDbPrimitive: ToDbPrimitive[Code, Int] = ToDbPrimitive(_.dbInt)
 
   }
 

@@ -8,10 +8,12 @@ import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
+import cats.syntax.traverse.*
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -19,6 +21,8 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencer.admin.v30.{
+  GenerateAuthenticationTokenRequest,
+  GenerateAuthenticationTokenResponse,
   OnboardingStateResponse,
   OnboardingStateV2Request,
   OnboardingStateV2Response,
@@ -34,7 +38,8 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   Sequencer,
   SequencerSnapshot,
 }
-import com.digitalasset.canton.time.SynchronizerTimeTracker
+import com.digitalasset.canton.synchronizer.sequencing.authentication.MemberAuthenticationService
+import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
@@ -66,12 +71,44 @@ class GrpcSequencerAdministrationService(
     topologyClient: SynchronizerTopologyClient,
     synchronizerTimeTracker: SynchronizerTimeTracker,
     staticSynchronizerParameters: StaticSynchronizerParameters,
+    authenticationService: MemberAuthenticationService,
+    parameters: CantonNodeParameters,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext,
     materializer: Materializer,
 ) extends v30.SequencerAdministrationServiceGrpc.SequencerAdministrationService
     with NamedLogging {
+
+  /** Generate an authentication token for a member. Only use for troubleshooting purposes. Requires
+    * testing features config flag enabled.
+    */
+  override def generateAuthenticationToken(
+      request: GenerateAuthenticationTokenRequest
+  ): Future[GenerateAuthenticationTokenResponse] = if (parameters.enableTestingFeatures) {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val result = for {
+      member <- Member.fromProtoPrimitive(request.member, "member")
+      expiresIn <- request.expiresIn.traverse(expiresInO =>
+        NonNegativeFiniteDuration.fromProtoPrimitive("expires_in")(expiresInO)
+      )
+    } yield {
+      val storedToken = authenticationService.generateAuthenticationToken(member, expiresIn)
+      GenerateAuthenticationTokenResponse(
+        storedToken.token.toProtoPrimitive,
+        Some(storedToken.expireAt.toProtoTimestamp),
+      )
+    }
+    mapErrNewEUS(CantonGrpcUtil.wrapErrUS(result))
+  } else {
+    Future.failed(
+      io.grpc.Status.FAILED_PRECONDITION
+        .withDescription(
+          "This endpoint requires the 'canton.features.enable-testing-commands = yes' config flag"
+        )
+        .asRuntimeException()
+    )
+  }
 
   override def pruningStatus(
       request: v30.PruningStatusRequest

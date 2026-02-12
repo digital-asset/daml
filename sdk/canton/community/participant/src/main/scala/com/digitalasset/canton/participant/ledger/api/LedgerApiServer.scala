@@ -41,6 +41,7 @@ import com.digitalasset.canton.networking.grpc.{ApiRequestLogger, CantonGrpcUtil
 import com.digitalasset.canton.participant.config.{
   LedgerApiServerConfig,
   ParticipantNodeConfig,
+  ParticipantStoreConfig,
   TestingTimeServiceConfig,
 }
 import com.digitalasset.canton.participant.store.{
@@ -58,6 +59,7 @@ import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   RateLimitingInterceptorFactory,
   ThreadpoolCheck,
 }
+import com.digitalasset.canton.platform.apiserver.services.ApiContractService
 import com.digitalasset.canton.platform.apiserver.services.admin.Utils
 import com.digitalasset.canton.platform.apiserver.{
   ApiServiceOwner,
@@ -124,6 +126,7 @@ class LedgerApiServer(
     commandProgressTracker: CommandProgressTracker,
     ledgerApiStore: Eval[LedgerApiStore],
     ledgerApiIndexer: Eval[LedgerApiIndexer],
+    pruningConfig: ParticipantStoreConfig,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
@@ -233,6 +236,13 @@ class LedgerApiServer(
         syncService = timedSyncService,
         loggerFactory = loggerFactory,
       )
+      lfValueTranslation = new LfValueTranslation(
+        metrics = grpcApiMetrics,
+        engineO = Some(engine),
+        loadPackage = (packageId, loggingContext) =>
+          timedSyncService.getLfArchive(packageId)(loggingContext.traceContext),
+        loggerFactory = loggerFactory,
+      )
       indexService <- new IndexServiceOwner(
         dbSupport = dbSupport,
         config = indexServiceConfig,
@@ -245,13 +255,7 @@ class LedgerApiServer(
           timedSyncService.incompleteReassignmentOffsets(off, ps.getOrElse(Set.empty))(tc),
         contractLoader = contractLoader,
         getPackageMetadataSnapshot = timedSyncService.getPackageMetadataSnapshot(_),
-        lfValueTranslation = new LfValueTranslation(
-          metrics = grpcApiMetrics,
-          engineO = Some(engine),
-          loadPackage = (packageId, loggingContext) =>
-            timedSyncService.getLfArchive(packageId)(loggingContext.traceContext),
-          loggerFactory = loggerFactory,
-        ),
+        lfValueTranslation = lfValueTranslation,
         queryExecutionContext = queryExecutionContext,
         commandExecutionContext = executionContext,
         getPackagePreference = (
@@ -342,7 +346,12 @@ class LedgerApiServer(
         new Engine(engine.config.copy(forbidLocalContractIds = false)),
         packageResolver = packageResolver,
       )
-
+      apiContractService = new ApiContractService(
+        ledgerApiContractStore = participantContractStore.value,
+        lfValueTranslation = lfValueTranslation,
+        telemetry = telemetry,
+        loggerFactory = loggerFactory,
+      )
       (_, authInterceptor) <- ApiServiceOwner(
         indexService = indexService,
         transactionSubmissionTracker = inMemoryState.transactionSubmissionTracker,
@@ -398,6 +407,8 @@ class LedgerApiServer(
         interactiveSubmissionEnricher = interactiveSubmissionEnricher,
         keepAlive = serverConfig.keepAliveServer,
         packagePreferenceBackend = packagePreferenceBackend,
+        apiContractService = apiContractService,
+        safeToPruneCommitmentState = pruningConfig.safeToPruneCommitmentState,
       )
       _ <- startHttpApiIfEnabled(timedSyncService, authInterceptor, packagePreferenceBackend)
       _ <- serverConfig.userManagementService.additionalAdminUserId
@@ -571,6 +582,7 @@ object LedgerApiServer {
       participantId: LedgerParticipantId,
       participantNodePersistentState: Eval[ParticipantNodePersistentState],
       sync: CantonSyncService,
+      pruningConfig: ParticipantStoreConfig,
       tracerProvider: TracerProvider,
   )(implicit
       actorSystem: ActorSystem,
@@ -627,6 +639,7 @@ object LedgerApiServer {
       ledgerApiStore = participantNodePersistentState.map(_.ledgerApiStore),
       ledgerApiIndexer = ledgerApiIndexer,
       loggerFactory = loggerFactory,
+      pruningConfig = pruningConfig,
     ).owner()
     new ResourceOwnerFlagCloseableOps(ledgerApiServerOwner)
       .acquireFlagCloseable("Ledger API Server")

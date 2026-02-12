@@ -57,7 +57,7 @@ abstract class TraceIdIntegrationTest extends CommunityIntegrationTest with Shar
 
           val lapiLogs: Seq[(String, LogEntry)] = tracedLogs
             .filter(_._2.loggerName contains lapiService)
-            .filter(_._2.message contains "Submitting commands for interpretation")
+            .filter(_._2.message.matches(".*Submitting \\d+ command\\(s\\) for interpretation.*"))
           val lapiTids: Seq[String] = lapiLogs
             .map(_._1)
 

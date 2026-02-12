@@ -65,7 +65,7 @@ class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
     protected val cryptoPrivateStore: CryptoPrivateStore,
     val loggerFactory: NamedLoggerFactory,
 )(implicit override val executionContext: ExecutionContext)
-    extends TransactionAuthorizationCache[PureCrypto]
+    extends TransactionAuthorizationCacheOld[PureCrypto]
     with NamedLogging {
 
   private def filterKnownKeysForNamespace(

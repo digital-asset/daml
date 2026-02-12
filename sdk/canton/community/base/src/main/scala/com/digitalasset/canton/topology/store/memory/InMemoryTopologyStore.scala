@@ -4,7 +4,7 @@
 package com.digitalasset.canton.topology.store.memory
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CantonRequireTypes.String300
+import com.digitalasset.canton.config.CantonRequireTypes.{String185, String300}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.crypto.topology.TopologyStateHash
@@ -23,6 +23,7 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransactions.{
 }
 import com.digitalasset.canton.topology.store.TopologyStore.{
   EffectiveStateChange,
+  StateKeyFetch,
   TopologyStoreDeactivations,
 }
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
@@ -74,6 +75,13 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
 
     def toStoredTransaction: StoredTopologyTransaction[TopologyChangeOp, TopologyMapping] =
       StoredTopologyTransaction(sequenced, from, until, transaction, rejected)
+
+    val indexKey: (TopologyMapping.Code, Namespace, Option[String185]) = (
+      transaction.mapping.code,
+      transaction.mapping.namespace,
+      transaction.mapping.maybeUid.map(_.identifier),
+    )
+
   }
 
   private val topologyTransactionStore = ArrayBuffer[TopologyStoreEntry]()
@@ -197,6 +205,31 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       }
     }
     FutureUnlessShutdown.unit
+  }
+  import com.daml.nonempty.NonEmptyReturningOps.*
+  def fetchAllDescending(
+      items: Seq[StateKeyFetch]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
+    val itemsMap =
+      items
+        .groupMap1(key => (key.code, key.namespace, key.identifier))(_.validUntilCutoff)
+        .view
+        .mapValues(_.min1)
+        .toMap
+    val found = topologyTransactionStore
+      .filter { entry =>
+        itemsMap.get(entry.indexKey).exists { validUntil =>
+          entry.rejected.isEmpty
+          && entry.until.forall(ts => ts >= validUntil)
+        }
+      }
+      .sortBy(c => (c.until.map(_.value).getOrElse(CantonTimestamp.MaxValue), c.batchIdx))
+      .reverse
+      .map(_.toStoredTransaction)
+      .toSeq
+    FutureUnlessShutdown.pure(StoredTopologyTransactions(found))
   }
 
   override def bulkInsert(

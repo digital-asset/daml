@@ -40,6 +40,7 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.platform.apiserver.ApiException
 import com.digitalasset.canton.platform.apiserver.services.logging
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.protobuf.StatusProto
@@ -53,6 +54,7 @@ final class ApiParticipantPruningService private (
     syncService: SyncService,
     metrics: LedgerApiServerMetrics,
     telemetry: Telemetry,
+    safeToPruneCommitmentState: Option[SafeToPruneCommitmentState],
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends ParticipantPruningServiceGrpc.ParticipantPruningService
@@ -158,7 +160,7 @@ final class ApiParticipantPruningService private (
       s"About to prune participant ledger up to ${pruneUpTo.unwrap} inclusively starting with the write service."
     )
     syncService
-      .prune(pruneUpTo, submissionId)
+      .prune(pruneUpTo, submissionId, safeToPruneCommitmentState)
       .toScalaUnwrapped
       .flatMap {
         case NotPruned(status) =>
@@ -234,6 +236,7 @@ object ApiParticipantPruningService {
       syncService: SyncService,
       metrics: LedgerApiServerMetrics,
       telemetry: Telemetry,
+      safeToPruneCommitmentState: Option[SafeToPruneCommitmentState],
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext
@@ -243,6 +246,7 @@ object ApiParticipantPruningService {
       syncService,
       metrics,
       telemetry,
+      safeToPruneCommitmentState,
       loggerFactory,
     )
 

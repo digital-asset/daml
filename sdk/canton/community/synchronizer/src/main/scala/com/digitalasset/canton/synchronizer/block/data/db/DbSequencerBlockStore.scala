@@ -139,8 +139,9 @@ class DbSequencerBlockStore(
   ): DBIOAction[BlockEphemeralState, NoStream, Effect.Read with Effect.Transactional] =
     stateManagerStore
       .readInFlightAggregationsDBIO(
-        block.lastTs,
-        maxSequencingTimeBound,
+        timestamp = block.lastTs,
+        sequencingTimeLowerBound = block.lastTs,
+        sequencingTimeUpperBound = maxSequencingTimeBound,
       )
       .map(inFlightAggregations => BlockEphemeralState(block, inFlightAggregations))
 

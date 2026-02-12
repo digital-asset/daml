@@ -69,6 +69,7 @@ private[mediator] class Mediator(
     val synchronizerOutboxHandle: SynchronizerOutboxHandle,
     val timeTracker: SynchronizerTimeTracker,
     val state: MediatorState,
+    asynchronousProcessing: Boolean,
     private[canton] val sequencerCounterTrackerStore: SequencerCounterTrackerStore,
     sequencedEventStore: SequencedEventStore,
     parameters: CantonNodeParameters,
@@ -102,6 +103,7 @@ private[mediator] class Mediator(
     syncCrypto,
     timeTracker,
     state,
+    asynchronousProcessing = asynchronousProcessing,
     loggerFactory,
     timeouts,
   )
@@ -111,6 +113,7 @@ private[mediator] class Mediator(
     verdictSender,
     syncCrypto.ips,
     protocolVersion,
+    metrics,
     loggerFactory,
   )
 

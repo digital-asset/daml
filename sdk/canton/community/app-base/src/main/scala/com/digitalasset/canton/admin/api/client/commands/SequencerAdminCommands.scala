@@ -11,7 +11,11 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
   TimeoutType,
 }
-import com.digitalasset.canton.admin.api.client.data.{NodeStatus, SequencerStatus}
+import com.digitalasset.canton.admin.api.client.data.{
+  MemberAuthenticationToken,
+  NodeStatus,
+  SequencerStatus,
+}
 import com.digitalasset.canton.admin.pruning.v30 as pruningProto
 import com.digitalasset.canton.admin.sequencer.v30 as sequencerProto
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
@@ -25,6 +29,7 @@ import com.digitalasset.canton.synchronizer.sequencer.traffic.{
   TimestampSelector,
 }
 import com.digitalasset.canton.synchronizer.sequencer.{SequencerPruningStatus, SequencerSnapshot}
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.util.GrpcStreamingUtils
 import com.google.protobuf.ByteString
@@ -45,6 +50,40 @@ object SequencerAdminCommands {
         channel: ManagedChannel
     ): proto.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub =
       proto.SequencerAdministrationServiceGrpc.stub(channel)
+  }
+
+  final case class GenerateAuthenticationToken(
+      member: Member,
+      expiresIn: Option[NonNegativeFiniteDuration],
+  ) extends BaseSequencerAdministrationCommand[
+        proto.GenerateAuthenticationTokenRequest,
+        proto.GenerateAuthenticationTokenResponse,
+        MemberAuthenticationToken,
+      ] {
+    override protected def createRequest()
+        : Either[String, proto.GenerateAuthenticationTokenRequest] = Right(
+      proto.GenerateAuthenticationTokenRequest(
+        member.toProtoPrimitive,
+        expiresIn.map(_.toProtoPrimitive),
+      )
+    )
+    override protected def submitRequest(
+        service: proto.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
+        request: proto.GenerateAuthenticationTokenRequest,
+    ): Future[proto.GenerateAuthenticationTokenResponse] =
+      service.generateAuthenticationToken(request)
+    override protected def handleResponse(
+        response: proto.GenerateAuthenticationTokenResponse
+    ): Either[String, MemberAuthenticationToken] = response.expiresAt
+      .toRight("Missing expiration time")
+      .flatMap(CantonTimestamp.fromProtoTimestamp(_).leftMap(_.message))
+      .map {
+        MemberAuthenticationToken(
+          member,
+          response.token,
+          _,
+        )
+      }
   }
 
   final case object GetPruningStatus

@@ -9,6 +9,7 @@ import com.digitalasset.canton.sequencer.api.v30 as proto
 import com.digitalasset.canton.sequencer.api.v30.SequencerConnect.GetSynchronizerParametersResponse.Parameters
 import com.digitalasset.canton.sequencer.api.v30.SequencerConnectServiceGrpc.SequencerConnectServiceStub
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
+import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import io.grpc.ManagedChannel
 
@@ -22,6 +23,38 @@ object SequencerPublicCommands {
 
     override def createService(channel: ManagedChannel): SequencerConnectServiceStub =
       proto.SequencerConnectServiceGrpc.stub(channel)
+  }
+
+  abstract class BaseSequencerAdministrationCommand[Req, Rep, Res]
+      extends GrpcAdminCommand[Req, Rep, Res] {
+    override type Svc =
+      proto.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub
+
+    override def createService(
+        channel: ManagedChannel
+    ): proto.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub =
+      proto.SequencerAuthenticationServiceGrpc.stub(channel)
+  }
+
+  final case class Logout(
+      token: ByteString
+  ) extends BaseSequencerAdministrationCommand[
+        proto.SequencerAuthentication.LogoutRequest,
+        proto.SequencerAuthentication.LogoutResponse,
+        Unit,
+      ] {
+    override protected def createRequest()
+        : Either[String, proto.SequencerAuthentication.LogoutRequest] = Right(
+      proto.SequencerAuthentication.LogoutRequest(token)
+    )
+    override protected def submitRequest(
+        service: proto.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub,
+        request: proto.SequencerAuthentication.LogoutRequest,
+    ): Future[proto.SequencerAuthentication.LogoutResponse] =
+      service.logout(request)
+    override protected def handleResponse(
+        response: proto.SequencerAuthentication.LogoutResponse
+    ): Either[String, Unit] = Right(())
   }
 
   final case object GetSynchronizerId

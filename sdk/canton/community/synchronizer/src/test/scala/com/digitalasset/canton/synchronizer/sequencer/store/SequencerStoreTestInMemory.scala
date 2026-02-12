@@ -16,6 +16,7 @@ class SequencerStoreTestInMemory extends AsyncWordSpec with BaseTest with Sequen
         sequencerMember = sequencerMember,
         blockSequencerMode = true,
         loggerFactory = loggerFactory,
+        timeouts = timeouts,
         sequencerMetrics = sequencerMetrics(),
       )
     )

@@ -53,6 +53,7 @@ trait TrafficControlConcurrentTopologyChangeTest
     readVsWriteScalingFactor = InternalTrafficControlParameters.DefaultReadVsWriteScalingFactor,
     enforceRateLimiting = true,
     baseEventCost = NonNegativeLong.zero,
+    freeConfirmationResponses = true,
   )
 
   override def environmentDefinition: EnvironmentDefinition =

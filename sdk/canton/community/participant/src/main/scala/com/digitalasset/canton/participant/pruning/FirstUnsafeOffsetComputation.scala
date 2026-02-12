@@ -30,6 +30,7 @@ import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigSto
 }
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SynchronizerOffset
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
@@ -116,7 +117,10 @@ class FirstUnsafeOffsetComputation(
   We can probably do one query per logical synchronizer
    */
   def perform(
-      pruneUptoInclusive: Offset
+      pruneUptoInclusive: Offset,
+      safeToPruneCommitmentState: Option[
+        SafeToPruneCommitmentState
+      ],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] =
@@ -160,11 +164,14 @@ class FirstUnsafeOffsetComputation(
           )
       unsafeLogicalSynchronizerOffsets <- pruningCandidatesWithSynchronizerIndex.parTraverseFilter {
         case (syncPersistentState, synchronizerIndex) =>
+          // the only call place that actually uses safeToPruneCommitmentState
           FirstUnsafeOffsetComputation.firstUnsafeLogicalOffset(
             syncPersistentState,
             synchronizerIndex,
             participantNodePersistentState.value.ledgerApiStore,
             participantNodePersistentState.value.inFlightSubmissionStore,
+            pruneUptoInclusive,
+            safeToPruneCommitmentState,
           )
       }
       unsafePhysicalSynchronizerOffsets <- pruningCandidatesWithSynchronizerIndex
@@ -297,16 +304,38 @@ object FirstUnsafeOffsetComputation {
       synchronizerIndex: Option[SynchronizerIndex],
       ledgerApiStore: LedgerApiStore,
       inFlightSubmissionStore: InFlightSubmissionStore,
+      pruneUptoInclusive: Offset,
+      safeToPruneCommitmentState: Option[
+        SafeToPruneCommitmentState
+      ],
   )(implicit
       executionContext: ExecutionContext,
       errorLoggingContext: ErrorLoggingContext,
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] = {
     implicit val tc: TraceContext = errorLoggingContext.traceContext
     val synchronizerId = persistent.lsid
+
     for {
+
+      upToTimestampInclusive <- EitherT
+        .fromOptionF[FutureUnlessShutdown, LedgerPruningError, CantonTimestamp](
+          ledgerApiStore
+            // we pass the ledger end because we want the absolute latest timestamp up to where it's safe to prune,
+            // therefore we always perform the computation to the limit
+            .lastRecordTimeBeforeOrAtSynchronizerOffset(
+              persistent.lsid,
+              ledgerApiStore.ledgerEndCache().map(_.lastOffset).getOrElse(pruneUptoInclusive),
+            ),
+          Pruning.LedgerPruningOffsetUnsafeSynchronizer(synchronizerId),
+        )
+
       safeCommitmentTick <- EitherT
         .fromOptionF[FutureUnlessShutdown, LedgerPruningError, CantonTimestamp](
-          persistent.acsCommitmentStore.noOutstandingCommitments(CantonTimestamp.MaxValue),
+          persistent.acsCommitmentStore
+            .noOutstandingCommitments(
+              upToTimestampInclusive,
+              safeToPruneCommitmentState,
+            ),
           Pruning.LedgerPruningOffsetUnsafeSynchronizer(synchronizerId),
         )
       _ = errorLoggingContext.debug(
@@ -322,9 +351,10 @@ object FirstUnsafeOffsetComputation {
         .map(_.sequencerTimestamp -> "Synchronizer index crash recovery")
         ++ earliestInFlight.map(_ -> "inFlightSubmissionTs")
 
-      _ = errorLoggingContext.debug(
-        s"Getting safe to prune timestamp for logical synchronizer $synchronizerId with data ${unsafeTimestamps.forgetNE}"
-      )
+      _ = errorLoggingContext
+        .debug(
+          s"Getting safe to prune timestamp for logical synchronizer $synchronizerId with data ${unsafeTimestamps.forgetNE}"
+        )
 
       (firstUnsafeTimestamp, cause) = unsafeTimestamps.minBy1(_._1)
 

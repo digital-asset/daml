@@ -24,4 +24,20 @@ trait IgnoresTransientSchedulerErrors {
         },
       ),
     )
+
+  protected def ignoreTransientSchedulerErrorsAndCommitmentMismatches[T](
+      pruningScheduler: String
+  )(code: => T): T =
+    loggerFactory.assertLogsUnorderedOptional(
+      code,
+      (
+        LogEntryOptionality.OptionalMany,
+        (entry: LogEntry) => {
+          entry.loggerName should include(pruningScheduler)
+          entry.warningMessage should (include regex "Backing off .* or until next window after error" or include(
+            "ACS_COMMITMENT_MISMATCH"
+          ))
+        },
+      ),
+    )
 }

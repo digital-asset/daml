@@ -53,6 +53,10 @@ import scala.jdk.CollectionConverters.*
   * @param migrateAndStart
   *   if true, db migrations will be applied to the database (default is to abort start if db
   *   migrates are pending to force an explicit upgrade)
+  * @param repeatableMigrationsPaths
+  *   Additional locations to scan for migrations. The goal is to be able to provide additional
+  *   database table settings under this path, i.e. vacuum/analyze settings for Postgres. The paths
+  *   should only contain repeatable migrations (files like `R__table_settings.sql`).
   */
 final case class DbParametersConfig(
     maxConnections: Option[PositiveInt] = None,
@@ -67,6 +71,7 @@ final case class DbParametersConfig(
     unsafeCleanOnValidationError: Boolean = false,
     unsafeBaselineOnMigrate: Boolean = false,
     migrateAndStart: Boolean = false,
+    repeatableMigrationsPaths: Seq[String] = Seq.empty,
 ) extends PrettyPrinting
     with UniformCantonConfigValidation {
   override protected def pretty: Pretty[DbParametersConfig] =
@@ -76,6 +81,13 @@ final case class DbParametersConfig(
         x =>
           if (x.migrationsPaths.nonEmpty)
             Some(x.migrationsPaths.map(_.doubleQuoted))
+          else None,
+      ),
+      paramIfDefined(
+        "repeatableMigrationsPaths",
+        x =>
+          if (x.repeatableMigrationsPaths.nonEmpty)
+            Some(x.repeatableMigrationsPaths.map(_.doubleQuoted))
           else None,
       ),
       paramIfDefined("maxConnections", _.maxConnections),
@@ -109,6 +121,13 @@ final case class DbParametersConfig(
   *   number of parallel queries to the db. defaults to 8
   * @param aggregator
   *   batching configuration for DB queries
+  * @param inFlightAggregationsQueryInterval
+  *   (optionally) split aggregator queries into intervals of this duration to avoid sequential
+  *   scans. When too many query intervals are generated, query interval splitting does not occur.
+  * @param mediatorFetchFinalizedResponsesAggregator
+  *   batching configuration for the mediator for fetching finalized responses
+  * @param mediatorStoreFinalizedResponsesAggregator
+  *   batching configuration for the mediator for storing finalized responses
   * @param maxPruningBatchSize
   *   maximum number of events to prune from a participant at a time, used to break up canton
   *   participant-internal batches
@@ -128,10 +147,17 @@ final case class BatchingConfig(
     maxAcsImportBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxAcsImportBatchSize,
     parallelism: PositiveNumeric[Int] = BatchingConfig.defaultBatchingParallelism,
     aggregator: BatchAggregatorConfig = BatchingConfig.defaultAggregator,
+    inFlightAggregationsQueryInterval: Option[PositiveFiniteDuration] =
+      BatchingConfig.defaultInFlightAggregationsQueryInterval,
     contractStoreAggregator: BatchAggregatorConfig = BatchingConfig.defaultContractStoreAggregator,
+    mediatorFetchFinalizedResponsesAggregator: BatchAggregatorConfig =
+      BatchingConfig.defaultAggregator,
+    mediatorStoreFinalizedResponsesAggregator: BatchAggregatorConfig =
+      BatchingConfig.defaultAggregator,
     maxPruningBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxPruningBatchSize,
     maxPruningTimeInterval: PositiveFiniteDuration = BatchingConfig.defaultMaxPruningTimeInterval,
     pruningParallelism: PositiveNumeric[Int] = BatchingConfig.defaultPruningParallelism,
+    topologyCacheAggregator: BatchAggregatorConfig = BatchingConfig.defaultAggregator,
 ) extends UniformCantonConfigValidation
 
 object BatchingConfig {
@@ -146,6 +172,7 @@ object BatchingConfig {
   private val defaultBatchingParallelism: PositiveInt = PositiveNumeric.tryCreate(8)
   private val defaultLedgerApiPruningBatchSize: PositiveInt = PositiveNumeric.tryCreate(50000)
   private val defaultMaxAcsImportBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(1000)
+  private val defaultInFlightAggregationsQueryInterval: Option[PositiveFiniteDuration] = None
   private val defaultAggregator: BatchAggregatorConfig.Batching = BatchAggregatorConfig.Batching()
   private val defaultContractStoreAggregator: BatchAggregatorConfig.Batching =
     BatchAggregatorConfig.Batching(
@@ -360,11 +387,15 @@ sealed trait DbConfig extends StorageConfig with PrettyPrinting {
     if (parameters.migrationsPaths.nonEmpty)
       parameters.migrationsPaths
     else if (alphaVersionSupport)
-      Seq(stableMigrationPath, devMigrationPath)
-    else Seq(stableMigrationPath)
+      Seq(stableMigrationPath, devMigrationPath, defaultTableSettingsPath) ++
+        parameters.repeatableMigrationsPaths
+    else
+      Seq(stableMigrationPath, defaultTableSettingsPath) ++
+        parameters.repeatableMigrationsPaths
 
   protected def devMigrationPath: String
   protected def stableMigrationPath: String
+  protected def defaultTableSettingsPath: String
 
   override protected def pretty: Pretty[DbConfig] =
     prettyOfClass(
@@ -398,6 +429,7 @@ object DbConfig {
 
     protected val devMigrationPath: String = DbConfig.h2MigrationsPathDev
     protected val stableMigrationPath: String = DbConfig.h2MigrationsPathStable
+    protected val defaultTableSettingsPath: String = DbConfig.h2DefaultTableSettingsPath
 
     def modify(config: Config = this.config, parameters: DbParametersConfig = this.parameters): H2 =
       H2(config, parameters)
@@ -420,6 +452,7 @@ object DbConfig {
   ) extends ModifiableDbConfig[Postgres] {
     protected def devMigrationPath: String = DbConfig.postgresMigrationsPathDev
     protected val stableMigrationPath: String = DbConfig.postgresMigrationsPathStable
+    protected val defaultTableSettingsPath: String = DbConfig.postgresDefaultTableSettingsPath
 
     def modify(
         config: Config = this.config,
@@ -446,12 +479,15 @@ object DbConfig {
 
   private val stableDir = "stable"
   private val devDir = "dev"
+  private val tableSettingsDir = "table_settings"
   private val basePostgresMigrationsPath: String = "classpath:db/migration/canton/postgres/"
   private val baseH2MigrationsPath: String = "classpath:db/migration/canton/h2/"
   val postgresMigrationsPathStable: String = basePostgresMigrationsPath + stableDir
   val h2MigrationsPathStable: String = baseH2MigrationsPath + stableDir
   val postgresMigrationsPathDev: String = basePostgresMigrationsPath + devDir
   val h2MigrationsPathDev: String = baseH2MigrationsPath + devDir
+  val postgresDefaultTableSettingsPath: String = basePostgresMigrationsPath + tableSettingsDir
+  val h2DefaultTableSettingsPath: String = baseH2MigrationsPath + tableSettingsDir
 
   def postgresUrl(host: String, port: Int, dbName: String): String =
     s"jdbc:postgresql://$host:$port/$dbName"

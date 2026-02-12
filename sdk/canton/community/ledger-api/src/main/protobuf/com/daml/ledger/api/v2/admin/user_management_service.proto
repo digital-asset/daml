@@ -78,7 +78,7 @@ service UserManagementService {
 // They are stored and managed per participant node.
 message User {
   // The user identifier, which must be a non-empty string of at most 128
-  // characters that are either alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:".
+  // characters that are either alphanumeric ASCII characters or one of the symbols "@^$.!`-#+'~_|:()".
   // Required
   string id = 1;
 

@@ -18,11 +18,12 @@ class SupervisedPromise[T](
     logAfter: Duration = 10.seconds,
     // TODO(i11704): lift to a higher level once known un-completed promises have been fixed
     logLevel: Level = Level.DEBUG,
+    warnAction: => Unit = (),
 )(implicit ecl: ErrorLoggingContext)
     extends Promise[T] {
   private val promise: Promise[T] = Promise[T]()
   override lazy val future: Future[T] =
-    futureSupervisor.supervised(description, logAfter, logLevel)(promise.future)
+    futureSupervisor.supervised(description, logAfter, logLevel, warnAction)(promise.future)
 
   override def isCompleted: Boolean = promise.isCompleted
   override def tryComplete(result: Try[T]): Boolean = promise.tryComplete(result)

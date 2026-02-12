@@ -13,6 +13,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.InstanceName.InvalidIns
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.InvalidLengthString
 import com.digitalasset.canton.config.RequireTypes.{InvariantViolation, NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.resource.ToDbPrimitive
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.util.NoCopy
@@ -142,12 +143,6 @@ object CantonRequireTypes {
         )
       }
 
-    // In general, if you would create a case class that would simply wrap a `LengthLimitedString`, use a type alias instead
-    // Some very frequently-used classes (like `Identifier` or `SynchronizerAlias`) are however given their 'own' case class
-    // despite essentially being a wrapper around `LengthLimitedString255` (because the documentation UX is nicer this way,
-    // and one can e.g. write `Fingerprint.tryCreate` instead of `LengthLimitedString68.tryCreate`)
-    type TopologyRequestId = String255
-
     def errorMsg(tooLongStr: String, maxLength: PositiveInt, name: Option[String] = None): String =
       s"The given ${name.getOrElse("string")} has a maximum length of $maxLength but a ${name
           .getOrElse("string")} of length ${tooLongStr.length} ('${tooLongStr.limit(maxLength.unwrap + 50)}.') was given"
@@ -174,18 +169,6 @@ object CantonRequireTypes {
         errorMsg(str, maxLength, name),
       )
 
-    // Should be used rarely - most of the time SetParameter[String255] etc.
-    // (defined through LengthLimitedStringCompanion) should be used
-    implicit val setParameterLengthLimitedString: SetParameter[LengthLimitedString] = (v, pp) =>
-      pp.setString(v.unwrap)
-    // Commented out so this function never accidentally throws
-    //    implicit def getResultLengthLimitedString: GetResult[LengthLimitedString] =
-    //      throw new UnsupportedOperationException(
-    //        "Avoid attempting to read a generic LengthLimitedString from the database, as this may lead to unexpected " +
-    //          "equality-comparisons (since a LengthLimitedString comparison also includes the maximum length and not only the string-content). " +
-    //          "Instead refactor your code to expect a specific LengthLimitedString when reading from the database (e.g. via GetResult[String255]). " +
-    //          "If you really need this functionality, then you can add this method again. ")
-
     implicit val orderingLengthLimitedString: Ordering[LengthLimitedString] =
       Ordering.by[LengthLimitedString, String](_.str)
     implicit val lengthLimitedStringOrder: Order[LengthLimitedString] =
@@ -204,7 +187,7 @@ object CantonRequireTypes {
   object String1 extends LengthLimitedStringCompanion[String1] {
     def fromChar(c: Char): String1 = checked(new String1(c.toString)(None))
 
-    override def maxLength: PositiveInt = PositiveInt.one
+    override lazy val maxLength: PositiveInt = PositiveInt.one
 
     override protected def factoryMethod(str: String)(name: Option[String]): String1 =
       new String1(str)(name)
@@ -217,7 +200,7 @@ object CantonRequireTypes {
   }
 
   object String3 extends LengthLimitedStringCompanion[String3] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(3)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(3)
 
     override protected def factoryMethod(str: String)(name: Option[String]): String3 =
       new String3(str)(name)
@@ -232,7 +215,7 @@ object CantonRequireTypes {
   }
 
   object String36 extends LengthLimitedStringCompanion[String36] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(36)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(36)
 
     override protected def factoryMethod(str: String)(name: Option[String]): String36 =
       new String36(str)(name)
@@ -250,7 +233,7 @@ object CantonRequireTypes {
   }
 
   object String68 extends LengthLimitedStringCompanion[String68] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(68)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(68)
 
     override def factoryMethod(str: String)(name: Option[String]): String68 =
       new String68(str)(name)
@@ -263,7 +246,7 @@ object CantonRequireTypes {
   }
 
   object String73 extends LengthLimitedStringCompanion[String73] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(73)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(73)
 
     override protected def factoryMethod(str: String)(name: Option[String]): String73 =
       new String73(str)(name)
@@ -275,7 +258,7 @@ object CantonRequireTypes {
   }
 
   object String100 extends LengthLimitedStringCompanion[String100] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(100)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(100)
     override protected def factoryMethod(str: String)(name: Option[String]): String100 =
       new String100(str)(name)
   }
@@ -292,7 +275,7 @@ object CantonRequireTypes {
   }
 
   object String185 extends LengthLimitedStringCompanion[String185] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(185)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(185)
 
     override def factoryMethod(str: String)(name: Option[String]): String185 =
       new String185(str)(name)
@@ -357,7 +340,7 @@ object CantonRequireTypes {
   }
 
   object String2066 extends LengthLimitedStringCompanion[String2066] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(2066)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(2066)
 
     override protected def factoryMethod(str: String)(name: Option[String]): String2066 =
       new String2066(str)(name)
@@ -378,7 +361,7 @@ object CantonRequireTypes {
   }
 
   object String256M extends LengthLimitedStringCompanion[String256M] {
-    override def maxLength: PositiveInt = PositiveInt.tryCreate(0x10000000)
+    override lazy val maxLength: PositiveInt = PositiveInt.tryCreate(0x10000000)
 
     override protected def factoryMethod(str: String)(name: Option[String]): String256M =
       new String256M(str)(name)
@@ -440,8 +423,8 @@ object CantonRequireTypes {
     implicit val encodeLengthLimitedString: Encoder[A] =
       Encoder.encodeString.contramap[A](_.unwrap)
 
-    implicit val setParameterLengthLimitedString: SetParameter[A] = (v, pp) =>
-      pp.setString(v.unwrap)
+    implicit val lengthLimitedStringToDbPrimitive: ToDbPrimitive[A, String] =
+      ToDbPrimitive(_.unwrap)
     implicit val getResultLengthLimitedString: GetResult[A] =
       GetResult(r => tryCreate(r.nextString()))
 

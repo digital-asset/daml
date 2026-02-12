@@ -31,11 +31,11 @@ sealed trait SubscriptionExpirationIntegrationTest
         ),
         ConfigTransforms.updateAllParticipantConfigs_(
           _.focus(_.sequencerClient.authToken.refreshAuthTokenBeforeExpiry)
-            .replace(config.NonNegativeFiniteDuration.ofSeconds(2))
+            .replace(config.NonNegativeFiniteDuration.ofSeconds(1))
         ),
         ConfigTransforms.updateAllMediatorConfigs_(
           _.focus(_.sequencerClient.authToken.refreshAuthTokenBeforeExpiry)
-            .replace(config.NonNegativeFiniteDuration.ofSeconds(2))
+            .replace(config.NonNegativeFiniteDuration.ofSeconds(1))
         ),
       )
 

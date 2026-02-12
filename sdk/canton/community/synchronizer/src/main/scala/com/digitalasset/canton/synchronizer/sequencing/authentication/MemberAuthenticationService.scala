@@ -19,7 +19,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.*
 import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenWithExpiry
 import com.digitalasset.canton.sequencing.authentication.{AuthenticationToken, MemberAuthentication}
-import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.processing.*
@@ -55,7 +55,7 @@ class MemberAuthenticationService(
     store: MemberAuthenticationStore,
     clock: Clock,
     nonceExpirationInterval: Duration,
-    maxTokenExpirationInterval: Duration,
+    val maxTokenExpirationInterval: Duration,
     useExponentialRandomTokenExpiration: Boolean,
     invalidateMemberCallback: Traced[Member] => Unit,
     isTopologyInitialized: FutureUnlessShutdown[Unit],
@@ -120,8 +120,9 @@ class MemberAuthenticationService(
       _ <- isActive(member)
       value <- EitherT
         .fromEither(
-          ignoreExpired(store.fetchAndRemoveNonce(member, providedNonce))
-            .toRight(MissingNonce(member): AuthenticationError)
+          ignoreExpired(
+            store.fetchAndRemoveNonce(member, providedNonce)
+          ).toRight(MissingNonce(member): AuthenticationError)
         )
         .mapK(FutureUnlessShutdown.outcomeK)
       StoredNonce(_, nonce, generatedAt, _expireAt) = value
@@ -161,6 +162,24 @@ class MemberAuthenticationService(
       )
       AuthenticationTokenWithExpiry(token, tokenExpiry)
     }
+
+  /** Generates a token for test purposes for the given member. This token does NOT need to be
+    * signed by the member. This should ONLY be used for testing and troubleshooting purposes.
+    */
+  def generateAuthenticationToken(member: Member, expiresIn: Option[NonNegativeFiniteDuration])(
+      implicit traceContext: TraceContext
+  ): StoredAuthenticationToken = {
+    val tokenDuration = expiresIn
+      .map(_.duration)
+      .filter(_.toMillis <= maxTokenExpirationInterval.toMillis)
+      .getOrElse(maxTokenExpirationInterval)
+    val tokenExpiry = clock.now.add(tokenDuration)
+    logger.info(s"Generating authentication token for member $member expiring at $tokenExpiry")
+    val token = AuthenticationToken.generate(cryptoApi.pureCrypto)
+    val storedToken = StoredAuthenticationToken(member, tokenExpiry, token)
+    store.saveToken(storedToken)
+    storedToken
+  }
 
   /** synchronizer checks if the token given by the participant is the one previously assigned to it
     * for authentication. The participant also provides the synchronizer id for which they think

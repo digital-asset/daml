@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import ch.qos.logback.classic.{Logger, LoggerContext}
 import ch.qos.logback.core.status.{ErrorStatus, Status, StatusListener, WarnStatus}
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.CantonAppDriver.installGCLogging
+import com.digitalasset.canton.CantonAppDriver.{installGCLogging, installStartupLoggingLevel}
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.cli.Command.Sandbox
 import com.digitalasset.canton.cli.{Cli, Command, LogFileAppender}
@@ -19,10 +19,11 @@ import com.digitalasset.canton.config.{
   DefaultPorts,
   GCLoggingConfig,
   Generate,
+  StartupLoggingConfig,
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.{Environment, EnvironmentFactory}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NodeLoggingUtil}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.JarResourceUtils
 import com.digitalasset.canton.version.ReleaseVersion
@@ -31,8 +32,8 @@ import com.typesafe.config.{Config, ConfigFactory}
 import org.slf4j.LoggerFactory
 
 import java.lang.management.ManagementFactory
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
+import java.util.concurrent.{ScheduledExecutorService, TimeUnit}
 import javax.management.openmbean.CompositeData
 import javax.management.{NotificationEmitter, NotificationListener}
 import scala.jdk.CollectionConverters.*
@@ -238,6 +239,11 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
     Config.bootstrapFile.map(CantonScriptFromFile.apply)
 
   val environment = environmentFactory.create(Config.startupConfig, loggerFactory)
+  installStartupLoggingLevel(
+    loggerFactory,
+    Config.startupConfig.monitoring.logging.startup,
+    environment.scheduler,
+  )
   val runner: Runner = cliOptions.command match {
     case Some(Command.Sandbox) =>
       startupConfigFileMonitoring(environment)
@@ -353,6 +359,40 @@ object CantonAppDriver {
       } catch {
         case NonFatal(e) =>
           logger.warn("Failed to setup GC logging", e)
+      }
+    }
+
+  private def installStartupLoggingLevel(
+      loggerFactory: NamedLoggerFactory,
+      config: Option[StartupLoggingConfig],
+      scheduler: ScheduledExecutorService,
+  ): Unit =
+    config.foreach { startupLoggingConfig =>
+      val logger = loggerFactory.getLogger(getClass)
+      try {
+        logger.info(
+          s"Setting startup log level to ${startupLoggingConfig.logLevel} temporarily for ${startupLoggingConfig.resetAfter}"
+        )
+        NodeLoggingUtil.setLevel(
+          level = startupLoggingConfig.logLevel.toString
+        )
+        scheduler.schedule(
+          new Runnable {
+            override def run(): Unit = {
+              logger.info(
+                s"Resetting log level to original ${NodeLoggingUtil.originalRootLoggerLevel}"
+              )
+              NodeLoggingUtil.setLevel(
+                level = NodeLoggingUtil.originalRootLoggerLevel.toString
+              )
+            }
+          },
+          startupLoggingConfig.resetAfter.duration.toMillis,
+          java.util.concurrent.TimeUnit.MILLISECONDS,
+        )
+      } catch {
+        case NonFatal(e) =>
+          logger.warn("Failed to setup startup logging level", e)
       }
     }
 

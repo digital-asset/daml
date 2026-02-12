@@ -717,7 +717,7 @@ final class SyncStateInspection(
     timeouts.inspection
       .awaitUS(s"$functionFullName on $synchronizerAlias for ts $beforeOrAt")(
         getOrFail(getAcsCommitmentStore(synchronizerAlias), synchronizerAlias)
-          .noOutstandingCommitments(beforeOrAt)
+          .noOutstandingCommitments(beforeOrAt, None)
       )
       .asGrpcResponse
 

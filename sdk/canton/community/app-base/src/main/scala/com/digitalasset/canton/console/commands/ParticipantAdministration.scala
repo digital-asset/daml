@@ -70,6 +70,7 @@ import com.digitalasset.canton.protocol.messages.{
   SignedProtocolMessage,
 }
 import com.digitalasset.canton.protocol.{ContractInstance, LfContractId, LfVersionedTransaction}
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -282,10 +283,9 @@ private[console] object ParticipantCommands {
     def reconnect_all(
         runner: AdminCommandRunner,
         ignoreFailures: Boolean,
-    ): ConsoleCommandResult[Unit] =
-      runner.adminCommand(
-        ParticipantAdminCommands.SynchronizerConnectivity.ReconnectSynchronizers(ignoreFailures)
-      )
+    ): ConsoleCommandResult[Unit] = runner.adminCommand(
+      ParticipantAdminCommands.SynchronizerConnectivity.ReconnectSynchronizers(ignoreFailures)
+    )
 
     def disconnect(
         runner: AdminCommandRunner,
@@ -665,10 +665,16 @@ class ParticipantPruningAdministrationGroup(
       |performs additional safety checks returning a ``NOT_FOUND`` error if ``pruneUpTo`` is higher than the
       |offset returned by ``find_safe_offset`` on any synchronizer with events preceding the pruning offset."""
   )
-  def prune_internally(pruneUpTo: Long): Unit =
+  def prune_internally(
+      pruneUpTo: Long,
+      safeToPruneCommitmentState: Option[SafeToPruneCommitmentState] = None,
+  ): Unit =
     check(FeatureFlag.Testing) {
       consoleEnvironment.run(
-        adminCommand(ParticipantAdminCommands.Pruning.PruneInternallyCommand(pruneUpTo))
+        adminCommand(
+          ParticipantAdminCommands.Pruning
+            .PruneInternallyCommand(pruneUpTo, safeToPruneCommitmentState)
+        )
       )
     }
 

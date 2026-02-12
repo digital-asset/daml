@@ -23,6 +23,7 @@ trait ParticipantPruningSchedulerStoreTest extends PruningSchedulerStoreTest wit
       val store = mk()
       val participantSchedule1 = ParticipantPruningSchedule(schedule1, pruneInternallyOnly = true)
       val participantSchedule2 = ParticipantPruningSchedule(schedule2, pruneInternallyOnly = false)
+      // here - add mode for setting and unsetting the participant pruning
 
       for {
         emptySchedule <- change(store, _.clearSchedule())

@@ -11,7 +11,11 @@ import com.daml.logging.LoggingContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{DefaultProcessingTimeouts, SessionEncryptionKeyCacheConfig}
+import com.digitalasset.canton.config.{
+  DefaultProcessingTimeouts,
+  SessionEncryptionKeyCacheConfig,
+  TopologyConfig,
+}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
 import com.digitalasset.canton.data.*
@@ -189,11 +193,12 @@ final class AssignmentProcessingStepsTest
       SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
       IndexedPhysicalSynchronizer.tryCreate(targetPSId.unwrap, 1),
       defaultStaticSynchronizerParameters,
+      ParticipantNodeParameters.forTestingOnly(this.testedProtocolVersion),
+      TopologyConfig.forTesting,
       packageMetadataView = mock[PackageMetadataView],
       ledgerApiStore = Eval.now(mock[LedgerApiStore]),
       logicalSyncPersistentState = logical,
       loggerFactory = loggerFactory,
-      parameters = ParticipantNodeParameters.forTestingOnly(testedProtocolVersion),
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
     )

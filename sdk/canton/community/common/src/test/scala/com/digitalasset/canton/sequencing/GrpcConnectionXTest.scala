@@ -4,21 +4,12 @@
 package com.digitalasset.canton.sequencing
 
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.health.{HealthElement, HealthListener}
-import com.digitalasset.canton.metrics.CommonMockMetrics
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
 import com.digitalasset.canton.sequencing.ConnectionX.{ConnectionXError, ConnectionXState}
 import com.digitalasset.canton.sequencing.SequencerConnectionXStub.SequencerConnectionXStubError
-import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext}
 import io.grpc.Status
-import org.scalatest.Assertion
-import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-
-import scala.concurrent.blocking
-import scala.concurrent.duration.DurationInt
 
 class GrpcConnectionXTest
     extends AnyWordSpec
@@ -31,10 +22,7 @@ class GrpcConnectionXTest
     lazy val stubFactory = new SequencerConnectionXStubFactoryImpl(loggerFactory)
 
     "notify on state changes" in {
-      ResourceUtil.withResource(mkConnection()) { connection =>
-        val listener = new TestHealthListener(connection.health)
-        connection.health.registerOnHealthChange(listener)
-
+      withLowLevelConnection() { (connection, listener) =>
         connection.start()
         listener.shouldStabilizeOn(ConnectionXState.Started)
 
@@ -45,7 +33,7 @@ class GrpcConnectionXTest
     }
 
     "fail gRPC calls with invalid state if not started" in {
-      ResourceUtil.withResource(mkConnection()) { connection =>
+      withLowLevelConnection() { (connection, _) =>
         val stub = stubFactory.createStub(connection, MetricsContext.Empty)
         val result = stub.getApiName().futureValueUS
 
@@ -61,7 +49,7 @@ class GrpcConnectionXTest
     }
 
     "fail gRPC calls with gRPC error if there is no server" in {
-      ResourceUtil.withResource(mkConnection()) { connection =>
+      withLowLevelConnection() { (connection, _) =>
         connection.start()
 
         val stub = stubFactory.createStub(connection, MetricsContext.Empty)
@@ -82,43 +70,6 @@ class GrpcConnectionXTest
             status.getCode shouldBe Status.Code.UNAVAILABLE
         }
       }
-    }
-  }
-
-  private def mkConnection(): ConnectionX = {
-    val config = mkDummyConnectionConfig(0)
-
-    GrpcConnectionX(
-      config,
-      CommonMockMetrics.sequencerClient.connectionPool,
-      timeouts,
-      loggerFactory,
-    )
-  }
-}
-
-class TestHealthListener(val element: HealthElement) extends HealthListener with Matchers {
-  import scala.collection.mutable
-  import BaseTest.eventuallyForever
-
-  private val statesBuffer = mutable.ArrayBuffer[element.State]()
-
-  def shouldStabilizeOn[T](state: T): Assertion =
-    // Check that we reach the given state, and remain on it
-    // The default 2 seconds is a bit short when machines are under heavy load
-    eventuallyForever(timeUntilSuccess = 10.seconds) {
-      statesBuffer.last shouldBe state
-    }
-
-  def clear(): Unit = statesBuffer.clear()
-
-  override def name: String = s"${element.name}-test-listener"
-
-  override def poke()(implicit traceContext: TraceContext): Unit = blocking {
-    synchronized {
-      val state = element.getState
-
-      statesBuffer += state
     }
   }
 }

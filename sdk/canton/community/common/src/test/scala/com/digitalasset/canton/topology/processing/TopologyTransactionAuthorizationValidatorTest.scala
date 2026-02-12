@@ -73,7 +73,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
       validationIsFinal: Boolean = true,
   ) = {
     val validator =
-      new TopologyTransactionAuthorizationValidator(
+      new TopologyTransactionAuthorizationValidatorOld(
         Factory.syncCryptoClient.crypto.pureCrypto,
         store,
         validationIsFinal = validationIsFinal,
@@ -97,7 +97,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
   }
 
   def validate(
-      validator: TopologyTransactionAuthorizationValidator[SynchronizerCryptoPureApi],
+      validator: TopologyTransactionAuthorizationValidatorOld[SynchronizerCryptoPureApi],
       timestamp: CantonTimestamp,
       toValidate: Seq[GenericSignedTopologyTransaction],
       inStore: Map[MappingHash, GenericSignedTopologyTransaction],

@@ -9,6 +9,7 @@ import "com/digitalasset/canton/protocol/v30/sequencing.proto";
 import "com/digitalasset/canton/protocol/v30/traffic_control_parameters.proto";
 import "com/digitalasset/canton/sequencer/admin/v30/sequencer_initialization_snapshot.proto";
 import "com/digitalasset/canton/topology/admin/v30/common.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
@@ -40,6 +41,25 @@ service SequencerAdministrationService {
 
   // Disable members at the sequencer. Will prevent existing and new instances from connecting, and permit removing their data.
   rpc DisableMember(DisableMemberRequest) returns (DisableMemberResponse);
+
+  // Generate an authentication token for a member.
+  // Only use for troubleshooting purposes. Requires canton.features.enable-testing-commands = yes
+  rpc GenerateAuthenticationToken(GenerateAuthenticationTokenRequest) returns (GenerateAuthenticationTokenResponse);
+}
+
+message GenerateAuthenticationTokenRequest {
+  // Member for which the token is valid
+  string member = 1;
+  // Duration after which the token will expire.
+  // If unset, the maxTokenExpirationInterval configured on the sequencer will be used
+  google.protobuf.Duration expires_in = 2;
+}
+
+message GenerateAuthenticationTokenResponse {
+  // Auth token for the member
+  bytes token = 1;
+  // Timestamp when the token expires
+  google.protobuf.Timestamp expires_at = 2;
 }
 
 message TrafficControlStateRequest {

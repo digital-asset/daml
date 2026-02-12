@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology.processing
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{BatchAggregatorConfig, TopologyConfig}
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SynchronizerCryptoPureApi}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
@@ -43,12 +44,13 @@ abstract class InitialTopologySnapshotValidatorTest
   protected def mk(
       store: TopologyStore[TopologyStoreId.SynchronizerStore]
   ): (InitialTopologySnapshotValidator, TopologyStore[TopologyStoreId.SynchronizerStore]) = {
-
     val validator = new InitialTopologySnapshotValidator(
       new SynchronizerCryptoPureApi(defaultStaticSynchronizerParameters, crypto),
       store,
+      BatchAggregatorConfig.defaultsForTesting,
+      TopologyConfig.forTesting.copy(validateInitialTopologySnapshot = true),
       staticSynchronizerParameters = Some(defaultStaticSynchronizerParameters),
-      validateInitialSnapshot = true,
+      timeouts,
       loggerFactory,
       cleanupTopologySnapshot = true,
     )
@@ -211,6 +213,41 @@ abstract class InitialTopologySnapshotValidatorTest
 
     }
 
+    "treat transactions as equal if they were rejected in the snapshot and by the validator, even if the rejection reason is different" in {
+      val timestampForInit = SignedTopologyTransaction.InitialTopologySequencingTime
+
+      val correctTx = StoredTopologyTransaction(
+        SequencedTime(timestampForInit),
+        EffectiveTime(timestampForInit),
+        validUntil = None,
+        ns1k1_k1,
+        None,
+      )
+
+      val validatorIgnoresDifferencesInRejectionReason =
+        StoredTopologyTransaction(
+          SequencedTime(timestampForInit),
+          EffectiveTime(timestampForInit),
+          validUntil = Some(EffectiveTime(timestampForInit)),
+          // this should produce a rejection, because key1 did not sign, but the SignedTopologyTransaction
+          // claims that it is fully authorized and not a proposal
+          okmS1k7_k1.removeSignatures(Set(SigningKeys.key1.fingerprint)).value,
+          // this rejection differs from the rejection produced during validation
+          rejectionReason = Some(String300.tryCreate("some rejection reason")),
+        )
+
+      val (validator, _) = mkDefault()
+      val result = validator
+        .validateAndApplyInitialTopologySnapshot(
+          // include a valid transaction as well
+          StoredTopologyTransactions(Seq(correctTx, validatorIgnoresDifferencesInRejectionReason))
+        )
+        .value
+        .futureValueUS
+      result shouldBe Right(())
+
+    }
+
     "reject missing signatures of signing keys if the transaction is not in the genesis topology state" in {
 
       val timestampForInit = SignedTopologyTransaction.InitialTopologySequencingTime
@@ -275,7 +312,7 @@ abstract class InitialTopologySnapshotValidatorTest
       )
 
       {
-        // here it doesn't matter that ns1k1_k1 is actually a valid transaction,
+        // here it doesn't matter that ns2k2_k2 is actually a valid transaction,
         // but we want to test whether an inconsistency is reported
         val validatorDoesNotRejectTransaction =
           StoredTopologyTransaction(

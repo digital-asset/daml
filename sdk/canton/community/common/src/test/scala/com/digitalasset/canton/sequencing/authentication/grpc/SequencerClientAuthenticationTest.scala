@@ -63,7 +63,10 @@ class SequencerClientAuthenticationTest extends FixtureAsyncWordSpec with BaseTe
       new AuthenticationTokenManager(
         (_: TraceContext) =>
           EitherT.pure[FutureUnlessShutdown, Status](
-            AuthenticationTokenWithExpiry(clientNextTokenRefresh.get(), CantonTimestamp.Epoch)
+            AuthenticationTokenWithExpiry(
+              clientNextTokenRefresh.get(),
+              CantonTimestamp.ofEpochSecond(100),
+            )
           ),
         false,
         AuthenticationTokenManagerConfig(),

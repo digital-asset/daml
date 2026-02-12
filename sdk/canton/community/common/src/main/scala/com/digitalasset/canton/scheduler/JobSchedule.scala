@@ -129,6 +129,7 @@ final class ParticipantPruningCronSchedule(
     maxDuration: PositiveSeconds,
     retention: PositiveSeconds,
     val pruneInternallyOnly: Boolean,
+    val safeToPruneCommitmentState: Option[SafeToPruneCommitmentState],
     clock: Clock,
     logger: TracedLogger,
 ) extends PruningCronSchedule(cron, maxDuration, retention, clock, logger)

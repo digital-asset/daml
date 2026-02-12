@@ -206,6 +206,20 @@ class LedgerApiStore(
       )
     )
 
+  def lastRecordTimeBeforeOrAtSynchronizerOffset(
+      synchronizerId: SynchronizerId,
+      beforeOrAtOffsetInclusive: Offset,
+  )(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    executeSqlUS(metrics.index.db.lastRecordTimeBeforeOrAtSynchronizerOffset)(
+      eventStorageBackend.lastRecordTimeBeforeOrAtSynchronizerOffset(
+        synchronizerId,
+        beforeOrAtOffsetInclusive,
+      )
+    )
+
   def prunableContracts(
       fromExclusive: Option[Offset],
       toInclusive: Offset,

@@ -61,11 +61,15 @@ sealed trait ValidSentPeriodState extends CommitmentPeriodState {
 }
 
 object CommitmentPeriodState extends {
+  sealed trait CommitmentPeriodStateInOutstanding
+      extends CommitmentPeriodState
+      with ValidSentPeriodState
+
   case object NotCompared extends ValidSentPeriodState { val toInt = 1 }
-  case object Matched extends ValidSentPeriodState { val toInt = 2 }
-  case object Mismatched extends ValidSentPeriodState { val toInt = 3 }
+  case object Matched extends CommitmentPeriodStateInOutstanding { val toInt = 2 }
+  case object Mismatched extends CommitmentPeriodStateInOutstanding { val toInt = 3 }
   case object Buffered extends CommitmentPeriodState { val toInt = 4 }
-  case object Outstanding extends ValidSentPeriodState { val toInt = 5 }
+  case object Outstanding extends CommitmentPeriodStateInOutstanding { val toInt = 5 }
 
   private val states: Map[Int, CommitmentPeriodState] =
     Seq(NotCompared, Matched, Mismatched, Buffered, Outstanding).map(x => (x.toInt, x)).toMap

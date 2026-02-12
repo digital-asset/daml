@@ -131,25 +131,21 @@ final case class Hash private (
 
 object Hash {
 
-  implicit val setParameterHash: SetParameter[Hash] = (hash, pp) => {
-    import com.digitalasset.canton.resource.DbStorage.Implicits.setParameterByteString
-    pp.>>(hash.getCryptographicEvidence)
-  }
+  implicit def setParameterHash(implicit
+      setByteString: SetParameter[ByteString]
+  ): SetParameter[Hash] =
+    setByteString.contramap(_.getCryptographicEvidence)
 
-  implicit val getResultHash: GetResult[Hash] = GetResult { r =>
-    import com.digitalasset.canton.resource.DbStorage.Implicits.getResultByteString
-    tryFromByteString(r.<<)
-  }
+  implicit def getResultHash(implicit getByteString: GetResult[ByteString]): GetResult[Hash] =
+    getByteString.andThen(tryFromByteString)
 
-  implicit val setParameterOptionHash: SetParameter[Option[Hash]] = (hash, pp) => {
-    import com.digitalasset.canton.resource.DbStorage.Implicits.setParameterByteStringOption
-    pp.>>(hash.map(_.getCryptographicEvidence))
-  }
+  implicit def setParameterOptionHash(implicit
+      setByteString: SetParameter[Option[ByteString]]
+  ): SetParameter[Option[Hash]] = setByteString.contramap(_.map(_.getCryptographicEvidence))
 
-  implicit val getResultOptionHash: GetResult[Option[Hash]] = GetResult { r =>
-    import com.digitalasset.canton.resource.DbStorage.Implicits.getResultByteStringOption
-    (r.<<[Option[ByteString]]).map(bytes => tryFromByteString(bytes))
-  }
+  implicit def getResultOptionHash(implicit
+      getByteString: GetResult[Option[ByteString]]
+  ): GetResult[Option[Hash]] = getByteString.andThen(_.map(tryFromByteString))
 
   val getResultHashFromHexString = GetResult[Hash] { r =>
     val hexString = r.<<[String]

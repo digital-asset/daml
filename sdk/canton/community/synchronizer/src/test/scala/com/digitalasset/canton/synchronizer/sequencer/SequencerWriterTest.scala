@@ -77,6 +77,7 @@ class SequencerWriterTest extends AsyncWordSpec with BaseTest {
       sequencerMember = sequencerMember,
       blockSequencerMode = blockSequencerMode,
       loggerFactory = loggerFactory,
+      timeouts = timeouts,
       sequencerMetrics = SequencerMetrics.noop("sequencer-writer-test"),
     )
     val instanceIndex = 0

@@ -421,6 +421,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
           availableUpToInclusive = availableUpToInclusive,
         ),
         FutureSupervisor.Noop,
+        progressSupervisorO = None,
         SequencerTrafficConfig(),
         sequencingTimeLowerBoundExclusive =
           SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
@@ -1177,6 +1178,80 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
           )
         }
       }
+    }
+
+    def testConfirmationResponseCharge(freeConfirmationResponses: Boolean)(implicit
+        env: FixtureParam
+    ) = {
+      import env.*
+
+      val config = env.config.copy(freeConfirmationResponses = freeConfirmationResponses)
+
+      withSequencerAndRLM(config, clock) { case (sequencer, _rlm) =>
+        val messageContent = "hello"
+        val sender: ParticipantId = p11
+        // Request only addressed to a mediator (group) is categorized as a confirmation response
+        val recipients = Recipients.cc(mg0)
+        val request = createSendRequest(
+          sender,
+          messageContent,
+          recipients,
+          sequencingSubmissionCost = eventCostFunction(recipients, config),
+        )
+        request.isConfirmationResponse shouldBe true
+
+        if (freeConfirmationResponses) {
+          // Give no traffic to the sender
+          env.currentBalances.put(sender, Right(NonNegativeLong.zero)).discard
+        } else {
+          env.currentBalances.put(sender, Right(NonNegativeLong.tryCreate(500))).discard
+        }
+
+        for {
+          _ <- sequencer.sendAsyncSigned(sign(request)).valueOrFail("Send async")
+          messages <- readForMembers(List(sender), sequencer)
+          senderTraffic <- getStateFor(sender, sequencer)
+        } yield {
+          val expectedConsumedTraffic =
+            if (freeConfirmationResponses) 0L else messageContent.length.toLong
+          senderTraffic.value.extraTrafficConsumed.value shouldBe expectedConsumedTraffic
+
+          val expectedTrafficReceipt =
+            if (freeConfirmationResponses)
+              // The traffic receipt is empty, this effectively means the traffic state hasn't changed, which is expected since no traffic was charged
+              Option.empty[TrafficReceipt]
+            else
+              Some(
+                TrafficReceipt(
+                  consumedCost = NonNegativeLong.tryCreate(messageContent.length.toLong),
+                  extraTrafficConsumed = NonNegativeLong.tryCreate(messageContent.length.toLong),
+                  baseTrafficRemainder = NonNegativeLong.zero,
+                )
+              )
+          checkMessages(
+            Seq(
+              EventDetails(
+                previousTimestamp = None,
+                to = sender,
+                messageId = Some(request.messageId),
+                trafficReceipt = expectedTrafficReceipt,
+                EnvelopeDetails(messageContent, recipients),
+              )
+            ),
+            messages,
+            expectEnvelopes = false,
+          )
+        }
+      }
+    }
+
+    "charge for confirmation responses when freeConfirmationResponses = false" in { implicit env =>
+      testConfirmationResponseCharge(freeConfirmationResponses = false).futureValueUS
+    }
+
+    "not charge for confirmation responses when freeConfirmationResponses = true" in {
+      implicit env =>
+        testConfirmationResponseCharge(freeConfirmationResponses = true).futureValueUS
     }
   }
 }

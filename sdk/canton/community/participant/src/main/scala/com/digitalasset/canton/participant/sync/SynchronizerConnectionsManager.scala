@@ -22,7 +22,7 @@ import com.digitalasset.canton.data.{
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.*
-import com.digitalasset.canton.health.MutableHealthComponent
+import com.digitalasset.canton.health.{HealthQuasiComponent, MutableHealthComponent}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.*
@@ -138,6 +138,8 @@ private[sync] class SynchronizerConnectionsManager(
     MutableHealthComponent(loggerFactory, SyncEphemeralState.healthName, timeouts)
   val sequencerClientHealth: MutableHealthComponent =
     MutableHealthComponent(loggerFactory, SequencerClient.healthName, timeouts)
+  val sequencerConnectionPoolHealthRef =
+    new AtomicReference[() => Seq[HealthQuasiComponent]](() => Seq.empty)
   val acsCommitmentProcessorHealth: MutableHealthComponent =
     MutableHealthComponent(loggerFactory, AcsCommitmentProcessor.healthName, timeouts)
 
@@ -952,9 +954,14 @@ private[sync] class SynchronizerConnectionsManager(
             )
           )
 
+          // TODO(i23328): Aggregate the health of all connected synchronizers
           _ = connectedSynchronizerHealth.set(connectedSynchronizer)
           _ = ephemeralHealth.set(connectedSynchronizer.ephemeral)
           _ = sequencerClientHealth.set(connectedSynchronizer.sequencerClient.healthComponent)
+          _ = sequencerConnectionPoolHealthRef.set(() =>
+            connectedSynchronizer.sequencerClient.getConnectionPoolHealthStatus
+          )
+
           _ = acsCommitmentProcessorHealth.set(
             connectedSynchronizer.acsCommitmentProcessor.healthComponent
           )
