@@ -37,6 +37,8 @@ import           DA.Daml.LF.Proto3.Interned    as I
 import           DA.Daml.LF.Proto3.InternedMap
 import           DA.Daml.LF.Proto3.InternedArr
 
+import           DA.Daml.LF.Proto3.WellInterned
+
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as P
 
 import qualified Proto3.Suite as P (Enumerated (..))
@@ -1119,8 +1121,11 @@ encodePackage (Package version mods metadata imports) =
         packageInternedTypes = packInternedTypes internedTypesMap
         packageInternedExprs = packInternedExprs internedExprsMap
         packageImportsSum = encodePkgImports version importList
+        package = P.Package{..}
     in
-    P.Package{..}
+      case packageWellInterned package of
+        Left msg | version `supports` featureFlatArchive -> error msg
+        _ -> package
 
 -- | NOTE(MH): This functions is used for sanity checking. The actual checks
 -- are done in the conversion to Daml-LF.
