@@ -568,6 +568,7 @@ scala_library(
         "@canton_maven//:com_google_auth_google_auth_library_credentials",
         "@canton_maven//:com_google_auth_google_auth_library_oauth2_http",
         "@canton_maven//:com_google_cloud_google_cloud_kms",
+        "@canton_maven//:org_apache_commons_commons_compress",
         "@canton_maven//:org_flywaydb_flyway_core",
         "@canton_maven//:software_amazon_awssdk_auth",
         "@canton_maven//:software_amazon_awssdk_aws_core",
