@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_intel")
+load("@daml_versions_data//:data.bzl", "DATA")
+
+print("DEBUG: Loaded JSON Data:", DATA)
 
 def _to_dotted_version(v):
     """Converts a single version struct to a string like "2.2"."""
