@@ -819,6 +819,7 @@ scala_library(
         "//observability/metrics",
         "//observability/tracing",
         "@canton_maven//:org_flywaydb_flyway_core",
+        "@canton_maven//:org_apache_commons_commons_compress",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
