@@ -1281,6 +1281,7 @@ scala_library(
         ":community_util-observability",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/data",
+        "//daml-lf/transaction",
         "//observability/metrics",
         "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
