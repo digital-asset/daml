@@ -1050,6 +1050,7 @@ scala_library(
         "//libs-scala/scala-utils",
         "//observability/metrics",
         "//observability/tracing",
+        "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_blemale_scaffeine_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
