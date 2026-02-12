@@ -64,7 +64,7 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.ActiveRequestsMetrics.GrpcServerMetricsX
-import com.digitalasset.canton.metrics.{DbStorageMetrics, DeclarativeApiMetrics}
+import com.digitalasset.canton.metrics.{CacheMetrics, DbStorageMetrics, DeclarativeApiMetrics}
 import com.digitalasset.canton.networking.grpc.{
   CantonGrpcUtil,
   CantonMutableHandlerRegistry,
@@ -177,7 +177,8 @@ trait BaseMetrics {
   def openTelemetryMetricsFactory: LabeledMetricsFactory
 
   def grpcMetrics: GrpcServerMetricsX
-
+  final lazy val topologyCache: CacheMetrics =
+    new CacheMetrics("topology", openTelemetryMetricsFactory)
   def healthMetrics: HealthMetrics
   def storageMetrics: DbStorageMetrics
   val declarativeApiMetrics: DeclarativeApiMetrics
@@ -242,6 +243,8 @@ abstract class CantonNodeBootstrapImpl[
       nodeId,
       clock,
       crypto,
+      parameters.batchingConfig.topologyCacheAggregator,
+      config.topology,
       authorizedStore,
       exitOnFatalFailures = parameters.exitOnFatalFailures,
       bootstrapStageCallback.timeouts,
@@ -428,6 +431,9 @@ abstract class CantonNodeBootstrapImpl[
           val (healthService, livenessService) = mkNodeHealthService(storage)
           addCloseable(healthService)
           addCloseable(livenessService)
+          addCloseable(new AutoCloseable() {
+            override def close(): Unit = metrics.topologyCache.closeAcquired()
+          })
 
           arguments.parameterConfig.watchdog
             .filter(_.enabled)
@@ -737,10 +743,12 @@ abstract class CantonNodeBootstrapImpl[
       val snapshotValidator = new InitialTopologySnapshotValidator(
         crypto.pureCrypto,
         temporaryTopologyStore,
+        parameters.batchingConfig.topologyCacheAggregator,
+        config.topology,
         // there are no synchronizer parameters here, so we cannot pass them.
         // as we are only expecting namespace delegations that end up in the authorized store, this is fine
         staticSynchronizerParameters = None,
-        validateInitialSnapshot = config.topology.validateInitialTopologySnapshot,
+        parameters.processingTimeouts,
         loggerFactory = this.loggerFactory,
       )
 
@@ -937,6 +945,8 @@ abstract class CantonNodeBootstrapImpl[
         nodeId,
         clock,
         crypto,
+        parameters.batchingConfig.topologyCacheAggregator,
+        config.topology,
         futureSupervisor,
         parameters.processingTimeouts,
         bootstrapStageCallback.loggerFactory,

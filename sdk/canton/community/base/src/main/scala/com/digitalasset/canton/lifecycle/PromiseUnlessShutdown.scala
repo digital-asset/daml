@@ -36,9 +36,16 @@ object PromiseUnlessShutdown {
       futureSupervisor: FutureSupervisor,
       logAfter: Duration = 10.seconds,
       logLevel: Level = Level.DEBUG,
+      warnAction: => Unit = (),
   )(implicit ecl: ErrorLoggingContext): PromiseUnlessShutdown[A] = {
     val supervisedPromise =
-      new SupervisedPromise[UnlessShutdown[A]](description, futureSupervisor, logAfter, logLevel)
+      new SupervisedPromise[UnlessShutdown[A]](
+        description,
+        futureSupervisor,
+        logAfter,
+        logLevel,
+        warnAction,
+      )
     wrap(supervisedPromise)
   }
 

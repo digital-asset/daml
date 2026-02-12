@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.RequireTypes.{PositiveDouble, PositiveInt}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.block.AsyncWriterParameters
+import com.digitalasset.canton.synchronizer.sequencer.ProgressSupervisorConfig
 import io.scalaland.chimney.dsl.*
 
 /** Async block sequencer writer control parameters
@@ -61,6 +62,9 @@ object AsyncWriterConfig {
   *   strictly greater than sequencingTimeLowerBoundExclusive
   * @param asyncWriter
   *   controls the async writer
+  * @param progressSupervisor
+  *   if defined, enables the progress supervisor to monitor if the sequencer stops progressing and
+  *   to collect diagnostic data
   */
 final case class SequencerNodeParameterConfig(
     override val alphaVersionSupport: Boolean = false,
@@ -70,6 +74,7 @@ final case class SequencerNodeParameterConfig(
     override val batching: BatchingConfig = BatchingConfig(),
     override val caching: CachingConfigs = CachingConfigs(),
     override val watchdog: Option[WatchdogConfig] = None,
+    progressSupervisor: Option[ProgressSupervisorConfig] = None,
     unsafeEnableOnlinePartyReplication: Boolean = false,
     sequencingTimeLowerBoundExclusive: Option[CantonTimestamp] =
       SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,

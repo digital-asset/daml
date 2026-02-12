@@ -7,8 +7,8 @@ import cats.Eval
 import cats.data.EitherT
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SynchronizerCrypto}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -92,6 +92,7 @@ class InMemoryPhysicalSyncPersistentState(
     override val physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     parameters: ParticipantNodeParameters,
+    topologyConfig: TopologyConfig,
     packageMetadataView: PackageMetadataView,
     ledgerApiStore: Eval[LedgerApiStore],
     logicalSyncPersistentState: LogicalSyncPersistentState,
@@ -123,6 +124,8 @@ class InMemoryPhysicalSyncPersistentState(
     clock,
     crypto,
     staticSynchronizerParameters,
+    topologyCacheAggregatorConfig = parameters.batchingConfig.topologyCacheAggregator,
+    topologyConfig = topologyConfig,
     topologyStore,
     synchronizerOutboxQueue,
     dispatchQueueBackpressureLimit = parameters.general.dispatchQueueBackpressureLimit,

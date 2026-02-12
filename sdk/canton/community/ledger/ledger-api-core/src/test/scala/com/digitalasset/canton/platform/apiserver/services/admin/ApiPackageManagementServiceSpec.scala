@@ -46,6 +46,7 @@ import com.digitalasset.canton.protocol.{
   LfSubmittedTransaction,
   LfVersionedTransaction,
 }
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
   ExternalPartyOnboardingDetails,
@@ -247,6 +248,7 @@ object ApiPackageManagementServiceSpec {
     override def prune(
         pruneUpToInclusive: Offset,
         submissionId: SubmissionId,
+        safeToPruneCommitmentState: Option[SafeToPruneCommitmentState],
     ): CompletionStage[PruningResult] =
       throw new UnsupportedOperationException()
 

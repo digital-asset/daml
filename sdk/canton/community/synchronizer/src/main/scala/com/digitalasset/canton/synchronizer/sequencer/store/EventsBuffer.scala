@@ -7,7 +7,7 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.CacheMetrics
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{BytesUnit, ErrorUtil}
 import com.google.common.annotations.VisibleForTesting
@@ -46,7 +46,7 @@ import scala.math.Ordering.Implicits.*
 class EventsBuffer(
     maxEventsBufferMemory: BytesUnit,
     override val loggerFactory: NamedLoggerFactory,
-    cacheMetrics: CacheMetrics,
+    sequencerMetrics: SequencerMetrics,
 ) extends NamedLogging {
 
   // This implementation was tested against an implementation with mutable.ArrayDeque and was considered significantly faster
@@ -59,8 +59,17 @@ class EventsBuffer(
   private val memoryUsed = new AtomicReference[BytesUnit](BytesUnit(0))
   implicit private val metricsContext: MetricsContext = MetricsContext.Empty
 
-  cacheMetrics.registerSizeGauge(() => eventsBuffer.get().size.toLong)
-  cacheMetrics.registerWeightGauge(() => memoryUsed.get().bytes)
+  sequencerMetrics.eventBuffer.registerSizeGauge(() => eventsBuffer.get().size.toLong)
+  sequencerMetrics.eventBuffer.registerWeightGauge(() => memoryUsed.get().bytes)
+
+  private def updateTimestampMetrics(): Unit = {
+    sequencerMetrics.headTimestamp.updateValue(
+      eventsBuffer.get().headOption.map(_.timestamp.toMicros).getOrElse(0L)
+    )
+    sequencerMetrics.lastTimestamp.updateValue(
+      eventsBuffer.get().lastOption.map(_.timestamp.toMicros).getOrElse(0L)
+    )
+  }
 
   /** Appends events up to the memory limit to the buffer. May drop already buffered events and may
     * not buffer all provided events to stay within the memory limit.
@@ -126,15 +135,15 @@ class EventsBuffer(
         case None | Some((_, `targetSize`)) =>
           val shrinkedBuffer = bufferWithAddedElements.takeRight(1)
           val shrinkedMemory = EventsBuffer.approximateSize(shrinkedBuffer)
-          cacheMetrics.evictionWeight.inc((newMemory - shrinkedMemory).bytes)
-          cacheMetrics.evictionCount.inc(targetSize.toLong - 1)
+          sequencerMetrics.eventBuffer.evictionWeight.inc((newMemory - shrinkedMemory).bytes)
+          sequencerMetrics.eventBuffer.evictionCount.inc(targetSize.toLong - 1)
           checkedUpdate(currentBuffer, currentMemory)(shrinkedBuffer, shrinkedMemory)
 
         case Some((memoryFreedUp, indexToSplitAt)) =>
           val (_, bufferBelowMemoryLimit) =
             bufferWithAddedElements.splitAt(indexToSplitAt)
-          cacheMetrics.evictionWeight.inc(memoryFreedUp.bytes)
-          cacheMetrics.evictionCount.inc(indexToSplitAt.toLong)
+          sequencerMetrics.eventBuffer.evictionWeight.inc(memoryFreedUp.bytes)
+          sequencerMetrics.eventBuffer.evictionCount.inc(indexToSplitAt.toLong)
           checkedUpdate(currentBuffer, currentMemory)(
             bufferBelowMemoryLimit,
             newMemory - memoryFreedUp,
@@ -144,6 +153,8 @@ class EventsBuffer(
       checkedUpdate(currentBuffer, currentMemory)(bufferWithAddedElements, newMemory)
     }
 
+    updateTimestampMetrics()
+
     // signal that the buffer is at or exceeded the memory limit
     memoryUsed.get() == maxEventsBufferMemory || eventsBuffer.get().sizeIs < targetSize
   }
@@ -151,11 +162,13 @@ class EventsBuffer(
   /** Empty the buffer for events, i.e. in case of a writer failure
     */
 
-  final def invalidateBuffer()(implicit traceContext: TraceContext): Unit =
+  final def invalidateBuffer()(implicit traceContext: TraceContext): Unit = {
     checkedUpdate(eventsBefore = eventsBuffer.get(), memoryBefore = memoryUsed.get())(
       Vector.empty,
       BytesUnit.zero,
     )
+    updateTimestampMetrics()
+  }
 
   final def snapshot(): Vector[Sequenced[IdOrPayload]] = eventsBuffer.get()
 }

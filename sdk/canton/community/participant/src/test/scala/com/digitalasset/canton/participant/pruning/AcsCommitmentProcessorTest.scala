@@ -70,6 +70,7 @@ import com.digitalasset.canton.pruning.{
   ConfigForSlowCounterParticipants,
   ConfigForSynchronizerThresholds,
 }
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
@@ -360,6 +361,11 @@ sealed trait AcsCommitmentProcessorBaseTest
     ParticipantTestMetrics.synchronizer.commitments.largestDistinguishedCounterParticipantLatency
       .updateValue(0)
     ParticipantTestMetrics.synchronizer.commitments.largestCounterParticipantLatency.updateValue(0)
+    ParticipantTestMetrics.synchronizer.commitments.lastIncomingReceived.updateValue(0)
+    ParticipantTestMetrics.synchronizer.commitments.lastIncomingProcessed.updateValue(0)
+    ParticipantTestMetrics.synchronizer.commitments.lastLocallyCompleted.updateValue(0)
+    ParticipantTestMetrics.synchronizer.commitments.lastLocallyCheckpointed.updateValue(0)
+
     val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
 
     val acsCommitmentProcessor = AcsCommitmentProcessor(
@@ -384,6 +390,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       new SimClock(loggerFactory = loggerFactory),
       exitOnFatalFailures = true,
       BatchingConfig(),
+      asynchronousInitialization = true,
       // do not delay sending commitments for testing, because tests often expect to see commitments after an interval
       Some(CommitmentSendDelay(Some(NonNegativeProportion.zero), Some(NonNegativeProportion.zero))),
       increasePerceivedComputationTimeForCommitments = Option.when(
@@ -1310,6 +1317,12 @@ class AcsCommitmentProcessorTest
         computed <- store.searchComputedBetween(CantonTimestamp.Epoch, timeProofs.lastOption.value)
         received <- store.searchReceivedBetween(CantonTimestamp.Epoch, timeProofs.lastOption.value)
       } yield {
+        import ParticipantTestMetrics.synchronizer.commitments
+        commitments.lastIncomingReceived.getValue shouldBe ts(10).toMicros
+        commitments.lastIncomingProcessed.getValue shouldBe ts(10).toMicros
+        commitments.lastLocallyCompleted.getValue shouldBe ts(15).toMicros
+        commitments.lastLocallyCheckpointed.getValue shouldBe ts(15).toMicros
+
         sequencerClient.requests.size shouldBe 2
         assert(computed.size === 2)
         assert(received.size === 2)
@@ -1440,7 +1453,8 @@ class AcsCommitmentProcessorTest
       val acsCommitmentStore = mock[AcsCommitmentStore]
       when(
         acsCommitmentStore.noOutstandingCommitments(
-          any[CantonTimestamp]
+          any[CantonTimestamp],
+          any[Option[SafeToPruneCommitmentState]],
         )(
           any[TraceContext]
         )
@@ -1476,7 +1490,8 @@ class AcsCommitmentProcessorTest
       val acsCommitmentStore = mock[AcsCommitmentStore]
       when(
         acsCommitmentStore.noOutstandingCommitments(
-          any[CantonTimestamp]
+          any[CantonTimestamp],
+          any[Option[SafeToPruneCommitmentState]],
         )(
           any[TraceContext]
         )
@@ -1521,7 +1536,8 @@ class AcsCommitmentProcessorTest
       val acsCommitmentStore = mock[AcsCommitmentStore]
       when(
         acsCommitmentStore.noOutstandingCommitments(
-          any[CantonTimestamp]
+          any[CantonTimestamp],
+          any[Option[SafeToPruneCommitmentState]],
         )(
           any[TraceContext]
         )
@@ -1619,7 +1635,8 @@ class AcsCommitmentProcessorTest
 
       when(
         acsCommitmentStore.noOutstandingCommitments(
-          any[CantonTimestamp]
+          any[CantonTimestamp],
+          any[Option[SafeToPruneCommitmentState]],
         )(
           any[TraceContext]
         )
@@ -1682,7 +1699,8 @@ class AcsCommitmentProcessorTest
       val acsCommitmentStore = mock[AcsCommitmentStore]
       when(
         acsCommitmentStore.noOutstandingCommitments(
-          any[CantonTimestamp]
+          any[CantonTimestamp],
+          any[Option[SafeToPruneCommitmentState]],
         )(
           any[TraceContext]
         )
@@ -2132,123 +2150,6 @@ class AcsCommitmentProcessorTest
       )
       snap3.delta.keySet shouldBe Set(SortedSet(internalizedAlice, internalizedCarol))
       snap3.deleted shouldBe Set.empty
-    }
-
-    "running commitments work as expected with garbage collection" in {
-      val rc =
-        new InternalizedRunningCommitments(RecordTime.MinValue, TrieMap.empty, mockStringInterning)
-
-      rc.watermark shouldBe RecordTime.MinValue
-      rc.snapshot(gc = false) shouldBe CommitmentSnapshot[InternedPartyId](
-        RecordTime.MinValue,
-        Map.empty,
-        Map.empty,
-        Set.empty,
-      )
-      val ch1 = AcsChange(
-        activations = Map(
-          coid(0, 0) ->
-            ContractStakeholdersAndReassignmentCounter(
-              Set(alice, bob),
-              initialReassignmentCounter,
-            ),
-          coid(0, 1) ->
-            ContractStakeholdersAndReassignmentCounter(
-              Set(bob, carol),
-              initialReassignmentCounter,
-            ),
-        ),
-        deactivations = Map.empty,
-      )
-      rc.update(rt(1, 0), ch1)
-      rc.watermark shouldBe rt(1, 0)
-      val snap1 = rc.snapshot(gc = false)
-      snap1.recordTime shouldBe rt(1, 0)
-      snap1.active.keySet shouldBe Set(
-        SortedSet(internalizedAlice, internalizedBob),
-        SortedSet(internalizedBob, internalizedCarol),
-      )
-      snap1.delta.keySet shouldBe Set(
-        SortedSet(internalizedAlice, internalizedBob),
-        SortedSet(internalizedBob, internalizedCarol),
-      )
-      snap1.deleted shouldBe Set.empty
-
-      val ch2 = AcsChange(
-        deactivations = Map(
-          coid(0, 0) -> ContractStakeholdersAndReassignmentCounter(
-            Set(alice, bob),
-            initialReassignmentCounter,
-          )
-        ),
-        activations = Map(
-          coid(1, 1) ->
-            ContractStakeholdersAndReassignmentCounter(
-              Set(alice, carol),
-              initialReassignmentCounter,
-            )
-        ),
-      )
-      rc.update(rt(1, 1), ch2)
-      rc.watermark shouldBe rt(1, 1)
-      val snap2 = rc.snapshot(gc = false)
-      snap2.recordTime shouldBe rt(1, 1)
-      snap2.active.keySet should contain theSameElementsAs Set(
-        SortedSet(internalizedAlice, internalizedBob),
-        SortedSet(internalizedAlice, internalizedCarol),
-        SortedSet(internalizedBob, internalizedCarol),
-      )
-      // doesn't contain (internalizedAlice, internalizedBob) because delta doesn't contain deleted
-      snap2.delta.keySet should contain theSameElementsAs Set(
-        SortedSet(internalizedAlice, internalizedCarol),
-        SortedSet(internalizedBob, internalizedCarol),
-      )
-      snap2.deleted shouldBe Set(SortedSet(internalizedAlice, internalizedBob))
-
-      val ch3 = AcsChange(
-        deactivations = Map.empty,
-        activations = Map(
-          coid(2, 1) ->
-            ContractStakeholdersAndReassignmentCounter(
-              Set(alice, carol),
-              initialReassignmentCounter,
-            )
-        ),
-      )
-      rc.update(rt(3, 0), ch3)
-      val snap3 = rc.snapshot(gc = false)
-      snap3.recordTime shouldBe rt(3, 0)
-      snap3.active.keySet should contain theSameElementsAs Set(
-        SortedSet(internalizedAlice, internalizedBob),
-        SortedSet(internalizedAlice, internalizedCarol),
-        SortedSet(internalizedBob, internalizedCarol),
-      )
-      snap3.delta.keySet should contain theSameElementsAs Set(
-        SortedSet(internalizedAlice, internalizedCarol),
-        SortedSet(internalizedBob, internalizedCarol),
-      )
-      snap3.deleted shouldBe Set(SortedSet(internalizedAlice, internalizedBob))
-
-      val snap3WithGc = rc.snapshot()
-      snap3WithGc.recordTime shouldBe rt(3, 0)
-      snap3WithGc.active.keySet should contain theSameElementsAs Set(
-        SortedSet(internalizedAlice, internalizedCarol),
-        SortedSet(internalizedBob, internalizedCarol),
-      )
-      snap3WithGc.delta.keySet should contain theSameElementsAs Set(
-        SortedSet(internalizedAlice, internalizedCarol),
-        SortedSet(internalizedBob, internalizedCarol),
-      )
-      snap3WithGc.deleted shouldBe Set(SortedSet(internalizedAlice, internalizedBob))
-
-      val snap4WithGc = rc.snapshot()
-      snap4WithGc.recordTime shouldBe rt(3, 0)
-      snap4WithGc.active.keySet should contain theSameElementsAs Set(
-        SortedSet(internalizedAlice, internalizedCarol),
-        SortedSet(internalizedBob, internalizedCarol),
-      )
-      snap4WithGc.delta.keySet shouldBe empty
-      snap4WithGc.deleted shouldBe empty
     }
 
     "contracts differing by reassignment counter result in different commitments if the PV support reassignment counters" in {
@@ -3715,9 +3616,7 @@ class AcsCommitmentProcessorTest
               changes.foreach { case (recordTime, change) =>
                 processor.publish(recordTime, change)
               }
-              for {
-                _ <- processor.flush()
-              } yield ()
+              processor.flush()
             },
             // there should be two mismatches
             // however, since buffered remote commitments are deleted asynchronously, it can happen that they
@@ -3758,6 +3657,12 @@ class AcsCommitmentProcessorTest
           assert(received.size === 5)
           // cannot prune past the mismatch 25-30, because there are no commitments that match past this point
           assert(outstanding.contains(toc(25).timestamp))
+
+          import ParticipantTestMetrics.synchronizer.commitments
+          commitments.lastIncomingReceived.getValue shouldBe ts(30).toMicros
+          commitments.lastIncomingProcessed.getValue shouldBe ts(30).toMicros
+          commitments.lastLocallyCompleted.getValue shouldBe ts(55).toMicros
+          commitments.lastLocallyCheckpointed.getValue shouldBe ts(55).toMicros
         })
       }
 

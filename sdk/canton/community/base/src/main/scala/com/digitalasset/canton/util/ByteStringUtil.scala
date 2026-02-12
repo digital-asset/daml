@@ -12,9 +12,10 @@ import com.digitalasset.canton.serialization.{
   MaxByteToDecompressExceeded,
 }
 import com.google.protobuf.ByteString
+import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 
 import java.io.{ByteArrayOutputStream, EOFException}
-import java.util.zip.{GZIPInputStream, GZIPOutputStream, ZipException}
+import java.util.zip.{GZIPOutputStream, ZipException}
 import scala.annotation.tailrec
 
 object ByteStringUtil {
@@ -57,8 +58,10 @@ object ByteStringUtil {
       bytes: ByteString,
       maxBytesLimit: Option[Int],
   ): Either[DeserializationError, ByteString] =
+    // prefer GzipCompressorInputStream over GZIPInputStream, because it doesn't use exceptions for internal
+    // control flow, as GZIPInputStream does.
     ResourceUtil
-      .withResourceEither(new GZIPInputStream(bytes.newInput())) { gunzipper =>
+      .withResourceEither(new GzipCompressorInputStream(bytes.newInput())) { gunzipper =>
         maxBytesLimit match {
           case None =>
             Right(ByteString.readFrom(gunzipper))

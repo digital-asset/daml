@@ -498,6 +498,10 @@ class MainIndexDBMetrics(
     "last_synchronizer_offset_before_or_at_record_time"
   )
 
+  val lastRecordTimeBeforeOrAtSynchronizerOffset: DatabaseMetrics = createDbMetrics(
+    "last_record_time_before_or_at_synchronizer_offset"
+  )
+
   val prunableContracts: DatabaseMetrics = createDbMetrics("pruneable_contracts")
 
   object translation {

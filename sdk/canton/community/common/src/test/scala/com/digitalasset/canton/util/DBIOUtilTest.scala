@@ -7,7 +7,6 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
-import com.digitalasset.canton.resource.DbStorage.Implicits.monadDBIO
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
 import com.digitalasset.canton.tracing.TraceContext
 import org.postgresql.util.{PSQLException, PSQLState}

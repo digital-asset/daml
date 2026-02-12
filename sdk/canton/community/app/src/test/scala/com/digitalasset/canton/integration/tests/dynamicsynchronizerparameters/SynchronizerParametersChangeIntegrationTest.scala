@@ -280,6 +280,7 @@ sealed trait SynchronizerParametersChangeIntegrationTest
                 setBalanceRequestSubmissionWindowSize = 10.minutes,
                 enforceRateLimiting = false,
                 baseEventCost = NonNegativeLong.zero,
+                freeConfirmationResponses = true,
               )
             ),
           ),

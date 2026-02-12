@@ -3,7 +3,9 @@
 
 package com.digitalasset.canton.config
 
+import ch.qos.logback.classic.Level
 import com.digitalasset.canton.config
+import com.digitalasset.canton.config.CantonConfigValidator.validateAll
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 
 /** Detailed logging configurations
@@ -40,7 +42,27 @@ final case class LoggingConfig(
       LoggingConfig.defaultDelayLoggingThreshold,
     jvmGc: GCLoggingConfig = GCLoggingConfig(),
     queryCost: Option[QueryCostMonitoringConfig] = None,
+    startup: Option[StartupLoggingConfig] = None,
 ) extends UniformCantonConfigValidation
+
+/** Enable logging at a different level for a little while on startup
+  * @param logLevel
+  *   Log level to set at startup (defaults to DEBUG)
+  * @param resetAfter
+  *   Timeout after which to reset the log level to the original one
+  */
+final case class StartupLoggingConfig(
+    logLevel: Level = Level.DEBUG,
+    resetAfter: config.PositiveFiniteDuration,
+) extends UniformCantonConfigValidation
+
+object StartupLoggingConfig {
+  implicit val logLevelCantonConfigValidator: CantonConfigValidator[Level] = validateAll
+
+  implicit val startupLoggingConfigCantonConfigValidator
+      : CantonConfigValidator[StartupLoggingConfig] =
+    CantonConfigValidatorDerivation[StartupLoggingConfig]
+}
 
 /** Configure GC logging
   *

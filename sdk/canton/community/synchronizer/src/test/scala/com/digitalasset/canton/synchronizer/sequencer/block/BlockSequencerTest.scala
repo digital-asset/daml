@@ -155,6 +155,7 @@ class BlockSequencerTest
       sequencer1,
       blockSequencerMode = true,
       loggerFactory,
+      timeouts = timeouts,
       sequencerMetrics = sequencerMetrics,
     )
     private val storage = new MemoryStorage(loggerFactory, timeouts)
@@ -165,6 +166,7 @@ class BlockSequencerTest
           sequencer1,
           blockSequencerMode = true,
           loggerFactory,
+          timeouts = timeouts,
           sequencerMetrics = sequencerMetrics,
         ),
         loggerFactory,

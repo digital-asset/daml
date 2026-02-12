@@ -768,15 +768,11 @@ object DbLockedConnection {
               connectionConfig.healthCheckTimeout.duration.toMillis.toInt,
             )
 
-          def toSecondsOrDefault(d: Option[PositiveFiniteDuration]): Int =
-            d.fold(0)(_.toSecondsTruncated(tracedLogger).unwrap)
-
-          // Using 0 values results in using the system defaults
-          val keepAliveIdle = toSecondsOrDefault(connectionConfig.keepAliveIdle.map(_.toInternal))
-          val keepAliveInterval = toSecondsOrDefault(
-            connectionConfig.keepAliveInterval.map(_.toInternal)
-          )
-          val keepAliveCount = connectionConfig.keepAliveCount.getOrElse(0)
+          val keepAliveIdle =
+            connectionConfig.keepAliveIdle.toInternal.toSecondsTruncated(tracedLogger).unwrap
+          val keepAliveInterval =
+            connectionConfig.keepAliveInterval.toInternal.toSecondsTruncated(tracedLogger).unwrap
+          val keepAliveCount = connectionConfig.keepAliveCount
           val setKeepAliveSettings = DBIO
             .seq(
               sqlu"SET tcp_keepalives_idle TO #$keepAliveIdle",

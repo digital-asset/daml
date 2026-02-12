@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.sequencing
 
+import com.daml.nameof.NameOf
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -16,6 +17,7 @@ import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
   HasRunOnClosing,
   PromiseUnlessShutdown,
+  RunOnClosing,
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -83,6 +85,18 @@ class SequencerAggregator(
     new ArrayBlockingQueue[SequencedSerializedEvent](eventInboxSize.unwrap)
 
   private val sequenceData = mutable.TreeMap.empty[CantonTimestamp, SequencerMessageData]
+
+  runOnClose(new RunOnClosing {
+    override def name: String = "abort-pending-sequencer-aggregations"
+
+    override def done: Boolean = sequenceData.view.values.forall(_.promise.isCompleted)
+
+    override def run()(implicit traceContext: TraceContext): Unit =
+      lock.exclusive {
+        sequenceData.view.values
+          .foreach(_.promise.shutdown_())
+      }
+  }).discard
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var cursor: Option[CantonTimestamp] = None
@@ -179,28 +193,30 @@ class SequencerAggregator(
         )
       )
     } else
-      try {
-        lock.exclusive {
-          if (cursor.forall(message.timestamp > _)) {
-            val sequencerMessageData = updatedSequencerMessageData(sequencerId, message)
-            sequenceData.put(message.timestamp, sequencerMessageData).discard
+      synchronizeWithClosing(NameOf.functionFullName)(
+        try {
+          lock.exclusive {
+            if (cursor.forall(message.timestamp > _)) {
+              val sequencerMessageData = updatedSequencerMessageData(sequencerId, message)
+              sequenceData.put(message.timestamp, sequencerMessageData).discard
 
-            val (nextMinimumTimestamp, nextData) =
-              sequenceData.headOption.getOrElse(
-                (message.timestamp, sequencerMessageData)
-              ) // returns min message.timestamp
+              val (nextMinimumTimestamp, nextData) =
+                sequenceData.headOption.getOrElse(
+                  (message.timestamp, sequencerMessageData)
+                ) // returns min message.timestamp
 
-            pushDownstreamIfConsensusIsReached(nextMinimumTimestamp, nextData)
+              pushDownstreamIfConsensusIsReached(nextMinimumTimestamp, nextData)
 
-            sequencerMessageData.promise.futureUS.map(_.map(_ == sequencerId))
-          } else
-            FutureUnlessShutdown.pure(Right(false))
+              sequencerMessageData.promise.futureUS.map(_.map(_ == sequencerId))
+            } else
+              FutureUnlessShutdown.pure(Right(false))
+          }
+        } catch {
+          case t: Throwable =>
+            logger.error("Error while combining and merging event", t)
+            FutureUnlessShutdown.failed(t)
         }
-      } catch {
-        case t: Throwable =>
-          logger.error("Error while combining and merging event", t)
-          FutureUnlessShutdown.failed(t)
-      }
+      )
 
   private def pushDownstreamIfConsensusIsReached(
       nextMinimumTimestamp: CantonTimestamp,
@@ -257,15 +273,8 @@ class SequencerAggregator(
         )
       }
     }
-
-  @SuppressWarnings(Array("NonUnitForEach"))
-  override protected def onClosed(): Unit =
-    lock.exclusive {
-      sequenceData.view.values
-        .foreach(_.promise.shutdown_())
-    }
-
 }
+
 object SequencerAggregator {
   final case class MessageAggregationConfig(
       expectedSequencersO: Option[NonEmpty[Set[SequencerId]]],

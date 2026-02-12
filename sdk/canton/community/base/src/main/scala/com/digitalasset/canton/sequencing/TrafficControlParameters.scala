@@ -34,6 +34,9 @@ import java.util.concurrent.TimeUnit
   *   time window used to compute the max sequencing time set for balance update requests The max
   *   sequencing time chosen will be the upper bound of the time window at which the request is
   *   submitted
+  * @param freeConfirmationResponses
+  *   If set to true, confirmation responses are free. Otherwise, confirmation responses are charged
+  *   for.
   */
 final case class TrafficControlParameters(
     maxBaseTrafficAmount: NonNegativeLong = DefaultBaseTrafficAmount,
@@ -44,6 +47,7 @@ final case class TrafficControlParameters(
       DefaultSetBalanceRequestSubmissionWindowSize,
     enforceRateLimiting: Boolean = DefaultEnforceRateLimiting,
     baseEventCost: NonNegativeLong = DefaultBaseEventCost,
+    freeConfirmationResponses: Boolean = DefaultFreeConfirmationResponses,
 ) extends PrettyPrinting {
 
   /** Base rate acquired in bytes per micro seconds
@@ -63,6 +67,7 @@ final case class TrafficControlParameters(
     Some(setBalanceRequestSubmissionWindowSize.toProtoPrimitive),
     enforceRateLimiting,
     Option.when(baseEventCost.value != 0)(baseEventCost.value),
+    freeConfirmationResponses,
   )
 
   override protected def pretty: Pretty[TrafficControlParameters] = prettyOfClass(
@@ -72,6 +77,7 @@ final case class TrafficControlParameters(
     param("set balance request submission window size", _.setBalanceRequestSubmissionWindowSize),
     param("enforce rate limiting", _.enforceRateLimiting),
     param("base event cost", _.baseEventCost),
+    param("free confirmation responses", _.freeConfirmationResponses),
   )
 }
 
@@ -86,6 +92,7 @@ object TrafficControlParameters {
     time.PositiveFiniteDuration.tryOfMinutes(4L)
   val DefaultEnforceRateLimiting: Boolean = true
   val DefaultBaseEventCost: NonNegativeLong = NonNegativeLong.zero
+  val DefaultFreeConfirmationResponses: Boolean = false
 
   def fromProtoV30(
       proto: protoV30.TrafficControlParameters
@@ -115,6 +122,7 @@ object TrafficControlParameters {
         "base_event_cost",
         proto.baseEventCost.getOrElse(0L),
       )
+      freeConfirmationResponses = proto.freeConfirmationResponses
     } yield TrafficControlParameters(
       maxBaseTrafficAmount,
       scalingFactor,
@@ -122,5 +130,6 @@ object TrafficControlParameters {
       setBalanceRequestSubmissionWindowSize,
       proto.enforceRateLimiting,
       baseEventCost,
+      freeConfirmationResponses,
     )
 }

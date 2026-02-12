@@ -80,6 +80,7 @@ class SequencerTest
       sequencerMember = topologyClientMember,
       blockSequencerMode = true,
       loggerFactory = loggerFactory,
+      timeouts = timeouts,
       sequencerMetrics = SequencerMetrics.noop("sequencer-test"),
     )
     val clock = new WallClock(timeouts, loggerFactory = loggerFactory)

@@ -139,6 +139,10 @@ object MediatorRuntimeFactory {
       syncCrypto.pureCrypto,
       sequencerClient.protocolVersion,
       nodeParameters.cachingConfigs.finalizedMediatorConfirmationRequests,
+      fetchAggregatorConfig =
+        nodeParameters.batchingConfig.mediatorFetchFinalizedResponsesAggregator,
+      storeAggregatorConfig =
+        nodeParameters.batchingConfig.mediatorStoreFinalizedResponsesAggregator,
       nodeParameters.processingTimeouts,
       loggerFactory,
     )
@@ -179,6 +183,7 @@ object MediatorRuntimeFactory {
       synchronizerOutbox,
       timeTracker,
       state,
+      asynchronousProcessing = config.asynchronousProcessing,
       sequencerCounterTrackerStore,
       sequencedEventStore,
       nodeParameters,

@@ -15,9 +15,10 @@ import com.google.common.annotations.VisibleForTesting
 @SuppressWarnings(Array("org.wartremover.warts.OptionPartial", "org.wartremover.warts.Var"))
 @VisibleForTesting
 class MockStringInterning extends StringInterning {
-  private var idToString: Map[Int, String] = Map.empty
-  private var stringToId: Map[String, Int] = Map.empty
-  private var lastId: Int = 0
+  @volatile private var idToString: Map[Int, String] = Map.empty
+  @volatile private var stringToId: Map[String, Int] = Map.empty
+  @volatile private var autoIntern: Boolean = true
+  @volatile private var lastId: Int = 0
   private val lock = new Mutex()
 
   private val rawStringInterning: StringInterningAccessor[String] =
@@ -27,11 +28,12 @@ class MockStringInterning extends StringInterning {
       override def tryInternalize(t: String): Option[Int] = (lock.exclusive {
         stringToId.get(t) match {
           case Some(id) => Some(id)
-          case None =>
+          case None if autoIntern =>
             lastId += 1
             idToString = idToString + (lastId -> t)
             stringToId = stringToId + (t -> lastId)
             Some(lastId)
+          case None => None
         }
       })
 
@@ -164,6 +166,11 @@ class MockStringInterning extends StringInterning {
   private[store] def reset(): Unit = (lock.exclusive {
     idToString = Map.empty
     stringToId = Map.empty
+    autoIntern = true
     lastId = 0
+  })
+
+  private[store] def setAutoIntern(newAutoIntern: Boolean): Unit = (lock.exclusive {
+    autoIntern = newAutoIntern
   })
 }

@@ -40,10 +40,12 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   DeliverableSubmissionOutcome,
   InFlightAggregationUpdates,
   InFlightAggregations,
+  ProgressSupervisor,
   SequencerIntegration,
+  SubmissionOutcome,
 }
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficConsumedStore
-import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, Traced}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -497,6 +499,8 @@ class BlockSequencerStateManager(
     headState: AtomicReference[HeadState],
     streamInstrumentationConfig: BlockSequencerStreamInstrumentationConfig,
     blockMetrics: BlockMetrics,
+    progressSupervisorO: Option[ProgressSupervisor],
+    sequencerId: SequencerId,
 )(implicit executionContext: ExecutionContext)
     extends BlockSequencerStateManagerBase
     with NamedLogging
@@ -528,26 +532,26 @@ class BlockSequencerStateManager(
       bug.internalStateFor(head.blockEphemeralState)
     }
 
-    def finalFlow[In, Out, Mat](
+    def instrumentFlow[In, Out, Mat](
         original: Flow[In, Out, Mat],
         flowName: String,
     ): Flow[In, Out, Mat] =
       if (streamInstrumentationConfig.isEnabled)
         original.buffered(
-          blockMetrics.stramBufferSize,
+          blockMetrics.streamBufferSize,
           streamInstrumentationConfig.bufferSize.value,
         )(MetricsContext("element" -> flowName))
       else original
 
     Flow[BlockEvents]
       .via(
-        finalFlow(checkBlockHeight(head.block.height), "check_block_height")
+        instrumentFlow(checkBlockHeight(head.block.height), "check_block_height")
       )
       .via(
-        finalFlow(chunkBlock(bug), "chunk_block")
+        instrumentFlow(chunkBlock(bug), "chunk_block")
       )
       .via(
-        finalFlow(processChunk(bug)(bugState), "process_chunk")
+        instrumentFlow(processChunk(bug)(bugState), "process_chunk")
       )
   }
 
@@ -606,7 +610,7 @@ class BlockSequencerStateManager(
   private def processChunk(bug: BlockUpdateGenerator)(
       initialState: bug.InternalState
   ): Flow[Traced[BlockChunk], Traced[OrderedBlockUpdate], NotUsed] = {
-    implicit val traceContext: TraceContext = TraceContext.empty
+    implicit val traceContext: TraceContext = TraceContext.empty // TODO(i28037): improve tracing
     Flow[Traced[BlockChunk]].statefulMapAsyncUSAndDrain(initialState) { (state, tracedChunk) =>
       implicit val traceContext: TraceContext = tracedChunk.traceContext
       tracedChunk.traverse(blockChunk => Nested(bug.processBlockChunk(state, blockChunk))).value
@@ -752,6 +756,13 @@ class BlockSequencerStateManager(
 
     writeET
       .map { _ =>
+        progressSupervisorO.foreach { supervisor =>
+          update.submissionsOutcomes.filter(isAddressingThisSequencer).foreach {
+            case outcome: DeliverableSubmissionOutcome =>
+              supervisor.arm(outcome.sequencingTime)(outcome.submissionTraceContext)
+            case _ =>
+          }
+        }
         val newHead = priorHead.copy(chunk = newState)
         updateHeadState(priorHead, newHead)
         update.acknowledgements.foreach { case (member, timestamp) =>
@@ -888,12 +899,20 @@ class BlockSequencerStateManager(
   )(implicit traceContext: TraceContext): Unit =
     if (enableInvariantCheck) blockState.checkInvariant()
 
+  private def isAddressingThisSequencer(outcome: SubmissionOutcome): Boolean =
+    outcome match {
+      case x: DeliverableSubmissionOutcome =>
+        x.deliverToMembers.contains(sequencerId) || x.submission.batch.isBroadcast
+      case _ => false
+    }
+
 }
 
 object BlockSequencerStateManager {
 
   def create(
       synchronizerId: PhysicalSynchronizerId,
+      sequencerId: SequencerId,
       store: SequencerBlockStore,
       trafficConsumedStore: TrafficConsumedStore,
       asyncWriterParameters: AsyncWriterParameters,
@@ -903,6 +922,7 @@ object BlockSequencerStateManager {
       loggerFactory: NamedLoggerFactory,
       streamInstrumentationConfig: BlockSequencerStreamInstrumentationConfig,
       blockMetrics: BlockMetrics,
+      progressSupervisorO: Option[ProgressSupervisor],
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -914,6 +934,8 @@ object BlockSequencerStateManager {
       .awaitUS(s"Reading the head of the $synchronizerId sequencer state")(store.readHead)
       .map { headBlockO =>
         val headBlock = headBlockO.getOrElse(BlockEphemeralState.empty)
+        // required to prevent warnings on earlier events that we won't be processing
+        progressSupervisorO.foreach(_.ignoreTimestampsBefore(headBlock.latestBlock.lastTs))
         new AtomicReference[HeadState]({
           logger.debug(
             s"Initialized the block sequencer with head block ${headBlock.latestBlock}"
@@ -933,6 +955,8 @@ object BlockSequencerStateManager {
           headState = headState,
           streamInstrumentationConfig = streamInstrumentationConfig,
           blockMetrics = blockMetrics,
+          progressSupervisorO = progressSupervisorO,
+          sequencerId = sequencerId,
         )
       }
   }

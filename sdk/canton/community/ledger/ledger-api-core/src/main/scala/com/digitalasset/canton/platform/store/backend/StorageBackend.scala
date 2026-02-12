@@ -290,6 +290,11 @@ trait EventStorageBackend {
       beforeOrAtRecordTimeInclusive: Timestamp,
   )(connection: Connection)(implicit traceContext: TraceContext): Option[SynchronizerOffset]
 
+  def lastRecordTimeBeforeOrAtSynchronizerOffset(
+      synchronizerId: SynchronizerId,
+      beforeOrAtOffsetInclusive: Offset,
+  )(connection: Connection): Option[CantonTimestamp]
+
   /** The contracts which were archived or participant-divulged in the specified range. These are
     * the contracts in the ContractStore, which can be pruned in a single-synchronizer setup.
     */

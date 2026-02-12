@@ -24,6 +24,8 @@ object MockedNodeParameters {
 
     override def enablePreviewFeatures: Boolean = ???
 
+    override def enableTestingFeatures: Boolean = ???
+
     override def enableAdditionalConsistencyChecks: Boolean = _enableAdditionalConsistencyChecks
 
     override def processingTimeouts: ProcessingTimeout = _processingTimeouts

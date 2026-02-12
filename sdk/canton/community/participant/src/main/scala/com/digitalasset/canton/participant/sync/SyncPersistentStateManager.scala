@@ -20,6 +20,7 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
+import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.PackageMetadataView
 import com.digitalasset.canton.participant.synchronizer.{
@@ -129,6 +130,7 @@ class SyncPersistentStateManager(
     packageMetadataView: PackageMetadataView,
     ledgerApiStore: Eval[LedgerApiStore],
     val contractStore: Eval[ContractStore],
+    participantMetrics: ParticipantMetrics,
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -441,6 +443,7 @@ class SyncPersistentStateManager(
         clock,
         synchronizerCryptoFactory(staticSynchronizerParameters),
         parameters,
+        topologyConfig,
         packageMetadataView,
         ledgerApiStore,
         logicalSyncPersistentState,
@@ -465,6 +468,7 @@ class SyncPersistentStateManager(
         parameters.unsafeOnlinePartyReplication,
         exitOnFatalFailures = parameters.exitOnFatalFailures,
         state.topologyStore,
+        participantMetrics.topologyCache,
         loggerFactory.append("psid", psid.toString),
       )
     )

@@ -941,6 +941,7 @@ object Generators {
       synchronizerId <- Arbitrary.arbString.arbitrary
       traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
       recordTime <- instantGen
+      extendedTransactionHash <- byteStringGen
     } yield Transaction
       .newBuilder()
       .setUpdateId(updateId)
@@ -952,8 +953,14 @@ object Generators {
       .setSynchronizerId(synchronizerId)
       .setTraceContext(traceContext)
       .setRecordTime(Utils.instantToProto(recordTime))
+      .setExternalTransactionHash(extendedTransactionHash)
       .build()
   }
+
+  def transactionGenLegacy: Gen[v2.TransactionOuterClass.Transaction] =
+    transactionGen.map { transaction =>
+      transaction.toBuilder.clearExternalTransactionHash().build()
+    }
 
   def transactionGenFilteredEvents: Gen[v2.TransactionOuterClass.Transaction] =
     for {

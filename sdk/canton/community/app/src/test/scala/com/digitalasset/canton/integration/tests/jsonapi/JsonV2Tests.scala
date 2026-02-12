@@ -345,7 +345,7 @@ class JsonV2Tests
   "user management service" should {
     "create, update and delete user" in httpTestFixture { fixture =>
       fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (_, headers) =>
-        val userId = "CreatedUser@^$.!`-#+'~_|:"
+        val userId = "CreatedUser@^$.!`-#+'~_|:()"
         val user = user_management_service.User.defaultInstance.copy(id = userId)
         val updated_user =
           user_management_service.User.defaultInstance.copy(id = userId, isDeactivated = true)

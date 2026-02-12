@@ -95,7 +95,9 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
   ): FutureUnlessShutdown[Unit] =
     withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
       logger.info(
-        show"Phase 1 started: Submitting commands for interpretation: ${request.commands}."
+        show"Phase 1 started: Submitting ${request.commands.commands.commands.length} command(s) for interpretation on behalf of ${request.commands.actAs
+            .limit(5)
+            .toSeq}."
       )
       val cmds = request.commands.commands.commands
       logger.debug(show"Submitted commands are: ${if (cmds.length > 1) "\n  " else ""}${cmds

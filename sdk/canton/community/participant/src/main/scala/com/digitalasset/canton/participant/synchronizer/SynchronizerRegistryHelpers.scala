@@ -12,7 +12,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.SequencerConnectClient
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader.SequencerAggregatedInfo
 import com.digitalasset.canton.concurrent.HasFutureSupervision
-import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal, TopologyConfig}
+import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{
   SyncCryptoApiParticipantProvider,
   SynchronizerCrypto,
@@ -79,7 +79,6 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       cryptoApiProvider: SyncCryptoApiParticipantProvider,
       clock: Clock,
       testingConfig: TestingConfigInternal,
-      topologyConfig: TopologyConfig,
       recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
       replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
       topologyDispatcher: ParticipantTopologyDispatcher,
@@ -138,7 +137,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
 
       topologyClient <- EitherT.right(
         synchronizeWithClosing("create caching client")(
-          topologyFactory.createCachingTopologyClient(
+          topologyFactory.createTopologyClient(
             packageDependencyResolver,
             synchronizerPredecessor,
           )
@@ -292,7 +291,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       _ <- downloadSynchronizerTopologyStateForInitializationIfNeeded(
         syncPersistentStateManager,
         psid,
-        topologyFactory.createInitialTopologySnapshotValidator(topologyConfig),
+        topologyFactory.createInitialTopologySnapshotValidator(),
         topologyClient,
         sequencerClient,
         partyNotifier,
@@ -323,6 +322,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
             )
         }
       )
+      _ = logger.debug("CREATING SEQUENCERE CLIENT")
     } yield SynchronizerHandle(
       psid,
       config.synchronizerAlias,

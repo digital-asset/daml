@@ -19,7 +19,7 @@ class TransactionSpec
     with ScalaCheckDrivenPropertyChecks {
 
   "Transaction.buildTree" should "convert a transaction to a wrapped tree" in forAll(
-    transactionGen
+    Gen.oneOf(transactionGen, transactionGenLegacy)
   ) { transactionOuter =>
     val transaction = Transaction.fromProto(transactionOuter)
 
@@ -108,7 +108,7 @@ class TransactionSpec
   }
 
   "Transaction.getRootNodeIds" should "provide root node ids that are not descendant of others" in forAll(
-    Gen.oneOf(transactionGen, transactionGenFilteredEvents)
+    Gen.oneOf(transactionGen, transactionGenFilteredEvents, transactionGenLegacy)
   ) { transactionOuter =>
     val transaction = Transaction.fromProto(transactionOuter)
     val eventDescendantsRanges =
@@ -124,7 +124,7 @@ class TransactionSpec
   }
 
   "Transaction.getChildNodeIds" should "find the children node ids of exercised events" in forAll(
-    Gen.oneOf(transactionGen, transactionGenFilteredEvents)
+    Gen.oneOf(transactionGen, transactionGenFilteredEvents, transactionGenLegacy)
   ) { transactionOuter =>
     val transaction = Transaction.fromProto(transactionOuter)
 

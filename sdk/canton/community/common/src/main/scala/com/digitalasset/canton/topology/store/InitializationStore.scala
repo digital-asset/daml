@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology.store
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.config.CantonRequireTypes.String185
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -91,14 +92,13 @@ class DbInitializationStore(
       for {
         data <- idQuery
       } yield data.headOption.map { case (identity, fingerprint) =>
-        UniqueIdentifier.tryCreate(identity, Namespace(fingerprint))
+        UniqueIdentifier.tryCreate(identity.unwrap, Namespace(fingerprint))
       },
       functionFullName,
     )
 
   private val idQuery =
-    sql"select identifier, namespace from common_node_id"
-      .as[(String, Fingerprint)]
+    sql"select identifier, namespace from common_node_id".as[(String185, Fingerprint)]
 
   @SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
   override def setUid(id: UniqueIdentifier)(implicit
@@ -111,7 +111,7 @@ class DbInitializationStore(
           _ <-
             if (storedData.nonEmpty) {
               val data = storedData(0)
-              val prevNodeId = UniqueIdentifier.tryCreate(data._1, Namespace(data._2))
+              val prevNodeId = UniqueIdentifier.tryCreate(data._1.unwrap, Namespace(data._2))
               ErrorUtil.requireArgument(
                 prevNodeId == id,
                 s"Unique id of node is already defined as $prevNodeId and can't be changed to $id!",

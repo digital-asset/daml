@@ -17,6 +17,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.metrics.CacheMetrics
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
@@ -26,20 +27,21 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.protocol.{AllMembersOfSynchronizer, Deliver, DeliverError}
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
+import com.digitalasset.canton.topology.cache.TopologyStateWriteThroughCache
 import com.digitalasset.canton.topology.client.*
+import com.digitalasset.canton.topology.processing.TopologyStateProcessor
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor.subscriptionTimestamp
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.transaction.checks.RequiredTopologyMappingChecks
+import com.digitalasset.canton.topology.transaction.checks.{
+  RequiredTopologyMappingChecks,
+  RequiredTopologyMappingChecksOld,
+}
 import com.digitalasset.canton.topology.transaction.{
   SynchronizerUpgradeAnnouncement,
   TopologyChangeOp,
 }
-import com.digitalasset.canton.topology.{
-  PhysicalSynchronizerId,
-  TopologyManagerError,
-  TopologyStateProcessor,
-}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, TopologyManagerError}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil, SimpleExecutionQueue}
 
@@ -60,6 +62,8 @@ import scala.math.Ordering.Implicits.*
 class TopologyTransactionProcessor(
     pureCrypto: SynchronizerCryptoPureApi,
     store: TopologyStore[TopologyStoreId.SynchronizerStore],
+    cache: Option[TopologyStateWriteThroughCache],
+    topologyConfig: TopologyConfig,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
     val terminateProcessing: TerminateProcessing,
@@ -76,7 +80,10 @@ class TopologyTransactionProcessor(
   protected lazy val stateProcessor: TopologyStateProcessor =
     TopologyStateProcessor.forTransactionProcessing(
       store,
-      RequiredTopologyMappingChecks(store, Some(staticSynchronizerParameters), loggerFactory),
+      cache,
+      topologyConfig,
+      RequiredTopologyMappingChecks(Some(staticSynchronizerParameters), _, loggerFactory),
+      RequiredTopologyMappingChecksOld(store, Some(staticSynchronizerParameters), loggerFactory),
       pureCrypto,
       loggerFactory,
     )
@@ -236,7 +243,7 @@ class TopologyTransactionProcessor(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = initialise(start, synchronizerTimeTracker)
 
-  /** process envelopes mostly asynchronously
+  /** process envelopes mostly asynchronously (used by participant)
     *
     * Here, we return a Future[Future[Unit]]. We need to ensure the outer future finishes processing
     * before we tick the record order publisher.
@@ -306,6 +313,7 @@ class TopologyTransactionProcessor(
       }
     }
 
+  /** create handler for mediator / sequencer */
   def createHandler(synchronizerId: PhysicalSynchronizerId): UnsignedProtocolEventHandler =
     new UnsignedProtocolEventHandler {
 
@@ -529,6 +537,7 @@ object TopologyTransactionProcessor {
       topologyConfig: TopologyConfig,
       clock: Clock,
       staticSynchronizerParameters: StaticSynchronizerParameters,
+      topologyCacheMetrics: CacheMetrics,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(
@@ -537,9 +546,26 @@ object TopologyTransactionProcessor {
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[(TopologyTransactionProcessor, SynchronizerTopologyClientWithInit)] = {
+
+    val cacheO = Option.when(topologyConfig.useNewProcessor) {
+      new TopologyStateWriteThroughCache(
+        topologyStore,
+        parameters.batchingConfig.topologyCacheAggregator,
+        cacheEvictionThreshold = topologyConfig.topologyStateCacheEvictionThreshold,
+        maxCacheSize = topologyConfig.maxTopologyStateCacheItems,
+        enableConsistencyChecks = topologyConfig.enableTopologyStateCacheConsistencyChecks,
+        topologyCacheMetrics,
+        futureSupervisor,
+        parameters.processingTimeouts,
+        loggerFactory,
+      )
+    }
+
     val processor = new TopologyTransactionProcessor(
       pureCrypto,
       topologyStore,
+      cacheO,
+      topologyConfig,
       staticSynchronizerParameters,
       _ => (),
       TerminateProcessing.NoOpTerminateTopologyProcessing,
@@ -549,19 +575,37 @@ object TopologyTransactionProcessor {
       loggerFactory,
     )
 
-    val cachingClientF = CachingSynchronizerTopologyClient.create(
-      clock,
-      staticSynchronizerParameters,
-      topologyStore,
-      synchronizerPredecessor,
-      StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
-      parameters.cachingConfigs,
-      parameters.batchingConfig,
-      topologyConfig,
-      parameters.processingTimeouts,
-      futureSupervisor,
-      loggerFactory,
-    )(sequencerSnapshotTimestamp)
+    val cachingClientF = if (topologyConfig.useNewClient) {
+      WriteThroughCacheSynchronizerTopologyClient.create(
+        clock,
+        staticSynchronizerParameters,
+        topologyStore,
+        cacheO.getOrElse(
+          throw new IllegalStateException("Cannot use new topology client without new processor")
+        ),
+        synchronizerUpgradeTime = synchronizerPredecessor.map(_.upgradeTime),
+        StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+        parameters.cachingConfigs,
+        topologyConfig,
+        parameters.processingTimeouts,
+        futureSupervisor,
+        loggerFactory,
+      )(sequencerSnapshotTimestamp)
+    } else {
+      CachingSynchronizerTopologyClient.create(
+        clock,
+        staticSynchronizerParameters,
+        topologyStore,
+        synchronizerPredecessor,
+        StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+        parameters.cachingConfigs,
+        parameters.batchingConfig,
+        topologyConfig,
+        parameters.processingTimeouts,
+        futureSupervisor,
+        loggerFactory,
+      )(sequencerSnapshotTimestamp)
+    }
 
     cachingClientF.map { client =>
       processor.subscribe(client)

@@ -32,6 +32,7 @@ import com.digitalasset.canton.protocol.{
   LfSubmittedTransaction,
   LfVersionedTransaction,
 }
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.{
   ExternalPartyOnboardingDetails,
@@ -134,10 +135,11 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
+      safeToPruneCommitmentState: Option[SafeToPruneCommitmentState],
   ): CompletionStage[PruningResult] =
     Timed.completionStage(
       metrics.services.write.prune,
-      delegate.prune(pruneUpToInclusive, submissionId),
+      delegate.prune(pruneUpToInclusive, submissionId, safeToPruneCommitmentState),
     )
 
   override def currentHealth(): HealthStatus =

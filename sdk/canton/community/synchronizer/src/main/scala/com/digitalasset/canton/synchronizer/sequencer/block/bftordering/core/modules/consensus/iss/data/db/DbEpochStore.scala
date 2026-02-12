@@ -11,7 +11,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
-import com.digitalasset.canton.resource.DbStorage.Implicits.setParameterByteString
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -77,6 +76,7 @@ class DbEpochStore(
     with DbStore {
 
   import storage.api.*
+  import storage.converters.*
 
   private val profile = storage.profile
 

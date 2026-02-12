@@ -453,16 +453,17 @@ class TaskScheduler[Task <: TimedTask](
 
   private def executeTask(task: TimedTask): Unit = {
     implicit val traceContext: TraceContext = task.traceContext
+    val taskName = s"${task.getClass.getName}(${task.timestamp})"
     synchronizeWithClosingSync(functionFullName) {
       FutureUtil.doNotAwait(
         // Close the task if the queue is shutdown or if it has failed
         queue
           .executeUS(
             futureSupervisor.supervisedUS(
-              task.toString,
+              taskName,
               timeouts.slowFutureWarn.duration,
             )(task.perform()),
-            task.toString,
+            taskName,
           )
           .onShutdown(task.close())
           .recoverWith {
@@ -473,7 +474,7 @@ class TaskScheduler[Task <: TimedTask](
               Future.failed(e)
             // Use a direct context here to avoid closing the scheduler in a different thread
           }(DirectExecutionContext(noTracingLogger)),
-        show"A task failed with an exception.\n$task",
+        show"A task failed with an exception.\n$taskName",
       )
     }.discard
   }

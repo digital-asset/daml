@@ -137,12 +137,15 @@ trait LedgerApiOtelITBase
     SuppressionRule.LoggerNameContains("CommandSubmissionServiceImpl") &&
       SuppressionRule.Level(Level.INFO)
 
-  private def assertLogs(expected: Seq[(Option[String], Level, String)]): Assertion = {
+  private def assertLogs(traceId: Option[String], level: Level, message: String): Assertion = {
     val logEntries = loggerFactory.fetchRecordedLogEntries
     logEntries
-      .map(entry =>
-        (entry.mdc.get("trace-id"), entry.level, entry.message.takeWhile(_ != '('))
-      ) should contain theSameElementsInOrderAs expected
+      .map { entry =>
+        entry.mdc.get("trace-id") shouldBe traceId
+
+        entry.level shouldBe level
+        entry.message should include regex (message)
+      }
     Succeeded
   }
 
@@ -200,13 +203,9 @@ trait LedgerApiOtelITBase
             .transform(Success.apply)
             .map { _ =>
               assertLogs(
-                Seq(
-                  (
-                    traceContext.traceId,
-                    Level.INFO,
-                    "Phase 1 started: Submitting commands for interpretation: Commands",
-                  )
-                )
+                traceContext.traceId,
+                Level.INFO,
+                "Phase 1 started: Submitting \\d+ command\\(s\\) for interpretation on behalf of",
               )
               assertSpans(
                 traceContext,

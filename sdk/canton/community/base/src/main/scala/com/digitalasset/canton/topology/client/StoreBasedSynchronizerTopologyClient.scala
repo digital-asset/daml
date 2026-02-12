@@ -344,6 +344,15 @@ class StoreBasedSynchronizerTopologyClient(
   override def latestTopologyChangeTimestamp: CantonTimestamp =
     head.get().lastChangeTimestamp.value.immediateSuccessor
 
+  /** return both values above consistently */
+  def knownUntilAndLatestChangeTimestamps: (CantonTimestamp, CantonTimestamp) = {
+    val tmp = head.get()
+    (
+      tmp.effectiveTimestamp.value.immediateSuccessor,
+      tmp.lastChangeTimestamp.value.immediateSuccessor,
+    )
+  }
+
   /** returns the current approximate timestamp
     *
     * whenever we get an update, we do set the approximate timestamp first to the sequencer time and

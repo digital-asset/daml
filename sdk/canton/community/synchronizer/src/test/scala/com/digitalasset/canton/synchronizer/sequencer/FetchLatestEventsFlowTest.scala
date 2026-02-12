@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
+import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.util.{MonadUtil, PekkoUtil}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.apache.pekko.actor.ActorSystem
@@ -69,7 +70,7 @@ class FetchLatestEventsFlowTest
 
     val initialState = State(CantonTimestamp.Epoch)
     def create[Mat1, Mat2](
-        source: Source[ReadSignal, Mat1],
+        source: Source[Traced[ReadSignal], Mat1],
         sink: Sink[Event, Mat2],
     ): (Mat1, Mat2) =
       PekkoUtil.runSupervised(
@@ -79,13 +80,14 @@ class FetchLatestEventsFlowTest
               initialState,
               (lookupEvents _).andThen(FutureUnlessShutdown.outcomeF),
               (_, events) => events.isEmpty,
+              loggerFactory,
             )
           )
           .toMat(sink)(Keep.both),
         errorLogMessagePrefix = "LatestEventsFlowTest failed",
       )
 
-    def create[Mat1](source: Source[ReadSignal, Mat1]): (Mat1, SinkQueueWithCancel[Event]) =
+    def create[Mat1](source: Source[Traced[ReadSignal], Mat1]): (Mat1, SinkQueueWithCancel[Event]) =
       create(source, Sink.queue())
 
     def pullEvent(queue: SinkQueueWithCancel[Event]): Future[Event] =
@@ -119,7 +121,7 @@ class FetchLatestEventsFlowTest
     call1.returnsSingleEvent(ts(5))
     call2.returnsNoEvents()
 
-    val (_, eventQueue) = create(Source.empty[ReadSignal])
+    val (_, eventQueue) = create(Source.empty[Traced[ReadSignal]])
 
     for {
       _ <- call1.calledF
@@ -138,7 +140,7 @@ class FetchLatestEventsFlowTest
     lookup2.returnsSingleEvent(ts(8))
     lookup3.returnsNoEvents()
 
-    create(Source.empty[ReadSignal]).discard
+    create(Source.empty[Traced[ReadSignal]]).discard
 
     for {
       _ <- waitForAll(lookups*)
@@ -155,7 +157,7 @@ class FetchLatestEventsFlowTest
     // complete remaining
     lookups.drop(1).foreach(_.returnsNoEvents())
 
-    val (_, eventF) = create(Source(0 until 100).map(_ => ReadSignal), Sink.seq)
+    val (_, eventF) = create(Source(0 until 100).map(_ => Traced(ReadSignal)), Sink.seq)
 
     for {
       _ <- lookup1.calledF

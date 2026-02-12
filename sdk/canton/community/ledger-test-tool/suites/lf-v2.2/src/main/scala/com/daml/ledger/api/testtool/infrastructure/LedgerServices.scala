@@ -101,6 +101,12 @@ import com.daml.ledger.api.v2.command_submission_service.{
   SubmitRequest,
   SubmitResponse,
 }
+import com.daml.ledger.api.v2.contract_service.ContractServiceGrpc.ContractService
+import com.daml.ledger.api.v2.contract_service.{
+  ContractServiceGrpc,
+  GetContractRequest,
+  GetContractResponse,
+}
 import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc.EventQueryService
 import com.daml.ledger.api.v2.event_query_service.{
   EventQueryServiceGrpc,
@@ -173,6 +179,7 @@ import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, Jwt}
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.http.json.v2.{
   JsCommandService,
+  JsContractService,
   JsEventService,
   JsExecuteSubmissionAndWaitForTransactionRequest,
   JsExecuteSubmissionAndWaitForTransactionResponse,
@@ -259,7 +266,9 @@ private final case class LedgerServicesJson(
 )(implicit executionContext: ExecutionContext, mat: Materializer)
     extends LedgerServices
     with NamedLogging {
+
   import com.digitalasset.canton.http.util.GrpcHttpErrorCodes.`gRPC status  as sttp`
+
   protected def loggerFactory: NamedLoggerFactory =
     NamedLoggerFactory("client-ledger-services", "json")
 
@@ -589,12 +598,14 @@ private final case class LedgerServicesJson(
       JsPartyManagementService.allocateExternalPartyEndpoint,
       request,
     )
+
     override def generateExternalPartyTopology(
         request: GenerateExternalPartyTopologyRequest
     ): Future[GenerateExternalPartyTopologyResponse] =
       clientCall(JsPartyManagementService.externalPartyGenerateTopologyEndpoint, request)
 
   }
+
   def packageManagement: PackageManagementService = new PackageManagementService {
     override def listKnownPackages(
         request: ListKnownPackagesRequest
@@ -758,6 +769,7 @@ private final case class LedgerServicesJson(
       request,
     )
       .flatMap(protocolConverters.GetEventsByContractIdResponse.fromJson)
+
   def time: TimeService = throw new UnsupportedOperationException(
     "TimeService is not available in JSON API"
   )
@@ -816,6 +828,7 @@ private final case class LedgerServicesJson(
       )
 
   }
+
   def identityProviderConfig: IdentityProviderConfigService = new IdentityProviderConfigService {
 
     override def createIdentityProviderConfig(
@@ -932,6 +945,13 @@ private final case class LedgerServicesJson(
             .fromJson(response)
         } yield grpcResponse
     }
+
+  def contract: ContractService = new ContractService {
+    override def getContract(request: GetContractRequest): Future[GetContractResponse] =
+      clientCall(JsContractService.getContractEndpoint, request)
+        .flatMap(_.createdEvent.traverse(protocolConverters.CreatedEvent.fromJson))
+        .map(GetContractResponse(_))
+  }
 }
 
 sealed trait LedgerServices {
@@ -951,6 +971,7 @@ sealed trait LedgerServices {
   def version: VersionService
   def userManagement: UserManagementService
   def identityProviderConfig: IdentityProviderConfigService
+  def contract: ContractService
 }
 
 private final case class LedgerServicesGrpc(
@@ -1005,6 +1026,9 @@ private final case class LedgerServicesGrpc(
 
   val interactiveSubmission: InteractiveSubmissionService =
     InteractiveSubmissionServiceGrpc.stub(channel)
+
+  val contract: ContractService =
+    ContractServiceGrpc.stub(channel)
 }
 
 object JsonErrors {

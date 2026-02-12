@@ -17,7 +17,7 @@ import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.{
   NonMatchingSynchronizerId,
 }
 import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenWithExpiry
-import com.digitalasset.canton.time.SimClock
+import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, FailOnShutdown}
@@ -84,6 +84,31 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
         members: Seq[Member],
     ): Map[Member, Seq[StoredAuthenticationToken]] =
       members.flatMap(store.fetchTokens).groupBy(_.member)
+
+    "generate a test token with default expiration" in {
+      val sut = service(participantIsActive = true)
+      val testToken = sut.generateAuthenticationToken(p1, None)
+      for {
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          sut.validateToken(physicalSynchronizerId, p1, testToken.token)
+        )
+      } yield {
+        testToken.expireAt should be(clock.now.plus(sut.maxTokenExpirationInterval))
+      }
+    }
+
+    "generate a test token with explicit expiration" in {
+      val sut = service(participantIsActive = true)
+      val testToken =
+        sut.generateAuthenticationToken(p1, Some(NonNegativeFiniteDuration.tryOfSeconds(5)))
+      for {
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          sut.validateToken(physicalSynchronizerId, p1, testToken.token)
+        )
+      } yield {
+        testToken.expireAt should be(clock.now.plus(JDuration.ofSeconds(5)))
+      }
+    }
 
     "generate nonce, verify signature, generate token, verify token, and verify expiry" in {
       val sut = service(participantIsActive = true)

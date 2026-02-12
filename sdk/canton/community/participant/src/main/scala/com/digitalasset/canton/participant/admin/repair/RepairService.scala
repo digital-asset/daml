@@ -51,6 +51,7 @@ import com.google.common.annotations.VisibleForTesting
 import org.slf4j.event.Level
 
 import scala.Ordered.orderingToOrdered
+import scala.annotation.unused
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -198,6 +199,8 @@ final class RepairService(
   private def readSynchronizerData(
       synchronizerId: SynchronizerId,
       synchronizerAlias: SynchronizerAlias,
+      @unused // ensure called in scope of repair indexer for correct synchronizer index lookup
+      repairIndexer: FutureQueue[RepairUpdate],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, RepairRequest.SynchronizerData] =
@@ -284,7 +287,7 @@ final class RepairService(
                 .toRight(s"Could not find $synchronizerAlias")
             )
 
-            synchronizer <- readSynchronizerData(synchronizerId, synchronizerAlias)
+            synchronizer <- readSynchronizerData(synchronizerId, synchronizerAlias, repairIndexer)
 
             contractStates <- EitherT.right[String](
               readContractAcsStates(
@@ -327,6 +330,7 @@ final class RepairService(
                   for {
                     repair <- initRepairRequestAndVerifyPreconditions(
                       synchronizer = synchronizer,
+                      repairIndexer = repairIndexer,
                       repairCountersToAllocate = groupCount,
                     )
 
@@ -428,7 +432,7 @@ final class RepairService(
               .toRight(s"Could not find $synchronizerAlias")
           )
 
-          repair <- initRepairRequestAndVerifyPreconditions(synchronizerId)
+          repair <- initRepairRequestAndVerifyPreconditions(synchronizerId, repairIndexer)
 
           contractStates <- EitherT.right[String](
             readContractAcsStates(
@@ -522,31 +526,34 @@ final class RepairService(
         "Source must differ from target synchronizer!",
       )
 
-      repairSource <- sourceSynchronizer.traverse(
-        initRepairRequestAndVerifyPreconditions(
-          _,
-          contractsCount,
-        )
-      )
-
-      repairTarget <- targetSynchronizer.traverse(
-        initRepairRequestAndVerifyPreconditions(
-          _,
-          contractsCount,
-        )
-      )
-
       _ <- withRepairIndexer { repairIndexer =>
-        val changeAssignation = new ChangeAssignation(
-          repairSource,
-          repairTarget,
-          participantId,
-          syncCrypto,
-          repairIndexer,
-          contractStore.value,
-          loggerFactory,
-        )
         (for {
+          repairSource <- sourceSynchronizer.traverse(
+            initRepairRequestAndVerifyPreconditions(
+              _,
+              repairIndexer,
+              contractsCount,
+            )
+          )
+
+          repairTarget <- targetSynchronizer.traverse(
+            initRepairRequestAndVerifyPreconditions(
+              _,
+              repairIndexer,
+              contractsCount,
+            )
+          )
+
+          changeAssignation = new ChangeAssignation(
+            repairSource,
+            repairTarget,
+            participantId,
+            syncCrypto,
+            repairIndexer,
+            contractStore.value,
+            loggerFactory,
+          )
+
           changeAssignationData <- EitherT.rightT[FutureUnlessShutdown, String](
             ChangeAssignation.Data.from(contracts.forgetNE, changeAssignation)
           )
@@ -592,8 +599,12 @@ final class RepairService(
   )(implicit context: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     withRepairIndexer { repairIndexer =>
       (for {
-        sourceRepairRequest <- source.traverse(initRepairRequestAndVerifyPreconditions(_))
-        targetRepairRequest <- target.traverse(initRepairRequestAndVerifyPreconditions(_))
+        sourceRepairRequest <- source.traverse(
+          initRepairRequestAndVerifyPreconditions(_, repairIndexer)
+        )
+        targetRepairRequest <- target.traverse(
+          initRepairRequestAndVerifyPreconditions(_, repairIndexer)
+        )
         reassignmentData <-
           targetRepairRequest.unwrap.synchronizer.persistentState.reassignmentStore
             .lookup(reassignmentId)
@@ -1109,6 +1120,7 @@ final class RepairService(
     */
   private def initRepairRequestAndVerifyPreconditions(
       synchronizerId: SynchronizerId,
+      repairIndexer: FutureQueue[RepairUpdate],
       repairCountersToAllocate: PositiveInt = PositiveInt.one,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, RepairRequest] =
     for {
@@ -1117,15 +1129,18 @@ final class RepairService(
           .aliasForSynchronizerId(synchronizerId)
           .toRight(s"synchronizer alias for $synchronizerId not found")
       )
-      synchronizerData <- readSynchronizerData(synchronizerId, synchronizerAlias)
+      synchronizerData <- readSynchronizerData(synchronizerId, synchronizerAlias, repairIndexer)
       repairRequest <- initRepairRequestAndVerifyPreconditions(
         synchronizerData,
+        repairIndexer,
         repairCountersToAllocate,
       )
     } yield repairRequest
 
   private def initRepairRequestAndVerifyPreconditions(
       synchronizer: RepairRequest.SynchronizerData,
+      @unused // ensure called in scope of repair indexer for correct synchronizer index lookup
+      repairIndexer: FutureQueue[RepairUpdate],
       repairCountersToAllocate: PositiveInt,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, RepairRequest] = {
     val rtRepair = RecordTime.fromTimeOfChange(

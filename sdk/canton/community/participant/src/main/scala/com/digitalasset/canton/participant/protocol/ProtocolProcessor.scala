@@ -1595,7 +1595,7 @@ abstract class ProtocolProcessor[
       _ <- EitherT.right(ephemeral.contractStore.storeContracts(contractsToBeStored))
 
       _ <- ifThenET(!cleanReplay) {
-        logger.info(
+        logger.debug(
           show"Finalizing ${steps.requestKind.unquoted} request=${requestId.unwrap}."
         )
         for {
@@ -1609,7 +1609,7 @@ abstract class ProtocolProcessor[
           eventO = eventFactoryO.map(
             _(AcsChangeSupport.fromCommitSet(commitSet))(internalContractIdsForStoredContracts)
           )
-          _ = logger.info(show"About to wrap up request $requestId with event $eventO")
+          _ = logger.debug(show"About to wrap up request $requestId with event $eventO")
           requestTimestamp = requestId.unwrap
           _unit <- EitherT.right[steps.ResultError](
             terminateRequest(
@@ -1622,7 +1622,7 @@ abstract class ProtocolProcessor[
           )
         } yield pendingSubmissionDataO.foreach(steps.postProcessResult(verdict, _))
       }
-    } yield logger.info(show"Finished async result processing of request $requestId")
+    } yield logger.debug(show"Finished async result processing of request $requestId")
   }
 
   private def checkContradictoryMediatorApprove(

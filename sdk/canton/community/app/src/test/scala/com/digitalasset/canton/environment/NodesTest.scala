@@ -99,6 +99,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       loggingConfig: LoggingConfig = LoggingConfig(),
       enableAdditionalConsistencyChecks: Boolean = false,
       enablePreviewFeatures: Boolean = false,
+      enableTestingFeatures: Boolean = false,
       processingTimeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing,
       sequencerClient: SequencerClientConfig = SequencerClientConfig(),
       cachingConfigs: CachingConfigs = CachingConfigs(),

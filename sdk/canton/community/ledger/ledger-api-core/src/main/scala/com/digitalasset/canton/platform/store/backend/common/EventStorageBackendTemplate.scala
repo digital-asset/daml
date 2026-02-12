@@ -871,6 +871,46 @@ abstract class EventStorageBackendTemplate(
       .headOption
   }
 
+  def lastRecordTimeBeforeOrAtSynchronizerOffset(
+      synchronizerId: SynchronizerId,
+      beforeOrAtOffsetInclusive: Offset,
+  )(connection: Connection): Option[CantonTimestamp] = {
+    val ledgerEndOffset = ledgerEndCache().map(_.lastOffset)
+    val safeBeforeOrAtOffset =
+      if (Option(beforeOrAtOffsetInclusive) > ledgerEndOffset) ledgerEndOffset
+      else Some(beforeOrAtOffsetInclusive)
+    val (synchronizerIdFilter, synchronizerIdOrdering) =
+      (
+        cSQL"synchronizer_id = ${stringInterning.synchronizerId.internalize(synchronizerId)} AND",
+        cSQL"synchronizer_id,",
+      )
+    List(
+      SQL"""
+          SELECT completion_offset, record_time, publication_time, synchronizer_id
+          FROM lapi_command_completions
+          WHERE
+            $synchronizerIdFilter
+            ${QueryStrategy.offsetIsLessOrEqual("completion_offset", safeBeforeOrAtOffset)}
+          ORDER BY $synchronizerIdOrdering completion_offset DESC, record_time DESC
+          ${QueryStrategy.limitClause(Some(1))}
+          """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
+      SQL"""
+          SELECT event_offset, record_time, publication_time, synchronizer_id
+          FROM lapi_update_meta
+          WHERE
+            $synchronizerIdFilter
+            ${QueryStrategy.offsetIsLessOrEqual("event_offset", safeBeforeOrAtOffset)}
+          ORDER BY $synchronizerIdOrdering event_offset DESC, record_time DESC
+          ${QueryStrategy.limitClause(Some(1))}
+          """.asSingleOpt(metaSynchronizerOffsetParser(stringInterning))(connection),
+    ).flatten
+      .sortBy(_.recordTime)
+      .map(_.recordTime)
+      .reverse
+      .headOption
+      .map(CantonTimestamp(_))
+  }
+
   override def synchronizerOffset(offset: Offset)(
       connection: Connection
   ): Option[SynchronizerOffset] =

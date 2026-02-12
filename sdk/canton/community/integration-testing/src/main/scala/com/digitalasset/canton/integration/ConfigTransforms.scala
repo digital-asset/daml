@@ -30,7 +30,11 @@ import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig.{
   SequencerHighAvailabilityConfig,
 }
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
-import com.digitalasset.canton.synchronizer.sequencer.{BlockSequencerConfig, SequencerConfig}
+import com.digitalasset.canton.synchronizer.sequencer.{
+  BlockSequencerConfig,
+  ProgressSupervisorConfig,
+  SequencerConfig,
+}
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveFiniteDuration}
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
 import com.digitalasset.canton.{BaseTest, UniquePortGenerator, config}
@@ -918,5 +922,10 @@ object ConfigTransforms {
   val disableOnboardingTopologyValidation: ConfigTransform =
     updateAllMediatorConfigs_(
       _.focus(_.topology.validateInitialTopologySnapshot).replace(false)
+    )
+
+  def enableSequencerProgressSupervisor: ConfigTransform =
+    updateAllSequencerConfigs_(
+      _.focus(_.parameters.progressSupervisor).replace(Some(ProgressSupervisorConfig()))
     )
 }

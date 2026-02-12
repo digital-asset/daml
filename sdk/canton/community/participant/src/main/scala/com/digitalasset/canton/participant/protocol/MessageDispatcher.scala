@@ -654,10 +654,45 @@ trait MessageDispatcher { this: NamedLogging =>
       ts: CantonTimestamp,
       msgId: Option[MessageId],
       evt: SignedContent[SequencedEvent[DefaultOpenEnvelope]],
-  )(implicit traceContext: TraceContext): Unit = logger.info(
-    show"Processing event at sc=$sc, ts=$ts${withMsgId(msgId)}, with contents=${evt.content.envelopes
-        .map(_.protocolMessage)}"
-  )
+  )(implicit traceContext: TraceContext): Unit =
+    if (logger.underlying.isDebugEnabled)
+      logger.debug(
+        show"Processing event at sc=$sc, ts=$ts${withMsgId(msgId)}, with contents=${evt.content.envelopes
+            .map(_.protocolMessage)}"
+      )
+    else {
+      val dense = evt.content.envelopes.map(c => (c, c.protocolMessage)).map {
+        case (env, message: UnsignedProtocolMessage) =>
+          message match {
+            case RootHashMessage(rootHash, _, _, _, _) => s"root-hash=$rootHash"
+            case EncryptedViewMessage(
+                  submittingParticipantSignature,
+                  viewHash,
+                  _,
+                  encryptedView,
+                  _,
+                  _,
+                ) =>
+              s"enc-view=$viewHash,rcp=${env.recipients.allRecipients.size}, sz=${encryptedView.sizeHint}" + submittingParticipantSignature
+                .map(_ => ", with sig")
+            case TopologyTransactionsBroadcast(_, transactions) =>
+              s"topo-bcast with ntx=${transactions.transactions.size}"
+            case other => other.toString
+          }
+        case (_, SignedProtocolMessage(typedMessage, _)) =>
+          typedMessage.content match {
+            case messages.AcsCommitment(_, sender, _, period, _) =>
+              s"commitment=$sender for ts=${period.toInclusive}"
+            case ConfirmationResultMessage(_, viewType, requestId, _, verdict) =>
+              s"verdict=$requestId, type=$viewType, is=$verdict"
+            case other => other.toString
+          }
+      }
+      logger.info(
+        show"Processing event at sc=$sc, ts=$ts${withMsgId(msgId)}, with ${dense.size} envelopes"
+          + (if (dense.nonEmpty) "\n  " + dense.mkString("\n  ") else "")
+      )
+    }
 
   protected def logDeliveryError(
       sc: SequencerCounter,

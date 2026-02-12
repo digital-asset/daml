@@ -22,7 +22,7 @@ object IterableUtil {
       *
       * would produce Seq((1,a),(1,b),(1,c),(2,a),(2,b),(2,c),(3,a),(3,b),(3,c))
       */
-    def crossProductBy[B](ys: immutable.Iterable[B]): Iterable[(A, B)] =
+    def crossProductBy[B](ys: immutable.Iterable[B]): immutable.Iterable[(A, B)] =
       for {
         x <- self
         y <- ys

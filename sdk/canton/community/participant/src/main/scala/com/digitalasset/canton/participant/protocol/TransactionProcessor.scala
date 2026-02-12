@@ -289,9 +289,26 @@ object TransactionProcessor {
         with TransactionSubmissionError
 
     @Explanation(
-      """This error occurs when the sequencer refuses to accept a command due to backpressure."""
+      """This error occurs when the sequencer refuses to accept a command due to backpressure.
+        |Backpressure means that downstream components have signalled that they are unable to
+        |handle the incoming load and therefore request to reduce the rate. This is usually
+        |the case if the network starts to be congested.
+        |
+        |Backpressure can be the result of many different reasons. A sequencer that was just
+        |restarted and is catching up will backpressure until it has caught up with others.
+        |Similarly, a sequencer that is unable to keep up with the rate of incoming messages
+        |will start to backpressure.
+        |Finally, a synchronizer operator may also throttle submissions based on configuration
+        |settings in order to proactively limit the throughput for everyone and also enforce
+        |individual per-node limits.
+        |"""
     )
-    @Resolution("Wait a bit and retry, preferably with some backoff factor.")
+    @Resolution(
+      "Generally, backpressure should only happen in congested networks. Therefore, you " +
+        "should wait a bit and retry your submission, preferably with some backoff factor. If " +
+        "you are affected by individual per-node caps, you should speak to the synchronizer operators " +
+        "about increasing the individually enforced caps."
+    )
     object SequencerBackpressure
         extends ErrorCode(
           id = "SEQUENCER_BACKPRESSURE",

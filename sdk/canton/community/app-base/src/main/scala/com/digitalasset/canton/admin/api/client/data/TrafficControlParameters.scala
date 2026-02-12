@@ -19,6 +19,7 @@ object TrafficControlParameters {
       TrafficControlParametersInternal.DefaultSetBalanceRequestSubmissionWindowSize.toConfig,
     enforceRateLimiting = TrafficControlParametersInternal.DefaultEnforceRateLimiting,
     baseEventCost = TrafficControlParametersInternal.DefaultBaseEventCost,
+    freeConfirmationResponses = TrafficControlParametersInternal.DefaultFreeConfirmationResponses,
   )
 }
 
@@ -30,6 +31,7 @@ final case class TrafficControlParameters(
     setBalanceRequestSubmissionWindowSize: config.PositiveFiniteDuration,
     enforceRateLimiting: Boolean,
     baseEventCost: NonNegativeLong,
+    freeConfirmationResponses: Boolean,
 ) extends PrettyPrinting {
 
   override protected def pretty: Pretty[TrafficControlParameters] = prettyOfClass(
@@ -39,6 +41,7 @@ final case class TrafficControlParameters(
     param("set balance request submission window size", _.setBalanceRequestSubmissionWindowSize),
     param("enforce rate limiting", _.enforceRateLimiting),
     param("base event cost", _.baseEventCost),
+    param("free confirmation responses", _.freeConfirmationResponses),
   )
 
   private[canton] def toInternal: TrafficControlParametersInternal =
@@ -51,5 +54,6 @@ final case class TrafficControlParameters(
         InternalPositiveFiniteDuration.fromConfig(setBalanceRequestSubmissionWindowSize),
       enforceRateLimiting = enforceRateLimiting,
       baseEventCost = baseEventCost,
+      freeConfirmationResponses = freeConfirmationResponses,
     )
 }

@@ -452,7 +452,6 @@ object DbInFlightSubmissionStore {
         submissions.map(_.value),
         storage.profile,
       ) { pp => submission =>
-        import DbStorage.Implicits.*
         pp >> submission.changeIdHash
         pp >> submission.submissionId.map(SerializableSubmissionId(_))
         pp >> submission.submissionSynchronizerId

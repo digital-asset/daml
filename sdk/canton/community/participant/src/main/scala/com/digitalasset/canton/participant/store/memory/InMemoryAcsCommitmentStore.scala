@@ -21,12 +21,15 @@ import com.digitalasset.canton.participant.store.{
   IncrementalCommitmentStore,
   UpdateMode,
 }
+import com.digitalasset.canton.protocol.messages.CommitmentPeriodState.CommitmentPeriodStateInOutstanding
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
   CommitmentPeriodState,
   SignedProtocolMessage,
 }
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState.SafeToPruneCommitmentStateRequiresChecks
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -37,7 +40,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.SortedSet
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 import scala.concurrent.{ExecutionContext, blocking}
 
 class InMemoryAcsCommitmentStore(
@@ -62,8 +65,9 @@ class InMemoryAcsCommitmentStore(
   private val lastComputed: AtomicReference[Option[CantonTimestampSecond]] =
     new AtomicReference(None)
 
-  private val _outstanding
-      : AtomicReference[Set[(CommitmentPeriod, ParticipantId, CommitmentPeriodState, Boolean)]] =
+  private val _outstanding: AtomicReference[
+    Set[(CommitmentPeriod, ParticipantId, CommitmentPeriodStateInOutstanding, Boolean)]
+  ] =
     new AtomicReference(Set.empty)
 
   override val runningCommitments =
@@ -122,7 +126,7 @@ class InMemoryAcsCommitmentStore(
   }
 
   override def markOutstanding(
-      periods: NonEmpty[Set[CommitmentPeriod]],
+      periods: NonEmpty[immutable.Iterable[CommitmentPeriod]],
       counterParticipants: NonEmpty[Set[ParticipantId]],
   )(implicit
       traceContext: TraceContext
@@ -152,9 +156,9 @@ class InMemoryAcsCommitmentStore(
     FutureUnlessShutdown.pure(lastComputed.get())
 
   private def updateStateIfPossible(
-      currentState: CommitmentPeriodState,
-      newState: CommitmentPeriodState,
-  ): CommitmentPeriodState =
+      currentState: CommitmentPeriodStateInOutstanding,
+      newState: CommitmentPeriodStateInOutstanding,
+  ): CommitmentPeriodStateInOutstanding =
     if (currentState == CommitmentPeriodState.Outstanding) newState
     else if (
       currentState == CommitmentPeriodState.Mismatched && newState == CommitmentPeriodState.Matched
@@ -163,13 +167,15 @@ class InMemoryAcsCommitmentStore(
 
   override def markPeriod(
       counterParticipant: ParticipantId,
-      periods: NonEmpty[Set[CommitmentPeriod]],
-      matchingState: CommitmentPeriodState,
+      periods: NonEmpty[immutable.Iterable[CommitmentPeriod]],
+      matchingState: CommitmentPeriodStateInOutstanding,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    val periodSets = periods.toSet
     _outstanding.updateAndGet { currentOutstanding =>
       currentOutstanding.map {
         case (currentPeriod, currentCounterParticipant, currentState, multiHostedCleared)
-            if periods.contains(currentPeriod) && currentCounterParticipant == counterParticipant =>
+            if periodSets.contains(currentPeriod) &&
+              currentCounterParticipant == counterParticipant =>
           (
             currentPeriod,
             currentCounterParticipant,
@@ -183,31 +189,51 @@ class InMemoryAcsCommitmentStore(
   }
 
   override def noOutstandingCommitments(
-      beforeOrAt: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[CantonTimestamp]] =
+      beforeOrAt: CantonTimestamp,
+      safeToPruneCommitmentState: Option[SafeToPruneCommitmentState],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[CantonTimestamp]] = {
+    val effectiveSafeToPruneCommitmentState =
+      safeToPruneCommitmentState.getOrElse(SafeToPruneCommitmentState.Match)
+    val computed = lastComputed.get
+    val adjustedPruningTsOpt = computed.map(_.forgetRefinement.min(beforeOrAt))
     for {
-      ignoredParticipants <- acsCounterParticipantConfigStore
-        .getAllActiveNoWaitCounterParticipants(Seq(synchronizerId), Seq.empty)
-      result <- FutureUnlessShutdown.pure {
-        for {
-          lastTs <- lastComputed.get
-          adjustedTs = lastTs.forgetRefinement.min(beforeOrAt)
-          periods = _outstanding
-            .get()
-            .collect {
-              case (period, participantId, state, multiHostedCleared)
-                  if state != CommitmentPeriodState.Matched &&
-                    !ignoredParticipants
-                      .exists(config => config.participantId == participantId) =>
-                period.fromExclusive.forgetRefinement -> period.toInclusive.forgetRefinement
+      unsafePeriods <- effectiveSafeToPruneCommitmentState match {
+        case SafeToPruneCommitmentState.All =>
+          FutureUnlessShutdown.pure(Seq.empty[(CantonTimestamp, CantonTimestamp)])
+        case other: SafeToPruneCommitmentStateRequiresChecks =>
+          for {
+            ignoredParticipantsConfig <- acsCounterParticipantConfigStore
+              .getAllActiveNoWaitCounterParticipants(Seq(synchronizerId), Seq.empty)
+          } yield {
+            val ignoredParticipants = ignoredParticipantsConfig.map(_.participantId).toSet
+            val outstandingPeriodsOpt = adjustedPruningTsOpt.map { ts =>
+              def unsafeState(state: CommitmentPeriodStateInOutstanding): Boolean =
+                state match {
+                  case CommitmentPeriodState.Outstanding => true
+                  case CommitmentPeriodState.Matched => false
+                  case CommitmentPeriodState.Mismatched =>
+                    other != SafeToPruneCommitmentState.MatchOrMismatch
+                }
+
+              _outstanding
+                .get()
+                .filter { case (period, participantId, state, _multiHostedCleared) =>
+                  period.fromExclusive < ts &&
+                  unsafeState(state) &&
+                  !ignoredParticipants.contains(participantId)
+                }
+                .map { case (period, participant, state, cleared) =>
+                  (
+                    period.fromExclusive.forgetRefinement,
+                    period.toInclusive.forgetRefinement,
+                  )
+                }
             }
-          safe = AcsCommitmentStore.latestCleanPeriod(
-            beforeOrAt = adjustedTs,
-            uncleanPeriods = periods,
-          )
-        } yield safe
+            outstandingPeriodsOpt.getOrElse(Seq.empty)
+          }
       }
-    } yield result
+    } yield adjustedPruningTsOpt.map(AcsCommitmentStore.latestCleanPeriod(_, unsafePeriods))
+  }
 
   override def outstanding(
       start: CantonTimestamp,
@@ -476,7 +502,7 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
   override def peekThrough(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[BufferedAcsCommitment]] = sync {
-    queue.takeWhile(_.period.toInclusive <= timestamp).toList
+    queue.filter(_.period.toInclusive <= timestamp).toList
   }
 
   /** Returns all commitments whose period ends at or after the given timestamp.

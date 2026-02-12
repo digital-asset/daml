@@ -44,9 +44,9 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandProgressTracker,
   DynamicSynchronizerParameterGetter,
 }
-import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
+import com.digitalasset.canton.platform.apiserver.services.{ApiContractService, TimeProviderType}
 import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
   IdentityProviderManagementConfig,
@@ -55,6 +55,7 @@ import com.digitalasset.canton.platform.config.{
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
@@ -121,6 +122,8 @@ object ApiServiceOwner {
       interactiveSubmissionEnricher: InteractiveSubmissionEnricher,
       keepAlive: Option[KeepAliveServerConfig],
       packagePreferenceBackend: PackagePreferenceBackend,
+      apiContractService: ApiContractService,
+      safeToPruneCommitmentState: Option[SafeToPruneCommitmentState],
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -214,7 +217,9 @@ object ApiServiceOwner {
         interactiveSubmissionServiceConfig = interactiveSubmissionServiceConfig,
         interactiveSubmissionEnricher = interactiveSubmissionEnricher,
         packagePreferenceBackend = packagePreferenceBackend,
+        safeToPruneCommitmentState = safeToPruneCommitmentState,
         logger = loggerFactory.getTracedLogger(this.getClass),
+        apiContractService = apiContractService,
       )(materializer, executionSequencerFactory, tracer).withServices(otherServices)
       // for all the top level gRPC servicing apparatus we use the writeApiServicesExecutionContext
       apiService <- LedgerApiService(

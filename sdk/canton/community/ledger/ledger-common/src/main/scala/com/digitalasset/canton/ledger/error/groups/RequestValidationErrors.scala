@@ -110,6 +110,29 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     }
 
     @Explanation(
+      """This error occurs if the contract cannot be found for the referenced contract. This
+        |can be caused by either the contract not being known to the participant, or not being known to
+        |the requesting parties."""
+    )
+    @Resolution(
+      "Check the contract ID and verify that the requesting parties have intersection with the contract stakeholders."
+    )
+    object ContractPayload
+        extends ErrorCode(
+          id = "CONTRACT_PAYLOAD_NOT_FOUND",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+
+      final case class Reject(contractId: ContractId)(implicit
+          loggingContext: ErrorLoggingContext
+      ) extends DamlErrorWithDefiniteAnswer(cause = "Contract payload not found, or not visible.") {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          (ErrorResource.ContractId, contractId.coid)
+        )
+      }
+    }
+
+    @Explanation(
       "The queried template or interface ids do not exist."
     )
     @Resolution(

@@ -34,9 +34,11 @@ final case class ParticipantNodeParameters(
     reassignmentsConfig: ReassignmentsConfig,
     doNotAwaitOnCheckingIncomingCommitments: Boolean,
     disableOptionalTopologyChecks: Boolean,
+    commitmentAsynchronousInitialization: Boolean,
     commitmentCheckpointInterval: PositiveDurationSeconds,
     commitmentMismatchDebugging: Boolean,
     commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt],
+    commitmentReduceParallelism: NonNegativeInt,
     autoSyncProtocolFeatureFlags: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
@@ -55,6 +57,7 @@ object ParticipantNodeParameters {
       loggingConfig = LoggingConfig(api = ApiLoggingConfig(messagePayloads = true)),
       processingTimeouts = DefaultProcessingTimeouts.testing,
       enablePreviewFeatures = false,
+      enableTestingFeatures = false,
       nonStandardConfig = false,
       cachingConfigs = CachingConfigs(),
       batchingConfig = BatchingConfig(
@@ -93,9 +96,11 @@ object ParticipantNodeParameters {
     ),
     doNotAwaitOnCheckingIncomingCommitments = false,
     disableOptionalTopologyChecks = false,
+    commitmentAsynchronousInitialization = true,
     commitmentCheckpointInterval = PositiveDurationSeconds.ofMinutes(1),
     commitmentMismatchDebugging = false,
     commitmentProcessorNrAcsChangesBehindToTriggerCatchUp = None,
+    commitmentReduceParallelism = NonNegativeInt.zero,
     autoSyncProtocolFeatureFlags = true,
   )
 }

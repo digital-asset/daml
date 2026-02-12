@@ -4,6 +4,7 @@
 package com.digitalasset.canton.ledger.participant.state
 
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState
 import com.digitalasset.daml.lf.data.Ref
 
 import java.util.concurrent.CompletionStage
@@ -45,12 +46,18 @@ trait ParticipantPruningSyncService {
     *   The offset up to which contracts should be pruned.
     * @param submissionId
     *   The submission id.
+    * @param safeToPruneCommitmentState
+    *   Optionally specify in which conditions counter-participants that have not sent matching
+    *   commitments cannot block pruning.
     * @return
     *   The pruning result.
     */
   def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
+      safeToPruneCommitmentState: Option[
+        SafeToPruneCommitmentState
+      ],
   ): CompletionStage[PruningResult]
 
 }

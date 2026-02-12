@@ -190,6 +190,7 @@ abstract class BlockSequencerFactory(
       clock: Clock,
       synchronizerSyncCryptoApi: SynchronizerCryptoClient,
       futureSupervisor: FutureSupervisor,
+      progressSupervisorO: Option[ProgressSupervisor],
       trafficConfig: SequencerTrafficConfig,
       sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
       runtimeReady: FutureUnlessShutdown[Unit],
@@ -245,6 +246,7 @@ abstract class BlockSequencerFactory(
       stateManager <- FutureUnlessShutdown.lift(
         BlockSequencerStateManager.create(
           synchronizerSyncCryptoApi.psid,
+          sequencerId,
           store,
           trafficConsumedStore,
           nodeParameters.asyncWriter,
@@ -254,6 +256,7 @@ abstract class BlockSequencerFactory(
           synchronizerLoggerFactory,
           blockSequencerConfig.streamInstrumentation,
           metrics.block,
+          progressSupervisorO,
         )
       )
     } yield {

@@ -189,7 +189,7 @@ class TrafficStateController(
         trafficControl.baseEventCost,
       )
       if (logCost) {
-        logger.debug(
+        logger.info(
           s"Computed following cost for submission request using topology at ${snapshot.timestamp}: $costDetails"
         )
       }

@@ -7,8 +7,8 @@ import cats.Monad
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.{BatchAggregatorConfig, CachingConfigs}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.*
@@ -330,6 +330,8 @@ trait DbFinalizedResponseStoreTest
         new SymbolicPureCrypto,
         testedProtocolVersion,
         CachingConfigs.defaultFinalizedMediatorConfirmationRequestsCache,
+        BatchAggregatorConfig.defaultsForTesting,
+        BatchAggregatorConfig.defaultsForTesting,
         timeouts,
         loggerFactory,
       )

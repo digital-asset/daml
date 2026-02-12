@@ -57,6 +57,7 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -2170,7 +2171,7 @@ object ParticipantAdminCommands {
       override protected def createRequest(): Either[String, v30.GetSafePruningOffsetRequest] =
         for {
           beforeOrAt <- CantonTimestamp.fromInstant(beforeOrAt)
-        } yield v30.GetSafePruningOffsetRequest(Some(beforeOrAt.toProtoTimestamp), ledgerEnd)
+        } yield v30.GetSafePruningOffsetRequest(Some(beforeOrAt.toProtoTimestamp), ledgerEnd, None)
 
       override protected def submitRequest(
           service: PruningServiceStub,
@@ -2189,10 +2190,19 @@ object ParticipantAdminCommands {
       }
     }
 
-    final case class PruneInternallyCommand(pruneUpTo: Long)
-        extends Base[v30.PruneRequest, v30.PruneResponse, Unit] {
+    final case class PruneInternallyCommand(
+        pruneUpTo: Long,
+        safeToPruneCommitmentState: Option[SafeToPruneCommitmentState],
+    ) extends Base[v30.PruneRequest, v30.PruneResponse, Unit] {
       override protected def createRequest(): Either[String, v30.PruneRequest] =
-        Right(v30.PruneRequest(pruneUpTo))
+        Right(
+          v30.PruneRequest(
+            pruneUpTo,
+            safeToPruneCommitmentState.map(
+              _.toProtoV30
+            ),
+          )
+        )
 
       override protected def submitRequest(
           service: PruningServiceStub,

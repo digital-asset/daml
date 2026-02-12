@@ -30,7 +30,7 @@ import com.digitalasset.canton.error.TransactionRoutingError.{
   MalformedInputErrors,
   RoutingInternalError,
 }
-import com.digitalasset.canton.health.MutableHealthComponent
+import com.digitalasset.canton.health.{HealthQuasiComponent, MutableHealthComponent}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{
   EnrichedVettedPackages,
@@ -96,7 +96,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.resource.Storage
-import com.digitalasset.canton.scheduler.Schedulers
+import com.digitalasset.canton.scheduler.{SafeToPruneCommitmentState, Schedulers}
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SynchronizerTimeTracker}
@@ -221,6 +221,8 @@ class CantonSyncService(
     connectionsManager.connectedSynchronizerHealth
   def ephemeralHealth: MutableHealthComponent = connectionsManager.ephemeralHealth
   def sequencerClientHealth: MutableHealthComponent = connectionsManager.sequencerClientHealth
+  def sequencerConnectionPoolHealth: () => Seq[HealthQuasiComponent] =
+    () => connectionsManager.sequencerConnectionPoolHealthRef.get.apply()
   def acsCommitmentProcessorHealth: MutableHealthComponent =
     connectionsManager.acsCommitmentProcessorHealth
 
@@ -515,10 +517,11 @@ class CantonSyncService(
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: LedgerSubmissionId,
+      safeToPruneCommitmentState: Option[SafeToPruneCommitmentState],
   ): CompletionStage[PruningResult] =
     withNewTrace("CantonSyncService.prune") { implicit traceContext => span =>
       span.setAttribute("submission_id", submissionId)
-      pruneInternally(pruneUpToInclusive)
+      pruneInternally(pruneUpToInclusive, safeToPruneCommitmentState)
         .fold(
           err => PruningResult.NotPruned(err.asGrpcStatus),
           _ => PruningResult.ParticipantPruned,
@@ -529,9 +532,12 @@ class CantonSyncService(
     }.asJava
 
   def pruneInternally(
-      pruneUpToInclusive: Offset
+      pruneUpToInclusive: Offset,
+      safeToPruneCommitmentState: Option[SafeToPruneCommitmentState],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, RpcError, Unit] =
-    pruningProcessor.pruneLedgerEvents(pruneUpToInclusive).transform(pruningErrorToCantonError)
+    pruningProcessor
+      .pruneLedgerEvents(pruneUpToInclusive, safeToPruneCommitmentState)
+      .transform(pruningErrorToCantonError)
 
   private def pruningErrorToCantonError(pruningResult: Either[LedgerPruningError, Unit])(implicit
       traceContext: TraceContext
@@ -1664,7 +1670,7 @@ class CantonSyncService(
           .map { case (psid, loader) => s"$psid at ${loader.timestamp}" }
           .mkString(", ")
 
-        logger.info(
+        logger.debug(
           show"Routing state contains connected synchronizers $connectedSynchronizers and topology $topologySnapshotInfo"
         )
 

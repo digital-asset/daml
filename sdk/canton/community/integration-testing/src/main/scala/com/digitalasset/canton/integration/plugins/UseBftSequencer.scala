@@ -184,13 +184,12 @@ final class UseBftSequencer(
     sequencerEndpoints.putIfAbsent(sequencersToEndpoints.toMap)
     config
       .focus(_.monitoring.logging.queryCost)
-      .modify { _ =>
-        if (shouldBenchmarkBftSequencer)
-          Some(
+      .modify {
+        case None =>
+          Option.when(shouldBenchmarkBftSequencer)(
             QueryCostMonitoringConfig(every = canton.config.NonNegativeFiniteDuration.ofSeconds(30))
           )
-        else
-          None
+        case other => other
       }
       .focus(_.sequencers)
       .modify(_.map(mapSequencerConfigs))

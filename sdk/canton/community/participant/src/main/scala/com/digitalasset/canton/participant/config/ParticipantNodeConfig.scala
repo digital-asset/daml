@@ -6,10 +6,10 @@ package com.digitalasset.canton.participant.config
 import cats.syntax.option.*
 import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.config
+import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.DeprecatedConfigUtils.DeprecatedFieldsFor
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{ReplicationConfig, *}
 import com.digitalasset.canton.http.JsonApiConfig
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
@@ -31,6 +31,7 @@ import com.digitalasset.canton.platform.config.{
 }
 import com.digitalasset.canton.platform.indexer.IndexerConfig
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.store.PrunableByTimeParameters
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
@@ -382,6 +383,10 @@ object TestingTimeServiceConfig {
   * @param doNotAwaitOnCheckingIncomingCommitments
   *   Enable fully asynchronous checking of incoming commitments. This may result in some incoming
   *   commitments not being checked in case of crashes or HA failovers.
+  * @param commitmentAsynchronousInitialization
+  *   Enables asynchronous initialization of the ACS commitment processor. This speeds up
+  *   reconnection to a synchronizer at the expense of potentially increased memory and resource
+  *   consumption while the initialization is running in the background.
   * @param commitmentCheckpointInterval
   *   Checkpoint interval for commitments. Smaller intervals lead to less resource-intensive crash
   *   recovery, at the cost of more frequent DB writing of checkpoints. Regardless of this
@@ -434,10 +439,12 @@ final case class ParticipantNodeParameterConfig(
     activationFrequencyForWarnAboutConsistencyChecks: Long = 1000,
     reassignmentsConfig: ReassignmentsConfig = ReassignmentsConfig(),
     doNotAwaitOnCheckingIncomingCommitments: Boolean = false,
+    commitmentAsynchronousInitialization: Boolean = false,
     commitmentCheckpointInterval: config.PositiveDurationSeconds =
       config.PositiveDurationSeconds.ofMinutes(1),
     commitmentMismatchDebugging: Boolean = false,
     commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt] = None,
+    commitmentReduceParallelism: NonNegativeInt = NonNegativeInt.one,
     autoSyncProtocolFeatureFlags: Boolean = true,
 ) extends LocalNodeParametersConfig
     with UniformCantonConfigValidation
@@ -459,6 +466,7 @@ final case class ParticipantStoreConfig(
     pruningMetricUpdateInterval: Option[config.PositiveDurationSeconds] =
       config.PositiveDurationSeconds.ofHours(1L).some,
     journalPruning: JournalPruningConfig = JournalPruningConfig(),
+    safeToPruneCommitmentState: Option[SafeToPruneCommitmentState] = None,
 ) extends UniformCantonConfigValidation
 object ParticipantStoreConfig {
   implicit val participantStoreConfigCantonConfigValidator

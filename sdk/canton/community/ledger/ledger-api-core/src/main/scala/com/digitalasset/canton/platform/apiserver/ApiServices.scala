@@ -46,6 +46,7 @@ import com.digitalasset.canton.platform.config.{
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
+import com.digitalasset.canton.scheduler.SafeToPruneCommitmentState
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.*
@@ -127,6 +128,8 @@ object ApiServices {
       interactiveSubmissionEnricher: InteractiveSubmissionEnricher,
       logger: TracedLogger,
       packagePreferenceBackend: PackagePreferenceBackend,
+      apiContractService: ApiContractService,
+      safeToPruneCommitmentState: Option[SafeToPruneCommitmentState],
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -212,6 +215,7 @@ object ApiServices {
             new PackageServiceAuthorization(apiPackageService, authorizer),
             new UpdateServiceAuthorization(apiUpdateService, authorizer),
             new StateServiceAuthorization(apiStateService, authorizer),
+            new ContractServiceAuthorization(apiContractService, authorizer),
             apiVersionService,
           )
 
@@ -356,6 +360,7 @@ object ApiServices {
         syncService,
         metrics,
         telemetry,
+        safeToPruneCommitmentState,
         loggerFactory,
       )
 

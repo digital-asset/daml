@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.topology
+package com.digitalasset.canton.topology.processing
 
 import cats.data.EitherT
 import cats.implicits.catsSyntaxOptionId
@@ -17,14 +17,10 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.AsyncResult
-import com.digitalasset.canton.topology.TopologyStateProcessor.{
+import com.digitalasset.canton.topology.SynchronizerOutboxQueue
+import com.digitalasset.canton.topology.processing.TopologyStateProcessorOld.{
   AccumulatedDeactivationsPerMapping,
   MaybePending,
-}
-import com.digitalasset.canton.topology.processing.{
-  EffectiveTime,
-  SequencedTime,
-  TopologyTransactionAuthorizationValidator,
 }
 import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
@@ -32,7 +28,7 @@ import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.Gener
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
-import com.digitalasset.canton.topology.transaction.checks.TopologyMappingChecks
+import com.digitalasset.canton.topology.transaction.checks.TopologyMappingChecksOld
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 
@@ -46,14 +42,15 @@ import scala.concurrent.ExecutionContext
   *   If a [[SynchronizerOutboxQueue]] is provided, the processed transactions are not directly
   *   stored, but rather sent to the synchronizer via an ephemeral queue (i.e. no persistence).
   */
-class TopologyStateProcessor private (
+class TopologyStateProcessorOld private[processing] (
     val store: TopologyStore[TopologyStoreId],
     outboxQueue: Option[SynchronizerOutboxQueue],
-    topologyMappingChecks: TopologyMappingChecks,
+    topologyMappingChecks: TopologyMappingChecksOld,
     pureCrypto: CryptoPureApi,
     loggerFactoryParent: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends NamedLogging {
+    extends TopologyStateProcessor
+    with NamedLogging {
 
   override protected val loggerFactory: NamedLoggerFactory =
     // only add the `store` key for the authorized store. In case this TopologyStateProcessor is for a synchronizer,
@@ -67,7 +64,7 @@ class TopologyStateProcessor private (
   private val proposalsForTx = TrieMap[TxHash, MaybePending]()
 
   private val authValidator =
-    new TopologyTransactionAuthorizationValidator(
+    new TopologyTransactionAuthorizationValidatorOld(
       pureCrypto,
       store,
       // if transactions are put directly into a store (ie there is no outbox queue)
@@ -76,23 +73,6 @@ class TopologyStateProcessor private (
       loggerFactory.append("role", if (outboxQueue.isEmpty) "incoming" else "outgoing"),
     )
 
-  // compared to the old topology stores, the x stores don't distinguish between
-  // state & transaction store. cascading deletes are irrevocable and delete everything
-  // that depended on a certificate.
-
-  /** validate the authorization and the signatures of the given transactions
-    *
-    * The function is NOT THREAD SAFE AND MUST RUN SEQUENTIALLY
-    * @param relaxChecksForBackwardsCompatibility
-    *   in order to import mainnet topology state after hard migration, we need to relax certain
-    *   checks which we added subsequently but which are not honored with older transactions.
-    *   exceptions are:
-    *   - no proof-of-ownership for signing keys on older OTKs
-    *   - adding members before adding OTKs
-    * @param storeIsEmpty
-    *   if set to true, the store is considered empty. no check will load from the store. this is
-    *   useful for importing large genesis timestamps. for all other scenarios it will blow up.
-    */
   def validateAndApplyAuthorization(
       sequenced: SequencedTime,
       effective: EffectiveTime,
@@ -279,7 +259,8 @@ class TopologyStateProcessor private (
       Either.cond(
         expected == toValidate.serial,
         (),
-        TopologyTransactionRejection.Processor.SerialMismatch(expected, toValidate.serial),
+        TopologyTransactionRejection.Processor
+          .SerialMismatch(expected = expected, actual = toValidate.serial),
       )
     case None => Either.unit
   }
@@ -456,9 +437,11 @@ class TopologyStateProcessor private (
       )
     }
   }
+
+  override def close(): Unit = ()
 }
 
-object TopologyStateProcessor {
+object TopologyStateProcessorOld {
 
   private final case class AccumulatedDeactivationsPerMapping(
       serialO: Option[PositiveInt] = None,
@@ -468,8 +451,10 @@ object TopologyStateProcessor {
         serial: PositiveInt
     ): AccumulatedDeactivationsPerMapping =
       copy(serialO = Ordering[Option[PositiveInt]].max(serialO, serial.some))
+
     def removeProposalAt(txHash: TxHash, serial: PositiveInt): AccumulatedDeactivationsPerMapping =
       copy(txHashWithSerial = txHashWithSerial + ((txHash, serial)))
+
     def computeSerialAndOtherTxHashes: (Option[PositiveInt], Set[TxHash]) =
       (
         serialO,
@@ -502,54 +487,4 @@ object TopologyStateProcessor {
         paramIfTrue("expireImmediately", _.expireImmediately.get()),
       )
   }
-
-  /** Creates a TopologyStateProcessor for topology managers.
-    */
-  def forTopologyManager[PureCrypto <: CryptoPureApi](
-      store: TopologyStore[TopologyStoreId],
-      outboxQueue: Option[SynchronizerOutboxQueue],
-      topologyMappingChecks: TopologyMappingChecks,
-      pureCrypto: PureCrypto,
-      loggerFactoryParent: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext) =
-    new TopologyStateProcessor(
-      store,
-      outboxQueue,
-      topologyMappingChecks,
-      pureCrypto,
-      loggerFactoryParent,
-    )
-
-  /** Creates a TopologyStateProcessor for the purpose of initial snapshot validation.
-    */
-  def forInitialSnapshotValidation[PureCrypto <: CryptoPureApi](
-      store: TopologyStore[TopologyStoreId],
-      topologyMappingChecks: TopologyMappingChecks,
-      pureCrypto: PureCrypto,
-      loggerFactoryParent: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext) =
-    new TopologyStateProcessor(
-      store,
-      outboxQueue = None,
-      topologyMappingChecks,
-      pureCrypto,
-      loggerFactoryParent,
-    )
-
-  /** Creates a TopologyStateProcessor for the purpose of business-as-usual topology transaction
-    * processing.
-    */
-  def forTransactionProcessing[PureCrypto <: CryptoPureApi](
-      store: TopologyStore[TopologyStoreId],
-      topologyMappingChecks: TopologyMappingChecks,
-      pureCrypto: PureCrypto,
-      loggerFactoryParent: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext) =
-    new TopologyStateProcessor(
-      store,
-      outboxQueue = None,
-      topologyMappingChecks,
-      pureCrypto,
-      loggerFactoryParent,
-    )
 }

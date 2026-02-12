@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.pruning
 
 import cats.data.{EitherT, NonEmptyList, ValidatedNec}
+import cats.syntax.alternative.*
 import cats.syntax.contravariantSemigroupal.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
@@ -24,7 +25,12 @@ import com.digitalasset.base.error.{
 }
 import com.digitalasset.canton.admin.participant.v30.{ReceivedCommitmentState, SentCommitmentState}
 import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt, PositiveNumeric}
+import com.digitalasset.canton.config.RequireTypes.{
+  NonNegativeInt,
+  NonNegativeLong,
+  PositiveInt,
+  PositiveNumeric,
+}
 import com.digitalasset.canton.config.{
   BatchingConfig,
   CommitmentSendDelay,
@@ -100,6 +106,7 @@ import com.digitalasset.canton.{
   LfPartyId,
   ProtoDeserializationError,
   ReassignmentCounter,
+  checked,
 }
 import com.google.common.annotations.VisibleForTesting
 
@@ -196,6 +203,9 @@ import scala.math.Ordering.Implicits.*
   *   having to create a large number of commitments. This parameter does not influence neither the
   *   actual time spent to compute commitments, nor the compute metrics.
   *
+  * @param commitmentReduceParallelism
+  *   Reduce parallelism to reserve a few cores for other computations
+  *
   * The constructor of this class is private. Instances of this class can only be created using
   * [[AcsCommitmentProcessor.apply]], which in turn uses the Factory method in the companion object
   * to ensure that the class is properly initialized.
@@ -215,7 +225,7 @@ class AcsCommitmentProcessor private (
     contractStore: ContractStore,
     acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     /* An in-memory, mutable running ACS snapshot, updated on every call to [[publish]]  */
-    val runningCommitments: InternalizedRunningCommitments,
+    runningCommitmentsAsync: FutureUnlessShutdown[InternalizedRunningCommitments],
     endLastProcessedPeriod: Option[CantonTimestampSecond],
     enableAdditionalConsistencyChecks: Boolean,
     protected val loggerFactory: NamedLoggerFactory,
@@ -229,7 +239,9 @@ class AcsCommitmentProcessor private (
     commitmentCheckpointInterval: PositiveDurationSeconds,
     commitmentMismatchDebugging: Boolean,
     commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt],
+    commitmentReduceParallelism: NonNegativeInt,
     stringInterning: StringInterning,
+    // disableCommitmentProcessor: Boolean = false,
 )(implicit ec: ExecutionContext)
     extends AcsChangeListener
     with FlagCloseable
@@ -261,8 +273,9 @@ class AcsCommitmentProcessor private (
   /** The parallelism to use when computing commitments */
   private val threadCount: PositiveNumeric[Int] = {
     val count = Threading.detectNumberOfThreads(noTracingLogger)
-    noTracingLogger.info(s"Will use parallelism $count when computing ACS commitments")
-    count
+    val use = Math.max(1, count.value - commitmentReduceParallelism.value)
+    noTracingLogger.info(s"Will use parallelism $use out of $count when computing ACS commitments")
+    checked(PositiveNumeric.tryCreate(use))
   }
 
   // used to generate randomized commitment sending delays
@@ -282,8 +295,19 @@ class AcsCommitmentProcessor private (
   private val readyForRemote: AtomicReference[Option[CantonTimestampSecond]] =
     new AtomicReference[Option[CantonTimestampSecond]](endLastProcessedPeriod)
 
-  @volatile private[this] var lastCheckpointTs: CantonTimestamp =
-    runningCommitments.watermark.timestamp
+  /** Initialized by [[initRunningCommitments()]]. Since this field is accessed only from one of the
+    * queues and [[initRunningCommitments()]] runs on the [[publishQueue]] as the first task, this
+    * field will always be initialized by the time it is accessed.
+    */
+  @SuppressWarnings(Array("org.wartremover.warts.Null"))
+  private[this] var runningCommitments: InternalizedRunningCommitments = _
+
+  /** Initialized by [[initRunningCommitments()]]. Since this field is accessed only from one of the
+    * queues and [[initRunningCommitments()]] runs on the [[publishQueue]] as the first task, this
+    * field will always be initialized by the time it is accessed.
+    */
+  @SuppressWarnings(Array("org.wartremover.warts.Null"))
+  @volatile private[this] var lastCheckpointTs: CantonTimestamp = _
 
   /** Denotes the last period queued for processing. Always increasing because we schedule periods
     * for processing in monotonically order of their timestamps.
@@ -322,8 +346,7 @@ class AcsCommitmentProcessor private (
     * synchronizer.
     */
   private val counterParticipantLastMessage =
-    TrieMap
-      .empty[ParticipantId, CantonTimestamp]
+    TrieMap.empty[ParticipantId, CantonTimestamp]
 
   /** A future checking whether the node should enter catch-up mode by computing the catch-up
     * timestamp. At most one future runs computing this
@@ -398,6 +421,21 @@ class AcsCommitmentProcessor private (
       logTaskTiming = true,
       crashOnFailure = exitOnFatalFailures,
     )
+
+  // Immediately spawn a first task on the publish queue that initializes the running commitments
+  locally {
+    import TraceContext.Implicits.Empty.*
+    FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
+      publishQueue.executeUS(initRunningCommitments(), "initialize running commitments"),
+      "initialize running commitments failed",
+    )
+  }
+
+  private def initRunningCommitments(): FutureUnlessShutdown[Unit] =
+    runningCommitmentsAsync.map { rc =>
+      runningCommitments = rc
+      lastCheckpointTs = rc.watermark.timestamp
+    }
 
   private def processBufferedAtInit(
       timestamp: Option[CantonTimestampSecond]
@@ -546,12 +584,39 @@ class AcsCommitmentProcessor private (
       deactivations: mutable.Map[LfContractId, ContractStakeholdersAndReassignmentCounter],
   )(implicit traceContext: TraceContext): Unit = {
     change.activations.foreach { case (cid, stakeholdersAndCounter) =>
-      val previousActivation =
-        activations.put(cid, stakeholdersAndCounter)
-      previousActivation.foreach { prev =>
-        ErrorUtil.invalidState(
-          s"Activations contains duplicate contract id $cid: old=$prev, new=$stakeholdersAndCounter"
-        )
+      deactivations.get(cid) match {
+        case None =>
+          val previousActivation =
+            activations.put(cid, stakeholdersAndCounter)
+          previousActivation.foreach { prev =>
+            ErrorUtil.invalidState(
+              s"Activations contains duplicate contract id $cid: old=$prev, new=$stakeholdersAndCounter"
+            )
+          }
+        case Some(previousCounter) =>
+          // we have a prior deactivation for the same cid that was not cleared by a previous activation (otherwise it
+          // wouldn't be in deactivations)
+          if (previousCounter.reassignmentCounter == stakeholdersAndCounter.reassignmentCounter) {
+            // the prior uncleared deactivation is cleared by this later activation
+            // shouldn't happen in a well-formed list of activations and deactivations (for non-transient contracts?), but
+            // we'll accept it, because we do see it in party replication
+            logger.info(
+              s"Activation of $cid was preceded by a deactivation for $cid with the same reassignment counter ${stakeholdersAndCounter.reassignmentCounter}"
+            )
+            // it's fine to remove the cid now because there are no concurrent calls to addChange, so the maps should be in
+            // the same state as when we checked the condition
+            deactivations.remove(cid).discard
+          } else {
+            // the prior deactivation is for the same cid but with a different reassignment counter; in this case, we can't clear
+            // the cid, but we'll log the event and add the activation to the map
+            val previousActivation =
+              activations.put(cid, stakeholdersAndCounter)
+            previousActivation.foreach { prev =>
+              ErrorUtil.invalidState(
+                s"Activations contains duplicate contract id $cid: old=$prev, new=$stakeholdersAndCounter"
+              )
+            }
+          }
       }
     }
 
@@ -979,11 +1044,11 @@ class AcsCommitmentProcessor private (
                 s"Computed and stored ${msgs.size} commitment messages for period $completedPeriod"
               )
               _ <- MarkOutstandingIfNonEmpty(completedPeriod, msgs.keySet)
-              _ <- persistRunningCommitments(
-                snapshotRes,
-                UpdateMode.Efficiency,
-              )
+              _ <- persistRunningCommitments(snapshotRes, isCheckpointAtTimestamp = None)
             } yield {
+              // Update the metric only if we are catching up or else we reach a catch-up boundary
+              metrics.lastLocallyCompleted.updateValue(completedPeriod.toInclusive.toMicros)
+
               sendCommitmentMessages(completedPeriod, msgs.toSeq, reconIntervalLength)
             }
           } else FutureUnlessShutdown.unit
@@ -1070,12 +1135,9 @@ class AcsCommitmentProcessor private (
               )
             )
             // snapshot still needs to run on the publish queue, so it needs to be taken here, not lower
-            val snapshot = runningCommitments.snapshot(gc = false)
+            val snapshot = runningCommitments.snapshot()
             val res = checkpointQueue.executeUS(
-              persistRunningCommitments(
-                snapshot,
-                UpdateMode.Checkpoint,
-              ),
+              persistRunningCommitments(snapshot, isCheckpointAtTimestamp = Some(checkpointTs)),
               s"persist running commitments for checkpointing as a result of time of change $toc checkpoint ts $checkpointTs",
             )
             lastCheckpointTs = checkpointTs
@@ -1085,15 +1147,13 @@ class AcsCommitmentProcessor private (
         _ <- completedPeriod match {
           case Some(period) =>
             // snapshot still needs to run on the publish queue, so it needs to be taken here, not lower
-            val snapshot = runningCommitments.snapshot(gc = false)
+            val snapshot = runningCommitments.snapshot()
+            val recordTime = period.toInclusive.forgetRefinement
             val res = checkpointQueue.executeUS(
-              persistRunningCommitments(
-                snapshot,
-                UpdateMode.Checkpoint,
-              ),
-              s"persist running commitments for checkpointing as a result of time of change ${period.toInclusive.forgetRefinement}",
+              persistRunningCommitments(snapshot, isCheckpointAtTimestamp = Some(recordTime)),
+              s"persist running commitments for checkpointing at $recordTime",
             )
-            lastCheckpointTs = period.toInclusive.forgetRefinement
+            lastCheckpointTs = recordTime
             res
           case None => FutureUnlessShutdown.pure(())
         }
@@ -1234,13 +1294,10 @@ class AcsCommitmentProcessor private (
             } else {
               updateRunningCommitments(rt, AcsChange.empty)
               val snapshot: CommitmentSnapshot[InternedPartyId] =
-                runningCommitments.snapshot(gc = false)
+                runningCommitments.snapshot()
               for {
                 _ <- checkpointQueue.executeUS(
-                  persistRunningCommitments(
-                    snapshot,
-                    UpdateMode.Checkpoint,
-                  ),
+                  persistRunningCommitments(snapshot, isCheckpointAtTimestamp = Some(rt.timestamp)),
                   s"persist running commitments for checkpointing as a result of time of upgrade time $upgradeTime",
                 )
               } yield ()
@@ -1344,8 +1401,12 @@ class AcsCommitmentProcessor private (
       timestamp: CantonTimestamp,
       payload: AcsCommitment,
   ): Unit =
-    if (counterParticipantLastMessage.get(payload.sender).fold(true)(_ < timestamp))
-      counterParticipantLastMessage.addOne(payload.sender -> timestamp)
+    counterParticipantLastMessage
+      .updateWith(payload.sender) {
+        case None => Some(timestamp)
+        case old @ Some(existing) => if (existing < timestamp) Some(timestamp) else old
+      }
+      .discard[Option[CantonTimestamp]]
 
   private def calculateParticipantLatencies(
       slowConfigs: Seq[ConfigForSlowCounterParticipants],
@@ -1484,20 +1545,30 @@ class AcsCommitmentProcessor private (
 
   private def persistRunningCommitments(
       res: CommitmentSnapshot[InternedPartyId],
-      updateMode: UpdateMode,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+      isCheckpointAtTimestamp: Option[CantonTimestamp],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    val updateMode =
+      if (isCheckpointAtTimestamp.isEmpty) UpdateMode.Efficiency
+      else UpdateMode.Checkpoint
     store.runningCommitments
-      .update(
-        res.recordTime,
-        res.delta,
-        res.deleted,
-        updateMode,
-      )
-      .map(_ =>
+      .update(res.recordTime, res.delta, res.deleted, updateMode)
+      .map { _ =>
         logger.info(
           s"Persisted ACS commitments at ${res.recordTime} with $res in mode $updateMode"
         )
-      )
+        isCheckpointAtTimestamp.foreach { timestamp =>
+          // Update the metric with the timestamp of the checkpoint, rather than timestamp of the snapshot.
+          // This is in line with the metric for locally completed period, which are set to the end of the period
+          // even if the running commitment snapshot's watermark is at the record time of the last change prior to the period end.
+          //
+          // This behavior makes sense as we know that there are no ACS changes since then and we want to indicate in the metric
+          // that processing continues even if time advances without ACS changes.
+          // Crash recover will resume at the timestamp of the last prior change,
+          // but this does not really matter as there are no changes in between anyway.
+          metrics.lastLocallyCheckpointed.updateValue(timestamp.toMicros)
+        }
+      }
+  }
 
   /** Store special empty commitment to remember we were in catch-up mode, with the current
     * participant as the counter-participant. Because the special commitment have the current
@@ -1584,27 +1655,27 @@ class AcsCommitmentProcessor private (
     logger.info(
       s"Checking commitment (purportedly by) ${message.message.sender} for period ${message.message.period}"
     )
-    for {
-      validSig <- checkCommitmentSignature(message)
-
-      commitment = message.message
+    checkCommitmentSignature(message).flatMap { validSig =>
+      val commitment = message.message
 
       // If signature passes, store such that we can prove Byzantine behavior if necessary
-      _ <-
-        if (validSig) for {
+      if (validSig) {
+        metrics.lastIncomingReceived.updateValue(
+          // ACS commitments may come in any order. We therefore take the maximum of the period ends.
+          _ max envelope.protocolMessage.message.period.toInclusive.toMicros
+        )
+        updateParticipantLatency(timestamp, envelope.protocolMessage.message)
+
+        for {
           _ <- store.storeReceived(message)
           _ <- checkCommitment(commitment)
         } yield ()
-        else FutureUnlessShutdown.unit
-    } yield {
-      if (!validSig) {
-        AcsCommitmentAlarm
-          .Warn(
-            s"""Received wrong signature for ACS commitment at timestamp $timestamp; purported sender: ${commitment.sender}; commitment: $commitment"""
-          )
-          .report()
       } else {
-        updateParticipantLatency(timestamp, envelope.protocolMessage.message)
+        val alarm = AcsCommitmentAlarm.Warn(
+          s"""Received wrong signature for ACS commitment at timestamp $timestamp; purported sender: ${commitment.sender}; commitment: $commitment"""
+        )
+        alarm.report()
+        FutureUnlessShutdown.unit
       }
     }
   }
@@ -1755,7 +1826,11 @@ class AcsCommitmentProcessor private (
         possibleCatchUp <- isCatchUpPeriod(cmt.period)
         lastPruningTime <- store.pruningStatus
         _ <- markPeriods(cmt, commitments, lastPruningTime, possibleCatchUp)
-      } yield ()
+      } yield {
+        // max to ensure that this metric increases monotonically
+        // even if we don't process buffered commitments in order.
+        metrics.lastIncomingProcessed.updateValue(_ max cmt.period.toInclusive.toMicros)
+      }
     }
   }
 
@@ -1789,6 +1864,7 @@ class AcsCommitmentProcessor private (
         completedPeriod.fromExclusive.forgetRefinement,
         completedPeriod.toInclusive.forgetRefinement,
       )
+      intervalCount = intervals.size
 
       reconIntervals <- getReconciliationIntervals(
         completedPeriod.toInclusive.forgetRefinement
@@ -1810,10 +1886,10 @@ class AcsCommitmentProcessor private (
 
             lastPruningTime <- store.pruningStatus
 
-            _ = if (counterCommitmentList.sizeIs > intervals.size) {
+            _ = if (counterCommitmentList.sizeIs > intervalCount) {
               AcsCommitmentAlarm
                 .Warn(
-                  s"""There should be at most ${intervals.size} commitments from counter-participant
+                  s"""There should be at most $intervalCount commitments from counter-participant
                      |$counterParticipant covering the period ${completedPeriod.fromExclusive} to ${completedPeriod.toInclusive}),
                      |but we have the following ${counterCommitmentList.size}""".stripMargin
                 )
@@ -1824,30 +1900,38 @@ class AcsCommitmentProcessor private (
             possibleCatchUp <- isCatchUpPeriod(period)
 
             // get lists of counter-commitments that match and, respectively, do not match locally computed commitments
-            (matching, mismatches) = counterCommitmentList.partition(counterCommitment =>
-              matches(
+            analyzedCounterCommitments = counterCommitmentList.map { counterCommitment =>
+              val isMatch = matches(
                 counterCommitment,
                 List((period, cmt)),
                 lastPruningTime.map(_.timestamp),
                 possibleCatchUp,
                 reconIntervalLength,
               )
-            )
+              Either.cond(isMatch, counterCommitment, counterCommitment)
 
-            // we mark safe all matching counter-commitments
-            _ <- matching.parTraverse_ { counterCommitment =>
+            }
+
+            // we mark all counter-commitments
+            _ <- analyzedCounterCommitments.parTraverse_ { analyzedCounterCommitment =>
+              val counterCommitment = analyzedCounterCommitment.merge
+              val safe = analyzedCounterCommitment.isRight
               logger.debug(
-                s"Marked as safe commitment $cmt against counterComm $counterCommitment"
+                s"Marked as ${if (safe) "safe" else "unsafe"} commitment $cmt against counterComm $counterCommitment"
               )
               val cmtPeriodsNE = NonEmptyUtil.fromElement(counterCommitment.period)
               for {
-                _ <- store.markSafe(
-                  counterCommitment.sender,
-                  cmtPeriodsNE.toSet,
+                _ <-
+                  if (safe) store.markSafe(counterCommitment.sender, cmtPeriodsNE)
+                  else store.markUnsafe(counterCommitment.sender, cmtPeriodsNE)
+              } yield {
+                // max to ensure that this metric increases monotonically
+                metrics.lastIncomingProcessed.updateValue(
+                  _ max counterCommitment.period.toInclusive.toMicros
                 )
-              } yield ()
-
+              }
             }
+            (mismatches, matching) = analyzedCounterCommitments.separate
 
             reconIntervals <- getReconciliationIntervals(
               completedPeriod.toInclusive.forgetRefinement
@@ -1860,27 +1944,24 @@ class AcsCommitmentProcessor private (
             // and `lastProcessedCatchUpCommitmentTimestamp`
             _ <-
               if (mismatches.nonEmpty) {
-                for {
-                  res <-
-                    if (!filterInJustMismatches) {
-                      // send to all counter-participants from whom either I don't have cmts or I have cmts, but they don't match
-                      sendCommitmentMessagesInCatchUpInterval(
-                        lastSentCatchUpCommitmentTimestamp,
-                        lastProcessedCatchUpCommitmentTimestamp,
-                        filterOutParticipantId = matching.map(c => c.counterParticipant),
-                        intervalMillis = reconIntervalLength,
-                      )
-                    } else {
-                      // send to all counter-participants from whom I have cmts, but they don't match
-                      sendCommitmentMessagesInCatchUpInterval(
-                        lastSentCatchUpCommitmentTimestamp,
-                        lastProcessedCatchUpCommitmentTimestamp,
-                        filterInParticipantId = mismatches.map(c => c.counterParticipant),
-                        filterOutParticipantId = matching.map(c => c.counterParticipant),
-                        reconIntervalLength,
-                      )
-                    }
-                } yield res
+                if (!filterInJustMismatches) {
+                  // send to all counter-participants from whom either I don't have cmts or I have cmts, but they don't match
+                  sendCommitmentMessagesInCatchUpInterval(
+                    lastSentCatchUpCommitmentTimestamp,
+                    lastProcessedCatchUpCommitmentTimestamp,
+                    filterOutParticipantId = matching.map(c => c.counterParticipant),
+                    intervalMillis = reconIntervalLength,
+                  )
+                } else {
+                  // send to all counter-participants from whom I have cmts, but they don't match
+                  sendCommitmentMessagesInCatchUpInterval(
+                    lastSentCatchUpCommitmentTimestamp,
+                    lastProcessedCatchUpCommitmentTimestamp,
+                    filterInParticipantId = mismatches.map(c => c.counterParticipant),
+                    filterOutParticipantId = matching.map(c => c.counterParticipant),
+                    reconIntervalLength,
+                  )
+                }
               } else FutureUnlessShutdown.unit
           } yield ()
 
@@ -2328,20 +2409,21 @@ class AcsCommitmentProcessor private (
       completedPeriod: CommitmentPeriod,
       participants: Set[ParticipantId],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    for {
-      splitPeriod <- sortedReconciliationIntervalsProvider.splitCommitmentPeriod(
-        completedPeriod
-      )
-      counterParticipantsNE = NonEmpty.from(participants)
-      _ <- counterParticipantsNE.fold(FutureUnlessShutdown.unit)(counterParticipants =>
-        splitPeriod.fold(FutureUnlessShutdown.unit)(period =>
-          store.markOutstanding(
-            period,
-            counterParticipants,
-          )
+    NonEmpty.from(participants).traverse_ { counterParticipants =>
+      for {
+        splitPeriod <- sortedReconciliationIntervalsProvider.splitCommitmentPeriod(
+          completedPeriod
         )
-      )
-    } yield ()
+        _ <- splitPeriod.traverse_ { periods =>
+          MonadUtil.batchedSequentialTraverseNE_(
+            batchingConfig.parallelism,
+            batchingConfig.maxItemsInBatch,
+          )(periods) { chunk =>
+            store.markOutstanding(chunk, counterParticipants)
+          }
+        }
+      } yield ()
+    }
 
   private def markPeriods(
       cmt: AcsCommitmentData,
@@ -2351,38 +2433,21 @@ class AcsCommitmentProcessor private (
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
       splitPeriods <- sortedReconciliationIntervalsProvider.splitCommitmentPeriod(cmt.period)
-      reconIntervals <- getReconciliationIntervals(
-        cmt.period.toInclusive.forgetRefinement
-      )
+      reconIntervals <- getReconciliationIntervals(cmt.period.toInclusive.forgetRefinement)
       reconIntervalLength = reconIntervals.intervals.headOption.fold(0L)(
         _.intervalLength.duration.toMillis
       )
-
-      _ <- splitPeriods match {
-        case Some(periods) =>
-          if (
-            matches(
-              cmt,
-              commitments,
-              lastPruningTime.map(_.timestamp),
-              possibleCatchUp,
-              reconIntervalLength,
-            )
-          ) {
-            for {
-              _ <-
-                store.markSafe(
-                  cmt.sender,
-                  periods,
-                )
-            } yield ()
-          } else {
-            store.markUnsafe(
-              cmt.sender,
-              periods,
-            )
-          }
-        case None => FutureUnlessShutdown.unit
+      _ <- splitPeriods.traverse_ { periods =>
+        val isMatch =
+          matches(
+            cmt,
+            commitments,
+            lastPruningTime.map(_.timestamp),
+            possibleCatchUp,
+            reconIntervalLength,
+          )
+        if (isMatch) store.markSafe(cmt.sender, periods)
+        else store.markUnsafe(cmt.sender, periods)
       }
     } yield ()
 
@@ -2408,12 +2473,9 @@ class AcsCommitmentProcessor private (
               batchingConfig,
             )
 
-            snapshot = rc.snapshot(gc = false)
+            snapshot = rc.snapshot()
             _ <- checkpointQueue.executeUS(
-              persistRunningCommitments(
-                snapshot,
-                UpdateMode.Checkpoint,
-              ),
+              persistRunningCommitments(snapshot, isCheckpointAtTimestamp = Some(timestamp)),
               s"persist running commitments for checkpointing as a result of reinitialization at time $timestamp",
             )
             lastCheckpointTs = timestamp
@@ -2712,12 +2774,14 @@ object AcsCommitmentProcessor extends HasLoggerName {
       clock: Clock,
       exitOnFatalFailures: Boolean,
       batchingConfig: BatchingConfig,
+      asynchronousInitialization: Boolean,
       maxCommitmentSendDelayMillis: Option[CommitmentSendDelay] = None,
       increasePerceivedComputationTimeForCommitments: Option[java.time.Duration] = None,
       doNotAwaitOnCheckingIncomingCommitments: Boolean,
       commitmentCheckpointInterval: PositiveDurationSeconds,
       commitmentMismatchDebugging: Boolean = false,
       commitmentProcessorNrAcsChangesBehindToTriggerCatchUp: Option[PositiveInt] = None,
+      commitmentReduceParallelism: NonNegativeInt = NonNegativeInt.one,
       stringInterning: StringInterning,
   )(implicit
       ec: ExecutionContext,
@@ -2727,35 +2791,35 @@ object AcsCommitmentProcessor extends HasLoggerName {
     implicit val loggingContext: NamedLoggingContext =
       NamedLoggingContext(loggerFactory, traceContext)
 
-    def initCommitmentProcessor(store: AcsCommitmentStore)(implicit
-        ec: ExecutionContext,
-        traceContext: TraceContext,
-    ): FutureUnlessShutdown[(Option[CantonTimestampSecond], InternalizedRunningCommitments)] = {
+    def loadInitialState(): FutureUnlessShutdown[
+      (Option[CantonTimestampSecond], FutureUnlessShutdown[InternalizedRunningCommitments])
+    ] = for {
+      endOfLastProcessedPeriod <- store.lastComputedAndSent
+      _ = endOfLastProcessedPeriod.foreach { ts =>
+        loggingContext.info(s"Last computed and sent timestamp: $ts")
+      }
+      runningCommitmentsAsync = initRunningCommitments(store, stringInterning).map {
+        runningCommitments =>
+          // we have no cached commitments for the first computation after recovery
+          val snapshot = runningCommitments.snapshot()
+          loggingContext.info(
+            s"Initialized from stored snapshot at ${runningCommitments.watermark} (might be incomplete) with $snapshot"
+          )
+          runningCommitments
+      }
+      // TODO(#28164) Remove asynchronous loading again when it's no longer needed
+      runningCommitments <-
+        if (asynchronousInitialization) FutureUnlessShutdown.pure(runningCommitmentsAsync)
+        else runningCommitmentsAsync.map(FutureUnlessShutdown.pure)
+    } yield (endOfLastProcessedPeriod, runningCommitments)
 
-      val executed = for {
-        lastComputed <- store.lastComputedAndSent
-        _ = lastComputed.foreach { ts =>
-          loggingContext.info(s"Last computed and sent timestamp: $ts")
-        }
-        runningCommitments <- initRunningCommitments(store, stringInterning)
-        // we have no cached commitments for the first computation after recovery
-        snapshot = runningCommitments.snapshot()
-        _ = loggingContext.info(
-          s"Initialized from stored snapshot at ${runningCommitments.watermark} (might be incomplete) with $snapshot"
-        )
-      } yield (lastComputed, runningCommitments)
-      FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
-        executed,
-        "Failed to initialize the ACS commitment processor.",
-        logPassiveInstanceAtInfo = true,
-      )
-    }
     // Ensure that the initialization runs first. We don't care about initialization having
     // completed by the time we return - only that it runs first.
-    for {
-      init <- initCommitmentProcessor(store)
-      (endOfLastProcessedPeriod, runningCommitments) = init
-      processor = new AcsCommitmentProcessor(
+    val executed = for {
+      initialState <- loadInitialState()
+    } yield {
+      val (endOfLastProcessedPeriod, runningCommitments) = initialState
+      val processor = new AcsCommitmentProcessor(
         participantId,
         sequencerClient,
         synchronizerCrypto,
@@ -2782,6 +2846,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         commitmentCheckpointInterval,
         commitmentMismatchDebugging,
         commitmentProcessorNrAcsChangesBehindToTriggerCatchUp,
+        commitmentReduceParallelism,
         stringInterning,
       )
       // We trigger the processing of the buffered commitments, but we do not wait for it to complete here,
@@ -2790,11 +2855,21 @@ object AcsCommitmentProcessor extends HasLoggerName {
       // lags behind the replayed change timestamp. In normal processing, we publish ACS changes only after the ledger
       // end has moved, which should mean that all topology events for a given timestamp have been processed before
       // processing the ACS change for the same timestamp
-      _ = processor.processBufferedAtInit(endOfLastProcessedPeriod)
-      _ = loggingContext.info(
+      FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
+        processor.processBufferedAtInit(endOfLastProcessedPeriod),
+        "processing of buffered commitments at init failed",
+      )
+      loggingContext.info(
         s"Initialized the ACS commitment processor DB queue and started processing buffered commitments until $endOfLastProcessedPeriod"
       )
-    } yield processor
+      processor
+    }
+
+    FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
+      executed,
+      "Failed to initialize the ACS commitment processor.",
+      logPassiveInstanceAtInfo = true,
+    )
   }
 
   /* Extracted as a pure function for testing */

@@ -68,7 +68,11 @@ class GcpKms(
   private val gcpKeyversion = "1"
 
   private val errorMessagesToRetry =
-    Set("io.grpc.StatusRuntimeException: UNAVAILABLE: Connection closed")
+    Set(
+      "io.grpc.StatusRuntimeException: UNAVAILABLE: Connection closed",
+      "Internal error encountered",
+      "INTERNAL: http2 exception",
+    )
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private def convertPublicKeyFromPemToDer(pubKeyPEM: String): Either[String, ByteString] = {
@@ -115,7 +119,8 @@ class GcpKms(
         )
         kmsErrorGen(ErrorUtil.messageWithStacktrace(err), true)
       case internalErr: com.google.api.gax.rpc.InternalException
-          if Option(internalErr.getMessage).exists(_.contains("Internal error encountered")) =>
+          if Option(internalErr.getMessage)
+            .exists(errMsg => errorMessagesToRetry.exists(errMsg.contains(_))) =>
         logger.debug(
           "Got InternalException(Internal error encountered) — treating it as retryable"
         )(

@@ -125,27 +125,19 @@ private[mediator] class MediatorState(
       )
     }
 
-  /** Adds an incoming ResponseAggregation */
-  def add(
+  /** Registers an incoming ResponseAggregation as pending request */
+  def registerPendingRequest(
       responseAggregation: ResponseAggregation[?]
-  )(implicit
-      traceContext: TraceContext,
-      callerCloseContext: CloseContext,
-  ): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): Unit = {
     requireInitialized()
-    responseAggregation.asFinalized(protocolVersion) match {
-      case None =>
-        val requestId = responseAggregation.requestId
-        ErrorUtil.requireState(
-          Option(pendingRequests.putIfAbsent(requestId, responseAggregation)).isEmpty,
-          s"Unexpected pre-existing request for $requestId",
-        )
+    val requestId = responseAggregation.requestId
+    ErrorUtil.requireState(
+      Option(pendingRequests.putIfAbsent(requestId, responseAggregation)).isEmpty,
+      s"Unexpected pre-existing request for $requestId",
+    )
 
-        metrics.requests.mark()
-        updateNumRequests(1)
-        FutureUnlessShutdown.unit
-      case Some(finalizedResponse) => add(finalizedResponse)
-    }
+    metrics.requests.mark()(MediatorMetrics.nonduplicateRejectContext)
+    updateNumRequests(1)
   }
 
   def add(

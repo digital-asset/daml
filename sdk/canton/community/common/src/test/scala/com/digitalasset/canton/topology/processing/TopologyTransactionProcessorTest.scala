@@ -4,14 +4,19 @@
 package com.digitalasset.canton.topology.processing
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.{
+  BatchAggregatorConfig,
+  DefaultProcessingTimeouts,
+  TopologyConfig,
+}
 import com.digitalasset.canton.crypto.{SigningPublicKey, SynchronizerCryptoPureApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.cache.{CacheTestMetrics, TopologyStateWriteThroughCache}
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreHelper
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
@@ -30,6 +35,8 @@ abstract class TopologyTransactionProcessorTest
 
   import Factory.*
 
+  def testNewProcessor: Boolean
+
   protected def mkDefault(
       testName: String = "processortest"
   ): (TopologyTransactionProcessor, TopologyStore[TopologyStoreId.SynchronizerStore]) = mk(
@@ -46,6 +53,20 @@ abstract class TopologyTransactionProcessorTest
     val proc = new TopologyTransactionProcessor(
       new SynchronizerCryptoPureApi(defaultStaticSynchronizerParameters, crypto),
       store,
+      Option.when(testNewProcessor)(
+        new TopologyStateWriteThroughCache(
+          store,
+          BatchAggregatorConfig.defaultsForTesting,
+          cacheEvictionThreshold = TopologyConfig.forTesting.topologyStateCacheEvictionThreshold,
+          maxCacheSize = TopologyConfig.forTesting.maxTopologyStateCacheItems,
+          enableConsistencyChecks = true,
+          CacheTestMetrics.metrics,
+          futureSupervisor,
+          timeouts,
+          loggerFactory,
+        )
+      ),
+      TopologyConfig.forTesting.copy(useNewProcessor = testNewProcessor),
       defaultStaticSynchronizerParameters,
       _ => (),
       TerminateProcessing.NoOpTerminateTopologyProcessing,
@@ -619,10 +640,29 @@ class TopologyTransactionProcessorTestInMemory extends TopologyTransactionProces
       loggerFactory.appendUnnamedKey("testName", testName),
       timeouts,
     )
-
+  override def testNewProcessor: Boolean = false
 }
+
+class TopologyTransactionProcessorTestH2
+    extends TopologyTransactionProcessorTest
+    with DbTest
+    with DbTopologyStoreHelper
+    with PostgresTest {
+  override def testNewProcessor: Boolean = true
+}
+
 class TopologyTransactionProcessorTestPostgres
     extends TopologyTransactionProcessorTest
     with DbTest
     with DbTopologyStoreHelper
-    with PostgresTest
+    with PostgresTest {
+  override def testNewProcessor: Boolean = false
+}
+
+class TopologyTransactionProcessorTestNewProcessorPostgres
+    extends TopologyTransactionProcessorTest
+    with DbTest
+    with DbTopologyStoreHelper
+    with PostgresTest {
+  override def testNewProcessor: Boolean = true
+}

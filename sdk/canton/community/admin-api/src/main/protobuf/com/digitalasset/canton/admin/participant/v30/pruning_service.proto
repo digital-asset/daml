@@ -71,6 +71,7 @@ service PruningService {
 message PruneRequest {
   // Inclusive offset up to which the ledger is to be pruned.
   int64 prune_up_to = 1;
+  optional SafeToPruneCommitmentState counter_participants_commitments_state = 2;
 }
 
 message PruneResponse {
@@ -80,6 +81,7 @@ message PruneResponse {
 message GetSafePruningOffsetRequest {
   google.protobuf.Timestamp before_or_at = 1;
   int64 ledger_end = 2;
+  optional SafeToPruneCommitmentState counter_participants_commitments_state = 3;
 }
 
 message GetSafePruningOffsetResponse {
@@ -89,4 +91,26 @@ message GetSafePruningOffsetResponse {
     int64 safe_pruning_offset = 1;
     NoSafePruningOffset no_safe_pruning_offset = 2;
   }
+}
+
+// The states ensure that, once a timestamp is seen as safe to prune, it cannot later be seen as unsafe to prune.
+// For this, we assume that the outstanding periods table ensures that a period's state can only be outstanding, mismatch, match:
+// - Match supersedes all other states and cannot be changed
+// - Mismatch can only change to match
+// - Outstanding can change to any other state
+// Therefore, in state SAFE_TO_PRUNE_COMMITMENT_STATE_NONE, we declare a state safe to prune because periods are a match, which can never change
+// In state SAFE_TO_PRUNE_COMMITMENT_STATE_MATCH_MISMATCH, a state match cannot change later, and a mismatch can only change to a match,
+// which is covered by the state. Therefore, an affirmative pruning decision for a timestamp cannot change later.
+// A similar argument can be made for SAFE_TO_PRUNE_COMMITMENT_STATE_ALL.
+
+enum SafeToPruneCommitmentState {
+  // Default enum value that indicates the counter_participants_commitments_state field was not explicitly set.
+  SAFE_TO_PRUNE_COMMITMENT_STATE_UNSPECIFIED = 0;
+  // We consider safe to prune the periods where all states match
+  // This is the default pruning behavior: when the counter_participants_commitments_state field isn't set, we'll have this behavior, but without explicitly setting the value
+  SAFE_TO_PRUNE_COMMITMENT_STATE_MATCH = 1;
+  // We consider safe to prune only periods that have matching or mismatching commitments
+  SAFE_TO_PRUNE_COMMITMENT_STATE_MATCH_MISMATCH = 2;
+  // All periods are safe to prune, i.e., those that have matching, mismatching or outstanding commitments
+  SAFE_TO_PRUNE_COMMITMENT_STATE_ALL = 3;
 }

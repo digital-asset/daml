@@ -162,12 +162,14 @@ class BlockSequencer(
     materializer,
     loggerFactory,
   )
+
   private val throughputCap =
     new BlockSequencerThroughputCap(
       blockSequencerConfig.throughputCap,
       clock,
       materializer.system.scheduler,
       metrics,
+      timeouts,
       loggerFactory,
     )
 

@@ -481,13 +481,16 @@ object ParallelIndexerSubscription {
     metrics.indexer.inputMapping.batchSize.update(input.size)(MetricsContext.Empty)
 
     val batch = input.iterator.flatMap { case (offset, update) =>
-      val prefix = update match {
-        case _: Update.TransactionAccepted => "Phase 7: "
-        case _ => ""
+      update match {
+        case _: Update.TransactionAccepted =>
+          logger.info(
+            s"Phase 7: Storing at offset=${offset.unwrap} $update"
+          )(update.traceContext)
+        case _ =>
+          logger.debug(
+            s"Storing at offset=${offset.unwrap} $update"
+          )(update.traceContext)
       }
-      logger.info(
-        s"${prefix}Storing at offset=${offset.unwrap} $update"
-      )(update.traceContext)
       toDbDto(offset)(update)
     }.toVector
 

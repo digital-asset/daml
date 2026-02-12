@@ -621,7 +621,7 @@ object AwsKms extends Kms.SupportedSchemes {
         /* We can access AWS in multiple ways, for example: (1) using the AWS security token service (sts)
          profile (2) setting up the following environment variables: AWS_ACCESS_KEY_ID,
          AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN */
-        .credentialsProvider(DefaultCredentialsProvider.create())
+        .credentialsProvider(DefaultCredentialsProvider.builder().build())
 
       config.endpointOverride.map(URI.create).fold(builder)(builder.endpointOverride)
     }
@@ -669,7 +669,7 @@ object AwsKms extends Kms.SupportedSchemes {
                 /* We can access AWS in multiple ways, for example: (1) using the AWS security token service (sts)
                  profile (2) setting up the following environment variables: AWS_ACCESS_KEY_ID,
                  AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN */
-                .credentialsProvider(DefaultCredentialsProvider.create())
+                .credentialsProvider(DefaultCredentialsProvider.builder().build())
                 .build(),
               timeouts,
               loggerFactory,

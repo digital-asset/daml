@@ -67,6 +67,7 @@ class DirectSequencerClientTransport(
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
     protocolVersion: ProtocolVersion,
+    progressSupervisorO: Option[ProgressSupervisor] = None,
 )(implicit materializer: Materializer, ec: ExecutionContext)
     extends SequencerClientTransport
     with SequencerClientTransportPekko
@@ -209,8 +210,22 @@ class DirectSequencerClientTransport(
           source.map(_.leftMap(SequencedEventError.apply))
       }
     val health = new DirectSequencerClientTransportHealth(logger)
-    val source = Source
-      .futureSource(sourceF)
+
+    val source = (progressSupervisorO match {
+      case Some(progressSupervisor) =>
+        // required to prevent warnings on earlier events that we won't be reading again
+        request.timestamp.foreach(progressSupervisor.ignoreTimestampsBefore(_)(traceContext))
+        Source
+          .futureSource(sourceF)
+          .map { eventOrError =>
+            eventOrError.foreach { event =>
+              progressSupervisor.disarm(event.timestamp)(event.traceContext)
+            }
+            eventOrError
+          }
+      case None =>
+        Source.futureSource(sourceF)
+    })
       .watchTermination() { (matF, terminationF) =>
         val directExecutionContext = DirectExecutionContext(noTracingLogger)
         val killSwitchF = matF.map { case (killSwitch, _) => killSwitch }(directExecutionContext)

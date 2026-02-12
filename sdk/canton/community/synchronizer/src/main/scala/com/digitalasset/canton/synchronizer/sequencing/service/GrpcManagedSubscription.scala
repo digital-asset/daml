@@ -17,6 +17,7 @@ import com.digitalasset.canton.sequencing.client.SequencerSubscription
 import com.digitalasset.canton.sequencing.client.SequencerSubscriptionError.SequencedEventError
 import com.digitalasset.canton.sequencing.client.transports.ServerSubscriptionCloseReason
 import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
+import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError.EventsUnavailableForTimestamp
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
@@ -140,7 +141,15 @@ private[service] class GrpcManagedSubscription[T](
             logger.warn("Creating sequencer subscription failed", exception)
             signalAndClose(ErrorSignal(exception))
           case Success(UnlessShutdown.Outcome(Left(err))) =>
-            logger.warn(s"Creating sequencer subscription returned error: $err")
+            val message = s"Creating sequencer subscription returned error: $err"
+            err match {
+              case _: EventsUnavailableForTimestamp =>
+                // Logging at INFO level because this can happen during normal operations for a decentralized synchronizer
+                // where a participant updates its sequencer connection config before it has caught up to the point
+                // where the sequencer was actually onboarded.
+                logger.info(message)
+              case _ => logger.warn(message)
+            }
             signalAndClose(
               ErrorSignal(Status.FAILED_PRECONDITION.withDescription(err.toString).asException())
             )

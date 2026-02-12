@@ -4,8 +4,13 @@
 package com.digitalasset.canton.config
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.TopologyConfig.*
+import com.digitalasset.canton.config.TopologyConfig.{
+  defaultTopologyStateWriteThroughCacheEvictionThreshold,
+  defaultTopologyStateWriteThroughCacheSize,
+  *,
+}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
+import com.google.common.annotations.VisibleForTesting
 
 /** @param topologyTransactionRegistrationTimeout
   *   Used to determine the max sequencing time for topology transaction broadcasts.
@@ -43,6 +48,12 @@ final case class TopologyConfig(
     disableOptionalTopologyChecks: Boolean = false,
     dispatchQueueBackpressureLimit: NonNegativeInt = defaultMaxUnsentTopologyQueueSize,
     useTimeProofsToObserveEffectiveTime: Boolean = false,
+    useNewProcessor: Boolean = false,
+    useNewClient: Boolean = false,
+    topologyStateCacheEvictionThreshold: PositiveInt =
+      defaultTopologyStateWriteThroughCacheEvictionThreshold,
+    maxTopologyStateCacheItems: PositiveInt = defaultTopologyStateWriteThroughCacheSize,
+    enableTopologyStateCacheConsistencyChecks: Boolean = false,
 ) extends UniformCantonConfigValidation
 
 object TopologyConfig {
@@ -64,6 +75,17 @@ object TopologyConfig {
     NonNegativeFiniteDuration.ofSeconds(10)
 
   private[TopologyConfig] val defaultBroadcastBatchSize: PositiveInt = PositiveInt.tryCreate(100)
+
+  private[TopologyConfig] val defaultTopologyStateWriteThroughCacheEvictionThreshold: PositiveInt =
+    PositiveInt.tryCreate(250)
+  private[TopologyConfig] val defaultTopologyStateWriteThroughCacheSize: PositiveInt =
+    PositiveInt.tryCreate(10000)
+
+  @VisibleForTesting
+  val forTesting: TopologyConfig = TopologyConfig(
+    maxTopologyStateCacheItems = PositiveInt.tryCreate(10),
+    enableTopologyStateCacheConsistencyChecks = true,
+  )
 
   def NotUsed: TopologyConfig = TopologyConfig(topologyTransactionRegistrationTimeout =
     NonNegativeFiniteDuration(NonNegativeDuration.maxTimeout)

@@ -18,10 +18,13 @@ import com.digitalasset.canton.config.{
   *
   * @param pruning
   *   mediator pruning configuration
+  * @param asynchronousProcessing
+  *   whether the mediator should process events asynchronously or purely sequential
   */
 final case class MediatorConfig(
     pruning: MediatorPruningConfig = MediatorPruningConfig(),
     deduplicationStore: DeduplicationStoreConfig = DeduplicationStoreConfig(),
+    asynchronousProcessing: Boolean = true,
 ) extends UniformCantonConfigValidation
 
 object MediatorConfig {

@@ -115,7 +115,7 @@ final class StoreBasedTopologyStateForInitializationService(
     val sourceF = referenceSequencedTimeF.map { referenceSequencedTimeO =>
       referenceSequencedTimeO
         .map { case (referenceSequencedTime, effectiveFrom) =>
-          logger.debug(
+          logger.info(
             s"Fetching initial topology state at ${referenceSequencedTime.value} for $member active at $effectiveFrom"
           )
           synchronizerTopologyStore.findEssentialStateAtSequencedTime(
@@ -152,7 +152,7 @@ final class StoreBasedTopologyStateForInitializationService(
     getReferenceTime(member).flatMap { referenceSequencedTimeO =>
       referenceSequencedTimeO
         .map { case (referenceSequencedTime, effectiveFrom) =>
-          logger.debug(
+          logger.info(
             s"Computing initial topology state hash at ${referenceSequencedTime.value} for $member active at $effectiveFrom"
           )
           synchronizerTopologyStore

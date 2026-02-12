@@ -8,6 +8,7 @@ import cats.data.EitherT
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.TopologyConfig
 import com.digitalasset.canton.crypto.{CryptoPureApi, SynchronizerCrypto}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -123,6 +124,7 @@ class DbPhysicalSyncPersistentState(
     storage: DbStorage,
     crypto: SynchronizerCrypto,
     parameters: ParticipantNodeParameters,
+    topologyConfig: TopologyConfig,
     packageMetadataView: PackageMetadataView,
     ledgerApiStore: Eval[LedgerApiStore],
     logicalSyncPersistentState: LogicalSyncPersistentState,
@@ -190,6 +192,8 @@ class DbPhysicalSyncPersistentState(
     clock = clock,
     crypto = crypto,
     staticSynchronizerParameters = staticSynchronizerParameters,
+    topologyCacheAggregatorConfig = parameters.batchingConfig.topologyCacheAggregator,
+    topologyConfig = topologyConfig,
     store = topologyStore,
     outboxQueue = synchronizerOutboxQueue,
     disableOptionalTopologyChecks = parameters.disableOptionalTopologyChecks,

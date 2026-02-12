@@ -48,6 +48,13 @@ final class InteractiveSubmissionTrafficCostEstimationTest
   private var bankE: ExternalParty = _
   private var localEmily: PartyId = _
 
+  // Update the traffic parameters to set base event cost and base traffic rate to 0
+  // This allows for easier assertions over traffic consumed
+  private val trafficControlParams = TrafficControlParameters.default.copy(
+    maxBaseTrafficAmount = NonNegativeLong.zero,
+    baseEventCost = NonNegativeLong.zero,
+  )
+
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
       .withSetup { implicit env =>
@@ -79,14 +86,7 @@ final class InteractiveSubmissionTrafficCostEstimationTest
         bankE = ppn.parties.external.enable("Bank")
         localEmily = participant1.parties.enable("Emily")
       }
-      .withTrafficControl(
-        // Update the traffic parameters to set base event cost and base traffic rate to 0
-        // This allows for easier assertions over traffic consumed
-        TrafficControlParameters.default.copy(
-          maxBaseTrafficAmount = NonNegativeLong.zero,
-          baseEventCost = NonNegativeLong.zero,
-        )
-      )
+      .withTrafficControl(trafficControlParams)
       .withSetup { implicit env =>
         import env.*
         // Top up all members with max traffic
@@ -336,6 +336,30 @@ final class InteractiveSubmissionTrafficCostEstimationTest
         _ =>
           participant1.ledger_api.javaapi.commands
             .submit(Seq(localEmily), commands, workflowId = UUID.randomUUID().toString),
+      )
+    }
+
+    "estimate accurately when not charging for confirmation responses" in { implicit env =>
+      import env.*
+      sequencer1.topology.synchronizer_parameters.propose_update(
+        synchronizerId = synchronizer1Id,
+        _.update(trafficControl =
+          Some(trafficControlParams.copy(freeConfirmationResponses = true))
+        ),
+        synchronize = Some(environmentTimeouts.default),
+      )
+      estimateTrafficCost(
+        None,
+        0.05,
+        preparingPn = cpn,
+        submittingPn = cpn,
+        aliceE.partyId,
+        commands = Seq(createCycleCmdFromParty(aliceE)),
+        prepared => {
+          // Expect the confirmation response cost to be 0
+          prepared.costEstimation.value.confirmationResponseTrafficCostEstimation shouldBe 0L
+          cpn.ledger_api.commands.external.submit_prepared(aliceE, prepared)
+        },
       )
     }
 

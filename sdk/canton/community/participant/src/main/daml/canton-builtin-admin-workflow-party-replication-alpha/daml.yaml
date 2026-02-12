@@ -1,9 +1,9 @@
-sdk-version: 3.4.10-snapshot.20251210.14372.0.v29f7da9c
+sdk-version: 3.4.11-snapshot.20260211.14385.0.vee102b04
 build-options: 
 - --target=2.2
 name: canton-builtin-admin-workflow-party-replication-alpha
 source: Canton/Internal/PartyReplication.daml
-version: 3.4.10
+version: 3.4.11
 dependencies: 
 - daml-prim
 - daml-stdlib

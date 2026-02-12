@@ -6,6 +6,8 @@ package com.digitalasset.canton.synchronizer.sequencer
 import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
+import com.daml.metrics.api.testing.InMemoryMetricsFactory
+import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -17,7 +19,7 @@ import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
-import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.metrics.{SequencerHistograms, SequencerMetrics}
 import com.digitalasset.canton.synchronizer.sequencer.SynchronizerSequencingTestUtils.*
 import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.synchronizer.sequencer.store.*
@@ -30,7 +32,7 @@ import com.digitalasset.canton.topology.{
   SequencerId,
   TestingTopology,
 }
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
   BaseTest,
@@ -88,18 +90,18 @@ class SequencerReaderTest
       extends EventSignaller
       with FlagCloseableAsync {
     private val (queue, source) = Source
-      .queue[ReadSignal](1)
+      .queue[Traced[ReadSignal]](1)
       .buffer(1, OverflowStrategy.dropHead)
       .preMaterialize()
 
     override protected def timeouts: ProcessingTimeout = SequencerReaderTest.this.timeouts
 
-    def signalRead(): Unit = queue.offer(ReadSignal).discard[QueueOfferResult]
+    def signalRead(): Unit = queue.offer(Traced(ReadSignal)).discard[QueueOfferResult]
 
     override def readSignalsForMember(
         member: Member,
         memberId: SequencerMemberId,
-    )(implicit traceContext: TraceContext): Source[ReadSignal, NotUsed] =
+    )(implicit traceContext: TraceContext): Source[Traced[ReadSignal], NotUsed] =
       source
 
     override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = Seq(
@@ -120,12 +122,22 @@ class SequencerReaderTest
       new AtomicBoolean(true) // should the latest timestamp be added to the signaller when stored
     val actorSystem: ActorSystem = ActorSystem(classOf[SequencerReaderTest].getSimpleName)
     implicit val materializer: Materializer = Materializer(actorSystem)
+
+    val metricsFactory = new InMemoryMetricsFactory
+    val sequencerMetrics: SequencerMetrics = {
+      val (_, metrics) = HistogramInventory.create(implicit inventory =>
+        new SequencerMetrics(new SequencerHistograms(MetricName.Daml), metricsFactory)
+      )
+      metrics
+    }
+
     val store = new InMemorySequencerStore(
       protocolVersion = testedProtocolVersion,
       sequencerMember = topologyClientMember,
       blockSequencerMode = true,
       loggerFactory = loggerFactory,
-      sequencerMetrics = SequencerMetrics.noop("sequencer-reader-test"),
+      timeouts = timeouts,
+      sequencerMetrics = sequencerMetrics,
     )
     val instanceIndex: Int = 0
     // create a spy so we can add verifications on how many times methods were called
@@ -144,9 +156,24 @@ class SequencerReaderTest
       topologyClientMember,
       timeouts,
       loggerFactory,
+      streamInstrumentationConfig = BlockSequencerStreamInstrumentationConfig(),
+      sequencerMetrics,
     )
     val defaultTimeout: FiniteDuration = 20.seconds
     implicit val closeContext: CloseContext = CloseContext(reader)
+
+    /** Helper to read the subscriptionLastTimestamp metric value by member */
+    def subscriptionLastTimestampMetric(member: Member = alice): Long = {
+      val metricName =
+        MetricName.Daml :+ "sequencer" :+ "public-api" :+ "subscription-last-timestamp"
+      val metricsContext = MetricsContext("subscriber" -> member.toProtoPrimitive)
+
+      metricsFactory.metrics.gauges
+        .get(metricName)
+        .flatMap(_.get(metricsContext))
+        .map(_.getValue.asInstanceOf[Long])
+        .getOrElse(0L)
+    }
 
     def ts(epochSeconds: Int): CantonTimestamp = CantonTimestamp.ofEpochSecond(epochSeconds.toLong)
 
@@ -895,6 +922,104 @@ class SequencerReaderTest
               }
             }
         }
+      }
+    }
+
+    "report separate subscriptionLastTimestamp metric per subscriber" in { env =>
+      import env.*
+
+      for {
+        _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
+        registeredAlice <- store.registerMember(alice, ts0).failOnShutdown
+        registeredBob <- store.registerMember(bob, ts0).failOnShutdown
+
+        // Generate 5 events for Alice starting at ts0+1s
+        aliceEvents = (1L to 5L)
+          .map(ts0.plusSeconds)
+          .map(
+            Sequenced(
+              _,
+              mockDeliverStoreEvent(
+                sender = registeredAlice.memberId,
+                traceContext = traceContext,
+              )(),
+            )
+          )
+        _ <- storeAndWatermark(aliceEvents)
+
+        // Generate 3 events for Bob starting at ts0+10s
+        bobEvents = (10L to 12L)
+          .map(ts0.plusSeconds)
+          .map(
+            Sequenced(
+              _,
+              mockDeliverStoreEvent(
+                sender = registeredBob.memberId,
+                traceContext = traceContext,
+              )(),
+            )
+          )
+        _ <- storeAndWatermark(bobEvents)
+
+        // Initial metric values should be 0 for both subscribers
+        _ = subscriptionLastTimestampMetric(alice) shouldBe 0L
+        _ = subscriptionLastTimestampMetric(bob) shouldBe 0L
+
+        // Start reading events for Alice
+        aliceQueue = readWithQueue(alice, timestampInclusive = None)
+        _ <- MonadUtil.sequentialTraverse((1 to 3).toList) { idx =>
+          for {
+            eventO <- pullFromQueue(aliceQueue)
+          } yield {
+            eventO.value.timestamp shouldBe ts0.plusSeconds(idx.toLong)
+            // Alice's metric should be updated (at least to this event, possibly more due to async buffering)
+            subscriptionLastTimestampMetric(alice) should be >= ts0.plusSeconds(idx.toLong).toMicros
+            // Bob's metric should still be 0
+            subscriptionLastTimestampMetric(bob) shouldBe 0L
+          }
+        }
+
+        // Start reading events for Bob
+        bobQueue = readWithQueue(bob, timestampInclusive = None)
+        _ <- MonadUtil.sequentialTraverse((10 to 11).toList) { idx =>
+          for {
+            eventO <- pullFromQueue(bobQueue)
+          } yield {
+            eventO.value.timestamp shouldBe ts0.plusSeconds(idx.toLong)
+            // Bob's metric should be updated
+            subscriptionLastTimestampMetric(bob) should be >= ts0.plusSeconds(idx.toLong).toMicros
+            // Alice's metric may have consumed all events due to async buffering
+            subscriptionLastTimestampMetric(alice) should be >= ts0.plusSeconds(3L).toMicros
+          }
+        }
+
+        // Read the remaining 2 events for Alice (stream may have already buffered them)
+        _ <- MonadUtil.sequentialTraverse((4 to 5).toList) { idx =>
+          for {
+            eventO <- pullFromQueue(aliceQueue)
+          } yield {
+            eventO.value.timestamp shouldBe ts0.plusSeconds(idx.toLong)
+          }
+        }
+
+        // Read the last event for Bob
+        bobLastEvent <- pullFromQueue(bobQueue)
+        _ = bobLastEvent.value.timestamp shouldBe ts0.plusSeconds(12L)
+
+        _ = aliceQueue.cancel()
+        _ = bobQueue.cancel()
+      } yield {
+        // Final verification - each subscriber should have independent metric values
+        // This verifies that the TrieMap pattern creates separate gauges per subscriber
+        val aliceFinal = subscriptionLastTimestampMetric(alice)
+        val bobFinal = subscriptionLastTimestampMetric(bob)
+
+        // Each subscriber should have consumed all their events
+        aliceFinal shouldBe ts0.plusSeconds(5L).toMicros
+        bobFinal shouldBe ts0.plusSeconds(12L).toMicros
+
+        // Verify they are truly independent (different values)
+        aliceFinal should not equal bobFinal
       }
     }
   }

@@ -48,6 +48,7 @@ class ReferenceSequencerPruningIntegrationTest extends SequencerPruningIntegrati
           setBalanceRequestSubmissionWindowSize = config.PositiveFiniteDuration.ofMinutes(5L),
           enforceRateLimiting = true,
           baseEventCost = NonNegativeLong.zero,
+          freeConfirmationResponses = true,
         )
         sequencer1.topology.synchronizer_parameters.propose_update(
           synchronizerId = daId,
