@@ -182,9 +182,9 @@ If we make the comparison to Object-Oriented-Programming again, this would be im
 
 One thing you will notice is that we use the function ``toInterfaceContractId`` from the standard library.
 This is required to implement the methods correctly.
-Our interface defined that these must return ``ConstractId CatalogItem``,
+Our interface defined that these functions must return ``ConstractId CatalogItem``,
 and just returning the result of ``create this`` would give us a ``ContractId Book`` instead.
-`toInterfaceContractId` can safely convert contract IDs of a concrete contract to a contract ID of an interface implemented by that concrete contract template.
+``toInterfaceContractId`` can safely convert contract IDs of a concrete contract to a contract ID of an interface implemented by that concrete contract template.
 
 Using the interface
 -------------------
