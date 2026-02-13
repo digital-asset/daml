@@ -863,7 +863,7 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 ) if not is_windows else None
 
-load("//daml-lf:extensions.bzl", "daml_versions_repo")
+load("//daml-lf:json_repo.bzl", "daml_versions_repo")
 
 daml_versions_repo(
     name = "daml_versions_data",
