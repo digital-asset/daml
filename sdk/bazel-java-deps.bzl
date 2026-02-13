@@ -83,7 +83,6 @@ def install_java_deps():
             # TODO(https://github.com/DACH-NY/canton/issues/30144): move to this repo
             "com.daml:ledger-resources-test-lib_{}:{}".format(scala_major_version, canton_version),
             "com.daml:timer-utils_{}:{}".format(scala_major_version, canton_version),
-            "com.daml:ledger-common_{}:{}".format(scala_major_version, canton_version),
             "com.daml:daml-tls_{}:{}".format(scala_major_version, canton_version),
             "com.daml:community-base_{}:{}".format(scala_major_version, canton_version),
 
@@ -122,6 +121,7 @@ def install_java_deps():
         repositories = [
             "https://repo1.maven.org/maven2",
             "https://europe-maven.pkg.dev/da-images/public-maven-unstable",
+            "m2local",
         ],
         # The strict_visibility attribute controls whether all artifacts should
         # be visible (including transitive dependencies), or whether only
