@@ -34,7 +34,7 @@ da_scala_library(
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_resources_2_13",
         "@maven//:com_daml_daml_tls_2_13",
-        "@maven//:com_daml_ledger_common_2_13",
+        "@maven//:com_daml_ledger_api_core_2_13",
         "@maven//:com_daml_ledger_resources_2_13",
         "@maven//:com_daml_ports_2_13",
         "@maven//:com_daml_rs_grpc_bridge",
