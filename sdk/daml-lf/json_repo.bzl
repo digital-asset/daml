@@ -2,18 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 def _impl(ctx):
-    json_path = ctx.path(ctx.attr.json_file)
-    content = ctx.read(json_path)
-
-    # Convert JSON null/true/false to Starlark None/True/False
-    starlark_content = content \
-        .replace("null", "None") \
-        .replace("true", "True") \
-        .replace("false", "False")
+    json_file = ctx.path(ctx.attr.json_file)
+    json_content = ctx.read(json_file)
+    parsed_json = json.decode(json_content)
 
     ctx.file("BUILD.bazel", 'exports_files(["data.bzl"])')
 
-    ctx.file("data.bzl", "DATA = " + starlark_content)
+    ctx.file("data.bzl", "DATA = " + str(parsed_json))
 
 daml_versions_repo = repository_rule(
     implementation = _impl,
