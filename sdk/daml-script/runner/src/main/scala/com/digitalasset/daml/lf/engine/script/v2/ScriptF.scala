@@ -513,41 +513,16 @@ object ScriptF {
     */
   final case class AllocParty(
       partyHint: String,
-      participants: Option[
-        (Participant, List[Participant])
-      ],
+      owningParticipant: Option[Participant],
   ) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[ExtendedValue] = {
-      val owningParticipant = participants.map(_._1)
       for {
         owningClient <- env.clients.assertGetParticipantFuture(owningParticipant)
-
-        party <-
-          if (participants.map(_._2.isEmpty).getOrElse(true)) {
-            owningClient.allocateParty(partyHint)
-          } else {
-            for {
-              otherClients <- Future.traverse(participants.map(_._2).getOrElse(List.empty))(
-                participant => env.clients.assertGetParticipantFuture(participant)
-              )
-              clients = owningClient +: otherClients
-              participantIds = clients.map(_.getParticipantUid)
-
-              p <- owningClient.aggregateAllocatePartyOnMultipleParticipants(
-                clients,
-                partyHint,
-                owningClient.getParticipantUid.split("::").last,
-                participantIds,
-              )
-              _ <- Future.traverse(env.clients.participants.values)(
-                _.waitUntilHostingVisible(p, participantIds)
-              )
-            } yield p
-          }
+        party <- owningClient.allocateParty(partyHint)
       } yield {
         owningParticipant.foreach(env.addPartyParticipantMapping(party, _))
         ValueParty(party)
@@ -883,8 +858,9 @@ object ScriptF {
       for {
         client <- Converter.toFuture(env.clients.getParticipant(participant))
         _ <- client.vetPackages(packages)
+        participantUid <- client.getParticipantUid()
         _ <- Future.traverse(env.clients.participants.values)(
-          _.waitUntilVettingVisible(packages, client.getParticipantUid)
+          _.waitUntilVettingVisible(packages, participantUid)
         )
       } yield ValueUnit
   }
@@ -901,8 +877,9 @@ object ScriptF {
       for {
         client <- Converter.toFuture(env.clients.getParticipant(participant))
         _ <- client.unvetPackages(packages)
+        participantUid <- client.getParticipantUid()
         _ <- Future.traverse(env.clients.participants.values)(
-          _.waitUntilUnvettingVisible(packages, client.getParticipantUid)
+          _.waitUntilUnvettingVisible(packages, participantUid)
         )
       } yield ValueUnit
   }
@@ -1128,7 +1105,7 @@ object ScriptF {
         for {
           participantName <- Converter.toOptionalParticipantName(participantName)
           idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
-        } yield AllocParty(idHint, participantName.map(p => (p, List.empty)))
+        } yield AllocParty(idHint, participantName)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 
@@ -1139,17 +1116,22 @@ object ScriptF {
             ImmArray(
               (_, ValueText(requestedName)),
               (_, ValueText(givenHint)),
-              (_, participantNames),
+              (_, participantNames @ ValueList(vs)),
             ),
-          ) =>
+          ) if vs.length <= 1 =>
         for {
           participantNames <- Converter.toParticipantNames(participantNames)
           idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
-          allocArg = participantNames match {
-            case head :: tail => Some((head, tail))
-            case Nil => None
-          }
-        } yield AllocParty(idHint, allocArg)
+        } yield AllocParty(idHint, participantNames.headOption)
+      case ValueRecord(
+            _,
+            ImmArray(
+              (_, ValueText(_)),
+              (_, ValueText(_)),
+              (_, ValueList(_)),
+            ),
+          ) =>
+        Left(s"Expected AllocParty payload with at most one participant name but got $v")
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 

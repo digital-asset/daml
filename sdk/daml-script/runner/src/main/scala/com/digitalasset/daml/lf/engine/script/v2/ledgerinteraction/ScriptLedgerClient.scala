@@ -82,11 +82,10 @@ object ScriptLedgerClient {
       compiledPackages: CompiledPackages,
   )(implicit namedLoggerFactory: NamedLoggerFactory): ScriptLedgerClient =
     ledger match {
-      case abstractLedgers.GrpcLedgerClient(grpcClient, userId, oAdminClient) =>
+      case abstractLedgers.GrpcLedgerClient(grpcClient, userId) =>
         new grpcLedgerClient.GrpcLedgerClient(
           grpcClient,
           userId,
-          oAdminClient,
           compiledPackages,
         )
       case abstractLedgers.IdeLedgerClient(pureCompiledPackages, traceLog, warningLog, canceled) =>
@@ -104,6 +103,25 @@ object ScriptLedgerClient {
       name: PackageName,
       version: PackageVersion,
   )
+
+  object ReadablePackageId {
+    private val versionedNamePattern = raw"(.+)-(\d+\.\d+\.\d+)".r
+
+    @throws[IllegalArgumentException]
+    def assertFromString(versionedName: String): ReadablePackageId =
+      versionedName match {
+        case versionedNamePattern(pkgName, pkgVersion) =>
+          ReadablePackageId(
+            name = PackageName.assertFromString(pkgName),
+            version = PackageVersion.assertFromString(pkgVersion),
+          )
+
+        case _ =>
+          throw new IllegalArgumentException(
+            s"""versioned name "$versionedName" does not match regex "$versionedNamePattern""""
+          )
+      }
+  }
 }
 
 // This abstracts over the interaction with the ledger. This allows
@@ -293,23 +311,5 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]]
 
-  def allocatePartyOnMultipleParticipants(party: Ref.Party, toParticipantIds: Iterable[String])(
-      implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[Unit]
-
-  def aggregateAllocatePartyOnMultipleParticipants(
-      clients: List[ScriptLedgerClient],
-      partyHint: String,
-      namespace: String,
-      toParticipantIds: Iterable[String],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[Ref.Party]
-
-  def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: Iterable[String]): Future[Unit]
-
-  def getParticipantUid: String
+  def getParticipantUid()(implicit ec: ExecutionContext): Future[String]
 }
