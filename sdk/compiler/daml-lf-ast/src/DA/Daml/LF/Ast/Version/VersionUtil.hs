@@ -11,7 +11,7 @@ import           Data.Char (isDigit)
 import qualified DA.Daml.LF.Ast.Range as R
 import qualified Data.Text as T
 import           Safe (headMay)
-import           Text.ParserCombinators.ReadP (ReadP, pfail, readP_to_S, (+++), munch1)
+import           Text.ParserCombinators.ReadP (ReadP, pfail, readP_to_S, (+++), munch1, eof)
 import qualified Text.ParserCombinators.ReadP as ReadP
 import qualified Data.Map.Strict as MS
 
@@ -111,13 +111,13 @@ readMinorVersion = readStable +++ readStaging +++ readDev
 -- >>> parseMinorVersion "14"
 -- Just (PointStable {minor = 14})
 -- >>> parseMinorVersion "2-rc1"
--- Just (PointStable {minor = 2})
+-- Just (PointStaging {minor = 2, revision = 1})
 -- >>> parseMinorVersion "dev"
 -- Just PointDev
 -- >>> parseMinorVersion "garbage"
 -- Nothing
 parseMinorVersion :: String -> Maybe MinorVersion
-parseMinorVersion = headMay . map fst . readP_to_S readMinorVersion
+parseMinorVersion = headMay . map fst . readP_to_S (readMinorVersion <* eof)
 
 readVersion :: ReadP Version
 readVersion = do
