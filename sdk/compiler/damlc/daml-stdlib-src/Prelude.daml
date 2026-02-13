@@ -24,3 +24,4 @@ import DA.Internal.Assert as X
 import DA.Internal.Interface as X
 -- Just want the import of the instances for ActionFail and CanAbort
 import DA.Internal.Fail as X ()
+import DA.Internal.Serializable.Instances as X ()

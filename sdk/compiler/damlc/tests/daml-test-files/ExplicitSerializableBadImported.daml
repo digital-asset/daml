@@ -1,0 +1,15 @@
+-- Copyright (c) 2026, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @BUILD-OPTION --explicit-serializable=yes
+-- @ERROR range=10:10-10:15; No instance for (Serializable I.NotSerializable)
+module ExplicitSerializableBadImported where
+
+import qualified ExplicitSerializableBadImported.Imported as I
+
+template Asset
+  with
+    party : Party
+    imported : I.NotSerializable
+  where
+    signatory party

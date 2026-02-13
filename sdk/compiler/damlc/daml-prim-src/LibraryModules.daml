@@ -12,6 +12,7 @@ module LibraryModules where
 import DA.Internal.Erased
 import DA.Internal.NatSyn
 import DA.Internal.PromotedText
+import DA.Internal.Serializable
 import Data.String
 import Control.Exception.Base
 import GHC.Base

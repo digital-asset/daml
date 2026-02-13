@@ -318,6 +318,7 @@ installDataDep InstallDataDepArgs {..} = do
         , configDependencyInfo = dependencyInfo
         , configSdkPrefix = [T.pack currentSdkPrefix]
         , configIgnoreExplicitExports = getIgnoreDataDepVisibility $ optIgnoreDataDepVisibility opts
+        , configExplicitSerializable = optExplicitSerializable opts
         }
 
     pkg = LF.extPackagePkg (LF.dalfPackagePkg dalfPackage)
@@ -503,6 +504,7 @@ baseImports =
            , "DA.Internal.Erased"
            , "DA.Internal.NatSyn"
            , "DA.Internal.PromotedText"
+           , "DA.Internal.Serializable"
            , "DA.Exception.GeneralError"
            , "DA.Exception.ArithmeticError"
            , "DA.Exception.AssertionFailed"

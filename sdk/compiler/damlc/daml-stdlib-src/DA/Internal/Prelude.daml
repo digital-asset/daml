@@ -11,6 +11,7 @@ module DA.Internal.Prelude
   ( module DA.Internal.Prelude
   , module GHC
   , Down(..)
+  , Serializable
   ) where
 
 import Control.Exception.Base ()
@@ -32,6 +33,7 @@ import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, DamlEnum,
 import GHC.Types (primitive)
 import GHC.Tuple.Check()
 
+import DA.Internal.Serializable (Serializable)
 import DA.Internal.Down
 
 -- | Turn a function that takes a pair into a function that takes two arguments.
@@ -220,7 +222,7 @@ infixl 4 <$>
 -- error `Action` could be built using the `Data.Either.Either` type.
 --
 data Optional a  =  None | Some a
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Show, Serializable)
 
 instance Functor Optional where
     fmap _ None       = None

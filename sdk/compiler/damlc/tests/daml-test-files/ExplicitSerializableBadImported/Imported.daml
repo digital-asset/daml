@@ -1,0 +1,9 @@
+-- Copyright (c) 2026, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module ExplicitSerializableBadImported.Imported where
+
+data NotSerializable = NotSerializable with
+  foo : Int
+  bar : Party
+    deriving (Eq, Show)

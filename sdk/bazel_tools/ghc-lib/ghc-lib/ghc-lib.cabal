@@ -613,6 +613,7 @@ library
         TcExpr
         TcFlatten
         TcForeign
+        TcGenDamlSerializable
         TcGenDeriv
         TcGenFunctor
         TcGenGenerics

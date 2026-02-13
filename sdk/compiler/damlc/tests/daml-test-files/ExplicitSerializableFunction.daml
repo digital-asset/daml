@@ -1,0 +1,12 @@
+-- Copyright (c) 2026, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @BUILD-OPTION --explicit-serializable=yes
+module ExplicitSerializableFunction where
+
+-- This should error regardless of whether or not it occurs in a template
+-- @ERROR range=12:15-12:27; No instance for (Serializable (Int -> Int))
+data BadCurrency = BadCurrency with
+  admin : Party
+  instrument : Int -> Int
+    deriving (Serializable)

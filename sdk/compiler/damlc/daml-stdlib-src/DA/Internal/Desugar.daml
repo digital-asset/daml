@@ -11,7 +11,7 @@ module DA.Internal.Desugar (
     module DA.Internal.Exception,
     module DA.Internal.Interface,
     module DA.Internal.Interface.AnyView,
-    Eq(..), Show(..),
+    Eq(..), Show(..), Serializable (..),
     Bool(..), Text, Optional(..),
     (&&),
     concat, magic,
@@ -38,6 +38,7 @@ import DA.Internal.Interface
 import DA.Internal.Interface.AnyView
 import DA.Internal.LF
 import DA.Internal.Exception
+import DA.Internal.Serializable
 import GHC.Types (magic, Symbol)
 import GHC.Tuple.Check (userWrittenTuple)
 

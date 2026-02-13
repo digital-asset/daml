@@ -5,6 +5,6 @@
 
 module SerializableAnnotation.Imported where
 
-data Serializable = Serializable{x : Int}
+data Serializable1 = Serializable1{x : Int}
 
 data Unserializable = Foo Int | Bar (Text -> Text)

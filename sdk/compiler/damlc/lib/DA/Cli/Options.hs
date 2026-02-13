@@ -289,6 +289,16 @@ forceUtilityPackageOpt = ForceUtilityPackage <$>
             "Force a given package to compile as a utility package. \
             \This will make all data types unserializable, and will reject template/exception definitions"
 
+explicitSerializable :: Parser ExplicitSerializable
+explicitSerializable = ExplicitSerializable <$>
+    flagYesNoAuto "explicit-serializable" False desc idm
+    where
+        desc =
+            "Require explicit Serializable instances on data types in order to use them in templates and choices. \
+            \Stop automatically inferring serializability of data types. \
+            \This means data types used in fields of templates and choices will require explicit Serializable instances. \
+            \Currently opt-in, but this will become the default in a future release."
+
 dlintRulesFileParser :: Parser DlintRulesFile
 dlintRulesFileParser =
   lastOr DefaultDlintRulesFile $
@@ -455,6 +465,7 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
     optIgnoreDataDepVisibility <- optIgnoreDataDepVisibility
     let optResolutionData = Nothing
     optForceUtilityPackage <- forceUtilityPackageOpt
+    optExplicitSerializable <- explicitSerializable
 
     return Options{..}
   where

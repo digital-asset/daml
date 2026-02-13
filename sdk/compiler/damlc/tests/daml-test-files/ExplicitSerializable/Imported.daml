@@ -1,0 +1,14 @@
+-- Copyright (c) 2026, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module ExplicitSerializable.Imported where
+
+data SeriImported = SeriImported with
+  foo : Int
+  bar : Party
+    deriving (Eq, Serializable, Show)
+
+data SeriImportedHOT a = SeriImportedHOT with
+  foo : a
+  bar : Party
+    deriving (Eq, Serializable, Show)
