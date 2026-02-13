@@ -65,8 +65,8 @@ def daml_script_test(
 
     server = daml_runner
     server_args = ["sandbox", "--canton-port-file", "_port_file"]
-    server_files = ["$(rootpath {})".format(compiled_dar)]
-    server_files_prefix = "--dar="
+    server_files = []
+    server_files_prefix = ""
 
     native.genrule(
         name = "{}-client-sh".format(name),
@@ -90,16 +90,47 @@ runner=$$(canonicalize_rlocation $(rootpath {runner}))
 trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
 
 if [ {wait_for_port_file} -eq 1 ]; then
+    echo "Waiting for Canton port file to appear..."
     timeout=60
     while [ ! -e _port_file ]; do
         if [ "$$timeout" = 0 ]; then
             echo "Timed out waiting for Canton startup" >&2
             exit 1
         fi
+        echo "waiting $${{timeout}}s"
         sleep 1
         timeout=$$((timeout - 1))
     done
+    echo "Canton port file appeared."
 fi
+
+JQ=$$(canonicalize_rlocation $(rootpath {jq}))
+GRPCURL=$$(canonicalize_rlocation $(rootpath {grpcurl}))
+
+# Validate that the Admin API port is a valid number
+ADMIN_PORT=$$($$JQ '.sandbox.adminApi' _port_file)
+if echo "$$ADMIN_PORT" | $$JQ -e 'type != "number"' >/dev/null; then
+  echo "Could not retrieve Admin API port at .sandbox.adminApi in _port_file:" >&2
+  cat _port_file >&2
+  echo
+  exit 1
+fi
+
+if [ {wait_for_synchronizer} -eq 1 ]; then
+    echo "Waiting for synchronizer to connect by listing connected synchronizers on Admin API port '$$ADMIN_PORT'..."
+    timeout=60
+    while ! $$GRPCURL -plaintext -d '{{}}' 0.0.0.0:$$ADMIN_PORT com.digitalasset.canton.admin.participant.v30.SynchronizerConnectivityService/ListConnectedSynchronizers | $$JQ -e '.connectedSynchronizers | length > 0' >/dev/null; do
+        if [ "$$timeout" = 0 ]; then
+            echo "Timed out waiting for synchronizer to connect." >&2
+            exit 1
+        fi
+        echo "waiting $${{timeout}}s"
+        sleep 1
+        timeout=$$((timeout - 1))
+    done
+    echo "Synchronizer connected successfully."
+fi
+
 if [ {upload_dar} -eq 1 ] ; then
   $$runner ledger upload-dar \\
     --host localhost \\
@@ -119,20 +150,28 @@ chmod +x $(OUTS)
             dar = compiled_dar,
             runner = daml_runner,
             script_name = script_name,
-            upload_dar = "0",
+            upload_dar = "1",
             wait_for_port_file = "1",
+            wait_for_synchronizer = "1",
+            jq = "@jq_nix//:bin/jq",
+            grpcurl = "@grpcurl_nix//:bin/grpcurl",
         ),
         tools = [
             compiled_dar,
             daml_runner,
+            "@jq_nix//:bin/jq",
+            "@grpcurl_nix//:bin/grpcurl",
         ],
     )
+
     native.sh_binary(
         name = "{}-client".format(name),
         srcs = ["{}-client.sh".format(name)],
         data = [
             compiled_dar,
             daml_runner,
+            "@jq_nix//:bin/jq",
+            "@grpcurl_nix//:bin/grpcurl",
         ],
     )
 
