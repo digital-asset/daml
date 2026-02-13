@@ -72,6 +72,8 @@ Data Types
 
   **instance** :ref:`IsParties <class-da-internal-template-functions-isparties-53750>` (`Set <type-da-set-types-set-90436_>`_ :ref:`Party <type-da-internal-lf-party-57932>`)
 
+  **instance** Serializable k \=\> Serializable (`Set <type-da-set-types-set-90436_>`_ k)
+
   **instance** :ref:`Ord <class-ghc-classes-ord-6395>` k \=\> :ref:`Eq <class-ghc-classes-eq-22713>` (`Set <type-da-set-types-set-90436_>`_ k)
 
   **instance** :ref:`Ord <class-ghc-classes-ord-6395>` k \=\> :ref:`Ord <class-ghc-classes-ord-6395>` (`Set <type-da-set-types-set-90436_>`_ k)

@@ -14,6 +14,8 @@
 -- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Asset_Increase"]) | has("serializable")
 module ExplicitSerializable where
 
+import DA.Time
+import qualified DA.Set as Set
 import qualified ExplicitSerializable.Imported as I
 
 data SeriDataType = SeriDataType with
@@ -60,6 +62,9 @@ template Asset
     seriOptional : Optional SeriVariant
     seriNumeric : Numeric 37
     seriTuple : (Bool, Decimal, Int)
+    seriSet : Set.Set Int
+    seriTime : Time
+    seriRelTime : RelTime
   where
     signatory party
 
