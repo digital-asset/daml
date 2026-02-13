@@ -97,16 +97,3 @@ data Feature = Feature
     , featureVersionReq :: !VersionReq
     , featureCppFlag :: T.Text
     } deriving Show
-
-
-data Version' = Version'
-    { versionMajor' :: MajorVersion
-    , versionMinor' :: MinorVersion'
-    }
-    deriving (Eq, Data, Generic, NFData, Show, Ord, Aeson.FromJSON, Aeson.ToJSON)
-
-data MinorVersion' =
-    PointStable' Int
-  | PointStaging' Int
-  | PointDev'
-  deriving (Eq, Data, Generic, NFData, Show, Aeson.FromJSON, Aeson.ToJSON, Ord)
