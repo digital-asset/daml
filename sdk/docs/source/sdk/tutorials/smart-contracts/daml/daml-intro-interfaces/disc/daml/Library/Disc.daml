@@ -1,0 +1,41 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Library.Disc where
+
+import Library.CatalogItem
+
+-- DISC_CONTRACT_BEGIN
+data DiscFormat = DVD | BluRay
+  deriving (Eq, Show)
+
+template Disc
+  with
+    owner : Party
+    title : Text
+    borrowedBy : Optional Party
+    format : DiscFormat -- only on Disc
+    observers : [Party]
+  where
+    signatory owner
+    observer observers
+-- DISC_CONTRACT_END
+
+    -- an interface instance defined on an implementing template
+    -- (how the interface is "implemented" for the Disc template)
+    interface instance CatalogItem for Disc where
+
+      view = CatalogItemView owner (show format) title borrowedBy
+
+      discloseTo newObservers = do
+        disclosedDisc <- create this with
+          observers = observers ++ filter (not . (`elem` observers)) newObservers
+        return (toInterfaceContractId disclosedDisc)
+
+      loanTo borrower = do
+        loanedDisc <- create this with borrowedBy = Some borrower
+        return (toInterfaceContractId loanedDisc)
+
+      returnToOwner = do
+        toInterfaceContractId <$> create this with borrowedBy = None
+

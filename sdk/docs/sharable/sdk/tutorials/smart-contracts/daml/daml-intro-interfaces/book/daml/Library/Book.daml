@@ -1,0 +1,37 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Library.Book where
+
+import Library.CatalogItem
+
+-- BOOK_CONTRACT_BEGIN
+template Book
+  with
+    owner : Party
+    title : Text
+    loanedTo : Optional Party
+    author : Text
+    observers : [Party]
+  where
+    signatory owner
+    observer observers
+-- BOOK_CONTRACT_END
+
+-- BOOK_INTERFACE_INSTANCE_BEGIN
+    interface instance CatalogItem for Book where
+      view = CatalogItemView with
+        owner
+        media = "Book"
+        title
+        loanedTo
+
+      discloseTo newObservers = do
+        disclosedBook <- create this with
+          observers = observers ++ filter (not . (`elem` observers)) newObservers
+        pure (toInterfaceContractId disclosedBook)
+
+      loanTo borrower = toInterfaceContractId <$> create this with loanedTo = Some borrower
+      returnToOwner = toInterfaceContractId <$> create this with loanedTo = None
+-- BOOK_INTERFACE_INSTANCE_END
+
