@@ -21,6 +21,8 @@ Data Types
 
   The ``RelTime`` type describes a time offset, i\.e\. relative time\.
 
+  **instance** Serializable `RelTime <type-da-time-types-reltime-23082_>`_
+
   **instance** :ref:`Eq <class-ghc-classes-eq-22713>` `RelTime <type-da-time-types-reltime-23082_>`_
 
   **instance** :ref:`Ord <class-ghc-classes-ord-6395>` `RelTime <type-da-time-types-reltime-23082_>`_
