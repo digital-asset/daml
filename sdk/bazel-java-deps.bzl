@@ -121,7 +121,6 @@ def install_java_deps():
         repositories = [
             "https://repo1.maven.org/maven2",
             "https://europe-maven.pkg.dev/da-images/public-maven-unstable",
-            "m2local",
         ],
         # The strict_visibility attribute controls whether all artifacts should
         # be visible (including transitive dependencies), or whether only
