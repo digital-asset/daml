@@ -47,8 +47,8 @@ instance Aeson.FromJSON MajorVersion where
   parseJSON invalid = Aeson.typeMismatch "MajorVersion (expected a string)" invalid
 
 data MinorVersion =
-    PointStable Int
-  | PointStaging Int
+    PointStable { minor :: Int }
+  | PointStaging { minor :: Int, revision :: Int }
   | PointDev
   deriving (Eq, Data, Generic, NFData, Show, Aeson.FromJSON, Aeson.ToJSON)
 
@@ -58,18 +58,18 @@ data MinorVersion =
 -- associated version, or to return all stable packages that have an
 -- equal-or-lower version
 instance Ord MinorVersion where
-    compare (PointStable x) (PointStable y)   = compare x y
-    compare (PointStaging x) (PointStaging y) = compare x y
-    compare PointDev         PointDev         = EQ
+    compare (PointStable x)     (PointStable y)     = compare x y
+    compare (PointStaging x rx) (PointStaging y ry) = compare (x, rx) (y, ry)
+    compare PointDev            PointDev            = EQ
 
-    compare (PointStable _) (PointStaging _)  = LT
-    compare (PointStaging _) (PointStable _)  = GT
+    compare (PointStable _)    (PointStaging _ _)  = LT
+    compare (PointStaging _ _) (PointStable _)     = GT
 
-    compare (PointStable _) PointDev          = LT
-    compare PointDev (PointStable _)          = GT
+    compare (PointStable _) PointDev        = LT
+    compare PointDev        (PointStable _) = GT
 
-    compare (PointStaging _) PointDev         = LT
-    compare PointDev (PointStaging _)         = GT
+    compare (PointStaging _ _) PointDev           = LT
+    compare PointDev           (PointStaging _ _) = GT
 
 renderMajorVersion :: MajorVersion -> String
 renderMajorVersion = \case
@@ -78,7 +78,7 @@ renderMajorVersion = \case
 renderMinorVersion :: MinorVersion -> String
 renderMinorVersion = \case
   PointStable minor -> show minor
-  PointStaging minor -> show minor
+  PointStaging minor rev -> show minor ++ "-rc" ++ show rev
   PointDev -> "dev"
 
 renderVersion :: Version -> String
@@ -97,3 +97,16 @@ data Feature = Feature
     , featureVersionReq :: !VersionReq
     , featureCppFlag :: T.Text
     } deriving Show
+
+
+data Version' = Version'
+    { versionMajor' :: MajorVersion
+    , versionMinor' :: MinorVersion'
+    }
+    deriving (Eq, Data, Generic, NFData, Show, Ord, Aeson.FromJSON, Aeson.ToJSON)
+
+data MinorVersion' =
+    PointStable' Int
+  | PointStaging' Int
+  | PointDev'
+  deriving (Eq, Data, Generic, NFData, Show, Aeson.FromJSON, Aeson.ToJSON, Ord)
