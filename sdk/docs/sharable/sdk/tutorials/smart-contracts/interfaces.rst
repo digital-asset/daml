@@ -7,6 +7,8 @@ Interfaces
 This section contains a step-by-step tutorial that explains what interfaces are,
 and how they can be used to provide a stable public API for contracts.
 
+This tutorial should be of particular interest if you would like to learn how `CIP-0056`_ (the Canton Network Token Standard) works.
+
 .. hint::
 
   Remember that you can load all the code for this section into a folder called ``intro-interfaces`` by running ``dpm new intro-interfaces  --template daml-intro-interfaces``
@@ -26,22 +28,22 @@ We would like to be able to do that without upgrading the Daml code of the libra
 This is possible using interfaces: these let us define a stable API (items that can be loaned),
 while allowing for several implementations that can be independently changed.
 
-This tutorial should be of particular interest if you would like to learn how `CIP-0056`_, the Canton Network Token Standard works.
-
 Project structure
 -----------------
 
 In :ref:`project-structures` you learned that it is important to keep the scripts and templates in separate packages.
 
-Similar considerations apply to using interfaces:
-one of the main advantages of using interfaces rather than using contracts directly,
-is that we will be able to upgrade the underlying contracts for catalog item implementations independently of the community library.
-Organizing everything in the same package would negate this advantage.
+This is even more important when dealing with interfaces:
+packages containing interfaces can never be upgraded.
 
-We end up with the following structure:
+By placing the interface in a dedicated package,
+and using dedicated packages for the contract templates implementing the interfaces,
+we will be able to upgrade the latter.
+
+We end up with the following packages:
 
 ``catalog-item``
-    Defines ``CatalogItem``, the API for items we can borrow from the library
+    Defines the ``CatalogItem`` interface, the API for items we can borrow from the library
 
 ``book``
     Defines a ``Book`` contract, and its ``CatalogItem`` implementation
@@ -62,7 +64,7 @@ Remember that you can ``dpm build --all`` at the root of the multi-package proje
 Two contract templates
 ----------------------
 
-First, let's take a look at the contracts underpinning our library.
+First, let's take a look at the contract templates underpinning our library.
 Note that these live in separate packages.
 In a real-world use case, you can imagine that these packages are authored by different instituitions.
 
@@ -102,8 +104,8 @@ The view includes fields for values that we require for both books and discs (an
   :start-after: -- CATALOG_ITEM_VIEW_BEGIN
   :end-before: -- CATALOG_ITEM_VIEW_END
 
-This interface view also defines the shape of the data that is returned when querying the ledger API for "all catalog items",
-for example by using ``InterfaceFilter`` in ``filtersByParty``.
+This interface view also defines the shape of the data that is returned when querying the ledger API or PQS for "all catalog items".
+For example, in the ledger API you can use ``InterfaceFilter`` in ``filtersByParty``.
 
 Next, we define the interface type, and we tie it to the ``CatalogItemView``:
 
@@ -128,7 +130,7 @@ In our simple example, we want to be able to do three things with catalog items:
   :end-before: -- CATALOG_ITEM_METHODS_END
 
 Finally, we can also define a number of choices on interfaces.
-These generally work the same way as choices on regular contracts.
+These generally work the same way as choices on regular contract templates.
 
 However, there are a two important things to notice:
 
@@ -215,7 +217,7 @@ Conclusion
 With that, we can rest assured our library contract will be able to deal with any current and future catalog items,
 and package publishers can add arbitrary catalog items by implementing our interface.
 
-At the end of this tutorial, you may find it dissapointing that this community library does not actually exist.
+At the end of this tutorial, you may find it disapointing that this community library does not actually exist.
 However, the mechanisms explained here underpin a lot of the important activity on the Canton network.
 
 In particular, `CIP-0056`_, the Canton Network Token Standard, defines tokens using a Daml interface.
