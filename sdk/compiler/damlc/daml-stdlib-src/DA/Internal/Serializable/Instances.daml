@@ -5,8 +5,11 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 module DA.Internal.Serializable.Instances () where
 
-import DA.Internal.Serializable
+import DA.Exception.AssertionFailed
+import DA.Exception.GeneralError
+import DA.Exception.PreconditionFailed
 import DA.Internal.LF
+import DA.Internal.Serializable
 import GHC.Types
 
 -- Primitives
@@ -71,3 +74,8 @@ instance (Serializable a, Serializable b) => Serializable (Map a b) where serial
 instance Serializable Time where serializable _ z = z
 instance Serializable Date where serializable _ z = z
 instance Serializable Party where serializable _ z = z
+
+-- Exceptions
+instance Serializable GeneralError where serializable _ z = z
+instance Serializable AssertionFailed where serializable _ z = z
+instance Serializable PreconditionFailed where serializable _ z = z
