@@ -21,6 +21,9 @@ import           GHC.Generics
 import qualified DA.Daml.LF.Ast.Range as R
 import           DA.Pretty
 
+stagingRevision :: Int
+stagingRevision = 1
+
 -- | Daml-LF version of an archive payload.
 data Version = Version
     { versionMajor :: MajorVersion
@@ -80,6 +83,11 @@ renderMinorVersion = \case
   PointStable minor -> show minor
   PointStaging minor -> show minor
   PointDev -> "dev"
+
+renderMinorVersionWithRev :: MinorVersion -> String
+renderMinorVersionWithRev m = case m of
+  (PointStaging _) -> renderMinorVersion m ++ "-rc" ++ show stagingRevision
+  _ -> renderMinorVersion m
 
 renderVersion :: Version -> String
 renderVersion (Version major minor) =
