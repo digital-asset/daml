@@ -208,7 +208,7 @@ class HasQueryNByKey t k | t -> k where
 
 #ifdef DAML_NUCK
 queryAllByKey : forall t k. HasQueryNByKey t k => k -> Update [(ContractId t, t)]
-queryAllByKey = queryNByKey maxBound
+queryAllByKey = queryNByKey (maxBound @Int)
 #endif
 
 -- | Exposes `maintainer` function. Part of the `TemplateKey` constraint.
