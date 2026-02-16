@@ -384,19 +384,18 @@ tests TestArgs{..} =
           createDirectoryIfMissing True (proja </> "src")
           writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
               [ "module A where"
-              -- This type does not have explicit serializable, damlc should
-              -- infer it.
               , "data A = A with"
               , "  amount : Decimal"
-              , "    deriving (Eq, Show)"
+              , "    deriving (Eq, Show" ++ if aExplicit then ", Serializable)" else ")"
               ]
-          writeFileUTF8 (proja </> "daml.yaml") $ unlines
+          writeFileUTF8 (proja </> "daml.yaml") $ unlines $
               [ "sdk-version: " <> sdkVersion
               , "name: proja"
               , "version: 0.0.1"
               , "source: src"
               , "dependencies: [daml-prim, daml-stdlib]"
-              ]
+              ] ++
+              [ "build-options: ['--explicit-serializable=yes']" | aExplicit ]
           callProcessSilent (damlcForTarget depLfVer)
                 ["build"
                 , "--package-root", proja
@@ -414,20 +413,18 @@ tests TestArgs{..} =
               , "import A qualified"
               , "data B = B with"
               , "  owner : Party"
-              -- This type should have a serializable instance reconstructed by
-              -- data-dependencies, from the field in LF.
               , "  a: A.A"
-              , "    deriving (Eq, Show, Serializable)"
+              , "    deriving (Eq, Show" ++ if bExplicit then ", Serializable)" else ")"
               ]
-          writeFileUTF8 (projb </> "daml.yaml") $ unlines
+          writeFileUTF8 (projb </> "daml.yaml") $ unlines $
               [ "sdk-version: " <> sdkVersion
               , "name: projb"
               , "version: 0.0.1"
               , "source: src"
               , "dependencies: [daml-prim, daml-stdlib]"
               , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
-              , "build-options: ['--explicit-serializable=yes']"
-              ]
+              ] ++
+              [ "build-options: ['--explicit-serializable=yes']" | bExplicit ]
           callProcessSilent damlc
             [ "build"
             , "--package-root", projb
@@ -436,6 +433,9 @@ tests TestArgs{..} =
           step "Validating DAR"
           validate $ projb </> "projb.dar"
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
+    , -- Test with different combinations of proja and projb turning explicit
+      -- serializable on and off.
+      (aExplicit, bExplicit) <- (,) <$> [True, False] <*> [True, False]
     ] <>
     [ testCaseSteps "Mixed dependencies and data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'lib'"
