@@ -138,6 +138,8 @@ Thus, privacy is obtained on the subtransaction level.
 
 This section first defines projections for transactions and then for ledgers.
 
+.. _da-model-transaction-projection:
+
 Transaction projection
 ======================
 

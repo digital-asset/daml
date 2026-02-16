@@ -862,3 +862,10 @@ nixpkgs_package(
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 ) if not is_windows else None
+
+load("//daml-lf:json_repo.bzl", "daml_versions_repo")
+
+daml_versions_repo(
+    name = "daml_versions_data",
+    json_file = "//daml-lf:daml-lf-versions.json",
+)
