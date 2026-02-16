@@ -13,6 +13,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.{Assertion, Suite}
 
 import java.nio.file.{Files, Path}
+import scala.io.Source
 
 trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers {
   self: Suite =>
@@ -50,7 +51,9 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
       if (shouldUpload) "yes" else "no",
     )
 
-    val jsonArg = if (jsonOutput) Seq("--json-output") else Seq()
+    val testSummaryPath = Files.createTempFile("test-summary", ".json")
+
+    val jsonArg = if (jsonOutput) Seq(s"--json-test-summary=$testSummaryPath") else Seq()
     val testNameArgs = explicitTestNames match {
       case Some(names) => names.map(name => s"--script-name=$name").toSeq
       case None => Seq("--all")
@@ -60,16 +63,18 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
 
     discard(cmd ! ProcessLogger(log, log))
 
-    val iter = builder
-      .toString()
-      .linesIterator
+    val iter =
+      if (jsonOutput) {
+        val source = Source.fromFile(testSummaryPath.toFile)
+        try source.mkString.linesIterator
+        finally source.close()
+      } else
+        builder
+          .toString()
+          .linesIterator
+          .filter(s => s.endsWith("SUCCESS") || s.contains("FAILURE") || s.startsWith("    in "))
 
-    val cleanedIter =
-      if (jsonOutput) iter
-      else
-        iter.filter(s => s.endsWith("SUCCESS") || s.contains("FAILURE") || s.startsWith("    in "))
-
-    val actual = cleanedIter
+    val actual = iter
       .mkString("", f"%n", f"%n")
       // Normalize escaped Windows line endings in JSON strings
       .replace("\\r\\n", "\\n")
@@ -98,6 +103,8 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
       }
       case _ => {}
     }
+
+    Files.delete(testSummaryPath)
 
     actual shouldBe expected
   }
