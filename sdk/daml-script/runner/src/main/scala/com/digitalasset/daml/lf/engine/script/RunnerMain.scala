@@ -168,8 +168,12 @@ object RunnerMain {
                 case (id, Left(exception)) => println(s"${id.qualifiedName} FAILURE ($exception)")
                 case (id, Right(_)) => println(s"${id.qualifiedName} SUCCESS")
               }
-            case RunnerMainConfig.ResultMode.Json =>
-              println(JsObject(Map.from(results).map {
+            case RunnerMainConfig.ResultMode.Json(path) =>
+              val pathParent = path.getParentFile
+              if (pathParent != null) {
+                val _ = Files.createDirectories(pathParent.toPath)
+              }
+              val jsString = JsObject(Map.from(results).map {
                 case (id, Left(exception)) =>
                   (
                     id.qualifiedName.toString,
@@ -183,7 +187,8 @@ object RunnerMain {
                     id.qualifiedName.toString,
                     JsObject(Map(("result", LfValueCodec.apiValueToJsValue(pureResult)))),
                   )
-              }).prettyPrint)
+              }).prettyPrint
+              Files.write(path.toPath, Seq(jsString).asJava)
           }
 
           !results.exists(_._2.isLeft)

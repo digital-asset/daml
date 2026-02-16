@@ -62,7 +62,7 @@ object RunnerMainConfig {
   sealed trait ResultMode
   object ResultMode {
     final case object Text extends ResultMode
-    final case object Json extends ResultMode
+    final case class Json(path: File) extends ResultMode
   }
 }
 
@@ -273,10 +273,10 @@ private[script] object RunnerMainConfigIntermediate {
         s"Upload the dar before running. Only available over GRPC. Defaults to false"
       )
 
-    opt[Unit]("json-output")
-      .action((_, c) => c.copy(resultMode = RunnerMainConfig.ResultMode.Json))
+    opt[File]("json-test-summary")
+      .action((path, c) => c.copy(resultMode = RunnerMainConfig.ResultMode.Json(path)))
       .text(
-        s"Print test result output in json form. Only works when running multiple cases."
+        s"Put test summary into a file in json format. Only works when running multiple cases."
       )
 
     help("help").text("Print this usage text")
