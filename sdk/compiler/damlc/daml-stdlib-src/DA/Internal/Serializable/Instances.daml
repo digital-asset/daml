@@ -8,8 +8,10 @@ module DA.Internal.Serializable.Instances () where
 import DA.Exception.AssertionFailed
 import DA.Exception.GeneralError
 import DA.Exception.PreconditionFailed
+import DA.Internal.Fail.Types
 import DA.Internal.LF
 import DA.Internal.Serializable
+import DA.Types
 import GHC.Types
 
 -- Primitives
@@ -17,6 +19,8 @@ instance Serializable a => Serializable [a] where serializable _ z = z
 instance Serializable Int where serializable _ z = z
 instance Serializable Text where serializable _ z = z
 instance Serializable Bool where serializable _ z = z
+instance (Serializable a, Serializable b) => Serializable (Either a b) where serializable _ z = z
+instance Serializable Ordering where serializable _ z = z
 
 -- Numerics
 instance Serializable (Numeric  0) where serializable _ z = z
@@ -79,3 +83,5 @@ instance Serializable Party where serializable _ z = z
 instance Serializable GeneralError where serializable _ z = z
 instance Serializable AssertionFailed where serializable _ z = z
 instance Serializable PreconditionFailed where serializable _ z = z
+instance Serializable FailureCategory where serializable _ z = z
+instance Serializable FailureStatus where serializable _ z = z

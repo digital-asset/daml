@@ -15,6 +15,7 @@ data DayOfWeek
     | Friday
     | Saturday
     | Sunday
+    deriving (Serializable)
 
 -- | The `Month` type represents a month in the Gregorian calendar.
 --
@@ -33,3 +34,4 @@ data Month
     | Oct
     | Nov
     | Dec
+    deriving (Serializable)
