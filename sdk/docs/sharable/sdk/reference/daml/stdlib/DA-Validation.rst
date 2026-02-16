@@ -36,6 +36,8 @@ Data Types
 
   **instance** :ref:`Traversable <class-da-traversable-traversable-18144>` (`Validation <type-da-validation-types-validation-39644_>`_ err)
 
+  **instance** (Serializable err, Serializable a) \=\> Serializable (`Validation <type-da-validation-types-validation-39644_>`_ err a)
+
   **instance** :ref:`Functor <class-ghc-base-functor-31205>` (`Validation <type-da-validation-types-validation-39644_>`_ err)
 
   **instance** (:ref:`Eq <class-ghc-classes-eq-22713>` err, :ref:`Eq <class-ghc-classes-eq-22713>` a) \=\> :ref:`Eq <class-ghc-classes-eq-22713>` (`Validation <type-da-validation-types-validation-39644_>`_ err a)

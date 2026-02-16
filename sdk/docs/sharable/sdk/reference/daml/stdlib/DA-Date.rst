@@ -52,6 +52,8 @@ Data Types
   `Sunday <constr-da-date-types-sunday-48181_>`_
 
 
+  **instance** Serializable `DayOfWeek <type-da-date-types-dayofweek-18120_>`_
+
   **instance** :ref:`Eq <class-ghc-classes-eq-22713>` `DayOfWeek <type-da-date-types-dayofweek-18120_>`_
 
   **instance** :ref:`Ord <class-ghc-classes-ord-6395>` `DayOfWeek <type-da-date-types-dayofweek-18120_>`_
@@ -130,6 +132,8 @@ Data Types
 
   `Dec <constr-da-date-types-dec-74760_>`_
 
+
+  **instance** Serializable `Month <type-da-date-types-month-22803_>`_
 
   **instance** :ref:`Eq <class-ghc-classes-eq-22713>` `Month <type-da-date-types-month-22803_>`_
 
