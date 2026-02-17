@@ -66,7 +66,7 @@ Two contract templates
 
 First, let's take a look at the contract templates underpinning our library.
 Note that these live in separate packages.
-In a real-world use case, you can imagine that these packages are authored by different instituitions.
+In a real-world use case, you can imagine that these packages are authored by different institutions.
 
 We have a contract template for books:
 
@@ -75,7 +75,7 @@ We have a contract template for books:
   :start-after: -- BOOK_CONTRACT_BEGIN
   :end-before: -- BOOK_CONTRACT_END
 
-And we have a constract template for discs:
+And we have a contract template for discs:
 
 .. literalinclude:: daml/daml-intro-interfaces/disc/daml/Library/Disc.daml
   :language: daml
@@ -217,11 +217,11 @@ Conclusion
 With that, we can rest assured our library contract will be able to deal with any current and future catalog items,
 and package publishers can add arbitrary catalog items by implementing our interface.
 
-At the end of this tutorial, you may find it disapointing that this community library does not actually exist.
+At the end of this tutorial, you may find it disappointing that this community library does not actually exist.
 However, the mechanisms explained here underpin a lot of the important activity on the Canton network.
 
 In particular, `CIP-0056`_, the Canton Network Token Standard, defines tokens using a Daml interface.
-This allows application implementors to interact with various assets, such as CC or USDC,
+This allows application implementers to interact with various assets, such as CC or USDC,
 using a well-defined API that is future- and backwards-compatible.
 
 .. _CIP-0056: https://github.com/canton-foundation/cips/blob/main/cip-0056/cip-0056.md
