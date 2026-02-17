@@ -14,7 +14,7 @@
     "allLfVersions" : [
       "2.1",
       "2.2",
-      "2.3",
+      "2.3-rc1",
       "2.dev"
     ],
     "stableLfVersions" : [
@@ -24,19 +24,19 @@
     "compilerLfVersions" : [
       "2.1",
       "2.2",
-      "2.3",
+      "2.3-rc1",
       "2.dev"
     ],
     "compilerInputLfVersions" : [
       "2.1",
       "2.2",
-      "2.3",
+      "2.3-rc1",
       "2.dev"
     ],
     "compilerOutputLfVersions" : [
       "2.1",
       "2.2",
-      "2.3",
+      "2.3-rc1",
       "2.dev"
     ]
   }

@@ -1,6 +1,8 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+#!/usr/bin/env python3
+
 import json
 import sys
 import re
@@ -13,12 +15,23 @@ import re
 # --- Generators
 
 def generate_haskell_list(name, docstring, version_strings, lookup_map):
-    """Generates a Haskell list definition."""
-    refs = [lookup_map[v] for v in version_strings]
+    """Generates a Haskell list definition with deduplication."""
+    # 1. Resolve all strings to their Haskell variable names
+    # e.g. ["2.3-rc1", "2.3-rc2"] -> ["version2_3", "version2_3"]
+    raw_refs = [lookup_map[v] for v in version_strings]
+
+    # 2. Deduplicate while preserving order
+    unique_refs = []
+    seen = set()
+    for ref in raw_refs:
+        if ref not in seen:
+            unique_refs.append(ref)
+            seen.add(ref)
+
     return [
         f"-- | {docstring}",
         f"{name} :: [Version]",
-        f"{name} = [{', '.join(refs)}]\n",
+        f"{name} = [{', '.join(unique_refs)}]\n",
     ]
 
 def generate_haskell_singleton(name, docstring, version_string, lookup_map):
@@ -47,27 +60,15 @@ import DA.Daml.LF.Ast.Version.VersionType
 
     version_lookup = {}
     generated_vars = set()
+    staging_revisions = set()
 
+    # 1. Get List of Versions
     raw_versions = data.get("explicitVersions", [])
 
-    # --- Pre-pass: Analyze Staging Versions ---
-    # We need to find the maximum revision (e.g. rc3) to use in the constructor
-    # for the single staging variable.
-    staging_revisions = set()
-    max_staging_rev = 0
-
-    for v in raw_versions:
-        match = re.match(r"^2\.\d+-rc(\d+)$", v)
-        if match:
-            rev = int(match.group(1))
-            staging_revisions.add(rev)
-            if rev > max_staging_rev:
-                max_staging_rev = rev
-
-    # --- Sort for Deterministic Output ---
+    # 2. Sort Versions (Stable < Staging < Dev)
     def sort_key(v):
-        if v == "2.dev": return (2, 999999)
-        # Handle 2.12 vs 2.12-rc1
+        if v == "2.dev": return (2, 999999) # Dev is largest
+        # Split 2.12-rc1 into [2, 12, rc1]
         parts = re.split(r'[.-]', v)
         major = int(parts[0])
         minor = int(parts[1]) if parts[1].isdigit() else 0
@@ -75,42 +76,59 @@ import DA.Daml.LF.Ast.Version.VersionType
 
     raw_versions.sort(key=sort_key)
 
+    # 3. Main Generation Loop
     for v_str in raw_versions:
         var_name = ""
         constructor = ""
+        base_v = "" # To be used for comments and lookup keys
 
         if v_str == "2.dev":
             var_name = "version2_dev"
             constructor = "PointDev"
+            base_v = "2.dev"
 
         elif "-rc" in v_str:
-            match = re.match(r"^2\.(\d+)-rc(\d+)$", v_str)
+            # Staging: 2.3-rc1
+            match = re.search(r"2\.(\d+)-rc(\d+)", v_str)
             if match:
                 minor = match.group(1)
+                rev = int(match.group(2))
+
+                # Collect revision for the acceptedStagingRevisions list
+                staging_revisions.add(rev)
+
                 var_name = f"version2_{minor}"
-                constructor = f"PointStaging {max_staging_rev}"
+                base_v = f"2.{minor}"
+
+                # Constructor uses MINOR version (PointStaging 3), not revision
+                constructor = f"PointStaging {minor}"
 
         else:
-            match = re.match(r"^2\.(\d+)$", v_str)
+            # Stable: 2.1
+            match = re.search(r"2\.(\d+)", v_str)
             if match:
                 minor = match.group(1)
                 var_name = f"version2_{minor}"
+                base_v = f"2.{minor}"
                 constructor = f"PointStable {minor}"
 
+        # Populate lookup map
+        # Map "2.3-rc1" -> "version2_3"
         version_lookup[v_str] = var_name
 
-        if "-rc" in v_str:
-             base = v_str.split("-rc")[0]
-             version_lookup[base] = var_name
+        # Also map the base "2.3" -> "version2_3"
+        # This ensures if json has ["2.3"] (short form) it still works
+        if base_v:
+            version_lookup[base_v] = var_name
 
+        # Write generated code only if we haven't defined this variable yet.
         if var_name not in generated_vars:
-            clean_ver = v_str.split("-rc")[0]
-            output.append(f"-- | Daml-LF version {clean_ver}")
+            output.append(f"-- | Daml-LF version {base_v}")
             output.append(f"{var_name} :: Version")
             output.append(f"{var_name} = Version V2 ({constructor})\n")
             generated_vars.add(var_name)
 
-    # --- Accepted Revisions List ---
+    # 4. Generate Accepted Revisions List
     sorted_revisions = sorted(list(staging_revisions))
     sorted_revisions_str = ", ".join(map(str, sorted_revisions))
 
@@ -118,14 +136,14 @@ import DA.Daml.LF.Ast.Version.VersionType
     output.append("acceptedStagingRevisions :: [Int]")
     output.append(f"acceptedStagingRevisions = [{sorted_revisions_str}]\n")
 
-    # --- Lists ---
+    # 5. Generate Lists (with deduplication)
     version_lists = data.get("versionLists", {})
     for list_name in sorted(version_lists.keys()):
         v_list = version_lists[list_name]
         docstring = f"The {list_name}."
         output.extend(generate_haskell_list(list_name, docstring, v_list, version_lookup))
 
-    # --- Aliases ---
+    # 6. Generate Aliases
     named_versions = data.get("namedVersions", {})
     for alias_name in sorted(named_versions.keys()):
         v_str = named_versions[alias_name]
@@ -140,4 +158,3 @@ if __name__ == "__main__":
         print(f"Usage: {sys.argv[0]} <input.json> <output.hs>", file=sys.stderr)
         sys.exit(1)
     main(sys.argv[1], sys.argv[2])
-

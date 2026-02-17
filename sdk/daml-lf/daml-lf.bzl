@@ -42,9 +42,9 @@ def _parse_version(v_str):
         revision = rc_parts[1]
 
         return struct(
-            dotted = v_str,
-            mangled_java = "{}_{}".format(major, minor),
-            mangled_damlc = "{}{}".format(major, minor),
+            dotted = "{}.{}-staging".format(major, minor),
+            mangled_java = "{}_{}_staging".format(major, minor),
+            mangled_damlc = "{}{}staging".format(major, minor),
             major = major,
             minor = minor,
             revision = revision,

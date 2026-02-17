@@ -81,13 +81,14 @@ renderMajorVersion = \case
 renderMinorVersion :: MinorVersion -> String
 renderMinorVersion = \case
   PointStable minor -> show minor
-  PointStaging minor -> show minor
+  PointStaging minor -> show minor ++ "-staging"
   PointDev -> "dev"
 
 renderMinorVersionWithRev :: MinorVersion -> String
 renderMinorVersionWithRev m = case m of
-  (PointStaging _) -> renderMinorVersion m ++ "-rc" ++ show stagingRevision
-  _ -> renderMinorVersion m
+  PointStable minor -> show minor
+  PointStaging minor -> show minor ++ "-rc" ++ show stagingRevision
+  PointDev -> "dev"
 
 renderVersion :: Version -> String
 renderVersion (Version major minor) =
