@@ -11,12 +11,21 @@ LOG=$(mktemp)
 
 trap "cat $LOG" EXIT
 
-CANTON_VERSION=$(grep -E -o '^[0-9]+\.[0-9]+' NIGHTLY_PREFIX)
-REPO_URL="europe-docker.pkg.dev/da-images/public-unstable/components/canton-open-source:$CANTON_VERSION"
+if [ -n "${1:-}" ]; then
+  # A specific tag was provided as argument
+  CANTON_TAG="$1"
+  MSG_PREFIX="Using provided canton tag"
+else
+  # No argument provided, extract the floating tag from NIGHTLY_PREFIX
+  CANTON_TAG=$(grep -E -o '^[0-9]+\.[0-9]+' NIGHTLY_PREFIX)
+  MSG_PREFIX="Latest canton snapshot"
+fi
+
+REPO_URL="europe-docker.pkg.dev/da-images/public-unstable/components/canton-open-source:$CANTON_TAG"
 MANIFEST_JSON=$(oras manifest fetch "$REPO_URL")
 CANTON_VERSION=$(echo "$MANIFEST_JSON" | jq -r '.annotations["com.digitalasset.version"]')
 CANTON_DIGEST=$(echo "$MANIFEST_JSON" | jq -r '.manifests[0].digest')
-echo "> Latest canton snapshot: $CANTON_VERSION" >&2
+echo "> $MSG_PREFIX: $CANTON_VERSION" >&2
 
 echo "> Writing canton/canton_version.bzl" >&2
 cat > canton/canton_version.bzl <<EOF
