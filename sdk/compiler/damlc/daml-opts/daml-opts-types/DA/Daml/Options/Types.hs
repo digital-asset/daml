@@ -23,6 +23,7 @@ module DA.Daml.Options.Types
     , PackageArg(..)
     , IgnoreDataDepVisibility(..)
     , ForceUtilityPackage(..)
+    , ExplicitSerializable(..)
     , defaultOptions
     , damlArtifactDir
     , packageDatabasePath
@@ -151,6 +152,7 @@ data Options = Options
   , optIgnoreDataDepVisibility :: IgnoreDataDepVisibility
   , optForceUtilityPackage :: ForceUtilityPackage
   , optResolutionData :: Maybe ResolutionData
+  , optExplicitSerializable :: ExplicitSerializable
   }
 
 data InlineDamlCustomWarnings
@@ -255,6 +257,9 @@ newtype EnableInterfaces = EnableInterfaces { getEnableInterfaces :: Bool }
 newtype ForceUtilityPackage = ForceUtilityPackage { getForceUtilityPackage :: Bool }
     deriving Show
 
+newtype ExplicitSerializable = ExplicitSerializable { getExplicitSerializable :: Bool }
+    deriving Show
+
 damlArtifactDir :: FilePath
 damlArtifactDir = ".daml"
 
@@ -340,6 +345,7 @@ defaultOptions mbVersion =
         , optIgnoreDataDepVisibility = IgnoreDataDepVisibility False
         , optForceUtilityPackage = ForceUtilityPackage False
         , optResolutionData = Nothing
+        , optExplicitSerializable = ExplicitSerializable False
         }
 
 defaultUpgradeInfo :: UpgradeInfo

@@ -58,6 +58,7 @@ import qualified DA.Daml.LF.TypeChecker.Env as LF
 import qualified DA.Daml.LF.TypeChecker.Error as LF
 import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options
+import DA.Daml.Options.Types
 import DA.Daml.StablePackages (stablePackageByModuleName)
 import DA.Daml.UtilGHC (fsFromText)
 
@@ -88,6 +89,8 @@ data Config = Config
         -- ^ prefix to use for current SDK in data-dependencies
     , configIgnoreExplicitExports :: Bool
         -- ^ Should explicit export information be disregarded, and all definitions in this module be exported
+    , configExplicitSerializable :: ExplicitSerializable
+        -- ^ If Serializable instances are derived for types tagged as serializable in the LF.
     }
 
 data Env = Env
@@ -580,7 +583,7 @@ generateSrcFromLf env = noLoc mod
                   | NM.name dtype `NM.member` LF.moduleInterfaces (envMod env) -> [interfaceCtx]
                   | otherwise -> []
             cons <- convDataCons dataTypeCon0 dataCons
-            mkDataDecl env thisModule ctxt occName dataParams cons
+            mkDataDecl env thisModule ctxt occName dataSerializable dataParams cons
 
     valueDecls :: [Gen (LHsDecl GhcPs)]
     valueDecls = do
@@ -860,9 +863,22 @@ mkConRdr env thisModule
  | envQualifyThisModule env = mkOrig thisModule
  | otherwise = mkRdrUnqual
 
-mkDataDecl :: Env -> Module -> LHsContext GhcPs -> OccName -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> Gen (LHsDecl GhcPs)
-mkDataDecl env thisModule ctxt occName tyVars cons = do
+mkDataDecl :: Env -> Module -> LHsContext GhcPs -> OccName -> LF.IsSerializable -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> Gen (LHsDecl GhcPs)
+mkDataDecl env thisModule ctxt occName isSerializable tyVars cons = do
     tyVars' <- mapM (convTyVarBinder env) tyVars
+    derivs <- case configExplicitSerializable (envConfig env) of
+        ExplicitSerializable True | LF.getIsSerializable isSerializable -> do
+            serializeClass <- mkDesugarType env "Serializable"
+            pure
+                [ noLoc $ HsDerivingClause
+                    { deriv_clause_ext = noExt
+                    , deriv_clause_strategy = Nothing
+                    , deriv_clause_tys = noLoc
+                        [ HsIB noExt $ noLoc serializeClass
+                        ]
+                    }
+                ]
+        _ -> pure []
     pure . noLoc . TyClD noExt $ DataDecl
         { tcdDExt = noExt
         , tcdLName = noLoc $ mkConRdr env thisModule occName
@@ -876,7 +892,7 @@ mkDataDecl env thisModule ctxt occName tyVars cons = do
                 , dd_cType = Nothing
                 , dd_kindSig = Nothing
                 , dd_cons = cons
-                , dd_derivs = noLoc []
+                , dd_derivs = noLoc derivs
                 }
         }
 

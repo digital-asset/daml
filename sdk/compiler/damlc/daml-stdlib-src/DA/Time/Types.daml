@@ -10,3 +10,4 @@ module DA.Time.Types
 -- | The `RelTime` type describes a time offset, i.e. relative time.
 newtype RelTime = -- | HIDE
   RelTime with microseconds : Int
+    deriving (Serializable)

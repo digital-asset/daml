@@ -1,0 +1,93 @@
+-- Copyright (c) 2026, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @BUILD-OPTION --explicit-serializable=yes
+-- @BUILD-OPTION -Wno-deprecated-exceptions
+-- @WARN -Wno-upgrade-exceptions
+-- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriDataType"]) | has("serializable")
+-- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriEnum"]) | has("serializable")
+-- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriVariant"]) | has("serializable")
+-- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriImported"]) | has("serializable")
+-- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SeriImportedHOT"]) | has("serializable")
+-- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Helper"]) | has("serializable") | not
+-- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Asset"]) | has("serializable")
+-- @QUERY-LF $pkg | .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Asset_Increase"]) | has("serializable")
+module ExplicitSerializable where
+
+import DA.Time
+import qualified DA.Set as Set
+import qualified ExplicitSerializable.Imported as I
+
+data SeriDataType = SeriDataType with
+  foo : Int
+  bar : Party
+    deriving (Eq, Show, Serializable)
+
+-- NOTE(jaspervdj): We want to check that we don't include the typeclass
+-- instances for Serializable in the LF, since this information is stored
+-- using in the relevant field already.
+--
+-- We create an unrelated typeclass to make sure we get the name encoding
+-- right (since it seems easy to get wrong), ensure that typeclass is
+-- present in the output, and then also unsure the correspondingly-named
+-- Serializable instance isn't there.
+-- @QUERY-LF [ $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_dotted_name($pkg) == ["$$fUnrelatedClassSeriDataType" ]) ] | length == 1
+-- @QUERY-LF [ $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_dotted_name($pkg) == ["$$fSerializableSeriDataType" ]) ] | length == 0
+class UnrelatedClass t
+instance UnrelatedClass SeriDataType
+
+data SeriEnum = Green | Blue deriving (Eq, Show, Serializable)
+
+data SeriVariant = SVEnum SeriEnum | SVDataType SeriDataType
+  deriving (Eq, Show, Serializable)
+
+exception SeriError
+  where
+    message "SeriError exception"
+
+data Helper = Helper with
+  seri : SeriDataType
+  foo : Int
+
+template Asset
+  with
+    party : Party
+    amount : Decimal
+    seriDataType : SeriDataType
+    seriEnum : SeriEnum
+    seriVariant : SeriVariant
+    seriImported : I.SeriImported
+    seriImportedHOT : I.SeriImportedHOT Decimal
+    seriList : [SeriDataType]
+    seriOptional : Optional SeriVariant
+    seriNumeric : Numeric 37
+    seriTuple : (Bool, Decimal, Int)
+    seriSet : Set.Set Int
+    seriTime : Time
+    seriRelTime : RelTime
+  where
+    signatory party
+
+    choice Asset_Increase : ContractId Asset
+      with
+        amount : Decimal
+      controller party
+      do
+        create this with
+          amount = amount + this.amount
+
+    nonconsuming choice Asset_TryCatch : ()
+      controller party
+      do
+        try do
+          _ <- create this
+          pure ()
+        catch
+          SeriError {} -> pure ()
+
+template ReuseAsset
+  with
+    party : Party
+    asset : Asset
+  where
+    signatory party

@@ -15,3 +15,4 @@ data NonEmpty a = NonEmpty
   with
     hd : a
     tl : [a]
+  deriving (Serializable)

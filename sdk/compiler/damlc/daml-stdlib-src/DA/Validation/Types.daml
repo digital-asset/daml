@@ -13,4 +13,4 @@ import DA.NonEmpty (NonEmpty)
 data Validation err a
   = Errors (NonEmpty err)
   | Success a
-
+  deriving (Serializable)

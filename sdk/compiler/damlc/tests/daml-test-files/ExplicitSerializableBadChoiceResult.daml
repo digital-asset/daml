@@ -1,0 +1,25 @@
+-- Copyright (c) 2026, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @BUILD-OPTION --explicit-serializable=yes
+-- @ERROR unserializable data type ExplicitSerializableBadChoiceResult:AssetDoubleResult
+module ExplicitSerializableBadChoiceResult where
+
+data AssetDoubleResult = AssetDoubleResult with
+  cid : ContractId Asset
+  amount : Decimal
+
+template Asset
+  with
+    party : Party
+    amount : Decimal
+  where
+    signatory party
+
+    choice Asset_Double : AssetDoubleResult
+      controller party
+      do
+        cid <- create this with amount = amount + this.amount
+        pure $ AssetDoubleResult with
+          cid
+          amount
