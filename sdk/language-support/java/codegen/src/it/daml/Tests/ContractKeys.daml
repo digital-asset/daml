@@ -1,6 +1,7 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+--TODO(22747): Enable test when contractkeys pulled
 
 module Tests.ContractKeys where
 
