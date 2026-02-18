@@ -1,0 +1,28 @@
+{
+  "explicitVersions" : {
+    "v2_1" : "2.1",
+    "v2_2" : "2.2",
+    "v2_dev" : "2.dev"
+  },
+  "namedVersions" : {
+    "defaultLfVersion" : "2.2",
+    "devLfVersion" : "2.dev",
+    "latestStableLfVersion" : "2.2"
+  },
+  "versionLists" : {
+    "allLfVersions" : [
+      "2.1",
+      "2.2",
+      "2.dev"
+    ],
+    "stableLfVersions" : [
+      "2.1",
+      "2.2"
+    ],
+    "compilerLfVersions" : [
+      "2.1",
+      "2.2",
+      "2.dev"
+    ]
+  }
+}

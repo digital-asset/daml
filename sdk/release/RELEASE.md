@@ -79,7 +79,9 @@ page]. That is, _after_ the [assembly] step has finished.
 
 ### Windows (Daml Assistant)
 
-1. Set $VERSION as the release version listed in the PR you approved, and in the `#team-daml` slack message.
+1. Find the PR on the assembly repo (as linked/pinged in the `#team-daml` slack channel). Follow the instructions in its description.
+
+1. Set $VERSION as the release version listed in the PR you merged above.
 
 > ## Tips for Windows testing in an ad-hoc machine
 >
@@ -188,18 +190,8 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
 You will now also need to test the release using DPM, please follow the instructions below (they look similar, but have small tweaks, don't reuse commands from the Daml Assistant section above).
 **ONLY RUN THESE STEPS FOR 3.4+ VERSIONS RELEASED AFTER 2025/09/22**
 
-1. DPM snapshots are usually published under a different name, and via a different mechanism. For weekly testing, you may not know what this different version string is.
-   Use the following to install the DPM sdk on windows.
-   If you do not know the version string, and are testing the weekly release, go to this URL for the latest SDK:
-   ```
-   https://get.digitalasset.com/install/latest-windows.html
-   ```
-   If you do know the version string, interpolate it into this string as `${version}` and go to the resulting URL:
-   ```
-   https://get.digitalasset.com/install/windows/dpm-${version}-windows-amd64.exe
-
-   ```
-   If running `dpm` fails with a "cannot find command" error, inform the language team on #team-daml-language, and then proceed with testing by running `setx /M PATH "%PATH%;%APPDATA%\dpm\bin"` in an administrator command prompt and restarting your existing terminals.
+1. If you're testing a snapshot, the PR that created the daml snapshot (on the dpm-assembly repo) should have a comment with a link to the windows install you need. If it does not, contact @samuelwilliams-da. Download this installer (by copying the link into your browser on windows, and running the downloaded file)
+   If you're testing a full release, install it as per [dpm documentation](https://docs.digitalasset.com/build/3.4/dpm/dpm.html)
 
 1. Run `dpm versions` and verify the (green) version is what you expect. If you did not know what version to expect, ensure it is less than a week old for weekly testing.
    (If it is too old, leave a message about this in #project-dpm and pause testing until you get a response. #project-dpm is US based so consider this for timezones.)
@@ -236,7 +228,9 @@ You will now also need to test the release using DPM, please follow the instruct
 
 ### Linux/macOS (Daml Assistant)
 
-1. Set $VERSION as the release version listed in the PR you approved, and in the `#team-daml` slack message.
+1. Find the PR on the assembly repo (as linked/pinged in the `#team-daml` slack channel). Follow the instructions in its description.
+
+1. Set $VERSION as the release version listed in the PR you merged above.
 
 1. Run:
 
@@ -378,16 +372,8 @@ You will now also need to test the release using DPM, please follow the instruct
 You will now also need to test the release using DPM, please follow the instructions below (they look similar, but have small tweaks, don't reuse commands from the Daml Assistant section above).
 **ONLY RUN THESE STEPS FOR 3.4+ VERSIONS RELEASED AFTER 2025/09/22**
 
-1. DPM snapshots are usually published under a different name, and via a different mechanism. For weekly testing, you may not know what this different version string is.
-   Use the following to install the DPM sdk on windows.
-   If you do not know the version string, and are testing the weekly release, use this command to install the latest SDK
-   ```
-   curl -sSL https://get.digitalasset.com/install/install.sh
-   ```
-   If you do know the version string, interpolate it into this string as `$VERSION` and run the resulting command:
-   ```
-   curl -sSL https://get.digitalasset.com/install/install.sh | sh -s "$VERSION"
-   ```
+1. If you're testing a snapshot, the PR that created the daml snapshot (on the dpm-assembly repo) should have a comment with the curl command you need. If it does not, contact @samuelwilliams-da.
+   If you're testing a full release, install it as per [dpm documentation](https://docs.digitalasset.com/build/3.4/dpm/dpm.html)
 
 1. Make sure you have the prerequisites for running the tests:
 

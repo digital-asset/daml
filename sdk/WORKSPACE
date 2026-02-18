@@ -650,6 +650,14 @@ switched_rules_by_language(
     java = True,
 )
 
+load("//bazel_tools:read_java_deps_json.bzl", "read_java_deps_json")
+
+read_java_deps_json(
+    name = "java_deps_json",
+    json_file = "//canton:shared_dependencies.json",
+    output_file = "java_deps.bzl",
+)
+
 load("//:bazel-java-deps.bzl", "install_java_deps")
 
 install_java_deps()
@@ -854,3 +862,10 @@ nixpkgs_package(
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 ) if not is_windows else None
+
+load("//daml-lf:json_repo.bzl", "daml_versions_repo")
+
+daml_versions_repo(
+    name = "daml_versions_data",
+    json_file = "//daml-lf:daml-lf-versions.json",
+)

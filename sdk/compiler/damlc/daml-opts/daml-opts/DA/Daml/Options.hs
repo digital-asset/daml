@@ -320,6 +320,8 @@ dataDependableExtensions = ES.fromList $ xExtensionsSet ++
   , BinaryLiterals, PostfixOperators
     -- Relaxed syntax rules
   , NamedWildCards, EmptyCase, EmptyDataDeriving
+    -- We restore this from the serializable tag in LF so it should work.
+  , DamlExplicitSerializable
   ]
 
 -- | Language settings _disabled_ ($-XNo...$) in the Daml-1.2 compilation
@@ -397,6 +399,7 @@ adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir defau
   $ apply wopt_set wOptsSet
   $ apply wopt_unset wOptsUnset
   $ apply wopt_set_fatal wOptsSetFatal
+  $ addExplicitSerializable
   $ apply xopt_set xExtensionsSet
   $ apply xopt_unset xExtensionsUnset
   $ apply gopt_set (xFlagsSet options)
@@ -448,6 +451,11 @@ adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir defau
             , platformIsCrossCompiling = False
             }
         }
+
+    addExplicitSerializable opts
+        | getExplicitSerializable optExplicitSerializable =
+            xopt_set opts DamlExplicitSerializable
+        | otherwise = opts
 
 setThisInstalledUnitId :: UnitId -> DynFlags -> DynFlags
 setThisInstalledUnitId unitId dflags =

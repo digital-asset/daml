@@ -1,0 +1,19 @@
+-- Copyright (c) 2026, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- We test the full message here including our custom hint
+-- @BUILD-OPTION --explicit-serializable=yes
+-- @ERROR range=14:10-14:15; No instance for (Serializable NonSerializable) arising from the second field of ‘Asset’ (type ‘[NonSerializable]’) Possible fix: Serializable instances can only be added using ‘deriving(Serializable)’ syntax
+module ExplicitSerializableBadList where
+
+data NonSerializable = NonSerializable with
+  foo : Int
+  bar : Party
+    deriving (Eq, Show)
+
+template Asset
+  with
+    party : Party
+    problematic : [NonSerializable]
+  where
+    signatory party

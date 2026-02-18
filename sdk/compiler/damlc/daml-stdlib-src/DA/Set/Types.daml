@@ -11,3 +11,4 @@ import DA.Internal.LF (Map)
 -- | The type of a set. This is a wrapper over the `Map` type.
 data Set k = Set with
     map : Map k ()
+  deriving (Serializable)

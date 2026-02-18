@@ -16,6 +16,7 @@ module DA.Test.DamlcIntegration
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import           DA.Bazel.Runfiles
+import           DA.Cli.Options (explicitSerializable)
 import           DA.Daml.Options
 import           DA.Daml.Options.Types
 import           DA.Test.Util (standardizeQuotes)
@@ -80,6 +81,7 @@ import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
 import qualified GHC
 import Options.Applicative (execParser, forwardOptions, info, many, strArgument)
+import qualified Options.Applicative
 import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
 import DA.Daml.Project.Types (unsafeResolveReleaseVersion, parseUnresolvedVersion)
@@ -282,6 +284,16 @@ getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = d
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
 
+    -- We need to start a different compiler service for each test that has
+    -- different compiler options.  Fortunately there are not that many options
+    -- that we allow toggling in tests, so the size of this map should be small
+    -- (< 20).
+    let damlTestsByExtraOpts :: MS.Map (S.Set String) [DamlTestInput]
+        damlTestsByExtraOpts = fmap reverse $ MS.fromListWith (++) $ do
+            damlTest <- damlTests
+            let opts = S.fromList [opt | BuildOption opt <- anns damlTest]
+            pure (opts, [damlTest])
+
     -- initialise the compiler service
     vfs <- makeVFSHandle
     -- We use a separate service for generated files so that we can test files containing internal imports.
@@ -320,12 +332,16 @@ getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = d
                   (toCompileOpts options)
                   vfs
           in
-          withResource
-            (mkIde opts)
-            shutdown
-            $ \service ->
-          testGroup ("Tests for Daml-LF " ++ renderPretty version) $
-            map (damlFileTestTree version service outdir registerTODO) damlTests
+          testGroup ("Tests for Daml-LF " ++ renderPretty version) $ do
+            (optsSet, tests) <- MS.toList damlTestsByExtraOpts
+            let extraOpts = S.toList optsSet
+                customOpts = parseBuildOptions extraOpts opts
+            pure $ withResource
+              (mkIde customOpts)
+              shutdown
+              $ \service ->
+              testGroup (if null extraOpts then "default opts" else unwords extraOpts) $
+                map (damlFileTestTree version service outdir registerTODO) tests
 
     pure tree
 
@@ -556,6 +572,12 @@ data Ann
     | Ledger String FilePath
       -- ^ I expect the output of running the script named <first argument> to match the golden file <second argument>.
       -- The path of the golden file is relative to the `.daml` test file.
+    | BuildOption String
+      -- ^ Extra build option passed to damlc.  Note that this only supports a
+      -- subset of real options, currently:
+      --
+      -- * explicit-serializable
+      -- * toggling InlineDamlCustomWarnings
 
 readFileAnns :: FilePath -> IO [Ann]
 readFileAnns file = do
@@ -576,6 +598,7 @@ readFileAnns file = do
             ("QUERY-LF-STREAM", x) -> Just $ QueryLF x True
             ("TODO",x) -> Just $ Todo x
             ("LEDGER", words -> [script, path]) -> Just $ Ledger script path
+            ("BUILD-OPTION", x) -> Just $ BuildOption $ trim x
             _ -> error $ "Can't understand test annotation in " ++ show file ++ ", got " ++ show x
         f _ = Nothing
 
@@ -643,6 +666,31 @@ parseRange s =
         (Position (rowStart - 1) (colStart - 1))
         (Position (rowEnd - 1) (colEnd - 1))
     _ -> error $ "Failed to parse range, got " ++ s
+
+parseBuildOptions :: [String] -> (Options -> Options)
+parseBuildOptions args = case result of
+  Options.Applicative.Failure failure ->
+    error $ fst $ Options.Applicative.renderFailure failure ""
+  Options.Applicative.Success f -> f
+  Options.Applicative.CompletionInvoked _ ->
+    error "Options.Applicative.CompletionInvoked for test extra option"
+  where
+    result = Options.Applicative.execParserPure prefs info args
+    prefs = Options.Applicative.prefs mempty
+    info = flip Options.Applicative.info mempty $ fmap (foldr (.) id) $ sequenceA
+      -- NOTE(jaspervdj): Can add more option parsers here if we need them for
+      -- tests. We should not let this list become too big, as we currently
+      -- create a new IDE instance for each unique combination of options in
+      -- the tests.
+      [ (\seri opts -> opts {optExplicitSerializable = seri}) <$>
+              explicitSerializable
+      , (\wf opts -> opts
+              { optInlineDamlCustomWarningFlags = WarningFlags.addWarningFlags
+                  (WarningFlags.wfFlags wf)
+                  (optInlineDamlCustomWarningFlags opts)
+              }) <$>
+              WarningFlags.runParser warningFlagParserInlineDamlCustom
+      ]
 
 mainProj :: IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO (LF.Package, FilePath, HashMap.HashMap ScriptName T.Text)
 mainProj service outdir log file = do

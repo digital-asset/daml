@@ -18,6 +18,7 @@ load(
     "scalapb_version",
 )
 load("//canton:canton_version.bzl", "CANTON_OPEN_SOURCE_TAG")
+load("@java_deps_json//:java_deps.bzl", "JAVA_DEPS")
 
 version_specific = {
 }
@@ -82,29 +83,24 @@ def install_java_deps():
             # TODO(https://github.com/DACH-NY/canton/issues/30144): move to this repo
             "com.daml:ledger-resources-test-lib_{}:{}".format(scala_major_version, canton_version),
             "com.daml:timer-utils_{}:{}".format(scala_major_version, canton_version),
-            "com.daml:ledger-common_{}:{}".format(scala_major_version, canton_version),
             "com.daml:daml-tls_{}:{}".format(scala_major_version, canton_version),
             "com.daml:community-base_{}:{}".format(scala_major_version, canton_version),
+
+            # TODO(https://github.com/DACH-NY/canton/issues/30144): move these dependencies to shared_dependencies in
+            #    the canton repo
             "com.oracle.database.jdbc:ojdbc8:19.18.0.0",
             "com.sparkjava:spark-core:2.9.4",
             "com.squareup:javapoet:1.13.0",
-            "com.thesamet.scalapb:compilerplugin_{}:{}".format(scala_major_version, scalapb_version),
-            "com.thesamet.scalapb:protoc-gen_{}:{}".format(scala_major_version, scalapb_protoc_version),
-            "com.thesamet.scalapb.common-protos:proto-google-common-protos-scalapb_0.11_{}:2.9.6-0".format(scala_major_version),
             "io.circe:circe-optics_{}:{}".format(scala_major_version, "0.15.0"),
             "io.circe:circe-yaml_{}:{}".format(scala_major_version, "0.15.0-RC1"),
             "io.reactivex.rxjava2:rxjava:2.2.21",
-            "org.jline:jline:3.27.1",
-            "org.junit.jupiter:junit-jupiter-api:5.9.2",
             "org.junit.jupiter:junit-jupiter-engine:5.9.2",
             "org.junit.platform:junit-platform-runner:1.9.2",
-            "org.scalactic:scalactic_{}:3.2.11".format(scala_major_version),
-            "org.scalatest:scalatest_{}:3.2.11".format(scala_major_version),
             "org.scalatestplus:scalacheck-1-15_{}:3.2.11.0".format(scala_major_version),
             "org.tpolecat:doobie-postgres_{}:0.13.4".format(scala_major_version),
             "org.typelevel:kind-projector_{}:0.13.3".format(scala_version),
             "org.wartremover:wartremover_{}:3.2.5".format(scala_version),
-        ],
+        ] + ["{}:{}".format(artifact, version) for artifact, version in JAVA_DEPS.items()],
         fetch_sources = True,
         maven_install_json = "@com_github_digital_asset_daml//:maven_install_{}.json".format(scala_major_version),
         override_targets = {

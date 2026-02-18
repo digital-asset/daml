@@ -1,0 +1,87 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | MOVE Prelude
+{-# LANGUAGE NoImplicitPrelude #-}
+module DA.Internal.Serializable.Instances () where
+
+import DA.Exception.AssertionFailed
+import DA.Exception.GeneralError
+import DA.Exception.PreconditionFailed
+import DA.Internal.Fail.Types
+import DA.Internal.LF
+import DA.Internal.Serializable
+import DA.Types
+import GHC.Types
+
+-- Primitives
+instance Serializable a => Serializable [a] where serializable _ z = z
+instance Serializable Int where serializable _ z = z
+instance Serializable Text where serializable _ z = z
+instance Serializable Bool where serializable _ z = z
+instance (Serializable a, Serializable b) => Serializable (Either a b) where serializable _ z = z
+instance Serializable Ordering where serializable _ z = z
+
+-- Numerics
+instance Serializable (Numeric  0) where serializable _ z = z
+instance Serializable (Numeric  1) where serializable _ z = z
+instance Serializable (Numeric  2) where serializable _ z = z
+instance Serializable (Numeric  3) where serializable _ z = z
+instance Serializable (Numeric  4) where serializable _ z = z
+instance Serializable (Numeric  5) where serializable _ z = z
+instance Serializable (Numeric  6) where serializable _ z = z
+instance Serializable (Numeric  7) where serializable _ z = z
+instance Serializable (Numeric  8) where serializable _ z = z
+instance Serializable (Numeric  9) where serializable _ z = z
+instance Serializable (Numeric 10) where serializable _ z = z
+instance Serializable (Numeric 11) where serializable _ z = z
+instance Serializable (Numeric 12) where serializable _ z = z
+instance Serializable (Numeric 13) where serializable _ z = z
+instance Serializable (Numeric 14) where serializable _ z = z
+instance Serializable (Numeric 15) where serializable _ z = z
+instance Serializable (Numeric 16) where serializable _ z = z
+instance Serializable (Numeric 17) where serializable _ z = z
+instance Serializable (Numeric 18) where serializable _ z = z
+instance Serializable (Numeric 19) where serializable _ z = z
+instance Serializable (Numeric 20) where serializable _ z = z
+instance Serializable (Numeric 21) where serializable _ z = z
+instance Serializable (Numeric 22) where serializable _ z = z
+instance Serializable (Numeric 23) where serializable _ z = z
+instance Serializable (Numeric 24) where serializable _ z = z
+instance Serializable (Numeric 25) where serializable _ z = z
+instance Serializable (Numeric 26) where serializable _ z = z
+instance Serializable (Numeric 27) where serializable _ z = z
+instance Serializable (Numeric 28) where serializable _ z = z
+instance Serializable (Numeric 29) where serializable _ z = z
+instance Serializable (Numeric 30) where serializable _ z = z
+instance Serializable (Numeric 31) where serializable _ z = z
+instance Serializable (Numeric 32) where serializable _ z = z
+instance Serializable (Numeric 33) where serializable _ z = z
+instance Serializable (Numeric 34) where serializable _ z = z
+instance Serializable (Numeric 35) where serializable _ z = z
+instance Serializable (Numeric 36) where serializable _ z = z
+instance Serializable (Numeric 37) where serializable _ z = z
+
+-- Tuples
+instance Serializable () where serializable _ z = z
+instance (Serializable a, Serializable b) => Serializable (a, b) where serializable _ z = z
+instance (Serializable a, Serializable b, Serializable c) => Serializable (a, b, c) where serializable _ z = z
+instance (Serializable a, Serializable b, Serializable c, Serializable d) => Serializable (a, b, c, d) where serializable _ z = z
+instance (Serializable a, Serializable b, Serializable c, Serializable d, Serializable e) => Serializable (a, b, c, d, e) where serializable _ z = z
+-- Eq and Show instances are deliberately only defined up to quintuples, so we
+-- do the same for Serializable.
+
+-- DA.Internal.LF
+instance Serializable (ContractId a) where serializable _ z = z
+instance Serializable a => Serializable (TextMap a) where serializable _ z = z
+instance (Serializable a, Serializable b) => Serializable (Map a b) where serializable _ z = z
+instance Serializable Time where serializable _ z = z
+instance Serializable Date where serializable _ z = z
+instance Serializable Party where serializable _ z = z
+
+-- Exceptions
+instance Serializable GeneralError where serializable _ z = z
+instance Serializable AssertionFailed where serializable _ z = z
+instance Serializable PreconditionFailed where serializable _ z = z
+instance Serializable FailureCategory where serializable _ z = z
+instance Serializable FailureStatus where serializable _ z = z

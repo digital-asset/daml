@@ -1,0 +1,11 @@
+-- Copyright (c) 2026, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @BUILD-OPTION --explicit-serializable=yes
+-- @ERROR range=11:25-11:37; No instance for (Serializable (Numeric 38))
+module ExplicitSerializableBadNumeric where
+
+data NonSerializable = NonSerializable with
+  foo : Int
+  bar : Numeric 38
+    deriving (Eq, Show, Serializable)

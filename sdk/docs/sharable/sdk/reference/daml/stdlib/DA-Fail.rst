@@ -63,6 +63,8 @@ Data Types
     See https\://docs\.digitalasset\.com/operate/3\.4/reference/error\_codes\.html\#error\-categories\-inventory
     for more information\.
 
+  **instance** Serializable `FailureCategory <type-da-internal-fail-types-failurecategory-97811_>`_
+
   **instance** :ref:`Eq <class-ghc-classes-eq-22713>` `FailureCategory <type-da-internal-fail-types-failurecategory-97811_>`_
 
   **instance** :ref:`Ord <class-ghc-classes-ord-6395>` `FailureCategory <type-da-internal-fail-types-failurecategory-97811_>`_
@@ -96,6 +98,8 @@ Data Types
        * - meta
          - :ref:`TextMap <type-da-internal-lf-textmap-11691>` :ref:`Text <type-ghc-types-text-51952>`
          - Machine\-readable metadata about the error in a key\-value format\. Use this to provide extra context to clients for errors\.  SHOULD be less than \< 512 characters as it MAY be truncated otherwise\.
+
+  **instance** Serializable `FailureStatus <type-da-internal-fail-types-failurestatus-69615_>`_
 
   **instance** :ref:`Eq <class-ghc-classes-eq-22713>` `FailureStatus <type-da-internal-fail-types-failurestatus-69615_>`_
 

@@ -50,6 +50,8 @@ Data Types
 
   **instance** :ref:`Traversable <class-da-traversable-traversable-18144>` `NonEmpty <type-da-nonempty-types-nonempty-16010_>`_
 
+  **instance** Serializable a \=\> Serializable (`NonEmpty <type-da-nonempty-types-nonempty-16010_>`_ a)
+
   **instance** :ref:`Functor <class-ghc-base-functor-31205>` `NonEmpty <type-da-nonempty-types-nonempty-16010_>`_
 
   **instance** :ref:`Eq <class-ghc-classes-eq-22713>` a \=\> :ref:`Eq <class-ghc-classes-eq-22713>` (`NonEmpty <type-da-nonempty-types-nonempty-16010_>`_ a)

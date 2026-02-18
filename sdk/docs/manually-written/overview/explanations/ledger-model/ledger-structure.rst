@@ -220,6 +220,8 @@ This choice is non-consuming so that the ``Accept`` choice exercised in the choi
 As the next diagram shows, non-consuming Exercises yield multiple references to the same input contract #3.
 The diagram also shows that fetches have the same effect: input contract #2 is used twice.
 
+.. _da-dvp-propose-accept-and-settle-action:
+
 .. https://lucid.app/lucidchart/fdcc5894-e013-499e-ba85-de16300381a8/edit
 .. image:: ./images/dvp-propose-accept-and-settle-action.svg
    :align: center
@@ -387,10 +389,12 @@ This workflow gives rise to the ledger shown below with four commits:
   
 * In the second commit, Bank 2 requests the creation of the ``SimpleAsset`` of ``1 USD`` issued to Bob (contract #2).
 
-* In the thrid commit, Alice requests the creation of the ``SimpleDvpPoposal`` (contract #3).
+* In the third commit, Alice requests the creation of the ``SimpleDvpPoposal`` (contract #3).
 
 * In the forth commit, Bob requests to exercise the ``AcceptAndSettle`` choice on the DvP proposal.
 
+.. _da-dvp-ledger:
+  
 .. https://lucid.app/lucidchart/3ef6e9da-b534-4640-bc19-8fa5c7fb3a71/edit
 .. image:: ./images/dvp-ledger.svg
    :align: center

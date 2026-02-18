@@ -55,8 +55,8 @@ The owner can transfer such an asset to a new owner with the ``Transfer`` choice
 
 .. literalinclude:: ./daml/SimpleAsset.daml
    :language: daml
-   :start-after: SNIPPET-START
-   :end-before: SNIPPET-END
+   :start-after: SNIPPET-ASSET-START
+   :end-before: SNIPPET-ASSET-END
 
 An atomic swap, also known as delivery versus payment (DvP), combines two asset transfers between the parties in a single transaction.
 The ``SimpleDvP`` template below captures the agreement between two parties ``partyA`` and ``partyB`` to swap ownership of the two allocated assets.
@@ -79,8 +79,8 @@ The ``counterparty`` can accept the proposal with the ``Accept`` choice to creat
 .. .. toctree::
    :maxdepth: 3
    ledger-structure
-   ledger-integrity
    ledger-privacy
+   ledger-validity
+   ledger-integrity
    ledger-daml
    ledger-exceptions
-   ledger-validity

@@ -200,7 +200,7 @@ jobs:
               echo "Already up-to-date with latest Canton source & snapshot."
           else
               if [ "main" = "$(Build.SourceBranchName)" ]; then
-                  git add canton/canton_version.bzl maven_install_2.13.json
+                  git add canton/canton_version.bzl canton/shared_dependencies.json maven_install_2.13.json
                   open_pr "$branch" "update canton to $version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
                   az pipelines build queue --branch "$branch" \
                                            --definition-name "PRs" \

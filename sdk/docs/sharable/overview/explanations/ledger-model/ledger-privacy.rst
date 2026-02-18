@@ -6,12 +6,6 @@
 Privacy
 #######
 
-.. wip::
-
-   * Discuss ledger model projection with Canton projection in terms of information leakage (projection of the transaction view Merkle tree vs. as defined in here)
-
-
-
 The :ref:`ledger structure section <ledger-structure>` answered the question "What does the Ledger looks like?" by introducing a hierarchical format to record the party interactions as changes.
 This section addresses the question "Who sees which changes and data?".
 That is, it explains the privacy model for Canton Ledgers.
@@ -144,10 +138,14 @@ Thus, privacy is obtained on the subtransaction level.
 
 This section first defines projections for transactions and then for ledgers.
 
+.. _da-model-transaction-projection:
+
 Transaction projection
 ======================
 
 The next diagram gives an example for a transaction with the ``AcceptAndSettle`` Exercise action as the only root action, whose informees are shown in the diagrams above.
+
+.. _da-dvp-acceptandsettle-projection:
 
 .. https://lucid.app/lucidchart/9b3762db-66b4-4e72-94cb-bcefd4c1a5ea/edit
 .. image:: ./images/dvp-acceptandsettle-projection.svg
@@ -199,6 +197,7 @@ Accordingly, the projection of a transaction for a set of parties `P` contains a
 
 As a projection is a transaction, it is possible to project a projection further.
 The projection operation has the following **absorbtion** property:
+
 Projection to decreasing subsets of parties is absorbing.
 That is, if a set of parties `P` is a subset of `Q`, then projecting a transaction first to `Q` and then to `P` is the same as projecting it directly to `P`.
 Intuitively, this property expresses the fact that a group of parties jointly learns at least as much about a transaction as any subgroup of these parties learns by themselves.
@@ -376,3 +375,76 @@ A Create event with `N` observers appears in the projection of at least those `N
 So the size of all projections together is already quadratic in `N` as an action of size at least `N` appears in `N` different projection.
 If the observers are added one by one, then `N` archives and creations are needed,
 which means the size of all projections together is cubic in `N`.
+
+.. _da-privacy-shape-revealing:
+
+Shape-revealing projection
+**************************
+
+As explained above, projections define the pieces of the ledger that a set of parties can see, 
+and thereby also the pieces that they can not see.
+For example, the above :ref:`transaction projection for Bank 2 <da-dvp-acceptandsettle-projection>` omits what happens between the Fetch and the Exercise on contract #2
+and thereby implies that Bank 2 has no way of finding this out on their own.
+
+In practice, this strong privacy statement assumes that Bank 2 interacts with the Ledger only via the Ledger API of their Participant Nodes.
+In contrast, if Bank 2 observes the communication patterns between the Participant Nodes, Bank 2 might be able to deduce that Bank 1 was also involved in this transaction.
+Similarly, if Bank 2 can inspect the on-wire data of such communication, as is for example possible to some extent on the Global Synchronizer,
+then Bank 2 can infer some information about the *shape* of the original transaction and the parties involved,
+beyond what is visible in the projection.
+This is because the synchronizer needs this shape information for its two-phase commit protocol.
+
+.. important::
+   The contents of the transaction remain confidential even if a party inspects the messages exchanged via the synchronizer.
+   The party can at most reconstruct the shape of the transactions on the ledger.
+
+This section defines the shape that overapproximate the information that can leak via messages exchanged via the synchronizer.
+Overapproximation here means that a curious party may not be able to fully reconstruct the shape of a transaction on the ledger,
+for example due to optimizations in the synchronization protocol.
+
+The synchronization protocol uses a notion of the required confirmers for a node, which are a subset of the informees.
+The required confirmers are therefore part of the shape and defined as follows.
+
+.. admonition:: Definition: required confirmers
+
+   The **required confirmers** for a Create node are the signatories and for an Exercise or Fetch node are the signatories and actors.
+
+The shape of a node is defined as follows:
+   
+.. admonition:: Definition: node shape
+
+   The **shape** of a node consists of the following pieces of information:
+
+   * The informees of the node.
+
+   * The size of the encoding of the node contents and the input contract, if any.
+
+   * The **required confirmers** for the node.
+
+The shape-revealing projection extends the projection defined above with the shape of the omitted nodes.
+
+.. _def-tx-projection-shape:
+
+.. admonition:: Definition: shape-revealing projection
+
+   The **shape-revealing projection of a transaction** for a set `P` of parties is obtained as follows for each root action `act` of the transaction:
+
+   #. If `P` contains at least one of the informees of `act`, keep `act` as-is, including its consequences.
+
+   #. Else, replace the node of `act` with its shape and the shape-revealing projection of the consequences of `act` becomes the children of the node shape.
+
+   The **shape-revealing projection of a ledger** `l` for a set `P` of parties is obtained by replacing the transaction in each commit by its shape-revealing projection for `P` while retaining the update ID and the requesters.
+
+For example, the shape-revealing projection of the :ref:`above DvP ledger <da-dvp-ledger-projections>` for Bank 2 looks as follows.
+Node shapes are shown as empty boxes with a `?` inside and annotated with the informees and the required confirmers (underlined).
+Importantly, the shape-revealing projection retains the requesters and the empty projected transactions, unlike for normal projections.
+Conversely, the node shapes do not show the inputs and outputs.
+Thus despite the shape of individual transactions being visible to all parties, 
+the structure of the overall transaction graph remains private. 
+
+.. https://lucid.app/lucidchart/1cbf8e33-4ab8-4c30-a208-5a3e8de85e5d/edit
+.. image:: ./images/dvp-ledger-projection-reveal-shape.svg
+   :align: center
+   :width: 100%
+   :name: da-ledgers-projections-example-shape
+   :alt: Shape-revealing projection for Bank 2
+

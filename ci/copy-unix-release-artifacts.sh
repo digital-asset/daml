@@ -62,9 +62,6 @@ copy_oci upgrade-check bazel-bin/daml-assistant/upgrade-check-main/upgrade-check
 
 # Platform independent artifacts are only built on Linux.
 if [[ "${NAME}" == "linux-intel" ]]; then
-    PROTOS_ZIP="protobufs-${RELEASE_TAG}.zip"
-    ${copy} bazel-bin/release/protobufs.zip "${OUTPUT_DIR}/github/${PROTOS_ZIP}"
-
     SCRIPT="daml-script-${RELEASE_TAG}.jar"
     ${copy} bazel-bin/daml-script/runner/daml-script-binary_distribute.jar "${OUTPUT_DIR}/artifactory/${SCRIPT}"
 

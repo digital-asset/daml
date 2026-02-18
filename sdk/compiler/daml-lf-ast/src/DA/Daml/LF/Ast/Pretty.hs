@@ -440,6 +440,8 @@ instance Pretty Update where
       pPrintAppKeyword lvl prec "ufetch_by_key" [tplArg tmplId]
     ULookupByKey tmplId ->
       pPrintAppKeyword lvl prec "ulookup_by_key" [tplArg tmplId]
+    UQueryNByKey tmplId ->
+      pPrintAppKeyword lvl prec "uquery_n_by_key" [tplArg tmplId]
     UTryCatch t e1 x e2 -> keyword_ "try" <-> pPrintTyArg lvl t <-> pPrintTmArg lvl e1
       <-> keyword_ "catch" <-> pPrintPrec lvl precParam x <-> keyword_ "." <-> pPrintTmArg lvl e2
 

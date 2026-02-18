@@ -1,0 +1,23 @@
+-- Copyright (c) 2026, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @BUILD-OPTION --explicit-serializable=yes
+-- @ERROR range=18:10-18:15; No instance for (Serializable NonSerializable)
+module ExplicitSerializableBadHOT where
+
+data NonSerializable = NonSerializable with
+  foo : Int
+  bar : Party
+    deriving (Eq, Show)
+
+data SeriHOT a = SeriHOT with
+  payload : a
+  label : Text
+    deriving (Eq, Serializable, Show)
+
+template Asset
+  with
+    party : Party
+    problematic : SeriHOT NonSerializable
+  where
+    signatory party

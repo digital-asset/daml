@@ -6,7 +6,7 @@ module InterfaceChoiceGuardFailedNotExtended where
 import Daml.Script
 
 -- @DOES-NOT-SUPPORT-LF-FEATURE DAML_INTERFACE_EXTENDED
--- @ERROR Guarded exercises are only available with --target=1.dev
+-- @ERROR Guarded exercises are only available with --target=2.dev
 data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I where
