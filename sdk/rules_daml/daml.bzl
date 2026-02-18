@@ -713,6 +713,10 @@ def daml_multi_package_test(
         sdk_tarball = "//release:sdk-release-tarball",
         enable_interfaces = False,
         additional_compiler_flags = [],
+        # shorten can be used to remove a common infix from srcs, build_files
+        # and multi_package_file.  Useful to stay under the maximum path length
+        # on Windows.
+        shorten = None,
         **kwargs):
     sh_inline_test(
         name = name,
@@ -721,6 +725,13 @@ def daml_multi_package_test(
             set -eou pipefail
             export DAML_HOME=$$PWD/$$(mktemp -d tmp.XXXXXXX)
             tmpdir=$$PWD/$$(mktemp -d tmp.XXXXXXX)
+            shorten() {{
+                if [ -n "{shorten}" ]; then
+                    echo "$$1" | sed 's#{shorten}##'
+                else
+                    echo "$$1"
+                fi
+            }}
             DAML=$$(canonicalize_rlocation $(rootpath {daml}))
             {install_sdk}
             rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
@@ -730,6 +741,7 @@ def daml_multi_package_test(
             {run_tests}
         """.format(
             daml = daml,
+            shorten = shorten,
             install_sdk = "$$DAML install $$(canonicalize_rlocation $(rootpath {sdk_tarball})) --install-with-custom-version {sdk_version}".format(
                 sdk_tarball = sdk_tarball,
                 sdk_version = sdk_version,
@@ -737,14 +749,14 @@ def daml_multi_package_test(
             cp_srcs = "\n".join([
                 "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
                     src = "$$(canonicalize_rlocation $(rootpath {}))".format(src),
-                    dest = "$$tmpdir/$(rootpath {})".format(src),
+                    dest = "$$tmpdir/$$(shorten $(rootpath {}))".format(src),
                 )
                 for src in srcs
             ]),
             cp_build_files = "\n".join([
                 """
                     src=$$(canonicalize_rlocation $(rootpath {src}))
-                    dest=$$(echo "$$tmpdir/$(rootpath {src})" | sed 's/\\.template$$//')
+                    dest=$$(echo "$$tmpdir/$$(shorten $(rootpath {src}))" | sed 's/\\.template$$//')
                     mkdir -p $$(dirname $$dest); cp -f $$src $$dest
                     sed -iE 's/__VERSION__/{sdk_version}/' $$dest
                 """.format(
@@ -756,12 +768,12 @@ def daml_multi_package_test(
             cp_multi_package_file =
                 "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
                     src = "$$(canonicalize_rlocation $(rootpath {}))".format(multi_package_file),
-                    dest = "$$tmpdir/$(rootpath {})".format(multi_package_file),
+                    dest = "$$tmpdir/$$(shorten $(rootpath {}))".format(multi_package_file),
                 ),
             run_tests = "\n".join([
                 """
-                    echo $$(dirname $$tmpdir/$(rootpath {build_file}))
-                    cd $$(dirname $$tmpdir/$(rootpath {build_file}))
+                    echo $$(dirname $$tmpdir/$$(shorten $(rootpath {build_file})))
+                    cd $$(dirname $$tmpdir/$$(shorten $(rootpath {build_file})))
                     $$DAML build {enable_interfaces} {damlc_opts}
                     $$DAML test
                 """.format(
