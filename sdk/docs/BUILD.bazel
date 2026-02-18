@@ -510,8 +510,8 @@ daml_multi_package_test(
     name = "daml-intro-interfaces",
     srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/**/*.daml"]),
     build_files = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/**/daml.yaml.template"]),
+    enable_interfaces = True,
     multi_package_file = ":source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/multi-package.yaml",
-    enable_interfaces = True
 )
 
 daml_build_test(
