@@ -3,7 +3,7 @@
 
 sdk-version: __VERSION__
 name: library
-source: .
+source: daml
 version: 1.0.0
 dependencies:
   - daml-prim
