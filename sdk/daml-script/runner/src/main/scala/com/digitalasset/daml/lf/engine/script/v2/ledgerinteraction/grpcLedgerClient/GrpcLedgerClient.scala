@@ -155,6 +155,7 @@ class GrpcLedgerClient(
         .getOrElse(matchingSigs.maxBy(_._2.metadata.version))
         ._1
     }
+
     identifier.pkg match {
       case PackageRef.Name(name) => handleName(name)
       case PackageRef.Id(pkgId) =>
@@ -372,14 +373,7 @@ class GrpcLedgerClient(
   ): Future[crypto.Hash] =
     Future(
       preprocessor
-        .unsafePreprocessApiContractKey(
-          Map.empty.withDefault((name: Ref.PackageName) =>
-            throw new IllegalStateException(
-              s"Unexpected package lookup by name (${name}) during contract key preprocessing."
-            )
-          ),
-          ApiContractKey(templateId.toRef, key),
-        )
+        .unsafePreprocessApiContractKey(Map.empty, ApiContractKey(templateId.toRef, key))
         .hash
     )
 
@@ -662,6 +656,7 @@ class GrpcLedgerClient(
       mat: Materializer,
   ): Future[List[User]] = {
     val pageSize = 100
+
     def listWithPageToken(pageToken: String): Future[List[User]] = {
       grpcClient.userManagementClient
         .listUsers(pageToken = pageToken, pageSize = pageSize)
@@ -678,6 +673,7 @@ class GrpcLedgerClient(
           }
         }
     }
+
     listWithPageToken("") // empty-string as pageToken asks for the first page
   }
 

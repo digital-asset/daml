@@ -284,21 +284,15 @@ class IdeLedgerClient(
       ec: ExecutionContext
   ): Future[GlobalKey] =
     Future(
-      preprocessor.unsafePreprocessApiContractKey(
-        Map.empty.withDefault((name: Ref.PackageName) =>
-          throw new IllegalStateException(
-            s"Unexpected package lookup by name (${name}) during contract key preprocessing."
+      preprocessor.unsafePreprocessApiContractKey(Map.empty, ApiContractKey(templateId.toRef, key))
+    )
+      .recoverWith { case Error.Preprocessing.ContractIdInContractKey(key) =>
+        Future.failed(
+          new RuntimeException(
+            Pretty.prettyDamlException(ContractIdInContractKey(key)).renderWideStream.mkString
           )
-        ),
-        ApiContractKey(templateId.toRef, key),
-      )
-    ).recoverWith { case Error.Preprocessing.ContractIdInContractKey(key) =>
-      Future.failed(
-        new RuntimeException(
-          Pretty.prettyDamlException(ContractIdInContractKey(key)).renderWideStream.mkString
         )
-      )
-    }
+      }
 
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
