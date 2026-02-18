@@ -5,12 +5,12 @@
 
 module DA.ContractKeys where
 
+#ifdef DAML_NUCK
 import DA.Internal.Template.Functions as DA
 
-#ifdef DAML_NUCK
 queryNByKey : forall t k. HasQueryNByKey t k => Int -> k -> Update [(ContractId t, t)]
 queryNByKey = DA.queryNByKey
 
 queryAllByKey : forall t k. HasQueryNByKey t k => k -> Update [(ContractId t, t)]
-queryAllByKey = queryNByKey (maxBound @Int)
+queryAllByKey = DA.queryNByKey (maxBound @Int)
 #endif

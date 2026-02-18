@@ -13,6 +13,7 @@ import DA.Action.State
 import DA.Assert
 import DA.BigNumeric
 import DA.Bifunctor
+import DA.ContractKeys
 import DA.Crypto.Text
 import DA.Date
 import DA.Either
