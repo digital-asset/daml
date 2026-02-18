@@ -34,4 +34,4 @@ stack_snapshot.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
 stack_snapshot.package(name = "lsp-types")
 
 module_temporary_extension = use_extension("//bazel_tools/MODULE_MIGRATION:module_temporary_extension.bzl", "temporary_extension")
-use_repo(module_temporary_extension, "build_environment", "daml_versions_repo", "os_info", "scala_version")
+use_repo(module_temporary_extension, "build_environment", "daml_versions_data", "os_info", "scala_version")
