@@ -48,7 +48,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .builder()
       .add(recordValueExtractor("value$", "recordValue$"))
       .addStatement(
-        "$T preparedRecord$$ = $T.checkAndPrepareRecord($L,$L,$Wpolicy$$)",
+        "$T preparedRecord$$ = $T.checkAndPrepareRecord($L,$L,$WrecordValue$$, $Wpolicy$$)",
         classOf[com.daml.ledger.javaapi.data.codegen.PreparedRecord],
         classOf[PrimitiveValueDecoders],
         fields.size,
