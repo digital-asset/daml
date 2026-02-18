@@ -145,9 +145,9 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .build()
 
   private def fromJsonStringWithPolicy(
-                              className: ClassName,
-                              typeParams: IndexedSeq[String],
-                            ): MethodSpec =
+      className: ClassName,
+      typeParams: IndexedSeq[String],
+  ): MethodSpec =
     MethodSpec
       .methodBuilder("fromJson")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)

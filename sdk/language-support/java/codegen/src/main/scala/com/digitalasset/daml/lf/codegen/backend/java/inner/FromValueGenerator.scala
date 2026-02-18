@@ -30,8 +30,6 @@ private[inner] object FromValueGenerator extends StrictLogging {
   )(implicit packagePrefixes: PackagePrefixes): MethodSpec = {
     logger.debug(s"Generating value decoder method $methodName")
 
-
-
     val converterParams = FromValueExtractorParameters
       .generate(typeParameters)
       .valueDecoderParameterSpecs
