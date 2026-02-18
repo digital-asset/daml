@@ -11,6 +11,7 @@ bazel_dep(name = "rules_pkg", version = "1.2.0")
 bazel_dep(name = "google_bazel_common", version = "0.0.1")
 bazel_dep(name = "bazel_jar_jar", version = "0.1.14")
 bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "rules_java", version = "9.5.0")
 
 haskell = use_extension("@rules_haskell//extensions:haskell.bzl", "haskell")
 haskell.toolchain(version = "9.12.3")
