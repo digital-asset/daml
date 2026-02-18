@@ -31,3 +31,6 @@ stack_snapshot.package(name = "lsp-types")
 
 module_temporary_extension = use_extension("//bazel_tools/MODULE_MIGRATION:module_temporary_extension.bzl", "temporary_extension")
 use_repo(module_temporary_extension, "build_environment", "daml_versions_data", "os_info", "scala_version")
+
+packaging_extension = use_extension("//bazel_tools/MODULE_MIGRATION:packaging_extension.bzl", "packaging_extension")
+use_repo(packaging_extension, "tar_dev_env", "gzip_dev_env")
