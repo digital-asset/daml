@@ -20,13 +20,17 @@ import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as P
 {-
 Assumptions:
 
-- The AST the Com.Digitalasset.Daml.Lf.Archive.DamlLf2 has _strictly more_ nodes
-  than the actual protobuff spec, so therefore, the height of the
-  Com.Digitalasset.Daml.Lf.Archive.DamlLf2 AST is an underestimation of the
-  protobuff spec's height. Therefore, if the
+- The AST the Com.Digitalasset.Daml.Lf.Archive.DamlLf2 is _at least as deeply
+  nested_ than the actual protobuff spec, so therefore, the height of the
+  Com.Digitalasset.Daml.Lf.Archive.DamlLf2 AST is an overestimation of the
+  protobuff spec's height. This is justified, for example, by the fact that
+  Com.Digitalasset.Daml.Lf.Archive.DamlLf2 encodes a sum type by two nodes: one
+  newtype that captures the message's name, which contains another type suffixed
+  with Sum that contains the actual sum. Therefore, if the
   Com.Digitalasset.Daml.Lf.Archive.DamlLf2 AST is flat enough, it for sure is in
   the protobuff spec.
 -}
+
 data ConcreteConstrCount = ConcreteConstrCount
     { kinds :: Int
     , types :: Int

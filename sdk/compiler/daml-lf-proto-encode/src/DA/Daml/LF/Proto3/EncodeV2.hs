@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE MultiWayIf #-}
 -- | Encoding of the LF package into LF version 1 format.
 module DA.Daml.LF.Proto3.EncodeV2 (
   module DA.Daml.LF.Proto3.EncodeV2
@@ -1123,9 +1124,9 @@ encodePackage (Package version mods metadata imports) =
         packageImportsSum = encodePkgImports version importList
         package = P.Package{..}
     in
-      case packageWellInterned package of
-        Left msg | version `supports` featureFlatArchive -> error msg
-        _ -> package
+      if | version `supports` featureFlatArchive
+         , Left msg <- packageWellInterned package -> error msg
+         | otherwise -> package
 
 -- | NOTE(MH): This functions is used for sanity checking. The actual checks
 -- are done in the conversion to Daml-LF.
