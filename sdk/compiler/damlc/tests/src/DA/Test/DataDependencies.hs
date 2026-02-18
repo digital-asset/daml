@@ -376,6 +376,67 @@ tests TestArgs{..} =
             validate $ projb </> "projb.dar"
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
+    [ testCaseSteps ("Cross Daml-LF version with ExplicitSerializable: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
+          let proja = tmpDir </> "proja"
+          let projb = tmpDir </> "projb"
+
+          step "Build proja"
+          createDirectoryIfMissing True (proja </> "src")
+          writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
+              [ "module A where"
+              , "data A = A with"
+              , "  amount : Decimal"
+              , "    deriving (Eq, Show" ++ if aExplicit then ", Serializable)" else ")"
+              ]
+          writeFileUTF8 (proja </> "daml.yaml") $ unlines $
+              [ "sdk-version: " <> sdkVersion
+              , "name: proja"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ] ++
+              [ "build-options: ['--explicit-serializable=yes']" | aExplicit ]
+          callProcessSilent (damlcForTarget depLfVer)
+                ["build"
+                , "--package-root", proja
+                , "--target", LF.renderVersion depLfVer
+                , "-o", proja </> "proja.dar"
+                ]
+          projaPkgIds <- darPackageIds (proja </> "proja.dar")
+          -- daml-stdlib, daml-prim and proja
+          length projaPkgIds @?= numStablePackagesForVersion depLfVer + 2 + 1
+
+          step "Build projb"
+          createDirectoryIfMissing True (projb </> "src")
+          writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
+              [ "module B where"
+              , "import A qualified"
+              , "data B = B with"
+              , "  owner : Party"
+              , "  a: A.A"
+              , "    deriving (Eq, Show" ++ if bExplicit then ", Serializable)" else ")"
+              ]
+          writeFileUTF8 (projb </> "daml.yaml") $ unlines $
+              [ "sdk-version: " <> sdkVersion
+              , "name: projb"
+              , "version: 0.0.1"
+              , "source: src"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
+              ] ++
+              [ "build-options: ['--explicit-serializable=yes']" | bExplicit ]
+          callProcessSilent damlc
+            [ "build"
+            , "--package-root", projb
+            , "--target", LF.renderVersion targetLfVer
+            , "-o", projb </> "projb.dar" ]
+          step "Validating DAR"
+          validate $ projb </> "projb.dar"
+    | (depLfVer, targetLfVer) <- lfVersionTestPairs
+    , -- Test with different combinations of proja and projb turning explicit
+      -- serializable on and off.
+      (aExplicit, bExplicit) <- (,) <$> [True, False] <*> [True, False]
+    ] <>
     [ testCaseSteps "Mixed dependencies and data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'lib'"
           createDirectoryIfMissing True (tmpDir </> "lib")

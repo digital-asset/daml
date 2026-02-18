@@ -33,13 +33,15 @@ object RunnerMainConfig {
 
   sealed trait RunMode
   object RunMode {
-    final case object RunAll extends RunMode
-    final case class RunOne(
+    final case class RunSingle(
         scriptId: String,
         inputFile: Option[File],
         outputFile: Option[File],
     ) extends RunMode
-    final case class RunSome(
+    final case class RunExcluding(
+        scriptIds: List[String]
+    ) extends RunMode
+    final case class RunIncluding(
         scriptIds: List[String]
     ) extends RunMode
   }
@@ -60,13 +62,12 @@ object RunnerMainConfig {
   sealed trait ResultMode
   object ResultMode {
     final case object Text extends ResultMode
-    final case object Json extends ResultMode
+    final case class Json(path: File) extends ResultMode
   }
 }
 
 private[script] case class RunnerMainConfigIntermediate(
     darPath: File,
-    mode: Option[RunnerMainConfigIntermediate.CliMode],
     ledgerHost: Option[String],
     ledgerPort: Option[Int],
     adminPort: Option[Int],
@@ -85,31 +86,36 @@ private[script] case class RunnerMainConfigIntermediate(
     userId: Option[Option[Ref.UserId]],
     uploadDar: Boolean,
     resultMode: RunnerMainConfig.ResultMode,
+    runAll: Boolean,
+    includeScriptNames: List[String],
+    excludeScriptNames: List[String],
 ) {
-  import RunnerMainConfigIntermediate._
 
-  def getRunMode(cliMode: CliMode): Either[String, RunnerMainConfig.RunMode] =
-    cliMode match {
-      case CliMode.RunOne(id) =>
-        Right(RunnerMainConfig.RunMode.RunOne(id, inputFile, outputFile))
-      case CliMode.RunAll =>
-        def incompatible(name: String, isValid: Boolean): Either[String, Unit] =
-          Either.cond(isValid, (), s"--${name} is incompatible with --all")
-        for {
-          _ <- incompatible("input-file", inputFile.isEmpty)
-          _ <- incompatible("output-file", outputFile.isEmpty)
-        } yield RunnerMainConfig.RunMode.RunAll
-      case CliMode.RunSome(ids) =>
-        def incompatible(name: String, isValid: Boolean): Either[String, Unit] =
-          Either.cond(
-            isValid,
-            (),
-            s"--${name} is incompatible with several --script-name definitions",
-          )
-        for {
-          _ <- incompatible("input-file", inputFile.isEmpty)
-          _ <- incompatible("output-file", outputFile.isEmpty)
-        } yield RunnerMainConfig.RunMode.RunSome(ids)
+  def getRunMode: Either[String, RunnerMainConfig.RunMode] =
+    (
+      runAll,
+      includeScriptNames,
+      excludeScriptNames,
+      inputFile.isDefined || outputFile.isDefined,
+    ) match {
+      case (true, List(), excludes, false) =>
+        Right(RunnerMainConfig.RunMode.RunExcluding(excludes))
+      case (true, _, _, false) =>
+        Left("--all and --script-name flags are incompatible")
+      case (true, _, _, true) =>
+        Left("--all and --input-file/--output-file are incompatible")
+      case (false, includes, excludes, useIO) =>
+        val scriptNames = includes diff excludes
+        scriptNames match {
+          case List() if includes.isEmpty => Left("--all or --script-name must be specified.")
+          case List() =>
+            Left("--script-name and --skip-script-name flags fully cancel out to no tests")
+          case List(singleTest) =>
+            Right(RunnerMainConfig.RunMode.RunSingle(singleTest, inputFile, outputFile))
+          case _ if useIO =>
+            Left("Cannot use --input-file/--output-file when more than one test is specified")
+          case _ => Right(RunnerMainConfig.RunMode.RunIncluding(scriptNames))
+        }
     }
 
   def validateUploadDar(participantMode: ParticipantMode): Either[String, Unit] =
@@ -121,10 +127,9 @@ private[script] case class RunnerMainConfigIntermediate(
 
   def toRunnerMainConfig: Either[String, RunnerMainConfig] =
     for {
-      cliMode <- mode.toRight("Either --script-name or --all must be specified")
+      runMode <- getRunMode
       participantMode = this.getLedgerMode
       resolvedTimeMode = timeMode.getOrElse(RunnerMainConfig.DefaultTimeMode)
-      runMode <- getRunMode(cliMode)
       _ <- validateUploadDar(participantMode)
       config = RunnerMainConfig(
         darPath = darPath,
@@ -152,16 +157,6 @@ private[script] case class RunnerMainConfigIntermediate(
 }
 
 private[script] object RunnerMainConfigIntermediate {
-  sealed abstract class CliMode extends Product with Serializable
-  object CliMode {
-    // Run a single script in the DAR, allows input and output file
-    final case class RunOne(scriptId: String) extends CliMode
-    // Run all scripts in the DAR
-    final case object RunAll extends CliMode
-    // Run many scripts in the DAR
-    final case class RunSome(scriptIds: List[String]) extends CliMode
-  }
-
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   private val parser = new scopt.OptionParser[RunnerMainConfigIntermediate]("script-runner") {
     head("script-runner")
@@ -174,12 +169,18 @@ private[script] object RunnerMainConfigIntermediate {
     opt[String]("script-name")
       .optional()
       .unbounded()
-      .action((t, c) => setMode(c, CliMode.RunOne(t)))
+      .action((t, c) => c.copy(includeScriptNames = c.includeScriptNames :+ t))
       .text("Identifier of the script that should be run in the format Module.Name:Entity.Name")
+
+    opt[String]("skip-script-name")
+      .optional()
+      .unbounded()
+      .action((t, c) => c.copy(excludeScriptNames = c.excludeScriptNames :+ t))
+      .text("Identifier of the script that should be skipped when using --all")
 
     opt[Unit]("all")
       .optional()
-      .action((_, c) => setMode(c, CliMode.RunAll))
+      .action((_, c) => c.copy(runAll = true))
       .text("Run all scripts in the main DALF in the DAR")
 
     opt[String]("ledger-host")
@@ -272,10 +273,10 @@ private[script] object RunnerMainConfigIntermediate {
         s"Upload the dar before running. Only available over GRPC. Defaults to false"
       )
 
-    opt[Unit]("json-output")
-      .action((_, c) => c.copy(resultMode = RunnerMainConfig.ResultMode.Json))
+    opt[File]("json-test-summary")
+      .action((path, c) => c.copy(resultMode = RunnerMainConfig.ResultMode.Json(path)))
       .text(
-        s"Print test result output in json form. Only works when running multiple cases."
+        s"Put test summary into a file in json format. Only works when running multiple cases."
       )
 
     help("help").text("Print this usage text")
@@ -309,30 +310,11 @@ private[script] object RunnerMainConfigIntermediate {
     config.copy(timeMode = Some(timeMode))
   }
 
-  private def setMode(
-      config: RunnerMainConfigIntermediate,
-      mode: CliMode,
-  ): RunnerMainConfigIntermediate = {
-    (config.mode, mode) match {
-      case (Some(CliMode.RunSome(ids)), CliMode.RunOne(id)) =>
-        config.copy(mode = Some(CliMode.RunSome(ids :+ id)))
-      case (Some(CliMode.RunOne(id1)), CliMode.RunOne(id2)) =>
-        config.copy(mode = Some(CliMode.RunSome(List(id1, id2))))
-      case (Some(cMode), mode) if cMode != mode =>
-        throw new IllegalStateException(
-          "--script-name and --all are mutually exclusive."
-        )
-      case _ =>
-        config.copy(mode = Some(mode))
-    }
-  }
-
   private[script] def parse(args: Array[String]): Option[RunnerMainConfigIntermediate] =
     parser.parse(
       args,
       RunnerMainConfigIntermediate(
         darPath = null,
-        mode = None,
         ledgerHost = None,
         ledgerPort = None,
         adminPort = None,
@@ -347,6 +329,9 @@ private[script] object RunnerMainConfigIntermediate {
         userId = None,
         uploadDar = false,
         resultMode = RunnerMainConfig.ResultMode.Text,
+        runAll = false,
+        includeScriptNames = List(),
+        excludeScriptNames = List(),
       ),
     )
 }

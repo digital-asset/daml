@@ -168,8 +168,12 @@ object RunnerMain {
                 case (id, Left(exception)) => println(s"${id.qualifiedName} FAILURE ($exception)")
                 case (id, Right(_)) => println(s"${id.qualifiedName} SUCCESS")
               }
-            case RunnerMainConfig.ResultMode.Json =>
-              println(JsObject(Map.from(results).map {
+            case RunnerMainConfig.ResultMode.Json(path) =>
+              val pathParent = path.getParentFile
+              if (pathParent != null) {
+                val _ = Files.createDirectories(pathParent.toPath)
+              }
+              val jsString = JsObject(Map.from(results).map {
                 case (id, Left(exception)) =>
                   (
                     id.qualifiedName.toString,
@@ -183,7 +187,8 @@ object RunnerMain {
                     id.qualifiedName.toString,
                     JsObject(Map(("result", LfValueCodec.apiValueToJsValue(pureResult)))),
                   )
-              }).prettyPrint)
+              }).prettyPrint
+              Files.write(path.toPath, Seq(jsString).asJava)
           }
 
           !results.exists(_._2.isLeft)
@@ -191,14 +196,16 @@ object RunnerMain {
       }
 
       success <- config.runMode match {
-        case RunnerMainConfig.RunMode.RunAll => {
+        case RunnerMainConfig.RunMode.RunExcluding(excludes) => {
           val testScripts: Seq[Identifier] = dar.main._2.modules.flatMap {
             case (moduleName, module) =>
               module.definitions.collect(Function.unlift { case (name, _) =>
                 val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
                 ScriptAction.fromIdentifier(compiledPackages, id) match {
                   // We exclude generated identifiers starting with `$`.
-                  case Right(_: ScriptAction.NoParam) if !name.dottedName.startsWith("$") =>
+                  case Right(_: ScriptAction.NoParam)
+                      if !name.dottedName.startsWith("$") &&
+                        !excludes.contains(id.qualifiedName.toString) =>
                     Some(id)
                   case _ => None
                 }
@@ -207,13 +214,13 @@ object RunnerMain {
 
           runManyTests(testScripts)
         }
-        case RunnerMainConfig.RunMode.RunSome(ids) =>
+        case RunnerMainConfig.RunMode.RunIncluding(ids) =>
           runManyTests(
             ids.map(scriptName =>
               Identifier(dar.main._1, QualifiedName.assertFromString(scriptName))
             )
           )
-        case RunnerMainConfig.RunMode.RunOne(scriptName, inputFile, outputFile) => {
+        case RunnerMainConfig.RunMode.RunSingle(scriptName, inputFile, outputFile) => {
           val scriptId: Identifier =
             Identifier(dar.main._1, QualifiedName.assertFromString(scriptName))
           val converter = (json: JsValue, typ: Type) =>

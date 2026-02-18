@@ -2,6 +2,92 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_intel")
+load("@daml_versions_data//:data.bzl", "DATA")
+
+# Helper to convert "defaultLfVersion" -> "DEFAULT_LF_VERSION"
+def _camel_to_upper_snake(text):
+    result = ""
+    for i in range(len(text)):
+        char = text[i]
+        if char.isupper() and i > 0:
+            result += "_"
+        result += char
+    return result.upper()
+
+def _parse_version(v_str):
+    """
+    Parses a version string according to specific rules:
+    - "2.dev"       -> status="dev",    minor="dev"
+    - "2.n-rcm"     -> status="staging", minor="n", revision="m"
+    - "2.n"         -> status="stable",  minor="n"
+    """
+    parts = v_str.split(".")
+    major = parts[0]
+    remainder = parts[1]  # "dev", "1", "3-rc1"
+
+    if "dev" in remainder:
+        return struct(
+            dotted = v_str,
+            mangled_java = "{}_{}".format(major, "dev"),
+            mangled_damlc = "{}{}".format(major, "dev"),
+            major = major,
+            minor = "dev",
+            status = "dev",
+        )
+
+    if "-rc" in remainder:
+        # split "3-rc1" into "3" and "1"
+        rc_parts = remainder.split("-rc")
+        minor = rc_parts[0]
+        revision = rc_parts[1]
+
+        return struct(
+            dotted = v_str,
+            mangled_java = "{}_{}_rc{}".format(major, minor, revision),
+            mangled_damlc = "{}{}rc{}".format(major, minor, revision),
+            major = major,
+            minor = minor,
+            revision = revision,
+            status = "staging",
+        )
+
+    return struct(
+        dotted = v_str,
+        mangled_java = "{}_{}".format(major, remainder),
+        mangled_damlc = "{}{}".format(major, remainder),
+        major = major,
+        minor = remainder,
+        status = "stable",
+    )
+
+def _build_versions_struct():
+    """
+    Iterates over the JSON 'explicitVersions' map and converts them
+    into a single struct of version objects.
+    """
+    fields = {}
+
+    for key, val in sorted(DATA["explicitVersions"].items()):
+        field_name = key.upper()
+        version_obj = _parse_version(val)
+        fields[field_name] = version_obj
+
+    for key, val in sorted(DATA["namedVersions"].items()):
+        field_name = _camel_to_upper_snake(key)
+        version_obj = _parse_version(val)
+        fields[field_name] = version_obj
+
+    for key, val_list in sorted(DATA["versionLists"].items()):
+        field_name = _camel_to_upper_snake(key)
+
+        # Parse every string in the list into a struct
+        fields[field_name] = [_parse_version(v) for v in val_list]
+
+    return struct(**fields)
+
+VERSIONS = _build_versions_struct()
+
+print("DEBUG: Parsed explicit versions:", VERSIONS.COMPILER_LF_VERSIONS)
 
 def _to_dotted_version(v):
     """Converts a single version struct to a string like "2.2"."""
@@ -169,6 +255,12 @@ def _init_data():
             "cpp_flag": "DAML_UnsafeFromInterface",
             "version_req": {"high": V2_1},
         },
+        {
+            "name": "featureNUCK",
+            "name_pretty": "Non-unique contract keys",
+            "cpp_flag": "DAML_NUCK",
+            "version_req": dev_only,
+        },
     ]
 
     return struct(
@@ -200,27 +292,19 @@ RAW_COMPILER_INPUT_LF_VERSIONS = RAW_ALL_LF_VERSIONS
 RAW_COMPILER_OUTPUT_LF_VERSIONS = RAW_ALL_LF_VERSIONS
 
 # public API from the internal struct.
-ALL_LF_VERSIONS = _to_dotted_versions(RAW_ALL_LF_VERSIONS)
-STABLE_LF_VERSIONS = _to_dotted_versions(RAW_STABLE_LF_VERSIONS)
+ALL_LF_VERSIONS = [v.dotted for v in VERSIONS.ALL_LF_VERSIONS]
+STABLE_LF_VERSIONS = [v.dotted for v in VERSIONS.STABLE_LF_VERSIONS]
 
-LATEST_STABLE_LF_VERSION = _to_dotted_version(RAW_LATEST_STABLE_LF_VERSION)
-DEFAULT_LF_VERSION = _to_dotted_version(RAW_DEFAULT_LF_VERSION)
-DEV_LF_VERSION = _to_dotted_version(RAW_DEV_LF_VERSION)
-STAGING_LF_VERSION = _to_dotted_version(RAW_STAGING_LF_VERSION)
+LATEST_STABLE_LF_VERSION = VERSIONS.LATEST_STABLE_LF_VERSION.dotted
+DEFAULT_LF_VERSION = VERSIONS.DEFAULT_LF_VERSION.dotted
+DEV_LF_VERSION = VERSIONS.DEV_LF_VERSION.dotted
 
 # Ideally, COMPILER_VERSIONS does not exist. Currently, all of these piont to
 # ALL_LF_VERSIONS. Haskell source files point to input/output versions, but
 # bazel files point to the nonspecific COMPILER_VERSIONS. As they are equal now,
 # there is no difference. As soon as COMPILER_INPUT_VERSIONS <>
 # COMPILER_OUTPUT_VERSIONS we must eliminate COMPILER_VERSIONS
-COMPILER_LF_VERSIONS = ALL_LF_VERSIONS  #deprecated
-
-# TODO(#30144): When COMPILER_INPUT_VERSIONS <> COMPILER_OUTPUT_VERSIONS, eliminate
-# COMPILER_VERSIONS
-COMPILER_INPUT_LF_VERSIONS = ALL_LF_VERSIONS
-COMPILER_OUTPUT_LF_VERSIONS = ALL_LF_VERSIONS
-
-ENGINE_LF_VERSIONS = ALL_LF_VERSIONS
+COMPILER_LF_VERSIONS = [v.dotted for v in VERSIONS.COMPILER_LF_VERSIONS]  #deprecated
 
 FEATURES = _data.features
 

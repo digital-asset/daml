@@ -1,12 +1,13 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-
 module SimpleAsset where
 
 import Daml.Script
+import Daml.Script.Internal
+import DA.Either
 
--- SNIPPET-START
+-- SNIPPET-ASSET-START
 template SimpleAsset with
     issuer : Party
     owner : Party
@@ -21,7 +22,19 @@ template SimpleAsset with
       controller owner
       do
         create this with owner = newOwner
--- SNIPPET-END
+-- SNIPPET-ASSET-END
+
+-- SNIPPET-ASSET-PRESENT-START
+    nonconsuming choice Present : SimpleAsset
+      with
+        actor : Party
+        viewer : Party
+      observer viewer
+      controller actor
+      do
+        assert $ actor == issuer || actor == owner
+        pure this
+-- SNIPPET-ASSET-PRESENT-END
 
 simpleAsset = script do
     alice <- allocateParty "Alice"
@@ -30,3 +43,78 @@ simpleAsset = script do
     cash <- submit bank do createCmd SimpleAsset with issuer = bank; owner = alice; asset = "Cash"
     newCash <- submit alice do exerciseCmd cash Transfer with newOwner = bob
     submit bank do exerciseCmd newCash Archive
+
+
+doubleSpend = script do
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    carol <- allocateParty "Carol"
+    bank <- allocateParty "Bank"
+
+    result <- tryCommands $ do
+-- SNIPPET-double-spend-START
+      let eurAsset = SimpleAsset with
+            issuer = bank
+            owner = alice
+            asset = "1 EUR"
+      aliceEur <- submit bank do createCmd eurAsset
+
+      bobEur <- submit alice $ do
+        exerciseCmd aliceEur $ Transfer with
+          newOwner = bob
+
+      carolEur <- submit alice $ do
+        exerciseCmd aliceEur $ Transfer with
+          newOwner = carol
+      pure ()
+-- SNIPPET-double-spend-END
+    assert $ isLeft result
+      
+
+stealAsset = script do
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    bank <- allocateParty "Bank"
+
+    result <- tryCommands $ do
+-- SNIPPET-steal-START
+      let usdAsset = SimpleAsset with
+            issuer = bank
+            owner = bob
+            asset = "1 USD"
+      bobUsd <- submit bank $ do createCmd usdAsset
+
+      aliceUsd <- submit alice $ do
+        exerciseCmd bobUsd $ Transfer with
+            newOwner = alice
+-- SNIPPET-steal-END
+      pure ()
+
+    assert $ isLeft result
+
+
+projectionReflect = script do
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    bank <- allocateParty "Bank"
+    vivian <- allocateParty "Vivian"
+
+    result <- tryCommands $ do
+-- SNIPPET-projection-reflect-START
+      let eurAsset = SimpleAsset with
+            issuer = bank
+            owner = alice
+            asset = "1 EUR"
+      aliceEur <- submit bank $ do createCmd eurAsset
+
+      bobEur <- submit alice $ do
+        exerciseCmd aliceEur $ Transfer with
+            newOwner = bob
+
+      submit bank $ do
+        exerciseCmd aliceEur $ Present with
+            actor = bank
+            viewer = vivian
+-- SNIPPET-projection-reflect-END
+
+    assert $ isLeft result

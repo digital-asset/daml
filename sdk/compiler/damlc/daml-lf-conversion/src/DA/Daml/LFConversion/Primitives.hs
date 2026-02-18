@@ -305,6 +305,10 @@ convertPrim _ "UExerciseByKey"
 convertPrim _ "ULookupByKey" (_ :-> TUpdate (TOptional (TContractId (TCon template)))) =
     pure $ EUpdate $  ULookupByKey template
 
+convertPrim _ "UQueryNByKey" (TInt64 :-> _ :-> TUpdate (TList (TTuple2 (TContractId (TCon template)) (TCon template'))))
+    | template == template'
+    = pure $ EUpdate $ UQueryNByKey template
+
 convertPrim _ "UFetchByKey"
     (_ :-> TUpdate (TTuple2 (TContractId (TCon template)) ty2))
     | ty2 == TCon template =

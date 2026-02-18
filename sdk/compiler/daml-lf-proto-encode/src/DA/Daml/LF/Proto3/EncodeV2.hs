@@ -837,6 +837,9 @@ encodeUpdate = fmap (P.Update . Just) . \case
         P.UpdateSumFetchByKey <$> encodeRetrieveByKey tmplId
     ULookupByKey tmplId ->
         P.UpdateSumLookupByKey <$> encodeRetrieveByKey tmplId
+    UQueryNByKey tmplId -> do
+        update_QueryNByKeyTemplate <- encodeQualTypeConId tmplId
+        pure $ P.UpdateSumQueryNByKey $ P.Update_QueryNByKey{..}
     UTryCatch{..} -> do
         update_TryCatchReturnType <- encodeType tryCatchType
         update_TryCatchTryExpr <- encodeExpr tryCatchExpr
