@@ -41,7 +41,7 @@ da_scala_binary(
         "@maven//:com_daml_daml_lf_language_2_13",
         "@maven//:com_daml_daml_lf_transaction_2_13",
         "@maven//:com_daml_daml_lf_validation_2_13",
-        "@maven//:com_daml_rs_grpc_bridge",
+        "@maven//:com_daml_rs_grpc_bridge_2_13",
         "@maven//:com_daml_rs_grpc_pekko_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
