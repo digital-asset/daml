@@ -4,13 +4,12 @@ module Token where
 
 import Daml.Script
 
--- Token holding contract - represents ownership of fungible tokens
 template TokenHolding
   with
     issuer : Party
     owner : Party
     amount : Decimal
-    instrument : Text  -- e.g. "USD", "CC", "USDC"
+    instrument : Text  -- e.g. "CC"
   where
     signatory owner
     observer issuer
@@ -98,7 +97,7 @@ template TransferProposal
       do
         pure ()
 
--- Test script demonstrating token workflows
+-- Test script
 test_token : Script ()
 test_token = script do
   -- Parties

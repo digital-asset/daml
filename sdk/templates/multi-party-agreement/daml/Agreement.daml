@@ -2,12 +2,11 @@ module Agreement where
 
 import Daml.Script
 
--- Simple multi-party agreement template demonstrating Canton's party-based authorization
 template MultiPartyAgreement
   with
     proposer : Party
     signatories : [Party]
-    requiredParties : [Party]  -- Parties who can join
+    requiredParties : [Party]
     terms : Text
   where
     signatory signatories
@@ -27,7 +26,7 @@ template MultiPartyAgreement
       do
         pure ()
 
--- Test script showing basic multi-party workflow
+-- Tests
 test_agreement : Script ()
 test_agreement = script do
   alice <- allocateParty "Alice"
@@ -39,7 +38,7 @@ test_agreement = script do
     createCmd MultiPartyAgreement with
       proposer = alice
       signatories = [alice]
-      requiredParties = [bob, carol]  -- Bob and Carol can join
+      requiredParties = [bob, carol]
       terms = "We agree to collaborate on this project"
 
   -- Bob joins
