@@ -118,7 +118,8 @@ final class FromValueGeneratorSpec extends AnyFlatSpec with Matchers {
     )
 
     method.parameters.asScala should have size 2
-    method.parameters.asScala.map(_.name) should contain.inOrderOnly("valueDecoderT", "valueDecoderU")
+    method.parameters.asScala
+      .map(_.name) should contain.inOrderOnly("valueDecoderT", "valueDecoderU")
   }
 
   it should "generate code that uses ValueDecoder.create with two-parameter lambda" in {
@@ -403,4 +404,3 @@ final class FromValueGeneratorSpec extends AnyFlatSpec with Matchers {
     code should include("checkAndPrepareRecord(3, 1")
   }
 }
-

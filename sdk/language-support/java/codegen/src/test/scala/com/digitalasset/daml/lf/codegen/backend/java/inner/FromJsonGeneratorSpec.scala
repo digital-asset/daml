@@ -1,4 +1,4 @@
-// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.codegen.backend.java.inner
@@ -28,7 +28,9 @@ final class FromJsonGeneratorSpec extends AnyFlatSpec with Matchers {
       IndexedSeq.empty,
     )
 
-    val fromJsonWithPolicy = method.find(_.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy])))
+    val fromJsonWithPolicy = method.find(
+      _.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy]))
+    )
     fromJsonWithPolicy shouldBe defined
     fromJsonWithPolicy.get.name shouldBe "fromJson"
   }
@@ -40,7 +42,9 @@ final class FromJsonGeneratorSpec extends AnyFlatSpec with Matchers {
       IndexedSeq.empty,
     )
 
-    val fromJsonWithPolicy = methods.find(_.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy])))
+    val fromJsonWithPolicy = methods.find(
+      _.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy]))
+    )
     fromJsonWithPolicy shouldBe defined
     fromJsonWithPolicy.get.modifiers.asScala should contain.only(Modifier.PUBLIC, Modifier.STATIC)
   }
@@ -52,14 +56,18 @@ final class FromJsonGeneratorSpec extends AnyFlatSpec with Matchers {
       IndexedSeq("T", "U"),
     )
 
-    val fromJsonWithPolicy = methods.find(_.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy])))
+    val fromJsonWithPolicy = methods.find(
+      _.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy]))
+    )
     fromJsonWithPolicy shouldBe defined
 
     val params = fromJsonWithPolicy.get.parameters.asScala
     params should have size 4
     params.map(_.name) should contain.inOrderOnly("json", "decodeT", "decodeU", "policy")
     params.find(_.name == "json").get.`type` shouldEqual TypeName.get(classOf[String])
-    params.find(_.name == "policy").get.`type` shouldEqual TypeName.get(classOf[UnknownTrailingFieldPolicy])
+    params.find(_.name == "policy").get.`type` shouldEqual TypeName.get(
+      classOf[UnknownTrailingFieldPolicy]
+    )
   }
 
   it should "return the parameterized class name" in {
@@ -70,7 +78,9 @@ final class FromJsonGeneratorSpec extends AnyFlatSpec with Matchers {
       IndexedSeq("T"),
     )
 
-    val fromJsonWithPolicy = methods.find(_.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy])))
+    val fromJsonWithPolicy = methods.find(
+      _.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy]))
+    )
     fromJsonWithPolicy shouldBe defined
     fromJsonWithPolicy.get.returnType shouldEqual ParameterizedTypeName.get(
       className,
@@ -85,7 +95,9 @@ final class FromJsonGeneratorSpec extends AnyFlatSpec with Matchers {
       IndexedSeq.empty,
     )
 
-    val fromJsonWithPolicy = methods.find(_.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy])))
+    val fromJsonWithPolicy = methods.find(
+      _.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy]))
+    )
     fromJsonWithPolicy shouldBe defined
     fromJsonWithPolicy.get.exceptions should contain only TypeName.get(classOf[JsonLfDecoder.Error])
   }
@@ -97,7 +109,9 @@ final class FromJsonGeneratorSpec extends AnyFlatSpec with Matchers {
       IndexedSeq.empty,
     )
 
-    val fromJsonWithPolicy = methods.find(_.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy])))
+    val fromJsonWithPolicy = methods.find(
+      _.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy]))
+    )
     fromJsonWithPolicy shouldBe defined
 
     val code = fromJsonWithPolicy.get.code.toString
@@ -111,7 +125,9 @@ final class FromJsonGeneratorSpec extends AnyFlatSpec with Matchers {
       IndexedSeq("T", "U"),
     )
 
-    val fromJsonWithPolicy = methods.find(_.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy])))
+    val fromJsonWithPolicy = methods.find(
+      _.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy]))
+    )
     fromJsonWithPolicy shouldBe defined
     fromJsonWithPolicy.get.typeVariables.asScala.map(_.name) should contain.inOrderOnly("T", "U")
   }
@@ -275,7 +291,9 @@ final class FromJsonGeneratorSpec extends AnyFlatSpec with Matchers {
     val fromJsonMethods = methods.filter(_.name == "fromJson")
     fromJsonMethods should have size 2
 
-    val fromJsonWithoutPolicy = fromJsonMethods.find(!_.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy])))
+    val fromJsonWithoutPolicy = fromJsonMethods.find(
+      !_.parameters.asScala.exists(_.`type` == TypeName.get(classOf[UnknownTrailingFieldPolicy]))
+    )
     fromJsonWithoutPolicy shouldBe defined
     fromJsonWithoutPolicy.get.parameters.asScala.map(_.name) should contain only "json"
   }
@@ -342,4 +360,3 @@ final class FromJsonGeneratorSpec extends AnyFlatSpec with Matchers {
     code should include("default: return null")
   }
 }
-
