@@ -26,7 +26,6 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   IdeLedgerClient,
   ScriptLedgerClient,
 }
-import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
@@ -278,16 +277,7 @@ object Runner {
         clientChannelConfig,
         namedLoggerFactory,
       )
-      maybeAdminLedgerClient <- params.adminPort
-        .traverse(adminPort =>
-          AdminLedgerClient.singleHostWithUnknownParticipantId(
-            params.host,
-            adminPort,
-            clientConfig.token(),
-            clientChannelConfig,
-          )
-        )
-    } yield GrpcLedgerClient(ledgerClient, userId, maybeAdminLedgerClient)
+    } yield GrpcLedgerClient(ledgerClient, userId)
   }
   // We might want to have one config per participant at some point but for now this should be sufficient.
   def connect(

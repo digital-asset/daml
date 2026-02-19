@@ -62,7 +62,6 @@ da_scala_library(
         "//ledger-service/lf-value-json",
         "@maven//:com_daml_base_errors_2_13",
         "@maven//:com_daml_bindings_java",
-        "@maven//:com_daml_community_admin_api_2_13",
         "@maven//:com_daml_community_base_2_13",
         "@maven//:com_daml_contextualized_logging_2_13",
         "@maven//:com_daml_daml_grpc_utils_2_13",

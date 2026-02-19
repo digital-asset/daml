@@ -427,10 +427,8 @@ da_scala_test(
         "@maven//:com_daml_ports_2_13",
         "@maven//:com_daml_rs_grpc_bridge",
         "@maven//:com_daml_testing_utils_2_13",
-        "@maven//:com_daml_timer_utils_2_13",
         "@maven//:com_daml_util_observability_2_13",
-        "@maven//:com_thesamet_scalapb_lenses_2_13",
-        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_slf4j_slf4j_api",
     ],
 ) if not is_windows else None

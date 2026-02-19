@@ -20,10 +20,10 @@ import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
+  ExtendedValueComputationMode,
   TraceLog,
   WarningLog,
   runExtendedValueComputation,
-  ExtendedValueComputationMode,
 }
 import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
@@ -1084,33 +1084,6 @@ class IdeLedgerClient(
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
     Future.successful(getPackageIdMap().keys.toList)
 
-  override def allocatePartyOnMultipleParticipants(
-      party: Ref.Party,
-      toParticipantIds: Iterable[String],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[Unit] = Future.failed(
-    new RuntimeException(
-      "allocatePartyOnMultipleParticipants should not be called on IDE ledger, use aggregateAllocatePartyOnMultipleParticipants instead"
-    )
-  )
-
-  override def aggregateAllocatePartyOnMultipleParticipants(
-      clients: List[ScriptLedgerClient],
-      partyHint: String,
-      namespace: String,
-      toParticipantIds: Iterable[String],
-  )(implicit
-      ec: ExecutionContext,
-      mat: Materializer,
-  ): Future[Ref.Party] = allocateParty(partyHint)
-
-  override def waitUntilHostingVisible(
-      party: Ref.Party,
-      onParticipantUid: Iterable[String],
-  ): Future[Unit] =
-    Future.successful(())
-
-  override def getParticipantUid: String = ""
+  override def getParticipantUid()(implicit ec: ExecutionContext): Future[String] =
+    Future.successful("")
 }
