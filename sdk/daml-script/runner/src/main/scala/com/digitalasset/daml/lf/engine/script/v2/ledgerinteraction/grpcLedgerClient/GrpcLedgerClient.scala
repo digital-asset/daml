@@ -244,12 +244,14 @@ class GrpcLedgerClient(
             case Left(err) => throw new ConverterException(err.toString)
             case Right(argument) => argument
           }
-        val keyHash: Option[crypto.Hash] = Option.when(!createdEvent.contractKeyHash.isEmpty)(
-          crypto.Hash.fromBytes(Bytes.fromByteString(createdEvent.contractKeyHash)) match {
-            case Right(hash) => hash
-            case Left(err) => throw new ConverterException(err)
-          }
-        )
+        val keyHash: Option[crypto.Hash] =
+          if (createdEvent.contractKeyHash.isEmpty) None
+          else
+            crypto.Hash.fromBytes(Bytes.fromByteString(createdEvent.contractKeyHash)) match {
+              case Right(hash) => Some(hash)
+              case Left(err) => throw new ConverterException(err)
+            }
+
         val enrichedArgument = enricher.enrichContract(templateId, argument).consume() match {
           case Right(arg) => arg
           case Left(err) => throw new ConverterException(err.toString)
