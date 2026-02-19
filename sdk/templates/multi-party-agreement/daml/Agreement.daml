@@ -1,0 +1,53 @@
+module Agreement where
+
+import Daml.Script
+
+-- Simple multi-party agreement template demonstrating Canton's party-based authorization
+template MultiPartyAgreement
+  with
+    proposer : Party
+    signatories : [Party]
+    requiredParties : [Party]  -- Parties who can join
+    terms : Text
+  where
+    signatory signatories
+    observer requiredParties
+    
+    choice AddParty : ContractId MultiPartyAgreement
+      with
+        newParty : Party
+      controller newParty
+      do
+        assertMsg "Party not in required list" (newParty `elem` requiredParties)
+        assertMsg "Party already signed" (newParty `notElem` signatories)
+        create this with signatories = newParty :: signatories
+
+    choice Close : ()
+      controller proposer
+      do
+        pure ()
+
+-- Test script showing basic multi-party workflow
+test_agreement : Script ()
+test_agreement = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  carol <- allocateParty "Carol"
+
+  -- Alice proposes agreement
+  agreementCid <- submit alice do
+    createCmd MultiPartyAgreement with
+      proposer = alice
+      signatories = [alice]
+      requiredParties = [bob, carol]  -- Bob and Carol can join
+      terms = "We agree to collaborate on this project"
+
+  -- Bob joins
+  agreementCid <- submit bob do
+    exerciseCmd agreementCid AddParty with newParty = bob
+
+  -- Carol joins
+  submit carol do
+    exerciseCmd agreementCid AddParty with newParty = carol
+
+  pure ()
