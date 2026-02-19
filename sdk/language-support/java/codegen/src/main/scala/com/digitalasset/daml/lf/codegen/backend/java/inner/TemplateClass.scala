@@ -302,6 +302,7 @@ private[inner] object TemplateClass extends StrictLogging {
   )(implicit packagePrefixes: PackagePrefixes): Seq[FieldSpec] = {
     templateChoices.map { case (choiceName, choice) =>
       val fieldClass = classOf[Choice[_, _, _]]
+      print(fieldClass)
       FieldSpec
         .builder(
           ParameterizedTypeName.get(
@@ -316,7 +317,7 @@ private[inner] object TemplateClass extends StrictLogging {
           Modifier.PUBLIC,
         )
         .initializer(
-          "$Z$T.create($>$S, value$$ -> $L,$Wvalue$$ ->$W$L,$Wvalue$$ ->$W$L,$W$L,$W$L,$W$L,$W$L)$<",
+          "$Z$T.create($>$S, value$$ -> $L,$W$L,$Wvalue$$ ->$W$L,$W$L,$W$L,$W$L,$W$L)$<",
           fieldClass,
           choiceName,
           generateToValueConverter(
@@ -330,12 +331,7 @@ private[inner] object TemplateClass extends StrictLogging {
             CodeBlock.of("$L", "value$"),
             newNameGenerator,
           ),
-          FromValueGenerator.extractor(
-            choice.returnType,
-            "value$",
-            CodeBlock.of("$L", "value$"),
-            newNameGenerator,
-          ),
+          CodeBlock.of("$T.valueDecoder()",  templateClassName),
           FromJsonGenerator.jsonDecoderForType(choice.param),
           FromJsonGenerator.jsonDecoderForType(choice.returnType),
           ToJsonGenerator.encoderOf(choice.param),
@@ -392,7 +388,7 @@ private[inner] object TemplateClass extends StrictLogging {
           Modifier.PUBLIC,
         )
         .initializer(
-          "$Znew $T<>(new $T($T.$N, $T.$N, $T.$N),$>$Z$S,$W$N,$W$T::new,$W$N -> $T.templateValueDecoder().decode($N),$W$T::fromJson,$W$T::new,$W$T.of($L)" + keyParams + "$<)",
+          "$Znew $T<>(new $T($T.$N, $T.$N, $T.$N),$>$Z$S,$W$N,$W$T::new,$W$T::fromJson,$W$T::new,$W$T.of($L),$T.templateValueDecoder()" + keyParams + "$<)",
           Seq[Object](
             fieldClass,
             nestedClassName(ClassName.get(classOf[ContractTypeCompanion[_, _, _, _]]), "Package"),
