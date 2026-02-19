@@ -373,7 +373,6 @@ final class FromValueGeneratorSpec extends AnyFlatSpec with Matchers {
     )
 
     val code = method.code.toString
-    // Should have 3 fields total, with 2 trailing optional fields
     code should include("checkAndPrepareRecord(3, 2")
   }
 
