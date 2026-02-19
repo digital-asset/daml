@@ -409,7 +409,7 @@ private[inner] object TemplateClass extends StrictLogging {
                   .asJava,
                 ",$W",
               ),
-            templateClassName
+            templateClassName,
           ) ++ keyArgs: _*
         )
         .build()
