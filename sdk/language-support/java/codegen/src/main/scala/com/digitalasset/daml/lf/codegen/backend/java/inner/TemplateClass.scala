@@ -331,7 +331,7 @@ private[inner] object TemplateClass extends StrictLogging {
             CodeBlock.of("$L", "value$"),
             newNameGenerator,
           ),
-          CodeBlock.of("$T.valueDecoder()",  templateClassName),
+          CodeBlock.of("$T.valueDecoder()", templateClassName),
           FromJsonGenerator.jsonDecoderForType(choice.param),
           FromJsonGenerator.jsonDecoderForType(choice.returnType),
           ToJsonGenerator.encoderOf(choice.param),
