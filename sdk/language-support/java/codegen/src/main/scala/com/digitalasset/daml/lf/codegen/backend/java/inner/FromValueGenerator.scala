@@ -81,19 +81,6 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .addCode(fromValueCode.build())
       .addCode("$<});")
       .build()
-
-//    MethodSpec
-//      .methodBuilder(methodName)
-//      .addModifiers(if (isPublic) Modifier.PUBLIC else Modifier.PRIVATE, Modifier.STATIC)
-//      .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
-//      .addTypeVariables(className.typeParameters)
-//      .addParameters(converterParams.asJava)
-//      .addException(classOf[IllegalArgumentException])
-//      .beginControlFlow("return $L ->", "value$")
-//      .addCode(fromValueCode.build())
-//      // put empty string in endControlFlow in order to have semicolon
-//      .endControlFlow("")
-//      .build()
   }
 
   def generateContractCompanionValueDecoder(
