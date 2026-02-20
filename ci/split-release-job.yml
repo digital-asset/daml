@@ -144,6 +144,19 @@ jobs:
       condition: and(not(startsWith(variables['release_tag'], '2.')), not(startsWith(variables['release_tag'], '3.3')))
     - bash: |
         set -euo pipefail
+        cd sdk
+        eval "$(./dev-env/bin/dade-assist)"
+        ./ci/sync-daml-prim-json-to-digital-asset-docs.sh \
+          --docs-ref "${DAML_DOCS_REPO_REF}" \
+          --docs-base-ref "main" \
+          --dry-run
+      displayName: 'Dry-run sync daml-prim docs to digital-asset/docs'
+      env:
+        GITHUB_TOKEN: $(GH_DAML_READONLY)
+        DAML_DOCS_REPO_REF: daml-json-to-mdx-converter-clean
+      continueOnError: true
+    - bash: |
+        set -euo pipefail
         rtag="$(release_tag)"
         tag=internal-"$rtag"
         sha=$(release_sha)
@@ -165,4 +178,3 @@ jobs:
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
-

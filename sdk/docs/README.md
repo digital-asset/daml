@@ -19,3 +19,21 @@ with the rest of `sdk/docs/sharable`.
 
 Note: JSON generation uses the SDK Bazel workspace/toolchains and is expected to
 run inside the DADE (`direnv` + `nix`) development environment.
+
+## Dry-run docs sync automation (from daml repo)
+
+The `daml` repo also contains the orchestration script that CI can run to sync
+the checked-in `daml-prim.json` into `digital-asset/docs` using the shared
+converter script from that repo:
+
+`./sdk/ci/sync-daml-prim-json-to-digital-asset-docs.sh`
+
+Local dry-run example:
+
+`./sdk/ci/sync-daml-prim-json-to-digital-asset-docs.sh --docs-ref daml-json-to-mdx-converter-clean --dry-run`
+
+This clones `digital-asset/docs`, runs
+`scripts/daml_docs_json_to_mdx.py`, stages and commits changes in the cloned
+repo, then stops before push/PR creation.
+
+Release CI currently invokes the same script in `--dry-run` mode.
