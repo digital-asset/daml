@@ -23,6 +23,7 @@ Here is a complete list of modules in the standard library:
 * :doc:`DA.Action.State.Class <DA-Action-State-Class>`
 * :doc:`DA.Assert <DA-Assert>`
 * :doc:`DA.Bifunctor <DA-Bifunctor>`
+* :doc:`DA.ContractKeys <DA-ContractKeys>`
 * :doc:`DA.Crypto.Text <DA-Crypto-Text>`
 * :doc:`DA.Date <DA-Date>`
 * :doc:`DA.Either <DA-Either>`

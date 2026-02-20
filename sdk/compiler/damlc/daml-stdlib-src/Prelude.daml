@@ -18,7 +18,7 @@ import DA.Internal.LF as X hiding
 -- but we can hide them.
 import DA.Internal.Any as X
 import DA.Internal.Template as X
-import DA.Internal.Template.Functions as X
+import DA.Internal.Template.Functions as X hiding (queryNByKey)
 import DA.Internal.Compatible as X
 import DA.Internal.Assert as X
 import DA.Internal.Interface as X
