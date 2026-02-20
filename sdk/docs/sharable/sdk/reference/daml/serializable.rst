@@ -4,6 +4,9 @@
 Reference: Serializable
 #######################
 
+.. TODO: This page leans more towards a how-to than a reference in tone.
+    Consider moving it and leaving a minimal reference here.
+
 This page gives reference information on serializability in Daml.
 
 Daml programs store data on the distributed ledger, for example contracts and choices.
