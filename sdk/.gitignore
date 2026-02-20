@@ -1,3 +1,8 @@
+# This should be later on unignored, for now it will just make a mess
+# in commit history
+# Refer to: https://bazel.build/external/lockfile#best-practices
+MODULE.bazel.lock
+
 # private configuration
 .envrc.private
 

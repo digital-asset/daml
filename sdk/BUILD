@@ -166,9 +166,6 @@ exports_files([
 ])
 
 # Buildifier.
-
-load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
-
 buildifier_excluded_patterns = [
     "./3rdparty/haskell/c2hs-package.bzl",
     "./3rdparty/haskell/network-package.bzl",
@@ -176,32 +173,30 @@ buildifier_excluded_patterns = [
 ]
 
 # Run this to check if BUILD files are well-formatted.
-buildifier(
+alias(
     name = "buildifier",
-    exclude_patterns = buildifier_excluded_patterns,
-    mode = "check",
+    actual = "@buildifier_prebuilt//:buildifier",
 )
 
 # Run this to fix the errors in BUILD files.
-buildifier(
+alias(
     name = "buildifier-fix",
-    exclude_patterns = buildifier_excluded_patterns,
-    mode = "fix",
-    verbose = True,
+    actual = "@buildifier_prebuilt//:buildifier.fix",
 )
 
+# TODO: Enable it later with buildifier prebuilt: `bazel run @buildifier_prebuilt//:buildifier -- "$@"`
 # Run by the git pre-commit hook
-genrule(
-    name = "buildifier-pre-commit",
-    outs = ["buildifier-hook"],
-    cmd = """cat <<'EOF' > "$@"
-# !/usr/bin/env bash
-exec "$(execpath @com_github_bazelbuild_buildtools//buildifier)" "$$@"
-EOF
-""",
-    executable = True,
-    tools = ["@com_github_bazelbuild_buildtools//buildifier"],
-)
+# genrule(
+#     name = "buildifier-pre-commit",
+#     outs = ["buildifier-hook"],
+#     cmd = """cat <<'EOF' > "$@"
+# # !/usr/bin/env bash
+# exec "$(execpath @com_github_bazelbuild_buildtools//buildifier)" "$$@"
+# EOF
+# """,
+#     executable = True,
+#     tools = ["@com_github_bazelbuild_buildtools//buildifier"],
+# )
 
 # Default target for da-ghci, da-ghcid.
 da_haskell_repl(
@@ -231,7 +226,7 @@ da_haskell_repl(
     ],
 )
 
-load("@bazel_gazelle//:def.bzl", "gazelle")
+load("@gazelle//:def.bzl", "gazelle")
 
 gazelle(
     name = "gazelle-update-repos",
