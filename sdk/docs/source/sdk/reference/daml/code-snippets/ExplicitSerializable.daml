@@ -1,0 +1,22 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+module ExplicitSerializable where
+
+-- start explicit serializable snippet
+data InstrumendId = InstrumendId with
+  admin : Party
+  id : Text
+    deriving (Eq, Show, Serializable)
+
+data AssetSummary = AssetSummary with
+  total : Int
+  instrument : InstrumendId
+    deriving (Eq, Show)
+
+template Asset with
+    owner : Party
+    amount : Int
+    instrument : InstrumendId
+  where
+    signatory owner
+-- end explicit serializable snippet

@@ -167,6 +167,15 @@ Additive and Multiplicative
 
 :ref:`Additive and Multiplicative <class-ghc-num-additive-25881>` abstract out arithmetic operations, so that ``(+)``, ``(-)``, ``(*)``, and some other functions can be used uniformly between ``Decimal`` and ``Int``.
 
+Serializable
+............
+
+The ``Serializable`` typeclass marks data types explicitly as serializable, so they can be stored on the distributed ledger.
+
+Instances of this typeclass can only be added using ``deriving (Serializable)`` syntax.
+
+For more information, see :doc:`../../reference/daml/serializable`.
+
 Important modules in the standard library
 -----------------------------------------
 
