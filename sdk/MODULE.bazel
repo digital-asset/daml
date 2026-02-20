@@ -31,7 +31,56 @@ stack_snapshot = use_extension(
 use_repo(stack_snapshot, "stackage")
 
 stack_snapshot.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
-stack_snapshot.package(name = "lsp-types")
+# stack_snapshot.package(name = "lsp-types")
+[
+    stack_snapshot.package(
+        name = pkg,
+        setup_deps = ["@Cabal//:Cabal"],
+    )
+    for pkg in [
+        "aeson",
+        "aeson-pretty",
+        "ansi-terminal",
+        "async",
+        "base",
+        "binary",
+        "blaze-html",
+        "bytestring",
+        "conduit",
+        "containers",
+        "deepseq",
+        "directory",
+        "extra",
+        "filepath",
+        "hashable",
+        "http-client",
+        "http-conduit",
+        "http-types",
+        "lens",
+        "lsp-test",
+        "lsp-types",
+        "monad-loops",
+        "network",
+        "optparse-applicative",
+        "parser-combinators",
+        "pretty",
+        "process",
+        "safe",
+        "safe-exceptions",
+        "split",
+        "tar-conduit",
+        "tasty",
+        "tasty-hunit",
+        "tasty-quickcheck",
+        "text",
+        "time",
+        "typed-process",
+        "unix-compat",
+        "unordered-containers",
+        "vector",
+        "unix",
+    ]
+]
 
 module_temporary_extension = use_extension("//bazel_tools/MODULE_MIGRATION:module_temporary_extension.bzl", "temporary_extension")
 use_repo(module_temporary_extension, "build_environment", "daml_versions_data", "os_info", "scala_version")
