@@ -1,3 +1,39 @@
 # Working with docs
 
 Visit the  [main README file](./../README.md#5-working-with-docs)
+
+## Daml JSON docs for shared conversion
+
+`daml` owns generation of the JSON docs artifact. Conversion into MDX is owned
+by `digital-asset/docs`.
+
+1. Generate the JSON:
+   `./sdk/docs/scripts/generate-daml-prim-json.sh`
+2. Run the shared converter from a docs checkout:
+   `./sdk/docs/scripts/run-shared-daml-docs-json-to-mdx.sh --docs-repo /path/to/docs --output-dir /path/to/docs/docs-main/appdev/reference/daml-prim-api --docs-json /path/to/docs/docs.json`
+3. Checked-in JSON location in this repo:
+   `sdk/docs/sharable/sdk/reference/daml/stdlib/daml-prim.json`
+
+`./sdk/ci/synchronize-docs.sh` now refreshes this checked-in JSON file together
+with the rest of `sdk/docs/sharable`.
+
+Note: JSON generation uses the SDK Bazel workspace/toolchains and is expected to
+run inside the DADE (`direnv` + `nix`) development environment.
+
+## Dry-run docs sync automation (from daml repo)
+
+The `daml` repo also contains the orchestration script that CI can run to sync
+the checked-in `daml-prim.json` into `digital-asset/docs` using the shared
+converter script from that repo:
+
+`./sdk/ci/sync-daml-prim-json-to-digital-asset-docs.sh`
+
+Local dry-run example:
+
+`./sdk/ci/sync-daml-prim-json-to-digital-asset-docs.sh --docs-ref daml-json-to-mdx-converter-clean --dry-run`
+
+This clones `digital-asset/docs`, runs
+`scripts/daml_docs_json_to_mdx.py`, stages and commits changes in the cloned
+repo, then stops before push/PR creation.
+
+Release CI currently invokes the same script in `--dry-run` mode.
