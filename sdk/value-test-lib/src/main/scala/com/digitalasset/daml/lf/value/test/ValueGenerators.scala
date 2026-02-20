@@ -309,7 +309,9 @@ object ValueGenerators {
     for {
       key <- valueGen()
       maintainers <- genNonEmptyParties
-      gkey = GlobalKey.build(templateId, key, packageName).toOption
+      gkey = GlobalKey
+        .build(templateId, packageName, key, crypto.Hash.hashPrivateKey(key.toString))
+        .toOption
       if gkey.isDefined
     } yield GlobalKeyWithMaintainers(gkey.get, maintainers)
   }
