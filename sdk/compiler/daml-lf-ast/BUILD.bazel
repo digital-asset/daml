@@ -63,11 +63,11 @@ da_haskell_test(
 genrule(
     name = "generated_haskell_versions_src",
     srcs = [
-        "//daml-lf:version_data_json",
+        "//daml-lf:daml-lf-versions.json",
         "src/DA/Daml/LF/Ast/Version/VersionType.hs",
     ],
     outs = ["src/DA/Daml/LF/Ast/Version/GeneratedVersions.hs"],
-    cmd = "$(location //daml-lf:generate_haskell_versions) $(location //daml-lf:version_data_json) $@",
+    cmd = "$(location //daml-lf:generate_haskell_versions) $(location //daml-lf:daml-lf-versions.json) $@",
     tools = ["//daml-lf:generate_haskell_versions"],
 )
 

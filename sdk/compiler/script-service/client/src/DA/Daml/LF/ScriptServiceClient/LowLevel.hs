@@ -289,7 +289,7 @@ newCtx Handle{..} = do
       (optGrpcTimeout hOptions)
       (SS.NewContextRequest
          (TL.pack $ LF.renderMajorVersion $ LF.versionMajor $ optDamlLfVersion hOptions)
-         (TL.pack $ LF.renderMinorVersion $ LF.versionMinor $ optDamlLfVersion hOptions)
+         (TL.pack $ LF.renderMinorVersionWithRev $ LF.versionMinor $ optDamlLfVersion hOptions)
          (optEvaluationTimeout hOptions)
       )
   pure (ContextId . SS.newContextResponseContextId <$> res)

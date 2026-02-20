@@ -110,7 +110,7 @@ lfVersionOpt = optionOnce (str >>= select) $
         , version `elem` versions
         -> return version
         | otherwise
-        -> readerError $ "Unknown Daml-LF version: " ++ versionStr
+        -> readerError $ "Unknown Daml-LF version: " ++ versionStr ++ ", accepted versions: " ++ (show $ map LF.renderVersion versions)
     versions = LF.compilerOutputLfVersions
 
 dotFileOpt :: Parser (Maybe FilePath)
