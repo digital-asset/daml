@@ -46,12 +46,15 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .builder()
       .add(recordValueExtractor("value$", "recordValue$"))
       .addStatement(
-        "$T fields$$ = $T.recordCheck($L,$L,$WrecordValue$$)",
-        ParameterizedTypeName
-          .get(classOf[java.util.List[_]], classOf[javaapi.data.DamlRecord.Field]),
+        "$T preparedRecord$$ = $T.checkAndPrepareRecord($L,$L,$WrecordValue$$, $Wpolicy$$)",
+        classOf[com.daml.ledger.javaapi.data.codegen.PreparedRecord],
         classOf[PrimitiveValueDecoders],
         fields.size,
         optionalFieldsSize,
+      )
+      .addStatement(
+        "java.util.List<$T> fields$$ = preparedRecord$$.getExpectedFields()",
+        classOf[javaapi.data.DamlRecord.Field],
       )
 
     fields.iterator.zip(accessors).foreach { case (FieldInfo(_, damlType, javaName, _), accessor) =>
@@ -74,10 +77,9 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .addTypeVariables(className.typeParameters)
       .addParameters(converterParams.asJava)
       .addException(classOf[IllegalArgumentException])
-      .beginControlFlow("return $L ->", "value$")
+      .addCode("return $T.create((value$$, policy$$) -> {$>\n", classOf[ValueDecoder[_]])
       .addCode(fromValueCode.build())
-      // put empty string in endControlFlow in order to have semicolon
-      .endControlFlow("")
+      .addCode("$<});")
       .build()
   }
 

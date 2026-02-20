@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.codegen.backend.java.inner
 import com.digitalasset.daml.lf.typesig.Type
 import com.digitalasset.daml.lf.codegen.backend.java.JavaEscaper.escapeString
 import com.daml.ledger.javaapi.data.codegen.json.{JsonLfReader, JsonLfDecoder, JsonLfDecoders}
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
 import com.squareup.javapoet.{
@@ -56,6 +57,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
         typeParams,
       ),
       fromJsonString(className, typeParams),
+      fromJsonStringWithPolicy(className, typeParams),
     )
   }
 
@@ -137,6 +139,26 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .addException(classOf[JsonLfDecoder.Error])
       .addStatement(
         "return jsonDecoder($L).decode(new $T(json))",
+        decodeTypeParamArgList(typeParams),
+        classOf[JsonLfReader],
+      )
+      .build()
+
+  private def fromJsonStringWithPolicy(
+      className: ClassName,
+      typeParams: IndexedSeq[String],
+  ): MethodSpec =
+    MethodSpec
+      .methodBuilder("fromJson")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .addTypeVariables(typeParams.map(TypeVariableName.get).asJava)
+      .addParameter(classOf[String], "json")
+      .addParameters(jsonDecoderParamsForTypeParams(typeParams))
+      .addParameter(classOf[UnknownTrailingFieldPolicy], "policy")
+      .returns(className.parameterized(typeParams))
+      .addException(classOf[JsonLfDecoder.Error])
+      .addStatement(
+        "return jsonDecoder($L).decode(new $T(json), policy)",
         decodeTypeParamArgList(typeParams),
         classOf[JsonLfReader],
       )

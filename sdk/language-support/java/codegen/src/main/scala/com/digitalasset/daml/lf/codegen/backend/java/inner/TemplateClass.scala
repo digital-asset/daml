@@ -316,7 +316,7 @@ private[inner] object TemplateClass extends StrictLogging {
           Modifier.PUBLIC,
         )
         .initializer(
-          "$Z$T.create($>$S, value$$ -> $L,$Wvalue$$ ->$W$L,$Wvalue$$ ->$W$L,$W$L,$W$L,$W$L,$W$L)$<",
+          "$Z$T.create($>$S, value$$ -> $L,$T.valueDecoder(),$Wvalue$$ ->$W$L,$W$L,$W$L,$W$L,$W$L)$<",
           fieldClass,
           choiceName,
           generateToValueConverter(
@@ -324,12 +324,7 @@ private[inner] object TemplateClass extends StrictLogging {
             CodeBlock.of("value$$"),
             Iterator.empty,
           ),
-          FromValueGenerator.extractor(
-            choice.param,
-            "value$",
-            CodeBlock.of("$L", "value$"),
-            newNameGenerator,
-          ),
+          toJavaTypeName(choice.param),
           FromValueGenerator.extractor(
             choice.returnType,
             "value$",
@@ -382,7 +377,6 @@ private[inner] object TemplateClass extends StrictLogging {
     private[TemplateClass] def generateField(
         choiceNames: Set[ChoiceName]
     ): FieldSpec = {
-      val valueDecoderLambdaArgName = "v"
       FieldSpec
         .builder(
           companionType,
@@ -392,7 +386,7 @@ private[inner] object TemplateClass extends StrictLogging {
           Modifier.PUBLIC,
         )
         .initializer(
-          "$Znew $T<>(new $T($T.$N, $T.$N, $T.$N),$>$Z$S,$W$N,$W$T::new,$W$N -> $T.templateValueDecoder().decode($N),$W$T::fromJson,$W$T::new,$W$T.of($L)" + keyParams + "$<)",
+          "$Znew $T<>(new $T($T.$N, $T.$N, $T.$N),$>$Z$S,$W$N,$W$T::new,$W$T::fromJson,$W$T::new,$W$T.of($L),$T.templateValueDecoder()" + keyParams + "$<)",
           Seq[Object](
             fieldClass,
             nestedClassName(ClassName.get(classOf[ContractTypeCompanion[_, _, _, _]]), "Package"),
@@ -405,9 +399,6 @@ private[inner] object TemplateClass extends StrictLogging {
             templateClassName,
             templateIdFieldName,
             contractIdName,
-            valueDecoderLambdaArgName,
-            templateClassName,
-            valueDecoderLambdaArgName,
             templateClassName,
             contractName,
             classOf[java.util.List[_]],
@@ -418,6 +409,7 @@ private[inner] object TemplateClass extends StrictLogging {
                   .asJava,
                 ",$W",
               ),
+            templateClassName,
           ) ++ keyArgs: _*
         )
         .build()
