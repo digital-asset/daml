@@ -1,0 +1,8 @@
+sdk-version: __VERSION__
+name: __PROJECT_NAME__
+source: daml/Agreement.daml
+version: 1.3.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script

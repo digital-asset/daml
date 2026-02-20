@@ -1,0 +1,134 @@
+-- Simple token implementation inspired by CIP-56 Canton Token Standard
+-- This is a learning example - for production use the actual CIP-56 interfaces
+module Token where
+
+import Daml.Script
+
+template TokenHolding
+  with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+    instrument : Text  -- e.g. "CC"
+  where
+    signatory owner
+    observer issuer
+
+    ensure amount > 0.0
+
+    -- Propose a transfer to another party
+    choice ProposeTransfer : ContractId TransferProposal
+      with
+        newOwner : Party
+        transferAmount : Decimal
+      controller owner
+      do
+        assertMsg "Transfer amount must be positive" (transferAmount > 0.0)
+        assertMsg "Insufficient balance" (transferAmount <= amount)
+        
+        -- Create remainder for sender if needed
+        if transferAmount < amount
+          then do
+            create this with amount = amount - transferAmount
+            pure ()
+          else pure ()
+        
+        -- Create transfer proposal
+        create TransferProposal with
+          sender = owner
+          receiver = newOwner
+          transferAmount
+          remainderAmount = amount - transferAmount
+          instrument
+          issuer
+
+    -- Split holding into two separate holdings
+    choice Split : (ContractId TokenHolding, ContractId TokenHolding)
+      with
+        splitAmount : Decimal
+      controller owner
+      do
+        assertMsg "Split amount must be positive" (splitAmount > 0.0)
+        assertMsg "Split amount must be less than total" (splitAmount < amount)
+        
+        holding1 <- create this with amount = splitAmount
+        holding2 <- create this with amount = amount - splitAmount
+        pure (holding1, holding2)
+
+    -- Merge with another holding of the same instrument
+    choice Merge : ContractId TokenHolding
+      with
+        otherHoldingCid : ContractId TokenHolding
+      controller owner
+      do
+        otherHolding <- fetch otherHoldingCid
+        assertMsg "Owners must match" (otherHolding.owner == owner)
+        assertMsg "Issuers must match" (otherHolding.issuer == issuer)
+        assertMsg "Instruments must match" (otherHolding.instrument == instrument)
+        
+        archive otherHoldingCid
+        create this with amount = amount + otherHolding.amount
+
+-- Transfer proposal that receiver must accept
+template TransferProposal
+  with
+    sender : Party
+    receiver : Party
+    transferAmount : Decimal
+    remainderAmount : Decimal
+    instrument : Text
+    issuer : Party
+  where
+    signatory sender
+    observer receiver
+
+    choice Accept : ContractId TokenHolding
+      controller receiver
+      do
+        -- Create holding for receiver
+        create TokenHolding with
+          owner = receiver
+          amount = transferAmount
+          instrument
+          issuer
+
+    choice Reject : ()
+      controller receiver
+      do
+        pure ()
+
+-- Test script
+test_token : Script ()
+test_token = script do
+  -- Parties
+  issuer <- allocateParty "TokenIssuer"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  -- Alice receives initial token holding
+  aliceHolding <- submit alice do
+    createCmd TokenHolding with
+      issuer
+      owner = alice
+      amount = 100.0
+      instrument = "USD"
+
+  -- Alice proposes transfer of 30 tokens to Bob
+  proposalCid <- submit alice do
+    exerciseCmd aliceHolding ProposeTransfer with
+      newOwner = bob
+      transferAmount = 30.0
+
+  -- Bob accepts the transfer
+  bobHolding <- submit bob do
+    exerciseCmd proposalCid Accept
+
+  -- Bob splits his holding
+  (bob1, bob2) <- submit bob do
+    exerciseCmd bobHolding Split with splitAmount = 10.0
+
+  -- Bob merges them back
+  submit bob do
+    exerciseCmd bob1 Merge with otherHoldingCid = bob2
+
+  pure ()
