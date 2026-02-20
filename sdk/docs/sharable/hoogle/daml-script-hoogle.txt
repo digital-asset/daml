@@ -802,7 +802,7 @@ submitWithOptions :: (HasCallStack, ScriptSubmit script, IsSubmitOptions options
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submittree-5925
 submitTree :: (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script TransactionTree
 
--- | Submit a transaction and recieve back either the result, or a `SubmitError`.
+-- | Submit a transaction and receive back either the result, or a `SubmitError`.
 --   In the majority of failures, this will not crash at runtime.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-trysubmit-23693
 trySubmit :: (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script (Either SubmitError a)

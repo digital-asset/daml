@@ -1568,7 +1568,7 @@ Functions
 `trySubmit <function-daml-script-internal-questions-submit-trysubmit-23693_>`_
   \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script (`Either <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ a)
 
-  Submit a transaction and recieve back either the result, or a ``SubmitError``\.
+  Submit a transaction and receive back either the result, or a ``SubmitError``\.
   In the majority of failures, this will not crash at runtime\.
 
 .. _function-daml-script-internal-questions-submit-trysubmittree-68085:

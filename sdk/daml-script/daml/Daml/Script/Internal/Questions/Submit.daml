@@ -287,7 +287,7 @@ submitTree : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => opt
 submitTree opts cmds = snd <$> submitResultAndTree opts cmds
 
 -- | MOVE Daml.Script
--- Submit a transaction and recieve back either the result, or a `SubmitError`.
+-- Submit a transaction and receive back either the result, or a `SubmitError`.
 -- In the majority of failures, this will not crash at runtime.
 trySubmit : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script (Either SubmitError a)
 trySubmit opts cmds = fmap fst <$> trySubmitResultAndTree opts cmds

@@ -89,7 +89,7 @@ Functions
 `delete <function-da-nonempty-delete-59160_>`_
   \: :ref:`Eq <class-ghc-classes-eq-22713>` a \=\> a \-\> :ref:`NonEmpty <type-da-nonempty-types-nonempty-16010>` a \-\> \[a\]
 
-  Remove the first occurence of x from the non\-empty list, potentially
+  Remove the first occurrence of x from the non\-empty list, potentially
   removing all elements\.
 
 .. _function-da-nonempty-foldl1-17561:

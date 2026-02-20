@@ -3583,7 +3583,7 @@ find :: (a -> Bool) -> NonEmpty a -> Optional a
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-NonEmpty.html#function-da-nonempty-deleteby-6333
 deleteBy :: (a -> a -> Bool) -> a -> NonEmpty a -> [a]
 
--- | Remove the first occurence of x from the non-empty list, potentially
+-- | Remove the first occurrence of x from the non-empty list, potentially
 --   removing all elements.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-NonEmpty.html#function-da-nonempty-delete-59160
 delete :: (Eq a) => a -> NonEmpty a -> [a]
