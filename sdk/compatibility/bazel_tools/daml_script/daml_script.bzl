@@ -3,7 +3,7 @@
 
 load(
     "@daml//bazel_tools/client_server:client_server_test.bzl",
-    "client_server_test",
+    "client_server_test_canton_sh",
 )
 load("//bazel_tools:versions.bzl", "version_to_name", "versions")
 load("//bazel_tools:testing.bzl", "extra_tags")
@@ -62,44 +62,17 @@ def daml_script_test(
     daml_runner = "@daml-sdk-{version}//:daml".format(
         version = runner_version,
     )
-
-    server = daml_runner
-    server_args = ["sandbox", "--canton-port-file", "_port_file"]
-    server_files = ["$(rootpath {})".format(compiled_dar)]
-    server_files_prefix = "--dar="
-
-    native.genrule(
-        name = "{}-client-sh".format(name),
-        outs = ["{}-client.sh".format(name)],
-        cmd = """\
-cat >$(OUTS) <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-canonicalize_rlocation() {{
-  # Note (MK): This is a fun one: Let's say $$TEST_WORKSPACE is "compatibility"
-  # and the argument points to a target from an external workspace, e.g.,
-  # @daml-sdk-0.0.0//:daml. Then the short path will point to
-  # ../daml-sdk-0.0.0/daml. Putting things together we end up with
-  # compatibility/../daml-sdk-0.0.0/daml. On Linux and MacOS this works
-  # just fine. However, on windows we need to normalize the path
-  # or rlocation will fail to find the path in the manifest file.
-  rlocation $$(realpath -L -s -m --relative-to=$$PWD $$TEST_WORKSPACE/$$1)
-}}
+    client_server_test_canton_sh(
+        name = name,
+        data = [
+            compiled_dar,
+            daml_runner,
+        ],
+        server_files = ["$(rootpath {})".format(compiled_dar)],
+        tags = extra_tags(compiler_version, runner_version),
+        src = """\
 runner=$$(canonicalize_rlocation $(rootpath {runner}))
-# Cleanup the trigger runner process but maintain the script runner exit code.
-trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
 
-if [ {wait_for_port_file} -eq 1 ]; then
-    timeout=60
-    while [ ! -e _port_file ]; do
-        if [ "$$timeout" = 0 ]; then
-            echo "Timed out waiting for Canton startup" >&2
-            exit 1
-        fi
-        sleep 1
-        timeout=$$((timeout - 1))
-    done
-fi
 if [ {upload_dar} -eq 1 ] ; then
   $$runner ledger upload-dar \\
     --host localhost \\
@@ -113,8 +86,6 @@ $$runner script \\
   --wall-clock-time \\
   --dar $$(canonicalize_rlocation $(rootpath {dar})) \\
   --script-name {script_name}
-EOF
-chmod +x $(OUTS)
 """.format(
             dar = compiled_dar,
             runner = daml_runner,
@@ -122,48 +93,18 @@ chmod +x $(OUTS)
             upload_dar = "0",
             wait_for_port_file = "1",
         ),
-        tools = [
-            compiled_dar,
-            daml_runner,
-        ],
-    )
-    native.sh_binary(
-        name = "{}-client".format(name),
-        srcs = ["{}-client.sh".format(name)],
-        data = [
-            compiled_dar,
-            daml_runner,
-        ],
-    )
-
-    client_server_test(
-        name = name,
-        client = "{}-client".format(name),
-        client_args = [],
-        client_files = [],
-        data = [
-            compiled_dar,
-        ],
-        runner = "//bazel_tools/client_server:runner",
-        runner_args = ["6865"],
-        server = server,
-        server_args = server_args,
-        server_files = server_files,
-        server_files_prefix = server_files_prefix,
-        tags = extra_tags(compiler_version, runner_version) + ["exclusive"],
     )
 
 def daml_script_example_test(compiler_version, runner_version):
-    if versions.is_at_least("3.0.0", compiler_version):
-        daml_script_test(
-            name = "daml-script-test-compiler-{compiler_version}-runner-{runner_version}".format(
-                compiler_version = version_to_name(compiler_version),
-                runner_version = version_to_name(runner_version),
-            ),
-            compiler_version = compiler_version,
-            runner_version = runner_version,
-            compiled_dar = "//:script-example-dar-{version}".format(
-                version = version_to_name(compiler_version),
-            ),
-            script_name = "ScriptExample:test",
-        )
+    daml_script_test(
+        name = "daml-script-test-compiler-{compiler_version}-runner-{runner_version}".format(
+            compiler_version = version_to_name(compiler_version),
+            runner_version = version_to_name(runner_version),
+        ),
+        compiler_version = compiler_version,
+        runner_version = runner_version,
+        compiled_dar = "//:script-example-dar-{version}".format(
+            version = version_to_name(compiler_version),
+        ),
+        script_name = "ScriptExample:test",
+    )
