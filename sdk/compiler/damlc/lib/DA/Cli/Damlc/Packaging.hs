@@ -657,6 +657,7 @@ buildLfPackageGraph =
               , LFC.QualName (LF.Qualified { LF.qualPackage }) <-
                   [ case export of 
                       LFC.ExportInfoVal name -> name
+                      LFC.ExportInfoPattern name -> name
                       LFC.ExportInfoTC name _ _ -> name
                   ]
               ]
