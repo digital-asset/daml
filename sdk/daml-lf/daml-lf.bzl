@@ -108,6 +108,7 @@ def _init_data():
     # DEFAULT_LF_VERSION instead)
     V2_1 = struct(major = "2", minor = "1", status = "stable")
     V2_2 = struct(major = "2", minor = "2", status = "stable", default = True)
+    V2_3 = struct(major = "2", minor = "3", status = "staging")
 
     V2_DEV = struct(major = "2", minor = "dev", status = "dev")
 
@@ -259,6 +260,12 @@ def _init_data():
             "cpp_flag": "DAML_NUCK",
             "version_req": dev_only,
         },
+        {
+            "name": "featureExtendedCryptoPrimitives",
+            "name_pretty": "Extended crypto primitives",
+            "cpp_flag": "DAML_ExtendedCryptoPrimitives",
+            "version_req": {"low": V2_3},
+         },
     ]
 
     return struct(
