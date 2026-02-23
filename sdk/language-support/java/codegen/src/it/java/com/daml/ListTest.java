@@ -102,7 +102,7 @@ public class ListTest {
     assertEquals(fromCodegen, roundTripped);
   }
 
-   @Test
+  @Test
   void roundtripJsonMyListRecord() throws JsonLfDecoder.Error {
     MyListRecord expected =
         new MyListRecord(

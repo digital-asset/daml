@@ -124,7 +124,7 @@ public class RecordTest {
     assertEquals(myRecord1.hashCode(), myRecord2.hashCode());
   }
 
-   @Test
+  @Test
   void roundtripJsonMyRecord() throws JsonLfDecoder.Error {
     MyRecord expected =
         new MyRecord(
