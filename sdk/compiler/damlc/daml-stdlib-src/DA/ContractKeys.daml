@@ -1,0 +1,17 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+
+-- | Note: Docs TODO (https://github.com/digital-asset/daml/issues/22673)
+module DA.ContractKeys where
+
+#ifdef DAML_NUCK
+import DA.Internal.Template.Functions as DA
+
+queryNByKey : forall t k. HasQueryNByKey t k => Int -> k -> Update [(ContractId t, t)]
+queryNByKey = DA.queryNByKey
+
+queryAllByKey : forall t k. HasQueryNByKey t k => k -> Update [(ContractId t, t)]
+queryAllByKey = DA.queryNByKey (maxBound @Int)
+#endif

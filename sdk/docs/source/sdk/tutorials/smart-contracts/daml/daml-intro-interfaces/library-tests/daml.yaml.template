@@ -1,0 +1,17 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+sdk-version: __VERSION__
+name: library-tests
+source: daml
+version: 1.0.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+data-dependencies:
+  - ../catalog-item/.daml/dist/catalog-item-1.0.0.dar
+  - ../book/.daml/dist/book-1.0.0.dar
+  - ../disc/.daml/dist/disc-1.0.0.dar
+  - ../library/.daml/dist/library-1.0.0.dar
+

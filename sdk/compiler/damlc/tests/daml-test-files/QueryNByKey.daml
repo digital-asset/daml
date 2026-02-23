@@ -5,7 +5,7 @@
 
 module QueryNByKey where
 
--- import Daml.Script
+import DA.ContractKeys
 
 template WithKey
   with
@@ -20,7 +20,7 @@ template Helper
     p : Party
   where
     signatory p
-    choice PerformQuery : ()
+    choice PerformQueryNByKey : ()
       controller p
       do contracts <- queryNByKey @WithKey 1 p
          case contracts of
@@ -28,9 +28,18 @@ template Helper
              pure ()
            [] ->
              abort "Assertion failed: queryNByKey returned an empty list."
+    choice PerformQueryAllByKey : ()
+      controller p
+      do contracts <- queryAllByKey @WithKey p
+         case contracts of
+           (contract :: _) -> do
+             pure ()
+           [] ->
+             abort "Assertion failed: queryAllByKey returned an empty list."
 
 -- Test just here to assert that queryNByKey compiles
 -- When we have an ledger implementation, assert things actually run
 -- test = script do
 --   p <- allocateParty "p"
---   submit p $ createAndExerciseCmd (Helper p) PerformQuery
+--   submit p $ createAndExerciseCmd (Helper p) PerformQueryNByKey
+--   submit p $ createAndExerciseCmd (Helper p) PerformQueryAllByKey

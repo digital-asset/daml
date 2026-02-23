@@ -78,6 +78,7 @@ preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
     , "DA.Exception.AssertionFailed"
     , "DA.Exception.PreconditionFailed"
     , "DA.Fail"
+    , "DA.ContractKeys"
 
 
     -- These modules need to have the record preprocessor disabled.

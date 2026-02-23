@@ -21,7 +21,7 @@ load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
 #    ],
 #    deps = [
 #        "@maven//:com_daml_bindings_java",
-#        "@maven//:com_daml_rs_grpc_bridge",
+#        "@maven//:com_daml_rs_grpc_bridge_2_13",
 #        "@maven//:javax_annotation_javax_annotation_api",
 #        "@maven//:com_google_code_findbugs_jsr305",
 #        "@maven//:com_google_protobuf_protobuf_java",

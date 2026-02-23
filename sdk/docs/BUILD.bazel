@@ -454,6 +454,7 @@ daml_test(
             "source/sdk/tutorials/smart-contracts/daml/daml-intro-exceptions/**",
             "source/sdk/tutorials/smart-contracts/daml/daml-intro-functional-101/**",
             "source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**",
+            "source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/**",
             "source/sdk/tutorials/smart-contracts/daml/daml-intro-9/**",
             "source/sdk/tutorials/smart-contracts/daml/daml-intro-11/**",
         ],
@@ -503,6 +504,15 @@ daml_multi_package_test(
     srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**/*.daml"]),
     build_files = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**/daml.yaml.template"]),
     multi_package_file = ":source/sdk/tutorials/smart-contracts/daml/daml-intro-test/multi-package.yaml",
+)
+
+daml_multi_package_test(
+    name = "daml-intro-interfaces",
+    srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/**/*.daml"]),
+    build_files = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/**/daml.yaml.template"]),
+    enable_interfaces = True,
+    multi_package_file = ":source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/multi-package.yaml",
+    shorten = "source/sdk/tutorials/smart-contracts/daml/",
 )
 
 daml_build_test(

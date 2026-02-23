@@ -121,16 +121,16 @@ main = tests
       ]
     ]
   , subtree "Changed key type, invalid upgrade"
-    [ broken ("queryContractKeyCmd, global", queryInvalidKeyUpgradeGlobal)
-    , broken ("exerciseByKeyCmd, global", exerciseInvalidKeyUpgradeGlobal)
-    , broken ("fetch, local", fetchInvalidKeyUpgradeLocal)
-    , broken ("exerciseByKey, local", exerciseInvalidKeyUpgradeLocal)
+    [ ("queryContractKeyCmd, global", queryInvalidKeyUpgradeGlobal)
+    , ("exerciseByKeyCmd, global", exerciseInvalidKeyUpgradeGlobal)
+    , ("fetch, local", fetchInvalidKeyUpgradeLocal)
+    , ("exerciseByKey, local", exerciseInvalidKeyUpgradeLocal)
     ]
   , subtree "Renamed key label, invalid upgrade"
-    [ broken ("queryContractKeyCmd, global", queryInvalidKeyRenamingGlobal)
-    , broken ("exerciseByKeyCmd, global", exerciseInvalidKeyRenamingGlobal)
-    , broken ("fetch, local", fetchInvalidKeyRenamingLocal)
-    , broken ("exerciseByKey, local", exerciseInvalidKeyRenamingLocal)
+    [ ("queryContractKeyCmd, global", queryInvalidKeyRenamingGlobal)
+    , ("exerciseByKeyCmd, global", exerciseInvalidKeyRenamingGlobal)
+    , ("fetch, local", fetchInvalidKeyRenamingLocal)
+    , ("exerciseByKey, local", exerciseInvalidKeyRenamingLocal)
     ]
   , subtree "Changed key presence"
     [ subtree "Key in v1, no key in v2"

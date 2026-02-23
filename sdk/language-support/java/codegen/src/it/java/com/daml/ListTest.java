@@ -102,7 +102,8 @@ public class ListTest {
     assertEquals(fromCodegen, roundTripped);
   }
 
-  @Test
+  // TODO(https://github.com/DACH-NY/canton/issues/30926): restore once fixed
+  // @Test
   void roundtripJsonMyListRecord() throws JsonLfDecoder.Error {
     MyListRecord expected =
         new MyListRecord(

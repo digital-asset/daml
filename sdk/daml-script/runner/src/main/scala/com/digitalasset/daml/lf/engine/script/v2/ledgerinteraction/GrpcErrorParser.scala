@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   SerializationVersion,
 }
+import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.{Value, ValueCoder}
 import com.google.common.io.BaseEncoding
@@ -96,6 +97,8 @@ object GrpcErrorParser {
             GlobalKeyWithMaintainers.assertBuild(
               templateId,
               globalKey,
+              // This GlobalKeyWithMaintainers is only used for rendering errors, and that rendering ignores the hash.
+              crypto.Hash.hashPrivateKey("unused-dummy-key-hash"),
               parseParties(maintainers),
               PackageName.assertFromString(packageName),
             )
@@ -142,7 +145,13 @@ object GrpcErrorParser {
             val templateId = Identifier.assertFromString(tid)
             val packageName = PackageName.assertFromString(pn)
             SubmitError.ContractKeyNotFound(
-              GlobalKey.assertBuild(templateId, key, packageName)
+              GlobalKey.assertBuild(
+                templateId,
+                packageName,
+                key,
+                // This GlobalKeyWithMaintainers is only used for rendering errors, and that rendering ignores the hash.
+                crypto.Hash.hashPrivateKey("unused-dummy-key-hash"),
+              )
             )
         }
       case "DAML_AUTHORIZATION_ERROR" => SubmitError.AuthorizationError(message)
@@ -180,7 +189,13 @@ object GrpcErrorParser {
             val packageName = PackageName.assertFromString(pn)
             SubmitError.DisclosedContractKeyHashingError(
               ContractId.assertFromString(cid),
-              GlobalKey.assertBuild(templateId, key, packageName),
+              GlobalKey.assertBuild(
+                templateId,
+                packageName,
+                key,
+                // This GlobalKeyWithMaintainers is only used for rendering errors, and that rendering ignores the hash.
+                crypto.Hash.hashPrivateKey("unused-dummy-key-hash"),
+              ),
               keyHash,
             )
         }
@@ -194,7 +209,15 @@ object GrpcErrorParser {
             val templateId = Identifier.assertFromString(tid)
             val packageName = PackageName.assertFromString(pn)
             SubmitError.DuplicateContractKey(
-              Some(GlobalKey.assertBuild(templateId, key, packageName))
+              Some(
+                GlobalKey.assertBuild(
+                  templateId,
+                  packageName,
+                  key,
+                  // This GlobalKeyWithMaintainers is only used for rendering errors, and that rendering ignores the hash.
+                  crypto.Hash.hashPrivateKey("unused-dummy-key-hash"),
+                )
+              )
             )
           // TODO[SW] Canton can omit the key, unsure why.
           case Seq() => SubmitError.DuplicateContractKey(None)
@@ -224,7 +247,13 @@ object GrpcErrorParser {
             val templateId = Identifier.assertFromString(tid)
             val packageName = PackageName.assertFromString(pn)
             SubmitError.InconsistentContractKey(
-              GlobalKey.assertBuild(templateId, key, packageName)
+              GlobalKey.assertBuild(
+                templateId,
+                packageName,
+                key,
+                // This GlobalKeyWithMaintainers is only used for rendering errors, and that rendering ignores the hash.
+                crypto.Hash.hashPrivateKey("unused-dummy-key-hash"),
+              )
             )
         }
       case "UNHANDLED_EXCEPTION" =>
@@ -259,7 +288,13 @@ object GrpcErrorParser {
             val templateId = Identifier.assertFromString(tid)
             val packageName = PackageName.assertFromString(pn)
             SubmitError.FetchEmptyContractKeyMaintainers(
-              GlobalKey.assertBuild(templateId, key, packageName)
+              GlobalKey.assertBuild(
+                templateId,
+                packageName,
+                key,
+                // This GlobalKeyWithMaintainers is only used for rendering errors, and that rendering ignores the hash.
+                crypto.Hash.hashPrivateKey("unused-dummy-key-hash"),
+              )
             )
         }
       case "WRONGLY_TYPED_CONTRACT" =>

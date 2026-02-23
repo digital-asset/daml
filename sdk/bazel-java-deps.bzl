@@ -77,9 +77,9 @@ def install_java_deps():
             "com.daml:bindings-java:{}".format(canton_version),
             "com.daml:ledger-api-core_{}:{}".format(scala_major_version, canton_version),
             "com.daml:rs-grpc-pekko_{}:{}".format(scala_major_version, canton_version),
-            "com.daml:rs-grpc-bridge:{}".format(canton_version),
+            "com.daml:rs-grpc-bridge_{}:{}".format(scala_major_version, canton_version),
             # TODO(https://github.com/DACH-NY/canton/issues/30144): check whether this dependency can be gotten rid of
-            "com.daml:testing-utils_{}:{}".format(scala_major_version, canton_version),
+            "com.digitalasset.canton:testing-utils_{}:{}".format(scala_major_version, canton_version),
             # TODO(https://github.com/DACH-NY/canton/issues/30144): move to this repo
             "com.daml:ledger-resources-test-lib_{}:{}".format(scala_major_version, canton_version),
             "com.daml:timer-utils_{}:{}".format(scala_major_version, canton_version),

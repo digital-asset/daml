@@ -7,45 +7,30 @@ package script
 package v2
 package ledgerinteraction
 
-import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.ledger.api.{
-  IdentityProviderId,
-  ObjectMeta,
-  PartyDetails,
-  User,
-  UserRight,
-}
-import com.digitalasset.daml.lf.command.ApiCommand
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.ledger.api._
+import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
+import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
+import com.digitalasset.daml.lf.command.{ApiCommand, ApiContractKey}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
+  ExtendedValueComputationMode,
   TraceLog,
   WarningLog,
   runExtendedValueComputation,
-  ExtendedValueComputationMode,
 }
 import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.language.Ast.PackageMetadata
-import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.script
+import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.speedy.{Pretty, SError}
-import com.digitalasset.daml.lf.transaction.{
-  CreationTime,
-  FatContractInstance,
-  GlobalKey,
-  IncompleteTransaction,
-  Node,
-  NodeId,
-  Transaction,
-  TransactionCoder,
-}
+import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
-import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
-import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
+import org.apache.pekko.stream.Materializer
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.set._
@@ -295,6 +280,20 @@ class IdeLedgerClient(
     }
   }
 
+  private[this] def preprocessKey(templateId: Identifier, key: Value)(implicit
+      ec: ExecutionContext
+  ): Future[GlobalKey] =
+    Future(
+      preprocessor.unsafePreprocessApiContractKey(Map.empty, ApiContractKey(templateId.toRef, key))
+    )
+      .recoverWith { case Error.Preprocessing.ContractIdInContractKey(key) =>
+        Future.failed(
+          new RuntimeException(
+            Pretty.prettyDamlException(ContractIdInContractKey(key)).renderWideStream.mkString
+          )
+        )
+      }
+
   override def queryContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -302,34 +301,14 @@ class IdeLedgerClient(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
-    def keyBuilderError(err: crypto.Hash.HashingError): Future[GlobalKey] =
-      Future.failed(
-        err match {
-          case crypto.Hash.HashingError.ForbiddenContractId() =>
-            new RuntimeException(
-              Pretty
-                .prettyDamlException(ContractIdInContractKey(key))
-                .renderWideStream
-                .mkString
-            )
-        }
-      )
-
-    val pkg = compiledPackages.pkgInterface
-      .lookupPackage(templateId.packageId)
-      .getOrElse(throw new IllegalArgumentException(s"Unknown package ${templateId.packageId}"))
-
-    GlobalKey
-      .build(templateId, key, pkg.pkgName)
-      .fold(keyBuilderError(_), Future.successful(_))
-      .flatMap { gkey =>
-        ledger.ledgerData.activeKeys.get(gkey) match {
-          case None => Future.successful(None)
-          case Some(cid) => queryContractId(parties, templateId, cid)
-        }
+  ): Future[Option[ScriptLedgerClient.ActiveContract]] =
+    for {
+      gkey <- preprocessKey(templateId, key)
+      res <- ledger.ledgerData.activeKeys.get(gkey) match {
+        case None => Future.successful(None)
+        case Some(cid) => queryContractId(parties, templateId, cid)
       }
-  }
+    } yield res
 
   private def getTypeIdentifier(t: Ast.Type): Option[Identifier] =
     t match {
@@ -374,7 +353,13 @@ class IdeLedgerClient(
         SubmitError.CreateEmptyContractKeyMaintainers(tid, arg)
       case FetchEmptyContractKeyMaintainers(tid, keyValue, packageName) =>
         SubmitError.FetchEmptyContractKeyMaintainers(
-          GlobalKey.assertBuild(tid, keyValue, packageName)
+          GlobalKey.assertBuild(
+            tid,
+            packageName,
+            keyValue,
+            // This GlobalKeyWithMaintainers is only used for rendering errors, and that rendering ignores the hash.
+            crypto.Hash.hashPrivateKey("unused-dummy-key-hash"),
+          )
         )
       case WronglyTypedContract(cid, exp, act) => SubmitError.WronglyTypedContract(cid, exp, act)
       case ContractDoesNotImplementInterface(iid, cid, tid) =>
