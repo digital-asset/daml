@@ -58,7 +58,7 @@
   "io.spray:spray-json_2.13" : "1.3.6",
   "net.logstash.logback:logstash-logback-encoder" : "6.6",
   "org.apache.commons:commons-compress" : "1.24.0",
-  "org.apache.commons:commons-lang3" : "3.12.0",
+  "org.apache.commons:commons-lang3" : "3.18.0",
   "org.apache.pekko:pekko-actor-testkit-typed_2.13" : "1.2.1",
   "org.apache.pekko:pekko-actor-typed_2.13" : "1.2.1",
   "org.apache.pekko:pekko-actor_2.13" : "1.2.1",
