@@ -11,7 +11,7 @@ module DA.Crypto.Text
   , sha256
   , secp256k1
   , secp256k1WithEcdsaOnly
-#ifdef DAML_VALIDATE_CRYPTO_KEY
+#ifdef DAML_ExtendedCryptoPrimitives
   , secp256k1WithValidation
 #endif
   , HasToHex(..)
@@ -94,7 +94,7 @@ isBytesHex hex = Text.length hex % 2 == 0 && isHex hex
 isDEREncoded : Text -> Bool
 isDEREncoded msg = isBytesHex msg && Text.substring 0 2 msg == "30" && Text.length msg == 2 * (2 + (hexByteToInt (Text.substring 2 2 msg)))
 
-#ifdef DAML_VALIDATE_CRYPTO_KEY
+#ifdef DAML_ExtendedCryptoPrimitives
 -- | Validates that the public key is on the SECP256K1 curve. Public key argument should be a DER formatted hex string.
 validatePublicKey : PublicKeyHex -> Bool
 validatePublicKey pk
@@ -114,7 +114,7 @@ keccak256 : BytesHex -> BytesHex
 keccak256 msg | isBytesHex msg = primitive @"BEKecCak256Text" (Text.asciiToLower msg)
 keccak256 msg = error $ "Message argument is not a hex string: " <> msg
 
-#ifdef DAML_VALIDATE_CRYPTO_KEY
+#ifdef DAML_ExtendedCryptoPrimitives
 -- | Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key. Prior to
 -- signature validation, validate the public key and check it is on the SECP256K1 curve.
 secp256k1WithValidation : SignatureHex -> BytesHex -> PublicKeyHex -> Bool
