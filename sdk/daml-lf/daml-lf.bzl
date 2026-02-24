@@ -265,7 +265,7 @@ def _init_data():
             "name_pretty": "Extended crypto primitives",
             "cpp_flag": "DAML_ExtendedCryptoPrimitives",
             "version_req": {"low": V2_3},
-         },
+        },
     ]
 
     return struct(
