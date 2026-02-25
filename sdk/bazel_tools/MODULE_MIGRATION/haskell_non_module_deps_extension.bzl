@@ -27,7 +27,7 @@ def _get_lsp_types():
     )
 
 def _impl(module_ctx):
-    _get_cabal()
+#     _get_cabal()
     _get_lsp_types()
 
 haskell_non_module_deps_extension = module_extension(implementation = _impl)
