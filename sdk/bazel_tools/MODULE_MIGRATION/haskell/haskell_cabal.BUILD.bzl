@@ -4,6 +4,6 @@ haskell_cabal_library(
     name = "Cabal",
     srcs = glob(["Cabal/**"]),
     verbose = False,
-    version = "3.8.1.0",
+    version = "3.0.0.0",
     visibility = ["//visibility:public"],
 )
