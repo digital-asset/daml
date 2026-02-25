@@ -23,27 +23,7 @@ load(
 
 _VERSION_GENERATING_PACKAGES = ["//compiler/daml-lf-ast:__pkg__"]
 
-genrule(
-    name = "version_data_json",
-    outs = ["versions.json"],
-    cmd = """
-cat << EOF > $@
-{json}
-EOF
-""".format(
-        json = json.encode({
-            "allLfVersions": RAW_ALL_LF_VERSIONS,
-            "stableLfVersions": RAW_STABLE_LF_VERSIONS,
-            "latestStableLfVersion": RAW_LATEST_STABLE_LF_VERSION,
-            "defaultLfVersion": RAW_DEFAULT_LF_VERSION,
-            "devLfVersion": RAW_DEV_LF_VERSION,
-            "stagingLfVersion": RAW_STAGING_LF_VERSION,
-            "compilerInputLfVersions": RAW_COMPILER_INPUT_LF_VERSIONS,
-            "compilerOutputLfVersions": RAW_COMPILER_OUTPUT_LF_VERSIONS,
-        }),
-    ),
-    visibility = _VERSION_GENERATING_PACKAGES,
-)
+exports_files(["daml-lf-versions.json"])
 
 genrule(
     name = "feature_data_json",

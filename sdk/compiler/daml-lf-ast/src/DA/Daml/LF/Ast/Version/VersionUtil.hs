@@ -50,7 +50,6 @@ featureMap = MS.fromList
     | feature <- allFeatures
     , key <- [featureCppFlag feature]
     ]
-
 -- | Return the feature associated with a feature flag.
 nameToFeatureOpt :: T.Text -> Maybe Feature
 nameToFeatureOpt = flip MS.lookup featureMap
@@ -101,17 +100,34 @@ readMajorVersion = do
 parseMajorVersion :: String -> Maybe MajorVersion
 parseMajorVersion = headMay . map fst . readP_to_S readMajorVersion
 
+-- >>> (headMay . map fst . readP_to_S (readMinorVersion <* eof)) "3-staging"
+-- Just (PointStaging 3)
 readMinorVersion :: ReadP MinorVersion
-readMinorVersion = readStable +++ readDev
+readMinorVersion = readStable +++ readStaging +++ readStagingWithRevision +++ readDev
   where
     readStable = PointStable <$> readSimpleInt
+    readStaging = PointStaging <$> readSimpleInt <* ReadP.string "-staging"
+    readStagingWithRevision =
+      (\i r-> if r == stagingRevision
+        then PointStaging i
+        else error $ "unsupported staging revision "
+                      ++ show r
+                      ++ " whilst readming minorVersion, supported staging revision: "
+                      ++ show stagingRevision)
+        <$> readSimpleInt <*> (ReadP.string "-rc" *> readSimpleInt)
     readDev = PointDev <$ ReadP.string "dev"
 
+-- >>> parseMinorVersion "3-staging"
+-- Just (PointStaging 3)
+-- >>> parseMinorVersion "4-rc1"
+-- Just (PointStaging 4)
+-- >>> parseMinorVersion "4-rc2"
+-- unsupported staging revision 2 whilst readming minorVersion, supported staging revision: 1
 -- >>> parseMinorVersion "14"
 -- Just (PointStable 14)
 -- >>> parseMinorVersion "dev"
 -- Just PointDev
--- >>> parseMinorVersion "garbage"
+-- >>> parseMinorVersion "2garbage"
 -- Nothing
 parseMinorVersion :: String -> Maybe MinorVersion
 parseMinorVersion = headMay . map fst . readP_to_S (readMinorVersion <* eof)
@@ -127,10 +143,12 @@ readVersion = do
 -- Just (Version {versionMajor = V2, versionMinor = PointDev})
 -- >>> parseVersion "2.15"
 -- Just (Version {versionMajor = V2, versionMinor = PointStable 15})
+-- >>> parseVersion "2.3-staging"
+-- Just (Version {versionMajor = V2, versionMinor = PointStaging 3})
 -- >>> parseVersion "2.garbage"
 -- Nothing
 parseVersion :: String -> Maybe Version
-parseVersion = headMay . map fst . readP_to_S readVersion
+parseVersion = headMay . map fst . readP_to_S (readVersion <* eof)
 
 -- The extended implementation
 ifVersionWith :: MonadReader r m

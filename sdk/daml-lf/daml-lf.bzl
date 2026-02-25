@@ -42,9 +42,9 @@ def _parse_version(v_str):
         revision = rc_parts[1]
 
         return struct(
-            dotted = v_str,
-            mangled_java = "{}_{}_rc{}".format(major, minor, revision),
-            mangled_damlc = "{}{}rc{}".format(major, minor, revision),
+            dotted = "{}.{}-staging".format(major, minor),
+            mangled_java = "{}_{}_staging".format(major, minor),
+            mangled_damlc = "{}{}staging".format(major, minor),
             major = major,
             minor = minor,
             revision = revision,
@@ -67,9 +67,9 @@ def _build_versions_struct():
     """
     fields = {}
 
-    for key, val in sorted(DATA["explicitVersions"].items()):
-        field_name = key.upper()
+    for val in sorted(DATA["explicitVersions"]):
         version_obj = _parse_version(val)
+        field_name = version_obj.mangled_java
         fields[field_name] = version_obj
 
     for key, val in sorted(DATA["namedVersions"].items()):
@@ -86,8 +86,6 @@ def _build_versions_struct():
     return struct(**fields)
 
 VERSIONS = _build_versions_struct()
-
-print("DEBUG: Parsed explicit versions:", VERSIONS.COMPILER_LF_VERSIONS)
 
 def _to_dotted_version(v):
     """Converts a single version struct to a string like "2.2"."""
