@@ -439,24 +439,24 @@
     },
     "com.fasterxml.jackson.core:jackson-annotations": {
       "shasums": {
-        "jar": "ea1b3a9ec60a353f4d7e78559c7140abb9bcf71b31456e9d57c8289f7cf397f1",
-        "sources": "e6f7f659bb4abd9be1fe2f259f95a2340744aff373eb34c134d6e2210bdc300d"
+        "jar": "f204ebbd552614a22b8531ffe350d47f8fd42c45bb60517c07974dc27a5a1dd3",
+        "sources": "fb6e95e65649600277a3ab8a8df7aea490d3ee12b42f0eb9e8f3319d6903b652"
       },
-      "version": "2.14.3"
+      "version": "2.15.4"
     },
     "com.fasterxml.jackson.core:jackson-core": {
       "shasums": {
-        "jar": "7ee2debad3c002e97b28b84d5f1b2044a38e780abb673948238f5bc656e2fe44",
-        "sources": "3ee18051ff11ca9e0fd203bb163f2322c09573c76b6c1b13e2bd1031fb6f962a"
+        "jar": "8dc9210dd285db366f45f518dd1e6a9ccfeb0f1a8e184a899fe96d29edf1fd94",
+        "sources": "39eb0047767b181d52575e611b1a0597fd15300cbd1badbe567bf0d94ed18223"
       },
-      "version": "2.14.3"
+      "version": "2.15.4"
     },
     "com.fasterxml.jackson.core:jackson-databind": {
       "shasums": {
-        "jar": "ef0694046dc86e8a601e69efef24cda88a85773aaf012f5b9b1167d6f2e7de45",
-        "sources": "f9f6c8dd8b543c02eefc5844d068d90ff070ab913115be5df704b99b1988264b"
+        "jar": "0f99ff7719eef3ee85608b3dee6ecf3c698003fe9d6e34eabbfabccdc9b5ac2c",
+        "sources": "b17b352bac8f0d4fb01d32d5c1f31a11b296d78887fd76ec46cf84bc04a36094"
       },
-      "version": "2.14.3"
+      "version": "2.15.4"
     },
     "com.fasterxml.jackson.dataformat:jackson-dataformat-toml": {
       "shasums": {
