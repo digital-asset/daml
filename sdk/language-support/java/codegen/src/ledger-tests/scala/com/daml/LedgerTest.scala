@@ -7,13 +7,13 @@ import java.math.BigDecimal
 import java.time.temporal.ChronoField
 import java.time.{Instant, LocalDate, ZoneOffset}
 import com.daml.ledger.javaapi.data.{Unit => DamlUnit}
-import com.daml.ledger.resources.TestResourceContext
+import com.daml.testing.utils.TestResourceContext
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import wolpertinger.color.Grey
 import wolpertinger.{Color, Wolpertinger}
 import alltests.MultiParty
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.testing.utils.SuiteResourceManagementAroundAll
 import io.grpc.Channel
 import org.scalatest.Assertion
 

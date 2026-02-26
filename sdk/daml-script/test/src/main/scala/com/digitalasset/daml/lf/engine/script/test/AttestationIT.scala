@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.engine.script.test
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import com.daml.testing.utils.PekkoBeforeAndAfterAll
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.script.{Runner, ScriptTimeMode}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
