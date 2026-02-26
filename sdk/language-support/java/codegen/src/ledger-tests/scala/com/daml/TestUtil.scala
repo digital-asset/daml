@@ -5,7 +5,7 @@ package com.daml
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonFixture
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v2.{CommandServiceGrpc, StateServiceGrpc}
 import com.daml.ledger.api.v2.StateServiceOuterClass.{
   GetActiveContractsResponse,

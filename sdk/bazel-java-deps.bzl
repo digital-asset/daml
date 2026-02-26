@@ -80,8 +80,6 @@ def install_java_deps():
             "com.daml:rs-grpc-bridge_{}:{}".format(scala_major_version, canton_version),
             # TODO(https://github.com/DACH-NY/canton/issues/30144): check whether this dependency can be gotten rid of
             "com.digitalasset.canton:testing-utils_{}:{}".format(scala_major_version, canton_version),
-            # TODO(https://github.com/DACH-NY/canton/issues/30144): move to this repo
-            "com.daml:ledger-resources-test-lib_{}:{}".format(scala_major_version, canton_version),
             "com.daml:timer-utils_{}:{}".format(scala_major_version, canton_version),
             "com.daml:daml-tls_{}:{}".format(scala_major_version, canton_version),
             "com.daml:community-base_{}:{}".format(scala_major_version, canton_version),
@@ -96,6 +94,8 @@ def install_java_deps():
             "io.reactivex.rxjava2:rxjava:2.2.21",
             "org.junit.jupiter:junit-jupiter-engine:5.9.2",
             "org.junit.platform:junit-platform-runner:1.9.2",
+            "org.scalactic:scalactic_{}:3.2.19".format(scala_major_version),
+            "org.scalatest:scalatest_{}:3.2.19".format(scala_major_version),
             "org.scalatestplus:scalacheck-1-15_{}:3.2.11.0".format(scala_major_version),
             "org.tpolecat:doobie-postgres_{}:0.13.4".format(scala_major_version),
             "org.typelevel:kind-projector_{}:0.13.3".format(scala_version),
@@ -115,8 +115,6 @@ def install_java_deps():
             "org.scala-lang:scala-reflect": "@io_bazel_rules_scala_scala_reflect//:io_bazel_rules_scala_scala_reflect",
             "org.scala-lang.modules:scala-parser-combinators": "@io_bazel_rules_scala_scala_parser_combinators//:io_bazel_rules_scala_scala_parser_combinators",
             "org.scala-tools.testing:test-interface": "//:org_scala_sbt_test_interface",
-            "org.scalactic:scalactic_{}".format(scala_major_version): "@io_bazel_rules_scala_scalactic//:io_bazel_rules_scala_scalactic",
-            "org.scalatest:scalatest_{}".format(scala_major_version): "@io_bazel_rules_scala_scalatest//:io_bazel_rules_scala_scalatest",
         },
         repositories = [
             "https://repo1.maven.org/maven2",

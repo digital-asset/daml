@@ -9,7 +9,7 @@ import java.nio.file.{Path, Paths}
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.integrationtest.CantonConfig.TimeProviderType
 import com.daml.integrationtest.CantonFixture
-import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
+import com.daml.testing.utils.PekkoBeforeAndAfterAll
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   GrpcLedgerClient,

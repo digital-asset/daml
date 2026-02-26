@@ -3,8 +3,8 @@
 
 package com.daml
 
-import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.daml.ledger.resources.TestResourceContext
+import com.daml.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.testing.utils.TestResourceContext
 import io.grpc.Channel
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AsyncFlatSpecLike
