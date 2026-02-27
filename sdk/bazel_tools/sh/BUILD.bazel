@@ -6,9 +6,6 @@ exports_files([
     "test.sh.tpl",
 ])
 
-# #
-# TODO:
-#       IMPLEMENT `@tar.bzl//tar:tar` INSTEAD OF `tar_dev_env/tar` INSIDE OF `mktgz.sh`!
 sh_binary(
     name = "mktar",
     srcs = ["mktar.sh"],
@@ -17,17 +14,12 @@ sh_binary(
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
-# #
-# TODO:
-#       IMPLEMENT `@tar.bzl//tar:tar` INSTEAD OF `tar_dev_env/tar` INSIDE OF `mktgz.sh`!
-# TODO:
-#       IMPLEMENT PIGZ INSTEAD OF GZIP INSIDE OF `mktgz.sh`!
 sh_binary(
     name = "mktgz",
     srcs = ["mktgz.sh"],
     data = [
         "@pigz//:pigz",
-        "@tar.bzl//tar:tar",
+        "@bsd_tar_toolchains//:resolved_target_toolchain"
     ],
     visibility = ["//visibility:public"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
