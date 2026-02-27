@@ -24,24 +24,16 @@ EOF
 }
 trap usage ERR
 
-case "$(uname -s)" in
-  Darwin|Linux)
-    tar=$(rlocation tar_dev_env/tar)
-    gzip=$(rlocation gzip_dev_env/gzip)
-    ;;
-  CYGWIN*|MINGW*|MSYS*)
-    tar=$(rlocation tar_dev_env/usr/bin/tar.exe)
-    gzip=$(rlocation gzip_dev_env/usr/bin/gzip.exe)
-    ;;
-esac
+PIGZ="$(rlocation "pigz~/pigz")"
+TAR=$(find "${RUNFILES_DIR}" -maxdepth 2 -name "tar")
 
-$tar c "${@:2}" \
-  --owner="0" \
-  --group="0" \
+$TAR \
+  --owner=0 \
+  --group=0 \
   --numeric-owner \
   --mtime="2000-01-01 00:00Z" \
   --no-acls \
   --no-xattrs \
-  --no-selinux \
-  --sort="name" \
-  | $gzip -n > "$1"
+  --use-compress-program "$PIGZ -n" \
+  -cf ${1} \
+  "${@:2}"
