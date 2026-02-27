@@ -31,16 +31,8 @@ if [[ -n ${RUNFILES_MANIFEST_FILE:-} ]]; then
   export RUNFILES_DIR=$(abspath $RUNFILES_MANIFEST_FILE)
 fi
 
-case "$(uname -s)" in
-  Darwin|Linux)
-    tar=$(abspath $(rlocation tar_dev_env/tar))
-    mktgz=$(abspath $(rlocation com_github_digital_asset_daml/bazel_tools/sh/mktgz))
-    ;;
-  CYGWIN*|MINGW*|MSYS*)
-    tar=$(abspath $(rlocation tar_dev_env/usr/bin/tar.exe))
-    mktgz=$(abspath $(rlocation com_github_digital_asset_daml/bazel_tools/sh/mktgz.exe))
-    ;;
-esac
+MKTGZ=$(abspath $(rlocation _main/bazel_tools/sh/mktgz))
+TAR=$(find "${RUNFILES_DIR}" -maxdepth 2 -name "tar")
 
 set -eou pipefail
 
@@ -75,7 +67,7 @@ for res in "$@"; do
       RAWNAME=${BASENAME%%.*}
       # unzip to a directory, as these often have internal relative symlinks to top level, which oras (used by DPM to download artifacts) can't handle right now
       mkdir -p "$WORKDIR/$RAWNAME"
-      $tar xf "$res" --strip-components=1 -C "$WORKDIR/$RAWNAME"
+      $TAR xf "$res" --strip-components=1 -C "$WORKDIR/$RAWNAME"
       ;;
     *)
       cp $res $WORKDIR
@@ -88,4 +80,4 @@ for dir in $(find $WORKDIR -type d -name '*.exe'); do
   mv $dir ${dir%.*}
 done
 
-cd $WORKDIR && $mktgz $OUT *
+cd $WORKDIR && $MKTGZ $OUT *
