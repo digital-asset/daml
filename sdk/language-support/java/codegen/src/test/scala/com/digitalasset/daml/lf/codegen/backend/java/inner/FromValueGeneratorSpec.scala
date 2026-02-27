@@ -187,7 +187,7 @@ final class FromValueGeneratorSpec extends AnyFlatSpec with Matchers {
       ImmArraySeq(
         Ref.Name.assertFromString("int64Field") -> TypePrim(PrimTypeInt64, ImmArraySeq.empty),
         Ref.Name.assertFromString("numericField") -> TypeNumeric(
-          Ref.Name.assertFromString("10")
+          new BigDecimal("10.0"),
         ),
       )
     )

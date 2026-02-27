@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.codegen.backend.java.inner
 
-import com.daml.ledger.javaapi.data.codegen.json.{JsonLfDecoder, JsonLfReader}
+import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder
 import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref

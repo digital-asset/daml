@@ -5,7 +5,6 @@ package com.digitalasset.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data.codegen.{Choice, ContractCompanion}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.ChoiceName
 import com.digitalasset.daml.lf.typesig._
 import com.squareup.javapoet._
@@ -309,15 +308,12 @@ final class TemplateClassSpec extends AnyFlatSpec with Matchers {
   behavior of "TemplateClass companion type generation"
 
   it should "use ContractCompanion.WithKey for templates with keys" in {
-    val keyType = TypePrim(PrimTypeText, ImmArraySeq.empty)
     val companion = classOf[ContractCompanion.WithKey[_, _, _, _]]
-
     companion.getName should include("WithKey")
   }
 
   it should "use ContractCompanion.WithoutKey for templates without keys" in {
     val companion = classOf[ContractCompanion.WithoutKey[_, _, _]]
-
     companion.getName should include("WithoutKey")
   }
 
