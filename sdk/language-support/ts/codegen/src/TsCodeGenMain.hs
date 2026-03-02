@@ -143,9 +143,9 @@ main = do
     -- Save the runfiles environment to work around
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
     setRunfilesEnv
-    isDpm <- isJust <$> lookupEnv "DAML_SDK"
+    isDpm <- isNothing <$> lookupEnv "DAML_SDK"
     let progName = if isDpm then "dpm codegen-js" else "daml codegen js"
-    withProgName "daml codegen js" $ do
+    withProgName progName $ do
         args <- getArgs
         opts@Options{..} <-
           if null args then deriveOptionsFromDamlYaml else customExecParser (prefs showHelpOnError) optionsParserInfo
@@ -162,7 +162,7 @@ main = do
               sdkVersion <- getSdkVersionDpm
               case V.fromText $ T.pack sdkVersion of
                 Left err -> fail err
-                Right ver -> Right $ unsafeResolveReleaseVersion $ UnresolvedReleaseVersion ver
+                Right ver -> pure $ unsafeResolveReleaseVersion $ UnresolvedReleaseVersion ver
         pkgs <- readPackages optInputDars
         case mergePackageMap pkgs of
           Left err -> fail . T.unpack $ err
