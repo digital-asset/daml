@@ -186,9 +186,7 @@ final class FromValueGeneratorSpec extends AnyFlatSpec with Matchers {
     val fields = getFieldsWithTypes(
       ImmArraySeq(
         Ref.Name.assertFromString("int64Field") -> TypePrim(PrimTypeInt64, ImmArraySeq.empty),
-        Ref.Name.assertFromString("numericField") -> TypeNumeric(
-          new BigDecimal("10.0")
-        ),
+        Ref.Name.assertFromString("numericField") -> TypeNumeric(10),
       )
     )
 
@@ -202,7 +200,7 @@ final class FromValueGeneratorSpec extends AnyFlatSpec with Matchers {
 
     val code = method.code.toString
     code should include("Long int64Field")
-    code should include("BigDecimal numericField")
+    code should include("Integer numericField")
   }
 
   it should "handle date and timestamp types" in {
