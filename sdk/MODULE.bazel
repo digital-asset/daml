@@ -128,6 +128,7 @@ maven.install(
         "io.grpc:grpc-protobuf:1.77.0",
         "org.scalaz:scalaz-core_2.13:7.2.33",
         "org.wartremover:wartremover_2.13.16:3.2.5",
+        "org.jline:jline:3.27.1"
     ],
     repositories = [
         "https://repo1.maven.org/maven2",
