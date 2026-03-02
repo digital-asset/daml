@@ -158,7 +158,7 @@ main = do
                 Right v -> do
                   useCache <- DAEnv.mkUseCache <$> DAEnv.getCachePath <*> DAEnv.getDamlPath
                   DAUtil.wrapErr "Getting SDK version for codegen" $ DAVersion.resolveReleaseVersionUnsafe useCache v
-            else
+            else do
               sdkVersion <- getSdkVersionDpm
               case V.fromText $ T.pack sdkVersion of
                 Left err -> fail err
