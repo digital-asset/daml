@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.codegen.backend.java.inner
 import com.daml.ledger.javaapi.data.codegen.ValueDecoder
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Numeric
 import com.digitalasset.daml.lf.typesig._
 import com.squareup.javapoet._
 import javax.lang.model.element.Modifier
@@ -186,7 +187,7 @@ final class FromValueGeneratorSpec extends AnyFlatSpec with Matchers {
     val fields = getFieldsWithTypes(
       ImmArraySeq(
         Ref.Name.assertFromString("int64Field") -> TypePrim(PrimTypeInt64, ImmArraySeq.empty),
-        Ref.Name.assertFromString("numericField") -> TypeNumeric(10),
+        Ref.Name.assertFromString("numericField") -> TypeNumeric(Numeric.Scale.assertFromInt(10)),
       )
     )
 
@@ -200,7 +201,7 @@ final class FromValueGeneratorSpec extends AnyFlatSpec with Matchers {
 
     val code = method.code.toString
     code should include("Long int64Field")
-    code should include("Integer numericField")
+    code should include("BigDecimal numericField")
   }
 
   it should "handle date and timestamp types" in {
