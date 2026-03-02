@@ -115,7 +115,9 @@ final class FromJsonGeneratorSpec extends AnyFlatSpec with Matchers {
     fromJsonWithPolicy shouldBe defined
 
     val code = fromJsonWithPolicy.get.code.toString
-    code should include("jsonDecoder().decode(new com.daml.ledger.javaapi.data.codegen.json.JsonLfReader(json), policy)")
+    code should include(
+      "jsonDecoder().decode(new com.daml.ledger.javaapi.data.codegen.json.JsonLfReader(json), policy)"
+    )
   }
 
   it should "include type variables for parameterized types" in {
