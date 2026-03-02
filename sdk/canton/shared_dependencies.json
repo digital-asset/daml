@@ -1,9 +1,9 @@
 {
   "com.auth0:java-jwt" : "4.2.1",
   "com.auth0:jwks-rsa" : "0.21.2",
-  "com.fasterxml.jackson.core:jackson-annotations" : "2.14.3",
-  "com.fasterxml.jackson.core:jackson-core" : "2.14.3",
-  "com.fasterxml.jackson.core:jackson-databind" : "2.14.3",
+  "com.fasterxml.jackson.core:jackson-annotations" : "2.15.4",
+  "com.fasterxml.jackson.core:jackson-core" : "2.15.4",
+  "com.fasterxml.jackson.core:jackson-databind" : "2.15.4",
   "com.google.api.grpc:proto-google-common-protos" : "2.59.2",
   "com.google.code.findbugs:jsr305" : "3.0.2",
   "com.google.guava:guava" : "33.3.0-jre",
