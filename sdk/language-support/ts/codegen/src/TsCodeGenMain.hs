@@ -152,17 +152,17 @@ main = do
         releaseVersion <-
           if isDpm
             then do
+              sdkVersion <- getSdkVersionDpm
+              case V.fromText $ T.pack sdkVersion of
+                Left err -> fail err
+                Right ver -> pure $ unsafeResolveReleaseVersion $ UnresolvedReleaseVersion ver
+            else do
               unresolvedVersionOrErr <- fromMaybe (DATypes.parseVersion (T.pack "0.0.0")) <$> getSdkVersionMaybe
               case unresolvedVersionOrErr of
                 Left _ -> fail "Invalid SDK version"
                 Right v -> do
                   useCache <- DAEnv.mkUseCache <$> DAEnv.getCachePath <*> DAEnv.getDamlPath
                   DAUtil.wrapErr "Getting SDK version for codegen" $ DAVersion.resolveReleaseVersionUnsafe useCache v
-            else do
-              sdkVersion <- getSdkVersionDpm
-              case V.fromText $ T.pack sdkVersion of
-                Left err -> fail err
-                Right ver -> pure $ unsafeResolveReleaseVersion $ UnresolvedReleaseVersion ver
         pkgs <- readPackages optInputDars
         case mergePackageMap pkgs of
           Left err -> fail . T.unpack $ err
