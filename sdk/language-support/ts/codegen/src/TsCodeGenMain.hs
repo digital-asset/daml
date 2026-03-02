@@ -143,7 +143,7 @@ main = do
     -- Save the runfiles environment to work around
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
     setRunfilesEnv
-    isDpm <- isNothing <$> lookupEnv "DAML_SDK"
+    isDpm <- isJust <$> lookupEnv "DPM_SDK_VERSION"
     let progName = if isDpm then "dpm codegen-js" else "daml codegen js"
     withProgName progName $ do
         args <- getArgs
