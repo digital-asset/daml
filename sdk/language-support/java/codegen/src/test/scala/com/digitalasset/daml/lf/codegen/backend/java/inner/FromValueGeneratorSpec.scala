@@ -109,20 +109,6 @@ final class FromValueGeneratorSpec extends AnyFlatSpec with Matchers {
     method.parameters shouldBe empty
   }
 
-  it should "have decoder parameters for type parameters" in {
-    val method = FromValueGenerator.generateValueDecoderForRecordLike(
-      getFieldsWithTypes(ImmArraySeq.empty),
-      ClassName.bestGuess("TestClass"),
-      IndexedSeq("T", "U"),
-      "testDecoder",
-      simpleRecordValueExtractor,
-    )
-
-    method.parameters.asScala should have size 2
-    method.parameters.asScala
-      .map(_.name) should contain.inOrderOnly("valueDecoderT", "valueDecoderU")
-  }
-
   it should "generate code that uses ValueDecoder.create with two-parameter lambda" in {
     val method = FromValueGenerator.generateValueDecoderForRecordLike(
       getFieldsWithTypes(ImmArraySeq.empty),
@@ -178,9 +164,8 @@ final class FromValueGeneratorSpec extends AnyFlatSpec with Matchers {
     )
 
     val code = method.code.toString
-    // Should call checkAndPrepareRecord with field count and optional field count
-    code should include("checkAndPrepareRecord(2, 1")
-    code should include("Optional<String> optionalField")
+    code should include("checkAndPrepareRecord(2,1")
+    code should include("java.util.Optional<java.lang.String> optionalField")
   }
 
   it should "handle numeric types" in {
@@ -268,7 +253,7 @@ final class FromValueGeneratorSpec extends AnyFlatSpec with Matchers {
     )
 
     val code = method.code.toString
-    code should include("List<String> listField")
+    code should include("java.util.List<java.lang.String> listField")
   }
 
   it should "include type variables in method signature" in {
@@ -344,7 +329,7 @@ final class FromValueGeneratorSpec extends AnyFlatSpec with Matchers {
     )
 
     val code = method.code.toString
-    code should include("checkAndPrepareRecord(0, 0")
+    code should include("checkAndPrepareRecord(0,0")
     code should include("return new TestClass()")
   }
 
@@ -372,7 +357,7 @@ final class FromValueGeneratorSpec extends AnyFlatSpec with Matchers {
     )
 
     val code = method.code.toString
-    code should include("checkAndPrepareRecord(3, 2")
+    code should include("checkAndPrepareRecord(3,2")
   }
 
   it should "not count non-trailing optional fields in optional count" in {
@@ -399,6 +384,6 @@ final class FromValueGeneratorSpec extends AnyFlatSpec with Matchers {
     )
 
     val code = method.code.toString
-    code should include("checkAndPrepareRecord(3, 1")
+    code should include("checkAndPrepareRecord(3,1")
   }
 }

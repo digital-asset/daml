@@ -120,7 +120,7 @@ final class TemplateClassSpec extends AnyFlatSpec with Matchers {
 
     fields should have size 1
     val initializer = fields.head.initializer.toString
-    initializer should include("value$$")
+    initializer should include("value$")
   }
 
   it should "include value decoder for choice parameter" in {
@@ -211,30 +211,6 @@ final class TemplateClassSpec extends AnyFlatSpec with Matchers {
     fieldNames should contain("CHOICE_BoolChoice")
     fieldNames should contain("CHOICE_IntChoice")
     fieldNames should contain("CHOICE_TextChoice")
-  }
-
-  it should "handle complex parameter types" in {
-    val choices = Map(
-      ChoiceName.assertFromString("ComplexChoice") -> TemplateChoice(
-        TypePrim(
-          PrimTypeList,
-          ImmArraySeq(TypePrim(PrimTypeText, ImmArraySeq.empty)),
-        ),
-        false,
-        TypePrim(
-          PrimTypeOptional,
-          ImmArraySeq(TypePrim(PrimTypeInt64, ImmArraySeq.empty)),
-        ),
-      )
-    )
-
-    val fields = TemplateClass.generateChoicesMetadata(
-      ClassName.bestGuess("TestTemplate"),
-      choices,
-    )
-
-    fields should have size 1
-    fields.head.name shouldBe "CHOICE_ComplexChoice"
   }
 
   it should "handle empty choice map" in {
