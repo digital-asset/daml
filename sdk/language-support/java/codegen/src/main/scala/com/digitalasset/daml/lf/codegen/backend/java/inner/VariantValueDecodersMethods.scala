@@ -110,7 +110,7 @@ object VariantValueDecodersMethods {
       .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
       .addException(classOf[IllegalArgumentException])
       .addParameters(converterParams.asJava)
-      .beginControlFlow("return $T.create(($L,policy$$) -> ", classOf[ValueDecoder[_]],"value$")
+      .beginControlFlow("return $T.create(($L,policy$$) -> ", classOf[ValueDecoder[_]], "value$")
       .addCode(valueDecoderCode.build())
       .endControlFlow(")")
       .build()
