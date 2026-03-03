@@ -3,8 +3,6 @@
 
 -- @UNTIL-LF 2.1
 
-{-# OPTIONS_GHC -Wno-x-crypto #-}
-
 module CCTPMintToken where
 
 import DA.Assert ((===))

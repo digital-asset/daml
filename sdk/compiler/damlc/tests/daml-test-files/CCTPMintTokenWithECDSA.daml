@@ -3,8 +3,6 @@
 
 -- @SINCE-LF 2.1
 
-{-# OPTIONS_GHC -Wno-x-crypto #-}
-
 module CCTPMintTokenWithECDSA where
 
 import DA.Assert ((===))
