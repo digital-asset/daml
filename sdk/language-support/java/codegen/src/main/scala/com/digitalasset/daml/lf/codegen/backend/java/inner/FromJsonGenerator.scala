@@ -138,9 +138,10 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .returns(className.parameterized(typeParams))
       .addException(classOf[JsonLfDecoder.Error])
       .addStatement(
-        "return jsonDecoder($L).decode(new $T(json))",
+        "return jsonDecoder($L).decode(new $T(json), $T.STRICT)",
         decodeTypeParamArgList(typeParams),
         classOf[JsonLfReader],
+        classOf[UnknownTrailingFieldPolicy],
       )
       .build()
 
@@ -259,7 +260,17 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .addStatement("return keyJsonDecoder().decode(new $T(json))", classOf[JsonLfReader])
       .build()
 
-    Seq(decoder, fromString)
+    val fromStringWithPolicy = MethodSpec
+      .methodBuilder("keyFromJsonWithPolicy")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .addParameter(classOf[String], "json")
+      .addParameter(classOf[UnknownTrailingFieldPolicy], "policy")
+      .returns(className)
+      .addException(classOf[JsonLfDecoder.Error])
+      .addStatement("return keyJsonDecoder().decode(new $T(json), policy)", classOf[JsonLfReader])
+      .build()
+
+    Seq(decoder, fromString, fromStringWithPolicy)
   }
 
   def forEnum(className: ClassName, damlNameToEnumMap: String): Seq[MethodSpec] = {

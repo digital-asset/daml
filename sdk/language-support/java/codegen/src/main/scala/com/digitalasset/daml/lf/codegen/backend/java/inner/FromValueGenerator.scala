@@ -167,7 +167,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
 
     /** An expression of type `T` where `T` is the decoding target */
     def extract(accessor: CodeBlock): CodeBlock = this match {
-      case Decoder(decoder) => CodeBlock.of("$L$Z.decode($L)", decoder, accessor)
+      case Decoder(decoder) => CodeBlock.of("$L$Z.decode($L,policy$$)", decoder, accessor)
       case FromFreeVar(decodeAccessor) => decodeAccessor(accessor)
     }
 
