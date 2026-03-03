@@ -234,11 +234,13 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .addTypeVariables(typeParams.map(TypeVariableName.get).asJava)
       .addParameters(jsonDecoderParamsForTypeParams(typeParams))
       .returns(decoderTypeName(typeName))
+      .beginControlFlow("return $T.create((value,policy) -> ", classOf[JsonLfDecoder[_]])
       .addStatement(
-        "return r -> new $T($L.decode(r))",
+        "return new $T($L.decode(value, policy))",
         typeName,
         jsonDecoderForType(field.damlType),
       )
+      .endControlFlow(")")
       .build()
 
   def forKey(damlType: Type)(implicit packagePrefixes: PackagePrefixes) = {
