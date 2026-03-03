@@ -210,6 +210,11 @@ private[inner] object FromValueGenerator extends StrictLogging {
   ): CodeBlock =
     extractorRec(damlType, field, args) extract accessor
 
+  private[inner] def decoderRec(damlType: Type, field: String, args: Iterator[String])(implicit
+      packagePrefixes: PackagePrefixes
+  ): CodeBlock =
+    extractorRec(damlType, field, args) asDecoder args
+
   private[this] def extractorRec(damlType: Type, field: String, args: Iterator[String])(implicit
       packagePrefixes: PackagePrefixes
   ): Extractor = {
