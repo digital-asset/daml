@@ -346,10 +346,10 @@ private[inner] object TemplateClass extends StrictLogging {
         (
           classOf[ContractCompanion.WithKey[_, _, _, _]],
           Seq(toJavaTypeName(keyType)),
-          ",$We -> $L",
+          ",$We -> $L.decode(e, UnknownTrailingFieldPolicy.STRICT)",
           Seq(
             FromValueGenerator
-              .extractor(keyType, "e", CodeBlock.of("e"), newNameGenerator)
+              .decoderRec(keyType, "e", newNameGenerator)
           ),
         )
       case None => (classOf[ContractCompanion.WithoutKey[_, _, _]], Seq.empty, "", Seq.empty)
