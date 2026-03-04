@@ -24,6 +24,7 @@ schedules:
 
 jobs:
   - job: compatibility_ts_libs
+    condition: False
     timeoutInMinutes: 60
     pool:
       name: ubuntu_20_04
@@ -35,6 +36,7 @@ jobs:
       - template: ../compatibility_ts_libs.yml
 
   - job: compatibility_linux
+    condition: False
     dependsOn: compatibility_ts_libs
     timeoutInMinutes: 720
     pool:
@@ -47,6 +49,7 @@ jobs:
       - template: ../compatibility.yml
 
   - job: compatibility_windows
+    condition: False
     dependsOn: compatibility_ts_libs
     timeoutInMinutes: 720
     pool:
@@ -120,7 +123,7 @@ jobs:
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
-    condition: eq(variables['Build.SourceBranchName'], 'main')
+    condition: False
     steps:
       - checkout: self
         clean: true
@@ -141,14 +144,15 @@ jobs:
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
-  - template: ../blackduck.yml
+  #- template: ../blackduck.yml
 
   - job: run_notices_pr_build
+    condition: False
     timeoutInMinutes: 60
-    dependsOn: ["blackduck_scan"]
-    condition: and(succeeded(),
-                   or(eq(variables['Build.SourceBranchName'], 'main'),
-                      eq(variables['Build.SourceBranchName'], 'main-2.x')))
+    #dependsOn: ["blackduck_scan"]
+    #condition: and(succeeded(),
+    #               or(eq(variables['Build.SourceBranchName'], 'main'),
+    #                  eq(variables['Build.SourceBranchName'], 'main-2.x')))
     pool:
       name: 'ubuntu_20_04'
       demands: assignment -equals default
@@ -190,7 +194,7 @@ jobs:
           source $(bash_lib)
 
           git fetch
-          git checkout origin/$(Build.SourceBranchName)
+          #git checkout origin/$(Build.SourceBranchName)
 
           # Save old canton commit hash before refreshing
           old_canton_tag=$(grep 'CANTON_OPEN_SOURCE_TAG' canton/canton_version.bzl | sed 's/.*"\(.*\)".*/\1/')
@@ -200,10 +204,11 @@ jobs:
 
           branch="main-canton-update-$version"
 
-          if git diff --exit-code origin/$(Build.SourceBranchName) -- canton >/dev/null; then
+          if git diff --exit-code HEAD -- canton >/dev/null; then
               echo "Already up-to-date with latest Canton source & snapshot."
           else
-              if [ "main" = "$(Build.SourceBranchName)" ]; then
+              #if [ "main" = "$(Build.SourceBranchName)" ]; then
+              if true; then
                   git add canton/canton_version.bzl canton/shared_dependencies.json maven_install_2.13.json
                   new_canton_commit="${version##*v}"
 
@@ -222,11 +227,17 @@ jobs:
                       ')
                   body=$(printf "Canton changes:\n\n%s\n\ntell-slack: canton" "$changelog")
 
-                  open_pr "$branch" "update canton to $version" "$body" "" "$(Build.SourceBranchName)"
-                  az pipelines build queue --branch "$branch" \
-                                           --definition-name "PRs" \
-                                           --org "https://dev.azure.com/digitalasset" \
-                                           --project daml
+                  echo "=== PR title ==="
+                  echo "update canton to $version"
+                  echo "=== PR body ==="
+                  echo -e "$body"
+                  echo "================"
+
+                  open_pr "$branch" "update canton to $version" "$body" "" "main"
+                  #az pipelines build queue --branch "$branch" \
+                  #                         --definition-name "PRs" \
+                  #                         --org "https://dev.azure.com/digitalasset" \
+                  #                         --project daml
               else
                   echo "Would open PR if this were running on main."
               fi
@@ -236,8 +247,9 @@ jobs:
           AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
 
   - job: compat_versions_pr
-    condition: or(eq(variables['Build.SourceBranchName'], 'main'),
-                  eq(variables['Build.SourceBranchName'], 'main-2.x'))
+    condition: False
+    #condition: or(eq(variables['Build.SourceBranchName'], 'main'),
+    #              eq(variables['Build.SourceBranchName'], 'main-2.x'))
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
@@ -280,13 +292,14 @@ jobs:
         fi
 
   - job: report
+    condition: False
     dependsOn: [compatibility_ts_libs, compatibility_linux, compatibility_windows,
                 perf_speedy, check_releases,
-                blackduck_scan, run_notices_pr_build, update_canton,
+                run_notices_pr_build, update_canton,
                 compat_versions_pr]
-    condition: and(succeededOrFailed(),
-                   or(eq(variables['Build.SourceBranchName'], 'main'),
-                      eq(variables['Build.SourceBranchName'], 'main-2.x')))
+    #condition: and(succeededOrFailed(),
+    #               or(eq(variables['Build.SourceBranchName'], 'main'),
+    #                  eq(variables['Build.SourceBranchName'], 'main-2.x')))
     pool:
       name: ubuntu_20_04
       demands: assignment -equals default
@@ -349,7 +362,7 @@ jobs:
 
   - job: snapshots
     timeoutInMinutes: 60
-    condition: eq(variables['Build.SourceBranchName'], 'main')
+    condition: False
     pool:
       name: 'ubuntu_20_04'
       demands: assignment -equals default
