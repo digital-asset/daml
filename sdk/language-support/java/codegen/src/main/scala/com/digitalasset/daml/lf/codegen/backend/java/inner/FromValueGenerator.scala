@@ -168,7 +168,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
     /** An expression of type `T` where `T` is the decoding target */
     def extract(accessor: CodeBlock, policy: CodeBlock): CodeBlock = this match {
       case Decoder(decoder) => CodeBlock.of("$L$Z.decode($L,$L)", decoder, accessor, policy)
-      case FromFreeVar(decodeAccessor) => decodeAccessor(accessor, policy)
+      case FromFreeVar(decodeAccessor) => decodeAccessor(accessor)
     }
 
     /** An expression of type `ValueDecoder<T>` for some `T` */
@@ -179,7 +179,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
         CodeBlock.of(
           "$L ->$>$W$L$<",
           lambdaBinding,
-          decodeAccessor(CodeBlock.of("$L", lambdaBinding), CodeBlock.of("policy$$")),
+          decodeAccessor(CodeBlock.of("$L", lambdaBinding)),
         )
     }
   }
@@ -187,7 +187,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
   private[this] object Extractor {
 
     /** Decode the expression passed in as an argument. */
-    final case class FromFreeVar(decodeAccessor: (CodeBlock, CodeBlock) => CodeBlock)
+    final case class FromFreeVar(decodeAccessor: CodeBlock => CodeBlock)
         extends Extractor
 
     /** Produce a point-free ValueDecoder. */
@@ -264,12 +264,11 @@ private[inner] object FromValueGenerator extends StrictLogging {
           )
         )
       case TypePrim(PrimTypeContractId, ImmArraySeq(_)) =>
-        FromFreeVar((accessor, policy) =>
+        FromFreeVar(accessor =>
           CodeBlock.of(
-            "new $T($L.asContractId()$L$L.getValue())",
+            "new $T($L.asContractId()$L.getValue())",
             javaType,
             accessor,
-            policy,
             orElseThrow(apiType, field),
           )
         )
