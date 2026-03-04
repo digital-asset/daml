@@ -9,6 +9,8 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+- `DA.Crypto.Text` is now marked as stable
+
 ## Until 2025-12-11 (Exclusive)
 - Changed java codegen to drop methods deprecated since 2.3.0. 
   Given template `Pizza` and choice `Bake`, Following methods will no longer be generated:
