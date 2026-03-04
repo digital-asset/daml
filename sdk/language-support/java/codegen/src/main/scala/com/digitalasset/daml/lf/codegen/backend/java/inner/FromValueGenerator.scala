@@ -166,9 +166,9 @@ private[inner] object FromValueGenerator extends StrictLogging {
     import Extractor._
 
     /** An expression of type `T` where `T` is the decoding target */
-    def extract(accessor: CodeBlock): CodeBlock = this match {
-      case Decoder(decoder) => CodeBlock.of("$L$Z.decode($L,policy$$)", decoder, accessor)
-      case FromFreeVar(decodeAccessor) => decodeAccessor(accessor)
+    def extract(accessor: CodeBlock, policy: CodeBlock): CodeBlock = this match {
+      case Decoder(decoder) => CodeBlock.of("$L$Z.decode($L,$L)", decoder, accessor, policy)
+      case FromFreeVar(decodeAccessor) => decodeAccessor(accessor, policy)
     }
 
     /** An expression of type `ValueDecoder<T>` for some `T` */
@@ -179,7 +179,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
         CodeBlock.of(
           "$L ->$>$W$L$<",
           lambdaBinding,
-          decodeAccessor(CodeBlock.of("$L", lambdaBinding)),
+          decodeAccessor(CodeBlock.of("$L", lambdaBinding), CodeBlock.of("policy$$")),
         )
     }
   }
@@ -187,7 +187,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
   private[this] object Extractor {
 
     /** Decode the expression passed in as an argument. */
-    final case class FromFreeVar(decodeAccessor: CodeBlock => CodeBlock) extends Extractor
+    final case class FromFreeVar(decodeAccessor: (CodeBlock, CodeBlock) => CodeBlock) extends Extractor
 
     /** Produce a point-free ValueDecoder. */
     final case class Decoder(decoder: CodeBlock) extends Extractor
@@ -208,7 +208,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
   )(implicit
       packagePrefixes: PackagePrefixes
   ): CodeBlock =
-    extractorRec(damlType, field, args) extract accessor
+    extractorRec(damlType, field, args) extract(accessor, CodeBlock.of("policy$$"))
 
   private[inner] def decoderRec(damlType: Type, field: String, args: Iterator[String])(implicit
       packagePrefixes: PackagePrefixes
@@ -263,11 +263,12 @@ private[inner] object FromValueGenerator extends StrictLogging {
           )
         )
       case TypePrim(PrimTypeContractId, ImmArraySeq(_)) =>
-        FromFreeVar(accessor =>
+        FromFreeVar((accessor, policy) =>
           CodeBlock.of(
-            "new $T($L.asContractId()$L.getValue())",
+            "new $T($L.asContractId()$L$L.getValue())",
             javaType,
             accessor,
+            policy,
             orElseThrow(apiType, field),
           )
         )

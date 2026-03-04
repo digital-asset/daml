@@ -111,6 +111,8 @@ public class ListTest {
             Arrays.asList(new Node<Long>(17L), new Node<Long>(42L)));
 
     assertEquals(expected, MyListRecord.fromJson(expected.toJson()));
+    assertEquals(expected, MyListRecord.fromJson(withTrailingFields.toJson(), UnknownTrailingFieldPolicy.IGNORE));
+    assertFails(MyListRecord.fromJson(withTrailingFields.toJson(), UnknownTrailingFieldPolicy.STRICT));
   }
 
   @Test

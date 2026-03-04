@@ -259,11 +259,11 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .addParameter(classOf[String], "json")
       .returns(className)
       .addException(classOf[JsonLfDecoder.Error])
-      .addStatement("return keyJsonDecoder().decode(new $T(json))", classOf[JsonLfReader])
+      .addStatement("return keyJsonDecoder().decode(new $T(json), UnknownTrailingFieldPolicy.STRICT)", classOf[JsonLfReader])
       .build()
 
     val fromStringWithPolicy = MethodSpec
-      .methodBuilder("keyFromJsonWithPolicy")
+      .methodBuilder("keyFromJson")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
       .addParameter(classOf[String], "json")
       .addParameter(classOf[UnknownTrailingFieldPolicy], "policy")
