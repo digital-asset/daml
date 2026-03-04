@@ -192,6 +192,10 @@ jobs:
           git fetch
           git checkout origin/$(Build.SourceBranchName)
 
+          # Save old canton commit hash before refreshing
+          old_canton_tag=$(grep 'CANTON_OPEN_SOURCE_TAG' canton/canton_version.bzl | sed 's/.*"\(.*\)".*/\1/')
+          old_canton_commit="${old_canton_tag##*v}"
+
           version=$(ci/refresh-canton.sh)
 
           branch="main-canton-update-$version"
@@ -201,7 +205,24 @@ jobs:
           else
               if [ "main" = "$(Build.SourceBranchName)" ]; then
                   git add canton/canton_version.bzl canton/shared_dependencies.json maven_install_2.13.json
-                  open_pr "$branch" "update canton to $version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
+                  new_canton_commit="${version##*v}"
+
+                  # Build PR body with a list of canton commit descriptions between old and new
+                  changelog=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+                    "https://api.github.com/repos/DACH-NY/canton/compare/${old_canton_commit}...${new_canton_commit}" \
+                    | jq -r '
+                      [.commits[]
+                       | (.sha[:10]) as $short_sha
+                       | (.author.login // .commit.author.name) as $author
+                       | (.commit.message | split("\n")[0]
+                          | gsub("#(?<n>[0-9]+)"; "[#\(.n)](https://github.com/DACH-NY/canton/pull/\(.n))")) as $linked_line
+                       | "- [\($short_sha)](https://github.com/DACH-NY/canton/commit/\(.sha)) \($author): \($linked_line)"
+                      ]
+                      | join("\n")
+                      ')
+                  body=$(printf "Canton changes:\n\n%s\n\ntell-slack: canton" "$changelog")
+
+                  open_pr "$branch" "update canton to $version" "$body" "" "$(Build.SourceBranchName)"
                   az pipelines build queue --branch "$branch" \
                                            --definition-name "PRs" \
                                            --org "https://dev.azure.com/digitalasset" \
