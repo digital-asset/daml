@@ -1,0 +1,32 @@
+name: "Check Release Notes"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    branches:
+      - main
+      - 'release/**'
+      - 'main-2x*'
+
+permissions:
+  contents: read
+
+jobs:
+  check-release-notes:
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-release-notes') }}
+    steps:
+      - name: Check sdk/UNRELEASED.md was modified
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CHANGED_FILES=$(gh api \
+            "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            --paginate --jq '.[].filename')
+
+          if echo "$CHANGED_FILES" | grep -qx 'sdk/UNRELEASED.md'; then
+            echo "sdk/UNRELEASED.md was modified."
+          else
+            echo "::error::sdk/UNRELEASED.md was not modified by this PR. Please add release notes, or apply the 'no-release-notes' label if none are needed."
+            exit 1
+          fi
