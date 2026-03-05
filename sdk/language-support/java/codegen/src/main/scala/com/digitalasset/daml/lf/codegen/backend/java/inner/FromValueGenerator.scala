@@ -187,8 +187,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
   private[this] object Extractor {
 
     /** Decode the expression passed in as an argument. */
-    final case class FromFreeVar(decodeAccessor: CodeBlock => CodeBlock)
-        extends Extractor
+    final case class FromFreeVar(decodeAccessor: CodeBlock => CodeBlock) extends Extractor
 
     /** Produce a point-free ValueDecoder. */
     final case class Decoder(decoder: CodeBlock) extends Extractor
