@@ -164,7 +164,7 @@ warningFlagParserInlineDamlCustom :: WarningFlags.WarningFlagParser InlineDamlCu
 warningFlagParserInlineDamlCustom = WarningFlags.mkWarningFlagParser
   (\case
     DisableDeprecatedExceptions -> WarningFlags.AsWarning
-    CryptoTextIsAlpha -> WarningFlags.AsWarning)
+    CryptoTextIsAlpha -> WarningFlags.Hidden)
   [ WarningFlags.WarningFlagSpec "deprecated-exceptions" False $ \case
       DisableDeprecatedExceptions -> True
       _ -> False
