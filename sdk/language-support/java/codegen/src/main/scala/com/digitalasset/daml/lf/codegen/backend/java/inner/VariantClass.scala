@@ -126,7 +126,7 @@ private[inner] object VariantClass extends StrictLogging {
     )
     val returnType = ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), variant)
     val builder = initFromValueBuilder(returnType, "valueDecoder")
-    builder.beginControlFlow("return $L ->", "value$")
+    builder.beginControlFlow("return $T.create((value$$, policy$$) ->", classOf[ValueDecoder[_]])
 
     val typeVariablesExtractorParameters =
       FromValueExtractorParameters.generate(
@@ -154,7 +154,7 @@ private[inner] object VariantClass extends StrictLogging {
 
     builder
       .addCode(decodeValueCodeBuilder.build())
-      .endControlFlow("")
+      .endControlFlow(")")
       .build()
   }
 

@@ -123,7 +123,7 @@ final class TemplateClassSpec extends AnyFlatSpec with Matchers {
     initializer should include("value$")
   }
 
-  it should "include value decoder for choice parameter" in {
+  it should "not include value decoder for choice parameter" in {
     val choices = Map(
       ChoiceName.assertFromString("TestChoice") -> TemplateChoice(
         TypePrim(PrimTypeBool, ImmArraySeq.empty),
@@ -139,7 +139,7 @@ final class TemplateClassSpec extends AnyFlatSpec with Matchers {
 
     fields should have size 1
     val initializer = fields.head.initializer.toString
-    initializer should include("valueDecoder()")
+    initializer should not include("valueDecoder()")
   }
 
   it should "include value decoder for return type" in {
