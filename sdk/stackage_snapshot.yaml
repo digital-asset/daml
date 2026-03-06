@@ -3,6 +3,7 @@
 
 resolver: lts-19.33
 packages:
+  - lsp-types-1.4.0.0
   - ghc-lib-parser-ex-8.8.5.8
   - github: digital-asset/hlint
     commit: "99999eee1c220396e1545788ef22ca3c204908a9"
