@@ -109,6 +109,18 @@ stack_snapshot.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
         "uniplate",
         "array",
         "transformers",
+        "Diff",
+        "data-default",
+        "dlist",
+        "hslogger",
+        "mod",
+        "mtl",
+        "network-uri",
+        "rope-utf16-splay",
+        "scientific",
+        "some",
+        "template-haskell",
+        "temporary",
     ]
 ]
 
