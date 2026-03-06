@@ -92,6 +92,7 @@ stack_snapshot.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
         "process",
         "safe",
         "safe-exceptions",
+        "semver",
         "split",
         "tar-conduit",
         "tasty",
@@ -104,6 +105,7 @@ stack_snapshot.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
         "unordered-containers",
         "vector",
         "unix",
+        "yaml",
     ]
 ]
 stack_snapshot.package(
