@@ -7,6 +7,13 @@ bazel_dep(name = "protobuf", version = "33.4")
 bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "rules_go", version = "0.59.0")
 bazel_dep(name = "rules_haskell", version = "0.18")
+archive_override(
+    module_name = "rules_haskell",
+    urls = ["https://github.com/tweag/rules_haskell/releases/download/v0.18/rules_haskell-0.18.tar.gz"],
+    strip_prefix = "rules_haskell-0.18",
+    patches = ["//bazel_tools/MODULE_MIGRATION:rules_haskell_ghc_version.patch"],
+)
+
 bazel_dep(name = "rules_java", version = "9.5.0")
 bazel_dep(name = "rules_pkg", version = "1.2.0")
 
@@ -28,9 +35,11 @@ use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 
 register_toolchains("@bsd_tar_toolchains//:all")
 
-haskell = use_extension("@rules_haskell//extensions:haskell.bzl", "haskell")
-haskell.toolchain(version = "9.0.2")
-use_repo(haskell, "ghc_toolchains")
+# haskell_toolchains = use_extension(
+#     "@rules_haskell//extensions:default.bzl",
+#     "haskell_toolchains",
+# )
+# haskell_toolchains.bindist(version = "9.0.1")
 
 haskell_non_module_deps = use_extension("//bazel_tools/MODULE_MIGRATION:haskell_non_module_deps_extension.bzl", "haskell_non_module_deps_extension")
 use_repo(
@@ -38,6 +47,7 @@ use_repo(
     # "Cabal",
     "lsp-types",
 )
+
 
 stack_snapshot = use_extension(
     "@rules_haskell//extensions:stack_snapshot.bzl",
