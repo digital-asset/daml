@@ -139,7 +139,7 @@ final class TemplateClassSpec extends AnyFlatSpec with Matchers {
 
     fields should have size 1
     val initializer = fields.head.initializer.toString
-    initializer should not include("valueDecoder()")
+    initializer should not include ("valueDecoder()")
   }
 
   it should "include value decoder for return type" in {

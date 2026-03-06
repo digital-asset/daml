@@ -6,17 +6,16 @@ package com.daml;
 import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromList;
 import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromText;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.daml.ledger.api.v2.ValueOuterClass;
 import com.daml.ledger.javaapi.data.DamlCollectors;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Text;
 import com.daml.ledger.javaapi.data.Unit;
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoders;
-import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy;
 import com.google.protobuf.Empty;
 import java.util.Arrays;
 import java.util.Collections;
@@ -25,8 +24,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 import tests.listtest.*;
-import tests.recordtest.*;
 import tests.listtest.listitem.Node;
+import tests.recordtest.*;
 
 @RunWith(JUnitPlatform.class)
 public class ListTest {
@@ -98,10 +97,12 @@ public class ListTest {
             Collections.singletonList(Unit.getInstance()),
             Arrays.asList(new Node<Long>(17L), new Node<Long>(42L)));
 
-    MyListRecord roundTripped = MyListRecord.valueDecoder().decode(fromCodegen.toValue(),
-            UnknownTrailingFieldPolicy.STRICT);
-    MyListRecord roundTrippedWithIgnore = MyListRecord.valueDecoder().decode(fromCodegen.toValue(),
-            UnknownTrailingFieldPolicy.IGNORE);
+    MyListRecord roundTripped =
+        MyListRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    MyListRecord roundTrippedWithIgnore =
+        MyListRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromRecord, fromCodegen);
     assertEquals(fromCodegen.toValue().toProtoRecord(), protoListRecord);
@@ -117,7 +118,8 @@ public class ListTest {
             Collections.singletonList(Unit.getInstance()),
             Arrays.asList(new Node<Long>(17L), new Node<Long>(42L)));
 
-    assertEquals(expected, MyListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        expected, MyListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
   }
 
   @Test
@@ -193,8 +195,8 @@ public class ListTest {
             .build();
 
     DamlRecord record = DamlRecord.fromProto(protoListRecord);
-    MyListOfListRecord fromRecord = MyListOfListRecord.valueDecoder().decode(record,
-            UnknownTrailingFieldPolicy.STRICT);
+    MyListOfListRecord fromRecord =
+        MyListOfListRecord.valueDecoder().decode(record, UnknownTrailingFieldPolicy.STRICT);
 
     MyListOfListRecord fromCodegen =
         new MyListOfListRecord(
@@ -212,8 +214,12 @@ public class ListTest {
             Arrays.asList(
                 Arrays.asList(new Node<>(17L), new Node<>(42L)), Arrays.asList(new Node<>(1337L))));
 
-    assertEquals(expected, MyListOfListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
-    assertEquals(expected, MyListOfListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
+    assertEquals(
+        expected,
+        MyListOfListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        expected,
+        MyListOfListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -246,8 +252,8 @@ public class ListTest {
             .build();
 
     DamlRecord record = DamlRecord.fromProto(protoColorListRecord);
-    ColorListRecord fromRecord = ColorListRecord.valueDecoder().decode(record,
-            UnknownTrailingFieldPolicy.STRICT);
+    ColorListRecord fromRecord =
+        ColorListRecord.valueDecoder().decode(record, UnknownTrailingFieldPolicy.STRICT);
 
     ColorListRecord fromCodegen = new ColorListRecord(Arrays.asList(Color.GREEN, Color.RED));
 
