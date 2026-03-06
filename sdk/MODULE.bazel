@@ -9,9 +9,9 @@ bazel_dep(name = "rules_go", version = "0.59.0")
 bazel_dep(name = "rules_haskell", version = "0.18")
 archive_override(
     module_name = "rules_haskell",
-    urls = ["https://github.com/tweag/rules_haskell/releases/download/v0.18/rules_haskell-0.18.tar.gz"],
-    strip_prefix = "rules_haskell-0.18",
     patches = ["//bazel_tools/MODULE_MIGRATION:rules_haskell_ghc_version.patch"],
+    strip_prefix = "rules_haskell-0.18",
+    urls = ["https://github.com/tweag/rules_haskell/releases/download/v0.18/rules_haskell-0.18.tar.gz"],
 )
 
 bazel_dep(name = "rules_java", version = "9.5.0")
@@ -47,7 +47,6 @@ use_repo(
     # "Cabal",
     "lsp-types",
 )
-
 
 stack_snapshot = use_extension(
     "@rules_haskell//extensions:stack_snapshot.bzl",
@@ -106,11 +105,19 @@ stack_snapshot.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
         "vector",
         "unix",
         "yaml",
+        "regex-tdfa",
+        "uniplate",
+        "array",
+        "transformers",
     ]
 ]
+
 stack_snapshot.package(
     name = "attoparsec",
-    components = ["lib:attoparsec", "lib:attoparsec-internal"],
+    components = [
+        "lib:attoparsec",
+        "lib:attoparsec-internal",
+    ],
     components_dependencies = {"lib:attoparsec": ["lib:attoparsec-internal"]},
 )
 
