@@ -39,6 +39,46 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
+# Extract the file to a temporary name
+genrule(
+    name = "daml-lf-version-json-extract",
+    srcs = ["@maven//:com_daml_daml_lf_language_2_13"],
+    outs = ["daml-lf-versions-generated.json"],
+    cmd = """
+        # Extract the specific file by its name inside the zip
+        $(location @bazel_tools//tools/zip:zipper) x $(SRCS) -d $(RULEDIR) daml-lf-versions.json
+        # Rename it to match our declared output
+        mv $(RULEDIR)/daml-lf-versions.json $@
+    """,
+    tools = ["@bazel_tools//tools/zip:zipper"],
+    visibility = ["//visibility:private"],
+)
+
+# The Golden File Check (runs during `bazel test`)
+sh_test(
+    name = "daml-lf-versions-check",
+    srcs = ["check_versions.sh"],
+    args = [
+        "$(location daml-lf-versions.json)",
+        "$(location daml-lf-versions-generated.json)",
+    ],
+    data = [
+        "daml-lf-versions.json",
+        "daml-lf-versions-generated.json",
+    ],
+)
+
+# The Golden File Updater (runs via `bazel run`)
+sh_binary(
+    name = "update-daml-lf-versions",
+    srcs = ["update_versions.sh"],
+    args = [
+        "$(location daml-lf-versions-generated.json)",
+        "sdk/daml-lf/daml-lf-versions.json", # The path relative to workspace root
+    ],
+    data = ["daml-lf-versions-generated.json"],
+)
+
 genrule(
     name = "feature_data_json",
     outs = ["features.json"],
