@@ -1,5 +1,7 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+#
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
 
 load(
     "//bazel_tools:scala.bzl",
@@ -55,17 +57,10 @@ genrule(
 )
 
 # The Golden File Check (runs during `bazel test`)
-sh_test(
+diff_test(
     name = "daml-lf-versions-check",
-    srcs = ["check_versions.sh"],
-    args = [
-        "$(location daml-lf-versions.json)",
-        "$(location daml-lf-versions-generated.json)",
-    ],
-    data = [
-        "daml-lf-versions.json",
-        "daml-lf-versions-generated.json",
-    ],
+    file1 = "daml-lf-versions.json",
+    file2 = "daml-lf-versions-generated.json",
 )
 
 # The Golden File Updater (runs via `bazel run`)
@@ -74,7 +69,7 @@ sh_binary(
     srcs = ["update_versions.sh"],
     args = [
         "$(location daml-lf-versions-generated.json)",
-        "sdk/daml-lf/daml-lf-versions.json", # The path relative to workspace root
+        "daml-lf/daml-lf-versions.json", # The path relative to workspace root
     ],
     data = ["daml-lf-versions-generated.json"],
 )

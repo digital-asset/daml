@@ -1,9 +1,9 @@
 {
   "explicitVersions" : [
-    "2.1",
-    "2.2",
     "2.3-rc1",
-    "2.dev"
+    "2.dev",
+    "2.3-rc1",
+    "2.2"
   ],
   "namedVersions" : {
     "defaultLfVersion" : "2.2",
@@ -12,6 +12,12 @@
     "stagingLfVersion" : "2.3-rc1"
   },
   "versionLists" : {
+    "compilerOutputLfVersions" : [
+      "2.1",
+      "2.2",
+      "2.3-rc1",
+      "2.dev"
+    ],
     "allLfVersions" : [
       "2.1",
       "2.2",
@@ -22,19 +28,13 @@
       "2.1",
       "2.2"
     ],
-    "compilerLfVersions" : [
-      "2.1",
-      "2.2",
-      "2.3-rc1",
-      "2.dev"
-    ],
     "compilerInputLfVersions" : [
       "2.1",
       "2.2",
       "2.3-rc1",
       "2.dev"
     ],
-    "compilerOutputLfVersions" : [
+    "compilerLfVersions" : [
       "2.1",
       "2.2",
       "2.3-rc1",
