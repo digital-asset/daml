@@ -40,6 +40,11 @@ genrule(
     visibility = ["//visibility:private"],
 )
 
+exports_files(
+    ["daml-lf-versions.json"],
+    visibility = ["//visibility:public"],
+)
+
 # The Golden File Check (runs during `bazel test`)
 diff_test(
     name = "daml-lf-versions-check",
