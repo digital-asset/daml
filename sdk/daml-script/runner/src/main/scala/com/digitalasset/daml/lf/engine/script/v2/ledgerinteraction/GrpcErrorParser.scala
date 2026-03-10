@@ -155,6 +155,10 @@ object GrpcErrorParser {
             )
         }
       case "DAML_AUTHORIZATION_ERROR" => SubmitError.AuthorizationError(message)
+      case "DAML_EFFECTFUL_ROLLBACK_ERROR" =>
+        caseErr { case Seq((ErrorResource.TransactionNodeIds, _)) =>
+          SubmitError.EffectfulRollback(Set()) // FIXME
+        }
       case "CONTRACT_NOT_ACTIVE" =>
         caseErr { case Seq((ErrorResource.TemplateId, tid @ _), (ErrorResource.ContractId, cid)) =>
           SubmitError.ContractNotFound(

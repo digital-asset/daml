@@ -15,6 +15,7 @@ import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
+import com.digitalasset.daml.lf.transaction.NodeId
 
 import scala.util.control.NoStackTrace
 
@@ -111,6 +112,14 @@ object SubmitError {
       SubmitErrorConverters(env).damlScriptError(
         "UnresolvedPackageName",
         ("packageName", ValueText(packageName)),
+      )
+  }
+
+  final case class EffectfulRollback(nids: Set[NodeId]) extends SubmitError {
+    def toDamlSubmitError(env: Env): ExtendedValue =
+      SubmitErrorConverters(env).damlScriptError(
+        "EffectfulRollbackError",
+        ("rollbackErrorNodeIds", ValueList(nids.toSeq.map(x => ValueText(x.toString)).to(FrontStack))),
       )
   }
 
