@@ -25,22 +25,6 @@ load(
 
 _VERSION_GENERATING_PACKAGES = ["//compiler/daml-lf-ast:__pkg__"]
 
-genrule(
-    name = "daml-lf-version-json",
-    srcs = ["@maven//:com_daml_daml_lf_language_2_13"],
-    outs = [
-        "daml-lf-versions.json",
-    ],
-    cmd = """
-        for out in $(OUTS); do
-          $(location @bazel_tools//tools/zip:zipper) x $(SRCS) -d $(RULEDIR) \
-            $${out#$(RULEDIR)/}
-        done
-    """,
-    tools = ["@bazel_tools//tools/zip:zipper"],
-    visibility = ["//visibility:public"],
-)
-
 # Extract the file to a temporary name
 genrule(
     name = "daml-lf-version-json-extract",
