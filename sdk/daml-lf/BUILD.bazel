@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
-
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
@@ -58,7 +57,7 @@ sh_binary(
     srcs = ["update_versions.sh"],
     args = [
         "$(location daml-lf-versions-generated.json)",
-        "daml-lf/daml-lf-versions.json", # The path relative to workspace root
+        "daml-lf/daml-lf-versions.json",  # The path relative to workspace root
     ],
     data = ["daml-lf-versions-generated.json"],
 )
