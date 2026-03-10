@@ -165,7 +165,7 @@ private[inner] object VariantClass extends StrictLogging {
     logger.debug(s"Generating valueDecoder static method for $t")
     val returnType = ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), t)
     val builder = initFromValueBuilder(returnType, "valueDecoder")
-      .beginControlFlow("return $L ->", "value$")
+      .beginControlFlow("return $T.create((value$$, policy$$) ->", classOf[ValueDecoder[_]])
 
     val decodeValueCodeBuilder = CodeBlock
       .builder()
@@ -175,12 +175,12 @@ private[inner] object VariantClass extends StrictLogging {
       decodeValueCodeBuilder,
       constructors,
       t,
-      valueDecoder => CodeBlock.of("return $L().decode(variant$$)", valueDecoder),
+      valueDecoder => CodeBlock.of("return $L().decode(variant$$, policy$$)", valueDecoder),
     )
 
     builder
       .addCode(decodeValueCodeBuilder.build())
-      .endControlFlow("")
+      .endControlFlow(")")
       .build()
   }
 
