@@ -6,6 +6,7 @@ package com.daml;
 import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromBool;
 import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromText;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import com.daml.ledger.api.v2.ValueOuterClass;
@@ -96,6 +97,42 @@ public class RecordTest {
   }
 
   @Test
+  void decodeRecordWithTrailingOptionalFields() {
+    LocalDate localDate = LocalDate.ofEpochDay(dateValue);
+    Instant instant = Instant.ofEpochMilli(timestampMicrosValue);
+    MyRecord expected =
+        new MyRecord(
+            int64Value,
+            decimalValue,
+            textValue,
+            boolValue,
+            partyValue,
+            localDate,
+            instant,
+            boolValue,
+            listValue,
+            nestedListValue,
+            unitValue,
+            nestedRecordValue,
+            nestedVariantValue);
+
+    DamlRecord valueWithTrailing = expected.toValue();
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(valueWithTrailing.getFields());
+    fieldsWithTrailing.add(new DamlRecord.Field("extraField1", DamlOptional.of(new Int64(99L))));
+    fieldsWithTrailing.add(new DamlRecord.Field("extraField2", DamlOptional.of(new Text("extra"))));
+    DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> MyRecord.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
+
+    MyRecord fromIgnore =
+        MyRecord.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
+    assertEquals(expected, fromIgnore);
+  }
+
+  @Test
   void objectMethodsWork() {
     LocalDate localDate = LocalDate.ofEpochDay(dateValue);
     Instant instant = Instant.ofEpochMilli(timestampMicrosValue);
@@ -152,6 +189,38 @@ public class RecordTest {
             nestedVariantValue);
 
     assertEquals(expected, MyRecord.fromJson(expected.toJson()));
+    assertEquals(
+        expected, MyRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        expected, MyRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
+  }
+
+  @Test
+  void fromJsonMyRecordWithExtraFieldStrict() throws JsonLfDecoder.Error {
+    MyRecord expected =
+        new MyRecord(
+            int64Value,
+            decimalValue,
+            textValue,
+            boolValue,
+            partyValue,
+            LocalDate.ofEpochDay(dateValue),
+            Instant.ofEpochMilli(timestampMicrosValue),
+            boolValue,
+            listValue,
+            nestedListValue,
+            unitValue,
+            nestedRecordValue,
+            nestedVariantValue);
+
+    String json = expected.toJson();
+    String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
+
+    assertThrows(
+        JsonLfDecoder.Error.class,
+        () -> MyRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
+
+    assertEquals(expected, MyRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -259,6 +328,42 @@ public class RecordTest {
     var actual = OuterRecord.fromJson(json, JsonLfDecoders.text, JsonLfDecoders.bool);
 
     assertEquals(expected, actual);
+    assertEquals(
+        expected,
+        OuterRecord.fromJson(
+            json, JsonLfDecoders.text, JsonLfDecoders.bool, UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        expected,
+        OuterRecord.fromJson(
+            json, JsonLfDecoders.text, JsonLfDecoders.bool, UnknownTrailingFieldPolicy.IGNORE));
+  }
+
+  @Test
+  void fromJsonOuterRecordWithExtraFieldStrict() throws JsonLfDecoder.Error {
+    OuterRecord<String, Boolean> expected =
+        new OuterRecord<>(
+            new ParametricRecord<String, Boolean>("Text1", "Text2", true, 42L),
+            new ParametricRecord<Long, String>(42L, 69L, "Text2", 69L));
+
+    String json = expected.toJson(JsonLfEncoders::text, JsonLfEncoders::bool);
+    String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
+
+    assertThrows(
+        JsonLfDecoder.Error.class,
+        () ->
+            OuterRecord.fromJson(
+                jsonWithExtra,
+                JsonLfDecoders.text,
+                JsonLfDecoders.bool,
+                UnknownTrailingFieldPolicy.STRICT));
+
+    assertEquals(
+        expected,
+        OuterRecord.fromJson(
+            jsonWithExtra,
+            JsonLfDecoders.text,
+            JsonLfDecoders.bool,
+            UnknownTrailingFieldPolicy.IGNORE));
   }
 
   Long int64Value = 1L;

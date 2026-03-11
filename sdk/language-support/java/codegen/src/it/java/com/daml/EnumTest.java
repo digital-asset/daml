@@ -5,6 +5,7 @@ package com.daml;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
@@ -19,7 +20,13 @@ public class EnumTest {
   void roundtripFooValue() {
     FooBar expected = FooBar.FOO;
     FooBar actual = FooBar.valueDecoder().decode(expected.toValue());
+    FooBar roundTripped =
+        FooBar.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    FooBar roundTrippedWithIgnore =
+        FooBar.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
     assertEquals(expected, actual);
+    assertEquals(expected, roundTripped);
+    assertEquals(expected, roundTrippedWithIgnore);
   }
 
   @Test
@@ -33,7 +40,13 @@ public class EnumTest {
   void roundtripAllUpperCaseValue() {
     ALLUPPERCASE expected = ALLUPPERCASE.ALLUPPERCASE;
     ALLUPPERCASE actual = ALLUPPERCASE.valueDecoder().decode(expected.toValue());
+    ALLUPPERCASE roundTripped =
+        ALLUPPERCASE.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    ALLUPPERCASE roundTrippedWithIgnore =
+        ALLUPPERCASE.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
     assertEquals(expected, actual);
+    assertEquals(expected, roundTripped);
+    assertEquals(expected, roundTrippedWithIgnore);
   }
 
   @Test

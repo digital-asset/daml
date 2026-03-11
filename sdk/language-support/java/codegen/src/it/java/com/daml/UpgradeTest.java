@@ -6,6 +6,8 @@ package com.daml;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy;
+import java.util.ArrayList;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
@@ -25,7 +27,16 @@ public class UpgradeTest {
 
     NoOptional expected = new NoOptional("abc", "def");
 
+    NoOptional roundTripped =
+        NoOptional.valueDecoder()
+            .decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    NoOptional roundTrippedWithIgnore =
+        NoOptional.valueDecoder()
+            .decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
     assertEquals(actual, expected);
+    assertEquals(expected, roundTripped);
+    assertEquals(expected, roundTrippedWithIgnore);
   }
 
   @Test
@@ -40,7 +51,16 @@ public class UpgradeTest {
 
     NoOptional expected = new NoOptional("abc", "def");
 
+    NoOptional roundTripped =
+        NoOptional.valueDecoder()
+            .decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    NoOptional roundTrippedWithIgnore =
+        NoOptional.valueDecoder()
+            .decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
     assertEquals(actual, expected);
+    assertEquals(expected, roundTripped);
+    assertEquals(expected, roundTrippedWithIgnore);
   }
 
   @Test
@@ -51,6 +71,9 @@ public class UpgradeTest {
             new DamlRecord.Field(new Text("def")),
             new DamlRecord.Field(DamlOptional.of(Unit.getInstance())));
     assertThrows(IllegalArgumentException.class, () -> NoOptional.valueDecoder().decode(record));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> NoOptional.valueDecoder().decode(record, UnknownTrailingFieldPolicy.STRICT));
   }
 
   @Test
@@ -61,6 +84,9 @@ public class UpgradeTest {
             new DamlRecord.Field(new Text("def")),
             new DamlRecord.Field(Unit.getInstance()));
     assertThrows(IllegalArgumentException.class, () -> NoOptional.valueDecoder().decode(record));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> NoOptional.valueDecoder().decode(record, UnknownTrailingFieldPolicy.STRICT));
   }
 
   @Test
@@ -70,7 +96,17 @@ public class UpgradeTest {
             new DamlRecord.Field(new Text("abc")), new DamlRecord.Field(new Text("def")));
     OptionalAtEnd actual = OptionalAtEnd.valueDecoder().decode(record);
     OptionalAtEnd expected = new OptionalAtEnd("abc", "def", Optional.empty(), Optional.empty());
+
+    OptionalAtEnd roundTripped =
+        OptionalAtEnd.valueDecoder()
+            .decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    OptionalAtEnd roundTrippedWithIgnore =
+        OptionalAtEnd.valueDecoder()
+            .decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
     assertEquals(actual, expected);
+    assertEquals(expected, roundTripped);
+    assertEquals(expected, roundTrippedWithIgnore);
   }
 
   @Test
@@ -82,13 +118,66 @@ public class UpgradeTest {
             new DamlRecord.Field(DamlOptional.of(new Text("ghi"))));
     OptionalAtEnd actual = OptionalAtEnd.valueDecoder().decode(record);
     OptionalAtEnd expected = new OptionalAtEnd("abc", "def", Optional.of("ghi"), Optional.empty());
+
+    OptionalAtEnd roundTripped =
+        OptionalAtEnd.valueDecoder()
+            .decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    OptionalAtEnd roundTrippedWithIgnore =
+        OptionalAtEnd.valueDecoder()
+            .decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
     assertEquals(actual, expected);
+    assertEquals(expected, roundTripped);
+    assertEquals(expected, roundTrippedWithIgnore);
+  }
+
+  @Test
+  void decodeOptionalAtEndWithTrailingOptionalFields() {
+    OptionalAtEnd expected = new OptionalAtEnd("abc", "def", Optional.of("ghi"), Optional.empty());
+
+    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
+    DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            OptionalAtEnd.valueDecoder()
+                .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
+
+    OptionalAtEnd fromIgnore =
+        OptionalAtEnd.valueDecoder()
+            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
+    assertEquals(expected, fromIgnore);
+  }
+
+  @Test
+  void decodeNoOptionalWithTrailingOptionalFields() {
+    NoOptional expected = new NoOptional("abc", "def");
+
+    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
+    DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            NoOptional.valueDecoder()
+                .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
+
+    NoOptional fromIgnore =
+        NoOptional.valueDecoder()
+            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
+    assertEquals(expected, fromIgnore);
   }
 
   @Test
   void upgradeNonOptionalFields() {
     DamlRecord record = new DamlRecord(new DamlRecord.Field(new Text("abc")));
     assertThrows(IllegalArgumentException.class, () -> NoOptional.valueDecoder().decode(record));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> NoOptional.valueDecoder().decode(record, UnknownTrailingFieldPolicy.STRICT));
   }
 
   @Test
@@ -98,7 +187,16 @@ public class UpgradeTest {
 
     MyVariant expected = new MyVariant1("abc");
 
+    MyVariant roundTripped =
+        MyVariant.valueDecoder()
+            .decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    MyVariant roundTrippedWithIgnore =
+        MyVariant.valueDecoder()
+            .decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
     assertEquals(actual, expected);
+    assertEquals(expected, roundTripped);
+    assertEquals(expected, roundTrippedWithIgnore);
   }
 
   @Test
@@ -114,6 +212,17 @@ public class UpgradeTest {
                 "Found unknown constructor MyVariant3 for variant tests.upgradetest.MyVariant,"
                     + " expected one of [MyVariant1, MyVariant2]. This could be a failed variant"
                     + " downgrade."));
+    Exception exceptionStrict =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> MyVariant.valueDecoder().decode(variant, UnknownTrailingFieldPolicy.STRICT));
+    assertTrue(
+        exceptionStrict
+            .getMessage()
+            .contains(
+                "Found unknown constructor MyVariant3 for variant tests.upgradetest.MyVariant,"
+                    + " expected one of [MyVariant1, MyVariant2]. This could be a failed variant"
+                    + " downgrade."));
   }
 
   @Test
@@ -123,7 +232,14 @@ public class UpgradeTest {
 
     MyEnum expected = MyEnum.MYENUM1;
 
+    MyEnum roundTripped =
+        MyEnum.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    MyEnum roundTrippedWithIgnore =
+        MyEnum.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
     assertEquals(actual, expected);
+    assertEquals(expected, roundTripped);
+    assertEquals(expected, roundTrippedWithIgnore);
   }
 
   @Test
@@ -134,6 +250,16 @@ public class UpgradeTest {
     System.out.println(exception);
     assertTrue(
         exception
+            .getMessage()
+            .contains(
+                "Found unknown constructor MyEnum3 for enum tests.upgradetest.MyEnum, expected one"
+                    + " of [MyEnum1, MyEnum2]. This could be a failed enum downgrade."));
+    Exception exceptionStrict =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> MyEnum.valueDecoder().decode(damlenum, UnknownTrailingFieldPolicy.STRICT));
+    assertTrue(
+        exceptionStrict
             .getMessage()
             .contains(
                 "Found unknown constructor MyEnum3 for enum tests.upgradetest.MyEnum, expected one"

@@ -5,11 +5,16 @@ package com.daml;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertThrows;
 
 import com.daml.ledger.api.v2.ValueOuterClass;
+import com.daml.ledger.javaapi.data.DamlOptional;
 import com.daml.ledger.javaapi.data.DamlRecord;
+import com.daml.ledger.javaapi.data.Text;
 import com.daml.ledger.javaapi.data.codegen.ContractId;
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
+import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
@@ -44,11 +49,41 @@ public class ParametrizedContractIdTest {
         new FixedContractId(new ParametrizedContractId<>(new Foo.ContractId("SomeID")));
     FixedContractId fromRoundTrip =
         FixedContractId.valueDecoder().decode(fromConstructor.toValue());
+    FixedContractId roundTripped =
+        FixedContractId.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    FixedContractId roundTrippedWithIgnore =
+        FixedContractId.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataRecord);
     assertEquals(fromConstructor.toValue().toProtoRecord(), protoRecord);
     assertEquals(fromRoundTrip, fromConstructor);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
+  }
+
+  @Test
+  void decodeFixedContractIdWithTrailingOptionalFields() {
+    FixedContractId expected =
+        new FixedContractId(new ParametrizedContractId<>(new Foo.ContractId("SomeID")));
+
+    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    fieldsWithTrailing.add(
+        new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
+    DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            FixedContractId.valueDecoder()
+                .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
+
+    FixedContractId fromIgnore =
+        FixedContractId.valueDecoder()
+            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
+    assertEquals(expected, fromIgnore);
   }
 
   @Test
@@ -60,6 +95,32 @@ public class ParametrizedContractIdTest {
 
     assertEquals(fixed, FixedContractId.fromJson(fixed.toJson()));
     assertEquals(parameterized, FixedContractId.fromJson(parameterized.toJson()));
+    assertEquals(
+        fixed, FixedContractId.fromJson(fixed.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        fixed, FixedContractId.fromJson(fixed.toJson(), UnknownTrailingFieldPolicy.IGNORE));
+    assertEquals(
+        parameterized,
+        FixedContractId.fromJson(parameterized.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        parameterized,
+        FixedContractId.fromJson(parameterized.toJson(), UnknownTrailingFieldPolicy.IGNORE));
+  }
+
+  @Test
+  void fromJsonFixedContractIdWithExtraFieldStrict() throws JsonLfDecoder.Error {
+    FixedContractId expected =
+        new FixedContractId(new ParametrizedContractId<>(new Foo.ContractId("SomeID")));
+
+    String json = expected.toJson();
+    String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
+
+    assertThrows(
+        JsonLfDecoder.Error.class,
+        () -> FixedContractId.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
+
+    assertEquals(
+        expected, FixedContractId.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
