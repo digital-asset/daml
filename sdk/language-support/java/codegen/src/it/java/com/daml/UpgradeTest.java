@@ -28,11 +28,9 @@ public class UpgradeTest {
     NoOptional expected = new NoOptional("abc", "def");
 
     NoOptional roundTripped =
-        NoOptional.valueDecoder()
-            .decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
+        NoOptional.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
     NoOptional roundTrippedWithIgnore =
-        NoOptional.valueDecoder()
-            .decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+        NoOptional.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(actual, expected);
     assertEquals(expected, roundTripped);
@@ -52,11 +50,9 @@ public class UpgradeTest {
     NoOptional expected = new NoOptional("abc", "def");
 
     NoOptional roundTripped =
-        NoOptional.valueDecoder()
-            .decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
+        NoOptional.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
     NoOptional roundTrippedWithIgnore =
-        NoOptional.valueDecoder()
-            .decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+        NoOptional.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(actual, expected);
     assertEquals(expected, roundTripped);
@@ -98,11 +94,9 @@ public class UpgradeTest {
     OptionalAtEnd expected = new OptionalAtEnd("abc", "def", Optional.empty(), Optional.empty());
 
     OptionalAtEnd roundTripped =
-        OptionalAtEnd.valueDecoder()
-            .decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
+        OptionalAtEnd.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
     OptionalAtEnd roundTrippedWithIgnore =
-        OptionalAtEnd.valueDecoder()
-            .decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+        OptionalAtEnd.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(actual, expected);
     assertEquals(expected, roundTripped);
@@ -120,11 +114,9 @@ public class UpgradeTest {
     OptionalAtEnd expected = new OptionalAtEnd("abc", "def", Optional.of("ghi"), Optional.empty());
 
     OptionalAtEnd roundTripped =
-        OptionalAtEnd.valueDecoder()
-            .decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
+        OptionalAtEnd.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
     OptionalAtEnd roundTrippedWithIgnore =
-        OptionalAtEnd.valueDecoder()
-            .decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+        OptionalAtEnd.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(actual, expected);
     assertEquals(expected, roundTripped);
@@ -135,7 +127,8 @@ public class UpgradeTest {
   void decodeOptionalAtEndWithTrailingOptionalFields() {
     OptionalAtEnd expected = new OptionalAtEnd("abc", "def", Optional.of("ghi"), Optional.empty());
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
@@ -146,8 +139,7 @@ public class UpgradeTest {
                 .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
 
     OptionalAtEnd fromIgnore =
-        OptionalAtEnd.valueDecoder()
-            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
+        OptionalAtEnd.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
     assertEquals(expected, fromIgnore);
   }
 
@@ -155,7 +147,8 @@ public class UpgradeTest {
   void decodeNoOptionalWithTrailingOptionalFields() {
     NoOptional expected = new NoOptional("abc", "def");
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
@@ -166,8 +159,7 @@ public class UpgradeTest {
                 .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
 
     NoOptional fromIgnore =
-        NoOptional.valueDecoder()
-            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
+        NoOptional.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
     assertEquals(expected, fromIgnore);
   }
 
@@ -188,11 +180,9 @@ public class UpgradeTest {
     MyVariant expected = new MyVariant1("abc");
 
     MyVariant roundTripped =
-        MyVariant.valueDecoder()
-            .decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
+        MyVariant.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.STRICT);
     MyVariant roundTrippedWithIgnore =
-        MyVariant.valueDecoder()
-            .decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+        MyVariant.valueDecoder().decode(expected.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(actual, expected);
     assertEquals(expected, roundTripped);

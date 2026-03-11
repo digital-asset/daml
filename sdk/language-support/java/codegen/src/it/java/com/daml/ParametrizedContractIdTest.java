@@ -69,9 +69,9 @@ public class ParametrizedContractIdTest {
     FixedContractId expected =
         new FixedContractId(new ParametrizedContractId<>(new Foo.ContractId("SomeID")));
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
-    fieldsWithTrailing.add(
-        new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
+    fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
     assertThrows(

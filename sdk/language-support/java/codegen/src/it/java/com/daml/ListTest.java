@@ -121,7 +121,8 @@ public class ListTest {
             Collections.singletonList(Unit.getInstance()),
             Arrays.asList(new Node<Long>(17L), new Node<Long>(42L)));
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
@@ -132,8 +133,7 @@ public class ListTest {
                 .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
 
     MyListRecord fromIgnore =
-        MyListRecord.valueDecoder()
-            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
+        MyListRecord.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
     assertEquals(expected, fromIgnore);
   }
 
@@ -166,10 +166,10 @@ public class ListTest {
         JsonLfDecoder.Error.class,
         () -> MyListRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
 
-    assertEquals(
-        expected, MyListRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
-  } {
+    assertEquals(expected, MyListRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
+  }
 
+  {
     ValueOuterClass.Record protoListRecord =
         ValueOuterClass.Record.newBuilder()
             .addAllFields(
@@ -291,8 +291,7 @@ public class ListTest {
         () -> MyListOfListRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
 
     assertEquals(
-        expected,
-        MyListOfListRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
+        expected, MyListOfListRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -302,7 +301,8 @@ public class ListTest {
             Arrays.asList(
                 Arrays.asList(new Node<>(17L), new Node<>(42L)), Arrays.asList(new Node<>(1337L))));
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
@@ -372,11 +372,9 @@ public class ListTest {
 
     assertEquals(expected, ColorListRecord.fromJson(expected.toJson()));
     assertEquals(
-        expected,
-        ColorListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+        expected, ColorListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
     assertEquals(
-        expected,
-        ColorListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
+        expected, ColorListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -398,7 +396,8 @@ public class ListTest {
   void decodeColorListRecordWithTrailingOptionalFields() {
     ColorListRecord expected = new ColorListRecord(Arrays.asList(Color.GREEN, Color.RED));
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 

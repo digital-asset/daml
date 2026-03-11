@@ -94,19 +94,18 @@ public class TextMapTest {
   public void decodeMapRecordWithTrailingOptionalFields() {
     MapRecord expected = new MapRecord(Map.of("key1", "value1", "key2", "value2"));
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
     assertThrows(
         IllegalArgumentException.class,
         () ->
-            MapRecord.valueDecoder()
-                .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
+            MapRecord.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
 
     MapRecord fromIgnore =
-        MapRecord.valueDecoder()
-            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
+        MapRecord.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
     assertEquals(expected, fromIgnore);
   }
 
@@ -132,8 +131,9 @@ public class TextMapTest {
         () -> MapRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
 
     assertEquals(expected, MapRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
-  } {
+  }
 
+  {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
@@ -319,11 +319,9 @@ public class TextMapTest {
 
     assertEquals(expected, MapItemMapRecord.fromJson(expected.toJson()));
     assertEquals(
-        expected,
-        MapItemMapRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+        expected, MapItemMapRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
     assertEquals(
-        expected,
-        MapItemMapRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
+        expected, MapItemMapRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -332,8 +330,7 @@ public class TextMapTest {
         new MapItemMapRecord(
             Map.of(
                 "outerkey1", Map.of("key1", new MapItem<Long>(1L), "key2", new MapItem<Long>(2L)),
-                "outerkey2",
-                    Map.of("key1", new MapItem<Long>(3L), "key2", new MapItem<Long>(4L))));
+                "outerkey2", Map.of("key1", new MapItem<Long>(3L), "key2", new MapItem<Long>(4L))));
 
     String json = expected.toJson();
     String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
@@ -354,7 +351,8 @@ public class TextMapTest {
                 "outerkey1", Map.of("key1", new MapItem<Long>(1L)),
                 "outerkey2", Map.of("key1", new MapItem<Long>(3L))));
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
@@ -368,8 +366,9 @@ public class TextMapTest {
         MapItemMapRecord.valueDecoder()
             .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
     assertEquals(expected, fromIgnore);
-  } {
+  }
 
+  {
     ValueOuterClass.Variant protoVariant =
         ValueOuterClass.Variant.newBuilder()
             .setConstructor("TextVariant")
@@ -478,8 +477,8 @@ public class TextMapTest {
                 .decode(variantWithTrailing, UnknownTrailingFieldPolicy.STRICT));
 
     assertThrows(
-            IllegalArgumentException.class,
-            () ->
+        IllegalArgumentException.class,
+        () ->
             RecordVariant.valueDecoder(fromInt64)
                 .decode(variantWithTrailing, UnknownTrailingFieldPolicy.IGNORE));
   }
@@ -582,11 +581,9 @@ public class TextMapTest {
 
     assertEquals(expected, TemplateWithMap.fromJson(expected.toJson()));
     assertEquals(
-        expected,
-        TemplateWithMap.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+        expected, TemplateWithMap.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
     assertEquals(
-        expected,
-        TemplateWithMap.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
+        expected, TemplateWithMap.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -608,7 +605,8 @@ public class TextMapTest {
   void decodeTemplateWithMapWithTrailingOptionalFields() {
     TemplateWithMap expected = new TemplateWithMap("party1", Collections.singletonMap("key", 42L));
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 

@@ -55,11 +55,9 @@ public class NumericTest {
         record.toValue().getFieldsMap().get("numeric37").asNumeric().isPresent());
 
     NumericBox roundTripped =
-        NumericBox.valueDecoder()
-            .decode(record.toValue(), UnknownTrailingFieldPolicy.STRICT);
+        NumericBox.valueDecoder().decode(record.toValue(), UnknownTrailingFieldPolicy.STRICT);
     NumericBox roundTrippedWithIgnore =
-        NumericBox.valueDecoder()
-            .decode(record.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+        NumericBox.valueDecoder().decode(record.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(record, roundTripped);
     assertEquals(record, roundTrippedWithIgnore);
@@ -69,8 +67,10 @@ public class NumericTest {
   void decodeNumericBoxWithTrailingOptionalFields() {
     NumericBox expected = numericBox();
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
-    fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Numeric(java.math.BigDecimal.ONE))));
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
+    fieldsWithTrailing.add(
+        new DamlRecord.Field("extraField", DamlOptional.of(new Numeric(java.math.BigDecimal.ONE))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
     assertThrows(
@@ -80,8 +80,7 @@ public class NumericTest {
                 .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
 
     NumericBox fromIgnore =
-        NumericBox.valueDecoder()
-            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
+        NumericBox.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
     assertEquals(expected, fromIgnore);
   }
 
@@ -95,11 +94,9 @@ public class NumericTest {
     assertEquals(record1.hashCode(), record2.hashCode());
 
     NumericBox roundTripped =
-        NumericBox.valueDecoder()
-            .decode(record1.toValue(), UnknownTrailingFieldPolicy.STRICT);
+        NumericBox.valueDecoder().decode(record1.toValue(), UnknownTrailingFieldPolicy.STRICT);
     NumericBox roundTrippedWithIgnore =
-        NumericBox.valueDecoder()
-            .decode(record1.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+        NumericBox.valueDecoder().decode(record1.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(record1, roundTripped);
     assertEquals(record1, roundTrippedWithIgnore);

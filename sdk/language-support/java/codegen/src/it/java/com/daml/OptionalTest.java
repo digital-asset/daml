@@ -55,7 +55,8 @@ public class OptionalTest {
     MyOptionalRecord expected =
         new MyOptionalRecord(Optional.of(42L), Optional.of(Unit.getInstance()));
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Int64(99L))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
@@ -78,11 +79,9 @@ public class OptionalTest {
 
     assertEquals(expected, MyOptionalRecord.fromJson(expected.toJson()));
     assertEquals(
-        expected,
-        MyOptionalRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+        expected, MyOptionalRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
     assertEquals(
-        expected,
-        MyOptionalRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
+        expected, MyOptionalRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -99,7 +98,9 @@ public class OptionalTest {
 
     assertEquals(
         expected, MyOptionalRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
-  } {
+  }
+
+  {
     DamlRecord record =
         new DamlRecord(
             new DamlRecord.Field("intOpt", DamlOptional.of(new Int64(42))),
@@ -199,8 +200,7 @@ public class OptionalTest {
         () -> NestedOptionalRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
 
     assertEquals(
-        expected,
-        NestedOptionalRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
+        expected, NestedOptionalRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -208,7 +208,8 @@ public class OptionalTest {
     NestedOptionalRecord expected =
         new NestedOptionalRecord(Optional.of(Optional.of(Optional.of(42L))));
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Int64(99L))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
@@ -222,7 +223,9 @@ public class OptionalTest {
         NestedOptionalRecord.valueDecoder()
             .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
     assertEquals(expected, fromIgnore);
-  } {
+  }
+
+  {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
@@ -284,15 +287,15 @@ public class OptionalTest {
         () -> MyOptionalListRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
 
     assertEquals(
-        expected,
-        MyOptionalListRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
+        expected, MyOptionalListRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
   void decodeMyOptionalListRecordWithTrailingOptionalFields() {
     MyOptionalListRecord expected = new MyOptionalListRecord(Optional.of(Arrays.asList(42L)));
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Int64(99L))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
@@ -306,7 +309,9 @@ public class OptionalTest {
         MyOptionalListRecord.valueDecoder()
             .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
     assertEquals(expected, fromIgnore);
-  } {
+  }
+
+  {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
@@ -359,17 +364,14 @@ public class OptionalTest {
 
   @Test
   void fromJsonMyListOfOptionalsRecordWithExtraFieldStrict() throws JsonLfDecoder.Error {
-    MyListOfOptionalsRecord expected =
-        new MyListOfOptionalsRecord(Arrays.asList(Optional.of(42L)));
+    MyListOfOptionalsRecord expected = new MyListOfOptionalsRecord(Arrays.asList(Optional.of(42L)));
 
     String json = expected.toJson();
     String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
 
     assertThrows(
         JsonLfDecoder.Error.class,
-        () ->
-            MyListOfOptionalsRecord.fromJson(
-                jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
+        () -> MyListOfOptionalsRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
 
     assertEquals(
         expected,
@@ -378,10 +380,10 @@ public class OptionalTest {
 
   @Test
   void decodeMyListOfOptionalsRecordWithTrailingOptionalFields() {
-    MyListOfOptionalsRecord expected =
-        new MyListOfOptionalsRecord(Arrays.asList(Optional.of(42L)));
+    MyListOfOptionalsRecord expected = new MyListOfOptionalsRecord(Arrays.asList(Optional.of(42L)));
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Int64(99L))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
@@ -395,7 +397,9 @@ public class OptionalTest {
         MyListOfOptionalsRecord.valueDecoder()
             .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
     assertEquals(expected, fromIgnore);
-  } {
+  }
+
+  {
     Variant variant = new Variant("OptionalParametricVariant", DamlOptional.of(new Int64(42)));
 
     OptionalParametricVariant<Long> fromValue =
@@ -433,7 +437,8 @@ public class OptionalTest {
     OptionalPrimVariant<?> fromConstructor = new OptionalPrimVariant(Optional.of(42L));
 
     OptionalPrimVariant<?> fromRoundTrip =
-        (OptionalPrimVariant<?>) OptionalPrimVariant.valueDecoder(fromInt64).decode(fromConstructor.toValue());
+        (OptionalPrimVariant<?>)
+            OptionalPrimVariant.valueDecoder(fromInt64).decode(fromConstructor.toValue());
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), variant);

@@ -117,15 +117,15 @@ public class RecordTest {
             nestedVariantValue);
 
     DamlRecord valueWithTrailing = expected.toValue();
-    ArrayList<DamlRecord.Field> fieldsWithTrailing =
-        new ArrayList<>(valueWithTrailing.getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(valueWithTrailing.getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField1", DamlOptional.of(new Int64(99L))));
     fieldsWithTrailing.add(new DamlRecord.Field("extraField2", DamlOptional.of(new Text("extra"))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
     assertThrows(
         IllegalArgumentException.class,
-        () -> MyRecord.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
+        () ->
+            MyRecord.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
 
     MyRecord fromIgnore =
         MyRecord.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
@@ -189,10 +189,8 @@ public class RecordTest {
             nestedVariantValue);
 
     assertEquals(expected, MyRecord.fromJson(expected.toJson()));
-    assertEquals(
-        expected, MyRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
-    assertEquals(
-        expected, MyRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
+    assertEquals(expected, MyRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(expected, MyRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test

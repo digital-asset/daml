@@ -76,19 +76,18 @@ public class GenMapTest {
     javaMap.put(Optional.of(1L), "Some(1)");
     MapRecord expected = new MapRecord(javaMap);
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Int64(99L))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
     assertThrows(
         IllegalArgumentException.class,
         () ->
-            MapRecord.valueDecoder()
-                .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
+            MapRecord.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
 
     MapRecord fromIgnore =
-        MapRecord.valueDecoder()
-            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
+        MapRecord.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
     assertEquals(expected, fromIgnore);
   }
 
@@ -157,7 +156,8 @@ public class GenMapTest {
     javaMap.put(innerMap, reverseMap(innerMap));
     MapMapRecord expected = new MapMapRecord(javaMap);
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Int64(99L))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
@@ -168,8 +168,7 @@ public class GenMapTest {
                 .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
 
     MapMapRecord fromIgnore =
-        MapMapRecord.valueDecoder()
-            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
+        MapMapRecord.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
     assertEquals(expected, fromIgnore);
   }
 
@@ -309,10 +308,10 @@ public class GenMapTest {
 
   @Test
   public void decodeTemplateWithMapWithTrailingOptionalFields() {
-    TemplateWithMap expected =
-        new TemplateWithMap("party1", Collections.singletonMap(42L, "42"));
+    TemplateWithMap expected = new TemplateWithMap("party1", Collections.singletonMap(42L, "42"));
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(expected.toValue().getFields());
+    ArrayList<DamlRecord.Field> fieldsWithTrailing =
+        new ArrayList<>(expected.toValue().getFields());
     fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
     DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
 
