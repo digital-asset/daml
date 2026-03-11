@@ -119,7 +119,10 @@ object SubmitError {
     def toDamlSubmitError(env: Env): ExtendedValue =
       SubmitErrorConverters(env).damlScriptError(
         "EffectfulRollbackError",
-        ("rollbackErrorNodeIds", ValueList(nids.toSeq.map(x => ValueText(x.toString)).to(FrontStack))),
+        (
+          "rollbackErrorNodeIds",
+          ValueList(nids.toSeq.map(x => ValueText(x.toString)).to(FrontStack)),
+        ),
       )
   }
 
