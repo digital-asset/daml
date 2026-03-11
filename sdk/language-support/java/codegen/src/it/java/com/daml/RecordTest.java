@@ -87,11 +87,9 @@ public class RecordTest {
         myRecord.toValue().getFieldsMap().get("void").asBool().isPresent());
 
     MyRecord roundTripped =
-        MyRecord.valueDecoder()
-            .decode(myRecord.toValue(), UnknownTrailingFieldPolicy.STRICT);
+        MyRecord.valueDecoder().decode(myRecord.toValue(), UnknownTrailingFieldPolicy.STRICT);
     MyRecord roundTrippedWithIgnore =
-        MyRecord.valueDecoder()
-            .decode(myRecord.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+        MyRecord.valueDecoder().decode(myRecord.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(myRecord, roundTripped);
     assertEquals(myRecord, roundTrippedWithIgnore);
@@ -235,10 +233,12 @@ public class RecordTest {
             .decode(fromConstructor.toValue(Text::new, Bool::of));
     OuterRecord<String, Boolean> roundTripped =
         OuterRecord.valueDecoder(fromText, fromBool)
-            .decode(fromConstructor.toValue(Text::new, Bool::of), UnknownTrailingFieldPolicy.STRICT);
+            .decode(
+                fromConstructor.toValue(Text::new, Bool::of), UnknownTrailingFieldPolicy.STRICT);
     OuterRecord<String, Boolean> roundTrippedWithIgnore =
         OuterRecord.valueDecoder(fromText, fromBool)
-            .decode(fromConstructor.toValue(Text::new, Bool::of), UnknownTrailingFieldPolicy.IGNORE);
+            .decode(
+                fromConstructor.toValue(Text::new, Bool::of), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(Text::new, Bool::of), dataRecord);
