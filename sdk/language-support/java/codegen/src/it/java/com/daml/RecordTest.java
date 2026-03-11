@@ -10,6 +10,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.daml.ledger.api.v2.ValueOuterClass;
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoders;
@@ -84,6 +85,16 @@ public class RecordTest {
     assertTrue(
         "to value uses original Daml-LF names for fields",
         myRecord.toValue().getFieldsMap().get("void").asBool().isPresent());
+
+    MyRecord roundTripped =
+        MyRecord.valueDecoder()
+            .decode(myRecord.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    MyRecord roundTrippedWithIgnore =
+        MyRecord.valueDecoder()
+            .decode(myRecord.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
+    assertEquals(myRecord, roundTripped);
+    assertEquals(myRecord, roundTrippedWithIgnore);
   }
 
   @Test
@@ -222,11 +233,19 @@ public class RecordTest {
     OuterRecord<String, Boolean> fromRoundTrip =
         OuterRecord.valueDecoder(fromText, fromBool)
             .decode(fromConstructor.toValue(Text::new, Bool::of));
+    OuterRecord<String, Boolean> roundTripped =
+        OuterRecord.valueDecoder(fromText, fromBool)
+            .decode(fromConstructor.toValue(Text::new, Bool::of), UnknownTrailingFieldPolicy.STRICT);
+    OuterRecord<String, Boolean> roundTrippedWithIgnore =
+        OuterRecord.valueDecoder(fromText, fromBool)
+            .decode(fromConstructor.toValue(Text::new, Bool::of), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(Text::new, Bool::of), dataRecord);
     assertEquals(fromConstructor.toValue(Text::new, Bool::of).toProtoRecord(), protoRecord);
     assertEquals(fromRoundTrip, fromConstructor);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   @Test

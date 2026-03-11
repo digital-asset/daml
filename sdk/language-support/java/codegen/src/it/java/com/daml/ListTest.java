@@ -203,8 +203,17 @@ public class ListTest {
             Arrays.asList(
                 Arrays.asList(new Node<>(17L), new Node<>(42L)), Arrays.asList(new Node<>(1337L))));
 
+    MyListOfListRecord roundTripped =
+        MyListOfListRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    MyListOfListRecord roundTrippedWithIgnore =
+        MyListOfListRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
     assertEquals(fromRecord, fromCodegen);
     assertEquals(fromCodegen.toValue().toProtoRecord(), protoListRecord);
+    assertEquals(fromCodegen, roundTripped);
+    assertEquals(fromCodegen, roundTrippedWithIgnore);
   }
 
   @Test
@@ -257,8 +266,17 @@ public class ListTest {
 
     ColorListRecord fromCodegen = new ColorListRecord(Arrays.asList(Color.GREEN, Color.RED));
 
+    ColorListRecord roundTripped =
+        ColorListRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    ColorListRecord roundTrippedWithIgnore =
+        ColorListRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
     assertEquals(fromRecord, fromCodegen);
     assertEquals(fromCodegen.toValue().toProtoRecord(), protoColorListRecord);
+    assertEquals(fromCodegen, roundTripped);
+    assertEquals(fromCodegen, roundTrippedWithIgnore);
   }
 
   @Test
@@ -299,11 +317,19 @@ public class ListTest {
         new ParameterizedListRecord<>(Arrays.asList("Element1", "Element2"));
     ParameterizedListRecord<String> fromRoundTrip =
         ParameterizedListRecord.valueDecoder(fromText).decode(fromConstructor.toValue(Text::new));
+    ParameterizedListRecord<String> roundTripped =
+        ParameterizedListRecord.valueDecoder(fromText)
+            .decode(fromConstructor.toValue(Text::new), UnknownTrailingFieldPolicy.STRICT);
+    ParameterizedListRecord<String> roundTrippedWithIgnore =
+        ParameterizedListRecord.valueDecoder(fromText)
+            .decode(fromConstructor.toValue(Text::new), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(Text::new), dataRecord);
     assertEquals(fromConstructor.toValue(Text::new).toProtoRecord(), protoRecord);
     assertEquals(fromRoundTrip, fromConstructor);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   @Test
@@ -368,11 +394,30 @@ public class ListTest {
         new ParameterizedListRecord<List<String>>(
             Arrays.asList(
                 Arrays.asList("Element1", "Element2"), Arrays.asList("Element3", "Element4")));
+    ParameterizedListRecord<List<String>> roundTripped =
+        ParameterizedListRecord.valueDecoder(fromList(fromText))
+            .decode(
+                fromConstructor.toValue(
+                    f -> f.stream().collect(DamlCollectors.toDamlList(Text::new))),
+                UnknownTrailingFieldPolicy.STRICT);
+    ParameterizedListRecord<List<String>> roundTrippedWithIgnore =
+        ParameterizedListRecord.valueDecoder(fromList(fromText))
+            .decode(
+                fromConstructor.toValue(
+                    f -> f.stream().collect(DamlCollectors.toDamlList(Text::new))),
+                UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(
         fromConstructor.toValue(f -> f.stream().collect(DamlCollectors.toDamlList(Text::new))),
         dataRecord);
+    assertEquals(
+        fromConstructor
+            .toValue(f -> f.stream().collect(DamlCollectors.toDamlList(Text::new)))
+            .toProtoRecord(),
+        protoRecord);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   @Test
