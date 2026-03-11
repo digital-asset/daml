@@ -45,6 +45,9 @@ haskell_non_module_deps = use_extension("//bazel_tools/MODULE_MIGRATION:haskell_
 use_repo(
     haskell_non_module_deps,
     # "Cabal",
+    "da-ghc",
+    "ghc-lib-gen",
+    "ghcide_ghc_lib",
     "lsp-types",
 )
 
@@ -52,7 +55,7 @@ stack_snapshot = use_extension(
     "@rules_haskell//extensions:stack_snapshot.bzl",
     "stack_snapshot",
 )
-use_repo(stack_snapshot, "stackage")
+use_repo(stack_snapshot, "stackage", "stackage-exe")
 
 stack_snapshot.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
 
@@ -121,6 +124,18 @@ stack_snapshot.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
         "some",
         "template-haskell",
         "temporary",
+        #
+        "Decimal",
+        "megaparsec",
+        "zip-archive",
+        #
+        "hlint",
+        "ghc-lib-parser-ex",
+        #
+        "shake",
+        "QuickCheck",
+        "Cabal",
+        "parsec",
     ]
 ]
 
@@ -131,6 +146,33 @@ stack_snapshot.package(
         "lib:attoparsec-internal",
     ],
     components_dependencies = {"lib:attoparsec": ["lib:attoparsec-internal"]},
+)
+stack_snapshot.package(
+    name = "ghc-lib",
+    vendored = "//bazel_tools/ghc-lib/ghc-lib",
+)
+stack_snapshot.package(
+    name = "ghc-lib-parser",
+    vendored = "//bazel_tools/ghc-lib/ghc-lib-parser",
+)
+stack_snapshot.package(
+    name = "ghcide",
+    flags = ["ghc-lib"],
+    vendored = "@ghcide_ghc_lib//:ghcide",
+)
+stack_snapshot.package(
+    name = "happy",
+    components = [
+#         "lib",
+        "exe",
+    ],
+)
+stack_snapshot.package(
+    name = "alex",
+    components = [
+#         "lib",
+        "exe",
+    ],
 )
 
 module_temporary_extension = use_extension("//bazel_tools/MODULE_MIGRATION:module_temporary_extension.bzl", "temporary_extension")
