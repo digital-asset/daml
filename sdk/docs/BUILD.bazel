@@ -5,7 +5,7 @@ load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_multi_package_test", "daml_test")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
-load("@build_environment//:configuration.bzl", "mvn_version", "sdk_version")
+load("@build_environment//:configuration.bzl", "sdk_version")
 load("@scala_version//:index.bzl", "scala_major_version")
 load("//bazel_tools:scala.bzl", "da_scala_test")
 load(
@@ -283,9 +283,9 @@ genrule(
         trap "rm -rf $$TMP_DIR" EXIT
         mkdir -p $$TMP_DIR/quickstart-java
         cp -rL docs/source/sdk/tutorials/quickstart/template-root/* $$TMP_DIR/quickstart-java/
-        sed -i "s/__VERSION__/{mvn}/" $$TMP_DIR/quickstart-java/pom.xml
+        mv $$TMP_DIR/quickstart-java/pom.xml $$TMP_DIR/quickstart-java/pom.xml.template
         $(execpath //bazel_tools/sh:mktgz) $@ -C $$TMP_DIR quickstart-java
-    """.format(mvn = mvn_version),
+    """,
     tools = ["//bazel_tools/sh:mktgz"],
     visibility = ["//visibility:public"],
 )
