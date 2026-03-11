@@ -358,12 +358,13 @@ damlSdkInstallCancelMethod = "daml/sdkInstallCancel"
 data MultiIdeResolutionData = MultiIdeResolutionData
   { mainPackages :: Map.Map PackageHome PackageResolutionData
   , orphanPackages :: Map.Map PackageHome PackageResolutionData
+  , defaultResolution :: (String, PackageResolutionData)
   }
   deriving (Show, Eq)
 type MultiIdeResolutionDataVar = MVar MultiIdeResolutionData
 
 toMultiIdeResolutionData :: ResolutionData -> MultiIdeResolutionData
-toMultiIdeResolutionData (ResolutionData mapping) = MultiIdeResolutionData (Map.mapKeys PackageHome mapping) mempty
+toMultiIdeResolutionData (ResolutionData mapping defaultSdk) = MultiIdeResolutionData (Map.mapKeys PackageHome mapping) mempty defaultSdk
 
 data MultiIdeState = MultiIdeState
   { misFromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient

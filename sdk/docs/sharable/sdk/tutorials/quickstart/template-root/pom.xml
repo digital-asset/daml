@@ -22,7 +22,7 @@
         <dependency>
             <groupId>com.daml</groupId>
             <artifactId>bindings-java</artifactId>
-            <version>__VERSION__</version>
+            <version>__CANTON_VERSION__</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.google.protobuf</groupId>
@@ -67,7 +67,7 @@
                     <dependency>
                         <groupId>com.daml</groupId>
                         <artifactId>codegen-java</artifactId>
-                        <version>__VERSION__</version>
+                        <version>__DAML_VERSION__</version>
                         <type>jar</type>
                     </dependency>
                 </dependencies>
