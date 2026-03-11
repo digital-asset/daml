@@ -185,7 +185,7 @@ findDarInDarInfos darInfos rawName lfVersion = do
         <> "\nYour daml installation may be broken."
 
 findPackageResolutionData :: FilePath -> ResolutionData -> Either ResolutionError ValidPackageResolution
-findPackageResolutionData path (ResolutionData packages) =
+findPackageResolutionData path (ResolutionData packages _) =
   Map.lookup (toPosixFilePath path) packages & \case
     Just (ErrorPackageResolutionData errs) -> Left $ ResolutionError $ "Couldn't resolve package " <> path <> ":\n" <> unlines (show <$> errs)
     Just (ValidPackageResolutionData res) -> Right res
@@ -205,6 +205,7 @@ getResolutionData = do
 
 data ResolutionData = ResolutionData
   { packages :: Map.Map FilePath PackageResolutionData
+  , defaultSdk :: (String, PackageResolutionData)
   }
   deriving (Eq, Show)
 
@@ -238,8 +239,10 @@ instance Show ErrorPackageResolution where
   show ErrorPackageResolution {..} = code <> ": " <> cause
 
 instance Aeson.FromJSON ResolutionData where
-  parseJSON = Aeson.withObject "ResolutionData" $ \obj ->
-    ResolutionData . Map.mapKeys toPosixFilePath <$> obj .: "packages"
+  parseJSON = Aeson.withObject "ResolutionData" $ \obj -> do
+    packages <- Map.mapKeys toPosixFilePath <$> obj .: "packages"
+    defaultSdk <- head . Map.toList <$> obj .: "default-sdk"
+    pure ResolutionData {..}
 
 instance Aeson.FromJSON PackageResolutionData where
   parseJSON = Aeson.withObject "PackageResolutionData" $ \obj -> do
@@ -262,8 +265,8 @@ instance Aeson.FromJSON ErrorPackageResolution where
       <*> obj .: "code"
 
 instance Aeson.ToJSON ResolutionData where
-  toJSON (ResolutionData packages) =
-    Aeson.object ["packages" .= packages]
+  toJSON (ResolutionData packages (defaultSdk, defaultResolution)) =
+    Aeson.object ["packages" .= packages, "default-sdk" .= Map.singleton defaultSdk defaultResolution]
 
 instance Aeson.ToJSON PackageResolutionData where
   toJSON (ErrorPackageResolutionData errs) =

@@ -29,7 +29,7 @@ import DA.Daml.Project.Consts (projectPathEnvVar, packagePathEnvVar)
 import DA.Daml.Resolution.Config (ValidPackageResolution (..), PackageResolutionData (..), ResolutionData (..), resolutionFileEnvVar)
 import Data.Foldable (traverse_)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (fromJust, fromMaybe, isJust)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Extended as TE
@@ -234,7 +234,8 @@ runSubProc miState home mPackageResolution = do
         -- as we handle orphan packages outside the multi-package.yaml
         -- Instead we generate a resolution file containing only the home package and pass this on
         (resolutionFilePath, _) <- newTempFile
-        Y.encodeFile resolutionFilePath $ ResolutionData $ Map.singleton (unPackageHome home) $ ValidPackageResolutionData resolution
+        defaultSdk <- defaultResolution . fromJust <$> tryReadMVar (misResolutionData miState)
+        Y.encodeFile resolutionFilePath $ ResolutionData (Map.singleton (unPackageHome home) $ ValidPackageResolutionData resolution) defaultSdk
         let assistantEnvWithResolution = (resolutionFileEnvVar, resolutionFilePath) : assistantEnv
         pure (damlcPath, Just resolutionFilePath, assistantEnvWithResolution)
 
