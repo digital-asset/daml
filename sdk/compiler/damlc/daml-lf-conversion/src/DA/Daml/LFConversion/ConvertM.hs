@@ -11,7 +11,8 @@ module DA.Daml.LFConversion.ConvertM (
     conversionWarning,
     conversionError,
     conversionDiagnostic,
-    unsupported,
+    unsupportedOperation,
+    unsupportedFeature,
     unknown,
     unhandled,
     StandaloneWarning(..),
@@ -133,8 +134,11 @@ instance IsErrorOrWarning ErrorOrWarning where
       AsWarning -> conversionWarningRaw (ErrorOrWarningAsWarning errOrWarn)
       Hidden -> pure ()
 
-unsupported :: (HasCallStack, Outputable a) => String -> a -> ConvertM e
-unsupported typ x = conversionError (Unsupported typ (prettyPrint x))
+unsupportedOperation :: (HasCallStack, Outputable a) => String -> a -> ConvertM e
+unsupportedOperation typ x = conversionError (Unsupported typ (prettyPrint x))
+
+unsupportedFeature :: LF.Feature -> LF.Version -> ConvertM e
+unsupportedFeature f v = conversionError (FeatureNotSupported  f v)
 
 unknown :: HasCallStack => GHC.UnitId -> MS.Map GHC.UnitId DalfPackage -> ConvertM e
 unknown unitId pkgMap = conversionError (UnknownPackage unitId pkgMap)

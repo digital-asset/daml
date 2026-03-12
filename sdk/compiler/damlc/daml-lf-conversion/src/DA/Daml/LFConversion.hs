@@ -292,7 +292,7 @@ convertInt64 x
     | toInteger (minBound :: Int64) <= x && x <= toInteger (maxBound :: Int64) =
         pure $ EBuiltinFun $ BEInt64 (fromInteger x)
     | otherwise =
-        unsupported "Int literal out of bounds." (negate x)
+        unsupportedOperation "Int literal out of bounds." (negate x)
 
 -- | Convert a rational number into a (legacy) Decimal literal.
 convertRationalDecimal :: Env -> Integer -> Integer -> ConvertM LF.Expr
@@ -306,7 +306,7 @@ convertRationalDecimal env num denom
         pure $ EBuiltinFun $
           BENumeric $ numericFromDecimal $ fromRational r
     else
-        unsupported
+        unsupportedOperation
             ("Rational is out of bounds: " ++
              show ((fromInteger num / fromInteger denom) :: Double) ++
              ".  Maximal supported precision is e^-10, maximal range after multiplying with 10^10 is [10^38 -1, -10^38 + 1].")
@@ -322,17 +322,17 @@ convertRationalDecimal env num denom
 convertRationalNumericMono :: Env -> Integer -> Integer -> Integer -> ConvertM LF.Expr
 convertRationalNumericMono env scale num denom
     | scale < 0 || scale > fromIntegral numericMaxScale =
-        unsupported
+        unsupportedOperation
             ("Tried to construct value of type Numeric " ++ show scale ++ ", but scale is out of bounds. Scale must be between 0 through 37, not " ++ show scale ++ ".")
             scale
 
     | abs (rational * 10 ^ scale) >= 10 ^ numericMaxPrecision =
-        unsupported
+        unsupportedOperation
             ("Rational is out of bounds: " ++ show double ++ ". The Numeric " ++ show scale ++ " type can only represent numbers greater than -10^" ++ show maxPower ++ " and smaller than 10^" ++ show maxPower ++ ".")
             (num, denom)
 
     | (num * 10^scale) `mod` denom /= 0 =
-        unsupported
+        unsupportedOperation
             ("Rational is out of bounds: " ++ show double ++ ". It cannot be represented without loss of precision. Maximum precision for the Numeric " ++ show scale ++ " type is 10^-" ++ show scale ++ ".")
             (num, denom)
 
@@ -359,7 +359,7 @@ convertRationalBigNumeric num denom = case numericFromRational rational of
 
     where
         rational = num % denom
-        invalid = unsupported "Large BigNumeric (larger than Numeric) literals are not currently supported. Please construct the number from smaller literals." ()
+        invalid = unsupportedOperation "Large BigNumeric (larger than Numeric) literals are not currently supported. Please construct the number from smaller literals." ()
 
 data TemplateBinds = TemplateBinds
     { tbTyCon :: Maybe GHC.TyCon
@@ -883,7 +883,7 @@ convertTypeDef env msi o@(ATyCon t) = withRange (convNameLoc t) $ if
     -> convertVariantDef env msi t
 
     | otherwise
-    -> unsupported ("Data definition, of type " ++ prettyPrint (tyConFlavour t) ++ ".") o
+    -> unsupportedOperation ("Data definition, of type " ++ prettyPrint (tyConFlavour t) ++ ".") o
 
 convertTypeDef env _ x = pure []
 
@@ -1114,7 +1114,7 @@ convertVariantConDef env tycon serializable tyVars con =
             argTy' <- convertType env argTy
             pure ((ctorName, argTy'), [])
         ([], _:_:_) ->
-            unsupported "Data constructor with multiple unnamed fields." (prettyPrint (getName tycon))
+            unsupportedOperation "Data constructor with multiple unnamed fields." (prettyPrint (getName tycon))
         (labels, args) -> do
             fields <- zipExact labels <$> mapM (convertType env) args
             let recName = synthesizeVariantRecord ctorName tconName
@@ -1189,7 +1189,7 @@ convertTemplateKey :: SdkVersioned => Env -> LF.TypeConName -> TemplateBinds -> 
 convertTemplateKey env tname TemplateBinds{..}
     | Just fKey <- tbKey
     , not (envLfVersion env `supports` featureContractKeys) =
-        unsupported "Contract keys." (T.unpack $ T.intercalate "." $ unTypeConName tname)
+        unsupportedFeature featureContractKeys (envLfVersion env)
     | Just keyTy <- tbKeyType
     , Just fKey <- tbKey
     , Just fMaintainer <- tbMaintainer
@@ -1328,7 +1328,7 @@ convertChoice env tbinds (ChoiceData ty expr) = do
           archiveSelf <- useSingleMethodDict env fArchive (`ETmApp` EVar self)
           pure $ EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) update
         PreConsuming | otherwise ->
-          unsupported "Preconsuming choice for interface." ()
+          unsupportedOperation "Preconsuming choice for interface." ()
         PostConsuming | Just fArchive <- tbArchive tbinds -> do
           archiveSelf <- useSingleMethodDict env fArchive (`ETmApp` EVar self)
           pure $
@@ -1336,7 +1336,7 @@ convertChoice env tbinds (ChoiceData ty expr) = do
             EUpdate $ UBind (Binding (mkVar "_", TUnit) archiveSelf) $
             EUpdate $ UPure choiceRetTy $ EVar res
         PostConsuming | otherwise ->
-          unsupported "Postconsuming choice for interface." ()
+          unsupportedOperation "Postconsuming choice for interface." ()
     pure TemplateChoice
         { chcLocation = Nothing
         , chcName = choiceName
@@ -1627,7 +1627,7 @@ convertExpr env0 e = do
                     ECallInterface iface (MethodName $ T.pack $ unpackFS y) (EVar $ mkVar "i")
                   , args
                   )
-            _ -> unsupported "primitiveInterface not applied to function from interface." t
+            _ -> unsupportedOperation "primitiveInterface not applied to function from interface." t
     -- NOTE(MH): `getFieldPrim` and `setFieldPrim` are used by the record
     -- preprocessor to magically implement the `GetField` and `SetField` instances for records.
     go env (VarIn DA_Internal_Record "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = do
@@ -1675,7 +1675,7 @@ convertExpr env0 e = do
     go env (VarIn GHC_Real "fromRational") (LType (TypeCon (NameIn GHC_Types "BigNumeric") []) : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ convertRationalBigNumeric top bot
     go env (VarIn GHC_Real "fromRational") (LType scaleTyCoRep : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
-        = unsupported ("Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (" ++ show (fromRational (top % bot) :: Decimal.Decimal) ++ " : Numeric 10).") ()
+        = unsupportedOperation ("Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (" ++ show (fromRational (top % bot) :: Decimal.Decimal) ++ " : Numeric 10).") ()
     go env (VarIn GHC_Num "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
         = fmap (, args) $ convertInt64 (negate x)
     go env (VarIn GHC_Integer_Type "fromInteger") (LExpr (Lit (LitNumber _ x _)) : args)
@@ -1853,7 +1853,7 @@ convertExpr env0 e = do
     go env (Var x) args
         | Just internals <- lookupUFM internalFunctions modName
         , getOccFS x `elementOfUniqSet` internals
-        = unsupported "Direct call to internal function." x
+        = unsupportedOperation "Direct call to internal function." x
         where
             modName = maybe (envGHCModuleName env) GHC.moduleName $ nameModule_maybe $ getName x
 
@@ -1914,7 +1914,7 @@ convertExpr env0 e = do
             tcon | isSimpleRecordCon con || isClassCon con -> do
                 let fields = ctorLabels con
                 case zipExactMay vs fields of
-                    Nothing -> unsupported "Pattern match with existential type." alt
+                    Nothing -> unsupportedOperation "Pattern match with existential type." alt
                     Just vsFields -> convertLet env bind scrutinee $ \env -> do
                         bindRef <- convertExpr env (Var bind)
                         x' <- convertExpr env x
@@ -1940,7 +1940,7 @@ convertExpr env0 e = do
         else pure $
             ELet (Binding bind' scrutinee') $
             mkCase env bindTy resultType' (EVar $ convVar bind) alts'
-    go env (Let (Rec xs) _) args = unsupported "Local variables defined recursively - recursion can only happen at the top level." $ map fst xs
+    go env (Let (Rec xs) _) args = unsupportedOperation "Local variables defined recursively - recursion can only happen at the top level." $ map fst xs
     go env o@(Coercion _) args = unhandled "Coercion" o
     go _ x args = unhandled "Expression" x
 
@@ -2212,7 +2212,7 @@ convertLet env binder bound mkBody = do
 convertUnitId :: GHC.UnitId -> MS.Map GHC.UnitId DalfPackage -> UnitId -> ConvertM LF.SelfOrImportedPackageId
 convertUnitId thisUnitId _pkgMap unitId | unitId == thisUnitId = pure LF.SelfPackageId
 convertUnitId _thisUnitId pkgMap unitId = case unitId of
-  IndefiniteUnitId x -> unsupported "Indefinite unit id's." x
+  IndefiniteUnitId x -> unsupportedOperation "Indefinite unit id's." x
   DefiniteUnitId _ -> case MS.lookup unitId pkgMap of
     Just DalfPackage{..} -> pure $ LF.ImportedPackageId dalfPackageId
     Nothing -> unknown unitId pkgMap
@@ -2255,9 +2255,9 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
 
         SimpleVariantCon -> do
             when (length vs /= dataConRepArity con) $
-                unsupported "Pattern match with existential type." alt
+                unsupportedOperation "Pattern match with existential type." alt
             when (length vs >= 2) $
-                unsupported "Data constructor with multiple unnamed fields." alt
+                unsupportedOperation "Data constructor with multiple unnamed fields." alt
 
             let patBinder = maybe vArg convVar (listToMaybe vs)
             GCA (GCPNormal CPVariant{..}) <$> convertExpr env x
@@ -2269,13 +2269,13 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
             let fields = ctorLabels con
                 patBinder = vArg
             case zipExactMay vs fields of
-                Nothing -> unsupported "Pattern match with existential type." alt
+                Nothing -> unsupportedOperation "Pattern match with existential type." alt
                 Just vsFlds -> do
                     x' <- convertExpr env x
                     projBinds <- mkProjBindings env (EVar vArg) (TypeConApp (synthesizeVariantRecord patVariant <$> tcon) targs) vsFlds x'
                     pure $ GCA (GCPNormal CPVariant{..}) projBinds
 
-convertAlt _ _ x = unsupported "Case alternative of this form." x
+convertAlt _ _ x = unsupportedOperation "Case alternative of this form." x
 
 mkProjBindings :: Env -> LF.Expr -> TypeConApp -> [(Var, FieldName)] -> LF.Expr -> ConvertM LF.Expr
 mkProjBindings env recExpr recTyp vsFlds e =
@@ -2513,7 +2513,7 @@ convertTyCon env t
     | t == listTyCon = pure (TBuiltin BTList)
     | t == boolTyCon = pure TBool
     | t == intTyCon || t == intPrimTyCon = pure TInt64
-    | t == charTyCon = unsupported "Type GHC.Types.Char" t
+    | t == charTyCon = unsupportedOperation "Type GHC.Types.Char" t
     | t == liftedRepDataConTyCon = erasedTy env
     | t == typeSymbolKindCon = erasedTy env
     | NameIn GHC_Types n <- t =
@@ -2593,7 +2593,7 @@ convertType env = go env
     go env t | Just m <- isNumLitTy t
         = case typeLevelNatE m of
             Left TLNEOutOfBounds ->
-                unsupported "type-level natural outside of supported range [0, 37]." m
+                unsupportedOperation "type-level natural outside of supported range [0, 37]." m
             Right n ->
                 pure (TNat n)
 
@@ -2613,7 +2613,7 @@ convertKind x@(TypeCon t ts)
         k1 <- convertKind t1
         k2 <- convertKind t2
         case k2 of
-            KNat -> unsupported "Nat kind on the right-hand side of kind arrow." x
+            KNat -> unsupportedOperation "Nat kind on the right-hand side of kind arrow." x
             _ -> pure (KArrow k1 k2)
 convertKind (TyVarTy x) = convertKind $ tyVarKind x
 convertKind x = unhandled "Kind" x
@@ -2681,7 +2681,7 @@ ctorLabels con =
 checkInterfacesEnabled :: Env -> ConvertM ()
 checkInterfacesEnabled env =
   unless (getEnableInterfaces (envEnableInterfaces env)) do
-    unsupported
+    unsupportedOperation
       "Interfaces have been disabled by the `--enable-interfaces=no` flag. To enable them, remove that flag from the `build-options` in this package's daml.yaml file"
       ()
 

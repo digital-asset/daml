@@ -67,7 +67,7 @@ template FetchByKeyT3 with
   where
   signatory fetcher
 
-#ifdef DAML_CONTRACT_KEYS
+#ifdef DAML_FETCH_BY_KEY
   choice DoFetch : (ContractId T3, T3)
     controller fetcher
     do fetchByKey @T3 fetchKey
@@ -182,7 +182,7 @@ failureStatusError = script do
 
 -- TemplatePreconditionViolated: Same as above
 
-#ifdef DAML_CONTRACT_KEYS
+#ifdef DAML_FETCH_BY_KEY
 createEmptyContractKeyMaintainers : Script ()
 createEmptyContractKeyMaintainers = script do
   alice <- allocateParty "alice"

@@ -84,9 +84,15 @@ ifSupportsFlattening = ifSupports version featureFlatArchive
 ifSupportsFlattening_ :: a -> a -> Encode a
 ifSupportsFlattening_ b1 b2 = ifSupports version featureFlatArchive (return b1) (return b2)
 
+assertSupportsFeature :: Feature -> Encode ()
+assertSupportsFeature f =
+  whenSupportsNot version f $ \v ->
+    error $ printf "assertion failiure: lf version %s does not support %s" (show v) (featureName f)
+
+
 whenSupportsFlattening :: Encode ()
 whenSupportsFlattening =
-  whenSupports version featureFlatArchive $ \v ->
+  whenSupportsNot version featureFlatArchive $ \v ->
     error $ printf "assertion failiure: lf version %s does not support flattening" (show v)
 
 initEncodeState :: EncodeState
@@ -815,6 +821,7 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_ExerciseInterfaceGuard <- traverse encodeExpr' exeGuard
         pure $ P.UpdateSumExerciseInterface P.Update_ExerciseInterface{..}
     UExerciseByKey{..} -> do
+        assertSupportsFeature featureExerciseByKey
         update_ExerciseByKeyTemplate <- encodeQualTypeConId exeTemplate
         update_ExerciseByKeyChoiceInternedStr <- encodeNameId unChoiceName exeChoice
         update_ExerciseByKeyKey <- encodeExpr exeKey
@@ -836,11 +843,14 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_EmbedExprType <- encodeType typ
         update_EmbedExprBody <- encodeExpr e
         pure $ P.UpdateSumEmbedExpr P.Update_EmbedExpr{..}
-    UFetchByKey tmplId ->
+    UFetchByKey tmplId -> do
+        assertSupportsFeature featureFetchByKey
         P.UpdateSumFetchByKey <$> encodeRetrieveByKey tmplId
-    ULookupByKey tmplId ->
+    ULookupByKey tmplId -> do
+        assertSupportsFeature featureLookupByKey
         P.UpdateSumLookupByKey <$> encodeRetrieveByKey tmplId
     UQueryNByKey tmplId -> do
+        assertSupportsFeature featureNUCK
         update_QueryNByKeyTemplate <- encodeQualTypeConId tmplId
         pure $ P.UpdateSumQueryNByKey $ P.Update_QueryNByKey{..}
     UTryCatch{..} -> do
