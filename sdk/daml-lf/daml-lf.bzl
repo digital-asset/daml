@@ -200,10 +200,34 @@ def _init_data():
             "version_req": dev_only,
         },
         {
+            "name": "featureUCKBuiltins",
+            "name_pretty": "Old style (UCK) key builtins (fetchByKey, exerciseByKey, lookupByKey, ...)",
+            "cpp_flag": "DAML_UCK_BUILTINS",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureFetchByKey",
+            "name_pretty": "Fetch by key",
+            "cpp_flag": "DAML_FETCH_BY_KEY",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureExerciseByKey",
+            "name_pretty": "Exercise by key",
+            "cpp_flag": "DAML_EXERCISE_BY_KEY",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureLookupByKey",
+            "name_pretty": "Lookup by key",
+            "cpp_flag": "DAML_LOOKUP_BY_KEY",
+            "version_req": dev_only,
+        },
+        {
             "name": "featureContractKeys",
             "name_pretty": "Contract Keys",
             "cpp_flag": "DAML_CONTRACT_KEYS",
-            "version_req": dev_only,
+            "version_req": {"low": V2_3},
         },
         {
             "name": "featureFlatArchive",
@@ -252,7 +276,7 @@ def _init_data():
             "name": "featureNUCK",
             "name_pretty": "Non-unique contract keys",
             "cpp_flag": "DAML_NUCK",
-            "version_req": dev_only,
+            "version_req": {"low": V2_3},
         },
         {
             "name": "featureExtendedCryptoPrimitives",
