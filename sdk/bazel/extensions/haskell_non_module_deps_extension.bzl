@@ -14,7 +14,7 @@ load(
 def _get_cabal():
     http_archive(
         name = "Cabal",
-        build_file = ":haskell/haskell_cabal.BUILD.bzl",
+        build_file = ":files/haskell/haskell_cabal.BUILD.bzl",
         sha256 = "b697b558558f351d2704e520e7dcb1f300cd77fea5677d4b2ee71d0b965a4fe9",
         strip_prefix = "cabal-ghc-9.4-paths-module-relocatable",
         urls = ["https://github.com/tweag/cabal/archive/refs/heads/ghc-9.4-paths-module-relocatable.zip"],
@@ -44,7 +44,7 @@ def _get_ghcide():
 
     http_archive(
         name = "ghcide_ghc_lib",
-        build_file = ":haskell/haskell_ghcide_ghc_lib.BUILD.bzl",
+        build_file = ":files/haskell/haskell_ghcide_ghc_lib.BUILD.bzl",
         patch_args = ["-p1"],
         patches = [
             "//bazel_tools:haskell-ghcide-binary-q.patch",
@@ -60,7 +60,7 @@ def _get_ghc_lib_gen():
         url = "{}/archive/{}.tar.gz".format(GHC_LIB_REPO_URL, GHC_LIB_REV),
         sha256 = GHC_LIB_SHA256,
         strip_prefix = "ghc-lib-{}".format(GHC_LIB_REV),
-        build_file = ":haskell/haskell_ghc_lib_gen.BUILD.bzl",
+        build_file = ":files/haskell/haskell_ghc_lib_gen.BUILD.bzl",
         patches = GHC_LIB_PATCHES,
         patch_args = ["-p1"],
     )
@@ -71,7 +71,7 @@ def _get_da_ghc():
         remote = GHC_REPO_URL,
         commit = GHC_REV,
         recursive_init_submodules = True,
-        build_file = ":haskell/haskell_da_ghc.BUILD.bzl",
+        build_file = ":files/haskell/haskell_da_ghc.BUILD.bzl",
         shallow_since = "1639050525 +0100",
         patches = GHC_PATCHES,
         patch_args = ["-p1"],
