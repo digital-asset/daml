@@ -162,17 +162,11 @@ stack_snapshot.package(
 )
 stack_snapshot.package(
     name = "happy",
-    components = [
-#         "lib",
-        "exe",
-    ],
+    components = ["exe"],
 )
 stack_snapshot.package(
     name = "alex",
-    components = [
-#         "lib",
-        "exe",
-    ],
+    components = ["exe"],
 )
 
 module_temporary_extension = use_extension("//bazel_tools/MODULE_MIGRATION:module_temporary_extension.bzl", "temporary_extension")
@@ -180,6 +174,9 @@ use_repo(module_temporary_extension, "build_environment", "daml_versions_data", 
 
 dpm_extension = use_extension("//bazel_tools/MODULE_MIGRATION:dpm_extension.bzl", "dpm_extension")
 use_repo(dpm_extension, "dpm_binary")
+
+d3plus_extension = use_extension("//bazel_tools/MODULE_MIGRATION:d3plus_extension.bzl", "d3plus_extension")
+use_repo(d3plus_extension, "static_asset_d3plus")
 
 scala_config = use_extension(
     "@rules_scala//scala/extensions:config.bzl",
