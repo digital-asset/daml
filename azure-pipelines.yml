@@ -131,6 +131,22 @@ jobs:
         if [ -d sdk ]; then
           cd sdk
         fi
+        eval "$(./dev-env/bin/dade-assist)"
+        ./ci/sync-daml-prim-json-to-digital-asset-docs.sh \
+          --docs-ref "${DAML_DOCS_REPO_REF}" \
+          --docs-base-ref "main" \
+          --dry-run
+      displayName: 'Dry-run sync daml-prim docs to digital-asset/docs'
+      env:
+        GITHUB_TOKEN: $(GH_DAML_READONLY)
+        DAML_DOCS_REPO_REF: daml-json-to-mdx-converter-clean
+      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+      continueOnError: true
+    - bash: |
+        set -euo pipefail
+        if [ -d sdk ]; then
+          cd sdk
+        fi
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag)
