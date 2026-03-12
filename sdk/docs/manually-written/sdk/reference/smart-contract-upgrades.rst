@@ -1439,9 +1439,9 @@ and a contract of type ``U`` written by ``dep-2.0.0``.
 +-------------+------------------+------------------------------------+
 
 When exercising choice ``GetU 8765`` on contract ``4321`` with package
-preference ``dep-2.0.0``, we trigger a fetch of contract ``5678``. Because
+preference ``dep-2.0.0``, we trigger a fetch of contract ``8765``. Because
 package ``q`` depends on version ``1.0.0`` of ``dep``, the target type for ``U``
-is the one defined in package ``dep-1.0.0``. Contract ``5678`` is thus
+is the one defined in package ``dep-1.0.0``. Contract ``8765`` is thus
 downgraded to ``U { p = 'Bob'}`` upon retrieval. Note that the command
 preference for version ``2.0.0`` of package ``dep`` bears no incidence here.
 
