@@ -9,10 +9,7 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
-- Changed java codegen to add `UnknownTrailingFieldPolicy` support to generated `valueDecoder()` and `fromJson()` methods.
-  Generated `valueDecoder()` now accepts an `UnknownTrailingFieldPolicy` parameter controlling how unknown trailing record fields are handled during decoding.
-  A new `fromJson(String json, ..., UnknownTrailingFieldPolicy policy)` overload is generated alongside the existing `fromJson()`.
-  The default behavior uses `STRICT` policy, which rejects unexpected trailing fields.
+- Codegen-java: Added support for `UnknownTrailingFieldPolicy` in the generated `valueDecoder()` and `fromJson()` methods.
 - `DA.Crypto.Text` is now marked as stable
 
 ## Until 2025-12-11 (Exclusive)

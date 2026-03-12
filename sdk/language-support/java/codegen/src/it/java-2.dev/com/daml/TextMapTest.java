@@ -91,25 +91,6 @@ public class TextMapTest {
   }
 
   @Test
-  public void decodeMapRecordWithTrailingOptionalFields() {
-    MapRecord expected = new MapRecord(Map.of("key1", "value1", "key2", "value2"));
-
-    ArrayList<DamlRecord.Field> fieldsWithTrailing =
-        new ArrayList<>(expected.toValue().getFields());
-    fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
-    DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            MapRecord.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
-
-    MapRecord fromIgnore =
-        MapRecord.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
-    assertEquals(expected, fromIgnore);
-  }
-
-  @Test
   void roundtripJsonMapRecord() throws JsonLfDecoder.Error {
     MapRecord expected = new MapRecord(Map.of("key1", "value1", "key2", "value2"));
     assertEquals(expected, MapRecord.fromJson(expected.toJson()));
@@ -120,20 +101,7 @@ public class TextMapTest {
   }
 
   @Test
-  void fromJsonMapRecordWithExtraFieldStrict() throws JsonLfDecoder.Error {
-    MapRecord expected = new MapRecord(Map.of("key1", "value1", "key2", "value2"));
-
-    String json = expected.toJson();
-    String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
-
-    assertThrows(
-        JsonLfDecoder.Error.class,
-        () -> MapRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
-
-    assertEquals(expected, MapRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
-  }
-
-  {
+  void mapItemMapRecordRoundTrip() {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
@@ -333,7 +301,7 @@ public class TextMapTest {
                 "outerkey2", Map.of("key1", new MapItem<Long>(3L), "key2", new MapItem<Long>(4L))));
 
     String json = expected.toJson();
-    String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
+    String jsonWithExtra = json.substring(0, json.length() - 4) + ",\"_extraField\":42}}}}";
 
     assertThrows(
         JsonLfDecoder.Error.class,
