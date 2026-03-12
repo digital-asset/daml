@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
@@ -118,26 +117,35 @@ public class RecordTest {
             nestedRecordValue,
             nestedVariantValue);
 
-    ArrayList<DamlRecord.Field> nestedRecordTrailingFields = new ArrayList<>(List.of(
-            new DamlRecord.Field("long", new Int64(nestedRecordValue.value)),
-            new DamlRecord.Field("text", DamlOptional.of(new Text("extra")))
-    ));
+    ArrayList<DamlRecord.Field> nestedRecordTrailingFields =
+        new ArrayList<>(
+            List.of(
+                new DamlRecord.Field("long", new Int64(nestedRecordValue.value)),
+                new DamlRecord.Field("text", DamlOptional.of(new Text("extra")))));
     DamlRecord nestedRecordWithTrailing = new DamlRecord(nestedRecordTrailingFields);
-    assertThrows(IllegalArgumentException.class ,() ->
-            NestedRecord.valueDecoder().decode(nestedRecordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
-    NestedRecord decodedNestedRecord = NestedRecord.valueDecoder().decode(nestedRecordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            NestedRecord.valueDecoder()
+                .decode(nestedRecordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
+    NestedRecord decodedNestedRecord =
+        NestedRecord.valueDecoder()
+            .decode(nestedRecordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
     assertEquals(nestedRecordValue, decodedNestedRecord);
 
     DamlRecord valueWithTrailing = expected.toValue();
-    List<DamlRecord.Field> transformedFields = valueWithTrailing.getFields().stream()
-            .map(field -> {
-              String label = field.getLabel().orElse("");
-              if (!label.isBlank() && Objects.equals(label,"nestedRecord")) {
-                return new DamlRecord.Field("nestedRecord", nestedRecordWithTrailing);
-              } else {
-                return field;
-              }
-            }).toList();
+    List<DamlRecord.Field> transformedFields =
+        valueWithTrailing.getFields().stream()
+            .map(
+                field -> {
+                  String label = field.getLabel().orElse("");
+                  if (!label.isBlank() && Objects.equals(label, "nestedRecord")) {
+                    return new DamlRecord.Field("nestedRecord", nestedRecordWithTrailing);
+                  } else {
+                    return field;
+                  }
+                })
+            .toList();
     ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(transformedFields);
     fieldsWithTrailing.add(new DamlRecord.Field("extraField1", DamlOptional.of(new Int64(99L))));
     fieldsWithTrailing.add(new DamlRecord.Field("extraField2", DamlOptional.of(new Text("extra"))));
@@ -152,16 +160,20 @@ public class RecordTest {
         MyRecord.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
     assertEquals(expected, decodedRecord);
 
-    List<DamlRecord.Field> fieldsWithNotOptionalTrailing = new ArrayList<>(valueWithTrailing.getFields());
+    List<DamlRecord.Field> fieldsWithNotOptionalTrailing =
+        new ArrayList<>(valueWithTrailing.getFields());
     fieldsWithNotOptionalTrailing.add(new DamlRecord.Field("extraField3", new Int64(99L)));
     DamlRecord recordWithNotOptionalTrailing = new DamlRecord(fieldsWithNotOptionalTrailing);
     assertThrows(
         IllegalArgumentException.class,
         () ->
-            MyRecord.valueDecoder().decode(recordWithNotOptionalTrailing, UnknownTrailingFieldPolicy.STRICT));
+            MyRecord.valueDecoder()
+                .decode(recordWithNotOptionalTrailing, UnknownTrailingFieldPolicy.STRICT));
     assertThrows(
         IllegalArgumentException.class,
-        () -> MyRecord.valueDecoder().decode(recordWithNotOptionalTrailing, UnknownTrailingFieldPolicy.IGNORE));
+        () ->
+            MyRecord.valueDecoder()
+                .decode(recordWithNotOptionalTrailing, UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -257,8 +269,7 @@ public class RecordTest {
     String nestedRecordWithExtra =
         nestedRecordJson.substring(0, nestedRecordJson.length() - 1)
             + ",\"_extraOptField\":\"someValue\"}";
-    String jsonWithNestedExtra =
-        json.replace(nestedRecordJson, nestedRecordWithExtra);
+    String jsonWithNestedExtra = json.replace(nestedRecordJson, nestedRecordWithExtra);
 
     assertThrows(
         JsonLfDecoder.Error.class,
@@ -450,8 +461,7 @@ public class RecordTest {
 
     // Add extra optional fields to the outer record
     ArrayList<DamlRecord.Field> outerFieldsWithExtra = new ArrayList<>(outerValue.getFields());
-    outerFieldsWithExtra.add(
-        new DamlRecord.Field("_extraField", DamlOptional.of(new Int64(42L))));
+    outerFieldsWithExtra.add(new DamlRecord.Field("_extraField", DamlOptional.of(new Int64(42L))));
     DamlRecord outerWithExtra = new DamlRecord(outerFieldsWithExtra);
 
     assertThrows(
