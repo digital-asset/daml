@@ -9,6 +9,8 @@ if [[ "${REPO_ROOT}/dev-env/bin/dpm-sdk-head" != "${BASH_SOURCE[0]}" ]]; then
   exit 1
 fi
 
+cd "$REPO_ROOT"
+
 BAZEL_MODE_FLAGS=()
 
 COMPONENT_VERSION=0.0.0
@@ -75,7 +77,11 @@ for opt in "$@"; do
       VERBOSE=1
       ;;
     *)
-      echo "Unknown option: $opt"
+      if [[ "$opt" == "--help" ]]; then
+        echo "Usage: dpm-sdk-head [...options]"
+      else
+        echo "Unknown option: $opt"
+      fi
       echo "Available options:"
       echo "  --canton-community Build and update the canton-community component"
       echo "  --damlc Build and update the damlc component"
@@ -89,9 +95,10 @@ for opt in "$@"; do
       echo "  --release-version=<version> Set the release version (sdk-version in daml.yaml) to contain built components, default 0.0.0"
       echo "  --profiling Build Haskell executables with profiling enabled"
       echo "  --nuke Remove DPM from your system entirely before building"
-      echo "  --skip-* Skip building and installing a component, such as `--skip-jars`"
+      echo "  --skip-* Skip building and installing a component, such as --skip-jars"
       echo "  --remove-other-versions After installing head, remove all other installed versions (assemblies only, components remain, this will not save disk space)"
       echo "  --verbose Print bazel build logs as they build live"
+      echo "  --help Show this screen"
 
       exit 1
   esac
