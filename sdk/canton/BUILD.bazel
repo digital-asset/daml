@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary")
+load("@rules_scala//scala:scala.bzl", "scala_binary")
 load("//bazel_tools:proto.bzl", "proto_gen", "proto_jars")
 load("//bazel_tools/packaging:packaging.bzl", "package_oci_component")
 load("//canton:canton_version.bzl", "CANTON_OPEN_SOURCE_SHA", "CANTON_OPEN_SOURCE_TAG")

@@ -5,7 +5,7 @@
 # They play havoc both with `unapply` calls, as you always need an extra `_` to ignore them,
 # and also with automatically-derived Circe JSON encoders and decoders.
 
-load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 load("@scala_version//:index.bzl", "scala_major_version_suffix")
 
 proto_library(

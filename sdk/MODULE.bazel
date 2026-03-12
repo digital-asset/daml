@@ -1,0 +1,226 @@
+bazel_dep(name = "bazel_jar_jar", version = "0.1.14")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "buildifier_prebuilt", version = "8.2.1.1")
+bazel_dep(name = "gazelle", version = "0.47.0")
+bazel_dep(name = "google_bazel_common", version = "0.0.1")
+bazel_dep(name = "protobuf", version = "33.4")
+bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "rules_go", version = "0.59.0")
+bazel_dep(name = "rules_haskell", version = "0.18")
+archive_override(
+    module_name = "rules_haskell",
+    patches = ["//bazel/rules/patches:rules_haskell_ghc_version.patch"],
+    strip_prefix = "rules_haskell-0.18",
+    urls = ["https://github.com/tweag/rules_haskell/releases/download/v0.18/rules_haskell-0.18.tar.gz"],
+)
+
+bazel_dep(name = "rules_java", version = "9.5.0")
+bazel_dep(name = "rules_pkg", version = "1.2.0")
+
+# # #
+bazel_dep(name = "rules_scala", version = "7.1.2")
+# 7.1.2 is last version supporting scala 2.13.16.
+# TODO: Verify if there is no need to up it
+# # #
+
+bazel_dep(name = "rules_sh", version = "0.5.0")
+bazel_dep(name = "zlib", version = "1.3.1.bcr.8")
+bazel_dep(name = "rules_jvm_external", version = "6.10")
+bazel_dep(name = "patchelf", version = "0.18.0.bcr.1")
+bazel_dep(name = "tar.bzl", version = "0.8.1")
+bazel_dep(name = "pigz", version = "2.8.bcr.1")
+
+bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
+use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
+
+register_toolchains("@bsd_tar_toolchains//:all")
+
+# haskell_toolchains = use_extension(
+#     "@rules_haskell//extensions:default.bzl",
+#     "haskell_toolchains",
+# )
+# haskell_toolchains.bindist(version = "9.0.1")
+
+haskell_non_module_deps = use_extension("//bazel/extensions:haskell_non_module_deps_extension.bzl", "haskell_non_module_deps_extension")
+use_repo(
+    haskell_non_module_deps,
+    # "Cabal",
+    "da-ghc",
+    "ghc-lib-gen",
+    "ghcide_ghc_lib",
+    "lsp-types",
+)
+
+stack_snapshot = use_extension(
+    "@rules_haskell//extensions:stack_snapshot.bzl",
+    "stack_snapshot",
+)
+use_repo(stack_snapshot, "stackage", "stackage-exe")
+
+stack_snapshot.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
+
+# stack_snapshot.package(name = "lsp-types")
+[
+    stack_snapshot.package(
+        name = pkg,
+        # setup_deps = ["@Cabal//:Cabal"],
+    )
+    for pkg in [
+        "aeson",
+        "aeson-pretty",
+        "ansi-terminal",
+        "async",
+        "base",
+        "binary",
+        "blaze-html",
+        "bytestring",
+        "conduit",
+        "containers",
+        "deepseq",
+        "directory",
+        "extra",
+        "filepath",
+        "hashable",
+        "http-client",
+        "http-conduit",
+        "http-types",
+        "lens",
+        "lsp-test",
+        "monad-loops",
+        "network",
+        "optparse-applicative",
+        "parser-combinators",
+        "pretty",
+        "process",
+        "safe",
+        "safe-exceptions",
+        "semver",
+        "split",
+        "tar-conduit",
+        "tasty",
+        "tasty-hunit",
+        "tasty-quickcheck",
+        "text",
+        "time",
+        "typed-process",
+        "unix-compat",
+        "unordered-containers",
+        "vector",
+        "unix",
+        "yaml",
+        "regex-tdfa",
+        "uniplate",
+        "array",
+        "transformers",
+        "Diff",
+        "data-default",
+        "dlist",
+        "hslogger",
+        "mod",
+        "mtl",
+        "network-uri",
+        "rope-utf16-splay",
+        "scientific",
+        "some",
+        "template-haskell",
+        "temporary",
+        #
+        "Decimal",
+        "megaparsec",
+        "zip-archive",
+        #
+        "hlint",
+        "ghc-lib-parser-ex",
+        #
+        "shake",
+        "QuickCheck",
+        "Cabal",
+        "parsec",
+    ]
+]
+
+stack_snapshot.package(
+    name = "attoparsec",
+    components = [
+        "lib:attoparsec",
+        "lib:attoparsec-internal",
+    ],
+    components_dependencies = {"lib:attoparsec": ["lib:attoparsec-internal"]},
+)
+stack_snapshot.package(
+    name = "ghc-lib",
+    vendored = "//bazel_tools/ghc-lib/ghc-lib",
+)
+stack_snapshot.package(
+    name = "ghc-lib-parser",
+    vendored = "//bazel_tools/ghc-lib/ghc-lib-parser",
+)
+stack_snapshot.package(
+    name = "ghcide",
+    flags = ["ghc-lib"],
+    vendored = "@ghcide_ghc_lib//:ghcide",
+)
+stack_snapshot.package(
+    name = "happy",
+    components = ["exe"],
+)
+stack_snapshot.package(
+    name = "alex",
+    components = ["exe"],
+)
+
+module_temporary_extension = use_extension("//bazel/extensions:module_temporary_extension.bzl", "temporary_extension")
+use_repo(module_temporary_extension, "build_environment", "daml_versions_data", "os_info", "scala_version")
+
+dpm_extension = use_extension("//bazel/extensions:dpm_extension.bzl", "dpm_extension")
+use_repo(dpm_extension, "dpm_binary")
+
+d3plus_extension = use_extension("//bazel/extensions:d3plus_extension.bzl", "d3plus_extension")
+use_repo(d3plus_extension, "static_asset_d3plus")
+
+scala_config = use_extension(
+    "@rules_scala//scala/extensions:config.bzl",
+    "scala_config",
+)
+scala_config.settings(scala_version = "2.13.16")
+use_repo(scala_config, "rules_scala_config")
+
+scala_deps = use_extension(
+    "@rules_scala//scala/extensions:deps.bzl",
+    "scala_deps",
+)
+scala_deps.scala()
+scala_deps.scalatest()
+
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven.install(
+    artifacts = [
+        "com.daml:contextualized-logging_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-lf-api-type-signature_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-lf-archive_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-lf-data_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-lf-language_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:ledger-api-value_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:logging-entries_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:scala-utils_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-lf-transaction_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.google.protobuf:protobuf-java:3.25.5",
+        "com.thesamet.scalapb:lenses_2.13:0.11.14",
+        "com.thesamet.scalapb:scalapb-runtime_2.13:0.11.14",
+        "io.grpc:grpc-protobuf:1.77.0",
+        "org.scalaz:scalaz-core_2.13:7.2.33",
+        "org.wartremover:wartremover_2.13.16:3.2.5",
+        "org.jline:jline:3.27.1",
+        "io.spray:spray-json_2.13:1.3.6",
+    ],
+    known_contributing_modules = [
+        "bazel_jar_jar",
+        "bazel_worker_java",
+        "protobuf",
+    ],
+    repositories = [
+        "https://repo1.maven.org/maven2",
+        "https://europe-maven.pkg.dev/da-images/public-maven-unstable",
+    ],
+)
+use_repo(maven, "maven")

@@ -8,9 +8,9 @@ sh_binary(
     srcs = ["package-app.sh"],
     data = [
         "//bazel_tools/sh:mktgz",
-        "@gzip_dev_env//:gzip",
-        "@tar_dev_env//:tar",
-    ] + (["@patchelf_nix//:bin/patchelf"] if not is_windows else []),
+        # "@gzip_dev_env//:gzip",
+        "@tar.bzl//tar:tar",
+    ] + (["@patchelf//:patchelf"] if not is_windows else []),
     visibility = ["//visibility:public"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
@@ -20,8 +20,7 @@ sh_binary(
     srcs = ["package-oci-component.sh"],
     data = [
         "//bazel_tools/sh:mktgz",
-        "@gzip_dev_env//:gzip",
-        "@tar_dev_env//:tar",
+        "@bsd_tar_toolchains//:resolved_target_toolchain"
     ],
     visibility = ["//visibility:public"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
