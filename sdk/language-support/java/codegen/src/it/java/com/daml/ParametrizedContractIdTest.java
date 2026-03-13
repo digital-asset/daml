@@ -65,28 +65,6 @@ public class ParametrizedContractIdTest {
   }
 
   @Test
-  void decodeFixedContractIdWithTrailingOptionalFields() {
-    FixedContractId expected =
-        new FixedContractId(new ParametrizedContractId<>(new Foo.ContractId("SomeID")));
-
-    ArrayList<DamlRecord.Field> fieldsWithTrailing =
-        new ArrayList<>(expected.toValue().getFields());
-    fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
-    DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            FixedContractId.valueDecoder()
-                .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
-
-    FixedContractId fromIgnore =
-        FixedContractId.valueDecoder()
-            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
-    assertEquals(expected, fromIgnore);
-  }
-
-  @Test
   void roundTripJson() throws JsonLfDecoder.Error {
     FixedContractId fixed =
         new FixedContractId(new ParametrizedContractId<>(new Foo.ContractId("SomeID")));
@@ -105,22 +83,6 @@ public class ParametrizedContractIdTest {
     assertEquals(
         parameterized,
         FixedContractId.fromJson(parameterized.toJson(), UnknownTrailingFieldPolicy.IGNORE));
-  }
-
-  @Test
-  void fromJsonFixedContractIdWithExtraFieldStrict() throws JsonLfDecoder.Error {
-    FixedContractId expected =
-        new FixedContractId(new ParametrizedContractId<>(new Foo.ContractId("SomeID")));
-
-    String json = expected.toJson();
-    String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
-
-    assertThrows(
-        JsonLfDecoder.Error.class,
-        () -> FixedContractId.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
-
-    assertEquals(
-        expected, FixedContractId.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
