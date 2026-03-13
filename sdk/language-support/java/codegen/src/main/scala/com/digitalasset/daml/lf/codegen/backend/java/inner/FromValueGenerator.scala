@@ -46,12 +46,15 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .builder()
       .add(recordValueExtractor("value$", "recordValue$"))
       .addStatement(
-        "$T fields$$ = $T.recordCheck($L,$L,$WrecordValue$$)",
-        ParameterizedTypeName
-          .get(classOf[java.util.List[_]], classOf[javaapi.data.DamlRecord.Field]),
+        "$T preparedRecord$$ = $T.checkAndPrepareRecord($L,$L,$WrecordValue$$, $Wpolicy$$)",
+        classOf[com.daml.ledger.javaapi.data.codegen.PreparedRecord],
         classOf[PrimitiveValueDecoders],
         fields.size,
         optionalFieldsSize,
+      )
+      .addStatement(
+        "java.util.List<$T> fields$$ = preparedRecord$$.getExpectedFields()",
+        classOf[javaapi.data.DamlRecord.Field],
       )
 
     fields.iterator.zip(accessors).foreach { case (FieldInfo(_, damlType, javaName, _), accessor) =>
@@ -74,10 +77,9 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .addTypeVariables(className.typeParameters)
       .addParameters(converterParams.asJava)
       .addException(classOf[IllegalArgumentException])
-      .beginControlFlow("return $L ->", "value$")
+      .addCode("return $T.create((value$$, policy$$) -> {$>\n", classOf[ValueDecoder[_]])
       .addCode(fromValueCode.build())
-      // put empty string in endControlFlow in order to have semicolon
-      .endControlFlow("")
+      .addCode("$<});")
       .build()
   }
 
@@ -164,8 +166,8 @@ private[inner] object FromValueGenerator extends StrictLogging {
     import Extractor._
 
     /** An expression of type `T` where `T` is the decoding target */
-    def extract(accessor: CodeBlock): CodeBlock = this match {
-      case Decoder(decoder) => CodeBlock.of("$L$Z.decode($L)", decoder, accessor)
+    def extract(accessor: CodeBlock, policy: CodeBlock): CodeBlock = this match {
+      case Decoder(decoder) => CodeBlock.of("$L$Z.decode($L,$L)", decoder, accessor, policy)
       case FromFreeVar(decodeAccessor) => decodeAccessor(accessor)
     }
 
@@ -206,7 +208,12 @@ private[inner] object FromValueGenerator extends StrictLogging {
   )(implicit
       packagePrefixes: PackagePrefixes
   ): CodeBlock =
-    extractorRec(damlType, field, args) extract accessor
+    extractorRec(damlType, field, args) extract (accessor, CodeBlock.of("policy$$"))
+
+  private[inner] def decoderRec(damlType: Type, field: String, args: Iterator[String])(implicit
+      packagePrefixes: PackagePrefixes
+  ): CodeBlock =
+    extractorRec(damlType, field, args) asDecoder args
 
   private[this] def extractorRec(damlType: Type, field: String, args: Iterator[String])(implicit
       packagePrefixes: PackagePrefixes

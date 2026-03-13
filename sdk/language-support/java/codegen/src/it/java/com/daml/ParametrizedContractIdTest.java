@@ -9,6 +9,7 @@ import static org.junit.Assert.assertNotEquals;
 import com.daml.ledger.api.v2.ValueOuterClass;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.codegen.ContractId;
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
@@ -44,11 +45,19 @@ public class ParametrizedContractIdTest {
         new FixedContractId(new ParametrizedContractId<>(new Foo.ContractId("SomeID")));
     FixedContractId fromRoundTrip =
         FixedContractId.valueDecoder().decode(fromConstructor.toValue());
+    FixedContractId roundTripped =
+        FixedContractId.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    FixedContractId roundTrippedWithIgnore =
+        FixedContractId.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataRecord);
     assertEquals(fromConstructor.toValue().toProtoRecord(), protoRecord);
     assertEquals(fromRoundTrip, fromConstructor);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   @Test
@@ -60,6 +69,16 @@ public class ParametrizedContractIdTest {
 
     assertEquals(fixed, FixedContractId.fromJson(fixed.toJson()));
     assertEquals(parameterized, FixedContractId.fromJson(parameterized.toJson()));
+    assertEquals(
+        fixed, FixedContractId.fromJson(fixed.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        fixed, FixedContractId.fromJson(fixed.toJson(), UnknownTrailingFieldPolicy.IGNORE));
+    assertEquals(
+        parameterized,
+        FixedContractId.fromJson(parameterized.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        parameterized,
+        FixedContractId.fromJson(parameterized.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test

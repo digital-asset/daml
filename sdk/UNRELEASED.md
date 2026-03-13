@@ -9,6 +9,7 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+- Codegen-java: Added support for `UnknownTrailingFieldPolicy` in the generated `valueDecoder()` and `fromJson()` methods.
 - `DA.Crypto.Text` is now marked as stable
 
 ## Until 2025-12-11 (Exclusive)

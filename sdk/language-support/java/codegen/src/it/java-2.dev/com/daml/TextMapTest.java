@@ -6,14 +6,18 @@ package com.daml;
 import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromInt64;
 import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromText;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.daml.ledger.api.v2.ValueOuterClass;
+import com.daml.ledger.javaapi.data.DamlOptional;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Int64;
 import com.daml.ledger.javaapi.data.Variant;
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoders;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -71,16 +75,28 @@ public class TextMapTest {
     MapRecord fromValue = MapRecord.valueDecoder().decode(dataRecord);
     MapRecord fromConstructor = new MapRecord(javaMap);
     MapRecord fromRoundtrip = MapRecord.valueDecoder().decode(fromConstructor.toValue());
+    MapRecord roundTripped =
+        MapRecord.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    MapRecord roundTrippedWithIgnore =
+        MapRecord.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataRecord);
     assertEquals(fromConstructor, fromRoundtrip);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   @Test
   void roundtripJsonMapRecord() throws JsonLfDecoder.Error {
     MapRecord expected = new MapRecord(Map.of("key1", "value1", "key2", "value2"));
     assertEquals(expected, MapRecord.fromJson(expected.toJson()));
+    assertEquals(
+        expected, MapRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        expected, MapRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -247,10 +263,18 @@ public class TextMapTest {
     MapItemMapRecord fromConstructor = new MapItemMapRecord(javaMap);
     MapItemMapRecord fromRoundtrip =
         MapItemMapRecord.valueDecoder().decode(fromConstructor.toValue());
+    MapItemMapRecord roundTripped =
+        MapItemMapRecord.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    MapItemMapRecord roundTrippedWithIgnore =
+        MapItemMapRecord.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataRecord);
     assertEquals(fromConstructor, fromRoundtrip);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   @Test
@@ -262,11 +286,132 @@ public class TextMapTest {
                 "outerkey2", Map.of("key1", new MapItem<Long>(3L), "key2", new MapItem<Long>(4L))));
 
     assertEquals(expected, MapItemMapRecord.fromJson(expected.toJson()));
+    assertEquals(
+        expected, MapItemMapRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        expected, MapItemMapRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
-  public void textMapVariantRoundtripTest() {
+  void fromJsonMapItemMapRecordWithExtraFieldStrict() throws JsonLfDecoder.Error {
+    MapItemMapRecord expected =
+        new MapItemMapRecord(
+            Map.of(
+                "outerkey1", Map.of("key1", new MapItem<Long>(1L), "key2", new MapItem<Long>(2L)),
+                "outerkey2", Map.of("key1", new MapItem<Long>(3L), "key2", new MapItem<Long>(4L))));
 
+    String json = expected.toJson();
+    String jsonWithExtra = json.substring(0, json.length() - 4) + ",\"_extraField\":42}}}}";
+
+    assertThrows(
+        JsonLfDecoder.Error.class,
+        () -> MapItemMapRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
+
+    assertEquals(
+        expected, MapItemMapRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
+  }
+
+  @Test
+  void decodeMapItemMapRecordWithTrailingOptionalFields() {
+    MapItemMapRecord expected =
+        new MapItemMapRecord(
+            Map.of(
+                "outerkey1", Map.of("key1", new MapItem<Long>(1L)),
+                "outerkey2", Map.of("key1", new MapItem<Long>(3L))));
+
+    ValueOuterClass.Record mapItemWithExtra1 =
+        ValueOuterClass.Record.newBuilder()
+            .addFields(
+                ValueOuterClass.RecordField.newBuilder()
+                    .setLabel("value")
+                    .setValue(ValueOuterClass.Value.newBuilder().setInt64(1L)))
+            .addFields(
+                ValueOuterClass.RecordField.newBuilder()
+                    .setLabel("extraField")
+                    .setValue(
+                        ValueOuterClass.Value.newBuilder()
+                            .setOptional(
+                                ValueOuterClass.Optional.newBuilder()
+                                    .setValue(
+                                        ValueOuterClass.Value.newBuilder().setText("extra1")))))
+            .build();
+
+    ValueOuterClass.Record mapItemWithExtra3 =
+        ValueOuterClass.Record.newBuilder()
+            .addFields(
+                ValueOuterClass.RecordField.newBuilder()
+                    .setLabel("value")
+                    .setValue(ValueOuterClass.Value.newBuilder().setInt64(3L)))
+            .addFields(
+                ValueOuterClass.RecordField.newBuilder()
+                    .setLabel("extraField")
+                    .setValue(
+                        ValueOuterClass.Value.newBuilder()
+                            .setOptional(
+                                ValueOuterClass.Optional.newBuilder()
+                                    .setValue(
+                                        ValueOuterClass.Value.newBuilder().setText("extra3")))))
+            .build();
+
+    ValueOuterClass.Record protoRecord =
+        ValueOuterClass.Record.newBuilder()
+            .addFields(
+                ValueOuterClass.RecordField.newBuilder()
+                    .setLabel("field")
+                    .setValue(
+                        ValueOuterClass.Value.newBuilder()
+                            .setTextMap(
+                                ValueOuterClass.TextMap.newBuilder()
+                                    .addEntries(
+                                        ValueOuterClass.TextMap.Entry.newBuilder()
+                                            .setKey("outerkey1")
+                                            .setValue(
+                                                ValueOuterClass.Value.newBuilder()
+                                                    .setTextMap(
+                                                        ValueOuterClass.TextMap.newBuilder()
+                                                            .addEntries(
+                                                                ValueOuterClass.TextMap.Entry
+                                                                    .newBuilder()
+                                                                    .setKey("key1")
+                                                                    .setValue(
+                                                                        ValueOuterClass.Value
+                                                                            .newBuilder()
+                                                                            .setRecord(
+                                                                                mapItemWithExtra1))))))
+                                    .addEntries(
+                                        ValueOuterClass.TextMap.Entry.newBuilder()
+                                            .setKey("outerkey2")
+                                            .setValue(
+                                                ValueOuterClass.Value.newBuilder()
+                                                    .setTextMap(
+                                                        ValueOuterClass.TextMap.newBuilder()
+                                                            .addEntries(
+                                                                ValueOuterClass.TextMap.Entry
+                                                                    .newBuilder()
+                                                                    .setKey("key1")
+                                                                    .setValue(
+                                                                        ValueOuterClass.Value
+                                                                            .newBuilder()
+                                                                            .setRecord(
+                                                                                mapItemWithExtra3)))))))))
+            .build();
+
+    DamlRecord recordWithTrailing = DamlRecord.fromProto(protoRecord);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            MapItemMapRecord.valueDecoder()
+                .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
+
+    MapItemMapRecord fromIgnore =
+        MapItemMapRecord.valueDecoder()
+            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
+    assertEquals(expected, fromIgnore);
+  }
+
+  @Test
+  public void mapTextVariantRoundtripTest() {
     ValueOuterClass.Variant protoVariant =
         ValueOuterClass.Variant.newBuilder()
             .setConstructor("TextVariant")
@@ -359,6 +504,29 @@ public class TextMapTest {
   }
 
   @Test
+  void decodeRecordVariantWithTrailingOptionalFields() {
+    RecordVariant<?> expected = new RecordVariant<>(Collections.singletonMap("key", 42L));
+    Variant value = expected.toValue();
+    DamlRecord innerRecord = value.getValue().asRecord().get();
+    ArrayList<DamlRecord.Field> fieldsWithTrailing = new ArrayList<>(innerRecord.getFields());
+    fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Int64(99L))));
+    DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
+    Variant variantWithTrailing = new Variant(value.getConstructor(), recordWithTrailing);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            RecordVariant.valueDecoder(fromInt64)
+                .decode(variantWithTrailing, UnknownTrailingFieldPolicy.STRICT));
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            RecordVariant.valueDecoder(fromInt64)
+                .decode(variantWithTrailing, UnknownTrailingFieldPolicy.IGNORE));
+  }
+
+  @Test
   public void mapParameterizedVariantRoundtripTest() {
 
     ValueOuterClass.Variant protoVariant =
@@ -435,11 +603,19 @@ public class TextMapTest {
         new TemplateWithMap("party1", Collections.singletonMap("key", 42L));
     TemplateWithMap fromRoundtrip =
         TemplateWithMap.valueDecoder().decode(fromConstructor.toValue());
+    TemplateWithMap roundTripped =
+        TemplateWithMap.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    TemplateWithMap roundTrippedWithIgnore =
+        TemplateWithMap.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataRecord);
     assertEquals(fromValue.toValue(), dataRecord);
     assertEquals(fromConstructor, fromRoundtrip);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   @Test
@@ -447,5 +623,24 @@ public class TextMapTest {
     TemplateWithMap expected = new TemplateWithMap("party1", Collections.singletonMap("key", 42L));
 
     assertEquals(expected, TemplateWithMap.fromJson(expected.toJson()));
+    assertEquals(
+        expected, TemplateWithMap.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        expected, TemplateWithMap.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
+  }
+
+  @Test
+  void fromJsonTemplateWithMapWithExtraFieldStrict() throws JsonLfDecoder.Error {
+    TemplateWithMap expected = new TemplateWithMap("party1", Collections.singletonMap("key", 42L));
+
+    String json = expected.toJson();
+    String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
+
+    assertThrows(
+        JsonLfDecoder.Error.class,
+        () -> TemplateWithMap.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
+
+    assertEquals(
+        expected, TemplateWithMap.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
   }
 }
