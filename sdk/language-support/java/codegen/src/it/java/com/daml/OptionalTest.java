@@ -290,7 +290,8 @@ public class OptionalTest {
     assertEquals(expected, fromIgnore);
   }
 
-  {
+  @Test
+  void parametricOptionalVariant() {
     Variant variant = new Variant("OptionalParametricVariant", DamlOptional.of(new Int64(42)));
 
     OptionalParametricVariant<Long> fromValue =

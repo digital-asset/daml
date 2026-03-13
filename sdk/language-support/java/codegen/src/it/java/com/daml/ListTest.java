@@ -127,7 +127,8 @@ public class ListTest {
         expected, MyListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
-  {
+  @Test
+  void listOfListsFromProtobufValue() {
     ValueOuterClass.Record protoListRecord =
         ValueOuterClass.Record.newBuilder()
             .addAllFields(
