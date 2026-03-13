@@ -280,6 +280,10 @@ message ScriptError {
     string message = 1;
   }
 
+  message EffectfulRollbackError {
+    repeated NodeId node_ids = 1;
+  }
+
   message UpgradeError {
     string message = 1;
   }
@@ -389,6 +393,7 @@ message ScriptError {
     FailureStatusError failure_status_error = 45;
     CryptoError crypto_error = 47;
     // next is 50;
+    EffectfulRollbackError effectful_rollback_error = 50;
   }
 }
 
