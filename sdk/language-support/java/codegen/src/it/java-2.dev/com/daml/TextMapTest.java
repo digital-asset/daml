@@ -12,7 +12,6 @@ import com.daml.ledger.api.v2.ValueOuterClass;
 import com.daml.ledger.javaapi.data.DamlOptional;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Int64;
-import com.daml.ledger.javaapi.data.Text;
 import com.daml.ledger.javaapi.data.Variant;
 import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
@@ -320,7 +319,6 @@ public class TextMapTest {
                 "outerkey1", Map.of("key1", new MapItem<Long>(1L)),
                 "outerkey2", Map.of("key1", new MapItem<Long>(3L))));
 
-    // Build MapItem records with extra trailing optional fields (two levels deep)
     ValueOuterClass.Record mapItemWithExtra1 =
         ValueOuterClass.Record.newBuilder()
             .addFields(
@@ -413,8 +411,7 @@ public class TextMapTest {
   }
 
   @Test
-  public void mapTextVariantRoundtripTest()
-  {
+  public void mapTextVariantRoundtripTest() {
     ValueOuterClass.Variant protoVariant =
         ValueOuterClass.Variant.newBuilder()
             .setConstructor("TextVariant")
