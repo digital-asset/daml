@@ -101,7 +101,8 @@ public class TextMapTest {
   }
 
   @Test
-  void mapItemMapRecordRoundTrip() {
+  public void mapItemMapRecordRoundTrip() {
+
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
@@ -319,10 +320,85 @@ public class TextMapTest {
                 "outerkey1", Map.of("key1", new MapItem<Long>(1L)),
                 "outerkey2", Map.of("key1", new MapItem<Long>(3L))));
 
-    ArrayList<DamlRecord.Field> fieldsWithTrailing =
-        new ArrayList<>(expected.toValue().getFields());
-    fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
-    DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
+    // Build MapItem records with extra trailing optional fields (two levels deep)
+    ValueOuterClass.Record mapItemWithExtra1 =
+        ValueOuterClass.Record.newBuilder()
+            .addFields(
+                ValueOuterClass.RecordField.newBuilder()
+                    .setLabel("value")
+                    .setValue(ValueOuterClass.Value.newBuilder().setInt64(1L)))
+            .addFields(
+                ValueOuterClass.RecordField.newBuilder()
+                    .setLabel("extraField")
+                    .setValue(
+                        ValueOuterClass.Value.newBuilder()
+                            .setOptional(
+                                ValueOuterClass.Optional.newBuilder()
+                                    .setValue(
+                                        ValueOuterClass.Value.newBuilder().setText("extra1")))))
+            .build();
+
+    ValueOuterClass.Record mapItemWithExtra3 =
+        ValueOuterClass.Record.newBuilder()
+            .addFields(
+                ValueOuterClass.RecordField.newBuilder()
+                    .setLabel("value")
+                    .setValue(ValueOuterClass.Value.newBuilder().setInt64(3L)))
+            .addFields(
+                ValueOuterClass.RecordField.newBuilder()
+                    .setLabel("extraField")
+                    .setValue(
+                        ValueOuterClass.Value.newBuilder()
+                            .setOptional(
+                                ValueOuterClass.Optional.newBuilder()
+                                    .setValue(
+                                        ValueOuterClass.Value.newBuilder().setText("extra3")))))
+            .build();
+
+    ValueOuterClass.Record protoRecord =
+        ValueOuterClass.Record.newBuilder()
+            .addFields(
+                ValueOuterClass.RecordField.newBuilder()
+                    .setLabel("field")
+                    .setValue(
+                        ValueOuterClass.Value.newBuilder()
+                            .setTextMap(
+                                ValueOuterClass.TextMap.newBuilder()
+                                    .addEntries(
+                                        ValueOuterClass.TextMap.Entry.newBuilder()
+                                            .setKey("outerkey1")
+                                            .setValue(
+                                                ValueOuterClass.Value.newBuilder()
+                                                    .setTextMap(
+                                                        ValueOuterClass.TextMap.newBuilder()
+                                                            .addEntries(
+                                                                ValueOuterClass.TextMap.Entry
+                                                                    .newBuilder()
+                                                                    .setKey("key1")
+                                                                    .setValue(
+                                                                        ValueOuterClass.Value
+                                                                            .newBuilder()
+                                                                            .setRecord(
+                                                                                mapItemWithExtra1))))))
+                                    .addEntries(
+                                        ValueOuterClass.TextMap.Entry.newBuilder()
+                                            .setKey("outerkey2")
+                                            .setValue(
+                                                ValueOuterClass.Value.newBuilder()
+                                                    .setTextMap(
+                                                        ValueOuterClass.TextMap.newBuilder()
+                                                            .addEntries(
+                                                                ValueOuterClass.TextMap.Entry
+                                                                    .newBuilder()
+                                                                    .setKey("key1")
+                                                                    .setValue(
+                                                                        ValueOuterClass.Value
+                                                                            .newBuilder()
+                                                                            .setRecord(
+                                                                                mapItemWithExtra3)))))))))
+            .build();
+
+    DamlRecord recordWithTrailing = DamlRecord.fromProto(protoRecord);
 
     assertThrows(
         IllegalArgumentException.class,
@@ -336,6 +412,8 @@ public class TextMapTest {
     assertEquals(expected, fromIgnore);
   }
 
+  @Test
+  public void mapTextVariantRoundtripTest()
   {
     ValueOuterClass.Variant protoVariant =
         ValueOuterClass.Variant.newBuilder()
