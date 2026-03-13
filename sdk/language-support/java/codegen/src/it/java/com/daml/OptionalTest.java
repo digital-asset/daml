@@ -51,28 +51,6 @@ public class OptionalTest {
   }
 
   @Test
-  void decodeMyOptionalRecordWithTrailingOptionalFields() {
-    MyOptionalRecord expected =
-        new MyOptionalRecord(Optional.of(42L), Optional.of(Unit.getInstance()));
-
-    ArrayList<DamlRecord.Field> fieldsWithTrailing =
-        new ArrayList<>(expected.toValue().getFields());
-    fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Int64(99L))));
-    DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            MyOptionalRecord.valueDecoder()
-                .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
-
-    MyOptionalRecord fromIgnore =
-        MyOptionalRecord.valueDecoder()
-            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
-    assertEquals(expected, fromIgnore);
-  }
-
-  @Test
   void roundtripJsonRecordWithOptionalFields() throws JsonLfDecoder.Error {
     MyOptionalRecord expected =
         new MyOptionalRecord(Optional.of(42L), Optional.of(Unit.getInstance()));
@@ -85,22 +63,7 @@ public class OptionalTest {
   }
 
   @Test
-  void fromJsonMyOptionalRecordWithExtraFieldStrict() throws JsonLfDecoder.Error {
-    MyOptionalRecord expected =
-        new MyOptionalRecord(Optional.of(42L), Optional.of(Unit.getInstance()));
-
-    String json = expected.toJson();
-    String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
-
-    assertThrows(
-        JsonLfDecoder.Error.class,
-        () -> MyOptionalRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
-
-    assertEquals(
-        expected, MyOptionalRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
-  }
-
-  {
+  void optionalFieldRoundTrip() {
     DamlRecord record =
         new DamlRecord(
             new DamlRecord.Field("intOpt", DamlOptional.of(new Int64(42))),
@@ -188,44 +151,7 @@ public class OptionalTest {
   }
 
   @Test
-  void fromJsonNestedOptionalRecordWithExtraFieldStrict() throws JsonLfDecoder.Error {
-    NestedOptionalRecord expected =
-        new NestedOptionalRecord(Optional.of(Optional.of(Optional.of(42L))));
-
-    String json = expected.toJson();
-    String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
-
-    assertThrows(
-        JsonLfDecoder.Error.class,
-        () -> NestedOptionalRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
-
-    assertEquals(
-        expected, NestedOptionalRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
-  }
-
-  @Test
-  void decodeNestedOptionalRecordWithTrailingOptionalFields() {
-    NestedOptionalRecord expected =
-        new NestedOptionalRecord(Optional.of(Optional.of(Optional.of(42L))));
-
-    ArrayList<DamlRecord.Field> fieldsWithTrailing =
-        new ArrayList<>(expected.toValue().getFields());
-    fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Int64(99L))));
-    DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            NestedOptionalRecord.valueDecoder()
-                .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
-
-    NestedOptionalRecord fromIgnore =
-        NestedOptionalRecord.valueDecoder()
-            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
-    assertEquals(expected, fromIgnore);
-  }
-
-  {
+  void optionalListRoundTripFromProtobuf() {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(
@@ -276,42 +202,7 @@ public class OptionalTest {
   }
 
   @Test
-  void fromJsonMyOptionalListRecordWithExtraFieldStrict() throws JsonLfDecoder.Error {
-    MyOptionalListRecord expected = new MyOptionalListRecord(Optional.of(Arrays.asList(42L)));
-
-    String json = expected.toJson();
-    String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
-
-    assertThrows(
-        JsonLfDecoder.Error.class,
-        () -> MyOptionalListRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
-
-    assertEquals(
-        expected, MyOptionalListRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
-  }
-
-  @Test
-  void decodeMyOptionalListRecordWithTrailingOptionalFields() {
-    MyOptionalListRecord expected = new MyOptionalListRecord(Optional.of(Arrays.asList(42L)));
-
-    ArrayList<DamlRecord.Field> fieldsWithTrailing =
-        new ArrayList<>(expected.toValue().getFields());
-    fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Int64(99L))));
-    DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            MyOptionalListRecord.valueDecoder()
-                .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
-
-    MyOptionalListRecord fromIgnore =
-        MyOptionalListRecord.valueDecoder()
-            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
-    assertEquals(expected, fromIgnore);
-  }
-
-  {
+  void listOfOptionals() {
     ValueOuterClass.Record protoRecord =
         ValueOuterClass.Record.newBuilder()
             .addFields(

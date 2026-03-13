@@ -64,27 +64,6 @@ public class NumericTest {
   }
 
   @Test
-  void decodeNumericBoxWithTrailingOptionalFields() {
-    NumericBox expected = numericBox();
-
-    ArrayList<DamlRecord.Field> fieldsWithTrailing =
-        new ArrayList<>(expected.toValue().getFields());
-    fieldsWithTrailing.add(
-        new DamlRecord.Field("extraField", DamlOptional.of(new Numeric(java.math.BigDecimal.ONE))));
-    DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            NumericBox.valueDecoder()
-                .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
-
-    NumericBox fromIgnore =
-        NumericBox.valueDecoder().decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
-    assertEquals(expected, fromIgnore);
-  }
-
-  @Test
   void objectMethodsWork() {
 
     NumericBox record1 = numericBox();

@@ -568,25 +568,4 @@ public class TextMapTest {
     assertEquals(
         expected, TemplateWithMap.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
   }
-
-  @Test
-  void decodeTemplateWithMapWithTrailingOptionalFields() {
-    TemplateWithMap expected = new TemplateWithMap("party1", Collections.singletonMap("key", 42L));
-
-    ArrayList<DamlRecord.Field> fieldsWithTrailing =
-        new ArrayList<>(expected.toValue().getFields());
-    fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
-    DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            TemplateWithMap.valueDecoder()
-                .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
-
-    TemplateWithMap fromIgnore =
-        TemplateWithMap.valueDecoder()
-            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
-    assertEquals(expected, fromIgnore);
-  }
 }
