@@ -333,13 +333,6 @@ convertPrim _ "EFromAnyChoice"
     ETmLam (mkVar "any", TAny) $
     EFromAny choice (EVar $ mkVar "any")
 
-convertPrim _ "EFromAnyContractKey"
-    (tProxy@(TApp _ (TCon _)) :-> TAny :-> TOptional key) =
-    pure $
-    ETmLam (mkVar "_", tProxy) $
-    ETmLam (mkVar "any", TAny) $
-    EFromAny key (EVar $ mkVar "any")
-
 convertPrim _ "EFromAnyView"
     (tProxy :-> TAny :-> TOptional view) =
     pure $
@@ -359,13 +352,6 @@ convertPrim _ "EToAnyChoice"
     ETmLam (mkVar "_", tProxy) $
     ETmLam (mkVar "choice", choice) $
     EToAny choice (EVar $ mkVar "choice")
-
-convertPrim _ "EToAnyContractKey"
-    (tProxy@(TApp _ (TCon _)) :-> key :-> TAny) =
-    pure $
-    ETmLam (mkVar "_", tProxy) $
-    ETmLam (mkVar "key", key) $
-    EToAny key (EVar $ mkVar "key")
 
 convertPrim _ "EToAnyView"
     (tProxy :-> view :-> TAny) =
