@@ -6,12 +6,14 @@ package com.daml;
 import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromList;
 import static com.daml.ledger.javaapi.data.codegen.PrimitiveValueDecoders.fromText;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.daml.ledger.api.v2.ValueOuterClass;
 import com.daml.ledger.javaapi.data.DamlCollectors;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Text;
 import com.daml.ledger.javaapi.data.Unit;
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoders;
@@ -24,6 +26,7 @@ import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 import tests.listtest.*;
 import tests.listtest.listitem.Node;
+import tests.recordtest.*;
 
 @RunWith(JUnitPlatform.class)
 public class ListTest {
@@ -95,15 +98,20 @@ public class ListTest {
             Collections.singletonList(Unit.getInstance()),
             Arrays.asList(new Node<Long>(17L), new Node<Long>(42L)));
 
-    MyListRecord roundTripped = MyListRecord.valueDecoder().decode(fromCodegen.toValue());
+    MyListRecord roundTripped =
+        MyListRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    MyListRecord roundTrippedWithIgnore =
+        MyListRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromRecord, fromCodegen);
     assertEquals(fromCodegen.toValue().toProtoRecord(), protoListRecord);
     assertEquals(fromCodegen, roundTripped);
+    assertEquals(fromCodegen, roundTrippedWithIgnore);
   }
 
-  // TODO(https://github.com/DACH-NY/canton/issues/30926): restore once fixed
-  // @Test
+  @Test
   void roundtripJsonMyListRecord() throws JsonLfDecoder.Error {
     MyListRecord expected =
         new MyListRecord(
@@ -111,12 +119,14 @@ public class ListTest {
             Collections.singletonList(Unit.getInstance()),
             Arrays.asList(new Node<Long>(17L), new Node<Long>(42L)));
 
-    assertEquals(expected, MyListRecord.fromJson(expected.toJson()));
+    assertEquals(
+        expected, MyListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        expected, MyListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
   void listOfListsFromProtobufValue() {
-
     ValueOuterClass.Record protoListRecord =
         ValueOuterClass.Record.newBuilder()
             .addAllFields(
@@ -187,15 +197,25 @@ public class ListTest {
             .build();
 
     DamlRecord record = DamlRecord.fromProto(protoListRecord);
-    MyListOfListRecord fromRecord = MyListOfListRecord.valueDecoder().decode(record);
+    MyListOfListRecord fromRecord =
+        MyListOfListRecord.valueDecoder().decode(record, UnknownTrailingFieldPolicy.STRICT);
 
     MyListOfListRecord fromCodegen =
         new MyListOfListRecord(
             Arrays.asList(
                 Arrays.asList(new Node<>(17L), new Node<>(42L)), Arrays.asList(new Node<>(1337L))));
 
+    MyListOfListRecord roundTripped =
+        MyListOfListRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    MyListOfListRecord roundTrippedWithIgnore =
+        MyListOfListRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
     assertEquals(fromRecord, fromCodegen);
     assertEquals(fromCodegen.toValue().toProtoRecord(), protoListRecord);
+    assertEquals(fromCodegen, roundTripped);
+    assertEquals(fromCodegen, roundTrippedWithIgnore);
   }
 
   @Test
@@ -205,7 +225,30 @@ public class ListTest {
             Arrays.asList(
                 Arrays.asList(new Node<>(17L), new Node<>(42L)), Arrays.asList(new Node<>(1337L))));
 
-    assertEquals(expected, MyListOfListRecord.fromJson(expected.toJson()));
+    assertEquals(
+        expected,
+        MyListOfListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        expected,
+        MyListOfListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
+  }
+
+  @Test
+  void fromJsonMyListOfListRecordWithExtraFieldStrict() throws JsonLfDecoder.Error {
+    MyListOfListRecord expected =
+        new MyListOfListRecord(
+            Arrays.asList(
+                Arrays.asList(new Node<>(17L), new Node<>(42L)), Arrays.asList(new Node<>(1337L))));
+
+    String json = expected.toJson();
+    String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
+
+    assertThrows(
+        JsonLfDecoder.Error.class,
+        () -> MyListOfListRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
+
+    assertEquals(
+        expected, MyListOfListRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -238,19 +281,22 @@ public class ListTest {
             .build();
 
     DamlRecord record = DamlRecord.fromProto(protoColorListRecord);
-    ColorListRecord fromRecord = ColorListRecord.valueDecoder().decode(record);
+    ColorListRecord fromRecord =
+        ColorListRecord.valueDecoder().decode(record, UnknownTrailingFieldPolicy.STRICT);
 
     ColorListRecord fromCodegen = new ColorListRecord(Arrays.asList(Color.GREEN, Color.RED));
 
+    ColorListRecord roundTripped =
+        ColorListRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    ColorListRecord roundTrippedWithIgnore =
+        ColorListRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
     assertEquals(fromRecord, fromCodegen);
     assertEquals(fromCodegen.toValue().toProtoRecord(), protoColorListRecord);
-  }
-
-  @Test
-  void roundtripJsonColorListRecord() throws JsonLfDecoder.Error {
-    ColorListRecord expected = new ColorListRecord(Arrays.asList(Color.GREEN, Color.RED));
-
-    assertEquals(expected, ColorListRecord.fromJson(expected.toJson()));
+    assertEquals(fromCodegen, roundTripped);
+    assertEquals(fromCodegen, roundTrippedWithIgnore);
   }
 
   @Test
@@ -284,11 +330,19 @@ public class ListTest {
         new ParameterizedListRecord<>(Arrays.asList("Element1", "Element2"));
     ParameterizedListRecord<String> fromRoundTrip =
         ParameterizedListRecord.valueDecoder(fromText).decode(fromConstructor.toValue(Text::new));
+    ParameterizedListRecord<String> roundTripped =
+        ParameterizedListRecord.valueDecoder(fromText)
+            .decode(fromConstructor.toValue(Text::new), UnknownTrailingFieldPolicy.STRICT);
+    ParameterizedListRecord<String> roundTrippedWithIgnore =
+        ParameterizedListRecord.valueDecoder(fromText)
+            .decode(fromConstructor.toValue(Text::new), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(Text::new), dataRecord);
     assertEquals(fromConstructor.toValue(Text::new).toProtoRecord(), protoRecord);
     assertEquals(fromRoundTrip, fromConstructor);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   @Test
@@ -300,6 +354,14 @@ public class ListTest {
     var actual = ParameterizedListRecord.fromJson(json, JsonLfDecoders.text);
 
     assertEquals(expected, actual);
+    assertEquals(
+        expected,
+        ParameterizedListRecord.fromJson(
+            json, JsonLfDecoders.text, UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        expected,
+        ParameterizedListRecord.fromJson(
+            json, JsonLfDecoders.text, UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -353,11 +415,30 @@ public class ListTest {
         new ParameterizedListRecord<List<String>>(
             Arrays.asList(
                 Arrays.asList("Element1", "Element2"), Arrays.asList("Element3", "Element4")));
+    ParameterizedListRecord<List<String>> roundTripped =
+        ParameterizedListRecord.valueDecoder(fromList(fromText))
+            .decode(
+                fromConstructor.toValue(
+                    f -> f.stream().collect(DamlCollectors.toDamlList(Text::new))),
+                UnknownTrailingFieldPolicy.STRICT);
+    ParameterizedListRecord<List<String>> roundTrippedWithIgnore =
+        ParameterizedListRecord.valueDecoder(fromList(fromText))
+            .decode(
+                fromConstructor.toValue(
+                    f -> f.stream().collect(DamlCollectors.toDamlList(Text::new))),
+                UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(
         fromConstructor.toValue(f -> f.stream().collect(DamlCollectors.toDamlList(Text::new))),
         dataRecord);
+    assertEquals(
+        fromConstructor
+            .toValue(f -> f.stream().collect(DamlCollectors.toDamlList(Text::new)))
+            .toProtoRecord(),
+        protoRecord);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   @Test
@@ -368,8 +449,17 @@ public class ListTest {
                 Arrays.asList("Element1", "Element2"), Arrays.asList("Element3", "Element4")));
 
     String json = expected.toJson(JsonLfEncoders.list(JsonLfEncoders::text));
+
     var actual = ParameterizedListRecord.fromJson(json, JsonLfDecoders.list(JsonLfDecoders.text));
 
     assertEquals(expected, actual);
+    assertEquals(
+        expected,
+        ParameterizedListRecord.fromJson(
+            json, JsonLfDecoders.list(JsonLfDecoders.text), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        expected,
+        ParameterizedListRecord.fromJson(
+            json, JsonLfDecoders.list(JsonLfDecoders.text), UnknownTrailingFieldPolicy.IGNORE));
   }
 }

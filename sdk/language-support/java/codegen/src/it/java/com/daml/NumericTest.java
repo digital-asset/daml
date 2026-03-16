@@ -8,6 +8,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.daml.ledger.api.v2.ValueOuterClass;
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -51,6 +52,14 @@ public class NumericTest {
     assertTrue(
         "to value uses original Daml-LF names for fields",
         record.toValue().getFieldsMap().get("numeric37").asNumeric().isPresent());
+
+    NumericBox roundTripped =
+        NumericBox.valueDecoder().decode(record.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    NumericBox roundTrippedWithIgnore =
+        NumericBox.valueDecoder().decode(record.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
+    assertEquals(record, roundTripped);
+    assertEquals(record, roundTrippedWithIgnore);
   }
 
   @Test
@@ -61,6 +70,14 @@ public class NumericTest {
 
     assertEquals(record1, record2);
     assertEquals(record1.hashCode(), record2.hashCode());
+
+    NumericBox roundTripped =
+        NumericBox.valueDecoder().decode(record1.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    NumericBox roundTrippedWithIgnore =
+        NumericBox.valueDecoder().decode(record1.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
+    assertEquals(record1, roundTripped);
+    assertEquals(record1, roundTrippedWithIgnore);
   }
 
   ValueOuterClass.Record.Builder recordBuilder() {
@@ -158,11 +175,19 @@ public class NumericTest {
     NumericBox fromConstructor = numericBox();
     NumericBox fromRoundTrip =
         NumericBox.valueDecoder().decode(Value.fromProto(fromConstructor.toValue().toProto()));
+    NumericBox roundTripped =
+        NumericBox.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    NumericBox roundTrippedWithIgnore =
+        NumericBox.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), value);
     assertEquals(fromConstructor.toValue().toProto(), protoValue);
     assertEquals(fromRoundTrip, fromConstructor);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   BigDecimal maxValue(int s) {

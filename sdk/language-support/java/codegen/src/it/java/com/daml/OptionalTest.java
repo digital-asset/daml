@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.daml.ledger.api.v2.ValueOuterClass;
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoders;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfEncoders;
@@ -35,7 +36,16 @@ public class OptionalTest {
     MyOptionalRecord fromUnboxed =
         new MyOptionalRecord(Optional.of(42L), Optional.of(Unit.getInstance()));
 
+    MyOptionalRecord roundTripped =
+        MyOptionalRecord.valueDecoder()
+            .decode(fromUnboxed.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    MyOptionalRecord roundTrippedWithIgnore =
+        MyOptionalRecord.valueDecoder()
+            .decode(fromUnboxed.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
     assertEquals(fromValue, fromUnboxed);
+    assertEquals(fromUnboxed, roundTripped);
+    assertEquals(fromUnboxed, roundTrippedWithIgnore);
   }
 
   @Test
@@ -44,6 +54,10 @@ public class OptionalTest {
         new MyOptionalRecord(Optional.of(42L), Optional.of(Unit.getInstance()));
 
     assertEquals(expected, MyOptionalRecord.fromJson(expected.toJson()));
+    assertEquals(
+        expected, MyOptionalRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        expected, MyOptionalRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -56,6 +70,16 @@ public class OptionalTest {
     MyOptionalRecord fromValue = MyOptionalRecord.valueDecoder().decode(record);
 
     assertEquals(record.toProto(), fromValue.toValue().toProto());
+
+    MyOptionalRecord roundTripped =
+        MyOptionalRecord.valueDecoder()
+            .decode(fromValue.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    MyOptionalRecord roundTrippedWithIgnore =
+        MyOptionalRecord.valueDecoder()
+            .decode(fromValue.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
+    assertEquals(fromValue, roundTripped);
+    assertEquals(fromValue, roundTrippedWithIgnore);
   }
 
   @Test
@@ -98,7 +122,16 @@ public class OptionalTest {
     NestedOptionalRecord fromConstructor =
         new NestedOptionalRecord(Optional.of(Optional.of(Optional.of(42L))));
 
+    NestedOptionalRecord roundTripped =
+        NestedOptionalRecord.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    NestedOptionalRecord roundTrippedWithIgnore =
+        NestedOptionalRecord.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
     assertEquals(fromValue, fromConstructor);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   @Test
@@ -107,6 +140,12 @@ public class OptionalTest {
         new NestedOptionalRecord(Optional.of(Optional.of(Optional.of(42L))));
 
     assertEquals(expected, NestedOptionalRecord.fromJson(expected.toJson()));
+    assertEquals(
+        expected,
+        NestedOptionalRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        expected,
+        NestedOptionalRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -134,8 +173,17 @@ public class OptionalTest {
     DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     MyOptionalListRecord fromCodegen = new MyOptionalListRecord(Optional.of(Arrays.asList(42L)));
 
+    MyOptionalListRecord roundTripped =
+        MyOptionalListRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    MyOptionalListRecord roundTrippedWithIgnore =
+        MyOptionalListRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
     assertEquals(protoRecord, fromCodegen.toValue().toProtoRecord());
     assertEquals(dataRecord.toProtoRecord(), protoRecord);
+    assertEquals(fromCodegen, roundTripped);
+    assertEquals(fromCodegen, roundTrippedWithIgnore);
   }
 
   @Test
@@ -143,6 +191,12 @@ public class OptionalTest {
     MyOptionalListRecord expected = new MyOptionalListRecord(Optional.of(Arrays.asList(42L)));
 
     assertEquals(expected, MyOptionalListRecord.fromJson(expected.toJson()));
+    assertEquals(
+        expected,
+        MyOptionalListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        expected,
+        MyOptionalListRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -171,8 +225,17 @@ public class OptionalTest {
     MyListOfOptionalsRecord fromCodegen =
         new MyListOfOptionalsRecord(Arrays.asList(Optional.of(42L)));
 
+    MyListOfOptionalsRecord roundTripped =
+        MyListOfOptionalsRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    MyListOfOptionalsRecord roundTrippedWithIgnore =
+        MyListOfOptionalsRecord.valueDecoder()
+            .decode(fromCodegen.toValue(), UnknownTrailingFieldPolicy.IGNORE);
+
     assertEquals(fromCodegen.toValue().toProtoRecord(), protoRecord);
     assertEquals(dataRecord.toProtoRecord(), protoRecord);
+    assertEquals(fromCodegen, roundTripped);
+    assertEquals(fromCodegen, roundTrippedWithIgnore);
   }
 
   @Test
@@ -180,6 +243,12 @@ public class OptionalTest {
     MyListOfOptionalsRecord expected = new MyListOfOptionalsRecord(Arrays.asList(Optional.of(42L)));
 
     assertEquals(expected, MyListOfOptionalsRecord.fromJson(expected.toJson()));
+    assertEquals(
+        expected,
+        MyListOfOptionalsRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.STRICT));
+    assertEquals(
+        expected,
+        MyListOfOptionalsRecord.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
   @Test
@@ -192,8 +261,14 @@ public class OptionalTest {
     OptionalParametricVariant<Long> fromConstructor =
         new OptionalParametricVariant<Long>(Optional.of(42L));
 
+    OptionalParametricVariant<Long> fromRoundTrip =
+        (OptionalParametricVariant<Long>)
+            OptionalParametricVariant.valueDecoder(fromInt64)
+                .decode(fromConstructor.toValue(Int64::new));
+
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(Int64::new), variant);
+    assertEquals(fromConstructor, fromRoundTrip);
   }
 
   @Test
@@ -214,8 +289,13 @@ public class OptionalTest {
         (OptionalPrimVariant<?>) OptionalPrimVariant.valueDecoder(fromInt64).decode(variant);
     OptionalPrimVariant<?> fromConstructor = new OptionalPrimVariant(Optional.of(42L));
 
+    OptionalPrimVariant<?> fromRoundTrip =
+        (OptionalPrimVariant<?>)
+            OptionalPrimVariant.valueDecoder(fromInt64).decode(fromConstructor.toValue());
+
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), variant);
+    assertEquals(fromConstructor, fromRoundTrip);
   }
 
   @Test
