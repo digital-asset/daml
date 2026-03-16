@@ -109,6 +109,7 @@ object CantonRunner {
          |        engine.enable-engine-stack-traces = true
          |        alpha-version-support = yes
          |        disable-upgrade-validation = ${config.disableUpgradeValidation}
+         |        ${if (config.devMode) "engine.contract-state-mode = \"UCKWithRollback\"" else ""}
          |      }
          |      ${config.snapshotDir.fold("")(x => s"features.snapshot-dir = ${toJson(x)}")}
          |      ${timeType.fold("")(x => "testing-time.type = " + x)}
