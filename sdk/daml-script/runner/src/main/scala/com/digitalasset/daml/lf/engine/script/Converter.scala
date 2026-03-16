@@ -233,9 +233,9 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       record(
         scriptIds
           .damlScriptModule("Daml.Script.Internal.Questions.Commands", "AnyContractKey"),
-        ("getScriptAnyContractKey", key.key),
+        ("getAnyContractKey", key.key),
         (
-          "getScriptAnyContractKeyTemplateTypeRep",
+          "getAnyContractKeyTemplateTypeRep",
           fromTemplateTypeRep(key.templateId),
         ),
       )

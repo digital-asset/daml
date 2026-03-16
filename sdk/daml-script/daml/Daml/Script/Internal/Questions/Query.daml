@@ -130,7 +130,7 @@ data QueryContractKey = QueryContractKey with
 instance IsQuestion QueryContractKey (Optional (ContractId (), AnyTemplate)) where
   command = "QueryContractKey"
   -- V1: Initial question
-  -- V2: Switch stable AnyContractKey for AnyContractKey
+  -- V2: Switch stable AnyContractKey for script internal AnyContractKey
   version = 2
 
 -- | MOVE Daml.Script

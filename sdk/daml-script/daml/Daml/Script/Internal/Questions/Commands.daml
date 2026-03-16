@@ -11,8 +11,8 @@ import DA.Bifunctor
 import GHC.Types (primitive)
 
 data AnyContractKey = AnyContractKey with
-  getScriptAnyContractKey : LedgerValue
-  getScriptAnyContractKeyTemplateTypeRep : TemplateTypeRep
+  getAnyContractKey : LedgerValue
+  getAnyContractKeyTemplateTypeRep : TemplateTypeRep
 
 instance Eq AnyContractKey where
   (==) = primitive @"BEEqual"

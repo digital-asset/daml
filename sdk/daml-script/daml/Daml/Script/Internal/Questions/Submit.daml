@@ -25,7 +25,7 @@ data Submit = Submit with
 instance IsQuestion Submit [Either SubmitError ([CommandResult], TransactionTree)] where
   command = "Submit"
   -- V1: Initial question
-  -- V2: Switch stable AnyContractKey for AnyContractKey
+  -- V2: Switch stable AnyContractKey for script internal AnyContractKey
   version = 2
 
 -- | HIDE
