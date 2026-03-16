@@ -75,7 +75,7 @@ private[lf] class Runner(
       result: Result[X, Free.Question, ExtendedValue]
   ): Result[X, ScriptF.Cmd, ExtendedValue] =
     result.remapQ { case Free.Question(name, version, payload, stackTrace) =>
-      ScriptF.parse(name, version, payload, knownPackages) match {
+      ScriptF.parse(name, version, payload, knownPackages, env) match {
         case Right(cmd) =>
           Result.Ask(
             cmd,

@@ -16,6 +16,7 @@ import DA.Text
 import DA.Foldable (foldMap)
 import DA.Exception
 import DA.Fail
+import Daml.Script.Internal.Questions.Commands (ScriptAnyContractKey)
 
 -- | MOVE Daml.Script
 -- SCU related submission errors
@@ -28,10 +29,10 @@ data UpgradeErrorType
         dstPackageName : Text
         originalSignatories : [Party]
         originalObservers : [Party]
-        originalKeyOpt : Optional (AnyContractKey, [Party])
+        originalKeyOpt : Optional (ScriptAnyContractKey, [Party])
         recomputedSignatories : [Party]
         recomputedObservers : [Party]
-        recomputedKeyOpt : Optional (AnyContractKey, [Party])
+        recomputedKeyOpt : Optional (ScriptAnyContractKey, [Party])
   | TranslationFailed with
         mCoid : Optional AnyContractId
         srcTemplateId : TemplateTypeRep
@@ -97,7 +98,7 @@ data SubmitError
        -- ^ should always be None in Canton's case, see https://github.com/digital-asset/daml/issues/17154
   | -- | Contract with given contract key could not be found
     ContractKeyNotFound with
-      contractKey : AnyContractKey
+      contractKey : ScriptAnyContractKey
   | -- | No vetted package with given package name could be found
     UnresolvedPackageName with
       packageName : Text
@@ -113,15 +114,15 @@ data SubmitError
   | -- | Given disclosed contract key does not match the contract key of the contract on ledger.
     DisclosedContractKeyHashingError with
       contractId : AnyContractId
-      expectedKey : AnyContractKey
+      expectedKey : ScriptAnyContractKey
       givenKeyHash : Text
   | -- | Attempted to create a contract with a contract key that already exists
     DuplicateContractKey with
-      duplicateContractKey : Optional AnyContractKey
+      duplicateContractKey : Optional ScriptAnyContractKey
         -- ^ Canton will often not provide this key, IDELedger will
   | -- | Contract key lookup yielded different results
     InconsistentContractKey with
-      contractKey : AnyContractKey
+      contractKey : ScriptAnyContractKey
   | -- | Unhandled user thrown exception
     UnhandledException with
       exc : Optional AnyException
@@ -139,7 +140,7 @@ data SubmitError
       invalidTemplate : AnyTemplate
   | -- | Attempted to fetch a contract with empty contract key maintainers
     FetchEmptyContractKeyMaintainers with
-      failedTemplateKey : AnyContractKey
+      failedTemplateKey : ScriptAnyContractKey
   | -- | Attempted to exercise/fetch a contract with the wrong template type
     WronglyTypedContract with
       contractId : AnyContractId -- ^ Any contract Id of the actual contract
@@ -162,7 +163,7 @@ data SubmitError
     ContractIdInContractKey with
       -- TODO[SW]: Update the ContractIdInContractKey scala error to include a TemplateId (which it does have when thrown) in separate PR
       -- Then we can uncomment this and add the plumbing
-      -- contractKey : AnyContractKey
+      -- contractKey : ScriptAnyContractKey
   | -- | Attempted to compare incomparable contract IDs. You're doing something very wrong.
     -- Two contract IDs with the same prefix are incomparable if one of them is local and the other non-local
     -- or if one is relative and the other relative or absolute with a different suffix.
@@ -180,7 +181,7 @@ data SubmitError
           -- ^ Locked contract ids
   | -- | The transaction refers to locked keys which are in the process of being modified by another transaction.
     LocalVerdictLockedKeys with
-      localVerdictLockedKeys : [AnyContractKey]
+      localVerdictLockedKeys : [ScriptAnyContractKey]
           -- ^ Locked contract keys
   | -- | Upgrade exception
     UpgradeError with

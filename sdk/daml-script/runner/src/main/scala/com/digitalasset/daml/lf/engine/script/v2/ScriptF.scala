@@ -334,7 +334,8 @@ object ScriptF {
   )
 
   // The one submit to rule them all
-  final case class Submit(submissions: List[Submission]) extends Cmd {
+  final case class Submit(submissions: List[Submission], legacyAnyContractKey: Boolean)
+      extends Cmd {
     import ScriptLedgerClient.SubmissionErrorBehaviour._
 
     override def execute(
@@ -396,7 +397,7 @@ object ScriptF {
               ValueVariant(
                 Some(StablePackagesV2.Either),
                 Name.assertFromString("Left"),
-                submitError.toDamlSubmitError(env),
+                submitError.toDamlSubmitError(env, legacyAnyContractKey),
               )
             )
         }
@@ -1012,6 +1013,8 @@ object ScriptF {
   private def parseSubmission(
       v: ExtendedValue,
       knownPackages: KnownPackages,
+      env: Env,
+      legacyAnyContractKey: Boolean,
   ): Either[String, Submission] =
     v match {
       case ValueRecord(
@@ -1034,9 +1037,13 @@ object ScriptF {
           optPackagePreference <- optPackagePreference.traverse(
             Converter.toList(_, Converter.toPackageId)
           )
-          prefetchKeys <- prefetchKeys.toImmArray.toList.traverse(Converter.toAnyContractKey)
+          prefetchKeys <- prefetchKeys.toImmArray.toList.traverse(
+            Converter.toAnyContractKey(_, env.lookupKeyTy(_), legacyAnyContractKey)
+          )
           errorBehaviour <- parseErrorBehaviour(name)
-          cmds <- cmds.toList.traverse(Converter.toCommandWithMeta)
+          cmds <- cmds.toList.traverse(
+            Converter.toCommandWithMeta(_, env.lookupKeyTy(_), legacyAnyContractKey)
+          )
           optLocation <- optLocation.traverse(Converter.toLocation(knownPackages.pkgs, _))
         } yield Submission(
           actAs = toOneAndSet(actAs),
@@ -1051,15 +1058,25 @@ object ScriptF {
       case _ => Left(s"Expected Submission payload but got $v")
     }
 
-  private def parseSubmit(v: ExtendedValue, knownPackages: KnownPackages): Either[String, Submit] =
+  private def parseSubmit(
+      v: ExtendedValue,
+      knownPackages: KnownPackages,
+      env: Env,
+      legacyAnyContractKey: Boolean = false,
+  ): Either[String, Submit] =
     v match {
       case ValueRecord(
             _,
             ImmArray((_, ValueList(submissions))),
           ) =>
         for {
-          submissions <- submissions.traverse(parseSubmission(_, knownPackages))
-        } yield Submit(submissions = submissions.toList)
+          submissions <- submissions.traverse(
+            parseSubmission(_, knownPackages, env, legacyAnyContractKey)
+          )
+        } yield Submit(
+          submissions = submissions.toList,
+          legacyAnyContractKey = legacyAnyContractKey,
+        )
       case _ => Left(s"Expected Submit payload but got $v")
     }
 
@@ -1108,13 +1125,17 @@ object ScriptF {
       case _ => Left(s"Expected QueryInterfaceContractId payload but got $v")
     }
 
-  private def parseQueryContractKey(v: ExtendedValue): Either[String, QueryContractKey] =
+  private def parseQueryContractKey(
+      v: ExtendedValue,
+      env: Env,
+      legacyAnyContractKey: Boolean = true,
+  ): Either[String, QueryContractKey] =
     v match {
       case ValueRecord(_, ImmArray((_, actAs), (_, tplId), (_, key))) =>
         for {
           actAs <- Converter.toParties(actAs)
           tplId <- Converter.typeRepToIdentifier(tplId)
-          key <- Converter.toAnyContractKey(key)
+          key <- Converter.toAnyContractKey(key, env.lookupKeyTy(_), legacyAnyContractKey)
         } yield QueryContractKey(actAs, tplId, key)
       case _ => Left(s"Expected QueryContractKey payload but got $v")
     }
@@ -1374,14 +1395,17 @@ object ScriptF {
       version: Long,
       v: ExtendedValue,
       @unused knownPackages: KnownPackages,
+      env: Env,
   ): Either[String, Cmd] = {
     (commandName, version) match {
-      case ("Submit", 1) => parseSubmit(v, knownPackages)
+      case ("Submit", 1) => parseSubmit(v, knownPackages, env, legacyAnyContractKey = true)
+      case ("Submit", 2) => parseSubmit(v, knownPackages, env)
       case ("QueryACS", 1) => parseQueryACS(v)
       case ("QueryContractId", 1) => parseQueryContractId(v)
       case ("QueryInterface", 1) => parseQueryInterface(v)
       case ("QueryInterfaceContractId", 1) => parseQueryInterfaceContractId(v)
-      case ("QueryContractKey", 1) => parseQueryContractKey(v)
+      case ("QueryContractKey", 1) => parseQueryContractKey(v, env, legacyAnyContractKey = true)
+      case ("QueryContractKey", 2) => parseQueryContractKey(v, env)
       case ("AllocateParty", 1) => parseAllocPartyV1(v)
       case ("AllocateParty", 2) => parseAllocPartyV2(v)
       case ("ListKnownParties", 1) => parseListKnownParties(v)

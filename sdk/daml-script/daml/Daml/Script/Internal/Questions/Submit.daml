@@ -22,7 +22,11 @@ import DA.Bifunctor (first)
 data Submit = Submit with
   submissions : [Submission]
 -- | HIDE
-instance IsQuestion Submit [Either SubmitError ([CommandResult], TransactionTree)] where command = "Submit"
+instance IsQuestion Submit [Either SubmitError ([CommandResult], TransactionTree)] where
+  command = "Submit"
+  -- V1: Initial question
+  -- V2: Switch stable AnyContractKey for ScriptAnyContractKey
+  version = 2
 
 -- | HIDE
 data Submission = Submission with
@@ -30,7 +34,7 @@ data Submission = Submission with
   sReadAs : [Party]
   sDisclosures : [Disclosure]
   sPackagePreference : Optional [PackageId]
-  sPrefetchKeys : [AnyContractKey]
+  sPrefetchKeys : [ScriptAnyContractKey]
   sErrorBehaviour : ErrorBehaviour
   sCommands : [CommandWithMeta]
   sLocation : Optional (Text, SrcLoc)
@@ -65,7 +69,7 @@ data SubmitOptions = SubmitOptions with
   soReadAs : [Party]
   soDisclosures : [Disclosure]
   soPackagePreference : Optional [PackageId]
-  soPrefetchKeys : [AnyContractKey]
+  soPrefetchKeys : [ScriptAnyContractKey]
 
 -- Optional doesn't have Semigroup instance?
 -- | HIDE
@@ -129,7 +133,7 @@ packagePreference packages = SubmitOptions [] [] [] (Some packages) []
 
 -- | MOVE Daml.Script
 -- Provide a list of contract keys to prefetch for a submission
-prefetchKeys : [AnyContractKey] -> SubmitOptions
+prefetchKeys : [ScriptAnyContractKey] -> SubmitOptions
 prefetchKeys keys = SubmitOptions [] [] [] None keys
 
 -- | MOVE Daml.Script

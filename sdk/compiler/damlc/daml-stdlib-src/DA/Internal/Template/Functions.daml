@@ -161,8 +161,6 @@ type TemplateKey t k =
   , HasLookupByKey t k
   , HasFetchByKey t k
   , HasMaintainer t k
-  , HasToAnyContractKey t k
-  , HasFromAnyContractKey t k
   )
 
 -- | Exposes `key` function. Part of the `TemplateKey` constraint.
@@ -214,18 +212,6 @@ class HasMaintainer t k | t -> k where
 -- | The list of maintainers of a contract key.
 maintainer : forall t k. HasMaintainer t k => k -> [Party]
 maintainer = _maintainer ([] : [t])
-
--- | Exposes `toAnyContractKey` function in Daml-LF 1.7 or later.
--- Part of the `TemplateKey` constraint.
-class HasToAnyContractKey t k | t -> k where
-  -- | HIDE
-  _toAnyContractKey : proxy t -> k -> Any
-
--- | Exposes `fromAnyContractKey` function in Daml-LF 1.7 or later.
--- Part of the `TemplateKey` constraint.
-class HasFromAnyContractKey t k | t -> k where
-  -- | HIDE
-  _fromAnyContractKey : proxy t -> Any -> Optional k
 
 -- | Exposes `exerciseByKey` function.
 class HasExerciseByKey t k c r | t -> k, t c -> r where
@@ -336,31 +322,6 @@ fromAnyChoice : forall t c r. (HasTemplateTypeRep t, HasFromAnyChoice t c r) => 
 fromAnyChoice (AnyChoice any typeRep)
   | Some c <- _fromAnyChoice ([] : [t]) any
   , templateTypeRep @t == typeRep = Some c
-  | otherwise = None
-
--- | Wrap a contract key in `AnyContractKey`.
---
--- You must pass the template type `t` using an explicit type application.
--- For example `toAnyContractKey @Proposal k`.
---
--- Only available for Daml-LF 1.7 or later.
-toAnyContractKey : forall t k. (HasTemplateTypeRep t, HasToAnyContractKey t k) => k -> AnyContractKey
-toAnyContractKey k =
-  AnyContractKey
-    (_toAnyContractKey ([] : [t]) k)
-    (templateTypeRep @t)
-
--- | Extract the underlying key from `AnyContractKey` if the template and
--- choice types match, or return `None`.
---
--- You must pass the template type `t` using an explicit type application.
--- For example `fromAnyContractKey @Proposal k`.
---
--- Only available for Daml-LF 1.7 or later.
-fromAnyContractKey : forall t k. (HasTemplateTypeRep t, HasFromAnyContractKey t k) => AnyContractKey -> Optional k
-fromAnyContractKey (AnyContractKey any rep)
-  | Some k <- _fromAnyContractKey ([] : [t]) any
-  , templateTypeRep @t == rep = Some k
   | otherwise = None
 
 deriving instance Eq Archive
