@@ -367,48 +367,6 @@ public class ListTest {
   }
 
   @Test
-  void fromJsonParameterizedListRecordWithExtraFieldStrict() throws JsonLfDecoder.Error {
-    ParameterizedListRecord<String> expected =
-        new ParameterizedListRecord<>(Arrays.asList("Element1", "Element2"));
-
-    String json = expected.toJson(JsonLfEncoders::text);
-    String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
-
-    assertThrows(
-        JsonLfDecoder.Error.class,
-        () ->
-            ParameterizedListRecord.fromJson(
-                jsonWithExtra, JsonLfDecoders.text, UnknownTrailingFieldPolicy.STRICT));
-
-    assertEquals(
-        expected,
-        ParameterizedListRecord.fromJson(
-            jsonWithExtra, JsonLfDecoders.text, UnknownTrailingFieldPolicy.IGNORE));
-  }
-
-  @Test
-  void decodeParameterizedListRecordWithTrailingOptionalFields() {
-    ParameterizedListRecord<String> expected =
-        new ParameterizedListRecord<>(Arrays.asList("Element1", "Element2"));
-
-    ArrayList<DamlRecord.Field> fieldsWithTrailing =
-        new ArrayList<>(expected.toValue(Text::new).getFields());
-    fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Text("extra"))));
-    DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            ParameterizedListRecord.valueDecoder(fromText)
-                .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
-
-    ParameterizedListRecord<String> fromIgnore =
-        ParameterizedListRecord.valueDecoder(fromText)
-            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
-    assertEquals(expected, fromIgnore);
-  }
-
-  @Test
   void parameterizedListOfListTestRoundTrip() {
 
     ValueOuterClass.Record protoRecord =

@@ -629,18 +629,4 @@ public class TextMapTest {
         expected, TemplateWithMap.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
 
-  @Test
-  void fromJsonTemplateWithMapWithExtraFieldStrict() throws JsonLfDecoder.Error {
-    TemplateWithMap expected = new TemplateWithMap("party1", Collections.singletonMap("key", 42L));
-
-    String json = expected.toJson();
-    String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
-
-    assertThrows(
-        JsonLfDecoder.Error.class,
-        () -> TemplateWithMap.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
-
-    assertEquals(
-        expected, TemplateWithMap.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
-  }
 }

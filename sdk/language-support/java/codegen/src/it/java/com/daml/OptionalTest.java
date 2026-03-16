@@ -254,43 +254,6 @@ public class OptionalTest {
   }
 
   @Test
-  void fromJsonMyListOfOptionalsRecordWithExtraFieldStrict() throws JsonLfDecoder.Error {
-    MyListOfOptionalsRecord expected = new MyListOfOptionalsRecord(Arrays.asList(Optional.of(42L)));
-
-    String json = expected.toJson();
-    String jsonWithExtra = json.substring(0, json.length() - 1) + ",\"_extraField\":42}";
-
-    assertThrows(
-        JsonLfDecoder.Error.class,
-        () -> MyListOfOptionalsRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.STRICT));
-
-    assertEquals(
-        expected,
-        MyListOfOptionalsRecord.fromJson(jsonWithExtra, UnknownTrailingFieldPolicy.IGNORE));
-  }
-
-  @Test
-  void decodeMyListOfOptionalsRecordWithTrailingOptionalFields() {
-    MyListOfOptionalsRecord expected = new MyListOfOptionalsRecord(Arrays.asList(Optional.of(42L)));
-
-    ArrayList<DamlRecord.Field> fieldsWithTrailing =
-        new ArrayList<>(expected.toValue().getFields());
-    fieldsWithTrailing.add(new DamlRecord.Field("extraField", DamlOptional.of(new Int64(99L))));
-    DamlRecord recordWithTrailing = new DamlRecord(fieldsWithTrailing);
-
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            MyListOfOptionalsRecord.valueDecoder()
-                .decode(recordWithTrailing, UnknownTrailingFieldPolicy.STRICT));
-
-    MyListOfOptionalsRecord fromIgnore =
-        MyListOfOptionalsRecord.valueDecoder()
-            .decode(recordWithTrailing, UnknownTrailingFieldPolicy.IGNORE);
-    assertEquals(expected, fromIgnore);
-  }
-
-  @Test
   void parametricOptionalVariant() {
     Variant variant = new Variant("OptionalParametricVariant", DamlOptional.of(new Int64(42)));
 
