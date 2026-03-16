@@ -7,6 +7,8 @@ package script
 package v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, SortedLookupList, Utf8, ImmArray}
 import com.digitalasset.daml.lf.data.Ref._
@@ -68,6 +70,8 @@ object ScriptF {
       val timeMode: ScriptTimeMode,
       private var _clients: Participants[ScriptLedgerClient],
       compiledPackages: CompiledPackages,
+      loggerFactory: NamedLoggerFactory,
+      val traceContext: TraceContext,
   ) {
     def clients = _clients
     val utcClock = Clock.systemUTC()
@@ -80,6 +84,7 @@ object ScriptF {
       addFieldNames = true,
       addTrailingNoneFields = true,
       forbidLocalContractIds = true,
+      loggerFactory = loggerFactory,
     )
 
     def addPartyParticipantMapping(party: Party, participant: Participant) = {

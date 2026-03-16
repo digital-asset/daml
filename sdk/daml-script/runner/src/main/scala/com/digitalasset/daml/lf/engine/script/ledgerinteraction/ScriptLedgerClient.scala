@@ -7,7 +7,7 @@ package engine.script.ledgerinteraction
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
-import com.digitalasset.daml.lf.engine.ScriptEngine.{TraceLog, WarningLog}
+import com.digitalasset.daml.lf.speedy.MachineLogger
 
 // Ledger clients before implementation is chosen
 sealed trait ScriptLedgerClient extends Product with Serializable
@@ -22,7 +22,6 @@ object GrpcLedgerClient {}
 
 final case class IdeLedgerClient(
     compiledPackages: PureCompiledPackages,
-    traceLog: TraceLog,
-    warningLog: WarningLog,
+    machineLogger: MachineLogger,
     canceled: () => Boolean,
 ) extends ScriptLedgerClient

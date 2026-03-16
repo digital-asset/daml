@@ -79,7 +79,11 @@ object SubmitError {
       key: GlobalKey,
   ): ExtendedValue = {
     val ty = env.lookupKeyTy(key.templateId).toOption.get
-    val enrichedKey = env.enricher.enrichContractKey(key.templateId, key.key).consume().toOption.get
+    val enrichedKey = env.enricher
+      .enrichContractKey(key.templateId, key.key)(env.traceContext)
+      .consume()
+      .toOption
+      .get
     fromAnyContractKey(
       env.scriptIds,
       AnyContractKey(key.templateId, ty, enrichedKey),
@@ -276,7 +280,10 @@ object SubmitError {
   final case class UnhandledException(exc: Option[(Identifier, Value)]) extends SubmitError {
     override def toDamlSubmitError(env: Env, legacyAnyContractKey: Boolean): ExtendedValue = {
       val anyException = exc.map { case (ty, value) =>
-        fromAnyException(ty, env.enricher.enrichException(ty, value).consume().toOption.get)
+        fromAnyException(
+          ty,
+          env.enricher.enrichException(ty, value)(env.traceContext).consume().toOption.get,
+        )
       }
       SubmitErrorConverters(env).damlScriptError(
         "UnhandledException",
@@ -308,7 +315,11 @@ object SubmitError {
         (
           "invalidTemplate", {
             val enrichedArg =
-              env.enricher.enrichContract(templateId, templateArg).consume().toOption.get
+              env.enricher
+                .enrichContract(templateId, templateArg)(env.traceContext)
+                .consume()
+                .toOption
+                .get
             fromAnyTemplate(templateId, enrichedArg)
           },
         ),
@@ -539,7 +550,11 @@ object SubmitError {
             (
               "createArg", {
                 val enrichedArg =
-                  env.enricher.enrichContract(srcTemplateId, createArg).consume().toOption.get
+                  env.enricher
+                    .enrichContract(srcTemplateId, createArg)(env.traceContext)
+                    .consume()
+                    .toOption
+                    .get
                 fromAnyTemplate(srcTemplateId, enrichedArg)
               },
             ),
@@ -570,7 +585,11 @@ object SubmitError {
             (
               "createArg", {
                 val enrichedArg =
-                  env.enricher.enrichContract(srcTemplateId, createArg).consume().toOption.get
+                  env.enricher
+                    .enrichContract(srcTemplateId, createArg)(env.traceContext)
+                    .consume()
+                    .toOption
+                    .get
                 fromAnyTemplate(srcTemplateId, enrichedArg)
               },
             ),

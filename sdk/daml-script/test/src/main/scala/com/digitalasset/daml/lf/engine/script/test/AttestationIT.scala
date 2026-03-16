@@ -6,13 +6,9 @@ package com.digitalasset.daml.lf.engine.script.test
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.testing.utils.PekkoBeforeAndAfterAll
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.engine.script.{Runner, ScriptTimeMode}
+import com.digitalasset.daml.lf.engine.script.{Runner, ScriptMachineLogger, ScriptTimeMode}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.engine.ScriptEngine.{
-  newTraceLog,
-  newWarningLog,
-  defaultCompilerConfig,
-}
+import com.digitalasset.daml.lf.engine.ScriptEngine.defaultCompilerConfig
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
@@ -43,8 +39,7 @@ class AttestationIT(languageVersion: LanguageVersion.Major)
     for {
       clients <- Runner.ideLedgerClient(
         dar.compiledPackages,
-        newTraceLog,
-        newWarningLog,
+        ScriptMachineLogger(),
       )
       _ <- Runner
         .run(

@@ -96,6 +96,7 @@ da_scala_library(
         "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_apache_commons_commons_text",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

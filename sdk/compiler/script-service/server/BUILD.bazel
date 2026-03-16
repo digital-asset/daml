@@ -32,7 +32,6 @@ da_scala_binary(
         "//compiler/script-service/protos:script_service_java_proto",
         "//daml-script/converter",
         "//daml-script/runner:script-runner-lib",
-        "@maven//:com_daml_contextualized_logging_2_13",
         "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_lf_engine_2_13",

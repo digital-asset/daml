@@ -15,11 +15,7 @@ import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.test.DarUtil.Dar
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.engine.ScriptEngine.{
-  newTraceLog,
-  newWarningLog,
-  defaultCompilerConfig,
-}
+import com.digitalasset.daml.lf.engine.ScriptEngine.defaultCompilerConfig
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -75,8 +71,7 @@ class UpgradesIT(
           testDar = CompiledDar.read(testDarPath, defaultCompilerConfig)
           participants <- Runner.ideLedgerClient(
             testDar.compiledPackages,
-            newTraceLog,
-            newWarningLog,
+            ScriptMachineLogger(),
           )
 
           // Run tests
