@@ -194,14 +194,14 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       legacyAnyContractKey: Boolean,
   ): Either[String, AnyContractKey] = {
     v match {
-      case ValueRecord(_, ImmArray((_, scriptKey), (_, templateRep))) if legacyAnyContractKey =>
+      case ValueRecord(_, ImmArray((_, scriptKey), (_, templateRep))) if !legacyAnyContractKey =>
         for {
           // We don't have the key type anymore, so need to look it up from the template rep
           templateId <- typeRepToIdentifier(templateRep)
           ty <- lookupContractKeyType(templateId)
         } yield AnyContractKey(templateId, ty, scriptKey)
       case ValueRecord(_, ImmArray((_, ExtendedValueAny(ty, key)), (_, templateRep)))
-          if !legacyAnyContractKey =>
+          if legacyAnyContractKey =>
         typeRepToIdentifier(templateRep).map(templateId => AnyContractKey(templateId, ty, key))
       case _ =>
         Left(s"Expected ${if (legacyAnyContractKey) "(legacy) " else ""}AnyContractKey but got $v")
@@ -232,7 +232,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
     else
       record(
         scriptIds
-          .damlScriptModule("Daml.Script.Internal.Questions.Commands", "ScriptAnyContractKey"),
+          .damlScriptModule("Daml.Script.Internal.Questions.Commands", "AnyContractKey"),
         ("getScriptAnyContractKey", key.key),
         (
           "getScriptAnyContractKeyTemplateTypeRep",

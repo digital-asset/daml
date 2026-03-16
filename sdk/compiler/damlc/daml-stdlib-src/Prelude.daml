@@ -16,7 +16,7 @@ import DA.Internal.LF as X hiding
 -- Template desugaring uses fromAnyTemplate and toAnyTemplate so we
 -- can’t remove them from the typeclass for older LF versions
 -- but we can hide them.
-import DA.Internal.Any as X
+import DA.Internal.Any as X hiding (AnyContractKey)
 import DA.Internal.Template as X
 import DA.Internal.Template.Functions as X hiding (queryNByKey)
 import DA.Internal.Compatible as X

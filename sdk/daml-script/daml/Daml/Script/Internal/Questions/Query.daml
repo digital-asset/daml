@@ -6,7 +6,7 @@
 module Daml.Script.Internal.Questions.Query where
 
 import Daml.Script.Internal.LowLevel
-import Daml.Script.Internal.Questions.Commands (Disclosure(..), ScriptAnyContractKey, toScriptAnyContractKey)
+import Daml.Script.Internal.Questions.Commands (Disclosure(..), AnyContractKey, toAnyContractKey)
 import DA.Optional
 import DA.Stack
 
@@ -125,12 +125,12 @@ queryInterfaceContractId p c = fmap convert $ lift $ QueryInterfaceContractId wi
 data QueryContractKey = QueryContractKey with
   parties : [Party]
   tplId : TemplateTypeRep
-  key : ScriptAnyContractKey -- TODO rename this, key goes blue
+  key : AnyContractKey -- TODO rename this, key goes blue
 -- | HIDE
 instance IsQuestion QueryContractKey (Optional (ContractId (), AnyTemplate)) where
   command = "QueryContractKey"
   -- V1: Initial question
-  -- V2: Switch stable AnyContractKey for ScriptAnyContractKey
+  -- V2: Switch stable AnyContractKey for AnyContractKey
   version = 2
 
 -- | MOVE Daml.Script
@@ -146,7 +146,7 @@ queryContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) 
 queryContractKey p k = fmap convert $ lift $ QueryContractKey with
     parties = toParties p
     tplId = templateTypeRep @t
-    key = toScriptAnyContractKey @t k
+    key = toAnyContractKey @t k
   where
     convert : Optional (ContractId (), AnyTemplate) -> Optional (ContractId t, t)
     convert = fmap (\(cid, anyTpl) -> (coerceContractId cid, fromSome (fromAnyTemplate anyTpl)))

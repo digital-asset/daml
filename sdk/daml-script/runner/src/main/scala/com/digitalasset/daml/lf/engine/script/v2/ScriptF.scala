@@ -1128,7 +1128,7 @@ object ScriptF {
   private def parseQueryContractKey(
       v: ExtendedValue,
       env: Env,
-      legacyAnyContractKey: Boolean = true,
+      legacyAnyContractKey: Boolean = false,
   ): Either[String, QueryContractKey] =
     v match {
       case ValueRecord(_, ImmArray((_, actAs), (_, tplId), (_, key))) =>

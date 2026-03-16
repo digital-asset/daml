@@ -63,9 +63,18 @@ main = script do
   assertBool (show (C, C)) (toAnyChoice @T1 C == toAnyChoice @T1 C)
   assertBool (show (C, Archive)) (toAnyChoice @T1 C /= toAnyChoice @T1 Archive)
   assertBool ("T1, T2" <> show (Archive, Archive)) (toAnyChoice @T1 C /= toAnyChoice @T2 Archive)
+#ifdef DAML_CONTRACT_KEYS
+  assertBool ("T1, T1'" <> show (p, p)) (toAnyContractKey @T1 p /= toAnyContractKey @T1' p)
+  assertBool ("T1, T1" <> show (p, p)) (toAnyContractKey @T1 p == toAnyContractKey @T1 p)
+#endif
 
   assertBool (show (t1A, t1B)) (toAnyTemplate t1A <= toAnyTemplate t1B)
   assertBool (show (t1A, t1B)) (toAnyTemplate t1B > toAnyTemplate t1A)
 
   assertBool (show (C, Archive)) (toAnyChoice @T1 C <= toAnyChoice @T1 Archive)
   assertBool (show (C, Archive)) (toAnyChoice @T1 Archive > toAnyChoice @T1 C)
+
+#ifdef DAML_CONTRACT_KEYS
+  assertBool ("T1, T1'" <> show (p, p)) (toAnyContractKey @T1 p <= toAnyContractKey @T1' p)
+  assertBool ("T1, T1'" <> show (p, p)) (toAnyContractKey @T1' p > toAnyContractKey @T1 p)
+#endif

@@ -8,16 +8,22 @@ module Daml.Script.Internal.Questions.Commands where
 
 import Daml.Script.Internal.LowLevel hiding (IsQuestion (..))
 import DA.Bifunctor
+import GHC.Types (primitive)
 
-data ScriptAnyContractKey = ScriptAnyContractKey with
+data AnyContractKey = AnyContractKey with
   getScriptAnyContractKey : LedgerValue
   getScriptAnyContractKeyTemplateTypeRep : TemplateTypeRep
 
-toScriptAnyContractKey : forall t k. (HasTemplateTypeRep t, TemplateKey t k) => k -> ScriptAnyContractKey
-toScriptAnyContractKey k = ScriptAnyContractKey (toLedgerValue k) (templateTypeRep @t)
+instance Eq AnyContractKey where
+  (==) = primitive @"BEEqual"
+instance Ord AnyContractKey where
+  (<=) = primitive @"BELessEq"
 
-fromScriptAnyContractKey : forall t k. (HasTemplateTypeRep t, TemplateKey t k) => ScriptAnyContractKey -> Optional k
-fromScriptAnyContractKey (ScriptAnyContractKey ledgerValue rep)
+toAnyContractKey : forall t k. (HasTemplateTypeRep t, TemplateKey t k) => k -> AnyContractKey
+toAnyContractKey k = AnyContractKey (toLedgerValue k) (templateTypeRep @t)
+
+fromAnyContractKey : forall t k. (HasTemplateTypeRep t, TemplateKey t k) => AnyContractKey -> Optional k
+fromAnyContractKey (AnyContractKey ledgerValue rep)
   | templateTypeRep @t == rep = Some (fromLedgerValue ledgerValue)
   | otherwise = None
 
@@ -31,7 +37,7 @@ data Command
       argE : AnyChoice
   | ExerciseByKey with
       tplId : TemplateTypeRep
-      keyE : ScriptAnyContractKey
+      keyE : AnyContractKey
       argE : AnyChoice
   | CreateAndExercise with
       tplArgCE : AnyTemplate
@@ -112,7 +118,7 @@ internalExerciseCmd tplTypeRep cId arg explicitPackageId = Commands [CommandWith
   res -> error $ "Expected [ExerciseResult], got " <> show res
 
 -- | HIDE A version of 'exerciseByKeyCmd' without constraints.
-internalExerciseByKeyCmd : TemplateTypeRep -> ScriptAnyContractKey -> AnyChoice -> Bool -> Commands LedgerValue
+internalExerciseByKeyCmd : TemplateTypeRep -> AnyContractKey -> AnyChoice -> Bool -> Commands LedgerValue
 internalExerciseByKeyCmd tplTypeRep key arg explicitPackageId = Commands [CommandWithMeta (ExerciseByKey tplTypeRep key arg) explicitPackageId] $ \case
   [ExerciseResult res] -> res
   res -> error $ "Expected [ExerciseResult], got " <> show res
@@ -139,7 +145,7 @@ internalTypedExerciseCmd cId arg explicitPackageId =
 -- | HIDE
 internalTypedExerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Bool -> Commands r
 internalTypedExerciseByKeyCmd key arg explicitPackageId =
-  fromLedgerValue @r <$> internalExerciseByKeyCmd (templateTypeRep @t) (toScriptAnyContractKey @t key) (toAnyChoice @t arg) explicitPackageId
+  fromLedgerValue @r <$> internalExerciseByKeyCmd (templateTypeRep @t) (toAnyContractKey @t key) (toAnyChoice @t arg) explicitPackageId
 
 -- | HIDE
 internalTypedCreateAndExerciseCmdWithCid : forall t c r. (Template t, Choice t c r, HasEnsure t) => t -> c -> Bool -> Commands (ContractId t, r)
