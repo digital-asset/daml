@@ -249,7 +249,7 @@ Data Types
          - `Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ \[`PackageId <type-daml-script-internal-questions-submit-packageid-95921_>`_\]
          -
        * - soPrefetchKeys
-         - \[`AnyContractKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_\]
+         - \[`AnyContractKey <type-daml-script-internal-questions-commands-anycontractkey-29496_>`_\]
          -
 
 .. _type-daml-script-internal-questions-submit-error-cryptoerrortype-71749:
@@ -345,7 +345,7 @@ Data Types
          - Type
          - Description
        * - contractKey
-         - `AnyContractKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_
+         - `AnyContractKey <type-daml-script-internal-questions-commands-anycontractkey-29496_>`_
          -
 
   .. _constr-daml-script-internal-questions-submit-error-unresolvedpackagename-661:
@@ -425,7 +425,7 @@ Data Types
          - `AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399_>`_
          -
        * - expectedKey
-         - `AnyContractKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_
+         - `AnyContractKey <type-daml-script-internal-questions-commands-anycontractkey-29496_>`_
          -
        * - givenKeyHash
          - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
@@ -445,7 +445,7 @@ Data Types
          - Type
          - Description
        * - duplicateContractKey
-         - `Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `AnyContractKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_
+         - `Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `AnyContractKey <type-daml-script-internal-questions-commands-anycontractkey-29496_>`_
          - Canton will often not provide this key, IDELedger will
 
   .. _constr-daml-script-internal-questions-submit-error-inconsistentcontractkey-74433:
@@ -462,7 +462,7 @@ Data Types
          - Type
          - Description
        * - contractKey
-         - `AnyContractKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_
+         - `AnyContractKey <type-daml-script-internal-questions-commands-anycontractkey-29496_>`_
          -
 
   .. _constr-daml-script-internal-questions-submit-error-unhandledexception-86682:
@@ -539,7 +539,7 @@ Data Types
          - Type
          - Description
        * - failedTemplateKey
-         - `AnyContractKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_
+         - `AnyContractKey <type-daml-script-internal-questions-commands-anycontractkey-29496_>`_
          -
 
   .. _constr-daml-script-internal-questions-submit-error-wronglytypedcontract-14384:
@@ -696,7 +696,7 @@ Data Types
          - Type
          - Description
        * - localVerdictLockedKeys
-         - \[`AnyContractKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_\]
+         - \[`AnyContractKey <type-daml-script-internal-questions-commands-anycontractkey-29496_>`_\]
          - Locked contract keys
 
   .. _constr-daml-script-internal-questions-submit-error-upgradeerror-4562:
@@ -852,7 +852,7 @@ Data Types
          - \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
          -
        * - originalKeyOpt
-         - `Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ (`AnyContractKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_, \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\])
+         - `Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ (`AnyContractKey <type-daml-script-internal-questions-commands-anycontractkey-29496_>`_, \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\])
          -
        * - recomputedSignatories
          - \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
@@ -861,7 +861,7 @@ Data Types
          - \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
          -
        * - recomputedKeyOpt
-         - `Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ (`AnyContractKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_, \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\])
+         - `Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ (`AnyContractKey <type-daml-script-internal-questions-commands-anycontractkey-29496_>`_, \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\])
          -
 
   .. _constr-daml-script-internal-questions-submit-error-translationfailed-4701:
@@ -1179,6 +1179,12 @@ Data Types
          - `PublicKeyHex <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Crypto-Text.html#type-da-crypto-text-publickeyhex-51359>`_
          -
 
+.. _type-daml-script-internal-questions-commands-anycontractkey-29496:
+
+**data** `AnyContractKey <type-daml-script-internal-questions-commands-anycontractkey-29496_>`_
+
+  Existential contract key type that can wrap an arbitrary contract key\.
+
 .. _type-daml-script-internal-questions-commands-commands-79301:
 
 **data** `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a
@@ -1488,7 +1494,7 @@ Functions
 .. _function-daml-script-internal-questions-submit-prefetchkeys-84998:
 
 `prefetchKeys <function-daml-script-internal-questions-submit-prefetchkeys-84998_>`_
-  \: \[`AnyContractKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_\] \-\> `SubmitOptions <type-daml-script-internal-questions-submit-submitoptions-56692_>`_
+  \: \[`AnyContractKey <type-daml-script-internal-questions-commands-anycontractkey-29496_>`_\] \-\> `SubmitOptions <type-daml-script-internal-questions-submit-submitoptions-56692_>`_
 
   Provide a list of contract keys to prefetch for a submission
 
@@ -1933,6 +1939,27 @@ Functions
   \: `HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ `Secp256k1KeyPair <type-daml-script-internal-questions-crypto-text-secp256k1keypair-9395_>`_
 
   Generate DER formatted Secp256k1 public/private key pairs\.
+
+.. _function-daml-script-internal-questions-commands-toanycontractkey-91361:
+
+`toAnyContractKey <function-daml-script-internal-questions-commands-toanycontractkey-91361_>`_
+  \: (`HasTemplateTypeRep <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-hastemplatetyperep-24134>`_ t, `TemplateKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-template-functions-templatekey-95200>`_ t k) \=\> k \-\> `AnyContractKey <type-daml-script-internal-questions-commands-anycontractkey-29496_>`_
+
+  Wrap a contract key in ``AnyContractKey``\.
+
+  You must pass the template type ``t`` using an explicit type application\.
+  For example ``toAnyContractKey @Proposal k``\.
+
+.. _function-daml-script-internal-questions-commands-fromanycontractkey-42688:
+
+`fromAnyContractKey <function-daml-script-internal-questions-commands-fromanycontractkey-42688_>`_
+  \: (`HasTemplateTypeRep <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-hastemplatetyperep-24134>`_ t, `TemplateKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-template-functions-templatekey-95200>`_ t k) \=\> `AnyContractKey <type-daml-script-internal-questions-commands-anycontractkey-29496_>`_ \-\> `Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ k
+
+  Extract the underlying key from ``AnyContractKey`` if the template and
+  choice types match, or return ``None``\.
+
+  You must pass the template type ``t`` using an explicit type application\.
+  For example ``fromAnyContractKey @Proposal k``\.
 
 .. _function-daml-script-internal-questions-commands-createcmd-46830:
 
