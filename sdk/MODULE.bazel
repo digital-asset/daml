@@ -168,6 +168,11 @@ stack_snapshot.package(
     name = "alex",
     components = ["exe"],
 )
+stack_snapshot.package(
+    name = "proto3-suite",
+    flags = ["-swagger"],
+    vendored = "@proto3-suite//:proto3-suite",
+)
 
 module_temporary_extension = use_extension("//bazel/extensions:module_temporary_extension.bzl", "temporary_extension")
 use_repo(module_temporary_extension, "build_environment", "daml_versions_data", "os_info", "scala_version")
@@ -177,6 +182,9 @@ use_repo(dpm_extension, "dpm_binary")
 
 d3plus_extension = use_extension("//bazel/extensions:d3plus_extension.bzl", "d3plus_extension")
 use_repo(d3plus_extension, "static_asset_d3plus")
+
+proto3_suite = use_extension("//bazel/extensions:proto3_suite_extension.bzl", "proto3_suite_extension")
+use_repo(proto3_suite, "proto3-suite")
 
 scala_config = use_extension(
     "@rules_scala//scala/extensions:config.bzl",
