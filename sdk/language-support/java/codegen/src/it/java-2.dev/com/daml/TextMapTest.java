@@ -628,5 +628,4 @@ public class TextMapTest {
     assertEquals(
         expected, TemplateWithMap.fromJson(expected.toJson(), UnknownTrailingFieldPolicy.IGNORE));
   }
-
 }
