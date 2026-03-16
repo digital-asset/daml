@@ -7,7 +7,7 @@ google_protobuf_src = "external/com_google_protobuf/src"
 
 genrule(
     name = "google-protobuf-pb-sources",
-    srcs = ["@com_google_protobuf//:well_known_type_protos"],
+    srcs = ["@protobuf//:well_known_type_protos"],
     outs = ["Google/Protobuf/" + b for b in [
         "Any.hs",
         "Duration.hs",
@@ -51,7 +51,7 @@ genrule(
     name = "google-rpc-pb-sources",
     srcs = [
         ":google-rpc-source-protos",
-        "@com_google_protobuf//:well_known_type_protos",
+        "@protobuf//:well_known_type_protos",
     ],
     outs = [
         "Google/Rpc/Status.hs",
@@ -80,7 +80,7 @@ filegroup(
 genrule(
     name = "ledger-api-pb-sources",
     srcs = [
-        "@com_google_protobuf//:well_known_type_protos",
+        "@protobuf//:well_known_type_protos",
         "@go_googleapis//google/rpc:status.proto",
         "ledger-api-protos-fg",
     ],
