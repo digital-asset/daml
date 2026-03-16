@@ -1,5 +1,5 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-CANTON_OPEN_SOURCE_TAG = "3.5.0-snapshot.20260304.18208.0.v828b9095"
-CANTON_OPEN_SOURCE_SHA = "sha256:7b0e94dfe5aff8a254d6827ff936e1bc8291b99e1790dd925571f116a71bc84a"
+CANTON_OPEN_SOURCE_TAG = "3.5.0-snapshot.20260310.18268.0.vb003e4e1"
+CANTON_OPEN_SOURCE_SHA = "sha256:03f31c79e05d0b851a1fa294c00bcb5d0ce3ea395dc8235d57f6a389c2d8ed1d"
