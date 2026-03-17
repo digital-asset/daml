@@ -236,11 +236,15 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       case _ => Left(s"Expected PackageId but got $v")
     }
 
-  def toCommandWithMeta(v: ExtendedValue): Either[String, ScriptLedgerClient.CommandWithMeta] =
+  def toCommandWithMeta(
+      v: ExtendedValue,
+      lookupContractKeyType: Identifier => Either[String, Type],
+      legacyAnyContractKey: Boolean = false,
+  ): Either[String, ScriptLedgerClient.CommandWithMeta] =
     v match {
       case ValueRecord(_, ImmArray((_, command), (_, ValueBool(explicitPackageId)))) =>
         for {
-          command <- toCommand(command)
+          command <- toCommand(command, lookupContractKeyType, legacyAnyContractKey)
         } yield ScriptLedgerClient.CommandWithMeta(command, explicitPackageId)
       case _ => Left(s"Expected CommandWithMeta but got $v")
     }
@@ -248,7 +252,11 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
   def castCommandExtendedValue(value: ExtendedValue): Either[String, Value] =
     castExtendedValue(value).left.map(_.getMessage)
 
-  def toCommand(v: ExtendedValue): Either[String, command.ApiCommand] =
+  def toCommand(
+      v: ExtendedValue,
+      lookupContractKeyType: Identifier => Either[String, Type],
+      legacyAnyContractKey: Boolean = false,
+  ): Either[String, command.ApiCommand] =
     v match {
       case ValueVariant(_, "Create", ValueRecord(_, ImmArray((_, anyTemplateSValue)))) =>
         for {
@@ -281,7 +289,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
           ) =>
         for {
           typeId <- typeRepToIdentifier(tIdSValue)
-          anyKey <- toAnyContractKey(anyKeySValue)
+          anyKey <- toAnyContractKey(anyKeySValue, lookupContractKeyType, legacyAnyContractKey)
           contractKey <- castCommandExtendedValue(anyKey.key)
           anyChoice <- toAnyChoice(anyChoiceSValue)
           argument <- castCommandExtendedValue(anyChoice.arg)

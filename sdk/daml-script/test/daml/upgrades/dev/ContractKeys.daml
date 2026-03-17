@@ -905,7 +905,7 @@ fetchTemplateWithUnexpectedlyMissingKey = test $ do
 
 ------------------------------------------------------------------------------------------------------------------------
 
-expectMetadataChangedError : forall t k a. (HasTemplateTypeRep t, HasFromAnyContractKey t k, Eq k) => k -> [Party] -> Either SubmitError a -> Script ()
+expectMetadataChangedError : forall t k a. (HasTemplateTypeRep t, TemplateKey t k, Eq k) => k -> [Party] -> Either SubmitError a -> Script ()
 expectMetadataChangedError key maintainers r = case r of
     Right _ -> assertFail "Expected failure but got success"
     Left (UpgradeError (ValidationFailed _ _ _ _ _ _ _ _ _ _ (Some (foundKey, foundMaintainers))) msg)

@@ -69,6 +69,9 @@ module Daml.Script
   , exerciseByKeyExactCmd
   , createAndExerciseExactCmd
   , createAndExerciseWithCidExactCmd
+  , AnyContractKey
+  , toAnyContractKey
+  , fromAnyContractKey
 
   , getTime
   , setTime

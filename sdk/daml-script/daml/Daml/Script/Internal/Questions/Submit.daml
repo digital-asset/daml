@@ -22,7 +22,11 @@ import DA.Bifunctor (first)
 data Submit = Submit with
   submissions : [Submission]
 -- | HIDE
-instance IsQuestion Submit [Either SubmitError ([CommandResult], TransactionTree)] where command = "Submit"
+instance IsQuestion Submit [Either SubmitError ([CommandResult], TransactionTree)] where
+  command = "Submit"
+  -- V1: Initial question
+  -- V2: Switch stable AnyContractKey for script internal AnyContractKey
+  version = 2
 
 -- | HIDE
 data Submission = Submission with

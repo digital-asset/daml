@@ -127,12 +127,6 @@ instance DA.Internal.Desugar.HasLookupByKey T (Party, Text) where
   lookupByKey = GHC.Types.primitive @"ULookupByKey"
 instance DA.Internal.Desugar.HasQueryNByKey T (Party, Text) where
   queryNByKey = GHC.Types.primitive @"UQueryNByKey"
-instance DA.Internal.Desugar.HasToAnyContractKey T (Party,
-                                                    Text) where
-  _toAnyContractKey = GHC.Types.primitive @"EToAnyContractKey"
-instance DA.Internal.Desugar.HasFromAnyContractKey T (Party,
-                                                      Text) where
-  _fromAnyContractKey = GHC.Types.primitive @"EFromAnyContractKey"
 revokeRetVal : T -> ()
 revokeRetVal _ = ()
 assertion : T -> Bool
