@@ -196,8 +196,9 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
     v match {
       case ValueRecord(_, ImmArray((_, scriptKey), (_, templateRep))) if !legacyAnyContractKey =>
         for {
-          // We don't have the key type anymore, so need to look it up from the template rep
           templateId <- typeRepToIdentifier(templateRep)
+          // When using the daml-script AnyContractKey (over the stable type), we do not have the key type, only the template rep
+          // Therefore we lookup the keytype using the template rep
           ty <- lookupContractKeyType(templateId)
         } yield AnyContractKey(templateId, ty, scriptKey)
       case ValueRecord(_, ImmArray((_, ExtendedValueAny(ty, key)), (_, templateRep)))
