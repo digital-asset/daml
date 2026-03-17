@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.codegen.backend.java.inner
 import com.digitalasset.daml.lf.typesig.Type
 import com.digitalasset.daml.lf.codegen.backend.java.JavaEscaper.escapeString
 import com.daml.ledger.javaapi.data.codegen.json.{JsonLfReader, JsonLfDecoder, JsonLfDecoders}
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
 import com.squareup.javapoet.{
@@ -56,6 +57,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
         typeParams,
       ),
       fromJsonString(className, typeParams),
+      fromJsonStringWithPolicy(className, typeParams),
     )
   }
 
@@ -136,7 +138,28 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .returns(className.parameterized(typeParams))
       .addException(classOf[JsonLfDecoder.Error])
       .addStatement(
-        "return jsonDecoder($L).decode(new $T(json))",
+        "return jsonDecoder($L).decode(new $T(json), $T.STRICT)",
+        decodeTypeParamArgList(typeParams),
+        classOf[JsonLfReader],
+        classOf[UnknownTrailingFieldPolicy],
+      )
+      .build()
+
+  private def fromJsonStringWithPolicy(
+      className: ClassName,
+      typeParams: IndexedSeq[String],
+  ): MethodSpec =
+    MethodSpec
+      .methodBuilder("fromJson")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .addTypeVariables(typeParams.map(TypeVariableName.get).asJava)
+      .addParameter(classOf[String], "json")
+      .addParameters(jsonDecoderParamsForTypeParams(typeParams))
+      .addParameter(classOf[UnknownTrailingFieldPolicy], "policy")
+      .returns(className.parameterized(typeParams))
+      .addException(classOf[JsonLfDecoder.Error])
+      .addStatement(
+        "return jsonDecoder($L).decode(new $T(json), policy)",
         decodeTypeParamArgList(typeParams),
         classOf[JsonLfReader],
       )
@@ -211,11 +234,13 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .addTypeVariables(typeParams.map(TypeVariableName.get).asJava)
       .addParameters(jsonDecoderParamsForTypeParams(typeParams))
       .returns(decoderTypeName(typeName))
+      .beginControlFlow("return $T.create((value,policy) -> ", classOf[JsonLfDecoder[_]])
       .addStatement(
-        "return r -> new $T($L.decode(r))",
+        "return new $T($L.decode(value, policy))",
         typeName,
         jsonDecoderForType(field.damlType),
       )
+      .endControlFlow(")")
       .build()
 
   def forKey(damlType: Type)(implicit packagePrefixes: PackagePrefixes) = {
@@ -234,10 +259,23 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       .addParameter(classOf[String], "json")
       .returns(className)
       .addException(classOf[JsonLfDecoder.Error])
-      .addStatement("return keyJsonDecoder().decode(new $T(json))", classOf[JsonLfReader])
+      .addStatement(
+        "return keyJsonDecoder().decode(new $T(json), UnknownTrailingFieldPolicy.STRICT)",
+        classOf[JsonLfReader],
+      )
       .build()
 
-    Seq(decoder, fromString)
+    val fromStringWithPolicy = MethodSpec
+      .methodBuilder("keyFromJson")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .addParameter(classOf[String], "json")
+      .addParameter(classOf[UnknownTrailingFieldPolicy], "policy")
+      .returns(className)
+      .addException(classOf[JsonLfDecoder.Error])
+      .addStatement("return keyJsonDecoder().decode(new $T(json), policy)", classOf[JsonLfReader])
+      .build()
+
+    Seq(decoder, fromString, fromStringWithPolicy)
   }
 
   def forEnum(className: ClassName, damlNameToEnumMap: String): Seq[MethodSpec] = {

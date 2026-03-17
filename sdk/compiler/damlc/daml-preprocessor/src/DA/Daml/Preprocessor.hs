@@ -99,6 +99,7 @@ allowedToImportInternal = Map.fromList $ fmap (bimap LF.PackageName $ Set.fromLi
   [ ( "daml-script"
     , [ "Daml.Script.Internal.LowLevel"
       , "Daml.Script.Internal.Questions.UserManagement"
+      , "Daml.Script.Internal.Questions.Commands"
       ]
     )
   ]

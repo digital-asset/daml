@@ -5,7 +5,7 @@ package com.daml
 package integrationtest
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.ledger.api.testing.utils.{
+import com.daml.testing.utils.{
   OwnedResource,
   PekkoBeforeAndAfterAll,
   SuiteResource,

@@ -12,6 +12,7 @@ import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Int64;
 import com.daml.ledger.javaapi.data.Text;
 import com.daml.ledger.javaapi.data.Variant;
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -51,10 +52,18 @@ public class GenMapTest {
     MapRecord fromValue = MapRecord.valueDecoder().decode(dataRecord);
     MapRecord fromConstructor = new MapRecord(javaMap);
     MapRecord fromRoundTrip = MapRecord.valueDecoder().decode(fromConstructor.toValue());
+    MapRecord roundTripped =
+        MapRecord.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    MapRecord roundTrippedWithIgnore =
+        MapRecord.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataRecord);
     assertEquals(fromConstructor, fromRoundTrip);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   private <K, V> Map<V, K> reverseMap(Map<K, V> m) {
@@ -100,10 +109,18 @@ public class GenMapTest {
     MapMapRecord fromValue = MapMapRecord.valueDecoder().decode(dataRecord);
     MapMapRecord fromConstructor = new MapMapRecord(javaMap);
     MapMapRecord fromRoundTrip = MapMapRecord.valueDecoder().decode(fromConstructor.toValue());
+    MapMapRecord roundTripped =
+        MapMapRecord.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    MapMapRecord roundTrippedWithIgnore =
+        MapMapRecord.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataRecord);
     assertEquals(fromConstructor, fromRoundTrip);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   @Test
@@ -114,13 +131,26 @@ public class GenMapTest {
             .getVariant();
 
     Variant dataVariant = Variant.fromProto(protoVariant);
+    TextVariant<?, ?> fromValue =
+        (TextVariant<?, ?>) TextVariant.valueDecoder(fromText, fromInt64).decode(dataVariant);
     TextVariant<?, ?> fromConstructor = new TextVariant<>(Collections.singletonMap("key", "value"));
     TextVariant<?, ?> fromRoundTrip =
         (TextVariant<?, ?>)
             TextVariant.valueDecoder(fromText, fromInt64).decode(fromConstructor.toValue());
+    TextVariant<?, ?> roundTripped =
+        (TextVariant<?, ?>)
+            TextVariant.valueDecoder(fromText, fromInt64)
+                .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    TextVariant<?, ?> roundTrippedWithIgnore =
+        (TextVariant<?, ?>)
+            TextVariant.valueDecoder(fromText, fromInt64)
+                .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
+    assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataVariant);
     assertEquals(fromConstructor, fromRoundTrip);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   @Test
@@ -140,10 +170,20 @@ public class GenMapTest {
     RecordVariant<?, ?> fromRoundTrip =
         (RecordVariant<?, ?>)
             RecordVariant.valueDecoder(fromText, fromInt64).decode(fromConstructor.toValue());
+    RecordVariant<?, ?> roundTripped =
+        (RecordVariant<?, ?>)
+            RecordVariant.valueDecoder(fromText, fromInt64)
+                .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    RecordVariant<?, ?> roundTrippedWithIgnore =
+        (RecordVariant<?, ?>)
+            RecordVariant.valueDecoder(fromText, fromInt64)
+                .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataVariant);
     assertEquals(fromConstructor, fromRoundTrip);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   @Test
@@ -160,10 +200,29 @@ public class GenMapTest {
             ParameterizedVariant.valueDecoder(fromText, fromInt64).decode(dataVariant);
     ParameterizedVariant<String, Long> fromConstructor =
         new ParameterizedVariant<>(Collections.singletonMap("key", 42L));
+    ParameterizedVariant<String, Long> fromRoundTrip =
+        (ParameterizedVariant<String, Long>)
+            ParameterizedVariant.valueDecoder(fromText, fromInt64)
+                .decode(fromConstructor.toValue(x -> new Text(x), x -> new Int64(x)));
+    ParameterizedVariant<String, Long> roundTripped =
+        (ParameterizedVariant<String, Long>)
+            ParameterizedVariant.valueDecoder(fromText, fromInt64)
+                .decode(
+                    fromConstructor.toValue(x -> new Text(x), x -> new Int64(x)),
+                    UnknownTrailingFieldPolicy.STRICT);
+    ParameterizedVariant<String, Long> roundTrippedWithIgnore =
+        (ParameterizedVariant<String, Long>)
+            ParameterizedVariant.valueDecoder(fromText, fromInt64)
+                .decode(
+                    fromConstructor.toValue(x -> new Text(x), x -> new Int64(x)),
+                    UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(x -> new Text(x), x -> new Int64(x)), dataVariant);
     assertEquals(fromValue.toValue(x -> new Text(x), x -> new Int64(x)), dataVariant);
+    assertEquals(fromConstructor, fromRoundTrip);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   @Test
@@ -183,11 +242,19 @@ public class GenMapTest {
 
     TemplateWithMap fromRoundTrip =
         TemplateWithMap.valueDecoder().decode(fromConstructor.toValue());
+    TemplateWithMap roundTripped =
+        TemplateWithMap.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.STRICT);
+    TemplateWithMap roundTrippedWithIgnore =
+        TemplateWithMap.valueDecoder()
+            .decode(fromConstructor.toValue(), UnknownTrailingFieldPolicy.IGNORE);
 
     assertEquals(fromValue, fromConstructor);
     assertEquals(fromConstructor.toValue(), dataRecord);
     assertEquals(fromValue.toValue(), dataRecord);
     assertEquals(fromConstructor, fromRoundTrip);
+    assertEquals(fromConstructor, roundTripped);
+    assertEquals(fromConstructor, roundTrippedWithIgnore);
   }
 
   private static ValueOuterClass.Value buildInt(int i) {

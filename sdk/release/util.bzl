@@ -107,7 +107,7 @@ dpm_inputs = {
     "codegen": "//language-support/codegen-main:codegen-oci.tar.gz",
     "daml-new": "//daml-assistant/daml-helper:daml-new-oci.tar.gz",
     "upgrade-check": "//daml-assistant/upgrade-check-main:upgrade-check-oci.tar.gz",
-    "canton-enterprise": "//canton:canton-community-oci.tar.gz",
+    "canton-open-source": "//canton:canton-community-oci.tar.gz",
 }
 
 not_windows_wrapper_script = """

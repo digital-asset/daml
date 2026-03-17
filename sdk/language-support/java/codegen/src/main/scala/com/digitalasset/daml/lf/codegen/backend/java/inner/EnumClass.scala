@@ -113,10 +113,10 @@ private[inner] object EnumClass extends StrictLogging {
       .methodBuilder("valueDecoder")
       .addModifiers(Modifier.STATIC, Modifier.PUBLIC, Modifier.FINAL)
       .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
-      .beginControlFlow("return $L ->", "value$")
+      .beginControlFlow("return $T.create((value$$, policy$$) ->", classOf[ValueDecoder[_]])
       .addCode(valueDecoderCode.build())
       // put empty string in endControlFlow in order to have semicolon
-      .endControlFlow("")
+      .endControlFlow(")")
       .build()
   }
 

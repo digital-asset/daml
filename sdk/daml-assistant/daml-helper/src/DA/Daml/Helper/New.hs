@@ -10,8 +10,10 @@ module DA.Daml.Helper.New
 
 import Control.Monad.Extra
 import DA.Directory
+import Data.Either.Extra
 import Data.Foldable
 import Data.List.Extra
+import qualified Data.Map as Map
 import Data.Maybe
 import Options.Applicative
 import System.Directory.Extra
@@ -20,10 +22,13 @@ import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Process (showCommandForUser)
+import qualified Data.Text as T
+import qualified Data.SemVer as V
 
 import DA.Bazel.Runfiles
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Util
+import DA.Daml.Resolution.Config
 import DA.Signals (installSignalHandlers)
 
 -- | Create a Daml package or project in a new directory, based on a template packaged
@@ -39,11 +44,11 @@ import DA.Signals (installSignalHandlers)
 runNew :: FilePath -> Maybe String -> IO ()
 runNew targetFolder templateNameM = do
   sdkVersion <- getSdkVersion
-  runNewInternal "daml" sdkVersion False targetFolder templateNameM
+  runNewInternal "daml" [("__VERSION__", sdkVersion), ("__DAML_VERSION__", sdkVersion), ("__CANTON_VERSION__", sdkVersion)] False targetFolder templateNameM
 
 -- | Called for both Daml Assistant and DPM
-runNewInternal :: String -> String -> Bool -> FilePath -> Maybe String -> IO ()
-runNewInternal assistantName sdkVersion allowExisting targetFolder templateNameM = do
+runNewInternal :: String -> [(String, String)] -> Bool -> FilePath -> Maybe String -> IO ()
+runNewInternal assistantName replaceStrings allowExisting targetFolder templateNameM = do
     templatesFolder <- getTemplatesFolder
     let templateName = fromMaybe defaultProjectTemplate templateNameM
         templateFolder = templatesFolder </> templateName
@@ -107,9 +112,7 @@ runNewInternal assistantName sdkVersion allowExisting targetFolder templateNameM
     let templateFiles = filter (".template" `isExtensionOf`) files
     forM_ templateFiles $ \templateFile -> do
         templateContent <- readFileUTF8 templateFile
-        let content = replace "__VERSION__"  sdkVersion
-                    . replace "__PROJECT_NAME__" projectName
-                    $ templateContent
+        let content = foldr (uncurry replace) templateContent (("__PROJECT_NAME__", projectName) : replaceStrings)
             realFile = dropExtension templateFile
         writeFileUTF8 realFile content
         removeFile templateFile
@@ -175,7 +178,27 @@ ociMain = withProgName "dpm" $ do
           runNewDpm :: Bool -> Maybe FilePath -> Maybe String -> IO ()
           runNewDpm allowExisting oTargetFolder templateNameM = do
             sdkVersion <- getSdkVersionDpm
-            runNewInternal "dpm" sdkVersion allowExisting (fromMaybe "." oTargetFolder) templateNameM
+            mResolution <- getResolutionData
+            let -- Temporary solution to find version from resolution file, pull from the path. This will not work with local path overrides
+                extractVersionFromComponentPath :: String -> String
+                extractVersionFromComponentPath componentName =
+                  either (\err -> error $ "Failed to lookup version of " <> componentName <> ". " <> err) id $ do
+                    resolution <- maybeToEither "Couldn't find DPM resolution file, please run via `dpm new`" mResolution
+                    validDefaultResolution <- case snd $ defaultSdk resolution of
+                      ErrorPackageResolutionData errs -> Left $ "Couldn't find default SDK: " <> unlines (show <$> errs)
+                      ValidPackageResolutionData validDefaultResolution -> pure validDefaultResolution
+                    componentPath <- maybeToEither ("Couldn't find resolution data for " <> componentName <> ". Something is wrong with your DPM installation.")
+                      $ Map.lookup componentName $ components validDefaultResolution
+                    let versionString = last $ splitPath componentPath
+                    case V.fromText $ T.pack versionString of
+                      Right _ -> pure versionString
+                      Left _ -> Left $ "Could not deduce version for " <> componentName <> ". Local path overrides are currently not supported with `dpm new`."
+                replaceStrings =
+                  [ ("__VERSION__", sdkVersion)
+                  , ("__DAML_VERSION__", extractVersionFromComponentPath "damlc")
+                  , ("__CANTON_VERSION__", extractVersionFromComponentPath "canton-open-source")
+                  ]
+            runNewInternal "dpm" replaceStrings allowExisting (fromMaybe "." oTargetFolder) templateNameM
           commandNewParser :: Parser (IO ())
           commandNewParser = asum
             [ runListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
