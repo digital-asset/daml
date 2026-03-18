@@ -16,15 +16,10 @@ import spray.json._
 import com.digitalasset.daml.lf.archive.{Dar, DarDecoder}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
-import com.digitalasset.daml.lf.engine.ScriptEngine.{
-  TraceLog,
-  WarningLog,
-  newTraceLog,
-  newWarningLog,
-  defaultCompilerConfig,
-}
+import com.digitalasset.daml.lf.engine.ScriptEngine.defaultCompilerConfig
 import com.digitalasset.daml.lf.language.Ast.{Package, Type}
 import com.digitalasset.daml.lf.PureCompiledPackages
+import com.digitalasset.daml.lf.speedy.MachineLogger
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.value._
@@ -91,8 +86,7 @@ object RunnerMain {
   ): Future[Boolean] =
     for {
       _ <- Future.successful(())
-      traceLog = newTraceLog
-      warningLog = newWarningLog
+      machineLogger = ScriptMachineLogger()
 
       dar: Dar[(PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(config.darPath)
 
@@ -109,7 +103,7 @@ object RunnerMain {
         }
       envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
 
-      clients <- connectToParticipants(config, compiledPackages, traceLog, warningLog)
+      clients <- connectToParticipants(config, compiledPackages, machineLogger)
 
       _ <- (clients.getParticipant(None), config.uploadDar) match {
         case (Left(err), _) => throw new RuntimeException(err)
@@ -135,8 +129,7 @@ object RunnerMain {
               inputFile.map(file => java.nio.file.Files.readString(file.toPath).parseJson),
               clients,
               config.timeMode,
-              traceLog,
-              warningLog,
+              machineLogger,
             )
           result <- Future {
             outputFile.foreach { outputFile =>
@@ -247,8 +240,7 @@ object RunnerMain {
   def connectToParticipants(
       config: RunnerMainConfig,
       compiledPackages: PureCompiledPackages,
-      traceLog: TraceLog,
-      warningLog: WarningLog,
+      machineLogger: MachineLogger,
   )(implicit
       sequencer: ExecutionSequencerFactory,
       ec: ExecutionContext,
@@ -278,7 +270,7 @@ object RunnerMain {
           )
         connectApiParameters(config, params)
       case ParticipantMode.IdeLedgerParticipant() =>
-        Runner.ideLedgerClient(compiledPackages, traceLog, warningLog)
+        Runner.ideLedgerClient(compiledPackages, machineLogger)
     }
   }
 

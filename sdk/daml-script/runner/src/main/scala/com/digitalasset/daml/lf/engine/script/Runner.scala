@@ -6,7 +6,6 @@ package engine
 package script
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.daml.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.client.LedgerClient
@@ -28,16 +27,13 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
 }
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
+import com.digitalasset.daml.lf.script.IdeLedger
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValue,
-  newTraceLog,
-  newWarningLog,
-  TraceLog,
-  WarningLog,
   makeUnsafeCoerce,
   defaultCompilerConfig,
 }
+import com.digitalasset.daml.lf.speedy.MachineLogger
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.value._
@@ -221,11 +217,6 @@ object ScriptAction {
 }
 
 object Script {
-  // For now, we do not care of the logging context for Daml-Script, so we create a
-  // global dummy context, we can feed the Speedy Machine and the Script service with.
-  private[script] val DummyLoggingContext: LoggingContext =
-    LoggingContext.newLoggingContext(identity)
-
   final case class FailedCmd(description: String, stackTrace: StackTrace, cause: Throwable)
       extends RuntimeException(
         s"""Command ${description} failed: ${Option(cause.getMessage).getOrElse(cause)}
@@ -311,20 +302,19 @@ object Runner {
 
   def ideLedgerClient(
       compiledPackages: PureCompiledPackages,
-      traceLog: TraceLog,
-      warningLog: WarningLog,
+      machineLogger: MachineLogger,
   ): Future[Participants[IdeLedgerClient]] =
     Future.successful(
       Participants(
         default_participant =
-          Some(new IdeLedgerClient(compiledPackages, traceLog, warningLog, () => false)),
+          Some(new IdeLedgerClient(compiledPackages, machineLogger, () => false)),
         participants = Map.empty,
         party_participants = Map.empty,
       )
     )
 
   trait IdeLedgerContext {
-    def currentSubmission: Option[IdeLedgerRunner.CurrentSubmission]
+    def currentSubmission: Option[CurrentSubmission]
     def ledger: IdeLedger
   }
 
@@ -383,8 +373,7 @@ object Runner {
       inputValue: Option[X],
       initialClients: Participants[ScriptLedgerClient],
       timeMode: ScriptTimeMode,
-      traceLog: TraceLog = newTraceLog,
-      warningLog: WarningLog = newWarningLog,
+      machineLogger: MachineLogger = ScriptMachineLogger(),
       canceled: () => Option[RuntimeException] = () => None,
   )(implicit
       ec: ExecutionContext,
@@ -398,8 +387,7 @@ object Runner {
       inputValue,
       initialClients,
       timeMode,
-      traceLog,
-      warningLog,
+      machineLogger,
       canceled,
     )._1
 
@@ -411,8 +399,7 @@ object Runner {
       inputValue: Option[X],
       initialClient: IdeLedgerClient,
       timeMode: ScriptTimeMode,
-      traceLog: TraceLog = newTraceLog,
-      warningLog: WarningLog = newWarningLog,
+      machineLogger: MachineLogger = ScriptMachineLogger(),
       canceled: () => Option[RuntimeException] = () => None,
   )(implicit
       ec: ExecutionContext,
@@ -427,8 +414,7 @@ object Runner {
       inputValue,
       initialClients,
       timeMode,
-      traceLog,
-      warningLog,
+      machineLogger,
       canceled,
     )
     (resultF, oIdeLedgerContext.get)
@@ -441,8 +427,7 @@ object Runner {
       inputValue: Option[X],
       initialClients: Participants[ScriptLedgerClient],
       timeMode: ScriptTimeMode,
-      traceLog: TraceLog,
-      warningLog: WarningLog,
+      machineLogger: MachineLogger,
       canceled: () => Option[RuntimeException],
   )(implicit
       ec: ExecutionContext,
@@ -470,7 +455,7 @@ object Runner {
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner = new Runner(compiledPackages, scriptAction, timeMode)
-    runner.runWithClients(initialClients, traceLog, warningLog, canceled)
+    runner.runWithClients(initialClients, machineLogger, canceled)
   }
 
   def getPackageName(compiledPackages: CompiledPackages, pkgId: PackageId): Option[String] =
@@ -500,8 +485,7 @@ private[lf] class Runner(
 
   def runWithClients(
       initialClients: Participants[ScriptLedgerClient],
-      traceLog: TraceLog = newTraceLog,
-      warningLog: WarningLog = newWarningLog,
+      machineLogger: MachineLogger = ScriptMachineLogger(),
       canceled: () => Option[RuntimeException] = () => None,
   )(implicit
       ec: ExecutionContext,
@@ -514,7 +498,7 @@ private[lf] class Runner(
       throw new IllegalArgumentException("Couldn't get daml script package name")
     ) match {
       case "daml-script" | "daml3-script" =>
-        new v2.Runner(this, initialClients, traceLog, warningLog, canceled).getResult()
+        new v2.Runner(this, initialClients, machineLogger, canceled).getResult()
       case pkgName =>
         throw new IllegalArgumentException(
           "Invalid daml script package name. Expected daml-script or daml3-script, got " + pkgName

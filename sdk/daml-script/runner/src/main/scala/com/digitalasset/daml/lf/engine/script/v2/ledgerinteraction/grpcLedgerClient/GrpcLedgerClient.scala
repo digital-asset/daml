@@ -41,8 +41,9 @@ import com.daml.ledger.api.v2.transaction_filter.{
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.daml.ledger.api.v2.{value => api}
 import com.daml.timer.RetryStrategy
-import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.command
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
@@ -79,6 +80,7 @@ class GrpcLedgerClient(
     val userId: Option[Ref.UserId],
     val oAdminClient: Option[AdminLedgerClient],
     val compiledPackages: CompiledPackages,
+    loggerFactory: NamedLoggerFactory,
 ) extends ScriptLedgerClient {
   override val transport = "gRPC API"
   implicit val traceContext: TraceContext = TraceContext.empty
@@ -96,6 +98,7 @@ class GrpcLedgerClient(
     addFieldNames = true,
     addTrailingNoneFields = true,
     forbidLocalContractIds = true,
+    loggerFactory = loggerFactory,
   )
 
   override def query(
