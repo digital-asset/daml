@@ -196,7 +196,7 @@ data SubmitError
       cryptoErrorMessage : Text
   | -- | Rollback exceptions
     EffectfulRollbackError with
-      effectfulRollbackErrorMsg : Text -- FIXME
+      effectfulRollbackErrorMsg : Text
   | -- | Development feature exceptions
     DevError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
       devErrorType : DevErrorType
