@@ -541,11 +541,8 @@ prettyScriptErrorError lvl (Just err) =  do
        pure $ text $ TL.toStrict scriptError_UpgradeErrorMessage
     ScriptErrorErrorCryptoError ScriptError_CryptoError {..} -> do
       pure $ text $ TL.toStrict scriptError_CryptoErrorMessage
-    ScriptErrorErrorEffectfulRollbackError (ScriptError_EffectfulRollbackError rollbackErrorNodeIds) -> do
-      pure $ vcat
-        [ text "Could not rollback the following effectful transaction nodes:"
-        , fcommasep $ mapV prettyNodeId rollbackErrorNodeIds
-        ]
+    ScriptErrorErrorEffectfulRollbackError (ScriptError_EffectfulRollbackError msg) -> do
+      pure $ "EffectfulRollbackError:" <-> text (TL.toStrict msg)
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =

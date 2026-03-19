@@ -319,8 +319,8 @@ class IdeLedgerClient(
   private def fromInterpretationError(err: interpretation.Error): SubmitError = {
     import interpretation.Error._
     err match {
-      case _: EffectfulRollback =>
-        SubmitError.EffectfulRollback(Set()) // FIXME
+      case e: EffectfulRollback =>
+        SubmitError.EffectfulRollback(Pretty.prettyDamlException(e).renderWideStream.mkString)
       case ContractNotFound(cid) =>
         SubmitError.ContractNotFound(
           NonEmpty(Seq, cid),

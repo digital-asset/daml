@@ -281,7 +281,7 @@ message ScriptError {
   }
 
   message EffectfulRollbackError {
-    repeated NodeId node_ids = 1;
+    string message = 1;
   }
 
   message UpgradeError {
