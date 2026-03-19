@@ -9,7 +9,13 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-03-24 (Exclusive)
+- Daml Script: Handle new EffectfulRollback errors from the Ledger API
+
+## Until 2026-03-17 (Exclusive)
 - Codegen-java: Added support for `UnknownTrailingFieldPolicy` in the generated `valueDecoder()` and `fromJson()` methods.
+
+## Until 2026-03-10 (Exclusive)
 - `DA.Crypto.Text` is now marked as stable
 
 ## Until 2025-12-11 (Exclusive)
