@@ -169,6 +169,10 @@ stack_snapshot.package(
     components = ["exe"],
 )
 stack_snapshot.package(
+    name = "hpp",
+    components = ["lib", "exe"],
+)
+stack_snapshot.package(
     name = "proto3-suite",
     flags = ["-swagger"],
     vendored = "@proto3-suite//:proto3-suite",
