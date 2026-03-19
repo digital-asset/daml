@@ -9,19 +9,18 @@ import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.data.{ImmArray, assertRight}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
+import com.digitalasset.daml.lf.engine.script.{ScriptMachineLogger, ScriptTimeMode}
 import com.digitalasset.daml.lf.engine.script.v2.Converter
 import com.digitalasset.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.digitalasset.daml.lf.script.api.v1.{ScriptModule => ProtoScriptModule}
-import com.digitalasset.daml.lf.speedy.{Compiler, SDefinition, Speedy}
+import com.digitalasset.daml.lf.speedy.{Compiler, SDefinition}
 import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
 import com.digitalasset.daml.lf.validation.Validation
 import com.digitalasset.daml.lf.value.Value.ValueText
 import com.digitalasset.daml.lf.script.converter
 import com.google.protobuf.ByteString
 import com.digitalasset.daml.lf.engine.script.{Runner, Script}
-import com.daml.logging.LoggingContext
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext
@@ -39,9 +38,7 @@ object Context {
 
   private val contextCounter = new AtomicLong()
 
-  def newContext(lfVerion: LanguageVersion, timeout: Duration)(implicit
-      loggingContext: LoggingContext
-  ): Context =
+  def newContext(lfVerion: LanguageVersion, timeout: Duration): Context =
     new Context(contextCounter.incrementAndGet(), lfVerion, timeout)
 }
 
@@ -49,8 +46,6 @@ class Context(
     val contextId: Context.ContextId,
     languageVersion: LanguageVersion,
     timeout: Duration,
-)(implicit
-    loggingContext: LoggingContext
 ) {
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -204,15 +199,14 @@ class Context(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[IdeLedgerRunner.ScriptResult] = {
+  ): Future[ScriptServiceResult] = {
     val defns = extDefns ++ modDefns.values.flatten
     val compiledPackages = PureCompiledPackages(allSignatures, defns, compilerConfig)
     val scriptId = Identifier(packageId, QualifiedName.assertFromString(name))
-    val traceLog = Speedy.Machine.newTraceLog
-    val warningLog = Speedy.Machine.newWarningLog
+    val machineLogger = ScriptMachineLogger()
     val timeBomb = TimeBomb(timeout.toMillis)
     val isOverdue = timeBomb.hasExploded
-    val ledgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog, isOverdue)
+    val ledgerClient = new IdeLedgerClient(compiledPackages, machineLogger, isOverdue)
     val timeBombCanceller = timeBomb.start()
     val (resultF, ideLedgerContext) = Runner.runIdeLedgerClient(
       compiledPackages = compiledPackages,
@@ -221,8 +215,7 @@ class Context(
       inputValue = None,
       initialClient = ledgerClient,
       timeMode = ScriptTimeMode.Static,
-      traceLog = traceLog,
-      warningLog = warningLog,
+      machineLogger,
       canceled = () => {
         if (timeBombCanceller()) Some(Runner.TimedOut)
         else if (canceledByRequest()) Some(Runner.CanceledByRequest)
@@ -234,10 +227,9 @@ class Context(
       // SError are the errors that should be handled and displayed as
       // failed partial transactions.
       Success(
-        IdeLedgerRunner.ScriptError(
+        ScriptServiceError(
           ideLedgerContext.ledger,
-          traceLog,
-          warningLog,
+          machineLogger,
           ideLedgerContext.currentSubmission,
           // TODO (MK) https://github.com/digital-asset/daml/issues/7276
           ImmArray.Empty,
@@ -251,10 +243,9 @@ class Context(
     resultF.transform {
       case Success(v) =>
         Success(
-          IdeLedgerRunner.ScriptSuccess(
+          ScriptServiceSuccess(
             ideLedgerContext.ledger,
-            traceLog,
-            warningLog,
+            machineLogger,
             dummyDuration,
             dummySteps,
             Converter.castCommandExtendedValue(v).getOrElse(ValueText("Unserializable")),

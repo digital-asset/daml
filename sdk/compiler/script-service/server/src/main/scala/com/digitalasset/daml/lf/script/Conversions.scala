@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf
 package script
 
 import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref}
+import com.digitalasset.daml.lf.engine.script.ScriptMachineLogger
 import com.digitalasset.daml.lf.language.Ast.{FailureCategory, PackageMetadata}
 import com.digitalasset.daml.lf.ledger._
 import com.digitalasset.daml.lf.script.api.{v1 => proto}
@@ -19,8 +20,7 @@ final class Conversions(
     homePackageId: Ref.PackageId,
     ledger: IdeLedger,
     incomplete: Option[IncompleteTransaction],
-    traceLog: TraceLog,
-    warningLog: WarningLog,
+    machineLogger: ScriptMachineLogger,
     commitLocation: Option[Ref.Location],
     stackTrace: ImmArray[Ref.Location],
     devMode: Boolean,
@@ -60,11 +60,11 @@ final class Conversions(
           .map[String](coid => coidToEventId(coid).toLedgerString)
           .asJava
       )
-    traceLog.iterator.foreach { entry =>
-      builder.addTraceLog(convertSTraceMessage(entry))
+    machineLogger.traceIterator.foreach { case (message, location) =>
+      builder.addTraceLog(convertSTraceMessage(message, location))
     }
-    warningLog.iterator.foreach { entry =>
-      builder.addWarnings(convertSWarningMessage(entry))
+    machineLogger.warningIterator.foreach { case (message, location) =>
+      builder.addWarnings(convertSWarningMessage(message, location))
     }
     builder.build
   }
@@ -80,8 +80,8 @@ final class Conversions(
           .asJava
       )
 
-    traceLog.iterator.foreach { entry =>
-      builder.addTraceLog(convertSTraceMessage(entry))
+    machineLogger.traceIterator.foreach { case (message, location) =>
+      builder.addTraceLog(convertSTraceMessage(message, location))
     }
 
     def setCrash(reason: String) = builder.setCrash(reason)
@@ -403,16 +403,19 @@ final class Conversions(
       .build
   }
 
-  def convertSTraceMessage(msgAndLoc: (String, Option[Ref.Location])): proto.TraceMessage = {
+  def convertSTraceMessage(message: String, location: Option[Ref.Location]): proto.TraceMessage = {
     val builder = proto.TraceMessage.newBuilder
-    msgAndLoc._2.map(loc => builder.setLocation(convertLocation(loc)))
-    builder.setMessage(msgAndLoc._1).build
+    location.map(loc => builder.setLocation(convertLocation(loc)))
+    builder.setMessage(message).build
   }
 
-  private[this] def convertSWarningMessage(warning: Warning): proto.WarningMessage = {
+  private[this] def convertSWarningMessage(
+      message: String,
+      location: Option[Ref.Location],
+  ): proto.WarningMessage = {
     val builder = proto.WarningMessage.newBuilder
-    warning.commitLocation.map(loc => builder.setCommitLocation(convertLocation(loc)))
-    builder.setMessage(warning.message).build
+    location.map(loc => builder.setCommitLocation(convertLocation(loc)))
+    builder.setMessage(message).build
   }
 
   def convertFailedAuthorization(

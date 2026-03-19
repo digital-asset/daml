@@ -5,16 +5,13 @@ package com.digitalasset.daml.lf
 package engine
 package free
 
-import com.daml.logging.LoggingContext
 import data.{ImmArray, Ref}
-import speedy.{Pretty, SError}
+import speedy.{MachineLogger, Pretty, SError}
 import ScriptEngine.{
   ExtendedValue,
   ExtendedValueClosureBlob,
   ExtendedValueComputationMode,
   runExtendedValueComputation,
-  TraceLog,
-  WarningLog,
 }
 import value.Value._
 import scalaz.std.either._
@@ -122,35 +119,27 @@ private[lf] object Free {
   def getResult(
       freeClosure: ExtendedValueClosureBlob, // LF Type: () -> Free ScriptF (a, ())
       compiledPackages: CompiledPackages,
-      traceLog: TraceLog,
-      warningLog: WarningLog,
-      loggingContext: LoggingContext,
+      machineLogger: MachineLogger,
       convertLegacyExceptions: Boolean,
   ): Result[ExtendedValue, Question, ExtendedValue] =
     new Runner(
       freeClosure,
       compiledPackages: CompiledPackages,
-      traceLog: TraceLog,
-      warningLog: WarningLog,
-      loggingContext: LoggingContext,
+      machineLogger: MachineLogger,
       convertLegacyExceptions,
     ).getResult()
 
   def getResultF(
       freeClosure: ExtendedValueClosureBlob, // LF Type: () -> Free ScriptF (a, ())
       compiledPackages: CompiledPackages,
-      traceLog: TraceLog,
-      warningLog: WarningLog,
-      loggingContext: LoggingContext,
+      machineLogger: MachineLogger,
       convertLegacyExceptions: Boolean,
       cancelled: () => Option[RuntimeException],
   )(implicit ec: ExecutionContext): Future[Result[ExtendedValue, Question, ExtendedValue]] =
     new Runner(
       freeClosure: ExtendedValueClosureBlob,
       compiledPackages: CompiledPackages,
-      traceLog: TraceLog,
-      warningLog: WarningLog,
-      loggingContext: LoggingContext,
+      machineLogger: MachineLogger,
       convertLegacyExceptions,
       cancelled,
     ).getResultF()
@@ -158,9 +147,7 @@ private[lf] object Free {
   private class Runner(
       freeClosure: ExtendedValueClosureBlob, // LF Type: () -> Free ScriptF (a, ())
       compiledPackages: CompiledPackages,
-      traceLog: TraceLog,
-      warningLog: WarningLog,
-      loggingContext: LoggingContext,
+      machineLogger: MachineLogger,
       convertLegacyExceptions: Boolean,
       cancelled: () => Option[RuntimeException] = () => None,
   ) {
@@ -186,10 +173,9 @@ private[lf] object Free {
         cancelled = cancelled,
         compiledPackages = compiledPackages,
         iterationsBetweenInterruptions = 100000,
-        traceLog = traceLog,
-        warningLog = warningLog,
+        logger = machineLogger,
         convertLegacyExceptions = convertLegacyExceptions,
-      )(loggingContext).fold(
+      ).fold(
         err => Result.failed(err.fold(identity, free.InterpretationError(_))),
         Result.successful(_),
       )

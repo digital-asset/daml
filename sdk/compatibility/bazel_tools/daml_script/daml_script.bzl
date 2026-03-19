@@ -101,13 +101,13 @@ if [ {wait_for_port_file} -eq 1 ]; then
     done
 fi
 if [ {upload_dar} -eq 1 ] ; then
-  $$runner ledger upload-dar \\
+  DAML_SDK_VERSION={runner_version} $$runner ledger upload-dar \\
     --host localhost \\
     --port 6865 \\
     $$(canonicalize_rlocation $(rootpath {dar}))
 fi
 
-$$runner script \\
+DAML_SDK_VERSION={runner_version} $$runner script \\
   --ledger-host localhost \\
   --ledger-port 6865 \\
   --wall-clock-time \\
@@ -118,6 +118,7 @@ chmod +x $(OUTS)
 """.format(
             dar = compiled_dar,
             runner = daml_runner,
+            runner_version = runner_version,
             script_name = script_name,
             upload_dar = "0",
             wait_for_port_file = "1",

@@ -10,6 +10,7 @@ import com.daml.ledger.api.v2.event.{Event, ExercisedEvent}
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.javaapi.data.{Transaction => JavaTransaction}
 import com.daml.ledger.javaapi.data.{ExercisedEvent => JavaExercisedEvent}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
@@ -131,7 +132,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       tx: Transaction,
       intendedPackageIds: List[PackageId],
       enricher: Enricher,
-  ): Either[String, ScriptLedgerClient.TransactionTree] = {
+  )(implicit traceContext: TraceContext): Either[String, ScriptLedgerClient.TransactionTree] = {
     def convEvent(
         ev: Int,
         oIntendedPackageId: Option[PackageId],

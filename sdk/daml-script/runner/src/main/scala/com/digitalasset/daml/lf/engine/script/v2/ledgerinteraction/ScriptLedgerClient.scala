@@ -80,7 +80,8 @@ object ScriptLedgerClient {
   def realiseScriptLedgerClient(
       ledger: abstractLedgers.ScriptLedgerClient,
       compiledPackages: CompiledPackages,
-  )(implicit namedLoggerFactory: NamedLoggerFactory): ScriptLedgerClient =
+      loggerFactory: NamedLoggerFactory,
+  ): ScriptLedgerClient =
     ledger match {
       case abstractLedgers.GrpcLedgerClient(grpcClient, userId, oAdminClient) =>
         new grpcLedgerClient.GrpcLedgerClient(
@@ -88,14 +89,14 @@ object ScriptLedgerClient {
           userId,
           oAdminClient,
           compiledPackages,
+          loggerFactory,
         )
-      case abstractLedgers.IdeLedgerClient(pureCompiledPackages, traceLog, warningLog, canceled) =>
+      case abstractLedgers.IdeLedgerClient(pureCompiledPackages, machineLogger, canceled) =>
         new IdeLedgerClient(
           pureCompiledPackages,
-          traceLog,
-          warningLog,
+          machineLogger,
           canceled,
-          namedLoggerFactory,
+          loggerFactory,
         )
     }
 
