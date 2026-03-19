@@ -110,7 +110,9 @@ private[script] case class RunnerMainConfigIntermediate(
           case List() if includes.isEmpty => Left("--all or --script-name must be specified.")
           case List() =>
             Left("--script-name and --skip-script-name flags fully cancel out to no tests")
-          case List(singleTest) =>
+          case _ if useIO && resultMode != RunnerMainConfig.ResultMode.Text =>
+            Left("--json-test-summary not supported when using --input-file or --output-file")
+          case List(singleTest) if useIO =>
             Right(RunnerMainConfig.RunMode.RunSingle(singleTest, inputFile, outputFile))
           case _ if useIO =>
             Left("Cannot use --input-file/--output-file when more than one test is specified")
