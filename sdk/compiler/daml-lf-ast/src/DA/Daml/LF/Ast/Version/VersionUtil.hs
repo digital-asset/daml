@@ -176,8 +176,8 @@ ifSupports l f = ifVersion l (`supports` f)
 
 whenSupports :: MonadReader r m => Getting Version r Version -> Feature -> (Version -> m ()) -> m ()
 whenSupports l f b = do
-  ifVersionWith l (`supports` f) (const $ return ()) b
+  ifVersionWith l (`supports` f) b (const $ return ())
 
 whenSupportsNot :: MonadReader r m => Getting Version r Version -> Feature -> (Version -> m ()) -> m ()
 whenSupportsNot l f b = do
-  ifVersionWith l (`supports` f) b (const $ return ())
+  ifVersionWith l (`supports` f) (const $ return ()) b

@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+-- @SUPPORTS-LF-FEATURE DAML_LOOKUP_BY_KEY
 
 module AuthFailureWithKey where
 
