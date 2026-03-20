@@ -1,0 +1,2 @@
+# Bazel auto-generates MODULE.bazel; not needed (bzlmod is disabled)
+MODULE.bazel

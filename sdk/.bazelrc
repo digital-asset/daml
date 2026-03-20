@@ -124,4 +124,9 @@ test:windows --test_env=ComSpec
 # to not compile them with optimizations.
 build -c opt
 
+# Bazel BSP (used by Metals/IntelliJ) expects @rules_scala, but this repo
+# registers it as @io_bazel_rules_scala. This alias is a no-op for normal
+# builds since nothing references @rules_scala directly.
+build --override_repository=rules_scala=.rules_scala_compat
+
 try-import %workspace%/.bazelrc.local

@@ -75,6 +75,11 @@ node_modules/
 *.iws
 out
 
+# Metals / Bazel BSP
+.metals
+.bsp
+.bazelbsp
+
 # Vim
 *~
 *.swo
