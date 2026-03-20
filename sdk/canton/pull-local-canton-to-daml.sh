@@ -11,7 +11,7 @@ LOG=$(mktemp)
 trap "cat $LOG" EXIT
 
 function print_help () {
-  echo "Builds and locally publishes artifacts from the local canton repository in canton/canton_version.bzl:USE_LOCAL_CANTON_INSTEAD in such a way that this Daml repository can use them."
+  echo "Builds and locally publishes artifacts from the local canton repository in canton/canton_version.bzl:LOCAL_CANTON_OVERRIDE in such a way that this Daml repository can use them."
   echo "For more information on usage, consult canton/README.md"
   echo ""
   echo "Usage: $0 [-h|-v] [--all|--libraries|--app|--repin]"
@@ -77,18 +77,18 @@ if $DO_ALL && { $DO_LIBRARIES || $DO_APP || $DO_REPIN || $DO_SHARED; }; then
   exit 1
 fi
 
-USE_LOCAL_CANTON_INSTEAD=$(./canton/get-local-canton-path.sh)
+LOCAL_CANTON_OVERRIDE=$(./canton/get-local-canton-path.sh)
 
 if $DO_ALL || $DO_SHARED; then
-  echo "Copying '$USE_LOCAL_CANTON_INSTEAD/shared_dependencies.json' to 'canton/shared_dependencies.json'"
-  cp "$USE_LOCAL_CANTON_INSTEAD/shared_dependencies.json" canton/shared_dependencies.json
+  echo "Copying '$LOCAL_CANTON_OVERRIDE/shared_dependencies.json' to 'canton/shared_dependencies.json'"
+  cp "$LOCAL_CANTON_OVERRIDE/shared_dependencies.json" canton/shared_dependencies.json
 else
   echo "Skipping copy of shared_dependencies.json"
 fi
 
 (
-  echo "Changing directory to local canton path '$USE_LOCAL_CANTON_INSTEAD'"
-  cd "$USE_LOCAL_CANTON_INSTEAD"
+  echo "Changing directory to local canton path '$LOCAL_CANTON_OVERRIDE'"
+  cd "$LOCAL_CANTON_OVERRIDE"
 
   if $DO_ALL || $DO_LIBRARIES; then
     echo "Publish JARs to local Maven cache$VERBOSE_TRAILER"

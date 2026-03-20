@@ -34,7 +34,7 @@ CANTON_OPEN_SOURCE_SHA = "${CANTON_DIGEST}"
 
 # Use an alternative canton JAR & artifacts from the local maven cache by setting this to an absolute path
 # Consult canton/README.md
-USE_LOCAL_CANTON_INSTEAD = None
+LOCAL_CANTON_OVERRIDE = None
 EOF
 
 

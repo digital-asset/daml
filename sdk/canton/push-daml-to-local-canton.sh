@@ -11,7 +11,7 @@ LOG=$(mktemp)
 trap "cat $LOG" EXIT
 
 function print_help () {
-  echo "Builds and locally publishes artifacts from this Daml repository in such a way that the local canton repository in canton/canton_version.bzl:USE_LOCAL_CANTON_INSTEAD can use them."
+  echo "Builds and locally publishes artifacts from this Daml repository in such a way that the local canton repository in canton/canton_version.bzl:LOCAL_CANTON_OVERRIDE can use them."
   echo "For more information on usage, consult canton/README.md"
   echo ""
   echo "Usage: $0 [-h]"
@@ -39,10 +39,10 @@ if $HELP; then
   exit 0
 fi
 
-USE_LOCAL_CANTON_INSTEAD=$(./canton/get-local-canton-path.sh)
+LOCAL_CANTON_OVERRIDE=$(./canton/get-local-canton-path.sh)
 
-echo "Changing directory to local canton path '$USE_LOCAL_CANTON_INSTEAD'"
-cd "$USE_LOCAL_CANTON_INSTEAD"
+echo "Changing directory to local canton path '$LOCAL_CANTON_OVERRIDE'"
+cd "$LOCAL_CANTON_OVERRIDE"
 
 echo "Getting local Canton's DamlVersion settings..."
 SBT_OUT=$(mktemp)

@@ -47,7 +47,7 @@ branch.
 To avoid needing to publish a full Canton, the Daml repo can be made to use
 local artifacts from a local Canton repo.
 
-* In `canton/canton_version.bzl`, set `USE_LOCAL_CANTON_INSTEAD` to an absolute
+* In `canton/canton_version.bzl`, set `LOCAL_CANTON_OVERRIDE` to an absolute
   path to the Canton repo in question.
 * Run `./sdk/canton/pull-local-canton-to-daml.sh -v --all` - the script will
   navigate to the local Canton repo, build all of the artifacts, publish them to
