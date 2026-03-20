@@ -869,3 +869,7 @@ daml_versions_repo(
     name = "daml_versions_data",
     json_file = "//daml-lf:daml-lf-versions.json",
 )
+
+load("//canton:canton_jar.bzl", "local_canton_repo")
+
+local_canton_repo()

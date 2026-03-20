@@ -31,6 +31,10 @@ echo "> Writing canton/canton_version.bzl" >&2
 cat > canton/canton_version.bzl <<EOF
 CANTON_OPEN_SOURCE_TAG = "${CANTON_VERSION}"
 CANTON_OPEN_SOURCE_SHA = "${CANTON_DIGEST}"
+
+# Use an alternative canton JAR & artifacts from the local maven cache by setting this to an absolute path
+# Consult canton/README.md
+LOCAL_CANTON_OVERRIDE = None
 EOF
 
 
