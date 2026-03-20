@@ -193,6 +193,9 @@ use_repo(d3plus_extension, "static_asset_d3plus")
 googleapis_extenstion = use_extension("//bazel/extensions:go_googleapis_extension.bzl", "googleapis_extension")
 use_repo(googleapis_extenstion, "go_googleapis")
 
+import_googleapis_extenstion = use_extension("//bazel/extensions:go_googleapis_import_extension.bzl", "import_googleapis_extension")
+use_repo(import_googleapis_extenstion, "com_google_googleapis_imports")
+
 proto3_suite = use_extension("//bazel/extensions:proto3_suite_extension.bzl", "proto3_suite_extension")
 use_repo(proto3_suite, "proto3-suite")
 
