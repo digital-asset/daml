@@ -49,6 +49,7 @@ use_repo(
     "ghc-lib-gen",
     "ghcide_ghc_lib",
     "lsp-types",
+    "zip",
 )
 
 stack_snapshot = use_extension(
@@ -160,6 +161,16 @@ stack_snapshot.package(
     flags = ["ghc-lib"],
     vendored = "@ghcide_ghc_lib//:ghcide",
 )
+stack_snapshot.package(
+    name = "proto3-suite",
+    flags = ["-swagger"],
+    vendored = "@proto3-suite//:proto3-suite",
+)
+stack_snapshot.package(
+    name = "zip",
+    vendored = "@zip//:zip",
+)
+
 stack_snapshot.package(
     name = "happy",
     components = ["exe"],
