@@ -245,3 +245,9 @@ maven.install(
     ],
 )
 use_repo(maven, "maven")
+
+# # #
+# DEPRECATED
+rules_proto_extenstion = use_extension("//bazel/extensions:deprecated/rules_proto_extension.bzl", "rules_proto_extension")
+use_repo(rules_proto_extenstion, "rules_proto")
+# # #
