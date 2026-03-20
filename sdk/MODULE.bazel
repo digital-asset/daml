@@ -186,11 +186,6 @@ stack_snapshot.package(
         "exe",
     ],
 )
-stack_snapshot.package(
-    name = "proto3-suite",
-    flags = ["-swagger"],
-    vendored = "@proto3-suite//:proto3-suite",
-)
 
 module_temporary_extension = use_extension("//bazel/extensions:module_temporary_extension.bzl", "temporary_extension")
 use_repo(module_temporary_extension, "build_environment", "daml_versions_data", "os_info", "scala_version")
