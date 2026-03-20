@@ -194,6 +194,9 @@ data SubmitError
     CryptoError with
       cryptoErrorType : CryptoErrorType
       cryptoErrorMessage : Text
+  | -- | Rollback exceptions
+    EffectfulRollbackError with
+      effectfulRollbackErrorMsg : Text
   | -- | Development feature exceptions
     DevError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
       devErrorType : DevErrorType
@@ -244,6 +247,7 @@ instance Show SubmitError where
     UpgradeError ty msg -> "UpgradeError: " <> show ty <> "\n with message \"" <> msg <> "\""
     FailureStatusError failureStatus -> "Failed with Status: " <> show failureStatus
     CryptoError ty msg -> "CryptoError: " <> show ty <> "\n with message \"" <> msg <> "\""
+    EffectfulRollbackError msg -> "EffectfulRollbackError: " <> msg
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
     TruncatedError ty msg -> "TruncatedError of type " <> ty <> " and message \"" <> msg <> "\""

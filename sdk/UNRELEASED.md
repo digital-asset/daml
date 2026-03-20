@@ -10,7 +10,7 @@ header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
 ## Until 2026-03-24 (Exclusive)
-
+- Daml Script: Handle new EffectfulRollback errors from the Ledger API
 - Moved Contract keys and QueryNByKey to 2.3-staging (from 2.dev)
 
 ## Until 2026-03-17 (Exclusive)
@@ -18,7 +18,6 @@ Wednesday after your change.
 - Codegen-java: Added support for `UnknownTrailingFieldPolicy` in the generated `valueDecoder()` and `fromJson()` methods.
 
 ## Until 2026-03-10 (Exclusive)
-
 - `DA.Crypto.Text` is now marked as stable
 
 ## Until 2025-12-11 (Exclusive)

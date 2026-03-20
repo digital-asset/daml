@@ -756,6 +756,23 @@ Data Types
          - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
 
+  .. _constr-daml-script-internal-questions-submit-error-effectfulrollbackerror-45632:
+
+  `EffectfulRollbackError <constr-daml-script-internal-questions-submit-error-effectfulrollbackerror-45632_>`_
+
+    Rollback exceptions
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - effectfulRollbackErrorMsg
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+
   .. _constr-daml-script-internal-questions-submit-error-deverror-73533:
 
   `DevError <constr-daml-script-internal-questions-submit-error-deverror-73533_>`_

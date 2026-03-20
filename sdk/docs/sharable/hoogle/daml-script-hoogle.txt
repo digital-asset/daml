@@ -342,6 +342,12 @@ cryptoErrorType :: SubmitError -> CryptoErrorType
 
 cryptoErrorMessage :: SubmitError -> Text
 
+-- | Rollback exceptions
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-effectfulrollbackerror-45632
+EffectfulRollbackError :: Text -> SubmitError
+
+effectfulRollbackErrorMsg :: SubmitError -> Text
+
 -- | Development feature exceptions
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-deverror-73533
 DevError :: DevErrorType -> Text -> SubmitError

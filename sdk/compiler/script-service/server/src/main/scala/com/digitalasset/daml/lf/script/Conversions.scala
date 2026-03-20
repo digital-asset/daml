@@ -292,6 +292,12 @@ final class Conversions(
                     speedy.Pretty.prettyDamlException(interpretationError).render(80)
                   )
                 )
+              case _: EffectfulRollback =>
+                builder.setEffectfulRollbackError(
+                  proto.ScriptError.EffectfulRollbackError.newBuilder.setMessage(
+                    speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                  )
+                )
               case err @ Dev(_, _) =>
                 builder.setCrash(s"Unexpected Dev error: " + err.toString)
             }
