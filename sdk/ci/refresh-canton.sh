@@ -31,6 +31,9 @@ echo "> Writing canton/canton_version.bzl" >&2
 cat > canton/canton_version.bzl <<EOF
 CANTON_OPEN_SOURCE_TAG = "${CANTON_VERSION}"
 CANTON_OPEN_SOURCE_SHA = "${CANTON_DIGEST}"
+
+# Use a local canton repo by setting this to that repo's absolute path
+USE_LOCAL_CANTON_INSTEAD = None
 EOF
 
 

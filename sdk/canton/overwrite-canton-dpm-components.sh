@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+set -euo pipefail
+
+DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+cd "$DIR/.."
+
+LOG=$(mktemp)
+trap "cat $LOG" EXIT
+
+function print_help () {
+  echo "Usage: $0 [-h]"
+  echo "  -h : print this help"
+}
+
+UNRECOGNIZED=false
+HELP=false
+for i in "$@"; do
+  if [[ "$i" == "-h" || "$i" == "--help" ]]; then
+    HELP=true
+  else
+    echo "Unrecognized argument '$i'"
+    UNRECOGNIZED=true
+  fi
+done
+
+if $UNRECOGNIZED; then
+  print_help
+  exit 1
+fi
+
+if $HELP; then
+  print_help
+  exit 0
+fi
+
+USE_LOCAL_CANTON_INSTEAD=$(./canton/get-local-canton-path.sh)
+
+echo "Changing directory to local canton path '$USE_LOCAL_CANTON_INSTEAD'"
+cd "$USE_LOCAL_CANTON_INSTEAD"
+
+echo "Getting local Canton's DamlVersion settings..."
+SBT_OUT=$(mktemp)
+sbt --error 'print community-base / buildInfoKeys; print ThisBuild / damlUseCustomVersion' > $SBT_OUT
+
+DAML_PLUGIN_SDK_VERSION=$(grep damlLibrariesVersion /tmp/tmp.YMDFBCAeF5 | cut -f2 -d, | cut -f1 -d')')
+echo "Daml SDK used by Canton repo : $DAML_PLUGIN_SDK_VERSION"
+
+DAML_USE_CUSTOM_VERSION=$(grep -A 1 'ThisBuild / damlUseCustomVersion' $SBT_OUT | tail -n1 | grep -oE '[a-z]+')
+echo "Is the Canton repo using a custom version of Daml? : $DAML_USE_CUSTOM_VERSION"
+if $DAML_USE_CUSTOM_VERSION; then
+  echo "Warning: Make sure that you set the DAML_HEAD_VERSION environment variable when working in this local canton repository, or else it won't pick up the updated Daml Script."
+fi
+
+cd -
+echo "Installing damlc, codegen, and daml-script via DPM to SDK $DAML_PLUGIN_SDK_VERSION"
+dpm-sdk-head --verbose --version="$DAML_PLUGIN_SDK_VERSION" --damlc --codegen --daml-script

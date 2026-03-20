@@ -17,7 +17,7 @@ load(
     "scalapb_protoc_version",
     "scalapb_version",
 )
-load("//canton:canton_version.bzl", "CANTON_OPEN_SOURCE_TAG")
+load("//canton:canton_version.bzl", "CANTON_OPEN_SOURCE_TAG", "USE_LOCAL_CANTON_INSTEAD")
 load("@java_deps_json//:java_deps.bzl", "JAVA_DEPS")
 
 version_specific = {
@@ -48,7 +48,7 @@ pekko_version = "1.2.1"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
 
-canton_version = CANTON_OPEN_SOURCE_TAG
+canton_version = "3.5.0-SNAPSHOT" if USE_LOCAL_CANTON_INSTEAD != None else CANTON_OPEN_SOURCE_TAG
 
 upickle_version = "4.1.0"
 ujson_version = "4.0.2"
@@ -119,7 +119,7 @@ def install_java_deps():
         repositories = [
             "https://repo1.maven.org/maven2",
             "https://europe-maven.pkg.dev/da-images/public-maven-unstable",
-        ],
+        ] + (["m2local"] if USE_LOCAL_CANTON_INSTEAD != None else []),
         # The strict_visibility attribute controls whether all artifacts should
         # be visible (including transitive dependencies), or whether only
         # explicitly declared artifacts should be visible. The targets
