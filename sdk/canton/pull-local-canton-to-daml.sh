@@ -14,7 +14,8 @@ function print_help () {
   echo "Usage: $0 [-h|-v] [--all|--libraries|--app|--repin]"
   echo "  -v          : verbose, don't suppress output of sbt and repin commands"
   echo "  -h          : print this help"
-  echo "  --all       : run all of --libraries, --app, and --repin"
+  echo "  --all       : run all of --shared, --libraries, --app, and --repin"
+  echo "  --shared    : run all of --libraries, --app, and --repin"
   echo "  --libraries : publish the remote canton's libraries to the local cache and pull them in by repinning Daml's local maven"
   echo "  --app       : build the canton app to a JAR, consume it"
   echo "  --repin     : repin Daml's local maven"
@@ -25,6 +26,7 @@ VERBOSE_TRAILER=" (saving logs to $LOG, run with -v to stream them)"
 UNRECOGNIZED=false
 HELP=false
 DO_ALL=false
+DO_SHARED=false
 DO_LIBRARIES=false
 DO_APP=false
 DO_REPIN=false
@@ -36,6 +38,8 @@ for i in "$@"; do
     HELP=true
   elif [[ "$i" == "--all" ]]; then
     DO_ALL=true
+  elif [[ "$i" == "--shared" ]]; then
+    DO_SHARED=true
   elif [[ "$i" == "--libraries" ]]; then
     DO_LIBRARIES=true
   elif [[ "$i" == "--app" ]]; then
@@ -58,19 +62,26 @@ if $HELP; then
   exit 0
 fi
 
-if ! { $DO_ALL || $DO_LIBRARIES || $DO_APP || $DO_REPIN; }; then
-  echo "Must specify at least one of --all, --libraries, --app, or --repin"
+if ! { $DO_ALL || $DO_LIBRARIES || $DO_APP || $DO_REPIN || $DO_SHARED; }; then
+  echo "Must specify at least one of --all, --shared, --libraries, --app, or --repin"
   print_help
   exit 1
 fi
 
-if $DO_ALL && { $DO_LIBRARIES || $DO_APP || $DO_REPIN; }; then
-  echo "Cannot specify --all and another build flag. Must specify exclusively --all or at least one of --libraries, --app, or --repin"
+if $DO_ALL && { $DO_LIBRARIES || $DO_APP || $DO_REPIN || $DO_SHARED; }; then
+  echo "Cannot specify --all and another build flag. Must specify exclusively --all or at least one of --libraries, --shared, --app, or --repin"
   print_help
   exit 1
 fi
 
 USE_LOCAL_CANTON_INSTEAD=$(./canton/get-local-canton-path.sh)
+
+if $DO_ALL || $DO_SHARED; then
+  echo "Copying '$USE_LOCAL_CANTON_INSTEAD/shared_dependencies.json' to 'canton/shared_dependencies.json'"
+  cp "$USE_LOCAL_CANTON_INSTEAD/shared_dependencies.json" canton/shared_dependencies.json
+else
+  echo "Skipping copy of shared_dependencies.json"
+fi
 
 (
   echo "Changing directory to local canton path '$USE_LOCAL_CANTON_INSTEAD'"
