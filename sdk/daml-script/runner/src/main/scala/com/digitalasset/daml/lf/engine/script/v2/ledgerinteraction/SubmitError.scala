@@ -204,15 +204,15 @@ object SubmitError {
             ),
             (
               "actAs",
-              ValueList(actAs.toList.map(ValueParty).to(FrontStack)),
+              ValueList(actAs.toList.map(ValueParty.apply).to(FrontStack)),
             ),
             (
               "readAs",
-              ValueList(readAs.toList.map(ValueParty).to(FrontStack)),
+              ValueList(readAs.toList.map(ValueParty.apply).to(FrontStack)),
             ),
             (
               "observers",
-              ValueList(observers.toList.map(ValueParty).to(FrontStack)),
+              ValueList(observers.toList.map(ValueParty.apply).to(FrontStack)),
             ),
           )
       }
@@ -499,33 +499,35 @@ object SubmitError {
             ("dstPackageName", ValueText(dstPackageName)),
             (
               "originalSignatories",
-              ValueList(originalSignatories.toList.map(ValueParty).to(FrontStack)),
+              ValueList(originalSignatories.toList.map(ValueParty.apply).to(FrontStack)),
             ),
             (
               "originalObservers",
-              ValueList(originalObservers.toList.map(ValueParty).to(FrontStack)),
+              ValueList(originalObservers.toList.map(ValueParty.apply).to(FrontStack)),
             ),
             (
               "originalKeyOpt",
               ValueOptional(originalOptKey.map(key => {
                 val globalKey = globalKeyToAnyContractKey(env, legacyAnyContractKey, key.globalKey)
-                val maintainers = ValueList(key.maintainers.toList.map(ValueParty).to(FrontStack))
+                val maintainers =
+                  ValueList(key.maintainers.toList.map(ValueParty.apply).to(FrontStack))
                 makeTuple(globalKey, maintainers)
               })),
             ),
             (
               "recomputedSignatories",
-              ValueList(recomputedSignatories.toList.map(ValueParty).to(FrontStack)),
+              ValueList(recomputedSignatories.toList.map(ValueParty.apply).to(FrontStack)),
             ),
             (
               "recomputedObservers",
-              ValueList(recomputedObservers.toList.map(ValueParty).to(FrontStack)),
+              ValueList(recomputedObservers.toList.map(ValueParty.apply).to(FrontStack)),
             ),
             (
               "recomputedKeyOpt",
               ValueOptional(recomputedOptKey.map(key => {
                 val globalKey = globalKeyToAnyContractKey(env, legacyAnyContractKey, key.globalKey)
-                val maintainers = ValueList(key.maintainers.toList.map(ValueParty).to(FrontStack))
+                val maintainers =
+                  ValueList(key.maintainers.toList.map(ValueParty.apply).to(FrontStack))
                 makeTuple(globalKey, maintainers)
               })),
             ),
