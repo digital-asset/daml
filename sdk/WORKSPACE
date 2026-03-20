@@ -871,4 +871,5 @@ daml_versions_repo(
 )
 
 load("//canton:canton_jar.bzl", "local_canton_repo")
+
 local_canton_repo()

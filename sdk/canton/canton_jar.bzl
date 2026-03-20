@@ -3,7 +3,7 @@
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("//canton:canton_version.bzl", "CANTON_OPEN_SOURCE_TAG", "CANTON_OPEN_SOURCE_SHA", "USE_LOCAL_CANTON_INSTEAD")
+load("//canton:canton_version.bzl", "CANTON_OPEN_SOURCE_SHA", "CANTON_OPEN_SOURCE_TAG", "USE_LOCAL_CANTON_INSTEAD")
 
 def local_canton_repo():
     if USE_LOCAL_CANTON_INSTEAD != None:
@@ -18,7 +18,7 @@ filegroup(
   ]),
   visibility = ["//visibility:public"],
 )
-            """
+            """,
         )
 
 def canton_jar():
@@ -50,4 +50,3 @@ def canton_jar():
             tools = ["@dpm_binary//:oras"],
             visibility = ["//visibility:private"],
         )
-
