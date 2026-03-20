@@ -5,7 +5,7 @@
 -- defining the type that contains a contract id in a separate module, the
 -- runtime check is still performed.
 
--- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+-- @SUPPORTS-LF-FEATURE DAML_UCK_BUILTINS
 
 -- @ERROR range=41:1-41:17; Contract IDs are not supported in contract key
 -- @ERROR range=50:1-50:13; Contract IDs are not supported in contract key

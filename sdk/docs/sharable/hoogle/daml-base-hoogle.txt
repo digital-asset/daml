@@ -133,7 +133,7 @@ type Template t = (HasTemplateTypeRep t, HasToAnyTemplate t, HasFromAnyTemplate 
 
 -- | Constraint satisfied by template keys.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-template-functions-templatekey-95200
-type TemplateKey t k = (Template t, HasKey t k, HasLookupByKey t k, HasFetchByKey t k, HasMaintainer t k)
+type TemplateKey t k = (Template t, HasKey t k, HasMaintainer t k)
 
 -- | The `Either` type represents values with two possibilities: a value of
 --   type `Either a b` is either `Left a` or `Right b`.
@@ -1430,15 +1430,6 @@ stakeholder :: (HasSignatory t, HasObserver t) => t -> [Party]
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-maintainer-44226
 maintainer :: (HasMaintainer t k) => k -> [Party]
 
--- | Exercise a choice on the contract associated with the given key.
---   
---   You must pass the `t` using an explicit type application. For
---   instance, if you want to exercise a choice `Withdraw` on a contract of
---   template `Account` given by its key `k`, you must call
---   `exerciseByKey @Account k Withdraw`.
-@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-exercisebykey-78695
-exerciseByKey :: (HasExerciseByKey t k c r) => k -> c -> Update r
-
 -- | Create a contract and exercise the choice on the newly created contract.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-createandexercise-2676
 createAndExercise :: (HasCreate t, HasExercise t c r) => t -> c -> Update r
@@ -1478,12 +1469,6 @@ toAnyChoice :: (HasTemplateTypeRep t, HasToAnyChoice t c r) => c -> AnyChoice
 --   Only available for Daml-LF 1.7 or later.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-fromanychoice-95102
 fromAnyChoice :: (HasTemplateTypeRep t, HasFromAnyChoice t c r) => AnyChoice -> Optional c
-
--- | True if contract exists, submitter is a stakeholder, and all maintainers
---   authorize. False if contract does not exist and all maintainers authorize.
---   Fails otherwise.
-@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-visiblebykey-51464
-visibleByKey :: (HasLookupByKey t k) => k -> Update Bool
 
 -- | Used as an alternative in conditions.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-ghc-base-otherwise-74255

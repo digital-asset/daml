@@ -66,7 +66,7 @@ main = withSdkVersions $ do
                 [ withResourceCps
                     (withScriptService lfVersion)
                     (testScriptServiceWithKeys lfVersion)
-                | Just lfVersion <- [LF.minBound $ LF.featureVersionReq LF.featureContractKeys]
+                | Just lfVersion <- [LF.minBound $ LF.featureVersionReq LF.featureUCKBuiltins]
                 ]
             ]
 
