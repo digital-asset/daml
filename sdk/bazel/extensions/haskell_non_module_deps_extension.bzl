@@ -29,8 +29,8 @@ def _get_lsp_types():
         build_file = ":haskell/haskell_lsp_types.BUILD.bzl",
         patch_args = ["-p1"],
         patches = [
-            "//bazel_tools:lsp-types-normalisation.patch",
-            "//bazel_tools:lsp-types-expose-other-modules.patch",
+            "//bazel/patches:haskell/lsp_types_normalisation.patch",
+            "//bazel/patches:haskell/lsp_types_expose_other_modules.patch",
         ],
         sha256 = LSP_TYPES_SHA256,
         strip_prefix = "lsp-types-{}".format(LSP_TYPES_VERSION),
@@ -47,7 +47,7 @@ def _get_ghcide():
         build_file = ":files/haskell/haskell_ghcide_ghc_lib.BUILD.bzl",
         patch_args = ["-p1"],
         patches = [
-            "//bazel_tools:haskell-ghcide-binary-q.patch",
+            "//bazel/patches:haskell/ghcide_binary_q.patch",
         ],
         sha256 = None if GHCIDE_LOCAL_PATH != None else GHCIDE_SHA256,
         strip_prefix = None if GHCIDE_LOCAL_PATH != None else "daml-ghcide-%s" % GHCIDE_REV,
@@ -61,7 +61,7 @@ def _get_ghc_lib_gen():
         sha256 = GHC_LIB_SHA256,
         strip_prefix = "ghc-lib-{}".format(GHC_LIB_REV),
         build_file = ":files/haskell/haskell_ghc_lib_gen.BUILD.bzl",
-        patches = GHC_LIB_PATCHES,
+        patches = ["//bazel/patches:haskell/ghc_lib_no_stack.patch"],
         patch_args = ["-p1"],
     )
 
@@ -84,9 +84,7 @@ def _get_zip():
         name = "zip",
         build_file = ":files/haskell/haskell_zip.BUILD.bzl",
         patch_args = ["-p1"],
-        patches = [
-            "//bazel/patches:haskell/zip.patch",
-        ],
+        patches = ["//bazel/patches:haskell/zip.patch"],
         sha256 = "0d7f02bbdf6c49e9a33d2eca4b3d7644216a213590866dafdd2b47ddd38eb746",
         strip_prefix = "zip-{}".format(ZIP_VERSION),
         urls = ["http://hackage.haskell.org/package/zip-{version}/zip-{version}.tar.gz".format(version = ZIP_VERSION)],
