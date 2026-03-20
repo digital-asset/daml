@@ -11,6 +11,9 @@ LOG=$(mktemp)
 trap "cat $LOG" EXIT
 
 function print_help () {
+  echo "Builds and locally publishes artifacts from this Daml repository in such a way that the local canton repository in canton/canton_version.bzl:USE_LOCAL_CANTON_INSTEAD can use them."
+  echo "For more information on usage, consult canton/README.md"
+  echo ""
   echo "Usage: $0 [-h]"
   echo "  -h : print this help"
 }
