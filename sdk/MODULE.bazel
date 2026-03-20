@@ -170,7 +170,10 @@ stack_snapshot.package(
 )
 stack_snapshot.package(
     name = "hpp",
-    components = ["lib", "exe"],
+    components = [
+        "lib",
+        "exe",
+    ],
 )
 stack_snapshot.package(
     name = "proto3-suite",
@@ -186,6 +189,9 @@ use_repo(dpm_extension, "dpm_binary")
 
 d3plus_extension = use_extension("//bazel/extensions:d3plus_extension.bzl", "d3plus_extension")
 use_repo(d3plus_extension, "static_asset_d3plus")
+
+googleapis_extenstion = use_extension("//bazel/extensions:go_googleapis_extension.bzl", "googleapis_extension")
+use_repo(googleapis_extenstion, "go_googleapis")
 
 proto3_suite = use_extension("//bazel/extensions:proto3_suite_extension.bzl", "proto3_suite_extension")
 use_repo(proto3_suite, "proto3-suite")
