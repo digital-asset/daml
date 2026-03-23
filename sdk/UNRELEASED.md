@@ -19,6 +19,7 @@ Wednesday after your change.
 
 ## Until 2026-03-10 (Exclusive)
 - `DA.Crypto.Text` is now marked as stable
+- Added `explicit-serializable` build option to opt in to explicit `Serializable` instances
 
 ## Until 2025-12-11 (Exclusive)
 - Changed java codegen to drop methods deprecated since 2.3.0. 
