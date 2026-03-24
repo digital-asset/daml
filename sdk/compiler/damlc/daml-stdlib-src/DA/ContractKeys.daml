@@ -8,6 +8,7 @@ module DA.ContractKeys where
 
 #ifdef DAML_NUCK
 import qualified DA.Internal.Template.Functions as DA
+import DA.Optional
 
 queryNByKey : forall t k. HasQueryNByKey t k => Int -> k -> Update [(ContractId t, t)]
 queryNByKey 0 = const $ pure []
@@ -21,8 +22,5 @@ queryAllByKey = DA.queryNByKey (maxBound @Int)
 lookupByKey : (HasKey t k, HasQueryNByKey t k) => k -> Update (Optional (ContractId t))
 lookupByKey k = do
   cids <- queryNByKey 1 k
-  pure $ fst <$> safeHead cids
-    where
-      safeHead [] = None
-      safeHead (x::_xs) = Some x
+  pure $ fst <$> listToOptional cids
 #endif

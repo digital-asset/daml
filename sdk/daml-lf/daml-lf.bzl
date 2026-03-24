@@ -218,9 +218,9 @@ def _init_data():
             "version_req": {"low": V2_3},
         },
         {
-            "name": "featureLookupByKey",
-            "name_pretty": "Lookup by key",
-            "cpp_flag": "DAML_LOOKUP_BY_KEY",
+            "name": "featureLegacyLookupByKey",
+            "name_pretty": "Lookup by key (legacy, UCK variant)",
+            "cpp_flag": "DAML_LEGACY_LOOKUP_BY_KEY",
             "version_req": dev_only,
         },
         {

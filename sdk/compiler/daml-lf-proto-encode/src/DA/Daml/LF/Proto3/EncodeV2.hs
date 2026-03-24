@@ -847,7 +847,7 @@ encodeUpdate = fmap (P.Update . Just) . \case
         assertSupportsFeature featureFetchByKey
         P.UpdateSumFetchByKey <$> encodeRetrieveByKey tmplId
     ULookupByKey tmplId -> do
-        assertSupportsFeature featureLookupByKey
+        assertSupportsFeature featureLegacyLookupByKey
         P.UpdateSumLookupByKey <$> encodeRetrieveByKey tmplId
     UQueryNByKey tmplId -> do
         assertSupportsFeature featureNUCK
