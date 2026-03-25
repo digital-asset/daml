@@ -37,6 +37,7 @@ da_haskell_library(
         "transformers",
         "uri-encode",
         "vector",
+        "yaml",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],

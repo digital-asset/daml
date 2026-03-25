@@ -12,6 +12,7 @@ import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.digitalasset.daml.lf.transaction.ContractStateMachine
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import scalaz.OneAnd
@@ -81,6 +82,7 @@ object ScriptLedgerClient {
       ledger: abstractLedgers.ScriptLedgerClient,
       compiledPackages: CompiledPackages,
       loggerFactory: NamedLoggerFactory,
+      csmMode: ContractStateMachine.Mode,
   ): ScriptLedgerClient =
     ledger match {
       case abstractLedgers.GrpcLedgerClient(grpcClient, userId, oAdminClient) =>
@@ -97,6 +99,7 @@ object ScriptLedgerClient {
           machineLogger,
           canceled,
           loggerFactory,
+          csmMode,
         )
     }
 
@@ -156,14 +159,15 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[Option[Value]]
 
-  def queryContractKey(
+  def queryNContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       key: Value,
+      limit: Int,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Option[ScriptLedgerClient.ActiveContract]]
+  ): Future[List[ScriptLedgerClient.ActiveContract]]
 
   def submit(
       actAs: OneAnd[Set, Ref.Party],

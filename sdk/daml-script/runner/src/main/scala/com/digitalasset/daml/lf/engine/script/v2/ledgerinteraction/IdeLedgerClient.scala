@@ -45,6 +45,7 @@ class IdeLedgerClient(
     machineLogger: MachineLogger,
     canceled: () => Boolean,
     override val loggerFactory: NamedLoggerFactory,
+    csmMode: ContractStateMachine.Mode,
 ) extends ScriptLedgerClient
     with NamedLogging {
   private implicit val traceContext: TraceContext = TraceContext.empty
@@ -110,7 +111,7 @@ class IdeLedgerClient(
         pkgSig => LanguageVersion.featurePackageUpgrades.enabledIn(pkgSig.languageVersion),
       )
 
-  private var _ledger: IdeLedger = IdeLedger.initialLedger(Time.Timestamp.Epoch)
+  private var _ledger: IdeLedger = IdeLedger.initialLedger(Time.Timestamp.Epoch, csmMode)
   def ledger: IdeLedger = _ledger
 
   private var allocatedParties: Map[String, PartyDetails] = Map()
@@ -292,21 +293,22 @@ class IdeLedgerClient(
         )
       }
 
-  override def queryContractKey(
+  override def queryNContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       key: Value,
+      limit: Int,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Option[ScriptLedgerClient.ActiveContract]] =
+  ): Future[List[ScriptLedgerClient.ActiveContract]] = {
+    import cats.implicits._
     for {
       gkey <- preprocessKey(templateId, key)
-      res <- ledger.ledgerData.activeKeys.get(gkey) match {
-        case None => Future.successful(None)
-        case Some(cid) => queryContractId(parties, templateId, cid)
-      }
-    } yield res
+      cids = ledger.ledgerData.activeKeys.getOrElse(gkey, Vector()).take(limit)
+      res <- cids.toList.traverse(queryContractId(parties, templateId, _))
+    } yield res.collect { case Some(contract) => contract }
+  }
 
   private def getTypeIdentifier(t: Ast.Type): Option[Identifier] =
     t match {

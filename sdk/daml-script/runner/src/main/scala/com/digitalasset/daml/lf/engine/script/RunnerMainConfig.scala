@@ -8,6 +8,7 @@ import java.io.File
 
 import com.digitalasset.daml.lf.data.Ref
 import com.daml.tls.{TlsConfiguration, TlsConfigurationCli}
+import com.digitalasset.daml.lf.engine.script.Runner.IdeLedgerProtocolVersion
 
 case class RunnerMainConfig(
     darPath: File,
@@ -24,6 +25,7 @@ case class RunnerMainConfig(
     userId: Option[Option[Ref.UserId]],
     uploadDar: Boolean,
     resultMode: RunnerMainConfig.ResultMode,
+    ideLedgerProtocolVersion: IdeLedgerProtocolVersion,
 )
 
 object RunnerMainConfig {
@@ -89,6 +91,7 @@ private[script] case class RunnerMainConfigIntermediate(
     runAll: Boolean,
     includeScriptNames: List[String],
     excludeScriptNames: List[String],
+    ideLedgerProtocolVersion: Option[IdeLedgerProtocolVersion],
 ) {
 
   def getRunMode: Either[String, RunnerMainConfig.RunMode] =
@@ -127,12 +130,24 @@ private[script] case class RunnerMainConfigIntermediate(
       "Cannot upload dar to IDELedger.",
     )
 
+  def getIdeLedgerProtocolVersion(
+      ideLedgerProtocolVersion: Option[IdeLedgerProtocolVersion],
+      isIdeLedger: Boolean,
+  ): Either[String, IdeLedgerProtocolVersion] =
+    (ideLedgerProtocolVersion, isIdeLedger) match {
+      case (Some(_), false) =>
+        Left("--ide-ledger-protocol-version is only available with --ide-ledger")
+      case (None, _) => Right(IdeLedgerProtocolVersion.latest)
+      case (Some(pv), true) => Right(pv)
+    }
+
   def toRunnerMainConfig: Either[String, RunnerMainConfig] =
     for {
       runMode <- getRunMode
       participantMode = this.getLedgerMode
       resolvedTimeMode = timeMode.getOrElse(RunnerMainConfig.DefaultTimeMode)
       _ <- validateUploadDar(participantMode)
+      pv <- getIdeLedgerProtocolVersion(ideLedgerProtocolVersion, isIdeLedger)
       config = RunnerMainConfig(
         darPath = darPath,
         runMode = runMode,
@@ -144,6 +159,7 @@ private[script] case class RunnerMainConfigIntermediate(
         userId = userId,
         uploadDar = uploadDar,
         resultMode = resultMode,
+        ideLedgerProtocolVersion = pv,
       )
     } yield config
 
@@ -281,6 +297,15 @@ private[script] object RunnerMainConfigIntermediate {
         s"Put test summary into a file in json format. Only works when running multiple cases."
       )
 
+    opt[IdeLedgerProtocolVersion]("ide-ledger-protocol-version")(
+      IdeLedgerProtocolVersion.readIdeLedgerProtocolVersion
+    )
+      .action((x, c) => c.copy(ideLedgerProtocolVersion = Some(x)))
+      .optional()
+      .text(
+        s"Protocol version for the IDE Ledger to imitate. Default ${IdeLedgerProtocolVersion.latest.toString}. Currently only affects ContractKey/rollback behaviour. Only available when using --ide-ledger"
+      )
+
     help("help").text("Print this usage text")
 
     checkConfig(c => {
@@ -334,6 +359,7 @@ private[script] object RunnerMainConfigIntermediate {
         runAll = false,
         includeScriptNames = List(),
         excludeScriptNames = List(),
+        ideLedgerProtocolVersion = None,
       ),
     )
 }

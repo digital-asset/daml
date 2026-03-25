@@ -40,6 +40,7 @@ import qualified Data.Map.Strict as MS
 import Data.Maybe
 import qualified Data.Set as S
 import qualified Data.Text as T
+import qualified Data.Yaml as Y
 import System.Directory
 
 import DA.Daml.Options.Types (EnableScriptService(..))
@@ -72,6 +73,7 @@ toLowLevelOpts optDamlLfVersion Options{..} =
         optEvaluationTimeout = fromMaybe 60 $ cnfEvaluationTimeout optScriptServiceConfig
         optGrpcMaxMessageSize = cnfGrpcMaxMessageSize optScriptServiceConfig
         optJvmOptions = cnfJvmOptions optScriptServiceConfig
+        optIdeLedgerProtocolVersion = cnfIdeLedgerProtocolVersion optScriptServiceConfig
 
 data Handle = Handle
   { hLowLevelHandle :: LowLevel.Handle
@@ -156,6 +158,7 @@ data ScriptServiceConfig = ScriptServiceConfig
     , cnfGrpcTimeout :: Maybe LowLevel.TimeoutSeconds
     , cnfEvaluationTimeout :: Maybe LowLevel.TimeoutSeconds
     , cnfJvmOptions :: [String]
+    , cnfIdeLedgerProtocolVersion :: Maybe String
     } deriving Show
 
 defaultScriptServiceConfig :: ScriptServiceConfig
@@ -164,6 +167,7 @@ defaultScriptServiceConfig = ScriptServiceConfig
     , cnfGrpcTimeout = Nothing
     , cnfEvaluationTimeout = Nothing
     , cnfJvmOptions = []
+    , cnfIdeLedgerProtocolVersion = Nothing
     }
 
 readScriptServiceConfig :: IO ScriptServiceConfig
@@ -182,8 +186,15 @@ parseScriptServiceConfig conf = do
     cnfGrpcTimeout <- queryOpt "grpc-timeout"
     cnfEvaluationTimeout <- queryOpt "evaluation-timeout"
     cnfJvmOptions <- fromMaybe [] <$> queryOpt "jvm-options"
+    -- First try to parse as an Int, then as a String
+    cnfIdeLedgerProtocolVersion <- (fmap show <$> queryOpt @Int "protocol-version") `orElse` queryOpt "protocol-version"
     pure ScriptServiceConfig {..}
-  where queryOpt opt = queryPackageConfig ["script-service", opt] conf
+  where
+    queryOpt :: Y.FromJSON t => T.Text -> Either ConfigError (Maybe t)
+    queryOpt opt = queryPackageConfig ["script-service", opt] conf
+    -- Fall back onto another Either if first fails
+    orElse :: Either e a -> Either e a -> Either e a
+    orElse a b = either (const b) Right a
 
 data Context = Context
   { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)
