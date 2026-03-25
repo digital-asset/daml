@@ -201,7 +201,7 @@ def _init_data():
         },
         {
             "name": "featureUCKBuiltins",
-            "name_pretty": "Old style (UCK) key builtins (fetchByKey, exerciseByKey, lookupByKey, ...)",
+            "name_pretty": "Old style (UCK) key builtins (fetchByKey, exerciseByKey (UCK semantics), lookupByKey (UCK semantics), ...)",
             "cpp_flag": "DAML_UCK_BUILTINS",
             "version_req": dev_only,
         },
@@ -209,18 +209,18 @@ def _init_data():
             "name": "featureFetchByKey",
             "name_pretty": "Fetch by key",
             "cpp_flag": "DAML_FETCH_BY_KEY",
-            "version_req": dev_only,
+            "version_req": {"low": V2_3},
         },
         {
             "name": "featureExerciseByKey",
             "name_pretty": "Exercise by key",
             "cpp_flag": "DAML_EXERCISE_BY_KEY",
-            "version_req": dev_only,
+            "version_req": {"low": V2_3},
         },
         {
-            "name": "featureLookupByKey",
-            "name_pretty": "Lookup by key",
-            "cpp_flag": "DAML_LOOKUP_BY_KEY",
+            "name": "featureLegacyLookupByKey",
+            "name_pretty": "Lookup by key (legacy, UCK variant)",
+            "cpp_flag": "DAML_LEGACY_LOOKUP_BY_KEY",
             "version_req": dev_only,
         },
         {

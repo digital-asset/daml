@@ -713,7 +713,7 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
       <$> mayDecode "update_EmbedExprType" update_EmbedExprType decodeType
       <*> mayDecode "update_EmbedExprBody" update_EmbedExprBody decodeExpr
   LF2.UpdateSumLookupByKey retrieveByKey -> do
-    assertSupportsFeature featureLookupByKey
+    assertSupportsFeature featureLegacyLookupByKey
     fmap (EUpdate . ULookupByKey) (decodeRetrieveByKey retrieveByKey)
   LF2.UpdateSumQueryNByKey LF2.Update_QueryNByKey{..} ->
     EUpdate . UQueryNByKey <$> mayDecode "update_RetrieveByKeyTemplate" update_QueryNByKeyTemplate decodeTypeConId

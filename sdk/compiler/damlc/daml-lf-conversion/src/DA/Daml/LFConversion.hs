@@ -848,7 +848,7 @@ convertTypeDef env msi o@(ATyCon t) = withRange (convNameLoc t) $ if
     -> pure []
 
     -- Remove HasLookupByKey class declaration when unsupported
-    | not (envLfVersion env `supports` featureLookupByKey)
+    | not (envLfVersion env `supports` featureLegacyLookupByKey)
     , Just cls <- tyConClass_maybe t
     , NameIn DA_Internal_Template_Functions "HasLookupByKey" <- cls
     -> pure []
@@ -1410,12 +1410,12 @@ convertBind env mc (name, x)
     = pure []
 
     -- Remove lookupByKey wrapper defintition when unsupported
-    | not (envLfVersion env `supports` featureLookupByKey)
+    | not (envLfVersion env `supports` featureLegacyLookupByKey)
     , NameIn DA_Internal_Template_Functions "lookupByKey" <- name
     = pure []
 
     -- Remove HasLookupByKey dictionary declaration when NUCK is unsupported
-    | not (envLfVersion env `supports` featureLookupByKey)
+    | not (envLfVersion env `supports` featureLegacyLookupByKey)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasLookupByKey") _ <- name
     = pure []
 
@@ -1750,8 +1750,8 @@ convertExpr env0 e = do
     -- convert usages of lookupByKey to errorr wen unsupported since the
     -- defintion won't exist
     go env (VarIn DA_Internal_Template_Functions "lookupByKey") _
-        | not $ envLfVersion env `supports` featureLookupByKey
-        = conversionError $ FeatureNotSupported featureLookupByKey (envLfVersion env)
+        | not $ envLfVersion env `supports` featureLegacyLookupByKey
+        = conversionError $ FeatureNotSupported featureLegacyLookupByKey (envLfVersion env)
     -- convert usages of fetchByKey to errorr wen unsupported since the
     -- defintion won't exist
     go env (VarIn DA_Internal_Template_Functions "fetchByKey") _
