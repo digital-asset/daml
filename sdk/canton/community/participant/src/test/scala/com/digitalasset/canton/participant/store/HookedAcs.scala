@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.RequestCounter
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
@@ -141,6 +142,15 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   ): Future[SortedMap[LfContractId, CantonTimestamp]] =
     acs.snapshot(timestamp)
 
+  override def snapshotContractIds(
+      timestamp: CantonTimestamp,
+      paginationSize: Option[PositiveInt] = None,
+      paginationCursor: Option[LfContractId] = None,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[scala.collection.immutable.ArraySeq[LfContractId]] =
+    acs.snapshotContractIds(timestamp, paginationSize, paginationCursor)
+
   override def snapshot(rc: RequestCounter)(implicit
       traceContext: TraceContext
   ): Future[SortedMap[LfContractId, RequestCounter]] =
@@ -177,10 +187,14 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   ): Future[Int] =
     acs.contractCount(timestamp)
 
-  override def changesBetween(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
+  override def changesBetween(
+      fromExclusive: TimeOfChange,
+      toInclusive: TimeOfChange,
+      maxResultSize: PositiveInt,
+  )(implicit
       traceContext: TraceContext
   ): Future[LazyList[(TimeOfChange, ActiveContractIdsChange)]] =
-    acs.changesBetween(fromExclusive, toInclusive)
+    acs.changesBetween(fromExclusive, toInclusive, maxResultSize)
 
   override def packageUsage(pkg: PackageId, contractStore: ContractStore)(implicit
       traceContext: TraceContext

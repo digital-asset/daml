@@ -64,11 +64,11 @@ class GrpcSequencerClientAuth(
 
   /** Wrap a grpc client with components to appropriately perform authentication */
   def apply[S <: AbstractStub[S]](client: S): S = {
-    val obtainTokenPerEndpoint = channelPerEndpoint.transform { case (_, channel) =>
+    val obtainTokenPerEndpoint = channelPerEndpoint.transform { case (endpoint, channel) =>
       val authenticationClient = new SequencerAuthenticationServiceStub(channel)
       (tc: TraceContext) =>
         TraceContextGrpc.withGrpcContext(tc) {
-          tokenProvider.generateToken(authenticationClient)
+          tokenProvider.generateToken(endpoint, authenticationClient)
         }
     }
     val clientAuthentication = member match {

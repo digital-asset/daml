@@ -7,6 +7,7 @@ import cats.syntax.parallel.*
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String100, String36}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -23,7 +24,7 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.{GetResult, SetParameter}
 
-import scala.collection.immutable.SortedMap
+import scala.collection.immutable.{ArraySeq, SortedMap}
 import scala.concurrent.{ExecutionContext, Future}
 
 /** <p>The active contract store (ACS) stores for every contract ID
@@ -621,6 +622,28 @@ trait ActiveContractSnapshot {
       traceContext: TraceContext
   ): Future[SortedMap[LfContractId, CantonTimestamp]]
 
+  /** Retrieves a snapshot of active contract IDs at a specific point in time.
+    *
+    * The results are strictly ordered by *Contract ID Descending*. This ordering is
+    * fundamental to the keyset pagination mechanism.
+    *
+    * @param timestamp The snapshot time; only contracts active (latest event is an Activation)
+    *                   at or before this time are returned.
+    * @param paginationSize Optional limit on the number of results returned (page size).
+    * @param paginationCursor Optional exclusive upper bound for the Contract ID.
+    *                         Since results are ordered descending, this acts as the "start after" pointer.
+    *                         Usage: To fetch the next page, pass the last (and therefore smallest)
+    *                         Contract ID from the current page's results.
+    * @param traceContext The tracing context for logging and distributed tracing.
+    * @return A Future containing an ArraySeq (memory optimization) of active LfContractIds,
+    *          ordered by ID descending.
+    */
+  def snapshotContractIds(
+      timestamp: CantonTimestamp,
+      paginationSize: Option[PositiveInt],
+      paginationCursor: Option[LfContractId],
+  )(implicit traceContext: TraceContext): Future[ArraySeq[LfContractId]]
+
   /** Returns all contracts that were active right after the given request counter,
     * and when the contract became active for the last time before or at the given request counter.
     *
@@ -667,7 +690,11 @@ trait ActiveContractSnapshot {
       traceContext: TraceContext
   ): Future[Map[LfContractId, CantonTimestamp]]
 
-  def changesBetween(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
+  def changesBetween(
+      fromExclusive: TimeOfChange,
+      toInclusive: TimeOfChange,
+      maxResultSize: PositiveInt,
+  )(implicit
       traceContext: TraceContext
   ): Future[LazyList[(TimeOfChange, ActiveContractIdsChange)]]
 

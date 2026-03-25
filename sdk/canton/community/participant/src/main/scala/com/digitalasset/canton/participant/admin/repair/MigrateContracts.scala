@@ -50,26 +50,34 @@ private final class MigrateContracts(
         repairSource.domain.persistentState.activeContractStore
           .fetchStates(contractIds.map(_.payload))
       )
+      _ = logger.info(s"${contractStatusAtSource.size} contracts at source")
       _ = logger.debug(s"Contracts status at source: $contractStatusAtSource")
       sourceContractsToMigrate <- determineSourceContractsToMigrate(contractStatusAtSource)
       sourceContractIdsToMigrate = sourceContractsToMigrate.map(_.payload)
+      _ = logger.info(s"${sourceContractIdsToMigrate.size} contracts to migrate from source")
       _ = logger.debug(s"Contracts to migrate from source: $sourceContractIdsToMigrate")
       contractStatusAtTarget <- EitherT.right(
         repairTarget.domain.persistentState.activeContractStore
           .fetchStates(sourceContractIdsToMigrate)
       )
+      _ = logger.info(s"${contractStatusAtTarget.size} contracts at target")
       _ = logger.debug(s"Contract status at target: $contractStatusAtTarget")
       contractIds <- determineTargetContractsToMigrate(
         sourceContractsToMigrate,
         contractStatusAtTarget,
       )
+      _ = logger.info(s"${contractIds.size} contracts to migrate")
       _ = logger.debug(s"Contracts to migrate: $contractIds")
       contracts <- readContracts(contractIds)
+      _ = logger.info(
+        s"${contracts.size} contracts that need to be migrated with persistence status"
+      )
       _ = logger.debug(s"Contracts that need to be migrated with persistence status: $contracts")
       transactionId = randomTransactionId(syncCrypto)
       _ <- persistContracts(transactionId, contracts)
+      _ = logger.info(s"${contracts.size} contracts persisted")
       _ <- persistTransferOutAndIn(contracts).toEitherT
-      _ <- insertTransferEventsInLog(transactionId, contracts)
+      _ = logger.info(s"${contracts.size} contracts marked transferred out/in")
     } yield ()
 
   private def determineSourceContractsToMigrate(
@@ -298,34 +306,6 @@ private final class MigrateContracts(
       .mapAbort(e => s"Failed to mark contracts as transferred in: $e")
 
     outF.flatMap(_ => inF)
-  }
-
-  private def insertTransferEventsInLog(
-      transactionId: TransactionId,
-      migratedContracs: List[MigrateContracts.Data[MigratedContract]],
-  )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): EitherT[Future, String, Unit] = {
-
-    val contracts = migratedContracs.map(_.payload.contract)
-
-    val insertTransferOutEvents =
-      for {
-        hostedParties <- EitherT.right(hostedParties(repairSource, contracts, participantId))
-        transferOutEvents = migratedContracs.map(transferOut(hostedParties))
-        _ <- insertMany(repairSource, transferOutEvents)
-      } yield ()
-
-    val insertTransferInEvents =
-      for {
-        hostedParties <- EitherT.right(hostedParties(repairTarget, contracts, participantId))
-        transferInEvents = migratedContracs.map(transferIn(transactionId, hostedParties))
-        _ <- insertMany(repairTarget, transferInEvents)
-      } yield ()
-
-    insertTransferOutEvents.flatMap(_ => insertTransferInEvents)
-
   }
 
   private def hostedParties(

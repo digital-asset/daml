@@ -372,6 +372,8 @@ class CantonSyncService(
       prepareDomainConnectionForMigration,
       sequencerInfoLoader,
       connectedDomainsLookup,
+      readBatchSize = parameters.batchingConfig.migrationReadBatchSize,
+      writeBatchSize = parameters.batchingConfig.migrationWriteBatchSize,
       parameters.processingTimeouts,
       loggerFactory,
     )

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.sync
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import cats.{Eval, Monad}
@@ -86,11 +87,12 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{EitherUtil, ErrorUtil, FutureUtil, MonadUtil}
+import com.digitalasset.canton.util.{EitherUtil, ErrorUtil, FutureUtil, LoggerUtil, MonadUtil}
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
+import scala.concurrent.duration.DurationLong
 import scala.concurrent.{ExecutionContext, Future}
 
 /** A connected domain from the synchronization service.
@@ -268,6 +270,7 @@ class SyncDomain(
       persistent.activeContractStore,
       persistent.contractStore,
       persistent.enableAdditionalConsistencyChecks,
+      topologyClient,
       loggerFactory,
       testingConfig,
     )
@@ -414,30 +417,87 @@ class SyncDomain(
       })
     }
 
-    def replayAcsChanges(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
+    def replayAcsChanges(
+        fromExclusive: TimeOfChange,
+        toInclusive: TimeOfChange,
+        maxResultSize: PositiveInt,
+        // Add a consumer callback to handle publication within the loop
+        consumer: (RecordTime, AcsChange) => Unit,
+    )(implicit
         traceContext: TraceContext
-    ): EitherT[Future, SyncDomainInitializationError, LazyList[(RecordTime, AcsChange)]] =
-      liftF(for {
-        contractIdChanges <- persistent.activeContractStore
-          .changesBetween(fromExclusive, toInclusive)
-        changes <- contractIdChanges.parTraverse { case (toc, change) =>
-          lookupChangeMetadata(change).map(ch => (RecordTime.fromTimeOfChange(toc), ch))
-        }
-      } yield {
-        logger.info(
-          s"Replaying ${changes.size} ACS changes between $fromExclusive (exclusive) and $toInclusive to the commitment processor"
-        )
-        logger.debug(
-          s"Retrieved contract ID changes from changesBetween " +
-            s"${contractIdChanges
-                .map { case (toc, activeContractsChange) =>
-                  s"at time $toc activations ${activeContractsChange.activations} deactivations ${activeContractsChange.deactivations} "
+    ): EitherT[Future, SyncDomainInitializationError, Unit] =
+      Monad[EitherT[Future, SyncDomainInitializationError, *]]
+        .tailRecM[TimeOfChange, Unit](fromExclusive) { currentFromExclusive =>
+          logger.info(
+            s"Replaying ACS changes from $currentFromExclusive (maxResultSize = $maxResultSize)"
+          )
+          val changesF = persistent.activeContractStore
+            .changesBetween(currentFromExclusive, toInclusive, maxResultSize)
+
+          EitherT
+            .liftF[Future, SyncDomainInitializationError, LazyList[
+              (TimeOfChange, ActiveContractIdsChange)
+            ]](changesF)
+            .flatMap { contractIdChangesLazy =>
+              // Materialize to Vector for stable iteration and index access
+              val contractIdChanges = contractIdChangesLazy.toVector
+
+              // Resolve metadata for the current batch in parallel
+              logger.info(s"Resolving metadata for ${contractIdChanges.size} changes")
+              val resolvedBatchF = contractIdChanges.parTraverse { case (toc, change) =>
+                lookupChangeMetadata(change).map(ch => (RecordTime.fromTimeOfChange(toc), ch))
+              }
+
+              EitherT
+                .liftF[Future, SyncDomainInitializationError, Unit](resolvedBatchF.flatMap {
+                  resolvedBatch =>
+                    logger.info(s"Replaying ACS batch of ${resolvedBatch.size} changes")
+                    // Publish the entire batch to the consumer
+                    val batchPromises = resolvedBatch.map { case (rt, change) =>
+                      consumer(rt, change)
+                      change.processingStarted.future
+                    }
+
+                    // BLOCKING: Wait for all changes in this batch to start processing
+                    // before determining the next step. This provides the backpressure.
+                    val batchResolutionStartTime = System.nanoTime()
+                    Future.sequence(batchPromises).map { _ =>
+                      resolvedBatch.lastOption.foreach { case (lastRecordTime, _) =>
+                        val elapsed = System.nanoTime() - batchResolutionStartTime
+                        logger.info(
+                          s"Replayed ACS batch of ${resolvedBatch.size} changes (took ${LoggerUtil
+                              .roundDurationForHumans(elapsed.nanos)}). Current replay time: $lastRecordTime"
+                        )
+                      }
+                    }
+                })
+                .subflatMap { _resolvedBatch =>
+                  contractIdChanges.lastOption match {
+                    case Some((lastToc, _)) =>
+                      // Order is Timestamp ASC, then RequestCounter ASC
+                      // Manual comparison since TimeOfChange >= is not available
+                      val isFinished = lastToc.timestamp > toInclusive.timestamp ||
+                        (lastToc.timestamp == toInclusive.timestamp && lastToc.rc >= toInclusive.rc)
+
+                      // If the last timestamp fetched matches or exceeds the target, we are done
+                      if (isFinished) {
+                        Right(Either.unit) // Stop, we are done
+                      } else {
+                        // Otherwise, fetch the next batch starting from the last timestamp we saw
+                        Right(Left(lastToc))
+                      }
+                    case None =>
+                      // An empty set of changes was returned -> Stop, we are done
+                      Right(Either.unit)
+                  }
                 }
-                .force
-                .mkString(", ")}"
-        )
-        changes
-      })
+            }
+        }
+        .map { _ =>
+          logger.info(
+            s"Finished replaying ACS changes between $fromExclusive (exclusive) and $toInclusive"
+          )
+        }
 
     def initializeClientAtCleanHead(): Future[Unit] = {
       // generally, the topology client will be initialised by the topology processor. however,
@@ -532,7 +592,7 @@ class SyncDomain(
       // in terms of performance, but any earlier timestamp is also correct
       acsChangesReplayStartRt <- liftF(persistent.acsCommitmentStore.runningCommitments.watermark)
       _ <- loadPendingEffectiveTimesFromTopologyStore(acsChangesReplayStartRt.timestamp)
-      acsChangesToReplay <-
+      _ <-
         if (
           cleanHeadPrets >= acsChangesReplayStartRt.timestamp && cleanHeadRc > RequestCounter.Genesis
         ) {
@@ -542,11 +602,11 @@ class SyncDomain(
           replayAcsChanges(
             acsChangesReplayStartRt.toTimeOfChange,
             TimeOfChange(cleanHeadRc, cleanHeadPrets),
+            parameters.batchingConfig.acsCommitmentProcessorReplayBatchSize,
+            // Pass the publishing logic as the consumer
+            (toc, change) => acsCommitmentProcessor.publish(toc, change),
           )
-        } else EitherT.pure[Future, SyncDomainInitializationError](Seq.empty)
-      _ = acsChangesToReplay.foreach { case (toc, change) =>
-        acsCommitmentProcessor.publish(toc, change)
-      }
+        } else EitherT.pure[Future, SyncDomainInitializationError](())
     } yield ()
   }
 

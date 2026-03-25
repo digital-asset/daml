@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant
 
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt, PositiveNumeric}
 import com.digitalasset.canton.config.{
   ApiLoggingConfig,
   BatchAggregatorConfig,
@@ -64,7 +64,13 @@ object ParticipantNodeParameters {
       enablePreviewFeatures = false,
       nonStandardConfig = false,
       cachingConfigs = CachingConfigs(),
-      batchingConfig = BatchingConfig(),
+      batchingConfig = BatchingConfig(
+        migrationReadBatchSize = PositiveInt.one,
+        migrationWriteBatchSize = PositiveInt.one,
+        repairStoreParallelism = PositiveInt.one,
+        repairInternalBatchSize = PositiveInt.one,
+        acsCommitmentProcessorReplayBatchSize = PositiveInt.one,
+      ),
       sequencerClient = SequencerClientConfig(),
       dbMigrateAndStart = false,
       skipTopologyManagerSignatureValidation = false,

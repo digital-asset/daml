@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import com.daml.lf.data.Ref.PackageId
 import com.digitalasset.canton.RequestCounter
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
@@ -19,7 +20,7 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT}
 
-import scala.collection.immutable.SortedMap
+import scala.collection.immutable.{ArraySeq, SortedMap}
 import scala.concurrent.{ExecutionContext, Future}
 
 class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: ExecutionContext)
@@ -82,6 +83,15 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
   ): Future[SortedMap[LfContractId, CantonTimestamp]] =
     Future.failed(mk(s"snapshot at $timestamp"))
 
+  override def snapshotContractIds(
+      timestamp: CantonTimestamp,
+      paginationSize: Option[PositiveInt] = None,
+      paginationCursor: Option[LfContractId] = None,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[ArraySeq[LfContractId]] =
+    Future.failed(mk(s"snapshotContractIds at $timestamp"))
+
   override def snapshot(rc: RequestCounter)(implicit
       traceContext: TraceContext
   ): Future[SortedMap[LfContractId, RequestCounter]] =
@@ -124,10 +134,14 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
   ): Future[Int] =
     Future.failed(mk(s"contractCount at $timestamp"))
 
-  override def changesBetween(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
+  override def changesBetween(
+      fromExclusive: TimeOfChange,
+      toInclusive: TimeOfChange,
+      maxResultSize: PositiveInt,
+  )(implicit
       traceContext: TraceContext
   ): Future[LazyList[(TimeOfChange, ActiveContractIdsChange)]] =
-    Future.failed(mk(s"changesBetween for $fromExclusive, $toInclusive"))
+    Future.failed(mk(s"changesBetween for $fromExclusive, $toInclusive, $maxResultSize"))
 
   override def packageUsage(pkg: PackageId, contractStore: ContractStore)(implicit
       traceContext: TraceContext

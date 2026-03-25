@@ -432,7 +432,7 @@ final class RepairService(
                     )
 
                     // If all has gone well, bump the clean head, effectively committing the changes to the domain.
-                    _ <- commitRepairs(repair)
+                    _ <- commitRepairs(Seq(repair))
 
                   } yield ()
                 },
@@ -489,7 +489,7 @@ final class RepairService(
           _ <- EitherT.right(writeContractsPurgedEvent(contractsToPublishUpstream, Nil, repair))
 
           // If all has gone well, bump the clean head, effectively committing the changes to the domain.
-          _ <- commitRepairs(repair)
+          _ <- commitRepairs(Seq(repair))
 
         } yield ()
       },
@@ -533,14 +533,155 @@ final class RepairService(
     )
   }
 
+  private def refreshDomainData(
+      data: RepairRequest.DomainData
+  )(implicit traceContext: TraceContext): EitherT[Future, String, RepairRequest.DomainData] =
+    for {
+      // Re-fetch the IndexedDomain wrapper
+      // Since this was likely accessed recently, the internal cache (Scaffeine) should make this fast
+      indexedDomain <- EitherT.right(IndexedDomain.indexed(indexedStringStore)(data.id))
+
+      // Re-query the starting points using the existing persistent handles
+      newStartingPoints <- EitherT.right(
+        SyncDomainEphemeralStateFactory.startingPoints(
+          indexedDomain,
+          data.persistentState.requestJournalStore,
+          data.persistentState.sequencerCounterTrackerStore,
+          data.persistentState.sequencedEventStore,
+          multiDomainEventLog.value,
+        )
+      )
+    } yield data.copy(startingPoints = newStartingPoints)
+
+  /** Prepares the domain data for a migration.
+    * Call this once before starting the batch loop to avoid reloading DB state for every batch.
+    */
+  def prepareDomainMigrationOnce(
+      sourceDomainId: DomainId,
+      targetDomainId: DomainId,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, String, (RepairRequest.DomainData, RepairRequest.DomainData)] =
+    for {
+      _ <- EitherTUtil.condUnitET[Future](
+        sourceDomainId != targetDomainId,
+        "Source must differ from target domain!",
+      )
+      sourceData <- readDomainData(sourceDomainId)
+      targetData <- readDomainData(targetDomainId)
+    } yield (sourceData, targetData)
+
+  /** Change the association of a contract from one domain to another
+    *
+    * This method is intended to be called by a "driver" which does the batching of the `contractIds`.
+    * This is the case for `migrate_domain`.
+    *
+    * Efficiently processes a batch of contracts by refreshing and using the provided domain data.
+    *
+    * State Refresh: Accepts "stale" domain data (loaded once via `prepareDomainMigrationOnce`) and
+    * refreshes the necessary state (request counters, starting points) from the DB for this
+    * specific batch.
+    *
+    * This function allows us to manually insert a transfer out / in into the respective
+    * journals in order to move a contract from one domain to another. The procedure will result in
+    * a consistent state if and only if all the counter-parties run the same command. Failure to do so
+    * will result in participants reporting errors and possibly breaking.
+    *
+    * @param contractIds The batch of contract IDs to migrate.
+    * @param staleSourceData Initial source domain data; its mutable state (counters) will be refreshed internally.
+    * @param staleTargetData Initial target domain data; its mutable state (counters) will be refreshed internally.
+    * @param skipInactive If true, the migration will skip contracts in the contractId list that are inactive.
+    * @param batchSizeO Optional override for the DB write batch size. If None, the configured batch size is used.
+    *                   (Typically set explicitly by `change_domain` but left empty by `migrate_domain`).
+    */
+  def changeDomainBatched(
+      contractIds: Seq[LfContractId],
+      staleSourceData: RepairRequest.DomainData,
+      staleTargetData: RepairRequest.DomainData,
+      skipInactive: Boolean,
+      batchSizeO: Option[PositiveInt] = None,
+  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
+    if (contractIds.isEmpty) {
+      EitherT.rightT(())
+    } else {
+      PositiveInt
+        .create(contractIds.size)
+        .map { numberOfContracts =>
+          val maxNbContractsPerRc = parameters.batchingConfig.migrationMaxNbContractsPerRc.value
+
+          // for ints i and k > 0, 1 + (i - 1) / k = 1, if i in [1..k]
+          //                                         2, if i in [k+1..2k]
+          //                                         etc.
+          val nbRcsToAllocate = checked(
+            PositiveInt.tryCreate(1 + (numberOfContracts.value - 1) / maxNbContractsPerRc)
+          )
+          logger.info(s"Using $nbRcsToAllocate request counters")
+
+          // Source Pipeline: Refresh Source State -> Init Source Request (allocate RCs)
+          val prepareSource = for {
+            sourceData <- refreshDomainData(staleSourceData)
+            repairReq <- initRepairRequestAndVerifyPreconditions(sourceData, nbRcsToAllocate)
+          } yield repairReq
+
+          // Target Pipeline: Refresh Target State -> Init Target Request (allocate RCs)
+          val prepareTarget = for {
+            targetData <- refreshDomainData(staleTargetData)
+            repairReq <- initRepairRequestAndVerifyPreconditions(targetData, nbRcsToAllocate)
+          } yield repairReq
+
+          for {
+            // Run both DB pipelines in parallel to minimize latency
+            repairPair <- (prepareSource, prepareTarget).parTupled
+            (repairSource, repairTarget) = repairPair
+
+            // Memory Optimization:
+            // - Use Iterators to avoid allocating intermediate lists (RepairRequest.timesOfChange creates new lists)
+            // - Map directly to Data object to avoid Tuple boxing (contractId, (sourceToc, targetToc))
+            // - Safety: the number of groups below has exactly the same size as the two iterators, ensuring .next() never fails.
+            sourceRcIterator = repairSource.requestCounters.iterator
+            targetRcIterator = repairTarget.requestCounters.iterator
+
+            // Memory Optimization: Use .view to avoid materializing intermediate tuple collections
+            migration = contractIds.view
+              .grouped(maxNbContractsPerRc)
+              .flatMap { cids =>
+                // We can safely call .next() because lengths are guaranteed equal by initRepairRequest
+                val sourceRc = sourceRcIterator.next()
+                val targetRc = targetRcIterator.next()
+                cids.map(
+                  MigrateContracts.Data(
+                    _,
+                    TimeOfChange(sourceRc, repairSource.timestamp),
+                    TimeOfChange(targetRc, repairTarget.timestamp),
+                  )
+                )
+              }
+              .to(Seq) // Materialize only the final result needed for the writer
+
+            // Note the following purposely fails if any contract fails which results in not all contracts being processed.
+            _ <- migrateContractsBatched(
+              migration,
+              repairSource,
+              repairTarget,
+              skipInactive,
+              batchSizeO,
+            )
+
+            // If all has gone well, bump the clean head to both domains transactionally
+            _ <- commitRepairs(Seq(repairTarget, repairSource))
+          } yield ()
+        }
+        .getOrElse(EitherT.rightT(()))
+    }
+
   /** Change the association of a contract from one domain to another
     *
     * This function here allows us to manually insert a transfer out / in into the respective
     * journals in order to move a contract from one domain to another. The procedure will result in
-    * a consistent state if and only if all the counter parties run the same command. Failure to do so,
+    * a consistent state if and only if all the counter-parties run the same command. Failure to do so,
     * will results in participants reporting errors and possibly break.
     *
-    * @param skipInactive if true, then the migration will skip contracts in the contractId list that are inactive
+    * @param skipInactive If true, then the migration will skip contracts in the contractId list that are inactive
     */
   def changeDomain(
       contractIds: Seq[LfContractId],
@@ -549,39 +690,11 @@ final class RepairService(
       skipInactive: Boolean,
       batchSize: PositiveInt,
   )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
-    PositiveInt
-      .create(contractIds.size)
-      .map { numberOfContracts =>
-        for {
-          _ <- EitherTUtil.condUnitET[Future](
-            sourceDomainId != targetDomainId,
-            "Source must differ from target domain!",
-          )
-          repairSource <- initRepairRequestAndVerifyPreconditions(sourceDomainId, numberOfContracts)
-          repairTarget <- initRepairRequestAndVerifyPreconditions(targetDomainId, numberOfContracts)
-
-          migration =
-            contractIds
-              .zip(repairSource.timesOfChange)
-              .zip(repairTarget.timesOfChange)
-              .map { case (((contractId, sourceToc), targetToc)) =>
-                MigrateContracts.Data(contractId, sourceToc, targetToc)
-              }
-
-          // Note the following purposely fails if any contract fails which results in not all contracts being processed.
-          _ <- migrateContractsBatched(
-            migration,
-            repairSource,
-            repairTarget,
-            skipInactive,
-            batchSize,
-          )
-
-          // If all has gone well, bump the clean head to both domains transactionally
-          _ <- commitRepairs(repairTarget, repairSource)
-        } yield ()
-      }
-      .getOrElse(EitherT.rightT(()))
+    for {
+      data <- prepareDomainMigrationOnce(sourceDomainId, targetDomainId)
+      (sourceData, targetData) = data
+      _ <- changeDomainBatched(contractIds, sourceData, targetData, skipInactive, Some(batchSize))
+    } yield ()
 
   def ignoreEvents(
       domain: DomainId,
@@ -847,30 +960,46 @@ final class RepairService(
     } yield contractToArchiveInEvent
   }
 
+  /** Migrates a batch of contracts by splitting the large logical transaction into smaller chunks.
+    *
+    * Note: Doing further, additional batching here may actually not make great sense if the input
+    * (`contractIds`) is already batched!
+    */
   private def migrateContractsBatched(
       contractIds: Seq[MigrateContracts.Data[LfContractId]],
       repairSource: RepairRequest,
       repairTarget: RepairRequest,
       skipInactive: Boolean,
-      batchSize: PositiveInt,
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
-    MonadUtil
-      .batchedSequentialTraverse(threadsAvailableForWriting * PositiveInt.two, batchSize)(
-        contractIds
-      )(
-        MigrateContracts
-          .apply(
-            _,
-            repairSource,
-            repairTarget,
-            skipInactive,
-            participantId,
-            syncCrypto,
-            loggerFactory,
-          )
-          .map(_ => Seq[Unit]())
+      batchSizeO: Option[PositiveInt],
+  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
+
+    // This allows to further subdivide the given input into smaller chunks
+    // (in the hope that smaller chunks may get executed faster).
+    val processingChunkSize =
+      batchSizeO.getOrElse(parameters.batchingConfig.repairInternalBatchSize)
+
+    // We oversubscribe the parallelism (2x the configured thread count) because
+    // these tasks are assumed to be heavily I/O bound, waiting on the DB.
+    val ioParallelism = threadsAvailableForWriting * PositiveInt.two
+
+    logger.info(
+      s"Migrating ${contractIds.size} contracts using chunk size $processingChunkSize and parallelism of $ioParallelism"
+    )
+    MonadUtil.batchedSequentialTraverse_(
+      parallelism = ioParallelism,
+      chunkSize = processingChunkSize,
+    )(contractIds) { chunk =>
+      MigrateContracts(
+        chunk,
+        repairSource,
+        repairTarget,
+        skipInactive,
+        participantId,
+        syncCrypto,
+        loggerFactory,
       )
-      .map(_ => ())
+    }
+  }
 
   private def persistContract(
       repair: RepairRequest,
@@ -1250,7 +1379,12 @@ final class RepairService(
 
       // Mark the repair request as pending in the request journal store
       _ <- EitherT.right[String](
-        repair.requestData.parTraverse_(domain.persistentState.requestJournalStore.insert)
+        MonadUtil.batchedSequentialTraverse_(
+          parallelism = threadsAvailableForWriting,
+          chunkSize = parameters.batchingConfig.repairInternalBatchSize,
+        )(repair.requestData) { batch =>
+          batch.parTraverse_(domain.persistentState.requestJournalStore.insert)
+        }
       )
 
     } yield repair
@@ -1258,23 +1392,38 @@ final class RepairService(
 
   private def markClean(
       repair: RepairRequest
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
-    repair.requestCounters.forgetNE
-      .parTraverse_(
-        repair.domain.persistentState.requestJournalStore.replace(
-          _,
-          repair.timestamp,
-          RequestState.Clean,
-          Some(repair.timestamp),
-        )
-      )
-      .leftMap(t => log(s"Failed to update request journal store on ${repair.domain.alias}: $t"))
+  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
+    val processingChunkSize = parameters.batchingConfig.repairInternalBatchSize.value
+
+    // Split and process chunks sequentially to keep memory stable
+    val chunks = repair.requestCounters.forgetNE.grouped(processingChunkSize)
+    MonadUtil.sequentialTraverse_(chunks.toSeq) { batch =>
+      // Controlled Burst: Inside the chunk, we fire all items in parallel
+      // This is safe because 'batch' is capped by config and fast because it fills the DB Aggregator instantly
+      val batchResultsF = MonadUtil.parTraverseWithLimit(processingChunkSize)(batch) { rc =>
+        repair.domain.persistentState.requestJournalStore
+          .replace(
+            rc,
+            repair.timestamp,
+            RequestState.Clean,
+            Some(repair.timestamp),
+          )
+          .leftMap(t =>
+            log(s"Failed to update request journal store on ${repair.domain.alias}: $t")
+          )
+          .value
+      }
+      EitherT(batchResultsF.map(_.sequence_))
+    }
+  }
 
   private def commitRepairs(
-      repairs: RepairRequest*
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
+      repairs: Seq[RepairRequest]
+  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] = {
+    logger.info(s"Commiting repairs using $threadsAvailableForWriting threads")
     for {
-      _ <- repairs.parTraverse_(markClean)
+      // Run markClean on domains in parallel
+      _ <- MonadUtil.parTraverseWithLimit_(threadsAvailableForWriting.value)(repairs)(markClean)
       _ = logger.debug("Advancing clean request preheads")
       _ <- EitherT.right[String](
         TransactionalStoreUpdate.execute {
@@ -1287,6 +1436,7 @@ final class RepairService(
         }
       )
     } yield ()
+  }
 
   private def readContractAcsState(persistentState: SyncDomainPersistentState, cid: LfContractId)(
       implicit traceContext: TraceContext

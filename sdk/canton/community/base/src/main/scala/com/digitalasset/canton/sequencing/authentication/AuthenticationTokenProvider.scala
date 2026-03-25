@@ -18,6 +18,8 @@ import com.digitalasset.canton.domain.api.v0.SequencerAuthenticationServiceGrpc.
 import com.digitalasset.canton.domain.api.v0.{Authentication, Challenge}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenWithExpiry
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{DomainId, Member}
@@ -63,14 +65,15 @@ class AuthenticationTokenProvider(
     Status.CANCELLED.withDescription("Aborted fetching token due to my node shutdown")
 
   def generateToken(
-      authenticationClient: SequencerAuthenticationServiceStub
+      endpoint: Endpoint,
+      authenticationClient: SequencerAuthenticationServiceStub,
   ): EitherT[Future, Status, AuthenticationTokenWithExpiry] = {
     // this should be called by a grpc client interceptor
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     performUnlessClosingEitherT(functionFullName, shutdownStatus) {
       def generateTokenET: Future[Either[Status, AuthenticationTokenWithExpiry]] =
         (for {
-          challenge <- getChallenge(authenticationClient)
+          challenge <- getChallenge(endpoint, authenticationClient)
           nonce <- Nonce
             .fromProtoPrimitive(challenge.nonce)
             .leftMap(err => Status.INVALID_ARGUMENT.withDescription(s"Invalid nonce: $err"))
@@ -92,39 +95,46 @@ class AuthenticationTokenProvider(
   }
 
   private def getChallenge(
-      authenticationClient: SequencerAuthenticationServiceStub
-  ): EitherT[Future, Status, Challenge.Success] = {
+      endpoint: Endpoint,
+      authenticationClient: SequencerAuthenticationServiceStub,
+  )(implicit traceContext: TraceContext): EitherT[Future, Status, Challenge.Success] = {
     import com.digitalasset.canton.domain.api.v0.Challenge.Response.Value.{Empty, Failure, Success}
-    def challenge(pvs: Seq[ProtocolVersion]): Future[Either[Status, Challenge.Success]] =
-      authenticationClient
-        .challenge(
-          Challenge
-            .Request(member.toProtoPrimitive, pvs.map(_.toProtoPrimitiveS))
+
+    def challenge(
+        pvs: Seq[ProtocolVersion]
+    )(implicit traceContext: TraceContext): EitherT[Future, Status, Challenge.Success] =
+      CantonGrpcUtil
+        .sendGrpcRequest(authenticationClient, s"sequencer-authentication-channel-$endpoint")(
+          _.challenge(
+            Challenge
+              .Request(member.toProtoPrimitive, pvs.map(_.toProtoPrimitiveS))
+          ),
+          "obtain challenge from sequencer",
+          timeouts.network.duration,
+          logger,
+          retryPolicy = _ => false, // Because the retry is managed at the outer layer
         )
-        .map(response => response.value)
-        .map {
-          case Success(success) => Right(success)
+        .leftMap(_.status)
+        .map(_.value)
+        .flatMap {
+          case Success(success) => EitherT.rightT(success)
           case Failure(Challenge.Failure(code, reason)) =>
-            Left(Status.fromCodeValue(code).withDescription(reason))
+            EitherT.leftT(Status.fromCodeValue(code).withDescription(reason))
           case Empty =>
-            Left(
+            EitherT.leftT(
               Status.INTERNAL.withDescription(
                 "Problem with domain handshake with challenge. Received empty response from domain."
               )
             )
         }
 
-    EitherT {
-      challenge(supportedProtocolVersions)
-        // This fallback allows to remove protocol version 7 if it is unsupported by the domain.
-        // This is helpful for a domain running 2.8.11
-        .flatMap[Either[Status, Challenge.Success]] {
-          case Left(status)
-              if status.getDescription.startsWith("Protocol version 7 is not supported") =>
-            challenge(supportedProtocolVersions.filterNot(_ == ProtocolVersion.v7))
-          case res => Future.successful(res)
-        }
-    }
+    challenge(supportedProtocolVersions)
+      // This fallback allows to remove protocol version 7 if it is unsupported by the domain.
+      // This is helpful for a domain running 2.8.11
+      .recoverWith {
+        case status if status.getDescription.startsWith("Protocol version 7 is not supported") =>
+          challenge(supportedProtocolVersions.filterNot(_ == ProtocolVersion.v7))
+      }
   }
   import cats.syntax.traverse.*
   private def authenticate(
