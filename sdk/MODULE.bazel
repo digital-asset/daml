@@ -260,3 +260,9 @@ use_repo(rules_proto_extenstion, "rules_proto")
 io_grpc_grpc_java_extension = use_extension("//bazel/extensions:deprecated/io_grpc_grpc_java_extension.bzl", "io_grpc_grpc_java_extension")
 use_repo(io_grpc_grpc_java_extension, "io_grpc_grpc_java")
 # # #
+
+# # #
+# Libs
+ncurses = use_extension("//bazel/extensions:lib_ncurses_extension.bzl", "ncurses")
+use_repo(ncurses, "ncurses")
+# # #
