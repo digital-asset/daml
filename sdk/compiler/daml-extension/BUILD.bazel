@@ -4,6 +4,7 @@
 package(default_visibility = ["//visibility:public"])
 
 load("@build_environment//:configuration.bzl", "npm_version")
+load("@os_info//:os_info.bzl", "is_windows")
 
 filegroup(
     name = "json-files",
@@ -98,7 +99,8 @@ genrule(
         "yarn.lock",
         ".vscodeignore",
         "src/*",
-        "node_modules.zip",
+        "windows_node_modules.zip",
+        "unix_node_modules.zip",
     ]),
     outs = ["daml-bundled.vsix"],
     # rm -rf can fail with "directory not empty" on Windows.
@@ -114,7 +116,8 @@ genrule(
         # we store the target cpu value to ensure the archive is platform specific
         echo $(TARGET_CPU) > $$TMP_DIR/target_cpu
         cd $$TMP_DIR/daml-extension
-        tar xzf node_modules.zip
+        tar xzf {node_modules_zip}
+        rm windows_node_modules.zip unix_node_modules.zip
         sed -i "s/__VERSION__/{npm}/" package.json
         sed -i 's/"name": "daml"/"name": "daml-bundled"/' package.json
         $$DIR/$(location //:yarn) compile
@@ -124,7 +127,10 @@ genrule(
         # So for now, we explicitly depend on concat-map in `package.json` to avoid this
         # Check for poison!
         PATH=$$(dirname $$DIR/$(location @nodejs//:node_bin)):$$(dirname $$DIR/$(location //:yarn)):$$PATH $$DIR/$(location @nodejs//:node_bin) node_modules/@vscode/vsce/vsce package --yarn -o $$DIR/$@
-    """.format(npm = npm_version),
+    """.format(
+      node_modules_zip = "windows_node_modules.zip" if is_windows else "unix_node_modules.zip",
+      npm = npm_version,
+    ),
     tools = [
         "//:yarn",
         "@nodejs//:node_bin",
