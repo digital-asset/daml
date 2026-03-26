@@ -51,7 +51,7 @@ object DecoderClass {
     .addParameter(ClassName.get(classOf[CreatedEvent]), "event")
     .addException(classOf[IllegalArgumentException])
     .addStatement(
-      "return this.fromCreatedEvent(event, $T.STRICT)",
+      "return fromCreatedEvent(event, $T.STRICT)",
       classOf[UnknownTrailingFieldPolicy],
     )
     .build()
