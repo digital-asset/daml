@@ -187,14 +187,11 @@ parseScriptServiceConfig conf = do
     cnfEvaluationTimeout <- queryOpt "evaluation-timeout"
     cnfJvmOptions <- fromMaybe [] <$> queryOpt "jvm-options"
     -- First try to parse as an Int, then as a String
-    cnfIdeLedgerProtocolVersion <- (fmap show <$> queryOpt @Int "protocol-version") `orElse` queryOpt "protocol-version"
+    cnfIdeLedgerProtocolVersion <- (fmap show <$> queryOpt @Int "protocol-version") <> queryOpt "protocol-version"
     pure ScriptServiceConfig {..}
   where
     queryOpt :: Y.FromJSON t => T.Text -> Either ConfigError (Maybe t)
     queryOpt opt = queryPackageConfig ["script-service", opt] conf
-    -- Fall back onto another Either if first fails
-    orElse :: Either e a -> Either e a -> Either e a
-    orElse a b = either (const b) Right a
 
 data Context = Context
   { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)

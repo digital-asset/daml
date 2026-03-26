@@ -24,7 +24,7 @@ import com.digitalasset.daml.lf.engine.ScriptEngine.{
   runExtendedValueComputation,
 }
 import com.digitalasset.daml.lf.speedy.MachineLogger
-import com.digitalasset.daml.lf.transaction.ContractStateMachine
+import com.digitalasset.daml.lf.transaction.{NextGenContractStateMachine => ContractStateMachine}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -36,7 +36,7 @@ private[lf] class Runner(
     initialClients: Participants[UnversionedScriptLedgerClient],
     machineLogger: MachineLogger = ScriptMachineLogger(),
     canceled: () => Option[RuntimeException] = () => None,
-    csmMode: ContractStateMachine.Mode = ContractStateMachine.Mode.NoContractKey,
+    csmMode: ContractStateMachine.Mode = ContractStateMachine.Mode.NUCK,
 ) {
   import Free.Result
 

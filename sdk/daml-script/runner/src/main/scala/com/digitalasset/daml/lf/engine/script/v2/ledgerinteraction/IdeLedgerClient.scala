@@ -27,9 +27,11 @@ import com.digitalasset.daml.lf.script
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.speedy.{MachineLogger, Pretty, SError}
 import com.digitalasset.daml.lf.transaction._
+import com.digitalasset.daml.lf.transaction.{NextGenContractStateMachine => ContractStateMachine}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.apache.pekko.stream.Materializer
+
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.set._
@@ -459,11 +461,6 @@ class IdeLedgerClient(
           SubmitError.ContractNotFound.AdditionalInfo.NotVisible(cid, tid, actAs, readAs, observers)
         ),
       )
-
-    case script.Error.CommitError(
-          IdeLedger.CommitError.UniqueKeyViolation(IdeLedger.UniqueKeyViolation(gk))
-        ) =>
-      SubmitError.DuplicateContractKey(Some(gk))
 
     case script.Error.LookupError(err, _, _) =>
       // TODO[SW]: Implement proper Lookup error throughout

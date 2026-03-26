@@ -34,7 +34,7 @@ import com.digitalasset.daml.lf.engine.ScriptEngine.{
   defaultCompilerConfig,
 }
 import com.digitalasset.daml.lf.speedy.MachineLogger
-import com.digitalasset.daml.lf.transaction.ContractStateMachine
+import com.digitalasset.daml.lf.transaction.{NextGenContractStateMachine => ContractStateMachine}
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.value._
@@ -369,15 +369,15 @@ object Runner {
   object IdeLedgerProtocolVersion {
     // Should be kept in sync with canton/community/base/src/main/scala/com/digitalasset/canton/version/EngineMode.scala
     final case object V34 extends IdeLedgerProtocolVersion {
-      val csmMode = ContractStateMachine.Mode.NoContractKey
+      val csmMode = ContractStateMachine.Mode.NoKey
       override val toString = "V34"
     }
     final case object V35 extends IdeLedgerProtocolVersion {
-      val csmMode = ContractStateMachine.Mode.UCKWithoutRollback
+      val csmMode = ContractStateMachine.Mode.NUCK
       override val toString = "V35"
     }
     final case object VDev extends IdeLedgerProtocolVersion {
-      val csmMode = ContractStateMachine.Mode.devDefault
+      val csmMode = ContractStateMachine.Mode.NUCK
       override val toString = "VDev"
     }
     val all = List(V34, V35, VDev)
