@@ -45,37 +45,33 @@ sh_test(
 # tarball and be fast.
 # Also for some reason on Windows I get "cannot ceate node_modules: file
 # exists", so at this point I'm completely out of trust.
-genrule(
-    name = "node_deps_cache",
-    srcs = [
-        "@daml_extension_deps//:node_modules",
-        "//compiler/daml-extension:yarn.lock",
-    ],
-    outs = ["node_modules.tar.gz"],
-    cmd = """
-        if [[ -d node_modules ]]; then
-            rm -rf node_modules
-        fi
-        mkdir node_modules
-        cd node_modules
-        for f in $(locations @daml_extension_deps//:node_modules); do
-            # exclude scoped (@-prefixed) directories that will be copied below
-            if [[ $$f != *"@"* ]]; then
-              cp -r ../$$f ./
-            fi
-        done
-        # copy all scoped (@-prefixed) package directories
-        for scope_dir in ../$(BINDIR)/external/daml_extension_deps/node_modules/@*/; do
-            cp -r "$$scope_dir" ./
-        done
-        cd ..
-        # Check for poison!
-        # Avoid file path too long errors on Windows of the form
-        #   .../tar_dev_env/usr/bin/tar: node_modules/.cache/terser-webpack-plugin/...: file name is too long (cannot be split); not dumped
-        $(execpath //bazel_tools/sh:mktgz) $@ node_modules --dereference
-    """,
-    tools = ["//bazel_tools/sh:mktgz"],
-)
+#genrule(
+#    name = "node_deps_cache",
+#    srcs = ["@daml_extension_deps//:node_modules"],
+#    outs = ["node_modules.tar.gz"],
+#    cmd = """
+#        if [[ -d node_modules ]]; then
+#            rm -rf node_modules
+#        fi
+#        mkdir node_modules
+#        cd node_modules
+#        for f in $(locations @daml_extension_deps//:node_modules); do
+#            # Because Bazel paths are weird, we need to remove everything
+#            # before node_modules. We also need to extract the path separately
+#            # from the filename because we need to create the path (mkdir -p)
+#            # before we can write the file
+#            file=$$(basename $$f)
+#            dir=$$(dirname $$f | sed 's:^.*/node_modules/::')
+#            mkdir -p $$dir
+#            cp ../$$f $$dir/$$file
+#        done
+#        cd ..
+#        # Avoid file path too long errors on Windows of the form
+#        #   .../tar_dev_env/usr/bin/tar: node_modules/.cache/terser-webpack-plugin/...: file name is too long (cannot be split); not dumped
+#        $(execpath //bazel_tools/sh:mktgz) $@ --exclude="node_modules/.cache/*" node_modules
+#    """,
+#    tools = ["//bazel_tools/sh:mktgz"],
+#)
 
 genrule(
     name = "webview-stylesheet",
@@ -102,9 +98,8 @@ genrule(
         "yarn.lock",
         ".vscodeignore",
         "src/*",
-    ]) + [
-        ":node_deps_cache",
-    ],
+        "node_modules.zip",
+    ]),
     outs = ["daml-bundled.vsix"],
     # rm -rf can fail with "directory not empty" on Windows.
     # As a workaround we add `|| return`.
@@ -119,7 +114,7 @@ genrule(
         # we store the target cpu value to ensure the archive is platform specific
         echo $(TARGET_CPU) > $$TMP_DIR/target_cpu
         cd $$TMP_DIR/daml-extension
-        tar xzf $$DIR/$(location :node_deps_cache)
+        tar xzf node_modules.zip
         sed -i "s/__VERSION__/{npm}/" package.json
         sed -i 's/"name": "daml"/"name": "daml-bundled"/' package.json
         $$DIR/$(location //:yarn) compile
