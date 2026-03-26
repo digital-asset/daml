@@ -1,8 +1,8 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @ WARN if=DAML_CONTRACT_KEYS; -Werror=upgrade-interfaces
--- @ WARN if=DAML_CONTRACT_KEYS; -Werror=upgrade-interfaces
+-- @ WARN if=DAML_INTERFACE_EXTENDED; -Werror=upgrade-interfaces
+-- @ WARN if=DAML_INTERFACE_EXTENDED; -Werror=upgrade-interfaces
 -- @ WARN Import of internal module Daml.Script.Internal of package daml-script is discouraged, as this module will change without warning.
 
 {-# LANGUAGE ApplicativeDo #-}
@@ -56,7 +56,7 @@ template T3 with
   where
   signatory t3_p
 
-#ifdef DAML_CONTRACT_KEYS
+#ifdef DAML_FETCH_BY_KEY
   key (t3_p, ms) : (Party, [Party])
   maintainer key._2
 #endif
@@ -67,7 +67,7 @@ template FetchByKeyT3 with
   where
   signatory fetcher
 
-#ifdef DAML_CONTRACT_KEYS
+#ifdef DAML_FETCH_BY_KEY
   choice DoFetch : (ContractId T3, T3)
     controller fetcher
     do fetchByKey @T3 fetchKey
@@ -90,7 +90,7 @@ template T5 with
   where
   signatory keyParty
 
-#ifdef DAML_CONTRACT_KEYS
+#ifdef DAML_LEGACY_LOOKUP_BY_KEY
   key (t5_s, keyParty) : (Text, Party)
   maintainer key._2
 
@@ -103,7 +103,7 @@ template T5 with
 
 -- ContractNotFound: Cannot test contract not found with IDELedger, no way to get an invalid contract ID
 
-#ifdef DAML_CONTRACT_KEYS
+#ifdef DAML_EXERCISE_BY_KEY
 contractKeyNotFound : Script ()
 contractKeyNotFound = script do
   alice <- allocateParty "alice"
@@ -182,7 +182,7 @@ failureStatusError = script do
 
 -- TemplatePreconditionViolated: Same as above
 
-#ifdef DAML_CONTRACT_KEYS
+#ifdef DAML_FETCH_BY_KEY
 createEmptyContractKeyMaintainers : Script ()
 createEmptyContractKeyMaintainers = script do
   alice <- allocateParty "alice"
@@ -240,7 +240,7 @@ devError = script do
 -- Can reproduce right now with a timeout, or package vetting test.
 
 -- Using contractKeyNotFound with an enormous key
-#ifdef DAML_CONTRACT_KEYS
+#ifdef DAML_EXERCISE_BY_KEY
 truncatedError : Script ()
 truncatedError = script do
   alice <- allocateParty "alice"
@@ -253,7 +253,9 @@ truncatedError = script do
     Left (ContractKeyNotFound (fromAnyContractKey @T4 -> Some shouldBeT4Key)) | shouldBeT4Key == t4Key -> pure ()
     Left e -> error $ "contractKeyNotFound incorrect error: " <> show e
     Right _ -> error "contractKeyNotFound incorrectly succeeded"
+#endif
 
+#ifdef DAML_LEGACY_LOOKUP_BY_KEY
 prefetchContractKeys : Script ()
 prefetchContractKeys = script do
   alice <- allocateParty "alice"

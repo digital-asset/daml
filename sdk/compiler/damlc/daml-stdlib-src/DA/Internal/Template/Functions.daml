@@ -158,11 +158,13 @@ class HasFromAnyChoice t c r | t c -> r where
 type TemplateKey t k =
   ( Template t
   , HasKey t k
+#ifdef DAML_LEGACY_LOOKUP_BY_KEY
   , HasLookupByKey t k
+#endif
+#ifdef DAML_FETCH_BY_KEY
   , HasFetchByKey t k
+#endif
   , HasMaintainer t k
-  , HasToAnyContractKey t k
-  , HasFromAnyContractKey t k
   )
 
 -- | Exposes `key` function. Part of the `TemplateKey` constraint.
@@ -215,23 +217,13 @@ class HasMaintainer t k | t -> k where
 maintainer : forall t k. HasMaintainer t k => k -> [Party]
 maintainer = _maintainer ([] : [t])
 
--- | Exposes `toAnyContractKey` function in Daml-LF 1.7 or later.
--- Part of the `TemplateKey` constraint.
-class HasToAnyContractKey t k | t -> k where
-  -- | HIDE
-  _toAnyContractKey : proxy t -> k -> Any
-
--- | Exposes `fromAnyContractKey` function in Daml-LF 1.7 or later.
--- Part of the `TemplateKey` constraint.
-class HasFromAnyContractKey t k | t -> k where
-  -- | HIDE
-  _fromAnyContractKey : proxy t -> Any -> Optional k
-
 -- | Exposes `exerciseByKey` function.
 class HasExerciseByKey t k c r | t -> k, t c -> r where
    -- | HIDE
    _exerciseByKey : proxy t -> k -> c -> Update r
 
+
+#ifdef DAML_EXERCISE_BY_KEY
 -- | Exercise a choice on the contract associated with the given key.
 --
 -- You must pass the `t` using an explicit type application. For
@@ -240,6 +232,7 @@ class HasExerciseByKey t k c r | t -> k, t c -> r where
 -- `exerciseByKey @Account k Withdraw`.
 exerciseByKey : forall t k c r. HasExerciseByKey t k c r => k -> c -> Update r
 exerciseByKey = _exerciseByKey ([] : [t])
+#endif
 
 -- | Create a contract and exercise the choice on the newly created contract.
 createAndExercise : forall t c r. (HasCreate t, HasExercise t c r) => t -> c -> Update r
@@ -338,34 +331,11 @@ fromAnyChoice (AnyChoice any typeRep)
   , templateTypeRep @t == typeRep = Some c
   | otherwise = None
 
--- | Wrap a contract key in `AnyContractKey`.
---
--- You must pass the template type `t` using an explicit type application.
--- For example `toAnyContractKey @Proposal k`.
---
--- Only available for Daml-LF 1.7 or later.
-toAnyContractKey : forall t k. (HasTemplateTypeRep t, HasToAnyContractKey t k) => k -> AnyContractKey
-toAnyContractKey k =
-  AnyContractKey
-    (_toAnyContractKey ([] : [t]) k)
-    (templateTypeRep @t)
-
--- | Extract the underlying key from `AnyContractKey` if the template and
--- choice types match, or return `None`.
---
--- You must pass the template type `t` using an explicit type application.
--- For example `fromAnyContractKey @Proposal k`.
---
--- Only available for Daml-LF 1.7 or later.
-fromAnyContractKey : forall t k. (HasTemplateTypeRep t, HasFromAnyContractKey t k) => AnyContractKey -> Optional k
-fromAnyContractKey (AnyContractKey any rep)
-  | Some k <- _fromAnyContractKey ([] : [t]) any
-  , templateTypeRep @t == rep = Some k
-  | otherwise = None
-
 deriving instance Eq Archive
 deriving instance Show Archive
 
+-- TODO[#22800]: rewrite to QueryNByKey
+#ifdef DAML_LEGACY_LOOKUP_BY_KEY
 -- | True if contract exists, submitter is a stakeholder, and all maintainers
 -- authorize. False if contract does not exist and all maintainers authorize.
 -- Fails otherwise.
@@ -375,3 +345,4 @@ visibleByKey k = do
   case m of
     Some _ -> pure True
     None -> pure False
+#endif

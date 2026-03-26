@@ -86,13 +86,13 @@ object TypedValueGenerators {
     import Value._, ValueGenerators.Implicits._, data.Utf8.ImplicitOrder._
     import scalaz.std.anyVal._
 
-    val text = leaf(PT.Text, ValueText) { case ValueText(t) => t }
-    val int64 = leaf(PT.Int64, ValueInt64) { case ValueInt64(i) => i }
+    val text = leaf(PT.Text, ValueText.apply) { case ValueText(t) => t }
+    val int64 = leaf(PT.Int64, ValueInt64.apply) { case ValueInt64(i) => i }
     val unit = leaf(PT.Unit, (_: Unit) => ValueUnit) { case ValueUnit => () }
-    val date = leaf(PT.Date, ValueDate) { case ValueDate(d) => d }
-    val timestamp = leaf(PT.Timestamp, ValueTimestamp) { case ValueTimestamp(t) => t }
+    val date = leaf(PT.Date, ValueDate.apply) { case ValueDate(d) => d }
+    val timestamp = leaf(PT.Timestamp, ValueTimestamp.apply) { case ValueTimestamp(t) => t }
     val bool = leaf(PT.Bool, ValueBool(_)) { case ValueBool(b) => b }
-    val party = leaf(PT.Party, ValueParty) { case ValueParty(p) => p }
+    val party = leaf(PT.Party, ValueParty.apply) { case ValueParty(p) => p }
 
     def numeric(scale: Numeric.Scale): Aux[Numeric] = {
       implicit val arb: Arbitrary[Numeric] = Arbitrary(ValueGenerators.numGen(scale))
@@ -224,7 +224,7 @@ object TypedValueGenerators {
       }
     }
 
-    /** See [[RecVarExample]] for usage examples. */
+    /** See RecVarExample for usage examples. */
     def record[Spec <: HList](name: Ref.Identifier, fields: Spec)(implicit
         rvs: RecVarSpec[Spec]
     ): (DefDataType.FWT, Aux[rvs.HRec]) = {
@@ -252,7 +252,7 @@ object TypedValueGenerators {
       )
     }
 
-    /** See [[RecVarExample]] companion for usage examples. */
+    /** See RecVarExample companion for usage examples. */
     def variant[Spec <: HList](name: Ref.Identifier, constructors: Spec)(implicit
         rvs: RecVarSpec[Spec]
     ): (DefDataType.FWT, Aux[rvs.HVar]) = {
@@ -444,7 +444,7 @@ object TypedValueGenerators {
           }
 
           override val prjVar: Map[Ref.Name, Value => PrjResult] = {
-            val r = tlRules.prjVar transform { (_, tf) => tv: Value => tf(tv) map (Inr(_)) }
+            val r = tlRules.prjVar transform { (_, tf) => (tv: Value) => tf(tv) map (Inr(_)) }
             r.updated(
               fname,
               (hv: Value) => hVA.prj(hv) map (pv => Inl(field[K](pv))),
@@ -587,7 +587,7 @@ object TypedValueGenerators {
     *  3. generating well-typed values of different types
     *
     * All of which are derivable from what [[ValueAddend]] is, ''a type, a
-    * prism into [[Value]], a [[Type]] describing that type, and
+    * prism into [[Value]], a [[com.digitalasset.daml.lf.typesig.Type]] describing that type, and
     * Scalacheck support surrounding that type.''
     */
   def genAddend(implicit cid: Arbitrary[Value.ContractId]): Gen[ValueAddend] =

@@ -1,5 +1,5 @@
 -- @DOES-NOT-SUPPORT-LF-FEATURE DAML_CONTRACT_KEYS
--- @ERROR Contract keys
+-- @ERROR Contract Keys
 
 module ContractKeysNotSupported where
 

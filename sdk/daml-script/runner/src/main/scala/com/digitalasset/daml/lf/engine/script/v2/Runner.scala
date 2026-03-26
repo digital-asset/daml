@@ -8,6 +8,7 @@ package v2
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.free.Free
 import com.digitalasset.daml.lf.engine.script.Runner.IdeLedgerContext
@@ -15,17 +16,14 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient => UnversionedScriptLedgerClient
 }
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
+import com.digitalasset.daml.lf.script.IdeLedger
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValue,
   ExtendedValueClosureBlob,
   ExtendedValueComputationMode,
   runExtendedValueComputation,
-  newTraceLog,
-  newWarningLog,
-  TraceLog,
-  WarningLog,
 }
+import com.digitalasset.daml.lf.speedy.MachineLogger
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -35,19 +33,19 @@ import scala.concurrent.{ExecutionContext, Future}
 private[lf] class Runner(
     unversionedRunner: script.Runner,
     initialClients: Participants[UnversionedScriptLedgerClient],
-    traceLog: TraceLog = newTraceLog,
-    warningLog: WarningLog = newWarningLog,
+    machineLogger: MachineLogger = ScriptMachineLogger(),
     canceled: () => Option[RuntimeException] = () => None,
 ) {
   import Free.Result
 
-  implicit val namedLoggerFactory: NamedLoggerFactory =
+  private val loggerFactory: NamedLoggerFactory =
     NamedLoggerFactory("daml-script", "Daml Script")
 
   private val initialClientsV2 = initialClients.map(
     ScriptLedgerClient.realiseScriptLedgerClient(
       _,
       unversionedRunner.extendedCompiledPackages,
+      loggerFactory,
     )
   )
 
@@ -57,6 +55,8 @@ private[lf] class Runner(
       unversionedRunner.timeMode,
       initialClientsV2,
       unversionedRunner.extendedCompiledPackages,
+      loggerFactory,
+      traceContext = TraceContext.empty,
     )
 
   private val knownPackages = ScriptF.KnownPackages(unversionedRunner.knownPackages)
@@ -65,8 +65,7 @@ private[lf] class Runner(
     initialClientsV2.default_participant.collect {
       case ledgerClient: ledgerinteraction.IdeLedgerClient =>
         new IdeLedgerContext {
-          override def currentSubmission: Option[IdeLedgerRunner.CurrentSubmission] =
-            ledgerClient.currentSubmission
+          override def currentSubmission: Option[CurrentSubmission] = ledgerClient.currentSubmission
           override def ledger: IdeLedger = ledgerClient.ledger
         }
     }
@@ -75,7 +74,7 @@ private[lf] class Runner(
       result: Result[X, Free.Question, ExtendedValue]
   ): Result[X, ScriptF.Cmd, ExtendedValue] =
     result.remapQ { case Free.Question(name, version, payload, stackTrace) =>
-      ScriptF.parse(name, version, payload, knownPackages) match {
+      ScriptF.parse(name, version, payload, knownPackages, env) match {
         case Right(cmd) =>
           Result.Ask(
             cmd,
@@ -112,9 +111,7 @@ private[lf] class Runner(
         Free.getResultF(
           freeClosure,
           unversionedRunner.extendedCompiledPackages,
-          traceLog,
-          warningLog,
-          Script.DummyLoggingContext,
+          machineLogger,
           convertLegacyExceptions,
           canceled,
         )
@@ -146,11 +143,10 @@ private[lf] class Runner(
         comp,
         canceled,
         unversionedRunner.extendedCompiledPackages,
+        machineLogger,
         iterationsBetweenInterruptions = 100000,
-        traceLog,
-        warningLog,
         convertLegacyExceptions,
-      )(Script.DummyLoggingContext).fold(
+      ).fold(
         err => throw err.fold(identity, free.InterpretationError(_)),
         identity,
       )

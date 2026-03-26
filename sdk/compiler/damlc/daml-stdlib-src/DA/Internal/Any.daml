@@ -16,7 +16,7 @@ newtype TemplateTypeRep = TemplateTypeRep { getTemplateTypeRep : TypeRep }
 -- | Existential template type that can wrap an arbitrary template.
 newtype AnyTemplate = AnyTemplate { getAnyTemplate : Any }
 
--- | Existential contract key type that can wrap an arbitrary contract key.
+-- | HIDE Existential contract key type that can wrap an arbitrary contract key.
 data AnyContractKey = AnyContractKey
   { getAnyContractKey : Any
   , getAnyContractKeyTemplateTypeRep : TemplateTypeRep

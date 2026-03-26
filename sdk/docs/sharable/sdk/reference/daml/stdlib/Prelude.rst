@@ -536,20 +536,6 @@ Typeclasses
 
   Exposes ``maintainer`` function\. Part of the ``TemplateKey`` constraint\.
 
-.. _class-da-internal-template-functions-hastoanycontractkey-35010:
-
-**class** `HasToAnyContractKey <class-da-internal-template-functions-hastoanycontractkey-35010_>`_ t k **where**
-
-  Exposes ``toAnyContractKey`` function in Daml\-LF 1\.7 or later\.
-  Part of the ``TemplateKey`` constraint\.
-
-.. _class-da-internal-template-functions-hasfromanycontractkey-95587:
-
-**class** `HasFromAnyContractKey <class-da-internal-template-functions-hasfromanycontractkey-95587_>`_ t k **where**
-
-  Exposes ``fromAnyContractKey`` function in Daml\-LF 1\.7 or later\.
-  Part of the ``TemplateKey`` constraint\.
-
 .. _class-da-internal-template-functions-hasexercisebykey-36549:
 
 **class** `HasExerciseByKey <class-da-internal-template-functions-hasexercisebykey-36549_>`_ t k c r **where**
@@ -1347,34 +1333,6 @@ Data Types
 
   **instance** `Ord <class-ghc-classes-ord-6395_>`_ `AnyChoice <type-da-internal-any-anychoice-86490_>`_
 
-.. _type-da-internal-any-anycontractkey-68193:
-
-**data** `AnyContractKey <type-da-internal-any-anycontractkey-68193_>`_
-
-  Existential contract key type that can wrap an arbitrary contract key\.
-
-  .. _constr-da-internal-any-anycontractkey-82848:
-
-  `AnyContractKey <constr-da-internal-any-anycontractkey-82848_>`_
-
-    .. list-table::
-       :widths: 15 10 30
-       :header-rows: 1
-
-       * - Field
-         - Type
-         - Description
-       * - getAnyContractKey
-         - Any
-         -
-       * - getAnyContractKeyTemplateTypeRep
-         - `TemplateTypeRep <type-da-internal-any-templatetyperep-33792_>`_
-         -
-
-  **instance** `Eq <class-ghc-classes-eq-22713_>`_ `AnyContractKey <type-da-internal-any-anycontractkey-68193_>`_
-
-  **instance** `Ord <class-ghc-classes-ord-6395_>`_ `AnyContractKey <type-da-internal-any-anycontractkey-68193_>`_
-
 .. _type-da-internal-any-anytemplate-63703:
 
 **data** `AnyTemplate <type-da-internal-any-anytemplate-63703_>`_
@@ -1717,7 +1675,7 @@ Data Types
 .. _type-da-internal-template-functions-templatekey-95200:
 
 **type** `TemplateKey <type-da-internal-template-functions-templatekey-95200_>`_ t k
-  \= (`Template <type-da-internal-template-functions-template-31804_>`_ t, `HasKey <class-da-internal-template-functions-haskey-87616_>`_ t k, `HasLookupByKey <class-da-internal-template-functions-haslookupbykey-92299_>`_ t k, `HasFetchByKey <class-da-internal-template-functions-hasfetchbykey-54638_>`_ t k, `HasMaintainer <class-da-internal-template-functions-hasmaintainer-28932_>`_ t k, `HasToAnyContractKey <class-da-internal-template-functions-hastoanycontractkey-35010_>`_ t k, `HasFromAnyContractKey <class-da-internal-template-functions-hasfromanycontractkey-95587_>`_ t k)
+  \= (`Template <type-da-internal-template-functions-template-31804_>`_ t, `HasKey <class-da-internal-template-functions-haskey-87616_>`_ t k, `HasMaintainer <class-da-internal-template-functions-hasmaintainer-28932_>`_ t k)
 
   Constraint satisfied by template keys\.
 
@@ -2703,18 +2661,6 @@ Functions
 
   The list of maintainers of a contract key\.
 
-.. _function-da-internal-template-functions-exercisebykey-78695:
-
-`exerciseByKey <function-da-internal-template-functions-exercisebykey-78695_>`_
-  \: `HasExerciseByKey <class-da-internal-template-functions-hasexercisebykey-36549_>`_ t k c r \=\> k \-\> c \-\> `Update <type-da-internal-lf-update-68072_>`_ r
-
-  Exercise a choice on the contract associated with the given key\.
-
-  You must pass the ``t`` using an explicit type application\. For
-  instance, if you want to exercise a choice ``Withdraw`` on a contract of
-  template ``Account`` given by its key ``k``, you must call
-  ``exerciseByKey @Account k Withdraw``\.
-
 .. _function-da-internal-template-functions-createandexercise-2676:
 
 `createAndExercise <function-da-internal-template-functions-createandexercise-2676_>`_
@@ -2772,40 +2718,6 @@ Functions
   For example ``fromAnyChoice @Account choice``\.
 
   Only available for Daml\-LF 1\.7 or later\.
-
-.. _function-da-internal-template-functions-toanycontractkey-75916:
-
-`toAnyContractKey <function-da-internal-template-functions-toanycontractkey-75916_>`_
-  \: (`HasTemplateTypeRep <class-da-internal-template-functions-hastemplatetyperep-24134_>`_ t, `HasToAnyContractKey <class-da-internal-template-functions-hastoanycontractkey-35010_>`_ t k) \=\> k \-\> `AnyContractKey <type-da-internal-any-anycontractkey-68193_>`_
-
-  Wrap a contract key in ``AnyContractKey``\.
-
-  You must pass the template type ``t`` using an explicit type application\.
-  For example ``toAnyContractKey @Proposal k``\.
-
-  Only available for Daml\-LF 1\.7 or later\.
-
-.. _function-da-internal-template-functions-fromanycontractkey-60533:
-
-`fromAnyContractKey <function-da-internal-template-functions-fromanycontractkey-60533_>`_
-  \: (`HasTemplateTypeRep <class-da-internal-template-functions-hastemplatetyperep-24134_>`_ t, `HasFromAnyContractKey <class-da-internal-template-functions-hasfromanycontractkey-95587_>`_ t k) \=\> `AnyContractKey <type-da-internal-any-anycontractkey-68193_>`_ \-\> `Optional <type-da-internal-prelude-optional-37153_>`_ k
-
-  Extract the underlying key from ``AnyContractKey`` if the template and
-  choice types match, or return ``None``\.
-
-  You must pass the template type ``t`` using an explicit type application\.
-  For example ``fromAnyContractKey @Proposal k``\.
-
-  Only available for Daml\-LF 1\.7 or later\.
-
-.. _function-da-internal-template-functions-visiblebykey-51464:
-
-`visibleByKey <function-da-internal-template-functions-visiblebykey-51464_>`_
-  \: `HasLookupByKey <class-da-internal-template-functions-haslookupbykey-92299_>`_ t k \=\> k \-\> `Update <type-da-internal-lf-update-68072_>`_ `Bool <type-ghc-types-bool-66265_>`_
-
-  True if contract exists, submitter is a stakeholder, and all maintainers
-  authorize\. False if contract does not exist and all maintainers authorize\.
-  Fails otherwise\.
 
 .. _function-ghc-base-otherwise-74255:
 

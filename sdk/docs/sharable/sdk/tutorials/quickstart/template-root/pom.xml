@@ -18,6 +18,13 @@
         <restport>8080</restport>
     </properties>
 
+    <repositories>
+      <repository>
+        <id>artifact-registry</id>
+        <url>artifactregistry://europe-maven.pkg.dev/da-images/public-maven-unstable</url>
+      </repository>
+    </repositories>
+
     <dependencies>
         <dependency>
             <groupId>com.daml</groupId>
@@ -38,6 +45,11 @@
         <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-stub</artifactId>
+            <version>1.77.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-netty-shaded</artifactId>
             <version>1.77.0</version>
         </dependency>
         <dependency>
@@ -109,5 +121,12 @@
                 </executions>
             </plugin>
         </plugins>
+        <extensions>
+          <extension>
+            <groupId>com.google.cloud.artifactregistry</groupId>
+            <artifactId>artifactregistry-maven-wagon</artifactId>
+            <version>2.2.5</version>
+          </extension>
+        </extensions>
     </build>
 </project>

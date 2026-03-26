@@ -5,28 +5,9 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary")
 load("//bazel_tools:proto.bzl", "proto_gen", "proto_jars")
 load("//bazel_tools/packaging:packaging.bzl", "package_oci_component")
-load("//canton:canton_version.bzl", "CANTON_OPEN_SOURCE_SHA", "CANTON_OPEN_SOURCE_TAG")
+load("//canton:canton_jar.bzl", "canton_jar")
 
-genrule(
-    name = "canton_open_source_jar",
-    srcs = [],
-    outs = ["canton_jar.jar"],
-    cmd = """
-TMPDIR=$$(mktemp -d)
-# oras requires some home directory, we provide a random one
-FAKE_HOME=$$(mktemp -d)
-export HOME=$$FAKE_HOME
-export USERPROFILE=$$FAKE_HOME
-REF=europe-docker.pkg.dev/da-images/public-unstable/components/canton-open-source:{tag}@{sha}
-$(execpath @dpm_binary//:oras) pull $$REF --output $$TMPDIR
-cp $$TMPDIR/lib/canton-open-source-{tag}.jar $@
-""".format(
-        sha = CANTON_OPEN_SOURCE_SHA,
-        tag = CANTON_OPEN_SOURCE_TAG,
-    ),
-    tools = ["@dpm_binary//:oras"],
-    visibility = ["//visibility:private"],
-)
+canton_jar()
 
 java_import(
     name = "community_app-lib",

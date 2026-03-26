@@ -342,6 +342,12 @@ cryptoErrorType :: SubmitError -> CryptoErrorType
 
 cryptoErrorMessage :: SubmitError -> Text
 
+-- | Rollback exceptions
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-effectfulrollbackerror-45632
+EffectfulRollbackError :: Text -> SubmitError
+
+effectfulRollbackErrorMsg :: SubmitError -> Text
+
 -- | Development feature exceptions
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-deverror-73533
 DevError :: DevErrorType -> Text -> SubmitError
@@ -546,6 +552,10 @@ Secp256k1KeyPair :: PrivateKeyHex -> PublicKeyHex -> Secp256k1KeyPair
 privateKey :: Secp256k1KeyPair -> PrivateKeyHex
 
 publicKey :: Secp256k1KeyPair -> PublicKeyHex
+
+-- | Existential contract key type that can wrap an arbitrary contract key.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-commands-anycontractkey-29496
+data AnyContractKey
 
 -- | This is used to build up the commands sent as part of `submit`.
 --   If you enable the `ApplicativeDo` extension by adding
@@ -1032,6 +1042,21 @@ secp256k1sign :: (HasCallStack) => PrivateKeyHex -> BytesHex -> Script BytesHex
 -- | Generate DER formatted Secp256k1 public/private key pairs.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-crypto-text-secp256k1generatekeypair-90200
 secp256k1generatekeypair :: (HasCallStack) => Script Secp256k1KeyPair
+
+-- | Wrap a contract key in `AnyContractKey`.
+--   
+--   You must pass the template type `t` using an explicit type application.
+--   For example `toAnyContractKey @Proposal k`.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-commands-toanycontractkey-91361
+toAnyContractKey :: (HasTemplateTypeRep t, TemplateKey t k) => k -> AnyContractKey
+
+-- | Extract the underlying key from `AnyContractKey` if the template and
+--   choice types match, or return `None`.
+--   
+--   You must pass the template type `t` using an explicit type application.
+--   For example `fromAnyContractKey @Proposal k`.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-commands-fromanycontractkey-42688
+fromAnyContractKey :: (HasTemplateTypeRep t, TemplateKey t k) => AnyContractKey -> Optional k
 
 -- | Create a contract of the given template.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-commands-createcmd-46830

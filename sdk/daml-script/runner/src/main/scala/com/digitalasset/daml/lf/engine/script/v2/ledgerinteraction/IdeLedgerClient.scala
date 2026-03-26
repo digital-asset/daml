@@ -11,14 +11,13 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ledger.api._
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
+import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiContractKey}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValueComputationMode,
-  TraceLog,
-  WarningLog,
   runExtendedValueComputation,
 }
 import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
@@ -26,7 +25,7 @@ import com.digitalasset.daml.lf.language.Ast.PackageMetadata
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.script
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
-import com.digitalasset.daml.lf.speedy.{Pretty, SError}
+import com.digitalasset.daml.lf.speedy.{MachineLogger, Pretty, SError}
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -43,11 +42,12 @@ import scala.util.{Failure, Success}
 // Client for the script service.
 class IdeLedgerClient(
     val originalCompiledPackages: PureCompiledPackages,
-    traceLog: TraceLog,
-    warningLog: WarningLog,
+    machineLogger: MachineLogger,
     canceled: () => Boolean,
-    namedLoggerFactory: NamedLoggerFactory,
-) extends ScriptLedgerClient {
+    override val loggerFactory: NamedLoggerFactory,
+) extends ScriptLedgerClient
+    with NamedLogging {
+  private implicit val traceContext: TraceContext = TraceContext.empty
   override def transport = "script service"
 
   private val nextSeed: () => crypto.Hash =
@@ -55,9 +55,9 @@ class IdeLedgerClient(
     // across different runs of IdeLedgerClient.
     crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey(s"script-service"))
 
-  private var _currentSubmission: Option[IdeLedgerRunner.CurrentSubmission] = None
+  private var _currentSubmission: Option[CurrentSubmission] = None
 
-  def currentSubmission: Option[IdeLedgerRunner.CurrentSubmission] = _currentSubmission
+  def currentSubmission: Option[CurrentSubmission] = _currentSubmission
 
   private[this] var compiledPackages = originalCompiledPackages
 
@@ -79,6 +79,7 @@ class IdeLedgerClient(
     addFieldNames = true,
     addTrailingNoneFields = true,
     forbidLocalContractIds = true,
+    loggerFactory = loggerFactory,
   )
 
   // Given a set of disabled packages, filter out all definitions from those packages from the original compiled packages
@@ -115,7 +116,7 @@ class IdeLedgerClient(
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
   private val userManagementStore =
-    new InMemoryUserManagementStore(createAdmin = false, namedLoggerFactory)
+    new InMemoryUserManagementStore(createAdmin = false, loggerFactory)
 
   private[this] def blob(contract: FatContractInstance): Bytes =
     Bytes.fromByteString(TransactionCoder.encodeFatContractInstance(contract).toOption.get)
@@ -206,12 +207,9 @@ class IdeLedgerClient(
       cancelled = () => None,
       compiledPackages = compiledPackages,
       iterationsBetweenInterruptions = 100000,
-      traceLog = traceLog,
-      warningLog = warningLog,
+      logger = machineLogger,
       convertLegacyExceptions = false,
-    )(Script.DummyLoggingContext).toOption.map(ev =>
-      Converter.castCommandExtendedValue(ev).toOption.get
-    )
+    ).toOption.map(ev => Converter.castCommandExtendedValue(ev).toOption.get)
 
   private[this] def implements(templateId: TypeConId, interfaceId: TypeConId): Boolean = {
     compiledPackages.pkgInterface.lookupInterfaceInstance(interfaceId, templateId).isRight
@@ -319,6 +317,8 @@ class IdeLedgerClient(
   private def fromInterpretationError(err: interpretation.Error): SubmitError = {
     import interpretation.Error._
     err match {
+      case e: EffectfulRollback =>
+        SubmitError.EffectfulRollback(Pretty.prettyDamlException(e).renderWideStream.mkString)
       case ContractNotFound(cid) =>
         SubmitError.ContractNotFound(
           NonEmpty(Seq, cid),
@@ -702,10 +702,9 @@ class IdeLedgerClient(
             translated,
             optLocation,
             nextSeed(),
+            machineLogger,
             packageMap,
-            traceLog,
-            warningLog,
-          )(Script.DummyLoggingContext)
+          )
         res <- loop(result)
       } yield res
     }
@@ -804,7 +803,7 @@ class IdeLedgerClient(
           )
           val results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
           if (errorBehaviour == ScriptLedgerClient.SubmissionErrorBehaviour.MustFail)
-            _currentSubmission = Some(IdeLedgerRunner.CurrentSubmission(optLocation, tx))
+            _currentSubmission = Some(CurrentSubmission(optLocation, tx))
           else
             _currentSubmission = None
           Right((results, tree))
@@ -814,7 +813,7 @@ class IdeLedgerClient(
           // We may consider changing this to always insert SubmissionFailed, but this requires splitting the golden files in the integration tests
           errorBehaviour match {
             case MustSucceed =>
-              _currentSubmission = Some(IdeLedgerRunner.CurrentSubmission(optLocation, tx))
+              _currentSubmission = Some(CurrentSubmission(optLocation, tx))
             case MustFail =>
               _currentSubmission = None
               _ledger = ledger.insertAssertMustFail(actAs.toSet, readAs, optLocation)

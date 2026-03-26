@@ -16,7 +16,6 @@ import com.digitalasset.daml.lf.data.Ref.ModuleName
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.script.api.v1.{Map => _, _}
-import com.daml.logging.LoggingContext
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
@@ -70,37 +69,34 @@ object ScriptServiceMain extends App {
         new PekkoExecutionSequencerPool("ScriptServicePool")(system)
       implicit val materializer: Materializer = Materializer(system)
       implicit val ec: ExecutionContext = system.dispatcher
-      LoggingContext.newLoggingContext { implicit lc: LoggingContext =>
-        val server =
-          NettyServerBuilder
-            .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
-            .addService(new ScriptService())
-            .maxInboundMessageSize(config.maxInboundMessageSize)
-            .build
-        server.start()
-        // Print the allocated port for the client
-        println("PORT=" + server.getPort.toString)
+      val server =
+        NettyServerBuilder
+          .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
+          .addService(new ScriptService())
+          .maxInboundMessageSize(config.maxInboundMessageSize)
+          .build
+      server.start()
+      // Print the allocated port for the client
+      println("PORT=" + server.getPort.toString)
 
-        // Bump up the log level
-        Logger.getLogger("io.grpc").setLevel(Level.ALL)
+      // Bump up the log level
+      Logger.getLogger("io.grpc").setLevel(Level.ALL)
 
-        // Start a thread to watch stdin and terminate
-        // if it closes. This makes sure we do not leave
-        // this process running if the parent exits.
-        new Thread(new Runnable {
-          def run(): Unit = {
-            while (System.in.read >= 0) {}
-            System.err.println("ScriptService: stdin closed, terminating server.")
-            server.shutdown()
-            system.terminate()
-            ()
-          }
-        }).start()
+      // Start a thread to watch stdin and terminate
+      // if it closes. This makes sure we do not leave
+      // this process running if the parent exits.
+      new Thread(new Runnable {
+        def run(): Unit = {
+          while (System.in.read >= 0) {}
+          System.err.println("ScriptService: stdin closed, terminating server.")
+          server.shutdown()
+          system.terminate()
+          ()
+        }
+      }).start()
 
-        println("Server started.")
-        server.awaitTermination()
-
-      }
+      println("Server started.")
+      server.awaitTermination()
   }
 }
 
@@ -175,7 +171,6 @@ class ScriptService(implicit
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
     mat: Materializer,
-    lc: LoggingContext,
 ) extends ScriptServiceGrpc.ScriptServiceImplBase {
 
   import ScriptService._
@@ -228,28 +223,26 @@ class ScriptService(implicit
       contexts.get(contextId) match {
         case Some(context) =>
           context.interpretScript(scriptName, canceledByRequest).map {
-            case error: IdeLedgerRunner.ScriptError =>
+            case error: ScriptServiceError =>
               val scriptError =
                 new Conversions(
                   context.homePackageId,
                   error.ledger,
                   error.currentSubmission.map(_.ptx),
-                  error.traceLog,
-                  error.warningLog,
+                  error.machineLogger,
                   error.currentSubmission.flatMap(_.commitLocation),
                   error.stackTrace,
                   context.devMode,
                 )
                   .convertScriptError(error.error)
               Some(Left(scriptError))
-            case success: IdeLedgerRunner.ScriptSuccess =>
+            case success: ScriptServiceSuccess =>
               val scriptResult =
                 new Conversions(
                   context.homePackageId,
                   success.ledger,
                   None,
-                  success.traceLog,
-                  success.warningLog,
+                  success.machineLogger,
                   None,
                   ImmArray.Empty,
                   context.devMode,

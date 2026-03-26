@@ -60,12 +60,12 @@ runDecode env act = runExcept $ runReaderT (unDecode act) env
 
 assertSingletonIfLfFlat :: Foldable t => t a -> Decode ()
 assertSingletonIfLfFlat xs =
-  when (length xs /= 1) $ whenSupportsNot (to version) featureFlatArchive $ \v ->
+  when (length xs /= 1) $ whenSupports (to version) featureFlatArchive $ \v ->
     throwError $ ParseError $ printf "multiple arguments disallowed since lf %s supports flat archives" $ show v
 
 assertNullIfLfFlat :: Foldable t => t a -> Decode ()
 assertNullIfLfFlat xs =
-  when (not $ null xs) $ whenSupportsNot (to version) featureFlatArchive $ \v ->
+  when (not $ null xs) $ whenSupports (to version) featureFlatArchive $ \v ->
     throwError $ ParseError $ printf "argument(s) disallowed since lf %s supports flat archives" $ show v
 
 lookupInterned :: Integral b => V.Vector a -> (b -> Error) -> b -> Decode a
@@ -83,6 +83,11 @@ lookupDottedName :: Int32 -> Decode ([T.Text], Either String [UnmangledIdentifie
 lookupDottedName id = do
     DecodeEnv{internedDottedNames} <- ask
     lookupInterned internedDottedNames BadDottedNameId id
+
+assertSupportsFeature :: Feature -> Decode ()
+assertSupportsFeature f =
+  whenSupportsNot (to version) f $ \v ->
+    throwError $ ParseError $ printf "assertion failiure: lf version %s does not support %s" (show v) (featureName f)
 
 ------------------------------------------------------------------------
 -- Decodings of things related to string interning
@@ -163,7 +168,7 @@ decodePackageId (LF2.SelfOrImportedPackageId pref) =
     assertStableIfPkgImports id = do
       v <- asks version
       when (id `notElem` stablePackagesForVersion v) $
-        whenSupportsNot
+        whenSupports
                (to version)
                featurePackageImports
                (throwError . ParseError . printf "damlc: got explicit non-stable package id on lf version that supports explicit package imports, id: %s, lf version: %s" (show id) . show)
@@ -684,7 +689,8 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> mayDecode "update_ExerciseInterfaceCid" update_ExerciseInterfaceCid decodeExpr
       <*> mayDecode "update_ExerciseInterfaceArg" update_ExerciseInterfaceArg decodeExpr
       <*> traverse decodeExpr update_ExerciseInterfaceGuard
-  LF2.UpdateSumExerciseByKey LF2.Update_ExerciseByKey{..} ->
+  LF2.UpdateSumExerciseByKey LF2.Update_ExerciseByKey{..} -> do
+    assertSupportsFeature featureExerciseByKey
     fmap EUpdate $ UExerciseByKey
       <$> mayDecode "update_ExerciseByKeyTemplate" update_ExerciseByKeyTemplate decodeTypeConId
       <*> decodeNameId ChoiceName update_ExerciseByKeyChoiceInternedStr
@@ -706,11 +712,13 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap EUpdate $ UEmbedExpr
       <$> mayDecode "update_EmbedExprType" update_EmbedExprType decodeType
       <*> mayDecode "update_EmbedExprBody" update_EmbedExprBody decodeExpr
-  LF2.UpdateSumLookupByKey retrieveByKey ->
+  LF2.UpdateSumLookupByKey retrieveByKey -> do
+    assertSupportsFeature featureLegacyLookupByKey
     fmap (EUpdate . ULookupByKey) (decodeRetrieveByKey retrieveByKey)
   LF2.UpdateSumQueryNByKey LF2.Update_QueryNByKey{..} ->
     EUpdate . UQueryNByKey <$> mayDecode "update_RetrieveByKeyTemplate" update_QueryNByKeyTemplate decodeTypeConId
-  LF2.UpdateSumFetchByKey retrieveByKey ->
+  LF2.UpdateSumFetchByKey retrieveByKey -> do
+    assertSupportsFeature featureFetchByKey
     fmap (EUpdate . UFetchByKey) (decodeRetrieveByKey retrieveByKey)
   LF2.UpdateSumTryCatch LF2.Update_TryCatch{..} ->
     fmap EUpdate $ UTryCatch

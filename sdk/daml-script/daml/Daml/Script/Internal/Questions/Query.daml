@@ -6,7 +6,7 @@
 module Daml.Script.Internal.Questions.Query where
 
 import Daml.Script.Internal.LowLevel
-import Daml.Script.Internal.Questions.Commands (Disclosure(..))
+import Daml.Script.Internal.Questions.Commands (Disclosure(..), AnyContractKey, toAnyContractKey)
 import DA.Optional
 import DA.Stack
 
@@ -127,7 +127,11 @@ data QueryContractKey = QueryContractKey with
   tplId : TemplateTypeRep
   key : AnyContractKey -- TODO rename this, key goes blue
 -- | HIDE
-instance IsQuestion QueryContractKey (Optional (ContractId (), AnyTemplate)) where command = "QueryContractKey"
+instance IsQuestion QueryContractKey (Optional (ContractId (), AnyTemplate)) where
+  command = "QueryContractKey"
+  -- V1: Initial question
+  -- V2: Switch stable AnyContractKey for script internal AnyContractKey
+  version = 2
 
 -- | MOVE Daml.Script
 -- Returns `None` if there is no active contract with the given key that

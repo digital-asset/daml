@@ -105,12 +105,6 @@ instance DA.Internal.Desugar.HasLookupByKey K (Party, Int) where
   lookupByKey = GHC.Types.primitive @"ULookupByKey"
 instance DA.Internal.Desugar.HasQueryNByKey K (Party, Int) where
   queryNByKey = GHC.Types.primitive @"UQueryNByKey"
-instance DA.Internal.Desugar.HasToAnyContractKey K (Party,
-                                                    Int) where
-  _toAnyContractKey = GHC.Types.primitive @"EToAnyContractKey"
-instance DA.Internal.Desugar.HasFromAnyContractKey K (Party,
-                                                      Int) where
-  _fromAnyContractKey = GHC.Types.primitive @"EFromAnyContractKey"
 data GHC.Types.DamlTemplate => T
   = T {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)

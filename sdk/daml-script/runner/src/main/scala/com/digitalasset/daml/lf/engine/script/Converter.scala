@@ -188,11 +188,24 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
         Left(s"Expected AnyChoice but got $v")
     }
 
-  def toAnyContractKey(v: ExtendedValue): Either[String, AnyContractKey] = {
+  def toAnyContractKey(
+      v: ExtendedValue,
+      lookupContractKeyType: Identifier => Either[String, Type],
+      legacyAnyContractKey: Boolean,
+  ): Either[String, AnyContractKey] = {
     v match {
-      case ValueRecord(_, ImmArray((_, ExtendedValueAny(ty, key)), (_, templateRep))) =>
+      case ValueRecord(_, ImmArray((_, scriptKey), (_, templateRep))) if !legacyAnyContractKey =>
+        for {
+          templateId <- typeRepToIdentifier(templateRep)
+          // When using the daml-script AnyContractKey (over the stable type), we do not have the key type, only the template rep
+          // Therefore we lookup the keytype using the template rep
+          ty <- lookupContractKeyType(templateId)
+        } yield AnyContractKey(templateId, ty, scriptKey)
+      case ValueRecord(_, ImmArray((_, ExtendedValueAny(ty, key)), (_, templateRep)))
+          if legacyAnyContractKey =>
         typeRepToIdentifier(templateRep).map(templateId => AnyContractKey(templateId, ty, key))
-      case _ => Left(s"Expected AnyContractKey but got $v")
+      case _ =>
+        Left(s"Expected ${if (legacyAnyContractKey) "(legacy) " else ""}AnyContractKey but got $v")
     }
   }
 
@@ -203,15 +216,30 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
     }
   }
 
-  def fromAnyContractKey(key: AnyContractKey): ExtendedValue =
-    record(
-      stablePackages.AnyContractKey,
-      ("getAnyContractKey", ExtendedValueAny(key.ty, key.key)),
-      (
-        "getAnyContractKeyTemplateTypeRep",
-        fromTemplateTypeRep(key.templateId),
-      ),
-    )
+  def fromAnyContractKey(
+      scriptIds: ScriptIds,
+      key: AnyContractKey,
+      legacyAnyContractKey: Boolean,
+  ): ExtendedValue =
+    if (legacyAnyContractKey)
+      record(
+        stablePackages.AnyContractKey,
+        ("getAnyContractKey", ExtendedValueAny(key.ty, key.key)),
+        (
+          "getAnyContractKeyTemplateTypeRep",
+          fromTemplateTypeRep(key.templateId),
+        ),
+      )
+    else
+      record(
+        scriptIds
+          .damlScriptModule("Daml.Script.Internal.Questions.Commands", "AnyContractKey"),
+        ("getAnyContractKey", key.key),
+        (
+          "getAnyContractKeyTemplateTypeRep",
+          fromTemplateTypeRep(key.templateId),
+        ),
+      )
 
   def toParty(v: ExtendedValue): Either[String, Party] =
     v match {
