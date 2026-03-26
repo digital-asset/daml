@@ -33,11 +33,6 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - task: DownloadPipelineArtifact@0
       inputs:
-        artifactName: linux-arm-release
-        targetPath: $(Build.StagingDirectory)/release-artifacts
-      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
-    - task: DownloadPipelineArtifact@0
-      inputs:
         artifactName: macos-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
