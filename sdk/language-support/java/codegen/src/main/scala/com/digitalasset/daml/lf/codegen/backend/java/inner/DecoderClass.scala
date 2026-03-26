@@ -4,13 +4,11 @@
 package com.digitalasset.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data._
-import com.daml.ledger.javaapi.data.codegen.ContractCompanion
-import com.daml.ledger.javaapi.data.codegen.ContractDecoder
+import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, ContractDecoder, UnknownTrailingFieldPolicy}
 import com.squareup.javapoet._
 
 import java.util
 import javax.lang.model.element.Modifier
-
 import scala.jdk.CollectionConverters._
 
 object DecoderClass {
@@ -23,6 +21,7 @@ object DecoderClass {
       .addModifiers(Modifier.PUBLIC)
       .addField(decodersField)
       .addMethod(fromCreatedEvent)
+      .addMethod(fromCreatedEventWithPolicy)
       .addMethod(getDecoder)
       .addMethod(getJsonDecoder)
       .addStaticBlock(generateStaticInitializer(templateNames))
@@ -47,7 +46,17 @@ object DecoderClass {
     .returns(contractType)
     .addParameter(ClassName.get(classOf[CreatedEvent]), "event")
     .addException(classOf[IllegalArgumentException])
-    .addStatement("return contractDecoder.fromCreatedEvent(event)")
+    .addStatement("return this.fromCreatedEvent(event, $T.STRICT)", classOf[UnknownTrailingFieldPolicy])
+    .build()
+
+  private val fromCreatedEventWithPolicy = MethodSpec
+    .methodBuilder("fromCreatedEvent")
+    .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+    .returns(contractType)
+    .addParameter(ClassName.get(classOf[CreatedEvent]), "event")
+    .addParameter(ClassName.get(classOf[UnknownTrailingFieldPolicy]), "policy")
+    .addException(classOf[IllegalArgumentException])
+    .addStatement("return contractDecoder.fromCreatedEvent(event, policy)")
     .build()
 
   private val getDecoder = MethodSpec

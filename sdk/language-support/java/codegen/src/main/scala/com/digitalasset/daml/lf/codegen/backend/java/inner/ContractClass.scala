@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
 import ClassGenUtils.{companionFieldName, optional, setOfStrings}
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy
 import com.digitalasset.daml.lf.typesig.Type
 import com.squareup.javapoet._
 
@@ -57,6 +58,7 @@ object ContractClass {
         className,
         identity,
         (ClassName get classOf[javaapi.data.CreatedEvent], "event"),
+        (ClassName get classOf[UnknownTrailingFieldPolicy], "policy")
       )
 
     private[inner] def generateFromIdAndRecord(
