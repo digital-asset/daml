@@ -46,9 +46,6 @@ jobs:
       intel:
         assignment: default
         name: linux-intel
-      arm:
-        assignment: arm
-        name: linux-arm
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals $(assignment)
@@ -284,10 +281,6 @@ jobs:
         targetPath: $(Build.StagingDirectory)/platform-independence/linux-intel/
     - task: DownloadPipelineArtifact@2
       inputs:
-        artifactName: platform-independence-dar-linux-arm
-        targetPath: $(Build.StagingDirectory)/platform-independence/linux-arm/
-    - task: DownloadPipelineArtifact@2
-      inputs:
         artifactName: platform-independence-dar-windows
         targetPath: $(Build.StagingDirectory)/platform-independence/windows/
     - task: DownloadPipelineArtifact@2
@@ -301,18 +294,15 @@ jobs:
         DIR1=$(mktemp -d)
         DIR2=$(mktemp -d)
         DIR3=$(mktemp -d)
-        DIR4=$(mktemp -d)
-        trap "rm -rf $DIR1 $DIR2 $DIR3 $DIR4" EXIT
+        trap "rm -rf $DIR1 $DIR2 $DIR3" EXIT
 
         unzip -d $DIR1 $(Build.StagingDirectory)/platform-independence/linux-intel/platform-independence.dar
         unzip -d $DIR2 $(Build.StagingDirectory)/platform-independence/windows/platform-independence.dar
         unzip -d $DIR3 $(Build.StagingDirectory)/platform-independence/macos/platform-independence.dar
-        unzip -d $DIR4 $(Build.StagingDirectory)/platform-independence/linux-arm/platform-independence.dar
 
         # hie/hi files may differ.
         diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR2
         diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR3
-        diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR4
       displayName: 'Compare platform-independence dars of different platforms.'
 
 - job: compatibility_ts_libs
