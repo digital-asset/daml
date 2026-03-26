@@ -128,8 +128,8 @@ genrule(
         # Check for poison!
         PATH=$$(dirname $$DIR/$(location @nodejs//:node_bin)):$$(dirname $$DIR/$(location //:yarn)):$$PATH $$DIR/$(location @nodejs//:node_bin) node_modules/@vscode/vsce/vsce package --yarn -o $$DIR/$@
     """.format(
-      node_modules_zip = "windows_node_modules.zip" if is_windows else "unix_node_modules.zip",
-      npm = npm_version,
+        node_modules_zip = "windows_node_modules.zip" if is_windows else "unix_node_modules.zip",
+        npm = npm_version,
     ),
     tools = [
         "//:yarn",
