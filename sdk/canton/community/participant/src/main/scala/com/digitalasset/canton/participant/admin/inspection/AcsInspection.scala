@@ -18,7 +18,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.MonadUtil
 
-import scala.collection.immutable.SortedMap
+import scala.collection.immutable.{ArraySeq, SortedMap}
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -78,6 +78,25 @@ private[inspection] object AcsInspection {
         }
         .map(_.flatten)
     } yield snapshot
+
+  def getCurrentSnapshotContractIds(
+      state: SyncDomainPersistentState,
+      paginationSize: Option[PositiveInt] = None,
+      paginationCursor: Option[LfContractId] = None,
+  )(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): Future[Option[ArraySeq[LfContractId]]] =
+    for {
+      cursorHeadO <- state.requestJournalStore.preheadClean
+      idsO <- cursorHeadO.traverse { cursorHead =>
+        state.activeContractStore.snapshotContractIds(
+          cursorHead.timestamp,
+          paginationSize,
+          paginationCursor,
+        )
+      }
+    } yield idsO
 
   // fetch acs, checking that the requested timestamp is clean
   private def getSnapshotAt(domainId: DomainId, state: SyncDomainPersistentState)(

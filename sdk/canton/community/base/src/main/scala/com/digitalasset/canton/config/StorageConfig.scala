@@ -76,15 +76,35 @@ final case class DbParametersConfig(
   *
   * @param maxItemsInSqlClause    maximum number of items to place in sql "in clauses"
   * @param parallelism            number of parallel queries to the db. defaults to 8
+  * @param migrationReadBatchSize The number of contracts to fetch from the source domain database in a single page request.
+  * @param migrationWriteBatchSize The target number of contracts to accumulate before triggering a migration commit.
+  *                                This determines the size of the database transaction and the "atomic unit" of migration.
+  * @param migrationMaxNbContractsPerRc The maximum number of contracts migrated under the same Request Counter.
+  * @param repairInternalBatchSize The maximum number of items for repair operation internal batching.
+  * @param repairStoreParallelism The maximum number of concurrent database connections/threads used for repair operations.
+  * @param acsCommitmentProcessorReplayBatchSize The maximum number of ACS changes to fetch from the database in a single batch during replay.
   */
 final case class BatchingConfig(
     maxItemsInSqlClause: PositiveNumeric[Int] = BatchingConfig.defaultMaxItemsInSqlClause,
     parallelism: PositiveNumeric[Int] = BatchingConfig.defaultBatchingParallelism,
+    migrationReadBatchSize: PositiveInt = BatchingConfig.defaultMigrationReadBatchSize,
+    migrationWriteBatchSize: PositiveInt = BatchingConfig.defaultMigrationWriteBatchSize,
+    migrationMaxNbContractsPerRc: PositiveInt = BatchingConfig.defaultMigrationMaxNbContractsPerRc,
+    repairInternalBatchSize: PositiveInt = BatchingConfig.defaultRepairInternalBatchSize,
+    repairStoreParallelism: PositiveInt = BatchingConfig.defaultRepairStoreParallelism,
+    acsCommitmentProcessorReplayBatchSize: PositiveInt = BatchingConfig.defaultAcsReplayBatchSize,
 )
 
 object BatchingConfig {
   private val defaultMaxItemsInSqlClause: PositiveNumeric[Int] = PositiveNumeric.tryCreate(100)
   private val defaultBatchingParallelism: PositiveNumeric[Int] = PositiveNumeric.tryCreate(8)
+
+  private val defaultMigrationReadBatchSize: PositiveInt = PositiveInt.tryCreate(10000)
+  private val defaultMigrationWriteBatchSize: PositiveInt = PositiveInt.tryCreate(1000)
+  private val defaultMigrationMaxNbContractsPerRc: PositiveInt = PositiveInt.tryCreate(10000)
+  private val defaultRepairInternalBatchSize: PositiveInt = PositiveInt.tryCreate(1000)
+  private val defaultRepairStoreParallelism: PositiveInt = PositiveInt.tryCreate(4)
+  private val defaultAcsReplayBatchSize: PositiveInt = PositiveInt.tryCreate(1000)
 }
 
 final case class ConnectionAllocation(

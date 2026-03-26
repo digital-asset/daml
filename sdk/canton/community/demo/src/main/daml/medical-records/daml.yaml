@@ -1,8 +1,8 @@
-sdk-version: 2.10.3-snapshot.20251208.13193.0.v87a05e21
+sdk-version: 2.10.4-snapshot.20260128.13197.0.vb0ccfc0a
 name: medical-records
 source: MedicalRecord.daml
 init-script: MedicalRecord:setup
-version: 2.10.3
+version: 2.10.4
 dependencies: 
 - daml-prim
 - daml-stdlib

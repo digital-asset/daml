@@ -45,6 +45,7 @@ import com.digitalasset.canton.sequencing.client.SendAsyncClientError.RequestRef
 import com.digitalasset.canton.sequencing.client.{SendType, SequencerClient}
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients, SendAsyncError}
 import com.digitalasset.canton.store.SequencerCounterTrackerStore
+import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -143,6 +144,10 @@ import scala.math.Ordering.Implicits.*
   *                                     If not None, it specifies the number of reconciliation intervals that the
   *                                     participant skips in catch-up mode, and the number of catch-up intervals
   *                                     intervals a participant should lag behind in order to enter catch-up mode.
+  * @param topologyClient Used to inspect the local topology store freshness to conditionally apply back-pressure.
+  *                       During replay initialization, if the topology client is lagging behind the event being
+  *                       processed, we disable back-pressure to prevent a deadlock where the topology client waits
+  *                       for the sequencer to start, but the sequencer waits for initialization to complete.
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class AcsCommitmentProcessor(
@@ -160,6 +165,7 @@ class AcsCommitmentProcessor(
     activeContractStore: ActiveContractStore,
     contractStore: ContractStore,
     enableAdditionalConsistencyChecks: Boolean,
+    topologyClient: DomainTopologyClientWithInit,
     protected val loggerFactory: NamedLoggerFactory,
     testingConfig: TestingConfigInternal,
 )(implicit ec: ExecutionContext)
@@ -638,7 +644,13 @@ class AcsCommitmentProcessor(
         reconciliationIntervals: SortedReconciliationIntervals,
         cryptoSnapshotO: Option[SyncCryptoApi],
         periodEndO: Option[CantonTimestampSecond],
-    ): FutureUnlessShutdown[Unit] =
+    ): FutureUnlessShutdown[Unit] = {
+      // Signal that processing has started to unblock back-pressure from the Replay/Init loop.
+      //
+      // Note: This promise might have already been completed by the deadlock-prevention logic
+      // in `publishTick`. Since `trySuccess` is idempotent, calling it here unconditionally is fine.
+      val _ = acsChange.processingStarted.trySuccess(())
+
       // Check whether this change pushes us to a new commitment period; if so, the previous one is completed
       for {
         catchingUp <- FutureUnlessShutdown.outcomeF(
@@ -682,6 +694,35 @@ class AcsCommitmentProcessor(
 
         _ <- FutureUnlessShutdown.outcomeF(updateSnapshot(toc, acsChange))
       } yield ()
+    }
+
+    // Check if we have the necessary topology data to process this tick immediately
+    val isTopologyReady = topologyClient.topologyKnownUntilTimestamp >= toc.timestamp
+
+    // Deadlock Prevention:
+    // If topology is missing, we must disable back-pressure (signal success immediately).
+    // Otherwise, we risk a deadlock: Init waits for ACS -> ACS waits for topology -> Topology waits for Sequencer (started by Init).
+    //
+    // In detail: The deadlock occurs when the participant must replay a future ACS change, but its topology
+    // client is initialized in the past (e.g., due to a rewound sequencer subscription).
+    //
+    // The cycle is:
+    // 1. Init waits for ACS: `SyncDomain.initialize` pauses replaying until the `AcsCommitmentProcessor`
+    //    accepts the change (Back-Pressure).
+    // 2. ACS waits for topology: The processor refuses to accept the change until it gets a topology snapshot
+    //    for that timestamp.
+    // 3. Topology waits for sequencer: The snapshot is missing locally. The topology client must wait for
+    //    the sequencer to stream new topology updates to catch up.
+    // 4. Sequencer waits for Init: The sequencer cannot start until `SyncDomain.initialize` completes.
+    //
+    // Deadlock: The system hangs because Init blocks the very component (sequencer) needed to unblock it.
+    if (!isTopologyReady) {
+      logger.info(
+        s"Disabling back-pressure for ACS change at $toc (Topology Head: ${topologyClient.topologyKnownUntilTimestamp}). " +
+          "This prevents deadlock during initialization if topology is behind."
+      )
+      val _ = acsChange.processingStarted.trySuccess(())
+    }
 
     // On the `publishQueue`, obtain the running commitment, the reconciliation parameters, and topology snapshot,
     // and check whether this is a replay of something we've already seen. If not, then do publish the change,
@@ -699,7 +740,10 @@ class AcsCommitmentProcessor(
         } yield {
           if (acsSnapshot.watermark >= toc) {
             logger.debug(s"ACS change at $toc is a replay, treating it as a no-op")
-            // This is a replay of an already processed ACS change, ignore
+            // This is a replay of an already processed ACS change, ignore.
+            // Even though we ignore it, we must signal completion to unblock the upstream
+            // replay logic (SyncDomain) which awaits this promise before proceeding.
+            val _ = acsChange.processingStarted.trySuccess(())
             FutureUnlessShutdown.unit
           } else {
             // Serialize the access to the DB only after having obtained the reconciliation intervals and topology snapshot.

@@ -11,6 +11,8 @@ import com.digitalasset.canton.protocol.{ContractMetadata, LfContractId, WithCon
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 
+import scala.concurrent.Promise
+
 /** Components that need to keep a running snapshot of ACS.
   */
 trait AcsChangeListener {
@@ -32,7 +34,11 @@ trait AcsChangeListener {
 final case class AcsChange(
     activations: Map[LfContractId, WithContractHash[ContractMetadata]],
     deactivations: Map[LfContractId, WithContractHash[ContractStakeholders]],
-)
+) {
+
+  /** to signal when this change has started processing in ACS commitment processor -> publishTick */
+  @transient lazy val processingStarted: Promise[Unit] = Promise[Unit]()
+}
 
 final case class ContractStakeholders(
     stakeholders: Set[LfPartyId]

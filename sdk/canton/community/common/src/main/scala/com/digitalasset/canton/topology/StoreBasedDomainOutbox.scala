@@ -334,7 +334,12 @@ abstract class StoreBasedDomainOutboxCommon[
         val ret = for {
           pendingAndApplicable <- EitherT.right(pendingAndApplicableF)
           (pending, applicable) = pendingAndApplicable
-          _ = lastDispatched.set(applicable.lastOption)
+          // update last dispatched unless it got filtered out
+          // this can happen if the last batch contains a DTC
+          // to reproduce 26-001, change this back to applicable.lastOption and set hard coded batchSize to 1
+          // and run ParticipantMigrateDomainIntegrationTest
+          _ = lastDispatched.updateAndGet(previous => applicable.lastOption.orElse(previous))
+
           // Try to convert if necessary the topology transactions for the required protocol version of the domain
           convertedTxs <- performUnlessClosingEitherU(functionFullName) {
             convertTransactions(applicable)

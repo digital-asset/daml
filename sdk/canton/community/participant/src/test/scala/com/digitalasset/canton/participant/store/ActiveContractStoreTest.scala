@@ -8,6 +8,7 @@ import cats.syntax.parallel.*
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.canton.config.CantonRequireTypes.String300
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
@@ -1671,7 +1672,8 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         _ <- valueOrFail(acs.archiveContract(coid00, toc6))(
           s"archive contract $coid00"
         )
-        changes <- acs.changesBetween(toc1, toc5)
+        // Pass a large limit to simulate "fetch all" behavior
+        changes <- acs.changesBetween(toc1, toc5, PositiveInt.tryCreate(1000))
       } yield {
         changes.toList shouldBe List(
           (
@@ -1709,6 +1711,221 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             ),
           ),
         )
+      }
+    }
+
+    "changesBetween with limits" should {
+      val toc1 = TimeOfChange(rc, ts)
+      val toc2 = TimeOfChange(rc2, ts2)
+      val toc3 = TimeOfChange(rc3, ts3)
+
+      // Helper to setup a scenario:
+      // Tx1 (toc1): Create coid00, coid01 (2 changes)
+      // Tx2 (toc2): Archive coid00, coid01 (2 changes)
+      // Tx3 (toc3): Create coid10 (1 change)
+      def setupScenario(acs: ActiveContractStore): Future[Unit] =
+        for {
+          _ <- acs.markContractsCreated(Seq(coid00, coid01), toc1).value
+          _ <- acs.archiveContracts(Seq(coid00, coid01), toc2).value
+          _ <- acs.markContractCreated(coid10, toc3).value
+        } yield ()
+
+      "respect limit on clean transaction boundaries" in {
+        val acs = mk()
+        val limit = PositiveInt.tryCreate(2) // Should exactly cover Tx1
+
+        for {
+          _ <- setupScenario(acs)
+          changes <- acs.changesBetween(
+            TimeOfChange(RequestCounter.MinValue, CantonTimestamp.MinValue),
+            toc3,
+            limit,
+          )
+        } yield {
+          // We expect exactly 1 transaction (Tx1) containing 2 changes
+          changes should have size 1
+          val (resToc, resChange) = changes.head
+          resToc shouldBe toc1
+          resChange.activations should have size 2
+          resChange.deactivations should have size 0
+        }
+      }
+
+      "exceed limit to preserve transaction atomicity (Split Transaction)" in {
+        val acs = mk()
+        val limit = PositiveInt.tryCreate(1) // Smaller than Tx1 (which has 2 changes)
+
+        for {
+          _ <- setupScenario(acs)
+          changes <- acs.changesBetween(
+            TimeOfChange(RequestCounter.MinValue, CantonTimestamp.MinValue),
+            toc3,
+            limit,
+          )
+        } yield {
+          // Even though limit is 1, we must get the whole Tx1 because atomic transactions cannot be split.
+          // The result list has 1 entry (TimeOfChange), but that entry represents 2 rows in the DB.
+          changes should have size 1
+          val (resToc, resChange) = changes.head
+          resToc shouldBe toc1
+          resChange.activations should have size 2 // Both coid00 and coid01 must be there
+        }
+      }
+
+      "handle limits falling between small transactions" in {
+        val acs = mk()
+        // Tx1: 2 rows. Tx2: 2 rows.
+        // Limit 3. Should return Tx1 + Tx2 (4 rows) OR Tx1 (2 rows)?
+        // Implementation logic: Fetch 3+1 = 4 rows.
+        // Row 1,2 (Tx1). Row 3 (Tx2 part 1). Row 4 (Tx2 part 2).
+        // Last is Tx2. BeforeLast is Tx2.
+        // It detects a split in Tx2. It should recover the rest of Tx2.
+        // So we expect Tx1 AND Tx2.
+        val limit = PositiveInt.tryCreate(3)
+
+        for {
+          _ <- setupScenario(acs)
+          changes <- acs.changesBetween(
+            TimeOfChange(RequestCounter.MinValue, CantonTimestamp.MinValue),
+            toc3,
+            limit,
+          )
+        } yield {
+          changes should have size 2 // Tx1 and Tx2
+          changes.map(_._1).toList shouldBe List(toc1, toc2)
+        }
+      }
+
+      "support pagination" in {
+        val acs = mk()
+        val limit = PositiveInt.tryCreate(2) // Batches of 2
+
+        for {
+          _ <- setupScenario(acs)
+
+          // Page 1: Should get Tx1 (2 changes)
+          page1 <- acs.changesBetween(
+            TimeOfChange(RequestCounter.MinValue, CantonTimestamp.MinValue),
+            toc3,
+            limit,
+          )
+          _ = page1 should have size 1
+          lastToc1 = page1.last._1
+
+          // Page 2: Should get Tx2 (2 changes)
+          page2 <- acs.changesBetween(lastToc1, toc3, limit)
+          _ = page2 should have size 1
+          lastToc2 = page2.last._1
+
+          // Page 3: Should get Tx3 (1 change)
+          page3 <- acs.changesBetween(lastToc2, toc3, limit)
+          _ = page3 should have size 1
+        } yield {
+          page1.head._1 shouldBe toc1
+          page2.head._1 shouldBe toc2
+          page3.head._1 shouldBe toc3
+        }
+      }
+    }
+
+    "snapshotContractIds" should {
+      "return contracts in descending order" in {
+        val acs = mk()
+        // Create 5 contracts with distinct IDs
+        // sort them descending locally to define our expectation
+        val cids = (1 to 5)
+          .map(i => ExampleTransactionFactory.suffixedId(0, i))
+          .sorted(Ordering[LfContractId].reverse)
+        val toc = TimeOfChange(rc, ts)
+
+        for {
+          _ <- acs.markContractsCreated(cids, toc).value
+          // Fetch without pagination
+          result <- acs.snapshotContractIds(ts, paginationSize = None, paginationCursor = None)
+        } yield {
+          // It should contain all elements
+          result should have size 5
+          // It should be strictly ordered descending
+          result.toList shouldBe cids.toList
+        }
+      }
+
+      "support pagination via limit and cursor" in {
+        val acs = mk()
+        // Create 10 contracts
+        // Descending: cid_10, cid_09, ..., cid_01
+        val cids = (1 to 10)
+          .map(i => ExampleTransactionFactory.suffixedId(0, i))
+          .sorted(Ordering[LfContractId].reverse)
+        val toc = TimeOfChange(rc, ts)
+        val limit = PositiveInt.tryCreate(3)
+
+        for {
+          _ <- acs.markContractsCreated(cids, toc).value
+
+          // Page 1: Top 3 (cid_10, cid_09, cid_08)
+          page1 <- acs.snapshotContractIds(ts, Some(limit), None)
+
+          // Page 2: Next 3 after cid_08 (cid_07, cid_06, cid_05)
+          cursor1 = page1.lastOption
+          page2 <- acs.snapshotContractIds(ts, Some(limit), cursor1)
+
+          // Page 3: Next 3 after cid_05 (cid_04, cid_03, cid_02)
+          cursor2 = page2.lastOption
+          page3 <- acs.snapshotContractIds(ts, Some(limit), cursor2)
+
+          // Page 4: Last 1 after cid_02 (cid_01)
+          cursor3 = page3.lastOption
+          page4 <- acs.snapshotContractIds(ts, Some(limit), cursor3)
+
+          // Page 5: Empty
+          cursor4 = page4.lastOption
+          page5 <- acs.snapshotContractIds(ts, Some(limit), cursor4)
+        } yield {
+          // Verify content and order
+          page1 shouldBe cids.slice(0, 3)
+          page2 shouldBe cids.slice(3, 6)
+          page3 shouldBe cids.slice(6, 9)
+          page4 shouldBe cids.slice(9, 10)
+          page5 shouldBe empty
+
+          // Verify cursors were actually strictly smaller (standard keyset pagination logic)
+          cursor1 shouldBe Some(cids(2))
+          cursor2 shouldBe Some(cids(5))
+          cursor3 shouldBe Some(cids(8))
+          cursor4 shouldBe Some(cids(9))
+        }
+      }
+
+      "respect active status at timestamp" in {
+        val acs = mk()
+        val cid1 = ExampleTransactionFactory.suffixedId(0, 1)
+        val cid2 = ExampleTransactionFactory.suffixedId(0, 2)
+        val cid3 = ExampleTransactionFactory.suffixedId(0, 3) // Will be archived
+
+        // Create all at ts
+        val tocCreate = TimeOfChange(rc, ts)
+        // Archive cid3 at ts + 1
+        val tocArchive = TimeOfChange(rc + 1, ts.plusSeconds(1))
+
+        for {
+          _ <- acs.markContractsCreated(Seq(cid1, cid2, cid3), tocCreate).value
+          _ <- acs.archiveContract(cid3, tocArchive).value
+
+          // Query at ts (all should be active)
+          atCreate <- acs.snapshotContractIds(ts, paginationSize = None, paginationCursor = None)
+
+          // Query at ts + 1 (cid3 should be gone)
+          atArchive <- acs.snapshotContractIds(
+            ts.plusSeconds(1),
+            paginationSize = None,
+            paginationCursor = None,
+          )
+        } yield {
+          atCreate should contain allElementsOf Seq(cid1, cid2, cid3)
+          atArchive should contain allElementsOf Seq(cid1, cid2)
+          atArchive should not contain cid3
+        }
       }
     }
 

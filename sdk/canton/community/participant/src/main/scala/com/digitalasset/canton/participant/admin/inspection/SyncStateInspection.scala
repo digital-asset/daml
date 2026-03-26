@@ -11,13 +11,14 @@ import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.data.{
   ActiveContract,
   SerializableContractWithDomainId,
 }
+import com.digitalasset.canton.participant.admin.inspection.AcsInspection.getCurrentSnapshotContractIds
 import com.digitalasset.canton.participant.admin.inspection.Error.{
   InvariantIssue,
   SerializationIssue,
@@ -58,6 +59,7 @@ import com.digitalasset.canton.{DomainAlias, LedgerTransactionId, LfPartyId, Req
 
 import java.io.OutputStream
 import java.time.Instant
+import scala.collection.immutable.ArraySeq
 import scala.concurrent.{ExecutionContext, Future}
 
 trait JournalGarbageCollectorControl {
@@ -121,23 +123,21 @@ final class SyncStateInspection(
       .lookupTransactionDomain(transactionId)
       .value
 
-  /** returns the potentially big ACS of a given domain */
-  def findAcs(
-      domainAlias: DomainAlias
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, AcsError, Map[LfContractId, CantonTimestamp]] =
+  def findContractIds(
+      domainAlias: DomainAlias,
+      paginationSize: Option[PositiveInt] = None,
+      paginationCursor: Option[LfContractId] = None,
+  )(implicit traceContext: TraceContext): EitherT[Future, AcsError, ArraySeq[LfContractId]] =
     for {
       state <- EitherT.fromEither[Future](
         syncDomainPersistentStateManager
           .getByAlias(domainAlias)
           .toRight(SyncStateInspection.NoSuchDomain(domainAlias))
       )
-
-      snapshotO <- EitherT.liftF(AcsInspection.getCurrentSnapshot(state).map(_.map(_.snapshot)))
-    } yield snapshotO.fold(Map.empty[LfContractId, CantonTimestamp])(
-      _.toMap
-    )
+      idsO <- EitherT.liftF(
+        getCurrentSnapshotContractIds(state, paginationSize, paginationCursor)
+      )
+    } yield idsO.getOrElse(ArraySeq.empty)
 
   /** searches the pcs and returns the contract and activeness flag */
   def findContracts(

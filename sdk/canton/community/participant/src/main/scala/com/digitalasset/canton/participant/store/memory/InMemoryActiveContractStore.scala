@@ -13,6 +13,7 @@ import cats.syntax.traverse.*
 import com.daml.lf.data.Ref.PackageId
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.RequestCounter
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
@@ -47,8 +48,9 @@ import com.digitalasset.canton.version.ProtocolVersion
 import java.util.ConcurrentModificationException
 import java.util.concurrent.atomic.AtomicInteger
 import scala.Ordered.orderingToOrdered
+import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
-import scala.collection.immutable.SortedMap
+import scala.collection.immutable.{ArraySeq, SortedMap}
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Implements an [[ActiveContractStore!]] in memory. */
@@ -157,6 +159,38 @@ class InMemoryActiveContractStore(
       }
     }
     snapshot.result()
+  }
+
+  override def snapshotContractIds(
+      timestamp: CantonTimestamp,
+      paginationSize: Option[PositiveInt] = None,
+      paginationCursor: Option[LfContractId] = None,
+  )(implicit traceContext: TraceContext): Future[ArraySeq[LfContractId]] = Future.successful {
+
+    // Find all contracts active at the given timestamp
+    val activeContracts = table.iterator.collect {
+      case (cid, status) if status.activeBy(timestamp).isDefined => cid
+    }.toSeq
+
+    // Must be Descending to match DB behavior and support pagination logic
+    // LfContractId has an implicit Ordering
+    val sortedDesc = activeContracts.sorted(Ordering[LfContractId].reverse)
+
+    // Paginate:
+    // If a cursor is provided, we skip everything >= cursor (since we are moving downwards).
+    // We use dropWhile because the list is already sorted descending.
+    val scanned = paginationCursor match {
+      case Some(cursor) => sortedDesc.dropWhile(_ >= cursor)
+      case None => sortedDesc
+    }
+
+    // Limit: Apply the batch size
+    val limited = paginationSize match {
+      case Some(limit) => scanned.take(limit.value)
+      case None => scanned
+    }
+
+    scala.collection.immutable.ArraySeq.from(limited)
   }
 
   override def snapshot(rc: RequestCounter)(implicit
@@ -297,7 +331,11 @@ class InMemoryActiveContractStore(
   ): Checked[AcsError, AcsWarning, Unit] =
     MapsUtil.updateWithConcurrentlyChecked_(table, contractId, f(ContractStatus.Nonexistent), f)
 
-  override def changesBetween(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
+  override def changesBetween(
+      fromExclusive: TimeOfChange,
+      toInclusive: TimeOfChange,
+      maxResultSize: PositiveInt,
+  )(implicit
       traceContext: TraceContext
   ): Future[LazyList[(TimeOfChange, ActiveContractIdsChange)]] =
     Future.successful {
@@ -336,7 +374,7 @@ class InMemoryActiveContractStore(
             (coid, stateChange)
         }))
 
-      byTsAndChangeType
+      val sortedChanges = byTsAndChangeType
         .to(LazyList)
         .sortBy { case (timeOfChange, _) => timeOfChange }
         .map { case (toc, changes) =>
@@ -350,6 +388,37 @@ class InMemoryActiveContractStore(
             ),
           )
         }
+
+      // Apply maxResultSize limit (Pagination)
+      // We process the list recursively. We keep adding full transactions
+      // as long as the accumulator `currentCount` is less than `maxResultSize`.
+      // Once we cross the limit, we stop *after* the current transaction to ensure atomicity.
+      // Note: Accumulate results into a List and reverse at the end – which makes it tail-recursive.
+      @tailrec
+      def takeWithLimit(
+          stream: LazyList[(TimeOfChange, ActiveContractIdsChange)],
+          currentCount: Int,
+          acc: List[(TimeOfChange, ActiveContractIdsChange)],
+      ): List[(TimeOfChange, ActiveContractIdsChange)] =
+        // If we have already met or exceeded the limit with the *previous* items, stop.
+        if (currentCount >= maxResultSize.value) {
+          acc
+        } else {
+          stream.headOption match {
+            case None => acc
+            case Some(head) =>
+              val (_, change) = head
+              val thisBatchSize =
+                change.activations.size + change.deactivations.size
+
+              // Recurse using drop(1) which is safe (returns empty on empty)
+              takeWithLimit(stream.drop(1), currentCount + thisBatchSize, head :: acc)
+          }
+        }
+
+      // Execute the tail-recursive loop and convert back to LazyList
+      val limitedChanges = takeWithLimit(sortedChanges, 0, List.empty)
+      limitedChanges.reverse.to(LazyList)
     }
 
   override def packageUsage(pkg: PackageId, contractStore: ContractStore)(implicit

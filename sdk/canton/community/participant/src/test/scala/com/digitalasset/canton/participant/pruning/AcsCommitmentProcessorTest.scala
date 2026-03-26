@@ -60,6 +60,7 @@ import com.digitalasset.canton.store.memory.{
 }
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -279,6 +280,13 @@ sealed trait AcsCommitmentProcessorBaseTest
         constantSortedReconciliationIntervalsProvider(interval)
       }
 
+    // We set the known timestamp to MaxValue so the processor believes
+    // topology is always fully caught up. This ensures the "Hybrid Back-Pressure"
+    // check (topologyKnownUntilTimestamp >= toc.timestamp) always returns true,
+    // enabling standard back-pressure behavior for the test.
+    val topologyClient = mock[DomainTopologyClientWithInit]
+    when(topologyClient.topologyKnownUntilTimestamp).thenReturn(CantonTimestamp.MaxValue)
+
     val acsCommitmentProcessor = new AcsCommitmentProcessor(
       domainId,
       localId,
@@ -297,6 +305,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       // no additional consistency checks; if enabled, one needs to populate the above ACS and contract stores
       // correctly, otherwise the test will fail
       false,
+      topologyClient,
       loggerFactory,
       TestingConfigInternal(),
     )

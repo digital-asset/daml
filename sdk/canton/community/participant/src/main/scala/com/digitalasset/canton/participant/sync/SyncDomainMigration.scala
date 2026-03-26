@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.sync
 
+import cats.Monad
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.foldable.*
@@ -28,12 +29,16 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
   MigrationErrors,
   SyncServiceUnknownDomain,
 }
+import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.LoggerUtil
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{DomainAlias, SequencerCounter}
+import com.digitalasset.canton.{DomainAlias, SequencerCounter, checked}
 
+import scala.concurrent.duration.DurationLong
 import scala.concurrent.{ExecutionContext, Future}
+import scala.math.Ordering.Implicits.infixOrderingOps
 
 sealed trait SyncDomainMigrationError extends Product with Serializable with CantonError
 
@@ -49,6 +54,8 @@ class SyncDomainMigration(
     ],
     sequencerInfoLoader: SequencerInfoLoader,
     connectedDomainsLookup: ConnectedDomainsLookup,
+    readBatchSize: PositiveInt,
+    writeBatchSize: PositiveInt,
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -306,6 +313,21 @@ class SyncDomainMigration(
       .leftMap(err => SyncDomainMigrationError.InternalError.Generic(err.toString))
   }
 
+  /** Migrates contracts using a '''Read-Ahead Pipeline''' to maximize throughput.
+    *
+    * General Idea:
+    * Unlike standard sequential migration (`Read -> Write`), this implementation
+    * overlaps IO operations to eliminate idle time:
+    * - Read-Ahead: While writing Batch N (heavy operation), it asynchronously fetches
+    *   Batch N+1 in the background.
+    * - Hope/Result: The network/DB latency of reading becomes effectively zero, as it is hidden
+    *   behind the write latency.
+    *
+    * Configuration Strategy:
+    * - Read Batch (Small): Optimized for efficient DB paging and index usage (e.g., 10k).
+    * - Write Batch (Large): Accumulates multiple read pages to amortize the high cost of commits
+    *   and sequencing (e.g., 250k).
+    */
   private def moveContracts(
       sourceAlias: DomainAlias,
       source: DomainId,
@@ -313,34 +335,124 @@ class SyncDomainMigration(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncDomainMigrationError, Unit] = {
-    // TODO(i9270) parameter should be configurable
-    val batchSize = PositiveInt.tryCreate(100)
-    for {
-      // load all contracts on source domain
-      acs <- performUnlessClosingEitherU(functionFullName)(
-        inspection
-          .findAcs(sourceAlias)
-          .leftMap[SyncDomainMigrationError](err =>
-            SyncDomainMigrationError.InternalError.FailedReadingAcs(sourceAlias, err)
-          )
-      )
-      _ = logger.info(
-        s"Found ${acs.size} contracts in the ACS of $sourceAlias that need to be migrated"
-      )
-      // move contracts from one domain to the other domain using repair service in batches of 1000
-      _ <- performUnlessClosingEitherU(functionFullName)(
-        repair.changeDomain(
-          acs.keys.toSeq,
-          source,
-          target,
-          skipInactive = true,
-          batchSize,
-        )
-      )
-        .leftMap[SyncDomainMigrationError](
-          SyncDomainMigrationError.InternalError.FailedMigratingContracts(sourceAlias, _)
-        )
-    } yield ()
+
+    // The payload of contracts IDs to migrate (the "Batch")
+    type ContractBuffer = Vector[LfContractId]
+    // The cursor position to resume reading from for the next batch
+    type Cursor = Option[LfContractId]
+
+    type PipelineState = (ContractBuffer, Cursor)
+
+    // Load the heavy, static domain state required for the migration loop upfront
+    val migrationContext = performUnlessClosingEitherU(functionFullName)(
+      repair.prepareDomainMigrationOnce(source, target)
+    ).leftMap(err => SyncDomainMigrationError.InternalError.Generic(err))
+
+    migrationContext.flatMap { case (sourceData, targetData) =>
+      // Recursively fetches pages until we reach the target buffer size or run out of data
+      def fetchBatchUntilFullBuffer(
+          startCursor: Cursor,
+          initialBufferSize: Int,
+      ): EitherT[FutureUnlessShutdown, SyncDomainMigrationError, PipelineState] = {
+        val currentBuffer = Vector.newBuilder[LfContractId]
+        currentBuffer.sizeHint(writeBatchSize.value)
+
+        Monad[EitherT[FutureUnlessShutdown, SyncDomainMigrationError, *]].tailRecM(
+          (initialBufferSize, startCursor)
+        ) { case (currentBufferSize, currentCursor) =>
+          // Stop if we have enough data for a write batch
+          if (currentBufferSize >= writeBatchSize.value) {
+            logger.info(s"Read $currentBufferSize entries")
+            EitherT.pure(Right((currentBuffer.result(), currentCursor)))
+          } else {
+            val paginationSize = readBatchSize min
+              // checked() because we know currentBufferSize < writeBatchSize.value
+              checked(PositiveInt.tryCreate(writeBatchSize.value - currentBufferSize))
+            logger.info(
+              s"Reading up to $paginationSize entries (writeBuffer size = $writeBatchSize)"
+            )
+
+            performUnlessClosingEitherU(functionFullName)(
+              inspection
+                .findContractIds(
+                  sourceAlias,
+                  paginationSize = Some(paginationSize),
+                  paginationCursor = currentCursor,
+                )
+                .leftMap(err =>
+                  SyncDomainMigrationError.InternalError
+                    .FailedReadingAcs(sourceAlias, err): SyncDomainMigrationError
+                )
+            ).map { fetchedIds =>
+              if (fetchedIds.isEmpty) {
+                // No more data in DB, return what we have
+                logger.info(s"Read $currentBufferSize entries")
+                Right((currentBuffer.result(), None))
+              } else {
+                // We got data, append and recurse
+                // Note: fetchedIds are usually sorted DESC, so the cursor is the last element
+                currentBuffer.addAll(fetchedIds)
+                Left((currentBufferSize + fetchedIds.size, fetchedIds.lastOption))
+              }
+            }
+          }
+        }
+      }
+
+      // Prime the pipeline: Fill the first buffer before starting the loop
+      fetchBatchUntilFullBuffer(Option.empty[LfContractId], 0).flatMap { initialPipelineState =>
+        // Main Loop: Process current batch while fetching next
+        // State passed to Left(...) is the result of the *next* read: (bufferToMigrate, NextCursor)
+        Monad[EitherT[FutureUnlessShutdown, SyncDomainMigrationError, *]].tailRecM(
+          initialPipelineState
+        ) { case (bufferToMigrate, cursorForBackgroundFill) =>
+          if (bufferToMigrate.isEmpty) {
+            // Done: No contracts left to migrate
+            EitherT.pure[FutureUnlessShutdown, SyncDomainMigrationError](Right(()))
+          } else {
+
+            // Optimization: Read-Ahead Pipelining
+            // Trigger the next read immediately. FutureUnlessShutdown is eager, so this starts
+            // executing in the background while we proceed to write the current batch.
+            val backgroundFillStartTime = System.nanoTime()
+            val backgroundFill =
+              fetchBatchUntilFullBuffer(cursorForBackgroundFill, 0)
+                .map(v => System.nanoTime() - backgroundFillStartTime -> v)
+                .value
+
+            logger.info(
+              s"Migrating buffer of ${bufferToMigrate.size} contracts from $sourceAlias (Pipeline active)..."
+            )
+            for {
+
+              // Write: Commit the current buffer (Heavy Operation)
+              // This runs while the next read is happening in parallel (read-ahead)
+              _ <- performUnlessClosingEitherU(functionFullName)(
+                repair.changeDomainBatched(
+                  bufferToMigrate,
+                  sourceData,
+                  targetData,
+                  skipInactive = true,
+                  Some(writeBatchSize),
+                )
+              ).leftMap(
+                SyncDomainMigrationError.InternalError
+                  .FailedMigratingContracts(sourceAlias, _): SyncDomainMigrationError
+              )
+
+              // Re-sync with Read-Ahead: Await the background fill to get the next state
+              // Note: If writing was slow (normal), this result is likely already ready
+              nextPipelineStateWithElapsed <- EitherT(backgroundFill)
+              (elapsed, nextPipelineState) = nextPipelineStateWithElapsed
+              _ = logger.info(
+                s"Background fill took ${LoggerUtil.roundDurationForHumans(elapsed.nanos)}"
+              )
+
+            } yield Left(nextPipelineState)
+          }
+        }
+      }
+    }
   }
 
 }

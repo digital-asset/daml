@@ -15,7 +15,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String100}
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
+import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.TimedLoadGauge
@@ -60,7 +60,7 @@ import slick.jdbc.canton.SQLActionBuilder
 import scala.Ordered.orderingToOrdered
 import scala.annotation.nowarn
 import scala.collection.View
-import scala.collection.immutable.SortedMap
+import scala.collection.immutable.{ArraySeq, SortedMap}
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Active contracts journal
@@ -424,6 +424,24 @@ class DbActiveContractStore(
         .map(snapshot => SortedMap.from(snapshot))
     }
 
+  override def snapshotContractIds(
+      timestamp: CantonTimestamp,
+      paginationSize: Option[PositiveInt],
+      paginationCursor: Option[LfContractId],
+  )(implicit traceContext: TraceContext): Future[ArraySeq[LfContractId]] =
+    processingTime.event {
+      logger.debug(s"Obtaining ACS contract IDs snapshot at $timestamp")
+      storage
+        .query(
+          snapshotContractIdsDesc(
+            timestamp,
+            paginationSize,
+            paginationCursor,
+          ),
+          functionFullName,
+        )
+    }
+
   override def snapshot(rc: RequestCounter)(implicit
       traceContext: TraceContext
   ): Future[SortedMap[LfContractId, RequestCounter]] = processingTime.event {
@@ -453,6 +471,66 @@ class DbActiveContractStore(
           )
           .map(_.toMap)
     }
+
+  /** Retrieves a snapshot of active contract IDs at a specific point in time.
+    *
+    * @return An ArraySeq of Contract IDs, strictly ordered by *Contract ID Descending*.
+    * This ordering is critical for the keyset pagination logic.
+    */
+  private def snapshotContractIdsDesc(
+      timestamp: CantonTimestamp,
+      paginationSize: Option[PositiveInt],
+      paginationCursor: Option[LfContractId],
+  )(implicit ec: ExecutionContext): DbAction.ReadOnly[ArraySeq[LfContractId]] = {
+    import DbStorage.Implicits.BuilderChain.*
+
+    val upperBoundClause = paginationCursor.fold(sql"")(id => sql" and AC.contract_id < $id")
+    val ordering = sql" order by contract_id desc"
+    val queryLimit = paginationSize.fold(sql"")(l => storage.limitSql(l.value))
+
+    // Wrap the entire match and map the result to ArraySeq (memory optimization)
+    (storage.profile match {
+      case _: DbStorage.Profile.H2 =>
+        (sql"""
+        select distinct(contract_id)
+        from active_contracts AC
+        where not exists(select * from active_contracts AC2
+          where domain_id = $domainId
+          and AC.contract_id = AC2.contract_id
+          and AC2.ts <= $timestamp
+          and ((AC.ts, AC.request_counter) < (AC2.ts, AC2.request_counter)
+            or (AC.ts = AC2.ts and AC.request_counter = AC2.request_counter and AC2.change = ${ChangeType.Deactivation})))
+         and AC.ts <= $timestamp and domain_id = $domainId""" ++
+          upperBoundClause ++ ordering ++ queryLimit).as[LfContractId]
+
+      case _: DbStorage.Profile.Postgres =>
+        val latestStatusQuery = sql"""
+            select distinct on (contract_id) contract_id, change
+            from active_contracts AC
+            where domain_id = $domainId
+              and AC.ts <= $timestamp""" ++
+          upperBoundClause ++
+          sql" order by contract_id desc, ts desc, request_counter desc, change asc"
+
+        (sql"""
+            select contract_id
+            from (""" ++ latestStatusQuery ++ sql""") as latest_snapshot
+            where change = cast(${ChangeType.Activation} as change_type)
+          """ ++ ordering ++ queryLimit).as[LfContractId]
+
+      case _: DbStorage.Profile.Oracle =>
+        (sql"""
+        select distinct(contract_id) from active_contracts AC, lateral
+        (select change from active_contracts AC2
+           where domain_id = $domainId
+           and AC2.contract_id = AC.contract_id
+           and ts <= $timestamp
+           order by ts desc, request_counter desc, change desc
+           fetch first 1 row only) AC3
+        where AC.domain_id = $domainId and AC3.change = 'activation'""" ++
+          upperBoundClause ++ ordering ++ queryLimit).as[LfContractId]
+    }).map(ArraySeq.from)
+  }
 
   private[this] def snapshotQuery[T](
       p: SnapshotQueryParameter[T],
@@ -621,7 +699,11 @@ class DbActiveContractStore(
         )
     }
 
-  override def changesBetween(fromExclusive: TimeOfChange, toInclusive: TimeOfChange)(implicit
+  override def changesBetween(
+      fromExclusive: TimeOfChange,
+      toInclusive: TimeOfChange,
+      maxResultSize: PositiveInt,
+  )(implicit
       traceContext: TraceContext
   ): Future[LazyList[(TimeOfChange, ActiveContractIdsChange)]] =
     processingTime.event {
@@ -629,35 +711,100 @@ class DbActiveContractStore(
         fromExclusive <= toInclusive,
         s"Provided timestamps are in the wrong order: $fromExclusive and $toInclusive",
       )
+
+      // Define ordering once for consistent use in both queries
+      val changeOrder = storage.profile match {
+        case _: DbStorage.Profile.Oracle => "asc"
+        case _ => "desc"
+      }
+
+      // Initial Query: Request (limit + 1) rows to detect if the result set was truncated
+      // Added 'contract_id asc' to the ORDER BY clause to ensure that if we cut a transaction in the middle,
+      // we do so at a specific contract_id, allowing the recovery query to cleanly pick up '>= contract_id'.
       val changeQuery = {
-        val changeOrder = storage.profile match {
-          case _: DbStorage.Profile.Oracle => "asc"
-          case _ => "desc"
-        }
         sql"""select ts, request_counter, contract_id, change, operation
-                         from active_contracts where domain_id = $domainId and
-                         ((ts = ${fromExclusive.timestamp} and request_counter > ${fromExclusive.rc}) or ts > ${fromExclusive.timestamp})
-                         and
-                         ((ts = ${toInclusive.timestamp} and request_counter <= ${toInclusive.rc}) or ts <= ${toInclusive.timestamp})
-                         order by ts asc, request_counter asc, change #$changeOrder"""
-      }.as[
-        (
-            CantonTimestamp,
-            RequestCounter,
-            LfContractId,
-            ChangeType,
-            OperationType,
-        )
-      ]
+            from active_contracts where domain_id = $domainId and
+            ((ts = ${fromExclusive.timestamp} and request_counter > ${fromExclusive.rc}) or ts > ${fromExclusive.timestamp})
+            and
+            ((ts = ${toInclusive.timestamp} and request_counter <= ${toInclusive.rc}) or ts <= ${toInclusive.timestamp})
+            order by ts asc, request_counter asc, contract_id asc, change #$changeOrder #${storage
+            .limit(maxResultSize.value + 1)}"""
+      }.as[(CantonTimestamp, RequestCounter, LfContractId, ChangeType, OperationType)]
 
       for {
-        retrievedChangesBetween <- storage.query(
+        retrievedChangesBetweenTmp <- storage.query(
           changeQuery,
           operationName = "ACS: get changes between",
         )
+
+        retrievedChangesBetween <- retrievedChangesBetweenTmp match {
+          // Hit the limit (fetched size > maxResultSize) => must check if we sliced a transaction in half
+          case changes if changes.sizeIs > maxResultSize.value =>
+            val lastChange = changes(changes.size - 1)
+            val changeBeforeLast = changes(changes.size - 2)
+
+            // Check if the cut point (between limit and limit+1) falls inside a single transaction
+            // Tuple structure: (ts, rc, cid, changeType, operationType)
+            if (lastChange._1 == changeBeforeLast._1 && lastChange._2 == changeBeforeLast._2) {
+
+              // Split transaction: The limit cut a transaction in half (same TS, same RC)
+              // We cannot return a partial transaction due to atomicity requirements;
+              // i.e. the ACS commitment processor cannot handle it
+              //
+              // Strategy:
+              // 1. Find the 'split' transaction (sequenceTs, sequenceRc)
+              // 2. Fetch the rest of that transaction explicitly (overflowing the limit slightly)
+              val sequenceTs = lastChange._1
+              val sequenceRc = lastChange._2
+              val lastCidInSequence = lastChange._3
+
+              // Recovery query: Fetch the tail of the split transaction.
+              val query =
+                sql"""select ts, request_counter, contract_id, change, operation
+                    from active_contracts where domain_id = $domainId
+                    and ts = $sequenceTs and request_counter = $sequenceRc
+                    and contract_id >= $lastCidInSequence
+                    order by contract_id asc, change #$changeOrder"""
+                  .as[(CantonTimestamp, RequestCounter, LfContractId, ChangeType, OperationType)]
+
+              for {
+                changesAtSameToc <- storage.query(
+                  query,
+                  operationName = "ACS: get changes between without splitting changes at same toc",
+                )
+              } yield {
+                // Merge: Remove the partial tail from the original list and append the complete tail we just fetched.
+                // Filters out anything from the split transaction >= the split contract_id to avoid duplication.
+                def dropTrailingPartialTransaction(
+                    changes: IndexedSeq[
+                      (CantonTimestamp, RequestCounter, LfContractId, ChangeType, OperationType)
+                    ]
+                ): IndexedSeq[
+                  (CantonTimestamp, RequestCounter, LfContractId, ChangeType, OperationType)
+                ] =
+                  changes.filterNot { case (ts, rc, cid, _, _) =>
+                    ts == sequenceTs && rc == sequenceRc && cid >= lastCidInSequence
+                  }
+
+                dropTrailingPartialTransaction(changes) ++ changesAtSameToc
+              }
+            } else {
+              // Hit the limit, but the last item belongs to a new transaction.
+              // Thus, the previous transaction (at limit) was fully fetched.
+              // We simply discard the extra probe element (limit+1) and return the exact limit.
+              Future.successful(retrievedChangesBetweenTmp.dropRight(1))
+            }
+          case _ =>
+            // Fetched fewer (or equal) rows than the limit, so we retrieved the entire dataset
+            // for the requested time range: Return everything as is.
+            Future.successful(retrievedChangesBetweenTmp)
+        }
       } yield {
-        val groupedByTs =
-          IterableUtil.spansBy(retrievedChangesBetween)(entry => (entry._1, entry._2))
+        // Group the flat list of changes into transactions (TimeOfChange)
+        val groupedByTs = IterableUtil.spansBy(retrievedChangesBetween) { case (ts, rc, _, _, _) =>
+          (ts, rc)
+        }
+
         groupedByTs.map { case ((ts, rc), changes) =>
           val (acts, deacts) = changes.partition { case (_, _, _, changeType, _) =>
             changeType == ChangeType.Activation
@@ -671,11 +818,10 @@ class DbActiveContractStore(
             }.toMap,
             deacts.map { case (_, _, cid, _, opType) =>
               if (opType == OperationType.Archive) {
-                (
-                  cid,
-                  StateChangeType(ContractChange.Archived),
-                )
-              } else (cid, StateChangeType(ContractChange.TransferOut))
+                (cid, StateChangeType(ContractChange.Archived))
+              } else {
+                (cid, StateChangeType(ContractChange.TransferOut))
+              }
             }.toMap,
           )
         }
