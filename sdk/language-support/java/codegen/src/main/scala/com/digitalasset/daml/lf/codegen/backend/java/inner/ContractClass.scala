@@ -58,7 +58,7 @@ object ContractClass {
         className,
         identity,
         (ClassName get classOf[javaapi.data.CreatedEvent], "event"),
-        (ClassName get classOf[UnknownTrailingFieldPolicy], "policy")
+        (ClassName get classOf[UnknownTrailingFieldPolicy], "policy"),
       )
 
     private[inner] def generateFromIdAndRecord(

@@ -4,7 +4,11 @@
 package com.digitalasset.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi.data._
-import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, ContractDecoder, UnknownTrailingFieldPolicy}
+import com.daml.ledger.javaapi.data.codegen.{
+  ContractCompanion,
+  ContractDecoder,
+  UnknownTrailingFieldPolicy,
+}
 import com.squareup.javapoet._
 
 import java.util
@@ -46,7 +50,10 @@ object DecoderClass {
     .returns(contractType)
     .addParameter(ClassName.get(classOf[CreatedEvent]), "event")
     .addException(classOf[IllegalArgumentException])
-    .addStatement("return this.fromCreatedEvent(event, $T.STRICT)", classOf[UnknownTrailingFieldPolicy])
+    .addStatement(
+      "return this.fromCreatedEvent(event, $T.STRICT)",
+      classOf[UnknownTrailingFieldPolicy],
+    )
     .build()
 
   private val fromCreatedEventWithPolicy = MethodSpec
