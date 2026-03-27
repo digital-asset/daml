@@ -116,7 +116,7 @@ if [[ "$NUKE" -ne 0 ]]; then
 fi
 
 get_dpm() {
-  bazel build @dpm_binary//:dpm
+  bazel build @dpm_binary//:dpm >&2
   dpm_bazel_path=$(bazel cquery "${BAZEL_MODE_FLAGS[@]}" "@dpm_binary//:dpm" --output=files 2> /dev/null)
   dpm_version=$(HOME=. $dpm_bazel_path -v 2> /dev/null | head -n 1 | sed -e "s/^version: //")
   mkdir -p "$DPM_HOME/cache/components/dpm/${dpm_version}" "$DPM_HOME/bin" "$DPM_HOME/cache/sdk/open-source"
