@@ -458,11 +458,6 @@ class IdeLedgerClient(
         ),
       )
 
-    case script.Error.CommitError(
-          IdeLedger.CommitError.UniqueKeyViolation(IdeLedger.UniqueKeyViolation(gk))
-        ) =>
-      SubmitError.DuplicateContractKey(Some(gk))
-
     case script.Error.LookupError(err, _, _) =>
       // TODO[SW]: Implement proper Lookup error throughout
       SubmitError.UnknownError("Lookup error: " + err.toString)
