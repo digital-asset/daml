@@ -340,10 +340,6 @@ final class Conversions(
             .build
         )
 
-      case Error.CommitError(commitError) =>
-        builder.setScriptCommitError(
-          convertCommitError(commitError)
-        )
       case Error.MustFailSucceeded(tx @ _) =>
         builder.setScriptMustfailSucceeded(empty)
 
@@ -381,15 +377,6 @@ final class Conversions(
 
       case Error.DisclosureDecoding(message) =>
         builder.setCrash("disclosure decode failed: " + message)
-    }
-    builder.build
-  }
-
-  def convertCommitError(commitError: IdeLedger.CommitError): proto.CommitError = {
-    val builder = proto.CommitError.newBuilder
-    commitError match {
-      case IdeLedger.CommitError.UniqueKeyViolation(gk) =>
-        builder.setUniqueContractKeyViolation(convertGlobalKey(gk.gk))
     }
     builder.build
   }
