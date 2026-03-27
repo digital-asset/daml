@@ -50,19 +50,6 @@ template CreateAndLookup
          assertMsg ("fCid == cid") (fCid == cid)
          assertMsg ("contract fetched by key has correct values") (c.p == p && c.k == k && null c.disclosedTo)
 
-    nonconsuming choice Dupe : ()
-      controller p
-      do
-        _ <- create TextKey with
-          p = p
-          k = k
-          disclosedTo = []
-        _ <- create TextKey with
-          p = p
-          k = k
-          disclosedTo = []
-        return ()
-
 template MaintainerNotSignatory
   with
     p: Party
@@ -97,13 +84,6 @@ run = script do
   bob <- allocateParty "Bob"
 
   cid1 <- submit alice do
-    createCmd TextKey with
-      p = alice
-      k = "some-key"
-      disclosedTo = [bob]
-
-  -- duplicate keys are not OK
-  submitMustFail alice do
     createCmd TextKey with
       p = alice
       k = "some-key"
@@ -167,9 +147,6 @@ run = script do
       k = "same-choice-key"
   submit alice do
     exerciseCmd createAndLookupCid Good
-  -- creating a dupe in a single choice should fail
-  submitMustFail alice do
-    exerciseCmd createAndLookupCid Dupe
 
   -- nonconsuming choices should not affect key activeness
   cid <- submit alice do

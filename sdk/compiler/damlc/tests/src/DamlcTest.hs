@@ -1305,6 +1305,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               , "version: 0.0.1"
               , "source: ."
               , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+              , "script-service:"
+              , "  protocol-version: V34"
               ]
             let file = dir </> "Main.daml"
             T.writeFileUtf8 file $ T.unlines

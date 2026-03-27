@@ -3,6 +3,8 @@
 
 {-# OPTIONS_GHC -Wno-x-exceptions #-}
 
+-- @IDE-PV V34
+
 module LfStableExceptionAuth where
 
 import Daml.Script

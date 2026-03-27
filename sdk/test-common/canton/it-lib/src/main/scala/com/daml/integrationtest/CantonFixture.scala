@@ -96,6 +96,9 @@ trait CantonFixtureWithResource[A]
   // taken into account by IntelliJ.
   protected val remoteJavaDebugging: Boolean = false
 
+  // When true, uses the "NoKey" contract state machine mode, which disallows contract keys, but allows rollback nodes in transactions.
+  protected val legacyStateMachineMode: Boolean = false
+
   final protected val logger = org.slf4j.LoggerFactory.getLogger(getClass)
 
   if (cantonFixtureDebugModeIsDebug) {
@@ -136,6 +139,7 @@ trait CantonFixtureWithResource[A]
     targetScope = targetScope,
     disableUpgradeValidation = disableUpgradeValidation,
     enableRemoteJavaDebugging = remoteJavaDebugging,
+    legacyStateMachineMode = legacyStateMachineMode,
   )
 
   final lazy val config: CantonConfig = cantonConfig()
