@@ -7,8 +7,12 @@ DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 cd "$DIR/.."
 
-LOG=$(mktemp)
-trap "cat $LOG" EXIT
+SBT_OUT=$(mktemp)
+function cleanup () {
+  rm $SBT_OUT
+}
+
+trap cleanup EXIT
 
 function print_help () {
   echo "Builds and locally publishes artifacts from this Daml repository in such a way that the local canton repository in canton/canton_version.bzl:LOCAL_CANTON_OVERRIDE can use them."
@@ -45,10 +49,9 @@ echo "Changing directory to local canton path '$LOCAL_CANTON_OVERRIDE'"
 cd "$LOCAL_CANTON_OVERRIDE"
 
 echo "Getting local Canton's DamlVersion settings..."
-SBT_OUT=$(mktemp)
 sbt --error 'print community-base / buildInfoKeys; print ThisBuild / damlUseCustomVersion' > $SBT_OUT
 
-DAML_PLUGIN_SDK_VERSION=$(grep damlLibrariesVersion /tmp/tmp.YMDFBCAeF5 | cut -f2 -d, | cut -f1 -d')')
+DAML_PLUGIN_SDK_VERSION=$(grep damlLibrariesVersion $SBT_OUT | cut -f2 -d, | cut -f1 -d')')
 echo "Daml SDK used by Canton repo : $DAML_PLUGIN_SDK_VERSION"
 
 DAML_USE_CUSTOM_VERSION=$(grep -A 1 'ThisBuild / damlUseCustomVersion' $SBT_OUT | tail -n1 | grep -oE '[a-z]+')
