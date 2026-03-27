@@ -9,6 +9,9 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-03-31 (Exclusive)
+- Codegen-java: Added support for `UnknownTrailingFieldPolicy` in the generated `fromCreatedEvent()` method.
+
 ## Until 2026-03-24 (Exclusive)
 - Daml Script: Handle new EffectfulRollback errors from the Ledger API
 - Moved Contract keys and QueryNByKey to 2.3-staging (from 2.dev)
