@@ -29,6 +29,7 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
       shouldUpload: Boolean = true,
       jsonOutput: Boolean = false,
       explicitTestNames: Option[List[String]] = None,
+      skipTestNames: List[String] = List(),
   ): Assertion = {
     val port = ports.head.value
 
@@ -58,8 +59,9 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
       case Some(names) => names.map(name => s"--script-name=$name").toSeq
       case None => Seq("--all")
     }
+    val skipTestNameArgs = skipTestNames.map(name => s"--skip-script-name=$name").toSeq
 
-    val cmd = mainCmd ++ jsonArg ++ testNameArgs
+    val cmd = mainCmd ++ jsonArg ++ testNameArgs ++ skipTestNameArgs
 
     discard(cmd ! ProcessLogger(log, log))
 
