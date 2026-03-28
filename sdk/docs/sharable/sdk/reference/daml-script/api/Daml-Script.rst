@@ -1844,6 +1844,20 @@ Functions
   This is semantically equivalent to calling ``query``
   and filtering on the client side\.
 
+.. _function-daml-script-internal-questions-query-queryncontractkey-89204:
+
+`queryNContractKey <function-daml-script-internal-questions-query-queryncontractkey-89204_>`_
+  \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `TemplateKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-template-functions-templatekey-95200>`_ t k, `IsParties <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-isparties-53750>`_ p) \=\> p \-\> k \-\> `Int <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_ \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ \[(`ContractId <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ t, t)\]
+
+  Returns all contracts matching a key, returns empty list if the key is inactive
+  Only available in LF 2\.3\+
+
+  WARNING\: Over the gRPC backend this performs a linear search over all contracts of
+  the same type, so only use this if the number of active contracts is small\.
+
+  This is semantically equivalent to calling ``query``
+  and filtering on the client side\.
+
 .. _function-daml-script-internal-questions-partymanagement-allocateparty-4749:
 
 `allocateParty <function-daml-script-internal-questions-partymanagement-allocateparty-4749_>`_

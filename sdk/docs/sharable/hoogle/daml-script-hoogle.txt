@@ -975,6 +975,17 @@ queryInterfaceContractId :: (Template i, HasInterfaceView i v, IsParties p, HasC
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-querycontractkey-51277
 queryContractKey :: (HasCallStack, TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))
 
+-- | Returns all contracts matching a key, returns empty list if the key is inactive
+--   Only available in LF 2.3+
+--   
+--   WARNING: Over the gRPC backend this performs a linear search over all contracts of
+--   the same type, so only use this if the number of active contracts is small.
+--   
+--   This is semantically equivalent to calling `query`
+--   and filtering on the client side.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-queryncontractkey-89204
+queryNContractKey :: (HasCallStack, TemplateKey t k, IsParties p) => p -> k -> Int -> Script [(ContractId t, t)]
+
 -- | Allocate a party with the given display name
 --   using the party management service.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-partymanagement-allocateparty-4749
