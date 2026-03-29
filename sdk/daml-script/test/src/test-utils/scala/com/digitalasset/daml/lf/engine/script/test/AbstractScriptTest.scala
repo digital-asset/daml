@@ -41,7 +41,7 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
 
   // TODO(https://github.com/digital-asset/daml/issues/18457): delete once test cases using keys
   //  are split
-  override protected lazy val devMode = true
+  override protected lazy val protocolVersion = "v35"
 
   lazy val darPath: Path = rlocation(
     // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert to

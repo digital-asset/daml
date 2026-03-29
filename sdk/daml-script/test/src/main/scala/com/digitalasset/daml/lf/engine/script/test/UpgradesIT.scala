@@ -40,7 +40,7 @@ class UpgradesIT(
   final override protected lazy val nParticipants = numParticipants
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
-  final override protected lazy val devMode = runCantonInDevMode
+  final override protected lazy val protocolVersion = if (runCantonInDevMode) "dev" else "latest"
   final override protected val disableUpgradeValidation = true
 
   override val majorLanguageVersion: LanguageVersion.Major = languageVersion.major

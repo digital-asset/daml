@@ -17,31 +17,34 @@ load(
     "//daml-lf:daml-lf.bzl",
     "DEFAULT_LF_VERSION",
     "DEV_LF_VERSION",
+    "LATEST_STABLE_LF_VERSION",
+    "STAGING_LF_VERSION",
     "mangle_for_damlc",
 )
 
 [
     genrule(
-        name = "script-test-v{}".format(name),
+        name = "script-test-v{}".format(lfVersion),
         srcs =
             glob(["**/*.daml"]) + [
-                "//daml-script/daml:daml-script-{}.dar".format(target),
+                "//daml-script/daml:daml-script-{}.dar".format(lfVersion),
                 "//docs:source/sdk/component-howtos/ledger-interaction/daml-script/template-root/src/ScriptExample.daml",
                 "//compiler/damlc/tests:divulgence-daml-test-files",
             ],
-        outs = ["script-test-v{}.dar".format(name)],
+        outs = ["script-test-v{}.dar".format(lfVersion)],
         cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
-      cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
-      cp -L $(location :daml/MultiTest.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/ScriptTest{withkeys}.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/MultiTest{withkeys}.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestContractId.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestExceptions.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestInterfaces.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestFailWithStatus.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/sdk/component-howtos/ledger-interaction/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
       cp -L $(locations //compiler/damlc/tests:divulgence-daml-test-files) $$TMP_DIR/daml
+      {removeKeyTests}
       cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
 initializeFixed : Script ()
 initializeFixed = do
@@ -51,7 +54,7 @@ initializeFixed = do
   let parties = LedgerParties{{..}}
   initialize parties
 EOF
-      cp -L $(location //daml-script/daml:daml-script-{target}.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/daml:daml-script-{lfVersion}.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: script-test
@@ -60,33 +63,26 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml-script-{target}.dar
+  - daml-script-{lfVersion}.dar
 build-options:
-  - --target={target}
+  - --target={lfVersion}
   - --enable-interfaces=yes
   - --typecheck-upgrades=no
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-v{name}.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-v{lfVersion}.dar)
       rm -rf $$TMP_DIR
     """.format(
-            name = name,
+            lfVersion = lfVersion,
+            removeKeyTests = "" if supportsKeys else "rm $$TMP_DIR/daml/*Key*.daml",
             sdk = sdk_version,
-            target = target,
+            withkeys = "WithKeys" if supportsKeys else "",
         ),
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
-    for (target, name) in
-    # TODO(https://github.com/digital-asset/daml/issues/18457): re-enable once
-    #  script tests have been split into those that use keys and those that
-    #  don't.
-    #[(
-    #    lf_version_default_or_latest(major),
-    #    major,
-    #) for major in SUPPORTED_LF_MAJOR_VERSIONS] +
-    [
-        (target, target)
-        for target in [DEV_LF_VERSION]
+    for (lfVersion, supportsKeys) in [
+        (LATEST_STABLE_LF_VERSION, False),
+        (STAGING_LF_VERSION, True),
     ]
 ]
 
@@ -130,12 +126,12 @@ EOF
 
 [
     genrule(
-        name = "attestation-test-v{}".format(name),
+        name = "attestation-test-v{}".format(lfVersion),
         srcs =
             glob(["**/*.daml"]) + [
-                "//daml-script/daml:daml-script-{}.dar".format(target),
+                "//daml-script/daml:daml-script-{}.dar".format(lfVersion),
             ],
-        outs = ["attestation-test-v{}.dar".format(name)],
+        outs = ["attestation-test-v{}.dar".format(lfVersion)],
         cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
@@ -157,27 +153,18 @@ build-options:
   - --enable-interfaces=yes
   - --typecheck-upgrades=no
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location attestation-test-v{name}.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location attestation-test-v{target}.dar)
       rm -rf $$TMP_DIR
     """.format(
-            name = name,
             sdk = sdk_version,
-            target = target,
+            target = lfVersion,
         ),
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
-    for (target, name) in
-    # TODO(https://github.com/digital-asset/daml/issues/18457): re-enable once
-    #  script tests have been split into those that use keys and those that
-    #  don't.
-    #[(
-    #    lf_version_default_or_latest(major),
-    #    major,
-    #) for major in SUPPORTED_LF_MAJOR_VERSIONS] +
-    [
-        (target, target)
-        for target in [DEV_LF_VERSION]
+    for lfVersion in [
+        LATEST_STABLE_LF_VERSION,
+        DEV_LF_VERSION,
     ]
 ]
 
@@ -346,7 +333,8 @@ da_scala_test_suite(
         ":attestation-test-v2.dev.dar",
         # TODO((https://github.com/digital-asset/daml/issues/18457): remove these dev dependencies
         #  once integration tests don't depend on keys anymore
-        ":script-test-v2.dev.dar",
+        ":script-test-v2.2.dar",
+        ":script-test-v2.3-staging.dar",
         "//compiler/damlc",
         "//daml-script/runner:daml-script-binary",
         ":legacy-script-test.dar",

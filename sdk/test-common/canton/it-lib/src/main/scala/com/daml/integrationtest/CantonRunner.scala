@@ -109,8 +109,6 @@ object CantonRunner {
          |        engine.enable-engine-stack-traces = true
          |        alpha-version-support = yes
          |        disable-upgrade-validation = ${config.disableUpgradeValidation}
-         |        ${if (config.legacyStateMachineMode) "engine.contract-state-mode = \"NoKey\""
-        else ""}
          |      }
          |      ${config.snapshotDir.fold("")(x => s"features.snapshot-dir = ${toJson(x)}")}
          |      ${timeType.fold("")(x => "testing-time.type = " + x)}
@@ -165,7 +163,7 @@ object CantonRunner {
     // TODO(DACH-NY/canton#3149): Consolidate dars.upload and ledger_api.package.upload_dar
     // If the above is fixed, we can revert back to using ledgerClient.uploadDar here.
     val completionFile = files.completionFile.toString.replace("\\", "\\\\")
-    val protocolVersion = if (config.devMode) "ProtocolVersion.dev" else "ProtocolVersion.latest"
+    val protocolVersion = s"ProtocolVersion.${config.protocolVersion}"
     val bootstrapContent =
       s"""import java.nio.file.{Files, Paths}
          |import java.nio.charset.StandardCharsets
@@ -190,7 +188,7 @@ object CantonRunner {
     info(
       s"""Starting canton with parameters:
          |  authSecret = ${config.authSecret}
-         |  devMode = ${config.devMode}
+         |  protocolVersion = ${config.protocolVersion}
          |  nParticipants = ${config.nParticipants}
          |  timeProviderType = ${config.timeProviderType}
          |  tlsEnable = ${config.tlsConfig.isDefined}

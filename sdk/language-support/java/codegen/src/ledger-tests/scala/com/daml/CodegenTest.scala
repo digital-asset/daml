@@ -9,6 +9,6 @@ import org.scalatest.flatspec.AsyncFlatSpec
 
 class CodegenTest extends AsyncFlatSpec with LedgerTest with InterfacesTest with StakeholdersTest {
   // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert to
-  //  devMode = false for non-key test cases.
-  override lazy val devMode = true
+  //  protocolVersion = "latest" for non-key test cases.
+  override protected lazy val protocolVersion = "v35"
 }

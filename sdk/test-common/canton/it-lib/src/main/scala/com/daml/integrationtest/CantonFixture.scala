@@ -53,7 +53,8 @@ trait CantonFixtureWithResource[A]
 
   protected lazy val authSecret: Option[String] = Option.empty
   protected lazy val darFiles: List[Path] = List.empty
-  protected lazy val devMode: Boolean = false
+  // See ProtocolVersion.scala public values (i.e. v34, v35, latest, dev)
+  protected lazy val protocolVersion: String = "latest"
   protected lazy val nParticipants: Int = 1
   protected lazy val timeProviderType: TimeProviderType = TimeProviderType.WallClock
   protected lazy val tlsEnable: Boolean = false
@@ -96,9 +97,6 @@ trait CantonFixtureWithResource[A]
   // taken into account by IntelliJ.
   protected val remoteJavaDebugging: Boolean = false
 
-  // When true, uses the "NoKey" contract state machine mode, which disallows contract keys, but allows rollback nodes in transactions.
-  protected val legacyStateMachineMode: Boolean = false
-
   final protected val logger = org.slf4j.LoggerFactory.getLogger(getClass)
 
   if (cantonFixtureDebugModeIsDebug) {
@@ -130,7 +128,7 @@ trait CantonFixtureWithResource[A]
   protected def cantonConfig(): CantonConfig = CantonConfig(
     jarPath = cantonJar,
     authSecret = authSecret,
-    devMode = devMode,
+    protocolVersion = protocolVersion,
     nParticipants = nParticipants,
     timeProviderType = timeProviderType,
     tlsEnable = tlsEnable,
@@ -139,7 +137,6 @@ trait CantonFixtureWithResource[A]
     targetScope = targetScope,
     disableUpgradeValidation = disableUpgradeValidation,
     enableRemoteJavaDebugging = remoteJavaDebugging,
-    legacyStateMachineMode = legacyStateMachineMode,
   )
 
   final lazy val config: CantonConfig = cantonConfig()

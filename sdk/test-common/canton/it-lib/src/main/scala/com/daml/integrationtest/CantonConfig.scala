@@ -51,7 +51,7 @@ object CantonConfig {
 final case class CantonConfig(
     jarPath: Path = CantonRunner.cantonPath,
     authSecret: Option[String] = None,
-    devMode: Boolean = false,
+    protocolVersion: String = "latest",
     nParticipants: Int = 1,
     timeProviderType: CantonConfig.TimeProviderType = CantonConfig.TimeProviderType.WallClock,
     tlsEnable: Boolean = false,
@@ -61,7 +61,6 @@ final case class CantonConfig(
     disableUpgradeValidation: Boolean = false,
     enableRemoteJavaDebugging: Boolean = false,
     snapshotDir: Option[String] = None,
-    legacyStateMachineMode: Boolean = false,
 ) {
 
   lazy val tlsConfig =

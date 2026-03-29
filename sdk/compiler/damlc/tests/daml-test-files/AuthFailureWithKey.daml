@@ -6,6 +6,8 @@
 module AuthFailureWithKey where
 
 import Daml.Script
+import Prelude hiding (lookupByKey)
+import DA.ContractKeys (lookupByKey)
 
 -- Tests for various(all) different forms of authorization failure detected during the execution of
 -- operations involving keys.

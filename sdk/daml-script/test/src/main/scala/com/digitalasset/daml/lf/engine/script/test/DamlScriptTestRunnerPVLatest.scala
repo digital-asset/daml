@@ -9,15 +9,13 @@ import org.scalatest.Suite
 
 import java.nio.file.Paths
 
-class DamlScriptTestRunnerPV34 extends DamlScriptTestRunner {
+class DamlScriptTestRunnerPVLatest extends DamlScriptTestRunner {
   self: Suite =>
 
-  override val legacyStateMachineMode = true
-
-  val scriptTestDar = Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test-v2.dev.dar"))
+  val scriptTestDar = Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test-v2.2.dar"))
 
   "daml-script command line" should {
-    "pick up all scripts and returns somewhat sensible outputs in PV34" in
+    "pick up all scripts and returns somewhat sensible outputs in latest/default PV" in
       assertDamlScriptRunnerResult(
         scriptTestDar,
         """AuthFailure:t1_CreateMissingAuthorization FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(0) (XXXXXXXX:AuthFailure:TheContract1) requires authorizers party, but only party were given

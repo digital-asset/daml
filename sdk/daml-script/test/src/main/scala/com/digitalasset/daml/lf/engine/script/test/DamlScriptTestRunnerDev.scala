@@ -12,7 +12,7 @@ import java.nio.file.Paths
 class DamlScriptTestRunnerDev extends DamlScriptTestRunner {
   self: Suite =>
 
-  override lazy val devMode = true
+  override lazy val protocolVersion = "dev"
 
   val trySubmitTestDarPath =
     Paths.get(BazelRunfiles.rlocation("compiler/damlc/tests/submit-test.dar"))

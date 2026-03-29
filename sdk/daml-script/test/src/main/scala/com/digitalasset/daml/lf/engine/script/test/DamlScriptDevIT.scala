@@ -17,7 +17,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 class DamlScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
-  final override protected lazy val devMode = true
+  final override protected lazy val protocolVersion = "dev"
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
   override val majorLanguageVersion: LanguageVersion.Major = LanguageVersion.Major.V2
