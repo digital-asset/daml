@@ -66,7 +66,7 @@ main = withSdkVersions $ do
                 [ withResourceCps
                     (withScriptService lfVersion Nothing)
                     (testScriptServiceWithKeys lfVersion)
-                | Just lfVersion <- [LF.minBound $ LF.featureVersionReq LF.featureUCKBuiltins] -- TODO: Switch featureUCKBuiltins for featureContractKeys once rest of keys are moved to staging
+                | Just lfVersion <- [LF.minBound $ LF.featureVersionReq LF.featureContractKeys]
                 ]
             ]
 
@@ -1136,6 +1136,8 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     , "import DA.Assert"
                     , "import DA.Foldable"
                     , "import Daml.Script"
+                    , "import Prelude hiding (lookupByKey)"
+                    , "import DA.ContractKeys (lookupByKey)"
                     , "template WithKey"
                     , "  with"
                     , "    p : Party"

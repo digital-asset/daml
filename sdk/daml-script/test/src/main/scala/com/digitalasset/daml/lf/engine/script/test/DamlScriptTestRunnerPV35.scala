@@ -94,7 +94,7 @@ class DamlScriptTestRunnerPV35 extends DamlScriptTestRunner {
           |TestInterfaces:test SUCCESS
           |TestInterfaces:test_queryInterface SUCCESS
           |""".stripMargin,
-        // Default PV does not support rollbacks, disable tests that use it
+        // PV35 does not support rollbacks, disable tests that use it
         skipTestNames = List(
           "ExceptionSemantics:divulgence",
           "ExceptionSemantics:handledArithmeticError",
