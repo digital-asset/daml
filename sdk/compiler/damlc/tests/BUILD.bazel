@@ -1192,7 +1192,7 @@ da_haskell_test(
     name = "package-imports",
     srcs = ["src/DA/Test/PackageImports.hs"],
     data = [
-        "//daml-script/test:script-test-v2.dev.dar",
+        "//daml-script/test:script-test-v2.3-staging.dar",
     ],
     hackage_deps = [
         "base",
