@@ -43,8 +43,6 @@ class UpgradesIT(
   final override protected lazy val protocolVersion = if (runCantonInDevMode) "dev" else "latest"
   final override protected val disableUpgradeValidation = true
 
-  override val majorLanguageVersion: LanguageVersion.Major = languageVersion.major
-
   override protected lazy val darFiles = List()
 
   lazy val upgradeTestLibDar: Path = rlocation(Paths.get(upgradeTestLibDarPath))

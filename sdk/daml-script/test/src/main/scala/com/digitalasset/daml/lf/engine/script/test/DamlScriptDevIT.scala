@@ -20,8 +20,6 @@ class DamlScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside 
   final override protected lazy val protocolVersion = "dev"
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
-  override val majorLanguageVersion: LanguageVersion.Major = LanguageVersion.Major.V2
-
   lazy val trySubmitConcurrentlyTestDarPath =
     BazelRunfiles.rlocation(Paths.get("compiler/damlc/tests/try-submit-concurrently-test.dar"))
   lazy val trySubmitConcurrentlyTestDar: CompiledDar =

@@ -6,13 +6,9 @@ package com.digitalasset.daml.lf.engine.script.test
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.value.Value._
 
-class FuncStaticTimeITV2 extends FuncStaticTimeIT(LanguageVersion.Major.V2)
-
-class FuncStaticTimeIT(override val majorLanguageVersion: LanguageVersion.Major)
-    extends AbstractFuncIT {
+class FuncStaticTimeIT extends AbstractFuncIT {
 
   protected override lazy val timeMode = ScriptTimeMode.Static
 
@@ -22,7 +18,7 @@ class FuncStaticTimeIT(override val majorLanguageVersion: LanguageVersion.Major)
         clients <- scriptClients()
         ValueRecord(_, vals) <- run(
           clients,
-          QualifiedName.assertFromString("ScriptTest:testSetTime"),
+          QualifiedName.assertFromString("ScriptTestWithKeys:testSetTime"),
           dar = dar,
         )
       } yield {

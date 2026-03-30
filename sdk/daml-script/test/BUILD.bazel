@@ -83,6 +83,7 @@ EOF
     for (lfVersion, supportsKeys) in [
         (LATEST_STABLE_LF_VERSION, False),
         (STAGING_LF_VERSION, True),
+        (DEV_LF_VERSION, True),
     ]
 ]
 
@@ -335,6 +336,7 @@ da_scala_test_suite(
         #  once integration tests don't depend on keys anymore
         ":script-test-v2.2.dar",
         ":script-test-v2.3-staging.dar",
+        ":script-test-v2.dev.dar",
         "//compiler/damlc",
         "//daml-script/runner:daml-script-binary",
         ":legacy-script-test.dar",

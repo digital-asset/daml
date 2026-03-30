@@ -7,7 +7,6 @@ package test
 import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
@@ -15,13 +14,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.util.{Failure, Success}
 
-class MultiParticipantITV2 extends MultiParticipantIT(LanguageVersion.Major.V2)
-
-class MultiParticipantIT(override val majorLanguageVersion: LanguageVersion.Major)
-    extends AsyncWordSpec
-    with AbstractScriptTest
-    with Inside
-    with Matchers {
+class MultiParticipantIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
 
   final override protected lazy val nParticipants = 2
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
@@ -31,7 +24,11 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageVersion.Majo
       "return 42" in {
         for {
           clients <- scriptClients()
-          r <- run(clients, QualifiedName.assertFromString("MultiTest:multiTest"), dar = dar)
+          r <- run(
+            clients,
+            QualifiedName.assertFromString("MultiTestWithKeys:multiTest"),
+            dar = dar,
+          )
         } yield assert(r == ValueInt64(42))
       }
     }
@@ -42,7 +39,7 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageVersion.Majo
           clients <- scriptClients()
           ValueRecord(_, vals) <- run(
             clients,
-            QualifiedName.assertFromString("MultiTest:partyIdHintTest"),
+            QualifiedName.assertFromString("MultiTestWithKeys:partyIdHintTest"),
             dar = dar,
           )
         } yield {
@@ -63,7 +60,7 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageVersion.Majo
           clients <- scriptClients()
           ValueRecord(_, vals) <- run(
             clients,
-            QualifiedName.assertFromString("MultiTest:listKnownPartiesTest"),
+            QualifiedName.assertFromString("MultiTestWithKeys:listKnownPartiesTest"),
             dar = dar,
           )
         } yield {
@@ -91,7 +88,11 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageVersion.Majo
       "works across participants" in {
         for {
           clients <- scriptClients()
-          r <- run(clients, QualifiedName.assertFromString("MultiTest:disclosuresTest"), dar = dar)
+          r <- run(
+            clients,
+            QualifiedName.assertFromString("MultiTestWithKeys:disclosuresTest"),
+            dar = dar,
+          )
         } yield assert(r == ValueText("my secret"))
       }
       "can be called by key" in {
@@ -99,7 +100,7 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageVersion.Majo
           clients <- scriptClients()
           r <- run(
             clients,
-            QualifiedName.assertFromString("MultiTest:disclosuresByKeyTest"),
+            QualifiedName.assertFromString("MultiTestWithKeys:disclosuresByKeyTest"),
             dar = dar,
           )
         } yield assert(r == ValueText("my secret"))
@@ -111,7 +112,7 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageVersion.Majo
             run(
               clients,
               QualifiedName.assertFromString(
-                "MultiTest:inactiveDisclosureDoesNotFailDuringSubmission"
+                "MultiTestWithKeys:inactiveDisclosureDoesNotFailDuringSubmission"
               ),
               dar = dar,
             )
