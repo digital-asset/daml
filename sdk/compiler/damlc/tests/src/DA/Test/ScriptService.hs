@@ -66,6 +66,7 @@ main = withSdkVersions $ do
                 [ withResourceCps
                     (withScriptService lfVersion Nothing)
                     (testScriptServiceWithKeys lfVersion)
+                -- TODO (canton#30398) Change the feature min-bound to LF.defaultLfVersion once 2.3 becomes default
                 | Just lfVersion <- [LF.minBound $ LF.featureVersionReq LF.featureContractKeys]
                 ]
             ]

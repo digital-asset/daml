@@ -46,12 +46,22 @@ object CantonConfig {
     case object Static extends TimeProviderType
     case object WallClock extends TimeProviderType
   }
+
+  sealed abstract class ProtocolVersion(override val toString: String)
+      extends Product
+      with Serializable
+  object ProtocolVersion {
+    final case object Latest extends ProtocolVersion("latest")
+    final case object Dev extends ProtocolVersion("dev")
+    // See ProtocolVersion.scala public values (i.e. v34, v35)
+    final case class Explicit(pv: String) extends ProtocolVersion(pv)
+  }
 }
 
 final case class CantonConfig(
     jarPath: Path = CantonRunner.cantonPath,
     authSecret: Option[String] = None,
-    protocolVersion: String = "latest",
+    protocolVersion: CantonConfig.ProtocolVersion = CantonConfig.ProtocolVersion.Latest,
     nParticipants: Int = 1,
     timeProviderType: CantonConfig.TimeProviderType = CantonConfig.TimeProviderType.WallClock,
     tlsEnable: Boolean = false,

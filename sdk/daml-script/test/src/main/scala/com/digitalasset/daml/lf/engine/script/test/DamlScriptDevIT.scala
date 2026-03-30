@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.engine.script
 package test
 
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.integrationtest.CantonConfig.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.ScriptEngine.defaultCompilerConfig
@@ -16,7 +17,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 class DamlScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
-  final override protected lazy val protocolVersion = "dev"
+  final override protected lazy val protocolVersion = ProtocolVersion.Dev
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
   lazy val trySubmitConcurrentlyTestDarPath =

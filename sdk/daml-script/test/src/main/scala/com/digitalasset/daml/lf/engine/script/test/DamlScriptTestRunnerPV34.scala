@@ -5,12 +5,15 @@ package com.digitalasset.daml.lf.engine.script
 package test
 
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.integrationtest.CantonConfig.ProtocolVersion
 import org.scalatest.Suite
 
 import java.nio.file.Paths
 
-class DamlScriptTestRunnerPVLatest extends DamlScriptTestRunner {
+class DamlScriptTestRunnerPV34 extends DamlScriptTestRunner {
   self: Suite =>
+
+  override lazy val protocolVersion = ProtocolVersion.Explicit("v34")
 
   val scriptTestDar = Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test-v2.2.dar"))
 

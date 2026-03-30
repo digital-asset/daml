@@ -163,7 +163,7 @@ object CantonRunner {
     // TODO(DACH-NY/canton#3149): Consolidate dars.upload and ledger_api.package.upload_dar
     // If the above is fixed, we can revert back to using ledgerClient.uploadDar here.
     val completionFile = files.completionFile.toString.replace("\\", "\\\\")
-    val protocolVersion = s"ProtocolVersion.${config.protocolVersion}"
+    val protocolVersion = s"ProtocolVersion.${config.protocolVersion.toString}"
     val bootstrapContent =
       s"""import java.nio.file.{Files, Paths}
          |import java.nio.charset.StandardCharsets
@@ -188,7 +188,7 @@ object CantonRunner {
     info(
       s"""Starting canton with parameters:
          |  authSecret = ${config.authSecret}
-         |  protocolVersion = ${config.protocolVersion}
+         |  protocolVersion = ${config.protocolVersion.toString}
          |  nParticipants = ${config.nParticipants}
          |  timeProviderType = ${config.timeProviderType}
          |  tlsEnable = ${config.tlsConfig.isDefined}

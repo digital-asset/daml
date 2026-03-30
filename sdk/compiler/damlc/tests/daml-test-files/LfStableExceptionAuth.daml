@@ -3,6 +3,7 @@
 
 {-# OPTIONS_GHC -Wno-x-exceptions #-}
 
+-- TODO: (canton#30398) Make a slimmed down version of this for PV35 (without rollbacks)
 -- @IDE-PV V34
 
 module LfStableExceptionAuth where

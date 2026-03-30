@@ -7,7 +7,7 @@ package test
 
 import java.nio.file.{Path, Paths}
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.integrationtest.CantonConfig.TimeProviderType
+import com.daml.integrationtest.CantonConfig.{ProtocolVersion, TimeProviderType}
 import com.daml.integrationtest.CantonFixture
 import com.daml.testing.utils.PekkoBeforeAndAfterAll
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -37,7 +37,7 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
       ),
     )
 
-  override protected lazy val protocolVersion = "v35"
+  override protected lazy val protocolVersion: ProtocolVersion = ProtocolVersion.Explicit("v35")
 
   lazy val darPath: Path = rlocation(
     Paths.get(s"daml-script/test/script-test-v2.3-staging.dar")

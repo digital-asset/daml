@@ -58,7 +58,7 @@ template T
          catch
            E -> create (K p i) >> pure ()
 
--- TODO:
+-- TODO: (canton#30398)
 -- Exception semantics with keys have changed significantly, this test needs to be re-thought.
 -- Consider cases like fetch/queryby keys in a rollback, as well as non-consuming exercise by key
 

@@ -49,12 +49,11 @@ trait CantonFixtureWithResource[A]
     with PekkoBeforeAndAfterAll
     with SuiteResourceManagementAroundAll {
   self: Suite =>
-  import CantonConfig.TimeProviderType
+  import CantonConfig.{TimeProviderType, ProtocolVersion}
 
   protected lazy val authSecret: Option[String] = Option.empty
   protected lazy val darFiles: List[Path] = List.empty
-  // See ProtocolVersion.scala public values (i.e. v34, v35, latest, dev)
-  protected lazy val protocolVersion: String = "latest"
+  protected lazy val protocolVersion: ProtocolVersion = ProtocolVersion.Latest
   protected lazy val nParticipants: Int = 1
   protected lazy val timeProviderType: TimeProviderType = TimeProviderType.WallClock
   protected lazy val tlsEnable: Boolean = false

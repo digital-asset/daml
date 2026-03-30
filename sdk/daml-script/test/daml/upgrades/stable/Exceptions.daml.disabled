@@ -1,7 +1,7 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- TODO: This test is disabled as it requires PV34, refactoring the upgrade test suite to allow PV34 would be too much effort for now
+-- TODO: (canton#30398) This test is disabled as it requires PV34, refactoring the upgrade test suite to allow PV34 would be too much effort for now
 
 module Exceptions (main) where
 
