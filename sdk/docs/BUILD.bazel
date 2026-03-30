@@ -464,7 +464,7 @@ daml_test(
 )
 
 # Disabled as template uses keys and rollbacks, which is no longer permitted
-# TODO: Remove/refactor this template and re-enable the test
+# TODO: (canton#30398) Remove/refactor this template and re-enable the test
 # [
 #     daml_test(
 #         name = "daml-intro-exceptions-daml-test-{}".format(version),
