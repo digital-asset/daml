@@ -1179,7 +1179,10 @@ object ScriptF {
           actAs <- Converter.toParties(actAs)
           tplId <- Converter.typeRepToIdentifier(tplId)
           key <- Converter.toAnyContractKey(key, env.lookupKeyTy(_))
-          limit <- Converter.toInt(limit)
+          limitRaw <- Converter.toInt(limit)
+          // Daml implementation prevents negative numbers
+          // Long.toInt gives -1 for overflows
+          limit = if (limitRaw == -1) Int.MaxValue else limitRaw
         } yield QueryNContractKey(actAs, tplId, key, limit)
       case _ => Left(s"Expected QueryNContractKey payload but got $v")
     }

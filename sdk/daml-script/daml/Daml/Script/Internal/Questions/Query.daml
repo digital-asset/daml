@@ -169,8 +169,9 @@ instance IsQuestion QueryNContractKey [(ContractId (), AnyTemplate)] where comma
 --
 -- This is semantically equivalent to calling `query`
 -- and filtering on the client side.
-queryNContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Int -> Script [(ContractId t, t)]
-queryNContractKey p k limit = fmap convert $ lift $ QueryNContractKey with
+queryNContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> Int -> k -> Script [(ContractId t, t)]
+queryNContractKey p limit k | limit < 0 = fail $ "queryNByKey limit (" <> show limit <> ") must be positive"
+queryNContractKey p limit k = fmap convert $ lift $ QueryNContractKey with
     parties = toParties p
     tplId = templateTypeRep @t
     contractKey = toAnyContractKey @t k
@@ -178,3 +179,6 @@ queryNContractKey p k limit = fmap convert $ lift $ QueryNContractKey with
   where
     convert : [(ContractId (), AnyTemplate)] -> [(ContractId t, t)]
     convert = fmap (\(cid, anyTpl) -> (coerceContractId cid, fromSome (fromAnyTemplate anyTpl)))
+
+queryAllContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script [(ContractId t, t)]
+queryAllContractKey p k = queryNContractKey p maxBound k
