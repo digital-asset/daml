@@ -203,7 +203,7 @@ def _init_data():
             "name": "featureUCKBuiltins",
             "name_pretty": "Old style (UCK) key builtins (fetchByKey, exerciseByKey (UCK semantics), lookupByKey (UCK semantics), ...)",
             "cpp_flag": "DAML_UCK_BUILTINS",
-            "version_req": dev_only,
+            "version_req": {},
         },
         {
             "name": "featureFetchByKey",

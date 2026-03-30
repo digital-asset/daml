@@ -122,11 +122,11 @@ instance DA.Internal.Desugar.HasMaintainer T (Party, Text) where
     where
         _ = key
 instance DA.Internal.Desugar.HasFetchByKey T (Party, Text) where
-  fetchByKey = GHC.Types.primitive @"UFetchByKey"
+  _fetchByKey = GHC.Types.primitive @"UFetchByKey"
 instance DA.Internal.Desugar.HasLookupByKey T (Party, Text) where
-  lookupByKey = GHC.Types.primitive @"ULookupByKey"
+  _lookupByKey = GHC.Types.primitive @"ULookupByKey"
 instance DA.Internal.Desugar.HasLookupNByKey T (Party, Text) where
-  lookupNByKey = GHC.Types.primitive @"ULookupNByKey"
+  _lookupNByKey = GHC.Types.primitive @"ULookupNByKey"
 revokeRetVal : T -> ()
 revokeRetVal _ = ()
 assertion : T -> Bool
