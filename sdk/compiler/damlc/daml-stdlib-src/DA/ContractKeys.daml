@@ -8,19 +8,13 @@ module DA.ContractKeys where
 
 #ifdef DAML_NUCK
 import qualified DA.Internal.Template.Functions as DA
-import DA.Optional
 
-queryNByKey : forall t k. HasQueryNByKey t k => Int -> k -> Update [(ContractId t, t)]
-queryNByKey 0 = const $ pure []
-queryNByKey k = if k > 0
-  then DA.queryNByKey k
-  else const $ fail "queryNByKey may not be passed a negative n"
+lookupNByKey : forall t k. HasLookupNByKey t k => Int -> k -> Update [(ContractId t, t)]
+lookupNByKey 0 = const $ pure []
+lookupNByKey k = if k > 0
+  then DA._lookupNByKey k
+  else const $ fail "lookupNByKey may not be passed a negative n"
 
-queryAllByKey : forall t k. HasQueryNByKey t k => k -> Update [(ContractId t, t)]
-queryAllByKey = DA.queryNByKey (maxBound @Int)
-
-lookupByKey : (HasKey t k, HasQueryNByKey t k) => k -> Update (Optional (ContractId t))
-lookupByKey k = do
-  cids <- queryNByKey 1 k
-  pure $ fst <$> listToOptional cids
+lookupAllByKey : forall t k. HasLookupNByKey t k => k -> Update [(ContractId t, t)]
+lookupAllByKey = DA._lookupNByKey (maxBound @Int)
 #endif

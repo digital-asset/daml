@@ -849,7 +849,7 @@ encodeUpdate = fmap (P.Update . Just) . \case
     ULookupByKey tmplId -> do
         assertSupportsFeature featureLegacyLookupByKey
         P.UpdateSumLookupByKey <$> encodeRetrieveByKey tmplId
-    UQueryNByKey tmplId -> do
+    ULookupNByKey tmplId -> do
         assertSupportsFeature featureNUCK
         update_QueryNByKeyTemplate <- encodeQualTypeConId tmplId
         pure $ P.UpdateSumQueryNByKey $ P.Update_QueryNByKey{..}

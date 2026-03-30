@@ -221,7 +221,7 @@ def _init_data():
             "name": "featureLegacyLookupByKey",
             "name_pretty": "Lookup by key (legacy, UCK variant)",
             "cpp_flag": "DAML_LEGACY_LOOKUP_BY_KEY",
-            "version_req": dev_only,
+            "version_req": {},
         },
         {
             "name": "featureContractKeys",

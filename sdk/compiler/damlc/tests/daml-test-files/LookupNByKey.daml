@@ -3,7 +3,7 @@
 
 -- @SUPPORTS-LF-FEATURE DAML_NUCK
 
-module QueryNByKey where
+module LookupNByKey where
 
 import DA.ContractKeys
 
@@ -20,14 +20,14 @@ template Helper
     p : Party
   where
     signatory p
-    choice PerformQueryNByKey : ()
+    choice PerformLookupNByKey : ()
       controller p
-      do contracts <- queryNByKey @WithKey 1 p
+      do contracts <- lookupNByKey @WithKey 1 p
          case contracts of
            (contract :: _) -> do
              pure ()
            [] ->
-             abort "Assertion failed: queryNByKey returned an empty list."
+             abort "Assertion failed: lookupNByKey returned an empty list."
     choice PerformQueryAllByKey : ()
       controller p
       do contracts <- queryAllByKey @WithKey p
@@ -37,9 +37,9 @@ template Helper
            [] ->
              abort "Assertion failed: queryAllByKey returned an empty list."
 
--- Test just here to assert that queryNByKey compiles
+-- Test just here to assert that lookupNByKey compiles
 -- When we have an ledger implementation, assert things actually run
 -- test = script do
 --   p <- allocateParty "p"
---   submit p $ createAndExerciseCmd (Helper p) PerformQueryNByKey
+--   submit p $ createAndExerciseCmd (Helper p) PerformLookupNByKey
 --   submit p $ createAndExerciseCmd (Helper p) PerformQueryAllByKey

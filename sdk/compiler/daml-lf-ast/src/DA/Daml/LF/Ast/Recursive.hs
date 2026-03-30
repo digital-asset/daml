@@ -83,7 +83,7 @@ data UpdateF expr
   | UEmbedExprF !Type !expr
   | UFetchByKeyF !(Qualified TypeConName)
   | ULookupByKeyF !(Qualified TypeConName)
-  | UQueryNByKeyF !(Qualified TypeConName)
+  | ULookupNByKeyF !(Qualified TypeConName)
   | UTryCatchF !Type !expr !ExprVarName !expr
   deriving (Foldable, Functor, Traversable)
 
@@ -116,7 +116,7 @@ projectUpdate = \case
   ULedgerTimeLT a -> ULedgerTimeLTF a
   UEmbedExpr a b -> UEmbedExprF a b
   ULookupByKey a -> ULookupByKeyF a
-  UQueryNByKey a -> UQueryNByKeyF a
+  ULookupNByKey a -> ULookupNByKeyF a
   UFetchByKey a -> UFetchByKeyF a
   UTryCatch a b c d -> UTryCatchF a b c d
 
@@ -136,7 +136,7 @@ embedUpdate = \case
   UEmbedExprF a b -> UEmbedExpr a b
   UFetchByKeyF a -> UFetchByKey a
   ULookupByKeyF a -> ULookupByKey a
-  UQueryNByKeyF a -> UQueryNByKey a
+  ULookupNByKeyF a -> ULookupNByKey a
   UTryCatchF a b c d -> UTryCatch a b c d
 
 instance Recursive Expr where

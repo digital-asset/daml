@@ -716,7 +716,7 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
     assertSupportsFeature featureLegacyLookupByKey
     fmap (EUpdate . ULookupByKey) (decodeRetrieveByKey retrieveByKey)
   LF2.UpdateSumQueryNByKey LF2.Update_QueryNByKey{..} ->
-    EUpdate . UQueryNByKey <$> mayDecode "update_RetrieveByKeyTemplate" update_QueryNByKeyTemplate decodeTypeConId
+    EUpdate . ULookupNByKey <$> mayDecode "update_RetrieveByKeyTemplate" update_QueryNByKeyTemplate decodeTypeConId
   LF2.UpdateSumFetchByKey retrieveByKey -> do
     assertSupportsFeature featureFetchByKey
     fmap (EUpdate . UFetchByKey) (decodeRetrieveByKey retrieveByKey)

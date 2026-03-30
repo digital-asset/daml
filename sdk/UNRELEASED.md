@@ -16,7 +16,7 @@ Wednesday after your change.
 
 ## Until 2026-03-24 (Exclusive)
 - Daml Script: Handle new EffectfulRollback errors from the Ledger API
-- Moved Contract keys and QueryNByKey to 2.3-staging (from 2.dev)
+- Moved Contract keys and LookupNByKey to 2.3-staging (from 2.dev)
 
 ## Until 2026-03-17 (Exclusive)
 

@@ -156,7 +156,7 @@ freeVarsStep = \case
         UEmbedExprF t e -> freeVarsInType t <> e
         UFetchByKeyF _ -> mempty
         ULookupByKeyF _ -> mempty
-        UQueryNByKeyF _ -> mempty
+        ULookupNByKeyF _ -> mempty
         UTryCatchF t e1 x e2 -> freeVarsInType t <> e1 <> bindExprVar x e2
 
 freshenTypeVar :: FreeVars -> TypeVarName -> TypeVarName

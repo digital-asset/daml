@@ -865,10 +865,10 @@ convertTypeDef env msi o@(ATyCon t) = withRange (convNameLoc t) $ if
     , NameIn DA_Internal_Template_Functions "HasExerciseByKey" <- cls
     -> pure []
 
-    -- Remove HasQueryNByKey class declaration when NUCK is unsupported
+    -- Remove HasLookupNByKey class declaration when NUCK is unsupported
     | not (envLfVersion env `supports` featureNUCK)
     , Just cls <- tyConClass_maybe t
-    , NameIn DA_Internal_Template_Functions "HasQueryNByKey" <- cls
+    , NameIn DA_Internal_Template_Functions "HasLookupNByKey" <- cls
     -> pure []
 
     -- Constraint tuples are represented by LF structs.
@@ -1409,9 +1409,9 @@ convertBind env mc (name, x)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasExerciseGuarded") _ <- name
     = pure []
 
-    -- Remove lookupByKey wrapper defintition when unsupported
+    -- Remove _lookupByKey wrapper defintition when unsupported
     | not (envLfVersion env `supports` featureLegacyLookupByKey)
-    , NameIn DA_Internal_Template_Functions "lookupByKey" <- name
+    , NameIn DA_Internal_Template_Functions "_lookupByKey" <- name
     = pure []
 
     -- Remove HasLookupByKey dictionary declaration when NUCK is unsupported
@@ -1419,9 +1419,9 @@ convertBind env mc (name, x)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasLookupByKey") _ <- name
     = pure []
 
-    -- Remove fetchByKey wrapper defintition when unsupported
+    -- Remove _fetchByKey wrapper defintition when unsupported
     | not (envLfVersion env `supports` featureFetchByKey)
-    , NameIn DA_Internal_Template_Functions "fetchByKey" <- name
+    , NameIn DA_Internal_Template_Functions "_fetchByKey" <- name
     = pure []
 
     -- Remove HasFetchByKey dictionary declaration when NUCK is unsupported
@@ -1439,14 +1439,14 @@ convertBind env mc (name, x)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasExerciseByKey") _ <- name
     = pure []
 
-    -- Remove queryNByKey wrapper defintition when NUCK is unsupported
+    -- Remove _lookupNByKey wrapper defintition when NUCK is unsupported
     | not (envLfVersion env `supports` featureNUCK)
-    , NameIn DA_Internal_Template_Functions "queryNByKey" <- name
+    , NameIn DA_Internal_Template_Functions "_lookupNByKey" <- name
     = pure []
 
-    -- Remove HasQueryNByKey dictionary declaration when NUCK is unsupported
+    -- Remove HasLookupNByKey dictionary declaration when NUCK is unsupported
     | not (envLfVersion env `supports` featureNUCK)
-    , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasQueryNByKey") _ <- name
+    , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasLookupNByKey") _ <- name
     = pure []
 
     -- Remove choice controller when Choice Functions are unsupported
@@ -1747,14 +1747,14 @@ convertExpr env0 e = do
     go env (VarIn DA_Internal_Template_Functions "exerciseGuarded") _
         | not $ envLfVersion env `supports` featureExtendedInterfaces
         = conversionError $ OnlySupportedOnDev "Guarded exercises are"
-    -- convert usages of lookupByKey to errorr wen unsupported since the
+    -- convert usages of _lookupByKey to errorr wen unsupported since the
     -- defintion won't exist
-    go env (VarIn DA_Internal_Template_Functions "lookupByKey") _
+    go env (VarIn DA_Internal_Template_Functions "_lookupByKey") _
         | not $ envLfVersion env `supports` featureLegacyLookupByKey
         = conversionError $ FeatureNotSupported featureLegacyLookupByKey (envLfVersion env)
-    -- convert usages of fetchByKey to errorr wen unsupported since the
+    -- convert usages of _fetchByKey to errorr wen unsupported since the
     -- defintion won't exist
-    go env (VarIn DA_Internal_Template_Functions "fetchByKey") _
+    go env (VarIn DA_Internal_Template_Functions "_fetchByKey") _
         | not $ envLfVersion env `supports` featureFetchByKey
         = conversionError $ FeatureNotSupported featureFetchByKey (envLfVersion env)
     -- convert usages of _exerciseByKey to errorr wen unsupported since the
@@ -1762,9 +1762,9 @@ convertExpr env0 e = do
     go env (VarIn DA_Internal_Template_Functions "_exerciseByKey") _
         | not $ envLfVersion env `supports` featureExerciseByKey
         = conversionError $ FeatureNotSupported featureExerciseByKey (envLfVersion env)
-    -- convert usages of queryNByKey to errorr wen NUCK is unsupported since the
+    -- convert usages of _lookupNByKey to errorr wen NUCK is unsupported since the
     -- defintion won't exist
-    go env (VarIn DA_Internal_Template_Functions "queryNByKey") _
+    go env (VarIn DA_Internal_Template_Functions "_lookupNByKey") _
         | not $ envLfVersion env `supports` featureNUCK
         = conversionError $ FeatureNotSupported featureNUCK (envLfVersion env)
     go env (VarIn DA_Internal_Template_Functions "choiceController") _
