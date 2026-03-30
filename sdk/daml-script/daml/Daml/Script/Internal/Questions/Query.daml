@@ -161,7 +161,7 @@ data QueryNContractKey = QueryNContractKey with
 instance IsQuestion QueryNContractKey [(ContractId (), AnyTemplate)] where command = "QueryNContractKey"
 
 -- | MOVE Daml.Script
--- Returns all contracts matching a key, returns empty list if the key is inactive
+-- Returns N contracts matching a key, returns empty list if the key is inactive
 -- Only available in LF 2.3+
 --
 -- WARNING: Over the gRPC backend this performs a linear search over all contracts of
@@ -180,5 +180,14 @@ queryNContractKey p limit k = fmap convert $ lift $ QueryNContractKey with
     convert : [(ContractId (), AnyTemplate)] -> [(ContractId t, t)]
     convert = fmap (\(cid, anyTpl) -> (coerceContractId cid, fromSome (fromAnyTemplate anyTpl)))
 
+-- | MOVE Daml.Script
+-- Returns all contracts matching a key, returns empty list if the key is inactive
+-- Only available in LF 2.3+
+--
+-- WARNING: Over the gRPC backend this performs a linear search over all contracts of
+-- the same type, so only use this if the number of active contracts is small.
+--
+-- This is semantically equivalent to calling `query`
+-- and filtering on the client side.
 queryAllContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script [(ContractId t, t)]
 queryAllContractKey p k = queryNContractKey p maxBound k
