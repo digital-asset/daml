@@ -7,7 +7,6 @@ package test
 import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.engine.ScriptEngine.defaultCompilerConfig
 import com.digitalasset.daml.lf.value.Value._
 
