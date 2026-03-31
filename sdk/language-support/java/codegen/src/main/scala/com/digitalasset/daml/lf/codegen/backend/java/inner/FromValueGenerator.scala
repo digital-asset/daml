@@ -103,6 +103,20 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .build()
   }
 
+  def generateTemplateValueDecoder(
+      className: TypeName
+  ): MethodSpec = {
+    logger.debug("Generating templateValueDecoder-delegating valueDecoder method")
+
+    MethodSpec
+      .methodBuilder("valueDecoder")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
+      .addException(classOf[IllegalArgumentException])
+      .addStatement("return templateValueDecoder()")
+      .build()
+  }
+
   private def accessors =
     Iterator.from(0).map(i => CodeBlock.of("fields$$.get($L).getValue()", Integer.valueOf(i)))
 
