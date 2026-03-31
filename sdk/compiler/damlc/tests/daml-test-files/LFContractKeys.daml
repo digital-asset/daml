@@ -10,8 +10,7 @@ module LFContractKeys where
 import Daml.Script
 
 import DA.Optional
-import Prelude hiding (lookupByKey)
-import DA.ContractKeys (lookupByKey)
+import Prelude
 
 template Keyed
   with
