@@ -403,7 +403,9 @@ def version_in(
 # have to come up with something more clever here to make
 # sure that we don’t remove docs for a module that is still supported
 # in a stable LF version.
-LF_DOCS_VERSION = LATEST_STABLE_LF_VERSION
+#TODO[#22851]: revert back to LATEST_STABLE_LF_VERSION
+# LF_DOCS_VERSION = LATEST_STABLE_LF_VERSION
+LF_DOCS_VERSION = STAGING_LF_VERSION
 
 # LF Versions supported by the dar reader
 READABLE_LF_VERSIONS = (["1.14", "1.15", "1.dev"] if is_intel else []) + ALL_LF_VERSIONS
