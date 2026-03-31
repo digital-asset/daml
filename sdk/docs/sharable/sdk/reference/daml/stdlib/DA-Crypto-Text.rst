@@ -95,6 +95,14 @@ Functions
   Computes the KECCAK256 hash of the UTF8 bytes of the ``Text``, and returns it in its hex\-encoded
   form\. The hex encoding uses lowercase letters\.
 
+.. _function-da-crypto-text-secp256k1withvalidation-31956:
+
+`secp256k1WithValidation <function-da-crypto-text-secp256k1withvalidation-31956_>`_
+  \: `SignatureHex <type-da-crypto-text-signaturehex-12945_>`_ \-\> `BytesHex <type-da-crypto-text-byteshex-47880_>`_ \-\> `PublicKeyHex <type-da-crypto-text-publickeyhex-51359_>`_ \-\> :ref:`Bool <type-ghc-types-bool-66265>`
+
+  Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key\. Prior to
+  signature validation, validate the public key and check it is on the SECP256K1 curve\.
+
 .. _function-da-crypto-text-secp256k1withecdsaonly-56908:
 
 `secp256k1WithEcdsaOnly <function-da-crypto-text-secp256k1withecdsaonly-56908_>`_
