@@ -345,12 +345,11 @@ fromAnyChoice (AnyChoice any typeRep)
 deriving instance Eq Archive
 deriving instance Show Archive
 
--- TODO[#22800]: rewrite to LookupNByKey
-#ifdef DAML_LEGACY_LOOKUP_BY_KEY
+#ifdef DAML_NUCK
 -- | True if contract exists, submitter is a stakeholder, and all maintainers
 -- authorize. False if contract does not exist and all maintainers authorize.
 -- Fails otherwise.
-visibleByKey : forall t k. (HasLookupByKey t k) => k -> Update Bool
+visibleByKey : forall t k. (HasKey t k, HasLookupNByKey t k) => k -> Update Bool
 visibleByKey k = do
   m <- lookupByKey @t k
   case m of
