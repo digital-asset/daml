@@ -4,7 +4,6 @@ import (implicit) qualified GHC.Types
 import (implicit) qualified GHC.Err
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
-import Daml.Script
 import DA.Exception
 data DA.Internal.Desugar.DamlException => E
   = E {}
@@ -321,13 +320,3 @@ _choice$_T$RollbackKey
                           (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some E)
                             -> DA.Internal.Desugar.Some create (K p i) >> pure ()
                           _ -> DA.Internal.Desugar.None)
-duplicateKey
-  = script
-      do p <- allocateParty "p"
-         submitMustFail p
-           $ createAndExerciseCmd (T p) (TransientDuplicate 0)
-         submit p $ createCmd (K p 1)
-         submitMustFail p
-           $ createAndExerciseCmd (T p) (NonTransientDuplicate 1)
-         submit p $ createAndExerciseCmd (T p) (RollbackKey 2)
-         pure ()

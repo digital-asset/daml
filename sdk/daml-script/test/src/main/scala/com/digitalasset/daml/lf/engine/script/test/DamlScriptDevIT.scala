@@ -5,9 +5,9 @@ package com.digitalasset.daml.lf.engine.script
 package test
 
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.integrationtest.CantonConfig.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.engine.ScriptEngine.defaultCompilerConfig
 import com.digitalasset.daml.lf.value.Value._
 
@@ -17,10 +17,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 class DamlScriptDevIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
-  final override protected lazy val devMode = true
+  final override protected lazy val protocolVersion = ProtocolVersion.Dev
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
-
-  override val majorLanguageVersion: LanguageVersion.Major = LanguageVersion.Major.V2
 
   lazy val trySubmitConcurrentlyTestDarPath =
     BazelRunfiles.rlocation(Paths.get("compiler/damlc/tests/try-submit-concurrently-test.dar"))

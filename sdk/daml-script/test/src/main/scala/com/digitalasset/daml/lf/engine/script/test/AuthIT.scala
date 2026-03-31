@@ -8,7 +8,6 @@ import com.digitalasset.canton.ledger.api
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.daml.integrationtest._
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -17,12 +16,7 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success}
 import java.time.{Duration, Instant}
 
-class AuthITV2 extends AuthIT(LanguageVersion.Major.V2)
-
-class AuthIT(override val majorLanguageVersion: LanguageVersion.Major)
-    extends AsyncWordSpec
-    with AbstractScriptTest
-    with Matchers {
+class AuthIT extends AsyncWordSpec with AbstractScriptTest with Matchers {
 
   final override protected lazy val authSecret = Some("secret")
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
@@ -55,7 +49,7 @@ class AuthIT(override val majorLanguageVersion: LanguageVersion.Major)
           _ = info(s"client creation with valid token succeeds")
           _ <- run(
             clients,
-            Ref.QualifiedName.assertFromString("ScriptTest:auth"),
+            Ref.QualifiedName.assertFromString("ScriptTestWithKeys:auth"),
             inputValue = Some(
               tuple(
                 Value.ValueParty(Ref.Party.assertFromString(parties.head)),

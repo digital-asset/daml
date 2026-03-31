@@ -96,7 +96,7 @@ da_haskell_test(
         "test/DA/Daml/LF/Proto3/EncodeDecodeTest.hs",
     ],
     data = [
-        "//daml-script/test:script-test-v2.dev.dar",
+        "//daml-script/test:script-test-v2.3-staging.dar",
     ],
     hackage_deps = [
         "base",

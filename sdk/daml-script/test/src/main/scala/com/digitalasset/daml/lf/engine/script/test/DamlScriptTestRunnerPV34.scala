@@ -5,34 +5,25 @@ package com.digitalasset.daml.lf.engine.script
 package test
 
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.integrationtest.CantonConfig.ProtocolVersion
 import org.scalatest.Suite
 
 import java.nio.file.Paths
 
-class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
+class DamlScriptTestRunnerPV34 extends DamlScriptTestRunner {
   self: Suite =>
 
-  // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert to
-  // to devMode = false
-  override lazy val devMode = true
+  override lazy val protocolVersion = ProtocolVersion.Explicit("v34")
 
-  // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert
-  //  to non-dev dar
-  val scriptTestDar = Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test-v2.dev.dar"))
-  val fakeScriptTestDar =
-    Paths.get(BazelRunfiles.rlocation("daml-script/test/legacy-script-test.dar"))
-  val jsonScriptTestDar =
-    Paths.get(BazelRunfiles.rlocation("daml-script/test/json-script-test.dar"))
+  val scriptTestDar = Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test-v2.2.dar"))
 
   "daml-script command line" should {
-    "pick up all scripts and returns somewhat sensible outputs" in
+    "pick up all scripts and returns somewhat sensible outputs in latest/default PV" in
       assertDamlScriptRunnerResult(
         scriptTestDar,
         """AuthFailure:t1_CreateMissingAuthorization FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(0) (XXXXXXXX:AuthFailure:TheContract1) requires authorizers party, but only party were given
           |AuthFailure:t3_FetchMissingAuthorization FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(2) requires one of the stakeholders TreeSet(party) of the fetched contract to be an authorizer, but authorizers were TreeSet(party)
           |AuthFailure:t4_ExerciseMissingAuthorization FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(0) (XXXXXXXX:AuthFailure:TheContract4) requires authorizers party, but only party were given
-          |AuthFailureWithKey:t1_LookupByKeyMissingAuthorization FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(2) (XXXXXXXX:AuthFailureWithKey:TheContract1) requires authorizers party for lookup by key, but it only has party
-          |AuthFailureWithKey:t2_MaintainersNotSubsetOfSignatories FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(0) (XXXXXXXX:AuthFailureWithKey:TheContract2) has maintainers party which are not a subset of the signatories TreeSet(party)
           |AuthorizedDivulgence:test_authorizedFetch SUCCESS
           |AuthorizedDivulgence:test_divulgeChoiceTargetContractId SUCCESS
           |AuthorizedDivulgence:test_noDivulgenceForFetch FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
@@ -52,10 +43,7 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
           |ExceptionSemantics:unhandledUserException FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/ExceptionSemantics:E (error category 9): E
           |    in choice XXXXXXXX:ExceptionSemantics:T:Throw on contract XXXXXXXXXX (#1)
           |    in create-and-exercise command XXXXXXXX:ExceptionSemantics:T:Throw.
-          |ExceptionSemanticsWithKeys:duplicateKey FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: SErrorDamlException(UserError(Expected submit to fail but it succeeded)
-          |LFContractKeys:lookupTest FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: SErrorDamlException(UserError(Expected submit to fail but it succeeded)
           |MoreChoiceObserverDivulgence:test FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
-          |MultiTest:disclosuresByKeyTest SUCCESS
           |MultiTest:disclosuresTest SUCCESS
           |MultiTest:inactiveDisclosureDoesNotFailDuringSubmission FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError (error category 9): Here
           |    in choice XXXXXXXX:MultiTest:Helper:FailWith on contract XXXXXXXXXX (#1)
@@ -84,11 +72,9 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
           |ScriptTest:test4 SUCCESS
           |ScriptTest:testCreateAndExercise SUCCESS
           |ScriptTest:testGetTime SUCCESS
-          |ScriptTest:testKey SUCCESS
           |ScriptTest:testMaxInboundMessageSize SUCCESS
           |ScriptTest:testMultiPartyQueries SUCCESS
           |ScriptTest:testQueryContractId SUCCESS
-          |ScriptTest:testQueryContractKey SUCCESS
           |ScriptTest:testSetTime SUCCESS
           |ScriptTest:testStack SUCCESS
           |ScriptTest:testUserListPagination SUCCESS
@@ -96,7 +82,6 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
           |ScriptTest:testUserRightManagement SUCCESS
           |ScriptTest:traceOrder SUCCESS
           |ScriptTest:tree SUCCESS
-          |ScriptTest:tupleKey SUCCESS
           |TestContractId:testContractId SUCCESS
           |TestExceptions:test SUCCESS
           |TestExceptions:try_catch_recover SUCCESS
@@ -111,42 +96,15 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
           |TestInterfaces:test SUCCESS
           |TestInterfaces:test_queryInterface SUCCESS
           |""".stripMargin,
-      )
-    "Reject legacy daml scripts correctly" in
-      assertDamlScriptRunnerResult(
-        fakeScriptTestDar,
-        """FakeDamlScriptTest:myScript FAILURE (com.digitalasset.daml.lf.script.converter.ConverterException: Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK)
-          |""".stripMargin,
-        false,
-      )
-    "Json output correctly" in
-      assertDamlScriptRunnerResult(
-        jsonScriptTestDar,
-        """{
-          |  "JsonDamlScriptTest:failingTestData": {
-          |    "error": "com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command AllocateParty failed: INVALID_ARGUMENT: INVALID_ARGUMENT(8,XXXXXXXX): The submitted request has invalid arguments: Party already exists: party party... is already allocated on this node\nDaml stacktrace:\nallocatePartyByHint at XXXXXXXX:JsonDamlScriptTest:18"
-          |  },
-          |  "JsonDamlScriptTest:succeedingTestData": {
-          |    "result": {
-          |      "i": 10
-          |    }
-          |  },
-          |  "JsonDamlScriptTest:succeedingTestUnit": {
-          |    "result": {
-          |
-          |    }
-          |  }
-          |}
-          |""".stripMargin,
-        shouldUpload = false,
-        jsonOutput = true,
-        // Explicitly not running JsonDamlScriptTest:testWeDontRun and asserting it doesnt show in output
-        explicitTestNames = Some(
-          List(
-            "JsonDamlScriptTest:succeedingTestUnit",
-            "JsonDamlScriptTest:succeedingTestData",
-            "JsonDamlScriptTest:failingTestData",
-          )
+        // Contract keys are not supported in PV34
+        skipTestNames = List(
+          "AuthFailureWithKey:t1_LookupByKeyMissingAuthorization",
+          "AuthFailureWithKey:t2_MaintainersNotSubsetOfSignatories",
+          "LFContractKeys:lookupTest",
+          "MultiTest:disclosuresByKeyTest",
+          "ScriptTest:testKey",
+          "ScriptTest:testQueryContractKey",
+          "ScriptTest:tupleKey",
         ),
       )
   }

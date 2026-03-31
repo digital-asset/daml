@@ -7,7 +7,7 @@ package test
 
 import java.nio.file.{Path, Paths}
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.integrationtest.CantonConfig.TimeProviderType
+import com.daml.integrationtest.CantonConfig.{ProtocolVersion, TimeProviderType}
 import com.daml.integrationtest.CantonFixture
 import com.daml.testing.utils.PekkoBeforeAndAfterAll
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   GrpcLedgerClient,
   ScriptLedgerClient,
 }
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.engine.ScriptEngine.{ExtendedValue, defaultCompilerConfig}
 import com.digitalasset.daml.lf.value.Value
@@ -28,8 +28,6 @@ import scala.annotation.unused
 trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
   self: Suite =>
 
-  val majorLanguageVersion: LanguageVersion.Major;
-
   def tuple(a: Value, b: Value): Value =
     Value.ValueRecord(
       Some(StablePackages.stablePackages.Tuple2),
@@ -39,14 +37,10 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
       ),
     )
 
-  // TODO(https://github.com/digital-asset/daml/issues/18457): delete once test cases using keys
-  //  are split
-  override protected lazy val devMode = true
+  override protected lazy val protocolVersion: ProtocolVersion = ProtocolVersion.Explicit("v35")
 
   lazy val darPath: Path = rlocation(
-    // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert to
-    //  non-dev dar
-    Paths.get(s"daml-script/test/script-test-v${majorLanguageVersion.pretty}.dev.dar")
+    Paths.get(s"daml-script/test/script-test-v2.3-staging.dar")
   )
   lazy val dar: CompiledDar = CompiledDar.read(darPath, defaultCompilerConfig)
 

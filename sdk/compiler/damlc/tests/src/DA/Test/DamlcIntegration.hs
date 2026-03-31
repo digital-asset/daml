@@ -3,6 +3,7 @@
 
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Test driver for Daml-GHC CompilerService.
 -- For each file, compile it with GHC, convert it,
@@ -29,6 +30,7 @@ import           Control.Concurrent.Extra
 import           Control.DeepSeq
 import           Control.Exception.Extra
 import           Control.Monad
+import           Control.Monad.Cont (ContT (..))
 import           Control.Monad.IO.Class
 import           DA.Daml.LF.PrettyScript (prettyScriptError, prettyScriptResult)
 import           DA.Daml.LF.Proto3.Encode
@@ -164,6 +166,8 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
 
       cont (dir </> packageDatabasePath, packageFlags)
 
+type WithPVScriptService a = Maybe String -> (SS.Handle -> IO a) -> IO a
+
 main :: IO ()
 main = withSdkVersions $ do
   -- This is a bit hacky, we want the LF version before we hand over to
@@ -181,13 +185,18 @@ main = withSdkVersions $ do
                        , SS.cnfEvaluationTimeout = Just 3
                        }
 
-  withDamlScriptDep' (Just lfVer) (externalPackages lfVer) $ \scriptPackageData ->
-    SS.withScriptService lfVer scriptLogger scriptConf Nothing $ \scriptService -> do
-      hSetEncoding stdout utf8
-      setEnv "TASTY_NUM_THREADS" "1" True
-      todoRef <- newIORef DList.empty
-      let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
-      integrationTests <- getIntegrationTests registerTODO scriptService scriptPackageData
+      withScriptService :: WithPVScriptService a
+      withScriptService idePV = SS.withScriptService lfVer scriptLogger (scriptConf {SS.cnfIdeLedgerProtocolVersion = idePV}) Nothing
+
+  withDamlScriptDep' (Just lfVer) (externalPackages lfVer) $ \scriptPackageData -> do
+    hSetEncoding stdout utf8
+    setEnv "TASTY_NUM_THREADS" "1" True
+    todoRef <- newIORef DList.empty
+    let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
+
+    integrationTestCases <- collectIntegrationTests
+    withScriptServices withScriptService integrationTestCases $ \getScriptService -> do
+      integrationTests <- buildIntegrationTestTree integrationTestCases registerTODO getScriptService scriptPackageData
       let tests = testGroup "All" [parseRenderRangeTest, uniqueUniques, integrationTests]
       defaultMainWithIngredients ingredients tests
         `finally` (do
@@ -268,31 +277,42 @@ getCantSkipPreprocessorTestFiles = do
             }
         ]
 
-getIntegrationTests :: SdkVersioned => (TODO -> IO ()) -> SS.Handle -> ScriptPackageData -> IO TestTree
-getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = do
+-- We need to start a different script servive for each idePV used in the suite
+-- First find all the unique PVs
+withScriptServices :: (forall a. WithPVScriptService a) -> [DamlTestInput] -> ((Maybe String -> SS.Handle) -> IO ()) -> IO ()
+withScriptServices withScriptService damlTests f = do
+    let allVers = nubOrd $ Nothing : [Just ver | damlTest <- damlTests, IdeLedgerProtocolVersion ver <- anns damlTest]
+    runContT (traverse (ContT . withScriptService) allVers) $ \allServices ->
+        let serviceMapping = MS.fromList $ zip allVers allServices
+         in f $ \pv -> serviceMapping MS.! pv
+
+collectIntegrationTests :: IO [DamlTestInput]
+collectIntegrationTests =
+    mconcat @(IO [DamlTestInput])
+        [ getDamlTestFiles "compiler/damlc/tests/daml-test-files"
+        , getBondTradingTestFiles
+        , getCantSkipPreprocessorTestFiles
+        ]
+    >>= shuffleM  -- Make sure we can run the tests in any order.
+
+buildIntegrationTestTree :: SdkVersioned => [DamlTestInput] -> (TODO -> IO ()) -> (Maybe String -> SS.Handle) -> ScriptPackageData -> IO TestTree
+buildIntegrationTestTree damlTests registerTODO getScriptService (packageDbPath, packageFlags) = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
-
-    damlTests <-
-        mconcat @(IO [DamlTestInput])
-            [ getDamlTestFiles "compiler/damlc/tests/daml-test-files"
-            , getBondTradingTestFiles
-            , getCantSkipPreprocessorTestFiles
-            ]
-        >>= shuffleM  -- Make sure we can run the tests in any order.
 
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
 
     -- We need to start a different compiler service for each test that has
-    -- different compiler options.  Fortunately there are not that many options
+    -- different compiler options and script service.  Fortunately there are not that many options
     -- that we allow toggling in tests, so the size of this map should be small
     -- (< 20).
-    let damlTestsByExtraOpts :: MS.Map (S.Set String) [DamlTestInput]
-        damlTestsByExtraOpts = fmap reverse $ MS.fromListWith (++) $ do
+    let damlTestsByExtraOptsAndPV :: MS.Map (S.Set String, Maybe String) [DamlTestInput]
+        damlTestsByExtraOptsAndPV = fmap reverse $ MS.fromListWith (++) $ do
             damlTest <- damlTests
             let opts = S.fromList [opt | BuildOption opt <- anns damlTest]
-            pure (opts, [damlTest])
+                pv = listToMaybe [ver | IdeLedgerProtocolVersion ver <- anns damlTest]
+            pure ((opts, pv), [damlTest])
 
     -- initialise the compiler service
     vfs <- makeVFSHandle
@@ -321,8 +341,8 @@ getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = d
                       (optTypecheckerWarningFlags opts0)
                 }
 
-              mkIde options = do
-                damlEnv <- mkDamlEnv options (StudioAutorunAllScripts True) (Just scriptService)
+              mkIde options pv = do
+                damlEnv <- mkDamlEnv options (StudioAutorunAllScripts True) (Just $ getScriptService pv)
                 initialise
                   (mainRule options)
                   (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ())
@@ -333,11 +353,11 @@ getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = d
                   vfs
           in
           testGroup ("Tests for Daml-LF " ++ renderPretty version) $ do
-            (optsSet, tests) <- MS.toList damlTestsByExtraOpts
+            ((optsSet, pv), tests) <- MS.toList damlTestsByExtraOptsAndPV
             let extraOpts = S.toList optsSet
                 customOpts = parseBuildOptions extraOpts opts
             pure $ withResource
-              (mkIde customOpts)
+              (mkIde customOpts pv)
               shutdown
               $ \service ->
               testGroup (if null extraOpts then "default opts" else unwords extraOpts) $
@@ -578,6 +598,9 @@ data Ann
       --
       -- * explicit-serializable
       -- * toggling InlineDamlCustomWarnings
+    | IdeLedgerProtocolVersion String
+      -- ^ Sets the IDE Ledger protocol version (via the script service), meaning we need a service per PV
+      -- Need for separating use of rollback and contract keys (34 supports rollback, 35+dev supports keys)
 
 readFileAnns :: FilePath -> IO [Ann]
 readFileAnns file = do
@@ -599,8 +622,12 @@ readFileAnns file = do
             ("TODO",x) -> Just $ Todo x
             ("LEDGER", words -> [script, path]) -> Just $ Ledger script path
             ("BUILD-OPTION", x) -> Just $ BuildOption $ trim x
+            ("IDE-PV", x) -> Just $ IdeLedgerProtocolVersion $ dropVPrefix $ fmap toLower $ trim x
             _ -> error $ "Can't understand test annotation in " ++ show file ++ ", got " ++ show x
         f _ = Nothing
+        dropVPrefix :: String -> String
+        dropVPrefix ('v':str) = str
+        dropVPrefix str = str
 
 parseMaybeVersions :: String -> MS.Map LF.MajorVersion LF.MinorVersion
 parseMaybeVersions str = MS.fromList (pairUp sortedMajorVersions parsedMaybeVersions)

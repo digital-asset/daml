@@ -38,14 +38,19 @@ object Context {
 
   private val contextCounter = new AtomicLong()
 
-  def newContext(lfVerion: LanguageVersion, timeout: Duration): Context =
-    new Context(contextCounter.incrementAndGet(), lfVerion, timeout)
+  def newContext(
+      lfVerion: LanguageVersion,
+      timeout: Duration,
+      ideLedgerProtocolVersion: Runner.IdeLedgerProtocolVersion,
+  ): Context =
+    new Context(contextCounter.incrementAndGet(), lfVerion, timeout, ideLedgerProtocolVersion)
 }
 
 class Context(
     val contextId: Context.ContextId,
     languageVersion: LanguageVersion,
     timeout: Duration,
+    ideLedgerProtocolVersion: Runner.IdeLedgerProtocolVersion,
 ) {
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -87,7 +92,7 @@ class Context(
   def loadedPackages(): Iterable[PackageId] = extSignatures.keys
 
   def cloneContext(): Context = synchronized {
-    val newCtx = Context.newContext(languageVersion, timeout)
+    val newCtx = Context.newContext(languageVersion, timeout, ideLedgerProtocolVersion)
     newCtx.extSignatures = extSignatures
     newCtx.extDefns = extDefns
     newCtx.modules = modules
@@ -221,6 +226,7 @@ class Context(
         else if (canceledByRequest()) Some(Runner.CanceledByRequest)
         else None
       },
+      ideLedgerProtocolVersion = ideLedgerProtocolVersion,
     )
 
     def handleFailure(e: Error) =

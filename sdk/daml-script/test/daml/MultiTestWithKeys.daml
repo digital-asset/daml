@@ -3,7 +3,7 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
-module MultiTest where
+module MultiTestWithKeys where
 
 import DA.List (sortOn, (\\), head)
 import DA.Text (splitOn)
@@ -90,6 +90,8 @@ template Box with
     content: Text
   where
     signatory s
+    key s: Party
+    maintainer key
     nonconsuming choice Open: Text with
         c: Party
       controller c
@@ -125,6 +127,21 @@ disclosuresTest = do
   submitWithDisclosuresMustFail bob [disclosure] (exerciseCmd did (Open bob))
 
   pure content
+
+
+disclosuresByKeyTest : Script Text
+disclosuresByKeyTest = do
+  -- init
+  alice <- allocatePartyOn "alice" (ParticipantName "participant0")
+  bob <- allocatePartyOn "bob" (ParticipantName "participant1")
+  did <- alice `submit` do
+     createCmd (Box alice "my secret")
+  disclosure <- fromSome <$> queryDisclosure alice did
+
+  content <- submitWithDisclosures bob [disclosure] (exerciseByKeyCmd @Box alice (Open bob))
+
+  pure content
+
 
 inactiveDisclosureDoesNotFailDuringSubmission: Script ()
 inactiveDisclosureDoesNotFailDuringSubmission = do

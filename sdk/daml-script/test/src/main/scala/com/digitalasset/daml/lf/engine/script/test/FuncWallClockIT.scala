@@ -6,13 +6,9 @@ package com.digitalasset.daml.lf.engine.script.test
 import java.time.Duration
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.value.Value._
 
-class FuncWallClockITV2 extends FuncWallClockIT(LanguageVersion.Major.V2)
-
-class FuncWallClockIT(override val majorLanguageVersion: LanguageVersion.Major)
-    extends AbstractFuncIT {
+class FuncWallClockIT extends AbstractFuncIT {
   protected override lazy val timeMode = ScriptTimeMode.WallClock
 
   "testSleep" should {
@@ -21,7 +17,7 @@ class FuncWallClockIT(override val majorLanguageVersion: LanguageVersion.Major)
         clients <- scriptClients()
         ValueRecord(_, vals) <- run(
           clients,
-          QualifiedName.assertFromString("ScriptTest:sleepTest"),
+          QualifiedName.assertFromString("ScriptTestWithKeys:sleepTest"),
           dar = dar,
         )
       } yield {

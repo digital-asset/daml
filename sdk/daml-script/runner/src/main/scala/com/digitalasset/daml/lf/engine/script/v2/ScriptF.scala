@@ -502,12 +502,36 @@ object ScriptF {
       for {
         client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
         keyValue <- Converter.toFuture(Converter.castCommandExtendedValue(key.key))
-        optR <- client.queryContractKey(
+        contracts <- client.queryNContractKey(
           parties,
           tplId,
           keyValue,
+          1,
         )
-      } yield ValueOptional(optR.map(Converter.fromCreated(_, tplId)))
+      } yield ValueOptional(contracts.headOption.map(Converter.fromCreated(_, tplId)))
+  }
+
+  final case class QueryNContractKey(
+      parties: OneAnd[Set, Party],
+      tplId: Identifier,
+      key: AnyContractKey,
+      limit: Int,
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[ExtendedValue] =
+      for {
+        client <- Converter.toFuture(env.clients.getPartiesParticipant(parties))
+        keyValue <- Converter.toFuture(Converter.castCommandExtendedValue(key.key))
+        contracts <- client.queryNContractKey(
+          parties,
+          tplId,
+          keyValue,
+          limit,
+        )
+      } yield ValueList(contracts.map(Converter.fromCreated(_, tplId)).to(FrontStack))
   }
 
   /** Allocate a party on the default, a singular, or multiple participants
@@ -1145,6 +1169,24 @@ object ScriptF {
       case _ => Left(s"Expected QueryContractKey payload but got $v")
     }
 
+  private def parseQueryNContractKey(
+      v: ExtendedValue,
+      env: Env,
+  ): Either[String, QueryNContractKey] =
+    v match {
+      case ValueRecord(_, ImmArray((_, actAs), (_, tplId), (_, key), (_, limit))) =>
+        for {
+          actAs <- Converter.toParties(actAs)
+          tplId <- Converter.typeRepToIdentifier(tplId)
+          key <- Converter.toAnyContractKey(key, env.lookupKeyTy(_))
+          limitRaw <- Converter.toInt(limit)
+          // Daml implementation prevents negative numbers
+          // Long.toInt gives -1 for overflows
+          limit = if (limitRaw == -1) Int.MaxValue else limitRaw
+        } yield QueryNContractKey(actAs, tplId, key, limit)
+      case _ => Left(s"Expected QueryNContractKey payload but got $v")
+    }
+
   private def parseAllocPartyV1(v: ExtendedValue): Either[String, AllocParty] =
     v match {
       case ValueRecord(
@@ -1411,6 +1453,7 @@ object ScriptF {
       case ("QueryInterfaceContractId", 1) => parseQueryInterfaceContractId(v)
       case ("QueryContractKey", 1) => parseQueryContractKey(v, env, legacyAnyContractKey = true)
       case ("QueryContractKey", 2) => parseQueryContractKey(v, env)
+      case ("QueryNContractKey", 1) => parseQueryNContractKey(v, env)
       case ("AllocateParty", 1) => parseAllocPartyV1(v)
       case ("AllocateParty", 2) => parseAllocPartyV2(v)
       case ("ListKnownParties", 1) => parseListKnownParties(v)

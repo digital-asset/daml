@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.engine.script
 package test
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.integrationtest.CantonConfig.ProtocolVersion
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.daml.lf.UpgradeTestUtil
@@ -40,10 +41,9 @@ class UpgradesIT(
   final override protected lazy val nParticipants = numParticipants
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
-  final override protected lazy val devMode = runCantonInDevMode
+  final override protected lazy val protocolVersion =
+    if (runCantonInDevMode) ProtocolVersion.Dev else ProtocolVersion.Latest
   final override protected val disableUpgradeValidation = true
-
-  override val majorLanguageVersion: LanguageVersion.Major = languageVersion.major
 
   override protected lazy val darFiles = List()
 

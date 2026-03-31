@@ -382,20 +382,21 @@ class GrpcLedgerClient(
         .hash
     )
 
-  override def queryContractKey(
+  override def queryNContractKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       key: Value,
+      limit: Int,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
+  ): Future[List[ScriptLedgerClient.ActiveContract]] = {
     // We cannot do better than a linear search over query here.
     for {
       activeContracts <- queryWithKey(parties, templateId)
       ownHash <- computeKeyHash(templateId, key)
     } yield {
-      activeContracts.collectFirst({ case (c, Some(kHash)) if kHash == ownHash => c })
+      activeContracts.collect({ case (c, Some(kHash)) if kHash == ownHash => c }).take(limit).toList
     }
   }
 

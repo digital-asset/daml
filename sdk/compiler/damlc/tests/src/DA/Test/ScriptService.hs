@@ -58,22 +58,23 @@ main = withSdkVersions $ do
             [ testGroup
                 "Without Contract keys"
                 [ withResourceCps
-                    (withScriptService LF.defaultLfVersion)
+                    (withScriptService LF.defaultLfVersion $ Just "V34")
                     (testScriptService LF.defaultLfVersion)
                 ]
             , testGroup
                 "With Contract Keys"
                 [ withResourceCps
-                    (withScriptService lfVersion)
+                    (withScriptService lfVersion Nothing)
                     (testScriptServiceWithKeys lfVersion)
-                | Just lfVersion <- [LF.minBound $ LF.featureVersionReq LF.featureUCKBuiltins]
+                -- TODO (canton#30398) Change the feature min-bound to LF.defaultLfVersion once 2.3 becomes default
+                | Just lfVersion <- [LF.minBound $ LF.featureVersionReq LF.featureContractKeys]
                 ]
             ]
 
-withScriptService :: SdkVersioned => LF.Version -> (SS.Handle -> IO ()) -> IO ()
-withScriptService lfVersion action = do
+withScriptService :: SdkVersioned => LF.Version -> Maybe String -> (SS.Handle -> IO ()) -> IO ()
+withScriptService lfVersion idePv action = do
   logger <- Logger.newStderrLogger Logger.Error "script-service"
-  let scriptConfig = SS.defaultScriptServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
+  let scriptConfig = SS.defaultScriptServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"], SS.cnfIdeLedgerProtocolVersion = idePv}
   -- Spinning up the script service is expensive so we do it once at the beginning.
   SS.withScriptService lfVersion logger scriptConfig Nothing action
 
@@ -940,10 +941,6 @@ testScriptServiceWithKeys lfVersion getScriptService =
                       "  party <- allocateParty \"party\"",
                       "  party1 <- allocateParty \"party1\"",
                       "  submit party (createCmd (MultiSignatory party party1))",
-                      "testDuplicateKey = do",
-                      "  p <- allocateParty \"p\"",
-                      "  submit p (createCmd (TKey p))",
-                      "  submit p (createCmd (TKey p))",
                       "testNotVisible = do",
                       "  party <- allocateParty \"party\"",
                       "  party1 <- allocateParty \"party1\"",
@@ -971,8 +968,6 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     ]
                 expectScriptFailure rs "testMissingAuthorization" $ \r ->
                   matchRegex r "failed due to a missing authorization from 'party1-[a-z0-9]+'"
-                expectScriptFailure rs "testDuplicateKey" $ \r ->
-                  matchRegex r "due to unique key violation for key"
                 expectScriptFailure rs "testNotVisible" $ \r ->
                   matchRegex r "Attempt to fetch or exercise a contract not visible to the reading parties"
                 expectScriptFailure rs "testError" $ \r ->
@@ -981,7 +976,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                   matchRegex r "abortCrash"
                 expectScriptFailure rs "testPartialSubmit" $ \r ->
                   matchRegex r  $ T.unlines
-                    [ "Script execution failed on commit at Test:57:3:"
+                    [ "Script execution failed on commit at Test:53:3:"
                     , ".*"
                     , ".*failed due to a missing authorization.*"
                     , ".*"
@@ -994,7 +989,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     ]
                 expectScriptFailure rs "testPartialSubmitMustFail" $ \r ->
                   matchRegex r $ T.unlines
-                    [ "Script execution failed on commit at Test:62:3:"
+                    [ "Script execution failed on commit at Test:58:3:"
                     , "  Aborted:  Expected submit to fail but it succeeded"
                     , ".*"
                     , ".*"
@@ -1142,6 +1137,8 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     , "import DA.Assert"
                     , "import DA.Foldable"
                     , "import Daml.Script"
+                    , "import Prelude hiding (lookupByKey)"
+                    , "import DA.ContractKeys (lookupByKey)"
                     , "template WithKey"
                     , "  with"
                     , "    p : Party"
@@ -1290,11 +1287,8 @@ runScriptsInAllPackages getScriptService lfVersion mainPackage packages = do
 
 
 locateDamlScriptDar :: LF.Version -> IO FilePath
-locateDamlScriptDar lfVersion = locateRunfiles $ case lfVersion of
-    (LF.Version LF.V2 LF.PointDev) -> prefix </> "daml-script-2.dev.dar"
-    (LF.Version LF.V2 _) -> prefix </> "daml-script.dar"
-  where
-    prefix = mainWorkspace </> "daml-script" </> "daml"
+locateDamlScriptDar lfVersion =
+  locateRunfiles $ mainWorkspace </> "daml-script" </> "daml" </> "daml-script-" <> LF.renderVersion lfVersion <> ".dar"
 
 writeAndBuildPackage :: LF.Version -> FilePath -> (FilePath, [(FilePath, [T.Text])]) -> IO ()
 writeAndBuildPackage lfVersion damlc (packagePath, packageFiles) = do
