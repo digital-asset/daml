@@ -1,9 +1,12 @@
-// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data.codegen;
 
+import static java.util.Collections.unmodifiableList;
+
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.javaapi.data.DamlRecord;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -11,12 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
-
-import com.daml.ledger.javaapi.data.DamlRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static java.util.Collections.unmodifiableList;
 
 /**
  * {@link ValueDecoder}s for Daml types that are not code-generated.
