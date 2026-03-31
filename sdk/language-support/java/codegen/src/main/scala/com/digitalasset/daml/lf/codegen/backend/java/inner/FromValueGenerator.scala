@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.codegen.backend.java.inner
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.codegen.{
   ContractCompanion,
+  UnknownTrailingFieldPolicy,
   ValueDecoder,
   PrimitiveValueDecoders,
 }
@@ -108,12 +109,55 @@ private[inner] object FromValueGenerator extends StrictLogging {
   ): MethodSpec = {
     logger.debug("Generating templateValueDecoder-delegating valueDecoder method")
 
+    val valueDecoderType =
+      ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className)
+    val contractIdType = ParameterizedTypeName.get(
+      ClassName.get(classOf[javaapi.data.codegen.ContractId[_]]),
+      className,
+    )
+    val contractIdClassName =
+      nestedClassName(className.asInstanceOf[ClassName], "ContractId")
+
     MethodSpec
       .methodBuilder("valueDecoder")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
+      .returns(valueDecoderType)
       .addException(classOf[IllegalArgumentException])
-      .addStatement("return templateValueDecoder()")
+      .addCode(
+        CodeBlock
+          .builder()
+          .addStatement("final $T base = templateValueDecoder()", valueDecoderType)
+          .add("return new $T() {\n", valueDecoderType)
+          .indent()
+          .add("@$T\n", classOf[Override])
+          .beginControlFlow(
+            "public $T decode($T value, $T policy)",
+            className,
+            classOf[javaapi.data.Value],
+            classOf[UnknownTrailingFieldPolicy],
+          )
+          .addStatement("return base.decode(value, policy)")
+          .endControlFlow()
+          .add("@$T\n", classOf[Override])
+          .beginControlFlow(
+            "public $T decode($T value)",
+            className,
+            classOf[javaapi.data.Value],
+          )
+          .addStatement("return base.decode(value)")
+          .endControlFlow()
+          .add("@$T\n", classOf[Override])
+          .beginControlFlow(
+            "public $T fromContractId($T contractId)",
+            contractIdType,
+            classOf[String],
+          )
+          .addStatement("return new $T(contractId)", contractIdClassName)
+          .endControlFlow()
+          .unindent()
+          .add("};\n")
+          .build()
+      )
       .build()
   }
 
@@ -268,24 +312,27 @@ private[inner] object FromValueGenerator extends StrictLogging {
       case TypePrim(PrimTypeOptional, ImmArraySeq(param)) =>
         oneTypeArgPrim("fromOptional", param)
 
-      case TypePrim(PrimTypeContractId, ImmArraySeq(TypeVar(_))) =>
-        FromFreeVar(accessor =>
-          CodeBlock.of(
-            "new $T<>($L.asContractId()$L.getValue())",
-            classOf[javaapi.data.codegen.ContractId[_]],
-            accessor,
-            orElseThrow(apiType, field),
-          )
-        )
-      case TypePrim(PrimTypeContractId, ImmArraySeq(_)) =>
-        FromFreeVar(accessor =>
-          CodeBlock.of(
-            "new $T($L.asContractId()$L.getValue())",
-            javaType,
-            accessor,
-            orElseThrow(apiType, field),
-          )
-        )
+      case TypePrim(PrimTypeContractId, ImmArraySeq(typeArg)) =>
+        typeArg match {
+          case TypeVar(tvName) =>
+            FromFreeVar(accessor =>
+              CodeBlock.of(
+                "fromValue$L.fromContractId($L.asContractId()$L.getValue())",
+                JavaEscaper.escapeString(tvName),
+                accessor,
+                orElseThrow(apiType, field),
+              )
+            )
+          case _ =>
+            FromFreeVar(accessor =>
+              CodeBlock.of(
+                "new $T($L.asContractId()$L.getValue())",
+                javaType,
+                accessor,
+                orElseThrow(apiType, field),
+              )
+            )
+        }
       case TypePrim(PrimTypeTextMap, ImmArraySeq(param)) =>
         oneTypeArgPrim("fromTextMap", param)
 
