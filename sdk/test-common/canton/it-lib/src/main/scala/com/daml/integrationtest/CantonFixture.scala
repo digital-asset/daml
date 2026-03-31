@@ -53,7 +53,7 @@ trait CantonFixtureWithResource[A]
 
   protected lazy val authSecret: Option[String] = Option.empty
   protected lazy val darFiles: List[Path] = List.empty
-  protected lazy val protocolVersion: ProtocolVersion = ProtocolVersion.Latest
+  protected lazy val protocolVersion: ProtocolVersion = ProtocolVersion.Explicit("v35")
   protected lazy val nParticipants: Int = 1
   protected lazy val timeProviderType: TimeProviderType = TimeProviderType.WallClock
   protected lazy val tlsEnable: Boolean = false
