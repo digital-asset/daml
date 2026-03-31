@@ -70,7 +70,7 @@ trap on_exit SIGHUP SIGINT SIGQUIT SIGABRT EXIT
 
 function publish_artifact {
   local artifact_name="${1}"
-  declare -a artifact_platforms=( "linux-intel,linux/amd64" "linux-arm,linux/arm64" "macos,darwin/arm64" "macos,darwin/amd64" "windows,windows/amd64" )
+  declare -a artifact_platforms=( "linux-intel,linux/amd64" "linux-arm,linux/arm64" "m1,darwin/arm64" "macos,darwin/amd64" "windows,windows/amd64" )
   declare -a platform_args
   declare -a extra_tags_args
   cd "${STAGING_DIR}" || exit 1

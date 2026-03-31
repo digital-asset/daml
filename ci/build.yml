@@ -221,6 +221,7 @@ jobs:
     - Windows
     - Linux
     - macOS
+    - m1
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -249,6 +250,11 @@ jobs:
         artifactName: platform-independence-dar-macos
         targetPath: $(Build.StagingDirectory)/platform-independence/macos/
       displayName: 'Download platform-independence dar macos pipeline artifact'
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        artifactName: platform-independence-dar-m1
+        targetPath: $(Build.StagingDirectory)/platform-independence/m1/
+      displayName: 'Download platform-independence dar m1 pipeline artifact'
     - bash: |
         set -euo pipefail
         eval "$(cd sdk; dev-env/bin/dade-assist)"
@@ -257,17 +263,20 @@ jobs:
         DIR2=$(mktemp -d)
         DIR3=$(mktemp -d)
         DIR4=$(mktemp -d)
-        trap "rm -rf $DIR1 $DIR2 $DIR3 $DIR4" EXIT
+        DIR5=$(mktemp -d)
+        trap "rm -rf $DIR1 $DIR2 $DIR3 $DIR4 $DIR5" EXIT
 
         unzip -d $DIR1 $(Build.StagingDirectory)/platform-independence/linux-intel/platform-independence.dar
         unzip -d $DIR2 $(Build.StagingDirectory)/platform-independence/windows/platform-independence.dar
         unzip -d $DIR3 $(Build.StagingDirectory)/platform-independence/macos/platform-independence.dar
         unzip -d $DIR4 $(Build.StagingDirectory)/platform-independence/linux-arm/platform-independence.dar
+        unzip -d $DIR5 $(Build.StagingDirectory)/platform-independence/m1/platform-independence.dar
 
         # hie/hi files may differ.
         diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR2
         diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR3
         diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR4
+        diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR5
       displayName: 'Compare platform-independence dars of different platforms.'
 
 - job: compatibility_ts_libs

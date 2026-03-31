@@ -33,7 +33,7 @@ push daml-script-runner $SCRIPT_RUNNER.asc
 
 # For the split release process these are not published to artifactory.
 if [[ "$#" -lt 3 || $3 != "split" ]]; then
-   for platform in linux macos windows; do
+   for platform in linux macos m1 windows; do
        EE_TARBALL=daml-sdk-$RELEASE_TAG-$platform-ee.tar.gz
        push sdk-ee $EE_TARBALL
        push sdk-ee $EE_TARBALL.asc

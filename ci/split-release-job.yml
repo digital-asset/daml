@@ -65,6 +65,14 @@ jobs:
       displayName: "Download macOS Release Artifacts"
     - task: DownloadPipelineArtifact@2
       inputs:
+        artifactName: m1-release
+        targetPath: $(Build.StagingDirectory)/release-artifacts
+      condition: and(succeeded(),
+                     not(eq(variables.skip_arm, 'true')),
+                     not(eq(variables['skip-github'], 'TRUE')))
+      displayName: "Download macOS ARM Release Artifacts"
+    - task: DownloadPipelineArtifact@2
+      inputs:
         artifactName: windows-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
