@@ -471,26 +471,9 @@ key :: (HasKey t k) => t -> k
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-haslookupbykey-92299
 class HasLookupByKey t k
 
--- | Look up the contract ID `t` associated with a given contract key `k`.
---   
---   You must pass the `t` using an explicit type application. For
---   instance, if you want to look up a contract of template `Account` by its
---   key `k`, you must call `lookupByKey @Account k`.
-@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-lookupbykey-97749
-_lookupByKey :: (HasLookupByKey t k) => k -> Update (Optional (ContractId t))
-
 -- | Exposes `fetchByKey` function. Part of the `TemplateKey` constraint.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasfetchbykey-54638
 class HasFetchByKey t k
-
--- | Fetch the contract ID and contract data associated with a given
---   contract key.
---   
---   You must pass the `t` using an explicit type application. For
---   instance, if you want to fetch a contract of template `Account` by its
---   key `k`, you must call `fetchByKey @Account k`.
-@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-fetchbykey-7552
-_fetchByKey :: (HasFetchByKey t k) => k -> Update (ContractId t, t)
 
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-haslookupnbykey-35508
 class HasLookupNByKey t k

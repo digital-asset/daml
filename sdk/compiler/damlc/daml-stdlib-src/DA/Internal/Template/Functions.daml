@@ -174,21 +174,12 @@ class HasKey t k | t -> k where
 
 -- | Exposes `lookupByKey` function. Part of the `TemplateKey` constraint.
 class HasLookupByKey t k | t -> k where
-  -- | Look up the contract ID `t` associated with a given contract key `k`.
-  --
-  -- You must pass the `t` using an explicit type application. For
-  -- instance, if you want to look up a contract of template `Account` by its
-  -- key `k`, you must call `lookupByKey @Account k`.
+  -- | HIDE
   _lookupByKey : k -> Update (Optional (ContractId t))
 
 -- | Exposes `fetchByKey` function. Part of the `TemplateKey` constraint.
 class HasFetchByKey t k | t -> k where
-  -- | Fetch the contract ID and contract data associated with a given
-  -- contract key.
-  --
-  -- You must pass the `t` using an explicit type application. For
-  -- instance, if you want to fetch a contract of template `Account` by its
-  -- key `k`, you must call `fetchByKey @Account k`.
+  -- | HIDE
   _fetchByKey : k -> Update (ContractId t, t)
   -- NOTE(F. Mazzoli): the motivation for this function to return both the
   -- contract ID and the contract instance is that `fetchByKey` results in
@@ -224,6 +215,11 @@ class HasExerciseByKey t k c r | t -> k, t c -> r where
 
 
 #ifdef DAML_NUCK
+-- | Look up the contract ID `t` associated with a given contract key `k`.
+--
+-- You must pass the `t` using an explicit type application. For
+-- instance, if you want to look up a contract of template `Account` by its
+-- key `k`, you must call `lookupByKey @Account k`.
 lookupByKey : (HasKey t k, HasLookupNByKey t k) => k -> Update (Optional (ContractId t))
 lookupByKey k = do
   cids <- _lookupNByKey 1 k
@@ -232,6 +228,12 @@ lookupByKey k = do
     listToOptional [] = None
     listToOptional (x::_) = Some x
 
+-- | Fetch the contract ID and contract data associated with a given
+-- contract key.
+--
+-- You must pass the `t` using an explicit type application. For
+-- instance, if you want to fetch a contract of template `Account` by its
+-- key `k`, you must call `fetchByKey @Account k`.
 fetchByKey :  forall t k. HasFetchByKey t k => k -> Update (ContractId t, t)
 fetchByKey = _fetchByKey
 
