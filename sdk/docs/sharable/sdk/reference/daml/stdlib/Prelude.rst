@@ -496,9 +496,9 @@ Typeclasses
 
   Exposes ``lookupByKey`` function\. Part of the ``TemplateKey`` constraint\.
 
-  .. _function-da-internal-template-functions-lookupbykey-92781:
+  .. _function-da-internal-template-functions-lookupbykey-97749:
 
-  `lookupByKey <function-da-internal-template-functions-lookupbykey-92781_>`_
+  `_lookupByKey <function-da-internal-template-functions-lookupbykey-97749_>`_
     \: k \-\> `Update <type-da-internal-lf-update-68072_>`_ (`Optional <type-da-internal-prelude-optional-37153_>`_ (`ContractId <type-da-internal-lf-contractid-95282_>`_ t))
 
     Look up the contract ID ``t`` associated with a given contract key ``k``\.
@@ -513,9 +513,9 @@ Typeclasses
 
   Exposes ``fetchByKey`` function\. Part of the ``TemplateKey`` constraint\.
 
-  .. _function-da-internal-template-functions-fetchbykey-95464:
+  .. _function-da-internal-template-functions-fetchbykey-7552:
 
-  `fetchByKey <function-da-internal-template-functions-fetchbykey-95464_>`_
+  `_fetchByKey <function-da-internal-template-functions-fetchbykey-7552_>`_
     \: k \-\> `Update <type-da-internal-lf-update-68072_>`_ (`ContractId <type-da-internal-lf-contractid-95282_>`_ t, t)
 
     Fetch the contract ID and contract data associated with a given
@@ -525,9 +525,9 @@ Typeclasses
     instance, if you want to fetch a contract of template ``Account`` by its
     key ``k``, you must call ``fetchByKey @Account k``\.
 
-.. _class-da-internal-template-functions-hasquerynbykey-53843:
+.. _class-da-internal-template-functions-haslookupnbykey-35508:
 
-**class** `HasQueryNByKey <class-da-internal-template-functions-hasquerynbykey-53843_>`_ t k **where**
+**class** `HasLookupNByKey <class-da-internal-template-functions-haslookupnbykey-35508_>`_ t k **where**
 
 
 .. _class-da-internal-template-functions-hasmaintainer-28932:

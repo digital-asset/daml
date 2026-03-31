@@ -476,8 +476,8 @@ class HasLookupByKey t k
 --   You must pass the `t` using an explicit type application. For
 --   instance, if you want to look up a contract of template `Account` by its
 --   key `k`, you must call `lookupByKey @Account k`.
-@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-lookupbykey-92781
-lookupByKey :: (HasLookupByKey t k) => k -> Update (Optional (ContractId t))
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-lookupbykey-97749
+_lookupByKey :: (HasLookupByKey t k) => k -> Update (Optional (ContractId t))
 
 -- | Exposes `fetchByKey` function. Part of the `TemplateKey` constraint.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasfetchbykey-54638
@@ -489,11 +489,11 @@ class HasFetchByKey t k
 --   You must pass the `t` using an explicit type application. For
 --   instance, if you want to fetch a contract of template `Account` by its
 --   key `k`, you must call `fetchByKey @Account k`.
-@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-fetchbykey-95464
-fetchByKey :: (HasFetchByKey t k) => k -> Update (ContractId t, t)
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-fetchbykey-7552
+_fetchByKey :: (HasFetchByKey t k) => k -> Update (ContractId t, t)
 
-@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasquerynbykey-53843
-class HasQueryNByKey t k
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-haslookupnbykey-35508
+class HasLookupNByKey t k
 
 -- | Exposes `maintainer` function. Part of the `TemplateKey` constraint.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasmaintainer-28932
