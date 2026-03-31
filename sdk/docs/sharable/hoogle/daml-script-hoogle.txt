@@ -972,8 +972,8 @@ queryInterfaceContractId :: (Template i, HasInterfaceView i v, IsParties p, HasC
 --   
 --   This is semantically equivalent to calling `query`
 --   and filtering on the client side.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-querycontractkey-51277
-queryContractKey :: (HasCallStack, TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-querybykey-184
+queryByKey :: (HasCallStack, TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))
 
 -- | Returns N contracts matching a key, returns empty list if the key is inactive
 --   Only available in LF 2.3+

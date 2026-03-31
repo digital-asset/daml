@@ -319,9 +319,9 @@ multiPartyQueryQuery ((p0, p1), (cid0, cid1, cidKey0, cidKey1)) = do
   r === C p0 42
   Some r <- queryContractId @C [p0, p1] cid1
   r === C p1 23
-  Some (r, _) <- queryContractKey @WithKey [p0, p1] p0
+  Some (r, _) <- queryByKey @WithKey [p0, p1] p0
   r === cidKey0
-  Some (r, _) <- queryContractKey @WithKey [p0, p1] p1
+  Some (r, _) <- queryByKey @WithKey [p0, p1] p1
   r === cidKey1
 
 testQueryContractId : Script () = do
@@ -336,16 +336,16 @@ jsonQueryContractId p = do
   optR <- queryContractId p cid
   optR === None
 
-testQueryContractKey : Script () = do
+testQueryByKey : Script () = do
   p <- allocateParty "p"
-  jsonQueryContractKey p
+  jsonQueryByKey p
 
-jsonQueryContractKey p = do
+jsonQueryByKey p = do
   cid <- submit p do createCmd (WithKey p)
-  optR <- queryContractKey @WithKey p p
+  optR <- queryByKey @WithKey p p
   optR === Some (cid, WithKey p)
   submit p do archiveCmd cid
-  optR <- queryContractKey @WithKey p p
+  optR <- queryByKey @WithKey p p
   optR === None
 
 template MultiPartyContract
@@ -381,7 +381,7 @@ tupleKey = do
   p1 <- allocateParty "p1"
   p2 <- allocateParty "p2"
   cid <- submit p1 (createCmd (TTupleKey p1 p2))
-  r <- queryContractKey @TTupleKey p1 (p1, p2)
+  r <- queryByKey @TTupleKey p1 (p1, p2)
   r === Some (cid, TTupleKey p1 p2)
   pure ()
 

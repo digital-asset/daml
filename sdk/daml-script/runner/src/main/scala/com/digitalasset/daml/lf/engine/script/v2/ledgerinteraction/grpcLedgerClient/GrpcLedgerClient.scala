@@ -221,7 +221,7 @@ class GrpcLedgerClient(
     )
   }
 
-  // Helper shared by query, queryContractId and queryContractKey
+  // Helper shared by query, queryContractId and queryByKey
   private def queryWithKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,

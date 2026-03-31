@@ -300,13 +300,13 @@ abstract class AbstractFuncIT
         }
       }
     }
-    "testQueryContractKey" should {
-      "support queryContractKey" in {
+    "testQueryByKey" should {
+      "support queryByKey" in {
         for {
           clients <- scriptClients()
           v <- run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:testQueryContractKey"),
+            QualifiedName.assertFromString("ScriptTestWithKeys:testQueryByKey"),
             dar = dar,
           )
         } yield {
