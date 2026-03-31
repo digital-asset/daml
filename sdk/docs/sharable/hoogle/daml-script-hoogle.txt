@@ -972,8 +972,8 @@ queryInterfaceContractId :: (Template i, HasInterfaceView i v, IsParties p, HasC
 --   
 --   This is semantically equivalent to calling `query`
 --   and filtering on the client side.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-querycontractkey-51277
-queryContractKey :: (HasCallStack, TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-querybykey-184
+queryByKey :: (HasCallStack, TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))
 
 -- | Returns N contracts matching a key, returns empty list if the key is inactive
 --   Only available in LF 2.3+
@@ -983,8 +983,8 @@ queryContractKey :: (HasCallStack, TemplateKey t k, IsParties p) => p -> k -> Sc
 --   
 --   This is semantically equivalent to calling `query`
 --   and filtering on the client side.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-queryncontractkey-89204
-queryNContractKey :: (HasCallStack, TemplateKey t k, IsParties p) => p -> Int -> k -> Script [(ContractId t, t)]
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-querynbykey-54281
+queryNByKey :: (HasCallStack, TemplateKey t k, IsParties p) => p -> Int -> k -> Script [(ContractId t, t)]
 
 -- | Returns all contracts matching a key, returns empty list if the key is inactive
 --   Only available in LF 2.3+
@@ -994,8 +994,8 @@ queryNContractKey :: (HasCallStack, TemplateKey t k, IsParties p) => p -> Int ->
 --   
 --   This is semantically equivalent to calling `query`
 --   and filtering on the client side.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-queryallcontractkey-6887
-queryAllContractKey :: (HasCallStack, TemplateKey t k, IsParties p) => p -> k -> Script [(ContractId t, t)]
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-queryallbykey-81262
+queryAllByKey :: (HasCallStack, TemplateKey t k, IsParties p) => p -> k -> Script [(ContractId t, t)]
 
 -- | Allocate a party with the given display name
 --   using the party management service.

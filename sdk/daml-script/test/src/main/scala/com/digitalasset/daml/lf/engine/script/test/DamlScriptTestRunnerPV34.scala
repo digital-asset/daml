@@ -103,7 +103,7 @@ class DamlScriptTestRunnerPV34 extends DamlScriptTestRunner {
           "LFContractKeys:lookupTest",
           "MultiTest:disclosuresByKeyTest",
           "ScriptTest:testKey",
-          "ScriptTest:testQueryContractKey",
+          "ScriptTest:testQueryByKey",
           "ScriptTest:tupleKey",
         ),
       )

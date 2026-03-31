@@ -74,8 +74,8 @@ class DamlScriptTestRunnerPV35 extends DamlScriptTestRunner {
           |ScriptTestWithKeys:testKey SUCCESS
           |ScriptTestWithKeys:testMaxInboundMessageSize SUCCESS
           |ScriptTestWithKeys:testMultiPartyQueries SUCCESS
+          |ScriptTestWithKeys:testQueryByKey SUCCESS
           |ScriptTestWithKeys:testQueryContractId SUCCESS
-          |ScriptTestWithKeys:testQueryContractKey SUCCESS
           |ScriptTestWithKeys:testSetTime SUCCESS
           |ScriptTestWithKeys:testStack SUCCESS
           |ScriptTestWithKeys:testUserListPagination SUCCESS

@@ -159,7 +159,7 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[Option[Value]]
 
-  def queryNContractKey(
+  def queryNByKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       key: Value,

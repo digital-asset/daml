@@ -1830,9 +1830,9 @@ Functions
   This is semantically equivalent to calling ``queryInterface``
   and filtering on the client side\.
 
-.. _function-daml-script-internal-questions-query-querycontractkey-51277:
+.. _function-daml-script-internal-questions-query-querybykey-184:
 
-`queryContractKey <function-daml-script-internal-questions-query-querycontractkey-51277_>`_
+`queryByKey <function-daml-script-internal-questions-query-querybykey-184_>`_
   \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `TemplateKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-template-functions-templatekey-95200>`_ t k, `IsParties <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-isparties-53750>`_ p) \=\> p \-\> k \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ (`Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ (`ContractId <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ t, t))
 
   Returns ``None`` if there is no active contract with the given key that
@@ -1844,9 +1844,9 @@ Functions
   This is semantically equivalent to calling ``query``
   and filtering on the client side\.
 
-.. _function-daml-script-internal-questions-query-queryncontractkey-89204:
+.. _function-daml-script-internal-questions-query-querynbykey-54281:
 
-`queryNContractKey <function-daml-script-internal-questions-query-queryncontractkey-89204_>`_
+`queryNByKey <function-daml-script-internal-questions-query-querynbykey-54281_>`_
   \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `TemplateKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-template-functions-templatekey-95200>`_ t k, `IsParties <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-isparties-53750>`_ p) \=\> p \-\> `Int <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_ \-\> k \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ \[(`ContractId <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ t, t)\]
 
   Returns N contracts matching a key, returns empty list if the key is inactive
@@ -1858,9 +1858,9 @@ Functions
   This is semantically equivalent to calling ``query``
   and filtering on the client side\.
 
-.. _function-daml-script-internal-questions-query-queryallcontractkey-6887:
+.. _function-daml-script-internal-questions-query-queryallbykey-81262:
 
-`queryAllContractKey <function-daml-script-internal-questions-query-queryallcontractkey-6887_>`_
+`queryAllByKey <function-daml-script-internal-questions-query-queryallbykey-81262_>`_
   \: (`HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `TemplateKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-template-functions-templatekey-95200>`_ t k, `IsParties <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-isparties-53750>`_ p) \=\> p \-\> k \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ \[(`ContractId <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ t, t)\]
 
   Returns all contracts matching a key, returns empty list if the key is inactive

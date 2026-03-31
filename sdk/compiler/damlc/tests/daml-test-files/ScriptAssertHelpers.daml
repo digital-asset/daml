@@ -19,7 +19,7 @@ canSee p = void . queryAssertContractId p
 -- Note that, because of the requirement of specifying `t`, this cannot be used with infix notation, consider renaming
 cantSeeKey : forall t k p. (Show t, Eq t, TemplateKey t k, IsParties p) => p -> k -> Script ()
 cantSeeKey p k = do
-  cArchived <- queryContractKey @t p k
+  cArchived <- queryByKey @t p k
   cArchived === None
 
 canSeeKey : forall t k p. (Show k, TemplateKey t k, IsParties p) => p -> k -> Script ()
@@ -33,6 +33,6 @@ queryAssertContractId p cid =
 
 queryAssertContractKey : forall t k p. (Show k, TemplateKey t k, IsParties p) => p -> k -> Script (ContractId t, t)
 queryAssertContractKey p k =
-  queryContractKey @t p k >>= \case
+  queryByKey @t p k >>= \case
     Some c -> pure c
     None -> assertFail $ "Couldn't see contract with key " <> show k

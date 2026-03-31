@@ -41,9 +41,10 @@ module Daml.Script
   , queryInterface
   , queryContractId
   , queryInterfaceContractId
+  , queryByKey
   , queryContractKey
-  , queryNContractKey
-  , queryAllContractKey
+  , queryNByKey
+  , queryAllByKey
   , queryFilter
   , queryDisclosure
   , PartyIdHint (..)
