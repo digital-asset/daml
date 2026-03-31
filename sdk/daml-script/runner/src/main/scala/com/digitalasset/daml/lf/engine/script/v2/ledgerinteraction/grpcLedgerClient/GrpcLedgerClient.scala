@@ -382,7 +382,7 @@ class GrpcLedgerClient(
         .hash
     )
 
-  override def queryNContractKey(
+  override def queryNByKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       key: Value,
