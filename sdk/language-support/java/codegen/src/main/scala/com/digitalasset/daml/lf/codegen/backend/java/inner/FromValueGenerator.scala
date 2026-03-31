@@ -268,12 +268,13 @@ private[inner] object FromValueGenerator extends StrictLogging {
       case TypePrim(PrimTypeOptional, ImmArraySeq(param)) =>
         oneTypeArgPrim("fromOptional", param)
 
-      case TypePrim(PrimTypeContractId, ImmArraySeq(TypeVar(name))) =>
-        Decoder(
+      case TypePrim(PrimTypeContractId, ImmArraySeq(TypeVar(_))) =>
+        FromFreeVar(accessor =>
           CodeBlock.of(
-            "$T.fromContractId(fromValue$L)",
-            classOf[PrimitiveValueDecoders],
-            JavaEscaper.escapeString(name),
+            "new $T<>($L.asContractId()$L.getValue())",
+            classOf[javaapi.data.codegen.ContractId[_]],
+            accessor,
+            orElseThrow(apiType, field),
           )
         )
       case TypePrim(PrimTypeContractId, ImmArraySeq(_)) =>
