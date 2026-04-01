@@ -265,4 +265,6 @@ use_repo(io_grpc_grpc_java_extension, "io_grpc_grpc_java")
 # Libs
 ncurses = use_extension("//bazel/extensions:lib_ncurses_extension.bzl", "ncurses")
 use_repo(ncurses, "ncurses")
-# # #
+
+m4 = use_extension("//bazel/extensions/dependencies/bin:m4_extension.bzl", "m4")
+use_repo(m4, "m4")
