@@ -5,7 +5,6 @@ package com.digitalasset.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.codegen.{
-  ContractCompanion,
   UnknownTrailingFieldPolicy,
   ValueDecoder,
   PrimitiveValueDecoders,
@@ -81,26 +80,6 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .addCode("return $T.create((value$$, policy$$) -> {$>\n", classOf[ValueDecoder[_]])
       .addCode(fromValueCode.build())
       .addCode("$<});")
-      .build()
-  }
-
-  def generateContractCompanionValueDecoder(
-      className: TypeName,
-      typeParameters: IndexedSeq[String],
-  ): MethodSpec = {
-    logger.debug("Generating method for getting value decoder in template class")
-    val converterParams = FromValueExtractorParameters
-      .generate(typeParameters)
-      .valueDecoderParameterSpecs
-
-    MethodSpec
-      .methodBuilder("valueDecoder")
-      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
-      .addTypeVariables(className.typeParameters)
-      .addParameters(converterParams.asJava)
-      .addException(classOf[IllegalArgumentException])
-      .addStatement("return $T.valueDecoder(COMPANION)", classOf[ContractCompanion[_, _, _]])
       .build()
   }
 
@@ -312,27 +291,23 @@ private[inner] object FromValueGenerator extends StrictLogging {
       case TypePrim(PrimTypeOptional, ImmArraySeq(param)) =>
         oneTypeArgPrim("fromOptional", param)
 
-      case TypePrim(PrimTypeContractId, ImmArraySeq(typeArg)) =>
-        typeArg match {
-          case TypeVar(tvName) =>
-            FromFreeVar(accessor =>
-              CodeBlock.of(
-                "fromValue$L.fromContractId($L.asContractId()$L.getValue())",
-                JavaEscaper.escapeString(tvName),
-                accessor,
-                orElseThrow(apiType, field),
-              )
-            )
-          case _ =>
-            FromFreeVar(accessor =>
-              CodeBlock.of(
-                "new $T($L.asContractId()$L.getValue())",
-                javaType,
-                accessor,
-                orElseThrow(apiType, field),
-              )
-            )
-        }
+      case TypePrim(PrimTypeContractId, ImmArraySeq(TypeVar(name))) =>
+        Decoder(
+          CodeBlock.of(
+            "$T.fromContractId(fromValue$L)",
+            classOf[PrimitiveValueDecoders],
+            JavaEscaper.escapeString(name),
+          )
+        )
+      case TypePrim(PrimTypeContractId, ImmArraySeq(_)) =>
+        FromFreeVar(accessor =>
+          CodeBlock.of(
+            "new $T($L.asContractId()$L.getValue())",
+            javaType,
+            accessor,
+            orElseThrow(apiType, field),
+          )
+        )
       case TypePrim(PrimTypeTextMap, ImmArraySeq(param)) =>
         oneTypeArgPrim("fromTextMap", param)
 

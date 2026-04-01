@@ -12,8 +12,7 @@ Wednesday after your change.
 ## Until 2026-03-31 (Exclusive)
 - Support NUCK in IDE ledger
 - Add --ide-ledger-protocol-version flag to Daml Script CLI runner
-- Add `script-service.protocol-version` to daml.yaml for Daml Test and Daml Studio
-- Codegen-java: Fixed initialization order error in generated template classes by changing `valueDecoder()` to delegate to `templateValueDecoder()` instead of using `ContractCompanion`.
+- Add `script-service.protocol-version` to daml.yaml for Daml Test and Daml Studio  
 
 ## Until 2026-03-24 (Exclusive)
 - Daml Script: Handle new EffectfulRollback errors from the Ledger API
