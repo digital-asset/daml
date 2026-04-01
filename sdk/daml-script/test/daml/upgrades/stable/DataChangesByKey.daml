@@ -3,7 +3,7 @@
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
-module DataChanges (main) where
+module DataChangesByKey (main) where
 
 import UpgradeTestLib
 import qualified V1.OptionalFieldsAdded as V1
@@ -26,13 +26,13 @@ main = tests
 
 
 {- PACKAGE
-name: data-changes
+name: data-changes-by-key
 versions: 2
 -}
 
 
 {- MODULE
-package: data-changes
+package: data-changes-by-key
 contents: |
   module OptionalFieldsAdded where
 
@@ -85,15 +85,15 @@ contents: |
 -}
 
 {- PACKAGE
-name: data-changes-dummy
+name: data-changes-by-key-dummy
 versions: 1
 depends: |
-  data-changes-1.0.0
-  data-changes-2.0.0
+  data-changes-by-key-1.0.0
+  data-changes-by-key-2.0.0
 -}
 
 {- MODULE
-package: data-changes-dummy
+package: data-changes-by-key-dummy
 contents: |
   module DataChangesDummy where
 
@@ -120,7 +120,7 @@ contents: |
 -}
 
 dataChangesV1 : PackageId
-dataChangesV1 = getPackageId "data-changes-1.0.0"
+dataChangesV1 = getPackageId "data-changes-by-key-1.0.0"
 
 templateOptionalFieldsSetWhenDowngradingTest : Show b => Text -> (Party -> Party -> Script (Either SubmitError b)) -> (Text, Test)
 templateOptionalFieldsSetWhenDowngradingTest trailer f = ("Fails if an optional field is set when downgrading (" <> trailer <> ")", s)
