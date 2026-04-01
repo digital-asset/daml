@@ -17,8 +17,10 @@ public class TemplateWithChoiceTest {
 
   @Test
   void createDoesNotThrow() {
-    assertDoesNotThrow(() -> {
-      Update<Created<TemplateWithChoice.ContractId>> update = TemplateWithChoice.create("Alice");
-    });
+    assertDoesNotThrow(
+        () -> {
+          Update<Created<TemplateWithChoice.ContractId>> update =
+              TemplateWithChoice.create("Alice");
+        });
   }
 }
