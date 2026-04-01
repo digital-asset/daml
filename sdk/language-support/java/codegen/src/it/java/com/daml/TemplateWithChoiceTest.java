@@ -15,6 +15,7 @@ import templatewithchoice.TemplateWithChoice;
 @RunWith(JUnitPlatform.class)
 public class TemplateWithChoiceTest {
 
+// Test static initialization of the generated template to fix: https://github.com/DACH-NY/canton/issues/31699
   @Test
   void createDoesNotThrow() {
     assertDoesNotThrow(
