@@ -1,7 +1,7 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module MetadataChanged (main) where
+module MetadataChangedByKey (main) where
 
 import DA.Text (isInfixOf)
 
@@ -82,12 +82,12 @@ main = tests
   ]
 
 {- PACKAGE
-name: metadata-changed-common
+name: metadata-changed-by-key-common
 versions: 1
 -}
 
 {- MODULE
-package: metadata-changed-common
+package: metadata-changed-by-key-common
 contents: |
   module Common where
 
@@ -111,13 +111,13 @@ contents: |
 -}
 
 {- PACKAGE
-name: metadata-changed
+name: metadata-changed-by-key
 versions: 2
-depends: metadata-changed-common-1.0.0
+depends: metadata-changed-by-key-common-1.0.0
 -}
 
 {- MODULE
-package: metadata-changed
+package: metadata-changed-by-key
 contents: |
   module MetadataChangedMod where
 
@@ -209,16 +209,16 @@ contents: |
 -}
 
 {- PACKAGE
-name: metadata-changed-client
+name: metadata-changed-by-key-client
 versions: 1
 depends: |
-  metadata-changed-1.0.0
-  metadata-changed-2.0.0
-  metadata-changed-common-1.0.0
+  metadata-changed-by-key-1.0.0
+  metadata-changed-by-key-2.0.0
+  metadata-changed-by-key-common-1.0.0
 -}
 
 {- MODULE
-package: metadata-changed-client
+package: metadata-changed-by-key-client
 contents: |
   module ClientMod where
 

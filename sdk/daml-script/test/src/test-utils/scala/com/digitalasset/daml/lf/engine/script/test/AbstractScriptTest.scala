@@ -18,6 +18,7 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.engine.ScriptEngine.{ExtendedValue, defaultCompilerConfig}
+import com.digitalasset.daml.lf.engine.script.Runner.IdeLedgerProtocolVersion
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Suite
 
@@ -68,6 +69,11 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
         inputValue,
         clients,
         timeMode,
+        ideLedgerProtocolVersion = IdeLedgerProtocolVersion
+          .parseIdeLedgerProtocolVersion(protocolVersion.toString)
+          .getOrElse(
+            throw new IllegalArgumentException(s"Unsupported protocol version: $protocolVersion")
+          ),
       )
   }
 
