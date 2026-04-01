@@ -1,0 +1,11 @@
+module TemplateWithChoice where
+
+template TemplateWithChoice
+  with owner: Party
+  where
+    signatory owner
+
+    nonconsuming choice TemplateWithChoice_Fetch: TemplateWithChoice
+      with p: Party
+      controller p
+      do pure this
