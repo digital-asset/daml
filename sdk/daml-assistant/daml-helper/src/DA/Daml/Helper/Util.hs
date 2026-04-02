@@ -352,6 +352,9 @@ cantonConfig CantonOptions{..} =
                 , [ "clock" Aeson..= Aeson.object
                         [ "type" Aeson..= ("sim-clock" :: T.Text) ]
                   | StaticTime True <- [cantonStaticTime] ]
+                , [ "alpha-version-support" Aeson..= True
+                  , "non-standard-config" Aeson..= True
+                  ]
                 ] )
             , "participants" Aeson..= Aeson.object
                 [ "sandbox" Aeson..= Aeson.object
@@ -363,7 +366,8 @@ cantonConfig CantonOptions{..} =
                          , "user-management-service" Aeson..= Aeson.object [ "enabled" Aeson..= True ]
                          -- Can be dropped once user mgmt is enabled by default
                          ]
-
+                     , "parameters"  Aeson..= Aeson.object
+                         [ "alpha-version-support" Aeson..= True ]
                      ] <>
                      [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]
                      | StaticTime True <- [cantonStaticTime]
