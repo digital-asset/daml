@@ -83,15 +83,10 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .build()
   }
 
-  def generateTemplateValueDecoder(
+  def generateValueDecoder(
       className: TypeName,
-      typeParameters: IndexedSeq[String],
   ): MethodSpec = {
     logger.debug("Generating templateValueDecoder-delegating valueDecoder method")
-
-    val converterParams = FromValueExtractorParameters
-      .generate(typeParameters)
-      .valueDecoderParameterSpecs
 
     val valueDecoderType =
       ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className)
@@ -105,8 +100,6 @@ private[inner] object FromValueGenerator extends StrictLogging {
     MethodSpec
       .methodBuilder("valueDecoder")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .addTypeVariables(className.typeParameters)
-      .addParameters(converterParams.asJava)
       .returns(valueDecoderType)
       .addException(classOf[IllegalArgumentException])
       .addCode(
