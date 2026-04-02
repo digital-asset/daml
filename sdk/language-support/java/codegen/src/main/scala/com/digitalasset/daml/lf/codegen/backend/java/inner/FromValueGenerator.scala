@@ -84,7 +84,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
   }
 
   def generateValueDecoder(
-      className: TypeName,
+      className: TypeName
   ): MethodSpec = {
     logger.debug("Generating templateValueDecoder-delegating valueDecoder method")
 

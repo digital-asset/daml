@@ -18,7 +18,7 @@ private[inner] object TemplateMethods {
     val constructor = ConstructorGenerator.generateConstructor(fields)
     val conversionMethods = distinctTypeVars(fields, IndexedSeq.empty[String]).flatMap { params =>
       val valueDecoder = FromValueGenerator.generateValueDecoder(className)
-      
+
       val toValue = ToValueGenerator.generateToValueForRecordLike(
         params,
         fields,
