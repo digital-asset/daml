@@ -21,6 +21,7 @@ import org.junit.runners.Suite;
   ParametrizedContractIdTest.class,
   RecordTest.class,
   TemplateMethodTest.class,
+  TemplateWithChoiceTest.class,
   UpgradeTest.class,
   VariantTest.class,
 })
