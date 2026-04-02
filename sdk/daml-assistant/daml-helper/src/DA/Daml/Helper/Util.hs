@@ -309,7 +309,7 @@ withCantonSandbox options remainingArgs k = do
             , "import com.digitalasset.canton.config.RequireTypes.PositiveInt"
             , "import com.digitalasset.canton.version.ProtocolVersion"
             , ""
-            , "val staticSynchronizerParameters = StaticSynchronizerParameters.defaults(sequencer1.config.crypto, ProtocolVersion.latest, topologyChangeDelay = NonNegativeFiniteDuration.Zero)"
+            , "val staticSynchronizerParameters = StaticSynchronizerParameters.defaults(sequencer1.config.crypto, ProtocolVersion.v35, topologyChangeDelay = NonNegativeFiniteDuration.Zero)"
             , "val synchronizerOwners = Seq(sequencer1, mediator1)"
             , "bootstrap.synchronizer(\"mysynchronizer\", Seq(sequencer1), Seq(mediator1), synchronizerOwners, PositiveInt.one, staticSynchronizerParameters)"
             , "sandbox.synchronizers.connect_local(sequencer1, \"mysynchronizer\")"
