@@ -50,6 +50,16 @@ object DecoderClass {
     .addStatement("return contractDecoder.fromCreatedEvent(event)")
     .build()
 
+  private val fromCreatedEventWithPolicy = MethodSpec
+    .methodBuilder("fromCreatedEvent")
+    .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+    .returns(contractType)
+    .addParameter(ClassName.get(classOf[CreatedEvent]), "event")
+    .addParameter(ClassName.get(classOf[UnknownTrailingFieldPolicy]), "policy")
+    .addException(classOf[IllegalArgumentException])
+    .addStatement("return contractDecoder.fromCreatedEvent(event, policy)")
+    .build()
+
   private val getDecoder = MethodSpec
     .methodBuilder("getDecoder")
     .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
