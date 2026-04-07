@@ -37,6 +37,9 @@ haskell_toolchains_ext.bindists(version = "9.0.2")
 da_ghc_ext = use_extension("//bazel/extensions/dependencies/haskell:da_ghc_extension.bzl", "da_ghc")
 use_repo(da_ghc_ext, "da-ghc", "ghc-lib-gen")
 
+cabal_ext = use_extension("//bazel/extensions/dependencies/haskell:cabal_extension.bzl", "cabal")
+use_repo(cabal_ext, "cabal")
+
 ghcide_ext = use_extension("//bazel/extensions/dependencies/haskell:ghcide_extension.bzl", "ghcide")
 use_repo(ghcide_ext, "ghcide_ghc_lib")
 
