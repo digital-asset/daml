@@ -102,7 +102,9 @@ public class IouMain {
                         if (event instanceof CreatedEvent) {
                           CreatedEvent createdEvent = (CreatedEvent) event;
                           long id = idCounter.getAndIncrement();
-                          Iou.Contract contract = Iou.Contract.fromCreatedEvent(createdEvent, UnknownTrailingFieldPolicy.STRICT);
+                          Iou.Contract contract =
+                              Iou.Contract.fromCreatedEvent(
+                                  createdEvent, UnknownTrailingFieldPolicy.STRICT);
                           contracts.put(id, contract.data);
                           idMap.put(id, contract.id);
                         } else if (event instanceof ArchivedEvent) {
