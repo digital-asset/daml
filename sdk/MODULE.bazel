@@ -23,16 +23,16 @@ bazel_dep(name = "patchelf", version = "0.18.0.bcr.1")
 bazel_dep(name = "tar.bzl", version = "0.8.1")
 bazel_dep(name = "pigz", version = "2.8.bcr.1")
 
-bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
-use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
+bazel_lib_toolchains_ext = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
+use_repo(bazel_lib_toolchains_ext, "bsd_tar_toolchains")
 
 register_toolchains("@bsd_tar_toolchains//:all")
 
-haskell_toolchains = use_extension(
+haskell_toolchains_ext = use_extension(
     "@rules_haskell//extensions:haskell_toolchains.bzl",
     "haskell_toolchains",
 )
-haskell_toolchains.bindists(version = "9.0.2")
+haskell_toolchains_ext.bindists(version = "9.0.2")
 
 da_ghc_ext = use_extension("//bazel/extensions/dependencies/haskell:da_ghc_extension.bzl", "da_ghc")
 use_repo(da_ghc_ext, "da-ghc", "ghc-lib-gen")
@@ -46,17 +46,17 @@ use_repo(lsp_types_ext, "lsp-types")
 zip_ext = use_extension("//bazel/extensions/dependencies/haskell:zip_extension.bzl", "zip")
 use_repo(zip_ext, "zip")
 
-stack_snapshot = use_extension(
+stack_snapshot_ext = use_extension(
     "@rules_haskell//extensions:stack_snapshot.bzl",
     "stack_snapshot",
 )
-use_repo(stack_snapshot, "stackage", "stackage-exe")
+use_repo(stack_snapshot_ext, "stackage", "stackage-exe")
 
-stack_snapshot.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
+stack_snapshot_ext.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
 
-# stack_snapshot.package(name = "lsp-types")
+# stack_snapshot_ext.package(name = "lsp-types")
 [
-    stack_snapshot.package(
+    stack_snapshot_ext.package(
         name = pkg,
     )
     for pkg in [
@@ -133,7 +133,7 @@ stack_snapshot.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
     ]
 ]
 
-stack_snapshot.package(
+stack_snapshot_ext.package(
     name = "attoparsec",
     components = [
         "lib:attoparsec",
@@ -141,37 +141,37 @@ stack_snapshot.package(
     ],
     components_dependencies = {"lib:attoparsec": ["lib:attoparsec-internal"]},
 )
-stack_snapshot.package(
+stack_snapshot_ext.package(
     name = "ghc-lib",
     vendored = "//bazel_tools/ghc-lib/ghc-lib",
 )
-stack_snapshot.package(
+stack_snapshot_ext.package(
     name = "ghc-lib-parser",
     vendored = "//bazel_tools/ghc-lib/ghc-lib-parser",
 )
-stack_snapshot.package(
+stack_snapshot_ext.package(
     name = "ghcide",
     flags = ["ghc-lib"],
     vendored = "@ghcide_ghc_lib//:ghcide",
 )
-stack_snapshot.package(
+stack_snapshot_ext.package(
     name = "proto3-suite",
     flags = ["-swagger"],
     vendored = "@proto3-suite//:proto3-suite",
 )
-stack_snapshot.package(
+stack_snapshot_ext.package(
     name = "zip",
     vendored = "@zip//:zip",
 )
-stack_snapshot.package(
+stack_snapshot_ext.package(
     name = "happy",
     components = ["exe"],
 )
-stack_snapshot.package(
+stack_snapshot_ext.package(
     name = "alex",
     components = ["exe"],
 )
-stack_snapshot.package(
+stack_snapshot_ext.package(
     name = "hpp",
     components = [
         "lib",
@@ -179,40 +179,40 @@ stack_snapshot.package(
     ],
 )
 
-module_temporary_extension = use_extension("//bazel/extensions:module_temporary_extension.bzl", "temporary_extension")
-use_repo(module_temporary_extension, "build_environment", "daml_versions_data", "os_info", "scala_version")
+module_temporary_ext = use_extension("//bazel/extensions:module_temporary_extension.bzl", "temporary_extension")
+use_repo(module_temporary_ext, "build_environment", "daml_versions_data", "os_info", "scala_version")
 
-dpm_extension = use_extension("//bazel/extensions:dpm_extension.bzl", "dpm_extension")
-use_repo(dpm_extension, "dpm_binary")
+dpm_ext = use_extension("//bazel/extensions:dpm_extension.bzl", "dpm_extension")
+use_repo(dpm_ext, "dpm_binary")
 
-d3plus_extension = use_extension("//bazel/extensions:d3plus_extension.bzl", "d3plus_extension")
-use_repo(d3plus_extension, "static_asset_d3plus")
+d3plus_ext = use_extension("//bazel/extensions:d3plus_extension.bzl", "d3plus_extension")
+use_repo(d3plus_ext, "static_asset_d3plus")
 
-googleapis_extenstion = use_extension("//bazel/extensions:go_googleapis_extension.bzl", "googleapis_extension")
-use_repo(googleapis_extenstion, "go_googleapis")
+googleapis_ext = use_extension("//bazel/extensions:go_googleapis_extension.bzl", "googleapis_extension")
+use_repo(googleapis_ext, "go_googleapis")
 
-import_googleapis_extenstion = use_extension("//bazel/extensions:go_googleapis_import_extension.bzl", "import_googleapis_extension")
-use_repo(import_googleapis_extenstion, "com_google_googleapis_imports")
+import_googleapis_ext = use_extension("//bazel/extensions:go_googleapis_import_extension.bzl", "import_googleapis_extension")
+use_repo(import_googleapis_ext, "com_google_googleapis_imports")
 
-proto3_suite = use_extension("//bazel/extensions:proto3_suite_extension.bzl", "proto3_suite_extension")
-use_repo(proto3_suite, "proto3-suite")
+proto3_suite_ext = use_extension("//bazel/extensions:proto3_suite_extension.bzl", "proto3_suite_extension")
+use_repo(proto3_suite_ext, "proto3-suite")
 
-scala_config = use_extension(
+scala_config_ext = use_extension(
     "@rules_scala//scala/extensions:config.bzl",
     "scala_config",
 )
-scala_config.settings(scala_version = "2.13.16")
-use_repo(scala_config, "rules_scala_config")
+scala_config_ext.settings(scala_version = "2.13.16")
+use_repo(scala_config_ext, "rules_scala_config")
 
-scala_deps = use_extension(
+scala_deps_ext = use_extension(
     "@rules_scala//scala/extensions:deps.bzl",
     "scala_deps",
 )
-scala_deps.scala()
-scala_deps.scalatest()
+scala_deps_ext.scala()
+scala_deps_ext.scalatest()
 
-maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
-maven.install(
+maven_ext = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven_ext.install(
     artifacts = [
         "com.daml:contextualized-logging_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
         "com.daml:daml-lf-api-type-signature_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
@@ -242,29 +242,29 @@ maven.install(
         "https://europe-maven.pkg.dev/da-images/public-maven-unstable",
     ],
 )
-use_repo(maven, "maven")
+use_repo(maven_ext, "maven")
 
 # # #
 # DEPRECATED
-rules_proto_extenstion = use_extension("//bazel/extensions:deprecated/rules_proto_extension.bzl", "rules_proto_extension")
-use_repo(rules_proto_extenstion, "rules_proto")
+rules_proto_ext = use_extension("//bazel/extensions:deprecated/rules_proto_extension.bzl", "rules_proto_extension")
+use_repo(rules_proto_ext, "rules_proto")
 
-io_grpc_grpc_java_extension = use_extension("//bazel/extensions:deprecated/io_grpc_grpc_java_extension.bzl", "io_grpc_grpc_java_extension")
-use_repo(io_grpc_grpc_java_extension, "io_grpc_grpc_java")
+io_grpc_grpc_java_ext = use_extension("//bazel/extensions:deprecated/io_grpc_grpc_java_extension.bzl", "io_grpc_grpc_java_extension")
+use_repo(io_grpc_grpc_java_ext, "io_grpc_grpc_java")
 # # #
 
 # # #
 # Libs
-ncurses = use_extension("//bazel/extensions/dependencies/lib:ncurses_extension.bzl", "ncurses")
-use_repo(ncurses, "ncurses")
+ncurses_ext = use_extension("//bazel/extensions/dependencies/lib:ncurses_extension.bzl", "ncurses")
+use_repo(ncurses_ext, "ncurses")
 
-m4 = use_extension("//bazel/extensions/dependencies/bin:m4_extension.bzl", "m4")
-use_repo(m4, "m4")
+m4_ext = use_extension("//bazel/extensions/dependencies/bin:m4_extension.bzl", "m4")
+use_repo(m4_ext, "m4")
 
-autoconf = use_extension("//bazel/extensions/dependencies/scripts:autoconf_extension.bzl", "autoconf")
-use_repo(autoconf, "autoconf")
-automake = use_extension("//bazel/extensions/dependencies/scripts:automake_extension.bzl", "automake")
-use_repo(automake, "automake")
+autoconf_ext = use_extension("//bazel/extensions/dependencies/scripts:autoconf_extension.bzl", "autoconf")
+use_repo(autoconf_ext, "autoconf")
+automake_ext = use_extension("//bazel/extensions/dependencies/scripts:automake_extension.bzl", "automake")
+use_repo(automake_ext, "automake")
 # # #
 
 bazel_dep(name = "rules_perl", version = "1.1.0")
