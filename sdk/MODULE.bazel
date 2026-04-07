@@ -170,7 +170,6 @@ stack_snapshot.package(
     name = "zip",
     vendored = "@zip//:zip",
 )
-
 stack_snapshot.package(
     name = "happy",
     components = ["exe"],
@@ -263,8 +262,16 @@ use_repo(io_grpc_grpc_java_extension, "io_grpc_grpc_java")
 
 # # #
 # Libs
-ncurses = use_extension("//bazel/extensions:lib_ncurses_extension.bzl", "ncurses")
+ncurses = use_extension("//bazel/extensions/dependencies/lib:ncurses_extension.bzl", "ncurses")
 use_repo(ncurses, "ncurses")
 
 m4 = use_extension("//bazel/extensions/dependencies/bin:m4_extension.bzl", "m4")
 use_repo(m4, "m4")
+
+autoconf = use_extension("//bazel/extensions/dependencies/scripts:autoconf_extension.bzl", "autoconf")
+use_repo(autoconf, "autoconf")
+automake = use_extension("//bazel/extensions/dependencies/scripts:automake_extension.bzl", "automake")
+use_repo(automake, "automake")
+# # #
+
+bazel_dep(name = "rules_perl", version = "1.1.0")
