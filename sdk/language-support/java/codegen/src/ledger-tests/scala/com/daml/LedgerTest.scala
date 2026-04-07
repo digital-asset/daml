@@ -66,7 +66,9 @@ trait LedgerTest
     sendCmd(client, alice, glookofly.create())
 
     val glookoflyContract :: Nil =
-      readActiveContracts(Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT))(client, alice)
+      readActiveContracts(
+        Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+      )(client, alice)
 
     glookoflyContract.data shouldEqual glookofly
   }
@@ -77,7 +79,9 @@ trait LedgerTest
       sendCmd(client, asList(alice), asList[String](), glookofly.create(), sruquito.create())
 
       val glookoflyContract :: sruquitoContract :: Nil =
-        readActiveContracts(Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT))(client, alice)
+        readActiveContracts(
+          Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+        )(client, alice)
 
       glookoflyContract.data shouldEqual glookofly
       sruquitoContract.data shouldEqual sruquito
@@ -86,7 +90,9 @@ trait LedgerTest
       val reproduceUpdate = glookoflyContract.id.exerciseReproduce(sruquitoContract.id, tob)
       sendCmd(client, alice, reproduceUpdate)
 
-      val wolpertingers = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT))(client, alice)
+      val wolpertingers = readActiveContracts(
+        Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+      )(client, alice)
       wolpertingers should have length 2
 
       println(wolpertingers)
@@ -103,7 +109,9 @@ trait LedgerTest
       sendCmd(client, alice, glookofly.create())
 
       val glookoflyContract :: Nil =
-        readActiveContracts(Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT))(client, alice)
+        readActiveContracts(
+          Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+        )(client, alice)
 
       glookoflyContract.data shouldEqual glookofly
 
@@ -111,7 +119,9 @@ trait LedgerTest
       val reproduceUpdate = sruquito.createAnd.exerciseReproduce(glookoflyContract.id, tob)
       sendCmd(client, alice, reproduceUpdate)
 
-      val wolpertingers = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT))(client, alice)
+      val wolpertingers = readActiveContracts(
+        Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+      )(client, alice)
       wolpertingers should have length 2
 
       val glook :: glookosruq :: Nil = wolpertingers
@@ -138,7 +148,9 @@ trait LedgerTest
 
       // We'll exercise by key, no need to get the handles
       val glookoflyContract :: sruquitoContract :: Nil =
-        readActiveContracts(Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT))(client, alice)
+        readActiveContracts(
+          Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+        )(client, alice)
 
       val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
       val reproduceByKeyUpdate =
@@ -159,7 +171,9 @@ trait LedgerTest
     sendCmd(client, alice, glookofly.create())
 
     val wolpertinger :: _ =
-      readActiveContracts(Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT))(client, alice)
+      readActiveContracts(
+        Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+      )(client, alice)
 
     // as stated explicitly in src/ledger-tests/daml/Wolpertinger.daml
     wolpertinger.signatories should contain only glookofly.owner
@@ -169,7 +183,9 @@ trait LedgerTest
     sendCmd(client, alice, glookofly.create())
 
     val wolpertinger :: _ =
-      readActiveContracts(Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT))(client, alice)
+      readActiveContracts(
+        Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+      )(client, alice)
 
     // no explicit observers and the only choice controller is a signatory
     wolpertinger.observers shouldBe empty
@@ -181,7 +197,9 @@ trait LedgerTest
       read = {
         val multi = new MultiParty(alice, bob)
         sendCmd(client, asList(alice, bob), asList[String](), multi.create())
-        readActiveContracts(MultiParty.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT))(client, alice).head
+        readActiveContracts(
+          MultiParty.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+        )(client, alice).head
       }
       res = {
         read.data.p1 shouldBe alice

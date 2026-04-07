@@ -48,7 +48,9 @@ trait StakeholdersTest
       sendCmd(client, alice, onlySignatories.create())
 
       val contract :: _ =
-        readActiveContracts(OnlySignatories.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT))(client, alice)
+        readActiveContracts(
+          OnlySignatories.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+        )(client, alice)
 
       contract.signatories should contain only onlySignatories.owner
       contract.observers shouldBe empty
@@ -59,7 +61,9 @@ trait StakeholdersTest
       sendCmd(client, alice, explicitObservers.create())
 
       val contract :: _ =
-        readActiveContracts(ExplicitObservers.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT))(client, alice)
+        readActiveContracts(
+          ExplicitObservers.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+        )(client, alice)
 
       contract.signatories should contain only explicitObservers.owner
       contract.observers should contain only explicitObservers.thirdParty

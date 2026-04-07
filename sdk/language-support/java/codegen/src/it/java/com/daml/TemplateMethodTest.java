@@ -98,14 +98,16 @@ public class TemplateMethodTest {
   @Test
   void contractHasCompanion() {
     var companion = SimpleTemplate.COMPANION;
-    SimpleTemplate.Contract contract = companion.fromCreatedEvent(createdEvent, UnknownTrailingFieldPolicy.STRICT);
+    SimpleTemplate.Contract contract =
+        companion.fromCreatedEvent(createdEvent, UnknownTrailingFieldPolicy.STRICT);
     SimpleTemplate data = contract.data;
     assertEquals(new SimpleTemplate("Bob"), data);
   }
 
   @Test
   void contractHasGetContractTypeId() {
-    var contract = SimpleTemplate.Contract.fromCreatedEvent(createdEvent, UnknownTrailingFieldPolicy.STRICT);
+    var contract =
+        SimpleTemplate.Contract.fromCreatedEvent(createdEvent, UnknownTrailingFieldPolicy.STRICT);
     assertEquals(contract.getContractTypeId(), SimpleTemplate.TEMPLATE_ID);
   }
 
@@ -114,6 +116,7 @@ public class TemplateMethodTest {
     assertEquals(
         "tests.template1.SimpleTemplate.Contract(ContractId(cid), "
             + "tests.template1.SimpleTemplate(Bob), [], [])",
-        SimpleTemplate.Contract.fromCreatedEvent(createdEvent, UnknownTrailingFieldPolicy.STRICT).toString());
+        SimpleTemplate.Contract.fromCreatedEvent(createdEvent, UnknownTrailingFieldPolicy.STRICT)
+            .toString());
   }
 }

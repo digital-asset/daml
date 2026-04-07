@@ -10,8 +10,8 @@ import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.codegen.Choice;
 import com.daml.ledger.javaapi.data.codegen.Created;
 import com.daml.ledger.javaapi.data.codegen.Exercised;
-import com.daml.ledger.javaapi.data.codegen.Update;
 import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy;
+import com.daml.ledger.javaapi.data.codegen.Update;
 import com.daml.quickstart.model.iou.Iou;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -102,7 +102,9 @@ public class IouMain {
                         if (event instanceof CreatedEvent) {
                           CreatedEvent createdEvent = (CreatedEvent) event;
                           long id = idCounter.getAndIncrement();
-                          Iou.Contract contract = Iou.Contract.fromCreatedEvent(createdEvent, UnknownTrailingFieldPolicy.STRICT);
+                          Iou.Contract contract =
+                              Iou.Contract.fromCreatedEvent(
+                                  createdEvent, UnknownTrailingFieldPolicy.STRICT);
                           contracts.put(id, contract.data);
                           idMap.put(id, contract.id);
                         } else if (event instanceof ArchivedEvent) {
