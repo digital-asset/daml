@@ -1,5 +1,5 @@
 genrule(
-    name = "m4",
+    name = "m4_binary",
     srcs = glob(["**"]),
     outs = ["m4"],
     toolchains = ["@rules_cc//cc:current_cc_toolchain"],
