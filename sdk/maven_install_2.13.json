@@ -4745,7 +4745,6 @@
       "com.digitalasset.canton.sequencing.client",
       "com.digitalasset.canton.sequencing.client.channel",
       "com.digitalasset.canton.sequencing.client.channel.endpoint",
-      "com.digitalasset.canton.sequencing.client.grpc",
       "com.digitalasset.canton.sequencing.client.pool",
       "com.digitalasset.canton.sequencing.client.time.fetcher",
       "com.digitalasset.canton.sequencing.client.transports",
