@@ -34,16 +34,17 @@ haskell_toolchains = use_extension(
 )
 haskell_toolchains.bindists(version = "9.0.2")
 
-haskell_non_module_deps = use_extension("//bazel/extensions:haskell_non_module_deps_extension.bzl", "haskell_non_module_deps_extension")
-use_repo(
-    haskell_non_module_deps,
-    # "Cabal",
-    "da-ghc",
-    "ghc-lib-gen",
-    "ghcide_ghc_lib",
-    "lsp-types",
-    "zip",
-)
+da_ghc_ext = use_extension("//bazel/extensions/dependencies/haskell:da_ghc_extension.bzl", "da_ghc")
+use_repo(da_ghc_ext, "da-ghc", "ghc-lib-gen")
+
+ghcide_ext = use_extension("//bazel/extensions/dependencies/haskell:ghcide_extension.bzl", "ghcide")
+use_repo(ghcide_ext, "ghcide_ghc_lib")
+
+lsp_types_ext = use_extension("//bazel/extensions/dependencies/haskell:lsp_types_extension.bzl", "lsp_types")
+use_repo(lsp_types_ext, "lsp-types")
+
+zip_ext = use_extension("//bazel/extensions/dependencies/haskell:zip_extension.bzl", "zip")
+use_repo(zip_ext, "zip")
 
 stack_snapshot = use_extension(
     "@rules_haskell//extensions:stack_snapshot.bzl",
@@ -57,7 +58,6 @@ stack_snapshot.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
 [
     stack_snapshot.package(
         name = pkg,
-        # setup_deps = ["@Cabal//:Cabal"],
     )
     for pkg in [
         "aeson",
