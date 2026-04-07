@@ -1,3 +1,5 @@
 .envrc.private
 /.idea/
 .DS_Store
+.metals/*
+.vscode/settings.json
