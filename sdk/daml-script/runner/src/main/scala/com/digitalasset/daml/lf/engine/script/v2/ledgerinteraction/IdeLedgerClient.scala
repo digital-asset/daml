@@ -27,9 +27,11 @@ import com.digitalasset.daml.lf.script
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.speedy.{MachineLogger, Pretty, SError}
 import com.digitalasset.daml.lf.transaction._
+import com.digitalasset.daml.lf.transaction.{NextGenContractStateMachine => ContractStateMachine}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.apache.pekko.stream.Materializer
+
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.set._
@@ -45,6 +47,7 @@ class IdeLedgerClient(
     machineLogger: MachineLogger,
     canceled: () => Boolean,
     override val loggerFactory: NamedLoggerFactory,
+    csmMode: ContractStateMachine.Mode,
 ) extends ScriptLedgerClient
     with NamedLogging {
   private implicit val traceContext: TraceContext = TraceContext.empty
@@ -110,7 +113,7 @@ class IdeLedgerClient(
         pkgSig => LanguageVersion.featurePackageUpgrades.enabledIn(pkgSig.languageVersion),
       )
 
-  private var _ledger: IdeLedger = IdeLedger.initialLedger(Time.Timestamp.Epoch)
+  private var _ledger: IdeLedger = IdeLedger.initialLedger(Time.Timestamp.Epoch, csmMode)
   def ledger: IdeLedger = _ledger
 
   private var allocatedParties: Map[String, PartyDetails] = Map()
@@ -292,21 +295,22 @@ class IdeLedgerClient(
         )
       }
 
-  override def queryContractKey(
+  override def queryNByKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
       key: Value,
+      limit: Int,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-  ): Future[Option[ScriptLedgerClient.ActiveContract]] =
+  ): Future[List[ScriptLedgerClient.ActiveContract]] = {
+    import cats.implicits._
     for {
       gkey <- preprocessKey(templateId, key)
-      res <- ledger.ledgerData.activeKeys.get(gkey) match {
-        case None => Future.successful(None)
-        case Some(cid) => queryContractId(parties, templateId, cid)
-      }
-    } yield res
+      cids = ledger.ledgerData.activeKeys.getOrElse(gkey, Vector()).take(limit)
+      res <- cids.toList.traverse(queryContractId(parties, templateId, _))
+    } yield res.collect { case Some(contract) => contract }
+  }
 
   private def getTypeIdentifier(t: Ast.Type): Option[Identifier] =
     t match {
@@ -457,11 +461,6 @@ class IdeLedgerClient(
           SubmitError.ContractNotFound.AdditionalInfo.NotVisible(cid, tid, actAs, readAs, observers)
         ),
       )
-
-    case script.Error.CommitError(
-          IdeLedger.CommitError.UniqueKeyViolation(IdeLedger.UniqueKeyViolation(gk))
-        ) =>
-      SubmitError.DuplicateContractKey(Some(gk))
 
     case script.Error.LookupError(err, _, _) =>
       // TODO[SW]: Implement proper Lookup error throughout

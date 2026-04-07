@@ -761,7 +761,7 @@ data Update
     , updateEmbedBody :: !Expr
     }
   | ULookupByKey !(Qualified TypeConName)
-  | UQueryNByKey !(Qualified TypeConName)
+  | ULookupNByKey !(Qualified TypeConName)
   | UFetchByKey !(Qualified TypeConName)
   | UTryCatch
     { tryCatchType :: !Type

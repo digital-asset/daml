@@ -85,6 +85,7 @@ data Options = Options
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
   , optDamlLfVersion :: LF.Version
+  , optIdeLedgerProtocolVersion :: Maybe String
   }
 
 type TimeoutSeconds = Int64
@@ -228,6 +229,7 @@ withScriptService opts@Options{..} f = do
     [ optJvmOptions
     , ["-jar" , optServerJar]
     , ["--max-inbound-message-size=" <> show size | Just size <- [optGrpcMaxMessageSize]]
+    , ["--ide-ledger-protocol-version=" <> pv | Just pv <- [optIdeLedgerProtocolVersion]]
     ]
 
   exitExpected <- newIORef False
@@ -237,16 +239,24 @@ withScriptService opts@Options{..} f = do
   withCheckedProcessCleanup' cp $ \processHdl (stdinHdl :: System.IO.Handle) stdoutSrc stderrSrc ->
           flip finally (closeStdin stdinHdl) $ handleCrashingScriptService exitExpected processHdl $ do
     let splitOutput = C.T.decode C.T.utf8 .| C.T.lines
-    let printStderr line
-            -- The last line should not be treated as an error.
-            | T.strip line == "ScriptService: stdin closed, terminating server." =
-              liftIO (optLogDebug (T.unpack ("SCRIPT SERVICE STDERR: " <> line)))
-            | otherwise =
-              liftIO (optLogError (T.unpack ("SCRIPT SERVICE STDERR: " <> line)))
     let printStdout line = liftIO (optLogDebug (T.unpack ("SCRIPT SERVICE STDOUT: " <> line)))
     -- stick the error in the mvar so that we know we won't get an BlockedIndefinitedlyOnMvar exception
     portMVar <- newEmptyMVar
-    let handleStdout = do
+    let handleStderr = do
+          mbLine <- C.await
+          forM_ mbLine $ \case
+            line | T.strip line == "ScriptService: stdin closed, terminating server." -> do
+              liftIO (optLogDebug (T.unpack ("SCRIPT SERVICE STDERR: " <> line)))
+              handleStderr
+            -- If we get an error about --ide-ledger-protocol-version, forward it by itself, as we're depending
+            -- on the script service for parsing errors to avoid duplication of protocol versions
+            -- We clean up the error a bit to re-point it to script-service.protocol-version
+            line | "Option --ide-ledger-protocol-version failed" `T.isInfixOf` line ->
+              liftIO (putMVar portMVar (Left $ "Invalid `script-service.protocol-version` in daml.yaml: " <> T.unpack (snd $ T.breakOn "Invalid protocol version" line)))
+            line -> do
+              liftIO (optLogError (T.unpack ("SCRIPT SERVICE STDERR: " <> line)))
+              handleStderr
+        handleStdout = do
           mbLine <- C.await
           case mbLine of
             Nothing ->
@@ -258,7 +268,7 @@ withScriptService opts@Options{..} f = do
                 _ -> do
                   liftIO (optLogError ("Expected PORT=<port> from script service, but got '" <> line <> "'. Ignoring it."))
                   handleStdout
-    withAsync (runConduit (stderrSrc .| splitOutput .| C.awaitForever printStderr)) $ \_ ->
+    withAsync (runConduit (stderrSrc .| splitOutput .| handleStderr)) $ \_ ->
         withAsync (runConduit (stdoutSrc .| splitOutput .| handleStdout)) $ \_ ->
         -- The script service will shut down cleanly when stdin is closed so we do this at the end of
         -- the callback. Note that on Windows, killThread will not be able to kill the conduits

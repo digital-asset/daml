@@ -13,6 +13,7 @@ import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.ModuleName
+import com.digitalasset.daml.lf.engine.script.Runner.IdeLedgerProtocolVersion
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.script.api.v1.{Map => _, _}
@@ -30,7 +31,8 @@ import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
 private final case class ScriptServiceConfig(
-    maxInboundMessageSize: Int
+    maxInboundMessageSize: Int,
+    ideLedgerProtocolVersion: IdeLedgerProtocolVersion,
 )
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -47,13 +49,22 @@ private object ScriptServiceConfig {
       .text(
         s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}."
       )
+    opt[IdeLedgerProtocolVersion]("ide-ledger-protocol-version")(
+      IdeLedgerProtocolVersion.readIdeLedgerProtocolVersion
+    )
+      .action((x, c) => c.copy(ideLedgerProtocolVersion = x))
+      .optional()
+      .text(
+        s"Protocol version for the IDE Ledger to imitate. Default ${IdeLedgerProtocolVersion.latest.toString}. Currently only affects ContractKey/rollback behaviour"
+      )
   }
 
   def parse(args: Array[String]): Option[ScriptServiceConfig] =
     parser.parse(
       args,
       ScriptServiceConfig(
-        maxInboundMessageSize = DefaultMaxInboundMessageSize
+        maxInboundMessageSize = DefaultMaxInboundMessageSize,
+        ideLedgerProtocolVersion = IdeLedgerProtocolVersion.latest,
       ),
     )
 }
@@ -72,7 +83,7 @@ object ScriptServiceMain extends App {
       val server =
         NettyServerBuilder
           .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0)) // any free port
-          .addService(new ScriptService())
+          .addService(new ScriptService(config))
           .maxInboundMessageSize(config.maxInboundMessageSize)
           .build
       server.start()
@@ -167,7 +178,7 @@ object ScriptStream {
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class ScriptService(implicit
+class ScriptService(config: ScriptServiceConfig)(implicit
     ec: ExecutionContext,
     esf: ExecutionSequencerFactory,
     mat: Materializer,
@@ -297,7 +308,11 @@ class ScriptService(implicit
           majorVersion,
           LanguageVersion.Minor.assertFromString(req.getLfMinor),
         )
-        val ctx = Context.newContext(lfVersion, req.getEvaluationTimeout.seconds)
+        val ctx = Context.newContext(
+          lfVersion,
+          req.getEvaluationTimeout.seconds,
+          config.ideLedgerProtocolVersion,
+        )
         contexts += (ctx.contextId -> ctx)
         val response = NewContextResponse.newBuilder.setContextId(ctx.contextId).build
         respObs.onNext(response)

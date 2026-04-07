@@ -4,11 +4,12 @@
 package com.daml
 
 import org.scalatest.flatspec.AsyncFlatSpec
+import com.daml.integrationtest.CantonConfig.ProtocolVersion
 
 // We factorize the 3 test to spin Canton only once.
 
 class CodegenTest extends AsyncFlatSpec with LedgerTest with InterfacesTest with StakeholdersTest {
   // TODO(https://github.com/digital-asset/daml/issues/18457): split key test cases and revert to
-  //  devMode = false for non-key test cases.
-  override lazy val devMode = true
+  //  protocolVersion = "latest" for non-key test cases.
+  override protected lazy val protocolVersion = ProtocolVersion.Explicit("v35")
 }

@@ -40,20 +40,20 @@ contents: |
     throwDifferentError : Update ()
     throwNewError : Update ()
 
-    choice GetTextInterface : Text
+    nonconsuming choice GetTextInterface : Text
       controller (view this).owner
       do
         pure $ (view this).someText
 
-    choice ThrowSameError : ()
+    nonconsuming choice ThrowSameError : ()
       controller (view this).owner
       do throwSameError this
 
-    choice ThrowDifferentError : ()
+    nonconsuming choice ThrowDifferentError : ()
       controller (view this).owner
       do throwDifferentError this
 
-    choice ThrowNewError : ()
+    nonconsuming choice ThrowNewError : ()
       controller (view this).owner
       do throwNewError this
   
@@ -120,7 +120,7 @@ contents: |
         throwNewError = throw Exception1   -- @V 1
         throwNewError = throw NewException -- @V  2
 
-      choice GetText : Text
+      nonconsuming choice GetText : Text
         controller v1Sigs
         do
           pure v1ViewText -- @V 1
@@ -151,7 +151,7 @@ contents: |
     where
       signatory owner
 
-      choice GetTextHelperV1 : () with
+      nonconsuming choice GetTextHelperV1 : () with
           cid : ContractId V1.ExceptionsTemplate
         controller owner
         do
@@ -160,7 +160,7 @@ contents: |
             pure ()
           catch (_ : AnyException) -> pure ()
 
-      choice GetTextHelperV2 : () with
+      nonconsuming choice GetTextHelperV2 : () with
           cid : ContractId V2.ExceptionsTemplate
         controller owner
         do
@@ -169,7 +169,7 @@ contents: |
             pure ()
           catch (_ : AnyException) -> pure ()
 
-      choice GetTextHelperInterface : () with
+      nonconsuming choice GetTextHelperInterface : () with
           iid : ContractId ExceptionsInterface
         controller owner
         do

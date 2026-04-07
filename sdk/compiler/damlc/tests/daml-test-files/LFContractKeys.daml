@@ -10,6 +10,7 @@ module LFContractKeys where
 import Daml.Script
 
 import DA.Optional
+import Prelude
 
 template Keyed
   with

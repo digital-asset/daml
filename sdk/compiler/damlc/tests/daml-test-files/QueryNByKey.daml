@@ -5,9 +5,11 @@
 
 module QueryNByKey where
 
-import DA.ContractKeys
+import Daml.Script
+import DA.Assert
+import DA.List
 
-template WithKey
+template Box
   with
     p : Party
   where
@@ -15,31 +17,33 @@ template WithKey
     key p : Party
     maintainer key
 
-template Helper
-  with
-    p : Party
-  where
-    signatory p
-    choice PerformQueryNByKey : ()
-      controller p
-      do contracts <- queryNByKey @WithKey 1 p
-         case contracts of
-           (contract :: _) -> do
-             pure ()
-           [] ->
-             abort "Assertion failed: queryNByKey returned an empty list."
-    choice PerformQueryAllByKey : ()
-      controller p
-      do contracts <- queryAllByKey @WithKey p
-         case contracts of
-           (contract :: _) -> do
-             pure ()
-           [] ->
-             abort "Assertion failed: queryAllByKey returned an empty list."
+queryNByKeyTest : Script ()
+queryNByKeyTest = do
+  alice <- allocateParty "alice"
+  cids <- alice `submit` forA [1..10 : Int] (const $ createCmd $ Box alice)
 
--- Test just here to assert that queryNByKey compiles
--- When we have an ledger implementation, assert things actually run
--- test = script do
---   p <- allocateParty "p"
---   submit p $ createAndExerciseCmd (Helper p) PerformQueryNByKey
---   submit p $ createAndExerciseCmd (Helper p) PerformQueryAllByKey
+  -- Check most recently created in single submission is first
+  contracts <- queryNByKey alice 10 alice
+  let expectedContracts = reverse cids
+  (fst <$> contracts) === expectedContracts
+
+  -- Check limit works
+  contractsLimited <- queryNByKey alice 5 alice
+  (fst <$> contractsLimited) === take 5 expectedContracts
+
+  debug $ show (maxBound : Int)
+
+  -- Check unlimited works
+  contractsAll <- queryAllByKey alice alice
+  (fst <$> contractsAll) === expectedContracts
+
+  -- Check order is maintained when one is removed
+  alice `submit` archiveCmd (cids !! 4)
+  contractsAfterArchive <- queryNByKey alice 10 alice
+  let expectedContractsAfterArchive = reverse (take 4 cids <> drop 5 cids)
+  (fst <$> contractsAfterArchive) === expectedContractsAfterArchive
+
+  -- Check new submission is before old submission
+  newCid <- alice `submit` createCmd (Box alice)
+  contractsAfterCreate <- queryNByKey alice 10 alice
+  (fst <$> contractsAfterCreate) === newCid :: expectedContractsAfterArchive

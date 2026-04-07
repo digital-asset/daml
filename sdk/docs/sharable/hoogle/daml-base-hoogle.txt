@@ -133,7 +133,7 @@ type Template t = (HasTemplateTypeRep t, HasToAnyTemplate t, HasFromAnyTemplate 
 
 -- | Constraint satisfied by template keys.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-template-functions-templatekey-95200
-type TemplateKey t k = (Template t, HasKey t k, HasMaintainer t k)
+type TemplateKey t k = (Template t, HasKey t k, HasFetchByKey t k, HasMaintainer t k)
 
 -- | The `Either` type represents values with two possibilities: a value of
 --   type `Either a b` is either `Left a` or `Right b`.
@@ -471,29 +471,12 @@ key :: (HasKey t k) => t -> k
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-haslookupbykey-92299
 class HasLookupByKey t k
 
--- | Look up the contract ID `t` associated with a given contract key `k`.
---   
---   You must pass the `t` using an explicit type application. For
---   instance, if you want to look up a contract of template `Account` by its
---   key `k`, you must call `lookupByKey @Account k`.
-@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-lookupbykey-92781
-lookupByKey :: (HasLookupByKey t k) => k -> Update (Optional (ContractId t))
-
 -- | Exposes `fetchByKey` function. Part of the `TemplateKey` constraint.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasfetchbykey-54638
 class HasFetchByKey t k
 
--- | Fetch the contract ID and contract data associated with a given
---   contract key.
---   
---   You must pass the `t` using an explicit type application. For
---   instance, if you want to fetch a contract of template `Account` by its
---   key `k`, you must call `fetchByKey @Account k`.
-@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-fetchbykey-95464
-fetchByKey :: (HasFetchByKey t k) => k -> Update (ContractId t, t)
-
-@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasquerynbykey-53843
-class HasQueryNByKey t k
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-haslookupnbykey-35508
+class HasLookupNByKey t k
 
 -- | Exposes `maintainer` function. Part of the `TemplateKey` constraint.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasmaintainer-28932
@@ -1430,6 +1413,32 @@ stakeholder :: (HasSignatory t, HasObserver t) => t -> [Party]
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-maintainer-44226
 maintainer :: (HasMaintainer t k) => k -> [Party]
 
+-- | Look up the contract ID `t` associated with a given contract key `k`.
+--   
+--   You must pass the `t` using an explicit type application. For
+--   instance, if you want to look up a contract of template `Account` by its
+--   key `k`, you must call `lookupByKey @Account k`.
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-lookupbykey-92781
+lookupByKey :: (HasKey t k, HasLookupNByKey t k) => k -> Update (Optional (ContractId t))
+
+-- | Fetch the contract ID and contract data associated with a given
+--   contract key.
+--   
+--   You must pass the `t` using an explicit type application. For
+--   instance, if you want to fetch a contract of template `Account` by its
+--   key `k`, you must call `fetchByKey @Account k`.
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-fetchbykey-95464
+fetchByKey :: (HasFetchByKey t k) => k -> Update (ContractId t, t)
+
+-- | Exercise a choice on the contract associated with the given key.
+--   
+--   You must pass the `t` using an explicit type application. For
+--   instance, if you want to exercise a choice `Withdraw` on a contract of
+--   template `Account` given by its key `k`, you must call
+--   `exerciseByKey @Account k Withdraw`.
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-exercisebykey-78695
+exerciseByKey :: (HasExerciseByKey t k c r) => k -> c -> Update r
+
 -- | Create a contract and exercise the choice on the newly created contract.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-createandexercise-2676
 createAndExercise :: (HasCreate t, HasExercise t c r) => t -> c -> Update r
@@ -1469,6 +1478,12 @@ toAnyChoice :: (HasTemplateTypeRep t, HasToAnyChoice t c r) => c -> AnyChoice
 --   Only available for Daml-LF 1.7 or later.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-fromanychoice-95102
 fromAnyChoice :: (HasTemplateTypeRep t, HasFromAnyChoice t c r) => AnyChoice -> Optional c
+
+-- | True if contract exists, submitter is a stakeholder, and all maintainers
+--   authorize. False if contract does not exist and all maintainers authorize.
+--   Fails otherwise.
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-visiblebykey-51464
+visibleByKey :: (HasKey t k, HasLookupNByKey t k) => k -> Update Bool
 
 -- | Used as an alternative in conditions.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-ghc-base-otherwise-74255
@@ -1866,6 +1881,12 @@ second :: (Bifunctor p) => (b -> c) -> p a b -> p a c
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-ContractKeys.html#module-da-contractkeys-19667
 module DA.ContractKeys
 
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-ContractKeys.html#function-da-contractkeys-lookupnbykey-34345
+lookupNByKey :: (HasLookupNByKey t k) => Int -> k -> Update [(ContractId t, t)]
+
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-ContractKeys.html#function-da-contractkeys-lookupallbykey-52978
+lookupAllByKey :: (HasLookupNByKey t k) => k -> Update [(ContractId t, t)]
+
 -- | Functions for working with Crypto builtins.
 --   For example, as used to implement CCTP functionality.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Crypto-Text.html#module-da-crypto-text-67266
@@ -1910,6 +1931,11 @@ sha256 :: BytesHex -> BytesHex
 --   form. The hex encoding uses lowercase letters.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Crypto-Text.html#function-da-crypto-text-keccak256-57106
 keccak256 :: BytesHex -> BytesHex
+
+-- | Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key. Prior to
+--   signature validation, validate the public key and check it is on the SECP256K1 curve.
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Crypto-Text.html#function-da-crypto-text-secp256k1withvalidation-31956
+secp256k1WithValidation :: SignatureHex -> BytesHex -> PublicKeyHex -> Bool
 
 -- | Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Crypto-Text.html#function-da-crypto-text-secp256k1withecdsaonly-56908

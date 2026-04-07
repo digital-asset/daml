@@ -6,6 +6,7 @@
 module AuthFailureWithKey where
 
 import Daml.Script
+import Prelude
 
 -- Tests for various(all) different forms of authorization failure detected during the execution of
 -- operations involving keys.
@@ -32,7 +33,7 @@ template Test1
       controller bob
       do lookupByKey @TheContract1 contractKey
 
--- @ERROR range=37:1-37:35; failed due to a missing authorization from 'Alice'
+-- @ERROR range=39:1-39:35; failed due to a missing authorization from 'Alice'
 t1_LookupByKeyMissingAuthorization : Script ()
 t1_LookupByKeyMissingAuthorization = script do
   alice <- allocateParty "Alice"
@@ -52,7 +53,7 @@ template TheContract2
     key (m, id) : (Party, Int)
     maintainer key._1
 
--- @ERROR range=57:1-57:37; failed due to that some parties are maintainers but not signatories: 'Bob'
+-- @ERROR range=59:1-59:37; failed due to that some parties are maintainers but not signatories: 'Bob'
 t2_MaintainersNotSubsetOfSignatories : Script ()
 t2_MaintainersNotSubsetOfSignatories = script do
   alice <- allocateParty "Alice"

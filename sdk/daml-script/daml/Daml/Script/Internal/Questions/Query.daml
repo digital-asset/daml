@@ -122,13 +122,13 @@ queryInterfaceContractId p c = fmap convert $ lift $ QueryInterfaceContractId wi
     convert = fmap $ fromLedgerValue @v
 
 -- | HIDE
-data QueryContractKey = QueryContractKey with
+data QueryByKey = QueryByKey with
   parties : [Party]
   tplId : TemplateTypeRep
   key : AnyContractKey -- TODO rename this, key goes blue
 -- | HIDE
-instance IsQuestion QueryContractKey (Optional (ContractId (), AnyTemplate)) where
-  command = "QueryContractKey"
+instance IsQuestion QueryByKey (Optional (ContractId (), AnyTemplate)) where
+  command = "QueryByKey"
   -- V1: Initial question
   -- V2: Switch stable AnyContractKey for script internal AnyContractKey
   version = 2
@@ -142,11 +142,57 @@ instance IsQuestion QueryContractKey (Optional (ContractId (), AnyTemplate)) whe
 --
 -- This is semantically equivalent to calling `query`
 -- and filtering on the client side.
-queryContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))
-queryContractKey p k = fmap convert $ lift $ QueryContractKey with
+queryByKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))
+queryByKey p k = fmap convert $ lift $ QueryByKey with
     parties = toParties p
     tplId = templateTypeRep @t
     key = toAnyContractKey @t k
   where
     convert : Optional (ContractId (), AnyTemplate) -> Optional (ContractId t, t)
     convert = fmap (\(cid, anyTpl) -> (coerceContractId cid, fromSome (fromAnyTemplate anyTpl)))
+
+-- | HIDE
+{-# DEPRECATED queryContractKey "Renamed to queryByKey to match queryNByKey and queryAllByKey" #-}
+queryContractKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))
+queryContractKey = queryByKey
+
+-- | HIDE
+data QueryNByKey = QueryNByKey with
+  parties : [Party]
+  tplId : TemplateTypeRep
+  contractKey : AnyContractKey
+  limit : Int
+-- | HIDE
+instance IsQuestion QueryNByKey [(ContractId (), AnyTemplate)] where command = "QueryNByKey"
+
+-- | MOVE Daml.Script
+-- Returns N contracts matching a key, returns empty list if the key is inactive
+-- Only available in LF 2.3+
+--
+-- WARNING: Over the gRPC backend this performs a linear search over all contracts of
+-- the same type, so only use this if the number of active contracts is small.
+--
+-- This is semantically equivalent to calling `query`
+-- and filtering on the client side.
+queryNByKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> Int -> k -> Script [(ContractId t, t)]
+queryNByKey p limit k | limit < 0 = fail $ "queryNByKey limit (" <> show limit <> ") must be positive"
+queryNByKey p limit k = fmap convert $ lift $ QueryNByKey with
+    parties = toParties p
+    tplId = templateTypeRep @t
+    contractKey = toAnyContractKey @t k
+    limit = limit
+  where
+    convert : [(ContractId (), AnyTemplate)] -> [(ContractId t, t)]
+    convert = fmap (\(cid, anyTpl) -> (coerceContractId cid, fromSome (fromAnyTemplate anyTpl)))
+
+-- | MOVE Daml.Script
+-- Returns all contracts matching a key, returns empty list if the key is inactive
+-- Only available in LF 2.3+
+--
+-- WARNING: Over the gRPC backend this performs a linear search over all contracts of
+-- the same type, so only use this if the number of active contracts is small.
+--
+-- This is semantically equivalent to calling `query`
+-- and filtering on the client side.
+queryAllByKey : forall t k p. HasCallStack => (TemplateKey t k, IsParties p) => p -> k -> Script [(ContractId t, t)]
+queryAllByKey p k = queryNByKey p maxBound k

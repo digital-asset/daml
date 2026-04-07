@@ -191,7 +191,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
   def toAnyContractKey(
       v: ExtendedValue,
       lookupContractKeyType: Identifier => Either[String, Type],
-      legacyAnyContractKey: Boolean,
+      legacyAnyContractKey: Boolean = false,
   ): Either[String, AnyContractKey] = {
     v match {
       case ValueRecord(_, ImmArray((_, scriptKey), (_, templateRep))) if !legacyAnyContractKey =>

@@ -505,8 +505,8 @@ alphaUpdate env = \case
     ULookupByKey r1 -> \case
         ULookupByKey r2 -> alphaTypeCon env r1 r2
         _ -> structuralMismatch
-    UQueryNByKey r1 -> \case
-        UQueryNByKey r2 -> alphaTypeCon env r1 r2
+    ULookupNByKey r1 -> \case
+        ULookupNByKey r2 -> alphaTypeCon env r1 r2
         _ -> structuralMismatch
     UFetchByKey r1 -> \case
         UFetchByKey r2 -> alphaTypeCon env r1 r2

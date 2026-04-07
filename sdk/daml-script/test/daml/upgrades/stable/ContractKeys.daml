@@ -58,7 +58,7 @@ main : TestTree
 main = tests
   [ subtree "Unchanged key type"
     [ subtree "Unchanged key expression"
-      [ ("queryContractKey, src=v1 tgt=v2", queryKeyUnchanged)
+      [ ("queryByKey, src=v1 tgt=v2", queryKeyUnchanged)
       , ("exerciseByKeyCmd, src=v1 tgt=v2", exerciseCmdKeyUnchanged)
       , ("fetchByKey, src=v1 tgt=v2 ", fetchKeyUnchanged)
       , ("exerciseByKey, src=v1 tgt=v2", exerciseUpdateKeyUnchanged)
@@ -66,7 +66,7 @@ main = tests
     , subtree "Changed key expression"
       [ subtree "Unchanged key value"
         [ ("queryContractId, src=v1 tgt=v2", queryKeyChangedExprSameValue)
-        , ("queryContractKey, src=v1 tgt=v2", qckKeyChangedExprSameValue)
+        , ("queryByKey, src=v1 tgt=v2", qckKeyChangedExprSameValue)
         , ("fetch, src=v1 tgt=v2", fetchKeyChangedExprSameValue)
         , ("fetchByInterface, src=v1 tgt=i", fbiKeyChangedExprSameValue)
         , ("fetchByKey, src=v1 tgt=v2", fbkKeyChangedExprSameValue)
@@ -78,7 +78,7 @@ main = tests
         ]
       , subtree "Changed key value"
         [ ("queryContractId, src=v1 tgt=v2", queryKeyChangedExprChangedValue)
-        , ("queryContractKey, src=v1 tgt=v2", qckKeyChangedExprChangedValue)
+        , ("queryByKey, src=v1 tgt=v2", qckKeyChangedExprChangedValue)
         , ("fetch, src=v1 tgt=v2", fetchKeyChangedExprChangedValue)
         , ("fetchByInterface, src=v1 tgt=i", fbiKeyChangedExprChangedValue)
         , ("fetchByKey, src=v1 tgt=v2", fbkKeyChangedExprChangedValue)
@@ -114,20 +114,20 @@ main = tests
     ]
   , subtree "Changed key type, valid upgrade"
     [ subtree "Unchanged key value (modulo trailing `None`s)"
-      [ ("queryContractKey, src=v1 tgt=v2", queryKeyUpgraded)
+      [ ("queryByKey, src=v1 tgt=v2", queryKeyUpgraded)
       , ("exerciseByKeyCmd, src=v1 tgt=v2", exerciseCmdKeyUpgraded)
       , ("fetch, src=v1 tgt=v2", fetchKeyUpgraded)
       , ("exerciseByKey, src=v1 tgt=v2", exerciseUpdateKeyUpgraded)
       ]
     ]
   , subtree "Changed key type, invalid upgrade"
-    [ ("queryContractKeyCmd, global", queryInvalidKeyUpgradeGlobal)
+    [ ("queryByKeyCmd, global", queryInvalidKeyUpgradeGlobal)
     , ("exerciseByKeyCmd, global", exerciseInvalidKeyUpgradeGlobal)
     , ("fetch, local", fetchInvalidKeyUpgradeLocal)
     , ("exerciseByKey, local", exerciseInvalidKeyUpgradeLocal)
     ]
   , subtree "Renamed key label, invalid upgrade"
-    [ ("queryContractKeyCmd, global", queryInvalidKeyRenamingGlobal)
+    [ ("queryByKeyCmd, global", queryInvalidKeyRenamingGlobal)
     , ("exerciseByKeyCmd, global", exerciseInvalidKeyRenamingGlobal)
     , ("fetch, local", fetchInvalidKeyRenamingLocal)
     , ("exerciseByKey, local", exerciseInvalidKeyRenamingLocal)
@@ -187,7 +187,7 @@ queryKeyUnchanged : Test
 queryKeyUnchanged = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.UnchangedKey a 1)
-  keyRes <- queryContractKey a $ V2.UnchangedKeyKey a 1
+  keyRes <- queryByKey a $ V2.UnchangedKeyKey a 1
   case keyRes of
     Some (foundCid, foundContract) | show foundCid == show cid && foundContract == V2.UnchangedKey a 1 None -> pure ()
     _ -> assertFail $ "Didn't find correct contract, expected " <> show (cid, V2.UnchangedKey a 1 None) <> ", got " <> show keyRes
@@ -287,7 +287,7 @@ qckKeyChangedExprSameValue : Test
 qckKeyChangedExprSameValue = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a False)
-  keyRes <- queryContractKey a $ V2.ChangedKeyExprKey a False
+  keyRes <- queryByKey a $ V2.ChangedKeyExprKey a False
   case keyRes of
     Some (foundCid, foundContract) | show foundCid == show cid && foundContract == V2.ChangedKeyExpr a False -> pure ()
     _ -> assertFail $ "Didn't find correct contract, expected " <> show (cid, V2.ChangedKeyExpr a False) <> ", got " <> show keyRes
@@ -307,7 +307,7 @@ qckKeyChangedExprChangedValue = test $ do
   cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
   -- It is not daml-script's role to perform upgrade validation checks. It merely acts as a proxy for the ledger API
   -- that upgrades the returned value to fit the requested type.
-  r <- queryContractKey @V2.ChangedKeyExpr a $ V2.ChangedKeyExprKey a False
+  r <- queryByKey @V2.ChangedKeyExpr a $ V2.ChangedKeyExprKey a False
   r === Some (coerceContractId @_ @V2.ChangedKeyExpr cid, V2.ChangedKeyExpr a True)
 
 queryKeyChangedExprChangedValue : Test
@@ -488,7 +488,7 @@ qckMaintainersChangedExprSameValue : Test
 qckMaintainersChangedExprSameValue = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a a)
-  keyRes <- queryContractKey a $ V2.ChangedMaintainersExprKey a a
+  keyRes <- queryByKey a $ V2.ChangedMaintainersExprKey a a
   case keyRes of
     Some (foundCid, foundContract) | show foundCid == show cid && foundContract == V2.ChangedMaintainersExpr a a -> pure ()
     _ -> assertFail $ "Didn't find correct contract, expected " <> show (cid, V2.ChangedMaintainersExpr a a) <> ", got " <> show keyRes
@@ -507,7 +507,7 @@ qckMaintainersChangedExprChangedValue = test $ do
   a <- allocateParty "alice"
   b <- allocateParty "bob"
   cid <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a b)
-  r <- queryContractKey @V2.ChangedMaintainersExpr a $ V2.ChangedMaintainersExprKey a b
+  r <- queryByKey @V2.ChangedMaintainersExpr a $ V2.ChangedMaintainersExprKey a b
   r === Some (coerceContractId @_ @V2.ChangedMaintainersExpr cid, V2.ChangedMaintainersExpr a b)
 
 queryMaintainersChangedExprChangedValue : Test
@@ -656,7 +656,7 @@ queryKeyUpgraded : Test
 queryKeyUpgraded = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.UpgradedKey a 1)
-  keyRes <- queryContractKey a $ V2.UpgradedKeyKey a 1 None
+  keyRes <- queryByKey a $ V2.UpgradedKeyKey a 1 None
   case keyRes of
     Some (foundCid, foundContract) | show foundCid == show cid && foundContract == V2.UpgradedKey a 1 None -> pure ()
     _ -> assertFail $ "Didn't find correct contract, expected " <> show (cid, V2.UpgradedKey a 1 None) <> ", got " <> show keyRes
@@ -793,7 +793,7 @@ queryInvalidKeyUpgradeGlobal : Test
 queryInvalidKeyUpgradeGlobal = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.InvalidKeyUpgrade a)
-  keyRes <- queryContractKey @V2.InvalidKeyUpgrade a $ V2.InvalidKeyUpgradeKey a False
+  keyRes <- queryByKey @V2.InvalidKeyUpgrade a $ V2.InvalidKeyUpgradeKey a False
   case keyRes of
     None -> pure ()
     _ -> assertFail ("Expected None (key not found), but got: " <> show keyRes)
@@ -829,7 +829,7 @@ queryInvalidKeyRenamingGlobal : Test
 queryInvalidKeyRenamingGlobal = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.InvalidKeyRenaming a)
-  keyRes <- queryContractKey @V2.InvalidKeyRenaming a $ V2.InvalidKeyRenamingKey a 42
+  keyRes <- queryByKey @V2.InvalidKeyRenaming a $ V2.InvalidKeyRenamingKey a 42
   case keyRes of
     None -> pure ()
     _ -> assertFail ("Expected None (key not found), but got: " <> show keyRes)

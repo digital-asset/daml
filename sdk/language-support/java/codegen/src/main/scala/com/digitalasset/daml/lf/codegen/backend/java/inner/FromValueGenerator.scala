@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.codegen.backend.java.inner
 
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.codegen.{
-  ContractCompanion,
+  UnknownTrailingFieldPolicy,
   ValueDecoder,
   PrimitiveValueDecoders,
 }
@@ -83,23 +83,60 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .build()
   }
 
-  def generateContractCompanionValueDecoder(
-      className: TypeName,
-      typeParameters: IndexedSeq[String],
+  def generateValueDecoder(
+      className: TypeName
   ): MethodSpec = {
-    logger.debug("Generating method for getting value decoder in template class")
-    val converterParams = FromValueExtractorParameters
-      .generate(typeParameters)
-      .valueDecoderParameterSpecs
+    logger.debug("Generating templateValueDecoder-delegating valueDecoder method")
+
+    val valueDecoderType =
+      ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className)
+    val contractIdType = ParameterizedTypeName.get(
+      ClassName.get(classOf[javaapi.data.codegen.ContractId[_]]),
+      className,
+    )
+    val contractIdClassName =
+      nestedClassName(className.asInstanceOf[ClassName], "ContractId")
 
     MethodSpec
       .methodBuilder("valueDecoder")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .returns(ParameterizedTypeName.get(ClassName.get(classOf[ValueDecoder[_]]), className))
-      .addTypeVariables(className.typeParameters)
-      .addParameters(converterParams.asJava)
+      .returns(valueDecoderType)
       .addException(classOf[IllegalArgumentException])
-      .addStatement("return $T.valueDecoder(COMPANION)", classOf[ContractCompanion[_, _, _]])
+      .addCode(
+        CodeBlock
+          .builder()
+          .addStatement("final $T base = templateValueDecoder()", valueDecoderType)
+          .add("return new $T() {\n", valueDecoderType)
+          .indent()
+          .add("@$T\n", classOf[Override])
+          .beginControlFlow(
+            "public $T decode($T value, $T policy)",
+            className,
+            classOf[javaapi.data.Value],
+            classOf[UnknownTrailingFieldPolicy],
+          )
+          .addStatement("return base.decode(value, policy)")
+          .endControlFlow()
+          .add("@$T\n", classOf[Override])
+          .beginControlFlow(
+            "public $T decode($T value)",
+            className,
+            classOf[javaapi.data.Value],
+          )
+          .addStatement("return base.decode(value)")
+          .endControlFlow()
+          .add("@$T\n", classOf[Override])
+          .beginControlFlow(
+            "public $T fromContractId($T contractId)",
+            contractIdType,
+            classOf[String],
+          )
+          .addStatement("return new $T(contractId)", contractIdClassName)
+          .endControlFlow()
+          .unindent()
+          .add("};\n")
+          .build()
+      )
       .build()
   }
 

@@ -517,7 +517,7 @@ Add a script to make and get IOUs to ``v1/my-pkg/daml/Main.daml``:
     pure alice
 
   getIOU : Party -> Script (Optional (ContractId IOU, IOU))
-  getIOU key = queryContractKey @IOU key key
+  getIOU key = queryByKey @IOU key key
 
 Open ``v2/my-pkg/daml/Main.daml`` and add scripts to make IOUs with and
 without a currency field, and a script to get any IOU:
@@ -541,7 +541,7 @@ without a currency field, and a script to get any IOU:
     pure alice
 
   getIOU : Party -> Script (Optional (ContractId IOU, IOU))
-  getIOU key = queryContractKey @IOU key key
+  getIOU key = queryByKey @IOU key key
 
 Start a new terminal, run ``dpm sandbox`` to start a simple ledger in which
 to test upgrades.
@@ -648,7 +648,7 @@ Query it from a v1 script in the ``v1/my-pkg`` directory:
       --output-file /dev/stdout \
       --input-file ../../v2/my-pkg/alice-v2
   ...
-  Exception in thread "main" com.daml.lf.engine.script.Script$FailedCmd: Command QueryContractKey failed: Failed to translate create argument:
+  Exception in thread "main" com.daml.lf.engine.script.Script$FailedCmd: Command QueryByKey failed: Failed to translate create argument:
   ...
   An optional contract field with a value of Some may not be dropped during downgrading.
 
@@ -911,7 +911,7 @@ the v1 and v2 IOU modules. The v1 IOU module should be overwritten as follows:
     pure alice
 
   getIOU : Party -> Script (Optional (ContractId IOU, IOU))
-  getIOU key = queryContractKey @IOU key key
+  getIOU key = queryByKey @IOU key key
 
 The v2 IOU module should be overwritten to look like the following:
 
@@ -947,7 +947,7 @@ The v2 IOU module should be overwritten to look like the following:
     pure alice
 
   getIOU : Party -> Script (Optional (ContractId IOU, IOU))
-  getIOU key = queryContractKey @IOU key key
+  getIOU key = queryByKey @IOU key key
 
 All other files should remain the same.
 
@@ -1130,7 +1130,7 @@ with the following:
     pure alice
 
   getIOU : Party -> Script (Optional (ContractId IOU, IOU))
-  getIOU key = queryContractKey @IOU key key
+  getIOU key = queryByKey @IOU key key
 
 Instead of using ``Text`` for the currency field, here we use an enum
 data-type ``Currency`` with two constructors: ``USD`` and ``GBP``.

@@ -3,7 +3,7 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
-module ScriptTest where
+module ScriptTestWithKeys where
 
 import DA.Action
 import DA.Assert
@@ -72,6 +72,28 @@ template NumericTpl
       controller p
       do pure v
 
+template WithKey
+  with
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+
+    nonconsuming choice GetCid : ContractId WithKey
+      controller p
+      do pure self
+
+template TTupleKey
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    key (p1, p2) : (Party, Party)
+    maintainer key._1
+
 test0 : Script (Party, Party, [T], [TProposal], [C])
 test0 = do
   alice <- allocateParty "alice"
@@ -116,6 +138,13 @@ test4 = do
   alice <- allocateParty "alice"
   cid <- submit alice $ createCmd (C alice 42)
   [(cid', _)] <- query @C alice
+  pure (cid, cid')
+
+testKey : Script (ContractId WithKey, ContractId WithKey)
+testKey = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (WithKey alice)
+  cid' <- submit alice $ exerciseByKeyCmd @WithKey alice GetCid
   pure (cid, cid')
 
 testCreateAndExercise : Script Int
@@ -203,6 +232,12 @@ jsonCreateAndExercise : Party -> Script Int
 jsonCreateAndExercise p =
   fmap snd $ submit p $ createAndExerciseCmd (TProposal p p) Accept
 
+jsonExerciseByKey : Party -> Script (ContractId WithKey, ContractId WithKey)
+jsonExerciseByKey p = do
+  cid1 <- submit p $ createCmd (WithKey p)
+  cid2 <- submit p $ exerciseByKeyCmd @WithKey p GetCid
+  pure (cid1, cid2)
+
 jsonCreate : Party -> Script (ContractId TProposal)
 jsonCreate p = submit p $ createCmd (TProposal p p)
 
@@ -273,15 +308,21 @@ testMultiPartyQueries : Script () = do
 multiPartyQueryCreate (p0, p1) = do
   cid0 <- submit p0 $ createCmd (C p0 42)
   cid1 <- submit p1 $ createCmd (C p1 23)
-  pure (cid0, cid1)
+  cidKey0 <- submit p0 $ createCmd (WithKey p0)
+  cidKey1 <- submit p1 $ createCmd (WithKey p1)
+  pure (cid0, cid1, cidKey0, cidKey1)
 
-multiPartyQueryQuery ((p0, p1), (cid0, cid1)) = do
+multiPartyQueryQuery ((p0, p1), (cid0, cid1, cidKey0, cidKey1)) = do
   r <- query @C [p0, p1]
   sortOn (\(_, c) -> c.v) r === [(cid1, C p1 23), (cid0, C p0 42)]
   Some r <- queryContractId @C [p0, p1] cid0
   r === C p0 42
   Some r <- queryContractId @C [p0, p1] cid1
   r === C p1 23
+  Some (r, _) <- queryByKey @WithKey [p0, p1] p0
+  r === cidKey0
+  Some (r, _) <- queryByKey @WithKey [p0, p1] p1
+  r === cidKey1
 
 testQueryContractId : Script () = do
   p <- allocateParty "p"
@@ -293,6 +334,18 @@ jsonQueryContractId p = do
   optR === Some (C p 42)
   submit p do archiveCmd cid
   optR <- queryContractId p cid
+  optR === None
+
+testQueryByKey : Script () = do
+  p <- allocateParty "p"
+  jsonQueryByKey p
+
+jsonQueryByKey p = do
+  cid <- submit p do createCmd (WithKey p)
+  optR <- queryByKey @WithKey p p
+  optR === Some (cid, WithKey p)
+  submit p do archiveCmd cid
+  optR <- queryByKey @WithKey p p
   optR === None
 
 template MultiPartyContract
@@ -321,6 +374,15 @@ multiPartySubmission = do
   single <- submitMulti [p1] [] (createCmd (MultiPartyContract [p1]))
   submitMultiMustFail [p2] [] (exerciseCmd shared (MPFetchOther single p2))
   submitMulti [p2] [p1] (exerciseCmd shared (MPFetchOther single p2))
+  pure ()
+
+tupleKey : Script ()
+tupleKey = do
+  p1 <- allocateParty "p1"
+  p2 <- allocateParty "p2"
+  cid <- submit p1 (createCmd (TTupleKey p1 p2))
+  r <- queryByKey @TTupleKey p1 (p1, p2)
+  r === Some (cid, TTupleKey p1 p2)
   pure ()
 
 tree : Script ()

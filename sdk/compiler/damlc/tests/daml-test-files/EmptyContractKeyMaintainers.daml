@@ -1,7 +1,7 @@
 -- @SUPPORTS-LF-FEATURE DAML_UCK_BUILTINS
 
 -- @ERROR range=46:1-46:22; Attempt to create a contract key with an empty set of maintainers
--- @TODO queryContractKey loses errors, ideally below is: Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+-- @TODO queryByKey loses errors, ideally below is: Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
 -- @ERROR range=50:1-50:18; Couldn't see contract with key 'Alice'
 -- @ERROR range=54:1-54:19; Attempt to create a contract key with an empty set of maintainers
 -- @ERROR range=58:1-58:18; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers

@@ -51,7 +51,7 @@ queryCrashes = script do
     alice <- allocateParty "Alice"
     cid <- submit alice $ do
           createCmd Contract with party = alice
-    queryContractKey @ContractKeyWithCid alice (alice, ContractId' cid)
+    queryByKey @ContractKeyWithCid alice (alice, ContractId' cid)
 
 exerciseCmdCrashes = script do
     alice <- allocateParty "Alice"

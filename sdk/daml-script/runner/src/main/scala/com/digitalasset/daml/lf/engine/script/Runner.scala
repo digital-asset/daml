@@ -34,6 +34,7 @@ import com.digitalasset.daml.lf.engine.ScriptEngine.{
   defaultCompilerConfig,
 }
 import com.digitalasset.daml.lf.speedy.MachineLogger
+import com.digitalasset.daml.lf.transaction.{NextGenContractStateMachine => ContractStateMachine}
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.value._
@@ -361,6 +362,45 @@ object Runner {
     )
   }
 
+  sealed trait IdeLedgerProtocolVersion {
+    def csmMode: ContractStateMachine.Mode
+    def toString: String
+  }
+  object IdeLedgerProtocolVersion {
+    // Should be kept in sync with canton/community/base/src/main/scala/com/digitalasset/canton/version/EngineMode.scala
+    final case object V34 extends IdeLedgerProtocolVersion {
+      val csmMode = ContractStateMachine.Mode.NoKey
+      override val toString = "V34"
+    }
+    final case object V35 extends IdeLedgerProtocolVersion {
+      val csmMode = ContractStateMachine.Mode.NUCK
+      override val toString = "V35"
+    }
+    final case object VDev extends IdeLedgerProtocolVersion {
+      val csmMode = ContractStateMachine.Mode.NUCK
+      override val toString = "VDev"
+    }
+    val all = List(V34, V35, VDev)
+    val latest = V35
+    def parseIdeLedgerProtocolVersion(str: String): Either[String, IdeLedgerProtocolVersion] =
+      str.toLowerCase match {
+        case "v34" | "34" => Right(V34)
+        case "v35" | "35" => Right(V35)
+        case "vdev" | "dev" => Right(VDev)
+        case "latest" => Right(latest)
+        case _ =>
+          Left(
+            s"Invalid protocol version \"$str\", choose from one of: ${all.map(_.toString).mkString(", ")}"
+          )
+      }
+
+    val readIdeLedgerProtocolVersion: scopt.Read[IdeLedgerProtocolVersion] =
+      scopt.Read.stringRead.map(
+        parseIdeLedgerProtocolVersion(_)
+          .fold(err => throw new IllegalArgumentException(err), identity)
+      )
+  }
+
   // Executes a Daml script
   //
   // Looks for the script in the given compiledPackages, applies the input
@@ -375,6 +415,7 @@ object Runner {
       timeMode: ScriptTimeMode,
       machineLogger: MachineLogger = ScriptMachineLogger(),
       canceled: () => Option[RuntimeException] = () => None,
+      ideLedgerProtocolVersion: IdeLedgerProtocolVersion = IdeLedgerProtocolVersion.latest,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -389,6 +430,7 @@ object Runner {
       timeMode,
       machineLogger,
       canceled,
+      ideLedgerProtocolVersion,
     )._1
 
   // Same as run above but requires use of IdeLedgerClient, gives additional context back
@@ -401,6 +443,7 @@ object Runner {
       timeMode: ScriptTimeMode,
       machineLogger: MachineLogger = ScriptMachineLogger(),
       canceled: () => Option[RuntimeException] = () => None,
+      ideLedgerProtocolVersion: IdeLedgerProtocolVersion = IdeLedgerProtocolVersion.latest,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -416,6 +459,7 @@ object Runner {
       timeMode,
       machineLogger,
       canceled,
+      ideLedgerProtocolVersion,
     )
     (resultF, oIdeLedgerContext.get)
   }
@@ -429,6 +473,7 @@ object Runner {
       timeMode: ScriptTimeMode,
       machineLogger: MachineLogger,
       canceled: () => Option[RuntimeException],
+      ideLedgerProtocolVersion: IdeLedgerProtocolVersion,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -455,7 +500,7 @@ object Runner {
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner = new Runner(compiledPackages, scriptAction, timeMode)
-    runner.runWithClients(initialClients, machineLogger, canceled)
+    runner.runWithClients(initialClients, machineLogger, canceled, ideLedgerProtocolVersion.csmMode)
   }
 
   def getPackageName(compiledPackages: CompiledPackages, pkgId: PackageId): Option[String] =
@@ -487,6 +532,7 @@ private[lf] class Runner(
       initialClients: Participants[ScriptLedgerClient],
       machineLogger: MachineLogger = ScriptMachineLogger(),
       canceled: () => Option[RuntimeException] = () => None,
+      csmMode: ContractStateMachine.Mode,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -498,7 +544,7 @@ private[lf] class Runner(
       throw new IllegalArgumentException("Couldn't get daml script package name")
     ) match {
       case "daml-script" | "daml3-script" =>
-        new v2.Runner(this, initialClients, machineLogger, canceled).getResult()
+        new v2.Runner(this, initialClients, machineLogger, canceled, csmMode).getResult()
       case pkgName =>
         throw new IllegalArgumentException(
           "Invalid daml script package name. Expected daml-script or daml3-script, got " + pkgName

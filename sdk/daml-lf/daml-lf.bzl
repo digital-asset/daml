@@ -203,7 +203,7 @@ def _init_data():
             "name": "featureUCKBuiltins",
             "name_pretty": "Old style (UCK) key builtins (fetchByKey, exerciseByKey (UCK semantics), lookupByKey (UCK semantics), ...)",
             "cpp_flag": "DAML_UCK_BUILTINS",
-            "version_req": dev_only,
+            "version_req": {},
         },
         {
             "name": "featureFetchByKey",
@@ -221,7 +221,7 @@ def _init_data():
             "name": "featureLegacyLookupByKey",
             "name_pretty": "Lookup by key (legacy, UCK variant)",
             "cpp_flag": "DAML_LEGACY_LOOKUP_BY_KEY",
-            "version_req": dev_only,
+            "version_req": {},
         },
         {
             "name": "featureContractKeys",
@@ -320,6 +320,7 @@ STABLE_LF_VERSIONS = [v.dotted for v in VERSIONS.STABLE_LF_VERSIONS]
 
 LATEST_STABLE_LF_VERSION = VERSIONS.LATEST_STABLE_LF_VERSION.dotted
 DEFAULT_LF_VERSION = VERSIONS.DEFAULT_LF_VERSION.dotted
+STAGING_LF_VERSION = VERSIONS.STAGING_LF_VERSION.dotted
 DEV_LF_VERSION = VERSIONS.DEV_LF_VERSION.dotted
 
 # Ideally, COMPILER_VERSIONS does not exist. Currently, all of these piont to
@@ -402,7 +403,9 @@ def version_in(
 # have to come up with something more clever here to make
 # sure that we don’t remove docs for a module that is still supported
 # in a stable LF version.
-LF_DOCS_VERSION = LATEST_STABLE_LF_VERSION
+#TODO[#22851]: revert back to LATEST_STABLE_LF_VERSION
+# LF_DOCS_VERSION = LATEST_STABLE_LF_VERSION
+LF_DOCS_VERSION = STAGING_LF_VERSION
 
 # LF Versions supported by the dar reader
 READABLE_LF_VERSIONS = (["1.14", "1.15", "1.dev"] if is_intel else []) + ALL_LF_VERSIONS

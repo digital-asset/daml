@@ -496,38 +496,15 @@ Typeclasses
 
   Exposes ``lookupByKey`` function\. Part of the ``TemplateKey`` constraint\.
 
-  .. _function-da-internal-template-functions-lookupbykey-92781:
-
-  `lookupByKey <function-da-internal-template-functions-lookupbykey-92781_>`_
-    \: k \-\> `Update <type-da-internal-lf-update-68072_>`_ (`Optional <type-da-internal-prelude-optional-37153_>`_ (`ContractId <type-da-internal-lf-contractid-95282_>`_ t))
-
-    Look up the contract ID ``t`` associated with a given contract key ``k``\.
-
-    You must pass the ``t`` using an explicit type application\. For
-    instance, if you want to look up a contract of template ``Account`` by its
-    key ``k``, you must call ``lookupByKey @Account k``\.
-
 .. _class-da-internal-template-functions-hasfetchbykey-54638:
 
 **class** `HasFetchByKey <class-da-internal-template-functions-hasfetchbykey-54638_>`_ t k **where**
 
   Exposes ``fetchByKey`` function\. Part of the ``TemplateKey`` constraint\.
 
-  .. _function-da-internal-template-functions-fetchbykey-95464:
+.. _class-da-internal-template-functions-haslookupnbykey-35508:
 
-  `fetchByKey <function-da-internal-template-functions-fetchbykey-95464_>`_
-    \: k \-\> `Update <type-da-internal-lf-update-68072_>`_ (`ContractId <type-da-internal-lf-contractid-95282_>`_ t, t)
-
-    Fetch the contract ID and contract data associated with a given
-    contract key\.
-
-    You must pass the ``t`` using an explicit type application\. For
-    instance, if you want to fetch a contract of template ``Account`` by its
-    key ``k``, you must call ``fetchByKey @Account k``\.
-
-.. _class-da-internal-template-functions-hasquerynbykey-53843:
-
-**class** `HasQueryNByKey <class-da-internal-template-functions-hasquerynbykey-53843_>`_ t k **where**
+**class** `HasLookupNByKey <class-da-internal-template-functions-haslookupnbykey-35508_>`_ t k **where**
 
 
 .. _class-da-internal-template-functions-hasmaintainer-28932:
@@ -1675,7 +1652,7 @@ Data Types
 .. _type-da-internal-template-functions-templatekey-95200:
 
 **type** `TemplateKey <type-da-internal-template-functions-templatekey-95200_>`_ t k
-  \= (`Template <type-da-internal-template-functions-template-31804_>`_ t, `HasKey <class-da-internal-template-functions-haskey-87616_>`_ t k, `HasMaintainer <class-da-internal-template-functions-hasmaintainer-28932_>`_ t k)
+  \= (`Template <type-da-internal-template-functions-template-31804_>`_ t, `HasKey <class-da-internal-template-functions-haskey-87616_>`_ t k, `HasFetchByKey <class-da-internal-template-functions-hasfetchbykey-54638_>`_ t k, `HasMaintainer <class-da-internal-template-functions-hasmaintainer-28932_>`_ t k)
 
   Constraint satisfied by template keys\.
 
@@ -2661,6 +2638,41 @@ Functions
 
   The list of maintainers of a contract key\.
 
+.. _function-da-internal-template-functions-lookupbykey-92781:
+
+`lookupByKey <function-da-internal-template-functions-lookupbykey-92781_>`_
+  \: (`HasKey <class-da-internal-template-functions-haskey-87616_>`_ t k, `HasLookupNByKey <class-da-internal-template-functions-haslookupnbykey-35508_>`_ t k) \=\> k \-\> `Update <type-da-internal-lf-update-68072_>`_ (`Optional <type-da-internal-prelude-optional-37153_>`_ (`ContractId <type-da-internal-lf-contractid-95282_>`_ t))
+
+  Look up the contract ID ``t`` associated with a given contract key ``k``\.
+
+  You must pass the ``t`` using an explicit type application\. For
+  instance, if you want to look up a contract of template ``Account`` by its
+  key ``k``, you must call ``lookupByKey @Account k``\.
+
+.. _function-da-internal-template-functions-fetchbykey-95464:
+
+`fetchByKey <function-da-internal-template-functions-fetchbykey-95464_>`_
+  \: `HasFetchByKey <class-da-internal-template-functions-hasfetchbykey-54638_>`_ t k \=\> k \-\> `Update <type-da-internal-lf-update-68072_>`_ (`ContractId <type-da-internal-lf-contractid-95282_>`_ t, t)
+
+  Fetch the contract ID and contract data associated with a given
+  contract key\.
+
+  You must pass the ``t`` using an explicit type application\. For
+  instance, if you want to fetch a contract of template ``Account`` by its
+  key ``k``, you must call ``fetchByKey @Account k``\.
+
+.. _function-da-internal-template-functions-exercisebykey-78695:
+
+`exerciseByKey <function-da-internal-template-functions-exercisebykey-78695_>`_
+  \: `HasExerciseByKey <class-da-internal-template-functions-hasexercisebykey-36549_>`_ t k c r \=\> k \-\> c \-\> `Update <type-da-internal-lf-update-68072_>`_ r
+
+  Exercise a choice on the contract associated with the given key\.
+
+  You must pass the ``t`` using an explicit type application\. For
+  instance, if you want to exercise a choice ``Withdraw`` on a contract of
+  template ``Account`` given by its key ``k``, you must call
+  ``exerciseByKey @Account k Withdraw``\.
+
 .. _function-da-internal-template-functions-createandexercise-2676:
 
 `createAndExercise <function-da-internal-template-functions-createandexercise-2676_>`_
@@ -2718,6 +2730,15 @@ Functions
   For example ``fromAnyChoice @Account choice``\.
 
   Only available for Daml\-LF 1\.7 or later\.
+
+.. _function-da-internal-template-functions-visiblebykey-51464:
+
+`visibleByKey <function-da-internal-template-functions-visiblebykey-51464_>`_
+  \: (`HasKey <class-da-internal-template-functions-haskey-87616_>`_ t k, `HasLookupNByKey <class-da-internal-template-functions-haslookupnbykey-35508_>`_ t k) \=\> k \-\> `Update <type-da-internal-lf-update-68072_>`_ `Bool <type-ghc-types-bool-66265_>`_
+
+  True if contract exists, submitter is a stakeholder, and all maintainers
+  authorize\. False if contract does not exist and all maintainers authorize\.
+  Fails otherwise\.
 
 .. _function-ghc-base-otherwise-74255:
 
