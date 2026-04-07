@@ -7,13 +7,6 @@ bazel_dep(name = "protobuf", version = "33.4")
 bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "rules_go", version = "0.59.0")
 bazel_dep(name = "rules_haskell", version = "0.18")
-archive_override(
-    module_name = "rules_haskell",
-    patches = ["//bazel/rules/patches:rules_haskell_ghc_version.patch"],
-    strip_prefix = "rules_haskell-0.18",
-    urls = ["https://github.com/tweag/rules_haskell/releases/download/v0.18/rules_haskell-0.18.tar.gz"],
-)
-
 bazel_dep(name = "rules_java", version = "9.5.0")
 bazel_dep(name = "rules_pkg", version = "1.2.0")
 
@@ -35,11 +28,11 @@ use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 
 register_toolchains("@bsd_tar_toolchains//:all")
 
-# haskell_toolchains = use_extension(
-#     "@rules_haskell//extensions:default.bzl",
-#     "haskell_toolchains",
-# )
-# haskell_toolchains.bindist(version = "9.0.1")
+haskell_toolchains = use_extension(
+    "@rules_haskell//extensions:haskell_toolchains.bzl",
+    "haskell_toolchains",
+)
+haskell_toolchains.bindists(version = "9.0.2")
 
 haskell_non_module_deps = use_extension("//bazel/extensions:haskell_non_module_deps_extension.bzl", "haskell_non_module_deps_extension")
 use_repo(
