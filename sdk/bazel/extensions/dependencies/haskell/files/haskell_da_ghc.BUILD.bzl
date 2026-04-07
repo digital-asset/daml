@@ -4,8 +4,8 @@ load(
     "GHC_FLAVOR",
     "GHC_LIB_VERSION",
 )
-load("@os_info//:os_info.bzl", "is_darwin")
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
+load("@//bazel/rules:ghc_lib_sdist.bzl", "ghc_lib_sdist")
 
 filegroup(
     name = "hadrian-srcs",
@@ -46,89 +46,44 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-_LANG = "en_US.UTF-8" if is_darwin else "C.UTF-8"
-_CPP_OPTIONS = " ".join(["--cpp={}".format(cpp) for cpp in GHC_CPP_OPTIONS])
-
-genrule(
+ghc_lib_sdist(
     name = "ghc-lib",
-    srcs = [
-        ":srcs",
-        ":README.md",
-        "@autoconf//:srcs",
-        "@autoconf//:README",
-        "@automake//:srcs",
-        "@automake//:README",
+    ghc_srcs = ":srcs",
+    readme = ":README.md",
+    ghc_lib_gen = "@ghc-lib-gen//:ghc-lib-gen",
+    hadrian = ":hadrian",
+    autotools = "@automake//:automake",
+    m4 = "@m4//:m4",
+    perl = "@rules_perl//:current_toolchain",
+    cabal = "@cabal//:cabal",
+    component = "",
+    version = GHC_LIB_VERSION,
+    ghc_flavor = GHC_FLAVOR,
+    extra_tools = [
+        "@stackage-exe//happy",
+        "@stackage-exe//alex",
     ],
-    tools = [
-        ":hadrian",
-        "@ghc-lib-gen//:ghc-lib-gen",
-        "@m4//:m4",
-        "@rules_perl//:current_toolchain",
-        "@rules_haskell//haskell:current_haskell_toolchain",
+    cpp_options = GHC_CPP_OPTIONS,
+    visibility = ["//visibility:public"],
+)
+
+ghc_lib_sdist(
+    name = "ghc-lib-parser",
+    ghc_srcs = ":srcs",
+    readme = ":README.md",
+    ghc_lib_gen = "@ghc-lib-gen//:ghc-lib-gen",
+    hadrian = ":hadrian",
+    autotools = "@automake//:automake",
+    m4 = "@m4//:m4",
+    perl = "@rules_perl//:current_toolchain",
+    cabal = "@cabal//:cabal",
+    component = "-parser",
+    version = GHC_LIB_VERSION,
+    ghc_flavor = GHC_FLAVOR,
+    extra_tools = [
+        "@stackage-exe//happy",
+        "@stackage-exe//alex",
     ],
-    toolchains = [
-        "@rules_cc//cc:current_cc_toolchain",
-    ],
-    outs = [
-        "ghc-lib.cabal",
-        "ghc-lib-{version}.tar.gz".format(version = GHC_LIB_VERSION),
-    ],
-    cmd = """\
-set -euo pipefail
-ORIGIN=$$PWD
-
-echo "HASKELL: $(locations @rules_haskell//haskell:current_haskell_toolchain)" | tr ' ' '\n' | grep bin/ghc | head -3
-exit
-
-# Tool paths
-M4_DIR="$$(dirname $$(realpath $(execpath @m4//:m4)))"
-PERL_DIR="$$(realpath $$(dirname $$(echo "$(locations @rules_perl//:current_toolchain)" | cut -d' ' -f1)))/bin"
-AUTOCONF_SRC="$$ORIGIN/$$(dirname $(location @autoconf//:README))"
-
-export PATH="$$PERL_DIR:$$M4_DIR:$$PATH"
-
-# Build autoconf inline
-AUTOCONF_PREFIX=$$(mktemp -d)
-cd $$AUTOCONF_SRC
-./configure --prefix=$$AUTOCONF_PREFIX
-make install
-cd $$ORIGIN
-export PATH="$$AUTOCONF_PREFIX/bin:$$PATH"
-
-# Build automake inline (shares prefix with autoconf)
-AUTOMAKE_SRC="$$ORIGIN/$$(dirname $(location @automake//:README))"
-cd $$AUTOMAKE_SRC
-./configure --prefix=$$AUTOCONF_PREFIX
-make install
-cd $$ORIGIN
-
-export LANG={lang}
-export CC="$(CC)"
-export LD="$(LD)"
-export PATH="$$ORIGIN/$$(dirname $(execpath :hadrian)):$$PATH"
-
-GHC_DIR="$$ORIGIN/$$(dirname $(execpath :README.md))"
-TMP=$$(mktemp -d)
-trap "rm -rf $$TMP $$AUTOCONF_PREFIX" EXIT
-cp -rLt $$TMP $$GHC_DIR/.
-export HOME="$$TMP"
-
-$(execpath @ghc-lib-gen//:ghc-lib-gen) $$TMP \
-    --ghc-lib \
-    --ghc-flavor={ghc_flavor} \
-    {cpp_options}
-
-sed -i.bak -e "s#$$ORIGIN/##" $$TMP/ghc-lib/stage0/lib/settings
-sed -i.bak -e 's#version: 0.1.0#version: {ghc_lib_version}#' $$TMP/ghc-lib.cabal
-
-cp $$TMP/ghc-lib.cabal $(execpath ghc-lib.cabal)
-# cabal sdist must run from the source tree; OLDPWD retains the exec root after cd.
-cd $$TMP && cabal sdist -o $$OLDPWD/$(RULEDIR)
-""".format(
-        cpp_options = _CPP_OPTIONS,
-        ghc_flavor = GHC_FLAVOR,
-        ghc_lib_version = GHC_LIB_VERSION,
-        lang = _LANG,
-    ),
+    cpp_options = GHC_CPP_OPTIONS,
     visibility = ["//visibility:public"],
 )
