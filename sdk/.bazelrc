@@ -1,4 +1,5 @@
-common --noenable_bzlmod
+common --enable_bzlmod
+common --noenable_workspace
 
 # Bazel distributed cache, can be temporarily disabled by passing the following
 # flag: --noremote_accept_cached
@@ -23,9 +24,9 @@ sync:darwin --repository_cache=.bazel-cache/repo
 
 test:oracle --repo_env DAML_ORACLE_TESTING=true --test_env ORACLE_USERNAME --test_env ORACLE_PORT --test_env ORACLE_PWD
 
-# set c++ compilation version to 14 (requiered for abseil)
-build --cxxopt=-std=c++14
-build --host_cxxopt=-std=c++14
+# set c++ compilation version to 14 (requiered for abseil) -> 17 for new version
+build --cxxopt=-std=c++17
+build --host_cxxopt=-std=c++17
 
 # Improve remote cache hit rate by exluding environment variables from the
 # sandbox that are not whitelisted using --action_env.
@@ -68,14 +69,20 @@ test --strategy=Scalac=worker
 #  https://github.com/grpc/grpc/pull/13929/files
 build --copt -DGRPC_BAZEL_BUILD
 
+# build --java_language_version=17
+# build:linux --java_runtime_version=nixpkgs_java_17
+# build:linux --tool_java_runtime_version=nixpkgs_java_17
+# build:darwin --java_runtime_version=nixpkgs_java_17
+# build:darwin --tool_java_runtime_version=nixpkgs_java_17
+# build:windows --java_runtime_version=17
+# build:windows --tool_java_runtime_version=17
+# build --tool_java_language_version=17
+
 build --java_language_version=17
-build:linux --java_runtime_version=nixpkgs_java_17
-build:linux --tool_java_runtime_version=nixpkgs_java_17
-build:darwin --java_runtime_version=nixpkgs_java_17
-build:darwin --tool_java_runtime_version=nixpkgs_java_17
-build:windows --java_runtime_version=17
-build:windows --tool_java_runtime_version=17
 build --tool_java_language_version=17
+
+build --java_runtime_version=remotejdk_17
+build --tool_java_runtime_version=remotejdk_17
 
 # Propagate locales and the java home to the test environment.
 build --test_env=LANG=en_US.utf8 --test_env=LOCALE_ARCHIVE --test_env=JAVA_HOME
