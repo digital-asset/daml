@@ -64,6 +64,8 @@ ghc_lib_sdist(
         "@stackage-exe//alex",
     ],
     cpp_options = GHC_CPP_OPTIONS,
+    cabal_out = "ghc-lib.cabal",
+    tarball_out = "ghc-lib-{}.tar.gz".format(GHC_LIB_VERSION),
     visibility = ["//visibility:public"],
 )
 
@@ -85,5 +87,7 @@ ghc_lib_sdist(
         "@stackage-exe//alex",
     ],
     cpp_options = GHC_CPP_OPTIONS,
+    cabal_out = "ghc-lib-parser.cabal",
+    tarball_out = "ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION),
     visibility = ["//visibility:public"],
 )
