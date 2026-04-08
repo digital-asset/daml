@@ -26,6 +26,10 @@ import qualified V1.ContractKeyPresence as V1
 import qualified V2.ContractKeyPresence as V2
 import qualified V1.IfaceMod as Iface
 import qualified V1.KeyUpgradeClient as Client
+import qualified V1.ContractKeyQueryN as V1
+import qualified V2.ContractKeyQueryN as V2
+import qualified V3.ContractKeyQueryN as V3
+import ContractKeyQueryNHelper
 
 {- PACKAGE
 name: contract-key-upgrades-iface
@@ -139,6 +143,10 @@ main = tests
     , subtree "No key in v1, key in v2"
       [ ("fetch", fetchTemplateWithUnexpectedlyMissingKey)
       ]
+    ]
+  , subtree "LookupN and QueryN behaviour"
+    [ ("lookup and query can upgrade and downgrade at the same time", queryNUpgradeDowngrade)
+    , ("lookup and query fail if any contract cannot be downgraded", queryNFailedDowngrade)
     ]
   ]
 
@@ -913,3 +921,86 @@ expectMetadataChangedError key maintainers r = case r of
         sort maintainers == sort foundMaintainers
       -> pure ()
     Left e -> assertFail $ "Expected Upgrade error but got " <> show e
+
+{- PACKAGE
+name: contract-key-query-n
+versions: 3
+-}
+
+{- MODULE
+package: contract-key-query-n
+contents: |
+  module ContractKeyQueryN where
+
+  template ContractKeyQueryNTemplate
+    with
+      p : Party
+      t : Optional Text -- @V 2 3
+      i : Optional Int -- @V 3
+    where
+      signatory p
+      key p : Party
+      maintainer key
+-}
+
+{- PACKAGE
+name: contract-key-query-n-helper
+versions: 1
+depends: contract-key-query-n-2.0.0
+-}
+
+{- MODULE
+package: contract-key-query-n-helper
+contents: |
+  module ContractKeyQueryNHelper where
+
+  import ContractKeyQueryN
+  import DA.ContractKeys
+
+  template ContractKeyQueryNHelperTemplate
+    with
+      p : Party
+    where
+      signatory p
+      choice LookupN : [(ContractId ContractKeyQueryNTemplate, ContractKeyQueryNTemplate)]
+       controller p
+       do
+         lookupNByKey @ContractKeyQueryNTemplate 3 p
+
+-}
+
+queryNUpgradeDowngrade : Test
+queryNUpgradeDowngrade = test $ do
+  a <- allocateParty "alice"
+
+  -- Reverse order so v1 is first in list
+  cid3 <- a `submit` createExactCmd (V3.ContractKeyQueryNTemplate a (Some "text2") None)
+  cid2 <- a `submit` createExactCmd (V2.ContractKeyQueryNTemplate a (Some "text"))
+  cid1 <- a `submit` createExactCmd (V1.ContractKeyQueryNTemplate a)
+
+  let expectedResult = [(coerceContractId cid1, V2.ContractKeyQueryNTemplate a None), (cid2, V2.ContractKeyQueryNTemplate a (Some "text")), (coerceContractId cid3, V2.ContractKeyQueryNTemplate a (Some "text2"))]
+
+  lookupRes <- a `submit` createAndExerciseCmd (ContractKeyQueryNHelperTemplate a) LookupN
+  lookupRes === expectedResult
+
+  queryRes <- queryNByKey @V2.ContractKeyQueryNTemplate a 3 a
+  queryRes === expectedResult
+
+queryNFailedDowngrade : Test
+queryNFailedDowngrade = test $ do
+  a <- allocateParty "alice"
+
+  -- Reverse order so v1 is first in list
+  cid3 <- a `submit` createExactCmd (V3.ContractKeyQueryNTemplate a (Some "text2") (Some 10))
+  cid2 <- a `submit` createExactCmd (V2.ContractKeyQueryNTemplate a (Some "text"))
+  cid1 <- a `submit` createExactCmd (V1.ContractKeyQueryNTemplate a)
+
+  lookupRes <- a `trySubmit` createAndExerciseCmd (ContractKeyQueryNHelperTemplate a) LookupN
+  case lookupRes of
+    Left (UpgradeError (TranslationFailed {}) _) -> pure ()
+    _ -> assertFail $ "Expected LookupNByKey to error, but got " <> show lookupRes
+
+  queryRes <- tryCommands $ queryNByKey @V2.ContractKeyQueryNTemplate a 3 a
+  case queryRes of
+    Left (FailedCmd (CommandName "QueryNByKey") _ _) -> pure ()
+    _ -> assertFail $ "Expected QueryNByKey to error, but got " <> show queryRes
