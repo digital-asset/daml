@@ -8,7 +8,7 @@ load(
 def _impl(module_ctx):
     http_archive(
         name = "lsp-types",
-        build_file = ":files/haskell_lsp_types.BUILD.bzl",
+        build_file = ":files/lsp_types.BUILD.bzl",
         patch_args = ["-p1"],
         patches = [
             "//bazel/patches:haskell/lsp_types_normalisation.patch",
