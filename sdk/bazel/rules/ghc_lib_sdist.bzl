@@ -9,9 +9,9 @@ def _ghc_lib_sdist_impl(ctx):
     component = ctx.attr.component
     version = ctx.attr.version
 
-    # -- Outputs --
-    cabal_file = ctx.actions.declare_file("ghc-lib{}.cabal".format(component))
-    tarball = ctx.actions.declare_file("ghc-lib{}-{}.tar.gz".format(component, version))
+    # -- Outputs (predeclared via attr.output) --
+    cabal_file = ctx.outputs.cabal_out
+    tarball = ctx.outputs.tarball_out
 
     # -- Haskell toolchain (GHC) --
     hs_toolchain = ctx.toolchains["@rules_haskell//haskell:toolchain"]
@@ -182,6 +182,8 @@ ghc_lib_sdist = rule(
         "ghc_flavor": attr.string(mandatory = True),
         "extra_tools": attr.label_list(allow_files = True, doc = "Additional tool binaries needed on PATH (e.g. happy, alex)."),
         "cpp_options": attr.string_list(default = []),
+        "cabal_out": attr.output(mandatory = True, doc = "Declared output for the .cabal file."),
+        "tarball_out": attr.output(mandatory = True, doc = "Declared output for the sdist tarball."),
         "_cc_toolchain": attr.label(default = "@rules_cc//cc:current_cc_toolchain"),
     },
     toolchains = [
