@@ -9,7 +9,7 @@ load(
 def _impl(module_ctx):
     http_archive(
         name = "ghcide_lib",
-        build_file = ":files/haskell_ghcide_lib.BUILD.bzl",
+        build_file = ":files/ghcide.BUILD.bzl",
         patch_args = ["-p1"],
         patches = [
             "//bazel/patches:haskell/ghcide_binary_q.patch",
