@@ -15,7 +15,7 @@ def _get_ghc_lib_gen():
         url = "{}/archive/{}.tar.gz".format(GHC_LIB_REPO_URL, GHC_LIB_REV),
         sha256 = GHC_LIB_SHA256,
         strip_prefix = "ghc-lib-{}".format(GHC_LIB_REV),
-        build_file = ":files/haskell_ghc_lib_gen.BUILD.bzl",
+        build_file = ":files/ghc_lib_gen.BUILD.bzl",
         patches = ["//bazel/patches:haskell/ghc_lib_no_stack.patch"],
         patch_args = ["-p1"],
     )
@@ -26,7 +26,7 @@ def _get_da_ghc():
         remote = GHC_REPO_URL,
         commit = GHC_REV,
         recursive_init_submodules = True,
-        build_file = ":files/haskell_da_ghc.BUILD.bzl",
+        build_file = ":files/da_ghc.BUILD.bzl",
         shallow_since = "1771323697 +0100",
         patch_args = ["-p1"],
     )
