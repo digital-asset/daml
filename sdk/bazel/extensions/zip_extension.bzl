@@ -8,7 +8,7 @@ load(
 def _impl(module_ctx):
     http_archive(
         name = "zip",
-        build_file = ":files/haskell_zip.BUILD.bzl",
+        build_file = ":files/zip.BUILD.bzl",
         patch_args = ["-p1"],
         patches = ["//bazel/patches:haskell/zip.patch"],
         sha256 = ZIP_SHA256,
