@@ -1,9 +1,11 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load(
+    "//bazel/versions:lsp_types.version.bzl",
+    "LSP_TYPES_SHA256",
+    "LSP_TYPES_VERSION",
+)
 
 def _impl(module_ctx):
-    LSP_TYPES_VERSION = "1.4.0.0"
-    LSP_TYPES_SHA256 = "7ae8a3bad0e91d4a2af9b93e3ad207e3f4c3dace40d420e0592f6323ac93fb67"
-
     http_archive(
         name = "lsp-types",
         build_file = ":files/haskell_lsp_types.BUILD.bzl",
