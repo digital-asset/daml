@@ -1,11 +1,16 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load(
+    "//bazel/versions:gnu_tools.version.bzl",
+    "AUTOMAKE_SHA256",
+    "AUTOMAKE_VERSION",
+)
 
 def _impl(module_ctx):
     http_archive(
         name = "automake",
-        urls = ["https://ftp.gnu.org/gnu/automake/automake-1.16.5.tar.gz"],
-        strip_prefix = "automake-1.16.5",
-        sha256 = "07bd24ad08a64bc17250ce09ec56e921d6343903943e99ccf63bbf0705e34605",
+        urls = ["https://ftp.gnu.org/gnu/automake/automake-{}.tar.gz".format(AUTOMAKE_VERSION)],
+        strip_prefix = "automake-{}".format(AUTOMAKE_VERSION),
+        sha256 = AUTOMAKE_SHA256,
         build_file = ":files/automake.BUILD.bzl",
     )
 
