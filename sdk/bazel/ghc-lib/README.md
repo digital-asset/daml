@@ -42,13 +42,13 @@ Note, an update of any of these may affect ghc-lib(-parser)'s Cabal files. If
 so, see below for updating the checked in Cabal files.
 
 - To update the GHC revision used to build ghc-lib change the `GHC_REV`
-  variable within `bazel/extensions/dependencies/haskell/ghc_lib_version.bzl`.
+  variable within `bazel/versions/da_ghc.version.bzl`.
 - To update the GHC version used to build ghc-lib also update the `GHC_FLAVOR`
   and `GHC_LIB_VERSION` variables within
-  `bazel/extensions/dependencies/haskell/ghc_lib_version.bzl`.
+  `bazel/versions/da_ghc.version.bzl`.
 - To update the ghc-lib revision, which provides the `ghc-lib-gen` tool, change
   the `GHC_LIB_REV` and `GHC_LIB_SHA256` variables within
-  `bazel/extensions/dependencies/haskell/ghc_lib_version.bzl`.
+  `bazel/versions/da_ghc.version.bzl`.
 - To update the checked in Cabal files execute the following Bazel commands.
     ```
     $ bazel run //bazel/ghc-lib/ghc-lib-parser:cabal-update
