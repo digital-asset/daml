@@ -10,6 +10,7 @@ header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
 ## Until 2026-03-31 (Exclusive)
+- Codegen-java: Added support for `UnknownTrailingFieldPolicy` in the generated `fromCreatedEvent()` method.
 - Support NUCK in IDE ledger
 - Add --ide-ledger-protocol-version flag to Daml Script CLI runner
 - Add `script-service.protocol-version` to daml.yaml for Daml Test and Daml Studio

@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.codegen.Created;
 import com.daml.ledger.javaapi.data.codegen.Exercises;
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy;
 import com.daml.ledger.javaapi.data.codegen.Update;
 import com.google.protobuf.ByteString;
 import da.internal.template.Archive;
@@ -97,14 +98,16 @@ public class TemplateMethodTest {
   @Test
   void contractHasCompanion() {
     var companion = SimpleTemplate.COMPANION;
-    SimpleTemplate.Contract contract = companion.fromCreatedEvent(createdEvent);
+    SimpleTemplate.Contract contract =
+        companion.fromCreatedEvent(createdEvent, UnknownTrailingFieldPolicy.STRICT);
     SimpleTemplate data = contract.data;
     assertEquals(new SimpleTemplate("Bob"), data);
   }
 
   @Test
   void contractHasGetContractTypeId() {
-    var contract = SimpleTemplate.Contract.fromCreatedEvent(createdEvent);
+    var contract =
+        SimpleTemplate.Contract.fromCreatedEvent(createdEvent, UnknownTrailingFieldPolicy.STRICT);
     assertEquals(contract.getContractTypeId(), SimpleTemplate.TEMPLATE_ID);
   }
 
@@ -113,6 +116,7 @@ public class TemplateMethodTest {
     assertEquals(
         "tests.template1.SimpleTemplate.Contract(ContractId(cid), "
             + "tests.template1.SimpleTemplate(Bob), [], [])",
-        SimpleTemplate.Contract.fromCreatedEvent(createdEvent).toString());
+        SimpleTemplate.Contract.fromCreatedEvent(createdEvent, UnknownTrailingFieldPolicy.STRICT)
+            .toString());
   }
 }
