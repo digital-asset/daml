@@ -83,6 +83,7 @@ da_scala_library(
         "@maven//:com_daml_rs_grpc_bridge_2_13",
         "@maven//:com_daml_rs_grpc_pekko_2_13",
         "@maven//:com_daml_timer_utils_2_13",
+        "@maven//:com_daml_util_external_2_13",
         "@maven//:com_daml_util_observability_2_13",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_code_findbugs_jsr305",
