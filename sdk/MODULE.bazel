@@ -134,6 +134,7 @@ stack_snapshot_ext.package(
         "regex-tdfa",
         "repline",
         "resourcet",
+        "retry",
         "rope-utf16-splay",
         "safe",
         "safe-exceptions",
@@ -290,8 +291,7 @@ use_repo(maven_ext, "maven")
 
 # # #
 # DEPRECATED
-rules_proto_ext = use_extension("//bazel/extensions:rules_proto_extension.bzl", "rules_proto_extension")
-use_repo(rules_proto_ext, "rules_proto")
+bazel_dep(name = "rules_proto", version = "6.0.0")
 
 io_grpc_grpc_java_ext = use_extension("//bazel/extensions:io_grpc_grpc_java_extension.bzl", "io_grpc_grpc_java_extension")
 use_repo(io_grpc_grpc_java_ext, "io_grpc_grpc_java")
