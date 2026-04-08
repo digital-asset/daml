@@ -4,7 +4,7 @@
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
-load("//bazel_tools/ghc-lib:version.bzl", "GHC_LIB_VERSION")
+load("//bazel/extensions/dependencies/haskell:ghc_lib_version.bzl", "GHC_LIB_VERSION")
 load("//bazel_tools:pkg.bzl", "unpack_tar")
 load(
     "//bazel_tools/sh:sh.bzl",
@@ -36,7 +36,7 @@ sh_inline_binary(
     name = "cabal-update",
     cmd = """\
 SOURCE=$$(canonicalize_rlocation $(rootpath @da-ghc//:ghc-lib.cabal))
-OUTPUT_DIR=$$BUILD_WORKSPACE_DIRECTORY/bazel_tools/ghc-lib/ghc-lib
+OUTPUT_DIR=$$BUILD_WORKSPACE_DIRECTORY/bazel/ghc-lib/ghc-lib
 
 cp --no-preserve=mode -t "$$OUTPUT_DIR" "$$SOURCE"
 """,
