@@ -255,28 +255,158 @@ scala_deps_ext = use_extension(
 )
 scala_deps_ext.scala()
 scala_deps_ext.scalatest()
+use_repo(
+    scala_deps_ext,
+    "io_bazel_rules_scala_scala_compiler",
+    "io_bazel_rules_scala_scala_library",
+    "io_bazel_rules_scala_scala_reflect",
+    "io_bazel_rules_scala_scala_parser_combinators",
+)
 
 maven_ext = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven_ext.install(
     artifacts = [
+        # com.daml / canton (version: 3.5.0-snapshot.20260225.18149.0.vc28e7872)
+        "com.daml:base-errors_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:bindings-java:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:community-admin-api_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:community-base_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
         "com.daml:contextualized-logging_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:crypto_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-grpc-utils_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-jwt_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
         "com.daml:daml-lf-api-type-signature_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
         "com.daml:daml-lf-archive_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-lf-archive-encoder_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
         "com.daml:daml-lf-data_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-lf-encoder_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-lf-engine_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-lf-ide-ledger_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-lf-interpreter_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
         "com.daml:daml-lf-language_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:ledger-api-value_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:logging-entries_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:scala-utils_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-lf-parser_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-lf-stable-packages_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
         "com.daml:daml-lf-transaction_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-lf-validation_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-resources_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:daml-tls_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:ledger-api-core_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:ledger-api-proto:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:ledger-api-scala_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:ledger-api-value_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:ledger-resources_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:logging-entries_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:magnolify-addon_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:nonempty_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:observability-metrics_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:ports_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:rs-grpc-bridge_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:rs-grpc-pekko_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:scala-utils_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:timer-utils_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.daml:util-observability_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        "com.digitalasset.canton:testing-utils_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+
+        # auth
+        "com.auth0:java-jwt:4.2.1",
+
+        # Scala extras
+        "com.chuusai:shapeless_2.13:2.4.0-M1",
+        "com.github.scopt:scopt_2.13:4.1.0",
+        "com.typesafe.scala-logging:scala-logging_2.13:3.9.5",
+
+        # Google
+        "com.google.api.grpc:proto-google-common-protos:2.59.2",
+        "com.google.code.findbugs:jsr305:3.0.2",
+        "com.google.code.gson:gson:2.11.0",
+        "com.google.guava:guava:33.3.0-jre",
         "com.google.protobuf:protobuf-java:3.25.5",
-        "com.thesamet.scalapb:lenses_2.13:0.11.14",
-        "com.thesamet.scalapb:scalapb-runtime_2.13:0.11.14",
+
+        # gRPC Java
+        "io.grpc:grpc-api:1.77.0",
+        "io.grpc:grpc-core:1.77.0",
+        "io.grpc:grpc-netty-shaded:1.77.0",
         "io.grpc:grpc-protobuf:1.77.0",
+        "io.grpc:grpc-stub:1.77.0",
+
+        # build tools
+        "com.oracle.database.jdbc:ojdbc8:19.18.0.0",
+        "com.sparkjava:spark-core:2.9.4",
+        "com.squareup:javapoet:1.13.0",
+
+        # ScalaPB
+        "com.thesamet.scalapb.common-protos:proto-google-common-protos-scalapb_0.11_2.13:2.9.6-0",
+        "com.thesamet.scalapb:compilerplugin_2.13:0.11.14",
+        "com.thesamet.scalapb:lenses_2.13:0.11.14",
+        "com.thesamet.scalapb:protoc-bridge_2.13:0.9.5",
+        "com.thesamet.scalapb:protoc-gen_2.13:0.9.5",
+        "com.thesamet.scalapb:scalapb-runtime_2.13:0.11.14",
+        "com.thesamet.scalapb:scalapb-runtime-grpc_2.13:0.11.14",
+
+        # Circe
+        "io.circe:circe-core_2.13:0.14.5",
+        "io.circe:circe-optics_2.13:0.15.0",
+        "io.circe:circe-yaml_2.13:0.15.0-RC1",
+        "io.circe:circe-yaml-common_2.13:0.15.0-RC1",
+
+        # RxJava
+        "io.reactivex.rxjava2:rxjava:2.2.21",
+
+        # Spray
+        "io.spray:spray-json_2.13:1.3.6",
+
+        # javax
+        "javax.annotation:javax.annotation-api:1.3.2",
+
+        # Logging
+        "ch.qos.logback:logback-classic:1.5.3",
+        "ch.qos.logback:logback-core:1.5.3",
+        "org.slf4j:slf4j-api:2.0.17",
+
+        # Optics
+        "dev.optics:monocle-core_2.13:3.2.0",
+
+        # Pekko
+        "org.apache.pekko:pekko-actor_2.13:1.2.1",
+        "org.apache.pekko:pekko-slf4j_2.13:1.2.1",
+        "org.apache.pekko:pekko-stream_2.13:1.2.1",
+
+        # JUnit
+        "org.junit.jupiter:junit-jupiter-api:5.9.2",
+        "org.junit.jupiter:junit-jupiter-engine:5.9.2",
+        "org.junit.platform:junit-platform-commons:1.9.2",
+        "org.junit.platform:junit-platform-runner:1.9.2",
+
+        # Scala test
+        "org.scalacheck:scalacheck_2.13:1.15.4",
+        "org.scalactic:scalactic_2.13:3.2.19",
+        "org.scalatest:scalatest_2.13:3.2.19",
+        "org.scalatest:scalatest-compatible:3.2.19",
+        "org.scalatest:scalatest-core_2.13:3.2.19",
+        "org.scalatest:scalatest-flatspec_2.13:3.2.19",
+        "org.scalatest:scalatest-matchers-core_2.13:3.2.19",
+        "org.scalatest:scalatest-shouldmatchers_2.13:3.2.19",
+        "org.scalatest:scalatest-wordspec_2.13:3.2.19",
+        "org.scalatestplus:scalacheck-1-15_2.13:3.2.11.0",
+
+        # Scalaz
         "org.scalaz:scalaz-core_2.13:7.2.33",
+        "org.scalaz:scalaz-scalacheck-binding_2.13:7.2.33-scalacheck-1.15",
+
+        # Typelevel
+        "org.typelevel:cats-core_2.13:2.9.0",
+        "org.typelevel:cats-kernel_2.13:2.9.0",
+        "org.typelevel:paiges-core_2.13:0.4.2",
+
+        # Database
+        "org.tpolecat:doobie-postgres_2.13:0.13.4",
+
+        # Code quality
+        "org.typelevel:kind-projector_2.13.16:0.13.3",
         "org.wartremover:wartremover_2.13.16:3.2.5",
         "org.jline:jline:3.27.1",
-        "io.spray:spray-json_2.13:1.3.6",
     ],
+    fetch_sources = True,
     known_contributing_modules = [
         "bazel_jar_jar",
         "bazel_worker_java",
@@ -286,6 +416,22 @@ maven_ext.install(
         "https://repo1.maven.org/maven2",
         "https://europe-maven.pkg.dev/da-images/public-maven-unstable",
     ],
+)
+maven_ext.override(
+    coordinates = "org.scala-lang:scala-compiler",
+    target = "@io_bazel_rules_scala_scala_compiler//:io_bazel_rules_scala_scala_compiler",
+)
+maven_ext.override(
+    coordinates = "org.scala-lang:scala-library",
+    target = "@io_bazel_rules_scala_scala_library//:io_bazel_rules_scala_scala_library",
+)
+maven_ext.override(
+    coordinates = "org.scala-lang:scala-reflect",
+    target = "@io_bazel_rules_scala_scala_reflect//:io_bazel_rules_scala_scala_reflect",
+)
+maven_ext.override(
+    coordinates = "org.scala-lang.modules:scala-parser-combinators",
+    target = "@io_bazel_rules_scala_scala_parser_combinators//:io_bazel_rules_scala_scala_parser_combinators",
 )
 use_repo(maven_ext, "maven")
 
