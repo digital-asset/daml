@@ -4,7 +4,7 @@
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
-load("//bazel/extensions/dependencies/haskell:ghc_lib_version.bzl", "GHC_LIB_VERSION")
+load("//bazel/versions:da_ghc.version.bzl", "GHC_LIB_VERSION")
 load("//bazel_tools:pkg.bzl", "unpack_tar")
 load(
     "//bazel_tools/sh:sh.bzl",
