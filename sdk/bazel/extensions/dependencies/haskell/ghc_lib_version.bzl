@@ -10,8 +10,6 @@ GHC_LIB_PATCHES = [
 
 GHC_REPO_URL = "https://github.com/digital-asset/ghc"
 GHC_REV = "d7fab1b565858f9d7c36b2b93cd2656ed0492f65"
-GHC_PATCHES = [
-]
 
 GHC_FLAVOR = "da-ghc-8.8.1"
 GHC_LIB_VERSION = "8.8.1"
