@@ -1,6 +1,3 @@
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 CABAL_INSTALL_VERSION = "3.10.3.0"
 
 _BASE_URL = "https://downloads.haskell.org/~cabal/cabal-install-{v}/cabal-install-{v}".format(

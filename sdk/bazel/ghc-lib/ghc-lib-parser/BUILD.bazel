@@ -1,6 +1,3 @@
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
 load("@stackage//:packages.bzl", "packages")
