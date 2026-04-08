@@ -1,6 +1,8 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools:proto.bzl", "proto_gen")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
@@ -10,11 +12,9 @@ load(
     "lf_scalacopts_stricter",
     "scaladoc_jar",
 )
-load("//rules_daml:daml.bzl", "daml_compile")
-load("//bazel_tools:proto.bzl", "proto_gen")
-load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools/packaging:packaging.bzl", "package_oci_component")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 # Should match RunnerMainTestBase.DAR_COUNT
 test_dar_count = 5

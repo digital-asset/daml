@@ -129,14 +129,16 @@ object TestUtil {
   }
 
   def readActiveContractKeys[K, C <: jcg.ContractWithKey[_, _, K]](
-      companion: jcg.ContractCompanion.WithKey[C, _, _, K]
+      companion: jcg.ContractCompanion.WithKey[C, _, _, K],
+      policy: jcg.UnknownTrailingFieldPolicy = jcg.UnknownTrailingFieldPolicy.STRICT,
   )(channel: Channel, partyName: String): List[Optional[K]] =
-    readActiveContracts(companion.fromCreatedEvent)(channel, partyName).map(_.key)
+    readActiveContracts(companion.fromCreatedEvent(_, policy))(channel, partyName).map(_.key)
 
   def readActiveContractPayloads[T <: jcg.DamlRecord[_], C <: jcg.Contract[_, T]](
-      companion: jcg.ContractCompanion[C, _, T]
+      companion: jcg.ContractCompanion[C, _, T],
+      policy: jcg.UnknownTrailingFieldPolicy = jcg.UnknownTrailingFieldPolicy.STRICT,
   )(channel: Channel, partyName: String): List[T] =
-    readActiveContracts(companion.fromCreatedEvent)(channel, partyName).map(_.data)
+    readActiveContracts(companion.fromCreatedEvent(_, policy))(channel, partyName).map(_.data)
 
   def readActiveContracts[C <: Contract](fromCreatedEvent: CreatedEvent => C)(
       channel: Channel,

@@ -1,7 +1,8 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.script
+package com.digitalasset.daml.lf.engine
+package script
 package v2.ledgerinteraction
 package grpcLedgerClient
 
@@ -49,7 +50,9 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.engine.script.v2.Converter
 import com.digitalasset.daml.lf.engine.{Enricher, ResultDone, preprocessing}
+import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
+import com.digitalasset.daml.lf.speedy.Pretty
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
@@ -379,8 +382,15 @@ class GrpcLedgerClient(
     Future(
       preprocessor
         .unsafePreprocessApiContractKey(Map.empty, ApiContractKey(templateId.toRef, key))
-        .hash
     )
+      .recoverWith { case Error.Preprocessing.ContractIdInContractKey(key) =>
+        Future.failed(
+          new RuntimeException(
+            Pretty.prettyDamlException(ContractIdInContractKey(key)).renderWideStream.mkString
+          )
+        )
+      }
+      .map(_.hash)
 
   override def queryNByKey(
       parties: OneAnd[Set, Ref.Party],
