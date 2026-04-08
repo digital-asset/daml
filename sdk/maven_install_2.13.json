@@ -2750,7 +2750,7 @@
     ],
     "com.daml:bindings-java": [
       "com.daml:ledger-api-proto",
-      "com.daml:ledger-api-value-proto",
+      "com.daml:ledger-api-value_2.13",
       "com.fasterxml.jackson.core:jackson-core",
       "com.google.protobuf:protobuf-java",
       "javax.annotation:javax.annotation-api",
@@ -3031,7 +3031,9 @@
       "org.scala-lang:scala-library"
     ],
     "com.daml:ledger-api-proto": [
-      "com.daml:ledger-api-value-proto",
+      "com.daml:ledger-api-value_2.13",
+      "com.digitalasset.canton:google-common-protos-scala_2.13",
+      "com.digitalasset.canton:wartremover-annotations_2.13",
       "com.google.api.grpc:proto-google-common-protos",
       "com.google.protobuf:protobuf-java",
       "com.google.protobuf:protobuf-java-util",
@@ -3045,12 +3047,9 @@
       "com.thesamet.scalapb:scalapb-runtime_2.13",
       "org.scala-lang:scala-library"
     ],
-    "com.daml:ledger-api-value-proto": [
-      "com.google.protobuf:protobuf-java"
-    ],
     "com.daml:ledger-api-value_2.13": [
-      "com.daml:ledger-api-value-proto",
       "com.digitalasset.canton:google-common-protos-scala_2.13",
+      "com.google.protobuf:protobuf-java",
       "com.thesamet.scalapb:scalapb-runtime_2.13",
       "org.scala-lang:scala-library"
     ],
@@ -4991,10 +4990,9 @@
       "com.daml.ledger.api.v2.update_service",
       "com.daml.ledger.api.v2.version_service"
     ],
-    "com.daml:ledger-api-value-proto": [
-      "com.daml.ledger.api.v2"
-    ],
     "com.daml:ledger-api-value_2.13": [
+      "com.daml.ledger.api",
+      "com.daml.ledger.api.v2",
       "com.daml.ledger.api.v2.value"
     ],
     "com.daml:ledger-resources_2.13": [
@@ -8649,8 +8647,6 @@
       "com.daml:ledger-api-proto:jar:sources",
       "com.daml:ledger-api-scala_2.13",
       "com.daml:ledger-api-scala_2.13:jar:sources",
-      "com.daml:ledger-api-value-proto",
-      "com.daml:ledger-api-value-proto:jar:sources",
       "com.daml:ledger-api-value_2.13",
       "com.daml:ledger-api-value_2.13:jar:sources",
       "com.daml:ledger-resources_2.13",
@@ -9427,8 +9423,6 @@
       "com.daml:ledger-api-proto:jar:sources",
       "com.daml:ledger-api-scala_2.13",
       "com.daml:ledger-api-scala_2.13:jar:sources",
-      "com.daml:ledger-api-value-proto",
-      "com.daml:ledger-api-value-proto:jar:sources",
       "com.daml:ledger-api-value_2.13",
       "com.daml:ledger-api-value_2.13:jar:sources",
       "com.daml:ledger-resources_2.13",
