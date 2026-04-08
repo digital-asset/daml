@@ -11,7 +11,7 @@ def _impl(module_ctx):
         url = "https://ftp.gnu.org/gnu/ncurses/ncurses-{}.tar.gz".format(NCURSES_VERSION),
         sha256 = NCURSES_SHA256,
         strip_prefix = "ncurses-{}".format(NCURSES_VERSION),
-        build_file = Label(":files/ncurses.BUILD.bzl"),
+        build_file = ":files/ncurses.BUILD.bzl",
     )
 
 ncurses = module_extension(implementation = _impl)
