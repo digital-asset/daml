@@ -34,19 +34,19 @@ haskell_toolchains_ext = use_extension(
 )
 haskell_toolchains_ext.bindists(version = "9.0.2")
 
-da_ghc_ext = use_extension("//bazel/extensions/dependencies/haskell:da_ghc_extension.bzl", "da_ghc")
+da_ghc_ext = use_extension("//bazel/extensions:da_ghc_extension.bzl", "da_ghc")
 use_repo(da_ghc_ext, "da-ghc", "ghc-lib-gen")
 
-cabal_ext = use_extension("//bazel/extensions/dependencies/haskell:cabal_extension.bzl", "cabal")
+cabal_ext = use_extension("//bazel/extensions:cabal_extension.bzl", "cabal")
 use_repo(cabal_ext, "cabal")
 
-ghcide_lib_ext = use_extension("//bazel/extensions/dependencies/haskell:ghcide_extension.bzl", "ghcide_lib")
+ghcide_lib_ext = use_extension("//bazel/extensions:ghcide_extension.bzl", "ghcide_lib")
 use_repo(ghcide_lib_ext, "ghcide_lib")
 
-lsp_types_ext = use_extension("//bazel/extensions/dependencies/haskell:lsp_types_extension.bzl", "lsp_types")
+lsp_types_ext = use_extension("//bazel/extensions:lsp_types_extension.bzl", "lsp_types")
 use_repo(lsp_types_ext, "lsp-types")
 
-zip_ext = use_extension("//bazel/extensions/dependencies/haskell:zip_extension.bzl", "zip")
+zip_ext = use_extension("//bazel/extensions:zip_extension.bzl", "zip")
 use_repo(zip_ext, "zip")
 
 stack_snapshot_ext = use_extension(
@@ -290,24 +290,24 @@ use_repo(maven_ext, "maven")
 
 # # #
 # DEPRECATED
-rules_proto_ext = use_extension("//bazel/extensions:deprecated/rules_proto_extension.bzl", "rules_proto_extension")
+rules_proto_ext = use_extension("//bazel/extensions:rules_proto_extension.bzl", "rules_proto_extension")
 use_repo(rules_proto_ext, "rules_proto")
 
-io_grpc_grpc_java_ext = use_extension("//bazel/extensions:deprecated/io_grpc_grpc_java_extension.bzl", "io_grpc_grpc_java_extension")
+io_grpc_grpc_java_ext = use_extension("//bazel/extensions:io_grpc_grpc_java_extension.bzl", "io_grpc_grpc_java_extension")
 use_repo(io_grpc_grpc_java_ext, "io_grpc_grpc_java")
 # # #
 
 # # #
 # Libs
-ncurses_ext = use_extension("//bazel/extensions/dependencies/lib:ncurses_extension.bzl", "ncurses")
+ncurses_ext = use_extension("//bazel/extensions:ncurses_extension.bzl", "ncurses")
 use_repo(ncurses_ext, "ncurses")
 
-m4_ext = use_extension("//bazel/extensions/dependencies/bin:m4_extension.bzl", "m4")
+m4_ext = use_extension("//bazel/extensions:m4_extension.bzl", "m4")
 use_repo(m4_ext, "m4")
 
-autoconf_ext = use_extension("//bazel/extensions/dependencies/scripts:autoconf_extension.bzl", "autoconf")
+autoconf_ext = use_extension("//bazel/extensions:autoconf_extension.bzl", "autoconf")
 use_repo(autoconf_ext, "autoconf")
-automake_ext = use_extension("//bazel/extensions/dependencies/scripts:automake_extension.bzl", "automake")
+automake_ext = use_extension("//bazel/extensions:automake_extension.bzl", "automake")
 use_repo(automake_ext, "automake")
 # # #
 
