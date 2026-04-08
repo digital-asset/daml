@@ -1,12 +1,10 @@
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load(
-    "//bazel_tools/ghc-lib:version.bzl",
-    "GHC_LIB_PATCHES",
+    ":ghc_lib_version.bzl",
     "GHC_LIB_REPO_URL",
     "GHC_LIB_REV",
     "GHC_LIB_SHA256",
-    "GHC_PATCHES",
     "GHC_REPO_URL",
     "GHC_REV",
 )
