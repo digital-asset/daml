@@ -1,11 +1,16 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load(
+    "//bazel/versions:gnu_tools.version.bzl",
+    "AUTOCONF_SHA256",
+    "AUTOCONF_VERSION",
+)
 
 def _impl(module_ctx):
     http_archive(
         name = "autoconf",
-        urls = ["https://ftp.gnu.org/gnu/autoconf/autoconf-2.72.tar.gz"],
-        strip_prefix = "autoconf-2.72",
-        sha256 = "afb181a76e1ee72832f6581c0eddf8df032b83e2e0239ef79ebedc4467d92d6e",
+        urls = ["https://ftp.gnu.org/gnu/autoconf/autoconf-{}.tar.gz".format(AUTOCONF_VERSION)],
+        strip_prefix = "autoconf-{}".format(AUTOCONF_VERSION),
+        sha256 = AUTOCONF_SHA256,
         build_file = ":files/autoconf.BUILD.bzl",
     )
 
