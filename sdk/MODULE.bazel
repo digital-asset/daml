@@ -146,11 +146,11 @@ stack_snapshot_ext.package(
 )
 stack_snapshot_ext.package(
     name = "ghc-lib",
-    vendored = "//bazel_tools/ghc-lib/ghc-lib",
+    vendored = "//bazel/ghc-lib/ghc-lib",
 )
 stack_snapshot_ext.package(
     name = "ghc-lib-parser",
-    vendored = "//bazel_tools/ghc-lib/ghc-lib-parser",
+    vendored = "//bazel/ghc-lib/ghc-lib-parser",
 )
 stack_snapshot_ext.package(
     name = "ghcide",
