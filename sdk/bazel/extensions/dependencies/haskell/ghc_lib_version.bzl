@@ -4,14 +4,9 @@
 GHC_LIB_REPO_URL = "https://github.com/digital-asset/ghc-lib"
 GHC_LIB_REV = "b503248db52d6049d18a9dbfa31e0f11aef71df7"
 GHC_LIB_SHA256 = "2d677bd4bfe6c91fd989551b0821b87b48ab49473a747f548cb58766f9636c11"
-GHC_LIB_PATCHES = [
-    "@//bazel_tools/ghc-lib:ghc-lib-no-stack.patch",
-]
 
 GHC_REPO_URL = "https://github.com/digital-asset/ghc"
-GHC_REV = "8db62703d35e30f9d33aa4cee09c48b85c81e7db"
-GHC_PATCHES = [
-]
+GHC_REV = "205ab2e4f456dcf28166160df38dd9f0fe067df9"
 
 GHC_FLAVOR = "da-ghc-8.8.1"
 GHC_LIB_VERSION = "8.8.1"
