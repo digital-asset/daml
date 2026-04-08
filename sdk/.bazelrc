@@ -111,6 +111,9 @@ build:windows --crosstool_top=@rules_haskell_ghc_windows_amd64//:cc_toolchain
 build:windows --remote_accept_cached=true
 build:windows --jobs=4
 
+build --action_env=CC=/usr/bin/gcc-14
+build --action_env=CXX=/usr/bin/g++-14
+
 # Instruct bazel to globally use this flag for compiling protobuf files.
 # We need the source info for generating proto docs. By default proto_library strips
 # source information and doesn't provide an option to turn this flag on.
