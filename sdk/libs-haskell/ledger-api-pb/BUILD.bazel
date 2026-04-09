@@ -3,8 +3,6 @@
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
 
-google_protobuf_src = "external/com_google_protobuf/src"
-
 genrule(
     name = "google-protobuf-pb-sources",
     srcs = ["@protobuf//:well_known_type_protos"],
@@ -17,18 +15,19 @@ genrule(
         "FieldMask.hs",
     ]],
     cmd = """
-        for src in \
-            external/com_google_protobuf/src/google/protobuf/any.proto \
-            external/com_google_protobuf/src/google/protobuf/duration.proto \
-            external/com_google_protobuf/src/google/protobuf/empty.proto \
-            external/com_google_protobuf/src/google/protobuf/wrappers.proto \
-            external/com_google_protobuf/src/google/protobuf/struct.proto \
-            external/com_google_protobuf/src/google/protobuf/field_mask.proto \
-        ; do
-            $(location @proto3-suite//:compile-proto-file) \
-                --includeDir """ + google_protobuf_src + """ \
-                --proto google/protobuf/$$(basename $$src) \
-                --out $(@D)
+        for f in $(locations @protobuf//:well_known_type_protos); do
+            PROTOBUF_INCLUDE=$${f%%/google/protobuf/*}
+            break
+        done
+        for src in $(locations @protobuf//:well_known_type_protos); do
+            case $$(basename $$src) in
+                any.proto|duration.proto|empty.proto|wrappers.proto|struct.proto|field_mask.proto)
+                    $(location @proto3-suite//:compile-proto-file) \
+                        --includeDir "$$PROTOBUF_INCLUDE" \
+                        --proto google/protobuf/$$(basename $$src) \
+                        --out $(@D)
+                    ;;
+            esac
         done
     """,
     tools = [
@@ -36,8 +35,6 @@ genrule(
     ],
     visibility = ["//visibility:public"],
 )
-
-google_rpc_src = "external/go_googleapis"
 
 filegroup(
     name = "google-rpc-source-protos",
@@ -58,10 +55,16 @@ genrule(
         "Google/Rpc/ErrorDetails.hs",
     ],
     cmd = """
+        for f in $(locations @protobuf//:well_known_type_protos); do
+            PROTOBUF_INCLUDE=$${f%%/google/protobuf/*}
+            break
+        done
+        FIRST_RPC=$$(echo $(locations :google-rpc-source-protos) | cut -d' ' -f1)
+        RPC_INCLUDE=$${FIRST_RPC%%/google/rpc/*}
         for src in $(locations :google-rpc-source-protos); do
             $(location @proto3-suite//:compile-proto-file) \
-                --includeDir """ + google_protobuf_src + """ \
-                --includeDir """ + google_rpc_src + """ \
+                --includeDir "$$PROTOBUF_INCLUDE" \
+                --includeDir "$$RPC_INCLUDE" \
                 --proto google/rpc/$$(basename $$src) \
                 --out $(@D)
         done
@@ -93,10 +96,16 @@ genrule(
         "Com/Daml/Ledger/Api/V2/Admin/UserManagementService.hs",
     ],
     cmd = """
+        for f in $(locations @protobuf//:well_known_type_protos); do
+            PROTOBUF_INCLUDE=$${f%%/google/protobuf/*}
+            break
+        done
+        RPC_STATUS="$(location @go_googleapis//google/rpc:status.proto)"
+        RPC_INCLUDE=$${RPC_STATUS%%/google/rpc/*}
         for src in $(locations :ledger-api-protos-fg); do
             $(location @proto3-suite//:compile-proto-file) \
-                --includeDir """ + google_protobuf_src + """ \
-                --includeDir """ + google_rpc_src + """ \
+                --includeDir "$$PROTOBUF_INCLUDE" \
+                --includeDir "$$RPC_INCLUDE" \
                 --includeDir libs-haskell/ledger-api-pb/src/protobuf \
                 --proto $${src#libs-haskell/ledger-api-pb/src/protobuf/} \
                 --out $(@D)
