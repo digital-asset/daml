@@ -57,7 +57,9 @@ final class ContractClassBuilderSpec
   it should "generate legacy fromCreatedEvent(CreatedEvent) method with correct parameters" in {
     fromCreatedEventLegacy.modifiers.asScala should contain.only(Modifier.STATIC, Modifier.PUBLIC)
     fromCreatedEventLegacy.returnType shouldEqual className
-    fromCreatedEventLegacy.parameters.asScala.map(p => p.name -> p.`type`).toList should contain theSameElementsInOrderAs Seq(
+    fromCreatedEventLegacy.parameters.asScala
+      .map(p => p.name -> p.`type`)
+      .toList should contain theSameElementsInOrderAs Seq(
       "event" -> ClassName.get(classOf[javaapi.data.CreatedEvent])
     )
   }
@@ -65,9 +67,11 @@ final class ContractClassBuilderSpec
   it should "generate fromCreatedEvent(CreatedEvent,UnknownTrailingFieldPolicy) method with correct parameters" in {
     fromCreatedEvent.modifiers.asScala should contain.only(Modifier.STATIC, Modifier.PUBLIC)
     fromCreatedEvent.returnType shouldEqual className
-    fromCreatedEvent.parameters.asScala.map(p => p.name -> p.`type`).toList should contain theSameElementsInOrderAs Seq(
+    fromCreatedEvent.parameters.asScala
+      .map(p => p.name -> p.`type`)
+      .toList should contain theSameElementsInOrderAs Seq(
       "event" -> ClassName.get(classOf[javaapi.data.CreatedEvent]),
-      "policy" -> ClassName.get(classOf[UnknownTrailingFieldPolicy])
+      "policy" -> ClassName.get(classOf[UnknownTrailingFieldPolicy]),
     )
   }
 
