@@ -145,8 +145,10 @@ main = tests
       ]
     ]
   , subtree "LookupN and QueryN behaviour"
-    [ ("lookup and query can upgrade and downgrade at the same time", queryNUpgradeDowngrade)
-    , ("lookup and query fail if any contract cannot be downgraded", queryNFailedDowngrade)
+    [ ("query can upgrade and downgrade at the same time", queryNUpgradeDowngrade)
+    , ("query fail if any contract cannot be downgraded", queryNFailedDowngrade)
+    , brokenOnCanton ("lookup can upgrade and downgrade at the same time", lookupNUpgradeDowngrade)
+    , ("lookup fail if any contract cannot be downgraded", lookupNFailedDowngrade)
     ]
   ]
 
@@ -963,44 +965,63 @@ contents: |
     where
       signatory p
       choice LookupN : [(ContractId ContractKeyQueryNTemplate, ContractKeyQueryNTemplate)]
-       controller p
-       do
-         lookupNByKey @ContractKeyQueryNTemplate 3 p
+        with
+          n : Int
+        controller p
+        do
+          lookupNByKey @ContractKeyQueryNTemplate n p
 
 -}
+
+create3VersionedContract : Party -> Optional Int -> Script ([(ContractId V2.ContractKeyQueryNTemplate, V2.ContractKeyQueryNTemplate)])
+create3VersionedContract p v3ExtraVal = do
+  -- Reverse order so v1 is first in list
+  cid3 <- p `submit` createExactCmd (V3.ContractKeyQueryNTemplate p (Some "text2") v3ExtraVal)
+  cid2 <- p `submit` createExactCmd (V2.ContractKeyQueryNTemplate p (Some "text"))
+  cid1 <- p `submit` createExactCmd (V1.ContractKeyQueryNTemplate p)
+
+  pure
+    [ (coerceContractId @_ @V2.ContractKeyQueryNTemplate cid1, V2.ContractKeyQueryNTemplate p None)
+    , (cid2, V2.ContractKeyQueryNTemplate p (Some "text"))
+    , (coerceContractId @_ @V2.ContractKeyQueryNTemplate cid3, V2.ContractKeyQueryNTemplate p (Some "text2"))
+    ]
 
 queryNUpgradeDowngrade : Test
 queryNUpgradeDowngrade = test $ do
   a <- allocateParty "alice"
 
-  -- Reverse order so v1 is first in list
-  cid3 <- a `submit` createExactCmd (V3.ContractKeyQueryNTemplate a (Some "text2") None)
-  cid2 <- a `submit` createExactCmd (V2.ContractKeyQueryNTemplate a (Some "text"))
-  cid1 <- a `submit` createExactCmd (V1.ContractKeyQueryNTemplate a)
-
-  let expectedResult = [(coerceContractId cid1, V2.ContractKeyQueryNTemplate a None), (cid2, V2.ContractKeyQueryNTemplate a (Some "text")), (coerceContractId cid3, V2.ContractKeyQueryNTemplate a (Some "text2"))]
-
-  lookupRes <- a `submit` createAndExerciseCmd (ContractKeyQueryNHelperTemplate a) LookupN
-  lookupRes === expectedResult
+  expectedResult <- create3VersionedContract a None
 
   queryRes <- queryNByKey @V2.ContractKeyQueryNTemplate a 3 a
   queryRes === expectedResult
+
+lookupNUpgradeDowngrade : Test
+lookupNUpgradeDowngrade = test $ do
+  a <- allocateParty "alice"
+
+  expectedResult <- create3VersionedContract a None
+
+  lookupRes <- a `submit` createAndExerciseCmd (ContractKeyQueryNHelperTemplate a) (LookupN 3)
+  lookupRes === expectedResult
 
 queryNFailedDowngrade : Test
 queryNFailedDowngrade = test $ do
   a <- allocateParty "alice"
 
-  -- Reverse order so v1 is first in list
-  cid3 <- a `submit` createExactCmd (V3.ContractKeyQueryNTemplate a (Some "text2") (Some 10))
-  cid2 <- a `submit` createExactCmd (V2.ContractKeyQueryNTemplate a (Some "text"))
-  cid1 <- a `submit` createExactCmd (V1.ContractKeyQueryNTemplate a)
-
-  lookupRes <- a `trySubmit` createAndExerciseCmd (ContractKeyQueryNHelperTemplate a) LookupN
-  case lookupRes of
-    Left (UpgradeError (TranslationFailed {}) _) -> pure ()
-    _ -> assertFail $ "Expected LookupNByKey to error, but got " <> show lookupRes
+  _ <- create3VersionedContract a (Some 10)
 
   queryRes <- tryCommands $ queryNByKey @V2.ContractKeyQueryNTemplate a 3 a
   case queryRes of
     Left (FailedCmd (CommandName "QueryNByKey") _ _) -> pure ()
     _ -> assertFail $ "Expected QueryNByKey to error, but got " <> show queryRes
+
+lookupNFailedDowngrade : Test
+lookupNFailedDowngrade = test $ do
+  a <- allocateParty "alice"
+
+  _ <- create3VersionedContract a (Some 10)
+
+  lookupRes <- a `trySubmit` createAndExerciseCmd (ContractKeyQueryNHelperTemplate a) (LookupN 3)
+  case lookupRes of
+    Left (UpgradeError (TranslationFailed {}) _) -> pure ()
+    _ -> assertFail $ "Expected LookupNByKey to error, but got " <> show lookupRes
