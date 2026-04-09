@@ -9,7 +9,7 @@ load("//bazel_tools:scala.bzl", "scala_source_jar", "scaladoc_jar")
 load("@rules_scala//scala:scala.bzl", "scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
-load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
 load("@scala_version//:index.bzl", "scala_major_version_suffix")
 
 # taken from rules_proto:
@@ -140,7 +140,7 @@ proto_gen = rule(
             allow_files = True,
         ),
         "protoc": attr.label(
-            default = Label("@com_google_protobuf//:protoc"),
+            default = Label("@protobuf//:protoc"),
             cfg = "host",
             allow_files = True,
             executable = True,
