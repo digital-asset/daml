@@ -26,6 +26,10 @@ import qualified V1.ContractKeyPresence as V1
 import qualified V2.ContractKeyPresence as V2
 import qualified V1.IfaceMod as Iface
 import qualified V1.KeyUpgradeClient as Client
+import qualified V1.ContractKeyQueryN as V1
+import qualified V2.ContractKeyQueryN as V2
+import qualified V3.ContractKeyQueryN as V3
+import ContractKeyQueryNHelper
 
 {- PACKAGE
 name: contract-key-upgrades-iface
@@ -139,6 +143,13 @@ main = tests
     , subtree "No key in v1, key in v2"
       [ ("fetch", fetchTemplateWithUnexpectedlyMissingKey)
       ]
+    ]
+  , subtree "LookupN and QueryN behaviour"
+    [ ("query can upgrade and downgrade at the same time", queryNUpgradeDowngrade)
+    , ("query fail if any contract cannot be downgraded", queryNFailedDowngrade)
+    , -- TODO(canton#30398) Remove once NUCK works in canton
+      brokenOnCanton ("lookup can upgrade and downgrade at the same time", lookupNUpgradeDowngrade)
+    , ("lookup fail if any contract cannot be downgraded", lookupNFailedDowngrade)
     ]
   ]
 
@@ -913,3 +924,105 @@ expectMetadataChangedError key maintainers r = case r of
         sort maintainers == sort foundMaintainers
       -> pure ()
     Left e -> assertFail $ "Expected Upgrade error but got " <> show e
+
+{- PACKAGE
+name: contract-key-query-n
+versions: 3
+-}
+
+{- MODULE
+package: contract-key-query-n
+contents: |
+  module ContractKeyQueryN where
+
+  template ContractKeyQueryNTemplate
+    with
+      p : Party
+      t : Optional Text -- @V 2 3
+      i : Optional Int -- @V 3
+    where
+      signatory p
+      key p : Party
+      maintainer key
+-}
+
+{- PACKAGE
+name: contract-key-query-n-helper
+versions: 1
+depends: contract-key-query-n-2.0.0
+-}
+
+{- MODULE
+package: contract-key-query-n-helper
+contents: |
+  module ContractKeyQueryNHelper where
+
+  import ContractKeyQueryN
+  import DA.ContractKeys
+
+  template ContractKeyQueryNHelperTemplate
+    with
+      p : Party
+    where
+      signatory p
+      choice LookupN : [(ContractId ContractKeyQueryNTemplate, ContractKeyQueryNTemplate)]
+        with
+          n : Int
+        controller p
+        do
+          lookupNByKey @ContractKeyQueryNTemplate n p
+
+-}
+
+create3VersionedContract : Party -> Optional Int -> Script ([(ContractId V2.ContractKeyQueryNTemplate, V2.ContractKeyQueryNTemplate)])
+create3VersionedContract p v3ExtraVal = do
+  -- Reverse order so v1 is first in list
+  cid3 <- p `submit` createExactCmd (V3.ContractKeyQueryNTemplate p (Some "text2") v3ExtraVal)
+  cid2 <- p `submit` createExactCmd (V2.ContractKeyQueryNTemplate p (Some "text"))
+  cid1 <- p `submit` createExactCmd (V1.ContractKeyQueryNTemplate p)
+
+  pure
+    [ (coerceContractId @_ @V2.ContractKeyQueryNTemplate cid1, V2.ContractKeyQueryNTemplate p None)
+    , (cid2, V2.ContractKeyQueryNTemplate p (Some "text"))
+    , (coerceContractId @_ @V2.ContractKeyQueryNTemplate cid3, V2.ContractKeyQueryNTemplate p (Some "text2"))
+    ]
+
+queryNUpgradeDowngrade : Test
+queryNUpgradeDowngrade = test $ do
+  a <- allocateParty "alice"
+
+  expectedResult <- create3VersionedContract a None
+
+  queryRes <- queryNByKey @V2.ContractKeyQueryNTemplate a 3 a
+  queryRes === expectedResult
+
+lookupNUpgradeDowngrade : Test
+lookupNUpgradeDowngrade = test $ do
+  a <- allocateParty "alice"
+
+  expectedResult <- create3VersionedContract a None
+
+  lookupRes <- a `submit` createAndExerciseCmd (ContractKeyQueryNHelperTemplate a) (LookupN 3)
+  lookupRes === expectedResult
+
+queryNFailedDowngrade : Test
+queryNFailedDowngrade = test $ do
+  a <- allocateParty "alice"
+
+  _ <- create3VersionedContract a (Some 10)
+
+  queryRes <- tryCommands $ queryNByKey @V2.ContractKeyQueryNTemplate a 3 a
+  case queryRes of
+    Left (FailedCmd (CommandName "QueryNByKey") _ _) -> pure ()
+    _ -> assertFail $ "Expected QueryNByKey to error, but got " <> show queryRes
+
+lookupNFailedDowngrade : Test
+lookupNFailedDowngrade = test $ do
+  a <- allocateParty "alice"
+
+  _ <- create3VersionedContract a (Some 10)
+
+  lookupRes <- a `trySubmit` createAndExerciseCmd (ContractKeyQueryNHelperTemplate a) (LookupN 3)
+  case lookupRes of
+    Left (UpgradeError (TranslationFailed {}) _) -> pure ()
+    _ -> assertFail $ "Expected LookupNByKey to error, but got " <> show lookupRes

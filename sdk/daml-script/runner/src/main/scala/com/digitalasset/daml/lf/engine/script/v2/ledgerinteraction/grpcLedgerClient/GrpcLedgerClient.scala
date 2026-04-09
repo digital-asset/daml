@@ -406,7 +406,11 @@ class GrpcLedgerClient(
       activeContracts <- queryWithKey(parties, templateId)
       ownHash <- computeKeyHash(templateId, key)
     } yield {
-      activeContracts.collect({ case (c, Some(kHash)) if kHash == ownHash => c }).take(limit).toList
+      activeContracts
+        .collect({ case (c, Some(kHash)) if kHash == ownHash => c })
+        .reverse
+        .take(limit)
+        .toList
     }
   }
 
