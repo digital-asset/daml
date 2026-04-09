@@ -30,7 +30,7 @@ repos:
       name: buildifier
       language: system
       require_serial: true
-      entry: "bash -c 'cd sdk/; bazel run //:buildifier-pre-commit -- -mode=fix -v=true'"
+      entry: "bash -c 'cd sdk/; bazel run //:buildifier-fix'"
       types: [bazel]
     - id: pprettier
       name: pprettier
