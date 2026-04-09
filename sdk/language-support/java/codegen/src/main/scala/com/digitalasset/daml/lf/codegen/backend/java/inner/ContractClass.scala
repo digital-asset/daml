@@ -35,7 +35,7 @@ object ContractClass {
           )
         )
         .addMethod(
-          Builder.generateFromCreatedEventLegacy
+          Builder.generateFromCreatedEventLegacy(contractClassName)
         )
         .addMethod(
           Builder.generateFromCreatedEvent(contractClassName)
@@ -53,9 +53,11 @@ object ContractClass {
     private val signatoriesFieldName = "signatories"
     private val observersFieldName = "observers"
 
-    private def generateFromCreatedEventLegacy = generateCompanionForwarder(
-      "fromCreatedEventLegacy",
-      ClassName get classOf[javaapi.data.CreatedEvent],
+    private def generateFromCreatedEventLegacy(
+        className: ClassName
+    ) = generateCompanionForwarder(
+      "fromCreatedEvent",
+      className,
       identity,
       (ClassName get classOf[javaapi.data.CreatedEvent], "event"),
     )
