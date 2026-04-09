@@ -25,10 +25,14 @@ bazel_dep(name = "rules_sh", version = "0.5.0")
 bazel_dep(name = "tar.bzl", version = "0.8.1")
 bazel_dep(name = "zlib", version = "1.3.1.bcr.8")
 
+# --- Toolchains ---
+
 bazel_lib_toolchains_ext = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
 use_repo(bazel_lib_toolchains_ext, "bsd_tar_toolchains")
 
 register_toolchains("@bsd_tar_toolchains//:all")
+
+# --- Haskell toolchain and extensions ---
 
 haskell_toolchains_ext = use_extension(
     "@rules_haskell//extensions:haskell_toolchains.bzl",
@@ -50,6 +54,8 @@ use_repo(lsp_types_ext, "lsp-types")
 
 zip_ext = use_extension("//bazel/extensions:zip_extension.bzl", "zip")
 use_repo(zip_ext, "zip")
+
+# --- Haskell packages (stack_snapshot) ---
 
 stack_snapshot_ext = use_extension(
     "@rules_haskell//extensions:stack_snapshot.bzl",
@@ -226,6 +232,8 @@ stack_snapshot_ext.package(
     ],
 )
 
+# --- Project-specific extensions ---
+
 module_temporary_ext = use_extension("//bazel/extensions:module_temporary_extension.bzl", "temporary_extension")
 use_repo(module_temporary_ext, "build_environment", "daml_versions_data", "os_info", "scala_version")
 
@@ -243,6 +251,8 @@ use_repo(import_googleapis_ext, "com_google_googleapis_imports")
 
 proto3_suite_ext = use_extension("//bazel/extensions:proto3_suite_extension.bzl", "proto3_suite_extension")
 use_repo(proto3_suite_ext, "proto3-suite")
+
+# --- Scala configuration ---
 
 scala_config_ext = use_extension(
     "@rules_scala//scala/extensions:config.bzl",
@@ -264,6 +274,8 @@ use_repo(
     "io_bazel_rules_scala_scala_reflect",
     "io_bazel_rules_scala_scala_parser_combinators",
 )
+
+# --- Maven / JVM dependencies ---
 
 maven_ext = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven_ext.install(
@@ -437,17 +449,16 @@ maven_ext.override(
 )
 use_repo(maven_ext, "maven")
 
-# # #
-# DEPRECATED
+# --- Deprecated (pending removal) ---
+
 io_grpc_grpc_java_ext = use_extension("//bazel/extensions:io_grpc_grpc_java_extension.bzl", "io_grpc_grpc_java_extension")
 use_repo(io_grpc_grpc_java_ext, "io_grpc_grpc_java")
 
 protoc_ext = use_extension("//bazel/extensions:protoc_extension.bzl", "protoc_extension")
 use_repo(protoc_ext, "protoc_bindist")
-# # #
 
-# # #
-# Libs
+# --- Native libraries ---
+
 ncurses_ext = use_extension("//bazel/extensions:ncurses_extension.bzl", "ncurses")
 use_repo(ncurses_ext, "ncurses")
 
@@ -458,4 +469,3 @@ autoconf_ext = use_extension("//bazel/extensions:autoconf_extension.bzl", "autoc
 use_repo(autoconf_ext, "autoconf")
 automake_ext = use_extension("//bazel/extensions:automake_extension.bzl", "automake")
 use_repo(automake_ext, "automake")
-# # #
