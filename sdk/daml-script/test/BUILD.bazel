@@ -272,7 +272,7 @@ daml_compile(
         "//daml-script/daml:daml-script-2.3-staging.dar",
     ],
     project_name = "upgrade-test-lib",
-    # TODO(https://github.com/DACH-NY/canton/issues/30398): revert to DEFAULT_LF_VERSION once LF 2.3 is stable
+    # TODO(https://github.com/DACH-NY/canton/issues/31925): revert to DEFAULT_LF_VERSION once LF 2.3 is stable
     target = STAGING_LF_VERSION,
     version = "1.0.0",
 )

@@ -10,7 +10,7 @@ import org.scalatest.Suite
 
 import java.nio.file.Paths
 
-// TODO (canton#30398) Change this to DamlScriptTestRunnerPVLatest, and update/remove protocolVersion to reflect that
+// TODO (canton#31925) Change this to DamlScriptTestRunnerPVLatest, and update/remove protocolVersion to reflect that
 // once PV35 is the default/out of alpha
 
 class DamlScriptTestRunnerPV35 extends DamlScriptTestRunner {
