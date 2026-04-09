@@ -13,6 +13,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_repl")
 load("//bazel_tools:scala.bzl", "da_scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "ghc_version", "mvn_version", "sdk_version")
+load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test")
 
 exports_files([".hlint.yaml"])
 
@@ -165,38 +166,43 @@ exports_files([
     "maven_install_2.13.json",
 ])
 
-# Buildifier.
-buildifier_excluded_patterns = [
+_BUILDIFIER_EXCLUDE_PATTERNS = [
     "./3rdparty/haskell/c2hs-package.bzl",
     "./3rdparty/haskell/network-package.bzl",
-    "**/node_modules/*",
+    "./**/node_modules/*",
 ]
 
-# Run this to check if BUILD files are well-formatted.
-alias(
+_BUILDIFIER_WARNINGS = [
+    "+unsorted-dict-items",
+    "+out-of-order-load",
+    "+load",
+]
+
+buildifier(
     name = "buildifier",
-    actual = "@buildifier_prebuilt//:buildifier",
+    exclude_patterns = _BUILDIFIER_EXCLUDE_PATTERNS,
+    lint_mode = "warn",
+    lint_warnings = _BUILDIFIER_WARNINGS,
+    mode = "diff",
+    verbose = True,
 )
 
-# Run this to fix the errors in BUILD files.
-alias(
+buildifier(
     name = "buildifier-fix",
-    actual = "@buildifier_prebuilt//:buildifier.fix",
+    exclude_patterns = _BUILDIFIER_EXCLUDE_PATTERNS,
+    lint_mode = "fix",
+    lint_warnings = _BUILDIFIER_WARNINGS,
+    mode = "fix",
+    verbose = True,
 )
 
-# TODO: Enable it later with buildifier prebuilt: `bazel run @buildifier_prebuilt//:buildifier -- "$@"`
-# Run by the git pre-commit hook
-# genrule(
-#     name = "buildifier-pre-commit",
-#     outs = ["buildifier-hook"],
-#     cmd = """cat <<'EOF' > "$@"
-# # !/usr/bin/env bash
-# exec "$(execpath @com_github_bazelbuild_buildtools//buildifier)" "$$@"
-# EOF
-# """,
-#     executable = True,
-#     tools = ["@com_github_bazelbuild_buildtools//buildifier"],
-# )
+buildifier_test(
+    name = "buildifier_test",
+    lint_mode = "warn",
+    lint_warnings = _BUILDIFIER_WARNINGS,
+    no_sandbox = True,
+    workspace = "//:MODULE.bazel",
+)
 
 # Default target for da-ghci, da-ghcid.
 da_haskell_repl(

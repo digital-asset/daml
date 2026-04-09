@@ -61,9 +61,6 @@ rules_nixpkgs_toolchain_patches = {
     "posix": [],
 }
 
-buildifier_version = "b163fcf72b7def638f364ed129c9b28032c1d39b"
-buildifier_sha256 = "c2399161fa569f7c815f8e27634035557a2e07a557996df579412ac73bf52c23"
-
 zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
 rules_nodejs_version = "5.8.5"
@@ -343,16 +340,6 @@ def daml_deps():
             sha256 = "79204ed1fa385c03b5235f65b25ced6ac51cf4b00e45e1157beca6a28bdb8043",
             patches = ["@com_github_digital_asset_daml//:bazel_tools/remote_apis_no_services.patch"],
             patch_args = ["-p1"],
-        )
-
-    # Buildifier.
-    # It is written in Go and hence needs rules_go to be available.
-    if "com_github_bazelbuild_buildtools" not in native.existing_rules():
-        http_archive(
-            name = "com_github_bazelbuild_buildtools",
-            sha256 = buildifier_sha256,
-            strip_prefix = "buildtools-{}".format(buildifier_version),
-            url = "https://github.com/bazelbuild/buildtools/archive/{}.tar.gz".format(buildifier_version),
         )
 
     native.bind(
