@@ -275,150 +275,192 @@ use_repo(
     "io_bazel_rules_scala_scala_parser_combinators",
 )
 
+# --- Maven version constants ---
+
+CANTON_VERSION = "3.5.0-snapshot.20260225.18149.0.vc28e7872"
+AUTH0_JWT_VERSION = "4.2.1"
+SHAPELESS_VERSION = "2.4.0-M1"
+SCOPT_VERSION = "4.1.0"
+SCALA_LOGGING_VERSION = "3.9.5"
+PROTO_GOOGLE_COMMON_PROTOS_VERSION = "2.59.2"
+JSR305_VERSION = "3.0.2"
+GSON_VERSION = "2.11.0"
+GUAVA_VERSION = "33.3.0-jre"
+PROTOBUF_JAVA_VERSION = "3.25.5"
+GRPC_JAVA_MAVEN_VERSION = "1.77.0"
+OJDBC_VERSION = "19.18.0.0"
+SPARK_CORE_VERSION = "2.9.4"
+JAVAPOET_VERSION = "1.13.0"
+SCALAPB_COMMON_PROTOS_VERSION = "2.9.6-0"
+SCALAPB_VERSION = "0.11.14"
+SCALAPB_PROTOC_VERSION = "0.9.5"
+CIRCE_CORE_VERSION = "0.14.5"
+CIRCE_OPTICS_VERSION = "0.15.0"
+CIRCE_YAML_VERSION = "0.15.0-RC1"
+RXJAVA_VERSION = "2.2.21"
+SPRAY_JSON_VERSION = "1.3.6"
+JAVAX_ANNOTATION_VERSION = "1.3.2"
+LOGBACK_VERSION = "1.5.3"
+SLF4J_VERSION = "2.0.17"
+MONOCLE_VERSION = "3.2.0"
+PEKKO_VERSION = "1.2.1"
+JUNIT_JUPITER_VERSION = "5.9.2"
+JUNIT_PLATFORM_VERSION = "1.9.2"
+SCALACHECK_VERSION = "1.15.4"
+SCALATEST_VERSION = "3.2.19"
+SCALATESTPLUS_VERSION = "3.2.11.0"
+SCALAZ_VERSION = "7.2.33"
+CATS_VERSION = "2.9.0"
+PAIGES_VERSION = "0.4.2"
+DOOBIE_VERSION = "0.13.4"
+KIND_PROJECTOR_VERSION = "0.13.3"
+WARTREMOVER_VERSION = "3.2.5"
+JLINE_VERSION = "3.27.1"
+
 # --- Maven / JVM dependencies ---
 
 maven_ext = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven_ext.install(
     artifacts = [
-        # com.daml / canton (version: 3.5.0-snapshot.20260225.18149.0.vc28e7872)
-        "com.daml:base-errors_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:bindings-java:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:community-admin-api_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:community-base_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:contextualized-logging_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:crypto_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-grpc-utils_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-jwt_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-lf-api-type-signature_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-lf-archive_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-lf-archive-encoder_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-lf-data_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-lf-encoder_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-lf-engine_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-lf-ide-ledger_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-lf-interpreter_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-lf-language_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-lf-parser_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-lf-stable-packages_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-lf-transaction_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-lf-validation_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-resources_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:daml-tls_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:ledger-api-core_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:ledger-api-proto:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:ledger-api-scala_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:ledger-api-value_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:ledger-resources_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:logging-entries_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:magnolify-addon_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:nonempty_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:observability-metrics_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:ports_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:rs-grpc-bridge_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:rs-grpc-pekko_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:scala-utils_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:timer-utils_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.daml:util-observability_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
-        "com.digitalasset.canton:testing-utils_2.13:3.5.0-snapshot.20260225.18149.0.vc28e7872",
+        # com.daml / canton
+        "com.daml:base-errors_2.13:" + CANTON_VERSION,
+        "com.daml:bindings-java:" + CANTON_VERSION,
+        "com.daml:community-admin-api_2.13:" + CANTON_VERSION,
+        "com.daml:community-base_2.13:" + CANTON_VERSION,
+        "com.daml:contextualized-logging_2.13:" + CANTON_VERSION,
+        "com.daml:crypto_2.13:" + CANTON_VERSION,
+        "com.daml:daml-grpc-utils_2.13:" + CANTON_VERSION,
+        "com.daml:daml-jwt_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-api-type-signature_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-archive_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-archive-encoder_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-data_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-encoder_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-engine_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-ide-ledger_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-interpreter_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-language_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-parser_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-stable-packages_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-transaction_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-validation_2.13:" + CANTON_VERSION,
+        "com.daml:daml-resources_2.13:" + CANTON_VERSION,
+        "com.daml:daml-tls_2.13:" + CANTON_VERSION,
+        "com.daml:ledger-api-core_2.13:" + CANTON_VERSION,
+        "com.daml:ledger-api-proto:" + CANTON_VERSION,
+        "com.daml:ledger-api-scala_2.13:" + CANTON_VERSION,
+        "com.daml:ledger-api-value_2.13:" + CANTON_VERSION,
+        "com.daml:ledger-resources_2.13:" + CANTON_VERSION,
+        "com.daml:logging-entries_2.13:" + CANTON_VERSION,
+        "com.daml:magnolify-addon_2.13:" + CANTON_VERSION,
+        "com.daml:nonempty_2.13:" + CANTON_VERSION,
+        "com.daml:observability-metrics_2.13:" + CANTON_VERSION,
+        "com.daml:ports_2.13:" + CANTON_VERSION,
+        "com.daml:rs-grpc-bridge_2.13:" + CANTON_VERSION,
+        "com.daml:rs-grpc-pekko_2.13:" + CANTON_VERSION,
+        "com.daml:scala-utils_2.13:" + CANTON_VERSION,
+        "com.daml:timer-utils_2.13:" + CANTON_VERSION,
+        "com.daml:util-observability_2.13:" + CANTON_VERSION,
+        "com.digitalasset.canton:testing-utils_2.13:" + CANTON_VERSION,
 
         # auth
-        "com.auth0:java-jwt:4.2.1",
+        "com.auth0:java-jwt:" + AUTH0_JWT_VERSION,
 
         # Scala extras
-        "com.chuusai:shapeless_2.13:2.4.0-M1",
-        "com.github.scopt:scopt_2.13:4.1.0",
-        "com.typesafe.scala-logging:scala-logging_2.13:3.9.5",
+        "com.chuusai:shapeless_2.13:" + SHAPELESS_VERSION,
+        "com.github.scopt:scopt_2.13:" + SCOPT_VERSION,
+        "com.typesafe.scala-logging:scala-logging_2.13:" + SCALA_LOGGING_VERSION,
 
         # Google
-        "com.google.api.grpc:proto-google-common-protos:2.59.2",
-        "com.google.code.findbugs:jsr305:3.0.2",
-        "com.google.code.gson:gson:2.11.0",
-        "com.google.guava:guava:33.3.0-jre",
-        "com.google.protobuf:protobuf-java:3.25.5",
+        "com.google.api.grpc:proto-google-common-protos:" + PROTO_GOOGLE_COMMON_PROTOS_VERSION,
+        "com.google.code.findbugs:jsr305:" + JSR305_VERSION,
+        "com.google.code.gson:gson:" + GSON_VERSION,
+        "com.google.guava:guava:" + GUAVA_VERSION,
+        "com.google.protobuf:protobuf-java:" + PROTOBUF_JAVA_VERSION,
 
         # gRPC Java
-        "io.grpc:grpc-api:1.77.0",
-        "io.grpc:grpc-core:1.77.0",
-        "io.grpc:grpc-netty-shaded:1.77.0",
-        "io.grpc:grpc-protobuf:1.77.0",
-        "io.grpc:grpc-stub:1.77.0",
+        "io.grpc:grpc-api:" + GRPC_JAVA_MAVEN_VERSION,
+        "io.grpc:grpc-core:" + GRPC_JAVA_MAVEN_VERSION,
+        "io.grpc:grpc-netty-shaded:" + GRPC_JAVA_MAVEN_VERSION,
+        "io.grpc:grpc-protobuf:" + GRPC_JAVA_MAVEN_VERSION,
+        "io.grpc:grpc-stub:" + GRPC_JAVA_MAVEN_VERSION,
 
         # build tools
-        "com.oracle.database.jdbc:ojdbc8:19.18.0.0",
-        "com.sparkjava:spark-core:2.9.4",
-        "com.squareup:javapoet:1.13.0",
+        "com.oracle.database.jdbc:ojdbc8:" + OJDBC_VERSION,
+        "com.sparkjava:spark-core:" + SPARK_CORE_VERSION,
+        "com.squareup:javapoet:" + JAVAPOET_VERSION,
 
         # ScalaPB
-        "com.thesamet.scalapb.common-protos:proto-google-common-protos-scalapb_0.11_2.13:2.9.6-0",
-        "com.thesamet.scalapb:compilerplugin_2.13:0.11.14",
-        "com.thesamet.scalapb:lenses_2.13:0.11.14",
-        "com.thesamet.scalapb:protoc-bridge_2.13:0.9.5",
-        "com.thesamet.scalapb:protoc-gen_2.13:0.9.5",
-        "com.thesamet.scalapb:scalapb-runtime_2.13:0.11.14",
-        "com.thesamet.scalapb:scalapb-runtime-grpc_2.13:0.11.14",
+        "com.thesamet.scalapb.common-protos:proto-google-common-protos-scalapb_0.11_2.13:" + SCALAPB_COMMON_PROTOS_VERSION,
+        "com.thesamet.scalapb:compilerplugin_2.13:" + SCALAPB_VERSION,
+        "com.thesamet.scalapb:lenses_2.13:" + SCALAPB_VERSION,
+        "com.thesamet.scalapb:protoc-bridge_2.13:" + SCALAPB_PROTOC_VERSION,
+        "com.thesamet.scalapb:protoc-gen_2.13:" + SCALAPB_PROTOC_VERSION,
+        "com.thesamet.scalapb:scalapb-runtime_2.13:" + SCALAPB_VERSION,
+        "com.thesamet.scalapb:scalapb-runtime-grpc_2.13:" + SCALAPB_VERSION,
 
         # Circe
-        "io.circe:circe-core_2.13:0.14.5",
-        "io.circe:circe-optics_2.13:0.15.0",
-        "io.circe:circe-yaml_2.13:0.15.0-RC1",
-        "io.circe:circe-yaml-common_2.13:0.15.0-RC1",
+        "io.circe:circe-core_2.13:" + CIRCE_CORE_VERSION,
+        "io.circe:circe-optics_2.13:" + CIRCE_OPTICS_VERSION,
+        "io.circe:circe-yaml_2.13:" + CIRCE_YAML_VERSION,
+        "io.circe:circe-yaml-common_2.13:" + CIRCE_YAML_VERSION,
 
         # RxJava
-        "io.reactivex.rxjava2:rxjava:2.2.21",
+        "io.reactivex.rxjava2:rxjava:" + RXJAVA_VERSION,
 
         # Spray
-        "io.spray:spray-json_2.13:1.3.6",
+        "io.spray:spray-json_2.13:" + SPRAY_JSON_VERSION,
 
         # javax
-        "javax.annotation:javax.annotation-api:1.3.2",
+        "javax.annotation:javax.annotation-api:" + JAVAX_ANNOTATION_VERSION,
 
         # Logging
-        "ch.qos.logback:logback-classic:1.5.3",
-        "ch.qos.logback:logback-core:1.5.3",
-        "org.slf4j:slf4j-api:2.0.17",
+        "ch.qos.logback:logback-classic:" + LOGBACK_VERSION,
+        "ch.qos.logback:logback-core:" + LOGBACK_VERSION,
+        "org.slf4j:slf4j-api:" + SLF4J_VERSION,
 
         # Optics
-        "dev.optics:monocle-core_2.13:3.2.0",
+        "dev.optics:monocle-core_2.13:" + MONOCLE_VERSION,
 
         # Pekko
-        "org.apache.pekko:pekko-actor_2.13:1.2.1",
-        "org.apache.pekko:pekko-slf4j_2.13:1.2.1",
-        "org.apache.pekko:pekko-stream_2.13:1.2.1",
+        "org.apache.pekko:pekko-actor_2.13:" + PEKKO_VERSION,
+        "org.apache.pekko:pekko-slf4j_2.13:" + PEKKO_VERSION,
+        "org.apache.pekko:pekko-stream_2.13:" + PEKKO_VERSION,
 
         # JUnit
-        "org.junit.jupiter:junit-jupiter-api:5.9.2",
-        "org.junit.jupiter:junit-jupiter-engine:5.9.2",
-        "org.junit.platform:junit-platform-commons:1.9.2",
-        "org.junit.platform:junit-platform-runner:1.9.2",
+        "org.junit.jupiter:junit-jupiter-api:" + JUNIT_JUPITER_VERSION,
+        "org.junit.jupiter:junit-jupiter-engine:" + JUNIT_JUPITER_VERSION,
+        "org.junit.platform:junit-platform-commons:" + JUNIT_PLATFORM_VERSION,
+        "org.junit.platform:junit-platform-runner:" + JUNIT_PLATFORM_VERSION,
 
         # Scala test
-        "org.scalacheck:scalacheck_2.13:1.15.4",
-        "org.scalactic:scalactic_2.13:3.2.19",
-        "org.scalatest:scalatest_2.13:3.2.19",
-        "org.scalatest:scalatest-compatible:3.2.19",
-        "org.scalatest:scalatest-core_2.13:3.2.19",
-        "org.scalatest:scalatest-flatspec_2.13:3.2.19",
-        "org.scalatest:scalatest-matchers-core_2.13:3.2.19",
-        "org.scalatest:scalatest-shouldmatchers_2.13:3.2.19",
-        "org.scalatest:scalatest-wordspec_2.13:3.2.19",
-        "org.scalatestplus:scalacheck-1-15_2.13:3.2.11.0",
+        "org.scalacheck:scalacheck_2.13:" + SCALACHECK_VERSION,
+        "org.scalactic:scalactic_2.13:" + SCALATEST_VERSION,
+        "org.scalatest:scalatest_2.13:" + SCALATEST_VERSION,
+        "org.scalatest:scalatest-compatible:" + SCALATEST_VERSION,
+        "org.scalatest:scalatest-core_2.13:" + SCALATEST_VERSION,
+        "org.scalatest:scalatest-flatspec_2.13:" + SCALATEST_VERSION,
+        "org.scalatest:scalatest-matchers-core_2.13:" + SCALATEST_VERSION,
+        "org.scalatest:scalatest-shouldmatchers_2.13:" + SCALATEST_VERSION,
+        "org.scalatest:scalatest-wordspec_2.13:" + SCALATEST_VERSION,
+        "org.scalatestplus:scalacheck-1-15_2.13:" + SCALATESTPLUS_VERSION,
 
         # Scalaz
-        "org.scalaz:scalaz-core_2.13:7.2.33",
-        "org.scalaz:scalaz-scalacheck-binding_2.13:7.2.33-scalacheck-1.15",
+        "org.scalaz:scalaz-core_2.13:" + SCALAZ_VERSION,
+        "org.scalaz:scalaz-scalacheck-binding_2.13:" + SCALAZ_VERSION + "-scalacheck-1.15",
 
         # Typelevel
-        "org.typelevel:cats-core_2.13:2.9.0",
-        "org.typelevel:cats-kernel_2.13:2.9.0",
-        "org.typelevel:paiges-core_2.13:0.4.2",
+        "org.typelevel:cats-core_2.13:" + CATS_VERSION,
+        "org.typelevel:cats-kernel_2.13:" + CATS_VERSION,
+        "org.typelevel:paiges-core_2.13:" + PAIGES_VERSION,
 
         # Database
-        "org.tpolecat:doobie-postgres_2.13:0.13.4",
+        "org.tpolecat:doobie-postgres_2.13:" + DOOBIE_VERSION,
 
         # Code quality
-        "org.typelevel:kind-projector_2.13.16:0.13.3",
-        "org.wartremover:wartremover_2.13.16:3.2.5",
-        "org.jline:jline:3.27.1",
+        "org.typelevel:kind-projector_2.13.16:" + KIND_PROJECTOR_VERSION,
+        "org.wartremover:wartremover_2.13.16:" + WARTREMOVER_VERSION,
+        "org.jline:jline:" + JLINE_VERSION,
     ],
     fetch_sources = True,
     known_contributing_modules = [
