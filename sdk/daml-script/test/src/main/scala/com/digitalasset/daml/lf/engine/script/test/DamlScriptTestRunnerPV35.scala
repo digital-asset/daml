@@ -110,6 +110,8 @@ class DamlScriptTestRunnerPV35 extends DamlScriptTestRunner {
           "ExceptionSemantics:unhandledArithmeticError",
           "ExceptionSemantics:unhandledUserException",
           "ExceptionSemanticsWithKeys:duplicateKey",
+          // TODO (canton#30398) Re-enable this once canton works with keys. Currently gives an internal error.
+          "ExceptionSemanticsWithKeys:test",
         ),
       )
     "Reject legacy daml scripts correctly" in
