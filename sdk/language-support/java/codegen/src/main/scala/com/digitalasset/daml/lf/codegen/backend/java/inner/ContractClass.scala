@@ -53,7 +53,7 @@ object ContractClass {
     private val signatoriesFieldName = "signatories"
     private val observersFieldName = "observers"
 
-    private def generateFromCreatedEventLegacy(
+    private[inner] def generateFromCreatedEventLegacy(
         className: ClassName
     ) = generateCompanionForwarder(
       "fromCreatedEvent",
@@ -62,7 +62,7 @@ object ContractClass {
       (ClassName get classOf[javaapi.data.CreatedEvent], "event"),
     )
 
-    private def generateFromCreatedEvent(
+    private[inner] def generateFromCreatedEvent(
         className: ClassName
     ) =
       generateCompanionForwarder(
