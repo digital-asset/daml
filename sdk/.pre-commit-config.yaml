@@ -30,7 +30,7 @@ repos:
       name: buildifier
       language: system
       require_serial: true
-      entry: "bash -c 'root=$PWD && cd sdk/ && bazel run @com_github_bazelbuild_buildtools//buildifier -- -mode=fix -v \"${@/#/$root/}\"' bash"
+      entry: "bash -c 'cd sdk/; bazel run //:buildifier-fix'"
       types: [bazel]
     - id: copyrights
       name: copyright headers
