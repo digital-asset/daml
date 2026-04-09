@@ -441,6 +441,9 @@ bazel_dep(name = "rules_proto", version = "6.0.0")
 
 io_grpc_grpc_java_ext = use_extension("//bazel/extensions:io_grpc_grpc_java_extension.bzl", "io_grpc_grpc_java_extension")
 use_repo(io_grpc_grpc_java_ext, "io_grpc_grpc_java")
+
+protoc_ext = use_extension("//bazel/extensions:protoc_extension.bzl", "protoc_extension")
+use_repo(protoc_ext, "protoc_bindist")
 # # #
 
 # # #
