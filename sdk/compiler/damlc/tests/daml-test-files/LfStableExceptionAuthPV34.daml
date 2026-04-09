@@ -40,7 +40,7 @@ template Tester
          catch
            GeneralError _ -> pure ()
 
--- @LEDGER run LfStableExceptionAuth.EXPECTED.ledger
+-- @LEDGER run LfStableExceptionAuthPV34.EXPECTED.ledger
 run = script do
   a <- allocateParty "a"
   b <- allocateParty "b"

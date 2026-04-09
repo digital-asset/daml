@@ -1,16 +1,16 @@
 Transactions: 
-  TX 0 1970-01-01T00:00:00Z (LfStableExceptionAuth:48:10)
+  TX 0 1970-01-01T00:00:00Z (LfStableExceptionAuthPV34:47:10)
   #0:0
   │   referenced by #1:0, #2:0
   │   disclosed to (since): 'a' (0), 'b' (0)
-  └─> 'a' creates LfStableExceptionAuth:Tester
+  └─> 'a' creates LfStableExceptionAuthPV34:Tester
                    with
                      a = 'a'; b = 'b'
   
-  TX 1 1970-01-01T00:00:00Z (LfStableExceptionAuth:50:3)
+  TX 1 1970-01-01T00:00:00Z (LfStableExceptionAuthPV34:49:3)
   #1:0
   │   disclosed to (since): 'a' (1), 'b' (1)
-  └─> 'b' exercises CreateInTry on #0:0 (LfStableExceptionAuth:Tester)
+  └─> 'b' exercises CreateInTry on #0:0 (LfStableExceptionAuthPV34:Tester)
       children:
       #1:1
       │   disclosed to (since): 'a' (1), 'b' (1)
@@ -18,14 +18,14 @@ Transactions:
           children:
           #1:2
           │   disclosed to (since): 'a' (1), 'b' (1)
-          └─> 'a' and 'b' create LfStableExceptionAuth:T
+          └─> 'a' and 'b' create LfStableExceptionAuthPV34:T
                                             with
                                               ps = ['a', 'b']
   
-  TX 2 1970-01-01T00:00:00Z (LfStableExceptionAuth:53:3)
+  TX 2 1970-01-01T00:00:00Z (LfStableExceptionAuthPV34:52:3)
   #2:0
   │   disclosed to (since): 'a' (2), 'b' (2)
-  └─> 'b' exercises CreateInNestedTry on #0:0 (LfStableExceptionAuth:Tester)
+  └─> 'b' exercises CreateInNestedTry on #0:0 (LfStableExceptionAuthPV34:Tester)
       children:
       #2:1
       │   disclosed to (since): 'a' (2), 'b' (2)
@@ -33,7 +33,7 @@ Transactions:
           children:
           #2:2
           │   disclosed to (since): 'a' (2), 'b' (2)
-          └─> 'a' and 'b' create LfStableExceptionAuth:T
+          └─> 'a' and 'b' create LfStableExceptionAuthPV34:T
                                             with
                                               ps = ['a', 'b']
 
