@@ -5,7 +5,7 @@ module(
 
 bazel_dep(name = "bazel_jar_jar", version = "0.1.14")
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
-bazel_dep(name = "buildifier_prebuilt", version = "8.2.1.1")
+bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = True)
 bazel_dep(name = "gazelle", version = "0.47.0")
 bazel_dep(name = "google_bazel_common", version = "0.0.1")
 bazel_dep(name = "patchelf", version = "0.18.0.bcr.1")
