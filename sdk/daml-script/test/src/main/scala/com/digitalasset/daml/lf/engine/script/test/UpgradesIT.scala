@@ -210,7 +210,7 @@ class UpgradesIT(
 // safe to break down tests into many classes like this.
 class UpgradesITSmallStable
     extends UpgradesIT(
-      // TODO(https://github.com/DACH-NY/canton/issues/30398): revert to ProtocolVersion.latest and
+      // TODO(https://github.com/DACH-NY/canton/issues/31925): revert to ProtocolVersion.latest and
       //  LanguageVersion.latestStableLfVersion once v35 is stable
       cantonProtocolVersion = ProtocolVersion.Explicit("v35"),
       languageVersion = LanguageVersion.v2_3,
@@ -222,7 +222,7 @@ class UpgradesITSmallStable
 
 class UpgradesITLargeStable
     extends UpgradesIT(
-      // TODO(https://github.com/DACH-NY/canton/issues/30398): revert to ProtocolVersion.latest and
+      // TODO(https://github.com/DACH-NY/canton/issues/31925): revert to ProtocolVersion.latest and
       //  LanguageVersion.latestStableLfVersion once v35 is stable
       cantonProtocolVersion = ProtocolVersion.Explicit("v35"),
       languageVersion = LanguageVersion.v2_3,
