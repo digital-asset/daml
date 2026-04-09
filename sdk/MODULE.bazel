@@ -248,26 +248,6 @@ stack_snapshot_ext.package(
     ],
 )
 
-# --- Project-specific extensions ---
-
-module_temporary_ext = use_extension("//bazel/extensions:module_temporary_extension.bzl", "temporary_extension")
-use_repo(module_temporary_ext, "build_environment", "daml_versions_data", "os_info", "scala_version")
-
-dpm_ext = use_extension("//bazel/extensions:dpm_extension.bzl", "dpm_extension")
-use_repo(dpm_ext, "dpm_binary")
-
-d3plus_ext = use_extension("//bazel/extensions:d3plus_extension.bzl", "d3plus_extension")
-use_repo(d3plus_ext, "static_asset_d3plus")
-
-googleapis_ext = use_extension("//bazel/extensions:go_googleapis_extension.bzl", "googleapis_extension")
-use_repo(googleapis_ext, "go_googleapis")
-
-import_googleapis_ext = use_extension("//bazel/extensions:go_googleapis_import_extension.bzl", "import_googleapis_extension")
-use_repo(import_googleapis_ext, "com_google_googleapis_imports")
-
-proto3_suite_ext = use_extension("//bazel/extensions:proto3_suite_extension.bzl", "proto3_suite_extension")
-use_repo(proto3_suite_ext, "proto3-suite")
-
 # --- Scala configuration ---
 
 scala_config_ext = use_extension(
@@ -507,7 +487,34 @@ maven_ext.override(
 )
 use_repo(maven_ext, "maven")
 
+# --- Project-specific extensions ---
+
+# Workspace configuration: bundles build_environment (SDK version from env),
+# os_info (platform detection), scala_version (Scala version from env),
+# and daml_versions_data (LF version data from JSON).
+# TODO: Split into per-concern extensions.
+workspace_config_ext = use_extension("//bazel/extensions:daml_workspace_config_extension.bzl", "daml_workspace_config")
+use_repo(workspace_config_ext, "build_environment", "daml_versions_data", "os_info", "scala_version")
+
+dpm_ext = use_extension("//bazel/extensions:dpm_extension.bzl", "dpm_extension")
+use_repo(dpm_ext, "dpm_binary")
+
+d3plus_ext = use_extension("//bazel/extensions:d3plus_extension.bzl", "d3plus_extension")
+use_repo(d3plus_ext, "static_asset_d3plus")
+
+googleapis_ext = use_extension("//bazel/extensions:go_googleapis_extension.bzl", "googleapis_extension")
+use_repo(googleapis_ext, "go_googleapis")
+
+import_googleapis_ext = use_extension("//bazel/extensions:go_googleapis_import_extension.bzl", "import_googleapis_extension")
+use_repo(import_googleapis_ext, "com_google_googleapis_imports")
+
+proto3_suite_ext = use_extension("//bazel/extensions:proto3_suite_extension.bzl", "proto3_suite_extension")
+use_repo(proto3_suite_ext, "proto3-suite")
+
 # --- Deprecated (pending removal) ---
+# io_grpc_grpc_java: legacy gRPC Java codegen; to be replaced by rules_proto + protobuf bazel_dep.
+# protoc_bindist: legacy protoc binary distribution; to be replaced by the protobuf bazel_dep toolchain.
+# TODO: Remove once all targets have migrated to the new protobuf/gRPC setup.
 
 io_grpc_grpc_java_ext = use_extension("//bazel/extensions:io_grpc_grpc_java_extension.bzl", "io_grpc_grpc_java_extension")
 use_repo(io_grpc_grpc_java_ext, "io_grpc_grpc_java")
