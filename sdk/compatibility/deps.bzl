@@ -32,8 +32,6 @@ load(
     "@daml//:deps.bzl",
     "bazel_gazelle_sha256",
     "bazel_gazelle_version",
-    "buildifier_sha256",
-    "buildifier_version",
     "rules_bazel_common_sha256",
     "rules_bazel_common_version",
     "rules_go_sha256",
@@ -114,14 +112,6 @@ def daml_deps():
                 urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v{}/rules_nixpkgs-{}.tar.gz".format(rules_nixpkgs_version, rules_nixpkgs_version)],
                 sha256 = rules_nixpkgs_sha256,
             )
-
-    if "com_github_bazelbuild_buildtools" not in native.existing_rules():
-        http_archive(
-            name = "com_github_bazelbuild_buildtools",
-            sha256 = buildifier_sha256,
-            strip_prefix = "buildtools-{}".format(buildifier_version),
-            url = "https://github.com/bazelbuild/buildtools/archive/{}.tar.gz".format(buildifier_version),
-        )
 
     if "com_github_madler_zlib" not in native.existing_rules():
         http_archive(
