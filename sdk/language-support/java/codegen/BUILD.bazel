@@ -378,6 +378,7 @@ java_test(
                 ":integration-tests-model-%s" % target,
                 "@maven//:com_daml_bindings_java",
                 "@maven//:com_daml_ledger_api_value_2_13",
+                "@maven//:com_daml_ledger_api_value_proto",
                 "@maven//:com_google_protobuf_protobuf_java",
                 "@maven//:org_junit_jupiter_junit_jupiter_api",
                 "@maven//:org_junit_jupiter_junit_jupiter_engine",
