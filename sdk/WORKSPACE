@@ -784,10 +784,6 @@ load("@build_bazel_rules_apple//apple:repositories.bzl", "apple_rules_dependenci
 
 apple_rules_dependencies()
 
-load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
-
-buildifier_dependencies()
-
 nixpkgs_package(
     name = "postgresql_nix",
     attribute_path = "postgresql_12",
