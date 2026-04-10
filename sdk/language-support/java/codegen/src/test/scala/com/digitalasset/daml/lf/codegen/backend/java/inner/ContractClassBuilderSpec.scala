@@ -12,6 +12,8 @@ import org.scalatest.{OptionValues, TryValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy
+
 import scala.jdk.CollectionConverters._
 
 final class ContractClassBuilderSpec
@@ -52,6 +54,27 @@ final class ContractClassBuilderSpec
     )
   }
 
+  it should "generate legacy fromCreatedEvent(CreatedEvent) method with correct parameters" in {
+    fromCreatedEventLegacy.modifiers.asScala should contain.only(Modifier.STATIC, Modifier.PUBLIC)
+    fromCreatedEventLegacy.returnType shouldEqual className
+    fromCreatedEventLegacy.parameters.asScala
+      .map(p => p.name -> p.`type`)
+      .toList should contain theSameElementsInOrderAs Seq(
+      "event" -> ClassName.get(classOf[javaapi.data.CreatedEvent])
+    )
+  }
+
+  it should "generate fromCreatedEvent(CreatedEvent,UnknownTrailingFieldPolicy) method with correct parameters" in {
+    fromCreatedEvent.modifiers.asScala should contain.only(Modifier.STATIC, Modifier.PUBLIC)
+    fromCreatedEvent.returnType shouldEqual className
+    fromCreatedEvent.parameters.asScala
+      .map(p => p.name -> p.`type`)
+      .toList should contain theSameElementsInOrderAs Seq(
+      "event" -> ClassName.get(classOf[javaapi.data.CreatedEvent]),
+      "policy" -> ClassName.get(classOf[UnknownTrailingFieldPolicy]),
+    )
+  }
+
   private[this] val className = ClassName.bestGuess("Test")
   private[this] val ckClassName = ClassName.bestGuess("Ck")
   private[this] val fromIdAndRecord =
@@ -61,6 +84,11 @@ final class ContractClassBuilderSpec
     )
   private[this] val fromIdAndRecordWithoutKey =
     ContractClass.Builder.generateFromIdAndRecord(className, None)
+  private[this] val fromCreatedEventLegacy =
+    ContractClass.Builder.generateFromCreatedEventLegacy(className)
+  private[this] val fromCreatedEvent =
+    ContractClass.Builder.generateFromCreatedEvent(className)
+
   private[this] val string = TypeName.get(classOf[String])
   private[this] val record = TypeName.get(classOf[javaapi.data.DamlRecord])
   private[this] val optionalContractKey =
