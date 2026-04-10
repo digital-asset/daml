@@ -17,12 +17,12 @@ import DA.Internal.LF as X hiding
 -- can’t remove them from the typeclass for older LF versions
 -- but we can hide them.
 import DA.Internal.Any as X hiding (AnyContractKey (..))
-#ifdef DAML_NUCK
-import DA.Internal.Template as X hiding (lookupNByKey, lookupAllByKey)
-#else
 import DA.Internal.Template as X
-#endif
+#ifdef DAML_NUCK
+import DA.Internal.Template.Functions as X hiding (_lookupNByKey, lookupNByKey, lookupAllByKey)
+#else
 import DA.Internal.Template.Functions as X hiding (_lookupNByKey)
+#endif
 import DA.Internal.Compatible as X
 import DA.Internal.Assert as X
 import DA.Internal.Interface as X
