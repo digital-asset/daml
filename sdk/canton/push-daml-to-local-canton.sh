@@ -16,11 +16,19 @@ trap cleanup EXIT
 
 function print_help () {
   echo "Builds and locally publishes artifacts from this Daml repository in such a way that the local canton repository in canton/canton_version.bzl:LOCAL_CANTON_OVERRIDE can use them."
+  echo ""
   echo "For more information on usage, consult canton/README.md"
   echo ""
   echo "Usage: $0 [-h]"
   echo "  -h : print this help"
 }
+
+echo """**WARNING**: Publishing artifacts in this direction is dangerous - it overwrites
+the Daml instance globally for the version used by your remote Canton repo. If
+you run this script, all uses of that compiler version on your system will
+instead use your 0.0.0 artifacts. Once you're done using this to develop your
+changes, clean out your DPM with --nuke.
+""" >&2
 
 UNRECOGNIZED=false
 HELP=false
