@@ -7,7 +7,7 @@ object ScriptMain {
   def main(args: Array[String]): Unit = {
     RunnerMainConfig.parse(args) match {
       case None => sys.exit(1)
-      case Some(config) => RunnerMain.main(config)
+      case Some(action) => RunnerMain.main(action)
     }
   }
 }
