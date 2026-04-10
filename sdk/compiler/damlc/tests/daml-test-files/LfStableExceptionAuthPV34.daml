@@ -3,7 +3,9 @@
 
 {-# OPTIONS_GHC -Wno-x-exceptions #-}
 
-module LfStableExceptionAuth where
+-- @IDE-PV V34
+
+module LfStableExceptionAuthPV34 where
 
 import Daml.Script
 import DA.Exception
@@ -13,43 +15,38 @@ template T
     ps : [Party]
   where
     signatory ps
-    nonconsuming choice DoThing : ()
-      controller ps
-      do pure ()
 
 template Tester
   with
     a : Party
     b : Party
-    tcid : ContractId T
   where
     signatory a
     observer b
-    nonconsuming choice NonConsumingExerciseInTry : ()
+    nonconsuming choice CreateInTry : ()
       controller b
       do try do
-           exercise tcid DoThing
+           create (T [a, b])
            abort ""
          catch
            GeneralError _ -> pure ()
 
-    nonconsuming choice NonConsumingExerciseInNestedTry : ()
+    nonconsuming choice CreateInNestedTry : ()
       controller b
-      do try try do exercise tcid DoThing
+      do try try do create (T [a, b])
                     abort ""
              catch
                GeneralError _ -> pure ()
          catch
            GeneralError _ -> pure ()
 
--- @LEDGER run LfStableExceptionAuth.EXPECTED.ledger
+-- @LEDGER run LfStableExceptionAuthPV34.EXPECTED.ledger
 run = script do
   a <- allocateParty "a"
   b <- allocateParty "b"
-  tcid <- submit [a, b] $ createCmd (T [a, b])
-  cid <- submit a $ createCmd (Tester a b tcid)
+  cid <- submit a $ createCmd (Tester a b)
   -- Tests that we have the authorization from the parent exercise.
-  submit b $ exerciseCmd cid NonConsumingExerciseInTry
+  submit b $ exerciseCmd cid CreateInTry
   -- Tests that we have the authorization from the parent exercise
   -- even if there is another rollback in between.
-  submit b $ exerciseCmd cid NonConsumingExerciseInNestedTry
+  submit b $ exerciseCmd cid CreateInNestedTry
