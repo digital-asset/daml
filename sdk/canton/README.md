@@ -48,12 +48,12 @@ To avoid needing to publish a full Canton, the Daml repo can be made to use
 local artifacts from a local Canton repo.
 
 * In `canton/canton_version.bzl`, set `LOCAL_CANTON_OVERRIDE` to an absolute
-path to the Canton repo in question.
+  path to the Canton repo in question.
 * Run `./sdk/canton/pull-local-canton-to-daml.sh -v --all` - the script will
-navigate to the local Canton repo, build all of the artifacts, publish them to
-the local Maven cache, and update the Daml repo to use the local artifacts.
+  navigate to the local Canton repo, build all of the artifacts, publish them to
+  the local Maven cache, and update the Daml repo to use the local artifacts.
 * Run any bazel rule that uses Canton, it will pick up the new canton libraries
-and the new Canton executable.
+  and the new Canton executable.
 
 For quicker iteration, if you are working on a specific Canton subproject that
 you need to consume in Daml, you may go to the local Canton directory and run
