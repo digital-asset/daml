@@ -10,6 +10,17 @@ import com.digitalasset.daml.lf.data.Ref
 import com.daml.tls.{TlsConfiguration, TlsConfigurationCli}
 import com.digitalasset.daml.lf.engine.script.Runner.IdeLedgerProtocolVersion
 
+sealed trait RunnerAction {
+  val darPath: File
+}
+
+object RunnerAction {
+  case class RunScripts(config: RunnerMainConfig) extends RunnerAction {
+    override val darPath = config.darPath
+  }
+  case class ListScripts(darPath: File, jsonOutputPath: File) extends RunnerAction
+}
+
 case class RunnerMainConfig(
     darPath: File,
     runMode: RunnerMainConfig.RunMode,
@@ -48,17 +59,22 @@ object RunnerMainConfig {
     ) extends RunMode
   }
 
-  def parse(args: Array[String]): Option[RunnerMainConfig] =
+  def parse(args: Array[String]): Option[RunnerAction] =
     for {
       intermediate <- RunnerMainConfigIntermediate.parse(args)
       config <-
-        intermediate.toRunnerMainConfig.fold(
-          err => {
-            System.err.println(err)
-            None
-          },
-          Some(_),
-        )
+        intermediate.listScriptsJsonFile match {
+          case Some(jsonOutputPath) =>
+            Some(RunnerAction.ListScripts(intermediate.darPath, jsonOutputPath))
+          case None =>
+            intermediate.toRunnerMainConfig.fold(
+              err => {
+                System.err.println(err)
+                None
+              },
+              conf => Some(RunnerAction.RunScripts(conf)),
+            )
+        }
     } yield config
 
   sealed trait ResultMode
@@ -92,6 +108,7 @@ private[script] case class RunnerMainConfigIntermediate(
     includeScriptNames: List[String],
     excludeScriptNames: List[String],
     ideLedgerProtocolVersion: Option[IdeLedgerProtocolVersion],
+    listScriptsJsonFile: Option[File],
 ) {
 
   def getRunMode: Either[String, RunnerMainConfig.RunMode] =
@@ -183,6 +200,12 @@ private[script] object RunnerMainConfigIntermediate {
       .required()
       .action((f, c) => c.copy(darPath = f))
       .text("Path to the dar file containing the script")
+
+    opt[File]("list-scripts-json")
+      .text(
+        "List all scripts in a dar to a given json file. This flag can only be used with the --dar flag."
+      )
+      .action((f, c) => c.copy(listScriptsJsonFile = Some(f)))
 
     opt[String]("script-name")
       .optional()
@@ -309,7 +332,13 @@ private[script] object RunnerMainConfigIntermediate {
     help("help").text("Print this usage text")
 
     checkConfig(c => {
-      if (c.ledgerHost.isDefined != c.ledgerPort.isDefined) {
+      if (c.listScriptsJsonFile.isDefined) {
+        if (!c.copy(darPath = null, listScriptsJsonFile = None).equals(defaultConf)) {
+          failure("Only --dar can be provided when using --list-scripts")
+        } else {
+          success
+        }
+      } else if (c.ledgerHost.isDefined != c.ledgerPort.isDefined) {
         failure("Must specify both --ledger-host and --ledger-port")
       } else if (
         List(c.ledgerHost.isDefined, c.participantConfig.isDefined, c.isIdeLedger)
@@ -337,29 +366,33 @@ private[script] object RunnerMainConfigIntermediate {
     config.copy(timeMode = Some(timeMode))
   }
 
+  private[script] val defaultConf =
+    RunnerMainConfigIntermediate(
+      darPath = null,
+      ledgerHost = None,
+      ledgerPort = None,
+      adminPort = None,
+      participantConfig = None,
+      isIdeLedger = false,
+      timeMode = None,
+      inputFile = None,
+      outputFile = None,
+      accessTokenFile = None,
+      tlsConfig = TlsConfiguration(false, None, None, None),
+      maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
+      userId = None,
+      uploadDar = false,
+      resultMode = RunnerMainConfig.ResultMode.Text,
+      runAll = false,
+      includeScriptNames = List(),
+      excludeScriptNames = List(),
+      ideLedgerProtocolVersion = None,
+      listScriptsJsonFile = None,
+    )
+
   private[script] def parse(args: Array[String]): Option[RunnerMainConfigIntermediate] =
     parser.parse(
       args,
-      RunnerMainConfigIntermediate(
-        darPath = null,
-        ledgerHost = None,
-        ledgerPort = None,
-        adminPort = None,
-        participantConfig = None,
-        isIdeLedger = false,
-        timeMode = None,
-        inputFile = None,
-        outputFile = None,
-        accessTokenFile = None,
-        tlsConfig = TlsConfiguration(false, None, None, None),
-        maxInboundMessageSize = RunnerMainConfig.DefaultMaxInboundMessageSize,
-        userId = None,
-        uploadDar = false,
-        resultMode = RunnerMainConfig.ResultMode.Text,
-        runAll = false,
-        includeScriptNames = List(),
-        excludeScriptNames = List(),
-        ideLedgerProtocolVersion = None,
-      ),
+      defaultConf,
     )
 }

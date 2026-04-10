@@ -48,7 +48,7 @@ object ScriptTimeMode {
 }
 
 object RunnerMain {
-  def main(config: RunnerMainConfig): Unit = {
+  def main(action: RunnerAction): Unit = {
     implicit val system: ActorSystem = ActorSystem("RunnerMain")
     implicit val sequencer: ExecutionSequencerFactory =
       new PekkoExecutionSequencerPool("ScriptCliRunnerPool")(system)
@@ -56,7 +56,7 @@ object RunnerMain {
     implicit val materializer: Materializer = Materializer(system)
     implicit val traceContext: TraceContext = TraceContext.empty
 
-    val flow = run(config)
+    val flow = run(action)
 
     flow.onComplete(_ => system.terminate())
 
@@ -78,7 +78,26 @@ object RunnerMain {
       acc.flatMap(bs => f(nxt).map(b => bs :+ b))
     }
 
-  def run(config: RunnerMainConfig)(implicit
+  def getScriptTests(
+      dar: Dar[(PackageId, Package)],
+      compiledPackages: PureCompiledPackages,
+      excludes: Seq[String] = Seq(),
+  ): Seq[Identifier] =
+    dar.main._2.modules.flatMap { case (moduleName, module) =>
+      module.definitions.collect(Function.unlift { case (name, _) =>
+        val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
+        ScriptAction.fromIdentifier(compiledPackages, id) match {
+          // We exclude generated identifiers starting with `$`.
+          case Right(_: ScriptAction.NoParam)
+              if !name.dottedName.startsWith("$") &&
+                !excludes.contains(id.qualifiedName.toString) =>
+            Some(id)
+          case _ => None
+        }
+      })
+    }.toSeq
+
+  def run(action: RunnerAction)(implicit
       sequencer: ExecutionSequencerFactory,
       ec: ExecutionContext,
       materializer: Materializer,
@@ -86,15 +105,41 @@ object RunnerMain {
   ): Future[Boolean] =
     for {
       _ <- Future.successful(())
-      machineLogger = ScriptMachineLogger()
 
-      dar: Dar[(PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(config.darPath)
-
-      majorVersion = dar.main._2.languageVersion.major
+      dar: Dar[(PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(action.darPath)
       compiledPackages = PureCompiledPackages.assertBuild(
         dar.all.toMap,
         defaultCompilerConfig,
       )
+
+      success <- action match {
+        case RunnerAction.RunScripts(config) => runScripts(config, dar, compiledPackages)
+        case RunnerAction.ListScripts(_, jsonOutputPath) =>
+          Future {
+            val scriptNames = getScriptTests(dar, compiledPackages)
+            val scriptNamesJsVal =
+              JsArray(scriptNames.map(_.qualifiedName.toString).map(JsString(_)).toVector)
+            Files.write(jsonOutputPath.toPath, Seq(scriptNamesJsVal.prettyPrint).asJava)
+            true
+          }
+      }
+    } yield success
+
+  def runScripts(
+      config: RunnerMainConfig,
+      dar: Dar[(PackageId, Package)],
+      compiledPackages: PureCompiledPackages,
+  )(implicit
+      sequencer: ExecutionSequencerFactory,
+      ec: ExecutionContext,
+      materializer: Materializer,
+      traceContext: TraceContext,
+  ): Future[Boolean] =
+    for {
+      _ <- Future.successful(())
+
+      machineLogger = ScriptMachineLogger()
+      majorVersion = dar.main._2.languageVersion.major
       ifaceDar =
         dar.map { case (pkgId, _) =>
           SignatureReader
@@ -190,22 +235,7 @@ object RunnerMain {
 
       success <- config.runMode match {
         case RunnerMainConfig.RunMode.RunExcluding(excludes) => {
-          val testScripts: Seq[Identifier] = dar.main._2.modules.flatMap {
-            case (moduleName, module) =>
-              module.definitions.collect(Function.unlift { case (name, _) =>
-                val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
-                ScriptAction.fromIdentifier(compiledPackages, id) match {
-                  // We exclude generated identifiers starting with `$`.
-                  case Right(_: ScriptAction.NoParam)
-                      if !name.dottedName.startsWith("$") &&
-                        !excludes.contains(id.qualifiedName.toString) =>
-                    Some(id)
-                  case _ => None
-                }
-              })
-          }.toSeq
-
-          runManyTests(testScripts)
+          runManyTests(getScriptTests(dar, compiledPackages, excludes))
         }
         case RunnerMainConfig.RunMode.RunIncluding(ids) =>
           runManyTests(
