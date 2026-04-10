@@ -62,6 +62,12 @@ you need to consume in Daml, you may go to the local Canton directory and run
 
 ### Using your local Daml changes in a local Canton repo
 
+**WARNING**: Publishing artifacts in this direction is dangerous - it overwrites
+the Daml instance globally for the version used by your remote Canton repo. If
+you run this script, all uses of that compiler version on your system will
+instead use your 0.0.0 artifacts. Once you're done using this to develop your
+changes, clean out your DPM with --nuke.
+
 In the opposite direction, the Canton repo sometimes uses the Daml compiler or
 the Daml script service to build test DARs and run tests. The Canton repo
 expects to use the Daml repo via a hardcoded version in
