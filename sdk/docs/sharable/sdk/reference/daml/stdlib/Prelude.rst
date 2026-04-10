@@ -2643,7 +2643,8 @@ Functions
 `lookupByKey <function-da-internal-template-functions-lookupbykey-92781_>`_
   \: (`HasKey <class-da-internal-template-functions-haskey-87616_>`_ t k, `HasLookupNByKey <class-da-internal-template-functions-haslookupnbykey-35508_>`_ t k) \=\> k \-\> `Update <type-da-internal-lf-update-68072_>`_ (`Optional <type-da-internal-prelude-optional-37153_>`_ (`ContractId <type-da-internal-lf-contractid-95282_>`_ t))
 
-  Look up the contract ID ``t`` associated with a given contract key ``k``\.
+  Look up the contract ID ``t`` associated with a given contract key ``k`` (see
+  ``lookupNByKey`` for more on contract order)\.
 
   You must pass the ``t`` using an explicit type application\. For
   instance, if you want to look up a contract of template ``Account`` by its
@@ -2654,8 +2655,8 @@ Functions
 `fetchByKey <function-da-internal-template-functions-fetchbykey-95464_>`_
   \: `HasFetchByKey <class-da-internal-template-functions-hasfetchbykey-54638_>`_ t k \=\> k \-\> `Update <type-da-internal-lf-update-68072_>`_ (`ContractId <type-da-internal-lf-contractid-95282_>`_ t, t)
 
-  Fetch the contract ID and contract data associated with a given
-  contract key\.
+  Fetch the first contract ID and contract data associated with the given
+  contract key (see ``lookupNByKey`` for more on contract order)\.
 
   You must pass the ``t`` using an explicit type application\. For
   instance, if you want to fetch a contract of template ``Account`` by its
@@ -2666,7 +2667,8 @@ Functions
 `exerciseByKey <function-da-internal-template-functions-exercisebykey-78695_>`_
   \: `HasExerciseByKey <class-da-internal-template-functions-hasexercisebykey-36549_>`_ t k c r \=\> k \-\> c \-\> `Update <type-da-internal-lf-update-68072_>`_ r
 
-  Exercise a choice on the contract associated with the given key\.
+  Exercise a choice on the first contract associated with the given key (see
+  ``lookupNByKey`` for more on contract order)\.
 
   You must pass the ``t`` using an explicit type application\. For
   instance, if you want to exercise a choice ``Withdraw`` on a contract of

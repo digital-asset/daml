@@ -22,7 +22,7 @@ import qualified DA.Daml.LF.Ast.Range as R
 import           DA.Pretty
 
 stagingRevision :: Int
-stagingRevision = 1
+stagingRevision = 2
 
 -- | Daml-LF version of an archive payload.
 data Version = Version
