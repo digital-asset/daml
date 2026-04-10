@@ -7,7 +7,6 @@ import java.math.BigDecimal
 import java.time.temporal.ChronoField
 import java.time.{Instant, LocalDate, ZoneOffset}
 import com.daml.ledger.javaapi.data.{Unit => DamlUnit}
-import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy
 import com.daml.testing.utils.TestResourceContext
 import org.scalatest.flatspec.AsyncFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -80,7 +79,7 @@ trait LedgerTest
 
       val glookoflyContract :: sruquitoContract :: Nil =
         readActiveContracts(
-          Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+          Wolpertinger.Contract.fromCreatedEvent(_)
         )(client, alice)
 
       glookoflyContract.data shouldEqual glookofly
@@ -91,7 +90,7 @@ trait LedgerTest
       sendCmd(client, alice, reproduceUpdate)
 
       val wolpertingers = readActiveContracts(
-        Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+        Wolpertinger.Contract.fromCreatedEvent(_)
       )(client, alice)
       wolpertingers should have length 2
 
@@ -110,7 +109,7 @@ trait LedgerTest
 
       val glookoflyContract :: Nil =
         readActiveContracts(
-          Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+          Wolpertinger.Contract.fromCreatedEvent(_)
         )(client, alice)
 
       glookoflyContract.data shouldEqual glookofly
@@ -120,7 +119,7 @@ trait LedgerTest
       sendCmd(client, alice, reproduceUpdate)
 
       val wolpertingers = readActiveContracts(
-        Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+        Wolpertinger.Contract.fromCreatedEvent(_)
       )(client, alice)
       wolpertingers should have length 2
 
@@ -149,7 +148,7 @@ trait LedgerTest
       // We'll exercise by key, no need to get the handles
       val glookoflyContract :: sruquitoContract :: Nil =
         readActiveContracts(
-          Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+          Wolpertinger.Contract.fromCreatedEvent(_)
         )(client, alice)
 
       val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
@@ -172,7 +171,7 @@ trait LedgerTest
 
     val wolpertinger :: _ =
       readActiveContracts(
-        Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+        Wolpertinger.Contract.fromCreatedEvent(_)
       )(client, alice)
 
     // as stated explicitly in src/ledger-tests/daml/Wolpertinger.daml
@@ -184,7 +183,7 @@ trait LedgerTest
 
     val wolpertinger :: _ =
       readActiveContracts(
-        Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+        Wolpertinger.Contract.fromCreatedEvent(_)
       )(client, alice)
 
     // no explicit observers and the only choice controller is a signatory
@@ -198,7 +197,7 @@ trait LedgerTest
         val multi = new MultiParty(alice, bob)
         sendCmd(client, asList(alice, bob), asList[String](), multi.create())
         readActiveContracts(
-          MultiParty.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+          MultiParty.Contract.fromCreatedEvent(_)
         )(client, alice).head
       }
       res = {

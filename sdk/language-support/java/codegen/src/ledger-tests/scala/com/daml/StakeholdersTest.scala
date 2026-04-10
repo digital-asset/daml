@@ -3,7 +3,6 @@
 
 package com.daml
 
-import com.daml.ledger.javaapi.data.codegen.UnknownTrailingFieldPolicy
 import com.daml.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.testing.utils.TestResourceContext
 import io.grpc.Channel
@@ -62,7 +61,7 @@ trait StakeholdersTest
 
       val contract :: _ =
         readActiveContracts(
-          ExplicitObservers.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+          ExplicitObservers.Contract.fromCreatedEvent(_)
         )(client, alice)
 
       contract.signatories should contain only explicitObservers.owner
