@@ -67,7 +67,7 @@ trait LedgerTest
 
     val glookoflyContract :: Nil =
       readActiveContracts(
-        Wolpertinger.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+        Wolpertinger.Contract.fromCreatedEvent(_)
       )(client, alice)
 
     glookoflyContract.data shouldEqual glookofly

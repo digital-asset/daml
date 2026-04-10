@@ -49,7 +49,7 @@ trait StakeholdersTest
 
       val contract :: _ =
         readActiveContracts(
-          OnlySignatories.Contract.fromCreatedEvent(_, UnknownTrailingFieldPolicy.STRICT)
+          OnlySignatories.Contract.fromCreatedEvent(_)
         )(client, alice)
 
       contract.signatories should contain only onlySignatories.owner
