@@ -8,6 +8,7 @@ bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = True)
 bazel_dep(name = "gazelle", version = "0.47.0")
 bazel_dep(name = "google_bazel_common", version = "0.0.1")
+bazel_dep(name = "grpc", version = "1.75.0")
 bazel_dep(name = "patchelf", version = "0.18.0.bcr.1")
 bazel_dep(name = "pigz", version = "2.8.bcr.1")
 bazel_dep(name = "protobuf", version = "25.6")
@@ -55,6 +56,9 @@ use_repo(lsp_types_ext, "lsp-types")
 zip_ext = use_extension("//bazel/extensions:zip_extension.bzl", "zip")
 use_repo(zip_ext, "zip")
 
+grpc_haskell_ext = use_extension("//bazel/extensions:grpc_haskell_extension.bzl", "grpc_haskell")
+use_repo(grpc_haskell_ext, "grpc_haskell", "grpc_haskell_core", "grpc_haskell_core_cbits")
+
 # --- Haskell packages (stack_snapshot) ---
 
 stack_snapshot_ext = use_extension(
@@ -97,12 +101,14 @@ HASKELL_PACKAGES = [
     "either",
     "extra",
     "hashable",
+    "managed",
     "mod",
     "safe",
     "safe-exceptions",
     "scientific",
     "semigroupoids",
     "some",
+    "sorted-list",
     "split",
     "tagged",
     "unordered-containers",
@@ -231,6 +237,14 @@ stack_snapshot_ext.package(
 stack_snapshot_ext.package(
     name = "zip",
     vendored = "@zip//:zip",
+)
+stack_snapshot_ext.package(
+    name = "grpc-haskell-core",
+    vendored = "@grpc_haskell_core//:grpc-haskell-core",
+)
+stack_snapshot_ext.package(
+    name = "grpc-haskell",
+    vendored = "@grpc_haskell//:grpc-haskell",
 )
 stack_snapshot_ext.package(
     name = "happy",
