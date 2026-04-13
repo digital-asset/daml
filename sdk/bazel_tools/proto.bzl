@@ -140,7 +140,7 @@ proto_gen = rule(
             allow_files = True,
         ),
         "protoc": attr.label(
-            default = Label("@protobuf//:protoc"),
+            default = Label("@protoc_bindist//:protoc"),
             cfg = "host",
             allow_files = True,
             executable = True,
