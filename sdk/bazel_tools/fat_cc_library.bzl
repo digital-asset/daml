@@ -56,17 +56,8 @@ def _fat_cc_library_impl(ctx):
             # On Windows we have some extra deps.
             (["-lws2_32"] if is_windows else []),
         inputs = static_libs,
-        env = {"PATH": ""},
+        env = {"PATH": "/usr/bin:/bin"},
     )
-
-    mri_script_content = "\n".join(
-        ["create {}".format(static_lib.path)] +
-        ["addlib {}".format(lib.path) for lib in static_libs] +
-        ["save", "end"],
-    ) + "\n"
-
-    mri_script = ctx.actions.declare_file(ctx.label.name + "_mri")
-    ctx.actions.write(mri_script, mri_script_content)
 
     ar = toolchain.ar_executable
 
@@ -83,11 +74,31 @@ def _fat_cc_library_impl(ctx):
                 [f.path for f in static_libs],
         )
     else:
+        # Avoid ar MRI mode (-M) because it treats '~' as a line
+        # continuation character, which breaks with bzlmod repo paths
+        # that contain '~' (e.g. _main~ext~repo).  Instead, extract
+        # object files from each input archive and re-pack them.
+        extract_cmds = ["set -e", "D=$(mktemp -d)"]
+        for i, lib in enumerate(static_libs):
+            extract_cmds.append(
+                "mkdir \"$D/{idx}\" && (cd \"$D/{idx}\" && \"{ar}\" x \"$OLDPWD/{path}\")".format(
+                    idx = i,
+                    ar = ar,
+                    path = lib.path,
+                ),
+            )
+        extract_cmds.append(
+            "\"{ar}\" crs \"{out}\" \"$D\"/*/*.o \"$D\"/*/*.obj 2>/dev/null || \"{ar}\" crs \"{out}\" \"$D\"/*/*.o".format(
+                ar = ar,
+                out = static_lib.path,
+            ),
+        )
+        extract_cmds.append("rm -rf \"$D\"")
         ctx.actions.run_shell(
             mnemonic = "CppLinkFatStaticLib",
             outputs = [static_lib],
-            inputs = [mri_script] + static_libs,
-            command = "{ar} -M < {mri_script}".format(ar = ar, mri_script = mri_script.path),
+            inputs = static_libs,
+            command = "\n".join(extract_cmds),
         )
 
     fat_lib = cc_common.create_library_to_link(
