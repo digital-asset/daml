@@ -196,7 +196,7 @@ def daml_deps():
             strip_prefix = "googleapis-{}".format(go_googleapis_version),
             patches = [
                 # The Haskell gRPC bindings require access to the status.proto source file.
-                "//bazel_tools:googleapis-status-proto.patch",
+                "//bazel/patches:go_googleapis/status-proto.patch",
             ],
             patch_args = ["-E", "-p1"],
         )
