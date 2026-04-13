@@ -533,16 +533,25 @@ use_repo(import_googleapis_ext, "com_google_googleapis_imports")
 proto3_suite_ext = use_extension("//bazel/extensions:proto3_suite_extension.bzl", "proto3_suite_extension")
 use_repo(proto3_suite_ext, "proto3-suite")
 
+scalapb_ext = use_extension("//bazel/extensions:scalapb_extension.bzl", "scalapb_extension")
+use_repo(scalapb_ext, "scalapb")
+
+remote_apis_ext = use_extension("//bazel/extensions:remote_apis_extension.bzl", "remote_apis_extension")
+use_repo(remote_apis_ext, "com_github_bazelbuild_remote_apis")
+
+# Prebuilt protoc 25.5 for Java/Scala codegen (proto_gen rule).
+# Must stay aligned with Maven's protobuf-java version (currently 3.25.5).
+# The BCR protobuf module resolves to 32.x via MVS, whose protoc would generate
+# stubs incompatible with protobuf-java 3.x, so we use this pinned binary instead.
+protoc_ext = use_extension("//bazel/extensions:protoc_extension.bzl", "protoc_extension")
+use_repo(protoc_ext, "protoc_bindist")
+
 # --- Deprecated (pending removal) ---
 # io_grpc_grpc_java: legacy gRPC Java codegen; to be replaced by rules_proto + protobuf bazel_dep.
-# protoc_bindist: legacy protoc binary distribution; to be replaced by the protobuf bazel_dep toolchain.
 # TODO: Remove once all targets have migrated to the new protobuf/gRPC setup.
 
 io_grpc_grpc_java_ext = use_extension("//bazel/extensions:io_grpc_grpc_java_extension.bzl", "io_grpc_grpc_java_extension")
 use_repo(io_grpc_grpc_java_ext, "io_grpc_grpc_java")
-
-protoc_ext = use_extension("//bazel/extensions:protoc_extension.bzl", "protoc_extension")
-use_repo(protoc_ext, "protoc_bindist")
 
 # --- Native libraries ---
 
