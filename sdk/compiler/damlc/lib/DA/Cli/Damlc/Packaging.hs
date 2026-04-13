@@ -48,6 +48,7 @@ import System.Exit
 import System.FileLock
 import System.FilePath
 import System.IO.Extra (hFlush, hPutStrLn, stderr, writeFileUTF8)
+import System.Info (arch)
 import System.Info.Extra
 import System.Process (callProcess)
 import "ghc-lib-parser" UniqSet
@@ -564,27 +565,28 @@ writeSrc (fp, content) = do
     createDirectoryIfMissing True $ takeDirectory path
     writeFileUTF8 path content
 
--- | Locate ghc-pkg
+-- | Locate ghc-pkg from the GHC bindist matching the current platform.
+-- See @compiler/damlc/util.bzl@ for the corresponding Bazel-side label.
 getGhcPkgExe :: IO FilePath
 getGhcPkgExe = locateResource Resource
   { resourcesPath = exe "ghc-pkg"
-    -- //compiler/damlc:ghc-pkg-dist
-    -- In a packaged application, the executable is stored directly underneath
-    -- the resources directory because the target produces a tarball which has
-    -- the executable directly under the top directory.
-    -- See @bazel_tools/packaging/packaging.bzl@.
   , runfilesPathPrefix =
-      -- when running as a bazel target, the executable has the same name
-      -- but comes from the a different target depending on the OS, so the
-      -- prefix used changes.
-      -- see @compiler/damlc/util.bzl@
       if isWindows then
-        -- @rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe
         "rules_haskell_ghc_windows_amd64" </> "bin"
       else
-        -- @ghc_nix//:lib/ghc-9.0.2/bin/ghc-pkg
-        "ghc_nix" </> "lib" </> "ghc-9.0.2" </> "bin"
+        ghcBindistRepo </> ghcPkgSubpath
   }
+  where
+    ghcBindistRepo
+      | isLinux && arch == "x86_64"  = "rules_haskell_ghc_linux_amd64"
+      | isLinux && arch == "aarch64" = "rules_haskell_ghc_linux_arm64"
+      | isMac && arch == "aarch64"   = "rules_haskell_ghc_darwin_arm64"
+      | isMac                        = "rules_haskell_ghc_darwin_amd64"
+      | otherwise                    = error $ "Unsupported platform for ghc-pkg: " ++ show (os, arch)
+    ghcPkgSubpath
+      | isLinux   = "lib" </> "bin"
+      | isMac     = "lib" </> "lib" </> "bin"
+      | otherwise = error "unreachable"
 
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a

@@ -40,6 +40,14 @@ haskell_toolchains_ext = use_extension(
     "haskell_toolchains",
 )
 haskell_toolchains_ext.bindists(version = "9.0.2")
+use_repo(
+    haskell_toolchains_ext,
+    "rules_haskell_ghc_darwin_amd64",
+    "rules_haskell_ghc_darwin_arm64",
+    "rules_haskell_ghc_linux_amd64",
+    "rules_haskell_ghc_linux_arm64",
+    "rules_haskell_ghc_windows_amd64",
+)
 
 da_ghc_ext = use_extension("//bazel/extensions:da_ghc_extension.bzl", "da_ghc")
 use_repo(da_ghc_ext, "da-ghc", "ghc-lib-gen")
