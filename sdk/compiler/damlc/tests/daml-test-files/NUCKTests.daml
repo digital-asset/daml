@@ -1,0 +1,303 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SUPPORTS-LF-FEATURE DAML_NUCK
+
+{-# LANGUAGE ApplicativeDo #-}
+module NUCKTests where
+
+import Daml.Script
+
+import DA.ContractKeys
+import DA.Optional
+import DA.Assert ((===))
+
+template WithKey
+  with
+    p : Party
+    payload : Text
+  where
+    signatory p
+    key p : Party
+    maintainer key
+    nonconsuming choice GetText : Text
+      with
+        party : Party
+      controller party
+      do pure payload
+
+template Helper
+  with
+    p : Party
+  where
+    signatory p
+    choice PerformLookupNByKey : ()
+      with
+        n: Int
+      controller p
+      do contracts <- lookupNByKey @WithKey n p
+         case contracts of
+           (contract :: _) -> do
+             pure ()
+           [] ->
+             abort "Assertion failed: lookupNByKey returned an empty list."
+    choice PerformLookupAllByKey : ()
+      controller p
+      do contracts <- lookupAllByKey @WithKey p
+         case contracts of
+           (contract :: _) -> do
+             pure ()
+           [] ->
+             abort "Assertion failed: lookupAllByKey returned an empty list."
+    choice PerformLookupByKey : ContractId WithKey
+      controller p
+      do contract <- lookupByKey @WithKey p
+         case contract of
+           Some cid -> pure cid
+           None -> abort "Assertion failed: lookupByKey returned None."
+    choice PerformFetchByKey : WithKey
+      controller p
+      do (_cid, contract) <- fetchByKey @WithKey p
+         pure contract
+    choice PerformExerciseByKey : Text
+      controller p
+      do exerciseByKey @WithKey p GetText with
+           party = p
+    choice PerformAndPassLookupNByKey : [(ContractId WithKey, WithKey)]
+      with
+        n: Int
+      controller p
+      do lookupNByKey @WithKey n p
+
+useAllOperations : Script Text
+useAllOperations = script do
+  a <- allocateParty "allice"
+  a `submit` createCmd (WithKey a "payload")
+  a `submit` createAndExerciseCmd (Helper a) PerformLookupNByKey with n = 1
+  a `submit` createAndExerciseCmd (Helper a) PerformLookupAllByKey
+  a `submit` createAndExerciseCmd (Helper a) PerformLookupByKey
+  a `submit` createAndExerciseCmd (Helper a) PerformFetchByKey
+  a `submit` createAndExerciseCmd (Helper a) PerformExerciseByKey
+
+createMultiple : Script ()
+createMultiple = script do
+  a <- allocateParty "allice"
+  _ <- a `submit` do
+                    createCmd (WithKey a "payload 1")
+                    createCmd (WithKey a "payload 2")
+                    pure ()
+  cid <- a `submit` createCmd (WithKey a "payload 3")
+  pure ()
+
+exerciseByMultiple : Script ()
+exerciseByMultiple = script do
+  a <- allocateParty "allice"
+  b <- allocateParty "bob"
+
+  b `submit` createCmd (WithKey b "otherkey 1")
+  cid1 <- a `submit` createCmd (WithKey a "disclosed 1")
+  b `submit` createCmd (WithKey b "otherkey 2")
+  cid2 <- a `submit` createCmd (WithKey a "disclosed 2")
+  disclosed1 <- fromSome <$> queryDisclosure a cid1
+  disclosed2 <- fromSome <$> queryDisclosure a cid2
+
+  a `submit` createCmd (WithKey a "global 1")
+  a `submit` createCmd (WithKey a "global 2")
+
+
+  (pl1, pl1') <- (actAs a <> discloseMany [disclosed1, disclosed2]) `submit`
+    do
+      createCmd (WithKey a "local 1")
+      pl <- createAndExerciseCmd (Helper a) PerformExerciseByKey
+      pl' <- exerciseByKeyCmd @WithKey a GetText with
+        party = a
+      pure (pl, pl')
+
+  pl1 === "local 1"
+  pl1 === pl1'
+
+  (pl2, pl2') <- (actAs a <> discloseMany [disclosed1, disclosed2]) `submit`
+    do
+      pl <- createAndExerciseCmd (Helper a) PerformExerciseByKey
+      pl' <- exerciseByKeyCmd @WithKey a GetText with
+        party = a
+      pure (pl, pl')
+
+  pl2 === "disclosed 1"
+  pl2 === pl2'
+
+  a `submit` archiveCmd cid1
+  disclosed3' <- queryDisclosure a cid1
+
+  assertMsg "disclosed archived contract shoudld be None" (isNone disclosed3')
+
+  (pl3, pl3') <- (actAs a <> disclose disclosed2) `submit`
+    do
+      pl <- createAndExerciseCmd (Helper a) PerformExerciseByKey
+      pl' <- exerciseByKeyCmd @WithKey a GetText with
+        party = a
+      pure (pl, pl')
+
+  pl3 === "disclosed 2"
+  pl3 === pl3'
+
+  pure ()
+
+exerciseCmdMultiple : Script ()
+exerciseCmdMultiple = script do
+  a <- allocateParty "allice"
+  b <- allocateParty "bob"
+
+  b `submit` createCmd (WithKey b "otherkey 1")
+  cid1 <- a `submit` createCmd (WithKey a "disclosed 1")
+  b `submit` createCmd (WithKey b "otherkey 2")
+  cid2 <- a `submit` createCmd (WithKey a "disclosed 2")
+  disclosed1 <- fromSome <$> queryDisclosure a cid1
+  disclosed2 <- fromSome <$> queryDisclosure a cid2
+
+  a `submit` createCmd (WithKey a "global 1")
+  a `submit` createCmd (WithKey a "global 2")
+
+  payload5 <- (actAs a <> discloseMany [disclosed1, disclosed2]) `submit`
+    do
+    do
+      createCmd (WithKey a "local 1")
+      pl <- exerciseByKeyCmd @WithKey a GetText with
+           party = a
+      pure pl
+
+  payload5 === "local 1"
+
+  payload3 <- (actAs a <> discloseMany [disclosed1, disclosed2]) `submit`
+    do
+    do
+      pl <- createAndExerciseCmd (Helper a) PerformExerciseByKey
+      pure pl
+
+  payload3 === "disclosed 1"
+
+  a `submit` archiveCmd cid1
+  disclosed3' <- queryDisclosure a cid1
+
+  assertMsg "disclosed archived contract shoudld be None" (isNone disclosed3')
+
+  payload4 <- (actAs a <> disclose disclosed2) `submit`
+    do
+      pl <- createAndExerciseCmd (Helper a) PerformExerciseByKey
+      pure pl
+
+  payload4 === "disclosed 2"
+
+  pure ()
+
+lookupNByKeyMultiple : Script ()
+lookupNByKeyMultiple = script do
+  a <- allocateParty "allice"
+  b <- allocateParty "bob"
+
+  a `submit` createCmd (WithKey a "global 1")
+  a `submit` createCmd (WithKey a "global 2")
+
+  b `submit` createCmd (WithKey b "otherkey 1")
+  b `submit` createCmd (WithKey b "otherkey 2")
+
+  cid1 <- a `submit` createCmd (WithKey a "disclosed 1")
+  cid2 <- a `submit` createCmd (WithKey a "disclosed 2")
+  disclosed1 <- fromSome <$> queryDisclosure a cid1
+  disclosed2 <- fromSome <$> queryDisclosure a cid2
+
+  payloads <- (actAs a <> discloseMany [disclosed1, disclosed2]) `submit` do
+    createCmd (WithKey a "local 1")
+    createCmd (WithKey a "local 2")
+    queries <- createAndExerciseCmd (Helper a) PerformAndPassLookupNByKey with n = 5
+    pure $ map (\(_cid, contract) -> contract.payload) queries
+
+  length payloads === 5
+
+  payloads === ["local 2", "local 1", "disclosed 1", "disclosed 2", "global 2"]
+
+  pure ()
+
+queryNByKeyMultiple : Script ()
+queryNByKeyMultiple = script do
+  a <- allocateParty "allice"
+  b <- allocateParty "bob"
+
+  a `submit` createCmd (WithKey a "global 1")
+  cid2 <- a `submit` createCmd (WithKey a "global 2")
+  a `submit` createCmd (WithKey a "global 3")
+  cid4 <- a `submit` createCmd (WithKey a "global 4")
+  a `submit` createCmd (WithKey a "global 5")
+  a `submit` createCmd (WithKey a "global 6")
+
+  b `submit` createCmd (WithKey b "otherkey 1")
+  b `submit` createCmd (WithKey b "otherkey 2")
+
+  a `submit` archiveCmd cid4
+  a `submit` archiveCmd cid2
+
+  contracts <- queryNByKey @WithKey a 3 a
+  let payloads = map (\(_cid, contract) -> contract.payload) contracts
+
+  length payloads === 3
+
+  payloads === ["global 6", "global 5", "global 3"]
+
+  pure ()
+
+template WithKeyTwoMaintainers
+  with
+    p1 : Party
+    p2 : Party
+    payload : Text
+  where
+    signatory p1, p2
+    key (p1, p2) : (Party, Party)
+    maintainer [key._1, key._2]
+
+template WithKeyTwoMaintainersHelper1
+  with
+    p : Party
+  where
+    signatory p
+    choice CreateWithKeyTwoMaintainers : ContractId WithKeyTwoMaintainers
+      with
+        p2 : Party
+        payload : Text
+      controller p2
+      do create (WithKeyTwoMaintainers p p2 payload)
+
+template WithKeyTwoMaintainersHelper2
+  with
+    p : Party
+  where
+    signatory p
+    choice PerformLookupNByKeyWithKeyTwoMaintainers: ()
+      with
+        n: Int
+        passedKey: (Party, Party)
+      controller p
+      do contracts <- lookupNByKey @WithKeyTwoMaintainers n passedKey
+         case contracts of
+           (contract :: _) -> do
+             pure ()
+           [] ->
+             abort "Assertion failed: lookupNByKey returned an empty list."
+
+queryNByKeyUnauthorized : Script ()
+queryNByKeyUnauthorized = script do
+  a <- allocateParty "allice"
+  b <- allocateParty "bob"
+
+  cid1 <- a `submit` createCmd (WithKeyTwoMaintainersHelper1 a)
+  disclosed <- fromSome <$> queryDisclosure a cid1
+
+  cid2 <- (actAs b <> disclose disclosed) `submit` do
+    exerciseCmd cid1 CreateWithKeyTwoMaintainers with
+      p2 = b
+      payload = "payload"
+
+  a `submitMustFail` createAndExerciseCmd (WithKeyTwoMaintainersHelper2 a)
+    PerformLookupNByKeyWithKeyTwoMaintainers with
+      n = 1
+      passedKey = (a, b)
