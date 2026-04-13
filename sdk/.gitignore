@@ -93,3 +93,5 @@ out
 /.canton
 
 docs/build/
+
+bzlmigration/
