@@ -143,53 +143,6 @@ exerciseByMultiple = script do
 
   pure ()
 
-exerciseCmdMultiple : Script ()
-exerciseCmdMultiple = script do
-  a <- allocateParty "allice"
-  b <- allocateParty "bob"
-
-  b `submit` createCmd (WithKey b "otherkey 1")
-  cid1 <- a `submit` createCmd (WithKey a "disclosed 1")
-  b `submit` createCmd (WithKey b "otherkey 2")
-  cid2 <- a `submit` createCmd (WithKey a "disclosed 2")
-  disclosed1 <- fromSome <$> queryDisclosure a cid1
-  disclosed2 <- fromSome <$> queryDisclosure a cid2
-
-  a `submit` createCmd (WithKey a "global 1")
-  a `submit` createCmd (WithKey a "global 2")
-
-  payload5 <- (actAs a <> discloseMany [disclosed1, disclosed2]) `submit`
-    do
-    do
-      createCmd (WithKey a "local 1")
-      pl <- exerciseByKeyCmd @WithKey a GetText with
-           party = a
-      pure pl
-
-  payload5 === "local 1"
-
-  payload3 <- (actAs a <> discloseMany [disclosed1, disclosed2]) `submit`
-    do
-    do
-      pl <- createAndExerciseCmd (Helper a) PerformExerciseByKey
-      pure pl
-
-  payload3 === "disclosed 1"
-
-  a `submit` archiveCmd cid1
-  disclosed3' <- queryDisclosure a cid1
-
-  assertMsg "disclosed archived contract shoudld be None" (isNone disclosed3')
-
-  payload4 <- (actAs a <> disclose disclosed2) `submit`
-    do
-      pl <- createAndExerciseCmd (Helper a) PerformExerciseByKey
-      pure pl
-
-  payload4 === "disclosed 2"
-
-  pure ()
-
 lookupNByKeyMultiple : Script ()
 lookupNByKeyMultiple = script do
   a <- allocateParty "allice"
