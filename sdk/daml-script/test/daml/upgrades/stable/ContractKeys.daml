@@ -147,8 +147,7 @@ main = tests
   , subtree "LookupN and QueryN behaviour"
     [ ("query can upgrade and downgrade at the same time", queryNUpgradeDowngrade)
     , ("query fail if any contract cannot be downgraded", queryNFailedDowngrade)
-    , -- TODO(canton#31926) Remove once NUCK works in canton
-      brokenOnCanton ("lookup can upgrade and downgrade at the same time", lookupNUpgradeDowngrade)
+    , ("lookup can upgrade and downgrade at the same time", lookupNUpgradeDowngrade)
     , ("lookup fail if any contract cannot be downgraded", lookupNFailedDowngrade)
     ]
   ]

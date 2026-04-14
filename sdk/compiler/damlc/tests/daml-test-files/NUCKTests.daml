@@ -250,23 +250,23 @@ queryNByKeyUnauthorized = script do
       n = 1
       passedKey = (a, b)
 
--- exerciseByKeyWithInvisibleButDisclosedKey: Script ()
--- exerciseByKeyWithInvisibleButDisclosedKey = script do
---   a <- allocateParty "allice"
---   b <- allocateParty "bob"
+exerciseByKeyWithInvisibleButDisclosedKey: Script ()
+exerciseByKeyWithInvisibleButDisclosedKey = script do
+  a <- allocateParty "allice"
+  b <- allocateParty "bob"
 
---   cid1 <- a `submit` createCmd (WithKey a "disclosed")
---   a `submit` createCmd (WithKey a "local")
---   disclosed <- fromSome <$> queryDisclosure a cid1
+  cid1 <- a `submit` createCmd (WithKey a "disclosed")
+  a `submit` createCmd (WithKey a "local")
+  disclosed <- fromSome <$> queryDisclosure a cid1
 
---   (payload, payload') <- (actAs b <> disclose disclosed) `submit` do
---     p <- createAndExerciseCmd (Helper b) PerformExerciseByKeyWithKey with
---       k = a
---     p' <- exerciseByKeyCmd @WithKey a GetText with
---       party = b
---     pure (p, p')
+  (payload, payload') <- (actAs b <> disclose disclosed) `submit` do
+    p <- createAndExerciseCmd (Helper b) PerformExerciseByKeyWithKey with
+      k = a
+    p' <- exerciseByKeyCmd @WithKey a GetText with
+      party = b
+    pure (p, p')
 
---   payload === payload'
---   payload === "disclosed"
+  payload === payload'
+  payload === "disclosed"
 
---   pure ()
+  pure ()

@@ -84,13 +84,13 @@ template T4 with
   maintainer key._1
 #endif
 
+#ifdef DAML_CONTRACT_KEYS
 template T5 with
     t5_s : Text
     keyParty : Party
   where
   signatory keyParty
 
-#ifdef DAML_LEGACY_LOOKUP_BY_KEY
   key (t5_s, keyParty) : (Text, Party)
   maintainer key._2
 
@@ -255,7 +255,7 @@ truncatedError = script do
     Right _ -> error "contractKeyNotFound incorrectly succeeded"
 #endif
 
-#ifdef DAML_LEGACY_LOOKUP_BY_KEY
+#ifdef DAML_CONTRACT_KEYS
 prefetchContractKeys : Script ()
 prefetchContractKeys = script do
   alice <- allocateParty "alice"

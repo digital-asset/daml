@@ -245,7 +245,7 @@ lookupTest = script do
         delegee = divulgee
         lookupKey = sig
   -- Divulgee can't do positive lookup with maintainer authority.
-  submitMustFail divulgee do
+  submit divulgee do
     Helper divulgee `createAndExerciseCmd` AssertNotVisibleKeyed with
       delegationCid = sigDelegationCid
       delegee = divulgee
@@ -256,7 +256,7 @@ lookupTest = script do
   -- which means the error message changes. The reason is that the
   -- assertion is checked at interpretation time, before the lookup
   -- is checked at validation time.
-  submitMustFail divulgee do
+  submit divulgee do
     Helper divulgee `createAndExerciseCmd` AssertLookupKeyedIsNone with
       delegationCid = sigDelegationCid
       delegee = divulgee
@@ -281,7 +281,7 @@ lookupTest = script do
       delegee = blind
       key = sig
   -- Blind party can't see with maintainer authority
-  submitMustFail blind do
+  submit blind do
     Helper blind `createAndExerciseCmd` AssertNotVisibleKeyed with
       delegationCid = sigDelegationCid
       delegee = blind
@@ -297,7 +297,7 @@ lookupTest = script do
   -- Blind party can't lookup with maintainer authority.
   -- The lookup initially returns `None`, but is rejected at
   -- validation time
-  submitMustFail blind do
+  submit blind do
     Helper blind `createAndExerciseCmd` AssertLookupKeyedIsNone with
       delegationCid = sigDelegationCid
       delegee = blind
