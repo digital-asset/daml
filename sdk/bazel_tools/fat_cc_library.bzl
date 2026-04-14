@@ -78,17 +78,27 @@ def _fat_cc_library_impl(ctx):
         # continuation character, which breaks with bzlmod repo paths
         # that contain '~' (e.g. _main~ext~repo).  Instead, extract
         # object files from each input archive and re-pack them.
-        extract_cmds = ["set -e", "D=$(mktemp -d)"]
+        #
+        # Use per-name occurrence counters (ar xN) to handle archives
+        # that contain duplicate member names (e.g. gRPC's gpr_time
+        # packs both posix/time.pic.o and windows/time.pic.o as
+        # "time.pic.o").  Without this, a plain "ar x" would let the
+        # second member silently overwrite the first.
+        extract_cmds = ["set -e", "D=$(mktemp -d)", "_EXECROOT=$(pwd)"]
         for i, lib in enumerate(static_libs):
             extract_cmds.append(
-                "mkdir \"$D/{idx}\" && (cd \"$D/{idx}\" && \"{ar}\" x \"$OLDPWD/{path}\")".format(
-                    idx = i,
+                ("(declare -A _mc=(); while IFS= read -r _m; do"
+                 + " _c=\"${{_mc[$_m]:-0}}\"; _c=$((_c+1)); _mc[$_m]=$_c;"
+                 + " (cd \"$D\" && \"{ar}\" xN \"$_c\" \"$_EXECROOT/{path}\" \"$_m\""
+                 + " && mv \"$_m\" \"{i}_${{_c}}_$_m\");"
+                 + " done < <(\"{ar}\" t \"$_EXECROOT/{path}\"))").format(
+                    i = i,
                     ar = ar,
                     path = lib.path,
                 ),
             )
         extract_cmds.append(
-            "\"{ar}\" crs \"{out}\" \"$D\"/*/*.o \"$D\"/*/*.obj 2>/dev/null || \"{ar}\" crs \"{out}\" \"$D\"/*/*.o".format(
+            "\"{ar}\" crs \"{out}\" \"$D\"/*.o \"$D\"/*.obj 2>/dev/null || \"{ar}\" crs \"{out}\" \"$D\"/*.o".format(
                 ar = ar,
                 out = static_lib.path,
             ),
