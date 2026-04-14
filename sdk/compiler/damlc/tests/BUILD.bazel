@@ -230,7 +230,7 @@ da_haskell_library(
             "//compiler/damlc/stable-packages",
             "//compiler/script-service/server:script_service_jar",
             "//daml-script/daml:daml-script-{version}.dar".format(version = version),
-            "@jq_dev_env//:jq",
+            "//bazel_tools:jq_bin",
             ghc_pkg,
         ],
         hackage_deps = [
@@ -939,13 +939,13 @@ sh_test(
     srcs = ["src/inspect-dar.sh"],
     args = [
         "$(rootpath //compiler/damlc)",
-        "$(rootpath @jq_dev_env//:jq)",
+        "$(rootpath //bazel_tools:jq_bin)",
         "$(rootpath //test-common:model-tests-default.dar)",
     ],
     data = [
         "//compiler/damlc",
         "//test-common:model-tests-default.dar",
-        "@jq_dev_env//:jq",
+        "//bazel_tools:jq_bin",
     ],
     toolchains = [
         "@rules_sh//sh/posix:make_variables",

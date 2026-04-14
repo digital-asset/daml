@@ -1,9 +1,18 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
+
+copy_file(
+    name = "jq",
+    src = "@jq_toolchains//:resolved_toolchain",
+    out = "jq_bin",
+    is_executable = True,
+    visibility = ["//visibility:public"],
+)
 
 # Export Bazel sources for Bazel API docs.
 exports_files(
@@ -67,7 +76,7 @@ check 'org.scala-lang:scala-library (in {maven_install_json})' "$$SCALA_LIBRARY_
 check 'org.scala-lang:scala-reflect (in {maven_install_json})' "$$SCALA_REFLECT_MAVEN_VERSION"
 """.format(
         expected_version = scala_version,
-        jq = "@jq_dev_env//:bin/jq",
+        jq = "//bazel_tools:jq_bin",
         maven_install_json = "//:maven_install_{}.json".format(scala_major_version),
         scala_bin = "@scala_nix//:bin/scala",
         scala_compiler = "@maven//:org_scala_lang_scala_compiler",
@@ -76,7 +85,7 @@ check 'org.scala-lang:scala-reflect (in {maven_install_json})' "$$SCALA_REFLECT_
     ),
     data = [
         "//:maven_install_{}.json".format(scala_major_version),
-        "@jq_dev_env//:bin/jq",
+        "//bazel_tools:jq_bin",
         "@maven//:org_scala_lang_scala_compiler",
         "@maven//:org_scala_lang_scala_library",
         "@maven//:org_scala_lang_scala_reflect",
