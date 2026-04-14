@@ -16,7 +16,7 @@ da_haskell_repl(
 
 os_dependent_libraries = [] if is_windows else [
     "//language-support/js/daml-types:npm_package",
-    "@script_nix//:bin/script",
+    "//bazel:pty-wrapper.sh",
 ]
 
 da_haskell_library(
