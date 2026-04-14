@@ -17,12 +17,12 @@ sh_test(
     name = "valid-json",
     srcs = ["ci-tests.sh"],
     args = [
-        "$(location @jq_dev_env//:jq)",
+        "$(location //bazel_tools:jq_bin)",
         "$(locations :json-files)",
     ],
     data = [
         ":json-files",
-        "@jq_dev_env//:jq",
+        "//bazel_tools:jq_bin",
     ],
     # This is required to get the test to run on Windows. Otherwise, it looks
     # like Bazel decides that because it cannot create symlinks on Windows, it
