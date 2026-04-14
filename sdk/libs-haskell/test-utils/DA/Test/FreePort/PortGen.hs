@@ -72,7 +72,7 @@ getWindowsDynamicPortRange = do
 
 getMacOSDynamicPortRange :: IO DynamicPortRange
 getMacOSDynamicPortRange = do
-  sysctl <- locateRunfiles $ mainWorkspace </> "external" </> "sysctl_nix" </> "bin" </> "sysctl"
+  sysctl <- locateRunfiles $ mainWorkspace </> "external" </> "sysctl" </> "bin" </> "sysctl"
   portData <- mapException DynamicRangeShellFailure $ readProcess sysctl
     [ "net.inet.ip.portrange.first"
     , "net.inet.ip.portrange.last"

@@ -10,7 +10,7 @@ da_scala_library(
         "src/main/scala/com/daml/ports/FreePort.scala",
         "src/main/scala/com/daml/ports/LockedFreePort.scala",
     ],
-    data = ["@sysctl_nix//:bin/sysctl"] if is_darwin else [],
+    data = ["@sysctl//:bin/sysctl"] if is_darwin else [],
     visibility = [
         "//visibility:public",
     ],
