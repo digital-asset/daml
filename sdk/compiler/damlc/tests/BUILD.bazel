@@ -1023,6 +1023,46 @@ da_haskell_test(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
+        "//sdk-version/hs:sdk-version-lib",
+    ],
+)
+
+da_haskell_test(
+    name = "package-manager",
+    size = "large",
+    srcs = ["src/DamlcPkgManager.hs"],
+    data = [
+        ":pkg-manager-test.dar",
+        "//compiler/damlc",
+    ] + (["@sysctl//:bin/sysctl"] if is_darwin else []),
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "jwt",
+        "process",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "time",
+        "unordered-containers",
+        "zip-archive",
+    ],
+    main_function = "DamlcPkgManager.main",
+    tags = ["cpu:4"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-dar-reader",
+        "//compiler/daml-lf-ast",
+        "//daml-assistant:daml-project-config",
+        "//daml-assistant/daml-helper:daml-helper-lib",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/canton-test-utils",
+        "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-lib",
     ],
 )
 
