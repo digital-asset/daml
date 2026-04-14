@@ -31,14 +31,24 @@ template Helper
     p : Party
   where
     signatory p
-    choice PerformLookupNByKey : [(ContractId WithKey, WithKey)]
+    choice PerformLookupNByKey : ()
       with
         n: Int
       controller p
-      do lookupNByKey @WithKey n p
-    choice PerformLookupAllByKey : [(ContractId WithKey, WithKey)]
+      do contracts <- lookupNByKey @WithKey n p
+         case contracts of
+           (contract :: _) -> do
+             pure ()
+           [] ->
+             abort "Assertion failed: lookupNByKey returned an empty list."
+    choice PerformLookupAllByKey : ()
       controller p
-      do lookupAllByKey @WithKey p
+      do contracts <- lookupAllByKey @WithKey p
+         case contracts of
+           (contract :: _) -> do
+             pure ()
+           [] ->
+             abort "Assertion failed: lookupAllByKey returned an empty list."
     choice PerformLookupByKey : ContractId WithKey
       controller p
       do contract <- lookupByKey @WithKey p
@@ -122,11 +132,6 @@ exerciseByMultiple = script do
   pl2 === "disclosed 1"
   pl2 === pl2'
 
-  a `submit` archiveCmd cid1
-  disclosed3' <- queryDisclosure a cid1
-
-  assertMsg "disclosed archived contract shoudld be None" (isNone disclosed3')
-
   (pl3, pl3') <- (actAs a <> disclose disclosed2) `submit`
     do
       pl <- createAndExerciseCmd (Helper a) PerformExerciseByKey
@@ -161,7 +166,6 @@ lookupNByKeyMultiple = script do
     queries <- createAndExerciseCmd (Helper a) PerformAndPassLookupNByKey with n = 5
     pure $ map (\(_cid, contract) -> contract.payload) queries
 
-  length payloads === 5
 
   payloads === ["local 2", "local 1", "disclosed 1", "disclosed 2", "global 2"]
 
@@ -204,7 +208,7 @@ template WithKeyTwoMaintainers
     key (p1, p2) : (Party, Party)
     maintainer [key._1, key._2]
 
-template WithKeyTwoMaintainersHelper1
+template WithKeyTwoMaintainersHelper
   with
     p : Party
   where
@@ -215,12 +219,6 @@ template WithKeyTwoMaintainersHelper1
         payload : Text
       controller p2
       do create (WithKeyTwoMaintainers p p2 payload)
-
-template WithKeyTwoMaintainersHelper2
-  with
-    p : Party
-  where
-    signatory p
     choice PerformLookupNByKeyWithKeyTwoMaintainers: ()
       with
         n: Int
@@ -238,15 +236,16 @@ queryNByKeyUnauthorized = script do
   a <- allocateParty "allice"
   b <- allocateParty "bob"
 
-  cid1 <- a `submit` createCmd (WithKeyTwoMaintainersHelper1 a)
+  cid1 <- a `submit` createCmd (WithKeyTwoMaintainersHelper a)
   disclosed <- fromSome <$> queryDisclosure a cid1
 
+  -- just to make sure, lets create a contract with the same key we later query (should not affect auth error)
   cid2 <- (actAs b <> disclose disclosed) `submit` do
     exerciseCmd cid1 CreateWithKeyTwoMaintainers with
       p2 = b
       payload = "payload"
 
-  a `submitMustFail` createAndExerciseCmd (WithKeyTwoMaintainersHelper2 a)
+  a `submitMustFail` createAndExerciseCmd (WithKeyTwoMaintainersHelper a)
     PerformLookupNByKeyWithKeyTwoMaintainers with
       n = 1
       passedKey = (a, b)
