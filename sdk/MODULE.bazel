@@ -32,6 +32,7 @@ bazel_lib_toolchains_ext = use_extension("@tar.bzl//tar:extensions.bzl", "toolch
 use_repo(bazel_lib_toolchains_ext, "bsd_tar_toolchains")
 
 register_toolchains("@bsd_tar_toolchains//:all")
+register_toolchains("//:c2hs-toolchain")
 
 # --- Haskell toolchain and extensions ---
 
@@ -163,6 +164,7 @@ HASKELL_PACKAGES = [
     "conduit",
     "conduit-extra",
     "cryptonite",
+    "exceptions",
     "http-client",
     "http-client-tls",
     "http-conduit",
@@ -171,9 +173,11 @@ HASKELL_PACKAGES = [
     "memory",
     "network",
     "network-uri",
+    "open-browser",
     "tar-conduit",
     "tls",
     "uri-encode",
+    "uuid",
 
     # Filesystem & archives
     "file-embed",
@@ -253,6 +257,10 @@ stack_snapshot_ext.package(
 stack_snapshot_ext.package(
     name = "grpc-haskell",
     vendored = "@grpc_haskell//:grpc-haskell",
+)
+stack_snapshot_ext.package(
+    name = "c2hs",
+    components = ["exe"],
 )
 stack_snapshot_ext.package(
     name = "happy",
@@ -403,6 +411,33 @@ maven_ext.install(
         "io.grpc:grpc-protobuf:" + GRPC_JAVA_MAVEN_VERSION,
         "io.grpc:grpc-stub:" + GRPC_JAVA_MAVEN_VERSION,
 
+        # IO_GRPC_GRPC_JAVA_ARTIFACTS: artifacts declared by the grpc-java BCR module
+        # (@@grpc-java~).  That module is a transitive dep via googleapis~ → grpc~, and its
+        # BUILD files reference these via artifact() which resolves against our shared @maven.
+        # We must therefore declare them here even though we don't use them directly.
+        # Versions match grpc-java 1.66.0 (IO_GRPC_GRPC_JAVA_ARTIFACTS).
+        "com.google.android:annotations:4.1.1.4",
+        "com.google.api.grpc:proto-google-common-protos:2.29.0",
+        "com.google.auth:google-auth-library-credentials:1.23.0",
+        "com.google.auth:google-auth-library-oauth2-http:1.23.0",
+        "com.google.auto.value:auto-value-annotations:1.11.0",
+        "com.google.auto.value:auto-value:1.11.0",
+        "com.google.j2objc:j2objc-annotations:3.0.0",
+        "com.google.re2j:re2j:1.7",
+        "com.google.truth:truth:1.4.2",
+        "com.squareup.okhttp:okhttp:2.7.5",
+        "com.squareup.okio:okio:2.10.0",
+        "io.netty:netty-codec-socks:4.1.100.Final",
+        "io.netty:netty-handler-proxy:4.1.100.Final",
+        "io.netty:netty-transport-native-epoll:jar:linux-x86_64:4.1.100.Final",
+        "io.netty:netty-tcnative-boringssl-static:2.0.61.Final",
+        "io.netty:netty-tcnative-classes:2.0.61.Final",
+        "io.opencensus:opencensus-api:0.31.0",
+        "io.opencensus:opencensus-contrib-grpc-metrics:0.31.0",
+        "io.perfmark:perfmark-api:0.27.0",
+        "org.apache.tomcat:annotations-api:6.0.53",
+        "org.codehaus.mojo:animal-sniffer-annotations:1.24",
+
         # build tools
         "com.oracle.database.jdbc:ojdbc8:" + OJDBC_VERSION,
         "com.sparkjava:spark-core:" + SPARK_CORE_VERSION,
@@ -484,12 +519,81 @@ maven_ext.install(
     known_contributing_modules = [
         "bazel_jar_jar",
         "bazel_worker_java",
+        "grpc-java",
         "protobuf",
     ],
     repositories = [
         "https://repo1.maven.org/maven2",
         "https://europe-maven.pkg.dev/da-images/public-maven-unstable",
     ],
+)
+# Counter-overrides for io.grpc:* coordinates.
+# The grpc-java BCR module (@@grpc-java~), which is a transitive dep via
+# googleapis~ → grpc~, provides maven.override() calls that redirect all
+# io.grpc:* Maven coordinates to its own source-built Bazel targets.
+# Those source builds have unresolved dependencies in our setup (e.g.
+# @@googleapis~//google/rpc:rpc_java_proto).  The root module's overrides
+# take precedence, so we redirect each coordinate back to the pre-override
+# Maven JAR that rules_jvm_external stores as original_<label>.
+maven_ext.override(
+    coordinates = "io.grpc:grpc-alts",
+    target = "@maven//:original_io_grpc_grpc_alts",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-api",
+    target = "@maven//:original_io_grpc_grpc_api",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-auth",
+    target = "@maven//:original_io_grpc_grpc_auth",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-context",
+    target = "@maven//:original_io_grpc_grpc_context",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-core",
+    target = "@maven//:original_io_grpc_grpc_core",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-googleapis",
+    target = "@maven//:original_io_grpc_grpc_googleapis",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-grpclb",
+    target = "@maven//:original_io_grpc_grpc_grpclb",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-inprocess",
+    target = "@maven//:original_io_grpc_grpc_inprocess",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-netty-shaded",
+    target = "@maven//:original_io_grpc_grpc_netty_shaded",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-protobuf",
+    target = "@maven//:original_io_grpc_grpc_protobuf",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-protobuf-lite",
+    target = "@maven//:original_io_grpc_grpc_protobuf_lite",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-services",
+    target = "@maven//:original_io_grpc_grpc_services",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-stub",
+    target = "@maven//:original_io_grpc_grpc_stub",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-util",
+    target = "@maven//:original_io_grpc_grpc_util",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-xds",
+    target = "@maven//:original_io_grpc_grpc_xds",
 )
 maven_ext.override(
     coordinates = "org.scala-lang:scala-compiler",
