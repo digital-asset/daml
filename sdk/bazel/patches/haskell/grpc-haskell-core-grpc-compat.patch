@@ -63,10 +63,13 @@ diff -ruN a/cbits/grpc_haskell.c b/cbits/grpc_haskell.c
 diff -ruN a/include/grpc_haskell.h b/include/grpc_haskell.h
 --- a/include/grpc_haskell.h	2026-04-13 18:40:59.698987139 +0200
 +++ b/include/grpc_haskell.h	2026-04-13 18:41:18.050228775 +0200
-@@ -8,6 +8,55 @@
+@@ -8,6 +8,58 @@
  #include <grpc/byte_buffer.h>
  #include <grpc/byte_buffer_reader.h>
  
++/* gRPC >= 1.74 moved credential APIs to a separate header. */
++#include <grpc/credentials.h>
++
 +/*
 + * Compatibility shims for gRPC >= 1.74 which removed the legacy
 + * auth-metadata-processor / credentials-plugin C API.
