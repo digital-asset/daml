@@ -306,7 +306,9 @@ class ScriptService(config: ScriptServiceConfig)(implicit
       case Right(majorVersion) =>
         val lfVersion = LanguageVersion(
           majorVersion,
-          LanguageVersion.Minor.assertFromString(req.getLfMinor),
+          LanguageVersion.Minor.assertParsingSuccessful(
+            LanguageVersion.Minor.fromString(req.getLfMinor)
+          ),
         )
         val ctx = Context.newContext(
           lfVersion,
