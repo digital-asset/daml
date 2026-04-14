@@ -31,24 +31,14 @@ template Helper
     p : Party
   where
     signatory p
-    choice PerformLookupNByKey : ()
+    choice PerformLookupNByKey : [(ContractId WithKey, WithKey)]
       with
         n: Int
       controller p
-      do contracts <- lookupNByKey @WithKey n p
-         case contracts of
-           (contract :: _) -> do
-             pure ()
-           [] ->
-             abort "Assertion failed: lookupNByKey returned an empty list."
-    choice PerformLookupAllByKey : ()
+      do lookupNByKey @WithKey n p
+    choice PerformLookupAllByKey : [(ContractId WithKey, WithKey)]
       controller p
-      do contracts <- lookupAllByKey @WithKey p
-         case contracts of
-           (contract :: _) -> do
-             pure ()
-           [] ->
-             abort "Assertion failed: lookupAllByKey returned an empty list."
+      do lookupAllByKey @WithKey p
     choice PerformLookupByKey : ContractId WithKey
       controller p
       do contract <- lookupByKey @WithKey p
