@@ -9,6 +9,7 @@ bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = Tr
 bazel_dep(name = "gazelle", version = "0.47.0")
 bazel_dep(name = "google_bazel_common", version = "0.0.1")
 bazel_dep(name = "grpc", version = "1.75.0")
+bazel_dep(name = "jq.bzl", version = "0.6.1")
 bazel_dep(name = "patchelf", version = "0.18.0.bcr.1")
 bazel_dep(name = "pigz", version = "2.8.bcr.1")
 bazel_dep(name = "protobuf", version = "25.6")
@@ -30,6 +31,9 @@ bazel_dep(name = "zlib", version = "1.3.1.bcr.8")
 
 bazel_lib_toolchains_ext = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
 use_repo(bazel_lib_toolchains_ext, "bsd_tar_toolchains")
+
+jq_toolchains_ext = use_extension("@jq.bzl//jq:extensions.bzl", "toolchains")
+use_repo(jq_toolchains_ext, "jq_toolchains")
 
 register_toolchains("@bsd_tar_toolchains//:all")
 register_toolchains("//:c2hs-toolchain")

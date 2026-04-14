@@ -43,14 +43,10 @@ if [[ "$RUNFILES_DIR" != "unset" ]]; then
     # arguments in `$@`, and in particular `$1`, are expected to be paths to
     # JSON files.
     shift
-    # As far as I can tell, this is not documented anywhere, but sh_test
-    # provides a `TEST_WORKSPACE` variable. The documentation for
-    # runfiles.bash, such as it is, says the argument to rlocation is
-    # `my_workspace/path/to/my/data.txt`, so you'd think calling e.g.
-    # `$(rlocation jq_dev_env/bin/jq` would work. And it does on Linux and
-    # macOS, but Windows seems to require the use of `TEST_WORKSPACE`.
-    # Unhelpfully, on Windows, this failure is completely silent and the call
-    # to `rlocation` just returns an empty string.
+    # sh_test provides a `TEST_WORKSPACE` variable. The argument to
+    # rlocation is `my_workspace/path/to/my/data.txt`. On Windows,
+    # `TEST_WORKSPACE` must be used; without it rlocation silently
+    # returns an empty string.
     JQ="$(rlocation "$TEST_WORKSPACE/$JQ_ARG")"
     TARGETS=""
     # `$#` is the number of elements in the arguments, i.e. if you think of
