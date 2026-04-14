@@ -48,7 +48,6 @@ import System.Exit
 import System.FileLock
 import System.FilePath
 import System.IO.Extra (hFlush, hPutStrLn, stderr, writeFileUTF8)
-import System.Info (arch)
 import System.Info.Extra
 import System.Process (callProcess)
 import "ghc-lib-parser" UniqSet
@@ -577,6 +576,7 @@ getGhcPkgExe = locateResource Resource
         ghcBindistRepo </> ghcPkgSubpath
   }
   where
+    isLinux = os == "linux"
     ghcBindistRepo
       | isLinux && arch == "x86_64"  = "rules_haskell_ghc_linux_amd64"
       | isLinux && arch == "aarch64" = "rules_haskell_ghc_linux_arm64"
