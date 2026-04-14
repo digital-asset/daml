@@ -146,7 +146,7 @@ sh_test(
     args = [
         "$(location //language-support/js/codegen)",
         "$(location @nodejs//:npm_bin)",
-        "$(location @jq_dev_env//:jq)",
+        "$(location //bazel_tools:jq_bin)",
         "$(location :npmcheck1.dar)",
         "$(location :npmcheck2.dar)",
         "$(location @nodejs//:node)",
@@ -158,7 +158,7 @@ sh_test(
         ":npmcheck2.dar",
         "//language-support/js/codegen",
         "//language-support/js/daml-types:npm_package",
-        "@jq_dev_env//:jq",
+        "//bazel_tools:jq_bin",
         "@nodejs//:node",
         "@nodejs//:npm_bin",
     ],
