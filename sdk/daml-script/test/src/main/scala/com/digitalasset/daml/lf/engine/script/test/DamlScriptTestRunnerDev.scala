@@ -34,9 +34,9 @@ class DamlScriptTestRunnerDev extends DamlScriptTestRunner {
            |Submit:devError SUCCESS
            |Submit:failureStatusError SUCCESS
            |Submit:fetchEmptyContractKeyMaintainers SUCCESS
+           |Submit:prefetchContractKeys SUCCESS
            |Submit:truncatedError FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError (error category 9): EXPECTED_TRUNCATED_ERROR)
            |Submit:wronglyTypedContract SUCCESS
-           |Submit:prefetchContractKeys SUCCESS
            |""".stripMargin,
       )
 
