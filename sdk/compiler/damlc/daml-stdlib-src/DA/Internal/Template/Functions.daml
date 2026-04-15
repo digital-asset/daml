@@ -217,6 +217,13 @@ class HasExerciseByKey t k c r | t -> k, t c -> r where
 
 #ifdef DAML_NUCK
 -- | MOVE DA.ContractKeys
+-- Look up up to n contracts associated with the passed key. Contracts created
+-- within a transaction are returned first (in recency order), then disclosed
+-- contracts, then nonlocal contracts.
+--
+-- You must pass the `t` using an explicit type application. For instance, if
+-- you want to query 3 contracts of template `Account` given by its key `k`, you
+-- must call `lookupNByKey @Account 3 k.
 lookupNByKey : forall t k. HasLookupNByKey t k => Int -> k -> Update [(ContractId t, t)]
 lookupNByKey 0 _ = pure []
 lookupNByKey n k = if n > 0
@@ -228,10 +235,13 @@ lookupNByKey n k = if n > 0
   else fail "lookupNByKey may not be passed a negative n"
 
 -- | MOVE DA.ContractKeys
+-- Shorthand for `lookupNByKey` with n larger than the amount of contracts that
+-- can exist for a key (1000000), therefore returning all contracts
 lookupAllByKey : forall t k. HasLookupNByKey t k => k -> Update [(ContractId t, t)]
 lookupAllByKey = lookupNByKey (maxBound @Int)
 
--- | Look up the contract ID `t` associated with a given contract key `k`.
+-- | Look up the contract ID `t` associated with a given contract key `k` (see
+-- `lookupNByKey` for more on contract order).
 --
 -- You must pass the `t` using an explicit type application. For
 -- instance, if you want to look up a contract of template `Account` by its
@@ -244,8 +254,8 @@ lookupByKey k = do
     listToOptional [] = None
     listToOptional (x::_) = Some x
 
--- | Fetch the contract ID and contract data associated with a given
--- contract key.
+-- | Fetch the first contract ID and contract data associated with the given
+-- contract key (see `lookupNByKey` for more on contract order).
 --
 -- You must pass the `t` using an explicit type application. For
 -- instance, if you want to fetch a contract of template `Account` by its
@@ -253,7 +263,8 @@ lookupByKey k = do
 fetchByKey :  forall t k. HasFetchByKey t k => k -> Update (ContractId t, t)
 fetchByKey = _fetchByKey
 
--- | Exercise a choice on the contract associated with the given key.
+-- | Exercise a choice on the first contract associated with the given key (see
+-- `lookupNByKey` for more on contract order).
 --
 -- You must pass the `t` using an explicit type application. For
 -- instance, if you want to exercise a choice `Withdraw` on a contract of
