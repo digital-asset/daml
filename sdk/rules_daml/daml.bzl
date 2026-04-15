@@ -483,14 +483,10 @@ def generate_dar_hash_file(name):
     """
     native.genrule(
         name = name + "-generated-hash",
-        srcs = ["//rules_daml:generate-dar-hash", ":{}.dar".format(name)],
-        tools = ["@python_dev_env//:python"] if is_windows else [],
+        srcs = [":{}.dar".format(name)],
+        tools = ["//rules_daml:generate-dar-hash"],
         outs = [name + "-generated.dar-hash"],
-        cmd = "{python} {exe} {dar} > $@".format(
-            python = "$(execpath @python_dev_env//:python)" if is_windows else "python",
-            exe = "$(location //rules_daml:generate-dar-hash)",
-            dar = "$(location :{}.dar)".format(name),
-        ),
+        cmd = "$(execpath //rules_daml:generate-dar-hash) $(location :{dar}.dar) > $@".format(dar = name),
     )
 
 def daml_build_test(
