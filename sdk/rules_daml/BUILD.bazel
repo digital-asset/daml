@@ -1,14 +1,17 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@rules_python//python:defs.bzl", "py_binary")
+
 # Export Bazel sources for Bazel API docs.
 exports_files(
     ["daml.bzl"],
     visibility = ["//bazel_tools/docs:__pkg__"],
 )
 
-filegroup(
+py_binary(
     name = "generate-dar-hash",
-    srcs = glob(["generate-dar-hash.py"]),
+    srcs = ["generate-dar-hash.py"],
+    main = "generate-dar-hash.py",
     visibility = ["//visibility:public"],
 )
