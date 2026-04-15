@@ -21,6 +21,7 @@ bazel_dep(name = "rules_jvm_external", version = "6.10")
 bazel_dep(name = "rules_perl", version = "1.1.0")
 bazel_dep(name = "rules_pkg", version = "1.2.0")
 bazel_dep(name = "rules_proto", version = "6.0.0")
+bazel_dep(name = "rules_python", version = "1.4.1")
 # TODO: Verify if rules_scala can be upgraded past 7.1.2 (last version supporting scala 2.13.16)
 bazel_dep(name = "rules_scala", version = "7.1.2")
 bazel_dep(name = "rules_sh", version = "0.5.0")
@@ -37,6 +38,11 @@ use_repo(jq_toolchains_ext, "jq_toolchains")
 
 register_toolchains("@bsd_tar_toolchains//:all")
 register_toolchains("//:c2hs-toolchain")
+
+# --- Python toolchain ---
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.12")
 
 # --- Haskell toolchain and extensions ---
 
