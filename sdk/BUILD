@@ -155,9 +155,12 @@ alias(
     actual = "@yarn//:yarn",
 )
 
-alias(
-    name = "java",
-    actual = "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+genrule(
+    name = "java_rlocation_path",
+    outs = ["java_rlocation_path.txt"],
+    cmd = "echo $(JAVABASE)/bin | sed 's|^external/||' > $@",
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
+    visibility = ["//visibility:public"],
 )
 
 exports_files([
