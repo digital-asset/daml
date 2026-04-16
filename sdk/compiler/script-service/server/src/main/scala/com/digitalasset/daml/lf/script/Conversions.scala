@@ -329,17 +329,6 @@ final class Conversions(
             .build
         )
 
-      case Error.ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
-        builder.setScriptContractKeyNotVisible(
-          proto.ScriptError.ContractKeyNotVisible.newBuilder
-            .setContractRef(mkContractRef(coid, gk.templateId))
-            .setKey(convertValue(gk.key))
-            .addAllActAs(actAs.map(convertParty(_)).asJava)
-            .addAllReadAs(readAs.map(convertParty(_)).asJava)
-            .addAllStakeholders(stakeholders.map(convertParty).asJava)
-            .build
-        )
-
       case Error.MustFailSucceeded(tx @ _) =>
         builder.setScriptMustfailSucceeded(empty)
 
