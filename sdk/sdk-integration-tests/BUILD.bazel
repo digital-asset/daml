@@ -58,7 +58,9 @@ da_haskell_test(
     ],
     data = [
         "//release:dpm-sdk-release-tarball",
-        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+        "//release:sdk-release-tarball",
+        "@rules_java//toolchains:current_java_runtime",
+        "//:java_rlocation_path",
         "//:yarn",
         "//compiler/damlc/tests:generate-simple-dalf",
     ] + os_dependent_libraries,
