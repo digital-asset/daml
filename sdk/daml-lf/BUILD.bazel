@@ -49,6 +49,7 @@ diff_test(
     name = "daml-lf-versions-check",
     file1 = "daml-lf-versions.json",
     file2 = "daml-lf-versions-generated.json",
+    failure_message = "daml-lf-versions.json is out of date. Run `bazel run //daml-lf:update-daml-lf-versions` to update it.",
 )
 
 # The Golden File Updater (runs via `bazel run`)
