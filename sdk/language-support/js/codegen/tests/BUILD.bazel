@@ -91,7 +91,7 @@ sh_test(
     size = "large",
     srcs = ["build-and-lint.sh"],
     args = [
-        "$(location //:java)",
+        "$(JAVA_ROOTPATH)",
         "$(location //:yarn)",
         "$(location //language-support/js/codegen:codegen)",
         "$(location //canton:community_app_deploy.jar)",
@@ -110,8 +110,8 @@ sh_test(
         ":build-and-lint.dar",
         ":hidden.dar",
         "//language-support/js/codegen",
-        "//:java",
         "//:yarn",
+        "@rules_java//toolchains:current_java_runtime",
         "//canton:community_app_deploy.jar",
         "//language-support/js/daml-types:npm_package",
         # TODO(#14706): revert to model-tests-default once the default major
@@ -131,7 +131,10 @@ sh_test(
     # Running exclusively at this time to avoid port clashes, due to lack of freeport in ts
     # Consider porting this to scala.
     tags = ["exclusive"],
-    toolchains = ["@rules_sh//sh/posix:make_variables"],
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
+        "@rules_sh//sh/posix:make_variables",
+    ],
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],
