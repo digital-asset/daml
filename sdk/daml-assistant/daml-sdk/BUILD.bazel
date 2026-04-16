@@ -6,7 +6,6 @@ load(
     "da_scala_binary",
     "da_scala_library",
 )
-load("@os_info//:os_info.bzl", "is_windows")
 load(":util.bzl", "deps")
 
 scala_runtime_deps = [
@@ -54,15 +53,16 @@ sh_test(
     name = "validate",
     srcs = ["validate.sh"],
     args = [
-        "$(location @local_jdk//:bin/java.exe)" if is_windows else "$(location @local_jdk//:bin/java)",
+        "$(JAVA_ROOTPATH)",
         "$(location :sdk_distribute.jar)",
         "$(location :sdk_ee_distribute.jar)",
     ],
     data = [
         ":sdk_distribute.jar",
         ":sdk_ee_distribute.jar",
-        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+        "@rules_java//toolchains:current_java_runtime",
     ],
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],

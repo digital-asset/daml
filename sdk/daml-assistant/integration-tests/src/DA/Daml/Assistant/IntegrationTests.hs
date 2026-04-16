@@ -43,7 +43,9 @@ main = withSdkVersions $ do
         createDirectory $ tmpDir </> "daml"
         createDirectory $ tmpDir </> "dpm"
         oldPath <- getSearchPath
-        javaPath <- locateRunfiles "local_jdk/bin"
+        javaRlocFile <- locateRunfiles (mainWorkspace </> "java_rlocation_path.txt")
+        javaRlocPath <- head . lines <$> readFile' javaRlocFile
+        javaPath <- locateRunfiles javaRlocPath
         yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
         mbPtyWrapperDir <- if isWindows
             then pure Nothing
