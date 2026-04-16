@@ -1,71 +1,77 @@
-# # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-# # SPDX-License-Identifier: Apache-2.0
-#
-# load("@rules_pkg//:pkg.bzl", "pkg_tar")
-# load("@build_bazel_rules_nodejs//:index.bzl", "pkg_npm")
-# load("@language_support_js_deps//eslint:index.bzl", "eslint_test")
-# load("@os_info//:os_info.bzl", "is_windows")
-# load("//language-support/js:defs.bzl", "da_ts_library")
-# load("//language-support/js:eslint.bzl", "eslint_test")
-# load("//language-support/js:jest.bzl", "jest_test")
-# load("//language-support/js:typedoc.bzl", "ts_docs")
-# load("@build_environment//:configuration.bzl", "sdk_version")
-#
-# sources = [
-#     "index.ts",
-#     "index.test.ts",
-# ]
-#
-# da_ts_library(
-#     name = "daml-types",
-#     srcs = sources,
-#     module_name = "@daml/types",
-#     tsconfig = ":tsconfig.json",
-#     visibility = ["//visibility:public"],
-#     deps = [
-#         "@language_support_js_deps//@mojotech/json-type-validation",
-#         "@language_support_js_deps//@types/jest",
-#         "@language_support_js_deps//@types/lodash",
-#     ],
-# ) if not is_windows else None
-#
-# genrule(
-#     name = "license",
-#     srcs = ["//:LICENSE"],
-#     outs = ["LICENSE"],
-#     cmd = """
-#       cp $(location //:LICENSE) $@
-#     """,
-# )
-#
-# eslint_test(
-#     name = "lint",
-#     srcs = sources,
-#     data = ["tsconfig.json"],
-#     tsconfig = "tsconfig.eslint.json",
-# )
-#
-# pkg_npm(
-#     name = "npm_package",
-#     package_name = "@daml/types",
-#     srcs = [
-#         ":README.md",
-#         ":package.json",
-#         ":tsconfig.json",
-#     ],
-#     substitutions = {"0.0.0-SDKVERSION": sdk_version},
-#     visibility = ["//visibility:public"],
-#     deps = [
-#         ":daml-types",
-#         ":license",
-#     ],
-# ) if not is_windows else None
-#
-# jest_test(
-#     name = "test",
-#     srcs = sources,
-#     deps = [
-#         "@language_support_js_deps//@mojotech/json-type-validation",
-#         "@language_support_js_deps//@types/lodash",
-#     ],
-# )
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@aspect_rules_js//npm:defs.bzl", "npm_package")
+load("@build_environment//:configuration.bzl", "sdk_version")
+load("@jq.bzl//jq:jq.bzl", "jq")
+load("@language_support_js_deps//:defs.bzl", "npm_link_all_packages")
+load("//language-support/js:defs.bzl", "da_ts_library")
+load("//language-support/js:eslint.bzl", "eslint_test")
+load("//language-support/js:jest.bzl", "jest_test")
+
+npm_link_all_packages(name = "node_modules")
+
+sources = [
+    "index.ts",
+    "index.test.ts",
+]
+
+da_ts_library(
+    name = "daml-types",
+    srcs = sources,
+    module_name = "@daml/types",
+    out_dir = "lib",
+    tsconfig = ":tsconfig.json",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":node_modules/@mojotech/json-type-validation",
+        ":node_modules/@types/jest",
+        ":node_modules/@types/lodash",
+    ],
+)
+
+genrule(
+    name = "license",
+    srcs = ["//:LICENSE"],
+    outs = ["LICENSE"],
+    cmd = """
+      cp $(location //:LICENSE) $@
+    """,
+)
+
+eslint_test(
+    name = "lint",
+    srcs = sources,
+    data = ["tsconfig.json"],
+    tsconfig = "tsconfig.eslint.json",
+)
+
+# Inject sdk_version into package.json (replaces old pkg_npm substitutions)
+jq(
+    name = "versioned_package_json",
+    srcs = ["package.json"],
+    filter = ".version = \"{}\"".format(sdk_version),
+)
+
+npm_package(
+    name = "npm_package",
+    srcs = [
+        ":README.md",
+        ":daml-types",
+        ":license",
+        ":tsconfig.json",
+        ":versioned_package_json",
+    ],
+    package = "@daml/types",
+    visibility = ["//visibility:public"],
+)
+
+jest_test(
+    name = "test",
+    srcs = sources,
+    deps = [
+        ":node_modules/@mojotech/json-type-validation",
+        ":node_modules/@types/lodash",
+        ":node_modules/lodash",
+    ],
+)
