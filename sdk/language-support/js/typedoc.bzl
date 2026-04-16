@@ -1,22 +1,48 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@os_info//:os_info.bzl", "is_windows")
+load("@aspect_bazel_lib//lib:directory_path.bzl", "directory_path")
+load("@aspect_rules_js//js:defs.bzl", "js_binary", "js_run_binary")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("@build_bazel_rules_nodejs//:index.bzl", "npm_package_bin")
 
 def ts_docs(pkg_name, srcs, deps):
-    "Macro for Typescript documentation generation with typedoc"
+    """Macro for Typescript documentation generation with typedoc.
 
-    npm_package_bin(
+    Requires npm_link_all_packages(name = "node_modules") in the calling BUILD file.
+    """
+    directory_path(
+        name = "_typedoc_entrypoint",
+        directory = ":node_modules/typedoc/dir",
+        path = "dist/lib/cli.js",
+    )
+
+    js_binary(
+        name = "_typedoc_bin",
+        entry_point = ":_typedoc_entrypoint",
+        data = [
+            ":node_modules/typedoc",
+            ":node_modules/typescript",
+        ],
+    )
+
+    js_run_binary(
         name = "docs-raw",
-        data = [":tsconfig.json"] + srcs + [":README.md"] + deps,
-        tool =
-            "@language_support_js_deps//typedoc/bin:typedoc",
-        output_dir = True,
-        args = ["--tsconfig", "$(execpath :tsconfig.json)", "$(execpath :index.ts)", "--out", "$(@D)"],
-        visibility = ["//visibility:public"],
-    ) if not is_windows else None
+        srcs = [":tsconfig.json"] + srcs + [":README.md"] + deps,
+        tool = ":_typedoc_bin",
+        chdir = native.package_name(),
+        out_dirs = ["docs-raw"],
+        args = [
+            "--tsconfig",
+            "tsconfig.json",
+            "index.ts",
+            "--out",
+            "docs-raw",
+        ],
+        target_compatible_with = select({
+            "@platforms//os:windows": ["@platforms//:incompatible"],
+            "//conditions:default": [],
+        }),
+    )
 
     native.genrule(
         name = "docs",
@@ -45,4 +71,8 @@ def ts_docs(pkg_name, srcs, deps):
           $$MKTGZ $$OUT -h docs
         """.format(sdk_version = sdk_version),
         visibility = ["//visibility:public"],
-    ) if not is_windows else None
+        target_compatible_with = select({
+            "@platforms//os:windows": ["@platforms//:incompatible"],
+            "//conditions:default": [],
+        }),
+    )

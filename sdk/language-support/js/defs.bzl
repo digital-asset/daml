@@ -1,9 +1,8 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@build_bazel_rules_nodejs//:index.bzl", "js_library")
-load("@language_support_js_deps//@bazel/typescript:index.bzl", "ts_project")
+load("@aspect_rules_js//js:defs.bzl", "js_library")
+load("@aspect_rules_ts//ts:defs.bzl", "ts_project")
 load("//language-support/js:typedoc.bzl", "ts_docs")
 
 def da_ts_library(
@@ -14,6 +13,7 @@ def da_ts_library(
         module_name = "",
         source_map = True,
         declaration = True,
+        out_dir = None,
         **kwargs):
     """Build a typescript library.
 
@@ -27,22 +27,25 @@ def da_ts_library(
         Defines which files are visible to the typescript compiler.
       deps: Typescript library dependencies.
       module_name: The import name of this library. E.g. @daml/types.
+        No longer used for js_library package_name (rules_js does not support it);
+        kept for API compatibility. The package identity is set on npm_package instead.
+      out_dir: Must match outDir in tsconfig.json if set.
     """
-    ts_project(
-        name = "_%s_ts" % name,
-        srcs = srcs,
-        deps = deps,
-        tsconfig = tsconfig,
-        source_map = source_map,
-        declaration = declaration,
-        # When validating is turned-on it requiere a `root_dir` to be set, but no values make the validator happy
-        # TODO We should try to turn this back on when migrating to rules_ts
-        validate = False,
-    )
+    ts_project_kwargs = {
+        "name": "_%s_ts" % name,
+        "srcs": srcs,
+        "deps": deps,
+        "tsconfig": tsconfig,
+        "transpiler": "tsc",
+        "source_map": source_map,
+        "declaration": declaration,
+    }
+    if out_dir:
+        ts_project_kwargs["out_dir"] = out_dir
+    ts_project(**ts_project_kwargs)
     js_library(
         name = name,
-        package_name = module_name,
-        deps = ["_%s_ts" % name],
+        srcs = ["_%s_ts" % name],
         **kwargs
     )
 
