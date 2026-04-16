@@ -9,7 +9,8 @@
   "namedVersions" : {
     "defaultLfVersion" : "2.2",
     "devLfVersion" : "2.dev",
-    "latestStableLfVersion" : "2.2"
+    "latestStableLfVersion" : "2.2",
+    "stagingLfVersion" : "2.3-rc1"
   },
   "versionLists" : {
     "compilerOutputLfVersions" : [
