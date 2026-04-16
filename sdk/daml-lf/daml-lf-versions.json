@@ -1,45 +1,241 @@
 {
   "explicitVersions" : [
-    "2.3-rc1",
-    "2.1",
-    "2.dev",
-    "2.3-rc1",
-    "2.2"
+    {
+      "major" : 2,
+      "minor" : {
+        "Staging" : {
+          "version" : 3,
+          "revision" : 1
+        }
+      }
+    },
+    {
+      "major" : 2,
+      "minor" : {
+        "Stable" : {
+          "version" : 1
+        }
+      }
+    },
+    {
+      "major" : 2,
+      "minor" : {
+        "Dev" : {
+
+        }
+      }
+    },
+    {
+      "major" : 2,
+      "minor" : {
+        "Staging" : {
+          "version" : 3,
+          "revision" : 1
+        }
+      }
+    },
+    {
+      "major" : 2,
+      "minor" : {
+        "Stable" : {
+          "version" : 2
+        }
+      }
+    }
   ],
   "namedVersions" : {
-    "defaultLfVersion" : "2.2",
-    "devLfVersion" : "2.dev",
-    "latestStableLfVersion" : "2.2",
-    "stagingLfVersion" : "2.3-rc1"
+    "defaultLfVersion" : {
+      "major" : 2,
+      "minor" : {
+        "Stable" : {
+          "version" : 2
+        }
+      }
+    },
+    "devLfVersion" : {
+      "major" : 2,
+      "minor" : {
+        "Dev" : {
+
+        }
+      }
+    },
+    "latestStableLfVersion" : {
+      "major" : 2,
+      "minor" : {
+        "Stable" : {
+          "version" : 2
+        }
+      }
+    },
+    "stagingLfVersion" : {
+      "major" : 2,
+      "minor" : {
+        "Staging" : {
+          "version" : 3,
+          "revision" : 1
+        }
+      }
+    }
   },
   "versionLists" : {
     "compilerOutputLfVersions" : [
-      "2.1",
-      "2.2",
-      "2.3-rc1",
-      "2.dev"
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 1
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 2
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Staging" : {
+            "version" : 3,
+            "revision" : 1
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      }
     ],
     "allLfVersions" : [
-      "2.1",
-      "2.2",
-      "2.3-rc1",
-      "2.dev"
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 1
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 2
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Staging" : {
+            "version" : 3,
+            "revision" : 1
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      }
     ],
     "stableLfVersions" : [
-      "2.1",
-      "2.2"
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 1
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 2
+          }
+        }
+      }
     ],
     "compilerInputLfVersions" : [
-      "2.1",
-      "2.2",
-      "2.3-rc1",
-      "2.dev"
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 1
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 2
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Staging" : {
+            "version" : 3,
+            "revision" : 1
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      }
     ],
     "compilerLfVersions" : [
-      "2.1",
-      "2.2",
-      "2.3-rc1",
-      "2.dev"
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 1
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 2
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Staging" : {
+            "version" : 3,
+            "revision" : 1
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      }
     ]
   }
 }
