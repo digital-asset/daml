@@ -51,14 +51,14 @@ da_haskell_test(
         "src/DA/Daml/Assistant/IntegrationTests.hs",
     ],
     args = [
-        "$(location //:yarn)",
+        "$(location @pnpm//:pnpm)",
     ],
     data = [
         "//release:dpm-sdk-release-tarball",
         "//release:sdk-release-tarball",
         "@rules_java//toolchains:current_java_runtime",
         "//:java_rlocation_path",
-        "//:yarn",
+        "@pnpm//:pnpm",
         "//compiler/damlc/tests:generate-simple-dalf",
     ] + os_dependent_libraries,
     # marked flaky for mvn originally; still flaky now? #14281

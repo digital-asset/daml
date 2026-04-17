@@ -19,11 +19,14 @@ set -eou pipefail
 # --- end runfiles.bash initialization v2 ---
 
 CODEGEN_JS=$(rlocation "$TEST_WORKSPACE/$1")
-NPM=$(rlocation "$TEST_WORKSPACE/$2")
-JQ=$(rlocation "$TEST_WORKSPACE/$3")
-DAR1=$(rlocation "$TEST_WORKSPACE/$4")
-DAR2=$(rlocation "$TEST_WORKSPACE/$5")
-NODE_PATH=$(rlocation "$TEST_WORKSPACE/$(dirname $6)")
+JQ=$(rlocation "$TEST_WORKSPACE/$2")
+DAR1=$(rlocation "$TEST_WORKSPACE/$3")
+DAR2=$(rlocation "$TEST_WORKSPACE/$4")
+SDK_VERSION="$5"
+NPM=$(rlocation "$6")
+NODE=$(rlocation "$7")
+NODE_DIR=$(dirname "$NODE")
+
 TMP_DIR=$(mktemp -d)
 mkdir -p "$TMP_DIR/.npm"
 export npm_config_cache="$TMP_DIR/.npm"
@@ -46,7 +49,7 @@ EOF
 
 $CODEGEN_JS "$DAR1" -o "$TMP_DIR"/daml.js
 cd "$TMP_DIR"
-export PATH=$NODE_PATH:$PATH
+export PATH=$NODE_DIR:$PATH
 $NPM install
 PACKAGELOCK1=$($JQ '.dependencies | length' < "$TMP_DIR"/package-lock.json)
 

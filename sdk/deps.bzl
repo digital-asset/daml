@@ -63,8 +63,6 @@ rules_nixpkgs_toolchain_patches = {
 
 zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
-rules_nodejs_version = "5.8.5"
-rules_nodejs_sha256 = "a1295b168f183218bc88117cf00674bcd102498f294086ff58318f830dd9d9d1"
 rules_jvm_external_version = "6.7"
 rules_jvm_external_sha256 = "a1e351607f04fed296ba33c4977d3fe2a615ed50df7896676b67aac993c53c18"
 rules_go_version = "0.53.0"
@@ -268,18 +266,6 @@ def daml_deps():
             name = "build_bazel_rules_apple",
             sha256 = "73ad768dfe824c736d0a8a81521867b1fb7a822acda2ed265897c03de6ae6767",
             url = "https://github.com/bazelbuild/rules_apple/releases/download/3.20.1/rules_apple.3.20.1.tar.gz",
-        )
-
-    # Fetch rules_nodejs so we can install our npm dependencies
-    if "build_bazel_rules_nodejs" not in native.existing_rules():
-        http_archive(
-            name = "build_bazel_rules_nodejs",
-            urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/{}/rules_nodejs-{}.tar.gz".format(rules_nodejs_version, rules_nodejs_version)],
-            sha256 = rules_nodejs_sha256,
-            patches = [
-                "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_hotfix.patch",
-            ],
-            patch_args = ["-p1"],
         )
 
     if "com_google_absl" not in native.existing_rules():

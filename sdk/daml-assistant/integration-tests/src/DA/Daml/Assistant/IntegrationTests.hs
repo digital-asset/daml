@@ -38,7 +38,7 @@ import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 
 main :: IO ()
 main = withSdkVersions $ do
-    yarn : args <- getArgs
+    pnpm : args <- getArgs
     withTempDir $ \tmpDir -> do
         createDirectory $ tmpDir </> "daml"
         createDirectory $ tmpDir </> "dpm"
@@ -46,14 +46,14 @@ main = withSdkVersions $ do
         javaRlocFile <- locateRunfiles (mainWorkspace </> "java_rlocation_path.txt")
         javaRlocPath <- head . lines <$> readFile' javaRlocFile
         javaPath <- locateRunfiles javaRlocPath
-        yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
+        pnpmPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> pnpm)
         mbPtyWrapperDir <- if isWindows
             then pure Nothing
             else Just . takeDirectory <$> locateRunfiles (mainWorkspace </> "bazel/pty-wrapper.sh")
         limitJvmMemory defaultJvmMemoryLimits
         withArgs args (withEnv
             [ ("PATH", Just $ intercalate [searchPathSeparator] $ concat
-                [ [javaPath, yarnPath]
+                [ [javaPath, pnpmPath]
                 , maybeToList mbPtyWrapperDir
                 , oldPath
                 ])
@@ -716,7 +716,7 @@ codegenTests assistant codegenDir = testGroup (show assistant <> " codegen") (
                     outDir  = projectDir </> "generated" </> lang
                 when (lang == "js") $ do
                     let workspaces = Workspaces [makeRelative codegenDir outDir]
-                    setupYarnEnv codegenDir workspaces [DamlTypes]
+                    setupPnpmEnv codegenDir workspaces [DamlTypes]
                 let codegenCommand =
                       case assistant of
                         Daml -> ["daml", "codegen", lang]
