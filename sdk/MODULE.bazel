@@ -69,7 +69,12 @@ npm.npm_translate_lock(
     npmrc = "//language-support/js:.npmrc",
     pnpm_lock = "//language-support/js:pnpm-lock.yaml",
 )
-use_repo(npm, "language_support_js_deps")
+npm.npm_translate_lock(
+    name = "daml_extension_deps",
+    npmrc = "//compiler/daml-extension:.npmrc",
+    pnpm_lock = "//compiler/daml-extension:pnpm-lock.yaml",
+)
+use_repo(npm, "daml_extension_deps", "language_support_js_deps")
 
 # --- Python toolchain ---
 
