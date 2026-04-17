@@ -33,22 +33,22 @@ import DA.PortFile
 import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
 
 main :: IO ()
-main = withComponentVersions $ do
-    yarn : args <- getArgs
+main = withSdkVersions $ do
+    pnpm : args <- getArgs
     withTempDir $ \tmpDir -> do
         createDirectory $ tmpDir </> "dpm"
         oldPath <- getSearchPath
         javaRlocFile <- locateRunfiles (mainWorkspace </> "java_rlocation_path.txt")
         javaRlocPath <- head . lines <$> readFile' javaRlocFile
         javaPath <- locateRunfiles javaRlocPath
-        yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
+        pnpmPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> pnpm)
         mbPtyWrapperDir <- if isWindows
             then pure Nothing
             else Just . takeDirectory <$> locateRunfiles (mainWorkspace </> "bazel/pty-wrapper.sh")
         limitJvmMemory defaultJvmMemoryLimits
         withArgs args (withEnv
             [ ("PATH", Just $ intercalate [searchPathSeparator] $ concat
-                [ [javaPath, yarnPath]
+                [ [javaPath, pnpmPath]
                 , maybeToList mbPtyWrapperDir
                 , oldPath
                 ])
@@ -596,8 +596,11 @@ codegenTests codegenDir = testGroup "dpm codegen" (
                     outDir  = projectDir </> "generated" </> lang
                 when (lang == "js") $ do
                     let workspaces = Workspaces [makeRelative codegenDir outDir]
-                    setupYarnEnv codegenDir workspaces [DamlTypes]
-                let codegenCommand = ["dpm", "codegen-" <> lang]
+                    setupPnpmEnv codegenDir workspaces [DamlTypes]
+                let codegenCommand =
+                      case assistant of
+                        Daml -> ["daml", "codegen", lang]
+                        DPM -> ["dpm", "codegen-" <> lang]
                 callCommandSilentIn projectDir $
                     unwords $ codegenCommand <>
                             [ darFile ++ maybe "" ("=" ++) namespace

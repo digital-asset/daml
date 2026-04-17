@@ -10,7 +10,7 @@ module DA.Daml.Assistant.IntegrationTestUtils
   , Workspaces (..)
   , allTsLibraries
   , tsLibraryName
-  , setupYarnEnv
+  , setupPnpmEnv
   , tokenFor
   , decodeCantonSandboxPort
   ) where
@@ -126,23 +126,27 @@ tsLibraryName = \case
     DamlTypes -> "daml-types"
 
 -- NOTE(MH): In some tests we need our TS libraries like `@daml/types` in
--- scope. We achieve this by putting a `package.json` file further up in the
--- directory tree. This file sets up a yarn workspace that includes the TS
--- libraries via the `resolutions` field.
-setupYarnEnv :: FilePath -> Workspaces -> [TsLibrary] -> IO ()
-setupYarnEnv rootDir (Workspaces workspaces) tsLibs = do
+-- scope. We achieve this by putting a `package.json` and
+-- `pnpm-workspace.yaml` further up in the directory tree. The package.json
+-- uses pnpm overrides (replacing the old yarn resolutions) to wire
+-- workspace packages to the TS libraries.
+setupPnpmEnv :: FilePath -> Workspaces -> [TsLibrary] -> IO ()
+setupPnpmEnv rootDir (Workspaces workspaces) tsLibs = do
     jsLibsRoot <- locateRunfiles $ mainWorkspace </> "language-support" </> "js"
     forM_  tsLibs $ \tsLib -> do
         let name = tsLibraryName tsLib
         copyDirectory (jsLibsRoot </> name </> "npm_package") (rootDir </> name)
+    writeFileUTF8 (rootDir </> "pnpm-workspace.yaml") $
+        unlines $ "packages:" : [ "  - " ++ w | w <- workspaces ]
     BSL.writeFile (rootDir </> "package.json") $ Aeson.encode $ Aeson.object
         [ "private" .= True
-        , "workspaces" .= workspaces
-        , "resolutions" .= Aeson.object
-            [ Aeson.fromText pkgName .= ("file:./" ++ name)
-            | tsLib <- tsLibs
-            , let name = tsLibraryName tsLib
-            , let pkgName = "@" <> T.replace "-" "/"  (T.pack name)
+        , "pnpm" .= Aeson.object
+            [ "overrides" .= Aeson.object
+                [ Aeson.fromText pkgName .= ("file:./" ++ name)
+                | tsLib <- tsLibs
+                , let name = tsLibraryName tsLib
+                , let pkgName = "@" <> T.replace "-" "/"  (T.pack name)
+                ]
             ]
         ]
 
