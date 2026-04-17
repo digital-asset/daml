@@ -54,7 +54,6 @@ da_scala_library(
     ],
     # no doc as our scaladoc pipeline does not support .scrjar
     scaladoc = False,
-    tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-script/auth-utils",
