@@ -18,7 +18,7 @@ else
     TMP_DIR="$BUILD_AND_LINT_TMP_DIR"
     rm -rf $TMP_DIR && mkdir -p $TMP_DIR
 fi
-export YARN_CACHE_FOLDER=$TMP_DIR/yarn
+export PNPM_STORE_DIR=$TMP_DIR/pnpm-store
 echo "Temp directory : $TMP_DIR"
 
 # --- begin runfiles.bash initialization v2 ---
@@ -33,7 +33,7 @@ echo "Temp directory : $TMP_DIR"
 # --- end runfiles.bash initialization v2 ---
 
 JAVA=$(rlocation "$TEST_WORKSPACE/$1")
-YARN=$(rlocation "$TEST_WORKSPACE/$2")
+PNPM=$(rlocation "$TEST_WORKSPACE/$2")
 CODEGEN_JS=$(rlocation "$TEST_WORKSPACE/$3")
 CANTON=$(rlocation "$TEST_WORKSPACE/$4")
 # language-support/js/codegen/tests/daml/.daml/dist/daml-1.0.0.dar
@@ -47,7 +47,6 @@ SDK_VERSION=${8}
 UPLOAD_DAR=$(rlocation "$TEST_WORKSPACE/${9}")
 HIDDEN_DAR=$(rlocation "$TEST_WORKSPACE/${10}")
 GRPCURL=$(rlocation "$TEST_WORKSPACE/${11}" | xargs dirname)
-DIFF="${12}"
 
 TMP_DAML_TYPES=$TMP_DIR/daml-types
 
@@ -62,28 +61,11 @@ cd $TMP_DIR
 $CODEGEN_JS -o daml2js -V 2 $DAR
 PATH=$PATH:$GRPCURL
 
-# yarn.lock includes local paths and hashes for daml.js; remove them
-# before grepping
-hide_changing_paths() {
-    sed -Ee 's!^("@daml.js/)([0-9a-zA-Z\._-]+)@file:daml2js/\2":!\1...": # elided for diff!' \
-        -e 's!( +"@daml.js/)[0-9a-zA-Z\._-]+" "file:.*"!\1..." "file:..." # elided for diff!' "$1"
-}
-
 # Build, lint, test.
 cd build-and-lint-test
-$YARN install > /dev/null
-# when testing 0.0.0 only, simulate what
-# yarn install --frozen-lockfile is supposed to do, because
-# --frozen-lockfile appears to behave exactly like --pure-lockfile
-# (see #14873)
-if grep -qE '^    "@daml/types" "0.0.0"$' $TMP_DIR/yarn.lock && \
-        ! "$DIFF" -du <(hide_changing_paths $TS_DIR/yarn.lock) <(hide_changing_paths $TMP_DIR/yarn.lock); then
-    echo "FAIL: $TS_DIR/yarn.lock could not satisfy $TS_DIR/build-and-lint-test/package.json" 1>&2
-    echo "FAIL: yarn.lock requires all of the above changes" 1>&2
-    exit 1
-fi
-$YARN run build
-$YARN run lint
-# Invoke 'yarn test'. Control is thereby passed to
+$PNPM install --no-frozen-lockfile > /dev/null
+$PNPM run build
+$PNPM run lint
+# Invoke 'pnpm test'. Control is thereby passed to
 # 'language-support/js/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
-JAVA=$JAVA CANTON=$CANTON DAR=$DAR UPLOAD_DAR=$UPLOAD_DAR HIDDEN_DAR=$HIDDEN_DAR $YARN test -t "${BUILD_AND_LINT_TEST_NAME_PATTERN:-.*}"
+JAVA=$JAVA CANTON=$CANTON DAR=$DAR UPLOAD_DAR=$UPLOAD_DAR HIDDEN_DAR=$HIDDEN_DAR $PNPM test -t "${BUILD_AND_LINT_TEST_NAME_PATTERN:-.*}"

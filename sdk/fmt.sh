@@ -24,7 +24,7 @@ prettier_args="--write"
 ## Functions ##
 
 run_pprettier() {
-    yarn pprettier $@
+    ./dev-tooling/node_modules/.bin/pprettier "$@"
 }
 
 log() {
@@ -129,16 +129,9 @@ echo "\
 ──██────▐█▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█▌
 "
 
-# In 'test' mode, this checks that the 'yarn.lock' file doesn't need any changes.
-# In 'format' mode, the 'yarn.lock' file will be updated ("formatted") by
-# 'yarn install' below, if needed.
-if [[ $is_test = 1 ]]; then
-  run pre-commit run yarn-lock-check
-fi
-
-# Make sure the current packages are installed so we can call pprettier
-# via yarn because calling it via bazel results in very bad performance.
-run yarn install --silent
+# Install the dev-tooling workspace so we can call pprettier directly via its
+# local bin, which is substantially faster than invoking it through Bazel.
+run pnpm install --frozen-lockfile --dir dev-tooling
 
 # update security evidence
 run security/update.sh ${security_update_args[@]:-}
