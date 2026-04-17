@@ -3,10 +3,6 @@
 
 - target: //daml-assistant/scala-daml-package-config:scala-daml-package-config
   type: jar-scala
-- target: //daml-script/runner:script-runner-lib
-  type: jar-scala
-- target: //daml-script/converter:converter
-  type: jar-scala
 - target: //language-support/codegen-main:binary
   type: jar-jarjar
 - target: //language-support/java/codegen:lib
@@ -19,11 +15,5 @@
   type: jar-scala
 - target: //language-support/js/codegen:binary
   type: jar-jarjar
-- target: //ledger-service/lf-value-json:lf-value-json
-  type: jar-scala
-- target: //ledger-service/utils:utils
-  type: jar-scala
-- target: //daml-script/auth-utils:auth-utils
-  type: jar-scala
 - target: //language-support/build-info:build-info
   type: jar-scala
