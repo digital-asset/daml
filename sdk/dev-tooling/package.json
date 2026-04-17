@@ -1,0 +1,8 @@
+{
+  "name": "daml-dev-tooling",
+  "private": true,
+  "devDependencies": {
+    "@mixer/parallel-prettier": "^2.0.3",
+    "prettier": "^2.8.8"
+  }
+}
