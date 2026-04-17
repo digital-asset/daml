@@ -144,7 +144,6 @@ da_scala_test(
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//test-common/canton/it-lib",
-        "@maven//:com_daml_canton_testing_utils_2_13",
         "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_resources_2_13",
@@ -154,6 +153,7 @@ da_scala_test(
         "@maven//:com_daml_ports_2_13",
         "@maven//:com_daml_rs_grpc_bridge_2_13",
         "@maven//:com_daml_scala_utils_2_13",
+        "@maven//:com_daml_testing_utils_2_13",
         "@maven//:com_daml_util_observability_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
