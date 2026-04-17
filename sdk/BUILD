@@ -62,11 +62,6 @@ c2hs_toolchain(
     c2hs = "@stackage-exe//c2hs",
 )
 
-filegroup(
-    name = "node_modules",
-    srcs = glob(["node_modules/**/*"]),
-)
-
 config_setting(
     name = "ghci_data",
     define_values = {
@@ -150,11 +145,6 @@ alias(
     actual = "@maven//:com_daml_bindings_java",
 )
 
-alias(
-    name = "yarn",
-    actual = "@yarn//:yarn",
-)
-
 genrule(
     name = "java_rlocation_path",
     outs = ["java_rlocation_path.txt"],
@@ -172,7 +162,6 @@ exports_files([
 _BUILDIFIER_EXCLUDE_PATTERNS = [
     "./3rdparty/haskell/c2hs-package.bzl",
     "./3rdparty/haskell/network-package.bzl",
-    "./**/node_modules/*",
 ]
 
 _BUILDIFIER_WARNINGS = [
