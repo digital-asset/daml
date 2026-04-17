@@ -15,5 +15,7 @@
   type: jar-scala
 - target: //language-support/js/codegen:binary
   type: jar-jarjar
+- target: //ledger-service/lf-value-json:lf-value-json
+  type: jar-scala
 - target: //language-support/build-info:build-info
   type: jar-scala

@@ -8,6 +8,7 @@ load(
     "lf_scalacopts",
 )
 
+# only used to test //ledger-service/lf-value-json
 da_scala_library(
     name = "utils",
     srcs = glob(["src/main/scala/**/*.scala"]),
@@ -15,7 +16,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
-    visibility = ["//visibility:public"],
+    visibility = ["//ledger-service/lf-value-json:__subpackages__"],
     deps = [
         "@maven//:com_daml_daml_lf_api_type_signature_2_13",
         "@maven//:com_daml_daml_lf_archive_2_13",
