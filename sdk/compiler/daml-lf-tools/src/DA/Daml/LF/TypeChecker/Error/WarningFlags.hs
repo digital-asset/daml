@@ -121,14 +121,14 @@ parseWarningFlag
   :: WarningFlagParser err
   -> String -> Either String (WarningFlag err)
 parseWarningFlag parser@WarningFlagParser { wfpFlagParsers } = \case
-  ('e':'r':'r':'o':'r':'=':name) -> parseNameE name AsError
-  ('n':'o':'-':'e':'r':'r':'o':'r':'=':name) -> parseNameE name AsWarning
-  ('n':'o':'-':name) -> parseNameE name Hidden
-  ('w':'a':'r':'n':'=':name) -> parseNameE name AsWarning
-  name -> parseNameE name AsWarning
+  f@('e':'r':'r':'o':'r':'=':name) -> parseNameE name f AsError
+  f@('n':'o':'-':'e':'r':'r':'o':'r':'=':name) -> parseNameE name f AsWarning
+  f@('n':'o':'-':name) -> parseNameE name f Hidden
+  f@('w':'a':'r':'n':'=':name) -> parseNameE name f AsWarning
+  name -> parseNameE name name AsWarning
   where
-  parseNameE name status = case L.find (\spec -> wfsName spec == name) wfpFlagParsers of
-    Nothing -> Left $ "Warning flag is not valid - warning flags must be of the form `-Werror=<name>`, `-Wno-<name>`, or `-W<name>`. Available names are: " <> namesAsList parser
+  parseNameE name fullName status = case L.find (\spec -> wfsName spec == name) wfpFlagParsers of
+    Nothing -> Left $ "Warning flag \"-W" <> fullName <> "\" is not valid - warning flags must be of the form `-Werror=<name>`, `-Wno-<name>`, or `-W<name>`. Available names are: " <> namesAsList parser
     Just WarningFlagSpec{..} -> Right (WarningFlag { wfName = wfsName, wfFilter = wfsFilter, wfStatus = status })
 
 namesAsList :: WarningFlagParser err -> String
