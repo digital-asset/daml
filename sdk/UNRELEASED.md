@@ -11,6 +11,7 @@ Wednesday after your change.
 
 ## Until 2026-04-14 (Exclusive)
 - Added --list-scripts-json flag to `dpm script`, for listing all script names in a DAR
+- Update to DPM 1.0.12
 
 ## Until 2026-03-31 (Exclusive)
 - Codegen-java: Added support for `UnknownTrailingFieldPolicy` in the generated `fromCreatedEvent()` method.
