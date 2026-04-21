@@ -34,7 +34,7 @@ def _parse_version(v):
             status = "dev",
         )
 
-    if "Staging" in minor_map:
+    elif "Staging" in minor_map:
         info = minor_map["Staging"]
         minor = str(info["version"])
         revision = str(info["revision"])
@@ -48,7 +48,7 @@ def _parse_version(v):
             status = "staging",
         )
 
-    if "Stable" in minor_map:
+    elif "Stable" in minor_map:
         minor = str(minor_map["Stable"]["version"])
         return struct(
             dotted = "{}.{}".format(major, minor),

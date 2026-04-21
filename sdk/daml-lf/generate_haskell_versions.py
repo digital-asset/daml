@@ -13,7 +13,7 @@ import sys
 
 def parse_version_dict(v):
     """
-    Parse a structured version dict into (var_name, base_v, constructor, revision_or_none).
+    Parse a structured version dict into (var_name, base_v, haskell_constructor, revision_or_none).
     Supports:
       {"major": 2, "minor": {"Dev": {}}}
       {"major": 2, "minor": {"Stable": {"version": N}}}
@@ -23,12 +23,12 @@ def parse_version_dict(v):
     minor_map = v["minor"]
     if "Dev" in minor_map:
         return f"version{major}_dev", f"{major}.dev", "PointDev", None
-    if "Staging" in minor_map:
+    elif "Staging" in minor_map:
         info = minor_map["Staging"]
         minor = info["version"]
         rev = info["revision"]
         return f"version{major}_{minor}", f"{major}.{minor}", f"PointStaging {minor}", rev
-    if "Stable" in minor_map:
+    elif "Stable" in minor_map:
         minor = minor_map["Stable"]["version"]
         return f"version{major}_{minor}", f"{major}.{minor}", f"PointStable {minor}", None
     raise ValueError(f"Unknown minor version format: {minor_map}")
@@ -38,11 +38,12 @@ def version_sort_key(v):
     minor_map = v["minor"]
     if "Dev" in minor_map:
         return (v["major"], 999999)
-    if "Staging" in minor_map:
+    elif "Staging" in minor_map:
         return (v["major"], minor_map["Staging"]["version"])
-    if "Stable" in minor_map:
+    elif "Stable" in minor_map:
         return (v["major"], minor_map["Stable"]["version"])
-    return (v["major"], 0)
+    else:
+        return (v["major"], 0)
 
 def version_to_key(v):
     """Convert a structured version dict to a hashable lookup key."""
@@ -100,7 +101,7 @@ import DA.Daml.LF.Ast.Version.VersionType
     raw_versions.sort(key=version_sort_key)
 
     for v in raw_versions:
-        var_name, base_v, constructor, rev = parse_version_dict(v)
+        var_name, base_v, haskell_constructor, rev = parse_version_dict(v)
 
         if rev is not None:
             staging_revisions.add(rev)
@@ -110,7 +111,7 @@ import DA.Daml.LF.Ast.Version.VersionType
         if var_name not in generated_vars:
             output.append(f"-- | Daml-LF version {base_v}")
             output.append(f"{var_name} :: Version")
-            output.append(f"{var_name} = Version V2 ({constructor})\n")
+            output.append(f"{var_name} = Version V2 ({haskell_constructor})\n")
             generated_vars.add(var_name)
 
     sorted_revisions = sorted(list(staging_revisions))
