@@ -722,7 +722,12 @@ node_repositories(
 
 yarn_install(
     name = "daml_extension_deps",
-    args = ["--frozen-lockfile"],
+    args = [
+        "--frozen-lockfile",
+        "--non-interactive",
+        "--verbose",
+        "--check-files",
+    ],
     package_json = "//compiler/daml-extension:package.json",
     symlink_node_modules = False,
     yarn_lock = "//compiler/daml-extension:yarn.lock",
@@ -731,7 +736,12 @@ yarn_install(
 # TODO use fine-grained managed dependency
 yarn_install(
     name = "navigator_frontend_deps",
-    args = ["--frozen-lockfile"],
+     args = [
+        "--frozen-lockfile",
+        "--non-interactive",
+        "--verbose",
+        "--check-files",
+    ],
     package_json = "//navigator/frontend:package.json",
     symlink_node_modules = False,
     yarn_lock = "//navigator/frontend:yarn.lock",
