@@ -420,6 +420,8 @@ prettyScriptErrorError lvl (Just err) =  do
         , label_ "Disclosed to:"
             $ prettyParties scriptError_ContractNotVisibleObservers
         ]
+    ScriptErrorErrorScriptContractKeyNotVisible _ ->
+      pure "Attempt to fetch, lookup or exercise a key associated with a contract not visible to the committer."
     ScriptErrorErrorScriptContractKeyNotFound ScriptError_ContractKeyNotFound{..} ->
       pure $ vcat
         [ "Attempt to fetch or exercise by key but no contract with that key was found."
