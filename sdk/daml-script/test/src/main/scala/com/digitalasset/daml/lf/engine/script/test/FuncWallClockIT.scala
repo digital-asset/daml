@@ -29,8 +29,13 @@ class FuncWallClockIT extends AbstractFuncIT {
         val duration1 = Duration.between(t0, t1)
         val duration2 = Duration.between(t1, t2)
 
-        val required1 = Duration.ofMillis(1000)
-        val required2 = Duration.ofMillis(2000)
+        // Sleep uses the monotonic clock (System.nanoTime) for accurate real-time
+        // duration, but getTime uses the wall clock (Clock.systemUTC). These clocks
+        // can drift slightly due to NTP adjustments, so we allow a small tolerance.
+        val clockDriftTolerance = Duration.ofMillis(5)
+
+        val required1 = Duration.ofMillis(1000).minus(clockDriftTolerance)
+        val required2 = Duration.ofMillis(2000).minus(clockDriftTolerance)
         val required1_upper = Duration.ofMillis(1100)
         val required2_upper = Duration.ofMillis(2100)
 
