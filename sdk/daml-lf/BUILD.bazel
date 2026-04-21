@@ -30,10 +30,10 @@ genrule(
     srcs = ["@maven//:com_daml_daml_lf_language_2_13"],
     outs = ["daml-lf-versions-generated.json"],
     cmd = """
-        # Extract the specific file by its name inside the zip
-        $(location @bazel_tools//tools/zip:zipper) x $(SRCS) -d $(RULEDIR) daml-lf-versions.json
+        # Extract the dto file from the jar
+        $(location @bazel_tools//tools/zip:zipper) x $(SRCS) -d $(RULEDIR) daml-lf-versions-dto.json
         # Rename it to match our declared output
-        mv $(RULEDIR)/daml-lf-versions.json $@
+        mv $(RULEDIR)/daml-lf-versions-dto.json $@
     """,
     tools = ["@bazel_tools//tools/zip:zipper"],
     visibility = ["//visibility:private"],
