@@ -420,22 +420,6 @@ prettyScriptErrorError lvl (Just err) =  do
         , label_ "Disclosed to:"
             $ prettyParties scriptError_ContractNotVisibleObservers
         ]
-    ScriptErrorErrorScriptContractKeyNotVisible ScriptError_ContractKeyNotVisible{..} ->
-      pure $ vcat
-        [ "Attempt to fetch, lookup or exercise a key associated with a contract not visible to the committer."
-        , label_ "Contract: "
-            $ prettyMay "<missing contract>"
-                (prettyContractRef lvl world)
-                scriptError_ContractKeyNotVisibleContractRef
-        , label_ "Key: "
-            $ prettyMay "<missing key>"
-                (prettyValue' lvl False 0 world)
-                scriptError_ContractKeyNotVisibleKey
-        , label_ "actAs:" $ prettyParties scriptError_ContractKeyNotVisibleActAs
-        , label_ "readAs:" $ prettyParties scriptError_ContractKeyNotVisibleReadAs
-        , label_ "Stakeholders:"
-            $ prettyParties scriptError_ContractKeyNotVisibleStakeholders
-        ]
     ScriptErrorErrorScriptContractKeyNotFound ScriptError_ContractKeyNotFound{..} ->
       pure $ vcat
         [ "Attempt to fetch or exercise by key but no contract with that key was found."
