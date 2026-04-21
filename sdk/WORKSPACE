@@ -736,7 +736,7 @@ yarn_install(
 # TODO use fine-grained managed dependency
 yarn_install(
     name = "navigator_frontend_deps",
-     args = [
+    args = [
         "--frozen-lockfile",
         "--non-interactive",
         "--verbose",
