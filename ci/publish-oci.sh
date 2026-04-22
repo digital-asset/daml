@@ -95,12 +95,15 @@ function publish_artifact {
       extra_tags_args+=( "--extra-tags $(extract_major_minor ${RELEASE_TAG})" )
     fi
     info "Uploading ${artifact_name} to oci registry...\n"
+
     "${HOME}"/.dpm/bin/dpm \
-      repo publish-component \
-        "${artifact_name}" "${RELEASE_TAG}" \
-        ${extra_tags_args[@]} \
-        ${platform_args[@]} \
-        --registry "${DPM_REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
+      artifacts publish component \
+      --name "${artifact_name}" \
+      --version "${RELEASE_TAG}" \
+      --registry "${DPM_REGISTRY}/components" \
+      ${extra_tags_args[@]} \
+      ${platform_args[@]} \
+      2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
   )
 }
 
