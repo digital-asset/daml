@@ -14,33 +14,30 @@ def _camel_to_upper_snake(text):
         result += char
     return result.upper()
 
-def _parse_version(v_str):
+def _parse_version(v):
     """
-    Parses a version string according to specific rules:
-    - "2.dev"       -> status="dev",    minor="dev"
-    - "2.n-rcm"     -> status="staging", minor="n", revision="m"
-    - "2.n"         -> status="stable",  minor="n"
+    Parses a structured version dict from the JSON:
+    - {"major": 2, "minor": {"Dev": {}}}                            -> status="dev"
+    - {"major": 2, "minor": {"Staging": {"version": 3, "revision": 1}}} -> status="staging"
+    - {"major": 2, "minor": {"Stable": {"version": 1}}}             -> status="stable"
     """
-    parts = v_str.split(".")
-    major = parts[0]
-    remainder = parts[1]  # "dev", "1", "3-rc1"
+    major = str(v["major"])
+    minor_map = v["minor"]
 
-    if "dev" in remainder:
+    if "Dev" in minor_map:
         return struct(
-            dotted = v_str,
-            mangled_java = "{}_{}".format(major, "dev"),
-            mangled_damlc = "{}{}".format(major, "dev"),
+            dotted = "{}.dev".format(major),
+            mangled_java = "{}_dev".format(major),
+            mangled_damlc = "{}dev".format(major),
             major = major,
             minor = "dev",
             status = "dev",
         )
 
-    if "-rc" in remainder:
-        # split "3-rc1" into "3" and "1"
-        rc_parts = remainder.split("-rc")
-        minor = rc_parts[0]
-        revision = rc_parts[1]
-
+    elif "Staging" in minor_map:
+        info = minor_map["Staging"]
+        minor = str(info["version"])
+        revision = str(info["revision"])
         return struct(
             dotted = "{}.{}-staging".format(major, minor),
             mangled_java = "{}_{}_staging".format(major, minor),
@@ -51,14 +48,18 @@ def _parse_version(v_str):
             status = "staging",
         )
 
-    return struct(
-        dotted = v_str,
-        mangled_java = "{}_{}".format(major, remainder),
-        mangled_damlc = "{}{}".format(major, remainder),
-        major = major,
-        minor = remainder,
-        status = "stable",
-    )
+    elif "Stable" in minor_map:
+        minor = str(minor_map["Stable"]["version"])
+        return struct(
+            dotted = "{}.{}".format(major, minor),
+            mangled_java = "{}_{}".format(major, minor),
+            mangled_damlc = "{}{}".format(major, minor),
+            major = major,
+            minor = minor,
+            status = "stable",
+        )
+
+    fail("Unknown minor version format: {}".format(minor_map))
 
 def _build_versions_struct():
     """
@@ -67,20 +68,21 @@ def _build_versions_struct():
     """
     fields = {}
 
-    for val in sorted(DATA["explicitVersions"]):
+    # explicitVersions is now a list of dicts; deduplicate by mangled_java key
+    for val in DATA["explicitVersions"]:
         version_obj = _parse_version(val)
         field_name = version_obj.mangled_java
         fields[field_name] = version_obj
 
-    for key, val in sorted(DATA["namedVersions"].items()):
+    for key, val in DATA["namedVersions"].items():
         field_name = _camel_to_upper_snake(key)
         version_obj = _parse_version(val)
         fields[field_name] = version_obj
 
-    for key, val_list in sorted(DATA["versionLists"].items()):
+    for key, val_list in DATA["versionLists"].items():
         field_name = _camel_to_upper_snake(key)
 
-        # Parse every string in the list into a struct
+        # Parse every dict in the list into a struct
         fields[field_name] = [_parse_version(v) for v in val_list]
 
     return struct(**fields)
