@@ -731,7 +731,7 @@ yarn_install(
     package_json = "//compiler/daml-extension:package.json",
     symlink_node_modules = False,
     yarn_lock = "//compiler/daml-extension:yarn.lock",
-) if is_linux else create_workspace(
+) if not is_windows else create_workspace(
     name = "daml_extension_deps",
     files = {
         "BUILD.bazel": """

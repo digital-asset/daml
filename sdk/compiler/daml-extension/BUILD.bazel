@@ -4,15 +4,18 @@
 package(default_visibility = ["//visibility:public"])
 
 load("@build_environment//:configuration.bzl", "npm_version")
-load("@os_info//:os_info.bzl", "is_linux")
+load("@os_info//:os_info.bzl", "is_windows")
 
 filegroup(
     name = "webview-stylesheet.css",
     srcs = ["src/webview.css"],
 )
 
+# On Windows, we use a prebuilt version of the extension because building is difficult
+# (file path too long, symlink issues, yarn_install complications).
+# On other platforms, we build the extension programmatically and verify it matches the prebuilt version.
 filegroup(
-    name = "vsix",
+    name = "vsix" if is_windows else "prebuilt-vsix",
     srcs = ["prebuild/daml-bundled.vsix"],
 )
 
@@ -35,12 +38,6 @@ filegroup(
             ":json-files",
             "@jq_dev_env//:jq",
         ],
-        # This is required to get the test to run on Windows. Otherwise, it looks
-        # like Bazel decides that because it cannot create symlinks on Windows, it
-        # may as well just give up and start the test without any of its
-        # dependencies available at all. But not warn about it, so the script can
-        # just fail at build time when it doesn't find anything.
-        deps = ["@bazel_tools//tools/bash/runfiles"],
     ),
     # For some reason,
     # 1. Bazel only exposes the node_modules dependency as a list of files, not as
@@ -89,7 +86,7 @@ filegroup(
     # non-deterministic and the individual entries contain non-reproducible
     # timestamps.
     genrule(
-        name = "rebuilt-vsix",
+        name = "vsix",
         srcs = glob([
             "package.json",
             "syntaxes/*",
@@ -104,8 +101,6 @@ filegroup(
             ":node_deps_cache",
         ],
         outs = ["daml-bundled.vsix"],
-        # rm -rf can fail with "directory not empty" on Windows.
-        # As a workaround we add `|| return`.
         cmd = """
         export HOME=/does-not-exist
         set -euo pipefail
@@ -114,18 +109,16 @@ filegroup(
         trap cleanup EXIT
         DIR=$$PWD
         cp -r compiler/daml-extension $$TMP_DIR
-        # we store the target cpu value to ensure the archive is platform specific
+        # Store the target CPU value to ensure the archive is platform-specific
         echo $(TARGET_CPU) > $$TMP_DIR/target_cpu
         cd $$TMP_DIR/daml-extension
         tar xzf $$DIR/$(location :node_deps_cache)
         sed -i "s/__VERSION__/{npm}/" package.json
         sed -i 's/"name": "daml"/"name": "daml-bundled"/' package.json
         $$DIR/$(location //:yarn) compile
-        # vsce needs Yarn or NPM to get the minimal dependency set to include in the artifact
-        # Using Yarn has a bug whereby some transitive dependencies are not included (specifically concat-map)
-        # NPM can't find npm-cli.js for some reason and won't run
-        # So for now, we explicitly depend on concat-map in `package.json` to avoid this
-        # Check for poison!
+        # vsce requires Yarn or NPM to compute the minimal dependency set for the artifact.
+        # Yarn has a bug where some transitive dependencies (e.g., concat-map) are omitted.
+        # NPM fails to find npm-cli.js. We work around this by explicitly depending on concat-map in package.json.
         PATH=$$(dirname $$DIR/$(location //:yarn)):$$PATH $$DIR/$(location @daml_extension_deps//@vscode/vsce/bin:vsce) package --yarn -o $$DIR/$@
     """.format(npm = npm_version),
         tools = [
@@ -137,15 +130,15 @@ filegroup(
         name = "vsix-content-matches-prebuild",
         srcs = ["prebuild/vsix-content-test.sh"],
         args = [
-            "$(location :rebuilt-vsix)",
+            "$(location :prebuilt-vsix)",
             "$(location :vsix)",
             "$(POSIX_DIFF)",
         ],
         data = [
-            ":rebuilt-vsix",
+            ":prebuilt-vsix",
             ":vsix",
         ],
         toolchains = ["@rules_sh//sh/posix:make_variables"],
         deps = ["@bazel_tools//tools/bash/runfiles"],
     ),
-] if is_linux else []
+] if not is_windows else []
