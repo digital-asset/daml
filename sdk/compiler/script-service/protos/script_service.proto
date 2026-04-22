@@ -229,14 +229,6 @@ message ScriptError {
     repeated Party observers = 4;
   }
 
-  message ContractKeyNotVisible {
-    ContractRef contract_ref = 1;
-    Value key = 2;
-    repeated Party actAs = 3;
-    repeated Party readAs = 4;
-    repeated Party stakeholders = 5;
-  }
-
   message ContractKeyNotFound {
     GlobalKey key = 1;
   }
@@ -372,7 +364,7 @@ message ScriptError {
     CommitError script_commit_error = 21;
     Empty script_mustfail_succeeded = 22;
     string script_invalid_party_name = 23;
-    ContractKeyNotVisible script_contract_key_not_visible = 24;
+    Empty script_contract_key_not_visible = 24;
     ContractKeyNotFound script_contract_key_not_found = 27;
     string script_party_already_exists = 25;
     WronglyTypedContract wronglyTypedContract = 28;
