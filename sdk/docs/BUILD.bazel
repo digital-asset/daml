@@ -463,18 +463,16 @@ daml_test(
     deps = ["//daml-script/daml:daml-script-2.1.dar"],
 )
 
-# Disabled as template uses keys and rollbacks, which is no longer permitted
-# TODO: (canton#31927) Remove/refactor this template and re-enable the test
-# [
-#     daml_test(
-#         name = "daml-intro-exceptions-daml-test-{}".format(version),
-#         srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-exceptions/**/*.daml"]),
-#         additional_compiler_flags = ["-Wupgrade-exceptions"],
-#         target = version,
-#         deps = ["//daml-script/daml:daml-script-{}.dar".format(version)],
-#     )
-#     for version in [DEV_LF_VERSION]
-# ]
+[
+    daml_test(
+        name = "daml-intro-exceptions-daml-test-{}".format(version),
+        srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-exceptions/**/*.daml"]),
+        additional_compiler_flags = ["-Wupgrade-exceptions"],
+        target = version,
+        deps = ["//daml-script/daml:daml-script-{}.dar".format(version)],
+    )
+    for version in [DEV_LF_VERSION]
+]
 
 daml_test(
     name = "daml-intro-9-daml-test",
