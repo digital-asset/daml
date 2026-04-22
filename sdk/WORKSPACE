@@ -92,17 +92,6 @@ nixpkgs_local_repository(
 )
 
 load("//nix:repositories.bzl", "common_nix_file_deps", "dev_env_nix_repos")
-load("//bazel_tools:damlc_legacy.bzl", "damlc_legacy")
-
-damlc_legacy(
-    name = "damlc_legacy",
-    sha256 = {
-        "linux": "2399dc62d93e58a7d1b4cc3e1bf704fa5412ab7642a908d449dbcad209771417",
-        "windows": "03387df2e726d0940bff12a3db9dff36801861ac22b3ad89ee8b02b8674a4099",
-        "macos": "82600dfd709c06575374293a3779686da42f359ae37c3235066e50f10fbf40e2",
-    },
-    version = "2.8.3",
-)
 
 load("//bazel_tools:dpm.bzl", "dpm_binary")
 

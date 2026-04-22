@@ -321,10 +321,7 @@ def using_local_compiler(target):
     return not target or target in COMPILER_LF_VERSIONS
 
 def damlc_for_target(target):
-    if using_local_compiler(target):
-        return "//compiler/damlc:damlc-compile-only"
-    else:
-        return "@damlc_legacy//:damlc_legacy"
+    return "//compiler/damlc:damlc-compile-only"
 
 def path_to_dar(data):
     return Label(data).name + ".dar"

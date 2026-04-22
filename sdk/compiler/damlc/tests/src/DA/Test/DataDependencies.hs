@@ -33,7 +33,6 @@ main :: IO ()
 main = withComponentVersions $ do
     setEnv "TASTY_NUM_THREADS" "3" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
-    damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     v2TestArgs <- do
         let targetDevVersion = LF.devLfVersion
