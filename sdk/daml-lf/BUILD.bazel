@@ -45,11 +45,18 @@ exports_files(
 )
 
 # The Golden File Check (runs during `bazel test`)
-diff_test(
+py_test(
     name = "daml-lf-versions-check",
-    failure_message = "daml-lf-versions.json is out of date. Run `bazel run //daml-lf:update-daml-lf-versions` to update it.",
-    file1 = "daml-lf-versions.json",
-    file2 = "daml-lf-versions-generated.json",
+    srcs = ["check_versions.py"],
+    main = "check_versions.py",
+    args = [
+        "$(location daml-lf-versions.json)",
+        "$(location daml-lf-versions-generated.json)",
+    ],
+    data = [
+        "daml-lf-versions.json",
+        "daml-lf-versions-generated.json",
+    ],
 )
 
 # The Golden File Updater (runs via `bazel run`)
