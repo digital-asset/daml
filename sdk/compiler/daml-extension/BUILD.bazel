@@ -4,15 +4,26 @@
 package(default_visibility = ["//visibility:public"])
 
 load("@build_environment//:configuration.bzl", "npm_version")
+load("@os_info//:os_info.bzl", "is_linux")
 
+filegroup(
+    name = "webview-stylesheet.css",
+    srcs = ["src/webview.css"],
+)
+
+filegroup(
+    name = "vsix",
+    srcs = ["prebuild/daml-bundled.vsix"],
+)
+
+[
 filegroup(
     name = "json-files",
     srcs = glob([
         "*.json",
         "syntaxes/*.json",
     ]),
-)
-
+),
 sh_test(
     name = "valid-json",
     srcs = ["ci-tests.sh"],
@@ -30,8 +41,7 @@ sh_test(
     # dependencies available at all. But not warn about it, so the script can
     # just fail at build time when it doesn't find anything.
     deps = ["@bazel_tools//tools/bash/runfiles"],
-)
-
+),
 # For some reason,
 # 1. Bazel only exposes the node_modules dependency as a list of files, not as
 #    a folder, and
@@ -64,8 +74,8 @@ genrule(
               cp -r ../$$f ./
             fi
         done
-        cp -r ../$(BINDIR)/external/daml_extension_deps_2x_1/node_modules/@types ./
-        cp -r ../$(BINDIR)/external/daml_extension_deps_2x_1/node_modules/@bazel ./
+        cp -r ../$(BINDIR)/external/daml_extension_deps/node_modules/@types ./
+        cp -r ../$(BINDIR)/external/daml_extension_deps/node_modules/@bazel ./
         cd ..
         # Check for poison!
         # Avoid file path too long errors on Windows of the form
@@ -73,23 +83,13 @@ genrule(
         $(execpath //bazel_tools/sh:mktgz) $@ node_modules --dereference
     """,
     tools = ["//bazel_tools/sh:mktgz"],
-)
-
-genrule(
-    name = "webview-stylesheet",
-    srcs = ["src/webview.css"],
-    outs = ["webview-stylesheet.css"],
-    cmd = """
-    cp "$(location src/webview.css)" "$@"
-    """,
-)
-
+),
 # This rule is not reproducible. `vsce package` generates a `.vsix` file which
 # is just a zip archive. The order of entries in that archive is
 # non-deterministic and the individual entries contain non-reproducible
 # timestamps.
 genrule(
-    name = "vsix",
+    name = "rebuilt-vsix",
     srcs = glob([
         "package.json",
         "syntaxes/*",
@@ -132,4 +132,20 @@ genrule(
         "//:yarn",
         "@daml_extension_deps//@vscode/vsce/bin:vsce",
     ],
+),
+sh_test(
+    name = "vsix-content-matches-prebuild",
+    srcs = ["prebuild/vsix-content-test.sh"],
+    args = [
+        "$(location :rebuilt-vsix)",
+        "$(location :vsix)",
+        "$(POSIX_DIFF)",
+    ],
+    data = [
+        ":rebuilt-vsix",
+        ":vsix",
+    ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+    toolchains = ["@rules_sh//sh/posix:make_variables"],
 )
+] if is_linux else []

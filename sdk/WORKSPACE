@@ -731,6 +731,14 @@ yarn_install(
     package_json = "//compiler/daml-extension:package.json",
     symlink_node_modules = False,
     yarn_lock = "//compiler/daml-extension:yarn.lock",
+) if is_linux else create_workspace(
+    name = "daml_extension_deps",
+    files = {
+        "BUILD.bazel": """
+package(default_visibility = ["//visibility:public"])
+exports_files([])
+""",
+    },
 )
 
 # TODO use fine-grained managed dependency
