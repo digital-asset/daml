@@ -51,14 +51,14 @@ case "$(uname -s)" in
     tar=$(abspath $(rlocation tar_dev_env/tar))
 # Unused
 #    gzip=$(abspath $(rlocation gzip_dev_env/gzip))
-    mktgz=$(abspath $(rlocation com_github_digital_asset_daml/bazel_tools/sh/mktgz))
+    mktgz=$(abspath $(rlocation daml-sdk/bazel_tools/sh/mktgz))
     patchelf=$(abspath $(rlocation patchelf_nix/bin/patchelf))
     ;;
   CYGWIN*|MINGW*|MSYS*)
     tar=$(abspath $(rlocation tar_dev_env/usr/bin/tar.exe))
 # Unused
 #    gzip=$(abspath $(rlocation gzip_dev_env/usr/bin/gzip.exe))
-    mktgz=$(abspath $(rlocation com_github_digital_asset_daml/bazel_tools/sh/mktgz.exe))
+    mktgz=$(abspath $(rlocation daml-sdk/bazel_tools/sh/mktgz.exe))
     ;;
 esac
 
