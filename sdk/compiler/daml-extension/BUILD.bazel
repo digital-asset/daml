@@ -38,6 +38,7 @@ filegroup(
             ":json-files",
             "@jq_dev_env//:jq",
         ],
+        deps = ["@bazel_tools//tools/bash/runfiles"],
     ),
     # For some reason,
     # 1. Bazel only exposes the node_modules dependency as a list of files, not as
