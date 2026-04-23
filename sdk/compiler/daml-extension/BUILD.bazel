@@ -12,7 +12,7 @@ filegroup(
 )
 
 # On Windows, we use a prebuilt version of the extension because building is difficult
-# (file path too long, symlink issues, yarn_install complications).
+# (file path too long, symlink issues, yarn_install , ...).
 # On other platforms, we build the extension programmatically and verify it matches the prebuilt version.
 filegroup(
     name = "vsix" if is_windows else "prebuilt-vsix",
