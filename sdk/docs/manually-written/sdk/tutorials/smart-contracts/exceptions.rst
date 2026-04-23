@@ -65,6 +65,9 @@ Note that the template has an ``ensure`` clause that ensures that the
 amount is always positive so ``Transfer`` cannot transfer more money
 than is available.
 
+Also note that the template has a ``FundsAvailable`` choice so that
+available funds may be checked prior to exercising a ``Transfer``.
+
 The shop is represented as a template signed by the owner. It has a
 field to represent the bank accepted by the owner, a list of
 observers that can order items, and a fixed price for the items that can be
@@ -164,6 +167,9 @@ Finally, we can adapt our choice to catch this exception as well:
   :language: daml
   :start-after: -- ORDER_TRUSTED_LIMITED_BEGIN
   :end-before: -- ORDER_TRUSTED_LIMITED_END
+
+Note that we have a ``LimitExceeded`` choice so that we may check if a limit
+will be exceeded prior to exercising a ``TransferLimited`` choice.
 
 For more information on exceptions, take a look at the
 :ref:`language reference <exceptions>`.
