@@ -731,7 +731,7 @@ yarn_install(
     package_json = "//compiler/daml-extension:package.json",
     symlink_node_modules = False,
     yarn_lock = "//compiler/daml-extension:yarn.lock",
-)
+) if not is_windows else None
 
 # TODO use fine-grained managed dependency
 yarn_install(
