@@ -131,7 +131,7 @@ jobs:
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(cd sdk; ./dev-env/bin/dade-assist)"
-        if [[ "$(release_tag)" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        if [[ "$(release_tag)" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$ ]]; then
           DPM_REGISTRY="europe-docker.pkg.dev/da-images/public"
         else
           DPM_REGISTRY="europe-docker.pkg.dev/da-images/public-unstable"
