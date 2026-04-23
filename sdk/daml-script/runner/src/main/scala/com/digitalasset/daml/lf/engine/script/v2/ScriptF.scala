@@ -663,7 +663,11 @@ object ScriptF {
 
     private def sleepAtLeast(totalNanos: Long) = {
       // Thread.sleep can wake up earlier so we loop it to guarantee a minimum
-      // sleep time
+      // sleep time. We use the monotonic clock (System.nanoTime) rather than
+      // the wall clock to ensure the actual elapsed time matches the requested
+      // duration, regardless of NTP adjustments or leap seconds.
+      // Note: getTime uses the wall clock, so observed timestamps may differ
+      // slightly from the requested sleep duration due to clock drift.
       val t0 = System.nanoTime
       var nanosLeft = totalNanos
       while (nanosLeft > 0) {
