@@ -23,7 +23,7 @@ import System.FilePath
 import System.Info (os)
 
 mainWorkspace :: String
-mainWorkspace = "com_github_digital_asset_daml"
+mainWorkspace = "daml-sdk"
 
 exe :: FilePath -> FilePath
 exe | os == "mingw32" = (<.> "exe")
