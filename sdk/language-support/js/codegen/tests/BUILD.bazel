@@ -48,11 +48,11 @@ daml_compile(
 #       - 'ts/codegen/tests/daml/*'
 #         The Daml that goes into the DAR ('build-and-lint-1.0.0.dar');
 #       - 'ts/codegen/tests/ts/*'
-#         A yarn workspaces root containing a single TypeScript package
+#         A pnpm workspace root containing a single TypeScript package
 #         'build-and-lint-test' which houses the test driver 'test.ts'.
 #
 # 'build-and-lint' creates a temp directory ('root' say), and uses the
-# above inputs (via filesystem copies, damlc, daml2js and yarn install)
+# above inputs (via filesystem copies, damlc, daml2js and pnpm install)
 # to produce a filesystem with the following structure:
 #
 #   root/
@@ -74,10 +74,10 @@ daml_compile(
 #  - Invoke 'daml2js' on 'build-and-lint-1.0.0.dar' to produce bindings
 #    (in the 'daml2js' directory);
 #  - Invoke from 'root':
-#    - 'yarn workspaces run install';
-#    - 'yarn workspaces run build';
-#    - 'yarn workspaces run lint';
-#  - Finally, invoke 'yarn test' from the 'root/build-and-lint' directory.
+#    - 'pnpm install';
+#    - 'pnpm run build';
+#    - 'pnpm run lint';
+#  - Finally, invoke 'pnpm test' from the 'root/build-and-lint' directory.
 #
 # That last step causes 'build-and-lint/src/__tests__/test.ts' to be executed which:
 #  - Spins up a canton participant and domain running the 'build-and-lint-1.0.0.dar';
@@ -91,8 +91,8 @@ sh_test(
     size = "large",
     srcs = ["build-and-lint.sh"],
     args = [
-        "$(location //:java)",
-        "$(location //:yarn)",
+        "$(JAVA_ROOTPATH)",
+        "$(location @pnpm//:pnpm)",
         "$(location //language-support/js/codegen:codegen)",
         "$(location //canton:community_app_deploy.jar)",
         "$(location :build-and-lint.dar)",
@@ -104,14 +104,13 @@ sh_test(
         "$(location //test-common:model-tests-2.1.dar)",
         "$(location :hidden.dar)",
         "$(location @grpcurl_nix//:bin)",
-        "$(POSIX_DIFF)",
     ],
     data = [
         ":build-and-lint.dar",
         ":hidden.dar",
         "//language-support/js/codegen",
-        "//:java",
-        "//:yarn",
+        "@pnpm//:pnpm",
+        "@rules_java//toolchains:current_java_runtime",
         "//canton:community_app_deploy.jar",
         "//language-support/js/daml-types:npm_package",
         # TODO(#14706): revert to model-tests-default once the default major
@@ -131,32 +130,83 @@ sh_test(
     # Running exclusively at this time to avoid port clashes, due to lack of freeport in ts
     # Consider porting this to scala.
     tags = ["exclusive"],
-    toolchains = ["@rules_sh//sh/posix:make_variables"],
+    toolchains = [
+        "@rules_java//toolchains:current_java_runtime",
+    ],
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],
 ) if not is_windows else None
+
+config_setting(
+    name = "on_linux_amd64",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+)
+
+config_setting(
+    name = "on_osx_amd64",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:osx",
+    ],
+)
+
+config_setting(
+    name = "on_osx_arm64",
+    constraint_values = [
+        "@platforms//cpu:aarch64",
+        "@platforms//os:osx",
+    ],
+)
 
 sh_test(
     name = "npm-update-check",
     srcs = ["npm_check.sh"],
     args = [
         "$(location //language-support/js/codegen)",
-        "$(location @nodejs//:npm_bin)",
-        "$(location @jq_dev_env//:jq)",
+        "$(location //bazel_tools:jq_bin)",
         "$(location :npmcheck1.dar)",
         "$(location :npmcheck2.dar)",
-        "$(location @nodejs//:node)",
         sdk_version,
-    ],
+    ] + select({
+        ":on_linux_amd64": [
+            "$(rlocationpath @nodejs_linux_amd64//:npm)",
+            "$(rlocationpath @nodejs_linux_amd64//:node)",
+        ],
+        ":on_osx_amd64": [
+            "$(rlocationpath @nodejs_darwin_amd64//:npm)",
+            "$(rlocationpath @nodejs_darwin_amd64//:node)",
+        ],
+        ":on_osx_arm64": [
+            "$(rlocationpath @nodejs_darwin_arm64//:npm)",
+            "$(rlocationpath @nodejs_darwin_arm64//:node)",
+        ],
+    }),
     data = [
         ":npmcheck1.dar",
         ":npmcheck2.dar",
         "//language-support/js/codegen",
-        "@jq_dev_env//:jq",
-        "@nodejs//:node",
-        "@nodejs//:npm_bin",
-    ],
+        "//bazel_tools:jq_bin",
+    ] + select({
+        ":on_linux_amd64": [
+            "@nodejs_linux_amd64//:node",
+            "@nodejs_linux_amd64//:npm",
+            "@nodejs_linux_amd64//:npm_files",
+        ],
+        ":on_osx_amd64": [
+            "@nodejs_darwin_amd64//:node",
+            "@nodejs_darwin_amd64//:npm",
+            "@nodejs_darwin_amd64//:npm_files",
+        ],
+        ":on_osx_arm64": [
+            "@nodejs_darwin_arm64//:node",
+            "@nodejs_darwin_arm64//:npm",
+            "@nodejs_darwin_arm64//:npm_files",
+        ],
+    }),
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],

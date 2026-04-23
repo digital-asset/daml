@@ -1,8 +1,15 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@language_support_js_deps//:defs.bzl", "npm_link_all_packages")
+
+npm_link_all_packages(name = "node_modules")
+
 exports_files([
-    "jest.bzl",
+    ".npmrc",
     "eslint.bzl",
+    "jest.bzl",
     "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
 ])

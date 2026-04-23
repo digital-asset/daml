@@ -59,8 +59,8 @@ haskell_cabal_library(
 )""",
         patch_args = ["-p1"],
         patches = [
-            "@com_github_digital_asset_daml//bazel_tools:lsp-types-normalisation.patch",
-            "@com_github_digital_asset_daml//bazel_tools:lsp-types-expose-other-modules.patch",
+            "//bazel/patches:haskell/lsp_types_normalisation.patch",
+            "//bazel/patches:haskell/lsp_types_expose_other_modules.patch",
         ],
         sha256 = LSP_TYPES_SHA256,
         strip_prefix = "lsp-types-{}".format(LSP_TYPES_VERSION),
@@ -119,7 +119,7 @@ haskell_library(
 """,
         patch_args = ["-p1"],
         patches = [
-            "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-binary-q.patch",
+            "//bazel/patches:haskell/ghcide_binary_q.patch",
         ],
         sha256 = None if GHCIDE_LOCAL_PATH != None else GHCIDE_SHA256,
         strip_prefix = None if GHCIDE_LOCAL_PATH != None else "daml-ghcide-%s" % GHCIDE_REV,
@@ -420,7 +420,7 @@ haskell_cabal_library(
 """,
         patch_args = ["-p1"],
         patches = [
-            "@com_github_digital_asset_daml//bazel_tools:haskell-zip.patch",
+            "//bazel/patches:haskell/zip.patch",
         ],
         sha256 = "0d7f02bbdf6c49e9a33d2eca4b3d7644216a213590866dafdd2b47ddd38eb746",
         strip_prefix = "zip-{}".format(ZIP_VERSION),
@@ -462,7 +462,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             },
         ),
         haddock = False,
-        local_snapshot = "//:stack-snapshot.yaml",
+        local_snapshot = "//:stackage_snapshot.yaml",
         stack_snapshot_json =
             "//:stackage_snapshot_windows.json" if is_windows else "//:stackage_snapshot.json",
         packages = [

@@ -1,9 +1,14 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@build_environment//:configuration.bzl", "npm_version")
+load("@aspect_rules_ts//ts:defs.bzl", "ts_project")
+load("@build_environment//:configuration.bzl", "sdk_version")
+load("@daml_extension_deps//:defs.bzl", "npm_link_all_packages")
+load("@jq.bzl//jq:jq.bzl", "jq")
 
 package(default_visibility = ["//visibility:public"])
+
+npm_link_all_packages(name = "node_modules")
 
 filegroup(
     name = "json-files",
@@ -17,62 +22,39 @@ sh_test(
     name = "valid-json",
     srcs = ["ci-tests.sh"],
     args = [
-        "$(location @jq_dev_env//:jq)",
+        "$(location //bazel_tools:jq_bin)",
         "$(locations :json-files)",
     ],
     data = [
         ":json-files",
-        "@jq_dev_env//:jq",
+        "//bazel_tools:jq_bin",
     ],
-    # This is required to get the test to run on Windows. Otherwise, it looks
-    # like Bazel decides that because it cannot create symlinks on Windows, it
-    # may as well just give up and start the test without any of its
-    # dependencies available at all. But not warn about it, so the script can
-    # just fail at build time when it doesn't find anything.
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
-# For some reason,
-# 1. Bazel only exposes the node_modules dependency as a list of files, not as
-#    a folder, and
-# 2. Copying these files over is surprisingly slow on my machine.
-#
-# Because `vsce` needs to run in a folder where all of the node_modules
-# dependencies are already populated, this separate step takes all of the
-# node_module files, one by one (because that is how Bazel exposes them),
-# copies them to their intended place, and then bundles the whole node_modules
-# folder as a tarball so the next task, below, can depend on that cached
-# tarball and be fast.
-# Also for some reason on Windows I get "cannot ceate node_modules: file
-# exists", so at this point I'm completely out of trust.
-genrule(
-    name = "node_deps_cache",
-    srcs = [
-        "//compiler/daml-extension:package.json",
-        "//compiler/daml-extension:yarn.lock",
-    ],
-    outs = ["node_modules.tar.gz"],
-    cmd = """
-        set -euo pipefail
-
-        YARN=$$PWD/$(execpath //:yarn)
-        MKTGZ=$(execpath //bazel_tools/sh:mktgz)
-
-        PACKAGE_DIR=$$(dirname $(location //compiler/daml-extension:package.json))
-
-        cd $$PACKAGE_DIR
-        $$YARN install \
-            --no-cache \
-            --frozen-lockfile \
-            --production=false \
-            --ignore-optional
-
-        cd $$OLDPWD
-        $$MKTGZ $@ --dereference -C $$PACKAGE_DIR node_modules
-    """,
-    tools = [
-        "//:yarn",
-        "//bazel_tools/sh:mktgz",
+ts_project(
+    name = "compile",
+    srcs = glob(["src/**/*.ts"]),
+    declaration = False,
+    out_dir = "out",
+    source_map = True,
+    transpiler = "tsc",
+    tsconfig = "tsconfig.json",
+    deps = [
+        ":node_modules/@types/node",
+        ":node_modules/@types/node-fetch",
+        ":node_modules/@types/semver",
+        ":node_modules/@types/tmp",
+        ":node_modules/@types/vscode",
+        ":node_modules/@types/which",
+        ":node_modules/@types/xml2js",
+        ":node_modules/fp-ts",
+        ":node_modules/node-fetch",
+        ":node_modules/semver",
+        ":node_modules/tmp",
+        ":node_modules/vscode-languageclient",
+        ":node_modules/which",
+        ":node_modules/xml2js",
     ],
 )
 
@@ -85,58 +67,72 @@ genrule(
     """,
 )
 
-# This rule is not reproducible. `vsce package` generates a `.vsix` file which
-# is just a zip archive. The order of entries in that archive is
-# non-deterministic and the individual entries contain non-reproducible
-# timestamps.
+jq(
+    name = "stamped_package_json",
+    srcs = ["package.json"],
+    filter = '(.version = "{}") | (.name = "daml-bundled")'.format(sdk_version),
+)
+
 genrule(
     name = "vsix",
-    srcs = glob([
-        "package.json",
+    srcs = [
+        ":compile",
+        ":stamped_package_json",
+        ":node_modules",
+        ".vscodeignore",
+        "README.md",
+    ] + glob([
         "syntaxes/*",
         "snippets/*",
         "images/*",
         "*.json",
-        "README.md",
-        "yarn.lock",
-        ".vscodeignore",
-        "src/**",
-    ]) + [
-        ":node_deps_cache",
-    ],
+    ]),
     outs = ["daml-bundled.vsix"],
     cmd = """
         set -euo pipefail
-
         export HOME=/does-not-exist
 
-        # #
-        # Create temporary dir to edit files (`src` files are readonly),
-        #   then define function to remove temporary dir,
-        #   which will be executed when cmd will try to exit the `cmd`.
         TMP_DIR=$$(mktemp -d)
-        cleanup() {{ rm -rf $$TMP_DIR || return; }}
+        cleanup() { rm -rf $$TMP_DIR || return; }
         trap cleanup EXIT
 
+        mkdir -p $$TMP_DIR/ext
+
+        # Compiled TypeScript output
+        cp -rL $(RULEDIR)/out $$TMP_DIR/ext/out
+
+        # Stamped package.json (version + name injected)
+        cp $(location :stamped_package_json) $$TMP_DIR/ext/package.json
+
+        # Static assets from source tree
+        cp $(location .vscodeignore) $$TMP_DIR/ext/
+        cp $(location README.md) $$TMP_DIR/ext/
+        for dir in syntaxes snippets images; do
+            if [ -d compiler/daml-extension/$$dir ]; then
+                cp -r compiler/daml-extension/$$dir $$TMP_DIR/ext/
+            fi
+        done
+        # Configuration JSON files (skip package.json and tsconfig.json)
+        for f in compiler/daml-extension/*.json; do
+            if [ -f "$$f" ]; then
+                case "$$(basename $$f)" in
+                    package.json|tsconfig.json) ;;
+                    *) cp "$$f" $$TMP_DIR/ext/ ;;
+                esac
+            fi
+        done
+
+        # node_modules (dereferenced from rules_js pnpm virtual store)
+        cp -rL $(RULEDIR)/node_modules $$TMP_DIR/ext/node_modules
+
         DIR=$$PWD
-        YARN=$$DIR/$(location //:yarn)
-        YARN_DIR=$$(dirname $$DIR/$(location //:yarn))
-        VSCE=$$DIR/$(location @daml_extension_deps//@vscode/vsce/bin:vsce)
-
-        cp -r compiler/daml-extension $$TMP_DIR
-        cd $$TMP_DIR/daml-extension
-
-        echo $(TARGET_CPU) > ../target_cpu
-        tar xzf $$DIR/$(location :node_deps_cache)
-
-        sed -i "s/__VERSION__/{npm}/" package.json
-        sed -i 's/"name": "daml"/"name": "daml-bundled"/' package.json
-
-        $$YARN compile
-        PATH=$$YARN_DIR:$$PATH $$VSCE package --yarn -o $$DIR/$@
-    """.format(npm = npm_version),
-    tools = [
-        "//:yarn",
-        "@daml_extension_deps//@vscode/vsce/bin:vsce",
-    ],
+        cd $$TMP_DIR/ext
+        $$DIR/$(NODE_PATH) $$DIR/$(RULEDIR)/node_modules/@vscode/vsce/vsce package --no-dependencies -o $$DIR/$@
+    """,
+    toolchains = ["@rules_nodejs//nodejs:current_node_toolchain"],
 )
+
+exports_files([
+    ".npmrc",
+    "pnpm-lock.yaml",
+])

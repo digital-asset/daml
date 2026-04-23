@@ -16,7 +16,7 @@ da_haskell_repl(
 
 os_dependent_libraries = [] if is_windows else [
     "//language-support/js/daml-types:npm_package",
-    "@script_nix//:bin/script",
+    "//bazel:pty-wrapper.sh",
 ]
 
 da_haskell_library(
@@ -51,13 +51,14 @@ da_haskell_test(
         "src/DA/Daml/Assistant/IntegrationTests.hs",
     ],
     args = [
-        "$(location //:yarn)",
+        "$(location @pnpm//:pnpm)",
     ],
     data = [
         "//release:dpm-sdk-release-tarball",
         "//release:sdk-release-tarball",
-        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
-        "//:yarn",
+        "@rules_java//toolchains:current_java_runtime",
+        "//:java_rlocation_path",
+        "@pnpm//:pnpm",
         "//compiler/damlc/tests:generate-simple-dalf",
     ] + os_dependent_libraries,
     # marked flaky for mvn originally; still flaky now? #14281

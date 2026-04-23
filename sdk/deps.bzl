@@ -61,13 +61,8 @@ rules_nixpkgs_toolchain_patches = {
     "posix": [],
 }
 
-buildifier_version = "b163fcf72b7def638f364ed129c9b28032c1d39b"
-buildifier_sha256 = "c2399161fa569f7c815f8e27634035557a2e07a557996df579412ac73bf52c23"
-
 zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
-rules_nodejs_version = "5.8.5"
-rules_nodejs_sha256 = "a1295b168f183218bc88117cf00674bcd102498f294086ff58318f830dd9d9d1"
 rules_jvm_external_version = "6.7"
 rules_jvm_external_sha256 = "a1e351607f04fed296ba33c4977d3fe2a615ed50df7896676b67aac993c53c18"
 rules_go_version = "0.53.0"
@@ -199,7 +194,7 @@ def daml_deps():
             strip_prefix = "googleapis-{}".format(go_googleapis_version),
             patches = [
                 # The Haskell gRPC bindings require access to the status.proto source file.
-                "//bazel_tools:googleapis-status-proto.patch",
+                "//bazel/patches:go_googleapis/status-proto.patch",
             ],
             patch_args = ["-E", "-p1"],
         )
@@ -273,18 +268,6 @@ def daml_deps():
             url = "https://github.com/bazelbuild/rules_apple/releases/download/3.20.1/rules_apple.3.20.1.tar.gz",
         )
 
-    # Fetch rules_nodejs so we can install our npm dependencies
-    if "build_bazel_rules_nodejs" not in native.existing_rules():
-        http_archive(
-            name = "build_bazel_rules_nodejs",
-            urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/{}/rules_nodejs-{}.tar.gz".format(rules_nodejs_version, rules_nodejs_version)],
-            sha256 = rules_nodejs_sha256,
-            patches = [
-                "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_hotfix.patch",
-            ],
-            patch_args = ["-p1"],
-        )
-
     if "com_google_absl" not in native.existing_rules():
         http_archive(
             name = "com_google_absl",
@@ -343,16 +326,6 @@ def daml_deps():
             sha256 = "79204ed1fa385c03b5235f65b25ced6ac51cf4b00e45e1157beca6a28bdb8043",
             patches = ["@com_github_digital_asset_daml//:bazel_tools/remote_apis_no_services.patch"],
             patch_args = ["-p1"],
-        )
-
-    # Buildifier.
-    # It is written in Go and hence needs rules_go to be available.
-    if "com_github_bazelbuild_buildtools" not in native.existing_rules():
-        http_archive(
-            name = "com_github_bazelbuild_buildtools",
-            sha256 = buildifier_sha256,
-            strip_prefix = "buildtools-{}".format(buildifier_version),
-            url = "https://github.com/bazelbuild/buildtools/archive/{}.tar.gz".format(buildifier_version),
         )
 
     native.bind(

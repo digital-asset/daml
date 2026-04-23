@@ -38,22 +38,23 @@ import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 
 main :: IO ()
 main = withSdkVersions $ do
-    yarn : args <- getArgs
+    pnpm : args <- getArgs
     withTempDir $ \tmpDir -> do
         createDirectory $ tmpDir </> "daml"
         createDirectory $ tmpDir </> "dpm"
         oldPath <- getSearchPath
-        javaPath <- locateRunfiles "local_jdk/bin"
-        yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
-        -- NOTE(Sofia): We don't use `script` on Windows.
-        mbScriptPath <- if isWindows
+        javaRlocFile <- locateRunfiles (mainWorkspace </> "java_rlocation_path.txt")
+        javaRlocPath <- head . lines <$> readFile' javaRlocFile
+        javaPath <- locateRunfiles javaRlocPath
+        pnpmPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> pnpm)
+        mbPtyWrapperDir <- if isWindows
             then pure Nothing
-            else Just <$> locateRunfiles "script_nix/bin"
+            else Just . takeDirectory <$> locateRunfiles (mainWorkspace </> "bazel/pty-wrapper.sh")
         limitJvmMemory defaultJvmMemoryLimits
         withArgs args (withEnv
             [ ("PATH", Just $ intercalate [searchPathSeparator] $ concat
-                [ [javaPath, yarnPath]
-                , maybeToList mbScriptPath
+                [ [javaPath, pnpmPath]
+                , maybeToList mbPtyWrapperDir
                 , oldPath
                 ])
             , ("TASTY_NUM_THREADS", Just "2")
@@ -715,7 +716,7 @@ codegenTests assistant codegenDir = testGroup (show assistant <> " codegen") (
                     outDir  = projectDir </> "generated" </> lang
                 when (lang == "js") $ do
                     let workspaces = Workspaces [makeRelative codegenDir outDir]
-                    setupYarnEnv codegenDir workspaces [DamlTypes]
+                    setupPnpmEnv codegenDir workspaces [DamlTypes]
                 let codegenCommand =
                       case assistant of
                         Daml -> ["daml", "codegen", lang]
@@ -778,19 +779,16 @@ cantonTests assistant = testGroup (show assistant <> " sandbox")
                     , if assistant == Daml then "--domain-public-port" else "--sequencer-public-port", show sequencerPublicApiPort
                     , if assistant == Daml then "--domain-admin-port" else "--sequencer-admin-port", show sequencerAdminApiPort
                     ]
-                -- NOTE (Sofia): We need to use `script` on Mac and Linux because of this Ammonite issue:
+                -- PTY wrapper needed on Mac and Linux because of this Ammonite issue:
                 --    https://github.com/com-lihaoyi/Ammonite/issues/276
-                -- Also, script for Mac and script for Linux have incompatible CLIs for unfathomable reasons.
                 -- Also, we need to set TERM to something, otherwise tput complains and crashes Ammonite.
                 wrappedCmd
                     | isWindows = cmd
-                    | isMac = "script -q -- tty.txt " <> cmd
-                    | otherwise = concat ["script -q -c '", cmd, "'"]
+                    | otherwise = "pty-wrapper.sh " <> cmd
                 input =
                     [ "sandbox.health.is_running"
                     , "local.health.is_running"
                     , "exit" -- This "exit" is necessary on Linux, otherwise the REPL expects more input.
-                            -- script on Linux doesn't transmit the EOF/^D to the REPL, unlike on Mac.
                     ]
                 env' | isWindows || isJust (lookup "TERM" env) = Nothing
                     | otherwise = Just (("TERM", "xterm-256color") : env)

@@ -64,7 +64,7 @@ import           System.Process (readProcess)
 import           System.Random.Shuffle (shuffleM)
 import           System.IO
 import           System.IO.Extra
-import           System.Info.Extra (isWindows)
+
 import           Text.Read
 import qualified Text.Regex.PCRE.ByteString.Utils as PCRE
 import qualified Data.Map.Strict as MS
@@ -493,8 +493,7 @@ runJqQuery log mJsonFile q isStream = do
   case mJsonFile of
     Just jsonPath -> do
       log $ "running jq query: " ++ q
-      let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
-      jq <- locateRunfiles $ mainWorkspace </> jqKey
+      jq <- locateRunfiles $ mainWorkspace </> "bazel_tools" </> "jq_bin"
       queryLfDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
       let fullQuery = "import \"./query-lf\" as lf; inputs as $pkg | " ++ q
       out <- readProcess jq (["--stream" | isStream] <> ["-n", "-L", queryLfDir, fullQuery, jsonPath]) ""

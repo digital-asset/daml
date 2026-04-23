@@ -13,6 +13,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_repl")
 load("//bazel_tools:scala.bzl", "da_scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "ghc_version", "mvn_version", "sdk_version")
+load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test")
 
 exports_files([".hlint.yaml"])
 
@@ -59,11 +60,6 @@ load(
 c2hs_toolchain(
     name = "c2hs-toolchain",
     c2hs = "@stackage-exe//c2hs",
-)
-
-filegroup(
-    name = "node_modules",
-    srcs = glob(["node_modules/**/*"]),
 )
 
 config_setting(
@@ -149,14 +145,12 @@ alias(
     actual = "@maven//:com_daml_bindings_java",
 )
 
-alias(
-    name = "yarn",
-    actual = "@yarn//:yarn",
-)
-
-alias(
-    name = "java",
-    actual = "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+genrule(
+    name = "java_rlocation_path",
+    outs = ["java_rlocation_path.txt"],
+    cmd = "echo $(JAVABASE)/bin | sed 's|^external/||' > $@",
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
+    visibility = ["//visibility:public"],
 )
 
 exports_files([
@@ -165,42 +159,41 @@ exports_files([
     "maven_install_2.13.json",
 ])
 
-# Buildifier.
-
-load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
-
-buildifier_excluded_patterns = [
+_BUILDIFIER_EXCLUDE_PATTERNS = [
     "./3rdparty/haskell/c2hs-package.bzl",
     "./3rdparty/haskell/network-package.bzl",
-    "**/node_modules/*",
 ]
 
-# Run this to check if BUILD files are well-formatted.
+_BUILDIFIER_WARNINGS = [
+    "+unsorted-dict-items",
+    "+out-of-order-load",
+    "+load",
+]
+
 buildifier(
     name = "buildifier",
-    exclude_patterns = buildifier_excluded_patterns,
-    mode = "check",
+    exclude_patterns = _BUILDIFIER_EXCLUDE_PATTERNS,
+    lint_mode = "warn",
+    lint_warnings = _BUILDIFIER_WARNINGS,
+    mode = "diff",
+    verbose = True,
 )
 
-# Run this to fix the errors in BUILD files.
 buildifier(
     name = "buildifier-fix",
-    exclude_patterns = buildifier_excluded_patterns,
+    exclude_patterns = _BUILDIFIER_EXCLUDE_PATTERNS,
+    lint_mode = "fix",
+    lint_warnings = _BUILDIFIER_WARNINGS,
     mode = "fix",
     verbose = True,
 )
 
-# Run by the git pre-commit hook
-genrule(
-    name = "buildifier-pre-commit",
-    outs = ["buildifier-hook"],
-    cmd = """cat <<'EOF' > "$@"
-# !/usr/bin/env bash
-exec "$(execpath @com_github_bazelbuild_buildtools//buildifier)" "$$@"
-EOF
-""",
-    executable = True,
-    tools = ["@com_github_bazelbuild_buildtools//buildifier"],
+buildifier_test(
+    name = "buildifier_test",
+    lint_mode = "warn",
+    lint_warnings = _BUILDIFIER_WARNINGS,
+    no_sandbox = True,
+    workspace = "//:MODULE.bazel",
 )
 
 # Default target for da-ghci, da-ghcid.
@@ -231,7 +224,7 @@ da_haskell_repl(
     ],
 )
 
-load("@bazel_gazelle//:def.bzl", "gazelle")
+load("@gazelle//:def.bzl", "gazelle")
 
 gazelle(
     name = "gazelle-update-repos",

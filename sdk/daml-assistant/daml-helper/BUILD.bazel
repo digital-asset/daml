@@ -103,7 +103,7 @@ da_haskell_test(
     data = [
         "daml-helper",
         "//test-common/test-certificates",
-    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
+    ] + (["@sysctl//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "base",
         "extra",
@@ -129,7 +129,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "//daml-assistant/daml-helper",
-    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
+    ] + (["@sysctl//:bin/sysctl"] if is_darwin else []),
     # TODO (MK) https://github.com/digital-asset/daml/issues/9768
     flaky = True,
     hackage_deps = [
@@ -176,7 +176,7 @@ da_haskell_test(
         ":test2.dar",
         ":upgrade-test-v1.dar",
         ":upgrade-test-v2.dar",
-    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
+    ] + (["@sysctl//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "base",
         "bytestring",
@@ -209,7 +209,7 @@ da_haskell_test(
     data = [
         "daml-helper",
         ":test.dar",
-    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
+    ] + (["@sysctl//:bin/sysctl"] if is_darwin else []),
     hackage_deps = [
         "base",
         "bytestring",

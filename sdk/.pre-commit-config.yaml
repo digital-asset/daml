@@ -30,14 +30,14 @@ repos:
       name: buildifier
       language: system
       require_serial: true
-      entry: "bash -c 'cd sdk/; bazel run //:buildifier-pre-commit -- -mode=fix -v=true'"
+      entry: "bash -c 'cd sdk/; bazel run //:buildifier-fix'"
       types: [bazel]
     - id: pprettier
       name: pprettier
       language: system
       require_serial: true
       # NB: we need to pass a single argument which ends up in $0 when invoking bash -c
-      entry: "bash -c 'yarn install --silent && files=(\"$@\") && yarn run --cwd=sdk pprettier --write ${files[@]##sdk/}' bash"
+      entry: "bash -c 'pnpm install --frozen-lockfile --dir sdk/dev-tooling >/dev/null && files=(\"$@\") && (cd sdk && ./dev-tooling/node_modules/.bin/pprettier --write ${files[@]##sdk/})' bash"
       types_or: [ts, tsx]
     - id: copyrights
       name: copyright headers
@@ -51,12 +51,6 @@ repos:
       language: system
       pass_filenames: false
       entry: "sdk/pre-commit/platform-independence-check.sh"
-    - id: yarn-lock-check
-      name: yarn-lock-check
-      language: system
-      pass_filenames: true
-      files: ^sdk/(package.json|yarn.lock)$
-      entry: "sdk/pre-commit/yarn-lock-check.sh"
     - id: mainonly
       name: main only
       description: Check for changes under packages with targets tagged with main-only

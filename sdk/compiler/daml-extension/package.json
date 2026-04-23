@@ -170,14 +170,16 @@
         "xml2js": "^0.5.0"
     },
     "devDependencies": {
-        "@bazel/hide-bazel-files": "1.6.0",
         "@types/node": "22.13.9",
         "@types/node-fetch": "^2.5.12",
         "@types/vscode": "1.87",
         "typescript": "~5.8",
         "@vscode/vsce": "^2.22.0"
     },
-    "resolutions": {
-        "glob": "7.2.3"
+    "pnpm": {
+        "onlyBuiltDependencies": [],
+        "overrides": {
+            "glob": "7.2.3"
+        }
     }
 }

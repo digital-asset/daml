@@ -56,17 +56,8 @@ def _fat_cc_library_impl(ctx):
             # On Windows we have some extra deps.
             (["-lws2_32"] if is_windows else []),
         inputs = static_libs,
-        env = {"PATH": ""},
+        env = {"PATH": "/usr/bin:/bin"},
     )
-
-    mri_script_content = "\n".join(
-        ["create {}".format(static_lib.path)] +
-        ["addlib {}".format(lib.path) for lib in static_libs] +
-        ["save", "end"],
-    ) + "\n"
-
-    mri_script = ctx.actions.declare_file(ctx.label.name + "_mri")
-    ctx.actions.write(mri_script, mri_script_content)
 
     ar = toolchain.ar_executable
 
@@ -83,11 +74,41 @@ def _fat_cc_library_impl(ctx):
                 [f.path for f in static_libs],
         )
     else:
+        # Avoid ar MRI mode (-M) because it treats '~' as a line
+        # continuation character, which breaks with bzlmod repo paths
+        # that contain '~' (e.g. _main~ext~repo).  Instead, extract
+        # object files from each input archive and re-pack them.
+        #
+        # Use per-name occurrence counters (ar xN) to handle archives
+        # that contain duplicate member names (e.g. gRPC's gpr_time
+        # packs both posix/time.pic.o and windows/time.pic.o as
+        # "time.pic.o").  Without this, a plain "ar x" would let the
+        # second member silently overwrite the first.
+        extract_cmds = ["set -e", "D=$(mktemp -d)", "_EXECROOT=$(pwd)"]
+        for i, lib in enumerate(static_libs):
+            extract_cmds.append(
+                ("(declare -A _mc=(); while IFS= read -r _m; do"
+                 + " _c=\"${{_mc[$_m]:-0}}\"; _c=$((_c+1)); _mc[$_m]=$_c;"
+                 + " (cd \"$D\" && \"{ar}\" xN \"$_c\" \"$_EXECROOT/{path}\" \"$_m\""
+                 + " && mv \"$_m\" \"{i}_${{_c}}_$_m\");"
+                 + " done < <(\"{ar}\" t \"$_EXECROOT/{path}\"))").format(
+                    i = i,
+                    ar = ar,
+                    path = lib.path,
+                ),
+            )
+        extract_cmds.append(
+            "\"{ar}\" crs \"{out}\" \"$D\"/*.o \"$D\"/*.obj 2>/dev/null || \"{ar}\" crs \"{out}\" \"$D\"/*.o".format(
+                ar = ar,
+                out = static_lib.path,
+            ),
+        )
+        extract_cmds.append("rm -rf \"$D\"")
         ctx.actions.run_shell(
             mnemonic = "CppLinkFatStaticLib",
             outputs = [static_lib],
-            inputs = [mri_script] + static_libs,
-            command = "{ar} -M < {mri_script}".format(ar = ar, mri_script = mri_script.path),
+            inputs = static_libs,
+            command = "\n".join(extract_cmds),
         )
 
     fat_lib = cc_common.create_library_to_link(

@@ -1,0 +1,730 @@
+module(
+    name = "daml-sdk",
+    version = "0.0.0",
+)
+
+bazel_dep(name = "bazel_jar_jar", version = "0.1.14")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = True)
+bazel_dep(name = "gazelle", version = "0.47.0")
+bazel_dep(name = "google_bazel_common", version = "0.0.1")
+bazel_dep(name = "grpc", version = "1.75.0")
+bazel_dep(name = "jq.bzl", version = "0.6.1")
+bazel_dep(name = "patchelf", version = "0.18.0.bcr.1")
+bazel_dep(name = "platforms", version = "0.0.10")
+bazel_dep(name = "pigz", version = "2.8.bcr.1")
+bazel_dep(name = "protobuf", version = "25.6")
+bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "rules_go", version = "0.59.0")
+bazel_dep(name = "rules_haskell", version = "0.18")
+bazel_dep(name = "rules_java", version = "9.5.0")
+bazel_dep(name = "rules_jvm_external", version = "6.10")
+bazel_dep(name = "rules_perl", version = "1.1.0")
+bazel_dep(name = "rules_pkg", version = "1.2.0")
+bazel_dep(name = "rules_proto", version = "6.0.0")
+bazel_dep(name = "rules_python", version = "1.4.1")
+# TODO: Verify if rules_scala can be upgraded past 7.1.2 (last version supporting scala 2.13.16)
+bazel_dep(name = "rules_scala", version = "7.1.2")
+bazel_dep(name = "rules_sh", version = "0.5.0")
+bazel_dep(name = "tar.bzl", version = "0.8.1")
+bazel_dep(name = "zlib", version = "1.3.1.bcr.8")
+
+# --- Node.js / JavaScript ---
+
+bazel_dep(name = "aspect_bazel_lib", version = "2.14.0")
+bazel_dep(name = "rules_nodejs", version = "6.7.3")
+bazel_dep(name = "aspect_rules_js", version = "2.6.2")
+bazel_dep(name = "aspect_rules_ts", version = "3.8.7")
+bazel_dep(name = "aspect_rules_jest", version = "0.24.3")
+
+# --- Toolchains ---
+
+bazel_lib_toolchains_ext = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
+use_repo(bazel_lib_toolchains_ext, "bsd_tar_toolchains")
+
+jq_toolchains_ext = use_extension("@jq.bzl//jq:extensions.bzl", "toolchains")
+use_repo(jq_toolchains_ext, "jq_toolchains")
+
+register_toolchains("@bsd_tar_toolchains//:all")
+register_toolchains("//:c2hs-toolchain")
+
+# --- Node.js toolchain ---
+
+node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node")
+node.toolchain(node_version = "18.12.1")
+use_repo(node, "nodejs_darwin_amd64", "nodejs_darwin_arm64", "nodejs_linux_amd64", "nodejs_toolchains")
+register_toolchains("@nodejs_toolchains//:all")
+
+# --- TypeScript compiler ---
+
+rules_ts_ext = use_extension("@aspect_rules_ts//ts:extensions.bzl", "ext")
+rules_ts_ext.deps(ts_version = "5.8.3")
+use_repo(rules_ts_ext, "npm_typescript")
+
+# --- npm dependencies (pnpm lockfile) ---
+
+npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm")
+npm.npm_translate_lock(
+    name = "language_support_js_deps",
+    npmrc = "//language-support/js:.npmrc",
+    pnpm_lock = "//language-support/js:pnpm-lock.yaml",
+)
+npm.npm_translate_lock(
+    name = "daml_extension_deps",
+    npmrc = "//compiler/daml-extension:.npmrc",
+    pnpm_lock = "//compiler/daml-extension:pnpm-lock.yaml",
+)
+use_repo(npm, "daml_extension_deps", "language_support_js_deps")
+
+# --- pnpm binary (for shell tests that invoke pnpm at test time) ---
+
+pnpm = use_extension("@aspect_rules_js//npm:extensions.bzl", "pnpm")
+pnpm.pnpm(
+    name = "pnpm",
+    pnpm_version = "9.15.4",
+)
+use_repo(pnpm, "pnpm")
+
+# --- Python toolchain ---
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.12")
+
+# --- Haskell toolchain and extensions ---
+
+haskell_toolchains_ext = use_extension(
+    "@rules_haskell//extensions:haskell_toolchains.bzl",
+    "haskell_toolchains",
+)
+haskell_toolchains_ext.bindists(version = "9.0.2")
+use_repo(
+    haskell_toolchains_ext,
+    "rules_haskell_ghc_darwin_amd64",
+    "rules_haskell_ghc_darwin_arm64",
+    "rules_haskell_ghc_linux_amd64",
+    "rules_haskell_ghc_linux_arm64",
+    "rules_haskell_ghc_windows_amd64",
+)
+
+da_ghc_ext = use_extension("//bazel/extensions:da_ghc_extension.bzl", "da_ghc")
+use_repo(da_ghc_ext, "da-ghc", "ghc-lib-gen")
+
+cabal_ext = use_extension("//bazel/extensions:cabal_extension.bzl", "cabal")
+use_repo(cabal_ext, "cabal")
+
+ghcide_lib_ext = use_extension("//bazel/extensions:ghcide_extension.bzl", "ghcide_lib")
+use_repo(ghcide_lib_ext, "ghcide_lib")
+
+lsp_types_ext = use_extension("//bazel/extensions:lsp_types_extension.bzl", "lsp_types")
+use_repo(lsp_types_ext, "lsp-types")
+
+zip_ext = use_extension("//bazel/extensions:zip_extension.bzl", "zip")
+use_repo(zip_ext, "zip")
+
+sysctl_ext = use_extension("//bazel/extensions:sysctl_extension.bzl", "sysctl_extension")
+use_repo(sysctl_ext, "sysctl")
+
+grpc_haskell_ext = use_extension("//bazel/extensions:grpc_haskell_extension.bzl", "grpc_haskell")
+use_repo(grpc_haskell_ext, "grpc_haskell", "grpc_haskell_core", "grpc_haskell_core_cbits")
+
+# --- Haskell packages (stack_snapshot) ---
+
+stack_snapshot_ext = use_extension(
+    "@rules_haskell//extensions:stack_snapshot.bzl",
+    "stack_snapshot",
+)
+use_repo(stack_snapshot_ext, "stackage", "stackage-exe")
+
+stack_snapshot_ext.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
+
+stack_snapshot_ext.package(
+    name = "lsp-types",
+    vendored = "@lsp-types//:lsp-types",
+)
+HASKELL_PACKAGES = [
+    # Core / GHC base
+    "array",
+    "base",
+    "binary",
+    "bytestring",
+    "containers",
+    "deepseq",
+    "directory",
+    "filepath",
+    "mtl",
+    "pretty",
+    "process",
+    "stm",
+    "text",
+    "time",
+    "transformers",
+    "unix",
+    "unix-compat",
+
+    # Data structures & utilities
+    "data-default",
+    "Decimal",
+    "Diff",
+    "dlist",
+    "either",
+    "extra",
+    "hashable",
+    "managed",
+    "mod",
+    "safe",
+    "safe-exceptions",
+    "scientific",
+    "semigroupoids",
+    "some",
+    "sorted-list",
+    "split",
+    "tagged",
+    "unordered-containers",
+    "validation",
+    "vector",
+
+    # Concurrency & IO
+    "async",
+    "monad-loops",
+    "resourcet",
+    "typed-process",
+    "unliftio",
+    "unliftio-core",
+
+    # Text processing & parsing
+    "ansi-terminal",
+    "ansi-wl-pprint",
+    "blaze-html",
+    "cmark-gfm",
+    "haskell-src-exts",
+    "megaparsec",
+    "parsec",
+    "parser-combinators",
+    "pcre-utils",
+    "prettyprinter",
+    "recursion-schemes",
+    "regex-tdfa",
+    "rope-utf16-splay",
+    "stache",
+    "syb",
+    "uniplate",
+    "utf8-string",
+
+    # Serialization & encoding
+    "aeson",
+    "aeson-pretty",
+    "base64",
+    "base64-bytestring",
+    "proto3-wire",
+    "xml",
+    "yaml",
+
+    # Networking, HTTP & security
+    "conduit",
+    "conduit-extra",
+    "cryptonite",
+    "exceptions",
+    "http-client",
+    "http-client-tls",
+    "http-conduit",
+    "http-types",
+    "jwt",
+    "memory",
+    "network",
+    "network-uri",
+    "open-browser",
+    "tar-conduit",
+    "tls",
+    "uri-encode",
+    "uuid",
+
+    # Filesystem & archives
+    "file-embed",
+    "filelock",
+    "filepattern",
+    "temporary",
+    "zip-archive",
+
+    # Optics & CLI
+    "lens",
+    "lens-aeson",
+    "optparse-applicative",
+    "repline",
+    "terminal-progress-bar",
+
+    # Compiler tooling, build & misc
+    "Cabal",
+    "clock",
+    "ghc-lib-parser-ex",
+    "gitrev",
+    "hlint",
+    "hslogger",
+    "lsp",
+    "lsp-test",
+    "random",
+    "random-shuffle",
+    "retry",
+    "semver",
+    "shake",
+    "template-haskell",
+
+    # Testing
+    "QuickCheck",
+    "silently",
+    "tasty",
+    "tasty-golden",
+    "tasty-hunit",
+    "tasty-quickcheck",
+]
+
+[stack_snapshot_ext.package(name = pkg) for pkg in HASKELL_PACKAGES]
+
+stack_snapshot_ext.package(
+    name = "attoparsec",
+    components = [
+        "lib:attoparsec",
+        "lib:attoparsec-internal",
+    ],
+    components_dependencies = {"lib:attoparsec": ["lib:attoparsec-internal"]},
+)
+stack_snapshot_ext.package(
+    name = "ghc-lib",
+    vendored = "//bazel/ghc-lib/ghc-lib",
+)
+stack_snapshot_ext.package(
+    name = "ghc-lib-parser",
+    vendored = "//bazel/ghc-lib/ghc-lib-parser",
+)
+stack_snapshot_ext.package(
+    name = "ghcide",
+    flags = ["ghc-lib"],
+    vendored = "@ghcide_lib//:ghcide",
+)
+stack_snapshot_ext.package(
+    name = "proto3-suite",
+    flags = ["-swagger"],
+    vendored = "@proto3-suite//:proto3-suite",
+)
+stack_snapshot_ext.package(
+    name = "zip",
+    vendored = "@zip//:zip",
+)
+stack_snapshot_ext.package(
+    name = "grpc-haskell-core",
+    vendored = "@grpc_haskell_core//:grpc-haskell-core",
+)
+stack_snapshot_ext.package(
+    name = "grpc-haskell",
+    vendored = "@grpc_haskell//:grpc-haskell",
+)
+stack_snapshot_ext.package(
+    name = "c2hs",
+    components = ["exe"],
+)
+stack_snapshot_ext.package(
+    name = "happy",
+    components = ["exe"],
+)
+stack_snapshot_ext.package(
+    name = "alex",
+    components = ["exe"],
+)
+stack_snapshot_ext.package(
+    name = "hpp",
+    components = [
+        "lib",
+        "exe",
+    ],
+)
+
+# --- Scala configuration ---
+
+scala_config_ext = use_extension(
+    "@rules_scala//scala/extensions:config.bzl",
+    "scala_config",
+)
+scala_config_ext.settings(scala_version = "2.13.16")
+use_repo(scala_config_ext, "rules_scala_config")
+
+scala_deps_ext = use_extension(
+    "@rules_scala//scala/extensions:deps.bzl",
+    "scala_deps",
+)
+scala_deps_ext.scala()
+scala_deps_ext.scalatest()
+use_repo(
+    scala_deps_ext,
+    "io_bazel_rules_scala_scala_compiler",
+    "io_bazel_rules_scala_scala_library",
+    "io_bazel_rules_scala_scala_reflect",
+    "io_bazel_rules_scala_scala_parser_combinators",
+)
+
+# --- Maven version constants ---
+
+CANTON_VERSION = "3.6.0-snapshot.20260416.18715.0.ve90ac7e8"
+AUTH0_JWT_VERSION = "4.2.1"
+SHAPELESS_VERSION = "2.4.0-M1"
+SCOPT_VERSION = "4.1.0"
+SCALA_LOGGING_VERSION = "3.9.5"
+PROTO_GOOGLE_COMMON_PROTOS_VERSION = "2.59.2"
+JSR305_VERSION = "3.0.2"
+GSON_VERSION = "2.11.0"
+GUAVA_VERSION = "33.3.0-jre"
+PROTOBUF_JAVA_VERSION = "3.25.5"
+GRPC_JAVA_MAVEN_VERSION = "1.77.0"
+OJDBC_VERSION = "19.18.0.0"
+SPARK_CORE_VERSION = "2.9.4"
+JAVAPOET_VERSION = "1.13.0"
+SCALAPB_COMMON_PROTOS_VERSION = "2.9.6-0"
+SCALAPB_VERSION = "0.11.14"
+SCALAPB_PROTOC_VERSION = "0.9.5"
+CIRCE_CORE_VERSION = "0.14.5"
+CIRCE_OPTICS_VERSION = "0.15.0"
+CIRCE_YAML_VERSION = "0.15.0-RC1"
+RXJAVA_VERSION = "2.2.21"
+SPRAY_JSON_VERSION = "1.3.6"
+JAVAX_ANNOTATION_VERSION = "1.3.2"
+LOGBACK_VERSION = "1.5.3"
+SLF4J_VERSION = "2.0.17"
+MONOCLE_VERSION = "3.2.0"
+PEKKO_VERSION = "1.2.1"
+JUNIT_JUPITER_VERSION = "5.9.2"
+JUNIT_PLATFORM_VERSION = "1.9.2"
+SCALACHECK_VERSION = "1.15.4"
+SCALATEST_VERSION = "3.2.19"
+SCALATESTPLUS_VERSION = "3.2.11.0"
+SCALAZ_VERSION = "7.2.33"
+CATS_VERSION = "2.9.0"
+PAIGES_VERSION = "0.4.2"
+DOOBIE_VERSION = "0.13.4"
+KIND_PROJECTOR_VERSION = "0.13.3"
+WARTREMOVER_VERSION = "3.2.5"
+JLINE_VERSION = "3.27.1"
+
+# --- Maven / JVM dependencies ---
+
+maven_ext = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven_ext.install(
+    artifacts = [
+        # com.daml / canton
+        "com.daml:base-errors_2.13:" + CANTON_VERSION,
+        "com.daml:bindings-java:" + CANTON_VERSION,
+        "com.daml:community-admin-api_2.13:" + CANTON_VERSION,
+        "com.daml:community-base_2.13:" + CANTON_VERSION,
+        "com.daml:contextualized-logging_2.13:" + CANTON_VERSION,
+        "com.daml:crypto_2.13:" + CANTON_VERSION,
+        "com.daml:daml-grpc-utils_2.13:" + CANTON_VERSION,
+        "com.daml:daml-jwt_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-api-type-signature_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-archive_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-archive-encoder_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-data_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-encoder_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-engine_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-ide-ledger_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-interpreter_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-language_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-parser_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-stable-packages_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-transaction_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-validation_2.13:" + CANTON_VERSION,
+        "com.daml:daml-resources_2.13:" + CANTON_VERSION,
+        "com.daml:daml-tls_2.13:" + CANTON_VERSION,
+        "com.daml:ledger-api-core_2.13:" + CANTON_VERSION,
+        "com.daml:ledger-api-proto:" + CANTON_VERSION,
+        "com.daml:ledger-api-scala_2.13:" + CANTON_VERSION,
+        "com.daml:ledger-api-value_2.13:" + CANTON_VERSION,
+        "com.daml:ledger-resources_2.13:" + CANTON_VERSION,
+        "com.daml:logging-entries_2.13:" + CANTON_VERSION,
+        "com.daml:magnolify-addon_2.13:" + CANTON_VERSION,
+        "com.daml:nonempty_2.13:" + CANTON_VERSION,
+        "com.daml:observability-metrics_2.13:" + CANTON_VERSION,
+        "com.daml:ports_2.13:" + CANTON_VERSION,
+        "com.daml:rs-grpc-bridge_2.13:" + CANTON_VERSION,
+        "com.daml:rs-grpc-pekko_2.13:" + CANTON_VERSION,
+        "com.daml:scala-utils_2.13:" + CANTON_VERSION,
+        "com.daml:timer-utils_2.13:" + CANTON_VERSION,
+        "com.daml:util-observability_2.13:" + CANTON_VERSION,
+        "com.digitalasset.canton:testing-utils_2.13:" + CANTON_VERSION,
+
+        # auth
+        "com.auth0:java-jwt:" + AUTH0_JWT_VERSION,
+
+        # Scala extras
+        "com.chuusai:shapeless_2.13:" + SHAPELESS_VERSION,
+        "com.github.scopt:scopt_2.13:" + SCOPT_VERSION,
+        "com.typesafe.scala-logging:scala-logging_2.13:" + SCALA_LOGGING_VERSION,
+
+        # Google
+        "com.google.api.grpc:proto-google-common-protos:" + PROTO_GOOGLE_COMMON_PROTOS_VERSION,
+        "com.google.code.findbugs:jsr305:" + JSR305_VERSION,
+        "com.google.code.gson:gson:" + GSON_VERSION,
+        "com.google.guava:guava:" + GUAVA_VERSION,
+        "com.google.protobuf:protobuf-java:" + PROTOBUF_JAVA_VERSION,
+
+        # gRPC Java
+        "io.grpc:grpc-api:" + GRPC_JAVA_MAVEN_VERSION,
+        "io.grpc:grpc-core:" + GRPC_JAVA_MAVEN_VERSION,
+        "io.grpc:grpc-netty-shaded:" + GRPC_JAVA_MAVEN_VERSION,
+        "io.grpc:grpc-protobuf:" + GRPC_JAVA_MAVEN_VERSION,
+        "io.grpc:grpc-stub:" + GRPC_JAVA_MAVEN_VERSION,
+
+        # IO_GRPC_GRPC_JAVA_ARTIFACTS: artifacts declared by the grpc-java BCR module
+        # (@@grpc-java~).  That module is a transitive dep via googleapis~ → grpc~, and its
+        # BUILD files reference these via artifact() which resolves against our shared @maven.
+        # We must therefore declare them here even though we don't use them directly.
+        # Versions match grpc-java 1.66.0 (IO_GRPC_GRPC_JAVA_ARTIFACTS).
+        "com.google.android:annotations:4.1.1.4",
+        "com.google.api.grpc:proto-google-common-protos:2.29.0",
+        "com.google.auth:google-auth-library-credentials:1.23.0",
+        "com.google.auth:google-auth-library-oauth2-http:1.23.0",
+        "com.google.auto.value:auto-value-annotations:1.11.0",
+        "com.google.auto.value:auto-value:1.11.0",
+        "com.google.j2objc:j2objc-annotations:3.0.0",
+        "com.google.re2j:re2j:1.7",
+        "com.google.truth:truth:1.4.2",
+        "com.squareup.okhttp:okhttp:2.7.5",
+        "com.squareup.okio:okio:2.10.0",
+        "io.netty:netty-codec-socks:4.1.100.Final",
+        "io.netty:netty-handler-proxy:4.1.100.Final",
+        "io.netty:netty-transport-native-epoll:jar:linux-x86_64:4.1.100.Final",
+        "io.netty:netty-tcnative-boringssl-static:2.0.61.Final",
+        "io.netty:netty-tcnative-classes:2.0.61.Final",
+        "io.opencensus:opencensus-api:0.31.0",
+        "io.opencensus:opencensus-contrib-grpc-metrics:0.31.0",
+        "io.perfmark:perfmark-api:0.27.0",
+        "org.apache.tomcat:annotations-api:6.0.53",
+        "org.codehaus.mojo:animal-sniffer-annotations:1.24",
+
+        # build tools
+        "com.oracle.database.jdbc:ojdbc8:" + OJDBC_VERSION,
+        "com.sparkjava:spark-core:" + SPARK_CORE_VERSION,
+        "com.squareup:javapoet:" + JAVAPOET_VERSION,
+
+        # ScalaPB
+        "com.thesamet.scalapb.common-protos:proto-google-common-protos-scalapb_0.11_2.13:" + SCALAPB_COMMON_PROTOS_VERSION,
+        "com.thesamet.scalapb:compilerplugin_2.13:" + SCALAPB_VERSION,
+        "com.thesamet.scalapb:lenses_2.13:" + SCALAPB_VERSION,
+        "com.thesamet.scalapb:protoc-bridge_2.13:" + SCALAPB_PROTOC_VERSION,
+        "com.thesamet.scalapb:protoc-gen_2.13:" + SCALAPB_PROTOC_VERSION,
+        "com.thesamet.scalapb:scalapb-runtime_2.13:" + SCALAPB_VERSION,
+        "com.thesamet.scalapb:scalapb-runtime-grpc_2.13:" + SCALAPB_VERSION,
+
+        # Circe
+        "io.circe:circe-core_2.13:" + CIRCE_CORE_VERSION,
+        "io.circe:circe-optics_2.13:" + CIRCE_OPTICS_VERSION,
+        "io.circe:circe-yaml_2.13:" + CIRCE_YAML_VERSION,
+        "io.circe:circe-yaml-common_2.13:" + CIRCE_YAML_VERSION,
+
+        # RxJava
+        "io.reactivex.rxjava2:rxjava:" + RXJAVA_VERSION,
+
+        # Spray
+        "io.spray:spray-json_2.13:" + SPRAY_JSON_VERSION,
+
+        # javax
+        "javax.annotation:javax.annotation-api:" + JAVAX_ANNOTATION_VERSION,
+
+        # Logging
+        "ch.qos.logback:logback-classic:" + LOGBACK_VERSION,
+        "ch.qos.logback:logback-core:" + LOGBACK_VERSION,
+        "org.slf4j:slf4j-api:" + SLF4J_VERSION,
+
+        # Optics
+        "dev.optics:monocle-core_2.13:" + MONOCLE_VERSION,
+
+        # Pekko
+        "org.apache.pekko:pekko-actor_2.13:" + PEKKO_VERSION,
+        "org.apache.pekko:pekko-slf4j_2.13:" + PEKKO_VERSION,
+        "org.apache.pekko:pekko-stream_2.13:" + PEKKO_VERSION,
+
+        # JUnit
+        "org.junit.jupiter:junit-jupiter-api:" + JUNIT_JUPITER_VERSION,
+        "org.junit.jupiter:junit-jupiter-engine:" + JUNIT_JUPITER_VERSION,
+        "org.junit.platform:junit-platform-commons:" + JUNIT_PLATFORM_VERSION,
+        "org.junit.platform:junit-platform-runner:" + JUNIT_PLATFORM_VERSION,
+
+        # Scala test
+        "org.scalacheck:scalacheck_2.13:" + SCALACHECK_VERSION,
+        "org.scalactic:scalactic_2.13:" + SCALATEST_VERSION,
+        "org.scalatest:scalatest_2.13:" + SCALATEST_VERSION,
+        "org.scalatest:scalatest-compatible:" + SCALATEST_VERSION,
+        "org.scalatest:scalatest-core_2.13:" + SCALATEST_VERSION,
+        "org.scalatest:scalatest-flatspec_2.13:" + SCALATEST_VERSION,
+        "org.scalatest:scalatest-matchers-core_2.13:" + SCALATEST_VERSION,
+        "org.scalatest:scalatest-shouldmatchers_2.13:" + SCALATEST_VERSION,
+        "org.scalatest:scalatest-wordspec_2.13:" + SCALATEST_VERSION,
+        "org.scalatestplus:scalacheck-1-15_2.13:" + SCALATESTPLUS_VERSION,
+
+        # Scalaz
+        "org.scalaz:scalaz-core_2.13:" + SCALAZ_VERSION,
+        "org.scalaz:scalaz-scalacheck-binding_2.13:" + SCALAZ_VERSION + "-scalacheck-1.15",
+
+        # Typelevel
+        "org.typelevel:cats-core_2.13:" + CATS_VERSION,
+        "org.typelevel:cats-kernel_2.13:" + CATS_VERSION,
+        "org.typelevel:paiges-core_2.13:" + PAIGES_VERSION,
+
+        # Database
+        "org.tpolecat:doobie-postgres_2.13:" + DOOBIE_VERSION,
+
+        # Code quality
+        "org.typelevel:kind-projector_2.13.16:" + KIND_PROJECTOR_VERSION,
+        "org.wartremover:wartremover_2.13.16:" + WARTREMOVER_VERSION,
+        "org.jline:jline:" + JLINE_VERSION,
+    ],
+    fetch_sources = True,
+    known_contributing_modules = [
+        "bazel_jar_jar",
+        "bazel_worker_java",
+        "grpc-java",
+        "protobuf",
+    ],
+    repositories = [
+        "https://repo1.maven.org/maven2",
+        "https://europe-maven.pkg.dev/da-images/public-maven-unstable",
+    ],
+)
+# Counter-overrides for io.grpc:* coordinates.
+# The grpc-java BCR module (@@grpc-java~), which is a transitive dep via
+# googleapis~ → grpc~, provides maven.override() calls that redirect all
+# io.grpc:* Maven coordinates to its own source-built Bazel targets.
+# Those source builds have unresolved dependencies in our setup (e.g.
+# @@googleapis~//google/rpc:rpc_java_proto).  The root module's overrides
+# take precedence, so we redirect each coordinate back to the pre-override
+# Maven JAR that rules_jvm_external stores as original_<label>.
+maven_ext.override(
+    coordinates = "io.grpc:grpc-alts",
+    target = "@maven//:original_io_grpc_grpc_alts",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-api",
+    target = "@maven//:original_io_grpc_grpc_api",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-auth",
+    target = "@maven//:original_io_grpc_grpc_auth",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-context",
+    target = "@maven//:original_io_grpc_grpc_context",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-core",
+    target = "@maven//:original_io_grpc_grpc_core",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-googleapis",
+    target = "@maven//:original_io_grpc_grpc_googleapis",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-grpclb",
+    target = "@maven//:original_io_grpc_grpc_grpclb",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-inprocess",
+    target = "@maven//:original_io_grpc_grpc_inprocess",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-netty-shaded",
+    target = "@maven//:original_io_grpc_grpc_netty_shaded",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-protobuf",
+    target = "@maven//:original_io_grpc_grpc_protobuf",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-protobuf-lite",
+    target = "@maven//:original_io_grpc_grpc_protobuf_lite",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-services",
+    target = "@maven//:original_io_grpc_grpc_services",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-stub",
+    target = "@maven//:original_io_grpc_grpc_stub",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-util",
+    target = "@maven//:original_io_grpc_grpc_util",
+)
+maven_ext.override(
+    coordinates = "io.grpc:grpc-xds",
+    target = "@maven//:original_io_grpc_grpc_xds",
+)
+maven_ext.override(
+    coordinates = "org.scala-lang:scala-compiler",
+    target = "@io_bazel_rules_scala_scala_compiler//:io_bazel_rules_scala_scala_compiler",
+)
+maven_ext.override(
+    coordinates = "org.scala-lang:scala-library",
+    target = "@io_bazel_rules_scala_scala_library//:io_bazel_rules_scala_scala_library",
+)
+maven_ext.override(
+    coordinates = "org.scala-lang:scala-reflect",
+    target = "@io_bazel_rules_scala_scala_reflect//:io_bazel_rules_scala_scala_reflect",
+)
+maven_ext.override(
+    coordinates = "org.scala-lang.modules:scala-parser-combinators",
+    target = "@io_bazel_rules_scala_scala_parser_combinators//:io_bazel_rules_scala_scala_parser_combinators",
+)
+use_repo(maven_ext, "maven")
+
+# --- Project-specific extensions ---
+
+# Workspace configuration: bundles build_environment (SDK version from env),
+# os_info (platform detection), scala_version (Scala version from env),
+# and daml_versions_data (LF version data from JSON).
+# TODO: Split into per-concern extensions.
+workspace_config_ext = use_extension("//bazel/extensions:daml_workspace_config_extension.bzl", "daml_workspace_config")
+use_repo(workspace_config_ext, "build_environment", "daml_versions_data", "os_info", "scala_version")
+
+dpm_ext = use_extension("//bazel/extensions:dpm_extension.bzl", "dpm_extension")
+use_repo(dpm_ext, "dpm_binary")
+
+d3plus_ext = use_extension("//bazel/extensions:d3plus_extension.bzl", "d3plus_extension")
+use_repo(d3plus_ext, "static_asset_d3plus")
+
+googleapis_ext = use_extension("//bazel/extensions:go_googleapis_extension.bzl", "googleapis_extension")
+use_repo(googleapis_ext, "go_googleapis")
+
+import_googleapis_ext = use_extension("//bazel/extensions:go_googleapis_import_extension.bzl", "import_googleapis_extension")
+use_repo(import_googleapis_ext, "com_google_googleapis_imports")
+
+proto3_suite_ext = use_extension("//bazel/extensions:proto3_suite_extension.bzl", "proto3_suite_extension")
+use_repo(proto3_suite_ext, "proto3-suite")
+
+scalapb_ext = use_extension("//bazel/extensions:scalapb_extension.bzl", "scalapb_extension")
+use_repo(scalapb_ext, "scalapb")
+
+remote_apis_ext = use_extension("//bazel/extensions:remote_apis_extension.bzl", "remote_apis_extension")
+use_repo(remote_apis_ext, "com_github_bazelbuild_remote_apis")
+
+# Prebuilt protoc 25.5 for Java/Scala codegen (proto_gen rule).
+# Must stay aligned with Maven's protobuf-java version (currently 3.25.5).
+# The BCR protobuf module resolves to 32.x via MVS, whose protoc would generate
+# stubs incompatible with protobuf-java 3.x, so we use this pinned binary instead.
+protoc_ext = use_extension("//bazel/extensions:protoc_extension.bzl", "protoc_extension")
+use_repo(protoc_ext, "protoc_bindist")
+
+# --- Deprecated (pending removal) ---
+# io_grpc_grpc_java: legacy gRPC Java codegen; to be replaced by rules_proto + protobuf bazel_dep.
+# TODO: Remove once all targets have migrated to the new protobuf/gRPC setup.
+
+io_grpc_grpc_java_ext = use_extension("//bazel/extensions:io_grpc_grpc_java_extension.bzl", "io_grpc_grpc_java_extension")
+use_repo(io_grpc_grpc_java_ext, "io_grpc_grpc_java")
+
+# --- Native libraries ---
+
+ncurses_ext = use_extension("//bazel/extensions:ncurses_extension.bzl", "ncurses")
+use_repo(ncurses_ext, "ncurses")
+
+m4_ext = use_extension("//bazel/extensions:m4_extension.bzl", "m4")
+use_repo(m4_ext, "m4")
+
+autoconf_ext = use_extension("//bazel/extensions:autoconf_extension.bzl", "autoconf")
+use_repo(autoconf_ext, "autoconf")
+automake_ext = use_extension("//bazel/extensions:automake_extension.bzl", "automake")
+use_repo(automake_ext, "automake")
