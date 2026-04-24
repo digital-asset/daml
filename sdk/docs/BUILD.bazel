@@ -12,6 +12,8 @@ load(
     "//daml-lf:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
     "DEV_LF_VERSION",
+    "LATEST_STABLE_LF_VERSION",
+    "STAGING_LF_VERSION",
 )
 
 genrule(
