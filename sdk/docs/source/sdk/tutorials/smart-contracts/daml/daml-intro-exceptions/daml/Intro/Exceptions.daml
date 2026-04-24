@@ -8,6 +8,10 @@ import DA.Action
 import Daml.Script
 import DA.Exception
 import DA.Assert ((===))
+import DA.Text (isInfixOf)
+
+transferLimit : Decimal
+transferLimit = 50.0
 
 -- IOU_BEGIN
 template Iou
@@ -37,6 +41,11 @@ template Account with
       do create this with amount = amount - transferredAmount
          create Iou with issuer = issuer, owner = newOwner, amount = transferredAmount
          pure ()
+
+    nonconsuming choice FundsAvailable : Bool with
+        amountToTransfer : Decimal
+      controller owner
+      do pure (amount > amountToTransfer)
 -- ACCOUNT_END
 
 -- TRANSFER_LIMITED_BEGIN
@@ -44,14 +53,18 @@ template Account with
         newOwner : Party
         transferredAmount : Decimal
       controller owner, newOwner
-      do let limit = 50.0
-         when (transferredAmount > limit) $
+      do when (transferredAmount > transferLimit) $
            throw TransferLimitExceeded with
-             limit = limit
+             limit = transferLimit
              attempted = transferredAmount
          create this with amount = amount - transferredAmount
          create Iou with issuer = issuer, owner = newOwner, amount = transferredAmount
          pure ()
+
+    nonconsuming choice LimitExceeded : Bool with
+        value : Decimal
+      controller owner
+      do pure (transferLimit < value)
 -- TRANSFER_LIMITED_END
 
 -- SHOP_BEGIN
@@ -87,15 +100,16 @@ template Shop
            with
              shopOwner = owner
              shopper = shopper
-         try do
+         fundsAvailable <- exerciseByKey @Account (bank, shopper) (FundsAvailable price)
+         if fundsAvailable then do
            exerciseByKey @Account (bank, shopper) (Transfer owner price)
-         catch
-           PreconditionFailed _ -> do
-             create Iou with
-               issuer = shopper
-               owner = owner
-               amount = price
-             pure ()
+           pure ()
+         else do
+           create Iou with
+             issuer = shopper
+             owner = owner
+             amount = price
+           pure ()
          pure cid
 -- ORDER_TRUSTED_END
 
@@ -104,17 +118,19 @@ template Shop
       with
         shopper : Party
       controller shopper
-      do try do
-           exerciseByKey @Account (bank, shopper) (TransferLimited owner price)
+      do limitExceeded <- exerciseByKey @Account (bank, shopper) (LimitExceeded price)
+         if limitExceeded then do
+           create Iou with
+             issuer = shopper
+             owner = owner
+             amount = price
            pure ()
-         catch
-           PreconditionFailed _ -> do
-             create Iou with
-               issuer = shopper
-               owner = owner
-               amount = price
+         else do
+           fundsAvailable <- exerciseByKey @Account (bank, shopper) (FundsAvailable price)
+           if fundsAvailable then do
+             exerciseByKey @Account (bank, shopper) (TransferLimited owner price)
              pure ()
-           TransferLimitExceeded _ _ -> do
+           else do
              create Iou with
                issuer = shopper
                owner = owner
@@ -180,36 +196,13 @@ test2 = script do
       owner = alice
       amount = 1000.0
 
-  submitMulti [alice, shopOwner] [] $
-    createAndExerciseCmd
-      (TestThrewTransferLimitExceeded with
-        owner = alice
-        newOwner = shopOwner)
-      (TestThrewTransferLimitExceededChoice with
-        accountId = aliceAccountId)
-
--- We define this through a helper contract so the `try-catch` happens entirely
--- ledger-side.
-template TestThrewTransferLimitExceeded
-  with
-    owner : Party
-    newOwner : Party
-  where
-    signatory owner, newOwner
-    choice TestThrewTransferLimitExceededChoice : ()
-      with accountId : ContractId Account
-      controller owner, newOwner
-      do
-        threwTransferLimitExceeded <- do
-          try do
-            -- this must throw since `limit` is hardcoded to `50.0`
-            -- in `TransferLimited`
-            exercise accountId (TransferLimited newOwner 100.0)
-            pure False
-          catch
-            TransferLimitExceeded _ _ -> pure True
-        unless threwTransferLimitExceeded $
-          error "expected TransferLimitExceeded exception"
+  -- this must throw since `limit` is hardcoded to the value of `transferLimit` in `TransferLimited`
+  result <- trySubmitMulti [alice, shopOwner] [] $
+    exerciseCmd aliceAccountId (TransferLimited shopOwner (transferLimit * 2.0))
+  case result of
+    Left (FailureStatusError fsError) | "TransferLimitExceeded" `isInfixOf` fsError.errorId -> do
+      pure ()
+    _ -> assertFail $ "expected TransferLimitExceeded exception but got " <> show result
 
 -- CUSTOM_EXCEPTION_BEGIN
 exception TransferLimitExceeded
