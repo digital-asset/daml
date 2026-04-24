@@ -96,7 +96,6 @@ genrule(
     """.format(sdk_version = sdk_version),
     tools = [
         "//bazel_tools/sh:mktgz",
-        "@patch_dev_env//:patch",
     ],
     visibility = ["//visibility:public"],
 )
