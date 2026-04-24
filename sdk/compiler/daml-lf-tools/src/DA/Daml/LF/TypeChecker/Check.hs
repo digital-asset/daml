@@ -665,7 +665,7 @@ typeOfUpdate = \case
     return (keyType :-> TUpdate (TOptional cidType))
   ULookupNByKey retrieveByKey -> do
     (keyType, cidType, contractType) <- checkRetrieveByKey retrieveByKey
-    return (TInt64 :-> keyType :-> TUpdate (TList (TTuple2 cidType contractType)))
+    return (TInt64 :-> keyType :-> TUpdate (TOptional (TList (TTuple2 cidType contractType))))
   UTryCatch typ expr var handler -> do
     checkType typ KStar
     checkExpr expr (TUpdate typ)

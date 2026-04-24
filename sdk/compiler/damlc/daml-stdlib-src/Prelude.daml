@@ -18,7 +18,11 @@ import DA.Internal.LF as X hiding
 -- but we can hide them.
 import DA.Internal.Any as X hiding (AnyContractKey (..))
 import DA.Internal.Template as X
+#ifdef DAML_NUCK
+import DA.Internal.Template.Functions as X hiding (_lookupNByKey, lookupNByKey, lookupAllByKey)
+#else
 import DA.Internal.Template.Functions as X hiding (_lookupNByKey)
+#endif
 import DA.Internal.Compatible as X
 import DA.Internal.Assert as X
 import DA.Internal.Interface as X
