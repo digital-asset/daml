@@ -266,7 +266,6 @@ HASKELL_PACKAGES = [
     "fast-logger",
     "ghc-lib-parser-ex",
     "gitrev",
-    "hlint",
     "hslogger",
     "lsp",
     "lsp-test",
@@ -339,6 +338,10 @@ stack_snapshot_ext.package(
 stack_snapshot_ext.package(
     name = "alex",
     components = ["exe"],
+)
+stack_snapshot_ext.package(
+    name = "hlint",
+    components = ["lib", "exe"],
 )
 stack_snapshot_ext.package(
     name = "hpp",
