@@ -1,0 +1,356 @@
+{
+  "featureFetchBykey" : {
+    "name" : "Fetch by key",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Staging" : {
+            "version" : 3,
+            "revision" : 1
+          }
+        }
+      }
+    }
+  },
+  "featureChoiceFuncs" : {
+    "name" : "choiceController and choiceObserver functions",
+    "versionRange" : {
+      "type" : "Empty"
+    }
+  },
+  "featureNUCK" : {
+    "name" : "Non-unique contract keys",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Staging" : {
+            "version" : 3,
+            "revision" : 1
+          }
+        }
+      }
+    }
+  },
+  "featureExtendedCryptoPrimitives" : {
+    "name" : "Extended crypto primitives",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Staging" : {
+            "version" : 3,
+            "revision" : 1
+          }
+        }
+      }
+    }
+  },
+  "featureUCKBuiltins" : {
+    "name" : "Old style (UCK) key builtins (fetchByKey, exerciseByKey (UCK semantics), lookupByKey (UCK semantics), ...)",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      }
+    }
+  },
+  "featureContractKeys" : {
+    "name" : "Contract Keys",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Staging" : {
+            "version" : 3,
+            "revision" : 1
+          }
+        }
+      }
+    }
+  },
+  "featureExtendedInterfaces" : {
+    "name" : "Guards in interfaces",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      }
+    }
+  },
+  "featureExerciseBykey" : {
+    "name" : "Exercise by key",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Staging" : {
+            "version" : 3,
+            "revision" : 1
+          }
+        }
+      }
+    }
+  },
+  "featurePackageUpgrades" : {
+    "name" : "Package upgrades",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 1
+          }
+        }
+      }
+    }
+  },
+  "featureExperimental" : {
+    "name" : "Daml Experimental",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      }
+    }
+  },
+  "featureTemplateTypeRepToText" : {
+    "name" : "templateTypeRepToText function",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      }
+    }
+  },
+  "featureExceptions" : {
+    "name" : "Daml Exceptions",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 1
+          }
+        }
+      }
+    }
+  },
+  "featureComplexAnyType" : {
+    "name" : "Complex Any type",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      }
+    }
+  },
+  "featureTextMap" : {
+    "name" : "TextMap type",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      }
+    }
+  },
+  "featureUnsafeFromInterface" : {
+    "name" : "UnsafeFromInterface builtin",
+    "versionRange" : {
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 1
+          }
+        }
+      }
+    }
+  },
+  "featureLookupBykey" : {
+    "name" : "Lookup by key",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      }
+    }
+  },
+  "featureBigNumeric" : {
+    "name" : "BigNumeric type",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      }
+    }
+  },
+  "featureUnstable" : {
+    "name" : "Unstable, experimental features",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      }
+    }
+  },
+  "featurePackageImports" : {
+    "name" : "Explicit package imports",
+    "cppFlag" : "DAML_PackageImports",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 2
+          }
+        }
+      }
+    }
+  },
+  "featureFlatArchive" : {
+    "name" : "Flat Archive",
+    "cppFlag" : "DAML_FLATARCHIVE",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 2
+          }
+        }
+      }
+    }
+  },
+  "featureChoiceAuthority" : {
+    "name" : "Choice Authorizers",
+    "cppFlag" : "DAML_ChoiceAuthority",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+
+          }
+        }
+      }
+    }
+  }
+}
