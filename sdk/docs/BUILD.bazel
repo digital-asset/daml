@@ -426,7 +426,11 @@ daml_test(
         enable_interfaces = True,
         target = version,
     )
-    for version in [LATEST_STABLE_LF_VERSION, STAGING_LF_VERSION, DEV_LF_VERSION]
+    for version in [
+        LATEST_STABLE_LF_VERSION,
+        STAGING_LF_VERSION,
+        DEV_LF_VERSION,
+    ]
 ]
 
 daml_test(
