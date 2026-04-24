@@ -185,8 +185,12 @@ HASKELL_PACKAGES = [
 
     # Concurrency & IO
     "async",
+    "lifted-async",
+    "lifted-base",
     "monad-loops",
     "resourcet",
+    "stm-chans",
+    "stm-conduit",
     "typed-process",
     "unliftio",
     "unliftio-core",
@@ -217,11 +221,13 @@ HASKELL_PACKAGES = [
     "base64-bytestring",
     "proto3-wire",
     "xml",
+    "xml-conduit",
     "yaml",
 
     # Networking, HTTP & security
     "conduit",
     "conduit-extra",
+    "cryptohash",
     "cryptonite",
     "exceptions",
     "http-client",
@@ -242,6 +248,8 @@ HASKELL_PACKAGES = [
     "file-embed",
     "filelock",
     "filepattern",
+    "path",
+    "path-io",
     "temporary",
     "zip-archive",
 
@@ -255,12 +263,14 @@ HASKELL_PACKAGES = [
     # Compiler tooling, build & misc
     "Cabal",
     "clock",
+    "fast-logger",
     "ghc-lib-parser-ex",
     "gitrev",
     "hlint",
     "hslogger",
     "lsp",
     "lsp-test",
+    "monad-logger",
     "random",
     "random-shuffle",
     "retry",
@@ -269,6 +279,7 @@ HASKELL_PACKAGES = [
     "template-haskell",
 
     # Testing
+    "main-tester",
     "QuickCheck",
     "silently",
     "tasty",
