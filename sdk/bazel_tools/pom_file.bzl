@@ -76,6 +76,9 @@ def _collect_maven_info_impl(_target, ctx):
             "io_bazel_rules_scala_scalatest": "org.scalatest:scalatest_{}".format(scala_major_version),
         }
         workspace = jar.label.workspace_name
+        # Strip bzlmod module extension canonical prefix (e.g. "rules_scala~~scala_deps~")
+        if "~" in workspace:
+            workspace = workspace.rsplit("~", 1)[-1]
         if workspace.endswith("_" + scala_version_suffix):
             workspace = workspace[:-len(scala_version_suffix) - 1]
         if workspace in replacements:
@@ -83,11 +86,6 @@ def _collect_maven_info_impl(_target, ctx):
                 maven_coordinates = "{}:{}".format(replacements[workspace], jar_version(jar.label.name)),
                 maven_dependencies = [],
             )]
-
-        if MavenInfo not in jar:
-            fail("Expected maven info for jar dependency: {}".format(jar.label))
-
-        return [jar[MavenInfo]]
     elif ctx.rule.kind == "scala_library":
         # For builtin libraries defined in the replacements section in dependencies.yaml.
         if len(exports) == 1:
