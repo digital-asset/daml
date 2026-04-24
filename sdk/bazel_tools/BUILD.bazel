@@ -2,9 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
-load("@os_info//:os_info.bzl", "is_windows")
-load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
 
 copy_file(
     name = "jq",
@@ -31,67 +28,12 @@ exports_files(
     visibility = ["//:__subpackages__"],
 )
 
-sh_inline_test(
-    name = "scala_version_test",
-    cmd = """
-set -eu
 
-function check {{
-  if [[ '{expected_version}' == "$$2" ]]; then
-    echo >&2 "$$1 was version {expected_version}, as expected."
-    return 0
-  else
-    echo >&2 "Expected $$1 to have the version {expected_version}, but got the version $$2."
-    return 1
-  fi
-}}
-
-JQ="$$(canonicalize_rlocation $(rootpath {jq}))"
-
-SCALA_BIN="$$(canonicalize_rlocation $(rootpath {scala_bin}))"
-SCALA_BIN_VERSION="$$($$SCALA_BIN -version |& sed -r 's/^Scala code runner version ([^ ]+) -- .*$$/\\1/')"
-
-function jar_version {{
-  echo "$$(basename "$$1")" | sed -r 's/^.*-([0-9\\.]+)\\.jar$$/\\1/'
-}}
-
-SCALA_COMPILER_JAR_VERSION="$$(jar_version $(rootpath {scala_compiler}))"
-SCALA_LIBRARY_JAR_VERSION="$$(jar_version $(rootpath {scala_library}))"
-SCALA_REFLECT_JAR_VERSION="$$(jar_version $(rootpath {scala_reflect}))"
-
-function maven_version {{
-    $$JQ -r --arg name "$$1" '.artifacts[$$name].version' '$(rootpath {maven_install_json})'
-}}
-
-SCALA_COMPILER_MAVEN_VERSION="$$(maven_version 'org.scala-lang:scala-compiler')"
-SCALA_LIBRARY_MAVEN_VERSION="$$(maven_version 'org.scala-lang:scala-library')"
-SCALA_REFLECT_MAVEN_VERSION="$$(maven_version 'org.scala-lang:scala-reflect')"
-
-check 'scala binary' "$$SCALA_BIN_VERSION"
-check '$(rootpath {scala_compiler})' "$$SCALA_COMPILER_JAR_VERSION"
-check '$(rootpath {scala_library})' "$$SCALA_LIBRARY_JAR_VERSION"
-check '$(rootpath {scala_reflect})' "$$SCALA_REFLECT_JAR_VERSION"
-check 'org.scala-lang:scala-compiler (in {maven_install_json})' "$$SCALA_COMPILER_MAVEN_VERSION"
-check 'org.scala-lang:scala-library (in {maven_install_json})' "$$SCALA_LIBRARY_MAVEN_VERSION"
-check 'org.scala-lang:scala-reflect (in {maven_install_json})' "$$SCALA_REFLECT_MAVEN_VERSION"
-""".format(
-        expected_version = scala_version,
-        jq = "//bazel_tools:jq_bin",
-        maven_install_json = "//:maven_install_{}.json".format(scala_major_version),
-        scala_bin = "@scala_nix//:bin/scala",
-        scala_compiler = "@maven//:org_scala_lang_scala_compiler",
-        scala_library = "@maven//:org_scala_lang_scala_library",
-        scala_reflect = "@maven//:org_scala_lang_scala_reflect",
-    ),
-    data = [
-        "//:maven_install_{}.json".format(scala_major_version),
-        "//bazel_tools:jq_bin",
-        "@maven//:org_scala_lang_scala_compiler",
-        "@maven//:org_scala_lang_scala_library",
-        "@maven//:org_scala_lang_scala_reflect",
-        "@scala_nix//:bin/scala",
-    ],
-) if not is_windows else None
+alias(
+    name = "scaladoc",
+    actual = "@rules_scala//src/scala/io/bazel/rules_scala/scaladoc_support:scaladoc_generator",
+    visibility = ["//bazel_tools:__pkg__"],
+)
 
 filegroup(
     name = "match-golden-file",
