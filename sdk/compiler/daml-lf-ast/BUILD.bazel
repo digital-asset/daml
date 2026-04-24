@@ -73,8 +73,8 @@ genrule(
 
 genrule(
     name = "generated_haskell_features_src",
-    srcs = ["//daml-lf:feature_data_json"],
+    srcs = ["//daml-lf:daml-lf-features.json"],
     outs = ["src/DA/Daml/LF/Ast/Version/GeneratedFeatures.hs"],
-    cmd = "$(location //daml-lf:generate_haskell_features) $(location //daml-lf:feature_data_json) $@",
+    cmd = "$(location //daml-lf:generate_haskell_features) $(location //daml-lf:daml-lf-features.json) $@",
     tools = ["//daml-lf:generate_haskell_features"],
 )
