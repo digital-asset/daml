@@ -78,7 +78,7 @@ haskell_hlint_aspect = aspect(
             executable = True,
             cfg = "host",
             allow_single_file = True,
-            default = Label("@hlint_nix//:bin/hlint"),
+            default = Label("@stackage-exe//hlint"),
         ),
         "_hlint_yaml": attr.label(
             allow_single_file = True,
