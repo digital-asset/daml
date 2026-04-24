@@ -64,7 +64,7 @@ template Account with
     nonconsuming choice LimitExceeded : Bool with
         value : Decimal
       controller owner
-      do pure (transferLimit <= value)
+      do pure (transferLimit < value)
 -- TRANSFER_LIMITED_END
 
 -- SHOP_BEGIN
