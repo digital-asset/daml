@@ -742,3 +742,6 @@ autoconf_ext = use_extension("//bazel/extensions:autoconf_extension.bzl", "autoc
 use_repo(autoconf_ext, "autoconf")
 automake_ext = use_extension("//bazel/extensions:automake_extension.bzl", "automake")
 use_repo(automake_ext, "automake")
+
+daml_finance_ext = use_extension("//bazel/extensions:daml_finance_extension.bzl", "daml_finance_extension")
+use_repo(daml_finance_ext, "daml-finance")
