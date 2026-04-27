@@ -698,6 +698,9 @@ use_repo(workspace_config_ext, "build_environment", "daml_versions_data", "os_in
 dpm_ext = use_extension("//bazel/extensions:dpm_extension.bzl", "dpm_extension")
 use_repo(dpm_ext, "dpm_binary")
 
+damlc_legacy_ext = use_extension("//bazel/extensions:damlc_legacy_extension.bzl", "damlc_legacy_extension")
+use_repo(damlc_legacy_ext, "damlc_legacy")
+
 d3plus_ext = use_extension("//bazel/extensions:d3plus_extension.bzl", "d3plus_extension")
 use_repo(d3plus_ext, "static_asset_d3plus")
 
