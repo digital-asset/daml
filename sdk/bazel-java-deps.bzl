@@ -195,7 +195,7 @@ def install_java_deps():
             "net.logstash.logback:logstash-logback-encoder:6.6",
             "org.apache.commons:commons-lang3:3.18.0",
             "org.apache.commons:commons-text:1.10.0",
-            "org.apache.logging.log4j:log4j-core:2.25.3",
+            "org.apache.logging.log4j:log4j-core:2.25.4",
             "org.awaitility:awaitility:4.2.0",
             "org.bouncycastle:bcpkix-jdk18on:1.84",
             "org.bouncycastle:bcprov-jdk18on:1.84",
