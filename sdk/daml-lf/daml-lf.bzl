@@ -113,7 +113,6 @@ DEV_LF_VERSION = VERSIONS.DEV_LF_VERSION.dotted
 # COMPILER_OUTPUT_VERSIONS we must eliminate COMPILER_VERSIONS
 COMPILER_LF_VERSIONS = [v.dotted for v in VERSIONS.COMPILER_LF_VERSIONS]  #deprecated
 
-
 # configuration to maintain old-style names
 lf_version_configuration = {
     "default": DEFAULT_LF_VERSION,
