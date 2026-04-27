@@ -1,0 +1,16 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Dep where
+
+template DepData with
+    depParty: Party
+    value: Int
+  where
+    signatory depParty
+
+    choice Consume : Int
+      controller depParty
+      do
+        pure value
+

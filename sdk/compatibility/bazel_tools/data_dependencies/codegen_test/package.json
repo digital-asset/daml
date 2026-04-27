@@ -1,0 +1,27 @@
+{
+  "name": "typescript",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "build": "openapi-typescript openapi.yaml -o ./codegen/api/ledger-api.d.ts && tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^22.13.13",
+    "openapi-typescript": "^7.6.1",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "@daml/types": "^2.10.0",
+    "@types/lodash": "^4.17.16",
+    "cli-table3": "^0.6.5",
+    "lodash": "^4.17.21",
+    "openapi-fetch": "^0.13.5",
+    "tsconfig-paths": "^4.2.0",
+    "@daml.js/codegen-dep-0.0.1": "file:./codegen/codegen-dep-0.0.1",
+    "@daml.js/codegen-main-0.0.1": "file:./codegen/codegen-main-0.0.1",
+    "@daml.js/ghc-stdlib-DA-Internal-Template-1.0.0": "file:./codegen//ghc-stdlib-DA-Internal-Template-1.0.0"
+  }
+}
