@@ -12,6 +12,7 @@ module DA.Daml.Compiler.DataDependencies
 
 import DA.Pretty hiding (first)
 import Control.Applicative
+import Control.Lens hiding ((<.>))
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Bifunctor (first)
@@ -53,6 +54,7 @@ import "ghc-lib-parser" TysWiredIn
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Ast.Type as LF
 import qualified DA.Daml.LF.Ast.Alpha as LF
+import DA.Daml.LF.Ast.Util
 import qualified DA.Daml.LF.TypeChecker.Check as LF
 import qualified DA.Daml.LF.TypeChecker.Env as LF
 import qualified DA.Daml.LF.TypeChecker.Error as LF
@@ -368,6 +370,7 @@ generateSrcFromLf env = noLoc mod
             , valueDecls
             , interfaceDecls
             , fixityDecls
+            , patsynDecls
             ]
         instDecls <- sequence instanceDecls
         pure $ decls <> catMaybes instDecls
@@ -391,6 +394,20 @@ generateSrcFromLf env = noLoc mod
     qualNameToSynName :: LFC.QualName -> LF.TypeSynName
     qualNameToSynName (LFC.QualName (LF.Qualified {LF.qualObject})) = LF.TypeSynName $ T.split (=='.') $ T.pack $ occNameString qualObject
 
+    mkWrappedRdrNameQual
+        :: (Located RdrName -> IEWrappedName RdrName)
+        -> LFC.QualName
+        -> Gen (LIEWrappedName RdrName)
+    mkWrappedRdrNameQual f = fmap (noLoc . f . noLoc) . mkRdrNameQual
+
+    mkRdrNameQual :: LFC.QualName -> Gen RdrName
+    mkRdrNameQual (LFC.QualName q) = do
+        ghcMod <- genModule env (LF.qualPackage q) (LF.qualModule q)
+        pure $ mkOrig ghcMod (LF.qualObject q)
+
+    mkFieldLblRdrNameQual :: FieldLbl LFC.QualName -> Gen (Located (FieldLbl RdrName))
+    mkFieldLblRdrNameQual = fmap noLoc . traverse mkRdrNameQual
+
     allExports :: Gen [LIE GhcPs]
     allExports = sequence $ do
         LF.DefValue {dvalBinder=(name, ty)} <- NM.toList . LF.moduleValues $ envMod env
@@ -404,31 +421,20 @@ generateSrcFromLf env = noLoc mod
             mkLIE = fmap (fmap noLoc) . \case
                 LFC.ExportInfoVal name ->
                     pure $ IEVar NoExt
-                        <$> mkWrappedRdrName IEName name
+                        <$> mkWrappedRdrNameQual IEName name
+                LFC.ExportInfoPattern name ->
+                    pure $ IEVar NoExt
+                        <$> mkWrappedRdrNameQual IEPattern name
                 -- Classes that are duplicated in non-data-dependencies are replaced with re-exports of the other class
                 -- (for compatibility with old stdlibs)
                 -- As such, we do not want to export definitions that have already been re-exported/replaced
                 LFC.ExportInfoTC name _ _ | qualNameToSynName name `MS.member` classReexportMap -> []
                 LFC.ExportInfoTC name pieces fields ->
                     pure $ IEThingWith NoExt
-                        <$> mkWrappedRdrName IEType name
+                        <$> mkWrappedRdrNameQual IEType name
                         <*> pure NoIEWildcard
-                        <*> mapM (mkWrappedRdrName IEName) pieces
-                        <*> mapM mkFieldLblRdrName fields
-
-            mkWrappedRdrName ::
-                   (Located RdrName -> IEWrappedName RdrName)
-                -> LFC.QualName
-                -> Gen (LIEWrappedName RdrName)
-            mkWrappedRdrName f = fmap (noLoc . f . noLoc) . mkRdrName
-
-            mkRdrName :: LFC.QualName -> Gen RdrName
-            mkRdrName (LFC.QualName q) = do
-                ghcMod <- genModule env (LF.qualPackage q) (LF.qualModule q)
-                pure $ mkOrig ghcMod (LF.qualObject q)
-
-            mkFieldLblRdrName :: FieldLbl LFC.QualName -> Gen (Located (FieldLbl RdrName))
-            mkFieldLblRdrName = fmap noLoc . traverse mkRdrName
+                        <*> mapM (mkWrappedRdrNameQual IEName) pieces
+                        <*> mapM mkFieldLblRdrNameQual fields
 
     -- We only reexport self (i.e. module Self) when not using explicit exports
     selfReexport :: [Gen (LIE GhcPs)]
@@ -596,6 +602,71 @@ generateSrcFromLf env = noLoc mod
             lsigD = noLoc . SigD noExt <$> sig :: Gen (LHsDecl GhcPs)
         let lvalD = noLoc . ValD noExt <$> mkStubBind env lname lfType
         [ lsigD, lvalD ]
+
+    -- TODO:
+    -- add record matching support <- some struct with the ordered list of record field names
+    -- add minimal tag support <- some struct representing the set of pragmas
+
+    -- Converts
+    -- ...constraints => ...args -> returntype
+    -- to
+    -- (constraints, args, returntype)
+    getConstraintsAndTypeArgs :: LF.Type -> ([LF.Type], [LF.Type], LF.Type)
+    getConstraintsAndTypeArgs = \case
+      (arg LF.:-> t)
+        | isConstraint arg -> let (consts, args, ret) = getConstraintsAndTypeArgs t in (arg : consts, args, ret)
+        | otherwise -> let (consts, args, ret) = getConstraintsAndTypeArgs t in (consts, arg : args, ret)
+      t -> ([], [], t)
+
+    -- Reads the type arguments, value arguments and match type of a pattern via its $mP type
+    -- See patsynDecls for more detail on $mP
+    extractPatSynTypeData :: LF.Type -> Maybe ([(LF.TypeVarName, LF.Kind)], [LF.Type], LF.Type)
+    extractPatSynTypeData (view _TForalls -> (tyargs, getConstraintsAndTypeArgs -> (_, matchtype : builder : _, _))) =
+      pure (drop 2 tyargs, snd3 $ getConstraintsAndTypeArgs builder, matchtype)
+    extractPatSynTypeData _ = Nothing
+
+    -- Pattern implementations are replaced by the original def, as per any other stub
+    -- however pattern stubs need a valid pattern for the given types in the stubs, there is no "Undefined" type
+    -- We use view patterns and explicitly bidirectional patterns to avoid this problem
+    -- pattern P a b <...> <- (undefined -> (a, b, <...>)) where P a b <...> = undefined
+    -- This appeases the type checker
+    -- We identify pattern synonyms by searching for definitions of this form
+    -- $mP : forall (rep : *) (r : *) (<...tyargs> : *). <matchtype> -> (<...args> -> r) -> (Void# -> r) -> r
+    -- which represents the following pattern:
+    -- pattern P : forall <...tyargs> : <...args> -> <matchtype>
+    -- We determine if a pattern has a builder by existing of a $bP value
+    -- There may also be a $mfieldsP which gives field names for record synonyms
+    -- TODO: decode $completeMatch<N> definitions into pragmas
+    patsynDecls :: [Gen (LHsDecl GhcPs)]
+    patsynDecls = do
+      LF.DefValue {dvalBinder=(LF.ExprValName (T.stripPrefix "$m" -> Just name), extractPatSynTypeData -> Just (tyargs, args, matchtype))} <- NM.toList $ LF.moduleValues $ envMod env
+      let mBuilder = NM.lookup (LF.ExprValName $ "$b" <> name) $ LF.moduleValues $ envMod env
+          mFieldNames = do
+            LF.DefValue {dvalBinder=(_, LFC.decodeFieldNames -> Just labels)} <-
+              NM.lookup (LF.ExprValName $ "$mfields" <> name) $ LF.moduleValues $ envMod env
+            pure $ traverse mkRdrNameQual labels
+          sigDef :: Gen (LHsDecl GhcPs) = do
+            t <- convType env reexportedClasses $ mkTForalls tyargs $ mkTFuns args matchtype
+            pure $ noLoc . SigD noExt . PatSynSig noExt [mkRdrName name] $ HsIB noExt $ noLoc t
+          patDef :: Gen (LHsDecl GhcPs) = do
+            errCall <- mkErrorCall env "patsyn bind"
+            let builderStub = mkMatchGroup FromSource [mkSimpleMatch (FunRhs (mkRdrName name) Prefix NoSrcStrict) [nlWildPat | _ <- args] errCall]
+            (argConType, argNames) <-
+              case mFieldNames of
+                Just getNames -> do
+                  names <- fmap noLoc <$> getNames
+                  pure (RecCon $ (\name -> RecordPatSynField name name) <$> names, names) 
+                Nothing -> do
+                  let argNames = (\c -> mkRdrName $ T.pack [c]) <$> take (length args) ['a'..]
+                  pure (PrefixCon argNames, argNames)
+            pure $ noLoc . ValD noExt . PatSynBind noExt $ PSB
+              noExt
+              (mkRdrName name)
+              argConType
+              (ParPat noExt $ noLoc $ ViewPat noExt errCall (TuplePat noExt [VarPat noExt name | name <- argNames] Boxed))
+              (if isJust mBuilder then ExplicitBidirectional builderStub else Unidirectional)
+          
+      [sigDef, patDef]
 
     -- | Generate instance declarations from dictionary functions.
     instanceDecls :: [Gen (Maybe (LHsDecl GhcPs))]
@@ -1240,6 +1311,7 @@ generateSrcPkgFromLf envConfig pkg = do
         , "{-# LANGUAGE AllowAmbiguousTypes #-}"
         , "{-# LANGUAGE MagicHash #-}"
         , "{-# LANGUAGE DatatypeContexts #-}"
+        , "{-# LANGUAGE PatternSynonyms #-}"
         , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods -Wno-deprecations -Wno-x-crypto -Wno-x-exceptions #-}"
         ]
 
