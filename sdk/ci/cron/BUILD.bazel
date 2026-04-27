@@ -13,7 +13,6 @@ da_haskell_binary(
         "bytestring",
         "conduit",
         "conduit-extra",
-        "case-insensitive",
         "containers",
         "directory",
         "extra",
