@@ -926,7 +926,7 @@ execBuild packageLocationOpts opts mbOutFile incrementalBuild initPkgDb enableMu
         -- We have no package context, but we have found a multi-package.yaml.
         -- Treat this as `--all`, since the user has no other valid build target.
         (False, Nothing, Just multiPackagePath) -> do
-          hPutStrLn stderr $ "Interpreting as `daml build --all`, since a multi-package.yaml was found at "
+          hPutStrLn stderr $ "Interpreting as `dpm build --all`, since a multi-package.yaml was found at "
             <> unwrapPackagePath multiPackagePath <> " but no daml.yaml was found."
           buildMulti pkgPath Nothing multiPackagePath
 
