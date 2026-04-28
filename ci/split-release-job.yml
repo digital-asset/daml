@@ -7,7 +7,6 @@ jobs:
   dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
   condition: and(succeeded(),
                  eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                 eq(dependencies.check_for_release.outputs['out.split_release_process'], 'true'),
                  or(eq(variables['Build.SourceBranchName'], 'main'),
                     eq(variables['Build.SourceBranchName'], 'main-2.x')))
   pool:
@@ -122,7 +121,7 @@ jobs:
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(cd sdk; dev-env/bin/dade-assist)"
-        ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
+        ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag)
       name: publish_to_artifactory
       displayName: "Publish Split Release Artifacts to Artifactory"
       env:
