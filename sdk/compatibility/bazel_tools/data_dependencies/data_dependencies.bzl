@@ -20,6 +20,7 @@ def _build_dar(
         cmd = """\
 set -euo pipefail
 TMP_DIR=$$(mktemp -d)
+DAML_CACHE=$$(mktemp -d)
 cleanup() {{ rm -rf $$TMP_DIR; }}
 trap cleanup EXIT
 mkdir -p $$TMP_DIR/src $$TMP_DIR/dep
@@ -41,7 +42,9 @@ dependencies:
   - daml-script
 data-dependencies:$$DATA_DEPS
 EOF
-$(location {daml}) build --project-root=$$TMP_DIR -o $$PWD/$(OUTS)
+PREV_PWD=$$PWD
+cd $$TMP_DIR
+DAML_CACHE=$$DAML_CACHE $$PREV_PWD/$(location {daml}) build -o $$PREV_PWD/$(OUTS)
 """.format(
             daml = daml,
             name = package_name,

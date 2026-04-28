@@ -48,21 +48,6 @@ config_setting(
     },
 )
 
-[
-    sh_test(
-        name = "test-daml-version-and-install-{}".format(sdk_version),
-        srcs = ["test-daml-version-and-install.sh"],
-        args = [sdk_version],
-        data = [
-            "@daml-sdk-{}//:daml".format(sdk_version),
-            "@diffutils_nix//:bin/diff",
-        ],
-        deps = ["@bazel_tools//tools/bash/runfiles"],
-    )
-    for sdk_version in sdk_versions
-    if versions.is_at_least("3.0.0", sdk_version)
-] if not is_windows else None
-
 # Instead of testing the full cartesian product of all SDK versions with
 # all platform (~= Sandbox/JSON API) versions, we test the latest version of
 # each with all versions of the other. This gives us a reasonable feedback
@@ -140,80 +125,4 @@ head = "0.0.0"
     # the latest SDK version.
     # (regression test for https://github.com/digital-asset/daml/issues/14291)
     if old_sdk_version != "0.0.0"
-    # These tests use data-dependency reexports (#11147), so the earliest
-    # supported SDK is 1.18.0
-    if versions.is_at_least("3.0.0", old_sdk_version)
-]
-
-os_name = "linux" if not is_windows else "windows"
-
-command_targets = {
-    "install_from_version": [
-        "0.0.0",
-        "3.3.0-snapshot.20250930.0",
-    ],
-    "build_from_version": [
-        "0.0.0",
-        "3.3.0-snapshot.20250930.0",
-    ],
-    "install_with_custom_version_and_build": [
-        "0.0.0",
-    ],
-    "install_and_build_from_tarball": [
-    ],
-}
-
-command_post_failure_behaviours = {
-    "install_from_version": [
-        "do_nothing",
-    ],
-    "build_from_version": [
-        "do_nothing",
-    ],
-    "install_with_custom_version_and_build": [
-        "do_nothing",
-    ],
-    "install_and_build_from_tarball": [
-        "allow_nonrelease",
-        "update_cache",
-        "install_via_custom_version",
-        "do_nothing",
-    ],
-}
-
-[
-    sh_test(
-        name = "test-all-installs-{}-{}-{}-{}".format(
-            command[:10],
-            command_target.split("/")[0][:11],
-            version_cache_behaviour[:8],
-            post_failure_behaviour[:5],
-        ),
-        size = "enormous",
-        srcs = ["test-all-installs.sh"],
-        args = [
-            os_name,
-            command,
-            command_target,
-            version_cache_behaviour,
-            post_failure_behaviour,
-        ],
-        data = [
-            ":new_cache",
-            ":old_cache",
-            ":releases-github-api.json",
-            "@daml-sdk-3.3.0-snapshot.20250926.13852.1.v4f3223e3-tarball//file",
-            "@head_sdk//:daml" if not is_windows else "@head_sdk//:daml.exe",
-            "@head_sdk//:sdk-release-tarball-ce.tar.gz",
-        ],
-        deps = ["@bazel_tools//tools/bash/runfiles"],
-    )
-    for command in command_targets.keys()
-    for command_target in command_targets[command]
-    for version_cache_behaviour in [
-        "init_new_cache",
-        "init_old_cache",
-        "no_cache_override_github_endpoint",
-    ]
-    for post_failure_behaviour in command_post_failure_behaviours[command]
 ]

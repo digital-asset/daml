@@ -18,7 +18,7 @@ not_windows_wrapper_script = """
 cat > "$$DIR/bin/dpm" << EOF
 #!/usr/bin/env bash
 set -euo pipefail
-SCRIPT_DIR=\\$$( cd -- "\\$$( dirname -- "\\$${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+SCRIPT_DIR=\\$$( cd -- "\\$$( dirname -- "\\$$( readlink -f "\\$${BASH_SOURCE[0]}" )" )" &> /dev/null && pwd )
 export DPM_HOME=\\$$(dirname -- \\$$SCRIPT_DIR)
 export HOME=\\$$DPM_HOME
 \\$$DPM_HOME/cache/components/dpm/$$DPM_VERSION/dpm \\$$@
@@ -65,12 +65,19 @@ edition: open-source
 registry: europe-docker.pkg.dev/da-images/public-unstable
 EOF
 
+          # Dpm will want to make these directories when first run, but we don't want it modifying files as bazel hates that
+          # so we create it for DPM beforehand
+          # (We don't actually need/use them)
+          mkdir -p $$DIR/cache/oci-layout $$DIR/cache/sdk/enterprise $$DIR/cache/sdk/private
+
+          # Populate components
           mkdir -p $$DIR/cache/components
           {unpack_inputs}
 
           mkdir -p $$DIR/cache/components/dpm/$$DPM_VERSION
           cp $(location @dpm_binary//:dpm) $$DIR/cache/components/dpm/$$DPM_VERSION/dpm{exe}
 
+          # Populate assembly
           mkdir -p $$DIR/cache/sdk/open-source
 
           cat > "$$DIR/cache/sdk/open-source/{version}.yaml" << EOF
