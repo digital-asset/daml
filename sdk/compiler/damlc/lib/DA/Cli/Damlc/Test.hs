@@ -23,13 +23,13 @@ module DA.Cli.Damlc.Test (
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
+import DA.Bazel.Runfiles
 import DA.Daml.Compiler.Output
 import DA.Daml.Package.Config
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScript as SS
 import qualified DA.Daml.LF.ScriptServiceClient as SSC
 import DA.Daml.Options.Types
-import DA.Daml.Project.Consts (sdkPathEnvVar)
 import DA.Pretty (PrettyLevel)
 import qualified DA.Pretty
 import qualified DA.Pretty as Pretty
@@ -54,7 +54,6 @@ import qualified ScriptService as SS
 import qualified DA.Cli.Damlc.Test.TestResults as TR
 import System.Console.ANSI (SGR(..), setSGRCode, Underlining(..), ConsoleIntensity(..))
 import System.Directory (createDirectoryIfMissing)
-import System.Environment.Blank
 import System.Exit (exitFailure)
 import System.FilePath
 import System.IO (hPutStrLn, stderr)
@@ -64,7 +63,7 @@ import qualified Text.Blaze.Html.Renderer.Text as Blaze
 import qualified Text.Blaze.Html4.Strict as Blaze
 import Text.Regex.TDFA
 
-import SdkVersion.Class (SdkVersioned)
+import ComponentVersion.Class (ComponentVersioned)
 
 newtype UseColor = UseColor {getUseColor :: Bool}
 newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}
@@ -80,7 +79,7 @@ newtype LoadCoverageOnly = LoadCoverageOnly {getLoadCoverageOnly :: Bool}
 
 -- | Test a Daml file.
 execTest
-    :: SdkVersioned
+    :: ComponentVersioned
     => [NormalizedFilePath]
     -> RunAllOption
     -> ShowCoverage
@@ -148,24 +147,22 @@ runAndReport ideState inFiles lvl lfVersion runAllOption coverage color mbJUnitO
     let newTestResults = TR.scriptResultsToTestResults allPackages allResults
     loadAggregatePrintResults resultsIO coverageFilters coverage (Just newTestResults)
 
-    mbSdkPath <- getEnv sdkPathEnvVar
     let doesOutputTablesOrTransactions =
             isJust (getTableOutputPath tableOutputPath) ||
             isJust (getTransactionsOutputPath transactionsOutputPath)
-    when doesOutputTablesOrTransactions $
-        case mbSdkPath of
-          Nothing -> pure ()
-          Just sdkPath -> do
-            let cssPath = sdkPath </> "studio/webview-stylesheet.css"
-            extensionCss <-
-                catchJust
-                    (guard . isDoesNotExistError)
-                    (Just <$> readFile cssPath)
-                    (const $ do
-                        hPutStrLn stderr $ "Warning: Could not open stylesheet '" <> cssPath <> "' for tables and transactions, will style plainly"
-                        pure Nothing)
-            outputTables lvl extensionCss tableOutputPath localResults
-            outputTransactions lvl extensionCss transactionsOutputPath localResults
+    when doesOutputTablesOrTransactions $ do
+      extensionCss <-
+        -- If no sdk path is found, we're running in DPM, extension can be found in damlc resources
+        locateResource Resource
+          -- //compiler/daml-extension:vsix
+          { resourcesPath = "webview-stylesheet.css"
+            -- In a packaged application, this is stored directly underneath the
+            -- resources directory because it's the target's only output.
+            -- See @bazel_tools/packaging/packaging.bzl@.
+          , runfilesPathPrefix = mainWorkspace </> "compiler"
+          }
+      outputTables lvl extensionCss tableOutputPath localResults
+      outputTransactions lvl extensionCss transactionsOutputPath localResults
 
     whenJust mbJUnitOutput $ \junitOutput -> do
         createDirectoryIfMissing True $ takeDirectory junitOutput
@@ -249,7 +246,7 @@ outputUnderDir dir paths = do
             _ <- tryWithPath (flip TIO.writeFile content) file
             pure ()
 
-outputTables :: PrettyLevel -> Maybe String -> TableOutputPath -> [TR.ScriptResults] -> IO ()
+outputTables :: PrettyLevel -> String -> TableOutputPath -> [TR.ScriptResults] -> IO ()
 outputTables lvl cssSource (TableOutputPath (Just path)) results =
     let outputs :: [(NamedPath, T.Text)]
         outputs = do
@@ -258,7 +255,7 @@ outputTables lvl cssSource (TableOutputPath (Just path)) results =
             let activeContracts = SS.activeContractsFromScriptResult result
                 tableView = SS.renderTableView lvl world activeContracts (SS.scriptResultNodes result)
                 tableSource = TL.toStrict $ Blaze.renderHtml $ do
-                    foldMap (Blaze.style . Blaze.preEscapedToHtml) cssSource
+                    Blaze.style $ Blaze.preEscapedToHtml cssSource
                     fold tableView
                 outputFile = path </> ("table-" <> T.unpack scriptName <> ".html")
                 outputFileName = "Test table output file '" <> outputFile <> "'"
@@ -269,7 +266,7 @@ outputTables lvl cssSource (TableOutputPath (Just path)) results =
         outputs
 outputTables _ _ _ _ = pure ()
 
-outputTransactions :: PrettyLevel -> Maybe String -> TransactionsOutputPath -> [TR.ScriptResults] -> IO ()
+outputTransactions :: PrettyLevel -> String -> TransactionsOutputPath -> [TR.ScriptResults] -> IO ()
 outputTransactions lvl cssSource (TransactionsOutputPath (Just path)) results =
     let outputs :: [(NamedPath, T.Text)]
         outputs = do
@@ -278,7 +275,7 @@ outputTransactions lvl cssSource (TransactionsOutputPath (Just path)) results =
             let activeContracts = SS.activeContractsFromScriptResult result
                 transView = SS.renderTransactionView lvl world activeContracts result
                 transSource = TL.toStrict $ Blaze.renderHtml $ do
-                    foldMap (Blaze.style . Blaze.preEscapedToHtml) cssSource
+                    Blaze.style $ Blaze.preEscapedToHtml cssSource
                     transView
                 outputFile = path </> ("transaction-" <> T.unpack scriptName <> ".html")
                 outputFileName = "Test transaction output file '" <> outputFile <> "'"

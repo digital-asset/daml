@@ -18,16 +18,16 @@ module DA.Test.Sandbox
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import Control.Exception
-import Control.Monad (replicateM)
+import Control.Monad (join, replicateM)
 import Control.Monad.Extra (whenMaybe)
 import DA.Bazel.Runfiles
-import DA.Daml.Helper.Util (decodeCantonPort)
 import Data.Foldable
 import DA.PortFile
 import qualified DA.Test.FreePort as FreePort
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Key as AesonKey
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSL8
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.Vector as Vector
@@ -71,6 +71,12 @@ data SandboxConfig = SandboxConfig
     , mbLedgerId :: Maybe String
     , devVersionSupport :: Bool
     }
+
+decodeCantonPort :: String -> String -> Maybe Int
+decodeCantonPort participantName json = do
+    participants :: Map.Map String (Map.Map String (Maybe Int)) <- Aeson.decode (BSL8.pack json)
+    ports <- Map.lookup participantName participants
+    join $ Map.lookup "ledgerApi" ports
 
 defaultSandboxConf :: SandboxConfig
 defaultSandboxConf = SandboxConfig
