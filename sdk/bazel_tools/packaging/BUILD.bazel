@@ -9,7 +9,7 @@ sh_binary(
     data = [
         "//bazel_tools/sh:mktgz",
         # "@gzip_dev_env//:gzip",
-        "@tar.bzl//tar:tar",
+        "@bsd_tar_toolchains//:resolved_target_toolchain",
     ] + (["@patchelf//:patchelf"] if not is_windows else []),
     visibility = ["//visibility:public"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
