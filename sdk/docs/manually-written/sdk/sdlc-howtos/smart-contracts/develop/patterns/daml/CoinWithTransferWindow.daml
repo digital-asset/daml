@@ -7,8 +7,9 @@ module CoinWithTransferWindow where
 
 import Daml.Script
 import DA.Action (unless)
+import DA.Fail
 import DA.TextMap qualified as TextMap
-import DA.Time (addRelTime, isLedgerTimeGE, isLedgerTimeLT, minutes)
+import DA.Time (addRelTime, isLedgerTimeGE, isLedgerTimeLT, minutes, RelTime)
 import Utilities
 
 template Coin
@@ -30,7 +31,7 @@ template Coin
         duration: RelTime
       controller owner
       do create TransferProposal
-            with coin=this; newOwner; startTime; addRelTime startTime duration
+            with coin=this; newOwner=newOwner; startTime=startTime; endTime=addRelTime startTime duration
 -- END_COIN_TRANSFER_WINDOW
 
 -- TransferProposal contract needs additional logic to ensure transfers are only accepted within a given time interval
@@ -56,7 +57,7 @@ template TransferProposal
     choice AcceptTransfer : ContractId Coin
       controller newOwner
       do
-        withinWindow <- isLedgerTimeGE startTime && isLedgerTimeLT endTime
+        withinWindow <- liftA2 (&&) (isLedgerTimeGE startTime) (isLedgerTimeLT endTime)
         _ <- unless withinWindow $ failWithStatus $
                FailureStatus
                  "transfer-outside-time-window"
