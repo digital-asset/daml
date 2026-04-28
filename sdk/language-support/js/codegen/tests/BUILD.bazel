@@ -103,7 +103,7 @@ sh_test(
         #  version is 2
         "$(location //test-common:model-tests-2.1.dar)",
         "$(location :hidden.dar)",
-        "$(location @grpcurl_nix//:bin)",
+        "$(location @grpcurl//:bin)",
     ],
     data = [
         ":build-and-lint.dar",
@@ -116,7 +116,7 @@ sh_test(
         # TODO(#14706): revert to model-tests-default once the default major
         #  version is 2
         "//test-common:model-tests-2.1.dar",
-        "@grpcurl_nix//:bin",
+        "@grpcurl//:bin",
     ] + glob(
         ["ts/**"],
         exclude = [
