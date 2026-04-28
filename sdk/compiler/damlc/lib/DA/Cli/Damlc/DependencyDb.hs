@@ -13,34 +13,26 @@ module DA.Cli.Damlc.DependencyDb
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception.Safe (tryAny, throwIO)
-import Control.Lens (toListOf)
 import Control.Monad.Extra
-import DA.Daml.Assistant.Env (getCachePath)
-import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.ExtractDar (ExtractedDar(..), extractDar)
-import DA.Daml.Helper.Ledger
-import DA.Daml.Project.Types (ReleaseVersion, sdkVersionToText, sdkVersionFromReleaseVersion, releaseVersionFromReleaseVersion)
+-- For fingerprint json instances
+import DA.Daml.Options.Packaging.Metadata ()
+import DA.Daml.Project.Consts (getCachePath)
+import DA.Daml.Project.Types (VersionInfo (..), extractAssemblyThenComponentVersion, versionToString)
 import DA.Daml.Resolution.Config (ExpandedSdkPackages (..), expandSdkPackagesDpm, findPackageResolutionData)
 import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Ast.Optics as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.Options.Types
 import qualified DA.Service.Logger as Logger
 import qualified DA.Pretty
-import qualified Data.Aeson as Aeson
 import Data.Aeson (eitherDecodeFileStrict', encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import Data.Char
 import Data.List.Extra
-import qualified Data.Map.Strict as M
-import qualified Data.SemVer as V
-import qualified Data.Set as Set
 import qualified Data.Text as T
-import qualified Data.Yaml as Yaml
 import Development.IDE.Types.Location
 import GHC.Fingerprint
-import GHC.Generics
 import System.Directory.Extra
 import System.FilePath
 import System.IO.Extra
@@ -99,9 +91,6 @@ dependenciesDir opts packageRoot =
 packageDbLockPath :: NormalizedFilePath -> FilePath
 packageDbLockPath packageRoot = fromNormalizedFilePath packageRoot </> damlArtifactDir </> "setup-package-db.lock"
 
-remotePackagesLockFile :: FilePath
-remotePackagesLockFile = "daml.lock"
-
 fingerprintFile :: FilePath
 fingerprintFile = "fingerprint.json"
 
@@ -123,11 +112,11 @@ dataDepMarker = "_data_"
 installDependencies ::
    NormalizedFilePath
    -> Options
-   -> ReleaseVersion
+   -> VersionInfo
    -> [String] -- Package dependencies. Can be base-packages, sdk-packages or filepath.
    -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
    -> IO ()
-installDependencies packageRoot opts releaseVersion pDeps pDataDeps = do
+installDependencies packageRoot opts versionInfo pDeps pDataDeps = do
     logger <- getLogger opts "install-dependencies"
     let sdkPackages = filter (`notElem` basePackages) pDeps
     ExpandedSdkPackages deps uncheckedDeps additionalDataDeps <-
@@ -137,7 +126,10 @@ installDependencies packageRoot opts releaseVersion pDeps pDataDeps = do
           pkgResolution <- either throwIO pure $ findPackageResolutionData rootPath resolutionData
           cachePath <- getCachePath
           expandSdkPackagesDpm cachePath pkgResolution (optDamlLfVersion opts) sdkPackages
-        Nothing -> (\deps -> ExpandedSdkPackages deps [] []) <$> expandSdkPackages logger (optDamlLfVersion opts) sdkPackages
+        Nothing ->
+          -- Cannot fail here as this path is taken by bootstrapping. Best we can do is give no packages
+          let purePaths = filter (\fp -> takeExtension fp `elem` [".dar", ".dalf"]) sdkPackages
+           in pure $ ExpandedSdkPackages purePaths [] []
     DataDeps {dataDepsDars, dataDepsDalfs, dataDepsPkgIds, dataDepsNameVersion} <- readDataDeps $ pDataDeps <> additionalDataDeps
     (needsUpdate, newFingerprint) <-
         depsNeedUpdate
@@ -145,7 +137,7 @@ installDependencies packageRoot opts releaseVersion pDeps pDataDeps = do
             (deps ++ uncheckedDeps ++ dataDepsDars ++ dataDepsDalfs)
             dataDepsPkgIds
             dataDepsNameVersion
-            releaseVersion
+            versionInfo
             (show $ optDamlLfVersion opts)
     when needsUpdate $ do
         Logger.logDebug logger "Dependencies are not up2date, reinstalling"
@@ -156,7 +148,7 @@ installDependencies packageRoot opts releaseVersion pDeps pDataDeps = do
         Logger.logDebug logger "Extracting dependencies"
         depsExtracted <- mapM extractDar deps
         uncheckedDepsExtracted <- mapM extractDar uncheckedDeps
-        checkSdkVersions releaseVersion depsExtracted
+        checkSdkVersions versionInfo depsExtracted
         Logger.logDebug logger "Installing dependencies"
         forM_ depsExtracted $ installDar depsDir False
         forM_ uncheckedDepsExtracted $ installDar depsDir False
@@ -166,63 +158,23 @@ installDependencies packageRoot opts releaseVersion pDeps pDataDeps = do
         forM_ dataDepsDars $ extractDar >=> installDar depsDir True
         Logger.logDebug logger "Extracting & installing data-dependency DALFs"
         forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf False depsDir fp
-        Logger.logDebug logger "Resolving package ids"
-        resolvedPkgIds <- resolvePkgs packageRoot opts dataDepsNameVersion
-        Logger.logDebug logger "Querying package ids"
-        exclPkgIds <- queryPkgIds Nothing depsDir
-        Logger.logDebug logger "Fetching DALFs from ledger"
-        rdalfs <- getDalfsFromLedger (optAccessTokenPath opts) (dataDepsPkgIds ++ M.elems resolvedPkgIds) exclPkgIds
-        Logger.logDebug logger "Installing dalfs from ledger"
-        forM_ rdalfs $ \RemoteDalf {..} -> do
-            installDataDepDalf
-                remoteDalfIsMain
-                depsDir
-                (packageNameToFp remoteDalfName)
-                remoteDalfBs
-        -- Mark received packages as well as their transitive dependencies as data dependencies.
-        Logger.logDebug logger "Mark data-dependencies"
-        markAsDataRec
-            (Set.fromList [remoteDalfPkgId | RemoteDalf {remoteDalfPkgId} <- rdalfs])
-            Set.empty
+        
         -- write new fingerprint
         Logger.logDebug logger "Updating fingerprint"
         write (depsDir </> fingerprintFile) $ encode newFingerprint
   where
-    markAsDataRec :: Set.Set LF.PackageId -> Set.Set LF.PackageId -> IO ()
-    markAsDataRec pkgIds processed = do
-        case Set.minView pkgIds of
-            Nothing -> pure ()
-            Just (pkgId, rest) -> do
-                if pkgId `Set.member` processed
-                    then markAsDataRec rest processed
-                    else do
-                        let pkgIdStr = T.unpack $ LF.unPackageId pkgId
-                        let depDir = depsDir </> pkgIdStr
-                        markDirWith dataDepMarker depDir
-                        fs <- filter ("dalf" `isExtensionOf`) <$> listFilesRecursive depDir
-                        forM_ fs $ \fp -> do
-                            bs <- BS.readFile fp
-                            (_pid, pkg) <-
-                                either
-                                    (const $ fail $ "Failed to decode dalf package " <> pkgIdStr)
-                                    pure $
-                                Archive.decodeArchive Archive.DecodeAsDependency bs
-                            markAsDataRec
-                                (packageRefs pkg `Set.union` rest)
-                                (Set.insert pkgId processed)
-    packageRefs pkg = Set.fromList [pid | LF.ImportedPackageId pid <- toListOf LF.packageRefs pkg]
     depsDir = dependenciesDir opts packageRoot
 
 -- | Check that all dependencies match the main packages release (or sdk) version
 -- We check for both, as packages usually use the release version, but internal packages (like daml-script) use the sdk-version, as the
 -- release version cannot be known at compilation time
-checkSdkVersions :: ReleaseVersion -> [ExtractedDar] -> IO ()
-checkSdkVersions releaseVersion depsExtracted = do
-    let thisReleaseVer = T.unpack (V.toText (releaseVersionFromReleaseVersion releaseVersion))
-    let thisSdkVer = T.unpack (sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion))
-    let uniqSdkVersions = nubSort $ thisReleaseVer : map edSdkVersions depsExtracted
+checkSdkVersions :: VersionInfo -> [ExtractedDar] -> IO ()
+checkSdkVersions versionInfo depsExtracted = do
+    let thisAssemblyVer = versionToString $ extractAssemblyThenComponentVersion versionInfo
+    let thisComponentVer = versionToString $ viComponentVersion versionInfo
+    let uniqSdkVersions = nubSort $ thisAssemblyVer : map edSdkVersions depsExtracted
     let depsSdkVersions = map edSdkVersions depsExtracted
-    unless (all (\ver -> ver == thisSdkVer || ver == thisReleaseVer) depsSdkVersions) $
+    unless (all (\ver -> ver == thisAssemblyVer || ver == thisComponentVer) depsSdkVersions) $
         fail $
         "Package dependencies from different SDK versions: " ++ intercalate ", " uniqSdkVersions
 
@@ -320,129 +272,6 @@ data FullPkgName = FullPkgName
     , pkgVersion :: !LF.PackageVersion
     } deriving (Eq, Ord, Show)
 
-data LockFile = LockFile
-    { dependencies :: [DependencyInfo]
-    } deriving Generic
-instance Aeson.FromJSON LockFile
-instance Aeson.ToJSON LockFile
-data DependencyInfo = DependencyInfo
-    { name :: LF.PackageName
-    , version :: LF.PackageVersion
-    , pkgId :: LF.PackageId
-    } deriving Generic
-instance Aeson.FromJSON DependencyInfo
-instance Aeson.ToJSON DependencyInfo
-
--- | Resolves the given list of package names/versions to package IDs.
--- This will fail if any package can't be resolved.
--- Once all packages have been resolved, a new `daml.lock` file is noting the resolution.
-resolvePkgs :: NormalizedFilePath -> Options -> [FullPkgName] -> IO (M.Map FullPkgName LF.PackageId)
-resolvePkgs packageRoot opts pkgs
-    | null pkgs = pure M.empty
-    | otherwise = do
-        mbRes <- resolvePkgsWithLockFile lockFp pkgs
-        resOrErr <- case mbRes of
-          Nothing -> resolvePkgsWithLedger depsDir (optAccessTokenPath opts) pkgs
-          Just res -> pure $ Right res
-        case resOrErr of
-            Left missing ->
-                fail $
-                unlines $
-                "Unable to resolve the following packages in daml.yaml:" :
-                [ (T.unpack $ LF.unPackageName pkgName) <> "-" <>
-                (T.unpack $ LF.unPackageVersion pkgVersion)
-                | FullPkgName {pkgName, pkgVersion} <- missing
-                ]
-            Right result -> do
-              writeLockFile remotePackagesLockFile result
-              pure result
-  where
-    depsDir = dependenciesDir opts packageRoot
-    lockFp = fromNormalizedFilePath packageRoot </> remotePackagesLockFile
-
-writeLockFile :: FilePath -> M.Map FullPkgName LF.PackageId -> IO ()
-writeLockFile lockFp resolvedPkgs = do
-    Yaml.encodeFile lockFp $
-        LockFile
-            [ DependencyInfo
-                { name = pkgName
-                , version = pkgVersion
-                , pkgId = pkgId
-                }
-            | (FullPkgName {pkgName, pkgVersion}, pkgId) <- M.toList resolvedPkgs
-            ]
-
--- | Read the package lock file and resolve the given packages.
--- Returns
---  Nothing -> At least one of the given packages could not be resolved.
---  Just map -> Resolution of all packages
---
--- It fails if the `daml.lock` file can't be parsed.
-resolvePkgsWithLockFile :: FilePath -> [FullPkgName] -> IO (Maybe (M.Map FullPkgName LF.PackageId))
-resolvePkgsWithLockFile lockFp pkgs = do
-    hasLockFile <- doesFileExist lockFp
-    if hasLockFile
-        then do
-            errOrLock <- Yaml.decodeFileEither lockFp
-            case errOrLock of
-                Left err ->
-                    fail $
-                    "Failed to parse daml.lock: " <> show err <> "\nTry to delete it an run again."
-                Right LockFile {dependencies} -> do
-                    let m =
-                            M.fromList
-                                [ ( FullPkgName
-                                        { pkgName = name d
-                                        , pkgVersion = version d
-                                        }
-                                  , pkgId d)
-                                | d <- dependencies
-                                ]
-                    pure $
-                        -- Check that all given packages could be resolved, return Nothing
-                        -- otherwise.
-                        if Set.fromList pkgs `Set.isSubsetOf` M.keysSet m
-                            then Just $ M.restrictKeys m (Set.fromList pkgs)
-                            else Nothing
-        else pure Nothing
-
--- | Query the ledger for available packages and try to resolve the given packages. Returns either
--- the missing packages or a map from package names to package id.
-resolvePkgsWithLedger ::
-       FilePath -> Maybe FilePath -> [FullPkgName] -> IO (Either [FullPkgName] (M.Map FullPkgName LF.PackageId))
-resolvePkgsWithLedger depsDir tokFpM pkgs = do
-    ledgerPkgIds <- listLedgerPackages tokFpM
-    rdalfs <- getDalfsFromLedger tokFpM ledgerPkgIds []
-    forM_ rdalfs $ \RemoteDalf {..} ->
-        installDalf
-            []
-            depsDir
-            (packageNameToFp remoteDalfName)
-            remoteDalfBs
-    let m =
-            M.fromList
-                [ ( FullPkgName
-                        { pkgName = remoteDalfName
-                        , pkgVersion = remoteDalfVersion
-                        }
-                  , remoteDalfPkgId)
-                | RemoteDalf {..} <- rdalfs
-                ]
-    let m0 = M.restrictKeys m $ Set.fromList pkgs
-    pure $
-        if M.size m0 == length pkgs -- check that we resolved all packages.
-            then Right m0
-            else Left $ filter (\p -> p `M.notMember` m) pkgs
-
--- Ledger interactions
-----------------------
-
-getDalfsFromLedger :: Maybe FilePath -> [LF.PackageId] -> [LF.PackageId] -> IO [RemoteDalf]
-getDalfsFromLedger tokFpM = runLedgerGetDalfs $ defaultLedgerFlags {fTokFileM = tokFpM}
-
-listLedgerPackages :: Maybe FilePath -> IO [LF.PackageId]
-listLedgerPackages tokFpM = runLedgerListPackages $ defaultLedgerFlags {fTokFileM = tokFpM}
-
 -- Updating/Fingerprint
 -----------------------
 depsNeedUpdate ::
@@ -450,12 +279,12 @@ depsNeedUpdate ::
     -> [FilePath]
     -> [LF.PackageId]
     -> [FullPkgName]
-    -> ReleaseVersion
+    -> VersionInfo
     -> String
     -> IO (Bool, Fingerprint)
-depsNeedUpdate depsDir depFps dataDepsPkgIds dataDepsNameVersion releaseVersion damlLfVersion = do
+depsNeedUpdate depsDir depFps dataDepsPkgIds dataDepsNameVersion versionInfo damlLfVersion = do
     depsFps <- mapM getFileHash depFps
-    let sdkVersionFp = fingerprintString (T.unpack (sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)))
+    let sdkVersionFp = fingerprintString (versionToString (viComponentVersion versionInfo))
     let damlLfFp = fingerprintString damlLfVersion
     let dataDepsNameVersionFp =
             fingerprintFingerprints [fingerprintString $ show d | d <- dataDepsNameVersion]
@@ -495,15 +324,6 @@ queryDalfs markersM dir = do
                          forM markers $ \marker -> doesFileExist $ takeDirectory fp </> marker)
                     dalfs
 
-queryPkgIds :: Maybe [FilePath] -> FilePath -> IO [LF.PackageId]
-queryPkgIds markersM dir = do
-    fps <- queryDalfs markersM dir
-    pure
-        [ LF.PackageId $ T.pack pkgId
-        | fp <- fps
-        , _dalf:pkgId:_rest <- [splitDirectories fp]
-        ]
-
 -- Utilities
 ------------
 lfVersionString :: LF.Version -> String
@@ -517,6 +337,3 @@ markDirWith marker fp = write (fp </> marker) ""
 
 guardDefM :: Monad m => a -> m Bool -> m a -> m a
 guardDefM def pM m = ifM pM m (pure def)
-
-packageNameToFp :: LF.PackageName -> FilePath
-packageNameToFp n = (T.unpack $ LF.unPackageName n) <.> "dalf"
