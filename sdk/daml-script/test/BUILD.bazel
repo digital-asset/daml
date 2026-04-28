@@ -18,7 +18,6 @@ load(
     "DEFAULT_LF_VERSION",
     "DEV_LF_VERSION",
     "LATEST_STABLE_LF_VERSION",
-    "STAGING_LF_VERSION",
     "mangle_for_damlc",
 )
 
@@ -82,7 +81,6 @@ EOF
     )
     for (lfVersion, supportsKeys) in [
         (LATEST_STABLE_LF_VERSION, False),
-        (STAGING_LF_VERSION, True),
         (DEV_LF_VERSION, True),
     ]
 ]
@@ -269,11 +267,10 @@ daml_compile(
     name = "upgrade-test-lib",
     srcs = [":daml/UpgradeTestLib.daml"],
     dependencies = [
-        "//daml-script/daml:daml-script-2.3-staging.dar",
+      "//daml-script/daml:daml-script-{}.dar".format(LATEST_STABLE_LF_VERSION),
     ],
     project_name = "upgrade-test-lib",
-    # TODO(https://github.com/DACH-NY/canton/issues/31925): revert to DEFAULT_LF_VERSION once LF 2.3 is stable
-    target = STAGING_LF_VERSION,
+    target = LATEST_STABLE_LF_VERSION,
     version = "1.0.0",
 )
 

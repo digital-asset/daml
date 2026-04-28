@@ -19,7 +19,6 @@ load(
     "RAW_DEV_LF_VERSION",
     "RAW_LATEST_STABLE_LF_VERSION",
     "RAW_STABLE_LF_VERSIONS",
-    "RAW_STAGING_LF_VERSION",
 )
 
 _VERSION_GENERATING_PACKAGES = ["//compiler/daml-lf-ast:__pkg__"]

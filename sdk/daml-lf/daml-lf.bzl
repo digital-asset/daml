@@ -140,9 +140,6 @@ def _init_data():
         fail("Expected exactly one version to be marked with 'status: dev', but found {}.".format(len(_dev_versions)))
     dev_version = _dev_versions[0]
 
-    _staging_versions = _get_by_status("staging")
-    staging_version = _staging_versions[-1] if _staging_versions else latest_stable_version
-
     ### Features
 
     # Helpers
@@ -294,7 +291,6 @@ def _init_data():
         latest_stable_version = latest_stable_version,
         default_version = default_version,
         dev_version = dev_version,
-        staging_version = staging_version,
         features = features_definitions,
     )
 
@@ -309,7 +305,6 @@ RAW_STABLE_LF_VERSIONS = _data.stable_versions
 RAW_LATEST_STABLE_LF_VERSION = _data.latest_stable_version
 RAW_DEFAULT_LF_VERSION = _data.default_version
 RAW_DEV_LF_VERSION = _data.dev_version
-RAW_STAGING_LF_VERSION = _data.staging_version
 
 # see dotted versions of these below for description
 RAW_COMPILER_LF_VERSIONS = RAW_ALL_LF_VERSIONS  #deprecated
@@ -322,7 +317,6 @@ STABLE_LF_VERSIONS = [v.dotted for v in VERSIONS.STABLE_LF_VERSIONS]
 
 LATEST_STABLE_LF_VERSION = VERSIONS.LATEST_STABLE_LF_VERSION.dotted
 DEFAULT_LF_VERSION = VERSIONS.DEFAULT_LF_VERSION.dotted
-STAGING_LF_VERSION = VERSIONS.STAGING_LF_VERSION.dotted
 DEV_LF_VERSION = VERSIONS.DEV_LF_VERSION.dotted
 
 # Ideally, COMPILER_VERSIONS does not exist. Currently, all of these piont to
@@ -405,9 +399,7 @@ def version_in(
 # have to come up with something more clever here to make
 # sure that we don’t remove docs for a module that is still supported
 # in a stable LF version.
-#TODO[#22851]: revert back to LATEST_STABLE_LF_VERSION
-# LF_DOCS_VERSION = LATEST_STABLE_LF_VERSION
-LF_DOCS_VERSION = STAGING_LF_VERSION
+LF_DOCS_VERSION = LATEST_STABLE_LF_VERSION
 
 # LF Versions supported by the dar reader
 READABLE_LF_VERSIONS = (["1.14", "1.15", "1.dev"] if is_intel else []) + ALL_LF_VERSIONS
