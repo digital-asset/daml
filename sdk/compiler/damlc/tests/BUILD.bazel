@@ -989,7 +989,7 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/script-service/server:script_service_jar",
         "//daml-script/daml:daml-script-2.2.dar",
-        "//daml-script/daml:daml-script-2.3-staging.dar",
+        "//daml-script/daml:daml-script-2.3.dar",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -1192,7 +1192,7 @@ da_haskell_test(
     name = "package-imports",
     srcs = ["src/DA/Test/PackageImports.hs"],
     data = [
-        "//daml-script/test:script-test-v2.3-staging.dar",
+        "//daml-script/test:script-test-v2.3.dar",
     ],
     hackage_deps = [
         "base",

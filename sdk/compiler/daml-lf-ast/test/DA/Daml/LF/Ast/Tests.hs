@@ -32,7 +32,6 @@ main = defaultMain $ testGroup "DA.Daml.LF.Ast"
     , alphaTests
     , substitutionTests
     , typeSynTests
-    , stagingAcceptedTest
     ]
 
 numericExamples :: [(String, Numeric)]
@@ -592,7 +591,3 @@ typeCheck :: Version -> Module -> Either String ()
 typeCheck version mod = do
   let diags = checkModule (initWorld [] version) version mod
   if null diags then Right () else Left (show diags)
-
-stagingAcceptedTest :: TestTree
-stagingAcceptedTest = testCase "Staging revision check" $
-  (stagingRevision `elem` acceptedStagingRevisions) @?= True

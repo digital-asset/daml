@@ -381,7 +381,7 @@ class GrpcLedgerClient(
   ): Future[crypto.Hash] =
     Future(
       preprocessor
-        .unsafePreprocessApiContractKey(Map.empty, ApiContractKey(templateId.toRef, key))
+        .unsafePreprocessApiContractKey(Map.empty, ApiContractKey(templateId.toRef, key, 1))
     )
       .recoverWith { case Error.Preprocessing.ContractIdInContractKey(key) =>
         Future.failed(
@@ -390,7 +390,7 @@ class GrpcLedgerClient(
           )
         )
       }
-      .map(_.hash)
+      .map(_._1.hash)
 
   override def queryNByKey(
       parties: OneAnd[Set, Ref.Party],
@@ -637,6 +637,7 @@ class GrpcLedgerClient(
     } yield PrefetchContractKey(
       templateId = Some(toApiIdentifierUpgrades(key.templateId.toRef, false)),
       contractKey = Some(contractKey),
+      limit = Some(1),
     )
   }
 

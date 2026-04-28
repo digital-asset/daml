@@ -109,7 +109,6 @@ object CantonRunner {
          |        engine.enable-engine-stack-traces = true
          |        alpha-version-support = yes
          |        disable-upgrade-validation = ${config.disableUpgradeValidation}
-         |        engine.contract-state-mode = \"${config.protocolVersion.nuckMode}\"
          |      }
          |      ${config.snapshotDir.fold("")(x => s"features.snapshot-dir = ${toJson(x)}")}
          |      ${timeType.fold("")(x => "testing-time.type = " + x)}
