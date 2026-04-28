@@ -13,10 +13,8 @@ which can help spot bottlenecks and opportunities for optimization.
   **SECURITY**\:
 
   | The profiler is not intended to be used in production and doing so
-  | can lead to unxpected consequences for security. See. 
-  | :ref:`Caveats <caveats>` for more details\.
-
-A wrapper for all exception types\.
+  | can lead to unxpected consequences for security. See 
+  | :ref:`Caveats <caveats>` for more details.
 
 Usage
 =====
