@@ -752,3 +752,6 @@ use_repo(daml_finance_ext, "daml-finance")
 
 freefont_ext = use_extension("//bazel/extensions:freefont_extension.bzl", "freefont_extension")
 use_repo(freefont_ext, "freefont")
+
+grpcurl_ext = use_extension("//bazel/extensions:grpcurl_extension.bzl", "grpcurl_extension")
+use_repo(grpcurl_ext, "grpcurl")
