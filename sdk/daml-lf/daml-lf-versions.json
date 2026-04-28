@@ -3,15 +3,6 @@
     {
       "major" : 2,
       "minor" : {
-        "Staging" : {
-          "version" : 3,
-          "revision" : 1
-        }
-      }
-    },
-    {
-      "major" : 2,
-      "minor" : {
         "Stable" : {
           "version" : 1
         }
@@ -40,17 +31,7 @@
           "version" : 2
         }
       }
-    },
-    {
-      "major" : 2,
-      "minor" : {
-        "Staging" : {
-          "version" : 3,
-          "revision" : 2
-        }
-      }
-    }
-  ],
+    }  ],
   "namedVersions" : {
     "defaultLfVersion" : {
       "major" : 2,
@@ -75,15 +56,6 @@
           "version" : 2
         }
       }
-    },
-    "stagingLfVersion" : {
-      "major" : 2,
-      "minor" : {
-        "Staging" : {
-          "version" : 3,
-          "revision" : 2
-        }
-      }
     }
   },
   "versionLists" : {
@@ -101,15 +73,6 @@
         "minor" : {
           "Stable" : {
             "version" : 2
-          }
-        }
-      },
-      {
-        "major" : 2,
-        "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 2
           }
         }
       },
@@ -144,15 +107,6 @@
         "minor" : {
           "Stable" : {
             "version" : 2
-          }
-        }
-      },
-      {
-        "major" : 2,
-        "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 2
           }
         }
       },
@@ -219,15 +173,6 @@
       {
         "major" : 2,
         "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 2
-          }
-        }
-      },
-      {
-        "major" : 2,
-        "minor" : {
           "Stable" : {
             "version" : 3
           }
@@ -251,6 +196,15 @@
             "revision" : 1
           }
         }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Staging" : {
+            "version" : 3,
+            "revision" : 2
+          }
+        }
       }
     ],
     "compilerLfVersions" : [
@@ -267,15 +221,6 @@
         "minor" : {
           "Stable" : {
             "version" : 2
-          }
-        }
-      },
-      {
-        "major" : 2,
-        "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 2
           }
         }
       },
