@@ -16,9 +16,11 @@ module DA.Daml.Resolution.Config
   , ValidPackageResolution (..)
   , ResolutionError (..)
   , DPMUnsupportedError (..)
+  , ComponentData (..)
   ) where
 
 import "zip-archive" Codec.Archive.Zip qualified as ZipArchive
+import Control.Applicative ((<|>))
 import Control.Exception
 import Control.Monad
 import DA.Daml.Compiler.ExtractDar
@@ -26,6 +28,9 @@ import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.Proto3.Archive.Decode qualified as Archive
 import DA.Daml.Project.Types
 import Data.Aeson qualified as Aeson
+import Data.Aeson.Types qualified as Aeson
+import Data.Aeson.Key qualified as Key
+import qualified Data.Aeson.KeyMap as KM
 import Data.Bifunctor (first)
 import Data.ByteString.Lazy qualified as BSL
 import Data.Either.Extra (eitherToMaybe, fromRight)
@@ -92,7 +97,7 @@ instance Show DPMUnsupportedError where
 instance Exception DPMUnsupportedError
 
 getDarHeaderInfos :: CachePath -> ValidPackageResolution -> IO (Map.Map FilePath DalfInfoCacheEntry)
-getDarHeaderInfos cachePath (ValidPackageResolution _ imports) = do
+getDarHeaderInfos cachePath (ValidPackageResolution _ imports _) = do
   let paths = fromMaybe [] $ Map.lookup "dars" imports
   extractedDars <- traverse (\p -> (p,) <$> extractDar p) paths
   let extractedDarsWithPackageIds = (\(path, ed) -> (path, ed, mainPackageIdFromPaths ed)) <$> extractedDars
@@ -146,7 +151,7 @@ data ExpandedSdkPackages = ExpandedSdkPackages
   , espDataDeps :: [FilePath]
   }
 
--- Mimics (mostly) signature of expandSdkPackages in Options.hs
+-- Expands dependency names in `daml.yaml` dependencies to list of file paths
 -- Returns two lists, first is regular deps, second is data deps
 expandSdkPackagesDpm :: CachePath -> ValidPackageResolution -> LF.Version -> [FilePath] -> IO ExpandedSdkPackages
 expandSdkPackagesDpm cachePath pkgResolution lfVersion paths = do
@@ -215,8 +220,15 @@ data PackageResolutionData
   deriving (Eq, Show)
 
 data ValidPackageResolution = ValidPackageResolution
-  { components :: Map.Map String FilePath
+  { components :: Map.Map String ComponentData
   , imports :: Map.Map String [FilePath]
+  , mAssemblyVersion :: Maybe AssemblyVersion
+  }
+  deriving (Eq, Show)
+
+data ComponentData = ComponentData
+  { componentPath :: FilePath
+  , componentVersion :: String
   }
   deriving (Eq, Show)
 
@@ -231,9 +243,12 @@ data ErrorPackageResolution = ErrorPackageResolution
 toPosixFilePath :: FilePath -> FilePath
 toPosixFilePath = uncurry joinDrive . first lower . splitDrive . replace "\\" "/"
 
+toPosixFilePathComponentData :: ComponentData -> ComponentData
+toPosixFilePathComponentData (ComponentData path version) = ComponentData (toPosixFilePath path) version
+
 toPosixFilePathValidPackageResolution :: ValidPackageResolution -> ValidPackageResolution
-toPosixFilePathValidPackageResolution (ValidPackageResolution components imports) =
-  ValidPackageResolution (fmap toPosixFilePath components) (fmap (fmap toPosixFilePath) imports)
+toPosixFilePathValidPackageResolution (ValidPackageResolution components imports mAssemblyVersion) =
+  ValidPackageResolution (fmap toPosixFilePathComponentData components) (fmap (fmap toPosixFilePath) imports) mAssemblyVersion
 
 instance Show ErrorPackageResolution where
   show ErrorPackageResolution {..} = code <> ": " <> cause
@@ -241,7 +256,15 @@ instance Show ErrorPackageResolution where
 instance Aeson.FromJSON ResolutionData where
   parseJSON = Aeson.withObject "ResolutionData" $ \obj -> do
     packages <- Map.mapKeys toPosixFilePath <$> obj .: "packages"
-    defaultSdk <- head . Map.toList <$> obj .: "default-sdk"
+    (defaultSdkVersion, defaultSdkResolution) <- head . Map.toList <$> obj .: "default-sdk"
+    -- Dpm doesn't populate assemblyVersion correct for default right now.
+    -- temp workaround
+    resolution <- case defaultSdkResolution of
+      ValidPackageResolutionData resolution -> do
+        assemblyVersion <- either throw pure $ parseAssemblyVersion (T.pack defaultSdkVersion)
+        pure $ ValidPackageResolutionData resolution {mAssemblyVersion = Just assemblyVersion}
+      r -> pure r
+    let defaultSdk = (defaultSdkVersion, resolution)
     pure ResolutionData {..}
 
 instance Aeson.FromJSON PackageResolutionData where
@@ -255,8 +278,25 @@ instance Aeson.FromJSON ValidPackageResolution where
   parseJSON = Aeson.withObject "ValidPackageResolution" $ \obj ->
     fmap toPosixFilePathValidPackageResolution $
       ValidPackageResolution
-        <$> obj .:? "components" .!= mempty
+        <$> (obj .:? "componentsV2" .!= mempty <|> (componentsToV2 <$> obj .:? "components" .!= mempty))
         <*> obj .:? "imports" .!= mempty
+        <*> parseSdkVersion obj Aeson.<?> Aeson.Key "sdk-version"
+    where
+      parseSdkVersion :: Aeson.Object -> Aeson.Parser (Maybe AssemblyVersion)
+      parseSdkVersion obj = case KM.lookup (Key.fromText "sdk-version") obj of
+        Nothing -> pure Nothing
+        Just (Aeson.String "") -> pure Nothing
+        Just ver -> Just <$> parseJSON ver
+      -- Stopgap conversion for rare case where you use old dpm with new damlc.
+      -- Worst outcome is `dpm new` would doing something wrong.
+      componentsToV2 :: Map.Map String FilePath -> Map.Map String ComponentData
+      componentsToV2 = fmap $ flip ComponentData "<unknown>"
+
+instance Aeson.FromJSON ComponentData where
+  parseJSON = Aeson.withObject "ComponentData" $ \obj ->
+    ComponentData
+      <$> obj .: "path"
+      <*> obj .: "version"
 
 instance Aeson.FromJSON ErrorPackageResolution where
   parseJSON = Aeson.withObject "ErrorPackageResolution" $ \obj ->
@@ -275,8 +315,12 @@ instance Aeson.ToJSON PackageResolutionData where
     Aeson.toJSON validResolutionData
 
 instance Aeson.ToJSON ValidPackageResolution where
-  toJSON (ValidPackageResolution components imports) =
-    Aeson.object ["components" .= components, "imports" .= imports]
+  toJSON (ValidPackageResolution components imports mAssemblyVersion) =
+    Aeson.object ["componentsV2" .= components, "components" .= (componentPath <$> components), "imports" .= imports, "sdk-version" .= mAssemblyVersion]
+
+instance Aeson.ToJSON ComponentData where
+  toJSON (ComponentData path version) =
+    Aeson.object ["path" .= path, "version" .= version]
 
 instance Aeson.ToJSON ErrorPackageResolution where
   toJSON (ErrorPackageResolution cause code) =
