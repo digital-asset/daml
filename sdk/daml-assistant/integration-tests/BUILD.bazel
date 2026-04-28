@@ -87,10 +87,10 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         ":integration-test-utils",
+        "//component-version/hs:component-version-lib",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//component-version/hs:component-version-lib",
     ],
 )

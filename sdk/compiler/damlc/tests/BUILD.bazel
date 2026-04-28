@@ -56,10 +56,10 @@ da_haskell_test(
     visibility = ["//visibility:private"],
     deps = [
         "//compiler/damlc:damlc-lib",
+        "//component-version/hs:component-version-lib",
         "//daml-assistant:daml-project-config",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -107,10 +107,10 @@ da_haskell_test(
     deps = [
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-opts:daml-opts-types",
+        "//component-version/hs:component-version-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -136,9 +136,9 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc:damlc-lib",
+        "//component-version/hs:component-version-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -197,11 +197,11 @@ da_haskell_library(
         "//compiler/damlc/daml-package-config",
         "//compiler/damlc/daml-rule-types",
         "//compiler/script-service/client",
+        "//component-version/hs:component-version-lib",
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -273,9 +273,9 @@ da_haskell_test(
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-doc",
         "//compiler/damlc/daml-doc:daml-doc-testing",
+        "//component-version/hs:component-version-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -311,8 +311,8 @@ da_haskell_test(
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
-        "//libs-haskell/da-hs-base",
         "//component-version/hs:component-version-lib",
+        "//libs-haskell/da-hs-base",
     ],
 )
 
@@ -374,9 +374,9 @@ da_haskell_test(
         "//compiler/damlc/daml-ide-core:ide-testing",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/script-service/client",
+        "//component-version/hs:component-version-lib",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -404,9 +404,9 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
+        "//component-version/hs:component-version-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
-        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -433,9 +433,9 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc/daml-opts:daml-opts-types",
+        "//component-version/hs:component-version-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
-        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -653,9 +653,9 @@ da_haskell_test(
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-opts:daml-opts-types",
+        "//component-version/hs:component-version-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
-        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -687,10 +687,10 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc:damlc-lib",
-        "//libs-haskell/bazel-runfiles",
-        "//libs-haskell/test-utils",
         "//component-version/hs:component-version-lib",
         "//daml-assistant/integration-tests:integration-test-utils",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
     ],
 )
 
@@ -726,10 +726,10 @@ da_haskell_test(
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
         "//compiler/damlc:damlc-lib",
+        "//component-version/hs:component-version-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -783,10 +783,10 @@ da_haskell_test(
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
         "//compiler/damlc/stable-packages:stable-packages-lib",
+        "//component-version/hs:component-version-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -1017,11 +1017,11 @@ da_haskell_test(
         "//compiler/damlc/daml-package-config",
         "//compiler/damlc/daml-rule-types",
         "//compiler/script-service/client",
+        "//component-version/hs:component-version-lib",
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -1107,9 +1107,9 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc/daml-desugar:daml-desugar-testing",
+        "//component-version/hs:component-version-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//component-version/hs:component-version-lib",
     ],
 )
 

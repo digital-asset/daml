@@ -48,8 +48,8 @@ da_haskell_library(
         ":daml-desugar",
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-opts:daml-opts-types",
+        "//component-version/hs:component-version-class-lib",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//component-version/hs:component-version-class-lib",
     ],
 )

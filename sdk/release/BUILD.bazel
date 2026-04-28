@@ -61,8 +61,8 @@ da_haskell_binary(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//libs-haskell/test-utils",
         "//component-version/hs:component-version-lib",
+        "//libs-haskell/test-utils",
     ],
 )
 

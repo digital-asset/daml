@@ -23,10 +23,10 @@ da_haskell_binary(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc/daml-resolution-config",
+        "//component-version/hs:component-version-lib",
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//component-version/hs:component-version-lib",
     ],
 )
 

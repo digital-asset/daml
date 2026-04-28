@@ -85,7 +85,7 @@ load(
     "nixpkgs_package",
     "nixpkgs_python_configure",
 )
-load("//:versions.bzl", "internal_sdk_versions", "latest_stable_version", "sdk_versions", "version_sha256s", "daml_assistant_versions", "dpm_versions")
+load("//:versions.bzl", "daml_assistant_versions", "dpm_versions", "internal_sdk_versions", "latest_stable_version", "sdk_versions", "version_sha256s")
 
 common_nix_file_deps = [
     "@daml//nix:bazel.nix",
@@ -334,7 +334,7 @@ load("//:bazel-haskell-deps.bzl", "daml_haskell_deps")
 
 daml_haskell_deps()
 
-load("//bazel_tools:daml_sdk.bzl", "daml_assistant_sdk", "dpm_sdk", "dpm_head_sdk")
+load("//bazel_tools:daml_sdk.bzl", "daml_assistant_sdk", "dpm_head_sdk", "dpm_sdk")
 
 local_repository(
     name = "head_sdk",

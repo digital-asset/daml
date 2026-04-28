@@ -148,7 +148,6 @@ chmod +x $(OUTS)
         tags = extra_tags(compiler_version, runner_version) + ["exclusive"],
     )
 
-
 def daml_script_example_test(compiler_version, runner_version):
     daml_script_test(
         name = "daml-script-test-compiler-{compiler_version}-runner-{runner_version}".format(

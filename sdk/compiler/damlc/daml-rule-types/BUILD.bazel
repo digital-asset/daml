@@ -56,8 +56,8 @@ da_haskell_library(
         "//compiler/damlc/daml-lf-conversion",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/script-service/client",
+        "//component-version/hs:component-version-class-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//component-version/hs:component-version-class-lib",
     ],
 )

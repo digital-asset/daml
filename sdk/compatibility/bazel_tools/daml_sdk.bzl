@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@os_info//:os_info.bzl", "is_windows", "os_arch", "os_name", "is_linux_intel", "is_darwin_amd64", "is_darwin")
+load("@os_info//:os_info.bzl", "is_darwin", "is_darwin_amd64", "is_linux_intel", "is_windows", "os_arch", "os_name")
 load("@daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_tool_home", "dadew_where")
 load("@io_bazel_rules_scala//scala:scala_cross_version.bzl", "default_maven_server_urls")
 load("//bazel_tools:versions.bzl", "versions")
@@ -110,6 +110,7 @@ def _dpm_sdk_impl(ctx):
     internal_sdk_version = internal_sdk_versions.get(ctx.attr.version, default = ctx.attr.version)
 
     arch = "amd64" if is_windows or is_linux_intel or is_darwin_amd64 else "arm64"
+
     # os_name for macos is "macos" rather than "darwin"
     os = "darwin" if is_darwin else os_name
 
@@ -144,15 +145,15 @@ def _dpm_sdk_impl(ctx):
 
     assistant_path = "sdk/{version}/bin/dpm{exe}".format(version = ctx.attr.version, exe = ".exe" if is_windows else "")
 
-    ctx.execute([assistant_path, "bootstrap", "{}".format(out_dir)], environment={"DPM_HOME": "{}".format(out_dir)})
+    ctx.execute([assistant_path, "bootstrap", "{}".format(out_dir)], environment = {"DPM_HOME": "{}".format(out_dir)})
 
     ctx.template(
         "dpm.cc",
         Label("@compatibility//bazel_tools:daml.cc.tpl"),
         substitutions = {
-          "{SDK_VERSION}": ctx.attr.version,
-          "{ASSISTANT_PATH}": assistant_path,
-          "{DPM_HOME}": "{}".format(out_dir)
+            "{SDK_VERSION}": ctx.attr.version,
+            "{ASSISTANT_PATH}": assistant_path,
+            "{DPM_HOME}": "{}".format(out_dir),
         },
     )
     ctx.file(
@@ -213,7 +214,7 @@ def _dpm_head_sdk_impl(ctx):
         fail("Error executing sha256sum: {stdout}\n{stderr}".format(stdout = exec_result.stdout, stderr = exec_result.stderr))
     sdk_checksum = exec_result.stdout.strip()
 
-    ctx.symlink(ctx.attr.daml_types_tarball, "daml-types.tgz",)
+    ctx.symlink(ctx.attr.daml_types_tarball, "daml-types.tgz")
 
     # Depending on all files as runfiles results in thousands of symlinks
     # which eventually results in us running out of inodes on CI.
@@ -233,9 +234,9 @@ def _dpm_head_sdk_impl(ctx):
         "dpm.cc",
         Label("@compatibility//bazel_tools:daml.cc.tpl"),
         substitutions = {
-          "{SDK_VERSION}": version,
-          "{ASSISTANT_PATH}": assistant_path,
-          "{DPM_HOME}": ""
+            "{SDK_VERSION}": version,
+            "{ASSISTANT_PATH}": assistant_path,
+            "{DPM_HOME}": "",
         },
     )
     ctx.file(
@@ -263,7 +264,6 @@ _dpm_head_sdk = repository_rule(
     attrs = {
         "release_tarball": attr.label(allow_single_file = True, mandatory = True),
         "daml_types_tarball": attr.label(allow_single_file = True, mandatory = True),
-
     },
 )
 

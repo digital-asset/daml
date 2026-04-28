@@ -29,7 +29,7 @@ da_haskell_library(
         "//compiler/damlc/daml-ghc-util",
         "//compiler/damlc/daml-lf-util",
         "//compiler/damlc/daml-preprocessor",
-        "//libs-haskell/da-hs-base",
         "//component-version/hs:component-version-class-lib",
+        "//libs-haskell/da-hs-base",
     ],
 )

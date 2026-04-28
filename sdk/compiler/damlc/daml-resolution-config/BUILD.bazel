@@ -32,7 +32,7 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-decode",
         "//compiler/damlc/daml-extract-dar",
-        "//daml-assistant:daml-project-config",
         "//component-version/hs:component-version-class-lib",
+        "//daml-assistant:daml-project-config",
     ],
 )

@@ -71,9 +71,9 @@ da_haskell_library(
         "//compiler/damlc/daml-lf-conversion",
         "//compiler/damlc/daml-preprocessor",
         "//compiler/damlc/daml-rule-types",
+        "//component-version/hs:component-version-class-lib",
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//component-version/hs:component-version-class-lib",
     ],
 )
