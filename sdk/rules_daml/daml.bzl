@@ -709,8 +709,7 @@ def daml_multi_package_test(
         multi_package_file,
         build_files = [],
         srcs = [],
-        daml = "//daml-assistant:daml",
-        sdk_tarball = "//release:sdk-release-tarball",
+        dpm_tarball = "//release:dpm-sdk-release-tarball",
         enable_interfaces = False,
         additional_compiler_flags = [],
         # shorten can be used to remove a common infix from srcs, build_files
@@ -720,10 +719,10 @@ def daml_multi_package_test(
         **kwargs):
     sh_inline_test(
         name = name,
-        data = [daml, sdk_tarball] + srcs + [multi_package_file] + build_files,
+        data = [dpm_tarball] + srcs + [multi_package_file] + build_files,
         cmd = """
             set -eou pipefail
-            export DAML_HOME=$$PWD/$$(mktemp -d tmp.XXXXXXX)
+            export DPM_HOME=$$PWD/$$(mktemp -d tmp.XXXXXXX)
             tmpdir=$$PWD/$$(mktemp -d tmp.XXXXXXX)
             shorten() {{
                 if [ -n "{shorten}" ]; then
@@ -732,20 +731,17 @@ def daml_multi_package_test(
                     echo "$$1"
                 fi
             }}
-            DAML=$$(canonicalize_rlocation $(rootpath {daml}))
-            {install_sdk}
+            tar xf $$(canonicalize_rlocation $(rootpath {dpm_tarball})) -C $$DPM_HOME --strip-components=1
+            DPM="$$DPM_HOME/bin/dpm"
+            
             rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
             {cp_multi_package_file}
             {cp_build_files}
             {cp_srcs}
             {run_tests}
         """.format(
-            daml = daml,
             shorten = shorten,
-            install_sdk = "$$DAML install $$(canonicalize_rlocation $(rootpath {sdk_tarball})) --install-with-custom-version {sdk_version}".format(
-                sdk_tarball = sdk_tarball,
-                sdk_version = sdk_version,
-            ),
+            dpm_tarball = dpm_tarball,
             cp_srcs = "\n".join([
                 "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
                     src = "$$(canonicalize_rlocation $(rootpath {}))".format(src),
@@ -774,8 +770,8 @@ def daml_multi_package_test(
                 """
                     echo $$(dirname $$tmpdir/$$(shorten $(rootpath {build_file})))
                     cd $$(dirname $$tmpdir/$$(shorten $(rootpath {build_file})))
-                    $$DAML build {enable_interfaces} {damlc_opts}
-                    $$DAML test
+                    $$DPM build {enable_interfaces} {damlc_opts}
+                    $$DPM test
                 """.format(
                     build_file = build_file,
                     enable_interfaces = "--enable-interfaces=no" if not enable_interfaces else "",

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
-load("util.bzl", "dpm_sdk_tarball", "sdk_tarball")
+load("util.bzl", "dpm_sdk_tarball")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -62,26 +62,8 @@ da_haskell_binary(
     visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
     ],
 )
 
-[
-    sdk_tarball(
-        "sdk-release-tarball-{}".format(edition),
-        sdk_version,
-        edition,
-    )
-    for edition in [
-        "ce",
-        "ee",
-    ]
-]
-
 dpm_sdk_tarball("dpm-sdk-release-tarball", sdk_version)
-
-alias(
-    name = "sdk-release-tarball",
-    actual = "sdk-release-tarball-ce",
-    visibility = ["//visibility:public"],
-)
