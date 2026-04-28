@@ -280,7 +280,9 @@ class IdeLedgerClient(
       ec: ExecutionContext
   ): Future[GlobalKey] =
     Future(
-      preprocessor.unsafePreprocessApiContractKey(Map.empty, ApiContractKey(templateId.toRef, key))
+      preprocessor
+        .unsafePreprocessApiContractKey(Map.empty, ApiContractKey(templateId.toRef, key, 1))
+        ._1
     )
       .recoverWith { case Error.Preprocessing.ContractIdInContractKey(key) =>
         Future.failed(
