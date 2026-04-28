@@ -923,11 +923,12 @@ execBuild packageLocationOpts opts mbOutFile incrementalBuild initPkgDb enableMu
           hPutStrLn stderr $ "Running single package build of " <> T.unpack (LF.unPackageName $ pName pkgConfig) <> " as no multi-package.yaml was found."
           buildSingle pkgPath pkgConfig
 
-        -- We have no package context, but we have found a multi package at the current directory
-        (False, Nothing, Just _) -> do
-          hPutStrLn stderr $ "No valid daml.yaml found, but a multi-package.yaml was found instead.\n"
-            <> "If you intended to build everything within this multi-package.yaml, use the --all flag"
-          exitFailure
+        -- We have no package context, but we have found a multi-package.yaml.
+        -- Treat this as `--all`, since the user has no other valid build target.
+        (False, Nothing, Just multiPackagePath) -> do
+          hPutStrLn stderr $ "Interpreting as `daml build --all`, since a multi-package.yaml was found at "
+            <> unwrapPackagePath multiPackagePath <> " but no daml.yaml was found."
+          buildMulti pkgPath Nothing multiPackagePath
 
         -- We have nothing, we're lost
         (False, Nothing, Nothing) -> do
