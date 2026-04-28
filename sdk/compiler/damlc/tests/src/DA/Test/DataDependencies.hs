@@ -27,10 +27,10 @@ import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import SdkVersion (SdkVersioned, damlStdlib, sdkVersion, withSdkVersions)
+import ComponentVersion (ComponentVersioned, damlStdlib, componentVersionString, withComponentVersions)
 
 main :: IO ()
-main = withSdkVersions $ do
+main = withComponentVersions $ do
     setEnv "TASTY_NUM_THREADS" "3" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
@@ -83,7 +83,7 @@ lfVersionTestPairsV2 =
         selfPair = (LF.devLfVersion, LF.devLfVersion)
      in selfPair : nPlusOnePairs
 
-tests :: SdkVersioned => TestArgs -> TestTree
+tests :: ComponentVersioned => TestArgs -> TestTree
 tests TestArgs{..} =
     testGroup (LF.renderVersion targetDevVersion) $
     [ testCaseSteps ("Cross Daml-LF version: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
@@ -115,7 +115,7 @@ tests TestArgs{..} =
               , "archiveT = archive @T"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: proja"
               , "version: 0.0.1"
               , "source: src"
@@ -153,7 +153,7 @@ tests TestArgs{..} =
               , "hasChoiceClass _ _ = pure ()"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: projb"
               , "version: 0.0.1"
               , "source: src"
@@ -190,7 +190,7 @@ tests TestArgs{..} =
               , "f = ()"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: proja"
               , "version: 0.0.1"
               , "source: src"
@@ -215,7 +215,7 @@ tests TestArgs{..} =
               , "f = A.f"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: projb"
               , "version: 0.0.1"
               , "source: src"
@@ -255,7 +255,7 @@ tests TestArgs{..} =
               , "  ac a = a"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: proja"
               , "version: 0.0.1"
               , "source: src"
@@ -275,7 +275,7 @@ tests TestArgs{..} =
               , "import AI ()"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: projb"
               , "version: 0.0.1"
               , "source: src"
@@ -296,7 +296,7 @@ tests TestArgs{..} =
               , "import B ()"
               ]
           writeFileUTF8 (projc </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: projc"
               , "version: 0.0.1"
               , "source: src"
@@ -333,7 +333,7 @@ tests TestArgs{..} =
                 , "    signatory party"
                 ]
             writeFileUTF8 (proja </> "daml.yaml") $ unlines
-                [ "sdk-version: " <> sdkVersion
+                [ "sdk-version: " <> componentVersionString
                 , "name: proja"
                 , "version: 0.0.1"
                 , "source: src"
@@ -356,7 +356,7 @@ tests TestArgs{..} =
                 , "import A ()"
                 ]
             writeFileUTF8 (projb </> "daml.yaml") $ unlines
-                [ "sdk-version: " <> sdkVersion
+                [ "sdk-version: " <> componentVersionString
                 , "name: projb"
                 , "version: 0.0.1"
                 , "source: src"
@@ -389,7 +389,7 @@ tests TestArgs{..} =
               , "    deriving (Eq, Show" ++ if aExplicit then ", Serializable)" else ")"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines $
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: proja"
               , "version: 0.0.1"
               , "source: src"
@@ -417,7 +417,7 @@ tests TestArgs{..} =
               , "    deriving (Eq, Show" ++ if bExplicit then ", Serializable)" else ")"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines $
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: projb"
               , "version: 0.0.1"
               , "source: src"
@@ -441,7 +441,7 @@ tests TestArgs{..} =
           step "Building 'lib'"
           createDirectoryIfMissing True (tmpDir </> "lib")
           writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "version: 0.0.1"
               , "name: lib"
               , "source: ."
@@ -461,7 +461,7 @@ tests TestArgs{..} =
           step "Building 'a'"
           createDirectoryIfMissing True (tmpDir </> "a")
           writeFileUTF8 (tmpDir </> "a" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "version: 0.0.1"
               , "name: a"
               , "source: ."
@@ -487,7 +487,7 @@ tests TestArgs{..} =
           step "Building 'b'"
           createDirectoryIfMissing True (tmpDir </> "b")
           writeFileUTF8 (tmpDir </> "b" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "version: 0.0.1"
               , "name: b"
               , "source: ."
@@ -627,7 +627,7 @@ tests TestArgs{..} =
               let projDir = tmpDir </> "lib-" <> version
               createDirectoryIfMissing True projDir
               writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-                  [ "sdk-version: " <> sdkVersion
+                  [ "sdk-version: " <> componentVersionString
                   , "version: " <> show version
                   , "name: lib"
                   , "source: ."
@@ -648,7 +648,7 @@ tests TestArgs{..} =
           let projDir = tmpDir </> "a"
           createDirectoryIfMissing True projDir
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-               [ "sdk-version: " <> sdkVersion
+               [ "sdk-version: " <> componentVersionString
                , "version: 0.0.0"
                , "name: a"
                , "source: ."
@@ -671,7 +671,7 @@ tests TestArgs{..} =
           let projDir = tmpDir </> "b"
           createDirectoryIfMissing True projDir
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-               [ "sdk-version: " <> sdkVersion
+               [ "sdk-version: " <> componentVersionString
                , "version: 0.0.0"
                , "name: b"
                , "source: ."
@@ -700,7 +700,7 @@ tests TestArgs{..} =
           let projDir = tmpDir </> "c"
           createDirectoryIfMissing True projDir
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-               [ "sdk-version: " <> sdkVersion
+               [ "sdk-version: " <> componentVersionString
                , "version: 0.0.0"
                , "name: c"
                , "source: ."
@@ -730,7 +730,7 @@ tests TestArgs{..} =
             locateRunfiles
             (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> genSimpleDalfExe)
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-          [ "sdk-version: " <> sdkVersion
+          [ "sdk-version: " <> componentVersionString
           , "name: proj"
           , "version: 0.1.0"
           , "source: ."
@@ -882,7 +882,7 @@ tests TestArgs{..} =
               , "failsWithStatus = failWithStatus failureStatus"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: proja"
               , "version: 0.0.1"
               , "source: src"
@@ -977,7 +977,7 @@ tests TestArgs{..} =
               , "  failWithStatus failureStatus"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: projb"
               , "version: 0.0.1"
               , "source: src"
@@ -995,7 +995,7 @@ tests TestArgs{..} =
     ] <>
     [ testCase "Cross-SDK typeclasses" $ withTempDir $ \tmpDir -> do
           writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: upgrade"
               , "source: ."
               , "version: 0.1.0"
@@ -1038,7 +1038,7 @@ tests TestArgs{..} =
           step "building type package"
           createDirectoryIfMissing True (tmpDir </> "type")
           writeFileUTF8 (tmpDir </> "type" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: type"
               , "source: ."
               , "version: 0.1.0"
@@ -1057,7 +1057,7 @@ tests TestArgs{..} =
           step "building dependency package"
           createDirectoryIfMissing True (tmpDir </> "dependency")
           writeFileUTF8 (tmpDir </> "dependency" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: dependency"
               , "source: ."
               , "version: 0.1.0"
@@ -1079,7 +1079,7 @@ tests TestArgs{..} =
           step "building data-dependency package"
           createDirectoryIfMissing True (tmpDir </> "data-dependency")
           writeFileUTF8 (tmpDir </> "data-dependency" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: data-dependency"
               , "source: ."
               , "version: 0.1.0"
@@ -1104,7 +1104,7 @@ tests TestArgs{..} =
           step "building top-level package"
           createDirectoryIfMissing True (tmpDir </> "top")
           writeFileUTF8 (tmpDir </> "top" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: top"
               , "source: ."
               , "version: 0.1.0"
@@ -1455,7 +1455,7 @@ tests TestArgs{..} =
         step "building package with implicit parameters"
         createDirectoryIfMissing True (tmpDir </> "dep")
         writeFileUTF8 (tmpDir </> "dep" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: dep"
             , "source: ."
             , "version: 0.1.0"
@@ -1500,7 +1500,7 @@ tests TestArgs{..} =
         step "building package that uses it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "proj")
         writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: proj"
             , "source: ."
             , "version: 0.1.0"
@@ -2283,7 +2283,7 @@ tests TestArgs{..} =
           step proj = step' ("building '" <> proj <> "' package")
 
           damlYamlBody name deps dataDeps = unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: " <> name
             , "build-options: [--target=" <> LF.renderVersion targetDevVersion <> "]"
             , "source: ."
@@ -2357,7 +2357,7 @@ tests TestArgs{..} =
 
           damlYamlBody :: String -> [FilePath] -> [String] -> String
           damlYamlBody name extraDeps dataDeps = unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: " <> name
             , "build-options: [--target="<> LF.renderVersion targetDevVersion <>"]"
             , "source: ."
@@ -2560,7 +2560,7 @@ tests TestArgs{..} =
         step "building package to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")
         writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: lib"
             , "source: ."
             , "version: 0.1.0"
@@ -2589,7 +2589,7 @@ tests TestArgs{..} =
         step "building package that imports it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "main")
         writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: main"
             , "source: ."
             , "version: 0.1.0"
@@ -2623,7 +2623,7 @@ tests TestArgs{..} =
         step "building lib (package to be imported via data-dependencies)"
         createDirectoryIfMissing True (tmpDir </> "lib")
         writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: lib"
             , "source: ."
             , "version: 0.1.0"
@@ -2645,7 +2645,7 @@ tests TestArgs{..} =
         step "building main (package that imports lib via data-dependencies)"
         createDirectoryIfMissing True (tmpDir </> "main")
         writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: main"
             , "source: ."
             , "version: 0.1.0"
@@ -2688,7 +2688,7 @@ tests TestArgs{..} =
         step "building package to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")
         writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: lib"
             , "source: ."
             , "version: 0.1.0"
@@ -2732,7 +2732,7 @@ tests TestArgs{..} =
         step "building package that imports it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "main")
         writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: main"
             , "source: ."
             , "version: 0.1.0"
@@ -2843,7 +2843,7 @@ tests TestArgs{..} =
             createDirectoryIfMissing True (tmpDir </> "lib")
             let deps = ["daml-prim", "daml-stdlib"] <> fmap show extraDeps
             writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
-                [ "sdk-version: " <> sdkVersion
+                [ "sdk-version: " <> componentVersionString
                 , "name: lib"
                 , "build-options: [" <> intercalate ", " buildOptions <> "]"
                 , "source: ."
@@ -2860,7 +2860,7 @@ tests TestArgs{..} =
             step "building package that imports it via data-dependencies"
             createDirectoryIfMissing True (tmpDir </> "main")
             writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
-                [ "sdk-version: " <> sdkVersion
+                [ "sdk-version: " <> componentVersionString
                 , "name: main"
                 , "build-options: [" <> intercalate ", " buildOptions <> "]"
                 , "source: ."

@@ -21,10 +21,10 @@ import System.IO.Extra
 import DA.Test.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
+import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
 
 main :: IO ()
-main = withSdkVersions $ do
+main = withComponentVersions $ do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlScript <- locateRunfiles (mainWorkspace </> "daml-script" </> "runner" </> exe "daml-script-binary")
     v2TestArgs <- do
@@ -42,7 +42,7 @@ data TestArgs = TestArgs
   , lfVersion :: LF.Version
   }
 
-tests :: SdkVersioned => TestArgs -> TestTree
+tests :: ComponentVersioned => TestArgs -> TestTree
 tests TestArgs{..} = testGroup ("LF " <> LF.renderVersion lfVersion)
     [ test "No changes"
         [ ("daml/A.daml", unlines
@@ -166,7 +166,7 @@ tests TestArgs{..} = testGroup ("LF " <> LF.renderVersion lfVersion)
       test :: String -> [(FilePath, String)] -> [(FilePath, String)] -> [FilePath] -> ShouldSucceed -> TestTree
       test name initial modification expectedRebuilds (ShouldSucceed shouldSucceed) = testCase name $ withTempDir $ \dir -> do
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: test-package"
             , "source: daml"
             , "version: 0.0.1"

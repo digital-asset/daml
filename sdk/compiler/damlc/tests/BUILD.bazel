@@ -29,7 +29,6 @@ da_haskell_repl(
         ":integration-v21",
         ":integration-v2dev",
         ":multi-package",
-        ":package-manager",
         ":packaging",
         ":script-service",
         ":shake",
@@ -60,7 +59,7 @@ da_haskell_test(
         "//daml-assistant:daml-project-config",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -111,7 +110,7 @@ da_haskell_test(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -139,7 +138,7 @@ da_haskell_test(
         "//compiler/damlc:damlc-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -202,7 +201,7 @@ da_haskell_library(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -276,7 +275,7 @@ da_haskell_test(
         "//compiler/damlc/daml-doc:daml-doc-testing",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -313,7 +312,7 @@ da_haskell_test(
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//libs-haskell/da-hs-base",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -377,7 +376,7 @@ da_haskell_test(
         "//compiler/script-service/client",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -407,7 +406,7 @@ da_haskell_test(
         "//compiler/daml-lf-ast",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -436,7 +435,7 @@ da_haskell_test(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -656,7 +655,7 @@ da_haskell_test(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -666,8 +665,7 @@ da_haskell_test(
     timeout = "long",
     srcs = ["src/DA/Test/DamlcMultiPackage.hs"],
     data = [
-        "//daml-assistant:daml",
-        "//release:sdk-release-tarball",
+        "//release:dpm-sdk-release-tarball",
     ],
     hackage_deps = [
         "aeson",
@@ -691,7 +689,8 @@ da_haskell_test(
         "//compiler/damlc:damlc-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
+        "//daml-assistant/integration-tests:integration-test-utils",
     ],
 )
 
@@ -730,7 +729,7 @@ da_haskell_test(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -787,7 +786,7 @@ da_haskell_test(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -1022,46 +1021,7 @@ da_haskell_test(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-lib",
-    ],
-)
-
-da_haskell_test(
-    name = "package-manager",
-    size = "large",
-    srcs = ["src/DamlcPkgManager.hs"],
-    data = [
-        ":pkg-manager-test.dar",
-        "//compiler/damlc",
-    ] + (["@sysctl_nix//:bin/sysctl"] if is_darwin else []),
-    hackage_deps = [
-        "base",
-        "bytestring",
-        "containers",
-        "directory",
-        "extra",
-        "filepath",
-        "jwt",
-        "process",
-        "tasty",
-        "tasty-hunit",
-        "text",
-        "time",
-        "unordered-containers",
-        "zip-archive",
-    ],
-    main_function = "DamlcPkgManager.main",
-    tags = ["cpu:4"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//compiler/daml-dar-reader",
-        "//compiler/daml-lf-ast",
-        "//daml-assistant:daml-project-config",
-        "//daml-assistant/daml-helper:daml-helper-lib",
-        "//libs-haskell/bazel-runfiles",
-        "//libs-haskell/canton-test-utils",
-        "//libs-haskell/da-hs-base",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
     ],
 )
 
@@ -1149,7 +1109,7 @@ da_haskell_test(
         "//compiler/damlc/daml-desugar:daml-desugar-testing",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//sdk-version/hs:sdk-version-lib",
+        "//component-version/hs:component-version-lib",
     ],
 )
 

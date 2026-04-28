@@ -39,6 +39,6 @@ da_haskell_library(
         "//compiler/damlc/stable-packages:stable-packages-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//sdk-version/hs:sdk-version-class-lib",
+        "//component-version/hs:component-version-class-lib",
     ],
 )

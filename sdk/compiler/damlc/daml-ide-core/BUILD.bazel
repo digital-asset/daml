@@ -71,7 +71,7 @@ da_haskell_library(
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//sdk-version/hs:sdk-version-class-lib",
+        "//component-version/hs:component-version-class-lib",
     ],
 )
 
@@ -113,6 +113,6 @@ da_haskell_library(
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-class-lib",
+        "//component-version/hs:component-version-class-lib",
     ],
 )

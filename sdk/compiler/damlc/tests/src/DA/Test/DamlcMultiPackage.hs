@@ -6,9 +6,9 @@ module DA.Test.DamlcMultiPackage (main) where
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import qualified Data.ByteString.Lazy.Char8 as BSLC
-import Control.Exception (onException, try)
+import Control.Exception (try)
 import Control.Monad.Extra (forM_, unless, void)
-import DA.Bazel.Runfiles (exe, locateRunfiles, mainWorkspace)
+import DA.Daml.Assistant.IntegrationTestUtils (withDpmSdkExtraVerResource)
 import DA.Cli.Damlc (MultiPackageManifestEntry (..))
 import Data.Aeson (eitherDecode)
 import Data.List (intercalate, intersect, isInfixOf, sortOn, union, (\\))
@@ -18,12 +18,11 @@ import Data.Maybe (fromMaybe, fromJust)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Time.Clock (UTCTime)
-import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
-import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removePathForcibly, removeFile)
-import System.Environment.Blank (setEnv)
+import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
+import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removeFile)
 import System.Exit (ExitCode (..))
 import System.FilePath (makeRelative, (</>))
-import System.IO.Extra (withTempDir)
+import System.IO.Extra (withTempDir, hPutStrLn, stderr)
 import System.Process (CreateProcess (..), proc, readCreateProcessWithExitCode, readCreateProcess)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.HUnit (HUnitFailure (..), assertFailure, assertBool, testCase, (@?=))
@@ -44,7 +43,7 @@ data ProjectStructure
       }
   | MultiPackage
       { mpPackages :: [T.Text]
-      , mpProjects :: [T.Text]
+      , _mpProjects :: [T.Text]
       }
   | Dir
       { dName :: T.Text 
@@ -75,23 +74,11 @@ instance Show PackageIdentifier where
 -}
 
 main :: IO ()
-main = withSdkVersions $ do
-  damlAssistant <- locateRunfiles (mainWorkspace </> "daml-assistant" </> exe "daml")
-  release <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball-ce.tar.gz")
-  withTempDir $ \damlHome ->
-    flip onException (removePathForcibly damlHome) $ do
-      setEnv "DAML_HOME" damlHome True
-      -- Install sdk `env:DAML_SDK_RELEASE_VERSION` into temp DAML_HOME
-      -- corresponds to:
-      --   - `0.0.0` on PR builds
-      --   - `x.y.z-snapshot.yyyymmdd.nnnnn.m.vpppppppp` on MAIN/Release builds
-      void $ readCreateProcess (proc damlAssistant ["install", release, "--install-with-custom-version", sdkVersion]) ""
-      -- Install a copy under the release version 10.0.0
-      void $ readCreateProcess (proc damlAssistant ["install", release, "--install-with-custom-version", "10.0.0"]) ""
-      defaultMain $ tests damlAssistant
+main = withComponentVersions $ do
+  defaultMain $ withDpmSdkExtraVerResource $ const tests
 
-tests :: SdkVersioned => FilePath -> TestTree
-tests damlAssistant =
+tests :: ComponentVersioned => TestTree
+tests =
   testGroup
     "Multi-Package build"
     [ testGroup
@@ -144,54 +131,57 @@ tests damlAssistant =
             , PackageIdentifier "package-d" "0.0.1"
             ]
         ]
-    , testGroup
-        "Multi project"
-        [ test "Build package B" [] "./packages/package-b" multiProject $ Right
-            [ PackageIdentifier "lib-a" "0.0.1"
-            , PackageIdentifier "lib-b" "0.0.1"
-            , PackageIdentifier "package-a" "0.0.1"
-            , PackageIdentifier "package-b" "0.0.1"
-            ]
-        , test "Build package A" [] "./packages/package-a" multiProject $ Right
-            [ PackageIdentifier "lib-a" "0.0.1"
-            , PackageIdentifier "lib-b" "0.0.1"
-            , PackageIdentifier "package-a" "0.0.1"
-            ]
-        , test "Build lib B" [] "./libs/lib-b" multiProject $ Right
-            [ PackageIdentifier "lib-a" "0.0.1"
-            , PackageIdentifier "lib-b" "0.0.1"
-            ]
-        , test "Build lib A" [] "./libs/lib-a" multiProject $ Right
-            [ PackageIdentifier "lib-a" "0.0.1" ]
-        , test "Build all from packages" ["--all"] "./packages" multiProject $ Right
-            [ PackageIdentifier "lib-a" "0.0.1"
-            , PackageIdentifier "lib-b" "0.0.1"
-            , PackageIdentifier "package-a" "0.0.1"
-            , PackageIdentifier "package-b" "0.0.1"
-            ]
-        , test "Build all from libs" ["--all"] "./libs" multiProject $ Right
-            [ PackageIdentifier "lib-a" "0.0.1"
-            , PackageIdentifier "lib-b" "0.0.1"
-            ]
-        ]
-    , testGroup
-        "Cycle handling"
-        [ test "Permitted multi-package project cycle from lib-a" [] "./libs/lib-a" cyclicMultiPackage $ Right
-            [ PackageIdentifier "lib-a" "0.0.1"
-            ]
-        , test "Permitted multi-package project cycle from package-a" [] "./packages/package-a" cyclicMultiPackage $ Right
-            [ PackageIdentifier "lib-a" "0.0.1"
-            , PackageIdentifier "package-a" "0.0.1"
-            ]
-        , test "Permitted multi-package project cycle from libs --all" ["--all"] "./libs" cyclicMultiPackage $ Right
-            [ PackageIdentifier "lib-a" "0.0.1"
-            , PackageIdentifier "package-a" "0.0.1"
-            ]
-        , test "Permitted multi-package project cycle from packages --all" ["--all"] "./packages" cyclicMultiPackage $ Right
-            [ PackageIdentifier "lib-a" "0.0.1"
-            , PackageIdentifier "package-a" "0.0.1"
-            ]
-        , test "Illegal package dep cycle from package-a" [] "./package-a" cyclicPackagesProject $ Left "recursion detected"
+    -- Disabled until DPM supports multi-project
+    -- , testGroup
+    --     "Multi project"
+    --     [ test "Build package B" [] "./packages/package-b" multiProject $ Right
+    --         [ PackageIdentifier "lib-a" "0.0.1"
+    --         , PackageIdentifier "lib-b" "0.0.1"
+    --         , PackageIdentifier "package-a" "0.0.1"
+    --         , PackageIdentifier "package-b" "0.0.1"
+    --         ]
+    --     , test "Build package A" [] "./packages/package-a" multiProject $ Right
+    --         [ PackageIdentifier "lib-a" "0.0.1"
+    --         , PackageIdentifier "lib-b" "0.0.1"
+    --         , PackageIdentifier "package-a" "0.0.1"
+    --         ]
+    --     , test "Build lib B" [] "./libs/lib-b" multiProject $ Right
+    --         [ PackageIdentifier "lib-a" "0.0.1"
+    --         , PackageIdentifier "lib-b" "0.0.1"
+    --         ]
+    --     , test "Build lib A" [] "./libs/lib-a" multiProject $ Right
+    --         [ PackageIdentifier "lib-a" "0.0.1" ]
+    --     , test "Build all from packages" ["--all"] "./packages" multiProject $ Right
+    --         [ PackageIdentifier "lib-a" "0.0.1"
+    --         , PackageIdentifier "lib-b" "0.0.1"
+    --         , PackageIdentifier "package-a" "0.0.1"
+    --         , PackageIdentifier "package-b" "0.0.1"
+    --         ]
+    --     , test "Build all from libs" ["--all"] "./libs" multiProject $ Right
+    --         [ PackageIdentifier "lib-a" "0.0.1"
+    --         , PackageIdentifier "lib-b" "0.0.1"
+    --         ]
+    --     ]
+    -- , testGroup
+    --     "Cyclic project handling"
+    --     [ test "Permitted multi-package project cycle from lib-a" [] "./libs/lib-a" cyclicMultiPackage $ Right
+    --         [ PackageIdentifier "lib-a" "0.0.1"
+    --         ]
+    --     , test "Permitted multi-package project cycle from package-a" [] "./packages/package-a" cyclicMultiPackage $ Right
+    --         [ PackageIdentifier "lib-a" "0.0.1"
+    --         , PackageIdentifier "package-a" "0.0.1"
+    --         ]
+    --     , test "Permitted multi-package project cycle from libs --all" ["--all"] "./libs" cyclicMultiPackage $ Right
+    --         [ PackageIdentifier "lib-a" "0.0.1"
+    --         , PackageIdentifier "package-a" "0.0.1"
+    --         ]
+    --     , test "Permitted multi-package project cycle from packages --all" ["--all"] "./packages" cyclicMultiPackage $ Right
+    --         [ PackageIdentifier "lib-a" "0.0.1"
+    --         , PackageIdentifier "package-a" "0.0.1"
+    --         ]
+      , testGroup
+        "Cyclic package handling"
+        [ test "Illegal package dep cycle from package-a" [] "./package-a" cyclicPackagesProject $ Left "recursion detected"
         , test "Illegal package dep cycle from package-b" [] "./package-b" cyclicPackagesProject $ Left "recursion detected"
         , test "Illegal package dep cycle from root --all" ["--all"] "" cyclicPackagesProject $ Left "recursion detected"
         ]
@@ -221,7 +211,7 @@ tests damlAssistant =
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
             (const $ const $ pure ()) -- No modifications
-            (["--all"], "")
+            (["--all", "--debug"], "")
             [] -- So second time rebuilds nothing
             simpleTwoPackageProject
         , testCache
@@ -537,7 +527,7 @@ tests damlAssistant =
         
         -- Apply the modification
         doModification dir $
-          \path -> void $ readCreateProcessWithExitCode ((proc damlAssistant ["build"]) {cwd = Just path}) []
+          \path -> void $ readCreateProcessWithExitCode ((proc "dpm" ["build"]) {cwd = Just path}) []
         
         -- Run the second build, expecting all the secondRunPkgs and the pre-existing firstRunPkgs
         runBuild secondRun (secondRunPkgs `union` firstRunPkgs)
@@ -597,7 +587,7 @@ tests damlAssistant =
     getManifest :: FilePath -> IO [MultiPackageManifestEntry]
     getManifest dir = do
       let args = ["damlc", "generate-multi-package-manifest"]
-          process = (proc damlAssistant args) {cwd = Just dir}
+          process = (proc "dpm" args) {cwd = Just dir}
       entriesStr <- readCreateProcess process ""
       let eEntries = eitherDecode @[MultiPackageManifestEntry] (BSLC.pack entriesStr)
           convertPath = replace "\\" "/"
@@ -632,8 +622,12 @@ tests damlAssistant =
 
       runPath <- canonicalizePath $ dir </> runPath
       let args = ["build", "--enable-multi-package=yes"] <> flags
-          process = (proc damlAssistant args) {cwd = Just runPath}
-      (exitCode, _, err) <- readCreateProcessWithExitCode process ""
+          process = (proc "dpm" args) {cwd = Just runPath}
+      (exitCode, out, err) <- readCreateProcessWithExitCode process ""
+      hPutStrLn stderr out
+      hPutStrLn stderr err
+      hPutStrLn stderr dir
+      -- threadDelay 9223372036854775807
       case expectedResult of
         Right expectedPackageIdentifiers -> do
           unless (exitCode == ExitSuccess) $ assertFailure $ "Expected success and got " <> show exitCode <> ".\n  StdErr: \n  " <> err
@@ -662,7 +656,7 @@ tests damlAssistant =
     buildProjectStructure' initialPath path = \case
       damlYaml@DamlYaml {} -> do
         TIO.writeFile (path </> "daml.yaml") $ T.unlines $
-          [ "sdk-version: " <> fromMaybe (T.pack sdkVersion) (dySdkVersion damlYaml)
+          [ "sdk-version: " <> fromMaybe (T.pack componentVersionString) (dySdkVersion damlYaml)
           , "name: " <> dyName damlYaml
           , "source: " <> dySource damlYaml
           , "version: " <> dyVersion damlYaml
@@ -688,7 +682,8 @@ tests damlAssistant =
       multiPackage@MultiPackage {} -> do
         TIO.writeFile (path </> "multi-package.yaml") $ T.unlines
           $  ["packages:"] ++ fmap ("  - " <>) (mpPackages multiPackage)
-          ++ ["projects:"] ++ fmap ("  - " <>) (mpProjects multiPackage)
+          -- Disabled until DPM supports projects
+          -- ++ ["projects:"] ++ fmap ("  - " <>) (mpProjects multiPackage)
         pure Map.empty
       dir@Dir {} -> do
         let newDir = path </> (T.unpack $ dName dir)
@@ -762,8 +757,8 @@ diamondProject =
 
 -- Package-b depends on package-a, package-a depends on lib-b, lib-b depends on lib-a
 -- Straight line dependency tree crossing a "package" border
-multiProject :: [ProjectStructure]
-multiProject =
+_multiProject :: [ProjectStructure]
+_multiProject =
   [ Dir "libs"
     [ MultiPackage ["./lib-a", "./lib-b"] []
     , Dir "lib-a"
@@ -789,8 +784,8 @@ multiProject =
   ]
 
 -- Cyclic `project` definitions in multi-package.yamls
-cyclicMultiPackage :: [ProjectStructure]
-cyclicMultiPackage =
+_cyclicMultiPackage :: [ProjectStructure]
+_cyclicMultiPackage =
   [ Dir "libs"
     [ MultiPackage ["./lib-a"] ["../packages"]
     , Dir "lib-a"

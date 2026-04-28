@@ -23,23 +23,23 @@ import qualified Data.Text.Extended as T
 import DA.Bazel.Runfiles
 import DA.Test.Process
 import DA.Test.Util
-import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
+import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
 
 main :: IO ()
-main = withSdkVersions $ do
+main = withComponentVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
     defaultMain (tests damlc scriptDar)
 
 
-tests :: SdkVersioned => FilePath -> FilePath -> TestTree
+tests :: ComponentVersioned => FilePath -> FilePath -> TestTree
 tests damlc scriptDar = testGroup "damlc"
   [ testsForDamlcValidate damlc
   , testsForDamlcTest damlc scriptDar
   ]
 
-testsForDamlcValidate :: SdkVersioned => FilePath -> TestTree
+testsForDamlcValidate :: ComponentVersioned => FilePath -> TestTree
 testsForDamlcValidate damlc = testGroup "damlc validate-dar"
   [ testCase "Non-existent file" $ do
       (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["validate-dar", "does-not-exist.dar"] ""
@@ -50,7 +50,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
   , testCaseSteps "Good (simple)" $ \step -> withTempDir $ \projDir -> do
       step "prepare"
       writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-        [ "sdk-version: " <> sdkVersion
+        [ "sdk-version: " <> componentVersionString
         , "name: good"
         , "version: 0.0.1"
         , "source: ."
@@ -72,7 +72,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
   , testCaseSteps "Good (template)" $ \step -> withTempDir $ \projDir -> do
       step "prepare"
       writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-        [ "sdk-version: " <> sdkVersion
+        [ "sdk-version: " <> componentVersionString
         , "name: good"
         , "version: 0.0.1"
         , "source: ."
@@ -98,7 +98,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
   , testCaseSteps "Good (interface)" $ \step -> withTempDir $ \projDir -> do
       step "prepare"
       writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-        [ "sdk-version: " <> sdkVersion
+        [ "sdk-version: " <> componentVersionString
         , "name: good"
         , "version: 0.0.1"
         , "source: ."
@@ -125,7 +125,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
   , testCaseSteps "Good (interface instance)" $ \step -> withTempDir $ \projDir -> do
       step "prepare"
       writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-        [ "sdk-version: " <> sdkVersion
+        [ "sdk-version: " <> componentVersionString
         , "name: good"
         , "version: 0.0.1"
         , "source: ."
@@ -164,7 +164,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
   , testCaseSteps "Bad, DAR contains a bad DALF" $ \step -> withTempDir $ \projDir -> do
       step "prepare"
       writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-        [ "sdk-version: " <> sdkVersion
+        [ "sdk-version: " <> componentVersionString
         , "name: good"
         , "version: 0.0.1"
         , "source: ."
@@ -194,7 +194,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
   , testCaseSteps "Bad, unclosed" $ \step -> withTempDir $ \projDir -> do
       step "prepare"
       writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-        [ "sdk-version: " <> sdkVersion
+        [ "sdk-version: " <> componentVersionString
         , "name: good"
         , "version: 0.0.1"
         , "source: ."
@@ -222,7 +222,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
 
   ]
 
-testsForDamlcTest :: SdkVersioned => FilePath -> FilePath -> TestTree
+testsForDamlcTest :: ComponentVersioned => FilePath -> FilePath -> TestTree
 testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
     [ testCase "Non-existent file" $ do
           (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", "foobar"] ""
@@ -243,7 +243,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
     , testCase "Test coverage report and summary" $ do
         withTempDir $ \dir -> do
             writeFileUTF8 (dir </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: test-coverage-report"
               , "version: 0.0.1"
               , "source: ."
@@ -292,7 +292,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
     , testCase "Full test coverage report" $ do
         withTempDir $ \dir -> do
             writeFileUTF8 (dir </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: full-test-coverage-report"
               , "version: 0.0.1"
               , "source: ."
@@ -343,7 +343,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
 --    , testCase "Full test coverage report with interfaces" $ do
 --        withTempDir $ \dir -> do
 --            writeFileUTF8 (dir </> "daml.yaml") $ unlines
---              [ "sdk-version: " <> sdkVersion
+--              [ "sdk-version: " <> componentVersionString
 --              , "name: full-test-coverage-report-with-interfaces"
 --              -- TODO https://github.com/digital-asset/daml/issues/12051
 --              --   Remove once Daml-LF 1.15 is the default compiler output
@@ -415,7 +415,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
     , testCase "Full test coverage report with --all set" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
           writeFileUTF8 (projDir </> "a" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: a"
             , "version: 0.0.1"
             , "source: ."
@@ -441,7 +441,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             ]
           createDirectoryIfMissing True (projDir </> "b")
           writeFileUTF8 (projDir </> "b" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: b"
             , "version: 0.0.1"
             , "source: ."
@@ -520,7 +520,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
     , testCase "Filter test coverage report using --coverage-ignore-choice" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
           writeFileUTF8 (projDir </> "a" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: a"
             , "version: 0.0.1"
             , "source: ."
@@ -558,7 +558,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             ]
           createDirectoryIfMissing True (projDir </> "b")
           writeFileUTF8 (projDir </> "b" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: b"
             , "version: 0.0.1"
             , "source: ."
@@ -805,7 +805,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
     , testCase "Filter tests with --test-pattern" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
           writeFileUTF8 (projDir </> "a" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: a"
             , "version: 0.0.1"
             , "source: ."
@@ -824,7 +824,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             ]
           createDirectoryIfMissing True (projDir </> "b")
           writeFileUTF8 (projDir </> "b" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: b"
             , "version: 0.0.1"
             , "source: ."
@@ -868,7 +868,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
     , testCase "Serialized results aggregate correctly" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: a"
             , "version: 0.0.1"
             , "source: ."
@@ -1094,7 +1094,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
     , testCase "Full test coverage report without --all set (but imports)" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
           writeFileUTF8 (projDir </> "a" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: a"
             , "version: 0.0.1"
             , "source: ."
@@ -1119,7 +1119,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , projDir </> "a" ]
           createDirectoryIfMissing True (projDir </> "b")
           writeFileUTF8 (projDir </> "b" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: b"
             , "version: 0.0.1"
             , "source: ."
@@ -1174,7 +1174,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
     , testCase "File with failing script" $ do
         withTempDir $ \dir -> do
             writeFileUTF8 (dir </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: test-failing-script"
               , "version: 0.0.1"
               , "source: ."
@@ -1207,7 +1207,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
         -- TODO: does this test make sense with a daml.yaml file?
         withTempDir $ \projDir -> do
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: test-files-outside-package"
             , "version: 0.0.1"
             , "source: ."
@@ -1240,7 +1240,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , "  assert True"
             ]
           writeFileUTF8 (projDir </> "relative" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: relative"
             , "version: 0.0.1"
             , "source: ."
@@ -1260,7 +1260,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , "  assert True"
             ]
           writeFileUTF8 (tempDir </> "proj" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: relative"
             , "version: 0.0.1"
             , "source: ."
@@ -1284,7 +1284,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           , "  pure $ replicate 500000 \"hello world\""
           ]
         writeFileUTF8 (tempDir </> "daml.yaml") $ unlines
-          [ "sdk-version: " <> sdkVersion
+          [ "sdk-version: " <> componentVersionString
           , "name: foobar"
           , "version: 0.0.1"
           , "source: ."
@@ -1300,7 +1300,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
     , testCase "Rollback archive" $ do
         withTempDir $ \dir -> do
             writeFileUTF8 (dir </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: test-rollback-archive"
               , "version: 0.0.1"
               , "source: ."
@@ -1357,7 +1357,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
     [ testCase ("damlc test " <> unwords (args "") <> " in package") $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
           writeFileUTF8 (projDir </> "a" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: a"
             , "version: 0.0.1"
             , "source: ."
@@ -1370,7 +1370,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           callProcessSilent damlc ["build", "--package-root", projDir </> "a"]
           createDirectoryIfMissing True (projDir </> "b")
           writeFileUTF8 (projDir </> "b" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: b"
             , "version: 0.0.1"
             , "source: ."

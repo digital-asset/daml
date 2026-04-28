@@ -34,5 +34,6 @@ main = do
       port <- readPortFile (unsafeProcessHandle ph) maxRetries portFile
       let interpolatedClientArgs = map (replace "%PORT%" (show port)) splitClientArgs
       runProcess_ (proc clientExe interpolatedClientArgs)
-      -- See the comment on DA.Daml.Helper.Util.withProcessWait_'
+      -- withProcessTerm kills processes using async exceptions, which doesn't work on windows.
+      -- Note use of terminateProcess over stopProcess, as the latter also uses async exceptions
       when isWindows (terminateProcess $ unsafeProcessHandle ph)

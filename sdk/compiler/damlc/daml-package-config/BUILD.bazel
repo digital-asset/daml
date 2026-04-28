@@ -30,7 +30,7 @@ da_haskell_library(
     deps = [
         "//compiler/daml-lf-ast",
         "//daml-assistant:daml-project-config",
-        "//sdk-version/hs:sdk-version-class-lib",
+        "//component-version/hs:component-version-class-lib",
     ],
 )
 

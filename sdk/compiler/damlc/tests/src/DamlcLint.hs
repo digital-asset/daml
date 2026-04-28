@@ -18,18 +18,18 @@ import Test.Tasty.HUnit
 import qualified Data.Text.Extended as T
 
 import DA.Bazel.Runfiles
-import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
+import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
 
 main :: IO ()
-main = withSdkVersions $ do
+main = withComponentVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     defaultMain (tests damlc)
 
-tests :: SdkVersioned => FilePath -> TestTree
+tests :: ComponentVersioned => FilePath -> TestTree
 tests damlc = testGroup "damlc" [testsForDamlcLint damlc]
 
-testsForDamlcLint :: SdkVersioned => FilePath -> TestTree
+testsForDamlcLint :: ComponentVersioned => FilePath -> TestTree
 testsForDamlcLint damlc = testGroup "damlc test"
     [ testCase "Lint all package files" $ do
         withTempDir $ \dir -> do
@@ -38,7 +38,7 @@ testsForDamlcLint damlc = testGroup "damlc test"
             createDirectoryIfMissing True $ dir </> projDir
             let damlFile = dir </> "daml.yaml"
             T.writeFileUtf8 damlFile $ T.unlines
-              [ "sdk-version: " <> T.pack sdkVersion
+              [ "sdk-version: " <> T.pack componentVersionString
               , "name: a"
               , "version: 0.0.1"
               , "source: " <> T.pack projDir
@@ -79,7 +79,7 @@ testsForDamlcLint damlc = testGroup "damlc test"
             createDirectoryIfMissing True $ dir </> projDir
             let damlFile = dir </> "daml.yaml"
             T.writeFileUtf8 damlFile $ T.unlines
-              [ "sdk-version: " <> T.pack sdkVersion
+              [ "sdk-version: " <> T.pack componentVersionString
               , "name: a"
               , "version: 0.0.1"
               , "source: " <> T.pack projDir

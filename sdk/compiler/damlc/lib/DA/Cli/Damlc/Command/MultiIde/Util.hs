@@ -6,7 +6,8 @@
 {-# LANGUAGE GADTs #-}
 
 module DA.Cli.Damlc.Command.MultiIde.Util (
-  module DA.Cli.Damlc.Command.MultiIde.Util
+  module DA.Cli.Damlc.Command.MultiIde.Util,
+  readTVarIO,
 ) where
 
 import Control.Concurrent.Async (AsyncCancelled (..))
@@ -22,7 +23,7 @@ import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Daml.Package.Config (isDamlYamlContentForPackage)
 import DA.Daml.Project.Config (readPackageConfig, queryPackageConfig, queryPackageConfigRequired)
 import DA.Daml.Project.Consts (packageConfigName)
-import DA.Daml.Project.Types (ConfigError (..), parseUnresolvedVersion)
+import DA.Daml.Project.Types (ConfigError (..))
 import Data.Aeson (Value (Null))
 import Data.Bifunctor (first)
 import Data.Either (fromRight)
@@ -31,6 +32,7 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.Text.Extended as T
+import GHC.Conc (TVar, readTVar, readTVarIO, writeTVar)
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Lens as LSP
 import qualified Language.LSP.Types.Capabilities as LSP
@@ -66,6 +68,25 @@ modifyTMVarM var f = do
 
 modifyTMVarM_ :: TMVar a -> (a -> STM a) -> STM ()
 modifyTMVarM_ var f = modifyTMVarM var (fmap (,()) . f)
+
+modifyTVar :: TVar a -> (a -> (a, b)) -> STM b
+modifyTVar var f = modifyTVarM var (pure . f)
+
+modifyTVar_ :: TVar a -> (a -> a) -> STM ()
+modifyTVar_ var f = modifyTVarM_ var (pure . f)
+
+modifyTVarM :: TVar a -> (a -> STM (a, b)) -> STM b
+modifyTVarM var f = do
+  x <- readTVar var
+  (x', b) <- f x
+  writeTVar var x'
+  pure b
+
+modifyTVarM_ :: TVar a -> (a -> STM a) -> STM ()
+modifyTVarM_ var f = modifyTVarM var (fmap (,()) . f)
+
+writeTVarIO :: TVar a -> a -> IO ()
+writeTVarIO var = atomically . writeTVar var
 
 onSubIde :: MultiIdeState -> PackageHome -> (SubIdeData -> (SubIdeData, a)) -> STM a
 onSubIde miState home f =
@@ -265,15 +286,7 @@ packageSummaryFromDamlYaml path = do
     canonDeps <- lift $ withCurrentDirectory (unPackageHome path) $ traverse canonicalizePath $ dataDeps <> directDarDeps
     name <- except $ queryPackageConfigRequired ["name"] package
     version <- except $ queryPackageConfigRequired ["version"] package
-    releaseVersion <- except $ queryPackageConfig ["sdk-version"] package
-    -- Default error gives too much information, e.g. `Invalid SDK version  "2.8.e": Failed reading: takeWhile1`
-    -- Just saying its invalid is enough
-
-    unresolvedReleaseVersion <- except $
-        case releaseVersion of
-          Just ver -> first (const $ ConfigFieldInvalid "package" ["sdk-version"] $ "Invalid Daml SDK version: " <> T.unpack ver)
-              $ fmap Just $ parseUnresolvedVersion ver
-          Nothing -> Right Nothing
+    sdkVersion <- except $ queryPackageConfig ["sdk-version"] package
 
     let overrideMapToMaybe :: T.Text -> Map.Map T.Text T.Text -> Either ConfigError (Maybe T.Text)
         overrideMapToMaybe componentName m =
@@ -293,7 +306,7 @@ packageSummaryFromDamlYaml path = do
       { psUnitId = UnitId $ name <> "-" <> version
       , psDeps = DarFile . toPosixFilePath <$> canonDeps
       , psSdkVersionData = SdkVersionData
-          { svdVersion = unresolvedReleaseVersion
+          { svdVersion = sdkVersion
           , svdOverrides = componentOverrides
           }
       }

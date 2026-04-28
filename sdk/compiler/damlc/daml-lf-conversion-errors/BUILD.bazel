@@ -30,6 +30,6 @@ da_haskell_library(
         "//compiler/damlc/daml-lf-util",
         "//compiler/damlc/daml-preprocessor",
         "//libs-haskell/da-hs-base",
-        "//sdk-version/hs:sdk-version-class-lib",
+        "//component-version/hs:component-version-class-lib",
     ],
 )

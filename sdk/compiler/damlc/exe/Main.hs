@@ -3,9 +3,9 @@
 
 module Main (main) where
 
-import SdkVersion (withSdkVersions)
+import ComponentVersion (withComponentVersions)
 
 import qualified DA.Cli.Damlc
 
 main :: IO ()
-main = withSdkVersions DA.Cli.Damlc.main
+main = withComponentVersions DA.Cli.Damlc.main

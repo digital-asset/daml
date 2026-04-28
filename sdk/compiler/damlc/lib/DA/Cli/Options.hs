@@ -14,7 +14,7 @@ import Options.Applicative.Extended
 import Data.List
 import Data.Maybe
 import qualified DA.Pretty           as Pretty
-import DA.Daml.Helper.Studio (ReplaceExtension (..))
+import DA.Cli.Studio (ReplaceExtension (..))
 import DA.Daml.Options.Types
 import DA.Daml.LF.Ast.Util (splitUnitId)
 import qualified DA.Daml.LF.Ast.Version as LF

@@ -43,7 +43,7 @@ da_haskell_library(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-preprocessor",
         "//libs-haskell/da-hs-base",
-        "//sdk-version/hs:sdk-version-class-lib",
+        "//component-version/hs:component-version-class-lib",
     ],
 )
 

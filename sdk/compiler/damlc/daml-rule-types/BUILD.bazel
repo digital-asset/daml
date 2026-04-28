@@ -58,6 +58,6 @@ da_haskell_library(
         "//compiler/script-service/client",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//sdk-version/hs:sdk-version-class-lib",
+        "//component-version/hs:component-version-class-lib",
     ],
 )

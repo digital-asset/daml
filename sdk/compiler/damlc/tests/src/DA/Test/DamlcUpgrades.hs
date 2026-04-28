@@ -18,17 +18,17 @@ import System.IO.Extra
 import DA.Test.Process
 import Test.Tasty
 import Test.Tasty.HUnit
-import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
+import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
 import Text.Regex.TDFA
 import qualified Data.Text as T
 import Data.Maybe (maybeToList, fromMaybe)
 
 main :: IO ()
-main = withSdkVersions $ do
+main = withComponentVersions $ do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     defaultMain $ tests damlc
 
-tests :: SdkVersioned => FilePath -> TestTree
+tests :: ComponentVersioned => FilePath -> TestTree
 tests damlc =
     testGroup
         "Upgrade"
@@ -649,7 +649,7 @@ tests damlc =
     makeProjectFile name version lfVersion upgradedFile deps doTypecheck warnBadInterfaceInstances ignoreUpgradesOwnDependency templateHasNewInterfaceInstance =
         ( "daml.yaml"
         , pure $ unlines $
-          [ "sdk-version: " <> sdkVersion
+          [ "sdk-version: " <> componentVersionString
           , "name: " <> name
           , "source: daml"
           , "version: " <> version

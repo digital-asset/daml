@@ -33,7 +33,7 @@ import Development.IDE.Core.Service (getDiagnostics, runActionSync, shutdown)
 import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..), use)
 import Development.IDE.Types.Diagnostics (showDiagnostics)
 import Development.IDE.Types.Location (toNormalizedFilePath')
-import SdkVersion (SdkVersioned, withSdkVersions, sdkVersion)
+import ComponentVersion (ComponentVersioned, withComponentVersions, componentVersionString)
 import System.Directory.Extra
 import System.Environment.Blank
 import System.FilePath
@@ -46,7 +46,7 @@ lfVersion :: LF.Version
 lfVersion = LF.version1_15
 
 main :: IO ()
-main = withSdkVersions $ do
+main = withComponentVersions $ do
   withTempDir $ \dir -> do
     withCurrentDirectory dir $ do
       setEnv "TASTY_NUM_THREADS" "1" True
@@ -55,7 +55,7 @@ main = withSdkVersions $ do
       scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script-1.15.dar"
       writeFileUTF8 "daml.yaml" $
         unlines
-          [ "sdk-version: " <> sdkVersion,
+          [ "sdk-version: " <> componentVersionString,
             "name: script-service",
             "version: 0.0.1",
             "source: .",
@@ -226,7 +226,7 @@ options :: Options
 options = defaultOptions (Just lfVersion)
 
 
-runScripts :: SdkVersioned => SS.Handle -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]
+runScripts :: ComponentVersioned => SS.Handle -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]
 runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do
   setBufferModified ideState file $ Just $ T.unlines fileContent
   setFilesOfInterest ideState (HashSet.singleton file)

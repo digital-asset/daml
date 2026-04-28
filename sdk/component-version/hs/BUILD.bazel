@@ -5,8 +5,8 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library")
 load("@build_environment//:configuration.bzl", "ghc_version", "mvn_version", "sdk_version")
 
 da_haskell_library(
-    name = "sdk-version-class-lib",
-    srcs = ["src/SdkVersion/Class.hs"],
+    name = "component-version-class-lib",
+    srcs = ["src/ComponentVersion/Class.hs"],
     hackage_deps = [
         "base",
         "text",
@@ -20,25 +20,25 @@ da_haskell_library(
 )
 
 genrule(
-    name = "sdk-version-lib-file",
+    name = "component-version-lib-file",
     srcs = [],
-    outs = ["SdkVersion.hs"],
+    outs = ["ComponentVersion.hs"],
     cmd = """
         cat > $@ <<EOF
 {{-# LANGUAGE RankNTypes #-}}
 
-module SdkVersion
-  ( module SdkVersion.Class
-  , withSdkVersions
+module ComponentVersion
+  ( module ComponentVersion.Class
+  , withComponentVersions
   ) where
 
-import SdkVersion.Class
+import ComponentVersion.Class
 
-withSdkVersions :: (SdkVersioned => r) -> r
-withSdkVersions = withSdkVersions' SdkVersions
-  {{ _sdkVersion = "{sdk}"
-  ,  _mvnVersion = "{mvn}"
-  ,  _sdkPackageVersion = "{ghc}"
+withComponentVersions :: (ComponentVersioned => r) -> r
+withComponentVersions = withComponentVersions' ComponentVersions
+  {{ _componentVersionRaw = "{sdk}"
+  ,  _componentVersionMvn = "{mvn}"
+  ,  _componentVersionDamlPackage = "{ghc}"
   }}
 EOF
 """.format(
@@ -49,14 +49,14 @@ EOF
 )
 
 da_haskell_library(
-    name = "sdk-version-lib",
-    srcs = [":sdk-version-lib-file"],
+    name = "component-version-lib",
+    srcs = [":component-version-lib-file"],
     hackage_deps = [
         "base",
         "ghc-lib-parser",
     ],
     visibility = ["//visibility:public"],
     deps = [
-        ":sdk-version-class-lib",
+        ":component-version-class-lib",
     ],
 )
