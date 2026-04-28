@@ -19,7 +19,7 @@ class DamlScriptTestRunnerPV35 extends DamlScriptTestRunner {
   override lazy val protocolVersion = ProtocolVersion.Explicit("v35")
 
   val scriptTestDar =
-    Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test-v2.3-staging.dar"))
+    Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test-v2.3.dar"))
   val fakeScriptTestDar =
     Paths.get(BazelRunfiles.rlocation("daml-script/test/legacy-script-test.dar"))
   val jsonScriptTestDar =
