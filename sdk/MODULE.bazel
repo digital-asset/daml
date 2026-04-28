@@ -749,3 +749,6 @@ use_repo(automake_ext, "automake")
 
 daml_finance_ext = use_extension("//bazel/extensions:daml_finance_extension.bzl", "daml_finance_extension")
 use_repo(daml_finance_ext, "daml-finance")
+
+freefont_ext = use_extension("//bazel/extensions:freefont_extension.bzl", "freefont_extension")
+use_repo(freefont_ext, "freefont")
