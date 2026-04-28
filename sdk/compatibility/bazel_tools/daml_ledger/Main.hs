@@ -154,7 +154,7 @@ main = do
 -- | Test `daml ledger list-parties --access-token-file`
 authenticatedUploadTest :: SdkVersion -> IO Tools -> TestTree
 authenticatedUploadTest sdkVersion getTools = do
-  withSandbox getTools (Just sharedSecret) $ \getSandboxPort ->  testGroup "authentication" $
+  withSandbox getTools (Just sharedSecret) $ \getSandboxPort -> testGroup "authentication"
     [ testCase "Bearer prefix" $ do
           Tools{..} <- getTools
           port <- getSandboxPort
