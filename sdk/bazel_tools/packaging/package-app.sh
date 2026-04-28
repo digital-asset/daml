@@ -48,17 +48,17 @@ fi
 
 case "$(uname -s)" in
   Darwin|Linux)
-    tar=$(abspath $(rlocation tar_dev_env/tar))
+    tar=$(abspath $(find "${RUNFILES_DIR}" -maxdepth 2 -name "tar"))
 # Unused
 #    gzip=$(abspath $(rlocation gzip_dev_env/gzip))
-    mktgz=$(abspath $(rlocation daml-sdk/bazel_tools/sh/mktgz))
-    patchelf=$(abspath $(rlocation patchelf_nix/bin/patchelf))
+    mktgz=$(abspath $(rlocation _main/bazel_tools/sh/mktgz))
+    patchelf=$(abspath $(rlocation patchelf~/patchelf))
     ;;
   CYGWIN*|MINGW*|MSYS*)
     tar=$(abspath $(rlocation tar_dev_env/usr/bin/tar.exe))
 # Unused
 #    gzip=$(abspath $(rlocation gzip_dev_env/usr/bin/gzip.exe))
-    mktgz=$(abspath $(rlocation daml-sdk/bazel_tools/sh/mktgz.exe))
+    mktgz=$(abspath $(rlocation _main/bazel_tools/sh/mktgz.exe))
     ;;
 esac
 
