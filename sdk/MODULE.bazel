@@ -736,6 +736,9 @@ use_repo(io_grpc_grpc_java_ext, "io_grpc_grpc_java")
 
 # --- Native libraries ---
 
+gmp_ext = use_extension("//bazel/extensions:gmp_extension.bzl", "gmp")
+use_repo(gmp_ext, "gmp")
+
 ncurses_ext = use_extension("//bazel/extensions:ncurses_extension.bzl", "ncurses")
 use_repo(ncurses_ext, "ncurses")
 
