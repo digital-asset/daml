@@ -20,7 +20,7 @@ def parse_version_dict(v):
         info = minor_map["Staging"]
         minor = info["version"]
         rev = info["revision"]
-        return f"version{major}_{minor}", f"{major}.{minor}", f"PointStaging {minor}", rev
+        return f"version{major}_{minor}_staging", f"{major}.{minor}.staging", f"PointStaging {minor}", rev
     elif "Stable" in minor_map:
         minor = minor_map["Stable"]["version"]
         return f"version{major}_{minor}", f"{major}.{minor}", f"PointStable {minor}", None
@@ -37,13 +37,13 @@ def version_sort_key(v):
     """Sort key for structured version dicts."""
     minor_map = v["minor"]
     if "Dev" in minor_map:
-        return (v["major"], 999999)
+        return (v["major"], 999999, 0)
     elif "Staging" in minor_map:
-        return (v["major"], minor_map["Staging"]["version"])
+        return (v["major"], minor_map["Staging"]["version"], 0)
     elif "Stable" in minor_map:
-        return (v["major"], minor_map["Stable"]["version"])
+        return (v["major"], minor_map["Stable"]["version"], 1)
     else:
-        return (v["major"], 0)
+        return (v["major"], 0, 0)
 
 
 def version_to_key(v):
