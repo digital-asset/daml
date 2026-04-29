@@ -10,14 +10,19 @@ def _package_app_impl(ctx):
     args.add(ctx.executable.binary.path)
     args.add(ctx.outputs.out.path)
     args.add_all(ctx.attr.resources, map_each = _get_resource_path)
+
+    extra_lib_dirs = [f.dirname for f in ctx.files.extra_lib_dirs]
+    env = {"PACKAGE_APP_EXTRA_LIB_DIRS": ":".join(extra_lib_dirs)} if extra_lib_dirs else {}
+
     ctx.actions.run(
         executable = ctx.executable.package_app,
         outputs = [ctx.outputs.out],
-        inputs = ctx.files.resources,
+        inputs = ctx.files.resources + ctx.files.extra_lib_dirs,
         # Binaries are passed through tools so that Bazel can make the runfiles
         # tree available to the action.
         tools = [ctx.executable.binary],
         arguments = [args],
+        env = env,
         progress_message = "Packaging " + ctx.attr.name,
     )
 
@@ -61,6 +66,9 @@ package_app = rule(
             allow_files = True,
         ),
         "resources": attr.label_list(
+            allow_files = True,
+        ),
+        "extra_lib_dirs": attr.label_list(
             allow_files = True,
         ),
         "package_app": attr.label(
