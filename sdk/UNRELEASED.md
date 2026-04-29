@@ -12,6 +12,7 @@ Wednesday after your change.
 ## Until 2026-04-14 (Exclusive)
 - Added --list-scripts-json flag to `dpm script`, for listing all script names in a DAR
 - Update to DPM 1.0.12
+- Corrected the haddocks of `HasSignatory`, `HasObserver`, `HasEnsure`, `HasCreate`, `HasFetch`, and `HasArchive` to no longer claim membership in the `Template` constraint, which is a 3-tuple of `HasTemplateTypeRep`, `HasToAnyTemplate`, and `HasFromAnyTemplate`.
 
 ## Until 2026-03-31 (Exclusive)
 - Codegen-java: Added support for `UnknownTrailingFieldPolicy` in the generated `fromCreatedEvent()` method.

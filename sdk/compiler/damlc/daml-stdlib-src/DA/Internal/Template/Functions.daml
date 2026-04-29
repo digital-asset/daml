@@ -27,27 +27,27 @@ type Template t =
   , HasFromAnyTemplate t
   )
 
--- | Exposes `signatory` function. Part of the `Template` constraint.
+-- | Exposes `signatory` function. Implicitly required for any template type.
 class HasSignatory t where
   -- | The signatories of a contract.
   signatory : t -> [Party]
 
--- | Exposes `observer` function. Part of the `Template` constraint.
+-- | Exposes `observer` function. Implicitly required for any template type.
 class HasObserver t where
   -- | The observers of a contract.
   observer : t -> [Party]
 
--- | Exposes `ensure` function. Part of the `Template` constraint.
+-- | Exposes `ensure` function. Implicitly required for any template type.
 class HasEnsure t where
   -- | A predicate that must be true, otherwise contract creation will fail.
   ensure : t -> Bool
 
--- | Exposes `create` function. Part of the `Template` constraint.
+-- | Exposes `create` function. Implicitly required for any template type.
 class HasCreate t where
   -- | Create a contract based on a template `t`.
   create : t -> Update (ContractId t)
 
--- | Exposes `fetch` function. Part of the `Template` constraint.
+-- | Exposes `fetch` function. Implicitly required for any template type.
 class HasFetch t where
   -- | Fetch the contract data associated with the given contract ID.
   -- If the `ContractId t` supplied is not the contract ID of an active
@@ -69,7 +69,7 @@ softFetch = _softFetch
 softExercise : HasSoftExercise t c r => ContractId t -> c -> Update r
 softExercise = _softExercise
 
--- | Exposes `archive` function. Part of the `Template` constraint.
+-- | Exposes `archive` function. Implicitly required for any template type.
 class HasArchive t where
   -- | Archive the contract with the given contract ID.
   archive : ContractId t -> Update ()
