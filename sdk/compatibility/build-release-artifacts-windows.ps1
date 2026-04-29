@@ -44,5 +44,5 @@ bazel build `
 
 git clean -fxd -e 'daml-*.tgz' compatibility/head_sdk
 
-cp --Force bazel-bin\release\dpm-sdk-release-tarball.tar.gz compatibility/head_sdk
-cp --Force bazel-bin\external\dpm_binary\dpm.exe compatibility/head_sdk
+cp -Force bazel-bin\release\dpm-sdk-release-tarball.tar.gz compatibility/head_sdk
+cp -Force bazel-bin\external\dpm_binary\dpm.exe compatibility/head_sdk
