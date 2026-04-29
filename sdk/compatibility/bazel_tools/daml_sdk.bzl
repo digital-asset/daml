@@ -114,14 +114,16 @@ def _dpm_sdk_impl(ctx):
     # os_name for macos is "macos" rather than "darwin"
     os = "darwin" if is_darwin else os_name
 
+    tar_type = "zip" if is_windows else "tar.gz"
+
     ctx.download_and_extract(
         output = out_dir,
         url =
             # arch must be amd64 or arm64. os_arch has x86_64 and aarch64
-            "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public-generic/files/dpm-sdk:{}:dpm-{}-{}-{}.tar.gz:download?alt=media".format(ctx.attr.version, ctx.attr.version, os, arch),
+            "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public-generic/files/dpm-sdk:{}:dpm-{}-{}-{}.{}:download?alt=media".format(ctx.attr.version, ctx.attr.version, os, arch, tar_type),
         sha256 = ctx.attr.sdk_sha256[os_name],
         stripPrefix = "{}-{}".format(os, arch),
-        type = "tar.gz",
+        type = tar_type,
     )
     sdk_checksum = ctx.attr.sdk_sha256[os_name]
 
