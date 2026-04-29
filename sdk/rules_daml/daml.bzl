@@ -732,9 +732,7 @@ def daml_multi_package_test(
                 fi
             }}
             tar xzf $$(canonicalize_rlocation $(rootpath {dpm_tarball})) -C $$DPM_HOME --strip-components=1 --force-local
-            DPM="$$DPM_HOME/bin/dpm"
-            ls "$$DPM_HOME" >&2
-            ls "$$DPM_HOME/bin" >&2
+            DPM="$$DPM_HOME/bin/dpm{cmd}"
             
             rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
             {cp_multi_package_file}
@@ -744,6 +742,7 @@ def daml_multi_package_test(
         """.format(
             shorten = shorten,
             dpm_tarball = dpm_tarball,
+            cmd = ".cmd" if is_windows else "",
             cp_srcs = "\n".join([
                 "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
                     src = "$$(canonicalize_rlocation $(rootpath {}))".format(src),
