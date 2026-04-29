@@ -211,7 +211,7 @@ tests =
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
             (const $ const $ pure ()) -- No modifications
-            (["--all", "--debug"], "")
+            (["--all"], "")
             [] -- So second time rebuilds nothing
             simpleTwoPackageProject
         , testCache

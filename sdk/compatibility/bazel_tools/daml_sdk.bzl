@@ -109,6 +109,7 @@ def _dpm_sdk_impl(ctx):
 
     internal_sdk_version = internal_sdk_versions.get(ctx.attr.version, default = ctx.attr.version)
 
+    # arch must be amd64 or arm64. os_arch has x86_64 and aarch64
     arch = "amd64" if is_windows or is_linux_intel or is_darwin_amd64 else "arm64"
 
     # os_name for macos is "macos" rather than "darwin"
@@ -116,14 +117,18 @@ def _dpm_sdk_impl(ctx):
 
     tar_type = "zip" if is_windows else "tar.gz"
 
-    ctx.download_and_extract(
-        output = out_dir,
+    # Separate download and extract so that we can override the tarball name.
+    # Otherwise, the ":download" in the url makes it into the name, and windows doesn't like that.
+    ctx.download(
+        output = "dpm-release.{}".format(tar_type),
         url =
-            # arch must be amd64 or arm64. os_arch has x86_64 and aarch64
             "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public-generic/files/dpm-sdk:{}:dpm-{}-{}-{}.{}:download?alt=media".format(ctx.attr.version, ctx.attr.version, os, arch, tar_type),
         sha256 = ctx.attr.sdk_sha256[os_name],
+    )
+    ctx.extract(
+        archive = "dpm-release.{}".format(tar_type),
+        output = out_dir,
         stripPrefix = "{}-{}".format(os, arch),
-        type = tar_type,
     )
     sdk_checksum = ctx.attr.sdk_sha256[os_name]
 
@@ -147,6 +152,7 @@ def _dpm_sdk_impl(ctx):
 
     assistant_path = "sdk/{version}/bin/dpm{exe}".format(version = ctx.attr.version, exe = ".exe" if is_windows else "")
 
+    # Use dpm bootstrapping which takes the bundle and a DPM_HOME path, and sets up an install
     ctx.execute([assistant_path, "bootstrap", "{}".format(out_dir)], environment = {"DPM_HOME": "{}".format(out_dir)})
 
     ctx.template(

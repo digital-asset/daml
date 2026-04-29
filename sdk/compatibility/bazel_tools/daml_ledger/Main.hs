@@ -19,8 +19,7 @@ import System.Directory.Extra (withCurrentDirectory)
 import System.Environment (lookupEnv)
 import System.Environment.Blank (setEnv)
 import System.FilePath ((</>), takeBaseName)
--- import System.IO.Extra (IOMode(ReadWriteMode), hClose, newTempDir, openBinaryFile, withTempDir, writeFileUTF8)
-import System.IO.Extra
+import System.IO.Extra (IOMode(ReadWriteMode), hClose, newTempDir, openBinaryFile, withTempDir, writeFileUTF8)
 import System.Process
 import Test.Tasty (TestTree,askOption,defaultMainWithIngredients,defaultIngredients,includingOptions,testGroup,withResource)
 import Test.Tasty.Options (IsOption(..), OptionDescription(..), mkOptionCLParser)
@@ -60,7 +59,6 @@ withSandbox getTools mbSecret f =
           destroySandbox (_, ph@(_, _, _, handle)) = do
             interruptProcessGroupOf handle
             cleanupProcess ph
-            hPutStrLn stderr "stopped?"
       in withResource createSandbox destroySandbox (f . fmap fst)
   where
     tweakArg portFile = replace "__PORTFILE__" portFile

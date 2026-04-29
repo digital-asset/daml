@@ -1098,6 +1098,8 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
 
   let damlcRunner = DamlcRunner $ \location args -> do
         (damlcPath, mAssemblyVersion) <- getDamlcPathAndVer location
+        -- Must add back sdkVersionDpmEnvVar for sub-package build, so the sub-damlc call knows what version to put in the built dar
+        -- Consider refactoring daml building discover its version from the resolution file, rather than from env var.
         let addAssemblyVersion = maybe id (\assemblyVersion env -> (sdkVersionDpmEnvVar, versionToString assemblyVersion) : env) mAssemblyVersion
         withCreateProcess ((proc damlcPath args) {cwd = Just location, env = Just $ addAssemblyVersion damlcEnv}) $ \_ _ _ p -> do
           exitCode <- waitForProcess p

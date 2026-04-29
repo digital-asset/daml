@@ -733,6 +733,8 @@ def daml_multi_package_test(
             }}
             tar xzf $$(canonicalize_rlocation $(rootpath {dpm_tarball})) -C $$DPM_HOME --strip-components=1 --force-local
             DPM="$$DPM_HOME/bin/dpm"
+            ls "$$DPM_HOME" >&2
+            ls "$$DPM_HOME/bin" >&2
             
             rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
             {cp_multi_package_file}

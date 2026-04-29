@@ -152,9 +152,8 @@ runAndReport ideState inFiles lvl lfVersion runAllOption coverage color mbJUnitO
             isJust (getTransactionsOutputPath transactionsOutputPath)
     when doesOutputTablesOrTransactions $ do
       extensionCss <-
-        -- If no sdk path is found, we're running in DPM, extension can be found in damlc resources
         locateResource Resource
-          -- //compiler/daml-extension:vsix
+          -- //compiler/daml-extension:webview-stylesheet.css
           { resourcesPath = "webview-stylesheet.css"
             -- In a packaged application, this is stored directly underneath the
             -- resources directory because it's the target's only output.

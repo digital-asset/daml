@@ -257,7 +257,7 @@ instance Aeson.FromJSON ResolutionData where
   parseJSON = Aeson.withObject "ResolutionData" $ \obj -> do
     packages <- Map.mapKeys toPosixFilePath <$> obj .: "packages"
     (defaultSdkVersion, defaultSdkResolution) <- head . Map.toList <$> obj .: "default-sdk"
-    -- Dpm doesn't populate assemblyVersion correct for default right now.
+    -- Dpm doesn't populate assemblyVersion correctly for default right now.
     -- temp workaround
     resolution <- case defaultSdkResolution of
       ValidPackageResolutionData resolution -> do
@@ -278,7 +278,9 @@ instance Aeson.FromJSON ValidPackageResolution where
   parseJSON = Aeson.withObject "ValidPackageResolution" $ \obj ->
     fmap toPosixFilePathValidPackageResolution $
       ValidPackageResolution
-        <$> (obj .:? "componentsV2" .!= mempty <|> (componentsToV2 <$> obj .:? "components" .!= mempty))
+        <$> -- DPM replaced `components` with `componentsV2`, which changed type from `Map String Filepath` to `Map String (FilePath, Version)`
+            -- We fallback to old `components` parsing with unknown versions for rare case of old DPM with new damlc
+            (obj .:? "componentsV2" .!= mempty <|> (componentsToV2 <$> obj .:? "components" .!= mempty))
         <*> obj .:? "imports" .!= mempty
         <*> parseSdkVersion obj Aeson.<?> Aeson.Key "sdk-version"
     where
@@ -287,8 +289,7 @@ instance Aeson.FromJSON ValidPackageResolution where
         Nothing -> pure Nothing
         Just (Aeson.String "") -> pure Nothing
         Just ver -> Just <$> parseJSON ver
-      -- Stopgap conversion for rare case where you use old dpm with new damlc.
-      -- Worst outcome is `dpm new` would doing something wrong.
+      -- Worst outcome is `dpm new` would do something wrong.
       componentsToV2 :: Map.Map String FilePath -> Map.Map String ComponentData
       componentsToV2 = fmap $ flip ComponentData "<unknown>"
 
@@ -316,6 +317,7 @@ instance Aeson.ToJSON PackageResolutionData where
 
 instance Aeson.ToJSON ValidPackageResolution where
   toJSON (ValidPackageResolution components imports mAssemblyVersion) =
+    -- Populate both componentsV2 and components, for backwards compat in IDE and build.
     Aeson.object ["componentsV2" .= components, "components" .= (componentPath <$> components), "imports" .= imports, "sdk-version" .= mAssemblyVersion]
 
 instance Aeson.ToJSON ComponentData where
