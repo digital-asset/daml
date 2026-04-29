@@ -65,8 +65,12 @@ instance Ord MinorVersion where
     compare (PointStaging x) (PointStaging y) = compare x y
     compare PointDev         PointDev         = EQ
 
-    compare (PointStable _) (PointStaging _)  = LT
-    compare (PointStaging _) (PointStable _)  = GT
+    compare (PointStable x) (PointStaging y)
+      | x < y     = LT
+      | otherwise = GT
+    compare (PointStaging x) (PointStable y)
+      | x <= y    = LT
+      | otherwise = GT
 
     compare (PointStable _) PointDev          = LT
     compare PointDev (PointStable _)          = GT
