@@ -165,6 +165,10 @@ package_oci_component(
 package_app(
     name = "ghc-pkg-dist",
     binary = ghc_pkg,
+    extra_lib_dirs = [
+        "@ncurses//:libs",
+        "@gmp//:libs",
+    ],
     visibility = ["//visibility:public"],
 ) if not is_windows else genrule(
     name = "ghc-pkg-dist",
