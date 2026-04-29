@@ -9,6 +9,13 @@ Daml Profiler
 The Daml Profiler allows you to to profile execution of your Daml code
 which can help spot bottlenecks and opportunities for optimization.
 
+.. warning::
+  **SECURITY**\:
+
+  | The profiler is not intended to be used in production and doing so
+  | can lead to unxpected consequences for security. See 
+  | :ref:`Caveats <caveats>` for more details.
+
 Usage
 =====
 
@@ -87,6 +94,8 @@ your profile. Refer to the
 `documentation <https://github.com/jlfwong/speedscope#views>`_
 for more information on that.
 
+.. _caveats:
+
 Caveats
 =======
 
@@ -102,6 +111,12 @@ Caveats
    code that the compiler generated using ``dpm damlc inspect``. This
    can be useful to see where an identifier is being used but it does
    take some experience to be able to read Daml-LF code with ease.
+
+3. The profiler logs and uses potentially untrusted user input in its
+   operation, e.g., by creating files with file names based on contract
+   choices. It is generally considered unsafe to run the profiler in
+   production, as this could lead to the creation of arbitrary files or
+   worse.
 
 .. code-block:: sh
 
