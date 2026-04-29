@@ -2,7 +2,10 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -eo pipefail
+set -x
 script_name="$(basename "$0")"
+
+echo "running publish-oci from release-trigger branch"
 
 err() {
   (>&2 echo -e "\e[90m${script_name}\e[97m: [\e[1;31mERROR\e[97m]:\e[0m $1")
