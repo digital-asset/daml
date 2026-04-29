@@ -201,12 +201,22 @@ foldBalanced1 _ [] = error "foldBalanced1: empty list"
 foldBalanced1 _ [x] = x
 foldBalanced1 f xs = foldBalanced1 f (combinePairs f xs)
 
--- | The 'group' function groups equal elements into sublists such
--- that the concatenation of the result is equal to the argument.
+-- | The 'group' function groups runs of consecutive equal elements
+-- into sublists. The concatenation of the result is equal to the
+-- argument.
+--
+-- Only adjacent equal elements are grouped, so if you want all equal
+-- elements grouped together regardless of position, sort the list
+-- first.
+--
+-- > group [1, 1, 2, 1] == [[1, 1], [2], [1]]
+-- > group (sort [1, 1, 2, 1]) == [[1, 1, 1], [2]]
 group : Eq a => [a] -> [[a]]
 group = groupBy (==)
 
 -- | The 'groupBy' function is the non-overloaded version of 'group'.
+-- As with 'group', only consecutive elements that satisfy the
+-- equality predicate are grouped.
 groupBy : (a -> a -> Bool) -> [a] -> [[a]]
 groupBy _  []     = []
 groupBy eq (x::xs) = (x::ys) :: groupBy eq zs
@@ -214,7 +224,9 @@ groupBy eq (x::xs) = (x::ys) :: groupBy eq zs
     (ys,zs) = span (eq x) xs
 
 -- | Similar to 'group', except that the equality is done on an
--- extracted value.
+-- extracted value. As with 'group', only consecutive elements with
+-- equal keys are grouped, so sort the list (e.g. with `sortOn`)
+-- first if you want all elements sharing a key grouped together.
 groupOn : Eq k => (a -> k) -> [a] -> [[a]]
 groupOn _ [] = []
 groupOn f (x::xs) =
