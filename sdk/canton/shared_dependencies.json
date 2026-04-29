@@ -89,6 +89,6 @@
   "org.scalaz:scalaz-scalacheck-binding_2.13" : "7.2.33-scalacheck-1.15",
   "ch.qos.logback:logback-classic": "1.5.3",
   "ch.qos.logback:logback-core": "1.5.3",
-  "org.apache.logging.log4j:log4j-core": "2.23.1",
-  "org.apache.logging.log4j:log4j-api": "2.23.1"
+  "org.apache.logging.log4j:log4j-core": "2.25.4",
+  "org.apache.logging.log4j:log4j-api": "2.25.4"
 }
