@@ -771,6 +771,8 @@ def daml_multi_package_test(
                 """
                     echo $$(dirname $$tmpdir/$$(shorten $(rootpath {build_file})))
                     cd $$(dirname $$tmpdir/$$(shorten $(rootpath {build_file})))
+                    $$DPM resolve >&2
+                    pwd >&2
                     $$DPM build {enable_interfaces} {damlc_opts}
                     $$DPM test
                 """.format(
