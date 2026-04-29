@@ -12,6 +12,7 @@ genrule(
         "lib/libform.so",
         "lib/libmenu.so",
         "lib/libpanel.so",
+        "lib/libtinfo.so.5",
     ],
     cmd = """
         SRC=$$(dirname $(location configure))
@@ -46,7 +47,8 @@ genrule(
         && for lib in ncurses form menu panel; do \
             cp lib$${lib}w.so lib$${lib}.so; \
         done \
-        && cp libtinfow.so libtinfo.so
+        && cp libtinfow.so libtinfo.so \
+        && cp libtinfo.so libtinfo.so.5
     """,
     toolchains = ["@rules_cc//cc:current_cc_toolchain"],
 )
