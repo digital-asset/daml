@@ -731,7 +731,7 @@ def daml_multi_package_test(
                     echo "$$1"
                 fi
             }}
-            tar xf $$(canonicalize_rlocation $(rootpath {dpm_tarball})) -C $$DPM_HOME --strip-components=1
+            tar xzf $$(canonicalize_rlocation $(rootpath {dpm_tarball})) -C $$DPM_HOME --strip-components=1 --force-local
             DPM="$$DPM_HOME/bin/dpm"
             
             rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}

@@ -22,8 +22,8 @@ import ComponentVersion (ComponentVersioned, componentVersionString, withCompone
 import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removeFile)
 import System.Exit (ExitCode (..))
 import System.FilePath (makeRelative, (</>))
-import System.IO.Extra (withTempDir, hPutStrLn, stderr)
-import System.Process (CreateProcess (..), proc, readCreateProcessWithExitCode, readCreateProcess)
+import System.IO.Extra (withTempDir)
+import System.Process (CreateProcess (..), readCreateProcessWithExitCode, readCreateProcess, shell)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.HUnit (HUnitFailure (..), assertFailure, assertBool, testCase, (@?=))
 import Text.Regex.TDFA (Regex, makeRegex, matchTest)
@@ -527,7 +527,7 @@ tests =
         
         -- Apply the modification
         doModification dir $
-          \path -> void $ readCreateProcessWithExitCode ((proc "dpm" ["build"]) {cwd = Just path}) []
+          \path -> void $ readCreateProcessWithExitCode ((shell "dpm build") {cwd = Just path}) []
         
         -- Run the second build, expecting all the secondRunPkgs and the pre-existing firstRunPkgs
         runBuild secondRun (secondRunPkgs `union` firstRunPkgs)
@@ -587,7 +587,7 @@ tests =
     getManifest :: FilePath -> IO [MultiPackageManifestEntry]
     getManifest dir = do
       let args = ["damlc", "generate-multi-package-manifest"]
-          process = (proc "dpm" args) {cwd = Just dir}
+          process = (shell $ unwords $ "dpm" : args) {cwd = Just dir}
       entriesStr <- readCreateProcess process ""
       let eEntries = eitherDecode @[MultiPackageManifestEntry] (BSLC.pack entriesStr)
           convertPath = replace "\\" "/"
@@ -622,12 +622,8 @@ tests =
 
       runPath <- canonicalizePath $ dir </> runPath
       let args = ["build", "--enable-multi-package=yes"] <> flags
-          process = (proc "dpm" args) {cwd = Just runPath}
-      (exitCode, out, err) <- readCreateProcessWithExitCode process ""
-      hPutStrLn stderr out
-      hPutStrLn stderr err
-      hPutStrLn stderr dir
-      -- threadDelay 9223372036854775807
+          process = (shell $ unwords $ "dpm" : args) {cwd = Just runPath}
+      (exitCode, _, err) <- readCreateProcessWithExitCode process ""
       case expectedResult of
         Right expectedPackageIdentifiers -> do
           unless (exitCode == ExitSuccess) $ assertFailure $ "Expected success and got " <> show exitCode <> ".\n  StdErr: \n  " <> err
