@@ -222,12 +222,12 @@ HASKELL_PACKAGES = [
     "base64-bytestring",
     "proto3-wire",
     "xml",
-    "xml-conduit",
     "yaml",
 
     # Networking, HTTP & security
     "conduit",
     "conduit-extra",
+    "connection",
     "cryptohash",
     "cryptonite",
     "exceptions",
@@ -270,6 +270,7 @@ HASKELL_PACKAGES = [
     "hslogger",
     "lsp",
     "lsp-test",
+    "monad-control",
     "monad-logger",
     "random",
     "random-shuffle",
@@ -290,6 +291,10 @@ HASKELL_PACKAGES = [
 
 [stack_snapshot_ext.package(name = pkg) for pkg in HASKELL_PACKAGES]
 
+stack_snapshot_ext.package(
+    name = "xml-conduit",
+    setup_deps = ["@stackage//:cabal-doctest"],
+)
 stack_snapshot_ext.package(
     name = "attoparsec",
     components = [
