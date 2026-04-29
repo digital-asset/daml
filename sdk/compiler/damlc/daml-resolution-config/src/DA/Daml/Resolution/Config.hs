@@ -31,7 +31,6 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
 import Data.Aeson.Key qualified as Key
 import qualified Data.Aeson.KeyMap as KM
-import Data.Bifunctor (first)
 import Data.ByteString.Lazy qualified as BSL
 import Data.Either.Extra (eitherToMaybe, fromRight)
 import Data.Function ((&))
@@ -238,10 +237,12 @@ data ErrorPackageResolution = ErrorPackageResolution
   }
   deriving Eq
 
--- Changes backslashes to forward slashes, lowercases the drive
--- Need native filepath for splitDrive, as Posix version just takes first n `/`s
+-- Changes backslashes to forward slashes, lowercases
+-- Ideally this would only lower the drive for windows, rather than the whole path, but we use shake in our build system which doesn't seem to play
+-- nice with keeping the correct case on paths
+-- This could break in a multi-build with several packages under the same name in different case, but this is a very unlikely edge case
 toPosixFilePath :: FilePath -> FilePath
-toPosixFilePath = uncurry joinDrive . first lower . splitDrive . replace "\\" "/"
+toPosixFilePath = lower . replace "\\" "/"
 
 toPosixFilePathComponentData :: ComponentData -> ComponentData
 toPosixFilePathComponentData (ComponentData path version) = ComponentData (toPosixFilePath path) version
