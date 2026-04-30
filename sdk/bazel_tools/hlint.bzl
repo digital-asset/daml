@@ -50,7 +50,15 @@ def _haskell_hlint_aspect_impl(target, ctx):
     if len(inputFiles) == 0:
         return []
     output = ctx.actions.declare_file(target.label.name + ".html")
-    args = ["--hint=" + ctx.files._hlint_yaml[0].path] + inputPaths + ["--report=" + output.path] + ["--verbose"]
+    # `--no-exit-code` keeps HLint from failing the build on every reported
+    # idea. Required while the snapshot pins ghc-lib-parser-ex 8.8.5.8 against
+    # an LTS-19 (GHC 9.0.2) codebase: the older parser misreads modern
+    # syntax (e.g. `let v :: T = e`) as a parse error, and those parse-error
+    # ideas carry the GHC error message as their hint *name*, so they can't be
+    # suppressed via `ignore:` rules in `.hlint.yaml`. The HTML report is still
+    # produced and can be inspected. Revert once HLint / ghc-lib-parser-ex are
+    # bumped to versions matching the resolver's GHC.
+    args = ["--hint=" + ctx.files._hlint_yaml[0].path] + inputPaths + ["--report=" + output.path] + ["--verbose", "--no-exit-code"]
     # print(args)
 
     ctx.actions.run(
@@ -60,6 +68,12 @@ def _haskell_hlint_aspect_impl(target, ctx):
         progress_message = "HaskellHLint {}".format(ctx.label),
         executable = ctx.executable._hlint,
         arguments = args,
+        # The Bazel sandbox strips env vars (`exec env -`), defaulting the
+        # locale to C. Source files contain Unicode (e.g. curly quotes in
+        # comments); HLint's GHC runtime then crashes when writing the parse
+        # report with `<stdout>: commitBuffer: invalid argument (invalid
+        # character)`. Force a UTF-8 locale so output encoding works.
+        env = {"LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"},
     )
 
     outputs = [output]
