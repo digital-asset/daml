@@ -94,6 +94,7 @@ da_haskell_binary(
 package_app(
     name = "daml-helper-dist",
     binary = ":daml-helper",
+    extra_lib_dirs = ["@zlib_shared//:libs"],
     visibility = ["//visibility:public"],
 )
 
@@ -290,6 +291,7 @@ da_haskell_binary(
 package_app(
     name = "daml-new-dpm",
     binary = ":daml-new",
+    extra_lib_dirs = ["@zlib_shared//:libs"],
     resources = [
         "//templates:templates-tarball.tar.gz",
     ],
