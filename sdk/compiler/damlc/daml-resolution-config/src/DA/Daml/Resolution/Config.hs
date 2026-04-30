@@ -31,6 +31,7 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
 import Data.Aeson.Key qualified as Key
 import qualified Data.Aeson.KeyMap as KM
+import Data.Bifunctor (first)
 import Data.ByteString.Lazy qualified as BSL
 import Data.Either.Extra (eitherToMaybe, fromRight)
 import Data.Function ((&))
@@ -190,7 +191,7 @@ findDarInDarInfos darInfos rawName lfVersion = do
 
 findPackageResolutionData :: FilePath -> ResolutionData -> Either ResolutionError ValidPackageResolution
 findPackageResolutionData path (ResolutionData packages _) =
-  Map.lookup (toPosixFilePath path) packages & \case
+  Map.lookup (lower $ toPosixFilePath path) packages & \case
     Just (ErrorPackageResolutionData errs) -> Left $ ResolutionError $ "Couldn't resolve package " <> path <> ":\n" <> unlines (show <$> errs)
     Just (ValidPackageResolutionData res) -> Right res
     Nothing -> Left $ ResolutionError $ "DPM did not provide information for package at " <> path <> ". Is this a valid package? If you have a multi-package.yaml, is this package included?"
@@ -237,12 +238,10 @@ data ErrorPackageResolution = ErrorPackageResolution
   }
   deriving Eq
 
--- Changes backslashes to forward slashes, lowercases
--- Ideally this would only lower the drive for windows, rather than the whole path, but we use shake in our build system which doesn't seem to play
--- nice with keeping the correct case on paths
--- This could break in a multi-build with several packages under the same name in different case, but this is a very unlikely edge case
+-- Changes backslashes to forward slashes, lowercases the drive
+-- Need native filepath for splitDrive, as Posix version just takes first n `/`s
 toPosixFilePath :: FilePath -> FilePath
-toPosixFilePath = lower . replace "\\" "/"
+toPosixFilePath = uncurry joinDrive . first lower . splitDrive . replace "\\" "/"
 
 toPosixFilePathComponentData :: ComponentData -> ComponentData
 toPosixFilePathComponentData (ComponentData path version) = ComponentData (toPosixFilePath path) version
@@ -256,7 +255,9 @@ instance Show ErrorPackageResolution where
 
 instance Aeson.FromJSON ResolutionData where
   parseJSON = Aeson.withObject "ResolutionData" $ \obj -> do
-    packages <- Map.mapKeys toPosixFilePath <$> obj .: "packages"
+    -- Fully lower the key for resolution data, as shake often gives package paths without case data.
+    -- Only do this for the key as its not used for exploring the file system. Any other paths (i.e. those in imports) must retain their normal casing
+    packages <- Map.mapKeys (lower . toPosixFilePath) <$> obj .: "packages"
     (defaultSdkVersion, defaultSdkResolution) <- head . Map.toList <$> obj .: "default-sdk"
     -- Dpm doesn't populate assemblyVersion correctly for default right now.
     -- temp workaround
