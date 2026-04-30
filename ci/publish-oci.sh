@@ -101,7 +101,7 @@ function publish_artifact {
 
     "${HOME}"/.dpm/bin/dpm \
       publish component \
-      "${DPM_REGISTRY}/components/${artifact_name}:${RELEASE_TAG}" \
+      "oci://${DPM_REGISTRY}/components/${artifact_name}:${RELEASE_TAG}" \
       ${extra_tags_args[@]} \
       ${platform_args[@]} \
       2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
