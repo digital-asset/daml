@@ -100,10 +100,8 @@ function publish_artifact {
     info "Uploading ${artifact_name} to oci registry...\n"
 
     "${HOME}"/.dpm/bin/dpm \
-      artifacts publish component \
-      --name "${artifact_name}" \
-      --version "${RELEASE_TAG}" \
-      --registry "${DPM_REGISTRY}/components" \
+      publish component \
+      "oci://${DPM_REGISTRY}/components/${artifact_name}:${RELEASE_TAG}" \
       ${extra_tags_args[@]} \
       ${platform_args[@]} \
       2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
