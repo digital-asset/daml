@@ -1,7 +1,6 @@
 # for config file options, refer to
 # https://docs.digitalasset.com/build/3.5/dpm/configuration.html#project-configuration
 
-sdk-version: __VERSION__
 name: __PROJECT_NAME__
 source: daml
 init-script: Main:setup
@@ -10,3 +9,9 @@ dependencies:
   - daml-prim
   - daml-stdlib
   - daml-script
+
+components:
+  - canton-open-source:__VERSION__
+  - codegen:__VERSION__
+  - daml-script:__VERSION__
+  - damlc:__VERSION__
