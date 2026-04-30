@@ -747,6 +747,9 @@ use_repo(gmp_ext, "gmp")
 ncurses_ext = use_extension("//bazel/extensions:ncurses_extension.bzl", "ncurses")
 use_repo(ncurses_ext, "ncurses")
 
+zlib_shared_ext = use_extension("//bazel/extensions:zlib_extension.bzl", "zlib_shared")
+use_repo(zlib_shared_ext, "zlib_shared")
+
 m4_ext = use_extension("//bazel/extensions:m4_extension.bzl", "m4")
 use_repo(m4_ext, "m4")
 
