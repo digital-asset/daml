@@ -114,6 +114,10 @@ da_haskell_binary(
 package_app(
     name = "damlc-dist",
     binary = ":damlc",
+    extra_lib_dirs = [
+        "@ncurses//:libs",
+        "@gmp//:libs",
+    ],
     resources = [
         ":daml-base-anchors.json",
         ":ghc-pkg-dist",
@@ -134,6 +138,10 @@ package_app(
 package_app(
     name = "damlc-dist-dpm",
     binary = ":damlc",
+    extra_lib_dirs = [
+        "@ncurses//:libs",
+        "@gmp//:libs",
+    ],
     resources = [
         ":daml-base-anchors.json",
         ":ghc-pkg-dist",
