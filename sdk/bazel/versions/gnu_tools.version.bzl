@@ -18,6 +18,11 @@ M4_SHA256 = "3be4a26d825ffdfda52a56fc43246456989a3630093cced3fbddf4771ee58a70"
 GMP_VERSION = "6.3.0"
 GMP_SHA256 = "a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898"
 
+# -- zlib --
+# https://zlib.net/fossils/
+ZLIB_VERSION = "1.3.1"
+ZLIB_SHA256 = "9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23"
+
 # -- ncurses --
 # https://ftp.gnu.org/gnu/ncurses/
 NCURSES_VERSION = "6.4"
