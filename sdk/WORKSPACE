@@ -115,7 +115,7 @@ dpm_binary(
         "darwin_amd64": "042ed22857e864c559d1499373a679038ac4adcf2339b1c270f2fe990d211e8a",
         "darwin_arm64": "85268e7e215a685b1f08240d2e3985308bad4e553a59f6677a36ac2a83516cc5",
         "linux_amd64": "a91cc84ad46e782cfcc12c7b40cf89d0e0c34d834b59e6e4a47ca8802c1a9947",
-        "windows_amd64": "8f382c5874bb433dc229a85f525c1292241fb9415a23f3568a9d4e4dfc827b43"
+        "windows_amd64": "8f382c5874bb433dc229a85f525c1292241fb9415a23f3568a9d4e4dfc827b43",
     },
     version = "1.0.13",
 )
