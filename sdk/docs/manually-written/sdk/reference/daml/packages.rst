@@ -158,6 +158,36 @@ The ``daml.lock`` file needs to be checked into version control of your project.
 package name/version tuples specified in your data dependencies are always resolved to the same
 package ID. To recreate or update your ``daml.lock`` file, delete it and run ``dpm build`` again.
 
+Importing Specific Names from a Module
+**************************************
+
+When importing a module, you can choose to bring in only a subset of its
+names, or to bring in all names except a few. This is useful when two
+modules export names that clash (for example, both ``DA.List`` and
+``Prelude`` export ``lookup``).
+
+To import only specific names, list them after the module name:
+
+.. code-block:: daml
+
+  import DA.List (sort, sortBy)
+
+To import everything from a module except specific names, use the
+``hiding`` keyword:
+
+.. code-block:: daml
+
+  import DA.List hiding (lookup)
+  import Prelude hiding (lookup)
+
+These two forms are commonly combined with ``qualified`` and ``as`` to
+fully control which names are in scope:
+
+.. code-block:: daml
+
+  import qualified DA.List as L
+  import DA.Optional (fromOptional)
+
 .. _module_collisions:
 
 Handling Module Name Collisions
