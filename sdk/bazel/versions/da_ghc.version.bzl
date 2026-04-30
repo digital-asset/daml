@@ -7,7 +7,7 @@ GHC_LIB_SHA256 = "2d677bd4bfe6c91fd989551b0821b87b48ab49473a747f548cb58766f9636c
 # -- da-ghc (GHC source tree for sdist generation) --
 # https://github.com/digital-asset/ghc
 GHC_REPO_URL = "https://github.com/digital-asset/ghc"
-GHC_REV = "205ab2e4f456dcf28166160df38dd9f0fe067df9"
+GHC_REV = "8db62703d35e30f9d33aa4cee09c48b85c81e7db"
 
 # -- ghc-lib build parameters --
 GHC_FLAVOR = "da-ghc-8.8.1"
