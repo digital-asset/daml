@@ -148,16 +148,6 @@ jobs:
       condition: and(not(startsWith(variables['release_tag'], '2.')), not(startsWith(variables['release_tag'], '3.3')))
     - bash: |
         set -euo pipefail
-        rtag="$(release_tag)"
-        tag=internal-"$rtag"
-        sha=$(release_sha)
-        git -c user.name="Azure Pipelines Daml Build" \
-            -c user.email="support@digitalasset.com" \
-            tag -a "$tag" "$sha" -m "Internal SDK release $tag"
-        git push origin "$tag"
-      displayName: "Tag Release in Git"
-    - bash: |
-        set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(cd sdk; dev-env/bin/dade-assist)"
         source $(bash-lib)
