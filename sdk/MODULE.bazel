@@ -750,6 +750,9 @@ use_repo(ncurses_ext, "ncurses")
 zlib_shared_ext = use_extension("//bazel/extensions:zlib_extension.bzl", "zlib_shared")
 use_repo(zlib_shared_ext, "zlib_shared")
 
+bzip2_ext = use_extension("//bazel/extensions:bzip2_extension.bzl", "bzip2")
+use_repo(bzip2_ext, "bzip2")
+
 m4_ext = use_extension("//bazel/extensions:m4_extension.bzl", "m4")
 use_repo(m4_ext, "m4")
 

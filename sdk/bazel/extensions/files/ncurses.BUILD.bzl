@@ -13,6 +13,7 @@ genrule(
         "lib/libmenu.so",
         "lib/libpanel.so",
         "lib/libtinfo.so.5",
+        "lib/libtinfo.so.6",
     ],
     cmd = """
         SRC=$$(dirname $(location configure))
@@ -48,7 +49,8 @@ genrule(
             cp lib$${lib}w.so lib$${lib}.so; \
         done \
         && cp libtinfow.so libtinfo.so \
-        && cp libtinfo.so libtinfo.so.5
+        && cp libtinfo.so libtinfo.so.5 \
+        && cp libtinfo.so libtinfo.so.6
     """,
     toolchains = ["@rules_cc//cc:current_cc_toolchain"],
 )
