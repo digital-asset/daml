@@ -114,7 +114,11 @@ da_haskell_binary(
 package_app(
     name = "daml-dist",
     binary = ":daml",
-    extra_lib_dirs = ["@zlib_shared//:libs"],
+    extra_lib_dirs = [
+        "@zlib_shared//:libs",
+        "@gmp//:libs",
+        "@ncurses//:libs",
+    ],
     visibility = ["//visibility:public"],
 )
 
