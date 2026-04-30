@@ -29,6 +29,7 @@ copy_file(
 package_app(
     name = "hpp-dist",
     binary = "@stackage-exe//hpp",
+    extra_lib_dirs = ["@gmp//:libs"],
 )
 
 damlc_data = [
