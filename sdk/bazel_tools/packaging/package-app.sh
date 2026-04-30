@@ -111,6 +111,19 @@ if [ "$(uname -s)" == "Linux" ]; then
   cp $SRC $binary
   chmod u+w $binary
   rpaths_binary=$($patchelf --print-rpath "$binary"|tr ':' ' ')
+  # Fallback system library paths for libraries that aren't bundled
+  # hermetically (the dynamic linker, libstdc++) and aren't on the
+  # is_system_lib skip list. Under WORKSPACE+nix the binary's embedded RPATH
+  # pointed into nix's glibc/gcc-libs; under bzlmod RPATH is empty so we
+  # reach for the host's standard locations.
+  case $(uname -m) in
+    x86_64)
+      rpaths_binary="$rpaths_binary /lib64 /usr/lib64 /lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu"
+      ;;
+    aarch64)
+      rpaths_binary="$rpaths_binary /lib /usr/lib /lib/aarch64-linux-gnu /usr/lib/aarch64-linux-gnu"
+      ;;
+  esac
   if [[ -n "${PACKAGE_APP_EXTRA_LIB_DIRS:-}" ]]; then
     for extra_dir in $(echo "$PACKAGE_APP_EXTRA_LIB_DIRS" | tr ':' ' '); do
       rpaths_binary="$(abspath $extra_dir) $rpaths_binary"
