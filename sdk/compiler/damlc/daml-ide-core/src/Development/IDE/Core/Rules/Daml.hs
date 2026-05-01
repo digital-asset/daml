@@ -108,7 +108,7 @@ import qualified DA.Daml.LF.TypeChecker.Upgrade as Upgrade
 import DA.Daml.UtilLF
 import qualified DA.Pretty as Pretty
 import DA.Pretty (PrettyLevel)
-import SdkVersion.Class (SdkVersioned, damlStdlib)
+import ComponentVersion.Class (ComponentVersioned, damlStdlib)
 
 import Language.Haskell.HLint4
 
@@ -226,7 +226,7 @@ getUnstableDalfDependencies files = do
     pkgMap <- Map.unions . map getPackageMap <$> usesE' GeneratePackageMap files
     pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
 
-getDalfDependencies :: SdkVersioned => [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
+getDalfDependencies :: ComponentVersioned => [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
 getDalfDependencies files = do
     actualDeps <- getUnstableDalfDependencies files
     -- For now, we unconditionally include all stable packages.
@@ -250,7 +250,7 @@ priorityGenerateDalf = priorityGenerateCore
 
 -- Generates the DALF for a module without adding serializability information
 -- or type checking it.
-generateRawDalfRule :: SdkVersioned => Options -> Rules ()
+generateRawDalfRule :: ComponentVersioned => Options -> Rules ()
 generateRawDalfRule opts =
     define $ \GenerateRawDalf file -> do
         lfVersion <- getDamlLfVersion
@@ -292,7 +292,7 @@ getExternalPackages file = do
         map LF.dalfPackagePkg (Map.elems pkgMap) <> map LF.dalfPackagePkg (Map.elems stablePackages)
 
 -- Generates and type checks the DALF for a module.
-generateDalfRule :: SdkVersioned => Options -> Rules ()
+generateDalfRule :: ComponentVersioned => Options -> Rules ()
 generateDalfRule opts =
     define $ \GenerateDalf file -> do
         lfVersion <- getDamlLfVersion
@@ -396,7 +396,7 @@ extractImports = foldr (\(mod, imp) (mods, imps) -> (mod:mods, imp `merge` imps)
 -- We use the ABI hash of the .hi files to detect if we need to recompile dependent files. Note that this is more aggressive
 -- than just looking at the file hash. E.g., consider module A depending on module B. If B changes but its ABI hash stays the same
 -- we do not need to recompile A.
-generateSerializedDalfRule :: SdkVersioned => Options -> Rules ()
+generateSerializedDalfRule :: ComponentVersioned => Options -> Rules ()
 generateSerializedDalfRule options =
     defineOnDisk $ \GenerateSerializedDalf file ->
       OnDiskRule
@@ -667,7 +667,7 @@ generatePackageMapRule opts = do
         let hash = BS.concat $ map (T.encodeUtf8 . LF.unPackageId . LF.dalfPackageId) $ Map.elems res
         return (Just hash, ([], Just (PackageMap res)))
 
-damlGhcSessionRule :: SdkVersioned => Options -> Rules ()
+damlGhcSessionRule :: ComponentVersioned => Options -> Rules ()
 damlGhcSessionRule opts@Options{..} = do
     -- The file path here is optional so we go for defineNoFile
     -- (or the equivalent thereof for rules with cut off).
@@ -699,7 +699,7 @@ damlGhcSessionRule opts@Options{..} = do
         -- incremental builds we need an early cutoff.
         pure (Just "", ([], Just hscEnv))
 
-generateStablePackages :: SdkVersioned => LF.Version -> FilePath -> IO ([FileDiagnostic], Map.Map (UnitId, LF.ModuleName) LF.DalfPackage)
+generateStablePackages :: ComponentVersioned => LF.Version -> FilePath -> IO ([FileDiagnostic], Map.Map (UnitId, LF.ModuleName) LF.DalfPackage)
 generateStablePackages lfVersion fp = do
     (diags, pkgs) <- fmap partitionEithers $ do
         let prefix = fp </> ("lf-v" <> renderMajorVersion (versionMajor lfVersion))
@@ -772,7 +772,7 @@ locateStablePackages = locateResource Resource
   , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc"
   }
 
-generateStablePackagesRule :: SdkVersioned => Options -> Rules ()
+generateStablePackagesRule :: ComponentVersioned => Options -> Rules ()
 generateStablePackagesRule opts =
     defineEarlyCutoff $ \GenerateStablePackages _file -> assert (null $ fromNormalizedFilePath _file) $ do
         lfVersion <- getDamlLfVersion
@@ -1557,7 +1557,7 @@ internalModules = map FPP.normalise
   ]
 
 
-damlRule :: SdkVersioned => Options -> Rules ()
+damlRule :: ComponentVersioned => Options -> Rules ()
 damlRule opts = do
     generateRawDalfRule opts
     generateDalfRule opts
@@ -1585,7 +1585,7 @@ damlRule opts = do
     extractUpgradedPackageRule opts
     when (optEnableOfInterestRule opts) ofInterestRule
 
-mainRule :: SdkVersioned => Options -> Rules ()
+mainRule :: ComponentVersioned => Options -> Rules ()
 mainRule options = do
     IDE.mainRule
     damlRule options

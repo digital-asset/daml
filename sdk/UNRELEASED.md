@@ -11,6 +11,7 @@ Wednesday after your change.
 
 ## Until 2026-05-05 (Exclusive)
 - adopted LF 2.3
+- Removed daml assistant
 
 ## Until 2026-04-14 (Exclusive)
 - Added --list-scripts-json flag to `dpm script`, for listing all script names in a DAR

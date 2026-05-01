@@ -23,8 +23,8 @@ bazel build \
   --java_runtime_version=nixpkgs_java_17 \
   --tool_java_runtime_version=nixpkgs_java_17 \
   --tool_java_language_version=17 \
-  //release:sdk-release-tarball \
-  //daml-assistant:daml
+  //release:dpm-sdk-release-tarball \
+  @dpm_binary//:dpm
 
-cp -f bazel-bin/release/sdk-release-tarball-ce.tar.gz "$HEAD_TARGET_DIR"
-cp -f bazel-bin/daml-assistant/daml "$HEAD_TARGET_DIR"
+cp -f bazel-bin/release/dpm-sdk-release-tarball.tar.gz "$HEAD_TARGET_DIR"
+cp -f bazel-bin/external/dpm_binary/dpm "$HEAD_TARGET_DIR"

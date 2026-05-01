@@ -25,6 +25,8 @@ library
       array,
       -- @@stackage//:base
       base,
+      -- //component-version/hs:component-version-class-lib
+      component-version-class-lib,
       -- //libs-haskell/da-version-types:da-version-types
       da-version-types,
       -- @@stackage//:directory

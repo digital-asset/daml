@@ -25,7 +25,7 @@ import Language.LSP.Types hiding (SemanticTokenAbsolute (..), SemanticTokenRelat
 import Language.LSP.Types.Capabilities
 import Language.LSP.Types.Lens hiding (id, to)
 import Network.URI
-import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
+import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
 import System.Directory
 import System.Environment.Blank
 import System.FilePath
@@ -44,7 +44,7 @@ fullCaps' :: ClientCapabilities
 fullCaps' = fullCaps { _window = Just $ WindowClientCapabilities (Just True) Nothing Nothing }
 
 main :: IO ()
-main = withSdkVersions $ do
+main = withComponentVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlcPath <- locateRunfiles $
         mainWorkspace </> "compiler" </> "damlc" </> exe "damlc"
@@ -62,7 +62,7 @@ main = withSdkVersions $ do
             | otherwise = withTempDir $ \dir -> do
                 copyFile scriptDarPath (dir </> "daml-script.dar")
                 writeFileUTF8 (dir </> "daml.yaml") $ unlines
-                    [ "sdk-version: " <> sdkVersion
+                    [ "sdk-version: " <> componentVersionString
                     , "name: script-test"
                     , "version: 0.0.1"
                     , "source: ."
@@ -90,7 +90,7 @@ main = withSdkVersions $ do
             withTempDir $ \dir -> do
                 copyFile myPackageDarPath (dir </> "my-package.dar")
                 writeFileUTF8 (dir </> "daml.yaml") $ unlines
-                    [ "sdk-version: " <> sdkVersion
+                    [ "sdk-version: " <> componentVersionString
                     , "name: my-package"
                     , "version: 2.0.0"
                     , "source: ."
@@ -1125,14 +1125,14 @@ mkKeywordCompletion label =
     defaultCompletion label &
     kind ?~ CiKeyword
 
-includePathTests :: SdkVersioned => FilePath -> FilePath -> TestTree
+includePathTests :: ComponentVersioned => FilePath -> FilePath -> TestTree
 includePathTests damlc scriptDarPath = testGroup "include-path"
     [ testCase "IDE in root directory" $ withTempDir $ \dir -> do
           createDirectory (dir </> "src1")
           createDirectory (dir </> "src2")
           copyFile scriptDarPath (dir </> "daml-script.dar")
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: a"
               , "version: 0.0.1"
               , "source: src1/Root.daml"
@@ -1171,7 +1171,7 @@ includePathTests damlc scriptDarPath = testGroup "include-path"
               expectDiagnostics [ ("src1/Root.daml", [(DsError, (4,0), "Assertion failed")]) ]
     ]
 
-multiPackageTests :: SdkVersioned => FilePath -> FilePath -> TestTree
+multiPackageTests :: ComponentVersioned => FilePath -> FilePath -> TestTree
 multiPackageTests damlc scriptDarPath
   | isWindows = testGroup "multi-package (skipped)" [] -- see issue #4904
   | otherwise = testGroup "multi-package"
@@ -1179,7 +1179,7 @@ multiPackageTests damlc scriptDarPath
           step "build a"
           createDirectoryIfMissing True (dir </> "a")
           writeFileUTF8 (dir </> "a" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: a"
               , "version: 0.0.1"
               , "source: ."
@@ -1195,7 +1195,7 @@ multiPackageTests damlc scriptDarPath
           createDirectoryIfMissing True (dir </> "b")
           copyFile scriptDarPath (dir </> "b" </> "daml-script.dar")
           writeFileUTF8 (dir </> "b" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: b"
               , "version: 0.0.1"
               , "source: ."
@@ -1211,7 +1211,7 @@ multiPackageTests damlc scriptDarPath
           withCurrentDirectory (dir </> "b") $ callProcess damlc ["build", "-o", dir </> "b" </> "b.dar"]
           step "run language server"
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               ]
           withCurrentDirectory dir $ runSessionWithConfig conf (damlc <> " ide") fullCaps' dir $ do
               docA <- openDoc ("a" </> "A.daml") "daml"
@@ -1250,7 +1250,7 @@ multiPackageTests damlc scriptDarPath
           step "build a"
           createDirectoryIfMissing True (dir </> "a")
           writeFileUTF8 (dir </> "a" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: a"
               , "version: 0.0.1"
               , "source: ."
@@ -1266,7 +1266,7 @@ multiPackageTests damlc scriptDarPath
           createDirectoryIfMissing True (dir </> "b")
           copyFile scriptDarPath (dir </> "b" </> "daml-script.dar")
           writeFileUTF8 (dir </> "b" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: b"
               , "version: 0.0.1"
               , "source: ."

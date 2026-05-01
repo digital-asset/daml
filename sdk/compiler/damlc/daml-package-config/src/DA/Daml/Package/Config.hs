@@ -8,7 +8,6 @@ module DA.Daml.Package.Config
     ( MultiPackageConfigFields (..)
     , PackageConfigFields (..)
     , parsePackageConfig
-    , overrideSdkVersion
     , withPackageConfig
     , findMultiPackageConfig
     , withMultiPackageConfig
@@ -21,8 +20,8 @@ import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 
-import Control.Exception.Safe (throwIO, displayException)
-import Control.Monad (when, unless)
+import Control.Exception.Safe (throwIO)
+import Control.Monad (unless)
 import Control.Monad.Extra (loopM)
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State.Lazy
@@ -40,9 +39,7 @@ import qualified Data.Yaml as Y
 import qualified Module as Ghc
 import System.Directory (canonicalizePath, doesFileExist, withCurrentDirectory)
 import System.FilePath (takeDirectory, (</>))
-import System.IO (hPutStrLn, stderr)
 import Text.Regex.TDFA
-import qualified Data.SemVer as V
 
 -- | daml.yaml config fields specific to packaging.
 data PackageConfigFields = PackageConfigFields
@@ -58,9 +55,6 @@ data PackageConfigFields = PackageConfigFields
     -- ^ Map from unit ids to a prefix for all modules in that package.
     -- If this is specified, all modules from the package will be remapped
     -- under the given prefix.
-    , pSdkVersion :: Maybe UnresolvedReleaseVersion
-    -- ^ DPM supports omitting sdk-version if enough overrides are provided, should never be Nothing
-    -- when running with Daml Assistant
     , pUpgradeDar :: Maybe FilePath
     }
 
@@ -76,7 +70,6 @@ parsePackageConfig package = do
     pDependencies <- queryPackageConfigRequired ["dependencies"] package
     pDataDependencies <- fromMaybe [] <$> queryPackageConfig ["data-dependencies"] package
     pModulePrefixes <- fromMaybe Map.empty <$> queryPackageConfig ["module-prefixes"] package
-    pSdkVersion <- queryPackageConfig ["sdk-version"] package
     pUpgradeDar <- queryPackageConfig ["upgrades"] package
     Right PackageConfigFields {..}
 
@@ -122,37 +115,6 @@ parseMultiPackageConfig multiPackage = do
     mpiOtherConfigFiles <- fromMaybe [] <$> queryMultiPackageConfig ["projects"] multiPackage
     Right MultiPackageConfigFieldsIntermediate {..}
 
-overrideSdkVersion :: PackageConfigFields -> IO PackageConfigFields
-overrideSdkVersion pkgConfig = do
-    sdkVersionM <- getSdkVersionMaybe
-    case sdkVersionM of
-        Nothing ->
-            pure pkgConfig
-        Just (Left sdkVersionError) -> do
-            hPutStrLn stderr $ unwords
-                [ "Warning: Using SDK version "
-                , maybe "<dpm-component-overrides>" (V.toString . unwrapUnresolvedReleaseVersion) (pSdkVersion pkgConfig)
-                , " from config instead of "
-                , sdkVersionEnvVar
-                , " enviroment variable because it doesn't contain a valid version.\n"
-                , displayException sdkVersionError
-                ]
-            pure pkgConfig
-        Just (Right sdkVersion) -> do
-            when (pSdkVersion pkgConfig /= Just sdkVersion) $
-                hPutStrLn stderr $ unwords
-                    [ "Warning: Using SDK version"
-                    , V.toString (unwrapUnresolvedReleaseVersion sdkVersion)
-                    , "from"
-                    , sdkVersionEnvVar
-                    , "enviroment variable instead of SDK version"
-                    , maybe "<dpm-component-overrides>" (V.toString . unwrapUnresolvedReleaseVersion) (pSdkVersion pkgConfig)
-                    , "from"
-                    , packageConfigName
-                    , "config file."
-                    ]
-            pure pkgConfig { pSdkVersion = Just sdkVersion }
-
 -- If any of these fields are present in a daml.yaml, it is considered a "full" daml.yaml
 -- rather than a verion/options only file, and as such, cannot be ignored by processes like multi-build.
 -- Note that we do not handle this by restricting unknown fields, as our daml.yaml parsing has always been
@@ -191,8 +153,7 @@ withPackageConfig packagePath f = do
       packageConfigName ++ " is a packageless daml.yaml, cannot be used for package config."
 
   pkgConfig <- either throwIO pure (parsePackageConfig package)
-  pkgConfig' <- overrideSdkVersion pkgConfig
-  f pkgConfig'
+  f pkgConfig
 
 -- Traverses up the directory tree from current package path and returns the package path of the "nearest" multi-package.yaml
 -- Stops at root, but also won't pick any files it doesn't have permission to search

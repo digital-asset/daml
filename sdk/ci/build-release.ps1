@@ -59,8 +59,6 @@ $oci_artifacts=bazel.exe query "kind('package_oci_component', //...)"
 
 bazel build `
   //compiler/damlc/tests:platform-independence.dar `
-  //release:sdk-release-tarball-ce `
-  //release:sdk-release-tarball-ee `
   $oci_artifacts `
   `-`-profile build-profile.json `
   `-`-experimental_profile_include_target_label `

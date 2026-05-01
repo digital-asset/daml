@@ -18,4 +18,4 @@ RUNNER="$(rlocation "$TEST_WORKSPACE/$1")"
 DAML="$(rlocation "$TEST_WORKSPACE/$2")"
 SANDBOX="$(rlocation "$TEST_WORKSPACE/$3")"
 
-$RUNNER --daml $DAML --sandbox $SANDBOX ${@:4}
+$RUNNER --sdk $DAML --platform $SANDBOX ${@:4}

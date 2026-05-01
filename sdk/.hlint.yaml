@@ -142,8 +142,8 @@
   - {name: unsafePerformIO, within: [DA.Daml.UtilGHC]}
   - {name: unsafeInterleaveIO, within: []}
   - {name: unsafeDupablePerformIO, within: []}
-  - {name: setCurrentDirectory, within: [DA.Daml.Assistant.Tests, Main]}
-  - {name: unsafeCoerce, within: [SdkVersion.Class]}
+  - {name: setCurrentDirectory, within: [DA.Daml.Project.Tests, Main]}
+  - {name: unsafeCoerce, within: [ComponentVersion.Class]}
 
 # Add custom hints for this project
 #

@@ -13,8 +13,7 @@
 module DA.Cli.Damlc (main, Command (..), MultiPackageManifestEntry (..), fullParseArgs) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception (bracket, catch, displayException, throwIO, handle, throw)
-import Control.Exception.Safe (catchIO)
+import Control.Exception (bracket, catch, displayException, throwIO, handle)
 import Control.Monad (forM, forM_, unless, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
@@ -85,19 +84,14 @@ import DA.Daml.Compiler.Dar (FromDalf(..),
                              writeIfacesAndHie)
 import DA.Daml.Compiler.Output (diagnosticsLogger, writeOutput, writeOutputBSL)
 import DA.Daml.Project.Types
-    ( UnresolvedReleaseVersion(..),
-      unresolvedReleaseVersionToString,
-      parseUnresolvedVersion,
-      isHeadVersion,
+    ( AssemblyVersion,
       ConfigError(..),
       PackagePath(..),
       PackageConfig,
-      unsafeResolveReleaseVersion)
-import DA.Daml.Assistant.Version (resolveReleaseVersionUnsafe)
-import DA.Daml.Assistant.Util (wrapErr)
+      versionToString)
 import DA.Daml.Compiler.DocTest (docTest)
 import DA.Daml.Desugar (desugar)
-import DA.Daml.Helper.Studio (runDamlStudio)
+import DA.Cli.Studio (runDamlStudio)
 import DA.Daml.LF.ScriptServiceClient (readScriptServiceConfig, withScriptService')
 import DA.Daml.Compiler.Validate (validateDar)
 import qualified DA.Daml.LF.Ast as LF
@@ -150,18 +144,15 @@ import DA.Daml.Resolution.Config (ValidPackageResolution (..), ResolutionError (
 import DA.Daml.Project.Config (queryPackageConfig, queryPackageConfigRequired, readPackageConfig)
 import DA.Daml.Project.Consts (PackageLocationCheck(..),
                                damlCacheEnvVar,
-                               damlPathEnvVar,
                                getPackagePath,
-                               getSdkVersion,
+                               getVersionInfo,
                                multiPackageConfigName,
                                packageConfigName,
-                               withExpectPackageRoot,
-                               withPackageRoot,
-                               damlAssistantIsSet,
+                               packagePathEnvVar,
                                projectPathEnvVar,
-                               packagePathEnvVar)
-import DA.Daml.Assistant.Env (getDamlEnv, getDamlPath, envUseCache)
-import DA.Daml.Assistant.Types (LookForPackagePath(..))
+                               sdkVersionDpmEnvVar,
+                               withExpectPackageRoot,
+                               withPackageRoot)
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
@@ -273,7 +264,7 @@ import "ghc-lib-parser" HsDumpAst
 import "ghc-lib" HscStats
 import "ghc-lib-parser" HscTypes
 import qualified "ghc-lib-parser" Outputable as GHC
-import qualified SdkVersion.Class
+import qualified ComponentVersion.Class
 import Text.Regex.TDFA
 
 import qualified Development.IDE.Core.Service as IDE
@@ -312,7 +303,7 @@ data CommandName =
   deriving (Ord, Show, Eq)
 data Command = Command CommandName (Maybe PackageLocationOpts) (IO ())
 
-cmdMultiIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
+cmdMultiIde :: ComponentVersion.Class.ComponentVersioned => Int -> Mod CommandFields Command
 cmdMultiIde _numProcessors =
     command "multi-ide" $ info (helper <*> cmd) $
        progDesc
@@ -325,7 +316,7 @@ cmdMultiIde _numProcessors =
         <*> optional (strOptionOnce $ long "ide-identifier" <> help "Identifier string for this IDE")
         <*> many (strArgument mempty)
 
-cmdUpgradeCheck :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
+cmdUpgradeCheck :: ComponentVersion.Class.ComponentVersioned => Int -> Mod CommandFields Command
 cmdUpgradeCheck _numProcessors =
     command "upgrade-check" $ info (helper <*> cmd) $
        progDesc
@@ -336,7 +327,7 @@ cmdUpgradeCheck _numProcessors =
     cmd = fmap (Command UpgradeCheck Nothing) $ runUpgradeCheck
         <$> many (strArgument $ help "Path to DAR")
 
-cmdIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
+cmdIde :: ComponentVersion.Class.ComponentVersioned => Int -> Mod CommandFields Command
 cmdIde numProcessors =
     command "ide" $ info (helper <*> cmd) $
        progDesc
@@ -361,7 +352,7 @@ cmdLicense =
         "License information for open-source projects included in Daml."
     <> fullDesc
 
-cmdCompile :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
+cmdCompile :: ComponentVersion.Class.ComponentVersioned => Int -> Mod CommandFields Command
 cmdCompile numProcessors =
     command "compile" $ info (helper <*> cmd) $
         progDesc "Compile the Daml program into a Core/Daml-LF archive."
@@ -384,7 +375,7 @@ cmdCompile numProcessors =
         help "Produce interface files. This is used for building the package db for daml-prim and daml-stdib" <>
         long "write-iface"
 
-cmdDesugar :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
+cmdDesugar :: ComponentVersion.Class.ComponentVersioned => Int -> Mod CommandFields Command
 cmdDesugar numProcessors =
   command "desugar" $ info (helper <*> cmd) $
       progDesc "Show the desugared Daml program"
@@ -399,7 +390,7 @@ cmdDesugar numProcessors =
             optPackageName
             disabledDlintUsageParser
 
-cmdDebugIdeSpanInfo :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
+cmdDebugIdeSpanInfo :: ComponentVersion.Class.ComponentVersioned => Int -> Mod CommandFields Command
 cmdDebugIdeSpanInfo numProcessors =
   command "debug-ide-span-info" $ info (helper <*> cmd) $
       progDesc "Show the IDE span infos for the Daml program"
@@ -414,7 +405,7 @@ cmdDebugIdeSpanInfo numProcessors =
             optPackageName
             disabledDlintUsageParser
 
-cmdLint :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
+cmdLint :: ComponentVersion.Class.ComponentVersioned => Int -> Mod CommandFields Command
 cmdLint numProcessors =
     command "lint" $ info (helper <*> cmd) $
         progDesc "Lint the Daml program."
@@ -428,7 +419,7 @@ cmdLint numProcessors =
               optPackageName
               enabledDlintUsageParser
 
-cmdTest :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
+cmdTest :: ComponentVersion.Class.ComponentVersioned => Int -> Mod CommandFields Command
 cmdTest numProcessors =
     command "test" $ info (helper <*> cmd) $
        progDesc progDoc
@@ -475,7 +466,7 @@ cmdTest numProcessors =
         long "coverage-ignore-choice" <> help "Remove choices matching a regex from the coverage report. The full name of a local choice takes the format '<module>:<template name>:<choice name>', preceded by '<package id>:' for nonlocal packages."
 
 runTestsInPackageOrFiles ::
-       SdkVersion.Class.SdkVersioned
+       ComponentVersion.Class.ComponentVersioned
     => PackageLocationOpts
     -> Maybe [FilePath]
     -> RunAllOption
@@ -538,13 +529,13 @@ cmdInspect =
     jsonOpt = switch $ long "json" <> help "Output the raw Protocol Buffer structures as JSON"
     cmd = execInspect <$> inputFileOptWithExt ".dalf or .dar" <*> outputFileOpt <*> jsonOpt <*> cliOptDetailLevel
 
-cmdBuild :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
+cmdBuild :: ComponentVersion.Class.ComponentVersioned => Int -> Mod CommandFields Command
 cmdBuild numProcessors =
     command "build" $
     info (helper <*> cmdBuildParser numProcessors) $
     progDesc "Initialize, build and package the Daml package" <> fullDesc
 
-cmdBuildParser :: SdkVersion.Class.SdkVersioned => Int -> Parser Command
+cmdBuildParser :: ComponentVersion.Class.ComponentVersioned => Int -> Parser Command
 cmdBuildParser numProcessors =
     execBuild
         <$> packageLocationOpts "daml build"
@@ -573,7 +564,7 @@ cmdClean =
             <*> multiPackageLocationOpt
             <*> multiPackageCleanAllOpt
 
-cmdInit :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
+cmdInit :: ComponentVersion.Class.ComponentVersioned => Int -> Mod CommandFields Command
 cmdInit numProcessors =
     command "init" $
     info (helper <*> cmd) $ progDesc "Initialize a Daml package" <> fullDesc
@@ -605,7 +596,7 @@ cmdValidateDar =
   where
     cmd = execValidateDar <$> inputDarOpt
 
-cmdDocTest :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
+cmdDocTest :: ComponentVersion.Class.ComponentVersioned => Int -> Mod CommandFields Command
 cmdDocTest numProcessors =
     command "doctest" $
     info (helper <*> cmd) $
@@ -625,7 +616,7 @@ cmdDocTest numProcessors =
             -- and recompiling it alongside Daml.Script causes issues with missing interface files
         <*> many inputFileOpt
 
-cmdGenerateMultiPackageManifest :: SdkVersion.Class.SdkVersioned => Mod CommandFields Command
+cmdGenerateMultiPackageManifest :: ComponentVersion.Class.ComponentVersioned => Mod CommandFields Command
 cmdGenerateMultiPackageManifest =
     command "generate-multi-package-manifest" $
     info (helper <*> cmd) $
@@ -658,7 +649,7 @@ execLicense =
     licenseData :: B.ByteString
     licenseData = $(embedFile "NOTICES")
 
-execIde :: SdkVersion.Class.SdkVersioned
+execIde :: ComponentVersion.Class.ComponentVersioned
         => Telemetry
         -> Debug
         -> EnableScriptService
@@ -680,11 +671,9 @@ execIde telemetry (Debug debug) enableScriptService autorunAllScripts options =
             threshold
             "LanguageServer"
           damlCacheM <- lookupEnv damlCacheEnvVar
-          damlPathM <- lookupEnv damlPathEnvVar
           let gcpConfig = Logger.GCP.GCPConfig
                   { gcpConfigTag = "ide"
                   , gcpConfigCachePath = damlCacheM
-                  , gcpConfigDamlPath = damlPathM
                   }
               withLogger f = case telemetry of
                   TelemetryOptedIn ->
@@ -726,8 +715,7 @@ execIde telemetry (Debug debug) enableScriptService autorunAllScripts options =
           scriptServiceConfig <- readScriptServiceConfig
           withLogger $ \loggerH ->
               withScriptService' enableScriptService (optDamlLfVersion options) loggerH scriptServiceConfig (scriptServiceJarFromOptions options) $ \mbScriptService -> do
-                  sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
-                  Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
+                  Logger.logInfo loggerH (T.pack $ "Component version: " <> ComponentVersion.Class.componentVersionString)
                   debouncer <- newAsyncDebouncer
                   runLanguageServer loggerH enabledPlugins Config $ \lspEnv vfs _ ->
                       getDamlIdeState options autorunAllScripts mbScriptService loggerH debouncer (RealLspEnv lspEnv) vfs
@@ -736,7 +724,7 @@ execIde telemetry (Debug debug) enableScriptService autorunAllScripts options =
 -- | Whether we should write interface files during `damlc compile`.
 newtype WriteInterface = WriteInterface Bool
 
-execCompile :: SdkVersion.Class.SdkVersioned => FilePath -> FilePath -> Options -> WriteInterface -> Maybe FilePath -> Command
+execCompile :: ComponentVersion.Class.ComponentVersioned => FilePath -> FilePath -> Options -> WriteInterface -> Maybe FilePath -> Command
 execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir =
   Command Compile (Just packageLocationOpts) effect
   where
@@ -770,7 +758,7 @@ execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir
         createDirectoryIfMissing True $ takeDirectory outputFile
         B.writeFile outputFile $ Archive.encodeArchive bs
 
-execDesugar :: SdkVersion.Class.SdkVersioned => FilePath -> FilePath -> Options -> Command
+execDesugar :: ComponentVersion.Class.ComponentVersioned => FilePath -> FilePath -> Options -> Command
 execDesugar inputFile outputFile opts = Command Desugar (Just packageLocationOpts) effect
   where
     packageLocationOpts = PackageLocationOpts Nothing (PackageLocationCheck "" False)
@@ -782,7 +770,7 @@ execDesugar inputFile outputFile opts = Command Desugar (Just packageLocationOpt
         createDirectoryIfMissing True $ takeDirectory outputFile
         T.writeFile outputFile s
 
-execDebugIdeSpanInfo :: SdkVersion.Class.SdkVersioned => FilePath -> FilePath -> Options -> Command
+execDebugIdeSpanInfo :: ComponentVersion.Class.ComponentVersioned => FilePath -> FilePath -> Options -> Command
 execDebugIdeSpanInfo inputFile outputFile opts =
   Command DebugIdeSpanInfo (Just packageLocationOpts) effect
   where
@@ -803,7 +791,7 @@ execDebugIdeSpanInfo inputFile outputFile opts =
         createDirectoryIfMissing True $ takeDirectory outputFile
         TL.writeFile outputFile s
 
-execLint :: SdkVersion.Class.SdkVersioned => [FilePath] -> Options -> Command
+execLint :: ComponentVersion.Class.ComponentVersioned => [FilePath] -> Options -> Command
 execLint inputFiles opts =
   Command Lint (Just packageLocationOpts) effect
   where
@@ -836,7 +824,7 @@ getCanonDefaultPackagePath = fmap PackagePath $ canonicalizePath $ unwrapPackage
 
 -- | If we're in a daml package, read the daml.yaml field, install the dependencies and create the
 -- package local package database. Otherwise do nothing.
-execInit :: SdkVersion.Class.SdkVersioned => Options -> PackageLocationOpts -> Command
+execInit :: ComponentVersion.Class.ComponentVersioned => Options -> PackageLocationOpts -> Command
 execInit opts packageLocationOpts =
   Command Init (Just packageLocationOpts) effect
   where effect = withPackageRoot' packageLocationOpts $ \_relativize ->
@@ -844,7 +832,7 @@ execInit opts packageLocationOpts =
             opts
             (InitPkgDb True)
 
-installDepsAndInitPackageDb :: SdkVersion.Class.SdkVersioned => Options -> InitPkgDb -> IO ()
+installDepsAndInitPackageDb :: ComponentVersion.Class.ComponentVersioned => Options -> InitPkgDb -> IO ()
 installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
     when shouldInit $ do
         isPackage <- withPackageConfig defaultPackagePath (const $ pure True) `catch` (\(_ :: ConfigError) -> pure False)
@@ -866,7 +854,7 @@ getMultiPackagePath multiPackageLocation searchPath =
       pure $ Just $ PackagePath path
 
 execBuild
-  :: SdkVersion.Class.SdkVersioned
+  :: ComponentVersion.Class.ComponentVersioned
   => PackageLocationOpts
   -> Options
   -> Maybe FilePath
@@ -969,7 +957,7 @@ withMaybeConfig withConfig handler = do
   handler mConfig
 
 buildEffect
-  :: SdkVersion.Class.SdkVersioned
+  :: ComponentVersion.Class.ComponentVersioned
   => (FilePath -> IO FilePath)
   -> PackagePath
   -> PackageConfigFields
@@ -1074,7 +1062,7 @@ updateUpgradePath context packagePath opts@Options{optUpgradeInfo} newPkgPath = 
   We currently rely on shake to find cycles, how its errors includes too much information about internals, so we'll need to implement our own cycle detection.
 -}
 multiPackageBuildEffect
-  :: SdkVersion.Class.SdkVersioned
+  :: ComponentVersion.Class.ComponentVersioned
   => (FilePath -> IO FilePath)
   -> PackagePath
   -> Maybe PackageConfigFields -- Nothing signifies build all
@@ -1093,27 +1081,27 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
     darPath <- darPathFromDamlYaml path
     pure (darPath, path)
 
-  getDamlcPath <-
+  getDamlcPathAndVer <-
     case optResolutionData opts of
       Just resolutionData -> pure $ \location ->
         case findPackageResolutionData location resolutionData of
           Right validPkgResolution ->
             case Map.lookup "damlc-binary" $ imports validPkgResolution of
-              Just [damlcLocation] -> pure damlcLocation
+              Just [damlcLocation] -> pure (damlcLocation, mAssemblyVersion validPkgResolution)
               _ -> throwIO $ ResolutionError $ "Damlc could not be found in DPM resolution for " <> location <> ". You SDK install for this package is invalid."
           Left err -> throwIO err
-      Nothing -> do
-        mbAssistantPath <- lookupEnv "DAML_ASSISTANT"
-        case mbAssistantPath of
-          Just assistantPath -> pure $ const $ pure assistantPath
-          Nothing -> error "Couldn't find DPM or Daml Assistant. Please run damlc via one of these package managers."
+      Nothing ->
+          error "Couldn't find DPM. Please run damlc via DPM."
 
   -- Must drop DAML_PACKAGE + DAML_PROJECT from env var so it can be repopulated based on `cwd`
-  damlcEnv <- filter (flip notElem [projectPathEnvVar, packagePathEnvVar, "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
+  damlcEnv <- filter (flip notElem [projectPathEnvVar, packagePathEnvVar, "DAML_SDK_VERSION", "DAML_SDK", "DPM_SDK_VERSION"] . fst) <$> getEnvironment
 
   let damlcRunner = DamlcRunner $ \location args -> do
-        damlcPath <- getDamlcPath location
-        withCreateProcess ((proc damlcPath args) {cwd = Just location, env = Just damlcEnv}) $ \_ _ _ p -> do
+        (damlcPath, mAssemblyVersion) <- getDamlcPathAndVer location
+        -- Must add back sdkVersionDpmEnvVar for sub-package build, so the sub-damlc call knows what version to put in the built dar
+        -- Consider refactoring daml building discover its version from the resolution file, rather than from env var.
+        let addAssemblyVersion = maybe id (\assemblyVersion env -> (sdkVersionDpmEnvVar, versionToString assemblyVersion) : env) mAssemblyVersion
+        withCreateProcess ((proc damlcPath args) {cwd = Just location, env = Just $ addAssemblyVersion damlcEnv}) $ \_ _ _ p -> do
           exitCode <- waitForProcess p
           when (exitCode /= ExitSuccess) $ error $ "Failed to build package at " <> location <> "."
 
@@ -1156,7 +1144,7 @@ type instance RuleResult BuildMulti = (LF.PackageName, LF.PackageVersion, LF.Pac
 
 -- Subset of PackageConfig needed for multi-package build deferring.
 data BuildMultiPackageConfig = BuildMultiPackageConfig
-  { bmSdkVersion :: Maybe UnresolvedReleaseVersion
+  { bmAssemblyVersion :: Maybe AssemblyVersion
   -- ^ DPM allows sdk-version to be omitted when sufficient overrides are provided
   , bmName :: LF.PackageName
   , bmVersion :: LF.PackageVersion
@@ -1212,7 +1200,7 @@ getDarSdkVersion :: ZipArchive.Archive -> Either String String
 getDarSdkVersion dar = Reader.sdkVersion <$> readDalfManifest dar
 
 -- | Gets the package id of a Dar in the given package ONLY if it is not stale.
-getPackageIdIfFresh :: SdkVersion.Class.SdkVersioned => IDELogger.Logger -> FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
+getPackageIdIfFresh :: ComponentVersion.Class.ComponentVersioned => IDELogger.Logger -> FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
 getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
   let logDebug str = IDELogger.logDebug logger $ T.pack $ path <> ": " <> str
       logInfo str = IDELogger.logInfo logger $ T.pack str
@@ -1237,7 +1225,7 @@ getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
           getArchiveDalfPid name version = dalfDataKey name version `Map.lookup` archiveDalfPids
           -- We check source files by comparing the maps, any extra, missing or changed files will be covered by this, regardless of order
           sourceFilesCorrect = sourceFiles == archiveSourceFiles
-          sdkVersionCorrect = archiveSdkVersion == Right (maybe SdkVersion.Class.sdkVersion unresolvedReleaseVersionToString bmSdkVersion)
+          sdkVersionCorrect = archiveSdkVersion == Right (maybe ComponentVersion.Class.componentVersionString versionToString bmAssemblyVersion)
 
       -- Expanded `all` check that allows us to log specific dependencies being stale. Useful for debugging, maybe we can remove it.
       sourceDepsCorrect <-
@@ -1254,14 +1242,11 @@ getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
 
       logDebug $ "Source dependencies are " <> (if sourceDepsCorrect then "not " else "") <> "stale."
       logDebug $ "Source files are " <> (if sourceFilesCorrect then "not " else "") <> "stale."
-      logDebug $ "Sdk version is " <> (if sdkVersionCorrect then "not " else "") <> "stale."
+      logDebug $ "Sdk version is " <> (if sdkVersionCorrect then "not " else "") <> "stale. (" <> show archiveSdkVersion <> " vs " <> show (maybe ComponentVersion.Class.componentVersionString versionToString bmAssemblyVersion) <> ")"
       pure $ if sourceDepsCorrect && sourceFilesCorrect && sdkVersionCorrect then getArchiveDalfPid bmName bmVersion else Nothing
 
-damlMultiBuildVersion :: UnresolvedReleaseVersion
-damlMultiBuildVersion = either throw id $ parseUnresolvedVersion "2.8.0-snapshot.20231018.0"
-
 buildMultiRule
-  :: SdkVersion.Class.SdkVersioned
+  :: ComponentVersion.Class.ComponentVersioned
   => DamlcRunner
   -> BuildableDataDeps
   -> MultiPackageNoCache
@@ -1312,10 +1297,8 @@ buildMultiRule damlcRunner buildableDataDeps (MultiPackageNoCache noCache) mRoot
           Nothing -> do
             IDELogger.logInfo logger $ T.pack $ "Building " <> filePath
 
-            -- Call build via daml assistant so it selects the correct SDK version.
-            let shouldDisableMultiPackage version = version >= damlMultiBuildVersion || isHeadVersion version
-            runDamlc damlcRunner filePath $
-              ["build"] <> (["--enable-multi-package=no" | maybe True shouldDisableMultiPackage bmSdkVersion])
+            -- Call build passing filePath, which determines damlc version
+            runDamlc damlcRunner filePath ["build", "--enable-multi-package=no"]
 
             darPath <- deriveDarPath filePath bmName bmVersion bmOutput
             -- Extract the new package ID from the dar we just built, by reading the DAR and looking for the dalf that matches our package name/version
@@ -1435,7 +1418,7 @@ execValidateDar inFile =
 -- | Should source files for doc test be imported into the test package (default yes)
 newtype ImportSource = ImportSource Bool
 
-execDocTest :: SdkVersion.Class.SdkVersioned => Options -> FilePath -> ImportSource -> [FilePath] -> Command
+execDocTest :: ComponentVersion.Class.ComponentVersioned => Options -> FilePath -> ImportSource -> [FilePath] -> Command
 execDocTest opts scriptDar (ImportSource importSource) files =
   Command DocTest Nothing effect
   where
@@ -1443,20 +1426,13 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       let files' = map toNormalizedFilePath' files
           packageFlag =
             ExposePackage
-              ("--package daml-script-" <> SdkVersion.Class.sdkPackageVersion)
-              (UnitIdArg $ stringToUnitId $ "daml-script-" <> SdkVersion.Class.sdkPackageVersion)
+              ("--package daml-script-" <> ComponentVersion.Class.componentVersionDamlPackage)
+              (UnitIdArg $ stringToUnitId $ "daml-script-" <> ComponentVersion.Class.componentVersionDamlPackage)
               (ModRenaming True [])
 
       logger <- getLogger opts "doctest"
 
-      damlAssistantIsSet <- damlAssistantIsSet
-      releaseVersion <- if damlAssistantIsSet
-          then do
-            damlPath <- getDamlPath
-            damlEnv <- getDamlEnv damlPath (LookForPackagePath False)
-            wrapErr "running doc test" $
-              resolveReleaseVersionUnsafe (envUseCache damlEnv) SdkVersion.Class.unresolvedBuiltinSdkVersion
-          else pure (unsafeResolveReleaseVersion SdkVersion.Class.unresolvedBuiltinSdkVersion)
+      versionInfo <- getVersionInfo
       opts <- addResolutionData opts
 
       -- Can't yet support doc test as we have no default resolution, and doctest does not assume package context
@@ -1468,7 +1444,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       -- An approach of copying out the deps into a temporary location to build/run the tests has been considered
       -- but the effort to build this, combined with the low number of users of this feature, as well as most packages
       -- already using daml-script has led us to leave this as is. We'll fix this if someone is affected and notifies us.
-      setupPackageDb "." opts releaseVersion [scriptDar] [] mempty
+      setupPackageDb "." opts versionInfo [scriptDar] [] mempty
 
       opts <- pure opts
         { optPackageDbs = packageDatabasePath : optPackageDbs opts
@@ -1513,7 +1489,7 @@ data MultiPackageManifestEntry = MultiPackageManifestEntry
 bimapMap :: Ord k' => (k -> k') -> (v -> v') -> Map.Map k v -> Map.Map k' v'
 bimapMap keyMap valueMap = fmap valueMap . Map.mapKeys keyMap
 
-execGenerateMultiPackageManifest :: SdkVersion.Class.SdkVersioned => MultiPackageLocation -> GenerateMultiPackageManifestOutput -> Command
+execGenerateMultiPackageManifest :: ComponentVersion.Class.ComponentVersioned => MultiPackageLocation -> GenerateMultiPackageManifestOutput -> Command
 execGenerateMultiPackageManifest multiPackageLocation outputLocation =
     Command GenerateMultiPackageManifest Nothing effect
   where
@@ -1574,7 +1550,7 @@ execGenerateMultiPackageManifest multiPackageLocation outputLocation =
 -- main
 --------------------------------------------------------------------------------
 
-options :: SdkVersion.Class.SdkVersioned => Int -> Parser Command
+options :: ComponentVersion.Class.ComponentVersioned => Int -> Parser Command
 options numProcessors =
     subparser
       (  cmdIde numProcessors
@@ -1601,7 +1577,7 @@ options numProcessors =
         <> cmdGenerateMultiPackageManifest
       )
 
-parserInfo :: SdkVersion.Class.SdkVersioned => Int -> Bool -> ParserInfo Command
+parserInfo :: ComponentVersion.Class.ComponentVersioned => Int -> Bool -> ParserInfo Command
 parserInfo numProcessors addBuildArgsBackupParser =
   info (backupParserWithBuildArgs addBuildArgsBackupParser $ helper <*> options numProcessors)
     (  fullDesc
@@ -1614,7 +1590,7 @@ parserInfo numProcessors addBuildArgsBackupParser =
 
 -- | Add the build parser as a backup for when we're adding the CLI args from daml.yaml, incase whatever command
 -- we're running doesn't recognise all of the `build-options:` e.g. `daml test` cannot use `--output`
-backupParserWithBuildArgs :: SdkVersion.Class.SdkVersioned => Bool -> Parser Command -> Parser Command
+backupParserWithBuildArgs :: ComponentVersion.Class.ComponentVersioned => Bool -> Parser Command -> Parser Command
 backupParserWithBuildArgs shouldBackup parser = if shouldBackup then parser <* cmdBuildParser 1 else parser
 
 -- | Attempts to find the --output flag in the given build-options for a package
@@ -1676,7 +1652,7 @@ buildMultiPackageConfigFromDamlYaml path =
   onDamlYaml
     (\e -> error $ "Failed to parse daml.yaml at " <> path <> " for multi-package build: " <> displayException e)
     (\package -> do
-      bmSdkVersion <- queryPackageConfig ["sdk-version"] package
+      bmAssemblyVersion <- queryPackageConfig ["sdk-version"] package
       bmName <- queryPackageConfigRequired ["name"] package
       bmVersion <- queryPackageConfigRequired ["version"] package
       bmSourceDaml <- queryPackageConfigRequired ["source"] package
@@ -1709,7 +1685,7 @@ cliArgsFromDamlYaml =
     Left _ -> []
     Right xs -> xs
 
-fullParseArgs :: SdkVersion.Class.SdkVersioned => Int -> [String] -> IO Command
+fullParseArgs :: ComponentVersion.Class.ComponentVersioned => Int -> [String] -> IO Command
 fullParseArgs numProcessors cliArgs = do
     let parse :: [String] -> Maybe [String] -> ([String], ParserResult Command)
         parse args mBuildOptions =
@@ -1743,7 +1719,7 @@ warnDeprecatedArgs cliArgs =
       hPutStrLn stderr "--project-check is deprecated, please use --package-check"
     _ -> pure ()
 
-main :: SdkVersion.Class.SdkVersioned => IO ()
+main :: ComponentVersion.Class.ComponentVersioned => IO ()
 main = do
     -- We need this to ensure that logs are flushed on SIGTERM.
     installSignalHandlers
@@ -1789,7 +1765,7 @@ withPackageRoot' :: PackageLocationOpts -> ((FilePath -> IO FilePath) -> IO a) -
 withPackageRoot' PackageLocationOpts{..} act =
     withPackageRoot packageRoot packageLocationCheck (const act)
 
-addResolutionData :: Options -> IO Options
+addResolutionData :: ComponentVersion.Class.ComponentVersioned => Options -> IO Options
 addResolutionData opts@Options{optResolutionData = Nothing} = do
   resolutionData <- getResolutionData
   pure $ opts {optResolutionData = resolutionData}

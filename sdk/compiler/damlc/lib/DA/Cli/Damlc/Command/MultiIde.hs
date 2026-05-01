@@ -17,6 +17,8 @@ import DA.Cli.Damlc.Command.MultiIde.Parsing
 import DA.Cli.Damlc.Command.MultiIde.SubIdeManagement
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Cli.Damlc.Command.MultiIde.Util
+import DA.Daml.Project.Consts (getVersionInfo)
+import DA.Daml.Project.Types (versionToString)
 import qualified DA.Service.Logger as Logger
 import Data.Either (lefts)
 import Data.Foldable (traverse_)
@@ -25,7 +27,7 @@ import Data.Maybe (catMaybes, maybeToList)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
-import qualified SdkVersion.Class
+import ComponentVersion.Class (ComponentVersioned)
 import System.Directory (getCurrentDirectory, removeFile)
 import System.Exit (exitSuccess)
 import System.FilePath.Posix ((</>))
@@ -34,11 +36,12 @@ import System.Process.Typed (ExitCode (..), getExitCodeSTM)
 
 -- Main loop logic
 
-createDefaultPackage :: SdkVersion.Class.SdkVersioned => IO (PackageHome, IO ())
+createDefaultPackage :: ComponentVersioned => IO (PackageHome, IO ())
 createDefaultPackage = do
   (toPosixFilePath -> misDefaultPackagePath, cleanup) <- newTempDir
+  versionInfo <- getVersionInfo
   writeFile (misDefaultPackagePath </> "daml.yaml") $ unlines
-    [ "sdk-version: " <> SdkVersion.Class.sdkVersion
+    [ "sdk-version: " <> versionToString versionInfo
     , "name: daml-ide-default-environment"
     , "version: 1.0.0"
     , "source: ."
@@ -48,7 +51,7 @@ createDefaultPackage = do
     ]
   pure (PackageHome misDefaultPackagePath, cleanup)
 
-runMultiIde :: SdkVersion.Class.SdkVersioned => Logger.Priority -> Maybe T.Text -> [String] -> IO ()
+runMultiIde :: ComponentVersioned => Logger.Priority -> Maybe T.Text -> [String] -> IO ()
 runMultiIde loggingThreshold mIdentifier args = do
   homePath <- toPosixFilePath <$> getCurrentDirectory
   (misDefaultPackagePath, cleanupDefaultPackage) <- createDefaultPackage

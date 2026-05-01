@@ -43,9 +43,9 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc/daml-ide-core",
+        "//component-version/hs:component-version-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-lib",
         "@ghcide_ghc_lib//:testing",
     ],
 )

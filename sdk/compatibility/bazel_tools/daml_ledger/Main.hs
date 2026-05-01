@@ -7,8 +7,6 @@ import Control.Applicative
 import Control.Exception
 import DA.Test.Process
 import DA.Test.FreePort
-import Data.Either.Extra
-import Data.Function ((&))
 import Data.List.Extra (replace)
 import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (..))
@@ -28,15 +26,17 @@ import Test.Tasty.Options (IsOption(..), OptionDescription(..), mkOptionCLParser
 import Test.Tasty.HUnit
 import qualified Bazel.Runfiles
 import qualified Data.Aeson as Aeson
-import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Web.JWT as JWT
 
+-- TODO(#22977) Rename platform and SDK to something clearer
 data Tools = Tools
-  { daml :: FilePath
-  , sandboxBinary :: FilePath
-  , sandboxArgs :: [String]
+  { sdk :: FilePath
+  , platformBinary :: FilePath
+  , platformArgs :: [String]
+  , isSdkDpm :: Bool
+  , isPlatformDpm :: Bool
   }
 
 withSandbox :: IO Tools -> Maybe String -> (IO Int -> TestTree) -> TestTree
@@ -48,34 +48,36 @@ withSandbox getTools mbSecret f =
               (tmpDir, _) <- getTempDir
               let portFile = tmpDir </> "portfile"
               devNull <- getDevNull
-              portArgs <- mapM (\argName-> fmap ((<>) argName . show) getFreePort) portArgNames
+              portArgs <- mapM (\argName-> fmap ((<>) argName . show) getFreePort) $ portArgNames isPlatformDpm
               let secretArgs = concat [["-C", "canton.participants.sandbox.ledger-api.auth-services.0.type=unsafe-jwt-hmac-256", "-C", "canton.participants.sandbox.ledger-api.auth-services.0.secret=" <> secret] | Just secret <- [mbSecret]]
-              let args = map (tweakArg portFile) (sandboxArgs <> secretArgs <> portArgs)
+              let args = map (tweakArg portFile) (platformArgs <> secretArgs <> portArgs)
               mask $ \unmask -> do
-                  ph@(_, _, _, handle) <- createProcess (proc sandboxBinary args) { std_out = UseHandle devNull }
+                  ph@(_, _, _, handle) <- createProcess (proc platformBinary args) { std_out = UseHandle devNull, create_group = True }
                   let waitForStart = do
                           port <- readCantonPortFile handle maxRetries portFile
                           pure (port, ph)
                   unmask (waitForStart `onException` cleanupProcess ph)
-          destroySandbox = cleanupProcess . snd
+          destroySandbox (_, ph@(_, _, _, handle)) = do
+            interruptProcessGroupOf handle
+            cleanupProcess ph
       in withResource createSandbox destroySandbox (f . fmap fst)
   where
     tweakArg portFile = replace "__PORTFILE__" portFile
-    portArgNames = ["--port=", "--admin-api-port=", "--sequencer-public-port=", "--sequencer-admin-port=", "--mediator-admin-port=", "--json-api-port="]
+    portArgNames isDpm = [if isDpm then "--ledger-api-port=" else "--port=", "--admin-api-port=", "--sequencer-public-port=", "--sequencer-admin-port=", "--mediator-admin-port=", "--json-api-port="]
 
-newtype DamlOption = DamlOption FilePath
-instance IsOption DamlOption where
-  defaultValue = DamlOption "daml"
-  parseValue = Just . DamlOption
-  optionName = Tagged "daml"
-  optionHelp = Tagged "runfiles path to the daml executable"
+newtype SdkOption = SdkOption FilePath
+instance IsOption SdkOption where
+  defaultValue = SdkOption "sdk"
+  parseValue = Just . SdkOption
+  optionName = Tagged "sdk"
+  optionHelp = Tagged "runfiles path to the sdk executable"
 
-newtype SandboxOption = SandboxOption FilePath
-instance IsOption SandboxOption where
-  defaultValue = SandboxOption "sandbox"
-  parseValue = Just . SandboxOption
-  optionName = Tagged "sandbox"
-  optionHelp = Tagged "runfiles path to the sandbox executable"
+newtype PlatformOption = PlatformOption FilePath
+instance IsOption PlatformOption where
+  defaultValue = PlatformOption "platform"
+  parseValue = Just . PlatformOption
+  optionName = Tagged "platform"
+  optionHelp = Tagged "runfiles path to the platform executable"
 
 newtype SandboxArgsOption = SandboxArgsOption { unSandboxArgsOption :: [String] }
 instance IsOption SandboxArgsOption where
@@ -88,9 +90,9 @@ instance IsOption SandboxArgsOption where
 
 withTools :: (IO Tools -> TestTree) -> TestTree
 withTools tests = do
-  askOption $ \(DamlOption damlPath) -> do
-  askOption $ \(SandboxOption sandboxPath) -> do
-  askOption $ \(SandboxArgsOption sandboxArgs) -> do
+  askOption $ \(SdkOption damlPath) -> do
+  askOption $ \(PlatformOption sandboxPath) -> do
+  askOption $ \(SandboxArgsOption platformArgs) -> do
   let createRunfiles :: IO (FilePath -> FilePath)
       createRunfiles = do
         runfiles <- Bazel.Runfiles.create
@@ -98,12 +100,16 @@ withTools tests = do
         pure (\path -> Bazel.Runfiles.rlocation runfiles $ mainWorkspace </> path)
   withResource createRunfiles (\_ -> pure ()) $ \locateRunfiles -> do
   let tools = do
-        daml <- locateRunfiles <*> pure damlPath
-        sandboxBinary <- locateRunfiles <*> pure sandboxPath
+        sdk <- locateRunfiles <*> pure damlPath
+        platformBinary <- locateRunfiles <*> pure sandboxPath
+        let isSdkDpm = takeBaseName sdk == "dpm"
+            isPlatformDpm = takeBaseName platformBinary == "dpm"
         pure Tools
-          { daml
-          , sandboxBinary
-          , sandboxArgs
+          { sdk
+          , platformBinary
+          , platformArgs
+          , isSdkDpm
+          , isPlatformDpm
           }
   tests tools
 
@@ -131,8 +137,8 @@ main = do
   -- so running tests in parallel will cause trouble.
   setEnv "TASTY_NUM_THREADS" "1" True
   let options =
-        [ Option @DamlOption Proxy
-        , Option @SandboxOption Proxy
+        [ Option @SdkOption Proxy
+        , Option @PlatformOption Proxy
         , Option @SandboxArgsOption Proxy
         , Option @SdkVersion Proxy
         ]
@@ -142,13 +148,15 @@ main = do
     askOption $ \sdkVersion -> do
     testGroup "Deployment"
       [ authenticatedUploadTest sdkVersion getTools
-      , unauthenticatedTests sdkVersion getTools
       ]
 
--- | Test `daml ledger list-parties --access-token-file`
+-- | Test `daml script --access-token-file`
+-- We want to test an elevated permission ledger-api endpoint over simple queries, so we use thw `--upload-dar` flag in dpm script
+-- This uses the --access-token-file to upload the test dar to the participant
+-- We are testing that the logic for sending this token on our ledger client (i.e. daml-script) is compatible with different canton versions
 authenticatedUploadTest :: SdkVersion -> IO Tools -> TestTree
 authenticatedUploadTest sdkVersion getTools = do
-  withSandbox getTools (Just sharedSecret) $ \getSandboxPort ->  testGroup "authentication" $
+  withSandbox getTools (Just sharedSecret) $ \getSandboxPort -> testGroup "authentication"
     [ testCase "Bearer prefix" $ do
           Tools{..} <- getTools
           port <- getSandboxPort
@@ -158,13 +166,17 @@ authenticatedUploadTest sdkVersion getTools = do
               expiration <- JWT.numericDate . (+180) <$> getPOSIXTime
               -- The trailing newline is not required but we want to test that it is supported.
               writeFileUTF8 tokenFile ("Bearer " <> makeSignedAdminJwt sharedSecret expiration <> "\n")
-              callProcessSilent daml
-                [ "ledger", "list-parties"
+              writeMinimalPackage sdkVersion
+              let origDar = ".daml/dist/proj1-0.0.1.dar"
+              callProcessSilent sdk ["damlc", "build"]
+
+              callProcessSilent sdk
+                [ "script", "--script-name", "Main:test", "--upload-dar=yes"
+                , "--dar", origDar
                 , "--access-token-file", tokenFile
-                , "--host", "localhost", "--port", show port
+                , "--ledger-host", "localhost", "--ledger-port", show port
                 ]
-    ] <>
-    [ testCase "no Bearer prefix" $ do
+    , testCase "no Bearer prefix" $ do
           Tools{..} <- getTools
           port <- getSandboxPort
           withTempDir $ \deployDir -> do
@@ -173,12 +185,15 @@ authenticatedUploadTest sdkVersion getTools = do
               expiration <- JWT.numericDate . (+180) <$> getPOSIXTime
               -- The trailing newline is not required but we want to test that it is supported.
               writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret expiration <> "\n")
-              callProcessSilent daml
-                [ "ledger", "list-parties"
+              writeMinimalPackage sdkVersion
+              let origDar = ".daml/dist/proj1-0.0.1.dar"
+              callProcessSilent sdk ["damlc", "build"]
+              callProcessSilent sdk
+                [ "script", "--script-name", "Main:test", "--upload-dar=yes"
+                , "--dar", origDar
                 , "--access-token-file", tokenFile
-                , "--host", "localhost", "--port", show port
+                , "--ledger-host", "localhost", "--ledger-port", show port
                 ]
-    | supportsNoBearerPrefix sdkVersion
     ]
   where
     sharedSecret = "TheSharedSecret"
@@ -202,75 +217,6 @@ makeSignedJwt sharedSecret user expiration = do
 makeSignedAdminJwt :: String -> Maybe JWT.NumericDate -> String
 makeSignedAdminJwt sharedSecret expiration = makeSignedJwt sharedSecret "participant_admin" expiration
 
-unauthenticatedTests :: SdkVersion -> IO Tools -> TestTree
-unauthenticatedTests sdkVersion getTools = do
-    withSandbox getTools Nothing $ \getSandboxPort ->
-        testGroup "unauthenticated"
-            [ fetchTest sdkVersion getTools getSandboxPort
-            ]
-
--- | Test `daml ledger fetch-dar`
-fetchTest :: SdkVersion -> IO Tools -> IO Int -> TestTree
-fetchTest sdkVersion getTools getSandboxPort = do
-    testCaseSteps "fetchTest" $ \step -> do
-    Tools{..} <- getTools
-    port <- getSandboxPort
-    withTempDir $ \fetchDir -> do
-      withCurrentDirectory fetchDir $ do
-        writeMinimalPackage sdkVersion
-        let origDar = ".daml/dist/proj1-0.0.1.dar"
-        step "build/upload"
-        callProcessSilent daml ["damlc", "build"]
-        callProcessSilent daml $
-          [ "ledger", "upload-dar"
-          , "--host", "localhost" , "--port" , show port
-          , origDar
-          ] <> ["--timeout=120" | supportsTimeout sdkVersion]
-        pid <- getMainPidOfDar daml origDar
-        step "fetch/validate"
-        let fetchedDar = "fetched.dar"
-        callProcessSilent daml $
-          [ "ledger", "fetch-dar"
-          , "--host", "localhost" , "--port", show port
-          , "--main-package-id", pid
-          , "-o", fetchedDar
-          ]  <> ["--timeout=120" | supportsTimeout sdkVersion]
-        callProcessSilent daml ["damlc", "validate-dar", fetchedDar]
-
--- | Discover the main package-identifier of a dar.
---
--- Parses the output of damlc inspect-dar. Unfortunately, this output is not
--- currently optimized for machine readability. This function expects the
--- following format.
---
--- @
---   ...
---
---   DAR archive contains the following packages:
---
---   ...
---   proj1-0.0.1-... "<package-id>"
---   ...
--- @
-getMainPidOfDar :: FilePath -> FilePath -> IO String
-getMainPidOfDar daml fp = do
-  darContents <- callProcessForStdout daml ["damlc", "inspect-dar", fp]
-  let packageName = takeBaseName fp
-  let mbPackageLine =
-        darContents
-        & lines
-        & dropWhile (not . List.isInfixOf "DAR archive contains the following packages")
-        & drop 1
-        & List.find (List.isPrefixOf packageName)
-  let mbPackageId = do
-        line <- mbPackageLine
-        [_, quoted] <- pure $ words line
-        let stripQuotes = takeWhile (/= '"') . dropWhile (== '"')
-        pure $ stripQuotes quoted
-  case mbPackageId of
-    Nothing -> fail $ "Couldn't determine package ID for " ++ fp
-    Just pkgId -> pure pkgId
-
 -- | Write `daml.yaml` and `Main.daml` files in the current directory.
 writeMinimalPackage :: SdkVersion -> IO ()
 writeMinimalPackage (SdkVersion sdkVersion) = do
@@ -282,15 +228,11 @@ writeMinimalPackage (SdkVersion sdkVersion) = do
       , "dependencies:"
       , "  - daml-prim"
       , "  - daml-stdlib"
+      , "  - daml-script"
       ]
   writeFileUTF8 "Main.daml" $ unlines
     [ "module Main where"
+    , "import Daml.Script"
     , "template T with p : Party where signatory p"
+    , "test = script $ pure \"hello\""
     ]
-
-supportsNoBearerPrefix :: SdkVersion -> Bool
-supportsNoBearerPrefix ver =
-    ver >= SdkVersion (fromRight' $ SemVer.fromText "1.1.1")
-
-supportsTimeout :: SdkVersion -> Bool
-supportsTimeout ver = ver > SdkVersion (fromRight' $ SemVer.fromText "1.4.0-snapshot.20200715.4733.0.d6e58626")

@@ -35,7 +35,7 @@ import Types
 import Upload
 import Util
 
-import qualified SdkVersion
+import qualified ComponentVersion
 
 -- Hack: the logic that looks for missing transitive dependencies is broken, as it checks all build-time dependencies with `bazel query`
 depsToExclude :: T.Text
@@ -44,11 +44,11 @@ depsToExclude = T.intercalate " + " [
    "//daml-script/runner:script-runner-lib"]
 
 buildAndCopyArtifacts :: (MonadLogger m, MonadIO m, E.MonadThrow m) => IncludeDocs -> SemVer.Version -> BazelLocations -> Path Abs Dir -> [Artifact (Maybe ArtifactLocation)] -> m [Artifact PomData]
-buildAndCopyArtifacts includeDocs mvnVersion bazelLocations releaseDir artifacts = do
+buildAndCopyArtifacts includeDocs componentVersionMvn bazelLocations releaseDir artifacts = do
       let targets = concatMap (buildTargets includeDocs) artifacts
       liftIO $ callProcess "bazel" ("build" : map (T.unpack . getBazelTarget) targets)
       $logInfo "Reading metadata from pom files"
-      as <- liftIO $ mapM (resolvePomData bazelLocations mvnVersion) artifacts
+      as <- liftIO $ mapM (resolvePomData bazelLocations componentVersionMvn) artifacts
       copyArtifacts includeDocs bazelLocations releaseDir as
       pure as
 
@@ -93,8 +93,8 @@ main = do
       releaseDir <- parseAbsDir =<< liftIO (Dir.makeAbsolute optsReleaseDir)
       liftIO $ createDirIfMissing True releaseDir
 
-      Right mvnVersion <- pure $ SemVer.fromText $ T.pack $
-        SdkVersion.withSdkVersions SdkVersion.mvnVersion
+      Right componentVersionMvn <- pure $ SemVer.fromText $ T.pack $
+        ComponentVersion.withComponentVersions ComponentVersion.componentVersionMvn
       bazelLocations <- liftIO getBazelLocations
 
       mvnArtifacts :: [Artifact (Maybe ArtifactLocation)] <- decodeFileThrow "release/artifacts.yaml"
@@ -104,10 +104,10 @@ main = do
       -- we don't check dependencies for deploy jars as they are single-executable-jars
       let nonDeployJars = filter (not . isDeployableJar . artReleaseType) mvnArtifacts
 
-      nonScalaArtifacts <- buildAndCopyArtifacts optIncludeDocs mvnVersion bazelLocations releaseDir nonScalaArtifacts
+      nonScalaArtifacts <- buildAndCopyArtifacts optIncludeDocs componentVersionMvn bazelLocations releaseDir nonScalaArtifacts
 
       scalaArtifacts <- forM optScalaVersions $ \ver -> withEnv [("DAML_SCALA_VERSION", Just (T.unpack ver))] $ do
-          as <- buildAndCopyArtifacts optIncludeDocs mvnVersion bazelLocations releaseDir scalaArtifacts
+          as <- buildAndCopyArtifacts optIncludeDocs componentVersionMvn bazelLocations releaseDir scalaArtifacts
           -- Check for missing deps once per Scala version since bazel query depends on DAML_SCALA_VERSION.
           checkForMissingDeps (nonDeployJars ++ scalaArtifacts)
           pure as
@@ -172,7 +172,7 @@ main = do
                   (forM_ npmPackages
                     $ \rule -> liftIO $ callCommand $ unwords $
                         ["bazel", "run", rule <> ":npm_package.publish", "--", "--access", "public"] <>
-                        [ x | isSnapshot mvnVersion, x <- ["--tag", "next"] ])
+                        [ x | isSnapshot componentVersionMvn, x <- ["--tag", "next"] ])
 
           | optsLocallyInstallJars -> do
               pom <- generateAggregatePom optIncludeDocs releaseDir allArtifacts

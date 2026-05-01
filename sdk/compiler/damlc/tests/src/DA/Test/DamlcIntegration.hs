@@ -86,9 +86,9 @@ import Options.Applicative (execParser, forwardOptions, info, many, strArgument)
 import qualified Options.Applicative
 import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
-import DA.Daml.Project.Types (unsafeResolveReleaseVersion, parseUnresolvedVersion)
 import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
 import DA.Daml.LF.TypeChecker.Error (upgradeInterfacesFlagSpec, upgradeExceptionsFlagSpec, templateInterfaceDependsOnScriptFlagSpec)
+import DA.Daml.Project.Consts (getComponentVersionInfo)
 
 
 import Test.Tasty
@@ -101,7 +101,7 @@ import Test.Tasty.Runners (Result(..))
 
 import DA.Cli.Damlc.Packaging (setupPackageDb)
 import Module (stringToUnitId)
-import SdkVersion (SdkVersioned, withSdkVersions, sdkVersion, sdkPackageVersion)
+import ComponentVersion (ComponentVersioned, withComponentVersions, componentVersionDamlPackage)
 
 -- Newtype to avoid mixing up the loging function and the one for registering TODOs.
 newtype TODO = TODO String
@@ -120,16 +120,16 @@ instance IsOption LfVersionOpt where
 type ScriptPackageData = (FilePath, [PackageFlag])
 
 -- | Creates a temp directory with daml script v1 installed, gives the database db path and package flag
-withDamlScriptDep :: SdkVersioned => Maybe Version -> (ScriptPackageData -> IO a) -> IO a
+withDamlScriptDep :: ComponentVersioned => Maybe Version -> (ScriptPackageData -> IO a) -> IO a
 withDamlScriptDep mLfVer = withDamlScriptDep' mLfVer []
 
 -- | Creates a temp directory with daml script v1 installed, gives the database db path and package flag
-withDamlScriptDep' :: SdkVersioned => Maybe Version -> [(String, String, String)] -> (ScriptPackageData -> IO a) -> IO a
+withDamlScriptDep' :: ComponentVersioned => Maybe Version -> [(String, String, String)] -> (ScriptPackageData -> IO a) -> IO a
 withDamlScriptDep' mLfVer extraPackages =
   let
     lfVerStr = maybe "" (\lfVer -> "-" <> renderVersion lfVer) mLfVer
     darPath = "daml-script" </> "daml" </> "daml-script" <> lfVerStr <> ".dar"
-  in withVersionedDamlScriptDep ("daml-script-" <> sdkPackageVersion) darPath mLfVer extraPackages
+  in withVersionedDamlScriptDep ("daml-script-" <> componentVersionDamlPackage) darPath mLfVer extraPackages
 
 -- External dars for testing upgrades.
 -- dar name, package name and package version
@@ -141,13 +141,13 @@ externalPackages version =
 
 -- | Takes the bazel namespace, dar suffix (used for lf versions in v1) and lf version, installs relevant daml script and gives
 -- database db path and package flag
-withVersionedDamlScriptDep :: SdkVersioned => String -> String -> Maybe Version -> [(String, String, String)] -> (ScriptPackageData -> IO a) -> IO a
+withVersionedDamlScriptDep :: ComponentVersioned => String -> String -> Maybe Version -> [(String, String, String)] -> (ScriptPackageData -> IO a) -> IO a
 withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = do
   withTempDir $ \dir -> do
     withCurrentDirectory dir $ do
       let projDir = toNormalizedFilePath' dir
           -- Bring in daml-script as previously installed by withDamlScriptDep, must include package db
-          -- daml-script use the sdkPackageVersion for their versioning
+          -- daml-script use the componentVersionDamlPackage for their versioning
           mkPackageFlag flagName = ExposePackage ("--package " <> flagName) (UnitIdArg $ stringToUnitId flagName) (ModRenaming True [])
           toPackageName (_, name, version) = name <> "-" <> version
           packageFlags = mkPackageFlag <$> packageFlagName : (toPackageName <$> extraPackages)
@@ -159,7 +159,7 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
       setupPackageDb
         projDir
         (defaultOptions mLfVer)
-        (unsafeResolveReleaseVersion (either throw id (parseUnresolvedVersion (T.pack sdkVersion))))
+        getComponentVersionInfo
         ["daml-prim", "daml-stdlib", scriptDar]
         extraDars
         mempty
@@ -169,7 +169,7 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
 type WithPVScriptService a = Maybe String -> (SS.Handle -> IO a) -> IO a
 
 main :: IO ()
-main = withSdkVersions $ do
+main = withComponentVersions $ do
   -- This is a bit hacky, we want the LF version before we hand over to
   -- tasty. To achieve that we first pass with optparse-applicative ignoring
   -- everything apart from the LF version.
@@ -295,7 +295,7 @@ collectIntegrationTests =
         ]
     >>= shuffleM  -- Make sure we can run the tests in any order.
 
-buildIntegrationTestTree :: SdkVersioned => [DamlTestInput] -> (TODO -> IO ()) -> (Maybe String -> SS.Handle) -> ScriptPackageData -> IO TestTree
+buildIntegrationTestTree :: ComponentVersioned => [DamlTestInput] -> (TODO -> IO ()) -> (Maybe String -> SS.Handle) -> ScriptPackageData -> IO TestTree
 buildIntegrationTestTree damlTests registerTODO getScriptService (packageDbPath, packageFlags) = do
     putStrLn $ "rtsSupportsBoundThreads: " ++ show rtsSupportsBoundThreads
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
