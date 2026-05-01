@@ -65,6 +65,36 @@ In a directory above your package(s) directories, create a ``multi-package.yaml`
 
 These are paths to the directories containing the ``daml.yaml``, not to the ``daml.yaml`` itself.
 
+``multi-package.yaml`` also supports an sdk-version field that can be inherited by packages specified in the packages structure
+
+.. code:: yaml
+
+  # multi-package.yaml
+  sdk-version: 3.4.11
+  packages:
+    - ./my-package1
+    - ./my-package2
+
+.. code:: yaml
+  # ./my-package1/daml.yaml
+    name: my-package-$PACKAGE_SUFFIX
+    version: 1.0.$MAIN_PATCH
+    source: daml
+    dependencies:
+      - daml-prim
+      - daml-stdlib
+
+.. code:: yaml
+  # ./my-package2/daml.yaml
+   name: my-package-$PACKAGE_SUFFIX
+   version: 1.0.$MAIN_PATCH
+   source: daml
+   dependencies:
+     - daml-prim
+     - daml-stdlib
+
+In the example above, ``dpm build --all`` ran in either of the ``daml.yaml`` files use the SDK_VERSION specific in ``multi-package.yaml``
+
 Environment variables in configuration files
 ----------------------------------------------
 
