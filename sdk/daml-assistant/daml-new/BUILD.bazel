@@ -1,0 +1,51 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+load("//bazel_tools/packaging:packaging.bzl", "package_app", "package_oci_component")
+
+da_haskell_binary(
+    name = "daml-new",
+    srcs = glob(["src/DA/Daml/New.hs"]),
+    hackage_deps = [
+        "base",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "optparse-applicative",
+        "process",
+        "semver",
+        "text",
+    ],
+    main_function = "DA.Daml.New.ociMain",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/damlc/daml-resolution-config",
+        "//component-version/hs:component-version-lib",
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+package_app(
+    name = "daml-new-dpm",
+    binary = ":daml-new",
+    resources = [
+        "//templates:templates-tarball.tar.gz",
+    ],
+    tags = ["no-cache"],
+    visibility = ["//visibility:public"],
+)
+
+package_oci_component(
+    name = "daml-new-oci",
+    component_manifest = ":component.yaml",
+    resources = [
+        ":daml-new-dpm",
+    ],
+    tags = ["no-cache"],
+    visibility = ["//visibility:public"],
+)

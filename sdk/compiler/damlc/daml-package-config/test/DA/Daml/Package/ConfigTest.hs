@@ -10,8 +10,6 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import Test.Tasty
 import Test.Tasty.HUnit
-import Control.Exception (throw)
-import DA.Daml.Project.Types (parseUnresolvedVersion)
 
 main :: IO ()
 main = defaultMain $
@@ -38,7 +36,6 @@ checkPkgConfigTests = testGroup "checkPkgConfig"
       , pDependencies = []
       , pDataDependencies = []
       , pModulePrefixes = Map.empty
-      , pSdkVersion = either throw Just (parseUnresolvedVersion "0.0.0")
       , pUpgradeDar = Nothing
       }
 

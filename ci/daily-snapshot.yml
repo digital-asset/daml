@@ -50,7 +50,6 @@ jobs:
             setvar trigger_sha $(git rev-parse HEAD)
             setvar release_sha $(git rev-parse ${{ parameters.commit }})
             setvar release_tag $release
-            setvar split_release_process true
             ;;
           *)
             echo "Unexpected status code: $STATUS"

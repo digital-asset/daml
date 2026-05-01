@@ -7,6 +7,7 @@ _os_info_bzl_template = """
 cpu_value = "{CPU_VALUE}"
 is_darwin = cpu_value == "darwin_arm64" or cpu_value == "darwin_x86_64"
 is_darwin_arm64 = cpu_value == "darwin_arm64"
+is_darwin_amd64 = cpu_value == "darwin_x86_64"
 is_linux_intel = cpu_value == "k8"
 is_linux_arm = cpu_value == "aarch64"
 is_linux = is_linux_intel or is_linux_arm

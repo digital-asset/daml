@@ -49,7 +49,12 @@ int main(int argc, char **argv) {
     setenv("PATH", new_path.c_str(), 1);
 #endif
     std::string path =
-        runfiles->Rlocation("daml-sdk-{SDK_VERSION}/sdk/bin/daml");
+        runfiles->Rlocation("daml-sdk-{SDK_VERSION}/{ASSISTANT_PATH}");
+#if defined(_WIN32)
+    _putenv_s("DPM_HOME", "{DPM_HOME}");
+#else
+    setenv("DPM_HOME", "{DPM_HOME}", 1);
+#endif
 #if defined(_WIN32)
     // To keep things as simple as possible, we simply take
     // the existing command line, strip everything up to the first space

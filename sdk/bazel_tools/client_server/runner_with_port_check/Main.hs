@@ -23,7 +23,8 @@ main = do
   withProcessTerm serverProc $ \ph -> do
     forM_ ports $ \port -> waitForConnectionOnPort (threadDelay 500000) port
     runProcess_ (proc clientExe (splitArgs clientArgs))
-    -- See the comment on DA.Daml.Helper.Util.withProcessWait_'
+    -- withProcessTerm kills processes using async exceptions, which doesn't work on windows.
+    -- Note use of terminateProcess over stopProcess, as the latter also uses async exceptions
     when isWindows (terminateProcess $ unsafeProcessHandle ph)
 
 
