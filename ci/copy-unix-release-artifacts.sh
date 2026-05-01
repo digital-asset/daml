@@ -44,12 +44,9 @@ copy_oci upgrade-check bazel-bin/daml-assistant/upgrade-check-main/upgrade-check
 # Platform independent artifacts are only built on Linux.
 if [[ "${NAME}" == "linux-intel" ]]; then
     SCRIPT="daml-script-${RELEASE_TAG}.jar"
+    ${makedir} "${OUTPUT_DIR}/artifactory"
+    # Used only by daml-docker-images. Can be removed once this repo is gone.
     ${copy} bazel-bin/daml-script/runner/daml-script-binary_distribute.jar "${OUTPUT_DIR}/artifactory/${SCRIPT}"
-
-# Publishing of this component is not implemented yet.
-#    BUNDLED_VSIX=daml-bundled-${RELEASE_TAG}.vsix
-#    cp bazel-bin/compiler/daml-extension/daml-bundled.vsix ${OUTPUT_DIR}/oci/$BUNDLED_VSIX
-#    cp bazel-bin/compiler/daml-extension/webview-stylesheet.css ${OUTPUT_DIR}/oci/webview-stylesheet.css
 
     ${makedir} "${OUTPUT_DIR}/split-release/daml-libs/daml-script"
     ${copy} bazel-bin/daml-script/daml/*.dar "${OUTPUT_DIR}/split-release/daml-libs/daml-script/"
