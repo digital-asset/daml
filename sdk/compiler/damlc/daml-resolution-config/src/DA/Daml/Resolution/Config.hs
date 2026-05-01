@@ -258,15 +258,7 @@ instance Aeson.FromJSON ResolutionData where
     -- Fully lower the key for resolution data, as shake often gives package paths without case data.
     -- Only do this for the key as its not used for exploring the file system. Any other paths (i.e. those in imports) must retain their normal casing
     packages <- Map.mapKeys (lower . toPosixFilePath) <$> obj .: "packages"
-    (defaultSdkVersion, defaultSdkResolution) <- head . Map.toList <$> obj .: "default-sdk"
-    -- Dpm doesn't populate assemblyVersion correctly for default right now.
-    -- temp workaround
-    resolution <- case defaultSdkResolution of
-      ValidPackageResolutionData resolution -> do
-        assemblyVersion <- either throw pure $ parseAssemblyVersion (T.pack defaultSdkVersion)
-        pure $ ValidPackageResolutionData resolution {mAssemblyVersion = Just assemblyVersion}
-      r -> pure r
-    let defaultSdk = (defaultSdkVersion, resolution)
+    defaultSdk <- head . Map.toList <$> obj .: "default-sdk"
     pure ResolutionData {..}
 
 instance Aeson.FromJSON PackageResolutionData where

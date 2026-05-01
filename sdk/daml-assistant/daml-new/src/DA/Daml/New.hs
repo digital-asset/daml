@@ -76,7 +76,7 @@ ociMain = withProgName "dpm" $ withComponentVersions $ do
                     case V.fromText $ T.pack versionString of
                       Right _ -> pure versionString
                       Left _ -> Left $ "Could not deduce version for " <> componentName <> ". Local path overrides are currently not supported with `dpm new`."
-                -- TODO Consider doing this with ComponentVersioned, by wrapping ociMain as damlc does.
+                -- TODO(#22976) Consider doing this with ComponentVersioned, by wrapping ociMain as damlc does.
                 damlcVer = extractVersionFromComponentPath "damlc"
                 replaceStrings =
                   [ ("__VERSION__", maybe damlcVer versionToString mAssemblyVersion)

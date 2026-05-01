@@ -131,7 +131,7 @@ tests =
             , PackageIdentifier "package-d" "0.0.1"
             ]
         ]
-    -- Disabled until DPM supports multi-project
+    -- Disabled until DPM supports multi-project (dpm#182)
     -- , testGroup
     --     "Multi project"
     --     [ test "Build package B" [] "./packages/package-b" multiProject $ Right
@@ -678,7 +678,7 @@ tests =
       multiPackage@MultiPackage {} -> do
         TIO.writeFile (path </> "multi-package.yaml") $ T.unlines
           $  ["packages:"] ++ fmap ("  - " <>) (mpPackages multiPackage)
-          -- Disabled until DPM supports projects
+          -- Disabled until DPM supports multi-project (dpm#182)
           -- ++ ["projects:"] ++ fmap ("  - " <>) (mpProjects multiPackage)
         pure Map.empty
       dir@Dir {} -> do

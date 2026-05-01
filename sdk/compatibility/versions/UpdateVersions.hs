@@ -211,13 +211,13 @@ getDpmChecksums releaseVer = do
     damlTypesHash <- getTypesHash damlVer
     pure (damlVer, Checksums {..})
   where
-    callJson :: forall a. Aeson.FromJSON a => String -> IO a
-    callJson url = do
+    httpGetJsonResponse :: forall a. Aeson.FromJSON a => String -> IO a
+    httpGetJsonResponse url = do
       req <- parseRequestThrow url
       res <- httpJSON @_ @a req { responseTimeout = responseTimeoutMicro (60 * 10 ^ (6 :: Int) ) }
       pure $ responseBody res
-    callText :: String -> IO Text
-    callText url = do
+    httpGetTextResponse :: String -> IO Text
+    httpGetTextResponse url = do
       req <- parseRequestThrow url
       res <- httpLbs req { responseTimeout = responseTimeoutMicro (60 * 10 ^ (6 :: Int) ) }
       pure $ T.decodeUtf8 $ BSL.toStrict $ getResponseBody res
@@ -227,21 +227,21 @@ getDpmChecksums releaseVer = do
           url = "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public-generic/files/dpm-sdk:"
                   <> SemVer.toString releaseVer <> ":dpm-"
                   <> SemVer.toString releaseVer <> "-" <> plat <> "." <> ext
-      fileData <- callJson @GARFileData url
-      base64TextToDigestSHA256 $ _value $ fromJust $ find ((=="SHA256") . _type) $ _hashes fileData
+      fileData <- httpGetJsonResponse @GARFileData url
+      base64TextToDigestSHA256 $ _value $ fromMaybe (error $ "Got no SHA256 hash from " <> url) $ find ((=="SHA256") . _type) $ _hashes fileData
     -- Getting the daml version associated with an assembly is a bit involved, as we need to pull down the dpm manifest yaml file
     getDamlVersion = do
       -- First resolve the version tag down to the sha of the artifact this tag belongs to
       -- We specifically call down the linux_amd64, as DPM publishes assemblies per platform, even through they are always identical
-      tag <- callJson @GARTag $ "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public/packages/sdk-manifests%2Fopen-source/tags/" <> SemVer.toString releaseVer <> ".linux_amd64"
+      tag <- httpGetJsonResponse @GARTag $ "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public/packages/sdk-manifests%2Fopen-source/tags/" <> SemVer.toString releaseVer <> ".linux_amd64"
       let sha = T.unpack $ last $ T.split (=='/') $ _version tag
       -- Once we have the SHA, pull down the OCI manifest of that GAR artifact, which is essentially a wrapper on the actual DPM yaml manifest file
       -- This manifest tells us the sha of the DPM manifest file
-      manifest <- callJson @GARManifest $ "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public/files/sdk-manifests%2Fopen-source%2Fmanifests%2F" <> sha <> ":download?alt=media"
+      manifest <- httpGetJsonResponse @GARManifest $ "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public/files/sdk-manifests%2Fopen-source%2Fmanifests%2F" <> sha <> ":download?alt=media"
       let assemblyFileHash = T.unpack $ _digest $ head $ _layers manifest
       -- Pull down the DPM manifest file via its sha as discovered above
-      assembly <- callText $ "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public/files/" <> assemblyFileHash <> ":download?alt=media"
-      -- Would use yaml package here but the stackage snapshot we have uses an Aeson that the Yaml package really doesn't like
+      assembly <- httpGetTextResponse $ "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public/files/" <> assemblyFileHash <> ":download?alt=media"
+      -- TODO(#22975) Would use yaml package here but the stackage snapshot we have uses an Aeson that the Yaml package really doesn't like
       -- This parsing is somewhat fragile
       -- Find the line containing "damlc:", get the line after it, remove the "version: " prefix
       verString <- maybe (fail "Failed to parse assembly yaml") pure $ T.stripPrefix "version: " $ T.strip $ head $ tail $ dropWhile ((/="damlc:") . T.strip) $ T.lines assembly
@@ -286,13 +286,13 @@ getVersionsFromDPM = do
     -- We are specifically trying to avoid tags like "latest-3.5" "3.5" "x.y.z.<platform>"
     -- GAR will give back tags as full paths, i.e. project/*/repository/*/packages/*/tag
     -- We only care for the tag, so drop everything before the last slash
-    res <- callJson @GARTags "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public/packages/sdk-manifests%2Fopen-source/tags"
+    res <- httpGetJsonResponse @GARTags "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public/packages/sdk-manifests%2Fopen-source/tags"
     let isJustVersion v = length (T.split (=='.') v) == 3
         versions = rights $ fmap SemVer.fromText $ filter isJustVersion $ last . T.split (=='/') . _name <$> _tags res
     return $ latestPatchVersions $ Set.fromList versions
   where
-    callJson :: forall a. Aeson.FromJSON a => String -> IO a
-    callJson url = do
+    httpGetJsonResponse :: forall a. Aeson.FromJSON a => String -> IO a
+    httpGetJsonResponse url = do
       req <- parseRequestThrow url
       res <- httpJSON @_ @a req { responseTimeout = responseTimeoutMicro (60 * 10 ^ (6 :: Int) ) }
       pure $ responseBody res

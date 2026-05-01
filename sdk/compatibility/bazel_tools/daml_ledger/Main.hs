@@ -30,6 +30,7 @@ import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Web.JWT as JWT
 
+-- TODO(#22977) Rename platform and SDK to something clearer
 data Tools = Tools
   { sdk :: FilePath
   , platformBinary :: FilePath
@@ -149,7 +150,10 @@ main = do
       [ authenticatedUploadTest sdkVersion getTools
       ]
 
--- | Test `daml ledger list-parties --access-token-file`
+-- | Test `daml script --access-token-file`
+-- We want to test an elevated permission ledger-api endpoint over simple queries, so we use thw `--upload-dar` flag in dpm script
+-- This uses the --access-token-file to upload the test dar to the participant
+-- We are testing that the logic for sending this token on our ledger client (i.e. daml-script) is compatible with different canton versions
 authenticatedUploadTest :: SdkVersion -> IO Tools -> TestTree
 authenticatedUploadTest sdkVersion getTools = do
   withSandbox getTools (Just sharedSecret) $ \getSandboxPort -> testGroup "authentication"

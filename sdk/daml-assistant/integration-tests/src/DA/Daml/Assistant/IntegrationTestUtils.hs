@@ -56,7 +56,7 @@ withDpmSdkExtraVerResource =
   _withSdkResource (mainWorkspace </> "release" </> "dpm-sdk-release-tarball.tar.gz") "DPM_HOME" $ \extractDir targetDir -> do
     callProcessSilent "cp" ["-a", extractDir </> ".", targetDir]
     -- Take a copy of 0.0.0.yaml and rename/replace its version field over to 10.0.0
-    assemblyContent <- readFile $ targetDir </> "cache" </> "sdk" </> "open-source" </> "0.0.0.yaml"
+    assemblyContent <- readFile $ targetDir </> "cache" </> "sdk" </> "open-source" </> componentVersionString <> ".yaml"
     let updatedAssemblyContent = replace ("\n  version: " <> componentVersionString) "\n  version: 10.0.0" assemblyContent
     writeFile (targetDir </> "cache" </> "sdk" </> "open-source" </> "10.0.0.yaml") updatedAssemblyContent
 

@@ -45,6 +45,7 @@ dependencies:
 sandbox-options:
   - --wall-clock-time
 EOF
+# TODO(dpm#12) Dpm doesn't support building a package via any kind of `--package-root` flag, so we must CD for now. Revert back to a flag once dpm supports this
 PREV_PWD=$$PWD
 cd $$TMP_DIR
 DAML_CACHE=$$DAML_CACHE $$PREV_PWD/$(location {daml}) build -o $$PREV_PWD/$(OUTS)
