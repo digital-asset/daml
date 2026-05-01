@@ -28,10 +28,10 @@ import Development.IDE.Plugin.Completions as Completions
 import Development.IDE.Plugin.CodeAction as CodeAction
 import qualified Development.IDE.Types.Logger as IdeLogger
 import qualified Language.LSP.Types as LSP
-import SdkVersion.Class (SdkVersioned)
+import ComponentVersion.Class (ComponentVersioned)
 
 getDamlIdeState :: 
-       SdkVersioned
+       ComponentVersioned
     => Options
     -> StudioAutorunAllScripts
     -> Maybe Script.Handle
@@ -61,7 +61,7 @@ scriptServiceJarFromOptions opts = do
 -- and we use the builtin VFSHandle. We always disable
 -- the debouncer here since this is not used in the IDE.
 withDamlIdeState ::
-       SdkVersioned
+       ComponentVersioned
     => Options
     -> Logger.Handle IO
     -> NotificationHandler

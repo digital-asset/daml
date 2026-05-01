@@ -25,7 +25,8 @@ main = do
   withProcessTerm serverProc $ \ph -> do
     waitForHealthcheck (threadDelay 500000) healthPort
     runProcess_ (proc clientExe (splitArgs clientArgs))
-    -- See the comment on DA.Daml.Helper.Util.withProcessWait_'
+    -- withProcessTerm kills processes using async exceptions, which doesn't work on windows.
+    -- Note use of terminateProcess over stopProcess, as the latter also uses async exceptions
     when isWindows (terminateProcess $ unsafeProcessHandle ph)
 
 waitForHealthcheck :: IO () -> Int -> IO ()

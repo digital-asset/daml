@@ -68,10 +68,10 @@ da_haskell_library(
         "//compiler/damlc/daml-resolution-config",
         "//compiler/damlc/daml-rule-types",
         "//compiler/script-service/client",
+        "//component-version/hs:component-version-class-lib",
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )
 
@@ -110,9 +110,9 @@ da_haskell_library(
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/script-service/client",
+        "//component-version/hs:component-version-class-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )

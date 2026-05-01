@@ -58,11 +58,11 @@ import qualified Data.Map.Strict as MS
 import qualified Data.Set as Set
 import qualified Data.Text as T
 
-import SdkVersion.Class (SdkVersioned)
+import ComponentVersion.Class (ComponentVersioned)
 
 -- | Extract documentation in a dependency graph of modules.
 extractDocs ::
-       SdkVersioned
+       ComponentVersioned
     => ExtractOptions
     -> Service.NotificationHandler
     -> Options
@@ -195,7 +195,7 @@ buildDocCtx dc_extractOptions tcmod  =
 --
 --   Not using the cached file store, as it is expected to run stand-alone
 --   invoked by a CLI tool.
-haddockParse :: SdkVersioned =>
+haddockParse :: ComponentVersioned =>
                 Service.NotificationHandler ->
                 Options ->
                 [NormalizedFilePath] ->

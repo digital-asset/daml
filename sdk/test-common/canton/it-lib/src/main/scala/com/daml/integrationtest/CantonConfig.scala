@@ -47,16 +47,14 @@ object CantonConfig {
     case object WallClock extends TimeProviderType
   }
 
-  // TODO: Remove nuckMode from PV, once taps can correctly select participant based on PV, and thus participants use the correct state machine mode
-  sealed abstract class ProtocolVersion(override val toString: String, val nuckMode: String)
+  sealed abstract class ProtocolVersion(override val toString: String)
       extends Product
       with Serializable
   object ProtocolVersion {
-    final case object Latest extends ProtocolVersion("latest", "NoKey")
-    final case object Dev extends ProtocolVersion("dev", "NUCK")
+    final case object Latest extends ProtocolVersion("latest")
+    final case object Dev extends ProtocolVersion("dev")
     // See ProtocolVersion.scala public values (i.e. v34, v35)
-    final case class Explicit(pv: String)
-        extends ProtocolVersion(pv, if (pv == "v34") "NoKey" else "NUCK")
+    final case class Explicit(pv: String) extends ProtocolVersion(pv)
   }
 }
 

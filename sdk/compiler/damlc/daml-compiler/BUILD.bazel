@@ -65,9 +65,9 @@ da_haskell_library(
         "//compiler/damlc/daml-rule-types",
         "//compiler/damlc/stable-packages:stable-packages-lib",
         "//compiler/script-service/client",
+        "//component-version/hs:component-version-class-lib",
         "//daml-assistant:daml-project-config",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/da-hs-base",
-        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )

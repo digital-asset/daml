@@ -22,14 +22,14 @@ import System.IO.Silently (hCapture)
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import SdkVersion (SdkVersioned, withSdkVersions)
+import ComponentVersion (ComponentVersioned, withComponentVersions)
 
 main :: IO ()
-main = withSdkVersions $ do
+main = withComponentVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     defaultMain tests
 
-tests :: SdkVersioned => TestTree
+tests :: ComponentVersioned => TestTree
 tests = testGroup
     "Cli arguments"
     [ testCase "No flags in strict mode" $ parseSucceeds ["ide"]
@@ -57,7 +57,7 @@ parserInfo = info (subparser cmdIde) idm
 
 -- Runs the damlc parser with a set of command line flags/options, and a set of daml.yaml flags/options
 -- Takes a maybe expected error infix
-assertDamlcParser :: SdkVersioned => [String] -> [String] -> Maybe String -> Assertion
+assertDamlcParser :: ComponentVersioned => [String] -> [String] -> Maybe String -> Assertion
 assertDamlcParser cliArgs damlYamlArgs mExpectedError = withCurrentTempDir $ do
   (err, res) <- runDamlcParser cliArgs damlYamlArgs
   case (isRight res, mExpectedError) of
@@ -77,7 +77,7 @@ withDamlPackage f = do
 
 -- Run the damlc parser with a set of command line flags/options, and a set of daml.yaml flags/options
 -- Run the resulting computation and assert a given string is part of stdout+stderr
-assertDamlcParserRunIO :: SdkVersioned => [String] -> [String] -> String -> Assertion
+assertDamlcParserRunIO :: ComponentVersioned => [String] -> [String] -> String -> Assertion
 assertDamlcParserRunIO cliArgs damlYamlArgs expectedOutput = withCurrentTempDir $ do
   (err, res) <- runDamlcParser cliArgs damlYamlArgs
   case res of
@@ -88,7 +88,7 @@ assertDamlcParserRunIO cliArgs damlYamlArgs expectedOutput = withCurrentTempDir 
       assertBool ("Expected " <> expectedOutput <> " in stdout/stderr, but didn't find") $ expectedOutput `isInfixOf` out
     Left _ -> assertFailure $ "Expected parse to succeed but got " <> err
 
-runDamlcParser :: SdkVersioned => [String] -> [String] -> IO (String, Either SomeException Command)
+runDamlcParser :: ComponentVersioned => [String] -> [String] -> IO (String, Either SomeException Command)
 runDamlcParser cliArgs damlYamlArgs = do
   T.writeFileUtf8 "./daml.yaml" $ T.unlines $
     [ "sdk-version: 0.0.0" -- Fixed version as the parser doesn't care for its value.

@@ -29,7 +29,7 @@ dataLimiterTests cacheDir =
     testGroup
         "data limiter"
         [ withResource
-                  (initialiseGcpState (GCPConfig "test" (Just cacheDir) Nothing) makeNopHandle)
+                  (initialiseGcpState (GCPConfig "test" (Just cacheDir)) makeNopHandle)
                   (\gcpM -> whenJust gcpM $ \gcp -> removeFile (sentDataFile gcp)) $ \getGcp ->
                   testCase "Check that limit is triggered" $ do
                       gcpM <- getGcp
@@ -47,7 +47,7 @@ cacheDirTests badCacheDir =
     testGroup
         "cache directory"
         [  withResource
-                (initialiseGcpState (GCPConfig "test" (Just badCacheDir) Nothing) makeNopHandle)
+                (initialiseGcpState (GCPConfig "test" (Just badCacheDir)) makeNopHandle)
                 (\gcpM -> whenJust gcpM $ \gcp -> removeFile (sentDataFile gcp)) $ \getGcp ->
                 testCase
                     "Check that a read-only cache dir is handled gracefully." $ do

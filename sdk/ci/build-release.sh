@@ -37,8 +37,6 @@ fi
 # only built on linux
 $bazel build \
   //compiler/damlc/tests:platform-independence.dar \
-  //release:sdk-release-tarball-ce \
-  //release:sdk-release-tarball-ee \
   //compiler/damlc:damlc-dist \
   $(bazel query "kind('package_oci_component', //...)") \
   $extra_build_targets \

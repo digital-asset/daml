@@ -39,7 +39,7 @@ import Development.IDE.Core.Service (getDiagnostics, runActionSync, shutdown)
 import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..), use)
 import Development.IDE.Types.Diagnostics (showDiagnostics)
 import Development.IDE.Types.Location (toNormalizedFilePath')
-import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
+import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
 import System.Directory.Extra
 import System.Environment.Blank
 import System.FilePath
@@ -50,7 +50,7 @@ import Text.Regex.TDFA
 import qualified DA.Daml.LF.Ast as LF
 
 main :: IO ()
-main = withSdkVersions $ do
+main = withComponentVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     defaultMain $
         testGroup
@@ -71,21 +71,21 @@ main = withSdkVersions $ do
                 ]
             ]
 
-withScriptService :: SdkVersioned => LF.Version -> Maybe String -> (SS.Handle -> IO ()) -> IO ()
+withScriptService :: ComponentVersioned => LF.Version -> Maybe String -> (SS.Handle -> IO ()) -> IO ()
 withScriptService lfVersion idePv action = do
   logger <- Logger.newStderrLogger Logger.Error "script-service"
   let scriptConfig = SS.defaultScriptServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"], SS.cnfIdeLedgerProtocolVersion = idePv}
   -- Spinning up the script service is expensive so we do it once at the beginning.
   SS.withScriptService lfVersion logger scriptConfig Nothing action
 
-withPackageDBAndIdeState :: SdkVersioned => LF.Version -> IO SS.Handle -> (IdeState -> IO ()) -> IO ()
+withPackageDBAndIdeState :: ComponentVersioned => LF.Version -> IO SS.Handle -> (IdeState -> IO ()) -> IO ()
 withPackageDBAndIdeState lfVersion getScriptService action = do
   scriptDar <- locateDamlScriptDar lfVersion
   withCurrentTempDir $ do
     -- Package DB setup, we only need to do this once so we do it at the beginning.
     writeFileUTF8 "daml.yaml" $
       unlines
-        [ "sdk-version: " <> sdkVersion,
+        [ "sdk-version: " <> componentVersionString,
           "name: script-service",
           "version: 0.0.1",
           "source: .",
@@ -99,7 +99,7 @@ withPackageDBAndIdeState lfVersion getScriptService action = do
       setupPackageDbFromPackageConfig (toNormalizedFilePath' ".") opts
     withIdeState getScriptService opts action
 
-testScriptService :: SdkVersioned => LF.Version -> IO SS.Handle -> TestTree
+testScriptService :: ComponentVersioned => LF.Version -> IO SS.Handle -> TestTree
 testScriptService lfVersion getScriptService =
   testGroup ("LF " <> LF.renderVersion lfVersion)
     [ withResourceCps (withPackageDBAndIdeState lfVersion getScriptService) $ \getIdeState ->
@@ -690,7 +690,7 @@ testScriptService lfVersion getScriptService =
             rs <- runScriptsInAllPackages getScriptService lfVersion  (PackagePath "v2")
               [ ( "interface"
                 , [ ( "daml.yaml"
-                    , [ "sdk-version: " <> T.pack sdkVersion
+                    , [ "sdk-version: " <> T.pack componentVersionString
                       , "name: interface"
                       , "version: 1.0.0"
                       , "source: ."
@@ -710,7 +710,7 @@ testScriptService lfVersion getScriptService =
                 )
               , ( "v1"
                 , [ ( "daml.yaml"
-                    , [ "sdk-version: " <> T.pack sdkVersion
+                    , [ "sdk-version: " <> T.pack componentVersionString
                       , "name: main"
                       , "version: 1.0.0"
                       , "source: ."
@@ -746,7 +746,7 @@ testScriptService lfVersion getScriptService =
                 )
               , ( "v2"
                 , [ ( "daml.yaml"
-                    , [ "sdk-version: " <> T.pack sdkVersion
+                    , [ "sdk-version: " <> T.pack componentVersionString
                       , "name: main"
                       , "version: 2.0.0"
                       , "source: ."
@@ -800,7 +800,7 @@ testScriptService lfVersion getScriptService =
         ]
     ]
 
-testScriptServiceWithKeys :: SdkVersioned => LF.Version -> IO SS.Handle -> TestTree
+testScriptServiceWithKeys :: ComponentVersioned => LF.Version -> IO SS.Handle -> TestTree
 testScriptServiceWithKeys lfVersion getScriptService =
   withResourceCps (withPackageDBAndIdeState lfVersion getScriptService) $ \getIdeState ->
           testGroup
@@ -1261,7 +1261,7 @@ runScriptsInModule getIdeState fileContent = do
       mapM render xs
 
 runScriptsInAllPackages
-  :: SdkVersioned
+  :: ComponentVersioned
   => IO SS.Handle
   -> LF.Version
   -> PackagePath
@@ -1301,7 +1301,7 @@ writeAndBuildPackage lfVersion damlc (packagePath, packageFiles) = do
     , "--target=" <> LF.renderVersion lfVersion
     ]
 
-withIdeState :: SdkVersioned => IO SS.Handle -> Options -> (IdeState -> IO a) -> IO a
+withIdeState :: ComponentVersioned => IO SS.Handle -> Options -> (IdeState -> IO a) -> IO a
 withIdeState getScriptService opts action = do
   logger <- Logger.newStderrLogger Logger.Error "script-service"
   vfs <- makeVFSHandle

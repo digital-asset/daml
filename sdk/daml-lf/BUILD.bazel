@@ -1,10 +1,80 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
+<<<<<<< docs/3.5-start-guide
+=======
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+    "lf_scalacopts",
+    "lf_scalacopts_stricter",
+)
+load(
+    "//daml-lf:daml-lf.bzl",
+    "FEATURES",
+    "RAW_ALL_LF_VERSIONS",
+    "RAW_COMPILER_INPUT_LF_VERSIONS",
+    "RAW_COMPILER_OUTPUT_LF_VERSIONS",
+    "RAW_DEFAULT_LF_VERSION",
+    "RAW_DEV_LF_VERSION",
+    "RAW_LATEST_STABLE_LF_VERSION",
+    "RAW_STABLE_LF_VERSIONS",
+)
+>>>>>>> release/3.5.x
 
 _VERSION_GENERATING_PACKAGES = ["//compiler/daml-lf-ast:__pkg__"]
 
 # Extract the file to a temporary name
+<<<<<<< docs/3.5-start-guide
+=======
+genrule(
+    name = "daml-lf-version-json-extract",
+    srcs = ["@maven//:com_daml_daml_lf_language_2_13"],
+    outs = ["daml-lf-versions-generated.json"],
+    cmd = """
+        # Extract the dto file from the jar
+        $(location @bazel_tools//tools/zip:zipper) x $(SRCS) -d $(RULEDIR) daml-lf-versions-dto.json
+        # Rename it to match our declared output
+        mv $(RULEDIR)/daml-lf-versions-dto.json $@
+    """,
+    tools = ["@bazel_tools//tools/zip:zipper"],
+    visibility = ["//visibility:private"],
+)
+
+exports_files(
+    ["daml-lf-versions.json"],
+    visibility = ["//visibility:public"],
+)
+
+# # The Golden File Check (runs during `bazel test`)
+# py_test(
+#     name = "daml-lf-versions-check",
+#     srcs = ["check_versions.py"],
+#     args = [
+#         "$(location daml-lf-versions.json)",
+#         "$(location daml-lf-versions-generated.json)",
+#     ],
+#     data = [
+#         "daml-lf-versions.json",
+#         "daml-lf-versions-generated.json",
+#     ],
+#     main = "check_versions.py",
+# )
+
+# The Golden File Updater (runs via `bazel run`)
+sh_binary(
+    name = "update-daml-lf-versions",
+    srcs = ["update_versions.sh"],
+    args = [
+        "$(location daml-lf-versions-generated.json)",
+        "daml-lf/daml-lf-versions.json",  # The path relative to workspace root
+    ],
+    data = ["daml-lf-versions-generated.json"],
+)
+
+>>>>>>> release/3.5.x
 genrule(
     name = "daml-lf-version-json-extract",
     srcs = ["@maven//:com_daml_daml_lf_language_2_13"],

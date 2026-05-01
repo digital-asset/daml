@@ -39,10 +39,10 @@ bazel shutdown
 bazel build `
   `-`-execution_log_binary_file ${ARTIFACT_DIRS}/build_execution_windows.log `
   `-`-noexecution_log_sort `
-  //release:sdk-release-tarball `
-  //daml-assistant:daml
+  //release:dpm-sdk-release-tarball `
+  @dpm_binary//:dpm
 
 git clean -fxd -e 'daml-*.tgz' compatibility/head_sdk
 
-cp -Force bazel-bin\release\sdk-release-tarball-ce.tar.gz compatibility/head_sdk
-cp -Force bazel-bin\daml-assistant\daml.exe compatibility/head_sdk
+cp -Force bazel-bin\release\dpm-sdk-release-tarball.tar.gz compatibility/head_sdk
+cp -Force bazel-bin\external\dpm_binary\dpm.exe compatibility/head_sdk

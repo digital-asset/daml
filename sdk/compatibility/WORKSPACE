@@ -85,7 +85,7 @@ load(
     "nixpkgs_package",
     "nixpkgs_python_configure",
 )
-load("//:versions.bzl", "internal_sdk_versions", "latest_stable_version", "sdk_versions", "version_sha256s")
+load("//:versions.bzl", "daml_assistant_versions", "dpm_versions", "internal_sdk_versions", "latest_stable_version", "sdk_versions", "version_sha256s")
 
 common_nix_file_deps = [
     "@daml//nix:bazel.nix",
@@ -334,29 +334,36 @@ load("//:bazel-haskell-deps.bzl", "daml_haskell_deps")
 
 daml_haskell_deps()
 
-load("//bazel_tools:daml_sdk.bzl", "daml_sdk", "daml_sdk_head")
+load("//bazel_tools:daml_sdk.bzl", "daml_assistant_sdk", "dpm_head_sdk", "dpm_sdk")
 
 local_repository(
     name = "head_sdk",
     path = "head_sdk",
 )
 
-daml_sdk_head(
+dpm_head_sdk(
     daml_types_tarball = "@head_sdk//:daml-types-0.0.0.tgz",
-    os_name = os_name,
-    sdk_tarball = "@head_sdk//:sdk-release-tarball-ce.tar.gz",
+    release_tarball = "@head_sdk//:dpm-sdk-release-tarball.tar.gz",
 )
 
 [
-    daml_sdk(
+    daml_assistant_sdk(
         # See the explanation in UpdateVersions.hs
         daml_types_sha256 = version_sha256s.get(ver).get("daml_types"),
-        os_name = os_name,
         sdk_sha256 = version_sha256s.get(ver),
         version = ver,
     )
-    for ver in sdk_versions
-    if ver != "0.0.0"
+    for ver in daml_assistant_versions
+]
+
+[
+    dpm_sdk(
+        # See the explanation in UpdateVersions.hs
+        daml_types_sha256 = version_sha256s.get(ver).get("daml_types"),
+        sdk_sha256 = version_sha256s.get(ver),
+        version = ver,
+    )
+    for ver in dpm_versions
 ]
 
 load("@daml//bazel_tools:java.bzl", "dadew_java_configure")
@@ -431,17 +438,3 @@ scala_repositories(
 load("@io_bazel_rules_scala//scala:toolchains.bzl", "scala_register_toolchains")
 
 register_toolchains("@daml//bazel_tools/scala:toolchain")
-
-# Copies of SDKs at correct versions for daml testing
-
-http_file(
-    name = "daml-sdk-3.3.0-snapshot.20250926.13852.1.v4f3223e3-tarball",
-    sha256 = "aac8d2cf931af2122287e0a1a79488fcc2daa2181e5d562cab72d72350a5834e",
-    urls = ["https://github.com/digital-asset/daml/releases/download/v3.3.0-snapshot.20250930.0/daml-sdk-3.3.0-snapshot.20250926.13852.1.v4f3223e3-linux-x86_64.tar.gz"],
-) if is_linux_intel else None
-
-http_file(
-    name = "daml-sdk-3.3.0-snapshot.20250926.13852.1.v4f3223e3-tarball",
-    sha256 = "64c173a473b0d3f02ad48f3666f2869c9bf7ad9f85ae7e3642d3df6b6e30a145",
-    urls = ["https://github.com/digital-asset/daml/releases/download/v3.3.0-snapshot.20250930.0/daml-sdk-3.3.0-snapshot.20250926.13852.1.v4f3223e3-windows-x86_64.tar.gz"],
-) if is_windows else None

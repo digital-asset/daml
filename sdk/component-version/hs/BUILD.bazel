@@ -1,0 +1,62 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("@build_environment//:configuration.bzl", "ghc_version", "mvn_version", "sdk_version")
+
+da_haskell_library(
+    name = "component-version-class-lib",
+    srcs = ["src/ComponentVersion/Class.hs"],
+    hackage_deps = [
+        "base",
+        "text",
+        "ghc-lib-parser",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/da-version-types",
+    ],
+)
+
+genrule(
+    name = "component-version-lib-file",
+    srcs = [],
+    outs = ["ComponentVersion.hs"],
+    cmd = """
+        cat > $@ <<EOF
+{{-# LANGUAGE RankNTypes #-}}
+
+module ComponentVersion
+  ( module ComponentVersion.Class
+  , withComponentVersions
+  ) where
+
+import ComponentVersion.Class
+
+withComponentVersions :: (ComponentVersioned => r) -> r
+withComponentVersions = withComponentVersions' ComponentVersions
+  {{ _componentVersionRaw = "{sdk}"
+  ,  _componentVersionMvn = "{mvn}"
+  ,  _componentVersionDamlPackage = "{ghc}"
+  }}
+EOF
+""".format(
+        ghc = ghc_version,
+        mvn = mvn_version,
+        sdk = sdk_version,
+    ),
+)
+
+da_haskell_library(
+    name = "component-version-lib",
+    srcs = [":component-version-lib-file"],
+    hackage_deps = [
+        "base",
+        "ghc-lib-parser",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":component-version-class-lib",
+    ],
+)

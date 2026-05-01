@@ -33,7 +33,7 @@ export interface ContractTypeCompanion<T extends object, K, I extends string> {
   /**
    * @internal
    */
-  sdkVersion: "0.0.0-SDKVERSION";
+  componentVersionString: "0.0.0-SDKVERSION";
   /**
    * @internal
    */
@@ -228,7 +228,7 @@ export function assembleInterface<
   return {
     templateId: templateId,
     templateIdWithPackageId: templatIdWithPackageId,
-    sdkVersion: "0.0.0-SDKVERSION",
+    componentVersionString: "0.0.0-SDKVERSION",
     // `Interface<I> &` is a phantom intersection
     decoder: lazyMemo(
       () => decoderSource().decoder as jtv.Decoder<Interface<I> & T>,

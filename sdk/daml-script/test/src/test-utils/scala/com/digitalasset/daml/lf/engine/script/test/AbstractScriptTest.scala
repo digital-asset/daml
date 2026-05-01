@@ -41,7 +41,7 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
   override protected lazy val protocolVersion: ProtocolVersion = ProtocolVersion.Explicit("v35")
 
   lazy val darPath: Path = rlocation(
-    Paths.get(s"daml-script/test/script-test-v2.3-staging.dar")
+    Paths.get(s"daml-script/test/script-test-v2.3.dar")
   )
   lazy val dar: CompiledDar = CompiledDar.read(darPath, defaultCompilerConfig)
 

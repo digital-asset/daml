@@ -17,7 +17,7 @@ import DA.Daml.LF.Ast.Version.VersionUtil as VER
 -- bazel-out. We hide the concrete versions to push the usage of variables with
 -- some kind of meaning (e.g. latestStableVersion) that can be changed in the
 -- bazel file
-import DA.Daml.LF.Ast.Version.GeneratedVersions as VER hiding (version2_1, version2_2, version2_dev)
+import DA.Daml.LF.Ast.Version.GeneratedVersions as VER hiding (version2_1, version2_2, version2_3, version2_dev)
 
 -- build //compiler/daml-lf-ast:generated_haskell_features_src to find file in
 -- bazel-out

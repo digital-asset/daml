@@ -25,11 +25,12 @@ import DA.Cli.Damlc.Command.MultiIde.SubIdeCommunication
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.SdkInstall
-import DA.Daml.Project.Consts (projectPathEnvVar, packagePathEnvVar)
+import DA.Daml.Project.Consts (projectPathEnvVar, packagePathEnvVar, sdkVersionDpmEnvVar)
+import DA.Daml.Project.Types (versionToString)
 import DA.Daml.Resolution.Config (ValidPackageResolution (..), PackageResolutionData (..), ResolutionData (..), resolutionFileEnvVar)
 import Data.Foldable (traverse_)
 import qualified Data.Map as Map
-import Data.Maybe (fromJust, fromMaybe, isJust)
+import Data.Maybe (fromMaybe, isJust)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Extended as TE
@@ -224,7 +225,7 @@ unsafeAddNewSubIdeAndSend miState ides home mMsg = do
 -- Returns process handle and optional filepath temp resolution file for removal
 runSubProc :: MultiIdeState -> PackageHome -> Maybe (ValidPackageResolution, FilePath) -> IO (Process Handle Handle Handle, Maybe FilePath)
 runSubProc miState home mPackageResolution = do
-  assistantEnv <- filter (flip notElem [projectPathEnvVar, packagePathEnvVar, "DAML_SDK_VERSION", "DAML_SDK", resolutionFileEnvVar] . fst) <$> getEnvironment
+  assistantEnv <- filter (flip notElem [projectPathEnvVar, packagePathEnvVar, "DAML_SDK_VERSION", "DAML_SDK", resolutionFileEnvVar, sdkVersionDpmEnvVar] . fst) <$> getEnvironment
 
   (assistantPath, mResolutionPath, assistantEnv') <-
     case mPackageResolution of
@@ -234,9 +235,10 @@ runSubProc miState home mPackageResolution = do
         -- as we handle orphan packages outside the multi-package.yaml
         -- Instead we generate a resolution file containing only the home package and pass this on
         (resolutionFilePath, _) <- newTempFile
-        defaultSdk <- defaultResolution . fromJust <$> tryReadMVar (misResolutionData miState)
+        defaultSdk <- defaultResolution <$> readTVarIO (misResolutionData miState)
         Y.encodeFile resolutionFilePath $ ResolutionData (Map.singleton (unPackageHome home) $ ValidPackageResolutionData resolution) defaultSdk
-        let assistantEnvWithResolution = (resolutionFileEnvVar, resolutionFilePath) : assistantEnv
+        let addAssemblyVersion = maybe id (\assemblyVersion env -> (sdkVersionDpmEnvVar, versionToString assemblyVersion) : env) $ mAssemblyVersion resolution
+            assistantEnvWithResolution = (resolutionFileEnvVar, resolutionFilePath) : addAssemblyVersion assistantEnv
         pure (damlcPath, Just resolutionFilePath, assistantEnvWithResolution)
 
   handle <- 

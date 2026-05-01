@@ -172,8 +172,6 @@ jobs:
       value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
     - name: is_release
       value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
-    - name: is_split_release
-      value: $[ dependencies.check_for_release.outputs['out.split_release_process'] ]
     - template: job-variables.yml
   timeoutInMinutes: 240
   pool:
@@ -205,7 +203,6 @@ jobs:
       parameters:
         release_tag: $(release_tag)
         is_release: variables.is_release
-        is_split_release: $(is_split_release)
         test_mode: ${{parameters.test_mode}}
     - template: upload-bazel-metrics.yml
     - template: tell-slack-failed.yml

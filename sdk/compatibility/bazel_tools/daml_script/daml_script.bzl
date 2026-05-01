@@ -21,10 +21,10 @@ def daml_script_example_dar(sdk_version):
             sdk_version = version_to_name(sdk_version),
         )],
         tools = [daml],
-        # TODO(#17366): remove explicit target once LF2 is the default
         cmd = """\
 set -euo pipefail
 TMP_DIR=$$(mktemp -d)
+DAML_CACHE=$$(mktemp -d)
 cleanup() {{ rm -rf $$TMP_DIR; }}
 trap cleanup EXIT
 mkdir -p $$TMP_DIR/src
@@ -42,11 +42,13 @@ dependencies:
   - daml-prim
   - daml-stdlib
   - daml-script
-build-options: [--target=2.1]
 sandbox-options:
   - --wall-clock-time
 EOF
-$(location {daml}) build --project-root=$$TMP_DIR -o $$PWD/$(OUTS)
+# TODO(dpm#12) Dpm doesn't support building a package via any kind of `--package-root` flag, so we must CD for now. Revert back to a flag once dpm supports this
+PREV_PWD=$$PWD
+cd $$TMP_DIR
+DAML_CACHE=$$DAML_CACHE $$PREV_PWD/$(location {daml}) build -o $$PREV_PWD/$(OUTS)
 """.format(
             daml = daml,
             sdk_version = sdk_version,
@@ -100,12 +102,6 @@ if [ {wait_for_port_file} -eq 1 ]; then
         timeout=$$((timeout - 1))
     done
 fi
-if [ {upload_dar} -eq 1 ] ; then
-  DAML_SDK_VERSION={runner_version} $$runner ledger upload-dar \\
-    --host localhost \\
-    --port 6865 \\
-    $$(canonicalize_rlocation $(rootpath {dar}))
-fi
 
 DAML_SDK_VERSION={runner_version} $$runner script \\
   --ledger-host localhost \\
@@ -120,7 +116,6 @@ chmod +x $(OUTS)
             runner = daml_runner,
             runner_version = runner_version,
             script_name = script_name,
-            upload_dar = "0",
             wait_for_port_file = "1",
         ),
         tools = [
@@ -155,16 +150,15 @@ chmod +x $(OUTS)
     )
 
 def daml_script_example_test(compiler_version, runner_version):
-    if versions.is_at_least("3.0.0", compiler_version):
-        daml_script_test(
-            name = "daml-script-test-compiler-{compiler_version}-runner-{runner_version}".format(
-                compiler_version = version_to_name(compiler_version),
-                runner_version = version_to_name(runner_version),
-            ),
-            compiler_version = compiler_version,
-            runner_version = runner_version,
-            compiled_dar = "//:script-example-dar-{version}".format(
-                version = version_to_name(compiler_version),
-            ),
-            script_name = "ScriptExample:test",
-        )
+    daml_script_test(
+        name = "daml-script-test-compiler-{compiler_version}-runner-{runner_version}".format(
+            compiler_version = version_to_name(compiler_version),
+            runner_version = version_to_name(runner_version),
+        ),
+        compiler_version = compiler_version,
+        runner_version = runner_version,
+        compiled_dar = "//:script-example-dar-{version}".format(
+            version = version_to_name(compiler_version),
+        ),
+        script_name = "ScriptExample:test",
+    )

@@ -18,7 +18,7 @@ import Control.Concurrent.MVar
 import Control.Exception (SomeException)
 import Control.Monad (void)
 import Control.Monad.STM
-import DA.Daml.Project.Types (PackagePath (..), UnresolvedReleaseVersion, unresolvedReleaseVersionToString)
+import DA.Daml.Project.Types (PackagePath (..))
 import DA.Daml.Resolution.Config (PackageResolutionData (..), ResolutionData (..), getResolutionData)
 import Data.Aeson
 import qualified Data.ByteString as B
@@ -32,6 +32,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Extended as T
 import Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime)
 import qualified Language.LSP.Types as LSP
+import System.Exit
 import System.IO.Extra
 import System.Process.Typed (Process)
 import qualified DA.Service.Logger as Logger
@@ -255,7 +256,10 @@ emptyGlobalErrors :: GlobalErrors
 emptyGlobalErrors = GlobalErrors Nothing Nothing Set.empty
 
 data SdkVersionData = SdkVersionData
-  { svdVersion :: Maybe UnresolvedReleaseVersion
+  { svdVersion :: Maybe T.Text
+    -- ^ Version kept as text, as DPM doesn't guarantee it to be a valid semver anymore
+    -- Can still be used for keying as DPM's version labels are unlikely to change in the lifetime of an IDE
+    -- (and if they do, it'll only result in an unneccessary spinup attempt)
   , svdOverrides :: Map.Map T.Text (Maybe T.Text)
     -- ^ Overrides for checking equality with DPM
     -- Map from component name to maybe component version (Nothing -> local path)
@@ -265,12 +269,8 @@ data SdkVersionData = SdkVersionData
 -- Shows SDK version with the number of overrides, rather than overrides themselves, to reduce clutter
 renderSdkVersionData :: SdkVersionData -> T.Text
 renderSdkVersionData (SdkVersionData ver overrides) 
-  | Map.null overrides = renderOptionalUnresolvedReleaseVersion ver
-  | otherwise = renderOptionalUnresolvedReleaseVersion ver <> " (with " <> T.show (Map.size overrides) <> " override(s))"
-
-renderOptionalUnresolvedReleaseVersion :: Maybe UnresolvedReleaseVersion -> T.Text
-renderOptionalUnresolvedReleaseVersion ver = T.pack $ maybe "<omitted>" unresolvedReleaseVersionToString ver
-
+  | Map.null overrides = fromMaybe "<omitted>" ver
+  | otherwise = fromMaybe "<omitted>" ver <> " (with " <> T.show (Map.size overrides) <> " override(s))"
 
 -- Whether an SDK version uses any local-path overrides, which would mean such an environment should be restarted
 -- more often
@@ -361,7 +361,7 @@ data MultiIdeResolutionData = MultiIdeResolutionData
   , defaultResolution :: (String, PackageResolutionData)
   }
   deriving (Show, Eq)
-type MultiIdeResolutionDataVar = MVar MultiIdeResolutionData
+type MultiIdeResolutionDataVar = TVar MultiIdeResolutionData
 
 toMultiIdeResolutionData :: ResolutionData -> MultiIdeResolutionData
 toMultiIdeResolutionData (ResolutionData mapping defaultSdk) = MultiIdeResolutionData (Map.mapKeys PackageHome mapping) mempty defaultSdk
@@ -424,7 +424,12 @@ newMultiIdeState misMultiPackageHome misDefaultPackagePath logThreshold misIdent
   misLogger <- Logger.newStderrLogger logThreshold "Multi-IDE"
   misSdkInstallDatasVar <- newTMVarIO @SdkInstallDatas mempty
   mResolutionData <- getResolutionData
-  misResolutionData <- maybe newEmptyMVar (newMVar . toMultiIdeResolutionData) mResolutionData
+  misResolutionData <-
+    case mResolutionData of
+      Just resolutionData -> newTVarIO $ toMultiIdeResolutionData resolutionData
+      Nothing -> do
+        hPutStrLn stderr "Dpm studio must be started via DPM (No resolution file found)"
+        exitFailure
   misGlobalErrors <- newMVar emptyGlobalErrors
   let miState =
         MultiIdeState 

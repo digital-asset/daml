@@ -36,6 +36,7 @@ module DA.Service.Logger.Impl.GCP
 
 import GHC.Generics(Generic)
 import Data.Int
+import Data.Maybe (fromMaybe)
 import Text.Read (readMaybe)
 import Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as Aeson
@@ -44,7 +45,6 @@ import Control.Monad
 import Control.Monad.Loops
 import GHC.Stack
 import System.Directory
-import System.Environment
 import System.FilePath
 import System.Info
 import System.Timeout
@@ -52,7 +52,8 @@ import System.Random
 import System.IO.Extra
 import qualified DA.Service.Logger as Lgr
 import qualified DA.Service.Logger.Impl.Pure as Lgr.Pure
-import DA.Daml.Project.Consts (sdkVersionEnvVar)
+import DA.Daml.Project.Consts (getAssemblyVersionMaybe)
+import DA.Daml.Project.Types (versionToText)
 import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString as BS
@@ -65,7 +66,6 @@ import Control.Concurrent.Extra
 import Control.Concurrent.STM
 import Control.Exception.Safe
 import Network.HTTP.Simple
-import SdkVersion.Class (SdkVersioned, sdkVersion)
 
 -- Type definitions
 
@@ -79,7 +79,6 @@ newtype GCPTag = GCPTag { unGCPTag :: String }
 data GCPConfig = GCPConfig
     { gcpConfigTag :: GCPTag
     , gcpConfigCachePath :: Maybe FilePath
-    , gcpConfigDamlPath :: Maybe FilePath
     }
 
 data GCPState = GCPState
@@ -165,19 +164,6 @@ validateSentData = \case
 initialiseGcpState :: GCPConfig -> Lgr.Handle IO -> IO (Maybe GCPState)
 initialiseGcpState GCPConfig {..} gcpFallbackLogger = do
     gcpCacheDirM <- getCacheDir gcpConfigCachePath
-    -- copy machine_id file to cache directory to preserve statistics.
-    let damlPathAndCachePathM = do
-            cachePath <- gcpCacheDirM
-            damlPath <- gcpConfigDamlPath
-            Just (cachePath, damlPath)
-    forM_ damlPathAndCachePathM $ \(cachePath, damlPath) -> do
-        let machineIdPath = damlPath </> ".machine_id"
-        let newMachineIdPath = cachePath </> ".machine_id"
-        hasMachineId <- doesFileExist machineIdPath
-        hasNewMachineId <- doesFileExist newMachineIdPath
-        when (hasMachineId && not hasNewMachineId) $ do
-          copyFile machineIdPath newMachineIdPath
-          removeFile machineIdPath
     gcpLogChan <- newTChanIO
     gcpSessionID <- randomIO
     gcpSentDataFileLock <- newLock
@@ -249,22 +235,16 @@ data MetaData = MetaData
     } deriving Generic
 instance ToJSON MetaData
 
-logMetaData :: SdkVersioned => GCPState -> IO ()
+logMetaData :: GCPState -> IO ()
 logMetaData gcpState = do
     metadata <- getMetaData gcpState
     logGCP gcpState Lgr.Info metadata (pure ())
 
-getMetaData :: SdkVersioned => GCPState -> IO MetaData
+getMetaData :: GCPState -> IO MetaData
 getMetaData gcp = do
     machineID <- fetchMachineID gcp
-    v <- lookupEnv sdkVersionEnvVar
-    let version = T.pack $ case v of
-            Just vs | not (null vs) -> vs
-            -- If damlc is invoked directly which people might do when using other LSP clients, e.g.,
-            -- vim we cannot rely on the version being set by the assistant.
-            -- Therefore we fall back on the SDK version at built time which
-            -- should be correct with the exception of daml-sdk-head where it will not be set to 0.0.0.
-            _ -> sdkVersion
+    mVersion <- fmap versionToText <$> getAssemblyVersionMaybe
+    let version = fromMaybe "<unknown>" mVersion
     pure MetaData
         { machineID
         , operatingSystem=T.pack os
@@ -391,7 +371,7 @@ isOptedOut :: FilePath -> IO Bool
 isOptedOut cache = doesPathExist $ cache </> ".opted_out"
 
 -- | If it hasn't already been done log that the user has opted out of telemetry.
-logOptOut :: SdkVersioned => GCPState -> IO ()
+logOptOut :: GCPState -> IO ()
 logOptOut gcp = do
     let fpOut = optedOutFile gcp
         fpIn = optedInFile gcp
@@ -411,7 +391,7 @@ disabledMessage metadata msg =
     toJSON $ Aeson.insert "machineID" (toJSON $ machineID metadata) $ toJsonObject (toJSON msg)
 
 -- Log that the user clicked away the telemetry popup without making a choice.
-logIgnored :: SdkVersioned => GCPState -> IO ()
+logIgnored :: GCPState -> IO ()
 logIgnored gcp = do
     metadata <- getMetaData gcp
     let val = disabledMessage metadata "No telemetry choice"
@@ -483,7 +463,7 @@ sendData gcp sendRequest payload = withSentDataFile gcp $ \sentDataFile -> do
 --------------------------------------------------------------------------------
 -- | These are not in the test suite because it hits an external endpoint
 test :: IO ()
-test = withTempDir $ \tmpDir -> withGcpLogger (GCPConfig "test" (Just tmpDir) Nothing) (Lgr.Error ==) Lgr.Pure.makeNopHandle $ \_gcp hnd -> do
+test = withTempDir $ \tmpDir -> withGcpLogger (GCPConfig "test" (Just tmpDir)) (Lgr.Error ==) Lgr.Pure.makeNopHandle $ \_gcp hnd -> do
     let lg = Lgr.logError hnd
     let (ls :: [T.Text]) = replicate 13 "I like short songs!"
     mapM_ lg ls

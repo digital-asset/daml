@@ -9,6 +9,10 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-05-05 (Exclusive)
+- adopted LF 2.3
+- Removed daml assistant
+
 ## Until 2026-04-14 (Exclusive)
 - Added --list-scripts-json flag to `dpm script`, for listing all script names in a DAR
 - Update to DPM 1.0.12

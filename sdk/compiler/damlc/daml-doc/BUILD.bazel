@@ -46,9 +46,9 @@ da_haskell_library(
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-rule-types",
+        "//component-version/hs:component-version-class-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )
 
@@ -86,10 +86,10 @@ da_haskell_library(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-rule-types",
         "//compiler/damlc/tests:integration-lib",
+        "//component-version/hs:component-version-class-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-class-lib",
     ],
 )
 

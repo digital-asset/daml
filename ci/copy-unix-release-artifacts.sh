@@ -23,22 +23,9 @@ else
   makedir="mkdir -p"
 fi
 
-for item in "github" "artifactory" "split-release" "oci/${RELEASE_TAG}/${NAME}"; do
+for item in "split-release" "oci/${RELEASE_TAG}/${NAME}"; do
   ${makedir} "${OUTPUT_DIR}/$item"
 done
-
-SDK_CE_TARBALL="daml-sdk-${RELEASE_TAG}-${NAME}.tar.gz"
-echo "Copyring SDK tarball CE to ${OUTPUT_DIR}/github/${SDK_CE_TARBALL}"
-${copy} bazel-bin/release/sdk-release-tarball-ce.tar.gz "${OUTPUT_DIR}/github/${SDK_CE_TARBALL}"
-
-# Used for the non-split release process.
-SDK_EE_TARBALL="daml-sdk-${RELEASE_TAG}-${NAME}-ee.tar.gz"
-echo "Copying SDK tarball EE to ${OUTPUT_DIR}/artifactory/${SDK_EE_TARBALL}"
-${copy} bazel-bin/release/sdk-release-tarball-ee.tar.gz "${OUTPUT_DIR}/artifactory/${SDK_EE_TARBALL}"
-
-# Used for the split release process.
-echo "Copying SDK tarball EE to ${OUTPUT_DIR}/split-release/${SDK_EE_TARBALL}"
-${copy} bazel-bin/release/sdk-release-tarball-ee.tar.gz "${OUTPUT_DIR}/split-release/${SDK_EE_TARBALL}"
 
 DAMLC="damlc-${RELEASE_TAG}-${NAME}.tar.gz"
 echo "Copying damlc to ${OUTPUT_DIR}/split-release/${DAMLC}"
@@ -57,18 +44,15 @@ function copy_oci {
 copy_oci damlc bazel-bin/compiler/damlc/damlc-oci.tar.gz
 copy_oci daml-script bazel-bin/daml-script/runner/daml-script-oci.tar.gz
 copy_oci codegen bazel-bin/language-support/codegen-main/codegen-oci.tar.gz
-copy_oci daml-new bazel-bin/daml-assistant/daml-helper/daml-new-oci.tar.gz
+copy_oci daml-new bazel-bin/daml-assistant/daml-new/daml-new-oci.tar.gz
 copy_oci upgrade-check bazel-bin/daml-assistant/upgrade-check-main/upgrade-check-oci.tar.gz
 
 # Platform independent artifacts are only built on Linux.
 if [[ "${NAME}" == "linux-intel" ]]; then
     SCRIPT="daml-script-${RELEASE_TAG}.jar"
+    ${makedir} "${OUTPUT_DIR}/artifactory"
+    # Used only by daml-docker-images. Can be removed once this repo is gone.
     ${copy} bazel-bin/daml-script/runner/daml-script-binary_distribute.jar "${OUTPUT_DIR}/artifactory/${SCRIPT}"
-
-# Publishing of this component is not implemented yet.
-#    BUNDLED_VSIX=daml-bundled-${RELEASE_TAG}.vsix
-#    cp bazel-bin/compiler/daml-extension/daml-bundled.vsix ${OUTPUT_DIR}/oci/$BUNDLED_VSIX
-#    cp bazel-bin/compiler/daml-extension/webview-stylesheet.css ${OUTPUT_DIR}/oci/webview-stylesheet.css
 
     ${makedir} "${OUTPUT_DIR}/split-release/daml-libs/daml-script"
     ${copy} bazel-bin/daml-script/daml/*.dar "${OUTPUT_DIR}/split-release/daml-libs/daml-script/"

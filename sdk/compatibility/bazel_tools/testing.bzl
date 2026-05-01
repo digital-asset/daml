@@ -44,9 +44,9 @@ def daml_ledger_test(
         srcs = ["//bazel_tools:daml_ledger_test.sh"],
         args = [
             "$(rootpath //bazel_tools/daml_ledger:runner)",
-            # "--daml",
+            # "--sdk",
             "$(rootpath %s)" % daml,
-            # "--sandbox",
+            # "--platform",
             "$(rootpath %s)" % sandbox,
             "--sdk-version",
             sdk_version,
@@ -72,16 +72,13 @@ def daml_ledger_test(
 
 def daml_lf_compatible(sdk_version, platform_version):
     return (
-        # any post 3.4 platform supports any pre 3x SDK
+        # any post 3.4 platform supports any 3x SDK
         in_range(platform_version, {"start": "3.4.0-snapshot"}) and in_range(sdk_version, {"start": "3.0.0-snapshot"})
     )
 
 def sdk_platform_test(sdk_version, platform_version):
     # SDK components
     daml_assistant = "@daml-sdk-{sdk_version}//:daml".format(
-        sdk_version = sdk_version,
-    )
-    dar_files = "@daml-sdk-{sdk_version}//:dar-files".format(
         sdk_version = sdk_version,
     )
 
@@ -101,15 +98,14 @@ def sdk_platform_test(sdk_version, platform_version):
         platform_version = version_to_name(platform_version),
     )
 
-    if versions.is_at_least("3.0.0", sdk_version):
-        daml_ledger_test(
-            name = name,
-            sdk_version = sdk_version,
-            daml = daml_assistant,
-            sandbox = canton_sandbox,
-            sandbox_args = canton_sandbox_args,
-            size = "large",
-            # We see timeouts here fairly regularly so we
-            # increase the number of CPUs.
-            tags = ["cpu:2"] + extra_tags(sdk_version, platform_version),
-        )
+    daml_ledger_test(
+        name = name,
+        sdk_version = sdk_version,
+        daml = daml_assistant,
+        sandbox = canton_sandbox,
+        sandbox_args = canton_sandbox_args,
+        size = "large",
+        # We see timeouts here fairly regularly so we
+        # increase the number of CPUs.
+        tags = ["cpu:2"] + extra_tags(sdk_version, platform_version),
+    )

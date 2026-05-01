@@ -228,7 +228,7 @@ export class DamlLanguageClient {
     );
     return JSON.parse(stdout).filter(
       (v: { active: boolean; version: string }) => v.active,
-    )[0].version;
+    )[0]?.version;
   }
 
   private static async getMultiIdeIdentifierSupport(
@@ -338,9 +338,6 @@ export class DamlLanguageClient {
     if (useDpm) {
       const dpmPath = DamlLanguageClient.findDpmCommand();
       if (dpmPath) {
-        vscode.window.showInformationMessage(
-          "Daml IDE is starting using the Early Access DPM assistant.",
-        );
         return [dpmPath, true];
       }
     }

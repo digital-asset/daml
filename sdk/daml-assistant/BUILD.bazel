@@ -29,97 +29,14 @@ da_haskell_library(
     src_strip_prefix = "daml-project-config",
     visibility = ["//visibility:public"],
     deps = [
+        "//component-version/hs:component-version-class-lib",
         "//libs-haskell/da-version-types",
     ],
 )
 
-da_haskell_library(
-    name = "daml-lib",
-    srcs = glob(
-        ["src/**/*.hs"],
-    ),
-    hackage_deps = [
-        "aeson",
-        "base",
-        "bytestring",
-        "conduit",
-        "conduit-extra",
-        "containers",
-        "unordered-containers",
-        "directory",
-        "extra",
-        "filelock",
-        "filepath",
-        "http-client",
-        "http-client-tls",
-        "http-conduit",
-        "http-types",
-        "lens",
-        "optparse-applicative",
-        "process",
-        "safe",
-        "safe-exceptions",
-        "semver",
-        "tar-conduit",
-        "tasty",
-        "tasty-hunit",
-        "tasty-quickcheck",
-        "temporary",
-        "terminal-progress-bar",
-        "text",
-        "time",
-        "tls",
-        "typed-process",
-        "unix-compat",
-        "uri-encode",
-        "utf8-string",
-        "yaml",
-    ] + (["Win32"] if is_windows else []),
-    src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":daml-project-config",
-        "//libs-haskell/da-hs-base",
-    ],
-)
-
-da_haskell_binary(
-    name = "daml",
-    srcs = ["exe/DA/Daml/Assistant.hs"],
-    hackage_deps = [
-        "aeson",
-        "base",
-        "containers",
-        "directory",
-        "extra",
-        "filepath",
-        "safe",
-        "safe-exceptions",
-        "typed-process",
-        "text",
-        "unordered-containers",
-    ],
-    main_function = "DA.Daml.Assistant.main",
-    src_strip_prefix = "exe",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":daml-lib",
-        ":daml-project-config",
-        "//libs-haskell/da-gcp-logger",
-        "//libs-haskell/da-hs-base",
-        "//sdk-version/hs:sdk-version-lib",
-    ],
-)
-
-package_app(
-    name = "daml-dist",
-    binary = ":daml",
-    visibility = ["//visibility:public"],
-)
-
 da_haskell_test(
     name = "test",
-    srcs = ["test/DA/Daml/Assistant/Tests.hs"],
+    srcs = ["test/DA/Daml/Project/Tests.hs"],
     hackage_deps = [
         "base",
         "conduit",
@@ -139,11 +56,10 @@ da_haskell_test(
         "unix-compat",
         "yaml",
     ],
-    main_function = "DA.Daml.Assistant.Tests.main",
+    main_function = "DA.Daml.Project.Tests.main",
     src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
-        ":daml-lib",
         ":daml-project-config",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
@@ -157,9 +73,8 @@ da_haskell_repl(
     collect_data = False,
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-assistant:daml",
         "//daml-assistant:test",
-        "//daml-assistant/daml-helper",
+        "//daml-assistant/daml-new",
     ],
 )
 

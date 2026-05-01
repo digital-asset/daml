@@ -35,10 +35,10 @@ import Development.IDE.Core.Service.Daml(ScriptName (..), VirtualResource (..))
 
 import DA.Test.DamlcIntegration (ScriptPackageData, withDamlScriptDep)
 
-import SdkVersion (SdkVersioned, withSdkVersions)
+import ComponentVersion (ComponentVersioned, withComponentVersions)
 
 main :: IO ()
-main = withSdkVersions $ do
+main = withComponentVersions $ do
     scriptLogger <- Logger.newStderrLogger Logger.Warning "script"
     -- The script services are shared resources so running tests in parallel doesn’t work properly.
     setEnv "TASTY_NUM_THREADS" "1" True
@@ -47,7 +47,7 @@ main = withSdkVersions $ do
             "IDE Shake API tests"
             [ test LF.defaultLfVersion scriptLogger ]
 
-test :: SdkVersioned => LF.Version -> Logger.Handle IO -> Tasty.TestTree
+test :: ComponentVersioned => LF.Version -> Logger.Handle IO -> Tasty.TestTree
 test lfVersion scriptLogger = do
     -- The startup of each script service is fairly expensive so instead of launching a separate
     -- service for each test, we launch a single service that is shared across all tests on the same LF version.
@@ -61,7 +61,7 @@ test lfVersion scriptLogger = do
     withDamlScript = case LF.versionMajor lfVersion of
         LF.V2 -> withDamlScriptDep
 
-ideTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
+ideTests :: ComponentVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
 ideTests lfVersion mbGetScriptService getScriptPackageData =
     Tasty.testGroup ("LF " <> LF.renderVersion lfVersion)
         [ -- Add categories of tests here
@@ -82,7 +82,7 @@ addScriptOpts lfVersion = maybe id $ \(packageDbPath, packageFlags) opts -> opts
     }
 
 -- | Tasty test case from a ShakeTest.
-testCase :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> Maybe (IO ScriptPackageData) -> Tasty.TestName -> ShakeTest () -> Tasty.TestTree
+testCase :: ComponentVersioned => LF.Version -> Maybe (IO SS.Handle) -> Maybe (IO ScriptPackageData) -> Tasty.TestName -> ShakeTest () -> Tasty.TestTree
 testCase lfVersion mbGetScriptService mbGetScriptPackageData testName test =
     Tasty.testCase testName $ do
         mbScriptService <- sequence mbGetScriptService
@@ -92,7 +92,7 @@ testCase lfVersion mbGetScriptService mbGetScriptPackageData testName test =
 
 -- | Test case that is expected to fail, because it's an open issue. Includes an infix string to assert, so we can detect error changes
 -- Annotate these with a JIRA ticket number.
-testCaseFails :: SdkVersioned => LF.Version -> String -> Maybe (IO SS.Handle) -> Maybe (IO ScriptPackageData) -> Tasty.TestName -> ShakeTest () -> Tasty.TestTree
+testCaseFails :: ComponentVersioned => LF.Version -> String -> Maybe (IO SS.Handle) -> Maybe (IO ScriptPackageData) -> Tasty.TestName -> ShakeTest () -> Tasty.TestTree
 testCaseFails lfVersion expectedErrorInfix mbGetScriptService mbGetScriptPackageData testName test =
     Tasty.testCase ("FAILING " ++ testName) $ do
         mbScriptService <- sequence mbGetScriptService
@@ -106,7 +106,7 @@ testCaseFails lfVersion expectedErrorInfix mbGetScriptService mbGetScriptPackage
                   $ expectedErrorInfix `isInfixOf` errStr
 
 -- | Basic API functionality tests.
-basicTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
+basicTests :: ComponentVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
 basicTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Basic tests"
     [   testCase' "Set files of interest and expect no errors" example
 
@@ -343,7 +343,7 @@ basicTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Basic 
         testCase' = testCase lfVersion mbScriptService (Just scriptPackageData)
         testCaseFails' msg = testCaseFails lfVersion msg mbScriptService (Just scriptPackageData)
 
-dlintSmokeTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> Tasty.TestTree
+dlintSmokeTests :: ComponentVersioned => LF.Version -> Maybe (IO SS.Handle) -> Tasty.TestTree
 dlintSmokeTests lfVersion mbScriptService = Tasty.testGroup "Dlint smoke tests"
   [    testCase' "Imports can be simplified" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
@@ -568,7 +568,7 @@ dlintSmokeTests lfVersion mbScriptService = Tasty.testGroup "Dlint smoke tests"
   where
       testCase' = testCase lfVersion mbScriptService Nothing
 
-minimalRebuildTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> Tasty.TestTree
+minimalRebuildTests :: ComponentVersioned => LF.Version -> Maybe (IO SS.Handle) -> Tasty.TestTree
 minimalRebuildTests lfVersion mbScriptService = Tasty.testGroup "Minimal rebuild tests"
     [   testCase' "Minimal rebuild" $ do
             a <- makeFile "A.daml" "module A where\nimport B"
@@ -592,7 +592,7 @@ minimalRebuildTests lfVersion mbScriptService = Tasty.testGroup "Minimal rebuild
 
 
 -- | "Go to definition" tests.
-goToDefinitionTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
+goToDefinitionTests :: ComponentVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
 goToDefinitionTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Go to definition tests"
     [   testCase' "Go to definition in same module" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
@@ -807,7 +807,7 @@ goToDefinitionTests lfVersion mbScriptService scriptPackageData = Tasty.testGrou
         testCase' = testCase lfVersion mbScriptService (Just scriptPackageData)
         testCaseFails' msg = testCaseFails lfVersion msg mbScriptService (Just scriptPackageData)
 
-onHoverTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
+onHoverTests :: ComponentVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
 onHoverTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "On hover tests"
     [ testCase' "Type for uses but not for definitions" $ do
         f <- makeFile "F.daml" $ T.unlines
@@ -926,7 +926,7 @@ onHoverTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "On h
         testCase' = testCase lfVersion mbScriptService (Just scriptPackageData)
         testCaseFails' msg = testCaseFails lfVersion msg mbScriptService (Just scriptPackageData)
 
-scriptTests :: SdkVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
+scriptTests :: ComponentVersioned => LF.Version -> Maybe (IO SS.Handle) -> IO ScriptPackageData -> Tasty.TestTree
 scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Script tests"
     [ testCase' "Run an empty script" $ do
           let fooContent = T.unlines
