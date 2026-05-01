@@ -34,7 +34,7 @@ push daml-script-runner $SCRIPT_RUNNER.asc
 # For the split release process, we publish intermediate artifacts to the
 # assembly repo, under the daml folder.
 cd $STAGING_DIR/split-release
-for d in split-release github; do
+for d in split-release; do
     (
     cd $d
     for file in $(find . -type f); do
