@@ -23,7 +23,13 @@ else
   makedir="mkdir -p"
 fi
 
-${makedir} "${OUTPUT_DIR}/oci/${RELEASE_TAG}/${NAME}"
+for item in "split-release" "oci/${RELEASE_TAG}/${NAME}"; do
+  ${makedir} "${OUTPUT_DIR}/$item"
+done
+
+DAMLC="damlc-${RELEASE_TAG}-${NAME}.tar.gz"
+echo "Copying damlc to ${OUTPUT_DIR}/split-release/${DAMLC}"
+${copy} bazel-bin/compiler/damlc/damlc-dist.tar.gz "${OUTPUT_DIR}/split-release/${DAMLC}"
 
 # OCI uploads
 function copy_oci {
