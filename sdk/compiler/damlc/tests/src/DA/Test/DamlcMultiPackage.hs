@@ -93,6 +93,8 @@ tests =
             $ Right [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
         , test "Build all from root" ["--all"] "" simpleTwoPackageProject
             $ Right [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
+        , test "Build from root without --all infers --all when only multi-package.yaml is present" [] "" simpleTwoPackageProject
+            $ Right [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
         , test "Build all from A with explicit path" ["--all", "--multi-package-path=.."] "./package-a" simpleTwoPackageProject
             $ Right [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
         , test "Build B from nested directory with search" [] "./package-b/daml" simpleTwoPackageProject
