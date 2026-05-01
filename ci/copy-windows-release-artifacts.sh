@@ -7,13 +7,12 @@ DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd "${DIR}"/../sdk || exit 1
 
 if [[ $# -lt 2 ]]; then
-    echo "Usage: $0 <release-tag> <output-dir> <split-release>"
+    echo "Usage: $0 <release-tag> <output-dir>"
     exit 1
 fi
 
 RELEASE_TAG="${1}"
 OUTPUT_DIR="${2}"
-SPLIT_RELEASE="${3:-false}"
 
 if [[ x"${DEBUG}" != "x" ]]; then
   copy="cp -v"
@@ -23,20 +22,7 @@ else
   makedir="mkdir -p"
 fi
 
-for item in "github" "artifactory" "split-release" "oci/${RELEASE_TAG}/windows"; do
-  ${makedir} "${OUTPUT_DIR}/${item}"
-done
-
-SDK_CE_TARBALL="daml-sdk-${RELEASE_TAG}-windows.tar.gz"
-SDK_EE_TARBALL="daml-sdk-${RELEASE_TAG}-windows-ee.tar.gz"
-echo "Copyring SDK tarball CE to ${OUTPUT_DIR}/github/${SDK_CE_TARBALL}"
-${copy} bazel-bin/release/sdk-release-tarball-ce.tar.gz "${OUTPUT_DIR}/github/${SDK_CE_TARBALL}"
-# Used for the non-split release process.
-echo "Copying SDK tarball EE to ${OUTPUT_DIR}/artifactory/${SDK_EE_TARBALL}"
-${copy} bazel-bin/release/sdk-release-tarball-ee.tar.gz "${OUTPUT_DIR}/artifactory/${SDK_EE_TARBALL}"
-# Used for the split release process.
-echo "Copying SDK tarball EE to ${OUTPUT_DIR}/split-release/${SDK_EE_TARBALL}"
-${copy} bazel-bin/release/sdk-release-tarball-ee.tar.gz "${OUTPUT_DIR}/split-release/${SDK_EE_TARBALL}"
+${makedir} "${OUTPUT_DIR}/oci/${RELEASE_TAG}/windows"
 
 # OCI uploads
 function copy_oci {
@@ -51,5 +37,5 @@ function copy_oci {
 copy_oci damlc bazel-bin/compiler/damlc/damlc-oci.tar.gz
 copy_oci daml-script bazel-bin/daml-script/runner/daml-script-oci.tar.gz
 copy_oci codegen bazel-bin/language-support/codegen-main/codegen-oci.tar.gz
-copy_oci daml-new bazel-bin/daml-assistant/daml-helper/daml-new-oci.tar.gz
+copy_oci daml-new bazel-bin/daml-assistant/daml-new/daml-new-oci.tar.gz
 copy_oci upgrade-check bazel-bin/daml-assistant/upgrade-check-main/upgrade-check-oci.tar.gz

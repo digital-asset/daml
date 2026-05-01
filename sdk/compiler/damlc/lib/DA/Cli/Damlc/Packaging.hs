@@ -54,10 +54,6 @@ import "ghc-lib-parser" UniqSet
 
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.DependencyDb
-import DA.Daml.Assistant.Env (getDamlEnv, getDamlPath, envUseCache)
-import DA.Daml.Assistant.Types (LookForPackagePath (..))
-import DA.Daml.Assistant.Util (wrapErr)
-import DA.Daml.Assistant.Version (resolveReleaseVersionUnsafe)
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DataDependencies as DataDeps
 import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
@@ -66,15 +62,15 @@ import DA.Daml.LF.Ast.Optics (packageRefs)
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config (PackageConfigFields (..))
-import DA.Daml.Project.Consts (damlAssistantIsSet)
-import DA.Daml.Project.Types (ReleaseVersion, unsafeResolveReleaseVersion)
+import DA.Daml.Project.Consts (getVersionInfo)
+import DA.Daml.Project.Types (VersionInfo)
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
-import SdkVersion.Class (SdkVersioned, damlStdlib, unresolvedBuiltinSdkVersion)
+import ComponentVersion.Class (ComponentVersioned, damlStdlib)
 
 -- | Create the package database containing the given dar packages.
 --
@@ -90,7 +86,7 @@ import SdkVersion.Class (SdkVersioned, damlStdlib, unresolvedBuiltinSdkVersion)
 --   ledger. Based on the Daml-LF we generate dummy interface files
 --   and then remap references to those dummy packages to the original Daml-LF
 --   package id.
-createPackageDb :: SdkVersioned => NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
+createPackageDb :: ComponentVersioned => NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
 createPackageDb packageRoot (disableScriptService -> opts) modulePrefixes
   = do
     (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization packageRoot depsDir modulePrefixes
@@ -273,7 +269,7 @@ data InstallDataDepArgs = InstallDataDepArgs
   , dalfPackage :: LF.DalfPackage
   }
 
-installDataDep :: SdkVersioned => InstallDataDepArgs -> IO ()
+installDataDep :: ComponentVersioned => InstallDataDepArgs -> IO ()
 installDataDep InstallDataDepArgs {..} = do
   exposedModules <- getExposedModules opts packageRoot
 
@@ -358,7 +354,7 @@ data GenerateAndInstallIfaceFilesArgs = GenerateAndInstallIfaceFilesArgs
   }
 
 -- | Generate interface files and install them in the package database
-generateAndInstallIfaceFiles :: SdkVersioned => GenerateAndInstallIfaceFilesArgs -> IO ()
+generateAndInstallIfaceFiles :: ComponentVersioned => GenerateAndInstallIfaceFilesArgs -> IO ()
 generateAndInstallIfaceFiles GenerateAndInstallIfaceFilesArgs {..} = do
     let pkgContext = T.pack (unitIdString (pkgNameVersion pkgName mbPkgVersion)) <> " (" <> LF.unPackageId pkgId <> ")"
     loggerH <- getLogger opts $ "data-dependencies " <> pkgContext
@@ -492,7 +488,7 @@ recachePkgDb dbPath = do
         ]
 
 -- TODO We should generate the list of stable packages automatically here.
-baseImports :: SdkVersioned => [PackageFlag]
+baseImports :: ComponentVersioned => [PackageFlag]
 baseImports =
     [ exposePackage
         (GHC.stringToUnitId "daml-prim")
@@ -913,7 +909,7 @@ checkForUnitIdConflicts dalfs builtinDependencies
           ]
         ]
 
-getExposedModules :: SdkVersioned => Options -> NormalizedFilePath -> IO (MS.Map UnitId (UniqSet GHC.ModuleName))
+getExposedModules :: ComponentVersioned => Options -> NormalizedFilePath -> IO (MS.Map UnitId (UniqSet GHC.ModuleName))
 getExposedModules opts packageRoot = do
     logger <- getLogger opts "list exposed modules"
     -- We need to avoid inference of package flags. Otherwise, we will
@@ -959,19 +955,19 @@ prefixModules prefixes dalfs = do
                 )
 
 unsafeSetupPackageDb
-    :: SdkVersioned
+    :: ComponentVersioned
     => NormalizedFilePath
     -> Options
-    -> ReleaseVersion
+    -> VersionInfo
     -> [String] -- Package dependencies. Can be base-packages, sdk-packages or filepath.
     -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
     -> MS.Map UnitId GHC.ModuleName
     -> IO ()
-unsafeSetupPackageDb packageRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes = do
+unsafeSetupPackageDb packageRoot opts versionInfo pDependencies pDataDependencies pModulePrefixes = do
     installDependencies
         packageRoot
         opts
-        releaseVersion
+        versionInfo
         pDependencies
         pDataDependencies
     createPackageDb packageRoot opts pModulePrefixes
@@ -984,32 +980,24 @@ withPkgDbLock packageRoot act = do
 
 -- Installs dependencies and creates package Db ready to be used
 setupPackageDb
-    :: SdkVersioned
+    :: ComponentVersioned
     => NormalizedFilePath
     -> Options
-    -> ReleaseVersion
+    -> VersionInfo
     -> [String] -- Package dependencies. Can be base-packages, sdk-packages or filepath.
     -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
     -> MS.Map UnitId GHC.ModuleName
     -> IO ()
-setupPackageDb packageRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes =
-    withPkgDbLock packageRoot $ unsafeSetupPackageDb packageRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes
+setupPackageDb packageRoot opts versionInfo pDependencies pDataDependencies pModulePrefixes =
+    withPkgDbLock packageRoot $ unsafeSetupPackageDb packageRoot opts versionInfo pDependencies pDataDependencies pModulePrefixes
 
 setupPackageDbFromPackageConfig
-    :: SdkVersioned
+    :: ComponentVersioned
     => NormalizedFilePath
     -> Options
     -> PackageConfigFields
     -> IO ()
 setupPackageDbFromPackageConfig packageRoot opts PackageConfigFields {..} =
     withPkgDbLock packageRoot $ do
-        let sdkVersion = fromMaybe unresolvedBuiltinSdkVersion pSdkVersion
-        damlAssistantIsSet <- damlAssistantIsSet
-        releaseVersion <- if damlAssistantIsSet
-            then do
-              damlPath <- getDamlPath
-              damlEnv <- getDamlEnv damlPath (LookForPackagePath False)
-              wrapErr "installing dependencies and initializing package database" $
-                resolveReleaseVersionUnsafe (envUseCache damlEnv) sdkVersion
-            else pure (unsafeResolveReleaseVersion sdkVersion)
-        unsafeSetupPackageDb packageRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes
+        versionInfo <- getVersionInfo
+        unsafeSetupPackageDb packageRoot opts versionInfo pDependencies pDataDependencies pModulePrefixes

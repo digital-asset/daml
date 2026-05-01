@@ -16,16 +16,16 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import DA.Daml.Options.Packaging.Metadata (metadataFile)
 import Development.IDE.Types.Location
-import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
+import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
 
 newtype ExpectReinitialization = ExpectReinitialization Bool
 
 main :: IO ()
-main = withSdkVersions $ do
+main = withComponentVersions $ do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     defaultMain $ tests damlc
 
-tests :: SdkVersioned => FilePath -> TestTree
+tests :: ComponentVersioned => FilePath -> TestTree
 tests damlc =
     testGroup
         "Incremental package db initialization"
@@ -117,7 +117,7 @@ tests damlc =
               ]
               [ ( "daml.yaml"
                 , unlines
-                      [ "sdk-version: " <> sdkVersion
+                      [ "sdk-version: " <> componentVersionString
                       , "name: dep"
                       , "source: daml"
                       , "version: 0.0.1"
@@ -205,7 +205,7 @@ tests damlc =
     packageDamlYaml name deps =
         ( "daml.yaml"
         , unlines $
-          [ "sdk-version: " <> sdkVersion
+          [ "sdk-version: " <> componentVersionString
           , "name: " <> name
           , "source: daml"
           , "version: 0.0.1"

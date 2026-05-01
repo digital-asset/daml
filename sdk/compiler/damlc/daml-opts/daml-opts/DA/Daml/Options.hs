@@ -8,7 +8,6 @@
 -- | Set up the GHC monad in a way that works for us
 module DA.Daml.Options
     ( checkDFlags
-    , expandSdkPackages
     , fakeDynFlags
     , findPackageRoot
     , generatePackageState
@@ -25,7 +24,6 @@ module DA.Daml.Options
 
 import Control.Applicative ((<|>))
 import Control.Exception
-import Control.Exception.Safe (handleIO)
 import Control.Concurrent.Extra
 import Control.Monad.Extra
 import qualified CmdLineParser as Cmd (warnMsg)
@@ -59,9 +57,8 @@ import DA.Daml.Project.Util
 import DA.Daml.Options.Types
 import DA.Daml.Preprocessor
 import Development.IDE.GHC.Util
-import qualified DA.Service.Logger as Logger
 import qualified Development.IDE.Types.Options as Ghcide
-import SdkVersion.Class (SdkVersioned, damlStdlib)
+import ComponentVersion.Class (ComponentVersioned, damlStdlib)
 
 -- | Convert to ghcide’s IdeOptions type.
 toCompileOpts :: Options -> Ghcide.IdeOptions
@@ -557,36 +554,10 @@ checkDFlags Options {..} dflags@DynFlags {..}
             \ Please check your dependencies and rename the package you are compiling \
             \ or the dependency."
 
--- Expand SDK package dependencies using the SDK root path.
--- E.g. `daml-script` --> `$DAML_SDK/daml-libs/daml-script.dar`
--- When invoked outside of the SDK, we will only error out
--- if there is actually an SDK package so that
--- When there is no SDK
-expandSdkPackages :: Logger.Handle IO -> LF.Version -> [FilePath] -> IO [FilePath]
-expandSdkPackages logger lfVersion dars = do
-    mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
-    mapM (expand mbSdkPath) (nubOrd dars)
-  where
-    isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
-    sdkSuffix = "-" <> LF.renderVersion lfVersion
-    expand mbSdkPath fp
-      | fp `elem` basePackages = pure fp
-      | isSdkPackage fp = case mbSdkPath of
-            Just sdkPath | fp == "daml3-script" -> do
-              Logger.logWarning logger "`daml3-script` is now the default `daml-script`, please replace `daml3-script` with `daml-script` in your daml.yaml"
-              pure $ sdkPath </> "daml-libs" </> "daml-script" <> sdkSuffix <.> "dar"
-            Just sdkPath | fp == "daml-script-lts" -> do
-              Logger.logWarning logger
-                "`daml-script-lts` is not available in daml 3, defaulting to daml-script. Please replace `daml-script-lts` with `daml-script` in your daml.yaml"
-              pure $ sdkPath </> "daml-libs" </> "daml-script" <> sdkSuffix <.> "dar"
-            Just sdkPath -> pure $ sdkPath </> "daml-libs" </> fp <> sdkSuffix <.> "dar"
-            Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml assistant."
-      | otherwise = pure fp
-
 mkPackageFlag :: UnitId -> PackageFlag
 mkPackageFlag unitId = ExposePackage ("--package " <> unitIdString unitId) (UnitIdArg unitId) (ModRenaming True [])
 
-mkBaseUnits :: SdkVersioned => Maybe UnitId -> [UnitId]
+mkBaseUnits :: ComponentVersioned => Maybe UnitId -> [UnitId]
 mkBaseUnits optMbPackageName
   | optMbPackageName == Just (stringToUnitId "daml-prim") =
       []

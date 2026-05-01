@@ -13,7 +13,6 @@ module DA.Daml.Compiler.Dar
     , getDamlRootFiles
     , writeIfacesAndHie
     , mkConfFile
-    , expandSdkPackages
     , damlFilesInDir
     ) where
 
@@ -28,7 +27,6 @@ import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
 import DA.Daml.LF.TypeChecker.Error.WarningFlags (WarningFlags)
 import DA.Daml.LF.TypeChecker.Upgrade as Upgrade
 import DA.Daml.LF.TypeChecker.WarnInvalidDependencies as WarnInvalidDependencies
-import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
@@ -64,10 +62,10 @@ import MkIface
 import Module
 import qualified Module as Ghc
 import HscTypes
-import qualified Data.SemVer as V
-import DA.Daml.Project.Types (PackagePath (..), UnresolvedReleaseVersion(..))
+import DA.Daml.Project.Types (PackagePath (..), VersionInfo, versionToString)
+import DA.Daml.Project.Consts (getVersionInfo)
 
-import SdkVersion.Class (SdkVersioned, unresolvedBuiltinSdkVersion)
+import ComponentVersion.Class (ComponentVersioned)
 import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
 
 -- | Create a DAR file by running a ZipArchive action.
@@ -108,7 +106,7 @@ newtype FromDalf = FromDalf
     }
 
 buildDar ::
-       SdkVersioned
+       ComponentVersioned
     => IdeState
     -> PackageConfigFields
     -> NormalizedFilePath
@@ -121,13 +119,14 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
         "Creating dar: " <> T.pack pSrc
+    versionInfo <- getVersionInfo
     if unFromDalf dalfInput
         then do
             bytes <- BSL.readFile pSrc
             -- in the dalfInput case we interpret pSrc as the filepath pointing to the dalf.
             -- Note that the package id is obviously wrong but this feature is not something we expose to users.
             pure $ Just
-              ( createArchive pName pVersion (fromMaybe unresolvedBuiltinSdkVersion pSdkVersion) (LF.PackageId "") bytes [] (toNormalizedFilePath' ".") [] [] []
+              ( createArchive pName pVersion versionInfo (LF.PackageId "") bytes [] (toNormalizedFilePath' ".") [] [] []
               , Nothing
               )
         -- We need runActionSync here to ensure that diagnostics are printed to the terminal.
@@ -184,7 +183,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                  srcRoot <- getSrcRoot pSrc
                  pure
                    ( createArchive
-                       pName pVersion (fromMaybe unresolvedBuiltinSdkVersion pSdkVersion)
+                       pName pVersion versionInfo
                        pkgId
                        dalf
                        dalfDependencies
@@ -356,7 +355,7 @@ sinkEntryDeterministic compression sink sel = do
 createArchive
     :: LF.PackageName
     -> Maybe LF.PackageVersion
-    -> UnresolvedReleaseVersion
+    -> VersionInfo
     -> LF.PackageId
     -> BSL.ByteString -- ^ DALF
     -> [(T.Text, BS.ByteString, LF.PackageId)] -- ^ DALF dependencies
@@ -365,7 +364,7 @@ createArchive
     -> [(String, BS.ByteString)] -- ^ Data files
     -> [NormalizedFilePath] -- ^ Interface files
     -> Zip.ZipArchive ()
-createArchive pName pVersion pSdkVersion pkgId dalf dalfDependencies srcRoot fileDependencies dataFiles ifaces
+createArchive pName pVersion versionInfo pkgId dalf dalfDependencies srcRoot fileDependencies dataFiles ifaces
  = do
     -- Reads all module source files, and pairs paths (with changed prefix)
     -- with contents as BS. The path must be within the module root path, and
@@ -406,7 +405,7 @@ createArchive pName pVersion pSdkVersion pkgId dalf dalfDependencies srcRoot fil
             [ "Manifest-Version: 1.0"
             , "Created-By: damlc"
             , "Name: " <> unitIdString (pkgNameVersion pName pVersion)
-            , "Sdk-Version: " <> V.toString (unwrapUnresolvedReleaseVersion pSdkVersion)
+            , "Sdk-Version: " <> versionToString versionInfo
             , "Main-Dalf: " <> toPosixFilePath location
             , "Dalfs: " <> intercalate ", " (map toPosixFilePath dalfs)
             , "Format: daml-lf"

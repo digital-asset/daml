@@ -1,123 +1,82 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{- HLINT ignore "Avoid restricted flags" -}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module DA.Daml.Version.Types
     ( module DA.Daml.Version.Types
     ) where
 
-import qualified Data.Yaml as Y
+import qualified Data.Aeson as Aeson
 import qualified Data.SemVer as V
 import qualified Control.Lens as L
-import Data.Text (Text, pack)
+import Data.Text (Text)
 import Control.Exception.Safe (Exception (..))
-import Data.Either.Extra (eitherToMaybe)
 import Data.Function (on)
 
-newtype UnresolvedReleaseVersion = UnresolvedReleaseVersion
-    { unwrapUnresolvedReleaseVersion :: V.Version
-    } deriving (Eq, Ord, Show)
+newtype AssemblyVersion = AssemblyVersion
+  { unwrapAssemblyVersion :: V.Version
+  } 
+  deriving (Eq, Ord, Show)
+  deriving newtype (Aeson.ToJSON, Aeson.FromJSON)
 
-data ReleaseVersion
-  = SplitReleaseVersion
-      { releaseReleaseVersion :: V.Version
-      , releaseSdkVersion :: V.Version
-      }
-  | OldReleaseVersion
-      { bothVersion :: V.Version
-      }
-  deriving (Eq, Show)
+assemblyVersionToText :: AssemblyVersion -> Text
+assemblyVersionToText = V.toText . unwrapAssemblyVersion
 
-instance Ord ReleaseVersion where
-    compare = compare `on` releaseVersionFromReleaseVersion
+newtype ComponentVersion = ComponentVersion
+  { unwrapComponentVersion :: V.Version
+  }
+  deriving (Eq, Ord, Show)
+  deriving newtype (Aeson.ToJSON, Aeson.FromJSON)
 
-sdkVersionFromReleaseVersion :: ReleaseVersion -> SdkVersion
-sdkVersionFromReleaseVersion (SplitReleaseVersion _ sdkVersion) = SdkVersion sdkVersion
-sdkVersionFromReleaseVersion (OldReleaseVersion bothVersion) = SdkVersion bothVersion
+componentVersionToText :: ComponentVersion -> Text
+componentVersionToText = V.toText . unwrapComponentVersion
 
-releaseVersionFromReleaseVersion :: ReleaseVersion -> V.Version
-releaseVersionFromReleaseVersion (SplitReleaseVersion releaseVersion _) = releaseVersion
-releaseVersionFromReleaseVersion (OldReleaseVersion bothVersion) = bothVersion
+data VersionInfo = VersionInfo
+  { -- DPM doesn't guarantee an assembly version
+    viAssemblyVersion :: Maybe AssemblyVersion
+  , viComponentVersion :: ComponentVersion
+  } deriving (Eq, Show)
 
-unresolvedVersionFromReleaseVersion :: ReleaseVersion -> UnresolvedReleaseVersion
-unresolvedVersionFromReleaseVersion = UnresolvedReleaseVersion . releaseVersionFromReleaseVersion
+-- | Reads the assembly version of a VersionInfo. If this doesn't exist, backup to component version
+extractAssemblyThenComponentVersion :: VersionInfo -> V.Version
+extractAssemblyThenComponentVersion vi = maybe (unwrapComponentVersion $ viComponentVersion vi) unwrapAssemblyVersion $ viAssemblyVersion vi
 
-isDaml3OrHigher :: ReleaseVersion -> Bool
-isDaml3OrHigher v =
-  L.view V.major (releaseVersionFromReleaseVersion v) >= 3
+instance Ord VersionInfo where
+    compare = compare `on` extractAssemblyThenComponentVersion
 
-mkReleaseVersion :: UnresolvedReleaseVersion -> SdkVersion -> ReleaseVersion
-mkReleaseVersion release sdk =
-    let unwrappedRelease = unwrapUnresolvedReleaseVersion release
-        unwrappedSdk = unwrapSdkVersion sdk
-    in
-    if unwrappedSdk == unwrappedRelease
-       then OldReleaseVersion unwrappedSdk
-       else SplitReleaseVersion unwrappedRelease unwrappedSdk
+instance Aeson.ToJSON V.Version where
+  toJSON = Aeson.String . versionToText
 
-newtype SdkVersion = SdkVersion
-    { unwrapSdkVersion :: V.Version
-    } deriving (Eq, Ord, Show)
-
-newtype DamlAssistantSdkVersion = DamlAssistantSdkVersion
-    { unwrapDamlAssistantSdkVersion :: ReleaseVersion
-    } deriving (Eq, Ord, Show)
-
-instance Y.FromJSON UnresolvedReleaseVersion where
-    parseJSON y = do
-        verE <- V.fromText <$> Y.parseJSON y
-        case verE of
-            Left e -> fail ("Invalid release version: " <> e)
-            Right v -> pure (UnresolvedReleaseVersion v)
-
-instance Y.FromJSON SdkVersion where
-    parseJSON y = do
-        verE <- V.fromText <$> Y.parseJSON y
-        case verE of
-            Left e -> fail ("Invalid SDK version: " <> e)
-            Right v -> pure (SdkVersion v)
-
-rawVersionToTextWithV :: V.Version -> Text
-rawVersionToTextWithV v = "v" <> V.toText v
-
-sdkVersionToText :: SdkVersion -> Text
-sdkVersionToText = V.toText . unwrapSdkVersion
-
-unresolvedReleaseVersionToString :: UnresolvedReleaseVersion -> String
-unresolvedReleaseVersionToString = V.toString . unwrapUnresolvedReleaseVersion
-
-unresolvedReleaseVersionToText :: UnresolvedReleaseVersion -> Text
-unresolvedReleaseVersionToText = V.toText . unwrapUnresolvedReleaseVersion
+instance Aeson.FromJSON V.Version where
+  parseJSON = Aeson.withText "Version" $ either fail pure . V.fromText
 
 class IsVersion a where
     isHeadVersion :: a -> Bool
     versionToString :: a -> String
     versionToText :: a -> Text
 
-instance IsVersion ReleaseVersion where
-    isHeadVersion v = isHeadVersion (releaseVersionFromReleaseVersion v)
-    versionToString (OldReleaseVersion bothVersion) = V.toString bothVersion
-    versionToString (SplitReleaseVersion releaseVersion _) = V.toString releaseVersion
-    versionToText (OldReleaseVersion bothVersion) = V.toText bothVersion
-    versionToText (SplitReleaseVersion releaseVersion _) = V.toText releaseVersion
+instance IsVersion VersionInfo where
+    isHeadVersion = isHeadVersion . extractAssemblyThenComponentVersion
+    versionToString = versionToString . extractAssemblyThenComponentVersion
+    versionToText = versionToText . extractAssemblyThenComponentVersion
 
-instance IsVersion UnresolvedReleaseVersion where
-    isHeadVersion v = isHeadVersion (unwrapUnresolvedReleaseVersion v)
-    versionToString = V.toString . unwrapUnresolvedReleaseVersion
-    versionToText = V.toText . unwrapUnresolvedReleaseVersion
+instance IsVersion AssemblyVersion where
+    isHeadVersion = isHeadVersion . unwrapAssemblyVersion
+    versionToString = versionToString . unwrapAssemblyVersion
+    versionToText = versionToText . unwrapAssemblyVersion
 
-instance IsVersion SdkVersion where
-    isHeadVersion v = isHeadVersion (unwrapSdkVersion v)
-    versionToString = V.toString . unwrapSdkVersion
-    versionToText = V.toText . unwrapSdkVersion
+instance IsVersion ComponentVersion where
+    isHeadVersion = isHeadVersion . unwrapComponentVersion
+    versionToString = versionToString . unwrapComponentVersion
+    versionToText = versionToText . unwrapComponentVersion
 
 instance IsVersion V.Version where
     isHeadVersion v = V.initial == L.set V.release [] (L.set V.metadata [] v)
     versionToText = V.toText
     versionToString = V.toString
-
-headReleaseVersion :: ReleaseVersion
-headReleaseVersion = OldReleaseVersion V.initial
 
 data InvalidVersion = InvalidVersion
     { ivSource :: !Text -- ^ invalid version
@@ -126,44 +85,16 @@ data InvalidVersion = InvalidVersion
 
 instance Exception InvalidVersion where
     displayException (InvalidVersion bad msg) =
-        "Invalid SDK version  " <> show bad <> ": " <> msg
+        "Invalid SDK version " <> show bad <> ": " <> msg
 
-parseVersion :: Text -> Either InvalidVersion UnresolvedReleaseVersion
-parseVersion = parseUnresolvedVersion
-
-parseUnresolvedVersion :: Text -> Either InvalidVersion UnresolvedReleaseVersion
-parseUnresolvedVersion src =
+parseVersionWrapper :: (V.Version -> a) -> Text -> Either InvalidVersion a
+parseVersionWrapper wrap src =
     case V.fromText src of
         Left msg -> Left (InvalidVersion src msg)
-        Right v -> Right (UnresolvedReleaseVersion v)
+        Right v -> Right (wrap v)
 
-parseSdkVersion :: Text -> Either InvalidVersion SdkVersion
-parseSdkVersion src =
-    case V.fromText src of
-        Left msg -> Left (InvalidVersion src msg)
-        Right v -> Right (SdkVersion v)
+parseAssemblyVersion :: Text -> Either InvalidVersion AssemblyVersion
+parseAssemblyVersion = parseVersionWrapper AssemblyVersion
 
--- This is unsafe because it converts a version straight into an
--- OldReleaseVersion without checking that release and sdk version are actually
--- the same for this release.
-unsafeParseOldReleaseVersion :: Text -> Either InvalidVersion ReleaseVersion
-unsafeParseOldReleaseVersion src = do
-    case V.fromText src of
-        Left msg -> Left (InvalidVersion src msg)
-        Right v -> Right (OldReleaseVersion v)
-
-releaseVersionToCacheString :: ReleaseVersion -> String
-releaseVersionToCacheString (SplitReleaseVersion release sdk) = V.toString release <> " " <> V.toString sdk
-releaseVersionToCacheString (OldReleaseVersion both) = V.toString both
-
-releaseVersionFromCacheString :: String -> Maybe ReleaseVersion
-releaseVersionFromCacheString src =
-    let parseVersionM = eitherToMaybe . V.fromText . pack
-    in
-    case words src of
-      [both] -> OldReleaseVersion <$> parseVersionM both
-      [release, sdk] -> SplitReleaseVersion <$> parseVersionM release <*> parseVersionM sdk
-      _ -> Nothing
-
-unsafeResolveReleaseVersion :: UnresolvedReleaseVersion -> ReleaseVersion
-unsafeResolveReleaseVersion (UnresolvedReleaseVersion v) = OldReleaseVersion v
+parseComponentVersion :: Text -> Either InvalidVersion ComponentVersion
+parseComponentVersion = parseVersionWrapper ComponentVersion

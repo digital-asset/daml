@@ -31,26 +31,14 @@ cd $INPUTS
 push daml-script-runner $SCRIPT_RUNNER
 push daml-script-runner $SCRIPT_RUNNER.asc
 
-# For the split release process these are not published to artifactory.
-if [[ "$#" -lt 3 || $3 != "split" ]]; then
-   for platform in linux macos windows; do
-       EE_TARBALL=daml-sdk-$RELEASE_TAG-$platform-ee.tar.gz
-       push sdk-ee $EE_TARBALL
-       push sdk-ee $EE_TARBALL.asc
-   done
-   EE_INSTALLER=daml-sdk-$RELEASE_TAG-windows-ee.exe
-   push sdk-ee $EE_INSTALLER
-   push sdk-ee $EE_INSTALLER.asc
-else
-    # For the split release process, we publish intermediate artifacts to the
-    # assembly repo, under the daml folder.
-    cd $STAGING_DIR/split-release
-    for d in split-release github; do
-        (
-        cd $d
-        for file in $(find . -type f); do
-            push assembly/daml $file
-        done
-        )
+# For the split release process, we publish intermediate artifacts to the
+# assembly repo, under the daml folder.
+cd $STAGING_DIR/split-release
+for d in split-release; do
+    (
+    cd $d
+    for file in $(find . -type f); do
+        push assembly/daml $file
     done
-fi
+    )
+done

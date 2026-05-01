@@ -34,10 +34,10 @@ import Test.Tasty.QuickCheck
 
 import "ghc-lib-parser" Module (stringToUnitId)
 
-import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
+import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
 
 main :: IO ()
-main = withSdkVersions $ do
+main = withComponentVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     defaultMain $ tests Tools{..}
@@ -46,7 +46,7 @@ data Tools = Tools -- and places
   { damlc :: FilePath
   }
 
-tests :: SdkVersioned => Tools -> TestTree
+tests :: ComponentVersioned => Tools -> TestTree
 tests Tools{damlc} = testGroup "Packaging" $
     [ testCaseSteps "Five layer-deep expression-only dependency tree" $ \step -> withTempDir $ \tmpDir -> do
         -- This test is for https://github.com/digital-asset/daml/issues/20939
@@ -57,7 +57,7 @@ tests Tools{damlc} = testGroup "Packaging" $
               step $ "Generating source for layer" <> show i
               createDirectoryIfMissing True (package i)
               writeFile (package i </> "daml.yaml") $ unlines
-                  [ "sdk-version: " <> sdkVersion
+                  [ "sdk-version: " <> componentVersionString
                   , "name: layer" <> show i
                   , "version: 1.0.0"
                   , "source: Layer" <> show i <> ".daml"
@@ -127,7 +127,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "c = a"
             ]
         writeFileUTF8 (packageA </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: a"
             , "version: \"1.0\""
             , "source: daml"
@@ -150,7 +150,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "d = c"
             ]
         writeFileUTF8 (packageB </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "version: \"1.0\""
             , "name: b"
             , "source: daml"
@@ -176,7 +176,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             [ "module A () where"
             ]
         writeFileUTF8 (packageA </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: a"
             , "version: \"1.0\""
             , "source: A.daml"
@@ -193,7 +193,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "import A ()"
             ]
         writeFileUTF8 (packageB </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "version: \"1.0\""
             , "name: b"
             , "source: ."
@@ -218,7 +218,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           , "a = ()"
           ]
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-          [ "sdk-version: " <> sdkVersion
+          [ "sdk-version: " <> componentVersionString
           , "name: proj"
           , "version: \"1.0\""
           , "source: ."
@@ -254,7 +254,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           ]
 
         bracket
-            (setEnv "DAML_SDK_VERSION" sdkVersion True)
+            (setEnv "DAML_SDK_VERSION" componentVersionString True)
             (\ _ -> unsetEnv "DAML_SDK_VERSION")
             (\ _ -> buildPackage projDir)
 
@@ -263,7 +263,7 @@ tests Tools{damlc} = testGroup "Packaging" $
         archive <- Zip.toArchive <$> BSL.readFile dar
         Just entry <- pure $ Zip.findEntryByPath "META-INF/MANIFEST.MF" archive
         let lines = BSL.Char8.lines (Zip.fromEntry entry)
-            expectedLine = "Sdk-Version: " <> BSL.Char8.pack sdkVersion
+            expectedLine = "Sdk-Version: " <> BSL.Char8.pack componentVersionString
         assertBool "META-INF/MANIFEST.MF picked up the wrong sdk version" (expectedLine `elem` lines)
 
     , testCase "Non-root sources files" $ withTempDir $ \projDir -> do
@@ -277,7 +277,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           [ "module B where"
           ]
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-          [ "sdk-version: " <> sdkVersion
+          [ "sdk-version: " <> componentVersionString
           , "name: proj"
           , "version: 0.1.0"
           , "source: A.daml"
@@ -301,7 +301,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           [ "module B.C where"
           ]
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-          [ "sdk-version: " <> sdkVersion
+          [ "sdk-version: " <> componentVersionString
           , "name: proj"
           , "version: 0.1.0"
           , "source: A/B.daml"
@@ -325,7 +325,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           , "data A = A ()"
           ]
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-          [ "sdk-version: " <> sdkVersion
+          [ "sdk-version: " <> componentVersionString
           , "name: proj"
           , "version: 0.1.0"
           , "source: daml"
@@ -358,7 +358,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           [ "module A.C where"
           ]
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-          [ "sdk-version: " <> sdkVersion
+          [ "sdk-version: " <> componentVersionString
           , "name: proj"
           , "version: 0.1.0"
           , "source: ."
@@ -373,7 +373,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "a = ()"
             ]
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: proj"
             , "version: \"1.0\""
             , "source: A.daml"
@@ -383,7 +383,7 @@ tests Tools{damlc} = testGroup "Packaging" $
 
     , testCase "Empty package" $ withTempDir $ \projDir -> do
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: proj"
             , "version: 0.0.1"
             , "source: src"
@@ -396,7 +396,7 @@ tests Tools{damlc} = testGroup "Packaging" $
         createDirectoryIfMissing True (projDir </> "src")
         createDirectoryIfMissing True (projDir </> "src" </> "A")
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: proj"
             , "version: 0.0.1"
             , "source: src"
@@ -415,7 +415,7 @@ tests Tools{damlc} = testGroup "Packaging" $
     , testCase "Virtual module name collision" $ withTempDir $ \projDir -> do
         createDirectoryIfMissing True (projDir </> "src" </> "A" </> "B")
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: proj"
             , "version: 0.0.1"
             , "source: src"
@@ -438,7 +438,7 @@ tests Tools{damlc} = testGroup "Packaging" $
     , testCase "Manifest name" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "src")
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: foobar"
             , "version: 0.0.1"
             , "source: src"
@@ -454,7 +454,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           -- set in mergePkgs.
           createDirectoryIfMissing True projDir
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: foobar"
               , "version: 1.2.3"
               , "source: ."
@@ -468,7 +468,7 @@ tests Tools{damlc} = testGroup "Packaging" $
     , testCase "Package metadata - single file" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True projDir
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: foobar"
               , "version: 1.2.3"
               , "source: ."
@@ -490,7 +490,7 @@ tests Tools{damlc} = testGroup "Packaging" $
 
           createDirectoryIfMissing True (projA </> "src")
           writeFileUTF8 (projA </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: a"
             , "version: 0.0.1"
             , "source: src"
@@ -503,7 +503,7 @@ tests Tools{damlc} = testGroup "Packaging" $
 
           createDirectoryIfMissing True (projB </> "src")
           writeFileUTF8 (projB </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: b"
             , "version: 0.0.1"
             , "source: src"
@@ -520,7 +520,7 @@ tests Tools{damlc} = testGroup "Packaging" $
 
           createDirectoryIfMissing True (projC </> "src")
           writeFileUTF8 (projC </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: c"
             , "version: 0.0.1"
             , "source: src"
@@ -547,7 +547,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           createDirectoryIfMissing True (projC </> "src")
 
           writeFileUTF8 (projA </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: a"
             , "version: 0.0.1"
             , "source: src"
@@ -562,7 +562,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           packageIdA1 <- head <$> darPackageIds (projA </> "a.dar")
 
           writeFileUTF8 (projB </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: b"
             , "version: 0.0.1"
             , "source: src"
@@ -587,7 +587,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           assertBool "Expected two different package IDs" (packageIdA1 /= packageIdA2)
 
           writeFileUTF8 (projC </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: c"
             , "version: 0.0.1"
             , "source: src"
@@ -615,7 +615,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           createDirectoryIfMissing True (projC </> "src")
 
           writeFileUTF8 (projA </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: a"
             , "version: 0.0.1"
             , "source: src"
@@ -630,7 +630,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           packageIdA1 <- head <$> darPackageIds (projA </> "a.dar")
 
           writeFileUTF8 (projB </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: b"
             , "version: 0.0.1"
             , "source: src"
@@ -656,7 +656,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           assertBool "Expected two different package IDs" (packageIdA1 /= packageIdA2)
 
           writeFileUTF8 (projC </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: c"
             , "version: 0.0.1"
             , "source: src"
@@ -678,7 +678,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building 'a"
           createDirectoryIfMissing True (tmpDir </> "a")
           writeFileUTF8 (tmpDir </> "a" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "version: 0.0.1"
               , "name: a"
               , "source: ."
@@ -693,7 +693,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building b"
           createDirectoryIfMissing True (tmpDir </> "b")
           writeFileUTF8 (tmpDir </> "b" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "version: 0.0.1"
               , "name: b"
               , "source: ."
@@ -714,7 +714,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building 'a"
           createDirectoryIfMissing True (tmpDir </> "a")
           writeFileUTF8 (tmpDir </> "a" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "version: 0.0.1"
               , "name: a"
               , "source: ."
@@ -729,7 +729,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building b"
           createDirectoryIfMissing True (tmpDir </> "b")
           writeFileUTF8 (tmpDir </> "b" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "version: 0.0.1"
               , "name: b"
               , "source: ."
@@ -749,7 +749,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building 'a"
           createDirectoryIfMissing True (tmpDir </> "a")
           writeFileUTF8 (tmpDir </> "a" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "version: 0.0.1"
               , "name: a"
               , "source: ."
@@ -764,7 +764,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building b"
           createDirectoryIfMissing True (tmpDir </> "b")
           writeFileUTF8 (tmpDir </> "b" </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "version: 0.0.1"
               , "name: b"
               , "source: ."
@@ -783,7 +783,7 @@ tests Tools{damlc} = testGroup "Packaging" $
     , testCase "build-options + package-root" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "src")
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: a"
             , "version: 0.0.1"
             , "source: src"
@@ -806,7 +806,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building dependency"
           createDirectoryIfMissing True (projDir </> "dependency")
           writeFileUTF8 (projDir </> "dependency" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: dependency"
             , "version: 0.0.1"
             , "source: ."
@@ -825,7 +825,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building data-dependency"
           createDirectoryIfMissing True (projDir </> "data-dependency")
           writeFileUTF8 (projDir </> "data-dependency" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: data-dependency"
             , "version: 0.0.1"
             , "source: ."
@@ -846,7 +846,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building main"
           createDirectoryIfMissing True (projDir </> "main")
           writeFileUTF8 (projDir </> "main" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: main"
             , "version: 0.0.1"
             , "source: ."
@@ -896,7 +896,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building data-dependency"
           createDirectoryIfMissing True (projDir </> "data-dependency")
           writeFileUTF8 (projDir </> "data-dependency" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: data-dependency"
             , "version: 0.0.1"
             , "source: ."
@@ -917,7 +917,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building dependency"
           createDirectoryIfMissing True (projDir </> "dependency")
           writeFileUTF8 (projDir </> "dependency" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: dependency"
             , "version: 0.0.1"
             , "source: ."
@@ -936,7 +936,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building main"
           createDirectoryIfMissing True (projDir </> "main")
           writeFileUTF8 (projDir </> "main" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: main"
             , "version: 0.0.1"
             , "source: ."
@@ -959,7 +959,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building data-dependency"
           createDirectoryIfMissing True (projDir </> "data-dependency")
           writeFileUTF8 (projDir </> "data-dependency" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: data-dependency"
             , "version: 0.0.1"
             , "source: ."
@@ -980,7 +980,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building dependency"
           createDirectoryIfMissing True (projDir </> "dependency")
           writeFileUTF8 (projDir </> "dependency" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: dependency"
             , "version: 0.0.1"
             , "source: ."
@@ -999,7 +999,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building main"
           createDirectoryIfMissing True (projDir </> "main")
           writeFileUTF8 (projDir </> "main" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: main"
             , "version: 0.0.1"
             , "source: ."
@@ -1023,7 +1023,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building data-dependency"
           createDirectoryIfMissing True (projDir </> "data-dependency")
           writeFileUTF8 (projDir </> "data-dependency" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: data-dependency"
             , "version: 0.0.1"
             , "source: ."
@@ -1044,7 +1044,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building dependency"
           createDirectoryIfMissing True (projDir </> "dependency")
           writeFileUTF8 (projDir </> "dependency" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: dependency"
             , "version: 0.0.1"
             , "source: ."
@@ -1063,7 +1063,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building main"
           createDirectoryIfMissing True (projDir </> "main")
           writeFileUTF8 (projDir </> "main" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: main"
             , "version: 0.0.1"
             , "source: ."
@@ -1083,7 +1083,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Create dep1"
           createDirectoryIfMissing True (dir </> "dep1")
           writeFileUTF8 (dir </> "dep1" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: dep"
             , "version: 1.0.0"
             , "source: ."
@@ -1098,7 +1098,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             ["build", "--package-root", dir </> "dep1", "-o", dir </> "dep1" </> "dep1.dar"]
           createDirectoryIfMissing True (dir </> "dep2")
           writeFileUTF8 (dir </> "dep2" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: dep"
             , "version: 2.0.0"
             , "source: ."
@@ -1114,7 +1114,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           step "Building main"
           createDirectoryIfMissing True (dir </> "main")
           writeFileUTF8 (dir </> "main" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: main"
             , "version: 0.0.1"
             , "source: ."
@@ -1135,7 +1135,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           callProcessSilent damlc ["build", "--package-root", dir </> "main", "-o", "main.dar"]
           step "Changing module prefixes"
           writeFileUTF8 (dir </> "main" </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: main"
             , "version: 0.0.1"
             , "source: ."
@@ -1151,7 +1151,7 @@ tests Tools{damlc} = testGroup "Packaging" $
     , testCaseSteps "relative output filepath" $ \step -> withTempDir $ \dir -> do
           step "Create package"
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
+            [ "sdk-version: " <> componentVersionString
             , "name: dep"
             , "version: 1.0.0"
             , "source: ."
@@ -1198,11 +1198,11 @@ tests Tools{damlc} = testGroup "Packaging" $
               exitFailure
 
 -- | Test that a package build with --target=targetVersion never has a dependency on a package with version > targetVersion
-lfVersionTests :: SdkVersioned => FilePath -> TestTree
+lfVersionTests :: ComponentVersioned => FilePath -> TestTree
 lfVersionTests damlc = testGroup "LF version dependencies"
     [ testCase ("Package in " <> LF.renderVersion version) $ withTempDir $ \projDir -> do
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
+              [ "sdk-version: " <> componentVersionString
               , "name: proj"
               , "version: 0.1.0"
               , "source: ."

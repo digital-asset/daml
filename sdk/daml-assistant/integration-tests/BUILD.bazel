@@ -28,9 +28,11 @@ da_haskell_library(
         "bytestring",
         "conduit",
         "conduit-extra",
+        "containers",
         "extra",
         "filepath",
         "hashable",
+        "jwt",
         "tasty",
         "text",
         "unordered-containers",
@@ -38,6 +40,7 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//component-version/hs:component-version-class-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
@@ -55,7 +58,6 @@ da_haskell_test(
     ],
     data = [
         "//release:dpm-sdk-release-tarball",
-        "//release:sdk-release-tarball",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
         "//:yarn",
         "//compiler/damlc/tests:generate-simple-dalf",
@@ -85,11 +87,10 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         ":integration-test-utils",
-        "//daml-assistant/daml-helper:daml-helper-lib",
+        "//component-version/hs:component-version-lib",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        "//sdk-version/hs:sdk-version-lib",
     ],
 )
