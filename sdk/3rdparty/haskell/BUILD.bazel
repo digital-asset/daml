@@ -33,8 +33,8 @@ da_haskell_library(
     name = "remote_apis",
     srcs = [
         ":remote_apis_src",
-        "//libs-haskell/ledger-api-pb:google-protobuf-pb-sources",
-        "//libs-haskell/ledger-api-pb:google-rpc-pb-sources",
+        "//libs-haskell/google-proto-hs:google-protobuf-pb-sources",
+        "//libs-haskell/google-proto-hs:google-rpc-pb-sources",
     ],
     hackage_deps = [
         "base",
