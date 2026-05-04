@@ -1,0 +1,71 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+google_protobuf_src = "external/com_google_protobuf/src"
+
+genrule(
+    name = "google-protobuf-pb-sources",
+    srcs = ["@com_google_protobuf//:well_known_type_protos"],
+    outs = ["Google/Protobuf/" + b for b in [
+        "Any.hs",
+        "Duration.hs",
+        "Empty.hs",
+        "Wrappers.hs",
+        "Struct.hs",
+        "FieldMask.hs",
+    ]],
+    cmd = """
+        for src in \
+            external/com_google_protobuf/src/google/protobuf/any.proto \
+            external/com_google_protobuf/src/google/protobuf/duration.proto \
+            external/com_google_protobuf/src/google/protobuf/empty.proto \
+            external/com_google_protobuf/src/google/protobuf/wrappers.proto \
+            external/com_google_protobuf/src/google/protobuf/struct.proto \
+            external/com_google_protobuf/src/google/protobuf/field_mask.proto \
+        ; do
+            $(location @proto3-suite//:compile-proto-file) \
+                --includeDir """ + google_protobuf_src + """ \
+                --proto google/protobuf/$$(basename $$src) \
+                --out $(@D)
+        done
+    """,
+    tools = [
+        "@proto3-suite//:compile-proto-file",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+google_rpc_src = "external/go_googleapis"
+
+filegroup(
+    name = "google-rpc-source-protos",
+    srcs = [
+        "@go_googleapis//google/rpc:error_details.proto",
+        "@go_googleapis//google/rpc:status.proto",
+    ],
+)
+
+genrule(
+    name = "google-rpc-pb-sources",
+    srcs = [
+        ":google-rpc-source-protos",
+        "@com_google_protobuf//:well_known_type_protos",
+    ],
+    outs = [
+        "Google/Rpc/Status.hs",
+        "Google/Rpc/ErrorDetails.hs",
+    ],
+    cmd = """
+        for src in $(locations :google-rpc-source-protos); do
+            $(location @proto3-suite//:compile-proto-file) \
+                --includeDir """ + google_protobuf_src + """ \
+                --includeDir """ + google_rpc_src + """ \
+                --proto google/rpc/$$(basename $$src) \
+                --out $(@D)
+        done
+    """,
+    tools = [
+        "@proto3-suite//:compile-proto-file",
+    ],
+    visibility = ["//visibility:public"],
+)
