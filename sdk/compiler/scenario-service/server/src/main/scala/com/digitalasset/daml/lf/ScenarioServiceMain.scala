@@ -66,9 +66,10 @@ object ScenarioServiceMain extends App {
   ScenarioServiceConfig.parse(args) match {
     case None => sys.exit(1)
     case Some(config) =>
-      // Silence JUL's default ConsoleHandler to prevent third-party libraries
-      // (e.g. gRPC/Netty TcpMetrics) from writing INFO noise to stderr.
-      Logger.getLogger("").setLevel(Level.WARNING)
+      // Route JUL through SLF4J/Logback so that noisy third-party loggers
+      // (e.g. gRPC/Netty TcpMetrics) are controlled via logback.xml.
+      org.slf4j.bridge.SLF4JBridgeHandler.removeHandlersForRootLogger()
+      org.slf4j.bridge.SLF4JBridgeHandler.install()
 
       // Needed for the pekko Ledger bindings used by Daml Script.
       val system = ActorSystem("ScriptService")
@@ -86,6 +87,9 @@ object ScenarioServiceMain extends App {
         server.start()
         // Print the allocated port for the client
         println("PORT=" + server.getPort.toString)
+
+        // Bump up the log level
+        Logger.getLogger("io.grpc").setLevel(Level.ALL)
 
         // Start a thread to watch stdin and terminate
         // if it closes. This makes sure we do not leave
