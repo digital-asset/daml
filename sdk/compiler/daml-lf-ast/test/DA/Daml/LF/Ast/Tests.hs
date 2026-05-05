@@ -33,6 +33,7 @@ main = defaultMain $ testGroup "DA.Daml.LF.Ast"
     , substitutionTests
     , typeSynTests
     , stagingAcceptedTest
+    , minorVersionOrderingTest
     ]
 
 numericExamples :: [(String, Numeric)]
@@ -596,3 +597,28 @@ typeCheck version mod = do
 stagingAcceptedTest :: TestTree
 stagingAcceptedTest = testCase "Staging revision check" $
   (stagingRevision `elem` acceptedStagingRevisions) @?= True
+
+minorVersionOrderingTest :: TestTree
+minorVersionOrderingTest = testCase "MinorVersion ordering" $ do
+    let minorsInOrder =
+            [ PointStable 1
+            , PointStaging 2
+            , PointStable 2
+            , PointStable 3
+            , PointStaging 4
+            , PointStaging 5
+            , PointStable 5
+            , PointDev
+            ]
+        rank = zip minorsInOrder [(0::Int)..]
+        rankOf m = case lookup m rank of
+            Just r -> r
+            Nothing -> error $ "missing rank for " ++ show m
+    sequence_
+        [ let expected = compare (rankOf m1) (rankOf m2)
+              actual = compare m1 m2
+          in assertEqual (show m1 ++ " vs " ++ show m2) expected actual
+        | m1 <- minorsInOrder
+        , m2 <- minorsInOrder
+        ]
+
