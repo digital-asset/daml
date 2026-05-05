@@ -67,7 +67,6 @@ da_haskell_library(
         "//compiler/script-service/client",
         "//component-version/hs:component-version-class-lib",
         "//daml-assistant:daml-project-config",
-        "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/da-hs-base",
     ],
 )

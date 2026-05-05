@@ -222,8 +222,6 @@ da_haskell_repl(
         "//compiler/damlc/tests:packaging",
         "//daml-assistant/daml-new",
         "//daml-assistant/integration-tests",
-        "//language-support/hs/bindings:hs-ledger",
-        "//language-support/hs/bindings:test",
     ],
 )
 
