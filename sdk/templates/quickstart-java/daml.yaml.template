@@ -7,15 +7,8 @@ dependencies:
   - daml-prim
   - daml-stdlib
   - daml-script
-
 codegen:
   java:
     package-prefix: com.daml.quickstart.model
     output-directory: target/generated-sources/iou
     decoderClass: com.daml.quickstart.iou.TemplateDecoder
-
-components:
-  - canton-open-source:__VERSION__
-  - codegen:__VERSION__
-  - daml-script:__VERSION__
-  - damlc:__VERSION__
