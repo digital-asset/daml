@@ -117,7 +117,7 @@ class IdeLedgerClient(
     new InMemoryUserManagementStore(createAdmin = false, loggerFactory)
 
   private[this] def blob(contract: FatContractInstance): Bytes =
-    Bytes.fromByteString(TransactionCoder.encodeFatContractInstance(contract).toOption.get)
+    Bytes.fromByteString(ContractInstanceCoder.encodeFatContractInstance(contract).toOption.get)
 
   private[this] def blob(create: Node.Create, createAt: Time.Timestamp): Bytes =
     blob(FatContractInstance.fromCreateNode(create, CreationTime.CreatedAt(createAt), Bytes.Empty))
@@ -675,7 +675,7 @@ class IdeLedgerClient(
         import cats.implicits._
 
         disclosures
-          .traverse(b => TransactionCoder.decodeFatContractInstance(b.blob.toByteString))
+          .traverse(b => ContractInstanceCoder.decodeFatContractInstance(b.blob.toByteString))
           .left
           .map(err => makeEmptySubmissionError(script.Error.DisclosureDecoding(err.errorMessage)))
       }
