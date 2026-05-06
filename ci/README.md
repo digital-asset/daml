@@ -47,10 +47,6 @@ The entrypoints we have in this repo, as of 2024-05-28, are:
   only), a daily BlackDuck scan (which optionally udpates the `NOTICES` file),
   the daily code pull from canton, as well as triggering the `snapshot` pipeline
   if needed.
-- `/ci/cron/tuesday.yml` runs on Tuesdays to send a Slack message to
-  `#team-daml` announcing who will be responsible for the Wednesday release
-  testing.
-- `/ci/cron/wednesday.yml` open the release testing rotation update PR.
 
 ## Special branches
 
