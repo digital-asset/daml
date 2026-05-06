@@ -1,3 +1,5 @@
+sdk-version: __VERSION__
+name: __PROJECT_NAME__-test
 source: daml
 version: 0.0.1
 dependencies:
