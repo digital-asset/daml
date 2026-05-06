@@ -461,6 +461,8 @@ object ValueGenerators {
       keyOpt = key,
       byKey = byKey,
       version = version,
+      // TODO[https://github.com/DACH-NY/canton/pull/506]: intergrate with EC proposal
+      externalCallResults = ImmArray.empty,
     )
 
   val lookupNodeGen: Gen[Node.LookupByKey] =
