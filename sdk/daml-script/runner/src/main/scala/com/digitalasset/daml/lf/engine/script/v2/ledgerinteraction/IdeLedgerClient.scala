@@ -106,12 +106,7 @@ class IdeLedgerClient(
   // Returns false if the package is unknown, leaving the packageId unmodified
   // so later computation can throw a better formulated error
   def packageSupportsUpgrades(packageId: PackageId): Boolean =
-    compiledPackages.pkgInterface
-      .lookupPackage(packageId)
-      .fold(
-        _ => false,
-        pkgSig => LanguageVersion.featurePackageUpgrades.enabledIn(pkgSig.languageVersion),
-      )
+    compiledPackages.pkgInterface.lookupPackage(packageId).isRight
 
   private var _ledger: IdeLedger = IdeLedger.initialLedger(Time.Timestamp.Epoch, csmMode)
   def ledger: IdeLedger = _ledger
