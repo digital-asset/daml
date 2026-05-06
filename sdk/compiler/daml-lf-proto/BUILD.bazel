@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test", "generate_and_track_cabal")
+load("//daml-lf:daml-lf.bzl", "STAGING_LF_VERSION")
 
 genrule(
     name = "daml_lf_archive_proto_srcs",
@@ -96,7 +97,7 @@ da_haskell_test(
         "test/DA/Daml/LF/Proto3/EncodeDecodeTest.hs",
     ],
     data = [
-        "//daml-script/test:script-test-v2.3-staging.dar",
+        "//daml-script/test:script-test-v{}.dar".format(STAGING_LF_VERSION),
     ],
     hackage_deps = [
         "base",

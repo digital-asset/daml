@@ -80,6 +80,7 @@ EOF
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
+    # TODO[#23010]: assess needs after moving 2.3 to stable
     for (lfVersion, supportsKeys) in [
         (LATEST_STABLE_LF_VERSION, False),
         (STAGING_LF_VERSION, True),
