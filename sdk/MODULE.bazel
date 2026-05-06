@@ -49,6 +49,12 @@ use_repo(jq_toolchains_ext, "jq_toolchains")
 register_toolchains("@bsd_tar_toolchains//:all")
 register_toolchains("//:c2hs-toolchain")
 
+# --- C/C++ toolchain (hermetic GCC 13.2.0 from Bootlin, Linux x86_64) ---
+
+gcc_toolchain_ext = use_extension("//bazel/extensions:gcc_toolchain_extension.bzl", "gcc_toolchain")
+use_repo(gcc_toolchain_ext, "hermetic_cc_linux_amd64")
+register_toolchains("@hermetic_cc_linux_amd64//:toolchain")
+
 # --- Node.js toolchain ---
 
 node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node")
