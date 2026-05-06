@@ -24,13 +24,19 @@ def _package_app_impl(ctx):
 def _package_oci_component_impl(ctx):
     args = ctx.actions.args()
     args.add(ctx.outputs.out.path)
-    args.add(ctx.files.component_manifest[0].path)
+    component_manifest = ctx.actions.declare_file("component.yaml")
+    ctx.actions.expand_template(
+        output = component_manifest,
+        template = ctx.files.component_manifest[0],
+        substitutions = ctx.attr.component_substitutions,
+    )
+    args.add(component_manifest.path)
     args.add(1 if ctx.attr.platform_agnostic else 0)
     args.add_all(ctx.attr.resources + [ctx.attr.license], map_each = _get_resource_path)
     ctx.actions.run(
         executable = ctx.executable.package_oci_component,
         outputs = [ctx.outputs.out],
-        inputs = ctx.files.resources + ctx.files.component_manifest + ctx.files.license,
+        inputs = ctx.files.resources + [component_manifest] + ctx.files.license,
         arguments = [args],
         progress_message = "Packaging OCI " + ctx.attr.name,
     )
@@ -87,6 +93,7 @@ package_oci_component = rule(
         "component_manifest": attr.label(
             allow_single_file = True,
         ),
+        "component_substitutions": attr.string_dict(),
         "platform_agnostic": attr.bool(
             default = False,
         ),
