@@ -94,6 +94,7 @@ def install_java_deps():
             "io.reactivex.rxjava2:rxjava:2.2.21",
             "org.junit.jupiter:junit-jupiter-engine:5.9.2",
             "org.junit.platform:junit-platform-runner:1.9.2",
+            "org.slf4j:jul-to-slf4j:2.0.6",
             "org.scalactic:scalactic_{}:3.2.19".format(scala_major_version),
             "org.scalatest:scalatest_{}:3.2.19".format(scala_major_version),
             "org.scalatestplus:scalacheck-1-15_{}:3.2.11.0".format(scala_major_version),
