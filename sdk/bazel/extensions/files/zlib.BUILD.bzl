@@ -8,14 +8,15 @@ genrule(
     cmd = """
         SRC=$$(realpath $$(dirname $(location configure)))
         PREFIX=$$(realpath $(@D))
+        CC_ABS=$$PWD/$(CC)
         BUILD=$$(mktemp -d /tmp/zlib-XXXXXX)
         cp -rpL $$SRC/. $$BUILD
         chmod -R u+w $$BUILD
-        cd $$BUILD && CC="$(CC)" \
+        cd $$BUILD && CC="$$CC_ABS" \
         ./configure \
             --prefix=$$PREFIX \
             --shared \
-        && make -j$$(nproc) CC="$(CC)" \
+        && make -j$$(nproc) CC="$$CC_ABS" \
         && make install \
         && cd $$PREFIX/lib \
         && for f in *.so *.so.*; do \
