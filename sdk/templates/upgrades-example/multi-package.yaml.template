@@ -1,3 +1,5 @@
+sdk-version: __VERSION__
+
 packages:
 - ./interfaces
 - ./main-v1
