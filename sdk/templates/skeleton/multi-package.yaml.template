@@ -1,9 +1,5 @@
+sdk-version: __VERSION__
+
 packages:
 - ./main
 - ./test
-
-components:
-  - canton-open-source:__VERSION__
-  - codegen:__VERSION__
-  - daml-script:__VERSION__
-  - damlc:__VERSION__
