@@ -1,3 +1,4 @@
+name: __PROJECT_NAME__-main
 source: daml
 version: 0.0.1
 dependencies:
