@@ -389,7 +389,10 @@ daml_test(
 
 pkg_tar(
     name = "daml-patterns",
-    srcs = glob(["source/sdk/sdlc-howtos/smart-contracts/develop/patterns/daml/**/*.daml"]) + ["source/sdk/sdlc-howtos/smart-contracts/develop/patterns/daml.yaml.template"],
+    srcs = glob([
+        "source/sdk/sdlc-howtos/smart-contracts/develop/patterns/daml/**/*.daml",
+        "source/sdk/sdlc-howtos/smart-contracts/develop/patterns/daml.yaml.template",
+    ]),
     strip_prefix = "/docs/source/sdk/sdlc-howtos/smart-contracts/develop/patterns",
     visibility = ["//visibility:public"],
 )
@@ -508,16 +511,20 @@ daml_build_test(
 daml_multi_package_test(
     name = "daml-intro-test",
     srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**/*.daml"]),
-    build_files = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**/daml.yaml.template"]),
-    multi_package_file = ":source/sdk/tutorials/smart-contracts/daml/daml-intro-test/multi-package.yaml",
+    build_files = glob([
+        "source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**/daml.yaml.template",
+        "source/sdk/tutorials/smart-contracts/daml/daml-intro-test/multi-package.yaml.template",
+    ]),
 )
 
 daml_multi_package_test(
     name = "daml-intro-interfaces",
     srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/**/*.daml"]),
-    build_files = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/**/daml.yaml.template"]),
+    build_files = glob([
+        "source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/**/daml.yaml.template",
+        "source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/multi-package.yaml.template",
+    ]),
     enable_interfaces = True,
-    multi_package_file = ":source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/multi-package.yaml",
     shorten = "source/sdk/tutorials/smart-contracts/daml/",
 )
 

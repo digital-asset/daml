@@ -706,20 +706,18 @@ $$DAMLC doctest {flags} --script-lib $$SCRIPT_DAR --cpp $$CPP --package-name {pa
 
 def daml_multi_package_test(
         name,
-        multi_package_file,
         build_files = [],
         srcs = [],
         dpm_tarball = "//release:dpm-sdk-release-tarball",
         enable_interfaces = False,
         additional_compiler_flags = [],
         # shorten can be used to remove a common infix from srcs, build_files
-        # and multi_package_file.  Useful to stay under the maximum path length
-        # on Windows.
+        # Useful to stay under the maximum path length on Windows.
         shorten = None,
         **kwargs):
     sh_inline_test(
         name = name,
-        data = [dpm_tarball] + srcs + [multi_package_file] + build_files,
+        data = [dpm_tarball] + srcs + build_files,
         cmd = """
             set -eou pipefail
             export DPM_HOME=$$PWD/$$(mktemp -d tmp.XXXXXXX)
@@ -735,7 +733,6 @@ def daml_multi_package_test(
             DPM="$$DPM_HOME/bin/dpm{cmd}"
             
             rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
-            {cp_multi_package_file}
             {cp_build_files}
             {cp_srcs}
             {run_tests}
@@ -762,11 +759,6 @@ def daml_multi_package_test(
                 )
                 for build_file in build_files
             ]),
-            cp_multi_package_file =
-                "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
-                    src = "$$(canonicalize_rlocation $(rootpath {}))".format(multi_package_file),
-                    dest = "$$tmpdir/$$(shorten $(rootpath {}))".format(multi_package_file),
-                ),
             run_tests = "\n".join([
                 """
                     echo $$(dirname $$tmpdir/$$(shorten $(rootpath {build_file})))
