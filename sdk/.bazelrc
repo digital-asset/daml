@@ -108,8 +108,11 @@ build:windows --crosstool_top=@rules_haskell_ghc_windows_amd64//:cc_toolchain
 build:windows --remote_accept_cached=true
 build:windows --jobs=4
 
-build --action_env=CC=/usr/bin/gcc-14
-build --action_env=CXX=/usr/bin/g++-14
+# Tell @local_config_cc to skip host compiler detection. Our hermetic GCC
+# toolchain registered in MODULE.bazel wins toolchain resolution for all
+# modern C/C++ rules. @local_config_cc becomes a dummy repo; any target
+# still referencing it directly will need to migrate to toolchain resolution.
+build:linux --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 
 # Instruct bazel to globally use this flag for compiling protobuf files.
 # We need the source info for generating proto docs. By default proto_library strips
