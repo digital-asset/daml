@@ -20,6 +20,15 @@
     {
       "major" : 2,
       "minor" : {
+        "Staging" : {
+          "version" : 4,
+          "revision" : 1
+        }
+      }
+    },
+    {
+      "major" : 2,
+      "minor" : {
         "Dev" : {
           
         }
@@ -30,6 +39,15 @@
       "minor" : {
         "Stable" : {
           "version" : 3
+        }
+      }
+    },
+    {
+      "major" : 2,
+      "minor" : {
+        "Staging" : {
+          "version" : 4,
+          "revision" : 1
         }
       }
     },
@@ -72,7 +90,7 @@
       "major" : 2,
       "minor" : {
         "Stable" : {
-          "version" : 2
+          "version" : 3
         }
       }
     },
@@ -80,8 +98,8 @@
       "major" : 2,
       "minor" : {
         "Staging" : {
-          "version" : 3,
-          "revision" : 2
+          "version" : 4,
+          "revision" : 1
         }
       }
     }
@@ -124,8 +142,43 @@
       {
         "major" : 2,
         "minor" : {
+          "Staging" : {
+            "version" : 4,
+            "revision" : 1
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
           "Dev" : {
             
+          }
+        }
+      }
+    ],
+    "earlyAccessLfVersions" : [
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 1
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 2
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 3
           }
         }
       }
@@ -161,6 +214,15 @@
         "minor" : {
           "Stable" : {
             "version" : 3
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Staging" : {
+            "version" : 4,
+            "revision" : 1
           }
         }
       },
@@ -236,6 +298,15 @@
       {
         "major" : 2,
         "minor" : {
+          "Staging" : {
+            "version" : 4,
+            "revision" : 1
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
           "Dev" : {
             
           }
@@ -284,6 +355,15 @@
         "minor" : {
           "Stable" : {
             "version" : 3
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Staging" : {
+            "version" : 4,
+            "revision" : 1
           }
         }
       },
