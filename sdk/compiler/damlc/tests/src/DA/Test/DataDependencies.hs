@@ -56,7 +56,6 @@ data TestArgs = TestArgs
   , simpleDalfLfVersion :: LF.Version
   , lfVersionTestPairs :: [(LF.Version, LF.Version)]
   , damlc :: FilePath
-  , damlcLegacy :: FilePath
   , scriptDevDar :: FilePath
   , validate :: FilePath -> IO ()
   , oldProjDar :: FilePath
@@ -2878,4 +2877,4 @@ tests TestArgs{..} =
     damlcForTarget :: LF.Version -> FilePath
     damlcForTarget target
       | target `elem` LF.compilerOutputLfVersions = damlc
-      | otherwise = damlcLegacy
+      | otherwise = damlc
