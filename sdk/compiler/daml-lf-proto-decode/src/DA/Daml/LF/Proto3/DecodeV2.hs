@@ -693,7 +693,7 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> mayDecode "update_ExerciseInterfaceArg" update_ExerciseInterfaceArg decodeExpr
       <*> traverse decodeExpr update_ExerciseInterfaceGuard
   LF2.UpdateSumExerciseByKey LF2.Update_ExerciseByKey{..} -> do
-    assertSupportsFeature featureExerciseByKey
+    assertSupportsFeature featureNUCK
     fmap EUpdate $ UExerciseByKey
       <$> mayDecode "update_ExerciseByKeyTemplate" update_ExerciseByKeyTemplate decodeTypeConId
       <*> decodeNameId ChoiceName update_ExerciseByKeyChoiceInternedStr
@@ -721,7 +721,7 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
   LF2.UpdateSumQueryNByKey LF2.Update_QueryNByKey{..} ->
     EUpdate . ULookupNByKey <$> mayDecode "update_RetrieveByKeyTemplate" update_QueryNByKeyTemplate decodeTypeConId
   LF2.UpdateSumFetchByKey retrieveByKey -> do
-    assertSupportsFeature featureFetchByKey
+    assertSupportsFeature featureNUCK
     fmap (EUpdate . UFetchByKey) (decodeRetrieveByKey retrieveByKey)
   LF2.UpdateSumTryCatch LF2.Update_TryCatch{..} ->
     fmap EUpdate $ UTryCatch
