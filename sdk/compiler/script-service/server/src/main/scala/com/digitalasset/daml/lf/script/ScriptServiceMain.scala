@@ -98,7 +98,6 @@ object ScriptServiceMain extends App {
       // Bump up the log level
       Logger.getLogger("io.grpc").setLevel(Level.ALL)
 
-
       // Start a thread to watch stdin and terminate
       // if it closes. This makes sure we do not leave
       // this process running if the parent exits.
