@@ -706,7 +706,6 @@ $$DAMLC doctest {flags} --script-lib $$SCRIPT_DAR --cpp $$CPP --package-name {pa
 
 def daml_multi_package_test(
         name,
-        build_files = [],
         srcs = [],
         dpm_tarball = "//release:dpm-sdk-release-tarball",
         enable_interfaces = False,
@@ -717,7 +716,7 @@ def daml_multi_package_test(
         **kwargs):
     sh_inline_test(
         name = name,
-        data = [dpm_tarball] + srcs + build_files,
+        data = [dpm_tarball] + srcs,
         cmd = """
             set -eou pipefail
             export DPM_HOME=$$PWD/$$(mktemp -d tmp.XXXXXXX)
@@ -733,44 +732,37 @@ def daml_multi_package_test(
             DPM="$$DPM_HOME/bin/dpm{cmd}"
             
             rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
-            {cp_build_files}
             {cp_srcs}
+            echo $$tmpdir
             {run_tests}
         """.format(
             shorten = shorten,
             dpm_tarball = dpm_tarball,
             cmd = ".cmd" if is_windows else "",
             cp_srcs = "\n".join([
-                "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
-                    src = "$$(canonicalize_rlocation $(rootpath {}))".format(src),
-                    dest = "$$tmpdir/$$(shorten $(rootpath {}))".format(src),
-                )
-                for src in srcs
-            ]),
-            cp_build_files = "\n".join([
                 """
                     src=$$(canonicalize_rlocation $(rootpath {src}))
                     dest=$$(echo "$$tmpdir/$$(shorten $(rootpath {src}))" | sed 's/\\.template$$//')
                     mkdir -p $$(dirname $$dest); cp -f $$src $$dest
-                    sed -iE 's/__VERSION__/{sdk_version}/' $$dest
+                    {sed}
                 """.format(
-                    sdk_version = sdk_version,
-                    src = build_file,
+                    src = src,
+                    sed = "sed -iE 's/__VERSION__/{}/' $$dest".format(sdk_version) if paths.split_extension(src)[1] == ".template" else "",
                 )
-                for build_file in build_files
+                for src in srcs
             ]),
             run_tests = "\n".join([
                 """
-                    echo $$(dirname $$tmpdir/$$(shorten $(rootpath {build_file})))
-                    cd $$(dirname $$tmpdir/$$(shorten $(rootpath {build_file})))
+                    echo $$(dirname $$tmpdir/$$(shorten $(rootpath {daml_yaml})))
+                    cd $$(dirname $$tmpdir/$$(shorten $(rootpath {daml_yaml})))
                     $$DPM build {enable_interfaces} {damlc_opts}
                     $$DPM test
                 """.format(
-                    build_file = build_file,
+                    daml_yaml = daml_yaml,
                     enable_interfaces = "--enable-interfaces=no" if not enable_interfaces else "",
                     damlc_opts = " ".join(default_damlc_opts + additional_compiler_flags),
                 )
-                for build_file in build_files
+                for daml_yaml in srcs if paths.basename(daml_yaml) == "daml.yaml" or paths.basename(daml_yaml) == "daml.yaml.template"
             ]),
         ),
         **kwargs

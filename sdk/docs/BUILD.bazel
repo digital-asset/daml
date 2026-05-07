@@ -510,20 +510,12 @@ daml_build_test(
 
 daml_multi_package_test(
     name = "daml-intro-test",
-    srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**/*.daml"]),
-    build_files = glob([
-        "source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**/daml.yaml.template",
-        "source/sdk/tutorials/smart-contracts/daml/daml-intro-test/multi-package.yaml.template",
-    ]),
+    srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**/*"]),
 )
 
 daml_multi_package_test(
     name = "daml-intro-interfaces",
-    srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/**/*.daml"]),
-    build_files = glob([
-        "source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/**/daml.yaml.template",
-        "source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/multi-package.yaml.template",
-    ]),
+    srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/**/*"]),
     enable_interfaces = True,
     shorten = "source/sdk/tutorials/smart-contracts/daml/",
 )
