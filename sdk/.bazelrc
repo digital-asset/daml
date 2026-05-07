@@ -1,5 +1,9 @@
 common --enable_bzlmod
 common --noenable_workspace
+# Apply build:linux / build:darwin / build:windows automatically based on host OS,
+# so platform-specific flags (including BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1) take
+# effect even when --config=linux is not passed explicitly.
+common --enable_platform_specific_config
 
 # Bazel distributed cache, can be temporarily disabled by passing the following
 # flag: --noremote_accept_cached
