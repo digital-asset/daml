@@ -19,6 +19,20 @@ genrule(
     visibility = ["//visibility:private"],
 )
 
+genrule(
+    name = "daml-lf-features-json-extract",
+    srcs = ["@maven//:com_daml_daml_lf_language_2_13"],
+    outs = ["daml-lf-features-generated.json"],
+    cmd = """
+        # Extract the dto file from the jar
+        $(location @bazel_tools//tools/zip:zipper) x $(SRCS) -d $(RULEDIR) daml-lf-features.json
+        # Rename it to match our declared output
+        mv $(RULEDIR)/daml-lf-features.json $@
+    """,
+    tools = ["@bazel_tools//tools/zip:zipper"],
+    visibility = ["//visibility:private"],
+)
+
 exports_files(
     [
         "daml-lf-versions.json",
@@ -42,6 +56,20 @@ py_test(
     main = "check_versions.py",
 )
 
+py_test(
+    name = "daml-lf-features-check",
+    srcs = ["check_versions.py"],
+    args = [
+        "$(location daml-lf-features.json)",
+        "$(location daml-lf-features-generated.json)",
+    ],
+    data = [
+        "daml-lf-features.json",
+        "daml-lf-features-generated.json",
+    ],
+    main = "check_versions.py",
+)
+
 # The Golden File Updater (runs via `bazel run`)
 sh_binary(
     name = "update-daml-lf-versions",
@@ -51,6 +79,16 @@ sh_binary(
         "daml-lf/daml-lf-versions.json",  # The path relative to workspace root
     ],
     data = ["daml-lf-versions-generated.json"],
+)
+
+sh_binary(
+    name = "update-daml-lf-features",
+    srcs = ["update_versions.sh"],
+    args = [
+        "$(location daml-lf-features-generated.json)",
+        "daml-lf/daml-lf-features.json",  # The path relative to workspace root
+    ],
+    data = ["daml-lf-features-generated.json"],
 )
 
 py_binary(
