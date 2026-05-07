@@ -227,7 +227,7 @@ class UpgradesITLargeStable
       //  LanguageVersion.latestStableLfVersion once v35 is stable
       cantonProtocolVersion = ProtocolVersion.Explicit("v35"),
       // TODO[#22994]: undo hardcoded staging version
-      languageVersion = LanguageVersion.v2_3_2,
+      languageVersion = LanguageVersion.latestStableLfVersion,
       upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib.dar",
       testFilesDirPath = "daml-script/test/daml/upgrades/stable",
       numParticipants = 5,
