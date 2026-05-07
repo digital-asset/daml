@@ -15,6 +15,7 @@ class DamlScriptTestRunnerPV34 extends DamlScriptTestRunner {
 
   override lazy val protocolVersion = ProtocolVersion.Explicit("v34")
 
+  // TODO[23010]: replace hardcoded "2.2" with something like `PV34_LATEST_SUPPORTED_LF_VERSION`
   val scriptTestDar = Paths.get(BazelRunfiles.rlocation("daml-script/test/script-test-v2.2.dar"))
 
   "daml-script command line" should {
