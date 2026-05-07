@@ -1,3 +1,5 @@
+sdk-version: __VERSION__
+
 packages:
 - ./main
 - ./test
