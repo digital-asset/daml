@@ -66,6 +66,11 @@ object ScenarioServiceMain extends App {
   ScenarioServiceConfig.parse(args) match {
     case None => sys.exit(1)
     case Some(config) =>
+      // Route JUL through SLF4J/Logback so that noisy third-party loggers
+      // (e.g. gRPC/Netty TcpMetrics) are controlled via logback.xml.
+      org.slf4j.bridge.SLF4JBridgeHandler.removeHandlersForRootLogger()
+      org.slf4j.bridge.SLF4JBridgeHandler.install()
+
       // Needed for the pekko Ledger bindings used by Daml Script.
       val system = ActorSystem("ScriptService")
       implicit val sequencer: ExecutionSequencerFactory =
