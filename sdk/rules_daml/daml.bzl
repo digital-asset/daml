@@ -762,7 +762,8 @@ def daml_multi_package_test(
                     enable_interfaces = "--enable-interfaces=no" if not enable_interfaces else "",
                     damlc_opts = " ".join(default_damlc_opts + additional_compiler_flags),
                 )
-                for daml_yaml in srcs if paths.basename(daml_yaml) == "daml.yaml" or paths.basename(daml_yaml) == "daml.yaml.template"
+                for daml_yaml in srcs
+                if paths.basename(daml_yaml) == "daml.yaml" or paths.basename(daml_yaml) == "daml.yaml.template"
             ]),
         ),
         **kwargs
