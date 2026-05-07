@@ -23,7 +23,8 @@ _PLATFORMS = {
 # All literal Starlark braces are doubled ({{ / }}) to survive .format().
 # Placeholders: {tool_prefix}, {target_cpu}, {toolchain_identifier},
 #               {target_system_name}, {abi_version}, {abi_libc_version},
-#               {compile_flags}, {cxx_flags}.
+#               {compile_flags}, {conly_flags}, {cxx_flags},
+#               {cxx_builtin_include_directories}.
 _BUILD_TPL = """\
 load("@bazel_tools//tools/cpp:unix_cc_toolchain_config.bzl", "cc_toolchain_config")
 load("@rules_cc//cc:defs.bzl", "cc_toolchain")
@@ -44,10 +45,15 @@ cc_toolchain_config(
     target_libc = "glibc",
     abi_version = "{abi_version}",
     abi_libc_version = "{abi_libc_version}",
-    # Empty: we use -nostdinc + explicit -isystem flags below instead of
-    # cxx_builtin_include_directories, which would require knowing the
-    # sandbox-local absolute path that changes per action (bazel#4605).
-    cxx_builtin_include_directories = [],
+    # Execroot-relative directories (external/<repo>/...) that double as
+    # (a) sandbox mount roots so Bazel materialises the libc + libstdc++
+    # headers inside the sandbox, and (b) strict-headers acceptance roots
+    # so .d-file dependencies under these prefixes are honoured. Paired
+    # with -fno-canonical-system-headers (see unfiltered_compile_flags
+    # below) so GCC emits relative paths in .d files; this is what lets us
+    # use cxx_builtin_include_directories without re-triggering the
+    # absolute-path strict-headers regression of bazel#4605.
+    cxx_builtin_include_directories = {cxx_builtin_include_directories},
     tool_paths = {{
         "gcc": "bin/{tool_prefix}-gcc",
         "ar": "bin/{tool_prefix}-ar",
@@ -61,13 +67,21 @@ cc_toolchain_config(
         "dwp": "/bin/false",
         "llvm-cov": "/bin/false",
     }},
-    # -nostdinc suppresses GCC's default include search so it reports
-    # execroot-relative paths in .d files; -isystem re-adds the headers via
-    # stable execroot-relative paths (external/<repo>/...) that Bazel's
-    # strict-header check accepts even inside the sandbox.
+    # -nostdinc / -nostdinc++ suppress GCC's default include search so it
+    # reports execroot-relative paths in .d files; -isystem re-adds the
+    # headers via stable execroot-relative paths (external/<repo>/...) that
+    # Bazel's strict-header check accepts even inside the sandbox.
+    #
+    # The C-only -isystem entries are emitted via conly_flags rather than
+    # compile_flags so that for C++ compiles -- where Bazel concatenates
+    # compile_flags then cxx_flags -- the C++ include roots come BEFORE the
+    # C ones on the command line. That ordering is required for libstdc++
+    # headers like <cstdlib> whose `#include_next <stdlib.h>` must resolve
+    # to the libc header in the sysroot AFTER the C++ directory in which
+    # cstdlib itself lives.
     compile_flags = {compile_flags},
+    conly_flags = {conly_flags},
     cxx_flags = {cxx_flags},
-    conly_flags = [],
     link_flags = [],
     archive_flags = [],
     # Conditional C++ runtime linkage: pure-C binaries get no spurious
@@ -85,7 +99,8 @@ cc_toolchain_config(
     unfiltered_compile_flags = ["-no-canonical-prefixes", "-fno-canonical-system-headers"],
     coverage_compile_flags = [],
     coverage_link_flags = [],
-    supports_start_end_lib = True,
+    # Bootlin tarball ships only ld.bfd, which does not recognise --start-lib/--end-lib (gold/lld features).
+    supports_start_end_lib = False,
     # Bootlin GCC is configured --with-sysroot at build time; leave empty.
     builtin_sysroot = "",
 )
@@ -154,9 +169,17 @@ def _gcc_toolchain_repo_impl(rctx):
         "external/{}/{}/include/c++/{}/backward".format(repo, tool_prefix, gcc_version),
     ] + c_include_dirs
 
-    compile_flags = _starlark_list(["-nostdinc"] + _isystem_flags(c_include_dirs))
+    # compile_flags applies to both C and C++ compiles, but cxx_flags is
+    # appended AFTER compile_flags for C++ only. To ensure libstdc++'s
+    # `#include_next <stdlib.h>` resolves correctly, the C++ include roots
+    # must precede the C ones on the C++ command line, so we keep the C-only
+    # roots out of compile_flags and emit them via conly_flags / cxx_flags.
+    compile_flags = _starlark_list(["-nostdinc"])
+    conly_flags = _starlark_list(_isystem_flags(c_include_dirs))
     cxx_flags = _starlark_list(["-nostdinc", "-nostdinc++"] + _isystem_flags(cxx_include_dirs))
 
+    # cxx_include_dirs already contains c_include_dirs (see "+ c_include_dirs"
+    # above), so it is the union of both header sets.
     rctx.file(
         "BUILD.bazel",
         _BUILD_TPL.format(
@@ -167,7 +190,9 @@ def _gcc_toolchain_repo_impl(rctx):
             target_system_name = rctx.attr.target_system_name,
             toolchain_identifier = rctx.attr.toolchain_identifier,
             compile_flags = compile_flags,
+            conly_flags = conly_flags,
             cxx_flags = cxx_flags,
+            cxx_builtin_include_directories = _starlark_list(cxx_include_dirs),
         ),
     )
 
