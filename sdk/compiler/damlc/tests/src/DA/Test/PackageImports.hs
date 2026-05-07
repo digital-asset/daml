@@ -36,7 +36,7 @@ entry = defaultMain $ testGroup "Round-trip tests"
 
 darTests :: TestTree
 darTests = testGroup ".dar tests" $ verifyImports <$>
-    [ "script-test-v2.3-staging.dar"
+    [ "script-test-v" ++ renderVersion stagingLfVersion ++ ".dar"
     ]
 
 -- | Computes the transitive closure for a starting key in a graph.
