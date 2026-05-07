@@ -272,10 +272,10 @@ daml_compile(
     name = "upgrade-test-lib",
     srcs = [":daml/UpgradeTestLib.daml"],
     dependencies = [
-        "//daml-script/daml:daml-script-{}.dar".format(LATEST_STABLE_LF_VERSION),
+        "//daml-script/daml:daml-script-{}.dar".format(STAGING_LF_VERSION),
     ],
     project_name = "upgrade-test-lib",
-    target = LATEST_STABLE_LF_VERSION,
+    target = STAGING_LF_VERSION,
     version = "1.0.0",
 )
 
