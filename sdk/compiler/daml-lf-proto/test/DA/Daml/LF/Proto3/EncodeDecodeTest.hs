@@ -94,7 +94,7 @@ rttDeepLetWithLoc = testCase "deep let with location package" $ roundTripAssert 
 ------------------------------------------------------------------------
 darTests :: TestTree
 darTests = testGroup ".dar tests" $ rttDar <$>
-    [ "script-test-v2.3-staging.dar"
+    [ "script-test-v" ++ renderVersion stagingLfVersion ++ ".dar"
     ]
 
 
