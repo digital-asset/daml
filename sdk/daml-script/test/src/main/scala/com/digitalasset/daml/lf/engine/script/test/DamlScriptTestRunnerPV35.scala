@@ -21,7 +21,7 @@ class DamlScriptTestRunnerPV35 extends DamlScriptTestRunner {
   // TODO[23015]: reconsider the lf version here
   // TODO[23016]: get rid of hardcoded string when some kind of `renderForDaml` has been added to canton
   val scriptTestDar =
-    Paths.get(BazelRunfiles.rlocation(s"daml-script/test/script-test-v2.4-staging.dar"))
+    Paths.get(BazelRunfiles.rlocation(s"daml-script/test/script-test-v2.3.dar"))
   val fakeScriptTestDar =
     Paths.get(BazelRunfiles.rlocation("daml-script/test/legacy-script-test.dar"))
   val jsonScriptTestDar =

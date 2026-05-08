@@ -327,6 +327,7 @@ da_scala_test_suite(
         # TODO((https://github.com/digital-asset/daml/issues/18457): remove these dev dependencies
         #  once integration tests don't depend on keys anymore
         # TODO[23010]: replace hardcoded "2.2" with something like `PV34_LATEST_SUPPORTED_LF_VERSION`
+        # TODO[23015]: add pv-to-lf version(s) here
         ":script-test-v{}.dar".format("2.2"),
         ":script-test-v{}.dar".format(LATEST_STABLE_LF_VERSION),
         ":script-test-v{}.dar".format(STAGING_LF_VERSION),
