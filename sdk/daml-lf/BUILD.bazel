@@ -76,7 +76,7 @@ sh_binary(
     srcs = ["update_versions.sh"],
     args = [
         "$(location daml-lf-versions-generated.json)",
-        "daml-lf/daml-lf-versions.json",  # The path relative to workspace root
+        "daml-lf/daml-lf-versions.json",
     ],
     data = ["daml-lf-versions-generated.json"],
 )
@@ -86,7 +86,7 @@ sh_binary(
     srcs = ["update_versions.sh"],
     args = [
         "$(location daml-lf-features-generated.json)",
-        "daml-lf/daml-lf-features.json",  # The path relative to workspace root
+        "daml-lf/daml-lf-features.json",
     ],
     data = ["daml-lf-features-generated.json"],
 )
