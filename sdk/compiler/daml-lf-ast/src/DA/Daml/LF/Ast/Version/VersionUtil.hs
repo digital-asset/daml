@@ -116,7 +116,13 @@ readMinorVersion = readStable +++ readStaging +++ readStagingWithRevision +++ re
                         ++ " for minor version " ++ show i
                         ++ ", supported staging revision: "
                         ++ show expectedRev
-        Nothing -> error $ "no staging revision found for minor version " ++ show i)
+        Nothing -> error $ "tried to read version 2."
+                        ++ show i
+                        ++ "-rc"
+                        ++ show r
+                        ++ " but minor version "
+                        ++ show i
+                        ++ " does not support any staging revision")
         <$> readSimpleInt <*> (ReadP.string "-rc" *> readSimpleInt)
     readDev = PointDev <$ ReadP.string "dev"
 
