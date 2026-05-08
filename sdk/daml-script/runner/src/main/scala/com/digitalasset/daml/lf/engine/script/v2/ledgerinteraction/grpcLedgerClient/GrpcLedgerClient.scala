@@ -49,7 +49,7 @@ import com.digitalasset.daml.lf.command
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.engine.script.v2.Converter
-import com.digitalasset.daml.lf.engine.{Enricher, ResultDone, preprocessing}
+import com.digitalasset.daml.lf.engine.{Enricher, ResultDone, refinement}
 import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
 import com.digitalasset.daml.lf.speedy.Pretty
@@ -88,12 +88,12 @@ class GrpcLedgerClient(
   override val transport = "gRPC API"
   implicit val traceContext: TraceContext = TraceContext.empty
 
-  private[this] val preprocessor = new preprocessing.CommandPreprocessor(
+  private[this] val preprocessor = new refinement.CommandPreprocessor(
     compiledPackages.pkgInterface,
     forbidLocalContractIds = true,
   )
 
-  val enricher = new Enricher(
+  val enricher = Enricher(
     compiledPackages = compiledPackages,
     // Cannot load packages in GrpcLedgerClient
     loadPackage = { (_: PackageId, _: Reference) => ResultDone(()) },

@@ -10,6 +10,7 @@ import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.daml.lf.data.{FrontStack, SortedLookupList, Time}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.engine.ScriptEngine.ExtendedValue
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
@@ -293,7 +294,7 @@ object SubmitError {
       val anyException = exc.map { case (ty, value) =>
         fromAnyException(
           ty,
-          env.enricher.enrichException(ty, value)(env.traceContext).consume().toOption.get,
+          env.enricher.enrichValue(Ast.TTyCon(ty), value)(env.traceContext).consume().toOption.get,
         )
       }
       SubmitErrorConverters(env).damlScriptError(

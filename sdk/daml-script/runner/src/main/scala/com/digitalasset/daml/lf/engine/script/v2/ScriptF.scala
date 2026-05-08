@@ -76,7 +76,7 @@ object ScriptF {
     def clients = _clients
     val utcClock = Clock.systemUTC()
 
-    val enricher = new Enricher(
+    val enricher = Enricher(
       compiledPackages = compiledPackages,
       // Cannot load packages in GrpcLedgerClient
       loadPackage = { (_: PackageId, _: Reference) => ResultDone(()) },
