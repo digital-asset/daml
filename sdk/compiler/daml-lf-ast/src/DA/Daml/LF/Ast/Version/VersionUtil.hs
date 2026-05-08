@@ -125,7 +125,7 @@ readMinorVersion = readStable +++ readStaging +++ readStagingWithRevision +++ re
 -- >>> parseMinorVersion "4-rc1"
 -- Just (PointStaging 4)
 -- >>> parseMinorVersion "4-rc22"
--- unsupported staging revision 22 whilst readming minorVersion, supported staging revision: 1
+-- unsupported staging revision 22 for minor version 4, supported staging revision: 1
 -- >>> parseMinorVersion "14"
 -- Just (PointStable 14)
 -- >>> parseMinorVersion "dev"
