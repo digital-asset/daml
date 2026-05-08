@@ -69,12 +69,12 @@ class IdeLedgerClient(
   private[this] var unvettedPackages: Set[PackageId] = Set.empty
 
   private[this] def makePreprocessor =
-    new preprocessing.CommandPreprocessor(
+    new refinement.CommandPreprocessor(
       compiledPackages.pkgInterface,
       forbidLocalContractIds = true,
     )
 
-  val enricher = new Enricher(
+  val enricher = Enricher(
     compiledPackages = compiledPackages,
     // Cannot load packages in GrpcLedgerClient
     loadPackage = { (_: PackageId, _: Reference) => ResultDone(()) },

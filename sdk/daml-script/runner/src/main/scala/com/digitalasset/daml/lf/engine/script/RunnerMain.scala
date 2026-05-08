@@ -15,7 +15,7 @@ import scalaz.syntax.traverse._
 import spray.json._
 import com.digitalasset.daml.lf.archive.{Dar, DarDecoder}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
+import com.digitalasset.daml.lf.engine.refinement.ValueTranslator
 import com.digitalasset.daml.lf.engine.ScriptEngine.defaultCompilerConfig
 import com.digitalasset.daml.lf.language.Ast.{Package, Type}
 import com.digitalasset.daml.lf.PureCompiledPackages
