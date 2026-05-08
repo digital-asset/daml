@@ -71,7 +71,7 @@ and the **Fetch** commit comes after the **Create** of the `Iou`.
 
 .. _causality-example-non-consuming:
 
-Non-Consuming Usages in Different Commits May Appear in Different Orders
+Non-Consuming Usages in Different Unordered Commits May Appear in Different Orders
 ========================================================================
 
 Suppose that the Bank exercises a non-consuming choice on the `Iou Bank A` without consequences while Alice creates the `CounterOffer`.
