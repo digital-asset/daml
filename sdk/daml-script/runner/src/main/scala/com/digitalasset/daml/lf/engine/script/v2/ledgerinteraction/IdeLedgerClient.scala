@@ -106,12 +106,7 @@ class IdeLedgerClient(
   // Returns false if the package is unknown, leaving the packageId unmodified
   // so later computation can throw a better formulated error
   def packageSupportsUpgrades(packageId: PackageId): Boolean =
-    compiledPackages.pkgInterface
-      .lookupPackage(packageId)
-      .fold(
-        _ => false,
-        pkgSig => LanguageVersion.featurePackageUpgrades.enabledIn(pkgSig.languageVersion),
-      )
+    compiledPackages.pkgInterface.lookupPackage(packageId).isRight
 
   private var _ledger: IdeLedger = IdeLedger.initialLedger(Time.Timestamp.Epoch, csmMode)
   def ledger: IdeLedger = _ledger
@@ -122,7 +117,7 @@ class IdeLedgerClient(
     new InMemoryUserManagementStore(createAdmin = false, loggerFactory)
 
   private[this] def blob(contract: FatContractInstance): Bytes =
-    Bytes.fromByteString(TransactionCoder.encodeFatContractInstance(contract).toOption.get)
+    Bytes.fromByteString(ContractInstanceCoder.encodeFatContractInstance(contract).toOption.get)
 
   private[this] def blob(create: Node.Create, createAt: Time.Timestamp): Bytes =
     blob(FatContractInstance.fromCreateNode(create, CreationTime.CreatedAt(createAt), Bytes.Empty))
@@ -285,7 +280,9 @@ class IdeLedgerClient(
       ec: ExecutionContext
   ): Future[GlobalKey] =
     Future(
-      preprocessor.unsafePreprocessApiContractKey(Map.empty, ApiContractKey(templateId.toRef, key))
+      preprocessor
+        .unsafePreprocessApiContractKey(Map.empty, ApiContractKey(templateId.toRef, key, 1))
+        ._1
     )
       .recoverWith { case Error.Preprocessing.ContractIdInContractKey(key) =>
         Future.failed(
@@ -680,7 +677,7 @@ class IdeLedgerClient(
         import cats.implicits._
 
         disclosures
-          .traverse(b => TransactionCoder.decodeFatContractInstance(b.blob.toByteString))
+          .traverse(b => ContractInstanceCoder.decodeFatContractInstance(b.blob.toByteString))
           .left
           .map(err => makeEmptySubmissionError(script.Error.DisclosureDecoding(err.errorMessage)))
       }

@@ -12,6 +12,7 @@ import           Control.DeepSeq
 import qualified Data.Aeson           as Aeson
 import qualified Data.Aeson.Types     as Aeson
 import           Data.Data
+import qualified Data.Map.Strict      as Map
 import qualified Data.Text            as T
 
 import           Text.Read            (readMaybe)
@@ -21,8 +22,9 @@ import           GHC.Generics
 import qualified DA.Daml.LF.Ast.Range as R
 import           DA.Pretty
 
-stagingRevision :: Int
-stagingRevision = 2
+-- | Map from staging minor version to its current revision number.
+stagingRevision :: Map.Map Int Int
+stagingRevision = Map.fromList [(3, 2), (4, 1)]
 
 -- | Daml-LF version of an archive payload.
 data Version = Version
@@ -91,7 +93,9 @@ renderMinorVersion = \case
 renderMinorVersionWithRev :: MinorVersion -> String
 renderMinorVersionWithRev m = case m of
   PointStable minor -> show minor
-  PointStaging minor -> show minor ++ "-rc" ++ show stagingRevision
+  PointStaging minor -> case Map.lookup minor stagingRevision of
+    Just rev -> show minor ++ "-rc" ++ show rev
+    Nothing -> error $ "no staging revision found for minor version " ++ show minor
   PointDev -> "dev"
 
 renderVersion :: Version -> String

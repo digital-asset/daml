@@ -46,6 +46,7 @@ da_scala_binary(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_slf4j_jul_to_slf4j",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

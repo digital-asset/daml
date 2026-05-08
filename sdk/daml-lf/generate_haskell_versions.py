@@ -45,13 +45,14 @@ def main(input_json_path, output_hs_path):
 
 module DA.Daml.LF.Ast.Version.GeneratedVersions where
 
+import qualified Data.Map.Strict as Map
 import DA.Daml.LF.Ast.Version.VersionType
 """
     ]
 
     version_lookup = {}
     generated_vars = set()
-    staging_revisions = set()
+    staging_revisions_by_minor = {}  # minor_version -> set of revisions
 
     raw_versions = data.get("explicitVersions", [])
     raw_versions.sort(key=version_sort_key)
@@ -60,7 +61,9 @@ import DA.Daml.LF.Ast.Version.VersionType
         var_name, base_v, haskell_constructor, rev = parse_version_dict(v)
 
         if rev is not None:
-            staging_revisions.add(rev)
+            minor_map = v["minor"]
+            minor_version = minor_map["Staging"]["version"]
+            staging_revisions_by_minor.setdefault(minor_version, set()).add(rev)
 
         version_lookup[base_v] = var_name
 
@@ -70,12 +73,17 @@ import DA.Daml.LF.Ast.Version.VersionType
             output.append(f"{var_name} = Version V2 ({haskell_constructor})\n")
             generated_vars.add(var_name)
 
-    sorted_revisions = sorted(list(staging_revisions))
-    sorted_revisions_str = ", ".join(map(str, sorted_revisions))
+    # Generate Map Int [Int] for acceptedStagingRevisions
+    map_entries = []
+    for minor in sorted(staging_revisions_by_minor.keys()):
+        revs = sorted(staging_revisions_by_minor[minor])
+        revs_str = ", ".join(map(str, revs))
+        map_entries.append(f"({minor}, [{revs_str}])")
+    map_entries_str = ", ".join(map_entries)
 
     output.append("-- | The acceptedStagingRevisions.")
-    output.append("acceptedStagingRevisions :: [Int]")
-    output.append(f"acceptedStagingRevisions = [{sorted_revisions_str}]\n")
+    output.append("acceptedStagingRevisions :: Map.Map Int [Int]")
+    output.append(f"acceptedStagingRevisions = Map.fromList [{map_entries_str}]\n")
 
     version_lists = data.get("versionLists", {})
     for list_name in sorted(version_lists.keys()):

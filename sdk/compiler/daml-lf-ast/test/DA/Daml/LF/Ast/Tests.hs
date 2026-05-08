@@ -596,7 +596,9 @@ typeCheck version mod = do
 
 stagingAcceptedTest :: TestTree
 stagingAcceptedTest = testCase "Staging revision check" $
-  (stagingRevision `elem` acceptedStagingRevisions) @?= True
+  all (\(minor, rev) -> case Map.lookup minor acceptedStagingRevisions of
+    Just revs -> rev `elem` revs
+    Nothing -> False) (Map.toList stagingRevision) @?= True
 
 minorVersionOrderingTest :: TestTree
 minorVersionOrderingTest = testCase "MinorVersion ordering" $ do

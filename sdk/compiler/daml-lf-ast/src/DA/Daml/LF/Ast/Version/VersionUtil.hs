@@ -108,12 +108,21 @@ readMinorVersion = readStable +++ readStaging +++ readStagingWithRevision +++ re
     readStable = PointStable <$> readSimpleInt
     readStaging = PointStaging <$> readSimpleInt <* ReadP.string "-staging"
     readStagingWithRevision =
-      (\i r-> if r == stagingRevision
-        then PointStaging i
-        else error $ "unsupported staging revision "
-                      ++ show r
-                      ++ " whilst readming minorVersion, supported staging revision: "
-                      ++ show stagingRevision)
+      (\i r-> case MS.lookup i stagingRevision of
+        Just expectedRev
+          | r == expectedRev -> PointStaging i
+          | otherwise -> error $ "unsupported staging revision "
+                        ++ show r
+                        ++ " for minor version " ++ show i
+                        ++ ", supported staging revision: "
+                        ++ show expectedRev
+        Nothing -> error $ "tried to read version 2."
+                        ++ show i
+                        ++ "-rc"
+                        ++ show r
+                        ++ " but minor version "
+                        ++ show i
+                        ++ " does not support any staging revision")
         <$> readSimpleInt <*> (ReadP.string "-rc" *> readSimpleInt)
     readDev = PointDev <$ ReadP.string "dev"
 
@@ -121,8 +130,8 @@ readMinorVersion = readStable +++ readStaging +++ readStagingWithRevision +++ re
 -- Just (PointStaging 3)
 -- >>> parseMinorVersion "4-rc1"
 -- Just (PointStaging 4)
--- >>> parseMinorVersion "4-rc2"
--- unsupported staging revision 2 whilst readming minorVersion, supported staging revision: 1
+-- >>> parseMinorVersion "4-rc22"
+-- unsupported staging revision 22 for minor version 4, supported staging revision: 1
 -- >>> parseMinorVersion "14"
 -- Just (PointStable 14)
 -- >>> parseMinorVersion "dev"

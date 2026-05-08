@@ -40,8 +40,10 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
 
   override protected lazy val protocolVersion: ProtocolVersion = ProtocolVersion.Explicit("v35")
 
+  // TODO[23015]: reconsider the lf version here
+  // TODO[23016]: get rid of hardcoded string when some kind of `renderForDaml` has been added to canton
   lazy val darPath: Path = rlocation(
-    Paths.get(s"daml-script/test/script-test-v2.3-staging.dar")
+    Paths.get(s"daml-script/test/script-test-v2.4-staging.dar")
   )
   lazy val dar: CompiledDar = CompiledDar.read(darPath, defaultCompilerConfig)
 
