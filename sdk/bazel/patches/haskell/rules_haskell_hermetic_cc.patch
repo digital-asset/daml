@@ -1,0 +1,44 @@
+# Daml hermetic-GCC migration.
+# rules_haskell 0.18 _ghc_bindist_impl runs an autoconf ./configure and a
+# make install that expect a host cc/gcc on $PATH.  On a clean Linux build
+# machine with no host compiler (our target hermeticity goal) both steps fail.
+# This patch points the autoconf CC sanity-check and the make install at the
+# Bootlin GCC 13.2.0 registered via @@_main~gcc_toolchain~hermetic_cc_linux_amd64.
+# macOS and Windows fall through to the existing host-PATH behaviour (no
+# hermetic toolchain is registered for those platforms).
+--- a/haskell/ghc_bindist.bzl
++++ b/haskell/ghc_bindist.bzl
+@@ -177,7 +177,25 @@
+             execute_or_fail_loudly(ctx, ["sed", "-e", "s/RelocatableBuild = NO/RelocatableBuild = YES/", "-i.bak", "mk/config.mk.in"], working_directory = unpack_dir)
+             execute_or_fail_loudly(ctx, ["rm", "-f", "mk/config.mk.in.bak"], working_directory = unpack_dir)
+ 
+-        execute_or_fail_loudly(ctx, ["./configure", "--prefix", bindist_dir.realpath], working_directory = unpack_dir)
++        # Daml hermetic-GCC migration: the bindist tarball is precompiled, so
++        # its autoconf ./configure does not compile our code -- it only does a
++        # sanity check for a working host CC.  Point that check at the Bootlin
++        # GCC registered via @@_main~gcc_toolchain~hermetic_cc_linux_amd64 so
++        # the build does not require a host gcc/cc on PATH.  macOS / Windows
++        # fall through to the existing host-PATH behaviour (no hermetic toolchain).
++        bindist_env = {}
++        if os == "linux":
++            hermetic_cc_path = ctx.path(Label("@@_main~gcc_toolchain~hermetic_cc_linux_amd64//:bin/x86_64-buildroot-linux-gnu-gcc"))
++            ctx.symlink(hermetic_cc_path, "hermetic_shim/cc")
++            ctx.symlink(hermetic_cc_path, "hermetic_shim/gcc")
++            shim_dir = str(ctx.path("hermetic_shim").realpath)
++            hermetic_bin = str(hermetic_cc_path.dirname)
++            system_path = ctx.os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
++            bindist_env = {
++                "CC": str(hermetic_cc_path),
++                "PATH": "{}:{}:{}".format(shim_dir, hermetic_bin, system_path),
++            }
++        execute_or_fail_loudly(ctx, ["./configure", "--prefix", bindist_dir.realpath], environment = bindist_env, working_directory = unpack_dir)
+ 
+         make_loc = ctx.which("make")
+         if not make_loc:
+@@ -200,5 +218,5 @@
+             # ZERO_AR_DATE. See
+             # https://source.chromium.org/chromium/chromium/src/+/62848c8d298690e086e49a9832278ff56b6976b5.
+-            environment = {"ZERO_AR_DATE": "1"},
++            environment = dict(bindist_env, ZERO_AR_DATE = "1"),
+             working_directory = unpack_dir,
+         )
