@@ -23,6 +23,7 @@ import DA.Daml.Resolution.Config (PackageResolutionData (..), ResolutionData (..
 import Data.Aeson
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BSL
+import Data.Char (toLower)
 import Data.Function (on)
 import qualified Data.IxMap as IM
 import qualified Data.Map as Map
@@ -38,7 +39,14 @@ import System.Process.Typed (Process)
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 
-newtype PackageHome = PackageHome {unPackageHome :: FilePath} deriving (Show, Eq, Ord)
+newtype PackageHome = PackageHome {unPackageHome :: FilePath} deriving (Show)
+
+-- Case insensitive equality/ordering, as casing is very annoying cross platform
+instance Eq PackageHome where
+  (==) = (==) `on` (fmap toLower . unPackageHome)
+
+instance Ord PackageHome where
+  compare = compare `on` (fmap toLower . unPackageHome)
 
 toPackagePath :: PackageHome -> PackagePath
 toPackagePath (PackageHome path) = PackagePath path
