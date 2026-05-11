@@ -158,6 +158,34 @@ The ``daml.lock`` file needs to be checked into version control of your project.
 package name/version tuples specified in your data dependencies are always resolved to the same
 package ID. To recreate or update your ``daml.lock`` file, delete it and run ``dpm build`` again.
 
+.. _importing-specific-names:
+
+Importing Specific Names from a Module
+**************************************
+
+When importing a module, you can choose to bring in only a subset of its
+names, or to bring in all names except a few. This is useful when two
+modules export names that clash (for example, both ``DA.List`` and
+``Prelude`` export ``lookup``).
+
+To import only specific names, list them after the module name:
+
+.. code-block:: daml
+
+  import DA.List (sort, sortBy)
+
+To import everything from a module except specific names, use the
+``hiding`` keyword:
+
+.. code-block:: daml
+
+  import DA.List hiding (lookup)
+  import Prelude hiding (lookup)
+
+Both forms can also be combined with ``qualified`` and ``as`` (see
+:ref:`module_collisions` below) for finer control over which names are
+in scope.
+
 .. _module_collisions:
 
 Handling Module Name Collisions
@@ -223,3 +251,24 @@ as ``Foo1.X`` and ``X`` from package ``foo-2.0.0`` as ``Foo2``.
 You can also use more complex module prefixes, e.g., ``foo-1.0.0:
 Foo1.Bar`` which will make module ``X`` available under
 ``Foo1.Bar.X``.
+
+Combining Selective Imports with ``qualified``
+**********************************************
+
+The selective-import forms shown in
+:ref:`Importing Specific Names from a Module <importing-specific-names>`
+can be combined with ``qualified`` and ``as`` to fully control which
+names are in scope. For example, to bring all of ``DA.List`` into scope
+under the alias ``L`` while still hiding ``lookup``:
+
+.. code-block:: daml
+
+  import qualified DA.List as L hiding (lookup)
+
+Or to import a single name unqualified while keeping the rest of the
+module reachable through an alias:
+
+.. code-block:: daml
+
+  import qualified DA.Optional as O
+  import DA.Optional (fromOptional)
