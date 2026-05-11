@@ -220,7 +220,9 @@ async function startLanguageServers(context: ExtensionContext) {
   const consent = await getTelemetryConsent(config, context);
   const rootPath = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
   if (!rootPath) throw "Couldn't find workspace root";
-  const multiIDESupport = config.get("multiPackageIdeSupport");
+  const multiPackageSupportOpt = config.get("multiPackageIdeSupport");
+  const usingDpm = config.get("useDPMWhenAvailable");
+  const allowMultiIde = multiPackageSupportOpt || usingDpm;
   const gradleSupport = config.get("multiPackageIdeGradleSupport");
 
   const gradlewExists = await fileExists(rootPath + "/gradlew");
@@ -261,7 +263,7 @@ async function startLanguageServers(context: ExtensionContext) {
   }
 
   var isGradleProject = false;
-  if (multiIDESupport && gradleSupport && gradlewExists) {
+  if (allowMultiIde && gradleSupport && gradlewExists) {
     isGradleProject = await tryGenerateIdeManifest(
       rootPath,
       envrcExistsWithoutExt,
