@@ -111,8 +111,11 @@ Functions
 `group <function-da-list-group-62411_>`_
   \: :ref:`Eq <class-ghc-classes-eq-22713>` a \=\> \[a\] \-\> \[\[a\]\]
 
-  The 'group' function groups equal elements into sublists such
-  that the concatenation of the result is equal to the argument\.
+  The 'group' function groups runs of consecutive equal elements
+  into sublists\. The concatenation of the result is equal to the
+  argument\.
+
+  > group \[1, 1, 2, 1\] == \[\[1, 1\], \[2\], \[1\]\]
 
 .. _function-da-list-groupby-62666:
 
@@ -120,6 +123,8 @@ Functions
   \: (a \-\> a \-\> :ref:`Bool <type-ghc-types-bool-66265>`) \-\> \[a\] \-\> \[\[a\]\]
 
   The 'groupBy' function is the non\-overloaded version of 'group'\.
+  As with 'group', only consecutive elements that satisfy the
+  equality predicate are grouped\.
 
 .. _function-da-list-groupon-4918:
 
@@ -127,7 +132,8 @@ Functions
   \: :ref:`Eq <class-ghc-classes-eq-22713>` k \=\> (a \-\> k) \-\> \[a\] \-\> \[\[a\]\]
 
   Similar to 'group', except that the equality is done on an
-  extracted value\.
+  extracted value\. As with 'group', only consecutive elements with
+  equal keys are grouped\.
 
 .. _function-da-list-dedup-27230:
 

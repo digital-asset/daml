@@ -2656,17 +2656,23 @@ combinePairs :: (a -> a -> a) -> [a] -> [a]
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-List.html#function-da-list-foldbalanced1-46720
 foldBalanced1 :: (a -> a -> a) -> [a] -> a
 
--- | The 'group' function groups equal elements into sublists such
---   that the concatenation of the result is equal to the argument.
+-- | The 'group' function groups runs of consecutive equal elements
+--   into sublists. The concatenation of the result is equal to the
+--   argument.
+--   
+--   > group [1, 1, 2, 1] == [[1, 1], [2], [1]]
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-List.html#function-da-list-group-62411
 group :: (Eq a) => [a] -> [[a]]
 
 -- | The 'groupBy' function is the non-overloaded version of 'group'.
+--   As with 'group', only consecutive elements that satisfy the
+--   equality predicate are grouped.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-List.html#function-da-list-groupby-62666
 groupBy :: (a -> a -> Bool) -> [a] -> [[a]]
 
 -- | Similar to 'group', except that the equality is done on an
---   extracted value.
+--   extracted value. As with 'group', only consecutive elements with
+--   equal keys are grouped.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-List.html#function-da-list-groupon-4918
 groupOn :: (Eq k) => (a -> k) -> [a] -> [[a]]
 
