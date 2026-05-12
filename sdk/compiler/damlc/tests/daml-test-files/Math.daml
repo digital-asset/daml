@@ -80,33 +80,35 @@ quadrantTestCases = do
     sqrt2 = 1.4142135623 : Decimal
     sqrt3 = 1.7320508076 : Decimal
 
-  quadrant <- [0..3]
-  (rotationIdx, rotationX, rotationY) <-
-    [ (0, sqrt3 / 2.0,   1.0 / 2.0)
-    , (1, sqrt2 / 2.0, sqrt2 / 2.0)
-    , (2,   1.0 / 2.0, sqrt3 / 2.0)
+  -- Table of angles & their expected x, y values
+  (angleOutOf12, expectedX, expectedY) <-
+    [ ( 2,  sqrt3 / 2.0,    1.0 / 2.0)
+    , ( 3,  sqrt2 / 2.0,  sqrt2 / 2.0)
+    , ( 4,    1.0 / 2.0,  sqrt3 / 2.0)
+
+    , ( 8,   -1.0 / 2.0,  sqrt3 / 2.0)
+    , ( 9, -sqrt2 / 2.0,  sqrt2 / 2.0)
+    , (10, -sqrt3 / 2.0,    1.0 / 2.0)
+
+    , (14, -sqrt3 / 2.0,   -1.0 / 2.0)
+    , (15, -sqrt2 / 2.0, -sqrt2 / 2.0)
+    , (16,   -1.0 / 2.0, -sqrt3 / 2.0)
+
+    , (20,    1.0 / 2.0, -sqrt3 / 2.0)
+    , (21,  sqrt2 / 2.0, -sqrt2 / 2.0)
+    , (22,  sqrt3 / 2.0,   -1.0 / 2.0)
     ]
 
-  let shouldSwapAxes = quadrant `elem` [1,3]
-  let signX = if quadrant `elem` [1,2] then -1.0 else 1.0
-  let signY = if quadrant `elem` [2,3] then -1.0 else 1.0
-  let expectedX = signX * if shouldSwapAxes then rotationY else rotationX
-  let expectedY = signY * if shouldSwapAxes then rotationX else rotationY
-
-  let angleOutOf12 = quadrant * 6 + 2 + rotationIdx
+  -- Get expected & actual values for cos, sin
   let angle = intToDecimal angleOutOf12 * pi / 12.0
-  let actualX = cos angle
-  let actualY = sin angle
-
   (functionName, expected, actual) <-
-    [ ("cos", expectedX, actualX)
-    , ("sin", expectedY, actualY)
+    [ ("cos", expectedX, cos angle)
+    , ("sin", expectedY, sin angle)
     ]
 
+  -- If the delta is greater than expected, fail
   let delta = abs $ expected - actual
-
-  guard (delta > 0.000001)
-
+  guard (delta > 0.000000001)
   pure $ implode
     [ "Error in trig function: "
     , functionName, "(", show angleOutOf12, " * pi / 12)"
@@ -114,4 +116,5 @@ quadrantTestCases = do
     , show expected
     , ", was "
     , show actual
+    , " (delta of ", show delta, ")"
     ]
