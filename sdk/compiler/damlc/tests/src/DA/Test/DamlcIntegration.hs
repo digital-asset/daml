@@ -422,7 +422,7 @@ testSetup getService outdir path = do
     }
 
 damlFileTestTree :: LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> DamlTestInput -> TestTree
-damlFileTestTree version getService outdir registerTODO input
+damlFileTestTree version getService outdir registerTODO DamlTestInput { name, path, anns }
   | any (ignoreVersion version) anns =
     singleTest name $ TestCase \_ ->
       pure (testPassed "") { resultShortDescription = "IGNORE" }
@@ -466,7 +466,6 @@ damlFileTestTree version getService outdir registerTODO input
               ]
           ]
   where
-    DamlTestInput { name, path, anns } = input
     ignoreVersion version = \case
       Ignore -> True
       SinceLF versionBounds -> not (versionBounds `containsVersion` version)
