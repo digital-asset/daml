@@ -841,6 +841,14 @@ damlc_compile_test(
 da_haskell_binary(
     name = "generate-package-pattern-match",
     srcs = ["src/DA/Test/GeneratePackagePatternMatch.hs"],
+    # GHC's ghc-bignum declares `extra-libraries: gmp` (see
+    # bazel/patches/haskell/rules_haskell_hermetic_cc.patch header), so every
+    # HaskellLinkBinary emits `-lgmp`. This target only uses toolchain-library
+    # hackage_deps (base, directory, filepath) and so does not pick up `@gmp`
+    # transitively through stackage's per-package `extra_deps` wiring in
+    # MODULE.bazel. Add it directly so the hermetic Bootlin sysroot can satisfy
+    # `-lgmp` at link time and propagate libgmp.so into the binary's runfiles.
+    deps = ["@gmp//:gmp_cc_lib"],
     hackage_deps = [
         "base",
         "directory",
