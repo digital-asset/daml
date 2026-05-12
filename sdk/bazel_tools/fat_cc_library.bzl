@@ -89,9 +89,9 @@ def _fat_cc_library_impl(ctx):
             extract_cmds.append(
                 ("(declare -A _mc=(); while IFS= read -r _m; do"
                  + " _c=\"${{_mc[$_m]:-0}}\"; _c=$((_c+1)); _mc[$_m]=$_c;"
-                 + " (cd \"$D\" && \"{ar}\" xN \"$_c\" \"$_EXECROOT/{path}\" \"$_m\""
+                 + " (cd \"$D\" && \"$_EXECROOT/{ar}\" xN \"$_c\" \"$_EXECROOT/{path}\" \"$_m\""
                  + " && mv \"$_m\" \"{i}_${{_c}}_$_m\");"
-                 + " done < <(\"{ar}\" t \"$_EXECROOT/{path}\"))").format(
+                 + " done < <(\"$_EXECROOT/{ar}\" t \"$_EXECROOT/{path}\"))").format(
                     i = i,
                     ar = ar,
                     path = lib.path,
@@ -108,6 +108,7 @@ def _fat_cc_library_impl(ctx):
             mnemonic = "CppLinkFatStaticLib",
             outputs = [static_lib],
             inputs = static_libs,
+            tools = toolchain.all_files.to_list(),
             command = "\n".join(extract_cmds),
         )
 
