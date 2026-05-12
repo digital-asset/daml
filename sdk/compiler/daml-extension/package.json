@@ -121,7 +121,7 @@
                 "daml.multiPackageIdeSupport": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Enables support for multi-package projects in the IDE."
+                    "description": "Enables support for multi-package projects in the IDE. Can only be disabled when using legacy Daml Assistant."
                 },
                 "daml.multiPackageIdeGradleSupport": {
                     "type": "boolean",
