@@ -16,9 +16,12 @@ genrule(
         "lib/libtinfo.so.6",
     ],
     cmd = """
+        CC=$$PWD/$(CC)
+        AR=$$PWD/$(AR)
+        PATCHELF=$$PWD/$(execpath @patchelf//:patchelf)
         SRC=$$(dirname $(location configure))
         PREFIX=$$(realpath $(@D))
-        cd $$SRC && CC="$(CC)" AR="$(AR)" \
+        cd $$SRC && CC="$$CC" AR="$$AR" \
         ./configure \
             --prefix=$$PREFIX \
             --with-shared \
@@ -28,7 +31,7 @@ genrule(
             --without-ada \
             --without-manpages \
             --without-tests \
-        && make -j$$(nproc) CC="$(CC)" AR="$(AR)" \
+        && make -j$$(nproc) CC="$$CC" AR="$$AR" \
         && make install \
         && cd $$PREFIX/lib \
         && for f in *.so; do \
@@ -50,13 +53,27 @@ genrule(
         done \
         && cp libtinfow.so libtinfo.so \
         && cp libtinfo.so libtinfo.so.5 \
-        && cp libtinfo.so libtinfo.so.6
+        && cp libtinfo.so libtinfo.so.6 \
+        && $$PATCHELF --set-soname libtinfo.so libtinfo.so
     """,
+    tools = ["@patchelf//:patchelf"],
     toolchains = ["@rules_cc//cc:current_cc_toolchain"],
 )
 
 filegroup(
     name = "libs",
     srcs = [":ncurses_build"],
+    visibility = ["//visibility:public"],
+)
+
+# Wraps the hermetic libtinfo.so as a cc_library so it can be passed to
+# rules_haskell's stack_snapshot `extra_deps` (which expects CcInfo
+# providers). GHC's `haskeline` package emits `-ltinfo` into every link
+# command that pulls in `terminfo` / `haskeline`; without this, the
+# hermetic Bootlin sysroot's ld cannot find `-ltinfo` (sdk/dump.txt:328).
+# No header is required -- haskeline only needs the .so at link time.
+cc_library(
+    name = "tinfo_cc_lib",
+    srcs = ["lib/libtinfo.so"],
     visibility = ["//visibility:public"],
 )
