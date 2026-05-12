@@ -7,11 +7,12 @@ genrule(
         set -euo pipefail
 
         OUT=$$PWD/$@
+        CC=$$PWD/$(CC)
         SRC=$$(dirname $(location configure))
 
         cd $$SRC
 
-        CC=$(CC) ./configure
+        CC=$$CC ./configure
         make -j
 
         cp src/m4 $$OUT

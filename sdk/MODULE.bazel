@@ -20,10 +20,26 @@ bazel_dep(name = "rules_go", version = "0.59.0")
 bazel_dep(name = "rules_haskell", version = "0.18")
 
 # Linux-only hermetic CC for the GHC bindist's autoconf step. See patch.
+#
+# `patch_cmds` companions: GHC's `ghc-bignum-1.1.conf` declares
+# `extra-libraries: gmp`, so every HaskellLink* action under the hermetic
+# Bootlin sysroot (which ships no libgmp) fails with `cannot find -lgmp`
+# (sdk/dump.txt:71/95/120). For stackage targets the fix is the per-package
+# `extra_deps = ["@gmp//:gmp_cc_lib"]` wiring further down in this file.
+# The in-tree `@rules_haskell//tools/runfiles:runfiles` haskell_library is
+# not a stackage package, so we inject `@@_main~gmp~gmp//:gmp_cc_lib` into
+# its `deps` here. We use the canonical bzlmod label because the
+# rules_haskell module does not declare `gmp` as a `bazel_dep`. We use
+# `patch_cmds` (sed) instead of a second hunk in the unified-diff patch
+# because Bazel's `ctx.patch` rejects the diff hunk that GNU patch accepts
+# cleanly (CONTENT_DOES_NOT_MATCH_TARGET).
 single_version_override(
     module_name = "rules_haskell",
     patch_strip = 1,
     patches = ["//bazel/patches:haskell/rules_haskell_hermetic_cc.patch"],
+    patch_cmds = [
+        "sed -i '/\":transformers\",/a\\        \"@@_main~gmp~gmp//:gmp_cc_lib\",' tools/runfiles/BUILD.bazel",
+    ],
 )
 
 bazel_dep(name = "rules_java", version = "9.5.0")
@@ -303,10 +319,144 @@ HASKELL_PACKAGES = [
     "tasty-quickcheck",
 ]
 
-[stack_snapshot_ext.package(name = pkg) for pkg in HASKELL_PACKAGES]
+# GHC's `integer-gmp` core library emits `-lgmp` into every Haskell
+# link command. Under the bzlmod migration we register a hermetic
+# Bootlin GCC toolchain whose sysroot ships no libgmp; the host's
+# `/usr/lib/libgmp.so` is no longer on the linker search path. Wire the
+# hermetic `@gmp//:gmp_cc_lib` (built by sdk/bazel/extensions/files/
+# gmp.BUILD.bzl) into every stack_snapshot package that is generated as
+# a `haskell_cabal_library`, so `-L<gmp-dir>` reaches its link command.
+#
+# `stack_snapshot.bzl` (rules_haskell 0.18) only supports per-package
+# `extra_deps` via the `package` tag class -- there is no global
+# `snapshot.extra_deps` attribute (see external/rules_haskell~/
+# extensions/stack_snapshot.bzl _package_tag at L80-132 and _snapshot_tag
+# at L17-29). The legacy WORKSPACE flow used the same per-package shape
+# (sdk/bazel-haskell-deps.bzl L450-453).
+GMP_DEPS = ["@gmp//:gmp_cc_lib"]
+
+# Transitive stackage packages that also link `-lgmp` (observed failing
+# in sdk/dump.txt). They are not exposed top-level via HASKELL_PACKAGES
+# but must still be configured here so the `extra_deps` reaches them.
+HASKELL_TRANSITIVE_GMP_PACKAGES = [
+    "appar",
+    "auto-update",
+    "base-compat",
+    "base-orphans",
+    "basement",
+    "bindings-DSL",
+    "blaze-builder",
+    "byteable",
+    "byteorder",
+    "call-stack",
+    "cereal",
+    "cmdargs",
+    "colour",
+    "conduit-combinators",
+    "cryptohash-md5",
+    "cryptohash-sha1",
+    "data-default-class",
+    "easy-file",
+    "entropy",
+    "haddock-library",
+    "haskell-lexer",
+    "heaps",
+    "hostname",
+    "hourglass",
+    "hscolour",
+    "indexed-profunctors",
+    "indexed-traversable",
+    "integer-logarithms",
+    "js-dgtable",
+    "js-flot",
+    "js-jquery",
+    "language-c",
+    "mime-types",
+    "network-info",
+    "old-locale",
+    "Only",
+    "optional-args",
+    "parallel",
+    "polyparse",
+    "primes",
+    "primitive",
+    "refact",
+    "reflection",
+    "regex-base",
+    "semigroups",
+    "splitmix",
+    "StateVar",
+    "system-filepath",
+    "terminal-size",
+    "th-abstraction",
+    "th-compat",
+    "transformers-compat",
+    "type-equality",
+    "void",
+    "xml-types",
+    "zstd",
+]
+
+[
+    stack_snapshot_ext.package(name = pkg, extra_deps = GMP_DEPS)
+    for pkg in HASKELL_PACKAGES
+]
+
+[
+    stack_snapshot_ext.package(name = pkg, extra_deps = GMP_DEPS)
+    for pkg in HASKELL_TRANSITIVE_GMP_PACKAGES
+]
+
+# Group I: `digest` and `zlib` Cabal packages additionally need the
+# foreign zlib library + zlib.h header at configure-time. The bzlmod
+# port dropped the legacy mapping `extra_deps = {"digest": [...],
+# "zlib": [...]}` from sdk/bazel-haskell-deps.bzl L450-453, leaving the
+# Cabal `Setup.hs` configure failing with "Missing (or bad) header
+# file: zlib.h" / "Missing (or bad) C library: z" (sdk/dump.txt L246,
+# L310). `@zlib_shared//:zlib_cc_lib` is the hermetic wrapper around
+# the existing `@zlib_shared//:libs` filegroup.
+stack_snapshot_ext.package(
+    name = "digest",
+    extra_deps = [
+        "@zlib_shared//:zlib_cc_lib",
+        "@gmp//:gmp_cc_lib",
+    ],
+)
+stack_snapshot_ext.package(
+    name = "zlib",
+    extra_deps = [
+        "@zlib_shared//:zlib_cc_lib",
+        "@gmp//:gmp_cc_lib",
+    ],
+)
+
+# Group II: `haskeline` and `bzlib-conduit` each need an extra foreign
+# library beyond gmp. `haskeline` links `-ltinfo` via `terminfo` (the
+# hermetic Bootlin sysroot ships no libtinfo; sdk/dump.txt L328/L524),
+# so we wire the hermetic `@ncurses//:tinfo_cc_lib` (built by
+# sdk/bazel/extensions/files/ncurses.BUILD.bzl). `bzlib-conduit` fails
+# Cabal's configure with "Missing (or bad) C library: bz2"
+# (sdk/dump.txt L600-601), so we wire `@bzip2//:bz2_cc_lib` (built by
+# sdk/bazel/extensions/files/bzip2.BUILD.bzl), which exposes both the
+# libbz2.so and the bzlib.h header that the configure step probes.
+stack_snapshot_ext.package(
+    name = "haskeline",
+    extra_deps = [
+        "@gmp//:gmp_cc_lib",
+        "@ncurses//:tinfo_cc_lib",
+    ],
+)
+stack_snapshot_ext.package(
+    name = "bzlib-conduit",
+    extra_deps = [
+        "@gmp//:gmp_cc_lib",
+        "@bzip2//:bz2_cc_lib",
+    ],
+)
 
 stack_snapshot_ext.package(
     name = "xml-conduit",
+    extra_deps = GMP_DEPS,
     setup_deps = ["@stackage//:cabal-doctest"],
 )
 stack_snapshot_ext.package(
@@ -316,7 +466,17 @@ stack_snapshot_ext.package(
         "lib:attoparsec-internal",
     ],
     components_dependencies = {"lib:attoparsec": ["lib:attoparsec-internal"]},
+    extra_deps = GMP_DEPS,
 )
+
+# `cabal-doctest` is pulled by setup_deps for xml-conduit. It is a
+# haskell_cabal_library and emits `-lgmp` at link time; failing in
+# sdk/dump.txt at the unix-compat / call-stack wave.
+stack_snapshot_ext.package(
+    name = "cabal-doctest",
+    extra_deps = GMP_DEPS,
+)
+
 stack_snapshot_ext.package(
     name = "ghc-lib",
     vendored = "//bazel/ghc-lib/ghc-lib",
@@ -350,18 +510,22 @@ stack_snapshot_ext.package(
 stack_snapshot_ext.package(
     name = "c2hs",
     components = ["exe"],
+    extra_deps = GMP_DEPS,
 )
 stack_snapshot_ext.package(
     name = "happy",
     components = ["exe"],
+    extra_deps = GMP_DEPS,
 )
 stack_snapshot_ext.package(
     name = "alex",
     components = ["exe"],
+    extra_deps = GMP_DEPS,
 )
 stack_snapshot_ext.package(
     name = "hlint",
     components = ["lib", "exe"],
+    extra_deps = GMP_DEPS,
 )
 stack_snapshot_ext.package(
     name = "hpp",
@@ -369,6 +533,7 @@ stack_snapshot_ext.package(
         "lib",
         "exe",
     ],
+    extra_deps = GMP_DEPS,
 )
 
 # --- Scala configuration ---
