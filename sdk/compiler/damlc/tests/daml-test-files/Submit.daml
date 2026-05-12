@@ -56,7 +56,7 @@ template T3 with
   where
   signatory t3_p
 
-#ifdef DAML_FETCH_BY_KEY
+#ifdef DAML_NUCK
   key (t3_p, ms) : (Party, [Party])
   maintainer key._2
 #endif
@@ -67,7 +67,7 @@ template FetchByKeyT3 with
   where
   signatory fetcher
 
-#ifdef DAML_FETCH_BY_KEY
+#ifdef DAML_NUCK
   choice DoFetch : (ContractId T3, T3)
     controller fetcher
     do fetchByKey @T3 fetchKey
@@ -103,7 +103,7 @@ template T5 with
 
 -- ContractNotFound: Cannot test contract not found with IDELedger, no way to get an invalid contract ID
 
-#ifdef DAML_EXERCISE_BY_KEY
+#ifdef DAML_NUCK
 contractKeyNotFound : Script ()
 contractKeyNotFound = script do
   alice <- allocateParty "alice"
@@ -182,7 +182,7 @@ failureStatusError = script do
 
 -- TemplatePreconditionViolated: Same as above
 
-#ifdef DAML_FETCH_BY_KEY
+#ifdef DAML_NUCK
 createEmptyContractKeyMaintainers : Script ()
 createEmptyContractKeyMaintainers = script do
   alice <- allocateParty "alice"
@@ -240,7 +240,7 @@ devError = script do
 -- Can reproduce right now with a timeout, or package vetting test.
 
 -- Using contractKeyNotFound with an enormous key
-#ifdef DAML_EXERCISE_BY_KEY
+#ifdef DAML_NUCK
 truncatedError : Script ()
 truncatedError = script do
   alice <- allocateParty "alice"

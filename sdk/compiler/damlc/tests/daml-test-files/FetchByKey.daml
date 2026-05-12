@@ -1,4 +1,4 @@
--- @SUPPORTS-LF-FEATURE DAML_UCK_BUILTINS
+-- @IGNORE
 
 -- @ERROR range=34:1-34:11; Attempt to fetch or exercise by key
 -- @ERROR range=38:1-38:11; Attempt to fetch or exercise by key

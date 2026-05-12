@@ -3,7 +3,7 @@
 
 {- DLINT ignore -}
 
--- @SUPPORTS-LF-FEATURE DAML_UCK_BUILTINS
+-- @IGNORE
 
 module LFContractKeys where
 

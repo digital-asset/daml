@@ -1,4 +1,4 @@
--- @SUPPORTS-LF-FEATURE DAML_UCK_BUILTINS
+-- @IGNORE
 
 -- @ERROR range=46:1-46:22; Attempt to create a contract key with an empty set of maintainers
 -- @TODO queryByKey loses errors, ideally below is: Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers

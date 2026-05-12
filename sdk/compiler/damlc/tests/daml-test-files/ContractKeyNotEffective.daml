@@ -1,4 +1,4 @@
--- @SUPPORTS-LF-FEATURE DAML_FETCH_BY_KEY
+-- @SUPPORTS-LF-FEATURE DAML_NUCK
 
 -- @ERROR range=28:1-28:19; Attempt to fetch or exercise by key but no contract with that key was found
 module ContractKeyNotEffective where

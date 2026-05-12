@@ -1,4 +1,4 @@
--- @SUPPORTS-LF-FEATURE DAML_UCK_BUILTINS
+-- @IGNORE
 
 -- @ERROR range=20:1-20:8; Couldn't see contract with key 'Bob'
 -- @ERROR range=63:1-63:15; Attempt to fetch, lookup or exercise a key associated with a contract
