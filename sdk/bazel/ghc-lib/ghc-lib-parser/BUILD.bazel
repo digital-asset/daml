@@ -79,5 +79,13 @@ haskell_cabal_library(
     ],
     version = packages["ghc-lib-parser"].version,
     visibility = ["//visibility:public"],
-    deps = packages["ghc-lib-parser"].deps,
+    # `@gmp//:gmp_cc_lib` is required because GHC's `ghc-bignum-1.1` package
+    # emits `-lgmp` into every HaskellLink action and the hermetic Bootlin
+    # sysroot ships no system libgmp (`Fingerprint_hsc_make`
+    # link fails with `cannot find -lgmp`). The stackage-wide `extra_deps`
+    # wiring in [sdk/MODULE.bazel](sdk/MODULE.bazel) does NOT propagate to
+    # `vendored = "//bazel/ghc-lib/ghc-lib-parser"` packages, so we add the
+    # dep directly here (mirrors the explicit deps for stackage packages
+    # like haskeline/bzlib-conduit in MODULE.bazel).
+    deps = packages["ghc-lib-parser"].deps + ["@gmp//:gmp_cc_lib"],
 )
