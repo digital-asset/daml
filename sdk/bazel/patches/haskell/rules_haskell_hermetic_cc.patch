@@ -6,6 +6,15 @@
 # Bootlin GCC 13.2.0 registered via @@_main~gcc_toolchain~hermetic_cc_linux_amd64.
 # macOS and Windows fall through to the existing host-PATH behaviour (no
 # hermetic toolchain is registered for those platforms).
+#
+# Note: the companion fix for the non-stackage
+# `@rules_haskell//tools/runfiles:runfiles` haskell_library (which would
+# otherwise fail with `cannot find -lgmp` because the hermetic Bootlin
+# sysroot ships no libgmp; see
+# rules_haskell~~haskell_toolchains~rules_haskell_ghc_linux_amd64/lib/package.conf.d/ghc-bignum-1.1.conf:28
+# `extra-libraries: gmp`) is applied via `single_version_override.patch_cmds`
+# in MODULE.bazel rather than a second hunk here, because Bazel's
+# `ctx.patch` rejects the unified-diff form that GNU patch accepts cleanly.
 --- a/haskell/ghc_bindist.bzl
 +++ b/haskell/ghc_bindist.bzl
 @@ -177,7 +177,25 @@
