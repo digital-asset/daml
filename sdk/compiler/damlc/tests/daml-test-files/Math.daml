@@ -68,3 +68,89 @@ trigTest = script do
 
   assert (cos (15.0 * pi / 2.0) <= delta)
   assert (abs(0.5 - cos (pi / 3.0)) <= 4.0 * delta)
+
+quadrantTest = script $ do
+  let
+    sqrt2 = 1.4142135623 : Decimal
+    sqrt3 = 1.7320508076 : Decimal
+  assertDelta 0.001
+    [ sin ( 2.0 * pi / 12.0)
+    , cos ( 2.0 * pi / 12.0)
+
+    , sin ( 3.0 * pi / 12.0)
+    , cos ( 3.0 * pi / 12.0)
+
+    , sin ( 4.0 * pi / 12.0)
+    , cos ( 4.0 * pi / 12.0)
+
+    , sin ( 8.0 * pi / 12.0)
+    , cos ( 8.0 * pi / 12.0)
+
+    , sin ( 9.0 * pi / 12.0)
+    , cos ( 9.0 * pi / 12.0)
+
+    , sin (10.0 * pi / 12.0)
+    , cos (10.0 * pi / 12.0)
+
+    , sin (14.0 * pi / 12.0)
+    , cos (14.0 * pi / 12.0)
+
+    , sin (15.0 * pi / 12.0)
+    , cos (15.0 * pi / 12.0)
+
+    , sin (16.0 * pi / 12.0)
+    , cos (16.0 * pi / 12.0)
+
+    , sin (20.0 * pi / 12.0)
+    , cos (20.0 * pi / 12.0)
+
+    , sin (21.0 * pi / 12.0)
+    , cos (21.0 * pi / 12.0)
+
+    , sin (22.0 * pi / 12.0)
+    , cos (22.0 * pi / 12.0)
+    ]
+    [    1.0 / 2.0
+    ,  sqrt3 / 2.0
+
+    ,  sqrt2 / 2.0
+    ,  sqrt2 / 2.0
+
+    ,  sqrt3 / 2.0
+    ,    1.0 / 2.0
+
+    ,  sqrt3 / 2.0
+    ,   -1.0 / 2.0
+
+    ,  sqrt2 / 2.0
+    , -sqrt2 / 2.0
+
+    ,    1.0 / 2.0
+    , -sqrt3 / 2.0
+
+    ,   -1.0 / 2.0
+    , -sqrt3 / 2.0
+
+    , -sqrt2 / 2.0
+    , -sqrt2 / 2.0
+
+    , -sqrt3 / 2.0
+    ,   -1.0 / 2.0
+
+    , -sqrt3 / 2.0
+    ,    1.0 / 2.0
+
+    , -sqrt2 / 2.0
+    ,  sqrt2 / 2.0
+
+    ,   -1.0 / 2.0
+    ,  sqrt3 / 2.0
+    ]
+
+assertDelta : Decimal -> [Decimal] -> [Decimal] -> Script ()
+assertDelta maxDelta as bs =
+  let deltas = map abs $ zipWith (-) as bs
+  in
+  assertMsg
+    ("Difference between " <> show as <> " and " <> show bs <> " is " <> show deltas <> " , which is greater than " <> show maxDelta)
+    (all (< maxDelta) deltas)
