@@ -246,13 +246,15 @@ export class DamlLanguageClient {
     config: vscode.WorkspaceConfiguration,
     sdkVersion: string | undefined,
   ): boolean {
-    const multiIDESupport: boolean =
+    const multiPackageSupportOpt: boolean =
       config.get("multiPackageIdeSupport") || false;
+    const usingDpm: boolean = config.get("useDPMWhenAvailable") || false;
+    const allowMultiIde = multiPackageSupportOpt || usingDpm;
 
     // We'll say multi-ide is introduced in 2.9.0. The command existed
     // in 2.8, but it was unfinished, so we shouldn't allow it to be used.
     if (
-      multiIDESupport &&
+      allowMultiIde &&
       sdkVersion &&
       sdkVersion != "0.0.0" &&
       semver.lt(sdkVersion, "2.9.0")
@@ -262,7 +264,7 @@ export class DamlLanguageClient {
       );
       return false;
     }
-    return multiIDESupport;
+    return allowMultiIde;
   }
 
   private static getLanguageServerArgs(

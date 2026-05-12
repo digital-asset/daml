@@ -9,6 +9,9 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-05-12 (Exclusive)
+- Always enable multi-ide support in Dpm Studio, remove option to disable.
+
 ## Until 2026-05-05 (Exclusive)
 - Removed daml assistant
 - `dpm build` now infers `--all` when invoked from a directory that contains a `multi-package.yaml` but no `daml.yaml`, instead of erroring out.
