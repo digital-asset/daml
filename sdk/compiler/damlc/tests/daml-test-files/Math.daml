@@ -1,8 +1,8 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=48:22-48:32; Use sqrt
--- @INFO range=67:15-67:25; Use sqrt
+-- @INFO range=49:22-49:32; Use sqrt
+-- @INFO range=68:15-68:25; Use sqrt
 
 
 module Math where
@@ -10,6 +10,7 @@ module Math where
 import Daml.Script
 import DA.Math
 import DA.Assert
+import DA.Text (implode, unlines)
 
 expTest = script do
   let
@@ -69,88 +70,48 @@ trigTest = script do
   assert (cos (15.0 * pi / 2.0) <= delta)
   assert (abs(0.5 - cos (pi / 3.0)) <= 4.0 * delta)
 
-quadrantTest = script $ do
+quadrantTest = script do
+  if null quadrantTestCases
+    then pure ()
+    else assertFail $ unlines quadrantTestCases
+
+quadrantTestCases = do
   let
     sqrt2 = 1.4142135623 : Decimal
     sqrt3 = 1.7320508076 : Decimal
-  assertDelta 0.001
-    [ sin ( 2.0 * pi / 12.0)
-    , cos ( 2.0 * pi / 12.0)
 
-    , sin ( 3.0 * pi / 12.0)
-    , cos ( 3.0 * pi / 12.0)
-
-    , sin ( 4.0 * pi / 12.0)
-    , cos ( 4.0 * pi / 12.0)
-
-    , sin ( 8.0 * pi / 12.0)
-    , cos ( 8.0 * pi / 12.0)
-
-    , sin ( 9.0 * pi / 12.0)
-    , cos ( 9.0 * pi / 12.0)
-
-    , sin (10.0 * pi / 12.0)
-    , cos (10.0 * pi / 12.0)
-
-    , sin (14.0 * pi / 12.0)
-    , cos (14.0 * pi / 12.0)
-
-    , sin (15.0 * pi / 12.0)
-    , cos (15.0 * pi / 12.0)
-
-    , sin (16.0 * pi / 12.0)
-    , cos (16.0 * pi / 12.0)
-
-    , sin (20.0 * pi / 12.0)
-    , cos (20.0 * pi / 12.0)
-
-    , sin (21.0 * pi / 12.0)
-    , cos (21.0 * pi / 12.0)
-
-    , sin (22.0 * pi / 12.0)
-    , cos (22.0 * pi / 12.0)
-    ]
-    [    1.0 / 2.0
-    ,  sqrt3 / 2.0
-
-    ,  sqrt2 / 2.0
-    ,  sqrt2 / 2.0
-
-    ,  sqrt3 / 2.0
-    ,    1.0 / 2.0
-
-    ,  sqrt3 / 2.0
-    ,   -1.0 / 2.0
-
-    ,  sqrt2 / 2.0
-    , -sqrt2 / 2.0
-
-    ,    1.0 / 2.0
-    , -sqrt3 / 2.0
-
-    ,   -1.0 / 2.0
-    , -sqrt3 / 2.0
-
-    , -sqrt2 / 2.0
-    , -sqrt2 / 2.0
-
-    , -sqrt3 / 2.0
-    ,   -1.0 / 2.0
-
-    , -sqrt3 / 2.0
-    ,    1.0 / 2.0
-
-    , -sqrt2 / 2.0
-    ,  sqrt2 / 2.0
-
-    ,   -1.0 / 2.0
-    ,  sqrt3 / 2.0
+  quadrant <- [0..3]
+  (rotationIdx, rotationX, rotationY) <-
+    [ (0, sqrt3 / 2.0,   1.0 / 2.0)
+    , (1, sqrt2 / 2.0, sqrt2 / 2.0)
+    , (2,   1.0 / 2.0, sqrt3 / 2.0)
     ]
 
-assertDelta : Decimal -> [Decimal] -> [Decimal] -> Script ()
-assertDelta maxDelta as bs =
-  let deltas = map abs $ zipWith (-) as bs
-  in
-  assertMsg
-    ("Difference between " <> show as <> " and " <> show bs <> " is " <> show deltas <> " , which is greater than " <> show maxDelta)
-    (all (< maxDelta) deltas)
+  let shouldSwapAxes = quadrant `elem` [1,3]
+  let signX = if quadrant `elem` [1,2] then -1.0 else 1.0
+  let signY = if quadrant `elem` [2,3] then -1.0 else 1.0
+  let expectedX = signX * if shouldSwapAxes then rotationY else rotationX
+  let expectedY = signY * if shouldSwapAxes then rotationX else rotationY
+
+  let angleOutOf12 = quadrant * 6 + 2 + rotationIdx
+  let angle = intToDecimal angleOutOf12 * pi / 12.0
+  let actualX = cos angle
+  let actualY = sin angle
+
+  (functionName, expected, actual) <-
+    [ ("cos", expectedX, actualX)
+    , ("sin", expectedY, actualY)
+    ]
+
+  let delta = abs $ expected - actual
+
+  guard (delta > 0.000001)
+
+  pure $ implode
+    [ "Error in trig function: "
+    , functionName, "(", show angleOutOf12, " * pi / 12)"
+    , " should be "
+    , show expected
+    , ", was "
+    , show actual
+    ]
