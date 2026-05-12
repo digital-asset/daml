@@ -151,12 +151,15 @@ cordic: Int -> Decimal -> (Decimal, Decimal)
 cordic n r
   | r < 0.0 = cordic n (r + 2.0 * pi)
   | r > 2.0 * pi = cordic n (r - 2.0 * pi)
+  | r > 1.5 * pi =
+    let (c, s) = cordic n (2.0 * pi - r)
+    in (c, -s)
   | r > pi =
     let (c, s) = cordic n (r - pi)
     in (-c, -s)
   | r > pi / 2.0 =
     let (c, s) = cordic n (pi - r)
-    in (c, -s)
+    in (-c, s)
   | otherwise =
     let (c, s) = cordicInner n r (1.0, 0.0) 1.0 angles
     in (kn * c, kn * s)
