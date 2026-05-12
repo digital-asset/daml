@@ -48,6 +48,12 @@ def _ghc_lib_sdist_impl(ctx):
     # -- cpp_options --
     cpp_options = " ".join(["--cpp={}".format(cpp) for cpp in ctx.attr.cpp_options])
 
+    # -- gmp library directory --
+    # All hermetic `lib/libgmp.so*` files live in the same dirname, so
+    # picking the first file's dirname yields the `-L` path that we
+    # inject into every inner GHC invocation via the ghc wrapper below.
+    gmp_lib_dir = ctx.files.gmp[0].dirname
+
     # -- Shell command --
     shell_cmd = """\
 set -euo pipefail
@@ -72,6 +78,46 @@ export PATH="$(dirname "$EXECROOT/{m4_path}"):$PATH"
 export PATH="$(dirname "$EXECROOT/{hadrian_path}"):$PATH"
 export PATH="$(dirname "$EXECROOT/{cabal_path}"):$PATH"
 {extra_tool_path}
+
+# Inject `-L<gmp_lib_dir>` into every link command driven by the inner
+# GHC (hadrian, ./configure, etc.) so gcc/ld can resolve `-lgmp` under
+# the hermetic Bootlin sysroot, which ships no libgmp. The hermetic
+# `x86_64-buildroot-linux-gnu-gcc` is a *cross-compiler*; GCC's docs
+# (Environment-Variables, "LIBRARY_PATH") say `LIBRARY_PATH` is only
+# consulted "when configured as a native compiler", so the env-var
+# route is silently ignored here. The minimal env-independent knob is
+# `-L`, which gcc/ld always honor on the command line. We deliver it
+# by shimming a `ghc` wrapper earlier on PATH; GHC's configure
+# auto-detects `ghc` from PATH and records the wrapper's absolute path
+# in mk/config.mk, so hadrian's `Run Ghc LinkHs Stage0` invocations go
+# through the wrapper. The wrapper forwards every argument to the real
+# rules_haskell GHC bindist plus an extra `-optl-L<gmp_lib_dir>`, which
+# GHC translates into a `-L` on the gcc link command. Compile-only
+# (`-c`) invocations silently ignore `-optl-L`, so the wrapper is safe
+# to interpose on every ghc call.
+GHC_WRAPPER_DIR=$(mktemp -d)
+GHC_BIN_DIR="$(dirname "$EXECROOT/{ghc_path}")"
+# Mirror every bindist binary into the wrapper dir via symlinks, then
+# override `ghc` with our wrapper. GHC's autoconf locates `ghc-pkg` etc.
+# by inspecting the directory of the detected `ghc` (not by PATH lookup),
+# so the wrapper directory must contain a co-located `ghc-pkg`, `hsc2hs`,
+# `runghc`, etc., or configure aborts with "Cannot find matching ghc-pkg".
+for bin in "$GHC_BIN_DIR"/*; do
+    name="$(basename "$bin")"
+    if [ "$name" != "ghc" ]; then
+        ln -s "$bin" "$GHC_WRAPPER_DIR/$name"
+    fi
+done
+cat > "$GHC_WRAPPER_DIR/ghc" <<'WRAPPER_EOF'
+#!/bin/sh
+exec "__GHC_REAL__" -optl-L"__GMP_DIR__" "$@"
+WRAPPER_EOF
+sed -i \
+    -e "s|__GHC_REAL__|$EXECROOT/{ghc_path}|" \
+    -e "s|__GMP_DIR__|$EXECROOT/{gmp_lib_dir}|" \
+    "$GHC_WRAPPER_DIR/ghc"
+chmod +x "$GHC_WRAPPER_DIR/ghc"
+export PATH="$GHC_WRAPPER_DIR:$PATH"
 
 # Locale
 if [ "$(uname)" = "Darwin" ]; then
@@ -136,6 +182,7 @@ cp $TMP/ghc-lib{component}.cabal $EXECROOT/{cabal_output}
         cpp_options = cpp_options,
         cabal_output = cabal_file.path,
         output_dir = tarball.dirname,
+        gmp_lib_dir = gmp_lib_dir,
     )
 
     # -- Action --
@@ -148,7 +195,7 @@ cp $TMP/ghc-lib{component}.cabal $EXECROOT/{cabal_output}
                 ctx.file.m4,
                 ctx.file.cabal,
                 perl_bin,
-            ] + ctx.files.ghc_srcs + ctx.files.perl + ghc_bindir + ghc_libdir + ctx.files.extra_tools,
+            ] + ctx.files.ghc_srcs + ctx.files.perl + ghc_bindir + ghc_libdir + ctx.files.extra_tools + ctx.files.gmp,
             transitive = [cc_toolchain.all_files],
         ),
         tools = [
@@ -181,6 +228,14 @@ ghc_lib_sdist = rule(
         "cpp_options": attr.string_list(default = []),
         "cabal_out": attr.output(mandatory = True, doc = "Declared output for the .cabal file."),
         "tarball_out": attr.output(mandatory = True, doc = "Declared output for the sdist tarball."),
+        "gmp": attr.label(
+            mandatory = True,
+            doc = "Hermetic libgmp target (filegroup or cc_library). The " +
+                  "file directory is injected as `-optl-L<dir>` into every " +
+                  "inner GHC invocation (via a `ghc` wrapper shim on PATH) " +
+                  "so hadrian's deriveConstants link can resolve `-lgmp` " +
+                  "under the hermetic Bootlin sysroot.",
+        ),
         "_cc_toolchain": attr.label(default = "@rules_cc//cc:current_cc_toolchain"),
     },
     toolchains = [
