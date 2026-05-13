@@ -1,0 +1,120 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.pruning.v30;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+message SetScheduleRequest {
+  PruningSchedule schedule = 1;
+}
+message SetScheduleResponse {}
+
+message GetScheduleRequest {}
+message GetScheduleResponse {
+  PruningSchedule schedule = 1;
+}
+
+message SetParticipantScheduleRequest {
+  ParticipantPruningSchedule schedule = 1;
+}
+message SetParticipantScheduleResponse {}
+
+message GetParticipantScheduleRequest {}
+message GetParticipantScheduleResponse {
+  ParticipantPruningSchedule schedule = 1;
+}
+
+message PruningSchedule {
+  string cron = 1;
+  google.protobuf.Duration max_duration = 2;
+  google.protobuf.Duration retention = 3;
+}
+
+message ParticipantPruningSchedule {
+  PruningSchedule schedule = 1;
+  bool prune_internally_only = 2;
+}
+
+message ClearScheduleRequest {}
+message ClearScheduleResponse {}
+
+message SetCronRequest {
+  string cron = 1;
+}
+message SetCronResponse {}
+
+message SetMaxDurationRequest {
+  google.protobuf.Duration max_duration = 1;
+}
+message SetMaxDurationResponse {}
+
+message SetRetentionRequest {
+  google.protobuf.Duration retention = 1;
+}
+message SetRetentionResponse {}
+
+message FindPruningTimestampRequest {
+  // the index to look up the offset for, needs to be 1 or larger
+  // i.e. 1 for returning the first timestamp, 2 for the second timestamp etc
+  int32 index = 1;
+}
+message FindPruningTimestampResponse {
+  // optional, not set if less than `index` events exist
+  google.protobuf.Timestamp timestamp = 1;
+}
+
+// overwrites previous no-wait-configuration on the given synchronizers for the given counter participants
+// the request will fail if the counter_participant_ids or synchronizer_ids has an invalid format, or if duplicates are present in the repeated strings
+message SetNoWaitCommitmentsFromRequest {
+  // ignore the given participants; an empty list has no effect
+  repeated string counter_participant_ids = 1;
+  // ignore the given participants on these synchronizers
+  // an empty list has no effect
+  repeated string synchronizer_ids = 2;
+}
+
+message SetNoWaitCommitmentsFromResponse {}
+
+// deletes previous no-wait-configuration on the given synchronizers for the given counter participants
+message ResetNoWaitCommitmentsFromRequest {
+  // an empty list has no effect
+  repeated string counter_participant_ids = 1;
+  // an empty list has no effect
+  repeated string synchronizer_ids = 2;
+}
+
+message ResetNoWaitCommitmentsFromResponse {}
+
+message Synchronizers {
+  repeated string synchronizer_ids = 1;
+}
+
+// Returns the state of no-wait-config at the time the request executes, with optional filtering on synchronizers and
+// counter participants
+// The response includes the status of the specified counter participants on the specified synchronizers, regardless of
+// whether these counter participants have shared contracts with the participant at the time the call executes.
+// If no counter participants / synchronizers are specified, the response includes all counter participants that are
+// known to the local participant at the time when the call executes, regardless of whether they have shared contracts
+// with the participant at the time the call executes.
+// Even if some participants may not be connected to some synchronizers at the time the query executes, the response still
+// includes them if they are known to the participant or specified in the arguments.
+message GetNoWaitCommitmentsFromRequest {
+  repeated string synchronizer_ids = 1;
+  repeated string participant_uids = 2;
+}
+
+message GetNoWaitCommitmentsFromResponse {
+  // participants that are ignored
+  repeated WaitCommitmentsSetup ignored_participants = 1;
+  // participants that are not ignored
+  repeated WaitCommitmentsSetup not_ignored_participants = 2;
+}
+
+message WaitCommitmentsSetup {
+  string counter_participant_uid = 1;
+  Synchronizers synchronizers = 2;
+}

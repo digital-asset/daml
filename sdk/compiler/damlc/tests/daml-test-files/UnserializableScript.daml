@@ -1,0 +1,19 @@
+-- Copyright (c) 2020 The Daml Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF 2.1
+
+module UnserializableScript where
+
+import Daml.Script
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+
+run : Script TemplateTypeRep
+run = script do
+  pure $ templateTypeRep @T

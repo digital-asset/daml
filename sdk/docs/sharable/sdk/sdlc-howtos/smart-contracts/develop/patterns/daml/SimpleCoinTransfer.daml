@@ -1,0 +1,71 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE PartialTypeSignatures #-}
+
+module SimpleCoinTransfer where
+
+import Daml.Script
+import Utilities
+
+-- BEGIN_SIMPLE_COIN_TEMPLATE
+template Coin
+  with
+    owner: Party
+    issuer: Party
+    amount: Decimal
+  where
+    signatory issuer
+    signatory owner
+
+    ensure amount > 0.0
+-- END_SIMPLE_COIN_TEMPLATE
+
+-- BEGIN_SIMPLE_COIN_TRANSFER
+    choice Transfer : ContractId TransferProposal
+      with
+        newOwner: Party
+      controller owner
+      do create TransferProposal
+            with coin=this; newOwner
+-- END_SIMPLE_COIN_TRANSFER
+
+-- BEGIN_PROPOSAL_TEMPLATE
+template TransferProposal
+  with
+    coin: Coin
+    newOwner: Party
+  where
+    signatory coin.owner
+    signatory coin.issuer
+    observer newOwner
+-- END_PROPOSAL_TEMPLATE
+
+-- BEGIN_SIMPLE_COIN_REJECT_TRANSFER
+    choice WithdrawTransfer : ContractId Coin
+      controller coin.owner
+      do
+        create coin
+-- END_SIMPLE_COIN_REJECT_TRANSFER
+
+-- BEGIN_SIMPLE_COIN_ACCEPT_TRANSFER
+    choice AcceptTransfer : ContractId Coin
+      controller newOwner
+      do
+        create coin with owner = newOwner
+-- END_SIMPLE_COIN_ACCEPT_TRANSFER
+
+-- test
+simpleCoinTransfer : Script ()
+simpleCoinTransfer =
+  script do
+
+    [issuer, owner, newOwner] <- makePartiesFrom ["Bank", "Me", "You"]
+
+    --test 1: owner's coin is transferred to a new owner
+
+    coin <- owner `submit` do createCmd Coin with owner; issuer; amount=100.0
+
+    transferProposal <- owner `submit` do exerciseCmd coin Transfer with newOwner
+
+    newOwner `submit` do exerciseCmd transferProposal AcceptTransfer

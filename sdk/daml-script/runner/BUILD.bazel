@@ -1,0 +1,201 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+    "default_scalacopts",
+    "lf_scalacopts_stricter",
+    "scaladoc_jar",
+)
+load("//rules_daml:daml.bzl", "daml_compile")
+load("//bazel_tools:proto.bzl", "proto_gen")
+load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools/packaging:packaging.bzl", "package_oci_component")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
+
+# Should match RunnerMainTestBase.DAR_COUNT
+test_dar_count = 5
+
+da_scala_library(
+    name = "script-runner-lib",
+    srcs =
+        glob(
+            ["src/main/scala/**/*.scala"],
+        ) +
+        #  we depend on sources to avoid pushing a canton artifact to maven
+        [
+            "//canton:community_admin-api_proto_scala",
+            "//canton:community_admin-api-src",
+        ],
+    override_scalacopts = [
+        copt
+        for copt in default_scalacopts + lf_scalacopts_stricter
+        if copt not in [
+            # scalapb does not like those
+            "-P:wartremover:traverser:org.wartremover.warts.JavaSerializable",
+            "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+            "-P:wartremover:traverser:org.wartremover.warts.Product",
+            "-P:wartremover:traverser:org.wartremover.warts.Serializable",
+            # ProtocolVersionAnnotation.scala violates this warning
+            "-P:wartremover:traverser:org.wartremover.warts.LeakingSealed",
+        ]
+    ] + ["-Wconf:cat=deprecation&msg=in\\ proto\\ file:s"],
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_paiges_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
+    ],
+    # no doc as our scaladoc pipeline does not support .scrjar
+    scaladoc = False,
+    tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//canton:base_daml-tls",
+        "//canton:base_errors",
+        "//canton:base_grpc-utils",
+        "//canton:bindings-java",
+        "//canton:community_base_proto_scala",
+        "//canton:community_ledger_ledger-common",
+        "//canton:community_util-observability",
+        "//canton:ledger_api_proto_scala",
+        "//daml-lf/api-type-signature",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/ide-ledger",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/stable-packages",
+        "//daml-lf/transaction",
+        "//daml-script/converter",
+        "//ledger-service/lf-value-json",
+        "//libs-scala/auth-utils",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/nonempty",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/rs-grpc-pekko",
+        "//libs-scala/timer-utils",
+        "@maven//:com_google_guava_guava",
+        "@maven//:io_grpc_grpc_netty_shaded",
+    ],
+)
+
+# Create empty Scaladoc JAR for uploading to Maven Central
+scaladoc_jar(
+    name = "script-runner-lib_scaladoc",
+    srcs = [],
+    tags = ["scaladoc"],
+    deps = [],
+) if is_windows == False else None
+
+da_scala_test(
+    name = "unitTests",
+    srcs = glob(
+        ["src/test/scala/**/*Spec.scala"],
+    ),
+    deps = [
+        ":script-runner-lib",
+    ],
+)
+
+da_scala_test(
+    name = "tests",
+    size = "large",
+    srcs = glob([
+        "src/test/scala/**/*Test*.scala",
+    ]),
+    data =
+        glob(["src/test/resources/**/*"]) + [
+            ":daml-script-binary",
+            ":failing-test-script.dar",
+            "//test-common/test-certificates",
+        ] + [":test-script{n}.dar".format(n = n) for n in range(
+            1,
+            test_dar_count + 1,
+        )],
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+    ],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_ledger_ledger-common",
+        "//canton:community_util-observability",
+        "//canton:ledger_api_proto_scala",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//libs-scala/ledger-resources",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/scala-utils",
+        "//libs-scala/testing-utils",
+        "//test-common/canton/it-lib",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_binary(
+    name = "daml-script-binary",
+    main_class = "com.digitalasset.daml.lf.engine.script.ScriptMain",
+    resources = glob(["src/main/resources/**/*"]),
+    scala_runtime_deps = [
+        "@maven//:org_apache_pekko_pekko_slf4j",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    tags = ["ee-jar-license"],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        ":script-runner-lib",
+    ],
+)
+
+[
+    daml_compile(
+        name = "test-script{n}".format(n = n),
+        srcs = glob(["src/test/resources/TestScript.daml"]),
+        dependencies = ["//daml-script/daml:daml-script.dar"],
+    )
+    for n in range(
+        1,
+        test_dar_count + 1,
+    )
+]
+
+daml_compile(
+    name = "failing-test-script",
+    srcs = glob(["src/test/resources/FailingTestScript.daml"]),
+    dependencies = ["//daml-script/daml:daml-script.dar"],
+)
+
+exports_files(["src/main/resources/logback.xml"])
+
+package_oci_component(
+    name = "daml-script-oci",
+    component_manifest = ":component.yaml",
+    platform_agnostic = True,
+    resources = [
+        ":daml-script-binary_distribute.jar",
+        "//compiler/script-service/server:script-service.jar",
+    ] + [
+        "//daml-script/daml:daml-script-{}.dar".format(lf_version)
+        for lf_version in COMPILER_LF_VERSIONS
+    ],
+    tags = ["no-cache"],
+    visibility = ["//visibility:public"],
+)

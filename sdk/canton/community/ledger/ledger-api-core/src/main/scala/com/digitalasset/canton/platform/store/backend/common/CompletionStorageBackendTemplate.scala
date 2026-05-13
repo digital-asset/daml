@@ -1,0 +1,295 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.digitalasset.canton.platform.store.backend.common
+
+import anorm.SqlParser.*
+import anorm.{Row, RowParser, SimpleSql, ~}
+import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
+import com.daml.platform.v1.index.StatusDetails
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
+import com.digitalasset.canton.platform.store.CompletionFromTransaction
+import com.digitalasset.canton.platform.store.backend.CompletionStorageBackend
+import com.digitalasset.canton.platform.store.backend.Conversions.{
+  offset,
+  parties,
+  timestampFromMicros,
+  traceContextOption,
+  updateId,
+}
+import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+import com.digitalasset.canton.platform.store.interning.StringInterning
+import com.digitalasset.canton.platform.{Party, UserId}
+import com.digitalasset.canton.protocol.UpdateId
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.google.protobuf.any
+import com.google.rpc.status.Status as StatusProto
+
+import java.sql.Connection
+import java.util.UUID
+
+class CompletionStorageBackendTemplate(
+    stringInterning: StringInterning,
+    val loggerFactory: NamedLoggerFactory,
+) extends CompletionStorageBackend
+    with NamedLogging {
+
+  override def commandCompletions(
+      startInclusive: Offset,
+      endInclusive: Offset,
+      userId: UserId,
+      parties: Set[Party],
+      limit: Int,
+  )(connection: Connection): Vector[CompletionStreamResponse] = {
+    import ComposableQuery.*
+    import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
+    if (parties.isEmpty) {
+      Vector.empty
+    } else {
+      stringInterning.userId.tryInternalize(userId) match {
+        case Some(internedUserId) =>
+          val rows = SQL"""
+            SELECT
+              submitters,
+              completion_offset,
+              record_time,
+              command_id,
+              update_id,
+              rejection_status_code,
+              rejection_status_message,
+              rejection_status_details,
+              user_id,
+              submission_id,
+              deduplication_offset,
+              deduplication_duration_seconds,
+              deduplication_duration_nanos,
+              synchronizer_id,
+              trace_context
+            FROM
+              lapi_command_completions
+            WHERE
+              ${QueryStrategy.offsetIsBetween(
+              nonNullableColumn = "completion_offset",
+              startInclusive = startInclusive,
+              endInclusive = endInclusive,
+            )} AND
+              user_id = $internedUserId
+            ORDER BY completion_offset ASC
+            ${QueryStrategy.limitClause(Some(limit))}"""
+            .asVectorOf(completionParser(parties))(connection)
+          rows.collect {
+            case (submitters, response) if submitters.exists(parties) =>
+              response
+          }
+        case None => Vector.empty
+      }
+    }
+  }
+
+  private val sharedColumns: RowParser[
+    Seq[Party] ~ Offset ~ Timestamp ~ String ~ Int ~ Option[String] ~ Int ~ TraceContext
+  ] =
+    parties(stringInterning)("submitters") ~
+      offset("completion_offset") ~
+      timestampFromMicros("record_time") ~
+      str("command_id") ~
+      int("user_id") ~
+      str("submission_id").? ~
+      int("synchronizer_id") ~
+      traceContextOption("trace_context")(noTracingLogger)
+
+  private val acceptedCommandSharedColumns: RowParser[
+    Seq[Party] ~ Offset ~ Timestamp ~ String ~ Int ~ Option[
+      String
+    ] ~ Int ~ TraceContext ~ UpdateId
+  ] =
+    sharedColumns ~ updateId("update_id")
+
+  private val deduplicationOffsetColumn: RowParser[Option[Long]] =
+    long("deduplication_offset").?
+  private val deduplicationDurationSecondsColumn: RowParser[Option[Long]] =
+    long("deduplication_duration_seconds").?
+  private val deduplicationDurationNanosColumn: RowParser[Option[Int]] =
+    int("deduplication_duration_nanos").?
+
+  private def acceptedCommandParser(
+      parties: Set[Party]
+  ): RowParser[(Seq[Party], CompletionStreamResponse)] =
+    acceptedCommandSharedColumns ~
+      deduplicationOffsetColumn ~
+      deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn map {
+        case submitters ~ offset ~ recordTime ~ commandId ~ internedUserId ~ submissionId ~ internedSynchronizerId ~ traceContext ~ updateId ~
+            deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos =>
+          submitters -> CompletionFromTransaction.acceptedCompletion(
+            submitters = submitters.filter(parties).toSet,
+            recordTime = recordTime,
+            offset = offset,
+            commandId = commandId,
+            updateId = updateId,
+            userId = stringInterning.userId.unsafe.externalize(internedUserId),
+            optSubmissionId = submissionId,
+            optDeduplicationOffset = deduplicationOffset,
+            optDeduplicationDurationSeconds = deduplicationDurationSeconds,
+            optDeduplicationDurationNanos = deduplicationDurationNanos,
+            synchronizerId =
+              stringInterning.synchronizerId.unsafe.externalize(internedSynchronizerId),
+            traceContext = traceContext,
+          )
+      }
+
+  private val rejectionStatusCodeColumn: RowParser[Int] = int("rejection_status_code")
+  private val rejectionStatusMessageColumn: RowParser[String] = str("rejection_status_message")
+  private val rejectionStatusDetailsColumn: RowParser[Option[Array[Byte]]] =
+    byteArray("rejection_status_details").?
+
+  private def rejectedCommandParser(
+      internedParties: Set[Party]
+  ): RowParser[(Seq[Party], CompletionStreamResponse)] =
+    sharedColumns ~
+      deduplicationOffsetColumn ~
+      deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn ~
+      rejectionStatusCodeColumn ~
+      rejectionStatusMessageColumn ~
+      rejectionStatusDetailsColumn map {
+        case submitters ~ offset ~ recordTime ~ commandId ~ internedUserId ~ submissionId ~ internedSynchronizerId ~ traceContext ~
+            deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~
+            rejectionStatusCode ~ rejectionStatusMessage ~ rejectionStatusDetails =>
+          val status =
+            buildStatusProto(rejectionStatusCode, rejectionStatusMessage, rejectionStatusDetails)
+          submitters -> CompletionFromTransaction.rejectedCompletion(
+            submitters = submitters.filter(internedParties).toSet,
+            recordTime = recordTime,
+            offset = offset,
+            commandId = commandId,
+            status = status,
+            userId = stringInterning.userId.unsafe.externalize(internedUserId),
+            optSubmissionId = submissionId,
+            optDeduplicationOffset = deduplicationOffset,
+            optDeduplicationDurationSeconds = deduplicationDurationSeconds,
+            optDeduplicationDurationNanos = deduplicationDurationNanos,
+            synchronizerId =
+              stringInterning.synchronizerId.unsafe.externalize(internedSynchronizerId),
+            traceContext = traceContext,
+          )
+      }
+
+  private def completionParser(
+      internedParties: Set[Party]
+  ): RowParser[(Seq[Party], CompletionStreamResponse)] =
+    acceptedCommandParser(internedParties) | rejectedCommandParser(internedParties)
+
+  private val postPublishDataParser: RowParser[Option[PostPublishData]] =
+    int("synchronizer_id") ~
+      str("message_uuid").? ~
+      long("record_time") ~
+      int("user_id") ~
+      str("command_id") ~
+      parties(stringInterning)("submitters") ~
+      offset("completion_offset") ~
+      long("publication_time") ~
+      str("submission_id").? ~
+      updateId("update_id").? ~
+      traceContextOption("trace_context")(noTracingLogger) ~
+      bool("is_transaction") map {
+        case internedSynchronizerId ~ messageUuidString ~ recordTimeMicros ~ internedUserId ~
+            commandId ~ submitters ~ offset ~ publicationTimeMicros ~ submissionId ~ updateIdOpt ~ traceContext ~ true =>
+          // note: we only collect completions for transactions here for acceptance and transactions and reassignments for rejection (is_transaction will be true in rejection reassignment case as well)
+          Some(
+            PostPublishData(
+              submissionSynchronizerId =
+                stringInterning.synchronizerId.externalize(internedSynchronizerId),
+              publishSource = messageUuidString
+                .map(UUID.fromString)
+                .map(PublishSource.Local(_): PublishSource)
+                .getOrElse(
+                  PublishSource.Sequencer(
+                    CantonTimestamp.ofEpochMicro(recordTimeMicros)
+                  )
+                ),
+              userId = stringInterning.userId.externalize(internedUserId),
+              commandId = Ref.CommandId.assertFromString(commandId),
+              actAs = submitters.toSet,
+              offset = offset,
+              publicationTime = CantonTimestamp.ofEpochMicro(publicationTimeMicros),
+              submissionId = submissionId.map(Ref.SubmissionId.assertFromString),
+              accepted = updateIdOpt.isDefined,
+              traceContext = traceContext,
+            )
+          )
+        case _ => None
+      }
+
+  private def buildStatusProto(
+      rejectionStatusCode: Int,
+      rejectionStatusMessage: String,
+      rejectionStatusDetails: Option[Array[Byte]],
+  ): StatusProto =
+    StatusProto.of(
+      rejectionStatusCode,
+      rejectionStatusMessage,
+      parseRejectionStatusDetails(rejectionStatusDetails),
+    )
+
+  private def parseRejectionStatusDetails(
+      rejectionStatusDetails: Option[Array[Byte]]
+  ): Seq[any.Any] =
+    rejectionStatusDetails
+      .map(StatusDetails.parseFrom)
+      .map(_.details)
+      .getOrElse(Seq.empty)
+
+  override def pruneCompletions(
+      pruneUpToInclusive: Offset
+  )(connection: Connection, traceContext: TraceContext): Unit =
+    pruneWithLogging(queryDescription = "Command completions pruning") {
+      import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
+      SQL"delete from lapi_command_completions where completion_offset <= $pruneUpToInclusive"
+    }(connection, traceContext)
+
+  private def pruneWithLogging(queryDescription: String)(query: SimpleSql[Row])(
+      connection: Connection,
+      traceContext: TraceContext,
+  ): Unit = {
+    val deletedRows = query.executeUpdate()(connection)
+    logger.info(s"$queryDescription finished: deleted $deletedRows rows.")(
+      traceContext
+    )
+  }
+
+  override def commandCompletionsForRecovery(
+      startInclusive: Offset,
+      endInclusive: Offset,
+  )(connection: Connection): Vector[PostPublishData] = {
+    import ComposableQuery.*
+    import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
+    SQL"""
+      SELECT
+        synchronizer_id,
+        message_uuid,
+        record_time,
+        user_id,
+        command_id,
+        submitters,
+        completion_offset,
+        publication_time,
+        submission_id,
+        update_id,
+        trace_context,
+        is_transaction
+      FROM
+        lapi_command_completions
+      WHERE
+        ${QueryStrategy.offsetIsBetween(
+        nonNullableColumn = "completion_offset",
+        startInclusive = startInclusive,
+        endInclusive = endInclusive,
+      )}
+      ORDER BY completion_offset ASC"""
+      .asVectorOf(postPublishDataParser)(connection)
+      .flatten
+  }
+}

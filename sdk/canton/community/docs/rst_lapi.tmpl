@@ -1,0 +1,201 @@
+{{/*
+
+   A Go Text Template used to transform the Ledger API proto-doc information
+   into reStructuredText (Sphinx variant) for the Ledger API Reference docs
+
+   https://pkg.go.dev/text/template#section-documentation
+   https://pkg.go.dev/github.com/pseudomuto/protoc-gen-doc#section-readme
+   https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html
+   https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html
+   https://bashtage.github.io/sphinx-material/rst-cheatsheet/rst-cheatsheet.html
+
+ */ -}}
+
+{{/* ---------------------------------------------------------
+  Nested template for method details
+  */ -}}
+{{define "TMethod"}}{{$method := . -}}
+
+{{$method.Description}}
+
+* Request: :ref:`{{$method.RequestLongType}} <{{$method.RequestFullType}}>`
+* Response: :ref:`{{$method.ResponseLongType}} <{{$method.ResponseFullType}}>`
+
+{{end}}{{/* end of TMethod */ -}}
+
+{{/* ---------------------------------------------------------
+  Nested template for message details
+  */ -}}
+{{define "TMessage"}}{{$message := . -}}
+
+{{$message.Description}}
+
+{{if not $message.HasFields -}}
+Message has no fields.
+
+{{else -}}
+{{range $message.Fields}}{{$field := . -}}
+
+{{if $field.IsOneof -}}
+{{if ne (index $field.OneofDecl 0) '_' -}} {{/* Check that the field is not part of a synthetic oneof (e.g. optional fields are synthetic oneofs) */}}
+.. _{{$message.FullName}}.{{$field.OneofDecl}}.{{$field.Name}}:
+{{- else -}}
+.. _{{$message.FullName}}.{{$field.Name}}:
+{{- end -}}
+{{- else -}}
+.. _{{$message.FullName}}.{{$field.Name}}:
+{{- end}}
+
+``{{if $field.IsOneof -}}{{if ne (index $field.OneofDecl 0) '_' -}}oneof {{$field.OneofDecl}}.{{end -}}{{end -}}
+{{$field.Name}}`` : :ref:`{{$field.LongType}} <{{$field.FullType}}>`
+{{- if len $field.Label}} ({{$field.Label}}){{end}}
+
+{{$field.Description}} {{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}
+
+{{end}}{{/* end of $message.Fields */ -}}
+{{end}}{{/* end of if */ -}}
+{{end}}{{/* end of TMessage */ -}}
+
+{{/* ---------------------------------------------------------
+  Nested template for enum details
+  */ -}}
+{{define "TEnum"}}{{$enum:= .}}
+
+{{$enum.Description}}
+
+.. list-table::
+   :header-rows: 0
+   :width: 100%
+
+   {{range .Values}}{{$value := . -}}
+   * - .. _{{$enum.FullName}}.{{$value.Name}}:
+
+       {{$value.Name}}
+     - {{$value.Number}}
+     - {{nobr $value.Description}}
+
+   {{end}}{{/* end of .Values loop */ -}}
+{{end}}{{/* end of TEnum */ -}}
+
+{{/* ---------------------------------------------------------
+  Main template for the Ledger API reference
+  */ -}}
+
+.. _build-reference-lapi-proto-docs:
+
+=========================
+gRPC Ledger API Reference
+=========================
+
+The specification for the services, methods, and messages
+for interacting with the gRPC-based Ledger API.
+
+{{/* Loop over all the proto files */ -}}
+{{$files := .Files -}}
+{{range $files}}{{$file := . -}}
+
+----
+
+.. _{{$file.Name}}:
+
+``{{$file.Name}}``
+
+{{/*--------------------------------------
+    Loop over all the services in a proto file */ -}}
+{{range $file.Services}}{{$service := . -}}
+
+.. _{{$service.FullName}}:
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+{{$service.LongName}}, |version {{$file.Package}}|
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+{{$service.Description}}
+
+{{/*--------------------------------------
+    Loop over all the methods in a service */ -}}
+{{range $service.Methods}}{{$method := . -}}
+
+.. _{{$service.FullName}}.{{$method.Name}}:
+
+{{$method.Name}} method, |version {{$file.Package}}|
+========================================================================================================================================================================================================
+
+{{template "TMethod" $method}}
+
+{{end}}{{/* end of $service.Methods */ -}}
+{{end}}{{/* end of $file.Services */ -}}
+
+{{/*--------------------------------------
+    Loop over all the messages in a file */ -}}
+{{range $file.Messages}}{{$message := . -}}
+
+.. _{{$message.FullName}}:
+
+{{$message.LongName}} message, |version {{$file.Package}}|
+========================================================================================================================================================================================================
+
+{{template "TMessage" $message -}}
+
+{{end}}{{/* end of $file.Messages */ -}}
+
+{{/*--------------------------------------
+    Loop over all the enums in a file */}}
+{{range $file.Enums}}{{$enum := .}}
+
+.. _{{$enum.FullName}}:
+
+{{$enum.LongName}} enum, |version {{$file.Package}}|
+========================================================================================================================================================================================================
+
+{{template "TEnum" $enum}}
+
+{{end}}{{/* end of $file.Enums */ -}}
+{{end}}{{/* end of .Files */}}
+
+.. include:: lapi-value-proto-docs.rst.inc
+
+{{/*--------------------------------------
+    Display information about scalars. */}}
+
+----
+
+.. _scalarvaluetypes:
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Scalar Value Types
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+{{range .Scalars}}{{$scalar := .}}
+
+.. _{{$scalar.ProtoType}}:
+
+**{{$scalar.ProtoType}}**
+
+  {{$scalar.Notes}}
+
+  .. list-table::
+    :header-rows: 1
+    :width: 100%
+    :widths: 25 25 25 25
+
+    * - Java
+      - Python
+      - C++
+      - C#
+
+    * - ``{{$scalar.JavaType}}``
+      - ``{{$scalar.PythonType}}``
+      - ``{{$scalar.CppType}}``
+      - ``{{$scalar.CSharp}}``
+
+{{end}}{{/* end of .Scalars */}}
+
+{{/*--------------------------------------
+    Display (v2) with the Service names */}}
+.. |version com.daml.ledger.api.v2| replace:: v2
+.. |version com.daml.ledger.api.v2.admin| replace:: v2/admin
+.. |version com.daml.ledger.api.v2.interactive| replace:: v2/interactive
+.. |version com.daml.ledger.api.v2.interactive.transaction.v1| replace:: v2/interactive/transaction/v1
+.. |version com.daml.ledger.api.v2.testing| replace:: v2/testing
+

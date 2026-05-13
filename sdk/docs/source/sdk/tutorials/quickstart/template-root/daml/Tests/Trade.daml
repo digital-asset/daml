@@ -1,0 +1,85 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module Tests.Trade where
+
+import DA.Assert
+import Daml.Script
+
+import Iou
+import IouTrade
+
+trade_test = do
+  -- allocate parties
+  alice <- allocatePartyByHint (PartyIdHint "Alice")
+  bob <- allocatePartyByHint (PartyIdHint "Bob")
+  usBank <- allocatePartyByHint (PartyIdHint "USD_Bank")
+  eurBank <- allocatePartyByHint (PartyIdHint "EUR_Bank")
+
+-- BEGIN_SCRIPT
+  -- Banks issue IOU transfers.
+  iouTransferAliceCid <- submit eurBank do
+    createAndExerciseCmd
+      Iou with
+        issuer = eurBank
+        owner = eurBank
+        currency = "EUR"
+        amount = 100.0
+        observers = []
+      Iou_Transfer with
+        newOwner = alice
+-- END_SCRIPT
+
+  iouTransferBobCid <- submit usBank do
+    createAndExerciseCmd
+      Iou with
+        issuer = usBank
+        owner = usBank
+        currency = "USD"
+        amount = 110.0
+        observers = []
+      Iou_Transfer with
+        newOwner = bob
+
+  -- Bob and Alice accept.
+  iouAliceCid <- submit alice do
+    exerciseCmd iouTransferAliceCid IouTransfer_Accept
+  iouBobCid <- submit bob do
+    exerciseCmd iouTransferBobCid IouTransfer_Accept
+
+  -- Alice makes her EUR IOU visible to Bob.
+  iouAliceCid <- submit alice do
+    exerciseCmd iouAliceCid Iou_AddObserver with newObserver = bob
+
+  -- Alice makes a trade proposal to swap her EUR for Bob's USD.
+  tradePropCid <- submit alice do
+    createCmd IouTrade with
+      buyer = alice
+      seller = bob
+      baseIouCid = iouAliceCid
+      baseIssuer = eurBank
+      baseCurrency = "EUR"
+      baseAmount = 100.0
+      quoteIssuer = usBank
+      quoteCurrency = "USD"
+      quoteAmount = 110.0
+
+  -- Bob accepts.
+  newIous <- submit bob do
+    exerciseCmd tradePropCid IouTrade_Accept with quoteIouCid = iouBobCid
+
+  do
+    Some iou <- queryContractId alice (fst newIous)
+    alice === iou.owner
+    usBank === iou.issuer
+    "USD" === iou.currency
+    110.0 === iou.amount
+
+  do
+    Some iou <- queryContractId bob (snd newIous)
+    bob === iou.owner
+    eurBank === iou.issuer
+    "EUR" === iou.currency
+    100.0 === iou.amount

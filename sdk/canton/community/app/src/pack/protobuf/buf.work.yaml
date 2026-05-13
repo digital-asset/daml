@@ -1,0 +1,8 @@
+# Copied over to the release artifact to specify protobuf modules
+version: v1
+directories:
+  - admin-api
+  - community
+  - synchronizer
+  - ledger-api
+  - lib
