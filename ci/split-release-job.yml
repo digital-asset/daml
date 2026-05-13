@@ -42,6 +42,20 @@ jobs:
           setvar skip_arm false
         fi
       displayName: "Set skip_arm variable"
+    - bash: ci/dev-env-install.sh
+      displayName: 'Build/Install the Developer Environment'
+    - bash: |
+        set -euo pipefail
+        ci/create-dotnetrc.sh
+      displayName: 'Create .netrc file'
+      env:
+        GITHUB_TOKEN: $(GH_DAML_READONLY)
+    - bash: |
+        ci/configure-bazel.sh
+      displayName: 'Configure Bazel'
+      env:
+        IS_FORK: $(System.PullRequest.IsFork)
+        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: linux-intel-release
@@ -151,20 +165,6 @@ jobs:
             tag -a "$tag" "$sha" -m "Internal SDK release $tag"
         git push origin "$tag"
       displayName: "Tag Release in Git"
-    - bash: ci/dev-env-install.sh
-      displayName: 'Build/Install the Developer Environment'
-    - bash: |
-        set -euo pipefail
-        ci/create-dotnetrc.sh
-      displayName: 'Create .netrc file'
-      env:
-        GITHUB_TOKEN: $(GH_DAML_READONLY)
-    - bash: |
-        ci/configure-bazel.sh
-      displayName: 'Configure Bazel'
-      env:
-        IS_FORK: $(System.PullRequest.IsFork)
-        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     - bash: |
         set -euo pipefail
         cd sdk
