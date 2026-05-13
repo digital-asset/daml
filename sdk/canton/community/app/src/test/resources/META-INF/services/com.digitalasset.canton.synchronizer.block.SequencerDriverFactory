@@ -1,2 +1,0 @@
-com.digitalasset.canton.config.DummyDriverFactory
-com.digitalasset.canton.integration.tests.health.SequencerHealthDriverTestFactory

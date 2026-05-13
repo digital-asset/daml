@@ -1,8 +1,0 @@
--- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
--- All rights reserved.
-
-
-module ImportNotFound where
-
--- This should raise an error on the line below
-import NotARealModule

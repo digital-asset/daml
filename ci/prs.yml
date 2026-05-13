@@ -52,7 +52,6 @@ jobs:
     - git_sha
     - collect_build_data
     - check_for_release
-    - platform_independence_test
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default

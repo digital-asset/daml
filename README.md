@@ -1,2 +1,2 @@
-
-See full README at [sdk/README.md](sdk/README.md)
+This branch is only used to create snapshots and releases, and is the only way
+to do it. See [instructions](sdk/release/RELEASE.md#creating-an-sdk-release).

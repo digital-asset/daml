@@ -1,7 +1,0 @@
--- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
--- All rights reserved.
-
-
-module DataRecursion where
-
-data Foo a = Foo (Foo a)

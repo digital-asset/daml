@@ -1,7 +1,0 @@
-module Util where
-
--- Non-schema package with serializable type
-id a = a
-
-data Record = Record
-  with text: Text
