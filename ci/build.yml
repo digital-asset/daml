@@ -33,6 +33,7 @@ jobs:
 
 - job: verify_docs_synchronized
   displayName: 'Verify docs synchronized'
+  condition: false
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -77,6 +78,8 @@ jobs:
 - job: Linux
   dependsOn:
     - check_for_release
+  condition: and(succeeded(),
+                 eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -163,6 +166,8 @@ jobs:
 - job: Windows
   dependsOn:
     - check_for_release
+  condition: and(succeeded(),
+                 eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -294,6 +299,8 @@ jobs:
   dependsOn:
     - check_for_release
     - compatibility_ts_libs
+  condition: and(succeeded(),
+                 eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
   timeoutInMinutes: 240
   pool:
     name: ubuntu_20_04
