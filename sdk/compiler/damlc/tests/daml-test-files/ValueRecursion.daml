@@ -1,9 +1,0 @@
--- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
--- All rights reserved.
-
--- @ERROR found value cycle
-
-module ValueRecursion where
-
-foo : [Int]
-foo = 1 :: foo

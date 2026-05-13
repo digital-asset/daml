@@ -1,8 +1,0 @@
--- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
--- All rights reserved.
-
--- @ERROR range=1:1-2:1; Missing module name
-
-
-
-data Foo a = Foo a

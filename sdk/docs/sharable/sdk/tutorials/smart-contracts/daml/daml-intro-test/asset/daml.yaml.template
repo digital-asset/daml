@@ -1,7 +1,0 @@
-sdk-version: __VERSION__
-name: asset
-source: .
-version: 1.0.0
-dependencies:
-  - daml-prim
-  - daml-stdlib

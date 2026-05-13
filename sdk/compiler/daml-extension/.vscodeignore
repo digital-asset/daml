@@ -1,8 +1,0 @@
-.vscode/**
-typings/**
-out/test/**
-test/**
-bazel-out/**
-compiler/**
-.gitignore
-vsc-extension-quickstart.md

@@ -1,7 +1,0 @@
--- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
--- SPDX-License-Identifier: Apache-2.0
-
-module Main where
-
--- We need a dummy datatype for the package to have a name
-data Dummy = Dummy {}
