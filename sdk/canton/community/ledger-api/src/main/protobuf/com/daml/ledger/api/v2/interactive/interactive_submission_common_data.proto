@@ -1,0 +1,20 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2.interactive;
+
+import "com/daml/ledger/api/v2/value.proto";
+
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Interactive";
+option java_outer_classname = "InteractiveSubmissionCommonDataOuterClass";
+option java_package = "com.daml.ledger.api.v2.interactive";
+
+message GlobalKey {
+  // The identifier uses the package-id reference format.
+  Identifier template_id = 1;
+  string package_name = 2;
+  Value key = 3;
+  bytes hash = 4;
+}

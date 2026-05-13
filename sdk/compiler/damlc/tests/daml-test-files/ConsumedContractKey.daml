@@ -1,0 +1,42 @@
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+-- @ERROR range=29:1-29:32; no contract with that key was found
+-- @ERROR range=39:1-39:29; consumed in same transaction
+module ConsumedContractKey where
+
+import Daml.Script
+
+template Foo
+  with
+    signer: Party
+  where
+    signatory signer
+    key signer : Party
+    maintainer key
+    choice FetchKey : Foo
+      controller signer
+      do
+        snd <$> fetchByKey @Foo signer
+    choice LookupKey : ()
+      controller signer
+      do
+        None <- lookupByKey @Foo signer
+        pure ()
+    choice Fetch : Foo
+      controller signer
+      do fetch self
+
+testFetchKeyFromConsumingChoice = script do
+  alice <- allocateParty "Alice"
+  fooId <- alice `submit` createCmd Foo with signer = alice
+  alice `submit` exerciseCmd fooId FetchKey
+
+testLookupKeyFromConsumingChoice = script do
+  alice <- allocateParty "Alice"
+  fooId <- alice `submit` createCmd Foo with signer = alice
+  alice `submit` exerciseCmd fooId LookupKey
+
+testFetchFromConsumingChoice = script do
+  alice <- allocateParty "Alice"
+  fooId <- alice `submit` createCmd Foo with signer = alice
+  alice `submit` exerciseCmd fooId Fetch

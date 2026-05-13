@@ -1,0 +1,58 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.sequencer.api.v30;
+
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
+import "google/protobuf/timestamp.proto";
+
+// Operations related to authentication tokens for calling sequencer operations
+service SequencerAuthenticationService {
+  // If provided with a supported protocol version,
+  // will return a nonce and fingerprint of the expected key to sign this nonce
+  rpc Challenge(SequencerAuthentication.ChallengeRequest) returns (SequencerAuthentication.ChallengeResponse) {}
+  // If provided with a correctly signed nonce, will return an authentication token
+  // to be supplied to SequencerService operations
+  rpc Authenticate(SequencerAuthentication.AuthenticateRequest) returns (SequencerAuthentication.AuthenticateResponse) {}
+  // Unconditionally revoke a member's authentication tokens and disconnect it
+  rpc Logout(SequencerAuthentication.LogoutRequest) returns (SequencerAuthentication.LogoutResponse) {}
+}
+
+message SequencerAuthentication {
+  message ChallengeRequest {
+    string member = 1;
+    repeated int32 member_protocol_versions = 2;
+  }
+
+  message ChallengeResponse {
+    // random nonce to be used for authentication
+    bytes nonce = 1;
+    // A hint containing fingerprints of keys that the sequencer considers valid
+    // This is helpful, because the client does not necessarily have the current topology state before connecting.
+    repeated string fingerprints = 2;
+  }
+
+  message AuthenticateRequest {
+    // member sending request
+    string member = 1;
+    // signature of the handshake nonce
+    // Any key that is valid at time of verification may be used
+    com.digitalasset.canton.crypto.v30.Signature signature = 2;
+    // nonce value that was signed is sent back to identify the challenge
+    bytes nonce = 3;
+  }
+
+  message AuthenticateResponse {
+    bytes token = 1;
+    google.protobuf.Timestamp expires_at = 2;
+  }
+
+  message LogoutRequest {
+    // token to identify the member to invalidate
+    bytes token = 1;
+  }
+
+  message LogoutResponse {}
+}

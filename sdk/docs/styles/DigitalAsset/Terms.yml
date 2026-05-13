@@ -1,0 +1,31 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# cspell: disable 
+# Note: A copy of this file is also available in the Canton repository 
+# https://github.com/DACH-NY/canton/blob/release-line-3.3/docs-open/styles/DigitalAsset/Terms.yml
+# TODO: Share vale styles in a public repo for reuse
+# https://github.com/DACH-NY/docs-website/issues/365 
+extends: substitution
+message: "Use '%s' instead of '%s'."
+level: error
+ignorecase: false
+action:
+  name: replace
+swap:
+  daml|DAML: Daml
+  hoogle: Hoogle
+  '[Hh]osted [Uu]tilit[y|ies]': Canton Network Portfolio
+  GS|Global[Ss]ync|[Gg][Ss]ync: Global Synchronizer
+  # Matches the standalone word “participant” or “Participant,” unless it’s preceded by “unassigning,” “Unassigning,” “reassigning,” or “Reassigning,” followed by “node,” “Node,” “nodes,” or “Nodes,” part of a compound word (like a filename or camelCase), or followed by a period that is not a sentence-ending period.
+  '(?<!\b(?:[Uu]nassigning|[Rr]eassigning)\s)\b[Pp]articipant\b(?! [Nn]odes?)(?![-_A-Za-z0-9])(?!(?:\.(?![\s$])))': Participant Node
+  '(?<!\b(?:[Uu]nassigning|[Rr]eassigning)\s)\b[Pp]articipants\b': Participant Nodes
+  '[Pp]articipant nodes': Participant Nodes
+  '[Ss]uper validator': Super Validator
+  '[Ss]uper validators': Super Validators
+  '[Ss]ync [Dd]omain|synchronizer': Synchronizer
+  '[Ss]ync [Dd]omains|synchronizers': Synchronizers
+  '\b[Vv]alidator\b(?! [Nn]odes?)|[Vv]alidator node': Validator Node
+  '[Vv]alidators|[Vv]alidator nodes': Validator Nodes
+  mediator: Mediator
+  sequencer: Sequencer

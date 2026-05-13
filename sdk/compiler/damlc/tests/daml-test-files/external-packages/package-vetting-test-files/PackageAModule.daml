@@ -1,0 +1,9 @@
+module PackageAModule where
+
+template PackageATemplate with
+    p : Party
+  where
+  signatory p
+  choice Call : ()
+    controller p
+    do pure ()

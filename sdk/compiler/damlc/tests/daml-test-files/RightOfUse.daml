@@ -1,0 +1,52 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR range=40:1-40:8; Script execution failed on commit at RightOfUse:52:5:
+
+
+module RightOfUse where
+
+import Daml.Script
+import DA.Date
+
+template RightOfUseAgreement
+  with
+    landlord: Party
+    tenant: Party
+    address: Text
+    expirationDate: Time
+  where
+    signatory landlord
+    signatory tenant
+
+template RightOfUseOffer
+  with
+    landlord: Party
+    tenant: Party
+    address: Text
+    expirationDate: Time
+  where
+    signatory landlord
+    observer tenant
+
+    choice Accept : ContractId RightOfUseAgreement
+      controller tenant
+      do create RightOfUseAgreement with
+           landlord
+           tenant
+           address
+           expirationDate
+
+example = script do
+    -- Scrooge McDuck offers Betina Beakley room at McDuck Manor
+    scroogeMcDuck <- allocateParty "Scrooge McDuck"
+    betinaBeackley <- allocateParty "Betina Beakley"
+    offer <- submit scroogeMcDuck do
+      createCmd RightOfUseOffer with
+        landlord = scroogeMcDuck
+        tenant = betinaBeackley
+        address = "McDuck Manor, Duckburg"
+        expirationDate = datetime 2020 Jan 01 0 0 0
+
+    -- Fails because it lacks Betina Beakley's authorization
+    submit scroogeMcDuck do exerciseCmd offer Accept

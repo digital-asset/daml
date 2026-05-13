@@ -1,0 +1,61 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module AutomaticReassignmentTransactions where
+
+import DA.Foldable qualified as F
+
+template Single
+    with
+        owner : Party
+        coordinator : Party
+    where
+        signatory owner
+        observer coordinator
+
+        nonconsuming choice CountThis: ()
+          controller coordinator
+            do return ()
+
+        nonconsuming choice CountPublic: ()
+          with actor: Party
+          controller actor
+          do return ()
+
+template Aggregate
+    with
+        coordinator : Party
+        singles : [ContractId Single]
+        additionalParty: Optional Party
+    where
+      signatory coordinator
+
+      nonconsuming choice CountAll : ()
+        controller coordinator
+          do
+            F.forA_ singles (\x -> exercise x CountThis)
+
+      nonconsuming choice CountAllAdditionalParty : ()
+        controller additionalParty
+          do
+            F.forA_ singles (\x -> exercise x CountThis)
+
+      nonconsuming choice CountPublicAll : ()
+        controller coordinator
+          do
+            F.forA_ singles (\x -> exercise x (CountPublic coordinator))
+
+template Inject
+  with
+    coordinator: Party
+    informee : Party
+  where
+    signatory coordinator
+    observer informee
+
+    choice Inform : ContractId Inject
+      with
+        newInformee : Party
+      controller coordinator
+        do
+          create this with informee = newInformee

@@ -1,0 +1,356 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.UserManagement where
+
+import Daml.Script.Internal.LowLevel
+import Daml.Script.Internal.Questions.Commands
+import Daml.Script.Internal.Questions.PartyManagement
+import Daml.Script.Internal.Questions.Submit
+import DA.Stack
+import DA.Exception
+import Daml.Script.Internal.Questions.Exceptions ()
+import GHC.Types (primitive)
+import DA.Record
+
+-- | MOVE Daml.Script
+-- Identifier for a user in the user management service.
+newtype UserId = UserId Text deriving (Eq, Ord)
+
+-- | MOVE Daml.Script
+instance Show UserId where show (UserId text) = "'" <> text <> "'"
+
+-- | MOVE Daml.Script
+-- Extract the name-text from a user identitifer.
+userIdToText : UserId -> Text
+userIdToText (UserId text) = text
+
+-- | MOVE Daml.Script
+-- User-info record for a user in the user management service.
+data User = User
+  with
+    userId : UserId
+    primaryParty : Optional Party
+  deriving (Show, Eq, Ord)
+
+-- | MOVE Daml.Script
+-- The rights of a user.
+data UserRight
+  = ParticipantAdmin
+  | CanActAs Party
+  | CanReadAs Party
+  | CanReadAsAnyParty
+  deriving (Show, Eq)
+
+-- Pseudo exception that daml-script can throw/catch, but that isn't seen as an exception in the dar
+-- and as such, does not need to be serializable/cannot be thrown in Update
+-- | MOVE Daml.Script
+-- Thrown if text for a user identifier does not conform to the format restriction.
+data InvalidUserId = InvalidUserId with
+    m : Text
+  deriving (Eq, Show)
+
+-- | MOVE Daml.Script
+instance HasThrow InvalidUserId where
+    throwPure _ = error "Tried to throw daml-script pseudo-exception"
+
+-- | MOVE Daml.Script
+instance GetField "message" InvalidUserId Text where
+    getField (InvalidUserId m) = m
+
+-- | MOVE Daml.Script
+instance HasMessage InvalidUserId where
+    message (InvalidUserId m) = m
+
+-- These primitives do not check that the type arguments are real templates
+-- they also use the same internal representation in the engine as exceptions
+-- (SBToAny, SBFromAny)
+-- So we hijack them until Daml 3.4, where either exceptions are removed, or not serializable
+-- | MOVE Daml.Script
+instance HasToAnyException InvalidUserId where
+    toAnyException = anyToAnyException . primitive @"EToAnyTemplate"
+
+-- | MOVE Daml.Script
+instance HasFromAnyException InvalidUserId where
+    fromAnyException = primitive @"EFromAnyTemplate" . anyExceptionToAny
+
+-- | HIDE
+mkUserId : Text -> Script (Optional Text) -> Script UserId
+mkUserId name validateScript = do
+  validateScript >>= \case
+    None -> pure (UserId name)
+    Some msg -> throw (InvalidUserId msg)
+
+-- Pseudo exception that daml-script can throw/catch, but that isn't seen as an exception in the dar
+-- and as such, does not need to be serializable/cannot be thrown in Update
+-- | MOVE Daml.Script
+-- Thrown if a user to be created already exists.
+data UserAlreadyExists = UserAlreadyExists with
+    userId : UserId
+  deriving (Eq, Show)
+
+-- | MOVE Daml.Script
+instance HasThrow UserAlreadyExists where
+    throwPure _ = error "Tried to throw daml-script pseudo-exception"
+
+-- | MOVE Daml.Script
+instance GetField "message" UserAlreadyExists Text where
+    getField (UserAlreadyExists userId) = userIdToText userId
+
+-- | MOVE Daml.Script
+instance HasMessage UserAlreadyExists where
+    message (UserAlreadyExists userId) = userIdToText userId
+
+-- These primitives do not check that the type arguments are real templates
+-- they also use the same internal representation in the engine as exceptions
+-- (SBToAny, SBFromAny)
+-- So we hijack them until Daml 3.4, where either exceptions are removed, or not serializable
+-- | MOVE Daml.Script
+instance HasToAnyException UserAlreadyExists where
+    toAnyException = anyToAnyException . primitive @"EToAnyTemplate"
+
+-- | MOVE Daml.Script
+instance HasFromAnyException UserAlreadyExists where
+    fromAnyException = primitive @"EFromAnyTemplate" . anyExceptionToAny
+
+-- | HIDE
+checkUserAlreadyExists : UserId -> Script (Optional ()) -> Script ()
+checkUserAlreadyExists userId script = do
+  script >>= \case
+    None -> throw (UserAlreadyExists userId)
+    Some x -> pure x
+
+-- Pseudo exception that daml-script can throw/catch, but that isn't seen as an exception in the dar
+-- and as such, does not need to be serializable/cannot be thrown in Update
+-- | MOVE Daml.Script
+-- Thrown if a user cannot be located for a given user identifier.
+data UserNotFound = UserNotFound with
+    userId : UserId
+  deriving (Eq, Show)
+
+-- | MOVE Daml.Script
+instance HasThrow UserNotFound where
+    throwPure _ = error "Tried to throw daml-script pseudo-exception"
+
+-- | MOVE Daml.Script
+instance GetField "message" UserNotFound Text where
+    getField (UserNotFound userId) = userIdToText userId
+
+-- | MOVE Daml.Script
+instance HasMessage UserNotFound where
+    message (UserNotFound userId) = userIdToText userId
+
+-- These primitives do not check that the type arguments are real templates
+-- they also use the same internal representation in the engine as exceptions
+-- (SBToAny, SBFromAny)
+-- So we hijack them until Daml 3.4, where either exceptions are removed, or not serializable
+-- | MOVE Daml.Script
+instance HasToAnyException UserNotFound where
+    toAnyException = anyToAnyException . primitive @"EToAnyTemplate"
+
+-- | MOVE Daml.Script
+instance HasFromAnyException UserNotFound where
+    fromAnyException = primitive @"EFromAnyTemplate" . anyExceptionToAny
+
+-- | HIDE
+checkUserNotFound : UserId -> Script (Optional a) -> Script a
+checkUserNotFound userId script = do
+  script >>= \case
+    None -> throw (UserNotFound userId)
+    Some x -> pure x
+
+-- | HIDE
+data ValidateUserId = ValidateUserId with
+  name : Text
+-- text indicates reason for invalid name
+instance IsQuestion ValidateUserId (Optional Text) where command = "ValidateUserId"
+
+-- | MOVE Daml.Script
+-- Construct a user identifer from text. May throw InvalidUserId.
+validateUserId : HasCallStack => Text -> Script UserId
+validateUserId name = mkUserId name $ lift $ ValidateUserId name
+
+-- | MOVE Daml.Script
+-- Create a user with the given rights. May throw UserAlreadyExists.
+createUser : HasCallStack => User -> [UserRight] -> Script ()
+createUser user rights = createUser' user rights None
+
+-- | MOVE Daml.Script
+-- Create a user with the given rights on the given participant. May throw UserAlreadyExists.
+createUserOn : HasCallStack => User -> [UserRight] -> ParticipantName -> Script ()
+createUserOn user rights participant = createUser' user rights (Some participant)
+
+-- | HIDE
+data CreateUser = CreateUser with
+  user: User
+  rights: [UserRight]
+  participant : Optional Text
+-- TODO: Optional () -> Bool????
+-- | HIDE
+instance IsQuestion CreateUser (Optional ()) where command = "CreateUser"
+
+-- | HIDE
+createUser' : HasCallStack => User -> [UserRight] -> Optional ParticipantName -> Script ()
+createUser' user rights participant = checkUserAlreadyExists user.userId $ lift CreateUser with
+  participant = fmap participantName participant
+  user
+  rights
+
+-- | MOVE Daml.Script
+-- Fetch a user record by user id. May throw UserNotFound.
+getUser : HasCallStack => UserId -> Script User
+getUser userId = getUser' userId None
+
+-- | MOVE Daml.Script
+-- Fetch a user record by user id from the given participant. May throw UserNotFound.
+getUserOn : HasCallStack => UserId -> ParticipantName -> Script User
+getUserOn userId participant = getUser' userId (Some participant)
+
+-- | HIDE
+data GetUser = GetUser with
+  userId : UserId
+  participant : Optional Text
+-- | HIDE
+instance IsQuestion GetUser (Optional User) where command = "GetUser"
+
+-- | HIDE
+getUser' : HasCallStack => UserId -> Optional ParticipantName -> Script User
+getUser' userId participant = checkUserNotFound userId $ lift GetUser with
+  participant = fmap participantName participant
+  userId
+
+-- | MOVE Daml.Script
+-- List all users. This function may make multiple calls to underlying paginated ledger API.
+listAllUsers : Script [User]
+listAllUsers = listAllUsers' None
+
+-- | MOVE Daml.Script
+-- List all users on the given participant. This function may make multiple calls to underlying paginated ledger API.
+listAllUsersOn : ParticipantName -> Script [User]
+listAllUsersOn participant = listAllUsers' (Some participant)
+
+-- | HIDE
+data ListAllUsers = ListAllUsers with
+  participant : Optional Text
+-- | HIDE
+instance IsQuestion ListAllUsers [User] where command = "ListAllUsers"
+
+-- | HIDE
+listAllUsers' : Optional ParticipantName -> Script [User]
+listAllUsers' participant = lift ListAllUsers with
+  participant = fmap participantName participant
+
+-- | MOVE Daml.Script
+-- Grant rights to a user. Returns the rights that have been newly granted. May throw UserNotFound.
+grantUserRights : HasCallStack => UserId -> [UserRight] -> Script [UserRight]
+grantUserRights userId rights = grantUserRights' userId rights None
+
+-- | MOVE Daml.Script
+-- Grant rights to a user on the given participant. Returns the rights that have been newly granted. May throw UserNotFound.
+grantUserRightsOn : HasCallStack => UserId -> [UserRight] -> ParticipantName -> Script [UserRight]
+grantUserRightsOn userId rights participant = grantUserRights' userId rights (Some participant)
+
+-- | HIDE
+data GrantUserRights = GrantUserRights with
+  userId : UserId
+  rights : [UserRight]
+  participant : Optional Text
+-- | HIDE
+instance IsQuestion GrantUserRights (Optional [UserRight]) where command = "GrantUserRights"
+
+-- | HIDE
+grantUserRights' : HasCallStack => UserId -> [UserRight] -> Optional ParticipantName -> Script [UserRight]
+grantUserRights' userId rights participant = checkUserNotFound userId $ lift GrantUserRights with
+  participant = fmap participantName participant
+  userId
+  rights
+
+-- | MOVE Daml.Script
+-- Revoke rights for a user. Returns the revoked rights. May throw UserNotFound.
+revokeUserRights : HasCallStack => UserId -> [UserRight] -> Script [UserRight]
+revokeUserRights userId rights = revokeUserRights' userId rights None
+
+-- | MOVE Daml.Script
+-- Revoke rights for a user on the given participant. Returns the revoked rights. May throw UserNotFound.
+revokeUserRightsOn : HasCallStack => UserId -> [UserRight] -> ParticipantName -> Script [UserRight]
+revokeUserRightsOn userId rights participant = revokeUserRights' userId rights (Some participant)
+
+-- | HIDE
+data RevokeUserRights = RevokeUserRights with
+  userId : UserId
+  rights : [UserRight]
+  participant : Optional Text
+-- | HIDE
+instance IsQuestion RevokeUserRights (Optional [UserRight]) where command = "RevokeUserRights"
+
+-- | HIDE
+revokeUserRights' : HasCallStack => UserId -> [UserRight] -> Optional ParticipantName -> Script [UserRight]
+revokeUserRights' userId rights participant = checkUserNotFound userId $ lift RevokeUserRights with
+  participant = fmap participantName participant
+  userId
+  rights
+
+-- | MOVE Daml.Script
+-- Delete a user. May throw UserNotFound.
+deleteUser : HasCallStack => UserId -> Script ()
+deleteUser userId = deleteUser' userId None
+
+-- | MOVE Daml.Script
+-- Delete a user on the given participant. May throw UserNotFound.
+deleteUserOn : HasCallStack => UserId -> ParticipantName -> Script ()
+deleteUserOn userId participant = deleteUser' userId (Some participant)
+
+-- | HIDE
+data DeleteUser = DeleteUser with
+  userId : UserId
+  participant : Optional Text
+-- TODO: Optional () -> Bool????
+-- | HIDE
+instance IsQuestion DeleteUser (Optional ()) where command = "DeleteUser"
+
+-- | HIDE
+deleteUser' : HasCallStack => UserId -> Optional ParticipantName -> Script ()
+deleteUser' userId participant = checkUserNotFound userId $ lift DeleteUser with
+  participant = fmap participantName participant
+  userId
+
+-- | MOVE Daml.Script
+-- List the rights of a user. May throw UserNotFound.
+listUserRights : HasCallStack => UserId -> Script [UserRight]
+listUserRights userId = listUserRights' userId None
+
+-- | MOVE Daml.Script
+-- List the rights of a user on the given participant. May throw UserNotFound.
+listUserRightsOn : HasCallStack => UserId -> ParticipantName -> Script [UserRight]
+listUserRightsOn userId participant = listUserRights' userId (Some participant)
+
+-- | HIDE
+data ListUserRights = ListUserRights with
+  userId : UserId
+  participant : Optional Text
+-- | HIDE
+instance IsQuestion ListUserRights (Optional [UserRight]) where command = "ListUserRights"
+
+-- | HIDE
+listUserRights' : HasCallStack => UserId -> Optional ParticipantName -> Script [UserRight]
+listUserRights' userId participant = checkUserNotFound userId $ lift ListUserRights with
+  participant = fmap participantName participant
+  userId
+
+-- | MOVE Daml.Script
+-- Submit the commands with the actAs and readAs claims granted to a user. May throw UserNotFound.
+submitUser : HasCallStack => UserId -> Commands a -> Script a
+submitUser userId cmds = submitUser' userId None cmds
+
+-- | MOVE Daml.Script
+-- Submit the commands with the actAs and readAs claims granted to the user on the given participant. May throw UserNotFound.
+submitUserOn : HasCallStack => UserId -> ParticipantName -> Commands a -> Script a
+submitUserOn userId participant cmds = submitUser' userId (Some participant) cmds
+
+-- | HIDE
+submitUser' : HasCallStack => UserId -> Optional ParticipantName -> Commands a -> Script a
+submitUser' userId participant cmds = do
+  rights <- listUserRights' userId participant
+  let actors = [ p | CanActAs p <- rights ]
+  let readers = [ p | CanReadAs p <- rights ]
+  (actAs actors <> readAs readers) `submit` cmds

@@ -1,0 +1,37 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module ExerciseAuthFailure where
+
+import Daml.Script hiding (script)
+
+-- BEGIN_MISSING_AUTHORIZATION_EXAMPLE
+template Example
+  with
+    owner : Party
+    friend : Party
+  where
+    signatory owner
+    observer friend
+
+    choice Consume : ()
+      controller owner
+      do return ()
+
+    choice Hello : ()
+      controller friend
+      do return ()
+
+example = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  cid <- alice `submit` createCmd Example with
+    owner = alice
+    friend = bob
+  bob `submit` exerciseCmd cid Consume
+-- END_MISSING_AUTHORIZATION_EXAMPLE
+
+-- | This lets us type check 'example' without letting it fail on `daml test`
+script : Script a -> Script ()
+script = const $ pure ()
