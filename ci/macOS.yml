@@ -17,6 +17,7 @@ jobs:
     demands: assignment -equals ${{parameters.assignment}}
   condition: and(succeeded(),
                  eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+                 ne('${{parameters.test_mode}}', 'pr'),
                  or(eq('${{parameters.name}}', 'macos'),
                     and(or(eq(variables['Build.SourceBranchName'], 'main'),
                            eq(variables['Build.SourceBranchName'], 'main-2.x')),
