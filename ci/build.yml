@@ -35,7 +35,8 @@ jobs:
   dependsOn:
     - check_for_release
   condition: and(succeeded(),
-                 eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
+                 eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+                 ne('${{parameters.test_mode}}', 'pr'))
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -121,7 +122,8 @@ jobs:
   dependsOn:
     - check_for_release
   condition: and(succeeded(),
-                 eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
+                 eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+                 ne('${{parameters.test_mode}}', 'pr'))
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]

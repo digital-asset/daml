@@ -151,6 +151,40 @@ jobs:
             tag -a "$tag" "$sha" -m "Internal SDK release $tag"
         git push origin "$tag"
       displayName: "Tag Release in Git"
+    - bash: ci/dev-env-install.sh
+      displayName: 'Build/Install the Developer Environment'
+    - bash: |
+        set -euo pipefail
+        ci/create-dotnetrc.sh
+      displayName: 'Create .netrc file'
+      env:
+        GITHUB_TOKEN: $(GH_DAML_READONLY)
+    - bash: |
+        ci/configure-bazel.sh
+      displayName: 'Configure Bazel'
+      env:
+        IS_FORK: $(System.PullRequest.IsFork)
+        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    - bash: |
+        set -euo pipefail
+        cd sdk
+        eval "$(./dev-env/bin/dade-assist)"
+        # Authorize in GCLOUD and get a token
+        gcloud beta auth activate-service-account --key-file=<(echo "${GOOGLE_APPLICATION_CREDENTIALS_CONTENT}")
+        export GOOGLE_ARTIFACT_REGISTRY_KEY=$(gcloud auth print-access-token)
+        bazel build //release:release
+        ./bazel-bin/release/release --release-dir "$(mktemp -d)" --upload
+      env:
+        DAML_SDK_RELEASE_VERSION: $(release_tag)
+        GPG_KEY: $(gpg-code-signing)
+        MAVEN_USERNAME: $(MAVEN_USERNAME)
+        MAVEN_PASSWORD: $(MAVEN_PASSWORD)
+        MAVEN_URL: "https://central.sonatype.com"
+        GOOGLE_ARTIFACT_REGISTRY_URL: "https://europe-maven.pkg.dev/da-images-dev/playground-maven"
+        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+        NPM_TOKEN: $(NPM_TOKEN)
+      name: publish_npm_mvn
+      displayName: 'Publish NPM and Maven artifacts'
     - bash: |
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
