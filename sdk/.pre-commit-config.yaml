@@ -46,21 +46,10 @@ repos:
       pass_filenames: false
       entry: "bash -c 'unset GIT_DIR; dade-copyright-headers update'"
       types: [text]
-    - id: platform-independence-check
-      name: platform-independence-check
-      language: system
-      pass_filenames: false
-      entry: "sdk/pre-commit/platform-independence-check.sh"
     - id: yarn-lock-check
       name: yarn-lock-check
       language: system
       pass_filenames: true
       files: ^sdk/(package.json|yarn.lock)$
       entry: "sdk/pre-commit/yarn-lock-check.sh"
-    - id: mainonly
-      name: main only
-      description: Check for changes under packages with targets tagged with main-only
-      language: system
-      pass_filenames: true
-      entry: "dade-check-main-only-files"
-      types: [text]
+

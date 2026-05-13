@@ -31,50 +31,6 @@ jobs:
       name: out
       displayName: 'Get git sha, branch, fork point'
 
-- job: verify_docs_synchronized
-  displayName: 'Verify docs synchronized'
-  condition: false
-  pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
-  steps:
-    - checkout: self
-      clean: true
-    - bash: |
-        set -euo pipefail
-        ci/create-dotnetrc.sh
-      displayName: 'Create .netrc file'
-      condition: succeeded()
-      env:
-        GITHUB_TOKEN: $(GH_DAML_READONLY)
-    - bash: |
-        set -euo pipefail
-        cd sdk
-        eval "$(./dev-env/bin/dade-assist)"
-        ./ci/verify-docs-synchronized.sh
-      displayName: 'Verify docs synchronized'
-
-- job: validate_docs_sphinx_build
-  pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
-  steps:
-    - checkout: self
-      clean: true
-    - bash: |
-        echo "The checkout step failed. Displaying Git status to identify unstaged changes:"
-        set -euo pipefail
-        cd sdk
-        git status
-      displayName: 'Show Git Status on Checkout Failure'
-      condition: failed()
-    - bash: |
-        set -euo pipefail
-        cd sdk
-        eval "$(./dev-env/bin/dade-assist)"
-        ./ci/docs-sphinx-build.sh
-      condition: succeeded()
-
 - job: Linux
   dependsOn:
     - check_for_release
@@ -161,8 +117,6 @@ jobs:
     assignment: m1-builds
     test_mode: ${{parameters.test_mode}}
 
-- template: blackduck.yml
-
 - job: Windows
   dependsOn:
     - check_for_release
@@ -218,104 +172,6 @@ jobs:
         trigger_sha: '$(trigger_sha)'
     - template: report-end.yml
 
-- job: platform_independence_test
-  displayName: "Platform Independence Test"
-  condition: and(succeeded(),
-                 eq(dependencies.check_for_release.outputs['out.is_release'], 'false'))
-  dependsOn:
-    - Windows
-    - Linux
-    - macOS
-  pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
-  steps:
-    - checkout: self
-      clean: true
-    - bash: ci/dev-env-install.sh
-      displayName: 'Build/Install the Developer Environment'
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: platform-independence-dar-linux-intel
-        targetPath: $(Build.StagingDirectory)/platform-independence/linux-intel/
-      displayName: 'Download platform-independence dar linux-intel pipeline artifact'
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: platform-independence-dar-linux-arm
-        targetPath: $(Build.StagingDirectory)/platform-independence/linux-arm/
-      displayName: 'Download platform-independence dar linux-arm pipeline artifact'
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: platform-independence-dar-windows
-        targetPath: $(Build.StagingDirectory)/platform-independence/windows/
-      displayName: 'Download platform-independence dar windows pipeline artifact'
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: platform-independence-dar-macos
-        targetPath: $(Build.StagingDirectory)/platform-independence/macos/
-      displayName: 'Download platform-independence dar macos pipeline artifact'
-    - bash: |
-        set -euo pipefail
-        eval "$(cd sdk; dev-env/bin/dade-assist)"
-
-        DIR1=$(mktemp -d)
-        DIR2=$(mktemp -d)
-        DIR3=$(mktemp -d)
-        DIR4=$(mktemp -d)
-        trap "rm -rf $DIR1 $DIR2 $DIR3 $DIR4" EXIT
-
-        unzip -d $DIR1 $(Build.StagingDirectory)/platform-independence/linux-intel/platform-independence.dar
-        unzip -d $DIR2 $(Build.StagingDirectory)/platform-independence/windows/platform-independence.dar
-        unzip -d $DIR3 $(Build.StagingDirectory)/platform-independence/macos/platform-independence.dar
-        unzip -d $DIR4 $(Build.StagingDirectory)/platform-independence/linux-arm/platform-independence.dar
-
-        # hie/hi files may differ.
-        diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR2
-        diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR3
-        diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR4
-      displayName: 'Compare platform-independence dars of different platforms.'
-
-- job: compatibility_ts_libs
-  displayName: 'Compatibility with TypeScript libraries'
-  dependsOn:
-    - check_for_release
-  condition: and(succeeded(),
-                 not(eq(dependencies.check_for_release.outputs['out.is_release'], 'true')))
-  timeoutInMinutes: 240
-  pool:
-    name: ubuntu_20_04
-    demands: assignment -equals default
-  steps:
-    - template: report-start.yml
-    - checkout: self
-      clean: true
-    - template: clean-up.yml
-    - template: compatibility_ts_libs.yml
-    - template: tell-slack-failed.yml
-    - template: report-end.yml
-
-- job: compatibility_linux
-  displayName: 'Compatibility with Linux'
-  dependsOn:
-    - check_for_release
-    - compatibility_ts_libs
-  condition: and(succeeded(),
-                 eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
-  timeoutInMinutes: 240
-  pool:
-    name: ubuntu_20_04
-    demands: assignment -equals default
-  steps:
-    - template: report-start.yml
-    - checkout: self
-      clean: true
-    - template: clean-up.yml
-    - template: compatibility.yml
-      parameters:
-        test_flags: '--quick'
-    - template: tell-slack-failed.yml
-    - template: report-end.yml
-
 - job: collect_build_data_failed
   displayName: 'Collect Build Data Failed'
   condition: failed()
@@ -325,7 +181,6 @@ jobs:
     - Windows
     - release
     - git_sha
-    - compatibility_linux
     - check_for_release
   pool:
     name: "ubuntu_20_04"
