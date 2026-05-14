@@ -81,26 +81,26 @@ quadrantTest = script do
 
 quadrantTestCases = do
   -- Table of angles & their expected x, y values
-  (angleOutOf12, expectedX, expectedY, expectedTan) <-
-    [ ( 2,  sqrt3 / 2.0,    1.0 / 2.0,  1.0 / sqrt3)
-    , ( 3,  sqrt2 / 2.0,  sqrt2 / 2.0,          1.0)
-    , ( 4,    1.0 / 2.0,  sqrt3 / 2.0,        sqrt3)
+  (angleDegrees, expectedX, expectedY, expectedTan) <-
+    [ ( 30,  sqrt3 / 2.0,    1.0 / 2.0,  1.0 / sqrt3)
+    , ( 45,  sqrt2 / 2.0,  sqrt2 / 2.0,          1.0)
+    , ( 60,    1.0 / 2.0,  sqrt3 / 2.0,        sqrt3)
 
-    , ( 8,   -1.0 / 2.0,  sqrt3 / 2.0,       -sqrt3)
-    , ( 9, -sqrt2 / 2.0,  sqrt2 / 2.0,         -1.0)
-    , (10, -sqrt3 / 2.0,    1.0 / 2.0, -1.0 / sqrt3)
+    , (120,   -1.0 / 2.0,  sqrt3 / 2.0,       -sqrt3)
+    , (135, -sqrt2 / 2.0,  sqrt2 / 2.0,         -1.0)
+    , (150, -sqrt3 / 2.0,    1.0 / 2.0, -1.0 / sqrt3)
 
-    , (14, -sqrt3 / 2.0,   -1.0 / 2.0,  1.0 / sqrt3)
-    , (15, -sqrt2 / 2.0, -sqrt2 / 2.0,          1.0)
-    , (16,   -1.0 / 2.0, -sqrt3 / 2.0,        sqrt3)
+    , (210, -sqrt3 / 2.0,   -1.0 / 2.0,  1.0 / sqrt3)
+    , (225, -sqrt2 / 2.0, -sqrt2 / 2.0,          1.0)
+    , (240,   -1.0 / 2.0, -sqrt3 / 2.0,        sqrt3)
 
-    , (20,    1.0 / 2.0, -sqrt3 / 2.0,       -sqrt3)
-    , (21,  sqrt2 / 2.0, -sqrt2 / 2.0,         -1.0)
-    , (22,  sqrt3 / 2.0,   -1.0 / 2.0, -1.0 / sqrt3)
+    , (300,    1.0 / 2.0, -sqrt3 / 2.0,       -sqrt3)
+    , (315,  sqrt2 / 2.0, -sqrt2 / 2.0,         -1.0)
+    , (330,  sqrt3 / 2.0,   -1.0 / 2.0, -1.0 / sqrt3)
     ]
 
   -- Get expected & actual values for cos, sin
-  let angle = intToDecimal angleOutOf12 * pi / 12.0
+  let angle = intToDecimal angleDegrees * pi / 180.0
   (functionName, expected, actual) <-
     [ ("cos", expectedX,   cos angle)
     , ("sin", expectedY,   sin angle)
@@ -112,7 +112,7 @@ quadrantTestCases = do
   guard (delta > 0.000000001)
   pure $ implode
     [ "Error in trig function: "
-    , functionName, "(", show angleOutOf12, " * pi / 12)"
+    , functionName, "(", show angleDegrees, "deg)"
     , " should be "
     , show expected
     , ", was "
