@@ -139,4 +139,59 @@ test:windows --test_env=ComSpec
 # to not compile them with optimizations.
 build -c opt
 
+# ----------------------------------------------------------------------------
+# Silence noisy diagnostics from third-party dependencies.
+#
+# These are all upstream issues in grpc/protobuf/pigz; without these flags a
+# full //... build emits ~4000 warning lines that drown out anything from our
+# own code. Suppressing here keeps build logs readable without hiding warnings
+# that would surface in first-party code (per_file_copt is scoped by regex,
+# host_copt only affects exec-config compiles which build third-party tools).
+#
+# Why two flag families per warning:
+#   --per_file_copt    -> applied to compiles in the *target* configuration
+#   --host_copt        -> applied to compiles in the *exec/host* configuration
+#                         (the "[for tool]" actions). --per_file_copt does NOT
+#                         cover those, so without --host_copt about half the
+#                         warnings still come through.
+#
+# What each suppression covers (counts from a sample full build):
+#   -Wattributes              ~3258 lines, gRPC promise headers (loop.h,
+#                             promise_factory.h, try_seq.h, call_state.h)
+#   -Wtrigraphs                ~528 lines, gRPC function_signature.h macro
+#                             "???()" interpreted as a trigraph
+#   -Wreturn-type               ~62 lines, gRPC channelz.h non-exhaustive
+#                             switch with no terminal return
+#   -Wstringop-overflow           4 lines, gRPC chttp2_transport.cc inline
+#                             slice writes flagged by GCC's static analyzer
+#   -Wdeprecated-declarations  ~117 lines, protobuf calling its own deprecated
+#                             FieldOptions::weak() accessor (mostly via
+#                             generated _virtual_includes/.../helpers.h)
+#   -Wunused-variable / -Wunused-but-set-variable   ~42 lines, vendored pigz
+#                             try.h macros and pigz.c locals
+#   javac -Xlint:-options,-path  ~14 lines, rules_scala bootstrap actions:
+#                             obsolete --source/--target 8 and a missing
+#                             scala-{library,reflect}.jar entry on the
+#                             classpath of the rules_scala helper jars
+#
+# Intentionally NOT suppressed:
+#   javac [removal] in protobuf~/UnsafeUtil.java (AccessController) — this
+#   is a JDK 17+ deprecation-for-removal warning we want to keep visible so
+#   we get advance notice when the JDK actually drops the API. Add ",-removal"
+#   to the javacopt lines below to silence it if needed.
+# ----------------------------------------------------------------------------
+build --per_file_copt=external/grpc.*\.(cc|cpp|cxx|c)$@-Wno-attributes,-Wno-trigraphs,-Wno-return-type,-Wno-stringop-overflow
+build --per_file_copt=external/pigz.*\.(c|cc)$@-Wno-unused-variable,-Wno-unused-but-set-variable
+build --per_file_copt=external/protobuf.*\.(cc|cpp|cxx|c)$@-Wno-deprecated-declarations
+build --javacopt=-Xlint:-options,-path
+
+build --host_copt=-Wno-attributes
+build --host_copt=-Wno-trigraphs
+build --host_copt=-Wno-return-type
+build --host_copt=-Wno-stringop-overflow
+build --host_copt=-Wno-unused-variable
+build --host_copt=-Wno-unused-but-set-variable
+build --host_copt=-Wno-deprecated-declarations
+build --host_javacopt=-Xlint:-options,-path
+
 try-import %workspace%/.bazelrc.local
