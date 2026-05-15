@@ -1,5 +1,5 @@
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("//bazel/rules:da_git_repository.bzl", "da_git_repository")
 load(
     "//bazel/versions:da_ghc.version.bzl",
     "GHC_LIB_REPO_URL",
@@ -21,13 +21,20 @@ def _get_ghc_lib_gen():
     )
 
 def _get_da_ghc():
-    git_repository(
+    # `@bazel_tools//tools/build_defs/repo:git.bzl#git_repository` runs the
+    # recursive `git submodule update` serially with the default 600 s
+    # `ctx.execute` timeout, and `digital-asset/ghc` (~30 submodules on
+    # `gitlab.haskell.org`) regularly exceeds that. We use a local custom
+    # rule that exposes `--jobs` and a per-call `timeout`; see
+    # `da_git_repository.bzl` for details.
+    da_git_repository(
         name = "da-ghc",
         remote = GHC_REPO_URL,
         commit = GHC_REV,
         recursive_init_submodules = True,
+        submodule_jobs = 8,
+        submodule_timeout = 1800,
         build_file = ":files/da_ghc.BUILD.bzl",
-        shallow_since = "1771323697 +0100",
         patch_args = ["-p1"],
     )
 
