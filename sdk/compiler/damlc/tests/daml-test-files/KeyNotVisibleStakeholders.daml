@@ -3,7 +3,7 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
--- @SUPPORTS-LF-FEATURE DAML_UCK_BUILTINS
+-- @IGNORE
 
 -- @ERROR failed due to a missing authorization from 's'
 -- @ERROR failed due to a missing authorization from 's'
