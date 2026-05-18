@@ -1,0 +1,38 @@
+diff --git a/haskell/private/ghc_wrapper.sh b/haskell/private/ghc_wrapper.sh
+index 0030bf12..c04d7c3b 100755
+--- a/haskell/private/ghc_wrapper.sh
++++ b/haskell/private/ghc_wrapper.sh
+@@ -35,8 +35,31 @@ else
+ 
+     # We use the information gathered from those 2 files to compile the Haskell file.
+ 
+-    "${compile_flags[@]}" "${extra_args[@]}" 2>&1 \
+-        | drop_loaded_and_warning >&2
++    if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
++      echo "Running on Apple Silicon (arm64). Retry building 10 times."
++
++      max_tries=10
++      build_succeeded=false
++
++      for i in $(seq 1 $max_tries); do
++        echo "Build attempt ${i}/${max_tries}..."
++        #ulimit -s 1000
++        if "${compile_flags[@]}" "${extra_args[@]}" 2>&1 | drop_loaded_and_warning >&2; then
++          build_succeeded=true
++          break
++        fi
++      done
++
++      if [ "$build_succeeded" = false ]; then
++        echo "Build failed after ${max_tries} attempts. Exiting."
++        exit 1
++      fi
++
++    else
++      echo "Running on linux or non-arm Apple. Building without retry logic."
++      "${compile_flags[@]}" "${extra_args[@]}" 2>&1 \
++          | drop_loaded_and_warning >&2
++    fi
+ 
+     if [ "$MUST_EXTRACT_ABI" = "true" ]
+     then
