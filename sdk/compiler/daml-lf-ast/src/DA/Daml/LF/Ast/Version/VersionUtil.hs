@@ -20,6 +20,7 @@ import Control.Monad.Reader.Class
 
 import DA.Daml.LF.Ast.Version.VersionType
 import DA.Daml.LF.Ast.Version.GeneratedFeatures
+import DA.Daml.LF.Ast.Version.SafeEnumInstance ()
 
 -- | x `canDependOn` y if dars compiled to version x can depend on dars compiled
 -- to version y.
@@ -30,6 +31,21 @@ canDependOn (Version major1 minor1) (Version major2 minor2) =
 isDevVersion :: Version -> Bool
 isDevVersion (Version _ PointDev) = True
 isDevVersion _ = False
+
+-- | Is this version a stable point release? Written as an explicit @case@ on
+-- every 'MinorVersion' constructor so that adding a new constructor produces
+-- an incomplete-patterns warning, forcing a deliberate decision here.
+isStableVersion :: Version -> Bool
+isStableVersion (Version _ (PointStable _)) = True
+isStableVersion _                           = False
+
+-- | Smallest stable version in the given range, if any.
+smallestStableInRange :: R.Range Version -> Maybe Version
+smallestStableInRange = R.findMinWith isStableVersion
+
+-- | Largest stable version in the given range, if any.
+largestStableInRange :: R.Range Version -> Maybe Version
+largestStableInRange = R.findMaxWith isStableVersion
 
 -- | CPP flags of past features that have become part of LF but that some
 -- clients might still depend on being defined.
