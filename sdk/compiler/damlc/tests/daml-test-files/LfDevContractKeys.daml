@@ -3,7 +3,7 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
--- @SUPPORTS-LF-FEATURE DAML_UCK_BUILTINS
+-- @IGNORE
 
 module LfDevContractKeys where
 

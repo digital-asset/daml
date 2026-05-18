@@ -1,4 +1,4 @@
--- @SUPPORTS-LF-FEATURE DAML_UCK_BUILTINS
+-- @IGNORE
 
 -- @ERROR range=29:1-29:32; no contract with that key was found
 -- @ERROR range=39:1-39:29; consumed in same transaction

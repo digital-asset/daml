@@ -3,7 +3,7 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
--- @SUPPORTS-LF-FEATURE DAML_EXERCISE_BY_KEY
+-- @SUPPORTS-LF-FEATURE DAML_NUCK
 
 module ExplicitDisclosureWithKeys where
 

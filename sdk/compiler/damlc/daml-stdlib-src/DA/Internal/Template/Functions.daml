@@ -162,7 +162,7 @@ type TemplateKey t k =
 #ifdef DAML_LEGACY_LOOKUP_BY_KEY
   , HasLookupByKey t k
 #endif
-#ifdef DAML_FETCH_BY_KEY
+#ifdef DAML_NUCK
   , HasFetchByKey t k
 #endif
   , HasMaintainer t k

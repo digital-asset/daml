@@ -36,13 +36,6 @@
       }
     }
   },
-  "featureUCKBuiltins" : {
-    "name" : "Old style (UCK) key builtins (fetchByKey, exerciseByKey (UCK semantics), lookupByKey (UCK semantics), ...)",
-    "cppFlag" : "DAML_UCK_BUILTINS",
-    "versionRange" : {
-      "type" : "Empty"
-    }
-  },
   "featureContractKeys" : {
     "name" : "Contract Keys",
     "cppFlag" : "DAML_CONTRACT_KEYS",
@@ -66,7 +59,7 @@
         "major" : 2,
         "minor" : {
           "Dev" : {
-
+            
           }
         }
       },
@@ -74,21 +67,7 @@
         "major" : 2,
         "minor" : {
           "Dev" : {
-
-          }
-        }
-      }
-    }
-  },
-  "featurePackageUpgrades" : {
-    "name" : "Package upgrades",
-    "cppFlag" : "DAML_PackageUpgrades",
-    "versionRange" : {
-      "lowerBound" : {
-        "major" : 2,
-        "minor" : {
-          "Stable" : {
-            "version" : 1
+            
           }
         }
       }
@@ -102,7 +81,7 @@
         "major" : 2,
         "minor" : {
           "Dev" : {
-
+            
           }
         }
       },
@@ -110,7 +89,7 @@
         "major" : 2,
         "minor" : {
           "Dev" : {
-
+            
           }
         }
       }
@@ -124,7 +103,7 @@
         "major" : 2,
         "minor" : {
           "Dev" : {
-
+            
           }
         }
       },
@@ -132,7 +111,7 @@
         "major" : 2,
         "minor" : {
           "Dev" : {
-
+            
           }
         }
       }
@@ -160,7 +139,7 @@
         "major" : 2,
         "minor" : {
           "Dev" : {
-
+            
           }
         }
       },
@@ -168,59 +147,7 @@
         "major" : 2,
         "minor" : {
           "Dev" : {
-
-          }
-        }
-      }
-    }
-  },
-  "featureTextMap" : {
-    "name" : "TextMap type",
-    "cppFlag" : "DAML_TEXTMAP",
-    "versionRange" : {
-      "lowerBound" : {
-        "major" : 2,
-        "minor" : {
-          "Dev" : {
-
-          }
-        }
-      },
-      "upperBound" : {
-        "major" : 2,
-        "minor" : {
-          "Dev" : {
-
-          }
-        }
-      }
-    }
-  },
-  "featureExerciseByKey" : {
-    "name" : "Exercise by key",
-    "cppFlag" : "DAML_EXERCISE_BY_KEY",
-    "versionRange" : {
-      "lowerBound" : {
-        "major" : 2,
-        "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 1
-          }
-        }
-      }
-    }
-  },
-  "featureFetchByKey" : {
-    "name" : "Fetch by key",
-    "cppFlag" : "DAML_FETCH_BY_KEY",
-    "versionRange" : {
-      "lowerBound" : {
-        "major" : 2,
-        "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 1
+            
           }
         }
       }
@@ -255,7 +182,7 @@
         "major" : 2,
         "minor" : {
           "Dev" : {
-
+            
           }
         }
       },
@@ -263,7 +190,7 @@
         "major" : 2,
         "minor" : {
           "Dev" : {
-
+            
           }
         }
       }
@@ -277,7 +204,7 @@
         "major" : 2,
         "minor" : {
           "Dev" : {
-
+            
           }
         }
       },
@@ -285,7 +212,7 @@
         "major" : 2,
         "minor" : {
           "Dev" : {
-
+            
           }
         }
       }
@@ -300,6 +227,28 @@
         "minor" : {
           "Stable" : {
             "version" : 2
+          }
+        }
+      }
+    }
+  },
+  "featureExternalCall" : {
+    "name" : "External Call",
+    "cppFlag" : "DAML_ExternalCall",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+            
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+            
           }
         }
       }
@@ -327,7 +276,7 @@
         "major" : 2,
         "minor" : {
           "Dev" : {
-
+            
           }
         }
       },
@@ -335,7 +284,7 @@
         "major" : 2,
         "minor" : {
           "Dev" : {
-
+            
           }
         }
       }
