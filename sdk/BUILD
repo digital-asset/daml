@@ -159,11 +159,6 @@ exports_files([
     "maven_install_2.13.json",
 ])
 
-_BUILDIFIER_EXCLUDE_PATTERNS = [
-    "./3rdparty/haskell/c2hs-package.bzl",
-    "./3rdparty/haskell/network-package.bzl",
-]
-
 _BUILDIFIER_WARNINGS = [
     "+unsorted-dict-items",
     "+out-of-order-load",
@@ -172,7 +167,6 @@ _BUILDIFIER_WARNINGS = [
 
 buildifier(
     name = "buildifier",
-    exclude_patterns = _BUILDIFIER_EXCLUDE_PATTERNS,
     lint_mode = "warn",
     lint_warnings = _BUILDIFIER_WARNINGS,
     mode = "diff",
@@ -181,7 +175,6 @@ buildifier(
 
 buildifier(
     name = "buildifier-fix",
-    exclude_patterns = _BUILDIFIER_EXCLUDE_PATTERNS,
     lint_mode = "fix",
     lint_warnings = _BUILDIFIER_WARNINGS,
     mode = "fix",
