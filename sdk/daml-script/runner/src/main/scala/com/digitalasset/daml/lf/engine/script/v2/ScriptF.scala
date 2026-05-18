@@ -34,6 +34,7 @@ import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{Foldable, OneAnd}
+import com.digitalasset.daml.lf.engine.refinement.Enricher
 
 import java.security.{KeyFactory, SecureRandom}
 import java.security.spec.PKCS8EncodedKeySpec
@@ -76,7 +77,7 @@ object ScriptF {
     def clients = _clients
     val utcClock = Clock.systemUTC()
 
-    val enricher = new Enricher(
+    val enricher = Enricher(
       compiledPackages = compiledPackages,
       // Cannot load packages in GrpcLedgerClient
       loadPackage = { (_: PackageId, _: Reference) => ResultDone(()) },
