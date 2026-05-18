@@ -45,6 +45,7 @@ rules_haskell_patches = [
     # This should be made configurable in rules_haskell.
     # Remove this patch once that's available.
     "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
+    "@com_github_digital_asset_daml//bazel_tools:retry-build.patch",
 ]
 rules_nixpkgs_version = "0.13.0"
 rules_nixpkgs_sha256 = "30271f7bd380e4e20e4d7132c324946c4fdbc31ebe0bbb6638a0f61a37e74397"
