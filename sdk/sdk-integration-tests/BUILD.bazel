@@ -58,7 +58,6 @@ da_haskell_test(
     ],
     data = [
         "//release:dpm-sdk-release-tarball",
-        "//release:sdk-release-tarball",
         "@rules_java//toolchains:current_java_runtime",
         "//:java_rlocation_path",
         "@pnpm//:pnpm",
