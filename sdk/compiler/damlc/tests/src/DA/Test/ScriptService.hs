@@ -12,7 +12,6 @@ import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.Test
 import DA.Cli.Damlc.Test.TestResults as TR
 import DA.Daml.Compiler.Dar (getDamlRootFiles)
-import qualified DA.Daml.LF.Ast.Range as LF
 import DA.Daml.LF.PrettyScript (prettyScriptError, prettyScriptResult)
 import qualified DA.Daml.LF.ScriptServiceClient as SS
 import DA.Daml.Options.Types
@@ -67,7 +66,7 @@ main = withComponentVersions $ do
                     (withScriptService lfVersion Nothing)
                     (testScriptServiceWithKeys lfVersion)
                 -- TODO (canton#31925) Change the feature min-bound to LF.defaultLfVersion once 2.3 becomes default
-                | Just lfVersion <- [LF.minBound $ LF.featureVersionReq LF.featureContractKeys]
+                | Just lfVersion <- [LF.smallestStableInRange $ LF.featureVersionReq LF.featureContractKeys]
                 ]
             ]
 

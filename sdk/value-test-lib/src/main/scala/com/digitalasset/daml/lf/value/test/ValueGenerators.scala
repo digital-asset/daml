@@ -461,7 +461,7 @@ object ValueGenerators {
       keyOpt = key,
       byKey = byKey,
       version = version,
-      // TODO[https://github.com/DACH-NY/canton/pull/506]: intergrate with EC proposal
+      // TODO[https://github.com/digital-asset/canton/issues/513]: intergrate with EC proposal
       externalCallResults = ImmArray.empty,
     )
 

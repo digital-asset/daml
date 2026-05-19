@@ -20,6 +20,7 @@ import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValueComputationMode,
   runExtendedValueComputation,
 }
+import com.digitalasset.daml.lf.engine.refinement.Enricher
 import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.Ast.PackageMetadata
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
@@ -69,12 +70,12 @@ class IdeLedgerClient(
   private[this] var unvettedPackages: Set[PackageId] = Set.empty
 
   private[this] def makePreprocessor =
-    new preprocessing.CommandPreprocessor(
+    new refinement.CommandPreprocessor(
       compiledPackages.pkgInterface,
       forbidLocalContractIds = true,
     )
 
-  val enricher = new Enricher(
+  val enricher = Enricher(
     compiledPackages = compiledPackages,
     // Cannot load packages in GrpcLedgerClient
     loadPackage = { (_: PackageId, _: Reference) => ResultDone(()) },
@@ -423,6 +424,11 @@ class IdeLedgerClient(
         SubmitError.DevError(
           innerError.getClass.getSimpleName,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
+      // TODO[https://github.com/digital-asset/canton/issues/513]: implement external call
+      case e: ExternalCall =>
+        sys.error(
+          s"ExternalCall detected in IdeLedgerClient. Value is: $e"
         )
     }
   }

@@ -125,15 +125,6 @@
       {
         "major" : 2,
         "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 2
-          }
-        }
-      },
-      {
-        "major" : 2,
-        "minor" : {
           "Stable" : {
             "version" : 3
           }
@@ -197,15 +188,6 @@
         "minor" : {
           "Stable" : {
             "version" : 2
-          }
-        }
-      },
-      {
-        "major" : 2,
-        "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 2
           }
         }
       },
@@ -281,15 +263,6 @@
       {
         "major" : 2,
         "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 2
-          }
-        }
-      },
-      {
-        "major" : 2,
-        "minor" : {
           "Stable" : {
             "version" : 3
           }
@@ -322,6 +295,15 @@
             "revision" : 1
           }
         }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Staging" : {
+            "version" : 3,
+            "revision" : 2
+          }
+        }
       }
     ],
     "compilerLfVersions" : [
@@ -338,15 +320,6 @@
         "minor" : {
           "Stable" : {
             "version" : 2
-          }
-        }
-      },
-      {
-        "major" : 2,
-        "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 2
           }
         }
       },

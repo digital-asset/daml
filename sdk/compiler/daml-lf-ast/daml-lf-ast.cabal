@@ -74,6 +74,7 @@ library
       DA.Daml.LF.Ast.TypeLevelNat
       DA.Daml.LF.Ast.Util
       DA.Daml.LF.Ast.Version
+      DA.Daml.LF.Ast.Version.SafeEnumInstance
       DA.Daml.LF.Ast.Version.VersionType
       DA.Daml.LF.Ast.Version.VersionUtil
       DA.Daml.LF.Ast.World

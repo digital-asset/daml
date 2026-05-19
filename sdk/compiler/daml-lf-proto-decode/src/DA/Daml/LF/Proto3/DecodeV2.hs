@@ -478,7 +478,7 @@ decodeBuiltinFunction = \case
 
   LF2.BuiltinFunctionFAIL_WITH_STATUS -> pure BEFailWithStatus
 
-  -- TODO[https://github.com/DACH-NY/canton/pull/506]: intergrate with EC proposal
+  -- TODO[https://github.com/digital-asset/canton/issues/513]: intergrate with EC proposal
   LF2.BuiltinFunctionEXTERNAL_CALL -> error "BuiltinFunctionEXTERNAL_CALL detected, error"
 
 decodeLocation :: LF2.Location -> Decode SourceLoc

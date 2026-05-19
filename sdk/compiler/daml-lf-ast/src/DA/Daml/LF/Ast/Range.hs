@@ -7,7 +7,10 @@ module DA.Daml.LF.Ast.Range(
     Range(Inclusive, From, Until, Empty),
     elem,
     minBound,
-    maxBound
+    maxBound,
+    findMinWith,
+    findMaxWith,
+    SafeEnum(..)
     ) where
 
 import Prelude hiding (elem, minBound, maxBound)
@@ -51,3 +54,44 @@ maxBound Empty = Nothing
 maxBound (From _) = Nothing
 maxBound (Until high) = Just high
 maxBound (Inclusive _ high) = Just high
+
+class SafeEnum a where
+    safeSucc :: a -> Maybe a
+    safePred :: a -> Maybe a
+
+-- | Smallest element of the range satisfying the predicate, if any.
+--
+-- Semantically equivalent to @minBound@ when the predicate is @const True@
+findMinWith :: (SafeEnum a, Ord a) => (a -> Bool) -> Range a -> Maybe a
+findMinWith _ Empty = Nothing
+findMinWith _ (Until _) = Nothing
+findMinWith p (From low) = go low
+  where
+    go x
+      | p x       = Just x
+      | otherwise = safeSucc x >>= go
+findMinWith p (Inclusive_ low high) = go low
+  where
+    go x
+      | x > high  = Nothing
+      | p x       = Just x
+      | otherwise = safeSucc x >>= go
+
+-- | Largest element of the range satisfying the predicate, if any.
+--
+-- Semantically equivalent to @maxBound@ when the predicate is @const True@
+findMaxWith :: (SafeEnum a, Ord a) => (a -> Bool) -> Range a -> Maybe a
+findMaxWith _ Empty = Nothing
+findMaxWith _ (From _) = Nothing
+findMaxWith p (Until high) = go high
+  where
+    go x
+      | p x       = Just x
+      | otherwise = safePred x >>= go
+findMaxWith p (Inclusive_ low high) = go high
+  where
+    go x
+      | x < low   = Nothing
+      | p x       = Just x
+      | otherwise = safePred x >>= go
+
