@@ -597,10 +597,7 @@ codegenTests codegenDir = testGroup "dpm codegen" (
                 when (lang == "js") $ do
                     let workspaces = Workspaces [makeRelative codegenDir outDir]
                     setupPnpmEnv codegenDir workspaces [DamlTypes]
-                let codegenCommand =
-                      case assistant of
-                        Daml -> ["daml", "codegen", lang]
-                        DPM -> ["dpm", "codegen-" <> lang]
+                let codegenCommand = ["dpm", "codegen-" <> lang]
                 callCommandSilentIn projectDir $
                     unwords $ codegenCommand <>
                             [ darFile ++ maybe "" ("=" ++) namespace
