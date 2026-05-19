@@ -33,7 +33,7 @@ import DA.PortFile
 import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
 
 main :: IO ()
-main = withSdkVersions $ do
+main = withComponentVersions $ do
     pnpm : args <- getArgs
     withTempDir $ \tmpDir -> do
         createDirectory $ tmpDir </> "dpm"
