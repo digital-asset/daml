@@ -561,7 +561,7 @@ use_repo(
 
 # --- Maven version constants ---
 
-CANTON_VERSION = "3.6.0-snapshot.20260416.18715.0.ve90ac7e8"
+CANTON_VERSION = "3.6.0-snapshot.20260512.19021.0.v65155776"
 AUTH0_JWT_VERSION = "4.2.1"
 SHAPELESS_VERSION = "2.4.0-M1"
 SCOPT_VERSION = "4.1.0"
@@ -643,10 +643,9 @@ maven_ext.install(
         "com.daml:rs-grpc-bridge_2.13:" + CANTON_VERSION,
         "com.daml:rs-grpc-pekko_2.13:" + CANTON_VERSION,
         "com.daml:scala-utils_2.13:" + CANTON_VERSION,
-        "com.daml:testing-utils_2.13:3.6.0-snapshot.20260512.19021.0.v65155776",
+        "com.daml:testing-utils_2.13:" + CANTON_VERSION,
         "com.daml:timer-utils_2.13:" + CANTON_VERSION,
         "com.daml:util-observability_2.13:" + CANTON_VERSION,
-        "com.digitalasset.canton:testing-utils_2.13:" + CANTON_VERSION,
 
         # auth
         "com.auth0:java-jwt:" + AUTH0_JWT_VERSION,
