@@ -643,6 +643,7 @@ maven_ext.install(
         "com.daml:rs-grpc-bridge_2.13:" + CANTON_VERSION,
         "com.daml:rs-grpc-pekko_2.13:" + CANTON_VERSION,
         "com.daml:scala-utils_2.13:" + CANTON_VERSION,
+        "com.daml:testing-utils_2.13:3.6.0-snapshot.20260512.19021.0.v65155776",
         "com.daml:timer-utils_2.13:" + CANTON_VERSION,
         "com.daml:util-observability_2.13:" + CANTON_VERSION,
         "com.digitalasset.canton:testing-utils_2.13:" + CANTON_VERSION,
@@ -728,6 +729,7 @@ maven_ext.install(
         # Logging
         "ch.qos.logback:logback-classic:" + LOGBACK_VERSION,
         "ch.qos.logback:logback-core:" + LOGBACK_VERSION,
+        "org.slf4j:jul-to-slf4j:2.0.6",
         "org.slf4j:slf4j-api:" + SLF4J_VERSION,
 
         # Optics
