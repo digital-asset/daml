@@ -16,12 +16,6 @@ exports_files(
     [
         "haskell.bzl",
         "scala.bzl",
-        "haskell-c2hs.patch",
-        "haskell-static-linking.patch",
-        "haskell-optp-response.patch",
-        "haskell-arx.patch",
-        "haskell-win-sys-includes.patch",
-        "haskell-drop-fake-static.patch",
         "pom_template.xml",
         "distribute_jar_cleanup.sh",
     ],
