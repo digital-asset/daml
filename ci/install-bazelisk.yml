@@ -1,0 +1,59 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Installs Bazelisk to $HOME/.local/bin and prepends that directory to PATH for
+# the remaining steps of the job. The concrete Bazel version Bazelisk launches
+# is selected by sdk/.bazelversion (`7.x` at the time of writing), so this
+# template only pins Bazelisk itself.
+#
+# Bazelisk caches downloaded Bazel binaries under $HOME/.cache/bazelisk, which
+# is preserved across runs on the persistent self-hosted agents but will need a
+# cache strategy if/when these jobs move to ephemeral containers.
+
+parameters:
+  - name: version
+    type: string
+    default: '1.29.0'
+  - name: sha256_linux_amd64
+    type: string
+    default: '5a408715e932c0250d28bd84555f12edbf70117de42f9181691c736eacc4a992'
+  - name: sha256_linux_arm64
+    type: string
+    default: 'e20e8b0f4f240091b7a55bf17b9398bd4f40ee70ae0208dff95dd4c445fb4010'
+
+steps:
+  - bash: |
+      set -euo pipefail
+
+      VERSION='${{ parameters.version }}'
+      BIN_DIR="$HOME/.local/bin"
+      mkdir -p "$BIN_DIR"
+
+      arch="$(uname -m)"
+      case "$arch" in
+        x86_64|amd64)
+          asset='bazelisk-linux-amd64'
+          expected_sha='${{ parameters.sha256_linux_amd64 }}'
+          ;;
+        aarch64|arm64)
+          asset='bazelisk-linux-arm64'
+          expected_sha='${{ parameters.sha256_linux_arm64 }}'
+          ;;
+        *)
+          echo "Unsupported architecture: $arch" >&2
+          exit 1
+          ;;
+      esac
+
+      url="https://github.com/bazelbuild/bazelisk/releases/download/v${VERSION}/${asset}"
+      tmp="$(mktemp)"
+      trap 'rm -f "$tmp"' EXIT
+
+      curl -sSfL "$url" -o "$tmp"
+      echo "${expected_sha}  ${tmp}" | sha256sum -c -
+
+      install -m 0755 "$tmp" "$BIN_DIR/bazel"
+      ln -sf "$BIN_DIR/bazel" "$BIN_DIR/bazelisk"
+
+      echo "##vso[task.prependpath]$BIN_DIR"
+    displayName: 'Install Bazelisk ${{ parameters.version }}'
