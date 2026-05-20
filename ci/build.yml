@@ -39,6 +39,7 @@ jobs:
   steps:
     - checkout: self
       clean: true
+    - template: install-bazelisk.yml
     - bash: |
         set -euo pipefail
         ci/create-dotnetrc.sh
@@ -49,7 +50,6 @@ jobs:
     - bash: |
         set -euo pipefail
         cd sdk
-        eval "$(./dev-env/bin/dade-assist)"
         ./ci/verify-docs-synchronized.sh
       displayName: 'Verify docs synchronized'
 
