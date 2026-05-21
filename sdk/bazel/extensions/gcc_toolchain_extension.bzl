@@ -2,6 +2,50 @@
 
 Only Linux x86_64 is wired today.  To add Linux arm64 or a lower-glibc variant,
 insert a new entry into _PLATFORMS — no other code needs to change.
+
+Repository layout (after the rule runs):
+
+  bin/x86_64-buildroot-linux-gnu-*    Bootlin tarball binaries (prefixed).
+                                      Consumed by Bazel C/C++ actions via
+                                      `tool_paths` in the generated BUILD.bazel.
+  unprefixed/{ar,as,ld,nm,ranlib,     Symlinks to the prefixed binaries above,
+              objcopy,objdump,strip}  exposed under their conventional autoconf
+                                      names. Intended to be prepended to PATH
+                                      by repository rules that drive
+                                      autoconf-style host scripts (e.g.
+                                      rules_haskell's `_ghc_bindist_impl`,
+                                      which runs `./configure` on the GHC
+                                      bindist and probes `ar`/`ld`/`ranlib`/
+                                      `gcc`/`strip` via `AC_CHECK_TARGET_TOOL`).
+                                      Each symlink is guarded by an existence
+                                      check so a future Bootlin tarball that
+                                      ships a smaller binutils set produces a
+                                      smaller `unprefixed/` directory rather
+                                      than crashing the rule.
+  unprefixed/{gcc,cc}                 Tiny shell wrappers (not symlinks) that
+                                      invoke `bin/<prefix>-gcc` by its full
+                                      path. Bootlin's gcc is a Buildroot
+                                      `toolchain-wrapper` that locates its
+                                      real binary by appending `.br_real` to
+                                      argv[0]'s basename; a symlink under a
+                                      different basename therefore exec's a
+                                      non-existent `gcc.br_real`. The wrapper
+                                      keeps argv[0]'s basename as
+                                      `<prefix>-gcc`, so the toolchain-wrapper
+                                      finds its `.br_real` correctly. `cc`
+                                      mirrors `gcc` for autoconf's `${CC-cc}`
+                                      fallback.
+
+The `unprefixed/` directory is consumed in two ways:
+
+  1. Automatically by the generated `:all_files` filegroup
+     (`glob(["**"])`), so every `cc_toolchain.*_files` attribute already
+     includes the new symlinks — no BUILD-template edit needed.
+  2. Explicitly by repository rules that resolve
+     `ctx.path(Label("@@…/hermetic_cc_linux_amd64//:unprefixed"))` and
+     prepend that path to a child process's `PATH`. The first such
+     consumer is wired in Phase 3 of the CI hermeticity initiative; see
+     `sdk/bzlmigration/ci/00_overview.md` for the broader plan.
 """
 
 _PLATFORMS = {
@@ -156,6 +200,59 @@ def _gcc_toolchain_repo_impl(rctx):
     repo = rctx.name
     tool_prefix = rctx.attr.tool_prefix
     gcc_version = rctx.attr.gcc_version
+
+    # Autoconf-compatible unprefixed shims. Bootlin ships only target-prefixed
+    # names (bin/<tool_prefix>-ar, ...); the GHC 9.0.2 bindist's
+    # `distrib/configure.ac.in` probes `ar`/`ld`/`ranlib`/`gcc`/`strip` via
+    # AC_CHECK_TARGET_TOOL, which falls back to the unprefixed name. This
+    # symlink farm makes those probes succeed once `unprefixed/` is on PATH.
+    # The consumer is the rules_haskell hermetic-cc patch
+    # (sdk/bazel/patches/haskell/rules_haskell_hermetic_cc.patch), rewired
+    # in Phase 3 of the CI hermeticity initiative
+    # (sdk/bzlmigration/ci/00_overview.md). Phase 1 is intentionally inert:
+    # the directory is materialised here, but the patch still uses its own
+    # `hermetic_shim/cc` until Phase 3 lands.
+    #
+    # The binutils tools (ar, as, ld, nm, ranlib, objcopy, objdump, strip)
+    # are real ELF binaries with no basename indirection, so plain symlinks
+    # work. Each is guarded by an existence check so a future Bootlin
+    # tarball that drops an optional tool produces a smaller `unprefixed/`
+    # rather than crashing the rule.
+    unprefixed_binutils = [
+        "ar",
+        "as",
+        "ld",
+        "nm",
+        "ranlib",
+        "objcopy",
+        "objdump",
+        "strip",
+    ]
+    for tool in unprefixed_binutils:
+        target = rctx.path("bin/{}-{}".format(tool_prefix, tool))
+        if target.exists:
+            rctx.symlink(target, "unprefixed/{}".format(tool))
+
+    # Bootlin's `bin/<prefix>-gcc` is a symlink to a `toolchain-wrapper`
+    # that derives the path to its real binary by appending `.br_real` to
+    # the basename of argv[0]. A plain symlink under a different basename
+    # (e.g. `unprefixed/gcc`) therefore exec's a non-existent `gcc.br_real`.
+    # Use a tiny shell wrapper instead that invokes the prefixed binary by
+    # its full path, so argv[0]'s basename remains `<prefix>-gcc` and the
+    # toolchain-wrapper finds `<prefix>-gcc.br_real` as designed. The
+    # wrapper resolves its own location with `readlink -f "$0"` so it
+    # works regardless of how callers reach it.
+    gcc_path = rctx.path("bin/{}-gcc".format(tool_prefix))
+    if gcc_path.exists:
+        gcc_wrapper = "\n".join([
+            "#!/bin/sh",
+            "exec \"$(dirname \"$(readlink -f \"$0\")\")/../bin/{}-gcc\" \"$@\"".format(tool_prefix),
+            "",
+        ])
+        rctx.file("unprefixed/gcc", gcc_wrapper, executable = True)
+        # `cc` is the conventional unprefixed synonym for the C compiler;
+        # autoconf's ${CC-cc} fallback expects it under that exact name.
+        rctx.file("unprefixed/cc", gcc_wrapper, executable = True)
 
     # Execroot-relative paths survive Bazel's sandboxed strict-header check.
     c_include_dirs = [
