@@ -17,8 +17,7 @@ jobs:
     demands: assignment -equals ${{parameters.assignment}}
   condition: and(succeeded(),
                  or(eq('${{parameters.name}}', 'macos'),
-                    and(or(eq(variables['Build.SourceBranchName'], 'main'),
-                           eq(variables['Build.SourceBranchName'], 'main-2.x')),
+                    and('true',
                         eq(dependencies.check_for_release.outputs['out.is_release'], 'false'))))
   variables:
     - name: release_sha
