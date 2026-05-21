@@ -19,7 +19,7 @@ import DA.Daml.Compiler.ExtractDar (ExtractedDar(..), extractDar)
 import DA.Daml.Options.Packaging.Metadata ()
 import DA.Daml.Project.Consts (getCachePath)
 import DA.Daml.Project.Types (VersionInfo (..), extractAssemblyThenComponentVersion, versionToString)
-import DA.Daml.Resolution.Config (ExpandedSdkPackages (..), expandSdkPackagesDpm, findPackageResolutionData)
+import DA.Daml.Resolution.Config (DependencyPackages (..), expandDependencyPackages, findPackageResolutionData, readDependencyPackagesFromResolution)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.Options.Types
@@ -30,6 +30,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import Data.Char
 import Data.List.Extra
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import Development.IDE.Types.Location
 import GHC.Fingerprint
@@ -118,19 +119,19 @@ installDependencies ::
    -> IO ()
 installDependencies packageRoot opts versionInfo pDeps pDataDeps = do
     logger <- getLogger opts "install-dependencies"
-    let sdkPackages = filter (`notElem` basePackages) pDeps
-    ExpandedSdkPackages deps uncheckedDeps additionalDataDeps <-
+    DependencyPackages deps uncheckedDeps dataDeps <-
       case optResolutionData opts of
         Just resolutionData -> do
           let rootPath = fromNormalizedFilePath packageRoot
           pkgResolution <- either throwIO pure $ findPackageResolutionData rootPath resolutionData
           cachePath <- getCachePath
-          expandSdkPackagesDpm cachePath pkgResolution (optDamlLfVersion opts) sdkPackages
+          let dependencyPackages = fromMaybe (DependencyPackages pDeps [] pDataDeps) $ readDependencyPackagesFromResolution pkgResolution
+          expandDependencyPackages cachePath pkgResolution (optDamlLfVersion opts) dependencyPackages
         Nothing ->
           -- Cannot fail here as this path is taken by bootstrapping. Best we can do is give no packages
-          let purePaths = filter (\fp -> takeExtension fp `elem` [".dar", ".dalf"]) sdkPackages
-           in pure $ ExpandedSdkPackages purePaths [] []
-    DataDeps {dataDepsDars, dataDepsDalfs, dataDepsPkgIds, dataDepsNameVersion} <- readDataDeps $ pDataDeps <> additionalDataDeps
+          let purePaths = filter (\fp -> takeExtension fp `elem` [".dar", ".dalf"]) pDeps
+           in pure $ DependencyPackages purePaths [] []
+    DataDeps {dataDepsDars, dataDepsDalfs, dataDepsPkgIds, dataDepsNameVersion} <- readDataDeps dataDeps
     (needsUpdate, newFingerprint) <-
         depsNeedUpdate
             depsDir

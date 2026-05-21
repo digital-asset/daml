@@ -4,6 +4,7 @@
 module DA.Cli.Damlc.Command.MultiIde.PackageData (updatePackageData) where
 
 import qualified "zip-archive" Codec.Archive.Zip as Zip
+import Control.Applicative ((<|>))
 import Control.Concurrent.STM.TMVar
 import Control.Exception(SomeException, displayException, try)
 import Control.Lens
@@ -19,6 +20,7 @@ import DA.Daml.LF.Reader (DalfManifest(..), readDalfManifest)
 import DA.Daml.Package.Config (MultiPackageConfigFields(..), findMultiPackageConfig, withMultiPackageConfig)
 import DA.Daml.Project.Consts (packageConfigName)
 import DA.Daml.Project.Types (PackagePath (..))
+import DA.Daml.Resolution.Config (DependencyPackages (..), PackageResolutionData (..), readDependencyPackagesFromResolution)
 import Data.Either.Extra (eitherToMaybe)
 import Data.Foldable (traverse_)
 import Data.List.Extra (nubOrd)
@@ -27,7 +29,7 @@ import Data.Maybe (catMaybes, isJust)
 import qualified Data.Set as Set
 import qualified Data.Text.Extended as T
 import System.Directory (doesFileExist)
-import System.FilePath.Posix ((</>))
+import System.FilePath.Posix (takeExtension, (</>))
 
 {-
 TODO: refactor multi-package.yaml discovery logic
@@ -40,6 +42,7 @@ If we do not get one, we continue as normal (no popups) until the user attempts 
 -}
 -- Updates the unit-id to package/dar mapping, as well as the dar to dependent packages mapping
 -- for any daml.yamls or dars that are invalid, the ide home paths are returned, and their data is not added to the mapping
+-- Attempts to use resolution imports to find resolved dependencies, so resolution file should be up-to-date before calling this
 updatePackageData :: MultiIdeState -> IO [PackageHome]
 updatePackageData miState = do
   logInfo miState "Updating package data"
@@ -112,12 +115,18 @@ updatePackageData miState = do
       packedMappingData <- flip runStateT mempty $ do
         -- load cache with all multi-package dars, so they'll be present in darUnitIds
         traverse_ getDarUnitId darPaths
+        resolutionData <- lift $ readTVarIO $ misResolutionData miState
         fmap (bimap catMaybes catMaybes . unzip) $ forM packagePaths $ \packagePath -> do
           mPackageSummary <- lift $ fmap eitherToMaybe $ packageSummaryFromDamlYaml packagePath
           case mPackageSummary of
             Just packageSummary -> do
-              allDepsValid <- isJust . sequence <$> traverse getDarUnitId (psDeps packageSummary)
-              pure (if allDepsValid then Nothing else Just packagePath, Just (packagePath, psUnitId packageSummary, psDeps packageSummary))
+              let deps =
+                    case Map.lookup packagePath (mainPackages resolutionData) <|> Map.lookup packagePath (orphanPackages resolutionData) of
+                      Just (ValidPackageResolutionData (readDependencyPackagesFromResolution -> Just depData)) ->
+                        fmap DarFile $ filter ((== ".dar") . takeExtension) $ dpRegularDeps depData <> dpDataDeps depData
+                      _ -> psDeps packageSummary
+              allDepsValid <- isJust . sequence <$> traverse getDarUnitId deps
+              pure (if allDepsValid then Nothing else Just packagePath, Just (packagePath, psUnitId packageSummary, deps))
             _ -> pure (Just packagePath, Nothing)
 
       let invalidHomes :: [PackageHome]
