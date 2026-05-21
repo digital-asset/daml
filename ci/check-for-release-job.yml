@@ -23,6 +23,9 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
+        run_m1=$(git log -n1 --format="%(trailers:key=run-m1,valueonly)" $(branch_sha))
+        setvar run_m1 $run_m1
+
         ./release.sh check
 
         changes_release_files() {
