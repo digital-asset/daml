@@ -39,13 +39,12 @@ Repository layout (after the rule runs):
 The `unprefixed/` directory is consumed in two ways:
 
   1. Automatically by the generated `:all_files` filegroup
-     (`glob(["**"])`), so every `cc_toolchain.*_files` attribute already
-     includes the new symlinks — no BUILD-template edit needed.
+     (`glob(["**"])`), so every `cc_toolchain.*_files` attribute
+     includes the symlinks without a BUILD-template edit.
   2. Explicitly by repository rules that resolve
-     `ctx.path(Label("@@…/hermetic_cc_linux_amd64//:unprefixed"))` and
-     prepend that path to a child process's `PATH`. The first such
-     consumer is wired in Phase 3 of the CI hermeticity initiative; see
-     `sdk/bzlmigration/ci/00_overview.md` for the broader plan.
+     `ctx.path(Label("@hermetic_cc_linux_amd64//:unprefixed"))` and
+     prepend that path to a child process's `PATH` so autoconf-style
+     probes succeed without depending on host binutils.
 """
 
 _PLATFORMS = {
@@ -201,21 +200,16 @@ def _gcc_toolchain_repo_impl(rctx):
     tool_prefix = rctx.attr.tool_prefix
     gcc_version = rctx.attr.gcc_version
 
-    # Autoconf-compatible unprefixed shims. Bootlin ships only target-prefixed
-    # names (bin/<tool_prefix>-ar, ...); the GHC 9.0.2 bindist's
-    # `distrib/configure.ac.in` probes `ar`/`ld`/`ranlib`/`gcc`/`strip` via
-    # AC_CHECK_TARGET_TOOL, which falls back to the unprefixed name. This
-    # symlink farm makes those probes succeed once `unprefixed/` is on PATH.
-    # The consumer is the rules_haskell hermetic-cc patch
-    # (sdk/bazel/patches/haskell/rules_haskell_hermetic_cc.patch), rewired
-    # in Phase 3 of the CI hermeticity initiative
-    # (sdk/bzlmigration/ci/00_overview.md). Phase 1 is intentionally inert:
-    # the directory is materialised here, but the patch still uses its own
-    # `hermetic_shim/cc` until Phase 3 lands.
+    # Autoconf-compatible unprefixed shims. Bootlin ships only
+    # target-prefixed names (bin/<tool_prefix>-ar, ...); autoconf-driven
+    # `./configure` scripts probe `ar`/`ld`/`ranlib`/`gcc`/`strip` via
+    # AC_CHECK_TARGET_TOOL, which ultimately falls back to the unprefixed
+    # name. This symlink farm makes those probes succeed once
+    # `unprefixed/` is on PATH.
     #
     # The binutils tools (ar, as, ld, nm, ranlib, objcopy, objdump, strip)
-    # are real ELF binaries with no basename indirection, so plain symlinks
-    # work. Each is guarded by an existence check so a future Bootlin
+    # are real ELF binaries with no basename indirection, so plain
+    # symlinks work. Each is guarded by an existence check so a Bootlin
     # tarball that drops an optional tool produces a smaller `unprefixed/`
     # rather than crashing the rule.
     unprefixed_binutils = [
