@@ -86,29 +86,31 @@ run_build() {
     --execution_log_json_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.json.gz"
 }
 
-if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
-  echo "Running on Apple Silicon (arm64). Building with --keep-going and retry on fail."
-
-  max_tries=10
-  build_succeeded=false
-
-  for i in $(seq 1 $max_tries); do
-    echo "Build attempt ${i}/${max_tries}..."
-    if run_build -k; then
-      build_succeeded=true
-      break
-    fi
-  done
-
-  if [ "$build_succeeded" = false ]; then
-    echo "Build failed after ${max_tries} attempts. Exiting."
-    exit 1
-  fi
-
-else
-  echo "Running on linux or non-arm Apple. Building without retry logic."
-  run_build
-fi
+#if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
+#  echo "Running on Apple Silicon (arm64). Building with --keep-going and retry on fail."
+#
+#  max_tries=10
+#  build_succeeded=false
+#
+#  for i in $(seq 1 $max_tries); do
+#    echo "Build attempt ${i}/${max_tries}..."
+#    if run_build -k; then
+#      build_succeeded=true
+#      break
+#    fi
+#  done
+#
+#  if [ "$build_succeeded" = false ]; then
+#    echo "Build failed after ${max_tries} attempts. Exiting."
+#    exit 1
+#  fi
+#
+#else
+#  echo "Running on linux or non-arm Apple. Building without retry logic."
+#  run_build
+#fi
+echo "Retry moved to ghc_wrapper, running without retry logic."
+run_build
 
 # Set up a shared PostgreSQL instance.
 export POSTGRESQL_ROOT_DIR="${POSTGRESQL_TMP_ROOT_DIR:-$DIR/.tmp-pg}/daml/postgresql"
