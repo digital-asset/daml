@@ -64,12 +64,12 @@ common_binary_haskell_flags = common_haskell_flags + [
     "-with-rtsopts=-N2 -qg -I0",
 ]
 
-def _wrap_rule(rule, common_flags, name = "", deps = [], hackage_deps = [], extra_compiler_flags = [], compiler_flags = [], **kwargs):
+def _wrap_rule(rule, common_flags, name = "", deps = [], hackage_deps = [], compiler_flags = [], **kwargs):
     ext_flags = ["-X%s" % ext for ext in common_haskell_exts]
     stackage_libs = ["@stackage//:{}".format(dep) for dep in hackage_deps]
     rule(
         name = name,
-        ghcopts = ext_flags + common_flags + compiler_flags + extra_compiler_flags,
+        ghcopts = ext_flags + common_flags + compiler_flags,
         deps = stackage_libs + deps,
         **kwargs
     )
