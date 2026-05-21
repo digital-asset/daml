@@ -40,7 +40,7 @@ jobs:
 # required for collect_build_data
 - job: release
   condition: false
-  
+
 - job: notify_release_pr
   displayName: "Notify Slack about release PR"
   condition: and(not(canceled()),
@@ -49,9 +49,9 @@ jobs:
                  eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
   dependsOn:
     - git_sha
-    - collect_build_data
+    # - collect_build_data
     - check_for_release
-    - platform_independence_test
+    # - platform_independence_test
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -105,7 +105,7 @@ jobs:
                  eq(variables['System.PullRequest.IsFork'], 'False'))
   dependsOn:
     - git_sha
-    - collect_build_data
+    # - collect_build_data
     - check_for_release
   pool:
     name: 'ubuntu_20_04'
@@ -160,4 +160,3 @@ jobs:
     env:
       AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
     displayName: "Trigger self-service compatibility test"
-
