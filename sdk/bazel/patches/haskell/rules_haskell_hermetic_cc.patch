@@ -1,9 +1,13 @@
 # Daml hermetic-GCC migration.
-# rules_haskell 0.18 _ghc_bindist_impl runs an autoconf ./configure and a
-# make install that expect a host cc/gcc on $PATH.  On a clean Linux build
-# machine with no host compiler (our target hermeticity goal) both steps fail.
-# This patch points the autoconf CC sanity-check and the make install at the
-# Bootlin GCC 13.2.0 registered via @@_main~gcc_toolchain~hermetic_cc_linux_amd64.
+# rules_haskell 0.18 _ghc_bindist_impl runs an autoconf `./configure` and a
+# `make install` that expect a host cc/gcc and a host make on $PATH.  This
+# patch points both at the hermetic toolchains registered in the root module:
+#   - @@_main~gcc_toolchain~hermetic_cc_linux_amd64 supplies the C compiler
+#     (CC) and an `unprefixed/` directory with autoconf-compatible binutils
+#     names (ar, ld, ranlib, ...) for the configure step's
+#     AC_CHECK_TARGET_TOOL probes.
+#   - @@_main~make_toolchain~hermetic_make_linux_amd64 supplies a static
+#     `bin/make` that replaces ctx.which("make") for the make install step.
 # macOS and Windows fall through to the existing host-PATH behaviour (no
 # hermetic toolchain is registered for those platforms).
 #
@@ -17,37 +21,72 @@
 # `ctx.patch` rejects the unified-diff form that GNU patch accepts cleanly.
 --- a/haskell/ghc_bindist.bzl
 +++ b/haskell/ghc_bindist.bzl
-@@ -177,7 +177,25 @@
+@@ -177,11 +177,46 @@
              execute_or_fail_loudly(ctx, ["sed", "-e", "s/RelocatableBuild = NO/RelocatableBuild = YES/", "-i.bak", "mk/config.mk.in"], working_directory = unpack_dir)
              execute_or_fail_loudly(ctx, ["rm", "-f", "mk/config.mk.in.bak"], working_directory = unpack_dir)
  
 -        execute_or_fail_loudly(ctx, ["./configure", "--prefix", bindist_dir.realpath], working_directory = unpack_dir)
 +        # Daml hermetic-GCC migration: the bindist tarball is precompiled, so
 +        # its autoconf ./configure does not compile our code -- it only does a
-+        # sanity check for a working host CC.  Point that check at the Bootlin
-+        # GCC registered via @@_main~gcc_toolchain~hermetic_cc_linux_amd64 so
-+        # the build does not require a host gcc/cc on PATH.  macOS / Windows
-+        # fall through to the existing host-PATH behaviour (no hermetic toolchain).
++        # sanity check for a working host CC and probes for unprefixed
++        # binutils (ar, ld, ranlib, ...) via AC_CHECK_TARGET_TOOL.  Point that
++        # check at the Bootlin GCC and the unprefixed-binutils symlink farm
++        # registered via @@_main~gcc_toolchain~hermetic_cc_linux_amd64, and
++        # put the hermetic GNU make from
++        # @@_main~make_toolchain~hermetic_make_linux_amd64 on PATH so the
++        # subsequent `make install` does not need a host make either.  macOS
++        # and Windows fall through to the existing host-PATH behaviour (no
++        # hermetic toolchain is registered for those platforms).
++        #
++        # Canonical bzlmod label form (`@@<root>~<extension>~<repo>`) is
++        # required because this patch runs inside `rules_haskell`'s external
++        # repo, which has no apparent-name mapping for the root module's
++        # repos.
 +        bindist_env = {}
 +        if os == "linux":
 +            hermetic_cc_path = ctx.path(Label("@@_main~gcc_toolchain~hermetic_cc_linux_amd64//:bin/x86_64-buildroot-linux-gnu-gcc"))
-+            ctx.symlink(hermetic_cc_path, "hermetic_shim/cc")
-+            ctx.symlink(hermetic_cc_path, "hermetic_shim/gcc")
-+            shim_dir = str(ctx.path("hermetic_shim").realpath)
-+            hermetic_bin = str(hermetic_cc_path.dirname)
++            unprefixed_gcc = ctx.path(Label("@@_main~gcc_toolchain~hermetic_cc_linux_amd64//:unprefixed/gcc"))
++            unprefixed_dir = str(unprefixed_gcc.dirname)
++            hermetic_make = ctx.path(Label("@@_main~make_toolchain~hermetic_make_linux_amd64//:bin/make"))
++            make_dir = str(hermetic_make.dirname)
 +            system_path = ctx.os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
 +            bindist_env = {
 +                "CC": str(hermetic_cc_path),
-+                "PATH": "{}:{}:{}".format(shim_dir, hermetic_bin, system_path),
++                "PATH": "{}:{}:{}".format(unprefixed_dir, make_dir, system_path),
 +            }
 +        execute_or_fail_loudly(ctx, ["./configure", "--prefix", bindist_dir.realpath], environment = bindist_env, working_directory = unpack_dir)
  
-         make_loc = ctx.which("make")
-         if not make_loc:
-@@ -200,5 +218,5 @@
+-        make_loc = ctx.which("make")
+-        if not make_loc:
+-            fail("It looks like the build-essential package might be missing, because there is no make in PATH.  Are the required dependencies installed?  https://rules-haskell.readthedocs.io/en/latest/haskell.html#before-you-begin")
++        # Daml hermetic-GCC migration: on Linux, resolve `make` from the
++        # hermetic GNU make repo so the subsequent `make install` step does
++        # not need a host make on PATH.  On other platforms fall through to
++        # the upstream host-PATH lookup.
++        if os == "linux":
++            make_loc = ctx.path(Label("@@_main~make_toolchain~hermetic_make_linux_amd64//:bin/make"))
++        else:
++            make_loc = ctx.which("make")
++            if not make_loc:
++                fail("It looks like the build-essential package might be missing, because there is no make in PATH.  Are the required dependencies installed?  https://rules-haskell.readthedocs.io/en/latest/haskell.html#before-you-begin")
+ 
+         if version_tuple >= (9, 2, 1):
+             # Necessary for deterministic builds on macOS. See
+@@ -191,7 +226,7 @@
+ 
+         execute_or_fail_loudly(
+             ctx,
+-            ["make", "install"] + make_args,
++            [str(make_loc), "install"] + make_args,
+             # Necessary for deterministic builds on macOS. See
+             # https://blog.conan.io/2019/09/02/Deterministic-builds-with-C-C++.html.
+             # The proper fix is for the GHC bindist to always use ar
+@@ -199,7 +234,7 @@
+             # deterministic builds that works better than
              # ZERO_AR_DATE. See
              # https://source.chromium.org/chromium/chromium/src/+/62848c8d298690e086e49a9832278ff56b6976b5.
 -            environment = {"ZERO_AR_DATE": "1"},
 +            environment = dict(bindist_env, ZERO_AR_DATE = "1"),
              working_directory = unpack_dir,
          )
+ 
