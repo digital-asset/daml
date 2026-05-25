@@ -1,79 +1,47 @@
-genrule(
-    name = "ncurses_build",
-    srcs = glob(["**"]),
-    outs = [
-        "lib/libtinfow.so",
-        "lib/libncursesw.so",
-        "lib/libformw.so",
-        "lib/libmenuw.so",
-        "lib/libpanelw.so",
-        "lib/libtinfo.so",
-        "lib/libncurses.so",
-        "lib/libform.so",
-        "lib/libmenu.so",
-        "lib/libpanel.so",
-        "lib/libtinfo.so.5",
-        "lib/libtinfo.so.6",
-    ],
-    cmd = """
-        CC=$$PWD/$(CC)
-        AR=$$PWD/$(AR)
-        PATCHELF=$$PWD/$(execpath @patchelf//:patchelf)
-        SRC=$$(dirname $(location configure))
-        PREFIX=$$(realpath $(@D))
-        cd $$SRC && CC="$$CC" AR="$$AR" \
-        ./configure \
-            --prefix=$$PREFIX \
-            --with-shared \
-            --with-termlib \
-            --enable-widec \
-            --without-debug \
-            --without-ada \
-            --without-manpages \
-            --without-tests \
-        && make -j$$(nproc) CC="$$CC" AR="$$AR" \
-        && make install \
-        && cd $$PREFIX/lib \
-        && for f in *.so; do \
-            if [ -L "$$f" ]; then \
-                target=$$(readlink -f "$$f"); \
-                rm "$$f"; \
-                cp "$$target" "$$f"; \
-            fi; \
-        done \
-        && for f in *.so.*; do \
-            if [ -L "$$f" ]; then \
-                target=$$(readlink -f "$$f"); \
-                rm "$$f"; \
-                cp "$$target" "$$f"; \
-            fi; \
-        done \
-        && for lib in ncurses form menu panel; do \
-            cp lib$${lib}w.so lib$${lib}.so; \
-        done \
-        && cp libtinfow.so libtinfo.so \
-        && cp libtinfo.so libtinfo.so.5 \
-        && cp libtinfo.so libtinfo.so.6 \
-        && $$PATCHELF --set-soname libtinfo.so libtinfo.so
-    """,
-    tools = ["@patchelf//:patchelf"],
-    toolchains = ["@rules_cc//cc:current_cc_toolchain"],
-)
+load("@rules_cc//cc:defs.bzl", "cc_library")
 
-filegroup(
-    name = "libs",
-    srcs = [":ncurses_build"],
+# All hermetic ncurses .so files are real files on disk after the
+# repository rule's `make install` + filename-versioning steps (see
+# sdk/bazel/extensions/ncurses_extension.bzl).  exports_files lets
+# other repository rules read them via ctx.path() at fetch time --
+# this is what enables the GHC bindist patch
+# (sdk/bazel/patches/haskell/rules_haskell_hermetic_cc.patch) to
+# point LD_LIBRARY_PATH at lib/libtinfo.so.5 without depending on a
+# host libtinfo5 package.
+exports_files(
+    glob([
+        "lib/*.so",
+        "lib/*.so.*",
+    ]),
     visibility = ["//visibility:public"],
 )
 
-# Wraps the hermetic libtinfo.so as a cc_library so it can be passed to
-# rules_haskell's stack_snapshot `extra_deps` (which expects CcInfo
-# providers). GHC's `haskeline` package emits `-ltinfo` into every link
-# command that pulls in `terminfo` / `haskeline`; without this, the
-# hermetic Bootlin sysroot's ld cannot find `-ltinfo` (sdk/dump.txt:328).
-# No header is required -- haskeline only needs the .so at link time.
+# Daml hermetic-GCC migration: haskeline's stack_snapshot `extra_deps`
+# needs a cc_library whose embedded SONAME is `libtinfo.so` (not
+# `libtinfow.so.6` as produced by autoconf) so that haskeline's
+# emitted `-ltinfo` DT_NEEDED entries resolve at runtime via the
+# hermetic ncurses build instead of a host libtinfo.  patchelf from
+# BCR is a cc_binary (action-time-only), so the SONAME rewrite
+# happens in this small genrule here rather than in the fetch-time
+# repository rule.
+genrule(
+    name = "libtinfo_so",
+    srcs = ["lib/libtinfow.so"],
+    outs = ["lib/libtinfo.so"],
+    cmd = "cp $< $@ && $(execpath @patchelf//:patchelf) --set-soname libtinfo.so $@",
+    tools = ["@patchelf//:patchelf"],
+)
+
 cc_library(
     name = "tinfo_cc_lib",
-    srcs = ["lib/libtinfo.so"],
+    srcs = [":libtinfo_so"],
+    visibility = ["//visibility:public"],
+)
+
+# Aggregates the SONAME-rewritten libtinfo.so alongside every real
+# .so file produced at fetch time.  Used as data for damlc binaries.
+filegroup(
+    name = "libs",
+    srcs = glob(["lib/*.so", "lib/*.so.*"]) + [":libtinfo_so"],
     visibility = ["//visibility:public"],
 )
