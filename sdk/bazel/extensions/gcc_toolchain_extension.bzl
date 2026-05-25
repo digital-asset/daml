@@ -1,6 +1,6 @@
 """Module extension that downloads the Bootlin hermetic GCC 13.2.0 toolchain.
 
-Only Linux x86_64 is wired today.  To add Linux arm64 or a lower-glibc variant,
+Only Linux x86_64 is wired today. To add Linux arm64 or a lower-glibc variant,
 insert a new entry into _PLATFORMS — no other code needs to change.
 
 Repository layout (after the rule runs):
@@ -66,7 +66,7 @@ _PLATFORMS = {
 # All literal Starlark braces are doubled ({{ / }}) to survive .format().
 # Placeholders: {tool_prefix}, {target_cpu}, {toolchain_identifier},
 #               {target_system_name}, {abi_version}, {abi_libc_version},
-#               {compile_flags}, {conly_flags}, {cxx_flags},
+#               {compile_flags}, {conly_flags}, {cxx_flags}, {builtin_sysroot},
 #               {cxx_builtin_include_directories}.
 _BUILD_TPL = """\
 load("@bazel_tools//tools/cpp:unix_cc_toolchain_config.bzl", "cc_toolchain_config")
@@ -100,7 +100,10 @@ cc_toolchain_config(
     tool_paths = {{
         "gcc": "bin/{tool_prefix}-gcc",
         "ar": "bin/{tool_prefix}-ar",
-        "ld": "bin/{tool_prefix}-ld",
+        # Some consumers (notably haskell/cabal configure phases) call the
+        # linker directly rather than routing through gcc. Keep ld hermetic by
+        # always injecting --sysroot from a wrapper.
+        "ld": "bin/{tool_prefix}-ld.wrapper",
         "cpp": "bin/{tool_prefix}-cpp",
         "gcov": "bin/{tool_prefix}-gcov",
         "nm": "bin/{tool_prefix}-nm",
@@ -144,8 +147,10 @@ cc_toolchain_config(
     coverage_link_flags = [],
     # Bootlin tarball ships only ld.bfd, which does not recognise --start-lib/--end-lib (gold/lld features).
     supports_start_end_lib = False,
-    # Bootlin GCC is configured --with-sysroot at build time; leave empty.
-    builtin_sysroot = "",
+    # Set a stable execroot-relative sysroot so linker-script absolute
+    # paths are resolved against the hermetic toolchain sysroot rather than
+    # the host filesystem.
+    builtin_sysroot = "{builtin_sysroot}",
 )
 
 cc_toolchain(
@@ -189,6 +194,28 @@ def _starlark_list(items):
     """Render a Python list of strings as a Starlark list literal."""
     return "[{}]".format(", ".join(['"{}"'.format(i) for i in items]))
 
+def _rewrite_sysroot_linker_scripts(rctx, sysroot_relpath):
+    """Patch glibc linker scripts to use '='-prefixed sysroot paths."""
+    script = """\
+set -eu
+sysroot="$1"
+for f in "$sysroot"/lib/*.so "$sysroot"/usr/lib/*.so "$sysroot"/lib64/*.so "$sysroot"/usr/lib64/*.so; do
+    [ -f "$f" ] || continue
+    head -c 16 "$f" | grep -q 'GNU ld script' || continue
+    sed -i.bak -E ':a;s|([ (])(/)|\\1=\\2|g;ta' "$f"
+    rm -f "$f.bak"
+done
+"""
+    result = rctx.execute(["sh", "-c", script, "_", str(rctx.path(sysroot_relpath))])
+    if result.return_code != 0:
+        fail(
+            "rewrite sysroot linker scripts failed (exit {}):\nstdout:\n{}\nstderr:\n{}".format(
+                result.return_code,
+                result.stdout,
+                result.stderr,
+            ),
+        )
+
 def _gcc_toolchain_repo_impl(rctx):
     rctx.download_and_extract(
         url = rctx.attr.url,
@@ -199,6 +226,47 @@ def _gcc_toolchain_repo_impl(rctx):
     repo = rctx.name
     tool_prefix = rctx.attr.tool_prefix
     gcc_version = rctx.attr.gcc_version
+    sysroot_relpath = "{}/sysroot".format(tool_prefix)
+
+    # NOTE: We intentionally do not rewrite glibc linker scripts to =/...
+    # here because it regresses local haskell/cabal tool invocations that
+    # consume this toolchain via runghc/Setup configure steps.
+
+    # Some tool consumers invoke ld directly (without gcc/collect2), which can
+    # bypass Bazel-provided --sysroot wiring. Provide a wrapper that injects
+    # --sysroot unless the caller already passed one explicitly.
+    ld_path = rctx.path("bin/{}-ld".format(tool_prefix))
+    if ld_path.exists:
+        ld_wrapper = "\n".join([
+            "#!/usr/bin/env bash",
+            "set -euo pipefail",
+            "dir=$(dirname \"$(readlink -f \"$0\")\")",
+            "sysroot=\"$dir/../{}/sysroot\"".format(tool_prefix),
+            # Some callers inject a relative --sysroot that depends on CWD.
+            # Strip all caller-provided --sysroot arguments and force a stable
+            # absolute sysroot rooted in this toolchain repository.
+            "args=()",
+            "skip_next=0",
+            "for arg in \"$@\"; do",
+            "  if (( skip_next )); then",
+            "    skip_next=0",
+            "    continue",
+            "  fi",
+            "  case \"$arg\" in",
+            "    --sysroot)",
+            "      skip_next=1",
+            "      ;;",
+            "    --sysroot=*)",
+            "      ;;",
+            "    *)",
+            "      args+=(\"$arg\")",
+            "      ;;",
+            "  esac",
+            "done",
+            "exec \"$dir/{}-ld\" --sysroot=\"$sysroot\" \"${{args[@]}}\"".format(tool_prefix),
+            "",
+        ])
+        rctx.file("bin/{}-ld.wrapper".format(tool_prefix), ld_wrapper, executable = True)
 
     # Autoconf-compatible unprefixed shims. Bootlin ships only
     # target-prefixed names (bin/<tool_prefix>-ar, ...); autoconf-driven
@@ -223,6 +291,16 @@ def _gcc_toolchain_repo_impl(rctx):
         "strip",
     ]
     for tool in unprefixed_binutils:
+        if tool == "ld":
+            # Keep `ld` unprefixed entry sysroot-aware for autoconf-style
+            # probes that call the linker directly.
+            ld_shim = "\n".join([
+                "#!/bin/sh",
+                "exec \"$(dirname \"$(readlink -f \"$0\")\")/../bin/{}-ld.wrapper\" \"$@\"".format(tool_prefix),
+                "",
+            ])
+            rctx.file("unprefixed/ld", ld_shim, executable = True)
+            continue
         target = rctx.path("bin/{}-{}".format(tool_prefix, tool))
         if target.exists:
             rctx.symlink(target, "unprefixed/{}".format(tool))
@@ -283,6 +361,7 @@ def _gcc_toolchain_repo_impl(rctx):
             compile_flags = compile_flags,
             conly_flags = conly_flags,
             cxx_flags = cxx_flags,
+            builtin_sysroot = "external/{}/{}".format(repo, sysroot_relpath),
             cxx_builtin_include_directories = _starlark_list(cxx_include_dirs),
         ),
     )
