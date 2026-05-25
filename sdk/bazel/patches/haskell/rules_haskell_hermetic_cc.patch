@@ -21,7 +21,7 @@
 # `ctx.patch` rejects the unified-diff form that GNU patch accepts cleanly.
 --- a/haskell/ghc_bindist.bzl
 +++ b/haskell/ghc_bindist.bzl
-@@ -177,11 +177,46 @@
+@@ -177,11 +177,55 @@
              execute_or_fail_loudly(ctx, ["sed", "-e", "s/RelocatableBuild = NO/RelocatableBuild = YES/", "-i.bak", "mk/config.mk.in"], working_directory = unpack_dir)
              execute_or_fail_loudly(ctx, ["rm", "-f", "mk/config.mk.in.bak"], working_directory = unpack_dir)
  
@@ -34,9 +34,15 @@
 +        # registered via @@_main~gcc_toolchain~hermetic_cc_linux_amd64, and
 +        # put the hermetic GNU make from
 +        # @@_main~make_toolchain~hermetic_make_linux_amd64 on PATH so the
-+        # subsequent `make install` does not need a host make either.  macOS
-+        # and Windows fall through to the existing host-PATH behaviour (no
-+        # hermetic toolchain is registered for those platforms).
++        # subsequent `make install` does not need a host make either.  The
++        # 9.0.2 deb9 bindist's ghc-pkg binary is dynamically linked against
++        # libtinfo.so.5; point LD_LIBRARY_PATH at the hermetic ncurses 6
++        # build (which emits lib/libtinfo.so.5 as a SONAME-rewritten copy of
++        # libtinfow.so via @@_main~ncurses~ncurses) so the `make install`
++        # step's ghc-pkg invocations resolve their dynamic loader without
++        # depending on a host libtinfo5 package.  macOS and Windows fall
++        # through to the existing host-PATH behaviour (no hermetic toolchain
++        # is registered for those platforms).
 +        #
 +        # Canonical bzlmod label form (`@@<root>~<extension>~<repo>`) is
 +        # required because this patch runs inside `rules_haskell`'s external
@@ -49,10 +55,13 @@
 +            unprefixed_dir = str(unprefixed_gcc.dirname)
 +            hermetic_make = ctx.path(Label("@@_main~make_toolchain~hermetic_make_linux_amd64//:bin/make"))
 +            make_dir = str(hermetic_make.dirname)
++            hermetic_tinfo = ctx.path(Label("@@_main~ncurses~ncurses//:lib/libtinfo.so.5"))
++            tinfo_dir = str(hermetic_tinfo.dirname)
 +            system_path = ctx.os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
 +            bindist_env = {
 +                "CC": str(hermetic_cc_path),
 +                "PATH": "{}:{}:{}".format(unprefixed_dir, make_dir, system_path),
++                "LD_LIBRARY_PATH": tinfo_dir,
 +            }
 +        execute_or_fail_loudly(ctx, ["./configure", "--prefix", bindist_dir.realpath], environment = bindist_env, working_directory = unpack_dir)
  
