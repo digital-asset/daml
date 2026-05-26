@@ -21,7 +21,7 @@
 # `ctx.patch` rejects the unified-diff form that GNU patch accepts cleanly.
 --- a/haskell/ghc_bindist.bzl
 +++ b/haskell/ghc_bindist.bzl
-@@ -177,11 +177,55 @@
+@@ -177,11 +177,56 @@
              execute_or_fail_loudly(ctx, ["sed", "-e", "s/RelocatableBuild = NO/RelocatableBuild = YES/", "-i.bak", "mk/config.mk.in"], working_directory = unpack_dir)
              execute_or_fail_loudly(ctx, ["rm", "-f", "mk/config.mk.in.bak"], working_directory = unpack_dir)
  
@@ -49,6 +49,7 @@
 +        # repo, which has no apparent-name mapping for the root module's
 +        # repos.
 +        bindist_env = {}
++        hermetic_tinfo = None
 +        if os == "linux":
 +            hermetic_cc_path = ctx.path(Label("@@_main~gcc_toolchain~hermetic_cc_linux_amd64//:bin/x86_64-buildroot-linux-gnu-gcc"))
 +            unprefixed_gcc = ctx.path(Label("@@_main~gcc_toolchain~hermetic_cc_linux_amd64//:unprefixed/gcc"))
@@ -81,7 +82,7 @@
  
          if version_tuple >= (9, 2, 1):
              # Necessary for deterministic builds on macOS. See
-@@ -191,7 +226,7 @@
+@@ -191,7 +236,7 @@
  
          execute_or_fail_loudly(
              ctx,
@@ -90,7 +91,7 @@
              # Necessary for deterministic builds on macOS. See
              # https://blog.conan.io/2019/09/02/Deterministic-builds-with-C-C++.html.
              # The proper fix is for the GHC bindist to always use ar
-@@ -199,7 +234,7 @@
+@@ -199,10 +244,35 @@
              # deterministic builds that works better than
              # ZERO_AR_DATE. See
              # https://source.chromium.org/chromium/chromium/src/+/62848c8d298690e086e49a9832278ff56b6976b5.
@@ -99,3 +100,31 @@
              working_directory = unpack_dir,
          )
  
++        # Daml hermetic-GCC migration: rules_haskell package-registration
++        # actions run `bin/ghc-pkg` in clean process-wrapper sandboxes where
++        # only PATH survives. Bundle hermetic libtinfo with the bindist and
++        # wrap `bin/ghc-pkg` (not `lib/bin/ghc-pkg`) so action-time
++        # invocations keep resolving libtinfo.so.5 without a host libtinfo5
++        # package.
++        #
++        # Keep `lib/bin/ghc-pkg` as the original ELF because downstream
++        # packaging rules (e.g. //compiler/damlc:ghc-pkg-dist) run patchelf on
++        # that path and require an ELF executable, not a shell script wrapper.
++        if os == "linux":
++            execute_or_fail_loudly(
++                ctx,
++                [
++                    "bash",
++                    "-euo",
++                    "pipefail",
++                    "-c",
++                    "bindist_dir=\"$1\"; tinfo_src=\"$2\"; ghc_pkg_wrapper=\"$bindist_dir/bin/ghc-pkg\"; mkdir -p \"$bindist_dir/lib/tinfo\"; cp \"$tinfo_src\" \"$bindist_dir/lib/tinfo/libtinfo.so.5\"; mv \"$ghc_pkg_wrapper\" \"$ghc_pkg_wrapper.real\"; cat >\"$ghc_pkg_wrapper\" <<'EOF'\n#!/bin/sh\nset -eu\nDIR=$(dirname \"$(readlink -f \"$0\")\")\nexport LD_LIBRARY_PATH=\"$DIR/../lib/tinfo${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\"\nexec \"$DIR/ghc-pkg.real\" \"$@\"\nEOF\nchmod +x \"$ghc_pkg_wrapper\"",
++                    "--",
++                    bindist_dir.realpath,
++                    str(hermetic_tinfo),
++                ],
++            )
++
+         if not is_hadrian_dist:
+             ctx.file(paths.join(unpack_dir, "patch_bins"), executable = True, content = r"""#!/usr/bin/env bash
+ find bin -type f -print0 | xargs -0 \
