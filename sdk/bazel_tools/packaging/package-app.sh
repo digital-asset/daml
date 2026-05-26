@@ -52,7 +52,25 @@ case "$(uname -s)" in
 # Unused
 #    gzip=$(abspath $(rlocation gzip_dev_env/gzip))
     mktgz=$(abspath $(rlocation _main/bazel_tools/sh/mktgz))
-    patchelf=$(abspath $(rlocation patchelf~/patchelf))
+    # Support both the BCR layout (`patchelf~/patchelf`) and the
+    # pinned static-release layout (`patchelf~/bin/patchelf`).
+    patchelf_runfile=""
+    for candidate in \
+      "patchelf~/patchelf" \
+      "patchelf~/bin/patchelf" \
+      "_main~patchelf~patchelf/bin/patchelf" \
+      "_main/external/_main~patchelf~patchelf/bin/patchelf"
+    do
+      patchelf_runfile=$(rlocation "$candidate" || true)
+      if [[ -n "${patchelf_runfile:-}" ]]; then
+        break
+      fi
+    done
+    if [[ -z "${patchelf_runfile:-}" ]]; then
+      echo "ERROR: cannot locate patchelf in runfiles" >&2
+      exit 1
+    fi
+    patchelf=$(abspath "$patchelf_runfile")
     ;;
   CYGWIN*|MINGW*|MSYS*)
     tar=$(abspath $(rlocation tar_dev_env/usr/bin/tar.exe))
