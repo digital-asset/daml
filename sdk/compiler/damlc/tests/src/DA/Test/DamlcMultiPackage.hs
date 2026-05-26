@@ -21,6 +21,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, fromJust)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import qualified Data.Set as Set
 import Data.Time.Clock (UTCTime)
 import Data.Yaml (decodeThrow, encodeFile)
 import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
@@ -488,6 +489,15 @@ tests =
               ]
             ]
             [("my-package", (["daml-script"], []))]
+        , assertResolvedDependenciesError "Reasonable error when no resolution provided"
+            [ MultiPackage ["my-package"] []
+            , Dir "my-package"
+              [ damlYaml "my-package" "0.0.1" ["oci://my-dependency:0.0.1"]
+              , Dir "daml" [DamlSource "MyPackage" []]
+              ]
+            ]
+            (pure . removeResolvedDepsFromResolution)
+            "Found unresolved DPM remote dar: oci://my-dependency:0.0.1"
         ]
     ]
 
@@ -612,6 +622,17 @@ tests =
             adjustPackageResolution res = error $ "Expected ValidPackageResolutionData but got " <> show res
         pure $ resolution {packages = Map.adjust adjustPackageResolution packagePath' $ packages resolution}
 
+    -- Removes keys related to remote deps from a resolution to test damlc behaviour pre-remote-deps
+    removeResolvedDepsFromResolution :: ResolutionData -> ResolutionData
+    removeResolvedDepsFromResolution resolution =
+      let -- Keys in the package resolution imports related to resolved deps
+          resolvedDepsImportsKeys = Set.fromList ["resolved-dependencies", "resolved-data-dependencies"]
+          adjustPackageResolution :: PackageResolutionData -> PackageResolutionData
+          adjustPackageResolution (ValidPackageResolutionData packageResolution) =
+            ValidPackageResolutionData $ packageResolution {imports = Map.withoutKeys (imports packageResolution) resolvedDepsImportsKeys}
+          adjustPackageResolution res = res
+       in resolution {packages = fmap adjustPackageResolution $ packages resolution}
+
     -- Builds a project with added resolved-dependencies and resolved-data-dependencies
     -- asserts success
     assertResolvedDependencies
@@ -623,7 +644,21 @@ tests =
       testCase name $
       withTempDir $ \dir -> do
         void $ buildProject dir projectStructure
-        runBuildWithModifiedResolution dir $ addResolvedDepsToResolution dir resolvedDeps
+        runBuildWithModifiedResolution dir (addResolvedDepsToResolution dir resolvedDeps) >>= assertSuccess
+
+    assertResolvedDependenciesError
+      :: String
+      -> [ProjectStructure]
+      -> (ResolutionData -> IO ResolutionData)
+      -> String -- Expected output in stderr
+      -> TestTree
+    assertResolvedDependenciesError name projectStructure modifyResolution expectedErr =
+      testCase name $
+      withTempDir $ \dir -> do
+        void $ buildProject dir projectStructure
+        (exitCode, _, err) <- runBuildWithModifiedResolution dir modifyResolution
+        assertBool "Expected build to fail" $ exitCode /= ExitSuccess
+        assertBool ("Expected build stderr to contain " <> expectedErr <> " but it didn't:\n" <> err) $ expectedErr `isInfixOf` err
 
     -- Same as assertResolvedDependencies, but runs the build twice and asserts that dars are not rebuild a second time
     -- Used to ensure dar caching is not broken by resolved-dependencies
@@ -638,15 +673,19 @@ tests =
       withTempDir $ \dir -> do
         allDars <- buildProject dir projectStructure
         -- Build initially
-        runBuildWithModifiedResolution dir $ addResolvedDepsToResolution dir resolvedDeps
+        runBuildWithModifiedResolution dir (addResolvedDepsToResolution dir resolvedDeps) >>= assertSuccess
         let getModificationTimes = Map.fromList <$> traverse (\dar -> (dar,) <$> getModificationTime (dir </> dar)) (Map.elems allDars)
         -- Get all dars modification times
         timesPreRebuild <- getModificationTimes
         -- Trigger rebuild
-        runBuildWithModifiedResolution dir $ addResolvedDepsToResolution dir resolvedDeps
+        runBuildWithModifiedResolution dir (addResolvedDepsToResolution dir resolvedDeps) >>= assertSuccess
         -- Ensure dar modification times didn't change
         timesPostRebuild <- getModificationTimes
         timesPostRebuild @?= timesPreRebuild
+
+    assertSuccess :: (ExitCode, String, String) -> IO ()
+    assertSuccess (ExitSuccess, _ , _) = pure ()
+    assertSuccess (err, _ , _) = fail $ "Expected success but got " <> show err
 
     -- Runs a `dpm build --all` using a modified resolution data
     -- Used to test dpm features before fully integrated
@@ -654,7 +693,7 @@ tests =
     runBuildWithModifiedResolution
       :: FilePath
       -> (ResolutionData -> IO ResolutionData)
-      -> IO ()
+      -> IO (ExitCode, String, String)
     runBuildWithModifiedResolution dir modifyResolution = do
       resolveStr <- readCreateProcess ((shell "dpm resolve") {cwd = Just dir}) ""
       resolutionData :: ResolutionData <- decodeThrow $ BSC.pack resolveStr
@@ -670,7 +709,7 @@ tests =
           envVars = [(resolutionFileEnvVar, resolutionPath), (sdkVersionDpmEnvVar, fst $ defaultSdk updatedResolutionData)]
       encodeFile resolutionPath updatedResolutionData
       originalEnv <- getEnvironment
-      void $ readCreateProcess ((proc damlc ["build", "--all"]) {cwd = Just dir, env = Just $ envVars <> originalEnv}) ""
+      readCreateProcessWithExitCode ((proc damlc ["build", "--all"]) {cwd = Just dir, env = Just $ envVars <> originalEnv}) ""
 
     -- Cannot directly check hashes, as they change between versions + OS.
     -- Instead, test for changes in hashes
