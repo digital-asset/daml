@@ -7,10 +7,14 @@ genrule(
         "include/zlib.h",
         "include/zconf.h",
     ],
+    # Resolve `make` from the hermetic GNU make repository instead of PATH.
+    # This keeps the action reproducible across environments where host
+    # `make` may not be installed.
     cmd = """
         SRC=$$(realpath $$(dirname $(location configure)))
         PREFIX=$$(realpath $(@D))
         CC_ABS=$$PWD/$(CC)
+        MAKE=$$PWD/$(execpath @hermetic_make_linux_amd64//:bin/make)
         BUILD=$$(mktemp -d /tmp/zlib-XXXXXX)
         cp -rpL $$SRC/. $$BUILD
         chmod -R u+w $$BUILD
@@ -18,8 +22,8 @@ genrule(
         ./configure \
             --prefix=$$PREFIX \
             --shared \
-        && make -j$$(nproc) CC="$$CC_ABS" \
-        && make install \
+        && $$MAKE -j$$(nproc) CC="$$CC_ABS" \
+        && $$MAKE install \
         && cd $$PREFIX/lib \
         && for f in *.so *.so.*; do \
             if [ -L "$$f" ]; then \
@@ -30,6 +34,7 @@ genrule(
         done \
         && rm -rf $$BUILD
     """,
+    tools = ["@hermetic_make_linux_amd64//:bin/make"],
     toolchains = ["@rules_cc//cc:current_cc_toolchain"],
 )
 
