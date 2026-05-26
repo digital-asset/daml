@@ -686,6 +686,7 @@ def da_scala_binary(name, initial_heap_size = default_initial_heap_size, max_hea
         srcs = [":" + name + "_deploy.jar"],
         tools = [
             "//bazel_tools:distribute_jar_cleanup.sh",
+            "@zip//:zip",
             "//:NOTICES",
             "//:LICENSE",
             "//release:ee-license.txt",
@@ -693,6 +694,7 @@ def da_scala_binary(name, initial_heap_size = default_initial_heap_size, max_hea
         outs = [name + "_distribute.jar"],
         cmd = """
 $(location //bazel_tools:distribute_jar_cleanup.sh)\
+  $(execpath @zip//:zip)\
   $(location :{name}_deploy.jar)\
   $(location :{name}_distribute.jar)\
   $(location //:NOTICES)\
