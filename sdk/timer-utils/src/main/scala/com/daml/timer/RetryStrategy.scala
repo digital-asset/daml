@@ -14,7 +14,7 @@ import scala.concurrent.{ExecutionContext, Future}
 object RetryStrategy {
 
   /** Retry a fixed amount of times with exponential backoff, regardless of the exception thrown
-   */
+    */
   def exponentialBackoff(attempts: Int, firstWaitTime: Duration): RetryStrategy =
     new RetryStrategy(
       Some(attempts),
@@ -25,14 +25,14 @@ object RetryStrategy {
     )
 
   /** Retry a fixed amount of times with constant wait time, regardless of the exception thrown
-   */
+    */
   def constant(attempts: Int, waitTime: Duration): RetryStrategy =
     new RetryStrategy(Some(attempts), waitTime, waitTime, identity, { case _ => true })
 
   /** Retry with constant wait time, but only if the exception satisfies a predicate
-   */
+    */
   def constant(attempts: Option[Int] = None, waitTime: Duration)(
-    predicate: PartialFunction[Throwable, Boolean]
+      predicate: PartialFunction[Throwable, Boolean]
   ): RetryStrategy =
     new RetryStrategy(attempts, waitTime, waitTime, identity, predicate)
 
@@ -55,16 +55,16 @@ object RetryStrategy {
   }
 
   final case class TooManyAttemptsException(
-    attempts: Int,
-    duration: FiniteDuration,
-    message: String,
-    cause: Throwable,
+      attempts: Int,
+      duration: FiniteDuration,
+      message: String,
+      cause: Throwable,
   ) extends FailedRetryException(message, cause)
 
   final case class UnhandledFailureException(
-    duration: FiniteDuration,
-    message: String,
-    cause: Throwable,
+      duration: FiniteDuration,
+      message: String,
+      cause: Throwable,
   ) extends FailedRetryException(message, cause)
 
 }
