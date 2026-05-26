@@ -129,8 +129,9 @@ installDependencies packageRoot opts versionInfo pDeps pDataDeps = do
           expandDependencyPackages cachePath pkgResolution (optDamlLfVersion opts) dependencyPackages
         Nothing ->
           -- Cannot fail here as this path is taken by bootstrapping. Best we can do is give no packages
-          let purePaths = filter (\fp -> takeExtension fp `elem` [".dar", ".dalf"]) pDeps
-           in pure $ DependencyPackages purePaths [] []
+          let depPaths = filter (\fp -> takeExtension fp `elem` [".dar", ".dalf"]) pDeps
+              dataDepPaths = filter (\fp -> takeExtension fp `elem` [".dar", ".dalf"]) pDataDeps
+           in pure $ DependencyPackages depPaths [] dataDepPaths
     DataDeps {dataDepsDars, dataDepsDalfs, dataDepsPkgIds, dataDepsNameVersion} <- readDataDeps dataDeps
     (needsUpdate, newFingerprint) <-
         depsNeedUpdate
