@@ -5,10 +5,14 @@ genrule(
         "lib/libgmp.so",
         "lib/libgmp.so.10",
     ],
+    # Resolve `make` from the hermetic GNU make repository instead of PATH.
+    # This keeps the action reproducible across environments where host
+    # `make` may not be installed.
     cmd = """
         CC=$$PWD/$(CC)
         AR=$$PWD/$(AR)
         M4=$$PWD/$(execpath @m4//:m4_binary)
+        MAKE=$$PWD/$(execpath @hermetic_make_linux_amd64//:bin/make)
         SRC=$$(dirname $(location configure))
         PREFIX=$$(realpath $(@D))
         cd $$SRC && CC="$$CC" AR="$$AR" M4=$$M4 \
@@ -16,8 +20,8 @@ genrule(
             --prefix=$$PREFIX \
             --with-shared \
             --disable-static \
-        && make -j$$(nproc) CC="$$CC" AR="$$AR" \
-        && make install \
+        && $$MAKE -j$$(nproc) CC="$$CC" AR="$$AR" \
+        && $$MAKE install \
         && cd $$PREFIX/lib \
         && for f in *.so *.so.*; do \
             if [ -L "$$f" ]; then \
@@ -27,7 +31,10 @@ genrule(
             fi; \
         done
     """,
-    tools = ["@m4//:m4_binary"],
+    tools = [
+        "@hermetic_make_linux_amd64//:bin/make",
+        "@m4//:m4_binary",
+    ],
     toolchains = ["@rules_cc//cc:current_cc_toolchain"],
 )
 
