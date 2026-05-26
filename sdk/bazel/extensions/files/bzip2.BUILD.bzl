@@ -6,15 +6,19 @@ genrule(
         "lib/libbz2.so.1",
         "include/bzlib.h",
     ],
+    # Resolve `make` from the hermetic GNU make repository instead of PATH.
+    # This keeps the action reproducible across environments where host
+    # `make` may not be installed.
     cmd = """
         CC=$$PWD/$(CC)
         PATCHELF=$$PWD/$(execpath @patchelf//:patchelf)
+        MAKE=$$PWD/$(execpath @hermetic_make_linux_amd64//:bin/make)
         SRC=$$(realpath $$(dirname $(location Makefile-libbz2_so)))
         PREFIX=$$(realpath $(@D))
         BUILD=$$(mktemp -d /tmp/bzip2-XXXXXX)
         cp -rpL $$SRC/. $$BUILD
         chmod -R u+w $$BUILD
-        cd $$BUILD && make -f Makefile-libbz2_so -j$$(nproc) CC="$$CC" \
+        cd $$BUILD && $$MAKE -f Makefile-libbz2_so -j$$(nproc) CC="$$CC" \
         && mkdir -p $$PREFIX/lib \
         && mkdir -p $$PREFIX/include \
         && cp libbz2.so.1.0.8 $$PREFIX/lib/libbz2.so.1 \
@@ -23,7 +27,10 @@ genrule(
         && $$PATCHELF --set-soname libbz2.so $$PREFIX/lib/libbz2.so \
         && rm -rf $$BUILD
     """,
-    tools = ["@patchelf//:patchelf"],
+    tools = [
+        "@hermetic_make_linux_amd64//:bin/make",
+        "@patchelf//:patchelf",
+    ],
     toolchains = ["@rules_cc//cc:current_cc_toolchain"],
 )
 
