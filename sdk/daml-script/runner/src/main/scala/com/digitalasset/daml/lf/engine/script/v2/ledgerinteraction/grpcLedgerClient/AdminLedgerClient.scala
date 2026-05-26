@@ -167,6 +167,8 @@ class AdminLedgerClient private[grpcLedgerClient] (
       firstWaitTime: Duration = 100.millis,
   ): Future[Unit] = for {
     packageIds <- getPackageIds(packages)
+
+    // TODO[23063]: reconsider usage of RetryStrategy
     _ <- RetryStrategy
       .exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
         for {

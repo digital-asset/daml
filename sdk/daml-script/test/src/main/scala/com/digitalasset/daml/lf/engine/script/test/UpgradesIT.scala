@@ -121,6 +121,7 @@ class UpgradesIT(
           }
 
           // Wait for upload
+          // TODO[23063]: reconsider usage of RetryStrategy
           _ <- RetryStrategy.constant(attempts = 20, waitTime = 1.seconds) { (_, _) =>
             assertDepsVetted(adminClients.head._2, deps)
           }

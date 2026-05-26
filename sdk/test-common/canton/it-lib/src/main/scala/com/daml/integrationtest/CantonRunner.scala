@@ -240,6 +240,7 @@ object CantonRunner {
   private def waitForFile(proc: Process, path: Path)(implicit
       ec: ExecutionContext
   ): Future[Boolean] =
+    // TODO[23063]: reconsider usage of RetryStrategy
     RetryStrategy
       .constant(attempts = 240, waitTime = 1.seconds) { (_, _) =>
         if (proc.isAlive())
