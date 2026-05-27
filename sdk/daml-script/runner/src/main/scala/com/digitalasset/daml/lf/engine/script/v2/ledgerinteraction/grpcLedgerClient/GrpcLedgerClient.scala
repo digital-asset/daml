@@ -505,6 +505,7 @@ class GrpcLedgerClient(
       party <- grpcClient.partyManagementClient
         .allocateParty(hint = Some(partyIdHint), token = None)
         .map(_.party)
+      // TODO[23063]: reconsider usage of RetryStrategy
       _ <- RetryStrategy.constant(5, 200.milliseconds) { case (_, _) =>
         for {
           res <- grpcClient.stateService
