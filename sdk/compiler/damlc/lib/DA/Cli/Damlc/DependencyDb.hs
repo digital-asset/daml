@@ -173,7 +173,7 @@ installDependencies packageRoot opts versionInfo pDeps pDataDeps = do
     depsDir = dependenciesDir opts packageRoot
     -- Current valid DPM remote dar prefixes from https://github.com/digital-asset/dpm/blob/main/pkg/damlpackage/locations.go#L81
     -- Used only for helpful errors, falling behind isn't terrible
-    isDpmRemotePath path = any (`isPrefixOf` path) ["http://", "https://", "oci://", "@"] || ":" `isInfixOf` path
+    isDpmRemotePath path = any (`isPrefixOf` path) ["http://", "https://", "oci://", "@"] || ":" `isInfixOf` dropDrive path
 
 -- | Check that all dependencies match the main packages release (or sdk) version
 -- We check for both, as packages usually use the release version, but internal packages (like daml-script) use the sdk-version, as the

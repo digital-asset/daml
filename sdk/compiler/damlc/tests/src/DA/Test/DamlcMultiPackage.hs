@@ -11,12 +11,12 @@ import Control.Exception (try)
 import Control.Monad.Extra (forM_, unless, void)
 import DA.Daml.Assistant.IntegrationTestUtils (withDpmSdkExtraVerResource)
 import DA.Daml.Project.Consts (sdkVersionDpmEnvVar)
-import DA.Daml.Resolution.Config (ResolutionData (..), PackageResolutionData (..), ValidPackageResolution (..), resolutionFileEnvVar)
+import DA.Daml.Resolution.Config (ResolutionData (..), PackageResolutionData (..), ValidPackageResolution (..), resolutionFileEnvVar, toPosixFilePath)
 import DA.Cli.Damlc (MultiPackageManifestEntry (..))
 import Data.Aeson (eitherDecode)
 import Data.Foldable (foldrM)
 import Data.List (intercalate, intersect, isInfixOf, sortOn, union, (\\))
-import Data.List.Extra (replace)
+import Data.List.Extra (lower, replace)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, fromJust)
 import qualified Data.Text as T
@@ -620,7 +620,8 @@ tests =
             adjustPackageResolution (ValidPackageResolutionData packageResolution) =
               ValidPackageResolutionData $ packageResolution {imports = newImports <> imports packageResolution}
             adjustPackageResolution res = error $ "Expected ValidPackageResolutionData but got " <> show res
-        pure $ resolution {packages = Map.adjust adjustPackageResolution packagePath' $ packages resolution}
+            packagePathKey = lower $ toPosixFilePath packagePath'
+        pure $ resolution {packages = Map.adjust adjustPackageResolution packagePathKey $ packages resolution}
 
     -- Removes keys related to remote deps from a resolution to test damlc behaviour pre-remote-deps
     removeResolvedDepsFromResolution :: ResolutionData -> ResolutionData
