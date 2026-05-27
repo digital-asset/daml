@@ -7,6 +7,7 @@ package test
 
 import java.nio.file.{Path, Paths}
 import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.integrationtest.CantonConfig
 import com.daml.integrationtest.CantonConfig.{ProtocolVersion, TimeProviderType}
 import com.daml.integrationtest.CantonFixture
 import com.daml.testing.utils.PekkoBeforeAndAfterAll
@@ -54,6 +55,13 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
     case ScriptTimeMode.Static => TimeProviderType.Static
     case ScriptTimeMode.WallClock => TimeProviderType.WallClock
   }
+
+  // TODO[23016]: be smarter about this: set appropriate lf move depending on the dar passed
+  // TODO[23016]: swap to enable beta support as long as 2.4-staging is
+  // hardcoded (needs 2.4-rc1 to be included in earlyAccessVersions canton side
+  // first)
+  override protected def cantonConfig(): CantonConfig =
+    super.cantonConfig().copy(enableLfDevVersionSupport = true)
 
   final protected def run(
       clients: Participants[ScriptLedgerClient],

@@ -87,6 +87,15 @@ object CantonRunner {
         |          trust-collection-file = ${toJson(config.caCrt)}
         |        }""".stripMargin)
 
+    val participantBetaVersionSupport =
+      if (config.enableLfBetaVersionSupport) "beta-version-support = yes" else ""
+    val globalBetaVersionSupport =
+      if (config.enableLfBetaVersionSupport) "beta-version-support = yes" else ""
+    val participantDevVersionSupport =
+      if (config.enableLfDevVersionSupport) "alpha-version-support = yes" else ""
+    val globalDevVersionSupport =
+      if (config.enableLfDevVersionSupport) "alpha-version-support = yes" else ""
+
     def participantConfig(i: Int) = {
       val (adminPort, ledgerApiPort) = ports(i)
       val participantId = config.participantIds(i)
@@ -106,7 +115,8 @@ object CantonRunner {
          |      storage.type = memory
          |      parameters = {
          |        engine.enable-engine-stack-traces = true
-         |        alpha-version-support = yes
+         |        ${participantDevVersionSupport}
+         |        ${participantBetaVersionSupport}
          |        disable-upgrade-validation = ${config.disableUpgradeValidation}
          |      }
          |      ${config.snapshotDir.fold("")(x => s"features.snapshot-dir = ${toJson(x)}")}
@@ -119,7 +129,8 @@ object CantonRunner {
       s"""canton {
          |  parameters {
          |    non-standard-config = yes
-         |    alpha-version-support = yes
+         |    ${globalDevVersionSupport}
+         |    ${globalBetaVersionSupport}
          |    ports-file = ${toJson(files.portsFile)}
          |    ${clockType.fold("")(x => "clock.type = " + x)}
          |  }
@@ -191,6 +202,8 @@ object CantonRunner {
          |  nParticipants = ${config.nParticipants}
          |  timeProviderType = ${config.timeProviderType}
          |  tlsEnable = ${config.tlsConfig.isDefined}
+         |  enableLfBetaVersionSupport = ${config.enableLfBetaVersionSupport}
+         |  enableLfDevVersionSupport = ${config.enableLfDevVersionSupport}
          |""".stripMargin
     )
     var outputBuffer = ""
