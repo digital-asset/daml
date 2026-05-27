@@ -6,10 +6,12 @@
 
 module DA.Daml.Resolution.Config
   ( findPackageResolutionData
-  , expandSdkPackagesDpm
+  , expandDependencyPackages
   , getResolutionData
   , resolutionFileEnvVar
-  , ExpandedSdkPackages (..)
+  , readDependencyPackagesFromResolution
+  , toPosixFilePath
+  , DependencyPackages (..)
   , ResolutionData (..)
   , PackageResolutionData (..)
   , ErrorPackageResolution (..)
@@ -143,50 +145,68 @@ hardcodedPackageRenames name = name
 unsupportedAsDataDep :: [T.Text]
 unsupportedAsDataDep = ["daml-script"]
 
-data ExpandedSdkPackages = ExpandedSdkPackages
-  { espRegularDeps :: [FilePath]
+data DependencyPackages = DependencyPackages
+  { dpRegularDeps :: [FilePath]
   , -- For deps that shouldn't check the SDK version, i.e. deps from DPM that cannot be data deps
     -- currently this is just daml-script
-    espRegularUncheckedDeps :: [FilePath]
-  , espDataDeps :: [FilePath]
+    dpRegularUncheckedDeps :: [FilePath]
+  , dpDataDeps :: [FilePath]
   }
 
--- Expands dependency names in `daml.yaml` dependencies to list of file paths
--- Returns two lists, first is regular deps, second is data deps
-expandSdkPackagesDpm :: CachePath -> ValidPackageResolution -> LF.Version -> [FilePath] -> IO ExpandedSdkPackages
-expandSdkPackagesDpm cachePath pkgResolution lfVersion paths = do
+readDependencyPackagesFromResolution :: ValidPackageResolution -> Maybe DependencyPackages
+readDependencyPackagesFromResolution (ValidPackageResolution _ imports _) = do
+  let resolvedDeps = Map.lookup "resolved-dependencies" imports
+      resolvedDataDeps = Map.lookup "resolved-data-dependencies" imports
+  guard $ isJust resolvedDeps || isJust resolvedDataDeps
+  pure $ DependencyPackages (fromMaybe [] resolvedDeps) [] (fromMaybe [] resolvedDataDeps)
+
+-- | Packages that we ship with the compiler.
+basePackages :: [String]
+basePackages = ["daml-prim", "daml-stdlib"]
+
+-- Expands "dpRegularDeps" in DependencyPackages by reading a package resolutions available dars
+expandDependencyPackages :: CachePath -> ValidPackageResolution -> LF.Version -> DependencyPackages -> IO DependencyPackages
+expandDependencyPackages cachePath pkgResolution lfVersion dependencyPackages = do
   darInfos <- getDarHeaderInfos cachePath pkgResolution
   let isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
-      (sdkPackages, purePaths) = partition isSdkPackage paths
+      (sdkPackages, purePaths) = partition isSdkPackage $ filter (`notElem` basePackages) $ dpRegularDeps dependencyPackages
       resolvedSdkPackagesWithPaths = traverse (\fp -> findDarInDarInfos darInfos (T.pack fp) lfVersion) sdkPackages
   case resolvedSdkPackagesWithPaths of
     Left err -> throwIO $ ResolutionError $ T.unpack err
     Right resolvedSdkPackages -> do
       let (asDataDeps, asDeps) = partition snd resolvedSdkPackages
-      pure $ ExpandedSdkPackages purePaths (fmap fst asDeps) (fmap fst asDataDeps)
+      pure $ DependencyPackages
+        purePaths
+        (dpRegularUncheckedDeps dependencyPackages <> fmap fst asDeps)
+        (dpDataDeps dependencyPackages <> fmap fst asDataDeps)
 
 -- Returns the path to the dar found, as well as a bool for whether this dar can be a data-dep (see `unsupportedAsDataDep`)
 findDarInDarInfos :: Map.Map FilePath DalfInfoCacheEntry -> T.Text -> LF.Version -> Either T.Text (FilePath, Bool)
 findDarInDarInfos darInfos rawName lfVersion = do
   let name = hardcodedPackageRenames rawName
-      lfCondition name = if name `elem` unsupportedAsDataDep then (==) else LF.canDependOn
-      candidates =
-        Map.filter (\darInfo ->
-          (LF.unPackageName $ diPackageName darInfo) == name
-            && lfCondition name lfVersion (diLfVersion darInfo)
-        ) darInfos
-      availableVersions = nubOrd $ diPackageVersion <$> Map.elems candidates
-  case availableVersions of
+      dataDepSupported = name `notElem` unsupportedAsDataDep
+      lfCondition = if dataDepSupported then LF.canDependOn else (==)
+      lfConditionPretty = if dataDepSupported then " compatible with " else " to equal "
+      correctNamePackages = Map.filter (\darInfo -> (LF.unPackageName $ diPackageName darInfo) == name) darInfos
+      correctNameAndLfPackages = Map.filter (\darInfo -> lfCondition lfVersion (diLfVersion darInfo)) correctNamePackages
+      availablePackageVersions = nubOrd $ diPackageVersion <$> Map.elems correctNameAndLfPackages
+      availableLfVersions = nubOrd $ diLfVersion <$> Map.elems correctNamePackages
+      lfRenderVersionText = T.pack . LF.renderVersion
+  case availablePackageVersions of
+    -- If there are available correctly named packages, we have an LF version incompatibility
+    [] | not $ null correctNamePackages-> do
+      Left $ "Package of correct name found, but incompatible LF version. Expected LF Version" <> lfConditionPretty <> lfRenderVersionText lfVersion
+        <> ", available versions: " <> (T.intercalate "," $ lfRenderVersionText <$> availableLfVersions)
+    -- Otherwise, we are missing the package
     [] -> do
       let allPackageNames = T.intercalate "," . nubOrd $ LF.unPackageName . diPackageName <$> Map.elems darInfos
-      Left $ "Package " <> rawName <> " could not be found, available packages are:\n"
-        <> allPackageNames <> "\nIf your package is shown, it may not be compatible with your LF version."
+      Left $ "Package " <> rawName <> " could not be found, available packages are:\n" <> allPackageNames
     [_] ->
       -- Major LF versions aren't cross compatible, so all will be same major here due to canDependOn check above
       -- as such, we take maximum by minor version
-      Right (fst $ maximumBy (comparing (LF.versionMinor . diLfVersion . snd)) $ Map.toList candidates, name `notElem` unsupportedAsDataDep)
+      Right (fst $ maximumBy (comparing (LF.versionMinor . diLfVersion . snd)) $ Map.toList correctNameAndLfPackages, dataDepSupported)
     _ ->
-      Left $ "Multiple package versions for " <> rawName <> " were found:\n" <> (T.intercalate "," $ LF.unPackageVersion <$> availableVersions)
+      Left $ "Multiple package versions for " <> rawName <> " were found:\n" <> (T.intercalate "," $ LF.unPackageVersion <$> availablePackageVersions)
         <> "\nYour daml installation may be broken."
 
 findPackageResolutionData :: FilePath -> ResolutionData -> Either ResolutionError ValidPackageResolution

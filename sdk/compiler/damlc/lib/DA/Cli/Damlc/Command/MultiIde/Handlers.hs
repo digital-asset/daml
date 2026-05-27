@@ -320,8 +320,8 @@ clientMessageHandler miState unblock bs = do
 
           "multi-package.yaml" -> do
             logInfo miState "multi-package.yaml change."
-            idesToReboot <- updatePackageData miState
-            idesToReboot' <- updateResolutionFileForChanged miState Nothing
+            idesToReboot <- updateResolutionFileForChanged miState Nothing
+            idesToReboot' <- updatePackageData miState
             traverse_ (lenientRebootIdeByHome miState) $ nubOrd $ idesToReboot <> idesToReboot'
 
           _ | takeExtension changedPath == ".dar" -> do

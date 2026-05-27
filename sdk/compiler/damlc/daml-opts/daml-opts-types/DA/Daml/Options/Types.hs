@@ -31,7 +31,6 @@ module DA.Daml.Options.Types
     , ifaceDir
     , distDir
     , genDir
-    , basePackages
     , getPackageDbs
     , pkgNameVersion
     , fullPkgName
@@ -146,13 +145,23 @@ data Options = Options
   -- ^ When running in IDE, some rules need access to the package name and version, but we don't want to use own
   -- unit-id, as script service assume it will be "main"
   , optUpgradeInfo :: UpgradeInfo
+  -- ^ Information about upgraded package for compile-time Smart Contract Upgrades typechecking
   , optTypecheckerWarningFlags :: WarningFlags.WarningFlags TypeCheckerError.ErrorOrWarning
+  -- ^ Error/Warning mode of diagnostics thrown by daml typechecker
   , optLfConversionWarningFlags :: WarningFlags.WarningFlags LFConversion.ErrorOrWarning
+  -- ^ Error/Warning mode of diagnostics thrown by LF Conversion
   , optInlineDamlCustomWarningFlags :: WarningFlags.WarningFlags InlineDamlCustomWarnings
+  -- ^ Error/Warning mode of custom daml diagnostics thrown via GHC Deprecation/Warning pragma syntax
   , optIgnoreDataDepVisibility :: IgnoreDataDepVisibility
+  -- ^ Ignores export visibility data encoded into data-deps when reconstructing source code, defaults to
+  -- previous behaviour of assuming all definitions are exported
   , optForceUtilityPackage :: ForceUtilityPackage
+  -- ^ Forces a package to be a utility package by disallowing exceptions/templates, and marking all data-types
+  -- as unserializable. Used by daml-script to avoid accidental Smart Contract Upgrades relationships
   , optResolutionData :: Maybe ResolutionData
+  -- ^ DPM provided resolution data about active components, provided dars, multi-package structure, etc.
   , optExplicitSerializable :: ExplicitSerializable
+  -- ^ Whether serilizability of data-types must be explicitly stated, and not assumed. Currently disabled by default
   }
 
 data InlineDamlCustomWarnings
@@ -278,10 +287,6 @@ genDir = damlArtifactDir </> "generated"
 
 distDir :: FilePath
 distDir = damlArtifactDir </> "dist"
-
--- | Packages that we ship with the compiler.
-basePackages :: [String]
-basePackages = ["daml-prim", "daml-stdlib"]
 
 -- | Find the builtin package dbs if the exist.
 locateBuiltinPackageDbs :: Maybe NormalizedFilePath -> IO [FilePath]

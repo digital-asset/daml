@@ -6,24 +6,31 @@ module DA.Test.DamlcMultiPackage (main) where
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import qualified Data.ByteString.Lazy.Char8 as BSLC
+import qualified Data.ByteString.Char8 as BSC
 import Control.Exception (try)
 import Control.Monad.Extra (forM_, unless, void)
 import DA.Daml.Assistant.IntegrationTestUtils (withDpmSdkExtraVerResource)
+import DA.Daml.Project.Consts (sdkVersionDpmEnvVar)
+import DA.Daml.Resolution.Config (ResolutionData (..), PackageResolutionData (..), ValidPackageResolution (..), resolutionFileEnvVar, toPosixFilePath)
 import DA.Cli.Damlc (MultiPackageManifestEntry (..))
 import Data.Aeson (eitherDecode)
+import Data.Foldable (foldrM)
 import Data.List (intercalate, intersect, isInfixOf, sortOn, union, (\\))
-import Data.List.Extra (replace)
+import Data.List.Extra (lower, replace)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, fromJust)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import qualified Data.Set as Set
 import Data.Time.Clock (UTCTime)
+import Data.Yaml (decodeThrow, encodeFile)
 import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
-import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removeFile)
+import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removeFile, withCurrentDirectory)
 import System.Exit (ExitCode (..))
-import System.FilePath (makeRelative, (</>))
+import System.Environment (getEnvironment)
+import System.FilePath (makeRelative, takeExtension, (</>))
 import System.IO.Extra (withTempDir)
-import System.Process (CreateProcess (..), readCreateProcessWithExitCode, readCreateProcess, shell)
+import System.Process (CreateProcess (..), proc, readCreateProcessWithExitCode, readCreateProcess, shell)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.HUnit (HUnitFailure (..), assertFailure, assertBool, testCase, (@?=))
 import Text.Regex.TDFA (Regex, makeRegex, matchTest)
@@ -39,7 +46,7 @@ data ProjectStructure
       , dyModulePrefixes :: [(PackageIdentifier, T.Text)]
       , dyGhcOptions :: [T.Text]
       , dyDeps :: [T.Text]
-      , dyDirectDeps :: [T.Text]
+      , dyDataDeps :: [T.Text]
       }
   | MultiPackage
       { mpPackages :: [T.Text]
@@ -65,13 +72,6 @@ data PackageIdentifier = PackageIdentifier
   deriving (Eq, Ord)
 instance Show PackageIdentifier where
   show pi = T.unpack (piName pi) <> "-" <> T.unpack (piVersion pi)
-
-{- Remaining tests needed:
-- multi-sdk
-    Use Dylan's `releases-endpoint` and `alternate-download` in daml-config to defer sdk download
-    Create a mock server/api that serves this file to the downloader
-    Run a test that attempts to use 2.7.5, then either ensure this endpoint is hit, or somehow check the sdk version of the generated dar.
--}
 
 main :: IO ()
 main = withComponentVersions $ do
@@ -457,6 +457,48 @@ tests =
               packageDeps (entries !! 1) @?= ["package-a-0.0.1"]
             )
         ]
+
+    , testGroup "Resolved dependencies"
+        [ assertResolvedDependencies "Multi-build works via resolved dependencies"
+            simpleTwoPackageProjectNoDeps
+            [("package-b", ([], ["../package-a/.daml/dist/package-a-0.0.1.dar"]))]
+        , assertResolvedDependenciesNoRebuild "Dar caching works via resolved dependencies"
+            simpleTwoPackageProjectNoDeps
+            [("package-b", ([], ["../package-a/.daml/dist/package-a-0.0.1.dar"]))]
+        , assertResolvedDependencies "Dependencies and data-dependencies correctly separated"
+            [ MultiPackage ["./package-a", "./package-b", "./package-c"] []
+            , Dir "package-a"
+              [ damlYaml "package-a" "0.0.1" []
+              , Dir "daml" [DamlSource "PackageAMain" []]
+              ]
+            , Dir "package-b"
+              [ damlYaml "package-b" "0.0.1" []
+              , Dir "daml" [DamlSource "PackageBMain" []]
+              ]
+            , Dir "package-c"
+              [ damlYaml "package-c" "0.0.1" []
+              , Dir "daml" [DamlSource "PackageCMain" ["PackageBMain", "PackageAMain"]]
+              ]
+            ]
+            [("package-c", (["../package-a/.daml/dist/package-a-0.0.1.dar"], ["../package-b/.daml/dist/package-b-0.0.1.dar"]))]
+        , assertResolvedDependencies "Sdk packages (daml-script) work via resolved dependencies"
+            [ MultiPackage ["my-package"] []
+            , Dir "my-package"
+              [ damlYaml "my-package" "0.0.1" []
+              , Dir "daml" [DamlSource "MyPackage" ["Daml.Script"]]
+              ]
+            ]
+            [("my-package", (["daml-script"], []))]
+        , assertResolvedDependenciesError "Reasonable error when no resolution provided"
+            [ MultiPackage ["my-package"] []
+            , Dir "my-package"
+              [ damlYaml "my-package" "0.0.1" ["oci://my-dependency:0.0.1"]
+              , Dir "daml" [DamlSource "MyPackage" []]
+              ]
+            ]
+            (pure . removeResolvedDepsFromResolution)
+            "Found unresolved DPM remote dar: oci://my-dependency:0.0.1"
+        ]
     ]
 
   where
@@ -517,7 +559,7 @@ tests =
       withTempDir $ \dir -> do
         allPossibleDars <- buildProject dir projectStructure
         let runBuild :: ([String], FilePath) -> [PackageIdentifier] -> IO ()
-            runBuild (flags, runPath) pkgs =  runBuildAndAssert dir flags runPath allPossibleDars (Right pkgs)
+            runBuild (flags, runPath) pkgs = runBuildAndAssert dir flags runPath allPossibleDars (Right pkgs)
             getPkgsLastModified :: [PackageIdentifier] -> IO (Map.Map PackageIdentifier UTCTime)
             getPkgsLastModified pkgs =
               -- fromJust is safe as long as called after a runBuild, since that asserts all pkgs exists in allPossibleDars
@@ -560,6 +602,115 @@ tests =
         void $ buildProject dir projectStructure
         entries <- getManifest dir
         predicate entries
+
+    addResolvedDepsToResolution
+      :: FilePath
+      -> [(FilePath, ([FilePath], [FilePath]))] -- Flattened map from package directory to (resolved-deps, resolved-data-deps)
+      -> ResolutionData
+      -> IO ResolutionData
+    addResolvedDepsToResolution dir =
+      flip $ foldrM $ \(packagePath, (deps, dataDeps)) resolution -> do
+        packagePath' <- withCurrentDirectory dir $ canonicalizePath packagePath
+        let canonDarFiles path = if takeExtension path == ".dar" then canonicalizePath path else pure path
+        canonDeps <- withCurrentDirectory packagePath' $ traverse canonDarFiles deps
+        canonDataDeps <- withCurrentDirectory packagePath' $ traverse canonDarFiles dataDeps
+        let newImports :: Map.Map String [FilePath]
+            newImports = Map.fromList [("resolved-dependencies", canonDeps), ("resolved-data-dependencies", canonDataDeps)]
+            adjustPackageResolution :: PackageResolutionData -> PackageResolutionData
+            adjustPackageResolution (ValidPackageResolutionData packageResolution) =
+              ValidPackageResolutionData $ packageResolution {imports = newImports <> imports packageResolution}
+            adjustPackageResolution res = error $ "Expected ValidPackageResolutionData but got " <> show res
+            packagePathKey = lower $ toPosixFilePath packagePath'
+        pure $ resolution {packages = Map.adjust adjustPackageResolution packagePathKey $ packages resolution}
+
+    -- Removes keys related to remote deps from a resolution to test damlc behaviour pre-remote-deps
+    removeResolvedDepsFromResolution :: ResolutionData -> ResolutionData
+    removeResolvedDepsFromResolution resolution =
+      let -- Keys in the package resolution imports related to resolved deps
+          resolvedDepsImportsKeys = Set.fromList ["resolved-dependencies", "resolved-data-dependencies"]
+          adjustPackageResolution :: PackageResolutionData -> PackageResolutionData
+          adjustPackageResolution (ValidPackageResolutionData packageResolution) =
+            ValidPackageResolutionData $ packageResolution {imports = Map.withoutKeys (imports packageResolution) resolvedDepsImportsKeys}
+          adjustPackageResolution res = res
+       in resolution {packages = fmap adjustPackageResolution $ packages resolution}
+
+    -- Builds a project with added resolved-dependencies and resolved-data-dependencies
+    -- asserts success
+    assertResolvedDependencies
+      :: String
+      -> [ProjectStructure]
+      -> [(FilePath, ([FilePath], [FilePath]))] -- Flattened map from package directory to (resolved-deps, resolved-data-deps)
+      -> TestTree
+    assertResolvedDependencies name projectStructure resolvedDeps =
+      testCase name $
+      withTempDir $ \dir -> do
+        void $ buildProject dir projectStructure
+        runBuildWithModifiedResolution dir (addResolvedDepsToResolution dir resolvedDeps) >>= assertSuccess
+
+    assertResolvedDependenciesError
+      :: String
+      -> [ProjectStructure]
+      -> (ResolutionData -> IO ResolutionData)
+      -> String -- Expected output in stderr
+      -> TestTree
+    assertResolvedDependenciesError name projectStructure modifyResolution expectedErr =
+      testCase name $
+      withTempDir $ \dir -> do
+        void $ buildProject dir projectStructure
+        (exitCode, _, err) <- runBuildWithModifiedResolution dir modifyResolution
+        assertBool "Expected build to fail" $ exitCode /= ExitSuccess
+        assertBool ("Expected build stderr to contain " <> expectedErr <> " but it didn't:\n" <> err) $ expectedErr `isInfixOf` err
+
+    -- Same as assertResolvedDependencies, but runs the build twice and asserts that dars are not rebuild a second time
+    -- Used to ensure dar caching is not broken by resolved-dependencies
+    -- Both builds provide the same dependencies
+    assertResolvedDependenciesNoRebuild
+      :: String
+      -> [ProjectStructure]
+      -> [(FilePath, ([FilePath], [FilePath]))] -- Flattened map from package directory to (resolved-deps, resolved-data-deps)
+      -> TestTree
+    assertResolvedDependenciesNoRebuild name projectStructure resolvedDeps =
+      testCase name $
+      withTempDir $ \dir -> do
+        allDars <- buildProject dir projectStructure
+        -- Build initially
+        runBuildWithModifiedResolution dir (addResolvedDepsToResolution dir resolvedDeps) >>= assertSuccess
+        let getModificationTimes = Map.fromList <$> traverse (\dar -> (dar,) <$> getModificationTime (dir </> dar)) (Map.elems allDars)
+        -- Get all dars modification times
+        timesPreRebuild <- getModificationTimes
+        -- Trigger rebuild
+        runBuildWithModifiedResolution dir (addResolvedDepsToResolution dir resolvedDeps) >>= assertSuccess
+        -- Ensure dar modification times didn't change
+        timesPostRebuild <- getModificationTimes
+        timesPostRebuild @?= timesPreRebuild
+
+    assertSuccess :: (ExitCode, String, String) -> IO ()
+    assertSuccess (ExitSuccess, _ , _) = pure ()
+    assertSuccess (err, _ , _) = fail $ "Expected success but got " <> show err
+
+    -- Runs a `dpm build --all` using a modified resolution data
+    -- Used to test dpm features before fully integrated
+    -- Currently testing `resolved-dependencies` and `resolved-data-dependencies`
+    runBuildWithModifiedResolution
+      :: FilePath
+      -> (ResolutionData -> IO ResolutionData)
+      -> IO (ExitCode, String, String)
+    runBuildWithModifiedResolution dir modifyResolution = do
+      resolveStr <- readCreateProcess ((shell "dpm resolve") {cwd = Just dir}) ""
+      resolutionData :: ResolutionData <- decodeThrow $ BSC.pack resolveStr
+      updatedResolutionData <- modifyResolution resolutionData
+          -- Assume dpm resolve result for generated package will be valid, and contain damlc
+      let validPackageResolutionData :: PackageResolutionData -> ValidPackageResolution
+          validPackageResolutionData (ValidPackageResolutionData res) = res
+          validPackageResolutionData res = error $ "Expected ValidPackageResolutionData, got " <> show res
+          importsDamlc :: ValidPackageResolution -> FilePath
+          importsDamlc = maybe (error "No damlc-binary in resolution") head . Map.lookup "damlc-binary" . imports
+          damlc = importsDamlc . validPackageResolutionData . snd . defaultSdk $ updatedResolutionData
+          resolutionPath = dir </> "resolution"
+          envVars = [(resolutionFileEnvVar, resolutionPath), (sdkVersionDpmEnvVar, fst $ defaultSdk updatedResolutionData)]
+      encodeFile resolutionPath updatedResolutionData
+      originalEnv <- getEnvironment
+      readCreateProcessWithExitCode ((proc damlc ["build", "--all"]) {cwd = Just dir, env = Just $ envVars <> originalEnv}) ""
 
     -- Cannot directly check hashes, as they change between versions + OS.
     -- Instead, test for changes in hashes
@@ -662,9 +813,9 @@ tests =
           , "  - daml-prim"
           , "  - daml-stdlib"
           ]
-          ++ fmap ("  - " <>) (dyDirectDeps damlYaml)
-          ++ ["data-dependencies:"]
           ++ fmap ("  - " <>) (dyDeps damlYaml)
+          ++ ["data-dependencies:"]
+          ++ fmap ("  - " <>) (dyDataDeps damlYaml)
           ++ ["module-prefixes:"]
           ++ fmap (\(pkg, pref) -> "  " <> T.pack (show pkg) <> ": " <> pref) (dyModulePrefixes damlYaml)
           ++ ["build-options:"]
@@ -701,35 +852,34 @@ tests =
 
 -- daml.yaml with current sdk version, default ouput path and source set to `daml`
 damlYaml :: T.Text -> T.Text -> [T.Text] -> ProjectStructure
-damlYaml name version deps = DamlYaml name version Nothing "daml" Nothing [] [] deps []
+damlYaml name version deps = DamlYaml name version Nothing "daml" Nothing [] [] [] deps
 
--- B depends on A
+-- Given deps and data-deps paths for package-b, simple project structure with package-a and package-b
+simpleTwoPackageProjectWithDeps :: [T.Text] -> [T.Text] -> [ProjectStructure]
+simpleTwoPackageProjectWithDeps deps dataDeps =
+  [ MultiPackage ["./package-a", "./package-b"] []
+  , Dir "package-a"
+    [ damlYaml "package-a" "0.0.1" []
+    , Dir "daml" [DamlSource "PackageAMain" []]
+    ]
+  , Dir "package-b"
+    [ (damlYaml "package-b" "0.0.1" dataDeps) {dyDeps = deps}
+    , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
+    ]
+  ]
+
+-- B depends on A via data-deps
 simpleTwoPackageProject :: [ProjectStructure]
-simpleTwoPackageProject =
-  [ MultiPackage ["./package-a", "./package-b"] []
-  , Dir "package-a"
-    [ damlYaml "package-a" "0.0.1" []
-    , Dir "daml" [DamlSource "PackageAMain" []]
-    ]
-  , Dir "package-b"
-    [ damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]
-    , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
-    ]
-  ]
+simpleTwoPackageProject = simpleTwoPackageProjectWithDeps [] ["../package-a/.daml/dist/package-a-0.0.1.dar"]
 
--- B depends on A as a regular dependency
+-- B depends on A via regular deps
 simpleTwoPackageProjectNonData :: [ProjectStructure]
-simpleTwoPackageProjectNonData =
-  [ MultiPackage ["./package-a", "./package-b"] []
-  , Dir "package-a"
-    [ damlYaml "package-a" "0.0.1" []
-    , Dir "daml" [DamlSource "PackageAMain" []]
-    ]
-  , Dir "package-b"
-    [ (damlYaml "package-b" "0.0.1" []) {dyDirectDeps = ["../package-a/.daml/dist/package-a-0.0.1.dar"]}
-    , Dir "daml" [DamlSource "PackageBMain" ["PackageAMain"]]
-    ]
-  ]
+simpleTwoPackageProjectNonData = simpleTwoPackageProjectWithDeps ["../package-a/.daml/dist/package-a-0.0.1.dar"] []
+
+-- B depends on A in daml, but not in daml.yaml
+-- Used for resolved-dependencies testing
+simpleTwoPackageProjectNoDeps :: [ProjectStructure]
+simpleTwoPackageProjectNoDeps = simpleTwoPackageProjectWithDeps [] []
 
 -- B and C depend on A, D depends on B and C
 diamondProject :: [ProjectStructure]
