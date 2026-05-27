@@ -98,7 +98,7 @@ cc_toolchain_config(
     # absolute-path strict-headers regression of bazel#4605.
     cxx_builtin_include_directories = {cxx_builtin_include_directories},
     tool_paths = {{
-        "gcc": "bin/{tool_prefix}-gcc",
+        "gcc": "bin/{tool_prefix}-gcc.wrapper",
         "ar": "bin/{tool_prefix}-ar",
         # Some consumers (notably haskell/cabal configure phases) call the
         # linker directly rather than routing through gcc. Keep ld hermetic by
@@ -195,14 +195,22 @@ def _starlark_list(items):
     return "[{}]".format(", ".join(['"{}"'.format(i) for i in items]))
 
 def _rewrite_sysroot_linker_scripts(rctx, sysroot_relpath):
-    """Patch glibc linker scripts to use '='-prefixed sysroot paths."""
+    """Patch only libm/libmvec linker-script entries to use =/ sysroot paths."""
     script = """\
 set -eu
 sysroot="$1"
 for f in "$sysroot"/lib/*.so "$sysroot"/usr/lib/*.so "$sysroot"/lib64/*.so "$sysroot"/usr/lib64/*.so; do
     [ -f "$f" ] || continue
     head -c 16 "$f" | grep -q 'GNU ld script' || continue
-    sed -i.bak -E ':a;s|([ (])(/)|\\1=\\2|g;ta' "$f"
+    if ! grep -qE '/(usr/)?lib64/libm(\\.so\\.6|vec\\.so\\.1)' "$f"; then
+        continue
+    fi
+    sed -E -i.bak \
+        -e 's|([ (])/lib64/libm\\.so\\.6|\\1=/lib64/libm.so.6|g' \
+        -e 's|([ (])/lib64/libmvec\\.so\\.1|\\1=/lib64/libmvec.so.1|g' \
+        -e 's|([ (])/usr/lib64/libm\\.so\\.6|\\1=/usr/lib64/libm.so.6|g' \
+        -e 's|([ (])/usr/lib64/libmvec\\.so\\.1|\\1=/usr/lib64/libmvec.so.1|g' \
+        "$f"
     rm -f "$f.bak"
 done
 """
@@ -210,6 +218,36 @@ done
     if result.return_code != 0:
         fail(
             "rewrite sysroot linker scripts failed (exit {}):\nstdout:\n{}\nstderr:\n{}".format(
+                result.return_code,
+                result.stdout,
+                result.stderr,
+            ),
+        )
+
+def _materialize_runtime_libm(rctx, sysroot_relpath):
+    """Replace libm.so linker scripts with ELF payload for runtime dlopen users.
+
+    Some consumers (notably GHC runtime under rules_haskell) dlopen libm.so
+    directly. If libm.so is a GNU ld script with =/lib64/... entries, the
+    dynamic loader treats those as literal paths and fails before ld wrappers
+    can apply --sysroot. Keep linker-script rewrite for link actions, but make
+    runtime-visible libm.so an ELF copy of libm.so.6.
+    """
+    script = """\
+set -eu
+sysroot="$1"
+real_libm="$sysroot/lib64/libm.so.6"
+[ -f "$real_libm" ] || exit 0
+for f in "$sysroot/lib64/libm.so" "$sysroot/usr/lib64/libm.so" "$sysroot/lib/libm.so" "$sysroot/usr/lib/libm.so"; do
+    [ -f "$f" ] || continue
+    head -c 16 "$f" | grep -q 'GNU ld script' || continue
+    cp "$real_libm" "$f"
+done
+"""
+    result = rctx.execute(["sh", "-c", script, "_", str(rctx.path(sysroot_relpath))])
+    if result.return_code != 0:
+        fail(
+            "materialize runtime libm failed (exit {}):\nstdout:\n{}\nstderr:\n{}".format(
                 result.return_code,
                 result.stdout,
                 result.stderr,
@@ -228,13 +266,46 @@ def _gcc_toolchain_repo_impl(rctx):
     gcc_version = rctx.attr.gcc_version
     sysroot_relpath = "{}/sysroot".format(tool_prefix)
 
-    # NOTE: We intentionally do not rewrite glibc linker scripts to =/...
-    # here because it regresses local haskell/cabal tool invocations that
-    # consume this toolchain via runghc/Setup configure steps.
+    # Always normalize libm/libmvec linker-script entries to `=/...` so ld
+    # resolves them against this toolchain sysroot, independent of host root.
+    _rewrite_sysroot_linker_scripts(rctx, sysroot_relpath)
+    _materialize_runtime_libm(rctx, sysroot_relpath)
 
     # Some tool consumers invoke ld directly (without gcc/collect2), which can
     # bypass Bazel-provided --sysroot wiring. Provide a wrapper that injects
     # --sysroot unless the caller already passed one explicitly.
+    gcc_path = rctx.path("bin/{}-gcc".format(tool_prefix))
+    if gcc_path.exists:
+        gcc_wrapper = "\n".join([
+            "#!/usr/bin/env bash",
+            "set -euo pipefail",
+            "dir=$(dirname \"$(readlink -f \"$0\")\")",
+            "sysroot=\"$dir/../{}/sysroot\"".format(tool_prefix),
+            # Force a stable absolute --sysroot for all gcc-driven links so
+            # =/... linker-script entries resolve hermetically.
+            "args=()",
+            "skip_next=0",
+            "for arg in \"$@\"; do",
+            "  if (( skip_next )); then",
+            "    skip_next=0",
+            "    continue",
+            "  fi",
+            "  case \"$arg\" in",
+            "    --sysroot)",
+            "      skip_next=1",
+            "      ;;",
+            "    --sysroot=*)",
+            "      ;;",
+            "    *)",
+            "      args+=(\"$arg\")",
+            "      ;;",
+            "  esac",
+            "done",
+            "exec \"$dir/{}-gcc\" --sysroot=\"$sysroot\" \"${{args[@]}}\"".format(tool_prefix),
+            "",
+        ])
+        rctx.file("bin/{}-gcc.wrapper".format(tool_prefix), gcc_wrapper, executable = True)
+
     ld_path = rctx.path("bin/{}-ld".format(tool_prefix))
     if ld_path.exists:
         ld_wrapper = "\n".join([
@@ -314,11 +385,10 @@ def _gcc_toolchain_repo_impl(rctx):
     # toolchain-wrapper finds `<prefix>-gcc.br_real` as designed. The
     # wrapper resolves its own location with `readlink -f "$0"` so it
     # works regardless of how callers reach it.
-    gcc_path = rctx.path("bin/{}-gcc".format(tool_prefix))
     if gcc_path.exists:
         gcc_wrapper = "\n".join([
             "#!/bin/sh",
-            "exec \"$(dirname \"$(readlink -f \"$0\")\")/../bin/{}-gcc\" \"$@\"".format(tool_prefix),
+            "exec \"$(dirname \"$(readlink -f \"$0\")\")/../bin/{}-gcc.wrapper\" \"$@\"".format(tool_prefix),
             "",
         ])
         rctx.file("unprefixed/gcc", gcc_wrapper, executable = True)
