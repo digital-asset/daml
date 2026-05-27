@@ -15,4 +15,3 @@ da_scala_library(
     ],
     deps = [],
 )
-
