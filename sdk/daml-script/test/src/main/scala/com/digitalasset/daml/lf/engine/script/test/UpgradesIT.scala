@@ -213,7 +213,8 @@ class UpgradesITSmallStable
     extends UpgradesIT(
       // TODO(https://github.com/DACH-NY/canton/issues/31925): revert to ProtocolVersion.latest and
       //  LanguageVersion.latestStableLfVersion once v35 is stable
-      cantonProtocolVersion = ProtocolVersion.Explicit("v35"),
+      // TODO[23013]: consider getting rid of dev here
+      cantonProtocolVersion = ProtocolVersion.Dev,
       // TODO[#23013]: reconsider version
       languageVersion = LanguageVersion.stagingLfVersion,
       upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib.dar",
@@ -226,7 +227,8 @@ class UpgradesITLargeStable
     extends UpgradesIT(
       // TODO(https://github.com/DACH-NY/canton/issues/31925): revert to ProtocolVersion.latest and
       //  LanguageVersion.latestStableLfVersion once v35 is stable
-      cantonProtocolVersion = ProtocolVersion.Explicit("v35"),
+      // TODO[23013]: consider getting rid of dev here
+      cantonProtocolVersion = ProtocolVersion.Dev,
       // TODO[#23013]: reconsider version
       languageVersion = LanguageVersion.stagingLfVersion,
       upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib.dar",

@@ -39,7 +39,8 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
       ),
     )
 
-  override protected lazy val protocolVersion: ProtocolVersion = ProtocolVersion.Explicit("v35")
+  // TODO[23016]: we need to be smarter about the protocolversion that we set
+  override protected lazy val protocolVersion: ProtocolVersion = ProtocolVersion.Dev
 
   // TODO[23015]: reconsider the lf version here
   // TODO[23016]: get rid of hardcoded string when some kind of `renderForDaml` has been added to canton
