@@ -13,9 +13,8 @@
       "lowerBound" : {
         "major" : 2,
         "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 1
+          "Stable" : {
+            "version" : 3
           }
         }
       }
@@ -28,9 +27,8 @@
       "lowerBound" : {
         "major" : 2,
         "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 1
+          "Stable" : {
+            "version" : 3
           }
         }
       }
@@ -43,9 +41,8 @@
       "lowerBound" : {
         "major" : 2,
         "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 1
+          "Stable" : {
+            "version" : 3
           }
         }
       }
