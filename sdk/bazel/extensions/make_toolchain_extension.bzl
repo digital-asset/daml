@@ -3,7 +3,7 @@
 The output is a single statically-linked `bin/make` binary that
 *repository rules* can use to drive `make`-based builds without
 depending on a host `make` on the agent's `PATH`. Consumers resolve it
-via `ctx.path(Label("@hermetic_make_linux_amd64//:bin/make"))` and
+via `ctx.path(Label("@hermetic_make_current_platform//:bin/make"))` and
 either `exec` it directly or prepend its directory to a child process's
 `PATH`.
 
@@ -125,7 +125,7 @@ def _hermetic_make_repo_impl(rctx):
 
     # Step 3: relocate the binary to a stable, conventional path. The
     # build leaves `make` at the source root; consumers expect
-    # `@hermetic_make_linux_amd64//:bin/make` to mirror the expected
+    # `@hermetic_make_current_platform//:bin/make` to mirror the expected
     # `bin/<tool>` layout.
     relocate_result = rctx.execute(
         ["sh", "-c", "mkdir -p bin && mv make bin/make"],
