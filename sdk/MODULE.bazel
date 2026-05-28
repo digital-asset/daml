@@ -72,7 +72,7 @@ register_toolchains("//:c2hs-toolchain")
 # the toolchain-resolution sense; it is a fetch-time binary. See
 # `sdk/bazel/extensions/make_toolchain_extension.bzl` for the rationale.
 make_toolchain_ext = use_extension("//bazel/extensions:make_toolchain_extension.bzl", "make_toolchain")
-use_repo(make_toolchain_ext, "hermetic_make_linux_amd64")
+use_repo(make_toolchain_ext, hermetic_make_current_platform = "hermetic_make_linux_amd64")
 
 # --- Node.js toolchain ---
 

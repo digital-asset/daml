@@ -12,7 +12,7 @@ genrule(
         CC=$$PWD/$(CC)
         AR=$$PWD/$(AR)
         M4=$$PWD/$(execpath @m4//:m4_binary)
-        MAKE=$$PWD/$(execpath @hermetic_make_linux_amd64//:bin/make)
+        MAKE=$$PWD/$(execpath @hermetic_make_current_platform//:bin/make)
         SRC=$$(dirname $(location configure))
         PREFIX=$$(realpath $(@D))
         cd $$SRC && CC="$$CC" AR="$$AR" M4=$$M4 \
@@ -32,7 +32,7 @@ genrule(
         done
     """,
     tools = [
-        "@hermetic_make_linux_amd64//:bin/make",
+        "@hermetic_make_current_platform//:bin/make",
         "@m4//:m4_binary",
     ],
     toolchains = ["@rules_cc//cc:current_cc_toolchain"],
