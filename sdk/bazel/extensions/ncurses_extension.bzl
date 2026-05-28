@@ -10,7 +10,7 @@ runs `make install` at repo-fetch time it execs that `ghc-pkg`, and on
 a host that ships only libtinfo.so.6 (Ubuntu 22.04, Azure pipelines
 default, …) the install fails with `error while loading shared
 libraries: libtinfo.so.5: cannot open shared object file`.  The bindist
-patch (rules_haskell_hermetic_cc.patch) wants to point
+patching in rules_haskell wants to point
 `LD_LIBRARY_PATH` at the hermetic ncurses 6 build's
 `lib/libtinfo.so.5` so the loader resolves without depending on a host
 libtinfo5 package — but a `repository_ctx.path` call on a label can
@@ -20,9 +20,7 @@ execution time.
 
 This rule shifts the configure / make / make install steps into
 `repository_ctx.execute` so libtinfo.so.5 is a real file by the time
-other repository rules query its path.  Pattern mirrors
-`gcc_toolchain_extension._gcc_toolchain_repo_impl` which already builds
-the Bootlin GCC toolchain at fetch time for the same reason.
+other repository rules query its path.
 
 The single action-time tool we still need is `patchelf`, used to
 rewrite the embedded SONAME of `lib/libtinfo.so` to `libtinfo.so` (so
@@ -97,30 +95,21 @@ def _ncurses_repo_impl(rctx):
         output = "src",
     )
 
-    # Canonical bzlmod label form (`@@<root>~<extension>~<repo>`) is
-    # required: this rule's repo is materialised as @@_main~ncurses~ncurses
-    # and has no apparent-name mapping back to the root module's repos.
-    # cc is the autoconf-friendly unprefixed shim from
-    # gcc_toolchain_extension; ar is the binutils symlink in the same
-    # `unprefixed/` farm.  Both exist as real files at fetch time
-    # because gcc_toolchain_extension already runs at fetch time.
-    cc = rctx.path(Label("@@_main~gcc_toolchain~hermetic_cc_linux_amd64//:unprefixed/cc"))
-    ar = rctx.path(Label("@@_main~gcc_toolchain~hermetic_cc_linux_amd64//:unprefixed/ar"))
-    unprefixed_dir = str(rctx.path(Label("@@_main~gcc_toolchain~hermetic_cc_linux_amd64//:unprefixed/gcc")).dirname)
-    make = rctx.path(Label("@@_main~make_toolchain~hermetic_make_linux_amd64//:bin/make"))
-    make_dir = str(make.dirname)
+    cc = rctx.which("cc")
+    ar = rctx.which("ar")
+    make = rctx.which("make")
+    if not cc:
+        fail("ncurses_extension requires `cc` on PATH during repository rule execution.")
+    if not ar:
+        fail("ncurses_extension requires `ar` on PATH during repository rule execution.")
+    if not make:
+        fail("ncurses_extension requires `make` on PATH during repository rule execution.")
     system_path = rctx.os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
 
     env = {
         "CC": str(cc),
         "AR": str(ar),
-        # PATH must include `unprefixed/` (for autoconf's ar / ld /
-        # ranlib probes) and the hermetic make's directory (so any
-        # nested `make` invocations inside the ncurses Makefiles
-        # resolve to the hermetic binary).  system_path is appended
-        # last so the build keeps access to /bin/sh, awk, sed, tar,
-        # which are not bundled by the hermetic toolchains.
-        "PATH": "{}:{}:{}".format(unprefixed_dir, make_dir, system_path),
+        "PATH": system_path,
     }
 
     # Install into the repo root so the BUILD template's `lib/*.so`

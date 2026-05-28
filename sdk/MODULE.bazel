@@ -18,29 +18,6 @@ bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "rules_go", version = "0.59.0")
 bazel_dep(name = "rules_haskell", version = "0.18")
 
-# Linux-only hermetic CC for the GHC bindist's autoconf step. See patch.
-#
-# `patch_cmds` companions: GHC's `ghc-bignum-1.1.conf` declares
-# `extra-libraries: gmp`, so every HaskellLink* action under the hermetic
-# Bootlin sysroot (which ships no libgmp) fails with `cannot find -lgmp`
-# (sdk/dump.txt:71/95/120). For stackage targets the fix is the per-package
-# `extra_deps = ["@gmp//:gmp_cc_lib"]` wiring further down in this file.
-# The in-tree `@rules_haskell//tools/runfiles:runfiles` haskell_library is
-# not a stackage package, so we inject `@@_main~gmp~gmp//:gmp_cc_lib` into
-# its `deps` here. We use the canonical bzlmod label because the
-# rules_haskell module does not declare `gmp` as a `bazel_dep`. We use
-# `patch_cmds` (sed) instead of a second hunk in the unified-diff patch
-# because Bazel's `ctx.patch` rejects the diff hunk that GNU patch accepts
-# cleanly (CONTENT_DOES_NOT_MATCH_TARGET).
-single_version_override(
-    module_name = "rules_haskell",
-    patch_strip = 1,
-    patches = ["//bazel/patches:haskell/rules_haskell_hermetic_cc.patch"],
-    patch_cmds = [
-        "sed -i '/\":transformers\",/a\\        \"@@_main~gmp~gmp//:gmp_cc_lib\",' tools/runfiles/BUILD.bazel",
-    ],
-)
-
 bazel_dep(name = "rules_java", version = "9.5.0")
 bazel_dep(name = "rules_jvm_external", version = "6.10")
 bazel_dep(name = "rules_perl", version = "1.1.0")
@@ -72,12 +49,6 @@ use_repo(jq_toolchains_ext, "jq_toolchains")
 
 register_toolchains("@bsd_tar_toolchains//:all")
 register_toolchains("//:c2hs-toolchain")
-
-# --- C/C++ toolchain (hermetic GCC 13.2.0 from Bootlin, Linux x86_64) ---
-
-gcc_toolchain_ext = use_extension("//bazel/extensions:gcc_toolchain_extension.bzl", "gcc_toolchain")
-use_repo(gcc_toolchain_ext, "hermetic_cc_linux_amd64")
-register_toolchains("@hermetic_cc_linux_amd64//:toolchain")
 
 # --- Hermetic GNU make (built from source at fetch time) ---
 # Consumed by repository rules that run autoconf/`make`-driven host
@@ -329,7 +300,7 @@ HASKELL_PACKAGES = [
 
 # GHC's `integer-gmp` core library emits `-lgmp` into every Haskell
 # link command. Under the bzlmod migration we register a hermetic
-# Bootlin GCC toolchain whose sysroot ships no libgmp; the host's
+# C/C++ toolchain whose sysroot ships no libgmp; the host's
 # `/usr/lib/libgmp.so` is no longer on the linker search path. Wire the
 # hermetic `@gmp//:gmp_cc_lib` (built by sdk/bazel/extensions/files/
 # gmp.BUILD.bzl) into every stack_snapshot package that is generated as
@@ -440,7 +411,7 @@ stack_snapshot_ext.package(
 
 # Group II: `haskeline` and `bzlib-conduit` each need an extra foreign
 # library beyond gmp. `haskeline` links `-ltinfo` via `terminfo` (the
-# hermetic Bootlin sysroot ships no libtinfo; sdk/dump.txt L328/L524),
+# hermetic sysroot ships no libtinfo; sdk/dump.txt L328/L524),
 # so we wire the hermetic `@ncurses//:tinfo_cc_lib` (built at repo-fetch
 # time by sdk/bazel/extensions/ncurses_extension.bzl). `bzlib-conduit` fails
 # Cabal's configure with "Missing (or bad) C library: bz2"
