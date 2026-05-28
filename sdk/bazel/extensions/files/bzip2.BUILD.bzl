@@ -44,7 +44,7 @@ filegroup(
 # passed to rules_haskell's stack_snapshot `extra_deps` (which expects
 # CcInfo providers). The `bzlib-conduit` Haskell package fails Cabal's
 # configure step ("Missing (or bad) C library: bz2", sdk/dump.txt:600-601)
-# without this wiring -- the hermetic Bootlin sysroot ships no libbz2.
+# without this wiring -- the hermetic sysroot ships no libbz2.
 # Mirrors the `@zlib_shared//:zlib_cc_lib` pattern in zlib.BUILD.bzl.
 cc_library(
     name = "bz2_cc_lib",
