@@ -118,6 +118,7 @@ def install_java_deps():
         },
         repositories = [
             "https://repo1.maven.org/maven2",
+            "https://europe-maven.pkg.dev/da-images/public-maven",
             "https://europe-maven.pkg.dev/da-images/public-maven-unstable",
         ] + (["m2local"] if LOCAL_CANTON_OVERRIDE != None else []),
         # The strict_visibility attribute controls whether all artifacts should
