@@ -5,7 +5,6 @@ package com.digitalasset.daml.lf.engine.script.test
 
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.AppenderBase
-import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -17,6 +16,6 @@ object LogCollector {
 
 final class LogCollector extends AppenderBase[ILoggingEvent] {
   override def append(e: ILoggingEvent): Unit = {
-    discard(LogCollector.events += e)
+    val _ = LogCollector.events += e
   }
 }

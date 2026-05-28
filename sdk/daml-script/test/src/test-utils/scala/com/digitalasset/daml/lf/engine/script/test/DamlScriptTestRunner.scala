@@ -7,7 +7,6 @@ package engine.script.test
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonConfig.TimeProviderType
 import com.daml.integrationtest.CantonFixture
-import com.daml.scalautil.Statement.discard
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.{Assertion, Suite}
@@ -35,8 +34,7 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
 
     import scala.sys.process._
     val builder = new StringBuilder
-    def log(s: String) = discard(builder.append(s).append('\n'))
-
+    def log(s: String): Unit = { val _ = builder.append(s).append('\n') }
     val mainCmd = Seq(
       scriptPath,
       "--static-time",
@@ -63,7 +61,7 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
 
     val cmd = mainCmd ++ jsonArg ++ testNameArgs ++ skipTestNameArgs
 
-    discard(cmd ! ProcessLogger(log, log))
+    val _ = cmd ! ProcessLogger(log, log)
 
     val iter =
       if (jsonOutput) {
@@ -98,10 +96,9 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
 
     cantonFixtureDebugMode match {
       case CantonFixtureDebugKeepTmpFiles | CantonFixtureDebugRemoveTmpFiles => {
-        discard(
+        val _ =
           Files.writeString(cantonTmpDir.resolve(getClass.getSimpleName + ".expected"), expected)
-        )
-        discard(Files.writeString(cantonTmpDir.resolve(getClass.getSimpleName + ".actual"), actual))
+        val _ = Files.writeString(cantonTmpDir.resolve(getClass.getSimpleName + ".actual"), actual)
       }
       case _ => {}
     }

@@ -9,7 +9,6 @@ import com.digitalasset.daml.lf.archive.{ArchivePayload, Dar, DarReader}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.typesig
-import com.daml.scalautil.ExceptionOps._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 import scalaz.{Show, \/}
@@ -53,15 +52,21 @@ object MetadataReader {
   ): Error \/ typesig.PackageSignature =
     \/.attempt {
       typesig.reader.SignatureReader.readPackageSignature(a)
-    }(e => Error(Symbol("decodeInterfaceFromArchive"), e.description))
-      .flatMap { case (errors, out) =>
-        if (errors.empty) {
-          \/.right(out)
-        } else {
-          val errorMsg = s"Errors reading LF archive ${a.pkgId: Ref.PackageId}:\n${errors.toString}"
-          \/.left(Error(Symbol("decodeInterfaceFromArchive"), errorMsg))
-        }
+    } { e =>
+      val errorName = e.getClass.getName
+      val errorDescription = Option(e.getMessage).filter(_.nonEmpty) match {
+        case Some(m) => s"$errorName: $m"
+        case None => errorName
       }
+      Error(Symbol("decodeInterfaceFromArchive"), errorDescription)
+    }.flatMap { case (errors, out) =>
+      if (errors.empty) {
+        \/.right(out)
+      } else {
+        val errorMsg = s"Errors reading LF archive ${a.pkgId: Ref.PackageId}:\n${errors.toString}"
+        \/.left(Error(Symbol("decodeInterfaceFromArchive"), errorMsg))
+      }
+    }
 
   def typeLookup(metaData: LfMetadata)(id: Ref.Identifier): Option[typesig.DefDataType.FWT] =
     for {

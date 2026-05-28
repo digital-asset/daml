@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf.engine.script
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.scalautil.Statement.discard
 import java.nio.file.{Path, Paths}
 import org.scalatest.compatible.Assertion
 import org.scalatest.Suite
@@ -41,7 +40,9 @@ trait RunnerMainTestBase {
     Future {
       val out = new StringBuilder()
       val cmd = exe.toString +: args
-      cmd !< ProcessLogger(line => discard(out append line)) match {
+      cmd !< ProcessLogger { line =>
+        val _ = (out append line)
+      } match {
         case 0 => Right(out.toString)
         case _ => Left(out.toString)
       }

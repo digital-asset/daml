@@ -23,7 +23,6 @@ da_scala_library(
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_lf_language_2_13",
         "@maven//:com_daml_ledger_api_value_2_13",
-        "@maven//:com_daml_scala_utils_2_13",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_thesamet_scalapb_lenses_2_13",

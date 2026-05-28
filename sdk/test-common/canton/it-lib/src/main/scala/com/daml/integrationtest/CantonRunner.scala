@@ -15,7 +15,6 @@ import com.daml.jwt.{
 import com.digitalasset.daml.lf.data.Ref
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ports.{LockedFreePort, PortLock}
-import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
 import io.circe.Json
 
@@ -148,7 +147,7 @@ object CantonRunner {
          |  }
          |}
           """.stripMargin
-    discard(Files.write(files.configFile, cantonConfig.getBytes(StandardCharsets.UTF_8)))
+    val _ = Files.write(files.configFile, cantonConfig.getBytes(StandardCharsets.UTF_8))
 
     val bootstrapConnectParticipants =
       config.participantIds
@@ -180,7 +179,7 @@ object CantonRunner {
          |Files.write(Paths.get("$completionFile"), "Completed".getBytes(StandardCharsets.UTF_8))
          |""".stripMargin
 
-    discard { Files.write(files.bootstrapFile, bootstrapContent.getBytes(StandardCharsets.UTF_8)) }
+    val _ = Files.write(files.bootstrapFile, bootstrapContent.getBytes(StandardCharsets.UTF_8))
 
     val debugOptions =
       if (config.debug) List("--log-file-name", files.cantonLogFile.toString, "--verbose")
@@ -259,7 +258,7 @@ object CantonRunner {
   ): Future[Unit] = {
     val ((sequencerAdminApi, sequencerPublicApi, mediatorAdminApi), ports, process) = r
     process.destroy()
-    discard(process.exitValue())
+    val _ = process.exitValue()
     sequencerAdminApi.unlock()
     sequencerPublicApi.unlock()
     mediatorAdminApi.unlock()
