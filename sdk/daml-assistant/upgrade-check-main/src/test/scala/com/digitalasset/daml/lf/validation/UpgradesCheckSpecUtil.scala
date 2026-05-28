@@ -13,7 +13,6 @@ import org.slf4j.helpers.MessageFormatter
 import scala.collection.immutable.ListMap
 
 import scala.collection.mutable.Buffer
-import com.daml.scalautil.Statement.discard
 
 class StringLogger(val msgs: Buffer[String], val stringLoggerName: String) extends AbstractLogger {
   override def handleNormalizedLoggingCall(
@@ -23,7 +22,7 @@ class StringLogger(val msgs: Buffer[String], val stringLoggerName: String) exten
       args: Array[Object],
       err: Throwable,
   ) = {
-    discard(msgs.append(MessageFormatter.basicArrayFormat(str, args)))
+    val _ = msgs.append(MessageFormatter.basicArrayFormat(str, args))
   }
 
   def getFullyQualifiedCallerName() = ""
