@@ -14,7 +14,7 @@ genrule(
         SRC=$$(realpath $$(dirname $(location configure)))
         PREFIX=$$(realpath $(@D))
         CC_ABS=$$PWD/$(CC)
-        MAKE=$$PWD/$(execpath @hermetic_make_linux_amd64//:bin/make)
+        MAKE=$$PWD/$(execpath @hermetic_make_current_platform//:bin/make)
         BUILD=$$(mktemp -d /tmp/zlib-XXXXXX)
         cp -rpL $$SRC/. $$BUILD
         chmod -R u+w $$BUILD
@@ -34,7 +34,7 @@ genrule(
         done \
         && rm -rf $$BUILD
     """,
-    tools = ["@hermetic_make_linux_amd64//:bin/make"],
+    tools = ["@hermetic_make_current_platform//:bin/make"],
     toolchains = ["@rules_cc//cc:current_cc_toolchain"],
 )
 
