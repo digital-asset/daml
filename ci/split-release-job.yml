@@ -163,7 +163,7 @@ jobs:
         sha=$(release_sha)
         git -c user.name="Azure Pipelines Daml Build" \
             -c user.email="support@digitalasset.com" \
-            tag -a "$tag" "$sha" -m "Internal SDK release $tag"
+            tag --force -a "$tag" "$sha" -m "Internal SDK release $tag"
         git push origin "$tag"
       displayName: "Tag Release in Git"
     - bash: |
