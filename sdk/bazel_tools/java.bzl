@@ -5,72 +5,10 @@ load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
 load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
-load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_tool_home", "dadew_where")
-
-def _dadew_java_configure_impl(repository_ctx):
-    ps = repository_ctx.which("powershell")
-    dadew = dadew_where(repository_ctx, ps)
-    java_home = dadew_tool_home(dadew, repository_ctx.attr.dadew_path)
-    repository_ctx.file("BUILD.bazel", executable = False, content = """
-load("@rules_java//java:defs.bzl", "java_runtime")
-java_runtime(
-    name = "runtime",
-    java_home = r"{java_home}",
-    visibility = ["//visibility:public"],
-)
-toolchain(
-    name = "toolchain",
-    toolchain = ":runtime",
-    toolchain_type = "@bazel_tools//tools/jdk:runtime_toolchain_type",
-    exec_compatible_with = [
-        "@platforms//cpu:x86_64",
-        "@platforms//os:windows",
-    ],
-    target_compatible_with = [
-        "@platforms//cpu:x86_64",
-        "@platforms//os:windows",
-    ],
-)
-toolchain(
-    name = "bootstrap_toolchain",
-    toolchain = ":runtime",
-    toolchain_type = "@bazel_tools//tools/jdk:bootstrap_runtime_toolchain_type",
-    exec_compatible_with = [
-        "@platforms//cpu:x86_64",
-        "@platforms//os:windows",
-    ],
-    target_compatible_with = [
-        "@platforms//cpu:x86_64",
-        "@platforms//os:windows",
-    ],
-)
-""".format(
-        java_home = java_home.replace("\\", "/"),
-    ))
-
-_dadew_java_configure = repository_rule(
-    implementation = _dadew_java_configure_impl,
-    attrs = {
-        "dadew_path": attr.string(
-            mandatory = True,
-            doc = "The installation path of the JDK within dadew.",
-        ),
-    },
-    configure = True,
-    local = True,
-    doc = """\
-Define a Java runtime provided by dadew.
-
-Creates a `java_runtime` that uses the JDK installed by dadew.
-""",
-)
 
 def dadew_java_configure(name, dadew_path):
-    _dadew_java_configure(
-        name = name,
-        dadew_path = dadew_path,
-    )
-    native.register_toolchains("@{}//:toolchain".format(name))
+    _ignore = (name, dadew_path)
+    fail("dadew_java_configure is removed with dev_env_tool cleanup; WORKSPACE dadew flow is unsupported in this branch.")
 
 def da_java_library(
         name,
