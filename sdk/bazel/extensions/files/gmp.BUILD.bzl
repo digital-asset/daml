@@ -47,7 +47,7 @@ filegroup(
 # Wraps the hermetic libgmp.so as a cc_library so it can be passed to
 # rules_haskell's stack_snapshot `extra_deps` (which expects CcInfo
 # providers). GHC's integer-gmp emits `-lgmp` into every Haskell link
-# command; without this, the hermetic Bootlin sysroot's ld cannot find
+# command; without this, the hermetic sysroot's ld cannot find
 # `-lgmp`.
 cc_library(
     name = "gmp_cc_lib",
