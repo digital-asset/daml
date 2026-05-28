@@ -14,7 +14,7 @@ def _camel_to_upper_snake(text):
         result += char
     return result.upper()
 
-def _parse_version(v):
+def parse_version(v):
     """
     Parses a structured version dict from the JSON:
     - {"major": 2, "minor": {"Dev": {}}}                            -> status="dev"
@@ -70,20 +70,20 @@ def _build_versions_struct():
 
     # explicitVersions is now a list of dicts; deduplicate by mangled_java key
     for val in DATA["explicitVersions"]:
-        version_obj = _parse_version(val)
+        version_obj = parse_version(val)
         field_name = version_obj.mangled_java
         fields[field_name] = version_obj
 
     for key, val in DATA["namedVersions"].items():
         field_name = _camel_to_upper_snake(key)
-        version_obj = _parse_version(val)
+        version_obj = parse_version(val)
         fields[field_name] = version_obj
 
     for key, val_list in DATA["versionLists"].items():
         field_name = _camel_to_upper_snake(key)
 
         # Parse every dict in the list into a struct
-        fields[field_name] = [_parse_version(v) for v in val_list]
+        fields[field_name] = [parse_version(v) for v in val_list]
 
     return struct(**fields)
 
@@ -105,6 +105,12 @@ LATEST_STABLE_LF_VERSION = VERSIONS.LATEST_STABLE_LF_VERSION.dotted
 DEFAULT_LF_VERSION = VERSIONS.DEFAULT_LF_VERSION.dotted
 STAGING_LF_VERSION = VERSIONS.STAGING_LF_VERSION.dotted
 DEV_LF_VERSION = VERSIONS.DEV_LF_VERSION.dotted
+
+# Struct variants (parsed version structs, not collapsed to dotted strings)
+ALL_LF_VERSIONS_STRUCT = VERSIONS.ALL_LF_VERSIONS
+LATEST_STABLE_LF_VERSION_STRUCT = VERSIONS.LATEST_STABLE_LF_VERSION
+STAGING_LF_VERSION_STRUCT = VERSIONS.STAGING_LF_VERSION
+DEV_LF_VERSION_STRUCT = VERSIONS.DEV_LF_VERSION
 
 # Ideally, COMPILER_VERSIONS does not exist. Currently, all of these piont to
 # ALL_LF_VERSIONS. Haskell source files point to input/output versions, but

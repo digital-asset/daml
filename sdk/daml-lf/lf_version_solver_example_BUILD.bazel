@@ -10,6 +10,7 @@
 
 load("//daml-lf:lf_version_solver.bzl", "lf_versioned_test")
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
+load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # ---------------------------------------------------------------------------
 # BEFORE (current approach — hardcoded version expansion):
@@ -21,87 +22,89 @@ load("//bazel_tools:haskell.bzl", "da_haskell_test")
 #           size = "large",
 #           srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
 #           args = ["--daml-lf-version", version],
+#           data = [
+#               ":package-vetting-package-a-{}.dar".format(version),
+#               ...
+#           ],
 #           ...
 #       )
-#       for version in COMPILER_LF_VERSIONS     # <-- ALL versions, always
+#       for version in COMPILER_LF_VERSIONS
 #   ]
-#
-# Problems:
-#   - Runs for ALL versions regardless of CI context
-#   - When a new LF version is added, no way to know if it's needed
-#   - When a version is removed, manual cleanup required
-#   - No way to distinguish "needs all versions" from "just needs latest"
 
 # ---------------------------------------------------------------------------
 # AFTER: Declare needs, let the solver decide
 # ---------------------------------------------------------------------------
 
-# Example 1: General compiler integration tests
-# - Uses basic LF features (exceptions, flat archive) → compatible with 2.1+
-# - Large/slow test
-# - Regression-relevant: yes (compiler correctness across versions matters)
+# Example 1: Compiler integration tests (//compiler/damlc/tests:integration-{})
+# The lambda receives a version struct; the caller has full control over the target.
 lf_versioned_test(
-    rule_fn = da_haskell_test,
-    name = "integration",
-    features = ["featureExceptions", "featureFlatArchive"],
+    target_fn = lambda version:
+        da_haskell_test(
+            name = "integration-{}".format(version.mangled_damlc),
+            size = "large",
+            srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
+            args = ["--daml-lf-version", version.dotted],
+            data = [
+                ":bond-trading",
+                ":cant-skip-preprocessor",
+                ":daml-test-files",
+                ":package-vetting-package-a-{}.dar".format(version.dotted),
+                ":package-vetting-package-b-{}.dar".format(version.dotted),
+                ":query-lf-lib",
+                "//compiler/damlc:ghcversion",
+                "//compiler/damlc:hpp-copy",
+                "//compiler/damlc/pkg-db",
+                "//compiler/damlc/stable-packages",
+                "//compiler/script-service/server:script_service_jar",
+                "//daml-script/daml:daml-script-{}.dar".format(version.dotted),
+                "@jq_dev_env//:jq",
+                ghc_pkg,
+            ],
+            hackage_deps = ["base"],
+            main_function = "DA.Test.DamlcIntegrationMain.main",
+            src_strip_prefix = "src",
+            visibility = ["//visibility:public"],
+            deps = [":integration-lib"],
+        ),
     runtime = "long",
     regression = "yes",
-    # Compatible set (featureExceptions ∩ featureFlatArchive): ["2.2", "2.3", "2.dev"]
-    # Solver will pick (assuming LATEST_STABLE=2.3, STAGING=2.3-staging, DEV=2.dev):
-    #   local:   staging_only        → ["2.3-staging"]
-    #   pr:      stable_and_staging  → ["2.3", "2.3-staging"]  (deduped if same)
-    #   main:    stable_staging_dev  → ["2.3", "2.3-staging", "2.dev"]  (deduped)
-    #   nightly: all                 → ["2.2", "2.3", "2.dev"]
-    size = "large",
-    srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
-    # ... other attrs ...
 )
 
 # Example 2: Contract keys test (feature only available from 2.3)
-# - Requires featureContractKeys → only 2.3+
-# - Short runtime
-# - Regression-relevant: yes
 lf_versioned_test(
-    rule_fn = da_haskell_test,
-    name = "contract-keys",
+    target_fn = lambda version:
+        da_haskell_test(
+            name = "contract-keys-{}".format(version.mangled_damlc),
+            srcs = ["src/DA/Test/ContractKeys.hs"],
+            args = ["--daml-lf-version", version.dotted],
+        ),
     features = ["featureContractKeys"],
     runtime = "short",
     regression = "yes",
-    # Compatible set: ["2.3", "2.dev"]
-    # Solver will pick (LATEST_STABLE=2.3, STAGING=2.3-staging):
-    #   local:   staging_only        → safe("STAGING")=highest_compat="2.dev"
-    #                                   (2.3-staging not in compatible, falls back)
-    #   pr:      stable_staging_dev  → safe each → ["2.3", "2.dev"] (deduped)
-    #   main:    all                 → ["2.3", "2.dev"]
-    #   nightly: all                 → ["2.3", "2.dev"]
-    srcs = ["src/DA/Test/ContractKeys.hs"],
 )
 
 # Example 3: Deprecated feature test (featureUnsafeFromInterface, high=2.1)
-# - Only compatible with 2.1
-# - Short runtime
-# - Not regression-relevant (deprecated)
 lf_versioned_test(
-    rule_fn = da_haskell_test,
-    name = "unsafe-from-interface",
+    target_fn = lambda version:
+        da_haskell_test(
+            name = "unsafe-from-interface-{}".format(version.mangled_damlc),
+            srcs = ["src/DA/Test/UnsafeFromInterface.hs"],
+            args = ["--daml-lf-version", version.dotted],
+        ),
     features = ["featureUnsafeFromInterface"],
     runtime = "short",
     regression = "no",
-    # Compatible set: ["2.1"] — note: NOT in {LATEST_STABLE, STAGING, DEV}!
-    # Safe fallback kicks in: safe("STAGING") → 2.1 (highest compatible)
-    # Solver GUARANTEES at least one version even though the feature range
-    # is outside the "current" named versions.
-    #   → ["2.1"] for all profiles (all named versions fall back to same)
-    srcs = ["src/DA/Test/UnsafeFromInterface.hs"],
 )
 
 # Example 4: Explicit override (test has custom version needs)
 lf_versioned_test(
-    rule_fn = da_haskell_test,
-    name = "special-migration",
+    target_fn = lambda version:
+        da_haskell_test(
+            name = "special-migration-{}".format(version.mangled_damlc),
+            srcs = ["src/DA/Test/SpecialMigration.hs"],
+            args = ["--daml-lf-version", version.dotted],
+        ),
     override_versions = ["2.1", "2.3"],
-    # Always exactly these two versions, regardless of profile
-    srcs = ["src/DA/Test/SpecialMigration.hs"],
 )
 
 
