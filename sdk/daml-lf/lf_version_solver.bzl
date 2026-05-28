@@ -229,8 +229,9 @@ _PROFILES = {
     },
 }
 
-# TODO: configure this via --define or a Bazel config setting in CI
-_DEFAULT_PROFILE = "pr"
+load("//daml-lf:lf_solver_profile.bzl", "LF_SOLVER_PROFILE")
+
+_DEFAULT_PROFILE = LF_SOLVER_PROFILE
 
 def solve_lf_versions(
         features = [],
@@ -247,7 +248,8 @@ def solve_lf_versions(
         regression: "yes", "no", or "always" (None when using override_versions).
             - "yes": profile/runtime determine how many versions to test
             - "no": test with minimal versions
-            - "always": run ALL compatible versions regardless of profile/runtime
+            - "always": run ALL compatible versions regardless of runtime
+              (except in "quick" profile, which always runs staging only)
         profile: "quick", "pr", "main", or "nightly" (global CI config, not per-target).
         override_versions: Explicit version struct list. Validated against
             feature-compatible versions — fails if empty or contains incompatible versions.
@@ -278,6 +280,9 @@ def solve_lf_versions(
     if regression == "always":
         if not compatible:
             fail("No compatible LF versions found for the given feature requirements.")
+        if profile == "quick":
+            # Quick profile overrides even "always" — dev speed matters most
+            return _apply_strategy("staging_only", compatible)
         return compatible
 
     profile_map = _PROFILES.get(profile)
