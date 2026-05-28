@@ -167,6 +167,7 @@ jobs:
       displayName: "Tag Release in Git"
     - bash: |
         set -euo pipefail
+        git co cad25c3eaf49dc7e87e8f1d0eae16ca1c3cb26fe sdk/release/src/Main.hs
         cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         # Authorize in GCLOUD and get a token
