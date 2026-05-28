@@ -4,8 +4,7 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 # repository rule's `make install` + filename-versioning steps (see
 # sdk/bazel/extensions/ncurses_extension.bzl).  exports_files lets
 # other repository rules read them via ctx.path() at fetch time --
-# this is what enables the GHC bindist patch
-# (sdk/bazel/patches/haskell/rules_haskell_hermetic_cc.patch) to
+# this is what enables the GHC bindist setup to
 # point LD_LIBRARY_PATH at lib/libtinfo.so.5 without depending on a
 # host libtinfo5 package.
 exports_files(
@@ -16,7 +15,7 @@ exports_files(
     visibility = ["//visibility:public"],
 )
 
-# Daml hermetic-GCC migration: haskeline's stack_snapshot `extra_deps`
+# Haskeline's stack_snapshot `extra_deps`
 # needs a cc_library whose embedded SONAME is `libtinfo.so` (not
 # `libtinfow.so.6` as produced by autoconf) so that haskeline's
 # emitted `-ltinfo` DT_NEEDED entries resolve at runtime via the

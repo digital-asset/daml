@@ -25,13 +25,11 @@ pattern does not work here because:
 
 Building from source at fetch time, with GNU make's bundled `build.sh`
 bootstrap script, breaks the chicken-and-egg cycle: `build.sh` compiles
-make using only a C compiler (no host make required), and the C
-compiler is provided hermetically by `@hermetic_cc_linux_amd64`'s
-`unprefixed/gcc` shim.
+make using only a C compiler (no host make required).
 
 # Static linking + --disable-nls
 
-Default dynamic linkage against the Bootlin glibc 2.39 sysroot makes
+Default dynamic linkage against a newer glibc sysroot makes
 the resulting binary unrunnable on hosts whose glibc is older than the
 sysroot's. `CFLAGS=-static -O2 LDFLAGS=-static` plus `--disable-nls`
 produces a fully self-contained ~1.6 MB ELF that runs on any Linux
@@ -40,9 +38,8 @@ is ~10 s of wall time on top of the ~2 MB tarball download.
 
 # Scope
 
-Linux x86_64 only, mirroring `gcc_toolchain_extension.bzl`. The binary
-is consumed by Linux-only repository rules; macOS and Windows fall
-through to host `make`.
+Linux x86_64 only. The binary is consumed by Linux-only repository
+rules; macOS and Windows fall through to host `make`.
 """
 
 load(
@@ -88,13 +85,9 @@ def _hermetic_make_repo_impl(rctx):
         stripPrefix = rctx.attr.strip_prefix,
     )
 
-    # Resolve the hermetic Bootlin GCC toolchain. The shell wrapper at
-    # `unprefixed/gcc` invokes the prefixed `<prefix>-gcc` while
-    # preserving argv[0]'s basename so the Buildroot toolchain-wrapper
-    # finds its `.br_real` companion (see the `Repository layout`
-    # section of `sdk/bazel/extensions/gcc_toolchain_extension.bzl`).
-    cc_path = rctx.path(Label("@hermetic_cc_linux_amd64//:unprefixed/gcc"))
-    unprefixed_dir = str(rctx.path(Label("@hermetic_cc_linux_amd64//:unprefixed")).realpath)
+    cc_path = rctx.which("cc")
+    if not cc_path:
+        fail("make_toolchain_extension requires `cc` on PATH during repository rule execution.")
 
     # Inherit the host PATH for `sh`, `mkdir`, `mv`, and the small set
     # of POSIX utilities that GNU make's `./configure` and `./build.sh`
@@ -103,7 +96,7 @@ def _hermetic_make_repo_impl(rctx):
     system_path = rctx.os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
     build_env = {
         "CC": str(cc_path),
-        "PATH": "{}:{}".format(unprefixed_dir, system_path),
+        "PATH": system_path,
         "CFLAGS": "-static -O2",
         "LDFLAGS": "-static",
     }
@@ -132,8 +125,8 @@ def _hermetic_make_repo_impl(rctx):
 
     # Step 3: relocate the binary to a stable, conventional path. The
     # build leaves `make` at the source root; consumers expect
-    # `@hermetic_make_linux_amd64//:bin/make` to mirror the Bootlin
-    # toolchain's `bin/<tool>` layout.
+    # `@hermetic_make_linux_amd64//:bin/make` to mirror the expected
+    # `bin/<tool>` layout.
     relocate_result = rctx.execute(
         ["sh", "-c", "mkdir -p bin && mv make bin/make"],
     )
