@@ -125,7 +125,7 @@ jobs:
         source $(bash-lib)
         cd $(Build.StagingDirectory)/split-release/split-release
         for f in "damlc-*" daml-libs/daml-script; do
-          gcs "$GCRED" cp -n -r "$f" "gs://daml-binaries/split-releases/$(release_tag)/"
+          gcs "$GCRED" cp -r "$f" "gs://daml-binaries/split-releases/$(release_tag)/"
         done
       name: gcs_for_canton
       displayName: "Upload Split Release Artifacts to GCS"
@@ -135,8 +135,7 @@ jobs:
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(cd sdk; dev-env/bin/dade-assist)"
-        # Temporarily disabled for 3.5.1
-        # ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
+        ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
       name: publish_to_artifactory
       displayName: "Publish Split Release Artifacts to Artifactory"
       env:
@@ -163,12 +162,11 @@ jobs:
         sha=$(release_sha)
         git -c user.name="Azure Pipelines Daml Build" \
             -c user.email="support@digitalasset.com" \
-            tag --force -a "$tag" "$sha" -m "Internal SDK release $tag"
-        # git push origin "$tag"
+            tag -a "$tag" "$sha" -m "Internal SDK release $tag"
+        git push origin "$tag"
       displayName: "Tag Release in Git"
     - bash: |
         set -euo pipefail
-        git checkout cad25c3eaf49dc7e87e8f1d0eae16ca1c3cb26fe sdk/release/src/Main.hs
         cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         # Authorize in GCLOUD and get a token
