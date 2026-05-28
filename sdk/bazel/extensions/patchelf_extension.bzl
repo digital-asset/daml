@@ -2,7 +2,7 @@
 
 The upstream BCR `patchelf` module builds a host-executed `cc_binary`.
 In this workspace the host C/C++ toolchain is overridden to a hermetic
-Bootlin GCC toolchain whose glibc is newer than Ubuntu 22.04. That can
+toolchain whose glibc is newer than Ubuntu 22.04. That can
 produce a `patchelf` binary that fails at execution time inside the
 container (`GLIBC_2.38 not found`).
 
