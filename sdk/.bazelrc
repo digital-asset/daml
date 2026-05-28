@@ -11,8 +11,9 @@ build:darwin --remote_cache=https://bazel-cache.da-ext.net/202405/macos
 build:linux --remote_cache=https://bazel-cache.da-ext.net/202405/ubuntu
 # Don't push local build results to the remote cache.
 build --remote_upload_local_results=false
+# Bazel 8 defaults to failing on empty globs; keep legacy behavior during migration.
+build --incompatible_disallow_empty_glob=false
 # Do still push local build results to the local disk cache.
-build --incompatible_remote_results_ignore_disk=true
 # Enable the disk cache in addition to the http cache.
 build:linux --disk_cache=.bazel-cache/disk
 build:darwin --disk_cache=.bazel-cache/disk
@@ -46,11 +47,7 @@ build --experimental_strict_action_env
 startup --host_jvm_args=-Xms4g --host_jvm_args=-Xmx8g --host_jvm_args=-Djdk.tls.client.protocols=TLSv1.2
 
 # Limit the number of parallel actions spawned by Bazel to the number of
-# physical CPUs. (Assuming a CPU with hyperthreading enabled)
-build --loading_phase_threads="HOST_CPUS*.5"
-fetch --loading_phase_threads="HOST_CPUS*.5"
-query --loading_phase_threads="HOST_CPUS*.5"
-sync --loading_phase_threads="HOST_CPUS*.5"
+# physical CPUs. (Assuming a CPU with hyp,5"
 build --local_resources=cpu="HOST_CPUS*.5"
 
 # Enable sandboxing and caching for exclusive tests
