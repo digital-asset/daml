@@ -1,0 +1,127 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# =============================================================================
+# EXAMPLE: How existing tests would migrate to the solver-based approach
+# =============================================================================
+#
+# This file is NOT meant to be built. It demonstrates the before/after for
+# several categories of tests.
+
+load("//daml-lf:lf_version_solver.bzl", "lf_versioned_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_test")
+
+# ---------------------------------------------------------------------------
+# BEFORE (current approach — hardcoded version expansion):
+# ---------------------------------------------------------------------------
+#
+#   [
+#       da_haskell_test(
+#           name = "integration-{}".format(mangle_for_damlc(version)),
+#           size = "large",
+#           srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
+#           args = ["--daml-lf-version", version],
+#           ...
+#       )
+#       for version in COMPILER_LF_VERSIONS     # <-- ALL versions, always
+#   ]
+#
+# Problems:
+#   - Runs for ALL versions regardless of CI context
+#   - When a new LF version is added, no way to know if it's needed
+#   - When a version is removed, manual cleanup required
+#   - No way to distinguish "needs all versions" from "just needs latest"
+
+# ---------------------------------------------------------------------------
+# AFTER: Declare needs, let the solver decide
+# ---------------------------------------------------------------------------
+
+# Example 1: General compiler integration tests
+# - Uses basic LF features (exceptions, flat archive) → compatible with 2.1+
+# - Large/slow test
+# - Regression-relevant: yes (compiler correctness across versions matters)
+lf_versioned_test(
+    rule_fn = da_haskell_test,
+    name = "integration",
+    features = ["featureExceptions", "featureFlatArchive"],
+    runtime = "long",
+    regression = "yes",
+    # Solver will pick:
+    #   local:   latest_only     → ["2.3"]
+    #   pr:      latest_and_dev  → ["2.3", "2.dev"]
+    #   main:    bookends        → ["2.2", "2.dev"]  (2.2 is first with FlatArchive)
+    #   nightly: all             → ["2.2", "2.3", "2.dev"]
+    size = "large",
+    srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
+    # ... other attrs ...
+)
+
+# Example 2: Contract keys test (feature only available from 2.3)
+# - Requires featureContractKeys → only 2.3+
+# - Short runtime
+# - Regression-relevant: yes
+lf_versioned_test(
+    rule_fn = da_haskell_test,
+    name = "contract-keys",
+    features = ["featureContractKeys"],
+    runtime = "short",
+    regression = "yes",
+    # Compatible set: ["2.3", "2.dev"]
+    # Solver will pick:
+    #   local:   latest_and_dev  → ["2.3", "2.dev"]
+    #   pr:      bookends        → ["2.3", "2.dev"]
+    #   main:    all             → ["2.3", "2.dev"]
+    #   nightly: all             → ["2.3", "2.dev"]
+    srcs = ["src/DA/Test/ContractKeys.hs"],
+)
+
+# Example 3: Deprecated feature test (featureUnsafeFromInterface, high=2.1)
+# - Only compatible with 2.1
+# - Short runtime
+# - Not regression-relevant (deprecated)
+lf_versioned_test(
+    rule_fn = da_haskell_test,
+    name = "unsafe-from-interface",
+    features = ["featureUnsafeFromInterface"],
+    runtime = "short",
+    regression = "no",
+    # Compatible set: ["2.1"] — note: NOT in {latest_stable, dev}!
+    # Solver GUARANTEES at least one version even though the feature range
+    # is outside the "current" versions. This is the key invariant:
+    #   → ["2.1"] for all profiles
+    # Without the solver, a developer updating versions might drop this test
+    # entirely, not realizing 2.1 still needs coverage until sunset.
+    srcs = ["src/DA/Test/UnsafeFromInterface.hs"],
+)
+
+# Example 4: Version-agnostic test (e.g. CLI parser tests)
+# - Doesn't use LF versions at all → just use the rule directly, no solver needed
+da_haskell_test(
+    name = "damlc-cliparser",
+    srcs = ["src/CliParser.hs"],
+)
+
+# Example 5: Self-managed version test (e.g. data-dependencies cross-version)
+# - Test internally compares DARs across versions
+# - Single target, but may still need canton / specific PV
+lf_versioned_test(
+    rule_fn = da_haskell_test,
+    name = "data-dependencies",
+    lf_version_mode = "self_managed",
+    features = ["featurePackageUpgrades"],  # informational: needs PV support
+    # Produces a single target: "data-dependencies"
+    srcs = ["src/DA/Test/DataDependencies.hs"],
+)
+
+# Example 6: Exceptional runtime (test has custom version needs)
+lf_versioned_test(
+    rule_fn = da_haskell_test,
+    name = "special-migration",
+    runtime = "exceptional",
+    regression = "override",
+    override_versions = ["2.1", "2.3"],
+    # Always exactly these two versions, regardless of profile
+    srcs = ["src/DA/Test/SpecialMigration.hs"],
+)
+
+
