@@ -10,13 +10,14 @@ bazel_dep(name = "gazelle", version = "0.47.0")
 bazel_dep(name = "google_bazel_common", version = "0.0.1")
 bazel_dep(name = "grpc", version = "1.75.0")
 bazel_dep(name = "jq.bzl", version = "0.6.1")
+bazel_dep(name = "llvm", version = "0.8.3")
 bazel_dep(name = "openssl", version = "3.3.1.bcr.9")
 bazel_dep(name = "platforms", version = "0.0.10")
 bazel_dep(name = "pigz", version = "2.8.bcr.1")
 bazel_dep(name = "protobuf", version = "25.6")
 bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "rules_go", version = "0.59.0")
-bazel_dep(name = "rules_haskell", version = "0.18")
+bazel_dep(name = "rules_haskell", version = "1.0")
 
 bazel_dep(name = "rules_java", version = "9.5.0")
 bazel_dep(name = "rules_jvm_external", version = "6.10")
@@ -39,6 +40,15 @@ bazel_dep(name = "aspect_rules_js", version = "2.6.2")
 bazel_dep(name = "aspect_rules_ts", version = "3.8.7")
 bazel_dep(name = "aspect_rules_jest", version = "0.24.3")
 
+## TODO: Remove this temporary Bazel 8 compatibility override once upstream
+## rules_haskell is compatible with our module graph; see:
+## sdk/.bzlremaining/improvements/rules-haskell-bazel8-compat.md
+single_version_override(
+    module_name = "rules_haskell",
+    patch_strip = 1,
+    patches = ["//bazel/patches:haskell/rules_bazel-8_compat.patch"],
+)
+
 # --- Toolchains ---
 
 bazel_lib_toolchains_ext = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
@@ -47,7 +57,13 @@ use_repo(bazel_lib_toolchains_ext, "bsd_tar_toolchains")
 jq_toolchains_ext = use_extension("@jq.bzl//jq:extensions.bzl", "toolchains")
 use_repo(jq_toolchains_ext, "jq_toolchains")
 
+llvm_toolchain_ext = use_extension("@llvm//extensions:toolchain.bzl", "toolchain")
+llvm_toolchain_ext.exec(arch = "x86_64", os = "linux")
+llvm_toolchain_ext.target(arch = "x86_64", os = "linux")
+use_repo(llvm_toolchain_ext, "llvm_toolchains")
+
 register_toolchains("@bsd_tar_toolchains//:all")
+register_toolchains("@llvm_toolchains//:all")
 register_toolchains("//:c2hs-toolchain")
 
 # --- Hermetic GNU make (built from source at fetch time) ---

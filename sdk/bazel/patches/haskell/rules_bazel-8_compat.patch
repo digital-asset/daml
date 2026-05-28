@@ -1,0 +1,64 @@
+# TODO: Remove this downstream compatibility patch once upstream rules_haskell
+# fully supports Bazel 8 in this workspace shape. See:
+# - sdk/.bzlremaining/improvements/rules-haskell-bazel8-compat.md
+# - https://github.com/tweag/rules_haskell/issues/2426
+
+diff --git a/haskell/private/get_cpu_value_compat.bzl b/haskell/private/get_cpu_value_compat.bzl
+new file mode 100644
+--- /dev/null
++++ b/haskell/private/get_cpu_value_compat.bzl
+@@ -0,0 +1,18 @@
++def get_cpu_value(ctx):
++    os_name = ctx.os.name.lower()
++    arch = ctx.os.arch
++
++    if "windows" in os_name:
++        if arch in ["aarch64", "arm64"]:
++            return "arm64_windows"
++        return "x64_windows"
++
++    if "mac os x" in os_name or "darwin" in os_name:
++        if arch in ["aarch64", "arm64"]:
++            return "darwin_arm64"
++        return "darwin_x86_64"
++
++    if "linux" in os_name:
++        return "aarch64" if arch in ["aarch64", "arm64"] else "k8"
++
++    fail("Unsupported host platform: os={}, arch={}".format(ctx.os.name, arch))
+diff --git a/haskell/ghc_bindist.bzl b/haskell/ghc_bindist.bzl
+--- a/haskell/ghc_bindist.bzl
++++ b/haskell/ghc_bindist.bzl
+@@ -5 +5 @@
+-load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
++load(":private/get_cpu_value_compat.bzl", "get_cpu_value")
+@@ -642 +642 @@
+-    "@bazel_tools//tools/python:toolchain.bzl",
++    "@rules_python//python:py_runtime_pair.bzl",
+@@ -658 +658 @@
+-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
++    toolchain_type = "@rules_python//python:toolchain_type",
+diff --git a/haskell/cabal.bzl b/haskell/cabal.bzl
+--- a/haskell/cabal.bzl
++++ b/haskell/cabal.bzl
+@@ -7 +7 @@
+-load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
++load("@rules_haskell//haskell:private/get_cpu_value_compat.bzl", "get_cpu_value")
+diff --git a/rules_haskell_nix/nixpkgs.bzl b/rules_haskell_nix/nixpkgs.bzl
+--- a/rules_haskell_nix/nixpkgs.bzl
++++ b/rules_haskell_nix/nixpkgs.bzl
+@@ -11 +11 @@
+-load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
++load("@rules_haskell//haskell:private/get_cpu_value_compat.bzl", "get_cpu_value")
+diff --git a/rules_haskell_nix/private/declare_toolchains.bzl b/rules_haskell_nix/private/declare_toolchains.bzl
+--- a/rules_haskell_nix/private/declare_toolchains.bzl
++++ b/rules_haskell_nix/private/declare_toolchains.bzl
+@@ -25 +25 @@
+-load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
++load("@rules_haskell//haskell:private/get_cpu_value_compat.bzl", "get_cpu_value")
+diff --git a/tools/os_info.bzl b/tools/os_info.bzl
+--- a/tools/os_info.bzl
++++ b/tools/os_info.bzl
+@@ -1 +1 @@
+-load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
++load("@rules_haskell//haskell:private/get_cpu_value_compat.bzl", "get_cpu_value")
