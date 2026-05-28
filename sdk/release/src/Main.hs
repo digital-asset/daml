@@ -148,7 +148,7 @@ main = do
         liftIO $ callProcess "bazel" $ ["build"] ++ npmPackages
 
       if  | getPerformUpload optsPerformUpload -> do
-              if not (null mvnUploadArtifacts)
+              if ((1::Int) == 2) && not (null mvnUploadArtifacts)
                 then do 
                   when optsUploadToGoogleArtifactRegistry $ do
                     $logInfo "Uploading to Google Artifact Registry"
