@@ -94,4 +94,4 @@ out
 
 docs/build/
 
-bzlmigration/
+.bzlmigration/
