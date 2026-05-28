@@ -125,7 +125,7 @@ jobs:
         source $(bash-lib)
         cd $(Build.StagingDirectory)/split-release/split-release
         for f in "damlc-*" daml-libs/daml-script; do
-          gcs "$GCRED" cp -r "$f" "gs://daml-binaries/split-releases/$(release_tag)/"
+          gcs "$GCRED" cp -n -r "$f" "gs://daml-binaries/split-releases/$(release_tag)/"
         done
       name: gcs_for_canton
       displayName: "Upload Split Release Artifacts to GCS"
@@ -135,7 +135,8 @@ jobs:
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(cd sdk; dev-env/bin/dade-assist)"
-        ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
+        # Temporarily disabled for 3.5.1
+        # ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
       name: publish_to_artifactory
       displayName: "Publish Split Release Artifacts to Artifactory"
       env:
