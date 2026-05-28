@@ -27,11 +27,6 @@ LF versions based on the CI context (local, PR, main, nightly).
    - "no": only needs latest_stable / dev at most
    - "override": test provides an explicit version list (escape hatch)
 
-## Special modes
-
-- `lf_version_self_managed`: test manages its own multi-version logic internally
-  (e.g. comparing DARs of different LF versions). May still declare feature
-  requirements for filtering, but produces a single target.
 
 ## Solver profiles
 
@@ -46,7 +41,7 @@ Each profile defines a strategy for how many versions to select from the
 compatible set.
 """
 
-load("//daml-lf:daml-lf.bzl", "ALL_LF_VERSIONS", "DEV_LF_VERSION", "LATEST_STABLE_LF_VERSION")
+load("//daml-lf:daml-lf.bzl", "ALL_LF_VERSIONS", "DEV_LF_VERSION", "LATEST_STABLE_LF_VERSION", "STAGING_LF_VERSION")
 
 # ---------------------------------------------------------------------------
 # Feature registry helpers
@@ -128,41 +123,57 @@ def _compatible_versions(features, all_versions):
 
     return compatible
 
-# Solver profiles: each maps (runtime, regression) → strategy function name
-# Strategy: "all", "bookends", "latest_only", "dev_only", "latest_and_dev"
+# ---------------------------------------------------------------------------
+# Named version resolution with safe fallback
+# ---------------------------------------------------------------------------
 
-_PROFILES = {
-    "local": {
-        # Developers want speed
-        ("short", "yes"): "latest_and_dev",
-        ("short", "no"): "latest_only",
-        ("long", "yes"): "latest_only",
-        ("long", "no"): "latest_only",
-    },
-    "pr": {
-        ("short", "yes"): "bookends",
-        ("short", "no"): "latest_and_dev",
-        ("long", "yes"): "latest_and_dev",
-        ("long", "no"): "latest_only",
-    },
-    "main": {
-        ("short", "yes"): "all",
-        ("short", "no"): "latest_and_dev",
-        ("long", "yes"): "bookends",
-        ("long", "no"): "latest_only",
-    },
-    "nightly": {
-        ("short", "yes"): "all",
-        ("short", "no"): "all",
-        ("long", "yes"): "all",
-        ("long", "no"): "bookends",
-    },
+# The "named versions" that strategies reference. These may alias each other
+# (e.g. STAGING == LATEST_STABLE when there is no staging version).
+_NAMED_VERSIONS = {
+    "LATEST_STABLE": LATEST_STABLE_LF_VERSION,
+    "STAGING": STAGING_LF_VERSION,
+    "DEV": DEV_LF_VERSION,
 }
+
+def _safe_resolve(name, compatible):
+    """
+    Resolve a named version against the compatible set.
+    If the named version is compatible, return it.
+    Otherwise, return the highest compatible version (fallback).
+    This guarantees we always return *something* from the compatible set.
+    """
+    version = _NAMED_VERSIONS[name]
+    if version in compatible:
+        return version
+
+    # Fallback: highest compatible version
+    return compatible[-1]
+
+def _dedup(versions):
+    """Remove duplicates while preserving order."""
+    seen = {}
+    result = []
+    for v in versions:
+        if v not in seen:
+            seen[v] = True
+            result.append(v)
+    return result
+
+# ---------------------------------------------------------------------------
+# Strategies
+# ---------------------------------------------------------------------------
+# Each strategy returns a deduplicated list of versions from the compatible set.
+# Strategies are defined in terms of named version variables, with safe fallback.
 
 def _apply_strategy(strategy, compatible, all_versions):
     """
     Given a strategy name and a list of compatible versions, return the
     selected subset. Guarantees at least one version is returned.
+
+    Strategies reference named version variables (LATEST_STABLE, STAGING, DEV).
+    When a named version is not in the compatible set, the solver falls back
+    to the highest compatible version. Results are always deduplicated — if
+    STAGING == LATEST_STABLE, only one test target is produced.
     """
     if not compatible:
         fail("No compatible LF versions found for the given feature requirements. " +
@@ -171,23 +182,28 @@ def _apply_strategy(strategy, compatible, all_versions):
     if strategy == "all":
         return compatible
 
-    if strategy == "latest_only":
-        # Pick the latest compatible version
-        return [compatible[-1]]
+    if strategy == "stable_only":
+        # Just LATEST_STABLE (safe)
+        return _dedup([_safe_resolve("LATEST_STABLE", compatible)])
 
-    if strategy == "dev_only":
-        dev = [v for v in compatible if v == DEV_LF_VERSION]
-        return dev if dev else [compatible[-1]]
+    if strategy == "staging_only":
+        # Just STAGING (safe) — collapses to stable_only when no staging exists
+        return _dedup([_safe_resolve("STAGING", compatible)])
 
-    if strategy == "latest_and_dev":
-        # Latest compatible stable + dev (if compatible)
-        result = []
-        stable = [v for v in compatible if v != DEV_LF_VERSION]
-        if stable:
-            result.append(stable[-1])
-        if DEV_LF_VERSION in compatible and DEV_LF_VERSION not in result:
-            result.append(DEV_LF_VERSION)
-        return result if result else [compatible[-1]]
+    if strategy == "stable_and_staging":
+        # LATEST_STABLE + STAGING (safe). If they're the same version, deduped to one.
+        return _dedup([
+            _safe_resolve("LATEST_STABLE", compatible),
+            _safe_resolve("STAGING", compatible),
+        ])
+
+    if strategy == "stable_staging_dev":
+        # All three named versions (safe, deduped)
+        return _dedup([
+            _safe_resolve("LATEST_STABLE", compatible),
+            _safe_resolve("STAGING", compatible),
+            _safe_resolve("DEV", compatible),
+        ])
 
     if strategy == "bookends":
         # First and last compatible version (covers range boundaries)
@@ -196,6 +212,35 @@ def _apply_strategy(strategy, compatible, all_versions):
         return [compatible[0], compatible[-1]]
 
     fail("Unknown strategy: {}".format(strategy))
+
+# Solver profiles: each maps (runtime, regression) → strategy
+_PROFILES = {
+    "local": {
+        # Developers want speed
+        ("short", "yes"): "staging_only",
+        ("short", "no"): "staging_only",
+        ("long", "yes"): "staging_only",
+        ("long", "no"): "staging_only",
+    },
+    "pr": {
+        ("short", "yes"): "stable_staging_dev",
+        ("short", "no"): "stable_and_staging",
+        ("long", "yes"): "stable_and_staging",
+        ("long", "no"): "staging_only",
+    },
+    "main": {
+        ("short", "yes"): "all",
+        ("short", "no"): "stable_staging_dev",
+        ("long", "yes"): "stable_staging_dev",
+        ("long", "no"): "staging_only",
+    },
+    "nightly": {
+        ("short", "yes"): "all",
+        ("short", "no"): "all",
+        ("long", "yes"): "all",
+        ("long", "no"): "stable_staging_dev",
+    },
+}
 
 def solve_lf_versions(
         features = [],
@@ -247,7 +292,6 @@ def lf_versioned_test(
         features = [],
         runtime = "short",
         regression = "yes",
-        lf_version_mode = "versioned",  # "versioned" or "self_managed"
         override_versions = None,
         profile = "main",
         **kwargs):
@@ -260,16 +304,11 @@ def lf_versioned_test(
         features: Feature requirements.
         runtime: "short" | "long" | "exceptional".
         regression: "yes" | "no" | "override".
-        lf_version_mode: "versioned" | "self_managed".
-        override_versions: Explicit versions for override/exceptional.
+        override_versions: Explicit version list, bypasses the solver entirely.
         profile: Solver profile.
         **kwargs: Passed through to rule_fn.
     """
 
-    if lf_version_mode == "self_managed":
-        # Single target; test handles versions internally
-        rule_fn(name = name, **kwargs)
-        return
 
     versions = solve_lf_versions(
         features = features,
@@ -286,8 +325,4 @@ def lf_versioned_test(
             args = kwargs.pop("args", []) + ["--daml-lf-version", version],
             **kwargs
         )
-
-
-
-
 

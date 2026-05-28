@@ -46,11 +46,12 @@ lf_versioned_test(
     features = ["featureExceptions", "featureFlatArchive"],
     runtime = "long",
     regression = "yes",
-    # Solver will pick:
-    #   local:   latest_only     → ["2.3"]
-    #   pr:      latest_and_dev  → ["2.3", "2.dev"]
-    #   main:    bookends        → ["2.2", "2.dev"]  (2.2 is first with FlatArchive)
-    #   nightly: all             → ["2.2", "2.3", "2.dev"]
+    # Compatible set (featureExceptions ∩ featureFlatArchive): ["2.2", "2.3", "2.dev"]
+    # Solver will pick (assuming LATEST_STABLE=2.3, STAGING=2.3-staging, DEV=2.dev):
+    #   local:   staging_only        → ["2.3-staging"]
+    #   pr:      stable_and_staging  → ["2.3", "2.3-staging"]  (deduped if same)
+    #   main:    stable_staging_dev  → ["2.3", "2.3-staging", "2.dev"]  (deduped)
+    #   nightly: all                 → ["2.2", "2.3", "2.dev"]
     size = "large",
     srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
     # ... other attrs ...
@@ -67,11 +68,12 @@ lf_versioned_test(
     runtime = "short",
     regression = "yes",
     # Compatible set: ["2.3", "2.dev"]
-    # Solver will pick:
-    #   local:   latest_and_dev  → ["2.3", "2.dev"]
-    #   pr:      bookends        → ["2.3", "2.dev"]
-    #   main:    all             → ["2.3", "2.dev"]
-    #   nightly: all             → ["2.3", "2.dev"]
+    # Solver will pick (LATEST_STABLE=2.3, STAGING=2.3-staging):
+    #   local:   staging_only        → safe("STAGING")=highest_compat="2.dev"
+    #                                   (2.3-staging not in compatible, falls back)
+    #   pr:      stable_staging_dev  → safe each → ["2.3", "2.dev"] (deduped)
+    #   main:    all                 → ["2.3", "2.dev"]
+    #   nightly: all                 → ["2.3", "2.dev"]
     srcs = ["src/DA/Test/ContractKeys.hs"],
 )
 
@@ -85,40 +87,18 @@ lf_versioned_test(
     features = ["featureUnsafeFromInterface"],
     runtime = "short",
     regression = "no",
-    # Compatible set: ["2.1"] — note: NOT in {latest_stable, dev}!
+    # Compatible set: ["2.1"] — note: NOT in {LATEST_STABLE, STAGING, DEV}!
+    # Safe fallback kicks in: safe("STAGING") → 2.1 (highest compatible)
     # Solver GUARANTEES at least one version even though the feature range
-    # is outside the "current" versions. This is the key invariant:
-    #   → ["2.1"] for all profiles
-    # Without the solver, a developer updating versions might drop this test
-    # entirely, not realizing 2.1 still needs coverage until sunset.
+    # is outside the "current" named versions.
+    #   → ["2.1"] for all profiles (all named versions fall back to same)
     srcs = ["src/DA/Test/UnsafeFromInterface.hs"],
 )
 
-# Example 4: Version-agnostic test (e.g. CLI parser tests)
-# - Doesn't use LF versions at all → just use the rule directly, no solver needed
-da_haskell_test(
-    name = "damlc-cliparser",
-    srcs = ["src/CliParser.hs"],
-)
-
-# Example 5: Self-managed version test (e.g. data-dependencies cross-version)
-# - Test internally compares DARs across versions
-# - Single target, but may still need canton / specific PV
-lf_versioned_test(
-    rule_fn = da_haskell_test,
-    name = "data-dependencies",
-    lf_version_mode = "self_managed",
-    features = ["featurePackageUpgrades"],  # informational: needs PV support
-    # Produces a single target: "data-dependencies"
-    srcs = ["src/DA/Test/DataDependencies.hs"],
-)
-
-# Example 6: Exceptional runtime (test has custom version needs)
+# Example 4: Explicit override (test has custom version needs)
 lf_versioned_test(
     rule_fn = da_haskell_test,
     name = "special-migration",
-    runtime = "exceptional",
-    regression = "override",
     override_versions = ["2.1", "2.3"],
     # Always exactly these two versions, regardless of profile
     srcs = ["src/DA/Test/SpecialMigration.hs"],
