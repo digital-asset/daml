@@ -11,7 +11,7 @@ genrule(
 
         OUT=$$PWD/$@
         CC=$$PWD/$(CC)
-        MAKE=$$PWD/$(execpath @hermetic_make_linux_amd64//:bin/make)
+        MAKE=$$PWD/$(execpath @hermetic_make_current_platform//:bin/make)
         SRC=$$(dirname $(location configure))
 
         cd $$SRC
@@ -21,6 +21,6 @@ genrule(
 
         cp src/m4 $$OUT
     """,
-    tools = ["@hermetic_make_linux_amd64//:bin/make"],
+    tools = ["@hermetic_make_current_platform//:bin/make"],
     visibility = ["//visibility:public"],
 )
