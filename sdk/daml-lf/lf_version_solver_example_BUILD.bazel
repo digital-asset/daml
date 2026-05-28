@@ -35,76 +35,63 @@ load("//compiler/damlc:util.bzl", "ghc_pkg")
 # AFTER: Declare needs, let the solver decide
 # ---------------------------------------------------------------------------
 
-# Example 1: Compiler integration tests (//compiler/damlc/tests:integration-{})
-# The lambda receives a version struct; the caller has full control over the target.
+# Example 1: Compiler integration tests
+# - {version} in data deps is auto-substituted with the dotted version
+# - name, args (--daml-lf-version) are handled by the framework
 lf_versioned_test(
-    target_fn = lambda version:
-        da_haskell_test(
-            name = "integration-{}".format(version.mangled_damlc),
-            size = "large",
-            srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
-            args = ["--daml-lf-version", version.dotted],
-            data = [
-                ":bond-trading",
-                ":cant-skip-preprocessor",
-                ":daml-test-files",
-                ":package-vetting-package-a-{}.dar".format(version.dotted),
-                ":package-vetting-package-b-{}.dar".format(version.dotted),
-                ":query-lf-lib",
-                "//compiler/damlc:ghcversion",
-                "//compiler/damlc:hpp-copy",
-                "//compiler/damlc/pkg-db",
-                "//compiler/damlc/stable-packages",
-                "//compiler/script-service/server:script_service_jar",
-                "//daml-script/daml:daml-script-{}.dar".format(version.dotted),
-                "@jq_dev_env//:jq",
-                ghc_pkg,
-            ],
-            hackage_deps = ["base"],
-            main_function = "DA.Test.DamlcIntegrationMain.main",
-            src_strip_prefix = "src",
-            visibility = ["//visibility:public"],
-            deps = [":integration-lib"],
-        ),
+    rule_fn = da_haskell_test,
+    name = "integration",
     runtime = "long",
-    regression = "yes",
+    regression = "always",
+    size = "large",
+    srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
+    data = [
+        ":bond-trading",
+        ":cant-skip-preprocessor",
+        ":daml-test-files",
+        ":package-vetting-package-a-{version}.dar",
+        ":package-vetting-package-b-{version}.dar",
+        ":query-lf-lib",
+        "//compiler/damlc:ghcversion",
+        "//compiler/damlc:hpp-copy",
+        "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
+        "//compiler/script-service/server:script_service_jar",
+        "//daml-script/daml:daml-script-{version}.dar",
+        "@jq_dev_env//:jq",
+        ghc_pkg,
+    ],
+    hackage_deps = ["base"],
+    main_function = "DA.Test.DamlcIntegrationMain.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [":integration-lib"],
 )
 
 # Example 2: Contract keys test (feature only available from 2.3)
 lf_versioned_test(
-    target_fn = lambda version:
-        da_haskell_test(
-            name = "contract-keys-{}".format(version.mangled_damlc),
-            srcs = ["src/DA/Test/ContractKeys.hs"],
-            args = ["--daml-lf-version", version.dotted],
-        ),
+    rule_fn = da_haskell_test,
+    name = "contract-keys",
     features = ["featureContractKeys"],
     runtime = "short",
     regression = "yes",
+    srcs = ["src/DA/Test/ContractKeys.hs"],
 )
 
 # Example 3: Deprecated feature test (featureUnsafeFromInterface, high=2.1)
 lf_versioned_test(
-    target_fn = lambda version:
-        da_haskell_test(
-            name = "unsafe-from-interface-{}".format(version.mangled_damlc),
-            srcs = ["src/DA/Test/UnsafeFromInterface.hs"],
-            args = ["--daml-lf-version", version.dotted],
-        ),
+    rule_fn = da_haskell_test,
+    name = "unsafe-from-interface",
     features = ["featureUnsafeFromInterface"],
     runtime = "short",
     regression = "no",
+    srcs = ["src/DA/Test/UnsafeFromInterface.hs"],
 )
 
 # Example 4: Explicit override (test has custom version needs)
 lf_versioned_test(
-    target_fn = lambda version:
-        da_haskell_test(
-            name = "special-migration-{}".format(version.mangled_damlc),
-            srcs = ["src/DA/Test/SpecialMigration.hs"],
-            args = ["--daml-lf-version", version.dotted],
-        ),
+    rule_fn = da_haskell_test,
+    name = "special-migration",
     override_versions = ["2.1", "2.3"],
+    srcs = ["src/DA/Test/SpecialMigration.hs"],
 )
-
-

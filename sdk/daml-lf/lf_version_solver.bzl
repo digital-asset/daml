@@ -16,16 +16,15 @@ LF versions based on the CI context (PR, main, nightly).
    are compatible.
 
 2. **Runtime** (`runtime`):
-   One of: "short", "long", "exceptional"
+   One of: "short", "long"
    - "short": cheap to run, fine to test with many versions
    - "long": expensive, solver aggressively prunes versions
-   - "exceptional": test manages its own version list (escape hatch)
 
 3. **Regression relevance** (`regression`):
-   One of: "yes", "no", "override"
-   - "yes": important to test across LF versions (e.g. serialization compat)
+   One of: "yes", "no", "always"
+   - "yes": important to test across LF versions, profile/runtime determine how many
    - "no": only needs latest_stable / staging at most
-   - "override": test provides an explicit version list (escape hatch)
+   - "always": run ALL compatible versions regardless of profile/runtime
 
 ## Solver profiles
 
@@ -244,19 +243,42 @@ def solve_lf_versions(
 
     Args:
         features: List of feature names required by the test.
-        runtime: "short", "long", or "exceptional".
-        regression: "yes", "no", or "override".
+        runtime: "short" or "long" (None when using override_versions).
+        regression: "yes", "no", or "always" (None when using override_versions).
+            - "yes": profile/runtime determine how many versions to test
+            - "no": test with minimal versions
+            - "always": run ALL compatible versions regardless of profile/runtime
         profile: "quick", "pr", "main", or "nightly" (global CI config, not per-target).
-        override_versions: Explicit version struct list, bypasses the solver.
+        override_versions: Explicit version struct list. Validated against
+            feature-compatible versions — fails if empty or contains incompatible versions.
 
     Returns:
         List of parsed version structs.
     """
 
+    compatible = _compatible_versions(features)
+
     if override_versions:
+        if not override_versions:
+            fail("override_versions must not be empty")
+        for ov in override_versions:
+            found = False
+            for cv in compatible:
+                if _version_eq(ov, cv):
+                    found = True
+                    break
+            if not found:
+                fail("Override version {} is not compatible with declared features. " +
+                     "Compatible versions: {}".format(
+                         ov.dotted if hasattr(ov, "dotted") else str(ov),
+                         ", ".join([c.dotted for c in compatible]),
+                     ))
         return override_versions
 
-    compatible = _compatible_versions(features)
+    if regression == "always":
+        if not compatible:
+            fail("No compatible LF versions found for the given feature requirements.")
+        return compatible
 
     profile_map = _PROFILES.get(profile)
     if not profile_map:
@@ -273,30 +295,100 @@ def solve_lf_versions(
 # Public macro for declaring versioned test targets
 # ---------------------------------------------------------------------------
 
+def _substitute_version(template, version):
+    """Replace {version} and {version_mangled} placeholders in a string."""
+    return template.replace("{version}", version.dotted).replace("{version_mangled}", version.mangled_damlc)
+
+def _substitute_version_list(templates, version):
+    """Apply version substitution to a list of strings."""
+    return [_substitute_version(t, version) for t in templates]
+
 def lf_versioned_test(
-        target_fn,
+        rule_fn,
+        name,
         features = [],
         runtime = "short",
         regression = "yes",
-        override_versions = None):
+        override_versions = None,
+        **kwargs):
     """
-    Creates one test target per solved LF version by calling target_fn for each.
+    Creates one test target per solved LF version.
+
+    The framework handles:
+    - name: "{name}-{version_mangled}" is generated automatically
+    - data: any string containing "{version}" is substituted with the dotted version
+    - args: any string containing "{version}" is substituted with the dotted version
+
+    Three modes:
+    1. runtime + regression ("yes" | "no"): let the solver decide based on profile
+    2. runtime + regression = "always": run all compatible versions, but print
+       a notice showing what the solver would have picked with regression="yes"
+    3. override_versions: explicit list, validated against features
 
     Args:
-        target_fn: A function (version_struct) -> None that creates the rule.
-            The version struct has fields like .dotted, .mangled_damlc, .major, .minor, .status.
-        features: Feature requirements.
-        runtime: "short" | "long" | "exceptional".
-        regression: "yes" | "no" | "override".
-        override_versions: Explicit version struct list, bypasses the solver.
+        rule_fn: The underlying rule function (e.g. da_haskell_test).
+        name: Base name for the test targets. Version suffix is appended automatically.
+        features: Feature requirements (applied in all modes).
+        runtime: "short" | "long". Used by the solver and for the "always" notice.
+        regression: "yes" | "no" | "always". Controls how many versions to test.
+        override_versions: Explicit version struct list. Validated against features.
+        **kwargs: Passed through to rule_fn. Strings in "data" and "args" containing
+            "{version}" are substituted with the dotted version string.
+            "{version_mangled}" is also available.
     """
 
-    versions = solve_lf_versions(
-        features = features,
-        runtime = runtime,
-        regression = regression,
-        override_versions = override_versions,
-    )
+    has_override = override_versions != None
+
+    if has_override:
+        versions = solve_lf_versions(
+            features = features,
+            override_versions = override_versions,
+        )
+    elif regression == "always":
+        # Run all compatible versions, but print what the solver would normally pick
+        all_versions = solve_lf_versions(
+            features = features,
+            regression = "always",
+            runtime = runtime,
+        )
+        normal_versions = solve_lf_versions(
+            features = features,
+            runtime = runtime,
+            regression = "yes",
+        )
+
+        all_dotted = [v.dotted for v in all_versions]
+        normal_dotted = [v.dotted for v in normal_versions]
+        if all_dotted != normal_dotted:
+            # buildifier: disable=print
+            print("lf_versioned_test '{}': regression='always' -> running with [{}] instead of [{}]".format(
+                name,
+                ", ".join(all_dotted),
+                ", ".join(normal_dotted),
+            ))
+        versions = all_versions
+    else:
+        versions = solve_lf_versions(
+            features = features,
+            runtime = runtime,
+            regression = regression,
+        )
 
     for version in versions:
-        target_fn(version)
+        versioned_name = "{}-{}".format(name, version.mangled_damlc)
+
+        # Deep-copy kwargs so we don't mutate across iterations
+        kw = dict(kwargs)
+
+        # Substitute {version} in data deps
+        if "data" in kw:
+            kw["data"] = _substitute_version_list(kw["data"], version)
+
+        # Substitute {version} in args
+        if "args" in kw:
+            kw["args"] = _substitute_version_list(kw["args"], version)
+
+        rule_fn(
+            name = versioned_name,
+            **kw
+        )

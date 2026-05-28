@@ -28,7 +28,7 @@ def parse_version(v):
         return struct(
             dotted = "{}.dev".format(major),
             mangled_java = "{}_dev".format(major),
-            mangled_damlc = "{}dev".format(major),
+            mangled_damlc = "v{}dev".format(major),
             major = major,
             minor = "dev",
             status = "dev",
@@ -41,7 +41,7 @@ def parse_version(v):
         return struct(
             dotted = "{}.{}-staging".format(major, minor),
             mangled_java = "{}_{}_staging".format(major, minor),
-            mangled_damlc = "{}{}staging".format(major, minor),
+            mangled_damlc = "v{}{}staging".format(major, minor),
             major = major,
             minor = minor,
             revision = revision,
@@ -53,7 +53,7 @@ def parse_version(v):
         return struct(
             dotted = "{}.{}".format(major, minor),
             mangled_java = "{}_{}".format(major, minor),
-            mangled_damlc = "{}{}".format(major, minor),
+            mangled_damlc = "v{}{}".format(major, minor),
             major = major,
             minor = minor,
             status = "stable",
