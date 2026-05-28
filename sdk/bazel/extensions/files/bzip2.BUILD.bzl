@@ -12,7 +12,7 @@ genrule(
     cmd = """
         CC=$$PWD/$(CC)
         PATCHELF=$$PWD/$(execpath @patchelf//:patchelf)
-        MAKE=$$PWD/$(execpath @hermetic_make_linux_amd64//:bin/make)
+        MAKE=$$PWD/$(execpath @hermetic_make_current_platform//:bin/make)
         SRC=$$(realpath $$(dirname $(location Makefile-libbz2_so)))
         PREFIX=$$(realpath $(@D))
         BUILD=$$(mktemp -d /tmp/bzip2-XXXXXX)
@@ -28,7 +28,7 @@ genrule(
         && rm -rf $$BUILD
     """,
     tools = [
-        "@hermetic_make_linux_amd64//:bin/make",
+        "@hermetic_make_current_platform//:bin/make",
         "@patchelf//:patchelf",
     ],
     toolchains = ["@rules_cc//cc:current_cc_toolchain"],
