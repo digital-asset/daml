@@ -81,7 +81,7 @@ export PATH="$(dirname "$EXECROOT/{cabal_path}"):$PATH"
 
 # Inject `-L<gmp_lib_dir>` into every link command driven by the inner
 # GHC (hadrian, ./configure, etc.) so gcc/ld can resolve `-lgmp` under
-# the hermetic Bootlin sysroot, which ships no libgmp. The hermetic
+# the hermetic sysroot, which ships no libgmp. The hermetic
 # `x86_64-buildroot-linux-gnu-gcc` is a *cross-compiler*; GCC's docs
 # (Environment-Variables, "LIBRARY_PATH") say `LIBRARY_PATH` is only
 # consulted "when configured as a native compiler", so the env-var
@@ -234,7 +234,7 @@ ghc_lib_sdist = rule(
                   "file directory is injected as `-optl-L<dir>` into every " +
                   "inner GHC invocation (via a `ghc` wrapper shim on PATH) " +
                   "so hadrian's deriveConstants link can resolve `-lgmp` " +
-                  "under the hermetic Bootlin sysroot.",
+                  "under the hermetic sysroot.",
         ),
         "_cc_toolchain": attr.label(default = "@rules_cc//cc:current_cc_toolchain"),
     },
