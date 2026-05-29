@@ -244,7 +244,10 @@ da_haskell_library(
             ":integration-lib",
         ],
     )
-    for version in solve_lf_versions(runtime = "long", regression = "always")
+    for version in solve_lf_versions(
+        regression = "always",
+        runtime = "long",
+    )
 ]
 
 # Tests for daml-doc

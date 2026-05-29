@@ -42,7 +42,6 @@ compatible set.
 load("//daml-lf:daml-lf.bzl", "ALL_LF_VERSIONS_STRUCT", "DEV_LF_VERSION_STRUCT", "LATEST_STABLE_LF_VERSION_STRUCT", "STAGING_LF_VERSION_STRUCT", "parse_version")
 load("@daml_features_data//:data.bzl", _FEATURES_DATA = "DATA")
 
-
 # ---------------------------------------------------------------------------
 # Version ordering — works on parsed version structs (.major, .minor)
 # ---------------------------------------------------------------------------
@@ -229,8 +228,6 @@ _PROFILES = {
     },
 }
 
-
-
 def solve_lf_versions(
         features = [],
         runtime = "short",
@@ -322,4 +319,3 @@ def _tag_version(v, tags):
         status = v.status,
         tags = tags,
     )
-
