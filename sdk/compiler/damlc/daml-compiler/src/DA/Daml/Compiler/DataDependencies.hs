@@ -12,6 +12,7 @@ module DA.Daml.Compiler.DataDependencies
 
 import DA.Pretty hiding (first)
 import Control.Applicative
+import Control.Lens hiding ((<.>))
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Bifunctor (first)
@@ -53,6 +54,7 @@ import "ghc-lib-parser" TysWiredIn
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Ast.Type as LF
 import qualified DA.Daml.LF.Ast.Alpha as LF
+import DA.Daml.LF.Ast.Util
 import qualified DA.Daml.LF.TypeChecker.Check as LF
 import qualified DA.Daml.LF.TypeChecker.Env as LF
 import qualified DA.Daml.LF.TypeChecker.Error as LF
@@ -60,7 +62,7 @@ import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options
 import DA.Daml.Options.Types
 import DA.Daml.StablePackages (stablePackageByModuleName)
-import DA.Daml.UtilGHC (fsFromText)
+import DA.Daml.UtilGHC (fsFromText, fsToText)
 
 import ComponentVersion.Class (ComponentVersioned, damlStdlib)
 
@@ -368,6 +370,8 @@ generateSrcFromLf env = noLoc mod
             , valueDecls
             , interfaceDecls
             , fixityDecls
+            , patsynDecls
+            , completePragmaDecls
             ]
         instDecls <- sequence instanceDecls
         pure $ decls <> catMaybes instDecls
@@ -391,6 +395,34 @@ generateSrcFromLf env = noLoc mod
     qualNameToSynName :: LFC.QualName -> LF.TypeSynName
     qualNameToSynName (LFC.QualName (LF.Qualified {LF.qualObject})) = LF.TypeSynName $ T.split (=='.') $ T.pack $ occNameString qualObject
 
+    mkWrappedRdrNameQual
+        :: (Located RdrName -> IEWrappedName RdrName)
+        -> LFC.QualName
+        -> Gen (LIEWrappedName RdrName)
+    mkWrappedRdrNameQual f = fmap (noLoc . f . noLoc) . mkRdrNameQual
+
+    mkRdrNameQual :: LFC.QualName -> Gen RdrName
+    mkRdrNameQual (LFC.QualName q) = do
+        ghcMod <- genModule env (LF.qualPackage q) (LF.qualModule q)
+        pure $ mkOrig ghcMod (LF.qualObject q)
+
+    -- Allows unqual regardless of name location, can be dangerous.
+    mkRdrNameUnqualUnsafe :: LFC.QualName -> Gen (Located RdrName)
+    mkRdrNameUnqualUnsafe (LFC.QualName q) = do
+      -- Emit the usage for imports, but don't use it
+      void $ genModule env (LF.qualPackage q) (LF.qualModule q)
+      pure $ noLoc $ mkRdrUnqual $ LF.qualObject q
+
+    -- Only allows unqual if the name comes from the same package and module
+    mkRdrNameUnqual :: LFC.QualName -> Gen (Located RdrName)
+    mkRdrNameUnqual name@(LFC.QualName q) =
+        if LF.qualPackage q /= LF.SelfPackageId || LF.qualModule q /= lfModName
+          then pure $ error "Tried to call mkRdrNameUnqual on non-local package/module"
+          else mkRdrNameUnqualUnsafe name
+
+    mkFieldLblRdrNameQual :: FieldLbl LFC.QualName -> Gen (Located (FieldLbl RdrName))
+    mkFieldLblRdrNameQual = fmap noLoc . traverse mkRdrNameQual
+
     allExports :: Gen [LIE GhcPs]
     allExports = sequence $ do
         LF.DefValue {dvalBinder=(name, ty)} <- NM.toList . LF.moduleValues $ envMod env
@@ -404,31 +436,20 @@ generateSrcFromLf env = noLoc mod
             mkLIE = fmap (fmap noLoc) . \case
                 LFC.ExportInfoVal name ->
                     pure $ IEVar NoExt
-                        <$> mkWrappedRdrName IEName name
+                        <$> mkWrappedRdrNameQual IEName name
+                LFC.ExportInfoPattern name ->
+                    pure $ IEVar NoExt
+                        <$> mkWrappedRdrNameQual IEPattern name
                 -- Classes that are duplicated in non-data-dependencies are replaced with re-exports of the other class
                 -- (for compatibility with old stdlibs)
                 -- As such, we do not want to export definitions that have already been re-exported/replaced
                 LFC.ExportInfoTC name _ _ | qualNameToSynName name `MS.member` classReexportMap -> []
                 LFC.ExportInfoTC name pieces fields ->
                     pure $ IEThingWith NoExt
-                        <$> mkWrappedRdrName IEType name
+                        <$> mkWrappedRdrNameQual IEType name
                         <*> pure NoIEWildcard
-                        <*> mapM (mkWrappedRdrName IEName) pieces
-                        <*> mapM mkFieldLblRdrName fields
-
-            mkWrappedRdrName ::
-                   (Located RdrName -> IEWrappedName RdrName)
-                -> LFC.QualName
-                -> Gen (LIEWrappedName RdrName)
-            mkWrappedRdrName f = fmap (noLoc . f . noLoc) . mkRdrName
-
-            mkRdrName :: LFC.QualName -> Gen RdrName
-            mkRdrName (LFC.QualName q) = do
-                ghcMod <- genModule env (LF.qualPackage q) (LF.qualModule q)
-                pure $ mkOrig ghcMod (LF.qualObject q)
-
-            mkFieldLblRdrName :: FieldLbl LFC.QualName -> Gen (Located (FieldLbl RdrName))
-            mkFieldLblRdrName = fmap noLoc . traverse mkRdrName
+                        <*> mapM (mkWrappedRdrNameQual IEName) pieces
+                        <*> mapM mkFieldLblRdrNameQual fields
 
     -- We only reexport self (i.e. module Self) when not using explicit exports
     selfReexport :: [Gen (LIE GhcPs)]
@@ -597,6 +618,99 @@ generateSrcFromLf env = noLoc mod
         let lvalD = noLoc . ValD noExt <$> mkStubBind env lname lfType
         [ lsigD, lvalD ]
 
+    -- Converts
+    -- ...constraints => ...args -> returntype
+    -- to
+    -- (constraints, args, returntype)
+    getConstraintsAndTypeArgs :: LF.Type -> ([LF.Type], [LF.Type], LF.Type)
+    getConstraintsAndTypeArgs = \case
+      (arg LF.:-> t)
+        | isConstraint arg -> let (consts, args, ret) = getConstraintsAndTypeArgs t in (arg : consts, args, ret)
+        | otherwise -> let (consts, args, ret) = getConstraintsAndTypeArgs t in (consts, arg : args, ret)
+      t -> ([], [], t)
+
+    -- Reads the type arguments, value arguments and match type of a pattern via its $mP type
+    -- See patsynDecls for more detail on $mP
+    extractPatSynTypeData :: LF.Type -> Maybe ([(LF.TypeVarName, LF.Kind)], [LF.Type], LF.Type)
+    extractPatSynTypeData (view _TForalls -> (tyargs, getConstraintsAndTypeArgs -> (_, matchtype : builder : _, _))) =
+      pure (drop 2 tyargs, dropIfOnlyVoid $ snd3 $ getConstraintsAndTypeArgs builder, matchtype)
+      where
+        dropIfOnlyVoid :: [LF.Type] -> [LF.Type]
+        dropIfOnlyVoid [LF.TCon con] | con == voidTCon (LF.versionMajor $ envLfVersion env) = []
+        dropIfOnlyVoid ts = ts
+    extractPatSynTypeData _ = Nothing
+
+    -- Pattern implementations are replaced by the original def, as per any other stub
+    -- however pattern stubs need a valid pattern for the given types in the stubs, there is no "Undefined" type
+    -- We use view patterns and explicitly bidirectional patterns to avoid this problem
+    -- pattern P a b <...> <- (undefined -> (a, b, <...>)) where P a b <...> = undefined
+    -- This appeases the type checker
+    -- We identify pattern synonyms by searching for definitions of this form
+    -- $mP : forall (rep : *) (r : *) (<...tyargs> : *). <matchtype> -> (<...args> -> r) -> (Void# -> r) -> r
+    -- which represents the following pattern:
+    -- pattern P : forall <...tyargs> : <...args> -> <matchtype>
+    -- Note that for no arguments, `<...args> -> r` will be `Void# -> r`, rather than simply `r`
+    -- We determine if a pattern has a builder by existing of a $bP value
+    -- There may also be a $mfieldsP which gives field names for record synonyms
+    patsynDecls :: [Gen (LHsDecl GhcPs)]
+    patsynDecls = do
+      LF.DefValue
+        { dvalBinder = 
+          ( LF.ExprValName (T.stripPrefix "$m" -> Just name)
+          , extractPatSynTypeData -> Just (tyargs, args, matchtype)
+          )
+        } <- NM.toList $ LF.moduleValues $ envMod env
+      let mBuilder = NM.lookup (LF.ExprValName $ "$b" <> name) $ LF.moduleValues $ envMod env
+          mGetFieldNames = do
+            LF.DefValue {dvalBinder=(_, LFC.decodeFieldNames -> Just labels)} <-
+              NM.lookup (LF.ExprValName $ "$mfields" <> name) $ LF.moduleValues $ envMod env
+            pure $ traverse mkRdrNameUnqual labels
+          isInfix = NM.member (LF.ExprValName $ "$minfix" <> name) $ LF.moduleValues $ envMod env
+          sigDef :: Gen (LHsDecl GhcPs) = do
+            -- Pattern synonyms don't like rankN foralls, so we join them into one
+            t <- convTypeJoiningForalls env reexportedClasses $ mkTForalls tyargs $ mkTFuns args matchtype
+            pure $ noLoc . SigD noExt . PatSynSig noExt [mkRdrName name] $ HsIB noExt $ noLoc t
+          patDef :: Gen (LHsDecl GhcPs) = do
+            errCall <- mkErrorCall env "patsyn bind"
+            let builderStub = mkMatchGroup FromSource [mkSimpleMatch (FunRhs (mkRdrName name) Prefix NoSrcStrict) [nlWildPat | _ <- args] errCall]
+                defaultArgNames = (\c -> mkRdrName $ T.pack [c]) <$> take (length args) ['a'..]
+            (argConType, argNames) <-
+              case (mGetFieldNames, isInfix) of
+                (Just getNames, False) -> do
+                  names <- getNames
+                  pure (RecCon $ (\name -> RecordPatSynField name name) <$> names, names)
+                -- Infix always provides 2 args, GHC invariant
+                (Nothing, True) -> pure (InfixCon (head defaultArgNames) (defaultArgNames !! 1), defaultArgNames)
+                (Nothing, False) -> pure (PrefixCon defaultArgNames, defaultArgNames)
+                (Just _, True) -> error $ "Internal error: Pattern " <> T.unpack name <> " is marked as infix and includes labels, invalid pattern encoding."
+            pure $ noLoc . ValD noExt . PatSynBind noExt $ PSB
+              noExt
+              (mkRdrName name)
+              argConType
+              (ParPat noExt $ noLoc $ ViewPat noExt errCall (TuplePat noExt [VarPat noExt name | name <- argNames] Boxed))
+              (if isJust mBuilder then ExplicitBidirectional builderStub else Unidirectional)
+          
+      [sigDef, patDef]
+
+    completePragmaDecls :: [Gen (LHsDecl GhcPs)]
+    completePragmaDecls = do
+      LF.DefValue
+        { dvalBinder = 
+          ( LF.ExprValName (T.stripPrefix "$complete" -> Just _)
+          , LFC.decodeLFCompleteMatch -> Just match
+          )
+        } <- NM.toList $ LF.moduleValues $ envMod env
+      pure $ do
+        subjectRdrName <- mkRdrNameQual $ LFC.subject match
+        -- Parser only allows the pragma to contain unqualified names, but supports those names coming from any module/package
+        -- (as long as one name comes from this module)
+        matchersRdrNames <- traverse mkRdrNameUnqualUnsafe $ LFC.matchers match
+        pure $ noLoc . SigD noExt $ CompleteMatchSig
+          noExt 
+          NoSourceText
+          (noLoc matchersRdrNames)
+          (Just $ noLoc subjectRdrName)
+
     -- | Generate instance declarations from dictionary functions.
     instanceDecls :: [Gen (Maybe (LHsDecl GhcPs))]
     instanceDecls = do
@@ -751,6 +865,16 @@ generateSrcFromLf env = noLoc mod
     shouldExposeDefTypeSyn LF.DefTypeSyn{..}
         = not (isHidden (RTypeSyn (qualify synName)))
 
+    patternSynonymRecordNames :: Set.Set T.Text
+    patternSynonymRecordNames = Set.fromList $ do
+      LF.DefValue
+        { dvalBinder = 
+          ( LF.ExprValName (T.stripPrefix "$mfields" -> Just _)
+          , LFC.decodeFieldNames -> Just labels
+          )
+        } <- NM.toList $ LF.moduleValues $ envMod env
+      fsToText . occNameFS . LF.qualObject . LFC.unQualName <$> labels
+
     shouldExposeDefValue :: LF.DefValue -> Bool
     shouldExposeDefValue LF.DefValue{..}
         | (lfName, lfType) <- dvalBinder
@@ -758,6 +882,7 @@ generateSrcFromLf env = noLoc mod
         && not (any isHidden (DL.toList (refsFromType lfType)))
         && (LF.moduleNameString lfModName /= "GHC.Prim")
         && not (LF.unExprValName lfName `Set.member` classMethodNames)
+        && not (LF.unExprValName lfName `Set.member` patternSynonymRecordNames)
 
     isInternalName :: T.Text -> Bool
     isInternalName t = case T.stripPrefix "$" t of
@@ -1113,6 +1238,18 @@ convTypeLiftingConstraintTuples env reexported = go where
         ty ->
             convType env reexported ty
 
+-- Pattern synonyms do not like separated foralls for each type variable, but our construction of LF types keeps these separate
+-- This method folds root foralls into one before converting the rest of the type
+-- It is equivalent to `convType` if the root node is not a TForall
+convTypeJoiningForalls :: ComponentVersioned => Env -> MS.Map LF.TypeSynName LF.PackageId -> LF.Type -> Gen (HsType GhcPs)
+convTypeJoiningForalls env reexported =
+    \case
+        LF.TForalls forallBinders forallBody -> do
+            binders <- traverse (convTyVarBinder env) forallBinders
+            body <- convType env reexported forallBody
+            pure . HsParTy noExt . noLoc $ HsForAllTy noExt binders (noLoc body)
+        t -> convType env reexported t
+
 convBuiltInTy :: ComponentVersioned => Env -> LF.BuiltinType -> Gen (HsType GhcPs)
 convBuiltInTy env =
     \case
@@ -1240,6 +1377,7 @@ generateSrcPkgFromLf envConfig pkg = do
         , "{-# LANGUAGE AllowAmbiguousTypes #-}"
         , "{-# LANGUAGE MagicHash #-}"
         , "{-# LANGUAGE DatatypeContexts #-}"
+        , "{-# LANGUAGE PatternSynonyms #-}"
         , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods -Wno-deprecations -Wno-x-crypto -Wno-x-exceptions #-}"
         ]
 
@@ -1604,6 +1742,13 @@ promotedTextTCon major =
         major
         ["DA", "Internal", "PromotedText"]
         "PromotedText"
+
+voidTCon :: LF.MajorVersion -> LF.Qualified LF.TypeConName
+voidTCon major =
+    stableTCon
+        major
+        ["GHC", "Prim"]
+        "Void#"
 
 -- | Returns the ID of the stable package for the given major version and module
 -- name, throws if it doesn't exist.
