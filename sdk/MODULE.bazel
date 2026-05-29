@@ -66,13 +66,9 @@ register_toolchains("@bsd_tar_toolchains//:all")
 register_toolchains("@llvm_toolchains//:all")
 register_toolchains("//:c2hs-toolchain")
 
-# --- Hermetic GNU make (built from source at fetch time) ---
-# Consumed by repository rules that run autoconf/`make`-driven host
-# scripts. No `register_toolchains` -- this is not a Bazel toolchain in
-# the toolchain-resolution sense; it is a fetch-time binary. See
-# `sdk/bazel/extensions/make_toolchain_extension.bzl` for the rationale.
-make_toolchain_ext = use_extension("//bazel/extensions:make_toolchain_extension.bzl", "make_toolchain")
-use_repo(make_toolchain_ext, hermetic_make_current_platform = "hermetic_make_linux_amd64")
+# --- Hermetic GNU make ---
+make_ext = use_extension("//bazel/extensions:make_extension.bzl", "make")
+use_repo(make_ext, "make")
 
 # --- Node.js toolchain ---
 
