@@ -41,7 +41,6 @@ compatible set.
 
 load("//daml-lf:daml-lf.bzl", "ALL_LF_VERSIONS_STRUCT", "DEV_LF_VERSION_STRUCT", "LATEST_STABLE_LF_VERSION_STRUCT", "STAGING_LF_VERSION_STRUCT", "parse_version")
 load("@daml_features_data//:data.bzl", _FEATURES_DATA = "DATA")
-load("//daml-lf:lf_solver_profile.bzl", "LF_SOLVER_PROFILE")
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +230,6 @@ _PROFILES = {
 }
 
 
-_DEFAULT_PROFILE = LF_SOLVER_PROFILE
 
 def solve_lf_versions(
         features = [],
