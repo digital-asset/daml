@@ -222,7 +222,7 @@ jobs:
                       ')
                   body=$(printf "Canton changes:\n\n%s\n\ntell-slack: canton" "$changelog")
 
-                  open_pr "$branch" "update canton to $version" "$body" "" "$(Build.SourceBranchName)"
+                  open_pr "$branch" "update canton to $version" "$body" "" "$(Build.SourceBranchName)" "ci-generated-canton-upgrade"
                   az pipelines build queue --branch "$branch" \
                                            --definition-name "PRs" \
                                            --org "https://dev.azure.com/digitalasset" \

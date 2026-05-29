@@ -33,12 +33,13 @@ steps:
         fi
     }
     open_pr() {
-      local branch title body pr_number base header output
+      local branch title body pr_number base label header output
       branch="$1"
       title="$2"
       body="${3:-}"
       pr_number="${4:-}"
       base="${5:-main}"
+      label="${6:-}"
       header=$(mktemp)
       output=$(mktemp)
 
@@ -66,6 +67,19 @@ steps:
       cat "$header" "$output"
       if [ -n "$pr_number" ]; then
           jq '.number' "$output" > "$pr_number"
+      fi
+      if [ -n "$label" ]; then
+          local pr_num
+          pr_num=$(jq -r '.number' "$output")
+          jq -n --arg label "$label" \
+                '{"labels": [$label]}' \
+            | curl -H "Content-Type: application/json" \
+                   -H "$(get_gh_auth_header)" \
+                   --fail \
+                   --silent \
+                   --location \
+                   -d @- \
+                   "https://api.github.com/repos/digital-asset/daml/issues/$pr_num/labels"
       fi
     }
     request_pr_review() {
