@@ -7,6 +7,7 @@ package test
 
 import java.nio.file.{Path, Paths}
 import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.integrationtest.CantonConfig
 import com.daml.integrationtest.CantonConfig.{ProtocolVersion, TimeProviderType}
 import com.daml.integrationtest.CantonFixture
 import com.daml.testing.utils.PekkoBeforeAndAfterAll
@@ -38,10 +39,14 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
       ),
     )
 
-  override protected lazy val protocolVersion: ProtocolVersion = ProtocolVersion.Explicit("v35")
+  // TODO[https://github.com/digital-asset/daml/issues/23016]: we need to be smarter
+  // about the protocolversion that we set
+  override protected lazy val protocolVersion: ProtocolVersion = ProtocolVersion.Dev
 
-  // TODO[23015]: reconsider the lf version here
-  // TODO[23016]: get rid of hardcoded string when some kind of `renderForDaml` has been added to canton
+  // TODO[https://github.com/digital-asset/daml/issues/23015]: reconsider the lf
+  // version here
+  // TODO[https://github.com/digital-asset/daml/issues/23016]: get rid of
+  // hardcoded string when some kind of `renderForDaml` has been added to canton
   lazy val darPath: Path = rlocation(
     Paths.get(s"daml-script/test/script-test-v2.4-staging.dar")
   )
@@ -54,6 +59,14 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
     case ScriptTimeMode.Static => TimeProviderType.Static
     case ScriptTimeMode.WallClock => TimeProviderType.WallClock
   }
+
+  // TODO[https://github.com/digital-asset/daml/issues/23016]: be smarter about this:
+  // set appropriate lf move depending on the dar passed
+  // TODO[https://github.com/digital-asset/daml/issues/23016]: swap to enable beta
+  // support as long as 2.4-staging is hardcoded (needs 2.4-rc1 to be included
+  // in earlyAccessVersions canton side first)
+  override protected def cantonConfig(): CantonConfig =
+    super.cantonConfig().copy(enableLfDevVersionSupport = true)
 
   final protected def run(
       clients: Participants[ScriptLedgerClient],

@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.engine.script
 package test
 
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.integrationtest.CantonConfig
 import com.daml.integrationtest.CantonConfig.ProtocolVersion
 import org.scalatest.Suite
 
@@ -14,6 +15,14 @@ class DamlScriptTestRunnerDev extends DamlScriptTestRunner {
   self: Suite =>
 
   override lazy val protocolVersion = ProtocolVersion.Dev
+
+  // TODO[https://github.com/digital-asset/daml/issues/23016]: be smarter about
+  // this: set appropriate lf move depending on the dar passed
+  // TODO[https://github.com/digital-asset/daml/issues/23016]: swap to enable
+  // beta support as long as 2.4-staging is hardcoded (needs 2.4-rc1 to be
+  // included in earlyAccessVersions canton side first)
+  override protected def cantonConfig(): CantonConfig =
+    super.cantonConfig().copy(enableLfDevVersionSupport = true)
 
   val trySubmitTestDarPath =
     Paths.get(BazelRunfiles.rlocation("compiler/damlc/tests/submit-test.dar"))

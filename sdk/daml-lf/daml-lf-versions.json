@@ -3,15 +3,6 @@
     {
       "major" : 2,
       "minor" : {
-        "Staging" : {
-          "version" : 3,
-          "revision" : 1
-        }
-      }
-    },
-    {
-      "major" : 2,
-      "minor" : {
         "Stable" : {
           "version" : 1
         }
@@ -58,31 +49,24 @@
           "version" : 2
         }
       }
-    },
-    {
-      "major" : 2,
-      "minor" : {
-        "Staging" : {
-          "version" : 3,
-          "revision" : 2
-        }
-      }
     }
   ],
   "namedVersions" : {
-    "defaultLfVersion" : {
+    "stagingLfVersion" : {
       "major" : 2,
       "minor" : {
-        "Stable" : {
-          "version" : 2
+        "Staging" : {
+          "version" : 4,
+          "revision" : 1
         }
       }
     },
-    "devLfVersion" : {
+    "stagingLfVersionSDK" : {
       "major" : 2,
       "minor" : {
-        "Dev" : {
-          
+        "Staging" : {
+          "version" : 4,
+          "revision" : 1
         }
       }
     },
@@ -94,12 +78,19 @@
         }
       }
     },
-    "stagingLfVersion" : {
+    "devLfVersion" : {
       "major" : 2,
       "minor" : {
-        "Staging" : {
-          "version" : 4,
-          "revision" : 1
+        "Dev" : {
+          
+        }
+      }
+    },
+    "defaultLfVersion" : {
+      "major" : 2,
+      "minor" : {
+        "Stable" : {
+          "version" : 2
         }
       }
     }

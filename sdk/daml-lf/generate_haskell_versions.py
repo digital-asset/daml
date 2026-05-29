@@ -8,9 +8,20 @@ from lf_version_util import parse_version_dict, version_sort_key, version_to_key
 
 # --- Generators
 
+def _ref_for_version(v, lookup_map):
+    """Look up a Haskell ref for a version dict, falling back to an inline
+    `Version V2 (...)` literal when the version is not in `explicitVersions`
+    (e.g. discontinued staging revisions that are no longer compiled against,
+    but are still referenced from `versionLists`/`namedVersions`)."""
+    key = version_to_key(v)
+    if key in lookup_map:
+        return lookup_map[key]
+    _, _, haskell_constructor, _ = parse_version_dict(v)
+    return f"(Version V2 ({haskell_constructor}))"
+
 def generate_haskell_list(name, docstring, version_dicts, lookup_map):
     """Generates a Haskell list definition with deduplication."""
-    raw_refs = [lookup_map[version_to_key(v)] for v in version_dicts]
+    raw_refs = [_ref_for_version(v, lookup_map) for v in version_dicts]
 
     unique_refs = []
     seen = set()
@@ -27,7 +38,7 @@ def generate_haskell_list(name, docstring, version_dicts, lookup_map):
 
 def generate_haskell_singleton(name, docstring, version_dict, lookup_map):
     """Generates a Haskell singleton definition (alias)."""
-    ref = lookup_map[version_to_key(version_dict)]
+    ref = _ref_for_version(version_dict, lookup_map)
     return [
         f"-- | {docstring}",
         f"{name} :: Version",

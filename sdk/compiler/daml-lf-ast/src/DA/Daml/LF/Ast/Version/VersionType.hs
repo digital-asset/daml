@@ -24,7 +24,7 @@ import           DA.Pretty
 
 -- | Map from staging minor version to its current revision number.
 stagingRevision :: Map.Map Int Int
-stagingRevision = Map.fromList [(3, 2), (4, 1)]
+stagingRevision = Map.fromList [(4, 1)]
 
 -- | Daml-LF version of an archive payload.
 data Version = Version
