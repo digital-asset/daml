@@ -13,7 +13,7 @@ AUTOMAKE_SHA256 = "07bd24ad08a64bc17250ce09ec56e921d6343903943e99ccf63bbf0705e34
 M4_VERSION = "1.4.19"
 M4_SHA256 = "3be4a26d825ffdfda52a56fc43246456989a3630093cced3fbddf4771ee58a70"
 
-# -- make (built from source at fetch time; see make_toolchain_extension.bzl) --
+# -- make --
 # https://ftp.gnu.org/gnu/make/
 MAKE_VERSION = "4.4.1"
 MAKE_SHA256 = "dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3"
