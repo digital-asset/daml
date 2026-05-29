@@ -238,6 +238,7 @@ da_haskell_library(
         ],
         main_function = "DA.Test.DamlcIntegrationMain.main",
         src_strip_prefix = "src",
+        tags = version.tags,
         visibility = ["//visibility:public"],
         deps = [
             ":integration-lib",

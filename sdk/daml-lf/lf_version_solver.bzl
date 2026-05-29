@@ -237,32 +237,31 @@ def solve_lf_versions(
         features = [],
         runtime = "short",
         regression = "yes",
-        profile = _DEFAULT_PROFILE,
         override_versions = None):
     """
-    Main entry point. Returns a list of LF version structs.
+    Returns all compatible LF versions, each annotated with tags indicating
+    which CI profiles should run them.
+
+    The result is a list of structs, each with all fields from the parsed
+    version (.dotted, .mangled_damlc, .major, .minor, .status) plus:
+      .tags: list of strings to add to the target's tags
+
+    Targets that should only run on main (not PRs) get tagged "main-only",
+    which the existing CI tag filter already excludes on PR builds.
 
     Args:
         features: List of feature names required by the test.
-        runtime: "short" or "long" (None when using override_versions).
-        regression: "yes", "no", or "always" (None when using override_versions).
-            - "yes": profile/runtime determine how many versions to test
-            - "no": test with minimal versions
-            - "always": run ALL compatible versions regardless of runtime
-              (except in "quick" profile, which always runs staging only)
-        profile: "quick", "pr", "main", or "nightly" (global CI config, not per-target).
-        override_versions: Explicit version struct list. Validated against
-            feature-compatible versions — fails if empty or contains incompatible versions.
+        runtime: "short" or "long".
+        regression: "yes", "no", or "always".
+        override_versions: Explicit version struct list. Validated against features.
 
     Returns:
-        List of parsed version structs.
+        List of version structs augmented with .tags field.
     """
 
     compatible = _compatible_versions(features)
 
     if override_versions:
-        if not override_versions:
-            fail("override_versions must not be empty")
         for ov in override_versions:
             found = False
             for cv in compatible:
@@ -275,24 +274,54 @@ def solve_lf_versions(
                          ov.dotted if hasattr(ov, "dotted") else str(ov),
                          ", ".join([c.dotted for c in compatible]),
                      ))
-        return override_versions
+        return [_tag_version(v, []) for v in override_versions]
 
+    if not compatible:
+        fail("No compatible LF versions found for the given feature requirements.")
+
+    # Compute which versions each profile would select
+    pr_versions = _apply_strategy(
+        _PROFILES["pr"].get((runtime, regression if regression != "always" else "yes"), "all"),
+        compatible,
+    )
+    main_versions = _apply_strategy(
+        _PROFILES["main"].get((runtime, regression if regression != "always" else "yes"), "all"),
+        compatible,
+    )
+
+    # If regression="always", all compatible versions are included;
+    # otherwise only main_versions are included
     if regression == "always":
-        if not compatible:
-            fail("No compatible LF versions found for the given feature requirements.")
-        if profile == "quick":
-            # Quick profile overrides even "always" — dev speed matters most
-            return _apply_strategy("staging_only", compatible)
-        return compatible
+        all_versions = compatible
+    else:
+        all_versions = main_versions
 
-    profile_map = _PROFILES.get(profile)
-    if not profile_map:
-        fail("Unknown profile: {}".format(profile))
+    result = []
+    for v in all_versions:
+        tags = []
+        in_pr = _version_in_list(v, pr_versions)
+        if not in_pr:
+            tags.append("main-only")
+        result.append(_tag_version(v, tags))
 
-    key = (runtime, regression)
-    strategy = profile_map.get(key)
-    if not strategy:
-        fail("No strategy for ({}, {}) in profile {}".format(runtime, regression, profile))
+    return result
 
-    return _apply_strategy(strategy, compatible)
+def _version_in_list(v, versions):
+    """Check if version v is in the list of versions (by key equality)."""
+    for other in versions:
+        if _version_eq(v, other):
+            return True
+    return False
+
+def _tag_version(v, tags):
+    """Augment a version struct with a .tags field."""
+    return struct(
+        dotted = v.dotted,
+        mangled_damlc = v.mangled_damlc,
+        mangled_java = v.mangled_java,
+        major = v.major,
+        minor = v.minor,
+        status = v.status,
+        tags = tags,
+    )
 
