@@ -16,10 +16,11 @@ class DamlScriptTestRunnerDev extends DamlScriptTestRunner {
 
   override lazy val protocolVersion = ProtocolVersion.Dev
 
-  // TODO[23016]: be smarter about this: set appropriate lf move depending on the dar passed
-  // TODO[23016]: swap to enable beta support as long as 2.4-staging is
-  // hardcoded (needs 2.4-rc1 to be included in earlyAccessVersions canton side
-  // first)
+  // TODO[https://github.com/digital-asset/daml/issues/23016]: be smarter about
+  // this: set appropriate lf move depending on the dar passed
+  // TODO[https://github.com/digital-asset/daml/issues/23016]: swap to enable
+  // beta support as long as 2.4-staging is hardcoded (needs 2.4-rc1 to be
+  // included in earlyAccessVersions canton side first)
   override protected def cantonConfig(): CantonConfig =
     super.cantonConfig().copy(enableLfDevVersionSupport = true)
 
