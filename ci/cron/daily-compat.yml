@@ -198,13 +198,17 @@ jobs:
 
           version=$(ci/refresh-canton.sh)
 
+          echo "> Updating daml-lf version and feature JSON files" >&2
+          bazel run //daml-lf:update-daml-lf-versions
+          bazel run //daml-lf:update-daml-lf-features
+
           branch="main-canton-update-$version"
 
-          if git diff --exit-code origin/$(Build.SourceBranchName) -- canton >/dev/null; then
+          if git diff --exit-code origin/$(Build.SourceBranchName) -- canton daml-lf/daml-lf-versions.json daml-lf/daml-lf-features.json >/dev/null; then
               echo "Already up-to-date with latest Canton source & snapshot."
           else
               if [ "main" = "$(Build.SourceBranchName)" ]; then
-                  git add canton/canton_version.bzl canton/shared_dependencies.json maven_install_2.13.json
+                  git add canton/canton_version.bzl canton/shared_dependencies.json maven_install_2.13.json daml-lf/daml-lf-versions.json daml-lf/daml-lf-features.json
                   new_canton_commit="${version##*v}"
 
                   # Build PR body with a list of canton commit descriptions between old and new
