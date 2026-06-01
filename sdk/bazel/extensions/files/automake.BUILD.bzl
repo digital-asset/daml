@@ -1,6 +1,6 @@
 load(
-    "@//bazel/rules:install_gnu_tool.bzl",
-    "install_gnu_tool",
+    "@//bazel/rules:build_gnu_tool.bzl",
+    "build_gnu_tool",
 )
 
 exports_files(["README"])
@@ -11,13 +11,14 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-install_gnu_tool(
+build_gnu_tool(
     name = "automake",
     srcs = ":srcs",
     configure = "configure",
+    make = "@make//:make",
     perl = "@rules_perl//:current_toolchain",
-    # Thread hermetic GNU make alongside m4 so `install_gnu_tool` uses an
-    # explicit `make` binary instead of relying on host PATH.
+    # Thread hermetic GNU make alongside m4 so the build uses an explicit
+    # `make`/`m4` instead of relying on host PATH.
     extra_tools = [
         "@make//:make",
         "@m4//:m4",
