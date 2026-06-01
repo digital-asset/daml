@@ -1,6 +1,6 @@
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain")
-load("//bazel/rules:install_gnu_tool.bzl", "InstalledGnuToolInfo")
+load("//bazel/rules:build_gnu_tool.bzl", "InstalledGnuToolInfo")
 
 def _ghc_lib_sdist_impl(ctx):
     component = ctx.attr.component
@@ -33,7 +33,7 @@ def _ghc_lib_sdist_impl(ctx):
         action_name = ACTION_NAMES.cpp_link_executable,
     )
 
-    # -- Autotools prefix (InstalledGnuToolInfo from install_gnu_tool) --
+    # -- Autotools prefix (InstalledGnuToolInfo from build_gnu_tool) --
     autotools_info = ctx.attr.autotools[InstalledGnuToolInfo]
 
     # -- Perl binary --
