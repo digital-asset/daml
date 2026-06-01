@@ -19,7 +19,7 @@ install_gnu_tool(
     # Thread hermetic GNU make alongside m4 so `install_gnu_tool` uses an
     # explicit `make` binary instead of relying on host PATH.
     extra_tools = [
-        "@hermetic_make_current_platform//:bin/make",
+        "@make//:make",
         "@m4//:m4",
     ],
     pre_build_srcs = ["@autoconf//:srcs"],
