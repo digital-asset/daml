@@ -1,26 +1,27 @@
-genrule(
-    name = "m4_binary",
+load(
+    "@//bazel/rules:build_gnu_tool.bzl",
+    "build_gnu_tool",
+)
+
+filegroup(
+    name = "srcs",
     srcs = glob(["**"]),
-    outs = ["m4"],
-    toolchains = ["@rules_cc//cc:current_cc_toolchain"],
-    # Resolve `make` from the hermetic GNU make repository instead of PATH.
-    # This keeps the action reproducible across environments where host
-    # `make` may not be installed.
-    cmd = """
-        set -euo pipefail
+    visibility = ["//visibility:public"],
+)
 
-        OUT=$$PWD/$@
-        CC=$$PWD/$(CC)
-        MAKE=$$PWD/$(execpath @hermetic_make_current_platform//:bin/make)
-        SRC=$$(dirname $(location configure))
+build_gnu_tool(
+    name = "m4",
+    srcs = ":srcs",
+    configure = "configure",
+    make = "@make//:make",
+    built_path = "src/m4",
+    binary = "bin/m4",
+    visibility = ["//visibility:public"],
+)
 
-        cd $$SRC
-
-        CC=$$CC ./configure
-        $$MAKE -j
-
-        cp src/m4 $$OUT
-    """,
-    tools = ["@hermetic_make_current_platform//:bin/make"],
+# Back-compat alias: consumers refer to `@m4//:m4_binary`.
+alias(
+    name = "m4_binary",
+    actual = ":m4",
     visibility = ["//visibility:public"],
 )
