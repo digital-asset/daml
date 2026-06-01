@@ -1,41 +1,28 @@
-genrule(
-    name = "gmp_build",
+load(
+    "@//bazel/rules:configure_make.bzl",
+    "configure_make",
+)
+
+filegroup(
+    name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+
+configure_make(
+    name = "gmp_build",
+    srcs = ":srcs",
+    configure = "configure",
+    make = "@make//:make",
+    m4 = "@m4//:m4",
+    configure_flags = [
+        "--enable-shared",
+        "--disable-static",
+    ],
     outs = [
         "lib/libgmp.so",
         "lib/libgmp.so.10",
     ],
-    # Resolve `make` from the hermetic GNU make repository instead of PATH.
-    # This keeps the action reproducible across environments where host
-    # `make` may not be installed.
-    cmd = """
-        CC=$$PWD/$(CC)
-        AR=$$PWD/$(AR)
-        M4=$$PWD/$(execpath @m4//:m4_binary)
-        MAKE=$$PWD/$(execpath @hermetic_make_current_platform//:bin/make)
-        SRC=$$(dirname $(location configure))
-        PREFIX=$$(realpath $(@D))
-        cd $$SRC && CC="$$CC" AR="$$AR" M4=$$M4 \
-        ./configure \
-            --prefix=$$PREFIX \
-            --with-shared \
-            --disable-static \
-        && $$MAKE -j$$(nproc) CC="$$CC" AR="$$AR" \
-        && $$MAKE install \
-        && cd $$PREFIX/lib \
-        && for f in *.so *.so.*; do \
-            if [ -L "$$f" ]; then \
-                target=$$(readlink -f "$$f"); \
-                rm "$$f"; \
-                cp "$$target" "$$f"; \
-            fi; \
-        done
-    """,
-    tools = [
-        "@hermetic_make_current_platform//:bin/make",
-        "@m4//:m4_binary",
-    ],
-    toolchains = ["@rules_cc//cc:current_cc_toolchain"],
 )
 
 filegroup(
