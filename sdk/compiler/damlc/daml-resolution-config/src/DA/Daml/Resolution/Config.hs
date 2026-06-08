@@ -302,6 +302,8 @@ instance Aeson.FromJSON ValidPackageResolution where
       parseSdkVersion obj = case KM.lookup (Key.fromText "sdk-version") obj of
         Nothing -> pure Nothing
         Just (Aeson.String "") -> pure Nothing
+        -- Sometimes DPM gives `sdk-version: null` instead of omitting the field.
+        Just Aeson.Null -> pure Nothing
         Just ver -> Just <$> parseJSON ver
       -- Worst outcome is `dpm new` would do something wrong.
       componentsToV2 :: Map.Map String FilePath -> Map.Map String ComponentData
