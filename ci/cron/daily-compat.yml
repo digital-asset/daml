@@ -202,6 +202,15 @@ jobs:
           bazel run //daml-lf:update-daml-lf-versions
           bazel run //daml-lf:update-daml-lf-features
 
+          # Track which generated files were actually updated
+          update_bullets=""
+          if ! git diff --quiet -- daml-lf/daml-lf-versions.json; then
+            update_bullets="${update_bullets}- daml-lf/daml-lf-versions.json was updated by running //daml-lf:update-daml-lf-versions\n"
+          fi
+          if ! git diff --quiet -- daml-lf/daml-lf-features.json; then
+            update_bullets="${update_bullets}- daml-lf/daml-lf-features.json was updated by running //daml-lf:update-daml-lf-features\n"
+          fi
+
           branch="main-canton-update-$version"
 
           if git diff --exit-code origin/$(Build.SourceBranchName) -- canton daml-lf/daml-lf-versions.json daml-lf/daml-lf-features.json >/dev/null; then
@@ -224,7 +233,14 @@ jobs:
                       ]
                       | join("\n")
                       ')
-                  body=$(printf "Canton changes:\n\n%s\n\ntell-slack: canton" "$changelog")
+
+                  # Build optional header for generated file updates
+                  updates_section=""
+                  if [ -n "$update_bullets" ]; then
+                    updates_section=$(printf "After updating canton, the following changes were made:\n%s\n" "$update_bullets")
+                  fi
+
+                  body=$(printf "%sCanton changes:\n\n%s\n\ntell-slack: canton" "$updates_section" "$changelog")
 
                   open_pr "$branch" "update canton to $version" "$body" "" "$(Build.SourceBranchName)" "ci-generated-canton-upgrade"
                   az pipelines build queue --branch "$branch" \
