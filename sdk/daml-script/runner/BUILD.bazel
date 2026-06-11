@@ -117,6 +117,7 @@ da_scala_test(
     ),
     deps = [
         ":script-runner-lib",
+        "@maven//:com_daml_base_errors_2_13",
     ],
 )
 

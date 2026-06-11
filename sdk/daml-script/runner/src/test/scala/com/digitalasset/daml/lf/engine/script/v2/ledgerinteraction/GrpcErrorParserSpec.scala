@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
 
+import com.digitalasset.base.error.ErrorResource
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -105,8 +106,8 @@ class GrpcErrorParserSpec extends AsyncFreeSpec with Matchers {
       resources,
     )
 
-  private val ExternalCallExtensionId = "EXTERNAL_CALL_EXTENSION_ID"
-  private val ExternalCallFunctionId = "EXTERNAL_CALL_FUNCTION_ID"
-  private val ExceptionText = "EXCEPTION_TEXT"
-  private val TemplateId = "TEMPLATE_ID"
+  private val ExternalCallExtensionId = ErrorResource.ExternalCallExtensionId.asString
+  private val ExternalCallFunctionId = ErrorResource.ExternalCallFunctionId.asString
+  private val ExceptionText = ErrorResource.ExceptionText.asString
+  private val TemplateId = ErrorResource.TemplateId.asString
 }
