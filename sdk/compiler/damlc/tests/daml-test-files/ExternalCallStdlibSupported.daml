@@ -10,3 +10,7 @@ import DA.External (externalCall)
 smoke : Update Text
 smoke =
   externalCall "price-oracle" "get-price" "a1b2" "0011"
+
+emptyPayloads : Update Text
+emptyPayloads =
+  externalCall "price-oracle" "get-price" "" ""
