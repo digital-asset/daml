@@ -539,17 +539,17 @@ object GrpcErrorParser {
             SubmitError.CryptoError.MalformedSignature(signature, message)
         }
 
-      case "INTERPRETATION_EXTERNAL_CALL_PREPARATION_FAILED" =>
+      case "INTERPRETATION_EXTERNAL_CALL_ERROR_PREPARATION_FAILED" =>
         externalCallErr[SubmitError.ExternalCallError.PreparationFailed](
           SubmitError.ExternalCallError.PreparationFailed.apply
         )
 
-      case "INTERPRETATION_EXTERNAL_CALL_EXECUTION_FAILED" =>
+      case "INTERPRETATION_EXTERNAL_CALL_ERROR_EXECUTION_FAILED" =>
         externalCallErr[SubmitError.ExternalCallError.ExecutionCallFailed](
           SubmitError.ExternalCallError.ExecutionCallFailed.apply
         )
 
-      case "INTERPRETATION_EXTERNAL_CALL_INVALID_OUTPUT" =>
+      case "INTERPRETATION_EXTERNAL_CALL_ERROR_INVALID_OUTPUT" =>
         externalCallErr[SubmitError.ExternalCallError.ExecutionInvalidOutput](
           SubmitError.ExternalCallError.ExecutionInvalidOutput.apply
         )

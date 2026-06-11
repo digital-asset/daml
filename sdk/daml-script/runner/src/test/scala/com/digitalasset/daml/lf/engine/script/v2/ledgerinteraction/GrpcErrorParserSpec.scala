@@ -11,7 +11,7 @@ class GrpcErrorParserSpec extends AsyncFreeSpec with Matchers {
   "GrpcErrorParser" - {
     "parse external-call preparation failures" in {
       errorDetails(
-        "INTERPRETATION_EXTERNAL_CALL_PREPARATION_FAILED",
+        "INTERPRETATION_EXTERNAL_CALL_ERROR_PREPARATION_FAILED",
         Seq(
           ExternalCallExtensionId -> "test-extension",
           ExternalCallFunctionId -> "test-function",
@@ -26,7 +26,7 @@ class GrpcErrorParserSpec extends AsyncFreeSpec with Matchers {
 
     "parse external-call execution failures" in {
       errorDetails(
-        "INTERPRETATION_EXTERNAL_CALL_EXECUTION_FAILED",
+        "INTERPRETATION_EXTERNAL_CALL_ERROR_EXECUTION_FAILED",
         Seq(
           ExternalCallExtensionId -> "test-extension",
           ExternalCallFunctionId -> "test-function",
@@ -41,7 +41,7 @@ class GrpcErrorParserSpec extends AsyncFreeSpec with Matchers {
 
     "parse external-call invalid output failures" in {
       errorDetails(
-        "INTERPRETATION_EXTERNAL_CALL_INVALID_OUTPUT",
+        "INTERPRETATION_EXTERNAL_CALL_ERROR_INVALID_OUTPUT",
         Seq(
           ExternalCallExtensionId -> "test-extension",
           ExternalCallFunctionId -> "test-function",
@@ -56,7 +56,7 @@ class GrpcErrorParserSpec extends AsyncFreeSpec with Matchers {
 
     "parse external-call resources independent of order and extra resources" in {
       errorDetails(
-        "INTERPRETATION_EXTERNAL_CALL_PREPARATION_FAILED",
+        "INTERPRETATION_EXTERNAL_CALL_ERROR_PREPARATION_FAILED",
         Seq(
           ExceptionText -> "bad config",
           TemplateId -> "ignored:module:Template",
@@ -73,7 +73,7 @@ class GrpcErrorParserSpec extends AsyncFreeSpec with Matchers {
     "degrade malformed external-call resources to truncated errors" in {
       val expected = SubmitError.TruncatedError(
         "PreparationFailed",
-        "INTERPRETATION_EXTERNAL_CALL_PREPARATION_FAILED(9,XXXXXXXX): external call test",
+        "INTERPRETATION_EXTERNAL_CALL_ERROR_PREPARATION_FAILED(9,XXXXXXXX): external call test",
       )
 
       Seq(
@@ -89,7 +89,7 @@ class GrpcErrorParserSpec extends AsyncFreeSpec with Matchers {
         ),
       ).map(resources =>
         errorDetails(
-          "INTERPRETATION_EXTERNAL_CALL_PREPARATION_FAILED",
+          "INTERPRETATION_EXTERNAL_CALL_ERROR_PREPARATION_FAILED",
           resources,
         )
       ) shouldBe Seq(expected, expected)
