@@ -527,6 +527,8 @@ prettyScriptErrorError lvl (Just err) =  do
        pure $ text $ TL.toStrict scriptError_UpgradeErrorMessage
     ScriptErrorErrorCryptoError ScriptError_CryptoError {..} -> do
       pure $ text $ TL.toStrict scriptError_CryptoErrorMessage
+    ScriptErrorErrorExternalCallError ScriptError_ExternalCallError {..} -> do
+      pure $ text $ TL.toStrict scriptError_ExternalCallErrorMessage
     ScriptErrorErrorEffectfulRollbackError (ScriptError_EffectfulRollbackError msg) -> do
       pure $ "EffectfulRollbackError:" <-> text (TL.toStrict msg)
 

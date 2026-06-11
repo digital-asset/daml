@@ -425,11 +425,27 @@ class IdeLedgerClient(
           innerError.getClass.getSimpleName,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
-      // TODO[https://github.com/digital-asset/canton/issues/513]: implement external call
-      case e: ExternalCall =>
-        sys.error(
-          s"ExternalCall detected in IdeLedgerClient. Value is: $e"
+      case e @ ExternalCall(innerError: ExternalCall.PreparationFailed) =>
+        SubmitError.ExternalCallError.PreparationFailed(
+          innerError.extensionId,
+          innerError.functionId,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
+      case e @ ExternalCall(innerError: ExternalCall.ExecutionFailed) =>
+        innerError.error match {
+          case _: ExternalCall.ExecutionFailed.CallFailed =>
+            SubmitError.ExternalCallError.ExecutionCallFailed(
+              innerError.extensionId,
+              innerError.functionId,
+              Pretty.prettyDamlException(e).renderWideStream.mkString,
+            )
+          case _: ExternalCall.ExecutionFailed.InvalidOutput =>
+            SubmitError.ExternalCallError.ExecutionInvalidOutput(
+              innerError.extensionId,
+              innerError.functionId,
+              Pretty.prettyDamlException(e).renderWideStream.mkString,
+            )
+        }
     }
   }
 

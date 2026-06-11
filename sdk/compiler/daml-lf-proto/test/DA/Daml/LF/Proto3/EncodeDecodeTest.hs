@@ -8,8 +8,10 @@ module DA.Daml.LF.Proto3.EncodeDecodeTest (
 ) where
 
 
+import           Control.Exception                       (ErrorCall, displayException, evaluate, try)
 import qualified Data.NameMap                             as NM
-import           Data.Text                                hiding (map)
+import           Data.List                                (isInfixOf)
+import           Data.Text                                hiding (isInfixOf, length, map)
 
 
 import           DA.Daml.LF.Proto3.Encode
@@ -36,6 +38,7 @@ entry = defaultMain $ testGroup "Round-trip tests"
     , rttTyLam
     , rttTyLamAndLet
     , rttDeepLetWithLoc
+    , externalCallFeatureGateTests
     , darTests
     ]
 
@@ -77,6 +80,18 @@ roundTripAssert p =
     (\val -> p @=? val)
     (roundTripPackage p)
 
+-- EncodeV2.assertSupportsFeature reports unsupported features with `error` in
+-- the pure encoder, so force the generated proto far enough to surface it.
+assertPureEncoderError :: Show a => String -> a -> Assertion
+assertPureEncoderError expected value = do
+  result <- try (evaluate (length (show value))) :: IO (Either ErrorCall Int)
+  case result of
+    Left err ->
+      assertBool
+        ("Expected error to include " ++ show expected ++ ", got: " ++ displayException err)
+        (expected `isInfixOf` displayException err)
+    Right _ -> assertFailure $ "Expected error including " ++ show expected
+
 rttEmpty :: TestTree
 rttEmpty = testCase "empty package" $ roundTripAssert $ mkOneModulePackageForTest mkEmptyModule
 
@@ -88,6 +103,51 @@ rttTyLamAndLet = testCase "tylam and let package" $ roundTripAssert $ mkOneModul
 
 rttDeepLetWithLoc :: TestTree
 rttDeepLetWithLoc = testCase "deep let with location package" $ roundTripAssert $ mkOneModulePackageForTest mkDeepLetWithLocModule
+
+externalCallFeatureGateTests :: TestTree
+externalCallFeatureGateTests = testGroup "EXTERNAL_CALL feature gate"
+  [ externalCallRoundTrip
+  , externalCallUnsupportedEncode
+  , externalCallUnsupportedDecode
+  ]
+
+externalCallUnsupportedVersion :: Version
+externalCallUnsupportedVersion = stagingLfVersion
+
+externalCallPackage :: Package
+externalCallPackage = mkOneModulePackageForTest externalCallModule
+
+externalCallPackageAtUnsupportedVersion :: Package
+externalCallPackageAtUnsupportedVersion =
+  externalCallPackage{packageLfVersion = externalCallUnsupportedVersion}
+
+externalCallRoundTrip :: TestTree
+externalCallRoundTrip =
+  testCase "round-trips when featureExternalCall is enabled" $ do
+    assertBool "test package version must support featureExternalCall" $
+      packageLfVersion externalCallPackage `supports` featureExternalCall
+    roundTripAssert externalCallPackage
+
+externalCallUnsupportedEncode :: TestTree
+externalCallUnsupportedEncode =
+  testCase "encoding rejects when featureExternalCall is disabled" $ do
+    assertBool "unsupported test version must not support featureExternalCall" $
+      not (externalCallUnsupportedVersion `supports` featureExternalCall)
+    assertPureEncoderError "External Call" $
+      encodePackage externalCallPackageAtUnsupportedVersion
+
+externalCallUnsupportedDecode :: TestTree
+externalCallUnsupportedDecode =
+  testCase "decoding rejects when featureExternalCall is disabled" $ do
+    assertBool "unsupported test version must still support featureFlatArchive" $
+      externalCallUnsupportedVersion `supports` featureFlatArchive
+    case decodePackage externalCallUnsupportedVersion SelfPackageId (encodePackage externalCallPackage) of
+      Left (ParseError msg) ->
+        assertBool
+          ("Expected parse error to mention External Call, got: " ++ msg)
+          ("External Call" `isInfixOf` msg)
+      Left err -> assertFailure $ "Expected ParseError, got: " ++ show err
+      Right _ -> assertFailure "Expected EXTERNAL_CALL decoding to fail"
 
 ------------------------------------------------------------------------
 -- .dar tests
@@ -124,6 +184,9 @@ tyLamAndLetModule = mkEmptyModule{moduleValues = NM.fromList [mkDefTyLamDef, mkL
 mkDeepLetWithLocModule :: Module
 mkDeepLetWithLocModule = mkEmptyModule{moduleValues = NM.singleton mkDeepLetWithLoc}
 
+externalCallModule :: Module
+externalCallModule = mkEmptyModule{moduleValues = NM.singleton mkDefExternalCall}
+
 testLoc :: SourceLoc
 testLoc = SourceLoc{..}
     where
@@ -142,6 +205,9 @@ x = ExprVarName "x"
 f, lt :: ExprValName
 f = ExprValName "f"
 lt = ExprValName "lt"
+
+externalCall :: ExprValName
+externalCall = ExprValName "externalCall"
 
 elam :: Expr
 elam = ETmLam (x, TVar a) (EVar x)
@@ -168,6 +234,12 @@ mkLet = DefValue (Just testLoc) (lt, TUnit) (elet "id" tyLamTyp tyLam (EVal $ eQ
 
 mkDeepLetWithLoc :: DefValue
 mkDeepLetWithLoc = DefValue (Just testLoc) (lt, TUnit) (letOfDepthWithLoc 1)
+
+externalCallType :: Type
+externalCallType = TText :-> TText :-> TText :-> TText :-> TUpdate TText
+
+mkDefExternalCall :: DefValue
+mkDefExternalCall = DefValue (Just testLoc) (externalCall, externalCallType) (EBuiltinFun BEExternalCall)
 
 letOfDepthWithLoc :: Int -> Expr
 letOfDepthWithLoc 0 = EUnit
