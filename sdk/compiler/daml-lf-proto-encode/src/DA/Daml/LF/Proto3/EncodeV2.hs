@@ -526,6 +526,9 @@ encodeBuiltinExpr = \case
     BEKecCak256Text -> builtin P.BuiltinFunctionKECCAK256_TEXT
     BEEncodeHex -> builtin P.BuiltinFunctionTEXT_TO_HEX
     BEDecodeHex -> builtin P.BuiltinFunctionHEX_TO_TEXT
+    BEExternalCall -> do
+      assertSupportsFeature featureExternalCall
+      builtin P.BuiltinFunctionEXTERNAL_CALL
     BESecp256k1Bool -> builtin P.BuiltinFunctionSECP256K1_BOOL
     BESecp256k1WithEcdsaBool -> builtin P.BuiltinFunctionSECP256K1_WITH_ECDSA_BOOL
     BESecp256k1ValidateKey -> builtin P.BuiltinFunctionSECP256K1_VALIDATE_KEY

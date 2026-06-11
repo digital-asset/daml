@@ -8,6 +8,7 @@ package test
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.transaction.{
+  ExternalCallResult,
   GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
@@ -309,6 +310,31 @@ object ValueGenerators {
     } yield GlobalKeyWithMaintainers(gkey.get, maintainers)
   }
 
+  val externalCallResultGen: Gen[ExternalCallResult] =
+    for {
+      extensionId <- Gen.alphaNumStr.suchThat(_.nonEmpty).map(_.take(50))
+      functionId <- Gen.alphaNumStr.suchThat(_.nonEmpty).map(_.take(50))
+      config <- Gen.listOf(arbitrary[Byte]).map(bytes => Bytes.fromByteArray(bytes.toArray))
+      input <- Gen.listOf(arbitrary[Byte]).map(bytes => Bytes.fromByteArray(bytes.toArray))
+      output <- Gen.listOf(arbitrary[Byte]).map(bytes => Bytes.fromByteArray(bytes.toArray))
+    } yield ExternalCallResult(
+      extensionId = extensionId,
+      functionId = functionId,
+      config = config,
+      input = input,
+      output = output,
+    )
+
+  def externalCallResultsGen(
+      version: SerializationVersion
+  ): Gen[ImmArray[ExternalCallResult]] =
+    if (version < SerializationVersion.minExternalCallResults)
+      Gen.const(ImmArray.empty[ExternalCallResult])
+    else
+      Gen
+        .listOf(externalCallResultGen)
+        .map(results => ImmArray.from(results.take(5)))
+
   /** Makes create nodes that violate the rules:
     *
     * 1. stakeholders may not be a superset of signatories
@@ -436,6 +462,7 @@ object ValueGenerators {
       byKey <-
         if (version < SerializationVersion.minContractKeys) Gen.const(false)
         else Gen.oneOf(true, false)
+      externalCallResults <- externalCallResultsGen(version)
     } yield Node.Exercise(
       targetCoid = targetCoid,
       packageName = pkgName,
@@ -453,9 +480,8 @@ object ValueGenerators {
       exerciseResult = exerciseResult,
       keyOpt = key,
       byKey = byKey,
+      externalCallResults = externalCallResults,
       version = version,
-      // TODO[https://github.com/digital-asset/canton/issues/513]: intergrate with EC proposal
-      externalCallResults = ImmArray.empty,
     )
 
   val lookupNodeGen: Gen[Node.LookupByKey] =

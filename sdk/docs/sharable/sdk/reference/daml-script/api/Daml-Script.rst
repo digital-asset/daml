@@ -303,6 +303,66 @@ Data Types
          - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
 
+.. _type-daml-script-internal-questions-submit-error-externalcallerrortype-95837:
+
+**data** `ExternalCallErrorType <type-daml-script-internal-questions-submit-error-externalcallerrortype-95837_>`_
+
+  External\-call related submission errors\.
+
+  .. _constr-daml-script-internal-questions-submit-error-preparationfailed-20227:
+
+  `PreparationFailed <constr-daml-script-internal-questions-submit-error-preparationfailed-20227_>`_
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - extensionId
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+       * - functionId
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+
+  .. _constr-daml-script-internal-questions-submit-error-executioncallfailed-11096:
+
+  `ExecutionCallFailed <constr-daml-script-internal-questions-submit-error-executioncallfailed-11096_>`_
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - extensionId
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+       * - functionId
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+
+  .. _constr-daml-script-internal-questions-submit-error-executioninvalidoutput-43798:
+
+  `ExecutionInvalidOutput <constr-daml-script-internal-questions-submit-error-executioninvalidoutput-43798_>`_
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - extensionId
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+       * - functionId
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+
 .. _type-daml-script-internal-questions-submit-error-submiterror-38284:
 
 **data** `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_
@@ -753,6 +813,26 @@ Data Types
          - `CryptoErrorType <type-daml-script-internal-questions-submit-error-cryptoerrortype-71749_>`_
          -
        * - cryptoErrorMessage
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+
+  .. _constr-daml-script-internal-questions-submit-error-externalcallerror-13874:
+
+  `ExternalCallError <constr-daml-script-internal-questions-submit-error-externalcallerror-13874_>`_
+
+    External\-call interpretation exception
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - externalCallErrorType
+         - `ExternalCallErrorType <type-daml-script-internal-questions-submit-error-externalcallerrortype-95837_>`_
+         -
+       * - externalCallErrorMessage
          - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
 

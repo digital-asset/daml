@@ -13,6 +13,11 @@ module Submit where
 import Daml.Script
 import Daml.Script.Internal
 import DA.Assert
+
+#ifdef DAML_ExternalCall
+import DA.External (externalCall)
+#endif
+
 import DA.Text
 
 data View = View with
@@ -99,6 +104,18 @@ template T5 with
     controller keyParty
     do
       forA keys (\key -> lookupByKey @T5 (key, keyParty))
+#endif
+
+#ifdef DAML_ExternalCall
+template ExternalCallProbe with
+    externalCallProbeP : Party
+  where
+  signatory externalCallProbeP
+
+  choice TriggerMalformedExternalCallConfig : Text
+    controller externalCallProbeP
+    do
+      externalCall "test-extension" "test-function" "not-hex" "00"
 #endif
 
 -- ContractNotFound: Cannot test contract not found with IDELedger, no way to get an invalid contract ID
@@ -202,6 +219,22 @@ fetchEmptyContractKeyMaintainers = script do
     Left (FetchEmptyContractKeyMaintainers (fromAnyContractKey @T3 -> Some shouldBeT3Key)) -> shouldBeT3Key === t3Key
     Left e -> error $ "fetchEmptyContractKeyMaintainers incorrect error: " <> show e
     Right _ -> error "fetchEmptyContractKeyMaintainers incorrectly succeeded"
+#endif
+
+#ifdef DAML_ExternalCall
+externalCallPreparationFailed : Script ()
+externalCallPreparationFailed = script do
+  alice <- allocateParty "alice"
+  res <- alice `trySubmit` createAndExerciseCmd
+    (ExternalCallProbe with externalCallProbeP = alice)
+    TriggerMalformedExternalCallConfig
+  case res of
+    Left (ExternalCallError (PreparationFailed extensionId functionId) msg) -> do
+      extensionId === "test-extension"
+      functionId === "test-function"
+      assert $ "expected canonical lowercase hex" `isInfixOf` msg
+    Left e -> error $ "externalCallPreparationFailed incorrect error: " <> show e
+    Right _ -> error "externalCallPreparationFailed incorrectly succeeded"
 #endif
 
 wronglyTypedContract : Script ()

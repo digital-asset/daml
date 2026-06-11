@@ -147,6 +147,31 @@ MalformedSignature :: Text -> CryptoErrorType
 
 signatureValue :: CryptoErrorType -> Text
 
+-- | External-call related submission errors.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-externalcallerrortype-95837
+data ExternalCallErrorType
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-preparationfailed-20227
+PreparationFailed :: Text -> Text -> ExternalCallErrorType
+
+extensionId :: ExternalCallErrorType -> Text
+
+functionId :: ExternalCallErrorType -> Text
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-executioncallfailed-11096
+ExecutionCallFailed :: Text -> Text -> ExternalCallErrorType
+
+extensionId :: ExternalCallErrorType -> Text
+
+functionId :: ExternalCallErrorType -> Text
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-executioninvalidoutput-43798
+ExecutionInvalidOutput :: Text -> Text -> ExternalCallErrorType
+
+extensionId :: ExternalCallErrorType -> Text
+
+functionId :: ExternalCallErrorType -> Text
+
 -- | Errors that can be thrown by a command submission via `trySubmit`
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-submiterror-38284
 data SubmitError
@@ -341,6 +366,14 @@ CryptoError :: CryptoErrorType -> Text -> SubmitError
 cryptoErrorType :: SubmitError -> CryptoErrorType
 
 cryptoErrorMessage :: SubmitError -> Text
+
+-- | External-call interpretation exception
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-externalcallerror-13874
+ExternalCallError :: ExternalCallErrorType -> Text -> SubmitError
+
+externalCallErrorType :: SubmitError -> ExternalCallErrorType
+
+externalCallErrorMessage :: SubmitError -> Text
 
 -- | Rollback exceptions
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-effectfulrollbackerror-45632
