@@ -1,5 +1,5 @@
 load(
-    "@//bazel/rules:build_make.bzl",
+    "@//bazel/native:build_make.bzl",
     "build_make",
 )
 
