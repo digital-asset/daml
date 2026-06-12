@@ -1,5 +1,5 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-load("//bazel/rules:da_git_repository.bzl", "da_git_repository")
+load("//bazel/common:da_git_repository.bzl", "da_git_repository")
 load(
     "//bazel/versions:da_ghc.version.bzl",
     "GHC_LIB_REPO_URL",
