@@ -82,7 +82,7 @@ _ghc_bindist_raw_repo = repository_rule(
     attrs = {
         "lockfile": attr.label(
             default = "//bazel/haskell/ghc:ghc_packages.lock.json",
-            doc = "Committed package pin; regenerate with `bazel run //bazel/haskell/ghc:ghc_packages.update`.",
+            doc = "Committed package pin; regenerate with `bazel run //bazel/haskell/ghc:ghc_packages.pin`.",
         ),
     },
 )
