@@ -116,6 +116,10 @@ build:windows --jobs=4
 # still referencing it directly will need to migrate to toolchain resolution.
 build:linux --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 
+# rules_haskell 1.0 still calls ctx.resolve_tools (disallowed by default on
+# Bazel 8); re-enable until the proper patch lands (see migration plan, Phase 7).
+build --noincompatible_disallow_ctx_resolve_tools
+
 # Instruct bazel to globally use this flag for compiling protobuf files.
 # We need the source info for generating proto docs. By default proto_library strips
 # source information and doesn't provide an option to turn this flag on.
