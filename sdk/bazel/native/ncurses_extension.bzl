@@ -177,7 +177,7 @@ def _ncurses_repo_impl(rctx):
     # ncurses' configure flags and does not vary per platform.
     rctx.template(
         "BUILD.bazel",
-        Label("//bazel:extensions/files/ncurses.BUILD.bzl"),
+        Label("//bazel/native:files/ncurses.BUILD.bzl"),
         substitutions = {},
         executable = False,
     )
