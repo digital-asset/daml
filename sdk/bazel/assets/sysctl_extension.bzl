@@ -1,6 +1,3 @@
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 def _sysctl_impl(repository_ctx):
     sysctl = repository_ctx.which("sysctl")
     if sysctl:

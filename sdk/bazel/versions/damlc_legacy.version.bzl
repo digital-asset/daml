@@ -1,6 +1,3 @@
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 # -- damlc_legacy --
 DAMLC_LEGACY_VERSION = "2.8.3"
 DAMLC_LEGACY_SHA256 = {
