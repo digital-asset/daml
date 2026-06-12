@@ -1,7 +1,4 @@
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
-load("//bazel/rules:grpcurl.bzl", "grpcurl")
+load("//bazel/proto:grpcurl.bzl", "grpcurl")
 load(
     "//bazel/versions:grpcurl.version.bzl",
     "GRPCURL_SHA256",
