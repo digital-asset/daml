@@ -1,5 +1,5 @@
 load(
-    "@//bazel/rules:build_gnu_tool.bzl",
+    "@//bazel/native:build_gnu_tool.bzl",
     "build_gnu_tool",
 )
 
