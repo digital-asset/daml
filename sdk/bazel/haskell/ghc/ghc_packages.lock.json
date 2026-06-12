@@ -3,6 +3,24 @@
   "ghc_version": "9.0.2",
   "packages": [
     {
+      "build_subdir": "libraries/Cabal/Cabal/dist-install/build",
+      "deps": [],
+      "extra_libraries": [],
+      "id": "Cabal-3.4.1.0",
+      "name": "Cabal",
+      "version": "3.4.1.0"
+    },
+    {
+      "build_subdir": "libraries/array/dist-install/build",
+      "deps": [
+        "base"
+      ],
+      "extra_libraries": [],
+      "id": "array-0.5.4.0",
+      "name": "array",
+      "version": "0.5.4.0"
+    },
+    {
       "build_subdir": "libraries/base/dist-install/build",
       "deps": [
         "ghc-bignum",
@@ -15,6 +33,79 @@
       "version": "4.15.1.0"
     },
     {
+      "build_subdir": "libraries/binary/dist-install/build",
+      "deps": [],
+      "extra_libraries": [],
+      "id": "binary-0.8.8.0",
+      "name": "binary",
+      "version": "0.8.8.0"
+    },
+    {
+      "build_subdir": "libraries/bytestring/dist-install/build",
+      "deps": [],
+      "extra_libraries": [],
+      "id": "bytestring-0.10.12.1",
+      "name": "bytestring",
+      "version": "0.10.12.1"
+    },
+    {
+      "build_subdir": "libraries/containers/containers/dist-install/build",
+      "deps": [
+        "array",
+        "base",
+        "deepseq"
+      ],
+      "extra_libraries": [],
+      "id": "containers-0.6.4.1",
+      "name": "containers",
+      "version": "0.6.4.1"
+    },
+    {
+      "build_subdir": "libraries/deepseq/dist-install/build",
+      "deps": [
+        "array",
+        "base"
+      ],
+      "extra_libraries": [],
+      "id": "deepseq-1.4.5.0",
+      "name": "deepseq",
+      "version": "1.4.5.0"
+    },
+    {
+      "build_subdir": "libraries/directory/dist-install/build",
+      "deps": [],
+      "extra_libraries": [],
+      "id": "directory-1.3.6.2",
+      "name": "directory",
+      "version": "1.3.6.2"
+    },
+    {
+      "build_subdir": "libraries/exceptions/dist-install/build",
+      "deps": [],
+      "extra_libraries": [],
+      "id": "exceptions-0.10.4",
+      "name": "exceptions",
+      "version": "0.10.4"
+    },
+    {
+      "build_subdir": "libraries/filepath/dist-install/build",
+      "deps": [
+        "base"
+      ],
+      "extra_libraries": [],
+      "id": "filepath-1.4.2.1",
+      "name": "filepath",
+      "version": "1.4.2.1"
+    },
+    {
+      "build_subdir": "compiler/stage2/build",
+      "deps": [],
+      "extra_libraries": [],
+      "id": "ghc-9.0.2",
+      "name": "ghc",
+      "version": "9.0.2"
+    },
+    {
       "build_subdir": "libraries/ghc-bignum/dist-install/build",
       "deps": [
         "ghc-prim"
@@ -25,6 +116,48 @@
       "id": "ghc-bignum-1.1",
       "name": "ghc-bignum",
       "version": "1.1"
+    },
+    {
+      "build_subdir": "libraries/ghc-boot/dist-install/build",
+      "deps": [],
+      "extra_libraries": [],
+      "id": "ghc-boot-9.0.2",
+      "name": "ghc-boot",
+      "version": "9.0.2"
+    },
+    {
+      "build_subdir": "libraries/ghc-boot-th/dist-install/build",
+      "deps": [
+        "base"
+      ],
+      "extra_libraries": [],
+      "id": "ghc-boot-th-9.0.2",
+      "name": "ghc-boot-th",
+      "version": "9.0.2"
+    },
+    {
+      "build_subdir": "libraries/ghc-compact/dist-install/build",
+      "deps": [
+        "base",
+        "bytestring",
+        "ghc-prim"
+      ],
+      "extra_libraries": [],
+      "id": "ghc-compact-0.1.0.0",
+      "name": "ghc-compact",
+      "version": "0.1.0.0"
+    },
+    {
+      "build_subdir": "libraries/ghc-heap/dist-install/build",
+      "deps": [
+        "base",
+        "ghc-prim",
+        "rts"
+      ],
+      "extra_libraries": [],
+      "id": "ghc-heap-9.0.2",
+      "name": "ghc-heap",
+      "version": "9.0.2"
     },
     {
       "build_subdir": "libraries/ghc-prim/dist-install/build",
@@ -40,6 +173,89 @@
       "version": "0.7.0"
     },
     {
+      "build_subdir": "libraries/ghci/dist-install/build",
+      "deps": [],
+      "extra_libraries": [],
+      "id": "ghci-9.0.2",
+      "name": "ghci",
+      "version": "9.0.2"
+    },
+    {
+      "build_subdir": "libraries/haskeline/dist-install/build",
+      "deps": [],
+      "extra_libraries": [],
+      "id": "haskeline-0.8.2",
+      "name": "haskeline",
+      "version": "0.8.2"
+    },
+    {
+      "build_subdir": "libraries/hpc/dist-install/build",
+      "deps": [],
+      "extra_libraries": [],
+      "id": "hpc-0.6.1.0",
+      "name": "hpc",
+      "version": "0.6.1.0"
+    },
+    {
+      "build_subdir": "libraries/integer-gmp/dist-install/build",
+      "deps": [
+        "base",
+        "ghc-bignum",
+        "ghc-prim"
+      ],
+      "extra_libraries": [],
+      "id": "integer-gmp-1.1",
+      "name": "integer-gmp",
+      "version": "1.1"
+    },
+    {
+      "build_subdir": "libraries/libiserv/dist-install/build",
+      "deps": [],
+      "extra_libraries": [],
+      "id": "libiserv-9.0.2",
+      "name": "libiserv",
+      "version": "9.0.2"
+    },
+    {
+      "build_subdir": "libraries/mtl/dist-install/build",
+      "deps": [
+        "base",
+        "transformers"
+      ],
+      "extra_libraries": [],
+      "id": "mtl-2.2.2",
+      "name": "mtl",
+      "version": "2.2.2"
+    },
+    {
+      "build_subdir": "libraries/parsec/dist-install/build",
+      "deps": [],
+      "extra_libraries": [],
+      "id": "parsec-3.1.14.0",
+      "name": "parsec",
+      "version": "3.1.14.0"
+    },
+    {
+      "build_subdir": "libraries/pretty/dist-install/build",
+      "deps": [
+        "base",
+        "deepseq",
+        "ghc-prim"
+      ],
+      "extra_libraries": [],
+      "id": "pretty-1.1.3.6",
+      "name": "pretty",
+      "version": "1.1.3.6"
+    },
+    {
+      "build_subdir": "libraries/process/dist-install/build",
+      "deps": [],
+      "extra_libraries": [],
+      "id": "process-1.6.13.2",
+      "name": "process",
+      "version": "1.6.13.2"
+    },
+    {
       "build_subdir": "rts/dist/build",
       "deps": [],
       "extra_libraries": [
@@ -51,6 +267,93 @@
       "id": "rts",
       "name": "rts",
       "version": "1.0.2"
+    },
+    {
+      "build_subdir": "libraries/stm/dist-install/build",
+      "deps": [
+        "array",
+        "base"
+      ],
+      "extra_libraries": [],
+      "id": "stm-2.5.0.0",
+      "name": "stm",
+      "version": "2.5.0.0"
+    },
+    {
+      "build_subdir": "libraries/template-haskell/dist-install/build",
+      "deps": [],
+      "extra_libraries": [],
+      "id": "template-haskell-2.17.0.0",
+      "name": "template-haskell",
+      "version": "2.17.0.0"
+    },
+    {
+      "build_subdir": "libraries/terminfo/dist-install/build",
+      "deps": [
+        "base"
+      ],
+      "extra_libraries": [
+        "tinfo"
+      ],
+      "id": "terminfo-0.4.1.5",
+      "name": "terminfo",
+      "version": "0.4.1.5"
+    },
+    {
+      "build_subdir": "libraries/text/dist-install/build",
+      "deps": [],
+      "extra_libraries": [],
+      "id": "text-1.2.5.0",
+      "name": "text",
+      "version": "1.2.5.0"
+    },
+    {
+      "build_subdir": "libraries/time/dist-install/build",
+      "deps": [
+        "base",
+        "deepseq"
+      ],
+      "extra_libraries": [],
+      "id": "time-1.9.3",
+      "name": "time",
+      "version": "1.9.3"
+    },
+    {
+      "build_subdir": "libraries/transformers/dist-install/build",
+      "deps": [
+        "base"
+      ],
+      "extra_libraries": [],
+      "id": "transformers-0.5.6.2",
+      "name": "transformers",
+      "version": "0.5.6.2"
+    },
+    {
+      "build_subdir": "libraries/unix/dist-install/build",
+      "deps": [
+        "base",
+        "bytestring",
+        "time"
+      ],
+      "extra_libraries": [
+        "rt",
+        "util",
+        "dl",
+        "pthread"
+      ],
+      "id": "unix-2.7.2.2",
+      "name": "unix",
+      "version": "2.7.2.2"
+    },
+    {
+      "build_subdir": "libraries/xhtml/dist-install/build",
+      "deps": [
+        "base"
+      ],
+      "extra_libraries": [],
+      "id": "xhtml-3000.2.2.1",
+      "name": "xhtml",
+      "version": "3000.2.2.1"
     }
   ]
 }
