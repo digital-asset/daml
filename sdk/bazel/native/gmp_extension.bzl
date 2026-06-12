@@ -12,6 +12,8 @@ def _impl(module_ctx):
         sha256 = GMP_SHA256,
         strip_prefix = "gmp-{}".format(GMP_VERSION),
         build_file = ":files/gmp.BUILD.bzl",
+        patches = [":files/gmp_handauthored.patch"],
+        patch_args = ["-p1"],
     )
 
 gmp = module_extension(implementation = _impl)

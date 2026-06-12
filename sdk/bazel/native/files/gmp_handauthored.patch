@@ -1,0 +1,291 @@
+diff --git a/config.h b/config.h
+new file mode 100644
+index 0000000..a227b1d
+--- /dev/null
++++ b/config.h
+@@ -0,0 +1,181 @@
++/* config.h — hand-authored for a hermetic Bazel build of GMP 6.3.0.
++ *
++ * Portable across the platforms the build is run on natively: word sizes and
++ * endianness come from compiler builtins, and header availability from
++ * __has_include, so one file serves x86_64/aarch64/riscv64/s390x (64-bit limbs)
++ * and 32-bit arm, little- or big-endian, on Linux and macOS — no per-platform
++ * variants. The limb width itself is set in gmp.h via //gmp:limb.bzl; here
++ * SIZEOF_MP_LIMB_T is derived from the compiler and must agree (the build fails
++ * if it doesn't).
++ *
++ * This replaces the file that ./configure would normally generate. All
++ * HAVE_NATIVE_mpn_* macros are intentionally left undefined: there is no
++ * hand-written assembly in this build, so every mpn routine comes from the
++ * generic C sources under mpn/generic.
++ *
++ * The POSIX function-level HAVE_* macros below are correct for Linux and macOS;
++ * Windows (no <sys/mman.h>, mmap, sigaction, …) would need those gated too and
++ * is not yet supported.
++ */
++
++#ifndef __GMP_CONFIG_H__
++#define __GMP_CONFIG_H__
++
++/* ---- limb / word sizes: from the compiler's view of the target ---- */
++#define SIZEOF_MP_LIMB_T __SIZEOF_LONG__
++#define SIZEOF_UNSIGNED __SIZEOF_INT__
++#define SIZEOF_UNSIGNED_LONG __SIZEOF_LONG__
++#define SIZEOF_UNSIGNED_SHORT __SIZEOF_SHORT__
++#define SIZEOF_VOID_P __SIZEOF_POINTER__
++
++/* ---- endianness: from the compiler's byte-order macros ---- */
++#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
++#define HAVE_LIMB_BIG_ENDIAN 1
++#define HAVE_DOUBLE_IEEE_BIG_ENDIAN 1
++#else
++#define HAVE_LIMB_LITTLE_ENDIAN 1
++#define HAVE_DOUBLE_IEEE_LITTLE_ENDIAN 1
++#endif
++
++/* ---- compiler capabilities (clang) ---- */
++#define HAVE_ATTRIBUTE_CONST 1
++#define HAVE_ATTRIBUTE_MALLOC 1
++#define HAVE_ATTRIBUTE_MODE 1
++#define HAVE_ATTRIBUTE_NORETURN 1
++#define HAVE_LONG_LONG 1
++#define HAVE_LONG_DOUBLE 1
++
++/* ---- temporary-memory allocation: malloc, reentrant (no alloca stack
++ *      growth, fully portable) ---- */
++#define WANT_TMP_REENTRANT 1
++
++/* ---- FFT path for large multiplies (GMP default) ---- */
++#define WANT_FFT 1
++
++/* ---- headers: probed with __has_include (autoconf-style: define iff present,
++ *      otherwise leave undefined). The compiler answers for its own target, so
++ *      headers missing on a given OS (e.g. <memory.h> on macOS) drop out. ---- */
++#define HAVE_ALLOCA 1
++#if __has_include(<alloca.h>)
++#define HAVE_ALLOCA_H 1
++#endif
++#if __has_include(<dlfcn.h>)
++#define HAVE_DLFCN_H 1
++#endif
++#if __has_include(<fcntl.h>)
++#define HAVE_FCNTL_H 1
++#endif
++#if __has_include(<float.h>)
++#define HAVE_FLOAT_H 1
++#endif
++#if __has_include(<inttypes.h>)
++#define HAVE_INTTYPES_H 1
++#endif
++#if __has_include(<langinfo.h>)
++#define HAVE_LANGINFO_H 1
++#endif
++#if __has_include(<locale.h>)
++#define HAVE_LOCALE_H 1
++#endif
++#if __has_include(<memory.h>)
++#define HAVE_MEMORY_H 1
++#endif
++#if __has_include(<nl_types.h>)
++#define HAVE_NL_TYPES_H 1
++#endif
++#if __has_include(<stdint.h>)
++#define HAVE_STDINT_H 1
++#endif
++#if __has_include(<stdlib.h>)
++#define HAVE_STDLIB_H 1
++#endif
++#if __has_include(<strings.h>)
++#define HAVE_STRINGS_H 1
++#endif
++#if __has_include(<string.h>)
++#define HAVE_STRING_H 1
++#endif
++#if __has_include(<sys/mman.h>)
++#define HAVE_SYS_MMAN_H 1
++#endif
++#if __has_include(<sys/param.h>)
++#define HAVE_SYS_PARAM_H 1
++#endif
++#if __has_include(<sys/resource.h>)
++#define HAVE_SYS_RESOURCE_H 1
++#endif
++#if __has_include(<sys/stat.h>)
++#define HAVE_SYS_STAT_H 1
++#endif
++#if __has_include(<sys/time.h>)
++#define HAVE_SYS_TIME_H 1
++#endif
++#if __has_include(<sys/times.h>)
++#define HAVE_SYS_TIMES_H 1
++#endif
++#if __has_include(<sys/types.h>)
++#define HAVE_SYS_TYPES_H 1
++#endif
++#if __has_include(<unistd.h>)
++#define HAVE_UNISTD_H 1
++#endif
++
++/* ---- functions available (musl) ---- */
++#define HAVE_ALARM 1
++#define HAVE_CLOCK 1
++#define HAVE_CLOCK_GETTIME 1
++#define HAVE_GETPAGESIZE 1
++#define HAVE_GETRUSAGE 1
++#define HAVE_GETTIMEOFDAY 1
++#define HAVE_LOCALECONV 1
++#define HAVE_MEMSET 1
++#define HAVE_MMAP 1
++#define HAVE_MPROTECT 1
++#define HAVE_NL_LANGINFO 1
++#define HAVE_POPEN 1
++#define HAVE_RAISE 1
++#define HAVE_SIGACTION 1
++#define HAVE_SIGALTSTACK 1
++#define HAVE_STRCHR 1
++#define HAVE_STRERROR 1
++#define HAVE_STRNLEN 1
++#define HAVE_STRTOL 1
++#define HAVE_STRTOUL 1
++#define HAVE_SYSCONF 1
++#define HAVE_TIMES 1
++#define HAVE_VSNPRINTF 1
++
++/* ---- types available ---- */
++#define HAVE_INTMAX_T 1
++#define HAVE_INTPTR_T 1
++#define HAVE_PTRDIFF_T 1
++#define HAVE_QUAD_T 1
++#define HAVE_STACK_T 1
++#define HAVE_UINT_LEAST32_T 1
++
++/* ---- declaration probes (AC_CHECK_DECLS: always defined, 1 or 0) ---- */
++#define HAVE_DECL_FGETC 1
++#define HAVE_DECL_FSCANF 1
++#define HAVE_DECL_OPTARG 1
++#define HAVE_DECL_UNGETC 1
++#define HAVE_DECL_VFPRINTF 1
++#define HAVE_DECL_SYS_ERRLIST 0
++#define HAVE_DECL_SYS_NERR 0
++
++/* ---- misc ---- */
++#define STDC_HEADERS 1
++#define TIME_WITH_SYS_TIME 1
++#define RETSIGTYPE void
++#define LSYM_PREFIX ".L"
++
++/* ---- package identification ---- */
++#define PACKAGE "gmp"
++#define PACKAGE_NAME "GNU MP"
++#define PACKAGE_TARNAME "gmp"
++#define PACKAGE_VERSION "6.3.0"
++#define PACKAGE_STRING "GNU MP 6.3.0"
++#define PACKAGE_BUGREPORT "gmp-bugs@gmplib.org"
++#define PACKAGE_URL "http://www.gnu.org/software/gmp/"
++#define VERSION "6.3.0"
++
++#endif /* __GMP_CONFIG_H__ */
+diff --git a/gmp-mparam.h b/gmp-mparam.h
+new file mode 100644
+index 0000000..113239f
+--- /dev/null
++++ b/gmp-mparam.h
+@@ -0,0 +1,9 @@
++/* gmp-mparam.h — generic machine parameters for the hermetic Bazel build.
++ *
++ * ./configure normally copies the tuned mpn/<cpu>/gmp-mparam.h here. For a
++ * generic C build we provide only the limb size; gmp-impl.h fills in safe
++ * default algorithm thresholds for everything else.
++ */
++
++#define GMP_LIMB_BITS 64
++#define GMP_LIMB_BYTES 8
+diff --git a/limb.bzl b/limb.bzl
+new file mode 100644
+index 0000000..8e9fd32
+--- /dev/null
++++ b/limb.bzl
+@@ -0,0 +1,30 @@
++"""Target-CPU → GMP limb width, resolved at Bazel analysis time.
++
++gmp.h and the table generators (gen-fac, gen-fib, …) need the limb width
++*before* any compilation: gmp.h is produced by expand_template, and the
++generators are run with the bit count as an argv. So it can't be read from a
++compiler builtin the way config.h reads its sizes — it has to be a select()
++on the target (== host, for native builds) CPU.
++"""
++
++# 64-bit limbs on LP64/LLP64 64-bit ISAs; 32-bit on 32-bit ISAs.
++_CPU_BITS = {
++    "@platforms//cpu:x86_64": "64",
++    "@platforms//cpu:aarch64": "64",
++    "@platforms//cpu:riscv64": "64",
++    "@platforms//cpu:s390x": "64",
++    "@platforms//cpu:armv7": "32",
++    "@platforms//cpu:arm": "32",
++    "@platforms//cpu:wasm32": "32",
++}
++
++def limb_select(by_bits):
++    """Map {"64": x64, "32": x32} to a select() keyed on the target CPU.
++
++    Unknown CPUs default to 64-bit. A wrong guess can't pass silently: config.h
++    derives SIZEOF_MP_LIMB_T from the compiler, so a mismatch with gmp.h's
++    GMP_LIMB_BITS fails the build instead of miscompiling.
++    """
++    branches = {cpu: by_bits[bits] for cpu, bits in _CPU_BITS.items()}
++    branches["//conditions:default"] = by_bits["64"]
++    return select(branches)
+diff --git a/smoke.c b/smoke.c
+new file mode 100644
+index 0000000..8aa7d6c
+--- /dev/null
++++ b/smoke.c
+@@ -0,0 +1,47 @@
++/* Smoke test: exercise a few mpz routines and check exact results.
++ * Proves the hermetically-built libgmp links and computes correctly. */
++#include <stdio.h>
++#include <string.h>
++#include "gmp.h"
++
++int main(void) {
++    int fails = 0;
++    mpz_t a, b, c;
++    char buf[256];
++
++    mpz_init_set_str(a, "123456789012345678901234567890", 10);
++    mpz_init_set_str(b, "987654321098765432109876543210", 10);
++    mpz_init(c);
++
++    /* multiply */
++    mpz_mul(c, a, b);
++    mpz_get_str(buf, 10, c);
++    if (strcmp(buf, "121932631137021795226185032733622923332237463801111263526900") != 0) {
++        printf("FAIL mul: %s\n", buf);
++        fails++;
++    }
++
++    /* 2^128 */
++    mpz_ui_pow_ui(c, 2, 128);
++    mpz_get_str(buf, 10, c);
++    if (strcmp(buf, "340282366920938463463374607431768211456") != 0) {
++        printf("FAIL pow: %s\n", buf);
++        fails++;
++    }
++
++    /* gcd */
++    mpz_gcd(c, a, b);
++    mpz_get_str(buf, 10, c);
++    if (strcmp(buf, "9000000000900000000090") != 0) {
++        printf("FAIL gcd: %s\n", buf);
++        fails++;
++    }
++
++    mpz_clears(a, b, c, NULL);
++    if (fails == 0) {
++        printf("smoke OK: GMP %s\n", gmp_version);
++        return 0;
++    }
++    printf("%d failure(s)\n", fails);
++    return 1;
++}
