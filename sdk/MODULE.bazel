@@ -131,6 +131,9 @@ use_repo(
 da_ghc_ext = use_extension("//bazel/haskell:da_ghc_extension.bzl", "da_ghc")
 use_repo(da_ghc_ext, "da-ghc", "ghc-lib-gen")
 
+ghc_bindist_ext = use_extension("//bazel/haskell/ghc:ghc_bindist_extension.bzl", "ghc_bindist_extension")
+use_repo(ghc_bindist_ext, "ghc_bindist_raw")
+
 cabal_ext = use_extension("//bazel/haskell:cabal_extension.bzl", "cabal")
 use_repo(cabal_ext, "cabal")
 
