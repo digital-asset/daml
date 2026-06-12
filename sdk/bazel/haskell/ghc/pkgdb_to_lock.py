@@ -5,8 +5,6 @@ from pathlib import Path
 
 from python.runfiles import runfiles
 
-# Base closure only for now (full ~34-package set later).
-_CLOSURE_ROOTS = ["base"]
 _FIELDS = ("name", "version", "id", "key", "depends", "hs-libraries", "extra-libraries")
 _LOCK_RELPATH = "bazel/haskell/ghc/ghc_packages.lock.json"
 
@@ -43,21 +41,6 @@ def _index_by_id(confs):
     return index
 
 
-def _closure(confs, by_id, roots):
-    seen = set()
-    stack = list(roots)
-    while stack:
-        name = stack.pop()
-        if name in seen or name not in confs:
-            continue
-        seen.add(name)
-        for dep_id in confs[name].get("depends", "").split():
-            dep_name = by_id.get(dep_id)
-            if dep_name:
-                stack.append(dep_name)
-    return seen
-
-
 def _resolve_build_subdir(raw_root, hs_libraries):
     """Locate the raw build dir holding this package's libs (kills dist-dir guessing)."""
     first = hs_libraries.split()[0] if hs_libraries else None
@@ -83,7 +66,7 @@ def main(argv):
 
     confs = _load_confs(confd)
     by_id = _index_by_id(confs)
-    closure = _closure(confs, by_id, _CLOSURE_ROOTS)
+    closure = set(confs)
 
     packages = []
     for name in sorted(closure):
