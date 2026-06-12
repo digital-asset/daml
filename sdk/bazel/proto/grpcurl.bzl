@@ -1,6 +1,3 @@
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 load("@os_info//:os_info.bzl", "cpu_value", "is_windows")
 
 _GRPCURL_PLATFORM = {
