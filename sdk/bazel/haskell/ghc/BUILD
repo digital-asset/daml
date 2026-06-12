@@ -33,6 +33,33 @@ py_binary(
     deps = ["@rules_python//python/runfiles"],
 )
 
+haskell_toolchain(
+    name = "ghc",
+    libdir = [":ghc_install"],
+    libraries = TOOLCHAIN_LIBRARIES,
+    docdir_path = "doc",
+    static_runtime = False,
+    fully_static_link = False,
+    tools = [":ghc_install"],
+    version = "9.0.2",
+)
+
+toolchain(
+    name = "ghc_linux_amd64",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    toolchain = ":ghc",
+    toolchain_type = "@rules_haskell//haskell:toolchain",
+)
+
+# Build onto the custom toolchain via --extra_toolchains until Phase 3 registers it.
+haskell_toolchain_library(name = "base")
 py_test(
     name = "ghc_packages.check",
     srcs = ["pkgdb_to_lock.py"],
