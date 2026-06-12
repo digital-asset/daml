@@ -1,6 +1,6 @@
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain")
-load("//bazel/rules:build_gnu_tool.bzl", "InstalledGnuToolInfo")
+load("//bazel/native:build_gnu_tool.bzl", "InstalledGnuToolInfo")
 
 def _ghc_lib_sdist_impl(ctx):
     component = ctx.attr.component
