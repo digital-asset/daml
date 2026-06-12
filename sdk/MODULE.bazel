@@ -67,7 +67,7 @@ register_toolchains("@llvm_toolchains//:all")
 register_toolchains("//:c2hs-toolchain")
 
 # --- Hermetic GNU make ---
-make_ext = use_extension("//bazel/extensions:make_extension.bzl", "make")
+make_ext = use_extension("//bazel/native:make_extension.bzl", "make")
 use_repo(make_ext, "make")
 
 # --- Node.js toolchain ---
@@ -128,25 +128,25 @@ use_repo(
     "rules_haskell_ghc_windows_amd64",
 )
 
-da_ghc_ext = use_extension("//bazel/extensions:da_ghc_extension.bzl", "da_ghc")
+da_ghc_ext = use_extension("//bazel/haskell:da_ghc_extension.bzl", "da_ghc")
 use_repo(da_ghc_ext, "da-ghc", "ghc-lib-gen")
 
-cabal_ext = use_extension("//bazel/extensions:cabal_extension.bzl", "cabal")
+cabal_ext = use_extension("//bazel/haskell:cabal_extension.bzl", "cabal")
 use_repo(cabal_ext, "cabal")
 
-ghcide_lib_ext = use_extension("//bazel/extensions:ghcide_extension.bzl", "ghcide_lib")
+ghcide_lib_ext = use_extension("//bazel/haskell:ghcide_extension.bzl", "ghcide_lib")
 use_repo(ghcide_lib_ext, "ghcide_lib")
 
-lsp_types_ext = use_extension("//bazel/extensions:lsp_types_extension.bzl", "lsp_types")
+lsp_types_ext = use_extension("//bazel/haskell:lsp_types_extension.bzl", "lsp_types")
 use_repo(lsp_types_ext, "lsp-types")
 
-zip_ext = use_extension("//bazel/extensions:zip_extension.bzl", "zip")
+zip_ext = use_extension("//bazel/haskell:zip_extension.bzl", "zip")
 use_repo(zip_ext, haskell_zip = "zip")
 
-sysctl_ext = use_extension("//bazel/extensions:sysctl_extension.bzl", "sysctl_extension")
+sysctl_ext = use_extension("//bazel/assets:sysctl_extension.bzl", "sysctl_extension")
 use_repo(sysctl_ext, "sysctl")
 
-grpc_haskell_ext = use_extension("//bazel/extensions:grpc_haskell_extension.bzl", "grpc_haskell")
+grpc_haskell_ext = use_extension("//bazel/proto:grpc_haskell_extension.bzl", "grpc_haskell")
 use_repo(grpc_haskell_ext, "grpc_haskell", "grpc_haskell_core", "grpc_haskell_core_cbits")
 
 # --- Haskell packages (stack_snapshot) ---
@@ -470,11 +470,11 @@ stack_snapshot_ext.package(
 
 stack_snapshot_ext.package(
     name = "ghc-lib",
-    vendored = "//bazel/ghc-lib/ghc-lib",
+    vendored = "//bazel/haskell/ghc-lib/ghc-lib",
 )
 stack_snapshot_ext.package(
     name = "ghc-lib-parser",
-    vendored = "//bazel/ghc-lib/ghc-lib-parser",
+    vendored = "//bazel/haskell/ghc-lib/ghc-lib-parser",
 )
 stack_snapshot_ext.package(
     name = "ghcide",
@@ -869,77 +869,77 @@ use_repo(maven_ext, "maven")
 # os_info (platform detection), scala_version (Scala version from env),
 # and daml_versions_data (LF version data from JSON).
 # TODO: Split into per-concern extensions.
-workspace_config_ext = use_extension("//bazel/extensions:daml_workspace_config_extension.bzl", "daml_workspace_config")
+workspace_config_ext = use_extension("//bazel/daml:daml_workspace_config_extension.bzl", "daml_workspace_config")
 use_repo(workspace_config_ext, "build_environment", "daml_versions_data", "os_info", "scala_version")
 
-dpm_ext = use_extension("//bazel/extensions:dpm_extension.bzl", "dpm_extension")
+dpm_ext = use_extension("//bazel/daml:dpm_extension.bzl", "dpm_extension")
 use_repo(dpm_ext, "dpm_binary")
 
-damlc_legacy_ext = use_extension("//bazel/extensions:damlc_legacy_extension.bzl", "damlc_legacy_extension")
+damlc_legacy_ext = use_extension("//bazel/daml:damlc_legacy_extension.bzl", "damlc_legacy_extension")
 use_repo(damlc_legacy_ext, "damlc_legacy")
 
-d3plus_ext = use_extension("//bazel/extensions:d3plus_extension.bzl", "d3plus_extension")
+d3plus_ext = use_extension("//bazel/assets:d3plus_extension.bzl", "d3plus_extension")
 use_repo(d3plus_ext, "static_asset_d3plus")
 
-googleapis_ext = use_extension("//bazel/extensions:go_googleapis_extension.bzl", "googleapis_extension")
+googleapis_ext = use_extension("//bazel/proto:go_googleapis_extension.bzl", "googleapis_extension")
 use_repo(googleapis_ext, "go_googleapis")
 
-import_googleapis_ext = use_extension("//bazel/extensions:go_googleapis_import_extension.bzl", "import_googleapis_extension")
+import_googleapis_ext = use_extension("//bazel/proto:go_googleapis_import_extension.bzl", "import_googleapis_extension")
 use_repo(import_googleapis_ext, "com_google_googleapis_imports")
 
-proto3_suite_ext = use_extension("//bazel/extensions:proto3_suite_extension.bzl", "proto3_suite_extension")
+proto3_suite_ext = use_extension("//bazel/proto:proto3_suite_extension.bzl", "proto3_suite_extension")
 use_repo(proto3_suite_ext, "proto3-suite")
 
-scalapb_ext = use_extension("//bazel/extensions:scalapb_extension.bzl", "scalapb_extension")
+scalapb_ext = use_extension("//bazel/proto:scalapb_extension.bzl", "scalapb_extension")
 use_repo(scalapb_ext, "scalapb")
 
-remote_apis_ext = use_extension("//bazel/extensions:remote_apis_extension.bzl", "remote_apis_extension")
+remote_apis_ext = use_extension("//bazel/proto:remote_apis_extension.bzl", "remote_apis_extension")
 use_repo(remote_apis_ext, "com_github_bazelbuild_remote_apis")
 
 # Prebuilt protoc 25.5 for Java/Scala codegen (proto_gen rule).
 # Must stay aligned with Maven's protobuf-java version (currently 3.25.5).
 # The BCR protobuf module resolves to 32.x via MVS, whose protoc would generate
 # stubs incompatible with protobuf-java 3.x, so we use this pinned binary instead.
-protoc_ext = use_extension("//bazel/extensions:protoc_extension.bzl", "protoc_extension")
+protoc_ext = use_extension("//bazel/proto:protoc_extension.bzl", "protoc_extension")
 use_repo(protoc_ext, "protoc_bindist")
 
 # --- Deprecated (pending removal) ---
 # io_grpc_grpc_java: legacy gRPC Java codegen; to be replaced by rules_proto + protobuf bazel_dep.
 # TODO: Remove once all targets have migrated to the new protobuf/gRPC setup.
 
-io_grpc_grpc_java_ext = use_extension("//bazel/extensions:io_grpc_grpc_java_extension.bzl", "io_grpc_grpc_java_extension")
+io_grpc_grpc_java_ext = use_extension("//bazel/proto:io_grpc_grpc_java_extension.bzl", "io_grpc_grpc_java_extension")
 use_repo(io_grpc_grpc_java_ext, "io_grpc_grpc_java")
 
 # --- Native libraries ---
 
-gmp_ext = use_extension("//bazel/extensions:gmp_extension.bzl", "gmp")
+gmp_ext = use_extension("//bazel/native:gmp_extension.bzl", "gmp")
 use_repo(gmp_ext, "gmp")
 
-ncurses_ext = use_extension("//bazel/extensions:ncurses_extension.bzl", "ncurses")
+ncurses_ext = use_extension("//bazel/native:ncurses_extension.bzl", "ncurses")
 use_repo(ncurses_ext, "ncurses")
 
-zlib_shared_ext = use_extension("//bazel/extensions:zlib_extension.bzl", "zlib_shared")
+zlib_shared_ext = use_extension("//bazel/native:zlib_extension.bzl", "zlib_shared")
 use_repo(zlib_shared_ext, "zlib_shared")
 
-bzip2_ext = use_extension("//bazel/extensions:bzip2_extension.bzl", "bzip2")
+bzip2_ext = use_extension("//bazel/native:bzip2_extension.bzl", "bzip2")
 use_repo(bzip2_ext, "bzip2")
 
-m4_ext = use_extension("//bazel/extensions:m4_extension.bzl", "m4")
+m4_ext = use_extension("//bazel/native:m4_extension.bzl", "m4")
 use_repo(m4_ext, "m4")
 
-autoconf_ext = use_extension("//bazel/extensions:autoconf_extension.bzl", "autoconf")
+autoconf_ext = use_extension("//bazel/native:autoconf_extension.bzl", "autoconf")
 use_repo(autoconf_ext, "autoconf")
-automake_ext = use_extension("//bazel/extensions:automake_extension.bzl", "automake")
+automake_ext = use_extension("//bazel/native:automake_extension.bzl", "automake")
 use_repo(automake_ext, "automake")
 
-daml_finance_ext = use_extension("//bazel/extensions:daml_finance_extension.bzl", "daml_finance_extension")
+daml_finance_ext = use_extension("//bazel/daml:daml_finance_extension.bzl", "daml_finance_extension")
 use_repo(daml_finance_ext, "daml-finance")
 
-freefont_ext = use_extension("//bazel/extensions:freefont_extension.bzl", "freefont_extension")
+freefont_ext = use_extension("//bazel/assets:freefont_extension.bzl", "freefont_extension")
 use_repo(freefont_ext, "freefont")
 
-grpcurl_ext = use_extension("//bazel/extensions:grpcurl_extension.bzl", "grpcurl_extension")
+grpcurl_ext = use_extension("//bazel/proto:grpcurl_extension.bzl", "grpcurl_extension")
 use_repo(grpcurl_ext, "grpcurl")
 
-patchelf_ext = use_extension("//bazel/extensions:patchelf_extension.bzl", "patchelf")
+patchelf_ext = use_extension("//bazel/native:patchelf_extension.bzl", "patchelf")
 use_repo(patchelf_ext, "patchelf")
