@@ -198,10 +198,6 @@ jobs:
 
           version=$(ci/refresh-canton.sh)
 
-          echo "> Updating daml-lf version and feature JSON files" >&2
-          bazel run //daml-lf:update-daml-lf-versions
-          bazel run //daml-lf:update-daml-lf-features
-
           # Track which generated files were actually updated
           update_bullets=""
           if ! git diff --quiet -- daml-lf/daml-lf-versions.json; then

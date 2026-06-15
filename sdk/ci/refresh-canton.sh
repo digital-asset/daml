@@ -66,8 +66,12 @@ git clone --filter=blob:none --no-checkout "$CANTON_GITHUB" "$TMPDIR" >$LOG 2>&1
 git -C "$TMPDIR" show $CANTON_COMMIT:shared_dependencies.json > canton/shared_dependencies.json
 rm -rf "$TMPDIR"
 
-echo "> Pinning the maven dependences" >&2
+echo "> Pinning the maven dependencies" >&2
 REPIN=1 bazel run @maven//:pin >$LOG 2>&1
+
+echo "> Updating daml-lf version and feature JSON files" >&2
+bazel run //daml-lf:update-daml-lf-versions >$LOG 2>&1
+bazel run //daml-lf:update-daml-lf-features >$LOG 2>&1
 
 echo "> Formatting changed files" >&2
 ./fmt.sh --diff >$LOG 2>&1
