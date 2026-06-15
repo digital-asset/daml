@@ -1,3 +1,5 @@
+load("@ghc_bindist_raw//:libraries.bzl", "TOOLCHAIN_LIBRARIES")
+load("@rules_haskell//haskell:defs.bzl", "haskell_toolchain")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load(":ghc_bindist_install.bzl", "ghc_bindist_install")
 
@@ -58,8 +60,6 @@ toolchain(
     toolchain_type = "@rules_haskell//haskell:toolchain",
 )
 
-# Build onto the custom toolchain via --extra_toolchains until Phase 3 registers it.
-haskell_toolchain_library(name = "base")
 py_test(
     name = "ghc_packages.check",
     srcs = ["pkgdb_to_lock.py"],
