@@ -208,13 +208,6 @@
       }
     }
   },
-  "featureLegacyLookupByKey" : {
-    "name" : "Lookup by key (legacy, UCK variant)",
-    "cppFlag" : "DAML_LEGACY_LOOKUP_BY_KEY",
-    "versionRange" : {
-      "type" : "Empty"
-    }
-  },
   "featureBigNumeric" : {
     "name" : "BigNumeric type",
     "cppFlag" : "DAML_BIGNUMERIC",
