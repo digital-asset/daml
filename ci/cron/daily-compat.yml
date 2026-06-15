@@ -357,12 +357,27 @@ jobs:
         fi
 
         export GH_REPO=digital-asset/daml
-        pr_list=$(gh pr list --search "is:open author:app/azure-pipelines" --json title,url,createdAt --template \
-        '{{range .}}{{slice .createdAt 0 10}} <{{.url}}|{{.title}}>
-        {{end}}' | grep -v 'rotate release duty')
+        prs_json=$(gh pr list --search "is:open author:app/azure-pipelines" --json title,url,createdAt)
+        pr_list=$(echo "$prs_json" | jq -r \
+          '.[] | "\(.createdAt[0:10]) <\(.url)|\(.title)>"' | grep -v 'rotate release duty')
         message="Open daml repo PRs to address:
 
         $pr_list"
+
+        today=$(date -u +%Y-%m-%d)
+        canton_update_today=$(echo "$prs_json" | jq -r \
+          --arg today "$today" \
+          '[.[] | select((.createdAt[0:10] == $today) and (.title | startswith("update canton to")))] | length')
+        if [ "$canton_update_today" = "0" ]; then
+          note="No canton update PR seems to have been created today."
+          note="$note This is typically caused by the absence of a new canton snapshot because nothing has changed in the canton repo since yesterday."
+          note="$note But, outside of weekends, it is more likely explained by a failure of the canton snapshot pipeline, or a failure of the update canton PR creation process."
+          note="$note Please investigate."
+          message="$message
+
+        $note"
+        fi
+
         tell_slack "$message" "$(Slack.team-sdk-updates)"
       env:
         GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
