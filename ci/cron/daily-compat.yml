@@ -357,13 +357,42 @@ jobs:
         fi
 
         export GH_REPO=digital-asset/daml
-        pr_list=$(gh pr list --search "is:open author:app/azure-pipelines" --json title,url,createdAt --template \
-        '{{range .}}{{slice .createdAt 0 10}} <{{.url}}|{{.title}}>
-        {{end}}' | grep -v 'rotate release duty')
-        message="Open daml repo PRs to address:
 
-        $pr_list"
-        tell_slack "$message" "$(Slack.team-sdk-updates)"
+        # Day of week in UTC: 1=Monday .. 7=Sunday.
+        dow=$(date -u +%u)
+
+        # Don't send the open-PRs report on weekends (Saturday/Sunday).
+        if [ "$dow" != "6" ] && [ "$dow" != "7" ]; then
+          prs_json=$(gh pr list --search "is:open author:app/azure-pipelines" --json title,url,createdAt)
+          pr_list=$(echo "$prs_json" | jq -r \
+            '.[] | "\(.createdAt[0:10]) <\(.url)|\(.title)>"' | grep -v 'rotate release duty')
+          message=$(printf 'Open daml repo PRs to address:\n\n%s' "$pr_list")
+
+          # On Monday, the canton update PR we expect was created on Saturday
+          # (2 days ago); on other weekdays we expect one created today.
+          if [ "$dow" = "1" ]; then
+            expected_date=$(date -u -d "2 days ago" +%Y-%m-%d)
+            when_label="on Saturday"
+          else
+            expected_date=$(date -u +%Y-%m-%d)
+            when_label="today"
+          fi
+
+          canton_update_count=$(echo "$prs_json" | jq -r \
+            --arg d "$expected_date" \
+            '[.[] | select((.createdAt[0:10] == $d) and (.title | startswith("update canton to")))] | length')
+          if [ "$canton_update_count" = "0" ]; then
+            note="No canton update PR seems to have been created $when_label."
+            note="$note This is typically caused by the absence of a new canton snapshot because nothing has changed in the canton repo since the previous day."
+            note="$note But it is more likely explained by a failure of the canton snapshot pipeline, or a failure of the update canton PR creation process."
+            note="$note If the canton nightly failed to produce a snapshot, there should be an error message on #team-canton-notifications."
+            note="$note If the update canton PR creation process failed, there should be an error message on #daml-log-builds."
+            note="$note Please investigate."
+            message=$(printf '%s\n\n%s' "$message" "$note")
+          fi
+
+          tell_slack "$message" "$(Slack.team-sdk-updates)"
+        fi
       env:
         GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
 
