@@ -62,3 +62,15 @@ diff --git a/tools/os_info.bzl b/tools/os_info.bzl
 @@ -1 +1 @@
 -load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
 +load("@rules_haskell//haskell:private/get_cpu_value_compat.bzl", "get_cpu_value")
+diff --git a/haskell/toolchain.bzl b/haskell/toolchain.bzl
+--- a/haskell/toolchain.bzl
++++ b/haskell/toolchain.bzl
+@@ -445,7 +445,7 @@
+             path_for_run_ghc = default_tools_config.path_for_run_ghc + ctx.attr._exec_posix_toolchain[platform_common.ToolchainInfo].paths,
+             tools_for_ghc = default_tools_config.tools_for_ghc,
+             path_for_cabal = default_tools_config.path_for_cabal,
+-            tools_for_ghc_pkg = default_tools_config.tools_for_ghc_pkg,
++            tools_for_ghc_pkg = ctx.files.tools,
+             maybe_exec_cc_toolchain = default_tools_config.maybe_exec_cc_toolchain,
+             supports_haddock = default_tools_config.supports_haddock,
+         )
