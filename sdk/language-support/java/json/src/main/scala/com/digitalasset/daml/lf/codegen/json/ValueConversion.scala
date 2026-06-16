@@ -45,7 +45,7 @@ object ValueConversion {
       )
     case textMap: JData.DamlTextMap =>
       LfValue.ValueTextMap(
-        SortedLookupList(textMap.toMap(JFunction.identity(), toLfValue).asScala.toMap)
+        SortedLookupList.from(textMap.toMap(JFunction.identity(), toLfValue).asScala.toMap)
       )
     case genMap: JData.DamlGenMap =>
       LfValue.ValueGenMap(
@@ -109,7 +109,9 @@ object ValueConversion {
     case LfValue.ValueOptional(value) =>
       JData.DamlOptional.of(value.map(fromLfValue).toJava)
     case LfValue.ValueTextMap(value) =>
-      JData.DamlTextMap.of(value.toHashMap.view.mapValues(fromLfValue).toMap.asJava)
+      JData.DamlTextMap.of(
+        value.iterator.map { case (key, value) => key -> fromLfValue(value) }.toMap.asJava
+      )
     case LfValue.ValueGenMap(entries) =>
       JData.DamlGenMap.of(
         ListMap(
