@@ -48,15 +48,35 @@ fi
 
 case "$(uname -s)" in
   Darwin|Linux)
-    tar=$(abspath $(rlocation tar_dev_env/tar))
-    gzip=$(abspath $(rlocation gzip_dev_env/gzip))
-    mktgz=$(abspath $(rlocation com_github_digital_asset_daml/bazel_tools/sh/mktgz))
-    patchelf=$(abspath $(rlocation patchelf_nix/bin/patchelf))
+    tar=$(abspath $(find "${RUNFILES_DIR}" -maxdepth 2 -name "tar"))
+# Unused
+#    gzip=$(abspath $(rlocation gzip_dev_env/gzip))
+    mktgz=$(abspath $(rlocation _main/bazel_tools/sh/mktgz))
+    # Support both the BCR layout (`patchelf~/patchelf`) and the
+    # pinned static-release layout (`patchelf~/bin/patchelf`).
+    patchelf_runfile=""
+    for candidate in \
+      "patchelf~/patchelf" \
+      "patchelf~/bin/patchelf" \
+      "_main~patchelf~patchelf/bin/patchelf" \
+      "_main/external/_main~patchelf~patchelf/bin/patchelf"
+    do
+      patchelf_runfile=$(rlocation "$candidate" || true)
+      if [[ -n "${patchelf_runfile:-}" ]]; then
+        break
+      fi
+    done
+    if [[ -z "${patchelf_runfile:-}" ]]; then
+      echo "ERROR: cannot locate patchelf in runfiles" >&2
+      exit 1
+    fi
+    patchelf=$(abspath "$patchelf_runfile")
     ;;
   CYGWIN*|MINGW*|MSYS*)
     tar=$(abspath $(rlocation tar_dev_env/usr/bin/tar.exe))
-    gzip=$(abspath $(rlocation gzip_dev_env/usr/bin/gzip.exe))
-    mktgz=$(abspath $(rlocation com_github_digital_asset_daml/bazel_tools/sh/mktgz.exe))
+# Unused
+#    gzip=$(abspath $(rlocation gzip_dev_env/usr/bin/gzip.exe))
+    mktgz=$(abspath $(rlocation _main/bazel_tools/sh/mktgz.exe))
     ;;
 esac
 
@@ -109,6 +129,39 @@ if [ "$(uname -s)" == "Linux" ]; then
   cp $SRC $binary
   chmod u+w $binary
   rpaths_binary=$($patchelf --print-rpath "$binary"|tr ':' ' ')
+  # Fallback system library paths for libraries that aren't bundled
+  # hermetically (the dynamic linker, libstdc++) and aren't on the
+  # is_system_lib skip list. Under WORKSPACE+nix the binary's embedded RPATH
+  # pointed into nix's glibc/gcc-libs; under bzlmod RPATH is empty so we
+  # reach for the host's standard locations.
+  case $(uname -m) in
+    x86_64)
+      rpaths_binary="$rpaths_binary /lib64 /usr/lib64 /lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu"
+      ;;
+    aarch64)
+      rpaths_binary="$rpaths_binary /lib /usr/lib /lib/aarch64-linux-gnu /usr/lib/aarch64-linux-gnu"
+      ;;
+  esac
+  if [[ -n "${PACKAGE_APP_EXTRA_LIB_DIRS:-}" ]]; then
+    for extra_dir in $(echo "$PACKAGE_APP_EXTRA_LIB_DIRS" | tr ':' ' '); do
+      rpaths_binary="$(abspath $extra_dir) $rpaths_binary"
+    done
+  fi
+  # Libraries that must not be bundled:
+  # - glibc (libc, libm, etc.): deep kernel interface dependencies make bundling harmful
+  # - linux-vdso/linux-gate: kernel-injected, no on-disk file exists
+  # - libgcc_s: GCC unwinding runtime; must be a single instance per process
+  # TODO: revisit libgcc_s presence assumption during hermetic container tests
+  is_system_lib() {
+    case "$1" in
+      libc.so.*|libm.so.*|libdl.so.*|libpthread.so.*|librt.so.*|libutil.so.*|\
+      libresolv.so.*|linux-vdso.so.*|linux-gate.so.*|libgcc_s.so.*)
+        return 0 ;;
+      *)
+        return 1 ;;
+    esac
+  }
+
   function copy_deps {
     local from target needed libOK rpaths
     from=$1
@@ -118,6 +171,9 @@ if [ "$(uname -s)" == "Linux" ]; then
 
     for lib in $needed; do
       if [ ! -f "$target/$lib" ]; then
+        if is_system_lib "$lib"; then
+          continue
+        fi
         libOK=0
         for rpath in $rpaths; do
           rpath="$(eval echo $rpath)" # expand variables, e.g. $ORIGIN

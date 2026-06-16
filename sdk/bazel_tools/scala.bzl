@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-    "@io_bazel_rules_scala//scala:scala.bzl",
+    "@rules_scala//scala:scala.bzl",
     "scala_binary",
+    "scala_doc",
     "scala_library",
     "scala_library_suite",
     "scala_macro_library",
@@ -12,9 +13,9 @@ load(
     "scala_test_suite",
 )
 load("@rules_java//java:defs.bzl", "JavaInfo")
-load("@io_bazel_rules_scala//scala/private:common.bzl", "sanitize_string_for_usage")
+load("@rules_scala//scala/private:common.bzl", "sanitize_string_for_usage")
 load(
-    "@io_bazel_rules_scala//jmh:jmh.bzl",
+    "@rules_scala//jmh:jmh.bzl",
     "scala_benchmark_jmh",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
@@ -504,7 +505,7 @@ scaladoc_jar = rule(
             allow_files = True,
         ),
         "_scaladoc": attr.label(
-            default = Label("@scala_nix//:bin/scaladoc"),
+            default = Label("//bazel_tools:scaladoc"),
             cfg = "host",
             executable = True,
             allow_files = True,
@@ -536,18 +537,11 @@ def _create_scaladoc_jar(
         override_scalacopts = None,
         generated_srcs = [],
         **kwargs):
-    # Limit execution to Linux and MacOS
-    if is_windows == False:
-        deps = resolve_scala_deps(deps, scala_deps, versioned_deps, versioned_scala_deps)
-        scaladoc_jar(
-            name = name + "_scaladoc",
-            deps = deps,
-            srcs = srcs,
-            scalacopts = (common_scalacopts + plugin_scalacopts + scalacopts) if override_scalacopts == None else override_scalacopts,
-            plugins = common_plugins + plugins,
-            generated_srcs = generated_srcs,
-            tags = ["scaladoc"],
-        )
+    scala_doc(
+        name = name + "_scaladoc",
+        deps = [name],
+        tags = ["scaladoc"],
+    )
 
 def _create_scala_repl(
         name,
@@ -692,6 +686,7 @@ def da_scala_binary(name, initial_heap_size = default_initial_heap_size, max_hea
         srcs = [":" + name + "_deploy.jar"],
         tools = [
             "//bazel_tools:distribute_jar_cleanup.sh",
+            "@zip//:zip",
             "//:NOTICES",
             "//:LICENSE",
             "//release:ee-license.txt",
@@ -699,6 +694,7 @@ def da_scala_binary(name, initial_heap_size = default_initial_heap_size, max_hea
         outs = [name + "_distribute.jar"],
         cmd = """
 $(location //bazel_tools:distribute_jar_cleanup.sh)\
+  $(execpath @zip//:zip)\
   $(location :{name}_deploy.jar)\
   $(location :{name}_distribute.jar)\
   $(location //:NOTICES)\

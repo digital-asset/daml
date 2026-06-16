@@ -1,0 +1,130 @@
+# Daml hermetic-GCC migration.
+# rules_haskell 0.18 _ghc_bindist_impl runs an autoconf `./configure` and a
+# `make install` that expect a host cc/gcc and a host make on $PATH.  This
+# patch points both at the hermetic toolchains registered in the root module:
+#   - @@_main~gcc_toolchain~hermetic_cc_linux_amd64 supplies the C compiler
+#     (CC) and an `unprefixed/` directory with autoconf-compatible binutils
+#     names (ar, ld, ranlib, ...) for the configure step's
+#     AC_CHECK_TARGET_TOOL probes.
+#   - @@_main~make_toolchain~hermetic_make_linux_amd64 supplies a static
+#     `bin/make` that replaces ctx.which("make") for the make install step.
+# macOS and Windows fall through to the existing host-PATH behaviour (no
+# hermetic toolchain is registered for those platforms).
+#
+# Note: the companion fix for the non-stackage
+# `@rules_haskell//tools/runfiles:runfiles` haskell_library (which would
+# otherwise fail with `cannot find -lgmp` because the hermetic Bootlin
+# sysroot ships no libgmp; see
+# rules_haskell~~haskell_toolchains~rules_haskell_ghc_linux_amd64/lib/package.conf.d/ghc-bignum-1.1.conf:28
+# `extra-libraries: gmp`) is applied via `single_version_override.patch_cmds`
+# in MODULE.bazel rather than a second hunk here, because Bazel's
+# `ctx.patch` rejects the unified-diff form that GNU patch accepts cleanly.
+--- a/haskell/ghc_bindist.bzl
++++ b/haskell/ghc_bindist.bzl
+@@ -177,11 +177,56 @@
+             execute_or_fail_loudly(ctx, ["sed", "-e", "s/RelocatableBuild = NO/RelocatableBuild = YES/", "-i.bak", "mk/config.mk.in"], working_directory = unpack_dir)
+             execute_or_fail_loudly(ctx, ["rm", "-f", "mk/config.mk.in.bak"], working_directory = unpack_dir)
+ 
+-        execute_or_fail_loudly(ctx, ["./configure", "--prefix", bindist_dir.realpath], working_directory = unpack_dir)
++        # Daml hermetic-GCC migration: the bindist tarball is precompiled, so
++        # its autoconf ./configure does not compile our code -- it only does a
++        # sanity check for a working host CC and probes for unprefixed
++        # binutils (ar, ld, ranlib, ...) via AC_CHECK_TARGET_TOOL.  Point that
++        # check at the Bootlin GCC and the unprefixed-binutils symlink farm
++        # registered via @@_main~gcc_toolchain~hermetic_cc_linux_amd64, and
++        # put the hermetic GNU make from
++        # @@_main~make_toolchain~hermetic_make_linux_amd64 on PATH so the
++        # subsequent `make install` does not need a host make either.  The
++        # 9.0.2 deb9 bindist's ghc-pkg binary is dynamically linked against
++        # libtinfo.so.5; point LD_LIBRARY_PATH at the hermetic ncurses 6
++        # build (which emits lib/libtinfo.so.5 as a SONAME-rewritten copy of
++        # libtinfow.so via @@_main~ncurses~ncurses) so the `make install`
++        # step's ghc-pkg invocations resolve their dynamic loader without
++        # depending on a host libtinfo5 package.  macOS and Windows fall
++        # through to the existing host-PATH behaviour (no hermetic toolchain
++        # is registered for those platforms).
++        #
++        # Canonical bzlmod label form (`@@<root>~<extension>~<repo>`) is
++        # required because this patch runs inside `rules_haskell`'s external
++        # repo, which has no apparent-name mapping for the root module's
++        # repos.
++        bindist_env = {}
++        hermetic_tinfo = None
++        if os == "linux":
++            hermetic_cc_path = ctx.path(Label("@@_main~gcc_toolchain~hermetic_cc_linux_amd64//:bin/x86_64-buildroot-linux-gnu-gcc"))
++            unprefixed_gcc = ctx.path(Label("@@_main~gcc_toolchain~hermetic_cc_linux_amd64//:unprefixed/gcc"))
++            unprefixed_dir = str(unprefixed_gcc.dirname)
++            hermetic_make = ctx.path(Label("@@_main~make_toolchain~hermetic_make_linux_amd64//:bin/make"))
++            make_dir = str(hermetic_make.dirname)
++            hermetic_tinfo = ctx.path(Label("@@_main~ncurses~ncurses//:lib/libtinfo.so.5"))
++            tinfo_dir = str(hermetic_tinfo.dirname)
++            system_path = ctx.os.environ.get("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
++            bindist_env = {
++                "CC": str(hermetic_cc_path),
++                "PATH": "{}:{}:{}".format(unprefixed_dir, make_dir, system_path),
++                "LD_LIBRARY_PATH": tinfo_dir,
++            }
++        execute_or_fail_loudly(ctx, ["./configure", "--prefix", bindist_dir.realpath], environment = bindist_env, working_directory = unpack_dir)
+ 
+-        make_loc = ctx.which("make")
+-        if not make_loc:
+-            fail("It looks like the build-essential package might be missing, because there is no make in PATH.  Are the required dependencies installed?  https://rules-haskell.readthedocs.io/en/latest/haskell.html#before-you-begin")
++        # Daml hermetic-GCC migration: on Linux, resolve `make` from the
++        # hermetic GNU make repo so the subsequent `make install` step does
++        # not need a host make on PATH.  On other platforms fall through to
++        # the upstream host-PATH lookup.
++        if os == "linux":
++            make_loc = ctx.path(Label("@@_main~make_toolchain~hermetic_make_linux_amd64//:bin/make"))
++        else:
++            make_loc = ctx.which("make")
++            if not make_loc:
++                fail("It looks like the build-essential package might be missing, because there is no make in PATH.  Are the required dependencies installed?  https://rules-haskell.readthedocs.io/en/latest/haskell.html#before-you-begin")
+ 
+         if version_tuple >= (9, 2, 1):
+             # Necessary for deterministic builds on macOS. See
+@@ -191,7 +236,7 @@
+ 
+         execute_or_fail_loudly(
+             ctx,
+-            ["make", "install"] + make_args,
++            [str(make_loc), "install"] + make_args,
+             # Necessary for deterministic builds on macOS. See
+             # https://blog.conan.io/2019/09/02/Deterministic-builds-with-C-C++.html.
+             # The proper fix is for the GHC bindist to always use ar
+@@ -199,10 +244,35 @@
+             # deterministic builds that works better than
+             # ZERO_AR_DATE. See
+             # https://source.chromium.org/chromium/chromium/src/+/62848c8d298690e086e49a9832278ff56b6976b5.
+-            environment = {"ZERO_AR_DATE": "1"},
++            environment = dict(bindist_env, ZERO_AR_DATE = "1"),
+             working_directory = unpack_dir,
+         )
+ 
++        # Daml hermetic-GCC migration: rules_haskell package-registration
++        # actions run `bin/ghc-pkg` in clean process-wrapper sandboxes where
++        # only PATH survives. Bundle hermetic libtinfo with the bindist and
++        # wrap `bin/ghc-pkg` (not `lib/bin/ghc-pkg`) so action-time
++        # invocations keep resolving libtinfo.so.5 without a host libtinfo5
++        # package.
++        #
++        # Keep `lib/bin/ghc-pkg` as the original ELF because downstream
++        # packaging rules (e.g. //compiler/damlc:ghc-pkg-dist) run patchelf on
++        # that path and require an ELF executable, not a shell script wrapper.
++        if os == "linux":
++            execute_or_fail_loudly(
++                ctx,
++                [
++                    "bash",
++                    "-euo",
++                    "pipefail",
++                    "-c",
++                    "bindist_dir=\"$1\"; tinfo_src=\"$2\"; ghc_pkg_wrapper=\"$bindist_dir/bin/ghc-pkg\"; mkdir -p \"$bindist_dir/lib/tinfo\"; cp \"$tinfo_src\" \"$bindist_dir/lib/tinfo/libtinfo.so.5\"; mv \"$ghc_pkg_wrapper\" \"$ghc_pkg_wrapper.real\"; cat >\"$ghc_pkg_wrapper\" <<'EOF'\n#!/bin/sh\nset -eu\nDIR=$(dirname \"$(readlink -f \"$0\")\")\nexport LD_LIBRARY_PATH=\"$DIR/../lib/tinfo${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\"\nexec \"$DIR/ghc-pkg.real\" \"$@\"\nEOF\nchmod +x \"$ghc_pkg_wrapper\"",
++                    "--",
++                    bindist_dir.realpath,
++                    str(hermetic_tinfo),
++                ],
++            )
++
+         if not is_hadrian_dist:
+             ctx.file(paths.join(unpack_dir, "patch_bins"), executable = True, content = r"""#!/usr/bin/env bash
+ find bin -type f -print0 | xargs -0 \

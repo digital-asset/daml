@@ -9,7 +9,7 @@ exports_files([
 sh_binary(
     name = "mktar",
     srcs = ["mktar.sh"],
-    data = ["@tar_dev_env//:tar"],
+    data = ["@tar.bzl//tar:tar"],
     visibility = ["//visibility:public"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
@@ -18,8 +18,8 @@ sh_binary(
     name = "mktgz",
     srcs = ["mktgz.sh"],
     data = [
-        "@gzip_dev_env//:gzip",
-        "@tar_dev_env//:tar",
+        "@pigz//:pigz",
+        "@bsd_tar_toolchains//:resolved_target_toolchain"
     ],
     visibility = ["//visibility:public"],
     deps = ["@bazel_tools//tools/bash/runfiles"],

@@ -6,7 +6,7 @@ load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
 load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("//bazel_tools:scala.bzl", "scala_source_jar", "scaladoc_jar")
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
+load("@rules_scala//scala:scala.bzl", "scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@rules_proto//proto:defs.bzl", "proto_library")
@@ -140,7 +140,7 @@ proto_gen = rule(
             allow_files = True,
         ),
         "protoc": attr.label(
-            default = Label("@com_google_protobuf//:protoc"),
+            default = Label("@protoc_bindist//:protoc"),
             cfg = "host",
             allow_files = True,
             executable = True,

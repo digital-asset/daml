@@ -1,4 +1,9 @@
-common --noenable_bzlmod
+common --enable_bzlmod
+common --noenable_workspace
+# Apply build:linux / build:darwin / build:windows automatically based on host OS,
+# so platform-specific flags (including BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1) take
+# effect even when --config=linux is not passed explicitly.
+common --enable_platform_specific_config
 
 # Bazel distributed cache, can be temporarily disabled by passing the following
 # flag: --noremote_accept_cached
@@ -23,9 +28,9 @@ sync:darwin --repository_cache=.bazel-cache/repo
 
 test:oracle --repo_env DAML_ORACLE_TESTING=true --test_env ORACLE_USERNAME --test_env ORACLE_PORT --test_env ORACLE_PWD
 
-# set c++ compilation version to 14 (requiered for abseil)
-build --cxxopt=-std=c++14
-build --host_cxxopt=-std=c++14
+# set c++ compilation version to 14 (requiered for abseil) -> 17 for new version
+build --cxxopt=-std=c++17
+build --host_cxxopt=-std=c++17
 
 # Improve remote cache hit rate by exluding environment variables from the
 # sandbox that are not whitelisted using --action_env.
@@ -37,7 +42,8 @@ build --experimental_strict_action_env
 # > No subject alternative DNS name matching github-releases.githubusercontent.com found.
 # It looks like this is a result of SNI being broken on TLS 1.3 which results
 # in us getting a certificate for githubassets.com instead.
-startup --host_jvm_args=-Xms3g --host_jvm_args=-Xmx3g --host_jvm_args=-Djdk.tls.client.protocols=TLSv1.2
+# Heap bumped to 8 GB max (from 3 GB) to avoid OOM during full //... builds (~23k actions) under bzlmod.
+startup --host_jvm_args=-Xms4g --host_jvm_args=-Xmx8g --host_jvm_args=-Djdk.tls.client.protocols=TLSv1.2
 
 # Limit the number of parallel actions spawned by Bazel to the number of
 # physical CPUs. (Assuming a CPU with hyperthreading enabled)
@@ -68,14 +74,20 @@ test --strategy=Scalac=worker
 #  https://github.com/grpc/grpc/pull/13929/files
 build --copt -DGRPC_BAZEL_BUILD
 
+# build --java_language_version=17
+# build:linux --java_runtime_version=nixpkgs_java_17
+# build:linux --tool_java_runtime_version=nixpkgs_java_17
+# build:darwin --java_runtime_version=nixpkgs_java_17
+# build:darwin --tool_java_runtime_version=nixpkgs_java_17
+# build:windows --java_runtime_version=17
+# build:windows --tool_java_runtime_version=17
+# build --tool_java_language_version=17
+
 build --java_language_version=17
-build:linux --java_runtime_version=nixpkgs_java_17
-build:linux --tool_java_runtime_version=nixpkgs_java_17
-build:darwin --java_runtime_version=nixpkgs_java_17
-build:darwin --tool_java_runtime_version=nixpkgs_java_17
-build:windows --java_runtime_version=17
-build:windows --tool_java_runtime_version=17
 build --tool_java_language_version=17
+
+build --java_runtime_version=remotejdk_17
+build --tool_java_runtime_version=remotejdk_17
 
 # Propagate locales and the java home to the test environment.
 build --test_env=LANG=en_US.utf8 --test_env=LOCALE_ARCHIVE --test_env=JAVA_HOME
@@ -96,13 +108,16 @@ build --action_env=GIT_SSL_CAINFO
 build:linux --action_env=LOCALE_ARCHIVE
 build:windows --action_env=JAVA_HOME
 
-# Tell bazel to use the nixpkgs Haskell toolchain on Linux and Darwin
-build:linux --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
-build:darwin --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
-# and GHC's gcc on Windows
+# GHC's gcc on Windows
 build:windows --crosstool_top=@rules_haskell_ghc_windows_amd64//:cc_toolchain
 build:windows --remote_accept_cached=true
 build:windows --jobs=4
+
+# Tell @local_config_cc to skip host compiler detection. Our hermetic GCC
+# toolchain registered in MODULE.bazel wins toolchain resolution for all
+# modern C/C++ rules. @local_config_cc becomes a dummy repo; any target
+# still referencing it directly will need to migrate to toolchain resolution.
+build:linux --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 
 # Instruct bazel to globally use this flag for compiling protobuf files.
 # We need the source info for generating proto docs. By default proto_library strips
@@ -123,5 +138,60 @@ test:windows --test_env=ComSpec
 # it is unusably slow and the C deps change rarely so there is little reason
 # to not compile them with optimizations.
 build -c opt
+
+# ----------------------------------------------------------------------------
+# Silence noisy diagnostics from third-party dependencies.
+#
+# These are all upstream issues in grpc/protobuf/pigz; without these flags a
+# full //... build emits ~4000 warning lines that drown out anything from our
+# own code. Suppressing here keeps build logs readable without hiding warnings
+# that would surface in first-party code (per_file_copt is scoped by regex,
+# host_copt only affects exec-config compiles which build third-party tools).
+#
+# Why two flag families per warning:
+#   --per_file_copt    -> applied to compiles in the *target* configuration
+#   --host_copt        -> applied to compiles in the *exec/host* configuration
+#                         (the "[for tool]" actions). --per_file_copt does NOT
+#                         cover those, so without --host_copt about half the
+#                         warnings still come through.
+#
+# What each suppression covers (counts from a sample full build):
+#   -Wattributes              ~3258 lines, gRPC promise headers (loop.h,
+#                             promise_factory.h, try_seq.h, call_state.h)
+#   -Wtrigraphs                ~528 lines, gRPC function_signature.h macro
+#                             "???()" interpreted as a trigraph
+#   -Wreturn-type               ~62 lines, gRPC channelz.h non-exhaustive
+#                             switch with no terminal return
+#   -Wstringop-overflow           4 lines, gRPC chttp2_transport.cc inline
+#                             slice writes flagged by GCC's static analyzer
+#   -Wdeprecated-declarations  ~117 lines, protobuf calling its own deprecated
+#                             FieldOptions::weak() accessor (mostly via
+#                             generated _virtual_includes/.../helpers.h)
+#   -Wunused-variable / -Wunused-but-set-variable   ~42 lines, vendored pigz
+#                             try.h macros and pigz.c locals
+#   javac -Xlint:-options,-path  ~14 lines, rules_scala bootstrap actions:
+#                             obsolete --source/--target 8 and a missing
+#                             scala-{library,reflect}.jar entry on the
+#                             classpath of the rules_scala helper jars
+#
+# Intentionally NOT suppressed:
+#   javac [removal] in protobuf~/UnsafeUtil.java (AccessController) — this
+#   is a JDK 17+ deprecation-for-removal warning we want to keep visible so
+#   we get advance notice when the JDK actually drops the API. Add ",-removal"
+#   to the javacopt lines below to silence it if needed.
+# ----------------------------------------------------------------------------
+build --per_file_copt=external/grpc.*\.(cc|cpp|cxx|c)$@-Wno-attributes,-Wno-trigraphs,-Wno-return-type,-Wno-stringop-overflow
+build --per_file_copt=external/pigz.*\.(c|cc)$@-Wno-unused-variable,-Wno-unused-but-set-variable
+build --per_file_copt=external/protobuf.*\.(cc|cpp|cxx|c)$@-Wno-deprecated-declarations
+build --javacopt=-Xlint:-options,-path
+
+build --host_copt=-Wno-attributes
+build --host_copt=-Wno-trigraphs
+build --host_copt=-Wno-return-type
+build --host_copt=-Wno-stringop-overflow
+build --host_copt=-Wno-unused-variable
+build --host_copt=-Wno-unused-but-set-variable
+build --host_copt=-Wno-deprecated-declarations
+build --host_javacopt=-Xlint:-options,-path
 
 try-import %workspace%/.bazelrc.local
