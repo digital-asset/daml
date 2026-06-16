@@ -301,7 +301,6 @@ applySubstInUpdate subst = \case
     UEmbedExpr t e -> UEmbedExpr
         (applySubstInType subst t)
         (applySubstInExpr subst e)
-    e@(ULookupByKey _) -> e
     e@(ULookupNByKey _) -> e
     e@(UFetchByKey _) -> e
     UTryCatch t e1 x e2 ->
