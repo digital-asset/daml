@@ -157,7 +157,7 @@ object ValueGenerators {
       list <- Gen.listOf(for {
         k <- Gen.asciiPrintableStr; v <- valueGen()
       } yield k -> v)
-    } yield ValueTextMap(SortedLookupList.from(list))
+    } yield ValueTextMap(SortedLookupList.from(list.toMap))
 
   def valueGenMapGen: Gen[ValueGenMap] =
     Gen
