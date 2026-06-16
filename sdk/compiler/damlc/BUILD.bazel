@@ -115,7 +115,7 @@ package_app(
     name = "damlc-dist",
     binary = ":damlc",
     extra_lib_dirs = [
-        "@ncurses//:libs",
+        "//bazel/native:libs",
         "@gmp//:libs",
     ],
     resources = [
@@ -139,7 +139,7 @@ package_app(
     name = "damlc-dist-dpm",
     binary = ":damlc",
     extra_lib_dirs = [
-        "@ncurses//:libs",
+        "//bazel/native:libs",
         "@gmp//:libs",
     ],
     resources = [
@@ -175,7 +175,7 @@ package_app(
     name = "ghc-pkg-dist",
     binary = ghc_pkg,
     extra_lib_dirs = [
-        "@ncurses//:libs",
+        "//bazel/native:libs",
         "@gmp//:libs",
     ],
     visibility = ["//visibility:public"],
