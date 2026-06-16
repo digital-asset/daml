@@ -35,6 +35,19 @@ propositionTest = script do
   Left r === interpret truth (q ||| r)
   interpret truth ( p &&& r) === Left r
 
+reduceTest = script do
+  let
+    p = Proposition 1
+    q = Proposition 2
+    r = Proposition 3
+    truth i
+      | i == 1 = Some True
+      | i == 2 = Some False
+      | otherwise = None
+  reduce (Disjunction [Disjunction [p], Disjunction [q]]) === Disjunction [p, q]
+  reduce (Disjunction [Disjunction [p, q], Disjunction [r]]) === Disjunction [p, q, r]
+  Right True === interpret truth (Disjunction [Disjunction [p], Disjunction [q]])
+
 dnfTest = script do
   Disjunction [Conjunction[Proposition 1]] === toDNF (Proposition 1)
   Disjunction [Conjunction[Proposition 1]] === toDNF (Conjunction[Proposition 1])
