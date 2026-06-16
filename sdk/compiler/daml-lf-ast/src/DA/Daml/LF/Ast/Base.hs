@@ -760,7 +760,6 @@ data Update
     { updateEmbedType :: !Type
     , updateEmbedBody :: !Expr
     }
-  | ULookupByKey !(Qualified TypeConName)
   | ULookupNByKey !(Qualified TypeConName)
   | UFetchByKey !(Qualified TypeConName)
   | UTryCatch

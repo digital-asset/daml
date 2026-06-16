@@ -660,9 +660,6 @@ typeOfUpdate = \case
   UFetchByKey retrieveByKey -> do
     (keyType, cidType, contractType) <- checkRetrieveByKey retrieveByKey
     return (keyType :-> TUpdate (TTuple2 cidType contractType))
-  ULookupByKey retrieveByKey -> do
-    (keyType, cidType, _contractType) <- checkRetrieveByKey retrieveByKey
-    return (keyType :-> TUpdate (TOptional cidType))
   ULookupNByKey retrieveByKey -> do
     (keyType, cidType, contractType) <- checkRetrieveByKey retrieveByKey
     return (TInt64 :-> keyType :-> TUpdate (TOptional (TList (TTuple2 cidType contractType))))

@@ -302,9 +302,6 @@ convertPrim _ "UExerciseByKey"
   where
     choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choice)
 
-convertPrim _ "ULookupByKey" (_ :-> TUpdate (TOptional (TContractId (TCon template)))) =
-    pure $ EUpdate $  ULookupByKey template
-
 convertPrim _ "ULookupNByKey" (TInt64 :-> _ :-> TUpdate (TOptional (TList (TTuple2 (TContractId (TCon template)) (TCon template')))))
     | template == template'
     = pure $ EUpdate $ ULookupNByKey template

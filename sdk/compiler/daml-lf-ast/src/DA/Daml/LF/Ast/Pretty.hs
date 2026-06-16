@@ -438,8 +438,6 @@ instance Pretty Update where
       pPrintAppKeyword lvl prec "uembed_expr" [TyArg typ, TmArg e]
     UFetchByKey tmplId ->
       pPrintAppKeyword lvl prec "ufetch_by_key" [tplArg tmplId]
-    ULookupByKey tmplId ->
-      pPrintAppKeyword lvl prec "ulookup_by_key" [tplArg tmplId]
     ULookupNByKey tmplId ->
       pPrintAppKeyword lvl prec "ulookup_n_by_key" [tplArg tmplId]
     UTryCatch t e1 x e2 -> keyword_ "try" <-> pPrintTyArg lvl t <-> pPrintTmArg lvl e1

@@ -82,7 +82,6 @@ data UpdateF expr
   | ULedgerTimeLTF !expr
   | UEmbedExprF !Type !expr
   | UFetchByKeyF !(Qualified TypeConName)
-  | ULookupByKeyF !(Qualified TypeConName)
   | ULookupNByKeyF !(Qualified TypeConName)
   | UTryCatchF !Type !expr !ExprVarName !expr
   deriving (Foldable, Functor, Traversable)
@@ -115,7 +114,6 @@ projectUpdate = \case
   UGetTime -> UGetTimeF
   ULedgerTimeLT a -> ULedgerTimeLTF a
   UEmbedExpr a b -> UEmbedExprF a b
-  ULookupByKey a -> ULookupByKeyF a
   ULookupNByKey a -> ULookupNByKeyF a
   UFetchByKey a -> UFetchByKeyF a
   UTryCatch a b c d -> UTryCatchF a b c d
@@ -135,7 +133,6 @@ embedUpdate = \case
   ULedgerTimeLTF a -> ULedgerTimeLT a
   UEmbedExprF a b -> UEmbedExpr a b
   UFetchByKeyF a -> UFetchByKey a
-  ULookupByKeyF a -> ULookupByKey a
   ULookupNByKeyF a -> ULookupNByKey a
   UTryCatchF a b c d -> UTryCatch a b c d
 
