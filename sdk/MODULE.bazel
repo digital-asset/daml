@@ -430,8 +430,8 @@ stack_snapshot_ext.package(
 # Group II: `haskeline` and `bzlib-conduit` each need an extra foreign
 # library beyond gmp. `haskeline` links `-ltinfo` via `terminfo` (the
 # hermetic sysroot ships no libtinfo; sdk/dump.txt L328/L524),
-# so we wire the hermetic `@ncurses//:tinfo_cc_lib` (built at repo-fetch
-# time by sdk/bazel/extensions/ncurses_extension.bzl). `bzlib-conduit` fails
+# so we wire the hermetic `//bazel/native:tinfo_cc_lib` (libtinfo built at
+# action time via configure_make on the cc toolchain). `bzlib-conduit` fails
 # Cabal's configure with "Missing (or bad) C library: bz2"
 # (sdk/dump.txt L600-601), so we wire `@bzip2//:bz2_cc_lib` (built by
 # sdk/bazel/extensions/files/bzip2.BUILD.bzl), which exposes both the
@@ -440,7 +440,7 @@ stack_snapshot_ext.package(
     name = "haskeline",
     extra_deps = [
         "@gmp//:gmp_cc_lib",
-        "@ncurses//:tinfo_cc_lib",
+        "//bazel/native:tinfo_cc_lib",
     ],
 )
 stack_snapshot_ext.package(
