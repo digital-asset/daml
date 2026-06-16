@@ -99,8 +99,6 @@ class DamlScriptTestRunnerPV34 extends DamlScriptTestRunner {
           |""".stripMargin,
         // Contract keys are not supported in PV34
         skipTestNames = List(
-          "AuthFailureWithKey:t1_LookupByKeyMissingAuthorization",
-          "AuthFailureWithKey:t2_MaintainersNotSubsetOfSignatories",
           "LFContractKeys:lookupTest",
           "MultiTest:disclosuresByKeyTest",
           "ScriptTest:testKey",

@@ -10,7 +10,6 @@ import DA.Optional(fromSome)
 -- Three kinds of authorization failure are tested here.
 -- Three others (NoSignatories, NoControllers) are tested in separate files, because the expected
 -- error message doesn't contain any indication of which testcase causes it.
--- Two others are tested in AuthFailureWithKey, because keys are only supported in dev.
 
 template TheContract1
   with

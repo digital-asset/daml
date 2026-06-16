@@ -1238,7 +1238,6 @@ filegroup(
     name = "divulgence-daml-test-files",
     srcs = [
         "daml-test-files/AuthFailure.daml",
-        "daml-test-files/AuthFailureWithKey.daml",
         "daml-test-files/AuthorizedDivulgence.daml",
         "daml-test-files/DiscloseViaChoiceObserver.daml",
         "daml-test-files/Divulgence.daml",
