@@ -123,6 +123,10 @@ rm -rf "$TMP"
     return [
         DefaultInfo(
             files = depset([install_tree, lib_settings, doc_marker] + launchers),
+            # cabal-mode packages run Setup.hs via rules_haskell's runghc/
+            # cabal_wrapper, which resolve GHC through runfiles; propagate the
+            # install tree + launchers so those tools find lib/bin/ghc.
+            runfiles = ctx.runfiles(files = [install_tree, lib_settings, doc_marker] + launchers),
         ),
         # Single-file handle on the tree dir so the lock generator can take it
         # as one input ($(rlocationpath) needs an unambiguous output).
