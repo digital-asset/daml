@@ -36,7 +36,7 @@ object DataArbitrary {
     Arbitrary(
       Tag
         .unsubst[String, Lambda[k => Gen[Map[k, A]]], APS](arbitrary[Map[String @@ APS, A]])
-        .map(SortedLookupList(_))
+        .map(SortedLookupList.from(_))
     )
 
   // The default collection instances don't make smaller-sized elements.
