@@ -120,3 +120,24 @@ diff --git a/tools/ghc-paths/BUILD.bazel b/tools/ghc-paths/BUILD.bazel
      ],
  )
  
+diff --git a/haskell/private/runghc.bzl b/haskell/private/runghc.bzl
+--- a/haskell/private/runghc.bzl
++++ b/haskell/private/runghc.bzl
+@@ -17,7 +17,7 @@
+     hs_toolchain = ctx.toolchains["@rules_haskell//haskell:toolchain"]
+ 
+     f = hs_toolchain.tools.runghc
+-    runghc_runfile_path = paths.join(f.owner.workspace_name, f.owner.package, f.owner.name)
++    runghc_runfile_path = paths.join(f.owner.workspace_name or ctx.workspace_name, f.short_path)
+     runghc_wrapper_file = ctx.actions.declare_file(ctx.label.name)
+     ctx.actions.write(
+         output = runghc_wrapper_file,
+@@ -38,7 +38,7 @@
+     return [DefaultInfo(
+         executable = runghc_wrapper_file,
+         runfiles = hs_toolchain.cc_wrapper.runfiles.merge(
+-            ctx.runfiles(files = [runghc_wrapper_file, hs_toolchain.tools.runghc]),
++            ctx.runfiles(files = [runghc_wrapper_file] + hs_toolchain.bindir),
+         ),
+     )]
+ 
