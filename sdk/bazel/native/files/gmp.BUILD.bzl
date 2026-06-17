@@ -1,6 +1,6 @@
 load("@bazel_skylib//rules:expand_template.bzl", "expand_template")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_shared_library", "cc_test")
 load(":limb.bzl", "limb_select")
 
 package(default_visibility = ["//visibility:public"])
@@ -221,6 +221,20 @@ cc_library(
 alias(
     name = "gmp_cc_lib",
     actual = ":gmp",
+)
+
+# Hermetic shared libgmp.so for consumers that need a `-L<dir>`/`-lgmp` lib
+# directory (ghc_lib_sdist's inner GHC link, damlc's extra_lib_dirs). Built
+# from the same generic-C objects, so it keeps the 2.28 floor.
+cc_shared_library(
+    name = "gmp_so",
+    shared_lib_name = "libgmp.so",
+    deps = [":gmp"],
+)
+
+filegroup(
+    name = "libs",
+    srcs = [":gmp_so"],
 )
 
 # =============================================================================
