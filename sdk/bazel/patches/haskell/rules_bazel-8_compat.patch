@@ -74,3 +74,49 @@ diff --git a/haskell/toolchain.bzl b/haskell/toolchain.bzl
              maybe_exec_cc_toolchain = default_tools_config.maybe_exec_cc_toolchain,
              supports_haddock = default_tools_config.supports_haddock,
          )
+diff --git a/haskell/cc.bzl b/haskell/cc.bzl
+--- a/haskell/cc.bzl
++++ b/haskell/cc.bzl
+@@ -122,13 +122,16 @@
+     cc_files = depset(transitive = [cc_toolchain.all_files, cc_wrapper.inputs])
+     cc_manifests = cc_wrapper.manifests
+ 
++    cc_bindir = real_cc_path[:real_cc_path.rfind("/") + 1]
+     tools = {
+-        "ar": cc_toolchain.ar_executable,
++        # LLVM advertises stub ar/ld/nm/strip paths that don't exist (it links
++        # via clang); use the real llvm-* tools beside clang for direct calls.
++        "ar": cc_bindir + "llvm-ar",
+         "cc": cc,
+-        "ld": cc_toolchain.ld_executable,
++        "ld": cc_bindir + "ld.lld",
+         "cpp": cc_toolchain.preprocessor_executable,
+-        "nm": cc_toolchain.nm_executable,
+-        "strip": cc_toolchain.strip_executable,
++        "nm": cc_bindir + "llvm-nm",
++        "strip": cc_bindir + "llvm-strip",
+     }
+ 
+     # If running on darwin but XCode is not installed (i.e., only the Command
+diff --git a/tools/runfiles/BUILD.bazel b/tools/runfiles/BUILD.bazel
+--- a/tools/runfiles/BUILD.bazel
++++ b/tools/runfiles/BUILD.bazel
+@@ -44,6 +44,7 @@
+         ":directory",
+         ":filepath",
+         ":transformers",
++        "@@+gmp+gmp//:gmp_cc_lib",
+     ],
+ )
+ 
+diff --git a/tools/ghc-paths/BUILD.bazel b/tools/ghc-paths/BUILD.bazel
+--- a/tools/ghc-paths/BUILD.bazel
++++ b/tools/ghc-paths/BUILD.bazel
+@@ -54,6 +54,7 @@
+         ":filepath",
+         ":transformers",
+         "@rules_haskell//tools/runfiles",
++        "@@+gmp+gmp//:gmp_cc_lib",
+     ],
+ )
+ 
