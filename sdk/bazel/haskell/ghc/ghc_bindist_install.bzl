@@ -84,6 +84,12 @@ export CC="$CC_BIN -fuse-ld=lld"
 ./configure --prefix "$PREFIX"
 "$MAKE_BIN" -j"$(nproc)" install
 
+# Bundle hermetic libgmp.so into integer-gmp's libdir so its `-lgmp` resolves
+# on every Haskell link; the deb9 bindist otherwise expects a host libgmp.
+for f in {gmp_libs}; do
+    cp -L "$EXECROOT/$f" "$PREFIX/lib/integer-gmp-1.1/"
+done
+
 cp "$PREFIX/lib/settings" "$EXECROOT/{lib_settings}"
 if [ -d "$PREFIX/doc" ]; then
     touch "$EXECROOT/{doc_marker}"
@@ -99,12 +105,13 @@ rm -rf "$TMP"
         make = ctx.file.make.path,
         lib_settings = lib_settings.path,
         doc_marker = doc_marker.path,
+        gmp_libs = " ".join([f.path for f in ctx.files.gmp]),
     )
 
     ctx.actions.run_shell(
         outputs = [install_tree, lib_settings, doc_marker],
         inputs = depset(
-            direct = ctx.files.srcs + [configure, ctx.file.make],
+            direct = ctx.files.srcs + [configure, ctx.file.make] + ctx.files.gmp,
             transitive = [cc_toolchain.all_files],
         ),
         command = command,
@@ -138,6 +145,10 @@ ghc_bindist_install = rule(
             mandatory = True,
             allow_single_file = True,
             doc = "Hermetic make binary (built as an action), e.g. @make//:make.",
+        ),
+        "gmp": attr.label(
+            allow_files = True,
+            doc = "Hermetic libgmp.so(s) bundled into integer-gmp's libdir, e.g. @gmp//:libs.",
         ),
     },
     toolchains = use_cc_toolchain(),
