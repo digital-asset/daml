@@ -695,7 +695,7 @@ generateSrcFromLf env = noLoc mod
     completePragmaDecls :: [Gen (LHsDecl GhcPs)]
     completePragmaDecls = makeCompletePragma <$> getCompleteExprs
       where
-        makeCompletePragma :: LFCompleteMatch QualName -> Gen (LHsDecl GhcPs)
+        makeCompletePragma :: LFC.LFCompleteMatch LFC.QualName -> Gen (LHsDecl GhcPs)
         makeCompletePragma match = do
           subjectRdrName <- mkRdrNameQual $ LFC.subject match
           -- Parser only allows the pragma to contain unqualified names, but supports those names coming from any module/package
@@ -706,7 +706,7 @@ generateSrcFromLf env = noLoc mod
             NoSourceText
             (noLoc matchersRdrNames)
             (Just $ noLoc subjectRdrName)
-        getCompleteExprs :: [LFCompleteMatch QualName]
+        getCompleteExprs :: [LFC.LFCompleteMatch LFC.QualName]
         getCompleteExprs = do
           LF.DefValue
             { dvalBinder = 
