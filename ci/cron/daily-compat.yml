@@ -184,20 +184,48 @@ jobs:
     steps:
       - checkout: none
       - bash: |
-          set -euo pipefail
-          # GIT_TERMINAL_PROMPT=0 => fail fast instead of hanging on a
-          # username/password prompt when auth is refused. Do NOT enable
-          # GIT_TRACE / GIT_CURL_VERBOSE: they can leak the token header.
-          # git redacts credentials from the URL it prints on error, and Azure
-          # masks the secret value, so the real error is safe to surface.
-          rm -rf /tmp/canton-probe
-          GIT_TERMINAL_PROMPT=0 git clone --filter=blob:none --no-checkout \
-            "https://x-access-token:$GITHUB_TOKEN@github.com/DACH-NY/canton.git" /tmp/canton-probe
-          echo "> clone OK"
-          git -C /tmp/canton-probe show HEAD:shared_dependencies.json | head -c 120
-          echo
-          echo "> read OK"
-          rm -rf /tmp/canton-probe
+          # SECURITY: never echo $GITHUB_TOKEN. No `set -x`, no `curl -v`, no
+          # GIT_TRACE / GIT_CURL_VERBOSE -- any of those would print the auth
+          # header. We only print HTTP status codes and non-secret response
+          # headers/bodies; GitHub never echoes the token back, git redacts it
+          # from URLs, and Azure masks the secret value regardless.
+          set -uo pipefail
+
+          hdrs=$(mktemp); body=$(mktemp)
+
+          echo "=== 1. Token validity: GET /user ==="
+          code=$(curl -sS -o /dev/null -D "$hdrs" -w '%{http_code}' \
+                 -H "Authorization: token $GITHUB_TOKEN" \
+                 https://api.github.com/user || echo 000)
+          echo "  HTTP $code  (200=valid; 401=invalid/expired/malformed token)"
+          grep -i '^x-oauth-scopes:' "$hdrs" | sed 's/^/  /' \
+            || echo "  x-oauth-scopes: (none -> fine-grained token, or no scopes)"
+          grep -i '^x-github-sso:' "$hdrs" | sed 's/^/  /' \
+            || echo "  x-github-sso: (none)"
+
+          echo "=== 2. Repo access: GET /repos/DACH-NY/canton ==="
+          code=$(curl -sS -o "$body" -D "$hdrs" -w '%{http_code}' \
+                 -H "Authorization: token $GITHUB_TOKEN" \
+                 https://api.github.com/repos/DACH-NY/canton || echo 000)
+          echo "  HTTP $code  (200=accessible; 404=no access / SSO; 403=forbidden)"
+          grep -i '^x-github-sso:' "$hdrs" | sed 's/^/  /' || true
+          if [ "$code" != "200" ]; then
+            echo "  $(grep -o '"message"[[:space:]]*:[^,}]*' "$body" | head -1)"
+          fi
+
+          echo "=== 3a. git clone, token as PASSWORD (x-access-token:TOKEN) ==="
+          rm -rf /tmp/canton-probe-a
+          if GIT_TERMINAL_PROMPT=0 git clone --filter=blob:none --no-checkout \
+               "https://x-access-token:$GITHUB_TOKEN@github.com/DACH-NY/canton.git" \
+               /tmp/canton-probe-a; then echo "  clone OK"; else echo "  clone FAILED"; fi
+          rm -rf /tmp/canton-probe-a
+
+          echo "=== 3b. git clone, token as USERNAME (TOKEN:x-oauth-basic) ==="
+          rm -rf /tmp/canton-probe-b
+          if GIT_TERMINAL_PROMPT=0 git clone --filter=blob:none --no-checkout \
+               "https://$GITHUB_TOKEN:x-oauth-basic@github.com/DACH-NY/canton.git" \
+               /tmp/canton-probe-b; then echo "  clone OK"; else echo "  clone FAILED"; fi
+          rm -rf /tmp/canton-probe-b
         displayName: "Probe canton clone with CANTON_READONLY_TOKEN"
         env:
           GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
