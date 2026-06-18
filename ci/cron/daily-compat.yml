@@ -192,7 +192,7 @@ jobs:
           # masks the secret value, so the real error is safe to surface.
           rm -rf /tmp/canton-probe
           GIT_TERMINAL_PROMPT=0 git clone --filter=blob:none --no-checkout \
-            "https://$GITHUB_TOKEN@github.com/DACH-NY/canton.git" /tmp/canton-probe
+            "https://x-access-token:$GITHUB_TOKEN@github.com/DACH-NY/canton.git" /tmp/canton-probe
           echo "> clone OK"
           git -C /tmp/canton-probe show HEAD:shared_dependencies.json | head -c 120
           echo
