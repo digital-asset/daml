@@ -202,7 +202,7 @@ sysroot="$1"
 for f in "$sysroot"/lib/*.so "$sysroot"/usr/lib/*.so "$sysroot"/lib64/*.so "$sysroot"/usr/lib64/*.so; do
     [ -f "$f" ] || continue
     head -c 16 "$f" | grep -q 'GNU ld script' || continue
-    if ! grep -qE '/(usr/)?lib64/libm(\\.so\\.6|vec\\.so\\.1)' "$f"; then
+    if ! grep -qE '/(usr/)?lib64/lib[mc](\\.so\\.6|vec\\.so\\.1)' "$f"; then
         continue
     fi
     sed -E -i.bak \
@@ -210,6 +210,8 @@ for f in "$sysroot"/lib/*.so "$sysroot"/usr/lib/*.so "$sysroot"/lib64/*.so "$sys
         -e 's|([ (])/lib64/libmvec\\.so\\.1|\\1=/lib64/libmvec.so.1|g' \
         -e 's|([ (])/usr/lib64/libm\\.so\\.6|\\1=/usr/lib64/libm.so.6|g' \
         -e 's|([ (])/usr/lib64/libmvec\\.so\\.1|\\1=/usr/lib64/libmvec.so.1|g' \
+        -e 's|([ (])/lib64/libc\\.so\\.6|\\1=/lib64/libc.so.6|g' \
+        -e 's|([ (])/usr/lib64/libc\\.so\\.6|\\1=/usr/lib64/libc.so.6|g' \
         "$f"
     rm -f "$f.bak"
 done
@@ -242,6 +244,13 @@ for f in "$sysroot/lib64/libm.so" "$sysroot/usr/lib64/libm.so" "$sysroot/lib/lib
     [ -f "$f" ] || continue
     head -c 16 "$f" | grep -q 'GNU ld script' || continue
     cp "$real_libm" "$f"
+done
+real_libc="$sysroot/lib64/libc.so.6"
+[ -f "$real_libc" ] || exit 0
+for f in "$sysroot/lib64/libc.so" "$sysroot/usr/lib64/libc.so" "$sysroot/lib/libc.so" "$sysroot/usr/lib/libc.so"; do
+    [ -f "$f" ] || continue
+    head -c 16 "$f" | grep -q 'GNU ld script' || continue
+    cp "$real_libc" "$f"
 done
 """
     result = rctx.execute(["sh", "-c", script, "_", str(rctx.path(sysroot_relpath))])
