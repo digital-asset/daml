@@ -87,9 +87,6 @@ preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
     , "DA.Set.Types"
     , "DA.Internal.Fail"
     , "DA.Internal.Fail.Types"
-
-    -- This module needs to use the PatternSynonyms extension.
-    , "DA.Maybe"
     ]
 
 -- Following daml-script modules import Internal for creating psuedo exceptions

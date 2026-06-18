@@ -1694,8 +1694,126 @@ tests TestArgs{..} =
             ]
         ]
 
+    , dataDependenciesTest "Using Prefix pattern synonyms"
+        [
+            (,) "Base.daml"
+            [ "module Base where"
+            , "pattern DoubleJust a = Just (Just a)"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            , "import Base"
+            , "usePattern : Maybe (Maybe Int) -> Int"
+            , "usePattern (DoubleJust n) = n"
+            , "usePattern _ = -1"
+            ]
+        ]
+
+    , dataDependenciesTest "Using Record pattern synonyms"
+        [
+            (,) "Base.daml"
+            [ "module Base where"
+            , "pattern NestedTuple {f1, f2, f3} = ((f1, f2), f3)"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            , "import Base"
+            , "usePattern : ((a, b), c) -> c"
+            , "usePattern (NestedTuple {f3}) = f3"
+            ]
+        ]
+
+    , dataDependenciesTest "Using Infix pattern synonyms"
+        [
+            (,) "Base.daml"
+            [ "module Base where"
+            , "pattern a :+: b = (Just a, Just b)"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            , "import Base"
+            , "usePattern : (Maybe Int, Maybe Int) -> Maybe Int"
+            , "usePattern (a :+: b) = Just $ a + b"
+            , "usePattern _ = Nothing"
+            ]
+        ]
+
+    , dataDependenciesTest "Using Bidirectional pattern synonyms"
+        [
+            (,) "Base.daml"
+            [ "module Base where"
+            , "pattern WithNumber a <- (a, _ : Int) where WithNumber a = (a, 0)"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            , "import Base"
+            , "usePattern : (Bool, Int) -> (Bool, Int)"
+            , "usePattern (WithNumber a) = WithNumber a"
+            ]
+        ]
+
+    , dataDependenciesTest "Using Record pattern synonym field accessor"
+        [
+            (,) "Base.daml"
+            [ "module Base where"
+            , "pattern TupleAccess {tFst, tSnd} = (tFst, tSnd)"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            , "import Base"
+            , "usePattern : (Int, Int) -> Int"
+            , "usePattern t = tSnd t"
+            ]
+        ]
+
+    , dataDependenciesTest "Using complete pragma with pattern synonyms"
+        [
+            (,) "Base.daml"
+            [ "module Base where"
+            , "compareZero = flip compare 0"
+            , "pattern Negative x <- x@(compareZero -> LT)"
+            , "pattern Positive x <- x@(compareZero -> GT)"
+            , "pattern Zero x <- x@(compareZero -> EQ)"
+            , "{-# COMPLETE Negative, Positive, Zero #-}"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            , "import Base"
+            , -- Should not give an exhaustiveness warning!
+              "usePattern : Int -> Int"
+            , "usePattern (Positive x) = x"
+            , "usePattern (Negative x) = -x"
+            , "usePattern (Zero _) = 0"
+            ]
+        ]
+
+    , dataDependenciesTest "Using complete pragma with pattern synonyms and non-local types"
+        [
+            (,) "Base.daml"
+            [ "module Base where"
+            , "compareZero = flip compare 0"
+            , "pattern OwnSome x = Some x"
+            , "{-# COMPLETE OwnSome, None #-}"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            , "import Base"
+            , -- Should not give an exhaustiveness warning!
+              "usePattern : Optional Bool -> Bool"
+            , "usePattern (OwnSome x) = x"
+            , "usePattern None = False"
+            ]
+        ]
+
     , simpleImportTest "Using explicit exports"
-        [ "module Lib (myDef, MyDataHiddenConstructor, mkMyDataHiddenConstructor, MyData(MyData)) where"
+        [ "module Lib (myDef, MyDataHiddenConstructor, mkMyDataHiddenConstructor, MyData(MyData), pattern MyDataPattern) where"
         , "data MyDataHidden = MyDataHidden"
         , "data MyDataHiddenConstructor = MyDataHiddenConstructor"
         , "data MyData = MyData"
@@ -1703,6 +1821,8 @@ tests TestArgs{..} =
         , "myDef = 4"
         , "mkMyDataHiddenConstructor : MyDataHiddenConstructor"
         , "mkMyDataHiddenConstructor = MyDataHiddenConstructor"
+        , "pattern MyDataPatternHidden = MyData"
+        , "pattern MyDataPattern = MyData"
         ]
         [ "module Main where"
         , "import Lib"
@@ -1719,6 +1839,10 @@ tests TestArgs{..} =
         , "myDataHiddenConstructor : MyDataHiddenConstructor"
           -- Proves the MyDataHiddenConstructor type was exported
         , "myDataHiddenConstructor = mkMyDataHiddenConstructor"
+        , "pattern MyDataPatternHidden = MyData"
+        , -- Lack of "ambiguous type" error proves MyDataPatternHidden isn't exported from Lib
+          "useMyDataPatternHidden MyDataPatternHidden = ()"
+        , "useMyDataPattern MyDataPattern = ()"
         ]
 
     , simpleImportTest "Constraint synonym context on instance"
