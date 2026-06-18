@@ -35,6 +35,9 @@ echo "> $MSG_PREFIX: $CANTON_VERSION" >&2
 
 echo "> Writing canton/canton_version.bzl" >&2
 cat > canton/canton_version.bzl <<EOF
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 CANTON_OPEN_SOURCE_TAG = "${CANTON_VERSION}"
 CANTON_OPEN_SOURCE_SHA = "${CANTON_DIGEST}"
 
