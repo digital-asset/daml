@@ -1,0 +1,4 @@
+module Util where
+
+-- Utility-only package
+id a = a

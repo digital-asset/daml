@@ -1,0 +1,33 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module ParticipantConfigScript where
+
+import Daml.Script
+import DA.Text (isPrefixOf)
+
+getPartyByPrefix: Text -> Script (Optional Party)
+getPartyByPrefix namePrefix = do
+  knownParties <- listKnownParties
+  let
+    maybePartyDetails = find (\knownParty -> namePrefix `isPrefixOf` (partyToText knownParty.party)) knownParties
+    maybeParty = fmap party maybePartyDetails
+
+  pure maybeParty
+
+template Simple
+  with
+    sig: Party
+    obs: Party
+  where
+    signatory sig
+    observer obs
+
+test_create_simple = script do
+  Some alice <- getPartyByPrefix "Alice"
+  Some bob <- getPartyByPrefix "Bob"
+
+  None <- getPartyByPrefix "NonExisting"
+
+  submit alice do createCmd Simple with sig = alice, obs = bob
+  submit bob do createCmd Simple with sig = bob, obs = alice

@@ -1,0 +1,57 @@
+module ForallScriptWarning where
+
+import Daml.Script
+
+-- @WARN range=7:1-7:18; implicitly polymorphic
+-- simplePolymorphic : forall a. Script a
+simplePolymorphic = script do
+  error "Fail"
+
+-- @WARN range=12:1-12:18; implicitly polymorphic
+-- liftedPolymorphic : forall a. Script a
+liftedPolymorphic = script do
+  pure $ error "Fail"
+
+-- @WARN range=17:1-17:17; ‘arrayPolymorphic : Script [()]’
+-- arrayPolymorphic : forall a. Script [a]
+arrayPolymorphic = script do
+  pure [error "Fail"]
+
+-- @WARN range=22:1-22:20; optionalPolymorphic : Script (Optional ())’
+-- optionalPolymorphic : forall a. Script (Optional a)
+optionalPolymorphic = script do
+  pure $ Some $ error "Fail"
+
+-- @WARN range=27:1-27:30; optionalPolymorphicNonObvious : Script (Optional ())’
+-- optionalPolymorphicNonObvious : forall a. Script (Optional a)
+optionalPolymorphicNonObvious = script do
+  pure do
+    x <- Some 1
+    error "Fail"
+
+-- Ensure the warning doesn't trigger with explicit type signature using forall
+explicitForall : forall a. Script a
+explicitForall = script do
+  error "Not run"
+
+-- @ERROR range=40:1-40:16; Pass
+-- Ensure the warning doesn't trigger with explicit monomorphic type signature. Note this _will_ run as a test, so we expect error
+explicitTypeSig : Script ()
+explicitTypeSig = script do
+  error "Pass"
+
+-- @ERROR range=46:1-46:16; Pass
+-- Ensure the warning doesn't trigger when type application is used. Note this _will_ run as a test, so we expect error
+-- typeApplication : Script ()
+typeApplication = script @() do
+  error "Pass"
+
+-- No warning for fixed argument function
+-- forallWithFixed : forall a. () -> Script a
+forallWithFixed () = script do
+  error "Not run"
+
+-- No warning for type var argument function
+-- forallWithVariable : forall a b. a -> Script b
+forallWithVariable a = script do
+  error "Not run"

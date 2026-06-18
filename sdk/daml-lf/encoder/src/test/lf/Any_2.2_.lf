@@ -1,0 +1,14 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module AnyMod {
+
+    record T = {};
+
+    val int2Any: AnyMod:T -> Any = \ (x: AnyMod:T) -> to_any @AnyMod:T x;
+
+    val any2Int: Any -> (Option AnyMod:T) = \ (x: Any) -> from_any @AnyMod:T x;
+
+    val intRep: TypeRep = type_rep @AnyMod:T;
+
+}

@@ -1,0 +1,16 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module TrailingNone where
+
+template TrailingNone
+  with
+    p: Party
+    i: Optional Int
+  where
+    signatory p
+
+    choice ArchiveMe: ()
+      with anyone: Party
+      controller anyone
+      do pure ()

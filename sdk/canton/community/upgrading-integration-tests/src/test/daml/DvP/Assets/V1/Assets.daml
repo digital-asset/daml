@@ -1,0 +1,27 @@
+module Assets where
+
+template Iou
+  with
+    issuer: Party
+    owner: Party
+    amount: Decimal
+  where
+    signatory issuer
+    observer owner
+    choice TransferIou: ContractId Iou
+      with newOwner: Party
+      controller owner
+        do create this with owner = newOwner
+
+template Share
+  with
+    registry : Party
+    holder : Party
+    company : Text
+  where
+    signatory registry
+    observer holder
+    choice TransferShare : ContractId Share
+      with newHolder: Party
+      controller holder
+        do create this with holder = newHolder

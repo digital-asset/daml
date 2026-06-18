@@ -1,0 +1,47 @@
+
+module DamlDocHoogle
+
+-- | View docs
+
+data View
+
+
+View :: View
+
+
+getController :: I -> Party
+
+-- | T docs
+
+data (Template T) => T
+
+-- | T docs
+
+T :: Party -> T
+
+p :: T -> Party
+
+-- | TCall docs
+
+data (Choice T TCall ()) => TCall
+
+-- | TCall docs
+
+TCall :: Int -> TCall
+
+i :: TCall -> Int
+
+-- | I docs
+
+data (HasInterfaceView I View) => I
+
+-- | ICall docs
+
+data (Choice I ICall (Optional Int)) => ICall
+
+-- | ICall docs
+
+ICall :: Int -> ICall
+
+i :: ICall -> Int
+

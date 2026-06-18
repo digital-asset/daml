@@ -1,0 +1,16 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Ensure numeric literal cannot be out of bounds thanks to
+-- `NumericScale` constraint.
+--
+-- @SINCE-LF 2.1
+-- @ERROR range=16:12-16:19; Possible Daml-specific reason for the following type error: Tried to define a Numeric with a scale of 38, but only scales between 0 and 37 are supported.
+
+
+
+module NumericLitMonoScaleOOB where
+
+-- Scale out of bounds for numeric literal.
+scaleOOB : Numeric 38
+scaleOOB = 0.00001

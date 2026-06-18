@@ -1,0 +1,51 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Query where
+
+import Daml.Script
+
+main : Script ()
+main = script do
+  alice <- allocateParty "alice"
+
+  ts <- query @T alice
+  assertMsg "the result of query should be empty" $
+    null ts
+
+  cid1 <- alice `submit` createCmd T with p = alice
+  ts <- query @T alice
+  assertMsg "cid1 should appear in the result of query" $
+    (cid1, T alice) `elem` ts
+  assertMsg "there should be a single entry in the result of query" $
+    length ts == 1
+
+  cid2 <- alice `submit` createCmd T with p = alice
+  ts <- query @T alice
+  assertMsg "cid1 should still appear in the result of query" $
+    (cid1, T alice) `elem` ts
+  assertMsg "cid2 should now appear in the result of query" $
+    (cid2, T alice) `elem` ts
+  assertMsg "now there should be two entries in the result of query" $
+    length ts == 2
+
+  alice `submit` archiveCmd cid1
+  ts <- query @T alice
+  assertMsg "cid1 should no longer appear in the result of query" $
+    (cid1, T alice) `notElem` ts
+  assertMsg "cid2 should still appear in the result of query" $
+    (cid2, T alice) `elem` ts
+  assertMsg "now there should be a single entry in the result of query" $
+    length ts == 1
+
+  alice `submit` archiveCmd cid2
+  ts <- query @T alice
+  assertMsg "the result of query should be empty again" $
+    null ts
+
+  pure ()
+
+template T with
+    p : Party
+  where
+    signatory p

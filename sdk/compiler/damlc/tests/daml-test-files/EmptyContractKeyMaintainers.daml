@@ -1,0 +1,64 @@
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+-- @ERROR range=46:1-46:22; Attempt to create a contract key with an empty set of maintainers
+-- @TODO queryContractKey loses errors, ideally below is: Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+-- @ERROR range=50:1-50:18; Couldn't see contract with key 'Alice'
+-- @ERROR range=54:1-54:19; Attempt to create a contract key with an empty set of maintainers
+-- @ERROR range=58:1-58:18; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+-- @ERROR range=62:1-62:19; Attempt to fetch, lookup or exercise a contract key with an empty set of maintainers
+
+module EmptyContractKeyMaintainers where
+
+import Daml.Script
+import ScriptAssertHelpers
+
+template NoMaintainer
+  with
+    sig: Party
+  where
+    signatory sig
+    key sig : Party
+    maintainer [] @Party
+
+template Test
+  with
+    p : Party
+  where
+    signatory p
+    choice CreateTest : ()
+      controller p
+      do
+        create NoMaintainer with sig = p
+        pure ()
+    
+    choice FetchTest : ()
+      controller p
+      do
+        fetchByKey @NoMaintainer p
+        pure ()
+    
+    choice LookupTest : ()
+      controller p
+      do
+        lookupByKey @NoMaintainer p
+        pure ()
+
+createCmdNoMaintainer = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createCmd NoMaintainer with sig = alice
+
+queryNoMaintainer = script do
+  alice <- allocateParty "Alice"
+  canSeeKey @NoMaintainer alice alice
+
+createNoMaintainer = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Test alice) CreateTest
+
+fetchNoMaintainer = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Test alice) FetchTest
+
+lookupNoMaintainer = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Test alice) LookupTest

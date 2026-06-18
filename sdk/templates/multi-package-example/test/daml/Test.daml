@@ -1,0 +1,16 @@
+module Test where
+
+import Daml.Script
+import Asset (Asset)
+import qualified Asset
+import qualified Main
+import DA.Assert
+
+main : Script ()
+main = do
+  a <- allocateParty "Alice"
+  mainCid <- a `submit` createCmd Main.IOU with owner = a, issuer = a, value = 5, name = "C1"
+  let assetCid = toInterfaceContractId @Asset mainCid
+  view <- a `submit` exerciseCmd assetCid Asset.GetView
+  "IOU (C1)" === view.description
+  pure ()

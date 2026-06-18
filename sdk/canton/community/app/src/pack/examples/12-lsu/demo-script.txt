@@ -1,0 +1,50 @@
+cd community/app/target/release/canton
+bin/canton --config examples/12-lsu/lsu.conf --bootstrap examples/12-lsu/lsu.canton
+
+---------------------------------------------------------------------------
+Present the setup:
+participant1.parties.list()
+participant1.synchronizers.list_connected()
+
+val aliceIou = participant1.ledger_api.javaapi.state.acs.await(Iou.COMPANION)(alice)
+
+clock.now
+
+val upgradeTime = CantonTimestamp.assertFromInstant(Instant.parse("1970-01-01T12:00:00Z"))
+
+currentPhysicalSynchronizerId
+newPhysicalSynchronizerId
+
+---------------------------------------------------------------------------
+Perform the upgrade
+
+sequencer1.topology.synchronizer_upgrade.announcement.propose(newPhysicalSynchronizerId, upgradeTime).discard
+
+participant1.parties.enable("Donald")
+
+writeSynchronizerNodesDataToFiles()
+
+migrateNode(sequencer2, "sequencer1")
+
+migrateNode(mediator2, "mediator1")
+
+sequencer1.topology.synchronizer_upgrade.sequencer_successors.propose_successor(
+  sequencerId = sequencer1.id,
+  endpoints = sequencer2.sequencerConnection.endpoints.map(_.toURI(useTls = false)),
+  synchronizerId = currentSynchronizerId,
+).discard
+
+clock.advanceTo(upgradeTime.immediateSuccessor)
+
+---------------------------------------------------------------------------
+After the upgrade
+
+participant1.synchronizers.list_connected()
+
+val charlie = participant1.parties.enable("Charlie")
+
+participant1.ledger_api.javaapi.commands.submit(Seq(alice), aliceIou.id.exerciseTransfer(charlie.toProtoPrimitive).commands.asScala.toSeq)
+
+participant1.ledger_api.state.acs.of_party(alice)
+
+participant1.ledger_api.state.acs.of_party(charlie)

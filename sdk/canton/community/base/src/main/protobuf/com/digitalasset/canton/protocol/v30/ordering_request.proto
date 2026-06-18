@@ -1,0 +1,15 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v30;
+
+import "scalapb/scalapb.proto";
+
+message OrderingRequest {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  string sequencer_uid = 1; // UID of the sequencer requesting ordering of the request
+  optional bytes content = 2; // Content of the request to be ordered
+}

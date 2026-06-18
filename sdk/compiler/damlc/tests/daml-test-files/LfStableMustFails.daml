@@ -1,0 +1,392 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module LfStableMustFails where
+
+import Daml.Script
+
+import DA.Time
+
+-- Tests for different types of failing updates that mustFailAt catches.
+-- These are:
+--   1. Exceptions (error, division by zero, overflows)
+--   2. Failed lookup of local or global contract (not effective, not active, not visible)
+--   3. Authorization errors
+--   4. Aborted transaction, due to exercise on consumed contract
+
+-- Some supporting contract templates
+
+template TwoParties
+  with p: Party
+       p2: Party
+  where
+    signatory p
+    signatory p2
+
+    choice Hello: Text
+      controller p
+      do pure "hello"
+
+    choice World: Text
+      controller p2
+      do pure "world"
+
+template ToTwoParties
+  with p: Party
+       p2: Party
+  where
+    signatory p
+    observer p2
+
+    choice Convert: ContractId TwoParties
+      controller p2
+      do create TwoParties with p; p2
+
+template NoCtrls
+  with p: Party
+       xs: [Party]
+  where
+    signatory p
+    observer xs
+    choice NoController: ()
+      controller xs
+      do pure ()
+
+template NoSignatory
+  with
+    text : Text
+  where
+    signatory ([] : [Party])
+
+template X
+  with p: Party
+       p2: Party
+  where
+    signatory p
+    observer p2
+    choice Swap: ContractId X
+      controller p2
+      do create X with p = p2; p2 = p
+
+template Recursive
+  with p: Party
+  where
+    signatory p
+
+    choice Recursive_Archive: ()
+      controller p
+      do pure ()
+
+    choice ArchiveAndRecreate: ContractId Recursive
+      with selfCid: ContractId Recursive
+      controller p
+      do exercise selfCid Recursive_Archive
+         create Recursive with p
+
+-- 1. Exceptions
+
+template Exceptions
+  with
+    p : Party
+  where
+    signatory p
+
+    choice DivZeroC : Int
+      controller p
+      do pure (1/0)
+
+    choice AbortC : ()
+      controller p
+      do abort "stop"
+
+    choice OverflowC : Int
+      controller p
+      do pure (truncate (9999999999999.9 * 9999999999999.9 : Decimal))
+
+    choice BadRoundC : Decimal
+      controller p
+      do pure (roundBankers 20 (1.0 : Decimal))
+
+-- @LEDGER divByZero LfStableMustFails/divByZero.EXPECTED.ledger
+divByZero = script do
+  alice <- allocateParty "Alice"
+  submitMustFail alice (createAndExerciseCmd (Exceptions alice) DivZeroC)
+
+-- @LEDGER aborted LfStableMustFails/aborted.EXPECTED.ledger
+aborted = script do
+  alice <- allocateParty "Alice"
+  submitMustFail alice (createAndExerciseCmd (Exceptions alice) AbortC)
+
+-- @LEDGER int64overflow LfStableMustFails/int64overflow.EXPECTED.ledger
+int64overflow = script do
+  alice <- allocateParty "Alice"
+  submitMustFail alice (createAndExerciseCmd (Exceptions alice) OverflowC)
+
+-- @LEDGER roundBadScale LfStableMustFails/roundBadScale.EXPECTED.ledger
+roundBadScale = script do
+  alice <- allocateParty "Alice"
+  submitMustFail alice (createAndExerciseCmd (Exceptions alice) BadRoundC)
+
+-- 2. Failed lookups
+
+-- @LEDGER contractNotEffective LfStableMustFails/contractNotEffective.EXPECTED.ledger
+contractNotEffective = script do
+  now <- getTime
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  cid <- submit alice (createCmd X with p = alice; p2 = bob)
+  passTime (seconds (-100))
+  submitMustFail bob (exerciseCmd cid Swap)
+
+-- @LEDGER undivulged LfStableMustFails/undivulged.EXPECTED.ledger
+undivulged = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  cid <- submit alice (createCmd TwoParties with p = alice; p2 = alice)
+  submitMustFail bob (exerciseCmd cid Hello)
+
+-- 3. Authorization errors
+
+-- @LEDGER missingAuthInCreate LfStableMustFails/missingAuthInCreate.EXPECTED.ledger
+missingAuthInCreate = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  submitMustFail alice (createCmd TwoParties with p = alice; p2 = bob)
+
+-- @LEDGER missingAuthInExercise LfStableMustFails/missingAuthInExercise.EXPECTED.ledger
+missingAuthInExercise = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  cid0 <- submit alice (createCmd ToTwoParties with p = alice; p2 = bob)
+  cid1 <- submit bob (exerciseCmd cid0 Convert)
+  submitMustFail bob (exerciseCmd cid1 Hello)
+
+-- @LEDGER noControllers LfStableMustFails/noControllers.EXPECTED.ledger
+noControllers = script do
+  alice <- allocateParty "Alice"
+  cid <- submit alice (createCmd NoCtrls with p = alice; xs = [])
+  submitMustFail alice (exerciseCmd cid NoController)
+
+-- @LEDGER noSignatories LfStableMustFails/noSignatories.EXPECTED.ledger
+noSignatories = script do
+  alice <- allocateParty "Alice"
+  submitMustFail alice (createCmd NoSignatory with text="blah")
+
+-- @LEDGER unauthActor LfStableMustFails/unauthActor.EXPECTED.ledger
+unauthActor = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  cid <- submit alice (createCmd X with p = alice; p2 = bob)
+  submitMustFail alice (exerciseCmd cid Swap)
+
+-- 4. Aborted transactions (DEL-5277)
+
+-- @LEDGER exerciseInExercise LfStableMustFails/exerciseInExercise.EXPECTED.ledger
+exerciseInExercise = script do
+  alice <- allocateParty "Alice"
+  cid <- submit alice (createCmd Recursive with p = alice)
+  -- Alice tries to exercise a choice that exercises
+  -- another choice on the same contract in the follow-up.
+  submitMustFail alice (exerciseCmd cid ArchiveAndRecreate with selfCid = cid)
+
+--------------------------------------------------------------
+-- 5. Nesting limits (DEL-5630)
+--
+-- this monster exists solely to test the nesting limit, in the absence of recursive types.
+-- the type was generated with
+--
+--    unlines ["data Nesting" ++ show (n - 1) ++ " = {x: Nesting" ++ show n ++ "}" | n <- [1..150]]
+--
+-- and then the invocation with
+--
+--    foldl (\e ix -> "Nesting" ++ show (ix - 1) ++ "{x = " ++ e ++ "}") "Nesting{x = 42}" [1..150]
+{-
+These tests are disabled since daml-script fails with an uncatchable timeout.
+-- TODO: https://github.com/digital-asset/daml/issues/17508
+
+data Nesting0 = Nesting0 {x0: Nesting1} deriving (Eq, Show)
+data Nesting1 = Nesting1 {x1: Nesting2} deriving (Eq, Show)
+data Nesting2 = Nesting2 {x2: Nesting3} deriving (Eq, Show)
+data Nesting3 = Nesting3 {x3: Nesting4} deriving (Eq, Show)
+data Nesting4 = Nesting4 {x4: Nesting5} deriving (Eq, Show)
+data Nesting5 = Nesting5 {x5: Nesting6} deriving (Eq, Show)
+data Nesting6 = Nesting6 {x6: Nesting7} deriving (Eq, Show)
+data Nesting7 = Nesting7 {x7: Nesting8} deriving (Eq, Show)
+data Nesting8 = Nesting8 {x8: Nesting9} deriving (Eq, Show)
+data Nesting9 = Nesting9 {x9: Nesting10} deriving (Eq, Show)
+data Nesting10 = Nesting10 {x10: Nesting11} deriving (Eq, Show)
+data Nesting11 = Nesting11 {x11: Nesting12} deriving (Eq, Show)
+data Nesting12 = Nesting12 {x12: Nesting13} deriving (Eq, Show)
+data Nesting13 = Nesting13 {x13: Nesting14} deriving (Eq, Show)
+data Nesting14 = Nesting14 {x14: Nesting15} deriving (Eq, Show)
+data Nesting15 = Nesting15 {x15: Nesting16} deriving (Eq, Show)
+data Nesting16 = Nesting16 {x16: Nesting17} deriving (Eq, Show)
+data Nesting17 = Nesting17 {x17: Nesting18} deriving (Eq, Show)
+data Nesting18 = Nesting18 {x18: Nesting19} deriving (Eq, Show)
+data Nesting19 = Nesting19 {x19: Nesting20} deriving (Eq, Show)
+data Nesting20 = Nesting20 {x20: Nesting21} deriving (Eq, Show)
+data Nesting21 = Nesting21 {x21: Nesting22} deriving (Eq, Show)
+data Nesting22 = Nesting22 {x22: Nesting23} deriving (Eq, Show)
+data Nesting23 = Nesting23 {x23: Nesting24} deriving (Eq, Show)
+data Nesting24 = Nesting24 {x24: Nesting25} deriving (Eq, Show)
+data Nesting25 = Nesting25 {x25: Nesting26} deriving (Eq, Show)
+data Nesting26 = Nesting26 {x26: Nesting27} deriving (Eq, Show)
+data Nesting27 = Nesting27 {x27: Nesting28} deriving (Eq, Show)
+data Nesting28 = Nesting28 {x28: Nesting29} deriving (Eq, Show)
+data Nesting29 = Nesting29 {x29: Nesting30} deriving (Eq, Show)
+data Nesting30 = Nesting30 {x30: Nesting31} deriving (Eq, Show)
+data Nesting31 = Nesting31 {x31: Nesting32} deriving (Eq, Show)
+data Nesting32 = Nesting32 {x32: Nesting33} deriving (Eq, Show)
+data Nesting33 = Nesting33 {x33: Nesting34} deriving (Eq, Show)
+data Nesting34 = Nesting34 {x34: Nesting35} deriving (Eq, Show)
+data Nesting35 = Nesting35 {x35: Nesting36} deriving (Eq, Show)
+data Nesting36 = Nesting36 {x36: Nesting37} deriving (Eq, Show)
+data Nesting37 = Nesting37 {x37: Nesting38} deriving (Eq, Show)
+data Nesting38 = Nesting38 {x38: Nesting39} deriving (Eq, Show)
+data Nesting39 = Nesting39 {x39: Nesting40} deriving (Eq, Show)
+data Nesting40 = Nesting40 {x40: Nesting41} deriving (Eq, Show)
+data Nesting41 = Nesting41 {x41: Nesting42} deriving (Eq, Show)
+data Nesting42 = Nesting42 {x42: Nesting43} deriving (Eq, Show)
+data Nesting43 = Nesting43 {x43: Nesting44} deriving (Eq, Show)
+data Nesting44 = Nesting44 {x44: Nesting45} deriving (Eq, Show)
+data Nesting45 = Nesting45 {x45: Nesting46} deriving (Eq, Show)
+data Nesting46 = Nesting46 {x46: Nesting47} deriving (Eq, Show)
+data Nesting47 = Nesting47 {x47: Nesting48} deriving (Eq, Show)
+data Nesting48 = Nesting48 {x48: Nesting49} deriving (Eq, Show)
+data Nesting49 = Nesting49 {x49: Nesting50} deriving (Eq, Show)
+data Nesting50 = Nesting50 {x50: Nesting51} deriving (Eq, Show)
+data Nesting51 = Nesting51 {x51: Nesting52} deriving (Eq, Show)
+data Nesting52 = Nesting52 {x52: Nesting53} deriving (Eq, Show)
+data Nesting53 = Nesting53 {x53: Nesting54} deriving (Eq, Show)
+data Nesting54 = Nesting54 {x54: Nesting55} deriving (Eq, Show)
+data Nesting55 = Nesting55 {x55: Nesting56} deriving (Eq, Show)
+data Nesting56 = Nesting56 {x56: Nesting57} deriving (Eq, Show)
+data Nesting57 = Nesting57 {x57: Nesting58} deriving (Eq, Show)
+data Nesting58 = Nesting58 {x58: Nesting59} deriving (Eq, Show)
+data Nesting59 = Nesting59 {x59: Nesting60} deriving (Eq, Show)
+data Nesting60 = Nesting60 {x60: Nesting61} deriving (Eq, Show)
+data Nesting61 = Nesting61 {x61: Nesting62} deriving (Eq, Show)
+data Nesting62 = Nesting62 {x62: Nesting63} deriving (Eq, Show)
+data Nesting63 = Nesting63 {x63: Nesting64} deriving (Eq, Show)
+data Nesting64 = Nesting64 {x64: Nesting65} deriving (Eq, Show)
+data Nesting65 = Nesting65 {x65: Nesting66} deriving (Eq, Show)
+data Nesting66 = Nesting66 {x66: Nesting67} deriving (Eq, Show)
+data Nesting67 = Nesting67 {x67: Nesting68} deriving (Eq, Show)
+data Nesting68 = Nesting68 {x68: Nesting69} deriving (Eq, Show)
+data Nesting69 = Nesting69 {x69: Nesting70} deriving (Eq, Show)
+data Nesting70 = Nesting70 {x70: Nesting71} deriving (Eq, Show)
+data Nesting71 = Nesting71 {x71: Nesting72} deriving (Eq, Show)
+data Nesting72 = Nesting72 {x72: Nesting73} deriving (Eq, Show)
+data Nesting73 = Nesting73 {x73: Nesting74} deriving (Eq, Show)
+data Nesting74 = Nesting74 {x74: Nesting75} deriving (Eq, Show)
+data Nesting75 = Nesting75 {x75: Nesting76} deriving (Eq, Show)
+data Nesting76 = Nesting76 {x76: Nesting77} deriving (Eq, Show)
+data Nesting77 = Nesting77 {x77: Nesting78} deriving (Eq, Show)
+data Nesting78 = Nesting78 {x78: Nesting79} deriving (Eq, Show)
+data Nesting79 = Nesting79 {x79: Nesting80} deriving (Eq, Show)
+data Nesting80 = Nesting80 {x80: Nesting81} deriving (Eq, Show)
+data Nesting81 = Nesting81 {x81: Nesting82} deriving (Eq, Show)
+data Nesting82 = Nesting82 {x82: Nesting83} deriving (Eq, Show)
+data Nesting83 = Nesting83 {x83: Nesting84} deriving (Eq, Show)
+data Nesting84 = Nesting84 {x84: Nesting85} deriving (Eq, Show)
+data Nesting85 = Nesting85 {x85: Nesting86} deriving (Eq, Show)
+data Nesting86 = Nesting86 {x86: Nesting87} deriving (Eq, Show)
+data Nesting87 = Nesting87 {x87: Nesting88} deriving (Eq, Show)
+data Nesting88 = Nesting88 {x88: Nesting89} deriving (Eq, Show)
+data Nesting89 = Nesting89 {x89: Nesting90} deriving (Eq, Show)
+data Nesting90 = Nesting90 {x90: Nesting91} deriving (Eq, Show)
+data Nesting91 = Nesting91 {x91: Nesting92} deriving (Eq, Show)
+data Nesting92 = Nesting92 {x92: Nesting93} deriving (Eq, Show)
+data Nesting93 = Nesting93 {x93: Nesting94} deriving (Eq, Show)
+data Nesting94 = Nesting94 {x94: Nesting95} deriving (Eq, Show)
+data Nesting95 = Nesting95 {x95: Nesting96} deriving (Eq, Show)
+data Nesting96 = Nesting96 {x96: Nesting97} deriving (Eq, Show)
+data Nesting97 = Nesting97 {x97: Nesting98} deriving (Eq, Show)
+data Nesting98 = Nesting98 {x98: Nesting99} deriving (Eq, Show)
+data Nesting99 = Nesting99 {x99: Nesting100} deriving (Eq, Show)
+data Nesting100 = Nesting100 {x100: Nesting101} deriving (Eq, Show)
+data Nesting101 = Nesting101 {x101: Nesting102} deriving (Eq, Show)
+data Nesting102 = Nesting102 {x102: Nesting103} deriving (Eq, Show)
+data Nesting103 = Nesting103 {x103: Nesting104} deriving (Eq, Show)
+data Nesting104 = Nesting104 {x104: Nesting105} deriving (Eq, Show)
+data Nesting105 = Nesting105 {x105: Nesting106} deriving (Eq, Show)
+data Nesting106 = Nesting106 {x106: Nesting107} deriving (Eq, Show)
+data Nesting107 = Nesting107 {x107: Nesting108} deriving (Eq, Show)
+data Nesting108 = Nesting108 {x108: Nesting109} deriving (Eq, Show)
+data Nesting109 = Nesting109 {x109: Nesting110} deriving (Eq, Show)
+data Nesting110 = Nesting110 {x110: Nesting111} deriving (Eq, Show)
+data Nesting111 = Nesting111 {x111: Nesting112} deriving (Eq, Show)
+data Nesting112 = Nesting112 {x112: Nesting113} deriving (Eq, Show)
+data Nesting113 = Nesting113 {x113: Nesting114} deriving (Eq, Show)
+data Nesting114 = Nesting114 {x114: Nesting115} deriving (Eq, Show)
+data Nesting115 = Nesting115 {x115: Nesting116} deriving (Eq, Show)
+data Nesting116 = Nesting116 {x116: Nesting117} deriving (Eq, Show)
+data Nesting117 = Nesting117 {x117: Nesting118} deriving (Eq, Show)
+data Nesting118 = Nesting118 {x118: Nesting119} deriving (Eq, Show)
+data Nesting119 = Nesting119 {x119: Nesting120} deriving (Eq, Show)
+data Nesting120 = Nesting120 {x120: Nesting121} deriving (Eq, Show)
+data Nesting121 = Nesting121 {x121: Nesting122} deriving (Eq, Show)
+data Nesting122 = Nesting122 {x122: Nesting123} deriving (Eq, Show)
+data Nesting123 = Nesting123 {x123: Nesting124} deriving (Eq, Show)
+data Nesting124 = Nesting124 {x124: Nesting125} deriving (Eq, Show)
+data Nesting125 = Nesting125 {x125: Nesting126} deriving (Eq, Show)
+data Nesting126 = Nesting126 {x126: Nesting127} deriving (Eq, Show)
+data Nesting127 = Nesting127 {x127: Nesting128} deriving (Eq, Show)
+data Nesting128 = Nesting128 {x128: Nesting129} deriving (Eq, Show)
+data Nesting129 = Nesting129 {x129: Nesting130} deriving (Eq, Show)
+data Nesting130 = Nesting130 {x130: Nesting131} deriving (Eq, Show)
+data Nesting131 = Nesting131 {x131: Nesting132} deriving (Eq, Show)
+data Nesting132 = Nesting132 {x132: Nesting133} deriving (Eq, Show)
+data Nesting133 = Nesting133 {x133: Nesting134} deriving (Eq, Show)
+data Nesting134 = Nesting134 {x134: Nesting135} deriving (Eq, Show)
+data Nesting135 = Nesting135 {x135: Nesting136} deriving (Eq, Show)
+data Nesting136 = Nesting136 {x136: Nesting137} deriving (Eq, Show)
+data Nesting137 = Nesting137 {x137: Nesting138} deriving (Eq, Show)
+data Nesting138 = Nesting138 {x138: Nesting139} deriving (Eq, Show)
+data Nesting139 = Nesting139 {x139: Nesting140} deriving (Eq, Show)
+data Nesting140 = Nesting140 {x140: Nesting141} deriving (Eq, Show)
+data Nesting141 = Nesting141 {x141: Nesting142} deriving (Eq, Show)
+data Nesting142 = Nesting142 {x142: Nesting143} deriving (Eq, Show)
+data Nesting143 = Nesting143 {x143: Nesting144} deriving (Eq, Show)
+data Nesting144 = Nesting144 {x144: Nesting145} deriving (Eq, Show)
+data Nesting145 = Nesting145 {x145: Nesting146} deriving (Eq, Show)
+data Nesting146 = Nesting146 {x146: Nesting147} deriving (Eq, Show)
+data Nesting147 = Nesting147 {x147: Nesting148} deriving (Eq, Show)
+data Nesting148 = Nesting148 {x148: Nesting149} deriving (Eq, Show)
+data Nesting149 = Nesting149 {x149: Int} deriving (Eq, Show)
+
+template NestingLimitCreate
+  with
+    p: Party
+    x: Nesting0
+  where
+    signatory p
+
+    choice NestingLimitCreate_Choose : ()
+      controller p
+      do pure ()
+
+template NestingLimitExercise
+  with
+    p: Party
+  where
+    signatory p
+
+    choice NestingLimitExercise_Choose: ()
+      with x: Nesting0
+      controller p
+      do pure ()
+
+-- !@LEDGER nestingLimitCreate LfStableMustFails/nestingLimitCreate.EXPECTED.ledger
+nestingLimitCreate = script do
+  alice <- allocateParty "Alice"
+  submitMustFail alice (createCmd NestingLimitCreate with p = alice; x = Nesting0{x0 = Nesting1{x1 = Nesting2{x2 = Nesting3{x3 = Nesting4{x4 = Nesting5{x5 = Nesting6{x6 = Nesting7{x7 = Nesting8{x8 = Nesting9{x9 = Nesting10{x10 = Nesting11{x11 = Nesting12{x12 = Nesting13{x13 = Nesting14{x14 = Nesting15{x15 = Nesting16{x16 = Nesting17{x17 = Nesting18{x18 = Nesting19{x19 = Nesting20{x20 = Nesting21{x21 = Nesting22{x22 = Nesting23{x23 = Nesting24{x24 = Nesting25{x25 = Nesting26{x26 = Nesting27{x27 = Nesting28{x28 = Nesting29{x29 = Nesting30{x30 = Nesting31{x31 = Nesting32{x32 = Nesting33{x33 = Nesting34{x34 = Nesting35{x35 = Nesting36{x36 = Nesting37{x37 = Nesting38{x38 = Nesting39{x39 = Nesting40{x40 = Nesting41{x41 = Nesting42{x42 = Nesting43{x43 = Nesting44{x44 = Nesting45{x45 = Nesting46{x46 = Nesting47{x47 = Nesting48{x48 = Nesting49{x49 = Nesting50{x50 = Nesting51{x51 = Nesting52{x52 = Nesting53{x53 = Nesting54{x54 = Nesting55{x55 = Nesting56{x56 = Nesting57{x57 = Nesting58{x58 = Nesting59{x59 = Nesting60{x60 = Nesting61{x61 = Nesting62{x62 = Nesting63{x63 = Nesting64{x64 = Nesting65{x65 = Nesting66{x66 = Nesting67{x67 = Nesting68{x68 = Nesting69{x69 = Nesting70{x70 = Nesting71{x71 = Nesting72{x72 = Nesting73{x73 = Nesting74{x74 = Nesting75{x75 = Nesting76{x76 = Nesting77{x77 = Nesting78{x78 = Nesting79{x79 = Nesting80{x80 = Nesting81{x81 = Nesting82{x82 = Nesting83{x83 = Nesting84{x84 = Nesting85{x85 = Nesting86{x86 = Nesting87{x87 = Nesting88{x88 = Nesting89{x89 = Nesting90{x90 = Nesting91{x91 = Nesting92{x92 = Nesting93{x93 = Nesting94{x94 = Nesting95{x95 = Nesting96{x96 = Nesting97{x97 = Nesting98{x98 = Nesting99{x99 = Nesting100{x100 = Nesting101{x101 = Nesting102{x102 = Nesting103{x103 = Nesting104{x104 = Nesting105{x105 = Nesting106{x106 = Nesting107{x107 = Nesting108{x108 = Nesting109{x109 = Nesting110{x110 = Nesting111{x111 = Nesting112{x112 = Nesting113{x113 = Nesting114{x114 = Nesting115{x115 = Nesting116{x116 = Nesting117{x117 = Nesting118{x118 = Nesting119{x119 = Nesting120{x120 = Nesting121{x121 = Nesting122{x122 = Nesting123{x123 = Nesting124{x124 = Nesting125{x125 = Nesting126{x126 = Nesting127{x127 = Nesting128{x128 = Nesting129{x129 = Nesting130{x130 = Nesting131{x131 = Nesting132{x132 = Nesting133{x133 = Nesting134{x134 = Nesting135{x135 = Nesting136{x136 = Nesting137{x137 = Nesting138{x138 = Nesting139{x139 = Nesting140{x140 = Nesting141{x141 = Nesting142{x142 = Nesting143{x143 = Nesting144{x144 = Nesting145{x145 = Nesting146{x146 = Nesting147{x147 = Nesting148{x148 = Nesting149{x149 = 42}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}})
+  pure ()
+
+-- !@LEDGER nestingLimitExercise LfStableMustFails/nestingLimitExercise.EXPECTED.ledger
+nestingLimitExercise = script do
+  alice <- allocateParty "Alice"
+  cid <- submit alice (createCmd NestingLimitExercise with p = alice)
+  submitMustFail alice (exerciseCmd cid NestingLimitExercise_Choose with x = Nesting0{x0 = Nesting1{x1 = Nesting2{x2 = Nesting3{x3 = Nesting4{x4 = Nesting5{x5 = Nesting6{x6 = Nesting7{x7 = Nesting8{x8 = Nesting9{x9 = Nesting10{x10 = Nesting11{x11 = Nesting12{x12 = Nesting13{x13 = Nesting14{x14 = Nesting15{x15 = Nesting16{x16 = Nesting17{x17 = Nesting18{x18 = Nesting19{x19 = Nesting20{x20 = Nesting21{x21 = Nesting22{x22 = Nesting23{x23 = Nesting24{x24 = Nesting25{x25 = Nesting26{x26 = Nesting27{x27 = Nesting28{x28 = Nesting29{x29 = Nesting30{x30 = Nesting31{x31 = Nesting32{x32 = Nesting33{x33 = Nesting34{x34 = Nesting35{x35 = Nesting36{x36 = Nesting37{x37 = Nesting38{x38 = Nesting39{x39 = Nesting40{x40 = Nesting41{x41 = Nesting42{x42 = Nesting43{x43 = Nesting44{x44 = Nesting45{x45 = Nesting46{x46 = Nesting47{x47 = Nesting48{x48 = Nesting49{x49 = Nesting50{x50 = Nesting51{x51 = Nesting52{x52 = Nesting53{x53 = Nesting54{x54 = Nesting55{x55 = Nesting56{x56 = Nesting57{x57 = Nesting58{x58 = Nesting59{x59 = Nesting60{x60 = Nesting61{x61 = Nesting62{x62 = Nesting63{x63 = Nesting64{x64 = Nesting65{x65 = Nesting66{x66 = Nesting67{x67 = Nesting68{x68 = Nesting69{x69 = Nesting70{x70 = Nesting71{x71 = Nesting72{x72 = Nesting73{x73 = Nesting74{x74 = Nesting75{x75 = Nesting76{x76 = Nesting77{x77 = Nesting78{x78 = Nesting79{x79 = Nesting80{x80 = Nesting81{x81 = Nesting82{x82 = Nesting83{x83 = Nesting84{x84 = Nesting85{x85 = Nesting86{x86 = Nesting87{x87 = Nesting88{x88 = Nesting89{x89 = Nesting90{x90 = Nesting91{x91 = Nesting92{x92 = Nesting93{x93 = Nesting94{x94 = Nesting95{x95 = Nesting96{x96 = Nesting97{x97 = Nesting98{x98 = Nesting99{x99 = Nesting100{x100 = Nesting101{x101 = Nesting102{x102 = Nesting103{x103 = Nesting104{x104 = Nesting105{x105 = Nesting106{x106 = Nesting107{x107 = Nesting108{x108 = Nesting109{x109 = Nesting110{x110 = Nesting111{x111 = Nesting112{x112 = Nesting113{x113 = Nesting114{x114 = Nesting115{x115 = Nesting116{x116 = Nesting117{x117 = Nesting118{x118 = Nesting119{x119 = Nesting120{x120 = Nesting121{x121 = Nesting122{x122 = Nesting123{x123 = Nesting124{x124 = Nesting125{x125 = Nesting126{x126 = Nesting127{x127 = Nesting128{x128 = Nesting129{x129 = Nesting130{x130 = Nesting131{x131 = Nesting132{x132 = Nesting133{x133 = Nesting134{x134 = Nesting135{x135 = Nesting136{x136 = Nesting137{x137 = Nesting138{x138 = Nesting139{x139 = Nesting140{x140 = Nesting141{x141 = Nesting142{x142 = Nesting143{x143 = Nesting144{x144 = Nesting145{x145 = Nesting146{x146 = Nesting147{x147 = Nesting148{x148 = Nesting149{x149 = 42}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}})
+  pure ()
+-}

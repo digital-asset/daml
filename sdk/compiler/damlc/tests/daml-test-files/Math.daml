@@ -1,0 +1,70 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @INFO range=48:22-48:32; Use sqrt
+-- @INFO range=67:15-67:25; Use sqrt
+
+
+module Math where
+
+import Daml.Script
+import DA.Math
+import DA.Assert
+
+expTest = script do
+  let
+    e = 2.7182818285 : Decimal
+    exp60 = 114200738981568428366295718.3144765630 : Decimal
+    exp10 = 22026.4657948067 : Decimal
+    expm10 = 0.0000453999 : Decimal
+    expm20 = 0.0000000021 : Decimal
+  1.0 === exp 0.0
+  e === exp 1.0
+  exp10 === exp 10.0
+  expm10 === exp (negate 10.0)
+  expm20 === exp (negate 20.0)
+  assert(abs(exp60 - exp 60.0) < 0.00000001)
+
+logTest = script do
+  let
+    log05 = -0.6931471806 : Decimal
+    log15 = 0.4054651081 : Decimal
+    log100 = 4.6051701860 : Decimal
+    log10e27 = 62.1697975108 : Decimal
+    log10em9 = -20.7232658370 : Decimal
+  0.0 === log 1.0
+  log15 === log 1.5
+  assert (abs(log05 - log 0.5) <= 0.0000000001)
+  1.0 === log (exp 1.0)
+  4.605170186 === log 100.0
+  assert(abs(100.0 - exp (log 100.0)) <= 0.000000002)
+  log10e27 === log (10.0 ^ 27)
+  assert(abs(log10em9 - log (10.0 ^ negate 9)) <= 0.000000001)
+  assert(abs(25.0 - logBase 10.0 (10.0 ^ 25)) <= 0.0000000001)
+
+powerTest = script do
+  let
+    sqrt2 = 1.4142135623 : Decimal
+  assert(abs(sqrt2 - 2.0 ** 0.5) <= 0.0000000001)
+  0.0 ** 0.0 === 1.0
+  0.0 ** 1.0 === 0.0
+  42.0 ** 0.0 === 1.0
+
+sqrtTest = script do
+  let
+    sqrt2 = 1.4142135623 : Decimal
+  assert(abs(sqrt2 - sqrt 2.0) <= 0.0000000001)
+  sqrt 0.0 === 0.0
+
+trigTest = script do
+  let
+    delta = 10.0 ^ (-10) : Decimal
+  assert (abs(sin (pi / 4.0) - cos (pi / 4.0)) <= 3.0 * delta)
+  assert (abs(0.0 - sin 0.0) <= delta)
+  assert (abs(1.0 - sin (pi / 2.0)) <= delta)
+  assert (abs(1.0 + sin (3.0 * pi / 2.0)) <= delta)
+  assert (abs(2.0 ** negate 0.5 - sin (pi / 4.0)) <= delta)
+  assert (abs(3.0 ** 0.5 / 2.0 - sin (pi / 3.0)) <= 2.0 * delta)
+
+  assert (cos (15.0 * pi / 2.0) <= delta)
+  assert (abs(0.5 - cos (pi / 3.0)) <= 4.0 * delta)

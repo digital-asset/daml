@@ -1,0 +1,30 @@
+import better.files.File
+import scala.sys.process.{Process, ProcessLogger}
+import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
+
+val opensslScriptDirectory = Option(System.getProperty("canton-examples.openssl-script-dir")).getOrElse(".")
+val opensslKeysDirectory = Option(System.getProperty("canton-examples.openssl-keys-dir")).getOrElse(".")
+
+// Assumes a delegation for a key named IntermediateKey was already created (see bootstrap.canton for an example)
+val keyToRevoke = participant1.keys.public.list().find(_.name.contains("IntermediateKey")).map(_.publicKey).get
+val delegationToRevoke = participant1.topology.namespace_delegations.list(TopologyStoreId.Authorized).find(_.item.target == keyToRevoke).get.toTopologyTransaction.toByteString
+val delegationToRevokePath = s"$opensslKeysDirectory/delegation_to_revoke.prep"
+participant1.topology.namespace_delegations.list(TopologyStoreId.Authorized)
+  .find(_.item.target == keyToRevoke).get.toTopologyTransaction.writeToFile(delegationToRevokePath)
+
+// Run the scripts generating the revoked delegation certificate
+// This would usually be done on the offline site after having transfered restricted-key.pub to it
+Process(
+  Seq(
+    s"$opensslScriptDirectory/openssl-revoke-delegation-example.sh",
+    s"$opensslKeysDirectory/root_private_key.der",
+    delegationToRevokePath,
+  ),
+  cwd = File(opensslScriptDirectory).toJava,
+  extraEnv = "OUTPUT_DIR" -> opensslKeysDirectory,
+).!(utils.cantonProcessLogger())
+
+// Load the revoked delegation certificate
+// [start-docs-entry: load cert from file]
+participant1.topology.transactions.load_single_from_file(s"$opensslKeysDirectory/revoked_delegation.cert", TopologyStoreId.Authorized)
+// [end-docs-entry: load cert from file]

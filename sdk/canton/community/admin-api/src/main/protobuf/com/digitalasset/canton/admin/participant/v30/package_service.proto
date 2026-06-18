@@ -1,0 +1,205 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.participant.v30;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service PackageService {
+  // List all Daml-LF archives on the participant node - return their hashes
+  rpc ListPackages(ListPackagesRequest) returns (ListPackagesResponse);
+
+  // Lists all the modules in package on the participant node
+  rpc GetPackageContents(GetPackageContentsRequest) returns (GetPackageContentsResponse);
+
+  // Get a list of DARs referencing a given package
+  rpc GetPackageReferences(GetPackageReferencesRequest) returns (GetPackageReferencesResponse);
+
+  // Remove a package that is not vetted
+  // TODO(#17635): This operation is not safe as it can remove packages still in use by the Ledger API
+  rpc RemovePackage(RemovePackageRequest) returns (RemovePackageResponse);
+
+  // Validate a DAR file and all packages inside to the participant node
+  rpc ValidateDar(ValidateDarRequest) returns (ValidateDarResponse);
+
+  // Upload a DAR file and all packages inside to the participant node
+  rpc UploadDar(UploadDarRequest) returns (UploadDarResponse);
+
+  // Remove a DAR that is not needed
+  // TODO(#17635): This operation is not safe as it can remove packages still in use by the Ledger API
+  rpc RemoveDar(RemoveDarRequest) returns (RemoveDarResponse);
+
+  // Obtain a DAR file by hash -- for inspection & download
+  rpc GetDar(GetDarRequest) returns (GetDarResponse);
+
+  // List all DARs on the participant node - return their hashes and filenames
+  rpc ListDars(ListDarsRequest) returns (ListDarsResponse);
+
+  // List content of a Dar
+  rpc GetDarContents(GetDarContentsRequest) returns (GetDarContentsResponse);
+
+  // Enable vetting for all packages pertaining to a specific DAR
+  rpc VetDar(VetDarRequest) returns (VetDarResponse);
+
+  // Revoke vetting for all packages pertaining to a specific DAR.
+  // NOTE:  Experimental operation for which expert-level knowledge is required.
+  //        Erroneous usage might result in the participant failing to process transactions.
+  rpc UnvetDar(UnvetDarRequest) returns (UnvetDarResponse);
+}
+
+message ListPackagesRequest {
+  int32 limit = 1;
+  string filter_name = 2;
+}
+
+message PackageDescription {
+  string package_id = 1;
+  string name = 2;
+  string version = 3;
+  google.protobuf.Timestamp uploaded_at = 4;
+  uint32 size = 5;
+}
+
+message ListPackagesResponse {
+  repeated PackageDescription package_descriptions = 1;
+}
+
+message GetPackageContentsRequest {
+  string package_id = 1;
+}
+
+message ModuleDescription {
+  string name = 1;
+}
+
+message GetPackageContentsResponse {
+  PackageDescription description = 1;
+  repeated ModuleDescription modules = 2;
+  bool is_utility_package = 3;
+  string language_version = 4;
+}
+
+message GetPackageReferencesRequest {
+  string package_id = 1;
+}
+
+message GetPackageReferencesResponse {
+  repeated DarDescription dars = 1;
+}
+
+message RemovePackageRequest {
+  string package_id = 1;
+  bool force = 2;
+}
+
+message RemovePackageResponse {
+  google.protobuf.Empty success = 1;
+}
+
+// Performs the same checks that UploadDarRequest would perform, but doesn't
+// upload the DAR.
+message ValidateDarRequest {
+  bytes data = 1;
+  string filename = 2;
+
+  // Used to specify the synchronizer on which to validate that vetting is
+  // correct.
+  optional string synchronizer_id = 3;
+}
+
+message ValidateDarResponse {
+  string main_package_id = 1;
+}
+
+message UploadDarRequest {
+  message UploadDarData {
+    bytes bytes = 1;
+    optional string description = 2;
+    // optionally the expected package id of the main package
+    optional string expected_main_package_id = 3;
+  }
+  repeated UploadDarData dars = 1;
+
+  // If set to true (default), the node will register the vetting topology
+  // transactions on the specified synchronizer or autodetect the synchronizer
+  // if the participant is only connected to a single one. If multiple
+  // synchronizers are connected and no synchronizer is specified, the request
+  // returns a PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER error.
+  bool vet_all_packages = 2;
+
+  // If set to true, we'll wait until the vetting transaction has been observed
+  // by this participant for the target synchronizer.
+  bool synchronize_vetting = 3;
+
+  // Used to specify the synchronizer to vet packages on when vet_all_packages
+  // is true.
+  optional string synchronizer_id = 4;
+}
+
+message UploadDarResponse {
+  repeated string dar_ids = 1;
+}
+
+message RemoveDarRequest {
+  string main_package_id = 1;
+}
+
+message RemoveDarResponse {}
+
+message GetDarRequest {
+  string main_package_id = 1;
+}
+
+message DarDescription {
+  string main = 1;
+  string name = 2;
+  string version = 3;
+  string description = 4;
+}
+
+message GetDarResponse {
+  bytes payload = 1;
+  DarDescription data = 2;
+}
+
+message ListDarsRequest {
+  int32 limit = 1;
+  string filter_name = 2;
+}
+
+message ListDarsResponse {
+  repeated DarDescription dars = 1;
+}
+
+message GetDarContentsRequest {
+  string main_package_id = 1;
+}
+
+message GetDarContentsResponse {
+  DarDescription description = 1;
+  repeated PackageDescription packages = 2;
+}
+
+message VetDarRequest {
+  string main_package_id = 1;
+  // if set to true, the API call waits until the vetting transaction has been
+  // observed by this participant on the specified synchronizer.
+  bool synchronize = 2;
+  // the synchronizer on which to vet the package.
+  // can be omitted if the participant is connected to only one synchronizer.
+  optional string synchronizer_id = 3;
+}
+
+message VetDarResponse {}
+
+message UnvetDarRequest {
+  string main_package_id = 1;
+  // the synchronizer on which to unvet the package.
+  // can be omitted if the participant is connected to only one synchronizer.
+  optional string synchronizer_id = 2;
+}
+
+message UnvetDarResponse {}

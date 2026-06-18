@@ -1,0 +1,16 @@
+module Asset where
+
+data View = View
+  { assetOwner : Party
+  , description : Text
+  }
+  deriving (Show, Eq)
+
+interface Asset where
+  viewtype View
+  getOwner : Party
+
+  nonconsuming choice GetView : View
+    controller (getOwner this)
+    do
+      pure (view this)

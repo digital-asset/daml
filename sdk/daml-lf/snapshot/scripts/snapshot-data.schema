@@ -1,0 +1,32 @@
+{
+  "type": "array",
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "description": "",
+  "minItems": 0,
+  "uniqueItems": true,
+  "items": {
+    "type": "object",
+    "required": [
+      "name",
+      "dar_dir",
+      "scripts"
+    ],
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1
+      },
+      "dar_dir": {
+        "type": "string",
+        "minLength": 1
+      },
+      "scripts": {
+        "type": "array",
+        "items": {
+          "required": [],
+          "properties": {}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,149 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module UpgradeTestLib (
+  TestTree,
+  Test,
+  RunMode (..),
+  TestState (..),
+  participant0,
+  participant1,
+  participant2,
+  participant3,
+  participant4,
+  test,
+  tests,
+  subtree,
+  broken,
+  brokenOnCanton,
+  brokenOnIDELedger,
+  waitForCid,
+  withUnvettedPackage,
+  withUnvettedPackageOnParticipant,
+  expectPackageMissingFailure,
+  module Daml.Script,
+  module Daml.Script.Internal,
+  module DA.Assert,
+) where
+
+import Daml.Script
+import Daml.Script.Internal
+import DA.Assert
+import DA.Fail
+import DA.Foldable
+import DA.Time
+
+import DA.Text qualified as T
+
+participant0 : ParticipantName
+participant0 = ParticipantName "participant0"
+
+participant1 : ParticipantName
+participant1 = ParticipantName "participant1"
+
+participant2 : ParticipantName
+participant2 = ParticipantName "participant2"
+
+participant3 : ParticipantName
+participant3 = ParticipantName "participant3"
+
+participant4 : ParticipantName
+participant4 = ParticipantName "participant4"
+
+data RunMode
+  = IdeLedger
+  | Canton
+  deriving (Show)
+
+data TestState = TestState
+  { runMode : RunMode
+  , testPath : [Text]
+  }
+
+type TestTree = TestState -> Script ()
+
+type Test = TestState -> Script ()
+
+tests : [(Text, Test)] -> TestTree
+tests cases testState = forA_ cases $ \(testName, test) -> do
+  test testState { testPath = testName :: testState.testPath }
+
+test : Script () -> Test
+test act TestState { runMode, testPath } = do
+  debugRaw $ T.unwords
+    [ "Testing:"
+    , "[" <> show runMode <> "]"
+    , T.intercalate " - " (reverse testPath)
+    ]
+  act
+
+subtree : Text -> [(Text, Test)] -> (Text, Test)
+subtree group cases = (group, tests cases)
+
+-- | Used to tag a test as failing by erroring in any way, once all this behaviour works, this function can be removed
+brokenScript : Test -> Test
+brokenScript act testState = do
+  tryFailureStatus (liftFailedCommandToFailureStatus $ act testState) >>= \case
+    Right _ -> assertFail "Expected failed and got success! Did you fix this logic? Remove the wrapping `broken` to mark this as working."
+    Left _ -> pure ()
+
+withUnvettedPackageOnParticipant : Text -> Text -> ParticipantName -> Script a -> Script a
+withUnvettedPackageOnParticipant packageName packageVersion participant act = do
+  let pkg = PackageName packageName packageVersion
+  unvetPackagesOnParticipant [pkg] participant
+  res <- tryFailureStatus $ liftFailedCommandToFailureStatus act
+  vetPackagesOnParticipant [pkg] participant
+  case res of
+    Left fs -> failWithStatus fs
+    Right r -> pure r
+
+expectPackageMissingFailure : Either SubmitError a -> Script ()
+expectPackageMissingFailure (Right _) = fail "Expected failure, got success."
+expectPackageMissingFailure (Left (UnknownError (T.isInfixOf "Some packages are not known to all informees" -> True))) = pure ()
+expectPackageMissingFailure (Left (UnknownError (T.isInfixOf "PACKAGE_NOT_VETTED_BY_RECIPIENTS" -> True))) = pure ()
+expectPackageMissingFailure (Left e) = fail $ "Expected package missing error, got " <> show e
+
+withUnvettedPackage : Text -> Text -> Script a -> Script a
+withUnvettedPackage packageName packageVersion act = do
+  let pkg = PackageName packageName packageVersion
+  unvetPackagesOnParticipant [pkg] participant0
+  unvetPackagesOnParticipant [pkg] participant1
+  res <- tryFailureStatus $ liftFailedCommandToFailureStatus act
+  vetPackagesOnParticipant [pkg] participant0
+  vetPackagesOnParticipant [pkg] participant1
+  case res of
+    Left fs -> failWithStatus fs
+    Right r -> pure r
+
+broken : (Text, Test) -> (Text, Test)
+broken (name, act) = ("(BROKEN) " <> name, brokenScript act)
+
+brokenOnCanton : (Text, Test) -> (Text, Test)
+brokenOnCanton (name, act) =
+  ( "(BROKEN ON CANTON) " <> name
+  , \testState -> case testState.runMode of
+    Canton -> brokenScript act testState
+    _ -> act testState
+  )
+
+brokenOnIDELedger : (Text, Test) -> (Text, Test)
+brokenOnIDELedger (name, act) =
+  ( "(BROKEN ON IDE-LEDGER) " <> name
+  , \testState -> case testState.runMode of
+    IdeLedger -> brokenScript act testState
+    _ -> act testState
+  )
+
+waitForCid : (Template t, HasEnsure t) => Party -> ContractId t -> Script ()
+waitForCid = waitManyTimesForCid 20
+
+waitManyTimesForCid : (Template t, HasEnsure t) => Int -> Party -> ContractId t -> Script ()
+waitManyTimesForCid tries p cid
+  | tries <= 0 = abort $ "Cid " <> show cid <> " did not appear"
+  | otherwise = do
+    r <- queryContractId p cid
+    case r of
+      None -> do
+        sleep (milliseconds 200)
+        waitManyTimesForCid (tries - 1) p cid
+      Some _ -> pure ()

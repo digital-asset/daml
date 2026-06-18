@@ -1,0 +1,33 @@
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+
+-- Error typically prefixed with `contract 000fffe8781952ace1141fabd7d28d48c8a157788c53392a6e698a534f89ee2779`, where the hash may change
+-- @ERROR range=29:1-29:19; not effective, but we found its key!
+module ContractKeyNotEffective where
+
+import Daml.Script
+import DA.Time
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+
+template FetchTBySelf
+  with
+    p : Party
+  where
+    signatory p
+    choice Call : ()
+      controller p
+      do
+        fetchByKey @T p
+        pure ()
+
+fetchByKeyMustFail = script do
+  p <- allocateParty "alice"
+  p `submit` createCmd (T p)
+  passTime (- seconds 1)
+  p `submit` createAndExerciseCmd (FetchTBySelf p) Call

@@ -1,0 +1,46 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module NonInformeeStakeholder where
+
+import Daml.Script
+
+template Inner
+  with
+    sig: Party
+    obs: Party
+  where
+    signatory sig
+    observer obs
+
+    nonconsuming choice NonconsuminglyUse: () -- `obs` is not an informee of this action
+      controller sig
+        do
+          pure ()
+
+
+template Outer
+  with
+    sig: Party
+    obs: Party
+  where
+    signatory sig
+    observer obs
+
+    choice UseInner: ()
+      with
+        innerId: ContractId Inner
+      controller sig
+        do
+          exercise innerId NonconsuminglyUse
+
+test = script do 
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  innerId <- submit alice $ createCmd Inner with sig = alice, obs = bob
+  outerId <- submit alice $ createCmd Outer with sig = alice, obs = bob
+
+  submit alice $ exerciseCmd outerId UseInner with innerId = innerId
+
+  pure ()

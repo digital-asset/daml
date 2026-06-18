@@ -1,0 +1,43 @@
+module UpgradeIf where
+
+template UpgradeItVersionStamp with
+    owner : Party
+    context: Text
+    stampedVersion : Int
+  where
+  signatory owner
+
+data UpgradeItView = UpgradeItView with
+  view_party : Party
+
+interface UpgradeItInterface where
+  viewtype UpgradeItView
+  version : Int
+
+  nonconsuming choice UpgradeItStamp : ()
+    with
+      context: Text
+    controller (view this).view_party
+    do
+      create UpgradeItVersionStamp with
+        owner = (view this).view_party
+        context = context
+        stampedVersion = version this
+      pure()
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface IQuote where
+  viewtype EmptyInterfaceView
+
+interface IFace where
+  viewtype EmptyInterfaceView
+
+  controllerMethod : Party
+  observerMethod: Party
+
+  choice IfDispatchChoice: ()
+    observer observerMethod this
+    controller controllerMethod this
+    do
+      pure ()

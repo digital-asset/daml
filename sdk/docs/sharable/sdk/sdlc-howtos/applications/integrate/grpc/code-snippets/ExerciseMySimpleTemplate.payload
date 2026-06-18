@@ -1,0 +1,18 @@
+{ // ExerciseCommand
+  template_id { // Identifier
+    package_id: "some-hash"
+    name: "Templates.MySimpleTemplate"
+  }
+  contract_id: "some-contract-id"
+  choice: "MyChoice"
+  choice_argument { // Value
+    record { // Record
+      fields { // RecordField
+        label: "parameter"
+        value { // Value
+          int64: 42
+        }
+      }
+    }
+  }
+}

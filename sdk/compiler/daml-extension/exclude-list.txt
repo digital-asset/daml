@@ -1,0 +1,15 @@
+node_modules/.bin
+Makefile
+*.nix
+*.d.ts
+vsc-extension-quickstart.md
+*.ts
+test/
+*.rst.txt
+*.map
+NO_AUTO_COPYRIGHT
+.gitignore
+.vscode
+INTERNAL-CHANGELOG.md
+*.py
+*.sh

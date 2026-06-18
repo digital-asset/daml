@@ -1,0 +1,31 @@
+version: v1
+build:
+  excludes:
+    - com/digitalasset/canton/synchronizer/scalapb
+    - com/digitalasset/canton/mediator/scalapb
+    - com/digitalasset/canton/sequencer/scalapb
+breaking:
+  ignore:
+    - com/digitalasset/canton/sequencer/admin/
+    - com/digitalasset/canton/mediator/admin/
+    # TODO(i16801) remove if we finalize the protobufs (or keep if we decide to keep them unstable)
+    - com/digitalasset/canton/synchronizer/sequencing/sequencer/bftordering
+lint:
+  ignore_only:
+    # BFT orderer's P2P gRPC bidirectional streaming endpoints transport all kinds of P2P messages
+    #  in either direction, so distinguishing the request and response types increases complexity
+    #  and decreases readability with no upside.
+    # TODO(i16943) Remove coupling between pruning endpoints
+    RPC_REQUEST_RESPONSE_UNIQUE:
+      - com/digitalasset/canton/mediator/admin/v30/mediator_administration_service.proto
+      - com/digitalasset/canton/sequencer/admin/v30/sequencer_pruning_administration_service.proto
+      - com/digitalasset/canton/sequencer/admin/v30/sequencer_bft_pruning_administration_service.proto
+      - com/digitalasset/canton/synchronizer/sequencing/sequencer/bftordering/v30/bft_ordering_service.proto
+    RPC_REQUEST_STANDARD_NAME:
+      - com/digitalasset/canton/mediator/admin/v30/mediator_administration_service.proto
+      - com/digitalasset/canton/sequencer/admin/v30/sequencer_pruning_administration_service.proto
+      - com/digitalasset/canton/synchronizer/sequencing/sequencer/bftordering/v30/bft_ordering_service.proto
+    RPC_RESPONSE_STANDARD_NAME:
+      - com/digitalasset/canton/mediator/admin/v30/mediator_administration_service.proto
+      - com/digitalasset/canton/sequencer/admin/v30/sequencer_pruning_administration_service.proto
+      - com/digitalasset/canton/synchronizer/sequencing/sequencer/bftordering/v30/bft_ordering_service.proto
