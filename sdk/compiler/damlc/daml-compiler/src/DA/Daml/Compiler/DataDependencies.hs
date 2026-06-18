@@ -636,7 +636,7 @@ generateSrcFromLf env = noLoc mod
       pure (drop 2 tyargs, dropIfOnlyVoid $ snd3 $ getConstraintsAndTypeArgs builder, matchtype)
       where
         dropIfOnlyVoid :: [LF.Type] -> [LF.Type]
-        dropIfOnlyVoid [LF.TCon con] | con == voidTCon (LF.versionMajor $ envLfVersion env) = []
+        dropIfOnlyVoid [LF.TCon con] | con == unboxedVoidTCon (LF.versionMajor $ envLfVersion env) = []
         dropIfOnlyVoid ts = ts
     extractPatSynTypeData _ = Nothing
 
@@ -660,7 +660,7 @@ generateSrcFromLf env = noLoc mod
           , extractPatSynTypeData -> Just (tyargs, args, matchtype)
           )
         } <- NM.toList $ LF.moduleValues $ envMod env
-      let mBuilder = NM.lookup (LF.ExprValName $ "$b" <> name) $ LF.moduleValues $ envMod env
+      let hasBuilder = NM.member (LF.ExprValName $ "$b" <> name) $ LF.moduleValues $ envMod env
           mGetFieldNames = do
             LF.DefValue {dvalBinder=(_, LFC.decodeFieldNames -> Just labels)} <-
               NM.lookup (LF.ExprValName $ "$mfields" <> name) $ LF.moduleValues $ envMod env
@@ -688,28 +688,33 @@ generateSrcFromLf env = noLoc mod
               (mkRdrName name)
               argConType
               (ParPat noExt $ noLoc $ ViewPat noExt errCall (TuplePat noExt [VarPat noExt name | name <- argNames] Boxed))
-              (if isJust mBuilder then ExplicitBidirectional builderStub else Unidirectional)
+              (if hasBuilder then ExplicitBidirectional builderStub else Unidirectional)
           
       [sigDef, patDef]
 
     completePragmaDecls :: [Gen (LHsDecl GhcPs)]
-    completePragmaDecls = do
-      LF.DefValue
-        { dvalBinder = 
-          ( LF.ExprValName (T.stripPrefix "$complete" -> Just _)
-          , LFC.decodeLFCompleteMatch -> Just match
-          )
-        } <- NM.toList $ LF.moduleValues $ envMod env
-      pure $ do
-        subjectRdrName <- mkRdrNameQual $ LFC.subject match
-        -- Parser only allows the pragma to contain unqualified names, but supports those names coming from any module/package
-        -- (as long as one name comes from this module)
-        matchersRdrNames <- traverse mkRdrNameUnqualUnsafe $ LFC.matchers match
-        pure $ noLoc . SigD noExt $ CompleteMatchSig
-          noExt 
-          NoSourceText
-          (noLoc matchersRdrNames)
-          (Just $ noLoc subjectRdrName)
+    completePragmaDecls = makeCompletePragma <$> getCompleteExprs
+      where
+        makeCompletePragma :: LFCompleteMatch QualName -> Gen (LHsDecl GhcPs)
+        makeCompletePragma match = do
+          subjectRdrName <- mkRdrNameQual $ LFC.subject match
+          -- Parser only allows the pragma to contain unqualified names, but supports those names coming from any module/package
+          -- (as long as one name comes from this module)
+          matchersRdrNames <- traverse mkRdrNameUnqualUnsafe $ LFC.matchers match
+          pure $ noLoc . SigD noExt $ CompleteMatchSig
+            noExt 
+            NoSourceText
+            (noLoc matchersRdrNames)
+            (Just $ noLoc subjectRdrName)
+        getCompleteExprs :: [LFCompleteMatch QualName]
+        getCompleteExprs = do
+          LF.DefValue
+            { dvalBinder = 
+              ( LF.ExprValName (T.stripPrefix "$complete" -> Just _)
+              , LFC.decodeLFCompleteMatch -> Just match
+              )
+            } <- NM.toList $ LF.moduleValues $ envMod env
+          pure match
 
     -- | Generate instance declarations from dictionary functions.
     instanceDecls :: [Gen (Maybe (LHsDecl GhcPs))]
@@ -1743,8 +1748,8 @@ promotedTextTCon major =
         ["DA", "Internal", "PromotedText"]
         "PromotedText"
 
-voidTCon :: LF.MajorVersion -> LF.Qualified LF.TypeConName
-voidTCon major =
+unboxedVoidTCon :: LF.MajorVersion -> LF.Qualified LF.TypeConName
+unboxedVoidTCon major =
     stableTCon
         major
         ["GHC", "Prim"]
