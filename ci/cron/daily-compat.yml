@@ -24,6 +24,7 @@ schedules:
 
 jobs:
   - job: compatibility_ts_libs
+    condition: False  # TEST ONLY — remove before merging
     timeoutInMinutes: 60
     pool:
       name: ubuntu_20_04
@@ -35,6 +36,7 @@ jobs:
       - template: ../compatibility_ts_libs.yml
 
   - job: compatibility_linux
+    condition: False  # TEST ONLY — remove before merging
     dependsOn: compatibility_ts_libs
     timeoutInMinutes: 720
     pool:
@@ -47,6 +49,7 @@ jobs:
       - template: ../compatibility.yml
 
   - job: compatibility_windows
+    condition: False  # TEST ONLY — remove before merging
     dependsOn: compatibility_ts_libs
     timeoutInMinutes: 720
     pool:
@@ -168,6 +171,37 @@ jobs:
           fi
         env:
           AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
+
+  # === TEST ONLY — remove before merging ==================================
+  # Fast, isolated reproduction of the failing canton clone, so the
+  # CANTON_READONLY_TOKEN auth path can be exercised in ~minutes without the
+  # heavy compatibility jobs (disabled with `condition: False` on this branch).
+  - job: token_probe
+    timeoutInMinutes: 15
+    pool:
+      name: ubuntu_20_04
+      demands: assignment -equals default
+    steps:
+      - checkout: none
+      - bash: |
+          set -euo pipefail
+          # GIT_TERMINAL_PROMPT=0 => fail fast instead of hanging on a
+          # username/password prompt when auth is refused. Do NOT enable
+          # GIT_TRACE / GIT_CURL_VERBOSE: they can leak the token header.
+          # git redacts credentials from the URL it prints on error, and Azure
+          # masks the secret value, so the real error is safe to surface.
+          rm -rf /tmp/canton-probe
+          GIT_TERMINAL_PROMPT=0 git clone --filter=blob:none --no-checkout \
+            "https://$GITHUB_TOKEN@github.com/DACH-NY/canton.git" /tmp/canton-probe
+          echo "> clone OK"
+          git -C /tmp/canton-probe show HEAD:shared_dependencies.json | head -c 120
+          echo
+          echo "> read OK"
+          rm -rf /tmp/canton-probe
+        displayName: "Probe canton clone with CANTON_READONLY_TOKEN"
+        env:
+          GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
+  # === END TEST ONLY ======================================================
 
   - job: update_canton
     condition: not(eq(variables['Build.SourceBranchName'], 'not-main'))

@@ -52,7 +52,9 @@ else
   CANTON_COMMIT="${CANTON_VERSION##*v}"
 fi
 TMPDIR=$(mktemp -d)
-trap 'rm -rf "$TMPDIR"' EXIT
+# Keep dumping $LOG on failure (otherwise the error from the commands below is
+# silently swallowed); also clean up the temporary checkout.
+trap 'cat "$LOG"; rm -rf "$TMPDIR"' EXIT
 echo "> Checking out shared_dependencies.json at revision $CANTON_COMMIT into $TMPDIR" >&2
 # We can't use sparse checkouts without full commit hashes, so we use the next best thing: --filter=blob:none and
 # --no-checkout to download the commit history, followed by a checkout of just the file we need.
