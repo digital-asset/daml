@@ -15,7 +15,6 @@ import com.daml.jwt.{
 import com.digitalasset.daml.lf.data.Ref
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ports.{LockedFreePort, PortLock}
-import com.daml.scalautil.Statement.discard
 import com.daml.timer.RetryStrategy
 import io.circe.Json
 
@@ -88,6 +87,15 @@ object CantonRunner {
         |          trust-collection-file = ${toJson(config.caCrt)}
         |        }""".stripMargin)
 
+    val participantBetaVersionSupport =
+      if (config.enableLfBetaVersionSupport) "beta-version-support = yes" else ""
+    val globalBetaVersionSupport =
+      if (config.enableLfBetaVersionSupport) "beta-version-support = yes" else ""
+    val participantDevVersionSupport =
+      if (config.enableLfDevVersionSupport) "alpha-version-support = yes" else ""
+    val globalDevVersionSupport =
+      if (config.enableLfDevVersionSupport) "alpha-version-support = yes" else ""
+
     def participantConfig(i: Int) = {
       val (adminPort, ledgerApiPort) = ports(i)
       val participantId = config.participantIds(i)
@@ -107,7 +115,8 @@ object CantonRunner {
          |      storage.type = memory
          |      parameters = {
          |        engine.enable-engine-stack-traces = true
-         |        alpha-version-support = yes
+         |        ${participantDevVersionSupport}
+         |        ${participantBetaVersionSupport}
          |        disable-upgrade-validation = ${config.disableUpgradeValidation}
          |      }
          |      ${config.snapshotDir.fold("")(x => s"features.snapshot-dir = ${toJson(x)}")}
@@ -120,7 +129,8 @@ object CantonRunner {
       s"""canton {
          |  parameters {
          |    non-standard-config = yes
-         |    alpha-version-support = yes
+         |    ${globalDevVersionSupport}
+         |    ${globalBetaVersionSupport}
          |    ports-file = ${toJson(files.portsFile)}
          |    ${clockType.fold("")(x => "clock.type = " + x)}
          |  }
@@ -148,7 +158,7 @@ object CantonRunner {
          |  }
          |}
           """.stripMargin
-    discard(Files.write(files.configFile, cantonConfig.getBytes(StandardCharsets.UTF_8)))
+    val _ = Files.write(files.configFile, cantonConfig.getBytes(StandardCharsets.UTF_8))
 
     val bootstrapConnectParticipants =
       config.participantIds
@@ -180,7 +190,7 @@ object CantonRunner {
          |Files.write(Paths.get("$completionFile"), "Completed".getBytes(StandardCharsets.UTF_8))
          |""".stripMargin
 
-    discard { Files.write(files.bootstrapFile, bootstrapContent.getBytes(StandardCharsets.UTF_8)) }
+    val _ = Files.write(files.bootstrapFile, bootstrapContent.getBytes(StandardCharsets.UTF_8))
 
     val debugOptions =
       if (config.debug) List("--log-file-name", files.cantonLogFile.toString, "--verbose")
@@ -192,6 +202,8 @@ object CantonRunner {
          |  nParticipants = ${config.nParticipants}
          |  timeProviderType = ${config.timeProviderType}
          |  tlsEnable = ${config.tlsConfig.isDefined}
+         |  enableLfBetaVersionSupport = ${config.enableLfBetaVersionSupport}
+         |  enableLfDevVersionSupport = ${config.enableLfDevVersionSupport}
          |""".stripMargin
     )
     var outputBuffer = ""
@@ -240,6 +252,7 @@ object CantonRunner {
   private def waitForFile(proc: Process, path: Path)(implicit
       ec: ExecutionContext
   ): Future[Boolean] =
+    // TODO[23063]: reconsider usage of RetryStrategy
     RetryStrategy
       .constant(attempts = 240, waitTime = 1.seconds) { (_, _) =>
         if (proc.isAlive())
@@ -258,7 +271,7 @@ object CantonRunner {
   ): Future[Unit] = {
     val ((sequencerAdminApi, sequencerPublicApi, mediatorAdminApi), ports, process) = r
     process.destroy()
-    discard(process.exitValue())
+    val _ = process.exitValue()
     sequencerAdminApi.unlock()
     sequencerPublicApi.unlock()
     mediatorAdminApi.unlock()

@@ -52,6 +52,7 @@ trait TestLedger extends CantonFixture with SuiteResourceManagementAroundAll {
       party <- client.partyManagementClient
         .allocateParty(hint = None, token = None)
         .map(_.party)
+      // TODO[23063]: reconsider usage of RetryStrategy
       _ <- RetryStrategy.constant(5, 200.milliseconds) { case (_, _) =>
         for {
           res <- client.stateService

@@ -638,7 +638,7 @@ object SubmitError {
             (
               "meta",
               ValueTextMap(
-                SortedLookupList(failureStatus.metadata.view.mapValues(ValueText(_)).toMap)
+                SortedLookupList.from(failureStatus.metadata.view.mapValues(ValueText(_)).toMap)
               ),
             ),
           ),

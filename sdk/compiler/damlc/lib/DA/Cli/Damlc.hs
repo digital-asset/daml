@@ -1660,7 +1660,7 @@ buildMultiPackageConfigFromDamlYaml path =
       dataDeps <- fromMaybe [] <$> queryPackageConfig ["data-dependencies"] package
       deps <- fromMaybe [] <$> queryPackageConfig ["dependencies"] package
       upgradesDar <- maybe [] pure <$> queryPackageConfig ["upgrades"] package
-      let bmDarDeps = dataDeps <> filter (\dep -> takeExtension dep == ".dar") deps <> upgradesDar
+      let bmDarDeps = filter (\dep -> takeExtension dep == ".dar") (dataDeps <> deps) <> upgradesDar
       bmOutput <- queryPackageConfigBuildOutput package
       pure $ BuildMultiPackageConfig {..}
     )

@@ -198,13 +198,22 @@ jobs:
 
           version=$(ci/refresh-canton.sh)
 
+          # Track which generated files were actually updated
+          update_bullets=""
+          if ! git diff --quiet -- daml-lf/daml-lf-versions.json; then
+            update_bullets="${update_bullets}- daml-lf/daml-lf-versions.json was updated by running //daml-lf:update-daml-lf-versions\n"
+          fi
+          if ! git diff --quiet -- daml-lf/daml-lf-features.json; then
+            update_bullets="${update_bullets}- daml-lf/daml-lf-features.json was updated by running //daml-lf:update-daml-lf-features\n"
+          fi
+
           branch="main-canton-update-$version"
 
-          if git diff --exit-code origin/$(Build.SourceBranchName) -- canton >/dev/null; then
+          if git diff --exit-code origin/$(Build.SourceBranchName) -- canton daml-lf/daml-lf-versions.json daml-lf/daml-lf-features.json >/dev/null; then
               echo "Already up-to-date with latest Canton source & snapshot."
           else
               if [ "main" = "$(Build.SourceBranchName)" ]; then
-                  git add canton/canton_version.bzl canton/shared_dependencies.json maven_install_2.13.json
+                  git add canton/canton_version.bzl canton/shared_dependencies.json maven_install_2.13.json daml-lf/daml-lf-versions.json daml-lf/daml-lf-features.json
                   new_canton_commit="${version##*v}"
 
                   # Build PR body with a list of canton commit descriptions between old and new
@@ -220,9 +229,16 @@ jobs:
                       ]
                       | join("\n")
                       ')
-                  body=$(printf "Canton changes:\n\n%s\n\ntell-slack: canton" "$changelog")
 
-                  open_pr "$branch" "update canton to $version" "$body" "" "$(Build.SourceBranchName)"
+                  # Build optional header for generated file updates
+                  updates_section=""
+                  if [ -n "$update_bullets" ]; then
+                    updates_section=$(printf "After updating canton, the following changes were made:\n%s\n" "$update_bullets")
+                  fi
+
+                  body=$(printf "%sCanton changes:\n\n%s\n\ntell-slack: canton" "$updates_section" "$changelog")
+
+                  open_pr "$branch" "update canton to $version" "$body" "" "$(Build.SourceBranchName)" "ci-generated-canton-upgrade"
                   az pipelines build queue --branch "$branch" \
                                            --definition-name "PRs" \
                                            --org "https://dev.azure.com/digitalasset" \
@@ -337,13 +353,42 @@ jobs:
         fi
 
         export GH_REPO=digital-asset/daml
-        pr_list=$(gh pr list --search "is:open author:app/azure-pipelines" --json title,url,createdAt --template \
-        '{{range .}}{{slice .createdAt 0 10}} <{{.url}}|{{.title}}>
-        {{end}}' | grep -v 'rotate release duty')
-        message="Open daml repo PRs to address:
 
-        $pr_list"
-        tell_slack "$message" "$(Slack.team-sdk-updates)"
+        # Day of week in UTC: 1=Monday .. 7=Sunday.
+        dow=$(date -u +%u)
+
+        # Don't send the open-PRs report on weekends (Saturday/Sunday).
+        if [ "$dow" != "6" ] && [ "$dow" != "7" ]; then
+          prs_json=$(gh pr list --search "is:open author:app/azure-pipelines" --json title,url,createdAt)
+          pr_list=$(echo "$prs_json" | jq -r \
+            '.[] | "\(.createdAt[0:10]) <\(.url)|\(.title)>"' | grep -v 'rotate release duty')
+          message=$(printf 'Open daml repo PRs to address:\n\n%s' "$pr_list")
+
+          # On Monday, the canton update PR we expect was created on Saturday
+          # (2 days ago); on other weekdays we expect one created today.
+          if [ "$dow" = "1" ]; then
+            expected_date=$(date -u -d "2 days ago" +%Y-%m-%d)
+            when_label="on Saturday"
+          else
+            expected_date=$(date -u +%Y-%m-%d)
+            when_label="today"
+          fi
+
+          canton_update_count=$(echo "$prs_json" | jq -r \
+            --arg d "$expected_date" \
+            '[.[] | select((.createdAt[0:10] == $d) and (.title | startswith("update canton to")))] | length')
+          if [ "$canton_update_count" = "0" ]; then
+            note="No canton update PR seems to have been created $when_label."
+            note="$note This is typically caused by the absence of a new canton snapshot because nothing has changed in the canton repo since the previous day."
+            note="$note But it is more likely explained by a failure of the canton snapshot pipeline, or a failure of the update canton PR creation process."
+            note="$note If the canton nightly failed to produce a snapshot, there should be an error message on #team-canton-notifications."
+            note="$note If the update canton PR creation process failed, there should be an error message on #daml-log-builds."
+            note="$note Please investigate."
+            message=$(printf '%s\n\n%s' "$message" "$note")
+          fi
+
+          tell_slack "$message" "$(Slack.team-sdk-updates)"
+        fi
       env:
         GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
 

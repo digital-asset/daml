@@ -149,8 +149,6 @@ instance DA.Internal.Desugar.HasMaintainer K Party where
         _ = key
 instance DA.Internal.Desugar.HasFetchByKey K Party where
   _fetchByKey = GHC.Types.primitive @"UFetchByKey"
-instance DA.Internal.Desugar.HasLookupByKey K Party where
-  _lookupByKey = GHC.Types.primitive @"ULookupByKey"
 instance DA.Internal.Desugar.HasLookupNByKey K Party where
   _lookupNByKey = GHC.Types.primitive @"ULookupNByKey"
 data GHC.Types.DamlTemplate => T

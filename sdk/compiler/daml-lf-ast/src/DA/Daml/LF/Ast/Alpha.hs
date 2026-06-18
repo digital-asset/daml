@@ -502,9 +502,6 @@ alphaUpdate env = \case
         UEmbedExpr t2 e2 -> alphaType' env t1 t2
             && alphaExpr' env e1 e2
         _ -> structuralMismatch
-    ULookupByKey r1 -> \case
-        ULookupByKey r2 -> alphaTypeCon env r1 r2
-        _ -> structuralMismatch
     ULookupNByKey r1 -> \case
         ULookupNByKey r2 -> alphaTypeCon env r1 r2
         _ -> structuralMismatch

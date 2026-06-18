@@ -1,4 +1,26 @@
 {
+  "featurePV34" : {
+    "name" : "LF versions supported by PV34",
+    "cppFlag" : "DAML_PV34",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 1
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 2
+          }
+        }
+      }
+    }
+  },
   "featureChoiceFuncs" : {
     "name" : "choiceController and choiceObserver functions",
     "cppFlag" : "DAML_CHOICE_FUNCS",
@@ -13,9 +35,8 @@
       "lowerBound" : {
         "major" : 2,
         "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 1
+          "Stable" : {
+            "version" : 3
           }
         }
       }
@@ -28,9 +49,8 @@
       "lowerBound" : {
         "major" : 2,
         "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 1
+          "Stable" : {
+            "version" : 3
           }
         }
       }
@@ -43,9 +63,8 @@
       "lowerBound" : {
         "major" : 2,
         "minor" : {
-          "Staging" : {
-            "version" : 3,
-            "revision" : 1
+          "Stable" : {
+            "version" : 3
           }
         }
       }
@@ -90,6 +109,28 @@
         "minor" : {
           "Dev" : {
             
+          }
+        }
+      }
+    }
+  },
+  "featurePV35" : {
+    "name" : "LF versions supported by PV35",
+    "cppFlag" : "DAML_PV35",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 3
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 3
           }
         }
       }
@@ -165,13 +206,6 @@
           }
         }
       }
-    }
-  },
-  "featureLegacyLookupByKey" : {
-    "name" : "Lookup by key (legacy, UCK variant)",
-    "cppFlag" : "DAML_LEGACY_LOOKUP_BY_KEY",
-    "versionRange" : {
-      "type" : "Empty"
     }
   },
   "featureBigNumeric" : {

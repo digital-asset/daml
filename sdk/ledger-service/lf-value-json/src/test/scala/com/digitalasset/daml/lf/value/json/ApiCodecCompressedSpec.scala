@@ -128,7 +128,7 @@ class ApiCodecCompressedSpec
         fOptionalText = None,
         fOptionalUnit = Some(()),
         fOptOptText = Some(Some("foo")),
-        fMap = SortedLookupList(Map("1" -> 1L, "2" -> 2L, "3" -> 3L)),
+        fMap = SortedLookupList.from(Map("1" -> 1L, "2" -> 2L, "3" -> 3L)),
         fVariant = simpleVariantV,
         fRecord = simpleRecordV,
       )
@@ -298,7 +298,9 @@ class ApiCodecCompressedSpec
       c("\"abc\"", VA.text)("abc"),
       c("true", VA.bool)(true),
       cn("""["1", "2", "3"]""", "[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3)),
-      c("""{"a": "b", "c": "d"}""", VA.map(VA.text))(SortedLookupList(Map("a" -> "b", "c" -> "d"))),
+      c("""{"a": "b", "c": "d"}""", VA.map(VA.text))(
+        SortedLookupList.from(Map("a" -> "b", "c" -> "d"))
+      ),
       c("""[["a", "b"], ["c", "d"]]""", VA.genMap(VA.text, VA.text))(Map("a" -> "b", "c" -> "d")),
       cn("\"42\"", "42", VA.optional(VA.int64))(Some(42)),
       c("null", VA.optional(VA.int64))(None),

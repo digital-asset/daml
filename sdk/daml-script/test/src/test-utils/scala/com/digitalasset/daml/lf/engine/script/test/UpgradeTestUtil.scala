@@ -3,7 +3,6 @@
 
 package com.digitalasset.daml.lf
 
-import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.engine.script.test.DarUtil.{Dar, DataDep, buildDar}
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -106,7 +105,7 @@ object UpgradeTestUtil {
             throw BuildError(s"Package $pkgName is not defined in this file"),
           )
           pkgDef.depends.foreach(sortPkgDef(_, seen + pkgName))
-          discard(res += ((pkgDef, pkgName)))
+          val _ = res += ((pkgDef, pkgName))
         }
       }
       unitIdMap.keys.foreach(sortPkgDef(_))
@@ -124,8 +123,8 @@ object UpgradeTestUtil {
           )
         )
         val builtDar = pd.build(tmpDir, deps)
-        discard(builtDars += ((builtDar.versionedName, builtDar)))
-        discard(topLevelDars subtractAll deps)
+        val _ = builtDars += ((builtDar.versionedName, builtDar))
+        val _ = topLevelDars subtractAll deps
         topLevelDars += builtDar
       }
       builtDars.values
@@ -146,7 +145,7 @@ object UpgradeTestUtil {
       tmpDir: Option[Path],
   ): Dar = {
     val builder = new StringBuilder
-    def log(t: String)(s: String) = discard(builder.append(s"${t}: ${s}\n"))
+    def log(t: String)(s: String) = { val _ = builder.append(s"${t}: ${s}\n") }
     buildDar(
       name = name,
       version = version,

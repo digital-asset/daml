@@ -123,8 +123,6 @@ instance DA.Internal.Desugar.HasMaintainer T (Party, Text) where
         _ = key
 instance DA.Internal.Desugar.HasFetchByKey T (Party, Text) where
   _fetchByKey = GHC.Types.primitive @"UFetchByKey"
-instance DA.Internal.Desugar.HasLookupByKey T (Party, Text) where
-  _lookupByKey = GHC.Types.primitive @"ULookupByKey"
 instance DA.Internal.Desugar.HasLookupNByKey T (Party, Text) where
   _lookupNByKey = GHC.Types.primitive @"ULookupNByKey"
 revokeRetVal : T -> ()

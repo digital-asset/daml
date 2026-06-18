@@ -121,6 +121,8 @@ class UpgradesIT(
           }
 
           // Wait for upload
+          // TODO[https://github.com/digital-asset/daml/issues/23063]:
+          // reconsider usage of RetryStrategy
           _ <- RetryStrategy.constant(attempts = 20, waitTime = 1.seconds) { (_, _) =>
             assertDepsVetted(adminClients.head._2, deps)
           }
@@ -210,10 +212,15 @@ class UpgradesIT(
 // safe to break down tests into many classes like this.
 class UpgradesITSmallStable
     extends UpgradesIT(
-      // TODO(https://github.com/DACH-NY/canton/issues/31925): revert to ProtocolVersion.latest and
-      //  LanguageVersion.latestStableLfVersion once v35 is stable
-      cantonProtocolVersion = ProtocolVersion.Explicit("v35"),
-      // TODO[#23013]: reconsider version
+      // TODO[https://github.com/DACH-NY/canton/issues/31925]: revert to
+      //  ProtocolVersion.latest and LanguageVersion.latestStableLfVersion once
+      //  v35 is stable
+
+      // TODO[https://github.com/digital-asset/daml/issues/23013]: consider
+      //  getting rid of dev here
+      cantonProtocolVersion = ProtocolVersion.Dev,
+      // TODO[https://github.com/digital-asset/daml/issues/23013]: reconsider
+      //  version
       languageVersion = LanguageVersion.stagingLfVersion,
       upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib.dar",
       testFilesDirPath = "daml-script/test/daml/upgrades/stable",
@@ -223,10 +230,13 @@ class UpgradesITSmallStable
 
 class UpgradesITLargeStable
     extends UpgradesIT(
-      // TODO(https://github.com/DACH-NY/canton/issues/31925): revert to ProtocolVersion.latest and
-      //  LanguageVersion.latestStableLfVersion once v35 is stable
-      cantonProtocolVersion = ProtocolVersion.Explicit("v35"),
-      // TODO[#23013]: reconsider version
+      // TODO[https://github.com/DACH-NY/canton/issues/31925]: revert to
+      //  ProtocolVersion.latest and LanguageVersion.latestStableLfVersion once
+      //  v35 is stable
+      // TODO[https://github.com/DACH-NY/canton/issues/23013]:
+      //  consider getting rid of dev here
+      cantonProtocolVersion = ProtocolVersion.Dev,
+      // TODO[https://github.com/DACH-NY/canton/issues/23013]: reconsider version
       languageVersion = LanguageVersion.stagingLfVersion,
       upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib.dar",
       testFilesDirPath = "daml-script/test/daml/upgrades/stable",
