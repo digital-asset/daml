@@ -1,22 +1,12 @@
 load("@ghc_bindist//:libraries.bzl", "TOOLCHAIN_LIBRARIES")
 load("@rules_haskell//haskell:defs.bzl", "haskell_toolchain")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
-load(":ghc_bindist_install.bzl", "ghc_bindist_install")
 
 exports_files(["ghc_packages.lock.json"])
 
-ghc_bindist_install(
-    name = "ghc_install",
-    srcs = "@ghc_bindist//:bindist_srcs",
-    configure = "@ghc_bindist//:bindist_unpacked/configure",
-    gmp = "@gmp//:libs",
-    make = "@make//:make",
-    visibility = ["//visibility:public"],
-)
-
 filegroup(
     name = "ghc_install_tree",
-    srcs = [":ghc_install"],
+    srcs = ["//bazel/haskell/toolchain:ghc_install"],
     output_group = "install_tree",
 )
 
@@ -38,12 +28,12 @@ py_binary(
 
 haskell_toolchain(
     name = "ghc",
-    libdir = [":ghc_install"],
+    libdir = ["//bazel/haskell/toolchain:ghc_install"],
     libraries = TOOLCHAIN_LIBRARIES,
     docdir_path = "doc",
     static_runtime = False,
     fully_static_link = False,
-    tools = [":ghc_install"],
+    tools = ["//bazel/haskell/toolchain:ghc_install"],
     version = "9.0.2",
 )
 
