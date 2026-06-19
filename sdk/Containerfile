@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 ARG HOME_DIR=/home/host
 ARG BAZELISK_SHA256=186d78a20e1a64f59ba08987791a989892d142c9d3a9f9cc0c5c35e201f53924
@@ -17,8 +17,15 @@ RUN apt-get update \
       locales \
       python3 \
     && locale-gen en_US.UTF-8 \
+    && wget -q http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.3-2ubuntu0.1_amd64.deb \
+    && wget -q http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libncurses5_6.3-2ubuntu0.1_amd64.deb \
+    && dpkg -i libtinfo5_6.3-2ubuntu0.1_amd64.deb libncurses5_6.3-2ubuntu0.1_amd64.deb \
+    && rm -f libtinfo5_6.3-2ubuntu0.1_amd64.deb libncurses5_6.3-2ubuntu0.1_amd64.deb \
+    && ldconfig \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd -m -d ${HOME_DIR} -s /bin/bash host
+    && ln -sf /lib/x86_64-linux-gnu/libc.so.6 /lib64/libc.so.6 \
+    && (userdel -r ubuntu 2>/dev/null || true) \
+    && useradd -m -u 1000 -d ${HOME_DIR} -s /bin/bash host
 
 RUN wget https://github.com/bazelbuild/bazelisk/releases/download/v1.29.0/bazelisk-amd64.deb \
     && echo $BAZELISK_SHA256 bazelisk-amd64.deb | sha256sum -c - \
@@ -33,4 +40,3 @@ RUN install -d -o host -g host -m 0755 \
 
 USER host
 WORKDIR ${HOME_DIR}
-
