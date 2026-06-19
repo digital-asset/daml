@@ -16,6 +16,7 @@ RUN apt-get update \
       unzip \
       locales \
       python3 \
+      libc6-dev \
     && locale-gen en_US.UTF-8 \
     && wget -q http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.3-2ubuntu0.1_amd64.deb \
     && wget -q http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libncurses5_6.3-2ubuntu0.1_amd64.deb \
@@ -24,6 +25,7 @@ RUN apt-get update \
     && ldconfig \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /lib/x86_64-linux-gnu/libc.so.6 /lib64/libc.so.6 \
+    && ln -sf /usr/lib/x86_64-linux-gnu/libc_nonshared.a /usr/lib64/libc_nonshared.a \
     && (userdel -r ubuntu 2>/dev/null || true) \
     && useradd -m -u 1000 -d ${HOME_DIR} -s /bin/bash host
 
