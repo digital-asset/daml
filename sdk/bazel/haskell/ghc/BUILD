@@ -1,4 +1,4 @@
-load("@ghc_bindist_raw//:libraries.bzl", "TOOLCHAIN_LIBRARIES")
+load("@ghc_bindist//:libraries.bzl", "TOOLCHAIN_LIBRARIES")
 load("@rules_haskell//haskell:defs.bzl", "haskell_toolchain")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load(":ghc_bindist_install.bzl", "ghc_bindist_install")
@@ -7,8 +7,8 @@ exports_files(["ghc_packages.lock.json"])
 
 ghc_bindist_install(
     name = "ghc_install",
-    srcs = "@ghc_bindist_raw//:bindist_srcs",
-    configure = "@ghc_bindist_raw//:bindist_unpacked/configure",
+    srcs = "@ghc_bindist//:bindist_srcs",
+    configure = "@ghc_bindist//:bindist_unpacked/configure",
     gmp = "@gmp//:libs",
     make = "@make//:make",
     visibility = ["//visibility:public"],
@@ -26,12 +26,12 @@ py_binary(
     main = "pkgdb_to_lock.py",
     args = [
         "$(rlocationpath :ghc_install_tree)",
-        "$(rlocationpath @ghc_bindist_raw//:bindist_unpacked/configure)",
+        "$(rlocationpath @ghc_bindist//:bindist_unpacked/configure)",
     ],
     data = [
         ":ghc_install_tree",
-        "@ghc_bindist_raw//:bindist_srcs",
-        "@ghc_bindist_raw//:bindist_unpacked/configure",
+        "@ghc_bindist//:bindist_srcs",
+        "@ghc_bindist//:bindist_unpacked/configure",
     ],
     deps = ["@rules_python//python/runfiles"],
 )
@@ -69,13 +69,13 @@ py_test(
         "--check",
         "$(rlocationpath ghc_packages.lock.json)",
         "$(rlocationpath :ghc_install_tree)",
-        "$(rlocationpath @ghc_bindist_raw//:bindist_unpacked/configure)",
+        "$(rlocationpath @ghc_bindist//:bindist_unpacked/configure)",
     ],
     data = [
         "ghc_packages.lock.json",
         ":ghc_install_tree",
-        "@ghc_bindist_raw//:bindist_srcs",
-        "@ghc_bindist_raw//:bindist_unpacked/configure",
+        "@ghc_bindist//:bindist_srcs",
+        "@ghc_bindist//:bindist_unpacked/configure",
     ],
     deps = ["@rules_python//python/runfiles"],
 )
