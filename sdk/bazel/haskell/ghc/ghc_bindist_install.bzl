@@ -138,12 +138,12 @@ ghc_bindist_install = rule(
     attrs = {
         "srcs": attr.label(
             mandatory = True,
-            doc = "Raw bindist filegroup from @ghc_bindist_raw.",
+            doc = "Raw bindist filegroup from @ghc_bindist.",
         ),
         "configure": attr.label(
             mandatory = True,
             allow_single_file = True,
-            doc = "bindist_unpacked/configure file from @ghc_bindist_raw.",
+            doc = "bindist_unpacked/configure file from @ghc_bindist.",
         ),
         "make": attr.label(
             mandatory = True,
