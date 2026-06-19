@@ -137,6 +137,8 @@ use_repo(ghc_bindist_ext, "ghc_bindist_raw")
 # Root registration outranks the stock bindists toolchain above; stock removal (4.1) deferred.
 register_toolchains("//bazel/haskell/ghc:ghc_linux_amd64")
 
+register_toolchains("//bazel/haskell/toolchain:ghc_linux_amd64")
+
 cabal_ext = use_extension("//bazel/haskell:cabal_extension.bzl", "cabal")
 use_repo(cabal_ext, "cabal")
 
