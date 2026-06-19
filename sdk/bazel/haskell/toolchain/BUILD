@@ -1,11 +1,21 @@
 load("//bazel/versions:ghc.version.bzl", "GHC_VERSION")
 load(":defs.bzl", "ghc_smoke", "ghc_toolchain")
+load(":ghc_bindist_install.bzl", "ghc_bindist_install")
+
+ghc_bindist_install(
+    name = "ghc_install",
+    srcs = "@ghc_bindist//:bindist_srcs",
+    configure = "@ghc_bindist//:bindist_unpacked/configure",
+    gmp = "@gmp//:libs",
+    make = "@make//:make",
+    visibility = ["//visibility:public"],
+)
 
 toolchain_type(name = "ghc_toolchain_type")
 
 ghc_toolchain(
     name = "ghc_impl",
-    install = "//bazel/haskell/ghc:ghc_install",
+    install = ":ghc_install",
     version = GHC_VERSION,
     visibility = ["//visibility:public"],
 )
