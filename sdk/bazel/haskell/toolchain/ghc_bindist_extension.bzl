@@ -1,11 +1,30 @@
 load(
     "//bazel/versions:ghc.version.bzl",
-    "GHC_LINUX_AMD64_SHA256",
+    "GHC_BINDISTS",
     "GHC_VERSION",
 )
 
-_URL = "https://downloads.haskell.org/~ghc/{v}/ghc-{v}-x86_64-deb9-linux.tar.xz"
+_URL = "https://downloads.haskell.org/~ghc/{v}/ghc-{v}-{triple}.tar.xz"
 _UNPACK_DIR = "bindist_unpacked"
+
+def _platform_key(rctx):
+    name = rctx.os.name.lower()
+    arch = rctx.os.arch.lower()
+    if "linux" in name:
+        os = "linux"
+    elif "mac" in name or "darwin" in name:
+        os = "darwin"
+    elif "windows" in name:
+        os = "windows"
+    else:
+        os = name
+    if arch in ["amd64", "x86_64"]:
+        cpu = "amd64"
+    elif arch in ["aarch64", "arm64"]:
+        cpu = "aarch64"
+    else:
+        cpu = arch
+    return (os, cpu)
 
 _IMPORT_TEMPLATE = """\
 haskell_import(
@@ -34,10 +53,19 @@ def _haskell_import(pkg):
         subdir = repr(subdir),
     )
 
-def _ghc_bindist_raw_repo_impl(rctx):
+def _ghc_bindist_repo_impl(rctx):
+    key = _platform_key(rctx)
+    bindist = GHC_BINDISTS.get(key)
+    if bindist == None:
+        fail("no GHC {} bindist for platform {}; supported: {}".format(
+            GHC_VERSION,
+            key,
+            GHC_BINDISTS.keys(),
+        ))
+
     rctx.download_and_extract(
-        url = _URL.format(v = GHC_VERSION),
-        sha256 = GHC_LINUX_AMD64_SHA256,
+        url = _URL.format(v = GHC_VERSION, triple = bindist["triple"]),
+        sha256 = bindist["sha256"],
         type = "tar.xz",
         stripPrefix = "ghc-{}".format(GHC_VERSION),
         output = _UNPACK_DIR,
@@ -52,7 +80,7 @@ def _ghc_bindist_raw_repo_impl(rctx):
         "libraries.bzl",
         content = "# Generated from ghc_packages.lock.json (committed pin).\n" +
                   "TOOLCHAIN_LIBRARIES = {}\n".format(
-                      repr(["@ghc_bindist_raw//:" + p["name"] for p in packages]),
+                      repr(["@ghc_bindist//:" + p["name"] for p in packages]),
                   ),
         executable = False,
     )
@@ -77,8 +105,8 @@ filegroup(
         executable = False,
     )
 
-_ghc_bindist_raw_repo = repository_rule(
-    implementation = _ghc_bindist_raw_repo_impl,
+_ghc_bindist_repo = repository_rule(
+    implementation = _ghc_bindist_repo_impl,
     attrs = {
         "lockfile": attr.label(
             default = "//bazel/haskell/ghc:ghc_packages.lock.json",
@@ -88,7 +116,7 @@ _ghc_bindist_raw_repo = repository_rule(
 )
 
 def _ghc_bindist_extension_impl(module_ctx):
-    _ghc_bindist_raw_repo(name = "ghc_bindist_raw")
+    _ghc_bindist_repo(name = "ghc_bindist")
 
 ghc_bindist_extension = module_extension(
     implementation = _ghc_bindist_extension_impl,
