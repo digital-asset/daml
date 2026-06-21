@@ -44,8 +44,15 @@ reduceTest = script do
       | i == 1 = Some True
       | i == 2 = Some False
       | otherwise = None
-  reduce (Disjunction [Disjunction [p], Disjunction [q]]) === Disjunction [p, q]
-  reduce (Disjunction [Disjunction [p, q], Disjunction [r]]) === Disjunction [p, q, r]
+    sortDisjunctionProps (Disjunction ps) =
+      Disjunction (sortOn propositionId ps)
+    sortDisjunctionProps f = f
+    propositionId (Proposition n) = n
+    propositionId _ = error "expected proposition"
+  sortDisjunctionProps (reduce (Disjunction [Disjunction [p], Disjunction [q]])) ===
+    sortDisjunctionProps (Disjunction [p, q])
+  sortDisjunctionProps (reduce (Disjunction [Disjunction [p, q], Disjunction [r]])) ===
+    sortDisjunctionProps (Disjunction [p, q, r])
   Right True === interpret truth (Disjunction [Disjunction [p], Disjunction [q]])
 
 dnfTest = script do
