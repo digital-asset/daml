@@ -84,10 +84,11 @@ export CC="$CC_BIN -fuse-ld=lld"
 ./configure --prefix "$PREFIX"
 "$MAKE_BIN" -j"$(nproc)" install
 
-# Bundle hermetic libgmp.so into integer-gmp's libdir so its `-lgmp` resolves
-# on every Haskell link; the deb9 bindist otherwise expects a host libgmp.
+# Bundle hermetic libgmp.so into the rts libdir, which is always on the link
+# search path (the deb9 bindist otherwise expects a host libgmp); this lets
+# every Haskell target resolve `-lgmp` with no per-target dependency.
 for f in {gmp_libs}; do
-    cp -L "$EXECROOT/$f" "$PREFIX/lib/integer-gmp-1.1/"
+    cp -L "$EXECROOT/$f" "$PREFIX/lib/rts/"
 done
 
 cp "$PREFIX/lib/settings" "$EXECROOT/{lib_settings}"
@@ -152,7 +153,7 @@ ghc_bindist_install = rule(
         ),
         "gmp": attr.label(
             allow_files = True,
-            doc = "Hermetic libgmp.so(s) bundled into integer-gmp's libdir, e.g. @gmp//:libs.",
+            doc = "Hermetic libgmp.so(s) bundled into the rts libdir, e.g. @gmp//:libs.",
         ),
     },
     toolchains = use_cc_toolchain(),
