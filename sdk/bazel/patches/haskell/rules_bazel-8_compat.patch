@@ -98,28 +98,6 @@ diff --git a/haskell/cc.bzl b/haskell/cc.bzl
      }
  
      # If running on darwin but XCode is not installed (i.e., only the Command
-diff --git a/tools/runfiles/BUILD.bazel b/tools/runfiles/BUILD.bazel
---- a/tools/runfiles/BUILD.bazel
-+++ b/tools/runfiles/BUILD.bazel
-@@ -44,6 +44,7 @@
-         ":directory",
-         ":filepath",
-         ":transformers",
-+        "@@+gmp+gmp//:gmp_cc_lib",
-     ],
- )
- 
-diff --git a/tools/ghc-paths/BUILD.bazel b/tools/ghc-paths/BUILD.bazel
---- a/tools/ghc-paths/BUILD.bazel
-+++ b/tools/ghc-paths/BUILD.bazel
-@@ -54,6 +54,7 @@
-         ":filepath",
-         ":transformers",
-         "@rules_haskell//tools/runfiles",
-+        "@@+gmp+gmp//:gmp_cc_lib",
-     ],
- )
- 
 diff --git a/haskell/private/runghc.bzl b/haskell/private/runghc.bzl
 --- a/haskell/private/runghc.bzl
 +++ b/haskell/private/runghc.bzl
