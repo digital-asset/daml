@@ -1,7 +1,13 @@
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load(
     "//bazel/versions:ghc.version.bzl",
     "GHC_BINDISTS",
     "GHC_VERSION",
+)
+load(
+    "//bazel/versions:gnu_tools.version.bzl",
+    "GMP_SHA256",
+    "GMP_VERSION",
 )
 
 _URL = "https://downloads.haskell.org/~ghc/{v}/ghc-{v}-{triple}.tar.xz"
@@ -115,9 +121,18 @@ _ghc_bindist_repo = repository_rule(
     },
 )
 
-def _ghc_bindist_extension_impl(module_ctx):
+def _ghc_toolchain_impl(_module_ctx):
     _ghc_bindist_repo(name = "ghc_bindist")
+    http_archive(
+        name = "gmp",
+        url = "https://gmplib.org/download/gmp/gmp-{}.tar.xz".format(GMP_VERSION),
+        sha256 = GMP_SHA256,
+        strip_prefix = "gmp-{}".format(GMP_VERSION),
+        build_file = ":files/gmp.BUILD.bzl",
+        patches = [":files/gmp_handauthored.patch"],
+        patch_args = ["-p1"],
+    )
 
-ghc_bindist_extension = module_extension(
-    implementation = _ghc_bindist_extension_impl,
+ghc_toolchain_extension = module_extension(
+    implementation = _ghc_toolchain_impl,
 )
