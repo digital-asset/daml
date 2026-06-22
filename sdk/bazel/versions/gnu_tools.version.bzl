@@ -30,8 +30,8 @@ ZLIB_SHA256 = "9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23"
 
 # -- ncurses --
 # https://ftp.gnu.org/gnu/ncurses/
-NCURSES_VERSION = "6.4"
-NCURSES_SHA256 = "6931283d9ac87c5073f30b6290c4c75f21632bb4fc3603ac8100812bed248159"
+NCURSES_VERSION = "5.9"
+NCURSES_SHA256 = "9046298fb440324c9d4135ecea7879ffed8546dd1b58e59430ea07a4633f563b"
 
 # -- bzip2 --
 # https://sourceware.org/pub/bzip2/
