@@ -1,0 +1,18 @@
+# Cloned repos and built images — never commit them.
+# The */CLAUDE.md files are the exception: they're tracked (not part of any target repo).
+/workspace/splice/
+/workspace/splice-clones/*/
+/workspace/daml/
+/workspace/daml-clones/*/
+/workspace/*.tar
+
+# nix / direnv artifacts
+.direnv/
+result
+result-*
+
+# editor / OS noise
+.DS_Store
+*.swp
+.idea/
+*.iml
