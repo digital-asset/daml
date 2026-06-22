@@ -64,7 +64,12 @@ def _configure_make_impl(ctx):
         cc_toolchain = cc_toolchain,
         is_linking_dynamic_library = True,
     )
-    cflags = " ".join(_flags(fc, ACTION_NAMES.c_compile, compile_vars))
+    extra_cflags = list(ctx.attr.extra_cflags)
+    if ctx.file.version_script:
+        # ncurses' MK_SHARED_LIB recipe uses ${CC} ${CFLAGS} but not ${LDFLAGS},
+        # so the version script must ride in through CFLAGS to reach the link.
+        extra_cflags.append("-Wl,--version-script=$EXECROOT/{}".format(ctx.file.version_script.path))
+    cflags = " ".join(_flags(fc, ACTION_NAMES.c_compile, compile_vars) + extra_cflags)
     ldflags = " ".join(_flags(fc, ACTION_NAMES.cpp_link_dynamic_library, link_vars))
 
     configure = ctx.file.configure
@@ -73,6 +78,8 @@ def _configure_make_impl(ctx):
     flags = " ".join(ctx.attr.configure_flags)
 
     inputs = ctx.files.srcs + [make_bin]
+    if ctx.file.version_script:
+        inputs = inputs + [ctx.file.version_script]
 
     env_lines = [
         "set -euo pipefail",
@@ -86,9 +93,11 @@ def _configure_make_impl(ctx):
         # Build-time helper programs must RUN in the sandbox, so compile them
         # with host libc (no hermetic sysroot flags); only the shipped target
         # CC output needs to be hermetic. Used by cross builds (--host!=--build).
-        'export BUILD_CC="$EXECROOT/{} -fuse-ld=lld"'.format(cc),
+        # lld goes in BUILD_LDFLAGS (not baked into BUILD_CC) so $BUILD_CC stays
+        # textually distinct from $CC — ncurses 5.9 errors if they are equal.
+        'export BUILD_CC="$EXECROOT/{}"'.format(cc),
         "export BUILD_CFLAGS=",
-        "export BUILD_LDFLAGS=",
+        'export BUILD_LDFLAGS="-fuse-ld=lld"',
         'MAKE="$EXECROOT/{}"'.format(make_bin.path),
         'SRC="$EXECROOT/{}"'.format(src_dir),
     ]
@@ -136,6 +145,8 @@ configure_make = rule(
         "make": attr.label(mandatory = True, allow_single_file = True, doc = "The hermetic `make` binary."),
         "m4": attr.label(allow_single_file = True, doc = "Optional hermetic `m4` exported as $M4."),
         "configure_flags": attr.string_list(doc = "Flags passed to ./configure (besides --prefix)."),
+        "extra_cflags": attr.string_list(doc = "Extra flags appended to CFLAGS (e.g. quieting legacy-source warnings)."),
+        "version_script": attr.label(allow_single_file = True, doc = "Optional linker version script, injected via CFLAGS (see impl)."),
         "install_libdir": attr.string(default = "lib", doc = "Install-prefix subdir holding the declared outputs."),
         "outs": attr.output_list(mandatory = True, doc = "Installed artifacts to expose; copied from <prefix>/<install_libdir>/<basename>."),
     },
