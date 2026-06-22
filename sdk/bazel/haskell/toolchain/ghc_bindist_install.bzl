@@ -91,6 +91,12 @@ for f in {gmp_libs}; do
     cp -L "$EXECROOT/$f" "$PREFIX/lib/rts/"
 done
 
+# The deb9 ghc/ghc-pkg need libtinfo.so.5 at runtime (resolved via their
+# RUNPATH $ORIGIN/../rts) and haskeline links -ltinfo (needs libtinfo.so);
+# bundle our hermetic copy under both names so neither leaks the host's.
+cp -L "$EXECROOT/{tinfo}" "$PREFIX/lib/rts/libtinfo.so"
+cp -L "$EXECROOT/{tinfo}" "$PREFIX/lib/rts/libtinfo.so.5"
+
 cp "$PREFIX/lib/settings" "$EXECROOT/{lib_settings}"
 if [ -d "$PREFIX/doc" ]; then
     touch "$EXECROOT/{doc_marker}"
@@ -107,12 +113,13 @@ rm -rf "$TMP"
         lib_settings = lib_settings.path,
         doc_marker = doc_marker.path,
         gmp_libs = " ".join([f.path for f in ctx.files.gmp]),
+        tinfo = ctx.file.tinfo.path,
     )
 
     ctx.actions.run_shell(
         outputs = [install_tree, lib_settings, doc_marker],
         inputs = depset(
-            direct = ctx.files.srcs + [configure, ctx.file.make] + ctx.files.gmp,
+            direct = ctx.files.srcs + [configure, ctx.file.make, ctx.file.tinfo] + ctx.files.gmp,
             transitive = [cc_toolchain.all_files],
         ),
         command = command,
@@ -154,6 +161,10 @@ ghc_bindist_install = rule(
         "gmp": attr.label(
             allow_files = True,
             doc = "Hermetic libgmp.so(s) bundled into the rts libdir, e.g. @gmp//:libs.",
+        ),
+        "tinfo": attr.label(
+            allow_single_file = True,
+            doc = "Hermetic libtinfo.so bundled into rts as libtinfo.so + libtinfo.so.5.",
         ),
     },
     toolchains = use_cc_toolchain(),
