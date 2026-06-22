@@ -8,6 +8,8 @@ load(
     "//bazel/versions:gnu_tools.version.bzl",
     "GMP_SHA256",
     "GMP_VERSION",
+    "NCURSES_SHA256",
+    "NCURSES_VERSION",
 )
 
 _URL = "https://downloads.haskell.org/~ghc/{v}/ghc-{v}-{triple}.tar.xz"
@@ -131,6 +133,13 @@ def _ghc_toolchain_impl(_module_ctx):
         build_file = ":files/gmp.BUILD.bzl",
         patches = [":files/gmp_handauthored.patch"],
         patch_args = ["-p1"],
+    )
+    http_archive(
+        name = "ncurses",
+        url = "https://ftp.gnu.org/gnu/ncurses/ncurses-{}.tar.gz".format(NCURSES_VERSION),
+        sha256 = NCURSES_SHA256,
+        strip_prefix = "ncurses-{}".format(NCURSES_VERSION),
+        build_file = ":files/ncurses.BUILD.bzl",
     )
 
 ghc_toolchain_extension = module_extension(
