@@ -9,7 +9,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 # e.g., damlc, to get the names of the various environment variables set by the assistant.
 da_haskell_library(
     name = "daml-project-config",
-    srcs = glob(["daml-project-config/**/*.hs"]),
+    srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
         "aeson",
         "array",
@@ -26,7 +26,7 @@ da_haskell_library(
         "uniplate",
         "yaml",
     ],
-    src_strip_prefix = "daml-project-config",
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         "//component-version/hs:component-version-class-lib",
@@ -73,9 +73,9 @@ da_haskell_repl(
     collect_data = False,
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-assistant:test",
-        "//daml-assistant/daml-new",
+        ":daml-project-config",
+        ":test",
     ],
 )
 
-generate_and_track_cabal("daml-project-config", None, "daml-project-config")
+generate_and_track_cabal("daml-project-config", None, "src")

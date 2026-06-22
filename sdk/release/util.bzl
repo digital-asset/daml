@@ -9,8 +9,8 @@ dpm_inputs = {
     "damlc": "//compiler/damlc:damlc-oci.tar.gz",
     "daml-script": "//daml-script/runner:daml-script-oci.tar.gz",
     "codegen": "//language-support/codegen-main:codegen-oci.tar.gz",
-    "daml-new": "//daml-assistant/daml-new:daml-new-oci.tar.gz",
-    "upgrade-check": "//daml-assistant/upgrade-check-main:upgrade-check-oci.tar.gz",
+    "daml-new": "//components/daml-new:daml-new-oci.tar.gz",
+    "upgrade-check": "//components/upgrade-check-main:upgrade-check-oci.tar.gz",
     "canton-open-source": "//canton:canton-community-oci.tar.gz",
 }
 

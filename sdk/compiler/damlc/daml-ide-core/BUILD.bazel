@@ -69,7 +69,7 @@ da_haskell_library(
         "//compiler/damlc/daml-rule-types",
         "//compiler/script-service/client",
         "//component-version/hs:component-version-class-lib",
-        "//daml-assistant:daml-project-config",
+        "//compiler/daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

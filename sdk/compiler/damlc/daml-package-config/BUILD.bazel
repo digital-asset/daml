@@ -30,7 +30,7 @@ da_haskell_library(
     deps = [
         "//compiler/daml-lf-ast",
         "//component-version/hs:component-version-class-lib",
-        "//daml-assistant:daml-project-config",
+        "//compiler/daml-project-config",
     ],
 )
 
@@ -49,7 +49,7 @@ da_haskell_test(
     deps = [
         ":daml-package-config",
         "//compiler/daml-lf-ast",
-        "//daml-assistant:daml-project-config",
+        "//compiler/daml-project-config",
         "//libs-haskell/test-utils",
     ],
 )

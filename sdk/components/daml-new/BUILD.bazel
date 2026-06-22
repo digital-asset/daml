@@ -24,7 +24,7 @@ da_haskell_binary(
     deps = [
         "//compiler/damlc/daml-resolution-config",
         "//component-version/hs:component-version-lib",
-        "//daml-assistant:daml-project-config",
+        "//compiler/daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

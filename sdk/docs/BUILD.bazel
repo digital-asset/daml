@@ -261,20 +261,6 @@ genrule(
     tools = ["//bazel_tools/sh:mktgz"],
 ) if not is_windows else None
 
-filegroup(
-    name = "daml-assistant-iou-setup",
-    srcs = glob(
-        ["source/sdk/tutorials/quickstart/template-root/*"],
-        # excluding quickstart-java stuff
-        exclude = [
-            "source/sdk/tutorials/quickstart/template-root/src",
-            "source/sdk/tutorials/quickstart/template-root/pom.xml",
-        ],
-        exclude_directories = 0,
-    ),
-    visibility = ["//visibility:public"],
-)
-
 genrule(
     name = "quickstart-java",
     srcs = glob(["source/sdk/tutorials/quickstart/template-root/**"]),

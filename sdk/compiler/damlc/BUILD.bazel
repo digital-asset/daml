@@ -289,7 +289,7 @@ da_haskell_library(
         "//compiler/script-service/protos:script_service_haskell_proto",
         "//compiler/script-service/protos:test_results_haskell_proto",
         "//component-version/hs:component-version-class-lib",
-        "//daml-assistant:daml-project-config",
+        "//compiler/daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-gcp-logger",
         "//libs-haskell/da-hs-base",

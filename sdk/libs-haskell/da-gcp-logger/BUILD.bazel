@@ -27,7 +27,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//component-version/hs:component-version-class-lib",
-        "//daml-assistant:daml-project-config",
+        "//compiler/daml-project-config",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -49,7 +49,7 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         ":da-gcp-logger",
-        "//daml-assistant:daml-project-config",
+        "//compiler/daml-project-config",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
