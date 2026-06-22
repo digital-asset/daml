@@ -1,3 +1,5 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//bazel/native:configure_make.bzl", "configure_make")
 load("//bazel/versions:ghc.version.bzl", "GHC_VERSION")
 load(":defs.bzl", "ghc_smoke", "ghc_toolchain")
 load(":ghc_bindist_install.bzl", "ghc_bindist_install")
@@ -8,6 +10,7 @@ ghc_bindist_install(
     configure = "@ghc_bindist//:bindist_unpacked/configure",
     gmp = "@gmp//:libs",
     make = "@make//:make",
+    tinfo = ":tinfo_so",
     visibility = ["//visibility:public"],
 )
 
@@ -35,3 +38,46 @@ toolchain(
 )
 
 ghc_smoke(name = "smoke")
+
+configure_make(
+    name = "tinfo",
+    srcs = "@ncurses//:srcs",
+    configure = "@ncurses//:configure",
+    make = "@make//:make",
+    configure_flags = [
+        "--build=x86_64-unknown-linux-gnu",
+        "--host=x86_64-pc-linux-gnu",
+        "--with-shared",
+        "--with-termlib",
+        "--enable-widec",
+        "--without-debug",
+        "--without-ada",
+        "--without-manpages",
+        "--without-tests",
+    ],
+    install_libdir = "lib",
+    outs = ["libtinfow.so.6"],
+)
+
+genrule(
+    name = "tinfo_so",
+    srcs = [":tinfo"],
+    outs = ["libtinfo.so"],
+    cmd = "cp $(location :tinfo) $@ && chmod +w $@ && $(execpath @patchelf//:patchelf) --set-soname libtinfo.so $@",
+    tools = ["@patchelf//:patchelf"],
+)
+
+cc_library(
+    name = "tinfo_cc_lib",
+    srcs = [":tinfo_so"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "tinfo_libs",
+    srcs = [
+        ":tinfo",
+        ":tinfo_so",
+    ],
+    visibility = ["//visibility:public"],
+)
