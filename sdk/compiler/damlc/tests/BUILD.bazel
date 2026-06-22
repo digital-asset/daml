@@ -633,6 +633,10 @@ da_haskell_test(
         "//test-common:upgrades-DoesNotWarnWhenExpressionUpgradesUtilityDependencyIdentifierDep-v2.dar",
         "//test-common:upgrades-DoesNotWarnWhenExpressionUpgradesUtilityDependencyIdentifier-v1.dar",
         "//test-common:upgrades-DoesNotWarnWhenExpressionUpgradesUtilityDependencyIdentifier-v2.dar",
+        "//test-common:upgrades-ChoiceChangesConsumingToNonconsuming-v1.dar",
+        "//test-common:upgrades-ChoiceChangesConsumingToNonconsuming-v2.dar",
+        "//test-common:upgrades-ChoiceChangesNonconsumingToConsuming-v1.dar",
+        "//test-common:upgrades-ChoiceChangesNonconsumingToConsuming-v2.dar",
     ],
     hackage_deps = [
         "base",

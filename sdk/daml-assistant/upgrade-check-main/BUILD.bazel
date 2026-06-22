@@ -325,6 +325,10 @@ da_scala_library(
             "//test-common:upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v2.dar",
             "//test-common:upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
             "//test-common:upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
+            "//test-common:upgrades-ChoiceChangesConsumingToNonconsuming-v1.dar",
+            "//test-common:upgrades-ChoiceChangesConsumingToNonconsuming-v2.dar",
+            "//test-common:upgrades-ChoiceChangesNonconsumingToConsuming-v1.dar",
+            "//test-common:upgrades-ChoiceChangesNonconsumingToConsuming-v2.dar",
         ],
         flaky = True,
         scala_deps = [

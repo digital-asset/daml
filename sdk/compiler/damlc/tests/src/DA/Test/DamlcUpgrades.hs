@@ -451,6 +451,12 @@ tests damlc =
             , testUpgradeCheck
                   "DoesNotWarnWhenExpressionUpgradesUtilityDependencyIdentifier"
                   (SucceedWithoutWarning "*.warning while type checking template Main.Foo signatories:\n  The upgraded template Foo has changed the definition of its signatories.\n  There is 1 difference in the expression:\n    Name .*:Dep:duplicateParty and name .*:Dep:duplicateParty differ for the following reason: Just Name came from package .* and now comes from package .* Both packages support upgrades, but the previous package had a higher version than the current one..*")
+            , testUpgradeCheck
+                  "ChoiceChangesConsumingToNonconsuming"
+                  Succeed
+            , testUpgradeCheck
+                  "ChoiceChangesNonconsumingToConsuming"
+                  Succeed
             ]
        )
   where
