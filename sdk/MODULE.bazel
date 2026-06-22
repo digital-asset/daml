@@ -131,8 +131,8 @@ use_repo(
 da_ghc_ext = use_extension("//bazel/haskell:da_ghc_extension.bzl", "da_ghc")
 use_repo(da_ghc_ext, "da-ghc", "ghc-lib-gen")
 
-ghc_bindist_ext = use_extension("//bazel/haskell/toolchain:ghc_bindist_extension.bzl", "ghc_bindist_extension")
-use_repo(ghc_bindist_ext, "ghc_bindist")
+ghc_toolchain_ext = use_extension("//bazel/haskell/toolchain:ghc_toolchain_extension.bzl", "ghc_toolchain_extension")
+use_repo(ghc_toolchain_ext, "ghc_bindist", "gmp")
 
 # Root registration outranks the stock bindists toolchain above; stock removal (4.1) deferred.
 register_toolchains("//bazel/haskell/ghc:ghc_linux_amd64")
@@ -919,9 +919,6 @@ io_grpc_grpc_java_ext = use_extension("//bazel/proto:io_grpc_grpc_java_extension
 use_repo(io_grpc_grpc_java_ext, "io_grpc_grpc_java")
 
 # --- Native libraries ---
-
-gmp_ext = use_extension("//bazel/native:gmp_extension.bzl", "gmp")
-use_repo(gmp_ext, "gmp")
 
 ncurses_ext = use_extension("//bazel/native:ncurses_extension.bzl", "ncurses")
 use_repo(ncurses_ext, "ncurses")
