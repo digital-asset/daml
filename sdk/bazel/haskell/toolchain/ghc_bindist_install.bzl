@@ -10,6 +10,14 @@ load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolcha
 _LAUNCHER_EXTRA_ARGS = {
     "ghc": '-B"$ROOT/lib"',
     "ghc-pkg": '--global-package-db "$ROOT/lib/package.conf.d"',
+    "runghc": '--ghc-arg=-B"$ROOT/lib"',
+    "haddock": '-B"$ROOT/lib" -l"$ROOT/lib"',
+    "hsc2hs": '--template="$ROOT/lib/template-hsc.h"',
+}
+
+# hsc2hs's bundled include must follow the caller's args, matching the stock wrapper.
+_LAUNCHER_SUFFIX_ARGS = {
+    "hsc2hs": '-I"$ROOT/lib/include/"',
 }
 _TOOLS = ["ghc", "ghc-pkg", "hsc2hs", "haddock", "runghc", "hpc"]
 
@@ -33,11 +41,12 @@ def _make_launcher(ctx, install_tree, tool_name):
         content = """#!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${{BASH_SOURCE[0]}}")/../{tree}" && pwd)"
-exec "$ROOT/lib/bin/{tool}" {extra} "$@"
+exec "$ROOT/lib/bin/{tool}" {extra} "$@" {suffix}
 """.format(
             tree = install_tree.basename,
             tool = tool_name,
             extra = _LAUNCHER_EXTRA_ARGS.get(tool_name, ""),
+            suffix = _LAUNCHER_SUFFIX_ARGS.get(tool_name, ""),
         ),
     )
     return launcher
