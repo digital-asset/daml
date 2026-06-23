@@ -17,12 +17,15 @@ and wants **tens of GB of free disk**. Do it occasionally and refresh by bumping
 
 ### 1.1 One-time host prerequisites
 
-**Authenticate to GitHub** — nix resolves `github:NixOS/nixpkgs/...` via the GitHub API and clones
-daml from github; unauthenticated, the rate limit fails the Determinate-Nix step:
+**GitHub auth — only if you hit a rate-limit 403.** nix resolves `github:NixOS/nixpkgs/...` by
+calling the GitHub API, which is capped at **60 requests/hour for unauthenticated IPs**. On a personal
+host doing an occasional build you usually won't hit it, and **nothing here is private** (nixpkgs and
+daml are public) — so no token is required to start. Only if the build fails with a GitHub
+**403 / rate-limit** message, raise the ceiling on your own machine (or just wait an hour and retry):
 
 ```bash
-gh auth login        # or: export GITHUB_TOKEN=<token with public-repo read>
-gh auth status
+gh auth login                       # interactive, on your host — no token to hand around
+# or:  export GITHUB_TOKEN=<token>  # any token; it only lifts the rate limit
 ```
 
 **Allow the build network domains** (host-level, default-deny firewall). `bazel-cache.da-ext.net` is
