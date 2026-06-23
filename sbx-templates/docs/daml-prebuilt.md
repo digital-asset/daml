@@ -34,8 +34,8 @@ gh auth login                       # interactive, on your host — no token to 
 ```bash
 # generic nix toolchain (the base image)
 sbx policy allow network install.determinate.systems,cache.nixos.org,nixos.org,releases.nixos.org,channels.nixos.org,repo1.maven.org
-# daml nix + bazel caches + language deps
-sbx policy allow network nix-cache.da-ext.net,bazel-cache.da-ext.net,www.scala-lang.org,registry.npmjs.org,registry.yarnpkg.com,proxy.golang.org,sum.golang.org
+# daml nix + bazel caches + language deps + runtime: da-ghc GHC submodule cloning
+sbx policy allow network nix-cache.da-ext.net,bazel-cache.da-ext.net,www.scala-lang.org,registry.npmjs.org,registry.yarnpkg.com,proxy.golang.org,sum.golang.org,gitlab.haskell.org
 ```
 
 > If the build is happening on a plain host with Docker Desktop (not inside an sbx sandbox), the
@@ -145,27 +145,14 @@ claude opens at the repo root; it `cd`s into `sdk/` to build (the baked `~/.clau
 
 Resume a stopped sandbox with `sbx run --name <name>`.
 
-### 2.2 Allow the one runtime network domain (host, once per sandbox)
+### 2.2 One-time network requirement
 
-Before the first build, allow `gitlab.haskell.org` in the sandbox's network policy. Bazel's
-`da-ghc` external repo (`github.com/digital-asset/ghc`) has GHC submodules hosted on
-`gitlab.haskell.org` that must be cloned **once** when Bazel populates a fresh output base (the
-main repo comes from the baked repo cache; submodule cloning is a separate step that still needs
-the network). Without this the build fails at analysis with:
-
-```
-fatal: unable to access 'https://gitlab.haskell.org/…': The requested URL returned error: 403
-ERROR: Analysis of target '//compiler/damlc:damlc' failed
-```
-
-Run on the **host** (once per sandbox):
-
-```bash
-sbx policy allow network gitlab.haskell.org
-```
-
-This is a one-time fetch per output base. Once the `da-ghc` external dir is materialized,
-subsequent builds don't need this domain.
+`gitlab.haskell.org` must be in the sandbox's network policy (covered by the `sbx policy allow`
+block in §1.1). Bazel's `da-ghc` external repo (`github.com/digital-asset/ghc`) has GHC submodules
+hosted on `gitlab.haskell.org` that must be cloned **once** when Bazel populates a fresh output
+base (the main repo comes from the baked repo cache; only the submodule clone step needs the
+network). Without this the build fails at analysis. This is a one-time fetch per output base —
+subsequent builds use the locally-materialized external dir and run fully offline.
 
 ### 2.3 First build inside the sandbox
 

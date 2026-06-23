@@ -77,10 +77,8 @@ allow rule (which only governs reachability).
 sbx policy allow network install.determinate.systems,cache.nixos.org,nixos.org,releases.nixos.org,channels.nixos.org,repo1.maven.org
 # additionally, for splice
 sbx policy allow network www.canton.io,get.digitalasset.com,get.pulumi.com,api.pulumi.com
-# additionally, for daml (nix + bazel caches are also wanted at runtime)
-sbx policy allow network nix-cache.da-ext.net,bazel-cache.da-ext.net,www.scala-lang.org,registry.npmjs.org,registry.yarnpkg.com,proxy.golang.org,sum.golang.org
-# additionally, for daml-prebuilt at runtime (one-time da-ghc submodule clone per output base)
-sbx policy allow network gitlab.haskell.org
+# additionally, for daml (nix + bazel caches at runtime) + daml-prebuilt runtime (da-ghc submodules)
+sbx policy allow network nix-cache.da-ext.net,bazel-cache.da-ext.net,www.scala-lang.org,registry.npmjs.org,registry.yarnpkg.com,proxy.golang.org,sum.golang.org,gitlab.haskell.org
 ```
 
 ## Already reachable — no allow needed
