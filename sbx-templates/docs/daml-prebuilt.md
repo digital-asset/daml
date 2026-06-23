@@ -46,12 +46,13 @@ sbx policy allow network nix-cache.da-ext.net,bazel-cache.da-ext.net,www.scala-l
 
 **Pin `DAML_REF` to the exact commit you'll work from.** The build bakes the cache from this daml
 commit; pinning it (rather than floating on `main`) keeps the image reproducible and minimises drift
-from the checkout you later `--clone`. Use the commit you're about to launch against — here, the tip of
-the `daml-prebuilt-cache-fixes` branch:
+from the checkout you later `--clone`. Use the commit carrying these fixes on
+`daml-prebuilt-cache-fixes` (push it first — see the note below; you can also pass the branch name and
+`build-template.sh` resolves it):
 
 ```bash
 cd sbx-templates
-DAML_REF=2d6dee290d27b7a29d0d00d284f573410ab4a838 ./scripts/build-template.sh daml-prebuilt
+DAML_REF=d9ae8e010b5c5b2649ff87b9ff41f717d1053b02 ./scripts/build-template.sh daml-prebuilt
 # -> workspace/daml-prebuilt.tar   (builds nix-direnv-sandbox first if missing)
 ```
 
@@ -124,7 +125,7 @@ the `--clone` inside the container has it:
 
 ```bash
 cd /path/to/your/daml                                   # the repo ROOT (has .git)
-git checkout daml-prebuilt-cache-fixes                  # commit 2d6dee290d2 — carries the bug-2 fix into the clone
+git checkout daml-prebuilt-cache-fixes                  # commit d9ae8e010b5 — carries the bug-2 fix into the clone
 sbx create --clone -t daml-prebuilt --name my-feature claude .   # create + clone the repo in
 sbx run --name my-feature                               # attach to it
 ```
