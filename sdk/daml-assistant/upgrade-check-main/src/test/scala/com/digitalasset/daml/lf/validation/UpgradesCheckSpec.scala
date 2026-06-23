@@ -1374,7 +1374,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           (
             "test-common/upgrades-ChoiceChangesConsumingToNonconsuming-v1.dar",
             "test-common/upgrades-ChoiceChangesConsumingToNonconsuming-v2.dar",
-            Some("The upgraded choice C1 cannot change from a consuming choice to a nonconsuming choice."),
+            Some(
+              "The upgraded choice C1 cannot change from a consuming choice to a nonconsuming choice."
+            ),
           )
         ),
       )
@@ -1390,7 +1392,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           (
             "test-common/upgrades-ChoiceChangesNonconsumingToConsuming-v1.dar",
             "test-common/upgrades-ChoiceChangesNonconsumingToConsuming-v2.dar",
-            Some("The upgraded choice C1 cannot change from a nonconsuming choice to a consuming choice."),
+            Some(
+              "The upgraded choice C1 cannot change from a nonconsuming choice to a consuming choice."
+            ),
           )
         ),
       )
