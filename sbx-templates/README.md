@@ -90,6 +90,12 @@ your own machine, arm64 or x86). Clone the repo, allow the build domains on your
 so building your own keeps you clear of any redistribution-licensing question. `nix-direnv-sandbox`
 bundles only nix + direnv and is safe to push to a registry if you ever want to.
 
+**Prefer CI-published images?** Instead of everyone building locally, CI can push the templates to a
+registry so devs just `sbx run -t <registry>/<name>:latest`. See [`docs/ci-publish.md`](docs/ci-publish.md)
+for the full design — notably the architecture story (3 host types → 2 OCI arches; `daml-prebuilt` is
+amd64-only because daml's caches are x86) — and a reference workflow at
+[`.github/workflows/publish-templates.yml`](.github/workflows/publish-templates.yml).
+
 ## Working modes
 
 Three ways to run agents. Pick based on your needs:

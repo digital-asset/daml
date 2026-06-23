@@ -1,0 +1,192 @@
+# Publish the sbx templates to a container registry.
+#
+# In the standalone sbx-templates repo this file lives at `.github/workflows/publish-templates.yml`.
+# (Under the daml repo it's inert — GitHub only runs workflows from the REPO ROOT's .github/workflows.)
+#
+# This is a REVIEWED STARTING POINT, not turnkey — see docs/ci-publish.md for the reasoning. You must
+# fill in: the registry, the self-hosted runner labels (the daml jobs need ≥100 GB disk AND network
+# access to *.da-ext.net), and verify how `sbx` consumes a registry ref on your hosts.
+#
+# Strategy (see docs/ci-publish.md → "3 host types → 2 image architectures"):
+#   • nix-direnv-sandbox, daml-ready : multi-arch (linux/amd64 + linux/arm64), native per-arch runners,
+#                                       pushed by digest, then merged into a manifest list.
+#   • daml-prebuilt                  : linux/amd64 ONLY (warm; daml's caches are x86). arm64 is opt-in
+#                                       and from-source — left commented.
+
+name: publish-templates
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_daml_prebuilt:
+        description: "Also (re)build daml-prebuilt (heavy)"
+        type: boolean
+        default: true
+  schedule:
+    - cron: "0 3 * * *"        # nightly: refresh daml-prebuilt against main's HEAD
+  push:
+    branches: [main]
+    paths:                      # rebuild the light images only when their inputs change
+      - "docker/nix-direnv.Dockerfile"
+      - "docker/daml-ready.Dockerfile"
+
+env:
+  REGISTRY: ghcr.io                                   # <-- your registry
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}  # <-- e.g. ghcr.io/your-org
+  DAML_REPO: https://github.com/digital-asset/daml
+
+permissions:
+  contents: read
+  packages: write             # GHCR push via GITHUB_TOKEN; for other registries use a secret instead
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────────────────────
+  # 1. Base + daml-ready: build each arch natively, push by digest, then merge into a manifest list.
+  # ─────────────────────────────────────────────────────────────────────────────────────────────
+  build-multiarch:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # nix-direnv-sandbox (generic, light)
+          - image: nix-direnv-sandbox
+            dockerfile: docker/nix-direnv.Dockerfile
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - image: nix-direnv-sandbox
+            dockerfile: docker/nix-direnv.Dockerfile
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm        # GitHub-hosted arm64; or a self-hosted arm label
+          # daml-ready (nix dev-env + repo cache) — bigger; arm64 may build some nix from source.
+          # These need da-ext access + more disk → likely SELF-HOSTED runners inside DA's network.
+          - image: daml-ready
+            dockerfile: docker/daml-ready.Dockerfile
+            platform: linux/amd64
+            runner: ubuntu-latest            # <-- swap to a self-hosted DA amd64 runner if da-ext is internal
+          - image: daml-ready
+            dockerfile: docker/daml-ready.Dockerfile
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm         # <-- swap to a self-hosted DA arm64 runner
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}     # for non-GHCR, use a registry credential secret
+
+      # daml-ready is FROM nix-direnv-sandbox — pull the freshly-pushed base for this same arch.
+      - name: Resolve build args
+        id: args
+        run: |
+          base_ref="${IMAGE_PREFIX}/nix-direnv-sandbox:latest"
+          extra=""
+          if [ "${{ matrix.image }}" = "daml-ready" ]; then
+            ref="$(git ls-remote "$DAML_REPO" refs/heads/main | cut -f1)"
+            extra="--build-arg BASE=${base_ref} --build-arg DAML_REF=${ref}"
+          fi
+          echo "extra=$extra" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push by digest
+        id: build
+        run: |
+          set -euxo pipefail
+          out="${IMAGE_PREFIX}/${{ matrix.image }}"
+          digest_file=$(mktemp)
+          docker buildx build -f "${{ matrix.dockerfile }}" \
+            --platform "${{ matrix.platform }}" \
+            ${{ steps.args.outputs.extra }} \
+            --output "type=image,name=${out},push-by-digest=true,name-canonical=true,push=true" \
+            --iidfile "$digest_file" \
+            .
+          # Stash the per-arch digest so the merge job can assemble the manifest list.
+          arch="${{ matrix.platform }}"; arch="${arch##*/}"
+          mkdir -p /tmp/digests
+          cp "$digest_file" "/tmp/digests/${{ matrix.image }}-${arch}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.image }}-${{ strategy.job-index }}
+          path: /tmp/digests/*
+          retention-days: 1
+
+  merge-manifests:
+    needs: build-multiarch
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: [nix-direnv-sandbox, daml-ready]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digest-${{ matrix.image }}-*
+          merge-multiple: true
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create & push the manifest list
+        run: |
+          set -euxo pipefail
+          out="${IMAGE_PREFIX}/${{ matrix.image }}"
+          # Each file holds one arch's "sha256:..." digest; turn them into name@digest refs.
+          refs=()
+          for f in /tmp/digests/${{ matrix.image }}-*; do refs+=("${out}@$(cat "$f")"); done
+          docker buildx imagetools create \
+            -t "${out}:latest" \
+            -t "${out}:${GITHUB_SHA::12}" \
+            "${refs[@]}"
+          docker buildx imagetools inspect "${out}:latest"
+
+  # ─────────────────────────────────────────────────────────────────────────────────────────────
+  # 2. daml-prebuilt: amd64 only (warm). Heavy — needs a big-disk runner with da-ext access.
+  # ─────────────────────────────────────────────────────────────────────────────────────────────
+  build-daml-prebuilt:
+    # Don't run on the light-image push trigger; do run on schedule / manual.
+    if: github.event_name != 'push' && (github.event_name != 'workflow_dispatch' || inputs.build_daml_prebuilt)
+    needs: merge-manifests       # needs the registry base:latest to FROM
+    runs-on: [self-hosted, linux, x64, daml-builder]   # <-- ≥100 GB disk + reachable *.da-ext.net
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve daml main HEAD
+        id: ref
+        run: echo "sha=$(git ls-remote "$DAML_REPO" refs/heads/main | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push daml-prebuilt (linux/amd64)
+        run: |
+          set -euxo pipefail
+          out="${IMAGE_PREFIX}/daml-prebuilt"
+          sha="${{ steps.ref.outputs.sha }}"
+          docker buildx build -f docker/daml-prebuilt.Dockerfile \
+            --platform linux/amd64 \
+            --build-arg BASE="${IMAGE_PREFIX}/nix-direnv-sandbox:latest" \
+            --build-arg DAML_REPO="$DAML_REPO" \
+            --build-arg DAML_REF="$sha" \
+            --build-arg BAZEL_BUILD_TARGETS="//..." \
+            `# If nix hits a GitHub rate-limit 403, wire a token into nix (see docs/ci-publish.md):` \
+            `#   --secret id=ghtoken,env=GITHUB_TOKEN  + NIX_CONFIG access-tokens in the Dockerfile` \
+            -t "${out}:latest" \
+            -t "${out}:daml-${sha}" \
+            --push \
+            .
+          docker buildx imagetools inspect "${out}:latest"
+
+  # ── Opt-in: arm64 daml-prebuilt from source (NO remote cache → hours; needs self-hosted arm) ──
+  # build-daml-prebuilt-arm64:
+  #   needs: merge-manifests
+  #   runs-on: [self-hosted, linux, arm64, daml-builder]
+  #   steps: ... (same, --platform linux/arm64; expect a full from-source build and verify toolchains)
