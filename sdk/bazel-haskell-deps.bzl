@@ -29,7 +29,7 @@ PROTO3SUITE_SHA256 = "6e6d514867e8efe90fe6a7e5167b86260da00fdb7ef335af694295a1ad
 SHAKE_VERSION = "0.19.6"
 ZIP_VERSION = "1.7.1"
 GRPC_HASKELL_REV = "4b3b04d0ac9d1db53033fb4f0b6864f25b6e945d"
-GRPC_HASKELL_SHA256 = ""
+GRPC_HASKELL_SHA256 = "f37177b9b21b34d70a57f1d962e6270b3e5037b32a4e348f6deb8c7a58fd6ef8"
 GRPC_HASKELL_PATCHES = [
     "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-bad-status-meta.patch",
 ]
