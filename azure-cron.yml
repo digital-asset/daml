@@ -102,9 +102,9 @@ jobs:
             - damlc:$latest_damlc
           EOF
             # Install said damlc to this temp dir
-            DPM_HOME=/tmp/dpm-test dpm install package
+            DPM_HOME=/tmp/dpm-test bazel run @dpm_binary//:dpm -- install package
             # Do not assume knowledge of dpm inner structure, ask `dpm resolve` for the component path
-            damlc_path=$(DPM_HOME=/tmp/dpm-test dpm resolve --output json | jq -r '.Packages["/tmp/dpm-test"].ComponentsV2.damlc.path')
+            damlc_path=$(DPM_HOME=/tmp/dpm-test bazel run @dpm_binary//:dpm -- resolve --output json | jq -r '.Packages["/tmp/dpm-test"].ComponentsV2.damlc.path')
             # Assume knowledge of the component structure, since we publish it here
             extension_path=$damlc_path/damlc-dist-dpm/resources/daml-bundles.vsix
             # Publish the vsix directly. We do not check out the branch of the release, so can safely assume the correct path to `vsce`
