@@ -190,12 +190,18 @@ need it. `sbx` mounts *only the path you point it at*, so the rule is: **make th
 workspace, and work in `sdk/`** — never point `sbx` straight at `sdk/`, or the parent `.git` is left
 outside the sandbox.
 
-In clone mode the clone already contains `.git`, so naming `sdk` is fine:
+In clone mode, the `--clone` path argument is **the directory sbx clones, and it must be a git repo
+root** (contain `.git`). daml's `.git` is at the repo root, so pass the **root** (`.`) — *not* `sdk`
+(sbx errors: *"… /daml/sdk is not in a Git repository"*). claude opens at the root; `cd sdk` to build:
 
 ```bash
-cd /path/to/your/daml
-sbx run --clone -t daml-ready --name my-feature claude sdk
+cd /path/to/your/daml                       # the repo ROOT (has .git)
+sbx run --clone -t daml-ready --name my-feature claude .
 ```
+
+> sbx ties a sandbox to its workspace directory: if that dir already has one, `sbx run` resolves to it
+> and ignores `--name`/`--template`. To launch a **second** sandbox on the same project, clone into a
+> separate dir first (`git clone /path/to/your/daml ~/daml-2 && cd ~/daml-2 && sbx run --clone …`).
 
 For a **plain (non-clone) host mount**, point `sbx` at the repo **root** and `cd sdk` inside — *not*
 at `sdk/` (that would leave `.git` unmounted: `fatal: not a git repository`):

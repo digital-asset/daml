@@ -97,7 +97,7 @@ DA's x86-only infra, not of the templates.
 
 `sbx run` is host-side, so confirm the exact syntax with `sbx run --help` / `sbx template --help` /
 docs.docker.com/ai/sandboxes. Most likely one of:
-- `sbx run -t <registry>/daml-prebuilt:latest --clone … claude sdk` (direct pull), or
+- `sbx run --clone -t <registry>/daml-prebuilt:latest … claude .` (direct pull; `--clone` path is the repo root), or
 - `sbx template load <registry>/daml-prebuilt:latest` once (caches locally), then `sbx run -t daml-prebuilt …`.
 
 Either way Docker/sbx selects the host-matching arch from the manifest list.

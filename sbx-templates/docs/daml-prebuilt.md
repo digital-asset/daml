@@ -97,19 +97,37 @@ mounted — and changes stay there until you push or fetch them out.
 
 ### 2.1 Start it
 
+Run this **on the host** (not inside an existing sandbox — check `echo $SANDBOX_VM_ID` is empty). The
+positional path is **the directory `--clone` clones, and it must be a git repo root** (contain `.git`).
+daml's `.git` is at the **repo root**, so pass the root (`.` from there) — **not** `sdk` (`sbx --clone`
+errors with *"… /daml/sdk is not in a Git repository"* because `.git` isn't in `sdk/`):
+
 ```bash
-cd /path/to/your/daml                                   # your host checkout
-sbx run --clone -t daml-prebuilt --name my-feature claude sdk
+cd /path/to/your/daml                                   # the repo ROOT (has .git)
+sbx run --clone -t daml-prebuilt --name my-feature claude .
 ```
 
-Each additional feature is another `sbx run --clone` with a different `--name`. Resume a stopped one
-by re-running the same command.
+claude opens at the repo root; it `cd`s into `sdk/` to build (the baked `~/.claude/CLAUDE.md` says so).
+
+> **One sandbox per workspace directory.** sbx identifies a sandbox by the directory you launch from.
+> If that dir already has a sandbox, sbx resolves to it and **ignores `--name`/`--template`** (you'll
+> see *"sandbox '<existing>' already exists; --name, --template can only be used when creating a new
+> sandbox"*). To run a **second** sandbox (e.g. to test this template while another session is open on
+> the same checkout), launch from a **separate clone**:
+> ```bash
+> git clone /path/to/your/daml ~/daml-test && cd ~/daml-test
+> sbx run --clone -t daml-prebuilt --name daml-prebuilt-test claude .
+> ```
+
+Resume a stopped sandbox with `sbx run <name>`.
 
 ### 2.2 First build inside the sandbox
 
-The baked `~/.claude/CLAUDE.md` already tells the agent what to do; the manual equivalent, from `sdk/`:
+The baked `~/.claude/CLAUDE.md` already tells the agent what to do; the manual equivalent (claude
+starts at the repo root, so `cd sdk` first):
 
 ```bash
+cd sdk                                # daml's dev-env + bazel workspace live here
 eval "$(dev-env/bin/dade assist)"     # put bazel/jdk/scala/… on PATH (once per shell)
 daml-bazel-prepare --vdc              # see note below — REQUIRED in clone mode
 bazel build //compiler/damlc:damlc    # or //... — should be near-all cache hits, offline

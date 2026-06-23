@@ -1,7 +1,8 @@
 # Verify a running `daml-prebuilt` sandbox
 
 **For the agent reading this:** you are (or should be) running **inside** a sandbox launched from the
-`daml-prebuilt` template, typically via `sbx run --clone -t daml-prebuilt … claude sdk`. Your job is to
+`daml-prebuilt` template, typically via `sbx run --clone -t daml-prebuilt … claude .` (run from the
+daml repo **root**, since `--clone` needs the git repo). Your job is to
 **verify the image works as designed** and **report back** — do not "fix" anything unless asked.
 
 The image is supposed to give you, for free (in read-only layers, off the 20 GB overlay):
