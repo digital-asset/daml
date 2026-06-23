@@ -44,17 +44,28 @@ sbx policy allow network nix-cache.da-ext.net,bazel-cache.da-ext.net,www.scala-l
 
 ### 1.2 Build
 
+**Pin `DAML_REF` to the exact commit you'll work from.** The build bakes the cache from this daml
+commit; pinning it (rather than floating on `main`) keeps the image reproducible and minimises drift
+from the checkout you later `--clone`. Use the commit you're about to launch against — here, the tip of
+the `daml-prebuilt-cache-fixes` branch:
+
 ```bash
 cd sbx-templates
-./scripts/build-template.sh daml-prebuilt
+DAML_REF=2d6dee290d27b7a29d0d00d284f573410ab4a838 ./scripts/build-template.sh daml-prebuilt
 # -> workspace/daml-prebuilt.tar   (builds nix-direnv-sandbox first if missing)
 ```
+
+> **The ref must be reachable on `$DAML_REPO`.** The build clones daml from GitHub
+> (`https://github.com/digital-asset/daml` by default), so **push the branch/commit first** — a
+> local-only commit fails the in-build `git fetch`. (The grpc_haskell source fix, bug 2, doesn't need
+> to be in this ref: it reaches the sandbox via `--clone` in Part 2. The baked repo cache already holds
+> the archive by content hash regardless.)
 
 Useful overrides (env vars):
 
 | Var | Default | Effect |
 |-----|---------|--------|
-| `DAML_REF` | **current tip of `main`** (resolved to a SHA at build time) | `DAML_REF=<full-sha>` to pin a specific commit, or `DAML_REF=<branch>` to track another branch |
+| `DAML_REF` | **current tip of `main`** (resolved to a SHA at build time) | `DAML_REF=<full-sha>` to pin a specific commit (recommended — see above), or `DAML_REF=<branch>` to track another branch. Must be reachable on `$DAML_REPO`. |
 | `BAZEL_BUILD_TARGETS` | `//...` | narrow to e.g. `//compiler/...` for a faster, smaller image |
 
 **Watch the build log for this line:**
@@ -67,21 +78,26 @@ The build **fails fast** if `<N>` is below the floor — that means the remote�
 didn't happen (check that `bazel-cache.da-ext.net` was reachable), rather than silently shipping an
 empty cache.
 
-### 1.3 Load it on the host (one-time per image)
+### 1.3 Load it on the host (replaces the existing template)
+
+This rebuilt image **replaces** the current `daml-prebuilt` template. Remove the old one first —
+otherwise the load can silently keep the stale image under that name:
 
 ```bash
-sbx template load workspace/daml-prebuilt.tar
-sbx template list      # confirm `daml-prebuilt` is present
+sbx template rm   daml-prebuilt                  # drop the old image (no-op if none is loaded yet)
+sbx template load workspace/daml-prebuilt.tar    # load the freshly built replacement
+sbx template list                                # confirm `daml-prebuilt` is present
 ```
 
 The template is now available to any sandbox — you don't rebuild or reload it per feature.
 
 ### 1.4 Refresh later
 
-Just re-run `./scripts/build-template.sh daml-prebuilt` — it picks up the current tip of `main`
-automatically (pass `DAML_REF=<sha>` to pin a specific commit instead). On the host,
-`sbx template rm daml-prebuilt` before re-loading to replace it cleanly. Drift between the baked ref
-and a checkout isn't an error — bazel just rebuilds the delta.
+Just re-run the build with `DAML_REF` pinned to the new commit (e.g.
+`DAML_REF=<full-sha> ./scripts/build-template.sh daml-prebuilt`); omit it only if you deliberately want
+the current tip of `main`. On the host, `sbx template rm daml-prebuilt` before re-loading to replace it
+cleanly (see §1.3). Drift between the baked ref and a checkout isn't an error — bazel just rebuilds the
+delta.
 
 ---
 
@@ -102,9 +118,15 @@ positional path is **the directory `--clone` clones, and it must be a git repo r
 daml's `.git` is at the **repo root**, so pass the root (`.` from there) — **not** `sdk` (`sbx --clone`
 errors with *"… /daml/sdk is not in a Git repository"* because `.git` isn't in `sdk/`):
 
+**Create the sandbox, then attach** (two steps — `sbx create` clones the repo in and provisions it;
+`sbx run` attaches). Launch from a checkout on the branch that carries the grpc_haskell fix (bug 2), so
+the `--clone` inside the container has it:
+
 ```bash
 cd /path/to/your/daml                                   # the repo ROOT (has .git)
-sbx run --clone -t daml-prebuilt --name my-feature claude .
+git checkout daml-prebuilt-cache-fixes                  # commit 2d6dee290d2 — carries the bug-2 fix into the clone
+sbx create --clone -t daml-prebuilt --name my-feature claude .   # create + clone the repo in
+sbx run --name my-feature                               # attach to it
 ```
 
 claude opens at the repo root; it `cd`s into `sdk/` to build (the baked `~/.claude/CLAUDE.md` says so).
@@ -116,10 +138,11 @@ claude opens at the repo root; it `cd`s into `sdk/` to build (the baked `~/.clau
 > the same checkout), launch from a **separate clone**:
 > ```bash
 > git clone /path/to/your/daml ~/daml-test && cd ~/daml-test
-> sbx run --clone -t daml-prebuilt --name daml-prebuilt-test claude .
+> sbx create --clone -t daml-prebuilt --name daml-prebuilt-test claude .
+> sbx run --name daml-prebuilt-test
 > ```
 
-Resume a stopped sandbox with `sbx run <name>`.
+Resume a stopped sandbox with `sbx run --name <name>`.
 
 ### 2.2 First build inside the sandbox
 

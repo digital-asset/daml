@@ -1,8 +1,8 @@
 # Verify a running `daml-prebuilt` sandbox
 
 **For the agent reading this:** you are (or should be) running **inside** a sandbox launched from the
-`daml-prebuilt` template, typically via `sbx run --clone -t daml-prebuilt … claude .` (run from the
-daml repo **root**, since `--clone` needs the git repo). Your job is to
+`daml-prebuilt` template, typically via `sbx create --clone -t daml-prebuilt … claude .` then
+`sbx run --name …` (run from the daml repo **root**, since `--clone` needs the git repo). Your job is to
 **verify the image works as designed** and **report back** — do not "fix" anything unless asked.
 
 The image is supposed to give you, for free (in read-only layers, off the 20 GB overlay):
@@ -97,10 +97,14 @@ clone lives on the overlay, so the default host-disk target has nowhere roomy to
 daml-bazel-prepare --vdc        # plain `daml-bazel-prepare` if this is a host-mounted (non-clone) sandbox
 ```
 
-Now build a representative, non-trivial target and read the process summary:
+Build with a **plain `bazel build`** — no `TMPDIR=/tmp` prefix and no `sudo chmod` (those workarounds
+are now baked, see the pre-flight note above). Start with a representative target as a quick smoke
+test, then **run the full `//...` build** — that is the real validation (it's the build that originally
+surfaced every cache bug), so don't skip it:
 
 ```bash
-bazel build //compiler/damlc:damlc 2>&1 | tee /tmp/build1.log | tail -25
+bazel build //compiler/damlc:damlc 2>&1 | tee /tmp/build1.log | tail -25   # quick smoke test
+bazel build //...                  2>&1 | tee /tmp/build-all.log | tail -25   # FULL build — the real check
 ```
 - **Watch during analysis:** there should be **little or no** `Downloading`/`Fetching` of external
   repos (that's the repo cache working).
@@ -114,7 +118,10 @@ bazel build //compiler/damlc:damlc 2>&1 | tee /tmp/build1.log | tail -25
   that means the runtime action keys don't match the baked cache (assumption B broken). The usual cause
   is a `--config` mismatch: the nix wrapper injects `--config=linux` exactly once; do not add another
   copy (in `~/.bazelrc` or on the command line) — that would double `:linux` flags and break protoc.
-- **Expect:** the build finishes **fast** (minutes, mostly I/O) and **succeeds**.
+- **No `CacheNotFoundException`** (that was the BwoB bug, now fixed by `--remote_download_outputs=all`)
+  and **no protoc `--include_source_info may only be passed once`** (the double-`--config=linux` bug).
+  If either appears, the image wasn't rebuilt from the fixed Dockerfile — report it.
+- **Expect:** the full build finishes (mostly I/O on a warm cache) and **succeeds** end-to-end.
 
 Optional second build to confirm warm incrementality (should be near-instant, "0 processes" or all
 cached):
