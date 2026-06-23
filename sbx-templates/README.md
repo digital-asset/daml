@@ -44,6 +44,8 @@ Built by `scripts/build-template.sh`:
 > materializes the full output base transiently, so it wants **tens of GB of free disk**. Best run
 > from **CI/host** and refreshed periodically (bump `DAML_REF`). The build **fails fast** if the disk
 > cache comes out near-empty. Narrow with `BAZEL_BUILD_TARGETS=//compiler/...` for a smaller image.
+>
+> **Step-by-step build + `--clone` launch instructions: [`docs/daml-prebuilt.md`](docs/daml-prebuilt.md).**
 
 When building inside a sandbox, Docker build containers route through the sbx proxy, so you need the
 domains allowed first (one-time on the host; see [`NETWORK-ALLOWS.md`](NETWORK-ALLOWS.md)):

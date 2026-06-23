@@ -1,0 +1,166 @@
+# daml-prebuilt — build & run
+
+`daml-prebuilt` is the daml sandbox image with **both** the nix dev-env **and** a full
+`bazel build //...` cache baked into read-only layers. A fresh sandbox starts warm (near-all cache
+hits, offline) with almost all of the fixed 20 GB writable overlay free.
+
+There are two operations: **build the image** (occasional, on a host/CI) and **launch a sandbox from
+it** (per feature, with `--clone`).
+
+---
+
+## Part 1 — Build the image
+
+Run on a machine with Docker and an open network (your **host** / Docker Desktop, or CI). The build
+clones daml, realizes its nix toolchain, and runs a full `bazel build //...` — it pulls **gigabytes**
+and wants **tens of GB of free disk**. Do it occasionally and refresh by bumping the ref.
+
+### 1.1 One-time host prerequisites
+
+**Authenticate to GitHub** — nix resolves `github:NixOS/nixpkgs/...` via the GitHub API and clones
+daml from github; unauthenticated, the rate limit fails the Determinate-Nix step:
+
+```bash
+gh auth login        # or: export GITHUB_TOKEN=<token with public-repo read>
+gh auth status
+```
+
+**Allow the build network domains** (host-level, default-deny firewall). `bazel-cache.da-ext.net` is
+**mandatory** for daml-prebuilt — it's the remote cache whose downloads populate the baked disk cache:
+
+```bash
+# generic nix toolchain (the base image)
+sbx policy allow network install.determinate.systems,cache.nixos.org,nixos.org,releases.nixos.org,channels.nixos.org,repo1.maven.org
+# daml nix + bazel caches + language deps
+sbx policy allow network nix-cache.da-ext.net,bazel-cache.da-ext.net,www.scala-lang.org,registry.npmjs.org,registry.yarnpkg.com,proxy.golang.org,sum.golang.org
+```
+
+> If the build is happening on a plain host with Docker Desktop (not inside an sbx sandbox), the
+> `sbx policy` rules don't gate it — your normal host network does. The list above is for building
+> *inside* a sandbox. Either way the same domains must be reachable.
+
+### 1.2 Build
+
+```bash
+cd sbx-templates
+./scripts/build-template.sh daml-prebuilt
+# -> workspace/daml-prebuilt.tar   (builds nix-direnv-sandbox first if missing)
+```
+
+Useful overrides (env vars):
+
+| Var | Default | Effect |
+|-----|---------|--------|
+| `DAML_REF` | a pinned 40-char SHA | which daml commit to bake (full SHA — abbreviations are rejected) |
+| `BAZEL_BUILD_TARGETS` | `//...` | narrow to e.g. `//compiler/...` for a faster, smaller image |
+
+**Watch the build log for this line:**
+
+```
+[daml-prebuilt] baked disk cache size: <N> bytes (floor: 2000000000)
+```
+
+The build **fails fast** if `<N>` is below the floor — that means the remote→disk cache write-through
+didn't happen (check that `bazel-cache.da-ext.net` was reachable), rather than silently shipping an
+empty cache.
+
+### 1.3 Load it on the host (one-time per image)
+
+```bash
+sbx template load workspace/daml-prebuilt.tar
+sbx template list      # confirm `daml-prebuilt` is present
+```
+
+The template is now available to any sandbox — you don't rebuild or reload it per feature.
+
+### 1.4 Refresh later
+
+Re-run `./scripts/build-template.sh daml-prebuilt` with a newer `DAML_REF`. On the host,
+`sbx template rm daml-prebuilt` before re-loading to replace it cleanly. Drift between the baked ref
+and a checkout isn't an error — bazel just rebuilds the delta.
+
+---
+
+## Part 2 — Launch a sandbox with `--clone`
+
+`--clone` clones your **entire daml worktree** (repo root, including `.git`) from the current
+directory into the container. The clone lives **inside** the container — the host filesystem is never
+mounted — and changes stay there until you push or fetch them out.
+
+> **Why the repo root matters:** daml's dev-env is under `sdk/` but its `.git` is at the repo
+> **root**. With `--clone` the clone already contains `.git`, so you point `claude` at the `sdk`
+> subdir and everything (build *and* git) works.
+
+### 2.1 Start it
+
+```bash
+cd /path/to/your/daml                                   # your host checkout
+sbx run --clone -t daml-prebuilt --name my-feature claude sdk
+```
+
+Each additional feature is another `sbx run --clone` with a different `--name`. Resume a stopped one
+by re-running the same command.
+
+### 2.2 First build inside the sandbox
+
+The baked `~/.claude/CLAUDE.md` already tells the agent what to do; the manual equivalent, from `sdk/`:
+
+```bash
+eval "$(dev-env/bin/dade assist)"     # put bazel/jdk/scala/… on PATH (once per shell)
+daml-bazel-prepare --vdc              # see note below — REQUIRED in clone mode
+bazel build //compiler/damlc:damlc    # or //... — should be near-all cache hits, offline
+```
+
+> **Use `daml-bazel-prepare --vdc` in clone mode.** The baked caches are read-only layers (free), but
+> bazel's writable **output base** is not. In `--clone` mode the worktree sits on the 20 GB overlay,
+> so the default (host-disk) relocation has nowhere roomy to go. `--vdc` puts the output base on the
+> sandbox's local 50 GB disk (`/var/lib/docker`) — fast and roomy. (Trade-off: it's wiped if the
+> sandbox is recreated, and shared with any nested Docker.)
+
+**Verify the cache is live:** the first build should report almost all actions as cached with no
+recompilation. If it recompiles heavily, either the checkout drifted far from the baked ref
+(`cat /etc/daml-prebuilt.ref`) or a non-`linux` `--config` was forced (don't — the cache is keyed
+under `--config=linux`, which `~/.bazelrc` already sets).
+
+Runtime needs **no network** for builds (the caches are baked). Network is only needed to push or to
+fetch a genuinely new dependency.
+
+### 2.3 Get your commits out
+
+Commit inside the sandbox with a **DCO sign-off** (daml requires it):
+
+```bash
+git config user.name && git config user.email || echo "set git identity first"
+git add <files> && git commit -s -m "your message"
+```
+
+Then either **push from inside the sandbox** (git auth is injected at the network layer — no
+`gh auth login` needed inside):
+
+```bash
+git push -u origin <branch>
+```
+
+…or, if pushing fails with `could not read Username for 'https://github.com'`, the host needs a token
+secret (run on the **host**, then retry the push):
+
+```bash
+sbx secret set my-feature github -t "$(gh auth token)"   # <name> from $SANDBOX_VM_ID inside the sandbox
+```
+
+…or pull the commits back to the host **without** GitHub — the sandbox serves a git daemon while up:
+
+```bash
+# on the HOST, from your daml checkout:
+git fetch sandbox-my-feature
+git log HEAD..FETCH_HEAD --oneline
+git merge FETCH_HEAD        # or cherry-pick
+```
+
+### 2.4 Inspect / clean up
+
+```bash
+sbx exec -it my-feature bash     # open a shell in the sandbox (-it needed for TUIs like lnav)
+sbx stop my-feature              # park an idle sandbox
+sbx rm   my-feature              # remove it (push or fetch your commits FIRST — the clone is in-container)
+```
