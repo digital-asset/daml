@@ -129,6 +129,9 @@ under `--config=linux`, which `~/.bazelrc` already sets).
 Runtime needs **no network** for builds (the caches are baked). Network is only needed to push or to
 fetch a genuinely new dependency.
 
+> For a full post-launch verification checklist — what an agent should check and report inside the
+> running sandbox — see [`daml-prebuilt-verify.md`](daml-prebuilt-verify.md).
+
 ### 2.3 Get your commits out
 
 Commit inside the sandbox with a **DCO sign-off** (daml requires it):
