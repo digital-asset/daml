@@ -21,7 +21,7 @@ os_dependent_libraries = [] if is_windows else [
 
 da_haskell_library(
     name = "utils",
-    srcs = ["src/DA/Daml/Assistant/IntegrationTestUtils.hs"],
+    srcs = ["src/DA/Daml/SdkIntegrationTests/Utils.hs"],
     hackage_deps = [
         "aeson",
         "base",
@@ -51,7 +51,7 @@ da_haskell_test(
     name = "tests",
     timeout = "long",
     srcs = [
-        "src/DA/Daml/Assistant/IntegrationTests.hs",
+        "src/DA/Daml/SdkIntegrationTests/Tests.hs",
     ],
     args = [
         "$(location //:yarn)",
