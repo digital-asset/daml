@@ -104,16 +104,18 @@ two changes:
    cache — which is then baked. A **size assertion** fails the image build if the disk cache comes out
    near-empty (catching a broken backfill instead of shipping an empty cache).
 2. **§3 runtime wiring.** `~agent/.bazelrc` points `--disk_cache` (and re-asserts `--repository_cache`)
-   at the baked paths, and **forces `--config=linux`**. The latter is a correctness requirement, not a
-   convenience: disk-cache keys are computed under daml's `:linux` flags (nixpkgs host_platform,
-   java17, protocopt, …), and daml has no platform auto-detect, so a runtime build under a different
-   config would get **zero** hits.
+   at the baked paths. It does **not** set `--config=linux`: the nix `bazel` wrapper
+   (`dev-env/bin/bazel`) injects that exactly once already, and a second copy doubles every `:linux`
+   flag (e.g. `--protocopt=--include_source_info` passed twice) and breaks protoc. The single
+   `--config=linux` is still a correctness requirement, not a convenience — disk-cache keys are computed
+   under daml's `:linux` flags (nixpkgs host_platform, java17, protocopt, …), and daml has no platform
+   auto-detect, so a build under a *different* config would get **zero** hits.
 
-The writable **output base** is still handled exactly as in `daml-ready` — by the inherited
-`daml-bazel-prepare` helper, which relocates it off the overlay. One bonus: build-without-the-bytes
-(`--remote_download_outputs=toplevel`) is now unconditionally safe, because intermediates stream from
-the **local baked disk cache**, which never evicts (the missing-CAS hazard daml's `.bazelrc` warns
-about only applies to an evicting *remote* cache).
+The writable **output base** is handled by the `daml-bazel-prepare` helper, which relocates it off the
+overlay. The helper sets `--remote_download_outputs=all` (full materialization), **not**
+build-without-the-bytes (`=toplevel`): the baked disk cache doesn't hold every intermediate and daml's
+remote CAS evicts, so BwoB hits `CacheNotFoundException`. `=all` pulls every output from the **local
+baked disk cache** (offline) instead, and the relocated, roomy output base is what makes it fit.
 
 `/etc/daml-prebuilt.ref` records the baked commit so drift can be detected (a checkout far from the
 ref rebuilds the delta rather than hitting the cache).

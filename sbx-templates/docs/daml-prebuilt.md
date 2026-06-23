@@ -141,8 +141,9 @@ bazel build //compiler/damlc:damlc    # or //... — should be near-all cache hi
 
 **Verify the cache is live:** the first build should report almost all actions as cached with no
 recompilation. If it recompiles heavily, either the checkout drifted far from the baked ref
-(`cat /etc/daml-prebuilt.ref`) or a non-`linux` `--config` was forced (don't — the cache is keyed
-under `--config=linux`, which `~/.bazelrc` already sets).
+(`cat /etc/daml-prebuilt.ref`) or the `--config=linux` it's keyed under got doubled or changed. The
+nix `bazel` wrapper injects `--config=linux` exactly once — don't add another copy (in `~/.bazelrc` or
+on the command line; a duplicate breaks protoc) and don't force a different `--config` (zero hits).
 
 Runtime needs **no network** for builds (the caches are baked). Network is only needed to push or to
 fetch a genuinely new dependency.

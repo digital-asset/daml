@@ -15,6 +15,25 @@ Two design assumptions need empirical confirmation here (they couldn't be tested
 **(A)** the disk cache was actually populated, and **(B)** a runtime build *hits* it (i.e. the
 `--config=linux` cache-key parity holds). Checks 4 and 5 are the ones that prove these.
 
+**Previously-needed runtime workarounds — now baked into the image (verify they're in effect, don't
+re-apply):** an earlier full-build test surfaced three issues that are now fixed at image-build time.
+You should find them already handled:
+- **Repo cache writable** (Bazel 7 writes temp files in the SHA dirs even on hits): the Dockerfile now
+  `chown`s `/opt/daml-bazel-cache/repo` to `agent`. Verify with `ls -ld /opt/daml-bazel-cache/repo`
+  (owner `agent`) — no `sudo chmod` should be needed.
+- **TMPDIR vs the hermetic sandbox** (Claude Code sets `TMPDIR=/tmp/claude-<uid>`, which Bazel 7's
+  hermetic-tmp sandbox overmounts away): `daml-bazel-prepare` now detects a non-`/tmp` `$TMPDIR` and
+  adds `build --sandbox_add_mount_pair=$TMPDIR` to its managed block, so a plain `bazel build` works —
+  no `TMPDIR=/tmp` prefix needed.
+- **Full output materialization** (the baked disk cache lacks some intermediates and daml's remote CAS
+  evicts, so build-without-the-bytes fails): `daml-bazel-prepare` now emits
+  `build --remote_download_outputs=all` (not `=toplevel`). Verify it's in `.bazelrc.local` after
+  running `daml-bazel-prepare`.
+
+(Also relevant to a clean build: the cloned worktree's `sdk/bazel-haskell-deps.bzl` must have a
+non-empty `GRPC_HASKELL_SHA256` so the archive is read from the baked repo cache offline. This is a
+daml-source fix carried in via `--clone`, not part of the image.)
+
 Run the checks in order, from the **`sdk/` directory** (your starting cwd). Record actual output.
 
 ---
@@ -60,11 +79,13 @@ command -v bazel; bazel --version                     # daml's nix bazel wrapper
 ```bash
 ls -ld /opt/daml-bazel-cache/disk /opt/daml-bazel-cache/repo
 du -sh  /opt/daml-bazel-cache/disk /opt/daml-bazel-cache/repo
-echo "== ~/.bazelrc (should point at the baked caches + force --config=linux) =="; cat ~/.bazelrc
+echo "== ~/.bazelrc (should point at the baked caches) =="; cat ~/.bazelrc
 ```
 - **Expect:** both dirs exist; **`disk` is multi-GB** (this is assumption A — a near-empty disk cache
-  means the build-time backfill failed); `~/.bazelrc` contains `--disk_cache=/opt/daml-bazel-cache/disk`,
-  `--repository_cache=/opt/daml-bazel-cache/repo`, and `--config=linux`.
+  means the build-time backfill failed); `~/.bazelrc` contains `--disk_cache=/opt/daml-bazel-cache/disk`
+  and `--repository_cache=/opt/daml-bazel-cache/repo`. It should **not** set `--config=linux` — the
+  nix wrapper `dev-env/bin/bazel` injects that itself; a second copy would double `:linux` flags and
+  break protoc.
 - **If `disk` is tiny (< ~1 GB):** assumption A failed — report it; runtime builds will recompile.
 
 ## 4. THE key test — does a build hit the cache? (assumption B)
@@ -90,8 +111,9 @@ bazel build //compiler/damlc:damlc 2>&1 | tee /tmp/build1.log | tail -25
   INFO: 2473 processes: 2470 disk cache hit, 3 internal.
   ```
   A FAIL looks like hundreds/thousands of `linux-sandbox` or `worker` processes (real recompilation) —
-  that means the runtime action keys don't match the baked cache (assumption B broken; usually a
-  `--config` mismatch — confirm `~/.bazelrc` from check 3 forces `--config=linux`).
+  that means the runtime action keys don't match the baked cache (assumption B broken). The usual cause
+  is a `--config` mismatch: the nix wrapper injects `--config=linux` exactly once; do not add another
+  copy (in `~/.bazelrc` or on the command line) — that would double `:linux` flags and break protoc.
 - **Expect:** the build finishes **fast** (minutes, mostly I/O) and **succeeds**.
 
 Optional second build to confirm warm incrementality (should be near-instant, "0 processes" or all
