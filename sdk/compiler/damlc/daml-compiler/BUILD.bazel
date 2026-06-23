@@ -52,6 +52,7 @@ da_haskell_library(
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
         "//compiler/daml-lf-tools",
+        "//compiler/daml-project-config",
         "//compiler/damlc/daml-doctest",
         "//compiler/damlc/daml-extract-dar",
         "//compiler/damlc/daml-ghc-util",
@@ -66,7 +67,6 @@ da_haskell_library(
         "//compiler/damlc/stable-packages:stable-packages-lib",
         "//compiler/script-service/client",
         "//component-version/hs:component-version-class-lib",
-        "//compiler/daml-project-config",
         "//libs-haskell/da-hs-base",
     ],
 )
