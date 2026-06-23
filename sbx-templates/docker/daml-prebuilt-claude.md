@@ -16,8 +16,10 @@ lives under the **`sdk/`** subdirectory — run all build/test commands from `sd
   image-build time and its results are baked in. So your **first build is near-all cache hits and runs
   offline** — no recompiling the world, no network to daml's remote cache needed.
 
-`~/.bazelrc` (baked) already points bazel at both caches and forces `--config=linux`. **Do not pass a
-different `--config`** — the cache is keyed under `--config=linux`; a different config gets zero hits.
+`~/.bazelrc` (baked) already points bazel at both caches. `--config=linux` is injected by the nix
+`bazel` wrapper (`dev-env/bin/bazel`), so it is **not** repeated in `~/.bazelrc`. **Do not add
+`--config=linux` yourself, or pass a different `--config`** — a duplicate doubles every `:linux` flag
+and breaks protoc; a different config is keyed differently and gets zero cache hits.
 
 ## Build (from `sdk/`)
 
@@ -43,10 +45,12 @@ daml-bazel-prepare          # output base -> sdk/.bazel-cache/output on the host
 daml-bazel-prepare --vdc    # output base -> /var/lib/docker on the local disk (fast; sandbox-lifetime; shared with Docker)
 ```
 
-Build-without-the-bytes is safe here: it streams intermediates from the **local baked disk cache**,
-which (unlike a remote cache) never evicts, so there are no missing-CAS failures. With the baked cache
-+ relocated output base, a full `bazel build //...` is allowed; scope to a target when you want it
-faster.
+`daml-bazel-prepare` configures `--remote_download_outputs=all` (full materialization), **not**
+build-without-the-bytes: the baked disk cache doesn't hold every intermediate and daml's remote CAS
+evicts, so BwoB would hit `CacheNotFoundException`. Outputs are materialized from the **local baked
+disk cache** (offline), and the relocated, roomy output base is what makes that fit. With the baked
+cache + relocated output base, a full `bazel build //...` is allowed; scope to a target when you want
+it faster.
 
 ## Tests
 

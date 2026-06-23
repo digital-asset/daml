@@ -40,8 +40,10 @@
 # CORRECTNESS INVARIANT: disk-cache keys depend on daml's `--config=linux` flags (nixpkgs host_-
 # platform, java17, protocopt, …). The cache is baked UNDER --config=linux, so runtime MUST build
 # under the same config or it gets ZERO hits. daml has no platform auto-detect (sdk/.bazelrc), so §3
-# forces --config=linux at runtime. Verify on first run: `bazel build <tgt>` should be near-all cache
-# hits with no recompilation.
+# records the baked caches in ~/.bazelrc. --config=linux itself is injected by dev-env/bin/bazel
+# (the nix wrapper) via `--bazelrc /nix/store/…/daml-bazelrc`; do NOT add it again in ~/.bazelrc
+# or the §2 build command — that doubles every :linux config flag and breaks protoc (duplicate
+# --include_source_info).  Verify on first run: `bazel build <tgt>` should be near-all cache hits.
 #
 # Build:  scripts/build-template.sh daml-prebuilt  ->  workspace/daml-prebuilt.tar  (builds base first)
 # Host:   sbx template load workspace/daml-prebuilt.tar
@@ -160,12 +162,13 @@ cd /opt/daml/sdk
 export USER="${USER:-root}"
 eval "$(dev-env/bin/dade assist)"
 
-# --config=linux enables the remote cache (it is :linux-scoped). --remote_download_outputs=all forces
-# the write-through that populates --disk_cache. --keep_going + `|| true` so one bad analysis target
-# (e.g. daml's scala_repl, rules_scala #18970) doesn't sink the whole image. --output_user_root keeps
-# the transient output base out of the baked layers.
+# dev-env/bin/bazel (the nix wrapper) already injects `build --config linux` via its own --bazelrc;
+# do NOT pass --config=linux here too — it doubles every :linux flag (including protocopt) and breaks
+# protoc actions that need to run locally. --remote_download_outputs=all forces the write-through
+# that populates --disk_cache. --keep_going + `|| true` so one bad analysis target (e.g. daml's
+# scala_repl, rules_scala #18970) doesn't sink the whole image. --output_user_root keeps the
+# transient output base out of the baked layers.
 bazel --output_user_root="$BAZEL_BUILD_OUT" build "$BAZEL_BUILD_TARGETS" \
-  --config=linux \
   --keep_going \
   --repository_cache="$BAZEL_REPO_CACHE" \
   --disk_cache="$BAZEL_DISK_CACHE" \
@@ -185,9 +188,11 @@ if [ "$sz" -lt "$MIN_DISK_CACHE_BYTES" ]; then
   exit 1
 fi
 
-# Runtime user must be able to ADD its own incremental results to the disk cache (writes copy-up to
-# the overlay; baked hits stay free in the read-only layer).
-chown -R agent "$BAZEL_DISK_CACHE"
+# Runtime user must own BOTH baked caches. The disk cache: so it can ADD its own incremental results
+# (writes copy-up to the overlay; baked hits stay free in the read-only layer). The repo cache: Bazel 7
+# creates temp files inside the SHA256 dirs even on a pure cache HIT, so a root-owned read-only repo
+# cache fails the fetch — it must be writable by the runtime `agent` user.
+chown -R agent "$BAZEL_DISK_CACHE" "$BAZEL_REPO_CACHE"
 
 # Bake ONLY the two caches. Drop the (huge) transient output base + the source tree (runtime re-clones).
 rm -rf "$BAZEL_BUILD_OUT" /opt/daml "${HOME:-/root}/.cache/bazel" /root/.cache/bazel
@@ -199,19 +204,19 @@ BASH
 
 # === §3. Wire bazel to the baked caches at runtime (EXTENDED from daml-ready) ====================
 # A home bazelrc is read AFTER the workspace sdk/.bazelrc, so these are the LAST definitions of the
-# flags and win over daml's workspace-relative .bazel-cache/{disk,repo}. We force --config=linux on
-# user-facing commands so the baked cache (keyed under it) actually hits and the nix toolchains apply.
+# flags and win over daml's workspace-relative .bazel-cache/{disk,repo}.
+# NOTE: do NOT add `build --config=linux` here. dev-env/bin/bazel (the nix wrapper that dade assist
+# puts on PATH) already injects `build --config linux` via `--bazelrc /nix/store/…/daml-bazelrc`.
+# Adding it again doubles every build:linux flag (disk_cache, repository_cache, protocopt, …) and
+# breaks protoc with "may only be passed once". The baked disk cache uses the key set from a SINGLE
+# --config=linux expansion; adding a second one causes complete cache-key mismatches (zero hits).
 # Both the unconditional and :linux form of each cache flag are set so we win regardless of --config.
 RUN <<'BASH'
 set -euo pipefail
 cat > /home/agent/.bazelrc <<EOF
 # Baked by daml-prebuilt.Dockerfile.
-
-# Force daml's linux config: the baked cache is keyed under it, and daml has no platform auto-detect.
-build  --config=linux
-test   --config=linux
-run    --config=linux
-cquery --config=linux
+# --config=linux is NOT listed here because dev-env/bin/bazel (the nix wrapper) already injects it.
+# Adding it here a second time would double every :linux flag and break protoc + invalidate cache keys.
 
 # Baked READ-ONLY action-output cache (the point of this template) — near-all hits, offline.
 build       --disk_cache=${BAZEL_DISK_CACHE}
@@ -228,11 +233,13 @@ EOF
 chown agent /home/agent/.bazelrc
 BASH
 
-# === §4. Helper: fit a daml bazel build into the sandbox (COPIED VERBATIM from daml-ready) =======
+# === §4. Helper: fit a daml bazel build into the sandbox (adapted from daml-ready) ===============
 # bazel's OUTPUT BASE (built artifacts) must be writable, so it can't be a read-only layer. This helper
-# relocates it off the 20G overlay (host-mounted disk by default, or the local vdc disk with --vdc) and
-# enables build-without-the-bytes — which is SAFE here because intermediates stream from the LOCAL
-# baked disk cache, which never evicts.
+# relocates it off the 20G overlay (host-mounted disk by default, or the local vdc disk with --vdc).
+# It sets --remote_download_outputs=all (NOT build-without-the-bytes): the baked disk cache doesn't
+# hold every intermediate and daml's remote CAS evicts, so BwoB (=toplevel) hits CacheNotFoundException
+# — =all materializes every output from the offline baked cache instead. The relocated, roomy output
+# base is what makes full materialization fit.
 RUN <<'BASH'
 set -euo pipefail
 cat > /usr/local/bin/daml-bazel-prepare <<'EOF'
@@ -279,20 +286,35 @@ else
   extra="build --sandbox_base=$sbox"
 fi
 
+# Claude Code exports TMPDIR=/tmp/claude-<uid>; Bazel 7's hermetic-tmp sandbox overmounts /tmp with a
+# fresh tmpfs, so that subdir doesn't exist inside the sandbox and actions that honor TMPDIR fail.
+# Bind-mount the real TMPDIR into the sandbox so it exists there. Only when TMPDIR is set and isn't
+# plain /tmp (i.e. only when something like Claude Code redirected it) — so non-Claude builds keep a
+# fully hermetic /tmp and nothing is added.
+tmpmount=""
+if [ -n "${TMPDIR:-}" ] && [ "$TMPDIR" != /tmp ]; then
+  tmpmount="build --sandbox_add_mount_pair=$TMPDIR"
+fi
+
 tmp="$(mktemp)"
 sed -E \
   -e '/^# >>> daml-bazel-prepare/,/^# <<< daml-bazel-prepare/d' \
   -e '/^startup --output_user_root=/d' \
   -e '/^build --remote_download_outputs=/d' \
   -e '/^build --sandbox_base=/d' \
+  -e '/^build --sandbox_add_mount_pair=/d' \
   -e '/^build --reuse_sandbox_directories$/d' \
   "$rc" > "$tmp"
 {
   cat "$tmp"
   echo "# >>> daml-bazel-prepare ($mode; managed — re-run to change, don't edit inside) >>>"
   echo "startup --output_user_root=$out"
-  echo "build --remote_download_outputs=toplevel"
+  # Materialize ALL build outputs locally, NOT build-without-the-bytes (=toplevel). The baked disk
+  # cache does not hold every intermediate, and daml's remote CAS evicts, so BwoB hits
+  # CacheNotFoundException; =all forces every output down from the (offline) baked cache instead.
+  echo "build --remote_download_outputs=all"
   [ -n "$extra" ] && echo "$extra"
+  [ -n "$tmpmount" ] && echo "$tmpmount"
   echo "build --reuse_sandbox_directories"
   echo "# <<< daml-bazel-prepare <<<"
 } > "$rc"
@@ -305,7 +327,7 @@ if [ "$mode" = vdc ]; then
 else
   echo "  host mount is virtiofs (slower); try --vdc for the fast local disk if you're not using nested Docker."
 fi
-echo "  intermediates stream from the BAKED local disk cache (offline, no eviction)."
+echo "  all outputs are materialized from the BAKED local disk cache (offline; =all, not BwoB)."
 echo "  still too slow? add 'build --spawn_strategy=local' (less hermetic) to $rc OUTSIDE the managed block."
 EOF
 chmod +x /usr/local/bin/daml-bazel-prepare
