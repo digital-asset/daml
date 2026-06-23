@@ -54,7 +54,7 @@ Useful overrides (env vars):
 
 | Var | Default | Effect |
 |-----|---------|--------|
-| `DAML_REF` | a pinned 40-char SHA | which daml commit to bake (full SHA — abbreviations are rejected) |
+| `DAML_REF` | **current tip of `main`** (resolved to a SHA at build time) | `DAML_REF=<full-sha>` to pin a specific commit, or `DAML_REF=<branch>` to track another branch |
 | `BAZEL_BUILD_TARGETS` | `//...` | narrow to e.g. `//compiler/...` for a faster, smaller image |
 
 **Watch the build log for this line:**
@@ -78,7 +78,8 @@ The template is now available to any sandbox — you don't rebuild or reload it 
 
 ### 1.4 Refresh later
 
-Re-run `./scripts/build-template.sh daml-prebuilt` with a newer `DAML_REF`. On the host,
+Just re-run `./scripts/build-template.sh daml-prebuilt` — it picks up the current tip of `main`
+automatically (pass `DAML_REF=<sha>` to pin a specific commit instead). On the host,
 `sbx template rm daml-prebuilt` before re-loading to replace it cleanly. Drift between the baked ref
 and a checkout isn't an error — bazel just rebuilds the delta.
 

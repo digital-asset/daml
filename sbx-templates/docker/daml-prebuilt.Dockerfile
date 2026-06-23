@@ -58,8 +58,9 @@ ARG NO_PROXY=
 ENV HTTP_PROXY=${HTTP_PROXY} HTTPS_PROXY=${HTTPS_PROXY} NO_PROXY=${NO_PROXY} \
     http_proxy=${HTTP_PROXY} https_proxy=${HTTPS_PROXY} no_proxy=${NO_PROXY}
 
-# Which daml commit to bake. nix/src.json + nix/nixpkgs/ under this ref pin everything. Full 40-char
-# SHA — `git fetch origin <ref>` rejects an abbreviated SHA ("couldn't find remote ref").
+# Which daml commit to bake. build-template.sh resolves and passes the CURRENT TIP OF MAIN by default
+# (override DAML_REF=<sha> to pin); the literal below is only a fallback for a direct `docker build`.
+# Must be a full 40-char SHA — `git fetch origin <ref>` rejects an abbreviated SHA.
 ARG DAML_REPO=https://github.com/digital-asset/daml
 ARG DAML_REF=e42c3cb1c63e703092bd9bb35c0ee5934c5adeaa
 

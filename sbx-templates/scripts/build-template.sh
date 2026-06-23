@@ -34,7 +34,11 @@ SPLICE_REF="${SPLICE_REF:-d1d5dc53951e893deabdddeb38533fe2841f3cfb}"   # full SH
 
 DAML_TAG="${DAML_TAG:-daml-ready:latest}"
 DAML_REPO="${DAML_REPO:-https://github.com/digital-asset/daml}"
-DAML_REF="${DAML_REF:-e42c3cb1c63e703092bd9bb35c0ee5934c5adeaa}"        # full SHA (abbrev is rejected by git fetch)
+# DAML_REF defaults to the CURRENT TIP OF MAIN, resolved to a concrete SHA at build time (for
+# reproducibility + so /etc/daml-prebuilt.ref records exactly what shipped). Override DAML_REF=<sha>
+# to pin, or DAML_REF=<branch> to track another branch. Resolved lazily in resolve_daml_ref() so
+# `base`/`splice` builds don't need the lookup.
+DAML_REF="${DAML_REF:-}"
 # Bazel targets fetched when priming daml's repository cache. `//...` is the most complete and the
 # heaviest; narrow it (e.g. //daml-assistant/...) to trade completeness for a faster, smaller build.
 BAZEL_FETCH_TARGETS="${BAZEL_FETCH_TARGETS:-//...}"
@@ -53,6 +57,20 @@ REG_PORT=15000   # high port to avoid conflicts with any local registry:5000
 
 log() { printf '\033[1;34m[build-template]\033[0m %s\n' "$*"; }
 command -v docker >/dev/null || { echo "docker (nested daemon) not found" >&2; exit 1; }
+
+# Resolve DAML_REF to a concrete SHA if it wasn't pinned: default to the current tip of main; if the
+# user passed a branch name, resolve that branch. Called only by the daml / daml-prebuilt targets.
+resolve_daml_ref() {
+  if [ -z "${DAML_REF:-}" ]; then
+    log "DAML_REF unset — resolving current tip of main from $DAML_REPO …"
+    DAML_REF="$(git ls-remote "$DAML_REPO" refs/heads/main | cut -f1)"
+  elif ! printf '%s' "$DAML_REF" | grep -qE '^[0-9a-f]{40}$'; then
+    log "DAML_REF='$DAML_REF' is not a full SHA — resolving it as a branch from $DAML_REPO …"
+    DAML_REF="$(git ls-remote "$DAML_REPO" "refs/heads/$DAML_REF" | cut -f1)"
+  fi
+  [ -n "$DAML_REF" ] || { echo "build-template: could not resolve DAML_REF from $DAML_REPO (network? wrong branch?)" >&2; exit 1; }
+  log "DAML_REF -> $DAML_REF"
+}
 
 PROXY_ARGS=(
   --build-arg HTTP_PROXY="${HTTP_PROXY:-${http_proxy:-}}"
@@ -157,6 +175,7 @@ case "$TARGET" in
     HOSTTAG="${SPLICE_TAG%%:*}"; OUTFILE="splice-ready.tar"
     ;;
   daml)
+    resolve_daml_ref
     oci_build_from_base "$HERE/docker/daml-ready.Dockerfile" "$DAML_TAG" "$HERE/workspace/daml-ready.tar" \
       --build-arg DAML_REPO="$DAML_REPO" \
       --build-arg DAML_REF="$DAML_REF" \
@@ -164,6 +183,7 @@ case "$TARGET" in
     HOSTTAG="${DAML_TAG%%:*}"; OUTFILE="daml-ready.tar"
     ;;
   daml-prebuilt)
+    resolve_daml_ref
     oci_build_from_base "$HERE/docker/daml-prebuilt.Dockerfile" "$DAML_PREBUILT_TAG" "$HERE/workspace/daml-prebuilt.tar" \
       --build-arg DAML_REPO="$DAML_REPO" \
       --build-arg DAML_REF="$DAML_REF" \
