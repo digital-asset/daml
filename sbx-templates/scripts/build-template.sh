@@ -6,6 +6,8 @@
 #   ./scripts/build-template.sh splice    # splice-ready (FROM the base + splice's pinned OSS closure)
 #   ./scripts/build-template.sh daml      # daml-ready   (FROM the base + daml's pinned nix dev-env +
 #                                          #               primed bazel repository cache)
+#   ./scripts/build-template.sh daml-prebuilt  # daml-prebuilt (daml-ready + a FULL `bazel build //...`
+#                                          #               whose action-output --disk_cache is baked in)
 #   ./scripts/build-template.sh           # default: splice (builds the base first if missing)
 #
 # Templates bake their toolchain into READ-ONLY image layers, so /nix never consumes the 20G
@@ -36,6 +38,11 @@ DAML_REF="${DAML_REF:-e42c3cb1c63e703092bd9bb35c0ee5934c5adeaa}"        # full S
 # Bazel targets fetched when priming daml's repository cache. `//...` is the most complete and the
 # heaviest; narrow it (e.g. //daml-assistant/...) to trade completeness for a faster, smaller build.
 BAZEL_FETCH_TARGETS="${BAZEL_FETCH_TARGETS:-//...}"
+
+DAML_PREBUILT_TAG="${DAML_PREBUILT_TAG:-daml-prebuilt:latest}"
+# Bazel targets BUILT when populating daml-prebuilt's baked disk cache. `//...` bakes the whole SDK
+# (heaviest); narrow it (e.g. //compiler/...) for a faster, smaller image.
+BAZEL_BUILD_TARGETS="${BAZEL_BUILD_TARGETS:-//...}"
 
 # The docker driver doesn't support --output type=oci; a docker-container driver builder is required.
 # That builder runs in its own container and can't see the host daemon's image store, so we expose
@@ -156,7 +163,14 @@ case "$TARGET" in
       --build-arg BAZEL_FETCH_TARGETS="$BAZEL_FETCH_TARGETS"
     HOSTTAG="${DAML_TAG%%:*}"; OUTFILE="daml-ready.tar"
     ;;
-  *) echo "unknown target '$TARGET' (use: base | splice | daml)" >&2; exit 2 ;;
+  daml-prebuilt)
+    oci_build_from_base "$HERE/docker/daml-prebuilt.Dockerfile" "$DAML_PREBUILT_TAG" "$HERE/workspace/daml-prebuilt.tar" \
+      --build-arg DAML_REPO="$DAML_REPO" \
+      --build-arg DAML_REF="$DAML_REF" \
+      --build-arg BAZEL_BUILD_TARGETS="$BAZEL_BUILD_TARGETS"
+    HOSTTAG="${DAML_PREBUILT_TAG%%:*}"; OUTFILE="daml-prebuilt.tar"
+    ;;
+  *) echo "unknown target '$TARGET' (use: base | splice | daml | daml-prebuilt)" >&2; exit 2 ;;
 esac
 
 cat <<EOF
@@ -168,7 +182,7 @@ cat <<EOF
 The nix daemon auto-starts at boot, so nix + direnv are ready immediately.
 EOF
 
-if [ "$TARGET" = daml ]; then
+if [ "$TARGET" = daml ] || [ "$TARGET" = daml-prebuilt ]; then
 cat <<'EOF'
 
 daml note: its dev env is in sdk/ but its .git is at the repo ROOT. sbx mounts only the path you

@@ -19,6 +19,9 @@ download. A sandbox boots from such an image with `sbx run -t <image>`.
   splice OSS build. The `--profile` roots the closure as a gc-root so it stays baked.
 - **`daml-ready`** (`docker/daml-ready.Dockerfile`) — `FROM nix-direnv-sandbox`, adding daml's pinned
   nix dev-env **and** a primed bazel repository cache. See the daml section below.
+- **`daml-prebuilt`** (`docker/daml-prebuilt.Dockerfile`) — a standalone copy of `daml-ready` whose
+  bazel step is upgraded from `bazel fetch` to a full `bazel build //...`, baking the resulting
+  **action-output `--disk_cache`** into read-only layers. See "The `daml-prebuilt` layer" below.
 
 All boot as `USER agent` (root would break the claude CLI), with `/nix` from read-only layers.
 
@@ -76,6 +79,45 @@ disk. Even so, scope builds to specific targets rather than `//...`. The host mo
 sandbox-lifetime-only and shared with Docker. The helper rewrites a managed block in `.bazelrc.local`,
 so switching modes (or re-running) is idempotent.
 
+## The `daml-prebuilt` layer (warm build cache)
+
+`daml-ready` deliberately does **not** bake built action outputs — it leaves them to be re-fetched
+from daml's network remote cache at runtime, because bazel must write its output base and a full
+`//...` output base doesn't fit the 20G overlay. `daml-prebuilt` removes the runtime network/recompile
+cost by baking the **`--disk_cache`** instead of the output base.
+
+The key distinction: the **output base** (execroot, bazel-out) is path-bound and must be writable, so
+it can't be a read-only layer. The **disk cache** is a content-addressed store (CAS) keyed by action
+hash — independent of the output-base location and portable across checkout paths (which is exactly
+why daml's *network* remote cache works across machines). So the disk cache *can* be baked read-only,
+and runtime cache hits come from the layer for free (no overlay cost); only genuinely-changed actions
+write (small copy-up to the overlay).
+
+It is a standalone copy of `daml-ready` (so it reuses build-template.sh's FROM-base machinery), with
+two changes:
+
+1. **§2 build, not fetch.** It runs `bazel build ${BAZEL_BUILD_TARGETS} --config=linux
+   --repository_cache=… --disk_cache=… --remote_download_outputs=all`. daml's `sdk/.bazelrc` configures
+   a **combined disk+remote cache**, in which every output bazel downloads from the remote
+   (`bazel-cache.da-ext.net`) is **written through to the disk cache**; `--remote_download_outputs=all`
+   downloads them all. So one build, leaning on the remote cache for speed, fully populates the disk
+   cache — which is then baked. A **size assertion** fails the image build if the disk cache comes out
+   near-empty (catching a broken backfill instead of shipping an empty cache).
+2. **§3 runtime wiring.** `~agent/.bazelrc` points `--disk_cache` (and re-asserts `--repository_cache`)
+   at the baked paths, and **forces `--config=linux`**. The latter is a correctness requirement, not a
+   convenience: disk-cache keys are computed under daml's `:linux` flags (nixpkgs host_platform,
+   java17, protocopt, …), and daml has no platform auto-detect, so a runtime build under a different
+   config would get **zero** hits.
+
+The writable **output base** is still handled exactly as in `daml-ready` — by the inherited
+`daml-bazel-prepare` helper, which relocates it off the overlay. One bonus: build-without-the-bytes
+(`--remote_download_outputs=toplevel`) is now unconditionally safe, because intermediates stream from
+the **local baked disk cache**, which never evicts (the missing-CAS hazard daml's `.bazelrc` warns
+about only applies to an evicting *remote* cache).
+
+`/etc/daml-prebuilt.ref` records the baked commit so drift can be detected (a checkout far from the
+ref rebuilds the delta rather than hitting the cache).
+
 ## Daemon auto-start
 
 Multi-user Nix needs its daemon running to do real work. The base image installs a tiny entrypoint
@@ -107,9 +149,11 @@ what the base already allows. The sandbox itself is the isolation boundary.
 
 Re-run `build-template.sh splice` (bump `SPLICE_REF`) when splice's `nix/flake.lock` or
 `nix/*-sources.json` change. Re-run `build-template.sh daml` (bump `DAML_REF`) when daml's
-`sdk/nix/src.json`, `sdk/nix/nixpkgs/`, or its bazel external deps change. Re-run `... base` only when
-nixpkgs itself moves (direnv/nix-direnv update). On the host, `sbx template rm <image>` before
-re-loading to replace a previous version cleanly.
+`sdk/nix/src.json`, `sdk/nix/nixpkgs/`, or its bazel external deps change. Re-run
+`build-template.sh daml-prebuilt` (bump `DAML_REF`) to refresh the warm build cache — ideally on a
+schedule from CI, since it tracks `main` and goes stale (incrementally — drift just rebuilds the
+delta) as commits land. Re-run `... base` only when nixpkgs itself moves (direnv/nix-direnv update).
+On the host, `sbx template rm <image>` before re-loading to replace a previous version cleanly.
 
 ## Why not just…?
 

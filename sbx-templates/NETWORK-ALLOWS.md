@@ -58,6 +58,14 @@ allow rule (which only governs reachability).
 > open — not inside a default-deny sandbox. If you must build inside a sandbox, expect to allow more
 > domains iteratively as `bazel fetch` reports 403s (read the blocked-response body for the host).
 
+> **`daml-prebuilt` needs the same domains as `daml`, with `bazel-cache.da-ext.net` mandatory.** Its
+> build runs a full `bazel build //...` (not just `fetch`), and relies on daml's remote bazel cache to
+> turn most actions into downloads instead of recompiles. Those downloads are what populate the baked
+> `--disk_cache` (combined-cache write-through), so if `bazel-cache.da-ext.net` is unreachable the
+> build is both far slower and the size assertion may fail. Build it on the host/CI with the daml
+> domains allowed. Note `bazel-cache.da-ext.net` is needed only at **build** time for `daml-prebuilt`
+> (the cache is then baked) — unlike `daml-ready`, which wants it at runtime too.
+
 ```bash
 # base / generic nix toolchain
 sbx policy allow network install.determinate.systems,cache.nixos.org,nixos.org,releases.nixos.org,channels.nixos.org,repo1.maven.org

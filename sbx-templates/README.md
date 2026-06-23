@@ -17,6 +17,7 @@ Built by `scripts/build-template.sh`:
 | `nix-direnv-sandbox` | Generic: the claude-code base + Nix, flakes, `direnv`/`nix-direnv`. The nix daemon **auto-starts at boot**, so nix + direnv just work. Point it at any nix repo. |
 | `splice-ready` | `nix-direnv-sandbox` + [`canton-network/splice`](https://github.com/canton-network/splice)'s pinned **OSS** dev shell baked into `/nix`. |
 | `daml-ready` | `nix-direnv-sandbox` + [`digital-asset/daml`](https://github.com/digital-asset/daml)'s pinned **nix dev-env** baked into `/nix`, plus a primed **bazel repository cache**. daml uses nix *and* bazel and its dev env lives under `sdk/`. |
+| `daml-prebuilt` | `daml-ready` + a full `bazel build //...` run at image-build time, with the resulting **bazel action-output cache (`--disk_cache`)** baked into read-only layers. A fresh sandbox starts with a **warm build cache** (near-all hits, offline) and almost all of the 20G overlay free. Larger/slower to build than `daml-ready`; ideal to refresh periodically from CI. |
 
 **Step 1 — build the template.** The script only needs Docker, so run it wherever Docker is available:
 
@@ -25,6 +26,7 @@ Built by `scripts/build-template.sh`:
 ./scripts/build-template.sh base      # -> workspace/nix-direnv-sandbox.tar  (~900M)
 ./scripts/build-template.sh splice    # -> workspace/splice-ready.tar        (~8.5G; builds base first)
 ./scripts/build-template.sh daml      # -> workspace/daml-ready.tar          (large; builds base first)
+./scripts/build-template.sh daml-prebuilt  # -> workspace/daml-prebuilt.tar (largest; runs a full bazel build //... — see below)
 
 # alternatively, inside any plain sbx sandbox with this repo as its workspace:
 ./scripts/build-template.sh splice
@@ -34,6 +36,14 @@ Built by `scripts/build-template.sh`:
 > (GHC/JDK/Scala/Node/…), and runs `bazel fetch //...` to prime the repository cache — gigabytes and
 > a long build, needing broad network. **Build it on your host** (open network, ample disk). Narrow
 > the fetch with `BAZEL_FETCH_TARGETS=//some/package/...` if `//...` is more than you need.
+
+> **`daml-prebuilt` is heavier still.** On top of everything `daml-ready` does, it runs a full
+> `bazel build //...` and bakes the resulting `--disk_cache`. The build leans on daml's **remote
+> cache** (`bazel-cache.da-ext.net`) so most actions are downloads rather than recompiles — that host
+> **must** be reachable (it's what populates the bakeable disk cache via write-through), and the build
+> materializes the full output base transiently, so it wants **tens of GB of free disk**. Best run
+> from **CI/host** and refreshed periodically (bump `DAML_REF`). The build **fails fast** if the disk
+> cache comes out near-empty. Narrow with `BAZEL_BUILD_TARGETS=//compiler/...` for a smaller image.
 
 When building inside a sandbox, Docker build containers route through the sbx proxy, so you need the
 domains allowed first (one-time on the host; see [`NETWORK-ALLOWS.md`](NETWORK-ALLOWS.md)):
@@ -165,10 +175,12 @@ Caveats:
   `/run/sandbox/source`, so for a one-off you can skip the daemon and just
   `git fetch /run/sandbox/source` from inside the sandbox.
 
-For **daml**, use the `daml-ready` template. daml's dev env lives in the `sdk/` subdir, but its
-**`.git` is at the repo root** (the parent of `sdk/`), and `git`/`build.sh`/commits need it. `sbx`
-mounts *only the path you point it at*, so the rule is: **make the repo root the workspace, and work
-in `sdk/`** — never point `sbx` straight at `sdk/`, or the parent `.git` is left outside the sandbox.
+For **daml**, use the `daml-ready` template — or `daml-prebuilt` for a drop-in with a **warm build
+cache** (same usage everywhere below; just swap the `-t` name). daml's dev env lives in the `sdk/`
+subdir, but its **`.git` is at the repo root** (the parent of `sdk/`), and `git`/`build.sh`/commits
+need it. `sbx` mounts *only the path you point it at*, so the rule is: **make the repo root the
+workspace, and work in `sdk/`** — never point `sbx` straight at `sdk/`, or the parent `.git` is left
+outside the sandbox.
 
 In clone mode the clone already contains `.git`, so naming `sdk` is fine:
 
