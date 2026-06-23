@@ -662,6 +662,9 @@ checkTemplate module_ template = do
             unlessM (isUpgradedTypeNoTypeVars (fmap chcReturnType choice)) $
                 throwWithContextF present' (EUpgradeChoiceChangedReturnType (NM.name (_present choice)))
 
+            when (foldU (/=) (fmap chcConsuming choice)) $
+                throwWithContextF present' (EUpgradeChoiceChangedConsuming (NM.name (_present choice)) (chcConsuming (_present choice)))
+
             whenDifferent "controllers" (extractFuncFromFuncThisArg . chcControllers) choice $
                 \mismatches -> diagnosticWithContextF present' (WEUpgradedChoiceChangedControllers (NM.name (_present choice)) mismatches)
 

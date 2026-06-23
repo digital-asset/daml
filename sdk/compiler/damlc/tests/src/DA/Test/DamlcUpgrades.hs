@@ -453,10 +453,10 @@ tests damlc =
                   (SucceedWithoutWarning "*.warning while type checking template Main.Foo signatories:\n  The upgraded template Foo has changed the definition of its signatories.\n  There is 1 difference in the expression:\n    Name .*:Dep:duplicateParty and name .*:Dep:duplicateParty differ for the following reason: Just Name came from package .* and now comes from package .* Both packages support upgrades, but the previous package had a higher version than the current one..*")
             , testUpgradeCheck
                   "ChoiceChangesConsumingToNonconsuming"
-                  Succeed
+                  (FailWithError "error type checking template Main.T choice C1:\n  The upgraded choice C1 cannot change from a consuming choice to a nonconsuming choice.")
             , testUpgradeCheck
                   "ChoiceChangesNonconsumingToConsuming"
-                  Succeed
+                  (FailWithError "error type checking template Main.T choice C1:\n  The upgraded choice C1 cannot change from a nonconsuming choice to a consuming choice.")
             ]
        )
   where

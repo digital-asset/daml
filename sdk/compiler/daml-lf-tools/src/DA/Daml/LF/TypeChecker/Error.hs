@@ -222,6 +222,7 @@ data UnwarnableError
   | EUpgradeRecordChangedOrigin !TypeConName !UpgradedRecordOrigin !UpgradedRecordOrigin
   | EUpgradeTemplateChangedKeyType !TypeConName
   | EUpgradeChoiceChangedReturnType !ChoiceName
+  | EUpgradeChoiceChangedConsuming !ChoiceName !Bool
   | EUpgradeTemplateRemovedKey !TypeConName !TemplateKey
   | EUpgradeTemplateAddedKey !TypeConName !TemplateKey
   | EUpgradeTriedToUpgradeIface !TypeConName
@@ -877,6 +878,9 @@ instance Pretty UnwarnableError where
     EUpgradeEnumConstructorsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its constructors - any new enum constructor must be added at the end of the enum."
     EUpgradeRecordChangedOrigin dataConName past present -> "The record " <> pPrint dataConName <> " has changed origin from " <> pPrint past <> " to " <> pPrint present
     EUpgradeChoiceChangedReturnType choice -> "The upgraded choice " <> pPrint choice <> " cannot change its return type."
+    EUpgradeChoiceChangedConsuming choice nowConsuming ->
+      let (from_, to_) = if nowConsuming then ("a nonconsuming", "a consuming") else ("a consuming", "a nonconsuming")
+      in "The upgraded choice " <> pPrint choice <> " cannot change from " <> from_ <> " choice to " <> to_ <> " choice."
     EUpgradeTemplateChangedKeyType templateName -> "The upgraded template " <> pPrint templateName <> " cannot change its key type."
     EUpgradeTemplateRemovedKey templateName _key -> "The upgraded template " <> pPrint templateName <> " cannot remove its key."
     EUpgradeTemplateAddedKey template _key -> "The upgraded template " <> pPrint template <> " cannot add a key where it didn't have one previously."
