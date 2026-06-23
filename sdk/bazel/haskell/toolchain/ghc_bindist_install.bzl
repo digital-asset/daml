@@ -32,10 +32,10 @@ def _make_launcher(ctx, install_tree, tool_name):
         is_executable = True,
         content = """#!/usr/bin/env bash
 set -euo pipefail
-ROOT="$PWD/{tree}"
+ROOT="$(cd "$(dirname "${{BASH_SOURCE[0]}}")/../{tree}" && pwd)"
 exec "$ROOT/lib/bin/{tool}" {extra} "$@"
 """.format(
-            tree = install_tree.path,
+            tree = install_tree.basename,
             tool = tool_name,
             extra = _LAUNCHER_EXTRA_ARGS.get(tool_name, ""),
         ),
