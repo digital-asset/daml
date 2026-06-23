@@ -90,6 +90,21 @@ echo "== ~/.bazelrc (should point at the baked caches) =="; cat ~/.bazelrc
 
 ## 4. THE key test — does a build hit the cache? (assumption B)
 
+**Pre-flight: `gitlab.haskell.org` must be allowed** (once per sandbox, on the host). Bazel's
+`da-ghc` external repo (`github.com/digital-asset/ghc`) has GHC submodules on `gitlab.haskell.org`
+that must be cloned when the output base is fresh. The main repo is served from the baked repo
+cache; only the submodule clone needs the network. Without this allow the build fails at analysis:
+
+```
+fatal: unable to access 'https://gitlab.haskell.org/…': The requested URL returned error: 403
+ERROR: Analysis of target '//compiler/damlc:damlc' failed
+```
+
+If not already allowed, ask the user to run on the **host**:
+```bash
+sbx policy allow network gitlab.haskell.org
+```
+
 First relocate the writable output base off the 20 GB overlay. **In `--clone` mode use `--vdc`** (the
 clone lives on the overlay, so the default host-disk target has nowhere roomy to go):
 

@@ -87,8 +87,14 @@ cat > /usr/local/bin/nix-daemon-entrypoint <<'EOF'
 # Start the multi-user nix daemon once, then hand off to the real command. This runs as `agent`, so
 # the daemon (root) is started via passwordless sudo — and the log redirect must be done BY root
 # (an agent-performed `>` onto a root-owned file fails), hence the redirect lives inside `bash -c`.
+#
+# setsid: puts the daemon in its own session so it is not in the entrypoint's process group.
+# Without this the CMD's "kill -TERM -- -1" (trap for SIGTERM) reaches the daemon and kills it.
+# </dev/null: prevents the daemon from inheriting a stdin that may be a closed pipe.
+# Wait loop: ensures the socket exists before handing off so the first `dade assist` never races.
 if [ -x /nix/var/nix/profiles/default/bin/nix-daemon ] && [ ! -S /nix/var/nix/daemon-socket/socket ]; then
-  sudo -n bash -c 'nohup /nix/var/nix/profiles/default/bin/nix-daemon >>/var/log/nix-daemon.log 2>&1 &' || true
+  sudo -n bash -c 'setsid /nix/var/nix/profiles/default/bin/nix-daemon >>/var/log/nix-daemon.log 2>&1 </dev/null &' || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do [ -S /nix/var/nix/daemon-socket/socket ] && break; sleep 0.5; done
 fi
 exec "$@"
 EOF

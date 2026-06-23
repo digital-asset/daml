@@ -21,6 +21,19 @@ lives under the **`sdk/`** subdirectory — run all build/test commands from `sd
 `--config=linux` yourself, or pass a different `--config`** — a duplicate doubles every `:linux` flag
 and breaks protoc; a different config is keyed differently and gets zero cache hits.
 
+## Network — one domain needed for the first build
+
+Bazel's `da-ghc` external repo has GHC submodules on `gitlab.haskell.org` that must be cloned once
+when the output base is fresh. If the first build fails at analysis with a `403` from
+`gitlab.haskell.org`, tell the user to run on the **host** and retry:
+
+```bash
+sbx policy allow network gitlab.haskell.org
+```
+
+This is a one-time fetch. After the `da-ghc` external dir is populated, subsequent builds run
+offline from the baked caches.
+
 ## Build (from `sdk/`)
 
 ```bash

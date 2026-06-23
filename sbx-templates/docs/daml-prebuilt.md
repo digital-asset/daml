@@ -145,7 +145,29 @@ claude opens at the repo root; it `cd`s into `sdk/` to build (the baked `~/.clau
 
 Resume a stopped sandbox with `sbx run --name <name>`.
 
-### 2.2 First build inside the sandbox
+### 2.2 Allow the one runtime network domain (host, once per sandbox)
+
+Before the first build, allow `gitlab.haskell.org` in the sandbox's network policy. Bazel's
+`da-ghc` external repo (`github.com/digital-asset/ghc`) has GHC submodules hosted on
+`gitlab.haskell.org` that must be cloned **once** when Bazel populates a fresh output base (the
+main repo comes from the baked repo cache; submodule cloning is a separate step that still needs
+the network). Without this the build fails at analysis with:
+
+```
+fatal: unable to access 'https://gitlab.haskell.org/…': The requested URL returned error: 403
+ERROR: Analysis of target '//compiler/damlc:damlc' failed
+```
+
+Run on the **host** (once per sandbox):
+
+```bash
+sbx policy allow network gitlab.haskell.org
+```
+
+This is a one-time fetch per output base. Once the `da-ghc` external dir is materialized,
+subsequent builds don't need this domain.
+
+### 2.3 First build inside the sandbox
 
 The baked `~/.claude/CLAUDE.md` already tells the agent what to do; the manual equivalent (claude
 starts at the repo root, so `cd sdk` first):
@@ -169,13 +191,13 @@ recompilation. If it recompiles heavily, either the checkout drifted far from th
 nix `bazel` wrapper injects `--config=linux` exactly once — don't add another copy (in `~/.bazelrc` or
 on the command line; a duplicate breaks protoc) and don't force a different `--config` (zero hits).
 
-Runtime needs **no network** for builds (the caches are baked). Network is only needed to push or to
-fetch a genuinely new dependency.
+Runtime needs **no network** for builds **except** the one-time `da-ghc` submodule clone on a fresh
+output base (see §2.2 above). After that first fetch, builds run fully offline from the baked caches.
 
 > For a full post-launch verification checklist — what an agent should check and report inside the
 > running sandbox — see [`daml-prebuilt-verify.md`](daml-prebuilt-verify.md).
 
-### 2.3 Get your commits out
+### 2.4 Get your commits out
 
 Commit inside the sandbox with a **DCO sign-off** (daml requires it):
 
@@ -207,7 +229,7 @@ git log HEAD..FETCH_HEAD --oneline
 git merge FETCH_HEAD        # or cherry-pick
 ```
 
-### 2.4 Inspect / clean up
+### 2.5 Inspect / clean up
 
 ```bash
 sbx exec -it my-feature bash     # open a shell in the sandbox (-it needed for TUIs like lnav)

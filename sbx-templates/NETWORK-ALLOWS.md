@@ -52,6 +52,12 @@ allow rule (which only governs reachability).
 | `proxy.golang.org`, `sum.golang.org` | Go module deps + checksum db |
 | `repo1.maven.org` | Maven Central — JVM deps (already allowed for the base) |
 
+**Additionally at `daml-prebuilt` runtime** (needed for the first build per output base):
+
+| Domain | What it fetches |
+|--------|-----------------|
+| `gitlab.haskell.org` | GHC submodules — `da-ghc` is a `git_repository` for `github.com/digital-asset/ghc` with `recursive_init_submodules = True`; GHC's submodules (haddock, hpc, hsc2hs, arcanist linter) live on `gitlab.haskell.org` and are cloned when Bazel first populates the `da-ghc` external dir on a fresh output base. The main repo comes from the baked repo cache; only the submodule clone step needs the network. This is a one-time cost per output base — subsequent builds use the locally-materialized external dir. |
+
 > **The `daml` build's bazel-fetch step needs broad outbound egress** (the hosts above plus many
 > github release assets). It downloads gigabytes of external deps to prime the repository cache. This
 > is exactly why the intended flow is to **build `daml-ready` on your host**, where the network is
@@ -73,6 +79,8 @@ sbx policy allow network install.determinate.systems,cache.nixos.org,nixos.org,r
 sbx policy allow network www.canton.io,get.digitalasset.com,get.pulumi.com,api.pulumi.com
 # additionally, for daml (nix + bazel caches are also wanted at runtime)
 sbx policy allow network nix-cache.da-ext.net,bazel-cache.da-ext.net,www.scala-lang.org,registry.npmjs.org,registry.yarnpkg.com,proxy.golang.org,sum.golang.org
+# additionally, for daml-prebuilt at runtime (one-time da-ghc submodule clone per output base)
+sbx policy allow network gitlab.haskell.org
 ```
 
 ## Already reachable — no allow needed
