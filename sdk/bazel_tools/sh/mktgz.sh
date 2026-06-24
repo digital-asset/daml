@@ -24,7 +24,10 @@ EOF
 }
 trap usage ERR
 
-PIGZ="$(rlocation "pigz~/pigz")"
+PIGZ="$(rlocation "pigz+/pigz" || true)"
+if [[ -z "${PIGZ:-}" ]]; then
+  PIGZ="$(rlocation "pigz~/pigz" || true)"
+fi
 TAR=$(find "${RUNFILES_DIR}" -maxdepth 2 -name "tar")
 
 $TAR \

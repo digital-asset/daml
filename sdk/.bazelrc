@@ -186,6 +186,7 @@ build --per_file_copt=external/pigz.*\.(c|cc)$@-Wno-unused-variable,-Wno-unused-
 build --per_file_copt=external/protobuf.*\.(cc|cpp|cxx|c)$@-Wno-deprecated-declarations
 build --javacopt=-Xlint:-options,-path
 
+build --host_copt=-Wno-unknown-warning-option
 build --host_copt=-Wno-attributes
 build --host_copt=-Wno-trigraphs
 build --host_copt=-Wno-return-type
