@@ -220,8 +220,8 @@ da_haskell_repl(
         "//compiler/damlc/tests:incremental",
         "//compiler/damlc/tests:integration-v2dev",
         "//compiler/damlc/tests:packaging",
-        "//daml-assistant/daml-new",
-        "//daml-assistant/integration-tests",
+        "//components/daml-new",
+        "//sdk-integration-tests:tests",
     ],
 )
 

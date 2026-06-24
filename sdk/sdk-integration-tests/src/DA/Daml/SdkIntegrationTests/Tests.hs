@@ -1,6 +1,6 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-module DA.Daml.Assistant.IntegrationTests (main) where
+module DA.Daml.SdkIntegrationTests.Tests (main) where
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
@@ -26,7 +26,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import DA.Bazel.Runfiles
-import DA.Daml.Assistant.IntegrationTestUtils
+import DA.Daml.SdkIntegrationTests.Utils
 import DA.Test.Process (callCommandIn, callCommandFailingIn, callCommandSilent, callCommandSilentIn, subprocessEnv)
 import DA.Test.Util
 import DA.PortFile
