@@ -6,6 +6,8 @@
 # expects CcInfo). The `bzlib-conduit` Haskell package fails Cabal's configure
 # step ("Missing (or bad) C library: bz2") without this; the hermetic sysroot
 # ships no libbz2.
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_shared_library")
+
 cc_library(
     name = "bz2_cc_lib",
     srcs = [
@@ -21,5 +23,17 @@ cc_library(
     hdrs = ["bzlib.h"],
     copts = ["-D_FILE_OFFSET_BITS=64"],
     includes = ["."],
+    visibility = ["//visibility:public"],
+)
+
+cc_shared_library(
+    name = "bz2_so",
+    shared_lib_name = "libbz2.so",
+    deps = [":bz2_cc_lib"],
+)
+
+filegroup(
+    name = "libs",
+    srcs = [":bz2_so"],
     visibility = ["//visibility:public"],
 )
