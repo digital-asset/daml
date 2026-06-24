@@ -137,7 +137,15 @@ diff --git a/haskell/private/cabal_wrapper.py b/haskell/private/cabal_wrapper.py
      if not deps_package_db:
          path_args.extend(["--package-db=" + os.path.dirname(db) for db in deps_package_databases])
      path_args = [ arg.replace("=", "=" + cfg_execroot + "/") for arg in path_args ]
-@@ -344,7 +352,8 @@
+@@ -314,6 +322,7 @@
+         [ "--ghc-option=" + flag.replace("$CC", cc).replace("$LD", ld) for flag in toolchain_info["ghc_cc_args"] ] +
+         [ "--hsc2hs-option=-c" + cc,
+           "--hsc2hs-option=-l" + cc,
++          "--hsc2hs-option=--cflag=-w",
+         ] +
+         [ "--ghc-option=-optl@" + os.path.join(cfg_execroot, f) for f in [extra_ldflags_file] if f ] +
+         enable_relocatable_flags + \
+@@ -344,7 +353,8 @@
          )
      run([runghc] + runghc_args + [setup, "build", "--verbose=0", "--builddir=" + distdir])
      if haddock:
@@ -147,3 +155,18 @@ diff --git a/haskell/private/cabal_wrapper.py b/haskell/private/cabal_wrapper.py
      # Setup.hs install fails if the configuration uses relative C header or
      # library search paths. Instead, we use Setup.hs copy to install the
      # package files and then manually register the package configuration in the
+diff --git a/haskell/private/cc_wrapper.py.tpl b/haskell/private/cc_wrapper.py.tpl
+--- a/haskell/private/cc_wrapper.py.tpl
++++ b/haskell/private/cc_wrapper.py.tpl
+@@ -161,7 +161,10 @@
+                 # temporary Haskell binaries linked against libraries, but does
+                 # not speficy the required runpaths on the command-line in the
+                 # context of Bazel.
+-                self.rpaths.extend(self.library_paths)
++                self.rpaths.extend([
++                    p for p in self.library_paths
++                    if "glibc_library_search_directory" not in p
++                ])
+         else:
+             # We don't expect rpath arguments if not linking, however, just in
+             # case, forward them if we don't mean to modify them.
