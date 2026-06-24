@@ -240,6 +240,13 @@ BASH
 # hold every intermediate and daml's remote CAS evicts, so BwoB (=toplevel) hits CacheNotFoundException
 # — =all materializes every output from the offline baked cache instead. The relocated, roomy output
 # base is what makes full materialization fit.
+#
+# DAML-PREBUILT MODE: When /etc/daml-prebuilt.ref exists, this script uses --output_base (exact path)
+# instead of --output_user_root (parent where Bazel computes a hash subdirectory). This is critical:
+# the baked disk cache was built with output_base at /opt/daml-build-out/<hash-of-/opt/daml/sdk>.
+# Runtime workspaces mount at different paths (e.g. /home/<user>/daml/sdk), which would compute a
+# DIFFERENT hash and miss the cache entirely. By setting --output_base to the EXACT baked path, cache
+# keys match regardless of where the workspace is mounted.
 RUN <<'BASH'
 set -euo pipefail
 cat > /usr/local/bin/daml-bazel-prepare <<'EOF'
@@ -247,6 +254,9 @@ cat > /usr/local/bin/daml-bazel-prepare <<'EOF'
 # daml-bazel-prepare [--vdc] — relocate bazel's big WRITABLE state off the fixed 20G root overlay so a
 # daml build fits & runs fast. Run from the daml bazel workspace (sdk/); safe to re-run (it rewrites
 # its own managed block in %workspace%/.bazelrc.local, which daml try-imports and which is git-ignored).
+#
+# In daml-prebuilt sandboxes, this script uses --output_base (exact path) to hit the baked disk cache
+# regardless of where the workspace is mounted.
 set -euo pipefail
 
 mode=host
@@ -265,25 +275,48 @@ done
 rc="$ws/.bazelrc.local"
 touch "$rc"
 
+# Detect daml-prebuilt mode: use the EXACT baked output_base for cache hits.
+# The baked cache was built at /opt/daml/sdk → output_base /opt/daml-build-out/<hash>.
+# We find that hash directory dynamically rather than hardcoding it.
+use_output_base=false
+if [ -f /etc/daml-prebuilt.ref ]; then
+  # Find the baked output base directory (there's exactly one 32-char hex-named subdir)
+  baked_out=$(find /opt/daml-build-out -maxdepth 1 -mindepth 1 -type d -name '[0-9a-f]*' 2>/dev/null | head -1)
+  if [ -n "$baked_out" ] && [ -d "$baked_out" ]; then
+    use_output_base=true
+    out="$baked_out"
+    # Ensure writable (it's on the overlay, but may be root-owned from image build)
+    sudo -n chown "$(id -un)" "$out" 2>/dev/null || true
+    echo "daml-bazel-prepare: detected daml-prebuilt image"
+    echo "  using baked output_base: $out"
+  else
+    echo "daml-bazel-prepare: WARNING: /etc/daml-prebuilt.ref exists but no baked output_base found" >&2
+    echo "  falling back to standard mode (cache may not hit)" >&2
+  fi
+fi
+
 extra=""
-if [ "$mode" = vdc ]; then
-  out=/var/lib/docker/daml-bazel-out
-  [ -d /var/lib/docker ] || { echo "daml-bazel-prepare --vdc: /var/lib/docker missing — wrong sandbox?" >&2; exit 1; }
-  if [ "$(df -P / | awk 'NR==2{print $1}')" = "$(df -P /var/lib/docker | awk 'NR==2{print $1}')" ]; then
-    echo "daml-bazel-prepare --vdc: /var/lib/docker is on the SAME disk as / (no separate vdc here) — won't add space." >&2
-    exit 1
+if [ "$use_output_base" = false ]; then
+  # Standard mode: use --output_user_root (Bazel computes hash subdirectory)
+  if [ "$mode" = vdc ]; then
+    out=/var/lib/docker/daml-bazel-out
+    [ -d /var/lib/docker ] || { echo "daml-bazel-prepare --vdc: /var/lib/docker missing — wrong sandbox?" >&2; exit 1; }
+    if [ "$(df -P / | awk 'NR==2{print $1}')" = "$(df -P /var/lib/docker | awk 'NR==2{print $1}')" ]; then
+      echo "daml-bazel-prepare --vdc: /var/lib/docker is on the SAME disk as / (no separate vdc here) — won't add space." >&2
+      exit 1
+    fi
+    if ! { sudo -n chmod o+x /var/lib/docker \
+        && sudo -n mkdir -p "$out" \
+        && sudo -n chown "$(id -un)" "$out"; }; then
+      echo "daml-bazel-prepare --vdc: could not provision $out (needs passwordless sudo)." >&2
+      exit 1
+    fi
+  else
+    out="$ws/.bazel-cache/output"
+    mkdir -p "$out"
+    sbox=/tmp/daml-bazel-sandbox; mkdir -p "$sbox"
+    extra="build --sandbox_base=$sbox"
   fi
-  if ! { sudo -n chmod o+x /var/lib/docker \
-      && sudo -n mkdir -p "$out" \
-      && sudo -n chown "$(id -un)" "$out"; }; then
-    echo "daml-bazel-prepare --vdc: could not provision $out (needs passwordless sudo)." >&2
-    exit 1
-  fi
-else
-  out="$ws/.bazel-cache/output"
-  mkdir -p "$out"
-  sbox=/tmp/daml-bazel-sandbox; mkdir -p "$sbox"
-  extra="build --sandbox_base=$sbox"
 fi
 
 # Claude Code exports TMPDIR=/tmp/claude-<uid>; Bazel 7's hermetic-tmp sandbox overmounts /tmp with a
@@ -299,6 +332,7 @@ fi
 tmp="$(mktemp)"
 sed -E \
   -e '/^# >>> daml-bazel-prepare/,/^# <<< daml-bazel-prepare/d' \
+  -e '/^startup --output_base=/d' \
   -e '/^startup --output_user_root=/d' \
   -e '/^build --remote_download_outputs=/d' \
   -e '/^build --sandbox_base=/d' \
@@ -308,7 +342,13 @@ sed -E \
 {
   cat "$tmp"
   echo "# >>> daml-bazel-prepare ($mode; managed — re-run to change, don't edit inside) >>>"
-  echo "startup --output_user_root=$out"
+  if [ "$use_output_base" = true ]; then
+    # daml-prebuilt: use EXACT output_base to match baked cache keys
+    echo "startup --output_base=$out"
+  else
+    # standard: use output_user_root (Bazel computes hash subdirectory)
+    echo "startup --output_user_root=$out"
+  fi
   # Materialize ALL build outputs locally, NOT build-without-the-bytes (=toplevel). The baked disk
   # cache does not hold every intermediate, and daml's remote CAS evicts, so BwoB hits
   # CacheNotFoundException; =all forces every output down from the (offline) baked cache instead.
@@ -322,7 +362,9 @@ rm -f "$tmp"
 
 echo "daml-bazel-prepare ($mode): configured $rc"
 echo "  output base -> $out  ($(df -Ph "$out" | awk 'NR==2 {print $4" free on "$6}'))"
-if [ "$mode" = vdc ]; then
+if [ "$use_output_base" = true ]; then
+  echo "  daml-prebuilt mode: using exact --output_base for baked cache compatibility."
+elif [ "$mode" = vdc ]; then
   echo "  vdc is the nested-Docker disk: fast + local, but sandbox-lifetime only and shared with docker."
 else
   echo "  host mount is virtiofs (slower); try --vdc for the fast local disk if you're not using nested Docker."

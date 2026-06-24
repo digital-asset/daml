@@ -38,9 +38,12 @@ offline from the baked caches.
 
 ```bash
 eval "$(dev-env/bin/dade assist)"   # put bazel/jdk/scala/… on PATH — once per shell
-daml-bazel-prepare                  # once per checkout — see "Disk" below
+daml-bazel-prepare                  # once per session — configures cache paths
 bazel build //compiler/damlc:damlc  # or //... — near-all cache hits the first time
 ```
+
+`daml-bazel-prepare` auto-detects the daml-prebuilt environment and configures Bazel to use the
+baked disk cache. It works from any workspace path — no need to `cd /opt/daml/sdk`.
 
 Verify the cache is working: the first build should report almost all actions as cached with no
 recompilation. If instead it recompiles heavily, the checkout has drifted from the baked ref
@@ -49,21 +52,18 @@ recompilation. If instead it recompiles heavily, the checkout has drifted from t
 ## Disk — keep the writable overlay free (READ THIS)
 
 The baked caches ride in read-only layers and are **free of the fixed 20 GB overlay**. But bazel's
-**output base** (the materialized build tree) must be writable. By default it lands on the 20 GB
-overlay and a daml build overflows it. **Run `daml-bazel-prepare` once** (from `sdk/`) before building
-— it relocates the output base off the overlay and enables build-without-the-bytes:
+**output base** (the materialized build tree) must be writable. **Run `daml-bazel-prepare` once**
+(from `sdk/`) before building — it configures Bazel to use the baked output base for cache hits.
 
-```bash
-daml-bazel-prepare          # output base -> sdk/.bazel-cache/output on the host-mounted disk (roomy, persistent, slower virtiofs)
-daml-bazel-prepare --vdc    # output base -> /var/lib/docker on the local disk (fast; sandbox-lifetime; shared with Docker)
-```
+In daml-prebuilt sandboxes, `daml-bazel-prepare` automatically detects the baked environment and
+configures `--output_base` to point to the exact baked directory. This ensures cache hits regardless
+of where your workspace is mounted (e.g., `/home/<user>/daml/sdk` vs `/opt/daml/sdk`).
 
-`daml-bazel-prepare` configures `--remote_download_outputs=all` (full materialization), **not**
+`daml-bazel-prepare` also configures `--remote_download_outputs=all` (full materialization), **not**
 build-without-the-bytes: the baked disk cache doesn't hold every intermediate and daml's remote CAS
 evicts, so BwoB would hit `CacheNotFoundException`. Outputs are materialized from the **local baked
-disk cache** (offline), and the relocated, roomy output base is what makes that fit. With the baked
-cache + relocated output base, a full `bazel build //...` is allowed; scope to a target when you want
-it faster.
+disk cache** (offline). With the baked cache, a full `bazel build //...` is allowed; scope to a
+target when you want it faster.
 
 ## Tests
 
