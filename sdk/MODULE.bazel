@@ -412,19 +412,19 @@ HASKELL_TRANSITIVE_GMP_PACKAGES = [
 # "zlib": [...]}` from sdk/bazel-haskell-deps.bzl L450-453, leaving the
 # Cabal `Setup.hs` configure failing with "Missing (or bad) header
 # file: zlib.h" / "Missing (or bad) C library: z" (sdk/dump.txt L246,
-# L310). `@zlib_shared//:zlib_cc_lib` is the hermetic wrapper around
-# the existing `@zlib_shared//:libs` filegroup.
+# L310). `@libz//:libz` is the hermetic zlib cc_library; `@libz//:libs`
+# carries the bundled libz.so.
 stack_snapshot_ext.package(
     name = "digest",
     extra_deps = [
-        "@zlib_shared//:zlib_cc_lib",
+        "@libz//:libz",
         "@gmp//:gmp_cc_lib",
     ],
 )
 stack_snapshot_ext.package(
     name = "zlib",
     extra_deps = [
-        "@zlib_shared//:zlib_cc_lib",
+        "@libz//:libz",
         "@gmp//:gmp_cc_lib",
     ],
 )
@@ -920,8 +920,8 @@ use_repo(io_grpc_grpc_java_ext, "io_grpc_grpc_java")
 
 # --- Native libraries ---
 
-zlib_shared_ext = use_extension("//bazel/native:zlib_extension.bzl", "zlib_shared")
-use_repo(zlib_shared_ext, "zlib_shared")
+libz_ext = use_extension("//bazel/native:libz_extension.bzl", "libz")
+use_repo(libz_ext, "libz")
 
 bzip2_ext = use_extension("//bazel/native:bzip2_extension.bzl", "bzip2")
 use_repo(bzip2_ext, "bzip2")
