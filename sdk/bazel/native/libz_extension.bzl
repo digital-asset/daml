@@ -7,11 +7,11 @@ load(
 
 def _impl(module_ctx):
     http_archive(
-        name = "zlib_shared",
+        name = "libz",
         url = "https://zlib.net/fossils/zlib-{}.tar.gz".format(ZLIB_VERSION),
         sha256 = ZLIB_SHA256,
         strip_prefix = "zlib-{}".format(ZLIB_VERSION),
-        build_file = ":files/zlib.BUILD.bzl",
+        build_file = ":files/libz.BUILD.bzl",
     )
 
-zlib_shared = module_extension(implementation = _impl)
+libz = module_extension(implementation = _impl)
