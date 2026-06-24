@@ -59,7 +59,10 @@ case "$(uname -s)" in
       "patchelf~/patchelf" \
       "patchelf~/bin/patchelf" \
       "_main~patchelf~patchelf/bin/patchelf" \
-      "_main/external/_main~patchelf~patchelf/bin/patchelf"
+      "_main/external/_main~patchelf~patchelf/bin/patchelf" \
+      "+patchelf+patchelf/patchelf" \
+      "+patchelf+patchelf/bin/patchelf" \
+      "_main/external/+patchelf+patchelf/bin/patchelf"
     do
       patchelf_runfile=$(rlocation "$candidate" || true)
       if [[ -n "${patchelf_runfile:-}" ]]; then
