@@ -105,6 +105,10 @@ for f in {libz_libs}; do
     cp -L "$EXECROOT/$f" "$PREFIX/lib/rts/"
 done
 
+for f in {bz2_libs}; do
+    cp -L "$EXECROOT/$f" "$PREFIX/lib/rts/"
+done
+
 # The deb9 ghc/ghc-pkg need libtinfo.so.5 at runtime (resolved via their
 # RUNPATH $ORIGIN/../rts) and haskeline links -ltinfo (needs libtinfo.so);
 # bundle our hermetic copy under both names so neither leaks the host's.
@@ -136,13 +140,14 @@ rm -rf "$TMP"
         doc_marker = doc_marker.path,
         gmp_libs = " ".join([f.path for f in ctx.files.gmp]),
         libz_libs = " ".join([f.path for f in ctx.files.libz]),
+        bz2_libs = " ".join([f.path for f in ctx.files.bz2]),
         tinfo = ctx.file.tinfo.path,
     )
 
     ctx.actions.run_shell(
         outputs = [install_tree, lib_settings, doc_marker],
         inputs = depset(
-            direct = ctx.files.srcs + [configure, ctx.file.make, ctx.file.tinfo] + ctx.files.gmp + ctx.files.libz,
+            direct = ctx.files.srcs + [configure, ctx.file.make, ctx.file.tinfo] + ctx.files.gmp + ctx.files.libz + ctx.files.bz2,
             transitive = [cc_toolchain.all_files],
         ),
         command = command,
@@ -188,6 +193,10 @@ ghc_bindist_install = rule(
         "libz": attr.label(
             allow_files = True,
             doc = "Hermetic libz.so bundled into the rts libdir, e.g. @libz//:libs.",
+        ),
+        "bz2": attr.label(
+            allow_files = True,
+            doc = "Hermetic libbz2.so bundled into the rts libdir, e.g. @bzip2//:libs.",
         ),
         "tinfo": attr.label(
             allow_single_file = True,
