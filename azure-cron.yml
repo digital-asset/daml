@@ -94,7 +94,8 @@ jobs:
           if [[ "$latest_damlc" != "$MARKET" ]]; then
             echo "Publishing $latest_damlc to VSCode Marketplace"
             # Get extension vsix by installing this damlc in temp dir
-            tmp_dir=$(mktemp -d)
+            # Need the temp dir to be in sdk, so we can use dev-env commands on it (see zip later)
+            tmp_dir=$(mktemp -d -p $(pwd))
             trap "cd; rm -rf $tmp_dir" EXIT
             # Use single component with sdk-less install to grab only damlc
             cat << EOF > $tmp_dir/daml.yaml
@@ -103,13 +104,24 @@ jobs:
           EOF
             # Install said damlc to this temp dir
             DPM_HOME=$tmp_dir DAML_PROJECT=$tmp_dir bazel run @dpm_binary//:dpm -- install package
+
             # Do not assume knowledge of dpm inner structure, ask `dpm resolve` for the component path
             damlc_path=$(DPM_HOME=$tmp_dir DAML_PROJECT=$tmp_dir bazel run @dpm_binary//:dpm -- resolve --output json \
                         | jq -r --arg path $tmp_dir '.Packages[$path].ComponentsV2.damlc.path')
+
             # Assume knowledge of the component structure, since we publish it here
             extension_path=$damlc_path/damlc-dist-dpm/resources/daml-bundled.vsix
-            # Publish the vsix directly. We do not check out the branch of the release, so can safely assume the correct path to `vsce`
-            bazel run @daml_extension_deps//@vscode/vsce/bin:vsce -- publish --packagePath $extension_path -p $MARKETPLACE_TOKEN
+
+            # The bundled extension is still called "daml-bundled". We need to rename it to "daml" to replace the existing marketplace
+            # The name is only used in two place, `extension/package.json` and `extension.vsixmanifest`. We run a simple grep and replace over the zip
+            unzip $extension_path -d $tmp_dir/daml
+            sed -i 's/daml-bundled/daml/g' $tmp_dir/daml/extension.vsixmanifest $tmp_dir/daml/extension/package.json
+            # Zip doesn't let you set the "directory root", you have to cd to it
+            # if "tmp_dir" wasn't under "daml/sdk", we would not be able to use "zip"
+            (cd $tmp_dir/daml && zip -r -X $tmp_dir/daml.vsix .)
+
+            # Publish the renamed vsix directly. We do not check out the branch of the release, so can safely assume the correct path to `vsce`
+            bazel run @daml_extension_deps//@vscode/vsce/bin:vsce -- publish --packagePath $tmp_dir/daml.vsix -p $MARKETPLACE_TOKEN
             rm -rf $tmp_dir
           else
             echo "Version on marketplace is already the latest ($latest_damlc)."
