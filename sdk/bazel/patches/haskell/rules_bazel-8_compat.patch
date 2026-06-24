@@ -119,3 +119,31 @@ diff --git a/haskell/private/runghc.bzl b/haskell/private/runghc.bzl
          ),
      )]
  
+diff --git a/haskell/private/cabal_wrapper.py b/haskell/private/cabal_wrapper.py
+--- a/haskell/private/cabal_wrapper.py
++++ b/haskell/private/cabal_wrapper.py
+@@ -292,6 +292,14 @@
+         del os.environ["RUNFILES_MANIFEST_FILE"]
+     runghc_args = [arg.replace("./", execroot + "/") for arg in runghc_args]
+ 
++    # The GHC interpreting Setup.hs (and Cabal's own cc probe) run from the
++    # package dir, where cc_wrapper's relative CC_WRAPPER_CC_PATH and runfiles
++    # lookups both miss. Absolutise it so cc_wrapper finds clang from any cwd,
++    # and steer GHC away from its baked (dead) settings cc onto cc_wrapper.
++    os.environ["CC_WRAPPER_CC_PATH"] = os.path.join(execroot, os.environ["CC_WRAPPER_CC_PATH"])
++    cc_ghc_args = [flag.replace("$CC", cc).replace("$LD", ld) for flag in toolchain_info["ghc_cc_args"]]
++    runghc_args = runghc_args + ["--ghc-arg=" + a for a in cc_ghc_args]
++
+     if not deps_package_db:
+         path_args.extend(["--package-db=" + os.path.dirname(db) for db in deps_package_databases])
+     path_args = [ arg.replace("=", "=" + cfg_execroot + "/") for arg in path_args ]
+@@ -344,7 +352,8 @@
+         )
+     run([runghc] + runghc_args + [setup, "build", "--verbose=0", "--builddir=" + distdir])
+     if haddock:
+-        run([runghc] + runghc_args + [setup, "haddock", "--verbose=0", "--builddir=" + distdir])
++        run([runghc] + runghc_args + [setup, "haddock", "--verbose=0", "--builddir=" + distdir] +
++            ["--haddock-option=--optghc=" + a for a in cc_ghc_args])
+     # Setup.hs install fails if the configuration uses relative C header or
+     # library search paths. Instead, we use Setup.hs copy to install the
+     # package files and then manually register the package configuration in the
