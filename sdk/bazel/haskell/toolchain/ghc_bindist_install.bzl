@@ -106,6 +106,14 @@ done
 cp -L "$EXECROOT/{tinfo}" "$PREFIX/lib/rts/libtinfo.so"
 cp -L "$EXECROOT/{tinfo}" "$PREFIX/lib/rts/libtinfo.so.5"
 
+# configure bakes the absolute build-sandbox clang path into settings, which is
+# non-reproducible; the consuming rules override the compiler via -pgm*, so
+# replace it with a stable bare name to keep the install output cacheable.
+sed -i \
+    -e 's#("C compiler command", "[^"]*")#("C compiler command", "cc")#' \
+    -e 's#("Haskell CPP command", "[^"]*")#("Haskell CPP command", "cc")#' \
+    "$PREFIX/lib/settings"
+
 cp "$PREFIX/lib/settings" "$EXECROOT/{lib_settings}"
 if [ -d "$PREFIX/doc" ]; then
     touch "$EXECROOT/{doc_marker}"
