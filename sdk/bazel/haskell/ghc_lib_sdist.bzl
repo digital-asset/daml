@@ -95,6 +95,21 @@ export PATH="$(dirname "$EXECROOT/{cabal_path}"):$PATH"
 # GHC translates into a `-L` on the gcc link command. Compile-only
 # (`-c`) invocations silently ignore `-optl-L`, so the wrapper is safe
 # to interpose on every ghc call.
+#
+# The wrapper also injects `-pgmc/-pgma/-pgml <CC>`: the bundled GHC's
+# `settings` records the C-compiler command as a bare `cc` (a reproducibility
+# neutralization in the install action), which is absent on PATH here, so
+# hadrian's deriveConstants would fail with "Cannot find executable 'cc'".
+# `<CC>` is the toolchain compiler tool path used without sysroot flags, i.e.
+# a host-runnable clang, which deriveConstants needs since it both compiles
+# and runs probe binaries.
+CC_PATH="{cc_path}"
+LD_PATH="{ld_path}"
+case "$CC_PATH" in /*) ;; *) CC_PATH="$EXECROOT/$CC_PATH" ;; esac
+case "$LD_PATH" in /*) ;; *) LD_PATH="$EXECROOT/$LD_PATH" ;; esac
+export CC="$CC_PATH"
+export LD="$LD_PATH"
+
 GHC_WRAPPER_DIR=$(mktemp -d)
 GHC_BIN_DIR="$(dirname "$EXECROOT/{ghc_path}")"
 # Mirror every bindist binary into the wrapper dir via symlinks, then
@@ -110,13 +125,24 @@ for bin in "$GHC_BIN_DIR"/*; do
 done
 cat > "$GHC_WRAPPER_DIR/ghc" <<'WRAPPER_EOF'
 #!/bin/sh
-exec "__GHC_REAL__" -optl-L"__GMP_DIR__" "$@"
+exec "__GHC_REAL__" -pgmc "__CC__" -pgma "__CC__" -pgml "__CC__" -optl-fuse-ld=lld -optl-no-pie -optl-L"__GMP_DIR__" "$@"
 WRAPPER_EOF
 sed -i \
     -e "s|__GHC_REAL__|$EXECROOT/{ghc_path}|" \
+    -e "s|__CC__|$CC_PATH|g" \
     -e "s|__GMP_DIR__|$EXECROOT/{gmp_lib_dir}|" \
     "$GHC_WRAPPER_DIR/ghc"
 chmod +x "$GHC_WRAPPER_DIR/ghc"
+
+# hadrian resolves the C compiler by a literal PATH lookup of the settings'
+# C-compiler name (`cc`, our reproducibility neutralization), not through
+# GHC's `-pgm*`. Provide a `cc` shim forwarding to the host-runnable clang.
+cat > "$GHC_WRAPPER_DIR/cc" <<'CC_EOF'
+#!/bin/sh
+exec "__CC__" "$@"
+CC_EOF
+sed -i -e "s|__CC__|$CC_PATH|" "$GHC_WRAPPER_DIR/cc"
+chmod +x "$GHC_WRAPPER_DIR/cc"
 export PATH="$GHC_WRAPPER_DIR:$PATH"
 
 # Locale
@@ -125,13 +151,6 @@ if [ "$(uname)" = "Darwin" ]; then
 else
     export LANG=C.UTF-8
 fi
-
-CC_PATH="{cc_path}"
-LD_PATH="{ld_path}"
-case "$CC_PATH" in /*) ;; *) CC_PATH="$EXECROOT/$CC_PATH" ;; esac
-case "$LD_PATH" in /*) ;; *) LD_PATH="$EXECROOT/$LD_PATH" ;; esac
-export CC="$CC_PATH"
-export LD="$LD_PATH"
 
 # Copy GHC source tree to a writable temp directory
 GHC_DIR="$EXECROOT/{ghc_src_dir}"
