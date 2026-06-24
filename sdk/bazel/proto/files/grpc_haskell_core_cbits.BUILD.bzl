@@ -1,8 +1,8 @@
-load("@daml-sdk//bazel_tools:fat_cc_library.bzl", "fat_cc_library")
+load("@daml-sdk//bazel_tools:cc_bundle.bzl", "cc_bundle")
 
-fat_cc_library(
+cc_bundle(
     name = "merged_cbits",
-    input_lib = "cbits",
+    lib = "cbits",
     visibility = ["//visibility:public"],
 )
 
