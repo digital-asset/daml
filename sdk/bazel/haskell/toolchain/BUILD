@@ -8,6 +8,7 @@ ghc_bindist_install(
     name = "ghc_install",
     srcs = "@ghc_bindist//:bindist_srcs",
     configure = "@ghc_bindist//:bindist_unpacked/configure",
+    bz2 = "@bzip2//:libs",
     gmp = "@gmp//:libs",
     libz = "@libz//:libs",
     make = "@make//:make",
