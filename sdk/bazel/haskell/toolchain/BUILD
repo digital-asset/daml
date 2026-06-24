@@ -9,6 +9,7 @@ ghc_bindist_install(
     srcs = "@ghc_bindist//:bindist_srcs",
     configure = "@ghc_bindist//:bindist_unpacked/configure",
     gmp = "@gmp//:libs",
+    libz = "@libz//:libs",
     make = "@make//:make",
     tinfo = ":libtinfo.so.5",
     visibility = ["//visibility:public"],
