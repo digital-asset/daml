@@ -16,6 +16,22 @@ ghc_bindist_install(
     visibility = ["//visibility:public"],
 )
 
+filegroup(
+    name = "install_tree",
+    srcs = [":ghc_install"],
+    output_group = "install_tree",
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "ghc_pkg_bin",
+    srcs = [":install_tree"],
+    outs = ["ghc-pkg"],
+    cmd = 'cp -L "$(location :install_tree)/lib/bin/ghc-pkg" "$@"',
+    executable = True,
+    visibility = ["//visibility:public"],
+)
+
 toolchain_type(name = "ghc_toolchain_type")
 
 ghc_toolchain(
