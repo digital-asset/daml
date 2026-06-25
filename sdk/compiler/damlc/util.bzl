@@ -20,7 +20,7 @@ def _ghc_pkg_label():
     if is_windows:
         return "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe"
     elif is_linux_intel:
-        return "@rules_haskell_ghc_linux_amd64//:" + _GHC_PKG_LINUX
+        return "//bazel/haskell/toolchain:install_tree"
     elif is_linux_arm:
         return "@rules_haskell_ghc_linux_arm64//:" + _GHC_PKG_LINUX
     elif is_darwin_arm64:
@@ -31,3 +31,10 @@ def _ghc_pkg_label():
         fail("Unsupported platform for ghc-pkg")
 
 ghc_pkg = _ghc_pkg_label()
+
+def _ghc_pkg_dist_label():
+    if is_linux_intel:
+        return "//bazel/haskell/toolchain:ghc_pkg_bin"
+    return _ghc_pkg_label()
+
+ghc_pkg_dist = _ghc_pkg_dist_label()
