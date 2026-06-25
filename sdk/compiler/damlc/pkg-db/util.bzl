@@ -205,7 +205,7 @@ def _daml_package_db_impl(ctx):
     db_dir = ctx.actions.declare_directory(ctx.attr.name + "_dir")
     ctx.actions.run_shell(
         inputs = [inp for pkg in ctx.attr.pkgs for inp in [pkg[DamlPackage].pkg_conf, pkg[DamlPackage].iface_dir, pkg[DamlPackage].dalf, pkg[DamlPackage].pkg_name_version]],
-        tools = [toolchain.tools.ghc_pkg],
+        tools = toolchain.bindir,
         outputs = [db_dir],
         command =
             """
