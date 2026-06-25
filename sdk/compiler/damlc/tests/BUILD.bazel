@@ -7,6 +7,7 @@ load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_and_track_dar_hash_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "STAGING_LF_VERSION", "mangle_for_damlc")
+load("//daml-lf:lf_version_solver.bzl", "solve_lf_versions")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # A REPL with all tests, used as bios for HLS
@@ -209,26 +210,26 @@ da_haskell_library(
     da_haskell_test(
         # NOTE(MH): For some reason, ghc-pkg gets very unhappy if we separate
         # the components of the version number by dot, dash or underscore.
-        name = "integration-{}".format(mangle_for_damlc(version)),
+        name = "integration-{}".format(version.mangled_damlc),
         size = "large",
         srcs = ["src/DA/Test/DamlcIntegrationMain.hs"],
         args = [
             "--daml-lf-version",
-            version,
+            version.dotted,
         ],
         data = [
             ":bond-trading",
             ":cant-skip-preprocessor",
             ":daml-test-files",
-            ":package-vetting-package-a-{}.dar".format(version),
-            ":package-vetting-package-b-{}.dar".format(version),
+            ":package-vetting-package-a-{}.dar".format(version.dotted),
+            ":package-vetting-package-b-{}.dar".format(version.dotted),
             ":query-lf-lib",
             "//compiler/damlc:ghcversion",
             "//compiler/damlc:hpp-copy",
             "//compiler/damlc/pkg-db",
             "//compiler/damlc/stable-packages",
             "//compiler/script-service/server:script_service_jar",
-            "//daml-script/daml:daml-script-{version}.dar".format(version = version),
+            "//daml-script/daml:daml-script-{version}.dar".format(version = version.dotted),
             "@jq_dev_env//:jq",
             ghc_pkg,
         ],
@@ -237,12 +238,16 @@ da_haskell_library(
         ],
         main_function = "DA.Test.DamlcIntegrationMain.main",
         src_strip_prefix = "src",
+        tags = version.tags,
         visibility = ["//visibility:public"],
         deps = [
             ":integration-lib",
         ],
     )
-    for version in COMPILER_LF_VERSIONS
+    for version in solve_lf_versions(
+        regression = "always",
+        runtime = "long",
+    )
 ]
 
 # Tests for daml-doc
