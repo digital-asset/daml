@@ -95,6 +95,7 @@ import Test.Tasty
 import Test.Tasty.Golden (goldenVsStringDiff)
 import qualified Test.Tasty.HUnit as HUnit
 import Test.Tasty.HUnit ((@?=))
+import Test.Tasty.Ingredients.ConsoleReporter (HideSuccesses(..))
 import Test.Tasty.Options
 import Test.Tasty.Providers
 import Test.Tasty.Runners (Result(..))
@@ -197,7 +198,8 @@ main = withComponentVersions $ do
     integrationTestCases <- collectIntegrationTests
     withScriptServices withScriptService integrationTestCases $ \getScriptService -> do
       integrationTests <- buildIntegrationTestTree integrationTestCases registerTODO getScriptService scriptPackageData
-      let tests = testGroup "All" [parseRenderRangeTest, uniqueUniques, integrationTests]
+      let tests = localOption (HideSuccesses True) $
+            testGroup "All" [parseRenderRangeTest, uniqueUniques, integrationTests]
       defaultMainWithIngredients ingredients tests
         `finally` (do
         todos <- readIORef todoRef
