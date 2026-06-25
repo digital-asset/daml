@@ -4,10 +4,10 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//daml-lf:daml-lf.bzl", "LF_DOCS_VERSION")
 load("//rules_daml:daml.bzl", "daml_doc_test")
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_linux_intel", "is_windows")
 load("//bazel_tools/packaging:packaging.bzl", "package_app", "package_oci_component")
 load("//bazel_tools/runfiles:defs.bzl", "add_data")
-load(":util.bzl", "ghc_pkg")
+load(":util.bzl", "ghc_pkg", "ghc_pkg_dist")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 
@@ -171,15 +171,17 @@ package_oci_component(
 
 # ghc-pkg is linked dynamically on Linux by default so we need to run it
 # through package_app before we distribute it.
-package_app(
+# Linux ghc-pkg is the hermetic ELF: its $ORIGIN-relative RPATH resolves the
+# libHS*.so + libtinfo + libgmp closure within the install tree, so package-app
+# must run against the in-tree binary (co-located with that closure).
+genrule(
     name = "ghc-pkg-dist",
-    binary = ghc_pkg,
-    extra_lib_dirs = [
-        "//bazel/haskell/toolchain:tinfo_libs",
-        "@gmp//:libs",
-    ],
+    srcs = ["//bazel/haskell/toolchain:install_tree"],
+    outs = ["ghc-pkg-dist.tar.gz"],
+    cmd = '$(execpath //bazel_tools/packaging:package-app) "$(location //bazel/haskell/toolchain:install_tree)/lib/bin/ghc-pkg" "$@"',
+    tools = ["//bazel_tools/packaging:package-app"],
     visibility = ["//visibility:public"],
-) if not is_windows else genrule(
+) if is_linux_intel else (genrule(
     name = "ghc-pkg-dist",
     srcs = [
         "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe",
@@ -199,7 +201,16 @@ package_app(
       $$MKTGZ $$OUT ghc-pkg
     """,
     tools = ["//bazel_tools/sh:mktgz"],
-)
+    visibility = ["//visibility:public"],
+) if is_windows else package_app(
+    name = "ghc-pkg-dist",
+    binary = ghc_pkg_dist,
+    extra_lib_dirs = [
+        "//bazel/haskell/toolchain:tinfo_libs",
+        "@gmp//:libs",
+    ],
+    visibility = ["//visibility:public"],
+))
 
 da_haskell_library(
     name = "damlc-lib",
