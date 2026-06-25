@@ -30,7 +30,7 @@ repos:
       name: buildifier
       language: system
       require_serial: true
-      entry: "bash -c 'cd sdk/ && bazel build @com_github_bazelbuild_buildtools//buildifier 2>/dev/null && files=(\"$@\") && bazel-bin/external/com_github_bazelbuild_buildtools/buildifier/buildifier_/buildifier -mode=fix -v ${files[@]##sdk/}' bash"
+      entry: "bash -c 'root=$PWD && cd sdk/ && bazel run @com_github_bazelbuild_buildtools//buildifier -- -mode=fix -v \"${@/#/$root/}\"' bash"
       types: [bazel]
     - id: pprettier
       name: pprettier
