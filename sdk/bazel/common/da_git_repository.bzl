@@ -29,6 +29,7 @@ load(
 _DEFAULT_GIT_TIMEOUT = 600
 _DEFAULT_SUBMODULE_TIMEOUT = 1800
 _DEFAULT_SUBMODULE_JOBS = 8
+_DEFAULT_SUBMODULE_DEPTH = 1
 
 def _git(ctx, args, *, timeout, cwd = None, check = True):
     # "core.fsmonitor=false" mirrors `git_worker.bzl`: it stops git from
@@ -89,8 +90,14 @@ def _impl(ctx):
 
     if ctx.attr.recursive_init_submodules or ctx.attr.init_submodules:
         recursive_args = ["--recursive"] if ctx.attr.recursive_init_submodules else []
-        ctx.report_progress("Updating submodules with --jobs {} (timeout {}s)".format(
+
+        # `--depth` shallow-fetches each submodule at its pinned SHA instead of
+        # its full history. Requires the submodule remote to honor SHA-in-want;
+        # set `submodule_depth = 0` for full history if a pin isn't shallow-fetchable.
+        depth_args = ["--depth", str(ctx.attr.submodule_depth)] if ctx.attr.submodule_depth > 0 else []
+        ctx.report_progress("Updating submodules with --jobs {} --depth {} (timeout {}s)".format(
             ctx.attr.submodule_jobs,
+            ctx.attr.submodule_depth,
             submodule_timeout,
         ))
         _git(
@@ -108,7 +115,7 @@ def _impl(ctx):
                 "--force",
                 "--jobs",
                 str(ctx.attr.submodule_jobs),
-            ] + recursive_args,
+            ] + depth_args + recursive_args,
             timeout = submodule_timeout,
             cwd = root,
         )
@@ -140,6 +147,12 @@ _common_attrs = {
     "submodule_jobs": attr.int(
         default = _DEFAULT_SUBMODULE_JOBS,
         doc = "Value passed as `--jobs` to `git submodule update`.",
+    ),
+    "submodule_depth": attr.int(
+        default = _DEFAULT_SUBMODULE_DEPTH,
+        doc = "`--depth` for `git submodule update`. 1 (default) = shallow " +
+              "fetch each submodule at its pinned SHA; 0 = full history " +
+              "(escape hatch when a pin isn't reachable-shallow on its remote).",
     ),
     "submodule_timeout": attr.int(
         default = _DEFAULT_SUBMODULE_TIMEOUT,
@@ -177,6 +190,8 @@ submodule-heavy git dependency in this repo:
 
   * `submodule_jobs` -- value passed as `--jobs` to `git submodule update`,
     so the recursive init runs in parallel instead of serially.
+  * `submodule_depth` -- `--depth` for `git submodule update` (default 1), so
+    each submodule is shallow-fetched at its pinned SHA instead of full history.
   * `submodule_timeout` / `git_timeout` -- explicit per-call timeouts for
     `ctx.execute`, since `git_repository` is hardcoded to the 600 s default
     and provides no way to raise it.
