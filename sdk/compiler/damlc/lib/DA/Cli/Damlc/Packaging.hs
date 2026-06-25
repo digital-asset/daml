@@ -568,6 +568,8 @@ getGhcPkgExe = locateResource Resource
   , runfilesPathPrefix =
       if isWindows then
         "rules_haskell_ghc_windows_amd64" </> "bin"
+      else if isLinux && arch == "x86_64" then
+        mainWorkspace </> "bazel" </> "haskell" </> "toolchain" </> "ghc_install_install" </> "lib" </> "bin"
       else
         ghcBindistRepo </> ghcPkgSubpath
   }
