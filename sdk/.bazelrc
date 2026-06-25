@@ -163,8 +163,6 @@ build -c opt
 #                             "???()" interpreted as a trigraph
 #   -Wreturn-type               ~62 lines, gRPC channelz.h non-exhaustive
 #                             switch with no terminal return
-#   -Wstringop-overflow           4 lines, gRPC chttp2_transport.cc inline
-#                             slice writes flagged by GCC's static analyzer
 #   -Wdeprecated-declarations  ~117 lines, protobuf calling its own deprecated
 #                             FieldOptions::weak() accessor (mostly via
 #                             generated _virtual_includes/.../helpers.h)
@@ -181,7 +179,7 @@ build -c opt
 #   we get advance notice when the JDK actually drops the API. Add ",-removal"
 #   to the javacopt lines below to silence it if needed.
 # ----------------------------------------------------------------------------
-build --per_file_copt=external/grpc.*\.(cc|cpp|cxx|c)$@-Wno-attributes,-Wno-trigraphs,-Wno-return-type,-Wno-stringop-overflow
+build --per_file_copt=external/grpc.*\.(cc|cpp|cxx|c)$@-Wno-attributes,-Wno-trigraphs,-Wno-return-type
 build --per_file_copt=external/pigz.*\.(c|cc)$@-Wno-unused-variable,-Wno-unused-but-set-variable
 build --per_file_copt=external/protobuf.*\.(cc|cpp|cxx|c)$@-Wno-deprecated-declarations
 build --javacopt=-Xlint:-options,-path
@@ -190,7 +188,6 @@ build --host_copt=-Wno-unknown-warning-option
 build --host_copt=-Wno-attributes
 build --host_copt=-Wno-trigraphs
 build --host_copt=-Wno-return-type
-build --host_copt=-Wno-stringop-overflow
 build --host_copt=-Wno-unused-variable
 build --host_copt=-Wno-unused-but-set-variable
 build --host_copt=-Wno-deprecated-declarations
