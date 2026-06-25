@@ -190,7 +190,6 @@ buildifier(
     verbose = True,
 )
 
-
 # Default target for da-ghci, da-ghcid.
 da_haskell_repl(
     name = "repl",
