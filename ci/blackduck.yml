@@ -14,7 +14,7 @@ jobs:
     name: ubuntu_20_04
     demands: assignment -equals default
   variables:
-    blackduck_script_sha: 38d470d9c5eec72d5ff5b7259782caa7ae31a478
+    blackduck_script_sha: 7002466c2f0bd359a7e9d9b78eb3ef549be306d3
   steps:
   - checkout: self
     clean: true

@@ -22,9 +22,9 @@ da_haskell_binary(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-project-config",
         "//compiler/damlc/daml-resolution-config",
         "//component-version/hs:component-version-lib",
-        "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

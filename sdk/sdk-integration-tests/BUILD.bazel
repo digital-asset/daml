@@ -6,11 +6,11 @@ load("@build_environment//:configuration.bzl", "mvn_version")
 
 # A REPL with all tests, used as bios for HLS
 da_haskell_repl(
-    name = "tests@ghci",
+    name = "sdk-integration-tests@ghci",
     testonly = True,
     deps = [
-        ":integration-test-utils",
-        ":integration-tests",
+        ":tests",
+        ":utils",
     ],
 )
 
@@ -20,8 +20,8 @@ os_dependent_libraries = [] if is_windows else [
 ]
 
 da_haskell_library(
-    name = "integration-test-utils",
-    srcs = ["src/DA/Daml/Assistant/IntegrationTestUtils.hs"],
+    name = "utils",
+    srcs = ["src/DA/Daml/SdkIntegrationTests/Utils.hs"],
     hackage_deps = [
         "aeson",
         "base",
@@ -48,10 +48,10 @@ da_haskell_library(
 )
 
 da_haskell_test(
-    name = "integration-tests",
+    name = "tests",
     timeout = "long",
     srcs = [
-        "src/DA/Daml/Assistant/IntegrationTests.hs",
+        "src/DA/Daml/SdkIntegrationTests/Tests.hs",
     ],
     args = [
         "$(location //:yarn)",
@@ -82,11 +82,11 @@ da_haskell_test(
         "text",
         "vector",
     ],
-    main_function = "DA.Daml.Assistant.IntegrationTests.main",
+    main_function = "DA.Daml.SdkIntegrationTests.Tests.main",
     tags = ["cpu:2"],
     visibility = ["//visibility:public"],
     deps = [
-        ":integration-test-utils",
+        ":utils",
         "//component-version/hs:component-version-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",

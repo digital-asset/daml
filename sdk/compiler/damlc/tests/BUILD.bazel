@@ -55,9 +55,9 @@ da_haskell_test(
     src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
+        "//compiler/daml-project-config",
         "//compiler/damlc:damlc-lib",
         "//component-version/hs:component-version-lib",
-        "//daml-assistant:daml-project-config",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
@@ -188,6 +188,7 @@ da_haskell_library(
         "//compiler/daml-lf-proto:daml_lf_archive_haskell_proto",
         "//compiler/daml-lf-proto-encode",
         "//compiler/daml-lf-tools",
+        "//compiler/daml-project-config",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",
@@ -198,7 +199,6 @@ da_haskell_library(
         "//compiler/damlc/daml-rule-types",
         "//compiler/script-service/client",
         "//component-version/hs:component-version-lib",
-        "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
@@ -687,13 +687,13 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-project-config",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-resolution-config",
         "//component-version/hs:component-version-lib",
-        "//daml-assistant:daml-project-config",
-        "//daml-assistant/integration-tests:integration-test-utils",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
+        "//sdk-integration-tests:utils",
     ],
 )
 
@@ -1014,6 +1014,7 @@ da_haskell_test(
     main_function = "DA.Test.ScriptService.main",
     deps = [
         "//compiler/daml-lf-ast",
+        "//compiler/daml-project-config",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",
@@ -1022,7 +1023,6 @@ da_haskell_test(
         "//compiler/damlc/daml-rule-types",
         "//compiler/script-service/client",
         "//component-version/hs:component-version-lib",
-        "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
@@ -1238,7 +1238,6 @@ filegroup(
     name = "divulgence-daml-test-files",
     srcs = [
         "daml-test-files/AuthFailure.daml",
-        "daml-test-files/AuthFailureWithKey.daml",
         "daml-test-files/AuthorizedDivulgence.daml",
         "daml-test-files/DiscloseViaChoiceObserver.daml",
         "daml-test-files/Divulgence.daml",

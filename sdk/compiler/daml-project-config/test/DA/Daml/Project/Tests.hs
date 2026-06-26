@@ -27,7 +27,7 @@ import Control.Exception (catch, displayException)
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True -- we need this because we use withEnv in our tests
-    Tasty.defaultMain $ Tasty.testGroup "DA.Daml.Assistant"
+    Tasty.defaultMain $ Tasty.testGroup "DA.Daml.Project"
         [ testAscendants
         , testEnvironmentVariableInterpolation
         ]

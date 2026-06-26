@@ -24,4 +24,3 @@ jobs:
 - template: ci/check-for-release-job.yml
 
 - template: ci/split-release-job.yml
-- template: ci/refresh-get-daml-com.yml

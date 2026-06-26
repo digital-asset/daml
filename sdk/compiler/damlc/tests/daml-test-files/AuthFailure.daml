@@ -10,7 +10,6 @@ import DA.Optional(fromSome)
 -- Three kinds of authorization failure are tested here.
 -- Three others (NoSignatories, NoControllers) are tested in separate files, because the expected
 -- error message doesn't contain any indication of which testcase causes it.
--- Two others are tested in AuthFailureWithKey, because keys are only supported in dev.
 
 template TheContract1
   with
@@ -18,7 +17,7 @@ template TheContract1
   where
     signatory s
 
--- @ERROR range=23:1-23:30; failed due to a missing authorization from 'Ivy'
+-- @ERROR range=22:1-22:30; failed due to a missing authorization from 'Ivy'
 t1_CreateMissingAuthorization : Script ()
 t1_CreateMissingAuthorization = script do
   mach <- allocateParty "Mach"
@@ -54,7 +53,7 @@ template Test3
       controller bob
       do fetch @TheContract3 cid
 
--- @ERROR range=59:1-59:29; failed since none of the stakeholders 'Alice' is in the authorizing set 'Bob'
+-- @ERROR range=58:1-58:29; failed since none of the stakeholders 'Alice' is in the authorizing set 'Bob'
 t3_FetchMissingAuthorization : Script ()
 t3_FetchMissingAuthorization = script do
   alice <- allocateParty "Alice"
@@ -78,7 +77,7 @@ template TheContract4
       controller cs
       do return ()
 
--- @ERROR range=83:1-83:32; failed due to a missing authorization from 'Bob'
+-- @ERROR range=82:1-82:32; failed due to a missing authorization from 'Bob'
 t4_ExerciseMissingAuthorization : Script ()
 t4_ExerciseMissingAuthorization = script do
   alice <- allocateParty "Alice"

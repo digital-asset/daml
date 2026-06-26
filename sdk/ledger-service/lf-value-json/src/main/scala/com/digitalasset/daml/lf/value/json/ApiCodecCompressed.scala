@@ -104,9 +104,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
 
   private[this] def apiMapToJsValue(value: V.ValueTextMap): JsValue =
     JsObject(
-      value.value
-        .mapValue(apiValueToJsValue)
-        .toHashMap
+      value.value.iterator.map { case (key, value) => key -> apiValueToJsValue(value) }.toMap
     )
 
   private[this] def apiGenMapToJsValue(value: V.ValueGenMap): JsValue =
@@ -178,7 +176,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
           case _ if !useArray => V.ValueOptional(Some(jsValueToApiValue(value, typArg, defs)))
         }
       case Model.DamlLfPrimType.TextMap => { case JsObject(a) =>
-        V.ValueTextMap(SortedLookupList(a.transform { (_, v) =>
+        V.ValueTextMap(SortedLookupList.from(a.transform { (_, v) =>
           jsValueToApiValue(v, prim.typArgs.head, defs)
         }))
       }

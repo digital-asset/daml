@@ -155,7 +155,6 @@ freeVarsStep = \case
         ULedgerTimeLTF e -> e
         UEmbedExprF t e -> freeVarsInType t <> e
         UFetchByKeyF _ -> mempty
-        ULookupByKeyF _ -> mempty
         ULookupNByKeyF _ -> mempty
         UTryCatchF t e1 x e2 -> freeVarsInType t <> e1 <> bindExprVar x e2
 

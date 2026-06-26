@@ -41,12 +41,12 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
+        "//compiler/daml-project-config",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-lf-util",
         "//compiler/damlc/daml-package-config",
         "//compiler/damlc/daml-rule-types",
-        "//daml-assistant:daml-project-config",
         "//libs-haskell/da-hs-base",
     ],
 )

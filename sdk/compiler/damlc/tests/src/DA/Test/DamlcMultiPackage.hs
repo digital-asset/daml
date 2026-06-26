@@ -9,7 +9,7 @@ import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.ByteString.Char8 as BSC
 import Control.Exception (try)
 import Control.Monad.Extra (forM_, unless, void)
-import DA.Daml.Assistant.IntegrationTestUtils (withDpmSdkExtraVerResource)
+import DA.Daml.SdkIntegrationTests.Utils (withDpmSdkExtraVerResource)
 import DA.Daml.Project.Consts (sdkVersionDpmEnvVar)
 import DA.Daml.Resolution.Config (ResolutionData (..), PackageResolutionData (..), ValidPackageResolution (..), resolutionFileEnvVar, toPosixFilePath)
 import DA.Cli.Damlc (MultiPackageManifestEntry (..))

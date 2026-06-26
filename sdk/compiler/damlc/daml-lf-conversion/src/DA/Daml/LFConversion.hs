@@ -117,10 +117,12 @@ import           Data.Tuple.Extra
 import           Data.Ratio
 import           "ghc-lib" GHC
 import           "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
+import           "ghc-lib-parser" ConLike (ConLike (..))
 import           "ghc-lib-parser" InstEnv (ClsInst(..))
 import           "ghc-lib-parser" Pair hiding (swap)
 import           "ghc-lib-parser" PrelNames
 import           "ghc-lib-parser" TysPrim
+import           "ghc-lib-parser" PatSyn
 import           "ghc-lib-parser" TyCoRep
 import           "ghc-lib-parser" Class (classHasFds, classMinimalDef, classOpItems)
 import qualified "ghc-lib-parser" Name
@@ -230,12 +232,19 @@ data ModuleContents = ModuleContents
   , mcDepOrphanModules :: [GHC.Module]
   , mcExports :: [GHC.AvailInfo]
   , mcFixities :: [(OccName, GHC.Fixity)]
+  , mcPatternSynonymTypes :: MS.Map VariantConName PatSynType
+  , mcCompleteMatches :: [LFCompleteMatch GHC.Name]
   }
 
 data ChoiceData = ChoiceData
   { _choiceDatTy :: GHC.Type
   , _choiceDatExpr :: GHC.Expr GHC.CoreBndr
   }
+
+data PatSynType
+  = ConPatSyn
+  | RecordPatSyn [GHC.Name]
+  | InfixPatSyn
 
 extractModuleContents :: Env -> CoreModule -> ModIface -> ModDetails -> ModuleContents
 extractModuleContents env@Env{..} coreModule modIface details = do
@@ -278,6 +287,15 @@ extractModuleContents env@Env{..} coreModule modIface details = do
     mcDepOrphanModules = getDepOrphanModules modIface
     mcExports = md_exports details
     mcFixities = mi_fixities modIface
+    mcPatternSynonymTypes =
+      MS.fromList $ do
+        AConLike (PatSynCon syn) <- mcTypeDefs
+        let patSynType =
+              if | patSynIsInfix syn -> InfixPatSyn
+                 | patSynArity syn > 0 && patSynArity syn == length (patSynFieldLabels syn) -> RecordPatSyn $ flSelector <$> patSynFieldLabels syn
+                 | otherwise -> ConPatSyn
+        pure (VariantConName $ T.pack $ getOccString $ patSynName syn, patSynType)
+    mcCompleteMatches = completeMatchToLf <$> md_complete_sigs details
 
   ModuleContents {..}
 
@@ -787,6 +805,7 @@ convertModuleContents env mc = do
     templates <- convertTemplateDefs env mc
     exceptions <- convertExceptionDefs env mc
     interfaces <- convertInterfaces env mc
+    patsynMetadata <- convertPatternSynonymMetadata env mc
     let fixities = convertFixities mc
         defs =
             types
@@ -796,6 +815,7 @@ convertModuleContents env mc = do
             ++ interfaces
             ++ depOrphanModules
             ++ fixities
+            ++ patsynMetadata
     -- Exports need to know what is defined to know if it should export it
     exports <- convertExports env mc defs
     pure $ defs ++ exports
@@ -848,8 +868,7 @@ convertTypeDef env msi o@(ATyCon t) = withRange (convNameLoc t) $ if
     -> pure []
 
     -- Remove HasLookupByKey class declaration when unsupported
-    | not (envLfVersion env `supports` featureLegacyLookupByKey)
-    , Just cls <- tyConClass_maybe t
+    | Just cls <- tyConClass_maybe t
     , NameIn DA_Internal_Template_Functions "HasLookupByKey" <- cls
     -> pure []
 
@@ -1012,6 +1031,27 @@ convertFixities = zipWith mkFixityDef [0..] . mcFixities
           (fixityName i)
           (encodeFixityInfo fixityInfo)
 
+-- Encodes pattern synonym record field names and complete pragmas to metadata stubs
+convertPatternSynonymMetadata :: Env -> ModuleContents -> ConvertM [Definition]
+convertPatternSynonymMetadata env mc = do
+  fieldDefs <- fmap catMaybes $ forM (MS.toList $ mcPatternSynonymTypes mc) $ \case
+    -- Regular constructors need no extra data
+    (_, ConPatSyn) -> pure Nothing
+    -- Record matches need the field names
+    (name, RecordPatSyn unqualFieldNames) -> do
+      fieldNames <- traverse convertQualName unqualFieldNames
+      pure $ Just $ DValue $ mkMetadataStub (ExprValName $ "$mfields" <> unVariantConName name) $ encodeFieldNames fieldNames
+    -- Infix matches need only a tag, field names will always be empty
+    (name, InfixPatSyn) ->
+      pure $ Just $ DValue $ mkMetadataStub (ExprValName $ "$minfix" <> unVariantConName name) $ LF.TBuiltin LF.BTUnit
+  matchDefs <- forM (zip [0..] (mcCompleteMatches mc)) $ \(i :: Int, unqualMatch) -> do
+    match <- traverse convertQualName unqualMatch
+    pure $ DValue $ mkMetadataStub (ExprValName $ "$completeMatch" <> T.pack (show i)) $ encodeLFCompleteMatch match
+  pure $ fieldDefs <> matchDefs
+  where
+    convertQualName :: GHC.Name -> ConvertM QualName
+    convertQualName = fmap QualName . convertQualified getOccName env
+
 convertExports :: ComponentVersioned => Env -> ModuleContents -> [Definition] -> ConvertM [Definition]
 convertExports env mc existingDefs = do
     let externalReExportInfos = filter (isReExportName . GHC.availName) (mcExports mc)
@@ -1024,7 +1064,7 @@ convertExports env mc existingDefs = do
     if isPrimOrStdlib
       then pure reExportDefs
       else do
-        let externalExportInfos = filter (isExportName . GHC.availName) (mcExports mc) \\ externalReExportInfos
+        let externalExportInfos = filter isExportAvail (mcExports mc) \\ externalReExportInfos
         exportInfos <- mapM availInfoToExportInfo externalExportInfos
         let exportDefs = zipWith mkExportDef (exportName <$> [0..]) exportInfos
         pure $ explicitExportsDef : reExportDefs <> exportDefs
@@ -1050,14 +1090,21 @@ convertExports env mc existingDefs = do
         isLocallyUndefined name | nameIsLocalOrFrom thisModule name = not $ getOccText name `elem` localExportables
         isLocallyUndefined _ = False
 
-        isExportName :: Name -> Bool
-        isExportName name = not $
+        isExportAvail :: GHC.AvailInfo -> Bool
+        isExportAvail avail@(GHC.availName -> name) = not $
             isSystemName name
             || isWiredInName name
-            || isLocallyUndefined name
+            || (isLocallyUndefined name && not (availInfoIsPatternSynonym avail))
+
+        -- Value level (i.e. Avail, over AvailTC) data named (as per isDataOcc) definitions are always pattern synonyms
+        availInfoIsPatternSynonym :: GHC.AvailInfo -> Bool
+        availInfoIsPatternSynonym (GHC.Avail name) = isDataOcc (getOccName name)
+        availInfoIsPatternSynonym _ = False
 
         availInfoToExportInfo :: GHC.AvailInfo -> ConvertM ExportInfo
         availInfoToExportInfo = \case
+            avail | availInfoIsPatternSynonym avail -> ExportInfoPattern
+                <$> convertQualName (GHC.availName avail)
             GHC.Avail name -> ExportInfoVal
                 <$> convertQualName name
             GHC.AvailTC name pieces fields -> ExportInfoTC
@@ -1410,13 +1457,11 @@ convertBind env mc (name, x)
     = pure []
 
     -- Remove _lookupByKey wrapper defintition when unsupported
-    | not (envLfVersion env `supports` featureLegacyLookupByKey)
-    , NameIn DA_Internal_Template_Functions "_lookupByKey" <- name
+    | NameIn DA_Internal_Template_Functions "_lookupByKey" <- name
     = pure []
 
     -- Remove HasLookupByKey dictionary declaration when NUCK is unsupported
-    | not (envLfVersion env `supports` featureLegacyLookupByKey)
-    , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasLookupByKey") _ <- name
+    | DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasLookupByKey") _ <- name
     = pure []
 
     -- Remove _fetchByKey wrapper defintition when unsupported
@@ -1750,8 +1795,7 @@ convertExpr env0 e = do
     -- convert usages of _lookupByKey to errorr wen unsupported since the
     -- defintion won't exist
     go env (VarIn DA_Internal_Template_Functions "_lookupByKey") _
-        | not $ envLfVersion env `supports` featureLegacyLookupByKey
-        = conversionError $ FeatureNotSupported featureLegacyLookupByKey (envLfVersion env)
+        = conversionError $ Unsupported "lookupByKey" "lookupByKey"
     -- convert usages of _fetchByKey to errorr wen unsupported since the
     -- defintion won't exist
     go env (VarIn DA_Internal_Template_Functions "_fetchByKey") _

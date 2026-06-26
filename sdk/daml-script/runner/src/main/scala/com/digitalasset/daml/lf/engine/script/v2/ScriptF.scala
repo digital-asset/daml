@@ -311,7 +311,7 @@ object ScriptF {
                   ("message", ValueText(errorMessage)),
                   (
                     "meta",
-                    ValueTextMap(SortedLookupList(metadata.map { case (k, v) =>
+                    ValueTextMap(SortedLookupList.from(metadata.map { case (k, v) =>
                       (k, ValueText(v))
                     })),
                   ),

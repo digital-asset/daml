@@ -247,7 +247,7 @@ runGhcFast act = do
     setSession env
     GHC.withCleanupSession act
 
--- | Language options enabled in the Daml-1.2 compilation
+-- | Language options enabled in the Daml compilation
 xExtensionsSet :: [Extension]
 xExtensionsSet =
   [ -- Haskell 2010 extensions which are enabled by default (we would need to
@@ -277,6 +277,8 @@ xExtensionsSet =
   , MonadComprehensions
     -- package imports
   , PackageImports
+    -- used for daml-script
+  , PatternSynonyms
     -- our changes
   , DamlSyntax
   , OverloadedRecordUpdate

@@ -157,7 +157,7 @@ object ValueGenerators {
       list <- Gen.listOf(for {
         k <- Gen.asciiPrintableStr; v <- valueGen()
       } yield k -> v)
-    } yield ValueTextMap(SortedLookupList(Map(list: _*)))
+    } yield ValueTextMap(SortedLookupList.from(list.toMap))
 
   def valueGenMapGen: Gen[ValueGenMap] =
     Gen
@@ -294,13 +294,6 @@ object ValueGenerators {
   private[lf] val genMaybeEmptyParties: Gen[Set[Party]] = Gen.listOf(party).map(_.toSet)
 
   val genNonEmptyParties: Gen[Set[Party]] = ^(party, genMaybeEmptyParties)((hd, tl) => tl + hd)
-
-  val versionedContractInstanceGen: Gen[Value.VersionedThinContractInstance] =
-    for {
-      template <- idGen
-      arg <- versionedValueGen
-      pkgName <- pkgNameGen
-    } yield arg.map(Value.ThinContractInstance(pkgName, template, _))
 
   def keyWithMaintainersGen(
       templateId: TypeConId,
