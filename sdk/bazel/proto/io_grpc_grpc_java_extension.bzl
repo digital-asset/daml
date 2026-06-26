@@ -17,23 +17,17 @@ def _impl(module_ctx):
         # returning const std::string& to absl::string_view.  absl::string_view
         # does not have an implicit conversion to std::string, so all usages
         # where std::string is expected must be wrapped in std::string(...).
+        # Wrap bare ->name() / ->file()->name() in std::string() so absl::string_view
+        # (protobuf 3.22+ Descriptor::name()) converts to std::string. sed (in the base
+        # image) keeps this fetch host-python-free; the three patterns are disjoint, so
+        # the order is irrelevant and no double-wrap can occur.
         patch_cmds = [
             "sed -i 's|@com_google_protobuf|@protobuf|g' compiler/BUILD.bazel",
-            """python3 -c "
-import re, sys
-path = 'compiler/src/java_plugin/cpp/java_generator.cpp'
-text = open(path).read()
-# Wrap all bare ->name() and ->file()->name() calls in std::string()
-# so absl::string_view is explicitly converted to std::string everywhere.
-for sv in ['method->name()', 'service->name()', 'service->file()->name()']:
-    text = text.replace(sv, 'std::string(' + sv + ')')
-# Undo double-wrapping introduced by the above loop.
-for sv in ['method->name()', 'service->name()', 'service->file()->name()']:
-    double = 'std::string(std::string(' + sv + '))'
-    single = 'std::string(' + sv + ')'
-    text = text.replace(double, single)
-open(path, 'w').write(text)
-" """,
+            "sed -i" +
+            " -e 's/method->name()/std::string(method->name())/g'" +
+            " -e 's/service->name()/std::string(service->name())/g'" +
+            " -e 's/service->file()->name()/std::string(service->file()->name())/g'" +
+            " compiler/src/java_plugin/cpp/java_generator.cpp",
         ],
     )
 
