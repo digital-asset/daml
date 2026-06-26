@@ -32,12 +32,29 @@ diff --git a/haskell/ghc_bindist.bzl b/haskell/ghc_bindist.bzl
 @@ -5 +5 @@
 -load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
 +load(":private/get_cpu_value_compat.bzl", "get_cpu_value")
-@@ -642 +642 @@
+@@ -563,7 +562,0 @@
+-    python3_path = find_python(repository_ctx)
+-    if check_bazel_version("4.2.0")[0]:
+-        stub_shebang = """stub_shebang = "#!{python3_path}",""".format(
+-            python3_path = python3_path,
+-        )
+-    else:
+-        stub_shebang = ""
+@@ -572 +565 @@
 -    "@bazel_tools//tools/python:toolchain.bzl",
 +    "@rules_python//python:py_runtime_pair.bzl",
-@@ -658 +658 @@
+@@ -577 +570 @@
+-    interpreter_path = "{python3}",
++    interpreter = "@rules_haskell_hermetic_python//:python3",
+@@ -579 +571,0 @@
+-    {stub_shebang}
+@@ -588 +580 @@
 -    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 +    toolchain_type = "@rules_python//python:toolchain_type",
+@@ -599 +590,0 @@
+-        python3 = python3_path,
+@@ -602 +592,0 @@
+-        stub_shebang = stub_shebang,
 diff --git a/haskell/cabal.bzl b/haskell/cabal.bzl
 --- a/haskell/cabal.bzl
 +++ b/haskell/cabal.bzl
