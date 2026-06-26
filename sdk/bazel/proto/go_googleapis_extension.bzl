@@ -20,7 +20,7 @@ def _impl(module_ctx):
             # The Haskell gRPC bindings require access to the status.proto source file.
             "//bazel/patches:go_googleapis/status-proto.patch",
         ],
-        patch_args = ["-E", "-p1"],
+        patch_args = ["-p1"],
     )
 
 googleapis_extension = module_extension(implementation = _impl)
