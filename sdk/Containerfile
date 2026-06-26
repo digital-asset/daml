@@ -3,20 +3,13 @@ FROM ubuntu:22.04
 ARG HOME_DIR=/home/host
 ARG BAZELISK_SHA256=186d78a20e1a64f59ba08987791a989892d142c9d3a9f9cc0c5c35e201f53924
 
-ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
       ca-certificates \
       wget \
-      curl \
-      patch \
       git \
-      xz-utils \
-      unzip \
-      locales \
-      python3 \
-    && locale-gen en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -m -d ${HOME_DIR} -s /bin/bash host
 
@@ -33,4 +26,3 @@ RUN install -d -o host -g host -m 0755 \
 
 USER host
 WORKDIR ${HOME_DIR}
-
