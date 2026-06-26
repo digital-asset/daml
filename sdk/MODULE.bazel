@@ -111,6 +111,7 @@ use_repo(pnpm, "pnpm")
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(python_version = "3.12")
+use_repo(python, "python_3_12")
 
 # --- Haskell toolchain and extensions ---
 
@@ -127,6 +128,8 @@ use_repo(
     "rules_haskell_ghc_linux_arm64",
     "rules_haskell_ghc_windows_amd64",
 )
+
+inject_repo(haskell_toolchains_ext, rules_haskell_hermetic_python = "python_3_12")
 
 da_ghc_ext = use_extension("//bazel/haskell:da_ghc_extension.bzl", "da_ghc")
 use_repo(da_ghc_ext, "da-ghc", "ghc-lib-gen")
