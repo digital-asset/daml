@@ -120,6 +120,10 @@ build:linux --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 # Bazel 8); re-enable until the proper patch lands (see migration plan, Phase 7).
 build --noincompatible_disallow_ctx_resolve_tools
 
+# `script` bootstrap = bash py_binary launchers that exec the hermetic
+# interpreter from runfiles; the default `system_python` stub needs host python3.
+build --@rules_python//python/config_settings:bootstrap_impl=script
+
 # Instruct bazel to globally use this flag for compiling protobuf files.
 # We need the source info for generating proto docs. By default proto_library strips
 # source information and doesn't provide an option to turn this flag on.
