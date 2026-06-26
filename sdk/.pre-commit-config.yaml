@@ -50,6 +50,13 @@ repos:
       pass_filenames: true
       files: ^sdk/(package.json|yarn.lock)$
       entry: "sdk/pre-commit/yarn-lock-check.sh"
+    - id: docs-synchronized
+      name: docs synchronized
+      description: Check that docs/sharable/ is updated when docs/source/ or docs/manually-written/ change
+      language: system
+      pass_filenames: false
+      files: ^sdk/docs/(source|manually-written)/
+      entry: "sdk/pre-commit/docs-synchronized-check.sh"
     - id: mainonly
       name: main only
       description: Check for changes under packages with targets tagged with main-only
