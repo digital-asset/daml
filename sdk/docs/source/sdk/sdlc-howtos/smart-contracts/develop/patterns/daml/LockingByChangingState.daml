@@ -108,5 +108,7 @@ locking =
 
     unlockedCid <- locker `submit` do exerciseCmd lockedCid Unlock
 
+    assert False
+
     propId <- owner `submit` do exerciseCmd unlockedCid Transfer with newOwner
     newOwner `submit` do exerciseCmd propId AcceptTransfer
