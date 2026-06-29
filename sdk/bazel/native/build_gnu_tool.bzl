@@ -1,5 +1,5 @@
-load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
+load("//bazel/native:hermetic_cc.bzl", "TOOLBIN_SNIPPET", "hermetic_cc_flags")
 
 InstalledGnuToolInfo = provider(
     doc = "Paths within a GNU tool install prefix.",
@@ -10,18 +10,6 @@ InstalledGnuToolInfo = provider(
     },
 )
 
-def _compiler_path(ctx, cc_toolchain):
-    feature_configuration = cc_common.configure_features(
-        ctx = ctx,
-        cc_toolchain = cc_toolchain,
-        requested_features = ctx.features,
-        unsupported_features = ctx.disabled_features,
-    )
-    return cc_common.get_tool_for_action(
-        feature_configuration = feature_configuration,
-        action_name = ACTION_NAMES.c_compile,
-    )
-
 def _find_pre_build_configure(dep_src):
     dep_files = dep_src.files.to_list()
     for f in dep_files:
@@ -31,7 +19,7 @@ def _find_pre_build_configure(dep_src):
 
 def _build_gnu_tool_impl(ctx):
     cc_toolchain = find_cc_toolchain(ctx)
-    compiler = _compiler_path(ctx, cc_toolchain)
+    cc = hermetic_cc_flags(ctx, cc_toolchain)
 
     configure_src = ctx.file.configure
     make_bin = ctx.file.make
@@ -53,8 +41,14 @@ def _build_gnu_tool_impl(ctx):
     env_lines = [
         "set -euo pipefail",
         'EXECROOT="$PWD"',
-        'export CC="$EXECROOT/{}"'.format(compiler),
-        'export LDFLAGS="-fuse-ld=lld"',  # lld ships next to clang; sandbox has no host ld.
+        'CLANG="$EXECROOT/{}"'.format(cc.compiler),
+        # lld ships next to clang (sandbox has no host ld); CFLAGS/CPPFLAGS/LDFLAGS
+        # carry the sysroot so configure's compile/preprocess probes stay hermetic.
+        'export CC="$CLANG -fuse-ld=lld"',
+        'export CFLAGS="{}"'.format(cc.cflags),
+        'export CPPFLAGS="{}"'.format(cc.cflags),
+        'export LDFLAGS="{}"'.format(cc.ldflags),
+        TOOLBIN_SNIPPET,
         'MAKE="$EXECROOT/{}"'.format(make_bin.path),
         'SRC="$EXECROOT/$(dirname {})"'.format(configure_src.path),
     ]
