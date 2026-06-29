@@ -193,6 +193,35 @@ jobs:
 
           hdrs=$(mktemp); body=$(mktemp)
 
+          echo "=== 0. Token transit (no token bytes printed; sha256 is one-way) ==="
+          tok="${GITHUB_TOKEN:-}"
+          n=${#tok}
+          if [ "$n" -eq 0 ]; then
+            echo "  EMPTY  -> secret is not reaching this job (variable undefined or not mapped)"
+          elif [ "$tok" = '$(CANTON_READONLY_TOKEN)' ]; then
+            echo "  LITERAL macro -> CANTON_READONLY_TOKEN is undefined in this pipeline (not expanded)"
+          fi
+          # trim leading/trailing whitespace (pure-bash idiom)
+          trimmed="${tok#"${tok%%[![:space:]]*}"}"; trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
+          echo "  length=$n  trimmed_length=${#trimmed}  (40=classic PAT, ~93=fine-grained, 24=unexpanded macro)"
+          case "$tok" in
+            *$'\n'*) echo "  WARNING: value contains a NEWLINE" ;;
+          esac
+          if [ "$n" -ne "${#trimmed}" ]; then
+            echo "  WARNING: value has leading/trailing whitespace -> corrupts the credential"
+          fi
+          echo "  sha256(raw)    =$(printf %s "$tok"     | sha256sum | cut -d' ' -f1)"
+          echo "  sha256(trimmed)=$(printf %s "$trimmed" | sha256sum | cut -d' ' -f1)"
+          echo "  COMPARE locally with the token that works:  printf %s 'THE_TOKEN' | sha256sum"
+
+          if [ -n "$trimmed" ] && [ "$tok" != "$trimmed" ]; then
+            echo "=== 0b. Retry GET /user with TRIMMED token ==="
+            code=$(curl -sS -o /dev/null -w '%{http_code}' \
+                   -H "Authorization: token $trimmed" \
+                   https://api.github.com/user || echo 000)
+            echo "  HTTP $code  (200 here => the secret merely has stray whitespace)"
+          fi
+
           echo "=== 1. Token validity: GET /user ==="
           code=$(curl -sS -o /dev/null -D "$hdrs" -w '%{http_code}' \
                  -H "Authorization: token $GITHUB_TOKEN" \
