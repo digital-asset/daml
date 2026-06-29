@@ -1,0 +1,67 @@
+# Forward the Bazel cc_toolchain's sysroot compile/link flags into Cabal-based
+# package builds (stack_snapshot). rules_haskell already wires -pgm* so GHC uses
+# cc_wrapper, but only the native haskell_library path forwards the toolchain's
+# -isystem/crt/-L flags (-optc/-optl). The Cabal path (cabal_wrapper.py) did not,
+# so package C compiles, hsc2hs probes, and Configure-type ./configure scripts
+# fell back to host headers/libs -- which breaks in a hermetic sandbox. This
+# carries those flags to the package GHC (-optP/-optc/-optl), to hsc2hs
+# (--cflag/--lflag), and to ./configure (CFLAGS/CPPFLAGS/LDFLAGS), absolutised
+# against the execroot since cabal_wrapper builds from a temp cwd.
+diff --git a/haskell/cabal.bzl b/haskell/cabal.bzl
+index 4c7888c..bd07e48 100644
+--- a/haskell/cabal.bzl
++++ b/haskell/cabal.bzl
+@@ -180,6 +180,10 @@ def _cabal_toolchain_info(hs, cc, workspace_name, runghc):
+         is_windows = hs.toolchain.is_windows,
+         workspace = workspace_name,
+         ghc_cc_args = ghc_cc_program_args(hs, "$CC", "$LD"),
++        cc_compiler_flags = cc.compiler_flags,
++        cc_cpp_flags = cc.cpp_flags,
++        cc_include_args = cc.include_args,
++        cc_linker_flags = cc.linker_flags,
+     )
+ 
+ def _prepare_cabal_inputs(
+diff --git a/haskell/private/cabal_wrapper.py b/haskell/private/cabal_wrapper.py
+index d1cb533..0c4ed28 100755
+--- a/haskell/private/cabal_wrapper.py
++++ b/haskell/private/cabal_wrapper.py
+@@ -300,6 +300,21 @@ with mkdtemp(distdir_prefix()) as distdir, init_deps_db() as deps_package_db:
+     cc_ghc_args = [flag.replace("$CC", cc).replace("$LD", ld) for flag in toolchain_info["ghc_cc_args"]]
+     runghc_args = runghc_args + ["--ghc-arg=" + a for a in cc_ghc_args]
+ 
++    def _abs_cc_flag(tok):
++        for pre in ("", "-I", "-L", "-B", "-F", "-isystem", "-iquote"):
++            body = tok[len(pre):]
++            if body.startswith("external/") or body.startswith("bazel-out/"):
++                return pre + os.path.join(execroot, body)
++        return tok
++    cc_compiler_flags = [_abs_cc_flag(f) for f in toolchain_info["cc_compiler_flags"]]
++    cc_cpp_flags = [_abs_cc_flag(f) for f in toolchain_info["cc_cpp_flags"]]
++    cc_include_args = [_abs_cc_flag(f) for f in toolchain_info["cc_include_args"]]
++    cc_linker_flags = [_abs_cc_flag(f) for f in toolchain_info["cc_linker_flags"]]
++    cc_cflags_all = cc_cpp_flags + cc_compiler_flags + cc_include_args
++    os.environ["CFLAGS"] = " ".join(cc_cflags_all)
++    os.environ["CPPFLAGS"] = " ".join(cc_cflags_all)
++    os.environ["LDFLAGS"] = " ".join(cc_linker_flags)
++
+     if not deps_package_db:
+         path_args.extend(["--package-db=" + os.path.dirname(db) for db in deps_package_databases])
+     path_args = [ arg.replace("=", "=" + cfg_execroot + "/") for arg in path_args ]
+@@ -320,10 +335,16 @@ with mkdtemp(distdir_prefix()) as distdir, init_deps_db() as deps_package_db:
+         "--enable-deterministic", \
+         ] +
+         [ "--ghc-option=" + flag.replace("$CC", cc).replace("$LD", ld) for flag in toolchain_info["ghc_cc_args"] ] +
++        [ "--ghc-option=-optP" + f for f in cc_cpp_flags ] +
++        [ "--ghc-option=-optc" + f for f in cc_compiler_flags ] +
++        [ "--ghc-option=-optc" + f for f in cc_include_args ] +
++        [ "--ghc-option=-optl" + f for f in cc_linker_flags ] +
+         [ "--hsc2hs-option=-c" + cc,
+           "--hsc2hs-option=-l" + cc,
+           "--hsc2hs-option=--cflag=-w",
+         ] +
++        [ "--hsc2hs-option=--cflag=" + f for f in cc_cflags_all ] +
++        [ "--hsc2hs-option=--lflag=" + f for f in cc_linker_flags ] +
+         [ "--ghc-option=-optl@" + os.path.join(cfg_execroot, f) for f in [extra_ldflags_file] if f ] +
+         enable_relocatable_flags + \
+         [ \
