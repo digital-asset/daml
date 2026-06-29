@@ -6,11 +6,14 @@ module DA.Daml.Compiler.Output
   , writeOutputBSL
   , diagnosticsLogger
   , hDiagnosticsLogger
+  , bufferingDiagnosticsLogger
+  , flushDiagnostics
   , printDiagnostics
   ) where
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy                           as BSL
+import           Data.IORef
 import           Data.String                                    (IsString)
 import qualified Data.Text.Encoding as T
 import Development.IDE.Core.Shake (NotificationHandler(..))
@@ -64,3 +67,14 @@ hDiagnosticsLogger handle = NotificationHandler $ \m params -> case (m, params) 
     (LSP.STextDocumentPublishDiagnostics, LSP.PublishDiagnosticsParams (uriToFilePath' -> Just fp) _ (List diags)) ->
         printDiagnostics handle $ map (toNormalizedFilePath' fp,ShowDiag,) diags
     _ -> pure ()
+
+bufferingDiagnosticsLogger :: IORef [FileDiagnostic] -> NotificationHandler
+bufferingDiagnosticsLogger ref = NotificationHandler $ \m params -> case (m, params) of
+    (LSP.STextDocumentPublishDiagnostics, LSP.PublishDiagnosticsParams (uriToFilePath' -> Just fp) _ (List diags)) ->
+        modifyIORef ref (++ map (toNormalizedFilePath' fp, ShowDiag,) diags)
+    _ -> pure ()
+
+flushDiagnostics :: IORef [FileDiagnostic] -> IO ()
+flushDiagnostics ref = do
+    diags <- readIORef ref
+    printDiagnostics stderr diags

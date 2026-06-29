@@ -26,6 +26,7 @@ import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import DA.Daml.Compiler.Output
 import DA.Daml.Package.Config
+import Data.IORef
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScript as SS
 import qualified DA.Daml.LF.ScriptServiceClient as SSC
@@ -56,7 +57,7 @@ import System.Console.ANSI (SGR(..), setSGRCode, Underlining(..), ConsoleIntensi
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (exitFailure)
 import System.FilePath
-import System.IO (hPutStrLn, stderr)
+import System.IO (hFlush, hPutStrLn, stderr, stdout)
 import System.IO.Error (isPermissionError, isAlreadyExistsError, isDoesNotExistError)
 import qualified Text.XML.Light as XML
 import qualified Text.Blaze.Html.Renderer.Text as Blaze
@@ -97,8 +98,12 @@ execTest inFiles runAllOption coverage color mbJUnitOutput mPkgConfig opts table
     let optsWithPkg = case mPkgConfig of
             Just PackageConfigFields{..} -> opts { optMbPackageName = Just pName, optMbPackageVersion = pVersion }
             Nothing -> opts
-    withDamlIdeState optsWithPkg loggerH diagnosticsLogger $ \h -> do
+    diagsRef <- newIORef []
+    let bufferedLogger = bufferingDiagnosticsLogger diagsRef
+    withDamlIdeState optsWithPkg loggerH bufferedLogger $ \h -> do
         runAndReport h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllOption coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
+        hFlush stdout
+        flushDiagnostics diagsRef
         diags <- getDiagnostics h
         when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
 
