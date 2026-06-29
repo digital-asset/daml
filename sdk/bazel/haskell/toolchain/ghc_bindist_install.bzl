@@ -1,8 +1,8 @@
 """GHC bindist `./configure && make install` as a Bazel action (not fetch), so
 the C compiler is the registered hermetic LLVM cc toolchain at action time."""
 
-load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
+load("//bazel/native:hermetic_cc.bzl", "TOOLBIN_SNIPPET", "hermetic_cc_flags")
 
 # Launchers exec the real binary under <install>/lib/bin: the post-install
 # `bin/` scripts hard-code the install prefix and are not relocatable across
@@ -20,18 +20,6 @@ _LAUNCHER_SUFFIX_ARGS = {
     "hsc2hs": '-I"$ROOT/lib/include/"',
 }
 _TOOLS = ["ghc", "ghc-pkg", "hsc2hs", "haddock", "runghc", "hpc"]
-
-def _compiler_path(ctx, cc_toolchain):
-    feature_configuration = cc_common.configure_features(
-        ctx = ctx,
-        cc_toolchain = cc_toolchain,
-        requested_features = ctx.features,
-        unsupported_features = ctx.disabled_features,
-    )
-    return cc_common.get_tool_for_action(
-        feature_configuration = feature_configuration,
-        action_name = ACTION_NAMES.c_compile,
-    )
 
 def _make_launcher(ctx, install_tree, tool_name):
     launcher = ctx.actions.declare_file("{}_bin/{}".format(ctx.label.name, tool_name))
@@ -54,7 +42,7 @@ exec "$ROOT/lib/bin/{tool}" {extra} "$@" {suffix}
 
 def _ghc_bindist_install_impl(ctx):
     cc_toolchain = find_cc_toolchain(ctx)
-    compiler = _compiler_path(ctx, cc_toolchain)
+    cc = hermetic_cc_flags(ctx, cc_toolchain)
 
     configure = ctx.file.configure
     install_tree = ctx.actions.declare_directory(ctx.label.name + "_install")
@@ -72,7 +60,7 @@ set -euo pipefail
 EXECROOT="$PWD"
 SRC="$EXECROOT/$(dirname {configure})"
 PREFIX="$EXECROOT/{prefix}"
-CC_BIN="$EXECROOT/{compiler}"
+CLANG="$EXECROOT/{compiler}"
 MAKE_BIN="$EXECROOT/{make}"
 
 TMP="$(mktemp -d)"
@@ -87,9 +75,13 @@ cd "$BUILD"
 sed -e "s/RelocatableBuild = NO/RelocatableBuild = YES/" -i.bak mk/config.mk.in
 rm -f mk/config.mk.in.bak
 
-# Hermetic clang + make dirs first; /usr/bin:/bin only for host coreutils/bash.
-export PATH="$(dirname "$CC_BIN"):$(dirname "$MAKE_BIN"):/usr/bin:/bin:$PATH"
-export CC="$CC_BIN -fuse-ld=lld"
+export PATH="$(dirname "$CLANG"):$(dirname "$MAKE_BIN"):/usr/bin:/bin:$PATH"
+export CC="$CLANG -fuse-ld=lld {cflags}"
+export CFLAGS="{cflags}"
+export CPPFLAGS="{cflags}"
+export CPP="$CLANG -E {cflags}"
+export LDFLAGS="{ldflags}"
+{toolbin}
 
 ./configure --prefix "$PREFIX"
 "$MAKE_BIN" -j"$(nproc)" install
@@ -134,7 +126,10 @@ rm -rf "$TMP"
 """.format(
         configure = configure.path,
         prefix = install_tree.path,
-        compiler = compiler,
+        compiler = cc.compiler,
+        cflags = cc.cflags,
+        ldflags = cc.ldflags,
+        toolbin = TOOLBIN_SNIPPET,
         make = ctx.file.make.path,
         lib_settings = lib_settings.path,
         doc_marker = doc_marker.path,
