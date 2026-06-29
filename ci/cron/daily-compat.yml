@@ -196,10 +196,14 @@ jobs:
           echo "=== 0. Token transit (no token bytes printed; sha256 is one-way) ==="
           tok="${GITHUB_TOKEN:-}"
           n=${#tok}
+          # NB: detect an unexpanded macro by LENGTH, not by string compare.
+          # Azure expands $(VAR) references even inside single quotes in this
+          # inline script, so a literal compare against the macro would itself be
+          # replaced by the secret value. The unexpanded literal is 24 chars.
           if [ "$n" -eq 0 ]; then
             echo "  EMPTY  -> secret is not reaching this job (variable undefined or not mapped)"
-          elif [ "$tok" = '$(CANTON_READONLY_TOKEN)' ]; then
-            echo "  LITERAL macro -> CANTON_READONLY_TOKEN is undefined in this pipeline (not expanded)"
+          elif [ "$n" -eq 24 ]; then
+            echo "  length 24 -> probably the UNEXPANDED macro (variable undefined in this pipeline)"
           fi
           # trim leading/trailing whitespace (pure-bash idiom)
           trimmed="${tok#"${tok%%[![:space:]]*}"}"; trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
