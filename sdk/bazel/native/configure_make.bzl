@@ -1,76 +1,21 @@
-load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
+load("//bazel/native:hermetic_cc.bzl", "TOOLBIN_SNIPPET", "hermetic_cc_flags")
 
 # Runs ./configure && make && make install at action time on the hermetic cc
-# toolchain. The toolchain's real compile/link flags (the glibc-2.28 -isystem
-# set + --sysroot=/dev/null) are propagated into CFLAGS/LDFLAGS so configure
-# builds against the sysroot, not host libc.
-
-def _feature_config(ctx, cc_toolchain):
-    return cc_common.configure_features(
-        ctx = ctx,
-        cc_toolchain = cc_toolchain,
-        requested_features = ctx.features,
-        unsupported_features = ctx.disabled_features,
-    )
-
-def _tool_for(fc, action_name):
-    return cc_common.get_tool_for_action(feature_configuration = fc, action_name = action_name)
-
-# Toolchain flag paths are execroot-relative (external/..., bazel-out/...).
-# configure builds in a temp dir, so rewrite those to absolute $EXECROOT/...
-# (shell expands $EXECROOT at action time). Handles both bare path tokens
-# (`-isystem` + path) and combined prefix tokens (`-Lbazel-out/...`).
-_PATH_PREFIXES = ["-L", "-B", "-I", "-F", "-iquote"]
-
-def _rel(p):
-    return p.startswith("external/") or p.startswith("bazel-out/")
-
-def _abs(tok):
-    if _rel(tok):
-        return "$EXECROOT/" + tok
-    for p in _PATH_PREFIXES:
-        if tok.startswith(p) and _rel(tok[len(p):]):
-            return p + "$EXECROOT/" + tok[len(p):]
-    return tok
-
-# Per-compilation flags configure/make add themselves.
-_DROP = ["-c", "-S", "-E", "-o"]
-
-def _flags(fc, action_name, variables):
-    out = []
-    for f in cc_common.get_memory_inefficient_command_line(
-        feature_configuration = fc,
-        action_name = action_name,
-        variables = variables,
-    ):
-        if f in _DROP:
-            continue
-        out.append(_abs(f))
-    return out
+# toolchain. CC/CFLAGS/CPPFLAGS/LDFLAGS (+ a binutils tool dir) carry the
+# toolchain's sysroot so configure builds and probes against it, not host libc.
 
 def _configure_make_impl(ctx):
     cc_toolchain = find_cc_toolchain(ctx)
-    fc = _feature_config(ctx, cc_toolchain)
-    cc = _tool_for(fc, ACTION_NAMES.c_compile)
-    ar = _tool_for(fc, ACTION_NAMES.cpp_link_static_library)
+    cc = hermetic_cc_flags(ctx, cc_toolchain, link_dynamic = True)
+    cc_exe = hermetic_cc_flags(ctx, cc_toolchain, link_dynamic = False)
 
-    compile_vars = cc_common.create_compile_variables(
-        feature_configuration = fc,
-        cc_toolchain = cc_toolchain,
-    )
-    link_vars = cc_common.create_link_variables(
-        feature_configuration = fc,
-        cc_toolchain = cc_toolchain,
-        is_linking_dynamic_library = True,
-    )
     extra_cflags = list(ctx.attr.extra_cflags)
     if ctx.file.version_script:
         # ncurses' MK_SHARED_LIB recipe uses ${CC} ${CFLAGS} but not ${LDFLAGS},
         # so the version script must ride in through CFLAGS to reach the link.
         extra_cflags.append("-Wl,--version-script=$EXECROOT/{}".format(ctx.file.version_script.path))
-    cflags = " ".join(_flags(fc, ACTION_NAMES.c_compile, compile_vars) + extra_cflags)
-    ldflags = " ".join(_flags(fc, ACTION_NAMES.cpp_link_dynamic_library, link_vars))
+    cflags = " ".join([cc.cflags] + extra_cflags)
 
     configure = ctx.file.configure
     make_bin = ctx.file.make
@@ -84,21 +29,29 @@ def _configure_make_impl(ctx):
     env_lines = [
         "set -euo pipefail",
         'EXECROOT="$PWD"',
-        # Bake `-fuse-ld=lld` into CC: lld ships next to clang and the sandbox
-        # has no host `ld`.
-        'export CC="$EXECROOT/{} -fuse-ld=lld"'.format(cc),
-        'export AR="$EXECROOT/{}"'.format(ar),
+        'CLANG="$EXECROOT/{}"'.format(cc.compiler),
+        # lld ships next to clang; the sandbox has no host ld.
+        'export CC="$CLANG -fuse-ld=lld"',
+        'export AR="$EXECROOT/{}"'.format(cc.ar),
         'export CFLAGS="{}"'.format(cflags),
-        'export LDFLAGS="{}"'.format(ldflags),
-        # Build-time helper programs must RUN in the sandbox, so compile them
-        # with host libc (no hermetic sysroot flags); only the shipped target
-        # CC output needs to be hermetic. Used by cross builds (--host!=--build).
-        # lld goes in BUILD_LDFLAGS (not baked into BUILD_CC) so $BUILD_CC stays
-        # textually distinct from $CC — ncurses 5.9 errors if they are equal.
-        'export BUILD_CC="$EXECROOT/{}"'.format(cc),
-        "export BUILD_CFLAGS=",
-        'export BUILD_LDFLAGS="-fuse-ld=lld"',
+        # configure's preprocessor probes use $CPP/$CPPFLAGS; without the sysroot
+        # they fall back to host /lib/cpp (absent in the sandbox).
+        'export CPP="$CLANG -E"',
+        'export CPPFLAGS="{}"'.format(cc.cflags),
+        'export LDFLAGS="{}"'.format(cc.ldflags),
+        # Build-time helper programs (e.g. ncurses' make_hash) are compiled with
+        # the hermetic sysroot too -- the sandbox has no host headers/libc -- and
+        # run on the system glibc at runtime (link-time stubs, not in RUNPATH).
+        # lld stays in BUILD_LDFLAGS (not BUILD_CC) so $BUILD_CC is textually
+        # distinct from $CC -- ncurses 5.9 errors if they are equal.
+        'export BUILD_CC="$CLANG"',
+        'export BUILD_CFLAGS="{}"'.format(cc.cflags),
+        'export BUILD_LDFLAGS="-fuse-ld=lld {}"'.format(cc_exe.ldflags),
+        TOOLBIN_SNIPPET,
         'MAKE="$EXECROOT/{}"'.format(make_bin.path),
+        # configure runs bare `make` for its own probes; expose the hermetic one
+        # (the sandbox has no host make). $TOOLBIN is already on PATH.
+        'ln -s "$MAKE" "$TOOLBIN/make"',
         'SRC="$EXECROOT/{}"'.format(src_dir),
     ]
     if ctx.file.m4:
