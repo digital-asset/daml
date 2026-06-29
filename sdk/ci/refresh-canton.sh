@@ -60,15 +60,14 @@ echo "> Checking out shared_dependencies.json at revision $CANTON_COMMIT into $T
 # --no-checkout to download the commit history, followed by a checkout of just the file we need.
 if [ -z "${GITHUB_TOKEN:-}" ]; then
   echo "> GITHUB_TOKEN is not set, assuming ssh." >&2
-  CANTON_GITHUB=git@github.com:DACH-NY/canton.git
+  CANTON_GITHUB="git@github.com:DACH-NY/canton.git"
 else
-  # Supply the token as the HTTP *password* with a placeholder username. The
-  # bare "https://$TOKEN@github.com" form provides a username with no password,
-  # so git tries to read a password interactively and fails in CI with
-  # "could not read Password ...: terminal prompts disabled" (exit 128) before
-  # ever authenticating. The "x-access-token:$TOKEN" form works for classic and
-  # fine-grained PATs as well as GitHub App tokens.
-  CANTON_GITHUB=https://x-access-token:$GITHUB_TOKEN@github.com/DACH-NY/canton.git
+  # Token as the HTTP basic-auth username, exactly matching the clone command
+  # that was verified to work by hand. The assignment is double-quoted
+  # defensively so a token containing shell-special characters cannot alter the
+  # URL. (GitHub PATs are [A-Za-z0-9_], so this is belt-and-suspenders, but it
+  # removes any doubt about quoting being the cause.)
+  CANTON_GITHUB="https://$GITHUB_TOKEN@github.com/DACH-NY/canton.git"
 fi
 git clone --filter=blob:none --no-checkout "$CANTON_GITHUB" "$TMPDIR" >$LOG 2>&1
 git -C "$TMPDIR" show $CANTON_COMMIT:shared_dependencies.json > canton/shared_dependencies.json
