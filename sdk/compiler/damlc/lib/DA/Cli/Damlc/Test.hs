@@ -107,8 +107,9 @@ execTest inFiles runAllOption coverage color verbose mbJUnitOutput mPkgConfig op
     printTestSuiteBegin color mbProjectPath
     withDamlIdeState optsWithPkg loggerH noopLogger $ \h -> do
         flip finally (getDiagnostics h >>= printDiagnostics stderr) $ do
-            runAndReport h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllOption coverage color verbose mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters mbProjectPath
+            summaryResults <- runAndReport h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllOption coverage mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
             diags <- getDiagnostics h
+            printSummary color verbose mbProjectPath summaryResults
             when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
 
 loadAggregatePrintResults :: CoveragePaths -> [CoverageFilter] -> ShowCoverage -> Maybe TR.TestResults -> IO ()
@@ -139,21 +140,17 @@ runAndReport ::
     -> LF.Version
     -> RunAllOption
     -> ShowCoverage
-    -> UseColor
-    -> Verbose
     -> Maybe FilePath
     -> TableOutputPath
     -> TransactionsOutputPath
     -> CoveragePaths
     -> [CoverageFilter]
-    -> Maybe FilePath
-    -> IO ()
-runAndReport ideState inFiles lvl lfVersion runAllOption coverage color verbose mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters mbProjectPath = do
+    -> IO [(TR.LocalOrExternal, ScriptName, Either SSC.Error SSC.ScriptResult)]
+runAndReport ideState inFiles lvl lfVersion runAllOption coverage mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
     (localResults, extResults) <- runAllScripts ideState inFiles runAllOption
     let allResults = localResults ++ extResults
     let allPackages = [loe | TR.ScriptResults loe _ _ <- allResults]
-    -- print test summary after all tests have run
-    printSummary color verbose mbProjectPath [(loe, scriptName, res) | TR.ScriptResults loe _ (Just results) <- allResults, (scriptName, res) <- results]
+    let summaryResults = [(loe, scriptName, res) | TR.ScriptResults loe _ (Just results) <- allResults, (scriptName, res) <- results]
 
     let newTestResults = TR.scriptResultsToTestResults allPackages allResults
     loadAggregatePrintResults resultsIO coverageFilters coverage (Just newTestResults)
@@ -188,6 +185,8 @@ runAndReport ideState inFiles lvl lfVersion runAllOption coverage color verbose 
             | TR.ScriptResults (TR.Local file _) _ resultM <- localResults
             ]
         writeFile junitOutput $ XML.showTopElement $ toJUnit res
+
+    pure summaryResults
 
 runAllScripts :: IdeState -> [NormalizedFilePath] -> RunAllOption -> IO ([TR.ScriptResults], [TR.ScriptResults])
 runAllScripts h inFiles (RunAllOption runAllOption) = do
@@ -309,12 +308,13 @@ projectPathSuffix :: Maybe FilePath -> String
 projectPathSuffix = maybe "" (\p -> " (" <> p <> ")")
 
 printTestSuiteBegin :: UseColor -> Maybe FilePath -> IO ()
-printTestSuiteBegin color mbProjectPath = do
-    let colored = getUseColor color
-    putStrLn $
-      (if colored then setSGRCode [SetConsoleIntensity BoldIntensity] else "")
-      <> "Running tests" <> projectPathSuffix mbProjectPath <> " ..."
-      <> (if colored then setSGRCode [] else "")
+printTestSuiteBegin color mbProjectPath =
+    whenJust mbProjectPath $ \projectPath -> do
+      let colored = getUseColor color
+      putStrLn $
+        (if colored then setSGRCode [SetConsoleIntensity BoldIntensity] else "")
+        <> "Running tests (" <> projectPath <> ") ..."
+        <> (if colored then setSGRCode [] else "")
 
 printSummary :: UseColor -> Verbose -> Maybe FilePath -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SSC.ScriptResult)] -> IO ()
 printSummary color verbose mbProjectPath res =
