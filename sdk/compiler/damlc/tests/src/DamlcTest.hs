@@ -859,11 +859,11 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , bFilePath ]
                 ""
           stderr @?= ""
+          assertInfixOf "B.daml:needleHaystack: ok, 0 active contracts, 0 transactions." stdout
+          assertInfixOf "a-0.0.1:test_needleHaystack: ok, 0 active contracts, 0 transactions." stdout
           assertBool ("Test coverage is reported correctly: " <> stdout)
             (unlines
-              [ "B.daml:needleHaystack: ok, 0 active contracts, 0 transactions."
-              , "a-0.0.1:test_needleHaystack: ok, 0 active contracts, 0 transactions."
-              , "Modules internal to this package:"
+              [ "Modules internal to this package:"
               , "- Internal templates"
               , "  0 defined"
               , "  0 (100.0%) created"
@@ -1177,10 +1177,10 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               , bFilePath]
               ""
           stderr @?= ""
+          assertInfixOf "B.daml:x: ok, 0 active contracts, 2 transactions." stdout
           assertBool ("Test coverage is reported correctly: " <> stdout)
             (unlines
-                 [ "B.daml:x: ok, 0 active contracts, 2 transactions."
-                 , "Modules internal to this package:"
+                 [ "Modules internal to this package:"
                  , "- Internal templates"
                  , "  2 defined"
                  , "  1 ( 50.0%) created"
