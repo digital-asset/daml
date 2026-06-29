@@ -509,7 +509,7 @@ runTestsInPackageOrFiles packageLocationOpts Nothing allTests _ coverage color v
             -- Therefore we keep the behavior of only passing the root file
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
-            execTest files allTests coverage color verbose mbJUnitOutput (Just pkgConfig) cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
+            execTest files allTests coverage color verbose mbJUnitOutput (Just pkgConfig) cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters (Just pPath)
 runTestsInPackageOrFiles packageLocationOpts (Just inFiles) allTests _ coverage color verbose mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
   where effect = withPackageRoot (packageRoot packageLocationOpts) (packageLocationCheck packageLocationOpts) $ \mPackageRoot relativize -> do
           cliOptions <- addResolutionData cliOptions
@@ -523,7 +523,7 @@ runTestsInPackageOrFiles packageLocationOpts (Just inFiles) allTests _ coverage 
             Just packagePath -> withMaybeConfig (withPackageConfig (PackagePath packagePath)) pure
             Nothing -> pure Nothing
           inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
-          execTest inFiles' allTests coverage color verbose mbJUnitOutput mPkgConfig cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
+          execTest inFiles' allTests coverage color verbose mbJUnitOutput mPkgConfig cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters mPackageRoot
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =

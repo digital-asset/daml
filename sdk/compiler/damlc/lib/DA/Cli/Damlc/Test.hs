@@ -95,8 +95,9 @@ execTest
     -> TransactionsOutputPath
     -> CoveragePaths
     -> [CoverageFilter]
+    -> Maybe FilePath
     -> IO ()
-execTest inFiles runAllOption coverage color verbose mbJUnitOutput mPkgConfig opts tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
+execTest inFiles runAllOption coverage color verbose mbJUnitOutput mPkgConfig opts tableOutputPath transactionsOutputPath resultsIO coverageFilters mbProjectPath = do
     loggerH <- getLogger opts "test"
     color <- if getUseColor color then pure color else do
         isTTY <- hIsTerminalDevice stdout
@@ -106,8 +107,9 @@ execTest inFiles runAllOption coverage color verbose mbJUnitOutput mPkgConfig op
             Nothing -> opts
     diagsRef <- newIORef []
     let bufferedLogger = bufferingDiagnosticsLogger diagsRef
+    printTestSuiteBegin color mbProjectPath
     withDamlIdeState optsWithPkg loggerH bufferedLogger $ \h -> do
-        runAndReport h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllOption coverage color verbose mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
+        runAndReport h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllOption coverage color verbose mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters mbProjectPath
         hFlush stdout
         flushDiagnostics diagsRef
         diags <- getDiagnostics h
@@ -148,13 +150,14 @@ runAndReport ::
     -> TransactionsOutputPath
     -> CoveragePaths
     -> [CoverageFilter]
+    -> Maybe FilePath
     -> IO ()
-runAndReport ideState inFiles lvl lfVersion runAllOption coverage color verbose mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
+runAndReport ideState inFiles lvl lfVersion runAllOption coverage color verbose mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters mbProjectPath = do
     (localResults, extResults) <- runAllScripts ideState inFiles runAllOption
     let allResults = localResults ++ extResults
     let allPackages = [loe | TR.ScriptResults loe _ _ <- allResults]
     -- print test summary after all tests have run
-    printSummary color verbose [(loe, scriptName, res) | TR.ScriptResults loe _ (Just results) <- allResults, (scriptName, res) <- results]
+    printSummary color verbose mbProjectPath [(loe, scriptName, res) | TR.ScriptResults loe _ (Just results) <- allResults, (scriptName, res) <- results]
 
     let newTestResults = TR.scriptResultsToTestResults allPackages allResults
     loadAggregatePrintResults resultsIO coverageFilters coverage (Just newTestResults)
@@ -306,12 +309,24 @@ failedTestOutput h file = do
     pure $ map (, Just errMsg) scriptNames
 
 
-printSummary :: UseColor -> Verbose -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SSC.ScriptResult)] -> IO ()
-printSummary color verbose res =
+projectPathSuffix :: Maybe FilePath -> String
+projectPathSuffix = maybe "" (\p -> " (" <> p <> ")")
+
+printTestSuiteBegin :: UseColor -> Maybe FilePath -> IO ()
+printTestSuiteBegin color mbProjectPath = do
+    let colored = getUseColor color
+    putStrLn $
+      (if colored then setSGRCode [SetConsoleIntensity BoldIntensity] else "")
+      <> "Running tests" <> projectPathSuffix mbProjectPath <> " ..."
+      <> (if colored then setSGRCode [] else "")
+
+printSummary :: UseColor -> Verbose -> Maybe FilePath -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SSC.ScriptResult)] -> IO ()
+printSummary color verbose mbProjectPath res =
   liftIO $ do
     let nFailed = length [() | (_, _, Left _) <- res]
         nPassed = length res - nFailed
         colored = getUseColor color
+        header = "Test Summary" <> projectPathSuffix mbProjectPath
         countLine
           | nFailed > 0 =
               (if colored then setSGRCode [SetColor Foreground Vivid Red] else "")
@@ -328,7 +343,7 @@ printSummary color verbose res =
     putStrLn $
       unlines
         [ setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity]
-        , "Test Summary" <> setSGRCode []
+        , header <> setSGRCode []
         , countLine
         ]
     printScriptResults color resultsToShow
