@@ -53,7 +53,7 @@ import qualified Development.Shake as Shake
 import Safe
 import qualified ScriptService as SS
 import qualified DA.Cli.Damlc.Test.TestResults as TR
-import System.Console.ANSI (SGR(..), setSGRCode, Underlining(..), ConsoleIntensity(..))
+import System.Console.ANSI (SGR(..), setSGRCode, Underlining(..), ConsoleIntensity(..), Color(..), ColorIntensity(..), ConsoleLayer(..))
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (exitFailure)
 import System.FilePath
@@ -302,10 +302,24 @@ failedTestOutput h file = do
 printSummary :: UseColor -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SSC.ScriptResult)] -> IO ()
 printSummary color res =
   liftIO $ do
+    let nFailed = length [() | (_, _, Left _) <- res]
+        nPassed = length res - nFailed
+        colored = getUseColor color
+        countLine
+          | nFailed > 0 =
+              (if colored then setSGRCode [SetColor Foreground Vivid Red] else "")
+              <> show nFailed <> " failed"
+              <> (if colored then setSGRCode [] else "")
+              <> ", " <> show nPassed <> " passed"
+          | otherwise =
+              (if colored then setSGRCode [SetColor Foreground Vivid Green] else "")
+              <> show nPassed <> " passed"
+              <> (if colored then setSGRCode [] else "")
     putStrLn $
       unlines
         [ setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity]
         , "Test Summary" <> setSGRCode []
+        , countLine
         ]
     printScriptResults color res
 
