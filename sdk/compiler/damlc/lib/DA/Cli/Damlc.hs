@@ -72,6 +72,7 @@ import DA.Cli.Damlc.Test (CoveragePaths(..),
                           TableOutputPath(..),
                           TransactionsOutputPath(..),
                           UseColor(..),
+                          Verbose(..),
                           execTest,
                           getRunAllTests,
                           loadAggregatePrintResults,
@@ -239,6 +240,7 @@ import Options.Applicative ((<|>),
                             prefs,
                             progDesc,
                             renderFailure,
+                            short,
                             strArgument,
                             subparser,
                             switch,
@@ -438,6 +440,7 @@ cmdTest numProcessors =
       <*> fmap LoadCoverageOnly loadCoverageOnly
       <*> fmap ShowCoverage showCoverageOpt
       <*> fmap UseColor colorOutput
+      <*> fmap Verbose verboseOutput
       <*> junitOutput
       <*> optionsParser
             numProcessors
@@ -453,6 +456,7 @@ cmdTest numProcessors =
     filesDoc = "Only run test declarations in the specified files."
     junitOutput = optional $ strOptionOnce $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
+    verboseOutput = switch $ long "verbose" <> short 'v' <> help "Show all test results including passed tests"
     showCoverageOpt = switch $ long "show-coverage" <> help "Show detailed test coverage"
     runAllOption = switch $ long "all" <> help "Run tests in current package as well as dependencies"
     tableOutputPathOpt = optional $ strOptionOnce $ long "table-output" <> help "Filename to which table should be output"
@@ -475,6 +479,7 @@ runTestsInPackageOrFiles ::
     -> LoadCoverageOnly
     -> ShowCoverage
     -> UseColor
+    -> Verbose
     -> Maybe FilePath
     -> Options
     -> InitPkgDb
@@ -483,7 +488,7 @@ runTestsInPackageOrFiles ::
     -> CoveragePaths
     -> [CoverageFilter]
     -> Command
-runTestsInPackageOrFiles packageLocationOpts mbInFiles allTests (LoadCoverageOnly True) coverage _ _ _ _ _ _ coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
+runTestsInPackageOrFiles packageLocationOpts mbInFiles allTests (LoadCoverageOnly True) coverage _ _ _ _ _ _ _ coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
   where effect = do
           when (getRunAllTests allTests) $ do
             hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
@@ -494,7 +499,7 @@ runTestsInPackageOrFiles packageLocationOpts mbInFiles allTests (LoadCoverageOnl
               exitFailure
             Nothing -> do
               loadAggregatePrintResults coveragePaths coverageFilters coverage Nothing
-runTestsInPackageOrFiles packageLocationOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
+runTestsInPackageOrFiles packageLocationOpts Nothing allTests _ coverage color verbose mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
   where effect = withExpectPackageRoot (packageRoot packageLocationOpts) "daml test" $ \pPath relativize -> do
           cliOptions <- addResolutionData cliOptions
           cliOptions <- pure $ cliOptions { optMbPackageConfigPath = Just $ PackagePath pPath }
@@ -506,8 +511,8 @@ runTestsInPackageOrFiles packageLocationOpts Nothing allTests _ coverage color m
             -- Therefore we keep the behavior of only passing the root file
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
-            execTest files allTests coverage color mbJUnitOutput (Just pkgConfig) cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
-runTestsInPackageOrFiles packageLocationOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
+            execTest files allTests coverage color verbose mbJUnitOutput (Just pkgConfig) cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
+runTestsInPackageOrFiles packageLocationOpts (Just inFiles) allTests _ coverage color verbose mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
   where effect = withPackageRoot (packageRoot packageLocationOpts) (packageLocationCheck packageLocationOpts) $ \mPackageRoot relativize -> do
           cliOptions <- addResolutionData cliOptions
           cliOptions <- pure $ cliOptions { optMbPackageConfigPath = PackagePath <$> mPackageRoot }
@@ -520,7 +525,7 @@ runTestsInPackageOrFiles packageLocationOpts (Just inFiles) allTests _ coverage 
             Just packagePath -> withMaybeConfig (withPackageConfig (PackagePath packagePath)) pure
             Nothing -> pure Nothing
           inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
-          execTest inFiles' allTests coverage color mbJUnitOutput mPkgConfig cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
+          execTest inFiles' allTests coverage color verbose mbJUnitOutput mPkgConfig cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
