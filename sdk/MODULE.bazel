@@ -170,6 +170,15 @@ use_repo(stack_snapshot_ext, "stackage", "stackage-exe")
 
 stack_snapshot_ext.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
 
+stack_snapshot_ext.stack_snapshot_json(
+    label = "//:stackage_snapshot.json",
+    os = ["linux", "osx"],
+)
+stack_snapshot_ext.stack_snapshot_json(
+    label = "//:stackage_snapshot_windows.json",
+    os = ["windows"],
+)
+
 stack_snapshot_ext.package(
     name = "lsp-types",
     vendored = "@lsp-types//:lsp-types",
