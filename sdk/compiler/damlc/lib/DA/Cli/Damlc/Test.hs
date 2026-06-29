@@ -8,6 +8,7 @@ module DA.Cli.Damlc.Test (
     execTest
     , UseColor(..)
     , ShowCoverage(..)
+    , Verbose(..)
     , RunAllOption(..)
     , TableOutputPath(..)
     , TransactionsOutputPath(..)
@@ -77,6 +78,7 @@ data CoveragePaths = CoveragePaths
     , saveCoveragePath :: Maybe String
     }
 newtype LoadCoverageOnly = LoadCoverageOnly {getLoadCoverageOnly :: Bool}
+newtype Verbose = Verbose {getVerbose :: Bool}
 
 -- | Test a Daml file.
 execTest
@@ -85,6 +87,7 @@ execTest
     -> RunAllOption
     -> ShowCoverage
     -> UseColor
+    -> Verbose
     -> Maybe FilePath
     -> Maybe PackageConfigFields
     -> Options
@@ -93,7 +96,7 @@ execTest
     -> CoveragePaths
     -> [CoverageFilter]
     -> IO ()
-execTest inFiles runAllOption coverage color mbJUnitOutput mPkgConfig opts tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
+execTest inFiles runAllOption coverage color verbose mbJUnitOutput mPkgConfig opts tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
     loggerH <- getLogger opts "test"
     let optsWithPkg = case mPkgConfig of
             Just PackageConfigFields{..} -> opts { optMbPackageName = Just pName, optMbPackageVersion = pVersion }
@@ -101,7 +104,7 @@ execTest inFiles runAllOption coverage color mbJUnitOutput mPkgConfig opts table
     diagsRef <- newIORef []
     let bufferedLogger = bufferingDiagnosticsLogger diagsRef
     withDamlIdeState optsWithPkg loggerH bufferedLogger $ \h -> do
-        runAndReport h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllOption coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
+        runAndReport h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllOption coverage color verbose mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
         hFlush stdout
         flushDiagnostics diagsRef
         diags <- getDiagnostics h
@@ -136,18 +139,19 @@ runAndReport ::
     -> RunAllOption
     -> ShowCoverage
     -> UseColor
+    -> Verbose
     -> Maybe FilePath
     -> TableOutputPath
     -> TransactionsOutputPath
     -> CoveragePaths
     -> [CoverageFilter]
     -> IO ()
-runAndReport ideState inFiles lvl lfVersion runAllOption coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
+runAndReport ideState inFiles lvl lfVersion runAllOption coverage color verbose mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
     (localResults, extResults) <- runAllScripts ideState inFiles runAllOption
     let allResults = localResults ++ extResults
     let allPackages = [loe | TR.ScriptResults loe _ _ <- allResults]
     -- print test summary after all tests have run
-    printSummary color [(loe, scriptName, res) | TR.ScriptResults loe _ (Just results) <- allResults, (scriptName, res) <- results]
+    printSummary color verbose [(loe, scriptName, res) | TR.ScriptResults loe _ (Just results) <- allResults, (scriptName, res) <- results]
 
     let newTestResults = TR.scriptResultsToTestResults allPackages allResults
     loadAggregatePrintResults resultsIO coverageFilters coverage (Just newTestResults)
@@ -299,8 +303,8 @@ failedTestOutput h file = do
     pure $ map (, Just errMsg) scriptNames
 
 
-printSummary :: UseColor -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SSC.ScriptResult)] -> IO ()
-printSummary color res =
+printSummary :: UseColor -> Verbose -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SSC.ScriptResult)] -> IO ()
+printSummary color verbose res =
   liftIO $ do
     let nFailed = length [() | (_, _, Left _) <- res]
         nPassed = length res - nFailed
@@ -315,13 +319,16 @@ printSummary color res =
               (if colored then setSGRCode [SetColor Foreground Vivid Green] else "")
               <> show nPassed <> " passed"
               <> (if colored then setSGRCode [] else "")
+        resultsToShow
+          | getVerbose verbose || nFailed == 0 = res
+          | otherwise = [r | r@(_, _, Left _) <- res]
     putStrLn $
       unlines
         [ setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity]
         , "Test Summary" <> setSGRCode []
         , countLine
         ]
-    printScriptResults color res
+    printScriptResults color resultsToShow
 
 printScriptResults :: UseColor -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SS.ScriptResult)] -> IO ()
 printScriptResults color results = do
