@@ -81,7 +81,7 @@ fromBool x = if x then true else false
 -- | `toNNF` transforms a formula to negation normal form
 -- (see https://en.wikipedia.org/wiki/Negation_normal_form).
 toNNF : Formula t -> Formula t
-toNNF (Negation (Negation f)) = f
+toNNF (Negation (Negation f)) = toNNF f
 toNNF (Negation (Conjunction fs)) = Disjunction $ map (toNNF . neg) fs
 toNNF (Negation (Disjunction fs)) = Conjunction $ map (toNNF . neg) fs
 toNNF f = f
