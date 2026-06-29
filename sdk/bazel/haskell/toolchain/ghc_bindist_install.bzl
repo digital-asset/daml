@@ -54,6 +54,12 @@ def _ghc_bindist_install_impl(ctx):
 
     launchers = [_make_launcher(ctx, install_tree, tool) for tool in _TOOLS]
 
+    runtime_lib_dirs = []
+    for f in [ctx.file.tinfo] + ctx.files.gmp + ctx.files.libz + ctx.files.bz2:
+        d = "$EXECROOT/" + f.dirname
+        if d not in runtime_lib_dirs:
+            runtime_lib_dirs.append(d)
+
     command = """\
 set -euo pipefail
 
@@ -81,6 +87,7 @@ export CFLAGS="{cflags}"
 export CPPFLAGS="{cflags}"
 export CPP="$CLANG -E {cflags}"
 export LDFLAGS="{ldflags}"
+export LD_LIBRARY_PATH="{ld_library_path}${{LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}}"
 {toolbin}
 
 ./configure --prefix "$PREFIX"
@@ -129,6 +136,7 @@ rm -rf "$TMP"
         compiler = cc.compiler,
         cflags = cc.cflags,
         ldflags = cc.ldflags,
+        ld_library_path = ":".join(runtime_lib_dirs),
         toolbin = TOOLBIN_SNIPPET,
         make = ctx.file.make.path,
         lib_settings = lib_settings.path,
