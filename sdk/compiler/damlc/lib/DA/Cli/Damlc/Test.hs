@@ -58,7 +58,7 @@ import System.Console.ANSI (SGR(..), setSGRCode, Underlining(..), ConsoleIntensi
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (exitFailure)
 import System.FilePath
-import System.IO (hFlush, hPutStrLn, stderr, stdout)
+import System.IO (hFlush, hIsTerminalDevice, hPutStrLn, stderr, stdout)
 import System.IO.Error (isPermissionError, isAlreadyExistsError, isDoesNotExistError)
 import qualified Text.XML.Light as XML
 import qualified Text.Blaze.Html.Renderer.Text as Blaze
@@ -98,6 +98,9 @@ execTest
     -> IO ()
 execTest inFiles runAllOption coverage color verbose mbJUnitOutput mPkgConfig opts tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
     loggerH <- getLogger opts "test"
+    color <- if getUseColor color then pure color else do
+        isTTY <- hIsTerminalDevice stdout
+        pure $ UseColor isTTY
     let optsWithPkg = case mPkgConfig of
             Just PackageConfigFields{..} -> opts { optMbPackageName = Just pName, optMbPackageVersion = pVersion }
             Nothing -> opts
