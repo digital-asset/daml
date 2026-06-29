@@ -1,0 +1,26 @@
+services:
+  build:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: daml-hermetic:latest
+    userns_mode: "keep-id"
+
+    working_dir: /workspace
+    volumes:
+      - .:/workspace:Z
+      - bazel-cache:/home/host/.cache:U
+    command:
+      - bash
+      - -lc
+      - |
+        bazel \
+          --output_user_root=/home/host/.cache/user_root \
+          --output_base=/home/host/.cache/output_base \
+          build //... --keep_going \
+          --disk_cache=/home/host/.cache/disk \
+          --repository_cache=/home/host/.cache/repo \
+          --noexperimental_convenience_symlinks
+
+volumes:
+  bazel-cache:
