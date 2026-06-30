@@ -160,6 +160,21 @@ Data Types
   `CanReadAsAnyParty <constr-daml-script-internal-questions-usermanagement-canreadasanyparty-13813_>`_
 
 
+  .. _constr-daml-script-internal-questions-usermanagement-canexecuteas-15393:
+
+  `CanExecuteAs <constr-daml-script-internal-questions-usermanagement-canexecuteas-15393_>`_ `Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
+
+
+  .. _constr-daml-script-internal-questions-usermanagement-canexecuteasanyparty-57111:
+
+  `CanExecuteAsAnyParty <constr-daml-script-internal-questions-usermanagement-canexecuteasanyparty-57111_>`_
+
+
+  .. _constr-daml-script-internal-questions-usermanagement-canactasanyparty-92986:
+
+  `CanActAsAnyParty <constr-daml-script-internal-questions-usermanagement-canactasanyparty-92986_>`_
+
+
 .. _type-daml-script-internal-questions-submit-concurrentsubmits-82688:
 
 **data** `ConcurrentSubmits <type-daml-script-internal-questions-submit-concurrentsubmits-82688_>`_ a
@@ -330,6 +345,23 @@ Data Types
        * - additionalDebuggingInfo
          - `Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`ContractNotFoundAdditionalInfo <type-daml-script-internal-questions-submit-error-contractnotfoundadditionalinfo-6199>`
          - should always be None in Canton's case, see https\://github\.com/digital\-asset/daml/issues/17154
+
+  .. _constr-daml-script-internal-questions-submit-error-unsupportedcontractid-58555:
+
+  `UnsupportedContractId <constr-daml-script-internal-questions-submit-error-unsupportedcontractid-58555_>`_
+
+    Unsupported contract id type/version
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - unknownContractId
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
 
   .. _constr-daml-script-internal-questions-submit-error-contractkeynotfound-79659:
 

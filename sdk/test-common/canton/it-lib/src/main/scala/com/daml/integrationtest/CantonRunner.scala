@@ -92,15 +92,15 @@ object CantonRunner {
     val globalBetaVersionSupport =
       if (config.enableLfBetaVersionSupport) "beta-version-support = yes" else ""
     val participantDevVersionSupport =
-      if (config.enableLfDevVersionSupport) "alpha-version-support = yes" else ""
+      if (config.enableLfDevVersionSupport) "dev-version-support = yes" else ""
     val globalDevVersionSupport =
-      if (config.enableLfDevVersionSupport) "alpha-version-support = yes" else ""
+      if (config.enableLfDevVersionSupport) "dev-version-support = yes" else ""
 
     def participantConfig(i: Int) = {
       val (adminPort, ledgerApiPort) = ports(i)
       val participantId = config.participantIds(i)
       // TODO(https://github.com/DACH-NY/canton/issues/16458): once ProtocolVersion.latest
-      //    is stable, revert alpha-version-support and non-standard-config to
+      //    is stable, revert dev-version-support and non-standard-config to
       //    devMode here and below.
       s"""${participantId} {
          |      admin-api.port = ${adminPort.port}
