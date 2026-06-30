@@ -13,6 +13,7 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:ledger-api-client:__VERSION__"],
@@ -21,8 +22,10 @@ da_scala_library(
         "@maven//:com_daml_bindings_java",
         "@maven//:com_daml_daml_grpc_utils_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_lf_transaction_2_13",
         "@maven//:com_daml_daml_resources_2_13",
         "@maven//:com_daml_ledger_api_scala_2_13",
+        "@maven//:com_daml_ledger_api_value_2_13",
         "@maven//:com_daml_ledger_resources_2_13",
         "@maven//:com_daml_rs_grpc_bridge_2_13",
         "@maven//:com_daml_rs_grpc_pekko_2_13",
