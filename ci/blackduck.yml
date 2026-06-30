@@ -82,9 +82,8 @@ jobs:
       cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
-      # npm install for canton npm examples
+      # install dependencies for the daml JS libraries
       (cd language-support/js && yarn install)
-      (cd canton/community/app/src/pack/examples/09-json-api/typescript && npm install && npm ls)
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
       ci-build digital-asset_daml $(Build.SourceBranchName) \
