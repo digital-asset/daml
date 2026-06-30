@@ -7,7 +7,7 @@ package test
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.integrationtest.CantonConfig.ProtocolVersion
 import com.daml.timer.RetryStrategy
-import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
+import com.digitalasset.daml.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.daml.lf.UpgradeTestUtil
 import com.digitalasset.daml.lf.UpgradeTestUtil.TestCase
 import com.digitalasset.daml.lf.data.Ref._
