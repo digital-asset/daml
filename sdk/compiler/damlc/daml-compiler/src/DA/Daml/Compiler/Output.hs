@@ -9,13 +9,15 @@ module DA.Daml.Compiler.Output
   , bufferingDiagnosticsLogger
   , flushDiagnostics
   , printDiagnostics
+  , printDiagnosticsSimple
   ) where
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy                           as BSL
 import           Data.IORef
 import           Data.String                                    (IsString)
-import qualified Data.Text.Encoding as T
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import Development.IDE.Core.Shake (NotificationHandler(..))
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
@@ -60,11 +62,26 @@ printDiagnostics :: Handle -> [FileDiagnostic] -> IO ()
 printDiagnostics _ [] = return ()
 printDiagnostics handle xs = do
     xs' <- mapM makeAbsoluteDiag xs
-    BS.hPutStrLn handle $ T.encodeUtf8 $ showDiagnosticsColored xs'
-  where
-    makeAbsoluteDiag (fp, showDiag, diag) = do
-        absPath <- makeAbsolute (fromNormalizedFilePath fp)
-        pure (toNormalizedFilePath' absPath, showDiag, diag)
+    BS.hPutStrLn handle $ TE.encodeUtf8 $ showDiagnosticsColored xs'
+
+makeAbsoluteDiag :: FileDiagnostic -> IO FileDiagnostic
+makeAbsoluteDiag (fp, showDiag, diag) = do
+    absPath <- makeAbsolute (fromNormalizedFilePath fp)
+    pure (toNormalizedFilePath' absPath, showDiag, diag)
+
+-- | Print diagnostics in a simplified format showing only file path and message.
+-- Output format: "Failure in: <path>\nMessage: <message>"
+printDiagnosticsSimple :: Handle -> [FileDiagnostic] -> IO ()
+printDiagnosticsSimple _ [] = return ()
+printDiagnosticsSimple handle xs = do
+    xs' <- mapM makeAbsoluteDiag xs
+    mapM_ (printSimpleDiag handle) xs'
+
+printSimpleDiag :: Handle -> FileDiagnostic -> IO ()
+printSimpleDiag handle (fp, _, LSP.Diagnostic{_message = msg}) = do
+    let filePath = fromNormalizedFilePath fp
+    BS.hPutStrLn handle $ TE.encodeUtf8 $ T.pack $ "Failure in: " <> filePath
+    BS.hPutStrLn handle $ TE.encodeUtf8 $ "Message:\n" <> msg
 
 diagnosticsLogger :: NotificationHandler
 diagnosticsLogger = hDiagnosticsLogger stderr
@@ -84,4 +101,4 @@ bufferingDiagnosticsLogger ref = NotificationHandler $ \m params -> case (m, par
 flushDiagnostics :: IORef [FileDiagnostic] -> IO ()
 flushDiagnostics ref = do
     diags <- readIORef ref
-    printDiagnostics stderr diags
+    printDiagnosticsSimple stderr diags
