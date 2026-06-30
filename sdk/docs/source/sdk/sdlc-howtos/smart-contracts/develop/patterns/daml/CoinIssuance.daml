@@ -188,8 +188,6 @@ coinIssuance =
       --since it is locked and maturity time hasn't elapsed yet, owner cannot clawback
       newOwner `submitMustFail` do exerciseCmd lockedCoinId Clawback
 
-      assert False
-
       --only after unlock, owner can access the coin
       unlockedCoin <- issuer `submit` do exerciseCmd lockedCoinId Unlock
       newOwner `submit` do exerciseCmd unlockedCoin Transfer with newOwner=owner
