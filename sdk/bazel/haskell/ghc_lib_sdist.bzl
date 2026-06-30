@@ -148,6 +148,11 @@ trap "rm -rf $TMP $AUTOTOOLS_TMP" EXIT
 cp -rLt $TMP $GHC_DIR/.
 export HOME="$TMP"
 
+ENVFIX_SO="$TMP/environ_fix.so"
+printf 'extern char **environ, **__environ;\n__attribute__((constructor)) static void _f(void){{ environ = __environ; }}\n' > "$TMP/environ_fix.c"
+"$CC_PATH" -shared -fPIC -nostdlib -o "$ENVFIX_SO" "$TMP/environ_fix.c"
+export LD_PRELOAD="$ENVFIX_SO"
+
 # Generate ghc-lib{component} cabal project
 $EXECROOT/{ghc_lib_gen_path} $TMP \
     --ghc-lib{component} \
