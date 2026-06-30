@@ -6,7 +6,7 @@ package v2
 package ledgerinteraction
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.daml.ledger.client.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.daml.lf.data.{FrontStack, SortedLookupList, Time}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}

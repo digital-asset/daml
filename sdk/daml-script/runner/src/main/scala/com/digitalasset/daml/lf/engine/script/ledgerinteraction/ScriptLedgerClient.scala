@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package engine.script.ledgerinteraction
 
-import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.daml.ledger.client.LedgerClient
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.digitalasset.daml.lf.speedy.MachineLogger

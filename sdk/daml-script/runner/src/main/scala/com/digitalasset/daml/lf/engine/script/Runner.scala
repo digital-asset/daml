@@ -8,8 +8,8 @@ package script
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.daml.tls.TlsConfiguration
-import com.digitalasset.canton.ledger.client.LedgerClient
-import com.digitalasset.canton.ledger.client.configuration.{
+import com.digitalasset.daml.ledger.client.LedgerClient
+import com.digitalasset.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientChannelConfiguration,
   LedgerClientConfiguration,

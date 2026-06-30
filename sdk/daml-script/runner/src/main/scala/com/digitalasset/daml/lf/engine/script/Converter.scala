@@ -19,9 +19,9 @@ import com.digitalasset.daml.lf.engine.ScriptEngine.{
 }
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
-import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.daml.ledger.client.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.daml.lf.script.converter.ConverterException
-import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
+import com.digitalasset.daml.ledger.client.{PartyDetails, User, UserRight}
 import scalaz.std.list._
 import scalaz.std.either._
 import scalaz.std.option._

@@ -11,7 +11,7 @@ import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.javaapi.data.{Transaction => JavaTransaction}
 import com.daml.ledger.javaapi.data.{ExercisedEvent => JavaExercisedEvent}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
+import com.digitalasset.daml.ledger.client.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient

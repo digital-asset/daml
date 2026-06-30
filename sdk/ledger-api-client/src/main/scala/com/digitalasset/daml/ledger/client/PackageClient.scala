@@ -4,7 +4,12 @@
 package com.digitalasset.daml.ledger.client
 
 import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageServiceStub
-import com.daml.ledger.api.v2.package_service.{ListPackagesRequest, ListPackagesResponse}
+import com.daml.ledger.api.v2.package_service.{
+  ListPackagesRequest,
+  ListPackagesResponse,
+  ListVettedPackagesRequest,
+  ListVettedPackagesResponse,
+}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.Future
@@ -20,4 +25,12 @@ final class PackageClient(
     LedgerClient
       .stubWithTracing(service, token.orElse(getDefaultToken()))
       .listPackages(ListPackagesRequest())
+
+  def listVettedPackages(
+      request: ListVettedPackagesRequest,
+      token: Option[String] = None,
+  )(implicit traceContext: TraceContext): Future[ListVettedPackagesResponse] =
+    LedgerClient
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
+      .listVettedPackages(request)
 }

@@ -7,8 +7,8 @@ package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
 package grpcLedgerClient
 
 import com.daml.grpc.AuthCallCredentials
-import com.digitalasset.canton.ledger.client.GrpcChannel
-import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
+import com.digitalasset.daml.ledger.client.GrpcChannel
+import com.digitalasset.daml.ledger.client.configuration.LedgerClientChannelConfiguration
 import io.grpc.Channel
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub

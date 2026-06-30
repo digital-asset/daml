@@ -9,9 +9,14 @@ package ledgerinteraction
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.ledger.api._
-import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.daml.ledger.client.{
+  IdentityProviderId,
+  ObjectMeta,
+  PartyDetails,
+  User,
+  UserRight,
+}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiContractKey}
 import com.digitalasset.daml.lf.data.Ref._
@@ -115,7 +120,7 @@ class IdeLedgerClient(
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
   private val userManagementStore =
-    new InMemoryUserManagementStore(createAdmin = false, loggerFactory)
+    new IdeUserManagementStore
 
   private[this] def blob(contract: FatContractInstance): Bytes =
     Bytes.fromByteString(ContractInstanceCoder.encodeFatContractInstance(contract).toOption.get)
@@ -904,8 +909,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[Unit]] =
     userManagementStore
-      .createUser(user, rights.toSet)(LoggingContextWithTrace.empty)
-      .map(_.toOption.map(_ => ()))
+      .createUser(user, rights.toSet)
 
   override def getUser(id: UserId)(implicit
       ec: ExecutionContext,
@@ -913,8 +917,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[User]] =
     userManagementStore
-      .getUser(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty, implicitly)
-      .map(_.toOption)
+      .getUser(id)
 
   override def deleteUser(id: UserId)(implicit
       ec: ExecutionContext,
@@ -922,8 +925,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[Unit]] =
     userManagementStore
-      .deleteUser(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty)
-      .map(_.toOption)
+      .deleteUser(id)
 
   override def listAllUsers()(implicit
       ec: ExecutionContext,
@@ -931,8 +933,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[List[User]] =
     userManagementStore
-      .listUsers(None, Int.MaxValue, IdentityProviderId.Default)(LoggingContextWithTrace.empty)
-      .map(_.toOption.toList.flatMap(_.users))
+      .listAllUsers()
 
   override def grantUserRights(
       id: UserId,
@@ -943,8 +944,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .grantRights(id, rights.toSet, IdentityProviderId.Default)(LoggingContextWithTrace.empty)
-      .map(_.toOption.map(_.toList))
+      .grantRights(id, rights.toSet)
 
   override def revokeUserRights(
       id: UserId,
@@ -955,8 +955,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .revokeRights(id, rights.toSet, IdentityProviderId.Default)(LoggingContextWithTrace.empty)
-      .map(_.toOption.map(_.toList))
+      .revokeRights(id, rights.toSet)
 
   override def listUserRights(id: UserId)(implicit
       ec: ExecutionContext,
@@ -964,8 +963,7 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[Option[List[UserRight]]] =
     userManagementStore
-      .listUserRights(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty, implicitly)
-      .map(_.toOption.map(_.toList))
+      .listUserRights(id)
 
   /* Generate a package name map based on package preference then highest version
    */

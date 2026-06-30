@@ -10,7 +10,7 @@ import java.time.Instant
 import java.util.UUID
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
+import com.digitalasset.daml.ledger.client.{PartyDetails, User, UserRight}
 import com.daml.ledger.api.v2.admin.package_management_service.{
   UpdateVettedPackagesRequest,
   VettedPackagesChange,
@@ -42,7 +42,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.daml.ledger.api.v2.{value => api}
 import com.daml.timer.RetryStrategy
-import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.daml.ledger.client.LedgerClient
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.command
@@ -56,7 +56,7 @@ import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
 import com.digitalasset.daml.lf.speedy.Pretty
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
-import com.digitalasset.canton.ledger.api.util.LfEngineToApi.{
+import com.digitalasset.daml.ledger.client.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
   toApiIdentifier,

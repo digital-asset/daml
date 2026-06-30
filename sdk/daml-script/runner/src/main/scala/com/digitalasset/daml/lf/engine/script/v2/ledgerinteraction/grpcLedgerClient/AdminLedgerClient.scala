@@ -8,8 +8,8 @@ package grpcLedgerClient
 
 import com.daml.grpc.AuthCallCredentials
 import com.daml.timer.RetryStrategy
-import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
-import com.digitalasset.canton.ledger.client.GrpcChannel
+import com.digitalasset.daml.ledger.client.configuration.LedgerClientChannelConfiguration
+import com.digitalasset.daml.ledger.client.GrpcChannel
 import com.digitalasset.canton.admin.participant.{v30 => admin_participant}
 import com.digitalasset.canton.topology.admin.v30.ForceFlag
 import com.digitalasset.canton.topology.admin.{v30 => admin_topology}
