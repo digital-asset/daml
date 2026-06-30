@@ -1,3 +1,5 @@
+Running on Apple Silicon (arm64). Changing stack limit from 8176 to 64000.
+Running on Apple Silicon (arm64). Changing stack limit from 8176 to 64000.
 # Security tests, by category
 
 ## Integrity:

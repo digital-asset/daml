@@ -326,6 +326,8 @@ class IdeLedgerClient(
           NonEmpty(Seq, cid),
           Some(SubmitError.ContractNotFound.AdditionalInfo.NotFound()),
         )
+      case UnsupportedContractId(cid) =>
+        SubmitError.UnsupportedContractId(cid)
       case ContractKeyNotFound(key) => SubmitError.ContractKeyNotFound(key)
       case UnresolvedPackageName(packageName) => SubmitError.UnresolvedPackageName(packageName)
       case e: FailedAuthorization =>
