@@ -49,7 +49,8 @@ final class PartyManagementClient(
     LedgerClient
       .stubWithTracing(service, token.orElse(getDefaultToken()))
       .listKnownParties(
-        PartyManagementClient.listKnownPartiesRequest(pageToken, pageSize, filterParty = filterParty)
+        PartyManagementClient
+          .listKnownPartiesRequest(pageToken, pageSize, filterParty = filterParty)
       )
       .map(resp =>
         (resp.partyDetails.view.map(PartyManagementClient.details).toList, resp.nextPageToken)

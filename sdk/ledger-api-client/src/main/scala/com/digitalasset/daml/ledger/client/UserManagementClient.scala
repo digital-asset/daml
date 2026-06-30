@@ -35,8 +35,8 @@ final class UserManagementClient(
       .flatMap(res => fromOptionalProtoUser(res.user))
   }
 
-  def getUser(userId: UserId, token: Option[String] = None, identityProviderId: String = "")(implicit
-      traceContext: TraceContext
+  def getUser(userId: UserId, token: Option[String] = None, identityProviderId: String = "")(
+      implicit traceContext: TraceContext
   ): Future[User] =
     LedgerClient
       .stubWithTracing(service, token.orElse(getDefaultToken()))
