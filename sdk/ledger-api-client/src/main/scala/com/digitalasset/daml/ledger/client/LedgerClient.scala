@@ -11,7 +11,6 @@ import com.daml.ledger.api.v2.admin.user_management_service.UserManagementServic
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v2.package_service.PackageServiceGrpc
 import com.daml.ledger.api.v2.state_service.StateServiceGrpc
-import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.daml.ledger.client.configuration.{
   LedgerClientChannelConfiguration,
@@ -22,7 +21,6 @@ import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
 
 import java.io.Closeable
-import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
 
 /** GRPC client for the Canton Ledger API.
@@ -32,8 +30,6 @@ import scala.concurrent.{ExecutionContext, Future}
 final class LedgerClient private (
     val channel: Channel,
     config: LedgerClientConfiguration,
-    @unused
-    loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory)
     extends Closeable {
 
@@ -78,7 +74,6 @@ object LedgerClient {
   def apply(
       channel: Channel,
       config: LedgerClientConfiguration,
-      loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -89,7 +84,7 @@ object LedgerClient {
       _ <- new StateServiceClient(
         StateServiceGrpc.stub(channel)
       ).getLedgerEnd(config.token())
-    } yield new LedgerClient(channel, config, loggerFactory)
+    } yield new LedgerClient(channel, config)
 
   private[client] def stubWithTracing[A <: AbstractStub[A]](stub: A, token: Option[String])(implicit
       traceContext: TraceContext
@@ -107,13 +102,12 @@ object LedgerClient {
       port: Int,
       configuration: LedgerClientConfiguration,
       channelConfig: LedgerClientChannelConfiguration,
-      loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       traceContext: TraceContext,
   ): Future[LedgerClient] =
-    fromBuilder(channelConfig.builderFor(hostIp, port), configuration, loggerFactory)
+    fromBuilder(channelConfig.builderFor(hostIp, port), configuration)
 
   /** Takes a [[io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder]], sets the relevant options
     * specified by the configuration (possibly overriding the existing builder settings), and
@@ -124,7 +118,6 @@ object LedgerClient {
   def fromBuilder(
       builder: NettyChannelBuilder,
       configuration: LedgerClientConfiguration,
-      loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -133,7 +126,6 @@ object LedgerClient {
     LedgerClient(
       GrpcChannel.withShutdownHook(builder),
       configuration,
-      loggerFactory,
     )
 
 }

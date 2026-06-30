@@ -14,7 +14,6 @@ import com.digitalasset.daml.ledger.client.configuration.{
   LedgerClientChannelConfiguration,
   LedgerClientConfiguration,
 }
-import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.Ref
@@ -232,8 +231,6 @@ object Runner {
   final case object CanceledByRequest extends RuntimeException
   final case object TimedOut extends RuntimeException
 
-  val namedLoggerFactory: NamedLoggerFactory = NamedLoggerFactory("daml-script", "")
-
   val BLANK_USER_ID: Option[Ref.UserId] = None
   val DEFAULT_USER_ID: Option[Ref.UserId] = Some(
     Ref.UserId.assertFromString("daml-script")
@@ -268,7 +265,6 @@ object Runner {
         params.port,
         clientConfig,
         clientChannelConfig,
-        namedLoggerFactory,
       )
       maybeAdminLedgerClient <- params.adminPort
         .traverse(adminPort =>

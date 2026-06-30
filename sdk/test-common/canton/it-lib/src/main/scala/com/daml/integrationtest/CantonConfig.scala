@@ -18,7 +18,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import java.nio.file.{Path, Paths}
 import java.time.{Duration, Instant}
 
-import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
 
 object CantonConfig {
@@ -158,7 +157,6 @@ final case class CantonConfig(
         commandClient = CommandClientConfiguration.default,
         token = () => token,
       ),
-      loggerFactory = NamedLoggerFactory.root,
     )
   }
 }
