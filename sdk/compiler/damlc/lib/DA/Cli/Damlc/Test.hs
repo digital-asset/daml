@@ -55,7 +55,7 @@ import Safe
 import qualified ScriptService as SS
 import qualified DA.Cli.Damlc.Test.TestResults as TR
 import System.Console.ANSI (SGR(..), setSGRCode, Underlining(..), ConsoleIntensity(..), Color(..), ColorIntensity(..), ConsoleLayer(..))
-import System.Directory (createDirectoryIfMissing)
+import System.Directory (createDirectoryIfMissing, getCurrentDirectory)
 import System.Exit (exitFailure)
 import System.FilePath
 import System.IO (hFlush, hIsTerminalDevice, hPutStrLn, stderr, stdout)
@@ -309,15 +309,21 @@ failedTestOutput h file = do
 
 
 projectPathSuffix :: Maybe FilePath -> String
-projectPathSuffix = maybe "" (\p -> " (" <> p <> ")")
+projectPathSuffix = maybe "" (\p -> " for \"" <> p <> "\"")
+
+makeRelativePath :: FilePath -> IO FilePath
+makeRelativePath path = do
+    cwd <- getCurrentDirectory
+    pure $ makeRelative cwd path
 
 printTestSuiteBegin :: UseColor -> Maybe FilePath -> IO ()
 printTestSuiteBegin color mbProjectPath =
     whenJust mbProjectPath $ \projectPath -> do
+      relativeProjectPath <- makeRelativePath projectPath
       let colored = getUseColor color
       putStrLn $
         (if colored then setSGRCode [SetConsoleIntensity BoldIntensity] else "")
-        <> "Running tests (" <> projectPath <> ") ..."
+        <> "Running tests (" <> relativeProjectPath <> ") ..."
         <> (if colored then setSGRCode [] else "")
 
 printSummary :: UseColor -> Verbose -> Maybe FilePath -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SSC.ScriptResult)] -> IO ()
@@ -326,7 +332,6 @@ printSummary color verbose mbProjectPath res =
     let nFailed = length [() | (_, _, Left _) <- res]
         nPassed = length res - nFailed
         colored = getUseColor color
-        header = "Test Summary" <> projectPathSuffix mbProjectPath
         countLine
           | nFailed > 0 =
               (if colored then setSGRCode [SetColor Foreground Vivid Red] else "")
@@ -340,18 +345,40 @@ printSummary color verbose mbProjectPath res =
         resultsToShow
           | getVerbose verbose || nFailed == 0 = res
           | otherwise = [r | r@(_, _, Left _) <- res]
-    putStrLn $
-      unlines
-        [ setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity]
-        , header <> setSGRCode []
-        , countLine
-        ]
-    printScriptResults color resultsToShow
 
-printScriptResults :: UseColor -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SS.ScriptResult)] -> IO ()
-printScriptResults color results = do
+    -- Print combined header line
+    pathToShow <- case mbProjectPath of
+        Just p -> Just <$> makeRelativePath p
+        Nothing -> pure Nothing
+    putStrLn $
+      (if colored then setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity] else "")
+      <> "Test summary" <> projectPathSuffix pathToShow <> ": "
+      <> (if colored then setSGRCode [] else "")
+      <> countLine
+
+    -- Print failing tests section if there are failures
+    when (nFailed > 0) $ do
+      putStrLn ""
+      putStrLn $
+        (if colored then setSGRCode [SetConsoleIntensity BoldIntensity] else "")
+        <> "Failing tests:"
+        <> (if colored then setSGRCode [] else "")
+
+    printScriptResults color mbProjectPath resultsToShow
+
+printScriptResults :: UseColor -> Maybe FilePath -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SS.ScriptResult)] -> IO ()
+printScriptResults color mbProjectPath results = do
     liftIO $ forM_ results $ \(loe, ScriptName scriptName, resultOrErr) -> do
-      let name = DA.Pretty.pretty (TR.localOrExternalName loe) <> ":" <> DA.Pretty.pretty scriptName
+      loeName <- case loe of
+        TR.Local file _ -> do
+          let absPath = fromNormalizedFilePath file
+          -- Make path relative to project path if available, otherwise relative to CWD
+          relativePath <- case mbProjectPath of
+            Just projectPath -> pure $ makeRelative projectPath absPath
+            Nothing -> makeRelativePath absPath
+          pure $ T.pack relativePath
+        TR.External _ -> pure $ TR.localOrExternalName loe
+      let name = DA.Pretty.pretty loeName <> ":" <> DA.Pretty.pretty scriptName
       let stringStyleToRender = if getUseColor color then DA.Pretty.renderColored else DA.Pretty.renderPlain
       putStrLn $ stringStyleToRender $
         case resultOrErr of
