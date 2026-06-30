@@ -46,7 +46,10 @@ bazel_dep(name = "aspect_rules_jest", version = "0.24.3")
 single_version_override(
     module_name = "rules_haskell",
     patch_strip = 1,
-    patches = ["//bazel/patches:haskell/rules_bazel-8_compat.patch"],
+    patches = [
+        "//bazel/patches:haskell/rules_bazel-8_compat.patch",
+        "//bazel/patches:haskell/rules_haskell-cabal-cc-sysroot.patch",
+    ],
 )
 
 # --- Toolchains ---
