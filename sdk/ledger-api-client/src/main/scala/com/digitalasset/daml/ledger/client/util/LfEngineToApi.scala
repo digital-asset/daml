@@ -164,8 +164,4 @@ object LfEngineToApi {
           }
     }
 
-  @throws[RuntimeException]
-  def assertOrRuntimeEx[A](failureContext: String, ea: Either[String, A]): A =
-    ea.fold(e => throw new RuntimeException(s"Unexpected error when $failureContext: $e"), identity)
-
 }

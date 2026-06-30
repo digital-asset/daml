@@ -91,13 +91,6 @@ object LedgerClient {
       ).getLedgerEnd(config.token())
     } yield new LedgerClient(channel, config, loggerFactory)
 
-  def withoutToken(
-      channel: Channel,
-      config: LedgerClientConfiguration,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): LedgerClient =
-    new LedgerClient(channel, config, loggerFactory)
-
   private[client] def stubWithTracing[A <: AbstractStub[A]](stub: A, token: Option[String])(implicit
       traceContext: TraceContext
   ): A =
@@ -121,22 +114,6 @@ object LedgerClient {
       traceContext: TraceContext,
   ): Future[LedgerClient] =
     fromBuilder(channelConfig.builderFor(hostIp, port), configuration, loggerFactory)
-
-  def insecureSingleHost(
-      hostIp: String,
-      port: Int,
-      configuration: LedgerClientConfiguration,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit
-      ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
-      traceContext: TraceContext,
-  ): Future[LedgerClient] =
-    fromBuilder(
-      LedgerClientChannelConfiguration.InsecureDefaults.builderFor(hostIp, port),
-      configuration,
-      loggerFactory,
-    )
 
   /** Takes a [[io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder]], sets the relevant options
     * specified by the configuration (possibly overriding the existing builder settings), and
