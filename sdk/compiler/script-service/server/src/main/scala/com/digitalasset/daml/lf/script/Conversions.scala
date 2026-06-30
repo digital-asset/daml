@@ -298,13 +298,14 @@ final class Conversions(
                     speedy.Pretty.prettyDamlException(interpretationError).render(80)
                   )
                 )
+              case _: ExternalCall =>
+                builder.setExternalCallError(
+                  proto.ScriptError.ExternalCallError.newBuilder.setMessage(
+                    speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                  )
+                )
               case err @ Dev(_, _) =>
                 builder.setCrash(s"Unexpected Dev error: " + err.toString)
-              // TODO[https://github.com/digital-asset/canton/issues/513]: implement external call
-              case e: ExternalCall =>
-                sys.error(
-                  s"ExternalCall detected in Conversions.scala. Value is: $e"
-                )
             }
         }
 

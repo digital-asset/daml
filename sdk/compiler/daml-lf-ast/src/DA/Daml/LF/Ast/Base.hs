@@ -324,6 +324,11 @@ data BuiltinExpr
   | BEKecCak256Text              -- :: Text -> Text
   | BEEncodeHex                  -- :: Text -> Text
   | BEDecodeHex                  -- :: Text -> Text
+  -- EXTERNAL_CALL is encoded in LF/protobuf as a builtin function returning
+  -- Update Text, rather than as an Update AST node like create/fetch/exercise.
+  -- Evaluating the builtin only produces an Update value; executing that
+  -- update remains part of normal Update interpretation.
+  | BEExternalCall               -- :: Text -> Text -> Text -> Text -> Update Text
   | BETextToParty                -- :: Text -> Optional Party
   | BETextToInt64                -- :: Text -> Optional Int64
   | BETextToNumeric              -- :: ∀(s:nat). Numeric s -> Text -> Optional (Numeric s)

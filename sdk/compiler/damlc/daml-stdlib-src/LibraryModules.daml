@@ -18,6 +18,7 @@ import DA.Crypto.Text
 import DA.Date
 import DA.Either
 import DA.Exception
+import DA.External
 import DA.Fail
 import DA.Foldable
 import DA.Functor

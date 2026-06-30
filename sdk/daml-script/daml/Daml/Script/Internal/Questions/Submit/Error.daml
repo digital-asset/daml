@@ -8,6 +8,7 @@ module Daml.Script.Internal.Questions.Submit.Error
   , SubmitError (..)
   , UpgradeErrorType (..)
   , CryptoErrorType (..)
+  , ExternalCallErrorType (..)
   ) where
 
 import Daml.Script.Internal.Questions.Util
@@ -53,6 +54,20 @@ data CryptoErrorType
         keyValue : Text
     | MalformedSignature with
         signatureValue : Text
+    deriving Show
+
+-- | MOVE Daml.Script
+-- External-call related submission errors.
+data ExternalCallErrorType
+  = PreparationFailed with
+        extensionId : Text
+        functionId : Text
+    | ExecutionCallFailed with
+        extensionId : Text
+        functionId : Text
+    | ExecutionInvalidOutput with
+        extensionId : Text
+        functionId : Text
     deriving Show
 
 -- | HIDE
@@ -194,6 +209,10 @@ data SubmitError
     CryptoError with
       cryptoErrorType : CryptoErrorType
       cryptoErrorMessage : Text
+  | -- | External-call interpretation exception
+    ExternalCallError with
+      externalCallErrorType : ExternalCallErrorType
+      externalCallErrorMessage : Text
   | -- | Rollback exceptions
     EffectfulRollbackError with
       effectfulRollbackErrorMsg : Text
@@ -247,6 +266,7 @@ instance Show SubmitError where
     UpgradeError ty msg -> "UpgradeError: " <> show ty <> "\n with message \"" <> msg <> "\""
     FailureStatusError failureStatus -> "Failed with Status: " <> show failureStatus
     CryptoError ty msg -> "CryptoError: " <> show ty <> "\n with message \"" <> msg <> "\""
+    ExternalCallError ty msg -> "ExternalCallError: " <> show ty <> "\n with message \"" <> msg <> "\""
     EffectfulRollbackError msg -> "EffectfulRollbackError: " <> msg
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
