@@ -873,19 +873,19 @@ convertTypeDef env msi o@(ATyCon t) = withRange (convNameLoc t) $ if
     -> pure []
 
     -- Remove HasFetchByKey class declaration when unsupported
-    | not (envLfVersion env `supports` featureNUCK)
+    | not (envLfVersion env `supports` featureContractKeys)
     , Just cls <- tyConClass_maybe t
     , NameIn DA_Internal_Template_Functions "HasFetchByKey" <- cls
     -> pure []
 
     -- Remove HasExerciseByKey class declaration when unsupported
-    | not (envLfVersion env `supports` featureNUCK)
+    | not (envLfVersion env `supports` featureContractKeys)
     , Just cls <- tyConClass_maybe t
     , NameIn DA_Internal_Template_Functions "HasExerciseByKey" <- cls
     -> pure []
 
     -- Remove HasLookupNByKey class declaration when NUCK is unsupported
-    | not (envLfVersion env `supports` featureNUCK)
+    | not (envLfVersion env `supports` featureContractKeys)
     , Just cls <- tyConClass_maybe t
     , NameIn DA_Internal_Template_Functions "HasLookupNByKey" <- cls
     -> pure []
@@ -1465,32 +1465,32 @@ convertBind env mc (name, x)
     = pure []
 
     -- Remove _fetchByKey wrapper defintition when unsupported
-    | not (envLfVersion env `supports` featureNUCK)
+    | not (envLfVersion env `supports` featureContractKeys)
     , NameIn DA_Internal_Template_Functions "_fetchByKey" <- name
     = pure []
 
     -- Remove HasFetchByKey dictionary declaration when NUCK is unsupported
-    | not (envLfVersion env `supports` featureNUCK)
+    | not (envLfVersion env `supports` featureContractKeys)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasFetchByKey") _ <- name
     = pure []
 
     -- Remove _exerciseByKey wrapper defintition when unsupported
-    | not (envLfVersion env `supports` featureNUCK)
+    | not (envLfVersion env `supports` featureContractKeys)
     , NameIn DA_Internal_Template_Functions "_exerciseByKey" <- name
     = pure []
 
     -- Remove HasExerciseByKey dictionary declaration when NUCK is unsupported
-    | not (envLfVersion env `supports` featureNUCK)
+    | not (envLfVersion env `supports` featureContractKeys)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasExerciseByKey") _ <- name
     = pure []
 
     -- Remove _lookupNByKey wrapper defintition when NUCK is unsupported
-    | not (envLfVersion env `supports` featureNUCK)
+    | not (envLfVersion env `supports` featureContractKeys)
     , NameIn DA_Internal_Template_Functions "_lookupNByKey" <- name
     = pure []
 
     -- Remove HasLookupNByKey dictionary declaration when NUCK is unsupported
-    | not (envLfVersion env `supports` featureNUCK)
+    | not (envLfVersion env `supports` featureContractKeys)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasLookupNByKey") _ <- name
     = pure []
 
@@ -1799,18 +1799,18 @@ convertExpr env0 e = do
     -- convert usages of _fetchByKey to errorr wen unsupported since the
     -- defintion won't exist
     go env (VarIn DA_Internal_Template_Functions "_fetchByKey") _
-        | not $ envLfVersion env `supports` featureNUCK
-        = conversionError $ FeatureNotSupported featureNUCK (envLfVersion env)
+        | not $ envLfVersion env `supports` featureContractKeys
+        = conversionError $ FeatureNotSupported featureContractKeys (envLfVersion env)
     -- convert usages of _exerciseByKey to errorr wen unsupported since the
     -- defintion won't exist
     go env (VarIn DA_Internal_Template_Functions "_exerciseByKey") _
-        | not $ envLfVersion env `supports` featureNUCK
-        = conversionError $ FeatureNotSupported featureNUCK (envLfVersion env)
+        | not $ envLfVersion env `supports` featureContractKeys
+        = conversionError $ FeatureNotSupported featureContractKeys (envLfVersion env)
     -- convert usages of _lookupNByKey to errorr wen NUCK is unsupported since the
     -- defintion won't exist
     go env (VarIn DA_Internal_Template_Functions "_lookupNByKey") _
-        | not $ envLfVersion env `supports` featureNUCK
-        = conversionError $ FeatureNotSupported featureNUCK (envLfVersion env)
+        | not $ envLfVersion env `supports` featureContractKeys
+        = conversionError $ FeatureNotSupported featureContractKeys (envLfVersion env)
     go env (VarIn DA_Internal_Template_Functions "choiceController") _
         | not $ envLfVersion env `supports` featureChoiceFuncs
         = conversionError $ OnlySupportedOnDev "The function `choiceController` is"
