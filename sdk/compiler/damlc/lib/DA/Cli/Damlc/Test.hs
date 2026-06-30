@@ -367,23 +367,31 @@ printSummary color mbIdentifier mbProjectPath res =
 
 printScriptResults :: UseColor -> Maybe FilePath -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SS.ScriptResult)] -> IO ()
 printScriptResults color mbProjectPath results = do
-    liftIO $ forM_ results $ \(loe, ScriptName scriptName, resultOrErr) -> do
+    -- Group results by file/package
+    let grouped = groupBy (\(loe1, _, _) (loe2, _, _) -> TR.localOrExternalName loe1 == TR.localOrExternalName loe2) results
+    liftIO $ forM_ grouped $ \groupResults -> do
       -- Use short relative paths in test summary for readability.
       -- Note: makeRelative returns the absolute path unchanged if paths have different
       -- roots (e.g., different drives on Windows). This is acceptable as the absolute
       -- path is still a valid, clickable path in the output.
+      let (loe, _, _) = head groupResults
       loeName <- case loe of
         TR.Local file _ -> do
           let absPath = fromNormalizedFilePath file
           let relativePath = maybe absPath (\projectPath -> makeRelative projectPath absPath) mbProjectPath
           pure $ T.pack relativePath
         TR.External _ -> pure $ TR.localOrExternalName loe
-      let name = DA.Pretty.pretty loeName <> ":" <> DA.Pretty.pretty scriptName
-          stringStyleToRender = if getUseColor color then DA.Pretty.renderColored else DA.Pretty.renderPlain
-      putStrLn $ stringStyleToRender $
-        case resultOrErr of
-          Left _err -> name <> ": " <> DA.Pretty.error_ "failed"
-          Right result -> name <> ": " <> prettyResult result
+      let stringStyleToRender = if getUseColor color then DA.Pretty.renderColored else DA.Pretty.renderPlain
+      -- Print first result with full path, subsequent results indented with ".."
+      forM_ (zip [0..] groupResults) $ \(idx :: Int, (_, ScriptName scriptName, resultOrErr)) -> do
+        let statusDoc = case resultOrErr of
+              Left _err -> DA.Pretty.error_ "failed"
+              Right result -> prettyResult result
+        if idx == 0
+          then putStrLn $ stringStyleToRender $
+            DA.Pretty.pretty loeName <> ":" <> DA.Pretty.pretty scriptName <> " " <> statusDoc
+          else putStrLn $ stringStyleToRender $
+            "  ..:" <> DA.Pretty.pretty scriptName <> " " <> statusDoc
 
 
 prettyErr :: PrettyLevel -> LF.Version -> SSC.Error -> DA.Pretty.Doc Pretty.SyntaxClass
@@ -402,9 +410,10 @@ prettyResult :: SS.ScriptResult -> DA.Pretty.Doc Pretty.SyntaxClass
 prettyResult result =
     let nTx = length (SS.scriptResultScriptSteps result)
         nActive = length $ filter (SS.isActive (SS.activeContractsFromScriptResult result)) (V.toList (SS.scriptResultNodes result))
-    in DA.Pretty.typeDoc_ "ok, "
-    <> DA.Pretty.int nActive <> DA.Pretty.typeDoc_ " active contracts, "
-    <> DA.Pretty.int nTx <> DA.Pretty.typeDoc_ " transactions."
+    in DA.Pretty.typeDoc_ "ok"
+    <> DA.Pretty.string ", "
+    <> DA.Pretty.int nActive <> DA.Pretty.string " active contracts, "
+    <> DA.Pretty.int nTx <> DA.Pretty.string " transactions."
 
 
 toJUnit :: [(NormalizedFilePath, [(ScriptName, Maybe T.Text)])] -> XML.Element
