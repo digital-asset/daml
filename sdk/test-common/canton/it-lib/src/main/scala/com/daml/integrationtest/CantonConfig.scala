@@ -7,7 +7,7 @@ package integrationtest
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.tls.TlsConfiguration
-import com.digitalasset.canton.ledger.client.{GrpcChannel, LedgerClient}
+import com.digitalasset.daml.ledger.client.{GrpcChannel, LedgerClient}
 import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.daml.lf.data.Ref
 import com.daml.ports.Port
@@ -116,7 +116,7 @@ final case class CantonConfig(
       port: Port,
       maxInboundMessageSize: Int = 64 * 1024 * 1024,
   ): NettyChannelBuilder = {
-    import com.digitalasset.canton.ledger.client.configuration._
+    import com.digitalasset.daml.ledger.client.configuration._
     LedgerClientChannelConfiguration(
       sslContext = tlsClientConfig.client(),
       maxInboundMessageSize = maxInboundMessageSize,
@@ -150,7 +150,7 @@ final case class CantonConfig(
       esf: ExecutionSequencerFactory,
       traceContext: TraceContext,
   ): Future[LedgerClient] = {
-    import com.digitalasset.canton.ledger.client.configuration._
+    import com.digitalasset.daml.ledger.client.configuration._
     LedgerClient(
       channel = channel(port, maxInboundMessageSize),
       config = LedgerClientConfiguration(

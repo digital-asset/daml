@@ -11,7 +11,7 @@ import com.daml.testing.utils.{
   SuiteResource,
   SuiteResourceManagementAroundAll,
 }
-import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.daml.ledger.client.LedgerClient
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.digitalasset.daml.lf.data.Ref
 import com.daml.ports.Port

@@ -12,7 +12,7 @@ import com.daml.ledger.api.v2.StateServiceOuterClass.{
   GetLedgerEndRequest,
 }
 import com.daml.ledger.api.v2.CommandServiceOuterClass.{SubmitAndWaitRequest, SubmitAndWaitResponse}
-import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.daml.ledger.client.LedgerClient
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
 import com.daml.ledger.javaapi.data.codegen.HasCommands

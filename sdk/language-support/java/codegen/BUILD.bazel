@@ -433,12 +433,12 @@ da_scala_test(
     deps = [
         ":ledger-tests-model",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//ledger-api-client",
         "//test-common/canton/it-lib",
         "//timer-utils",
         "@maven//:com_daml_bindings_java",
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_resources_2_13",
-        "@maven//:com_daml_ledger_api_core_2_13",
         "@maven//:com_daml_ledger_api_scala_2_13",
         "@maven//:com_daml_ledger_resources_2_13",
         "@maven//:com_daml_ports_2_13",
