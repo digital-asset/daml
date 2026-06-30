@@ -40,6 +40,9 @@ data UserRight
   | CanActAs Party
   | CanReadAs Party
   | CanReadAsAnyParty
+  | CanExecuteAs Party
+  | CanExecuteAsAnyParty
+  | CanActAsAnyParty
   deriving (Show, Eq)
 
 -- Pseudo exception that daml-script can throw/catch, but that isn't seen as an exception in the dar

@@ -10,7 +10,8 @@ import java.time.Instant
 import java.util.UUID
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
+import com.digitalasset.canton.ledger.api.PartyDetails
+import com.digitalasset.canton.user.{User, UserRight}
 import com.daml.ledger.api.v2.admin.package_management_service.{
   UpdateVettedPackagesRequest,
   VettedPackagesChange,

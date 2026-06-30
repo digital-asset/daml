@@ -9,7 +9,8 @@ package ledgerinteraction
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.ledger.api._
+import com.digitalasset.canton.ledger.api.PartyDetails
+import com.digitalasset.canton.user._
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext

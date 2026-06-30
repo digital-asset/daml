@@ -27,7 +27,7 @@ import com.digitalasset.daml.lf.engine.ScriptEngine.{
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.script.converter.Converter.{makeTuple, toContractId, toText}
-import com.digitalasset.canton.ledger.api.{User, UserRight}
+import com.digitalasset.canton.user.{User, UserRight}
 import org.apache.pekko.stream.Materializer
 import scalaz.std.either._
 import scalaz.std.list._
