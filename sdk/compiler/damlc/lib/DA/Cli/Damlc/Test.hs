@@ -105,15 +105,20 @@ execTest inFiles runAllOption coverage color verbose mbJUnitOutput mPkgConfig op
     let optsWithPkg = case mPkgConfig of
             Just PackageConfigFields{..} -> opts { optMbPackageName = Just pName, optMbPackageVersion = pVersion }
             Nothing -> opts
+        -- Prefer package name over path for identification in headers
+        packageIdentifier = case mPkgConfig of
+            Just PackageConfigFields{..} -> Just $ T.unpack $ LF.unPackageName pName
+            Nothing -> mbProjectPath
     diagsRef <- newIORef []
     let bufferedLogger = bufferingDiagnosticsLogger diagsRef
-    printTestSuiteBegin color mbProjectPath
+    printTestSuiteBegin color packageIdentifier
     withDamlIdeState optsWithPkg loggerH bufferedLogger $ \h -> do
         summaryResults <- runAndReport h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllOption coverage mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
         hFlush stdout
         flushDiagnostics diagsRef
         diags <- getDiagnostics h
-        printSummary color verbose mbProjectPath summaryResults
+        -- Pass both identifier (for header) and path (for relativizing test file paths)
+        printSummary color verbose packageIdentifier mbProjectPath summaryResults
         when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
 
 loadAggregatePrintResults :: CoveragePaths -> [CoverageFilter] -> ShowCoverage -> Maybe TR.TestResults -> IO ()
@@ -308,63 +313,68 @@ failedTestOutput h file = do
     pure $ map (, Just errMsg) scriptNames
 
 
-projectPathSuffix :: Maybe FilePath -> String
-projectPathSuffix = maybe "" (\p -> " for \"" <> p <> "\"")
-
 makeRelativePath :: FilePath -> IO FilePath
 makeRelativePath path = do
     cwd <- getCurrentDirectory
     pure $ makeRelative cwd path
 
-printTestSuiteBegin :: UseColor -> Maybe FilePath -> IO ()
-printTestSuiteBegin color mbProjectPath =
-    whenJust mbProjectPath $ \projectPath -> do
-      relativeProjectPath <- makeRelativePath projectPath
+printTestSuiteBegin :: UseColor -> Maybe String -> IO ()
+printTestSuiteBegin color mbIdentifier =
+    whenJust mbIdentifier $ \identifier -> do
       let colored = getUseColor color
       putStrLn $
         (if colored then setSGRCode [SetConsoleIntensity BoldIntensity] else "")
-        <> "Running tests (" <> relativeProjectPath <> ") ..."
+        <> "Running tests (" <> identifier <> ") ..."
         <> (if colored then setSGRCode [] else "")
 
-printSummary :: UseColor -> Verbose -> Maybe FilePath -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SSC.ScriptResult)] -> IO ()
-printSummary color verbose mbProjectPath res =
+printSummary :: UseColor -> Verbose -> Maybe String -> Maybe FilePath -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SSC.ScriptResult)] -> IO ()
+printSummary color verbose mbIdentifier mbProjectPath res =
   liftIO $ do
     let nFailed = length [() | (_, _, Left _) <- res]
         nPassed = length res - nFailed
+        nTotal = length res
         colored = getUseColor color
-        countLine
-          | nFailed > 0 =
-              (if colored then setSGRCode [SetColor Foreground Vivid Red] else "")
-              <> show nFailed <> " failed"
-              <> (if colored then setSGRCode [] else "")
-              <> ", " <> show nPassed <> " passed"
-          | otherwise =
-              (if colored then setSGRCode [SetColor Foreground Vivid Green] else "")
-              <> show nPassed <> " passed"
-              <> (if colored then setSGRCode [] else "")
-        resultsToShow
-          | getVerbose verbose || nFailed == 0 = res
-          | otherwise = [r | r@(_, _, Left _) <- res]
+        identifierSuffix = maybe "" (\id -> " for \"" <> id <> "\"") mbIdentifier
 
-    -- Print combined header line
-    pathToShow <- case mbProjectPath of
-        Just p -> Just <$> makeRelativePath p
-        Nothing -> pure Nothing
-    putStrLn $
-      (if colored then setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity] else "")
-      <> "Test summary" <> projectPathSuffix pathToShow <> ": "
-      <> (if colored then setSGRCode [] else "")
-      <> countLine
+    -- Handle the "no tests found" case
+    if nTotal == 0
+      then do
+        putStrLn $
+          (if colored then setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity] else "")
+          <> "Test summary" <> identifierSuffix
+          <> (if colored then setSGRCode [] else "")
+          <> ": No tests found"
+      else do
+        let countLine
+              | nFailed > 0 =
+                  (if colored then setSGRCode [SetColor Foreground Vivid Red] else "")
+                  <> show nFailed <> " failed"
+                  <> (if colored then setSGRCode [] else "")
+                  <> ", " <> show nPassed <> " passed"
+              | otherwise =
+                  (if colored then setSGRCode [SetColor Foreground Vivid Green] else "")
+                  <> show nPassed <> " passed"
+                  <> (if colored then setSGRCode [] else "")
+            resultsToShow
+              | getVerbose verbose || nFailed == 0 = res
+              | otherwise = [r | r@(_, _, Left _) <- res]
 
-    -- Print failing tests section if there are failures
-    when (nFailed > 0) $ do
-      putStrLn ""
-      putStrLn $
-        (if colored then setSGRCode [SetConsoleIntensity BoldIntensity] else "")
-        <> "Failing tests:"
-        <> (if colored then setSGRCode [] else "")
+        -- Print combined header line
+        putStrLn $
+          (if colored then setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity] else "")
+          <> "Test summary" <> identifierSuffix
+          <> (if colored then setSGRCode [] else "")
+          <> ": " <> countLine
 
-    printScriptResults color mbProjectPath resultsToShow
+        -- Print failing tests section if there are failures
+        when (nFailed > 0) $ do
+          putStrLn ""
+          putStrLn $
+            (if colored then setSGRCode [SetConsoleIntensity BoldIntensity] else "")
+            <> "Failing tests:"
+            <> (if colored then setSGRCode [] else "")
+
+        printScriptResults color mbProjectPath resultsToShow
 
 printScriptResults :: UseColor -> Maybe FilePath -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SS.ScriptResult)] -> IO ()
 printScriptResults color mbProjectPath results = do
