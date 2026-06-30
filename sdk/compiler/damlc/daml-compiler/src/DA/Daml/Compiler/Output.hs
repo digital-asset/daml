@@ -18,7 +18,6 @@ import Development.IDE.Core.Shake (NotificationHandler(..))
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import qualified Language.LSP.Types as LSP
-import System.Directory (makeAbsolute)
 import System.IO
 import           Control.Exception (bracket)
 
@@ -50,19 +49,13 @@ writeOutputBSL :: FilePath -> BSL.ByteString -> IO ()
 writeOutputBSL = writeOutputWith BSL.hPutStr
 
 -- WARNING: Here be dragons
--- T.putStrLn is locale-dependent. This seems to cause issues with Nix’ patched glibc that
+-- T.putStrLn is locale-dependent. This seems to cause issues with Nix' patched glibc that
 -- relies on LOCALE_ARCHIVE being set correctly. This is the case in our dev-env
 -- but not when we ship the SDK. If LOCALE_ARCHIVE is not set properly the colored
--- diagnostics get eaten somewhere in glibc and we don’t even get a write syscall containing them.
+-- diagnostics get eaten somewhere in glibc and we don't even get a write syscall containing them.
 printDiagnostics :: Handle -> [FileDiagnostic] -> IO ()
 printDiagnostics _ [] = return ()
-printDiagnostics handle xs = do
-    xs' <- mapM makeAbsoluteDiag xs
-    BS.hPutStrLn handle $ T.encodeUtf8 $ showDiagnosticsColored xs'
-  where
-    makeAbsoluteDiag (fp, showDiag, diag) = do
-        absPath <- makeAbsolute (fromNormalizedFilePath fp)
-        pure (toNormalizedFilePath' absPath, showDiag, diag)
+printDiagnostics handle xs = BS.hPutStrLn handle $ T.encodeUtf8 $ showDiagnosticsColored xs
 
 diagnosticsLogger :: NotificationHandler
 diagnosticsLogger = hDiagnosticsLogger stderr
