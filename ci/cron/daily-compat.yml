@@ -24,6 +24,7 @@ schedules:
 
 jobs:
   - job: compatibility_ts_libs
+    condition: false # TEMP: blackduck-only daily-compat run, do not merge
     timeoutInMinutes: 60
     pool:
       name: ubuntu_20_04
@@ -36,6 +37,7 @@ jobs:
 
   - job: compatibility_linux
     dependsOn: compatibility_ts_libs
+    condition: false # TEMP: blackduck-only daily-compat run, do not merge
     timeoutInMinutes: 720
     pool:
       name: ubuntu_20_04
@@ -48,6 +50,7 @@ jobs:
 
   - job: compatibility_windows
     dependsOn: compatibility_ts_libs
+    condition: false # TEMP: blackduck-only daily-compat run, do not merge
     timeoutInMinutes: 720
     pool:
       name: windows-pool
@@ -170,7 +173,7 @@ jobs:
           AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
 
   - job: update_canton
-    condition: not(eq(variables['Build.SourceBranchName'], 'not-main'))
+    condition: false # TEMP: blackduck-only daily-compat run, do not merge
     timeoutInMinutes: 60
     pool:
       name: ubuntu_20_04
