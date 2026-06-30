@@ -78,10 +78,13 @@ hDiagnosticsLogger handle = NotificationHandler $ \m params -> case (m, params) 
 bufferingDiagnosticsLogger :: IORef [FileDiagnostic] -> NotificationHandler
 bufferingDiagnosticsLogger ref = NotificationHandler $ \m params -> case (m, params) of
     (LSP.STextDocumentPublishDiagnostics, LSP.PublishDiagnosticsParams (uriToFilePath' -> Just fp) _ (List diags)) ->
-        modifyIORef ref (++ map (toNormalizedFilePath' fp, ShowDiag,) diags)
+        -- Prepend new diagnostics (O(1)) instead of appending (O(n))
+        -- The list is reversed in flushDiagnostics to restore chronological order
+        modifyIORef ref (map (toNormalizedFilePath' fp, ShowDiag,) diags ++)
     _ -> pure ()
 
 flushDiagnostics :: IORef [FileDiagnostic] -> IO ()
 flushDiagnostics ref = do
     diags <- readIORef ref
-    printDiagnostics stderr diags
+    writeIORef ref []  -- Clear the buffer after reading
+    printDiagnostics stderr (reverse diags)  -- Reverse to restore chronological order

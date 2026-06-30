@@ -8,7 +8,6 @@ module DA.Cli.Damlc.Test (
     execTest
     , UseColor(..)
     , ShowCoverage(..)
-    , Verbose(..)
     , RunAllOption(..)
     , TableOutputPath(..)
     , TransactionsOutputPath(..)
@@ -78,7 +77,6 @@ data CoveragePaths = CoveragePaths
     , saveCoveragePath :: Maybe String
     }
 newtype LoadCoverageOnly = LoadCoverageOnly {getLoadCoverageOnly :: Bool}
-newtype Verbose = Verbose {getVerbose :: Bool}
 
 -- | Test a Daml file.
 execTest
@@ -87,7 +85,6 @@ execTest
     -> RunAllOption
     -> ShowCoverage
     -> UseColor
-    -> Verbose  -- Kept for backward compatibility, currently unused
     -> Maybe FilePath
     -> Maybe PackageConfigFields
     -> Options
@@ -97,7 +94,7 @@ execTest
     -> [CoverageFilter]
     -> Maybe FilePath
     -> IO ()
-execTest inFiles runAllOption coverage color _verbose mbJUnitOutput mPkgConfig opts tableOutputPath transactionsOutputPath resultsIO coverageFilters mbProjectPath = do
+execTest inFiles runAllOption coverage color mbJUnitOutput mPkgConfig opts tableOutputPath transactionsOutputPath resultsIO coverageFilters mbProjectPath = do
     loggerH <- getLogger opts "test"
     color <- if getUseColor color then pure color else do
         isTTY <- hIsTerminalDevice stdout
@@ -329,14 +326,14 @@ printSummary color mbIdentifier mbProjectPath res =
         nPassed = length res - nFailed
         nTotal = length res
         colored = getUseColor color
-        identifierSuffix = maybe "" (\id -> " for \"" <> id <> "\"") mbIdentifier
+        identifierSuffix = maybe "" (\ident -> " (" <> ident <> ")") mbIdentifier
 
     -- Handle the "no tests found" case
     if nTotal == 0
       then do
         putStrLn $
           (if colored then setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity] else "")
-          <> "Test summary" <> identifierSuffix
+          <> "Test Summary" <> identifierSuffix
           <> (if colored then setSGRCode [] else "")
           <> ": No tests found"
       else do
@@ -350,33 +347,35 @@ printSummary color mbIdentifier mbProjectPath res =
                   (if colored then setSGRCode [SetColor Foreground Vivid Green] else "")
                   <> show nPassed <> " passed"
                   <> (if colored then setSGRCode [] else "")
-            passedTests = [r | r@(_, _, Right _) <- res]
             failedTests = [r | r@(_, _, Left _) <- res]
 
         -- Print combined header line
         putStrLn $
           (if colored then setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity] else "")
-          <> "Test summary" <> identifierSuffix
+          <> "Test Summary" <> identifierSuffix
           <> (if colored then setSGRCode [] else "")
           <> ": " <> countLine
 
-        -- Show passed tests first
-        printScriptResults color mbProjectPath passedTests
+        -- Only show failed tests in summary (passed tests are hidden when there are failures)
+        -- This keeps the output focused on what needs attention
+        when (nFailed == 0) $
+            printScriptResults color mbProjectPath res
 
         -- Show failed tests last (most visible)
-        printScriptResults color mbProjectPath failedTests
+        when (nFailed > 0) $
+            printScriptResults color mbProjectPath failedTests
 
 printScriptResults :: UseColor -> Maybe FilePath -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SS.ScriptResult)] -> IO ()
 printScriptResults color mbProjectPath results = do
     liftIO $ forM_ results $ \(loe, ScriptName scriptName, resultOrErr) -> do
-      -- Use short relative paths in test summary for readability
+      -- Use short relative paths in test summary for readability.
+      -- Note: makeRelative returns the absolute path unchanged if paths have different
+      -- roots (e.g., different drives on Windows). This is acceptable as the absolute
+      -- path is still a valid, clickable path in the output.
       loeName <- case loe of
         TR.Local file _ -> do
           let absPath = fromNormalizedFilePath file
-          -- Make path relative to project root if available, otherwise keep absolute
-          relativePath <- case mbProjectPath of
-            Just projectPath -> pure $ makeRelative projectPath absPath
-            Nothing -> pure absPath
+          let relativePath = maybe absPath (\projectPath -> makeRelative projectPath absPath) mbProjectPath
           pure $ T.pack relativePath
         TR.External _ -> pure $ TR.localOrExternalName loe
       let name = DA.Pretty.pretty loeName <> ":" <> DA.Pretty.pretty scriptName
