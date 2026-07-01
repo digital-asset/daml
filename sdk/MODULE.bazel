@@ -49,6 +49,7 @@ single_version_override(
     patches = [
         "//bazel/patches:haskell/rules_bazel-8_compat.patch",
         "//bazel/patches:haskell/rules_haskell-cabal-cc-sysroot.patch",
+        "//bazel/patches:haskell/rules_haskell-cc-wrapper-inject.patch",
     ],
 )
 
