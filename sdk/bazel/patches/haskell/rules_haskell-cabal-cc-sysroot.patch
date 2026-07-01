@@ -1,14 +1,3 @@
-# Forward the Bazel cc_toolchain's sysroot compile/link flags into Cabal-based
-# package builds (stack_snapshot). rules_haskell wires -pgm* so GHC uses
-# cc_wrapper, and the native haskell_library path forwards the toolchain's
-# sysroot flags (-optc/-optl); the Cabal path (cabal_wrapper.py) did not, so
-# package C compiles, hsc2hs probes, and Configure-type ./configure scripts fell
-# back to host headers/libs -- which breaks in a hermetic sandbox. This carries
-# those flags per-action (GHC -optP/-optc/-optl, hsc2hs --cflag/--lflag, and the
-# package's own ./configure via --configure-option), absolutised against the
-# execroot since cabal_wrapper builds from a temp cwd. Flags are passed only
-# through scoped Cabal/GHC options -- never the process environment, which Cabal
-# would otherwise re-apply to every package's link.
 diff --git a/haskell/cabal.bzl b/haskell/cabal.bzl
 index 4c7888c..bd07e48 100644
 --- a/haskell/cabal.bzl
