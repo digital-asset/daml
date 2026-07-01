@@ -7,7 +7,7 @@ module DA.Daml.Compiler.Output
   , diagnosticsLogger
   , hDiagnosticsLogger
   , bufferingDiagnosticsLogger
-  , flushDiagnostics
+  , readAndClearDiagnostics
   , printDiagnostics
   ) where
 
@@ -94,8 +94,9 @@ bufferingDiagnosticsLogger ref = NotificationHandler $ \m params -> case (m, par
         modifyIORef ref (map (toNormalizedFilePath' fp, ShowDiag,) diags ++)
     _ -> pure ()
 
-flushDiagnostics :: IORef [FileDiagnostic] -> IO ()
-flushDiagnostics ref = do
+-- | Read buffered diagnostics and clear the buffer. Returns diagnostics in chronological order.
+readAndClearDiagnostics :: IORef [FileDiagnostic] -> IO [FileDiagnostic]
+readAndClearDiagnostics ref = do
     diags <- readIORef ref
     writeIORef ref []  -- Clear the buffer after reading
-    printDiagnostics stderr (reverse diags)  -- Reverse to restore chronological order
+    mapM makeAbsoluteDiag (reverse diags)  -- Reverse to restore chronological order
