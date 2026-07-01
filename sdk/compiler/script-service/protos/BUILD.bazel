@@ -56,12 +56,14 @@ genrule(
     outs = ["ScriptService.hs"],
     cmd = """
     ORIGPWD=$$PWD
+    export LD_LIBRARY_PATH="$$ORIGPWD/$$(dirname $(location @libz//:libs)):$${LD_LIBRARY_PATH:-}"
     cd compiler/script-service/protos
     $$ORIGPWD/$(location @proto3-suite//:compile-proto-file) \
       --proto script_service.proto --out "$$ORIGPWD/$(@D)"
   """,
     tools = [
         "@proto3-suite//:compile-proto-file",
+        "@libz//:libs",
     ],
 )
 
@@ -95,6 +97,7 @@ genrule(
     outs = ["TestResults.hs"],
     cmd = """
     ORIGPWD=$$PWD
+    export LD_LIBRARY_PATH="$$ORIGPWD/$$(dirname $(location @libz//:libs)):$${LD_LIBRARY_PATH:-}"
     cd compiler/script-service/protos
     $$ORIGPWD/$(location @proto3-suite//:compile-proto-file) \
       --includeDir ./                                        \
@@ -102,6 +105,7 @@ genrule(
   """,
     tools = [
         "@proto3-suite//:compile-proto-file",
+        "@libz//:libs",
     ],
 )
 
