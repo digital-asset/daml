@@ -294,7 +294,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                        ]
                        `isInfixOf` stdout)
             assertBool ("test result is reported correctly: " <> stdout)
-                       ("./Foo.daml:x: ok, 0 active contracts, 2 transactions." `isInfixOf` stdout)
+                       ("./Foo.daml: 1 test passed" `isInfixOf` stdout)
     , testCase "Full test coverage report" $ do
         withTempDir $ \dir -> do
             writeFileUTF8 (dir </> "daml.yaml") $ unlines
@@ -482,12 +482,9 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , bFilePath ]
                 ""
           stderr @?= ""
-          assertBool ("Test coverage is reported correctly: " <> stdout)
-            (unlines
-                 [ "B.daml:x: ok, 0 active contracts, 2 transactions."
-                 , "a-0.0.1:testA: ok, 0 active contracts, 2 transactions."
-                 ] `isInfixOf`
-             stdout)
+          assertBool ("Test results are reported correctly: " <> stdout)
+            ("B.daml: 1 test passed" `isInfixOf` stdout &&
+             "a-0.0.1: 1 test passed" `isInfixOf` stdout)
           assertBool ("Internal module test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "Modules internal to this package:"
@@ -606,12 +603,9 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , projDir </> "b" ]
                 ""
           stderr @?= ""
-          assertBool ("Test coverage is reported correctly: " <> stdout)
-            (unlines
-                 [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
-                 , "a-0.0.1:testMod1: ok, 0 active contracts, 4 transactions."
-                 ] `isInfixOf`
-             stdout)
+          assertBool ("Test results are reported correctly: " <> stdout)
+            ("./Mod2.daml: 1 test passed" `isInfixOf` stdout &&
+             "a-0.0.1: 1 test passed" `isInfixOf` stdout)
           assertBool ("Internal module test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "Modules internal to this package:"
@@ -663,12 +657,9 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , projDir </> "b" ]
                 ""
           stderr @?= ""
-          assertBool ("Exclude Deps: Test coverage is reported correctly: " <> stdout)
-            (unlines
-                 [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
-                 , "a-0.0.1:testMod1: ok, 0 active contracts, 4 transactions."
-                 ] `isInfixOf`
-             stdout)
+          assertBool ("Exclude Deps: Test results are reported correctly: " <> stdout)
+            ("./Mod2.daml: 1 test passed" `isInfixOf` stdout &&
+             "a-0.0.1: 1 test passed" `isInfixOf` stdout)
           assertBool ("Exclude Deps: Internal module test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "Modules internal to this package:"
@@ -716,12 +707,9 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , projDir </> "b" ]
                 ""
           stderr @?= ""
-          assertBool ("Exclude Archive: Test coverage is reported correctly: " <> stdout)
-            (unlines
-                 [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
-                 , "a-0.0.1:testMod1: ok, 0 active contracts, 4 transactions."
-                 ] `isInfixOf`
-             stdout)
+          assertBool ("Exclude Archive: Test results are reported correctly: " <> stdout)
+            ("./Mod2.daml: 1 test passed" `isInfixOf` stdout &&
+             "a-0.0.1: 1 test passed" `isInfixOf` stdout)
           assertBool ("Exclude Archive: Internal module test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "Modules internal to this package:"
@@ -771,12 +759,9 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , projDir </> "b" ]
                 ""
           stderr @?= ""
-          assertBool ("Exclude Archive and Dep: Test coverage is reported correctly: " <> stdout)
-            (unlines
-                 [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
-                 , "a-0.0.1:testMod1: ok, 0 active contracts, 4 transactions."
-                 ] `isInfixOf`
-             stdout)
+          assertBool ("Exclude Archive and Dep: Test results are reported correctly: " <> stdout)
+            ("./Mod2.daml: 1 test passed" `isInfixOf` stdout &&
+             "a-0.0.1: 1 test passed" `isInfixOf` stdout)
           assertBool ("Exclude Archive and Dep: Internal module test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "Modules internal to this package:"
@@ -859,8 +844,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , bFilePath ]
                 ""
           stderr @?= ""
-          assertInfixOf "B.daml:needleHaystack: ok, 0 active contracts, 0 transactions." stdout
-          assertInfixOf "a-0.0.1:test_needleHaystack: ok, 0 active contracts, 0 transactions." stdout
+          assertInfixOf "B.daml: 1 test passed" stdout
+          assertInfixOf "a-0.0.1: 1 test passed" stdout
           assertBool ("Test coverage is reported correctly: " <> stdout)
             (unlines
               [ "Modules internal to this package:"
@@ -1177,7 +1162,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               , bFilePath]
               ""
           stderr @?= ""
-          assertInfixOf "B.daml:x: ok, 0 active contracts, 2 transactions." stdout
+          assertInfixOf "B.daml: 1 test passed" stdout
           assertBool ("Test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "Modules internal to this package:"
@@ -1228,8 +1213,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             assertInfixOf ("Test Summary (" <> canonDir <> ")") stdout
             assertInfixOf "1 failed, 1 passed" stdout
             assertBool ("passing test hidden when there are failures: " <> stdout)
-                       (not ("Foo.daml:y: ok" `isInfixOf` stdout))
-            assertInfixOf "Foo.daml:x: failed" stdout
+                       (not ("Foo.daml: 1 test passed" `isInfixOf` stdout))
+            assertInfixOf "Foo.daml: 1 test failed: x" stdout
     , testCase "damlc test --files outside of package" $
         -- TODO: does this test make sense with a daml.yaml file?
         withTempDir $ \projDir -> do
@@ -1256,7 +1241,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , projDir </> "Main.daml" ]
                 ""
           exitCode @?= ExitSuccess
-          assertBool ("Succeeding script in " <> stdout) ("Main.daml:test: ok" `isInfixOf` stdout)
+          assertBool ("Succeeding script in " <> stdout) ("Main.daml: 1 test passed" `isInfixOf` stdout)
           stderr @?= ""
     , testCase "damlc test --package-root relative" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "relative")
@@ -1378,7 +1363,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 ""
             stderr @?= ""
             exitCode @?= ExitSuccess
-            assertInfixOf "./Main.daml:test: ok, 1 active contracts, 3 transactions." stdout
+            assertInfixOf "./Main.daml: 1 test passed" stdout
     ] <>
     [ testCase ("damlc test " <> unwords (args "") <> " in package") $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
@@ -1419,7 +1404,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               : args projDir )
               ""
           stderr @?= ""
-          assertBool ("Succeeding script in " <> stdout) ("B.daml:test: ok" `isInfixOf` stdout)
+          assertBool ("Succeeding script in " <> stdout) ("B.daml: 1 test passed" `isInfixOf` stdout)
           exitCode @?= ExitSuccess
     | args <- [\projDir -> ["--files", projDir </> "b" </> "B.daml"], const []]
     ]

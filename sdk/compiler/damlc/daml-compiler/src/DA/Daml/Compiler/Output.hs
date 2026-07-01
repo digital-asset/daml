@@ -69,13 +69,13 @@ makeAbsoluteDiag (fp, showDiag, diag) = do
     absPath <- makeAbsolute (fromNormalizedFilePath fp)
     pure (toNormalizedFilePath' absPath, showDiag, diag)
 
--- | Print a diagnostic in simplified format: "Failure in: <path> (<source>)\nMessage:\n<message>"
+-- | Print a diagnostic in simplified format: "Failure in: <path> (<source>)\nMessage:\n<message>\n"
 printSimpleDiag :: Handle -> FileDiagnostic -> IO ()
 printSimpleDiag handle (fp, _, LSP.Diagnostic{_message = msg, _source = src}) = do
     let filePath = fromNormalizedFilePath fp
         sourceInfo = fromMaybe "Script" src
     BS.hPutStrLn handle $ TE.encodeUtf8 $ T.pack $ "Failure in: " <> filePath <> " (" <> T.unpack sourceInfo <> ")"
-    BS.hPutStrLn handle $ TE.encodeUtf8 $ "Message:\n" <> msg
+    BS.hPutStrLn handle $ TE.encodeUtf8 $ "Message:\n" <> msg <> "\n"
 
 diagnosticsLogger :: NotificationHandler
 diagnosticsLogger = hDiagnosticsLogger stderr

@@ -42,7 +42,6 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.Text.Lazy as TL
 import Data.Tuple.Extra
-import qualified Data.Vector as V
 import Development.IDE.Core.API
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml
@@ -68,6 +67,8 @@ import ComponentVersion.Class (ComponentVersioned)
 
 newtype UseColor = UseColor {getUseColor :: Bool}
 newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}
+
+type ScriptTestResult = (TR.LocalOrExternal, ScriptName, Either SSC.Error SSC.ScriptResult)
 newtype CoverageFilter = CoverageFilter {getCoverageFilter :: Regex}
 newtype RunAllOption = RunAllOption {getRunAllTests :: Bool}
 newtype TableOutputPath = TableOutputPath {getTableOutputPath :: Maybe String}
@@ -151,7 +152,7 @@ runAndReport ::
     -> TransactionsOutputPath
     -> CoveragePaths
     -> [CoverageFilter]
-    -> IO [(TR.LocalOrExternal, ScriptName, Either SSC.Error SSC.ScriptResult)]
+    -> IO [ScriptTestResult]
 runAndReport ideState inFiles lvl lfVersion runAllOption coverage mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
     (localResults, extResults) <- runAllScripts ideState inFiles runAllOption
     let allResults = localResults ++ extResults
@@ -319,10 +320,11 @@ printTestSuiteBegin color mbIdentifier =
         <> "Running tests (" <> identifier <> ") ..."
         <> (if colored then setSGRCode [] else "")
 
-printSummary :: UseColor -> Maybe String -> Maybe FilePath -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SSC.ScriptResult)] -> IO ()
+printSummary :: UseColor -> Maybe String -> Maybe FilePath -> [ScriptTestResult] -> IO ()
 printSummary color mbIdentifier mbProjectPath res =
   liftIO $ do
-    let nFailed = length [() | (_, _, Left _) <- res]
+    let failedTests = [r | r@(_, _, Left _) <- res]
+        nFailed = length failedTests
         nPassed = length res - nFailed
         nTotal = length res
         colored = getUseColor color
@@ -347,7 +349,6 @@ printSummary color mbIdentifier mbProjectPath res =
                   (if colored then setSGRCode [SetColor Foreground Vivid Green] else "")
                   <> show nPassed <> " passed"
                   <> (if colored then setSGRCode [] else "")
-            failedTests = [r | r@(_, _, Left _) <- res]
 
         -- Print combined header line
         putStrLn $
@@ -365,7 +366,7 @@ printSummary color mbIdentifier mbProjectPath res =
         when (nFailed > 0) $
             printScriptResults color mbProjectPath failedTests
 
-printScriptResults :: UseColor -> Maybe FilePath -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SS.ScriptResult)] -> IO ()
+printScriptResults :: UseColor -> Maybe FilePath -> [ScriptTestResult] -> IO ()
 printScriptResults color mbProjectPath results = do
     -- Group results by file/package
     let grouped = groupBy (\(loe1, _, _) (loe2, _, _) -> TR.localOrExternalName loe1 == TR.localOrExternalName loe2) results
@@ -381,17 +382,27 @@ printScriptResults color mbProjectPath results = do
           let relativePath = maybe absPath (\projectPath -> makeRelative projectPath absPath) mbProjectPath
           pure $ T.pack relativePath
         TR.External _ -> pure $ TR.localOrExternalName loe
-      let stringStyleToRender = if getUseColor color then DA.Pretty.renderColored else DA.Pretty.renderPlain
-      -- Print first result with full path, subsequent results indented with ".."
-      forM_ (zip [0..] groupResults) $ \(idx :: Int, (_, ScriptName scriptName, resultOrErr)) -> do
-        let statusDoc = case resultOrErr of
-              Left _err -> DA.Pretty.error_ "failed"
-              Right result -> prettyResult result
-        if idx == 0
-          then putStrLn $ stringStyleToRender $
-            DA.Pretty.pretty loeName <> ":" <> DA.Pretty.pretty scriptName <> " " <> statusDoc
-          else putStrLn $ stringStyleToRender $
-            "  ..:" <> DA.Pretty.pretty scriptName <> " " <> statusDoc
+      let colored = getUseColor color
+          failedResults = [(name, err) | (_, ScriptName name, Left err) <- groupResults]
+          passedResults = [(name, res) | (_, ScriptName name, Right res) <- groupResults]
+          nFailed = length failedResults
+          nPassed = length passedResults
+      -- Print summary line for this file
+      if nFailed > 0
+        then do
+          let failedNames = map fst failedResults
+              testWord = if nFailed == 1 then "test" else "tests"
+              failedText = if colored then setSGRCode [SetColor Foreground Vivid Red] <> "failed" <> setSGRCode [] else "failed"
+          if nFailed == 1
+            then putStrLn $ T.unpack loeName <> ": 1 " <> testWord <> " " <> failedText <> ": " <> T.unpack (head failedNames)
+            else do
+              putStrLn $ T.unpack loeName <> ": " <> show nFailed <> " " <> testWord <> " " <> failedText
+              forM_ failedNames $ \name ->
+                putStrLn $ "  - " <> T.unpack name
+        else do
+          let testWord = if nPassed == 1 then "test" else "tests"
+              passedText = if colored then setSGRCode [SetColor Foreground Vivid Green] <> "passed" <> setSGRCode [] else "passed"
+          putStrLn $ T.unpack loeName <> ": " <> show nPassed <> " " <> testWord <> " " <> passedText
 
 
 prettyErr :: PrettyLevel -> LF.Version -> SSC.Error -> DA.Pretty.Doc Pretty.SyntaxClass
@@ -404,16 +415,6 @@ prettyErr lvl lfVersion err = case err of
           (LF.initWorld [] lfVersion)
           serr
     SSC.ExceptionError e -> DA.Pretty.string $ show e
-
-
-prettyResult :: SS.ScriptResult -> DA.Pretty.Doc Pretty.SyntaxClass
-prettyResult result =
-    let nTx = length (SS.scriptResultScriptSteps result)
-        nActive = length $ filter (SS.isActive (SS.activeContractsFromScriptResult result)) (V.toList (SS.scriptResultNodes result))
-    in DA.Pretty.typeDoc_ "ok"
-    <> DA.Pretty.string ", "
-    <> DA.Pretty.int nActive <> DA.Pretty.string " active contracts, "
-    <> DA.Pretty.int nTx <> DA.Pretty.string " transactions."
 
 
 toJUnit :: [(NormalizedFilePath, [(ScriptName, Maybe T.Text)])] -> XML.Element
