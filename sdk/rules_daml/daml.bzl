@@ -133,13 +133,19 @@ def _daml_build_impl(ctx):
     output_stdout = ctx.outputs.stdout
     posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
     ghc_opts = ctx.attr.ghc_options
+    lib_dirs = []
+    for f in ctx.files.runtime_lib_dirs:
+        if f.dirname not in lib_dirs:
+            lib_dirs.append(f.dirname)
+    ld_library_path_export = "export LD_LIBRARY_PATH=\"" + ":".join(["$PWD/" + d for d in lib_dirs]) + ":${LD_LIBRARY_PATH:-}\""
     ctx.actions.run_shell(
         tools = [damlc],
-        inputs = [daml_yaml] + srcs + input_dars,
+        inputs = [daml_yaml] + srcs + input_dars + ctx.files.runtime_lib_dirs,
         outputs = [output_dar] + ([output_stdout] if output_stdout != None else []),
         progress_message = "Building Daml project %s" % name,
         command = """
             set -eou pipefail
+            {ld_library_path_export}
             tmpdir=$(mktemp -d)
             trap "rm -rf $tmpdir" EXIT
             cp -f {config} $tmpdir/daml.yaml
@@ -151,6 +157,7 @@ def _daml_build_impl(ctx):
             {cp_dars}
             {damlc} build --project-root $tmpdir {ghc_opts} -o $PWD/{output_dar} 2>&1 | {output_stdout_command}
         """.format(
+            ld_library_path_export = ld_library_path_export,
             config = daml_yaml.path,
             cp_srcs = "\n".join([
                 make_cp_command(
@@ -209,6 +216,15 @@ _daml_build = rule(
             doc = "Source field in daml.yaml.",
         ),
         "damlc": _damlc,
+        "runtime_lib_dirs": attr.label_list(
+            default = [
+                Label("//bazel/haskell/toolchain:tinfo_libs"),
+                Label("@libz//:libs"),
+                Label("@gmp//:libs"),
+                Label("@bzip2//:libs"),
+            ],
+            allow_files = True,
+        ),
     },
     toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )
@@ -294,11 +310,16 @@ def _inspect_dar_impl(ctx):
     dar = ctx.file.dar
     damlc = ctx.executable.damlc
     pp = ctx.outputs.pp
+    lib_dirs = []
+    for f in ctx.files.runtime_lib_dirs:
+        if f.dirname not in lib_dirs:
+            lib_dirs.append(f.dirname)
     ctx.actions.run(
         executable = damlc,
-        inputs = [dar],
+        inputs = [dar] + ctx.files.runtime_lib_dirs,
         outputs = [pp],
         arguments = ["inspect", dar.path, "-o", pp.path],
+        env = {"LD_LIBRARY_PATH": ":".join(lib_dirs)},
     )
 
 _inspect_dar = rule(
@@ -310,6 +331,15 @@ _inspect_dar = rule(
         ),
         "damlc": _damlc,
         "pp": attr.output(mandatory = True),
+        "runtime_lib_dirs": attr.label_list(
+            default = [
+                Label("//bazel/haskell/toolchain:tinfo_libs"),
+                Label("@libz//:libs"),
+                Label("@gmp//:libs"),
+                Label("@bzip2//:libs"),
+            ],
+            allow_files = True,
+        ),
     },
 )
 
@@ -612,10 +642,10 @@ def generate_and_track_yaml_file(
         native.genrule(
             name = generated_target,
             srcs = data,
-            tools = [generator],
+            tools = [generator, "@libz//:libs", "@gmp//:libs"],
             outs = [generated_out],
             # Pass the output file path ($@) as the first argument
-            cmd = "$(execpath {generator}) $@ {args}".format(
+            cmd = "export LD_LIBRARY_PATH=\"$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$${{LD_LIBRARY_PATH:-}}\"\n$(execpath {generator}) $@ {args}".format(
                 generator = generator,
                 args = " ".join(generator_args),
             ),
