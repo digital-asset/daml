@@ -150,7 +150,7 @@ export HOME="$TMP"
 
 ENVFIX_SO="$TMP/environ_fix.so"
 printf 'extern char **environ, **__environ;\n__attribute__((constructor)) static void _f(void){{ environ = __environ; }}\n' > "$TMP/environ_fix.c"
-"$CC_PATH" -shared -fPIC -nostdlib -o "$ENVFIX_SO" "$TMP/environ_fix.c"
+"$CC_PATH" -fuse-ld=lld -shared -fPIC -nostdlib -o "$ENVFIX_SO" "$TMP/environ_fix.c"
 export LD_PRELOAD="$ENVFIX_SO"
 
 # Generate ghc-lib{component} cabal project
