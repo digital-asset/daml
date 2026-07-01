@@ -132,7 +132,7 @@ def _build_gnu_tool_impl(ctx):
         "# Replace hardcoded sandbox-absolute paths with a relocatable placeholder so",
         "# consumers can restore them with a single sed 's|__EXECROOT__|'\"$PWD\"'|g'.",
         'find "$PREFIX" -type f | while IFS= read -r pf; do',
-        '    if file --mime-type "$pf" | grep -q text; then',
+        '    if grep -Iq . "$pf"; then',
         '        sed -i "s|$EXECROOT|__EXECROOT__|g" "$pf"',
         "    fi",
         "done",
