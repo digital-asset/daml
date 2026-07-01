@@ -34,10 +34,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.apache.pekko.stream.Materializer
 
-import scalaz.OneAnd
-import scalaz.OneAnd._
-import scalaz.std.set._
-import scalaz.syntax.foldable._
+import cats.data.NonEmptySet
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
@@ -125,7 +122,7 @@ class IdeLedgerClient(
     blob(FatContractInstance.fromCreateNode(create, CreationTime.CreatedAt(createAt), Bytes.Empty))
 
   override def query(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       templateId: Identifier,
   )(implicit
       ec: ExecutionContext,
@@ -133,12 +130,12 @@ class IdeLedgerClient(
   ): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
     val acs = ledger.query(
       actAs = Set.empty,
-      readAs = parties.toSet,
+      readAs = parties.toSortedSet,
       effectiveAt = ledger.currentTime,
     )
     val filtered = acs.collect {
       case IdeLedger.LookupOk(contract)
-          if contract.templateId == templateId && parties.any(contract.stakeholders.contains(_)) =>
+          if contract.templateId == templateId && parties.exists(contract.stakeholders.contains) =>
         ScriptLedgerClient.ActiveContract(
           contract.templateId,
           contract.contractId,
@@ -150,17 +147,17 @@ class IdeLedgerClient(
   }
 
   private def lookupContractInstance(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       cid: ContractId,
   ): Option[FatContractInstance] = {
 
     ledger.lookupGlobalContract(
       actAs = Set.empty,
-      readAs = parties.toSet,
+      readAs = parties.toSortedSet,
       effectiveAt = ledger.currentTime,
       coid = cid,
     ) match {
-      case IdeLedger.LookupOk(contract) if parties.any(contract.stakeholders.contains(_)) =>
+      case IdeLedger.LookupOk(contract) if parties.exists(contract.stakeholders.contains) =>
         Some(contract)
       case _ =>
         // Note that contrary to `fetch` in a script, we do not
@@ -179,7 +176,7 @@ class IdeLedgerClient(
   }
 
   override def queryContractId(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       templateId: Identifier,
       cid: ContractId,
   )(implicit
@@ -216,21 +213,21 @@ class IdeLedgerClient(
   }
 
   override def queryInterface(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       interfaceId: Identifier,
       viewType: Ast.Type,
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Seq[(ContractId, Option[Value])]] = {
 
     val acs: Seq[IdeLedger.LookupOk] = ledger.query(
       actAs = Set.empty,
-      readAs = parties.toSet,
+      readAs = parties.toSortedSet,
       effectiveAt = ledger.currentTime,
     )
     val reversePackageIdMap = getPackageIdReverseMap()
     val packageMap = calculatePackageMap(List(), reversePackageIdMap)
     val res = for {
       contract <- acs.collect {
-        case IdeLedger.LookupOk(contract) if parties.any(contract.stakeholders.contains(_)) =>
+        case IdeLedger.LookupOk(contract) if parties.exists(contract.stakeholders.contains) =>
           contract
       }
       preferredPkgId <- packageMap.get(PackageName.assertFromString(contract.packageName))
@@ -247,7 +244,7 @@ class IdeLedgerClient(
   }
 
   override def queryInterfaceContractId(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       interfaceId: Identifier,
       viewType: Ast.Type,
       cid: ContractId,
@@ -295,7 +292,7 @@ class IdeLedgerClient(
       }
 
   override def queryNByKey(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       templateId: Identifier,
       key: Value,
       limit: Int,
@@ -601,7 +598,7 @@ class IdeLedgerClient(
 
   // unsafe version of submit that does not clear the commit.
   private def unsafeSubmit(
-      actAs: OneAnd[Set, Ref.Party],
+      actAs: NonEmptySet[Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
       packagePreference: List[PackageId],
@@ -612,7 +609,7 @@ class IdeLedgerClient(
     IdeLedgerRunner.Commit[IdeLedger.CommitResult],
   ] = {
     val unallocatedSubmitters: Set[Party] =
-      (actAs.toSet union readAs) -- allocatedParties.values.map(_.party)
+      (actAs.toSortedSet union readAs) -- allocatedParties.values.map(_.party)
     if (unallocatedSubmitters.nonEmpty) {
       Left(makePartiesNotAllocatedError(unallocatedSubmitters))
     } else {
@@ -702,7 +699,7 @@ class IdeLedgerClient(
             compiledPackages,
             speedyDisclosures,
             ledgerApi,
-            actAs.toSet,
+            actAs.toSortedSet,
             readAs,
             translated,
             optLocation,
@@ -716,7 +713,7 @@ class IdeLedgerClient(
   }
 
   override def submit(
-      actAs: OneAnd[Set, Ref.Party],
+      actAs: NonEmptySet[Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
       optPackagePreference: Option[List[PackageId]],
@@ -821,10 +818,10 @@ class IdeLedgerClient(
               _currentSubmission = Some(CurrentSubmission(optLocation, tx))
             case MustFail =>
               _currentSubmission = None
-              _ledger = ledger.insertAssertMustFail(actAs.toSet, readAs, optLocation)
+              _ledger = ledger.insertAssertMustFail(actAs.toSortedSet, readAs, optLocation)
             case Try =>
               _currentSubmission = None
-              _ledger = ledger.insertSubmissionFailed(actAs.toSet, readAs, optLocation)
+              _ledger = ledger.insertSubmissionFailed(actAs.toSortedSet, readAs, optLocation)
           }
           Left(ScriptLedgerClient.SubmitFailure(err, fromIdeLedgerError(err)))
       }

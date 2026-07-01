@@ -11,7 +11,6 @@ import scala.jdk.CollectionConverters._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scalaz.\/-
-import scalaz.syntax.traverse._
 import spray.json._
 import com.digitalasset.daml.lf.archive.{Dar, DarDecoder}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}

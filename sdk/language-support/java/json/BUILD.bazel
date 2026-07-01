@@ -22,7 +22,7 @@ da_scala_library(
     resources = [],
     scala_deps = [
         "@maven//:io_spray_spray_json",
-        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_core",
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:codegen-json-java:__VERSION__"],
