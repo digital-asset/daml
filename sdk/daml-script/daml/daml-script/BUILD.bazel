@@ -32,6 +32,7 @@ genrule(
     outs = ["daml-script.json"],
     # Include daml-script/daml/daml-script-stable/daml path hard coded, as extracting from rule is ugly and this path should never change
     cmd = """
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${LD_LIBRARY_PATH:-}"
         $(location //compiler/damlc) -- docs \
             --output=$(OUTS) \
             --package-name=daml-script \
@@ -44,6 +45,10 @@ genrule(
     """,
     tools = [
         "//compiler/damlc",
+        "@libz//:libs",
+        "@gmp//:libs",
+        "@bzip2//:libs",
+        "//bazel/haskell/toolchain:libtinfo.so.5",
     ],
     visibility = ["//daml-script/daml:__pkg__"],
 )
