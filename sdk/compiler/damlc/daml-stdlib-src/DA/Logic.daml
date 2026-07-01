@@ -86,29 +86,33 @@ toNNF (Negation (Conjunction fs)) = Disjunction $ map (toNNF . neg) fs
 toNNF (Negation (Disjunction fs)) = Conjunction $ map (toNNF . neg) fs
 toNNF f = f
 
+disjuncts : Formula t -> [Formula t]
+disjuncts f = case f of
+  Disjunction xs -> xs
+  _ -> error "Not a disjunction"
+
+conjuncts : Formula t -> [Formula t]
+conjuncts f = case f of
+  Conjunction xs -> xs
+  _ -> error "Not a conjunction"
+
+toDNFFromNNF : Formula t -> Formula t
+toDNFFromNNF (Disjunction ds) =
+  Disjunction (concatMap (disjuncts . toDNFFromNNF) ds)
+toDNFFromNNF (Conjunction cs) =
+    Disjunction (map Conjunction dnf)
+  where
+    -- in the following, use the type [[Formula t]] to represent DNF formula and the type [[[Formula t]]] to represent a conjunction of DNF formulae
+    conjoinedDnfs = map (\c -> map conjuncts (disjuncts(toDNFFromNNF c))) cs
+    cartProd acc d = (++) <$> acc <*> d
+    dnf = foldl cartProd [[]] conjoinedDnfs
+toDNFFromNNF f =
+  Disjunction [Conjunction [f]]
+
 -- | `toDNF` turns a formula into disjunctive normal form.
 -- (see https://en.wikipedia.org/wiki/Disjunctive_normal_form).
 toDNF : Formula t -> Formula t
-toDNF f = case f of
-  f@(Proposition _) -> Disjunction [Conjunction [f]]
-  Disjunction ds -> Disjunction $ concatMap (disjuncts . toDNF) ds
-  Conjunction cs -> Disjunction $ map Conjunction regroupedcs
-    where
-      dnfs = map toDNF cs
-      groupedcs = map (concatMap conjuncts . disjuncts) dnfs
-      cart acc d = (::) <$> d <*> acc
-      regroupedcs = foldl cart [[]] groupedcs
-  f@(Negation n) ->
-    case n of
-      Proposition _ -> Disjunction [Conjunction [f]]
-      _ -> toDNF $ toNNF f
-  where
-    disjuncts f = case f of
-      Disjunction xs -> xs
-      _ -> error "Does not happen."
-    conjuncts f = case f of
-      Conjunction xs -> xs
-      _ -> error "Does not happen."
+toDNF = toDNFFromNNF . toNNF
 
 -- | An implementation of `traverse` in the usual sense.
 traverse : Applicative f => (t -> f s) -> Formula t -> f (Formula s)
