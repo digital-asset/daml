@@ -84,6 +84,7 @@ configure_make(
         "libtinfo.so.5",
         "libtinfo.so",
     ],
+    visibility = ["//visibility:public"],
 )
 
 cc_library(
