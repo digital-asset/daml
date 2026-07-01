@@ -18,7 +18,7 @@ import DA.Internal.LF as X hiding
 -- but we can hide them.
 import DA.Internal.Any as X hiding (AnyContractKey (..))
 import DA.Internal.Template as X
-#ifdef DAML_NUCK
+#ifdef DAML_CONTRACT_KEYS
 import DA.Internal.Template.Functions as X hiding (_lookupNByKey, lookupNByKey, lookupAllByKey)
 #else
 import DA.Internal.Template.Functions as X hiding (_lookupNByKey)

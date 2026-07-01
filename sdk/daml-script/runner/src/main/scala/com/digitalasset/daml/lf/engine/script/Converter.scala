@@ -21,7 +21,8 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.daml.lf.script.converter.ConverterException
-import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
+import com.digitalasset.canton.ledger.api.PartyDetails
+import com.digitalasset.canton.user.{User, UserRight}
 import scalaz.std.list._
 import scalaz.std.either._
 import scalaz.std.option._
@@ -481,6 +482,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       case UserRight.CanReadAsAnyParty => toRight("CanReadAsAnyParty", ValueUnit)
       case UserRight.CanExecuteAs(p) => toRight("CanExecuteAs", ValueParty(p))
       case UserRight.CanExecuteAsAnyParty => toRight("CanExecuteAsAnyParty", ValueUnit)
+      case UserRight.CanActAsAnyParty => toRight("CanActAsAnyParty", ValueUnit)
     })
   }
 

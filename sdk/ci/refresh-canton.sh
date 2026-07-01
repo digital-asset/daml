@@ -8,8 +8,21 @@ DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd "$DIR/.."
 
 LOG=$(mktemp)
+TMPDIR=$(mktemp -d)
 
-trap "cat $LOG" EXIT
+on_exit() {
+  local ec=$?
+  if [ "$ec" -ne 0 ]; then
+    cat "$LOG" >&2 || true
+    if grep -qi 'invalid username or token' "$LOG"; then
+      echo "" >&2
+      echo "ERROR: authentication to DACH-NY/canton failed. The CANTON_READONLY_TOKEN is most likely expired." >&2
+    fi
+  fi
+  rm -rf "$TMPDIR"
+  rm -f "$LOG"
+}
+trap on_exit EXIT
 
 BUCKET="public-unstable"
 if [ "${1:-}" = "--bucket" ]; then
@@ -54,8 +67,6 @@ else
   # version strings look like "3.5.0-snapshot.20260203.17930.0.v8a849517", this extracts the part after the last 'v'
   CANTON_COMMIT="${CANTON_VERSION##*v}"
 fi
-TMPDIR=$(mktemp -d)
-trap 'rm -rf "$TMPDIR"' EXIT
 echo "> Checking out shared_dependencies.json at revision $CANTON_COMMIT into $TMPDIR" >&2
 # We can't use sparse checkouts without full commit hashes, so we use the next best thing: --filter=blob:none and
 # --no-checkout to download the commit history, followed by a checkout of just the file we need.
@@ -67,7 +78,6 @@ else
 fi
 git clone --filter=blob:none --no-checkout "$CANTON_GITHUB" "$TMPDIR" >$LOG 2>&1
 git -C "$TMPDIR" show $CANTON_COMMIT:shared_dependencies.json > canton/shared_dependencies.json
-rm -rf "$TMPDIR"
 
 echo "> Pinning the maven dependencies" >&2
 REPIN=1 bazel run @maven//:pin >$LOG 2>&1
@@ -82,5 +92,3 @@ echo "> Formatting changed files" >&2
 # The caller of this script (ci/cron/daily-compat.yml) expects it to ouput the canton version
 # and interpolates it in the title of the code drop PR it creates.
 echo "${CANTON_VERSION}"
-
-trap - EXIT

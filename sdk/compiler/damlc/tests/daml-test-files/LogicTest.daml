@@ -5,8 +5,17 @@
 module LogicTest where
 
 import Daml.Script
+import DA.List
 import DA.Logic
 import DA.Assert
+
+propositionId : Formula Int -> Int
+propositionId (Proposition n) = n
+propositionId _ = error "expected proposition"
+
+sortDisjunctionProps : Formula Int -> Formula Int
+sortDisjunctionProps (Disjunction ps) = Disjunction (sortOn propositionId ps)
+sortDisjunctionProps f = f
 
 propositionTest = script do
   let
@@ -34,6 +43,21 @@ propositionTest = script do
   Disjunction [f, r] === substitute truth (q ||| r)
   Left r === interpret truth (q ||| r)
   interpret truth ( p &&& r) === Left r
+
+reduceTest = script do
+  let
+    p = Proposition 1
+    q = Proposition 2
+    r = Proposition 3
+    truth i
+      | i == 1 = Some True
+      | i == 2 = Some False
+      | otherwise = None
+  sortDisjunctionProps (reduce (Disjunction [Disjunction [p], Disjunction [q]])) ===
+    sortDisjunctionProps (Disjunction [p, q])
+  sortDisjunctionProps (reduce (Disjunction [Disjunction [p, q], Disjunction [r]])) ===
+    sortDisjunctionProps (Disjunction [p, q, r])
+  Right True === interpret truth (Disjunction [Disjunction [p], Disjunction [q]])
 
 dnfTest = script do
   let

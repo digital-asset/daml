@@ -159,10 +159,7 @@ class HasFromAnyChoice t c r | t c -> r where
 type TemplateKey t k =
   ( Template t
   , HasKey t k
-#ifdef DAML_LEGACY_LOOKUP_BY_KEY
-  , HasLookupByKey t k
-#endif
-#ifdef DAML_NUCK
+#ifdef DAML_CONTRACT_KEYS
   , HasFetchByKey t k
 #endif
   , HasMaintainer t k
@@ -215,7 +212,7 @@ class HasExerciseByKey t k c r | t -> k, t c -> r where
    _exerciseByKey : proxy t -> k -> c -> Update r
 
 
-#ifdef DAML_NUCK
+#ifdef DAML_CONTRACT_KEYS
 -- | MOVE DA.ContractKeys
 -- Look up up to n contracts associated with the passed key. Contracts created
 -- within a transaction are returned first (in recency order), then disclosed
@@ -374,7 +371,7 @@ fromAnyChoice (AnyChoice any typeRep)
 deriving instance Eq Archive
 deriving instance Show Archive
 
-#ifdef DAML_NUCK
+#ifdef DAML_CONTRACT_KEYS
 -- | True if contract exists, submitter is a stakeholder, and all maintainers
 -- authorize. False if contract does not exist and all maintainers authorize.
 -- Fails otherwise.
