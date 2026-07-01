@@ -117,6 +117,8 @@ package_app(
     extra_lib_dirs = [
         "//bazel/haskell/toolchain:tinfo_libs",
         "@gmp//:libs",
+        "@libz//:libs",
+        "@bzip2//:libs",
     ],
     resources = [
         ":daml-base-anchors.json",
@@ -141,6 +143,8 @@ package_app(
     extra_lib_dirs = [
         "//bazel/haskell/toolchain:tinfo_libs",
         "@gmp//:libs",
+        "@libz//:libs",
+        "@bzip2//:libs",
     ],
     resources = [
         ":daml-base-anchors.json",
@@ -208,6 +212,8 @@ genrule(
     extra_lib_dirs = [
         "//bazel/haskell/toolchain:tinfo_libs",
         "@gmp//:libs",
+        "@libz//:libs",
+        "@bzip2//:libs",
     ],
     visibility = ["//visibility:public"],
 ))
