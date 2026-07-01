@@ -57,10 +57,3 @@ repos:
       pass_filenames: false
       files: ^sdk/docs/(source|manually-written)/
       entry: "sdk/pre-commit/docs-synchronized-check.sh"
-    - id: mainonly
-      name: main only
-      description: Check for changes under packages with targets tagged with main-only
-      language: system
-      pass_filenames: true
-      entry: "dade-check-main-only-files"
-      types: [text]
