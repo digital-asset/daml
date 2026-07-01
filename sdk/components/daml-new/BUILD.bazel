@@ -33,6 +33,11 @@ da_haskell_binary(
 package_app(
     name = "daml-new-dpm",
     binary = ":daml-new",
+    extra_lib_dirs = [
+        "//bazel/haskell/toolchain:tinfo_libs",
+        "@gmp//:libs",
+        "@libz//:libs",
+    ],
     resources = [
         "//templates:templates-tarball.tar.gz",
     ],
