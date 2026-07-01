@@ -64,7 +64,7 @@ EXECROOT="$PWD"
 AUTOTOOLS_TMP=$(mktemp -d)
 cp -rL "$EXECROOT/{autotools_prefix}/." "$AUTOTOOLS_TMP/"
 find "$AUTOTOOLS_TMP" -type f | while IFS= read -r f; do
-    if file --mime-type "$f" | grep -q text; then
+    if grep -Iq . "$f"; then
         sed -i "s|__EXECROOT__/{autotools_prefix}|$AUTOTOOLS_TMP|g" "$f"
         sed -i "s|__EXECROOT__|$EXECROOT|g" "$f"
     fi
