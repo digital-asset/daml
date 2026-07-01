@@ -56,14 +56,18 @@ da_haskell_binary(
         name = "gen-stable-packages-v{}".format(majorLfVersion),
         srcs = [],
         outs = stable_packages(majorLfVersion).values(),
-        cmd = "\n".join(
+        cmd = "export LD_LIBRARY_PATH=\"$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$${LD_LIBRARY_PATH:-}\"\n" + "\n".join(
             ["$(location :generate-stable-package) --major-version {major} --module {module} -o $(location {path})".format(
                 major = majorLfVersion,
                 module = module,
                 path = path,
             ) for (module, path) in stable_packages(majorLfVersion).items()],
         ),
-        tools = [":generate-stable-package"],
+        tools = [
+            ":generate-stable-package",
+            "@libz//:libs",
+            "@gmp//:libs",
+        ],
         visibility = ["//visibility:public"],
     )
     for majorLfVersion in COMPILER_LF_MAJOR_VERSIONS

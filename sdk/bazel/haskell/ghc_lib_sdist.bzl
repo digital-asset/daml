@@ -2,6 +2,15 @@ load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain")
 load("//bazel/native:build_gnu_tool.bzl", "InstalledGnuToolInfo")
 
+def _execroot_abs_flag(tok):
+    for prefix in ("-isystem", "-iquote", "-idirafter", "-I", "-L", "-B", "-F", ""):
+        if tok.startswith(prefix):
+            body = tok[len(prefix):]
+            if body.startswith("external/") or body.startswith("bazel-out/"):
+                return prefix + "__EXECROOT__/" + body
+            return tok
+    return tok
+
 def _ghc_lib_sdist_impl(ctx):
     component = ctx.attr.component
     version = ctx.attr.version
@@ -33,12 +42,38 @@ def _ghc_lib_sdist_impl(ctx):
         action_name = ACTION_NAMES.cpp_link_executable,
     )
 
+    compile_variables = cc_common.create_compile_variables(
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+    )
+    link_variables = cc_common.create_link_variables(
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+        is_linking_dynamic_library = False,
+        is_static_linking_mode = True,
+    )
+    cc_rsp_flags = "\n".join([
+        _execroot_abs_flag(f)
+        for f in cc_common.get_memory_inefficient_command_line(
+            feature_configuration = feature_configuration,
+            action_name = ACTION_NAMES.c_compile,
+            variables = compile_variables,
+        ) + cc_common.get_memory_inefficient_command_line(
+            feature_configuration = feature_configuration,
+            action_name = ACTION_NAMES.cpp_link_executable,
+            variables = link_variables,
+        )
+    ])
+
     # -- Autotools prefix (InstalledGnuToolInfo from build_gnu_tool) --
     autotools_info = ctx.attr.autotools[InstalledGnuToolInfo]
 
     # -- Perl binary --
     perl_files = ctx.files.perl
     perl_bin = [f for f in perl_files if f.basename == "perl"][0]
+
+    python3_files = ctx.files.python3
+    python3_bin = [f for f in python3_files if f.basename == "python3" and f.dirname.endswith("/bin")][0]
 
     # -- Extra tools on PATH (e.g. happy, alex) --
     extra_tool_path_entries = []
@@ -74,6 +109,7 @@ export PATH="$AUTOTOOLS_TMP/{autotools_bindir}:$PATH"
 # Tool paths
 export PATH="$(dirname "$EXECROOT/{ghc_path}"):$PATH"
 export PATH="$(dirname "$EXECROOT/{perl_path}"):$PATH"
+export PATH="$(dirname "$EXECROOT/{python3_path}"):$PATH"
 export PATH="$(dirname "$EXECROOT/{m4_path}"):$PATH"
 export PATH="$(dirname "$EXECROOT/{hadrian_path}"):$PATH"
 export PATH="$(dirname "$EXECROOT/{cabal_path}"):$PATH"
@@ -102,6 +138,8 @@ case "$LD_PATH" in /*) ;; *) LD_PATH="$EXECROOT/$LD_PATH" ;; esac
 export CC="$CC_PATH"
 export LD="$LD_PATH"
 
+export LD_LIBRARY_PATH="$EXECROOT/{gmp_lib_dir}:${{LD_LIBRARY_PATH:-}}"
+
 GHC_WRAPPER_DIR=$(mktemp -d)
 GHC_BIN_DIR="$(dirname "$EXECROOT/{ghc_path}")"
 # Mirror every bindist binary into the wrapper dir via symlinks, then
@@ -121,17 +159,33 @@ exec "__GHC_REAL__" -pgmc "__CC__" -pgma "__CC__" -pgml "__CC__" -optl-fuse-ld=l
 WRAPPER_EOF
 sed -i \
     -e "s|__GHC_REAL__|$EXECROOT/{ghc_path}|" \
-    -e "s|__CC__|$CC_PATH|g" \
+    -e "s|__CC__|$GHC_WRAPPER_DIR/cc|g" \
     -e "s|__GMP_DIR__|$EXECROOT/{gmp_lib_dir}|" \
     "$GHC_WRAPPER_DIR/ghc"
 chmod +x "$GHC_WRAPPER_DIR/ghc"
 
+CC_RSP="$GHC_WRAPPER_DIR/cc.rsp"
+cat > "$CC_RSP" <<'CCRSP_EOF'
+{cc_rsp_flags}
+CCRSP_EOF
+sed -i "s|__EXECROOT__|$EXECROOT|g" "$CC_RSP"
+
 cat > "$GHC_WRAPPER_DIR/cc" <<'CC_EOF'
 #!/bin/sh
-exec "__CC__" "$@"
+exec "__CC__" @__CC_RSP__ "$@"
 CC_EOF
-sed -i -e "s|__CC__|$CC_PATH|" "$GHC_WRAPPER_DIR/cc"
+sed -i -e "s|__CC__|$CC_PATH|" -e "s|__CC_RSP__|$CC_RSP|" "$GHC_WRAPPER_DIR/cc"
 chmod +x "$GHC_WRAPPER_DIR/cc"
+export CC="$GHC_WRAPPER_DIR/cc"
+
+LLVM_BIN="$(dirname "$CC_PATH")"
+for pair in ar:llvm-ar ranlib:llvm-ar nm:llvm-nm objdump:llvm-objdump strip:llvm-strip objcopy:llvm-objcopy readelf:llvm-readelf ld:ld.lld; do
+    name="${{pair%%:*}}"
+    tool="${{pair#*:}}"
+    if [ -e "$LLVM_BIN/$tool" ] && [ ! -e "$GHC_WRAPPER_DIR/$name" ]; then
+        ln -s "$LLVM_BIN/$tool" "$GHC_WRAPPER_DIR/$name"
+    fi
+done
 export PATH="$GHC_WRAPPER_DIR:$PATH"
 
 # Locale
@@ -179,6 +233,8 @@ cp $TMP/ghc-lib{component}.cabal $EXECROOT/{cabal_output}
         autotools_bindir = autotools_info.bindir,
         ghc_path = ghc.path,
         perl_path = perl_bin.path,
+        python3_path = python3_bin.path,
+        cc_rsp_flags = cc_rsp_flags,
         m4_path = ctx.file.m4.path,
         hadrian_path = ctx.executable.hadrian.path,
         cabal_path = ctx.file.cabal.path,
@@ -208,7 +264,7 @@ cp $TMP/ghc-lib{component}.cabal $EXECROOT/{cabal_output}
                 ctx.file.m4,
                 ctx.file.cabal,
                 perl_bin,
-            ] + ctx.files.ghc_srcs + ctx.files.perl + ghc_bindir + ghc_libdir + ctx.files.extra_tools + ctx.files.gmp,
+            ] + ctx.files.ghc_srcs + ctx.files.perl + ctx.files.python3 + ghc_bindir + ghc_libdir + ctx.files.extra_tools + ctx.files.gmp,
             transitive = [cc_toolchain.all_files],
         ),
         tools = [
@@ -233,6 +289,10 @@ ghc_lib_sdist = rule(
         "autotools": attr.label(mandatory = True, providers = [InstalledGnuToolInfo]),
         "m4": attr.label(mandatory = True, allow_single_file = True),
         "perl": attr.label(mandatory = True),
+        "python3": attr.label(
+            default = "@python_3_12//:files",
+            allow_files = True,
+        ),
         "cabal": attr.label(mandatory = True, allow_single_file = True),
         "component": attr.string(default = "", values = ["", "-parser"]),
         "version": attr.string(mandatory = True),

@@ -348,6 +348,7 @@ genrule(
     srcs = ["//compiler/damlc/daml-prim-src"],
     outs = ["daml-prim.json"],
     cmd = """
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
         $(location //compiler/damlc:damlc-compile-only) -- docs \
             --output=$(OUTS) \
             --package-name=daml-prim \
@@ -358,6 +359,10 @@ genrule(
     """.format(LF_DOCS_VERSION),
     tools = [
         "//compiler/damlc:damlc-compile-only",
+        "@libz//:libs",
+        "@gmp//:libs",
+        "@bzip2//:libs",
+        "//bazel/haskell/toolchain:libtinfo.so.5",
     ],
     visibility = ["//visibility:public"],
 )
@@ -367,6 +372,7 @@ genrule(
     srcs = ["//compiler/damlc/daml-stdlib-src"],
     outs = ["daml-stdlib.json"],
     cmd = """
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
         $(location //compiler/damlc:damlc-compile-only) -- docs \
             --output=$(OUTS) \
             --package-name=daml-stdlib \
@@ -377,6 +383,10 @@ genrule(
     """.format(LF_DOCS_VERSION),
     tools = [
         "//compiler/damlc:damlc-compile-only",
+        "@libz//:libs",
+        "@gmp//:libs",
+        "@bzip2//:libs",
+        "//bazel/haskell/toolchain:libtinfo.so.5",
     ],
     visibility = ["//visibility:public"],
 )
@@ -396,6 +406,7 @@ genrule(
         "daml-base-hoogle.txt",
     ],
     cmd = """
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
         $(location //compiler/damlc:damlc-compile-only) -- docs \\
             --output=daml-base-rst \\
             --input-format=json \\
@@ -416,6 +427,10 @@ genrule(
     tools = [
         "//bazel_tools/sh:mktgz",
         "//compiler/damlc:damlc-compile-only",
+        "@libz//:libs",
+        "@gmp//:libs",
+        "@bzip2//:libs",
+        "//bazel/haskell/toolchain:libtinfo.so.5",
     ],
     visibility = ["//visibility:public"],
 )
