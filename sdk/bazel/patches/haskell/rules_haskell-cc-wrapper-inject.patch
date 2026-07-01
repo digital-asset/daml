@@ -1,0 +1,129 @@
+# Bake the cc-toolchain's compile+link command lines into cc_wrapper and forward
+# them on every invocation, so C invocations that bypass GHC's -optc/-optl path
+# (Cabal checkForeignDeps, ./configure, c2hs, GHC's link-time C stub) still get
+# the hermetic sysroot/header/CRT/runtime flags. Generated bazel-out paths carry
+# the wrapper's exec config and are re-resolved per invoking action at runtime.
+diff --git a/haskell/private/cc_wrapper.bzl b/haskell/private/cc_wrapper.bzl
+--- a/haskell/private/cc_wrapper.bzl
++++ b/haskell/private/cc_wrapper.bzl
+@@ -35,6 +35,12 @@
+ # actions.
+ #
+
++def _py_str(s):
++    return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
++
++def _py_str_list(items):
++    return "[" + ", ".join([_py_str(item) for item in items]) + "]"
++
+ def _cc_wrapper_impl(ctx):
+     cc_toolchain = find_cc_toolchain(ctx)
+     feature_configuration = cc_common.configure_features(
+@@ -51,6 +57,28 @@
+         feature_configuration = feature_configuration,
+         action_name = ACTION_NAMES.cpp_link_static_library,
+     )
++
++    compile_variables = cc_common.create_compile_variables(
++        feature_configuration = feature_configuration,
++        cc_toolchain = cc_toolchain,
++    )
++    compiler_flags = cc_common.get_memory_inefficient_command_line(
++        feature_configuration = feature_configuration,
++        action_name = ACTION_NAMES.c_compile,
++        variables = compile_variables,
++    )
++    link_variables = cc_common.create_link_variables(
++        feature_configuration = feature_configuration,
++        cc_toolchain = cc_toolchain,
++        is_linking_dynamic_library = False,
++        is_static_linking_mode = True,
++    )
++    linker_flags = cc_common.get_memory_inefficient_command_line(
++        feature_configuration = feature_configuration,
++        action_name = ACTION_NAMES.cpp_link_executable,
++        variables = link_variables,
++    )
++
+     cc_wrapper = ctx.actions.declare_file(ctx.label.name)
+     ctx.actions.expand_template(
+         template = ctx.file.template,
+@@ -62,6 +90,8 @@
+             "{:workspace:}": ctx.workspace_name,
+             "{:platform:}": ctx.attr.platform,
+             "{:bindir:}": paths.dirname(ar),
++            "{:compile_flags:}": _py_str_list(compiler_flags),
++            "{:link_flags:}": _py_str_list(linker_flags),
+         },
+     )
+     return [DefaultInfo(
+diff --git a/haskell/private/cc_wrapper.py.tpl b/haskell/private/cc_wrapper.py.tpl
+--- a/haskell/private/cc_wrapper.py.tpl
++++ b/haskell/private/cc_wrapper.py.tpl
+@@ -88,16 +88,62 @@
+ CODESIGN_ALLOCATE = "{:bindir:}/codesign_allocate"
+ OTOOL = "{:bindir:}/otool"
+
++INJECT_COMPILE_FLAGS = {:compile_flags:}
++INJECT_LINK_FLAGS = {:link_flags:}
++
++
++def toolchain_exec_root():
++    return os.environ.get("RULES_HASKELL_EXEC_ROOT") or os.getcwd()
++
++
++def resolve_execroot_path(body, exec_root):
++    direct = os.path.join(exec_root, body)
++    if os.path.exists(direct):
++        return direct
++    # Baked-in generated paths carry the wrapper's own (exec) config, which is
++    # not the invoking action's config; only the action's config tree is staged
++    # in its sandbox, so glob for whichever bazel-out config is present.
++    parts = body.split("/")
++    if len(parts) > 3 and parts[0] == "bazel-out" and parts[2] == "bin":
++        pattern = os.path.join(exec_root, "bazel-out", "*", "bin", *parts[3:])
++        matches = sorted(glob.glob(pattern))
++        if matches:
++            return matches[0]
++    return direct
++
++
++def absolutize_toolchain_flag(tok, exec_root):
++    for prefix in ("-isystem", "-iquote", "-idirafter", "-I", "-L", "-B", "-F", ""):
++        if not tok.startswith(prefix):
++            continue
++        body = tok[len(prefix):]
++        if body.startswith("external/") or body.startswith("bazel-out/"):
++            return prefix + resolve_execroot_path(body, exec_root)
++        break
++    return tok
++
++
++def injected_toolchain_flags(linking):
++    exec_root = toolchain_exec_root()
++    flags = list(INJECT_COMPILE_FLAGS)
++    if linking:
++        flags = flags + list(INJECT_LINK_FLAGS)
++    return [absolutize_toolchain_flag(flag, exec_root) for flag in flags]
++
+
+ def main():
+     parsed = Args(load_response_files(sys.argv[1:]))
+
+-    if parsed.linking:
+-        link(parsed.output, parsed.libraries, parsed.rpaths, parsed.args)
+-    elif parsed.printing_file_name:
++    if parsed.printing_file_name:
+         print_file_name(parsed.print_file_name, parsed.args)
++        return
++
++    args = parsed.args + injected_toolchain_flags(parsed.linking)
++
++    if parsed.linking:
++        link(parsed.output, parsed.libraries, parsed.rpaths, args)
+     else:
+-        run_cc(parsed.args, exit_on_error=True)
++        run_cc(args, exit_on_error=True)
+
+
+ # --------------------------------------------------------------------
