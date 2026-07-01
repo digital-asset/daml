@@ -25,20 +25,21 @@ genrule(
     srcs = ["daml_lf_archive_proto_srcs"],
     outs = ["Com/Digitalasset/Daml/Lf/Archive/DamlLf.hs"] +
            ["Com/Digitalasset/Daml/Lf/Archive/DamlLf%s.hs" % v.title() for v in ["2"]],
-    cmd =
-        "\n".join(
-            [
-                """
+    cmd = "export LD_LIBRARY_PATH=\"$$(dirname $(location @libz//:libs)):$${LD_LIBRARY_PATH:-}\"\n" +
+          "\n".join(
+              [
+                  """
                    $(location @proto3-suite//:compile-proto-file)  \
                      --includeDir $(RULEDIR) \
                      --proto com/digitalasset/daml/lf/archive/daml_lf%s.proto   \
                      --out $(@D)
                  """ % vx
-                for vx in [""] + ["%s" % v for v in ["2"]]
-            ],
-        ),
+                  for vx in [""] + ["%s" % v for v in ["2"]]
+              ],
+          ),
     tools = [
         "@proto3-suite//:compile-proto-file",
+        "@libz//:libs",
     ],
 )
 
