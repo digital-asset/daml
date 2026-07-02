@@ -29,7 +29,7 @@ done
 
 shas_str="\n    sha256 = {\n"
 for sha in "${shas[@]}"; do
-  shas_str+="      $sha,\n"
+  shas_str+="        $sha,\n"
 done
 shas_str+="    },\n"
 shas_str+="    version = \"$DPM_VERSION\",\n"
