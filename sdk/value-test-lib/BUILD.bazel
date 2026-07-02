@@ -24,7 +24,6 @@ da_scala_library(
         "@maven//:org_typelevel_cats_kernel",
     ],
     scalacopts = lf_scalacopts_stricter,
-    visibility = ["//visibility:public"],
     deps = [
         "@maven//:com_google_protobuf_protobuf_java",
     ],

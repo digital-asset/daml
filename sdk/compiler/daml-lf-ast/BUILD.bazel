@@ -31,7 +31,6 @@ da_haskell_library(
         "unordered-containers",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/da-hs-base",
     ],
@@ -51,7 +50,6 @@ da_haskell_test(
     ],
     main_function = "DA.Daml.LF.Ast.Tests.main",
     src_strip_prefix = "test",
-    visibility = ["//visibility:public"],
     deps = [
         ":daml-lf-ast",
         "//compiler/daml-lf-tools",
