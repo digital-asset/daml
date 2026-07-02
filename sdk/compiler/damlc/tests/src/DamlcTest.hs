@@ -274,9 +274,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 ""
             stderr @?= ""
             exitCode @?= ExitSuccess
-            canonDir <- canonicalizePath dir
-            assertInfixOf ("Running tests (" <> canonDir <> ")") stdout
-            assertInfixOf ("Test Summary (" <> canonDir <> ")") stdout
+            assertInfixOf "Running tests (test-coverage-report)" stdout
+            assertInfixOf "Test Summary (test-coverage-report)" stdout
             assertBool ("test coverage is reported correctly: " <> stdout)
                        ( unlines
                        [ "Modules internal to this package:"
@@ -1208,9 +1207,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             assertInfixOf "Script execution failed" stderr
             exitCode @?= ExitFailure 1
 
-            canonDir <- canonicalizePath dir
-            assertInfixOf ("Running tests (" <> canonDir <> ")") stdout
-            assertInfixOf ("Test Summary (" <> canonDir <> ")") stdout
+            assertInfixOf "Running tests (test-failing-script)" stdout
+            assertInfixOf "Test Summary (test-failing-script)" stdout
             assertInfixOf "1 failed, 1 passed" stdout
             assertBool ("passing test hidden when there are failures: " <> stdout)
                        (not ("Foo.daml: 1 test passed" `isInfixOf` stdout))

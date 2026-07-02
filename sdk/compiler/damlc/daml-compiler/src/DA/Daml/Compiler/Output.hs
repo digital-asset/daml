@@ -14,10 +14,8 @@ module DA.Daml.Compiler.Output
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy                           as BSL
 import           Data.IORef
-import           Data.Maybe (fromMaybe)
 import           Data.String                                    (IsString)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
+import qualified Data.Text.Encoding as T
 import Development.IDE.Core.Shake (NotificationHandler(..))
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
@@ -62,20 +60,12 @@ printDiagnostics :: Handle -> [FileDiagnostic] -> IO ()
 printDiagnostics _ [] = return ()
 printDiagnostics handle xs = do
     xs' <- mapM makeAbsoluteDiag xs
-    mapM_ (printSimpleDiag handle) xs'
+    BS.hPutStrLn handle $ T.encodeUtf8 $ showDiagnosticsColored xs'
 
 makeAbsoluteDiag :: FileDiagnostic -> IO FileDiagnostic
 makeAbsoluteDiag (fp, showDiag, diag) = do
     absPath <- makeAbsolute (fromNormalizedFilePath fp)
     pure (toNormalizedFilePath' absPath, showDiag, diag)
-
--- | Print a diagnostic in simplified format: "Failure in: <path> (<source>)\nMessage:\n<message>\n"
-printSimpleDiag :: Handle -> FileDiagnostic -> IO ()
-printSimpleDiag handle (fp, _, LSP.Diagnostic{_message = msg, _source = src}) = do
-    let filePath = fromNormalizedFilePath fp
-        sourceInfo = fromMaybe "Script" src
-    BS.hPutStrLn handle $ TE.encodeUtf8 $ T.pack $ "Failure in: " <> filePath <> " (" <> T.unpack sourceInfo <> ")"
-    BS.hPutStrLn handle $ TE.encodeUtf8 $ "Message:\n" <> msg <> "\n"
 
 diagnosticsLogger :: NotificationHandler
 diagnosticsLogger = hDiagnosticsLogger stderr
