@@ -250,6 +250,7 @@ scala_source_jar(
                 "src/it/daml/Tests/Lib{}.daml".format(mangle_for_java(ver)),
             ],
             exclude = test_exclusions.get(ver, []),
+            allow_empty = True,
         ),
         enable_interfaces = ver == "2.dev",
         project_name = "integration-tests-model",
