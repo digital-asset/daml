@@ -25,7 +25,6 @@ da_haskell_library(
         "text",
         "vector",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",

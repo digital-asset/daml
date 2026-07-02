@@ -12,7 +12,6 @@ da_scala_binary(
         "@maven//:com_thesamet_scalapb_protoc_bridge",
         "@maven//:com_thesamet_scalapb_protoc_gen",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "@maven//:com_google_protobuf_protobuf_java",
     ],
@@ -34,7 +33,6 @@ go_library(
         ":java_exec_path",
     ],
     importpath = "github.com/digital-asset/daml/scala/protoc-gen-scalapb",
-    visibility = ["//visibility:public"],
 )
 
 go_binary(
@@ -44,5 +42,4 @@ go_binary(
         "@rules_java//toolchains:current_java_runtime",
     ],
     embed = [":go_default_library"],
-    visibility = ["//visibility:public"],
 )

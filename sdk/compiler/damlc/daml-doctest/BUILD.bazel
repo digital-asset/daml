@@ -18,5 +18,4 @@ da_haskell_library(
     # hie-bios depends on "ghc" which conflicts with ghc-lib(-parser)
     repl_ghci_args = ["-hide-package=ghc"],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
 )
