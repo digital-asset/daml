@@ -12,13 +12,11 @@ canton_jar()
 java_import(
     name = "community_app-lib",
     jars = [":canton_open_source_jar"],
-    visibility = ["//visibility:public"],
 )
 
 scala_binary(
     name = "community_app",
     main_class = "com.digitalasset.canton.CantonCommunityApp",
-    visibility = ["//visibility:public"],
     deps = [":community_app-lib"],
 )
 
@@ -29,5 +27,4 @@ package_oci_component(
     platform_agnostic = True,
     resources = [":community_app_deploy.jar"],
     tags = ["no-cache"],
-    visibility = ["//visibility:public"],
 )
