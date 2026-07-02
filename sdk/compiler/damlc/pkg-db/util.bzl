@@ -181,18 +181,18 @@ daml_package_rule = rule(
         "package_db": attr.label(
             default = Label("//compiler/damlc/pkg-db"),
             executable = False,
-            cfg = "host",
+            cfg = "exec",
         ),
         "dependencies": attr.label_list(allow_files = False),
         "damlc_bootstrap": attr.label(
             default = Label("//compiler/damlc:damlc-bootstrap"),
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
         "cpp": attr.label(
             default = Label("@stackage-exe//hpp"),
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
         "daml_lf_version": attr.string(
             mandatory = True,
