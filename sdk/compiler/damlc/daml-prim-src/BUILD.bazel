@@ -4,5 +4,4 @@
 filegroup(
     name = "daml-prim-src",
     srcs = glob(["**/*.daml"]),
-    visibility = ["//visibility:public"],
 )

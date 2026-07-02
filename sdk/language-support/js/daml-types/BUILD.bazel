@@ -22,7 +22,6 @@ da_ts_library(
     module_name = "@daml/types",
     out_dir = "lib",
     tsconfig = ":tsconfig.json",
-    visibility = ["//visibility:public"],
     deps = [
         ":node_modules/@mojotech/json-type-validation",
         ":node_modules/@types/jest",
@@ -63,7 +62,6 @@ npm_package(
         ":versioned_package_json",
     ],
     package = "@daml/types",
-    visibility = ["//visibility:public"],
 )
 
 jest_test(
