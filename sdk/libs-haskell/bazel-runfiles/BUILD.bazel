@@ -15,7 +15,6 @@ da_haskell_library(
         "transformers",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "@rules_haskell//tools/runfiles",
     ],
@@ -32,6 +31,5 @@ da_haskell_test(
         "tasty",
         "tasty-hunit",
     ],
-    visibility = ["//visibility:public"],
     deps = [":bazel-runfiles"],
 )

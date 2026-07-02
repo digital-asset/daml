@@ -41,7 +41,6 @@ da_haskell_test(
         "text",
         "time",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc/daml-ide-core",
         "//component-version/hs:component-version-lib",

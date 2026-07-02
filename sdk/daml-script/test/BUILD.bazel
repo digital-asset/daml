@@ -83,7 +83,6 @@ EOF
             "@bzip2//:libs",
             "//bazel/haskell/toolchain:libtinfo.so.5",
         ],
-        visibility = ["//visibility:public"],
     )
     # TODO[#23010]: assess needs after moving 2.3 to stable
     for lfVersion in [
@@ -134,7 +133,6 @@ EOF
             "@bzip2//:libs",
             "//bazel/haskell/toolchain:libtinfo.so.5",
         ],
-        visibility = ["//visibility:public"],
     )
     for lf_version in [DEV_LF_VERSION]
 ]
@@ -183,7 +181,6 @@ EOF
             "@bzip2//:libs",
             "//bazel/haskell/toolchain:libtinfo.so.5",
         ],
-        visibility = ["//visibility:public"],
     )
     for lfVersion in [
         LATEST_STABLE_LF_VERSION,
@@ -270,7 +267,6 @@ EOF
         "@bzip2//:libs",
         "//bazel/haskell/toolchain:libtinfo.so.5",
     ],
-    visibility = ["//visibility:public"],
 )
 
 da_scala_library(
@@ -297,7 +293,6 @@ da_scala_library(
         "cpu:4",
         "dev-canton-test",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",

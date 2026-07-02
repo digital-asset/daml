@@ -44,6 +44,5 @@ da_haskell_binary(
         "vector",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = ["//3rdparty/haskell:remote_apis"],
 )
