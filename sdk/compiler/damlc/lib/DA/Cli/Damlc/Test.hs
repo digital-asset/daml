@@ -47,7 +47,6 @@ import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
-import qualified Language.LSP.Types as LSP
 import qualified Development.Shake as Shake
 import Safe
 import qualified ScriptService as SS
@@ -316,23 +315,6 @@ printTestSuiteBegin color mbIdentifier =
         (if colored then setSGRCode [SetConsoleIntensity BoldIntensity] else "")
         <> "Running tests (" <> identifier <> ") ..."
         <> (if colored then setSGRCode [] else "")
-
--- | Print diagnostics with colored "Failure in" header
-printDiagnosticsFormatted :: UseColor -> Maybe FilePath -> [FileDiagnostic] -> IO ()
-printDiagnosticsFormatted color _mbProjectPath diags =
-    forM_ diags $ \(fp, _, LSP.Diagnostic{_message = msg, _source = src}) -> do
-        let colored = getUseColor color
-            absPath = fromNormalizedFilePath fp
-            -- Extract script name from source like "Script: main" -> "main"
-            scriptName = case src of
-                Just s | "Script: " `T.isPrefixOf` s -> T.unpack $ T.drop 8 s
-                Just s -> T.unpack s
-                Nothing -> "unknown"
-            failureText = if colored
-                then setSGRCode [SetColor Foreground Vivid Red] <> "Failure in" <> setSGRCode []
-                else "Failure in"
-        hPutStrLn stderr $ failureText <> ": " <> absPath <> ":" <> scriptName
-        TIO.hPutStrLn stderr $ msg <> "\n"
 
 printSummary :: UseColor -> Maybe String -> Maybe FilePath -> [ScriptTestResult] -> IO ()
 printSummary color mbIdentifier mbProjectPath res =
