@@ -47,7 +47,7 @@ da_scala_library(
 da_scala_binary(
     name = "upgrade-check-dpm-main",
     main_class = "com.digitalasset.daml.lf.validation.UpgradeCheckDpmMain",
-    resources = glob(["src/main/resources/**/*"]),
+    resources = glob(["src/main/resources/**/*"], allow_empty = True),
     scalacopts = lf_scalacopts_stricter,
     deps = [
         ":upgrade-check-main",
