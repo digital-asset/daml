@@ -60,7 +60,7 @@ diff --git a/haskell/private/cc_wrapper.bzl b/haskell/private/cc_wrapper.bzl
 diff --git a/haskell/private/cc_wrapper.py.tpl b/haskell/private/cc_wrapper.py.tpl
 --- a/haskell/private/cc_wrapper.py.tpl
 +++ b/haskell/private/cc_wrapper.py.tpl
-@@ -88,16 +88,62 @@
+@@ -88,16 +88,65 @@
  CODESIGN_ALLOCATE = "{:bindir:}/codesign_allocate"
  OTOOL = "{:bindir:}/otool"
 
@@ -118,6 +118,9 @@ diff --git a/haskell/private/cc_wrapper.py.tpl b/haskell/private/cc_wrapper.py.t
 +        return
 +
 +    args = parsed.args + injected_toolchain_flags(parsed.linking)
++    # GHC's getLinkerInfo probes `cc -Wl,--version`; force lld so it won't add GNU-only --hash-size flags.
++    if not parsed.linking and not parsed.compiling and any(a.endswith("--version") for a in parsed.args):
++        args = args + [f for f in injected_toolchain_flags(True) if "-fuse-ld=" in f or "--ld-path=" in f]
 +
 +    if parsed.linking:
 +        link(parsed.output, parsed.libraries, parsed.rpaths, args)
