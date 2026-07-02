@@ -131,7 +131,7 @@ proto_gen = rule(
         "srcs": attr.label_list(providers = [ProtoInfo]),
         "plugin_name": attr.string(),
         "plugin_exec": attr.label(
-            cfg = "host",
+            cfg = "exec",
             executable = True,
         ),
         "plugin_options": attr.string_list(),
@@ -141,13 +141,13 @@ proto_gen = rule(
         ),
         "protoc": attr.label(
             default = Label("@protoc_bindist//:protoc"),
-            cfg = "host",
+            cfg = "exec",
             allow_files = True,
             executable = True,
         ),
         "_zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             allow_files = True,
         ),
