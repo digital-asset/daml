@@ -46,7 +46,6 @@ da_haskell_library(
         "proto3-suite",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",

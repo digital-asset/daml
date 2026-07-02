@@ -19,7 +19,6 @@ load("//daml-lf:daml-lf.bzl", "mangle_for_java")
 alias(
     name = "dar-files",
     actual = "dar-files-default",
-    visibility = ["//visibility:public"],
 )
 
 load("//rules_daml:daml.bzl", "daml_compile", "default_damlc_opts")
@@ -43,7 +42,6 @@ canonical_lf_versions = [
         alias(
             name = "%s-%s%s" % (target_prefix, name, target_suffix),
             actual = ":%s-%s%s" % (target_prefix, lf_version, target_suffix),
-            visibility = ["//visibility:public"],
         ),
     ]
     for (target_prefix, target_suffix) in [
@@ -72,7 +70,6 @@ da_scala_dar_resources_library(
     exclusions = {},
     lf_versions = canonical_lf_versions,
     maven_name_prefix = "test",
-    visibility = ["//visibility:public"],
 )
 
 # Compiles FailsWhenUpgradedFieldFromDifferentPackageName/dep/Dep.daml to two packages with different names.
@@ -84,7 +81,6 @@ da_scala_dar_resources_library(
         project_name = "upgrades-{}-dep-{}".format(test_name, project_name),
         target = "2.dev",
         version = "1.0.0",
-        visibility = ["//visibility:public"],
     )
     for test_name in [
         "FailsWhenUpgradedFieldFromDifferentPackageName",
@@ -111,7 +107,6 @@ da_scala_dar_resources_library(
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "2.dev",
             version = "1.0.0",
-            visibility = ["//visibility:public"],
         ),
     ]
     for identifier in [
@@ -127,7 +122,6 @@ da_scala_dar_resources_library(
         filegroup(
             name = "upgrades-{}-files".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-dep-v1".format(identifier),
@@ -140,7 +134,6 @@ da_scala_dar_resources_library(
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "2.dev",
             version = "1.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-dep-v2".format(identifier),
@@ -157,7 +150,6 @@ da_scala_dar_resources_library(
             typecheck_upgrades = False,
             upgrades = "//test-common:upgrades-{}-dep-v1.dar".format(identifier),
             version = "2.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v1".format(identifier),
@@ -173,7 +165,6 @@ da_scala_dar_resources_library(
             project_name = "upgrades-example-{}".format(identifier),
             target = "2.dev",
             version = "1.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v2".format(identifier),
@@ -193,7 +184,6 @@ da_scala_dar_resources_library(
             typecheck_upgrades = False,
             upgrades = "//test-common:upgrades-{}-v1.dar".format(identifier),
             version = "2.0.0",
-            visibility = ["//visibility:public"],
         ),
     ]
     for identifier in [
@@ -210,7 +200,6 @@ da_scala_dar_resources_library(
         filegroup(
             name = "upgrades-{}-files".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v1".format(identifier),
@@ -231,7 +220,6 @@ da_scala_dar_resources_library(
             project_name = "upgrades-example-{}".format(identifier),
             target = opts_get_lf_version(v1opts),
             version = "1.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v2".format(identifier),
@@ -256,7 +244,6 @@ da_scala_dar_resources_library(
             typecheck_upgrades = False,
             upgrades = "//test-common:upgrades-{}-v1.dar".format(identifier),
             version = "2.0.0",
-            visibility = ["//visibility:public"],
         ),
     ]
     for (identifier, v1opts, v2opts) in [
@@ -447,7 +434,6 @@ da_scala_dar_resources_library(
         project_name = "upgrades-EmptyProject-{}".format(mangle_for_damlc(lf_version)),
         target = lf_version,
         version = "1.0.0",
-        visibility = ["//visibility:public"],
     )
     for lf_version in [
         "2.1",
@@ -460,12 +446,10 @@ da_scala_dar_resources_library(
         filegroup(
             name = "upgrades-{}-dep-files".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
-            visibility = ["//visibility:public"],
         ),
         filegroup(
             name = "upgrades-{}-files".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
-            visibility = ["//visibility:public"],
         ),
     ]
     for identifier in [
@@ -478,7 +462,6 @@ da_scala_dar_resources_library(
         filegroup(
             name = "upgrades-{}-files".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-dep-dep-v1".format(identifier),
@@ -492,7 +475,6 @@ da_scala_dar_resources_library(
             project_name = "upgrades-example-{}-dep-dep".format(identifier),
             target = "2.dev",
             version = "1.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-dep-dep-v2".format(identifier),
@@ -510,7 +492,6 @@ da_scala_dar_resources_library(
             typecheck_upgrades = False,
             upgrades = "//test-common:upgrades-{}-dep-v1.dar".format(identifier),
             version = "2.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-dep-v1".format(identifier),
@@ -527,7 +508,6 @@ da_scala_dar_resources_library(
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "2.dev",
             version = "1.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-dep-v2".format(identifier),
@@ -548,7 +528,6 @@ da_scala_dar_resources_library(
             typecheck_upgrades = False,
             upgrades = "//test-common:upgrades-{}-dep-v1.dar".format(identifier),
             version = "2.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v1".format(identifier),
@@ -566,7 +545,6 @@ da_scala_dar_resources_library(
             project_name = "upgrades-example-{}".format(identifier),
             target = "2.dev",
             version = "1.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v2".format(identifier),
@@ -588,7 +566,6 @@ da_scala_dar_resources_library(
             typecheck_upgrades = False,
             upgrades = "//test-common:upgrades-{}-v1.dar".format(identifier),
             version = "2.0.0",
-            visibility = ["//visibility:public"],
         ),
     ]
     for identifier in [
@@ -602,7 +579,6 @@ da_scala_dar_resources_library(
         filegroup(
             name = "upgrades-{}-files".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-dep-v1".format(identifier),
@@ -616,7 +592,6 @@ da_scala_dar_resources_library(
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "2.dev",
             version = "1.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-dep-v2".format(identifier),
@@ -634,7 +609,6 @@ da_scala_dar_resources_library(
             typecheck_upgrades = False,
             upgrades = "//test-common:upgrades-{}-dep-v1.dar".format(identifier),
             version = "2.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v1".format(identifier),
@@ -651,7 +625,6 @@ da_scala_dar_resources_library(
             project_name = "upgrades-example-{}".format(identifier),
             target = "2.dev",
             version = "1.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v2".format(identifier),
@@ -672,7 +645,6 @@ da_scala_dar_resources_library(
             typecheck_upgrades = False,
             upgrades = "//test-common:upgrades-{}-v1.dar".format(identifier),
             version = "2.0.0",
-            visibility = ["//visibility:public"],
         ),
     ]
     for identifier in [
@@ -689,7 +661,6 @@ da_scala_dar_resources_library(
         filegroup(
             name = "upgrades-{}-files".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v1a".format(identifier),
@@ -698,7 +669,6 @@ da_scala_dar_resources_library(
             project_name = "upgrades-example-{}".format(identifier),
             target = "2.dev",
             version = "1.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v1b".format(identifier),
@@ -707,7 +677,6 @@ da_scala_dar_resources_library(
             project_name = "upgrades-example-{}".format(identifier),
             target = "2.dev",
             version = "1.0.0",
-            visibility = ["//visibility:public"],
         ),
     ]
     for identifier in [
@@ -724,7 +693,6 @@ da_scala_dar_resources_library(
         project_name = "upgrades-MissingTemplateDifferentPackageName",
         target = "2.dev",
         version = "1.1.0",
-        visibility = ["//visibility:public"],
     ),
 ]
 
@@ -733,7 +701,6 @@ da_scala_dar_resources_library(
         filegroup(
             name = "upgrades-{}-files".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v1".format(identifier),
@@ -742,7 +709,6 @@ da_scala_dar_resources_library(
             project_name = "upgrades-example-{}".format(identifier),
             target = "2.dev",
             version = "1.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v2".format(identifier),
@@ -755,7 +721,6 @@ da_scala_dar_resources_library(
             typecheck_upgrades = False,
             upgrades = "//test-common:upgrades-{}-v1.dar".format(identifier),
             version = "2.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v3".format(identifier),
@@ -768,7 +733,6 @@ da_scala_dar_resources_library(
             typecheck_upgrades = False,
             upgrades = "//test-common:upgrades-{}-v1.dar".format(identifier),
             version = "3.0.0",
-            visibility = ["//visibility:public"],
         ),
     ]
     for identifier in [
@@ -786,7 +750,6 @@ da_scala_dar_resources_library(
         filegroup(
             name = "upgrades-{}-files".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-dep-v1".format(identifier),
@@ -795,7 +758,6 @@ da_scala_dar_resources_library(
             project_name = "upgrades-example-{}-dep".format(identifier),
             target = "2.dev",
             version = "1.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-dep-v2".format(identifier),
@@ -808,7 +770,6 @@ da_scala_dar_resources_library(
             typecheck_upgrades = False,
             upgrades = "//test-common:upgrades-{}-dep-v1.dar".format(identifier),
             version = "2.0.0",
-            visibility = ["//visibility:public"],
         ),
         daml_compile(
             name = "upgrades-{}-v1".format(identifier),
@@ -826,7 +787,6 @@ da_scala_dar_resources_library(
             project_name = "upgrades-example-{}".format(identifier),
             target = "2.dev",
             version = "1.0.0",
-            visibility = ["//visibility:public"],
         ),
     ]
     for identifier in [
@@ -845,7 +805,6 @@ da_scala_dar_resources_library(
                     test_name.replace("_", "-"),
                     target,
                 )],
-                visibility = ["//visibility:public"],
             ),
         ]
         for test_name in test_names.get(target, [])

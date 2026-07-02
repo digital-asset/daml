@@ -38,7 +38,6 @@ da_haskell_library(
         "unordered-containers",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//component-version/hs:component-version-class-lib",
         "//libs-haskell/bazel-runfiles",
@@ -85,7 +84,6 @@ da_haskell_test(
     ],
     main_function = "DA.Daml.SdkIntegrationTests.Tests.main",
     tags = ["cpu:2"],
-    visibility = ["//visibility:public"],
     deps = [
         ":utils",
         "//component-version/hs:component-version-lib",
