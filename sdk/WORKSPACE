@@ -106,18 +106,22 @@ damlc_legacy(
 
 load("//bazel_tools:dpm.bzl", "dpm_binary")
 
+# Bump these versions using `bump-dpm.sh`
 dpm_binary(
     name = "dpm_binary",
     # Hashes taken from the files themselves, not the OCI artifacts
     # See `layers[0].digest` in the manifest for each platform
+    # Following tags used by `bump-dpm.sh` to find the shas/versions
+    # [TAG] DPM_VER_START
     sha256 = {
-        "linux_arm64": "86f71dc46d7b6cbe953c98ecbdc68eb1cca2f2e7c20c477f325c278b703e64c4",
-        "darwin_amd64": "042ed22857e864c559d1499373a679038ac4adcf2339b1c270f2fe990d211e8a",
-        "darwin_arm64": "85268e7e215a685b1f08240d2e3985308bad4e553a59f6677a36ac2a83516cc5",
-        "linux_amd64": "a91cc84ad46e782cfcc12c7b40cf89d0e0c34d834b59e6e4a47ca8802c1a9947",
-        "windows_amd64": "8f382c5874bb433dc229a85f525c1292241fb9415a23f3568a9d4e4dfc827b43",
+      "linux_arm64": "987eaef5af0e62af88b9b8aed83757ac2e96476f9dae523f0f63ca749b6cf834",
+      "darwin_amd64": "630c27dfd6142bba0eb33d1a9d58887bb553b32a6fd57dbbb6ac458a20f54f7d",
+      "darwin_arm64": "be769b4f012185c484eeac0577793ba0b8243f3711a8b2d6dec0d3b53135859a",
+      "linux_amd64": "a0ef4cd573948d4f7b414dc5d30d818c27c4e0dc82cd01f84533d143f619556c",
+      "windows_amd64": "e859b23c224f86ea321af38e32e5ae2de25912f4547e01e5f0d6a3089d6c9a11",
     },
-    version = "1.0.13",
+    version = "1.0.15",
+    # [TAG] DPM_VER_END
 )
 
 # Use Nix provisioned cc toolchain
