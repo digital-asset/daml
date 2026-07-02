@@ -167,5 +167,4 @@ $(location @openssl//:openssl) x509 -noout -text -in $(location ca_alternative.c
     tools = [
         "@openssl//:openssl",
     ],
-    visibility = ["//visibility:public"],
 )
