@@ -26,7 +26,6 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
     ],
     scalacopts = lf_scalacopts_stricter,
-    visibility = ["//visibility:public"],
     deps = [
         "@maven//:com_google_protobuf_protobuf_java",
     ],

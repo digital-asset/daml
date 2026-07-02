@@ -26,7 +26,6 @@ da_scala_library(
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:codegen-json-java:__VERSION__"],
-    visibility = ["//visibility:public"],
     deps = [
         "//ledger-service/lf-value-json",
         "@maven//:com_daml_bindings_java",

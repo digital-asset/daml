@@ -23,7 +23,6 @@ da_haskell_library(
         "text",
     ],
     src_strip_prefix = "daml-opts-types",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-tools",
@@ -61,7 +60,6 @@ da_haskell_library(
         "zip-archive",
     ],
     src_strip_prefix = "daml-opts",
-    visibility = ["//visibility:public"],
     deps = [
         ":daml-opts-types",
         "//compiler/daml-lf-ast",

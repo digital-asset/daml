@@ -33,7 +33,6 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 da_scala_binary(
     name = "codegen",
     main_class = "com.digitalasset.daml.lf.codegen.StandaloneMain",
-    visibility = ["//visibility:public"],
     deps = [":lib"],
 )
 
@@ -49,7 +48,6 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["maven_coordinates=com.daml:codegen-java-lib:__VERSION__"],
-    visibility = ["//visibility:public"],
     deps = [
         "//language-support/build-info",
         "@maven//:ch_qos_logback_logback_classic",
@@ -186,13 +184,11 @@ copy_file(
     out = "binary.jar",
     allow_symlink = True,
     tags = ["maven_coordinates=com.daml:codegen-java:__VERSION__"],
-    visibility = ["//visibility:public"],
 )
 
 pom_file(
     name = "binary_pom",
     target = ":binary",
-    visibility = ["//visibility:public"],
 )
 
 # Create empty Scaladoc JAR for uploading to Maven Central

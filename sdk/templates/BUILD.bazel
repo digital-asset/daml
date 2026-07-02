@@ -97,5 +97,4 @@ genrule(
     tools = [
         "//bazel_tools/sh:mktgz",
     ],
-    visibility = ["//visibility:public"],
 )

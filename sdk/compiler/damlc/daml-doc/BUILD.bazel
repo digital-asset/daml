@@ -40,7 +40,6 @@ da_haskell_library(
         "unordered-containers",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-opts",
@@ -78,7 +77,6 @@ da_haskell_library(
     toolchains = [
         "@rules_sh//sh/posix:make_variables",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-compiler",
@@ -96,7 +94,6 @@ da_haskell_library(
 da_haskell_repl(
     name = "repl",
     testonly = True,
-    visibility = ["//visibility:public"],
     deps = [
         ":daml-doc",
         ":daml-doc-testing",
