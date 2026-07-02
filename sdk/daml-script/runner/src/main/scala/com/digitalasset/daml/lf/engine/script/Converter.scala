@@ -77,8 +77,8 @@ object Converter {
     }
   }
 
-  implicit val stringOrder: Order[String] = Order.fromOrdering(Utf8.Ordering)
-  implicit val partyOrder: Order[Party] = Order.fromOrdering
+  implicit lazy val stringOrder: Order[String] = Order.fromOrdering(Utf8.Ordering)
+  implicit lazy val partyOrder: Order[Party] = Order.fromOrdering(Party.ordering)
 }
 
 abstract class ConverterMethods(stablePackages: language.StablePackages) {
