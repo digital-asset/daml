@@ -31,7 +31,7 @@ shas_str+="    version = \"$DPM_VERSION\",\n"
 get_tag_line() {
   file=$1
   match=$2
-  grep -wn "$2" $1 | cut -d: -f1
+  grep -wn "$match" $file | cut -d: -f1
 }
 
 # Resolve the newlines

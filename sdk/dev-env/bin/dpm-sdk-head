@@ -51,7 +51,7 @@ stdout_if_succeess() {
   err_tmp=$(mktemp) || return
   set +e
   # Redirect stderr and stdout to file, capture both combined in env var, make stderr red
-  combined=$("$@" 2> >(sed "s/^/\\\\e[31m/" | sed "s/$/\\\\e[0m/" | tee $err_tmp) > >(tee $out_tmp))
+  combined=$("$@" 2> >(sed "s/^/\\\\e[31m/" | sed "s/$/\\\\e[0m/" | tee "$err_tmp") > >(tee "$out_tmp"))
   ret=$?
   set -e
   if [ "$ret" -ne 0 ]; then
@@ -84,7 +84,7 @@ for opt in "$@"; do
       if [[ " ${all_dpm_components[*]} " =~ [[:space:]]$component_name[[:space:]] ]]; then
         TO_SKIP+=($component_name)
       else
-        echo "Unknown component $component_name, use one of: ${all_dpm_components[@]} dpm jars."
+        echo "Unknown component $component_name, use one of: ${all_dpm_components[*]} dpm jars."
         exit 1
       fi
       ;;
@@ -162,7 +162,7 @@ fi
 get_dpm() {
   chronic bazel build @dpm_binary//:dpm >&2
   dpm_bazel_path=$(stdout_if_succeess bazel cquery "${BAZEL_MODE_FLAGS[@]}" "@dpm_binary//:dpm" --output=files)
-  dpm_version=$(HOME=. stdout_if_succeess $dpm_bazel_path -v | head -n 1 | sed -e "s/^version: //")
+  dpm_version=$(HOME=. stdout_if_succeess "$dpm_bazel_path" -v | head -n 1 | sed -e "s/^version: //")
   mkdir -p "$DPM_HOME/cache/components/dpm/${dpm_version}" "$DPM_HOME/bin" "$DPM_HOME/cache/sdk/open-source"
   cp $dpm_bazel_path "$DPM_HOME/cache/components/dpm/${dpm_version}/dpm"
   # Create symlink for .dpm/bin, to match DPM's current behaviour
