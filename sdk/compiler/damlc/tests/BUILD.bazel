@@ -103,7 +103,6 @@ da_haskell_test(
     ],
     main_function = "DamlcTest.main",
     src_strip_prefix = "tests",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-opts:daml-opts-types",
@@ -133,7 +132,6 @@ da_haskell_test(
     ],
     main_function = "DamlcLint.main",
     src_strip_prefix = "tests",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc:damlc-lib",
         "//component-version/hs:component-version-lib",
@@ -182,7 +180,6 @@ da_haskell_library(
     toolchains = [
         "@rules_sh//sh/posix:make_variables",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto:daml_lf_archive_haskell_proto",
@@ -237,7 +234,6 @@ da_haskell_library(
         ],
         main_function = "DA.Test.DamlcIntegrationMain.main",
         src_strip_prefix = "src",
-        visibility = ["//visibility:public"],
         deps = [
             ":integration-lib",
         ],
@@ -266,7 +262,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.DamlDoc.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         ":integration-lib",
         "//compiler/daml-lf-ast",
@@ -302,7 +297,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.DamlDocTest.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         ":integration-lib",
         "//compiler/daml-lf-ast",
@@ -334,7 +328,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.DamlDocTestIntegration.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/bazel-runfiles",
     ],
@@ -365,7 +358,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.ShakeIdeClient.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         ":integration-lib",
         "//compiler/daml-lf-ast",
@@ -401,7 +393,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.IncrementalBuilds.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//component-version/hs:component-version-lib",
@@ -430,7 +421,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.IncrementalPackageDb.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//component-version/hs:component-version-lib",
@@ -649,7 +639,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.DamlcUpgrades.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-opts:daml-opts-types",
@@ -684,7 +673,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.DamlcMultiPackage.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc:damlc-lib",
         "//component-version/hs:component-version-lib",
@@ -720,7 +708,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.Packaging.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
@@ -777,7 +764,6 @@ da_haskell_test(
     tags = [
         "cpu:3",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
@@ -809,14 +795,12 @@ genrule(
     outs = ["FatTree{i}.daml".format(i = i) for i in range(1, 19)],
     cmd = "$(location :generate-module-tree) $(@D) 18",
     tools = [":generate-module-tree"],
-    visibility = ["//visibility:public"],
 )
 
 damlc_compile_test(
     name = "memory-module-tree",
     srcs = [":module-tree-test"],
     main = "FatTree18.daml",
-    visibility = ["//visibility:public"],
 )
 
 damlc_compile_test(
@@ -1071,7 +1055,6 @@ da_haskell_binary(
     ],
     main_function = "DA.Test.GenerateSimpleDalf.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
@@ -1112,7 +1095,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.DamlDesugar.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc/daml-desugar:daml-desugar-testing",
         "//component-version/hs:component-version-lib",
@@ -1149,7 +1131,6 @@ da_haskell_test(
     toolchains = [
         "@rules_sh//sh/posix:make_variables",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
@@ -1173,7 +1154,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.PackageImports.entry",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
@@ -1214,7 +1194,6 @@ daml_compile(
     enable_interfaces = True,
     project_name = "submit-test",
     target = "2.dev",
-    visibility = ["//visibility:public"],
 )
 
 daml_compile(
@@ -1225,7 +1204,6 @@ daml_compile(
     ],
     project_name = "try-submit-concurrently-test",
     target = "2.dev",
-    visibility = ["//visibility:public"],
 )
 
 daml_compile(
@@ -1235,7 +1213,6 @@ daml_compile(
         "//daml-script/daml:daml-script-2.dev.dar",
     ],
     target = "2.dev",
-    visibility = ["//visibility:public"],
 )
 
 filegroup(

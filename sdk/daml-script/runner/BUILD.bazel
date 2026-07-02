@@ -55,7 +55,6 @@ da_scala_library(
     # no doc as our scaladoc pipeline does not support .scrjar
     scaladoc = False,
     tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
-    visibility = ["//visibility:public"],
     deps = [
         "//daml-script/auth-utils",
         "//daml-script/converter",
@@ -171,7 +170,6 @@ da_scala_binary(
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["ee-jar-license"],
-    visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -216,5 +214,4 @@ package_oci_component(
         for lf_version in COMPILER_LF_VERSIONS
     ],
     tags = ["no-cache"],
-    visibility = ["//visibility:public"],
 )

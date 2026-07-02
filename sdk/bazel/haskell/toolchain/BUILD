@@ -13,14 +13,12 @@ ghc_bindist_install(
     libz = "@libz//:libs",
     make = "@make//:make",
     tinfo = ":libtinfo.so.5",
-    visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "install_tree",
     srcs = [":ghc_install"],
     output_group = "install_tree",
-    visibility = ["//visibility:public"],
 )
 
 genrule(
@@ -29,7 +27,6 @@ genrule(
     outs = ["ghc-pkg"],
     cmd = 'cp -L "$(location :install_tree)/lib/bin/ghc-pkg" "$@"',
     executable = True,
-    visibility = ["//visibility:public"],
 )
 
 toolchain_type(name = "ghc_toolchain_type")
@@ -38,7 +35,6 @@ ghc_toolchain(
     name = "ghc_impl",
     install = ":ghc_install",
     version = GHC_VERSION,
-    visibility = ["//visibility:public"],
 )
 
 toolchain(
@@ -84,13 +80,11 @@ configure_make(
         "libtinfo.so.5",
         "libtinfo.so",
     ],
-    visibility = ["//visibility:public"],
 )
 
 cc_library(
     name = "tinfo_cc_lib",
     srcs = [":libtinfo.so"],
-    visibility = ["//visibility:public"],
 )
 
 filegroup(
@@ -99,5 +93,4 @@ filegroup(
         ":libtinfo.so.5",
         ":libtinfo.so",
     ],
-    visibility = ["//visibility:public"],
 )

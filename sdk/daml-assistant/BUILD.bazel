@@ -27,7 +27,6 @@ da_haskell_library(
         "yaml",
     ],
     src_strip_prefix = "daml-project-config",
-    visibility = ["//visibility:public"],
     deps = [
         "//component-version/hs:component-version-class-lib",
         "//libs-haskell/da-version-types",
@@ -58,7 +57,6 @@ da_haskell_test(
     ],
     main_function = "DA.Daml.Project.Tests.main",
     src_strip_prefix = "test",
-    visibility = ["//visibility:public"],
     deps = [
         ":daml-project-config",
         "//libs-haskell/da-hs-base",
@@ -71,7 +69,6 @@ da_haskell_repl(
     name = "repl",
     testonly = True,
     collect_data = False,
-    visibility = ["//visibility:public"],
     deps = [
         "//daml-assistant:test",
         "//daml-assistant/daml-new",

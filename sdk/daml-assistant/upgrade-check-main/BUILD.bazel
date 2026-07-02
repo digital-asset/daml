@@ -26,7 +26,6 @@ da_scala_library(
     ],
     scalacopts = lf_scalacopts_stricter,
     unused_dependency_checker_mode = "off",
-    visibility = ["//visibility:public"],
     deps = [
         "@maven//:com_daml_base_errors_2_13",
         "@maven//:com_daml_community_base_2_13",
@@ -51,7 +50,6 @@ da_scala_binary(
     main_class = "com.digitalasset.daml.lf.validation.UpgradeCheckDpmMain",
     resources = glob(["src/main/resources/**/*"]),
     scalacopts = lf_scalacopts_stricter,
-    visibility = ["//visibility:public"],
     deps = [
         ":upgrade-check-main",
     ],
@@ -65,7 +63,6 @@ package_oci_component(
         ":upgrade-check-dpm-main_distribute.jar",
     ],
     tags = ["no-cache"],
-    visibility = ["//visibility:public"],
 )
 
 da_scala_library(
@@ -86,7 +83,6 @@ da_scala_library(
     ],
     scaladoc = False,
     unused_dependency_checker_mode = "off",
-    visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",

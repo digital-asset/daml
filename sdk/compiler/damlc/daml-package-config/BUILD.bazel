@@ -26,7 +26,6 @@ da_haskell_library(
         "yaml",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//component-version/hs:component-version-class-lib",
