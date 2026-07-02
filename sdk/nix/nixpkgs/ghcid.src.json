@@ -1,7 +1,0 @@
-{
-  "owner": "NixOS",
-  "repo": "nixpkgs",
-  "branch": "nixpkgs-unstable",
-  "rev": "b134951a4c9f3c995fd7be05f3243f8ecd65d798",
-  "sha256": "0zydsqiaz8qi4zd63zsb2gij2p614cgkcaisnk11wjy3nmiq0x1s"
-}
