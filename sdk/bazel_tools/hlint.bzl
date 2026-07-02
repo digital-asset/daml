@@ -90,7 +90,7 @@ haskell_hlint_aspect = aspect(
     attrs = {
         "_hlint": attr.label(
             executable = True,
-            cfg = "host",
+            cfg = "exec",
             allow_single_file = True,
             default = Label("@stackage-exe//hlint"),
         ),

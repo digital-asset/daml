@@ -79,7 +79,7 @@ package_app = rule(
         ),
         "package_app": attr.label(
             default = Label("//bazel_tools/packaging:package-app"),
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             allow_files = True,
         ),
@@ -107,7 +107,7 @@ package_oci_component = rule(
         ),
         "package_oci_component": attr.label(
             default = Label("//bazel_tools/packaging:package-oci-component"),
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             allow_files = True,
         ),

@@ -351,7 +351,7 @@ scala_source_jar = rule(
         "strip_upto": attr.string(default = "main/scala"),
         "_zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             allow_files = True,
         ),
@@ -500,13 +500,13 @@ scaladoc_jar = rule(
         "root_content": attr.label(allow_single_file = True),
         "_zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             allow_files = True,
         ),
         "_scaladoc": attr.label(
             default = Label("//bazel_tools:scaladoc"),
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             allow_files = True,
         ),
