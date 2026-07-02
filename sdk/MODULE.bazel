@@ -894,7 +894,7 @@ use_repo(maven_ext, "maven")
 # and daml_versions_data (LF version data from JSON).
 # TODO: Split into per-concern extensions.
 workspace_config_ext = use_extension("//bazel/daml:daml_workspace_config_extension.bzl", "daml_workspace_config")
-use_repo(workspace_config_ext, "build_environment", "daml_versions_data", "os_info", "scala_version")
+use_repo(workspace_config_ext, "build_environment", "daml_features_data", "daml_versions_data", "os_info", "scala_version")
 
 dpm_ext = use_extension("//bazel/daml:dpm_extension.bzl", "dpm_extension")
 use_repo(dpm_ext, "dpm_binary")
