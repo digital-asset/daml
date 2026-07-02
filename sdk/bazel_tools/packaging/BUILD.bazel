@@ -11,7 +11,6 @@ sh_binary(
         # "@gzip_dev_env//:gzip",
         "@bsd_tar_toolchains//:resolved_target_toolchain",
     ] + (["@patchelf//:patchelf"] if not is_windows else []),
-    visibility = ["//visibility:public"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
@@ -22,6 +21,5 @@ sh_binary(
         "//bazel_tools/sh:mktgz",
         "@bsd_tar_toolchains//:resolved_target_toolchain"
     ],
-    visibility = ["//visibility:public"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

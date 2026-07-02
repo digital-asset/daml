@@ -16,7 +16,6 @@ load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary")
 scala_binary(
     name = "upgrade-check-dpm-main",
     main_class = "com.digitalasset.daml.lf.validation.UpgradeCheckDpmMain",
-    visibility = ["//visibility:public"],
     deps = ["@maven//:com_daml_daml_lf_upgrade_check_2_13"],
 )
 
@@ -28,5 +27,4 @@ package_oci_component(
         ":upgrade-check-dpm-main_deploy.jar",
     ],
     tags = ["no-cache"],
-    visibility = ["//visibility:public"],
 )
