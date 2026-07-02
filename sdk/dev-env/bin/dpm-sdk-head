@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# This script automatically finds components in the daml repo, via the bazel rule `package_oci_component`
+# You should not need to update this file if adding/removing a component using this rule.
 
 # Make sure they are in the right repo
 readonly REPO_ROOT="$(bazel info workspace)"
@@ -20,37 +22,71 @@ TO_SKIP=()
 NUKE=0
 PROFILING=0
 REMOVE_OTHER_VERSIONS=0
-VERBOSE=0
+VERBOSE=1
 # 0 = no message, 1 = add path instructions, 2 = reload shell
 LOG_PATH_INSTRUCTIONS=0
+
+# Imitate `chronic` from coreutils
+chronic() {
+  if [ "$VERBOSE" -ne 0 ]; then
+    "$@"
+  else
+    # Store stdout and stderr to a tmp file
+    tmp=$(mktemp) || return
+    # Don't die just yet!
+    set +e
+    "$@" > "$tmp" 2>&1
+    ret=$?
+    set -e
+    [ "$ret" -eq 0 ] || cat "$tmp"
+    rm -f "$tmp"
+    # Now you can die
+    return "$ret"
+  fi
+}
+
+# Discards stderr if successful, else reports err directly to stderr
+stdout_if_succeess() {
+  out_tmp=$(mktemp) || return
+  err_tmp=$(mktemp) || return
+  set +e
+  # Redirect stderr and stdout to file, capture both combined in env var, make stderr red
+  combined=$("$@" 2> >(sed "s/^/\\\\e[31m/" | sed "s/$/\\\\e[0m/" | tee $err_tmp) > >(tee $out_tmp))
+  ret=$?
+  set -e
+  if [ "$ret" -ne 0 ]; then
+    >&2 echo -e "$combined"
+  else
+    cat "$out_tmp"
+  fi
+  rm -f "$out_tmp" "$err_tmp"
+  return $ret
+}
+
+all_dpm_components=($(stdout_if_succeess bazel query "kind('package_oci_component', //...)" | sed -r 's/^.*:(.+)\-oci$/\1/' | sort))
+
 for opt in "$@"; do
   case "$opt" in
-    --canton-community)
-      TO_BUILD+=(canton-community)
-      ;;
-    --damlc)
-      TO_BUILD+=(damlc)
-      ;;
-    --daml-script)
-      TO_BUILD+=(daml-script)
-      ;;
-    --codegen)
-      TO_BUILD+=(codegen)
-      ;;
-    --daml-new)
-      TO_BUILD+=(daml-new)
-      ;;
-    --upgrade-check)
-      TO_BUILD+=(upgrade-check)
-      ;;
     --dpm)
       TO_BUILD+=(dpm)
       ;;
     --jars)
       TO_BUILD+=(jars)
       ;;
+    --skip-dpm)
+      TO_SKIP+=(dpm)
+      ;;
+    --skip-jars)
+      TO_SKIP+=(jars)
+      ;;
     --skip-*)
-      TO_SKIP+=${opt#--skip-}
+      component_name=${opt#--skip-}
+      if [[ " ${all_dpm_components[*]} " =~ [[:space:]]$component_name[[:space:]] ]]; then
+        TO_SKIP+=($component_name)
+      else
+        echo "Unknown component $component_name, use one of: ${all_dpm_components[@]} dpm jars."
+        exit 1
+      fi
       ;;
     --version=*)
       RELEASE_VERSION=${opt#--version=}
@@ -76,31 +112,39 @@ for opt in "$@"; do
     -v)
       VERBOSE=1
       ;;
+    --unverbose)
+      ;&
+    -V)
+      VERBOSE=0
+      ;;
     *)
-      if [[ "$opt" == "--help" ]]; then
-        echo "Usage: dpm-sdk-head [...options]"
+      if [[ " ${all_dpm_components[*]} " =~ [[:space:]]${opt#--}[[:space:]] ]]; then
+        TO_BUILD+=(${opt#--})
       else
-        echo "Unknown option: $opt"
-      fi
-      echo "Available options:"
-      echo "  --canton-community Build and update the canton-community component"
-      echo "  --damlc Build and update the damlc component"
-      echo "  --daml-script Build and update the daml-script component"
-      echo "  --codegen Build and update the codegen component"
-      echo "  --daml-new Build and update the daml-new component"
-      echo "  --upgrade-check Build and update the upgrade-check component"
-      echo "  --dpm Fetch and update the dpm component"
-      echo "  --version=<version> Set the component and release version to be built, default 0.0.0"
-      echo "  --component-version=<version> Set the component version (internal to dpm) to be built, default 0.0.0"
-      echo "  --release-version=<version> Set the release version (sdk-version in daml.yaml) to contain built components, default 0.0.0"
-      echo "  --profiling Build Haskell executables with profiling enabled"
-      echo "  --nuke Remove DPM from your system entirely before building"
-      echo "  --skip-* Skip building and installing a component, such as --skip-jars"
-      echo "  --remove-other-versions After installing head, remove all other installed versions (assemblies only, components remain, this will not save disk space)"
-      echo "  --verbose Print bazel build logs as they build live"
-      echo "  --help Show this screen"
+        if [[ "$opt" == "--help" ]]; then
+          echo "Usage: dpm-sdk-head [...options]"
+        else
+          echo "Unknown option: $opt"
+        fi
+        echo "Available options:"
+        for component in "${all_dpm_components[@]}"; do
+          echo "  --$component Build and update the $component component"
+        done
+        echo "  --dpm Fetch and update the dpm component"
+        echo "  --jars Build and install jars to local maven cache"
+        echo "  --version=<version> Set the component and release version to be built, default 0.0.0"
+        echo "  --component-version=<version> Set the component version (internal to dpm) to be built, default 0.0.0"
+        echo "  --release-version=<version> Set the release version (sdk-version in daml.yaml) to contain built components, default 0.0.0"
+        echo "  --profiling Build Haskell executables with profiling enabled"
+        echo "  --nuke Remove DPM from your system entirely before building"
+        echo "  --skip-* Skip building and installing a component, such as --skip-jars"
+        echo "  --remove-other-versions After installing head, remove all other installed versions (assemblies only, components remain, this will not save disk space)"
+        echo "  -v, --verbose Print bazel build logs as they build live"
+        echo "  -V, --unverbose Hide bazel build logs"
+        echo "  --help Show this screen"
 
-      exit 1
+        exit 1
+      fi
   esac
 done
 
@@ -116,9 +160,9 @@ if [[ "$NUKE" -ne 0 ]]; then
 fi
 
 get_dpm() {
-  bazel build @dpm_binary//:dpm >&2
-  dpm_bazel_path=$(bazel cquery "${BAZEL_MODE_FLAGS[@]}" "@dpm_binary//:dpm" --output=files 2> /dev/null)
-  dpm_version=$(HOME=. $dpm_bazel_path -v 2> /dev/null | head -n 1 | sed -e "s/^version: //")
+  chronic bazel build @dpm_binary//:dpm >&2
+  dpm_bazel_path=$(stdout_if_succeess bazel cquery "${BAZEL_MODE_FLAGS[@]}" "@dpm_binary//:dpm" --output=files)
+  dpm_version=$(HOME=. stdout_if_succeess $dpm_bazel_path -v | head -n 1 | sed -e "s/^version: //")
   mkdir -p "$DPM_HOME/cache/components/dpm/${dpm_version}" "$DPM_HOME/bin" "$DPM_HOME/cache/sdk/open-source"
   cp $dpm_bazel_path "$DPM_HOME/cache/components/dpm/${dpm_version}/dpm"
   # Create symlink for .dpm/bin, to match DPM's current behaviour
@@ -179,8 +223,6 @@ chmod -R u+w "$DPM_HOME"
 
 assembly_location="$DPM_HOME/cache/sdk/open-source/$RELEASE_VERSION.yaml"
 
-all_dpm_components=(canton-community damlc daml-script codegen daml-new upgrade-check)
-
 # Create a `RELEASE_VERSION.yaml` if it doesn't exist already with only daml components
 if [ ! -f "$assembly_location" ]; then
   assembly_location="$DPM_HOME/cache/sdk/open-source/$RELEASE_VERSION.yaml"
@@ -215,25 +257,6 @@ if [[ ! ${TO_BUILD[@]} ]]; then
   TO_BUILD=("${all_components[@]}")
 fi
 
-# Imitate `chronic` from coreutils
-chronic() {
-  if [ "$VERBOSE" -ne 0 ]; then
-    "$@"
-  else
-    # Store stdout and stderr to a tmp file
-    tmp=$(mktemp) || return
-    # Don't die just yet!
-    set +e
-    "$@" > "$tmp" 2>&1
-    ret=$?
-    set -e
-    [ "$ret" -eq 0 ] || cat "$tmp"
-    rm -f "$tmp"
-    # Now you can die
-    return "$ret"
-  fi
-}
-
 update_component() {
   target_name=$1
   progress_marker=$2
@@ -257,7 +280,7 @@ update_component() {
     trap cleanup EXIT
 
     echo "$(tput setaf 5)$progress_marker Building //release:release for JARs.$(tput sgr 0)"
-    bazel build ${BAZEL_MODE_FLAGS[@]:-} //release:release
+    chronic bazel build ${BAZEL_MODE_FLAGS[@]:-} //release:release
     RELEASE_ARGS=(--release-dir "$tmp" --install-head-jars --no-ts --no-docs)
     echo "$(tput setaf 5)$progress_marker Built //release:release, running...$(tput sgr 0)"
 
@@ -268,13 +291,13 @@ update_component() {
     echo "$(tput setaf 3)$progress_marker Installed JARs.$(tput sgr 0)"
   else
     # Find the OCI bazel target for the component as `package_oci_component` rule named `${component}-oci`
-    bazel_path=$(bazel query "kind('package_oci_component', //...)" 2> /dev/null | grep "$target_name-oci")
+    bazel_path=$(stdout_if_succeess bazel query "kind('package_oci_component', //...)" | grep "$target_name-oci")
     echo "$(tput setaf 5)$progress_marker Building $bazel_path.$(tput sgr 0)"
     # Build target
     DAML_SDK_RELEASE_VERSION=$COMPONENT_VERSION chronic bazel build "${BAZEL_MODE_FLAGS[@]}" "$bazel_path"
     echo "$(tput setaf 5)$progress_marker Built $bazel_path.$(tput sgr 0)"
     # Find built tar and unpack to DPM component
-    output_path=$(bazel cquery "${BAZEL_MODE_FLAGS[@]}" "$bazel_path" --output=files 2> /dev/null)
+    output_path=$(stdout_if_succeess bazel cquery "${BAZEL_MODE_FLAGS[@]}" "$bazel_path" --output=files)
     component_path="$DPM_HOME/cache/components/$target_name/$COMPONENT_VERSION"
     rm -rf $component_path
     mkdir -p "$component_path"
