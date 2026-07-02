@@ -59,7 +59,6 @@ da_haskell_binary(
         "zip-archive",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//component-version/hs:component-version-lib",
         "//libs-haskell/test-utils",

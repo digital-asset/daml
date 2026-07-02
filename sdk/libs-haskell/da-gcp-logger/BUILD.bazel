@@ -24,7 +24,6 @@ da_haskell_library(
         "uuid",
     ] + ([] if is_windows else ["unix"]),
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-project-config",
         "//component-version/hs:component-version-class-lib",
@@ -46,7 +45,6 @@ da_haskell_test(
         "text",
     ],
     main_function = "Telemetry.main",
-    visibility = ["//visibility:public"],
     deps = [
         ":da-gcp-logger",
         "//compiler/daml-project-config",

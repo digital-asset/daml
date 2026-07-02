@@ -20,7 +20,6 @@ da_haskell_binary(
     ],
     main_function = "DA.Daml.New.ociMain",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-project-config",
         "//compiler/damlc/daml-resolution-config",
@@ -42,7 +41,6 @@ package_app(
         "//templates:templates-tarball.tar.gz",
     ],
     tags = ["no-cache"],
-    visibility = ["//visibility:public"],
 )
 
 package_oci_component(
@@ -52,5 +50,4 @@ package_oci_component(
         ":daml-new-dpm",
     ],
     tags = ["no-cache"],
-    visibility = ["//visibility:public"],
 )

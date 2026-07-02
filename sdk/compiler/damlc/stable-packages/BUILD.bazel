@@ -22,7 +22,6 @@ da_haskell_library(
         "text",
     ],
     src_strip_prefix = "lib",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-encode",
@@ -42,7 +41,6 @@ da_haskell_binary(
         "text",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "stable-packages-lib",
         "//compiler/daml-lf-ast",
@@ -68,7 +66,6 @@ da_haskell_binary(
             "@libz//:libs",
             "@gmp//:libs",
         ],
-        visibility = ["//visibility:public"],
     )
     for majorLfVersion in COMPILER_LF_MAJOR_VERSIONS
 ]
@@ -89,7 +86,6 @@ EOF""".format(paths = "\n".join([
             "compiler/damlc/stable-packages/" + path
             for path in stable_packages(majorLfVersion).values()
         ])),
-        visibility = ["//visibility:public"],
     )
     for majorLfVersion in COMPILER_LF_MAJOR_VERSIONS
 ]
@@ -105,7 +101,6 @@ filegroup(
         ]
         for dalf in dalfs
     ],
-    visibility = ["//visibility:public"],
 )
 
 generate_and_track_cabal("stable-packages-lib", "generate-stable-package")
@@ -158,7 +153,6 @@ da_haskell_library(
         "yaml",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
     ],
