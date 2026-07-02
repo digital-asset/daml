@@ -11,8 +11,6 @@ build:darwin --remote_cache=https://bazel-cache.da-ext.net/202405/macos
 build:linux --remote_cache=https://bazel-cache.da-ext.net/202405/ubuntu
 # Don't push local build results to the remote cache.
 build --remote_upload_local_results=false
-# Bazel 8 defaults to failing on empty globs; keep legacy behavior during migration.
-build --incompatible_disallow_empty_glob=false
 # Do still push local build results to the local disk cache.
 # Enable the disk cache in addition to the http cache.
 build:linux --disk_cache=.bazel-cache/disk
