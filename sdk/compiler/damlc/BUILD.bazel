@@ -23,7 +23,6 @@ copy_file(
     out = "hpp" + (".exe" if is_windows else ""),
     allow_symlink = True,
     is_executable = True,
-    visibility = ["//visibility:public"],
 )
 
 package_app(
@@ -54,21 +53,18 @@ add_data(
         "//compiler/damlc/pkg-db",
     ],
     executable = ":damlc-bootstrap",
-    visibility = ["//visibility:public"],
 )
 
 add_data(
     name = "damlc",
     data = damlc_data,
     executable = ":damlc-bootstrap",
-    visibility = ["//visibility:public"],
 )
 
 da_haskell_repl(
     name = "damlc@ghci",
     data = damlc_data,
     repl_ghci_commands = [":m Main"],
-    visibility = ["//visibility:public"],
     deps = [":damlc-bootstrap"],
 )
 
@@ -80,7 +76,6 @@ genrule(
         echo > $(OUTS)
     """,
     tools = [],
-    visibility = ["//visibility:public"],
 )
 
 # damlc without runfiles. We use that to build the daml-prim and daml-stdlib
@@ -104,7 +99,6 @@ da_haskell_binary(
         "base",
     ],
     src_strip_prefix = "exe",
-    visibility = ["//visibility:public"],
     deps = [
         ":damlc-lib",
         "//component-version/hs:component-version-lib",
@@ -133,7 +127,6 @@ package_app(
         "@static_asset_d3plus//:js/d3plus.min.js",
     ],
     tags = ["no-cache"],
-    visibility = ["//visibility:public"],
 )
 
 # When publishing for DPM, script service is part of a different component, extension is included
@@ -160,7 +153,6 @@ package_app(
         "@static_asset_d3plus//:js/d3plus.min.js",
     ],
     tags = ["no-cache"],
-    visibility = ["//visibility:public"],
 )
 
 package_oci_component(
@@ -170,7 +162,6 @@ package_oci_component(
         ":damlc-dist-dpm",
     ],
     tags = ["no-cache"],
-    visibility = ["//visibility:public"],
 )
 
 # ghc-pkg is linked dynamically on Linux by default so we need to run it
@@ -184,7 +175,6 @@ genrule(
     outs = ["ghc-pkg-dist.tar.gz"],
     cmd = '$(execpath //bazel_tools/packaging:package-app) "$(location //bazel/haskell/toolchain:install_tree)/lib/bin/ghc-pkg" "$@"',
     tools = ["//bazel_tools/packaging:package-app"],
-    visibility = ["//visibility:public"],
 ) if is_linux_intel else (genrule(
     name = "ghc-pkg-dist",
     srcs = [
@@ -205,7 +195,6 @@ genrule(
       $$MKTGZ $$OUT ghc-pkg
     """,
     tools = ["//bazel_tools/sh:mktgz"],
-    visibility = ["//visibility:public"],
 ) if is_windows else package_app(
     name = "ghc-pkg-dist",
     binary = ghc_pkg_dist,
@@ -215,7 +204,6 @@ genrule(
         "@libz//:libs",
         "@bzip2//:libs",
     ],
-    visibility = ["//visibility:public"],
 ))
 
 da_haskell_library(
@@ -290,7 +278,6 @@ da_haskell_library(
         "binary",
     ] + ([] if is_windows else ["unix"]),
     src_strip_prefix = "lib",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-dar-reader",
         "//compiler/daml-lf-ast",
@@ -370,7 +357,6 @@ genrule(
         "@bzip2//:libs",
         "//bazel/haskell/toolchain:libtinfo.so.5",
     ],
-    visibility = ["//visibility:public"],
 )
 
 genrule(
@@ -394,7 +380,6 @@ genrule(
         "@bzip2//:libs",
         "//bazel/haskell/toolchain:libtinfo.so.5",
     ],
-    visibility = ["//visibility:public"],
 )
 
 genrule(
@@ -438,7 +423,6 @@ genrule(
         "@bzip2//:libs",
         "//bazel/haskell/toolchain:libtinfo.so.5",
     ],
-    visibility = ["//visibility:public"],
 )
 
 daml_doc_test(

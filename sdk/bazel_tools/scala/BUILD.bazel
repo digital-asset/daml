@@ -6,12 +6,10 @@ load("@rules_scala//scala:scala_toolchain.bzl", "scala_toolchain")
 scala_toolchain(
     name = "toolchain_impl",
     enable_stats_file = False,
-    visibility = ["//visibility:public"],
 )
 
 toolchain(
     name = "toolchain",
     toolchain = "toolchain_impl",
     toolchain_type = "@rules_scala//scala:toolchain_type",
-    visibility = ["//visibility:public"],
 )
