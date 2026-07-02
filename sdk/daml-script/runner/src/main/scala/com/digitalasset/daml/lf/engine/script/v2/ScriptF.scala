@@ -6,6 +6,7 @@ package engine
 package script
 package v2
 
+import cats.implicits._
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
@@ -29,11 +30,8 @@ import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.script.converter.Converter.{makeTuple, toContractId, toText}
 import com.digitalasset.canton.user.{User, UserRight}
 import org.apache.pekko.stream.Materializer
-import scalaz.std.either._
-import scalaz.std.list._
-import scalaz.std.option._
-import scalaz.syntax.traverse._
-import scalaz.{Foldable, OneAnd}
+import cats.data.NonEmptySet
+import com.digitalasset.daml.lf.engine.script.Converter.partyOrder
 import com.digitalasset.daml.lf.engine.refinement.Enricher
 
 import java.security.{KeyFactory, SecureRandom}
@@ -329,7 +327,7 @@ object ScriptF {
   }
 
   final case class Submission(
-      actAs: OneAnd[Set, Party],
+      actAs: NonEmptySet[Party],
       readAs: Set[Party],
       cmds: List[ScriptLedgerClient.CommandWithMeta],
       optPackagePreference: Option[List[PackageId]],
@@ -411,7 +409,7 @@ object ScriptF {
   }
 
   final case class QueryACS(
-      parties: OneAnd[Set, Party],
+      parties: NonEmptySet[Party],
       tplId: Identifier,
   ) extends Cmd {
     override def execute(
@@ -427,7 +425,7 @@ object ScriptF {
   }
 
   final case class QueryContractId(
-      parties: OneAnd[Set, Party],
+      parties: NonEmptySet[Party],
       tplId: Identifier,
       cid: ContractId,
   ) extends Cmd {
@@ -451,7 +449,7 @@ object ScriptF {
   }
 
   final case class QueryInterface(
-      parties: OneAnd[Set, Party],
+      parties: NonEmptySet[Party],
       interfaceId: Identifier,
   ) extends Cmd {
     override def execute(env: Env)(implicit
@@ -473,7 +471,7 @@ object ScriptF {
   }
 
   final case class QueryInterfaceContractId(
-      parties: OneAnd[Set, Party],
+      parties: NonEmptySet[Party],
       interfaceId: Identifier,
       cid: ContractId,
   ) extends Cmd {
@@ -491,7 +489,7 @@ object ScriptF {
   }
 
   final case class QueryByKey(
-      parties: OneAnd[Set, Party],
+      parties: NonEmptySet[Party],
       tplId: Identifier,
       key: AnyContractKey,
   ) extends Cmd {
@@ -513,7 +511,7 @@ object ScriptF {
   }
 
   final case class QueryNByKey(
-      parties: OneAnd[Set, Party],
+      parties: NonEmptySet[Party],
       tplId: Identifier,
       key: AnyContractKey,
       limit: Int,
@@ -830,7 +828,7 @@ object ScriptF {
         client <- Converter.toFuture(env.clients.getParticipant(participant))
         users <- client.listAllUsers()
         users <- Converter.toFuture(
-          users.to(FrontStack).traverse(Converter.fromUser(env.scriptIds, _))
+          users.traverse(Converter.fromUser(env.scriptIds, _)).map(_.to(FrontStack))
         )
       } yield ValueList(users)
   }
@@ -851,9 +849,8 @@ object ScriptF {
         rights <- Converter.toFuture(
           Converter.fromOptional[List[UserRight]](
             rights,
-            _.to(FrontStack)
-              .traverse(Converter.fromUserRight(env.scriptIds, _))
-              .map(ValueList(_)),
+            _.traverse(Converter.fromUserRight(env.scriptIds, _))
+              .map(xs => ValueList(xs.to(FrontStack))),
           )
         )
       } yield rights
@@ -875,9 +872,8 @@ object ScriptF {
         rights <- Converter.toFuture(
           Converter.fromOptional[List[UserRight]](
             rights,
-            _.to(FrontStack)
-              .traverse(Converter.fromUserRight(env.scriptIds, _))
-              .map(ValueList(_)),
+            _.traverse(Converter.fromUserRight(env.scriptIds, _))
+              .map(xs => ValueList(xs.to(FrontStack))),
           )
         )
       } yield rights
@@ -898,9 +894,8 @@ object ScriptF {
         rights <- Converter.toFuture(
           Converter.fromOptional[List[UserRight]](
             rights,
-            _.to(FrontStack)
-              .traverse(Converter.fromUserRight(env.scriptIds, _))
-              .map(ValueList(_)),
+            _.traverse(Converter.fromUserRight(env.scriptIds, _))
+              .map(xs => ValueList(xs.to(FrontStack))),
           )
         )
       } yield rights
@@ -1065,8 +1060,9 @@ object ScriptF {
             ),
           ) =>
         for {
-          actAs <- OneAnd(hdAct, tlAct.toList).traverse(Converter.toParty)
-          readAs <- readAs.traverse(Converter.toParty)
+          hdActParty <- Converter.toParty(hdAct)
+          tlActParties <- tlAct.iterator.toList.traverse(Converter.toParty)
+          readAs <- readAs.toImmArray.toList.traverse(Converter.toParty)
           disclosures <- disclosures.toImmArray.toList.traverse(Converter.toDisclosure)
           optPackagePreference <- optPackagePreference.traverse(
             Converter.toList(_, Converter.toPackageId)
@@ -1075,12 +1071,12 @@ object ScriptF {
             Converter.toAnyContractKey(_, env.lookupKeyTy(_), legacyAnyContractKey)
           )
           errorBehaviour <- parseErrorBehaviour(name)
-          cmds <- cmds.toList.traverse(
+          cmds <- cmds.toImmArray.toList.traverse(
             Converter.toCommandWithMeta(_, env.lookupKeyTy(_), legacyAnyContractKey)
           )
           optLocation <- optLocation.traverse(Converter.toLocation(knownPackages.pkgs, _))
         } yield Submission(
-          actAs = toOneAndSet(actAs),
+          actAs = NonEmptySet.of(hdActParty, tlActParties: _*),
           readAs = readAs.toSet,
           disclosures = disclosures,
           optPackagePreference = optPackagePreference,
@@ -1488,7 +1484,4 @@ object ScriptF {
       case _ => Left(s"Unknown command $commandName - Version $version")
     }
   }
-
-  private def toOneAndSet[F[_], A](x: OneAnd[F, A])(implicit fF: Foldable[F]): OneAnd[Set, A] =
-    OneAnd(x.head, x.tail.toSet - x.head)
 }

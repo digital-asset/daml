@@ -222,7 +222,6 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_typelevel_cats_kernel",
         "@maven//:io_circe_circe_core",
