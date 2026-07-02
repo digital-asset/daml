@@ -78,7 +78,6 @@ haskell_cabal_library(
         "@stackage-exe//happy",
     ],
     version = packages["ghc-lib"].version,
-    visibility = ["//visibility:public"],
     # See sibling [bazel/ghc-lib/ghc-lib-parser/BUILD.bazel](../ghc-lib-parser/BUILD.bazel):
     # `vendored=` packages do not inherit the stackage-wide `extra_deps`
     # wiring from MODULE.bazel, so `-lgmp` must be wired here directly.

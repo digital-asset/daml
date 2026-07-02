@@ -21,5 +21,4 @@ da_scala_library(
         "@maven//:org_typelevel_cats_core",
     ],
     scalacopts = lf_scalacopts_stricter,
-    visibility = ["//visibility:public"],
 )
