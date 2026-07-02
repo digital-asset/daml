@@ -20,5 +20,4 @@ da_haskell_binary(
     ],
     main_function = "IdeDebugDriver.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
 )
