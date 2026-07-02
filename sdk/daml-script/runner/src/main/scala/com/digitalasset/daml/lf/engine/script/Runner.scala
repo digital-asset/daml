@@ -42,14 +42,13 @@ import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.pekko.stream.Materializer
-import scalaz.OneAnd._
+import cats.data.NonEmptySet
 import scalaz.std.either._
 import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
-import scalaz.std.set._
 import scalaz.syntax.traverse._
-import scalaz.{Applicative, NonEmptyList, OneAnd, Traverse, \/-}
+import scalaz.{Applicative, NonEmptyList, Traverse, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -75,7 +74,7 @@ case class Participants[+T](
         default_participant.toRight(s"No participant for party $party and no default participant")
       case Some(participant) => getParticipant(Some(participant))
     }
-  def getPartiesParticipant(parties: OneAnd[Set, Party]): Either[String, T] = {
+  def getPartiesParticipant(parties: NonEmptySet[Party]): Either[String, T] = {
     import scalaz.syntax.foldable._
     for {
       participants <- NonEmptyList[Party](parties.head, parties.tail.toList: _*)
@@ -85,7 +84,7 @@ case class Participants[+T](
           Right(participants.head)
         } else {
           Left(
-            s"All parties must be on the same participant but parties were allocated as follows: ${parties.toList
+            s"All parties must be on the same participant but parties were allocated as follows: ${parties.toSortedSet.toList
                 .zip(participants.toList)}"
           )
         }

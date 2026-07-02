@@ -6,6 +6,7 @@ package lf
 package value
 package test
 
+import cats.implicits._
 import data.{FrontStack, ImmArray, ImmArrayCons, Numeric, Ref, SortedLookupList, Time}
 import ImmArray.ImmArraySeq
 import data.DataArbitrary._
@@ -22,8 +23,6 @@ import typesig.{
   PrimType => PT,
 }
 import scalaz.{@@, Order, Ordering, Tag}
-import scalaz.syntax.bitraverse._
-import scalaz.syntax.traverse._
 import scalaz.std.option._
 import scalaz.std.tuple._
 import org.scalacheck.{Arbitrary, Gen, Shrink}
@@ -83,8 +82,10 @@ object TypedValueGenerators {
       override def prj = prj0.lift
     }
 
-    import Value._, ValueGenerators.Implicits._, data.Utf8.ImplicitOrder._
+    import Value._, ValueGenerators.Implicits._
     import scalaz.std.anyVal._
+
+    implicit def fromScala[X: math.Ordering]: Order[X] = Order.fromScalaOrdering
 
     val text = leaf(PT.Text, ValueText.apply) { case ValueText(t) => t }
     val int64 = leaf(PT.Int64, ValueInt64.apply) { case ValueInt64(i) => i }
@@ -129,8 +130,7 @@ object TypedValueGenerators {
         ValueList(elts.map(elt.inj(_)).to(FrontStack))
       override def prj = {
         case ValueList(v) =>
-          import scalaz.std.vector._
-          v.toImmArray.toSeq.to(Vector) traverse elt.prj
+          v.toImmArray.toSeq.to(Vector).traverse(elt.prj)
         case _ => None
       }
       override def injord = {
@@ -168,14 +168,15 @@ object TypedValueGenerators {
       type Inj = SortedLookupList[elt.Inj]
       override val t = TypePrim(PT.TextMap, ImmArraySeq(elt.t))
       override def inj(sll: SortedLookupList[elt.Inj]) =
-        ValueTextMap(sll map (elt.inj(_)))
+        ValueTextMap(sll mapValue (elt.inj(_)))
       override def prj = {
-        case ValueTextMap(sll) => sll traverse elt.prj
+        case ValueTextMap(sll) => sll.traverse(elt.prj)
         case _ => None
       }
       override def injord = {
+        import scalaz.std.iterable._ // compatible with SValue ordering
         implicit val e: Order[elt.Inj] = elt.injord
-        Order[SortedLookupList[elt.Inj]]
+        Order[Iterable[(String, elt.Inj)]] contramap (_.toImmArray.toSeq)
       }
       override def injarb = {
         implicit val e: Arbitrary[elt.Inj] = elt.injarb
@@ -201,16 +202,17 @@ object TypedValueGenerators {
         }
       override def prj = {
         case ValueGenMap(kvs) =>
-          kvs traverse (_.bitraverse(key.prj, elt.prj)) map (_.toSeq.toMap)
+          kvs.traverse { case (k, v) => (key.prj(k), elt.prj(v)).tupled }.map(_.toSeq.toMap)
         case _ => None
       }
       override def injord = {
+        import scalaz.std.iterable._ // compatible with SValue ordering
         implicit val k: Order[key.Inj] = key.injord
         implicit val ki: math.Ordering[key.Inj] = k.toScalaOrdering
         implicit val e: Order[elt.Inj] = elt.injord
         // for compatibility with SValue ordering
-        Order[ImmArray[(key.Inj, elt.Inj)]] contramap { m =>
-          m.to(ImmArraySeq).sortBy(_._1).toImmArray
+        Order[Iterable[(key.Inj, elt.Inj)]] contramap { m =>
+          m.to(ImmArraySeq).sortBy(_._1)
         }
       }
       override def injarb = {
@@ -300,8 +302,10 @@ object TypedValueGenerators {
           )
           override def injshrink =
             Shrink { ev =>
-              if (!(values.headOption contains ev)) values.headOption.toStream
-              else Stream.empty: @annotation.nowarn("cat=deprecation")
+              (values.headOption match {
+                case Some(h) if h != ev => Stream(h)
+                case _ => Stream.empty
+              }): @annotation.nowarn("cat=deprecation")
             }
         },
       )
