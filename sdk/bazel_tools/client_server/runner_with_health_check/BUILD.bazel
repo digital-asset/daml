@@ -21,6 +21,5 @@ da_haskell_binary(
         "monad-loops",
         "safe-exceptions",
     ],
-    visibility = ["//visibility:public"],
     deps = ["//libs-haskell/da-hs-base"],
 )

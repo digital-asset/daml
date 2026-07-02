@@ -23,7 +23,6 @@ da_scala_library(
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:io_circe_circe_core",
     ],
-    visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -46,7 +45,6 @@ da_scala_binary(
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:io_circe_circe_core",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//language-support/daml-package-config",
         "//language-support/java/codegen:lib",
@@ -87,7 +85,6 @@ package_oci_component(
         ":binary.jar",
     ],
     tags = ["no-cache"],
-    visibility = ["//visibility:public"],
 )
 
 copy_file(
@@ -96,13 +93,11 @@ copy_file(
     out = "binary.jar",
     allow_symlink = True,
     tags = ["maven_coordinates=com.daml:codegen-jvm-main:__VERSION__"],
-    visibility = ["//visibility:public"],
 )
 
 pom_file(
     name = "binary_pom",
     target = ":binary",
-    visibility = ["//visibility:public"],
 )
 
 # Create empty Scaladoc JAR for uploading to Maven Central

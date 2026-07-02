@@ -10,7 +10,6 @@ sh_binary(
     name = "mktar",
     srcs = ["mktar.sh"],
     data = ["@tar.bzl//tar:tar"],
-    visibility = ["//visibility:public"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
@@ -21,6 +20,5 @@ sh_binary(
         "@pigz//:pigz",
         "@bsd_tar_toolchains//:resolved_target_toolchain"
     ],
-    visibility = ["//visibility:public"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

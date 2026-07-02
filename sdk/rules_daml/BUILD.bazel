@@ -13,5 +13,4 @@ py_binary(
     name = "generate-dar-hash",
     srcs = ["generate-dar-hash.py"],
     main = "generate-dar-hash.py",
-    visibility = ["//visibility:public"],
 )
