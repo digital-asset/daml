@@ -255,7 +255,6 @@ def da_haskell_repl(**kwargs):
         experimental_from_binary = [
             # Workaround for https://github.com/tweag/rules_haskell/issues/1726
             "//bazel/haskell/ghc-lib/...",
-            "//nix/...",
         ],
         repl_ghci_args = [
             "-fobject-code",
