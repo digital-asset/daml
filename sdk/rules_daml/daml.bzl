@@ -10,7 +10,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 _damlc = attr.label(
     default = Label("//compiler/damlc:damlc-compile-only"),
     executable = True,
-    cfg = "host",
+    cfg = "exec",
     doc = "The Daml compiler.",
 )
 
@@ -18,7 +18,7 @@ _zipper = attr.label(
     allow_single_file = True,
     default = Label("@bazel_tools//tools/zip:zipper"),
     executable = True,
-    cfg = "host",
+    cfg = "exec",
 )
 
 def _daml_configure_impl(ctx):
