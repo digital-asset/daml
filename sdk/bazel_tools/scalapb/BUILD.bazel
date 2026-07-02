@@ -11,6 +11,5 @@ load("@scala_version//:index.bzl", "scala_major_version_suffix")
 proto_library(
     name = "scalapb-configuration",
     srcs = glob(["**/*.proto"]),
-    visibility = ["//visibility:public"],
     deps = ["@scalapb//:scalapb_proto"],
 )
