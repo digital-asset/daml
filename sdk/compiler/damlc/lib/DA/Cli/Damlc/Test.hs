@@ -26,6 +26,7 @@ import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import DA.Daml.Compiler.Output
 import DA.Daml.Package.Config
+import Data.IORef
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScript as SS
 import qualified DA.Daml.LF.ScriptServiceClient as SSC
@@ -41,22 +42,22 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.Text.Lazy as TL
 import Data.Tuple.Extra
-import qualified Data.Vector as V
 import Development.IDE.Core.API
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
+import qualified Language.LSP.Types as LSP
 import qualified Development.Shake as Shake
 import Safe
 import qualified ScriptService as SS
 import qualified DA.Cli.Damlc.Test.TestResults as TR
-import System.Console.ANSI (SGR(..), setSGRCode, Underlining(..), ConsoleIntensity(..))
+import System.Console.ANSI (SGR(..), setSGRCode, Underlining(..), ConsoleIntensity(..), Color(..), ColorIntensity(..), ConsoleLayer(..))
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (exitFailure)
 import System.FilePath
-import System.IO (hPutStrLn, stderr)
+import System.IO (hFlush, hIsTerminalDevice, hPutStrLn, stderr, stdout)
 import System.IO.Error (isPermissionError, isAlreadyExistsError, isDoesNotExistError)
 import qualified Text.XML.Light as XML
 import qualified Text.Blaze.Html.Renderer.Text as Blaze
@@ -67,6 +68,8 @@ import ComponentVersion.Class (ComponentVersioned)
 
 newtype UseColor = UseColor {getUseColor :: Bool}
 newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}
+
+type ScriptTestResult = (TR.LocalOrExternal, ScriptName, Either SSC.Error SSC.ScriptResult)
 newtype CoverageFilter = CoverageFilter {getCoverageFilter :: Regex}
 newtype RunAllOption = RunAllOption {getRunAllTests :: Bool}
 newtype TableOutputPath = TableOutputPath {getTableOutputPath :: Maybe String}
@@ -91,15 +94,31 @@ execTest
     -> TransactionsOutputPath
     -> CoveragePaths
     -> [CoverageFilter]
+    -> Maybe FilePath
     -> IO ()
-execTest inFiles runAllOption coverage color mbJUnitOutput mPkgConfig opts tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
+execTest inFiles runAllOption coverage color mbJUnitOutput mPkgConfig opts tableOutputPath transactionsOutputPath resultsIO coverageFilters mbProjectPath = do
     loggerH <- getLogger opts "test"
+    color <- if getUseColor color then pure color else do
+        isTTY <- hIsTerminalDevice stdout
+        pure $ UseColor isTTY
     let optsWithPkg = case mPkgConfig of
             Just PackageConfigFields{..} -> opts { optMbPackageName = Just pName, optMbPackageVersion = pVersion }
             Nothing -> opts
-    withDamlIdeState optsWithPkg loggerH diagnosticsLogger $ \h -> do
-        runAndReport h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllOption coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
+        -- Prefer package name over path for identification in headers
+        packageIdentifier = case mPkgConfig of
+            Just PackageConfigFields{..} -> Just $ T.unpack $ LF.unPackageName pName
+            Nothing -> mbProjectPath
+    diagsRef <- newIORef []
+    let bufferedLogger = bufferingDiagnosticsLogger diagsRef
+    printTestSuiteBegin color packageIdentifier
+    withDamlIdeState optsWithPkg loggerH bufferedLogger $ \h -> do
+        summaryResults <- runAndReport h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllOption coverage mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
+        hFlush stdout
+        bufferedDiags <- readAndClearDiagnostics diagsRef
+        printDiagnosticsFormatted color mbProjectPath bufferedDiags
         diags <- getDiagnostics h
+        -- Pass both identifier (for header) and path (for relativizing test file paths)
+        printSummary color packageIdentifier mbProjectPath summaryResults
         when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
 
 loadAggregatePrintResults :: CoveragePaths -> [CoverageFilter] -> ShowCoverage -> Maybe TR.TestResults -> IO ()
@@ -130,19 +149,17 @@ runAndReport ::
     -> LF.Version
     -> RunAllOption
     -> ShowCoverage
-    -> UseColor
     -> Maybe FilePath
     -> TableOutputPath
     -> TransactionsOutputPath
     -> CoveragePaths
     -> [CoverageFilter]
-    -> IO ()
-runAndReport ideState inFiles lvl lfVersion runAllOption coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
+    -> IO [ScriptTestResult]
+runAndReport ideState inFiles lvl lfVersion runAllOption coverage mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
     (localResults, extResults) <- runAllScripts ideState inFiles runAllOption
     let allResults = localResults ++ extResults
     let allPackages = [loe | TR.ScriptResults loe _ _ <- allResults]
-    -- print test summary after all tests have run
-    printSummary color [(loe, scriptName, res) | TR.ScriptResults loe _ (Just results) <- allResults, (scriptName, res) <- results]
+    let summaryResults = [(loe, scriptName, res) | TR.ScriptResults loe _ (Just results) <- allResults, (scriptName, res) <- results]
 
     let newTestResults = TR.scriptResultsToTestResults allPackages allResults
     loadAggregatePrintResults resultsIO coverageFilters coverage (Just newTestResults)
@@ -177,6 +194,8 @@ runAndReport ideState inFiles lvl lfVersion runAllOption coverage color mbJUnitO
             | TR.ScriptResults (TR.Local file _) _ resultM <- localResults
             ]
         writeFile junitOutput $ XML.showTopElement $ toJUnit res
+
+    pure summaryResults
 
 runAllScripts :: IdeState -> [NormalizedFilePath] -> RunAllOption -> IO ([TR.ScriptResults], [TR.ScriptResults])
 runAllScripts h inFiles (RunAllOption runAllOption) = do
@@ -294,25 +313,115 @@ failedTestOutput h file = do
     pure $ map (, Just errMsg) scriptNames
 
 
-printSummary :: UseColor -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SSC.ScriptResult)] -> IO ()
-printSummary color res =
-  liftIO $ do
-    putStrLn $
-      unlines
-        [ setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity]
-        , "Test Summary" <> setSGRCode []
-        ]
-    printScriptResults color res
+printTestSuiteBegin :: UseColor -> Maybe String -> IO ()
+printTestSuiteBegin color mbIdentifier =
+    whenJust mbIdentifier $ \identifier -> do
+      let colored = getUseColor color
+      putStrLn $
+        (if colored then setSGRCode [SetConsoleIntensity BoldIntensity] else "")
+        <> "Running tests (" <> identifier <> ") ..."
+        <> (if colored then setSGRCode [] else "")
 
-printScriptResults :: UseColor -> [(TR.LocalOrExternal, ScriptName, Either SSC.Error SS.ScriptResult)] -> IO ()
-printScriptResults color results = do
-    liftIO $ forM_ results $ \(loe, ScriptName scriptName, resultOrErr) -> do
-      let name = DA.Pretty.pretty (TR.localOrExternalName loe) <> ":" <> DA.Pretty.pretty scriptName
-      let stringStyleToRender = if getUseColor color then DA.Pretty.renderColored else DA.Pretty.renderPlain
-      putStrLn $ stringStyleToRender $
-        case resultOrErr of
-          Left _err -> name <> ": " <> DA.Pretty.error_ "failed"
-          Right result -> name <> ": " <> prettyResult result
+-- | Print diagnostics with colored "Failure in" header
+printDiagnosticsFormatted :: UseColor -> Maybe FilePath -> [FileDiagnostic] -> IO ()
+printDiagnosticsFormatted color _mbProjectPath diags =
+    forM_ diags $ \(fp, _, LSP.Diagnostic{_message = msg, _source = src}) -> do
+        let colored = getUseColor color
+            absPath = fromNormalizedFilePath fp
+            -- Extract script name from source like "Script: main" -> "main"
+            scriptName = case src of
+                Just s | "Script: " `T.isPrefixOf` s -> T.unpack $ T.drop 8 s
+                Just s -> T.unpack s
+                Nothing -> "unknown"
+            failureText = if colored
+                then setSGRCode [SetColor Foreground Vivid Red] <> "Failure in" <> setSGRCode []
+                else "Failure in"
+        hPutStrLn stderr $ failureText <> ": " <> absPath <> ":" <> scriptName
+        TIO.hPutStrLn stderr $ msg <> "\n"
+
+printSummary :: UseColor -> Maybe String -> Maybe FilePath -> [ScriptTestResult] -> IO ()
+printSummary color mbIdentifier mbProjectPath res =
+  liftIO $ do
+    let failedTests = [r | r@(_, _, Left _) <- res]
+        nFailed = length failedTests
+        nPassed = length res - nFailed
+        nTotal = length res
+        colored = getUseColor color
+        identifierSuffix = maybe "" (\ident -> " (" <> ident <> ")") mbIdentifier
+
+    -- Handle the "no tests found" case
+    if nTotal == 0
+      then do
+        putStrLn $
+          (if colored then setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity] else "")
+          <> "Test Summary" <> identifierSuffix
+          <> (if colored then setSGRCode [] else "")
+          <> ": No tests found"
+      else do
+        let countLine
+              | nFailed > 0 =
+                  (if colored then setSGRCode [SetColor Foreground Vivid Red] else "")
+                  <> show nFailed <> " failed"
+                  <> (if colored then setSGRCode [] else "")
+                  <> ", " <> show nPassed <> " passed"
+              | otherwise =
+                  (if colored then setSGRCode [SetColor Foreground Vivid Green] else "")
+                  <> show nPassed <> " passed"
+                  <> (if colored then setSGRCode [] else "")
+
+        -- Print combined header line
+        putStrLn $
+          (if colored then setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity] else "")
+          <> "Test Summary" <> identifierSuffix
+          <> (if colored then setSGRCode [] else "")
+          <> ": " <> countLine
+
+        -- Only show failed tests in summary (passed tests are hidden when there are failures)
+        -- This keeps the output focused on what needs attention
+        when (nFailed == 0) $
+            printScriptResults color mbProjectPath res
+
+        -- Show failed tests last (most visible)
+        when (nFailed > 0) $
+            printScriptResults color mbProjectPath failedTests
+
+printScriptResults :: UseColor -> Maybe FilePath -> [ScriptTestResult] -> IO ()
+printScriptResults color mbProjectPath results = do
+    -- Group results by file/package
+    let grouped = groupBy (\(loe1, _, _) (loe2, _, _) -> TR.localOrExternalName loe1 == TR.localOrExternalName loe2) results
+    liftIO $ forM_ grouped $ \groupResults -> do
+      -- Use short relative paths in test summary for readability.
+      -- Note: makeRelative returns the absolute path unchanged if paths have different
+      -- roots (e.g., different drives on Windows). This is acceptable as the absolute
+      -- path is still a valid, clickable path in the output.
+      let (loe, _, _) = head groupResults
+      loeName <- case loe of
+        TR.Local file _ -> do
+          let absPath = fromNormalizedFilePath file
+          let relativePath = maybe absPath (\projectPath -> makeRelative projectPath absPath) mbProjectPath
+          pure $ T.pack relativePath
+        TR.External _ -> pure $ TR.localOrExternalName loe
+      let colored = getUseColor color
+          failedResults = [(name, err) | (_, ScriptName name, Left err) <- groupResults]
+          passedResults = [(name, res) | (_, ScriptName name, Right res) <- groupResults]
+          nFailed = length failedResults
+          nPassed = length passedResults
+      -- Print summary line for this file
+      if nFailed > 0
+        then do
+          let failedNames = map fst failedResults
+              testWord = if nFailed == 1 then "test" else "tests"
+              failedText = if colored then setSGRCode [SetColor Foreground Vivid Red] <> "failed" <> setSGRCode [] else "failed"
+          if nFailed == 1
+            then putStrLn $ T.unpack loeName <> ": 1 " <> testWord <> " " <> failedText <> ": " <> T.unpack (head failedNames)
+            else do
+              putStrLn $ T.unpack loeName <> ": " <> show nFailed <> " " <> testWord <> " " <> failedText
+              forM_ failedNames $ \name ->
+                putStrLn $ "  - " <> T.unpack name
+        else do
+          let testWord = if nPassed == 1 then "test" else "tests"
+              passedText = if colored then setSGRCode [SetColor Foreground Vivid Green] <> "passed" <> setSGRCode [] else "passed"
+          putStrLn $ T.unpack loeName <> ": " <> show nPassed <> " " <> testWord <> " " <> passedText
 
 
 prettyErr :: PrettyLevel -> LF.Version -> SSC.Error -> DA.Pretty.Doc Pretty.SyntaxClass
@@ -325,15 +434,6 @@ prettyErr lvl lfVersion err = case err of
           (LF.initWorld [] lfVersion)
           serr
     SSC.ExceptionError e -> DA.Pretty.string $ show e
-
-
-prettyResult :: SS.ScriptResult -> DA.Pretty.Doc Pretty.SyntaxClass
-prettyResult result =
-    let nTx = length (SS.scriptResultScriptSteps result)
-        nActive = length $ filter (SS.isActive (SS.activeContractsFromScriptResult result)) (V.toList (SS.scriptResultNodes result))
-    in DA.Pretty.typeDoc_ "ok, "
-    <> DA.Pretty.int nActive <> DA.Pretty.typeDoc_ " active contracts, "
-    <> DA.Pretty.int nTx <> DA.Pretty.typeDoc_ " transactions."
 
 
 toJUnit :: [(NormalizedFilePath, [(ScriptName, Maybe T.Text)])] -> XML.Element

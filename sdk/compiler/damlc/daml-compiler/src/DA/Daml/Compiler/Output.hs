@@ -6,17 +6,21 @@ module DA.Daml.Compiler.Output
   , writeOutputBSL
   , diagnosticsLogger
   , hDiagnosticsLogger
+  , bufferingDiagnosticsLogger
+  , readAndClearDiagnostics
   , printDiagnostics
   ) where
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy                           as BSL
+import           Data.IORef
 import           Data.String                                    (IsString)
 import qualified Data.Text.Encoding as T
 import Development.IDE.Core.Shake (NotificationHandler(..))
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import qualified Language.LSP.Types as LSP
+import System.Directory (makeAbsolute)
 import System.IO
 import           Control.Exception (bracket)
 
@@ -48,13 +52,20 @@ writeOutputBSL :: FilePath -> BSL.ByteString -> IO ()
 writeOutputBSL = writeOutputWith BSL.hPutStr
 
 -- WARNING: Here be dragons
--- T.putStrLn is locale-dependent. This seems to cause issues with Nix’ patched glibc that
+-- T.putStrLn is locale-dependent. This seems to cause issues with Nix' patched glibc that
 -- relies on LOCALE_ARCHIVE being set correctly. This is the case in our dev-env
 -- but not when we ship the SDK. If LOCALE_ARCHIVE is not set properly the colored
--- diagnostics get eaten somewhere in glibc and we don’t even get a write syscall containing them.
+-- diagnostics get eaten somewhere in glibc and we don't even get a write syscall containing them.
 printDiagnostics :: Handle -> [FileDiagnostic] -> IO ()
 printDiagnostics _ [] = return ()
-printDiagnostics handle xs = BS.hPutStrLn handle $ T.encodeUtf8 $ showDiagnosticsColored xs
+printDiagnostics handle xs = do
+    xs' <- mapM makeAbsoluteDiag xs
+    BS.hPutStrLn handle $ T.encodeUtf8 $ showDiagnosticsColored xs'
+
+makeAbsoluteDiag :: FileDiagnostic -> IO FileDiagnostic
+makeAbsoluteDiag (fp, showDiag, diag) = do
+    absPath <- makeAbsolute (fromNormalizedFilePath fp)
+    pure (toNormalizedFilePath' absPath, showDiag, diag)
 
 diagnosticsLogger :: NotificationHandler
 diagnosticsLogger = hDiagnosticsLogger stderr
@@ -64,3 +75,18 @@ hDiagnosticsLogger handle = NotificationHandler $ \m params -> case (m, params) 
     (LSP.STextDocumentPublishDiagnostics, LSP.PublishDiagnosticsParams (uriToFilePath' -> Just fp) _ (List diags)) ->
         printDiagnostics handle $ map (toNormalizedFilePath' fp,ShowDiag,) diags
     _ -> pure ()
+
+bufferingDiagnosticsLogger :: IORef [FileDiagnostic] -> NotificationHandler
+bufferingDiagnosticsLogger ref = NotificationHandler $ \m params -> case (m, params) of
+    (LSP.STextDocumentPublishDiagnostics, LSP.PublishDiagnosticsParams (uriToFilePath' -> Just fp) _ (List diags)) ->
+        -- Prepend new diagnostics (O(1)) instead of appending (O(n))
+        -- The list is reversed in flushDiagnostics to restore chronological order
+        modifyIORef ref (map (toNormalizedFilePath' fp, ShowDiag,) diags ++)
+    _ -> pure ()
+
+-- | Read buffered diagnostics and clear the buffer. Returns diagnostics in chronological order.
+readAndClearDiagnostics :: IORef [FileDiagnostic] -> IO [FileDiagnostic]
+readAndClearDiagnostics ref = do
+    diags <- readIORef ref
+    writeIORef ref []  -- Clear the buffer after reading
+    mapM makeAbsoluteDiag (reverse diags)  -- Reverse to restore chronological order

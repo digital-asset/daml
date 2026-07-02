@@ -9,6 +9,24 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-07-07 (Exclusive)
+### Improved daml test output
+- Test summary now appears at the end of output, making pass/fail results
+  immediately visible
+- Summary header shows pass/fail counts (e.g., "Test Summary: 2 failed, 3
+  passed")
+- When tests fail, only failed tests are shown in the summary to focus attention
+  on what needs fixing
+- Colored output is auto-detected based on terminal capabilities
+- Coverage statistics are now hidden by default; use --show-coverage to display
+  them
+- Test file paths in the summary are now relative to the project root for
+  readability
+- Tests are grouped by file, with cleaner formatting for multiple tests in the
+  same file
+- Simplified diagnostic output: removed verbose LSP formatting, now shows just
+  the file path, script name, and error message
+
 ## Until 2026-06-24 (Exclusive)
 - Fix Logic.reduce incorrectly merging nested Disjunction as Conjunction (issue #23037)
 
