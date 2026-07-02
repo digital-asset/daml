@@ -274,7 +274,6 @@ genrule(
         $(execpath //bazel_tools/sh:mktgz) $@ -C $$TMP_DIR quickstart-java
     """,
     tools = ["//bazel_tools/sh:mktgz"],
-    visibility = ["//visibility:public"],
 )
 
 load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
@@ -318,7 +317,6 @@ EOF
         "@bzip2//:libs",
         "//bazel/haskell/toolchain:libtinfo.so.5",
     ],
-    visibility = ["//visibility:public"],
 )
 
 dar_to_java(
@@ -386,7 +384,6 @@ pkg_tar(
         "source/sdk/sdlc-howtos/smart-contracts/develop/patterns/daml.yaml.template",
     ]),
     strip_prefix = "/docs/source/sdk/sdlc-howtos/smart-contracts/develop/patterns",
-    visibility = ["//visibility:public"],
 )
 
 daml_test(
@@ -569,7 +566,6 @@ pkg_tar(
         ],
     ),
     strip_prefix = "source/sdk/tutorials/smart-contracts/daml",
-    visibility = ["//visibility:public"],
 )
 
 pkg_tar(
@@ -579,7 +575,6 @@ pkg_tar(
         exclude = ["**/*~"],
     ),
     strip_prefix = "source/sdk/component-howtos/ledger-interaction/daml-script/template-root",
-    visibility = ["//visibility:public"],
 )
 
 exports_files([

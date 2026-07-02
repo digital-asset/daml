@@ -36,7 +36,6 @@ genrule(
         "@libz//:libs",
         "@gmp//:libs",
     ],
-    visibility = ["//visibility:public"],
 )
 
 filegroup(
@@ -78,5 +77,4 @@ genrule(
         "@libz//:libs",
         "@gmp//:libs",
     ],
-    visibility = ["//visibility:public"],
 )

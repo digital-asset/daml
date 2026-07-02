@@ -23,7 +23,6 @@ da_haskell_library(
         "vector",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto:daml_lf_archive_haskell_proto",
@@ -76,7 +75,6 @@ da_haskell_test(
     ],
     main_function = "DA.Daml.LF.Proto3.DecodeTest.entry",
     src_strip_prefix = "test",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto:daml_lf_archive_haskell_proto",
