@@ -18,11 +18,6 @@ info_fail() {
   echo "$1" >> "${logs}/failed_artifacts.log"
 }
 
-if [ ! -f "${HOME}/.dpm/bin/dpm" ]; then
-  err "DPM not found! Exit."
-  exit 1
-fi
-
 if [[ "$#" != 3 ]]; then
   err "Not enough parameters!"
   err "Usage: ${script_name} <staging_dir> <release_tag> <registry>"
@@ -96,7 +91,7 @@ function publish_artifact {
     fi
     info "Uploading ${artifact_name} to oci registry...\n"
 
-    "${HOME}"/.dpm/bin/dpm \
+    bazel run @dpm_binary//:dpm -- \
       publish component \
       "oci://${DPM_REGISTRY}/components/${artifact_name}:${RELEASE_TAG}" \
       ${extra_tags_args[@]} \
