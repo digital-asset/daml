@@ -24,7 +24,6 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_core",
     ],
     scalacopts = lf_scalacopts_stricter,
-    visibility = ["//visibility:public"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//test-common/canton/fs-utils",

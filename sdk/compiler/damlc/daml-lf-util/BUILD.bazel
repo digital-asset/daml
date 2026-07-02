@@ -20,7 +20,6 @@ da_haskell_library(
     ],
     repl_ghci_args = ["-hide-package=ghc"],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//libs-haskell/da-hs-base",

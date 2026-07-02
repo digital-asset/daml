@@ -36,7 +36,6 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["maven_coordinates=com.daml:codegen-java-lib:__VERSION__"],
-    visibility = ["//visibility:public"],
     deps = [
         "//language-support/build-info",
         "@maven//:ch_qos_logback_logback_classic",

@@ -7,5 +7,4 @@ filegroup(
         "*.daml",
         "**/*.daml",
     ]),
-    visibility = ["//visibility:public"],
 )
