@@ -32,7 +32,7 @@ da_scala_test_suite(
     srcs = glob([
         "src/test/**/*Spec.scala",
         "src/test/**/*Test.scala",
-    ]),
+    ], allow_empty = True),
     scala_deps = [
         "@maven//:io_circe_circe_core",
         "@maven//:org_scalatest_scalatest_core",
