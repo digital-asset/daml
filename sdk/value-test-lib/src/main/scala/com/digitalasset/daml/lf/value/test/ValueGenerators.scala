@@ -302,10 +302,7 @@ object ValueGenerators {
     for {
       key <- valueGen()
       maintainers <- genNonEmptyParties
-      gkey = GlobalKey
-        .build(templateId, packageName, key, crypto.Hash.hashPrivateKey(key.toString))
-        .toOption
-      if gkey.isDefined
+      gkey = Some(GlobalKey(templateId, packageName, key, crypto.Hash.hashPrivateKey(key.toString)))
     } yield GlobalKeyWithMaintainers(gkey.get, maintainers)
   }
 
@@ -458,20 +455,21 @@ object ValueGenerators {
       externalCallResults = ImmArray.empty,
     )
 
-  val lookupNodeGen: Gen[Node.LookupByKey] =
+  val lookupNodeGen: Gen[Node.QueryByKey] =
     for {
       version <- SerializationVersionGen()
-      targetCoid <- coidGen
       pkgName <- pkgNameGen
       templateId <- idGen
       key <- keyWithMaintainersGen(templateId, pkgName)
-      result <- Gen.option(targetCoid)
-    } yield Node.LookupByKey(
+      result <- Gen.listOf(coidGen)
+      exhaustive <- Gen.oneOf(true, false)
+    } yield Node.QueryByKey(
       packageName = pkgName,
-      templateId,
-      key,
-      result,
-      version,
+      templateId = templateId,
+      exhaustive = exhaustive,
+      key = key,
+      result = result.toVector,
+      version = version,
     )
 
   /** Makes nodes with the problems listed under `malformedCreateNodeGen`, and

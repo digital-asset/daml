@@ -69,7 +69,6 @@ da_scala_library(
         "@maven//:com_daml_ledger_api_core",
         "@maven//:com_daml_ledger_api_scala",
         "@maven//:com_daml_ledger_api_value",
-        "@maven//:com_daml_nonempty",
         "@maven//:com_daml_rs_grpc_bridge",
         "@maven//:com_daml_rs_grpc_pekko",
         "@maven//:com_daml_util_external",

@@ -94,7 +94,7 @@ object GrpcErrorParser {
         case (None, None, None) => None
         case (Some(globalKey), Some(packageName), Some(maintainers)) =>
           Some(
-            GlobalKeyWithMaintainers.assertBuild(
+            GlobalKeyWithMaintainers(
               templateId,
               globalKey,
               // This GlobalKeyWithMaintainers is only used for rendering errors, and that rendering ignores the hash.
@@ -149,7 +149,7 @@ object GrpcErrorParser {
             val templateId = Identifier.assertFromString(tid)
             val packageName = PackageName.assertFromString(pn)
             SubmitError.ContractKeyNotFound(
-              GlobalKey.assertBuild(
+              GlobalKey(
                 templateId,
                 packageName,
                 key,
@@ -195,7 +195,7 @@ object GrpcErrorParser {
             val packageName = PackageName.assertFromString(pn)
             SubmitError.DisclosedContractKeyHashingError(
               ContractId.assertFromString(cid),
-              GlobalKey.assertBuild(
+              GlobalKey(
                 templateId,
                 packageName,
                 key,
@@ -216,7 +216,7 @@ object GrpcErrorParser {
             val packageName = PackageName.assertFromString(pn)
             SubmitError.DuplicateContractKey(
               Some(
-                GlobalKey.assertBuild(
+                GlobalKey(
                   templateId,
                   packageName,
                   key,
@@ -253,7 +253,7 @@ object GrpcErrorParser {
             val templateId = Identifier.assertFromString(tid)
             val packageName = PackageName.assertFromString(pn)
             SubmitError.InconsistentContractKey(
-              GlobalKey.assertBuild(
+              GlobalKey(
                 templateId,
                 packageName,
                 key,
@@ -294,7 +294,7 @@ object GrpcErrorParser {
             val templateId = Identifier.assertFromString(tid)
             val packageName = PackageName.assertFromString(pn)
             SubmitError.FetchEmptyContractKeyMaintainers(
-              GlobalKey.assertBuild(
+              GlobalKey(
                 templateId,
                 packageName,
                 key,
