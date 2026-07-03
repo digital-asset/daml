@@ -355,7 +355,7 @@ class IdeLedgerClient(
         SubmitError.CreateEmptyContractKeyMaintainers(tid, arg)
       case FetchEmptyContractKeyMaintainers(tid, keyValue, packageName) =>
         SubmitError.FetchEmptyContractKeyMaintainers(
-          GlobalKey.assertBuild(
+          GlobalKey(
             tid,
             packageName,
             keyValue,
@@ -796,7 +796,7 @@ class IdeLedgerClient(
                     exercise.children.collect(Function.unlift(convEvent(_, None))).toList,
                   )
                 )
-              case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback => None
+              case _: Node.Fetch | _: Node.QueryByKey | _: Node.Rollback => None
             }
           val tree = ScriptLedgerClient.TransactionTree(
             transaction.roots.toList
