@@ -5,6 +5,9 @@ package com.digitalasset.daml.lf
 package engine
 package script
 
+import cats.Order
+import cats.data.{NonEmptyList, NonEmptySet}
+import cats.implicits._
 import com.daml.ledger.api.v2.value
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
@@ -21,13 +24,9 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.daml.lf.script.converter.ConverterException
-import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
-import scalaz.std.list._
-import scalaz.std.either._
-import scalaz.std.option._
-import scalaz.std.vector._
-import scalaz.syntax.traverse._
-import scalaz.{-\/, OneAnd, \/-}
+import com.digitalasset.canton.ledger.api.PartyDetails
+import com.digitalasset.canton.user.{User, UserRight}
+import scalaz.{-\/, \/-}
 import spray.json._
 
 import scala.concurrent.Future
@@ -77,15 +76,14 @@ object Converter {
       case _ => throw new IllegalArgumentException(s"${majorLanguageVersion.pretty} not supported")
     }
   }
+
+  implicit lazy val stringOrder: Order[String] = Order.fromOrdering(Utf8.Ordering)
+  implicit lazy val partyOrder: Order[Party] = Order.fromOrdering(Party.ordering)
 }
 
 abstract class ConverterMethods(stablePackages: language.StablePackages) {
   import com.digitalasset.daml.lf.script.converter.Converter._
-
-  private def toNonEmptySet[A](as: OneAnd[FrontStack, A]): OneAnd[Set, A] = {
-    import scalaz.syntax.foldable._
-    OneAnd(as.head, as.tail.toSet - as.head)
-  }
+  import Converter.partyOrder
 
   private def fromIdentifier(id: value.Identifier): ExtendedValue = {
     ExtendedValueTypeRep(
@@ -247,10 +245,10 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       case _ => Left(s"Expected ValueParty but got $v")
     }
 
-  def toParties(v: ExtendedValue): Either[String, OneAnd[Set, Party]] =
+  def toParties(v: ExtendedValue): Either[String, NonEmptySet[Party]] =
     v match {
       case ValueList(FrontStackCons(x, xs)) =>
-        OneAnd(x, xs).traverse(toParty(_)).map(toNonEmptySet(_))
+        NonEmptyList(x, xs.iterator.toList).traverse(toParty).map(_.toNes)
       case _ => Left(s"Expected non-empty ValueList but got $v")
     }
 
@@ -347,14 +345,14 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
   ): Either[String, StackTrace] =
     v match {
       case ValueList(frames) =>
-        frames.toVector.traverse(toLocation(knownPackages, _)).map(StackTrace(_))
+        frames.iterator.toVector.traverse(toLocation(knownPackages, _)).map(StackTrace(_))
       case _ =>
         new Throwable().printStackTrace();
         Left(s"Expected ValueList but got $v")
     }
 
   def toParticipantNames(v: ExtendedValue): Either[String, List[Participant]] = v match {
-    case ValueList(vs) => vs.toList.traverse(toParticipantName)
+    case ValueList(vs) => vs.iterator.toList.traverse(toParticipantName)
     case _ => Left(s"Expected a list of participants but got $v")
   }
 
@@ -481,6 +479,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       case UserRight.CanReadAsAnyParty => toRight("CanReadAsAnyParty", ValueUnit)
       case UserRight.CanExecuteAs(p) => toRight("CanExecuteAs", ValueParty(p))
       case UserRight.CanExecuteAsAnyParty => toRight("CanExecuteAsAnyParty", ValueUnit)
+      case UserRight.CanActAsAnyParty => toRight("CanActAsAnyParty", ValueUnit)
     })
   }
 

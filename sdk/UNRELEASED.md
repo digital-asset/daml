@@ -12,6 +12,9 @@ Wednesday after your change.
 ## Until 2026-06-29 (Exclusive)
 - Fix error in toNNF implementation in DA.Logic (issue #23123)
 
+## Until 2026-06-24 (Exclusive)
+- Fix Logic.reduce incorrectly merging nested Disjunction as Conjunction (issue #23037)
+
 ## Until 2026-05-19 (Exclusive)
 - Fix error in sin/cos implementation in DA.Math (issue #23027)
 

@@ -6,7 +6,8 @@ package v2.ledgerinteraction
 
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
+import com.digitalasset.canton.ledger.api.PartyDetails
+import com.digitalasset.canton.user.{User, UserRight}
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
@@ -15,7 +16,7 @@ import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.transaction.{NextGenContractStateMachine => ContractStateMachine}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
-import scalaz.OneAnd
+import cats.data.NonEmptySet
 import com.digitalasset.daml.lf.engine.script.{ledgerinteraction => abstractLedgers}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 
@@ -115,7 +116,7 @@ object ScriptLedgerClient {
 // something that works against the gRPC API.
 trait ScriptLedgerClient {
   def query(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       templateId: Identifier,
   )(implicit
       ec: ExecutionContext,
@@ -132,7 +133,7 @@ trait ScriptLedgerClient {
     )
 
   def queryContractId(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       templateId: Identifier,
       cid: ContractId,
   )(implicit
@@ -141,7 +142,7 @@ trait ScriptLedgerClient {
   ): Future[Option[ScriptLedgerClient.ActiveContract]]
 
   def queryInterface(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       interfaceId: Identifier,
       viewType: Ast.Type,
   )(implicit
@@ -150,7 +151,7 @@ trait ScriptLedgerClient {
   ): Future[Seq[(ContractId, Option[Value])]]
 
   def queryInterfaceContractId(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       interfaceId: Identifier,
       viewType: Ast.Type,
       cid: ContractId,
@@ -160,7 +161,7 @@ trait ScriptLedgerClient {
   ): Future[Option[Value]]
 
   def queryNByKey(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       templateId: Identifier,
       key: Value,
       limit: Int,
@@ -170,7 +171,7 @@ trait ScriptLedgerClient {
   ): Future[List[ScriptLedgerClient.ActiveContract]]
 
   def submit(
-      actAs: OneAnd[Set, Ref.Party],
+      actAs: NonEmptySet[Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
       optPackagePreference: Option[List[PackageId]],

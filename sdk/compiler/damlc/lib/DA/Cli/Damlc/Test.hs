@@ -97,10 +97,11 @@ execTest inFiles runAllOption coverage color mbJUnitOutput mPkgConfig opts table
     let optsWithPkg = case mPkgConfig of
             Just PackageConfigFields{..} -> opts { optMbPackageName = Just pName, optMbPackageVersion = pVersion }
             Nothing -> opts
-    withDamlIdeState optsWithPkg loggerH diagnosticsLogger $ \h -> do
-        runAndReport h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllOption coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
-        diags <- getDiagnostics h
-        when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
+    withDamlIdeState optsWithPkg loggerH noopLogger $ \h -> do
+        flip finally (getDiagnostics h >>= printDiagnostics stderr) $ do
+            runAndReport h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllOption coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
+            diags <- getDiagnostics h
+            when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
 
 loadAggregatePrintResults :: CoveragePaths -> [CoverageFilter] -> ShowCoverage -> Maybe TR.TestResults -> IO ()
 loadAggregatePrintResults resultsIO coverageFilters coverage mbNewTestResults = do

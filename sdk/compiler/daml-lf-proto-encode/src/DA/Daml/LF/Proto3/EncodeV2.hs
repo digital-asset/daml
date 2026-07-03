@@ -821,7 +821,7 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_ExerciseInterfaceGuard <- traverse encodeExpr' exeGuard
         pure $ P.UpdateSumExerciseInterface P.Update_ExerciseInterface{..}
     UExerciseByKey{..} -> do
-        assertSupportsFeature featureNUCK
+        assertSupportsFeature featureContractKeys
         update_ExerciseByKeyTemplate <- encodeQualTypeConId exeTemplate
         update_ExerciseByKeyChoiceInternedStr <- encodeNameId unChoiceName exeChoice
         update_ExerciseByKeyKey <- encodeExpr exeKey
@@ -844,10 +844,10 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_EmbedExprBody <- encodeExpr e
         pure $ P.UpdateSumEmbedExpr P.Update_EmbedExpr{..}
     UFetchByKey tmplId -> do
-        assertSupportsFeature featureNUCK
+        assertSupportsFeature featureContractKeys
         P.UpdateSumFetchByKey <$> encodeRetrieveByKey tmplId
     ULookupNByKey tmplId -> do
-        assertSupportsFeature featureNUCK
+        assertSupportsFeature featureContractKeys
         update_QueryNByKeyTemplate <- encodeQualTypeConId tmplId
         pure $ P.UpdateSumQueryNByKey $ P.Update_QueryNByKey{..}
     UTryCatch{..} -> do

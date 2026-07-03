@@ -12,7 +12,6 @@ import com.digitalasset.daml.lf.data.{
   Numeric => LfNumeric,
 }
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.typesig
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -20,8 +19,6 @@ import com.digitalasset.daml.lf.value.json.{NavigatorModelAliases => Model}
 import Model.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import ApiValueImplicits._
 import spray.json._
-import scalaz.{@@, Tag}
-import scalaz.syntax.std.string._
 
 import java.time.Instant
 import scala.util.Try
@@ -43,6 +40,8 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
     readCid: JsonReader[ContractId],
     writeCid: JsonWriter[ContractId],
 ) { self =>
+
+  import ApiCodecCompressed._
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
@@ -129,7 +128,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
   ): V = {
     (prim.typ, value).match2 {
       case Model.DamlLfPrimType.Int64 => {
-        case JsString(v) => V.ValueInt64(assertDE(v.parseLong.leftMap(_.getMessage).toEither))
+        case JsString(v) => V.ValueInt64(assertDE(Try(v.toLong).toEither.left.map(_.getMessage)))
         case JsNumber(v) if v.isValidLong => V.ValueInt64(v.toLongExact)
       }
       case Model.DamlLfPrimType.Text => { case JsString(v) => V.ValueText(v) }
@@ -183,16 +182,14 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
       case Model.DamlLfPrimType.GenMap =>
         val Seq(kType, vType) = prim.typArgs;
         { case JsArray(entries) =>
-          type OK[K] = Vector[(K, V)]
-          val decEntries: Vector[(V @@ defs.type, V)] = Tag
-            .subst[V, OK, defs.type](entries.map {
-              case JsArray(Vector(key, value)) =>
-                jsValueToApiValue(key, kType, defs) ->
-                  jsValueToApiValue(value, vType, defs)
-              case _ =>
-                deserializationError(s"Can't read ${value.prettyPrint} as key+value of $prim")
-            })
-          V.ValueGenMap(Tag.unsubst[V, OK, defs.type](decEntries).to(ImmArray))
+          val decEntries: Vector[(V, V)] = entries.map {
+            case JsArray(Vector(key, value)) =>
+              jsValueToApiValue(key, kType, defs) ->
+                jsValueToApiValue(value, vType, defs)
+            case _ =>
+              deserializationError(s"Can't read ${value.prettyPrint} as key+value of $prim")
+          }
+          V.ValueGenMap(decEntries.to(ImmArray))
         }
 
     }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $prim"))
@@ -380,5 +377,10 @@ object ApiCodecCompressed
       def write(v: Model.ApiRecord): JsValue = apiRecordToJsValue(v)
     }
     implicit val ContractIdFormat: JsonFormat[ContractId] = JsonContractIdFormat.ContractIdFormat
+  }
+
+  implicit final class `Match2 syntax`[+A, +B](private val self: (A, B)) extends AnyVal {
+    def match2[C](f: A => (B PartialFunction C))(fallback: => C): C =
+      f(self._1).applyOrElse(self._2, (_: B) => fallback)
   }
 }

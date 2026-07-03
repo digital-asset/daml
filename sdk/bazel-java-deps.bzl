@@ -73,16 +73,28 @@ circe_version = "0.14.2"
 def install_java_deps():
     maven_install(
         artifacts = version_specific.get(scala_major_version, []) + [
-            "com.daml:daml-lf-ide-ledger_{}:{}".format(scala_major_version, canton_version),
             "com.daml:bindings-java:{}".format(canton_version),
+            "com.daml:community-base_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:daml-lf-api-type-signature_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:daml-lf-archive-encoder_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:daml-lf-archive_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:daml-lf-data_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:daml-lf-encoder_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:daml-lf-engine_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:daml-lf-ide-ledger_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:daml-lf-interpreter_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:daml-lf-language_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:daml-lf-parser_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:daml-lf-stable-packages_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:daml-lf-transaction_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:daml-lf-validation_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:daml-tls_{}:{}".format(scala_major_version, canton_version),
             "com.daml:ledger-api-core_{}:{}".format(scala_major_version, canton_version),
-            "com.daml:rs-grpc-pekko_{}:{}".format(scala_major_version, canton_version),
             "com.daml:rs-grpc-bridge_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:rs-grpc-pekko_{}:{}".format(scala_major_version, canton_version),
             # TODO(https://github.com/DACH-NY/canton/issues/30144): check whether this dependency can be gotten rid of
             "com.daml:testing-utils_{}:{}".format(scala_major_version, canton_version),
             "com.daml:timer-utils_{}:{}".format(scala_major_version, canton_version),
-            "com.daml:daml-tls_{}:{}".format(scala_major_version, canton_version),
-            "com.daml:community-base_{}:{}".format(scala_major_version, canton_version),
 
             # TODO(https://github.com/DACH-NY/canton/issues/30144): move these dependencies to shared_dependencies in
             #    the canton repo

@@ -120,6 +120,8 @@ final class Conversions(
                 //     archived or what not are turned into more specific
                 //     errors so we never produce ContractNotFound
                 builder.setCrash(s"contract ${cid.coid} not found")
+              case UnsupportedContractId(cid) =>
+                builder.setCrash(s"contract id ${cid} not supported")
               case UnresolvedPackageName(packageName) =>
                 builder.setUnresolvedPackageName(
                   proto.ScriptError.UnresolvedPackageName.newBuilder
@@ -677,7 +679,7 @@ final class Conversions(
         }
         builder.setExercise(exerciseBuilder.build)
 
-      case lbk: Node.LookupByKey =>
+      case lbk: Node.QueryByKey =>
         nodeInfo.optLocation.foreach(loc => builder.setLocation(convertLocation(loc)))
         val lbkBuilder = proto.Node.LookupByKey.newBuilder
           .setTemplateId(convertIdentifier(lbk.templateId))
@@ -764,7 +766,7 @@ final class Conversions(
             .build
         )
 
-      case lookup: Node.LookupByKey =>
+      case lookup: Node.QueryByKey =>
         optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setLookupByKey({
           val builder = proto.Node.LookupByKey.newBuilder

@@ -10,7 +10,8 @@ import java.time.Instant
 import java.util.UUID
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.ledger.api.{PartyDetails, User, UserRight}
+import com.digitalasset.canton.ledger.api.PartyDetails
+import com.digitalasset.canton.user.{User, UserRight}
 import com.daml.ledger.api.v2.admin.package_management_service.{
   UpdateVettedPackagesRequest,
   VettedPackagesChange,
@@ -68,12 +69,9 @@ import com.digitalasset.daml.lf.command.ApiContractKey
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.protobuf.StatusProto
 import com.google.rpc.status.{Status => GoogleStatus}
-import scalaz.OneAnd
-import scalaz.OneAnd._
+import cats.data.NonEmptySet
 import scalaz.std.either._
 import scalaz.std.list._
-import scalaz.std.set._
-import scalaz.syntax.foldable._
 import com.digitalasset.daml.lf.crypto
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -106,7 +104,7 @@ class GrpcLedgerClient(
   )
 
   override def query(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       templateId: Identifier,
   )(implicit
       ec: ExecutionContext,
@@ -180,7 +178,7 @@ class GrpcLedgerClient(
   // TODO[SW]: Currently do not support querying with explicit package id, interface for this yet to be determined
   // See https://github.com/digital-asset/daml/issues/17703
   private def templateFormat(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       templateId: Identifier,
       verbose: Boolean,
   ): EventFormat = {
@@ -197,14 +195,14 @@ class GrpcLedgerClient(
       )
     )
     EventFormat(
-      filtersByParty = parties.toList.map(p => (p, filters)).toMap,
+      filtersByParty = parties.toSortedSet.toList.map(p => (p, filters)).toMap,
       filtersForAnyParty = None,
       verbose = verbose,
     )
   }
 
   private def interfaceFormat(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       interfaceId: Identifier,
       verbose: Boolean,
   ): EventFormat = {
@@ -219,7 +217,7 @@ class GrpcLedgerClient(
         )
       )
     EventFormat(
-      filtersByParty = parties.toList.map(p => (p, filters)).toMap,
+      filtersByParty = parties.toSortedSet.toList.map(p => (p, filters)).toMap,
       filtersForAnyParty = None,
       verbose = verbose,
     )
@@ -227,7 +225,7 @@ class GrpcLedgerClient(
 
   // Helper shared by query, queryContractId and queryByKey
   private def queryWithKey(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       templateId: Identifier,
   )(implicit
       ec: ExecutionContext,
@@ -294,7 +292,7 @@ class GrpcLedgerClient(
   }
 
   override def queryContractId(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       templateId: Identifier,
       cid: ContractId,
   )(implicit
@@ -310,7 +308,7 @@ class GrpcLedgerClient(
   }
 
   override def queryInterface(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       interfaceId: Identifier,
       viewType: Ast.Type,
   )(implicit
@@ -360,7 +358,7 @@ class GrpcLedgerClient(
   }
 
   override def queryInterfaceContractId(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       interfaceId: Identifier,
       viewType: Ast.Type,
       cid: ContractId,
@@ -394,7 +392,7 @@ class GrpcLedgerClient(
       .map(_._1.hash)
 
   override def queryNByKey(
-      parties: OneAnd[Set, Ref.Party],
+      parties: NonEmptySet[Ref.Party],
       templateId: Identifier,
       key: Value,
       limit: Int,
@@ -416,7 +414,7 @@ class GrpcLedgerClient(
   }
 
   override def submit(
-      actAs: OneAnd[Set, Ref.Party],
+      actAs: NonEmptySet[Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
       optPackagePreference: Option[List[PackageId]],
@@ -454,7 +452,7 @@ class GrpcLedgerClient(
       )
 
       apiCommands = Commands.defaultInstance
-        .withActAs(actAs.toList)
+        .withActAs(actAs.toSortedSet.toList)
         .withReadAs(readAs.toList)
         .withCommands(ledgerCommands)
         .withUserId(userId.getOrElse(""))

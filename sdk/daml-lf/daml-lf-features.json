@@ -28,20 +28,6 @@
       "type" : "Empty"
     }
   },
-  "featureNUCK" : {
-    "name" : "Non-unique contract keys",
-    "cppFlag" : "DAML_NUCK",
-    "versionRange" : {
-      "lowerBound" : {
-        "major" : 2,
-        "minor" : {
-          "Stable" : {
-            "version" : 3
-          }
-        }
-      }
-    }
-  },
   "featureExtendedCryptoPrimitives" : {
     "name" : "Extended crypto primitives",
     "cppFlag" : "DAML_ExtendedCryptoPrimitives",
