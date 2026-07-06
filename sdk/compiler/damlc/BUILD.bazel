@@ -411,6 +411,7 @@ daml_doc_test(
         "DA/Action/State/Type.daml",
         "DA/Crypto/Text.daml",
         "DA/Experimental/*.daml",
+        "DA/ExternalCall.daml",
         "DA/TextMap.daml",
         "DA/Time/Types.daml",
         "LibraryModules.daml",
