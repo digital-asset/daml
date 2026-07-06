@@ -1793,6 +1793,22 @@ tests TestArgs{..} =
             ]
         ]
 
+    , dataDependenciesTest "Using complete pragma with infix pattern synonyms"
+        [
+            (,) "Base.daml"
+            [ "module Base where"
+            , "pattern a :+: b = (a, b)"
+            , "{-# COMPLETE (:+:) #-}"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            , "import Base"
+            , "usePattern : (a, b) -> a"
+            , "usePattern (x :+: _) = x"
+            ]
+        ]
+
     , dataDependenciesTest "Using complete pragma with pattern synonyms and non-local types"
         [
             (,) "Base.daml"
@@ -2959,6 +2975,11 @@ tests TestArgs{..} =
 
     dataDependenciesTest :: String -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
     dataDependenciesTest title = dataDependenciesTestOptions title defTestOptions
+
+    -- withTempDirBah step f = do
+    --   (dir, _) <- newTempDir
+    --   _ <- step dir
+    --   f dir
 
     dataDependenciesTestOptions :: String -> DataDependenciesTestOptions -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
     dataDependenciesTestOptions title (DataDependenciesTestOptions buildOptions extraDeps) libModules mainModules =
