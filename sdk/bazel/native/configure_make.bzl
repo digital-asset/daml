@@ -37,6 +37,7 @@ def _configure_make_impl(ctx):
         # configure's preprocessor probes use $CPP/$CPPFLAGS; without the sysroot
         # they fall back to host /lib/cpp (absent in the sandbox).
         'export CPP="$CLANG -E"',
+        'export CXXCPP="$CLANG -E"',
         'export CPPFLAGS="{}"'.format(cc.cflags),
         'export LDFLAGS="{}"'.format(cc.ldflags),
         # Build-time helper programs (e.g. ncurses' make_hash) are compiled with
