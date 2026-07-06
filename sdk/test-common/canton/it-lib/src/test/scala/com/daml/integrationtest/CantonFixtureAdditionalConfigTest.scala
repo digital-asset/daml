@@ -32,15 +32,19 @@ final class CantonFixtureAdditionalConfigTest
   "additionalParticipantConfig" should {
     "be spliced into the participant config" in {
       for {
-        // The injected auth config rejects unauthenticated calls ...
+        // The injected auth config rejects tokenless clients: LedgerClient
+        // validates its token at construction, so the failure surfaces here.
+        // Without the injected block this construction succeeds and the test
+        // fails.
         failure <- defaultLedgerClient()
-          .flatMap(_.partyManagementClient.allocateParty(hint = None, token = None))
           .transform {
             case Failure(e: StatusRuntimeException) => Success(e)
             case Failure(e) => Failure(new Exception(s"unexpected failure: $e"))
             case Success(_) => Failure(new Exception("unexpected success without token"))
           }
-        // ... and accepts calls authenticated with the injected secret.
+        // ... and accepts calls authenticated with the injected secret. The
+        // token must carry an expiry within canton's default ledger-api
+        // max-token-lifetime of 5 minutes.
         token = CantonRunner.getToken(
           CantonRunner.adminUserId,
           authSecret = Some(secret),
