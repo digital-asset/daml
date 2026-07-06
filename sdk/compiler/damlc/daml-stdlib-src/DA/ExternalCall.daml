@@ -6,11 +6,11 @@
 #ifndef DAML_ExternalCall
 
 -- | HIDE
-module DA.External where
+module DA.ExternalCall where
 
 #else
 
-module DA.External
+module DA.ExternalCall
   ( externalCall
   ) where
 

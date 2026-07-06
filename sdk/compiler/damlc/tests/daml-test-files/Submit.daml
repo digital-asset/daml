@@ -15,7 +15,7 @@ import Daml.Script.Internal
 import DA.Assert
 
 #ifdef DAML_ExternalCall
-import DA.External (externalCall)
+import DA.ExternalCall (externalCall)
 #endif
 
 import DA.Text
