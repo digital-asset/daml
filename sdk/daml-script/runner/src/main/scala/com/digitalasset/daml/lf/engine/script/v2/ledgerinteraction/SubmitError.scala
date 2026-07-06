@@ -708,80 +708,39 @@ object SubmitError {
       )
   }
 
-  object ExternalCallError {
-    final case class PreparationFailed(
-        extensionId: String,
-        functionId: String,
-        message: String,
-    ) extends SubmitError {
-      override def toDamlSubmitError(env: Env, legacyAnyContractKey: Boolean): ExtendedValue = {
-        val errorType = damlScriptExternalCallErrorType(
-          env,
-          "PreparationFailed",
-          "extensionId" -> ValueText(extensionId),
-          "functionId" -> ValueText(functionId),
+  final case class ExternalCallError(
+      errorType: ExternalCallError.ErrorType,
+      extensionId: String,
+      functionId: String,
+      message: String,
+  ) extends SubmitError {
+    // This code needs to be kept in sync with daml-script#Error.daml
+    override def toDamlSubmitError(env: Env, legacyAnyContractKey: Boolean): ExtendedValue = {
+      val errorTypeIdentifier =
+        env.scriptIds.damlScriptModule(
+          "Daml.Script.Internal.Questions.Submit.Error",
+          "ExternalCallErrorType",
         )
-
-        SubmitErrorConverters(env).damlScriptError(
-          "ExternalCallError",
-          ("externalCallErrorType", errorType),
-          ("externalCallErrorMessage", ValueText(message)),
-        )
-      }
-    }
-
-    final case class ExecutionCallFailed(
-        extensionId: String,
-        functionId: String,
-        message: String,
-    ) extends SubmitError {
-      override def toDamlSubmitError(env: Env, legacyAnyContractKey: Boolean): ExtendedValue = {
-        val errorType = damlScriptExternalCallErrorType(
-          env,
-          "ExecutionCallFailed",
-          "extensionId" -> ValueText(extensionId),
-          "functionId" -> ValueText(functionId),
-        )
-
-        SubmitErrorConverters(env).damlScriptError(
-          "ExternalCallError",
-          ("externalCallErrorType", errorType),
-          ("externalCallErrorMessage", ValueText(message)),
-        )
-      }
-    }
-
-    final case class ExecutionInvalidOutput(
-        extensionId: String,
-        functionId: String,
-        message: String,
-    ) extends SubmitError {
-      override def toDamlSubmitError(env: Env, legacyAnyContractKey: Boolean): ExtendedValue = {
-        val errorType = damlScriptExternalCallErrorType(
-          env,
-          "ExecutionInvalidOutput",
-          "extensionId" -> ValueText(extensionId),
-          "functionId" -> ValueText(functionId),
-        )
-
-        SubmitErrorConverters(env).damlScriptError(
-          "ExternalCallError",
-          ("externalCallErrorType", errorType),
-          ("externalCallErrorMessage", ValueText(message)),
-        )
-      }
-    }
-
-    private def damlScriptExternalCallErrorType(
-        env: Env,
-        variantName: String,
-        fields: (String, ExtendedValue)*
-    ): ExtendedValue =
-      SubmitErrorConverters(env).damlScriptVariant(
-        "ExternalCallErrorType",
-        variantName,
-        fields: _*
+      SubmitErrorConverters(env).damlScriptError(
+        "ExternalCallError",
+        (
+          "externalCallErrorType",
+          ValueEnum(Some(errorTypeIdentifier), Name.assertFromString(errorType.name)),
+        ),
+        ("extensionId", ValueText(extensionId)),
+        ("functionId", ValueText(functionId)),
+        ("externalCallErrorMessage", ValueText(message)),
       )
+    }
+  }
+
+  object ExternalCallError {
+    sealed abstract class ErrorType(val name: String)
+    object ErrorType {
+      case object PreparationFailed extends ErrorType("PreparationFailed")
+      case object ExecutionFailed extends ErrorType("ExecutionFailed")
+      case object InvalidOutput extends ErrorType("InvalidOutput")
+    }
   }
 
   final case class DevError(errorType: String, message: String) extends SubmitError {

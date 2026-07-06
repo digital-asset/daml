@@ -231,7 +231,7 @@ externalCallPreparationFailed = script do
     (ExternalCallProbe with externalCallProbeP = alice)
     TriggerMalformedExternalCallConfig
   case res of
-    Left (ExternalCallError (PreparationFailed extensionId functionId) msg) -> do
+    Left (ExternalCallError PreparationFailed extensionId functionId msg) -> do
       extensionId === "test-extension"
       functionId === "test-function"
       assert $ "expected canonical lowercase hex" `isInfixOf` msg

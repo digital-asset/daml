@@ -322,61 +322,23 @@ Data Types
 
 **data** `ExternalCallErrorType <type-daml-script-internal-questions-submit-error-externalcallerrortype-95837_>`_
 
-  External\-call related submission errors\.
+  External\-call related submission errors, one per stage\: preparing the
+  call, executing it, and validating the service output\.
 
   .. _constr-daml-script-internal-questions-submit-error-preparationfailed-20227:
 
   `PreparationFailed <constr-daml-script-internal-questions-submit-error-preparationfailed-20227_>`_
 
-    .. list-table::
-       :widths: 15 10 30
-       :header-rows: 1
 
-       * - Field
-         - Type
-         - Description
-       * - extensionId
-         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-         -
-       * - functionId
-         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-         -
+  .. _constr-daml-script-internal-questions-submit-error-executionfailed-50072:
 
-  .. _constr-daml-script-internal-questions-submit-error-executioncallfailed-11096:
+  `ExecutionFailed <constr-daml-script-internal-questions-submit-error-executionfailed-50072_>`_
 
-  `ExecutionCallFailed <constr-daml-script-internal-questions-submit-error-executioncallfailed-11096_>`_
 
-    .. list-table::
-       :widths: 15 10 30
-       :header-rows: 1
+  .. _constr-daml-script-internal-questions-submit-error-invalidoutput-87217:
 
-       * - Field
-         - Type
-         - Description
-       * - extensionId
-         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-         -
-       * - functionId
-         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-         -
+  `InvalidOutput <constr-daml-script-internal-questions-submit-error-invalidoutput-87217_>`_
 
-  .. _constr-daml-script-internal-questions-submit-error-executioninvalidoutput-43798:
-
-  `ExecutionInvalidOutput <constr-daml-script-internal-questions-submit-error-executioninvalidoutput-43798_>`_
-
-    .. list-table::
-       :widths: 15 10 30
-       :header-rows: 1
-
-       * - Field
-         - Type
-         - Description
-       * - extensionId
-         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-         -
-       * - functionId
-         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-         -
 
 .. _type-daml-script-internal-questions-submit-error-submiterror-38284:
 
@@ -863,6 +825,12 @@ Data Types
          - Description
        * - externalCallErrorType
          - `ExternalCallErrorType <type-daml-script-internal-questions-submit-error-externalcallerrortype-95837_>`_
+         -
+       * - extensionId
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+       * - functionId
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
        * - externalCallErrorMessage
          - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_

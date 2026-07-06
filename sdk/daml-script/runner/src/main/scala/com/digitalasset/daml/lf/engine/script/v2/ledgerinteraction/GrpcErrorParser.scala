@@ -496,7 +496,12 @@ object GrpcErrorParser {
                 (ErrorResource.ExternalCallFunctionId, functionId),
                 (ErrorResource.ExceptionText, excMessage),
               ) =>
-            SubmitError.ExternalCallError.PreparationFailed(extensionId, functionId, excMessage)
+            SubmitError.ExternalCallError(
+              SubmitError.ExternalCallError.ErrorType.PreparationFailed,
+              extensionId,
+              functionId,
+              excMessage,
+            )
         }
 
       case "INTERPRETATION_EXTERNAL_CALL_ERROR_EXECUTION_FAILED" =>
@@ -506,7 +511,12 @@ object GrpcErrorParser {
                 (ErrorResource.ExternalCallFunctionId, functionId),
                 (ErrorResource.ExceptionText, excMessage),
               ) =>
-            SubmitError.ExternalCallError.ExecutionCallFailed(extensionId, functionId, excMessage)
+            SubmitError.ExternalCallError(
+              SubmitError.ExternalCallError.ErrorType.ExecutionFailed,
+              extensionId,
+              functionId,
+              excMessage,
+            )
         }
 
       case "INTERPRETATION_EXTERNAL_CALL_ERROR_INVALID_OUTPUT" =>
@@ -516,7 +526,8 @@ object GrpcErrorParser {
                 (ErrorResource.ExternalCallFunctionId, functionId),
                 (ErrorResource.ExceptionText, excMessage),
               ) =>
-            SubmitError.ExternalCallError.ExecutionInvalidOutput(
+            SubmitError.ExternalCallError(
+              SubmitError.ExternalCallError.ErrorType.InvalidOutput,
               extensionId,
               functionId,
               excMessage,

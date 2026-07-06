@@ -57,18 +57,13 @@ data CryptoErrorType
     deriving Show
 
 -- | MOVE Daml.Script
--- External-call related submission errors.
+-- External-call related submission errors, one per stage: preparing the
+-- call, executing it, and validating the service output.
 data ExternalCallErrorType
-  = PreparationFailed with
-        extensionId : Text
-        functionId : Text
-    | ExecutionCallFailed with
-        extensionId : Text
-        functionId : Text
-    | ExecutionInvalidOutput with
-        extensionId : Text
-        functionId : Text
-    deriving Show
+  = PreparationFailed
+  | ExecutionFailed
+  | InvalidOutput
+  deriving Show
 
 -- | HIDE
 -- Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
@@ -215,6 +210,8 @@ data SubmitError
   | -- | External-call interpretation exception
     ExternalCallError with
       externalCallErrorType : ExternalCallErrorType
+      extensionId : Text
+      functionId : Text
       externalCallErrorMessage : Text
   | -- | Rollback exceptions
     EffectfulRollbackError with
@@ -271,7 +268,9 @@ instance Show SubmitError where
     UpgradeError ty msg -> "UpgradeError: " <> show ty <> "\n with message \"" <> msg <> "\""
     FailureStatusError failureStatus -> "Failed with Status: " <> show failureStatus
     CryptoError ty msg -> "CryptoError: " <> show ty <> "\n with message \"" <> msg <> "\""
-    ExternalCallError ty msg -> "ExternalCallError: " <> show ty <> "\n with message \"" <> msg <> "\""
+    ExternalCallError ty extensionId functionId msg ->
+      "ExternalCallError: " <> show ty <> " for extension " <> extensionId <> ", function " <> functionId
+      <> "\n with message \"" <> msg <> "\""
     EffectfulRollbackError msg -> "EffectfulRollbackError: " <> msg
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
