@@ -18,7 +18,9 @@ import DA.Crypto.Text
 import DA.Date
 import DA.Either
 import DA.Exception
+#ifdef DAML_ExternalCall
 import DA.ExternalCall
+#endif
 import DA.Fail
 import DA.Foldable
 import DA.Functor
