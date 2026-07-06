@@ -48,6 +48,8 @@ fi
 logs="${STAGING_DIR}/logs"
 ${makedir} "${logs}"
 
+root=$(pwd)
+
 function on_exit() {
   if [[ -f "${logs}/failed_artifacts.log" ]]; then
     err "Some artifacts failed to publish. See the log below:"
@@ -80,10 +82,10 @@ function publish_artifact {
           # If agnostic, remove the marker, upload as generic platform and break out for other platforms
           # (this will upload the first platform, i.e. linux-intel)
           rm dist/${arch}/${artifact_name}/is-agnostic
-          platform_args+=( "--platform generic=dist/${arch}/${artifact_name} " )
+          platform_args+=( "--platform generic=${STAGING_DIR}/dist/${arch}/${artifact_name} " )
           break
       fi
-      platform_args+=( "--platform ${arch}=dist/${arch}/${artifact_name} " )
+      platform_args+=( "--platform ${arch}=${STAGING_DIR}/dist/${arch}/${artifact_name} " )
     done
     if [[ "${RELEASE_TAG}" != *"-adhoc"* ]] then
       extra_tags_args+=( "--extra-tags main" )
@@ -91,6 +93,7 @@ function publish_artifact {
     fi
     info "Uploading ${artifact_name} to oci registry...\n"
 
+    cd "${root}/sdk"
     bazel run @dpm_binary//:dpm -- \
       publish component \
       "oci://${DPM_REGISTRY}/components/${artifact_name}:${RELEASE_TAG}" \
