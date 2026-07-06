@@ -80,3 +80,29 @@ dnfTest = script do
   toDNF (Negation (Conjunction [p, q, r])) === Disjunction [Conjunction [Negation p], Conjunction [Negation q], Conjunction [Negation r]]
   toDNF (Negation (Disjunction [p, q, r])) === Disjunction [Conjunction [Negation p, Negation q, Negation r]]
   toDNF (Conjunction [Disjunction [Conjunction [p, q], r], s]) === Disjunction [Conjunction [p, q, s], Conjunction [r, s]]
+
+nnfTest = script do
+  let
+    p = Proposition 1
+    q = Proposition 2
+  toNNF p === p
+  toNNF (Negation p) === Negation p
+  toNNF (Negation (Negation p)) === p
+  toNNF (Negation (Negation (Negation p))) === Negation p
+  toNNF (Negation (Negation (Negation (Negation p)))) === p
+  toNNF (Conjunction [p, q]) === Conjunction [p, q]
+  toNNF (Disjunction [p, q]) === Disjunction [p, q]
+  toNNF (Conjunction [Negation p, q]) === Conjunction [Negation p, q]
+  toNNF (Disjunction [Negation p, q]) === Disjunction [Negation p, q]
+  toNNF (Conjunction [p, Negation q]) === Conjunction [p, Negation q]
+  toNNF (Disjunction [p, Negation q]) === Disjunction [p, Negation q]
+  toNNF (Conjunction [Negation p, Negation q]) === Conjunction [Negation p, Negation q]
+  toNNF (Disjunction [Negation p, Negation q]) === Disjunction [Negation p, Negation q]
+  toNNF (Negation (Conjunction [p, q])) === Disjunction [Negation p, Negation q]
+  toNNF (Negation (Disjunction [p, q])) === Conjunction [Negation p, Negation q]
+  toNNF (Negation (Conjunction [p, Negation q])) === Disjunction [Negation p, q]
+  toNNF (Negation (Disjunction [p, Negation q])) === Conjunction [Negation p, q]
+  toNNF (Negation (Conjunction [Negation p, q])) === Disjunction [p, Negation q]
+  toNNF (Negation (Disjunction [Negation p, q])) === Conjunction [p, Negation q]
+  toNNF (Negation (Conjunction [Negation p, Negation q])) === Disjunction [p, q]
+  toNNF (Negation (Disjunction [Negation p, Negation q])) === Conjunction [p, q]

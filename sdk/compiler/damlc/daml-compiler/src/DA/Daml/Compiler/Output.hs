@@ -6,6 +6,7 @@ module DA.Daml.Compiler.Output
   , writeOutputBSL
   , diagnosticsLogger
   , hDiagnosticsLogger
+  , noopLogger
   , printDiagnostics
   ) where
 
@@ -64,3 +65,6 @@ hDiagnosticsLogger handle = NotificationHandler $ \m params -> case (m, params) 
     (LSP.STextDocumentPublishDiagnostics, LSP.PublishDiagnosticsParams (uriToFilePath' -> Just fp) _ (List diags)) ->
         printDiagnostics handle $ map (toNormalizedFilePath' fp,ShowDiag,) diags
     _ -> pure ()
+
+noopLogger :: NotificationHandler
+noopLogger = NotificationHandler $ \_ _ -> pure ()

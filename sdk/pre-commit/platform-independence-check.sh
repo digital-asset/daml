@@ -4,6 +4,6 @@
 
 set -euo pipefail
 
-if [ "$RUN_PLATFORM_INDEPENDENCE_CHECK" = "yes" ]; then
+if [ "${RUN_PLATFORM_INDEPENDENCE_CHECK:-no}" = "yes" ]; then
   bazel test //compiler/damlc/tests:platform-independence-dar-hash-file-matches
 fi
