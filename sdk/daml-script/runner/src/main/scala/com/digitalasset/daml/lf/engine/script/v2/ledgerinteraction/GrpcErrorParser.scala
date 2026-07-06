@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.base.error.ErrorResource
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.transaction.{
@@ -47,9 +46,9 @@ object GrpcErrorParser {
 
   val parseList = (s: String) => s.tail.init.split(", ").toSeq
 
-  // Converts a status error into a SubmitError. Wraps in an UnknownError if it's
-  // not what we expect, or a TruncatedError if required resources are missing.
+  // Converts a given SubmitError into a SubmitError. Wraps in an UnknownError if its not what we expect, wraps in a TruncatedError if we're missing resources
   def convertStatusRuntimeException(status: Status): SubmitError = {
+    import com.digitalasset.base.error.ErrorResource
     import com.digitalasset.base.error.utils.ErrorDetails._
 
     val details = from(status.details.map(Any.toJavaProto))
@@ -57,43 +56,16 @@ object GrpcErrorParser {
     val oErrorInfoDetail = details.collectFirst { case eid: ErrorInfoDetail => eid }
     val errorCode = oErrorInfoDetail.fold("UNKNOWN")(_.errorCodeId)
     val resourceDetails = details.collect { case ResourceInfoDetail(name, res) =>
-      (res, name)
-    }
-
-    convertErrorDetails(
-      errorCode,
-      message,
-      resourceDetails,
-      oErrorInfoDetail.fold(Map.empty[String, String])(_.metadata.toMap),
-    )
-  }
-
-  private[ledgerinteraction] def convertErrorDetails(
-      errorCode: String,
-      message: String,
-      resourceDetails: Seq[(String, String)],
-      errorInfoMetadata: Map[String, String] = Map.empty,
-  ): SubmitError = {
-    val parsedResourceDetails = resourceDetails.map { case (resourceType, value) =>
       (
         ErrorResource
-          .fromString(resourceType)
+          .fromString(res)
           .getOrElse(
-            throw new IllegalArgumentException(s"Unrecognised error resource: \"$resourceType\"")
+            throw new IllegalArgumentException(s"Unrecognised error resource: \"$res\"")
           ),
-        value,
+        name,
       )
     }
 
-    convertParsedErrorDetails(errorCode, message, parsedResourceDetails, errorInfoMetadata)
-  }
-
-  private def convertParsedErrorDetails(
-      errorCode: String,
-      message: String,
-      resourceDetails: Seq[(ErrorResource, String)],
-      errorInfoMetadata: Map[String, String],
-  ): SubmitError = {
     def classNameOf[A: ClassTag]: String = implicitly[ClassTag[A]].runtimeClass.getSimpleName
 
     // Builds an appropriate TruncatedError if the given partial function doesn't match
@@ -102,33 +74,6 @@ object GrpcErrorParser {
     ): SubmitError =
       handler
         .lift(resourceDetails)
-        .getOrElse(new SubmitError.TruncatedError(classNameOf[A], message))
-
-    def singleResourceValue(
-        resources: Seq[(ErrorResource, String)],
-        resource: ErrorResource,
-    ): Option[String] =
-      resources.collect { case (`resource`, value) => value } match {
-        case Seq(value) => Some(value)
-        case _ => None
-      }
-
-    def parseExternalCallResources(
-        resources: Seq[(ErrorResource, String)]
-    ): Option[(String, String, String)] =
-      for {
-        extensionId <- singleResourceValue(resources, ErrorResource.ExternalCallExtensionId)
-        functionId <- singleResourceValue(resources, ErrorResource.ExternalCallFunctionId)
-        extMessage <- singleResourceValue(resources, ErrorResource.ExceptionText)
-      } yield (extensionId, functionId, extMessage)
-
-    def externalCallErr[A <: SubmitError: ClassTag](
-        build: (String, String, String) => A
-    ): SubmitError =
-      parseExternalCallResources(resourceDetails)
-        .map { case (extensionId, functionId, extMessage) =>
-          build(extensionId, functionId, extMessage)
-        }
         .getOrElse(new SubmitError.TruncatedError(classNameOf[A], message))
 
     def parseParties(parties: String): Set[Party] = {
@@ -504,10 +449,11 @@ object GrpcErrorParser {
           )
         val oStatus =
           for {
-            errorId <- errorInfoMetadata.get("error_id")
-            category <- errorInfoMetadata.get("category").map(_.toInt)
-            metadata = errorInfoMetadata.removedAll(cantonFields)
-            trace = errorInfoMetadata.get("exercise_trace")
+            errorInfo <- oErrorInfoDetail
+            errorId <- errorInfo.metadata.get("error_id")
+            category <- errorInfo.metadata.get("category").map(_.toInt)
+            metadata = errorInfo.metadata.toMap.removedAll(cantonFields)
+            trace = errorInfo.metadata.get("exercise_trace")
             // Drop prefix so we give back the exact message in the throwing daml code
             messageWithoutPrefix <- "^.+?error category \\d+\\): (.*)$".r
               .findFirstMatchIn(message)
@@ -544,19 +490,38 @@ object GrpcErrorParser {
         }
 
       case "INTERPRETATION_EXTERNAL_CALL_ERROR_PREPARATION_FAILED" =>
-        externalCallErr[SubmitError.ExternalCallError.PreparationFailed](
-          SubmitError.ExternalCallError.PreparationFailed.apply
-        )
+        caseErr {
+          case Seq(
+                (ErrorResource.ExternalCallExtensionId, extensionId),
+                (ErrorResource.ExternalCallFunctionId, functionId),
+                (ErrorResource.ExceptionText, excMessage),
+              ) =>
+            SubmitError.ExternalCallError.PreparationFailed(extensionId, functionId, excMessage)
+        }
 
       case "INTERPRETATION_EXTERNAL_CALL_ERROR_EXECUTION_FAILED" =>
-        externalCallErr[SubmitError.ExternalCallError.ExecutionCallFailed](
-          SubmitError.ExternalCallError.ExecutionCallFailed.apply
-        )
+        caseErr {
+          case Seq(
+                (ErrorResource.ExternalCallExtensionId, extensionId),
+                (ErrorResource.ExternalCallFunctionId, functionId),
+                (ErrorResource.ExceptionText, excMessage),
+              ) =>
+            SubmitError.ExternalCallError.ExecutionCallFailed(extensionId, functionId, excMessage)
+        }
 
       case "INTERPRETATION_EXTERNAL_CALL_ERROR_INVALID_OUTPUT" =>
-        externalCallErr[SubmitError.ExternalCallError.ExecutionInvalidOutput](
-          SubmitError.ExternalCallError.ExecutionInvalidOutput.apply
-        )
+        caseErr {
+          case Seq(
+                (ErrorResource.ExternalCallExtensionId, extensionId),
+                (ErrorResource.ExternalCallFunctionId, functionId),
+                (ErrorResource.ExceptionText, excMessage),
+              ) =>
+            SubmitError.ExternalCallError.ExecutionInvalidOutput(
+              extensionId,
+              functionId,
+              excMessage,
+            )
+        }
 
       case "INTERPRETATION_DEV_ERROR" =>
         caseErr { case Seq((ErrorResource.DevErrorType, errorType)) =>
