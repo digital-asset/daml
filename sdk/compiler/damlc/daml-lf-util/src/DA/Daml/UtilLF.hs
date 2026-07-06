@@ -67,10 +67,11 @@ mkIdentity t = ETmLam (varV1, t) $ EVar varV1
 fieldToVar :: FieldName -> ExprVarName
 fieldToVar = ExprVarName . unFieldName
 
-varV1, varV2, varV3 :: ExprVarName
+varV1, varV2, varV3, varV4 :: ExprVarName
 varV1 = mkVar "v1"
 varV2 = mkVar "v2"
 varV3 = mkVar "v3"
+varV4 = mkVar "v4"
 
 fromTCon :: HasCallStack => Type -> TypeConApp
 fromTCon (TConApp con args) = TypeConApp con args
