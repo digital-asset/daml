@@ -75,6 +75,10 @@ final case class CantonConfig(
     snapshotDir: Option[String] = None,
     enableLfBetaVersionSupport: Boolean = false,
     enableLfDevVersionSupport: Boolean = false,
+    // Extra HOCON spliced verbatim into each participant's config block, for
+    // participant settings the fixture does not model. The config-file analogue
+    // of `bootstrapScript`.
+    additionalParticipantConfig: Option[String] = None,
 ) {
 
   lazy val tlsConfig =

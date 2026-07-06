@@ -121,6 +121,7 @@ object CantonRunner {
          |      }
          |      ${config.snapshotDir.fold("")(x => s"features.snapshot-dir = ${toJson(x)}")}
          |      ${timeType.fold("")(x => "testing-time.type = " + x)}
+         |      ${config.additionalParticipantConfig.getOrElse("")}
          |    }""".stripMargin
     }
     val participantsConfig =

@@ -58,6 +58,7 @@ trait CantonFixtureWithResource[A]
   protected lazy val timeProviderType: TimeProviderType = TimeProviderType.WallClock
   protected lazy val tlsEnable: Boolean = false
   protected lazy val bootstrapScript: Option[String] = Option.empty
+  protected lazy val additionalParticipantConfig: Option[String] = Option.empty
   protected lazy val userId: Option[Ref.UserId] =
     Some(Ref.UserId.assertFromString(getClass.getName))
   protected lazy val cantonJar: Path = CantonRunner.cantonPath
@@ -136,6 +137,7 @@ trait CantonFixtureWithResource[A]
     targetScope = targetScope,
     disableUpgradeValidation = disableUpgradeValidation,
     enableRemoteJavaDebugging = remoteJavaDebugging,
+    additionalParticipantConfig = additionalParticipantConfig,
   )
 
   final lazy val config: CantonConfig = cantonConfig()
