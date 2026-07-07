@@ -96,6 +96,21 @@ object CantonRunner {
     val globalDevVersionSupport =
       if (config.enableLfDevVersionSupport) "dev-version-support = yes" else ""
 
+    val extensionsConfig =
+      config.extensionServices
+        .map { svc =>
+          s"""engine.extensions.${toJson(svc.extensionId)} {
+             |          address = ${toJson(svc.address)}
+             |          port = ${svc.port.value}
+             |          version = ${toJson(svc.version)}
+             |          validate-on-startup = ${svc.validateOnStartup}
+             |          connect-timeout = ${svc.connectTimeout.toMillis.toString}ms
+             |          request-timeout = ${svc.requestTimeout.toMillis.toString}ms
+             |          max-retries = ${svc.maxRetries.toString}
+             |        }""".stripMargin
+        }
+        .mkString("\n        ")
+
     def participantConfig(i: Int) = {
       val (adminPort, ledgerApiPort) = ports(i)
       val participantId = config.participantIds(i)
@@ -115,13 +130,13 @@ object CantonRunner {
          |      storage.type = memory
          |      parameters = {
          |        engine.enable-engine-stack-traces = true
+         |        ${extensionsConfig}
          |        ${participantDevVersionSupport}
          |        ${participantBetaVersionSupport}
          |        disable-upgrade-validation = ${config.disableUpgradeValidation}
          |      }
          |      ${config.snapshotDir.fold("")(x => s"features.snapshot-dir = ${toJson(x)}")}
          |      ${timeType.fold("")(x => "testing-time.type = " + x)}
-         |      ${config.additionalParticipantConfig.getOrElse("")}
          |    }""".stripMargin
     }
     val participantsConfig =
