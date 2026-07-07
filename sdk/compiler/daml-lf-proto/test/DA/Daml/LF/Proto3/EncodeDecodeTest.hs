@@ -9,7 +9,7 @@ module DA.Daml.LF.Proto3.EncodeDecodeTest (
 
 
 import qualified Data.NameMap                             as NM
-import           Data.Text                                hiding (map)
+import           Data.Text                                hiding (length, map)
 
 
 import           DA.Daml.LF.Proto3.Encode
@@ -36,6 +36,7 @@ entry = defaultMain $ testGroup "Round-trip tests"
     , rttTyLam
     , rttTyLamAndLet
     , rttDeepLetWithLoc
+    , externalCallRoundTrip
     , darTests
     ]
 
@@ -89,6 +90,16 @@ rttTyLamAndLet = testCase "tylam and let package" $ roundTripAssert $ mkOneModul
 rttDeepLetWithLoc :: TestTree
 rttDeepLetWithLoc = testCase "deep let with location package" $ roundTripAssert $ mkOneModulePackageForTest mkDeepLetWithLocModule
 
+externalCallPackage :: Package
+externalCallPackage = mkOneModulePackageForTest externalCallModule
+
+externalCallRoundTrip :: TestTree
+externalCallRoundTrip =
+  testCase "EXTERNAL_CALL round-trips when featureExternalCall is enabled" $ do
+    assertBool "test package version must support featureExternalCall" $
+      packageLfVersion externalCallPackage `supports` featureExternalCall
+    roundTripAssert externalCallPackage
+
 ------------------------------------------------------------------------
 -- .dar tests
 ------------------------------------------------------------------------
@@ -124,6 +135,9 @@ tyLamAndLetModule = mkEmptyModule{moduleValues = NM.fromList [mkDefTyLamDef, mkL
 mkDeepLetWithLocModule :: Module
 mkDeepLetWithLocModule = mkEmptyModule{moduleValues = NM.singleton mkDeepLetWithLoc}
 
+externalCallModule :: Module
+externalCallModule = mkEmptyModule{moduleValues = NM.singleton mkDefExternalCall}
+
 testLoc :: SourceLoc
 testLoc = SourceLoc{..}
     where
@@ -142,6 +156,9 @@ x = ExprVarName "x"
 f, lt :: ExprValName
 f = ExprValName "f"
 lt = ExprValName "lt"
+
+externalCall :: ExprValName
+externalCall = ExprValName "externalCall"
 
 elam :: Expr
 elam = ETmLam (x, TVar a) (EVar x)
@@ -168,6 +185,12 @@ mkLet = DefValue (Just testLoc) (lt, TUnit) (elet "id" tyLamTyp tyLam (EVal $ eQ
 
 mkDeepLetWithLoc :: DefValue
 mkDeepLetWithLoc = DefValue (Just testLoc) (lt, TUnit) (letOfDepthWithLoc 1)
+
+externalCallType :: Type
+externalCallType = TText :-> TText :-> TText :-> TText :-> TUpdate TText
+
+mkDefExternalCall :: DefValue
+mkDefExternalCall = DefValue (Just testLoc) (externalCall, externalCallType) (EBuiltinFun BEExternalCall)
 
 letOfDepthWithLoc :: Int -> Expr
 letOfDepthWithLoc 0 = EUnit

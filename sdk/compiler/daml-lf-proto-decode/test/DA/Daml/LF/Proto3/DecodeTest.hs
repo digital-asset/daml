@@ -6,12 +6,14 @@ module DA.Daml.LF.Proto3.DecodeTest (
 ) where
 
 
+import           Data.List                                (isInfixOf)
 import qualified Data.Vector                              as V
 import           Data.Vector                              (empty)
 
 import           DA.Daml.LF.Proto3.DecodeV2
 
 import           DA.Daml.LF.Ast
+import           DA.Daml.LF.Proto3.Error
 import           DA.Daml.LF.Proto3.Util
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as P
 
@@ -33,6 +35,7 @@ testVersion = Version V2 PointDev
 decTests :: TestTree
 decTests = testGroup "decoding tests"
   [ decPureTests
+  , decExternalCallTests
   , decInterningTests
   ]
 
@@ -49,6 +52,10 @@ decodeKindAssert pk k =
 decodeKindTest :: String -> P.Kind -> Kind -> TestTree
 decodeKindTest str pk k = testCase str $ decodeKindAssert pk k
 
+decodeExprWithVersion :: Version -> P.Expr -> Either Error Expr
+decodeExprWithVersion lfVersion pe =
+  runDecode emptyDecodeEnv{version = lfVersion} (decodeExpr pe)
+
 decPureTests :: TestTree
 decPureTests = testGroup "decoding tests (non-interning)" $ map (uncurry3 decodeKindTest)
   [ ("Kind star", pkstar, KStar)
@@ -60,6 +67,22 @@ decPureTests = testGroup "decoding tests (non-interning)" $ map (uncurry3 decode
     uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
     uncurry3 f (a, b, c) = f a b c
 
+decExternalCallTests :: TestTree
+decExternalCallTests = testGroup "external call feature gate"
+  [ testCase "EXTERNAL_CALL decodes inside feature version range" $
+      Right (EBuiltinFun BEExternalCall) @=? decodeExprWithVersion testVersion externalCallExpr
+  , testCase "EXTERNAL_CALL rejects outside feature version range" $
+      assertExternalCallUnsupported $ decodeExprWithVersion version2_3 externalCallExpr
+  ]
+  where
+    externalCallExpr = peBuiltin P.BuiltinFunctionEXTERNAL_CALL
+
+    assertExternalCallUnsupported :: Either Error Expr -> Assertion
+    assertExternalCallUnsupported result =
+      case result of
+        Left (ParseError msg)
+          | "does not support External Call" `isInfixOf` msg -> pure ()
+        other -> assertFailure $ "expected unsupported External Call decode error, but got: " <> show other
 
 decInterningTests :: TestTree
 decInterningTests = testGroup "decoding tests (interning)"

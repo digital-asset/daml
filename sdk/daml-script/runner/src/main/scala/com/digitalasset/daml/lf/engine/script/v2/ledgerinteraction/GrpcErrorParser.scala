@@ -489,6 +489,51 @@ object GrpcErrorParser {
             SubmitError.CryptoError.MalformedSignature(signature, message)
         }
 
+      case "INTERPRETATION_EXTERNAL_CALL_ERROR_PREPARATION_FAILED" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ExternalCallExtensionId, extensionId),
+                (ErrorResource.ExternalCallFunctionId, functionId),
+                (ErrorResource.ExceptionText, excMessage),
+              ) =>
+            SubmitError.ExternalCallError(
+              SubmitError.ExternalCallError.ErrorType.PreparationFailed,
+              extensionId,
+              functionId,
+              excMessage,
+            )
+        }
+
+      case "INTERPRETATION_EXTERNAL_CALL_ERROR_EXECUTION_FAILED" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ExternalCallExtensionId, extensionId),
+                (ErrorResource.ExternalCallFunctionId, functionId),
+                (ErrorResource.ExceptionText, excMessage),
+              ) =>
+            SubmitError.ExternalCallError(
+              SubmitError.ExternalCallError.ErrorType.ExecutionFailed,
+              extensionId,
+              functionId,
+              excMessage,
+            )
+        }
+
+      case "INTERPRETATION_EXTERNAL_CALL_ERROR_INVALID_OUTPUT" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ExternalCallExtensionId, extensionId),
+                (ErrorResource.ExternalCallFunctionId, functionId),
+                (ErrorResource.ExceptionText, excMessage),
+              ) =>
+            SubmitError.ExternalCallError(
+              SubmitError.ExternalCallError.ErrorType.InvalidOutput,
+              extensionId,
+              functionId,
+              excMessage,
+            )
+        }
+
       case "INTERPRETATION_DEV_ERROR" =>
         caseErr { case Seq((ErrorResource.DevErrorType, errorType)) =>
           SubmitError.DevError(errorType, message)

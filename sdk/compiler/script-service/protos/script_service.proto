@@ -272,6 +272,10 @@ message ScriptError {
     string message = 1;
   }
 
+  message ExternalCallError {
+    string message = 1;
+  }
+
   message EffectfulRollbackError {
     string message = 1;
   }
@@ -384,8 +388,9 @@ message ScriptError {
     UpgradeError upgrade_error = 44;
     FailureStatusError failure_status_error = 45;
     CryptoError crypto_error = 47;
-    // next is 50;
     EffectfulRollbackError effectful_rollback_error = 50;
+    ExternalCallError external_call_error = 51;
+    // next is 52;
   }
 }
 
