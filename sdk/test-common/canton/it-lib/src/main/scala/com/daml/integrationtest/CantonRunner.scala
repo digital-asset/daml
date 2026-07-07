@@ -102,11 +102,7 @@ object CantonRunner {
           s"""engine.extensions.${toJson(svc.extensionId)} {
              |          address = ${toJson(svc.address)}
              |          port = ${svc.port.value}
-             |          version = ${toJson(svc.version)}
              |          validate-on-startup = ${svc.validateOnStartup}
-             |          connect-timeout = ${svc.connectTimeout.toMillis.toString}ms
-             |          request-timeout = ${svc.requestTimeout.toMillis.toString}ms
-             |          max-retries = ${svc.maxRetries.toString}
              |        }""".stripMargin
         }
         .mkString("\n        ")

@@ -24,10 +24,10 @@ final class CantonFixtureExtensionServiceTest
   // An in-process stand-in for an extension service, up before Canton starts.
   private val server: HttpServer = {
     val server = HttpServer.create(new InetSocketAddress("127.0.0.1", lockedPort.port.value), 0)
-    val _ = server.createContext(
+    server.createContext(
       "/api/v1/version",
       exchange => {
-        val _ = versionRequests.incrementAndGet()
+        versionRequests.incrementAndGet()
         val body =
           """{"application": "canton-fixture-test", "version": "v1"}"""
             .getBytes(StandardCharsets.UTF_8)
@@ -60,7 +60,7 @@ final class CantonFixtureExtensionServiceTest
     "configure the extension service on the participant" in {
       // Startup validation only lets Canton come up (giving us ports) after it
       // successfully pinged the configured service's version endpoint.
-      val _ = ports should not be empty
+      ports should not be empty
       versionRequests.get() should be >= 1
     }
   }

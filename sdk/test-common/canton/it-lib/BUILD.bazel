@@ -59,7 +59,6 @@ da_scala_test(
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalatest_scalatest_wordspec",
     ],
-    scalacopts = lf_scalacopts_stricter,
     tags = ["cpu:4"],
     deps = [
         ":it-lib",

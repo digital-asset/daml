@@ -15,7 +15,6 @@ import io.grpc.ManagedChannel
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import java.nio.file.{Path, Paths}
 import java.time.{Duration, Instant}
 
@@ -55,11 +54,7 @@ object CantonConfig {
       extensionId: String,
       address: String,
       port: Port,
-      version: String = "v1",
       validateOnStartup: Boolean = false,
-      connectTimeout: FiniteDuration = 500.millis,
-      requestTimeout: FiniteDuration = 8.seconds,
-      maxRetries: Int = 3,
   )
 
   // TODO: Remove nuckMode from PV, once taps can correctly select participant based on PV, and thus participants use the correct state machine mode
