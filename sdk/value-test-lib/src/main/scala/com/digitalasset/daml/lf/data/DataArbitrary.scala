@@ -33,8 +33,4 @@ object DataArbitrary {
         .mapOf(Gen.zip(Gen.asciiPrintableStr, arbitrary[A]))
         .map(SortedLookupList.from(_))
     )
-
-  // The default collection instances don't make smaller-sized elements.
-  private[this] def div3[T](g: Gen[T]): Gen[T] =
-    Gen sized (n => Gen.resize(n / 3, g))
 }
