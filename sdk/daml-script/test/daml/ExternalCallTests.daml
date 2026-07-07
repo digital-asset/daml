@@ -1,0 +1,106 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module ExternalCallTests where
+
+import DA.Assert
+import DA.ExternalCall (externalCall)
+import DA.Text (isInfixOf)
+import Daml.Script
+
+testExtensionId : Text
+testExtensionId = "test-extension"
+
+echoFunctionId : Text
+echoFunctionId = "echo"
+
+failFunctionId : Text
+failFunctionId = "fail"
+
+invalidOutputFunctionId : Text
+invalidOutputFunctionId = "invalid-output"
+
+template ExternalCallProbe
+  with
+    p : Party
+  where
+    signatory p
+
+    choice CallEcho : Text
+      with
+        input : Text
+      controller p
+      do
+        externalCall testExtensionId echoFunctionId "" input
+
+    choice CallFail : Text
+      with
+        input : Text
+      controller p
+      do
+        externalCall testExtensionId failFunctionId "" input
+
+    choice CallInvalidOutput : Text
+      with
+        input : Text
+      controller p
+      do
+        externalCall testExtensionId invalidOutputFunctionId "" input
+
+-- The test extension service echoes the request body verbatim, so the output
+-- witnesses that DA.ExternalCall canonicalized the input to lowercase hex
+-- before it went on the wire.
+externalCallSuccess : Script ()
+externalCallSuccess = script do
+  alice <- allocateParty "external-call-success-alice"
+  output <- alice `submit` createAndExerciseCmd
+    (ExternalCallProbe with p = alice)
+    (CallEcho with input = "C0FFEE")
+  output === "c0ffee"
+
+-- Malformed input fails during preparation, before the service is contacted.
+externalCallPreparationFailed : Script ()
+externalCallPreparationFailed = script do
+  alice <- allocateParty "external-call-preparation-alice"
+  res <- alice `trySubmit` createAndExerciseCmd
+    (ExternalCallProbe with p = alice)
+    (CallEcho with input = "not-hex")
+  case res of
+    Left (ExternalCallError PreparationFailed extensionId functionId msg) -> do
+      extensionId === testExtensionId
+      functionId === echoFunctionId
+      msg === "Invalid external call config or input: expected canonical lowercase hex"
+    Left e -> error $ "externalCallPreparationFailed incorrect error: " <> show e
+    Right _ -> error "externalCallPreparationFailed incorrectly succeeded"
+
+-- The test extension service answers the fail function with HTTP 400.
+externalCallExecutionFailed : Script ()
+externalCallExecutionFailed = script do
+  alice <- allocateParty "external-call-failure-alice"
+  res <- alice `trySubmit` createAndExerciseCmd
+    (ExternalCallProbe with p = alice)
+    (CallFail with input = "FA11")
+  case res of
+    Left (ExternalCallError ExecutionFailed extensionId functionId msg) -> do
+      extensionId === testExtensionId
+      functionId === failFunctionId
+      -- The requestId suffix is dynamic, so only the static prefix is pinned.
+      assert $ "External call failed with status 400" `isInfixOf` msg
+    Left e -> error $ "externalCallExecutionFailed incorrect error: " <> show e
+    Right _ -> error "externalCallExecutionFailed incorrectly succeeded"
+
+-- The test extension service answers the invalid-output function with a body
+-- that is not canonical hex.
+externalCallInvalidOutput : Script ()
+externalCallInvalidOutput = script do
+  alice <- allocateParty "external-call-invalid-output-alice"
+  res <- alice `trySubmit` createAndExerciseCmd
+    (ExternalCallProbe with p = alice)
+    (CallInvalidOutput with input = "BEEF")
+  case res of
+    Left (ExternalCallError InvalidOutput extensionId functionId msg) -> do
+      extensionId === testExtensionId
+      functionId === invalidOutputFunctionId
+      msg === "Invalid external call output: expected canonical lowercase hex"
+    Left e -> error $ "externalCallInvalidOutput incorrect error: " <> show e
+    Right _ -> error "externalCallInvalidOutput incorrectly succeeded"
