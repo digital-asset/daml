@@ -72,7 +72,7 @@ decExternalCallTests = testGroup "external call feature gate"
   [ testCase "EXTERNAL_CALL decodes inside feature version range" $
       Right (EBuiltinFun BEExternalCall) @=? decodeExprWithVersion testVersion externalCallExpr
   , testCase "EXTERNAL_CALL rejects outside feature version range" $
-      assertExternalCallUnsupported $ decodeExprWithVersion version2_4_staging externalCallExpr
+      assertExternalCallUnsupported $ decodeExprWithVersion version2_3 externalCallExpr
   ]
   where
     externalCallExpr = peBuiltin P.BuiltinFunctionEXTERNAL_CALL

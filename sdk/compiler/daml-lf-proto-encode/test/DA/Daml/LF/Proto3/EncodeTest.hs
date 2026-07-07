@@ -446,7 +446,7 @@ exprExternalCallUnsupported =
         expr -> error $ "expected EXTERNAL_CALL builtin, but got: " <> show expr
       where
         (_, EncodeTestEnv{..}) =
-          runEncodeExprTestWithVersion version2_4_staging $ EBuiltinFun BEExternalCall
+          runEncodeExprTestWithVersion version2_3 $ EBuiltinFun BEExternalCall
 
 mkIdLocLam :: Expr
 mkIdLocLam = ELocation loc1 $ mkETmLams [(x, TUnit)] (ELocation loc2 $ EVar x)
