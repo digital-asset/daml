@@ -7,8 +7,8 @@ package script
 package v2
 package ledgerinteraction
 
+import cats.data.NonEmptyList
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ledger.api.PartyDetails
 import com.digitalasset.canton.user._
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
@@ -321,7 +321,7 @@ class IdeLedgerClient(
         SubmitError.EffectfulRollback(Pretty.prettyDamlException(e).renderWideStream.mkString)
       case ContractNotFound(cid) =>
         SubmitError.ContractNotFound(
-          NonEmpty(Seq, cid),
+          NonEmptyList.of(cid),
           Some(SubmitError.ContractNotFound.AdditionalInfo.NotFound()),
         )
       case UnsupportedContractId(cid) =>
@@ -332,7 +332,7 @@ class IdeLedgerClient(
         SubmitError.AuthorizationError(Pretty.prettyDamlException(e).renderWideStream.mkString)
       case ContractNotActive(cid, tid, _) =>
         SubmitError.ContractNotFound(
-          NonEmpty(Seq, cid),
+          NonEmptyList.of(cid),
           Some(SubmitError.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
         )
       case e @ ContractHashingError(coid, dstTemplateId, createArg, _) =>
@@ -460,20 +460,20 @@ class IdeLedgerClient(
     // We treat ineffective contracts (ie, ones that don't exist yet) as being not found
     case script.Error.ContractNotEffective(cid, tid, effectiveAt) =>
       SubmitError.ContractNotFound(
-        NonEmpty(Seq, cid),
+        NonEmptyList.of(cid),
         Some(SubmitError.ContractNotFound.AdditionalInfo.NotEffective(cid, tid, effectiveAt)),
       )
 
     case script.Error.ContractNotActive(cid, tid, _) =>
       SubmitError.ContractNotFound(
-        NonEmpty(Seq, cid),
+        NonEmptyList.of(cid),
         Some(SubmitError.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
       )
 
     // Similarly, we treat contracts that we can't see as not being found
     case script.Error.ContractNotVisible(cid, tid, actAs, readAs, observers) =>
       SubmitError.ContractNotFound(
-        NonEmpty(Seq, cid),
+        NonEmptyList.of(cid),
         Some(
           SubmitError.ContractNotFound.AdditionalInfo.NotVisible(cid, tid, actAs, readAs, observers)
         ),

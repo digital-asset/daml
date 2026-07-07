@@ -11,13 +11,10 @@ import com.digitalasset.daml.lf.data.{
   Time,
   Numeric => LfNumeric,
 }
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.typesig
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.Value.ContractId
-import com.digitalasset.daml.lf.value.json.{NavigatorModelAliases => Model}
-import Model.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import ApiValueImplicits._
+import com.digitalasset.daml.lf.language.{Ast, PackageInterface, TypeDestructor}
 import spray.json._
 
 import java.time.Instant
@@ -35,8 +32,10 @@ import scala.util.Try
   * @param encodeDecimalAsString Not used yet.
   * @param encodeInt64AsString Not used yet.
   */
-class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsString: Boolean)(
-    implicit
+private[digitalasset] class ApiCodecCompressed(
+    val encodeDecimalAsString: Boolean,
+    val encodeInt64AsString: Boolean,
+)(implicit
     readCid: JsonReader[ContractId],
     writeCid: JsonWriter[ContractId],
 ) { self =>
@@ -121,32 +120,33 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
   private[this] final def jsValueToApiContractId(value: JsValue): ContractId =
     value.convertTo[ContractId]
 
-  private[this] def jsValueToApiPrimitive(
+  private def handleError[X](either: Either[TypeDestructor.Error, X]) =
+    either match {
+      case Right(value) => value
+      case Left(TypeDestructor.Error.LookupError(error)) =>
+        throw new Error(s"Lookup error: ${error.pretty}")
+      case Left(TypeDestructor.Error.TypeError(msg)) =>
+        throw new Error(s"Type error: $msg")
+    }
+
+  /** Deserialize a value, given the type */
+  def jsValueToApiValue(
       value: JsValue,
-      prim: Model.DamlLfTypePrim,
-      defs: Model.DamlLfTypeLookup,
+      typ: Ast.Type,
+      destructor: TypeDestructor,
   ): V = {
-    (prim.typ, value).match2 {
-      case Model.DamlLfPrimType.Int64 => {
+    (handleError(destructor.destruct(typ)), value).match2 {
+      case TypeDestructor.SerializableTypeF.UnitF => { case JsObject(_) =>
+        V.ValueUnit
+      }
+      case TypeDestructor.SerializableTypeF.BoolF => { case JsBoolean(v) =>
+        V.ValueBool(v)
+      }
+      case TypeDestructor.SerializableTypeF.Int64F => {
         case JsString(v) => V.ValueInt64(assertDE(Try(v.toLong).toEither.left.map(_.getMessage)))
         case JsNumber(v) if v.isValidLong => V.ValueInt64(v.toLongExact)
       }
-      case Model.DamlLfPrimType.Text => { case JsString(v) => V.ValueText(v) }
-      case Model.DamlLfPrimType.Party => { case JsString(v) =>
-        V.ValueParty(assertDE(Ref.Party fromString v))
-      }
-      case Model.DamlLfPrimType.ContractId => { case v =>
-        V.ValueContractId(jsValueToApiContractId(v))
-      }
-      case Model.DamlLfPrimType.Unit => { case JsObject(_) => V.ValueUnit }
-      case Model.DamlLfPrimType.Timestamp => { case JsString(v) =>
-        val optTimestamp = for {
-          instant <- Try(Instant.parse(v)).toEither.left.map(_.getMessage)
-          timestamp <- Time.Timestamp.fromInstant(instant)
-        } yield timestamp
-        V.ValueTimestamp(assertDE(optTimestamp))
-      }
-      case Model.DamlLfPrimType.Date => { case JsString(v) =>
+      case TypeDestructor.SerializableTypeF.DateF => { case JsString(v) =>
         try {
           V.ValueDate.fromIso8601(v)
         } catch {
@@ -154,188 +154,134 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
             throw DeserializationException(s"Invalid date: $v")
         }
       }
-      case Model.DamlLfPrimType.Bool => { case JsBoolean(v) => V.ValueBool(v) }
-      case Model.DamlLfPrimType.List => { case JsArray(v) =>
-        V.ValueList(
-          v.iterator.map(e => jsValueToApiValue(e, prim.typArgs.head, defs)).to(FrontStack)
-        )
+      case TypeDestructor.SerializableTypeF.TimestampF => { case JsString(v) =>
+        val optTimestamp = for {
+          instant <- Try(Instant.parse(v)).toEither.left.map(_.getMessage)
+          timestamp <- Time.Timestamp.fromInstant(instant)
+        } yield timestamp
+        V.ValueTimestamp(assertDE(optTimestamp))
       }
-      case Model.DamlLfPrimType.Optional =>
-        val typArg = prim.typArgs.head
-        val useArray = nestsOptional(prim);
+      case TypeDestructor.SerializableTypeF.NumericF(scale) => {
+        case JsString(v) =>
+          V.ValueNumeric(assertDE(LfNumeric.checkWithinBoundsAndRound(scale, BigDecimal(v))))
+        case JsNumber(v) =>
+          V.ValueNumeric(assertDE(LfNumeric.checkWithinBoundsAndRound(scale, v)))
+        case _ =>
+          deserializationError(s"Can't read ${value.prettyPrint} as (Numeric $scale)")
+      }
+      case TypeDestructor.SerializableTypeF.PartyF => { case JsString(v) =>
+        V.ValueParty(assertDE(Ref.Party fromString v))
+      }
+      case TypeDestructor.SerializableTypeF.TextF => { case JsString(v) =>
+        V.ValueText(v)
+      }
+      case TypeDestructor.SerializableTypeF.ContractIdF(_) => { case v =>
+        V.ValueContractId(jsValueToApiContractId(v))
+      }
+      case TypeDestructor.SerializableTypeF.OptionalF(a) =>
+        val useArray = handleError(destructor.destruct(a)) match {
+          case TypeDestructor.SerializableTypeF.OptionalF(a) => true
+          case _ => false
+        }
         {
           case JsNull => V.ValueNone
           case JsArray(ov) if useArray =>
             ov match {
-              case Seq() => V.ValueOptional(Some(V.ValueNone))
-              case Seq(v) => V.ValueOptional(Some(jsValueToApiValue(v, typArg, defs)))
+              case Seq() => V.ValueOptional[Nothing](Some(V.ValueNone))
+              case Seq(v) => V.ValueOptional[Nothing](Some(jsValueToApiValue(v, a, destructor)))
               case _ =>
                 deserializationError(s"Can't read ${value.prettyPrint} as Optional of Optional")
             }
-          case _ if !useArray => V.ValueOptional(Some(jsValueToApiValue(value, typArg, defs)))
+          case _ if !useArray =>
+            V.ValueOptional[Nothing](Some(jsValueToApiValue(value, a, destructor)))
         }
-      case Model.DamlLfPrimType.TextMap => { case JsObject(a) =>
-        V.ValueTextMap(SortedLookupList.from(a.transform { (_, v) =>
-          jsValueToApiValue(v, prim.typArgs.head, defs)
+      case TypeDestructor.SerializableTypeF.ListF(a) => { case JsArray(v) =>
+        V.ValueList[Nothing](
+          v.iterator.map(e => jsValueToApiValue(e, a, destructor)).to(FrontStack)
+        )
+      }
+      case TypeDestructor.SerializableTypeF.MapF(a, b) => { case JsArray(entries) =>
+        val decEntries: Vector[(V, V)] = entries.map {
+          case JsArray(Vector(key, value)) =>
+            jsValueToApiValue(key, a, destructor) ->
+              jsValueToApiValue(value, b, destructor)
+          case _ =>
+            deserializationError(s"Can't read ${value.prettyPrint} as key+value of ${typ.pretty}")
+        }
+        V.ValueGenMap[Nothing](decEntries.to(ImmArray))
+      }
+      case TypeDestructor.SerializableTypeF.TextMapF(a) => { case JsObject(m) =>
+        V.ValueTextMap[Nothing](SortedLookupList.from(m.transform { (_, v) =>
+          jsValueToApiValue(v, a, destructor)
         }))
       }
-      case Model.DamlLfPrimType.GenMap =>
-        val Seq(kType, vType) = prim.typArgs;
-        { case JsArray(entries) =>
-          val decEntries: Vector[(V, V)] = entries.map {
-            case JsArray(Vector(key, value)) =>
-              jsValueToApiValue(key, kType, defs) ->
-                jsValueToApiValue(value, vType, defs)
-            case _ =>
-              deserializationError(s"Can't read ${value.prettyPrint} as key+value of $prim")
-          }
-          V.ValueGenMap(decEntries.to(ImmArray))
-        }
-
-    }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $prim"))
-  }
-
-  private[this] def nestsOptional(prim: typesig.TypePrim): Boolean =
-    prim match {
-      case typesig.TypePrim(_, Seq(typesig.TypePrim(typesig.PrimType.Optional, _))) => true
-      case _ => false
-    }
-
-  private[this] def jsValueToApiDataType(
-      value: JsValue,
-      id: DamlLfIdentifier,
-      dt: Model.DamlLfDataType,
-      defs: Model.DamlLfTypeLookup,
-  ): V = {
-    (dt, value).match2 {
-      case Model.DamlLfRecord(fields) => {
-        case JsObject(v) =>
-          V.ValueRecord(
-            Some(id),
-            fields.map { case (fName, fTy) =>
-              val fValue = v
-                .get(fName)
-                .map(jsValueToApiValue(_, fTy, defs))
-                .getOrElse(fTy match {
-                  case typesig.TypePrim(typesig.PrimType.Optional, _) => V.ValueNone
-                  case _ =>
-                    deserializationError(
-                      s"Can't read ${value.prettyPrint} as DamlLfRecord $id, missing field '$fName'"
-                    )
-                })
-              (Some(fName), fValue)
-            }.toImmArray,
-          )
-        case JsArray(fValues) =>
-          if (fValues.length != fields.length)
-            deserializationError(
-              s"Can't read ${value.prettyPrint} as DamlLfRecord $id, wrong number of record fields (expected ${fields.length}, found ${fValues.length})."
-            )
-          else
-            V.ValueRecord(
+      case TypeDestructor.SerializableTypeF.RecordF(id, _, fieldNames, fieldTypes) =>
+        val fields = (fieldNames zip fieldTypes)
+        ({
+          case JsObject(v) =>
+            V.ValueRecord[Nothing](
               Some(id),
-              (fields zip fValues).map { case ((fName, fTy), fValue) =>
-                (Some(fName), jsValueToApiValue(fValue, fTy, defs))
-              }.toImmArray,
+              fields
+                .map { case (fName, fTy) =>
+                  val fValue = v
+                    .get(fName)
+                    .map(jsValueToApiValue(_, fTy, destructor))
+                    .getOrElse(handleError(destructor.destruct(fTy)) match {
+                      case TypeDestructor.SerializableTypeF.OptionalF(_) => V.ValueNone
+                      case _ =>
+                        deserializationError(
+                          s"Can't read ${value.prettyPrint} as DamlLfRecord $id, missing field '$fName'"
+                        )
+                    })
+                  (Some(fName), fValue)
+                }
+                .to(ImmArray),
             )
-      }
-      case Model.DamlLfVariant(cons) => {
-        case JsonVariant(tag, nestedValue) =>
-          val (constructorName, constructorType) = cons.toList
-            .find(_._1 == tag)
-            .getOrElse(
+          case JsArray(fValues) =>
+            if (fValues.length != fields.length)
               deserializationError(
-                s"Can't read ${value.compactPrint} as DamlLfVariant $id, unknown constructor $tag"
+                s"Can't read ${value.prettyPrint} as DamlLfRecord $id, wrong number of record fields (expected ${fields.length}, found ${fValues.length})."
               )
-            )
-
-          V.ValueVariant(
+            else
+              V.ValueRecord[Nothing](
+                Some(id),
+                (fields zip fValues)
+                  .map { case ((fName, fTy), fValue) =>
+                    (Some(fName), jsValueToApiValue(fValue, fTy, destructor))
+                  }
+                  .to(ImmArray),
+              )
+        })
+      case TypeDestructor.SerializableTypeF.VariantF(id, _, cons, consTypes) => {
+        case JsonVariant(tag, nestedValue) =>
+          val idx = cons.indexWhere(_ == tag)
+          val constructorName = cons(idx)
+          val constructorType = consTypes(idx)
+          V.ValueVariant[Nothing](
             Some(id),
             constructorName,
-            jsValueToApiValue(nestedValue, constructorType, defs),
+            jsValueToApiValue(nestedValue, constructorType, destructor),
           )
         case _ =>
           deserializationError(
             s"Can't read ${value.prettyPrint} as DamlLfVariant $id, expected JsObject with 'tag' and 'value' fields"
           )
       }
-      case Model.DamlLfEnum(cons) => { case JsString(c) =>
-        cons
-          .collectFirst { case kc if kc == c => kc }
-          .map(
-            V.ValueEnum(
-              Some(id),
-              _,
-            )
-          )
-          .getOrElse(
-            deserializationError(
-              s"Can't read ${value.prettyPrint} as DamlLfEnum $id, unknown constructor $c"
-            )
-          )
+      case TypeDestructor.SerializableTypeF.EnumF(id, pkgName, cons) => { case JsString(c) =>
+        val idx = cons.indexWhere(_ == c)
+        val constructorName = cons(idx)
+        V.ValueEnum(Some(id), constructorName)
       }
-    }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $dt"))
-  }
-
-  /** Deserialize a value, given the type */
-  def jsValueToApiValue(
-      value: JsValue,
-      typ: Model.DamlLfType,
-      defs: Model.DamlLfTypeLookup,
-  ): V = {
-    typ match {
-      case prim: Model.DamlLfTypePrim =>
-        jsValueToApiPrimitive(value, prim, defs)
-      case typeCon: Model.DamlLfTypeCon =>
-        val id = typeCon.tycon.identifier
-        val dt =
-          typeCon.instantiate(defs(id).getOrElse(deserializationError(s"Type $id not found")))
-        jsValueToApiDataType(value, id, dt, defs)
-      case Model.DamlLfTypeNumeric(scale) =>
-        val numericOrError = value match {
-          case JsString(v) =>
-            LfNumeric.checkWithinBoundsAndRound(scale, BigDecimal(v))
-          case JsNumber(v) =>
-            LfNumeric.checkWithinBoundsAndRound(scale, v)
-          case _ =>
-            deserializationError(s"Can't read ${value.prettyPrint} as (Numeric $scale)")
-        }
-        V.ValueNumeric(assertDE(numericOrError))
-      case Model.DamlLfTypeVar(_) =>
-        deserializationError(s"Can't read ${value.prettyPrint} as DamlLfTypeVar")
-    }
-  }
-
-  /** Deserialize a value, given the ID of the corresponding closed type */
-  def jsValueToApiValue(
-      value: JsValue,
-      id: Model.DamlLfIdentifier,
-      defs: Model.DamlLfTypeLookup,
-  ): V = {
-    val typeCon = Model.DamlLfTypeCon(Model.DamlLfTypeConId(id), ImmArraySeq())
-    val dt = typeCon.instantiate(defs(id).getOrElse(deserializationError(s"Type $id not found")))
-    jsValueToApiDataType(value, id, dt, defs)
+    }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as ${typ.pretty}"))
   }
 
   /** Creates a JsonReader for Values with the relevant type information */
-  def apiValueJsonReader(typ: DamlLfType, defs: DamlLfTypeLookup): JsonReader[V] =
-    jsValueToApiValue(_, typ, defs)
+  def apiValueJsonReader(typ: Ast.Type, pkgIface: PackageInterface): JsonReader[V] =
+    jsValueToApiValue(_, typ, TypeDestructor(pkgIface))
 
   /** Creates a JsonReader for Values with the relevant type information */
-  def apiValueJsonReader(typ: DamlLfIdentifier, defs: DamlLfTypeLookup): JsonReader[V] =
-    jsValueToApiValue(_, typ, defs)
-
-  /** Same as jsValueToApiType, but with unparsed input */
-  def stringToApiType(value: String, typ: Model.DamlLfType, defs: Model.DamlLfTypeLookup): V =
-    jsValueToApiValue(value.parseJson, typ, defs)
-
-  /** Same as jsValueToApiType, but with unparsed input */
-  def stringToApiType(
-      value: String,
-      id: Model.DamlLfIdentifier,
-      defs: Model.DamlLfTypeLookup,
-  ): V =
-    jsValueToApiValue(value.parseJson, id, defs)
+  def apiValueJsonReader(id: Ref.Identifier, pkgIface: PackageInterface): JsonReader[V] =
+    jsValueToApiValue(_, Ast.TTyCon(id), TypeDestructor(pkgIface))
 
   private[this] def assertDE[A](ea: Either[String, A]): A =
     ea.fold(deserializationError(_), identity)
@@ -370,11 +316,11 @@ object ApiCodecCompressed
   // Implicits that can be imported to write JSON
   // ------------------------------------------------------------------------------------------------------------------
   object JsonImplicits extends DefaultJsonProtocol {
-    implicit object ApiValueJsonFormat extends RootJsonWriter[Model.ApiValue] {
-      def write(v: Model.ApiValue): JsValue = apiValueToJsValue(v)
+    implicit object ApiValueJsonFormat extends RootJsonWriter[V] {
+      def write(v: V): JsValue = apiValueToJsValue(v)
     }
-    implicit object ApiRecordJsonFormat extends RootJsonWriter[Model.ApiRecord] {
-      def write(v: Model.ApiRecord): JsValue = apiRecordToJsValue(v)
+    implicit object ApiRecordJsonFormat extends RootJsonWriter[V.ValueRecord] {
+      def write(v: V.ValueRecord): JsValue = apiRecordToJsValue(v)
     }
     implicit val ContractIdFormat: JsonFormat[ContractId] = JsonContractIdFormat.ContractIdFormat
   }

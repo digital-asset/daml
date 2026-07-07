@@ -10,21 +10,7 @@ import cats.implicits._
 import data.{FrontStack, ImmArray, ImmArrayCons, Numeric, Ref, SortedLookupList, Time}
 import ImmArray.ImmArraySeq
 import data.DataArbitrary._
-import typesig.{
-  DefDataType,
-  Enum,
-  Record,
-  Type,
-  TypeCon,
-  TypeConId,
-  TypeNumeric,
-  TypePrim,
-  Variant,
-  PrimType => PT,
-}
-import scalaz.{@@, Order, Ordering, Tag}
-import scalaz.std.option._
-import scalaz.std.tuple._
+import com.digitalasset.daml.lf.language.Ast
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 import Arbitrary.arbitrary
 
@@ -42,10 +28,10 @@ import Arbitrary.arbitrary
 object TypedValueGenerators {
   sealed abstract class ValueAddend {
     type Inj
-    def t: Type
+    def t: Ast.Type
     def inj(v: Inj): Value
     def prj: Value => Option[Inj]
-    implicit def injord: Order[Inj]
+    implicit def injord: Ordering[Inj]
     implicit def injarb: Arbitrary[Inj]
     implicit def injshrink: Shrink[Inj]
     final override def toString = s"${classOf[ValueAddend].getSimpleName}{t = ${t.toString}}"
@@ -64,7 +50,7 @@ object TypedValueGenerators {
     type NoCid[Inj0] = Aux[Inj0]
 
     private sealed abstract class Leaf0[Inj0](implicit
-        ord: Order[Inj0],
+        ord: Ordering[Inj0],
         arb: Arbitrary[Inj0],
         shr: Shrink[Inj0],
     ) extends ValueAddend {
@@ -74,31 +60,42 @@ object TypedValueGenerators {
       override final def injshrink = shr
     }
 
-    private def leaf[Inj0: Order: Arbitrary: Shrink](pt: PT, inj0: Inj0 => Value)(
+    private def prim(bt: Ast.BuiltinType, args: Ast.Type*): Ast.Type =
+      args.foldLeft(Ast.TBuiltin(bt): Ast.Type)(Ast.TApp(_, _))
+
+    private def leaf[Inj0: Ordering: Arbitrary: Shrink](typ0: Ast.Type, inj0: Inj0 => Value)(
         prj0: Value PartialFunction Inj0
     ): Aux[Inj0] = new Leaf0[Inj0] {
-      override val t = TypePrim(pt, ImmArraySeq.empty)
+      override val t = typ0
       override def inj(v: Inj0) = inj0(v)
       override def prj = prj0.lift
     }
 
+    private def div3[T](g: Gen[T]): Gen[T] = Gen.sized(n => Gen.resize(n / 3, g))
+
+    private def containerDiv3Arb[C, T](implicit
+        t: C => Iterable[T],
+        b: org.scalacheck.util.Buildable[T, C],
+        a: Arbitrary[T],
+    ): Arbitrary[C] =
+      Arbitrary(Gen.buildableOf(div3(a.arbitrary)))
+
     import Value._, ValueGenerators.Implicits._
-    import scalaz.std.anyVal._
 
-    implicit def fromScala[X: math.Ordering]: Order[X] = Order.fromScalaOrdering
-
-    val text = leaf(PT.Text, ValueText.apply) { case ValueText(t) => t }
-    val int64 = leaf(PT.Int64, ValueInt64.apply) { case ValueInt64(i) => i }
-    val unit = leaf(PT.Unit, (_: Unit) => ValueUnit) { case ValueUnit => () }
-    val date = leaf(PT.Date, ValueDate.apply) { case ValueDate(d) => d }
-    val timestamp = leaf(PT.Timestamp, ValueTimestamp.apply) { case ValueTimestamp(t) => t }
-    val bool = leaf(PT.Bool, ValueBool(_)) { case ValueBool(b) => b }
-    val party = leaf(PT.Party, ValueParty.apply) { case ValueParty(p) => p }
+    val text = leaf(prim(Ast.BTText), ValueText.apply) { case ValueText(t) => t }
+    val int64 = leaf(prim(Ast.BTInt64), ValueInt64.apply) { case ValueInt64(i) => i }
+    val unit = leaf(prim(Ast.BTUnit), (_: Unit) => ValueUnit) { case ValueUnit => () }
+    val date = leaf(prim(Ast.BTDate), ValueDate.apply) { case ValueDate(d) => d }
+    val timestamp = leaf(prim(Ast.BTTimestamp), ValueTimestamp.apply) { case ValueTimestamp(t) =>
+      t
+    }
+    val bool = leaf(prim(Ast.BTBool), ValueBool(_)) { case ValueBool(b) => b }
+    val party = leaf(prim(Ast.BTParty), ValueParty.apply) { case ValueParty(p) => p }
 
     def numeric(scale: Numeric.Scale): Aux[Numeric] = {
       implicit val arb: Arbitrary[Numeric] = Arbitrary(ValueGenerators.numGen(scale))
       new Leaf0[Numeric] {
-        override def t: Type = TypeNumeric(scale)
+        override def t: Ast.Type = prim(Ast.BTNumeric, Ast.TNat(scale))
 
         override def inj(x: Numeric): Value =
           ValueNumeric(Numeric.assertFromBigDecimal(scale, x))
@@ -115,7 +112,7 @@ object TypedValueGenerators {
       new Leaf0[ContractId] {
         // TODO SC it probably doesn't make much difference for our initial use case,
         // but the proper arg should probably end up here, not Unit
-        override val t = TypePrim(PT.ContractId, ImmArraySeq(TypePrim(PT.Unit, ImmArraySeq.empty)))
+        override val t = prim(Ast.BTContractId, prim(Ast.BTUnit))
         override def inj(v: ContractId) = ValueContractId(v)
         override def prj = {
           case ValueContractId(cid) => Some(cid)
@@ -125,7 +122,7 @@ object TypedValueGenerators {
 
     def list(elt: ValueAddend): Aux[Vector[elt.Inj]] = new ValueAddend {
       type Inj = Vector[elt.Inj]
-      override val t = TypePrim(PT.List, ImmArraySeq(elt.t))
+      override val t = prim(Ast.BTList, elt.t)
       override def inj(elts: Inj) =
         ValueList(elts.map(elt.inj(_)).to(FrontStack))
       override def prj = {
@@ -134,28 +131,28 @@ object TypedValueGenerators {
         case _ => None
       }
       override def injord = {
-        import scalaz.std.iterable._ // compatible with SValue ordering
-        implicit val e: Order[elt.Inj] = elt.injord
-        Order[Iterable[elt.Inj]] contramap identity
+        import scala.Ordering.Implicits._
+        implicit val e: Ordering[elt.Inj] = elt.injord
+        Ordering[Vector[elt.Inj]]
       }
       override def injarb = {
         implicit val e: Arbitrary[elt.Inj] = elt.injarb
-        Tag unsubst implicitly[Arbitrary[Vector[elt.Inj] @@ Div3]]
+        containerDiv3Arb[Vector[elt.Inj], elt.Inj]
       }
       override def injshrink = implicitly[Shrink[Vector[elt.Inj]]]
     }
 
     def optional(elt: ValueAddend): Aux[Option[elt.Inj]] = new ValueAddend {
       type Inj = Option[elt.Inj]
-      override val t = TypePrim(PT.Optional, ImmArraySeq(elt.t))
+      override val t = prim(Ast.BTOptional, elt.t)
       override def inj(oe: Inj) = ValueOptional(oe map (elt.inj(_)))
       override def prj = {
         case ValueOptional(v) => v traverse elt.prj
         case _ => None
       }
       override def injord = {
-        implicit val e: Order[elt.Inj] = elt.injord
-        Order[Option[elt.Inj]]
+        implicit val e: Ordering[elt.Inj] = elt.injord
+        Ordering.Option[elt.Inj]
       }
       override def injarb = {
         implicit val e: Arbitrary[elt.Inj] = elt.injarb
@@ -166,7 +163,7 @@ object TypedValueGenerators {
 
     def map(elt: ValueAddend): Aux[SortedLookupList[elt.Inj]] = new ValueAddend {
       type Inj = SortedLookupList[elt.Inj]
-      override val t = TypePrim(PT.TextMap, ImmArraySeq(elt.t))
+      override val t = prim(Ast.BTTextMap, elt.t)
       override def inj(sll: SortedLookupList[elt.Inj]) =
         ValueTextMap(sll mapValue (elt.inj(_)))
       override def prj = {
@@ -174,13 +171,12 @@ object TypedValueGenerators {
         case _ => None
       }
       override def injord = {
-        import scalaz.std.iterable._ // compatible with SValue ordering
-        implicit val e: Order[elt.Inj] = elt.injord
-        Order[Iterable[(String, elt.Inj)]] contramap (_.toImmArray.toSeq)
+        import scala.Ordering.Implicits._
+        implicit val e: Ordering[elt.Inj] = elt.injord
+        Ordering.by[SortedLookupList[elt.Inj], Seq[(String, elt.Inj)]](_.toImmArray.toSeq)
       }
       override def injarb = {
-        implicit val e: Arbitrary[elt.Inj] = elt.injarb
-        Tag unsubst implicitly[Arbitrary[SortedLookupList[elt.Inj] @@ Div3]]
+        `arb SortedLookupList`(Arbitrary(div3(elt.injarb.arbitrary)))
       }
       override def injshrink =
         Shrink.shrinkAny // XXX descend
@@ -190,11 +186,10 @@ object TypedValueGenerators {
       type Inj = key.Inj Map elt.Inj
     } = new ValueAddend {
       type Inj = key.Inj Map elt.Inj
-      override val t = TypePrim(PT.GenMap, ImmArraySeq(key.t, elt.t))
+      override val t = prim(Ast.BTGenMap, key.t, elt.t)
       override def inj(m: key.Inj Map elt.Inj) =
         ValueGenMap {
-          import key.{injord => keyorder}
-          implicit val skeyord: math.Ordering[key.Inj] = Order[key.Inj].toScalaOrdering
+          implicit val skeyord: Ordering[key.Inj] = key.injord
           m.to(ImmArraySeq)
             .sortBy(_._1)
             .map { case (k, v) => (key.inj(k), elt.inj(v)) }
@@ -206,19 +201,18 @@ object TypedValueGenerators {
         case _ => None
       }
       override def injord = {
-        import scalaz.std.iterable._ // compatible with SValue ordering
-        implicit val k: Order[key.Inj] = key.injord
-        implicit val ki: math.Ordering[key.Inj] = k.toScalaOrdering
-        implicit val e: Order[elt.Inj] = elt.injord
+        import scala.Ordering.Implicits._
+        implicit val k: Ordering[key.Inj] = key.injord
+        implicit val e: Ordering[elt.Inj] = elt.injord
         // for compatibility with SValue ordering
-        Order[Iterable[(key.Inj, elt.Inj)]] contramap { m =>
+        Ordering.by[key.Inj Map elt.Inj, Seq[(key.Inj, elt.Inj)]] { m =>
           m.to(ImmArraySeq).sortBy(_._1)
         }
       }
       override def injarb = {
         implicit val k: Arbitrary[key.Inj] = key.injarb
         implicit val e: Arbitrary[elt.Inj] = elt.injarb
-        Tag unsubst implicitly[Arbitrary[key.Inj Map elt.Inj @@ Div3]]
+        containerDiv3Arb[key.Inj Map elt.Inj, (key.Inj, elt.Inj)]
       }
       override def injshrink = {
         import key.{injshrink => keyshrink}, elt.{injshrink => eltshrink}
@@ -229,14 +223,14 @@ object TypedValueGenerators {
     /** See RecVarExample for usage examples. */
     def record[Spec <: HList](name: Ref.Identifier, fields: Spec)(implicit
         rvs: RecVarSpec[Spec]
-    ): (DefDataType.FWT, Aux[rvs.HRec]) = {
+    ): (Ast.DDataType, Aux[rvs.HRec]) = {
       val spec = rvs configure fields
       (
-        DefDataType(ImmArraySeq.empty, Record(spec.t.to(ImmArraySeq))),
+        Ast.DDataType(true, ImmArray.empty, Ast.DataRecord(spec.t.to(ImmArray))),
         new ValueAddend {
           private[this] val lfvFieldNames = spec.t map { case (n, _) => Some(n) }
           type Inj = rvs.HRec
-          override val t = TypeCon(TypeConId(name), ImmArraySeq.empty)
+          override val t = Ast.TTyCon(name)
           override def inj(hl: Inj) =
             ValueRecord(
               Some(name),
@@ -257,13 +251,13 @@ object TypedValueGenerators {
     /** See RecVarExample companion for usage examples. */
     def variant[Spec <: HList](name: Ref.Identifier, constructors: Spec)(implicit
         rvs: RecVarSpec[Spec]
-    ): (DefDataType.FWT, Aux[rvs.HVar]) = {
+    ): (Ast.DDataType, Aux[rvs.HVar]) = {
       val spec = rvs configure constructors
       (
-        DefDataType(ImmArraySeq.empty, Variant(spec.t.to(ImmArraySeq))),
+        Ast.DDataType(true, ImmArray.empty, Ast.DataVariant(spec.t.to(ImmArray))),
         new ValueAddend {
           type Inj = rvs.HVar
-          override val t = TypeCon(TypeConId(name), ImmArraySeq.empty)
+          override val t = Ast.TTyCon(name)
           override def inj(cp: Inj) = {
             val (ctor, v) = spec.injVar(cp)
             ValueVariant(Some(name), ctor, v)
@@ -284,19 +278,19 @@ object TypedValueGenerators {
     def enumeration(
         name: Ref.Identifier,
         members: Seq[Ref.Name],
-    ): (DefDataType.FWT, EnumAddend[members.type]) =
+    ): (Ast.DDataType, EnumAddend[members.type]) =
       (
-        DefDataType(ImmArraySeq.empty, Enum(members.to(ImmArraySeq))),
+        Ast.DDataType(true, ImmArray.empty, Ast.DataEnum(members.to(ImmArray))),
         new EnumAddend[members.type] {
           type Member = Ref.Name
           override val values = members
-          override val t = TypeCon(TypeConId(name), ImmArraySeq.empty)
+          override val t = Ast.TTyCon(name)
           override def inj(v: Inj) = ValueEnum(Some(name), v)
           override def prj = {
             case ValueEnum(_, dc) => get(dc)
             case _ => None
           }
-          override def injord = Order.orderBy(values.indexOf)
+          override def injord = Ordering.by((m: Member) => values.indexOf(m))
           override def injarb = Arbitrary(
             Gen.oneOf(values)
           )
@@ -324,7 +318,7 @@ object TypedValueGenerators {
       override def inj(v: Inj) = under.inj(g(v))
       override def prj = under.prj andThen (_ map f)
 
-      override def injord = under.injord contramap g
+      override def injord = Ordering.by(g)(under.injord)
       override def injarb =
         Arbitrary(under.injarb.arbitrary map f)
       override def injshrink =
@@ -343,18 +337,18 @@ object TypedValueGenerators {
 
     private[TypedValueGenerators] def configure(in: In): Rules
     private[TypedValueGenerators] sealed abstract class Rules {
-      val t: List[(Ref.Name, Type)]
+      val t: List[(Ref.Name, Ast.Type)]
 
       def injRec(v: HRec): List[Value]
       def prjRec(v: ImmArray[(_, Value)]): Option[HRec]
-      implicit def record: Order[HRec]
+      implicit def record: Ordering[HRec]
       implicit def recarb: Arbitrary[HRec]
       implicit def recshrink: Shrink[HRec]
 
       def injVar(v: HVar): (Ref.Name, Value)
       type PrjResult = Option[HVar]
       val prjVar: Map[Ref.Name, Value => PrjResult]
-      implicit def varord: Order[HVar]
+      implicit def varord: Ordering[HVar]
       implicit def vararb: Map[Ref.Name, Gen[HVar]]
       implicit def varshrink: Shrink[HVar]
     }
@@ -378,7 +372,7 @@ object TypedValueGenerators {
         override def injRec(v: HNil) = List.empty
         override def prjRec(v: ImmArray[(_, Value)]) =
           Some(HNil)
-        override def record = (_, _) => Ordering.EQ
+        override def record: Ordering[HNil] = (_, _) => 0
         override def recarb =
           Arbitrary(Gen const HNil)
         override def recshrink =
@@ -386,7 +380,7 @@ object TypedValueGenerators {
 
         override def injVar(v: CNil) = v.impossible
         override val prjVar = Map.empty
-        override def varord = (v, _) => v.impossible
+        override def varord: Ordering[CNil] = (v, _) => v.impossible
         override def vararb = Map.empty
         override def varshrink = Shrink.shrinkAny
       }
@@ -422,8 +416,9 @@ object TypedValueGenerators {
           }
 
           override def record = {
-            import hVA.{injord => hord}, tlRules.{record => tailord}
-            Order.orderBy { case ah :: at => (ah: hVA.Inj, at) }
+            implicit val hord: Ordering[hVA.Inj] = hVA.injord
+            implicit val tailord: Ordering[TL.HRec] = tlRules.record
+            Ordering.by[HRec, (hVA.Inj, TL.HRec)] { case ah :: at => (ah: hVA.Inj, at) }
           }
 
           override def recarb = {
@@ -455,13 +450,13 @@ object TypedValueGenerators {
             )
           }
 
-          override def varord =
+          override def varord: Ordering[HVar] =
             (a, b) =>
               (a, b) match {
-                case (Inr(at), Inr(bt)) => tlRules.varord.order(at, bt)
-                case (Inl(_), Inr(_)) => Ordering.LT
-                case (Inr(_), Inl(_)) => Ordering.GT
-                case (Inl(ah), Inl(bh)) => hVA.injord.order(ah, bh)
+                case (Inr(at), Inr(bt)) => tlRules.varord.compare(at, bt)
+                case (Inl(_), Inr(_)) => -1
+                case (Inr(_), Inl(_)) => 1
+                case (Inl(ah), Inl(bh)) => hVA.injord.compare(ah, bh)
               }
 
           override def vararb: Map[Ref.Name, Gen[HVar]] = {
@@ -591,7 +586,7 @@ object TypedValueGenerators {
     *  3. generating well-typed values of different types
     *
     * All of which are derivable from what [[ValueAddend]] is, ''a type, a
-    * prism into [[Value]], a [[com.digitalasset.daml.lf.typesig.Type]] describing that type, and
+    * prism into [[Value]], a [[com.digitalasset.daml.lf.language.Ast.Type]] describing that type, and
     * Scalacheck support surrounding that type.''
     */
   def genAddend(implicit cid: Arbitrary[Value.ContractId]): Gen[ValueAddend] =
@@ -607,7 +602,7 @@ object TypedValueGenerators {
     indGenAddend((_, _) => Seq.empty)
 
   /** Generate a type and value guaranteed to conform to that type. */
-  def genTypeAndValue(cid: Gen[Value.ContractId]): Gen[(Type, Value)] =
+  def genTypeAndValue(cid: Gen[Value.ContractId]): Gen[(Ast.Type, Value)] =
     for {
       addend <- genAddend(Arbitrary(cid))
       value <- addend.injarb.arbitrary
