@@ -118,6 +118,9 @@ peInterned = liftE . P.ExprSumInternedExpr
 peBuiltinCon :: P.BuiltinCon -> P.Expr
 peBuiltinCon bit = liftE $ P.ExprSumBuiltinCon $ P.Enumerated $ Right bit
 
+peBuiltin :: P.BuiltinFunction -> P.Expr
+peBuiltin fun = liftE $ P.ExprSumBuiltin $ P.Enumerated $ Right fun
+
 peUnit :: P.Expr
 peUnit = peBuiltinCon P.BuiltinConCON_UNIT
 
