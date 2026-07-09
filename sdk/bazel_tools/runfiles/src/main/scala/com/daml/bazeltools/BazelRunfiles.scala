@@ -18,7 +18,7 @@ trait BazelRunfiles {
     )
 
   private def runfiles =
-    Runfiles.preload.withSourceRepository("_main")
+    Runfiles.preload.withSourceRepository("")
 
   def rlocation(path: String): String =
     if (inBazelEnvironment)
