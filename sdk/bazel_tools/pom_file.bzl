@@ -76,6 +76,7 @@ def _collect_maven_info_impl(_target, ctx):
             "io_bazel_rules_scala_scalatest": "org.scalatest:scalatest_{}".format(scala_major_version),
         }
         workspace = jar.label.workspace_name
+
         # Strip bzlmod module extension canonical prefix (e.g. "rules_scala~~scala_deps~")
         if "~" in workspace:
             workspace = workspace.rsplit("~", 1)[-1]

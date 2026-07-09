@@ -1,9 +1,9 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
-load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 
 script_installer = """\
 SCRIPTDAR=$$(canonicalize_rlocation $(rootpath //daml-script/daml:daml-script.dar))

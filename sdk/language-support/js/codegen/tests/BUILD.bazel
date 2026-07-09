@@ -1,9 +1,9 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 # This rule builds a dar from the daml sources under the 'daml'
 # directory. It is referenced from the 'build-and-lint-test' target that
@@ -109,7 +109,7 @@ sh_test(
         ":build-and-lint.dar",
         ":hidden.dar",
         "//language-support/js/codegen",
-        "@pnpm//:pnpm",
+        "@pnpm",
         "@rules_java//toolchains:current_java_runtime",
         "//canton:community_app_deploy.jar",
         "//language-support/js/daml-types:npm_package",
@@ -188,8 +188,8 @@ sh_test(
     data = [
         ":npmcheck1.dar",
         ":npmcheck2.dar",
-        "//language-support/js/codegen",
         "//bazel_tools:jq_bin",
+        "//language-support/js/codegen",
     ] + select({
         ":on_linux_amd64": [
             "@nodejs_linux_amd64//:node",

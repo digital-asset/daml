@@ -3,8 +3,8 @@
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@build_environment//:configuration.bzl", "ghc_version")
-load("//rules_daml:daml.bzl", "daml_compile")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 [
     daml_compile(
@@ -69,12 +69,12 @@ genrule(
         $(execpath //bazel_tools/sh:mktgz) $(location :daml-script-rst.tar.gz) daml-script-rst
     """,
     tools = [
+        "//bazel/haskell/toolchain:libtinfo.so.5",
         "//bazel_tools/sh:mktgz",
         "//compiler/damlc",
-        "@libz//:libs",
-        "@gmp//:libs",
         "@bzip2//:libs",
-        "//bazel/haskell/toolchain:libtinfo.so.5",
+        "@gmp//:libs",
+        "@libz//:libs",
     ],
 )
 
@@ -94,10 +94,10 @@ genrule(
             $(location Daml/Script/Internal.daml)
     """,
     tools = [
-        "//compiler/damlc",
-        "@libz//:libs",
-        "@gmp//:libs",
-        "@bzip2//:libs",
         "//bazel/haskell/toolchain:libtinfo.so.5",
+        "//compiler/damlc",
+        "@bzip2//:libs",
+        "@gmp//:libs",
+        "@libz//:libs",
     ],
 )

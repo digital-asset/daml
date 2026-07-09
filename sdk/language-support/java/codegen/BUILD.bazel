@@ -1,6 +1,9 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools:pom_file.bzl", "pom_file")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_benchmark_jmh",
@@ -9,6 +12,11 @@ load(
     "da_scala_test",
     "scala_source_jar",
     "scaladoc_jar",
+)
+load(
+    "//daml-lf:daml-lf.bzl",
+    "COMPILER_LF_VERSIONS",
+    "DEFAULT_LF_VERSION",
 )
 load(
     "//rules_daml:daml.bzl",
@@ -21,14 +29,6 @@ load(
     "mangle_for_java",
     "test_exclusions",
 )
-load(
-    "//daml-lf:daml-lf.bzl",
-    "COMPILER_LF_VERSIONS",
-    "DEFAULT_LF_VERSION",
-)
-load("//bazel_tools:pom_file.bzl", "pom_file")
-load("@os_info//:os_info.bzl", "is_windows")
-load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 
 da_scala_binary(
     name = "codegen",
@@ -249,8 +249,8 @@ scala_source_jar(
                 "src/it/daml/Tests/*.daml",
                 "src/it/daml/Tests/Lib{}.daml".format(mangle_for_java(ver)),
             ],
-            exclude = test_exclusions.get(ver, []),
             allow_empty = True,
+            exclude = test_exclusions.get(ver, []),
         ),
         enable_interfaces = ver == "2.dev",
         project_name = "integration-tests-model",

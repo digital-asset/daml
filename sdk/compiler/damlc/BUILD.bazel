@@ -1,15 +1,15 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
-load("//daml-lf:daml-lf.bzl", "LF_DOCS_VERSION")
-load("//rules_daml:daml.bzl", "daml_doc_test")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@os_info//:os_info.bzl", "is_linux_intel", "is_windows")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//bazel_tools/packaging:packaging.bzl", "package_app", "package_oci_component")
 load("//bazel_tools/runfiles:defs.bzl", "add_data")
-load(":util.bzl", "ghc_pkg", "ghc_pkg_dist")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
-load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("//daml-lf:daml-lf.bzl", "LF_DOCS_VERSION")
+load("//rules_daml:daml.bzl", "daml_doc_test")
+load(":util.bzl", "ghc_pkg", "ghc_pkg_dist")
 
 # `hpp` is linked dynamically so we run it through `package_app` to
 # distribute it. However, the result of that is a tarball so it's not going
@@ -351,11 +351,11 @@ genrule(
             $(locations //compiler/damlc/daml-prim-src)
     """.format(LF_DOCS_VERSION),
     tools = [
-        "//compiler/damlc:damlc-compile-only",
-        "@libz//:libs",
-        "@gmp//:libs",
-        "@bzip2//:libs",
         "//bazel/haskell/toolchain:libtinfo.so.5",
+        "//compiler/damlc:damlc-compile-only",
+        "@bzip2//:libs",
+        "@gmp//:libs",
+        "@libz//:libs",
     ],
 )
 
@@ -374,11 +374,11 @@ genrule(
             $(locations //compiler/damlc/daml-stdlib-src)
     """.format(LF_DOCS_VERSION),
     tools = [
-        "//compiler/damlc:damlc-compile-only",
-        "@libz//:libs",
-        "@gmp//:libs",
-        "@bzip2//:libs",
         "//bazel/haskell/toolchain:libtinfo.so.5",
+        "//compiler/damlc:damlc-compile-only",
+        "@bzip2//:libs",
+        "@gmp//:libs",
+        "@libz//:libs",
     ],
 )
 
@@ -416,12 +416,12 @@ genrule(
         $(execpath //bazel_tools/sh:mktgz) $(location :daml-base-rst.tar.gz) daml-base-rst
     """.format(LF_DOCS_VERSION),
     tools = [
+        "//bazel/haskell/toolchain:libtinfo.so.5",
         "//bazel_tools/sh:mktgz",
         "//compiler/damlc:damlc-compile-only",
-        "@libz//:libs",
-        "@gmp//:libs",
         "@bzip2//:libs",
-        "//bazel/haskell/toolchain:libtinfo.so.5",
+        "@gmp//:libs",
+        "@libz//:libs",
     ],
 )
 

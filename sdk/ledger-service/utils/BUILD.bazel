@@ -33,7 +33,10 @@ da_scala_library(
 da_scala_test_suite(
     name = "tests",
     size = "small",
-    srcs = glob(["src/test/scala/**/*.scala"], allow_empty = True),
+    srcs = glob(
+        ["src/test/scala/**/*.scala"],
+        allow_empty = True,
+    ),
     scalacopts = lf_scalacopts,
     deps = [
         ":utils",

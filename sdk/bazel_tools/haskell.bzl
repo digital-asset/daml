@@ -1,6 +1,11 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_windows")
+load(
+    "@rules_haskell//haskell:c2hs.bzl",
+    "c2hs_library",
+)
 load(
     "@rules_haskell//haskell:defs.bzl",
     "haskell_binary",
@@ -8,12 +13,7 @@ load(
     "haskell_repl",
     "haskell_test",
 )
-load(
-    "@rules_haskell//haskell:c2hs.bzl",
-    "c2hs_library",
-)
 load("//bazel_tools:hlint.bzl", "haskell_hlint")
-load("@os_info//:os_info.bzl", "is_windows")
 
 # This file defines common Haskell language extensions and compiler flags used
 # throughout this repository. The initial set of flags is taken from the

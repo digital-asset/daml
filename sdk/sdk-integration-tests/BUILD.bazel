@@ -1,8 +1,9 @@
+load("@build_environment//:configuration.bzl", "mvn_version")
+load("@os_info//:os_info.bzl", "is_windows")
+
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
-load("@os_info//:os_info.bzl", "is_windows")
-load("@build_environment//:configuration.bzl", "mvn_version")
 
 # A REPL with all tests, used as bios for HLS
 da_haskell_repl(
@@ -56,11 +57,11 @@ da_haskell_test(
         "$(location @pnpm//:pnpm)",
     ],
     data = [
-        "//release:dpm-sdk-release-tarball",
-        "@rules_java//toolchains:current_java_runtime",
         "//:java_rlocation_path",
-        "@pnpm//:pnpm",
         "//compiler/damlc/tests:generate-simple-dalf",
+        "//release:dpm-sdk-release-tarball",
+        "@pnpm",
+        "@rules_java//toolchains:current_java_runtime",
     ] + os_dependent_libraries,
     # marked flaky for mvn originally; still flaky now? #14281
     flaky = False,

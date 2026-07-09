@@ -1,16 +1,16 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_windows")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_scala//scala:scala.bzl", "scala_library")
+load("@scala_version//:index.bzl", "scala_major_version_suffix")
 load("//bazel_tools:java.bzl", "da_java_library")
 load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
 load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("//bazel_tools:scala.bzl", "scala_source_jar", "scaladoc_jar")
-load("@rules_scala//scala:scala.bzl", "scala_library")
-load("@os_info//:os_info.bzl", "is_windows")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
-load("@rules_proto//proto:defs.bzl", "proto_library")
-load("@scala_version//:index.bzl", "scala_major_version_suffix")
 
 # taken from rules_proto:
 # https://github.com/stackb/rules_proto/blob/f5d6eea6a4528bef3c1d3a44d486b51a214d61c2/compile.bzl#L369-L393
