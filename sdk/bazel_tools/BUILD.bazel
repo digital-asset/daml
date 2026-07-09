@@ -21,7 +21,6 @@ exports_files(
     visibility = ["//:__subpackages__"],
 )
 
-
 alias(
     name = "scaladoc",
     actual = "@rules_scala//src/scala/io/bazel/rules_scala/scaladoc_support:scaladoc_generator",

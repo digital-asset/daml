@@ -19,7 +19,7 @@ sh_binary(
     srcs = ["package-oci-component.sh"],
     data = [
         "//bazel_tools/sh:mktgz",
-        "@bsd_tar_toolchains//:resolved_target_toolchain"
+        "@bsd_tar_toolchains//:resolved_target_toolchain",
     ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
