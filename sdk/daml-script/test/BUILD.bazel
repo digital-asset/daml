@@ -197,6 +197,7 @@ genrule(
     outs = ["external-call-test-v2.dev.dar"],
     cmd = """
       set -eou pipefail
+      export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ExternalCallTests.daml) $$TMP_DIR/daml
@@ -218,7 +219,13 @@ EOF
     """.format(
         sdk = sdk_version,
     ),
-    tools = ["//compiler/damlc"],
+    tools = [
+        "//bazel/haskell/toolchain:libtinfo.so.5",
+        "//compiler/damlc",
+        "@bzip2//:libs",
+        "@gmp//:libs",
+        "@libz//:libs",
+    ],
     visibility = ["//visibility:public"],
 )
 
