@@ -6,6 +6,7 @@ module DA.Test.DamlDocTestIntegration (main) where
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import DA.Bazel.Runfiles
+import DA.Test.Util (withJavaInPath)
 import Data.List
 import System.Exit
 import System.FilePath
@@ -18,7 +19,7 @@ main :: IO ()
 main = do
     damlcPath <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
-    defaultMain $ tests damlcPath scriptDar
+    withJavaInPath $ defaultMain $ tests damlcPath scriptDar
 
 tests :: FilePath -> FilePath -> TestTree
 tests damlcPath scriptDar = testGroup "doctest integration tests"
