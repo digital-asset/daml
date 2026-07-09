@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_library")
-load("//rules_daml:daml.bzl", "daml_compile")
 load("//daml-lf:daml-lf.bzl", "mangle_for_java")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 def to_camel_case(name):
     return "".join([part.capitalize() for part in name.split("_")])

@@ -1,6 +1,12 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_windows")
+load("@rules_java//java:defs.bzl", "JavaInfo")
+load(
+    "@rules_scala//jmh:jmh.bzl",
+    "scala_benchmark_jmh",
+)
 load(
     "@rules_scala//scala:scala.bzl",
     "scala_binary",
@@ -12,16 +18,10 @@ load(
     "scala_test",
     "scala_test_suite",
 )
-load("@rules_java//java:defs.bzl", "JavaInfo")
 load("@rules_scala//scala/private:common.bzl", "sanitize_string_for_usage")
-load(
-    "@rules_scala//jmh:jmh.bzl",
-    "scala_benchmark_jmh",
-)
-load("//bazel_tools:pom_file.bzl", "pom_file")
-load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_suffix", "scala_version_suffix")
+load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
+load("//bazel_tools:pom_file.bzl", "pom_file")
 
 # This file defines common Scala compiler flags and plugins used throughout
 # this repository. The initial set of flags is taken from the ledger-client
