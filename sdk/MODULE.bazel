@@ -160,8 +160,10 @@ use_repo(ghc_toolchain_ext, "ghc_bindist", "gmp", "ncurses")
 
 # Root registration outranks the stock bindists toolchain above; stock removal (4.1) deferred.
 register_toolchains("//bazel/haskell/ghc:ghc_linux_amd64")
+register_toolchains("//bazel/haskell/ghc:ghc_darwin_arm64")
 
 register_toolchains("//bazel/haskell/toolchain:ghc_linux_amd64")
+register_toolchains("//bazel/haskell/toolchain:ghc_darwin_arm64")
 
 cabal_ext = use_extension("//bazel/haskell:cabal_extension.bzl", "cabal")
 use_repo(cabal_ext, "cabal")
