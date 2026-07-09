@@ -105,7 +105,7 @@ damlc_legacy(
 )
 
 load("//bazel_tools:dpm.bzl", "dpm_binary")
-load("//bazel_tools:dpm_version.bzl", "DPM_VERSION", "DPM_SHA256")
+load("//bazel_tools:dpm_version.bzl", "DPM_SHA256", "DPM_VERSION")
 
 # Bump these versions using `bump-dpm.sh`
 dpm_binary(
