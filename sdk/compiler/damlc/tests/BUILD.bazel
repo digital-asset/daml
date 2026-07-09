@@ -87,8 +87,10 @@ da_haskell_test(
     size = "large",
     srcs = ["src/DamlcTest.hs"],
     data = [
+        "//:java_rlocation_path",
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
+        "@rules_java//toolchains:current_java_runtime",
     ],
     hackage_deps = [
         "base",
@@ -315,8 +317,10 @@ da_haskell_test(
     name = "daml-doctest-integration",
     srcs = ["src/DA/Test/DamlDocTestIntegration.hs"],
     data = [
+        "//:java_rlocation_path",
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
+        "@rules_java//toolchains:current_java_runtime",
     ],
     hackage_deps = [
         "base",
@@ -330,6 +334,7 @@ da_haskell_test(
     src_strip_prefix = "src",
     deps = [
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
     ],
 )
 
