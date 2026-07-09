@@ -1,12 +1,12 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS")
 load(
     ":util.bzl",
     "daml_package_db",
     "daml_package_rule",
 )
-load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS")
 
 daml_package_db(
     name = "package_db_for_daml-prim",
