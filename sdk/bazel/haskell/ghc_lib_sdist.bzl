@@ -240,7 +240,7 @@ cp $TMP/ghc-lib{component}.cabal $EXECROOT/{cabal_output}
         cabal_path = ctx.file.cabal.path,
         ghc_lib_gen_path = ctx.executable.ghc_lib_gen.path,
         extra_tool_path = "\n".join(
-            ['export PATH={}:"$PATH"'.format(d) for d in extra_tool_path_entries]
+            ['export PATH={}:"$PATH"'.format(d) for d in extra_tool_path_entries],
         ),
         cc_path = cc,
         ld_path = ld,

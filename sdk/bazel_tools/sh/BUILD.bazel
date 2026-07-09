@@ -17,8 +17,8 @@ sh_binary(
     name = "mktgz",
     srcs = ["mktgz.sh"],
     data = [
-        "@pigz//:pigz",
-        "@bsd_tar_toolchains//:resolved_target_toolchain"
+        "@bsd_tar_toolchains//:resolved_target_toolchain",
+        "@pigz",
     ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
