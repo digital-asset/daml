@@ -1,9 +1,9 @@
-load("//bazel_tools:dpm.bzl", "dpm_binary")
 load(
     "//bazel/versions:dpm.version.bzl",
     "DPM_SHA256",
     "DPM_VERSION",
 )
+load("//bazel_tools:dpm.bzl", "dpm_binary")
 
 def _get_dpm(module_ctx):
     dpm_binary(
