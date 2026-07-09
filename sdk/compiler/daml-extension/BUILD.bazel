@@ -6,7 +6,6 @@ load("@build_environment//:configuration.bzl", "sdk_version")
 load("@daml_extension_deps//:defs.bzl", "npm_link_all_packages")
 load("@jq.bzl//jq:jq.bzl", "jq")
 
-
 npm_link_all_packages(name = "node_modules")
 
 filegroup(
