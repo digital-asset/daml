@@ -1793,6 +1793,22 @@ tests TestArgs{..} =
             ]
         ]
 
+    , dataDependenciesTest "Using complete pragma with infix pattern synonyms"
+        [
+            (,) "Base.daml"
+            [ "module Base where"
+            , "pattern a :+: b = (a, b)"
+            , "{-# COMPLETE (:+:) #-}"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            , "import Base"
+            , "usePattern : (a, b) -> a"
+            , "usePattern (x :+: _) = x"
+            ]
+        ]
+
     , dataDependenciesTest "Using complete pragma with pattern synonyms and non-local types"
         [
             (,) "Base.daml"
