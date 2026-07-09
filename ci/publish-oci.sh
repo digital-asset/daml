@@ -18,11 +18,6 @@ info_fail() {
   echo "$1" >> "${logs}/failed_artifacts.log"
 }
 
-if [ ! -f "${HOME}/.dpm/bin/dpm" ]; then
-  err "DPM not found! Exit."
-  exit 1
-fi
-
 if [[ "$#" != 3 ]]; then
   err "Not enough parameters!"
   err "Usage: ${script_name} <staging_dir> <release_tag> <registry>"
@@ -52,6 +47,8 @@ fi
 
 logs="${STAGING_DIR}/logs"
 ${makedir} "${logs}"
+
+root=$(pwd)
 
 function on_exit() {
   if [[ -f "${logs}/failed_artifacts.log" ]]; then
@@ -85,10 +82,10 @@ function publish_artifact {
           # If agnostic, remove the marker, upload as generic platform and break out for other platforms
           # (this will upload the first platform, i.e. linux-intel)
           rm dist/${arch}/${artifact_name}/is-agnostic
-          platform_args+=( "--platform generic=dist/${arch}/${artifact_name} " )
+          platform_args+=( "--platform generic=${STAGING_DIR}/dist/${arch}/${artifact_name} " )
           break
       fi
-      platform_args+=( "--platform ${arch}=dist/${arch}/${artifact_name} " )
+      platform_args+=( "--platform ${arch}=${STAGING_DIR}/dist/${arch}/${artifact_name} " )
     done
     if [[ "${RELEASE_TAG}" != *"-adhoc"* ]] then
       extra_tags_args+=( "--extra-tags main" )
@@ -96,7 +93,8 @@ function publish_artifact {
     fi
     info "Uploading ${artifact_name} to oci registry...\n"
 
-    "${HOME}"/.dpm/bin/dpm \
+    cd "${root}/sdk"
+    bazel run @dpm_binary//:dpm -- \
       publish component \
       "oci://${DPM_REGISTRY}/components/${artifact_name}:${RELEASE_TAG}" \
       ${extra_tags_args[@]} \
