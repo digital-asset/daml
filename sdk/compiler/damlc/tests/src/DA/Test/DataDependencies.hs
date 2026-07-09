@@ -2976,11 +2976,6 @@ tests TestArgs{..} =
     dataDependenciesTest :: String -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
     dataDependenciesTest title = dataDependenciesTestOptions title defTestOptions
 
-    -- withTempDirBah step f = do
-    --   (dir, _) <- newTempDir
-    --   _ <- step dir
-    --   f dir
-
     dataDependenciesTestOptions :: String -> DataDependenciesTestOptions -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
     dataDependenciesTestOptions title (DataDependenciesTestOptions buildOptions extraDeps) libModules mainModules =
         testCaseSteps title $ \step -> withTempDir $ \tmpDir -> do
