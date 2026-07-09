@@ -1,10 +1,10 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:pom_file.bzl", "pom_file")
-load("@os_info//:os_info.bzl", "is_windows")
 load("@google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
+load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
+load("//bazel_tools:pom_file.bzl", "pom_file")
 
 def dadew_java_configure(name, dadew_path):
     _ignore = (name, dadew_path)
