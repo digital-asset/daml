@@ -46,12 +46,11 @@ chronic() {
 }
 
 # Discards stderr if successful, else reports err directly to stderr
-stdout_if_succeess() {
-  out_tmp=$(mktemp) || return
-  err_tmp=$(mktemp) || return
+stdout_if_success() {
+  out_tmp=$(mktemp) || >&2 echo "Failed to create temp file for stdout_if_success stdout" && exit 1
   set +e
-  # Redirect stderr and stdout to file, capture both combined in env var, make stderr red
-  combined=$("$@" 2> >(sed "s/^/\\\\e[31m/" | sed "s/$/\\\\e[0m/" | tee "$err_tmp") > >(tee "$out_tmp"))
+  # Redirect stdout to file, capture both combined in env var, make stderr red
+  combined=$("$@" 2> >(sed -u "s/^/\\\\e[31m/" | sed -u "s/$/\\\\e[0m/") > >(tee "$out_tmp"))
   ret=$?
   set -e
   if [ "$ret" -ne 0 ]; then
@@ -59,11 +58,11 @@ stdout_if_succeess() {
   else
     cat "$out_tmp"
   fi
-  rm -f "$out_tmp" "$err_tmp"
+  rm -f "$out_tmp"
   return $ret
 }
 
-all_dpm_components=($(stdout_if_succeess bazel query "kind('package_oci_component', //...)" | sed -r 's/^.*:(.+)\-oci$/\1/' | sort))
+all_dpm_components=($(stdout_if_success bazel query "kind('package_oci_component', //...)" | sed -r 's/^.*:(.+)\-oci$/\1/' | sort))
 
 for opt in "$@"; do
   case "$opt" in
@@ -107,14 +106,10 @@ for opt in "$@"; do
     --remove-other-versions)
       REMOVE_OTHER_VERSIONS=1
       ;;
-    --verbose)
-      ;&
-    -v)
+    --verbose|-v)
       VERBOSE=1
       ;;
-    --unverbose)
-      ;&
-    -V)
+    --unverbose|-V)
       VERBOSE=0
       ;;
     *)
@@ -161,8 +156,8 @@ fi
 
 get_dpm() {
   chronic bazel build @dpm_binary//:dpm >&2
-  dpm_bazel_path=$(stdout_if_succeess bazel cquery "${BAZEL_MODE_FLAGS[@]}" "@dpm_binary//:dpm" --output=files)
-  dpm_version=$(HOME=. stdout_if_succeess "$dpm_bazel_path" -v | head -n 1 | sed -e "s/^version: //")
+  dpm_bazel_path=$(stdout_if_success bazel cquery "${BAZEL_MODE_FLAGS[@]}" "@dpm_binary//:dpm" --output=files)
+  dpm_version=$(HOME=. stdout_if_success "$dpm_bazel_path" -v | head -n 1 | sed -e "s/^version: //")
   mkdir -p "$DPM_HOME/cache/components/dpm/${dpm_version}" "$DPM_HOME/bin" "$DPM_HOME/cache/sdk/open-source"
   cp $dpm_bazel_path "$DPM_HOME/cache/components/dpm/${dpm_version}/dpm"
   # Create symlink for .dpm/bin, to match DPM's current behaviour
@@ -291,13 +286,13 @@ update_component() {
     echo "$(tput setaf 3)$progress_marker Installed JARs.$(tput sgr 0)"
   else
     # Find the OCI bazel target for the component as `package_oci_component` rule named `${component}-oci`
-    bazel_path=$(stdout_if_succeess bazel query "kind('package_oci_component', //...)" | grep "$target_name-oci")
+    bazel_path=$(stdout_if_success bazel query "kind('package_oci_component', //...)" | grep "$target_name-oci")
     echo "$(tput setaf 5)$progress_marker Building $bazel_path.$(tput sgr 0)"
     # Build target
     DAML_SDK_RELEASE_VERSION=$COMPONENT_VERSION chronic bazel build "${BAZEL_MODE_FLAGS[@]}" "$bazel_path"
     echo "$(tput setaf 5)$progress_marker Built $bazel_path.$(tput sgr 0)"
     # Find built tar and unpack to DPM component
-    output_path=$(stdout_if_succeess bazel cquery "${BAZEL_MODE_FLAGS[@]}" "$bazel_path" --output=files)
+    output_path=$(stdout_if_success bazel cquery "${BAZEL_MODE_FLAGS[@]}" "$bazel_path" --output=files)
     component_path="$DPM_HOME/cache/components/$target_name/$COMPONENT_VERSION"
     rm -rf $component_path
     mkdir -p "$component_path"
