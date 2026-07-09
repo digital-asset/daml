@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "generate_and_track_cabal")
-load("//rules_daml:daml.bzl", "generate_and_track_yaml_file")
 load(
     "//daml-lf:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
 )
+load("//rules_daml:daml.bzl", "generate_and_track_yaml_file")
 load(
     ":defs.bzl",
     "stable_packages",
@@ -63,8 +63,8 @@ da_haskell_binary(
         ),
         tools = [
             ":generate-stable-package",
-            "@libz//:libs",
             "@gmp//:libs",
+            "@libz//:libs",
         ],
     )
     for majorLfVersion in COMPILER_LF_MAJOR_VERSIONS

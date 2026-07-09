@@ -2,26 +2,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-    "//language-support/java/codegen:codegen.bzl",
-    "dar_to_java",
-)
-load(
     "//daml-lf:daml-lf.bzl",
     "lf_version_configuration",
     "mangle_for_damlc",
+    "mangle_for_java",
     "version_in",
 )
-load("//test-common:test-common.bzl", "da_scala_dar_resources_library")
-load("//test-common:test-common.bzl", "opts_get_lf_version")
+load(
+    "//language-support/java/codegen:codegen.bzl",
+    "dar_to_java",
+)
 load("//rules_daml:daml.bzl", "daml_compile", "default_damlc_opts")
-load("//daml-lf:daml-lf.bzl", "mangle_for_java")
+load("//test-common:test-common.bzl", "da_scala_dar_resources_library", "opts_get_lf_version")
 
 alias(
     name = "dar-files",
     actual = "dar-files-default",
 )
-
-load("//rules_daml:daml.bzl", "daml_compile", "default_damlc_opts")
 
 # TODO[23012]: elim hardcoded lf versions
 canonical_lf_versions = [

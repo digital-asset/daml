@@ -13,7 +13,6 @@ filegroup(
 py_binary(
     name = "ghc_packages.pin",
     srcs = ["pkgdb_to_lock.py"],
-    main = "pkgdb_to_lock.py",
     args = [
         "$(rlocationpath :ghc_install_tree)",
         "$(rlocationpath @ghc_bindist//:bindist_unpacked/configure)",
@@ -23,16 +22,17 @@ py_binary(
         "@ghc_bindist//:bindist_srcs",
         "@ghc_bindist//:bindist_unpacked/configure",
     ],
+    main = "pkgdb_to_lock.py",
     deps = ["@rules_python//python/runfiles"],
 )
 
 haskell_toolchain(
     name = "ghc",
+    docdir_path = "doc",
+    fully_static_link = False,
     libdir = ["//bazel/haskell/toolchain:ghc_install"],
     libraries = TOOLCHAIN_LIBRARIES,
-    docdir_path = "doc",
     static_runtime = False,
-    fully_static_link = False,
     tools = ["//bazel/haskell/toolchain:ghc_install"],
     version = "9.0.2",
 )
@@ -54,7 +54,6 @@ toolchain(
 py_test(
     name = "ghc_packages.check",
     srcs = ["pkgdb_to_lock.py"],
-    main = "pkgdb_to_lock.py",
     args = [
         "--check",
         "$(rlocationpath ghc_packages.lock.json)",
@@ -67,5 +66,6 @@ py_test(
         "@ghc_bindist//:bindist_srcs",
         "@ghc_bindist//:bindist_unpacked/configure",
     ],
+    main = "pkgdb_to_lock.py",
     deps = ["@rules_python//python/runfiles"],
 )

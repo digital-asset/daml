@@ -1,3 +1,4 @@
+load("@//bazel/haskell:ghc_lib_sdist.bzl", "ghc_lib_sdist")
 load(
     "@//bazel/versions:da_ghc.version.bzl",
     "GHC_CPP_OPTIONS",
@@ -5,7 +6,6 @@ load(
     "GHC_LIB_VERSION",
 )
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
-load("@//bazel/haskell:ghc_lib_sdist.bzl", "ghc_lib_sdist")
 
 filegroup(
     name = "hadrian-srcs",

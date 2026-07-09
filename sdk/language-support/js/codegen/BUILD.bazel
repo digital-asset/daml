@@ -1,6 +1,9 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools:pom_file.bzl", "pom_file")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
@@ -9,9 +12,6 @@ load(
     "scala_source_jar",
     "scaladoc_jar",
 )
-load("//bazel_tools:pom_file.bzl", "pom_file")
-load("@os_info//:os_info.bzl", "is_windows")
-load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 
 da_scala_binary(
     name = "codegen",
