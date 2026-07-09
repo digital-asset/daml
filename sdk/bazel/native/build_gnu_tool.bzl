@@ -67,7 +67,7 @@ def _build_gnu_tool_impl(ctx):
             'export PATH={}:"$PATH"'.format(":".join(path_entries)),
             m4_env_line,
             'cd "$SRC"',
-            './configure {}'.format(configure_flags),
+            "./configure {}".format(configure_flags),
             '"$MAKE" -j',
             'cp "{built}" "$EXECROOT/{out}"'.format(
                 built = ctx.attr.built_path,

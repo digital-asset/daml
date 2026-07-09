@@ -58,8 +58,8 @@ genrule(
       --proto script_service.proto --out "$$ORIGPWD/$(@D)"
   """,
     tools = [
-        "@proto3-suite//:compile-proto-file",
         "@libz//:libs",
+        "@proto3-suite//:compile-proto-file",
     ],
 )
 
@@ -99,8 +99,8 @@ genrule(
       --proto test_results.proto --out "$$ORIGPWD/$(@D)"
   """,
     tools = [
-        "@proto3-suite//:compile-proto-file",
         "@libz//:libs",
+        "@proto3-suite//:compile-proto-file",
     ],
 )
 
