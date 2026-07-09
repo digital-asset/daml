@@ -1,6 +1,9 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@build_environment//:configuration.bzl", "sdk_version")
+load("@os_info//:os_info.bzl", "is_linux_intel", "is_windows")
+load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
@@ -9,10 +12,6 @@ load(
     "da_scala_test_suite",
     "lf_scalacopts_stricter",
 )
-load("//bazel_tools:haskell.bzl", "da_haskell_test")
-load("@build_environment//:configuration.bzl", "sdk_version")
-load("@os_info//:os_info.bzl", "is_linux_intel", "is_windows")
-load("//rules_daml:daml.bzl", "daml_compile")
 load(
     "//daml-lf:daml-lf.bzl",
     "DEFAULT_LF_VERSION",
@@ -23,6 +22,7 @@ load(
     "mangle_for_damlc",
     "max_lf_version",
 )
+load("//rules_daml:daml.bzl", "daml_compile")
 
 [
     genrule(
@@ -79,11 +79,11 @@ EOF
             sdk = sdk_version,
         ),
         tools = [
-            "//compiler/damlc",
-            "@libz//:libs",
-            "@gmp//:libs",
-            "@bzip2//:libs",
             "//bazel/haskell/toolchain:libtinfo.so.5",
+            "//compiler/damlc",
+            "@bzip2//:libs",
+            "@gmp//:libs",
+            "@libz//:libs",
         ],
     )
     # TODO[#23010]: assess needs after moving 2.3 to stable
@@ -130,11 +130,11 @@ EOF
             sdk = sdk_version,
         ),
         tools = [
-            "//compiler/damlc",
-            "@libz//:libs",
-            "@gmp//:libs",
-            "@bzip2//:libs",
             "//bazel/haskell/toolchain:libtinfo.so.5",
+            "//compiler/damlc",
+            "@bzip2//:libs",
+            "@gmp//:libs",
+            "@libz//:libs",
         ],
     )
     for lf_version in [DEV_LF_VERSION]
@@ -178,11 +178,11 @@ EOF
             target = lfVersion,
         ),
         tools = [
-            "//compiler/damlc",
-            "@libz//:libs",
-            "@gmp//:libs",
-            "@bzip2//:libs",
             "//bazel/haskell/toolchain:libtinfo.so.5",
+            "//compiler/damlc",
+            "@bzip2//:libs",
+            "@gmp//:libs",
+            "@libz//:libs",
         ],
     )
     for lfVersion in [
@@ -264,11 +264,11 @@ EOF
         target = DEV_LF_VERSION,
     ),
     tools = [
-        "//compiler/damlc",
-        "@libz//:libs",
-        "@gmp//:libs",
-        "@bzip2//:libs",
         "//bazel/haskell/toolchain:libtinfo.so.5",
+        "//compiler/damlc",
+        "@bzip2//:libs",
+        "@gmp//:libs",
+        "@libz//:libs",
     ],
 )
 

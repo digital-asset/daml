@@ -31,9 +31,9 @@ genrule(
       --out $(RULEDIR)
   """,
     tools = [
-        "@proto3-suite//:compile-proto-file",
-        "@libz//:libs",
         "@gmp//:libs",
+        "@libz//:libs",
+        "@proto3-suite//:compile-proto-file",
     ],
 )
 

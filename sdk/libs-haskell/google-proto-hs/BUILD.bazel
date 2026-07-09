@@ -32,9 +32,9 @@ genrule(
         done
     """,
     tools = [
-        "@proto3-suite//:compile-proto-file",
-        "@libz//:libs",
         "@gmp//:libs",
+        "@libz//:libs",
+        "@proto3-suite//:compile-proto-file",
     ],
 )
 
@@ -73,8 +73,8 @@ genrule(
         done
     """,
     tools = [
-        "@proto3-suite//:compile-proto-file",
-        "@libz//:libs",
         "@gmp//:libs",
+        "@libz//:libs",
+        "@proto3-suite//:compile-proto-file",
     ],
 )
