@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -300,13 +300,14 @@ final class Conversions(
                     speedy.Pretty.prettyDamlException(interpretationError).render(80)
                   )
                 )
+              case _: ExternalCall =>
+                builder.setExternalCallError(
+                  proto.ScriptError.ExternalCallError.newBuilder.setMessage(
+                    speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                  )
+                )
               case err @ Dev(_, _) =>
                 builder.setCrash(s"Unexpected Dev error: " + err.toString)
-              // TODO[https://github.com/digital-asset/canton/issues/513]: implement external call
-              case e: ExternalCall =>
-                sys.error(
-                  s"ExternalCall detected in Conversions.scala. Value is: $e"
-                )
             }
         }
 
@@ -679,7 +680,7 @@ final class Conversions(
         }
         builder.setExercise(exerciseBuilder.build)
 
-      case lbk: Node.LookupByKey =>
+      case lbk: Node.QueryByKey =>
         nodeInfo.optLocation.foreach(loc => builder.setLocation(convertLocation(loc)))
         val lbkBuilder = proto.Node.LookupByKey.newBuilder
           .setTemplateId(convertIdentifier(lbk.templateId))
@@ -766,7 +767,7 @@ final class Conversions(
             .build
         )
 
-      case lookup: Node.LookupByKey =>
+      case lookup: Node.QueryByKey =>
         optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setLookupByKey({
           val builder = proto.Node.LookupByKey.newBuilder

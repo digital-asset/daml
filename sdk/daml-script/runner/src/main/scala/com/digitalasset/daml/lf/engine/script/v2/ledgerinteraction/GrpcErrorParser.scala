@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
@@ -94,7 +94,7 @@ object GrpcErrorParser {
         case (None, None, None) => None
         case (Some(globalKey), Some(packageName), Some(maintainers)) =>
           Some(
-            GlobalKeyWithMaintainers.assertBuild(
+            GlobalKeyWithMaintainers(
               templateId,
               globalKey,
               // This GlobalKeyWithMaintainers is only used for rendering errors, and that rendering ignores the hash.
@@ -149,7 +149,7 @@ object GrpcErrorParser {
             val templateId = Identifier.assertFromString(tid)
             val packageName = PackageName.assertFromString(pn)
             SubmitError.ContractKeyNotFound(
-              GlobalKey.assertBuild(
+              GlobalKey(
                 templateId,
                 packageName,
                 key,
@@ -195,7 +195,7 @@ object GrpcErrorParser {
             val packageName = PackageName.assertFromString(pn)
             SubmitError.DisclosedContractKeyHashingError(
               ContractId.assertFromString(cid),
-              GlobalKey.assertBuild(
+              GlobalKey(
                 templateId,
                 packageName,
                 key,
@@ -216,7 +216,7 @@ object GrpcErrorParser {
             val packageName = PackageName.assertFromString(pn)
             SubmitError.DuplicateContractKey(
               Some(
-                GlobalKey.assertBuild(
+                GlobalKey(
                   templateId,
                   packageName,
                   key,
@@ -253,7 +253,7 @@ object GrpcErrorParser {
             val templateId = Identifier.assertFromString(tid)
             val packageName = PackageName.assertFromString(pn)
             SubmitError.InconsistentContractKey(
-              GlobalKey.assertBuild(
+              GlobalKey(
                 templateId,
                 packageName,
                 key,
@@ -294,7 +294,7 @@ object GrpcErrorParser {
             val templateId = Identifier.assertFromString(tid)
             val packageName = PackageName.assertFromString(pn)
             SubmitError.FetchEmptyContractKeyMaintainers(
-              GlobalKey.assertBuild(
+              GlobalKey(
                 templateId,
                 packageName,
                 key,
@@ -487,6 +487,51 @@ object GrpcErrorParser {
                 (ErrorResource.CryptoValue, signature)
               ) =>
             SubmitError.CryptoError.MalformedSignature(signature, message)
+        }
+
+      case "INTERPRETATION_EXTERNAL_CALL_ERROR_PREPARATION_FAILED" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ExternalCallExtensionId, extensionId),
+                (ErrorResource.ExternalCallFunctionId, functionId),
+                (ErrorResource.ExceptionText, excMessage),
+              ) =>
+            SubmitError.ExternalCallError(
+              SubmitError.ExternalCallError.ErrorType.PreparationFailed,
+              extensionId,
+              functionId,
+              excMessage,
+            )
+        }
+
+      case "INTERPRETATION_EXTERNAL_CALL_ERROR_EXECUTION_FAILED" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ExternalCallExtensionId, extensionId),
+                (ErrorResource.ExternalCallFunctionId, functionId),
+                (ErrorResource.ExceptionText, excMessage),
+              ) =>
+            SubmitError.ExternalCallError(
+              SubmitError.ExternalCallError.ErrorType.ExecutionFailed,
+              extensionId,
+              functionId,
+              excMessage,
+            )
+        }
+
+      case "INTERPRETATION_EXTERNAL_CALL_ERROR_INVALID_OUTPUT" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ExternalCallExtensionId, extensionId),
+                (ErrorResource.ExternalCallFunctionId, functionId),
+                (ErrorResource.ExceptionText, excMessage),
+              ) =>
+            SubmitError.ExternalCallError(
+              SubmitError.ExternalCallError.ErrorType.InvalidOutput,
+              extensionId,
+              functionId,
+              excMessage,
+            )
         }
 
       case "INTERPRETATION_DEV_ERROR" =>

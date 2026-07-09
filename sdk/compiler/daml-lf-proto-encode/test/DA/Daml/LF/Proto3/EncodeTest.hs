@@ -1,4 +1,4 @@
--- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Proto3.EncodeTest (
@@ -6,6 +6,8 @@ module DA.Daml.LF.Proto3.EncodeTest (
 ) where
 
 
+import           Control.Exception                        (ErrorCall (..), evaluate, try)
+import           Data.List                                (isInfixOf)
 import qualified Data.Text.Lazy                           as TL
 import           Data.Vector                              (Vector, (!), singleton, empty)
 import           Text.Printf
@@ -17,8 +19,9 @@ import           DA.Daml.LF.Proto3.EncodeV2
 import           DA.Daml.LF.Proto3.Util
 
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as P
+import qualified Proto3.Suite                             as Proto
 
-import           Test.Tasty.HUnit                               (Assertion, testCase, assertBool, (@?=))
+import           Test.Tasty.HUnit                               (Assertion, assertFailure, testCase, assertBool, (@?=))
 import           Test.Tasty
 
 import           DA.Daml.LF.Proto3.WellInterned
@@ -377,11 +380,17 @@ exprInterningTests = testGroup "Expr tests (interning)"
   [ exprInterningVar
   , exprInterningVal
   , exprInterningBool
+  , exprExternalCall
+  , exprExternalCallUnsupported
   , exprInterningLocLam
   ]
 
 runEncodeExprTest :: Expr -> (P.Expr, EncodeTestEnv)
 runEncodeExprTest k = envToTestEnv <$> runEnc (encodeExpr' k)
+
+runEncodeExprTestWithVersion :: Version -> Expr -> (P.Expr, EncodeTestEnv)
+runEncodeExprTestWithVersion version k =
+  envToTestEnv <$> runEncode (initTestEncodeConfig version) initEncodeState (encodeExpr' k)
 
 exprInterningVar :: TestTree
 exprInterningVar =
@@ -412,6 +421,32 @@ exprInterningBool =
       assertInternedEnv e
       pe @?= peInterned 0
       iExprs ! 0 @?= peTrue
+
+exprExternalCall :: TestTree
+exprExternalCall =
+  let (pe, e@EncodeTestEnv{..}) = runEncodeExprTest $ EBuiltinFun BEExternalCall
+  in  testCase "EXTERNAL_CALL" $ do
+      assertInterned pe
+      assertInternedEnv e
+      pe @?= peInterned 0
+      iExprs ! 0 @?= peBuiltin P.BuiltinFunctionEXTERNAL_CALL
+
+exprExternalCallUnsupported :: TestTree
+exprExternalCallUnsupported =
+  testCase "EXTERNAL_CALL unsupported outside feature version range" $ do
+    result <- try (evaluate encodedBuiltin) :: IO (Either ErrorCall P.BuiltinFunction)
+    case result of
+      Left (ErrorCall msg)
+        | "does not support External Call" `isInfixOf` msg -> pure ()
+      other -> assertFailure $ "expected unsupported External Call encode error, but got: " <> show other
+  where
+    encodedBuiltin =
+      case iExprs ! 0 of
+        P.Expr _ (Just (P.ExprSumBuiltin (Proto.Enumerated (Right fun)))) -> fun
+        expr -> error $ "expected EXTERNAL_CALL builtin, but got: " <> show expr
+      where
+        (_, EncodeTestEnv{..}) =
+          runEncodeExprTestWithVersion version2_3 $ EBuiltinFun BEExternalCall
 
 mkIdLocLam :: Expr
 mkIdLocLam = ELocation loc1 $ mkETmLams [(x, TUnit)] (ELocation loc2 $ EVar x)

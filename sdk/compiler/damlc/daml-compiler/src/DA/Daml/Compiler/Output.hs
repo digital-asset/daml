@@ -1,4 +1,4 @@
--- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE GADTs #-}
 module DA.Daml.Compiler.Output
@@ -6,6 +6,7 @@ module DA.Daml.Compiler.Output
   , writeOutputBSL
   , diagnosticsLogger
   , hDiagnosticsLogger
+  , noopLogger
   , printDiagnostics
   ) where
 
@@ -64,3 +65,6 @@ hDiagnosticsLogger handle = NotificationHandler $ \m params -> case (m, params) 
     (LSP.STextDocumentPublishDiagnostics, LSP.PublishDiagnosticsParams (uriToFilePath' -> Just fp) _ (List diags)) ->
         printDiagnostics handle $ map (toNormalizedFilePath' fp,ShowDiag,) diags
     _ -> pure ()
+
+noopLogger :: NotificationHandler
+noopLogger = NotificationHandler $ \_ _ -> pure ()

@@ -1,4 +1,4 @@
--- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
@@ -104,6 +104,13 @@ convertPrim _ "BEEncodeHex" (TText :-> TText) =
     pure $ EBuiltinFun BEEncodeHex
 convertPrim _ "BEDecodeHex" (TText :-> TText) =
     pure $ EBuiltinFun BEDecodeHex
+convertPrim version "BEExternalCall" (TText :-> TText :-> TText :-> TText :-> TUpdate TText)
+    | not (version `supports` featureExternalCall) =
+        unsupportedFeature featureExternalCall version
+    | otherwise =
+    pure $ ETmLam (varV1, TText) $ ETmLam (varV2, TText) $ ETmLam (varV3, TText) $ ETmLam (varV4, TText) $
+        EUpdate $ UEmbedExpr TText $
+            EBuiltinFun BEExternalCall `ETmApp` EVar varV1 `ETmApp` EVar varV2 `ETmApp` EVar varV3 `ETmApp` EVar varV4
 convertPrim _ "BETextToParty" (TText :-> TOptional TParty) =
     pure $ EBuiltinFun BETextToParty
 convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =

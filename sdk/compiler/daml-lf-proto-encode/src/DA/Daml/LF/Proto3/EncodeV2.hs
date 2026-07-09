@@ -1,4 +1,4 @@
--- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -526,6 +526,9 @@ encodeBuiltinExpr = \case
     BEKecCak256Text -> builtin P.BuiltinFunctionKECCAK256_TEXT
     BEEncodeHex -> builtin P.BuiltinFunctionTEXT_TO_HEX
     BEDecodeHex -> builtin P.BuiltinFunctionHEX_TO_TEXT
+    BEExternalCall -> do
+      assertSupportsFeature featureExternalCall
+      builtin P.BuiltinFunctionEXTERNAL_CALL
     BESecp256k1Bool -> builtin P.BuiltinFunctionSECP256K1_BOOL
     BESecp256k1WithEcdsaBool -> builtin P.BuiltinFunctionSECP256K1_WITH_ECDSA_BOOL
     BESecp256k1ValidateKey -> builtin P.BuiltinFunctionSECP256K1_VALIDATE_KEY

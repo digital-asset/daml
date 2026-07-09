@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -355,7 +355,7 @@ class IdeLedgerClient(
         SubmitError.CreateEmptyContractKeyMaintainers(tid, arg)
       case FetchEmptyContractKeyMaintainers(tid, keyValue, packageName) =>
         SubmitError.FetchEmptyContractKeyMaintainers(
-          GlobalKey.assertBuild(
+          GlobalKey(
             tid,
             packageName,
             keyValue,
@@ -425,10 +425,24 @@ class IdeLedgerClient(
           innerError.getClass.getSimpleName,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
-      // TODO[https://github.com/digital-asset/canton/issues/513]: implement external call
-      case e: ExternalCall =>
-        sys.error(
-          s"ExternalCall detected in IdeLedgerClient. Value is: $e"
+      case e @ ExternalCall(innerError: ExternalCall.PreparationFailed) =>
+        SubmitError.ExternalCallError(
+          SubmitError.ExternalCallError.ErrorType.PreparationFailed,
+          innerError.extensionId,
+          innerError.functionId,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
+      case e @ ExternalCall(innerError: ExternalCall.ExecutionFailed) =>
+        SubmitError.ExternalCallError(
+          innerError.error match {
+            case _: ExternalCall.ExecutionFailed.CallFailed =>
+              SubmitError.ExternalCallError.ErrorType.ExecutionFailed
+            case _: ExternalCall.ExecutionFailed.InvalidOutput =>
+              SubmitError.ExternalCallError.ErrorType.InvalidOutput
+          },
+          innerError.extensionId,
+          innerError.functionId,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
     }
   }
@@ -796,7 +810,7 @@ class IdeLedgerClient(
                     exercise.children.collect(Function.unlift(convEvent(_, None))).toList,
                   )
                 )
-              case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback => None
+              case _: Node.Fetch | _: Node.QueryByKey | _: Node.Rollback => None
             }
           val tree = ScriptLedgerClient.TransactionTree(
             transaction.roots.toList

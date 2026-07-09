@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine.script
@@ -41,6 +41,7 @@ class DamlScriptTestRunnerDev extends DamlScriptTestRunner {
            |Submit:contractNotActive ${expectedContractNotActiveResponse}
            |Submit:createEmptyContractKeyMaintainers SUCCESS
            |Submit:devError SUCCESS
+           |Submit:externalCallPreparationFailed SUCCESS
            |Submit:failureStatusError SUCCESS
            |Submit:fetchEmptyContractKeyMaintainers SUCCESS
            |Submit:prefetchContractKeys SUCCESS

@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -8,6 +8,7 @@ package test
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.transaction.{
+  ExternalCallResult,
   GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
@@ -302,12 +303,34 @@ object ValueGenerators {
     for {
       key <- valueGen()
       maintainers <- genNonEmptyParties
-      gkey = GlobalKey
-        .build(templateId, packageName, key, crypto.Hash.hashPrivateKey(key.toString))
-        .toOption
-      if gkey.isDefined
+      gkey = Some(GlobalKey(templateId, packageName, key, crypto.Hash.hashPrivateKey(key.toString)))
     } yield GlobalKeyWithMaintainers(gkey.get, maintainers)
   }
+
+  val externalCallResultGen: Gen[ExternalCallResult] =
+    for {
+      extensionId <- Gen.alphaNumStr.suchThat(_.nonEmpty).map(_.take(50))
+      functionId <- Gen.alphaNumStr.suchThat(_.nonEmpty).map(_.take(50))
+      config <- Gen.listOf(arbitrary[Byte]).map(bytes => Bytes.fromByteArray(bytes.toArray))
+      input <- Gen.listOf(arbitrary[Byte]).map(bytes => Bytes.fromByteArray(bytes.toArray))
+      output <- Gen.listOf(arbitrary[Byte]).map(bytes => Bytes.fromByteArray(bytes.toArray))
+    } yield ExternalCallResult(
+      extensionId = extensionId,
+      functionId = functionId,
+      config = config,
+      input = input,
+      output = output,
+    )
+
+  def externalCallResultsGen(
+      version: SerializationVersion
+  ): Gen[ImmArray[ExternalCallResult]] =
+    if (version < SerializationVersion.minExternalCallResults)
+      Gen.const(ImmArray.empty[ExternalCallResult])
+    else
+      Gen
+        .listOf(externalCallResultGen)
+        .map(results => ImmArray.from(results.take(5)))
 
   /** Makes create nodes that violate the rules:
     *
@@ -436,6 +459,7 @@ object ValueGenerators {
       byKey <-
         if (version < SerializationVersion.minContractKeys) Gen.const(false)
         else Gen.oneOf(true, false)
+      externalCallResults <- externalCallResultsGen(version)
     } yield Node.Exercise(
       targetCoid = targetCoid,
       packageName = pkgName,
@@ -453,25 +477,25 @@ object ValueGenerators {
       exerciseResult = exerciseResult,
       keyOpt = key,
       byKey = byKey,
+      externalCallResults = externalCallResults,
       version = version,
-      // TODO[https://github.com/digital-asset/canton/issues/513]: intergrate with EC proposal
-      externalCallResults = ImmArray.empty,
     )
 
-  val lookupNodeGen: Gen[Node.LookupByKey] =
+  val lookupNodeGen: Gen[Node.QueryByKey] =
     for {
       version <- SerializationVersionGen()
-      targetCoid <- coidGen
       pkgName <- pkgNameGen
       templateId <- idGen
       key <- keyWithMaintainersGen(templateId, pkgName)
-      result <- Gen.option(targetCoid)
-    } yield Node.LookupByKey(
+      result <- Gen.listOf(coidGen)
+      exhaustive <- Gen.oneOf(true, false)
+    } yield Node.QueryByKey(
       packageName = pkgName,
-      templateId,
-      key,
-      result,
-      version,
+      templateId = templateId,
+      exhaustive = exhaustive,
+      key = key,
+      result = result.toVector,
+      version = version,
     )
 
   /** Makes nodes with the problems listed under `malformedCreateNodeGen`, and

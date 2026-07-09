@@ -1,4 +1,4 @@
--- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -127,6 +127,9 @@ module Daml.Script
   , secp256k1sign
   , secp256k1signWithEcdsaOnly
   , CryptoErrorType (..)
+
+  -- External call features
+  , ExternalCallErrorType (..)
 
   , -- Upgrades features
     PackageId (..)
