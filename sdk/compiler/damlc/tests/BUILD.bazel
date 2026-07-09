@@ -1,13 +1,13 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
-load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
-load(":util.bzl", "damlc_compile_test")
-load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_and_track_dar_hash_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION", "STAGING_LF_VERSION", "mangle_for_damlc")
+load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
+load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION", "STAGING_LF_VERSION", "mangle_for_damlc")
+load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_and_track_dar_hash_file")
+load(":util.bzl", "damlc_compile_test")
 
 # A REPL with all tests, used as bios for HLS
 da_haskell_repl(
@@ -830,13 +830,6 @@ damlc_compile_test(
 da_haskell_binary(
     name = "generate-package-pattern-match",
     srcs = ["src/DA/Test/GeneratePackagePatternMatch.hs"],
-    # GHC's ghc-bignum declares `extra-libraries: gmp`, so every
-    # HaskellLinkBinary emits `-lgmp`. This target only uses toolchain-library
-    # hackage_deps (base, directory, filepath) and so does not pick up `@gmp`
-    # transitively through stackage's per-package `extra_deps` wiring in
-    # MODULE.bazel. Add it directly so the hermetic sysroot can satisfy
-    # `-lgmp` at link time and propagate libgmp.so into the binary's runfiles.
-    deps = ["@gmp//:gmp_cc_lib"],
     hackage_deps = [
         "base",
         "directory",
@@ -844,6 +837,13 @@ da_haskell_binary(
     ],
     main_function = "DA.Test.GeneratePackagePatternMatch.main",
     src_strip_prefix = "src",
+    # GHC's ghc-bignum declares `extra-libraries: gmp`, so every
+    # HaskellLinkBinary emits `-lgmp`. This target only uses toolchain-library
+    # hackage_deps (base, directory, filepath) and so does not pick up `@gmp`
+    # transitively through stackage's per-package `extra_deps` wiring in
+    # MODULE.bazel. Add it directly so the hermetic sysroot can satisfy
+    # `-lgmp` at link time and propagate libgmp.so into the binary's runfiles.
+    deps = ["@gmp//:gmp_cc_lib"],
 )
 
 # This is an SH test since damlc_compile_test does not support packages so far.
@@ -939,9 +939,9 @@ sh_test(
         "$(rootpath //test-common:model-tests-default.dar)",
     ],
     data = [
+        "//bazel_tools:jq_bin",
         "//compiler/damlc",
         "//test-common:model-tests-default.dar",
-        "//bazel_tools:jq_bin",
     ],
     toolchains = [
         "@rules_sh//sh/posix:make_variables",

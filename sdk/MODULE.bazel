@@ -5,7 +5,9 @@ module(
 
 bazel_dep(name = "bazel_jar_jar", version = "0.1.14")
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
+
 bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = True)
+
 bazel_dep(name = "gazelle", version = "0.47.0")
 bazel_dep(name = "google_bazel_common", version = "0.0.1")
 bazel_dep(name = "grpc", version = "1.75.0")
@@ -18,13 +20,13 @@ bazel_dep(name = "protobuf", version = "25.6")
 bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "rules_go", version = "0.59.0")
 bazel_dep(name = "rules_haskell", version = "1.0")
-
 bazel_dep(name = "rules_java", version = "9.5.0")
 bazel_dep(name = "rules_jvm_external", version = "6.10")
 bazel_dep(name = "rules_perl", version = "1.1.0")
 bazel_dep(name = "rules_pkg", version = "1.2.0")
 bazel_dep(name = "rules_proto", version = "6.0.0")
 bazel_dep(name = "rules_python", version = "1.4.1")
+
 # TODO: Verify if rules_scala can be upgraded past 7.1.2 (last version supporting scala 2.13.16)
 bazel_dep(name = "rules_scala", version = "7.1.2")
 bazel_dep(name = "rules_sh", version = "0.5.0")
@@ -62,15 +64,23 @@ jq_toolchains_ext = use_extension("@jq.bzl//jq:extensions.bzl", "toolchains")
 use_repo(jq_toolchains_ext, "jq_toolchains")
 
 llvm_toolchain_ext = use_extension("@llvm//extensions:toolchain.bzl", "toolchain")
-llvm_toolchain_ext.exec(arch = "x86_64", os = "linux")
-llvm_toolchain_ext.target(arch = "x86_64", os = "linux")
+llvm_toolchain_ext.exec(
+    arch = "x86_64",
+    os = "linux",
+)
+llvm_toolchain_ext.target(
+    arch = "x86_64",
+    os = "linux",
+)
 use_repo(llvm_toolchain_ext, "llvm_toolchains")
 
 llvm_source = use_extension("@llvm//extensions:llvm_source.bzl", "llvm_source")
 llvm_source.version(llvm_version = "22.1.8")
 
 register_toolchains("@bsd_tar_toolchains//:all")
+
 register_toolchains("@llvm_toolchains//:all")
+
 register_toolchains("//:c2hs-toolchain")
 
 # --- Hermetic GNU make ---
@@ -82,6 +92,7 @@ use_repo(make_ext, "make")
 node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node")
 node.toolchain(node_version = "18.12.1")
 use_repo(node, "nodejs_darwin_amd64", "nodejs_darwin_arm64", "nodejs_linux_amd64", "nodejs_toolchains")
+
 register_toolchains("@nodejs_toolchains//:all")
 
 # --- TypeScript compiler ---
@@ -136,7 +147,10 @@ use_repo(
     "rules_haskell_ghc_windows_amd64",
 )
 
-inject_repo(haskell_toolchains_ext, rules_haskell_hermetic_python = "python_3_12")
+inject_repo(
+    haskell_toolchains_ext,
+    rules_haskell_hermetic_python = "python_3_12",
+)
 
 da_ghc_ext = use_extension("//bazel/haskell:da_ghc_extension.bzl", "da_ghc")
 use_repo(da_ghc_ext, "da-ghc", "ghc-lib-gen")
@@ -176,20 +190,22 @@ stack_snapshot_ext = use_extension(
 use_repo(stack_snapshot_ext, "stackage", "stackage-exe")
 
 stack_snapshot_ext.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
-
 stack_snapshot_ext.stack_snapshot_json(
     label = "//:stackage_snapshot.json",
-    os = ["linux", "osx"],
+    os = [
+        "linux",
+        "osx",
+    ],
 )
 stack_snapshot_ext.stack_snapshot_json(
     label = "//:stackage_snapshot_windows.json",
     os = ["windows"],
 )
-
 stack_snapshot_ext.package(
     name = "lsp-types",
     vendored = "@lsp-types//:lsp-types",
 )
+
 HASKELL_PACKAGES = [
     # Core / GHC base
     "array",
@@ -416,12 +432,18 @@ HASKELL_TRANSITIVE_GMP_PACKAGES = [
 ]
 
 [
-    stack_snapshot_ext.package(name = pkg, extra_deps = GMP_DEPS)
+    stack_snapshot_ext.package(
+        name = pkg,
+        extra_deps = GMP_DEPS,
+    )
     for pkg in HASKELL_PACKAGES
 ]
 
 [
-    stack_snapshot_ext.package(name = pkg, extra_deps = GMP_DEPS)
+    stack_snapshot_ext.package(
+        name = pkg,
+        extra_deps = GMP_DEPS,
+    )
     for pkg in HASKELL_TRANSITIVE_GMP_PACKAGES
 ]
 
@@ -471,7 +493,6 @@ stack_snapshot_ext.package(
         "@bzip2//:bz2_cc_lib",
     ],
 )
-
 stack_snapshot_ext.package(
     name = "xml-conduit",
     extra_deps = GMP_DEPS,
@@ -494,7 +515,6 @@ stack_snapshot_ext.package(
     name = "cabal-doctest",
     extra_deps = GMP_DEPS,
 )
-
 stack_snapshot_ext.package(
     name = "ghc-lib",
     vendored = "//bazel/haskell/ghc-lib/ghc-lib",
@@ -542,7 +562,10 @@ stack_snapshot_ext.package(
 )
 stack_snapshot_ext.package(
     name = "hlint",
-    components = ["lib", "exe"],
+    components = [
+        "lib",
+        "exe",
+    ],
     extra_deps = GMP_DEPS,
 )
 stack_snapshot_ext.package(
@@ -573,50 +596,88 @@ use_repo(
     scala_deps_ext,
     "io_bazel_rules_scala_scala_compiler",
     "io_bazel_rules_scala_scala_library",
-    "io_bazel_rules_scala_scala_reflect",
     "io_bazel_rules_scala_scala_parser_combinators",
+    "io_bazel_rules_scala_scala_reflect",
 )
 
 # --- Maven version constants ---
 
 CANTON_VERSION = "3.6.0-snapshot.20260706.19528.0.v9fca8049"
+
 AUTH0_JWT_VERSION = "4.2.1"
+
 SHAPELESS_VERSION = "2.4.0-M1"
+
 SCOPT_VERSION = "4.1.0"
+
 SCALA_LOGGING_VERSION = "3.9.5"
+
 PROTO_GOOGLE_COMMON_PROTOS_VERSION = "2.59.2"
+
 JSR305_VERSION = "3.0.2"
+
 GSON_VERSION = "2.11.0"
+
 GUAVA_VERSION = "33.3.0-jre"
+
 PROTOBUF_JAVA_VERSION = "3.25.5"
+
 GRPC_JAVA_MAVEN_VERSION = "1.77.0"
+
 OJDBC_VERSION = "19.18.0.0"
+
 SPARK_CORE_VERSION = "2.9.4"
+
 JAVAPOET_VERSION = "1.13.0"
+
 SCALAPB_COMMON_PROTOS_VERSION = "2.9.6-0"
+
 SCALAPB_VERSION = "0.11.14"
+
 SCALAPB_PROTOC_VERSION = "0.9.5"
+
 CIRCE_CORE_VERSION = "0.14.5"
+
 CIRCE_OPTICS_VERSION = "0.15.0"
+
 CIRCE_YAML_VERSION = "0.15.0-RC1"
+
 RXJAVA_VERSION = "2.2.21"
+
 SPRAY_JSON_VERSION = "1.3.6"
+
 JAVAX_ANNOTATION_VERSION = "1.3.2"
+
 LOGBACK_VERSION = "1.5.3"
+
 SLF4J_VERSION = "2.0.17"
+
 MONOCLE_VERSION = "3.2.0"
+
 PEKKO_VERSION = "1.2.1"
+
 JUNIT_JUPITER_VERSION = "5.9.2"
+
 JUNIT_PLATFORM_VERSION = "1.9.2"
+
 SCALACHECK_VERSION = "1.15.4"
+
 SCALATEST_VERSION = "3.2.19"
+
 SCALATESTPLUS_VERSION = "3.2.11.0"
+
 SCALAZ_VERSION = "7.2.33"
+
 CATS_VERSION = "2.9.0"
+
 PAIGES_VERSION = "0.4.2"
+
 DOOBIE_VERSION = "0.13.4"
+
 KIND_PROJECTOR_VERSION = "0.13.3"
+
 WARTREMOVER_VERSION = "3.2.5"
+
 JLINE_VERSION = "3.27.1"
 
 # --- Maven / JVM dependencies ---
@@ -804,6 +865,7 @@ maven_ext.install(
         "https://europe-maven.pkg.dev/da-images/public-maven-unstable",
     ],
 )
+
 # Counter-overrides for io.grpc:* coordinates.
 # The grpc-java BCR module (@@grpc-java~), which is a transitive dep via
 # googleapis~ → grpc~, provides maven.override() calls that redirect all
@@ -874,19 +936,19 @@ maven_ext.override(
 )
 maven_ext.override(
     coordinates = "org.scala-lang:scala-compiler",
-    target = "@io_bazel_rules_scala_scala_compiler//:io_bazel_rules_scala_scala_compiler",
+    target = "@io_bazel_rules_scala_scala_compiler",
 )
 maven_ext.override(
     coordinates = "org.scala-lang:scala-library",
-    target = "@io_bazel_rules_scala_scala_library//:io_bazel_rules_scala_scala_library",
+    target = "@io_bazel_rules_scala_scala_library",
 )
 maven_ext.override(
     coordinates = "org.scala-lang:scala-reflect",
-    target = "@io_bazel_rules_scala_scala_reflect//:io_bazel_rules_scala_scala_reflect",
+    target = "@io_bazel_rules_scala_scala_reflect",
 )
 maven_ext.override(
     coordinates = "org.scala-lang.modules:scala-parser-combinators",
-    target = "@io_bazel_rules_scala_scala_parser_combinators//:io_bazel_rules_scala_scala_parser_combinators",
+    target = "@io_bazel_rules_scala_scala_parser_combinators",
 )
 use_repo(maven_ext, "maven")
 
@@ -950,6 +1012,7 @@ use_repo(m4_ext, "m4")
 
 autoconf_ext = use_extension("//bazel/native:autoconf_extension.bzl", "autoconf")
 use_repo(autoconf_ext, "autoconf")
+
 automake_ext = use_extension("//bazel/native:automake_extension.bzl", "automake")
 use_repo(automake_ext, "automake")
 

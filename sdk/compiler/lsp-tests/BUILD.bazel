@@ -1,8 +1,8 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
 load(
     "//rules_daml:daml.bzl",
     "daml_compile",

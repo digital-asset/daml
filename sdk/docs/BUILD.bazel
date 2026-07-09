@@ -1,10 +1,9 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@os_info//:os_info.bzl", "is_windows")
-load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_multi_package_test", "daml_test")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@build_environment//:configuration.bzl", "sdk_version")
+load("@os_info//:os_info.bzl", "is_windows")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@scala_version//:index.bzl", "scala_major_version")
 load("//bazel_tools:scala.bzl", "da_scala_test")
 load(
@@ -14,6 +13,8 @@ load(
     "LATEST_STABLE_LF_VERSION",
     "STAGING_LF_VERSION",
 )
+load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
+load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_multi_package_test", "daml_test")
 
 genrule(
     name = "hoogle_db",
@@ -276,8 +277,6 @@ genrule(
     tools = ["//bazel_tools/sh:mktgz"],
 )
 
-load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
-
 genrule(
     name = "quickstart-model",
     srcs = [
@@ -311,11 +310,11 @@ EOF
       rm -rf $$TMP_DIR
     """.format(sdk = sdk_version),
     tools = [
-        "//compiler/damlc",
-        "@libz//:libs",
-        "@gmp//:libs",
-        "@bzip2//:libs",
         "//bazel/haskell/toolchain:libtinfo.so.5",
+        "//compiler/damlc",
+        "@bzip2//:libs",
+        "@gmp//:libs",
+        "@libz//:libs",
     ],
 )
 
@@ -360,7 +359,10 @@ daml_test(
 
 daml_test(
     name = "bindings-java-daml-test",
-    srcs = glob(["source/sdk/sdlc-howtos/applications/integrate/bindings-java/code-snippets/**/*.daml"], allow_empty = True),
+    srcs = glob(
+        ["source/sdk/sdlc-howtos/applications/integrate/bindings-java/code-snippets/**/*.daml"],
+        allow_empty = True,
+    ),
     additional_compiler_flags = [
         "-Wupgrade-interfaces",
         "-Wupgrade-exceptions",
@@ -388,7 +390,10 @@ pkg_tar(
 
 daml_test(
     name = "daml-studio-daml-test",
-    srcs = glob(["source/sdk/component-howtos/smart_contracts/daml-studio/daml/**/*.daml"], allow_empty = True),
+    srcs = glob(
+        ["source/sdk/component-howtos/smart_contracts/daml-studio/daml/**/*.daml"],
+        allow_empty = True,
+    ),
     deps = ["//daml-script/daml:daml-script.dar"],
 )
 
@@ -441,7 +446,10 @@ daml_test(
 
 daml_test(
     name = "java-bindings-docs-daml-test",
-    srcs = glob(["source/sdk/sdlc-howtos/applications/integrate/bindings-java/daml/**/*.daml"], allow_empty = True),
+    srcs = glob(
+        ["source/sdk/sdlc-howtos/applications/integrate/bindings-java/daml/**/*.daml"],
+        allow_empty = True,
+    ),
 )
 
 daml_test(
