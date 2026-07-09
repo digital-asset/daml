@@ -8,13 +8,13 @@ module DamlcTest
 
 import Data.List.Extra (isInfixOf, isPrefixOf)
 import System.Directory
-import System.Environment.Blank
 import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
+import Test.Tasty.Runners (NumThreads (..))
 import qualified "zip-archive" Codec.Archive.Zip as ZA
 import qualified Data.ByteString.Lazy as BSL (readFile,writeFile)
 import qualified Data.ByteString.Lazy.Char8 as BSL (pack)
@@ -27,10 +27,9 @@ import ComponentVersion (ComponentVersioned, componentVersionString, withCompone
 
 main :: IO ()
 main = withComponentVersions $ do
-    setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
-    defaultMain (tests damlc scriptDar)
+    withJavaInPath $ defaultMain (localOption (NumThreads 1) (tests damlc scriptDar))
 
 
 tests :: ComponentVersioned => FilePath -> FilePath -> TestTree

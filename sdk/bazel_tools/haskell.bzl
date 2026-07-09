@@ -192,6 +192,7 @@ def da_haskell_test(main_function = "Main.main", testonly = True, **kwargs):
         )
         ```
     """
+
     # Link the environ/__environ startup fix so tests that spawn subprocesses
     # (e.g. damlc) inherit a real environment; without it RUNFILES_DIR is empty
     # in the child and its runfiles lookup fails. See //bazel_tools/environ_fix.

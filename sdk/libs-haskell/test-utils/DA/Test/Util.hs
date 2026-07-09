@@ -15,6 +15,7 @@ module DA.Test.Util (
     withDevNull,
     assertFileExists,
     assertFileDoesNotExist,
+    withJavaInPath,
     limitJvmMemory,
     defaultJvmMemoryLimits,
     JvmMemoryLimits(..),
@@ -28,9 +29,12 @@ import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Data.List.Extra (isInfixOf)
 import qualified Data.Text as T
 import System.Directory
+import System.FilePath (searchPathSeparator, (</>))
 import System.IO.Extra
 import System.Info.Extra
 import System.Environment.Blank
+
+import DA.Bazel.Runfiles (locateRunfiles, mainWorkspace)
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified UnliftIO.Exception as Unlift
@@ -131,6 +135,17 @@ withEnv vs m = Unlift.bracket (liftIO pushEnv) (liftIO . popEnv) (const m)
                     Nothing -> unsetEnv key
                     Just val -> setEnv key val True
                 pure (key, oldVal)
+
+-- Prepend the hermetic JDK to PATH (an existing var) rather than setting a new
+-- var like JAVA_HOME: under hermetic glibc a new-var setenv reallocs __environ,
+-- desyncing it from the executable's environ, so children wouldn't see it.
+withJavaInPath :: MonadUnliftIO m => m t -> m t
+withJavaInPath act = do
+    javaBin <- liftIO $ do
+        f <- locateRunfiles (mainWorkspace </> "java_rlocation_path.txt")
+        locateRunfiles . head . lines =<< readFile' f
+    oldPath <- liftIO $ getEnv "PATH"
+    withEnv [("PATH", Just (javaBin <> maybe "" ([searchPathSeparator] <>) oldPath))] act
 
 assertFileExists :: FilePath -> IO ()
 assertFileExists file = doesFileExist file >>= assertBool (file ++ " was expected to exist, but does not exist")
