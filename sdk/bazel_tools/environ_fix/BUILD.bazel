@@ -1,0 +1,19 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//bazel_tools:cc_bundle.bzl", "cc_bundle")
+
+# Startup fix for the hermetic-glibc environ/__environ split (see environ_fix.c).
+# Linked into Haskell binaries/tests that spawn subprocesses so env inheritance
+# (RUNFILES_DIR etc.) works. cc_bundle merges it into a self-contained shared lib
+# (with alwayslink, so the constructor survives) that rules_haskell links cleanly.
+cc_bundle(
+    name = "environ_fix",
+    lib = ":environ_fix_lib",
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "environ_fix_lib",
+    srcs = ["environ_fix.c"],
+    linkopts = ["-ldl"],
+    alwayslink = True,
+)
