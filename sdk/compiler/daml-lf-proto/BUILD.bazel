@@ -38,8 +38,8 @@ genrule(
               ],
           ),
     tools = [
-        "@proto3-suite//:compile-proto-file",
         "@libz//:libs",
+        "@proto3-suite//:compile-proto-file",
     ],
 )
 

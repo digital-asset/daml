@@ -1,11 +1,11 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
+load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "version_in")
-load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@os_info//:os_info.bzl", "is_windows")
 
 _damlc = attr.label(
     default = Label("//compiler/damlc:damlc-compile-only"),

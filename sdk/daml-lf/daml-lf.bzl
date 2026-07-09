@@ -1,9 +1,9 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@os_info//:os_info.bzl", "is_intel")
-load("@daml_versions_data//:data.bzl", "DATA")
 load("@daml_features_data//:data.bzl", FEATURES_DATA = "DATA")
+load("@daml_versions_data//:data.bzl", "DATA")
+load("@os_info//:os_info.bzl", "is_intel")
 
 # Helper to convert "defaultLfVersion" -> "DEFAULT_LF_VERSION"
 def _camel_to_upper_snake(text):

@@ -50,6 +50,7 @@ def _haskell_hlint_aspect_impl(target, ctx):
     if len(inputFiles) == 0:
         return []
     output = ctx.actions.declare_file(target.label.name + ".html")
+
     # `--no-exit-code` keeps HLint from failing the build on every reported
     # idea. Required while the snapshot pins ghc-lib-parser-ex 8.8.5.8 against
     # an LTS-19 (GHC 9.0.2) codebase: the older parser misreads modern
