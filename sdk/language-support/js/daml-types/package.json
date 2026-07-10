@@ -15,8 +15,8 @@
     "url": "https://github.com/digital-asset/daml.git",
     "directory": "language-support/js/daml-types"
   },
-  "main": "index.js",
-  "types": "index.d.ts",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "license": "Apache-2.0",
   "dependencies": {
     "@mojotech/json-type-validation": "^3.1.0",
