@@ -1,0 +1,50 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module PartyRoles where
+
+import Daml.Script
+
+-- ASSET_BEGIN
+template Asset
+  with
+    issuer : Party   -- Will be signatory
+    owner : Party    -- Will be observer and controller
+    auditor : Party  -- Will be observer
+  where
+    signatory issuer        -- Must authorize creation; always sees contract
+    observer owner, auditor -- Can see contract
+
+    choice ChangeOwner : ContractId Asset
+      with newOwner : Party
+      controller owner      -- Only owner can exercise this choice
+      do create this with owner = newOwner
+-- ASSET_END
+
+test_party_roles = script do
+  issuer <- allocateParty "Issuer"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  auditor <- allocateParty "Auditor"
+
+  assetCid <- submit issuer do
+    createCmd Asset with
+      issuer = issuer
+      owner = alice
+      auditor = auditor
+
+  Some _ <- queryContractId alice assetCid
+  Some _ <- queryContractId auditor assetCid
+
+  newCid <- submit alice do
+    exerciseCmd assetCid ChangeOwner with newOwner = bob
+
+  Some asset <- queryContractId issuer newCid
+  assert (asset.owner == bob)
+
+  submitMustFail issuer do
+    exerciseCmd newCid ChangeOwner with newOwner = alice
+
+  submitMustFail auditor do
+    exerciseCmd newCid ChangeOwner with newOwner = alice
