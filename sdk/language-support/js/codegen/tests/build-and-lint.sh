@@ -18,7 +18,9 @@ else
     TMP_DIR="$BUILD_AND_LINT_TMP_DIR"
     rm -rf $TMP_DIR && mkdir -p $TMP_DIR
 fi
-export PNPM_STORE_DIR=$TMP_DIR/pnpm-store
+export npm_config_store_dir=$TMP_DIR/pnpm-store
+# Flat node_modules so tsc/eslint resolve transitive @types + file:-linked deps.
+export npm_config_node_linker=hoisted
 echo "Temp directory : $TMP_DIR"
 
 # --- begin runfiles.bash initialization v2 ---
@@ -61,7 +63,8 @@ cd $TMP_DIR
 $CODEGEN_JS -o daml2js -V 2 $DAR
 PATH=$PATH:$GRPCURL
 
-# Build, lint, test.
+# Build, lint, test. pnpm (rules_js js_binary) needs BAZEL_BINDIR set outside a build action.
+export BAZEL_BINDIR=.
 cd build-and-lint-test
 $PNPM install --no-frozen-lockfile > /dev/null
 $PNPM run build
