@@ -62,6 +62,8 @@ npm_package(
         ":versioned_package_json",
     ],
     package = "@daml/types",
+    # Rename to package.json (jq can't output that name — collides with the source).
+    replace_prefixes = {"versioned_package_json.json": "package.json"},
 )
 
 jest_test(
