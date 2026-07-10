@@ -31,6 +31,7 @@ fi
 TAR=$(find "${RUNFILES_DIR}" -maxdepth 2 -name "tar")
 
 $TAR \
+  --format=gnutar \
   --owner=0 \
   --group=0 \
   --numeric-owner \
