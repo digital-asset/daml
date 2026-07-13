@@ -12,9 +12,16 @@
 
 extern char **environ;
 
-__attribute__((constructor)) static void da_fix_environ(void) {
+// Callable so a test that setenv's a NEW variable at runtime (which can realloc
+// __environ, leaving the copy-relocated `environ` pointing at the old array) can
+// re-sync before reading the environment back via getEnvironment.
+void da_fix_environ(void) {
     char ***real = (char ***)dlsym(RTLD_DEFAULT, "__environ");
     if (real != (char ***)0) {
         environ = *real;
     }
+}
+
+__attribute__((constructor)) static void da_fix_environ_ctor(void) {
+    da_fix_environ();
 }
