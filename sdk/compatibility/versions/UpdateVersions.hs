@@ -42,7 +42,7 @@ headVersion = DPMVersion SemVer.initial
 -- We include this here so buildifier does not modify this file.
 copyrightHeader :: [Text]
 copyrightHeader =
-    [ "# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved."
+    [ "# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved."
     , "# SPDX-License-Identifier: Apache-2.0"
     ]
 
