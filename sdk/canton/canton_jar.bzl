@@ -3,13 +3,13 @@
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("//canton:canton_version.bzl", "CANTON_OPEN_SOURCE_SHA", "CANTON_OPEN_SOURCE_TAG", "LOCAL_CANTON_OVERRIDE")
+load("//canton:canton_version.bzl", "CANTON_OPEN_SOURCE_SHA", "CANTON_OPEN_SOURCE_TAG", "LOCAL_CANTON_PATH")
 
 def local_canton_repo():
-    if LOCAL_CANTON_OVERRIDE != None:
+    if LOCAL_CANTON_PATH != None:
         native.new_local_repository(
             name = "canton_local",
-            path = LOCAL_CANTON_OVERRIDE,
+            path = LOCAL_CANTON_PATH,
             build_file_content = """
 filegroup(
   name = "bundle.jar",
@@ -38,7 +38,7 @@ def _canton_bucket(tag):
     return "public"
 
 def canton_jar():
-    if LOCAL_CANTON_OVERRIDE != None:
+    if LOCAL_CANTON_PATH != None:
         copy_file(
             name = "canton_open_source_jar",
             src = "@canton_local//:bundle.jar",
