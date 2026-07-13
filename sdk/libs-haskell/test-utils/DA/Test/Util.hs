@@ -1,6 +1,8 @@
 -- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE ForeignFunctionInterface #-}
+
 -- | Test utils
 module DA.Test.Util (
     standardizeQuotes,
@@ -38,6 +40,8 @@ import DA.Bazel.Runfiles (locateRunfiles, mainWorkspace)
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified UnliftIO.Exception as Unlift
+
+foreign import ccall unsafe "da_fix_environ" c_da_fix_environ :: IO ()
 
 standardizeQuotes :: T.Text -> T.Text
 standardizeQuotes msg = let
@@ -129,12 +133,17 @@ withEnv vs m = Unlift.bracket (liftIO pushEnv) (liftIO . popEnv) (const m)
 
         replaceEnv :: [(String, Maybe String)] -> IO [(String, Maybe String)]
         replaceEnv vs' = do
-            forM vs' $ \(key, newVal) -> do
+            r <- forM vs' $ \(key, newVal) -> do
                 oldVal <- getEnv key
                 case newVal of
                     Nothing -> unsetEnv key
                     Just val -> setEnv key val True
                 pure (key, oldVal)
+            -- setEnv of a new var can realloc __environ under hermetic glibc,
+            -- desyncing the copy-relocated `environ`; re-sync so getEnvironment
+            -- (read by the code under test) sees the change. See environ_fix.c.
+            c_da_fix_environ
+            pure r
 
 -- Prepend the hermetic JDK to PATH (an existing var) rather than setting a new
 -- var like JAVA_HOME: under hermetic glibc a new-var setenv reallocs __environ,
