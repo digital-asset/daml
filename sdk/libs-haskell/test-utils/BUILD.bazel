@@ -29,6 +29,7 @@ da_haskell_library(
         "unliftio-core",
     ],
     deps = [
+        "//bazel_tools/environ_fix",
         "//libs-haskell/bazel-runfiles",
         "@rules_haskell//tools/runfiles",
     ],
