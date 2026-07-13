@@ -9,6 +9,10 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-07-15 (Exclusive)
+- Daml Stdlib: add `(:|)` and `(<|)` synonyms for `DA.NonEmpty`, and define `Show`
+  using the same representation (PR #22460)
+
 ## Until 2026-07-08 (Exclusive)
 - Add external calls (LF 2.dev only): the `EXTERNAL_CALL` builtin and the feature-gated
   `DA.ExternalCall` stdlib module for calling participant-configured extension services
