@@ -134,8 +134,16 @@ private[digitalasset] class ApiCodecCompressed(
       value: JsValue,
       typ: Ast.Type,
       destructor: TypeDestructor,
+  ): V =
+    jsValueToApiValueF(value, handleError(destructor.destruct(typ)), typ, destructor)
+
+  private[this] def jsValueToApiValueF(
+      value: JsValue,
+      typF: TypeDestructor.SerializableTypeF[Ast.Type],
+      typ: Ast.Type,
+      destructor: TypeDestructor,
   ): V = {
-    (handleError(destructor.destruct(typ)), value).match2 {
+    (typF, value).match2 {
       case TypeDestructor.SerializableTypeF.UnitF => { case JsObject(_) =>
         V.ValueUnit
       }
@@ -179,8 +187,9 @@ private[digitalasset] class ApiCodecCompressed(
         V.ValueContractId(jsValueToApiContractId(v))
       }
       case TypeDestructor.SerializableTypeF.OptionalF(a) =>
-        val useArray = handleError(destructor.destruct(a)) match {
-          case TypeDestructor.SerializableTypeF.OptionalF(a) => true
+        val aF = handleError(destructor.destruct(a))
+        val useArray = aF match {
+          case TypeDestructor.SerializableTypeF.OptionalF(_) => true
           case _ => false
         }
         {
@@ -188,12 +197,13 @@ private[digitalasset] class ApiCodecCompressed(
           case JsArray(ov) if useArray =>
             ov match {
               case Seq() => V.ValueOptional[Nothing](Some(V.ValueNone))
-              case Seq(v) => V.ValueOptional[Nothing](Some(jsValueToApiValue(v, a, destructor)))
+              case Seq(v) =>
+                V.ValueOptional[Nothing](Some(jsValueToApiValueF(v, aF, a, destructor)))
               case _ =>
                 deserializationError(s"Can't read ${value.prettyPrint} as Optional of Optional")
             }
           case _ if !useArray =>
-            V.ValueOptional[Nothing](Some(jsValueToApiValue(value, a, destructor)))
+            V.ValueOptional[Nothing](Some(jsValueToApiValueF(value, aF, a, destructor)))
         }
       case TypeDestructor.SerializableTypeF.ListF(a) => { case JsArray(v) =>
         V.ValueList[Nothing](
