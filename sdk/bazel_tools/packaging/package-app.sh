@@ -166,7 +166,7 @@ if [ "$(uname -s)" == "Linux" ]; then
   }
 
   function copy_deps {
-    local from target needed libOK rpaths
+    local from target needed libOK rpaths src aliased unversioned
     from=$1
     target=$2
     needed=$($patchelf --print-needed "$from")
@@ -180,16 +180,36 @@ if [ "$(uname -s)" == "Linux" ]; then
         libOK=0
         for rpath in $rpaths; do
           rpath="$(eval echo $rpath)" # expand variables, e.g. $ORIGIN
+          src=""
+          aliased=0
           if [ -e "$rpath/$lib" ]; then
+            src="$rpath/$lib"
+          else
+            # TEMPORARY: satisfy a versioned NEEDED (e.g. libgmp.so.10) with a
+            # hermetic unversioned libFOO.so from the same dir, so we don't fall
+            # back to the host libgmp.so.10 -- patchelf 0.18 moves its .init but
+            # not DT_INIT -> SIGSEGV in ghc-pkg. Drop once @gmp has soname .so.10.
+            case "$lib" in
+              *.so.*)
+                unversioned="${lib%%.so.*}.so"
+                if [ -e "$rpath/$unversioned" ]; then
+                  src="$rpath/$unversioned"
+                  aliased=1
+                fi
+                ;;
+            esac
+          fi
+          if [ -n "$src" ]; then
             libOK=1
-            cp "$rpath/$lib" "$target/$lib"
+            cp "$src" "$target/$lib"
             chmod u+w "$target/$lib"
             if [ "$lib" != "$ld_name" ]; then
               # clear the old rpaths (silence stderr as it always warns
               # with "working around a Linux kernel bug".
+              [ $aliased -eq 1 ] && $patchelf --set-soname "$lib" "$target/$lib" 2> /dev/null
               $patchelf --set-rpath '$ORIGIN' "$target/$lib" 2> /dev/null
             fi
-            copy_deps "$rpath/$lib" "$target"
+            copy_deps "$src" "$target"
             break
           fi
         done
@@ -204,6 +224,22 @@ if [ "$(uname -s)" == "Linux" ]; then
 
   # Copy the binary's dynamic library dependencies.
   copy_deps "$binary" "$WORKDIR/$NAME/lib"
+
+  if [ ! -f "$WORKDIR/$NAME/lib/$ld_name" ]; then
+    ld_src=""
+    for dir in /lib64 /usr/lib64 /lib /usr/lib /lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu /lib/aarch64-linux-gnu /usr/lib/aarch64-linux-gnu; do
+      if [ -e "$dir/$ld_name" ]; then
+        ld_src="$dir/$ld_name"
+        break
+      fi
+    done
+    if [ -z "$ld_src" ]; then
+      echo "ERROR: host dynamic linker $ld_name not found" >&2
+      exit 1
+    fi
+    cp "$ld_src" "$WORKDIR/$NAME/lib/$ld_name"
+    chmod u+w "$WORKDIR/$NAME/lib/$ld_name"
+  fi
 
   # Workaround for dynamically loaded name service switch libraries
   (shopt -s nullglob
