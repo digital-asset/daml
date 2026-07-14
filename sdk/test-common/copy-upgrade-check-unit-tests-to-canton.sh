@@ -57,6 +57,7 @@ for NAME in "${NAMES[@]}"; do
       "daml-script": { "version": "$DAML_VERSION" },
       "codegen": { "version": "$DAML_VERSION" },
     }
+  | delpaths([["sdk-version"]])
   ''' > $WORKDIR/$SOURCE_ROOT/daml.yaml
 
   # Append the name of the package to the multi-package.yaml
