@@ -25,8 +25,6 @@ import com.google.protobuf.ByteString
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.HashMap
-import scalaz.syntax.apply._
-import scalaz.scalacheck.ScalaCheckBinding._
 
 object ValueGenerators {
 
@@ -294,7 +292,11 @@ object ValueGenerators {
 
   private[lf] val genMaybeEmptyParties: Gen[Set[Party]] = Gen.listOf(party).map(_.toSet)
 
-  val genNonEmptyParties: Gen[Set[Party]] = ^(party, genMaybeEmptyParties)((hd, tl) => tl + hd)
+  val genNonEmptyParties: Gen[Set[Party]] =
+    for {
+      hd <- party
+      tl <- genMaybeEmptyParties
+    } yield tl + hd
 
   def keyWithMaintainersGen(
       templateId: TypeConId,

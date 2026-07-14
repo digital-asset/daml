@@ -10,7 +10,6 @@ import java.nio.file.Files
 import scala.jdk.CollectionConverters._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
-import scalaz.\/-
 import spray.json._
 import com.digitalasset.daml.lf.archive.{Dar, DarDecoder}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
@@ -19,8 +18,6 @@ import com.digitalasset.daml.lf.engine.ScriptEngine.defaultCompilerConfig
 import com.digitalasset.daml.lf.language.Ast.{Package, Type}
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.speedy.MachineLogger
-import com.digitalasset.daml.lf.typesig.EnvironmentSignature
-import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.value._
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
 import com.daml.auth.TokenHolder
@@ -28,12 +25,13 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   GrpcLedgerClient,
   ScriptLedgerClient,
 }
+
 import java.io.FileInputStream
-
 import com.google.protobuf.ByteString
-import java.io.File
 
+import java.io.File
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.language.PackageInterface
 
 import scala.util.{Failure, Success}
 
@@ -139,13 +137,9 @@ object RunnerMain {
 
       machineLogger = ScriptMachineLogger()
       majorVersion = dar.main._2.languageVersion.major
-      ifaceDar =
-        dar.map { case (pkgId, _) =>
-          SignatureReader
-            .readPackageSignature(() => \/-(pkgId -> compiledPackages.signatures(pkgId)))
-            ._2
-        }
-      envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
+      pkgIface = new PackageInterface(
+        dar.all.view.map { case (pkgId, _) => pkgId -> compiledPackages.signatures(pkgId) }.toMap
+      )
 
       clients <- connectToParticipants(config, compiledPackages, machineLogger)
 
@@ -248,8 +242,7 @@ object RunnerMain {
           val converter = (json: JsValue, typ: Type) =>
             Converter(majorVersion)
               .fromJsonValue(
-                scriptId.qualifiedName,
-                envIface,
+                pkgIface,
                 typ,
                 json,
               )

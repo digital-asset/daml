@@ -1,9 +1,11 @@
 // Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
+package com.digitalasset.daml.lf.engine.script
+package v2
+package ledgerinteraction
 
-import com.daml.nonempty.NonEmpty
+import cats.data.NonEmptyList
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.transaction.{
@@ -44,7 +46,7 @@ object GrpcErrorParser {
   def decodeNullable[A](decoder: String => Option[A]): String => Option[Option[A]] = (s: String) =>
     if (s == "NULL") Some(None) else decoder(s).map(Some(_))
 
-  val parseList = (s: String) => s.tail.init.split(", ").toSeq
+  val parseList = (s: String) => s.tail.init.split(", ").toList
 
   // Converts a given SubmitError into a SubmitError. Wraps in an UnknownError if its not what we expect, wraps in a TruncatedError if we're missing resources
   def convertStatusRuntimeException(status: Status): SubmitError = {
@@ -116,13 +118,13 @@ object GrpcErrorParser {
         caseErr {
           case Seq((ErrorResource.ContractId, cid)) =>
             SubmitError.ContractNotFound(
-              NonEmpty(Seq, ContractId.assertFromString(cid)),
+              NonEmptyList.of(ContractId.assertFromString(cid)),
               None,
             )
           case Seq((ErrorResource.ContractIds, cids)) =>
             SubmitError.ContractNotFound(
-              NonEmpty
-                .from(parseList(cids).map(ContractId.assertFromString(_)))
+              NonEmptyList
+                .fromList(parseList(cids).map(ContractId.assertFromString(_)))
                 .getOrElse(
                   throw new IllegalArgumentException(
                     "Got CONTRACT_NOT_FOUND error without any contract ids"
@@ -164,7 +166,7 @@ object GrpcErrorParser {
       case "CONTRACT_NOT_ACTIVE" =>
         caseErr { case Seq((ErrorResource.TemplateId, tid @ _), (ErrorResource.ContractId, cid)) =>
           SubmitError.ContractNotFound(
-            NonEmpty(Seq, ContractId.assertFromString(cid)),
+            NonEmptyList.of(ContractId.assertFromString(cid)),
             None,
           )
         }

@@ -56,7 +56,6 @@ da_scala_library(
         "@maven//:com_daml_community_base",
         "@maven//:com_daml_contextualized_logging",
         "@maven//:com_daml_daml_grpc_utils",
-        "@maven//:com_daml_daml_lf_api_type_signature",
         "@maven//:com_daml_daml_lf_archive",
         "@maven//:com_daml_daml_lf_data",
         "@maven//:com_daml_daml_lf_engine",

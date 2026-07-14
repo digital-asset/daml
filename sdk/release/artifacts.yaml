@@ -21,8 +21,6 @@
   type: jar-jarjar
 - target: //ledger-service/lf-value-json:lf-value-json
   type: jar-scala
-- target: //ledger-service/utils:utils
-  type: jar-scala
 - target: //daml-script/auth-utils:auth-utils
   type: jar-scala
 - target: //language-support/build-info:build-info

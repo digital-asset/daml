@@ -13,14 +13,13 @@ import scala.concurrent.duration._
 
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.archive.DarParser
+import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.codegen.js._
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.typesig.reader.DamlLfArchiveReader
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory}
-import scalaz.{-\/, \/-}
 
 private final class JsCodeGen(
     outputDirectory: Path,
@@ -365,12 +364,9 @@ object JsCodeGen extends StrictLogging {
     DarParser.assertReadArchiveFromFile(path.toFile).all.map(tryDecodeArchive).toMap
 
   private def tryDecodeArchive(archive: DamlLf.Archive): (PackageId, Ast.PackageSignature) = {
-    DamlLfArchiveReader.readPackage(archive) match {
-      case -\/(error) => throw new RuntimeException(error)
-      case \/-(result @ (packageId, _)) =>
-        logger.trace(s"Daml-LF Archive decoded, packageId '$packageId'")
-        result
-    }
+    val result @ (packageId, _) = Decode.assertDecodeArchiveSchema(archive)
+    logger.trace(s"Daml-LF Archive decoded, packageId '$packageId'")
+    result
   }
 
   private def createExecutionContext(): ExecutionContextExecutorService =

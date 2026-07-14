@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.engine.script
 package v2
 package ledgerinteraction
 
-import com.daml.nonempty.NonEmpty
+import cats.data.NonEmptyList
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.daml.lf.data.{FrontStack, SortedLookupList, Time}
 import com.digitalasset.daml.lf.data.Ref._
@@ -92,8 +92,8 @@ object SubmitError {
     )
   }
 
-  def fromNonEmptySet[A](set: NonEmpty[Seq[A]], conv: A => ExtendedValue): ExtendedValue = {
-    val converted: Seq[ExtendedValue] = set.map(conv)
+  def fromNonEmptySet[A](set: NonEmptyList[A], conv: A => ExtendedValue): ExtendedValue = {
+    val converted: Seq[ExtendedValue] = set.toList.map(conv)
     record(
       StablePackagesV2.NonEmpty,
       ("hd", converted.head),
@@ -102,7 +102,7 @@ object SubmitError {
   }
 
   final case class ContractNotFound(
-      cids: NonEmpty[Seq[ContractId]],
+      cids: NonEmptyList[ContractId],
       additionalDebuggingInfo: Option[ContractNotFound.AdditionalInfo],
   ) extends SubmitError {
     override def toDamlSubmitError(env: Env, legacyAnyContractKey: Boolean): ExtendedValue =
