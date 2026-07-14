@@ -47,7 +47,7 @@ chronic() {
 
 # Discards stderr if successful, else reports err directly to stderr
 stdout_if_success() {
-  out_tmp=$(mktemp) || >&2 echo "Failed to create temp file for stdout_if_success stdout" && exit 1
+  out_tmp=$(mktemp) || (>&2 echo "Failed to create temp file for stdout_if_success stdout" && exit 1)
   set +e
   # Redirect stdout to file, capture both combined in env var, make stderr red
   combined=$("$@" 2> >(sed -u "s/^/\\\\e[31m/" | sed -u "s/$/\\\\e[0m/") > >(tee "$out_tmp"))
