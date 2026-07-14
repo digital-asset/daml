@@ -265,6 +265,10 @@ private[digitalasset] class ApiCodecCompressed(
       case TypeDestructor.SerializableTypeF.VariantF(id, _, cons, consTypes) => {
         case JsonVariant(tag, nestedValue) =>
           val idx = cons.indexWhere(_ == tag)
+          if (idx < 0)
+            deserializationError(
+              s"Can't read ${value.prettyPrint} as DamlLfVariant $id, unknown constructor $tag"
+            )
           val constructorName = cons(idx)
           val constructorType = consTypes(idx)
           V.ValueVariant[Nothing](
@@ -279,6 +283,10 @@ private[digitalasset] class ApiCodecCompressed(
       }
       case TypeDestructor.SerializableTypeF.EnumF(id, pkgName, cons) => { case JsString(c) =>
         val idx = cons.indexWhere(_ == c)
+        if (idx < 0)
+          deserializationError(
+            s"Can't read ${value.prettyPrint} as DamlLfEnum $id, unknown constructor $c"
+          )
         val constructorName = cons(idx)
         V.ValueEnum(Some(id), constructorName)
       }
