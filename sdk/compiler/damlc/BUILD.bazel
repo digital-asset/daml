@@ -102,7 +102,7 @@ da_haskell_binary(
     deps = [
         ":damlc-lib",
         "//component-version/hs:component-version-lib",
-    ],
+    ] + ([] if is_windows else ["//bazel_tools/environ_fix"]),
 )
 
 package_app(
