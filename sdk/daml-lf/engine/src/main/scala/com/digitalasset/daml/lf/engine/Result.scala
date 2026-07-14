@@ -220,8 +220,8 @@ object Result {
             Error.Interpretation.DamlException(interpretation.Error.ContractNotFound(acoid))
           )
         case UnsupportedContractIdVersion =>
-          throw new NotImplementedError(
-            "UnsupportedContractIdVersion is not yet supported."
+          ResultError(
+            Error.Interpretation.DamlException(interpretation.Error.UnsupportedContractId(acoid))
           )
       },
     )

@@ -117,6 +117,14 @@ object SubmitError {
       )
   }
 
+  final case class UnsupportedContractId(cid: ContractId) extends SubmitError {
+    override def toDamlSubmitError(env: Env): SValue =
+      SubmitErrorConverters(env).damlScriptError(
+        "UnsupportedContractId",
+        ("unknownContractId", SText(cid.coid)),
+      )
+  }
+
   final case class UnresolvedPackageName(packageName: PackageName) extends SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(

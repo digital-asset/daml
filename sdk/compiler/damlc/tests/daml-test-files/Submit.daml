@@ -103,6 +103,8 @@ template T5 with
 
 -- ContractNotFound: Cannot test contract not found with IDELedger, no way to get an invalid contract ID
 
+-- UnsupportedContactId: Cannot test unsupported contract ID with IDELedger, no way to get an invalid contract ID
+
 #ifdef DAML_CONTRACT_KEYS
 contractKeyNotFound : Script ()
 contractKeyNotFound = script do

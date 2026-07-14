@@ -27,6 +27,8 @@ object Error {
 
   final case class ContractNotFound(cid: Value.ContractId) extends Error
 
+  final case class UnsupportedContractId(cid: Value.ContractId) extends Error
+
   final case class UnresolvedPackageName(packageName: Ref.PackageName) extends Error
 
   /** Template pre-condition (ensure) evaluated to false and the transaction

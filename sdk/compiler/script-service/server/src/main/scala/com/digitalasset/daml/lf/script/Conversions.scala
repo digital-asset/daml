@@ -120,6 +120,8 @@ final class Conversions(
                 //     archived or what not are turned into more specific
                 //     errors so we never produce ContractNotFound
                 builder.setCrash(s"contract ${cid.coid} not found")
+              case UnsupportedContractId(cid) =>
+                builder.setCrash(s"unsupported contract ID: ${cid.coid}")
               case UnresolvedPackageName(packageName) =>
                 builder.setUnresolvedPackageName(
                   proto.ScriptError.UnresolvedPackageName.newBuilder

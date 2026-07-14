@@ -115,6 +115,8 @@ private[lf] object Pretty {
           text("The provided shared key is") & prettyValue(true)(key)
       case ContractNotFound(cid) =>
         text("Update failed due to a unknown contract") & prettyContractId(cid)
+      case UnsupportedContractId(cid) =>
+        text("Update failed due to a unsupported contract ID") & prettyContractId(cid)
       case UnresolvedPackageName(packageName) =>
         text("Update failed due to a failed package name resolution:") & text(packageName)
       case NonComparableValues =>
@@ -129,6 +131,7 @@ private[lf] object Pretty {
         text(s"Value exceeds maximum nesting value of $limit")
       case MalformedText(err) =>
         text(s"Text is malformed: $err")
+
       case FailureStatus(errorId, cantonCategoryId, errorMessage, _) =>
         text(s"User failure: $errorId (error category $cantonCategoryId): $errorMessage")
       case Upgrade(error) =>
