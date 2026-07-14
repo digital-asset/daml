@@ -461,6 +461,25 @@ class ApiCodecCompressedSpec
       }
     }
 
+    "dealing with JSON object encodings of records and variants" should {
+      "decode and re-encode SimpleRecord" in {
+        val canonical = """{"fA": "foo", "fB": "100"}""".parseJson
+        val numerically = """{"fA": "foo", "fB": 100}""".parseJson
+        val parsed = jsValueToApiValue(canonical, C.simpleRecordT, typeDestructor)
+        jsValueToApiValue(numerically, C.simpleRecordT, typeDestructor) shouldBe parsed
+        parsed shouldBe C.simpleRecordV
+        apiValueToJsValue(parsed) shouldBe canonical
+        numCodec.apiValueToJsValue(parsed) shouldBe numerically
+      }
+
+      "decode and re-encode SimpleVariant" in {
+        val canonical = """{"tag": "fA", "value": "foo"}""".parseJson
+        val parsed = jsValueToApiValue(canonical, C.simpleVariantT, typeDestructor)
+        parsed shouldBe C.simpleVariantV
+        apiValueToJsValue(parsed) shouldBe canonical
+      }
+    }
+
     import com.digitalasset.daml.lf.value.{Value => LfValue}
     import ApiCodecCompressed.JsonImplicits._
 
