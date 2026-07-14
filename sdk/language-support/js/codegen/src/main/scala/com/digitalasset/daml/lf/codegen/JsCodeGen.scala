@@ -364,12 +364,9 @@ object JsCodeGen extends StrictLogging {
     DarParser.assertReadArchiveFromFile(path.toFile).all.map(tryDecodeArchive).toMap
 
   private def tryDecodeArchive(archive: DamlLf.Archive): (PackageId, Ast.PackageSignature) = {
-    Decode.decodeArchiveSchema(archive) match {
-      case Left(error) => throw new RuntimeException(error.toString)
-      case Right(result @ (packageId, _)) =>
-        logger.trace(s"Daml-LF Archive decoded, packageId '$packageId'")
-        result
-    }
+    val result @ (packageId, _) = Decode.assertDecodeArchiveSchema(archive)
+    logger.trace(s"Daml-LF Archive decoded, packageId '$packageId'")
+    result
   }
 
   private def createExecutionContext(): ExecutionContextExecutorService =
