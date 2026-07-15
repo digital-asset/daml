@@ -9,6 +9,9 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-07-15 (Exclusive)
+- Improved engine handing of UnsupportedContractIdVersion
+
 ## Until 2026-03-12 (Exclusive)
 - Fixed help message for `dpm codegen-js`.
 - Removed unnecessary versioning HTTP calls from `dpm codegen-js`.
