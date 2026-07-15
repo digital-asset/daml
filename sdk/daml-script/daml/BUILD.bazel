@@ -52,7 +52,7 @@ genrule(
         "daml-script-anchors.json",
     ],
     cmd = """
-        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${LD_LIBRARY_PATH:-}"
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${LD_LIBRARY_PATH:-}"
         $(location //compiler/damlc) -- docs \
             --output=daml-script-rst \
             --input-format=json \\
@@ -83,7 +83,7 @@ genrule(
     srcs = glob(["**/*.daml"]),
     outs = ["daml-script.json"],
     cmd = """
-        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${LD_LIBRARY_PATH:-}"
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${LD_LIBRARY_PATH:-}"
         $(location //compiler/damlc) -- docs \
             --output=$(OUTS) \
             --package-name=daml-script \

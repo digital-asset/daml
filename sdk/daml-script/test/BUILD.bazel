@@ -34,7 +34,7 @@ load("//rules_daml:daml.bzl", "daml_compile")
         outs = ["script-test-v{}.dar".format(lfVersion)],
         cmd = """
       set -eou pipefail
-      export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
+      export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ScriptTest{withkeys}.daml) $$TMP_DIR/daml
@@ -104,7 +104,7 @@ EOF
         outs = ["script-test-{}.dar".format(lf_version)],
         cmd = """
       set -eou pipefail
-      export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
+      export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/TestChoiceAuthority.daml) $$TMP_DIR/daml
@@ -149,7 +149,7 @@ EOF
         outs = ["attestation-test-v{}.dar".format(lfVersion)],
         cmd = """
       set -eou pipefail
-      export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
+      export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/crypto/AttestationTestData.daml) $$TMP_DIR/daml
@@ -197,7 +197,7 @@ genrule(
     outs = ["external-call-test-v2.dev.dar"],
     cmd = """
       set -eou pipefail
-      export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
+      export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ExternalCallTests.daml) $$TMP_DIR/daml
@@ -241,7 +241,7 @@ genrule(
     outs = ["script-test-no-ledger.dar"],
     cmd = """
       set -eou pipefail
-      export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
+      export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml

@@ -645,7 +645,7 @@ def generate_and_track_yaml_file(
             tools = [generator, "@libz//:libs", "@gmp//:libs"],
             outs = [generated_out],
             # Pass the output file path ($@) as the first argument
-            cmd = "export LD_LIBRARY_PATH=\"$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$${{LD_LIBRARY_PATH:-}}\"\n$(execpath {generator}) $@ {args}".format(
+            cmd = "export LD_LIBRARY_PATH=\"$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$${{LD_LIBRARY_PATH:-}}\"\n$(execpath {generator}) $@ {args}".format(
                 generator = generator,
                 args = " ".join(generator_args),
             ),
