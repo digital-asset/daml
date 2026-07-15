@@ -346,6 +346,23 @@ Data Types
          - `Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`ContractNotFoundAdditionalInfo <type-daml-script-internal-questions-submit-error-contractnotfoundadditionalinfo-6199>`
          - should always be None in Canton's case, see https\://github\.com/digital\-asset/daml/issues/17154
 
+  .. _constr-daml-script-internal-questions-submit-error-unsupportedcontractid-58555:
+
+  `UnsupportedContractId <constr-daml-script-internal-questions-submit-error-unsupportedcontractid-58555_>`_
+
+    Contract with given contract ID is not supported by the participant
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - unsupportedContractId
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+
   .. _constr-daml-script-internal-questions-submit-error-contractkeynotfound-79659:
 
   `ContractKeyNotFound <constr-daml-script-internal-questions-submit-error-contractkeynotfound-79659_>`_
