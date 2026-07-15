@@ -160,3 +160,8 @@
       contents: 1
       tag: PointStable
   - 7adc4c2d07fa3a51173c843cba36e610c1168b2dbbf53076e20c0092eae8763d
+- - versionMajor: V2
+    versionMinor:
+      contents: 2
+      tag: PointStable
+  - 6d84b3ee991c301f08eb44d8c21cc8baa48243d76ab1b5d103db67fe36c67803
