@@ -44,7 +44,7 @@ main = withComponentVersions $ do
         pnpmPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> pnpm)
         mbPtyWrapperDir <- if isWindows
             then pure Nothing
-            else Just . takeDirectory <$> locateRunfiles (mainWorkspace </> "bazel/pty-wrapper.sh")
+            else Just . takeDirectory <$> locateRunfiles (mainWorkspace </> "bazel/common/pty-wrapper.sh")
         limitJvmMemory defaultJvmMemoryLimits
         withArgs args (withEnv
             [ ("PATH", Just $ intercalate [searchPathSeparator] $ concat
