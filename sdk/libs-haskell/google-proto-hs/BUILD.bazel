@@ -15,7 +15,7 @@ genrule(
         "FieldMask.hs",
     ]],
     cmd = """
-        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$${LD_LIBRARY_PATH:-}"
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$${LD_LIBRARY_PATH:-}"
         for f in $(locations @protobuf//:well_known_type_protos); do
             PROTOBUF_INCLUDE=$${f%%/google/protobuf/*}
             break
@@ -57,7 +57,7 @@ genrule(
         "Google/Rpc/ErrorDetails.hs",
     ],
     cmd = """
-        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$${LD_LIBRARY_PATH:-}"
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$${LD_LIBRARY_PATH:-}"
         for f in $(locations @protobuf//:well_known_type_protos); do
             PROTOBUF_INCLUDE=$${f%%/google/protobuf/*}
             break

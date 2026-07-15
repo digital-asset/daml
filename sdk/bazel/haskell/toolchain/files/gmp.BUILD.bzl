@@ -232,9 +232,18 @@ cc_shared_library(
     deps = [":gmp"],
 )
 
+cc_shared_library(
+    name = "gmp_so_10",
+    shared_lib_name = "libgmp.so.10",
+    deps = [":gmp"],
+)
+
 filegroup(
     name = "libs",
-    srcs = [":gmp_so"],
+    srcs = [
+        ":gmp_so",
+        ":gmp_so_10",
+    ],
 )
 
 # =============================================================================
