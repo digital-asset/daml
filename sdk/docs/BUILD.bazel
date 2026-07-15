@@ -288,7 +288,7 @@ genrule(
     outs = ["quickstart-model.dar"],
     cmd = """
       set -eou pipefail
-      export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
+      export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -R -L $(location //docs:source/sdk/tutorials/quickstart/template-root/daml/Main.daml) $$TMP_DIR/daml/
