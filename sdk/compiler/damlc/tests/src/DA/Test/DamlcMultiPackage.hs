@@ -10,7 +10,7 @@ import qualified Data.ByteString.Char8 as BSC
 import Control.Exception (try)
 import Control.Monad.Extra (forM_, unless, void)
 import DA.Daml.SdkIntegrationTests.Utils (withDpmSdkExtraVerResource)
-import DA.Daml.Project.Consts (sdkVersionDpmEnvVar)
+import DA.Daml.Project.Consts (sdkVersionDpmEnvVar, damlCacheEnvVar)
 import DA.Daml.Resolution.Config (ResolutionData (..), PackageResolutionData (..), ValidPackageResolution (..), resolutionFileEnvVar, toPosixFilePath)
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Cli.Damlc (MultiPackageManifestEntry (..))
@@ -727,7 +727,7 @@ tests =
           importsDamlc = maybe (error "No damlc-binary in resolution") head . Map.lookup "damlc-binary" . imports
           damlc = importsDamlc . validPackageResolutionData . snd . defaultSdk $ updatedResolutionData
           resolutionPath = dir </> "resolution"
-          envVars = [(resolutionFileEnvVar, resolutionPath), (sdkVersionDpmEnvVar, fst $ defaultSdk updatedResolutionData)]
+          envVars = [(resolutionFileEnvVar, resolutionPath), (sdkVersionDpmEnvVar, fst $ defaultSdk updatedResolutionData), (damlCacheEnvVar, dir </> "cache")]
       encodeFile resolutionPath updatedResolutionData
       originalEnv <- getEnvironment
       readCreateProcessWithExitCode ((proc damlc ["build", "--all"]) {cwd = Just dir, env = Just $ envVars <> originalEnv}) ""
