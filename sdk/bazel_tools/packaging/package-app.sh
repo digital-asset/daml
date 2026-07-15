@@ -166,7 +166,7 @@ if [ "$(uname -s)" == "Linux" ]; then
   }
 
   function copy_deps {
-    local from target needed libOK rpaths src aliased unversioned
+    local from target needed libOK rpaths
     from=$1
     target=$2
     needed=$($patchelf --print-needed "$from")
@@ -180,36 +180,16 @@ if [ "$(uname -s)" == "Linux" ]; then
         libOK=0
         for rpath in $rpaths; do
           rpath="$(eval echo $rpath)" # expand variables, e.g. $ORIGIN
-          src=""
-          aliased=0
           if [ -e "$rpath/$lib" ]; then
-            src="$rpath/$lib"
-          else
-            # TEMPORARY: satisfy a versioned NEEDED (e.g. libgmp.so.10) with a
-            # hermetic unversioned libFOO.so from the same dir, so we don't fall
-            # back to the host libgmp.so.10 -- patchelf 0.18 moves its .init but
-            # not DT_INIT -> SIGSEGV in ghc-pkg. Drop once @gmp has soname .so.10.
-            case "$lib" in
-              *.so.*)
-                unversioned="${lib%%.so.*}.so"
-                if [ -e "$rpath/$unversioned" ]; then
-                  src="$rpath/$unversioned"
-                  aliased=1
-                fi
-                ;;
-            esac
-          fi
-          if [ -n "$src" ]; then
             libOK=1
-            cp "$src" "$target/$lib"
+            cp "$rpath/$lib" "$target/$lib"
             chmod u+w "$target/$lib"
             if [ "$lib" != "$ld_name" ]; then
               # clear the old rpaths (silence stderr as it always warns
               # with "working around a Linux kernel bug".
-              [ $aliased -eq 1 ] && $patchelf --set-soname "$lib" "$target/$lib" 2> /dev/null
               $patchelf --set-rpath '$ORIGIN' "$target/$lib" 2> /dev/null
             fi
-            copy_deps "$src" "$target"
+            copy_deps "$rpath/$lib" "$target"
             break
           fi
         done
