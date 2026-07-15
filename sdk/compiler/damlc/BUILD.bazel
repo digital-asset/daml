@@ -341,7 +341,7 @@ genrule(
     srcs = ["//compiler/damlc/daml-prim-src"],
     outs = ["daml-prim.json"],
     cmd = """
-        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
         $(location //compiler/damlc:damlc-compile-only) -- docs \
             --output=$(OUTS) \
             --package-name=daml-prim \
@@ -364,7 +364,7 @@ genrule(
     srcs = ["//compiler/damlc/daml-stdlib-src"],
     outs = ["daml-stdlib.json"],
     cmd = """
-        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
         $(location //compiler/damlc:damlc-compile-only) -- docs \
             --output=$(OUTS) \
             --package-name=daml-stdlib \
@@ -397,7 +397,7 @@ genrule(
         "daml-base-hoogle.txt",
     ],
     cmd = """
-        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $(location @gmp//:libs)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
         $(location //compiler/damlc:damlc-compile-only) -- docs \\
             --output=daml-base-rst \\
             --input-format=json \\
