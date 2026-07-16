@@ -53,6 +53,7 @@ toolchain(
 
 py_test(
     name = "ghc_packages.check",
+    timeout = "short",
     srcs = ["pkgdb_to_lock.py"],
     args = [
         "--check",
