@@ -34,7 +34,7 @@ build --host_cxxopt=-std=c++17
 # Improve remote cache hit rate by exluding environment variables from the
 # sandbox that are not whitelisted using --action_env.
 # This will become the default in a future Bazel release.
-build --experimental_strict_action_env
+build --incompatible_strict_action_env
 
 # Drop the heap size of Bazel to 3 GB and force TLS 1.2.
 # With TLS 1.3, we run into the following error on Darwin.
