@@ -40,6 +40,7 @@ genrule(
 
 eslint_test(
     name = "lint",
+    timeout = "short",
     srcs = sources,
     data = ["tsconfig.json"],
     tsconfig = "tsconfig.eslint.json",
@@ -68,6 +69,7 @@ npm_package(
 
 jest_test(
     name = "test",
+    timeout = "short",
     srcs = sources,
     deps = [
         ":node_modules/@mojotech/json-type-validation",

@@ -177,6 +177,7 @@ buildifier(
 # gate on canonical formatting only, not `--lint`.
 buildifier_test(
     name = "buildifier_test",
+    timeout = "short",
     exclude_patterns = _BUILDIFIER_EXCLUDE,
     no_sandbox = True,
     workspace = "//:MODULE.bazel",
