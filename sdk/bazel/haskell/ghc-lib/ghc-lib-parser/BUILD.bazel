@@ -45,6 +45,7 @@ cp --no-preserve=mode -t "$$OUTPUT_DIR" "$$SOURCE"
 
 sh_inline_test(
     name = "cabal-file-diff",
+    timeout = "short",
     cmd = """\
 EXPECTED=$$(canonicalize_rlocation $(rootpath @da-ghc//:ghc-lib-parser.cabal))
 ACTUAL=$$(canonicalize_rlocation $(rootpath ghc-lib-parser.cabal))
