@@ -10,9 +10,7 @@ To keep action-time tools stable across local/container runs, this
 extension pins the upstream patchelf static release artifact.
 """
 
-_PATCHELF_VERSION = "0.18.0"
-_PATCHELF_URL = "https://github.com/NixOS/patchelf/releases/download/{v}/patchelf-{v}-x86_64.tar.gz".format(v = _PATCHELF_VERSION)
-_PATCHELF_SHA256 = "ce84f2447fb7a8679e58bc54a20dc2b01b37b5802e12c57eece772a6f14bf3f0"
+load("//bazel/versions:patchelf.version.bzl", "PATCHELF_SHA256", "PATCHELF_URL")
 
 def _patchelf_repo_impl(rctx):
     os_name = rctx.os.name.lower()
@@ -21,8 +19,8 @@ def _patchelf_repo_impl(rctx):
         fail("patchelf_extension only supports linux x86_64, got os={} arch={}".format(rctx.os.name, arch))
 
     rctx.download_and_extract(
-        url = _PATCHELF_URL,
-        sha256 = _PATCHELF_SHA256,
+        url = PATCHELF_URL,
+        sha256 = PATCHELF_SHA256,
     )
 
     rctx.file("BUILD.bazel", """\
