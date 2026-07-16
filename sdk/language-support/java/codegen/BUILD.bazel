@@ -68,6 +68,7 @@ da_scala_library(
 ########################################################
 da_scala_test(
     name = "test",
+    timeout = "short",
     srcs = glob(["src/test/**/*.scala"]),
     data = [
         ":test-baz.dar",
@@ -331,6 +332,7 @@ module_prefix_test = "src/it/java/com/daml/ModulePrefixes.java"
 
 java_test(
     name = "integration-tests-module-prefixes",
+    timeout = "short",
     srcs = [module_prefix_test],
     test_class = "com.daml.ModulePrefixes",
     deps = [
@@ -358,6 +360,7 @@ java_test(
         ),
         java_test(
             name = "integration-tests-%s" % target,
+            timeout = "short",
             srcs = glob(
                 [
                     "src/it/java-%s/**/*.java" % target,

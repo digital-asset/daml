@@ -332,6 +332,7 @@ def generate_and_track_cabal(name, exe_name = None, src_dir = None, exclude_deps
 
     native.sh_test(
         name = test_name,
+        timeout = "short",
         srcs = ["//bazel_tools:match-golden-file"],
         args = [
             lbl,
