@@ -18,6 +18,7 @@ filegroup(
 
 sh_test(
     name = "valid-json",
+    timeout = "short",
     srcs = ["ci-tests.sh"],
     args = [
         "$(location //bazel_tools:jq_bin)",

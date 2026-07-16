@@ -311,6 +311,7 @@ def _daml_validate_test(
     damlc = "//compiler/damlc:damlc-compile-only"
     sh_inline_test(
         name = name,
+        timeout = "short",
         data = [damlc, dar],
         cmd = """\
 DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
@@ -498,6 +499,7 @@ def generate_and_track_dar_hash_file(name):
 
         native.sh_test(
             name = test_name,
+            timeout = "short",
             srcs = ["//bazel_tools:match-golden-file"],
             args = [
                 lbl,
@@ -683,6 +685,7 @@ def generate_and_track_yaml_file(
         )
         native.sh_test(
             name = test_name,
+            timeout = "short",
             srcs = ["//bazel_tools:match-golden-file"],
             args = [
                 lbl,
