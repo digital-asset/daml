@@ -88,7 +88,7 @@ daml_compile(
 # All in all, a pretty slick bit of work!
 sh_test(
     name = "build-and-lint-test",
-    size = "large",
+    size = "small",
     srcs = ["build-and-lint.sh"],
     args = [
         "$(JAVA_ROOTPATH)",
@@ -164,6 +164,7 @@ config_setting(
 
 sh_test(
     name = "npm-update-check",
+    timeout = "short",
     srcs = ["npm_check.sh"],
     args = [
         "$(location //language-support/js/codegen)",

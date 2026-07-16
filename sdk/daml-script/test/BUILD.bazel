@@ -374,6 +374,8 @@ daml_compile(
 da_scala_test_suite(
     name = "test",
     size = "large",
+    # Per-file runtimes span 0.5s-92s; one suite-wide timeout can't fit all. moderate is the safe middle, not worth splitting the suite over.
+    timeout = "moderate",
     srcs = glob(
         ["src/main/scala/**/*.scala"],
         exclude = [
@@ -532,6 +534,7 @@ filegroup(
 
 da_scala_test_suite(
     name = "test-dev",
+    timeout = "short",
     srcs = glob(
         ["src/main/scala/com/**/*Dev*.scala"],
     ),

@@ -123,6 +123,7 @@ da_scala_library(
     da_scala_test_suite(
         name = "upgrade-tests",
         size = "large",
+        timeout = "moderate",
         srcs = ["src/test/scala/com/digitalasset/daml/lf/validation/UpgradesCheckSpec.scala"],
         data = [
             "//test-common:dar-files-default",

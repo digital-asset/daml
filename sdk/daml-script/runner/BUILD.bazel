@@ -109,6 +109,7 @@ scaladoc_jar(
 
 da_scala_test(
     name = "unitTests",
+    timeout = "short",
     srcs = glob(
         ["src/test/scala/**/*Spec.scala"],
     ),

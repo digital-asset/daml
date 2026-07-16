@@ -43,6 +43,7 @@ exports_files(
 # The Golden File Check (runs during `bazel test`)
 py_test(
     name = "daml-lf-versions-check",
+    timeout = "short",
     srcs = ["check_versions.py"],
     args = [
         "$(location daml-lf-versions.json)",
@@ -57,6 +58,7 @@ py_test(
 
 py_test(
     name = "daml-lf-features-check",
+    timeout = "short",
     srcs = ["check_versions.py"],
     args = [
         "$(location daml-lf-features.json)",
