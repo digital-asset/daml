@@ -112,14 +112,14 @@ signatoryObserverUpgrade shouldSucceed sigF obsF exerciseChoice = test $ do
   res <- trySubmitMulti [alice, bob, charlie] [] $ exerciseChoice cid
   case (res, shouldSucceed) of
     (Right _, True) -> pure ()
-    (Left (UpgradeError (ValidationFailed foundCid foundSrcTemplateTypeRep foundDstTemplateTypeRep _ _ originalSignatories originalObservers None foundSignatories foundObservers None) msg), False)
+    (Left (UpgradeError (ValidationFailed foundCid foundSrcTemplateTypeRep foundDstTemplateTypeRep _ _ originalSignatories originalNonSignatoryStakeholders None foundSignatories foundNonSignatoryStakeholders None) msg), False)
       | fromAnyContractId @V1.SignatoryObserverChangesTemplate foundCid == Some cid &&
         foundSrcTemplateTypeRep == templateTypeRep @V1.SignatoryObserverChangesTemplate &&
         foundDstTemplateTypeRep == templateTypeRep @V2.SignatoryObserverChangesTemplate &&
         sort originalSignatories == sort preSignatories &&
-        sort originalObservers == sort (preObservers \\ preSignatories) &&
+        sort originalNonSignatoryStakeholders == sort (preObservers \\ preSignatories) &&
         sort foundSignatories == sort postSignatories &&
-        sort foundObservers == sort postObservers
+        sort foundNonSignatoryStakeholders == sort (postObservers \\ postSignatories)
       -> pure ()
     _ -> assertFail $ "Expected " <> (if shouldSucceed then "success" else "Upgrade error") <> " but got " <> show res
 
