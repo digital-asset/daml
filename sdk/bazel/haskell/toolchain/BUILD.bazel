@@ -72,6 +72,7 @@ configure_make(
         "--without-cxx-binding",
         "--without-manpages",
         "--without-tests",
+        "cf_cv_gcc_inline=no",
     ],
     # ncurses 5.9 predates C99 implicit-decl errors; clang 22 makes them fatal.
     extra_cflags = ["-Wno-implicit-function-declaration"],
