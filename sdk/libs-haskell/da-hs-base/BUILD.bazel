@@ -44,6 +44,7 @@ da_haskell_library(
 
 da_haskell_test(
     name = "da-hs-base-options-tests",
+    timeout = "short",
     srcs = glob(["tests/Options.hs"]),
     hackage_deps = [
         "base",
