@@ -76,6 +76,7 @@ use_repo(llvm_toolchain_ext, "llvm_toolchains")
 
 llvm_source = use_extension("@llvm//extensions:llvm_source.bzl", "llvm_source")
 llvm_source.version(llvm_version = "22.1.8")
+use_repo(llvm_source, "llvm-raw", "llvm_config", "llvm_zlib", "llvm_zstd")
 
 register_toolchains("@bsd_tar_toolchains//:all")
 
@@ -188,7 +189,6 @@ stack_snapshot_ext = use_extension(
     "stack_snapshot",
 )
 use_repo(stack_snapshot_ext, "stackage", "stackage-exe")
-
 stack_snapshot_ext.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
 stack_snapshot_ext.stack_snapshot_json(
     label = "//:stackage_snapshot.json",
