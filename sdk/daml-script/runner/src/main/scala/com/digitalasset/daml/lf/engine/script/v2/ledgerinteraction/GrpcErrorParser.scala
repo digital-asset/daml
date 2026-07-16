@@ -131,6 +131,10 @@ object GrpcErrorParser {
               None,
             )
         }
+      case "UNSUPPORTED_CONTRACT_ID" =>
+        caseErr { case Seq((ErrorResource.ContractId, cid)) =>
+          SubmitError.UnsupportedContractId(ContractId.assertFromString(cid))
+        }
       case "UNRESOLVED_PACKAGE_NAME" =>
         caseErr { case Seq((ErrorResource.PackageName, pkgName)) =>
           SubmitError.UnresolvedPackageName(PackageName.assertFromString(pkgName))
