@@ -61,6 +61,7 @@ da_haskell_library(
 
 da_haskell_test(
     name = "daml-lf-proto-encode-test",
+    timeout = "short",
     srcs = [
         "test/DA/Daml/LF/Proto3/EncodeTest.hs",
     ],

@@ -47,6 +47,7 @@ da_scala_library(
 ########################################################
 da_scala_test(
     name = "test",
+    timeout = "short",
     srcs = glob(["src/test/**/*.scala"]),
     data = [
         "//compiler/damlc",
