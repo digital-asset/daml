@@ -405,7 +405,7 @@ executable {exe_name}
       optparse-applicative,
 EOF
 
-    grep -v "\\-\\-" $(SRCS) | \
+    grep -v -e "--" $(SRCS) | \
       sed -nE '''
 s#^haskell_toolchain_library rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stackage//:\\1#g
 s#^haskell_toolchain_library rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stackage//:\\1#g
@@ -430,7 +430,7 @@ library
     build-depends:
 EOF
 
-    grep -v "\\-\\-" $(SRCS) | \
+    grep -v -e "--" $(SRCS) | \
       sed -nE '''
 s#^haskell_toolchain_library rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stackage//:\\1#g
 s#^haskell_toolchain_library rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stackage//:\\1#g
@@ -443,7 +443,7 @@ T;p
 
     echo '    exposed-modules:' >> $@
 
-    grep -v "\\-\\-" $(SRCS) | \
+    grep -v -e "--" $(SRCS) | \
        sed -nE 's#^source file //[A-Za-z0-9/_\\-]+:{source_dir}/([A-Za-z0-9/_\\-]+)\\.hs$$#      \\1#g;T;p' | \
        sed 's#/#\\.#g' | sort -f {export_filter} >> $@
 
