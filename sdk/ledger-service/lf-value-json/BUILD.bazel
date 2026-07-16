@@ -40,7 +40,7 @@ daml_compile(
 
 da_scala_test(
     name = "tests",
-    size = "medium",
+    size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
     data = [
         ":JsonEncodingTest.dar",
