@@ -33,6 +33,7 @@ da_haskell_library(
 
 da_haskell_test(
     name = "da-gcp-logger-telemetry-tests",
+    timeout = "short",
     srcs = glob(["tests/Telemetry.hs"]),
     flaky = True,
     hackage_deps = [

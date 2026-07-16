@@ -64,6 +64,7 @@ da_haskell_library(
 
 da_haskell_test(
     name = "test",
+    timeout = "short",
     srcs = [
         "test/DA/Daml/LF/Proto3/DecodeTest.hs",
     ],

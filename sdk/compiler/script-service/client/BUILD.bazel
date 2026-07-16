@@ -54,6 +54,7 @@ da_haskell_library(
 
 da_haskell_test(
     name = "tests",
+    timeout = "short",
     srcs = glob(["test/**/*.hs"]),
     hackage_deps = [
         "async",
