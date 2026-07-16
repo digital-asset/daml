@@ -182,6 +182,14 @@ if [ "$(uname -s)" == "Linux" ]; then
           rpath="$(eval echo $rpath)" # expand variables, e.g. $ORIGIN
           if [ -e "$rpath/$lib" ]; then
             libOK=1
+            case "$rpath" in
+              /lib*|/usr/lib*)
+                if [ "$lib" != "$ld_name" ]; then
+                  echo "ERROR: refusing to bundle non-hermetic host lib $lib for $from from $rpath. patchelf $($patchelf --version 2>/dev/null | awk '{print $2}') corrupts modern host libs (this is how ghc-pkg's libgmp.so.10 SIGSEGV'd). Provide it hermetically via extra_lib_dirs." >&2
+                  return 1
+                fi
+                ;;
+            esac
             cp "$rpath/$lib" "$target/$lib"
             chmod u+w "$target/$lib"
             if [ "$lib" != "$ld_name" ]; then
