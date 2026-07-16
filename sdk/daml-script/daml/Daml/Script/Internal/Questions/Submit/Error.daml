@@ -29,10 +29,10 @@ data UpgradeErrorType
         srcPackageName : Text
         dstPackageName : Text
         originalSignatories : [Party]
-        originalObservers : [Party]
+        originalNonSignatoryStakeholders : [Party]
         originalKeyOpt : Optional (AnyContractKey, [Party])
         recomputedSignatories : [Party]
-        recomputedObservers : [Party]
+        recomputedNonSignatoryStakeholders : [Party]
         recomputedKeyOpt : Optional (AnyContractKey, [Party])
   | TranslationFailed with
         mCoid : Optional AnyContractId
@@ -286,19 +286,19 @@ instance Show UpgradeErrorType where
         srcPackageName
         dstPackageName
         originalSignatories
-        originalObservers
+        originalNonSignatoryStakeholders
         _originalKeyOpt
         recomputedSignatories
-        recomputedObservers
+        recomputedNonSignatoryStakeholders
         _recomputedKeyOp) ->
       "Validation failed for contract "
           <> show coid
           <> " ( original package name: " <> show srcPackageName
           <> ", original signatories: " <> show originalSignatories
-          <> ", original observers: " <> show originalObservers
+          <> ", original non-signatory stakeholders: " <> show originalNonSignatoryStakeholders
           <> ", target package name:" <> show dstPackageName
           <> ", recomputed signatories: " <> show recomputedSignatories
-          <> ", recomputed observers: " <> show recomputedObservers <> ")"
+          <> ", recomputed non-signatory stakeholders: " <> show recomputedNonSignatoryStakeholders <> ")"
     TranslationFailed mCoid _srcTemplateId _dstTemplateId _createArg ->
       "Failed to load " <> (optional "a contract" (\coid -> "contract" <> show coid)) mCoid
     AuthenticationFailed coid _srcTemplateId _dstTemplateId _createArg ->

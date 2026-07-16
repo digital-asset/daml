@@ -431,13 +431,13 @@ dstPackageName :: UpgradeErrorType -> Text
 
 originalSignatories :: UpgradeErrorType -> [Party]
 
-originalObservers :: UpgradeErrorType -> [Party]
+originalNonSignatoryStakeholders :: UpgradeErrorType -> [Party]
 
 originalKeyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
 
 recomputedSignatories :: UpgradeErrorType -> [Party]
 
-recomputedObservers :: UpgradeErrorType -> [Party]
+recomputedNonSignatoryStakeholders :: UpgradeErrorType -> [Party]
 
 recomputedKeyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
 

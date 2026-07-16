@@ -493,10 +493,10 @@ object SubmitError {
         srcPackageName: PackageName,
         dstPackageName: PackageName,
         originalSignatories: Set[Party],
-        originalObservers: Set[Party],
+        originalNonSignatoryStakeholders: Set[Party],
         originalOptKey: Option[GlobalKeyWithMaintainers],
         recomputedSignatories: Set[Party],
-        recomputedObservers: Set[Party],
+        recomputedNonSignatoryStakeholders: Set[Party],
         recomputedOptKey: Option[GlobalKeyWithMaintainers],
         message: String,
     ) extends SubmitError {
@@ -515,8 +515,10 @@ object SubmitError {
               ValueList(originalSignatories.toList.map(ValueParty.apply).to(FrontStack)),
             ),
             (
-              "originalObservers",
-              ValueList(originalObservers.toList.map(ValueParty.apply).to(FrontStack)),
+              "originalNonSignatoryStakeholders",
+              ValueList(
+                originalNonSignatoryStakeholders.toList.map(ValueParty.apply).to(FrontStack)
+              ),
             ),
             (
               "originalKeyOpt",
@@ -532,8 +534,10 @@ object SubmitError {
               ValueList(recomputedSignatories.toList.map(ValueParty.apply).to(FrontStack)),
             ),
             (
-              "recomputedObservers",
-              ValueList(recomputedObservers.toList.map(ValueParty.apply).to(FrontStack)),
+              "recomputedNonSignatoryStakeholders",
+              ValueList(
+                recomputedNonSignatoryStakeholders.toList.map(ValueParty.apply).to(FrontStack)
+              ),
             ),
             (
               "recomputedKeyOpt",

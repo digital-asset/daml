@@ -382,10 +382,10 @@ class IdeLedgerClient(
           innerError.srcPackageName,
           innerError.dstPackageName,
           innerError.originalSignatories,
-          innerError.originalObservers,
+          innerError.originalSignatoryStakeholders,
           innerError.originalKeyOpt,
           innerError.recomputedSignatories,
-          innerError.recomputedObservers,
+          innerError.recomputedSignatoryStakeholders,
           innerError.recomputedKeyOpt,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )

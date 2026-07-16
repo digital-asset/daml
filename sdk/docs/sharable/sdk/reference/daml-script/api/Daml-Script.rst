@@ -945,7 +945,7 @@ Data Types
        * - originalSignatories
          - \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
          -
-       * - originalObservers
+       * - originalNonSignatoryStakeholders
          - \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
          -
        * - originalKeyOpt
@@ -954,7 +954,7 @@ Data Types
        * - recomputedSignatories
          - \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
          -
-       * - recomputedObservers
+       * - recomputedNonSignatoryStakeholders
          - \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
          -
        * - recomputedKeyOpt
