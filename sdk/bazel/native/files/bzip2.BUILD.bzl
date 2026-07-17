@@ -29,6 +29,7 @@ cc_library(
 cc_shared_library(
     name = "bz2_so",
     shared_lib_name = "libbz2.so",
+    user_link_flags = ["-Wno-unused-command-line-argument"],
     deps = [":bz2_cc_lib"],
 )
 

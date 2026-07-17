@@ -12,6 +12,7 @@ cc_library(
 cc_shared_library(
     name = "libz_so",
     shared_lib_name = "libz.so",
+    user_link_flags = ["-Wno-unused-command-line-argument"],
     deps = [":libz"],
 )
 
