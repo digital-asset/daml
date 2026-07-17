@@ -44,6 +44,7 @@ def _cc_bundle_impl(ctx):
         cc_toolchain = toolchain,
         linking_contexts = [link_input],
         output_type = "dynamic_library",
+        user_link_flags = ["-Wno-unused-command-line-argument"],
     )
 
     return [CcInfo(
