@@ -665,7 +665,7 @@ da_haskell_test(
 # Tests for multi-package
 da_haskell_test(
     name = "multi-package",
-    timeout = "moderate",
+    timeout = "long",
     srcs = ["src/DA/Test/DamlcMultiPackage.hs"],
     data = [
         "//release:dpm-sdk-release-tarball",

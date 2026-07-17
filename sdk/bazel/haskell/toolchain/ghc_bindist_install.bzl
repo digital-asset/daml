@@ -9,17 +9,22 @@ load("//bazel/native:hermetic_cc.bzl", "TOOLBIN_SNIPPET", "hermetic_cc_flags")
 # sandboxes, so `ghc`/`ghc-pkg` get an explicit `-B`/`--global-package-db`.
 _LAUNCHER_EXTRA_ARGS = {
     "ghc": '-B"$ROOT/lib"',
+    "ghci": '--interactive -B"$ROOT/lib"',
     "ghc-pkg": '--global-package-db "$ROOT/lib/package.conf.d"',
     "runghc": '--ghc-arg=-B"$ROOT/lib"',
     "haddock": '-B"$ROOT/lib" -l"$ROOT/lib"',
     "hsc2hs": '--template="$ROOT/lib/template-hsc.h"',
 }
 
+_LAUNCHER_TARGET_BIN = {
+    "ghci": "ghc",
+}
+
 # hsc2hs's bundled include must follow the caller's args, matching the stock wrapper.
 _LAUNCHER_SUFFIX_ARGS = {
     "hsc2hs": '-I"$ROOT/lib/include/"',
 }
-_TOOLS = ["ghc", "ghc-pkg", "hsc2hs", "haddock", "runghc", "hpc"]
+_TOOLS = ["ghc", "ghci", "ghc-pkg", "hsc2hs", "haddock", "runghc", "hpc"]
 
 def _make_launcher(ctx, install_tree, tool_name):
     launcher = ctx.actions.declare_file("{}_bin/{}".format(ctx.label.name, tool_name))
@@ -33,7 +38,7 @@ ROOT="$(cd "$(dirname "$SELF")/../{tree}" && pwd)"
 exec "$ROOT/lib/bin/{tool}" {extra} "$@" {suffix}
 """.format(
             tree = install_tree.basename,
-            tool = tool_name,
+            tool = _LAUNCHER_TARGET_BIN.get(tool_name, tool_name),
             extra = _LAUNCHER_EXTRA_ARGS.get(tool_name, ""),
             suffix = _LAUNCHER_SUFFIX_ARGS.get(tool_name, ""),
         ),
