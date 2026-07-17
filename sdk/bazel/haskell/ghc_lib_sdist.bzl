@@ -63,7 +63,7 @@ def _ghc_lib_sdist_impl(ctx):
             action_name = ACTION_NAMES.cpp_link_executable,
             variables = link_variables,
         )
-    ])
+    ] + ["-Wno-unused-command-line-argument"])
 
     # -- Autotools prefix (InstalledGnuToolInfo from build_gnu_tool) --
     autotools_info = ctx.attr.autotools[InstalledGnuToolInfo]
