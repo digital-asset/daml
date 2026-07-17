@@ -229,12 +229,14 @@ alias(
 cc_shared_library(
     name = "gmp_so",
     shared_lib_name = "libgmp.so",
+    user_link_flags = ["-Wno-unused-command-line-argument"],
     deps = [":gmp"],
 )
 
 cc_shared_library(
     name = "gmp_so_10",
     shared_lib_name = "libgmp.so.10",
+    user_link_flags = ["-Wno-unused-command-line-argument"],
     deps = [":gmp"],
 )
 
