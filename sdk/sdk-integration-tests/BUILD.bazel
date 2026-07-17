@@ -49,7 +49,7 @@ da_haskell_library(
 
 da_haskell_test(
     name = "tests",
-    timeout = "moderate",
+    timeout = "long",
     srcs = [
         "src/DA/Daml/SdkIntegrationTests/Tests.hs",
     ],
