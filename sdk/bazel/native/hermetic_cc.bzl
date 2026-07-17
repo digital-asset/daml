@@ -69,7 +69,7 @@ def hermetic_cc_flags(ctx, cc_toolchain, link_dynamic = False):
             feature_configuration = fc,
             action_name = ACTION_NAMES.cpp_link_static_library,
         ),
-        cflags = " ".join(_flags(fc, ACTION_NAMES.c_compile, compile_vars)),
+        cflags = " ".join(_flags(fc, ACTION_NAMES.c_compile, compile_vars) + ["-Wno-unused-command-line-argument"]),
         ldflags = " ".join(_flags(fc, link_action, link_vars)),
     )
 
