@@ -3,3 +3,4 @@
 .DS_Store
 .metals/*
 .vscode/settings.json
+sdk/daml-lf/lf_solver_profile.bzl
