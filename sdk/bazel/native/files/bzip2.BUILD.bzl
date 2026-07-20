@@ -38,3 +38,11 @@ filegroup(
     srcs = [":bz2_so"],
     visibility = ["//visibility:public"],
 )
+
+cc_library(
+    name = "bz2_dyn",
+    srcs = [":libs"],
+    hdrs = ["bzlib.h"],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+)
