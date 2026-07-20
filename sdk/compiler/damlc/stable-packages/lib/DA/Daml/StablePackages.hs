@@ -14,6 +14,7 @@ module DA.Daml.StablePackages
 import           Data.Bifunctor
 import qualified Data.Map.Strict as MS
 import qualified Data.NameMap as NM
+import qualified Data.Set as Set
 import qualified Data.Text as T
 
 import           DA.Daml.LF.Ast
@@ -430,7 +431,7 @@ ghcStackTypes version daTypesPackageId = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
-  , importedPackages = Left noPkgImportsReasonStablePackage
+  , importedPackages = Right $ Set.fromList [daTypesPackageId]
   }
   where
     modName = mkModName ["GHC", "Stack", "Types"]
