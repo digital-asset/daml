@@ -21,3 +21,11 @@ filegroup(
     srcs = [":libz_so"],
     visibility = ["//visibility:public"],
 )
+
+cc_library(
+    name = "libz_dyn",
+    srcs = [":libs"],
+    hdrs = glob(["*.h"]),
+    includes = ["."],
+    visibility = ["//visibility:public"],
+)

@@ -459,14 +459,14 @@ HASKELL_TRANSITIVE_GMP_PACKAGES = [
 stack_snapshot_ext.package(
     name = "digest",
     extra_deps = [
-        "@libz//:libz",
+        "@libz//:libz_dyn",
         "@gmp//:gmp_cc_lib",
     ],
 )
 stack_snapshot_ext.package(
     name = "zlib",
     extra_deps = [
-        "@libz//:libz",
+        "@libz//:libz_dyn",
         "@gmp//:gmp_cc_lib",
     ],
 )
@@ -491,7 +491,7 @@ stack_snapshot_ext.package(
     name = "bzlib-conduit",
     extra_deps = [
         "@gmp//:gmp_cc_lib",
-        "@bzip2//:bz2_cc_lib",
+        "@bzip2//:bz2_dyn",
     ],
 )
 stack_snapshot_ext.package(
