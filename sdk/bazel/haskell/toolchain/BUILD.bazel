@@ -85,7 +85,7 @@ configure_make(
 
 cc_library(
     name = "tinfo_cc_lib",
-    srcs = [":libtinfo.so"],
+    srcs = [":libtinfo.so.5"],
 )
 
 filegroup(
