@@ -75,6 +75,7 @@ _withSdkResource tarball homeName install f = do
             oldPath <- getSearchPath
             setEnv "DAML_CACHE" cacheDir True
             setEnv homeName targetDir True
+            resyncEnviron
 
             withTempDir $ \extractDir -> do
                 runConduitRes
