@@ -225,11 +225,13 @@ da_haskell_library(
             ":package-vetting-package-a-{}.dar".format(version),
             ":package-vetting-package-b-{}.dar".format(version),
             ":query-lf-lib",
+            "//:java_rlocation_path",
             "//compiler/damlc:ghcversion",
             "//compiler/damlc:hpp-copy",
             "//compiler/damlc/pkg-db",
             "//compiler/damlc/stable-packages",
             "//compiler/script-service/server:script_service_jar",
+            "@rules_java//toolchains:current_java_runtime",
             "//daml-script/daml:daml-script-{version}.dar".format(version = version),
             "//bazel_tools:jq_bin",
             ghc_pkg,
@@ -351,6 +353,7 @@ da_haskell_test(
     timeout = "moderate",
     srcs = ["src/DA/Test/ShakeIdeClient.hs"],
     data = [
+        "//:java_rlocation_path",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/script-service/server:script_service_jar",
@@ -359,6 +362,7 @@ da_haskell_test(
         # the target from DEFAULT_LF_VERSION keeps it in sync automatically when
         # the default is bumped (see also the fail-fast check in DamlcIntegration).
         "//daml-script/daml:daml-script-{}.dar".format(DEFAULT_LF_VERSION),
+        "@rules_java//toolchains:current_java_runtime",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -390,9 +394,11 @@ da_haskell_test(
     name = "incremental",
     srcs = ["src/DA/Test/IncrementalBuilds.hs"],
     data = [
+        "//:java_rlocation_path",
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
         "//daml-script/runner:daml-script-binary",
+        "@rules_java//toolchains:current_java_runtime",
     ],
     hackage_deps = [
         "base",
@@ -750,6 +756,8 @@ da_haskell_test(
     timeout = "long",
     srcs = ["src/DA/Test/DataDependencies.hs"],
     data = [
+        "//:java_rlocation_path",
+        "@rules_java//toolchains:current_java_runtime",
         "//compiler/damlc",
         "@damlc_legacy",
         ":generate-simple-dalf",
@@ -996,6 +1004,8 @@ da_haskell_test(
     name = "script-service",
     srcs = ["src/DA/Test/ScriptService.hs"],
     data = [
+        "//:java_rlocation_path",
+        "@rules_java//toolchains:current_java_runtime",
         "//compiler/damlc",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",

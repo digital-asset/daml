@@ -19,12 +19,13 @@ import System.Directory.Extra
 import System.FilePath
 import System.IO.Extra
 import DA.Test.Process
+import DA.Test.Util (withJavaInPath)
 import Test.Tasty
 import Test.Tasty.HUnit
 import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
 
 main :: IO ()
-main = withComponentVersions $ do
+main = withJavaInPath $ withComponentVersions $ do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlScript <- locateRunfiles (mainWorkspace </> "daml-script" </> "runner" </> exe "daml-script-binary")
     v2TestArgs <- do
