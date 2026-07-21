@@ -30,7 +30,7 @@ import Test.Tasty.HUnit
 import ComponentVersion (ComponentVersioned, damlStdlib, componentVersionString, withComponentVersions)
 
 main :: IO ()
-main = withComponentVersions $ do
+main = withJavaInPath $ withComponentVersions $ do
     setEnv "TASTY_NUM_THREADS" "3" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
