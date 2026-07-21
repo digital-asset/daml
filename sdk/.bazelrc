@@ -85,7 +85,7 @@ build --java_runtime_version=remotejdk_17
 build --tool_java_runtime_version=remotejdk_17
 
 # Propagate locales and the java home to the test environment.
-build --test_env=LANG=en_US.utf8 --test_env=LOCALE_ARCHIVE --test_env=JAVA_HOME
+build --test_env=LANG=C.UTF-8 --test_env=LOCALE_ARCHIVE --test_env=JAVA_HOME
 
 # Disable c-ares support in grpc. We don't need a faster DNS library
 # since we're only connecting to localhost.
