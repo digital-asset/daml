@@ -12,6 +12,7 @@ module DA.Test.Util (
     withTempDirResource,
     withCurrentTempDir,
     withEnv,
+    resyncEnviron,
     withResourceCps,
     nullDevice,
     withDevNull,
@@ -144,6 +145,9 @@ withEnv vs m = Unlift.bracket (liftIO pushEnv) (liftIO . popEnv) (const m)
             -- (read by the code under test) sees the change. See environ_fix.c.
             c_da_fix_environ
             pure r
+
+resyncEnviron :: MonadIO m => m ()
+resyncEnviron = liftIO c_da_fix_environ
 
 -- Prepend the hermetic JDK to PATH (an existing var) rather than setting a new
 -- var like JAVA_HOME: under hermetic glibc a new-var setenv reallocs __environ,

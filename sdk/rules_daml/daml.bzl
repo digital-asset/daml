@@ -561,12 +561,19 @@ def daml_test(
         **kwargs):
     sh_inline_test(
         name = name,
-        data = [damlc] + srcs + deps + data_deps,
+        data = [
+            damlc,
+            "//:java_rlocation_path",
+            "@rules_java//toolchains:current_java_runtime",
+        ] + srcs + deps + data_deps,
         cmd = """\
 set -eou pipefail
 tmpdir=$$(mktemp -d)
 trap "rm -rf $$tmpdir" EXIT
 DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
+JAVA_BIN=$$(rlocation \
+  $$(head -n1 $$(canonicalize_rlocation java_rlocation_path.txt)))
+export PATH="$$JAVA_BIN:$$PATH"
 rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
 DEPS=($$(rlocations {deps}))
 DATA_DEPS=($$(rlocations {data_deps}))
@@ -699,9 +706,17 @@ def daml_doc_test(
         **kwargs):
     sh_inline_test(
         name = name,
-        data = [cpp, damlc, script_dar] + srcs,
+        data = [
+            cpp,
+            damlc,
+            script_dar,
+            "//:java_rlocation_path",
+            "@rules_java//toolchains:current_java_runtime",
+        ] + srcs,
         cmd = """\
 set -eou pipefail
+JAVA_BIN=$$(rlocation $$(head -n1 $$(canonicalize_rlocation java_rlocation_path.txt)))
+export PATH="$$JAVA_BIN:$$PATH"
 CPP=$$(canonicalize_rlocation $(rootpath {cpp}))
 DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
 SCRIPT_DAR=$$(canonicalize_rlocation $(rootpath {script_dar}))
@@ -745,9 +760,16 @@ def daml_multi_package_test(
         **kwargs):
     sh_inline_test(
         name = name,
-        data = [dpm_tarball] + srcs,
+        data = [
+            dpm_tarball,
+            "//:java_rlocation_path",
+            "@rules_java//toolchains:current_java_runtime",
+        ] + srcs,
         cmd = """
             set -eou pipefail
+            JAVA_BIN=$$(rlocation \
+              $$(head -n1 $$(canonicalize_rlocation java_rlocation_path.txt)))
+            export PATH="$$JAVA_BIN:$$PATH"
             export DPM_HOME=$$PWD/$$(mktemp -d tmp.XXXXXXX)
             tmpdir=$$PWD/$$(mktemp -d tmp.XXXXXXX)
             shorten() {{
