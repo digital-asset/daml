@@ -21,7 +21,7 @@ import DA.Pretty
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 import DA.Test.Process (callProcessSilent)
-import DA.Test.Util (withResourceCps, withCurrentTempDir)
+import DA.Test.Util (withResourceCps, withCurrentTempDir, withJavaInPath)
 import qualified Data.HashSet as HashSet
 import Data.Foldable (for_)
 import Data.List
@@ -49,7 +49,7 @@ import Text.Regex.TDFA
 import qualified DA.Daml.LF.Ast as LF
 
 main :: IO ()
-main = withComponentVersions $ do
+main = withJavaInPath $ withComponentVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     defaultMain $
         testGroup
