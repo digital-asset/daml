@@ -24,7 +24,7 @@ import Control.Monad.IO.Class
 import qualified DA.Daml.LF.Ast.Version as LF
 import qualified DA.Daml.Options.Types as Daml (Options (..), EnableInterfaces (..))
 import DA.Daml.LF.ScriptServiceClient as SS
-import DA.Test.Util (withResourceCps)
+import DA.Test.Util (withResourceCps, withJavaInPath)
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 -- import qualified DA.Service.Logger.Impl.Pure as Logger
@@ -38,7 +38,7 @@ import DA.Test.DamlcIntegration (ScriptPackageData, withDamlScriptDep)
 import ComponentVersion (ComponentVersioned, withComponentVersions)
 
 main :: IO ()
-main = withComponentVersions $ do
+main = withJavaInPath $ withComponentVersions $ do
     scriptLogger <- Logger.newStderrLogger Logger.Warning "script"
     -- The script services are shared resources so running tests in parallel doesn’t work properly.
     setEnv "TASTY_NUM_THREADS" "1" True

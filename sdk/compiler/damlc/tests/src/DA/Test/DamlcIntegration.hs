@@ -21,7 +21,7 @@ import           DA.Cli.Options (explicitSerializable)
 import           DA.Daml.Options
 import           DA.Daml.Options.Types
 import           DA.Daml.Package.Config (DependencySpec(..))
-import           DA.Test.Util (standardizeQuotes)
+import           DA.Test.Util (standardizeQuotes, withJavaInPath)
 
 import           DA.Daml.LF.Ast as LF
 import           "ghc-lib-parser" UniqSupply
@@ -185,7 +185,7 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
 type WithPVScriptService a = Maybe String -> (SS.Handle -> IO a) -> IO a
 
 main :: IO ()
-main = withComponentVersions $ do
+main = withJavaInPath $ withComponentVersions $ do
   -- This is a bit hacky, we want the LF version before we hand over to
   -- tasty. To achieve that we first pass with optparse-applicative ignoring
   -- everything apart from the LF version.
