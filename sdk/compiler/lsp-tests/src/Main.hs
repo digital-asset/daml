@@ -38,6 +38,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Data.Aeson as Aeson
 import DA.Daml.Lsp.Test.Util
+import DA.Test.Util (withJavaInPath)
 import qualified Language.LSP.Test as LSP
 import Text.Regex.TDFA
 import Development.IDE.Core.Rules.Daml (VirtualResourceChangedParams(..))
@@ -46,7 +47,7 @@ fullCaps' :: ClientCapabilities
 fullCaps' = fullCaps { _window = Just $ WindowClientCapabilities (Just True) Nothing Nothing }
 
 main :: IO ()
-main = withComponentVersions $ do
+main = withJavaInPath $ withComponentVersions $ do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlcPath <- locateRunfiles $
         mainWorkspace </> "compiler" </> "damlc" </> exe "damlc"
