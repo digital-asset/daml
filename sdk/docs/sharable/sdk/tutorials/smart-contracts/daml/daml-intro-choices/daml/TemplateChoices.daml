@@ -1,0 +1,53 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module TemplateChoices where
+
+import Daml.Script
+
+-- TEMPLATE_STRUCTURE_BEGIN
+template Token
+  with
+    -- Data fields
+    owner : Party
+    issuer : Party
+    amount : Decimal
+  where
+    -- Authorization
+    signatory issuer
+    observer owner
+
+    -- Actions
+    choice ChangeOwner : ContractId Token
+      with
+        newOwner : Party
+      controller owner
+      do
+        create this with owner = newOwner
+-- TEMPLATE_STRUCTURE_END
+
+    nonconsuming choice GetBalance : Decimal
+      controller owner
+      do return amount
+
+test_token_choices = script do
+  issuer <- allocateParty "Issuer"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  tokenCid <- submit issuer do
+    createCmd Token with
+      issuer = issuer
+      owner = alice
+      amount = 100.0
+
+  balance <- submit alice do
+    exerciseCmd tokenCid GetBalance
+  assert (balance == 100.0)
+
+  newCid <- submit alice do
+    exerciseCmd tokenCid ChangeOwner with newOwner = bob
+
+  Some token <- queryContractId issuer newCid
+  assert (token.owner == bob)

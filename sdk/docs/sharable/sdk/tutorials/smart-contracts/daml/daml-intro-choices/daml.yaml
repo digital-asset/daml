@@ -1,0 +1,8 @@
+sdk-version: 3.5.1
+name: intro-choices
+source: daml
+version: 1.0.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
