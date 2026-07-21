@@ -148,6 +148,14 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
+genrule(
+    name = "python_rlocation_path",
+    srcs = ["@python_3_12//:python3"],
+    outs = ["python_rlocation_path.txt"],
+    cmd = "echo $(rootpath @python_3_12//:python3) | sed 's|^\\.\\./||; s|^external/||; s|/[^/]*$$||' > $@",
+    visibility = ["//visibility:public"],
+)
+
 exports_files([
     ".scalafmt.conf",
     "maven_install_2.13.json",
