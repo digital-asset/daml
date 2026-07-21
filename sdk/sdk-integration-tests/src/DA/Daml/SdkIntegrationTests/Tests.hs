@@ -41,6 +41,9 @@ main = withComponentVersions $ do
         javaRlocFile <- locateRunfiles (mainWorkspace </> "java_rlocation_path.txt")
         javaRlocPath <- head . lines <$> readFile' javaRlocFile
         javaPath <- locateRunfiles javaRlocPath
+        pythonRlocFile <- locateRunfiles (mainWorkspace </> "python_rlocation_path.txt")
+        pythonRlocPath <- head . lines <$> readFile' pythonRlocFile
+        pythonPath <- locateRunfiles pythonRlocPath
         pnpmPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> pnpm)
         mbPtyWrapperDir <- if isWindows
             then pure Nothing
@@ -48,7 +51,7 @@ main = withComponentVersions $ do
         limitJvmMemory defaultJvmMemoryLimits
         withArgs args (withEnv
             [ ("PATH", Just $ intercalate [searchPathSeparator] $ concat
-                [ [javaPath, pnpmPath]
+                [ [javaPath, pythonPath, pnpmPath]
                 , maybeToList mbPtyWrapperDir
                 , oldPath
                 ])
