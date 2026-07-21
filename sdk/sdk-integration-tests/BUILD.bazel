@@ -58,9 +58,11 @@ da_haskell_test(
     ],
     data = [
         "//:java_rlocation_path",
+        "//:python_rlocation_path",
         "//compiler/damlc/tests:generate-simple-dalf",
         "//release:dpm-sdk-release-tarball",
         "@pnpm",
+        "@python_3_12//:files",
         "@rules_java//toolchains:current_java_runtime",
     ] + os_dependent_libraries,
     # marked flaky for mvn originally; still flaky now? #14281
