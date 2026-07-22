@@ -1028,7 +1028,7 @@ runSingleScriptRule =
           forM scripts $ \(script, loc) -> do
               (vr, res) <- runScript scriptService (Just file) ctxId (LF.moduleName m) script
               let range = maybe noRange sourceLocToRange loc
-              pure (toDiagnostics lvl world file range res, (vr, res))
+              pure (toDiagnostics lvl world file range targetScriptName res, (vr, res))
       let (diags, results) = unzip scriptResults
       pure (concat diags, Just results)
 
@@ -1064,9 +1064,10 @@ toDiagnostics ::
     -> LF.World
     -> NormalizedFilePath
     -> Range
+    -> T.Text  -- ^ Script name
     -> Either SS.Error SS.ScriptResult
     -> [FileDiagnostic]
-toDiagnostics lvl world scriptFile scriptRange = \case
+toDiagnostics lvl world scriptFile scriptRange scriptName = \case
     Left err -> pure $ mkDiagnostic DsError (scriptFile, scriptRange) $
         formatScriptError lvl world err
     Right SS.ScriptResult{..} ->
@@ -1079,7 +1080,7 @@ toDiagnostics lvl world scriptFile scriptRange = \case
     mkDiagnostic severity (file, range) pretty = (file, ShowDiag, ) $ Diagnostic
         { _range = range
         , _severity = Just severity
-        , _source = Just "Script"
+        , _source = Just $ "Script: " <> scriptName
         , _message = Pretty.renderPlain pretty
         , _code = Nothing
         , _tags = Nothing
