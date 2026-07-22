@@ -67,14 +67,20 @@ export class DamlLanguageClient {
   // to requests in a timely manner. If the server fails to respond it is
   // terminated with SIGTERM.
   private keepAliveTimer: ReturnType<typeof setInterval> | undefined;
-  private keepAliveInterval = 60000; // Send KA every 60s.
 
-  // Wait for max 120s before restarting process.
-  // NOTE(JM): If you change this, make sure to also change the server-side timeouts to get
-  // detailed errors rather than cause a restart.
-  // Legacy Daml timeout for language server is defined in
-  // DA.Daml.LanguageServer.
-  private keepAliveTimeout = 120000;
+  // Interval between keep-alive pings, and how long we'll wait for a
+  // reply (or any other server output) before assuming the process has
+  // hung. Read from settings so users with large workspaces can extend
+  // them; defaults preserve the previous 60s / 120s behaviour.
+  private keepAliveInterval: number;
+  private keepAliveTimeout: number;
+
+  // Milliseconds-since-epoch timestamp of the last observed activity
+  // from the language server (either a keep-alive reply or anything
+  // written to stdout/stderr). Used as a secondary liveness signal:
+  // if the server is producing output it's alive even if it's currently
+  // too busy to answer the keep-alive ping in time.
+  private lastServerActivity: number = Date.now();
 
   static async build(
     rootPath: string,
@@ -122,6 +128,13 @@ export class DamlLanguageClient {
     this.languageClient.registerProposedFeatures();
     this.isMultiIde = multiIdeSupport;
 
+    const damlConfig = vscode.workspace.getConfiguration("daml");
+    this.keepAliveInterval = damlConfig.get<number>(
+      "keepAliveInterval",
+      60000,
+    );
+    this.keepAliveTimeout = damlConfig.get<number>("keepAliveTimeout", 120000);
+
     this.virtualResourceManager = new VirtualResourceManager(
       this.languageClient,
       this.webviewFiles,
@@ -130,6 +143,7 @@ export class DamlLanguageClient {
     this.context.subscriptions.push(this.virtualResourceManager);
 
     this.languageClient.start().then(() => {
+      this.observeServerActivity();
       this.startKeepAliveWatchdog();
       this.languageClient.onNotification(
         DamlVirtualResourceDidChangeNotification.type,
@@ -441,9 +455,30 @@ export class DamlLanguageClient {
     if (this.keepAliveTimer) clearTimeout(this.keepAliveTimer);
   }
 
+  // Subscribe to the server process's stdout/stderr so any output the
+  // server produces refreshes `lastServerActivity`. That lets us
+  // distinguish "damlc is hung" from "damlc is busy"
+  private observeServerActivity() {
+    const proc = (<any>this.languageClient)._childProcess;
+    if (!proc) return;
+    const bump = () => {
+      this.lastServerActivity = Date.now();
+    };
+    if (proc.stdout) proc.stdout.on("data", bump);
+    if (proc.stderr) proc.stderr.on("data", bump);
+  }
+
   private keepAlive(languageClient: LanguageClient) {
     let self = this;
     function killDamlc() {
+      // If we've observed any output from the server within the
+      // keep-alive timeout window, treat it as alive-but-busy and
+      // reschedule instead of restarting.
+      if (Date.now() - self.lastServerActivity < self.keepAliveTimeout) {
+        self.startKeepAliveWatchdog();
+        return;
+      }
+
       vscode.window.showErrorMessage(
         "Sorry, you’ve hit a bug requiring a Daml Language Server restart. We’d greatly appreciate a bug report — ideally with example files.",
       );
@@ -451,7 +486,10 @@ export class DamlLanguageClient {
       // Terminate the damlc process with SIGTERM. The language client will restart the process automatically.
       // NOTE(JM): Verify that this works on Windows.
       // https://nodejs.org/api/child_process.html#child_process_child_kill_signal
-      (<any>languageClient)._childProcess.kill("SIGTERM");
+      const proc = (<any>languageClient)._childProcess;
+      if (proc && typeof proc.kill === "function") {
+        proc.kill("SIGTERM");
+      }
 
       // Restart the watchdog after 10s
       setTimeout(self.startKeepAliveWatchdog, 10000);
@@ -462,6 +500,7 @@ export class DamlLanguageClient {
       // Keep-alive request succeeded, clear the kill timer
       // and reschedule the keep-alive.
       clearTimeout(killTimer);
+      this.lastServerActivity = Date.now();
       this.startKeepAliveWatchdog();
     });
   }
