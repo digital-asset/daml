@@ -53,7 +53,7 @@ allStablePackagesList =
       , daStackTypes version2_1
       , daInternalFailTypes version2_1
       , -- Replaces daStackTypes, which should no longer be used
-        ghcStackTypes version2_2 (encodePackageHash (daTypes version2_1))
+        ghcStackTypes version2_3 (encodePackageHash (daTypes version2_1))
       ]
 
 allStablePackagesWithIds :: [(PackageId, Package)]
