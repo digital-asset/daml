@@ -27,7 +27,6 @@ import Control.Exception
 import Control.Monad
 import DA.Daml.Compiler.ExtractDar
 import DA.Daml.LF.Ast qualified as LF
-import DA.Daml.LF.Ast.Version.GeneratedVersions (version2_2)
 import qualified DA.Daml.LF.Ast.Range as R
 import DA.Daml.LF.Proto3.Archive.Decode qualified as Archive
 import DA.Daml.Project.Types
@@ -142,16 +141,6 @@ hardcodedPackageRenames "daml-script-lts" = "daml-script"
 hardcodedPackageRenames "daml3-script" = "daml-script"
 hardcodedPackageRenames name = name
 
--- Packages that cannot be data deps (currently only daml-script)
--- as they use CallStack pre stable-callstack
--- Essentially a map from version range to unsupported package names
-unsupportedAsDataDep :: [(LF.VersionReq, [T.Text])]
-unsupportedAsDataDep =
-  [ -- Callstack stable package added in LF 2.3, allowing daml-script to be datadep.
-    -- Pre 2.3, daml-script must be a regular dependency
-    (R.Until version2_2, ["daml-script"])
-  ]
-
 data DependencyPackages = DependencyPackages
   { dpRegularDeps :: [FilePath]
   , -- For deps that shouldn't check the SDK version, i.e. deps from DPM that cannot be data deps
@@ -187,13 +176,19 @@ expandDependencyPackages cachePath pkgResolution lfVersion dependencyPackages = 
         (dpRegularUncheckedDeps dependencyPackages <> fmap fst asDeps)
         (dpDataDeps dependencyPackages <> fmap fst asDataDeps)
 
--- Returns the path to the dar found, as well as a bool for whether this dar can be a data-dep (see `unsupportedAsDataDep`)
+-- Daml-Script is not supported as a data-dep before featureStableCallStack, since callstack is
+-- used extensively in script
+isSupportedAsDataDep :: LF.Version -> T.Text -> Bool
+isSupportedAsDataDep lfVersion "daml-script" = lfVersion `LF.supports` LF.featureStableCallStack
+isSupportedAsDataDep _ _ = True
+
+-- Returns the path to the dar found, as well as a bool for whether this dar can be a data-dep (see `isSupportedAsDataDep`)
 findDarInDarInfos :: Map.Map FilePath DalfInfoCacheEntry -> T.Text -> LF.Version -> Either T.Text (FilePath, Bool)
 findDarInDarInfos darInfos rawName lfVersion = do
   let name = hardcodedPackageRenames rawName
-      dataDepUnsupported = maybe False (elem name . snd) $ find (R.elem lfVersion . fst) unsupportedAsDataDep
-      lfCondition = if dataDepUnsupported then (==) else LF.canDependOn
-      lfConditionPretty = if dataDepUnsupported then " to equal " else " compatible with "
+      dataDepSupported = isSupportedAsDataDep lfVersion name
+      lfCondition = if dataDepSupported then LF.canDependOn else (==)
+      lfConditionPretty = if dataDepSupported then " compatible with " else " to equal "
       correctNamePackages = Map.filter (\darInfo -> (LF.unPackageName $ diPackageName darInfo) == name) darInfos
       correctNameAndLfPackages = Map.filter (\darInfo -> lfCondition lfVersion (diLfVersion darInfo)) correctNamePackages
       availablePackageVersions = nubOrd $ diPackageVersion <$> Map.elems correctNameAndLfPackages
@@ -211,7 +206,7 @@ findDarInDarInfos darInfos rawName lfVersion = do
     [_] ->
       -- Major LF versions aren't cross compatible, so all will be same major here due to canDependOn check above
       -- as such, we take maximum by minor version
-      Right (fst $ maximumBy (comparing (LF.versionMinor . diLfVersion . snd)) $ Map.toList correctNameAndLfPackages, not dataDepUnsupported)
+      Right (fst $ maximumBy (comparing (LF.versionMinor . diLfVersion . snd)) $ Map.toList correctNameAndLfPackages, dataDepSupported)
     _ ->
       Left $ "Multiple package versions for " <> rawName <> " were found:\n" <> (T.intercalate "," $ LF.unPackageVersion <$> availablePackageVersions)
         <> "\nYour daml installation may be broken."
