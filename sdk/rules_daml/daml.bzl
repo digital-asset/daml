@@ -131,7 +131,8 @@ def _daml_build_impl(ctx):
     input_dars = [file_of_target(k) for k in dar_dict.keys()]
     output_dar = ctx.outputs.dar
     output_stdout = ctx.outputs.stdout
-    ctx.actions.write(ctx.outputs.srcout, "\n".join([src.path for src in srcs]))
+    if ctx.outputs.srcout != None:
+        ctx.actions.write(ctx.outputs.srcout, "\n".join([src.path for src in srcs]))
 
     posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
     ghc_opts = ctx.attr.ghc_options
@@ -204,7 +205,6 @@ _daml_build = rule(
             doc = "The standard output of the build command.",
         ),
         "srcout": attr.output(
-            mandatory = True,
             doc = "The srcs attribute copied back to an output for querying.",
         ),
         "ghc_options": attr.string_list(

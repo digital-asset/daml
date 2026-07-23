@@ -5,6 +5,6 @@ apiVersion: digitalasset.com/v1
 kind: Component
 spec:
   jar-commands:
-    - path: upgrade-check-dpm-main_distribute.jar
+    - path: upgrade-check-dpm-main_deploy.jar
       name: upgrade-check
       desc: Run upgrade checks on DAR(s)
