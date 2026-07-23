@@ -27,7 +27,6 @@ import Control.Exception
 import Control.Monad
 import DA.Daml.Compiler.ExtractDar
 import DA.Daml.LF.Ast qualified as LF
-import qualified DA.Daml.LF.Ast.Range as R
 import DA.Daml.LF.Proto3.Archive.Decode qualified as Archive
 import DA.Daml.Project.Types
 import Data.Aeson qualified as Aeson
