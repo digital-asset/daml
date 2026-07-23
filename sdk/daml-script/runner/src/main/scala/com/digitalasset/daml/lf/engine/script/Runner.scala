@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -30,25 +30,24 @@ import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.script.IdeLedger
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValue,
-  makeUnsafeCoerce,
   defaultCompilerConfig,
+  makeUnsafeCoerce,
 }
 import com.digitalasset.daml.lf.speedy.MachineLogger
 import com.digitalasset.daml.lf.transaction.{NextGenContractStateMachine => ContractStateMachine}
-import com.digitalasset.daml.lf.typesig.EnvironmentSignature
-import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.value._
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.pekko.stream.Materializer
 import cats.data.NonEmptySet
+import com.digitalasset.daml.lf.language.PackageInterface
 import scalaz.std.either._
 import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.traverse._
-import scalaz.{Applicative, NonEmptyList, Traverse, \/-}
+import scalaz.{Applicative, NonEmptyList, Traverse}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -338,18 +337,8 @@ object Runner {
     val compiledPackages =
       PureCompiledPackages.assertBuild(darMap, defaultCompilerConfig)
     def convert(json: JsValue, typ: Type) = {
-      val ifaceDar = dar.map { case (pkgId, _) =>
-        SignatureReader
-          .readPackageSignature(() => \/-(pkgId -> compiledPackages.signatures(pkgId)))
-          ._2
-      }
-      val envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
-      Converter(majorVersion).fromJsonValue(
-        scriptId.qualifiedName,
-        envIface,
-        typ,
-        json,
-      )
+      val pkgIface = PackageInterface(dar.all.toMap)
+      Converter(majorVersion).fromJsonValue(pkgIface, typ, json)
     }
     run(
       compiledPackages,

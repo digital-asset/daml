@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 - target: //language-support/daml-package-config:daml-package-config
@@ -20,8 +20,6 @@
 - target: //language-support/js/codegen:binary
   type: jar-jarjar
 - target: //ledger-service/lf-value-json:lf-value-json
-  type: jar-scala
-- target: //ledger-service/utils:utils
   type: jar-scala
 - target: //daml-script/auth-utils:auth-utils
   type: jar-scala

@@ -1,27 +1,31 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
-package value.json
+package value
+package json
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.daml.lf.value.Value.ContractId
-import data.{ImmArray, Numeric, Ref, SortedLookupList, Time}
-import value.json.{NavigatorModelAliases => model}
+import com.digitalasset.daml.lf.value.Value.{ContractId, ValueList, ValueText}
+import data.{FrontStack, ImmArray, Numeric, Ref, SortedLookupList, Time}
 import value.test.TypedValueGenerators.{genAddend, genTypeAndValue, ValueAddend => VA}
 import value.test.ValueGenerators.coidGen
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
-import com.daml.ledger.service.MetadataReader
+import com.digitalasset.daml.lf.archive.DarSchemaDecoder
+import com.digitalasset.daml.lf.language.{
+  Ast,
+  LanguageVersion,
+  PackageInterface,
+  TypeDestructor,
+  Util => AstUtil,
+}
 import org.scalactic.source
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalacheck.Arbitrary
-import shapeless.{HNil, Coproduct => HSum}
-import shapeless.record.{Record => HRecord}
 import spray.json._
-import scalaz.syntax.show._
 
 import scala.annotation.nowarn
 import scala.util.{Success, Try}
@@ -32,119 +36,216 @@ class ApiCodecCompressedSpec
     with ScalaCheckPropertyChecks
     with Inside {
 
-  import C.typeLookup
+  import C.typeDestructor
 
   private[this] implicit val cidArb: Arbitrary[ContractId] = Arbitrary(coidGen)
 
   private val dar = new java.io.File(rlocation("ledger-service/lf-value-json/JsonEncodingTest.dar"))
   require(dar.exists())
 
-  private val darMetadata: MetadataReader.LfMetadata =
-    MetadataReader
-      .readFromDar(dar)
-      .valueOr(e => fail(s"Cannot read metadata from $dar, error:" + e.shows))
+  private val darDar = DarSchemaDecoder.assertReadArchiveFromFile(dar)
+  private val darPackageId: Ref.PackageId = darDar.main._1
+  private val darPackageInterface: PackageInterface =
+    new PackageInterface((darDar.main :: darDar.dependencies).toMap)
+  private val darTypeDestructor: TypeDestructor = TypeDestructor(darPackageInterface)
 
-  private val darTypeLookup: NavigatorModelAliases.DamlLfTypeLookup =
-    MetadataReader.typeLookup(darMetadata)
+  private def darPackageIdOf(qn: Ref.QualifiedName): Ref.PackageId =
+    (darDar.main :: darDar.dependencies)
+      .collectFirst {
+        case (pid, sig) if sig.modules.get(qn.module).exists(_.definitions.contains(qn.name)) =>
+          pid
+      }
+      .getOrElse(fail(s"cannot find package defining $qn"))
 
   /** Serializes the API value to JSON, then parses it back to an API value */
   private def serializeAndParse(
-      value: model.ApiValue,
-      typ: model.DamlLfType,
-  ): Try[model.ApiValue] = {
+      value: Value,
+      typ: Ast.Type,
+  ): Try[Value] = {
     import ApiCodecCompressed.JsonImplicits._
 
     for {
       serialized <- Try(value.toJson.prettyPrint)
       json <- Try(serialized.parseJson)
-      parsed <- Try(jsValueToApiValue(json, typ, typeLookup))
+      parsed <- Try(jsValueToApiValue(json, typ, typeDestructor))
     } yield parsed
   }
 
   private def roundtrip(va: VA)(v: va.Inj): Option[va.Inj] =
-    va.prj(jsValueToApiValue(apiValueToJsValue(va.inj(v)), va.t, typeLookup))
+    va.prj(jsValueToApiValue(apiValueToJsValue(va.inj(v)), va.t, typeDestructor))
 
   private val decimalScale = Numeric.Scale.assertFromInt(10)
 
   private object C /* based on navigator DamlConstants */ {
-    import shapeless.syntax.singleton._
     val packageId0 = Ref.PackageId assertFromString "hash"
     val moduleName0 = Ref.ModuleName assertFromString "Module"
-    def defRef(name: String) =
+    def defRef(name: Ref.DottedName) =
       Ref.Identifier(
         packageId0,
-        Ref.QualifiedName(moduleName0, Ref.DottedName assertFromString name),
+        Ref.QualifiedName(moduleName0, name),
       )
-    val emptyRecordId = defRef("EmptyRecord")
-    val (emptyRecordDDT, emptyRecordT) = VA.record(emptyRecordId, HNil)
-    val simpleRecordId = defRef("SimpleRecord")
-    val simpleRecordVariantSpec = HRecord(fA = VA.text, fB = VA.int64)
-    val (simpleRecordDDT, simpleRecordT) =
-      VA.record(simpleRecordId, simpleRecordVariantSpec)
-    val simpleRecordV: simpleRecordT.Inj = HRecord(fA = "foo", fB = 100L)
 
-    val simpleVariantId = defRef("SimpleVariant")
-    val (simpleVariantDDT, simpleVariantT) =
-      VA.variant(simpleVariantId, simpleRecordVariantSpec)
-    val simpleVariantV = HSum[simpleVariantT.Inj](Symbol("fA") ->> "foo")
+    import Ref.Name.{assertFromString => name}
+    def nameOpt(s: String): Option[Ref.Name] = Some(name(s))
 
-    val complexRecordId = defRef("ComplexRecord")
-    val (complexRecordDDT, complexRecordT) =
-      VA.record(
-        complexRecordId,
-        HRecord(
-          fText = VA.text,
-          fBool = VA.bool,
-          fDecimal = VA.numeric(decimalScale),
-          fUnit = VA.unit,
-          fInt64 = VA.int64,
-          fParty = VA.party,
-          fContractId = VA.contractId,
-          fListOfText = VA.list(VA.text),
-          fListOfUnit = VA.list(VA.unit),
-          fDate = VA.date,
-          fTimestamp = VA.timestamp,
-          fOptionalText = VA.optional(VA.text),
-          fOptionalUnit = VA.optional(VA.unit),
-          fOptOptText = VA.optional(VA.optional(VA.text)),
-          fMap = VA.map(VA.int64),
-          fVariant = simpleVariantT,
-          fRecord = simpleRecordT,
+    val emptyRecordN = Ref.DottedName.assertFromString("EmptyRecord")
+    val emptyRecordId = defRef(emptyRecordN)
+    val emptyRecordDDT = Ast.DDataType(
+      serializable = true,
+      params = ImmArray.empty,
+      cons = Ast.DataRecord(ImmArray.empty),
+    )
+    val emptyRecordT = Ast.TTyCon(emptyRecordId)
+    val emptyRecordV = Value.ValueRecord(Some(emptyRecordId), ImmArray.empty)
+
+    val simpleRecordN = Ref.DottedName.assertFromString("SimpleRecord")
+    val simpleRecordId = defRef(simpleRecordN)
+    val simpleRecordDDT = Ast.DDataType(
+      serializable = true,
+      params = ImmArray.empty,
+      cons = Ast.DataRecord(
+        ImmArray(
+          name("fA") -> AstUtil.TText,
+          name("fB") -> AstUtil.TInt64,
+        )
+      ),
+    )
+
+    val simpleRecordT = Ast.TTyCon(simpleRecordId)
+    val simpleRecordV: Value = Value.ValueRecord(
+      Some(simpleRecordId),
+      ImmArray(
+        nameOpt("fA") -> Value.ValueText("foo"),
+        nameOpt("fB") -> Value.ValueInt64(100),
+      ),
+    )
+
+    val simpleVariantN = Ref.DottedName.assertFromString("SimpleVariant")
+    val simpleVariantId = defRef(simpleVariantN)
+    val simpleVariantDDT = Ast.DDataType(
+      serializable = true,
+      params = ImmArray.empty,
+      cons = Ast.DataVariant(
+        ImmArray(
+          name("fA") -> AstUtil.TText,
+          name("fB") -> AstUtil.TInt64,
+        )
+      ),
+    )
+
+    val simpleVariantT = Ast.TTyCon(simpleVariantId)
+    val simpleVariantV =
+      Value.ValueVariant(
+        Some(simpleVariantId),
+        name("fA"),
+        Value.ValueText("foo"),
+      )
+
+    val complexRecordN = Ref.DottedName.assertFromString("ComplexRecord")
+    val complexRecordId = defRef(complexRecordN)
+    val complexRecordDDT = Ast.DDataType(
+      serializable = true,
+      params = ImmArray.empty,
+      cons = Ast.DataRecord(
+        ImmArray[(Ref.Name, Ast.Type)](
+          name("fText") -> AstUtil.TText,
+          name("fBool") -> AstUtil.TBool,
+          name("fDecimal") -> AstUtil.TDecimal,
+          name("fUnit") -> AstUtil.TUnit,
+          name("fInt64") -> AstUtil.TInt64,
+          name("fParty") -> AstUtil.TParty,
+          name("fContractId") -> AstUtil.TContractId(AstUtil.TUnit),
+          name("fListOfText") -> AstUtil.TList(AstUtil.TText),
+          name("fListOfUnit") -> AstUtil.TList(AstUtil.TUnit),
+          name("fDate") -> AstUtil.TDate,
+          name("fTimestamp") -> AstUtil.TTimestamp,
+          name("fOptionalText") -> AstUtil.TOptional(AstUtil.TText),
+          name("fOptionalUnit") -> AstUtil.TOptional(AstUtil.TUnit),
+          name("fOptOptText") -> AstUtil.TOptional(AstUtil.TOptional(AstUtil.TText)),
+          name("fMap") -> AstUtil.TTextMap(AstUtil.TInt64),
+          name("fVariant") -> simpleVariantT,
+          name("fRecord") -> simpleRecordT,
+        )
+      ),
+    )
+    val complexRecordT = Ast.TTyCon(complexRecordId)
+    val complexRecordV =
+      Value.ValueRecord(
+        Some(complexRecordId),
+        ImmArray[(Option[Ref.Name], Value)](
+          nameOpt("fText") -> Value.ValueText("foo"),
+          nameOpt("fBool") -> Value.ValueBool(true),
+          nameOpt("fDecimal") -> Value.ValueNumeric(Numeric.assertFromString("100.0000000000")),
+          nameOpt("fUnit") -> Value.ValueUnit,
+          nameOpt("fInt64") -> Value.ValueInt64(100),
+          nameOpt("fParty") -> Value.ValueParty(Ref.Party.assertFromString("BANK1")),
+          nameOpt("fContractId") -> Value.ValueContractId(
+            Value.ContractId.assertFromString("00" + "00" * 32 + "c0")
+          ),
+          nameOpt("fListOfText") -> ValueList(
+            FrontStack(Value.ValueText("foo"), Value.ValueText("bar"))
+          ),
+          nameOpt("fListOfUnit") -> ValueList(FrontStack(Value.ValueUnit, Value.ValueUnit)),
+          nameOpt("fDate") -> Value.ValueDate(Time.Date.assertFromString("2019-01-28")),
+          nameOpt("fTimestamp") -> Value.ValueTimestamp(
+            Time.Timestamp assertFromString "2019-01-28T12:44:33.22Z"
+          ),
+          nameOpt("fOptionalText") -> Value.ValueOptional(None),
+          nameOpt("fOptionalUnit") -> Value.ValueOptional(Some(Value.ValueUnit)),
+          nameOpt("fOptOptText") -> Value.ValueOptional(
+            Some(Value.ValueOptional(Some(ValueText("foo"))))
+          ),
+          nameOpt("fMap") -> Value.ValueTextMap(
+            SortedLookupList.from(
+              Map(
+                "1" -> Value.ValueInt64(1L),
+                "2" -> Value.ValueInt64(2L),
+                "3" -> Value.ValueInt64(3L),
+              )
+            )
+          ),
+          nameOpt("fVariant") -> simpleVariantV,
+          nameOpt("fRecord") -> simpleRecordV,
         ),
       )
-    val complexRecordV: complexRecordT.Inj =
-      HRecord(
-        fText = "foo",
-        fBool = true,
-        fDecimal = Numeric.assertFromString("100.0000000000"),
-        fUnit = (),
-        fInt64 = 100L,
-        fParty = Ref.Party assertFromString "BANK1",
-        fContractId = ContractId.assertFromString("00" + "00" * 32 + "c0"),
-        fListOfText = Vector("foo", "bar"),
-        fListOfUnit = Vector((), ()),
-        fDate = Time.Date assertFromString "2019-01-28",
-        fTimestamp = Time.Timestamp assertFromString "2019-01-28T12:44:33.22Z",
-        fOptionalText = None,
-        fOptionalUnit = Some(()),
-        fOptOptText = Some(Some("foo")),
-        fMap = SortedLookupList.from(Map("1" -> 1L, "2" -> 2L, "3" -> 3L)),
-        fVariant = simpleVariantV,
-        fRecord = simpleRecordV,
-      )
 
-    val colorId = defRef("Color")
+    val colorN = Ref.DottedName.assertFromString("Color")
+    val colorId = defRef(colorN)
     val (colorGD, colorGT) =
       VA.enumeration(colorId, Seq("Red", "Green", "Blue") map Ref.Name.assertFromString)
 
-    val typeLookup: NavigatorModelAliases.DamlLfTypeLookup =
-      Map(
-        emptyRecordId -> emptyRecordDDT,
-        simpleRecordId -> simpleRecordDDT,
-        simpleVariantId -> simpleVariantDDT,
-        complexRecordId -> complexRecordDDT,
-        colorId -> colorGD,
-      ).lift
+    val typeDestructor = TypeDestructor(
+      PackageInterface(
+        Map(
+          packageId0 -> Ast.Package(
+            modules = Map(
+              moduleName0 -> Ast.Module(
+                name = moduleName0,
+                definitions = Map(
+                  emptyRecordN -> emptyRecordDDT,
+                  simpleRecordN -> simpleRecordDDT,
+                  simpleVariantN -> simpleVariantDDT,
+                  complexRecordN -> complexRecordDDT,
+                  colorN -> colorGD,
+                ),
+                templates = Map.empty,
+                exceptions = Map.empty,
+                interfaces = Map.empty,
+                featureFlags = Ast.FeatureFlags.default,
+              )
+            ),
+            directDeps = Set.empty,
+            languageVersion = LanguageVersion.stableLfVersionsRange.max,
+            metadata = Ast.PackageMetadata(
+              name = Ref.PackageName.assertFromString("JsonEncodingTest"),
+              version = Ref.PackageVersion.assertFromString("1.0.0"),
+              upgradedPackageId = None,
+            ),
+            imports = Ast.DeclaredImports(Set.empty),
+          )
+        )
+      )
+    )
   }
 
   "API compressed JSON codec" when {
@@ -162,7 +263,7 @@ class ApiCodecCompressedSpec
         import va.injshrink
         implicit val arbInj: Arbitrary[va.Inj] = va.injarb
         forAll(minSuccessful(20)) { v: va.Inj =>
-          roundtrip(va)(v) should ===(Some(v))
+          roundtrip(va)(v) shouldBe Some(v)
         }
       }
 
@@ -188,20 +289,15 @@ class ApiCodecCompressedSpec
         }
       }
 
-      def cr(typ: VA)(v: typ.Inj) =
-        (typ, v: Any, typ.inj(v))
-
       val roundtrips = Table(
-        ("type", "original value", "Daml value"),
-        cr(C.emptyRecordT)(HRecord()),
-        cr(C.simpleRecordT)(C.simpleRecordV),
-        cr(C.simpleVariantT)(C.simpleVariantV),
-        cr(C.complexRecordT)(C.complexRecordV),
+        ("type", "Daml value"),
+        (C.emptyRecordT, C.emptyRecordV),
+        (C.simpleRecordT, C.simpleRecordV),
+        (C.simpleVariantT, C.simpleVariantV),
+        (C.complexRecordT, C.complexRecordV),
       )
-      "work for records and variants" in forAll(roundtrips) { (typ, origValue, damlValue) =>
-        typ.prj(jsValueToApiValue(apiValueToJsValue(damlValue), typ.t, typeLookup)) should ===(
-          Some(origValue)
-        )
+      "work for records and variants" in forEvery(roundtrips) { (typ, damlValue) =>
+        jsValueToApiValue(apiValueToJsValue(damlValue), typ, typeDestructor) shouldBe damlValue
       }
       /*
       "work for Tree" in {
@@ -311,10 +407,6 @@ class ApiCodecCompressedSpec
       c("[]", VAs.oooi)(Some(None), "[null]"),
       c("[[]]", VAs.oooi)(Some(Some(None)), "[[null]]"),
       cn("""[["42"]]""", "[[42]]", VAs.oooi)(Some(Some(Some(42)))),
-      cn("""{"fA": "foo", "fB": "100"}""", """{"fA": "foo", "fB": 100}""", C.simpleRecordT)(
-        C.simpleRecordV
-      ),
-      c("""{"tag": "fA", "value": "foo"}""", C.simpleVariantT)(C.simpleVariantV),
       c("\"Green\"", C.colorGT)(
         C.colorGT get Ref.Name.assertFromString("Green") getOrElse sys.error("impossible")
       ),
@@ -348,35 +440,50 @@ class ApiCodecCompressedSpec
         (_, serialized, serializedNumerically, typ, expected, alternates) =>
           val json = serialized.parseJson
           val numJson = serializedNumerically.parseJson
-          val parsed = jsValueToApiValue(json, typ.t, typeLookup)
-          jsValueToApiValue(numJson, typ.t, typeLookup) should ===(parsed)
+          val parsed = jsValueToApiValue(json, typ.t, typeDestructor)
+          jsValueToApiValue(numJson, typ.t, typeDestructor) should ===(parsed)
           typ.prj(parsed) should ===(Some(expected))
           apiValueToJsValue(parsed) should ===(json)
           numCodec.apiValueToJsValue(parsed) should ===(numJson)
           val tAlternates = Table("alternate", alternates: _*)
           forEvery(tAlternates) { alternate =>
             val aJson = alternate.parseJson
-            typ.prj(jsValueToApiValue(aJson, typ.t, typeLookup)) should ===(Some(expected))
+            typ.prj(jsValueToApiValue(aJson, typ.t, typeDestructor)) should ===(Some(expected))
           }
       }
 
       "fail in cases" in forEvery(failures) { (serialized, typ, errorSubstring) =>
         val json = serialized.parseJson // we don't test *the JSON decoder*
         val exception = the[DeserializationException] thrownBy {
-          jsValueToApiValue(json, typ.t, typeLookup)
+          jsValueToApiValue(json, typ.t, typeDestructor)
         }
         exception.getMessage should include(errorSubstring)
+      }
+    }
+
+    "dealing with JSON object encodings of records and variants" should {
+      "decode and re-encode SimpleRecord" in {
+        val canonical = """{"fA": "foo", "fB": "100"}""".parseJson
+        val numerically = """{"fA": "foo", "fB": 100}""".parseJson
+        val parsed = jsValueToApiValue(canonical, C.simpleRecordT, typeDestructor)
+        jsValueToApiValue(numerically, C.simpleRecordT, typeDestructor) shouldBe parsed
+        parsed shouldBe C.simpleRecordV
+        apiValueToJsValue(parsed) shouldBe canonical
+        numCodec.apiValueToJsValue(parsed) shouldBe numerically
+      }
+
+      "decode and re-encode SimpleVariant" in {
+        val canonical = """{"tag": "fA", "value": "foo"}""".parseJson
+        val parsed = jsValueToApiValue(canonical, C.simpleVariantT, typeDestructor)
+        parsed shouldBe C.simpleVariantV
+        apiValueToJsValue(parsed) shouldBe canonical
       }
     }
 
     import com.digitalasset.daml.lf.value.{Value => LfValue}
     import ApiCodecCompressed.JsonImplicits._
 
-    val packageId: Ref.PackageId = mustBeOne(
-      MetadataReader.typeByName(darMetadata)(
-        Ref.QualifiedName.assertFromString("JsonEncodingTest:Foo")
-      )
-    )._1
+    val packageId: Ref.PackageId = darPackageId
 
     val bazRecord = LfValue.ValueRecord(
       None,
@@ -405,7 +512,7 @@ class ApiCodecCompressedSpec
       val lfType = (n: String) =>
         Ref.Identifier(packageId, Ref.QualifiedName.assertFromString("JsonEncodingTest:" + n))
       val decode = (typeId: Ref.Identifier, json: String) =>
-        jsValueToApiValue(json.parseJson, typeId, darTypeLookup)
+        jsValueToApiValue(json.parseJson, Ast.TTyCon(typeId), darTypeDestructor)
       val person = (name: String, age: Long, address: String) => {
         val attr = (n: String) => Some(Ref.Name.assertFromString(n))
         LfValue.ValueRecord(
@@ -444,8 +551,8 @@ class ApiCodecCompressedSpec
       "decode Foo/Baz from JSON" in {
         val actualValue: LfValue = jsValueToApiValue(
           """{"tag":"Baz", "value":{"baz":"text abc"}}""".parseJson,
-          fooId,
-          darTypeLookup,
+          Ast.TTyCon(fooId),
+          darTypeDestructor,
         )
 
         val expectedValueWithIds: LfValue.ValueVariant =
@@ -465,8 +572,8 @@ class ApiCodecCompressedSpec
         assertThrows[spray.json.DeserializationException] {
           jsValueToApiValue(
             """{"tag":"Qux"}""".parseJson,
-            fooId,
-            darTypeLookup,
+            Ast.TTyCon(fooId),
+            darTypeDestructor,
           )
         }
       }
@@ -474,8 +581,8 @@ class ApiCodecCompressedSpec
       "decode Foo/Qux (empty value) from JSON" in {
         val actualValue: LfValue = jsValueToApiValue(
           """{"tag":"Qux", "value":{}}""".parseJson,
-          fooId,
-          darTypeLookup,
+          Ast.TTyCon(fooId),
+          darTypeDestructor,
         )
 
         val expectedValueWithIds: LfValue.ValueVariant =
@@ -486,33 +593,27 @@ class ApiCodecCompressedSpec
     }
 
     "dealing with Contract Key" should {
-      import typesig.PackageSignature.TypeDecl.{Template => TDTemplate}
+      def keyType(template: String): Ast.Type =
+        darPackageInterface
+          .lookupTemplateKey(
+            Ref.Identifier(packageId, Ref.QualifiedName.assertFromString(template))
+          )
+          .map(_.typ)
+          .getOrElse(fail("Expected a key, got None"))
 
       "decode type Key = Party from JSON" in {
-        val templateDef: TDTemplate = mustBeOne(
-          MetadataReader.templateByName(darMetadata)(
-            Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByParty")
-          )
-        )._2
-
-        val keyType = templateDef.template.key.getOrElse(fail("Expected a key, got None"))
         val expectedValue: LfValue = LfValue.ValueParty(Ref.Party.assertFromString("Alice"))
 
-        jsValueToApiValue(JsString("Alice"), keyType, darTypeLookup) shouldBe expectedValue
+        jsValueToApiValue(
+          JsString("Alice"),
+          keyType("JsonEncodingTest:KeyedByParty"),
+          darTypeDestructor,
+        ) shouldBe expectedValue
       }
 
       "decode type Key = (Party, Int) from JSON" in {
-        val templateDef: TDTemplate = mustBeOne(
-          MetadataReader.templateByName(darMetadata)(
-            Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByPartyInt")
-          )
-        )._2
-
         val tuple2Name = Ref.QualifiedName.assertFromString("DA.Types:Tuple2")
-        val daTypesPackageId: Ref.PackageId =
-          mustBeOne(MetadataReader.typeByName(darMetadata)(tuple2Name))._1
-
-        val keyType = templateDef.template.key.getOrElse(fail("Expected a key, got None"))
+        val daTypesPackageId: Ref.PackageId = darPackageIdOf(tuple2Name)
 
         val expectedValue: LfValue = LfValue.ValueRecord(
           Some(Ref.Identifier(daTypesPackageId, tuple2Name)),
@@ -526,24 +627,16 @@ class ApiCodecCompressedSpec
 
         jsValueToApiValue(
           """["Alice", 123]""".parseJson,
-          keyType,
-          darTypeLookup,
+          keyType("JsonEncodingTest:KeyedByPartyInt"),
+          darTypeDestructor,
         ) shouldBe expectedValue
       }
 
       "decode type Key = (Party, (Int, Foo, BazRecord)) from JSON" in {
-        val templateDef: TDTemplate = mustBeOne(
-          MetadataReader.templateByName(darMetadata)(
-            Ref.QualifiedName.assertFromString("JsonEncodingTest:KeyedByVariantAndRecord")
-          )
-        )._2
-
-        val keyType = templateDef.template.key.getOrElse(fail("Expected a key, got None"))
-
         val actual: LfValue = jsValueToApiValue(
           """["Alice", [11, {"tag": "Bar", "value": 123}, {"baz": "baz text"}]]""".parseJson,
-          keyType,
-          darTypeLookup,
+          keyType("JsonEncodingTest:KeyedByVariantAndRecord"),
+          darTypeDestructor,
         )
 
         inside(actual) { case LfValue.ValueRecord(Some(id2), ImmArray((_, party), (_, record2))) =>
@@ -557,10 +650,5 @@ class ApiCodecCompressedSpec
         }
       }
     }
-  }
-
-  private def mustBeOne[A](as: Seq[A]): A = as match {
-    case Seq(x) => x
-    case xs @ _ => sys.error(s"Expected exactly one element, got: $xs")
   }
 }

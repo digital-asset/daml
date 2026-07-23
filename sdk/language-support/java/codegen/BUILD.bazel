@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -59,7 +59,6 @@ da_scala_library(
         "@maven//:com_daml_daml_lf_archive_2_13",
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_lf_language_2_13",
-        "@maven//:com_daml_nonempty_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_squareup_javapoet",
         "@maven//:org_slf4j_slf4j_api",
@@ -106,7 +105,6 @@ da_scala_test(
         "@maven//:com_daml_daml_lf_data_2_13",
         "@maven//:com_daml_daml_lf_language_2_13",
         "@maven//:com_daml_daml_lf_stable_packages_2_13",
-        "@maven//:com_daml_nonempty_2_13",
         "@maven//:com_squareup_javapoet",
         "@maven//:org_scalatest_scalatest_compatible",
         "@maven//:org_slf4j_slf4j_api",

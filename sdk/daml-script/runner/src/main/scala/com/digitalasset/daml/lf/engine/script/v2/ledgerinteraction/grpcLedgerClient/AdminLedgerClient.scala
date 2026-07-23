@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // Temporary stand-in for the real admin api clients defined in canton. Needed only for upgrades testing
@@ -83,6 +83,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
             .HeadState(com.google.protobuf.empty.Empty()),
           filterSignedKey = "",
           protocolVersion = None,
+          clientVersion = None,
         )
       ),
       filterParticipant = "",
@@ -123,9 +124,9 @@ class AdminLedgerClient private[grpcLedgerClient] (
     admin_topology.AuthorizeRequest(
       admin_topology.AuthorizeRequest.Type.Proposal(
         admin_topology.AuthorizeRequest.Proposal(
-          protocol.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
-          0, // will be picked by the participant
-          Some(
+          change = protocol.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
+          serial = 0, // will be picked by the participant
+          mapping = admin_topology.AuthorizeRequest.Proposal.Mapping.V30(
             protocol.TopologyMapping(
               protocol.TopologyMapping.Mapping.VettedPackages(
                 protocol.VettedPackages(
@@ -358,7 +359,12 @@ class AdminLedgerClient private[grpcLedgerClient] (
           throw new IllegalStateException(
             s"Expected at most one result, but got ${response.results.length}"
           )
-        response.results.headOption.toList.flatMap(_.item.get.participants)
+        response.results.headOption
+          .map(_.item)
+          .collect { case admin_topology.ListPartyToParticipantResponse.Result.Item.V30(value) =>
+            value.participants
+          }
+          .getOrElse(Seq.empty)
       })
 
   private[this] def makeListPartyToParticipantRequest(
@@ -383,6 +389,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
             .HeadState(com.google.protobuf.empty.Empty()),
           filterSignedKey = "",
           protocolVersion = None,
+          clientVersion = None,
         )
       ),
       filterParty = partyId,
@@ -407,7 +414,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
         admin_topology.AuthorizeRequest.Proposal(
           protocol.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
           1, // first topology transaction for this party
-          Some(
+          admin_topology.AuthorizeRequest.Proposal.Mapping.V30(
             protocol.TopologyMapping(
               protocol.TopologyMapping.Mapping.PartyToParticipant(
                 protocol.PartyToParticipant(
@@ -453,7 +460,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
         admin_topology.AuthorizeRequest.Proposal(
           protocol.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
           0, // will be picked by the participant
-          Some(
+          admin_topology.AuthorizeRequest.Proposal.Mapping.V30(
             protocol.TopologyMapping(
               protocol.TopologyMapping.Mapping.PartyToParticipant(
                 protocol.PartyToParticipant(

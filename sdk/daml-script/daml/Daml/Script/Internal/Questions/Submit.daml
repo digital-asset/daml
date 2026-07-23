@@ -1,4 +1,4 @@
--- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE InstanceSigs #-}
 
@@ -186,7 +186,7 @@ instance Applicative ConcurrentSubmits where
 actAsNonEmpty : [Party] -> NonEmpty Party
 actAsNonEmpty ps = case ps of
   [] -> error "actAs must be non-empty"
-  p :: ps -> NonEmpty p ps
+  p :: ps -> p :| ps
 
 -- | MOVE Daml.Script
 -- Allows for concurrent submission of transactions, using an applicative, similar to Commands.

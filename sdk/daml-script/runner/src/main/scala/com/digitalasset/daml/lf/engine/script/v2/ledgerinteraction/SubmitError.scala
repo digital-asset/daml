@@ -1,11 +1,11 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine.script
 package v2
 package ledgerinteraction
 
-import com.daml.nonempty.NonEmpty
+import cats.data.NonEmptyList
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.daml.lf.data.{FrontStack, SortedLookupList, Time}
 import com.digitalasset.daml.lf.data.Ref._
@@ -92,8 +92,8 @@ object SubmitError {
     )
   }
 
-  def fromNonEmptySet[A](set: NonEmpty[Seq[A]], conv: A => ExtendedValue): ExtendedValue = {
-    val converted: Seq[ExtendedValue] = set.map(conv)
+  def fromNonEmptySet[A](set: NonEmptyList[A], conv: A => ExtendedValue): ExtendedValue = {
+    val converted: Seq[ExtendedValue] = set.toList.map(conv)
     record(
       StablePackagesV2.NonEmpty,
       ("hd", converted.head),
@@ -102,7 +102,7 @@ object SubmitError {
   }
 
   final case class ContractNotFound(
-      cids: NonEmpty[Seq[ContractId]],
+      cids: NonEmptyList[ContractId],
       additionalDebuggingInfo: Option[ContractNotFound.AdditionalInfo],
   ) extends SubmitError {
     override def toDamlSubmitError(env: Env, legacyAnyContractKey: Boolean): ExtendedValue =
@@ -493,10 +493,10 @@ object SubmitError {
         srcPackageName: PackageName,
         dstPackageName: PackageName,
         originalSignatories: Set[Party],
-        originalObservers: Set[Party],
+        originalNonSignatoryStakeholders: Set[Party],
         originalOptKey: Option[GlobalKeyWithMaintainers],
         recomputedSignatories: Set[Party],
-        recomputedObservers: Set[Party],
+        recomputedNonSignatoryStakeholders: Set[Party],
         recomputedOptKey: Option[GlobalKeyWithMaintainers],
         message: String,
     ) extends SubmitError {
@@ -515,8 +515,10 @@ object SubmitError {
               ValueList(originalSignatories.toList.map(ValueParty.apply).to(FrontStack)),
             ),
             (
-              "originalObservers",
-              ValueList(originalObservers.toList.map(ValueParty.apply).to(FrontStack)),
+              "originalNonSignatoryStakeholders",
+              ValueList(
+                originalNonSignatoryStakeholders.toList.map(ValueParty.apply).to(FrontStack)
+              ),
             ),
             (
               "originalKeyOpt",
@@ -532,8 +534,10 @@ object SubmitError {
               ValueList(recomputedSignatories.toList.map(ValueParty.apply).to(FrontStack)),
             ),
             (
-              "recomputedObservers",
-              ValueList(recomputedObservers.toList.map(ValueParty.apply).to(FrontStack)),
+              "recomputedNonSignatoryStakeholders",
+              ValueList(
+                recomputedNonSignatoryStakeholders.toList.map(ValueParty.apply).to(FrontStack)
+              ),
             ),
             (
               "recomputedKeyOpt",
@@ -706,6 +710,41 @@ object SubmitError {
         variantName,
         fields: _*
       )
+  }
+
+  final case class ExternalCallError(
+      errorType: ExternalCallError.ErrorType,
+      extensionId: String,
+      functionId: String,
+      message: String,
+  ) extends SubmitError {
+    // This code needs to be kept in sync with daml-script#Error.daml
+    override def toDamlSubmitError(env: Env, legacyAnyContractKey: Boolean): ExtendedValue = {
+      val errorTypeIdentifier =
+        env.scriptIds.damlScriptModule(
+          "Daml.Script.Internal.Questions.Submit.Error",
+          "ExternalCallErrorType",
+        )
+      SubmitErrorConverters(env).damlScriptError(
+        "ExternalCallError",
+        (
+          "externalCallErrorType",
+          ValueEnum(Some(errorTypeIdentifier), Name.assertFromString(errorType.name)),
+        ),
+        ("extensionId", ValueText(extensionId)),
+        ("functionId", ValueText(functionId)),
+        ("externalCallErrorMessage", ValueText(message)),
+      )
+    }
+  }
+
+  object ExternalCallError {
+    sealed abstract class ErrorType(val name: String)
+    object ErrorType {
+      case object PreparationFailed extends ErrorType("PreparationFailed")
+      case object ExecutionFailed extends ErrorType("ExecutionFailed")
+      case object InvalidOutput extends ErrorType("InvalidOutput")
+    }
   }
 
   final case class DevError(errorType: String, message: String) extends SubmitError {

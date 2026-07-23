@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -58,6 +58,7 @@ trait CantonFixtureWithResource[A]
   protected lazy val timeProviderType: TimeProviderType = TimeProviderType.WallClock
   protected lazy val tlsEnable: Boolean = false
   protected lazy val bootstrapScript: Option[String] = Option.empty
+  protected lazy val extensionServices: Seq[CantonConfig.ExtensionService] = Seq.empty
   protected lazy val userId: Option[Ref.UserId] =
     Some(Ref.UserId.assertFromString(getClass.getName))
   protected lazy val cantonJar: Path = CantonRunner.cantonPath
@@ -136,6 +137,7 @@ trait CantonFixtureWithResource[A]
     targetScope = targetScope,
     disableUpgradeValidation = disableUpgradeValidation,
     enableRemoteJavaDebugging = remoteJavaDebugging,
+    extensionServices = extensionServices,
   )
 
   final lazy val config: CantonConfig = cantonConfig()

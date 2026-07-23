@@ -1,4 +1,4 @@
--- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Test.DataDependencies (main) where
 
@@ -1790,6 +1790,22 @@ tests TestArgs{..} =
             , "usePattern (Positive x) = x"
             , "usePattern (Negative x) = -x"
             , "usePattern (Zero _) = 0"
+            ]
+        ]
+
+    , dataDependenciesTest "Using complete pragma with infix pattern synonyms"
+        [
+            (,) "Base.daml"
+            [ "module Base where"
+            , "pattern a :+: b = (a, b)"
+            , "{-# COMPLETE (:+:) #-}"
+            ]
+        ]
+        [   (,) "Main.daml"
+            [ "module Main where"
+            , "import Base"
+            , "usePattern : (a, b) -> a"
+            , "usePattern (x :+: _) = x"
             ]
         ]
 

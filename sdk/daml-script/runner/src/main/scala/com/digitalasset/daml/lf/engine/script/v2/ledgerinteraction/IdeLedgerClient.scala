@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -7,8 +7,8 @@ package script
 package v2
 package ledgerinteraction
 
+import cats.data.NonEmptyList
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ledger.api.PartyDetails
 import com.digitalasset.canton.user._
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
@@ -321,7 +321,7 @@ class IdeLedgerClient(
         SubmitError.EffectfulRollback(Pretty.prettyDamlException(e).renderWideStream.mkString)
       case ContractNotFound(cid) =>
         SubmitError.ContractNotFound(
-          NonEmpty(Seq, cid),
+          NonEmptyList.of(cid),
           Some(SubmitError.ContractNotFound.AdditionalInfo.NotFound()),
         )
       case UnsupportedContractId(cid) =>
@@ -332,7 +332,7 @@ class IdeLedgerClient(
         SubmitError.AuthorizationError(Pretty.prettyDamlException(e).renderWideStream.mkString)
       case ContractNotActive(cid, tid, _) =>
         SubmitError.ContractNotFound(
-          NonEmpty(Seq, cid),
+          NonEmptyList.of(cid),
           Some(SubmitError.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
         )
       case e @ ContractHashingError(coid, dstTemplateId, createArg, _) =>
@@ -355,7 +355,7 @@ class IdeLedgerClient(
         SubmitError.CreateEmptyContractKeyMaintainers(tid, arg)
       case FetchEmptyContractKeyMaintainers(tid, keyValue, packageName) =>
         SubmitError.FetchEmptyContractKeyMaintainers(
-          GlobalKey.assertBuild(
+          GlobalKey(
             tid,
             packageName,
             keyValue,
@@ -382,10 +382,10 @@ class IdeLedgerClient(
           innerError.srcPackageName,
           innerError.dstPackageName,
           innerError.originalSignatories,
-          innerError.originalObservers,
+          innerError.originalSignatoryStakeholders,
           innerError.originalKeyOpt,
           innerError.recomputedSignatories,
-          innerError.recomputedObservers,
+          innerError.recomputedSignatoryStakeholders,
           innerError.recomputedKeyOpt,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
@@ -425,10 +425,24 @@ class IdeLedgerClient(
           innerError.getClass.getSimpleName,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
-      // TODO[https://github.com/digital-asset/canton/issues/513]: implement external call
-      case e: ExternalCall =>
-        sys.error(
-          s"ExternalCall detected in IdeLedgerClient. Value is: $e"
+      case e @ ExternalCall(innerError: ExternalCall.PreparationFailed) =>
+        SubmitError.ExternalCallError(
+          SubmitError.ExternalCallError.ErrorType.PreparationFailed,
+          innerError.extensionId,
+          innerError.functionId,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
+      case e @ ExternalCall(innerError: ExternalCall.ExecutionFailed) =>
+        SubmitError.ExternalCallError(
+          innerError.error match {
+            case _: ExternalCall.ExecutionFailed.CallFailed =>
+              SubmitError.ExternalCallError.ErrorType.ExecutionFailed
+            case _: ExternalCall.ExecutionFailed.InvalidOutput =>
+              SubmitError.ExternalCallError.ErrorType.InvalidOutput
+          },
+          innerError.extensionId,
+          innerError.functionId,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
     }
   }
@@ -446,20 +460,20 @@ class IdeLedgerClient(
     // We treat ineffective contracts (ie, ones that don't exist yet) as being not found
     case script.Error.ContractNotEffective(cid, tid, effectiveAt) =>
       SubmitError.ContractNotFound(
-        NonEmpty(Seq, cid),
+        NonEmptyList.of(cid),
         Some(SubmitError.ContractNotFound.AdditionalInfo.NotEffective(cid, tid, effectiveAt)),
       )
 
     case script.Error.ContractNotActive(cid, tid, _) =>
       SubmitError.ContractNotFound(
-        NonEmpty(Seq, cid),
+        NonEmptyList.of(cid),
         Some(SubmitError.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
       )
 
     // Similarly, we treat contracts that we can't see as not being found
     case script.Error.ContractNotVisible(cid, tid, actAs, readAs, observers) =>
       SubmitError.ContractNotFound(
-        NonEmpty(Seq, cid),
+        NonEmptyList.of(cid),
         Some(
           SubmitError.ContractNotFound.AdditionalInfo.NotVisible(cid, tid, actAs, readAs, observers)
         ),
@@ -796,7 +810,7 @@ class IdeLedgerClient(
                     exercise.children.collect(Function.unlift(convEvent(_, None))).toList,
                   )
                 )
-              case _: Node.Fetch | _: Node.LookupByKey | _: Node.Rollback => None
+              case _: Node.Fetch | _: Node.QueryByKey | _: Node.Rollback => None
             }
           val tree = ScriptLedgerClient.TransactionTree(
             transaction.roots.toList

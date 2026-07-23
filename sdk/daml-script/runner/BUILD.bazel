@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows")
@@ -56,7 +56,6 @@ da_scala_library(
         "@maven//:com_daml_community_base",
         "@maven//:com_daml_contextualized_logging",
         "@maven//:com_daml_daml_grpc_utils",
-        "@maven//:com_daml_daml_lf_api_type_signature",
         "@maven//:com_daml_daml_lf_archive",
         "@maven//:com_daml_daml_lf_data",
         "@maven//:com_daml_daml_lf_engine",
@@ -69,7 +68,6 @@ da_scala_library(
         "@maven//:com_daml_ledger_api_core",
         "@maven//:com_daml_ledger_api_scala",
         "@maven//:com_daml_ledger_api_value",
-        "@maven//:com_daml_nonempty",
         "@maven//:com_daml_rs_grpc_bridge",
         "@maven//:com_daml_rs_grpc_pekko",
         "@maven//:com_daml_util_external",

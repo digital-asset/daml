@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -12,9 +12,7 @@ import com.daml.ledger.api.v2.value
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.typesig.EnvironmentSignature
-import com.digitalasset.daml.lf.typesig.reader.SignatureReader
+import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValue,
   ExtendedValueAny,
@@ -26,7 +24,6 @@ import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.digitalasset.canton.ledger.api.PartyDetails
 import com.digitalasset.canton.user.{User, UserRight}
-import scalaz.{-\/, \/-}
 import spray.json._
 
 import scala.concurrent.Future
@@ -504,32 +501,17 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       case _ => Left(s"Expected ParticipantAdmin, CanReadAs or CanActAs but got $v")
     }
 
-  def toIfaceType(
-      ctx: QualifiedName,
-      astTy: Type,
-  ): Either[String, typesig.Type] =
-    SignatureReader.toIfaceType(ctx, astTy) match {
-      case -\/(e) => Left(e.toString)
-      case \/-(ty) => Right(ty)
-    }
-
   private[lf] def fromJsonValue(
-      ctx: QualifiedName,
-      environmentSignature: EnvironmentSignature,
+      pkgIface: PackageInterface,
       ty: Type,
       jsValue: JsValue,
   ): Either[String, Value] = {
-    def damlLfTypeLookup(id: Identifier): Option[typesig.DefDataType.FWT] =
-      environmentSignature.typeDecls.get(id).map(_.`type`)
     for {
-      paramIface <-
-        toIfaceType(ctx, ty).left
-          .map(s => s"Failed to convert $ty: $s")
       lfValue <-
         try {
           Right(
             jsValue.convertTo[Value](
-              LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_))
+              LfValueCodec.apiValueJsonReader(ty, pkgIface)
             )
           )
         } catch {

@@ -1,9 +1,10 @@
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "da_scala_test",
     "lf_scalacopts_stricter",
 )
 
@@ -45,6 +46,31 @@ da_scala_library(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:org_scalatest_scalatest_compatible",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_test(
+    name = "tests",
+    size = "large",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalatest_scalatest_wordspec",
+    ],
+    tags = ["cpu:4"],
+    deps = [
+        ":it-lib",
+        "//test-common/canton/ports-testing",
+        "@maven//:com_daml_daml_lf_data_2_13",
+        "@maven//:com_daml_daml_resources_2_13",
+        "@maven//:com_daml_ledger_api_core_2_13",
+        "@maven//:com_daml_ledger_resources_2_13",
+        "@maven//:com_daml_ports_2_13",
+        "@maven//:com_daml_rs_grpc_bridge_2_13",
+        "@maven//:com_daml_testing_utils_2_13",
+        "@maven//:com_daml_util_observability_2_13",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

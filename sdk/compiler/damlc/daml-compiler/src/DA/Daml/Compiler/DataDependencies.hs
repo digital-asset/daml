@@ -1,4 +1,4 @@
--- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
@@ -411,7 +411,12 @@ generateSrcFromLf env = noLoc mod
     mkRdrNameUnqualUnsafe (LFC.QualName q) = do
       -- Emit the usage for imports, but don't use it
       void $ genModule env (LF.qualPackage q) (LF.qualModule q)
-      pure $ noLoc $ mkRdrUnqual $ LF.qualObject q
+      let occName = LF.qualObject q
+          bracketOccName :: OccName -> OccName
+          bracketOccName name = mkOccName (occNameSpace name) ("(" <> occNameString name <> ")")
+          bracketedOccName =
+            if isSymOcc occName then bracketOccName occName else occName
+      pure $ noLoc $ mkRdrUnqual bracketedOccName
 
     -- Only allows unqual if the name comes from the same package and module
     mkRdrNameUnqual :: LFC.QualName -> Gen (Located RdrName)
@@ -697,15 +702,16 @@ generateSrcFromLf env = noLoc mod
       where
         makeCompletePragma :: LFC.LFCompleteMatch LFC.QualName -> Gen (LHsDecl GhcPs)
         makeCompletePragma match = do
-          subjectRdrName <- mkRdrNameQual $ LFC.subject match
           -- Parser only allows the pragma to contain unqualified names, but supports those names coming from any module/package
           -- (as long as one name comes from this module)
           matchersRdrNames <- traverse mkRdrNameUnqualUnsafe $ LFC.matchers match
+          -- Similarly, Parser will not allow qualified symbol data types (such as tuple) for the subject, so we unqualify those too
+          subjectRdrName <- mkRdrNameUnqualUnsafe $ LFC.subject match
           pure $ noLoc . SigD noExt $ CompleteMatchSig
             noExt 
             NoSourceText
             (noLoc matchersRdrNames)
-            (Just $ noLoc subjectRdrName)
+            (Just subjectRdrName)
         getCompleteExprs :: [LFC.LFCompleteMatch LFC.QualName]
         getCompleteExprs = do
           LF.DefValue
@@ -728,8 +734,15 @@ generateSrcFromLf env = noLoc mod
             Just qualInstance ->
                 -- If the instance already exists, we still
                 -- need to import it so that we can refer to it from other
-                -- instances.
-                [Nothing <$ genModule env (LF.qualPackage qualInstance) (LF.qualModule qualInstance)]
+                -- instances. Note use of emitModRef directly to specify an EmptyImpSpec,
+                -- as we only need instances here. Wildcard imports here can create 
+                -- namespace collisions which cause problems for `COMPLETE` pragmas, as they
+                -- can only reference names unqualified
+                pure $ Nothing <$ emitModRef ModRef
+                    { modRefModule = LF.qualModule qualInstance
+                    , modRefOrigin = importOriginFromPackageRef (envConfig env) $ LF.qualPackage qualInstance
+                    , modRefImpSpec = EmptyImpSpec
+                    }
             Nothing -> pure $ do
                 polyTy <- HsIB noExt . noLoc <$> convDFunSig env reexportedClasses dfunSig
                 binds <- genInstanceBinds dfunSig

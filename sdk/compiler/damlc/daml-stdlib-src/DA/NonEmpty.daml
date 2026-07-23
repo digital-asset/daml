@@ -1,4 +1,4 @@
--- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -13,6 +13,8 @@
 -- ```
 module DA.NonEmpty
   ( NonEmpty(..)
+  , pattern (:|)
+  , (<|)
   , cons
   , append
   , map
@@ -41,9 +43,18 @@ import DA.Traversable qualified as T
 import DA.List qualified as L
 import DA.Action qualified as M
 
+infixr 5 :|
+infixr 5 <|
+
+-- | Pattern synonym for constructing and matching non-empty lists.
+pattern (:|) : a -> [a] -> NonEmpty a
+pattern (:|) x xs = NonEmpty x xs
+{-# COMPLETE (:|) : NonEmpty #-}
+
 deriving instance Eq a => Eq (NonEmpty a)
-deriving instance Show a => Show (NonEmpty a)
 deriving instance Ord a => Ord (NonEmpty a)
+instance Show a => Show (NonEmpty a) where
+  show (x :| xs) = show x <> " :| " <> show xs
 
 -- NonEmpty is defined in a stable LF package so we need to handwrite the {Get,Set}Field instances here.
 
@@ -84,6 +95,10 @@ instance T.Traversable NonEmpty where
 -- | Prepend an element to a non-empty list.
 cons : a -> NonEmpty a -> NonEmpty a
 cons a ne = NonEmpty a (ne.hd :: ne.tl)
+
+-- | Alias for `cons`.
+(<|) : a -> NonEmpty a -> NonEmpty a
+(<|) = cons
 
 -- | Append or concatenate two non-empty lists.
 append : NonEmpty a -> NonEmpty a -> NonEmpty a

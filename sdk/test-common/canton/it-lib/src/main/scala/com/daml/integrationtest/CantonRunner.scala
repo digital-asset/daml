@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -96,6 +96,17 @@ object CantonRunner {
     val globalDevVersionSupport =
       if (config.enableLfDevVersionSupport) "dev-version-support = yes" else ""
 
+    val extensionsConfig =
+      config.extensionServices
+        .map { svc =>
+          s"""engine.extensions.${toJson(svc.extensionId)} {
+             |          address = ${toJson(svc.address)}
+             |          port = ${svc.port.value}
+             |          validate-on-startup = ${svc.validateOnStartup}
+             |        }""".stripMargin
+        }
+        .mkString("\n        ")
+
     def participantConfig(i: Int) = {
       val (adminPort, ledgerApiPort) = ports(i)
       val participantId = config.participantIds(i)
@@ -115,6 +126,7 @@ object CantonRunner {
          |      storage.type = memory
          |      parameters = {
          |        engine.enable-engine-stack-traces = true
+         |        ${extensionsConfig}
          |        ${participantDevVersionSupport}
          |        ${participantBetaVersionSupport}
          |        disable-upgrade-validation = ${config.disableUpgradeValidation}

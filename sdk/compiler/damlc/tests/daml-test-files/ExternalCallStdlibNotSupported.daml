@@ -1,0 +1,13 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @DOES-NOT-SUPPORT-LF-FEATURE DAML_ExternalCall
+-- @ERROR Could not find module 'DA.ExternalCall'
+
+module ExternalCallStdlibNotSupported where
+
+import DA.ExternalCall (externalCall)
+
+smoke : Update Text
+smoke =
+  externalCall "price-oracle" "get-price" "a1b2" "0011"

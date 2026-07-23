@@ -1,4 +1,4 @@
-.. Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _module-daml-script-55737:
@@ -317,6 +317,28 @@ Data Types
        * - signatureValue
          - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
+
+.. _type-daml-script-internal-questions-submit-error-externalcallerrortype-95837:
+
+**data** `ExternalCallErrorType <type-daml-script-internal-questions-submit-error-externalcallerrortype-95837_>`_
+
+  External\-call related submission errors, one per stage\: preparing the
+  call, executing it, and validating the service output\.
+
+  .. _constr-daml-script-internal-questions-submit-error-preparationfailed-20227:
+
+  `PreparationFailed <constr-daml-script-internal-questions-submit-error-preparationfailed-20227_>`_
+
+
+  .. _constr-daml-script-internal-questions-submit-error-executionfailed-50072:
+
+  `ExecutionFailed <constr-daml-script-internal-questions-submit-error-executionfailed-50072_>`_
+
+
+  .. _constr-daml-script-internal-questions-submit-error-invalidoutput-87217:
+
+  `InvalidOutput <constr-daml-script-internal-questions-submit-error-invalidoutput-87217_>`_
+
 
 .. _type-daml-script-internal-questions-submit-error-submiterror-38284:
 
@@ -788,6 +810,32 @@ Data Types
          - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
 
+  .. _constr-daml-script-internal-questions-submit-error-externalcallerror-13874:
+
+  `ExternalCallError <constr-daml-script-internal-questions-submit-error-externalcallerror-13874_>`_
+
+    External\-call interpretation exception
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - externalCallErrorType
+         - `ExternalCallErrorType <type-daml-script-internal-questions-submit-error-externalcallerrortype-95837_>`_
+         -
+       * - extensionId
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+       * - functionId
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+       * - externalCallErrorMessage
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+
   .. _constr-daml-script-internal-questions-submit-error-effectfulrollbackerror-45632:
 
   `EffectfulRollbackError <constr-daml-script-internal-questions-submit-error-effectfulrollbackerror-45632_>`_
@@ -897,7 +945,7 @@ Data Types
        * - originalSignatories
          - \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
          -
-       * - originalObservers
+       * - originalNonSignatoryStakeholders
          - \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
          -
        * - originalKeyOpt
@@ -906,7 +954,7 @@ Data Types
        * - recomputedSignatories
          - \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
          -
-       * - recomputedObservers
+       * - recomputedNonSignatoryStakeholders
          - \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
          -
        * - recomputedKeyOpt

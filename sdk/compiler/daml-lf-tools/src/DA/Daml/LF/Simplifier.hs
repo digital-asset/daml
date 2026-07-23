@@ -1,4 +1,4 @@
--- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Simplifier(
@@ -149,6 +149,7 @@ safetyStep = \case
       BEKecCak256Text     -> Safe 0
       BEEncodeHex         -> Safe 1
       BEDecodeHex         -> Safe 0
+      BEExternalCall      -> Safe 0
       BESecp256k1Bool     -> Safe 0
       BESecp256k1WithEcdsaBool -> Safe 0
       BESecp256k1ValidateKey -> Safe 0

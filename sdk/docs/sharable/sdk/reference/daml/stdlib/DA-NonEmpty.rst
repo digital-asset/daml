@@ -1,4 +1,4 @@
-.. Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _module-da-nonempty-15701:
@@ -25,6 +25,13 @@ Functions
   \: a \-\> :ref:`NonEmpty <type-da-nonempty-types-nonempty-16010>` a \-\> :ref:`NonEmpty <type-da-nonempty-types-nonempty-16010>` a
 
   Prepend an element to a non\-empty list\.
+
+.. _function-da-nonempty-ltpipe-87825:
+
+`(<|) <function-da-nonempty-ltpipe-87825_>`_
+  \: a \-\> :ref:`NonEmpty <type-da-nonempty-types-nonempty-16010>` a \-\> :ref:`NonEmpty <type-da-nonempty-types-nonempty-16010>` a
+
+  Alias for ``cons``\.
 
 .. _function-da-nonempty-append-34337:
 

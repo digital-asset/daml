@@ -156,6 +156,20 @@ MalformedSignature :: Text -> CryptoErrorType
 
 signatureValue :: CryptoErrorType -> Text
 
+-- | External-call related submission errors, one per stage: preparing the
+--   call, executing it, and validating the service output.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-externalcallerrortype-95837
+data ExternalCallErrorType
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-preparationfailed-20227
+PreparationFailed :: ExternalCallErrorType
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-executionfailed-50072
+ExecutionFailed :: ExternalCallErrorType
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-invalidoutput-87217
+InvalidOutput :: ExternalCallErrorType
+
 -- | Errors that can be thrown by a command submission via `trySubmit`
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-submiterror-38284
 data SubmitError
@@ -357,6 +371,18 @@ cryptoErrorType :: SubmitError -> CryptoErrorType
 
 cryptoErrorMessage :: SubmitError -> Text
 
+-- | External-call interpretation exception
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-externalcallerror-13874
+ExternalCallError :: ExternalCallErrorType -> Text -> Text -> Text -> SubmitError
+
+externalCallErrorType :: SubmitError -> ExternalCallErrorType
+
+extensionId :: SubmitError -> Text
+
+functionId :: SubmitError -> Text
+
+externalCallErrorMessage :: SubmitError -> Text
+
 -- | Rollback exceptions
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-effectfulrollbackerror-45632
 EffectfulRollbackError :: Text -> SubmitError
@@ -405,13 +431,13 @@ dstPackageName :: UpgradeErrorType -> Text
 
 originalSignatories :: UpgradeErrorType -> [Party]
 
-originalObservers :: UpgradeErrorType -> [Party]
+originalNonSignatoryStakeholders :: UpgradeErrorType -> [Party]
 
 originalKeyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
 
 recomputedSignatories :: UpgradeErrorType -> [Party]
 
-recomputedObservers :: UpgradeErrorType -> [Party]
+recomputedNonSignatoryStakeholders :: UpgradeErrorType -> [Party]
 
 recomputedKeyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
 

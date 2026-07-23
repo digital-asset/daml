@@ -1,4 +1,4 @@
-// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -47,6 +47,16 @@ object CantonConfig {
     case object WallClock extends TimeProviderType
   }
 
+  /** An entry of a participant's `parameters.engine.extensions` config block
+    * (the test-relevant subset of canton's `ExtensionServiceConfig`).
+    */
+  final case class ExtensionService(
+      extensionId: String,
+      address: String,
+      port: Port,
+      validateOnStartup: Boolean = false,
+  )
+
   // TODO: Remove nuckMode from PV, once taps can correctly select participant based on PV, and thus participants use the correct state machine mode
   sealed abstract class ProtocolVersion(override val toString: String, val nuckMode: String)
       extends Product
@@ -75,6 +85,9 @@ final case class CantonConfig(
     snapshotDir: Option[String] = None,
     enableLfBetaVersionSupport: Boolean = false,
     enableLfDevVersionSupport: Boolean = false,
+    // Extension services configured on each participant, under
+    // `parameters.engine.extensions`.
+    extensionServices: Seq[CantonConfig.ExtensionService] = Seq.empty,
 ) {
 
   lazy val tlsConfig =
