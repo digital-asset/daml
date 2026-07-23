@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 CANTON_OPEN_SOURCE_TAG = "3.6.0-ad-hoc.20260722.19741.0.v13043259"
