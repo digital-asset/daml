@@ -11,6 +11,7 @@ import {
   LanguageClient,
   LanguageClientOptions,
   RequestType,
+  State,
 } from "vscode-languageclient/node";
 import * as which from "which";
 import {
@@ -455,17 +456,30 @@ export class DamlLanguageClient {
     if (this.keepAliveTimer) clearTimeout(this.keepAliveTimer);
   }
 
-  // Subscribe to the server process's stdout/stderr so any output the
-  // server produces refreshes `lastServerActivity`. That lets us
-  // distinguish "damlc is hung" from "damlc is busy"
+  // Refresh lastServerActivity on any traffic from the server, so we
+  // can distinguish "damlc is hung" from "damlc is busy".
   private observeServerActivity() {
-    const proc = (<any>this.languageClient)._childProcess;
-    if (!proc) return;
     const bump = () => {
       this.lastServerActivity = Date.now();
     };
-    if (proc.stdout) proc.stdout.on("data", bump);
-    if (proc.stderr) proc.stderr.on("data", bump);
+    const client = this.languageClient;
+
+    // stdout carries all server->client JSON-RPC messages (responses,
+    // notifications, and server-to-client requests); stderr carries
+    // the server's log output.
+    const attach = () => {
+      const proc = (<any>client)._serverProcess;
+      if (!proc) return;
+      if (proc.stdout) proc.stdout.on("data", bump);
+      if (proc.stderr) proc.stderr.on("data", bump);
+    };
+    attach();
+    // Listeners are bound to a specific ChildProcess instance and don't
+    // survive server restarts, so re-attach whenever a new process
+    // comes up.
+    client.onDidChangeState(ev => {
+      if (ev.newState === State.Running) attach();
+    });
   }
 
   private keepAlive(languageClient: LanguageClient) {
@@ -486,13 +500,13 @@ export class DamlLanguageClient {
       // Terminate the damlc process with SIGTERM. The language client will restart the process automatically.
       // NOTE(JM): Verify that this works on Windows.
       // https://nodejs.org/api/child_process.html#child_process_child_kill_signal
-      const proc = (<any>languageClient)._childProcess;
+      const proc = (<any>languageClient)._serverProcess;
       if (proc && typeof proc.kill === "function") {
         proc.kill("SIGTERM");
       }
 
       // Restart the watchdog after 10s
-      setTimeout(self.startKeepAliveWatchdog, 10000);
+      setTimeout(() => self.startKeepAliveWatchdog(), 10000);
     }
 
     let killTimer = setTimeout(killDamlc, this.keepAliveTimeout);
