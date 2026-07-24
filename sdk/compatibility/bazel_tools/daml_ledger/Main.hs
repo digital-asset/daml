@@ -229,6 +229,8 @@ writeMinimalPackage (SdkVersion sdkVersion) = do
       , "  - daml-prim"
       , "  - daml-stdlib"
       , "  - daml-script"
+      , "build-options:"
+      , "  - --target=2.2"
       ]
   writeFileUTF8 "Main.daml" $ unlines
     [ "module Main where"

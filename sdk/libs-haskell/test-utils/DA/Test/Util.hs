@@ -20,7 +20,7 @@ module DA.Test.Util (
     JvmMemoryLimits(..),
 ) where
 
-import Control.Concurrent (putMVar, newEmptyMVar, takeMVar, forkIO)
+import Control.Concurrent (putMVar, tryPutMVar, newEmptyMVar, takeMVar, forkIO)
 import Control.Lens (view, _1)
 import Control.Monad
 import Control.Monad.IO.Class
@@ -74,14 +74,26 @@ withResourceCps withResourceIO f = withResource acquire release action
         doneCleaningUpMVar <- newEmptyMVar
         _ <-
             forkIO $ do
-                withResourceIO
-                    ( \resource -> do
-                        putMVar resourceMVar resource
-                        takeMVar doneRunningActionMVar
-                    )
+                -- If 'withResourceIO' throws during acquisition (before it ever
+                -- calls its continuation), hand the exception to the waiting
+                -- 'acquire' thread instead of leaving it to block forever on
+                -- 'takeMVar resourceMVar'. Without this, an acquisition failure
+                -- (e.g. a missing runfile) deadlocks and the test only fails
+                -- once it hits its timeout.
+                r <- Unlift.try $
+                    withResourceIO
+                        ( \resource -> do
+                            putMVar resourceMVar (Right resource)
+                            takeMVar doneRunningActionMVar
+                        )
+                case r of
+                    Left e -> void $ tryPutMVar resourceMVar (Left (e :: Unlift.SomeException))
+                    Right () -> pure ()
                 putMVar doneCleaningUpMVar ()
         resource <- takeMVar resourceMVar
-        return (resource, doneRunningActionMVar, doneCleaningUpMVar)
+        case resource of
+            Left e -> Unlift.throwIO e
+            Right r -> return (r, doneRunningActionMVar, doneCleaningUpMVar)
     release (_, doneMVar, doneCleaningUpMVar) = do
       putMVar doneMVar ()
       takeMVar doneCleaningUpMVar
