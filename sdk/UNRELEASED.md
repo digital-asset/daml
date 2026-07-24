@@ -10,7 +10,10 @@ header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
 ## Until 2026-07-29 (Exclusive)
- - Daml LF 2.3 is now the default version when producing output
+ - The default version of Daml-LF, released in 3.5, has been bumped to 2.3
+   according to our strategy of making an lf verison default the release _after_
+   it was released. 2.3 being default means any daml project that does not
+   specify an lf version will output to lf 2.3 by default.
 
 ## Until 2026-07-15 (Exclusive)
 - Daml Stdlib: add `(:|)` and `(<|)` synonyms for `DA.NonEmpty`, and define `Show`
