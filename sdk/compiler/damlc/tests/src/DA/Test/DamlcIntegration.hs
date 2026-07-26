@@ -155,6 +155,20 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
 
       scriptDar <- locateRunfiles $ mainWorkspace </> darPath
 
+      -- 'locateRunfiles' only constructs the path, it does not check the file
+      -- exists. If the required daml-script dar is missing from the test's
+      -- data deps (e.g. after bumping the default LF version without adding the
+      -- matching daml-script-<ver>.dar), the bogus path flows into
+      -- 'setupPackageDb' and the script service hangs until the test times out.
+      -- Fail fast with an actionable error instead.
+      scriptDarExists <- doesFileExist scriptDar
+      unless scriptDarExists $
+        error $ unlines
+          [ "Could not find daml-script dar in runfiles: " <> scriptDar
+          , "Expected runfiles path: " <> (mainWorkspace </> darPath)
+          , "Add the matching '//daml-script/daml:" <> takeFileName darPath <> "' target to the test's 'data' deps."
+          ]
+
       extraDars <- traverse (\(darName, _, _) -> locateRunfiles $ mainWorkspace </> "compiler" </> "damlc" </> "tests" </> darName <> ".dar") extraPackages
 
       setupPackageDb
