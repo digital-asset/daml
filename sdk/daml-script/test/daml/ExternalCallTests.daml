@@ -5,7 +5,7 @@ module ExternalCallTests where
 
 import DA.Assert
 import DA.ExternalCall (externalCall)
-import DA.Text (isInfixOf)
+import DA.Text (isPrefixOf)
 import Daml.Script
 
 testExtensionId : Text
@@ -84,8 +84,8 @@ externalCallExecutionFailed = script do
     Left (ExternalCallError ExecutionFailed extensionId functionId msg) -> do
       extensionId === testExtensionId
       functionId === failFunctionId
-      -- The requestId suffix is dynamic, so only the static prefix is pinned.
-      assert $ "External call failed with status 400" `isInfixOf` msg
+      -- The requestId suffix is dynamic, so only the static prefix is pinned.    
+      assertMsg ("externalCallExecutionFailed incorrect message, expected message starting with External call failed (retryable = false,:, got " <> msg) $ "External call failed (retryable = false," `isPrefixOf` msg
     Left e -> error $ "externalCallExecutionFailed incorrect error: " <> show e
     Right _ -> error "externalCallExecutionFailed incorrectly succeeded"
 
