@@ -1,0 +1,110 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE ApplicativeDo #-}
+
+module ContractManipulation where
+
+import DA.Assert
+import Daml.Script
+
+-- CONTRACT_MANIPULATION_BEGIN
+data Bank = Bank with
+  party : Party
+  address: Text
+  telephone : Text
+    deriving (Eq, Show)
+
+template Account
+  with
+    accountant : Party
+    owner : Party
+    number : Text
+    bank : Bank
+  where
+    signatory accountant
+
+contract_manipulation_test = do
+  accountant <- allocateParty "Bob"
+  owner <- allocateParty "Alice"
+  bank_party <- allocateParty "Bank"
+  let
+    bank = Bank with
+      party = bank_party
+      address = "High Street"
+      telephone = "012 3456 789"
+
+  accountCid <- submit accountant do
+     createCmd Account with
+      accountant
+      owner
+      bank
+      number = "ABC123"
+
+  -- Now the accountant updates the telephone number for the bank on the account
+  Some account <- queryContractId accountant accountCid
+  newAccountCid <- submit accountant do
+    archiveCmd accountCid
+    cid <- createCmd account with
+      bank = account.bank with
+        telephone = "098 7654 321"
+    pure cid
+  
+  newAccountCid =/= accountCid
+-- CONTRACT_MANIPULATION_END
+
+
+-- STALE_CONTRACT_ID_BEGIN
+data Cash = Cash with
+  currency : Text
+  amount : Decimal
+    deriving (Eq, Show)
+
+template CashBalance
+  with
+    accountant : Party
+    cash : Cash
+    account : ContractId Account
+  where
+    signatory accountant
+
+stale_contract_id_test = do
+  accountant <- allocateParty "Bob"
+  owner <- allocateParty "Alice"
+  bank_party <- allocateParty "Bank"
+  let
+    bank = Bank with
+      party = bank_party
+      address = "High Street"
+      telephone = "012 3456 789"
+    cash = Cash with
+      currency = "USD"
+      amount = 100.0
+
+  accountCid <- submit accountant do
+     createCmd Account with
+      accountant
+      owner
+      bank
+      number = "ABC123"
+
+  balanceCid <- submit accountant do
+    createCmd CashBalance with
+      accountant
+      cash
+      account = accountCid
+
+  -- Now the accountant updates the telephone number for the bank on the account
+  Some account <- queryContractId accountant accountCid
+  _ <- submit accountant do
+    archiveCmd accountCid
+    cid <- createCmd account with
+      bank = account.bank with
+        telephone = "098 7654 321"
+    pure cid
+
+  -- The `account` field on the balance now refers to the archived
+  -- contract, so this returns None.
+  Some balance <- queryContractId accountant balanceCid
+  optAccount <- queryContractId accountant balance.account
+  optAccount === None
+-- STALE_CONTRACT_ID_END

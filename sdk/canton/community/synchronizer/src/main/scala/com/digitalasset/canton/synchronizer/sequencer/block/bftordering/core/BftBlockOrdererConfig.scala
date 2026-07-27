@@ -1,0 +1,292 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core
+
+import com.daml.jwt.JwtTimestampLeeway
+import com.digitalasset.canton.config
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
+import com.digitalasset.canton.config.{
+  ActiveRequestLimitsConfig,
+  AdminTokenConfig,
+  AuthServiceConfig,
+  BasicKeepAliveServerConfig,
+  BatchAggregatorConfig,
+  ClientConfig,
+  JwksCacheConfig,
+  KeepAliveClientConfig,
+  PemFileOrString,
+  ServerConfig,
+  StorageConfig,
+  TlsClientConfig,
+  TlsServerConfig,
+}
+import com.digitalasset.canton.networking.grpc.CantonServerBuilder
+import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.{
+  BftBlockOrderingStandaloneNetworkConfig,
+  DefaultAvailabilityMaxNonOrderedBatchesPerNode,
+  DefaultAvailabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning,
+  DefaultConsensusBlockCompletionTimeout,
+  DefaultConsensusEmptyBlockCreationTimeout,
+  DefaultConsensusQueueMaxSize,
+  DefaultConsensusQueuePerNodeQuota,
+  DefaultDedicatedExecutionContextDivisor,
+  DefaultDelayedInitQueueMaxSize,
+  DefaultEpochLength,
+  DefaultEpochStateTransferTimeout,
+  DefaultLeaderSelectionPolicy,
+  DefaultMaxBatchCreationInterval,
+  DefaultMaxBatchesPerProposal,
+  DefaultMaxMempoolQueueSize,
+  DefaultMaxRequestPayloadBytes,
+  DefaultMaxRequestsInBatch,
+  DefaultMinRequestsInBatch,
+  DefaultOutputFetchTimeout,
+  DefaultOutputFetchTimeoutCap,
+  LeaderSelectionPolicyConfig,
+  P2PNetworkConfig,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.BlacklistStatus
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time.BftTime
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochLength
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
+
+import java.io.File
+import scala.concurrent.duration.*
+
+/** @param maxRequestsInBatch
+  *   A maximum number of requests in a batch. Needs to be the same across the network for the BFT
+  *   time assumptions to hold. It is validated in runtime.
+  * @param maxBatchesPerBlockProposal
+  *   A maximum number of batches per block proposal (pre-prepare). Needs to be the same across the
+  *   network for the BFT time assumptions to hold. It is validated in runtime.
+  * @param consensusQueueMaxSize
+  *   A maximum size per consensus-related queue.
+  * @param consensusQueuePerNodeQuota
+  *   A maximum number of messages per node stored in consensus-related queues (quotas are
+  *   maintained separately per queue).
+  * @param delayedInitQueueMaxSize
+  *   A maximum size per delayed init queue.
+  * @param epochStateTransferRetryTimeout
+  *   A state transfer retry timeout covering periods from requesting blocks from a single epoch up
+  *   to receiving all the corresponding batches.
+  */
+final case class BftBlockOrdererConfig(
+    // TODO(#24184) make a dynamic sequencing parameter
+    epochLength: Long = DefaultEpochLength,
+    maxRequestPayloadBytes: Int = DefaultMaxRequestPayloadBytes,
+    maxMempoolQueueSize: Int = DefaultMaxMempoolQueueSize,
+    // TODO(#24184) make a dynamic sequencing parameter
+    maxRequestsInBatch: Short = DefaultMaxRequestsInBatch,
+    minRequestsInBatch: Short = DefaultMinRequestsInBatch,
+    maxBatchCreationInterval: FiniteDuration = DefaultMaxBatchCreationInterval,
+    availabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning: Int =
+      DefaultAvailabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning,
+    availabilityMaxNonOrderedBatchesPerNode: Short = DefaultAvailabilityMaxNonOrderedBatchesPerNode,
+    // TODO(#24184) make a dynamic sequencing parameter
+    maxBatchesPerBlockProposal: Short = DefaultMaxBatchesPerProposal,
+    consensusQueueMaxSize: Int = DefaultConsensusQueueMaxSize,
+    consensusQueuePerNodeQuota: Int = DefaultConsensusQueuePerNodeQuota,
+    consensusBlockCompletionTimeout: FiniteDuration = DefaultConsensusBlockCompletionTimeout,
+    consensusEmptyBlockCreationTimeout: FiniteDuration = DefaultConsensusEmptyBlockCreationTimeout,
+    delayedInitQueueMaxSize: Int = DefaultDelayedInitQueueMaxSize,
+    epochStateTransferRetryTimeout: FiniteDuration = DefaultEpochStateTransferTimeout,
+    outputFetchTimeout: FiniteDuration = DefaultOutputFetchTimeout,
+    outputFetchTimeoutCap: FiniteDuration = DefaultOutputFetchTimeoutCap,
+    initialNetwork: Option[P2PNetworkConfig] = None,
+    standalone: Option[BftBlockOrderingStandaloneNetworkConfig] = None,
+    leaderSelectionPolicy: LeaderSelectionPolicyConfig = DefaultLeaderSelectionPolicy,
+    storage: Option[StorageConfig] = None,
+    // We may want to flip the default once we're satisfied with initial performance
+    enablePerformanceMetrics: Boolean = true,
+    batchAggregator: BatchAggregatorConfig = BatchAggregatorConfig(),
+    dedicatedExecutionContextDivisor: Option[Int] = DefaultDedicatedExecutionContextDivisor,
+) {
+  private val maxRequestsPerBlock = maxBatchesPerBlockProposal * maxRequestsInBatch
+  require(
+    maxRequestsPerBlock < BftTime.MaxRequestsPerBlock,
+    s"Maximum block size too big: $maxRequestsInBatch maximum requests per batch and " +
+      s"$maxBatchesPerBlockProposal maximum batches per block proposal means " +
+      s"$maxRequestsPerBlock maximum requests per block, " +
+      s"but the maximum number allowed of requests per block is ${BftTime.MaxRequestsPerBlock}",
+  )
+}
+
+object BftBlockOrdererConfig {
+
+  // Minimum epoch length that allows 16 nodes (i.e., the current CN load test target) to all act as consensus leaders
+  val DefaultEpochLength: EpochLength = EpochLength(16)
+
+  val DefaultMaxRequestPayloadBytes: Int = 1 * 1024 * 1024
+  val DefaultMaxMempoolQueueSize: Int = 10 * 1024
+  val DefaultMaxRequestsInBatch: Short = 32
+  val DefaultMinRequestsInBatch: Short = 3
+  val DefaultMaxBatchCreationInterval: FiniteDuration = 100.milliseconds
+  val DefaultMaxBatchesPerProposal: Short = 16
+  val DefaultAvailabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning: Int = 5
+  val DefaultAvailabilityMaxNonOrderedBatchesPerNode: Short = 1000
+  val DefaultConsensusQueueMaxSize: Int = 10 * 1024
+  val DefaultConsensusQueuePerNodeQuota: Int = 1024
+  val DefaultConsensusBlockCompletionTimeout: FiniteDuration = 10.seconds
+  val DefaultConsensusEmptyBlockCreationTimeout: FiniteDuration = 5.seconds
+  val DefaultDelayedInitQueueMaxSize: Int = 1024
+  val DefaultEpochStateTransferTimeout: FiniteDuration = 10.seconds
+  val DefaultOutputFetchTimeout: FiniteDuration = 2.second
+  val DefaultOutputFetchTimeoutCap: FiniteDuration = 20.second
+
+  val DefaultHowLongToBlackList: LeaderSelectionPolicyConfig.HowLongToBlacklist =
+    LeaderSelectionPolicyConfig.HowLongToBlacklist.Linear
+  val DefaultHowManyCanWeBlacklist: LeaderSelectionPolicyConfig.HowManyCanWeBlacklist =
+    LeaderSelectionPolicyConfig.HowManyCanWeBlacklist.NumFaultsTolerated
+  val DefaultLeaderSelectionPolicy: LeaderSelectionPolicyConfig =
+    LeaderSelectionPolicyConfig.Blacklisting()
+  val DefaultDedicatedExecutionContextDivisor: Option[Int] = None
+
+  trait BlacklistLeaderSelectionPolicyConfig {
+    def howLongToBlackList: LeaderSelectionPolicyConfig.HowLongToBlacklist
+    def howManyCanWeBlacklist: LeaderSelectionPolicyConfig.HowManyCanWeBlacklist
+  }
+
+  val DefaultAuthenticationTokenManagerConfig: AuthenticationTokenManagerConfig =
+    AuthenticationTokenManagerConfig()
+
+  final case class P2PNetworkConfig(
+      serverEndpoint: P2PServerConfig,
+      endpointAuthentication: P2PNetworkAuthenticationConfig = P2PNetworkAuthenticationConfig(),
+      connectionManagementConfig: P2PConnectionManagementConfig = P2PConnectionManagementConfig(),
+      peerEndpoints: Seq[P2PEndpointConfig] = Seq.empty,
+      overwriteStoredEndpoints: Boolean = false,
+  )
+
+  final case class P2PNetworkAuthenticationConfig(
+      authToken: AuthenticationTokenManagerConfig = DefaultAuthenticationTokenManagerConfig,
+      enabled: Boolean = true,
+  )
+
+  final case class P2PConnectionManagementConfig(
+      // The maximum number of connection attempts before we log a warning.
+      //  Together with the retry delays, it limits the maximum time spent trying to connect to a peer before
+      //  failure is logged at as a warning.
+      //  This time must be long enough to allow the sequencer to start up and shut down gracefully.
+      maxConnectionAttemptsBeforeWarning: NonNegativeInt = NonNegativeInt.tryCreate(30),
+      initialConnectionMaxDelay: config.NonNegativeFiniteDuration =
+        config.NonNegativeFiniteDuration.ofMillis(500),
+      initialConnectionRetryDelay: config.NonNegativeFiniteDuration =
+        config.NonNegativeFiniteDuration.ofMillis(500),
+      maxConnectionRetryDelay: config.NonNegativeFiniteDuration =
+        config.NonNegativeFiniteDuration.ofMinutes(2),
+      connectionRetryDelayMultiplier: NonNegativeInt = NonNegativeInt.two,
+  )
+
+  /** The [[externalAddress]], [[externalPort]] and [[externalTlsConfig]] must be configured
+    * correctly for the client to correctly authenticate the server, as the client tells the server
+    * its endpoint for authentication based on this information.
+    */
+  final case class P2PServerConfig(
+      override val address: String,
+      override val internalPort: Option[Port] = None,
+      externalAddress: String,
+      externalPort: Port,
+      externalTlsConfig: Option[TlsClientConfig] = Some(
+        TlsClientConfig(trustCollectionFile = None, clientCert = None, enabled = true)
+      ),
+      tls: Option[TlsServerConfig] = None,
+      override val maxInboundMessageSize: NonNegativeInt =
+        ServerConfig.defaultMaxInboundMessageSize,
+      override val limits: Option[ActiveRequestLimitsConfig] = None,
+  ) extends ServerConfig {
+    override val name: String = "peer-to-peer"
+    override val maxTokenLifetime: config.NonNegativeDuration =
+      config.NonNegativeDuration(Duration.Inf)
+    override val jwksCacheConfig: JwksCacheConfig = JwksCacheConfig()
+    override val jwtTimestampLeeway: Option[JwtTimestampLeeway] = None
+    override val keepAliveServer: Option[BasicKeepAliveServerConfig] = None
+    override val authServices: Seq[AuthServiceConfig] = Seq.empty
+    override val adminTokenConfig: AdminTokenConfig = AdminTokenConfig()
+
+    override def sslContext: Option[SslContext] = tls.map(CantonServerBuilder.sslContext(_))
+
+    override def serverCertChainFile: Option[PemFileOrString] = tls.map(_.certChainFile)
+
+    private[bftordering] def serverToClientAuthenticationEndpointConfig: P2PEndpointConfig =
+      P2PEndpointConfig(externalAddress, externalPort, externalTlsConfig)
+  }
+
+  final case class P2PEndpointConfig(
+      override val address: String,
+      override val port: Port,
+      override val tlsConfig: Option[TlsClientConfig] = Some(
+        TlsClientConfig(trustCollectionFile = None, clientCert = None, enabled = true)
+      ),
+  ) extends ClientConfig {
+    override val keepAliveClient: Option[KeepAliveClientConfig] = None
+  }
+
+  final case class EndpointId(
+      address: String,
+      port: Port,
+      tls: Boolean,
+  )
+
+  sealed trait LeaderSelectionPolicyConfig
+
+  object LeaderSelectionPolicyConfig {
+
+    final case object Simple extends LeaderSelectionPolicyConfig
+
+    final case class Blacklisting(
+        override val howLongToBlackList: LeaderSelectionPolicyConfig.HowLongToBlacklist =
+          DefaultHowLongToBlackList,
+        override val howManyCanWeBlacklist: LeaderSelectionPolicyConfig.HowManyCanWeBlacklist =
+          DefaultHowManyCanWeBlacklist,
+    ) extends LeaderSelectionPolicyConfig
+        with BlacklistLeaderSelectionPolicyConfig
+
+    sealed trait HowLongToBlacklist {
+      def compute(failedEpochSoFar: Long): BlacklistStatus
+    }
+
+    object HowLongToBlacklist {
+
+      case object Linear extends HowLongToBlacklist {
+        override def compute(failedEpochSoFar: Long): BlacklistStatus =
+          BlacklistStatus.Blacklisted(failedEpochSoFar, failedEpochSoFar)
+      }
+
+      case object NoBlacklisting extends HowLongToBlacklist {
+        override def compute(failedEpochSoFar: Long): BlacklistStatus = BlacklistStatus.Clean
+      }
+    }
+
+    sealed trait HowManyCanWeBlacklist {
+      def howManyCanWeBlacklist(orderingTopology: OrderingTopology): Int
+    }
+
+    object HowManyCanWeBlacklist {
+
+      case object NumFaultsTolerated extends HowManyCanWeBlacklist {
+        override def howManyCanWeBlacklist(orderingTopology: OrderingTopology): Int =
+          orderingTopology.numFaultsTolerated
+      }
+
+      case object NoBlacklisting extends HowManyCanWeBlacklist {
+        override def howManyCanWeBlacklist(orderingTopology: OrderingTopology): Int = 0
+      }
+    }
+  }
+
+  final case class BftBlockOrderingStandaloneNetworkConfig(
+      thisSequencerId: String,
+      signingPrivateKeyProtoFile: File,
+      signingPublicKeyProtoFile: File,
+      peers: Seq[BftBlockOrderingStandalonePeerConfig],
+  )
+
+  final case class BftBlockOrderingStandalonePeerConfig(
+      sequencerId: String,
+      signingPublicKeyProtoFile: File,
+  )
+
+}

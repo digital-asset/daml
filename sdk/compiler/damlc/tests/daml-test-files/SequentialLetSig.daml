@@ -1,0 +1,26 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- | Check that damlc preserves local type signatures
+-- in sequential let statements.
+--
+-- NB: The SequentialLetSig* tests cannot be combined because
+-- they test/raise errors at different GHC phases.
+module SequentialLetSig where
+
+preservesLocalTypeSigs : ()
+preservesLocalTypeSigs =
+    let f : Int -> Int -> Int
+        f = (*)
+
+        g : Int -> Int
+        g = negate
+    in ()
+
+multipleNames : ()
+multipleNames =
+    let x, y, z : Int
+        x = 10
+        z = 3
+        y = x + z
+    in ()

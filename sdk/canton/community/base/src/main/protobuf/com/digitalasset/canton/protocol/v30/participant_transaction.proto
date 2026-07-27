@@ -1,0 +1,250 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v30;
+
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
+import "com/digitalasset/canton/protocol/v30/common.proto";
+import "com/digitalasset/canton/protocol/v30/common_stable.proto";
+import "com/digitalasset/canton/protocol/v30/merkle.proto";
+import "com/digitalasset/canton/protocol/v30/quorum.proto";
+import "google/protobuf/duration.proto";
+import "scalapb/scalapb.proto";
+
+// Messages sent by a participant as part of the transaction protocol
+
+message DeduplicationPeriod {
+  oneof period {
+    google.protobuf.Duration duration = 1;
+    int64 offset = 2; // if specified, it must be a valid absolute offset (positive integer) or zero (ledger begin offset)
+  }
+}
+
+message ParticipantMetadata {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  com.digitalasset.canton.crypto.v30.Salt salt = 1;
+  int64 ledger_time = 2; // in microseconds of UTC time since Unix epoch
+  int64 preparation_time = 3; // in microseconds of UTC time since Unix epoch
+  string workflow_id = 4; // optional
+}
+
+// RootHashMessage
+
+message RootHashMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  bytes root_hash = 1;
+  string physical_synchronizer_id = 2;
+  ViewType view_type = 3;
+  int64 submission_topology_time = 4; // in microseconds of UTC time since Unix epoch
+  bytes payload = 5; // optional
+}
+
+// Messages sent by a participant as part of the transaction protocol
+
+message ViewNode {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  BlindableNode view_common_data = 1;
+  BlindableNode view_participant_data = 2;
+  MerkleSeq subviews = 3;
+}
+
+message ViewCommonData {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  com.digitalasset.canton.crypto.v30.Salt salt = 1;
+  repeated string informees = 2;
+  repeated v30.Quorum quorums = 3;
+}
+
+message Informee {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  string party = 1;
+  int32 weight = 2; // optional: only set if party is confirming
+}
+
+// EncryptedViewMessage
+
+message ViewParticipantMessage {
+  option deprecated = true;
+}
+
+// InformeeMessage
+
+message InformeeMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  FullInformeeTree full_informee_tree = 1;
+  com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 2;
+}
+
+message LightTransactionViewTree {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  GenTransactionTree tree = 1;
+  repeated ViewHashAndKey subview_hashes_and_keys = 2;
+}
+
+message ViewHashAndKey {
+  bytes view_hash = 1;
+  // The randomness used to derive the encryption key for the view
+  bytes view_encryption_key_randomness = 2;
+}
+
+message FullInformeeTree {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  GenTransactionTree tree = 1;
+}
+
+message CreatedContract {
+  bytes contract = 1; // Encoded ContractInstance
+  bool consumed_in_core = 2;
+  bool rolled_back = 3;
+}
+
+message InputContract {
+  bytes contract = 1; // Encoded ContractInstance
+  bool consumed = 2;
+}
+
+message CommonMetadata {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  com.digitalasset.canton.crypto.v30.Salt salt = 1;
+  // this used to contain a confirmation policy (Signatory or VIP) that no longer exists
+  reserved 2;
+  string physical_synchronizer_id = 3;
+  string uuid = 4;
+  int32 mediator_group = 5;
+}
+
+message SubmitterMetadata {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  com.digitalasset.canton.crypto.v30.Salt salt = 1;
+  repeated string act_as = 2;
+  string user_id = 3;
+  string command_id = 4;
+  string submitting_participant_uid = 5;
+  string submission_id = 6; // optional; absent if not specified by submitter
+  v30.DeduplicationPeriod dedup_period = 7;
+  int64 max_sequencing_time = 8; // in microseconds of UTC time since Unix epoch
+  ExternalAuthorization external_authorization = 9; // optional
+}
+
+message EncryptedViewMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  bytes view_tree = 1;
+
+  // The symmetric encryption scheme used to encrypt the view tree and the session key
+  com.digitalasset.canton.crypto.v30.SymmetricKeyScheme encryption_scheme = 2;
+
+  com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 3; // optional
+  bytes view_hash = 4;
+  repeated com.digitalasset.canton.crypto.v30.AsymmetricEncrypted session_key_lookup = 5;
+  string physical_synchronizer_id = 6;
+  v30.ViewType view_type = 7;
+}
+
+message ActionDescription {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  oneof description {
+    ActionDescription.CreateActionDescription create = 1;
+    ExerciseActionDescription exercise = 2;
+    ActionDescription.FetchActionDescription fetch = 3;
+    ActionDescription.LookupByKeyActionDescription lookup_by_key = 4;
+  }
+
+  message CreateActionDescription {
+    string contract_id = 1;
+    bytes node_seed = 2;
+  }
+
+  message ExerciseActionDescription {
+    string input_contract_id = 1;
+    string choice = 2;
+    bytes chosen_value = 3;
+    repeated string actors = 4;
+    bool by_key = 5;
+    bytes node_seed = 6;
+    bool failed = 8;
+    optional string interface_id = 9;
+    string template_id = 10;
+    repeated string package_preference = 11;
+  }
+
+  message FetchActionDescription {
+    string input_contract_id = 1;
+    repeated string actors = 2;
+    bool by_key = 3;
+    string template_id = 4;
+    optional string interface_id = 5;
+  }
+
+  message LookupByKeyActionDescription {
+    v30.GlobalKey key = 1;
+  }
+}
+
+// Messages sent by a participant as part of the transaction protocol
+
+message ViewParticipantData {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+  com.digitalasset.canton.crypto.v30.Salt salt = 1;
+  repeated v30.InputContract core_inputs = 2;
+  repeated v30.CreatedContract created_core = 3;
+  repeated string created_in_subview_archived_in_core = 4; // ids of contracts created in a subview and archived in the core
+  repeated ViewParticipantData.ResolvedKey resolved_keys = 5;
+  v30.ActionDescription action_description = 6;
+  ViewParticipantData.RollbackContext rollback_context = 7; // optional; defaults to the empty RollbackContext if omitted.
+
+  message FreeKey {
+    repeated string maintainers = 1;
+  }
+
+  message ResolvedKey {
+    v30.GlobalKey key = 1;
+    oneof resolution {
+      string contract_id = 2; // the key resolves to a contract
+      FreeKey free = 3; // the key is free and these are the maintainers
+    }
+  }
+
+  message RollbackContext {
+    repeated int32 rollback_scope = 1;
+    int32 next_child = 2;
+  }
+}
+
+// Additional signatures provided by a single party
+// The purpose of these signatures is to allow parties to authorize transactions
+// by signing it with a private key not known to the network.
+
+message ExternalPartyAuthorization {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  string party = 1; // Submitting party
+  repeated com.digitalasset.canton.crypto.v30.Signature signatures = 2; // Signatures
+}
+
+message ExternalAuthorization {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  // The hashing scheme version used when building the hash
+  enum HashingSchemeVersion {
+    HASHING_SCHEME_VERSION_UNSPECIFIED = 0;
+    reserved 1; // Hashing Scheme V1 - unsupported
+    HASHING_SCHEME_VERSION_V2 = 2;
+  }
+
+  repeated ExternalPartyAuthorization authentications = 1;
+  HashingSchemeVersion hashing_scheme_version = 2;
+}

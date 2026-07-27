@@ -1,0 +1,27 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module CreateAuthFailure where
+
+import Daml.Script hiding (script)
+
+-- BEGIN_MISSING_AUTH_EXAMPLE
+template Example
+  with
+    party1 : Party; party2 : Party
+  where
+    signatory party1
+    signatory party2
+
+example = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  alice `submit` createCmd Example with
+    party1 = alice
+    party2 = bob
+-- END_MISSING_AUTH_EXAMPLE
+
+-- | This lets us type check 'example' without letting it fail on `daml test`
+script : Script a -> Script ()
+script = const $ pure ()

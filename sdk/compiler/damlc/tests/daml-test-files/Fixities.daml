@@ -1,0 +1,26 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Check that fixity metadata is added when available.
+
+-- @SINCE-LF 2.1
+-- @QUERY-LF [ $pkg.modules[].values[].name_with_type | select(lf::get_value_name($pkg)[0] | startswith("$$$$fixity")) | lf::norm_fixity_info($pkg) ] | any(. == {name: {namespace: "VarName", value: "pair"}, fixity: {precedence: 5, direction: "R"}}) and any(. == {name: {namespace: "TcClsName", value: "Pair"}, fixity: {precedence: 5, direction: "R"}}) and any(. == {name: {namespace: "DataName", value: "Pair"}, fixity: {precedence: 5, direction: "R"}}) and any(. == {name: {namespace: "VarName", value: "$u003c$u003c$u003c"}, fixity: {precedence: 1, direction: "R"}}) and any(. == {name: {namespace: "VarName", value: "$u0026$u0026$u0026"}, fixity: {precedence: 3, direction: "R"}})
+module Fixities where
+
+data Pair a b = Pair with
+  fst : a
+  snd : b
+infixr 5 `Pair`
+
+pair : a -> b -> Pair a b
+pair = Pair
+infixr 5 `pair`
+
+class Category cat where
+  id : cat a a
+  (<<<) : cat b c -> cat a b -> cat a c
+  infixr 1 <<<
+
+class Category a => Arrow a where
+  (&&&) : a b c -> a b c' -> a b (c,c')
+  infixr 3 &&&

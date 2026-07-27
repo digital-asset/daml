@@ -1,0 +1,35 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Test numeric literals.
+--
+
+
+
+module NumericLit where
+
+import Daml.Script
+import DA.Assert
+import DA.Numeric (pi)
+
+pi0 : Numeric 0
+pi0 = 3.0
+
+pi5 : Numeric 5
+pi5 = 3.14159
+
+pi10 : Numeric 10
+pi10 = 3.14159_26536 -- note the rounding, which is on purpose
+
+pi15 : Numeric 15
+pi15 = 3.14159_26535_89793
+
+pi37 : Numeric 37
+pi37 = 3.14159_26535_89793_23846_26433_83279_50288_41
+
+piTest = script $ do
+    pi === pi0
+    pi === pi5
+    pi === pi10
+    pi === pi15
+    pi === pi37

@@ -1,0 +1,97 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.admin.sequencer.v30;
+
+import "google/protobuf/duration.proto";
+import "scalapb/scalapb.proto";
+
+message SequencerConnection {
+  oneof type {
+    Grpc grpc = 2;
+  }
+
+  string alias = 3;
+
+  // The id of the sequencer that serves the sequencer API.
+  // If empty, the node sets it after the first connection.
+  // If set, the node checks that the sequencer id reported by the sequencer
+  // matches this id.
+  optional string sequencer_id = 4;
+
+  message Grpc {
+    // connection information to sequencer (http[s]://<host>:<port>")
+    repeated string connections = 1;
+    // Should the connection use TLS?
+    bool transport_security = 2;
+    optional bytes custom_trust_certificates = 3;
+  }
+}
+
+enum SequencerConnectionValidation {
+  SEQUENCER_CONNECTION_VALIDATION_UNSPECIFIED = 0;
+  // Do not validate the sequencer connection
+  SEQUENCER_CONNECTION_VALIDATION_DISABLED = 1;
+  // Validate only the ones we could reach
+  SEQUENCER_CONNECTION_VALIDATION_ACTIVE = 2;
+  // Validate all the connections
+  SEQUENCER_CONNECTION_VALIDATION_ALL = 3;
+  // Validate only the ones we could reach, but at least threshold many
+  SEQUENCER_CONNECTION_VALIDATION_THRESHOLD_ACTIVE = 4;
+}
+
+message SequencerConnections {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StorageProtoVersion";
+
+  repeated SequencerConnection sequencer_connections = 1;
+
+  // This field determines the minimum level of agreement, or consensus, required among the sequencers before a message
+  // is considered reliable and accepted by the system.
+  //
+  // This value must be positive.
+  uint32 sequencer_trust_threshold = 2;
+
+  SubmissionRequestAmplification submission_request_amplification = 3;
+
+  // This field determines the number of extra subscriptions to maintain beyond `sequencer_trust_threshold` in order
+  // to ensure liveness. This is only used when the new connection pool is enabled, and is ignored otherwise.
+  //
+  // This value must be non-negative.
+  uint32 sequencer_liveness_margin = 4;
+
+  // Configures the various delays used by the sequencer connection pool.
+  SequencerConnectionPoolDelays sequencer_connection_pool_delays = 5;
+}
+
+message SubmissionRequestAmplification {
+  // Determines to how often the client should try to send a submission request that is eligible for deduplication.
+  // A higher value increases the chance of a submission request being accepted by the system, but also increases the load on the sequencers
+  // and thus the costs incurred by the client.
+  // This value must be positive.
+  uint32 factor = 1;
+
+  // Determines how long the sequencer client waits for observing the sequencing before it sends the submission request again.
+  // This value must be non-negative.
+  google.protobuf.Duration patience = 2;
+}
+
+message SequencerConnectionPoolDelays {
+  // Minimum duration after which a failed sequencer connection is restarted.
+  // This value must be non-negative.
+  google.protobuf.Duration min_restart_delay = 1;
+
+  // Maximum duration after which a failed sequencer connection is restarted.
+  // This value must be non-negative.
+  google.protobuf.Duration max_restart_delay = 2;
+
+  // Delay between the attempts to obtain new sequencer connections for the sequencer subscription
+  // pool, when the current number of subscriptions is below `trustThreshold` + `livenessMargin`.
+  // This value must be non-negative.
+  google.protobuf.Duration subscription_request_delay = 3;
+
+  // Duration after which a warning is issued if a started connection still fails validation.
+  // This value must be non-negative.
+  google.protobuf.Duration warn_validation_delay = 4;
+}

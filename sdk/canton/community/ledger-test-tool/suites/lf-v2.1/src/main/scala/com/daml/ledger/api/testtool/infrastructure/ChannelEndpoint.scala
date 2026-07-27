@@ -1,0 +1,29 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates.
+// Proprietary code. All rights reserved.
+
+package com.daml.ledger.api.testtool.infrastructure
+
+import io.grpc.Channel
+
+sealed trait Endpoint
+
+object Endpoint {
+
+  final case object InProcess extends Endpoint
+
+  final case class Remote(hostname: String, port: Int) extends Endpoint
+
+}
+
+final case class ChannelEndpoint(channel: Channel, endpoint: Endpoint)
+
+object ChannelEndpoint {
+
+  type JsonApiEndpoint = (String, Int)
+
+  def forRemote(channel: Channel, hostname: String, port: Int): ChannelEndpoint =
+    ChannelEndpoint(channel, Endpoint.Remote(hostname, port))
+
+  def forInProcess(channel: Channel): ChannelEndpoint = ChannelEndpoint(channel, Endpoint.InProcess)
+
+}

@@ -1,0 +1,98 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@build_environment//:configuration.bzl", "ghc_version")
+load("//rules_daml:daml.bzl", "daml_compile")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION")
+
+[
+    daml_compile(
+        name = "daml-script-{}".format(lf_version),
+        srcs = glob(["**/*.daml"]),
+        disable_deprecated_exceptions = True,
+        force_utility_package = True,
+        # Force daml files to be under `daml` directory, to match previous behaviour
+        generated_daml_source_directory = "daml",
+        project_name = "daml-script",
+        target = lf_version,
+        version = ghc_version,
+        visibility = ["//visibility:public"],
+    )
+    for lf_version in COMPILER_LF_VERSIONS
+]
+
+# For convenience, we define daml-script.dar which is always compiled to the
+# default stable version of LF2.
+copy_file(
+    name = "daml-script",
+    src = ":daml-script-{}.dar".format(DEFAULT_LF_VERSION),
+    out = "daml-script.dar",
+    allow_symlink = True,
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "daml-script-dars",
+    srcs = [
+        "daml-script-{}.dar".format(lf_version)
+        for lf_version in COMPILER_LF_VERSIONS
+    ],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "daml-script-docs",
+    srcs = [
+        ":daml-script.json",
+        ":daml-script-rst-template.rst",
+        ":daml-script-index-template.rst",
+        ":daml-script-hoogle-template.txt",
+    ],
+    outs = [
+        "daml-script-rst.tar.gz",
+        "daml-script-hoogle.txt",
+        "daml-script-anchors.json",
+    ],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=daml-script-rst \
+            --input-format=json \\
+            --format=Rst \
+            --template=$(location :daml-script-rst-template.rst) \
+            --index-template=$(location :daml-script-index-template.rst) \\
+            --hoogle-template=$(location :daml-script-hoogle-template.txt) \\
+            --base-url=https://docs.daml.com/daml-script/api/ \\
+            --output-hoogle=$(location :daml-script-hoogle.txt) \\
+            --output-anchor=$(location :daml-script-anchors.json) \\
+            --omit-empty \\
+            -Wno-deprecated-exceptions \\
+            $(location :daml-script.json)
+        $(execpath //bazel_tools/sh:mktgz) $(location :daml-script-rst.tar.gz) daml-script-rst
+    """,
+    tools = [
+        "//bazel_tools/sh:mktgz",
+        "//compiler/damlc",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "daml-script-json-docs",
+    srcs = glob(["**/*.daml"]),
+    outs = ["daml-script.json"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=$(OUTS) \
+            --package-name=daml-script \
+            --format=Json \
+            --target=2.dev \
+            -Wno-deprecated-exceptions \
+            $(location Daml/Script.daml) \
+            $(location Daml/Script/Internal.daml)
+    """,
+    tools = [
+        "//compiler/damlc",
+    ],
+    visibility = ["//visibility:public"],
+)
