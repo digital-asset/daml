@@ -52,8 +52,7 @@ allStablePackagesList =
       , daRandomTypes version2_1
       , daStackTypes version2_1
       , daInternalFailTypes version2_1
-      , -- Replaces daStackTypes, which should no longer be used
-        ghcStackTypes version2_3 (encodePackageHash (daTypes version2_1))
+      , ghcStackTypes version2_3 (encodePackageHash (daTypes version2_1))
       ]
 
 allStablePackagesWithIds :: [(PackageId, Package)]
@@ -419,6 +418,9 @@ daStackTypes version = Package
       $ mkWorkerDef modName srcLocTyCon [] fields
       : fmap (uncurry (mkSelectorDef modName srcLocTyCon [])) fields
 
+-- Notably different to daStackTypes, which defines a user-facing type for reading SrcLocs
+-- This stable package is used as part of the `HasCallStack` constraint, allowing cross-sdk
+-- HasCallStack calls.
 ghcStackTypes :: Version -> PackageId -> Package
 ghcStackTypes version daTypesPackageId = Package
   { packageLfVersion = version
@@ -435,25 +437,12 @@ ghcStackTypes version daTypesPackageId = Package
   }
   where
     modName = mkModName ["GHC", "Stack", "Types"]
+    qualifySelf = Qualified SelfPackageId modName
+
+    -- SrcLoc record Type
     srcLocTyCon = mkTypeCon ["SrcLoc"]
     srcLocTCon = TCon $ qualifySelf srcLocTyCon
-    callStackTyCon = mkTypeCon ["CallStack"]
-    callStackTCon = TCon $ qualifySelf callStackTyCon
-    tupleQualTyCon :: Int -> Qualified TypeConName
-    tupleQualTyCon n = Qualified
-      { qualPackage = ImportedPackageId daTypesPackageId
-      , qualModule = mkModName ["DA", "Types"]
-      , qualObject = mkTypeCon ["Tuple" <> T.pack (show n)]
-      }
-    tuple2QualTyCon = tupleQualTyCon 2
-    tuple3QualTyCon = tupleQualTyCon 3
-    emptyCallStack = mkVariantCon "EmptyCallStack"
-    pushCallStack = mkVariantCon "PushCallStack"
-    freezeCallStack = mkVariantCon "FreezeCallStack"
-    qualifySelf = Qualified SelfPackageId modName
-    pushCallStackArgs = TConApp tuple3QualTyCon [TText, srcLocTCon, callStackTCon]
-    freezeCallStackArgs = callStackTCon
-    fields =
+    srcLocFields =
       [ (mkField "srcLocPackage", TText)
       , (mkField "srcLocModule", TText)
       , (mkField "srcLocFile", TText)
@@ -462,26 +451,46 @@ ghcStackTypes version daTypesPackageId = Package
       , (mkField "srcLocEndLine", TInt64)
       , (mkField "srcLocEndCol", TInt64)
       ]
-    types = NM.fromList
-      [ DefDataType
-          { dataLocation = Nothing
-          , dataTypeCon = srcLocTyCon
-          , dataSerializable = IsSerializable False
-          , dataParams = []
-          , dataCons = DataRecord fields
-          }
-      , DefDataType
-          { dataLocation = Nothing
-          , dataTypeCon = callStackTyCon
-          , dataSerializable = IsSerializable False
-          , dataParams = []
-          , dataCons = DataVariant
-              [ (emptyCallStack, TUnit)
-              , (pushCallStack, pushCallStackArgs)
-              , (freezeCallStack, freezeCallStackArgs)
-              ]
-          }
-      ]
+    srcLocDataType =
+      DefDataType
+        { dataLocation = Nothing
+        , dataTypeCon = srcLocTyCon
+        , dataSerializable = IsSerializable False
+        , dataParams = []
+        , dataCons = DataRecord srcLocFields
+        }
+
+    -- CallStack variant Type
+    callStackTyCon = mkTypeCon ["CallStack"]
+    callStackTCon = TCon $ qualifySelf callStackTyCon
+    
+    emptyCallStack = mkVariantCon "EmptyCallStack"
+    emptyCallStackArgs = TUnit
+
+    pushCallStack = mkVariantCon "PushCallStack"
+    pushCallStackArgs = TTuple3 TText srcLocTCon callStackTCon
+
+    freezeCallStack = mkVariantCon "FreezeCallStack"
+    freezeCallStackArgs = callStackTCon
+
+    callStackDataType =
+      DefDataType
+        { dataLocation = Nothing
+        , dataTypeCon = callStackTyCon
+        , dataSerializable = IsSerializable False
+        , dataParams = []
+        , dataCons = DataVariant
+            [ (emptyCallStack, emptyCallStackArgs)
+            , (pushCallStack, pushCallStackArgs)
+            , (freezeCallStack, freezeCallStackArgs)
+            ]
+        }
+
+    -- Module types
+    types = NM.fromList [srcLocDataType, callStackDataType]
+
+    -- CallStack Methods
+
     -- callstack definitions need to be in same module as types, so are required
     -- in the stable package
     -- See compiler/damlc/daml-prim-src/GHC/Stack/Types.daml for raw daml definitions
@@ -497,50 +506,69 @@ ghcStackTypes version daTypesPackageId = Package
     -- pushCallStack : (TextLit, SrcLoc) -> CallStack -> CallStack
     -- pushCallStack tpl stk = case stk of
     --   FreezeCallStack _ -> stk
-    --   _                 -> PushCallStack (_1 tpl, _2 tpl, stk)
-    pushCallStackValueArgTuple = TConApp tuple2QualTyCon [TText, srcLocTCon]
+    --   _                 -> PushCallStack (tpl._1, tpl._2, stk)
+    pushCallStackValueArgTuple = TTuple2 TText srcLocTCon
     pushCallStackValue = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (mkVal "pushCallStack", pushCallStackValueArgTuple :-> callStackTCon :-> callStackTCon)
-      , dvalBody = mkETmLams [(mkVar "tpl", pushCallStackValueArgTuple), (mkVar "stk", callStackTCon)] $ ECase (EVar $ mkVar "stk")
-          [ CaseAlternative (CPVariant (qualifySelf callStackTyCon) freezeCallStack (mkVar "_")) $ EVar $ mkVar "stk"
-          , CaseAlternative CPDefault $ EVariantCon (fromTCon callStackTCon) pushCallStack $
-              ERecCon (fromTCon pushCallStackArgs)
-                [ (mkIndexedField 1, ERecProj (fromTCon pushCallStackValueArgTuple) (mkIndexedField 1) $ EVar $ mkVar "tpl")
-                , (mkIndexedField 2, ERecProj (fromTCon pushCallStackValueArgTuple) (mkIndexedField 2) $ EVar $ mkVar "tpl")
-                , (mkIndexedField 3, EVar $ mkVar "stk")
-                ]
-          ]
+      , dvalBody =
+          -- \tpl -> \stk ->
+          mkETmLams [(mkVar "tpl", pushCallStackValueArgTuple), (mkVar "stk", callStackTCon)] $
+            -- case stk of
+            mkVariantCase (EVar $ mkVar "stk") (qualifySelf callStackTyCon)
+              [ -- FreezeCallStack _ -> stk
+                (Just freezeCallStack, const $ EVar $ mkVar "stk")
+              , -- _ -> PushCallStack (tpl._1, tpl._2, stk)
+                (Nothing, const $ EVariantCon (fromTCon callStackTCon) pushCallStack $
+                  ERecCon (fromTCon pushCallStackArgs)
+                    [ (mkIndexedField 1, ERecProj (fromTCon pushCallStackValueArgTuple) (mkIndexedField 1) $ EVar $ mkVar "tpl")
+                    , (mkIndexedField 2, ERecProj (fromTCon pushCallStackValueArgTuple) (mkIndexedField 2) $ EVar $ mkVar "tpl")
+                    , (mkIndexedField 3, EVar $ mkVar "stk")
+                    ]
+                )
+              ]
       }
 
     -- popCallStack : CallStack -> CallStack
     -- popCallStack stk = case stk of
     --   EmptyCallStack    -> error "popCallStack: empty stack"
-    --   PushCallStack pcs -> _3 pcs
+    --   PushCallStack pcs -> pcs._3
     --   FreezeCallStack _ -> stk
     popCallStackValue = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (mkVal "popCallStack", callStackTCon :-> callStackTCon)
-      , dvalBody = mkETmLams [(mkVar "stk", callStackTCon)] $ ECase (EVar $ mkVar "stk")
-          [ CaseAlternative (CPVariant (qualifySelf callStackTyCon) emptyCallStack (mkVar "_")) $
-              mkEApps (EBuiltinFun BEError) [TyArg callStackTCon, TmArg $ EBuiltinFun $ BEText "popCallStack: empty stack"]
-          , CaseAlternative (CPVariant (qualifySelf callStackTyCon) pushCallStack (mkVar "pcs")) $
-              ERecProj (fromTCon pushCallStackArgs) (mkIndexedField 3) $ EVar $ mkVar "pcs"
-          , CaseAlternative (CPVariant (qualifySelf callStackTyCon) freezeCallStack (mkVar "_")) $
-              EVar $ mkVar "stk"
-          ]
+      , dvalBody =
+          -- \stk -> case stk of
+          mkETmLams [(mkVar "stk", callStackTCon)] $ mkVariantCase (EVar $ mkVar "stk") (qualifySelf callStackTyCon)
+            [ -- EmptyCallStack    -> error "popCallStack: empty stack"
+              (Just emptyCallStack, const $ mkEApps (EBuiltinFun BEError) [TyArg callStackTCon, TmArg $ EBuiltinFun $ BEText "popCallStack: empty stack"])
+            , -- PushCallStack pcs -> pcs._3
+              (Just pushCallStack, \pcs -> ERecProj (fromTCon pushCallStackArgs) (mkIndexedField 3) $ EVar pcs)
+            , -- FreezeCallStack _ -> stk
+              (Just freezeCallStack, const $ EVar $ mkVar "stk")
+            ]
       }
 
-    values = NM.fromList $
-      [ mkWorkerDef modName srcLocTyCon [] fields
-      , mkVariantWorkerDef modName callStackTyCon emptyCallStack [] TUnit
+    -- SrcLoc field updates and selectors
+    srcLocValues = NM.fromList $
+      mkWorkerDef modName srcLocTyCon [] srcLocFields
+        : fmap (uncurry (mkSelectorDef modName srcLocTyCon [])) srcLocFields
+
+    -- CallStack builders
+    callStackValues = NM.fromList
+      [ mkVariantWorkerDef modName callStackTyCon emptyCallStack [] emptyCallStackArgs
       , mkVariantWorkerDef modName callStackTyCon pushCallStack [] pushCallStackArgs
       , mkVariantWorkerDef modName callStackTyCon freezeCallStack [] freezeCallStackArgs
-      , emptyCallStackValue
+      ]
+    
+    -- Callstack manipulation methods used by GHC
+    callStackMethods = NM.fromList
+      [ emptyCallStackValue
       , pushCallStackValue
       , popCallStackValue
       ]
-      <> fmap (uncurry (mkSelectorDef modName srcLocTyCon [])) fields
+
+    values = NM.unions [srcLocValues, callStackValues, callStackMethods]
 
 daTimeTypes :: Version -> Package
 daTimeTypes version = Package

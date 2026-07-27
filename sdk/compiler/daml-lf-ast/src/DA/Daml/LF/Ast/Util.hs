@@ -157,6 +157,10 @@ mkIf cond0 then0 else0 =
 mkBool :: Bool -> Expr
 mkBool = EBuiltinFun . BEBool
 
+mkVariantCase :: Expr -> Qualified TypeConName -> [(Maybe VariantConName, ExprVarName -> Expr)] -> Expr
+mkVariantCase subject subjectTyCon cases = ECase subject $ flip fmap cases $ \(mTyCon, handle) ->
+  CaseAlternative (maybe CPDefault (\tyCon -> CPVariant subjectTyCon tyCon (ExprVarName "content")) mTyCon) $ handle $ ExprVarName "content"
+
 pattern EUnit :: Expr
 pattern EUnit = EBuiltinFun BEUnit
 
@@ -233,7 +237,7 @@ pattern TTextMapEntry :: Type -> Type
 pattern TTextMapEntry a = TStruct [(FieldName "key", TText), (FieldName "value", a)]
 
 pattern TTuple2 :: Type -> Type -> Type
-pattern TTuple2 t1 t2 = TApp (TApp (TCon Tuple2TCon)  t1) t2
+pattern TTuple2 t1 t2 = TApp (TApp (TCon Tuple2TCon) t1) t2
 
 pattern Tuple2TCon :: Qualified TypeConName
 pattern Tuple2TCon = (Qualified
@@ -242,6 +246,18 @@ pattern Tuple2TCon = (Qualified
     (ImportedPackageId (PackageId "5aee9b21b8e9a4c4975b5f4c4198e6e6e8469df49e2010820e792f393db870f4"))
     (ModuleName ["DA", "Types"])
     (TypeConName ["Tuple2"])
+  )
+
+pattern TTuple3 :: Type -> Type -> Type -> Type
+pattern TTuple3 t1 t2 t3 = TApp (TApp (TApp (TCon Tuple3TCon) t1) t2) t3
+
+pattern Tuple3TCon :: Qualified TypeConName
+pattern Tuple3TCon = (Qualified
+  -- We cannot look up these stable IDs using stablePackageByModuleName because
+  -- it would introduce a cyclic dependency with StablePackages.
+    (ImportedPackageId (PackageId "5aee9b21b8e9a4c4975b5f4c4198e6e6e8469df49e2010820e792f393db870f4"))
+    (ModuleName ["DA", "Types"])
+    (TypeConName ["Tuple3"])
   )
 
 pattern TConApp :: Qualified TypeConName -> [Type] -> Type
