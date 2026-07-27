@@ -26,7 +26,7 @@ fi
 # Build the yaml file and the srcout for every project
 BAZEL_TARGETS=()
 for NAME in "${NAMES[@]}"; do
-  BAZEL_TARGETS+=(//test-common:upgrades-$NAME.yaml //test-common:upgrades-$NAME.srcout)
+  BAZEL_TARGETS+=("//test-common:upgrades-$NAME.yaml" "//test-common:upgrades-$NAME.srcout")
 done
 bazel build "${BAZEL_TARGETS[@]}"
 
@@ -34,15 +34,15 @@ bazel build "${BAZEL_TARGETS[@]}"
 for NAME in "${NAMES[@]}"; do
   echo "Process $NAME..."
   SOURCE_ROOT=$(
-    cat bazel-bin/test-common/upgrades-$NAME.srcout |\
-      sed '$!{N;s/^\(.*\).*\n\1.*$/\1\n\1/;D;}' |\
+    sed '$!{N;s/^\(.*\).*\n\1.*$/\1\n\1/;D;}' bazel-bin/test-common/upgrades-"$NAME".srcout |\
       sed -E 's,/[^/]+\.daml$,,' |\
       sed -E 's,/$,,' |\
       sed -E 's,^test-common/src/main/daml/upgrades/,,'
   )
 
   # Fix paths/filenames in the daml.yaml files
-  cat bazel-bin/test-common/upgrades-$NAME.yaml | yq -y '''
+  # shellcheck disable=SC2016
+  yq -y '
     .dependencies |=
       map(if test("daml-script") then "daml-script" else . end)
   | .["data-dependencies"] |=
@@ -50,7 +50,7 @@ for NAME in "${NAMES[@]}"; do
   | .upgrades |=
       (values | "${TARGET_ROOT}/" + sub(".dar.dar$"; ".dar"))
   | .["build-options"] +=
-      (values | ["--output=${TARGET_ROOT}/" + "upgrades-'''$NAME'''.dar"])
+      (values | ["--output=${TARGET_ROOT}/" + "upgrades-'"$NAME"'.dar"])
   | .["override-components"] =
     {
       "damlc": { "version": "$DAML_VERSION" },
@@ -58,15 +58,15 @@ for NAME in "${NAMES[@]}"; do
       "codegen": { "version": "$DAML_VERSION" },
     }
   | delpaths([["sdk-version"]])
-  ''' > $WORKDIR/$SOURCE_ROOT/daml.yaml
+  ' bazel-bin/test-common/upgrades-"$NAME".yaml > "$WORKDIR/$SOURCE_ROOT/daml.yaml"
 
   # Append the name of the package to the multi-package.yaml
-  echo "- ./$SOURCE_ROOT" >> $WORKDIR/multi-package.yaml
+  echo "- ./$SOURCE_ROOT" >> "$WORKDIR/multi-package.yaml"
 done
 
 # Move staged changes into Canton
 mkdir -p "$CANTON_DESTINATION"
-find "$CANTON_DESTINATION" -mindepth 1 -maxdepth 1 -type d | xargs -d '\n' -- rm -rf
-find "$CANTON_DESTINATION" -name multi-package.yaml | xargs -d '\n' -- rm -rf
+find "$CANTON_DESTINATION" -mindepth 1 -maxdepth 1 -type d -print0 | xargs -0 -- rm -rf
+find "$CANTON_DESTINATION" -name multi-package.yaml -print0 | xargs -0 -- rm -rf
 cp -r "$WORKDIR"/* "$CANTON_DESTINATION"
 rm -r "$WORKDIR"
