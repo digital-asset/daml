@@ -107,8 +107,6 @@ browserify-rsa 4.1.1: https://github.com/calvinmetcalf/browserify-rsa : MIT Lice
 browserify-sign 4.2.3: https://github.com/crypto-browserify/browserify-sign : ISC License
 browserify-zlib 0.2.0: https://github.com/devongovett/browserify-zlib : MIT License
 browser-pack 6.1.0: https://github.com/substack/browser-pack : MIT License
-Buffer 5.2.1: https://github.com/feross/native-buffer-browserif : MIT License
-Buffer v5.7.1: https://github.com/feross/native-buffer-browserif : MIT License
 buffer-from 1.1.2: https://github.com/linusu/buffer-from#readme : MIT License
 buffer-xor 1.0.3: https://github.com/crypto-browserify/buffer-xor : MIT License
 builtin-status-codes 3.0.0: https://github.com/bendrucker/builtin-status-codes : MIT License
@@ -151,6 +149,8 @@ Clone 2.1.2: https://github.com/pvorb/node-clone : MIT License
 cmark-gfm 0.2.5: https://github.com/kivikakk/cmark-gfm-hs : BSD 3-clause "New" or "Revised" License
 cmdargs 0.10.21: https://github.com/ndmitchell/cmdargs#readme : BSD 3-clause "New" or "Revised" License
 CoffeeScript 2.7.0: https://coffeescript.org/ : MIT License
+color-convert 1.9.3: https://github.com/harthur/color-convert : MIT License
+color-convert 2.0.1: https://github.com/harthur/color-convert : MIT License
 color-name 1.1.3: https://github.com/colorjs/color-name : MIT License
 color-name 1.1.4: https://github.com/colorjs/color-name : MIT License
 colors.js 1.1.2: https://github.com/Marak/colors.js : MIT License
@@ -264,6 +264,8 @@ fansi_2.13 0.5.1 : MIT License
 fast-logger 3.1.2: https://github.com/kazu-yamamoto/logger : BSD 3-clause "New" or "Revised" License
 fast-safe-stringify 2.1.1: https://github.com/davidmarkclements/fast-safe-stringify#readme : MIT License
 faye-websocket-node 0.10.0: https://github.com/faye/faye-websocket-node : MIT License
+feross/buffer 5.2.1: https://github.com/feross/native-buffer-browserif : MIT License
+feross/buffer v5.7.1: https://github.com/feross/native-buffer-browserif : MIT License
 figures 1.7.0: https://github.com/sindresorhus/figures : MIT License
 file-embed 0.0.15.0: https://github.com/snoyberg/file-embed : BSD 2-clause "Simplified" License
 filelock 0.1.1.5: http://github.com/takano-akio/filelock : Public Domain
@@ -339,7 +341,7 @@ Go Testify v1.6.1: https://github.com/stretchr/testify : MIT License
 Gozala/events 1.1.1: https://github.com/Gozala/events : MIT License
 Gozala/events 3.3.0: https://github.com/Gozala/events : MIT License
 groupcache 20200125-snapshot-8c9f03a8: https://github.com/golang/groupcache : Apache License 2.0
-grpc-go v1.40.0-dev: https://github.com/grpc/grpc-go : Apache License 2.0
+grpc-go v1.40.0: https://github.com/grpc/grpc-go : Apache License 2.0
 grpc-java 1.81.0: https://github.com/grpc/grpc-java : Apache License 2.0
 grunt-banner 0.6.0: https://github.com/mattstyles/grunt-banner : MIT License
 grunt-browserify v6.0.0: https://github.com/pix/grunt-browserify : MIT License
@@ -388,7 +390,7 @@ haskell TLS 1.6.12: http://github.com/vincenthz/hs-tls : BSD 3-clause "New" or "
 haskell TLS 1.6.7: http://github.com/vincenthz/hs-tls : BSD 3-clause "New" or "Revised" License
 haskell TLS 1.6.9: http://github.com/vincenthz/hs-tls : BSD 3-clause "New" or "Revised" License
 haskell TLS 1.7.7: http://github.com/vincenthz/hs-tls : BSD 3-clause "New" or "Revised" License
-haskell-vector 0.12.3.1: http://hackage.haskell.org/package/vector : BSD 3-clause "New" or "Revised" License
+haskell-vector 0.12.3.1: https://github.com/haskell/vector : BSD 3-clause "New" or "Revised" License
 haskell-xml 1.9.1.1: https://github.com/snoyberg/xml : MIT License
 hasown 2.0.2: https://github.com/inspect-js/hasOwn#readme : MIT License
 has-property-descriptors 1.0.2: https://github.com/inspect-js/has-property-descriptors#readme : MIT License
@@ -755,8 +757,6 @@ pureconfig-core 0.14.0 : Mozilla Public License 2.0
 pureconfig-generic 0.14.0 : Mozilla Public License 2.0
 pureconfig-generic-base 0.14.0 : Mozilla Public License 2.0
 pureconfig-macros 0.14.0 : Mozilla Public License 2.0
-Qix-/color-convert 1.9.3: https://github.com/Qix-/color-convert : MIT License
-Qix-/color-convert 2.0.1: https://github.com/Qix-/color-convert : MIT License
 qs -  QS Querystring 6.13.0: https://github.com/ljharb/qs : BSD 3-clause "New" or "Revised" License
 qs -  QS Querystring 6.14.0: https://github.com/ljharb/qs : BSD 3-clause "New" or "Revised" License
 querystring-es3 0.2.1: https://github.com/mike-spainhower/querystring : MIT License
@@ -1025,7 +1025,7 @@ zlib 0.6.3.0 : BSD 3-clause "New" or "Revised" License
 Licenses: 
 
 Apache License 2.0
-(acorn-node 1.8.2, anorm 2.7.0, anorm-tokenizer 2.7.0, aokoli/goutils v1.0.1, Apache Commons Codec 1.18.0, Apache Commons Compress 1.24.0, Apache Commons IO 2.11.0, Apache Commons Lang 3.18.0, Apache Commons Logging 1.2, Apache Commons Text 1.10.0, Apache HttpClient 4.5.14, Apache HTTPComponents Core 4.4.16, Apache Log4j 2.25.4, Apache Log4J API 2.25.4, AutoValue Annotations 1.11.0, AWS Event Stream 1.0.1, AWS Java SDK :: Checksums 2.44.3, AWS Java SDK :: Checksums SPI 2.44.3, AWS Java SDK :: Core :: Protocols :: AWS Json Protocol 2.44.3, AWS Java SDK :: Core :: Protocols :: Json Utils 2.44.3, AWS Java SDK :: Endpoints SPI 2.44.3, AWS Java SDK :: HTTP Auth 2.44.3, AWS Java SDK :: HTTP Auth AWS 2.44.3, AWS Java SDK :: HTTP Auth Event Stream 2.44.3, AWS Java SDK :: HTTP Auth SPI 2.44.3, AWS Java SDK :: Identity SPI 2.44.3, AWS Java SDK :: Metrics Interface 2.44.3, AWS Java SDK :: Retries 2.44.3, AWS Java SDK :: Retries API 2.44.3, AWS Java SDK :: Services :: AWS KMS 2.44.3, AWS Java SDK :: Third Party :: Jackson-core 2.44.3, AWS Java SDK :: Utils Lite 2.44.3, AWS SDK for Java 2.44.3, Caffeine cache 3.1.1, census-instrumentation/opencensus-go v0.23.0, chimney 1.4.0, chimney-java-collections 1.4.0, chimney-macro-commons 1.4.0, Circe core 0.14.5, Circe generic 0.14.2, Circe jawn 0.14.2, Circe numbers 0.14.5, Circe parser 0.14.2, circe-yaml 0.15.0-RC1, circe-yaml-common 0.15.0-RC1, com.google.api.grpc:proto-google-iam-v1 1.49.1, compilerPlugin 0.11.14, config - com.typesafe:config 1.4.5, core 2.4.0-M1, dash-ast 1.0.0, envoyproxy/protoc-gen-validate v0.6.2-java, error-prone annotations 2.48.0, FindBugs jsr305 3.0.2, flyway-core 12.0.2, flyway-database-postgresql 12.0.2, get-assigned-identifiers 1.2.0, ghcide 0.1.0, golang/appengine v1.6.7, Google Android Annotations Library 4.1.1.4, Google Cloud KMS 2.63.0, Google HTTP Client Library for Java 1.46.3, google-cloud-go v0.94.1, googleapis/go-genproto 20210917-snapshot-b395a375, googlegson 2.13.2, googleguava 33.3.0-jre, groupcache 20200125-snapshot-8c9f03a8, grpc-go v1.40.0-dev, grpc-java 1.81.0, GSON extensions to the Google HTTP Client Library for Java. 1.46.3, Guava InternalFutureFailureAccess and InternalFutures 1.0.2, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, HikariCP 5.1.0, io.grpc:grpc-alts 1.70.0, io.grpc:grpc-auth 1.70.0, io.grpc:grpc-context 1.81.0, io.grpc:grpc-googleapis 1.70.0, io.grpc:grpc-grpclb 1.70.0, io.grpc:grpc-inprocess 1.81.0, io.grpc:grpc-netty-shaded 1.81.0, io.grpc:grpc-protobuf-lite 1.81.0, io.grpc:grpc-services 1.81.0, io.grpc:grpc-stub 1.81.0, io.grpc:grpc-util 1.81.0, io.grpc:grpc-xds 1.70.0, j2objc - Java to IOS 3.0.0, jackson-annotations 2.19.1, jackson-core 2.19.1, jackson-databind 2.19.1, JavaPoet 1.13.0, Javassist 3.28.0, Jetbrains annotations 13.0, Jetty :: Websocket :: API 9.4.48.v20220622, Jetty :: Websocket :: Client 9.4.48.v20220622, Jetty :: Websocket :: Common 9.4.48.v20220622, Jetty :: Websocket :: Server 9.4.48.v20220622, Jetty :: Websocket :: Servlet Interface 9.4.48.v20220622, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.48.v20220622, Joda Convert 2.2.2, Joda Time 2.11.1, json4s-ast 3.6.11, json4s-core 3.6.11, json4s-jackson 3.6.11, json4s-scalap 3.6.11, JSONStream 0.10.0, JSONStream 1.3.5, Kotlin 2.2.21, lenses 0.11.14, logstash-logback-encoder logstash-logback-encoder-6.6, lyft/protoc-gen-star v0.5.3, magnolia 1.1.10, mwitkow/go-proto-validators 20180403-snapshot-0950a799, Netty Project 4.1.133.Final, Netty/Transport/Classes/Epoll 4.1.133.Final, Netty/Transport/Native/Unix/Common 4.1.133.Final, OkHttp 4.12.0, okhttp 5.3.2, OpenCensus 0.31.1, opencensus-api 0.31.1, OpenTelemetry 1.60.1, OpenTelemetry Instrumentation for Java 2.26.1-alpha, OpenTelemetry Java 1.60.1, OpenTelemetry Java 1.60.1-alpha, OpenTelemetry Java - io.opentelemetry:opentelemetry-sdk-metrics 1.60.1, OpenTelemetry Semantic Conventions Java 1.40.0, opentelemetry-java-instrumentation 2.26.1, opentelemetry-java-instrumentation 2.26.1-alpha, optics 0.15.0, org.apiguardian:apiguardian-api 1.1.2, org.conscrypt:conscrypt-openjdk-uber 2.5.2, org.jetbrains.kotlin:kotlin-stdlib-jdk7 1.8.21, org.jetbrains.kotlin:kotlin-stdlib-jdk8 1.8.21, org.opentest4j:opentest4j 1.2.0, paiges-core 0.4.2, parboiled 2.5.1, pekko-actor 1.2.1, pekko-http 1.1.0, pekko-http-core 1.1.0, pekko-parsing 1.1.0, pekko-protobuf-v3 1.2.1, pekko-slf4j 1.2.1, pekko-stream 1.2.1, perfmark:perfmark-api 0.27.0, Prometheus Metrics Config 1.5.0, Prometheus Metrics Exporter - Common 1.5.0, Prometheus Metrics Exporter - HTTP Server 1.5.0, Prometheus Metrics Exposition Formats no protobuf 1.5.0, Prometheus Metrics Exposition Text Formats 1.5.0, Prometheus Metrics Model 1.5.0, Proto Google Common Protos 2.59.2, proto-google-cloud-kms-v1 0.154.0, proto-google-common-protos-scalapb_0.11 2.9.6-0, proto3-suite 0.5.1, proto3-wire 1.2.2, protoc-bridge 0.9.5, protoc-gen 0.9.5, ReactiveX RxJS 6.6.7, ronmamoreflections 0.10.2, RxJava 2.2.21, scaffeine 5.2.1, scala-collection-compat 2.12.0, scala-collection-contrib 0.2.2, scala-java8-compat 1.0.2, scala-logging 3.9.5, scala-parser-combinators 1.1.2, scala-xml 2.1.0, scalacheck 0.6.2, scalacheck-1.15 3.2.11.0, scalactic 3.2.19, scalapb-json4s 0.11.1, scalapb-runtime 0.11.14, scalapb-runtime-grpc 0.11.14, scalatest 3.2.19, scalatest-compatible 3.2.19, scalatest-core 3.2.19, scalatest-diagrams 3.2.19, scalatest-featurespec 3.2.19, scalatest-flatspec 3.2.19, scalatest-freespec 3.2.19, scalatest-funspec 3.2.19, scalatest-funsuite 3.2.19, scalatest-matchers-core 3.2.19, scalatest-mustmatchers 3.2.19, scalatest-propspec 3.2.19, scalatest-refspec 3.2.19, scalatest-shouldmatchers 3.2.19, scalatest-wordspec 3.2.19, shared 0.6.2, shasum-object 1.0.0, SnakeYAML 2.0, spark-java 2.9.4, spf13-afero v1.6.0, spray-json 1.3.6, squareokio 3.16.4, squareokio 3.6.0, ssl-config-core 0.6.1, through 2.3.8, TypeScript 5.8.2, undeclared-identifiers 1.1.3, wartremover 3.2.5, websocket-driver-node 0.7.4, websocket-extensions-node 0.1.4, yaml for Go 20200512-snapshot-9f266ea9, yaml for Go v2.2.2, Zipkin Reporter: Core 3.5.1, Zipkin Sender: OkHttp 3 3.5.1, Zipkin v2 2.27.1)
+(acorn-node 1.8.2, anorm 2.7.0, anorm-tokenizer 2.7.0, aokoli/goutils v1.0.1, Apache Commons Codec 1.18.0, Apache Commons Compress 1.24.0, Apache Commons IO 2.11.0, Apache Commons Lang 3.18.0, Apache Commons Logging 1.2, Apache Commons Text 1.10.0, Apache HttpClient 4.5.14, Apache HTTPComponents Core 4.4.16, Apache Log4j 2.25.4, Apache Log4J API 2.25.4, AutoValue Annotations 1.11.0, AWS Event Stream 1.0.1, AWS Java SDK :: Checksums 2.44.3, AWS Java SDK :: Checksums SPI 2.44.3, AWS Java SDK :: Core :: Protocols :: AWS Json Protocol 2.44.3, AWS Java SDK :: Core :: Protocols :: Json Utils 2.44.3, AWS Java SDK :: Endpoints SPI 2.44.3, AWS Java SDK :: HTTP Auth 2.44.3, AWS Java SDK :: HTTP Auth AWS 2.44.3, AWS Java SDK :: HTTP Auth Event Stream 2.44.3, AWS Java SDK :: HTTP Auth SPI 2.44.3, AWS Java SDK :: Identity SPI 2.44.3, AWS Java SDK :: Metrics Interface 2.44.3, AWS Java SDK :: Retries 2.44.3, AWS Java SDK :: Retries API 2.44.3, AWS Java SDK :: Services :: AWS KMS 2.44.3, AWS Java SDK :: Third Party :: Jackson-core 2.44.3, AWS Java SDK :: Utils Lite 2.44.3, AWS SDK for Java 2.44.3, Caffeine cache 3.1.1, census-instrumentation/opencensus-go v0.23.0, chimney 1.4.0, chimney-java-collections 1.4.0, chimney-macro-commons 1.4.0, Circe core 0.14.5, Circe generic 0.14.2, Circe jawn 0.14.2, Circe numbers 0.14.5, Circe parser 0.14.2, circe-yaml 0.15.0-RC1, circe-yaml-common 0.15.0-RC1, com.google.api.grpc:proto-google-iam-v1 1.49.1, compilerPlugin 0.11.14, config - com.typesafe:config 1.4.5, core 2.4.0-M1, dash-ast 1.0.0, envoyproxy/protoc-gen-validate v0.6.2-java, error-prone annotations 2.48.0, FindBugs jsr305 3.0.2, flyway-core 12.0.2, flyway-database-postgresql 12.0.2, get-assigned-identifiers 1.2.0, ghcide 0.1.0, golang/appengine v1.6.7, Google Android Annotations Library 4.1.1.4, Google Cloud KMS 2.63.0, Google HTTP Client Library for Java 1.46.3, google-cloud-go v0.94.1, googleapis/go-genproto 20210917-snapshot-b395a375, googlegson 2.13.2, googleguava 33.3.0-jre, groupcache 20200125-snapshot-8c9f03a8, grpc-go v1.40.0, grpc-java 1.81.0, GSON extensions to the Google HTTP Client Library for Java. 1.46.3, Guava InternalFutureFailureAccess and InternalFutures 1.0.2, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, HikariCP 5.1.0, io.grpc:grpc-alts 1.70.0, io.grpc:grpc-auth 1.70.0, io.grpc:grpc-context 1.81.0, io.grpc:grpc-googleapis 1.70.0, io.grpc:grpc-grpclb 1.70.0, io.grpc:grpc-inprocess 1.81.0, io.grpc:grpc-netty-shaded 1.81.0, io.grpc:grpc-protobuf-lite 1.81.0, io.grpc:grpc-services 1.81.0, io.grpc:grpc-stub 1.81.0, io.grpc:grpc-util 1.81.0, io.grpc:grpc-xds 1.70.0, j2objc - Java to IOS 3.0.0, jackson-annotations 2.19.1, jackson-core 2.19.1, jackson-databind 2.19.1, JavaPoet 1.13.0, Javassist 3.28.0, Jetbrains annotations 13.0, Jetty :: Websocket :: API 9.4.48.v20220622, Jetty :: Websocket :: Client 9.4.48.v20220622, Jetty :: Websocket :: Common 9.4.48.v20220622, Jetty :: Websocket :: Server 9.4.48.v20220622, Jetty :: Websocket :: Servlet Interface 9.4.48.v20220622, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.48.v20220622, Joda Convert 2.2.2, Joda Time 2.11.1, json4s-ast 3.6.11, json4s-core 3.6.11, json4s-jackson 3.6.11, json4s-scalap 3.6.11, JSONStream 0.10.0, JSONStream 1.3.5, Kotlin 2.2.21, lenses 0.11.14, logstash-logback-encoder logstash-logback-encoder-6.6, lyft/protoc-gen-star v0.5.3, magnolia 1.1.10, mwitkow/go-proto-validators 20180403-snapshot-0950a799, Netty Project 4.1.133.Final, Netty/Transport/Classes/Epoll 4.1.133.Final, Netty/Transport/Native/Unix/Common 4.1.133.Final, OkHttp 4.12.0, okhttp 5.3.2, OpenCensus 0.31.1, opencensus-api 0.31.1, OpenTelemetry 1.60.1, OpenTelemetry Instrumentation for Java 2.26.1-alpha, OpenTelemetry Java 1.60.1, OpenTelemetry Java 1.60.1-alpha, OpenTelemetry Java - io.opentelemetry:opentelemetry-sdk-metrics 1.60.1, OpenTelemetry Semantic Conventions Java 1.40.0, opentelemetry-java-instrumentation 2.26.1, opentelemetry-java-instrumentation 2.26.1-alpha, optics 0.15.0, org.apiguardian:apiguardian-api 1.1.2, org.conscrypt:conscrypt-openjdk-uber 2.5.2, org.jetbrains.kotlin:kotlin-stdlib-jdk7 1.8.21, org.jetbrains.kotlin:kotlin-stdlib-jdk8 1.8.21, org.opentest4j:opentest4j 1.2.0, paiges-core 0.4.2, parboiled 2.5.1, pekko-actor 1.2.1, pekko-http 1.1.0, pekko-http-core 1.1.0, pekko-parsing 1.1.0, pekko-protobuf-v3 1.2.1, pekko-slf4j 1.2.1, pekko-stream 1.2.1, perfmark:perfmark-api 0.27.0, Prometheus Metrics Config 1.5.0, Prometheus Metrics Exporter - Common 1.5.0, Prometheus Metrics Exporter - HTTP Server 1.5.0, Prometheus Metrics Exposition Formats no protobuf 1.5.0, Prometheus Metrics Exposition Text Formats 1.5.0, Prometheus Metrics Model 1.5.0, Proto Google Common Protos 2.59.2, proto-google-cloud-kms-v1 0.154.0, proto-google-common-protos-scalapb_0.11 2.9.6-0, proto3-suite 0.5.1, proto3-wire 1.2.2, protoc-bridge 0.9.5, protoc-gen 0.9.5, ReactiveX RxJS 6.6.7, ronmamoreflections 0.10.2, RxJava 2.2.21, scaffeine 5.2.1, scala-collection-compat 2.12.0, scala-collection-contrib 0.2.2, scala-java8-compat 1.0.2, scala-logging 3.9.5, scala-parser-combinators 1.1.2, scala-xml 2.1.0, scalacheck 0.6.2, scalacheck-1.15 3.2.11.0, scalactic 3.2.19, scalapb-json4s 0.11.1, scalapb-runtime 0.11.14, scalapb-runtime-grpc 0.11.14, scalatest 3.2.19, scalatest-compatible 3.2.19, scalatest-core 3.2.19, scalatest-diagrams 3.2.19, scalatest-featurespec 3.2.19, scalatest-flatspec 3.2.19, scalatest-freespec 3.2.19, scalatest-funspec 3.2.19, scalatest-funsuite 3.2.19, scalatest-matchers-core 3.2.19, scalatest-mustmatchers 3.2.19, scalatest-propspec 3.2.19, scalatest-refspec 3.2.19, scalatest-shouldmatchers 3.2.19, scalatest-wordspec 3.2.19, shared 0.6.2, shasum-object 1.0.0, SnakeYAML 2.0, spark-java 2.9.4, spf13-afero v1.6.0, spray-json 1.3.6, squareokio 3.16.4, squareokio 3.6.0, ssl-config-core 0.6.1, through 2.3.8, TypeScript 5.8.2, undeclared-identifiers 1.1.3, wartremover 3.2.5, websocket-driver-node 0.7.4, websocket-extensions-node 0.1.4, yaml for Go 20200512-snapshot-9f266ea9, yaml for Go v2.2.2, Zipkin Reporter: Core 3.5.1, Zipkin Sender: OkHttp 3 3.5.1, Zipkin v2 2.27.1)
 
 Apache License
 Version 2.0, January 2004
@@ -6366,6 +6366,32 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
+(color-convert 1.9.3, color-convert 2.0.1)
+
+Copyright (c) 2011-2016 Heather Arthur <fayearthur@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
+
+---
+
+MIT License
 (hash.js 1.1.7)
 
 expat license.
@@ -6396,32 +6422,6 @@ Permission is hereby granted, free of charge, to any person
  ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE
-
----
-
-MIT License
-(Qix-/color-convert 1.9.3, Qix-/color-convert 2.0.1)
-
-Copyright (c) 2011-2016 Heather Arthur <fayearthur@gmail.com>
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 
 ---
 
@@ -6927,7 +6927,34 @@ THE SOFTWARE
 ---
 
 MIT License
-(Buffer 5.2.1)
+(duplexify 3.7.1, end-of-stream 1.4.4, pumpify 2.0.1)
+
+The MIT License (MIT)
+
+Copyright (c) 2014 Mathias Buus
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE
+
+---
+
+MIT License
+(feross/buffer 5.2.1)
 
 2017, Sam Sudar (sudar.sam@gmail.com)
  2018 David Walton (support@geekstocks.com)
@@ -6966,33 +6993,6 @@ Permission is hereby granted, free of charge, to any person
  ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE
-
----
-
-MIT License
-(duplexify 3.7.1, end-of-stream 1.4.4, pumpify 2.0.1)
-
-The MIT License (MIT)
-
-Copyright (c) 2014 Mathias Buus
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE
 
 ---
 
@@ -8360,7 +8360,7 @@ SOFTWARE
 ---
 
 MIT License
-(Buffer v5.7.1)
+(feross/buffer v5.7.1)
 
 The MIT License (MIT)
 
