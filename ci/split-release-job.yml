@@ -125,7 +125,7 @@ jobs:
         source $(bash-lib)
         cd $(Build.StagingDirectory)/split-release/split-release
         for f in "damlc-*" daml-libs/daml-script; do
-          gcs "$GCRED" cp -r "$f" "gs://daml-binaries/split-releases/$(release_tag)/"
+          gcs "$GCRED" cp -r -n "$f" "gs://daml-binaries/split-releases/$(release_tag)/"
         done
       name: gcs_for_canton
       displayName: "Upload Split Release Artifacts to GCS"
