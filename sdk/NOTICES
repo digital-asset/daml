@@ -149,8 +149,6 @@ Clone 2.1.2: https://github.com/pvorb/node-clone : MIT License
 cmark-gfm 0.2.5: https://github.com/kivikakk/cmark-gfm-hs : BSD 3-clause "New" or "Revised" License
 cmdargs 0.10.21: https://github.com/ndmitchell/cmdargs#readme : BSD 3-clause "New" or "Revised" License
 CoffeeScript 2.7.0: https://coffeescript.org/ : MIT License
-color-convert 1.9.3: https://github.com/harthur/color-convert : MIT License
-color-convert 2.0.1: https://github.com/harthur/color-convert : MIT License
 color-name 1.1.3: https://github.com/colorjs/color-name : MIT License
 color-name 1.1.4: https://github.com/colorjs/color-name : MIT License
 colors.js 1.1.2: https://github.com/Marak/colors.js : MIT License
@@ -757,6 +755,8 @@ pureconfig-core 0.14.0 : Mozilla Public License 2.0
 pureconfig-generic 0.14.0 : Mozilla Public License 2.0
 pureconfig-generic-base 0.14.0 : Mozilla Public License 2.0
 pureconfig-macros 0.14.0 : Mozilla Public License 2.0
+Qix-/color-convert 1.9.3: https://github.com/Qix-/color-convert : MIT License
+Qix-/color-convert 2.0.1: https://github.com/Qix-/color-convert : MIT License
 qs -  QS Querystring 6.13.0: https://github.com/ljharb/qs : BSD 3-clause "New" or "Revised" License
 qs -  QS Querystring 6.14.0: https://github.com/ljharb/qs : BSD 3-clause "New" or "Revised" License
 querystring-es3 0.2.1: https://github.com/mike-spainhower/querystring : MIT License
@@ -6366,32 +6366,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(color-convert 1.9.3, color-convert 2.0.1)
-
-Copyright (c) 2011-2016 Heather Arthur <fayearthur@gmail.com>
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
-
----
-
-MIT License
 (hash.js 1.1.7)
 
 expat license.
@@ -6422,6 +6396,32 @@ Permission is hereby granted, free of charge, to any person
  ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE
+
+---
+
+MIT License
+(Qix-/color-convert 1.9.3, Qix-/color-convert 2.0.1)
+
+Copyright (c) 2011-2016 Heather Arthur <fayearthur@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 
 ---
 
