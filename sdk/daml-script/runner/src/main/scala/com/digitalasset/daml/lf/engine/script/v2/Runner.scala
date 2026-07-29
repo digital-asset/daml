@@ -36,7 +36,7 @@ private[lf] class Runner(
     initialClients: Participants[UnversionedScriptLedgerClient],
     machineLogger: MachineLogger = ScriptMachineLogger(),
     canceled: () => Option[RuntimeException] = () => None,
-    csmMode: ContractStateMachine.Mode = ContractStateMachine.Mode.NUCK,
+    csmMode: ContractStateMachine.Mode = ContractStateMachine.Mode.Key,
 ) {
   import Free.Result
 

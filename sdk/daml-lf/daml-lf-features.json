@@ -194,6 +194,20 @@
       }
     }
   },
+  "featureStableCallStack" : {
+    "name" : "Stable packages for CallStack types",
+    "cppFlag" : "DAML_STABLE_CALLSTACK",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 3
+          }
+        }
+      }
+    }
+  },
   "featureBigNumeric" : {
     "name" : "BigNumeric type",
     "cppFlag" : "DAML_BIGNUMERIC",

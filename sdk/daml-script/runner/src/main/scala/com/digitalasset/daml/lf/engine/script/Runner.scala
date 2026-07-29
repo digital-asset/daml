@@ -361,11 +361,11 @@ object Runner {
       override val toString = "V34"
     }
     final case object V35 extends IdeLedgerProtocolVersion {
-      val csmMode = ContractStateMachine.Mode.NUCK
+      val csmMode = ContractStateMachine.Mode.Key
       override val toString = "V35"
     }
     final case object VDev extends IdeLedgerProtocolVersion {
-      val csmMode = ContractStateMachine.Mode.NUCK
+      val csmMode = ContractStateMachine.Mode.Key
       override val toString = "VDev"
     }
     val all = List(V34, V35, VDev)
