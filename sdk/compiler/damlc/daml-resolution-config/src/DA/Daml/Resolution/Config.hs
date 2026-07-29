@@ -140,11 +140,6 @@ hardcodedPackageRenames "daml-script-lts" = "daml-script"
 hardcodedPackageRenames "daml3-script" = "daml-script"
 hardcodedPackageRenames name = name
 
--- Packages that cannot be data deps (currently only daml-script)
--- as they use CallStack
-unsupportedAsDataDep :: [T.Text]
-unsupportedAsDataDep = ["daml-script"]
-
 data DependencyPackages = DependencyPackages
   { dpRegularDeps :: [FilePath]
   , -- For deps that shouldn't check the SDK version, i.e. deps from DPM that cannot be data deps
@@ -180,11 +175,17 @@ expandDependencyPackages cachePath pkgResolution lfVersion dependencyPackages = 
         (dpRegularUncheckedDeps dependencyPackages <> fmap fst asDeps)
         (dpDataDeps dependencyPackages <> fmap fst asDataDeps)
 
--- Returns the path to the dar found, as well as a bool for whether this dar can be a data-dep (see `unsupportedAsDataDep`)
+-- Daml-Script is not supported as a data-dep before featureStableCallStack, since callstack is
+-- used extensively in script
+isSupportedAsDataDep :: LF.Version -> T.Text -> Bool
+isSupportedAsDataDep lfVersion "daml-script" = lfVersion `LF.supports` LF.featureStableCallStack
+isSupportedAsDataDep _ _ = True
+
+-- Returns the path to the dar found, as well as a bool for whether this dar can be a data-dep (see `isSupportedAsDataDep`)
 findDarInDarInfos :: Map.Map FilePath DalfInfoCacheEntry -> T.Text -> LF.Version -> Either T.Text (FilePath, Bool)
 findDarInDarInfos darInfos rawName lfVersion = do
   let name = hardcodedPackageRenames rawName
-      dataDepSupported = name `notElem` unsupportedAsDataDep
+      dataDepSupported = isSupportedAsDataDep lfVersion name
       lfCondition = if dataDepSupported then LF.canDependOn else (==)
       lfConditionPretty = if dataDepSupported then " compatible with " else " to equal "
       correctNamePackages = Map.filter (\darInfo -> (LF.unPackageName $ diPackageName darInfo) == name) darInfos

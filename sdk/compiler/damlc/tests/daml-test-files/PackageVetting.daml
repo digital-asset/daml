@@ -97,10 +97,12 @@ listPackagesIsCorrect = script do
   assertAllPackages
 
   -- Check default packages count (as packageA and packageB previously disabled)
-  -- 12 packages in daml-prim (11 specific modules + prim itself)
+  -- 12/13 packages in daml-prim (11 specific modules + GHC Stack Types (2.2+) + prim itself)
   -- 15 packages in daml-stdlib (14 specific modules + stdlib itself)
   -- 2 packages in ghc-stdlib
   -- 1 package for daml-script
   -- the current package
   packages <- listVettedPackages
-  length packages === 31
+  -- In <=2.2, the stable package for GHC Stack Types didn't exist, so we drop it here and reduce count
+  let packagesWithoutGhcStackTypes = filter (("daml-prim-GHC-Stack-Types"/=) . name) packages
+  length packagesWithoutGhcStackTypes === 31

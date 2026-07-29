@@ -5,6 +5,7 @@ STABLE_PACKAGES = {
     "GHC.Types": "lf-v{major}/daml-prim/GHC-Types.dalf",
     "GHC.Prim": "lf-v{major}/daml-prim/GHC-Prim.dalf",
     "GHC.Tuple": "lf-v{major}/daml-prim/GHC-Tuple.dalf",
+    "GHC.Stack.Types": "lf-v{major}/daml-prim/GHC-Stack-Types.dalf",
     "DA.Internal.Erased": "lf-v{major}/daml-prim/DA-Internal-Erased.dalf",
     "DA.Internal.NatSyn": "lf-v{major}/daml-prim/DA-Internal-NatSyn.dalf",
     "DA.Internal.PromotedText": "lf-v{major}/daml-prim/DA-Internal-PromotedText.dalf",
