@@ -79,3 +79,11 @@ Run the `./canton/push-daml-to-local-canton.sh`, which will:
 * Scrape the Daml version that the local Canton repo is expecting.
 * Overwrite that version's DPM artifacts with our local Damlc, Codegen, and
   daml-script artifacts.
+
+### Update Daml test damls in the Canton repo
+
+The Canton repo has a suite of Daml files for testing upgrade-check coverage
+that is copied from the Daml repo. These are seldom changed, since the SCU
+feature is now stable, but if they do, run the manual script
+`test-common/copy-upgrade-check-unit-tests-to-canton.sh` from inside the SDK
+directory.
