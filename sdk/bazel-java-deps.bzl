@@ -43,7 +43,7 @@ version_specific = {
 
 apispec_version = "0.11.7"
 grpc_version = "1.77.0"
-protobuf_version = "3.25.5"
+protobuf_version = "4.35.1"
 pekko_version = "1.2.1"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
