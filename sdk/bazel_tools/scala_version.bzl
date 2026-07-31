@@ -4,21 +4,21 @@
 # Keep the Scala versions in sync with /nix/nixpkgs.nix and /release/src/Options.hs.
 # When upgrading download the libraries from maven and then use the sha256sum to generate the checksum.
 
-default_scala_version = "2.13.16"
+default_scala_version = "2.13.18"
 
 scala_artifacts = {
-    "2.13.16": {
+    "2.13.18": {
         "io_bazel_rules_scala_scala_compiler": {
-            "artifact": "org.scala-lang:scala-compiler:2.13.16",
-            "sha256": "f59982714591e321ba9c087af2c8666e2f5fb92b11a0cef72c2c5e9b342152d3",
+            "artifact": "org.scala-lang:scala-compiler:2.13.18",
+            "sha256": "2f15891fcae7aad30a3892194fb2abb6224cf7ce5d2bd90fba7f1c48682fca21",
         },
         "io_bazel_rules_scala_scala_library": {
-            "artifact": "org.scala-lang:scala-library:2.13.16",
-            "sha256": "1ebb2b6f9e4eb4022497c19b1e1e825019c08514f962aaac197145f88ed730f1",
+            "artifact": "org.scala-lang:scala-library:2.13.18",
+            "sha256": "4e85d96ff7bc7dc627985523c3541b9917aaa08e956391380c42db21a2c4e5a0",
         },
         "io_bazel_rules_scala_scala_reflect": {
-            "artifact": "org.scala-lang:scala-reflect:2.13.16",
-            "sha256": "fb49ccd9cac7464486ab993cda20a3c1569d8ef26f052e897577ad2a4970fb1d",
+            "artifact": "org.scala-lang:scala-reflect:2.13.18",
+            "sha256": "6935ff1982b2ac93d695f15aa66921be2f602921277afe002f018fd8c7d6e29b",
         },
     },
 }
