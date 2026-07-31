@@ -17,7 +17,7 @@ load(
     "scalapb_protoc_version",
     "scalapb_version",
 )
-load("//canton:canton_version.bzl", "CANTON_OPEN_SOURCE_TAG", "LOCAL_CANTON_OVERRIDE")
+load("//canton:canton_version.bzl", "CANTON_OPEN_SOURCE_TAG", "LOCAL_CANTON_PATH")
 load("@java_deps_json//:java_deps.bzl", "JAVA_DEPS")
 
 version_specific = {
@@ -48,7 +48,7 @@ pekko_version = "1.2.1"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
 
-canton_version = "3.5.0-SNAPSHOT" if LOCAL_CANTON_OVERRIDE != None else CANTON_OPEN_SOURCE_TAG
+canton_version = "3.6.0-SNAPSHOT" if LOCAL_CANTON_PATH != None else CANTON_OPEN_SOURCE_TAG
 
 upickle_version = "4.1.0"
 ujson_version = "4.0.2"
@@ -95,6 +95,7 @@ def install_java_deps():
             # TODO(https://github.com/DACH-NY/canton/issues/30144): check whether this dependency can be gotten rid of
             "com.daml:testing-utils_{}:{}".format(scala_major_version, canton_version),
             "com.daml:timer-utils_{}:{}".format(scala_major_version, canton_version),
+            "com.daml:daml-lf-upgrade-check_{}:{}".format(scala_major_version, canton_version),
 
             # TODO(https://github.com/DACH-NY/canton/issues/30144): move these dependencies to shared_dependencies in
             #    the canton repo
@@ -133,7 +134,7 @@ def install_java_deps():
             "https://repo1.maven.org/maven2",
             "https://europe-maven.pkg.dev/da-images/public-maven",
             "https://europe-maven.pkg.dev/da-images/public-maven-unstable",
-        ] + (["m2local"] if LOCAL_CANTON_OVERRIDE != None else []),
+        ] + (["m2local"] if LOCAL_CANTON_PATH != None else []),
         # The strict_visibility attribute controls whether all artifacts should
         # be visible (including transitive dependencies), or whether only
         # explicitly declared artifacts should be visible. The targets

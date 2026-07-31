@@ -131,6 +131,9 @@ def _daml_build_impl(ctx):
     input_dars = [file_of_target(k) for k in dar_dict.keys()]
     output_dar = ctx.outputs.dar
     output_stdout = ctx.outputs.stdout
+    if ctx.outputs.srcout != None:
+        ctx.actions.write(ctx.outputs.srcout, "\n".join([src.path for src in srcs]))
+
     posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
     ghc_opts = ctx.attr.ghc_options
     ctx.actions.run_shell(
@@ -200,6 +203,9 @@ _daml_build = rule(
         ),
         "stdout": attr.output(
             doc = "The standard output of the build command.",
+        ),
+        "srcout": attr.output(
+            doc = "The srcs attribute copied back to an output for querying.",
         ),
         "ghc_options": attr.string_list(
             doc = "Options passed to GHC.",
@@ -382,6 +388,7 @@ def daml_compile(
             {dar: path_to_dar(dar) for dar in (dependencies + data_dependencies + ([upgrades] if upgrades else []))},
         dar = name + ".dar",
         stdout = name + ".stdout",
+        srcout = name + ".srcout",
         ghc_options =
             ghc_options +
             (["--enable-scenarios=yes"] if enable_scenarios and (target == None or _supports_scenarios(target)) else []) +
