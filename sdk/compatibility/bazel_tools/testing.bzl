@@ -33,6 +33,7 @@ def _concat(lists):
 def daml_ledger_test(
         name,
         sdk_version,
+        platform_version,
         daml,
         sandbox,
         sandbox_args = [],
@@ -50,6 +51,8 @@ def daml_ledger_test(
             "$(rootpath %s)" % sandbox,
             "--sdk-version",
             sdk_version,
+            "--platform-version",
+            platform_version,
         ] + _concat([["--sandbox-arg", arg] for arg in sandbox_args]),
         deps = ["@bazel_tools//tools/bash/runfiles"],
         data = data + depset(direct = [
@@ -101,6 +104,7 @@ def sdk_platform_test(sdk_version, platform_version):
     daml_ledger_test(
         name = name,
         sdk_version = sdk_version,
+        platform_version = platform_version,
         daml = daml_assistant,
         sandbox = canton_sandbox,
         sandbox_args = canton_sandbox_args,
