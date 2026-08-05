@@ -472,7 +472,7 @@ damlStartTests getDamlStart =
                         "verbose"        Aeson..= False,
                         "eventFormat"    Aeson..= Aeson.Null,
                         "activeAtOffset" Aeson..= offset,
-                        "filter" Aeson..= Aeson.object [
+                        "eventFormat" Aeson..= Aeson.object [
                           "filtersByParty" Aeson..= Aeson.object [],
                           "filtersForAnyParty" Aeson..= Aeson.object [
                             "cumulative" Aeson..= [
@@ -493,7 +493,7 @@ damlStartTests getDamlStart =
                     }
 
             queryResponse <- httpLbs queryRequest manager
-            statusCode (responseStatus queryResponse) @?= 200
+            assertEqual (show $ responseBody queryResponse) (statusCode $ responseStatus queryResponse) 200
             preview (_Array . to Vector.length) (responseBody queryResponse) @?= Just 2
         subtest "Daml Script --input-file and --output-file" $ do
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
