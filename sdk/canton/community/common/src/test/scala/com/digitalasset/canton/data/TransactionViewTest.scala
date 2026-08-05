@@ -6,6 +6,7 @@ package com.digitalasset.canton.data
 import cats.syntax.either.*
 import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.language.LanguageVersion
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value
 import com.digitalasset.canton.crypto.{HashOps, Salt, TestSalt}
 import com.digitalasset.canton.data.ViewParticipantData.InvalidViewParticipantData
@@ -322,6 +323,19 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
             vpd.getCryptographicEvidence
           )
           .map(_.unwrap) shouldBe Right(Right(vpd))
+      }
+    }
+
+    "used with new transaction versions" must {
+
+      /** If a new transaction version is introduced then checks need to be added that ensure
+        * that they are not used in older protocol versions.
+        * Doing so would result in a deserialization exception on participants that pre-dated the
+        * transaction version.
+        * For more information see: https://github.com/DACH-NY/canton/issues/20297
+        */
+      "implement protocol version checks" in {
+        TransactionVersion.StableVersions.max shouldBe TransactionVersion.V17
       }
     }
   }

@@ -421,6 +421,7 @@ class SyncDomain(
         fromExclusive: TimeOfChange,
         toInclusive: TimeOfChange,
         maxResultSize: PositiveInt,
+        useAlternativeChangesBetweenQuery: Boolean,
         // Add a consumer callback to handle publication within the loop
         consumer: (RecordTime, AcsChange) => Unit,
     )(implicit
@@ -432,7 +433,12 @@ class SyncDomain(
             s"Replaying ACS changes from $currentFromExclusive (maxResultSize = $maxResultSize)"
           )
           val changesF = persistent.activeContractStore
-            .changesBetween(currentFromExclusive, toInclusive, maxResultSize)
+            .changesBetween(
+              currentFromExclusive,
+              toInclusive,
+              useAlternativeChangesBetweenQuery,
+              maxResultSize,
+            )
 
           EitherT
             .liftF[Future, SyncDomainInitializationError, LazyList[
@@ -603,6 +609,7 @@ class SyncDomain(
             acsChangesReplayStartRt.toTimeOfChange,
             TimeOfChange(cleanHeadRc, cleanHeadPrets),
             parameters.batchingConfig.acsCommitmentProcessorReplayBatchSize,
+            parameters.useAlternativeChangesBetweenQuery,
             // Pass the publishing logic as the consumer
             (toc, change) => acsCommitmentProcessor.publish(toc, change),
           )

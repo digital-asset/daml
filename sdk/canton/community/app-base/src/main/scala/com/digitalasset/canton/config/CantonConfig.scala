@@ -457,6 +457,7 @@ trait CantonConfig {
           participantParameters.allowForUnauthenticatedContractIds,
         disableUpgradeValidation = participantParameters.unsafeDisableUpgradeValidation,
         commandProgressTracking = participantParameters.commandProgressTracker,
+        useAlternativeChangesBetweenQuery = participantParameters.useAlternativeChangesBetweenQuery,
       )
     }
 

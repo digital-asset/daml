@@ -43,6 +43,7 @@ final case class ParticipantNodeParameters(
     allowForUnauthenticatedContractIds: Boolean,
     disableUpgradeValidation: Boolean,
     commandProgressTracking: CommandProgressTrackerConfig,
+    useAlternativeChangesBetweenQuery: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -105,5 +106,6 @@ object ParticipantNodeParameters {
     allowForUnauthenticatedContractIds = false,
     disableUpgradeValidation = true,
     commandProgressTracking = CommandProgressTrackerConfig(),
+    useAlternativeChangesBetweenQuery = false,
   )
 }
