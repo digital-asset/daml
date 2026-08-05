@@ -87,3 +87,35 @@ that is copied from the Daml repo. These are seldom changed, since the SCU
 feature is now stable, but if they do, run the manual script
 `test-common/copy-upgrade-check-unit-tests-to-canton.sh` from inside the SDK
 directory.
+
+This will take all the Daml libraries in `/test-common/src/main/daml/upgrades`
+and copy their sources, along with a valid daml.yaml file, into the Canton repo
+at `/community/daml-lf/upgrade-check/src/test/damlParallel`, where Canton tests
+can then compile them using the sbt `DamlPlugin`.
+
+For example, in the case of `/test-common/src/main/daml/upgrades/FailWhenParamCountChanges/v2`, this script will copy the source at
+`test-common/src/main/daml/upgrades/FailWhenParamCountChanges/v2/Main.daml` into `$PATH_TO_LOCAL_CANTON/community/daml-lf/upgrade-check/src/test/damlParallel/FailWhenParamCountChanges/v2/Main.daml`, and generate the following file at `$PATH_TO_LOCAL_CANTON/community/daml-lf/upgrade-check/src/test/damlParallel/FailWhenParamCountChanges/v2/daml.yaml` so that it can be compiled by SBT without needing Bazel:
+
+```
+name: upgrades-example-FailWhenParamCountChanges
+version: 2.0.0
+source: .
+data-dependencies: []
+dependencies:
+  - daml-script
+module-prefixes: null
+build-options:
+  - --target=2.dev
+  - --typecheck-upgrades=no
+  - --output=${TARGET_ROOT}/upgrades-FailWhenParamCountChanges-v2.dar
+upgrades: ${TARGET_ROOT}/upgrades-FailWhenParamCountChanges-v1.dar
+override-components:
+  damlc:
+    version: $DAML_VERSION
+  daml-script:
+    version: $DAML_VERSION
+  codegen:
+    version: $DAML_VERSION
+```
+
+Where `TARGET_ROOT` is set at build-time by SBT.
