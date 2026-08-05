@@ -16,12 +16,13 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiContractKey}
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data.{Bytes, Freer, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValueComputationMode,
   runExtendedValueComputation,
 }
 import com.digitalasset.daml.lf.engine.refinement.Enricher
+import com.digitalasset.daml.lf.engine.Result.lookupHandler
 import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.Ast.PackageMetadata
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
@@ -76,7 +77,7 @@ class IdeLedgerClient(
   val enricher = Enricher(
     compiledPackages = compiledPackages,
     // Cannot load packages in GrpcLedgerClient
-    loadPackage = { (_: PackageId, _: Reference) => ResultDone(()) },
+    loadPackage = { (_: PackageId, _: Reference) => Freer.Pure(()) },
     addTypeInfo = true,
     addFieldNames = true,
     addTrailingNoneFields = true,
@@ -172,7 +173,7 @@ class IdeLedgerClient(
   // Maps a result exception to a converter exception and throws it
   def failResultAsConverterException[X](res: Result[X]): X = {
     import com.digitalasset.daml.lf.script.converter.ConverterException
-    res.consume().fold(err => throw new ConverterException(err.toString), identity)
+    res.consume(lookupHandler()).fold(err => throw new ConverterException(err.toString), identity)
   }
 
   override def queryContractId(

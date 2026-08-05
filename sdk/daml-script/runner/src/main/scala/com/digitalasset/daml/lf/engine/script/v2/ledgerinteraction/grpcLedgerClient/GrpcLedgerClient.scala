@@ -48,10 +48,10 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.command
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
+import com.digitalasset.daml.lf.data.{Bytes, Freer, Ref, Time}
 import com.digitalasset.daml.lf.engine.script.v2.Converter
-import com.digitalasset.daml.lf.engine.ResultDone
 import com.digitalasset.daml.lf.engine.refinement.Enricher
+import com.digitalasset.daml.lf.engine.Result.lookupHandler
 import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
 import com.digitalasset.daml.lf.speedy.Pretty
@@ -95,7 +95,7 @@ class GrpcLedgerClient(
   val enricher = Enricher(
     compiledPackages = compiledPackages,
     // Cannot load packages in GrpcLedgerClient
-    loadPackage = { (_: PackageId, _: Reference) => ResultDone(()) },
+    loadPackage = { (_: PackageId, _: Reference) => Freer.Pure(()) },
     addTypeInfo = true,
     addFieldNames = true,
     addTrailingNoneFields = true,
@@ -257,10 +257,11 @@ class GrpcLedgerClient(
               case Left(err) => throw new ConverterException(err)
             }
 
-        val enrichedArgument = enricher.enrichContract(templateId, argument).consume() match {
-          case Right(arg) => arg
-          case Left(err) => throw new ConverterException(err.toString)
-        }
+        val enrichedArgument =
+          enricher.enrichContract(templateId, argument).consume(lookupHandler()) match {
+            case Right(arg) => arg
+            case Left(err) => throw new ConverterException(err.toString)
+          }
         val cid =
           ContractId
             .fromString(createdEvent.contractId)
@@ -345,7 +346,7 @@ class GrpcLedgerClient(
             if (viewValue.fields.isEmpty)
               None
             else
-              Some(enricher.enrichView(interfaceId, viewValue).consume() match {
+              Some(enricher.enrichView(interfaceId, viewValue).consume(lookupHandler()) match {
                 case Right(viewValue) => viewValue
                 case Left(err) => throw new ConverterException(err.toString)
               })

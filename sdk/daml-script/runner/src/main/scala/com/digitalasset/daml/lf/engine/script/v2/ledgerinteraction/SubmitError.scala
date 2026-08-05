@@ -9,6 +9,7 @@ import cats.data.NonEmptyList
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.daml.lf.data.{FrontStack, SortedLookupList, Time}
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.engine.Result.lookupHandler
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.engine.ScriptEngine.ExtendedValue
@@ -82,7 +83,7 @@ object SubmitError {
     val ty = env.lookupKeyTy(key.templateId).toOption.get
     val enrichedKey = env.enricher
       .enrichContractKey(key.templateId, key.key)(env.traceContext)
-      .consume()
+      .consume(lookupHandler())
       .toOption
       .get
     fromAnyContractKey(
@@ -304,7 +305,7 @@ object SubmitError {
           ty,
           env.enricher
             .enrichValue(Ast.TTyCon(ty), value)(env.traceContext)
-            .consume()
+            .consume(lookupHandler())
             .toOption
             .get,
         )
@@ -341,7 +342,7 @@ object SubmitError {
             val enrichedArg =
               env.enricher
                 .enrichContract(templateId, templateArg)(env.traceContext)
-                .consume()
+                .consume(lookupHandler())
                 .toOption
                 .get
             fromAnyTemplate(templateId, enrichedArg)
@@ -582,7 +583,7 @@ object SubmitError {
                 val enrichedArg =
                   env.enricher
                     .enrichContract(srcTemplateId, createArg)(env.traceContext)
-                    .consume()
+                    .consume(lookupHandler())
                     .toOption
                     .get
                 fromAnyTemplate(srcTemplateId, enrichedArg)
@@ -617,7 +618,7 @@ object SubmitError {
                 val enrichedArg =
                   env.enricher
                     .enrichContract(srcTemplateId, createArg)(env.traceContext)
-                    .consume()
+                    .consume(lookupHandler())
                     .toOption
                     .get
                 fromAnyTemplate(srcTemplateId, enrichedArg)
