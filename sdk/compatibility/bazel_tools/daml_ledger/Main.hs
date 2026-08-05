@@ -248,7 +248,7 @@ semverFromTextUnsafe wrap = either error wrap . SemVer.fromText
 
 deriveBuildOptions :: SdkVersion -> PlatformVersion -> [String]
 -- Need to limit LF version chosen by SDK when platform doesn't support it
--- LF 2.3 support added in 3.5, so when running 3.5+ SDK with <3.5 platform, wew use LF 2.22
+-- LF 2.3 support added in 3.5, so when running 3.5+ SDK with <3.5 platform, we use LF 2.2
 deriveBuildOptions sdkVersion platformVersion |
   sdkVersion >= semverFromTextUnsafe SdkVersion "3.5.0" && platformVersion < semverFromTextUnsafe PlatformVersion "3.5.0" = ["  - --target=2.2"]
 deriveBuildOptions _ _ = []
