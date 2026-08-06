@@ -16,7 +16,7 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiContractKey}
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Bytes, Freer, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValueComputationMode,
   runExtendedValueComputation,
@@ -77,7 +77,7 @@ class IdeLedgerClient(
   val enricher = Enricher(
     compiledPackages = compiledPackages,
     // Cannot load packages in GrpcLedgerClient
-    loadPackage = { (_: PackageId, _: Reference) => Freer.Pure(()) },
+    loadPackage = { (_: PackageId, _: Reference) => Result.done(()) },
     addTypeInfo = true,
     addFieldNames = true,
     addTrailingNoneFields = true,

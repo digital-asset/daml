@@ -48,7 +48,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.command
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Bytes, Freer, Ref, Time}
+import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.engine.script.v2.Converter
 import com.digitalasset.daml.lf.engine.refinement.Enricher
 import com.digitalasset.daml.lf.engine.Result.lookupHandler
@@ -95,7 +95,7 @@ class GrpcLedgerClient(
   val enricher = Enricher(
     compiledPackages = compiledPackages,
     // Cannot load packages in GrpcLedgerClient
-    loadPackage = { (_: PackageId, _: Reference) => Freer.Pure(()) },
+    loadPackage = { (_: PackageId, _: Reference) => Result.done(()) },
     addTypeInfo = true,
     addFieldNames = true,
     addTrailingNoneFields = true,

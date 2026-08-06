@@ -11,7 +11,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.data.{Bytes, Freer, FrontStack, SortedLookupList, Utf8, ImmArray}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, SortedLookupList, Utf8, ImmArray}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -78,7 +78,7 @@ object ScriptF {
     val enricher = Enricher(
       compiledPackages = compiledPackages,
       // Cannot load packages in GrpcLedgerClient
-      loadPackage = { (_: PackageId, _: Reference) => Freer.Pure(()) },
+      loadPackage = { (_: PackageId, _: Reference) => Result.done(()) },
       addTypeInfo = true,
       addFieldNames = true,
       addTrailingNoneFields = true,
