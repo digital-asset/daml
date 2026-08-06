@@ -702,6 +702,7 @@ class DbActiveContractStore(
   override def changesBetween(
       fromExclusive: TimeOfChange,
       toInclusive: TimeOfChange,
+      useAlternativeChangesBetweenQuery: Boolean,
       maxResultSize: PositiveInt,
   )(implicit
       traceContext: TraceContext
@@ -718,18 +719,37 @@ class DbActiveContractStore(
         case _ => "desc"
       }
 
+      def nonTupleQuery =
+        sql"""select ts, request_counter, contract_id, change, operation
+                from active_contracts where domain_id = $domainId and
+                ((ts = ${fromExclusive.timestamp} and request_counter > ${fromExclusive.rc}) or ts > ${fromExclusive.timestamp})
+                and
+                ((ts = ${toInclusive.timestamp} and request_counter <= ${toInclusive.rc}) or ts <= ${toInclusive.timestamp})
+                order by domain_id asc, ts asc, request_counter asc, contract_id asc, change #$changeOrder #${storage
+            .limit(maxResultSize.value + 1)}"""
       // Initial Query: Request (limit + 1) rows to detect if the result set was truncated
       // Added 'contract_id asc' to the ORDER BY clause to ensure that if we cut a transaction in the middle,
       // we do so at a specific contract_id, allowing the recovery query to cleanly pick up '>= contract_id'.
-      val changeQuery = {
-        sql"""select ts, request_counter, contract_id, change, operation
-            from active_contracts where domain_id = $domainId and
-            ((ts = ${fromExclusive.timestamp} and request_counter > ${fromExclusive.rc}) or ts > ${fromExclusive.timestamp})
-            and
-            ((ts = ${toInclusive.timestamp} and request_counter <= ${toInclusive.rc}) or ts <= ${toInclusive.timestamp})
-            order by ts asc, request_counter asc, contract_id asc, change #$changeOrder #${storage
-            .limit(maxResultSize.value + 1)}"""
-      }.as[(CantonTimestamp, RequestCounter, LfContractId, ChangeType, OperationType)]
+      val changeQuery =
+        (storage.profile match {
+          case _: DbStorage.Profile.Oracle =>
+            // Oracle does not support tuple comparisons, and this query should already work well in Oracle
+            nonTupleQuery
+          case _ if !useAlternativeChangesBetweenQuery =>
+            nonTupleQuery
+          case _ =>
+            // Tuple comparison is supported in Postgres and H2 and is more efficient than the non-tuple version.
+            logger.debug(
+              s"Using alternative query with tuple comparison"
+            )
+            sql"""select ts, request_counter, contract_id, change, operation
+                from active_contracts where domain_id = $domainId and
+                (ts, request_counter) > (${fromExclusive.timestamp}, ${fromExclusive.rc})
+                and
+                (ts, request_counter) <= (${toInclusive.timestamp}, ${toInclusive.rc})
+                order by domain_id asc, ts asc, request_counter asc, contract_id asc, change #$changeOrder #${storage
+                .limit(maxResultSize.value + 1)}"""
+        }).as[(CantonTimestamp, RequestCounter, LfContractId, ChangeType, OperationType)]
 
       for {
         retrievedChangesBetweenTmp <- storage.query(

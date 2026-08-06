@@ -137,11 +137,16 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
   override def changesBetween(
       fromExclusive: TimeOfChange,
       toInclusive: TimeOfChange,
+      useAlternativeChangesBetweenQuery: Boolean,
       maxResultSize: PositiveInt,
   )(implicit
       traceContext: TraceContext
   ): Future[LazyList[(TimeOfChange, ActiveContractIdsChange)]] =
-    Future.failed(mk(s"changesBetween for $fromExclusive, $toInclusive, $maxResultSize"))
+    Future.failed(
+      mk(
+        s"changesBetween for $fromExclusive, $toInclusive, $useAlternativeChangesBetweenQuery, $maxResultSize"
+      )
+    )
 
   override def packageUsage(pkg: PackageId, contractStore: ContractStore)(implicit
       traceContext: TraceContext

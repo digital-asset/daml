@@ -491,6 +491,8 @@ object TestingTimeServiceConfig {
   *                                           Otherwise, an attacker may compromise integrity of the ledger.
   * @param unsafeDisableUpgradeValidation Disable the package upgrade verification on DAR upload and Ledger API start-up.
   *                                       Note: This is a dangerous setting and should only be used for testing purposes.
+  * @param useAlternativeChangesBetweenQuery Enable an alternative query for contract changes between timestamps and request counters,
+  *                                          useful for the domain reconnection after hard domain migration with a large ACS (millions of contracts).
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -520,6 +522,7 @@ final case class ParticipantNodeParameterConfig(
     unsafeDisableUpgradeValidation: Boolean = false,
     watchdog: Option[WatchdogConfig] = None,
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
+    useAlternativeChangesBetweenQuery: Boolean = false,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

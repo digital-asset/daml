@@ -693,6 +693,7 @@ trait ActiveContractSnapshot {
   def changesBetween(
       fromExclusive: TimeOfChange,
       toInclusive: TimeOfChange,
+      useAlternativeChangesBetweenQuery: Boolean,
       maxResultSize: PositiveInt,
   )(implicit
       traceContext: TraceContext

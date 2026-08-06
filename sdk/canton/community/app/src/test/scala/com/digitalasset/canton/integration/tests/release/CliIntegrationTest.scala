@@ -12,7 +12,8 @@ import org.scalatest.wordspec.FixtureAnyWordSpec
 import org.scalatest.{Assertion, Outcome, SuiteMixin}
 
 import java.io.ByteArrayInputStream
-import scala.sys.process.*
+import scala.language.implicitConversions
+import scala.sys.process.{Process, ProcessBuilder}
 
 /** The `CliIntegrationTest` tests Canton command line options by instantiating a Canton binary in a new process with
   * the to-be-tested CLI options as arguments.
@@ -46,6 +47,9 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
   lazy val successMsg = "The last emperor is always the worst."
   lazy val cantonShouldStartFlags =
     s"--verbose --no-tty --config $cacheTurnOff --bootstrap $resourceDir/scripts/bootstrap.canton"
+
+  implicit private def commandWithJvmOpts(command: String): ProcessBuilder =
+    Process(command = command, cwd = None, extraEnv = ("JAVA_OPTS", "-Xmx6500m"))
 
   "Calling Canton" should {
 
@@ -352,9 +356,18 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
       // slow ExecutionContextMonitor warnings
       "WARN  c.d.c.c.ExecutionContextMonitor - Execution context",
     )
-    val log = filters
+    val regexFilters = List(
+      // container memory over 50% warnings
+      """(?im)^(.*?)\bwarn\b(.*exceeds half of the container's total memory.*)$""" -> "$1info$2",
+      """(?im)^(.*?exceeds half of the container's total memory.*?"level"\s*:\s*")warn(".*)$""" -> "$1info$2",
+    )
+    val filteredLoggerOutput = filters
       .foldLeft(logger.output()) { case (log, filter) =>
         log.replace(filter, "")
+      }
+    val log = regexFilters
+      .foldLeft(filteredLoggerOutput) { case (log, (regex, replacement)) =>
+        log.replaceAll(regex, replacement)
       }
       .toLowerCase
     shouldContain.foreach(str => assert(log.contains(str.toLowerCase())))

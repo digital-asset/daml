@@ -1673,9 +1673,20 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           s"archive contract $coid00"
         )
         // Pass a large limit to simulate "fetch all" behavior
-        changes <- acs.changesBetween(toc1, toc5, PositiveInt.tryCreate(1000))
+        changes <- acs.changesBetween(
+          toc1,
+          toc5,
+          useAlternativeChangesBetweenQuery = false,
+          PositiveInt.tryCreate(1000),
+        )
+        changesAlt <- acs.changesBetween(
+          toc1,
+          toc5,
+          useAlternativeChangesBetweenQuery = true,
+          PositiveInt.tryCreate(1000),
+        )
       } yield {
-        changes.toList shouldBe List(
+        val expected = List(
           (
             toc2,
             ActiveContractIdsChange(
@@ -1711,6 +1722,9 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             ),
           ),
         )
+
+        changes.toList shouldBe expected
+        changesAlt.toList shouldBe expected
       }
     }
 
@@ -1739,6 +1753,13 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           changes <- acs.changesBetween(
             TimeOfChange(RequestCounter.MinValue, CantonTimestamp.MinValue),
             toc3,
+            useAlternativeChangesBetweenQuery = false,
+            limit,
+          )
+          changesAlt <- acs.changesBetween(
+            TimeOfChange(RequestCounter.MinValue, CantonTimestamp.MinValue),
+            toc3,
+            useAlternativeChangesBetweenQuery = true,
             limit,
           )
         } yield {
@@ -1748,6 +1769,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           resToc shouldBe toc1
           resChange.activations should have size 2
           resChange.deactivations should have size 0
+          changesAlt shouldBe changes
         }
       }
 
@@ -1760,8 +1782,10 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           changes <- acs.changesBetween(
             TimeOfChange(RequestCounter.MinValue, CantonTimestamp.MinValue),
             toc3,
+            useAlternativeChangesBetweenQuery = false,
             limit,
           )
+
         } yield {
           // Even though limit is 1, we must get the whole Tx1 because atomic transactions cannot be split.
           // The result list has 1 entry (TimeOfChange), but that entry represents 2 rows in the DB.
@@ -1788,11 +1812,19 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           changes <- acs.changesBetween(
             TimeOfChange(RequestCounter.MinValue, CantonTimestamp.MinValue),
             toc3,
+            useAlternativeChangesBetweenQuery = false,
+            limit,
+          )
+          changesAlt <- acs.changesBetween(
+            TimeOfChange(RequestCounter.MinValue, CantonTimestamp.MinValue),
+            toc3,
+            useAlternativeChangesBetweenQuery = true,
             limit,
           )
         } yield {
           changes should have size 2 // Tx1 and Tx2
           changes.map(_._1).toList shouldBe List(toc1, toc2)
+          changesAlt shouldBe changes
         }
       }
 
@@ -1807,19 +1839,51 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           page1 <- acs.changesBetween(
             TimeOfChange(RequestCounter.MinValue, CantonTimestamp.MinValue),
             toc3,
+            useAlternativeChangesBetweenQuery = false,
+            limit,
+          )
+          page1Alt <- acs.changesBetween(
+            TimeOfChange(RequestCounter.MinValue, CantonTimestamp.MinValue),
+            toc3,
+            useAlternativeChangesBetweenQuery = true,
             limit,
           )
           _ = page1 should have size 1
+          _ = page1Alt shouldBe page1
           lastToc1 = page1.last._1
 
           // Page 2: Should get Tx2 (2 changes)
-          page2 <- acs.changesBetween(lastToc1, toc3, limit)
+          page2 <- acs.changesBetween(
+            lastToc1,
+            toc3,
+            useAlternativeChangesBetweenQuery = false,
+            limit,
+          )
+          page2Alt <- acs.changesBetween(
+            lastToc1,
+            toc3,
+            useAlternativeChangesBetweenQuery = true,
+            limit,
+          )
           _ = page2 should have size 1
+          _ = page2Alt shouldBe page2
           lastToc2 = page2.last._1
 
           // Page 3: Should get Tx3 (1 change)
-          page3 <- acs.changesBetween(lastToc2, toc3, limit)
+          page3 <- acs.changesBetween(
+            lastToc2,
+            toc3,
+            useAlternativeChangesBetweenQuery = false,
+            limit,
+          )
+          page3Alt <- acs.changesBetween(
+            lastToc2,
+            toc3,
+            useAlternativeChangesBetweenQuery = true,
+            limit,
+          )
           _ = page3 should have size 1
+          _ = page3Alt shouldBe page3
         } yield {
           page1.head._1 shouldBe toc1
           page2.head._1 shouldBe toc2

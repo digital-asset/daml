@@ -1,11 +1,11 @@
-sdk-version: 2.10.4-snapshot.20260128.13197.0.vb0ccfc0a
+sdk-version: 2.10.4-snapshot.20260507.13205.0.v9e332c6a
 build-options: 
 - --target=1.14
 name: CantonExamplesDependency
 data-dependencies: 
 - ../../../target/scala-2.13/resource_managed/main/CantonExamples.dar
 source: .
-version: 2.10.4
+version: 2.10.5
 dependencies: 
 - daml-prim
 - daml-stdlib
