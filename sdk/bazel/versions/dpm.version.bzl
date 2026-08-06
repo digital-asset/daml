@@ -1,9 +1,9 @@
 # -- dpm (Daml Package Manager) --
-DPM_VERSION = "1.0.12"
+DPM_VERSION = "1.0.15"
 DPM_SHA256 = {
-    "linux_arm64": "c1b6e89cfe81ae1f49caf994cbeda871c5617c87c71ec44b5cca544000eb4b74",
-    "darwin_amd64": "9cf1d7eab2593e6c25cb9c42dfba64cbda5823736ba3dd5aae9845e4ee50209d",
-    "darwin_arm64": "b2f34b00c84bb399acdd3e31bbb701902457273548d1a37a0661404bb7a2a369",
-    "linux_amd64": "847a1a0b1cff26d562102a4a2ec3950a7692f846eb0bc1c8dd9274cc10295dc4",
-    "windows_amd64": "cb1e482c4303690f71bdbf5668c8d72b800631077f1fc1e4faa1a314cfd881ae",
+    "linux_arm64": "987eaef5af0e62af88b9b8aed83757ac2e96476f9dae523f0f63ca749b6cf834",
+    "darwin_amd64": "630c27dfd6142bba0eb33d1a9d58887bb553b32a6fd57dbbb6ac458a20f54f7d",
+    "darwin_arm64": "be769b4f012185c484eeac0577793ba0b8243f3711a8b2d6dec0d3b53135859a",
+    "linux_amd64": "a0ef4cd573948d4f7b414dc5d30d818c27c4e0dc82cd01f84533d143f619556c",
+    "windows_amd64": "e859b23c224f86ea321af38e32e5ae2de25912f4547e01e5f0d6a3089d6c9a11",
 }
