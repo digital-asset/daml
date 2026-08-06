@@ -603,7 +603,7 @@ use_repo(
 
 # --- Maven version constants ---
 
-CANTON_VERSION = "3.6.0-snapshot.20260706.19528.0.v9fca8049"
+CANTON_VERSION = "3.6.0-snapshot.20260804.19865.0.v15879bde"
 
 AUTH0_JWT_VERSION = "4.2.1"
 
@@ -675,9 +675,9 @@ PAIGES_VERSION = "0.4.2"
 
 DOOBIE_VERSION = "0.13.4"
 
-KIND_PROJECTOR_VERSION = "0.13.3"
+KIND_PROJECTOR_VERSION = "0.13.4"
 
-WARTREMOVER_VERSION = "3.2.5"
+WARTREMOVER_VERSION = "3.5.8"
 
 JLINE_VERSION = "3.27.1"
 
@@ -850,8 +850,8 @@ maven_ext.install(
         "org.tpolecat:doobie-postgres_2.13:" + DOOBIE_VERSION,
 
         # Code quality
-        "org.typelevel:kind-projector_2.13.16:" + KIND_PROJECTOR_VERSION,
-        "org.wartremover:wartremover_2.13.16:" + WARTREMOVER_VERSION,
+        "org.typelevel:kind-projector_2.13.18:" + KIND_PROJECTOR_VERSION,
+        "org.wartremover:wartremover_2.13.18:" + WARTREMOVER_VERSION,
         "org.jline:jline:" + JLINE_VERSION,
     ],
     fetch_sources = True,
