@@ -78,7 +78,7 @@ object ScriptF {
     val enricher = Enricher(
       compiledPackages = compiledPackages,
       // Cannot load packages in GrpcLedgerClient
-      loadPackage = { (_: PackageId, _: Reference) => ResultDone(()) },
+      loadPackage = { (_: PackageId, _: Reference) => Result.done(()) },
       addTypeInfo = true,
       addFieldNames = true,
       addTrailingNoneFields = true,
