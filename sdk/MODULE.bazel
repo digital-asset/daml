@@ -165,7 +165,7 @@ da_ghc_ext = use_extension("//bazel/haskell:da_ghc_extension.bzl", "da_ghc")
 use_repo(da_ghc_ext, "da-ghc", "ghc-lib-gen")
 
 ghc_toolchain_ext = use_extension("//bazel/haskell/toolchain:ghc_toolchain_extension.bzl", "ghc_toolchain_extension")
-use_repo(ghc_toolchain_ext, "ghc_bindist", "gmp", "ncurses")
+use_repo(ghc_toolchain_ext, "ghc_bindist", "ghc_llvm_backend", "gmp", "ncurses")
 
 # Root registration outranks the stock bindists toolchain above; stock removal (4.1) deferred.
 register_toolchains(

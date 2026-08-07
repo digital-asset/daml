@@ -1,7 +1,9 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load(
     "//bazel/versions:ghc.version.bzl",
+    "DARWIN_GHC_LLVM_BACKEND",
     "GHC_BINDISTS",
+    "GHC_LLVM_BACKEND_ARTIFACTS",
     "GHC_VERSION",
 )
 load(
@@ -134,8 +136,37 @@ _ghc_bindist_repo = repository_rule(
     },
 )
 
+def _ghc_llvm_backend_impl(rctx):
+    name = rctx.os.name.lower()
+    arch = rctx.os.arch.lower()
+    is_darwin_arm64 = ("mac" in name or "darwin" in name) and arch in ["aarch64", "arm64"]
+    if DARWIN_GHC_LLVM_BACKEND and is_darwin_arm64:
+        for artifact in GHC_LLVM_BACKEND_ARTIFACTS:
+            rctx.download_and_extract(
+                url = artifact["url"],
+                sha256 = artifact["sha256"],
+                type = "tar.bz2",
+                output = artifact["output"],
+            )
+        srcs = '"tools/bin/opt", "tools/bin/llc", "lib/lib/libLLVM-12.dylib"'
+    else:
+        srcs = ""
+    rctx.file("BUILD.bazel", """\
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "backend",
+    srcs = [{srcs}],
+)
+""".format(srcs = srcs))
+
+_ghc_llvm_backend_repo = repository_rule(
+    implementation = _ghc_llvm_backend_impl,
+)
+
 def _ghc_toolchain_impl(_module_ctx):
     _ghc_bindist_repo(name = "ghc_bindist")
+    _ghc_llvm_backend_repo(name = "ghc_llvm_backend")
     http_archive(
         name = "gmp",
         url = "https://gmplib.org/download/gmp/gmp-{}.tar.xz".format(GMP_VERSION),
