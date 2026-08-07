@@ -26,8 +26,9 @@ _LAUNCHER_SUFFIX_ARGS = {
 }
 _TOOLS = ["ghc", "ghci", "ghc-pkg", "hsc2hs", "haddock", "runghc", "hpc"]
 
-def _make_launcher(ctx, install_tree, tool_name):
+def _make_launcher(ctx, install_tree, tool_name, has_llvm_backend):
     launcher = ctx.actions.declare_file("{}_bin/{}".format(ctx.label.name, tool_name))
+    llvm_path = 'export PATH="$ROOT/llvm-backend/bin:${PATH:-}"\n' if has_llvm_backend else ""
     ctx.actions.write(
         output = launcher,
         is_executable = True,
@@ -42,15 +43,25 @@ done
 SELF="$(cd -P "$(dirname "$SELF")" && pwd)/$(basename "$SELF")"
 ROOT="$(cd "$(dirname "$SELF")/../{tree}" && pwd)"
 if [ -f "$ROOT/lib/lib/settings" ]; then LIBDIR="$ROOT/lib/lib"; else LIBDIR="$ROOT/lib"; fi
-exec "$ROOT/lib/bin/{tool}" {extra} "$@" {suffix}
+{llvm_path}exec "$ROOT/lib/bin/{tool}" {extra} "$@" {suffix}
 """.format(
             tree = install_tree.basename,
             tool = _LAUNCHER_TARGET_BIN.get(tool_name, tool_name),
             extra = _LAUNCHER_EXTRA_ARGS.get(tool_name, ""),
             suffix = _LAUNCHER_SUFFIX_ARGS.get(tool_name, ""),
+            llvm_path = llvm_path,
         ),
     )
     return launcher
+
+def _sysroot_from_flags(cflags):
+    toks = cflags.split(" ")
+    for i in range(len(toks)):
+        if toks[i] == "-isysroot" and i + 1 < len(toks):
+            return toks[i + 1]
+        if toks[i].startswith("--sysroot="):
+            return toks[i][len("--sysroot="):]
+    return None
 
 def _ghc_bindist_install_impl(ctx):
     cc_toolchain = find_cc_toolchain(ctx)
@@ -64,7 +75,20 @@ def _ghc_bindist_install_impl(ctx):
     lib_settings = ctx.actions.declare_file("{}_layout/lib/settings".format(ctx.label.name))
     doc_marker = ctx.actions.declare_file(ctx.label.name + "_doc_marker")
 
-    launchers = [_make_launcher(ctx, install_tree, tool) for tool in _TOOLS]
+    llvm_backend_files = ctx.files.llvm_backend
+    has_llvm_backend = bool(llvm_backend_files)
+    launchers = [_make_launcher(ctx, install_tree, tool, has_llvm_backend) for tool in _TOOLS]
+
+    llvm_backend_snippet = ""
+    if has_llvm_backend:
+        lines = ['mkdir -p "$PREFIX/llvm-backend/bin" "$PREFIX/llvm-backend/lib"']
+        for f in llvm_backend_files:
+            if f.basename.endswith(".dylib"):
+                lines.append('cp -L "$EXECROOT/{}" "$PREFIX/llvm-backend/lib/{}"'.format(f.path, f.basename))
+            else:
+                lines.append('cp -L "$EXECROOT/{}" "$PREFIX/llvm-backend/bin/{}"'.format(f.path, f.basename))
+                lines.append('chmod +x "$PREFIX/llvm-backend/bin/{}"'.format(f.basename))
+        llvm_backend_snippet = "\n".join(lines) + "\n"
 
     tinfo = ctx.file.tinfo
     runtime_lib_dirs = []
@@ -82,6 +106,21 @@ cp -L "$EXECROOT/{tinfo}" "$LIBDIR/rts/libtinfo.so.5"
         'cp -L "$EXECROOT/{}" "$LIBDIR/rts/"\n'.format(f.path)
         for f in ctx.files.gmp + ctx.files.libz + ctx.files.bz2
     ])
+
+    sysroot = _sysroot_from_flags(cc.cflags)
+    ffi_fixup = "" if not sysroot else """\
+FFI_SRC="{sysroot}/usr/include/ffi"
+if [ -d "$FFI_SRC" ]; then
+    find "$PREFIX" -name ffitarget.h | while read -r f; do
+        d="$(dirname "$f")"
+        for h in ffitarget_arm64.h ffitarget_armv7.h ffitarget_x86.h; do
+            if [ -f "$FFI_SRC/$h" ] && [ ! -f "$d/$h" ]; then
+                cp -f "$FFI_SRC/$h" "$d/"
+            fi
+        done
+    done
+fi
+""".format(sysroot = sysroot)
 
     command = """\
 set -euo pipefail
@@ -119,6 +158,8 @@ JOBS="$( (nproc 2>/dev/null) || sysctl -n hw.ncpu 2>/dev/null || echo 1 )"
 
 if [ -f "$PREFIX/lib/lib/settings" ]; then LIBDIR="$PREFIX/lib/lib"; else LIBDIR="$PREFIX/lib"; fi
 
+{llvm_backend_snippet}
+{ffi_fixup}
 {rts_bundle}
 {tinfo_bundle}
 sed -i.bak \
@@ -148,12 +189,14 @@ rm -rf "$TMP"
         doc_marker = doc_marker.path,
         rts_bundle = rts_bundle,
         tinfo_bundle = tinfo_bundle,
+        ffi_fixup = ffi_fixup,
+        llvm_backend_snippet = llvm_backend_snippet,
     )
 
     ctx.actions.run_shell(
         outputs = [install_tree, lib_settings, doc_marker],
         inputs = depset(
-            direct = ctx.files.srcs + [configure, ctx.file.make] + ([tinfo] if tinfo else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2,
+            direct = ctx.files.srcs + [configure, ctx.file.make] + ([tinfo] if tinfo else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2 + llvm_backend_files,
             transitive = [cc_toolchain.all_files],
         ),
         command = command,
@@ -207,6 +250,10 @@ ghc_bindist_install = rule(
         "tinfo": attr.label(
             allow_single_file = True,
             doc = "Hermetic libtinfo.so bundled into rts as libtinfo.so + libtinfo.so.5.",
+        ),
+        "llvm_backend": attr.label(
+            allow_files = True,
+            doc = "darwin/arm64 only: LLVM 12 opt/llc + libLLVM copied into llvm-backend/ for GHC's -fllvm. See DARWIN_GHC_LLVM_BACKEND.",
         ),
     },
     toolchains = use_cc_toolchain(),
