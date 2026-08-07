@@ -71,11 +71,49 @@ GHC >= 9.2 simply ignores the unused `opt`/`llc`.
 - `bazel/haskell/toolchain/BUILD.bazel` — passes `llvm_backend` (gated on darwin + the switch).
 - `MODULE.bazel` — `use_repo(..., "ghc_llvm_backend")`.
 
-## Known follow-up (separate issue)
+## Downstream issue this surfaced: merge-objects linker (RESOLVED)
 
-With the LLVM 12 backend engaged, GHC now advances to its **"Merge objects"** link
-phase, which its settings run as `ld.lld -r`. LLD's Mach-O port does not properly
-support relocatable (`-r`) links, so this fails with `ghc_N.o: unknown file type`.
-That is a **linker-configuration** problem, independent of the LLVM 12 backend
-(it would bite the NCG path too), and is tracked as the next step — the merge-objects
-tool needs to be a Mach-O-`-r`-capable linker (system `ld64`), not `ld.lld`.
+Once the LLVM 12 backend was engaged, GHC reached its **"Merge objects"** link
+phase (`ld -r`, a partial/relocatable link that combines a package's object files).
+This is a linker problem **independent of the LLVM 12 backend** — it would bite the
+GHC 9.2 NCG path too — and it needed two fixes, both `is_darwin`-gated:
+
+1. **`ld.lld` is LLD's ELF frontend.** rules_haskell handed GHC's merge step
+   (`-pgmlm`) the tool `cc_bindir/ld.lld`, which is the ELF linker and rejects
+   *every* Mach-O object with `unknown file type`. (This is not a `-r`-support gap
+   — that frontend simply cannot read Mach-O.) Fix: on darwin use the system
+   `ld64` (`/usr/bin/ld`) for that tool. `ld64.lld` — LLD's Mach-O frontend — was
+   rejected because its `-r` additionally demands `-arch` **and**
+   `-platform_version`, which GHC does not supply; system `ld64` just works, which
+   is consistent with the "accept the host Command Line Tools" boundary.
+2. **macOS `ld64` needs an explicit `-arch`.** GHC's llc-produced objects lack the
+   arch metadata the current linker uses to infer it, so `ld -r` fails with
+   `ld: Missing -arch option`. Fix: add `-arch arm64` to the merge flags.
+
+Where the fixes live (both darwin-only; Linux is untouched):
+- `bazel/patches/haskell/rules_bazel-8_compat.patch` — sets `cc.tools.ld` to
+  `/usr/bin/ld` on darwin. That tool feeds **only** `-pgmlm`, so nothing else
+  changes; the main link still goes through the `cc` driver.
+- `bazel/patches/haskell/rules_haskell-darwin-merge-objects-arch.patch` — adds
+  `-arch arm64` in `ghc_cc_program_args`, which **both** the native
+  (`toolchain.bzl`) and cabal (`cabal.bzl`) paths call. The toolchain
+  `ghcopts`/`compiler_flags` attributes were not an option here: rules_haskell's
+  own docs state cabal rules do not read them.
+
+**These are NOT behind `DARWIN_GHC_LLVM_BACKEND`.** The merge linker is a permanent
+darwin fix — GHC still merges objects with `ld -r` even after a bump to >= 9.2, so
+this must stay regardless of the LLVM-12 switch.
+
+## Current frontier: library-link wave
+
+Past merge-objects, the build now fails one step later, at the **library-link**
+step, with a fresh and separate wave:
+- `HaskellLinkStaticLibrary` (and cabal) cannot resolve the `ar` tool:
+  `llvm-ar: No such file or directory`, and cabal's `Cannot find the program 'ar'`
+  pointing at a `_main/external/…/llvm-ar` runfiles-prefixed path that does not
+  resolve in the darwin sandbox.
+- `HaskellLinkDynamicLibrary` fails when GHC spawns `otool` for its Mach-O fixups:
+  `otool: createProcess: posix_spawnp: illegal operation (Inappropriate ioctl for
+  device)`.
+
+These are the next step, tracked separately from the merge-objects fix above.
