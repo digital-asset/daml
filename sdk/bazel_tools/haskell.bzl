@@ -413,7 +413,10 @@ s#^haskell_cabal_library rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stacka
 s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:daml_lf_archive_haskell_proto)$$#daml-lf-proto-types \\1#g
 s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:([A-Za-z0-9/_\\-]+))$$#\\2 \\1#g
 s#^alias rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stackage//:\\1#g
-T;p
+tp
+b
+:p
+p
         ''' | sort -f {dependency_filter} | awk '{{print "      -- " $$2; print "      " $$1 ","}}' >> $@
 
          cat << EOF >> $@
@@ -438,13 +441,16 @@ s#^haskell_cabal_library rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stacka
 s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:daml_lf_archive_haskell_proto)$$#daml-lf-proto-types \\1#g
 s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:([A-Za-z0-9/_\\-]+))$$#\\2 \\1#g
 s#^alias rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stackage//:\\1#g
-T;p
+tp
+b
+:p
+p
         ''' | sort -f {dependency_filter} | awk '{{print "      -- " $$2; print "      " $$1 ","}}'  >> $@
 
     echo '    exposed-modules:' >> $@
 
     grep -v -e "--" $(SRCS) | \
-       sed -nE 's#^source file //[A-Za-z0-9/_\\-]+:{source_dir}/([A-Za-z0-9/_\\-]+)\\.hs$$#      \\1#g;T;p' | \
+       sed -nE 's#^source file //[A-Za-z0-9/_\\-]+:{source_dir}/([A-Za-z0-9/_\\-]+)\\.hs$$#      \\1#gp' | \
        sed 's#/#\\.#g' | sort -f {export_filter} >> $@
 
     echo -ne '    default-extensions:\n      ' >> $@
