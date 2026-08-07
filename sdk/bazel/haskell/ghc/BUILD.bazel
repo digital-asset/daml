@@ -2,7 +2,10 @@ load("@ghc_bindist//:libraries.bzl", "TOOLCHAIN_LIBRARIES")
 load("@rules_haskell//haskell:defs.bzl", "haskell_toolchain")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
-exports_files(["ghc_packages.lock.json"])
+exports_files([
+    "pin/linux_amd64.lock.json",
+    "pin/darwin_aarch64.lock.json",
+])
 
 filegroup(
     name = "ghc_install_tree",
@@ -71,16 +74,21 @@ py_test(
     srcs = ["pkgdb_to_lock.py"],
     args = [
         "--check",
-        "$(rlocationpath ghc_packages.lock.json)",
+    ] + select({
+        "@platforms//os:macos": ["$(rlocationpath pin/darwin_aarch64.lock.json)"],
+        "//conditions:default": ["$(rlocationpath pin/linux_amd64.lock.json)"],
+    }) + [
         "$(rlocationpath :ghc_install_tree)",
         "$(rlocationpath @ghc_bindist//:bindist_unpacked/configure)",
     ],
     data = [
-        "ghc_packages.lock.json",
         ":ghc_install_tree",
         "@ghc_bindist//:bindist_srcs",
         "@ghc_bindist//:bindist_unpacked/configure",
-    ],
+    ] + select({
+        "@platforms//os:macos": ["pin/darwin_aarch64.lock.json"],
+        "//conditions:default": ["pin/linux_amd64.lock.json"],
+    }),
     main = "pkgdb_to_lock.py",
     deps = ["@rules_python//python/runfiles"],
 )
