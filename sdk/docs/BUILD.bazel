@@ -1,11 +1,9 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
-load("@os_info//:os_info.bzl", "is_windows")
-load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_multi_package_test", "daml_test")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@build_environment//:configuration.bzl", "sdk_version")
+load("@os_info//:os_info.bzl", "is_windows")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@scala_version//:index.bzl", "scala_major_version")
 load("//bazel_tools:scala.bzl", "da_scala_test")
 load(
@@ -15,6 +13,8 @@ load(
     "LATEST_STABLE_LF_VERSION",
     "STAGING_LF_VERSION",
 )
+load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
+load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_multi_package_test", "daml_test")
 
 genrule(
     name = "hoogle_db",
@@ -275,10 +275,7 @@ genrule(
         $(execpath //bazel_tools/sh:mktgz) $@ -C $$TMP_DIR quickstart-java
     """,
     tools = ["//bazel_tools/sh:mktgz"],
-    visibility = ["//visibility:public"],
 )
-
-load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 
 genrule(
     name = "quickstart-model",
@@ -291,6 +288,7 @@ genrule(
     outs = ["quickstart-model.dar"],
     cmd = """
       set -eou pipefail
+      export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -R -L $(location //docs:source/sdk/tutorials/quickstart/template-root/daml/Main.daml) $$TMP_DIR/daml/
@@ -311,8 +309,13 @@ EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location quickstart-model.dar)
       rm -rf $$TMP_DIR
     """.format(sdk = sdk_version),
-    tools = ["//compiler/damlc"],
-    visibility = ["//visibility:public"],
+    tools = [
+        "//bazel/haskell/toolchain:libtinfo.so.5",
+        "//compiler/damlc",
+        "@bzip2//:libs",
+        "@gmp//:libs",
+        "@libz//:libs",
+    ],
 )
 
 dar_to_java(
@@ -342,6 +345,7 @@ java_binary(
 
 daml_test(
     name = "ledger-api-daml-test",
+    timeout = "short",
     srcs = glob(["source/sdk/sdlc-howtos/applications/integrate/grpc/code-snippets/**/*.daml"]),
     additional_compiler_flags = [
         "-Wupgrade-interfaces",
@@ -356,7 +360,11 @@ daml_test(
 
 daml_test(
     name = "bindings-java-daml-test",
-    srcs = glob(["source/sdk/sdlc-howtos/applications/integrate/bindings-java/code-snippets/**/*.daml"]),
+    timeout = "short",
+    srcs = glob(
+        ["source/sdk/sdlc-howtos/applications/integrate/bindings-java/code-snippets/**/*.daml"],
+        allow_empty = True,
+    ),
     additional_compiler_flags = [
         "-Wupgrade-interfaces",
         "-Wupgrade-exceptions",
@@ -369,6 +377,7 @@ daml_test(
 
 daml_test(
     name = "patterns-daml-test",
+    timeout = "short",
     srcs = glob(["source/sdk/sdlc-howtos/smart-contracts/develop/patterns/daml/**/*.daml"]),
     deps = ["//daml-script/daml:daml-script.dar"],
 )
@@ -380,18 +389,21 @@ pkg_tar(
         "source/sdk/sdlc-howtos/smart-contracts/develop/patterns/daml.yaml.template",
     ]),
     strip_prefix = "/docs/source/sdk/sdlc-howtos/smart-contracts/develop/patterns",
-    visibility = ["//visibility:public"],
 )
 
 daml_test(
     name = "daml-studio-daml-test",
-    srcs = glob(["source/sdk/component-howtos/smart_contracts/daml-studio/daml/**/*.daml"]),
+    timeout = "short",
+    srcs = glob(
+        ["source/sdk/component-howtos/smart_contracts/daml-studio/daml/**/*.daml"],
+        allow_empty = True,
+    ),
     deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
     name = "daml-ref-daml-test",
-    timeout = "long",
+    timeout = "short",
     srcs = glob(["source/sdk/reference/daml/code-snippets/**/*.daml"]),
     additional_compiler_flags = [
         "-Wupgrade-interfaces",
@@ -406,7 +418,7 @@ daml_test(
 [
     daml_test(
         name = "daml-ref-daml-test-{}".format(version),
-        timeout = "long",
+        timeout = "short",
         srcs = glob(["source/sdk/reference/daml/code-snippets-dev/**/*.daml"]),
         additional_compiler_flags = [
             "-Wupgrade-interfaces",
@@ -424,6 +436,7 @@ daml_test(
 
 daml_test(
     name = "quickstart-daml-test",
+    timeout = "short",
     srcs = glob(
         include = ["source/sdk/tutorials/quickstart/template-root/daml/**/*.daml"],
     ),
@@ -432,17 +445,23 @@ daml_test(
 
 daml_test(
     name = "ledger-model-daml-test",
+    timeout = "short",
     srcs = glob(["source/overview/explanations/ledger-model/daml/**/*.daml"]),
     deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 daml_test(
     name = "java-bindings-docs-daml-test",
-    srcs = glob(["source/sdk/sdlc-howtos/applications/integrate/bindings-java/daml/**/*.daml"]),
+    timeout = "short",
+    srcs = glob(
+        ["source/sdk/sdlc-howtos/applications/integrate/bindings-java/daml/**/*.daml"],
+        allow_empty = True,
+    ),
 )
 
 daml_test(
     name = "daml-intro-daml-test-base",
+    timeout = "short",
     srcs = glob(
         ["source/sdk/tutorials/smart-contracts/daml/**/*.daml"],
         exclude = [
@@ -461,6 +480,7 @@ daml_test(
 [
     daml_test(
         name = "daml-intro-exceptions-daml-test-{}".format(version),
+        timeout = "short",
         srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-exceptions/**/*.daml"]),
         additional_compiler_flags = ["-Wupgrade-exceptions"],
         target = version,
@@ -471,6 +491,7 @@ daml_test(
 
 daml_test(
     name = "daml-intro-9-daml-test",
+    timeout = "short",
     srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-9/**/*.daml"]),
     data_deps = [":daml-intro-compose.dar"],
     deps = ["//daml-script/daml:daml-script.dar"],
@@ -478,6 +499,7 @@ daml_test(
 
 daml_test(
     name = "daml-intro-daml-functional-101-test",
+    timeout = "short",
     srcs = glob(
         ["source/sdk/tutorials/smart-contracts/daml/daml-intro-functional-101/**/*.daml"],
     ),
@@ -563,7 +585,6 @@ pkg_tar(
         ],
     ),
     strip_prefix = "source/sdk/tutorials/smart-contracts/daml",
-    visibility = ["//visibility:public"],
 )
 
 pkg_tar(
@@ -573,7 +594,6 @@ pkg_tar(
         exclude = ["**/*~"],
     ),
     strip_prefix = "source/sdk/component-howtos/ledger-interaction/daml-script/template-root",
-    visibility = ["//visibility:public"],
 )
 
 exports_files([

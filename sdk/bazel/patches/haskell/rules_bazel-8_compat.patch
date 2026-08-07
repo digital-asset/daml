@@ -1,0 +1,189 @@
+# TODO: Remove this downstream compatibility patch once upstream rules_haskell
+# fully supports Bazel 8 in this workspace shape. See:
+# - sdk/.bzlremaining/improvements/rules-haskell-bazel8-compat.md
+# - https://github.com/tweag/rules_haskell/issues/2426
+
+diff --git a/haskell/private/get_cpu_value_compat.bzl b/haskell/private/get_cpu_value_compat.bzl
+new file mode 100644
+--- /dev/null
++++ b/haskell/private/get_cpu_value_compat.bzl
+@@ -0,0 +1,18 @@
++def get_cpu_value(ctx):
++    os_name = ctx.os.name.lower()
++    arch = ctx.os.arch
++
++    if "windows" in os_name:
++        if arch in ["aarch64", "arm64"]:
++            return "arm64_windows"
++        return "x64_windows"
++
++    if "mac os x" in os_name or "darwin" in os_name:
++        if arch in ["aarch64", "arm64"]:
++            return "darwin_arm64"
++        return "darwin_x86_64"
++
++    if "linux" in os_name:
++        return "aarch64" if arch in ["aarch64", "arm64"] else "k8"
++
++    fail("Unsupported host platform: os={}, arch={}".format(ctx.os.name, arch))
+diff --git a/haskell/ghc_bindist.bzl b/haskell/ghc_bindist.bzl
+--- a/haskell/ghc_bindist.bzl
++++ b/haskell/ghc_bindist.bzl
+@@ -5 +5 @@
+-load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
++load(":private/get_cpu_value_compat.bzl", "get_cpu_value")
+@@ -563,7 +562,0 @@
+-    python3_path = find_python(repository_ctx)
+-    if check_bazel_version("4.2.0")[0]:
+-        stub_shebang = """stub_shebang = "#!{python3_path}",""".format(
+-            python3_path = python3_path,
+-        )
+-    else:
+-        stub_shebang = ""
+@@ -572 +565 @@
+-    "@bazel_tools//tools/python:toolchain.bzl",
++    "@rules_python//python:py_runtime_pair.bzl",
+@@ -577 +570 @@
+-    interpreter_path = "{python3}",
++    interpreter = "@rules_haskell_hermetic_python//:python3",
+@@ -579 +571,0 @@
+-    {stub_shebang}
+@@ -588 +580 @@
+-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
++    toolchain_type = "@rules_python//python:toolchain_type",
+@@ -599 +590,0 @@
+-        python3 = python3_path,
+@@ -602 +592,0 @@
+-        stub_shebang = stub_shebang,
+diff --git a/haskell/cabal.bzl b/haskell/cabal.bzl
+--- a/haskell/cabal.bzl
++++ b/haskell/cabal.bzl
+@@ -7 +7 @@
+-load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
++load("@rules_haskell//haskell:private/get_cpu_value_compat.bzl", "get_cpu_value")
+diff --git a/rules_haskell_nix/nixpkgs.bzl b/rules_haskell_nix/nixpkgs.bzl
+--- a/rules_haskell_nix/nixpkgs.bzl
++++ b/rules_haskell_nix/nixpkgs.bzl
+@@ -11 +11 @@
+-load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
++load("@rules_haskell//haskell:private/get_cpu_value_compat.bzl", "get_cpu_value")
+diff --git a/rules_haskell_nix/private/declare_toolchains.bzl b/rules_haskell_nix/private/declare_toolchains.bzl
+--- a/rules_haskell_nix/private/declare_toolchains.bzl
++++ b/rules_haskell_nix/private/declare_toolchains.bzl
+@@ -25 +25 @@
+-load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
++load("@rules_haskell//haskell:private/get_cpu_value_compat.bzl", "get_cpu_value")
+diff --git a/tools/os_info.bzl b/tools/os_info.bzl
+--- a/tools/os_info.bzl
++++ b/tools/os_info.bzl
+@@ -1 +1 @@
+-load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
++load("@rules_haskell//haskell:private/get_cpu_value_compat.bzl", "get_cpu_value")
+diff --git a/haskell/toolchain.bzl b/haskell/toolchain.bzl
+--- a/haskell/toolchain.bzl
++++ b/haskell/toolchain.bzl
+@@ -445,7 +445,7 @@
+             path_for_run_ghc = default_tools_config.path_for_run_ghc + ctx.attr._exec_posix_toolchain[platform_common.ToolchainInfo].paths,
+             tools_for_ghc = default_tools_config.tools_for_ghc,
+             path_for_cabal = default_tools_config.path_for_cabal,
+-            tools_for_ghc_pkg = default_tools_config.tools_for_ghc_pkg,
++            tools_for_ghc_pkg = ctx.files.tools,
+             maybe_exec_cc_toolchain = default_tools_config.maybe_exec_cc_toolchain,
+             supports_haddock = default_tools_config.supports_haddock,
+         )
+diff --git a/haskell/cc.bzl b/haskell/cc.bzl
+--- a/haskell/cc.bzl
++++ b/haskell/cc.bzl
+@@ -122,13 +122,16 @@
+     cc_files = depset(transitive = [cc_toolchain.all_files, cc_wrapper.inputs])
+     cc_manifests = cc_wrapper.manifests
+ 
++    cc_bindir = real_cc_path[:real_cc_path.rfind("/") + 1]
+     tools = {
+-        "ar": cc_toolchain.ar_executable,
++        # LLVM advertises stub ar/ld/nm/strip paths that don't exist (it links
++        # via clang); use the real llvm-* tools beside clang for direct calls.
++        "ar": cc_bindir + "llvm-ar",
+         "cc": cc,
+-        "ld": cc_toolchain.ld_executable,
++        "ld": cc_bindir + "ld.lld",
+         "cpp": cc_toolchain.preprocessor_executable,
+-        "nm": cc_toolchain.nm_executable,
+-        "strip": cc_toolchain.strip_executable,
++        "nm": cc_bindir + "llvm-nm",
++        "strip": cc_bindir + "llvm-strip",
+     }
+ 
+     # If running on darwin but XCode is not installed (i.e., only the Command
+diff --git a/haskell/private/runghc.bzl b/haskell/private/runghc.bzl
+--- a/haskell/private/runghc.bzl
++++ b/haskell/private/runghc.bzl
+@@ -17,7 +17,7 @@
+     hs_toolchain = ctx.toolchains["@rules_haskell//haskell:toolchain"]
+ 
+     f = hs_toolchain.tools.runghc
+-    runghc_runfile_path = paths.join(f.owner.workspace_name, f.owner.package, f.owner.name)
++    runghc_runfile_path = paths.join(f.owner.workspace_name or ctx.workspace_name, f.short_path)
+     runghc_wrapper_file = ctx.actions.declare_file(ctx.label.name)
+     ctx.actions.write(
+         output = runghc_wrapper_file,
+@@ -38,7 +38,7 @@
+     return [DefaultInfo(
+         executable = runghc_wrapper_file,
+         runfiles = hs_toolchain.cc_wrapper.runfiles.merge(
+-            ctx.runfiles(files = [runghc_wrapper_file, hs_toolchain.tools.runghc]),
++            ctx.runfiles(files = [runghc_wrapper_file] + hs_toolchain.bindir),
+         ),
+     )]
+ 
+diff --git a/haskell/private/cabal_wrapper.py b/haskell/private/cabal_wrapper.py
+--- a/haskell/private/cabal_wrapper.py
++++ b/haskell/private/cabal_wrapper.py
+@@ -292,6 +292,14 @@
+         del os.environ["RUNFILES_MANIFEST_FILE"]
+     runghc_args = [arg.replace("./", execroot + "/") for arg in runghc_args]
+ 
++    # The GHC interpreting Setup.hs (and Cabal's own cc probe) run from the
++    # package dir, where cc_wrapper's relative CC_WRAPPER_CC_PATH and runfiles
++    # lookups both miss. Absolutise it so cc_wrapper finds clang from any cwd,
++    # and steer GHC away from its baked (dead) settings cc onto cc_wrapper.
++    os.environ["CC_WRAPPER_CC_PATH"] = os.path.join(execroot, os.environ["CC_WRAPPER_CC_PATH"])
++    cc_ghc_args = [flag.replace("$CC", cc).replace("$LD", ld) for flag in toolchain_info["ghc_cc_args"]]
++    runghc_args = runghc_args + ["--ghc-arg=" + a for a in cc_ghc_args]
++
+     if not deps_package_db:
+         path_args.extend(["--package-db=" + os.path.dirname(db) for db in deps_package_databases])
+     path_args = [ arg.replace("=", "=" + cfg_execroot + "/") for arg in path_args ]
+@@ -314,6 +322,7 @@
+         [ "--ghc-option=" + flag.replace("$CC", cc).replace("$LD", ld) for flag in toolchain_info["ghc_cc_args"] ] +
+         [ "--hsc2hs-option=-c" + cc,
+           "--hsc2hs-option=-l" + cc,
++          "--hsc2hs-option=--cflag=-w",
+         ] +
+         [ "--ghc-option=-optl@" + os.path.join(cfg_execroot, f) for f in [extra_ldflags_file] if f ] +
+         enable_relocatable_flags + \
+@@ -344,7 +353,8 @@
+         )
+     run([runghc] + runghc_args + [setup, "build", "--verbose=0", "--builddir=" + distdir])
+     if haddock:
+-        run([runghc] + runghc_args + [setup, "haddock", "--verbose=0", "--builddir=" + distdir])
++        run([runghc] + runghc_args + [setup, "haddock", "--verbose=0", "--builddir=" + distdir] +
++            ["--haddock-option=--optghc=" + a for a in cc_ghc_args])
+     # Setup.hs install fails if the configuration uses relative C header or
+     # library search paths. Instead, we use Setup.hs copy to install the
+     # package files and then manually register the package configuration in the
+diff --git a/haskell/private/cc_wrapper.py.tpl b/haskell/private/cc_wrapper.py.tpl
+--- a/haskell/private/cc_wrapper.py.tpl
++++ b/haskell/private/cc_wrapper.py.tpl
+@@ -161,7 +161,10 @@
+                 # temporary Haskell binaries linked against libraries, but does
+                 # not speficy the required runpaths on the command-line in the
+                 # context of Bazel.
+-                self.rpaths.extend(self.library_paths)
++                self.rpaths.extend([
++                    p for p in self.library_paths
++                    if "glibc_library_search_directory" not in p
++                ])
+         else:
+             # We don't expect rpath arguments if not linking, however, just in
+             # case, forward them if we don't mean to modify them.

@@ -100,13 +100,20 @@ def _daml_package_rule_impl(ctx):
     disable_warn_large_tuples = "-Wno-large-tuples" if ctx.attr.disable_warn_large_tuples else "-Wlarge-tuples"
     disable_deprecated_exceptions = "-Wno-deprecated-exceptions" if ctx.attr.disable_deprecated_exceptions else ""
 
+    lib_dirs = []
+    for f in ctx.files.runtime_lib_dirs:
+        if f.dirname not in lib_dirs:
+            lib_dirs.append(f.dirname)
+    ld_library_path_export = "export LD_LIBRARY_PATH=\"" + ":".join(["$PWD/" + d for d in lib_dirs]) + ":${LD_LIBRARY_PATH:-}\""
+
     ctx.actions.run_shell(
         outputs = [dalf, iface_dir],
-        inputs = ctx.files.srcs + [package_db_dir, pkg_name_version],
+        inputs = ctx.files.srcs + [package_db_dir, pkg_name_version] + ctx.files.runtime_lib_dirs,
         tools = [ctx.executable.damlc_bootstrap, ctx.executable.cpp],
         progress_message = "Compiling " + name + ".daml to daml-lf " + ctx.attr.daml_lf_version,
         command = """
       set -eou pipefail
+      {ld_library_path_export}
       PKG_NAME=`cat {pkg_name_version_file}`
 
       # We use a temp directory here to avoid issues due to the lack of sandboxing
@@ -135,6 +142,7 @@ def _daml_package_rule_impl(ctx):
 
       rm -rf $IFACE_DIR
     """.format(
+            ld_library_path_export = ld_library_path_export,
             main = modules[ctx.attr.main],
             pkg_name_version_file = pkg_name_version.path,
             package_db_dir = package_db_dir.path,
@@ -173,18 +181,18 @@ daml_package_rule = rule(
         "package_db": attr.label(
             default = Label("//compiler/damlc/pkg-db"),
             executable = False,
-            cfg = "host",
+            cfg = "exec",
         ),
         "dependencies": attr.label_list(allow_files = False),
         "damlc_bootstrap": attr.label(
             default = Label("//compiler/damlc:damlc-bootstrap"),
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
         "cpp": attr.label(
             default = Label("@stackage-exe//hpp"),
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
         "daml_lf_version": attr.string(
             mandatory = True,
@@ -194,6 +202,15 @@ daml_package_rule = rule(
         ),
         "disable_deprecated_exceptions": attr.bool(
             default = False,
+        ),
+        "runtime_lib_dirs": attr.label_list(
+            default = [
+                Label("//bazel/haskell/toolchain:tinfo_libs"),
+                Label("@libz//:libs"),
+                Label("@gmp//:libs"),
+                Label("@bzip2//:libs"),
+            ],
+            allow_files = True,
         ),
     },
 )
@@ -205,7 +222,7 @@ def _daml_package_db_impl(ctx):
     db_dir = ctx.actions.declare_directory(ctx.attr.name + "_dir")
     ctx.actions.run_shell(
         inputs = [inp for pkg in ctx.attr.pkgs for inp in [pkg[DamlPackage].pkg_conf, pkg[DamlPackage].iface_dir, pkg[DamlPackage].dalf, pkg[DamlPackage].pkg_name_version]],
-        tools = [toolchain.tools.ghc_pkg],
+        tools = toolchain.bindir,
         outputs = [db_dir],
         command =
             """

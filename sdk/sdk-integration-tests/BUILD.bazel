@@ -1,8 +1,9 @@
+load("@build_environment//:configuration.bzl", "mvn_version")
+load("@os_info//:os_info.bzl", "is_windows")
+
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
-load("@os_info//:os_info.bzl", "is_windows")
-load("@build_environment//:configuration.bzl", "mvn_version")
 
 # A REPL with all tests, used as bios for HLS
 da_haskell_repl(
@@ -16,7 +17,7 @@ da_haskell_repl(
 
 os_dependent_libraries = [] if is_windows else [
     "//language-support/js/daml-types:npm_package",
-    "@script_nix//:bin/script",
+    "//bazel/common:pty-wrapper.sh",
 ]
 
 da_haskell_library(
@@ -38,7 +39,6 @@ da_haskell_library(
         "unordered-containers",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//component-version/hs:component-version-class-lib",
         "//libs-haskell/bazel-runfiles",
@@ -54,13 +54,16 @@ da_haskell_test(
         "src/DA/Daml/SdkIntegrationTests/Tests.hs",
     ],
     args = [
-        "$(location //:yarn)",
+        "$(location @pnpm//:pnpm)",
     ],
     data = [
-        "//release:dpm-sdk-release-tarball",
-        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
-        "//:yarn",
+        "//:java_rlocation_path",
+        "//:python_rlocation_path",
         "//compiler/damlc/tests:generate-simple-dalf",
+        "//release:dpm-sdk-release-tarball",
+        "@pnpm",
+        "@python_3_12//:files",
+        "@rules_java//toolchains:current_java_runtime",
     ] + os_dependent_libraries,
     # marked flaky for mvn originally; still flaky now? #14281
     flaky = False,
@@ -84,7 +87,6 @@ da_haskell_test(
     ],
     main_function = "DA.Daml.SdkIntegrationTests.Tests.main",
     tags = ["cpu:2"],
-    visibility = ["//visibility:public"],
     deps = [
         ":utils",
         "//component-version/hs:component-version-lib",

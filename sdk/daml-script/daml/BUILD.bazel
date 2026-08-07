@@ -3,8 +3,8 @@
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@build_environment//:configuration.bzl", "ghc_version")
-load("//rules_daml:daml.bzl", "daml_compile")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 [
     daml_compile(
@@ -17,7 +17,6 @@ load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION")
         project_name = "daml-script",
         target = lf_version,
         version = ghc_version,
-        visibility = ["//visibility:public"],
     )
     for lf_version in COMPILER_LF_VERSIONS
 ]
@@ -29,7 +28,6 @@ copy_file(
     src = ":daml-script-{}.dar".format(DEFAULT_LF_VERSION),
     out = "daml-script.dar",
     allow_symlink = True,
-    visibility = ["//visibility:public"],
 )
 
 filegroup(
@@ -38,7 +36,6 @@ filegroup(
         "daml-script-{}.dar".format(lf_version)
         for lf_version in COMPILER_LF_VERSIONS
     ],
-    visibility = ["//visibility:public"],
 )
 
 genrule(
@@ -55,6 +52,7 @@ genrule(
         "daml-script-anchors.json",
     ],
     cmd = """
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${LD_LIBRARY_PATH:-}"
         $(location //compiler/damlc) -- docs \
             --output=daml-script-rst \
             --input-format=json \\
@@ -71,10 +69,13 @@ genrule(
         $(execpath //bazel_tools/sh:mktgz) $(location :daml-script-rst.tar.gz) daml-script-rst
     """,
     tools = [
+        "//bazel/haskell/toolchain:libtinfo.so.5",
         "//bazel_tools/sh:mktgz",
         "//compiler/damlc",
+        "@bzip2//:libs",
+        "@gmp//:libs",
+        "@libz//:libs",
     ],
-    visibility = ["//visibility:public"],
 )
 
 genrule(
@@ -82,6 +83,7 @@ genrule(
     srcs = glob(["**/*.daml"]),
     outs = ["daml-script.json"],
     cmd = """
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${LD_LIBRARY_PATH:-}"
         $(location //compiler/damlc) -- docs \
             --output=$(OUTS) \
             --package-name=daml-script \
@@ -92,7 +94,10 @@ genrule(
             $(location Daml/Script/Internal.daml)
     """,
     tools = [
+        "//bazel/haskell/toolchain:libtinfo.so.5",
         "//compiler/damlc",
+        "@bzip2//:libs",
+        "@gmp//:libs",
+        "@libz//:libs",
     ],
-    visibility = ["//visibility:public"],
 )

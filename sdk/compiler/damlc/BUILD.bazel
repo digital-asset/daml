@@ -1,15 +1,15 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@os_info//:os_info.bzl", "is_linux_intel", "is_windows")
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
-load("//daml-lf:daml-lf.bzl", "LF_DOCS_VERSION")
-load("//rules_daml:daml.bzl", "daml_doc_test")
-load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools/packaging:packaging.bzl", "package_app", "package_oci_component")
 load("//bazel_tools/runfiles:defs.bzl", "add_data")
-load(":util.bzl", "ghc_pkg")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
-load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("//daml-lf:daml-lf.bzl", "LF_DOCS_VERSION")
+load("//rules_daml:daml.bzl", "daml_doc_test")
+load(":util.bzl", "ghc_pkg", "ghc_pkg_dist")
 
 # `hpp` is linked dynamically so we run it through `package_app` to
 # distribute it. However, the result of that is a tarball so it's not going
@@ -23,12 +23,12 @@ copy_file(
     out = "hpp" + (".exe" if is_windows else ""),
     allow_symlink = True,
     is_executable = True,
-    visibility = ["//visibility:public"],
 )
 
 package_app(
     name = "hpp-dist",
     binary = "@stackage-exe//hpp",
+    extra_lib_dirs = ["@gmp//:libs"],
 )
 
 damlc_data = [
@@ -53,21 +53,18 @@ add_data(
         "//compiler/damlc/pkg-db",
     ],
     executable = ":damlc-bootstrap",
-    visibility = ["//visibility:public"],
 )
 
 add_data(
     name = "damlc",
     data = damlc_data,
     executable = ":damlc-bootstrap",
-    visibility = ["//visibility:public"],
 )
 
 da_haskell_repl(
     name = "damlc@ghci",
     data = damlc_data,
     repl_ghci_commands = [":m Main"],
-    visibility = ["//visibility:public"],
     deps = [":damlc-bootstrap"],
 )
 
@@ -79,7 +76,6 @@ genrule(
         echo > $(OUTS)
     """,
     tools = [],
-    visibility = ["//visibility:public"],
 )
 
 # damlc without runfiles. We use that to build the daml-prim and daml-stdlib
@@ -103,16 +99,21 @@ da_haskell_binary(
         "base",
     ],
     src_strip_prefix = "exe",
-    visibility = ["//visibility:public"],
     deps = [
         ":damlc-lib",
         "//component-version/hs:component-version-lib",
-    ],
+    ] + ([] if is_windows else ["//bazel_tools/environ_fix"]),
 )
 
 package_app(
     name = "damlc-dist",
     binary = ":damlc",
+    extra_lib_dirs = [
+        "//bazel/haskell/toolchain:tinfo_libs",
+        "@gmp//:libs",
+        "@libz//:libs",
+        "@bzip2//:libs",
+    ],
     resources = [
         ":daml-base-anchors.json",
         ":ghc-pkg-dist",
@@ -126,13 +127,18 @@ package_app(
         "@static_asset_d3plus//:js/d3plus.min.js",
     ],
     tags = ["no-cache"],
-    visibility = ["//visibility:public"],
 )
 
 # When publishing for DPM, script service is part of a different component, extension is included
 package_app(
     name = "damlc-dist-dpm",
     binary = ":damlc",
+    extra_lib_dirs = [
+        "//bazel/haskell/toolchain:tinfo_libs",
+        "@gmp//:libs",
+        "@libz//:libs",
+        "@bzip2//:libs",
+    ],
     resources = [
         ":daml-base-anchors.json",
         ":ghc-pkg-dist",
@@ -147,7 +153,6 @@ package_app(
         "@static_asset_d3plus//:js/d3plus.min.js",
     ],
     tags = ["no-cache"],
-    visibility = ["//visibility:public"],
 )
 
 package_oci_component(
@@ -157,19 +162,20 @@ package_oci_component(
         ":damlc-dist-dpm",
     ],
     tags = ["no-cache"],
-    visibility = ["//visibility:public"],
 )
 
-# ghc-pkg is linked dynamically on Linux by default so we need to run it through package_app
-# before we distribute it.
-package_app(
+# ghc-pkg is linked dynamically on Linux by default so we need to run it
+# through package_app before we distribute it.
+# Linux ghc-pkg is the hermetic ELF: its $ORIGIN-relative RPATH resolves the
+# libHS*.so + libtinfo + libgmp closure within the install tree, so package-app
+# must run against the in-tree binary (co-located with that closure).
+genrule(
     name = "ghc-pkg-dist",
-    # bin/ghc-pkg is actually a wrapper script on Unix systems so it is
-    # important that we use lib/ghc-$VERSION/bin/ghc-pkg instead which is the
-    # actual executable.
-    binary = "@ghc_nix//:lib/ghc-9.0.2/bin/ghc-pkg",
-    visibility = ["//visibility:public"],
-) if not is_windows else genrule(
+    srcs = ["//bazel/haskell/toolchain:install_tree"],
+    outs = ["ghc-pkg-dist.tar.gz"],
+    cmd = '$(execpath //bazel_tools/packaging:package-app) "$(location //bazel/haskell/toolchain:install_tree)/lib/bin/ghc-pkg" "$@"',
+    tools = ["//bazel_tools/packaging:package-app"],
+) if is_linux_intel else (genrule(
     name = "ghc-pkg-dist",
     srcs = [
         "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe",
@@ -189,7 +195,16 @@ package_app(
       $$MKTGZ $$OUT ghc-pkg
     """,
     tools = ["//bazel_tools/sh:mktgz"],
-)
+) if is_windows else package_app(
+    name = "ghc-pkg-dist",
+    binary = ghc_pkg_dist,
+    extra_lib_dirs = [
+        "//bazel/haskell/toolchain:tinfo_libs",
+        "@gmp//:libs",
+        "@libz//:libs",
+        "@bzip2//:libs",
+    ],
+))
 
 da_haskell_library(
     name = "damlc-lib",
@@ -263,7 +278,6 @@ da_haskell_library(
         "binary",
     ] + ([] if is_windows else ["unix"]),
     src_strip_prefix = "lib",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-dar-reader",
         "//compiler/daml-lf-ast",
@@ -327,6 +341,7 @@ genrule(
     srcs = ["//compiler/damlc/daml-prim-src"],
     outs = ["daml-prim.json"],
     cmd = """
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
         $(location //compiler/damlc:damlc-compile-only) -- docs \
             --output=$(OUTS) \
             --package-name=daml-prim \
@@ -336,9 +351,12 @@ genrule(
             $(locations //compiler/damlc/daml-prim-src)
     """.format(LF_DOCS_VERSION),
     tools = [
+        "//bazel/haskell/toolchain:libtinfo.so.5",
         "//compiler/damlc:damlc-compile-only",
+        "@bzip2//:libs",
+        "@gmp//:libs",
+        "@libz//:libs",
     ],
-    visibility = ["//visibility:public"],
 )
 
 genrule(
@@ -346,6 +364,7 @@ genrule(
     srcs = ["//compiler/damlc/daml-stdlib-src"],
     outs = ["daml-stdlib.json"],
     cmd = """
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
         $(location //compiler/damlc:damlc-compile-only) -- docs \
             --output=$(OUTS) \
             --package-name=daml-stdlib \
@@ -355,9 +374,12 @@ genrule(
             $(locations //compiler/damlc/daml-stdlib-src)
     """.format(LF_DOCS_VERSION),
     tools = [
+        "//bazel/haskell/toolchain:libtinfo.so.5",
         "//compiler/damlc:damlc-compile-only",
+        "@bzip2//:libs",
+        "@gmp//:libs",
+        "@libz//:libs",
     ],
-    visibility = ["//visibility:public"],
 )
 
 genrule(
@@ -375,6 +397,7 @@ genrule(
         "daml-base-hoogle.txt",
     ],
     cmd = """
+        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
         $(location //compiler/damlc:damlc-compile-only) -- docs \\
             --output=daml-base-rst \\
             --input-format=json \\
@@ -393,15 +416,19 @@ genrule(
         $(execpath //bazel_tools/sh:mktgz) $(location :daml-base-rst.tar.gz) daml-base-rst
     """.format(LF_DOCS_VERSION),
     tools = [
+        "//bazel/haskell/toolchain:libtinfo.so.5",
         "//bazel_tools/sh:mktgz",
         "//compiler/damlc:damlc-compile-only",
+        "@bzip2//:libs",
+        "@gmp//:libs",
+        "@libz//:libs",
     ],
-    visibility = ["//visibility:public"],
 )
 
 daml_doc_test(
     name = "daml-stdlib-doctest",
     package_name = "daml-stdlib",
+    timeout = "short",
     srcs = ["//compiler/damlc/daml-stdlib-src"],
     flags = [
         "--no-dflags-check",
