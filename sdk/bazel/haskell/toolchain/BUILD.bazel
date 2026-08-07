@@ -1,3 +1,4 @@
+load("@os_info//:os_info.bzl", "is_darwin")
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("//bazel/native:configure_make.bzl", "configure_make")
 load("//bazel/versions:ghc.version.bzl", "GHC_VERSION")
@@ -7,12 +8,12 @@ load(":ghc_bindist_install.bzl", "ghc_bindist_install")
 ghc_bindist_install(
     name = "ghc_install",
     srcs = "@ghc_bindist//:bindist_srcs",
-    bz2 = "@bzip2//:libs",
+    bz2 = None if is_darwin else "@bzip2//:libs",
     configure = "@ghc_bindist//:bindist_unpacked/configure",
-    gmp = "@gmp//:libs",
-    libz = "@libz//:libs",
+    gmp = None if is_darwin else "@gmp//:libs",
+    libz = None if is_darwin else "@libz//:libs",
     make = "@make//:make",
-    tinfo = ":libtinfo.so.5",
+    tinfo = None if is_darwin else ":libtinfo.so.5",
 )
 
 filegroup(
