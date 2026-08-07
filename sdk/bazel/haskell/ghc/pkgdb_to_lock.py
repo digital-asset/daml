@@ -1,12 +1,32 @@
 import json
 import os
+import platform
 import sys
 from pathlib import Path
 
 from python.runfiles import runfiles
 
 _FIELDS = ("name", "version", "id", "key", "depends", "hs-libraries", "extra-libraries")
-_LOCK_RELPATH = "bazel/haskell/ghc/ghc_packages.lock.json"
+
+
+def _lock_relpath():
+    sysname = platform.system().lower()
+    machine = platform.machine().lower()
+    if sysname.startswith("linux"):
+        os_name = "linux"
+    elif sysname == "darwin":
+        os_name = "darwin"
+    elif "windows" in sysname or sysname.startswith(("cygwin", "mingw", "msys")):
+        os_name = "windows"
+    else:
+        os_name = sysname
+    if machine in ("amd64", "x86_64"):
+        cpu = "amd64"
+    elif machine in ("aarch64", "arm64"):
+        cpu = "aarch64"
+    else:
+        cpu = machine
+    return "bazel/haskell/ghc/pin/{}_{}.lock.json".format(os_name, cpu)
 
 
 def _parse_conf(text):
@@ -56,11 +76,22 @@ def _deps_names(fields, by_id):
     return sorted({by_id[d] for d in fields.get("depends", "").split() if d in by_id})
 
 
+def _find_confd(install_tree):
+    for rel in ("lib/package.conf.d", "lib/lib/package.conf.d"):
+        cand = os.path.join(install_tree, rel)
+        if os.path.isdir(cand):
+            return cand
+    matches = sorted(Path(install_tree).rglob("package.conf.d"))
+    if not matches:
+        raise SystemExit("no package.conf.d under {}".format(install_tree))
+    return str(max(matches, key=lambda d: len(list(d.glob("*.conf")))))
+
+
 def _build_lock(r, install_tree_rloc, configure_rloc):
     install_tree = r.Rlocation(install_tree_rloc)
     configure = r.Rlocation(configure_rloc)
 
-    confd = os.path.join(install_tree, "lib", "package.conf.d")
+    confd = _find_confd(install_tree)
     raw_root = os.path.dirname(configure)
 
     confs = _load_confs(confd)
@@ -97,7 +128,8 @@ def main(argv):
         return
 
     lock = _build_lock(r, argv[1], argv[2])
-    out = os.path.join(os.environ["BUILD_WORKSPACE_DIRECTORY"], _LOCK_RELPATH)
+    out = os.path.join(os.environ["BUILD_WORKSPACE_DIRECTORY"], _lock_relpath())
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w") as fh:
         json.dump(lock, fh, indent=2, sort_keys=True)
         fh.write("\n")
