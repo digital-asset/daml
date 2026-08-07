@@ -22,12 +22,12 @@ def _impl(module_ctx):
         # image) keeps this fetch host-python-free; the three patterns are disjoint, so
         # the order is irrelevant and no double-wrap can occur.
         patch_cmds = [
-            "sed -i 's|@com_google_protobuf|@protobuf|g' compiler/BUILD.bazel",
-            "sed -i" +
+            "sed -i.bak 's|@com_google_protobuf|@protobuf|g' compiler/BUILD.bazel && rm -f compiler/BUILD.bazel.bak",
+            "sed -i.bak" +
             " -e 's/method->name()/std::string(method->name())/g'" +
             " -e 's/service->name()/std::string(service->name())/g'" +
             " -e 's/service->file()->name()/std::string(service->file()->name())/g'" +
-            " compiler/src/java_plugin/cpp/java_generator.cpp",
+            " compiler/src/java_plugin/cpp/java_generator.cpp && rm -f compiler/src/java_plugin/cpp/java_generator.cpp.bak",
         ],
     )
 
