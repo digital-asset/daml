@@ -75,7 +75,7 @@ def _ghc_bindist_repo_impl(rctx):
         url = _URL.format(v = GHC_VERSION, triple = bindist["triple"]),
         sha256 = bindist["sha256"],
         type = "tar.xz",
-        stripPrefix = "ghc-{}".format(GHC_VERSION),
+        stripPrefix = bindist["strip_prefix"],
         output = _UNPACK_DIR,
     )
 
