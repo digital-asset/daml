@@ -331,7 +331,7 @@ object CantonRunner {
     val header = """{"alg": "HS256", "typ": "JWT"}"""
     val jwt =
       DecodedJwt[String](header, AuthServiceJWTCodec.writePayload(payload).noSpaces)
-    JwtSigner.HMAC256.sign(jwt, secret) match {
+    JwtSigner.HMAC256(secret).sign(jwt) match {
       case Right(a) => a.value
       case Left(e) => throw new IllegalStateException(e.toString)
     }
