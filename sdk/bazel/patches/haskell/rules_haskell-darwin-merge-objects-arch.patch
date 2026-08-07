@@ -1,0 +1,13 @@
+diff --git a/haskell/cc.bzl b/haskell/cc.bzl
+--- a/haskell/cc.bzl
++++ b/haskell/cc.bzl
+@@ -227,6 +227,8 @@ def ghc_cc_program_args(hs, cc, ld):
+         args.extend([
+             "-pgmlm",
+             ld,
+             "-optlm",
+             "-r",
+         ])
++        if hs.toolchain.is_darwin:
++            args.extend(["-optlm", "-arch", "-optlm", "arm64"])
+     return args
