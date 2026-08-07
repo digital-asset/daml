@@ -106,7 +106,7 @@ diff --git a/haskell/cc.bzl b/haskell/cc.bzl
 +        "ar": cc_bindir + "llvm-ar",
          "cc": cc,
 -        "ld": cc_toolchain.ld_executable,
-+        "ld": cc_bindir + "ld.lld",
++        "ld": ("/usr/bin/ld" if hs_toolchain.is_darwin else cc_bindir + "ld.lld"),
          "cpp": cc_toolchain.preprocessor_executable,
 -        "nm": cc_toolchain.nm_executable,
 -        "strip": cc_toolchain.strip_executable,
