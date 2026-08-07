@@ -79,14 +79,21 @@ def _ghc_bindist_repo_impl(rctx):
         output = _UNPACK_DIR,
     )
 
-    lock = json.decode(rctx.read(rctx.path(rctx.attr.lockfile)))
+    lockfiles = {
+        ("linux", "amd64"): rctx.attr.lockfile_linux_amd64,
+        ("darwin", "aarch64"): rctx.attr.lockfile_darwin_aarch64,
+    }
+    lockfile = lockfiles.get(key)
+    if lockfile == None:
+        fail("no GHC package pin for platform {}; supported: {}".format(key, lockfiles.keys()))
+    lock = json.decode(rctx.read(rctx.path(lockfile)))
     packages = lock.get("packages", [])
 
     imports = "\n".join([_haskell_import(p) for p in packages])
 
     rctx.file(
         "libraries.bzl",
-        content = "# Generated from ghc_packages.lock.json (committed pin).\n" +
+        content = "# Generated from the committed GHC package pin.\n" +
                   "TOOLCHAIN_LIBRARIES = {}\n".format(
                       repr(["@ghc_bindist//:" + p["name"] for p in packages]),
                   ),
@@ -116,9 +123,13 @@ filegroup(
 _ghc_bindist_repo = repository_rule(
     implementation = _ghc_bindist_repo_impl,
     attrs = {
-        "lockfile": attr.label(
-            default = "//bazel/haskell/ghc:ghc_packages.lock.json",
-            doc = "Committed package pin; regenerate with `bazel run //bazel/haskell/ghc:ghc_packages.pin`.",
+        "lockfile_linux_amd64": attr.label(
+            default = "//bazel/haskell/ghc:pin/linux_amd64.lock.json",
+            doc = "Committed per-platform package pin; regenerate with `bazel run //bazel/haskell/ghc:ghc_packages.pin`.",
+        ),
+        "lockfile_darwin_aarch64": attr.label(
+            default = "//bazel/haskell/ghc:pin/darwin_aarch64.lock.json",
+            doc = "Committed per-platform package pin; regenerate with `bazel run //bazel/haskell/ghc:ghc_packages.pin`.",
         ),
     },
 )

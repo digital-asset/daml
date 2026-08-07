@@ -8,12 +8,12 @@ load("//bazel/native:hermetic_cc.bzl", "TOOLBIN_SNIPPET", "hermetic_cc_flags")
 # `bin/` scripts hard-code the install prefix and are not relocatable across
 # sandboxes, so `ghc`/`ghc-pkg` get an explicit `-B`/`--global-package-db`.
 _LAUNCHER_EXTRA_ARGS = {
-    "ghc": '-B"$ROOT/lib"',
-    "ghci": '--interactive -B"$ROOT/lib"',
-    "ghc-pkg": '--global-package-db "$ROOT/lib/package.conf.d"',
-    "runghc": '--ghc-arg=-B"$ROOT/lib"',
-    "haddock": '-B"$ROOT/lib" -l"$ROOT/lib"',
-    "hsc2hs": '--template="$ROOT/lib/template-hsc.h"',
+    "ghc": '-B"$LIBDIR"',
+    "ghci": '--interactive -B"$LIBDIR"',
+    "ghc-pkg": '--global-package-db "$LIBDIR/package.conf.d"',
+    "runghc": '--ghc-arg=-B"$LIBDIR"',
+    "haddock": '-B"$LIBDIR" -l"$LIBDIR"',
+    "hsc2hs": '--template="$LIBDIR/template-hsc.h"',
 }
 
 _LAUNCHER_TARGET_BIN = {
@@ -22,7 +22,7 @@ _LAUNCHER_TARGET_BIN = {
 
 # hsc2hs's bundled include must follow the caller's args, matching the stock wrapper.
 _LAUNCHER_SUFFIX_ARGS = {
-    "hsc2hs": '-I"$ROOT/lib/include/"',
+    "hsc2hs": '-I"$LIBDIR/include/"',
 }
 _TOOLS = ["ghc", "ghci", "ghc-pkg", "hsc2hs", "haddock", "runghc", "hpc"]
 
@@ -33,8 +33,15 @@ def _make_launcher(ctx, install_tree, tool_name):
         is_executable = True,
         content = """#!/usr/bin/env bash
 set -euo pipefail
-SELF="$(readlink -f "${{BASH_SOURCE[0]}}")"
+SELF="${{BASH_SOURCE[0]}}"
+while [ -h "$SELF" ]; do
+  d="$(cd -P "$(dirname "$SELF")" && pwd)"
+  SELF="$(readlink "$SELF")"
+  case "$SELF" in /*) ;; *) SELF="$d/$SELF" ;; esac
+done
+SELF="$(cd -P "$(dirname "$SELF")" && pwd)/$(basename "$SELF")"
 ROOT="$(cd "$(dirname "$SELF")/../{tree}" && pwd)"
+if [ -f "$ROOT/lib/lib/settings" ]; then LIBDIR="$ROOT/lib/lib"; else LIBDIR="$ROOT/lib"; fi
 exec "$ROOT/lib/bin/{tool}" {extra} "$@" {suffix}
 """.format(
             tree = install_tree.basename,
@@ -59,11 +66,22 @@ def _ghc_bindist_install_impl(ctx):
 
     launchers = [_make_launcher(ctx, install_tree, tool) for tool in _TOOLS]
 
+    tinfo = ctx.file.tinfo
     runtime_lib_dirs = []
-    for f in [ctx.file.tinfo] + ctx.files.gmp + ctx.files.libz + ctx.files.bz2:
+    for f in ([tinfo] if tinfo else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2:
         d = "$EXECROOT/" + f.dirname
         if d not in runtime_lib_dirs:
             runtime_lib_dirs.append(d)
+
+    tinfo_bundle = "" if not tinfo else """\
+cp -L "$EXECROOT/{tinfo}" "$LIBDIR/rts/libtinfo.so"
+cp -L "$EXECROOT/{tinfo}" "$LIBDIR/rts/libtinfo.so.5"
+""".format(tinfo = tinfo.path)
+
+    rts_bundle = "".join([
+        'cp -L "$EXECROOT/{}" "$LIBDIR/rts/"\n'.format(f.path)
+        for f in ctx.files.gmp + ctx.files.libz + ctx.files.bz2
+    ])
 
     command = """\
 set -euo pipefail
@@ -96,38 +114,20 @@ export LD_LIBRARY_PATH="{ld_library_path}${{LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}}
 {toolbin}
 
 ./configure --prefix "$PREFIX"
-"$MAKE_BIN" -j"$(nproc)" install
+JOBS="$( (nproc 2>/dev/null) || sysctl -n hw.ncpu 2>/dev/null || echo 1 )"
+"$MAKE_BIN" -j"$JOBS" install
 
-# Bundle hermetic libgmp.so into the rts libdir, which is always on the link
-# search path (the deb9 bindist otherwise expects a host libgmp); this lets
-# every Haskell target resolve `-lgmp` with no per-target dependency.
-for f in {gmp_libs}; do
-    cp -L "$EXECROOT/$f" "$PREFIX/lib/rts/"
-done
+if [ -f "$PREFIX/lib/lib/settings" ]; then LIBDIR="$PREFIX/lib/lib"; else LIBDIR="$PREFIX/lib"; fi
 
-for f in {libz_libs}; do
-    cp -L "$EXECROOT/$f" "$PREFIX/lib/rts/"
-done
-
-for f in {bz2_libs}; do
-    cp -L "$EXECROOT/$f" "$PREFIX/lib/rts/"
-done
-
-# The deb9 ghc/ghc-pkg need libtinfo.so.5 at runtime (resolved via their
-# RUNPATH $ORIGIN/../rts) and haskeline links -ltinfo (needs libtinfo.so);
-# bundle our hermetic copy under both names so neither leaks the host's.
-cp -L "$EXECROOT/{tinfo}" "$PREFIX/lib/rts/libtinfo.so"
-cp -L "$EXECROOT/{tinfo}" "$PREFIX/lib/rts/libtinfo.so.5"
-
-# configure bakes the absolute build-sandbox clang path into settings, which is
-# non-reproducible; the consuming rules override the compiler via -pgm*, so
-# replace it with a stable bare name to keep the install output cacheable.
-sed -i \
+{rts_bundle}
+{tinfo_bundle}
+sed -i.bak \
     -e 's#("C compiler command", "[^"]*")#("C compiler command", "cc")#' \
     -e 's#("Haskell CPP command", "[^"]*")#("Haskell CPP command", "cc")#' \
-    "$PREFIX/lib/settings"
+    "$LIBDIR/settings"
+rm -f "$LIBDIR/settings.bak"
 
-cp "$PREFIX/lib/settings" "$EXECROOT/{lib_settings}"
+cp "$LIBDIR/settings" "$EXECROOT/{lib_settings}"
 if [ -d "$PREFIX/doc" ]; then
     touch "$EXECROOT/{doc_marker}"
 else
@@ -146,16 +146,14 @@ rm -rf "$TMP"
         make = ctx.file.make.path,
         lib_settings = lib_settings.path,
         doc_marker = doc_marker.path,
-        gmp_libs = " ".join([f.path for f in ctx.files.gmp]),
-        libz_libs = " ".join([f.path for f in ctx.files.libz]),
-        bz2_libs = " ".join([f.path for f in ctx.files.bz2]),
-        tinfo = ctx.file.tinfo.path,
+        rts_bundle = rts_bundle,
+        tinfo_bundle = tinfo_bundle,
     )
 
     ctx.actions.run_shell(
         outputs = [install_tree, lib_settings, doc_marker],
         inputs = depset(
-            direct = ctx.files.srcs + [configure, ctx.file.make, ctx.file.tinfo] + ctx.files.gmp + ctx.files.libz + ctx.files.bz2,
+            direct = ctx.files.srcs + [configure, ctx.file.make] + ([tinfo] if tinfo else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2,
             transitive = [cc_toolchain.all_files],
         ),
         command = command,
