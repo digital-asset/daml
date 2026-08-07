@@ -9,7 +9,7 @@
 
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 
-_PATH_PREFIXES = ["-L", "-B", "-I", "-F", "-iquote"]
+_PATH_PREFIXES = ["-L", "-B", "-I", "-F", "-iquote", "--sysroot="]
 
 def _rel(p):
     return p.startswith("external/") or p.startswith("bazel-out/")
@@ -27,6 +27,8 @@ def _abs(tok):
 # Per-compilation flags configure/build scripts add themselves.
 _DROP = ["-c", "-S", "-E", "-o"]
 
+_DROP_LINK = ["-lSystem"]
+
 def _flags(fc, action_name, variables):
     out = []
     for f in cc_common.get_memory_inefficient_command_line(
@@ -34,7 +36,7 @@ def _flags(fc, action_name, variables):
         action_name = action_name,
         variables = variables,
     ):
-        if f not in _DROP:
+        if f not in _DROP and f not in _DROP_LINK:
             out.append(_abs(f))
     return out
 
