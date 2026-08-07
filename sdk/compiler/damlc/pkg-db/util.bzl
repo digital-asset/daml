@@ -82,8 +82,9 @@ def _daml_package_rule_impl(ctx):
         inputs = [pkg_name_version],
         command = """
         echo "{content}" > {package_config}
-        sed -i s/__ID__/`cat {pkg_name_version_file}`/ {package_config}
-        sed -i s/__SDK_VERSION__/{version}/ {package_config}
+        sed -i.bak s/__ID__/`cat {pkg_name_version_file}`/ {package_config}
+        sed -i.bak s/__SDK_VERSION__/{version}/ {package_config}
+        rm -f {package_config}.bak
           """.format(
             package_config = package_config.path,
             pkg_name_version_file = pkg_name_version.path,
