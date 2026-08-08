@@ -103,15 +103,15 @@ diff --git a/haskell/cc.bzl b/haskell/cc.bzl
 -        "ar": cc_toolchain.ar_executable,
 +        # LLVM advertises stub ar/ld/nm/strip paths that don't exist (it links
 +        # via clang); use the real llvm-* tools beside clang for direct calls.
-+        "ar": cc_bindir + "llvm-ar",
++        "ar": ("/usr/bin/ar" if hs_toolchain.is_darwin else cc_bindir + "llvm-ar"),
          "cc": cc,
 -        "ld": cc_toolchain.ld_executable,
 +        "ld": ("/usr/bin/ld" if hs_toolchain.is_darwin else cc_bindir + "ld.lld"),
          "cpp": cc_toolchain.preprocessor_executable,
 -        "nm": cc_toolchain.nm_executable,
 -        "strip": cc_toolchain.strip_executable,
-+        "nm": cc_bindir + "llvm-nm",
-+        "strip": cc_bindir + "llvm-strip",
++        "nm": ("/usr/bin/nm" if hs_toolchain.is_darwin else cc_bindir + "llvm-nm"),
++        "strip": ("/usr/bin/strip" if hs_toolchain.is_darwin else cc_bindir + "llvm-strip"),
      }
  
      # If running on darwin but XCode is not installed (i.e., only the Command
