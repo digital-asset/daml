@@ -1,0 +1,12 @@
+diff --git a/haskell/private/cc_wrapper.py.tpl b/haskell/private/cc_wrapper.py.tpl
+--- a/haskell/private/cc_wrapper.py.tpl
++++ b/haskell/private/cc_wrapper.py.tpl
+@@ -86,4 +86,8 @@
+ INSTALL_NAME_TOOL = "{:bindir:}/install_name_tool"
++if not os.access(INSTALL_NAME_TOOL, os.X_OK):
++    INSTALL_NAME_TOOL = "/usr/bin/install_name_tool"
+ CODESIGN = "{:bindir:}/codesign"
+ CODESIGN_ALLOCATE = "{:bindir:}/codesign_allocate"
+ OTOOL = "{:bindir:}/otool"
++if not os.access(OTOOL, os.X_OK):
++    OTOOL = "/usr/bin/otool"
