@@ -89,7 +89,7 @@ diff --git a/haskell/private/cc_wrapper.py.tpl b/haskell/private/cc_wrapper.py.t
 +
 +
 +def absolutize_toolchain_flag(tok, exec_root):
-+    for prefix in ("-isystem", "-iquote", "-idirafter", "-I", "-L", "-B", "-F", ""):
++    for prefix in ("-isystem", "-iquote", "-idirafter", "-I", "-L", "-B", "-F", "--sysroot=", ""):
 +        if not tok.startswith(prefix):
 +            continue
 +        body = tok[len(prefix):]
