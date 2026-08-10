@@ -40,7 +40,6 @@ class DamlScriptTestRunnerDev extends DamlScriptTestRunner {
            |Submit:contractKeyNotFound SUCCESS
            |Submit:contractNotActive ${expectedContractNotActiveResponse}
            |Submit:createEmptyContractKeyMaintainers SUCCESS
-           |Submit:devError SUCCESS
            |Submit:externalCallPreparationFailed SUCCESS
            |Submit:failureStatusError SUCCESS
            |Submit:fetchEmptyContractKeyMaintainers SUCCESS
