@@ -88,6 +88,9 @@ llvm_source = use_extension("@llvm//extensions:llvm_source.bzl", "llvm_source")
 llvm_source.version(llvm_version = "22.1.8")
 use_repo(llvm_source, "llvm-raw", "llvm_config", "llvm_zlib", "llvm_zstd")
 
+llvm_osx = use_extension("@llvm//extensions:osx.bzl", "osx")
+llvm_osx.libraries(names = ["libffi"])
+
 register_toolchains("@bsd_tar_toolchains//:all")
 
 register_toolchains("@llvm_toolchains//:all")
