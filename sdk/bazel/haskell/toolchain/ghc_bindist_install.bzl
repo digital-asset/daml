@@ -168,6 +168,11 @@ sed -i.bak \
     "$LIBDIR/settings"
 rm -f "$LIBDIR/settings.bak"
 
+if [ "$LIBDIR" = "$PREFIX/lib/lib" ]; then
+    sed -i.bak -e 's#("ld is GNU ld", "YES")#("ld is GNU ld", "NO")#' "$LIBDIR/settings"
+    rm -f "$LIBDIR/settings.bak"
+fi
+
 cp "$LIBDIR/settings" "$EXECROOT/{lib_settings}"
 if [ -d "$PREFIX/doc" ]; then
     touch "$EXECROOT/{doc_marker}"
