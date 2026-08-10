@@ -1,0 +1,62 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- This module contains the stable types for the UserManagement daml-script questions
+
+module Daml.Script.Internal.Questions.UserManagement.Stable where
+
+-- | MOVE Daml.Script
+-- Identifier for a user in the user management service.
+newtype UserId = UserId Text deriving (Eq, Ord)
+
+-- | MOVE Daml.Script
+instance Show UserId where show (UserId text) = "'" <> text <> "'"
+
+-- | MOVE Daml.Script
+-- Extract the name-text from a user identitifer.
+userIdToText : UserId -> Text
+userIdToText (UserId text) = text
+
+-- | MOVE Daml.Script
+-- User-info record for a user in the user management service.
+data User = User
+  with
+    userId : UserId
+    primaryParty : Optional Party
+  deriving (Show, Eq, Ord)
+
+-- | MOVE Daml.Script
+-- The rights of a user.
+data UserRight
+  = ParticipantAdmin
+  | CanActAs Party
+  | CanReadAs Party
+  | CanReadAsAnyParty
+  | CanExecuteAs Party
+  | CanExecuteAsAnyParty
+  | CanActAsAnyParty
+  deriving (Show, Eq)
+
+-- Pseudo exception that daml-script can throw/catch, but that isn't seen as an exception in the dar
+-- and as such, does not need to be serializable/cannot be thrown in Update
+-- | MOVE Daml.Script
+-- Thrown if text for a user identifier does not conform to the format restriction.
+data InvalidUserId = InvalidUserId with
+    m : Text
+  deriving (Eq, Show)
+
+-- Pseudo exception that daml-script can throw/catch, but that isn't seen as an exception in the dar
+-- and as such, does not need to be serializable/cannot be thrown in Update
+-- | MOVE Daml.Script
+-- Thrown if a user to be created already exists.
+data UserAlreadyExists = UserAlreadyExists with
+    userId : UserId
+  deriving (Eq, Show)
+
+-- Pseudo exception that daml-script can throw/catch, but that isn't seen as an exception in the dar
+-- and as such, does not need to be serializable/cannot be thrown in Update
+-- | MOVE Daml.Script
+-- Thrown if a user cannot be located for a given user identifier.
+data UserNotFound = UserNotFound with
+    userId : UserId
+  deriving (Eq, Show)

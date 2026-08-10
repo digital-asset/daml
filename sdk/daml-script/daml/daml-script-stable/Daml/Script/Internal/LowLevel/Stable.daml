@@ -1,0 +1,48 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module Daml.Script.Internal.LowLevel.Stable
+  ( Question (..)
+  , Script (..)
+  , LedgerValue
+  , ScriptF (..)
+  ) where
+
+import Daml.Script.Internal.Free (Free)
+import DA.Stack
+
+-- Everything is a question, which has a continuation, as well as input/putput types and callstack
+-- Note that res and a are _NOT_ the same, as this must be a functor, and res is contravariant
+-- | HIDE
+data Question req res a = Question with
+    commandName : Text
+    commandVersion : Int
+    payload : req
+    locations : [(Text, SrcLoc)]
+    continue : res -> a
+  deriving Functor
+
+-- Our entire scriptF type now is just a question from LedgerValue to LedgerValue, returning a
+-- | HIDE
+newtype ScriptF a = ScriptF (Question LedgerValue LedgerValue a) deriving Functor
+
+-- | MOVE Daml.Script
+-- This is the type of A Daml script. `Script` is an instance of `Action`,
+-- so you can use `do` notation.
+data Script a = Script with
+    runScript : () -> Free ScriptF (a, ())
+      -- ^ HIDE
+    -- We use an inlined StateT () to separate evaluation of
+    -- something of type Script from execution and to ensure
+    -- proper sequencing of evaluation. This is mainly so that `debug` does something
+    -- slightly more sensible.
+    dummy : ()
+      -- ^ HIDE
+    -- Dummy field to make sure damlc does not consider this an old-style
+    -- typeclass.
+  deriving Functor
+
+-- | HIDE
+data LedgerValue = LedgerValue {}

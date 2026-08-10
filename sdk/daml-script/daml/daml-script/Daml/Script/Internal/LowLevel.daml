@@ -18,7 +18,8 @@ module Daml.Script.Internal.LowLevel
   , anyExceptionToAny
   ) where
 
-import Daml.Script.Internal.Free (Free(..))
+import Daml.Script.Internal.LowLevel.Stable
+import Daml.Script.Internal.Free (Free)
 import qualified Daml.Script.Internal.Free as Free
 import DA.Stack
 import DA.Text (isPrefixOf)
@@ -64,17 +65,6 @@ import DA.Internal.LF (Any)
     You'll also need to include a case in the final `parse` definition to call to your commands parser
 -}
 
--- Everything is a question, which has a continuation, as well as input/putput types and callstack
--- Note that res and a are _NOT_ the same, as this must be a functor, and res is contravariant
--- | HIDE
-data Question req res a = Question with
-    commandName : Text
-    commandVersion : Int
-    payload : req
-    locations : [(Text, SrcLoc)]
-    continue : res -> a
-  deriving Functor
-
 -- We relate question requests to replies with this class, and build using the method.
 -- | HIDE
 class IsQuestion req res where
@@ -104,30 +94,10 @@ isInternalSrcLoc SrcLoc {srcLocPackage, srcLocModule} =
 castQuestion : Question req res a -> Question LedgerValue LedgerValue a
 castQuestion = dangerousCast
 
--- Our entire scriptF type now is just a question from LedgerValue to LedgerValue, returning a
--- | HIDE
-newtype ScriptF a = ScriptF (Question LedgerValue LedgerValue a) deriving Functor
-
 -- Build our question and cast to a ScriptF
 -- | HIDE
 makeScriptF : (HasCallStack, IsQuestion req res) => req -> ScriptF res
 makeScriptF = ScriptF . castQuestion . makeQuestion
-
--- | MOVE Daml.Script
--- This is the type of A Daml script. `Script` is an instance of `Action`,
--- so you can use `do` notation.
-data Script a = Script with
-    runScript : () -> Free ScriptF (a, ())
-      -- ^ HIDE
-    -- We use an inlined StateT () to separate evaluation of
-    -- something of type Script from execution and to ensure
-    -- proper sequencing of evaluation. This is mainly so that `debug` does something
-    -- slightly more sensible.
-    dummy : ()
-      -- ^ HIDE
-    -- Dummy field to make sure damlc does not consider this an old-style
-    -- typeclass.
-  deriving Functor
 
 -- | MOVE Daml.Script
 instance CanAbort Script where
@@ -180,9 +150,6 @@ script = identity
 -- | HIDE
 dangerousCast : a -> b
 dangerousCast = error "Non-replaced call to internal-only dangerousCast. Are you using the Script runner? " -- gets replaced by the identity-function in script/Runner.scala
-
--- | HIDE
-data LedgerValue = LedgerValue {}
 
 -- | HIDE
 fromLedgerValue : LedgerValue -> a

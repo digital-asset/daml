@@ -10,6 +10,8 @@ load("//rules_daml:daml.bzl", "daml_compile")
     daml_compile(
         name = "daml-script-stable-{}".format(lf_version),
         srcs = glob(["**/*.daml"]),
+        disable_deprecated_exceptions = True,
+        force_utility_package = True,
         # Force daml files to be under `daml` directory, to match previous behaviour
         generated_daml_source_directory = "daml",
         project_name = "daml-script-stable",
