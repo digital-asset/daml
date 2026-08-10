@@ -1,0 +1,51 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- This module contains the stable types for the TransactionTree daml-script questions
+
+module Daml.Script.Internal.Questions.TransactionTree.Stable where
+
+import Daml.Script.Internal.Questions.Util.Stable
+
+-- | MOVE Daml.Script
+data TransactionTree = TransactionTree
+  with
+    rootEvents: [TreeEvent]
+
+-- | MOVE Daml.Script
+data TreeEvent
+  = CreatedEvent Created
+  | ExercisedEvent Exercised
+
+-- | MOVE Daml.Script
+data Created = Created
+  with
+    contractId : AnyContractId
+    argument : AnyTemplate
+
+-- | MOVE Daml.Script
+data Exercised = Exercised
+  with
+    contractId : AnyContractId
+    choice : Text
+    argument : AnyChoice
+    childEvents: [TreeEvent]
+
+-- | MOVE Daml.Script
+data TreeIndex t
+  = CreatedIndex (CreatedIndexPayload t)
+  | ExercisedIndex (ExercisedIndexPayload t)
+
+-- | MOVE Daml.Script
+data CreatedIndexPayload t = CreatedIndexPayload
+  with
+    templateId : TemplateTypeRep
+    offset : Int
+
+-- | MOVE Daml.Script
+data ExercisedIndexPayload t = ExercisedIndexPayload
+  with
+    templateId : TemplateTypeRep
+    choice : Text
+    offset : Int
+    child : TreeIndex t

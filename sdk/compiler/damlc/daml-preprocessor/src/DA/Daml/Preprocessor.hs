@@ -27,7 +27,7 @@ import qualified "ghc-lib-parser" FastString as GHC
 import qualified "ghc-lib-parser" GHC.LanguageExtensions.Type as GHC
 import Outputable
 
-import           Control.Monad (guard)
+import           Control.Monad (forM_, guard)
 import           Data.Bifunctor (bimap)
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
@@ -426,12 +426,15 @@ checkKinds (GHC.L _ m) = do
         , "This will cause problems when importing this module via data-dependencies."
         ]
 
--- | Set of package names and module name spaces to emit internal import warnings for
--- e.g. ("daml-script", "Daml.Script") means that only the "daml-script" package can import "Daml.Script.*.Internal.*" without warning
--- Module name spaces should be unique and non-overlapping
-warnInternalPackages :: [(LF.PackageName, GHC.ModuleName)]
-warnInternalPackages = fmap (bimap LF.PackageName GHC.mkModuleName)
-  [ ("daml-script", "Daml.Script")
+-- | Set of module name spaces to report Internal errors for, with a list of excluded package names
+-- to omit this warning for
+-- i.e. ("Daml.Script", ["daml-script", "daml-script-stable"]) means to warn for any import of `Daml.Script.**.Internal.**` unless
+-- the package importing it is `daml-script` or `daml-script-stable`.
+-- First package in the list is used in the error
+-- 
+warnInternalPackages :: [(GHC.ModuleName, [LF.PackageName])]
+warnInternalPackages = fmap (bimap GHC.mkModuleName $ fmap LF.PackageName)
+  [ ("Daml.Script", ["daml-script", "daml-script-stable"])
   ]
 
 -- | Check imports of internal modules of packages in warnInternalPackages given warnings
@@ -441,11 +444,11 @@ checkCustomInternalImports ps mOwnPkgName = do
     let splitM = splitModuleName m
     guard $ "Internal" `elem` splitM
 
-    (pkgName, pkgModuleSpace) <- warnInternalPackages
+    (pkgModuleSpace, pkgNames) <- warnInternalPackages
     guard $ splitModuleName pkgModuleSpace `isPrefixOf` splitM
-    guard $ mOwnPkgName /= Just pkgName
+    forM_ mOwnPkgName $ guard . flip notElem pkgNames
 
-    let pkgNameStr = T.unpack $ LF.unPackageName pkgName
+    let pkgNameStr = T.unpack $ LF.unPackageName $ head pkgNames
     pure (ss, "Import of internal module " ++ GHC.moduleNameString m ++ " of package " ++ pkgNameStr ++ " is discouraged, as this module will change without warning.")
   where
     splitModuleName :: GHC.ModuleName -> [String]

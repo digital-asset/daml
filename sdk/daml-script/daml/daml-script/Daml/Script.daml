@@ -138,4 +138,3 @@ module Daml.Script
 
 import Daml.Script.Internal.LowLevel
 import Daml.Script.Internal.Questions
-import Daml.Script.Stable

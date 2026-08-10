@@ -1,0 +1,15 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Submit.Error.Compatibility.DisclosedContractKeyHashingError (pattern DisclosedContractKeyHashingError) where
+
+import Daml.Script.Internal.Questions.Submit.Error
+import Daml.Script.Internal.Questions.Commands (AnyContractKey)
+import Daml.Script.Internal.Questions.Util (AnyContractId)
+
+-- | MOVE Daml.Script
+-- Backwards compatibility pattern for the DisclosedContractKeyHashingError variant of the original SubmitError
+-- Prefer using AnySubmitError and `fromAnySubmitError` instead of this pattern synonym.
+pattern DisclosedContractKeyHashingError : AnyContractId -> AnyContractKey -> Text -> AnySubmitError
+pattern DisclosedContractKeyHashingError {contractId, expectedKey, givenKeyHash} <- (fromAnySubmitError -> Some DisclosedContractKeyHashingErrorSubmitError {..})
+  where DisclosedContractKeyHashingError contractId expectedKey givenKeyHash = toAnySubmitError DisclosedContractKeyHashingErrorSubmitError {..}

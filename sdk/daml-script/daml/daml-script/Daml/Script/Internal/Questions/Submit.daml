@@ -5,11 +5,15 @@
 module Daml.Script.Internal.Questions.Submit
   ( module Daml.Script.Internal.Questions.Submit
   , module Daml.Script.Internal.Questions.Submit.Error
+  , module Daml.Script.Internal.Questions.Submit.Error.Compatibility
+  , module Stable
   ) where
 
 import Daml.Script.Internal.LowLevel
 import Daml.Script.Internal.Questions.Commands
 import Daml.Script.Internal.Questions.Submit.Error
+import Daml.Script.Internal.Questions.Submit.Error.Compatibility
+import Daml.Script.Internal.Questions.Submit.Stable as Stable
 import Daml.Script.Internal.Questions.TransactionTree
 import DA.NonEmpty
 import DA.List.Total (head)
@@ -26,7 +30,8 @@ instance IsQuestion Submit [Either SubmitError ([CommandResult], TransactionTree
   command = "Submit"
   -- V1: Initial question
   -- V2: Switch stable AnyContractKey for script internal AnyContractKey
-  version = 2
+  -- V3: Switch to stable Commands, SubmitOptions, SubmitError
+  version = 3
 
 -- | HIDE
 data Submission = Submission with
@@ -41,10 +46,6 @@ data Submission = Submission with
 
 -- | HIDE
 data ErrorBehaviour = MustSucceed | MustFail | Try
-
--- | MOVE Daml.Script
--- Package-id newtype for package preference
-newtype PackageId = PackageId Text deriving (Show, Eq)
 
 -- | MOVE Daml.Script
 -- Options to detemine the stakeholders of a transaction, as well as disclosures.

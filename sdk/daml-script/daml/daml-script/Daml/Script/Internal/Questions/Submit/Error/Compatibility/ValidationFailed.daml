@@ -1,0 +1,15 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Submit.Error.Compatibility.ValidationFailed (pattern ValidationFailed) where
+
+import Daml.Script.Internal.Questions.Submit.Error
+import Daml.Script.Internal.Questions.Commands (AnyContractKey)
+import Daml.Script.Internal.Questions.Util (AnyContractId)
+
+-- | MOVE Daml.Script
+-- Backwards compatibility pattern for the ValidationFailed variant of the original UpgradeErrorType
+-- Prefer using AnyUpgradeErrorType and `fromAnyUpgradeErrorType` instead of this pattern synonym.
+pattern ValidationFailed : AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> Text -> Text -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> AnyUpgradeErrorType
+pattern ValidationFailed {coid, srcTemplateId, dstTemplateId, srcPackageName, dstPackageName, originalSignatories, originalNonSignatoryStakeholders, originalKeyOpt, recomputedSignatories, recomputedNonSignatoryStakeholders, recomputedKeyOpt} <- (fromAnyUpgradeErrorType -> Some ValidationFailedUpgradeError {..})
+  where ValidationFailed coid srcTemplateId dstTemplateId srcPackageName dstPackageName originalSignatories originalNonSignatoryStakeholders originalKeyOpt recomputedSignatories recomputedNonSignatoryStakeholders recomputedKeyOpt = toAnyUpgradeErrorType ValidationFailedUpgradeError {..}

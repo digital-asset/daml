@@ -1,0 +1,14 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Submit.Error.Compatibility.AuthenticationFailed (pattern AuthenticationFailed) where
+
+import Daml.Script.Internal.Questions.Submit.Error
+import Daml.Script.Internal.Questions.Util (AnyContractId)
+
+-- | MOVE Daml.Script
+-- Backwards compatibility pattern for the AuthenticationFailed variant of the original UpgradeErrorType
+-- Prefer using AnyUpgradeErrorType and `fromAnyUpgradeErrorType` instead of this pattern synonym.
+pattern AuthenticationFailed : AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> AnyTemplate -> AnyUpgradeErrorType
+pattern AuthenticationFailed {coid, srcTemplateId, dstTemplateId, createArg} <- (fromAnyUpgradeErrorType -> Some AuthenticationFailedUpgradeError {..})
+  where AuthenticationFailed coid srcTemplateId dstTemplateId createArg = toAnyUpgradeErrorType AuthenticationFailedUpgradeError {..}

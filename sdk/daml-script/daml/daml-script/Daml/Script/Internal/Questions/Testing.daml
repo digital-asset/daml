@@ -1,11 +1,14 @@
 -- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Daml.Script.Internal.Questions.Testing where
+module Daml.Script.Internal.Questions.Testing
+  ( module Daml.Script.Internal.Questions.Testing
+  , module Stable
+  ) where
 
 import Daml.Script.Internal.LowLevel
 import Daml.Script.Internal.Questions.Exceptions ()
-import Daml.Script.Stable (CommandName (..), ErrorClassName (..), ErrorMessage (..), FailedCmd (..))
+import Daml.Script.Internal.Questions.Testing.Stable as Stable (CommandName (..), ErrorClassName (..), ErrorMessage (..), FailedCmd (..))
 import DA.Bifunctor
 import qualified DA.TextMap as TextMap
 import DA.Fail

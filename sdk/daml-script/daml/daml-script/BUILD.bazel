@@ -26,7 +26,7 @@ load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION")
     for lf_version in COMPILER_LF_VERSIONS
 ]
 
-# Documentation for daml-script is generated as though the `Daml.Script.Stable` module is part of the main package, for ease of navigation
+# Documentation for daml-script is generated as though the `daml-script-stable` package is part of the main package, for ease of navigation
 genrule(
     name = "daml-script-json-docs",
     srcs = ["//daml-script/daml/daml-script-stable:daml-script-stable-source"] + glob(["**/*.daml"]),

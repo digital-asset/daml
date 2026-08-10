@@ -1,10 +1,13 @@
 -- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Daml.Script.Internal.Questions.PartyManagement where
+module Daml.Script.Internal.Questions.PartyManagement
+  ( module Daml.Script.Internal.Questions.PartyManagement
+  , module Stable
+  ) where
 
 import Daml.Script.Internal.LowLevel
-import Daml.Script.Stable (PartyDetails (..), PartyIdHint (..), ParticipantName (..))
+import Daml.Script.Internal.Questions.PartyManagement.Stable as Stable (PartyDetails (..), PartyIdHint (..), ParticipantName (..))
 import DA.Stack
 
 -- | HIDE
