@@ -1,0 +1,32 @@
+{
+  "name": "daml-canton-studio",
+  "version": "1.0.0",
+  "description": "Interactive Daml Smart Contract Simulator, Canton Network Privacy Sub-Ledger & Asset Tokenization Studio.",
+  "main": "src/index.js",
+  "type": "module",
+  "bin": {
+    "daml-cli": "./bin/daml-cli.js"
+  },
+  "scripts": {
+    "start": "node src/server/app.js",
+    "cli": "node bin/daml-cli.js",
+    "test": "node tests/run-all.js"
+  },
+  "keywords": [
+    "daml",
+    "digital-asset",
+    "canton-network",
+    "privacy-ledger",
+    "smart-contracts",
+    "institutional-finance",
+    "tokenization"
+  ],
+  "author": "Daml Community",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "ethers": "^6.13.5",
+    "express": "^4.21.2"
+  }
+}
