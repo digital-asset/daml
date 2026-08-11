@@ -263,6 +263,12 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
   cat $SRC > $WORKDIR/$NAME/$NAME
   chmod a+x $WORKDIR/$NAME/$NAME
   chmod u+w $WORKDIR/$NAME/$NAME
+  function is_in_dyld_shared_cache() {
+    case "$1" in
+      /usr/lib/*|/System/Library/*) return 0 ;;
+      *) return 1 ;;
+    esac
+  }
   function copy_deps() {
     local from_original=$(canonicalpath $1)
     local from_copied=$2
@@ -274,6 +280,8 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
       local libName="$(basename $lib)"
       if [[ "$libName" == "libSystem.B.dylib" ]]; then
           /usr/bin/install_name_tool -change "$lib" "/usr/lib/$libName" "$from_copied"
+      elif is_in_dyld_shared_cache "$lib"; then
+          continue
       elif [ -e "/usr/lib/system/$libName" ]; then
           /usr/bin/install_name_tool -change "$lib" "/usr/lib/system/$libName" "$from_copied"
       elif [ -e "/System/Library/Frameworks/${libName}.framework" ]; then
