@@ -3,7 +3,7 @@ load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain")
 load("//bazel/native:build_gnu_tool.bzl", "InstalledGnuToolInfo")
 
 def _execroot_abs_flag(tok):
-    for prefix in ("-isystem", "-iquote", "-idirafter", "-I", "-L", "-B", "-F", ""):
+    for prefix in ("-isystem", "-iquote", "-idirafter", "-I", "-L", "-B", "-F", "--sysroot=", ""):
         if tok.startswith(prefix):
             body = tok[len(prefix):]
             if body.startswith("external/") or body.startswith("bazel-out/"):
@@ -98,12 +98,19 @@ EXECROOT="$PWD"
 # The prefix contains __EXECROOT__ placeholders that must be fixed up.
 AUTOTOOLS_TMP=$(mktemp -d)
 cp -rL "$EXECROOT/{autotools_prefix}/." "$AUTOTOOLS_TMP/"
-find "$AUTOTOOLS_TMP" -type f | while IFS= read -r f; do
+chmod -R u+w "$AUTOTOOLS_TMP"
+AUTOTOOLS_FILELIST=$(mktemp)
+find "$AUTOTOOLS_TMP" -type f > "$AUTOTOOLS_FILELIST"
+while IFS= read -r f; do
     if grep -Iq . "$f"; then
-        sed -i "s|__EXECROOT__/{autotools_prefix}|$AUTOTOOLS_TMP|g" "$f"
-        sed -i "s|__EXECROOT__|$EXECROOT|g" "$f"
+        sed -i.bak \
+            -e "s|__EXECROOT__/{autotools_prefix}|$AUTOTOOLS_TMP|g" \
+            -e "s|__EXECROOT__|$EXECROOT|g" \
+            "$f"
+        rm -f "$f.bak"
     fi
-done
+done < "$AUTOTOOLS_FILELIST"
+rm -f "$AUTOTOOLS_FILELIST"
 export PATH="$AUTOTOOLS_TMP/{autotools_bindir}:$PATH"
 
 # Tool paths
@@ -153,28 +160,33 @@ for bin in "$GHC_BIN_DIR"/*; do
         ln -s "$bin" "$GHC_WRAPPER_DIR/$name"
     fi
 done
+if [ "$(uname)" = "Darwin" ]; then NO_PIE_FLAG=""; else NO_PIE_FLAG="-optl-no-pie"; fi
 cat > "$GHC_WRAPPER_DIR/ghc" <<'WRAPPER_EOF'
 #!/bin/sh
-exec "__GHC_REAL__" -pgmc "__CC__" -pgma "__CC__" -pgml "__CC__" -optl-fuse-ld=lld -optl-no-pie -optl-L"__GMP_DIR__" "$@"
+exec "__GHC_REAL__" -pgmc "__CC__" -pgma "__CC__" -pgml "__CC__" -optl-fuse-ld=lld __NO_PIE__ -optl-L"__GMP_DIR__" "$@"
 WRAPPER_EOF
-sed -i \
+sed -i.bak \
     -e "s|__GHC_REAL__|$EXECROOT/{ghc_path}|" \
     -e "s|__CC__|$GHC_WRAPPER_DIR/cc|g" \
+    -e "s|__NO_PIE__|$NO_PIE_FLAG|" \
     -e "s|__GMP_DIR__|$EXECROOT/{gmp_lib_dir}|" \
     "$GHC_WRAPPER_DIR/ghc"
+rm -f "$GHC_WRAPPER_DIR/ghc.bak"
 chmod +x "$GHC_WRAPPER_DIR/ghc"
 
 CC_RSP="$GHC_WRAPPER_DIR/cc.rsp"
 cat > "$CC_RSP" <<'CCRSP_EOF'
 {cc_rsp_flags}
 CCRSP_EOF
-sed -i "s|__EXECROOT__|$EXECROOT|g" "$CC_RSP"
+sed -i.bak "s|__EXECROOT__|$EXECROOT|g" "$CC_RSP"
+rm -f "$CC_RSP.bak"
 
 cat > "$GHC_WRAPPER_DIR/cc" <<'CC_EOF'
 #!/bin/sh
 exec "__CC__" @__CC_RSP__ "$@"
 CC_EOF
-sed -i -e "s|__CC__|$CC_PATH|" -e "s|__CC_RSP__|$CC_RSP|" "$GHC_WRAPPER_DIR/cc"
+sed -i.bak -e "s|__CC__|$CC_PATH|" -e "s|__CC_RSP__|$CC_RSP|" "$GHC_WRAPPER_DIR/cc"
+rm -f "$GHC_WRAPPER_DIR/cc.bak"
 chmod +x "$GHC_WRAPPER_DIR/cc"
 export CC="$GHC_WRAPPER_DIR/cc"
 
@@ -199,13 +211,15 @@ fi
 GHC_DIR="$EXECROOT/{ghc_src_dir}"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP $AUTOTOOLS_TMP" EXIT
-cp -rLt $TMP $GHC_DIR/.
+cp -rL $GHC_DIR/. $TMP/
 export HOME="$TMP"
 
-ENVFIX_SO="$TMP/environ_fix.so"
-printf 'extern char **environ, **__environ;\n__attribute__((constructor)) static void _f(void){{ environ = __environ; }}\n' > "$TMP/environ_fix.c"
-"$CC_PATH" -fuse-ld=lld -shared -fPIC -nostdlib -o "$ENVFIX_SO" "$TMP/environ_fix.c"
-export LD_PRELOAD="$ENVFIX_SO"
+if [ "$(uname)" != "Darwin" ]; then
+    ENVFIX_SO="$TMP/environ_fix.so"
+    printf 'extern char **environ, **__environ;\n__attribute__((constructor)) static void _f(void){{ environ = __environ; }}\n' > "$TMP/environ_fix.c"
+    "$CC_PATH" -fuse-ld=lld -shared -fPIC -nostdlib -o "$ENVFIX_SO" "$TMP/environ_fix.c"
+    export LD_PRELOAD="$ENVFIX_SO"
+fi
 
 # Generate ghc-lib{component} cabal project
 $EXECROOT/{ghc_lib_gen_path} $TMP \
