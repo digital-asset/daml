@@ -94,6 +94,7 @@ configure_make(
     extra_cflags = ["-Wno-implicit-function-declaration"],
     install_libdir = "lib",
     make = "@make//:make",
+    target_compatible_with = ["@platforms//os:linux"],
     # 5.9 has no --with-versioned-syms; this script stamps the exported symbols
     # with the NCURSES_TINFO_5.0.19991023 node the deb9 GHC binaries require.
     version_script = "files/libtinfo5.map",
@@ -101,12 +102,13 @@ configure_make(
 
 cc_library(
     name = "tinfo_cc_lib",
-    srcs = [":libtinfo.so.5"],
+    srcs = [] if is_darwin else [":libtinfo.so.5"],
+    linkopts = ["-lncurses"] if is_darwin else [],
 )
 
 filegroup(
     name = "tinfo_libs",
-    srcs = [
+    srcs = [] if is_darwin else [
         ":libtinfo.so",
         ":libtinfo.so.5",
     ],
