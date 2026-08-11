@@ -30,8 +30,8 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 # Make sure that runfiles and tools are still found after we change directory.
 case "$(uname -s)" in
   Darwin)
-    abspath() { python -c 'import os.path, sys; sys.stdout.write(os.path.abspath(sys.argv[1]))' "$@"; }
-    canonicalpath() { python -c 'import os.path, sys; sys.stdout.write(os.path.realpath(sys.argv[1]))' "$@"; }
+    abspath() { case "$1" in /*) printf '%s' "$1" ;; *) printf '%s' "$PWD/$1" ;; esac; }
+    canonicalpath() { readlink -f "$@"; }
     ;;
   *)
     abspath() { realpath -s "$@"; }
