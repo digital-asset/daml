@@ -8,6 +8,7 @@ module Main (main) where
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import Control.Concurrent
+import Data.Time.Clock (getCurrentTime, diffUTCTime)
 import Control.Applicative.Combinators
 import Control.Lens hiding (List, children, (.=))
 import Control.Monad
@@ -745,8 +746,9 @@ scriptTests runScripts = testGroup "scripts"
 
           closeDoc script
           closeDoc main'
-    , localOption (mkTimeout 60000000) $ -- 60s timeout
+    , localOption (mkTimeout 30000000) $ -- 30s timeout
         testCaseSteps "scenario service does not interrupt on non-script messages" $ \step -> runScripts $ \_stderr -> do
+          let foldSize = 1000000 :: Integer
           -- open document with long-running script
           main' <- openDoc' "Main.daml" damlId $
               T.unlines
@@ -754,7 +756,7 @@ scriptTests runScripts = testGroup "scripts"
                   , "module Main where"
                   , "import Daml.Script"
                   , "main : Script ()"
-                  , "main = debug $ foldl (+) 0 [1..10000000]"
+                  , "main = debug $ foldl (+) 0 [1.." <> T.pack (show foldSize) <> "]"
                   ]
           liftIO $ step "Document opened."
 
@@ -784,12 +786,20 @@ scriptTests runScripts = testGroup "scripts"
 
           -- run hover event
           _ <- sendRequest STextDocumentHover (HoverParams main' (Position 4 3) Nothing)
+          afterHoverTime <- liftIO getCurrentTime
           liftIO $ step "Hover sent..."
 
           -- Check that script did return and that log does not show any cancellations
           _changeResult <- waitForScriptDidChange
+          scriptDoneTime <- liftIO getCurrentTime
+          let afterHover = realToFrac (diffUTCTime scriptDoneTime afterHoverTime) :: Double
+          liftIO $ step $ "Script finished " ++ show afterHover ++ "s after hover was sent (fold size: " ++ show foldSize ++ ")"
           _scriptFinishedMessage <- liftIO $ assertUntilWithout _stderr "SCRIPT SERVICE STDOUT: Script finished." "SCRIPT SERVICE STDOUT: Script cancelled."
           liftIO $ step "Script returned without cancellation."
+
+          liftIO $ assertBool
+              ("Script finished too quickly after hover (" ++ show afterHover ++ "s) — fold size " ++ show foldSize ++ " may be too small to ensure the script is still running when hover is processed")
+              (afterHover >= 0.5)
 
           closeDoc script
           closeDoc main'
