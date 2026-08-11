@@ -88,3 +88,7 @@ ln -s "$CLANGDIR/llvm-nm" "$TOOLBIN/nm"
 ln -s "$CLANGDIR/llvm-strip" "$TOOLBIN/strip"
 export PATH="$TOOLBIN:$PATH"
 """
+
+JOBS_SNIPPET = """
+JOBS="$( (nproc 2>/dev/null) || sysctl -n hw.ncpu 2>/dev/null || echo 1 )"
+"""
