@@ -15,8 +15,8 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 # Make sure that runfiles and tools are still found after we change directory.
 case "$(uname -s)" in
   Darwin)
-    abspath() { python -c 'import os.path, sys; sys.stdout.write(os.path.abspath(sys.argv[1]))' "$@"; }
-    canonicalpath() { python -c 'import os.path, sys; sys.stdout.write(os.path.realpath(sys.argv[1]))' "$@"; }
+    abspath() { case "$1" in /*) printf '%s' "$1" ;; *) printf '%s' "$PWD/$1" ;; esac; }
+    canonicalpath() { readlink -f "$@"; }
     ;;
   *)
     abspath() { realpath -s "$@"; }
@@ -48,10 +48,10 @@ componentpath="$WORKDIR/component.yaml"
 cp $MANIFEST $WORKDIR
 case "$(uname -s)" in
   Darwin|Linux)
-    sed -i -e 's/${EXE}//g' $componentpath
+    sed -i.bak -e 's/${EXE}//g' $componentpath && rm -f "$componentpath.bak"
     ;;
   CYGWIN*|MINGW*|MSYS*)
-    sed -i -e 's/${EXE}/.exe/g' $componentpath
+    sed -i.bak -e 's/${EXE}/.exe/g' $componentpath && rm -f "$componentpath.bak"
     ;;
 esac
 
