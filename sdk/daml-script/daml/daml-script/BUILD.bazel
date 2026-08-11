@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_environment//:configuration.bzl", "ghc_version")
+load("//bazel/haskell:runtime_libs.bzl", "DAMLC_RUNTIME_LIBS", "DAMLC_RUNTIME_LIB_PATH_EXPORT")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION")
 load("//daml-script/daml/daml-script-stable:stable-packages.bzl", "SCRIPT_STABLE_PACKAGES")
 load("//rules_daml:daml.bzl", "daml_compile")
@@ -32,7 +33,7 @@ genrule(
     outs = ["daml-script.json"],
     # Include daml-script/daml/daml-script-stable/daml path hard coded, as extracting from rule is ugly and this path should never change
     cmd = """
-        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${LD_LIBRARY_PATH:-}"
+        {lib_path_export}
         $(location //compiler/damlc) -- docs \
             --output=$(OUTS) \
             --package-name=daml-script \
@@ -42,13 +43,9 @@ genrule(
             --include=daml-script/daml/daml-script-stable/daml \
             $(location Daml/Script.daml) \
             $(location Daml/Script/Internal.daml)
-    """,
-    tools = [
-        "//bazel/haskell/toolchain:libtinfo.so.5",
+    """.format(lib_path_export = DAMLC_RUNTIME_LIB_PATH_EXPORT),
+    tools = DAMLC_RUNTIME_LIBS + [
         "//compiler/damlc",
-        "@bzip2//:libs",
-        "@gmp//:libs",
-        "@libz//:libs",
     ],
     visibility = ["//daml-script/daml:__pkg__"],
 )
