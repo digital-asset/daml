@@ -35,7 +35,8 @@ sh_inline_binary(
 SOURCE=$$(canonicalize_rlocation $(rootpath @da-ghc//:ghc-lib-parser.cabal))
 OUTPUT_DIR=$$BUILD_WORKSPACE_DIRECTORY/bazel/ghc-lib/ghc-lib-parser
 
-cp --no-preserve=mode -t "$$OUTPUT_DIR" "$$SOURCE"
+cp "$$SOURCE" "$$OUTPUT_DIR/"
+chmod u+w "$$OUTPUT_DIR/$$(basename "$$SOURCE")"
 """,
     data = [
         "@da-ghc//:ghc-lib-parser.cabal",

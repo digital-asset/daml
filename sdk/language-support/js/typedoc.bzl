@@ -58,12 +58,13 @@ def ts_docs(pkg_name, srcs, deps):
           cp -r $$DIR/* $$WORKDIR/docs
 
           # Replace version number in all files
-          sed -i -e 's/0.0.0-SDKVERSION/{sdk_version}/' $$WORKDIR/**/*.html
+          sed -i.bak -e 's/0.0.0-SDKVERSION/{sdk_version}/' $$WORKDIR/**/*.html
 
           # We want the NPM version of the docs (i.e. the README.md) to point
           # back to our own documentation, but here we're creating our local
           # copy and that one shouldn't link to itself.
-          sed -i -e '/START_BACKLINK/,/END_BACKLINK/d' $$WORKDIR/docs/index.html
+          sed -i.bak -e '/START_BACKLINK/,/END_BACKLINK/d' $$WORKDIR/docs/index.html
+          find $$WORKDIR -name '*.bak' -delete
 
           OUT=$$PWD/$@
           MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
