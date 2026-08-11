@@ -572,7 +572,7 @@ getGhcPkgExe = locateResource Resource
       else if isLinux && arch == "x86_64" then
         mainWorkspace </> "bazel" </> "haskell" </> "toolchain" </> "ghc_install_install" </> "lib" </> "bin"
       else
-        ghcBindistRepo </> ghcPkgSubpath
+        ghcBindistRepo </> "lib" </> "bin"
   }
   where
     isLinux = os == "linux"
@@ -582,10 +582,6 @@ getGhcPkgExe = locateResource Resource
       | isMac && arch == "aarch64"   = "rules_haskell_ghc_darwin_arm64"
       | isMac                        = "rules_haskell_ghc_darwin_amd64"
       | otherwise                    = error $ "Unsupported platform for ghc-pkg: " ++ show (os, arch)
-    ghcPkgSubpath
-      | isLinux   = "lib" </> "bin"
-      | isMac     = "lib" </> "lib" </> "bin"
-      | otherwise = error "unreachable"
 
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a
