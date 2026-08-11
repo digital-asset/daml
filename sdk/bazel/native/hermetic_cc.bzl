@@ -89,6 +89,11 @@ ln -s "$CLANGDIR/llvm-strip" "$TOOLBIN/strip"
 export PATH="$TOOLBIN:$PATH"
 """
 
+# TODO: revisit whether these rules should pass -j at all. Bazel is already the
+# scheduler, and these actions declare no CPU cost, so it can run several at once
+# while each forks $JOBS children. Detection is fragile too: `sysctl` is in
+# /usr/sbin, absent from some action PATHs.
+# See .bzlremaining/todo/job-count-detection.md.
 JOBS_SNIPPET = """
 JOBS="$( (nproc 2>/dev/null) || sysctl -n hw.ncpu 2>/dev/null || echo 1 )"
 """
