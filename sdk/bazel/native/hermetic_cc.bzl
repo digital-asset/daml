@@ -8,6 +8,7 @@
 # hermetic toolchain.
 
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 
 _PATH_PREFIXES = ["-L", "-B", "-I", "-F", "-iquote", "--sysroot="]
 
