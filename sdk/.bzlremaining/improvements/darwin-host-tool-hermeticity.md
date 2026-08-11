@@ -1,38 +1,34 @@
 # Accepted host-tool dependencies on darwin
 
-The macOS arm64 build is deliberately **not** hermetic in the way the Linux
-build is. `.bzlmigration/HANDOFF.md` locked that decision (host Xcode Command
-Line Tools SDK as the cc sysroot). This file records the host tools that
-decision actually pulls in, so they are owned debt rather than accidents.
+macOS arm64 is deliberately not hermetic in the way Linux is: the build uses the
+host Xcode Command Line Tools SDK as the cc sysroot. This is the resulting
+host-tool list.
 
 ## Accepted
 
-| Tool | Where | Why |
+| Tool | Where | Reason |
 |---|---|---|
-| `/usr/bin/{ld,ar,nm,strip}` | `bazel/patches/haskell/rules_bazel-8_compat.patch` (darwin branch) | Mach-O `ld -r` merge-objects has no drop-in `lld` equivalent for GHC's `-pgmlm`. The Linux side keeps the `llvm-*` tools from `@llvm`. |
-| `/usr/bin/{install_name_tool,otool}` | `bazel/patches/haskell/rules_haskell-darwin-cc-wrapper-otool.patch` | `@llvm`'s minimal toolchain ships no Mach-O equivalents. |
-| `/usr/bin/codesign` | `rules_haskell` `cc_wrapper.py` fallback, and `bazel_tools/packaging/package-app.sh` | Ad-hoc signing has no hermetic substitute. |
-| CLT SDK `libncurses` | `llvm_osx.libraries(names = [...])` in `MODULE.bazel` | macOS has no libtinfo; the deb9 ncurses 5.9 build is Linux-only. |
-| OS libraries under `/usr/lib`, `/System/Library` | `package-app.sh` `is_in_dyld_shared_cache` | They live in the dyld shared cache and have no file on disk to bundle; the reference is kept absolute. |
+| `/usr/bin/{ld,ar,nm,strip}` | `rules_bazel-8_compat.patch`, darwin branch | Mach-O `ld -r` merge-objects has no `lld` equivalent for GHC's `-pgmlm`. Linux keeps `llvm-*` from `@llvm`. |
+| `/usr/bin/{install_name_tool,otool}` | `rules_haskell-darwin-cc-wrapper-otool.patch` | `@llvm`'s minimal toolchain ships no Mach-O equivalents. |
+| `/usr/bin/codesign` | `rules_haskell` `cc_wrapper.py` fallback; `package-app.sh` | No hermetic substitute for ad-hoc signing. |
+| CLT SDK `libncurses` | `llvm_osx.libraries` in `MODULE.bazel` (`104cf03adf`) | macOS has no libtinfo; the deb9 ncurses 5.9 build is Linux-only. |
+| `/usr/lib`, `/System/Library` libraries | `package-app.sh` `is_in_dyld_shared_cache` (`c4087a8712`) | In the dyld shared cache, no file on disk to bundle. Reference kept absolute. |
+| `readlink -f` | `package-app.sh`, `package-oci-component.sh`, darwin branch (`bd9ab767a3`) | Replaced a `python` shim. Needs macOS 12.3+; toolchain pins `-mmacosx-version-min=14.0`. Build-host only; the shipped wrapper's `readlink -f` is in the Linux branch. |
 
-## Consequence worth remembering
+## Still hermetic on darwin
 
-`--with-strip` resolving to CLT `strip` is what made the Mach-O signature bug
-reachable at all. Apple's `install_name_tool`/`strip` silently re-sign a Mach-O
-only while it still carries the linker's own signature (`flags=0x20002
-adhoc,linker-signed`); once `codesign -f -s -` has replaced it with a plain
-adhoc signature (`flags=0x2`), those tools warn and leave the file **invalid**,
-and Apple Silicon then SIGKILLs any process that loads it.
+cc toolchain (`@llvm` 22.1.8), GHC 9.0.2 bindist, `make`, `m4`, `autoconf`,
+`automake`, `perl`, `python`, `tar` — all from-source or bindist, same as Linux.
 
-The fix keeps the linker signature instead of re-signing — see
-`bazel/patches/haskell/rules_haskell-darwin-keep-linker-signature.patch` and the
-WP-5 section of `.bzlmigration/plan.md`. Any future step that modifies a Mach-O
-after linking must either preserve the linker-signed flag or re-sign as its very
-last action.
+## Invariant
 
-## Not accepted / still hermetic on darwin
+`--with-strip` resolving to CLT `strip` is what makes the Mach-O signature bug
+reachable.
 
-- cc toolchain: `@llvm` 22.1.8, same as Linux.
-- GHC 9.0.2: hermetic `aarch64-apple-darwin` bindist.
-- `make`, `m4`, `autoconf`, `automake`, `perl`, `python`, `tar`: all from-source
-  or bindist, same as Linux.
+`install_name_tool` and `strip` re-sign a Mach-O only while it carries the
+linker's signature (`flags=0x20002 adhoc,linker-signed`). After
+`codesign -f -s -` replaces it with plain adhoc (`flags=0x2`), both warn and
+leave the file invalid; Apple Silicon SIGKILLs any process that loads it.
+
+Any step modifying a Mach-O after linking must preserve the linker-signed flag
+or re-sign last. See `3c5c5c8d72`.
