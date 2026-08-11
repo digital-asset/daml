@@ -1,132 +1,113 @@
-# Post-mortem — `bazel build //...` green on macOS arm64
+# Post-mortem — `bazel build //...` on macOS arm64
 
-Companion to `.bzlstatus/post-mortem.md` (the Linux campaign). Same structure,
-scoped to the macOS/arm64 half.
+Companion to `.bzlstatus/post-mortem.md` (Linux campaign).
 
-## TL;DR
+## Outcome
 
-`bazelisk build //...` exits 0 on macOS arm64: **2096 targets, 0 failures**,
-reproduced on a second fully-cached run. Eight `--keep_going` sweeps took it
-from 7 distinct root causes to zero.
+`bazelisk build //...` exits 0: 2096 targets, 0 failures, stable across a
+second fully-cached run. `bazel test //...` was not in scope.
 
-Two findings dominate; everything else was portability sediment.
+## Finding 1 — Mach-O code-signing invariant
 
-1. **A code-signing invariant nobody states.** Apple's `install_name_tool` and
-   `strip` silently re-sign a Mach-O *only* while it still carries the linker's
-   own signature (`flags=0x20002 adhoc,linker-signed`). Once `codesign -f -s -`
-   replaces it with a plain adhoc signature (`flags=0x2`), those same tools
-   print a warning and leave the file **invalid** — and Apple Silicon then
-   `SIGKILL`s any process that loads it, with no diagnostic anywhere in the
-   build.
-2. **Every "fix it in one place" bug had a second copy.** Three separate
-   instances, each of which cost a full sweep to rediscover.
+`install_name_tool` and `strip` re-sign a Mach-O only while it carries the
+linker's signature (`flags=0x20002 adhoc,linker-signed`). After
+`codesign -f -s -` replaces it with plain adhoc (`flags=0x2`), both tools warn
+and leave the file invalid. Apple Silicon SIGKILLs any process that loads it.
 
-## The signing invariant, in detail
+Symptom: `HaskellCabalLibrary` actions dying with `died with <Signals.SIGKILL: 9>`
+and no other output.
 
-Symptom: three `HaskellCabalLibrary` actions died with
-`Command '[... runghc ... Setup.hs build ...]' died with <Signals.SIGKILL: 9>`
-and nothing else. No stderr, no linker error.
+Evidence:
 
-Evidence chain:
-
-- `codesign -v` over the built tree: **130 of 207** `libHS*.dylib` invalid
-  ("code or signature have been modified").
-- The split was exact: every `0x20002 (linker-signed)` file was valid, every
-  `0x2 (adhoc)` file was invalid.
-- `/Library/Logs/DiagnosticReports/ghc-*.ips`:
-  `exception.signal = "SIGKILL (Code Signature Invalid)"`,
+- `codesign -v` over the output tree: 130/207 `libHS*.dylib` invalid.
+- Split exact: every `0x20002` valid, every `0x2` invalid.
+- `/Library/Logs/DiagnosticReports/ghc-*.ips` —
+  `signal = "SIGKILL (Code Signature Invalid)"`,
   `termination.namespace = "CODESIGNING"`, `indicator = "Invalid Page"`,
-  faulting thread inside `dyld4::APIs::dlopen_from`.
-- Reproduced standalone: `strip -x` on a linker-signed dylib → still valid;
-  `codesign -f -s -` then `strip -x` → invalid, with the warning.
+  faulting thread `dyld4::APIs::dlopen_from`.
+- Standalone repro: `strip -x` on linker-signed → valid;
+  `codesign -f -s -` then `strip -x` → invalid.
 
-Why only three packages: static linking never validates signatures. GHC only
-`dlopen`s dependency dylibs when it has to **run** Template Haskell — which is
-exactly `lsp-types`, `path-io` (via `path`'s quasi-quoters) and `parsers`.
-`path`, which merely *defines* TH, built fine.
+Scope: static linking never validates signatures. GHC `dlopen`s dependency
+dylibs only to *run* Template Haskell, so only `lsp-types`, `path-io` (via
+`path`'s quasi-quoters) and `parsers` failed. `path`, which only defines TH,
+built.
 
-Two producers of the `0x2` state, so the first fix was necessary but not
-sufficient:
+Producers of the `0x2` state:
 
-| Producer | Then invalidated by |
+| Producer | Invalidated by |
 |---|---|
-| `cc_wrapper.py` re-signing after rewriting load commands | Cabal's `copy` running `--with-strip` |
-| same | GHC's own `-pgminstall_name_tool` rpath injection |
+| `cc_wrapper.py` re-signing after rewriting load commands | Cabal `copy` running `--with-strip` |
+| same | GHC `-pgminstall_name_tool` rpath injection |
 
-**Fix chosen: stop creating the condition.** `cc_wrapper`'s
-`install_name_tool`+`codesign` pair existed *only* to serve an rpath-shortening
-optimisation in `darwin_shorten_rpaths`, which rewrote `LC_LOAD_DYLIB` entries
-to `@rpath/<mangled-dir>/<lib>` so one `LC_RPATH` could replace several. The
-dylibs already carry `@rpath/<basename>` install names, so
-`rules_haskell-darwin-keep-linker-signature.patch` emits one rpath per directory
-a dependency was actually found in and returns an empty rewrite list. Neither
-tool runs, the linker signature survives, and Apple's tools keep self-re-signing
-downstream. Result: **753/753 distinct dylibs valid**.
+Fix `3c5c5c8d72` — `rules_haskell-darwin-keep-linker-signature.patch`.
+`cc_wrapper`'s `install_name_tool`+`codesign` pair existed only to serve an
+rpath-shortening optimisation in `darwin_shorten_rpaths` (rewriting
+`LC_LOAD_DYLIB` to `@rpath/<mangled-dir>/<lib>` so one `LC_RPATH` replaces
+several). Dylibs already carry `@rpath/<basename>` install names, so the patch
+emits one rpath per directory a dependency was found in and returns an empty
+rewrite list. `darwin_rewrite_load_commands` short-circuits on its existing
+`if args:`; neither tool runs. Result: 753/753 distinct dylibs valid.
 
-`rules_haskell-darwin-cabal-resign.patch` (re-sign every Mach-O under `pkgroot`
-as the last step of `cabal_wrapper.py`) is retained as a safety net. It fixed
-the Cabal family on its own (77/207 → 210/210) before the structural fix landed.
+`rules_haskell-darwin-cabal-resign.patch` re-signs every Mach-O under `pkgroot`
+as `cabal_wrapper.py`'s last step. Fixed the Cabal family alone (77/207 →
+210/210). Redundant once keep-linker-signature landed; retained as fallback.
 
-## The "second copy" pattern
+Upstream deviation in keep-linker-signature: the original filtered out
+libraries with absolute install names before adding an rpath; the patch adds it
+whenever anything was found. Costs one or two redundant `LC_RPATH` entries and
+widens the basename-collision surface. No failures or collisions observed.
 
-| Concept | Copy A | Copy B | Cost |
+## Finding 2 — one concept, two copies
+
+| Concept | Fixed copy | Stale copy | Cost |
 |---|---|---|---|
-| Absolutize execroot-relative toolchain flags | `hermetic_cc.bzl` `_PATH_PREFIXES` (fixed earlier, bug #5) | `ghc_lib_sdist.bzl` `_execroot_abs_flag` — missing `--sysroot=` | 1 sweep |
-| `ghc-pkg` location in the darwin bindist | `compiler/damlc/util.bzl` `_GHC_PKG_UNIX` (fixed earlier, bug #4) | `Packaging.hs` `ghcPkgSubpath` — still `lib/lib/bin` | 1 sweep, 121 targets |
-| Re-sign after modifying a Mach-O | `cabal_wrapper.py` | `haskell_library` link path | 1 sweep |
+| Absolutize execroot-relative flags | `hermetic_cc.bzl` `_PATH_PREFIXES` | `ghc_lib_sdist.bzl` `_execroot_abs_flag`, missing `--sysroot=` | 1 build round |
+| darwin `ghc-pkg` location | `compiler/damlc/util.bzl` `_GHC_PKG_UNIX` | `Packaging.hs` `ghcPkgSubpath`, `lib/lib/bin` | 1 build round, 121 targets |
+| Re-sign after modifying a Mach-O | `cabal_wrapper.py` | `haskell_library` link path | 1 build round |
 
-The `Packaging.hs` copy even carried the comment *"See `compiler/damlc/util.bzl`
-for the corresponding Bazel-side label"* — the pointer existed, the sync did not.
+`Packaging.hs` carried a comment referring to `compiler/damlc/util.bzl` as its
+counterpart.
 
-Recorded as debt in
-`.bzlremaining/improvements/duplicated-execroot-flag-absolutization.md`.
+See `.bzlremaining/improvements/duplicated-execroot-flag-absolutization.md`.
 
-## The sediment (one line each)
+## Fix inventory
 
-| Fix | Was |
+| Commit | Change |
 |---|---|
-| `build_gnu_tool.bzl`, `configure_make.bzl` | `nproc` (absent) and GNU `sed -i` (BSD reads the next arg as a backup suffix) |
-| `ghc_lib_sdist.bzl` | 4× GNU `sed -i`; `cp -rLt`; missing `chmod -R u+w` after copying read-only outputs |
-| `daml_finance.BUILD.bzl` | GNU `tar --transform/--sort/--no-selinux`; now stages + uses `//bazel_tools/sh:mktgz` |
-| `dpm.bzl` | `sha256sum` not on the action PATH |
-| `package-app.sh`, `package-oci-component.sh` | `python` (gone since macOS 12.3) on the Darwin branch |
-| `package-app.sh` | bundling `/usr/lib/*.dylib` — those live only in the dyld shared cache |
-| `pkg-db/util.bzl` | `cp --remove-destination`; naive `cp -f` is *wrong* here (writes through the symlink) |
-| `docs/BUILD.bazel`, `typedoc.bzl`, `ghc-lib*/BUILD.bazel` | GNU `sed -i` / `cp --no-preserve=mode -t`, fixed pre-emptively |
-| `//bazel/haskell/toolchain:tinfo` | deb9 ncurses is Linux-only; gated `target_compatible_with`, `libncurses` added to the `@llvm` sysroot |
+| `004c3acc12` | `nproc` → `$JOBS`; GNU `sed -i` → `sed -i.bak` in `build_gnu_tool.bzl`, `configure_make.bzl` |
+| `2a0d6d9d06` | `-j` handling flagged unresolved |
+| `e8a7d54743` | `sha256sum`, `cp --remove-destination`, `cp --no-preserve=mode -t`, GNU `sed -i` in `docs/`, `typedoc.bzl` |
+| `323e4bc1eb` | `@daml-finance` tarballs: `tar --transform` → staging + `mktgz` |
+| `bd9ab767a3` | `python` shims removed from `package-app.sh`, `package-oci-component.sh` |
+| `c4087a8712` | `package-app.sh`: skip dyld-shared-cache libraries when bundling |
+| `104cf03adf` | tinfo gated to Linux; `libncurses` into `@llvm` sysroot; `runtime_libs.bzl` |
+| `3c5c5c8d72` | Mach-O signing patches |
+| `d40ed942d2` | `ghc_lib_sdist.bzl`: `--sysroot=`, `cp -rLt`, `chmod -R u+w`, `environ` shim and `-optl-no-pie` gated to Linux |
+| `0083165a29` | `Packaging.hs` darwin `ghc-pkg` path |
 
-## Linux exposure
+## Linux-affecting changes
 
-Everything is either Darwin-branch-only, constraint-gated, or
-behaviour-preserving. Three items genuinely change Linux command lines and need
-the Linux run to confirm:
+Three items change Linux command lines. Everything else is Darwin-branch-only,
+constraint-gated, or output-preserving.
 
-- `make -j$(nproc)` → `make -j"$JOBS"`. The substitution failed *silently* on
-  macOS only; on Linux this adds a fallback and nothing else.
-- `sed -i` → `sed -i.bak … && rm -f`. Same result, one extra unlink.
-- `@daml-finance` tarballs now come from hermetic bsdtar via `mktgz` rather than
-  host GNU tar. Bytes differ; the sole consumer (`templates/BUILD.bazel`)
-  untars them immediately, so only content matters.
+| Change | Linux effect |
+|---|---|
+| `make -j$(nproc)` → `make -j"$JOBS"` | None. Substitution failed only on macOS; Linux gains a fallback. |
+| `sed -i` → `sed -i.bak … && rm -f` | Same output, one extra unlink per file. |
+| `@daml-finance` tarballs via `mktgz` | Bytes differ: ordering no longer pinned by `--sort=name`, owner/group 1000 → 0. Sole consumer `templates/BUILD.bazel` untars immediately. |
 
-`bazel/haskell/runtime_libs.bzl` centralises the runtime-lib path export. It
-emits a **byte-identical** `LD_LIBRARY_PATH` line on Linux and a
-`DYLD_LIBRARY_PATH` one on darwin — added so that gating `:tinfo` to Linux would
-not silently turn seven `daml-script` targets incompatible-and-skipped on macOS,
-which would have read as a false green.
+`bazel/haskell/runtime_libs.bzl` centralises the runtime-lib path export:
+byte-identical `LD_LIBRARY_PATH` on Linux (checked against every original
+string), `DYLD_LIBRARY_PATH` on darwin. Required because gating `:tinfo` to
+Linux would otherwise make seven `daml-script` targets incompatible and
+silently skipped on macOS.
 
-## What to copy next time
+## Open items
 
-- **Get the crash report.** `/Library/Logs/DiagnosticReports/*.ips` named the
-  cause (`CODESIGNING / Invalid Page`) in one step, after a lot of speculation
-  had gone nowhere.
-- **Verify the artifact, not the action.** `codesign -v` across the output tree
-  turned an intermittent-looking SIGKILL into a 130-of-207 census with an exact
-  flag correlation.
-- **Generate patches with `diff`.** Two hand-written hunk headers were short by
-  one line; `patch` truncates the appended block silently and the result only
-  fails much later.
-- **When a fix has a "corresponding" comment, grep for the other side.**
-
-## Out of scope
-
-`bazel test //...` was never in scope (per `HANDOFF.md` §1). Build parity only.
+| Item | Reference |
+|---|---|
+| `-j` handling | `.bzlremaining/todo/job-count-detection.md` |
+| Flag-absolutization duplication | `.bzlremaining/improvements/duplicated-execroot-flag-absolutization.md` |
+| Accepted host tools | `.bzlremaining/improvements/darwin-host-tool-hermeticity.md` |
+| `is_darwin` (host detection) drives target-affecting decisions in `runtime_libs.bzl`, `bazel/haskell/toolchain/BUILD.bazel` | `.bzlremaining/todo/remove-os-info.md` |
