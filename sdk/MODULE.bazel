@@ -54,6 +54,8 @@ single_version_override(
         "//bazel/patches:haskell/rules_haskell-cc-wrapper-inject.patch",
         "//bazel/patches:haskell/rules_haskell-darwin-merge-objects-arch.patch",
         "//bazel/patches:haskell/rules_haskell-darwin-cc-wrapper-otool.patch",
+        "//bazel/patches:haskell/rules_haskell-darwin-cabal-resign.patch",
+        "//bazel/patches:haskell/rules_haskell-darwin-keep-linker-signature.patch",
     ],
 )
 
