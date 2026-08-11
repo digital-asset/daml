@@ -170,8 +170,9 @@ genrule(
 
     cp $(location configs/html/conf.py) $$DIR/docs/configs/html
     cp $(location configs/pdf/conf.py) $$DIR/docs/configs/pdf
-    sed -i "s,__VERSION__,"{sdk}"," $$DIR/docs/configs/html/conf.py
-    sed -i "s,__VERSION__,"{sdk}"," $$DIR/docs/configs/pdf/conf.py
+    sed -i.bak "s,__VERSION__,"{sdk}"," $$DIR/docs/configs/html/conf.py
+    sed -i.bak "s,__VERSION__,"{sdk}"," $$DIR/docs/configs/pdf/conf.py
+    rm -f $$DIR/docs/configs/html/conf.py.bak $$DIR/docs/configs/pdf/conf.py.bak
     cp $(location index) $$DIR/docs/source/index.rst
 
     cp $(location configs/pdf/logo.png) $$DIR/docs/configs/pdf
