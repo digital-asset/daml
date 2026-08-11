@@ -3,6 +3,7 @@
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@os_info//:os_info.bzl", "is_linux_intel", "is_windows")
+load("//bazel/haskell:runtime_libs.bzl", "DAMLC_RUNTIME_LIBS", "DAMLC_RUNTIME_LIB_PATH_EXPORT")
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//bazel_tools/packaging:packaging.bzl", "package_app", "package_oci_component")
 load("//bazel_tools/runfiles:defs.bzl", "add_data")
@@ -341,21 +342,20 @@ genrule(
     srcs = ["//compiler/damlc/daml-prim-src"],
     outs = ["daml-prim.json"],
     cmd = """
-        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
+        {lib_path_export}
         $(location //compiler/damlc:damlc-compile-only) -- docs \
             --output=$(OUTS) \
             --package-name=daml-prim \
             --format=Json \
             -Wno-deprecated-exceptions \
-            --target={} \
+            --target={target} \
             $(locations //compiler/damlc/daml-prim-src)
-    """.format(LF_DOCS_VERSION),
-    tools = [
-        "//bazel/haskell/toolchain:libtinfo.so.5",
+    """.format(
+        lib_path_export = DAMLC_RUNTIME_LIB_PATH_EXPORT,
+        target = LF_DOCS_VERSION,
+    ),
+    tools = DAMLC_RUNTIME_LIBS + [
         "//compiler/damlc:damlc-compile-only",
-        "@bzip2//:libs",
-        "@gmp//:libs",
-        "@libz//:libs",
     ],
 )
 
@@ -364,21 +364,20 @@ genrule(
     srcs = ["//compiler/damlc/daml-stdlib-src"],
     outs = ["daml-stdlib.json"],
     cmd = """
-        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
+        {lib_path_export}
         $(location //compiler/damlc:damlc-compile-only) -- docs \
             --output=$(OUTS) \
             --package-name=daml-stdlib \
             --format=Json \
             -Wno-deprecated-exceptions \
-            --target={} \
+            --target={target} \
             $(locations //compiler/damlc/daml-stdlib-src)
-    """.format(LF_DOCS_VERSION),
-    tools = [
-        "//bazel/haskell/toolchain:libtinfo.so.5",
+    """.format(
+        lib_path_export = DAMLC_RUNTIME_LIB_PATH_EXPORT,
+        target = LF_DOCS_VERSION,
+    ),
+    tools = DAMLC_RUNTIME_LIBS + [
         "//compiler/damlc:damlc-compile-only",
-        "@bzip2//:libs",
-        "@gmp//:libs",
-        "@libz//:libs",
     ],
 )
 
@@ -397,7 +396,7 @@ genrule(
         "daml-base-hoogle.txt",
     ],
     cmd = """
-        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${{LD_LIBRARY_PATH:-}}"
+        {lib_path_export}
         $(location //compiler/damlc:damlc-compile-only) -- docs \\
             --output=daml-base-rst \\
             --input-format=json \\
@@ -411,17 +410,16 @@ genrule(
             --no-input-anchor \\
             --output-hoogle=$(location :daml-base-hoogle.txt) \\
             --output-anchor=$(location :daml-base-anchors.json) \\
-            --target={} \\
+            --target={target} \\
             $(location :daml-stdlib.json) $(location :daml-prim.json)
         $(execpath //bazel_tools/sh:mktgz) $(location :daml-base-rst.tar.gz) daml-base-rst
-    """.format(LF_DOCS_VERSION),
-    tools = [
-        "//bazel/haskell/toolchain:libtinfo.so.5",
+    """.format(
+        lib_path_export = DAMLC_RUNTIME_LIB_PATH_EXPORT,
+        target = LF_DOCS_VERSION,
+    ),
+    tools = DAMLC_RUNTIME_LIBS + [
         "//bazel_tools/sh:mktgz",
         "//compiler/damlc:damlc-compile-only",
-        "@bzip2//:libs",
-        "@gmp//:libs",
-        "@libz//:libs",
     ],
 )
 
