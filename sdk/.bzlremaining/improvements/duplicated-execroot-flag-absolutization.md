@@ -1,33 +1,29 @@
 # Duplicated execroot flag absolutization
 
-## Context
+## What
 
-Several from-source rules `cd` into a temporary build directory before invoking
-the C compiler. Bazel's cc-toolchain emits execroot-*relative* flags
-(`external/...`, `bazel-out/...`), so each of those rules rewrites them to
-absolute paths before handing them to `./configure` and friends.
+From-source rules `cd` into a temp build dir before invoking the C compiler.
+The cc-toolchain emits execroot-relative flags (`external/...`,
+`bazel-out/...`), so each rule rewrites them to absolute paths first. Two
+independent implementations:
 
-That rewrite exists **twice**, in two independent implementations:
-
-| Location | Symbol | Absolute form |
+| File | Symbol | Absolute form |
 |---|---|---|
-| `bazel/native/hermetic_cc.bzl` | `_PATH_PREFIXES` / `_abs()` | `$EXECROOT/...` (shell, expanded at action time) |
-| `bazel/haskell/ghc_lib_sdist.bzl` | `_execroot_abs_flag()` | `__EXECROOT__/...` (placeholder, `sed`-substituted at action time) |
+| `bazel/native/hermetic_cc.bzl` | `_PATH_PREFIXES` / `_abs()` | `$EXECROOT/...`, shell-expanded at action time |
+| `bazel/haskell/ghc_lib_sdist.bzl` | `_execroot_abs_flag()` | `__EXECROOT__/...`, `sed`-substituted at action time |
 
-The prefix lists are **not** the same:
+Prefix lists differ:
 
 - `hermetic_cc.bzl`: `-L -B -I -F -iquote --sysroot=`
-- `ghc_lib_sdist.bzl`: `-isystem -iquote -idirafter -I -L -B -F --sysroot=` + a
-  `""` catch-all for bare relative tokens
+- `ghc_lib_sdist.bzl`: `-isystem -iquote -idirafter -I -L -B -F --sysroot=` plus
+  a `""` catch-all for bare relative tokens
 
-## Why this matters
+## Failure mode
 
-The identical bug had to be found and fixed twice. On macOS the `@llvm`
-toolchain emits **both** `--sysroot={path}` (one token) and `-isysroot {path}`
-(two tokens). The two-token form is absolutized by the bare-path rule; the
-`--sysroot=` form is a single token and needs its own prefix entry. Missing it
-leaves a relative `--sysroot`, which overrides the correct absolute `-isysroot`
-for `ld64.lld`'s library search, and the only symptom is:
+On macOS `@llvm` emits both sysroot forms. `-isysroot <path>` is two tokens, so
+the bare path hits the catch-all. `--sysroot=external/...` is one token and
+needs its own prefix entry. Without it the sysroot stays relative and overrides
+the correct absolute `-isysroot` for `ld64.lld`'s library search:
 
 ```
 ld64.lld: error: library not found for -lSystem
@@ -36,22 +32,26 @@ ld64.lld: error: framework not found for -framework Foundation
 configure: error: C compiler cannot create executables
 ```
 
-Fixed in `hermetic_cc.bzl` first (recorded as bug #5 in `.bzlmigration/plan.md`),
-then again, independently, in `ghc_lib_sdist.bzl`.
+`ghc_lib_sdist.bzl` deletes its build dir via `trap ... EXIT`, so `config.log`
+is not preserved on failure.
 
-Latent on Linux either way: there `sysroot_flags` is `empty_sysroot_flags`, so
-no `--sysroot` token is ever emitted.
+Latent on Linux: `sysroot_flags` is `empty_sysroot_flags` there, so no
+`--sysroot` token is emitted.
 
-## Why it was not unified now
+## Status
 
-Merging the two lists would change flag handling on the Linux path
-(`hermetic_cc.bzl` currently handles neither `-isystem`/`-idirafter` nor bare
-relative tokens) for no macOS benefit, and the macOS work is under a hard
-"Linux must stay green" constraint.
+| Copy | Fixed in |
+|---|---|
+| `hermetic_cc.bzl` | earlier session; `--sysroot=` added to `_PATH_PREFIXES` |
+| `ghc_lib_sdist.bzl` | `d40ed942d2` |
 
-## Suggested improvement
+Not unified: merging the lists changes Linux flag handling, since
+`hermetic_cc.bzl` handles neither `-isystem`/`-idirafter` nor bare relative
+tokens.
 
-Move the prefix list and the rewrite into one shared helper, parameterised by
-the absolute prefix (`$EXECROOT` vs `__EXECROOT__`), and adopt it in both rules
-in a Linux-verified change of its own. Any third from-source rule that needs to
-`cd` before compiling should use that helper rather than a third copy.
+## Remaining work
+
+One helper holding the prefix list and rewrite, parameterised by absolute
+prefix (`$EXECROOT` vs `__EXECROOT__`), adopted in both rules under Linux
+verification. Any further from-source rule that `cd`s before compiling uses it
+rather than a third copy.
