@@ -3,6 +3,7 @@
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@build_environment//:configuration.bzl", "ghc_version")
+load("//bazel/haskell:runtime_libs.bzl", "DAMLC_RUNTIME_LIBS", "DAMLC_RUNTIME_LIB_PATH_EXPORT")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION")
 load("//daml-script/daml/daml-script-stable:stable-packages.bzl", "SCRIPT_STABLE_PACKAGES")
 load("//rules_daml:daml.bzl", "daml_compile")
@@ -55,7 +56,7 @@ genrule(
         "daml-script-anchors.json",
     ],
     cmd = """
-        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $(location @bzip2//:libs)):$$(dirname $(location //bazel/haskell/toolchain:libtinfo.so.5)):$${LD_LIBRARY_PATH:-}"
+        {lib_path_export}
         $(location //compiler/damlc) -- docs \
             --output=daml-script-rst \
             --input-format=json \\
@@ -70,13 +71,9 @@ genrule(
             -Wno-deprecated-exceptions \\
             $(location //daml-script/daml/daml-script:daml-script.json)
         $(execpath //bazel_tools/sh:mktgz) $(location :daml-script-rst.tar.gz) daml-script-rst
-    """,
-    tools = [
-        "//bazel/haskell/toolchain:libtinfo.so.5",
+    """.format(lib_path_export = DAMLC_RUNTIME_LIB_PATH_EXPORT),
+    tools = DAMLC_RUNTIME_LIBS + [
         "//bazel_tools/sh:mktgz",
         "//compiler/damlc",
-        "@bzip2//:libs",
-        "@gmp//:libs",
-        "@libz//:libs",
     ],
 )
