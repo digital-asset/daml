@@ -1,5 +1,5 @@
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
-load("//bazel/native:hermetic_cc.bzl", "TOOLBIN_SNIPPET", "hermetic_cc_flags")
+load("//bazel/native:hermetic_cc.bzl", "JOBS_SNIPPET", "TOOLBIN_SNIPPET", "hermetic_cc_flags")
 
 InstalledGnuToolInfo = provider(
     doc = "Paths within a GNU tool install prefix.",
@@ -49,6 +49,7 @@ def _build_gnu_tool_impl(ctx):
         'export CPPFLAGS="{}"'.format(cc.cflags),
         'export LDFLAGS="{}"'.format(cc.ldflags),
         TOOLBIN_SNIPPET,
+        JOBS_SNIPPET,
         'MAKE="$EXECROOT/{}"'.format(make_bin.path),
         'SRC="$EXECROOT/$(dirname {})"'.format(configure_src.path),
     ]
@@ -98,7 +99,7 @@ def _build_gnu_tool_impl(ctx):
                 'echo "=== Pre-building from {} ==="'.format(dep_configure.dirname),
                 'cd "$EXECROOT/$(dirname {})"'.format(dep_configure.path),
                 '{}./configure --prefix="$PREFIX"'.format('PERL="$PERL" ' if perl_bin else ""),
-                '"$MAKE" -j$(nproc) install',
+                '"$MAKE" -j"$JOBS" install',
                 'cd "$EXECROOT"',
             ]))
 
@@ -119,23 +120,26 @@ def _build_gnu_tool_impl(ctx):
             'PERL="$PERL" ' if perl_bin else "",
             configure_flags,
         ),
-        '"$MAKE" -j$(nproc) install',
+        '"$MAKE" -j"$JOBS" install',
         "",
         "# Fix shebangs to be relocatable (use env perl instead of hardcoded path).",
         'for f in "$PREFIX/bin/"*; do',
         '    [ -f "$f" ] || continue',
         '    if head -1 "$f" | grep -q perl; then',
-        "        sed -i '1s|#!.*perl.*|#!/usr/bin/env perl|' \"$f\"",
+        "        sed -i.bak '1s|#!.*perl.*|#!/usr/bin/env perl|' \"$f\" && rm -f \"$f.bak\"",
         "    fi",
         "done",
         "",
         "# Replace hardcoded sandbox-absolute paths with a relocatable placeholder so",
         "# consumers can restore them with a single sed 's|__EXECROOT__|'\"$PWD\"'|g'.",
-        'find "$PREFIX" -type f | while IFS= read -r pf; do',
+        'FILELIST="$(mktemp)"',
+        'find "$PREFIX" -type f > "$FILELIST"',
+        "while IFS= read -r pf; do",
         '    if grep -Iq . "$pf"; then',
-        '        sed -i "s|$EXECROOT|__EXECROOT__|g" "$pf"',
+        '        sed -i.bak "s|$EXECROOT|__EXECROOT__|g" "$pf" && rm -f "$pf.bak"',
         "    fi",
-        "done",
+        'done < "$FILELIST"',
+        'rm -f "$FILELIST"',
     ]
     command = "\n".join(env_lines + body)
 
