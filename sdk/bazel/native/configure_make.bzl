@@ -1,5 +1,5 @@
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
-load("//bazel/native:hermetic_cc.bzl", "TOOLBIN_SNIPPET", "hermetic_cc_flags")
+load("//bazel/native:hermetic_cc.bzl", "JOBS_SNIPPET", "TOOLBIN_SNIPPET", "hermetic_cc_flags")
 
 # Runs ./configure && make && make install at action time on the hermetic cc
 # toolchain. CC/CFLAGS/CPPFLAGS/LDFLAGS (+ a binutils tool dir) carry the
@@ -49,6 +49,7 @@ def _configure_make_impl(ctx):
         'export BUILD_CFLAGS="{}"'.format(cc.cflags),
         'export BUILD_LDFLAGS="-fuse-ld=lld {}"'.format(cc_exe.ldflags),
         TOOLBIN_SNIPPET,
+        JOBS_SNIPPET,
         'MAKE="$EXECROOT/{}"'.format(make_bin.path),
         # configure runs bare `make` for its own probes; expose the hermetic one
         # (the sandbox has no host make). $TOOLBIN is already on PATH.
@@ -77,7 +78,7 @@ def _configure_make_impl(ctx):
         'cd "$BUILD"',
         "chmod +x ./configure",
         './configure --prefix="$PREFIX" {}'.format(flags),
-        '"$MAKE" -j$(nproc)',
+        '"$MAKE" -j"$JOBS"',
         '"$MAKE" install',
     ] + copy_lines + ['rm -rf "$TMP"']
 
