@@ -139,7 +139,7 @@ def _daml_package_rule_impl(ctx):
       cp -a $IFACE_DIR/{pkg_root}/* {iface_dir}
 
       # we resolve symlink into actual file to avoid issues on MacOS
-      find {iface_dir} -type l -exec bash -c 'for link; do cp --remove-destination "$(readlink $link)" "$link"; done' _ {{}} +
+      find {iface_dir} -type l -exec bash -c 'for link; do target="$(readlink "$link")"; rm -f "$link"; cp "$target" "$link"; done' _ {{}} +
 
       rm -rf $IFACE_DIR
     """.format(
