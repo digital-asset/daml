@@ -9,6 +9,9 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-08-12 (Exclusive)
+- Improved engine handing of UnsupportedContractIdVersion
+
 ## Until 2026-07-04 (Exclusive)
 - `dpm build` now infers `--all` when invoked from a directory that contains a `multi-package.yaml` but no `daml.yaml`, instead of erroring out.
 
