@@ -1,0 +1,45 @@
+logger.info("Bootstrap start")
+
+logger.debug("Setting script commands timeout")
+console.set_command_timeout(1.minutes)
+
+nodes.all.foreach { node =>
+  logger.info(s"Waiting for ${node.name} to be running")
+  node.health.wait_for_running()
+}
+
+val synchronizerAlias = "observabilityExample"
+
+bootstrap.synchronizer(
+  synchronizerAlias,
+  sequencers = sequencers.all,
+  mediators = mediators.all,
+  synchronizerOwners = sequencers.all,
+  synchronizerThreshold = 3, // > 50% of owners (i.e., of 4 sequencers) must approve topology changes
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+)
+
+// Connect participant to synchronizer if not already done
+if (!participant1.synchronizers.list_registered().map(_._1.synchronizerAlias.unwrap).contains(synchronizerAlias)) {
+  logger.info("Connect participants to synchronizer")
+  participant1.synchronizers.connect(synchronizerAlias, "http://canton:4401")
+  participant2.synchronizers.connect(synchronizerAlias, "http://canton:4411")
+}
+
+// logger.info("Pinging between participants to make sure everything is alright")
+participant1.health.ping(participant2)
+
+// Create party "observabilityExample" and assign it to participant 2 as well
+val party = participant1.parties.enable(synchronizerAlias)
+import com.digitalasset.canton.console.ParticipantReference
+def addPartyToParticipant(partyId: PartyId, createdAt: ParticipantReference, to: ParticipantReference): Unit = {
+  Seq(createdAt, to).foreach(participant =>
+    participant.topology.party_to_participant_mappings.propose_delta(
+      partyId,
+      adds = List((to.id, ParticipantPermission.Submission)),
+    )
+  )
+}
+addPartyToParticipant(party, participant1, participant2)
+
+logger.info("Bootstrap succeeded")

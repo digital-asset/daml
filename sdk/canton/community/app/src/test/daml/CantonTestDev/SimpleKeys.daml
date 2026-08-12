@@ -1,0 +1,22 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module SimpleKeys where
+
+template SimpleKey
+  with
+    owner: Party
+    observers: [Party]
+  where
+    signatory owner
+    observer observers
+    key owner: Party
+    maintainer key
+
+    nonconsuming choice FetchWithObservers: SimpleKey
+      with
+        obs: Party
+      observer obs
+      controller owner
+      do
+        pure this

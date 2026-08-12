@@ -1,0 +1,32 @@
+module AssetFactory where
+
+import qualified DvpAssetsV1.Assets
+
+template AssetFactory
+  with
+    issuer: Party
+  where
+    signatory issuer
+
+    nonconsuming choice AssetFactory_IssueAssets: ()
+      with
+        iouOwner: Party
+        iouAmount: Decimal
+        iouVersion: Int
+        shareOwner: Party
+        shareCompany: Text
+        shareVersion: Int
+      controller issuer
+        do
+          case iouVersion of
+            1 ->
+              do
+                create DvpAssetsV1.Assets.Iou with issuer = issuer, owner = iouOwner, amount = iouAmount
+                pure ()
+            _ -> abort "Unsupported"
+          case shareVersion of
+            1 ->
+              do
+                create DvpAssetsV1.Assets.Share with registry = issuer, holder = shareOwner, company = shareCompany
+                pure ()
+            _ -> abort "Unsupported"

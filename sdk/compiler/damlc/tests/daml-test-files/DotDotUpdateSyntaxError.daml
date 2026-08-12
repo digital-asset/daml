@@ -1,0 +1,15 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module DotDotUpdateSyntaxError where
+
+import Daml.Script
+
+data D = D with f1 : Int, f2 : Int
+
+-- @ERROR range=14:17-14:17; The syntax '..' can only be used with a record constructor
+setup : Script ()
+setup = script do
+  let d1 = D 1 2
+  debug(d2 with ..)
+  return ()

@@ -1,0 +1,12 @@
+-- @ERROR range=10:9-10:12; `arg' is a prohibited field name, please use something else.
+
+module RestrictedNameChoiceArg where
+
+template Test with
+    p : Party
+  where
+    signatory p
+    choice Arg : () with
+        arg : Int
+      controller p
+      do pure ()

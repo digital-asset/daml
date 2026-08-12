@@ -1,0 +1,217 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+// **** IMPORTANT NOTICE ****
+// This is a snapshot of the ledger-api proto file as of 2025-09-24.
+// HS bindings to the ledger API are deprecated, and it is assumed that the ledger API will not introduce breaking changes
+// for package service, party management, and user management.
+// These proto definitions should not be used for any other purpose.
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2.admin;
+
+import "com/daml/ledger/api/v2/package_reference.proto";
+import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
+option java_outer_classname = "PackageManagementServiceOuterClass";
+option java_package = "com.daml.ledger.api.v2.admin";
+
+// Status: experimental interface, will change before it is deemed production
+// ready
+//
+// Query the Daml-LF packages supported by the ledger participant and upload
+// DAR files. We use 'backing participant' to refer to this specific participant
+// in the methods of this API.
+service PackageManagementService {
+  // Returns the details of all Daml-LF packages known to the backing participant.
+  rpc ListKnownPackages(ListKnownPackagesRequest) returns (ListKnownPackagesResponse);
+
+  // Upload a DAR file to the backing participant.
+  // Depending on the ledger implementation this might also make the package
+  // available on the whole ledger. This call might not be supported by some
+  // ledger implementations. Canton could be an example, where uploading a DAR
+  // is not sufficient to render it usable, it must be activated first.
+  // This call may:
+  //
+  // - Succeed, if the package was successfully uploaded, or if the same package
+  //   was already uploaded before.
+  // - Respond with a gRPC error
+  rpc UploadDarFile(UploadDarFileRequest) returns (UploadDarFileResponse);
+
+  // Performs the same checks that UploadDarFile call perform, but doesn't
+  // upload the DAR and does not make it available on the whole ledger.
+  // This call may:
+  //
+  // - Succeed if the package is valid
+  // - Respond with a gRPC error if the package is not valid
+  rpc ValidateDarFile(ValidateDarFileRequest) returns (ValidateDarFileResponse);
+
+  // Update the vetted packages of this participant
+  rpc UpdateVettedPackages(UpdateVettedPackagesRequest) returns (UpdateVettedPackagesResponse);
+}
+
+message ListKnownPackagesRequest {}
+
+message ListKnownPackagesResponse {
+  // The details of all Daml-LF packages known to backing participant.
+  // Required
+  repeated PackageDetails package_details = 1;
+}
+
+message PackageDetails {
+  // The identity of the Daml-LF package.
+  // Must be a valid PackageIdString (as describe in ``value.proto``).
+  // Required
+  string package_id = 1;
+
+  // Size of the package in bytes.
+  // The size of the package is given by the size of the ``daml_lf``
+  // ArchivePayload. See further details in ``daml_lf.proto``.
+  // Required
+  uint64 package_size = 2;
+
+  // Indicates since when the package is known to the backing participant.
+  // Required
+  google.protobuf.Timestamp known_since = 3;
+
+  // Name of the package as defined by the package metadata
+  string name = 4;
+  // Version of the package as defined by the package metadata
+  string version = 5;
+}
+
+message UploadDarFileRequest {
+  // Contains a Daml archive DAR file, which in turn is a jar like zipped
+  // container for ``daml_lf`` archives. See further details in
+  // ``daml_lf.proto``.
+  // Required
+  bytes dar_file = 1;
+
+  // Unique submission identifier.
+  // Optional, defaults to a random identifier.
+  string submission_id = 2;
+
+  enum VettingChange {
+    // Vetting change field left unspecified, defaults to vetting all the
+    // packages in the DAR.
+    VETTING_CHANGE_UNSPECIFIED = 0;
+    // Vet all the packages in the DAR.
+    VETTING_CHANGE_VET_ALL_PACKAGES = 1;
+    // Do not vet any packages in the DAR.
+    VETTING_CHANGE_DONT_VET_ANY_PACKAGES = 2;
+  }
+
+  // How to vet packages in the DAR being uploaded
+  VettingChange vetting_change = 3;
+}
+
+// A message that is received when the upload operation succeeded.
+message UploadDarFileResponse {}
+
+// Performs the same checks that UploadDarFileRequest would perform, but doesn't
+// upload the DAR.
+message ValidateDarFileRequest {
+  // Contains a Daml archive DAR file, which in turn is a jar like zipped
+  // container for ``daml_lf`` archives. See further details in
+  // ``daml_lf.proto``.
+  // Required
+  bytes dar_file = 1;
+
+  // Unique submission identifier.
+  // Optional, defaults to a random identifier.
+  string submission_id = 2;
+}
+
+message ValidateDarFileResponse {}
+
+// A change to the set of vetted packages.
+message VettedPackagesChange {
+  // Remove packages from the set of vetted packages
+  message Unvet {
+    // Packages to be unvetted.
+    //
+    // If a reference in this list matches multiple packages, they are all
+    // unvetted.
+    repeated VettedPackagesRef packages = 1;
+  }
+
+  // Set vetting bounds of a list of packages. Packages that were not previously
+  // vetted have their bounds added, previous vetting bounds are overwritten.
+  message Vet {
+    // Packages to be vetted.
+    //
+    // If a reference in this list matches more than one package, the change is
+    // considered ambiguous and the entire update request is rejected. In other
+    // words, every reference must match exactly one package.
+    repeated VettedPackagesRef packages = 1;
+
+    // Vet the packages with these bounds, prior bounds are overwritten
+    google.protobuf.Timestamp new_valid_from_inclusive = 2;
+    google.protobuf.Timestamp new_valid_until_exclusive = 3;
+  }
+
+  oneof operation {
+    // Add packages to or update packages in the set of vetted packages.
+    Vet vet = 1;
+    // Remove packages from the set of vetted packages.
+    Unvet unvet = 2;
+  }
+}
+
+// A reference to identify one or more packages.
+//
+// A reference matches a package if its ``package_id`` matches the package's ID,
+// its ``package_name`` matches the package's name, and its ``package_version``
+// matches the package's version. If any attribute is left unspecified in the
+// reference, it is treated as a wildcard. At a minimum, ``package_id`` or the
+// ``package_name`` must be specified.
+//
+// If a reference does not match any package, the reference is considered
+// unresolved and the entire update request is rejected.
+message VettedPackagesRef {
+  // Package's package id must be the same as this field.
+  string package_id = 1;
+
+  // Package's name must be the same as this field.
+  string package_name = 2;
+
+  // Package's version must be the same as this field.
+  string package_version = 3;
+}
+
+message UpdateVettedPackagesRequest {
+  // Changes to apply to the current vetting state of the participant on the
+  // specified synchronizer. The changes are applied in order.
+  // Any package not changed will keep their previous vetting state.
+  repeated VettedPackagesChange changes = 1;
+
+  // If dry_run is true, then the changes are only prepared, but not applied. If
+  // a request would trigger an error when run (e.g. TOPOLOGY_DEPENDENCIES_NOT_VETTED),
+  // it will also trigger an error when dry_run.
+  //
+  // Use this flag to preview a change before applying it.
+  bool dry_run = 2;
+
+  // The sychronizer on which the ``VettedPackages`` of this participant node
+  // should be changed.
+  string synchronizer_id = 3;
+
+  // The serial of the last ``VettedPackages`` topology transaction of this
+  // participant and on this synchronizer.
+  //
+  // Execution of the request fails if this is not correct. If the serial is
+  // left unspecified, the request always succeeds.
+  //
+  // Use this to guard against concurrent changes.
+  uint32 expected_topology_serial = 4;
+}
+
+message UpdateVettedPackagesResponse {
+  // All vetted packages on this participant and synchronizer, before the
+  // specified changes. Empty if no vetting state existed beforehand.
+  VettedPackages past_vetted_packages = 1;
+  // All vetted packages on this participant and synchronizer, after the specified changes.
+  VettedPackages new_vetted_packages = 2;
+}

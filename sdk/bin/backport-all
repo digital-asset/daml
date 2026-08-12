@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+cd "$DIR/.."
+
+if [ -n "$(git status --porcelain)" ]; then
+  echo "Working tree not clean, not doing anything."
+  #exit 1
+fi
+
+cherry=$(git rev-parse ${1:-HEAD})
+
+for v in 3.0 2.9 2.8 2.7 2.3; do
+  if [ "$v" = "2.9" ]; then
+    target=main-2.x
+  else
+    target=release/$v.x
+  fi
+  git checkout origin/$target
+  git cherry-pick $cherry
+  git push origin HEAD:refs/heads/backport-$v-${cherry:0:8}
+done
+
+git checkout main

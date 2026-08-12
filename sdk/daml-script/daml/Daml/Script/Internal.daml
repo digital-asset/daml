@@ -1,0 +1,40 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | Contains all Internal and Alpha functionality provided by Daml Script.
+-- Use these with care. No stability guarantees are given for them across SDK upgrades.
+module Daml.Script.Internal
+  ( -- Testing
+    CommandName (..)
+  , ErrorClassName (..)
+  , ErrorMessage (..)
+  , tryCommands
+  , FailedCmd (..)
+  , liftFailedCommandToFailureStatus
+
+  , -- Packages
+    PackageName (..)
+  , listVettedPackages
+  , listAllPackages
+  , vetPackages
+  , vetPackagesOnParticipant
+  , unvetPackages
+  , unvetPackagesOnParticipant
+
+  , -- Party Management
+    allocateReplicatedPartyOn
+  , allocateReplicatedPartyWithHintOn
+
+    -- Exceptions
+  , throwAnyException
+
+  , -- Internal submit error
+    ContractNotFoundAdditionalInfo
+  , isNotActive
+  , DevErrorType (..)
+
+  , -- Deprecated. Should be removed soon
+    trySubmitConcurrently
+  ) where
+
+import Daml.Script.Internal.Questions

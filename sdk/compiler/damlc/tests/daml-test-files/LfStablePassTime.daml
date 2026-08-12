@@ -1,0 +1,17 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module LfStablePassTime where
+
+import Daml.Script
+import DA.Assert ((===))
+import DA.Time
+
+-- @LEDGER run LfStablePassTime.EXPECTED.ledger
+run = script do
+  t0 <- getTime
+  passTime (seconds 100)
+  t1 <- getTime
+
+  t1 === addRelTime t0 (seconds 100)
+  pure ()

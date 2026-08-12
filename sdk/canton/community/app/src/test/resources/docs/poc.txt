@@ -1,0 +1,62 @@
+New Tooling Test
+================
+
+Let's start bla fasel.
+
+.. snippet:: getting_started
+    .. success:: Seq(1,2,3)
+    .. assert:: RES.length == 3
+    .. success:: val wurst = Seq(5,2)
+    .. assert:: RES.length == 2
+
+You can also get help for specific Canton objects and commands
+
+.. snippet:: getting_started
+    .. success:: help("participant1")
+
+Now start the nodes
+
+.. snippet:: getting_started
+    .. success:: nodes.local.start()
+
+Bootstrap the synchronizer
+
+.. snippet:: getting_started
+    .. success:: bootstrap.synchronizer(synchronizerName = "mysynchronizer",
+        sequencers = Seq(sequencer1),
+        mediators = Seq(mediator1),
+        synchronizerOwners = Seq(sequencer1, mediator1),
+        synchronizerThreshold = PositiveInt.two,
+        staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+    )
+
+Connect the participants
+
+.. snippet:: connect_and_ping
+    .. success:: nodes.local.start()
+    .. assert:: nodes.local.forall(_.is_running)
+
+Bootstrap the synchronizer
+
+.. snippet:: connect_and_ping
+    .. success:: bootstrap.synchronizer(synchronizerName = "mysynchronizer",
+        sequencers = Seq(sequencer1),
+        mediators = Seq(mediator1),
+        synchronizerOwners = Seq(sequencer1, mediator1),
+        synchronizerThreshold = PositiveInt.two,
+        staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
+    )
+
+.. snippet:: connect_and_ping
+    .. failure:: participant1.health.ping(participant2, timeout = 1.second)
+
+.. snippet:: connect_and_ping
+    .. success:: participants.all.synchronizers.connect_local(sequencer1, "mysynchronizer")
+
+And then we do
+
+.. snippet:: connect_and_ping
+    .. success:: participant2.health.ping(participant1)
+
+.. snippet:: connect_and_ping
+    .. success(output=5):: participant1.parties.list()

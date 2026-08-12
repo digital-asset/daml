@@ -1,0 +1,77 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module RecordDotUpdates where
+
+data Outer = Outer {
+  inner : Inner,
+  text : Text,
+  int : Int
+}
+
+data Inner = Inner {
+  text : Text,
+  int : Int
+}
+
+data OuterW = OuterW with
+  inner : Inner
+  text : Text
+  int : Int
+
+f : Outer -> Outer
+f o = o { text = "hello"
+        , inner.text = "world"
+        , inner.int = 42
+        , int = 31
+        }
+
+g : Outer -> Outer
+g o = o with text = "foo"
+             inner.text = "bar"
+             inner.int = 1
+             int = 2
+
+h : Outer -> Outer
+h o = o with
+
+i : OuterW -> OuterW
+i o = o { text = "hello"
+        , inner.text = "world"
+        , inner.int = 42
+        , int = 31
+        }
+
+
+x = Inner {text = "hello", int = 42}
+x' = let text = "world" in x {text}
+
+y = Outer {inner = x, text = "world", int = 21}
+y' = let text = "world" in let int = 12 in y {text, inner.text = text, int, inner.int = int}
+
+z = let Outer {..} = y in Outer {..}
+
+data One = One with two : Two
+data Two = Two with val : Int
+
+class HasDefault a where def : a
+instance HasDefault Int where def = 0
+instance HasDefault One where def = One def
+instance HasDefault Two where def = Two def
+
+q : One
+q = def {two.val = 42}
+
+-- NOTE (drsk) This is here to check that we don't colide with the local binding of the `arg`
+-- variable introduced by ghc when adding a preceding let/case expression in the record dot update.
+data X = X with
+  a : Int
+  c : Y
+
+data Y = Y with
+  r : Int
+
+fun :  Int -> X -> X
+fun arg x = x with
+  a = 1
+  c.r = arg
