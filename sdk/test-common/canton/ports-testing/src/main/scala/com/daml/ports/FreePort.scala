@@ -6,7 +6,7 @@ package com.daml.ports
 import java.io.IOException
 import java.net.{InetAddress, ServerSocket}
 
-import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.bazeltools.BazelRunfiles.rlocationExternal
 
 import scala.io.Source
 import scala.sys.process.Process
@@ -103,7 +103,7 @@ object FreePort {
   }
 
   private def macosDynamicPortRange(): Try[(Int, Int)] = Try {
-    val sysctl = rlocation("external/sysctl/bin/sysctl")
+    val sysctl = rlocationExternal("sysctl/bin/sysctl")
     val out = Process(sysctl, Seq("net.inet.ip.portrange.first", "net.inet.ip.portrange.last")).!!
     var min: Option[Int] = None
     var max: Option[Int] = None
