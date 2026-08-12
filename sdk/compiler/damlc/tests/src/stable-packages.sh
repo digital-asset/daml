@@ -36,7 +36,7 @@ $DAMLC build --target=2.dev --project-root $DIR -o $DIR/out.dar
 # The last line is the main dalf which we don’t need. We don’t need to worry about excluding daml-prim
 # and daml-stdlib since they are only pulled in when necessary and they are clearly not required for
 # an empty package
-$DIFF -u -b <($DAMLC inspect-dar $DIR/out.dar | sed '1,/following packages/d' | head -n -1) <(cat <<EOF
+$DIFF -u -b <($DAMLC inspect-dar $DIR/out.dar | sed '1,/following packages/d' | sed '$d') <(cat <<EOF
 
 daml-prim-DA-Exception-ArithmeticError-ee33fb70918e7aaa3d3fc44d64a399fb2bf5bcefc54201b1690ecd448551ba88 "ee33fb70918e7aaa3d3fc44d64a399fb2bf5bcefc54201b1690ecd448551ba88"
 daml-prim-DA-Exception-AssertionFailed-6da1f43a10a179524e840e7288b47bda213339b0552d92e87ae811e52f59fc0e "6da1f43a10a179524e840e7288b47bda213339b0552d92e87ae811e52f59fc0e"
