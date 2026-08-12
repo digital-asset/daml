@@ -3,7 +3,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "version_in")
 
@@ -577,7 +577,11 @@ export PATH="$$JAVA_BIN:$$PATH"
 rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
 DEPS=($$(rlocations {deps}))
 DATA_DEPS=($$(rlocations {data_deps}))
-JOINED_DATA_DEPS="$$(printf ',"%s"' $${{DATA_DEPS[@]}})"
+if [ $${{#DATA_DEPS[@]}} -gt 0 ]; then
+  JOINED_DATA_DEPS="$$(printf ',"%s"' $${{DATA_DEPS[@]}})"
+else
+  JOINED_DATA_DEPS=""
+fi
 echo "$$JOINED_DATA_DEPS"
 cat << EOF > $$tmpdir/daml.yaml
 build-options: [{target}]
@@ -779,7 +783,7 @@ def daml_multi_package_test(
                     echo "$$1"
                 fi
             }}
-            tar xzf $$(canonicalize_rlocation $(rootpath {dpm_tarball})) -C $$DPM_HOME --strip-components=1 --force-local
+            tar xzf $$(canonicalize_rlocation $(rootpath {dpm_tarball})) -C $$DPM_HOME --strip-components=1 {force_local}
             DPM="$$DPM_HOME/bin/dpm{cmd}"
             
             rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
@@ -789,6 +793,7 @@ def daml_multi_package_test(
         """.format(
             shorten = shorten,
             dpm_tarball = dpm_tarball,
+            force_local = "" if is_darwin else "--force-local",
             cmd = ".cmd" if is_windows else "",
             cp_srcs = "\n".join([
                 """
