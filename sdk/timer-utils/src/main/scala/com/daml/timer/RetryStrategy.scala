@@ -15,14 +15,21 @@ object RetryStrategy {
 
   /** Retry a fixed amount of times with exponential backoff, regardless of the exception thrown
     */
-  def exponentialBackoff(attempts: Int, firstWaitTime: Duration): RetryStrategy =
+  def exponentialBackoff(attempts: Int, firstWaitTime: Duration): RetryStrategy = {
+    val cap = firstWaitTime match {
+      case fd: FiniteDuration =>
+        val maxFactor = math.pow(2.0, attempts.toDouble.min(62.0))
+        fd * maxFactor
+      case other => other
+    }
     new RetryStrategy(
       Some(attempts),
       firstWaitTime,
-      firstWaitTime * math.pow(2.0, attempts.toDouble),
+      cap,
       _ * 2,
       { case _ => true },
     )
+  }
 
   /** Retry a fixed amount of times with constant wait time, regardless of the exception thrown
     */
@@ -92,8 +99,9 @@ final class RetryStrategy private (
         run(attempt, wait).recoverWith { case throwable =>
           if (attempts.exists(attempt >= _)) {
             val timeTaken = Duration.fromNanos(System.nanoTime() - startTime)
+            val attemptsStr = attempts.fold(attempt.toString)(_.toString)
             val message =
-              s"Gave up trying after $attempts attempts and ${timeTaken.toUnit(SECONDS)} seconds."
+              s"Gave up trying after $attemptsStr attempts and ${timeTaken.toUnit(SECONDS)} seconds."
             Future.failed(TooManyAttemptsException(attempt, timeTaken, message, throwable))
           } else if (predicate.lift(throwable).getOrElse(false)) {
             Delayed.Future.by(wait)(go(attempt + 1, clip(progression(wait))))
