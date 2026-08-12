@@ -26,6 +26,12 @@ trait BazelRunfiles {
     else
       path
 
+  def rlocationExternal(path: String): String =
+    if (inBazelEnvironment)
+      runfiles.rlocation(path)
+    else
+      path
+
   def rlocation(path: Path): Path =
     if (inBazelEnvironment) {
       val workspacePathString = MainWorkspacePath
