@@ -11,7 +11,6 @@ data PartyDetails = PartyDetails
   with
     party : Party -- ^ Party id
     isLocal : Bool -- ^ True if party is hosted by the backing participant.
-  deriving (Eq, Ord, Show)
 
 -- | MOVE Daml.Script
 -- A hint to the backing participant what party id to allocate.

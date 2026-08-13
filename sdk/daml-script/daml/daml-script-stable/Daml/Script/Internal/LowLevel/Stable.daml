@@ -10,7 +10,7 @@ module Daml.Script.Internal.LowLevel.Stable
   , ScriptF (..)
   ) where
 
-import Daml.Script.Internal.Free (Free)
+import Daml.Script.Internal.Free.Stable (Free)
 import DA.Stack
 
 -- Everything is a question, which has a continuation, as well as input/putput types and callstack
@@ -22,11 +22,10 @@ data Question req res a = Question with
     payload : req
     locations : [(Text, SrcLoc)]
     continue : res -> a
-  deriving Functor
 
 -- Our entire scriptF type now is just a question from LedgerValue to LedgerValue, returning a
 -- | HIDE
-newtype ScriptF a = ScriptF (Question LedgerValue LedgerValue a) deriving Functor
+newtype ScriptF a = ScriptF (Question LedgerValue LedgerValue a)
 
 -- | MOVE Daml.Script
 -- This is the type of A Daml script. `Script` is an instance of `Action`,
@@ -42,7 +41,6 @@ data Script a = Script with
       -- ^ HIDE
     -- Dummy field to make sure damlc does not consider this an old-style
     -- typeclass.
-  deriving Functor
 
 -- | HIDE
 data LedgerValue = LedgerValue {}

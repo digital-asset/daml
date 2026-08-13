@@ -16,6 +16,7 @@ module Daml.Script.Internal.LowLevel
   , getExposedCallStack
   , anyToAnyException
   , anyExceptionToAny
+  , pattern Cast
   ) where
 
 import Daml.Script.Internal.LowLevel.Stable
@@ -99,6 +100,10 @@ castQuestion = dangerousCast
 makeScriptF : (HasCallStack, IsQuestion req res) => req -> ScriptF res
 makeScriptF = ScriptF . castQuestion . makeQuestion
 
+deriving instance Functor (Question req res)
+deriving instance Functor ScriptF
+deriving instance Functor Script
+
 -- | MOVE Daml.Script
 instance CanAbort Script where
   abort s = Script (\_ -> error s) ()
@@ -166,3 +171,8 @@ anyToAnyException = dangerousCast
 -- | HIDE
 anyExceptionToAny : AnyException -> Any
 anyExceptionToAny = dangerousCast
+
+-- | HIDE
+-- Convenience pattern for casting LedgerValues in TaggedRecord construction and destruction
+pattern Cast : forall a. a -> LedgerValue
+pattern Cast v <- (fromLedgerValue -> v) where Cast v = toLedgerValue v
