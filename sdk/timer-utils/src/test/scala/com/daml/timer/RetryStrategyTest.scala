@@ -11,11 +11,10 @@ class RetryStrategyTest extends AsyncWordSpec with Matchers {
 
   "RetryStrategy.exponentialBackoff" should {
     "not throw overflow exception when attempts count is large" in {
-      // Large attempt count (e.g. 1024) causes math.pow(2.0, 1024.0) to equal Double.PositiveInfinity.
-      // Without capping, multiplying FiniteDuration * Infinity throws an overflow exception.
       noException should be thrownBy {
         RetryStrategy.exponentialBackoff(attempts = 1024, firstWaitTime = 10.millis)
       }
+      succeed
     }
 
     "format attempts count string cleanly without printing Option wrapper" in {
