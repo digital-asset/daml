@@ -4,6 +4,7 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
 exports_files([
     "pin/linux_amd64.lock.json",
+    "pin/linux_aarch64.lock.json",
     "pin/darwin_aarch64.lock.json",
 ])
 
