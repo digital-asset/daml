@@ -17,6 +17,21 @@ import Daml.Script.Internal.Questions.PartyManagement.Stable (ParticipantName (.
 import GHC.Types (primitive)
 import DA.Record
 
+-- | MOVE Daml.Script
+instance Show UserId where show (UserId text) = "'" <> text <> "'"
+
+deriving instance (Eq, Ord) UserId
+deriving instance (Show, Eq, Ord) User
+deriving instance (Show, Eq) UserRight
+deriving instance (Show, Eq) InvalidUserId
+deriving instance (Show, Eq) UserAlreadyExists
+deriving instance (Show, Eq) UserNotFound
+
+-- | MOVE Daml.Script
+-- Extract the name-text from a user identitifer.
+userIdToText : UserId -> Text
+userIdToText (UserId text) = text
+
 -- | HIDE
 mkUserId : Text -> Script (Optional Text) -> Script UserId
 mkUserId name validateScript = do

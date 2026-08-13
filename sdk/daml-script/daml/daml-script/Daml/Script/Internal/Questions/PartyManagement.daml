@@ -17,11 +17,14 @@ data AllocateParty = AllocateParty with
   requestedName: Text
   idHint : Text
   participants : [Text]
+
 -- | HIDE
 instance IsQuestion AllocateParty Party
   where
     command = "AllocateParty"
     version = 2
+
+deriving instance (Eq, Ord, Show) PartyDetails
 
 -- | MOVE Daml.Script
 -- Allocate a party with the given display name

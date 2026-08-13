@@ -5,6 +5,31 @@
 
 module Daml.Script.Internal.Questions.Submit.Stable where
 
+import DA.Map
+import Daml.Script.Internal.LowLevel.Stable
+
 -- | MOVE Daml.Script
 -- Package-id newtype for package preference
-newtype PackageId = PackageId Text deriving (Show, Eq)
+newtype PackageId = PackageId Text
+
+-- | MOVE Daml.Script
+-- Options to detemine the stakeholders of a transaction, as well as disclosures.
+-- Intended to be specified using the `actAs`, `readAs` and `disclose` builders, combined using the Semigroup concat `(<>)` operator.
+-- ```
+-- actAs alice <> readAs [alice, bob] <> disclose myContract
+-- ```
+-- Note that actAs and readAs follows the same party derivation rules as `signatory`, see their docs for examples.
+-- All submissions must specify at least one `actAs` party, else a runtime error will be thrown.
+-- A minimum submission may look like
+-- ```
+-- actAs alice `submit` createCmd MyContract with party = alice
+-- ```
+-- For backwards compatibility, a single or set of parties can be provided in place of the `SubmitOptions` to
+-- `submit`, which will represent the `actAs` field.
+-- The above example could be reduced to
+-- ```
+-- alice `submit` createCmd MyContract with party = alice
+-- ```
+data SubmitOptions =
+  -- | HIDE
+  SubmitOptions (Map Text LedgerValue)

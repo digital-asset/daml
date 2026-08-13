@@ -13,6 +13,11 @@ import DA.Bifunctor
 import qualified DA.TextMap as TextMap
 import DA.Fail
 
+deriving instance (Eq, Show) CommandName
+deriving instance (Eq, Show) ErrorClassName
+deriving instance (Eq, Show) ErrorMessage
+deriving instance (Eq, Show) FailedCmd
+
 -- | HIDE
 data TryCommands = TryCommands with
   act : LedgerValue

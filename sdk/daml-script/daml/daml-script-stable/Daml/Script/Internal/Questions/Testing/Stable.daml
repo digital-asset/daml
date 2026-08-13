@@ -9,19 +9,16 @@ module Daml.Script.Internal.Questions.Testing.Stable where
 -- Name of the Daml Script Command (or Question) that failed
 newtype CommandName = CommandName
   with getCommandName : Text
-  deriving (Eq, Show)
 
 -- | MOVE Daml.Script.Internal
 -- Scala class name of the exception thrown
 newtype ErrorClassName = ErrorClassName
   with getErrorClassName : Text
-  deriving (Eq, Show)
 
 -- | MOVE Daml.Script.Internal
 -- Result of the `getMessage` method on the Scala exception
 newtype ErrorMessage = ErrorMessage
   with getErrorMessage : Text
-  deriving (Eq, Show)
 
 -- | MOVE Daml.Script.Internal
 -- Daml type representing a Scala exception thrown during script interpretation.
@@ -30,4 +27,3 @@ data FailedCmd = FailedCmd with
     commandName : CommandName
     errorClassName : ErrorClassName
     errorMessage : ErrorMessage
-  deriving (Eq, Show)

@@ -14,6 +14,10 @@ import Daml.Script.Internal.LowLevel
 import DA.Crypto.Text
 import DA.Stack
 
+-- | MOVE Daml.Script
+-- A DER formatted private key to be used for ECDSA message signing
+type PrivateKeyHex = Text -- BytesHex
+
 -- | HIDE
 data Secp256k1WithEcdsaSign = Secp256k1WithEcdsaSign with
   privateKey: PublicKeyHex

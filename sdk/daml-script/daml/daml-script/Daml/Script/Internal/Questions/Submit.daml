@@ -6,21 +6,26 @@ module Daml.Script.Internal.Questions.Submit
   ( module Daml.Script.Internal.Questions.Submit
   , module Daml.Script.Internal.Questions.Submit.Error
   , module Daml.Script.Internal.Questions.Submit.Error.Compatibility
-  , module Stable
+  , Stable.SubmitOptions -- Do not export Stable SubmitOptions constructor, as it is internal
+  , Stable.PackageId (..)
   ) where
 
 import Daml.Script.Internal.LowLevel
 import Daml.Script.Internal.Questions.Commands
 import Daml.Script.Internal.Questions.Submit.Error
 import Daml.Script.Internal.Questions.Submit.Error.Compatibility
-import Daml.Script.Internal.Questions.Submit.Stable as Stable
+import qualified Daml.Script.Internal.Questions.Submit.Stable as Stable
+import Daml.Script.Internal.Questions.Submit.Stable (PackageId (..))
 import Daml.Script.Internal.Questions.TransactionTree
 import DA.NonEmpty
 import DA.List.Total (head)
 import DA.Stack
 import DA.Set
+import qualified DA.Map as Map
 import DA.Functor (void)
 import DA.Bifunctor (first)
+
+deriving instance (Show, Eq) PackageId
 
 -- | HIDE
 data Submit = Submit with
@@ -47,30 +52,23 @@ data Submission = Submission with
 -- | HIDE
 data ErrorBehaviour = MustSucceed | MustFail | Try
 
--- | MOVE Daml.Script
--- Options to detemine the stakeholders of a transaction, as well as disclosures.
--- Intended to be specified using the `actAs`, `readAs` and `disclose` builders, combined using the Semigroup concat `(<>)` operator.
--- ```
--- actAs alice <> readAs [alice, bob] <> disclose myContract
--- ```
--- Note that actAs and readAs follows the same party derivation rules as `signatory`, see their docs for examples.
--- All submissions must specify at least one `actAs` party, else a runtime error will be thrown.
--- A minimum submission may look like
--- ```
--- actAs alice `submit` createCmd MyContract with party = alice
--- ```
--- For backwards compatibility, a single or set of parties can be provided in place of the `SubmitOptions` to
--- `submit`, which will represent the `actAs` field.
--- The above example could be reduced to
--- ```
--- alice `submit` createCmd MyContract with party = alice
--- ```
-data SubmitOptions = SubmitOptions with
-  soActAs : [Party]
-  soReadAs : [Party]
-  soDisclosures : [Disclosure]
-  soPackagePreference : Optional [PackageId]
-  soPrefetchKeys : [AnyContractKey]
+matchSubmitOptions : [Text] -> Stable.SubmitOptions -> Optional [LedgerValue]
+matchSubmitOptions fields (Stable.SubmitOptions m) = mapA (flip Map.lookup m) fields
+
+makeSubmitOptions : [Text] -> [LedgerValue] -> Stable.SubmitOptions
+makeSubmitOptions fields values = Stable.SubmitOptions $ Map.fromList $ zip fields values
+
+-- | HIDE
+-- This pattern synonym determines the fields contained within the Map in SubmitOptions, and their types
+-- for use in matching in the rest of this module
+pattern SubmitOptions : [Party] -> [Party] -> [Disclosure] -> Optional [PackageId] -> [AnyContractKey] -> Stable.SubmitOptions
+pattern SubmitOptions {soActAs, soReadAs, soDisclosures, soPackagePreference, soPrefetchKeys} <-
+    (matchSubmitOptions ["actAs", "readAs", "disclosures", "packagePreference", "prefetchKeys"] -> Some [Cast soActAs, Cast soReadAs, Cast soDisclosures, Cast soPackagePreference, Cast soPrefetchKeys])
+  where
+    SubmitOptions soActAs soReadAs soDisclosures soPackagePreference soPrefetchKeys =
+      makeSubmitOptions ["actAs", "readAs", "disclosures", "packagePreference", "prefetchKeys"] [Cast soActAs, Cast soReadAs, Cast soDisclosures, Cast soPackagePreference, Cast soPrefetchKeys]
+
+{-# COMPLETE SubmitOptions #-}
 
 -- Optional doesn't have Semigroup instance?
 -- | HIDE
@@ -81,12 +79,12 @@ combineOptional l _ = l
 
 -- | MOVE Daml.Script
 -- Semigroup instance allowing for combination via (<>)
-instance Semigroup SubmitOptions where
+instance Semigroup Stable.SubmitOptions where
   SubmitOptions a b c d e <> SubmitOptions a' b' c' d' e' = SubmitOptions (a <> a') (b <> b') (c <> c') (d `combineOptional` d') (e <> e')
 
 -- | MOVE Daml.Script
 -- Monoid instance allowing for use of mconcat
-instance Monoid SubmitOptions where
+instance Monoid Stable.SubmitOptions where
   mempty = SubmitOptions [] [] [] None []
 
 -- | MOVE Daml.Script
@@ -100,7 +98,7 @@ instance Monoid SubmitOptions where
 -- Set Party
 -- Optional Party
 -- ```
-actAs : IsParties parties => parties -> SubmitOptions
+actAs : IsParties parties => parties -> Stable.SubmitOptions
 actAs p = SubmitOptions (toParties p) [] [] None []
 
 -- | MOVE Daml.Script
@@ -114,36 +112,36 @@ actAs p = SubmitOptions (toParties p) [] [] None []
 -- Set Party
 -- Optional Party
 -- ```
-readAs : IsParties parties => parties -> SubmitOptions
+readAs : IsParties parties => parties -> Stable.SubmitOptions
 readAs p = SubmitOptions [] (toParties p) [] None []
 
 -- | MOVE Daml.Script
 -- Provides many Explicit Disclosures to the transaction.
-discloseMany : [Disclosure] -> SubmitOptions
+discloseMany : [Disclosure] -> Stable.SubmitOptions
 discloseMany ds = SubmitOptions [] [] ds None []
 
 -- | MOVE Daml.Script
 -- Provides an Explicit Disclosure to the transaction.
-disclose : Disclosure -> SubmitOptions
+disclose : Disclosure -> Stable.SubmitOptions
 disclose d = discloseMany [d]
 
 -- | MOVE Daml.Script
 -- Provide a package id selection preference for upgrades for a submission
-packagePreference : [PackageId] -> SubmitOptions
+packagePreference : [PackageId] -> Stable.SubmitOptions
 packagePreference packages = SubmitOptions [] [] [] (Some packages) []
 
 -- | MOVE Daml.Script
 -- Provide a list of contract keys to prefetch for a submission
-prefetchKeys : [AnyContractKey] -> SubmitOptions
+prefetchKeys : [AnyContractKey] -> Stable.SubmitOptions
 prefetchKeys keys = SubmitOptions [] [] [] None keys
 
 -- | MOVE Daml.Script
 -- Defines a type that can be transformed into a SubmitOptions
 class IsSubmitOptions options where
-  toSubmitOptions : options -> SubmitOptions
+  toSubmitOptions : options -> Stable.SubmitOptions
 
 -- | MOVE Daml.Script
-instance IsSubmitOptions SubmitOptions where
+instance IsSubmitOptions Stable.SubmitOptions where
   toSubmitOptions = identity
 
 -- | MOVE Daml.Script
@@ -224,15 +222,15 @@ instance ScriptSubmit Script where
   liftSubmission = concurrently
 
 -- | HIDE
-submitInternal : (HasCallStack, ScriptSubmit script) => SubmitOptions -> ErrorBehaviour -> Commands a -> script (Either SubmitError (a, TransactionTree))
-submitInternal opts errorBehaviour cmds = liftSubmission $ ConcurrentSubmits with
+submitInternal : (HasCallStack, ScriptSubmit script) => Stable.SubmitOptions -> ErrorBehaviour -> Commands a -> script (Either SubmitError (a, TransactionTree))
+submitInternal (SubmitOptions {..}) errorBehaviour cmds = liftSubmission $ ConcurrentSubmits with
   submits =
     [ Submission with
-        sActAs = actAsNonEmpty opts.soActAs
-        sReadAs = opts.soReadAs
-        sDisclosures = opts.soDisclosures
-        sPackagePreference = opts.soPackagePreference
-        sPrefetchKeys = opts.soPrefetchKeys
+        sActAs = actAsNonEmpty soActAs
+        sReadAs = soReadAs
+        sDisclosures = soDisclosures
+        sPackagePreference = soPackagePreference
+        sPrefetchKeys = soPrefetchKeys
         sErrorBehaviour = errorBehaviour
         sCommands = cmds.commands
         sLocation = head getExposedCallStack

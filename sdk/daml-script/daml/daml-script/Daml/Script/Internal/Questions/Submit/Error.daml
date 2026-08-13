@@ -81,11 +81,6 @@ class IsTaggedRecord a where
 instance IsTaggedRecord TaggedRecord where
   match name fields sor = guard (name == tgTag sor) *> mapA (flip Map.lookup $ tgData sor) fields
   make name fields values = TaggedRecord name $ Map.fromList $ zip fields values
-
--- | HIDE
--- Convenience pattern for casting LedgerValues in TaggedRecord construction and destruction
-pattern Cast : forall a. a -> LedgerValue
-pattern Cast v <- (fromLedgerValue -> v) where Cast v = toLedgerValue v
  
 -- | HIDE
 -- AnySubmitError is stable, but this instance is not.

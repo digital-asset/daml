@@ -1,0 +1,62 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- This module contains the stable types for the Crypto.Text daml-script questions
+
+module Daml.Script.Internal.Questions.Commands.Stable where
+
+import Daml.Script.Internal.LowLevel.Stable (LedgerValue)
+import DA.Map (Map)
+
+-- | MOVE Daml.Script
+-- Existential contract key type that can wrap an arbitrary contract key.
+data AnyContractKey = 
+  -- | HIDE
+  AnyContractKey with
+    getAnyContractKey : LedgerValue
+    getAnyContractKeyTemplateTypeRep : TemplateTypeRep
+
+-- | HIDE
+data Command
+  = Create with
+      argC : AnyTemplate
+  | Exercise with
+      tplId : TemplateTypeRep
+      cId : ContractId ()
+      argE : AnyChoice
+  | ExerciseByKey with
+      tplId : TemplateTypeRep
+      keyE : AnyContractKey
+      argE : AnyChoice
+  | CreateAndExercise with
+      tplArgCE : AnyTemplate
+      choiceArgCE : AnyChoice
+
+-- | HIDE
+data CommandWithMeta = CommandWithMeta with
+  command : Command
+  additionalData : Map Text LedgerValue
+
+-- | HIDE
+-- The ledger api can only return create and exercise results, therefore `Exercise`, `ExerciseByKey` and `CreateByExercise` all return `ExerciseResult`s
+data CommandResult
+  = CreateResult (ContractId ())
+  | ExerciseResult LedgerValue
+
+-- | MOVE Daml.Script
+-- This is used to build up the commands sent as part of `submit`.
+-- If you enable the `ApplicativeDo` extension by adding
+-- `{-# LANGUAGE ApplicativeDo #-}` at the top of your file, you can
+-- use `do`-notation but the individual commands must not depend
+-- on each other and the last statement in a `do` block
+-- must be of the form ``return expr`` or ``pure expr``.
+data Commands a = Commands with
+    commands : [CommandWithMeta]
+    continue : [CommandResult] -> a
+
+-- | MOVE Daml.Script
+-- Contract disclosures which can be acquired via ``queryDisclosure``
+data Disclosure = Disclosure with
+   templateId: TemplateTypeRep
+   contractId : ContractId ()
+   blob: Text
