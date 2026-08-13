@@ -29,6 +29,7 @@ services:
     image: daml-hermetic:x86_64
     volumes:
       - .:/workspace
+      - /dev/null:/workspace/.bazelrc.local:ro
       - bazel-cache-x86_64:/home/host/.cache:U
 
   arm-linux-build:
@@ -40,6 +41,7 @@ services:
     image: daml-hermetic:aarch64
     volumes:
       - .:/workspace
+      - /dev/null:/workspace/.bazelrc.local:ro
       - bazel-cache-aarch64:/home/host/.cache:U
 
 volumes:
