@@ -79,6 +79,7 @@ node_modules/
 *.ipr
 *.iws
 out
+.bazelbsp/
 
 # Vim
 *~
