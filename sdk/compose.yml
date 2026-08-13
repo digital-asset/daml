@@ -1,33 +1,49 @@
+x-hermetic-build: &hermetic-build
+  userns_mode: "keep-id"
+  security_opt:
+    - "label=disable"
+
+  working_dir: /workspace
+  command:
+    - bash
+    - -lc
+    - |
+      find /home/host/.cache/output_base -type d ! -perm -u+w \
+        -exec chmod u+w {} + 2>/dev/null || true
+      bazel \
+        --output_user_root=/home/host/.cache/user_root \
+        --output_base=/home/host/.cache/output_base \
+        test //... --keep_going \
+        --disk_cache=/home/host/.cache/disk \
+        --repository_cache=/home/host/.cache/repo \
+        --noexperimental_convenience_symlinks \
+        --test_summary=terse
+
 services:
-  build:
+  x86-linux-build:
+    <<: *hermetic-build
     build:
       context: .
-      dockerfile: Containerfile
-    image: daml-hermetic:latest
-    userns_mode: "keep-id"
-    security_opt:
-      - "label=disable"
-
-    working_dir: /workspace
+      dockerfile: Containerfile-Linux-x86_64
+    platform: linux/amd64
+    image: daml-hermetic:x86_64
     volumes:
       - .:/workspace
-      - bazel-cache:/home/host/.cache:U
-    command:
-      - bash
-      - -lc
-      - |
-        find /home/host/.cache/output_base -type d ! -perm -u+w \
-          -exec chmod u+w {} + 2>/dev/null || true
-        bazel \
-          --output_user_root=/home/host/.cache/user_root \
-          --output_base=/home/host/.cache/output_base \
-          test //... --keep_going \
-          --disk_cache=/home/host/.cache/disk \
-          --repository_cache=/home/host/.cache/repo \
-          --noexperimental_convenience_symlinks \
-          --test_summary=terse
+      - bazel-cache-x86_64:/home/host/.cache:U
+
+  arm-linux-build:
+    <<: *hermetic-build
+    build:
+      context: .
+      dockerfile: Containerfile-Linux-aarch64
+    platform: linux/arm64
+    image: daml-hermetic:aarch64
+    volumes:
+      - .:/workspace
+      - bazel-cache-aarch64:/home/host/.cache:U
 
 volumes:
-  bazel-cache:
+  bazel-cache-x86_64:
     external: true
-    name: daml-fix-validate
+  bazel-cache-aarch64:
+    external: true
