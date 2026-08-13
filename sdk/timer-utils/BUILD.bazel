@@ -4,6 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "da_scala_test",
 )
 
 da_scala_library(
@@ -14,4 +15,13 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [],
+)
+
+da_scala_test(
+    name = "timer-utils-tests",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    deps = [
+        ":timer-utils",
+        "//3rdparty/jvm/org/scalatest",
+    ],
 )
