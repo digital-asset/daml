@@ -1,0 +1,5 @@
+{
+  "_comment": "TODO: PLACEHOLDER -- empty package set, committed only to bootstrap linux/aarch64. Replace by running `bazel run //bazel/haskell/ghc:ghc_packages.pin` inside the arm container.",
+  "ghc_version": "9.0.2",
+  "packages": []
+}
