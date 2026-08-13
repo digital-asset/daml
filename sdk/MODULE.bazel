@@ -78,6 +78,14 @@ llvm_toolchain_ext.target(
 )
 llvm_toolchain_ext.exec(
     arch = "aarch64",
+    os = "linux",
+)
+llvm_toolchain_ext.target(
+    arch = "aarch64",
+    os = "linux",
+)
+llvm_toolchain_ext.exec(
+    arch = "aarch64",
     os = "macos",
 )
 llvm_toolchain_ext.target(
