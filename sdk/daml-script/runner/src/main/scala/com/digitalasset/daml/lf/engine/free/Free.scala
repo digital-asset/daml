@@ -116,19 +116,6 @@ private[lf] object Free {
     def toErrOr: ErrOr[X] = e.left.map(ConversionError)
   }
 
-  def getResult(
-      freeClosure: ExtendedValueClosureBlob, // LF Type: () -> Free ScriptF (a, ())
-      compiledPackages: CompiledPackages,
-      machineLogger: MachineLogger,
-      convertLegacyExceptions: Boolean,
-  ): Result[ExtendedValue, Question, ExtendedValue] =
-    new Runner(
-      freeClosure,
-      compiledPackages: CompiledPackages,
-      machineLogger: MachineLogger,
-      convertLegacyExceptions,
-    ).getResult()
-
   def getResultF(
       freeClosure: ExtendedValueClosureBlob, // LF Type: () -> Free ScriptF (a, ())
       compiledPackages: CompiledPackages,

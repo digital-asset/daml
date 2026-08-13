@@ -131,19 +131,10 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[ExtendedValue] = {
-      def makeFailureStatus(name: Identifier, msg: String) =
-        Future.failed(
-          free.InterpretationError(
-            SError.SErrorDamlException(
-              IE.FailureStatus(
-                "UNHANDLED_EXCEPTION/" + name.qualifiedName.toString,
-                Ast.FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
-                msg,
-                Map(),
-              )
-            )
-          )
-        )
+
+      def raiseFailureStatus(excpType: TypeConId, msg: String): Future[Nothing] =
+        Future.failed(runner.makeFailureStatus(excpType, msg))
+
       def userManagementDef(name: String) =
         env.scriptIds.damlScriptModule("Daml.Script.Internal.Questions.UserManagement", name)
       val invalidUserId = userManagementDef("InvalidUserId")
@@ -159,7 +150,7 @@ object ScriptF {
               ),
               true,
             ) =>
-          makeFailureStatus(invalidUserId, msg)
+          raiseFailureStatus(invalidUserId, msg)
         case (
               ExtendedValueAny(
                 _,
@@ -170,7 +161,7 @@ object ScriptF {
               ),
               true,
             ) =>
-          makeFailureStatus(userAlreadyExists, "User already exists: " + userId)
+          raiseFailureStatus(userAlreadyExists, "User already exists: " + userId)
         case (
               ExtendedValueAny(
                 _,
@@ -181,35 +172,11 @@ object ScriptF {
               ),
               true,
             ) =>
-          makeFailureStatus(userNotFound, "User not found: " + userId)
-        case (ExtendedValueAny(Ast.TTyCon(name), v), true) =>
+          raiseFailureStatus(userNotFound, "User not found: " + userId)
+        case (ExtendedValueAny(Ast.TTyCon(excpType), value), true) =>
           // Since we cannot call `SBThrow` from the engine, we must re-implement the legacy exception to FailureStatus conversion logic here
           // This involves calculating the exception message by calling the engine again.
-          runner
-            .runComputation(
-              ExtendedValueComputationMode
-                .ByExceptionMessage(name, v),
-              false,
-            )
-            .transformWith {
-              case Success(ValueText(message)) => makeFailureStatus(name, message)
-              case Success(_) =>
-                Future.failed(
-                  new RuntimeException(s"Message computation for exception $name did not give Text")
-                )
-              case Failure(
-                    free.InterpretationError(
-                      SError.SErrorDamlException(
-                        IE.UnhandledException(Ast.TTyCon(messageExceptionName), _)
-                      )
-                    )
-                  ) =>
-                makeFailureStatus(
-                  name,
-                  s"<Failed to calculate message as ${messageExceptionName.qualifiedName.toString} was thrown during conversion>",
-                )
-              case Failure(e) => Future.failed(e)
-            }
+          Future.failed(runner.convertLegacyException(excpType, value))
         case (ExtendedValueAny(ty, _), true) =>
           Future.failed(
             new RuntimeException(
