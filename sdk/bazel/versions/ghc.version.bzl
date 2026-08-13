@@ -8,6 +8,11 @@ GHC_BINDISTS = {
         "sha256": "805f5628ce6cec678ba77ff48c924831ebdf75ec2c66368e8935a618913a150e",
         "strip_prefix": "ghc-{}".format(GHC_VERSION),
     },
+    ("linux", "aarch64"): {
+        "triple": "aarch64-deb10-linux",
+        "sha256": "cb016344c70a872738a24af60bd15d3b18749087b9905c1b3f1b1549dc01f46d",
+        "strip_prefix": "ghc-{}".format(GHC_VERSION),
+    },
     ("darwin", "aarch64"): {
         "triple": "aarch64-apple-darwin",
         "sha256": "b1fcab17fe48326d2ff302d70c12bc4cf4d570dfbbce68ab57c719cfec882b05",
