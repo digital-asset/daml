@@ -73,6 +73,7 @@ node_modules/
 .ensime_cache
 
 # IntelliJ IDEA
+.bazelbsp
 .idea
 .ijwb
 *.iml
