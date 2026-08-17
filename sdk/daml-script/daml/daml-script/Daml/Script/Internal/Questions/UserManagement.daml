@@ -17,6 +17,32 @@ import Daml.Script.Internal.Questions.PartyManagement.Stable (ParticipantName (.
 import GHC.Types (primitive)
 import DA.Record
 
+-- These types are generated directly in LF, so their record instances are not derived
+instance GetField "userId" User UserId where
+  getField (User {..}) = userId
+instance SetField "userId" User UserId where
+  setField userId (User _ primaryParty) = User userId primaryParty
+
+instance GetField "primaryParty" User (Optional Party) where
+  getField (User {..}) = primaryParty
+instance SetField "primaryParty" User (Optional Party) where
+  setField primaryParty (User userId _) = User userId primaryParty
+
+instance GetField "m" InvalidUserId Text where
+  getField (InvalidUserId {..}) = m
+instance SetField "m" InvalidUserId Text where
+  setField m (InvalidUserId _) = InvalidUserId m
+
+instance GetField "userId" UserAlreadyExists UserId where
+  getField (UserAlreadyExists {..}) = userId
+instance SetField "userId" UserAlreadyExists UserId where
+  setField userId (UserAlreadyExists _) = UserAlreadyExists userId
+
+instance GetField "userId" UserNotFound UserId where
+  getField (UserNotFound {..}) = userId
+instance SetField "userId" UserNotFound UserId where
+  setField userId (UserNotFound _) = UserNotFound userId
+
 -- | MOVE Daml.Script
 instance Show UserId where show (UserId text) = "'" <> text <> "'"
 
