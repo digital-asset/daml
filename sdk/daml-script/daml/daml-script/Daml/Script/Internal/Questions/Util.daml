@@ -7,7 +7,7 @@ module Daml.Script.Internal.Questions.Util
   ) where
 
 import Daml.Script.Internal.Questions.Util.Stable as Stable
-  
+
 deriving instance Eq AnyContractId
 
 -- | MOVE Daml.Script
@@ -19,5 +19,5 @@ instance Show AnyContractId where
 -- | MOVE Daml.Script
 fromAnyContractId : forall t. Template t => AnyContractId -> Optional (ContractId t)
 fromAnyContractId cid
-  | cid.templateId == templateTypeRep @t = Some (coerceContractId cid.contractId)
+  | templateId cid == templateTypeRep @t = Some (coerceContractId $ contractId cid)
   | otherwise = None

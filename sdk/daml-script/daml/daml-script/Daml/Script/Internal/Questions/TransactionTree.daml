@@ -12,6 +12,81 @@ import Daml.Script.Internal.Questions.TransactionTree.Stable as Stable
 import Daml.Script.Internal.Questions.Util
 import DA.Optional
 import DA.List.Total
+import DA.Record
+
+-- These types are generated directly in LF, so their record instances are not derived
+instance GetField "contractId" Created AnyContractId where
+  getField (Created {..}) = contractId
+instance SetField "contractId" Created AnyContractId where
+  setField contractId (Created _ argument) = Created contractId argument
+
+instance GetField "argument" Created AnyTemplate where
+  getField (Created {..}) = argument
+instance SetField "argument" Created AnyTemplate where
+  setField argument (Created contractId _) = Created contractId argument
+
+instance GetField "contractId" Exercised AnyContractId where
+  getField (Exercised {..}) = contractId
+instance SetField "contractId" Exercised AnyContractId where
+  setField contractId (Exercised _ choice argument childEvents) =
+    Exercised contractId choice argument childEvents
+
+instance GetField "choice" Exercised Text where
+  getField (Exercised {..}) = choice
+instance SetField "choice" Exercised Text where
+  setField choice (Exercised contractId _ argument childEvents) =
+    Exercised contractId choice argument childEvents
+
+instance GetField "argument" Exercised AnyChoice where
+  getField (Exercised {..}) = argument
+instance SetField "argument" Exercised AnyChoice where
+  setField argument (Exercised contractId choice _ childEvents) =
+    Exercised contractId choice argument childEvents
+
+instance GetField "childEvents" Exercised [TreeEvent] where
+  getField (Exercised {..}) = childEvents
+instance SetField "childEvents" Exercised [TreeEvent] where
+  setField childEvents (Exercised contractId choice argument _) =
+    Exercised contractId choice argument childEvents
+
+instance GetField "rootEvents" TransactionTree [TreeEvent] where
+  getField (TransactionTree {..}) = rootEvents
+instance SetField "rootEvents" TransactionTree [TreeEvent] where
+  setField rootEvents (TransactionTree _) = TransactionTree rootEvents
+
+instance GetField "templateId" (CreatedIndexPayload t) TemplateTypeRep where
+  getField (CreatedIndexPayload {..}) = templateId
+instance SetField "templateId" (CreatedIndexPayload t) TemplateTypeRep where
+  setField templateId (CreatedIndexPayload _ offset) = CreatedIndexPayload templateId offset
+
+instance GetField "offset" (CreatedIndexPayload t) Int where
+  getField (CreatedIndexPayload {..}) = offset
+instance SetField "offset" (CreatedIndexPayload t) Int where
+  setField offset (CreatedIndexPayload templateId _) = CreatedIndexPayload templateId offset
+
+instance GetField "templateId" (ExercisedIndexPayload t) TemplateTypeRep where
+  getField (ExercisedIndexPayload {..}) = templateId
+instance SetField "templateId" (ExercisedIndexPayload t) TemplateTypeRep where
+  setField templateId (ExercisedIndexPayload _ choice offset child) =
+    ExercisedIndexPayload templateId choice offset child
+
+instance GetField "choice" (ExercisedIndexPayload t) Text where
+  getField (ExercisedIndexPayload {..}) = choice
+instance SetField "choice" (ExercisedIndexPayload t) Text where
+  setField choice (ExercisedIndexPayload templateId _ offset child) =
+    ExercisedIndexPayload templateId choice offset child
+
+instance GetField "offset" (ExercisedIndexPayload t) Int where
+  getField (ExercisedIndexPayload {..}) = offset
+instance SetField "offset" (ExercisedIndexPayload t) Int where
+  setField offset (ExercisedIndexPayload templateId choice _ child) =
+    ExercisedIndexPayload templateId choice offset child
+
+instance GetField "child" (ExercisedIndexPayload t) (TreeIndex t) where
+  getField (ExercisedIndexPayload {..}) = child
+instance SetField "child" (ExercisedIndexPayload t) (TreeIndex t) where
+  setField child (ExercisedIndexPayload templateId choice offset _) =
+    ExercisedIndexPayload templateId choice offset child
 
 deriving instance Show TransactionTree
 deriving instance Show TreeEvent

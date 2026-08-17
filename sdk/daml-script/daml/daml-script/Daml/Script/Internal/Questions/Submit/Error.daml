@@ -1,8 +1,6 @@
 -- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE DerivingStrategies #-}
-
 module Daml.Script.Internal.Questions.Submit.Error
   ( IsSubmitError (..)
   , IsUpgradeErrorType (..)
@@ -79,12 +77,14 @@ class IsTaggedRecord a where
 -- | HIDE
 -- Root IsTaggedRecord instance which types like AnySubmitError wrap via newtype deriving
 instance IsTaggedRecord TaggedRecord where
-  match name fields sor = guard (name == tgTag sor) *> mapA (flip Map.lookup $ tgData sor) fields
+  match name fields taggedRecord = guard (name == tgTag taggedRecord) *> mapA (flip Map.lookup $ tgData taggedRecord) fields
   make name fields values = TaggedRecord name $ Map.fromList $ zip fields values
  
 -- | HIDE
 -- AnySubmitError is stable, but this instance is not.
-deriving newtype instance IsTaggedRecord AnySubmitError
+instance IsTaggedRecord AnySubmitError where
+  match name fields (AnySubmitError taggedRecord) = match name fields taggedRecord
+  make name fields values = AnySubmitError $ make name fields values
 
 -- | MOVE Daml.Script
 -- Allows casting AnySubmitError into and out of specific errors.
@@ -103,7 +103,9 @@ class IsSubmitError e where
 
 -- | HIDE
 -- AnyUpgradeErrorType is stable, but this instance is not.
-deriving newtype instance IsTaggedRecord AnyUpgradeErrorType
+instance IsTaggedRecord AnyUpgradeErrorType where
+  match name fields (AnyUpgradeErrorType taggedRecord) = match name fields taggedRecord
+  make name fields values = AnyUpgradeErrorType $ make name fields values
 
 -- | MOVE Daml.Script
 -- SCU related submission errors
@@ -157,7 +159,9 @@ instance IsUpgradeErrorType AuthenticationFailedUpgradeError where
 
 -- | HIDE
 -- AnyCryptoErrorType is stable, but this instance is not.
-deriving newtype instance IsTaggedRecord AnyCryptoErrorType
+instance IsTaggedRecord AnyCryptoErrorType where
+  match name fields (AnyCryptoErrorType taggedRecord) = match name fields taggedRecord
+  make name fields values = AnyCryptoErrorType $ make name fields values
 
 -- | MOVE Daml.Script
 -- Daml Crypto (Secp256k1) related submission errors
@@ -195,7 +199,9 @@ instance IsCryptoErrorType MalformedSignatureCryptoError where
 
 -- | HIDE
 -- AnyExternalCallErrorType is stable, but this instance is not.
-deriving newtype instance IsTaggedRecord AnyExternalCallErrorType
+instance IsTaggedRecord AnyExternalCallErrorType where
+  match name fields (AnyExternalCallErrorType taggedRecord) = match name fields taggedRecord
+  make name fields values = AnyExternalCallErrorType $ make name fields values
 
 -- | MOVE Daml.Script
 -- External-call related submission errors, one per stage: preparing the
@@ -231,7 +237,9 @@ instance IsExternalCallErrorType InvalidOutputExternalCallError where
 
 -- | HIDE
 -- AnyDevErrorType is stable, but this instance is not.
-deriving newtype instance IsTaggedRecord AnyDevErrorType
+instance IsTaggedRecord AnyDevErrorType where
+  match name fields (AnyDevErrorType taggedRecord) = match name fields taggedRecord
+  make name fields values = AnyDevErrorType $ make name fields values
 
 -- | MOVE Daml.Script
 -- Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala

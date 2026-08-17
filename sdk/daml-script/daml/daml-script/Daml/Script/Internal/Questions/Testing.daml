@@ -12,6 +12,41 @@ import Daml.Script.Internal.Questions.Testing.Stable as Stable (CommandName (..)
 import DA.Bifunctor
 import qualified DA.TextMap as TextMap
 import DA.Fail
+import DA.Record
+
+-- These types are generated directly in LF, so their record instances are not derived
+instance GetField "getCommandName" CommandName Text where
+  getField (CommandName {..}) = getCommandName
+instance SetField "getCommandName" CommandName Text where
+  setField getCommandName (CommandName _) = CommandName getCommandName
+
+instance GetField "getErrorClassName" ErrorClassName Text where
+  getField (ErrorClassName {..}) = getErrorClassName
+instance SetField "getErrorClassName" ErrorClassName Text where
+  setField getErrorClassName (ErrorClassName _) = ErrorClassName getErrorClassName
+
+instance GetField "getErrorMessage" ErrorMessage Text where
+  getField (ErrorMessage {..}) = getErrorMessage
+instance SetField "getErrorMessage" ErrorMessage Text where
+  setField getErrorMessage (ErrorMessage _) = ErrorMessage getErrorMessage
+
+instance GetField "commandName" FailedCmd CommandName where
+  getField (FailedCmd {..}) = commandName
+instance SetField "commandName" FailedCmd CommandName where
+  setField commandName (FailedCmd _ errorClassName errorMessage) =
+    FailedCmd commandName errorClassName errorMessage
+
+instance GetField "errorClassName" FailedCmd ErrorClassName where
+  getField (FailedCmd {..}) = errorClassName
+instance SetField "errorClassName" FailedCmd ErrorClassName where
+  setField errorClassName (FailedCmd commandName _ errorMessage) =
+    FailedCmd commandName errorClassName errorMessage
+
+instance GetField "errorMessage" FailedCmd ErrorMessage where
+  getField (FailedCmd {..}) = errorMessage
+instance SetField "errorMessage" FailedCmd ErrorMessage where
+  setField errorMessage (FailedCmd commandName errorClassName _) =
+    FailedCmd commandName errorClassName errorMessage
 
 deriving instance Eq CommandName
 deriving instance Show CommandName

@@ -15,6 +15,17 @@ import DA.Bifunctor
 import qualified DA.Map as Map
 import GHC.Types (primitive)
 
+-- Commands is generated directly in LF, so its record instances are not derived
+instance GetField "commands" (Commands a) [CommandWithMeta] where
+  getField (Commands {..}) = commands
+instance SetField "commands" (Commands a) [CommandWithMeta] where
+  setField commands (Commands _ continue) = Commands commands continue
+
+instance GetField "continue" (Commands a) ([CommandResult] -> a) where
+  getField (Commands {..}) = continue
+instance SetField "continue" (Commands a) ([CommandResult] -> a) where
+  setField continue (Commands commands _) = Commands commands continue
+
 instance Eq AnyContractKey where
   (==) = primitive @"BEEqual"
 instance Ord AnyContractKey where

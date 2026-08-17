@@ -8,7 +8,29 @@ module Daml.Script.Internal.Questions.PartyManagement
 
 import Daml.Script.Internal.LowLevel
 import Daml.Script.Internal.Questions.PartyManagement.Stable as Stable (PartyDetails (..), PartyIdHint (..), ParticipantName (..))
+import DA.Record
 import DA.Stack
+
+-- These types are generated directly in LF, so their record instances are not derived
+instance GetField "party" PartyDetails Party where
+  getField (PartyDetails {..}) = party
+instance SetField "party" PartyDetails Party where
+  setField party (PartyDetails _ isLocal) = PartyDetails party isLocal
+
+instance GetField "isLocal" PartyDetails Bool where
+  getField (PartyDetails {..}) = isLocal
+instance SetField "isLocal" PartyDetails Bool where
+  setField isLocal (PartyDetails party _) = PartyDetails party isLocal
+
+instance GetField "partyIdHint" PartyIdHint Text where
+  getField (PartyIdHint {..}) = partyIdHint
+instance SetField "partyIdHint" PartyIdHint Text where
+  setField partyIdHint (PartyIdHint _) = PartyIdHint partyIdHint
+
+instance GetField "participantName" ParticipantName Text where
+  getField (ParticipantName {..}) = participantName
+instance SetField "participantName" ParticipantName Text where
+  setField participantName (ParticipantName _) = ParticipantName participantName
 
 -- | HIDE
 -- An empty 'participants' means we pick the default one. Otherwise, the first participant of the list is considered
