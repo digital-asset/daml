@@ -24,7 +24,9 @@ instance IsQuestion AllocateParty Party
     command = "AllocateParty"
     version = 2
 
-deriving instance (Eq, Ord, Show) PartyDetails
+deriving instance Eq PartyDetails
+deriving instance Ord PartyDetails
+deriving instance Show PartyDetails
 
 -- | MOVE Daml.Script
 -- Allocate a party with the given display name

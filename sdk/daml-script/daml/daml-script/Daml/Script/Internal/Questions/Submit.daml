@@ -25,7 +25,8 @@ import qualified DA.Map as Map
 import DA.Functor (void)
 import DA.Bifunctor (first)
 
-deriving instance (Show, Eq) PackageId
+deriving instance Show PackageId
+deriving instance Eq PackageId
 
 -- | HIDE
 data Submit = Submit with
