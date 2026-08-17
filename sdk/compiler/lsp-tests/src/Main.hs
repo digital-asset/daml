@@ -8,6 +8,7 @@ module Main (main) where
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import Control.Concurrent
+import Data.Time.Clock (getCurrentTime, diffUTCTime)
 import Control.Applicative.Combinators
 import Control.Lens hiding (List, children, (.=))
 import Control.Monad
@@ -686,9 +687,11 @@ scriptTests runScripts = testGroup "scripts"
               assertRegex (_vrcpContents changeResult) "Trace:[^/]+secondRun"
           closeDoc script
           closeDoc main'
-    , localOption (mkTimeout 30000000) $ -- 30s timeout
+    , let timeoutSeconds = 30 :: Int in
+      localOption (mkTimeout (fromIntegral timeoutSeconds * 1000000)) $
         testCaseSteps "scenario service interrupts outdated script runs" $ \step -> runScripts $ \_stderr -> do
-          let mkDoc :: Integer -> T.Text
+          let foldSize = 1000000 :: Integer
+              mkDoc :: Integer -> T.Text
               mkDoc duration = T.unlines
                   [ "{-# LANGUAGE ApplicativeDo #-}"
                   , "module Main where"
@@ -696,9 +699,10 @@ scriptTests runScripts = testGroup "scripts"
                   , "main : Script ()"
                   , "main = debug $ foldl (+) 0 [1.." <> T.pack (show duration) <> "]"
                   ]
+          testStartTime <- liftIO getCurrentTime
 
           -- open document with long-running script
-          main' <- openDoc' "Main.daml" damlId $ mkDoc 10000000
+          main' <- openDoc' "Main.daml" damlId $ mkDoc foldSize
           liftIO $ step "Document opened."
 
           -- wait until lenses processed, open script
@@ -741,12 +745,22 @@ scriptTests runScripts = testGroup "scripts"
           -- check that returned value is new script
           _changeResult <- waitForScriptDidChange
           liftIO $ assertRegex (_vrcpContents _changeResult) "Trace:( |<br>)*276([^0-9]|$)"
-          liftIO $ step "Script results received."
+          testEndTime <- liftIO getCurrentTime
+          let totalTime = realToFrac (diffUTCTime testEndTime testStartTime) :: Double
+              maxSafeTime = fromIntegral timeoutSeconds * 0.5
+          liftIO $ step $ "Script results received. Total time: " ++ show totalTime ++ "s (timeout: " ++ show timeoutSeconds ++ "s)"
+
+          liftIO $ assertBool
+              ("Total test time " ++ show totalTime ++ "s is more than 50% of the " ++ show timeoutSeconds ++ "s timeout — this test is at risk of flaking under further CI load. Reduce fold size (currently " ++ show foldSize ++ ") or investigate why compilation/script evaluation is slow.")
+              (totalTime < maxSafeTime)
 
           closeDoc script
           closeDoc main'
-    , localOption (mkTimeout 60000000) $ -- 60s timeout
+    , let timeoutSeconds = 30 :: Int in
+      localOption (mkTimeout (fromIntegral timeoutSeconds * 1000000)) $
         testCaseSteps "scenario service does not interrupt on non-script messages" $ \step -> runScripts $ \_stderr -> do
+          let foldSize = 1000000 :: Integer
+          testStartTime <- liftIO getCurrentTime
           -- open document with long-running script
           main' <- openDoc' "Main.daml" damlId $
               T.unlines
@@ -754,7 +768,7 @@ scriptTests runScripts = testGroup "scripts"
                   , "module Main where"
                   , "import Daml.Script"
                   , "main : Script ()"
-                  , "main = debug $ foldl (+) 0 [1..10000000]"
+                  , "main = debug $ foldl (+) 0 [1.." <> T.pack (show foldSize) <> "]"
                   ]
           liftIO $ step "Document opened."
 
@@ -784,12 +798,28 @@ scriptTests runScripts = testGroup "scripts"
 
           -- run hover event
           _ <- sendRequest STextDocumentHover (HoverParams main' (Position 4 3) Nothing)
+          afterHoverTime <- liftIO getCurrentTime
           liftIO $ step "Hover sent..."
 
           -- Check that script did return and that log does not show any cancellations
           _changeResult <- waitForScriptDidChange
+          scriptDoneTime <- liftIO getCurrentTime
+          let afterHover = realToFrac (diffUTCTime scriptDoneTime afterHoverTime) :: Double
+          liftIO $ step $ "Script finished " ++ show afterHover ++ "s after hover was sent (fold size: " ++ show foldSize ++ ")"
           _scriptFinishedMessage <- liftIO $ assertUntilWithout _stderr "SCRIPT SERVICE STDOUT: Script finished." "SCRIPT SERVICE STDOUT: Script cancelled."
           liftIO $ step "Script returned without cancellation."
+
+          testEndTime <- liftIO getCurrentTime
+          let totalTime = realToFrac (diffUTCTime testEndTime testStartTime) :: Double
+              maxSafeTime = fromIntegral timeoutSeconds * 0.5
+
+          liftIO $ assertBool
+              ("Script finished too quickly after hover (" ++ show afterHover ++ "s) — fold size " ++ show foldSize ++ " may be too small to ensure the script is still running when hover is processed")
+              (afterHover >= 0.5)
+
+          liftIO $ assertBool
+              ("Total test time " ++ show totalTime ++ "s is more than 50% of the " ++ show timeoutSeconds ++ "s timeout — this test is at risk of flaking under further CI load. Reduce fold size (currently " ++ show foldSize ++ ") or investigate why compilation/script evaluation is slow.")
+              (totalTime < maxSafeTime)
 
           closeDoc script
           closeDoc main'

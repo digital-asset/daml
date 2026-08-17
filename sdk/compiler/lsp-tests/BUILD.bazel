@@ -39,6 +39,7 @@ da_haskell_test(
         "tasty",
         "tasty-hunit",
         "text",
+        "time",
     ],
     visibility = ["//visibility:public"],
     deps = [
