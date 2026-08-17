@@ -121,7 +121,7 @@ tLedgerValue = depTy ledgerValue "LedgerValue" []
 free :: Package
 free = makePackage defaultPackageDef
   { packageDefModuleName = freeModule
-  , packageDefTypes = one VariantDef
+  , packageDefTypes = pure VariantDef
       { name = "Free"
       , typeParams = [("f", KStar `KArrow` KStar), ("a", KStar)]
       , constructors =
@@ -134,7 +134,7 @@ free = makePackage defaultPackageDef
 ledgerValue :: Package
 ledgerValue = makePackage defaultPackageDef
   { packageDefModuleName = lowLevelModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "LedgerValue"
       , typeParams = []
       , fields = []
@@ -144,7 +144,7 @@ ledgerValue = makePackage defaultPackageDef
 question :: Package
 question = makePackage defaultPackageDef
   { packageDefModuleName = lowLevelModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "Question"
       , typeParams = [("req", KStar), ("res", KStar), ("a", KStar)]
       , fields =
@@ -161,7 +161,7 @@ question = makePackage defaultPackageDef
 scriptF :: Package
 scriptF = makePackage defaultPackageDef
   { packageDefModuleName = lowLevelModule
-  , packageDefTypes = one NewTypeDef
+  , packageDefTypes = pure NewTypeDef
       { name = "ScriptF"
       , typeParams = [("a", KStar)]
       , mUnwrap = Nothing
@@ -173,7 +173,7 @@ scriptF = makePackage defaultPackageDef
 script :: Package
 script = makePackage defaultPackageDef
   { packageDefModuleName = lowLevelModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "Script"
       , typeParams = [("a", KStar)]
       , fields =
@@ -187,7 +187,7 @@ script = makePackage defaultPackageDef
 anyContractId :: Package
 anyContractId = makePackage defaultPackageDef
   { packageDefModuleName = utilModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "AnyContractId"
       , typeParams = []
       , fields =
@@ -201,7 +201,7 @@ anyContractId = makePackage defaultPackageDef
 anyContractKey :: Package
 anyContractKey = makePackage defaultPackageDef
   { packageDefModuleName = commandsModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "AnyContractKey"
       , typeParams = []
       , fields =
@@ -215,7 +215,7 @@ anyContractKey = makePackage defaultPackageDef
 command :: Package
 command = makePackage defaultPackageDef
   { packageDefModuleName = commandsModule
-  , packageDefTypes = one VariantRecordDef
+  , packageDefTypes = pure VariantRecordDef
       { name = "Command"
       , typeParams = []
       , constructorsWithFields =
@@ -242,7 +242,7 @@ command = makePackage defaultPackageDef
 commandWithMeta :: Package
 commandWithMeta = makePackage defaultPackageDef
   { packageDefModuleName = commandsModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "CommandWithMeta"
       , typeParams = []
       , fields =
@@ -256,7 +256,7 @@ commandWithMeta = makePackage defaultPackageDef
 commandResult :: Package
 commandResult = makePackage defaultPackageDef
   { packageDefModuleName = commandsModule
-  , packageDefTypes = one VariantDef
+  , packageDefTypes = pure VariantDef
       { name = "CommandResult"
       , typeParams = []
       , constructors =
@@ -270,7 +270,7 @@ commandResult = makePackage defaultPackageDef
 commands :: Package
 commands = makePackage defaultPackageDef
   { packageDefModuleName = commandsModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "Commands"
       , typeParams = [("a", KStar)]
       , fields =
@@ -284,7 +284,7 @@ commands = makePackage defaultPackageDef
 disclosure :: Package
 disclosure = makePackage defaultPackageDef
   { packageDefModuleName = commandsModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "Disclosure"
       , typeParams = []
       , fields =
@@ -299,7 +299,7 @@ disclosure = makePackage defaultPackageDef
 secp256k1KeyPair :: Package
 secp256k1KeyPair = makePackage defaultPackageDef
   { packageDefModuleName = cryptoTextModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "Secp256k1KeyPair"
       , typeParams = []
       , fields =
@@ -312,7 +312,7 @@ secp256k1KeyPair = makePackage defaultPackageDef
 partyDetails :: Package
 partyDetails = makePackage defaultPackageDef
   { packageDefModuleName = partyManagementModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "PartyDetails"
       , typeParams = []
       , fields =
@@ -325,7 +325,7 @@ partyDetails = makePackage defaultPackageDef
 partyIdHint :: Package
 partyIdHint = makePackage defaultPackageDef
   { packageDefModuleName = partyManagementModule
-  , packageDefTypes = one NewTypeDef
+  , packageDefTypes = pure NewTypeDef
       { name = "PartyIdHint"
       , typeParams = []
       , mUnwrap = Just "partyIdHint"
@@ -336,7 +336,7 @@ partyIdHint = makePackage defaultPackageDef
 participantName :: Package
 participantName = makePackage defaultPackageDef
   { packageDefModuleName = partyManagementModule
-  , packageDefTypes = one NewTypeDef
+  , packageDefTypes = pure NewTypeDef
       { name = "ParticipantName"
       , typeParams = []
       , mUnwrap = Just "participantName"
@@ -347,7 +347,7 @@ participantName = makePackage defaultPackageDef
 packageId :: Package
 packageId = makePackage defaultPackageDef
   { packageDefModuleName = submitModule
-  , packageDefTypes = one NewTypeDef
+  , packageDefTypes = pure NewTypeDef
       { name = "PackageId"
       , typeParams = []
       , mUnwrap = Nothing
@@ -359,7 +359,7 @@ packageId = makePackage defaultPackageDef
 submitOptions :: Package
 submitOptions = makePackage defaultPackageDef
   { packageDefModuleName = submitModule
-  , packageDefTypes = one VariantDef
+  , packageDefTypes = pure VariantDef
       { name = "SubmitOptions"
       , typeParams = []
       , constructors = [("SubmitOptions", TGenMap TText tLedgerValue)]
@@ -370,7 +370,7 @@ submitOptions = makePackage defaultPackageDef
 taggedRecord :: Package
 taggedRecord = makePackage defaultPackageDef
   { packageDefModuleName = submitErrorModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "TaggedRecord"
       , typeParams = []
       , fields =
@@ -384,7 +384,7 @@ taggedRecord = makePackage defaultPackageDef
 taggedRecordNewtype :: T.Text -> Package
 taggedRecordNewtype tyName = makePackage defaultPackageDef
   { packageDefModuleName = submitErrorModule
-  , packageDefTypes = one NewTypeDef
+  , packageDefTypes = pure NewTypeDef
       { name = tyName
       , typeParams = []
       , mUnwrap = Nothing
@@ -403,7 +403,7 @@ anyDevErrorType = taggedRecordNewtype "AnyDevErrorType"
 commandName :: Package
 commandName = makePackage defaultPackageDef
   { packageDefModuleName = testingModule
-  , packageDefTypes = one NewTypeDef
+  , packageDefTypes = pure NewTypeDef
       { name = "CommandName"
       , typeParams = []
       , mUnwrap = Just "getCommandName"
@@ -414,7 +414,7 @@ commandName = makePackage defaultPackageDef
 errorClassName :: Package
 errorClassName = makePackage defaultPackageDef
   { packageDefModuleName = testingModule
-  , packageDefTypes = one NewTypeDef
+  , packageDefTypes = pure NewTypeDef
       { name = "ErrorClassName"
       , typeParams = []
       , mUnwrap = Just "getErrorClassName"
@@ -425,7 +425,7 @@ errorClassName = makePackage defaultPackageDef
 errorMessage :: Package
 errorMessage = makePackage defaultPackageDef
   { packageDefModuleName = testingModule
-  , packageDefTypes = one NewTypeDef
+  , packageDefTypes = pure NewTypeDef
       { name = "ErrorMessage"
       , typeParams = []
       , mUnwrap = Just "getErrorMessage"
@@ -436,7 +436,7 @@ errorMessage = makePackage defaultPackageDef
 failedCmd :: Package
 failedCmd = makePackage defaultPackageDef
   { packageDefModuleName = testingModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "FailedCmd"
       , typeParams = []
       , fields =
@@ -451,7 +451,7 @@ failedCmd = makePackage defaultPackageDef
 created :: Package
 created = makePackage defaultPackageDef
   { packageDefModuleName = transactionTreeModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "Created"
       , typeParams = []
       , fields =
@@ -492,7 +492,7 @@ treeEventAndExercised = makePackage defaultPackageDef
 transactionTree :: Package
 transactionTree = makePackage defaultPackageDef
   { packageDefModuleName = transactionTreeModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "TransactionTree"
       , typeParams = []
       , fields = [("rootEvents", TList (depTy treeEventAndExercised "TreeEvent" []))]
@@ -503,7 +503,7 @@ transactionTree = makePackage defaultPackageDef
 createdIndexPayload :: Package
 createdIndexPayload = makePackage defaultPackageDef
   { packageDefModuleName = transactionTreeModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "CreatedIndexPayload"
       , typeParams = [("t", KStar)]
       , fields =
@@ -544,7 +544,7 @@ treeIndexAndExercisedIndexPayload = makePackage defaultPackageDef
 userId :: Package
 userId = makePackage defaultPackageDef
   { packageDefModuleName = userManagementModule
-  , packageDefTypes = one NewTypeDef
+  , packageDefTypes = pure NewTypeDef
       { name = "UserId"
       , typeParams = []
       , mUnwrap = Nothing
@@ -555,7 +555,7 @@ userId = makePackage defaultPackageDef
 user :: Package
 user = makePackage defaultPackageDef
   { packageDefModuleName = userManagementModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "User"
       , typeParams = []
       , fields =
@@ -569,7 +569,7 @@ user = makePackage defaultPackageDef
 userRight :: Package
 userRight = makePackage defaultPackageDef
   { packageDefModuleName = userManagementModule
-  , packageDefTypes = one VariantDef
+  , packageDefTypes = pure VariantDef
       { name = "UserRight"
       , typeParams = []
       , constructors =
@@ -587,7 +587,7 @@ userRight = makePackage defaultPackageDef
 invalidUserId :: Package
 invalidUserId = makePackage defaultPackageDef
   { packageDefModuleName = userManagementModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "InvalidUserId"
       , typeParams = []
       , fields = [("m", TText)]
@@ -597,7 +597,7 @@ invalidUserId = makePackage defaultPackageDef
 userAlreadyExists :: Package
 userAlreadyExists = makePackage defaultPackageDef
   { packageDefModuleName = userManagementModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "UserAlreadyExists"
       , typeParams = []
       , fields = [("userId", depTy userId "UserId" [])]
@@ -608,7 +608,7 @@ userAlreadyExists = makePackage defaultPackageDef
 userNotFound :: Package
 userNotFound = makePackage defaultPackageDef
   { packageDefModuleName = userManagementModule
-  , packageDefTypes = one RecordDef
+  , packageDefTypes = pure RecordDef
       { name = "UserNotFound"
       , typeParams = []
       , fields = [("userId", depTy userId "UserId" [])]

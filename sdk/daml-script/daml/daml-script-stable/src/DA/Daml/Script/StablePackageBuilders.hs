@@ -78,9 +78,6 @@ data PackageDef = PackageDef
   , packageDefDependencies :: [Package]
   }
 
-one :: a -> [a]
-one x = [x]
-
 mkModNameFromText :: T.Text -> ModuleName
 mkModNameFromText = mkModName . T.split (== '.')
 
