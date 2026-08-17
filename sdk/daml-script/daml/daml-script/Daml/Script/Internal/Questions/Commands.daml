@@ -45,7 +45,8 @@ instance Show CommandResult where
   show ExerciseResult {} = "ExerciseResult"
 
 deriving instance Functor Commands
-deriving instance (Eq, Ord) Disclosure
+deriving instance Eq Disclosure
+deriving instance Ord Disclosure
 
 -- | HIDE
 -- Expected number of command results for a given command

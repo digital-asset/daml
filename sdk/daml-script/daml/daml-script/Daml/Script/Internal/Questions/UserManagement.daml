@@ -20,12 +20,24 @@ import DA.Record
 -- | MOVE Daml.Script
 instance Show UserId where show (UserId text) = "'" <> text <> "'"
 
-deriving instance (Eq, Ord) UserId
-deriving instance (Show, Eq, Ord) User
-deriving instance (Show, Eq) UserRight
-deriving instance (Show, Eq) InvalidUserId
-deriving instance (Show, Eq) UserAlreadyExists
-deriving instance (Show, Eq) UserNotFound
+deriving instance Eq UserId
+deriving instance Ord UserId
+
+deriving instance Show User
+deriving instance Eq User
+deriving instance Ord User
+
+deriving instance Show UserRight
+deriving instance Eq UserRight
+
+deriving instance Show InvalidUserId
+deriving instance Eq InvalidUserId
+
+deriving instance Show UserAlreadyExists
+deriving instance Eq UserAlreadyExists
+
+deriving instance Show UserNotFound
+deriving instance Eq UserNotFound
 
 -- | MOVE Daml.Script
 -- Extract the name-text from a user identitifer.

@@ -13,10 +13,17 @@ import DA.Bifunctor
 import qualified DA.TextMap as TextMap
 import DA.Fail
 
-deriving instance (Eq, Show) CommandName
-deriving instance (Eq, Show) ErrorClassName
-deriving instance (Eq, Show) ErrorMessage
-deriving instance (Eq, Show) FailedCmd
+deriving instance Eq CommandName
+deriving instance Show CommandName
+
+deriving instance Eq ErrorClassName
+deriving instance Show ErrorClassName
+
+deriving instance Eq ErrorMessage
+deriving instance Show ErrorMessage
+
+deriving instance Eq FailedCmd
+deriving instance Show FailedCmd
 
 -- | HIDE
 data TryCommands = TryCommands with
