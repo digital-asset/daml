@@ -7,12 +7,7 @@ package free
 
 import data.{ImmArray, Ref}
 import speedy.{MachineLogger, Pretty, SError}
-import ScriptEngine.{
-  ExtendedValue,
-  ExtendedValueClosureBlob,
-  ExtendedValueComputationMode,
-  runExtendedValueComputation,
-}
+import ScriptEngine.{ExtendedValue, ExtendedValueClosureBlob, ExtendedValueComputationMode}
 import value.Value._
 import scalaz.std.either._
 import scalaz.std.vector._
@@ -116,31 +111,16 @@ private[lf] object Free {
     def toErrOr: ErrOr[X] = e.left.map(ConversionError)
   }
 
-  def getResult(
-      freeClosure: ExtendedValueClosureBlob, // LF Type: () -> Free ScriptF (a, ())
-      compiledPackages: CompiledPackages,
-      machineLogger: MachineLogger,
-      convertLegacyExceptions: Boolean,
-  ): Result[ExtendedValue, Question, ExtendedValue] =
-    new Runner(
-      freeClosure,
-      compiledPackages: CompiledPackages,
-      machineLogger: MachineLogger,
-      convertLegacyExceptions,
-    ).getResult()
-
   def getResultF(
       freeClosure: ExtendedValueClosureBlob, // LF Type: () -> Free ScriptF (a, ())
       compiledPackages: CompiledPackages,
       machineLogger: MachineLogger,
-      convertLegacyExceptions: Boolean,
       cancelled: () => Option[RuntimeException],
   )(implicit ec: ExecutionContext): Future[Result[ExtendedValue, Question, ExtendedValue]] =
     new Runner(
       freeClosure: ExtendedValueClosureBlob,
       compiledPackages: CompiledPackages,
       machineLogger: MachineLogger,
-      convertLegacyExceptions,
       cancelled,
     ).getResultF()
 
@@ -148,7 +128,6 @@ private[lf] object Free {
       freeClosure: ExtendedValueClosureBlob, // LF Type: () -> Free ScriptF (a, ())
       compiledPackages: CompiledPackages,
       machineLogger: MachineLogger,
-      convertLegacyExceptions: Boolean,
       cancelled: () => Option[RuntimeException] = () => None,
   ) {
 
@@ -168,17 +147,19 @@ private[lf] object Free {
         closure: ExtendedValueClosureBlob,
         args: List[ExtendedValue],
     ): Result.NoQuestion[ExtendedValue] =
-      runExtendedValueComputation(
-        computationMode = ExtendedValueComputationMode.ByClosure(closure, args),
-        cancelled = cancelled,
-        compiledPackages = compiledPackages,
-        iterationsBetweenInterruptions = 100000,
-        logger = machineLogger,
-        convertLegacyExceptions = convertLegacyExceptions,
-      ).fold(
-        err => Result.failed(err.fold(identity, free.InterpretationError(_))),
-        Result.successful(_),
-      )
+      ScriptEngine
+        .runExtendedValueComputation(
+          computationMode = ExtendedValueComputationMode.ByClosure(closure, args),
+          cancelled = cancelled,
+          compiledPackages = compiledPackages,
+          iterationsBetweenInterruptions = 100000,
+          logger = machineLogger,
+          convertLegacyExceptions = false,
+        )
+        .fold(
+          err => Result.failed(err.fold(identity, free.InterpretationError(_))),
+          Result.successful(_),
+        )
 
     def parseQuestion(
         v: ExtendedValue
