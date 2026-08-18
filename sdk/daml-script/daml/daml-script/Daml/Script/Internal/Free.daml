@@ -7,7 +7,7 @@ module Daml.Script.Internal.Free
   , lift
   ) where 
 
-import Daml.Script.Internal.Free.Stable
+import Daml.Script.Internal.Free.Stable.Free
 
 instance Functor f => Functor (Free f) where
   fmap f (Pure a) = Pure (f a)

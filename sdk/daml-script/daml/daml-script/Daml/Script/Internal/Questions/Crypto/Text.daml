@@ -9,7 +9,7 @@ module Daml.Script.Internal.Questions.Crypto.Text
   , module Stable
   ) where
 
-import Daml.Script.Internal.Questions.Crypto.Text.Stable as Stable
+import Daml.Script.Internal.Questions.Crypto.Text.Stable.Secp256k1KeyPair as Stable
 import Daml.Script.Internal.LowLevel
 import DA.Crypto.Text
 import DA.Stack

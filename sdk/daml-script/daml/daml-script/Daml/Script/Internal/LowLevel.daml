@@ -19,7 +19,10 @@ module Daml.Script.Internal.LowLevel
   , pattern Cast
   ) where
 
-import Daml.Script.Internal.LowLevel.Stable
+import Daml.Script.Internal.LowLevel.Stable.Script
+import Daml.Script.Internal.LowLevel.Stable.ScriptF
+import Daml.Script.Internal.LowLevel.Stable.Question
+import Daml.Script.Internal.LowLevel.Stable.LedgerValue
 import Daml.Script.Internal.Free (Free)
 import qualified Daml.Script.Internal.Free as Free
 import DA.Stack

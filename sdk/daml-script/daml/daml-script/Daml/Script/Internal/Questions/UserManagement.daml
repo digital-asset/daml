@@ -12,8 +12,13 @@ import Daml.Script.Internal.Questions.Submit
 import DA.Stack
 import DA.Exception
 import Daml.Script.Internal.Questions.Exceptions ()
-import Daml.Script.Internal.Questions.UserManagement.Stable as Stable
-import Daml.Script.Internal.Questions.PartyManagement.Stable (ParticipantName (..))
+import Daml.Script.Internal.Questions.UserManagement.Stable.InvalidUserId as Stable
+import Daml.Script.Internal.Questions.UserManagement.Stable.UserAlreadyExists as Stable
+import Daml.Script.Internal.Questions.UserManagement.Stable.User as Stable
+import Daml.Script.Internal.Questions.UserManagement.Stable.UserId as Stable
+import Daml.Script.Internal.Questions.UserManagement.Stable.UserNotFound as Stable
+import Daml.Script.Internal.Questions.UserManagement.Stable.UserRight as Stable
+import Daml.Script.Internal.Questions.PartyManagement.Stable.ParticipantName
 import GHC.Types (primitive)
 import DA.Record
 

@@ -6,33 +6,32 @@
 
 module DA.Daml.Script.StablePackageBuilders where
 
+import Control.Applicative
 import Data.Bifunctor
 import Data.ByteString.Lazy qualified as BSL
-import Data.Either (fromRight)
-import Data.Function (on)
-import Data.List.Extra (deleteBy, nubOrd, nubOrdOn)
+import Data.Foldable (traverse_)
+import Data.List.Extra (nubOrdOn, dropSuffix)
 import Data.Map.Strict qualified as MS
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe)
 import Data.NameMap qualified as NM
 import Data.Set qualified as S
 import Data.Text qualified as T
+import Data.Text.IO qualified as T
 import System.Directory (createDirectoryIfMissing)
-import System.FilePath (takeDirectory)
+import System.FilePath (joinPath, takeDirectory, (<.>), (</>))
 
-import "ghc-lib-parser" FastString (mkFastString)
-import "ghc-lib-parser" FieldLabel (FieldLbl (..))
 import "ghc-lib-parser" Module (UnitId, mkModuleName, unitIdString)
-import "ghc-lib-parser" Name qualified as GHC
 import "zip" Codec.Archive.Zip qualified as Zip
 
+import DA.Bazel.Runfiles
 import DA.Daml.Compiler.Dar (createArchive, mkConfFile, pkgNameVersion)
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Version.GeneratedVersions
 import DA.Daml.LF.Proto3.Archive.Encode (encodeArchiveAndHash, encodePackageHash)
-import DA.Daml.LFConversion.MetadataEncoding
 import DA.Daml.Project.Consts (getVersionInfo)
 import DA.Daml.StablePackages (allStablePackages)
 import DA.Daml.UtilLF
+import DA.Daml.Version.Types (VersionInfo)
 import Development.IDE.Types.Location (toNormalizedFilePath')
 
 import ComponentVersion (withComponentVersions)
@@ -113,21 +112,21 @@ makePackage PackageDef{..} = Package
     { moduleDataTypes = NM.fromList $ flip concatMap packageDefTypes $ \packageDefType ->
         let typeVarParams = first TypeVarName <$> typeParams packageDefType
          in case packageDefType of
-              NewTypeDef {..} -> one DefDataType
+              NewTypeDef {..} -> pure DefDataType
                 { dataLocation = Nothing
                 , dataTypeCon = mkTypeCon [name]
                 , dataSerializable = IsSerializable False
                 , dataParams = typeVarParams
                 , dataCons = DataRecord [(FieldName $ fromMaybe "unpack" mUnwrap, typ)]
                 }
-              RecordDef {..} -> one DefDataType
+              RecordDef {..} -> pure DefDataType
                 { dataLocation = Nothing
                 , dataTypeCon = mkTypeCon [name]
                 , dataSerializable = IsSerializable False
                 , dataParams = typeVarParams
                 , dataCons = DataRecord $ first FieldName <$> fields
                 }
-              VariantDef {..} -> one DefDataType
+              VariantDef {..} -> pure DefDataType
                 { dataLocation = Nothing
                 , dataTypeCon = mkTypeCon [name]
                 , dataSerializable = IsSerializable False
@@ -179,9 +178,7 @@ makePackage PackageDef{..} = Package
                     ]
     }
   , packageMetadata = PackageMetadata
-      -- Type names are included since each module is split over several single type packages
-      { packageName = PackageName $ T.intercalate "-" $
-          ["daml-script-stable"] <> modNameList <> (name <$> packageDefTypes)
+      { packageName = PackageName $ T.intercalate "-" $ "daml-script-stable" : modNameList
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
@@ -192,113 +189,69 @@ makePackage PackageDef{..} = Package
     modName = mkModNameFromText packageDefModuleName
     modNameList = unModuleName modName
 
--- Builds a package that depends on all the given stable packages and re-exports their contents,
--- with one module per module name used across them.
--- Re-exports are metadata stubs holding an encoded ExportInfo, as damlc emits for `module X (module Y)`.
-makeReExportPackage :: PackageName -> [Package] -> Package
-makeReExportPackage pkgName pkgs = Package
-  { packageLfVersion = maximum $ packageLfVersion <$> pkgs
-  , packageModules = NM.fromList
-      [ (emptyModule modName)
-          { moduleValues = NM.fromList
-              [ mkMetadataStub (reExportName i) (encodeExportInfo info)
-              | (i, info) <- zip [0..] $ concatMap (uncurry moduleExports) modules
-              ]
-          }
-      | (modName, modules) <- MS.toList moduleGroups
-      ]
-  , packageMetadata = PackageMetadata
-      { packageName = pkgName
-      , packageVersion = PackageVersion "1.0.0"
-      , upgradedPackageId = Nothing
-      }
-  , importedPackages = Right $ S.fromList $ map encodePackageHash pkgs
-  }
-  where
-    moduleGroups :: MS.Map ModuleName [(PackageId, Module)]
-    moduleGroups = MS.fromListWith ((<>))
-      [ (moduleName m, [(encodePackageHash pkg, m)])
-      | pkg <- pkgs
-      , m <- NM.toList $ packageModules pkg
-      ]
-
--- Derive module exports of a stable package, for its (only) module
--- Only datatypes are exported, as every value a stable package defines is a worker or a selector,
--- which GHC sees through the constructors and fields of their type
-moduleExports :: PackageId -> Module -> [ExportInfo]
-moduleExports pkgId m =
-    [ dataTypeExport pkgId m dt
-    | dt <- NM.toList $ moduleDataTypes m
-    , -- Omit names with multiple components, these are inner record constructors
-      -- for sums of records. This is strictly an LF concept, and isn't represented
-      -- in export info.
-      [_] <- [unTypeConName $ dataTypeCon dt]
-    ]
-
-dataTypeExport :: PackageId -> Module -> DefDataType -> ExportInfo
-dataTypeExport pkgId m DefDataType{..} = ExportInfoTC
-    (mkQualName GHC.tcClsName pkgId modName tyName)
-    [mkQualName GHC.dataName pkgId modName con | con <- cons]
-    [mkFieldLbl fieldName | fieldName <- nubOrd fieldNames]
-  where
-    modName = moduleName m
-    tyName = head $ unTypeConName dataTypeCon
-    (cons, fieldNames) = case dataCons of
-      DataRecord fs -> ([tyName], unFieldName . fst <$> fs)
-      DataEnum cs -> (unVariantConName <$> cs, [])
-      DataVariant cs -> (unVariantConName . fst <$> cs, concatMap (variantConFields . fst) cs)
-      -- We don't define interfaces in daml-script stable types, so make this an error
-      DataInterface -> error "Unexpected interface in daml-script stable package"
-
-    -- Variant fields are stored in inner record types, so we lookup the inner record to find them
-    -- if it doesn't exist, the variant had no record fields, so we return an empty list
-    variantConFields conName =
-      case NM.lookup (TypeConName [tyName, unVariantConName conName]) (moduleDataTypes m) of
-        Just DefDataType { dataCons = DataRecord fs } -> unFieldName . fst <$> fs
-        _ -> []
-
-    mkFieldLbl fieldName = FieldLabel
-      { flLabel = mkFastString $ T.unpack fieldName
-      , flIsOverloaded = True
-      , flSelector = mkQualName GHC.varName pkgId modName $
-          unExprValName $ mkSelectorName tyName fieldName
-      }
-
-mkQualName :: GHC.NameSpace -> PackageId -> ModuleName -> T.Text -> QualName
-mkQualName ns pkgId modName n =
-  QualName $ Qualified (ImportedPackageId pkgId) modName $ GHC.mkOccName ns $ T.unpack n
-
-makeReExportPackageDar :: FilePath -> PackageName -> [Package] -> IO ()
-makeReExportPackageDar darPath pkgName pkgs = withComponentVersions $ do
-  let reExportPkg = makeReExportPackage pkgName pkgs
-      -- These packages depend either on eachother or damlc's stable packages.
-      -- Daml-script stable-packages are provided to the function and all used. damlc's stable packages
-      -- are not all used, so we filter to only those that are imported by the packages we are re-exporting.
-      importedStablePackages = mapMaybe (`MS.lookup` allStablePackages) $ S.toList . S.unions $ fromRight S.empty . importedPackages <$> pkgs
-      allPackages = nubOrdOn (packageName . packageMetadata) $ concat [[reExportPkg], pkgs, importedStablePackages]
-      (reExportPkgDalf, reExportPkgId) = encodeArchiveAndHash reExportPkg
-      -- Deps are all packages except reExportPkg
-      depPackages = deleteBy ((==) `on` (packageName . packageMetadata)) reExportPkg allPackages
-      getPackageUnitId :: Package -> UnitId
-      getPackageUnitId pkg = pkgNameVersion (packageName $ packageMetadata pkg) (Just $ packageVersion $ packageMetadata pkg)
-      deps = fmap (\pkg -> let (dalf, pkgId) = encodeArchiveAndHash pkg in (T.pack $ unitIdString $ getPackageUnitId pkg, BSL.toStrict dalf, pkgId)) depPackages
-      ghcModuleNames = mkModuleName . T.unpack . moduleNameString <$> NM.names (packageModules reExportPkg)
-      confFile = mkConfFile pkgName (Just $ packageVersion $ packageMetadata reExportPkg) (getPackageUnitId <$> pkgs) Nothing ghcModuleNames reExportPkgId
+makeStableDars :: FilePath -> [Package] -> IO ()
+makeStableDars darDirPath pkgs = withComponentVersions $ do
   versionInfo <- getVersionInfo
-  let archive =
-        createArchive
-          pkgName
-          Nothing
-          versionInfo
-          reExportPkgId
-          reExportPkgDalf
-          deps
-          (toNormalizedFilePath' ".")
-          [] -- daml files, for now empty, should be filled with stable daml code
-          [confFile]
-          []
-  createDirectoryIfMissing True $ takeDirectory darPath
-  Zip.createArchive darPath archive
+  traverse_ (makeDar versionInfo) pkgs
+  where
+    pkgsByPackageId :: [(PackageId, Package)]
+    pkgsByPackageId = fmap (\pkg -> (encodePackageHash pkg, pkg)) pkgs
+
+    lookupPackage :: PackageId -> Package
+    lookupPackage pkgId = fromMaybe (error $ "Couldn't find package " <> show pkgId) $
+      pkgId `MS.lookup` allStablePackages <|> pkgId `lookup` pkgsByPackageId
+
+    getPackageUnitId :: Package -> UnitId
+    getPackageUnitId pkg = pkgNameVersion (packageName $ packageMetadata pkg) (Just $ packageVersion $ packageMetadata pkg)
+
+    makeDar :: VersionInfo -> Package -> IO ()
+    makeDar versionInfo mainPkg = do
+      let depPackages = fmap lookupPackage $ either (const []) S.toList $ importedPackages mainPkg
+          (mainPkgDalf, mainPkgId) = encodeArchiveAndHash mainPkg
+          deps = fmap (\pkg -> let (dalf, pkgId) = encodeArchiveAndHash pkg in (T.pack $ unitIdString $ getPackageUnitId pkg, BSL.toStrict dalf, pkgId)) depPackages
+          ghcModuleNames = mkModuleName . T.unpack . moduleNameString <$> NM.names (packageModules mainPkg)
+          pkgName = packageName $ packageMetadata mainPkg
+          pkgVersion = packageVersion $ packageMetadata mainPkg
+          -- head is safe as all stable packages always have one module
+          mainModuleName = head $ NM.names $ packageModules mainPkg
+          mainDamlFilePath = joinPath (T.unpack <$> unModuleName mainModuleName) <.> "daml"
+          confFile = mkConfFile pkgName (Just pkgVersion) (getPackageUnitId <$> depPackages) Nothing ghcModuleNames mainPkgId
+      realMainDamlFilePath <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-stable" </> "daml" </> mainDamlFilePath)
+      -- Drop the original path from the resolved path to find the "source" path
+      -- (init drops the trailing slash)
+      let damlFileRoot = init $ dropSuffix mainDamlFilePath realMainDamlFilePath
+          archive =
+            createArchive
+              pkgName
+              Nothing
+              versionInfo
+              mainPkgId
+              mainPkgDalf
+              deps
+              (toNormalizedFilePath' damlFileRoot)
+              [toNormalizedFilePath' realMainDamlFilePath]
+              [confFile]
+              []
+          darPath = darDirPath </> T.unpack (unPackageName pkgName) <.> "dar"
+      createDirectoryIfMissing True $ takeDirectory darPath
+      Zip.createArchive darPath archive
+
+makeStablePackageList :: FilePath -> [Package] -> IO ()
+makeStablePackageList listFilePath pkgs = do
+  let pkgData = fmap (\pkg -> (unPackageName $ packageName $ packageMetadata pkg, unPackageId $ encodePackageHash pkg)) pkgs
+      content = T.unlines $
+        [ "# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved."
+        , "# SPDX-License-Identifier: Apache-2.0"
+        , ""
+        , "SCRIPT_STABLE_PACKAGES = {"
+        ] <>
+        [ "  \"" <> pkgName <> "\": \"" <> pkgId <> "\","
+        | (pkgName, pkgId) <- pkgData
+        ] <>
+        [ "}"
+        ]
+  createDirectoryIfMissing True $ takeDirectory listFilePath
+  T.writeFile listFilePath content
 
 mkSelectorDef :: ModuleName -> TypeConName -> [(TypeVarName, Kind)] -> FieldName -> Type -> DefValue
 mkSelectorDef modName tyCon tyVars fieldName fieldTy =

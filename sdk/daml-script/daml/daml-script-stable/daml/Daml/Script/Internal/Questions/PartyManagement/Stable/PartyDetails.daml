@@ -1,0 +1,11 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.PartyManagement.Stable.PartyDetails where
+
+-- | MOVE Daml.Script
+-- The party details returned by the party management service.
+data PartyDetails = PartyDetails
+  with
+    party : Party -- ^ Party id
+    isLocal : Bool -- ^ True if party is hosted by the backing participant.

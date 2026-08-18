@@ -4,6 +4,7 @@
 load("@build_environment//:configuration.bzl", "ghc_version")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION")
+load("//daml-script/daml/daml-script-stable:stable-packages.bzl", "SCRIPT_STABLE_PACKAGES")
 
 # These packages contain all user facing logic and data types for daml-script.
 # They are forced to be utility packages (i.e. have no serializable types) for ease of development in future
@@ -11,9 +12,7 @@ load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION")
     daml_compile(
         name = "daml-script-{}".format(lf_version),
         srcs = glob(["**/*.daml"]),
-        dependencies = [
-            "//daml-script/daml/daml-script-stable:daml-script-stable-{}.dar".format(lf_version),
-        ],
+        data_dependencies = ["//daml-script/daml/daml-script-stable:{}.dar".format(name) for name in SCRIPT_STABLE_PACKAGES],
         disable_deprecated_exceptions = True,
         force_utility_package = True,
         # Force daml files to be under `daml` directory, to match previous behaviour

@@ -18,8 +18,11 @@ import DA.Daml.UtilLF
 
 main :: IO ()
 main = do
-  [path] <- getArgs
-  makeReExportPackageDar path (PackageName "daml-script-stable") allStablePackagesList
+  [action, path] <- getArgs
+  case action of
+    "generate" -> makeStableDars path allStablePackagesList
+    "list" -> makeStablePackageList path allStablePackagesList
+    _ -> error $ "Unknown action: " <> action
 
 allStablePackagesList :: [Package]
 allStablePackagesList =
@@ -79,6 +82,13 @@ testingModule = "Daml.Script.Internal.Questions.Testing.Stable"
 transactionTreeModule = "Daml.Script.Internal.Questions.TransactionTree.Stable"
 userManagementModule = "Daml.Script.Internal.Questions.UserManagement.Stable"
 
+-- Modules of the packages holding (mutually) recursive types, named after the first type they
+-- define. Bound because both the package definition and its selfTy references need them.
+freeTypeModule, treeEventTypeModule, treeIndexTypeModule :: T.Text
+freeTypeModule = freeModule <> ".Free"
+treeEventTypeModule = transactionTreeModule <> ".TreeEvent"
+treeIndexTypeModule = transactionTreeModule <> ".TreeIndex"
+
 tVar :: T.Text -> Type
 tVar = TVar . mkTypeVar
 
@@ -120,20 +130,20 @@ tLedgerValue = depTy ledgerValue "LedgerValue" []
 
 free :: Package
 free = makePackage defaultPackageDef
-  { packageDefModuleName = freeModule
+  { packageDefModuleName = freeTypeModule
   , packageDefTypes = pure VariantDef
       { name = "Free"
       , typeParams = [("f", KStar `KArrow` KStar), ("a", KStar)]
       , constructors =
           [ ("Pure", tVar "a")
-          , ("Free", TApp (tVar "f") (selfTy freeModule "Free" [tVar "f", tVar "a"]))
+          , ("Free", TApp (tVar "f") (selfTy freeTypeModule "Free" [tVar "f", tVar "a"]))
           ]
       }
   }
 
 ledgerValue :: Package
 ledgerValue = makePackage defaultPackageDef
-  { packageDefModuleName = lowLevelModule
+  { packageDefModuleName = lowLevelModule <> ".LedgerValue"
   , packageDefTypes = pure RecordDef
       { name = "LedgerValue"
       , typeParams = []
@@ -143,7 +153,7 @@ ledgerValue = makePackage defaultPackageDef
 
 question :: Package
 question = makePackage defaultPackageDef
-  { packageDefModuleName = lowLevelModule
+  { packageDefModuleName = lowLevelModule <> ".Question"
   , packageDefTypes = pure RecordDef
       { name = "Question"
       , typeParams = [("req", KStar), ("res", KStar), ("a", KStar)]
@@ -160,7 +170,7 @@ question = makePackage defaultPackageDef
 
 scriptF :: Package
 scriptF = makePackage defaultPackageDef
-  { packageDefModuleName = lowLevelModule
+  { packageDefModuleName = lowLevelModule <> ".ScriptF"
   , packageDefTypes = pure NewTypeDef
       { name = "ScriptF"
       , typeParams = [("a", KStar)]
@@ -172,7 +182,7 @@ scriptF = makePackage defaultPackageDef
 
 script :: Package
 script = makePackage defaultPackageDef
-  { packageDefModuleName = lowLevelModule
+  { packageDefModuleName = lowLevelModule <> ".Script"
   , packageDefTypes = pure RecordDef
       { name = "Script"
       , typeParams = [("a", KStar)]
@@ -186,7 +196,7 @@ script = makePackage defaultPackageDef
 
 anyContractId :: Package
 anyContractId = makePackage defaultPackageDef
-  { packageDefModuleName = utilModule
+  { packageDefModuleName = utilModule <> ".AnyContractId"
   , packageDefTypes = pure RecordDef
       { name = "AnyContractId"
       , typeParams = []
@@ -200,7 +210,7 @@ anyContractId = makePackage defaultPackageDef
 
 anyContractKey :: Package
 anyContractKey = makePackage defaultPackageDef
-  { packageDefModuleName = commandsModule
+  { packageDefModuleName = commandsModule <> ".AnyContractKey"
   , packageDefTypes = pure RecordDef
       { name = "AnyContractKey"
       , typeParams = []
@@ -214,7 +224,7 @@ anyContractKey = makePackage defaultPackageDef
 
 command :: Package
 command = makePackage defaultPackageDef
-  { packageDefModuleName = commandsModule
+  { packageDefModuleName = commandsModule <> ".Command"
   , packageDefTypes = pure VariantRecordDef
       { name = "Command"
       , typeParams = []
@@ -241,7 +251,7 @@ command = makePackage defaultPackageDef
 
 commandWithMeta :: Package
 commandWithMeta = makePackage defaultPackageDef
-  { packageDefModuleName = commandsModule
+  { packageDefModuleName = commandsModule <> ".CommandWithMeta"
   , packageDefTypes = pure RecordDef
       { name = "CommandWithMeta"
       , typeParams = []
@@ -255,7 +265,7 @@ commandWithMeta = makePackage defaultPackageDef
 
 commandResult :: Package
 commandResult = makePackage defaultPackageDef
-  { packageDefModuleName = commandsModule
+  { packageDefModuleName = commandsModule <> ".CommandResult"
   , packageDefTypes = pure VariantDef
       { name = "CommandResult"
       , typeParams = []
@@ -269,7 +279,7 @@ commandResult = makePackage defaultPackageDef
 
 commands :: Package
 commands = makePackage defaultPackageDef
-  { packageDefModuleName = commandsModule
+  { packageDefModuleName = commandsModule <> ".Commands"
   , packageDefTypes = pure RecordDef
       { name = "Commands"
       , typeParams = [("a", KStar)]
@@ -283,7 +293,7 @@ commands = makePackage defaultPackageDef
 
 disclosure :: Package
 disclosure = makePackage defaultPackageDef
-  { packageDefModuleName = commandsModule
+  { packageDefModuleName = commandsModule <> ".Disclosure"
   , packageDefTypes = pure RecordDef
       { name = "Disclosure"
       , typeParams = []
@@ -298,7 +308,7 @@ disclosure = makePackage defaultPackageDef
 
 secp256k1KeyPair :: Package
 secp256k1KeyPair = makePackage defaultPackageDef
-  { packageDefModuleName = cryptoTextModule
+  { packageDefModuleName = cryptoTextModule <> ".Secp256k1KeyPair"
   , packageDefTypes = pure RecordDef
       { name = "Secp256k1KeyPair"
       , typeParams = []
@@ -311,7 +321,7 @@ secp256k1KeyPair = makePackage defaultPackageDef
 
 partyDetails :: Package
 partyDetails = makePackage defaultPackageDef
-  { packageDefModuleName = partyManagementModule
+  { packageDefModuleName = partyManagementModule <> ".PartyDetails"
   , packageDefTypes = pure RecordDef
       { name = "PartyDetails"
       , typeParams = []
@@ -324,7 +334,7 @@ partyDetails = makePackage defaultPackageDef
 
 partyIdHint :: Package
 partyIdHint = makePackage defaultPackageDef
-  { packageDefModuleName = partyManagementModule
+  { packageDefModuleName = partyManagementModule <> ".PartyIdHint"
   , packageDefTypes = pure NewTypeDef
       { name = "PartyIdHint"
       , typeParams = []
@@ -335,7 +345,7 @@ partyIdHint = makePackage defaultPackageDef
 
 participantName :: Package
 participantName = makePackage defaultPackageDef
-  { packageDefModuleName = partyManagementModule
+  { packageDefModuleName = partyManagementModule <> ".ParticipantName"
   , packageDefTypes = pure NewTypeDef
       { name = "ParticipantName"
       , typeParams = []
@@ -346,7 +356,7 @@ participantName = makePackage defaultPackageDef
 
 packageId :: Package
 packageId = makePackage defaultPackageDef
-  { packageDefModuleName = submitModule
+  { packageDefModuleName = submitModule <> ".PackageId"
   , packageDefTypes = pure NewTypeDef
       { name = "PackageId"
       , typeParams = []
@@ -358,7 +368,7 @@ packageId = makePackage defaultPackageDef
 -- A single constructor with an unlabelled field becomes a variant, not a record
 submitOptions :: Package
 submitOptions = makePackage defaultPackageDef
-  { packageDefModuleName = submitModule
+  { packageDefModuleName = submitModule <> ".SubmitOptions"
   , packageDefTypes = pure VariantDef
       { name = "SubmitOptions"
       , typeParams = []
@@ -369,7 +379,7 @@ submitOptions = makePackage defaultPackageDef
 
 taggedRecord :: Package
 taggedRecord = makePackage defaultPackageDef
-  { packageDefModuleName = submitErrorModule
+  { packageDefModuleName = submitErrorModule <> ".TaggedRecord"
   , packageDefTypes = pure RecordDef
       { name = "TaggedRecord"
       , typeParams = []
@@ -383,7 +393,7 @@ taggedRecord = makePackage defaultPackageDef
 
 taggedRecordNewtype :: T.Text -> Package
 taggedRecordNewtype tyName = makePackage defaultPackageDef
-  { packageDefModuleName = submitErrorModule
+  { packageDefModuleName = submitErrorModule <> "." <> tyName
   , packageDefTypes = pure NewTypeDef
       { name = tyName
       , typeParams = []
@@ -402,7 +412,7 @@ anyDevErrorType = taggedRecordNewtype "AnyDevErrorType"
 
 commandName :: Package
 commandName = makePackage defaultPackageDef
-  { packageDefModuleName = testingModule
+  { packageDefModuleName = testingModule <> ".CommandName"
   , packageDefTypes = pure NewTypeDef
       { name = "CommandName"
       , typeParams = []
@@ -413,7 +423,7 @@ commandName = makePackage defaultPackageDef
 
 errorClassName :: Package
 errorClassName = makePackage defaultPackageDef
-  { packageDefModuleName = testingModule
+  { packageDefModuleName = testingModule <> ".ErrorClassName"
   , packageDefTypes = pure NewTypeDef
       { name = "ErrorClassName"
       , typeParams = []
@@ -424,7 +434,7 @@ errorClassName = makePackage defaultPackageDef
 
 errorMessage :: Package
 errorMessage = makePackage defaultPackageDef
-  { packageDefModuleName = testingModule
+  { packageDefModuleName = testingModule <> ".ErrorMessage"
   , packageDefTypes = pure NewTypeDef
       { name = "ErrorMessage"
       , typeParams = []
@@ -435,7 +445,7 @@ errorMessage = makePackage defaultPackageDef
 
 failedCmd :: Package
 failedCmd = makePackage defaultPackageDef
-  { packageDefModuleName = testingModule
+  { packageDefModuleName = testingModule <> ".FailedCmd"
   , packageDefTypes = pure RecordDef
       { name = "FailedCmd"
       , typeParams = []
@@ -450,7 +460,7 @@ failedCmd = makePackage defaultPackageDef
 
 created :: Package
 created = makePackage defaultPackageDef
-  { packageDefModuleName = transactionTreeModule
+  { packageDefModuleName = transactionTreeModule <> ".Created"
   , packageDefTypes = pure RecordDef
       { name = "Created"
       , typeParams = []
@@ -465,14 +475,14 @@ created = makePackage defaultPackageDef
 -- TreeEvent and Exercised are mutually recursive, so they must share a package
 treeEventAndExercised :: Package
 treeEventAndExercised = makePackage defaultPackageDef
-  { packageDefModuleName = transactionTreeModule
+  { packageDefModuleName = treeEventTypeModule
   , packageDefTypes =
       [ VariantDef
           { name = "TreeEvent"
           , typeParams = []
           , constructors =
               [ ("CreatedEvent", depTy created "Created" [])
-              , ("ExercisedEvent", selfTy transactionTreeModule "Exercised" [])
+              , ("ExercisedEvent", selfTy treeEventTypeModule "Exercised" [])
               ]
           }
       , RecordDef
@@ -482,7 +492,7 @@ treeEventAndExercised = makePackage defaultPackageDef
               [ ("contractId", depTy anyContractId "AnyContractId" [])
               , ("choice", TText)
               , ("argument", tAnyChoice)
-              , ("childEvents", TList (selfTy transactionTreeModule "TreeEvent" []))
+              , ("childEvents", TList (selfTy treeEventTypeModule "TreeEvent" []))
               ]
           }
       ]
@@ -491,7 +501,7 @@ treeEventAndExercised = makePackage defaultPackageDef
 
 transactionTree :: Package
 transactionTree = makePackage defaultPackageDef
-  { packageDefModuleName = transactionTreeModule
+  { packageDefModuleName = transactionTreeModule <> ".TransactionTree"
   , packageDefTypes = pure RecordDef
       { name = "TransactionTree"
       , typeParams = []
@@ -502,7 +512,7 @@ transactionTree = makePackage defaultPackageDef
 
 createdIndexPayload :: Package
 createdIndexPayload = makePackage defaultPackageDef
-  { packageDefModuleName = transactionTreeModule
+  { packageDefModuleName = transactionTreeModule <> ".CreatedIndexPayload"
   , packageDefTypes = pure RecordDef
       { name = "CreatedIndexPayload"
       , typeParams = [("t", KStar)]
@@ -517,14 +527,14 @@ createdIndexPayload = makePackage defaultPackageDef
 -- TreeIndex and ExercisedIndexPayload are mutually recursive, so they must share a package
 treeIndexAndExercisedIndexPayload :: Package
 treeIndexAndExercisedIndexPayload = makePackage defaultPackageDef
-  { packageDefModuleName = transactionTreeModule
+  { packageDefModuleName = treeIndexTypeModule
   , packageDefTypes =
       [ VariantDef
           { name = "TreeIndex"
           , typeParams = [("t", KStar)]
           , constructors =
               [ ("CreatedIndex", depTy createdIndexPayload "CreatedIndexPayload" [tVar "t"])
-              , ("ExercisedIndex", selfTy transactionTreeModule "ExercisedIndexPayload" [tVar "t"])
+              , ("ExercisedIndex", selfTy treeIndexTypeModule "ExercisedIndexPayload" [tVar "t"])
               ]
           }
       , RecordDef
@@ -534,7 +544,7 @@ treeIndexAndExercisedIndexPayload = makePackage defaultPackageDef
               [ ("templateId", tTemplateTypeRep)
               , ("choice", TText)
               , ("offset", TInt64)
-              , ("child", selfTy transactionTreeModule "TreeIndex" [tVar "t"])
+              , ("child", selfTy treeIndexTypeModule "TreeIndex" [tVar "t"])
               ]
           }
       ]
@@ -543,7 +553,7 @@ treeIndexAndExercisedIndexPayload = makePackage defaultPackageDef
 
 userId :: Package
 userId = makePackage defaultPackageDef
-  { packageDefModuleName = userManagementModule
+  { packageDefModuleName = userManagementModule <> ".UserId"
   , packageDefTypes = pure NewTypeDef
       { name = "UserId"
       , typeParams = []
@@ -554,7 +564,7 @@ userId = makePackage defaultPackageDef
 
 user :: Package
 user = makePackage defaultPackageDef
-  { packageDefModuleName = userManagementModule
+  { packageDefModuleName = userManagementModule <> ".User"
   , packageDefTypes = pure RecordDef
       { name = "User"
       , typeParams = []
@@ -568,7 +578,7 @@ user = makePackage defaultPackageDef
 
 userRight :: Package
 userRight = makePackage defaultPackageDef
-  { packageDefModuleName = userManagementModule
+  { packageDefModuleName = userManagementModule <> ".UserRight"
   , packageDefTypes = pure VariantDef
       { name = "UserRight"
       , typeParams = []
@@ -586,7 +596,7 @@ userRight = makePackage defaultPackageDef
 
 invalidUserId :: Package
 invalidUserId = makePackage defaultPackageDef
-  { packageDefModuleName = userManagementModule
+  { packageDefModuleName = userManagementModule <> ".InvalidUserId"
   , packageDefTypes = pure RecordDef
       { name = "InvalidUserId"
       , typeParams = []
@@ -596,7 +606,7 @@ invalidUserId = makePackage defaultPackageDef
 
 userAlreadyExists :: Package
 userAlreadyExists = makePackage defaultPackageDef
-  { packageDefModuleName = userManagementModule
+  { packageDefModuleName = userManagementModule <> ".UserAlreadyExists"
   , packageDefTypes = pure RecordDef
       { name = "UserAlreadyExists"
       , typeParams = []
@@ -607,7 +617,7 @@ userAlreadyExists = makePackage defaultPackageDef
 
 userNotFound :: Package
 userNotFound = makePackage defaultPackageDef
-  { packageDefModuleName = userManagementModule
+  { packageDefModuleName = userManagementModule <> ".UserNotFound"
   , packageDefTypes = pure RecordDef
       { name = "UserNotFound"
       , typeParams = []
