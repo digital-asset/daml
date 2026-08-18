@@ -63,7 +63,12 @@ import Daml.Script.Internal.Questions.Util
 import DA.NonEmpty
 import DA.Fail
 import qualified DA.Map as Map
-import Daml.Script.Internal.Questions.Submit.Error.Stable
+import Daml.Script.Internal.Questions.Submit.Error.Stable.AnyCryptoErrorType
+import Daml.Script.Internal.Questions.Submit.Error.Stable.AnyDevErrorType
+import Daml.Script.Internal.Questions.Submit.Error.Stable.AnyExternalCallErrorType
+import Daml.Script.Internal.Questions.Submit.Error.Stable.AnySubmitError
+import Daml.Script.Internal.Questions.Submit.Error.Stable.AnyUpgradeErrorType
+import Daml.Script.Internal.Questions.Submit.Error.Stable.TaggedRecord
 import Daml.Script.Internal.Questions.Commands (AnyContractKey)
 
 -- | HIDE

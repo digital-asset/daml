@@ -5,30 +5,13 @@ load("@build_environment//:configuration.bzl", "ghc_version")
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS")
 load("//rules_daml:daml.bzl", "daml_compile")
+load(":stable-packages.bzl", "SCRIPT_STABLE_PACKAGES")
 
-# These packages contain only stable data types (and all exceptions) from daml-script. See Daml/Script/Stable.daml for more information.
-[
-    daml_compile(
-        name = "daml-script-stable-{}".format(lf_version),
-        srcs = glob(["**/*.daml"]),
-        disable_deprecated_exceptions = True,
-        force_utility_package = True,
-        # Force daml files to be under `daml` directory, to match previous behaviour
-        generated_daml_source_directory = "daml",
-        project_name = "daml-script-stable",
-        target = lf_version,
-        version = ghc_version,
-        visibility = [
-            "//daml-script/daml:__pkg__",
-            "//daml-script/daml/daml-script:__pkg__",
-        ],
-    )
-    for lf_version in COMPILER_LF_VERSIONS
-]
-
+# This dar contains only stable data types (and all exceptions) from daml-script.
 da_haskell_binary(
-    name = "generate-stable-packages-dar",
+    name = "generate-stable-packages",
     srcs = glob(["src/**/*.hs"]),
+    data = glob(["daml/**/*.daml"]),
     hackage_deps = [
         "base",
         "bytestring",
@@ -53,16 +36,38 @@ da_haskell_binary(
         "//compiler/damlc/daml-lf-util",
         "//compiler/damlc/stable-packages:stable-packages-lib",
         "//component-version/hs:component-version-lib",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/da-version-types",
     ],
 )
 
+# TODO Test that ensures these are up to date
+sh_binary(
+    name = "update-script-stable-packages",
+    srcs = ["update_script_stable_packages.sh"],
+    args = [
+        "$(location stable-packages.bzl)",
+        "daml-script/daml/daml-script-stable/stable-packages.bzl",
+    ],
+    data = ["stable-packages.bzl"],
+)
+
 genrule(
-    name = "gen-stable-packages-dar",
+    name = "gen-stable-packages-dars",
     srcs = [],
-    outs = ["daml-script-stable-packages.dar"],
-    cmd = "$(location :generate-stable-packages-dar) $(OUTS)",
-    tools = [":generate-stable-packages-dar"],
+    outs = ["{}.dar".format(pkg) for pkg in SCRIPT_STABLE_PACKAGES],
+    cmd = "$(location :generate-stable-packages) generate $(RULEDIR)",
+    tools = [":generate-stable-packages"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "gen-stable-packages-list",
+    srcs = [],
+    outs = ["stable-packages.bzl"],
+    cmd = "$(location :generate-stable-packages) list $(OUTS)",
+    tools = [":generate-stable-packages"],
     visibility = ["//visibility:public"],
 )
 

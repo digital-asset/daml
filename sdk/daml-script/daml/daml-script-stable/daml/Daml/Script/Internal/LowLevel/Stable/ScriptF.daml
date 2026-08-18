@@ -1,0 +1,13 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module Daml.Script.Internal.LowLevel.Stable.ScriptF where
+
+import Daml.Script.Internal.LowLevel.Stable.Question
+import Daml.Script.Internal.LowLevel.Stable.LedgerValue
+
+-- Our entire scriptF type now is just a question from LedgerValue to LedgerValue, returning a
+-- | HIDE
+newtype ScriptF a = ScriptF (Question LedgerValue LedgerValue a)

@@ -1,16 +1,10 @@
 -- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- This module contains the stable types for the Submit daml-script questions
-
-module Daml.Script.Internal.Questions.Submit.Stable where
+module Daml.Script.Internal.Questions.Submit.Stable.SubmitOptions where
 
 import DA.Map
-import Daml.Script.Internal.LowLevel.Stable
-
--- | MOVE Daml.Script
--- Package-id newtype for package preference
-newtype PackageId = PackageId Text
+import Daml.Script.Internal.LowLevel.Stable.LedgerValue
 
 -- | MOVE Daml.Script
 -- Options to detemine the stakeholders of a transaction, as well as disclosures.

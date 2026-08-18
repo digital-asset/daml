@@ -8,7 +8,10 @@ module Daml.Script.Internal.Questions.Testing
 
 import Daml.Script.Internal.LowLevel
 import Daml.Script.Internal.Questions.Exceptions ()
-import Daml.Script.Internal.Questions.Testing.Stable as Stable (CommandName (..), ErrorClassName (..), ErrorMessage (..), FailedCmd (..))
+import Daml.Script.Internal.Questions.Testing.Stable.CommandName as Stable
+import Daml.Script.Internal.Questions.Testing.Stable.ErrorClassName as Stable
+import Daml.Script.Internal.Questions.Testing.Stable.ErrorMessage as Stable
+import Daml.Script.Internal.Questions.Testing.Stable.FailedCmd as Stable
 import DA.Bifunctor
 import qualified DA.TextMap as TextMap
 import DA.Fail

@@ -7,15 +7,15 @@ module Daml.Script.Internal.Questions.Submit
   , module Daml.Script.Internal.Questions.Submit.Error
   , module Daml.Script.Internal.Questions.Submit.Error.Compatibility
   , Stable.SubmitOptions -- Do not export Stable SubmitOptions constructor, as it is internal
-  , Stable.PackageId (..)
+  , PackageId (..)
   ) where
 
 import Daml.Script.Internal.LowLevel
 import Daml.Script.Internal.Questions.Commands
 import Daml.Script.Internal.Questions.Submit.Error
 import Daml.Script.Internal.Questions.Submit.Error.Compatibility
-import qualified Daml.Script.Internal.Questions.Submit.Stable as Stable
-import Daml.Script.Internal.Questions.Submit.Stable (PackageId (..))
+import qualified Daml.Script.Internal.Questions.Submit.Stable.SubmitOptions as Stable
+import Daml.Script.Internal.Questions.Submit.Stable.PackageId
 import Daml.Script.Internal.Questions.TransactionTree
 import DA.NonEmpty
 import DA.List.Total (head)

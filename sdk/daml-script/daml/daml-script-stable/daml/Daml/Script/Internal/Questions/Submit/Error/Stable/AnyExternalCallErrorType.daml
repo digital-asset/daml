@@ -1,0 +1,9 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Submit.Error.Stable.AnyExternalCallErrorType where
+
+import Daml.Script.Internal.Questions.Submit.Error.Stable.TaggedRecord
+
+-- | See IsExternalCallErrorType for details on how to use AnyExternalCallErrorType
+newtype AnyExternalCallErrorType = AnyExternalCallErrorType TaggedRecord

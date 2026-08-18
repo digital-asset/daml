@@ -8,7 +8,11 @@ module Daml.Script.Internal.Questions.TransactionTree
   , module Stable
   ) where
 
-import Daml.Script.Internal.Questions.TransactionTree.Stable as Stable
+import Daml.Script.Internal.Questions.TransactionTree.Stable.Created as Stable
+import Daml.Script.Internal.Questions.TransactionTree.Stable.CreatedIndexPayload as Stable
+import Daml.Script.Internal.Questions.TransactionTree.Stable.TransactionTree as Stable
+import Daml.Script.Internal.Questions.TransactionTree.Stable.TreeEvent as Stable
+import Daml.Script.Internal.Questions.TransactionTree.Stable.TreeIndex as Stable
 import Daml.Script.Internal.Questions.Util
 import DA.Optional
 import DA.List.Total

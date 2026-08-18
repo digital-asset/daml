@@ -10,7 +10,12 @@ module Daml.Script.Internal.Questions.Commands
   ) where
 
 import Daml.Script.Internal.LowLevel hiding (IsQuestion (..))
-import Daml.Script.Internal.Questions.Commands.Stable as Stable
+import Daml.Script.Internal.Questions.Commands.Stable.AnyContractKey as Stable
+import Daml.Script.Internal.Questions.Commands.Stable.Command as Stable
+import Daml.Script.Internal.Questions.Commands.Stable.CommandResult as Stable
+import Daml.Script.Internal.Questions.Commands.Stable.Commands as Stable
+import Daml.Script.Internal.Questions.Commands.Stable.CommandWithMeta as Stable
+import Daml.Script.Internal.Questions.Commands.Stable.Disclosure as Stable
 import DA.Bifunctor
 import qualified DA.Map as Map
 import GHC.Types (primitive)

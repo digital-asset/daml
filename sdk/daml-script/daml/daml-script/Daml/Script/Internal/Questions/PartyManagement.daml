@@ -7,7 +7,9 @@ module Daml.Script.Internal.Questions.PartyManagement
   ) where
 
 import Daml.Script.Internal.LowLevel
-import Daml.Script.Internal.Questions.PartyManagement.Stable as Stable (PartyDetails (..), PartyIdHint (..), ParticipantName (..))
+import Daml.Script.Internal.Questions.PartyManagement.Stable.PartyDetails as Stable
+import Daml.Script.Internal.Questions.PartyManagement.Stable.PartyIdHint as Stable
+import Daml.Script.Internal.Questions.PartyManagement.Stable.ParticipantName as Stable
 import DA.Record
 import DA.Stack
 
