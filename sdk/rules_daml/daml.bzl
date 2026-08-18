@@ -4,6 +4,7 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
+load("//bazel/haskell:runtime_libs.bzl", "DAMLC_RUNTIME_LIBS", "DAMLC_RUNTIME_LIB_PATH_EXPORT")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "version_in")
 
@@ -657,10 +658,11 @@ def generate_and_track_yaml_file(
         native.genrule(
             name = generated_target,
             srcs = data,
-            tools = [generator, "@libz//:libs", "@gmp//:libs", "//bazel/haskell/toolchain:numa_libs"],
+            tools = [generator] + DAMLC_RUNTIME_LIBS,
             outs = [generated_out],
             # Pass the output file path ($@) as the first argument
-            cmd = "export LD_LIBRARY_PATH=\"$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $$(set -- $(locations //bazel/haskell/toolchain:numa_libs); echo $$1)):$${{LD_LIBRARY_PATH:-}}\"\n$(execpath {generator}) $@ {args}".format(
+            cmd = "{lib_path_export}\n$(execpath {generator}) $@ {args}".format(
+                lib_path_export = DAMLC_RUNTIME_LIB_PATH_EXPORT,
                 generator = generator,
                 args = " ".join(generator_args),
             ),
