@@ -12,6 +12,7 @@ Notices Report Content
 Components: 
 
 abbrev 1.1.1: https://github.com/isaacs/abbrev-js#readme : ISC License
+Abseil 20230802.0: https://abseil.io/ : Apache License 2.0
 Acorn 7.4.1: https://github.com/ternjs/Acorn : MIT License
 acorn-node 1.8.2: https://github.com/browserify/acorn-node : Apache License 2.0
 acorn-walk 7.2.0: https://github.com/acornjs/acorn : MIT License
@@ -52,6 +53,7 @@ Async 3.2.6: http://caolan.github.io/async/ : MIT License
 async-limiter v1.0.1: https://github.com/strml/async-limiter#readme : MIT License
 AutoValue Annotations 1.11.0 : Apache License 2.0
 available-typed-arrays 1.0.7: https://github.com/inspect-js/available-typed-arrays#readme : MIT License
+awakesecurity/proto3-suite v0.5.1: https://github.com/awakesecurity/proto3-suite : Unknown License
 AWS Event Stream 1.0.1 : Apache License 2.0
 AWS Java SDK :: Checksums 2.49.4 : Apache License 2.0
 AWS Java SDK :: Checksums SPI 2.49.4 : Apache License 2.0
@@ -81,6 +83,14 @@ base-orphans 0.8.7: https://github.com/haskell-compat/base-orphans#readme : MIT 
 BasicAuth 2.0.1: https://github.com/visionmedia/node-basic-auth : MIT License
 basvandijk/case-insensitive 1.2.1.0: https://github.com/basvandijk/case-insensitive : BSD 3-clause "New" or "Revised" License
 basvandijk/lifted-base 0.2.3.12: https://github.com/basvandijk/lifted-base : BSD 3-clause "New" or "Revised" License
+bazelbuild/buildtools 20230825-snapshot-b163fcf7: https://github.com/bazelbuild/buildtools : Apache License 2.0
+bazelbuild/rules_cc 0.0.9: https://bazel.build : Apache License 2.0
+bazelbuild/rules_nodejs 5.8.5: https://bazelbuild.github.io/rules_nodejs/ : Apache License 2.0
+bazelbuild/rules_pkg 1.1.0: https://github.com/bazelbuild/rules_pkg : Apache License 2.0
+bazelbuild/rules_python 0.21.0: https://rules-python.readthedocs.io : Apache License 2.0
+bazelbuild/rules_scala v6.6.0 : Apache License 2.0
+bazel-contrib/rules_jvm_external 6.7: https://github.com/bazel-contrib/rules_jvm_external : Apache License 2.0
+Bazel rules_go v0.53.0: https://github.com/bazelbuild/rules_go : Apache License 2.0
 better-files 3.9.2 : MIT License
 bifunctors 5.5.13: http://github.com/ekmett/bifunctors/ : BSD 3-clause "New" or "Revised" License
 binary-extensions 2.3.0: https://github.com/sindresorhus/binary-extensions : MIT License
@@ -92,6 +102,7 @@ bn.js 4.12.1: https://github.com/indutny/bn.js : MIT License
 bn.js 5.2.1: https://github.com/indutny/bn.js : MIT License
 body v5.1.0: https://github.com/Raynos/body : MIT License
 body-parser 1.20.3: https://github.com/expressjs/body-parser : MIT License
+BoringSSL 20230818-snapshot-2ff4b968: https://boringssl.googlesource.com/boringssl : (SSLeay License - standalone AND OpenSSL License)
 bos/attoparsec 0.14.4: http://hackage.haskell.org/package/attoparsec : BSD 3-clause "New" or "Revised" License
 Bouncy Castle 1.84: http://www.bouncycastle.org : MIT License
 Bouncy Castle ASN.1 Extension and Utility APIs 1.84 : MIT License
@@ -125,7 +136,6 @@ call-stack 0.4.0: https://github.com/sol/call-stack#readme : MIT License
 Cats core 2.13.0 : MIT License
 Cats Free 2.9.0 : MIT License
 Cats kernel 2.13.0 : MIT License
-census-instrumentation/opencensus-go v0.23.0: http://opencensus.io : Apache License 2.0
 cereal-conduit 0.8.0: https://github.com/snoyberg/conduit : BSD 3-clause "New" or "Revised" License
 Chalk 1.1.3: https://github.com/sindresorhus/chalk : MIT License
 Chalk 2.4.2: https://github.com/sindresorhus/chalk : MIT License
@@ -240,6 +250,7 @@ encodeurl 1.0.2: https://github.com/pillarjs/encodeurl : MIT License
 encodeurl 2.0.0: https://github.com/pillarjs/encodeurl : MIT License
 end-of-stream 1.4.4: https://github.com/mafintosh/end-of-stream : MIT License
 entropy 0.4.1.10: https://github.com/TomMD/entropy : BSD 3-clause "New" or "Revised" License
+envoyproxy/protoc-gen-validate 20220304-snapshot-46940242: https://github.com/envoyproxy/protoc-gen-validate : Apache License 2.0
 envoyproxy/protoc-gen-validate v0.6.2-java: https://github.com/envoyproxy/protoc-gen-validate : Apache License 2.0
 error 7.2.1: https://github.com/Raynos/error : MIT License
 error-prone annotations 2.48.0: https://github.com/google/error-prone/tree/master/annotations : Apache License 2.0
@@ -256,7 +267,7 @@ evp_bytestokey 1.0.3: https://github.com/crypto-browserify/EVP_BytesToKey : MIT 
 expand-tilde 2.0.2: https://github.com/jonschlinkert/expand-tilde : MIT License
 expressjs/accepts 1.3.8: https://github.com/expressjs/accepts : MIT License
 expressjs/express 4.21.2: https://expressjs.com : MIT License
-expressjs/morgan 1.10.0: https://github.com/expressjs/morgan : MIT License
+expressjsmorgan 1.10.0: https://github.com/expressjs/morgan : MIT License
 express-session 1.18.1: https://github.com/expressjs/session : MIT License
 extend 3.0.2: https://github.com/justmoon/node-extend : MIT License
 extra 1.7.12: https://github.com/ndmitchell/extra#readme : BSD 3-clause "New" or "Revised" License
@@ -297,8 +308,10 @@ getobject 1.0.2: https://github.com/cowboy/node-getobject : MIT License
 get-proto 1.0.1: https://github.com/ljharb/get-proto#readme : MIT License
 ghcide 0.1.0: https://github.com/digital-asset/ghcide#readme : Apache License 2.0
 ghc-lib 8.8.1: https://github.com/digital-asset/ghc-lib : BSD 3-clause "New" or "Revised" License
+ghc-lib 9.6.1.20230312: https://github.com/digital-asset/ghc-lib : BSD 3-clause "New" or "Revised" License
 ghc-lib-parser 8.8.1: https://github.com/digital-asset/ghc-lib : BSD 3-clause "New" or "Revised" License
 ghc-lib-parser-ex 8.8.5.8: https://github.com/shayne-fletcher/ghc-lib-parser-ex#readme : BSD 3-clause "New" or "Revised" License
+github.com/cncf/xds 20230607-snapshot-e9ce6880: https://github.com/cncf/xds : Apache License 2.0
 github.com/pseudomuto/protokit 0.2.0: https://github.com/pseudomuto/protokit : MIT License
 gitrev 1.3.1: https://github.com/acfoltzer/gitrev : BSD 3-clause "New" or "Revised" License
 Glob 0.10.2: http://iki.fi/matti.niemenmaa/glob/ : BSD 3-clause "New" or "Revised" License
@@ -322,8 +335,10 @@ Golang Protobuf v1.27.1: https://github.com/golang/protobuf : BSD 3-clause "New"
 Golang Protobuf v1.5.2: https://github.com/golang/protobuf : BSD 3-clause "New" or "Revised" License
 golang/sync 20210219-snapshot-036812b2: https://pkg.go.dev/golang.org/x/sync : BSD 3-clause "New" or "Revised" License
 golang/text v0.3.7: https://github.com/golang/text : BSD 3-clause "New" or "Revised" License
+golang/tools go/vcs/v0.1.0-deprecated: https://github.com/golang/tools : BSD 3-clause "New" or "Revised" License
 Google Android Annotations Library 4.1.1.4: http://source.android.com/ : Apache License 2.0
 Google API Common 2.65.0 : BSD 3-clause "New" or "Revised" License
+googleapis 20210730-snapshot-2f9af297: https://github.com/googleapis/googleapis : Apache License 2.0
 googleapis/gax-go v2.1.1: https://godoc.org/github.com/googleapis/gax-go : BSD 3-clause "New" or "Revised" License
 googleapis/go-genproto 20210917-snapshot-b395a375: https://godoc.org/google.golang.org/genproto : Apache License 2.0
 googleapis/google-api-go-client v0.58.0 : BSD 3-clause "New" or "Revised" License
@@ -334,6 +349,7 @@ google/go-cmp v0.5.5: https://github.com/google/go-cmp : BSD 3-clause "New" or "
 googlegson 2.13.2: https://github.com/google/gson : Apache License 2.0
 googleguava 33.3.0-jre: https://github.com/google/guava : Apache License 2.0
 Google HTTP Client Library for Java 2.1.1: http://code.google.com/p/google-http-java-client/google-http-client/ : Apache License 2.0
+google-re2 2022.04.01: https://github.com/google/re2 : BSD 3-clause "New" or "Revised" License
 Googleuuid v.1.1.2: https://github.com/google/uuid : BSD 3-clause "New" or "Revised" License
 gopd 1.2.0: https://github.com/ljharb/gopd#readme : MIT License
 go-spew v1.1.0: https://github.com/davecgh/go-spew : ISC License
@@ -341,6 +357,7 @@ Go Testify v1.6.1: https://github.com/stretchr/testify : MIT License
 Gozala/events 1.1.1: https://github.com/Gozala/events : MIT License
 Gozala/events 3.3.0: https://github.com/Gozala/events : MIT License
 groupcache 20200125-snapshot-8c9f03a8: https://github.com/golang/groupcache : Apache License 2.0
+grpc 1.60.2: https://github.com/grpc/grpc : Apache License 2.0
 grpc-go v1.40.0: https://github.com/grpc/grpc-go : Apache License 2.0
 grpc-java 1.81.0: https://github.com/grpc/grpc-java : Apache License 2.0
 grunt-banner 0.6.0: https://github.com/mattstyles/grunt-banner : MIT License
@@ -418,7 +435,7 @@ http-conduit 2.3.8: http://www.yesodweb.com/book/http-conduit : BSD 3-clause "Ne
 http-errors 1.6.3: https://github.com/jshttp/http-errors : MIT License
 http-errors 2.0.0: https://github.com/jshttp/http-errors : MIT License
 http-parser-js 0.5.9: https://github.com/creationix/http-parser-js : MIT License
-http-proxy 1.18.1: https://github.com/nodejitsu/node-http-proxy : MIT License
+http-proxy 1.18.1: http://github.com/nodejitsu/node-http-proxy : MIT License
 https-browserify 0.0.1: https://github.com/substack/https-browserify : MIT License
 https-browserify 1.0.0: https://github.com/substack/https-browserify : MIT License
 http-types 0.12.3: https://github.com/aristidb/http-types : BSD 3-clause "New" or "Revised" License
@@ -643,6 +660,8 @@ object.map 1.0.1: https://github.com/jonschlinkert/object.map : MIT License
 object.pick 1.3.0: https://github.com/jonschlinkert/object.pick : MIT License
 OkHttp 4.12.0: https://github.com/square/okhttp : Apache License 2.0
 okhttp 5.3.2 : Apache License 2.0
+OkIO 3.16.4: https://github.com/square/OkIO : Apache License 2.0
+OkIO 3.6.0: https://github.com/square/OkIO : Apache License 2.0
 old-locale 1.0.0.7: https://hackage.haskell.org/package/old-locale : BSD 3-clause "New" or "Revised" License
 old-time 1.1.0.3 : BSD 3-clause "New" or "Revised" License
 OneTuple 0.3.1 : BSD 3-clause "New" or "Revised" License
@@ -651,7 +670,9 @@ on-finished 2.4.1: https://github.com/jshttp/on-finished : MIT License
 on-headers 1.0.2: https://github.com/jshttp/on-headers : MIT License
 Only 0.1: https://hackage.haskell.org/package/Only : BSD 3-clause "New" or "Revised" License
 OpenCensus 0.31.1 : Apache License 2.0
+OpenCensus v0.3.0: https://opencensus.io/ : Apache License 2.0
 opencensus-api 0.31.1 : Apache License 2.0
+opencensus-go v0.23.0: http://opencensus.io : Apache License 2.0
 OpenTelemetry 1.60.1 : Apache License 2.0
 OpenTelemetry Instrumentation for Java 2.26.1-alpha : Apache License 2.0
 OpenTelemetry Java 1.60.1: https://opentelemetry.io : Apache License 2.0
@@ -740,6 +761,7 @@ Prometheus Metrics Exposition Text Formats 1.5.0 : Apache License 2.0
 Prometheus Metrics Model 1.5.0 : Apache License 2.0
 proto3-suite 0.5.1 : Apache License 2.0
 proto3-wire 1.2.2 : Apache License 2.0
+Protobuf v25.8: https://github.com/protocolbuffers/protobuf : BSD 3-clause "New" or "Revised" License
 protobuf-java 4.35.1: http://code.google.com/p/protobuf : BSD 3-clause "New" or "Revised" License
 protobuf-javalite 3.25.8: https://github.com/protocolbuffers/protobuf : BSD 3-clause "New" or "Revised" License
 protoc-bridge 0.9.5 : Apache License 2.0
@@ -817,6 +839,7 @@ scala-parser-combinators 1.1.2 : Apache License 2.0
 scalapb-json4s 0.11.1 : Apache License 2.0
 scalapb-runtime 0.11.14 : Apache License 2.0
 scalapb-runtime-grpc 0.11.14 : Apache License 2.0
+scalapb/ScalaPB v0.11.14: https://scalapb.github.io/ : Apache License 2.0
 scalatest 3.2.19 : Apache License 2.0
 scalatest-compatible 3.2.19 : Apache License 2.0
 scalatest-core 3.2.19 : Apache License 2.0
@@ -893,8 +916,6 @@ splitmix 0.1.0.4 : BSD 3-clause "New" or "Revised" License
 spray-json 1.3.6 : Apache License 2.0
 sprintf.js 1.0.3: https://github.com/alexei/sprintf.js : BSD 3-clause "New" or "Revised" License
 sprintf.js 1.1.3: https://github.com/alexei/sprintf.js : BSD 3-clause "New" or "Revised" License
-squareokio 3.16.4: https://github.com/square/OkIO : Apache License 2.0
-squareokio 3.6.0: https://github.com/square/OkIO : Apache License 2.0
 ssl-config-core 0.6.1 : Apache License 2.0
 stable-stringify 1.0.1: https://github.com/samn/json-stable-stringify : MIT License
 stache 2.3.3: https://github.com/stackbuilders/stache : MIT License
@@ -949,6 +970,7 @@ transformers-base 0.4.6: https://github.com/mvv/transformers-base : BSD 3-clause
 transformers-compat 0.6.6: http://github.com/ekmett/transformers-compat/ : BSD 3-clause "New" or "Revised" License
 tty-browserify 0.0.1: https://github.com/browserify/tty-browserify : MIT License
 turtle 1.5.23 : BSD 3-clause "New" or "Revised" License
+tweag/rules_haskell 20240923-snapshot-a3619436: https://haskell.build : Apache License 2.0
 Twitter Bower 1.8.8: http://twitter.github.com/bower/ : MIT License
 TypedArray 0.0.6: https://github.com/substack/TypedArray : MIT License
 typed-process 0.2.10.1: https://haskell-lang.org/library/typed-process : MIT License
@@ -1023,11 +1045,13 @@ Zipkin Reporter: Core 3.5.1: https://zipkin.io : Apache License 2.0
 Zipkin Sender: OkHttp 3 3.5.1: https://zipkin.io : Apache License 2.0
 Zipkin v2 2.27.1: https://zipkin.io : Apache License 2.0
 zlib 0.6.3.0 : BSD 3-clause "New" or "Revised" License
+zlib 1.2.11: http://www.zlib.net/ : zlib License
+zlib 1.3.1: http://www.zlib.net/ : zlib License
 
 Licenses: 
 
 Apache License 2.0
-(acorn-node 1.8.2, anorm 2.7.0, anorm-tokenizer 2.7.0, aokoli/goutils v1.0.1, Apache Commons Codec 1.18.0, Apache Commons Compress 1.24.0, Apache Commons IO 2.11.0, Apache Commons Lang 3.18.0, Apache Commons Text 1.10.0, Apache HttpClient 4.5.14, Apache HttpClient 5.6.2, Apache HTTPComponents Core 4.4.16, Apache HTTPComponents Core 5.4.3, Apache Log4j 2.25.4, Apache Log4J API 2.25.4, AutoValue Annotations 1.11.0, AWS Event Stream 1.0.1, AWS Java SDK :: Checksums 2.49.4, AWS Java SDK :: Checksums SPI 2.49.4, AWS Java SDK :: Core :: Protocols :: AWS Json Protocol 2.49.4, AWS Java SDK :: Core :: Protocols :: Json Utils 2.49.4, AWS Java SDK :: Endpoints SPI 2.49.4, AWS Java SDK :: HTTP Auth 2.49.4, AWS Java SDK :: HTTP Auth AWS 2.49.4, AWS Java SDK :: HTTP Auth Event Stream 2.49.4, AWS Java SDK :: HTTP Auth SPI 2.49.4, AWS Java SDK :: HTTP Clients :: Apache5 2.49.4, AWS Java SDK :: Identity SPI 2.49.4, AWS Java SDK :: Metrics Interface 2.49.4, AWS Java SDK :: Retries 2.49.4, AWS Java SDK :: Retries API 2.49.4, AWS Java SDK :: Services :: AWS KMS 2.49.4, AWS Java SDK :: Third Party :: Jackson-core 2.49.4, AWS Java SDK :: Utils Lite 2.49.4, AWS SDK for Java 2.49.4, Caffeine cache 3.1.1, census-instrumentation/opencensus-go v0.23.0, chimney 1.4.0, chimney-java-collections 1.4.0, chimney-macro-commons 1.4.0, Circe core 0.14.5, Circe generic 0.14.2, Circe jawn 0.14.2, Circe numbers 0.14.5, Circe parser 0.14.2, circe-yaml 0.15.0-RC1, circe-yaml-common 0.15.0-RC1, com.google.api.grpc:proto-google-iam-v1 1.68.0, compilerPlugin 0.11.14, config - com.typesafe:config 1.4.5, core 2.4.0-M1, dash-ast 1.0.0, envoyproxy/protoc-gen-validate v0.6.2-java, error-prone annotations 2.48.0, FindBugs jsr305 3.0.2, flyway-core 12.0.2, flyway-database-postgresql 12.0.2, get-assigned-identifiers 1.2.0, ghcide 0.1.0, golang/appengine v1.6.7, Google Android Annotations Library 4.1.1.4, Google Cloud KMS 2.97.0, Google HTTP Client Library for Java 2.1.1, google-cloud-go v0.94.1, googleapis/go-genproto 20210917-snapshot-b395a375, googlegson 2.13.2, googleguava 33.3.0-jre, groupcache 20200125-snapshot-8c9f03a8, grpc-go v1.40.0, grpc-java 1.81.0, GSON extensions to the Google HTTP Client Library for Java. 2.1.1, Guava InternalFutureFailureAccess and InternalFutures 1.0.3, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, HikariCP 5.1.0, io.grpc:grpc-alts 1.81.0, io.grpc:grpc-auth 1.81.0, io.grpc:grpc-context 1.81.0, io.grpc:grpc-googleapis 1.81.0, io.grpc:grpc-inprocess 1.81.0, io.grpc:grpc-netty-shaded 1.81.0, io.grpc:grpc-protobuf-lite 1.81.0, io.grpc:grpc-services 1.81.0, io.grpc:grpc-stub 1.81.0, io.grpc:grpc-util 1.81.0, io.grpc:grpc-xds 1.81.0, j2objc - Java to IOS 3.1, jackson-annotations 2.19.1, jackson-core 2.19.1, jackson-databind 2.19.1, JavaPoet 1.13.0, Javassist 3.28.0, Jetbrains annotations 13.0, Jetty :: Websocket :: API 9.4.48.v20220622, Jetty :: Websocket :: Client 9.4.48.v20220622, Jetty :: Websocket :: Common 9.4.48.v20220622, Jetty :: Websocket :: Server 9.4.48.v20220622, Jetty :: Websocket :: Servlet Interface 9.4.48.v20220622, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.48.v20220622, Joda Convert 2.2.2, Joda Time 2.11.1, json4s-ast 3.6.11, json4s-core 3.6.11, json4s-jackson 3.6.11, json4s-scalap 3.6.11, JSONStream 0.10.0, JSONStream 1.3.5, JSpecify annotations 1.0.0, Kotlin 2.2.21, lenses 0.11.14, logstash-logback-encoder logstash-logback-encoder-6.6, lyft/protoc-gen-star v0.5.3, magnolia 1.1.10, mwitkow/go-proto-validators 20180403-snapshot-0950a799, Netty Project 4.1.136.Final, Netty/Transport/Classes/Epoll 4.1.136.Final, Netty/Transport/Native/Unix/Common 4.1.136.Final, OkHttp 4.12.0, okhttp 5.3.2, OpenCensus 0.31.1, opencensus-api 0.31.1, OpenTelemetry 1.60.1, OpenTelemetry Instrumentation for Java 2.26.1-alpha, OpenTelemetry Java 1.60.1, OpenTelemetry Java 1.60.1-alpha, OpenTelemetry Java - io.opentelemetry:opentelemetry-sdk-metrics 1.60.1, OpenTelemetry Semantic Conventions Java 1.40.0, opentelemetry-java-instrumentation 2.26.1, opentelemetry-java-instrumentation 2.26.1-alpha, optics 0.15.0, org.apiguardian:apiguardian-api 1.1.2, org.conscrypt:conscrypt-openjdk-uber 2.5.2, org.jetbrains.kotlin:kotlin-stdlib-jdk7 1.8.21, org.jetbrains.kotlin:kotlin-stdlib-jdk8 1.8.21, org.opentest4j:opentest4j 1.2.0, paiges-core 0.4.2, parboiled 2.5.1, pekko-actor 1.2.1, pekko-http 1.1.0, pekko-http-core 1.1.0, pekko-parsing 1.1.0, pekko-protobuf-v3 1.2.1, pekko-slf4j 1.2.1, pekko-stream 1.2.1, perfmark:perfmark-api 0.27.0, Prometheus Metrics Config 1.5.0, Prometheus Metrics Exporter - Common 1.5.0, Prometheus Metrics Exporter - HTTP Server 1.5.0, Prometheus Metrics Exposition Formats no protobuf 1.5.0, Prometheus Metrics Exposition Text Formats 1.5.0, Prometheus Metrics Model 1.5.0, Proto Google Common Protos 2.59.2, proto-google-cloud-kms-v1 2.97.0, proto-google-common-protos-scalapb_0.11 2.9.6-0, proto3-suite 0.5.1, proto3-wire 1.2.2, protoc-bridge 0.9.5, protoc-gen 0.9.5, ReactiveX RxJS 6.6.7, ronmamoreflections 0.10.2, RxJava 2.2.21, scaffeine 5.2.1, scala-collection-compat 2.12.0, scala-collection-contrib 0.2.2, scala-java8-compat 1.0.2, scala-logging 3.9.5, scala-parser-combinators 1.1.2, scala-xml 2.1.0, scalacheck 0.6.2, scalacheck-1.15 3.2.11.0, scalactic 3.2.19, scalapb-json4s 0.11.1, scalapb-runtime 0.11.14, scalapb-runtime-grpc 0.11.14, scalatest 3.2.19, scalatest-compatible 3.2.19, scalatest-core 3.2.19, scalatest-diagrams 3.2.19, scalatest-featurespec 3.2.19, scalatest-flatspec 3.2.19, scalatest-freespec 3.2.19, scalatest-funspec 3.2.19, scalatest-funsuite 3.2.19, scalatest-matchers-core 3.2.19, scalatest-mustmatchers 3.2.19, scalatest-propspec 3.2.19, scalatest-refspec 3.2.19, scalatest-shouldmatchers 3.2.19, scalatest-wordspec 3.2.19, shared 0.6.2, shasum-object 1.0.0, SnakeYAML 2.0, spark-java 2.9.4, spf13-afero v1.6.0, spray-json 1.3.6, squareokio 3.16.4, squareokio 3.6.0, ssl-config-core 0.6.1, through 2.3.8, TypeScript 5.8.2, undeclared-identifiers 1.1.3, wartremover 3.5.8, websocket-driver-node 0.7.4, websocket-extensions-node 0.1.4, yaml for Go 20200512-snapshot-9f266ea9, yaml for Go v2.2.2, Zipkin Reporter: Core 3.5.1, Zipkin Sender: OkHttp 3 3.5.1, Zipkin v2 2.27.1)
+(Abseil 20230802.0, acorn-node 1.8.2, anorm 2.7.0, anorm-tokenizer 2.7.0, aokoli/goutils v1.0.1, Apache Commons Codec 1.18.0, Apache Commons Compress 1.24.0, Apache Commons IO 2.11.0, Apache Commons Lang 3.18.0, Apache Commons Text 1.10.0, Apache HttpClient 4.5.14, Apache HttpClient 5.6.2, Apache HTTPComponents Core 4.4.16, Apache HTTPComponents Core 5.4.3, Apache Log4j 2.25.4, Apache Log4J API 2.25.4, AutoValue Annotations 1.11.0, AWS Event Stream 1.0.1, AWS Java SDK :: Checksums 2.49.4, AWS Java SDK :: Checksums SPI 2.49.4, AWS Java SDK :: Core :: Protocols :: AWS Json Protocol 2.49.4, AWS Java SDK :: Core :: Protocols :: Json Utils 2.49.4, AWS Java SDK :: Endpoints SPI 2.49.4, AWS Java SDK :: HTTP Auth 2.49.4, AWS Java SDK :: HTTP Auth AWS 2.49.4, AWS Java SDK :: HTTP Auth Event Stream 2.49.4, AWS Java SDK :: HTTP Auth SPI 2.49.4, AWS Java SDK :: HTTP Clients :: Apache5 2.49.4, AWS Java SDK :: Identity SPI 2.49.4, AWS Java SDK :: Metrics Interface 2.49.4, AWS Java SDK :: Retries 2.49.4, AWS Java SDK :: Retries API 2.49.4, AWS Java SDK :: Services :: AWS KMS 2.49.4, AWS Java SDK :: Third Party :: Jackson-core 2.49.4, AWS Java SDK :: Utils Lite 2.49.4, AWS SDK for Java 2.49.4, Bazel rules_go v0.53.0, bazel-contrib/rules_jvm_external 6.7, bazelbuild/buildtools 20230825-snapshot-b163fcf7, bazelbuild/rules_cc 0.0.9, bazelbuild/rules_nodejs 5.8.5, bazelbuild/rules_pkg 1.1.0, bazelbuild/rules_python 0.21.0, bazelbuild/rules_scala v6.6.0, Caffeine cache 3.1.1, chimney 1.4.0, chimney-java-collections 1.4.0, chimney-macro-commons 1.4.0, Circe core 0.14.5, Circe generic 0.14.2, Circe jawn 0.14.2, Circe numbers 0.14.5, Circe parser 0.14.2, circe-yaml 0.15.0-RC1, circe-yaml-common 0.15.0-RC1, com.google.api.grpc:proto-google-iam-v1 1.68.0, compilerPlugin 0.11.14, config - com.typesafe:config 1.4.5, core 2.4.0-M1, dash-ast 1.0.0, envoyproxy/protoc-gen-validate 20220304-snapshot-46940242, envoyproxy/protoc-gen-validate v0.6.2-java, error-prone annotations 2.48.0, FindBugs jsr305 3.0.2, flyway-core 12.0.2, flyway-database-postgresql 12.0.2, get-assigned-identifiers 1.2.0, ghcide 0.1.0, github.com/cncf/xds 20230607-snapshot-e9ce6880, golang/appengine v1.6.7, Google Android Annotations Library 4.1.1.4, Google Cloud KMS 2.97.0, Google HTTP Client Library for Java 2.1.1, google-cloud-go v0.94.1, googleapis 20210730-snapshot-2f9af297, googleapis/go-genproto 20210917-snapshot-b395a375, googlegson 2.13.2, googleguava 33.3.0-jre, groupcache 20200125-snapshot-8c9f03a8, grpc 1.60.2, grpc-go v1.40.0, grpc-java 1.81.0, GSON extensions to the Google HTTP Client Library for Java. 2.1.1, Guava InternalFutureFailureAccess and InternalFutures 1.0.3, Guava ListenableFuture only 9999.0-empty-to-avoid-conflict-with-guava, HikariCP 5.1.0, io.grpc:grpc-alts 1.81.0, io.grpc:grpc-auth 1.81.0, io.grpc:grpc-context 1.81.0, io.grpc:grpc-googleapis 1.81.0, io.grpc:grpc-inprocess 1.81.0, io.grpc:grpc-netty-shaded 1.81.0, io.grpc:grpc-protobuf-lite 1.81.0, io.grpc:grpc-services 1.81.0, io.grpc:grpc-stub 1.81.0, io.grpc:grpc-util 1.81.0, io.grpc:grpc-xds 1.81.0, j2objc - Java to IOS 3.1, jackson-annotations 2.19.1, jackson-core 2.19.1, jackson-databind 2.19.1, JavaPoet 1.13.0, Javassist 3.28.0, Jetbrains annotations 13.0, Jetty :: Websocket :: API 9.4.48.v20220622, Jetty :: Websocket :: Client 9.4.48.v20220622, Jetty :: Websocket :: Common 9.4.48.v20220622, Jetty :: Websocket :: Server 9.4.48.v20220622, Jetty :: Websocket :: Servlet Interface 9.4.48.v20220622, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server 9.4.48.v20220622, Joda Convert 2.2.2, Joda Time 2.11.1, json4s-ast 3.6.11, json4s-core 3.6.11, json4s-jackson 3.6.11, json4s-scalap 3.6.11, JSONStream 0.10.0, JSONStream 1.3.5, JSpecify annotations 1.0.0, Kotlin 2.2.21, lenses 0.11.14, logstash-logback-encoder logstash-logback-encoder-6.6, lyft/protoc-gen-star v0.5.3, magnolia 1.1.10, mwitkow/go-proto-validators 20180403-snapshot-0950a799, Netty Project 4.1.136.Final, Netty/Transport/Classes/Epoll 4.1.136.Final, Netty/Transport/Native/Unix/Common 4.1.136.Final, OkHttp 4.12.0, okhttp 5.3.2, OkIO 3.16.4, OkIO 3.6.0, OpenCensus 0.31.1, OpenCensus v0.3.0, opencensus-api 0.31.1, opencensus-go v0.23.0, OpenTelemetry 1.60.1, OpenTelemetry Instrumentation for Java 2.26.1-alpha, OpenTelemetry Java 1.60.1, OpenTelemetry Java 1.60.1-alpha, OpenTelemetry Java - io.opentelemetry:opentelemetry-sdk-metrics 1.60.1, OpenTelemetry Semantic Conventions Java 1.40.0, opentelemetry-java-instrumentation 2.26.1, opentelemetry-java-instrumentation 2.26.1-alpha, optics 0.15.0, org.apiguardian:apiguardian-api 1.1.2, org.conscrypt:conscrypt-openjdk-uber 2.5.2, org.jetbrains.kotlin:kotlin-stdlib-jdk7 1.8.21, org.jetbrains.kotlin:kotlin-stdlib-jdk8 1.8.21, org.opentest4j:opentest4j 1.2.0, paiges-core 0.4.2, parboiled 2.5.1, pekko-actor 1.2.1, pekko-http 1.1.0, pekko-http-core 1.1.0, pekko-parsing 1.1.0, pekko-protobuf-v3 1.2.1, pekko-slf4j 1.2.1, pekko-stream 1.2.1, perfmark:perfmark-api 0.27.0, Prometheus Metrics Config 1.5.0, Prometheus Metrics Exporter - Common 1.5.0, Prometheus Metrics Exporter - HTTP Server 1.5.0, Prometheus Metrics Exposition Formats no protobuf 1.5.0, Prometheus Metrics Exposition Text Formats 1.5.0, Prometheus Metrics Model 1.5.0, Proto Google Common Protos 2.59.2, proto-google-cloud-kms-v1 2.97.0, proto-google-common-protos-scalapb_0.11 2.9.6-0, proto3-suite 0.5.1, proto3-wire 1.2.2, protoc-bridge 0.9.5, protoc-gen 0.9.5, ReactiveX RxJS 6.6.7, ronmamoreflections 0.10.2, RxJava 2.2.21, scaffeine 5.2.1, scala-collection-compat 2.12.0, scala-collection-contrib 0.2.2, scala-java8-compat 1.0.2, scala-logging 3.9.5, scala-parser-combinators 1.1.2, scala-xml 2.1.0, scalacheck 0.6.2, scalacheck-1.15 3.2.11.0, scalactic 3.2.19, scalapb-json4s 0.11.1, scalapb-runtime 0.11.14, scalapb-runtime-grpc 0.11.14, scalapb/ScalaPB v0.11.14, scalatest 3.2.19, scalatest-compatible 3.2.19, scalatest-core 3.2.19, scalatest-diagrams 3.2.19, scalatest-featurespec 3.2.19, scalatest-flatspec 3.2.19, scalatest-freespec 3.2.19, scalatest-funspec 3.2.19, scalatest-funsuite 3.2.19, scalatest-matchers-core 3.2.19, scalatest-mustmatchers 3.2.19, scalatest-propspec 3.2.19, scalatest-refspec 3.2.19, scalatest-shouldmatchers 3.2.19, scalatest-wordspec 3.2.19, shared 0.6.2, shasum-object 1.0.0, SnakeYAML 2.0, spark-java 2.9.4, spf13-afero v1.6.0, spray-json 1.3.6, ssl-config-core 0.6.1, through 2.3.8, tweag/rules_haskell 20240923-snapshot-a3619436, TypeScript 5.8.2, undeclared-identifiers 1.1.3, wartremover 3.5.8, websocket-driver-node 0.7.4, websocket-extensions-node 0.1.4, yaml for Go 20200512-snapshot-9f266ea9, yaml for Go v2.2.2, Zipkin Reporter: Core 3.5.1, Zipkin Sender: OkHttp 3 3.5.1, Zipkin v2 2.27.1)
 
 Apache License
 Version 2.0, January 2004
@@ -2072,7 +2096,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 ---
 
 BSD 3-clause "New" or "Revised" License
-(aeson-pretty 0.8.9, ansi-terminal 0.11.3, ansi-wl-pprint 0.6.9, appar 0.1.8, asn1-encoding 0.9.6, asn1-parse 0.9.5, asn1-types 0.3.4, assoc 1.0.2, base64 0.4.2.4, base64-bytestring 1.2.1.0, basvandijk/lifted-base 0.2.3.12, bifunctors 5.5.13, blaze-builder 0.4.2.2, blaze-html 0.9.1.2, blaze-markup 0.8.2.8, bos/attoparsec 0.14.4, byteable 0.1.1, byteorder 1.0.4, cereal-conduit 0.8.0, charset 0.3.9, cmark-gfm 0.2.5, cmdargs 0.10.21, comonad 5.0.8, constraints-extras 0.3.2.1, contravariant 1.5.5, cryptohash-md5 0.11.101.0, cryptohash-sha1 0.11.101.0, cryptonite 0.29, cryptostore 0.2.3.0, data-default 0.7.1.1, data-default-class 0.1.2.0, data-default-instances-containers 0.0.1, data-default-instances-dlist 0.0.1, data-default-instances-old-locale 0.0.1, data-diverse 4.7.0.0, data-fix 0.3.2, dependent-map 0.4.0.0, Diff 0.4.1, digest 0.0.1.3, distributive 0.6.2.1, either 5.0.2, ekmett/free 5.1.9, ekmett/profunctors v5.6.2, ekmett/void v0.7.3, entropy 0.4.1.10, extra 1.7.12, fast-logger 3.1.2, filepattern 0.1.3, foldl 1.4.12, GaloisInc/cereal 0.5.8.3, GAX (Google Api eXtensions) 2.82.0, ghc-lib 8.8.1, ghc-lib-parser 8.8.1, ghc-lib-parser-ex 8.8.5.8, golang.org/x/crypto 20200622-snapshot-75b28801, golang.org/x/lint 20210508-snapshot-6edffad5, golang.org/x/sys 20210917-snapshot-d61c044b, golang.org/x/term 20201126-snapshot-7de9c90e, golang.org/x/xerrors 20200804-snapshot-5ec99f83, golang/net 20201203-snapshot-60bc85c4, golang/oauth2 20210819-snapshot-2bc19b11, golang/sync 20210219-snapshot-036812b2, Google API Common 2.65.0, Google Auth Library for Java 1.49.0, haskell TLS 0.11.9, haskell TLS 1.5.8, haskell TLS 1.6.12, haskell TLS 1.6.7, haskell TLS 1.6.9, haskell TLS 1.7.7, haskell-adjunctions 4.4.2, haskell-foundation/foundation 0.0.15, haskell-lexer 1.1, haskell-parsers 0.12.11, haskell-reflection v2.1.6, haskell-src 1.0.4, haskell-vector 0.12.3.1, haskell/network 3.1.2.7, heaps 0.4, HLint 2.2.11, hostname 1.0, hourglass 0.2.12, hpp 0.6.5, hs-aeson 2.0.3.0, hs-connection connection-v0.3.1, hslogger 1.3.1.0, http-conduit 2.3.8, http-types 0.12.3, indexed-profunctors 0.1.1, insert-ordered-containers 0.2.5.1, iproute 1.7.12, jgm/zip-archive 0.4.2.2, judah/haskeline 0.8.2, kan-extensions 5.2.5, language-c 0.9.1, lsp-test 0.14.0.2, managed 1.0.9, maoe/lifted-async 0.10.2.3, memory 0.16.0, monad-control 1.0.3.1, MonadRandom 0.5.3, network-bsd 2.8.1.0, network-info 0.2.1, network-uri 2.6.4.1, old-locale 1.0.0.7, old-time 1.1.0.3, OneTuple 0.3.1, Only 0.1, optics-core 0.4.1, optics-extra 0.4.2.1, optional-args 1.0.2, optparse-applicative 0.17.1.0, optparse-generic 1.4.8, parallel 3.2.2.0, parameterized 0.5.0.0, parser-combinators 1.3.0, path-io 1.7.0, pcre-utils 0.1.8.2, pem 0.2.4, phadej/cabal-doctest 1.0.9, primitive 0.7.3.0, protobuf-java 4.35.1, protobuf-javalite 3.25.8, Protocol Buffer Java Util Package 4.35.1, qs -  QS Querystring 6.13.0, qs -  QS Querystring 6.14.0, QuickCheck 2.14.2, quickcheck-instances 0.3.28, random 1.2.1.1, random-shuffle 0.0.4, re2j 1.8, refact 0.3.0.2, regex-pcre-builtin 0.95.2.3.8.44, regex-tdfa 1.3.2, resourcet 1.2.6, rope-utf16-splay 0.3.2.0, safe 0.3.19, scalacheck 1.15.4, scientific 0.3.7.0, sebfisch's primes 0.2.1.0, semigroups 0.19.2, semirings 0.6, shake 0.19.6, silently 1.2.5.3, simonmar/async 2.2.4, snoyberg's yaml 0.11.8.0, socks 0.6.1, some 1.0.3, Soostone/retry 0.9.3.0, sorted-list 0.2.1.0, spl/dlist 1.0, split 0.2.3.5, splitmix 0.1.0.4, sprintf.js 1.1.3, stm-chans 3.0.0.6, stm-conduit 4.0.1, strict 0.4.0.1, syb 0.7.2.2, tagged v0.8.6.1, temporary 1.3, test-interface 1.0, text-short 0.1.5, th-compat 0.1.4, these 1.2.0.1, these v1.1.1.1, ThreeTen backport 1.7.0, tibbe/hashable 1.3.5.0, time-compat 1.9.6.1, transformers-base 0.4.6, transformers-compat 0.6.6, turtle 1.5.23, type-equality 1, uniplate 1.6.13, unix-compat 0.5.4, unix-time 0.4.8, unordered-containers 0.2.17.0, validation 1.1.2, witherable 0.4.2, xml 1.3.14, zip 1.7.1, zlib 0.6.3.0)
+(aeson-pretty 0.8.9, ansi-terminal 0.11.3, ansi-wl-pprint 0.6.9, appar 0.1.8, asn1-encoding 0.9.6, asn1-parse 0.9.5, asn1-types 0.3.4, assoc 1.0.2, base64 0.4.2.4, base64-bytestring 1.2.1.0, basvandijk/lifted-base 0.2.3.12, bifunctors 5.5.13, blaze-builder 0.4.2.2, blaze-html 0.9.1.2, blaze-markup 0.8.2.8, bos/attoparsec 0.14.4, byteable 0.1.1, byteorder 1.0.4, cereal-conduit 0.8.0, charset 0.3.9, cmark-gfm 0.2.5, cmdargs 0.10.21, comonad 5.0.8, constraints-extras 0.3.2.1, contravariant 1.5.5, cryptohash-md5 0.11.101.0, cryptohash-sha1 0.11.101.0, cryptonite 0.29, cryptostore 0.2.3.0, data-default 0.7.1.1, data-default-class 0.1.2.0, data-default-instances-containers 0.0.1, data-default-instances-dlist 0.0.1, data-default-instances-old-locale 0.0.1, data-diverse 4.7.0.0, data-fix 0.3.2, dependent-map 0.4.0.0, Diff 0.4.1, digest 0.0.1.3, distributive 0.6.2.1, either 5.0.2, ekmett/free 5.1.9, ekmett/profunctors v5.6.2, ekmett/void v0.7.3, entropy 0.4.1.10, extra 1.7.12, fast-logger 3.1.2, filepattern 0.1.3, foldl 1.4.12, GaloisInc/cereal 0.5.8.3, GAX (Google Api eXtensions) 2.82.0, ghc-lib 8.8.1, ghc-lib 9.6.1.20230312, ghc-lib-parser 8.8.1, ghc-lib-parser-ex 8.8.5.8, golang.org/x/crypto 20200622-snapshot-75b28801, golang.org/x/lint 20210508-snapshot-6edffad5, golang.org/x/sys 20210917-snapshot-d61c044b, golang.org/x/term 20201126-snapshot-7de9c90e, golang.org/x/xerrors 20200804-snapshot-5ec99f83, golang/net 20201203-snapshot-60bc85c4, golang/oauth2 20210819-snapshot-2bc19b11, golang/sync 20210219-snapshot-036812b2, golang/tools go/vcs/v0.1.0-deprecated, Google API Common 2.65.0, Google Auth Library for Java 1.49.0, google-re2 2022.04.01, haskell TLS 0.11.9, haskell TLS 1.5.8, haskell TLS 1.6.12, haskell TLS 1.6.7, haskell TLS 1.6.9, haskell TLS 1.7.7, haskell-adjunctions 4.4.2, haskell-foundation/foundation 0.0.15, haskell-lexer 1.1, haskell-parsers 0.12.11, haskell-reflection v2.1.6, haskell-src 1.0.4, haskell-vector 0.12.3.1, haskell/network 3.1.2.7, heaps 0.4, HLint 2.2.11, hostname 1.0, hourglass 0.2.12, hpp 0.6.5, hs-aeson 2.0.3.0, hs-connection connection-v0.3.1, hslogger 1.3.1.0, http-conduit 2.3.8, http-types 0.12.3, indexed-profunctors 0.1.1, insert-ordered-containers 0.2.5.1, iproute 1.7.12, jgm/zip-archive 0.4.2.2, judah/haskeline 0.8.2, kan-extensions 5.2.5, language-c 0.9.1, lsp-test 0.14.0.2, managed 1.0.9, maoe/lifted-async 0.10.2.3, memory 0.16.0, monad-control 1.0.3.1, MonadRandom 0.5.3, network-bsd 2.8.1.0, network-info 0.2.1, network-uri 2.6.4.1, old-locale 1.0.0.7, old-time 1.1.0.3, OneTuple 0.3.1, Only 0.1, optics-core 0.4.1, optics-extra 0.4.2.1, optional-args 1.0.2, optparse-applicative 0.17.1.0, optparse-generic 1.4.8, parallel 3.2.2.0, parameterized 0.5.0.0, parser-combinators 1.3.0, path-io 1.7.0, pcre-utils 0.1.8.2, pem 0.2.4, phadej/cabal-doctest 1.0.9, primitive 0.7.3.0, Protobuf v25.8, protobuf-java 4.35.1, protobuf-javalite 3.25.8, Protocol Buffer Java Util Package 4.35.1, qs -  QS Querystring 6.13.0, qs -  QS Querystring 6.14.0, QuickCheck 2.14.2, quickcheck-instances 0.3.28, random 1.2.1.1, random-shuffle 0.0.4, re2j 1.8, refact 0.3.0.2, regex-pcre-builtin 0.95.2.3.8.44, regex-tdfa 1.3.2, resourcet 1.2.6, rope-utf16-splay 0.3.2.0, safe 0.3.19, scalacheck 1.15.4, scientific 0.3.7.0, sebfisch's primes 0.2.1.0, semigroups 0.19.2, semirings 0.6, shake 0.19.6, silently 1.2.5.3, simonmar/async 2.2.4, snoyberg's yaml 0.11.8.0, socks 0.6.1, some 1.0.3, Soostone/retry 0.9.3.0, sorted-list 0.2.1.0, spl/dlist 1.0, split 0.2.3.5, splitmix 0.1.0.4, sprintf.js 1.1.3, stm-chans 3.0.0.6, stm-conduit 4.0.1, strict 0.4.0.1, syb 0.7.2.2, tagged v0.8.6.1, temporary 1.3, test-interface 1.0, text-short 0.1.5, th-compat 0.1.4, these 1.2.0.1, these v1.1.1.1, ThreeTen backport 1.7.0, tibbe/hashable 1.3.5.0, time-compat 1.9.6.1, transformers-base 0.4.6, transformers-compat 0.6.6, turtle 1.5.23, type-equality 1, uniplate 1.6.13, unix-compat 0.5.4, unix-time 0.4.8, unordered-containers 0.2.17.0, validation 1.1.2, witherable 0.4.2, xml 1.3.14, zip 1.7.1, zlib 0.6.3.0)
 
 Copyright (c) <YEAR>, <OWNER>
 All rights reserved.
@@ -9012,7 +9036,7 @@ THE SOFTWARE
 ---
 
 MIT License
-(expressjs/morgan 1.10.0)
+(expressjsmorgan 1.10.0)
 
 Upstream-Contact: https://github.com/expressjs/morgan/issues
 Source: https://github.com/expressjs/morgan#readme
@@ -13625,10 +13649,129 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
 ---
 
+OpenSSL License
+(BoringSSL 20230818-snapshot-2ff4b968)
+
+OpenSSL Project License
+=======================
+
+OpenSSL License
+---------------
+
+====================================================================
+Copyright (c) 1998-2001 The OpenSSL Project. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+  1. Redistributions of source code must retain the above copyright notice, this
+    list of conditions and the following disclaimer.
+
+  2.  Redistributions in binary form must reproduce the above copyright notice,
+    this list of conditions and the following disclaimer in the documentation
+    and/or other materials provided with the distribution.
+
+  3. All advertising materials mentioning features or use of this software must
+    display the following acknowledgment: "This product includes software
+    developed by the OpenSSL Project for use in the OpenSSL Toolkit.
+    (http://www.openssl.org/)"
+
+  4. The names "OpenSSL Toolkit" and "OpenSSL Project" must not be used to
+    endorse or promote products derived from this software without prior written
+    permission. For written permission, please contact openssl-core@openssl.org.
+
+  5.  Products derived from this software may not be called "OpenSSL" nor may
+    "OpenSSL" appear in their names without prior written permission of the
+    OpenSSL Project.
+
+  6. Redistributions of any form whatsoever must retain the following
+    acknowledgment:
+
+      "This product includes software developed by the OpenSSL Project for use in
+      the OpenSSL Toolkit (http://www.openssl.org/)"
+
+THIS SOFTWARE IS PROVIDED BY THE OpenSSL PROJECT ``AS IS'' AND ANY EXPRESSED OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
+SHALL THE OpenSSL PROJECT OR ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+THE POSSIBILITY OF SUCH DAMAGE.
+====================================================================
+
+This product includes cryptographic software written by Eric Young
+(eay@cryptsoft.com). This product includes software written by Tim Hudson
+(tjh@cryptsoft.com).
+
+---
+
 Public Domain
 (conduit-parse 0.2.1.1, dependent-sum 0.7.1.0, filelock 0.1.1.5, monad-loops 0.4.3)
 
 Public domain code is not subject to any license.
+
+---
+
+SSLeay License - standalone
+(BoringSSL 20230818-snapshot-2ff4b968)
+
+SSLeay License
+==============
+
+
+Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com) All rights reserved.
+---------------------------------------------------------------------------
+
+This package is an SSL implementation written by Eric Young (eay@cryptsoft.com).
+The implementation was written so as to conform with Netscapes SSL. This library
+is free for commercial and non-commercial use as long as the following conditions
+are aheared to. The following conditions apply to all code found in this
+distribution, be it the RC4, RSA, lhash, DES, etc., code; not just the SSL code.
+The SSL documentation included with this distribution is covered by the same
+copyright terms except that the holder is Tim Hudson (tjh@cryptsoft.com).
+
+Copyright remains Eric Young's, and as such any Copyright notices in the code are
+not to be removed. If this package is used in a product, Eric Young should be
+given attribution as the author of the parts of the library used. This can be in
+the form of a textual message at program startup or in documentation (online or
+textual) provided with the package. Redistribution and use in source and binary
+forms, with or without modification, are permitted provided that the following
+conditions are met:
+
+  1. Redistributions of source code must retain the copyright notice, this list
+    of conditions and the following disclaimer.
+
+  2. Redistributions in binary form must reproduce the above copyright notice,
+    this list of conditions and the following disclaimer in the documentation
+    and/or other materials provided with the distribution.
+
+  3. All advertising materials mentioning features or use of this software must
+    display the following acknowledgement: "This product includes cryptographic
+    software written by Eric Young (eay@cryptsoft.com)". The word 'cryptographic'
+    can be left out if the rouines from the library being used are not
+    cryptographic related :-).
+
+  4. If you include any Windows specific code (or a derivative thereof) from the
+    apps directory (application code) you must include an acknowledgement: "This
+    product includes software written by Tim Hudson (tjh@cryptsoft.com)"
+
+
+THIS SOFTWARE IS PROVIDED BY ERIC YOUNG ``AS IS'' AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
+SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGE.The licence and distribution terms for any publically available
+version or derivative of this code cannot be changed. i.e. this code cannot
+simply be copied and put under another distribution licence [including the GNU
+Public Licence.
 
 ---
 
@@ -13992,7 +14135,7 @@ of this License.
 ---
 
 zlib License
-(nodeca/pako 1.0.11)
+(nodeca/pako 1.0.11, zlib 1.2.11, zlib 1.3.1)
 
 The zlib/libpng License
 =======================
