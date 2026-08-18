@@ -42,15 +42,24 @@ da_haskell_binary(
     ],
 )
 
-# TODO Test that ensures these are up to date
+sh_test(
+    name = "test-script-stable-packages",
+    srcs = ["test_script_stable_packages.sh"],
+    args = [
+        "$(location generated-stable-packages.bzl)",
+        "$(location stable-packages.bzl)",
+    ],
+    data = ["generated-stable-packages.bzl", ":stable-packages.bzl"],
+)
+
 sh_binary(
     name = "update-script-stable-packages",
     srcs = ["update_script_stable_packages.sh"],
     args = [
-        "$(location stable-packages.bzl)",
+        "$(location generated-stable-packages.bzl)",
         "daml-script/daml/daml-script-stable/stable-packages.bzl",
     ],
-    data = ["stable-packages.bzl"],
+    data = ["generated-stable-packages.bzl"],
 )
 
 genrule(
@@ -65,7 +74,7 @@ genrule(
 genrule(
     name = "gen-stable-packages-list",
     srcs = [],
-    outs = ["stable-packages.bzl"],
+    outs = ["generated-stable-packages.bzl"],
     cmd = "$(location :generate-stable-packages) list $(OUTS)",
     tools = [":generate-stable-packages"],
     visibility = ["//visibility:public"],

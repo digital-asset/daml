@@ -243,6 +243,9 @@ makeStablePackageList listFilePath pkgs = do
         [ "# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved."
         , "# SPDX-License-Identifier: Apache-2.0"
         , ""
+        , "# THIS FILE IS AUTO-GENERATED. DO NOT EDIT MANUALLY. Instead, run the following command to update it:"
+        , "# bazel run //daml-script/daml/daml-script-stable:update-script-stable-packages"
+        , ""
         , "SCRIPT_STABLE_PACKAGES = {"
         ] <>
         [ "  \"" <> pkgName <> "\": \"" <> pkgId <> "\","
