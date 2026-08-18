@@ -1,6 +1,9 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+# THIS FILE IS AUTO-GENERATED. DO NOT EDIT MANUALLY. Instead, run the following command to update it:
+# bazel run //daml-script/daml/daml-script-stable:update-script-stable-packages
+
 SCRIPT_STABLE_PACKAGES = {
   "daml-script-stable-Daml-Script-Internal-Free-Stable-Free": "eb3978f27d6df6fa8be1268d0e5826d433f2be11d18fc9b971e8ea2810c6f5c3",
   "daml-script-stable-Daml-Script-Internal-LowLevel-Stable-LedgerValue": "c99682a6b89e76722a5e74d62d1f70e6a6b2511c4509a5e7a98630562a0af31e",
