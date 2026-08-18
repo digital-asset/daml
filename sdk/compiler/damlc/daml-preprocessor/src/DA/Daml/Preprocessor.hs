@@ -101,6 +101,13 @@ allowedToImportInternal = Map.fromList $ fmap (bimap LF.PackageName $ Set.fromLi
     )
   ]
 
+-- Must skip preprocessor for daml-script docs generation when using stable packages, since
+-- the record instances are explicitly written elsewhere
+shouldSkipRecordPreprocessor :: (LF.PackageName, GHC.ModuleName) -> Bool
+shouldSkipRecordPreprocessor (LF.PackageName "daml-script", modName)
+  | ".Stable." `isInfixOf` GHC.moduleNameString modName = True
+shouldSkipRecordPreprocessor _ = False
+
 shouldAllowInternalImport :: (LF.PackageName, GHC.ModuleName) -> Bool
 shouldAllowInternalImport (pkgName, mod) =
   Set.member mod $ fromMaybe Set.empty $ Map.lookup pkgName allowedToImportInternal
@@ -138,7 +145,7 @@ damlPreprocessor majorVersion dataDependableExtensions mPkgName dflags x
             ]
         , preprocSource =
             rewriteLets
-            . recordDotPreprocessor
+            . (if maybe False shouldSkipRecordPreprocessor mod then id else recordDotPreprocessor)
             . importDamlPreprocessor
             $ enumTypePreprocessor "GHC.Types" x
         }
