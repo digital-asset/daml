@@ -14,7 +14,8 @@ ghc_bindist_install(
     libz = None if is_darwin else "@libz//:libs",
     llvm_backend = "@ghc_llvm_backend//:backend" if (is_darwin and DARWIN_GHC_LLVM_BACKEND) else None,
     make = "@make//:make",
-    tinfo = None if is_darwin else ":libtinfo.so.5",
+    numa = None if is_darwin else "@numa//:numa_so_1",
+    tinfo = None if is_darwin else ":libtinfo.so.6",
 )
 
 filegroup(
@@ -74,7 +75,7 @@ configure_make(
     srcs = "@ncurses//:srcs",
     outs = [
         "libtinfo.so",
-        "libtinfo.so.5",
+        "libtinfo.so.6",
     ],
     configure = "@ncurses//:configure",
     configure_flags = [
@@ -83,6 +84,8 @@ configure_make(
         "--with-shared",
         "--with-termlib",
         "--with-versioned-syms",
+        # deb10 GHC needs libtinfo.so.6 (ABI 6); ncurses 5.9 defaults to ABI 5.
+        "--with-abi-version=6",
         "--without-debug",
         "--without-ada",
         "--without-cxx-binding",
@@ -95,14 +98,13 @@ configure_make(
     install_libdir = "lib",
     make = "@make//:make",
     target_compatible_with = ["@platforms//os:linux"],
-    # 5.9 has no --with-versioned-syms; this script stamps the exported symbols
-    # with the NCURSES_TINFO_5.0.19991023 node the deb9 GHC binaries require.
-    version_script = "files/libtinfo5.map",
+    # 5.9 lacks --with-versioned-syms; this stamps the NCURSES6_TINFO_5.0.19991023 node deb10 GHC requires.
+    version_script = "files/libtinfo6.map",
 )
 
 cc_library(
     name = "tinfo_cc_lib",
-    srcs = [] if is_darwin else [":libtinfo.so.5"],
+    srcs = [] if is_darwin else [":libtinfo.so.6"],
     linkopts = ["-lncurses"] if is_darwin else [],
 )
 
@@ -110,6 +112,17 @@ filegroup(
     name = "tinfo_libs",
     srcs = [] if is_darwin else [
         ":libtinfo.so",
-        ":libtinfo.so.5",
+        ":libtinfo.so.6",
     ],
+)
+
+# rts links -lnuma on deb10 (not deb9), and rts is in every Haskell binary, so damlc needs it too.
+cc_library(
+    name = "numa_cc_lib",
+    srcs = [] if is_darwin else ["@numa//:numa_so_1"],
+)
+
+filegroup(
+    name = "numa_libs",
+    srcs = [] if is_darwin else ["@numa//:libs"],
 )

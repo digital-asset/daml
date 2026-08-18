@@ -29,7 +29,10 @@ copy_file(
 package_app(
     name = "hpp-dist",
     binary = "@stackage-exe//hpp",
-    extra_lib_dirs = ["@gmp//:libs"],
+    extra_lib_dirs = [
+        "@gmp//:libs",
+        "//bazel/haskell/toolchain:numa_libs",
+    ],
 )
 
 damlc_data = [
@@ -111,6 +114,7 @@ package_app(
     binary = ":damlc",
     extra_lib_dirs = [
         "//bazel/haskell/toolchain:tinfo_libs",
+        "//bazel/haskell/toolchain:numa_libs",
         "@gmp//:libs",
         "@libz//:libs",
         "@bzip2//:libs",
@@ -136,6 +140,7 @@ package_app(
     binary = ":damlc",
     extra_lib_dirs = [
         "//bazel/haskell/toolchain:tinfo_libs",
+        "//bazel/haskell/toolchain:numa_libs",
         "@gmp//:libs",
         "@libz//:libs",
         "@bzip2//:libs",
@@ -201,6 +206,7 @@ genrule(
     binary = ghc_pkg_dist,
     extra_lib_dirs = [
         "//bazel/haskell/toolchain:tinfo_libs",
+        "//bazel/haskell/toolchain:numa_libs",
         "@gmp//:libs",
         "@libz//:libs",
         "@bzip2//:libs",

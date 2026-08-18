@@ -91,16 +91,22 @@ def _ghc_bindist_install_impl(ctx):
         llvm_backend_snippet = "\n".join(lines) + "\n"
 
     tinfo = ctx.file.tinfo
+    numa = ctx.file.numa
     runtime_lib_dirs = []
-    for f in ([tinfo] if tinfo else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2:
+    for f in ([tinfo] if tinfo else []) + ([numa] if numa else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2:
         d = "$EXECROOT/" + f.dirname
         if d not in runtime_lib_dirs:
             runtime_lib_dirs.append(d)
 
     tinfo_bundle = "" if not tinfo else """\
 cp -L "$EXECROOT/{tinfo}" "$LIBDIR/rts/libtinfo.so"
-cp -L "$EXECROOT/{tinfo}" "$LIBDIR/rts/libtinfo.so.5"
+cp -L "$EXECROOT/{tinfo}" "$LIBDIR/rts/libtinfo.so.6"
 """.format(tinfo = tinfo.path)
+
+    numa_bundle = "" if not numa else """\
+cp -L "$EXECROOT/{numa}" "$LIBDIR/rts/libnuma.so"
+cp -L "$EXECROOT/{numa}" "$LIBDIR/rts/libnuma.so.1"
+""".format(numa = numa.path)
 
     rts_bundle = "".join([
         'cp -L "$EXECROOT/{}" "$LIBDIR/rts/"\n'.format(f.path)
@@ -162,6 +168,7 @@ if [ -f "$PREFIX/lib/lib/settings" ]; then LIBDIR="$PREFIX/lib/lib"; else LIBDIR
 {ffi_fixup}
 {rts_bundle}
 {tinfo_bundle}
+{numa_bundle}
 sed -i.bak \
     -e 's#("C compiler command", "[^"]*")#("C compiler command", "cc")#' \
     -e 's#("Haskell CPP command", "[^"]*")#("Haskell CPP command", "cc")#' \
@@ -194,6 +201,7 @@ rm -rf "$TMP"
         doc_marker = doc_marker.path,
         rts_bundle = rts_bundle,
         tinfo_bundle = tinfo_bundle,
+        numa_bundle = numa_bundle,
         ffi_fixup = ffi_fixup,
         llvm_backend_snippet = llvm_backend_snippet,
     )
@@ -201,7 +209,7 @@ rm -rf "$TMP"
     ctx.actions.run_shell(
         outputs = [install_tree, lib_settings, doc_marker],
         inputs = depset(
-            direct = ctx.files.srcs + [configure, ctx.file.make] + ([tinfo] if tinfo else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2 + llvm_backend_files,
+            direct = ctx.files.srcs + [configure, ctx.file.make] + ([tinfo] if tinfo else []) + ([numa] if numa else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2 + llvm_backend_files,
             transitive = [cc_toolchain.all_files],
         ),
         command = command,
@@ -254,7 +262,11 @@ ghc_bindist_install = rule(
         ),
         "tinfo": attr.label(
             allow_single_file = True,
-            doc = "Hermetic libtinfo.so bundled into rts as libtinfo.so + libtinfo.so.5.",
+            doc = "Hermetic libtinfo.so bundled into rts as libtinfo.so + libtinfo.so.6.",
+        ),
+        "numa": attr.label(
+            allow_single_file = True,
+            doc = "Hermetic libnuma.so bundled into rts as libnuma.so + libnuma.so.1.",
         ),
         "llvm_backend": attr.label(
             allow_files = True,

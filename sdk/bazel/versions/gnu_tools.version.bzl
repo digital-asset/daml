@@ -37,3 +37,8 @@ NCURSES_SHA256 = "9046298fb440324c9d4135ecea7879ffed8546dd1b58e59430ea07a4633f56
 # https://sourceware.org/pub/bzip2/
 BZIP2_VERSION = "1.0.8"
 BZIP2_SHA256 = "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269"
+
+# -- numactl (libnuma) --
+# https://github.com/numactl/numactl/releases
+NUMA_VERSION = "2.0.19"
+NUMA_SHA256 = "f2672a0381cb59196e9c246bf8bcc43d5568bc457700a697f1a1df762b9af884"

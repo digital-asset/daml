@@ -207,6 +207,7 @@ daml_package_rule = rule(
         "runtime_lib_dirs": attr.label_list(
             default = [
                 Label("//bazel/haskell/toolchain:tinfo_libs"),
+                Label("//bazel/haskell/toolchain:numa_libs"),
                 Label("@libz//:libs"),
                 Label("@gmp//:libs"),
                 Label("@bzip2//:libs"),

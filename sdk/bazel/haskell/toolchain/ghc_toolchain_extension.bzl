@@ -12,6 +12,8 @@ load(
     "GMP_VERSION",
     "NCURSES_SHA256",
     "NCURSES_VERSION",
+    "NUMA_SHA256",
+    "NUMA_VERSION",
 )
 
 _URL = "https://downloads.haskell.org/~ghc/{v}/ghc-{v}-{triple}.tar.xz"
@@ -182,6 +184,13 @@ def _ghc_toolchain_impl(_module_ctx):
         sha256 = NCURSES_SHA256,
         strip_prefix = "ncurses-{}".format(NCURSES_VERSION),
         build_file = ":files/ncurses.BUILD.bzl",
+    )
+    http_archive(
+        name = "numa",
+        url = "https://github.com/numactl/numactl/releases/download/v{v}/numactl-{v}.tar.gz".format(v = NUMA_VERSION),
+        sha256 = NUMA_SHA256,
+        strip_prefix = "numactl-{}".format(NUMA_VERSION),
+        build_file = ":files/numa.BUILD.bzl",
     )
 
 ghc_toolchain_extension = module_extension(

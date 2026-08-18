@@ -219,6 +219,7 @@ _daml_build = rule(
         "runtime_lib_dirs": attr.label_list(
             default = [
                 Label("//bazel/haskell/toolchain:tinfo_libs"),
+                Label("//bazel/haskell/toolchain:numa_libs"),
                 Label("@libz//:libs"),
                 Label("@gmp//:libs"),
                 Label("@bzip2//:libs"),
@@ -335,6 +336,7 @@ _inspect_dar = rule(
         "runtime_lib_dirs": attr.label_list(
             default = [
                 Label("//bazel/haskell/toolchain:tinfo_libs"),
+                Label("//bazel/haskell/toolchain:numa_libs"),
                 Label("@libz//:libs"),
                 Label("@gmp//:libs"),
                 Label("@bzip2//:libs"),
@@ -655,10 +657,10 @@ def generate_and_track_yaml_file(
         native.genrule(
             name = generated_target,
             srcs = data,
-            tools = [generator, "@libz//:libs", "@gmp//:libs"],
+            tools = [generator, "@libz//:libs", "@gmp//:libs", "//bazel/haskell/toolchain:numa_libs"],
             outs = [generated_out],
             # Pass the output file path ($@) as the first argument
-            cmd = "export LD_LIBRARY_PATH=\"$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$${{LD_LIBRARY_PATH:-}}\"\n$(execpath {generator}) $@ {args}".format(
+            cmd = "export LD_LIBRARY_PATH=\"$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$$(dirname $$(set -- $(locations //bazel/haskell/toolchain:numa_libs); echo $$1)):$${{LD_LIBRARY_PATH:-}}\"\n$(execpath {generator}) $@ {args}".format(
                 generator = generator,
                 args = " ".join(generator_args),
             ),

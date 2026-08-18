@@ -34,6 +34,7 @@ package_app(
     binary = ":daml-new",
     extra_lib_dirs = [
         "//bazel/haskell/toolchain:tinfo_libs",
+        "//bazel/haskell/toolchain:numa_libs",
         "@gmp//:libs",
         "@libz//:libs",
     ],
