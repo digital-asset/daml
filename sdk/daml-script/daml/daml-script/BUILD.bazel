@@ -30,7 +30,7 @@ genrule(
     name = "daml-script-json-docs",
     srcs = ["//daml-script/daml/daml-script-stable:daml-script-stable-source"] + glob(["**/*.daml"]),
     outs = ["daml-script.json"],
-    # Include daml-script/daml/daml-script-stable path hard coded, as extracting from rule is ugly and this path should never change
+    # Include daml-script/daml/daml-script-stable/daml path hard coded, as extracting from rule is ugly and this path should never change
     cmd = """
         $(location //compiler/damlc) -- docs \
             --output=$(OUTS) \
@@ -38,7 +38,7 @@ genrule(
             --format=Json \
             --target=2.dev \
             -Wno-deprecated-exceptions \
-            --include=daml-script/daml/daml-script-stable \
+            --include=daml-script/daml/daml-script-stable/daml \
             $(location Daml/Script.daml) \
             $(location Daml/Script/Internal.daml)
     """,

@@ -3,6 +3,10 @@
 
 module Daml.Script.Internal.Questions.Testing.Stable.FailedCmd where
 
+import Daml.Script.Internal.Questions.Testing.Stable.CommandName
+import Daml.Script.Internal.Questions.Testing.Stable.ErrorClassName
+import Daml.Script.Internal.Questions.Testing.Stable.ErrorMessage
+
 -- | MOVE Daml.Script.Internal
 -- Daml type representing a Scala exception thrown during script interpretation.
 -- Used for internal testing of the Daml Script library.

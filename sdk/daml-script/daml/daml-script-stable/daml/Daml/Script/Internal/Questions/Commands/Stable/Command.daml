@@ -4,7 +4,6 @@
 module Daml.Script.Internal.Questions.Commands.Stable.Command where
 
 import Daml.Script.Internal.Questions.Commands.Stable.AnyContractKey
-import Daml.Script.Internal.LowLevel.Stable.LedgerValue
 
 -- | HIDE
 data Command

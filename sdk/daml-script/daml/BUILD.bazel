@@ -5,9 +5,7 @@ load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@build_environment//:configuration.bzl", "ghc_version")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION")
-
-# Note that daml3-script is split into 2 packages, daml3-script and daml3-script-stable
-# See the internal and stable subdirectories respectively for these packages and their purpose.
+load("//daml-script/daml/daml-script-stable:stable-packages.bzl", "SCRIPT_STABLE_PACKAGES")
 
 # Copy the internal library over to top level, to keep a nice bazel path
 [
@@ -16,13 +14,6 @@ load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION")
             name = "daml-script-{}".format(lf_version),
             src = "//daml-script/daml/daml-script:daml-script-{}.dar".format(lf_version),
             out = "daml-script-{}.dar".format(lf_version),
-            allow_symlink = True,
-            visibility = ["//visibility:public"],
-        ),
-        copy_file(
-            name = "daml-script-stable-{}".format(lf_version),
-            src = "//daml-script/daml/daml-script-stable:daml-script-stable-{}.dar".format(lf_version),
-            out = "daml-script-stable-{}.dar".format(lf_version),
             allow_symlink = True,
             visibility = ["//visibility:public"],
         ),
@@ -47,8 +38,8 @@ filegroup(
                for lf_version in COMPILER_LF_VERSIONS
            ] +
            [
-               "daml-script-stable-{}.dar".format(lf_version)
-               for lf_version in COMPILER_LF_VERSIONS
+               "//daml-script/daml/daml-script-stable:{}.dar".format(name)
+               for name in SCRIPT_STABLE_PACKAGES
            ],
     visibility = ["//visibility:public"],
 )
