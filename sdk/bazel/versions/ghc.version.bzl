@@ -23,15 +23,16 @@ GHC_BINDISTS = {
 # =============================================================================
 # =============================================================================
 # ==                                                                         ==
-# ==   TODO: TEMPORARY darwin/arm64 WORKAROUND -- DELETE WHEN GHC >= 9.2      ==
+# ==   TODO: TEMPORARY AArch64 WORKAROUND -- DELETE WHEN GHC >= 9.2           ==
 # ==                                                                         ==
 # ==   GHC 9.0.2 has NO native code generator for AArch64 (the AArch64 NCG    ==
-# ==   first shipped in GHC 9.2.1). On Apple Silicon it therefore falls back  ==
-# ==   to the LLVM backend (`-fllvm`), which shells out to `opt`/`llc` and    ==
-# ==   only accepts LLVM 9-12. Our hermetic cc toolchain is LLVM 22 -- which  ==
-# ==   GHC 9.0.2 cannot use -- so on darwin we bundle a separate LLVM 12      ==
-# ==   `opt`/`llc` (the very version the old WORKSPACE/Nix build used) purely ==
-# ==   to drive GHC's backend. x86_64 Linux is unaffected (it has an NCG).    ==
+# ==   first shipped in GHC 9.2.1). On every arm64 host -- Apple Silicon and  ==
+# ==   linux/aarch64 alike -- it therefore falls back to the LLVM backend     ==
+# ==   (`-fllvm`), which shells out to `opt`/`llc` and only accepts LLVM      ==
+# ==   9-12. Our hermetic cc toolchain is LLVM 22 -- which GHC 9.0.2 cannot   ==
+# ==   use -- so on those hosts we bundle a separate LLVM 12 `opt`/`llc`      ==
+# ==   (the very version the old WORKSPACE/Nix build used) purely to drive    ==
+# ==   GHC's backend. x86_64 Linux is unaffected (it has an NCG).             ==
 # ==                                                                         ==
 # ==   >>>>>>>>>>  THE SWITCH  <<<<<<<<<<                                     ==
 # ==   When GHC is bumped to >= 9.2 (native AArch64 NCG), set this to False.  ==
@@ -44,17 +45,37 @@ GHC_BINDISTS = {
 # ==                                                                         ==
 # =============================================================================
 # =============================================================================
-DARWIN_GHC_LLVM_BACKEND = True
+GHC_LLVM_BACKEND = True
 
-GHC_LLVM_BACKEND_ARTIFACTS = [
-    {
-        "url": "https://conda.anaconda.org/conda-forge/osx-arm64/llvm-tools-12.0.1-h93073aa_2.tar.bz2",
-        "sha256": "39de1566a3ef8a5ec50165aa97ef46b9abb9b9417877d1bd28c4e943a67d5c98",
-        "output": "tools",
+GHC_LLVM_BACKENDS = {
+    ("darwin", "aarch64"): {
+        "shared_library": "libLLVM-12.dylib",
+        "artifacts": [
+            {
+                "url": "https://conda.anaconda.org/conda-forge/osx-arm64/llvm-tools-12.0.1-h93073aa_2.tar.bz2",
+                "sha256": "39de1566a3ef8a5ec50165aa97ef46b9abb9b9417877d1bd28c4e943a67d5c98",
+                "output": "tools",
+            },
+            {
+                "url": "https://conda.anaconda.org/conda-forge/osx-arm64/libllvm12-12.0.1-h93073aa_2.tar.bz2",
+                "sha256": "6743583906acce81fe157f735c46bdd8ea2dd5b340f7e2d449c55a070cf85e4d",
+                "output": "lib",
+            },
+        ],
     },
-    {
-        "url": "https://conda.anaconda.org/conda-forge/osx-arm64/libllvm12-12.0.1-h93073aa_2.tar.bz2",
-        "sha256": "6743583906acce81fe157f735c46bdd8ea2dd5b340f7e2d449c55a070cf85e4d",
-        "output": "lib",
+    ("linux", "aarch64"): {
+        "shared_library": "libLLVM-12.so",
+        "artifacts": [
+            {
+                "url": "https://conda.anaconda.org/conda-forge/linux-aarch64/llvm-tools-12.0.1-h6293a0b_2.tar.bz2",
+                "sha256": "dd67731b45d6f87b05a5bb691f9e2a84d675e12843792d73e80d12d1313b48e8",
+                "output": "tools",
+            },
+            {
+                "url": "https://conda.anaconda.org/conda-forge/linux-aarch64/libllvm12-12.0.1-h6293a0b_2.tar.bz2",
+                "sha256": "ee5cb2aaa464f67e784cc76b6bd463b66fca154cb395f06b5930fba43b82512e",
+                "output": "lib",
+            },
+        ],
     },
-]
+}

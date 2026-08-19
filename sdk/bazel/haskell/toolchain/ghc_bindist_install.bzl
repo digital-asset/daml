@@ -26,9 +26,22 @@ _LAUNCHER_SUFFIX_ARGS = {
 }
 _TOOLS = ["ghc", "ghci", "ghc-pkg", "hsc2hs", "haddock", "runghc", "hpc"]
 
-def _make_launcher(ctx, install_tree, tool_name, has_llvm_backend):
+def _is_shared_library(basename):
+    return basename.endswith(".dylib") or basename.endswith(".so") or ".so." in basename
+
+def _is_elf_shared_library(basename):
+    return basename.endswith(".so") or ".so." in basename
+
+def _llvm_backend_exports(llvm_backend_files):
+    if not llvm_backend_files:
+        return ""
+    exports = ['export PATH="$ROOT/llvm-backend/bin:${PATH:-}"']
+    if [f for f in llvm_backend_files if _is_elf_shared_library(f.basename)]:
+        exports.append('export LD_LIBRARY_PATH="$ROOT/llvm-backend/lib:${LD_LIBRARY_PATH:-}"')
+    return "\n".join(exports) + "\n"
+
+def _make_launcher(ctx, install_tree, tool_name, llvm_exports):
     launcher = ctx.actions.declare_file("{}_bin/{}".format(ctx.label.name, tool_name))
-    llvm_path = 'export PATH="$ROOT/llvm-backend/bin:${PATH:-}"\n' if has_llvm_backend else ""
     ctx.actions.write(
         output = launcher,
         is_executable = True,
@@ -43,13 +56,13 @@ done
 SELF="$(cd -P "$(dirname "$SELF")" && pwd)/$(basename "$SELF")"
 ROOT="$(cd "$(dirname "$SELF")/../{tree}" && pwd)"
 if [ -f "$ROOT/lib/lib/settings" ]; then LIBDIR="$ROOT/lib/lib"; else LIBDIR="$ROOT/lib"; fi
-{llvm_path}exec "$ROOT/lib/bin/{tool}" {extra} "$@" {suffix}
+{llvm_exports}exec "$ROOT/lib/bin/{tool}" {extra} "$@" {suffix}
 """.format(
             tree = install_tree.basename,
             tool = _LAUNCHER_TARGET_BIN.get(tool_name, tool_name),
             extra = _LAUNCHER_EXTRA_ARGS.get(tool_name, ""),
             suffix = _LAUNCHER_SUFFIX_ARGS.get(tool_name, ""),
-            llvm_path = llvm_path,
+            llvm_exports = llvm_exports,
         ),
     )
     return launcher
@@ -77,13 +90,14 @@ def _ghc_bindist_install_impl(ctx):
 
     llvm_backend_files = ctx.files.llvm_backend
     has_llvm_backend = bool(llvm_backend_files)
-    launchers = [_make_launcher(ctx, install_tree, tool, has_llvm_backend) for tool in _TOOLS]
+    llvm_exports = _llvm_backend_exports(llvm_backend_files)
+    launchers = [_make_launcher(ctx, install_tree, tool, llvm_exports) for tool in _TOOLS]
 
     llvm_backend_snippet = ""
     if has_llvm_backend:
         lines = ['mkdir -p "$PREFIX/llvm-backend/bin" "$PREFIX/llvm-backend/lib"']
         for f in llvm_backend_files:
-            if f.basename.endswith(".dylib"):
+            if _is_shared_library(f.basename):
                 lines.append('cp -L "$EXECROOT/{}" "$PREFIX/llvm-backend/lib/{}"'.format(f.path, f.basename))
             else:
                 lines.append('cp -L "$EXECROOT/{}" "$PREFIX/llvm-backend/bin/{}"'.format(f.path, f.basename))
@@ -258,7 +272,7 @@ ghc_bindist_install = rule(
         ),
         "llvm_backend": attr.label(
             allow_files = True,
-            doc = "darwin/arm64 only: LLVM 12 opt/llc + libLLVM copied into llvm-backend/ for GHC's -fllvm. See DARWIN_GHC_LLVM_BACKEND.",
+            doc = "arm64 hosts only: LLVM 12 opt/llc + libLLVM copied into llvm-backend/ for GHC's -fllvm. See GHC_LLVM_BACKEND.",
         ),
     },
     toolchains = use_cc_toolchain(),
