@@ -158,7 +158,7 @@ sed -e "s/RelocatableBuild = NO/RelocatableBuild = YES/" -i.bak mk/config.mk.in
 rm -f mk/config.mk.in.bak
 
 export PATH="$(dirname "$CLANG"):$(dirname "$MAKE_BIN"):/usr/bin:/bin:$PATH"
-export CC="$CLANG -fuse-ld=lld {cflags}"
+export CC="$CLANG -fuse-ld=lld {cflags} {ldflags}"
 export CFLAGS="{cflags}"
 export CPPFLAGS="{cflags}"
 export CPP="$CLANG -E {cflags}"
