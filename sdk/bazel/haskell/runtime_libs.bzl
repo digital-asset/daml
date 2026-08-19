@@ -1,8 +1,8 @@
-load("@os_info//:os_info.bzl", "is_darwin")
+load("@os_info//:os_info.bzl", "is_darwin", "is_linux_arm")
 
 _LIB_PATH_VAR = "DYLD_LIBRARY_PATH" if is_darwin else "LD_LIBRARY_PATH"
 
-_TINFO = "//bazel/haskell/toolchain:libtinfo.so.5"
+_TINFO = "//bazel/haskell/toolchain:libtinfo.so.6" if is_linux_arm else "//bazel/haskell/toolchain:libtinfo.so.5"
 
 DAMLC_RUNTIME_LIBS = [
     "@bzip2//:libs",
