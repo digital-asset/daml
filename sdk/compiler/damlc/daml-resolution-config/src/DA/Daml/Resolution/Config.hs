@@ -186,7 +186,7 @@ addTransitiveDeps darInfos initialDeps = nubOrd <$> concatMapM addSingleTransiti
       let packageIds = packageIdsFromPaths extractedDar
           reverseDarInfoMap :: Map.Map LF.PackageId FilePath
           reverseDarInfoMap = Map.fromList $ (\(fp, (pkgId, _)) -> (pkgId, fp)) <$> Map.toList darInfos
-      pure $ catMaybes $ (`Map.lookup` reverseDarInfoMap) <$> packageIds
+      pure $ mapMaybe (`Map.lookup` reverseDarInfoMap) packageIds
 
 -- Daml-Script is not supported as a data-dep before featureStableCallStack, since callstack is
 -- used extensively in script
