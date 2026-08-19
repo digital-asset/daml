@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("@os_info//:os_info.bzl", "is_linux_intel", "is_windows")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("//bazel/haskell:runtime_libs.bzl", "DAMLC_RUNTIME_LIBS", "DAMLC_RUNTIME_LIB_PATH_EXPORT")
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//bazel_tools/packaging:packaging.bzl", "package_app", "package_oci_component")
@@ -176,7 +176,7 @@ genrule(
     outs = ["ghc-pkg-dist.tar.gz"],
     cmd = '$(execpath //bazel_tools/packaging:package-app) "$(location //bazel/haskell/toolchain:install_tree)/lib/bin/ghc-pkg" "$@"',
     tools = ["//bazel_tools/packaging:package-app"],
-) if is_linux_intel else (genrule(
+) if is_linux else (genrule(
     name = "ghc-pkg-dist",
     srcs = [
         "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe",
