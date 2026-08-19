@@ -14,6 +14,8 @@ load(
     "NCURSES_LINUX_AARCH64_VERSION",
     "NCURSES_LINUX_AMD64_SHA256",
     "NCURSES_LINUX_AMD64_VERSION",
+    "NUMACTL_SHA256",
+    "NUMACTL_VERSION",
 )
 
 _URL = "https://downloads.haskell.org/~ghc/{v}/ghc-{v}-{triple}.tar.xz"
@@ -194,6 +196,13 @@ def _ghc_toolchain_impl(module_ctx):
         sha256 = ncurses_sha256,
         strip_prefix = "ncurses-{}".format(ncurses_version),
         build_file = ":files/ncurses.BUILD.bzl",
+    )
+    http_archive(
+        name = "numactl",
+        url = "https://github.com/numactl/numactl/releases/download/v{v}/numactl-{v}.tar.gz".format(v = NUMACTL_VERSION),
+        sha256 = NUMACTL_SHA256,
+        strip_prefix = "numactl-{}".format(NUMACTL_VERSION),
+        build_file = ":files/numactl.BUILD.bzl",
     )
 
 ghc_toolchain_extension = module_extension(
