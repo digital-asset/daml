@@ -1,0 +1,195 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module Daml.Script.Internal.Questions.TransactionTree
+  ( module Daml.Script.Internal.Questions.TransactionTree
+  , module Stable
+  ) where
+
+import Daml.Script.Internal.Questions.TransactionTree.Stable.Created as Stable
+import Daml.Script.Internal.Questions.TransactionTree.Stable.CreatedIndexPayload as Stable
+import Daml.Script.Internal.Questions.TransactionTree.Stable.TransactionTree as Stable
+import Daml.Script.Internal.Questions.TransactionTree.Stable.TreeEvent as Stable
+import Daml.Script.Internal.Questions.TransactionTree.Stable.TreeIndex as Stable
+import Daml.Script.Internal.Questions.Util
+import DA.Optional
+import DA.List.Total
+import DA.Record
+
+-- These types are generated directly in LF, so their record instances are not derived
+instance GetField "contractId" Created AnyContractId where
+  getField (Created {..}) = contractId
+instance SetField "contractId" Created AnyContractId where
+  setField contractId (Created _ argument) = Created contractId argument
+
+instance GetField "argument" Created AnyTemplate where
+  getField (Created {..}) = argument
+instance SetField "argument" Created AnyTemplate where
+  setField argument (Created contractId _) = Created contractId argument
+
+instance GetField "contractId" Exercised AnyContractId where
+  getField (Exercised {..}) = contractId
+instance SetField "contractId" Exercised AnyContractId where
+  setField contractId (Exercised _ choice argument childEvents) =
+    Exercised contractId choice argument childEvents
+
+instance GetField "choice" Exercised Text where
+  getField (Exercised {..}) = choice
+instance SetField "choice" Exercised Text where
+  setField choice (Exercised contractId _ argument childEvents) =
+    Exercised contractId choice argument childEvents
+
+instance GetField "argument" Exercised AnyChoice where
+  getField (Exercised {..}) = argument
+instance SetField "argument" Exercised AnyChoice where
+  setField argument (Exercised contractId choice _ childEvents) =
+    Exercised contractId choice argument childEvents
+
+instance GetField "childEvents" Exercised [TreeEvent] where
+  getField (Exercised {..}) = childEvents
+instance SetField "childEvents" Exercised [TreeEvent] where
+  setField childEvents (Exercised contractId choice argument _) =
+    Exercised contractId choice argument childEvents
+
+instance GetField "rootEvents" TransactionTree [TreeEvent] where
+  getField (TransactionTree {..}) = rootEvents
+instance SetField "rootEvents" TransactionTree [TreeEvent] where
+  setField rootEvents (TransactionTree _) = TransactionTree rootEvents
+
+instance GetField "templateId" (CreatedIndexPayload t) TemplateTypeRep where
+  getField (CreatedIndexPayload {..}) = templateId
+instance SetField "templateId" (CreatedIndexPayload t) TemplateTypeRep where
+  setField templateId (CreatedIndexPayload _ offset) = CreatedIndexPayload templateId offset
+
+instance GetField "offset" (CreatedIndexPayload t) Int where
+  getField (CreatedIndexPayload {..}) = offset
+instance SetField "offset" (CreatedIndexPayload t) Int where
+  setField offset (CreatedIndexPayload templateId _) = CreatedIndexPayload templateId offset
+
+instance GetField "templateId" (ExercisedIndexPayload t) TemplateTypeRep where
+  getField (ExercisedIndexPayload {..}) = templateId
+instance SetField "templateId" (ExercisedIndexPayload t) TemplateTypeRep where
+  setField templateId (ExercisedIndexPayload _ choice offset child) =
+    ExercisedIndexPayload templateId choice offset child
+
+instance GetField "choice" (ExercisedIndexPayload t) Text where
+  getField (ExercisedIndexPayload {..}) = choice
+instance SetField "choice" (ExercisedIndexPayload t) Text where
+  setField choice (ExercisedIndexPayload templateId _ offset child) =
+    ExercisedIndexPayload templateId choice offset child
+
+instance GetField "offset" (ExercisedIndexPayload t) Int where
+  getField (ExercisedIndexPayload {..}) = offset
+instance SetField "offset" (ExercisedIndexPayload t) Int where
+  setField offset (ExercisedIndexPayload templateId choice _ child) =
+    ExercisedIndexPayload templateId choice offset child
+
+instance GetField "child" (ExercisedIndexPayload t) (TreeIndex t) where
+  getField (ExercisedIndexPayload {..}) = child
+instance SetField "child" (ExercisedIndexPayload t) (TreeIndex t) where
+  setField child (ExercisedIndexPayload templateId choice offset _) =
+    ExercisedIndexPayload templateId choice offset child
+
+deriving instance Show TransactionTree
+deriving instance Show TreeEvent
+
+-- Custom Show instance since we cannot show AnyTemplate
+-- | MOVE Daml.Script
+instance Show Created where
+  showsPrec d (Created contractId _) =
+    showString "Created {" .
+    showString "contractId = " .
+    showsPrec 0 contractId .
+    showString "}"
+
+-- Custom Show instance since we cannot
+-- show AnyChoice.
+-- | MOVE Daml.Script
+instance Show Exercised where
+  showsPrec d (Exercised cid choice _arg childEvents) =
+    showString "Exercised {" .
+    showString "contractId = " .
+    showsPrec 0 cid .
+    showCommaSpace .
+    showString "choice = " .
+    showsPrec 0 choice .
+    showCommaSpace .
+    showString "childEvents = " .
+    showsPrec 0 childEvents .
+    showString "}"
+
+-- | MOVE Daml.Script
+-- Finds the contract id of an event within a tree given a tree index
+-- Tree indices are created using the `created(N)` and `exercised(N)` builders
+-- which allow building "paths" within a transaction to a create node
+-- For example, `exercisedN @MyTemplate1 "MyChoice" 2 $ createdN @MyTemplate2 1`
+-- would find the `ContractId MyTemplate2` of the second (0 index) create event under
+-- the 3rd exercise event of `MyChoice` from `MyTemplate1`
+fromTree : Template t => TransactionTree -> TreeIndex t -> ContractId t
+fromTree tree index = fromTreeGo index tree.rootEvents
+
+-- | HIDE
+fromTreeGo : Template t => TreeIndex t -> [TreeEvent] -> ContractId t
+fromTreeGo (CreatedIndex index) events =
+  case mapOptional fromCreated events of
+    [] -> error "No created events for the requested template id found"
+    contractIds ->
+      let msg = "CreatedIndex out of bound" in
+      fromSomeNote msg $ contractIds !! index.offset
+  where
+    fromCreated : Template t => TreeEvent -> Optional (ContractId t)
+    fromCreated (CreatedEvent created) = fromAnyContractId created.contractId
+    fromCreated (ExercisedEvent _) = None
+fromTreeGo (ExercisedIndex index) events =
+  case mapOptional fromExercised events of
+    [] -> error $ "No exercised events for choice " <> index.choice <> " found"
+    childEventsList ->
+      let msg = "ExercisedIndex on choice " <> index.choice <> " out of bound"
+          childEvents = fromSomeNote msg $ childEventsList !! index.offset in
+      fromTreeGo index.child childEvents
+  where
+    fromExercised : TreeEvent -> Optional [TreeEvent]
+    fromExercised (CreatedEvent _) = None
+    fromExercised (ExercisedEvent exercised)
+      | AnyChoice _ rep <- exercised.argument
+      , rep == index.templateId
+      , exercised.choice == index.choice
+      = Some exercised.childEvents
+      | otherwise
+      = None
+
+-- | MOVE Daml.Script
+-- Index for the first create event of a given template
+-- e.g. `created @MyTemplate`
+created : forall t. HasTemplateTypeRep t => TreeIndex t
+created = createdN 0
+
+-- | MOVE Daml.Script
+-- Index for the Nth create event of a given template
+-- e.g. `createdN 2 @MyTemplate`
+-- `created = createdN 0`
+createdN : forall t. HasTemplateTypeRep t => Int -> TreeIndex t
+createdN offset = CreatedIndex CreatedIndexPayload
+  with
+    templateId = templateTypeRep @t
+    offset
+
+-- | MOVE Daml.Script
+-- Index for the first exercise of a given choice on a given template
+-- e.g. `exercised @MyTemplate "MyChoice"`
+exercised : forall t t'. HasTemplateTypeRep t => Text -> TreeIndex t' -> TreeIndex t'
+exercised choice = exercisedN @t choice 0
+
+-- | MOVE Daml.Script
+-- Index for the Nth exercise of a given choice on a given template
+-- e.g. `exercisedN @MyTemplate "MyChoice" 2`
+-- `exercised c = exercisedN c 0`
+exercisedN : forall t t'. HasTemplateTypeRep t => Text -> Int -> TreeIndex t' -> TreeIndex t'
+exercisedN choice offset child = ExercisedIndex ExercisedIndexPayload
+  with
+    templateId = templateTypeRep @t
+    choice
+    offset
+    child

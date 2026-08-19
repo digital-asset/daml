@@ -321,6 +321,8 @@ dataDependableExtensions = ES.fromList $ xExtensionsSet ++
   , NamedWildCards, EmptyCase, EmptyDataDeriving
     -- We restore this from the serializable tag in LF so it should work.
   , DamlExplicitSerializable
+    -- Hidden by the compiler and transparent to LF/users. Used by daml-script
+  , DerivingStrategies
   ]
 
 -- | Language settings _disabled_ ($-XNo...$) in the Daml-1.2 compilation

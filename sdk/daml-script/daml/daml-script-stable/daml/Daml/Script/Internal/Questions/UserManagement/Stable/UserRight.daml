@@ -1,0 +1,15 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.UserManagement.Stable.UserRight where
+
+-- | MOVE Daml.Script
+-- The rights of a user.
+data UserRight
+  = ParticipantAdmin
+  | CanActAs Party
+  | CanReadAs Party
+  | CanReadAsAnyParty
+  | CanExecuteAs Party
+  | CanExecuteAsAnyParty
+  | CanActAsAnyParty

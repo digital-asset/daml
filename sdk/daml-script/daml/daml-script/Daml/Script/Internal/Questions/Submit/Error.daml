@@ -1,0 +1,611 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Submit.Error
+  ( IsSubmitError (..)
+  , IsUpgradeErrorType (..)
+  , IsCryptoErrorType (..)
+  , IsExternalCallErrorType (..)
+  , IsDevErrorType (..)
+  , ContractNotFoundAdditionalInfo -- Don't export constructors, users should not be able to rely on the structure.
+  , AnyDevErrorType
+  , ChoiceGuardFailedDevError (..)
+  , UnknownNewFeatureDevError (..)
+  , AnyUpgradeErrorType
+  , ValidationFailedUpgradeError (..)
+  , TranslationFailedUpgradeError (..)
+  , AuthenticationFailedUpgradeError (..)
+  , AnyCryptoErrorType
+  , MalformedByteEncodingCryptoError (..)
+  , MalformedKeyCryptoError (..)
+  , MalformedSignatureCryptoError (..)
+  , AnyExternalCallErrorType
+  , PreparationFailedExternalCallError (..)
+  , ExecutionFailedExternalCallError (..)
+  , InvalidOutputExternalCallError (..)
+  , AnySubmitError
+  , ContractNotFoundSubmitError (..)
+  , UnsupportedContractIdSubmitError (..)
+  , ContractKeyNotFoundSubmitError (..)
+  , UnresolvedPackageNameSubmitError (..)
+  , AuthorizationErrorSubmitError (..)
+  , ContractHashingErrorSubmitError (..)
+  , DisclosedContractKeyHashingErrorSubmitError (..)
+  , DuplicateContractKeySubmitError (..)
+  , InconsistentContractKeySubmitError (..)
+  , UnhandledExceptionSubmitError (..)
+  , UserErrorSubmitError (..)
+  , TemplatePreconditionViolatedSubmitError (..)
+  , CreateEmptyContractKeyMaintainersSubmitError (..)
+  , FetchEmptyContractKeyMaintainersSubmitError (..)
+  , WronglyTypedContractSubmitError (..)
+  , ContractDoesNotImplementInterfaceSubmitError (..)
+  , ContractDoesNotImplementRequiringInterfaceSubmitError (..)
+  , NonComparableValuesSubmitError (..)
+  , ContractIdInContractKeySubmitError (..)
+  , ContractIdComparabilitySubmitError (..)
+  , ValueNestingSubmitError (..)
+  , LocalVerdictLockedContractsSubmitError (..)
+  , LocalVerdictLockedKeysSubmitError (..)
+  , UpgradeErrorSubmitError (..)
+  , FailureStatusErrorSubmitError (..)
+  , CryptoErrorSubmitError (..)
+  , ExternalCallErrorSubmitError (..)
+  , EffectfulRollbackErrorSubmitError (..)
+  , DevErrorSubmitError (..)
+  , UnknownErrorSubmitError (..)
+  , TruncatedErrorSubmitError (..)
+  , isNotActive
+  ) where
+
+import Daml.Script.Internal.LowLevel
+import Daml.Script.Internal.Questions.Util
+import DA.NonEmpty
+import DA.Fail
+import qualified DA.Map as Map
+import Daml.Script.Internal.Questions.Submit.Error.Stable.AnyCryptoErrorType
+import Daml.Script.Internal.Questions.Submit.Error.Stable.AnyDevErrorType
+import Daml.Script.Internal.Questions.Submit.Error.Stable.AnyExternalCallErrorType
+import Daml.Script.Internal.Questions.Submit.Error.Stable.AnySubmitError
+import Daml.Script.Internal.Questions.Submit.Error.Stable.AnyUpgradeErrorType
+import Daml.Script.Internal.Questions.Submit.Error.Stable.TaggedRecord
+import Daml.Script.Internal.Questions.Commands (AnyContractKey)
+
+-- | HIDE
+-- Class used for constructing and destructing TaggedRecords
+-- Intended to be used by newtypes around the TaggedRecord which derive this instance via newtype deriving
+-- See AnySubmitError for example
+class IsTaggedRecord a where
+  match : Text -> [Text] -> a -> Optional [LedgerValue]
+  make : Text -> [Text] -> [LedgerValue] -> a
+
+-- | HIDE
+-- Root IsTaggedRecord instance which types like AnySubmitError wrap via newtype deriving
+instance IsTaggedRecord TaggedRecord where
+  match name fields taggedRecord = guard (name == tgTag taggedRecord) *> mapA (flip Map.lookup $ tgData taggedRecord) fields
+  make name fields values = TaggedRecord name $ Map.fromList $ zip fields values
+ 
+-- | HIDE
+-- AnySubmitError is stable, but this instance is not.
+instance IsTaggedRecord AnySubmitError where
+  match name fields (AnySubmitError taggedRecord) = match name fields taggedRecord
+  make name fields values = AnySubmitError $ make name fields values
+
+-- | MOVE Daml.Script
+-- Allows casting AnySubmitError into and out of specific errors.
+class IsSubmitError e where
+  -- | Transform a submit error into an AnySubmitError
+  toAnySubmitError : e -> AnySubmitError
+  -- | Attempt to transform an AnySubmitError into a specific submit error, gives `None` if the underlying type of the AnySubmitError
+  -- does not match.
+  -- This can be used with type application, i.e. `fromAnySubmitError @UnsupportedContractIdSubmitError`
+  -- or forced with view patterns:
+  -- ```
+  --   case anySubmitError of
+  --     (fromAnySubmitError -> UnsupportedContractIdSubmitError {..}) -> ...
+  -- ```
+  fromAnySubmitError : AnySubmitError -> Optional e
+
+-- | HIDE
+-- AnyUpgradeErrorType is stable, but this instance is not.
+instance IsTaggedRecord AnyUpgradeErrorType where
+  match name fields (AnyUpgradeErrorType taggedRecord) = match name fields taggedRecord
+  make name fields values = AnyUpgradeErrorType $ make name fields values
+
+-- | MOVE Daml.Script
+-- SCU related submission errors
+-- Allows casting AnyUpgradeErrorType into and out of specific upgrade error types.
+class IsUpgradeErrorType e where
+  -- | Transform an upgrade error type into an AnyUpgradeErrorType
+  toAnyUpgradeErrorType : e -> AnyUpgradeErrorType
+  -- | Attempt to transform an AnyUpgradeErrorType into a specific upgrade error type, gives `None` if the underlying type of the AnyUpgradeErrorType
+  -- does not match.
+  fromAnyUpgradeErrorType : AnyUpgradeErrorType -> Optional e
+
+data ValidationFailedUpgradeError = ValidationFailedUpgradeError with
+  coid : AnyContractId
+  srcTemplateId : TemplateTypeRep
+  dstTemplateId : TemplateTypeRep
+  srcPackageName : Text
+  dstPackageName : Text
+  originalSignatories : [Party]
+  originalNonSignatoryStakeholders : [Party]
+  originalKeyOpt : Optional (AnyContractKey, [Party])
+  recomputedSignatories : [Party]
+  recomputedNonSignatoryStakeholders : [Party]
+  recomputedKeyOpt : Optional (AnyContractKey, [Party])
+
+instance IsUpgradeErrorType ValidationFailedUpgradeError where
+  toAnyUpgradeErrorType ValidationFailedUpgradeError {..} = make "ValidationFailed" ["coid", "srcTemplateId", "dstTemplateId", "srcPackageName", "dstPackageName", "originalSignatories", "originalNonSignatoryStakeholders", "originalKeyOpt", "recomputedSignatories", "recomputedNonSignatoryStakeholders", "recomputedKeyOpt"] [Cast coid, Cast srcTemplateId, Cast dstTemplateId, Cast srcPackageName, Cast dstPackageName, Cast originalSignatories, Cast originalNonSignatoryStakeholders, Cast originalKeyOpt, Cast recomputedSignatories, Cast recomputedNonSignatoryStakeholders, Cast recomputedKeyOpt]
+  fromAnyUpgradeErrorType (match "ValidationFailed" ["coid", "srcTemplateId", "dstTemplateId", "srcPackageName", "dstPackageName", "originalSignatories", "originalNonSignatoryStakeholders", "originalKeyOpt", "recomputedSignatories", "recomputedNonSignatoryStakeholders", "recomputedKeyOpt"] -> Some [Cast coid, Cast srcTemplateId, Cast dstTemplateId, Cast srcPackageName, Cast dstPackageName, Cast originalSignatories, Cast originalNonSignatoryStakeholders, Cast originalKeyOpt, Cast recomputedSignatories, Cast recomputedNonSignatoryStakeholders, Cast recomputedKeyOpt]) = Some ValidationFailedUpgradeError {..}
+  fromAnyUpgradeErrorType _ = None
+
+data TranslationFailedUpgradeError = TranslationFailedUpgradeError with
+  mCoid : Optional AnyContractId
+  srcTemplateId : TemplateTypeRep
+  dstTemplateId : TemplateTypeRep
+  createArg : AnyTemplate
+
+instance IsUpgradeErrorType TranslationFailedUpgradeError where
+  toAnyUpgradeErrorType TranslationFailedUpgradeError {..} = make "TranslationFailed" ["mCoid", "srcTemplateId", "dstTemplateId", "createArg"] [Cast mCoid, Cast srcTemplateId, Cast dstTemplateId, Cast createArg]
+  fromAnyUpgradeErrorType (match "TranslationFailed" ["mCoid", "srcTemplateId", "dstTemplateId", "createArg"] -> Some [Cast mCoid, Cast srcTemplateId, Cast dstTemplateId, Cast createArg]) = Some TranslationFailedUpgradeError {..}
+  fromAnyUpgradeErrorType _ = None
+
+data AuthenticationFailedUpgradeError = AuthenticationFailedUpgradeError with
+  coid : AnyContractId
+  srcTemplateId : TemplateTypeRep
+  dstTemplateId : TemplateTypeRep
+  createArg : AnyTemplate
+
+instance IsUpgradeErrorType AuthenticationFailedUpgradeError where
+  toAnyUpgradeErrorType AuthenticationFailedUpgradeError {..} = make "AuthenticationFailed" ["coid", "srcTemplateId", "dstTemplateId", "createArg"] [Cast coid, Cast srcTemplateId, Cast dstTemplateId, Cast createArg]
+  fromAnyUpgradeErrorType (match "AuthenticationFailed" ["coid", "srcTemplateId", "dstTemplateId", "createArg"] -> Some [Cast coid, Cast srcTemplateId, Cast dstTemplateId, Cast createArg]) = Some AuthenticationFailedUpgradeError {..}
+  fromAnyUpgradeErrorType _ = None
+
+-- | HIDE
+-- AnyCryptoErrorType is stable, but this instance is not.
+instance IsTaggedRecord AnyCryptoErrorType where
+  match name fields (AnyCryptoErrorType taggedRecord) = match name fields taggedRecord
+  make name fields values = AnyCryptoErrorType $ make name fields values
+
+-- | MOVE Daml.Script
+-- Daml Crypto (Secp256k1) related submission errors
+-- Allows casting AnyCryptoErrorType into and out of specific crypto error types.
+class IsCryptoErrorType e where
+  -- | Transform a crypto error type into an AnyCryptoErrorType
+  toAnyCryptoErrorType : e -> AnyCryptoErrorType
+  -- | Attempt to transform an AnyCryptoErrorType into a specific crypto error type, gives `None` if the underlying type of the AnyCryptoErrorType
+  -- does not match.
+  fromAnyCryptoErrorType : AnyCryptoErrorType -> Optional e
+
+data MalformedByteEncodingCryptoError = MalformedByteEncodingCryptoError with
+  value : Text
+
+instance IsCryptoErrorType MalformedByteEncodingCryptoError where
+  toAnyCryptoErrorType MalformedByteEncodingCryptoError {..} = make "MalformedByteEncoding" ["value"] [Cast value]
+  fromAnyCryptoErrorType (match "MalformedByteEncoding" ["value"] -> Some [Cast value]) = Some MalformedByteEncodingCryptoError {..}
+  fromAnyCryptoErrorType _ = None
+
+data MalformedKeyCryptoError = MalformedKeyCryptoError with
+  keyValue : Text
+
+instance IsCryptoErrorType MalformedKeyCryptoError where
+  toAnyCryptoErrorType MalformedKeyCryptoError {..} = make "MalformedKey" ["keyValue"] [Cast keyValue]
+  fromAnyCryptoErrorType (match "MalformedKey" ["keyValue"] -> Some [Cast keyValue]) = Some MalformedKeyCryptoError {..}
+  fromAnyCryptoErrorType _ = None
+
+data MalformedSignatureCryptoError = MalformedSignatureCryptoError with
+  signatureValue : Text
+
+instance IsCryptoErrorType MalformedSignatureCryptoError where
+  toAnyCryptoErrorType MalformedSignatureCryptoError {..} = make "MalformedSignature" ["signatureValue"] [Cast signatureValue]
+  fromAnyCryptoErrorType (match "MalformedSignature" ["signatureValue"] -> Some [Cast signatureValue]) = Some MalformedSignatureCryptoError {..}
+  fromAnyCryptoErrorType _ = None
+
+-- | HIDE
+-- AnyExternalCallErrorType is stable, but this instance is not.
+instance IsTaggedRecord AnyExternalCallErrorType where
+  match name fields (AnyExternalCallErrorType taggedRecord) = match name fields taggedRecord
+  make name fields values = AnyExternalCallErrorType $ make name fields values
+
+-- | MOVE Daml.Script
+-- External-call related submission errors, one per stage: preparing the
+-- call, executing it, and validating the service output.
+-- Allows casting AnyExternalCallErrorType into and out of specific external-call error types.
+class IsExternalCallErrorType e where
+  -- | Transform an external-call error type into an AnyExternalCallErrorType
+  toAnyExternalCallErrorType : e -> AnyExternalCallErrorType
+  -- | Attempt to transform an AnyExternalCallErrorType into a specific external-call error type, gives `None` if the underlying type of the AnyExternalCallErrorType
+  -- does not match.
+  fromAnyExternalCallErrorType : AnyExternalCallErrorType -> Optional e
+
+data PreparationFailedExternalCallError = PreparationFailedExternalCallError
+
+instance IsExternalCallErrorType PreparationFailedExternalCallError where
+  toAnyExternalCallErrorType PreparationFailedExternalCallError = make "PreparationFailed" [] []
+  fromAnyExternalCallErrorType (match "PreparationFailed" [] -> Some []) = Some PreparationFailedExternalCallError
+  fromAnyExternalCallErrorType _ = None
+
+data ExecutionFailedExternalCallError = ExecutionFailedExternalCallError
+
+instance IsExternalCallErrorType ExecutionFailedExternalCallError where
+  toAnyExternalCallErrorType ExecutionFailedExternalCallError = make "ExecutionFailed" [] []
+  fromAnyExternalCallErrorType (match "ExecutionFailed" [] -> Some []) = Some ExecutionFailedExternalCallError
+  fromAnyExternalCallErrorType _ = None
+
+data InvalidOutputExternalCallError = InvalidOutputExternalCallError
+
+instance IsExternalCallErrorType InvalidOutputExternalCallError where
+  toAnyExternalCallErrorType InvalidOutputExternalCallError = make "InvalidOutput" [] []
+  fromAnyExternalCallErrorType (match "InvalidOutput" [] -> Some []) = Some InvalidOutputExternalCallError
+  fromAnyExternalCallErrorType _ = None
+
+-- | HIDE
+-- AnyDevErrorType is stable, but this instance is not.
+instance IsTaggedRecord AnyDevErrorType where
+  match name fields (AnyDevErrorType taggedRecord) = match name fields taggedRecord
+  make name fields values = AnyDevErrorType $ make name fields values
+
+-- | MOVE Daml.Script
+-- Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
+-- Allows casting AnyDevErrorType into and out of specific dev error types.
+class IsDevErrorType e where
+  -- | Transform a dev error type into an AnyDevErrorType
+  toAnyDevErrorType : e -> AnyDevErrorType
+  -- | Attempt to transform an AnyDevErrorType into a specific dev error type, gives `None` if the underlying type of the AnyDevErrorType
+  -- does not match.
+  fromAnyDevErrorType : AnyDevErrorType -> Optional e
+
+data ChoiceGuardFailedDevError = ChoiceGuardFailedDevError
+
+instance IsDevErrorType ChoiceGuardFailedDevError where
+  toAnyDevErrorType ChoiceGuardFailedDevError = make "ChoiceGuardFailed" [] []
+  fromAnyDevErrorType (match "ChoiceGuardFailed" [] -> Some []) = Some ChoiceGuardFailedDevError
+  fromAnyDevErrorType _ = None
+
+-- | This should never happen - Update Scripts when you see this!
+data UnknownNewFeatureDevError = UnknownNewFeatureDevError
+
+instance IsDevErrorType UnknownNewFeatureDevError where
+  toAnyDevErrorType UnknownNewFeatureDevError = make "UnknownNewFeature" [] []
+  fromAnyDevErrorType (match "UnknownNewFeature" [] -> Some []) = Some UnknownNewFeatureDevError
+  fromAnyDevErrorType _ = None
+
+-- | Contract with given contract ID could not be found, and has never existed on this participant
+-- When run on Canton, there may be more than one contract ID, and additionalDebuggingInfo is always None
+-- On the other hand, when run on IDELedger, there is only ever one contract ID, and additionalDebuggingInfo is always Some
+data ContractNotFoundSubmitError = ContractNotFoundSubmitError with
+  unknownContractIds : NonEmpty Text
+    -- ^ Provided as text, as we do not know the template ID of a contract if the lookup fails
+  additionalDebuggingInfo : Optional ContractNotFoundAdditionalInfo
+    -- ^ should always be None in Canton's case, see https://github.com/digital-asset/daml/issues/17154
+
+instance IsSubmitError ContractNotFoundSubmitError where
+  toAnySubmitError ContractNotFoundSubmitError {..} = make "ContractNotFound" ["unknownContractIds", "additionalDebuggingInfo"] [Cast unknownContractIds, Cast additionalDebuggingInfo]
+  fromAnySubmitError (match "ContractNotFound" ["unknownContractIds", "additionalDebuggingInfo"] -> Some [Cast unknownContractIds, Cast additionalDebuggingInfo]) = Some ContractNotFoundSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Unsupported contract id type/version
+data UnsupportedContractIdSubmitError = UnsupportedContractIdSubmitError with
+  unknownContractId : Text
+
+instance IsSubmitError UnsupportedContractIdSubmitError where
+  toAnySubmitError UnsupportedContractIdSubmitError {..} = make "UnsupportedContractId" ["unknownContractId"] [Cast unknownContractId]
+  fromAnySubmitError (match "UnsupportedContractId" ["unknownContractId"] -> Some [Cast unknownContractId]) = Some UnsupportedContractIdSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Contract with given contract key could not be found
+data ContractKeyNotFoundSubmitError = ContractKeyNotFoundSubmitError with
+  contractKey : AnyContractKey
+
+instance IsSubmitError ContractKeyNotFoundSubmitError where
+  toAnySubmitError ContractKeyNotFoundSubmitError {..} = make "ContractKeyNotFound" ["contractKey"] [Cast contractKey]
+  fromAnySubmitError (match "ContractKeyNotFound" ["contractKey"] -> Some [Cast contractKey]) = Some ContractKeyNotFoundSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | No vetted package with given package name could be found
+data UnresolvedPackageNameSubmitError = UnresolvedPackageNameSubmitError with
+  packageName : Text
+
+instance IsSubmitError UnresolvedPackageNameSubmitError where
+  toAnySubmitError UnresolvedPackageNameSubmitError {..} = make "UnresolvedPackageName" ["packageName"] [Cast packageName]
+  fromAnySubmitError (match "UnresolvedPackageName" ["packageName"] -> Some [Cast packageName]) = Some UnresolvedPackageNameSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Generic authorization failure, included missing party authority, invalid signatories, etc.
+data AuthorizationErrorSubmitError = AuthorizationErrorSubmitError with
+  authorizationErrorMessage : Text -- We can't pass over the data at the moment, so we just give the full string error here, for anyone that wants to check it
+
+instance IsSubmitError AuthorizationErrorSubmitError where
+  toAnySubmitError AuthorizationErrorSubmitError {..} = make "AuthorizationError" ["authorizationErrorMessage"] [Cast authorizationErrorMessage]
+  fromAnySubmitError (match "AuthorizationError" ["authorizationErrorMessage"] -> Some [Cast authorizationErrorMessage]) = Some AuthorizationErrorSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Failed to hash a contract
+data ContractHashingErrorSubmitError = ContractHashingErrorSubmitError with
+  contractId : AnyContractId
+  dstTemplateId : TemplateTypeRep
+  createArg : AnyTemplate
+  errorMessage : Text
+
+instance IsSubmitError ContractHashingErrorSubmitError where
+  toAnySubmitError ContractHashingErrorSubmitError {..} = make "ContractHashingError" ["contractId", "dstTemplateId", "createArg", "errorMessage"] [Cast contractId, Cast dstTemplateId, Cast createArg, Cast errorMessage]
+  fromAnySubmitError (match "ContractHashingError" ["contractId", "dstTemplateId", "createArg", "errorMessage"] -> Some [Cast contractId, Cast dstTemplateId, Cast createArg, Cast errorMessage]) = Some ContractHashingErrorSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Given disclosed contract key does not match the contract key of the contract on ledger.
+data DisclosedContractKeyHashingErrorSubmitError = DisclosedContractKeyHashingErrorSubmitError with
+  contractId : AnyContractId
+  expectedKey : AnyContractKey
+  givenKeyHash : Text
+
+instance IsSubmitError DisclosedContractKeyHashingErrorSubmitError where
+  toAnySubmitError DisclosedContractKeyHashingErrorSubmitError {..} = make "DisclosedContractKeyHashingError" ["contractId", "expectedKey", "givenKeyHash"] [Cast contractId, Cast expectedKey, Cast givenKeyHash]
+  fromAnySubmitError (match "DisclosedContractKeyHashingError" ["contractId", "expectedKey", "givenKeyHash"] -> Some [Cast contractId, Cast expectedKey, Cast givenKeyHash]) = Some DisclosedContractKeyHashingErrorSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Attempted to create a contract with a contract key that already exists
+data DuplicateContractKeySubmitError = DuplicateContractKeySubmitError with
+  duplicateContractKey : Optional AnyContractKey
+    -- ^ Canton will often not provide this key, IDELedger will
+
+instance IsSubmitError DuplicateContractKeySubmitError where
+  toAnySubmitError DuplicateContractKeySubmitError {..} = make "DuplicateContractKey" ["duplicateContractKey"] [Cast duplicateContractKey]
+  fromAnySubmitError (match "DuplicateContractKey" ["duplicateContractKey"] -> Some [Cast duplicateContractKey]) = Some DuplicateContractKeySubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Contract key lookup yielded different results
+data InconsistentContractKeySubmitError = InconsistentContractKeySubmitError with
+  contractKey : AnyContractKey
+
+instance IsSubmitError InconsistentContractKeySubmitError where
+  toAnySubmitError InconsistentContractKeySubmitError {..} = make "InconsistentContractKey" ["contractKey"] [Cast contractKey]
+  fromAnySubmitError (match "InconsistentContractKey" ["contractKey"] -> Some [Cast contractKey]) = Some InconsistentContractKeySubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Unhandled user thrown exception
+data UnhandledExceptionSubmitError = UnhandledExceptionSubmitError with
+  exc : Optional AnyException
+    -- ^ Errors more complex than simple records cannot currently be encoded over the grpc status. Such errors will be missing here.
+
+instance IsSubmitError UnhandledExceptionSubmitError where
+  toAnySubmitError UnhandledExceptionSubmitError {..} = make "UnhandledException" ["exc"] [Cast exc]
+  fromAnySubmitError (match "UnhandledException" ["exc"] -> Some [Cast exc]) = Some UnhandledExceptionSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Transaction failure due to abort/assert calls pre-exceptions
+data UserErrorSubmitError = UserErrorSubmitError with
+  userErrorMessage : Text -- TODO[SW] Post LF 1.14, only `submitMustFail` can throw this. I'll refactor that later and likely remove this error
+
+instance IsSubmitError UserErrorSubmitError where
+  toAnySubmitError UserErrorSubmitError {..} = make "UserError" ["userErrorMessage"] [Cast userErrorMessage]
+  fromAnySubmitError (match "UserError" ["userErrorMessage"] -> Some [Cast userErrorMessage]) = Some UserErrorSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Failure due to false result from `ensure`, strictly pre-exception.
+-- According to docs, not throwable with LF >= 1.14.
+-- On LF >= 1.14, a failed `ensure` will result in a `PreconditionFailed`
+-- exception wrapped in `UnhandledException`.
+data TemplatePreconditionViolatedSubmitError = TemplatePreconditionViolatedSubmitError
+
+instance IsSubmitError TemplatePreconditionViolatedSubmitError where
+  toAnySubmitError TemplatePreconditionViolatedSubmitError = make "TemplatePreconditionViolated" [] []
+  fromAnySubmitError (match "TemplatePreconditionViolated" [] -> Some []) = Some TemplatePreconditionViolatedSubmitError
+  fromAnySubmitError _ = None
+
+-- | Attempted to create a contract with empty contract key maintainers
+data CreateEmptyContractKeyMaintainersSubmitError = CreateEmptyContractKeyMaintainersSubmitError with
+  invalidTemplate : AnyTemplate
+
+instance IsSubmitError CreateEmptyContractKeyMaintainersSubmitError where
+  toAnySubmitError CreateEmptyContractKeyMaintainersSubmitError {..} = make "CreateEmptyContractKeyMaintainers" ["invalidTemplate"] [Cast invalidTemplate]
+  fromAnySubmitError (match "CreateEmptyContractKeyMaintainers" ["invalidTemplate"] -> Some [Cast invalidTemplate]) = Some CreateEmptyContractKeyMaintainersSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Attempted to fetch a contract with empty contract key maintainers
+data FetchEmptyContractKeyMaintainersSubmitError = FetchEmptyContractKeyMaintainersSubmitError with
+  failedTemplateKey : AnyContractKey
+
+instance IsSubmitError FetchEmptyContractKeyMaintainersSubmitError where
+  toAnySubmitError FetchEmptyContractKeyMaintainersSubmitError {..} = make "FetchEmptyContractKeyMaintainers" ["failedTemplateKey"] [Cast failedTemplateKey]
+  fromAnySubmitError (match "FetchEmptyContractKeyMaintainers" ["failedTemplateKey"] -> Some [Cast failedTemplateKey]) = Some FetchEmptyContractKeyMaintainersSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Attempted to exercise/fetch a contract with the wrong template type
+data WronglyTypedContractSubmitError = WronglyTypedContractSubmitError with
+  contractId : AnyContractId -- ^ Any contract Id of the actual contract
+  expectedTemplateId : TemplateTypeRep
+  actualTemplateId : TemplateTypeRep
+
+instance IsSubmitError WronglyTypedContractSubmitError where
+  toAnySubmitError WronglyTypedContractSubmitError {..} = make "WronglyTypedContract" ["contractId", "expectedTemplateId", "actualTemplateId"] [Cast contractId, Cast expectedTemplateId, Cast actualTemplateId]
+  fromAnySubmitError (match "WronglyTypedContract" ["contractId", "expectedTemplateId", "actualTemplateId"] -> Some [Cast contractId, Cast expectedTemplateId, Cast actualTemplateId]) = Some WronglyTypedContractSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Attempted to use a contract as an interface that it does not implement
+data ContractDoesNotImplementInterfaceSubmitError = ContractDoesNotImplementInterfaceSubmitError with
+  contractId : AnyContractId
+  templateId : TemplateTypeRep
+  interfaceId : TemplateTypeRep -- Consider InterfaceTypeRep from DA.Internal.Interface.AnyView.Types (so exposing it in stdlib)
+
+instance IsSubmitError ContractDoesNotImplementInterfaceSubmitError where
+  toAnySubmitError ContractDoesNotImplementInterfaceSubmitError {..} = make "ContractDoesNotImplementInterface" ["contractId", "templateId", "interfaceId"] [Cast contractId, Cast templateId, Cast interfaceId]
+  fromAnySubmitError (match "ContractDoesNotImplementInterface" ["contractId", "templateId", "interfaceId"] -> Some [Cast contractId, Cast templateId, Cast interfaceId]) = Some ContractDoesNotImplementInterfaceSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Attempted to use a contract as a required interface that it does not implement
+data ContractDoesNotImplementRequiringInterfaceSubmitError = ContractDoesNotImplementRequiringInterfaceSubmitError with
+  contractId : AnyContractId
+  templateId : TemplateTypeRep
+  requiredInterfaceId : TemplateTypeRep
+  requiringInterfaceId : TemplateTypeRep
+
+instance IsSubmitError ContractDoesNotImplementRequiringInterfaceSubmitError where
+  toAnySubmitError ContractDoesNotImplementRequiringInterfaceSubmitError {..} = make "ContractDoesNotImplementRequiringInterface" ["contractId", "templateId", "requiredInterfaceId", "requiringInterfaceId"] [Cast contractId, Cast templateId, Cast requiredInterfaceId, Cast requiringInterfaceId]
+  fromAnySubmitError (match "ContractDoesNotImplementRequiringInterface" ["contractId", "templateId", "requiredInterfaceId", "requiringInterfaceId"] -> Some [Cast contractId, Cast templateId, Cast requiredInterfaceId, Cast requiringInterfaceId]) = Some ContractDoesNotImplementRequiringInterfaceSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Attempted to compare values that are not comparable
+data NonComparableValuesSubmitError = NonComparableValuesSubmitError
+
+instance IsSubmitError NonComparableValuesSubmitError where
+  toAnySubmitError NonComparableValuesSubmitError = make "NonComparableValues" [] []
+  fromAnySubmitError (match "NonComparableValues" [] -> Some []) = Some NonComparableValuesSubmitError
+  fromAnySubmitError _ = None
+
+-- | Illegal Contract ID found in Contract Key
+data ContractIdInContractKeySubmitError = ContractIdInContractKeySubmitError
+    -- TODO[SW]: Update the ContractIdInContractKey scala error to include a TemplateId (which it does have when thrown) in separate PR
+    -- Then we can uncomment this and add the plumbing
+    -- contractKey : AnyContractKey
+
+instance IsSubmitError ContractIdInContractKeySubmitError where
+  toAnySubmitError ContractIdInContractKeySubmitError = make "ContractIdInContractKey" [] []
+  fromAnySubmitError (match "ContractIdInContractKey" [] -> Some []) = Some ContractIdInContractKeySubmitError
+  fromAnySubmitError _ = None
+
+-- | Attempted to compare incomparable contract IDs. You're doing something very wrong.
+-- Two contract IDs with the same prefix are incomparable if one of them is local and the other non-local
+-- or if one is relative and the other relative or absolute with a different suffix.
+data ContractIdComparabilitySubmitError = ContractIdComparabilitySubmitError with
+  globalExistingContractId : Text
+    -- ^ We do not know the template ID at time of comparison.
+
+instance IsSubmitError ContractIdComparabilitySubmitError where
+  toAnySubmitError ContractIdComparabilitySubmitError {..} = make "ContractIdComparability" ["globalExistingContractId"] [Cast globalExistingContractId]
+  fromAnySubmitError (match "ContractIdComparability" ["globalExistingContractId"] -> Some [Cast globalExistingContractId]) = Some ContractIdComparabilitySubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | A value has been nested beyond a given depth limit
+data ValueNestingSubmitError = ValueNestingSubmitError with
+  limit : Int
+    -- ^ Nesting limit that was exceeded
+
+instance IsSubmitError ValueNestingSubmitError where
+  toAnySubmitError ValueNestingSubmitError {..} = make "ValueNesting" ["limit"] [Cast limit]
+  fromAnySubmitError (match "ValueNesting" ["limit"] -> Some [Cast limit]) = Some ValueNestingSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | The transaction refers to locked contracts which are in the process of being created, transferred, or
+-- archived by another transaction. If the other transaction fails, this transaction could be successfully retried.
+data LocalVerdictLockedContractsSubmitError = LocalVerdictLockedContractsSubmitError with
+  localVerdictLockedContracts : [AnyContractId]
+    -- ^ Locked contract ids
+
+instance IsSubmitError LocalVerdictLockedContractsSubmitError where
+  toAnySubmitError LocalVerdictLockedContractsSubmitError {..} = make "LocalVerdictLockedContracts" ["localVerdictLockedContracts"] [Cast localVerdictLockedContracts]
+  fromAnySubmitError (match "LocalVerdictLockedContracts" ["localVerdictLockedContracts"] -> Some [Cast localVerdictLockedContracts]) = Some LocalVerdictLockedContractsSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | The transaction refers to locked keys which are in the process of being modified by another transaction.
+data LocalVerdictLockedKeysSubmitError = LocalVerdictLockedKeysSubmitError with
+  localVerdictLockedKeys : [AnyContractKey]
+    -- ^ Locked contract keys
+
+instance IsSubmitError LocalVerdictLockedKeysSubmitError where
+  toAnySubmitError LocalVerdictLockedKeysSubmitError {..} = make "LocalVerdictLockedKeys" ["localVerdictLockedKeys"] [Cast localVerdictLockedKeys]
+  fromAnySubmitError (match "LocalVerdictLockedKeys" ["localVerdictLockedKeys"] -> Some [Cast localVerdictLockedKeys]) = Some LocalVerdictLockedKeysSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Upgrade exception
+data UpgradeErrorSubmitError = UpgradeErrorSubmitError with
+  errorType : AnyUpgradeErrorType
+  errorMessage : Text
+
+instance IsSubmitError UpgradeErrorSubmitError where
+  toAnySubmitError UpgradeErrorSubmitError {..} = make "UpgradeError" ["errorType", "errorMessage"] [Cast errorType, Cast errorMessage]
+  fromAnySubmitError (match "UpgradeError" ["errorType", "errorMessage"] -> Some [Cast errorType, Cast errorMessage]) = Some UpgradeErrorSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Exception resulting from call to `failWithStatus`
+data FailureStatusErrorSubmitError = FailureStatusErrorSubmitError with
+  failureStatus : FailureStatus
+
+instance IsSubmitError FailureStatusErrorSubmitError where
+  toAnySubmitError FailureStatusErrorSubmitError {..} = make "FailureStatusError" ["failureStatus"] [Cast failureStatus]
+  fromAnySubmitError (match "FailureStatusError" ["failureStatus"] -> Some [Cast failureStatus]) = Some FailureStatusErrorSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Crypto exceptions
+data CryptoErrorSubmitError = CryptoErrorSubmitError with
+  cryptoErrorType : AnyCryptoErrorType
+  cryptoErrorMessage : Text
+
+instance IsSubmitError CryptoErrorSubmitError where
+  toAnySubmitError CryptoErrorSubmitError {..} = make "CryptoError" ["cryptoErrorType", "cryptoErrorMessage"] [Cast cryptoErrorType, Cast cryptoErrorMessage]
+  fromAnySubmitError (match "CryptoError" ["cryptoErrorType", "cryptoErrorMessage"] -> Some [Cast cryptoErrorType, Cast cryptoErrorMessage]) = Some CryptoErrorSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | External-call interpretation exception
+data ExternalCallErrorSubmitError = ExternalCallErrorSubmitError with
+  externalCallErrorType : AnyExternalCallErrorType
+  extensionId : Text
+  functionId : Text
+  externalCallErrorMessage : Text
+
+instance IsSubmitError ExternalCallErrorSubmitError where
+  toAnySubmitError ExternalCallErrorSubmitError {..} = make "ExternalCallError" ["externalCallErrorType", "extensionId", "functionId", "externalCallErrorMessage"] [Cast externalCallErrorType, Cast extensionId, Cast functionId, Cast externalCallErrorMessage]
+  fromAnySubmitError (match "ExternalCallError" ["externalCallErrorType", "extensionId", "functionId", "externalCallErrorMessage"] -> Some [Cast externalCallErrorType, Cast extensionId, Cast functionId, Cast externalCallErrorMessage]) = Some ExternalCallErrorSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Rollback exceptions
+data EffectfulRollbackErrorSubmitError = EffectfulRollbackErrorSubmitError with
+  effectfulRollbackErrorMsg : Text
+
+instance IsSubmitError EffectfulRollbackErrorSubmitError where
+  toAnySubmitError EffectfulRollbackErrorSubmitError {..} = make "EffectfulRollbackError" ["effectfulRollbackErrorMsg"] [Cast effectfulRollbackErrorMsg]
+  fromAnySubmitError (match "EffectfulRollbackError" ["effectfulRollbackErrorMsg"] -> Some [Cast effectfulRollbackErrorMsg]) = Some EffectfulRollbackErrorSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Development feature exceptions
+data DevErrorSubmitError = DevErrorSubmitError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
+  devErrorType : AnyDevErrorType
+  devErrorMessage : Text
+
+instance IsSubmitError DevErrorSubmitError where
+  toAnySubmitError DevErrorSubmitError {..} = make "DevError" ["devErrorType", "devErrorMessage"] [Cast devErrorType, Cast devErrorMessage]
+  fromAnySubmitError (match "DevError" ["devErrorType", "devErrorMessage"] -> Some [Cast devErrorType, Cast devErrorMessage]) = Some DevErrorSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | Generic catch-all for missing errors.
+data UnknownErrorSubmitError = UnknownErrorSubmitError with
+  unknownErrorMessage : Text
+
+instance IsSubmitError UnknownErrorSubmitError where
+  toAnySubmitError UnknownErrorSubmitError {..} = make "UnknownError" ["unknownErrorMessage"] [Cast unknownErrorMessage]
+  fromAnySubmitError (match "UnknownError" ["unknownErrorMessage"] -> Some [Cast unknownErrorMessage]) = Some UnknownErrorSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- | One of the above error types where the full exception body did not fit into the response, and was incomplete.
+data TruncatedErrorSubmitError = TruncatedErrorSubmitError with
+  truncatedErrorType : Text
+    -- ^ One of the constructor names of SubmitFailure except DevError, UnknownError, TruncatedError
+  truncatedErrorMessage : Text
+
+instance IsSubmitError TruncatedErrorSubmitError where
+  toAnySubmitError TruncatedErrorSubmitError {..} = make "TruncatedError" ["truncatedErrorType", "truncatedErrorMessage"] [Cast truncatedErrorType, Cast truncatedErrorMessage]
+  fromAnySubmitError (match "TruncatedError" ["truncatedErrorType", "truncatedErrorMessage"] -> Some [Cast truncatedErrorType, Cast truncatedErrorMessage]) = Some TruncatedErrorSubmitError {..}
+  fromAnySubmitError _ = None
+
+-- ContractNotFoundAdditionalInfo is not stable/extensible as its constructors are internal, and only used for Show
+-- | MOVE Daml.Script.Internal
+-- Additional debugging information provided only by IDE Ledger
+data ContractNotFoundAdditionalInfo
+  = NotFound -- The generic "this contract does not exist"
+  | NotActive with -- The contract did exist, but has since been archived
+      additionalInfoCid : AnyContractId
+  | NotEffective with -- The contract "will" exist, only thrown from the IDELedger where one can go backwards in time
+      additionalInfoCid : AnyContractId
+      effectiveAt : Text
+  | NotVisible with -- The contract exists, but the readAs/actAs party union cannot see it
+      additionalInfoCid : AnyContractId
+      actAs : [Party]
+      readAs : [Party]
+      observers : [Party]
+  deriving Show
+
+-- | MOVE Daml.Script.Internal
+-- Exacts nonactive contract ID from ContractNotFoundAdditionalInfo
+isNotActive : ContractNotFoundAdditionalInfo -> Optional AnyContractId
+isNotActive (NotActive {additionalInfoCid}) = Some additionalInfoCid
+isNotActive _ = None

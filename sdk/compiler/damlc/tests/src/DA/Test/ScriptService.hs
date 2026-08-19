@@ -91,6 +91,7 @@ withPackageDBAndIdeState lfVersion getScriptService action = do
           "dependencies:",
           "- daml-prim",
           "- daml-stdlib",
+          "data-dependencies:",
           "- " <> show scriptDar
         ]
     let opts = defaultOptions (Just lfVersion)

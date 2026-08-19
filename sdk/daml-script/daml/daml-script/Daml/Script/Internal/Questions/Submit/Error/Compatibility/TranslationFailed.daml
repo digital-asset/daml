@@ -1,0 +1,14 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Submit.Error.Compatibility.TranslationFailed (pattern TranslationFailed) where
+
+import Daml.Script.Internal.Questions.Submit.Error
+import Daml.Script.Internal.Questions.Util (AnyContractId)
+
+-- | MOVE Daml.Script
+-- Backwards compatibility pattern for the TranslationFailed variant of the original UpgradeErrorType
+-- Prefer using AnyUpgradeErrorType and `fromAnyUpgradeErrorType` instead of this pattern synonym.
+pattern TranslationFailed : Optional AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> AnyTemplate -> AnyUpgradeErrorType
+pattern TranslationFailed {mCoid, srcTemplateId, dstTemplateId, createArg} <- (fromAnyUpgradeErrorType -> Some TranslationFailedUpgradeError {..})
+  where TranslationFailed mCoid srcTemplateId dstTemplateId createArg = toAnyUpgradeErrorType TranslationFailedUpgradeError {..}

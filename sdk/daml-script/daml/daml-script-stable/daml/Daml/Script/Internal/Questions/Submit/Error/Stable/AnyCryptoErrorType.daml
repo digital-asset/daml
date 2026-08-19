@@ -1,0 +1,9 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Submit.Error.Stable.AnyCryptoErrorType where
+
+import Daml.Script.Internal.Questions.Submit.Error.Stable.TaggedRecord
+
+-- | See IsCryptoErrorType for details on how to use AnyCryptoErrorType
+newtype AnyCryptoErrorType = AnyCryptoErrorType TaggedRecord

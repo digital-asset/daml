@@ -25,6 +25,7 @@ import "zip-archive" Codec.Archive.Zip qualified as ZipArchive
 import Control.Applicative ((<|>))
 import Control.Exception
 import Control.Monad
+import Control.Monad.Extra
 import DA.Daml.Compiler.ExtractDar
 import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.Proto3.Archive.Decode qualified as Archive
@@ -98,7 +99,7 @@ instance Show DPMUnsupportedError where
   show (DPMUnsupportedError thing) = "DPM does not currently support " <> thing <> ". Support may be added in a future version."
 instance Exception DPMUnsupportedError
 
-getDarHeaderInfos :: CachePath -> ValidPackageResolution -> IO (Map.Map FilePath DalfInfoCacheEntry)
+getDarHeaderInfos :: CachePath -> ValidPackageResolution -> IO (Map.Map FilePath (LF.PackageId, DalfInfoCacheEntry))
 getDarHeaderInfos cachePath (ValidPackageResolution _ imports _) = do
   let paths = fromMaybe [] $ Map.lookup "dars" imports
   extractedDars <- traverse (\p -> (p,) <$> extractDar p) paths
@@ -124,8 +125,8 @@ getDarHeaderInfos cachePath (ValidPackageResolution _ imports _) = do
               currentTime
           )
       newCache = dalfInfoCacheWithoutStale <> missingCacheEntries
-      pathEntries :: Map.Map FilePath DalfInfoCacheEntry
-      pathEntries = Map.fromList $ mapMaybe (\(path, _, pkgId) -> (path,) <$> Map.lookup pkgId (getDalfInfoCacheMap newCache)) extractedDarsWithPackageIds
+      pathEntries :: Map.Map FilePath (LF.PackageId, DalfInfoCacheEntry)
+      pathEntries = Map.fromList $ mapMaybe (\(path, _, pkgId) -> (path,) . (pkgId,) <$> Map.lookup pkgId (getDalfInfoCacheMap newCache)) extractedDarsWithPackageIds
 
   -- Ensure path exists before writing file
   let diCachePath = darInfoCachePath cachePath
@@ -165,15 +166,27 @@ expandDependencyPackages cachePath pkgResolution lfVersion dependencyPackages = 
   darInfos <- getDarHeaderInfos cachePath pkgResolution
   let isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
       (sdkPackages, purePaths) = partition isSdkPackage $ filter (`notElem` basePackages) $ dpRegularDeps dependencyPackages
-      resolvedSdkPackagesWithPaths = traverse (\fp -> findDarInDarInfos darInfos (T.pack fp) lfVersion) sdkPackages
+      resolvedSdkPackagesWithPaths = traverse (\fp -> findDarInDarInfos (snd <$> darInfos) (T.pack fp) lfVersion) sdkPackages
   case resolvedSdkPackagesWithPaths of
     Left err -> throwIO $ ResolutionError $ T.unpack err
     Right resolvedSdkPackages -> do
       let (asDataDeps, asDeps) = partition snd resolvedSdkPackages
+      dataDeps <- addTransitiveDeps darInfos $ fmap fst asDataDeps
       pure $ DependencyPackages
         purePaths
         (dpRegularUncheckedDeps dependencyPackages <> fmap fst asDeps)
-        (dpDataDeps dependencyPackages <> fmap fst asDataDeps)
+        (dpDataDeps dependencyPackages <> dataDeps)
+
+addTransitiveDeps :: Map.Map FilePath (LF.PackageId, DalfInfoCacheEntry) -> [FilePath] -> IO [FilePath]
+addTransitiveDeps darInfos initialDeps = nubOrd <$> concatMapM addSingleTransitiveDep initialDeps
+  where
+    addSingleTransitiveDep :: FilePath -> IO [FilePath]
+    addSingleTransitiveDep fp = do
+      extractedDar <- extractDar fp
+      let packageIds = packageIdsFromPaths extractedDar
+          reverseDarInfoMap :: Map.Map LF.PackageId FilePath
+          reverseDarInfoMap = Map.fromList $ (\(fp, (pkgId, _)) -> (pkgId, fp)) <$> Map.toList darInfos
+      pure $ mapMaybe (`Map.lookup` reverseDarInfoMap) packageIds
 
 -- Daml-Script is not supported as a data-dep before featureStableCallStack, since callstack is
 -- used extensively in script
