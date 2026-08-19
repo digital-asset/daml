@@ -3,7 +3,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
+load("@os_info//:os_info.bzl", "is_darwin", "is_intel", "is_windows")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "version_in")
 
@@ -354,6 +354,8 @@ def using_local_compiler(target):
 def damlc_for_target(target):
     if using_local_compiler(target):
         return "//compiler/damlc:damlc-compile-only"
+    elif not is_intel:
+        fail("LF target {} needs the legacy damlc, which is published only as an x86_64 binary and cannot run on this platform".format(target))
     else:
         return "@damlc_legacy//:damlc_legacy"
 
