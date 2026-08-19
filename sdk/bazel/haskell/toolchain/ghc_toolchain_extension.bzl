@@ -10,8 +10,10 @@ load(
     "//bazel/versions:gnu_tools.version.bzl",
     "GMP_SHA256",
     "GMP_VERSION",
-    "NCURSES_SHA256",
-    "NCURSES_VERSION",
+    "NCURSES_LINUX_AARCH64_SHA256",
+    "NCURSES_LINUX_AARCH64_VERSION",
+    "NCURSES_LINUX_AMD64_SHA256",
+    "NCURSES_LINUX_AMD64_VERSION",
 )
 
 _URL = "https://downloads.haskell.org/~ghc/{v}/ghc-{v}-{triple}.tar.xz"
@@ -169,7 +171,7 @@ _ghc_llvm_backend_repo = repository_rule(
     implementation = _ghc_llvm_backend_impl,
 )
 
-def _ghc_toolchain_impl(_module_ctx):
+def _ghc_toolchain_impl(module_ctx):
     _ghc_bindist_repo(name = "ghc_bindist")
     _ghc_llvm_backend_repo(name = "ghc_llvm_backend")
     http_archive(
@@ -181,11 +183,18 @@ def _ghc_toolchain_impl(_module_ctx):
         patches = [":files/gmp_handauthored.patch"],
         patch_args = ["-p1"],
     )
+
+    ncurses_version = NCURSES_LINUX_AMD64_VERSION
+    ncurses_sha256 = NCURSES_LINUX_AMD64_SHA256
+    if _platform_key(module_ctx) == ("linux", "aarch64"):
+        ncurses_version = NCURSES_LINUX_AARCH64_VERSION
+        ncurses_sha256 = NCURSES_LINUX_AARCH64_SHA256
+
     http_archive(
         name = "ncurses",
-        url = "https://ftp.gnu.org/gnu/ncurses/ncurses-{}.tar.gz".format(NCURSES_VERSION),
-        sha256 = NCURSES_SHA256,
-        strip_prefix = "ncurses-{}".format(NCURSES_VERSION),
+        url = "https://ftp.gnu.org/gnu/ncurses/ncurses-{}.tar.gz".format(ncurses_version),
+        sha256 = ncurses_sha256,
+        strip_prefix = "ncurses-{}".format(ncurses_version),
         build_file = ":files/ncurses.BUILD.bzl",
     )
 

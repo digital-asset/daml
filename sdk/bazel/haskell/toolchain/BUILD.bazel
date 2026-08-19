@@ -1,9 +1,23 @@
-load("@os_info//:os_info.bzl", "is_darwin")
+load("@os_info//:os_info.bzl", "is_darwin", "is_linux_arm")
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("//bazel/native:configure_make.bzl", "configure_make")
 load("//bazel/versions:ghc.version.bzl", "DARWIN_GHC_LLVM_BACKEND", "GHC_VERSION")
 load(":defs.bzl", "ghc_smoke", "ghc_toolchain")
 load(":ghc_bindist_install.bzl", "ghc_bindist_install")
+
+_TINFO_SONAME = "libtinfo.so.6" if is_linux_arm else "libtinfo.so.5"
+
+_AUTOTOOLS_TRIPLES = [
+    "--build=aarch64-unknown-linux-gnu",
+    "--host=aarch64-pc-linux-gnu",
+] if is_linux_arm else [
+    "--build=x86_64-unknown-linux-gnu",
+    "--host=x86_64-pc-linux-gnu",
+]
+
+_TINFO_ARCH_FLAGS = _AUTOTOOLS_TRIPLES + ([] if is_linux_arm else ["--with-versioned-syms"])
+
+_TINFO_DEB9_SYMBOL_MAP = None if is_linux_arm else "files/libtinfo5.map"
 
 ghc_bindist_install(
     name = "ghc_install",
@@ -14,7 +28,7 @@ ghc_bindist_install(
     libz = None if is_darwin else "@libz//:libs",
     llvm_backend = "@ghc_llvm_backend//:backend" if (is_darwin and DARWIN_GHC_LLVM_BACKEND) else None,
     make = "@make//:make",
-    tinfo = None if is_darwin else ":libtinfo.so.5",
+    tinfo = None if is_darwin else ":" + _TINFO_SONAME,
 )
 
 filegroup(
@@ -88,15 +102,12 @@ configure_make(
     srcs = "@ncurses//:srcs",
     outs = [
         "libtinfo.so",
-        "libtinfo.so.5",
+        _TINFO_SONAME,
     ],
     configure = "@ncurses//:configure",
-    configure_flags = [
-        "--build=x86_64-unknown-linux-gnu",
-        "--host=x86_64-pc-linux-gnu",
+    configure_flags = _TINFO_ARCH_FLAGS + [
         "--with-shared",
         "--with-termlib",
-        "--with-versioned-syms",
         "--without-debug",
         "--without-ada",
         "--without-cxx-binding",
@@ -104,19 +115,16 @@ configure_make(
         "--without-tests",
         "cf_cv_gcc_inline=no",
     ],
-    # ncurses 5.9 predates C99 implicit-decl errors; clang 22 makes them fatal.
     extra_cflags = ["-Wno-implicit-function-declaration"],
     install_libdir = "lib",
     make = "@make//:make",
     target_compatible_with = ["@platforms//os:linux"],
-    # 5.9 has no --with-versioned-syms; this script stamps the exported symbols
-    # with the NCURSES_TINFO_5.0.19991023 node the deb9 GHC binaries require.
-    version_script = "files/libtinfo5.map",
+    version_script = _TINFO_DEB9_SYMBOL_MAP,
 )
 
 cc_library(
     name = "tinfo_cc_lib",
-    srcs = [] if is_darwin else [":libtinfo.so.5"],
+    srcs = [] if is_darwin else [":" + _TINFO_SONAME],
     linkopts = ["-lncurses"] if is_darwin else [],
 )
 
@@ -124,6 +132,6 @@ filegroup(
     name = "tinfo_libs",
     srcs = [] if is_darwin else [
         ":libtinfo.so",
-        ":libtinfo.so.5",
+        ":" + _TINFO_SONAME,
     ],
 )
