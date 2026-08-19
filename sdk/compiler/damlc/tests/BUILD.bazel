@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
+load("@os_info//:os_info.bzl", "is_darwin", "is_intel", "is_windows")
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION", "STAGING_LF_VERSION", "mangle_for_damlc")
@@ -759,7 +759,6 @@ da_haskell_test(
         "//:java_rlocation_path",
         "@rules_java//toolchains:current_java_runtime",
         "//compiler/damlc",
-        "@damlc_legacy",
         ":generate-simple-dalf",
         "//daml-script/daml:daml-script-2.dev.dar",
         # Feel free to update this to 0.13.55 once that is frozen.
@@ -770,7 +769,7 @@ da_haskell_test(
         # Once we release LF 2.1, we should replace this with a dar file
         # produced by the compiler corresponding to that release.
         ":old-proj-2.1.dar",
-    ],
+    ] + (["@damlc_legacy"] if is_intel else []),
     hackage_deps = [
         "base",
         "bytestring",
@@ -789,6 +788,7 @@ da_haskell_test(
     tags = [
         "cpu:3",
     ],
+    target_compatible_with = [] if is_intel else ["@platforms//:incompatible"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
