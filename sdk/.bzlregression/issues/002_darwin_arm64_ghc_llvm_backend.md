@@ -53,7 +53,7 @@ only supports M1 starting from GHC 9.2. However, we are still on GHC 9.0."*
 
 ## The switch (how to turn this off)
 
-There is a single control, `DARWIN_GHC_LLVM_BACKEND` in
+There is a single control, `GHC_LLVM_BACKEND` in
 `bazel/versions/ghc.version.bzl` (marked with a large TODO banner).
 
 **When GHC is bumped to >= 9.2 (which has the native AArch64 NCG), set it to
@@ -100,7 +100,7 @@ Where the fixes live (both darwin-only; Linux is untouched):
   `ghcopts`/`compiler_flags` attributes were not an option here: rules_haskell's
   own docs state cabal rules do not read them.
 
-**These are NOT behind `DARWIN_GHC_LLVM_BACKEND`.** The merge linker is a permanent
+**These are NOT behind `GHC_LLVM_BACKEND`.** The merge linker is a permanent
 darwin fix — GHC still merges objects with `ld -r` even after a bump to >= 9.2, so
 this must stay regardless of the LLVM-12 switch.
 
