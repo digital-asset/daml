@@ -3,8 +3,8 @@
 
 package com.daml.timer
 
-import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import scala.concurrent.duration._
 
 class RetryStrategyTest extends AsyncWordSpec with Matchers {
@@ -14,7 +14,6 @@ class RetryStrategyTest extends AsyncWordSpec with Matchers {
       noException should be thrownBy {
         RetryStrategy.exponentialBackoff(attempts = 1024, firstWaitTime = 10.millis)
       }
-      succeed
     }
 
     "format attempts count string cleanly without printing Option wrapper" in {
@@ -23,8 +22,7 @@ class RetryStrategyTest extends AsyncWordSpec with Matchers {
         scala.concurrent.Future.failed(new RuntimeException("test error"))
       }.failed.map {
         case ex: RetryStrategy.TooManyAttemptsException =>
-          ex.getMessage should include("after 1 attempts")
-          ex.getMessage should not include "Some(1)"
+          ex.getMessage should (include("after 1 attempts") and not include "Some(1)")
         case other =>
           fail(s"Unexpected exception type: $other")
       }
