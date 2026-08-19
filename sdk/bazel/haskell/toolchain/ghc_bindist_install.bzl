@@ -105,8 +105,9 @@ def _ghc_bindist_install_impl(ctx):
         llvm_backend_snippet = "\n".join(lines) + "\n"
 
     tinfo = ctx.file.tinfo
+    numa = ctx.file.numa
     runtime_lib_dirs = []
-    for f in ([tinfo] if tinfo else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2:
+    for f in ([tinfo] if tinfo else []) + ([numa] if numa else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2:
         d = "$EXECROOT/" + f.dirname
         if d not in runtime_lib_dirs:
             runtime_lib_dirs.append(d)
@@ -118,7 +119,7 @@ cp -L "$EXECROOT/{tinfo}" "$LIBDIR/rts/{soname}"
 
     rts_bundle = "".join([
         'cp -L "$EXECROOT/{}" "$LIBDIR/rts/"\n'.format(f.path)
-        for f in ctx.files.gmp + ctx.files.libz + ctx.files.bz2
+        for f in ([numa] if numa else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2
     ])
 
     sysroot = _sysroot_from_flags(cc.cflags)
@@ -215,7 +216,7 @@ rm -rf "$TMP"
     ctx.actions.run_shell(
         outputs = [install_tree, lib_settings, doc_marker],
         inputs = depset(
-            direct = ctx.files.srcs + [configure, ctx.file.make] + ([tinfo] if tinfo else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2 + llvm_backend_files,
+            direct = ctx.files.srcs + [configure, ctx.file.make] + ([tinfo] if tinfo else []) + ([numa] if numa else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2 + llvm_backend_files,
             transitive = [cc_toolchain.all_files],
         ),
         command = command,
@@ -269,6 +270,10 @@ ghc_bindist_install = rule(
         "tinfo": attr.label(
             allow_single_file = True,
             doc = "Hermetic libtinfo.so bundled into rts as libtinfo.so + its own soname.",
+        ),
+        "numa": attr.label(
+            allow_single_file = True,
+            doc = "linux/aarch64 only: hermetic libnuma.so.1 bundled into the rts libdir; the aarch64-deb10 bindist links it.",
         ),
         "llvm_backend": attr.label(
             allow_files = True,
