@@ -99,8 +99,8 @@ def _ghc_bindist_install_impl(ctx):
 
     tinfo_bundle = "" if not tinfo else """\
 cp -L "$EXECROOT/{tinfo}" "$LIBDIR/rts/libtinfo.so"
-cp -L "$EXECROOT/{tinfo}" "$LIBDIR/rts/libtinfo.so.5"
-""".format(tinfo = tinfo.path)
+cp -L "$EXECROOT/{tinfo}" "$LIBDIR/rts/{soname}"
+""".format(tinfo = tinfo.path, soname = tinfo.basename)
 
     rts_bundle = "".join([
         'cp -L "$EXECROOT/{}" "$LIBDIR/rts/"\n'.format(f.path)
@@ -254,7 +254,7 @@ ghc_bindist_install = rule(
         ),
         "tinfo": attr.label(
             allow_single_file = True,
-            doc = "Hermetic libtinfo.so bundled into rts as libtinfo.so + libtinfo.so.5.",
+            doc = "Hermetic libtinfo.so bundled into rts as libtinfo.so + its own soname.",
         ),
         "llvm_backend": attr.label(
             allow_files = True,
