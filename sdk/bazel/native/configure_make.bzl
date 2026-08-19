@@ -31,7 +31,7 @@ def _configure_make_impl(ctx):
         'EXECROOT="$PWD"',
         'CLANG="$EXECROOT/{}"'.format(cc.compiler),
         # lld ships next to clang; the sandbox has no host ld.
-        'export CC="$CLANG -fuse-ld=lld"',
+        'export CC="$CLANG -fuse-ld=lld{}"'.format(" " + cc.ldflags if ctx.attr.link_flags_in_cc else ""),
         'export AR="$EXECROOT/{}"'.format(cc.ar),
         'export CFLAGS="{}"'.format(cflags),
         # configure's preprocessor probes use $CPP/$CPPFLAGS; without the sysroot
@@ -78,8 +78,8 @@ def _configure_make_impl(ctx):
         'cd "$BUILD"',
         "chmod +x ./configure",
         './configure --prefix="$PREFIX" {}'.format(flags),
-        '"$MAKE" -j"$JOBS"',
-        '"$MAKE" install',
+        '"$MAKE" -j"$JOBS" {}'.format(" ".join(ctx.attr.make_targets)),
+        '"$MAKE" {}'.format(" ".join(ctx.attr.install_targets)),
     ] + copy_lines + ['rm -rf "$TMP"']
 
     ctx.actions.run_shell(
@@ -100,6 +100,9 @@ configure_make = rule(
         "make": attr.label(mandatory = True, allow_single_file = True, doc = "The hermetic `make` binary."),
         "m4": attr.label(allow_single_file = True, doc = "Optional hermetic `m4` exported as $M4."),
         "configure_flags": attr.string_list(doc = "Flags passed to ./configure (besides --prefix)."),
+        "link_flags_in_cc": attr.bool(default = False, doc = "Append the toolchain's link flags to $CC. Needed when the link is driven by libtool, which filters flags it does not recognise (-rtlib, -B) out of $LDFLAGS."),
+        "make_targets": attr.string_list(doc = "Targets for the build pass; empty builds the default target."),
+        "install_targets": attr.string_list(default = ["install"], doc = "Targets for the install pass."),
         "extra_cflags": attr.string_list(doc = "Extra flags appended to CFLAGS (e.g. quieting legacy-source warnings)."),
         "version_script": attr.label(allow_single_file = True, doc = "Optional linker version script, injected via CFLAGS (see impl)."),
         "install_libdir": attr.string(default = "lib", doc = "Install-prefix subdir holding the declared outputs."),
