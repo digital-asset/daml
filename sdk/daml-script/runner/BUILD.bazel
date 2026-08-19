@@ -198,20 +198,20 @@ daml_compile(
 
 exports_files(["src/main/resources/logback.xml"])
 
-oci_dar_names = [ 
+oci_dar_names = [
     "daml-script-{}.dar".format(lf_version)
     for lf_version in COMPILER_LF_VERSIONS
-  ] + [
+] + [
     "daml-script-stable-{}.dar".format(name)
     for name in SCRIPT_STABLE_PACKAGES
-  ]
+]
 
 # Contains the daml-script dar for all LF versions in COMPILER_LF_VERSIONS
 package_oci_component(
     name = "daml-script-oci",
     component_manifest = ":component.yaml",
     component_substitutions = {
-        "{SCRIPT_DAR_NAMES}": "\n".join(["        - ./{}".format(dar_name)for dar_name in oci_dar_names]),
+        "{SCRIPT_DAR_NAMES}": "\n".join(["        - ./{}".format(dar_name) for dar_name in oci_dar_names]),
     },
     platform_agnostic = True,
     resources = [

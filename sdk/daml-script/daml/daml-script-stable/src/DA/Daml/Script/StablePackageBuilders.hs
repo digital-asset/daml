@@ -2,9 +2,11 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE PackageImports #-}
+{- HLINT ignore "locateRunfiles/package_app" -}
 
-module DA.Daml.Script.StablePackageBuilders where
+module DA.Daml.Script.StablePackageBuilders
+  ( module DA.Daml.Script.StablePackageBuilders
+  ) where
 
 import Control.Applicative
 import Data.Bifunctor
@@ -16,7 +18,7 @@ import Data.Maybe (fromMaybe)
 import Data.NameMap qualified as NM
 import Data.Set qualified as S
 import Data.Text qualified as T
-import Data.Text.IO qualified as T
+import Data.Text.Extended (writeFileUtf8)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath (joinPath, takeDirectory, (<.>), (</>))
 
@@ -248,13 +250,13 @@ makeStablePackageList listFilePath pkgs = do
         , ""
         , "SCRIPT_STABLE_PACKAGES = {"
         ] <>
-        [ "  \"" <> pkgName <> "\": \"" <> pkgId <> "\","
+        [ "    \"" <> pkgName <> "\": \"" <> pkgId <> "\","
         | (pkgName, pkgId) <- pkgData
         ] <>
         [ "}"
         ]
   createDirectoryIfMissing True $ takeDirectory listFilePath
-  T.writeFile listFilePath content
+  writeFileUtf8 listFilePath content
 
 mkSelectorDef :: ModuleName -> TypeConName -> [(TypeVarName, Kind)] -> FieldName -> Type -> DefValue
 mkSelectorDef modName tyCon tyVars fieldName fieldTy =
