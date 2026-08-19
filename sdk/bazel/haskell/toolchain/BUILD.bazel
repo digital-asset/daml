@@ -30,6 +30,7 @@ ghc_bindist_install(
     libz = None if is_darwin else "@libz//:libs",
     llvm_backend = "@ghc_llvm_backend//:backend" if _HAS_GHC_LLVM_BACKEND else None,
     make = "@make//:make",
+    numa = ":libnuma.so.1" if is_linux_arm else None,
     tinfo = None if is_darwin else ":" + _TINFO_SONAME,
 )
 
@@ -122,6 +123,23 @@ configure_make(
     make = "@make//:make",
     target_compatible_with = ["@platforms//os:linux"],
     version_script = _TINFO_DEB9_SYMBOL_MAP,
+)
+
+configure_make(
+    name = "numa",
+    srcs = "@numactl//:srcs",
+    outs = [
+        "libnuma.so",
+        "libnuma.so.1",
+    ],
+    configure = "@numactl//:configure",
+    configure_flags = _AUTOTOOLS_TRIPLES + ["--disable-static"],
+    install_libdir = "lib",
+    install_targets = ["install-libLTLIBRARIES"],
+    link_flags_in_cc = True,
+    make = "@make//:make",
+    make_targets = ["libnuma.la"],
+    target_compatible_with = ["@platforms//os:linux"],
 )
 
 cc_library(
