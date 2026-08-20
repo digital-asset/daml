@@ -7,26 +7,34 @@ genrule(
     name = "remote_apis_src",
     srcs = [
         "@com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:remote_execution.proto",
-        "@com_google_protobuf//:well_known_protos",
+        "@protobuf//:well_known_type_protos",
         "@go_googleapis//google/rpc:status.proto",
     ],
     outs = ["Build/Bazel/Remote/Execution/V2/RemoteExecution.hs"],
     cmd = """
     set -eoux pipefail
+    export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$${LD_LIBRARY_PATH:-}"
     PROTO_FILE="$(location @com_github_bazelbuild_remote_apis//build/bazel/remote/execution/v2:remote_execution.proto)"
     PROTO_FILE_NAME="$$(echo "$$PROTO_FILE" | sed 's|^.*\\(build/bazel/.*\\)|\\1|g')"
     PROTO_DIR=$$(echo $${PROTO_FILE%$$PROTO_FILE_NAME})
+    for f in $(locations @protobuf//:well_known_type_protos); do
+        PROTOBUF_INCLUDE=$${f%%/google/protobuf/*}
+        break
+    done
+    RPC_STATUS="$(location @go_googleapis//google/rpc:status.proto)"
+    RPC_INCLUDE=$${RPC_STATUS%%/google/rpc/*}
     $(location @proto3-suite//:compile-proto-file) \
       --proto "$$PROTO_FILE_NAME" \
       --includeDir "$$PROTO_DIR" \
-      --includeDir "external/com_google_protobuf/src" \
-      --includeDir "external/go_googleapis" \
+      --includeDir "$$PROTOBUF_INCLUDE" \
+      --includeDir "$$RPC_INCLUDE" \
       --out $(RULEDIR)
   """,
     tools = [
+        "@gmp//:libs",
+        "@libz//:libs",
         "@proto3-suite//:compile-proto-file",
     ],
-    visibility = ["//visibility:public"],
 )
 
 da_haskell_library(
@@ -46,6 +54,5 @@ da_haskell_library(
         "proto3-suite",
         "proto3-wire",
     ],
-    visibility = ["//visibility:public"],
     deps = [],
 )

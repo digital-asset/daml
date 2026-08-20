@@ -1,6 +1,9 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@build_environment//:configuration.bzl", "sdk_version")
+load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel/haskell:runtime_libs.bzl", "DAMLC_RUNTIME_LIBS", "DAMLC_RUNTIME_LIB_PATH_EXPORT")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
@@ -9,18 +12,14 @@ load(
     "da_scala_test_suite",
     "lf_scalacopts_stricter",
 )
-load("//bazel_tools:haskell.bzl", "da_haskell_test")
-load("@build_environment//:configuration.bzl", "sdk_version")
-load("@os_info//:os_info.bzl", "is_linux_intel", "is_windows")
-load("//rules_daml:daml.bzl", "daml_compile")
 load(
     "//daml-lf:daml-lf.bzl",
-    "DEFAULT_LF_VERSION",
     "DEV_LF_VERSION",
     "LATEST_STABLE_LF_VERSION",
     "STAGING_LF_VERSION",
     "mangle_for_damlc",
 )
+load("//rules_daml:daml.bzl", "daml_compile")
 
 [
     genrule(
@@ -34,6 +33,7 @@ load(
         outs = ["script-test-v{}.dar".format(lfVersion)],
         cmd = """
       set -eou pipefail
+      {lib_path_export}
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ScriptTest{withkeys}.daml) $$TMP_DIR/daml
@@ -73,12 +73,14 @@ EOF
       rm -rf $$TMP_DIR
     """.format(
             lfVersion = lfVersion,
+            lib_path_export = DAMLC_RUNTIME_LIB_PATH_EXPORT,
             removeKeyTests = "" if supportsKeys else "rm $$TMP_DIR/daml/*Key*.daml",
             sdk = sdk_version,
             withkeys = "WithKeys" if supportsKeys else "",
         ),
-        tools = ["//compiler/damlc"],
-        visibility = ["//visibility:public"],
+        tools = DAMLC_RUNTIME_LIBS + [
+            "//compiler/damlc",
+        ],
     )
     # TODO[#23010]: assess needs after moving 2.3 to stable
     for (lfVersion, supportsKeys) in [
@@ -98,6 +100,7 @@ EOF
         outs = ["script-test-{}.dar".format(lf_version)],
         cmd = """
       set -eou pipefail
+      {lib_path_export}
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/TestChoiceAuthority.daml) $$TMP_DIR/daml
@@ -118,11 +121,13 @@ EOF
       rm -rf $$TMP_DIR
     """.format(
             lf_version = lf_version,
+            lib_path_export = DAMLC_RUNTIME_LIB_PATH_EXPORT,
             mangled_lf_version = mangle_for_damlc(lf_version),
             sdk = sdk_version,
         ),
-        tools = ["//compiler/damlc"],
-        visibility = ["//visibility:public"],
+        tools = DAMLC_RUNTIME_LIBS + [
+            "//compiler/damlc",
+        ],
     )
     for lf_version in [DEV_LF_VERSION]
 ]
@@ -137,6 +142,7 @@ EOF
         outs = ["attestation-test-v{}.dar".format(lfVersion)],
         cmd = """
       set -eou pipefail
+      {lib_path_export}
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/crypto/AttestationTestData.daml) $$TMP_DIR/daml
@@ -159,11 +165,13 @@ EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location attestation-test-v{target}.dar)
       rm -rf $$TMP_DIR
     """.format(
+            lib_path_export = DAMLC_RUNTIME_LIB_PATH_EXPORT,
             sdk = sdk_version,
             target = lfVersion,
         ),
-        tools = ["//compiler/damlc"],
-        visibility = ["//visibility:public"],
+        tools = DAMLC_RUNTIME_LIBS + [
+            "//compiler/damlc",
+        ],
     )
     for lfVersion in [
         LATEST_STABLE_LF_VERSION,
@@ -179,6 +187,7 @@ genrule(
     outs = ["external-call-test-v2.dev.dar"],
     cmd = """
       set -eou pipefail
+      {lib_path_export}
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ExternalCallTests.daml) $$TMP_DIR/daml
@@ -198,9 +207,12 @@ EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location external-call-test-v2.dev.dar)
       rm -rf $$TMP_DIR
     """.format(
+        lib_path_export = DAMLC_RUNTIME_LIB_PATH_EXPORT,
         sdk = sdk_version,
     ),
-    tools = ["//compiler/damlc"],
+    tools = DAMLC_RUNTIME_LIBS + [
+        "//compiler/damlc",
+    ],
     visibility = ["//visibility:public"],
 )
 
@@ -216,6 +228,7 @@ genrule(
     outs = ["script-test-no-ledger.dar"],
     cmd = """
       set -eou pipefail
+      {lib_path_export}
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
@@ -235,11 +248,13 @@ EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-no-ledger.dar)
       rm -rf $$TMP_DIR
     """.format(
+        lib_path_export = DAMLC_RUNTIME_LIB_PATH_EXPORT,
         sdk = sdk_version,
         target = DEV_LF_VERSION,
     ),
-    tools = ["//compiler/damlc"],
-    visibility = ["//visibility:public"],
+    tools = DAMLC_RUNTIME_LIBS + [
+        "//compiler/damlc",
+    ],
 )
 
 da_scala_library(
@@ -266,7 +281,6 @@ da_scala_library(
         "cpu:4",
         "dev-canton-test",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -344,6 +358,8 @@ daml_compile(
 da_scala_test_suite(
     name = "test",
     size = "large",
+    # Per-file runtimes span 0.5s-92s; one suite-wide timeout can't fit all. moderate is the safe middle, not worth splitting the suite over.
+    timeout = "moderate",
     srcs = glob(
         ["src/main/scala/**/*.scala"],
         exclude = [
@@ -502,6 +518,7 @@ filegroup(
 
 da_scala_test_suite(
     name = "test-dev",
+    timeout = "short",
     srcs = glob(
         ["src/main/scala/com/**/*Dev*.scala"],
     ),

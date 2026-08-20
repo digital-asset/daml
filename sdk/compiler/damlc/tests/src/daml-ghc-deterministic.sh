@@ -94,10 +94,10 @@ module A where
 EOF
 
 $damlc build --project-root "$PROJDIR" -o "$PROJDIR/out.dar"
-FIRST_SHA=$(sha256sum $PROJDIR/out.dar)
+FIRST_SHA=$(sha256sum $PROJDIR/out.dar 2>/dev/null || shasum -a 256 $PROJDIR/out.dar)
 
 $damlc build --project-root "$PROJDIR" -o "$PROJDIR/out.dar"
-SECOND_SHA=$(sha256sum $PROJDIR/out.dar)
+SECOND_SHA=$(sha256sum $PROJDIR/out.dar 2>/dev/null || shasum -a 256 $PROJDIR/out.dar)
 
 if [[ $FIRST_SHA != $SECOND_SHA ]]; then
     echo "daml build was non-deterministic: "

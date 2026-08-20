@@ -1,6 +1,11 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_windows")
+load(
+    "@rules_haskell//haskell:c2hs.bzl",
+    "c2hs_library",
+)
 load(
     "@rules_haskell//haskell:defs.bzl",
     "haskell_binary",
@@ -8,12 +13,7 @@ load(
     "haskell_repl",
     "haskell_test",
 )
-load(
-    "@rules_haskell//haskell:c2hs.bzl",
-    "c2hs_library",
-)
 load("//bazel_tools:hlint.bzl", "haskell_hlint")
-load("@os_info//:os_info.bzl", "is_windows")
 
 # This file defines common Haskell language extensions and compiler flags used
 # throughout this repository. The initial set of flags is taken from the
@@ -192,6 +192,11 @@ def da_haskell_test(main_function = "Main.main", testonly = True, **kwargs):
         )
         ```
     """
+
+    # Link the environ/__environ startup fix so tests that spawn subprocesses
+    # (e.g. damlc) inherit a real environment; without it RUNFILES_DIR is empty
+    # in the child and its runfiles lookup fails. See //bazel_tools/environ_fix.
+    kwargs["deps"] = kwargs.get("deps", []) + ["//bazel_tools/environ_fix"]
     _wrap_rule(
         haskell_test,
         common_binary_haskell_flags,
@@ -254,8 +259,7 @@ def da_haskell_repl(**kwargs):
         }),
         experimental_from_binary = [
             # Workaround for https://github.com/tweag/rules_haskell/issues/1726
-            "//bazel_tools/ghc-lib/...",
-            "//nix/...",
+            "//bazel/haskell/ghc-lib/...",
         ],
         repl_ghci_args = [
             "-fobject-code",
@@ -328,6 +332,7 @@ def generate_and_track_cabal(name, exe_name = None, src_dir = None, exclude_deps
 
     native.sh_test(
         name = test_name,
+        timeout = "short",
         srcs = ["//bazel_tools:match-golden-file"],
         args = [
             lbl,
@@ -400,15 +405,18 @@ executable {exe_name}
       optparse-applicative,
 EOF
 
-    grep -v "\\-\\-" $(SRCS) | \
+    grep -v -e "--" $(SRCS) | \
       sed -nE '''
-s#^haskell_toolchain_library rule (@@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
-s#^haskell_toolchain_library rule (@@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
-s#^haskell_cabal_library rule (@@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
+s#^haskell_toolchain_library rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stackage//:\\1#g
+s#^haskell_toolchain_library rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stackage//:\\1#g
+s#^haskell_cabal_library rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stackage//:\\1#g
 s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:daml_lf_archive_haskell_proto)$$#daml-lf-proto-types \\1#g
 s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:([A-Za-z0-9/_\\-]+))$$#\\2 \\1#g
-s#^alias rule (@@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
-T;p
+s#^alias rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stackage//:\\1#g
+tp
+b
+:p
+p
         ''' | sort -f {dependency_filter} | awk '{{print "      -- " $$2; print "      " $$1 ","}}' >> $@
 
          cat << EOF >> $@
@@ -425,21 +433,24 @@ library
     build-depends:
 EOF
 
-    grep -v "\\-\\-" $(SRCS) | \
+    grep -v -e "--" $(SRCS) | \
       sed -nE '''
-s#^haskell_toolchain_library rule (@@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
-s#^haskell_toolchain_library rule (@@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
-s#^haskell_cabal_library rule (@@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
+s#^haskell_toolchain_library rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stackage//:\\1#g
+s#^haskell_toolchain_library rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stackage//:\\1#g
+s#^haskell_cabal_library rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stackage//:\\1#g
 s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:daml_lf_archive_haskell_proto)$$#daml-lf-proto-types \\1#g
 s#^_haskell_library rule (//[A-Za-z0-9/_\\-]+:([A-Za-z0-9/_\\-]+))$$#\\2 \\1#g
-s#^alias rule (@@stackage//:([a-zA-Z0-9\\-]+))$$#\\2 \\1#g
-T;p
+s#^alias rule @@[^/]*stackage//:([a-zA-Z0-9\\-]+)$$#\\1 @@stackage//:\\1#g
+tp
+b
+:p
+p
         ''' | sort -f {dependency_filter} | awk '{{print "      -- " $$2; print "      " $$1 ","}}'  >> $@
 
     echo '    exposed-modules:' >> $@
 
-    grep -v "\\-\\-" $(SRCS) | \
-       sed -nE 's#^source file //[A-Za-z0-9/_\\-]+:{source_dir}/([A-Za-z0-9/_\\-]+)\\.hs$$#      \\1#g;T;p' | \
+    grep -v -e "--" $(SRCS) | \
+       sed -nE 's#^source file //[A-Za-z0-9/_\\-]+:{source_dir}/([A-Za-z0-9/_\\-]+)\\.hs$$#      \\1#gp' | \
        sed 's#/#\\.#g' | sort -f {export_filter} >> $@
 
     echo -ne '    default-extensions:\n      ' >> $@

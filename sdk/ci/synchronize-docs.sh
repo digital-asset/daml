@@ -11,7 +11,7 @@ MANUAL_DIR="$DIR/../docs/manually-written"
 
 cd $DIR/..
 
-bazel build //docs:sharable-docs
+bazelisk build //docs:sharable-docs
 
 rm -Rf $SHARABLE_DIR
 mkdir -p $SHARABLE_DIR

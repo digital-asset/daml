@@ -1,16 +1,16 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
+load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "version_in")
-load("@bazel_skylib//lib:paths.bzl", "paths")
-load("@os_info//:os_info.bzl", "is_windows")
 
 _damlc = attr.label(
     default = Label("//compiler/damlc:damlc-compile-only"),
     executable = True,
-    cfg = "host",
+    cfg = "exec",
     doc = "The Daml compiler.",
 )
 
@@ -18,7 +18,7 @@ _zipper = attr.label(
     allow_single_file = True,
     default = Label("@bazel_tools//tools/zip:zipper"),
     executable = True,
-    cfg = "host",
+    cfg = "exec",
 )
 
 def _daml_configure_impl(ctx):
@@ -133,13 +133,19 @@ def _daml_build_impl(ctx):
     output_stdout = ctx.outputs.stdout
     posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
     ghc_opts = ctx.attr.ghc_options
+    lib_dirs = []
+    for f in ctx.files.runtime_lib_dirs:
+        if f.dirname not in lib_dirs:
+            lib_dirs.append(f.dirname)
+    ld_library_path_export = "export LD_LIBRARY_PATH=\"" + ":".join(["$PWD/" + d for d in lib_dirs]) + ":${LD_LIBRARY_PATH:-}\""
     ctx.actions.run_shell(
         tools = [damlc],
-        inputs = [daml_yaml] + srcs + input_dars,
+        inputs = [daml_yaml] + srcs + input_dars + ctx.files.runtime_lib_dirs,
         outputs = [output_dar] + ([output_stdout] if output_stdout != None else []),
         progress_message = "Building Daml project %s" % name,
         command = """
             set -eou pipefail
+            {ld_library_path_export}
             tmpdir=$(mktemp -d)
             trap "rm -rf $tmpdir" EXIT
             cp -f {config} $tmpdir/daml.yaml
@@ -151,6 +157,7 @@ def _daml_build_impl(ctx):
             {cp_dars}
             {damlc} build --project-root $tmpdir {ghc_opts} -o $PWD/{output_dar} 2>&1 | {output_stdout_command}
         """.format(
+            ld_library_path_export = ld_library_path_export,
             config = daml_yaml.path,
             cp_srcs = "\n".join([
                 make_cp_command(
@@ -209,6 +216,15 @@ _daml_build = rule(
             doc = "Source field in daml.yaml.",
         ),
         "damlc": _damlc,
+        "runtime_lib_dirs": attr.label_list(
+            default = [
+                Label("//bazel/haskell/toolchain:tinfo_libs"),
+                Label("@libz//:libs"),
+                Label("@gmp//:libs"),
+                Label("@bzip2//:libs"),
+            ],
+            allow_files = True,
+        ),
     },
     toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )
@@ -278,6 +294,7 @@ def _daml_validate_test(
     damlc = "//compiler/damlc:damlc-compile-only"
     sh_inline_test(
         name = name,
+        timeout = "short",
         data = [damlc, dar],
         cmd = """\
 DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
@@ -294,11 +311,16 @@ def _inspect_dar_impl(ctx):
     dar = ctx.file.dar
     damlc = ctx.executable.damlc
     pp = ctx.outputs.pp
+    lib_dirs = []
+    for f in ctx.files.runtime_lib_dirs:
+        if f.dirname not in lib_dirs:
+            lib_dirs.append(f.dirname)
     ctx.actions.run(
         executable = damlc,
-        inputs = [dar],
+        inputs = [dar] + ctx.files.runtime_lib_dirs,
         outputs = [pp],
         arguments = ["inspect", dar.path, "-o", pp.path],
+        env = {"LD_LIBRARY_PATH": ":".join(lib_dirs)},
     )
 
 _inspect_dar = rule(
@@ -310,6 +332,15 @@ _inspect_dar = rule(
         ),
         "damlc": _damlc,
         "pp": attr.output(mandatory = True),
+        "runtime_lib_dirs": attr.label_list(
+            default = [
+                Label("//bazel/haskell/toolchain:tinfo_libs"),
+                Label("@libz//:libs"),
+                Label("@gmp//:libs"),
+                Label("@bzip2//:libs"),
+            ],
+            allow_files = True,
+        ),
     },
 )
 
@@ -450,6 +481,7 @@ def generate_and_track_dar_hash_file(name):
 
         native.sh_test(
             name = test_name,
+            timeout = "short",
             srcs = ["//bazel_tools:match-golden-file"],
             args = [
                 lbl,
@@ -483,14 +515,10 @@ def generate_dar_hash_file(name):
     """
     native.genrule(
         name = name + "-generated-hash",
-        srcs = ["//rules_daml:generate-dar-hash", ":{}.dar".format(name)],
-        tools = ["@python_dev_env//:python"] if is_windows else [],
+        srcs = [":{}.dar".format(name)],
+        tools = ["//rules_daml:generate-dar-hash"],
         outs = [name + "-generated.dar-hash"],
-        cmd = "{python} {exe} {dar} > $@".format(
-            python = "$(execpath @python_dev_env//:python)" if is_windows else "python",
-            exe = "$(location //rules_daml:generate-dar-hash)",
-            dar = "$(location :{}.dar)".format(name),
-        ),
+        cmd = "$(execpath //rules_daml:generate-dar-hash) $(location :{dar}.dar) > $@".format(dar = name),
     )
 
 def daml_build_test(
@@ -533,16 +561,27 @@ def daml_test(
         **kwargs):
     sh_inline_test(
         name = name,
-        data = [damlc] + srcs + deps + data_deps,
+        data = [
+            damlc,
+            "//:java_rlocation_path",
+            "@rules_java//toolchains:current_java_runtime",
+        ] + srcs + deps + data_deps,
         cmd = """\
 set -eou pipefail
 tmpdir=$$(mktemp -d)
 trap "rm -rf $$tmpdir" EXIT
 DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
+JAVA_BIN=$$(rlocation \
+  $$(head -n1 $$(canonicalize_rlocation java_rlocation_path.txt)))
+export PATH="$$JAVA_BIN:$$PATH"
 rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
 DEPS=($$(rlocations {deps}))
 DATA_DEPS=($$(rlocations {data_deps}))
-JOINED_DATA_DEPS="$$(printf ',"%s"' $${{DATA_DEPS[@]}})"
+if [ $${{#DATA_DEPS[@]}} -gt 0 ]; then
+  JOINED_DATA_DEPS="$$(printf ',"%s"' $${{DATA_DEPS[@]}})"
+else
+  JOINED_DATA_DEPS=""
+fi
 echo "$$JOINED_DATA_DEPS"
 cat << EOF > $$tmpdir/daml.yaml
 build-options: [{target}]
@@ -616,10 +655,10 @@ def generate_and_track_yaml_file(
         native.genrule(
             name = generated_target,
             srcs = data,
-            tools = [generator],
+            tools = [generator, "@libz//:libs", "@gmp//:libs"],
             outs = [generated_out],
             # Pass the output file path ($@) as the first argument
-            cmd = "$(execpath {generator}) $@ {args}".format(
+            cmd = "export LD_LIBRARY_PATH=\"$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$${{LD_LIBRARY_PATH:-}}\"\n$(execpath {generator}) $@ {args}".format(
                 generator = generator,
                 args = " ".join(generator_args),
             ),
@@ -639,6 +678,7 @@ def generate_and_track_yaml_file(
         )
         native.sh_test(
             name = test_name,
+            timeout = "short",
             srcs = ["//bazel_tools:match-golden-file"],
             args = [
                 lbl,
@@ -670,9 +710,17 @@ def daml_doc_test(
         **kwargs):
     sh_inline_test(
         name = name,
-        data = [cpp, damlc, script_dar] + srcs,
+        data = [
+            cpp,
+            damlc,
+            script_dar,
+            "//:java_rlocation_path",
+            "@rules_java//toolchains:current_java_runtime",
+        ] + srcs,
         cmd = """\
 set -eou pipefail
+JAVA_BIN=$$(rlocation $$(head -n1 $$(canonicalize_rlocation java_rlocation_path.txt)))
+export PATH="$$JAVA_BIN:$$PATH"
 CPP=$$(canonicalize_rlocation $(rootpath {cpp}))
 DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
 SCRIPT_DAR=$$(canonicalize_rlocation $(rootpath {script_dar}))
@@ -716,9 +764,16 @@ def daml_multi_package_test(
         **kwargs):
     sh_inline_test(
         name = name,
-        data = [dpm_tarball] + srcs,
+        data = [
+            dpm_tarball,
+            "//:java_rlocation_path",
+            "@rules_java//toolchains:current_java_runtime",
+        ] + srcs,
         cmd = """
             set -eou pipefail
+            JAVA_BIN=$$(rlocation \
+              $$(head -n1 $$(canonicalize_rlocation java_rlocation_path.txt)))
+            export PATH="$$JAVA_BIN:$$PATH"
             export DPM_HOME=$$PWD/$$(mktemp -d tmp.XXXXXXX)
             tmpdir=$$PWD/$$(mktemp -d tmp.XXXXXXX)
             shorten() {{
@@ -728,7 +783,7 @@ def daml_multi_package_test(
                     echo "$$1"
                 fi
             }}
-            tar xzf $$(canonicalize_rlocation $(rootpath {dpm_tarball})) -C $$DPM_HOME --strip-components=1 --force-local
+            tar xzf $$(canonicalize_rlocation $(rootpath {dpm_tarball})) -C $$DPM_HOME --strip-components=1 {force_local}
             DPM="$$DPM_HOME/bin/dpm{cmd}"
             
             rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
@@ -738,6 +793,7 @@ def daml_multi_package_test(
         """.format(
             shorten = shorten,
             dpm_tarball = dpm_tarball,
+            force_local = "" if is_darwin else "--force-local",
             cmd = ".cmd" if is_windows else "",
             cp_srcs = "\n".join([
                 """

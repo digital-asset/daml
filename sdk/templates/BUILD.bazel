@@ -1,7 +1,8 @@
+load("@build_environment//:configuration.bzl", "sdk_version")
+
 # Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 load("@os_info//:os_info.bzl", "is_windows")
-load("@build_environment//:configuration.bzl", "sdk_version")
 
 genrule(
     name = "templates-tarball",
@@ -96,7 +97,5 @@ genrule(
     """.format(sdk_version = sdk_version),
     tools = [
         "//bazel_tools/sh:mktgz",
-        "@patch_dev_env//:patch",
     ],
-    visibility = ["//visibility:public"],
 )

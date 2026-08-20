@@ -1,16 +1,16 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_windows")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_scala//scala:scala.bzl", "scala_library")
+load("@scala_version//:index.bzl", "scala_major_version_suffix")
 load("//bazel_tools:java.bzl", "da_java_library")
 load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
 load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("//bazel_tools:scala.bzl", "scala_source_jar", "scaladoc_jar")
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
-load("@os_info//:os_info.bzl", "is_windows")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
-load("@rules_proto//proto:defs.bzl", "proto_library")
-load("@scala_version//:index.bzl", "scala_major_version_suffix")
 
 # taken from rules_proto:
 # https://github.com/stackb/rules_proto/blob/f5d6eea6a4528bef3c1d3a44d486b51a214d61c2/compile.bzl#L369-L393
@@ -131,7 +131,7 @@ proto_gen = rule(
         "srcs": attr.label_list(providers = [ProtoInfo]),
         "plugin_name": attr.string(),
         "plugin_exec": attr.label(
-            cfg = "host",
+            cfg = "exec",
             executable = True,
         ),
         "plugin_options": attr.string_list(),
@@ -140,14 +140,14 @@ proto_gen = rule(
             allow_files = True,
         ),
         "protoc": attr.label(
-            default = Label("@com_google_protobuf//:protoc"),
-            cfg = "host",
+            default = Label("@protoc_bindist//:protoc"),
+            cfg = "exec",
             allow_files = True,
             executable = True,
         ),
         "_zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
-            cfg = "host",
+            cfg = "exec",
             executable = True,
             allow_files = True,
         ),

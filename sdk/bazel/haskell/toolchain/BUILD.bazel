@@ -1,0 +1,115 @@
+load("@os_info//:os_info.bzl", "is_darwin")
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//bazel/native:configure_make.bzl", "configure_make")
+load("//bazel/versions:ghc.version.bzl", "DARWIN_GHC_LLVM_BACKEND", "GHC_VERSION")
+load(":defs.bzl", "ghc_smoke", "ghc_toolchain")
+load(":ghc_bindist_install.bzl", "ghc_bindist_install")
+
+ghc_bindist_install(
+    name = "ghc_install",
+    srcs = "@ghc_bindist//:bindist_srcs",
+    bz2 = None if is_darwin else "@bzip2//:libs",
+    configure = "@ghc_bindist//:bindist_unpacked/configure",
+    gmp = None if is_darwin else "@gmp//:libs",
+    libz = None if is_darwin else "@libz//:libs",
+    llvm_backend = "@ghc_llvm_backend//:backend" if (is_darwin and DARWIN_GHC_LLVM_BACKEND) else None,
+    make = "@make//:make",
+    tinfo = None if is_darwin else ":libtinfo.so.5",
+)
+
+filegroup(
+    name = "install_tree",
+    srcs = [":ghc_install"],
+    output_group = "install_tree",
+)
+
+genrule(
+    name = "ghc_pkg_bin",
+    srcs = [":install_tree"],
+    outs = ["ghc-pkg"],
+    cmd = 'cp -L "$(location :install_tree)/lib/bin/ghc-pkg" "$@"',
+    executable = True,
+)
+
+toolchain_type(name = "ghc_toolchain_type")
+
+ghc_toolchain(
+    name = "ghc_impl",
+    install = ":ghc_install",
+    version = GHC_VERSION,
+)
+
+toolchain(
+    name = "ghc_linux_amd64",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    toolchain = ":ghc_impl",
+    toolchain_type = ":ghc_toolchain_type",
+)
+
+toolchain(
+    name = "ghc_darwin_arm64",
+    exec_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:arm64",
+    ],
+    target_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:arm64",
+    ],
+    toolchain = ":ghc_impl",
+    toolchain_type = ":ghc_toolchain_type",
+)
+
+ghc_smoke(name = "smoke")
+
+configure_make(
+    name = "tinfo",
+    srcs = "@ncurses//:srcs",
+    outs = [
+        "libtinfo.so",
+        "libtinfo.so.5",
+    ],
+    configure = "@ncurses//:configure",
+    configure_flags = [
+        "--build=x86_64-unknown-linux-gnu",
+        "--host=x86_64-pc-linux-gnu",
+        "--with-shared",
+        "--with-termlib",
+        "--with-versioned-syms",
+        "--without-debug",
+        "--without-ada",
+        "--without-cxx-binding",
+        "--without-manpages",
+        "--without-tests",
+        "cf_cv_gcc_inline=no",
+    ],
+    # ncurses 5.9 predates C99 implicit-decl errors; clang 22 makes them fatal.
+    extra_cflags = ["-Wno-implicit-function-declaration"],
+    install_libdir = "lib",
+    make = "@make//:make",
+    target_compatible_with = ["@platforms//os:linux"],
+    # 5.9 has no --with-versioned-syms; this script stamps the exported symbols
+    # with the NCURSES_TINFO_5.0.19991023 node the deb9 GHC binaries require.
+    version_script = "files/libtinfo5.map",
+)
+
+cc_library(
+    name = "tinfo_cc_lib",
+    srcs = [] if is_darwin else [":libtinfo.so.5"],
+    linkopts = ["-lncurses"] if is_darwin else [],
+)
+
+filegroup(
+    name = "tinfo_libs",
+    srcs = [] if is_darwin else [
+        ":libtinfo.so",
+        ":libtinfo.so.5",
+    ],
+)

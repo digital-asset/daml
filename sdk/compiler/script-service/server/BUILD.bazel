@@ -8,7 +8,6 @@ genrule(
     srcs = [":script-service-raw_distribute.jar"],
     outs = ["script-service.jar"],
     cmd = "cp $< $@",
-    visibility = ["//visibility:public"],
 )
 
 da_scala_binary(

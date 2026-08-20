@@ -1,0 +1,33 @@
+services:
+  build:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: daml-hermetic:latest
+    userns_mode: "keep-id"
+    security_opt:
+      - "label=disable"
+
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - bazel-cache:/home/host/.cache:U
+    command:
+      - bash
+      - -lc
+      - |
+        find /home/host/.cache/output_base -type d ! -perm -u+w \
+          -exec chmod u+w {} + 2>/dev/null || true
+        bazel \
+          --output_user_root=/home/host/.cache/user_root \
+          --output_base=/home/host/.cache/output_base \
+          test //... --keep_going \
+          --disk_cache=/home/host/.cache/disk \
+          --repository_cache=/home/host/.cache/repo \
+          --noexperimental_convenience_symlinks \
+          --test_summary=terse
+
+volumes:
+  bazel-cache:
+    external: true
+    name: daml-fix-validate

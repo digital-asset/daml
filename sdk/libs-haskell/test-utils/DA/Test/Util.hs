@@ -1,6 +1,8 @@
 -- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE ForeignFunctionInterface #-}
+
 -- | Test utils
 module DA.Test.Util (
     standardizeQuotes,
@@ -10,11 +12,13 @@ module DA.Test.Util (
     withTempDirResource,
     withCurrentTempDir,
     withEnv,
+    resyncEnviron,
     withResourceCps,
     nullDevice,
     withDevNull,
     assertFileExists,
     assertFileDoesNotExist,
+    withJavaInPath,
     limitJvmMemory,
     defaultJvmMemoryLimits,
     JvmMemoryLimits(..),
@@ -28,12 +32,17 @@ import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Data.List.Extra (isInfixOf)
 import qualified Data.Text as T
 import System.Directory
+import System.FilePath (searchPathSeparator, (</>))
 import System.IO.Extra
 import System.Info.Extra
 import System.Environment.Blank
+
+import DA.Bazel.Runfiles (locateRunfiles, mainWorkspace)
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified UnliftIO.Exception as Unlift
+
+foreign import ccall unsafe "da_fix_environ" c_da_fix_environ :: IO ()
 
 standardizeQuotes :: T.Text -> T.Text
 standardizeQuotes msg = let
@@ -125,12 +134,31 @@ withEnv vs m = Unlift.bracket (liftIO pushEnv) (liftIO . popEnv) (const m)
 
         replaceEnv :: [(String, Maybe String)] -> IO [(String, Maybe String)]
         replaceEnv vs' = do
-            forM vs' $ \(key, newVal) -> do
+            r <- forM vs' $ \(key, newVal) -> do
                 oldVal <- getEnv key
                 case newVal of
                     Nothing -> unsetEnv key
                     Just val -> setEnv key val True
                 pure (key, oldVal)
+            -- setEnv of a new var can realloc __environ under hermetic glibc,
+            -- desyncing the copy-relocated `environ`; re-sync so getEnvironment
+            -- (read by the code under test) sees the change. See environ_fix.c.
+            c_da_fix_environ
+            pure r
+
+resyncEnviron :: MonadIO m => m ()
+resyncEnviron = liftIO c_da_fix_environ
+
+-- Prepend the hermetic JDK to PATH (an existing var) rather than setting a new
+-- var like JAVA_HOME: under hermetic glibc a new-var setenv reallocs __environ,
+-- desyncing it from the executable's environ, so children wouldn't see it.
+withJavaInPath :: MonadUnliftIO m => m t -> m t
+withJavaInPath act = do
+    javaBin <- liftIO $ do
+        f <- locateRunfiles (mainWorkspace </> "java_rlocation_path.txt")
+        locateRunfiles . head . lines =<< readFile' f
+    oldPath <- liftIO $ getEnv "PATH"
+    withEnv [("PATH", Just (javaBin <> maybe "" ([searchPathSeparator] <>) oldPath))] act
 
 assertFileExists :: FilePath -> IO ()
 assertFileExists file = doesFileExist file >>= assertBool (file ++ " was expected to exist, but does not exist")

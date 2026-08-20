@@ -1,0 +1,214 @@
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load("@build_environment//:configuration.bzl", "ghc_version", "mvn_version", "sdk_version")
+load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test")
+load("@os_info//:os_info.bzl", "is_windows")
+load(
+    "@rules_haskell//haskell:c2hs.bzl",
+    "c2hs_toolchain",
+)
+load(
+    "@rules_haskell//haskell:defs.bzl",
+    "haskell_toolchain",
+)
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_repl")
+load("//bazel_tools:scala.bzl", "da_scala_library")
+
+package(default_visibility = ["//:__subpackages__"])
+
+exports_files([".hlint.yaml"])
+
+config_setting(
+    name = "on_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+    ],
+)
+
+config_setting(
+    name = "on_osx",
+    constraint_values = [
+        "@platforms//os:osx",
+    ],
+)
+
+config_setting(
+    name = "on_freebsd",
+    constraint_values = [
+        "@platforms//os:freebsd",
+    ],
+)
+
+config_setting(
+    name = "on_windows",
+    constraint_values = [
+        "@platforms//os:windows",
+    ],
+)
+
+config_setting(
+    name = "profiling_build",
+    values = {
+        "compilation_mode": "dbg",
+    },
+)
+
+c2hs_toolchain(
+    name = "c2hs-toolchain",
+    c2hs = "@stackage-exe//c2hs",
+)
+
+config_setting(
+    name = "ghci_data",
+    define_values = {
+        "ghci_data": "True",
+    },
+)
+
+config_setting(
+    name = "hie_bios_ghci",
+    define_values = {
+        "hie_bios_ghci": "True",
+    },
+)
+
+#
+# Metadata
+#
+
+# The VERSION file is inlined in a few builds.
+exports_files([
+    "NOTICES",
+    "LICENSE",
+    "CHANGELOG",
+    "tsconfig.json",
+])
+
+genrule(
+    name = "mvn_version_file",
+    outs = ["MVN_VERSION"],
+    cmd = "echo -n {mvn} > $@".format(mvn = mvn_version),
+)
+
+genrule(
+    name = "sdk-version-scala",
+    srcs = [],
+    outs = ["SdkVersion.scala"],
+    cmd = """
+        cat > $@ <<EOF
+package com.daml
+
+object SdkVersion {{
+  val sdkVersion: String = "{sdk}"
+
+  val mvnVersion: String = "{mvn}"
+}}
+
+EOF
+    """.format(
+        mvn = mvn_version,
+        sdk = sdk_version,
+    ),
+)
+
+da_scala_library(
+    name = "sdk-version-scala-lib",
+    srcs = [":sdk-version-scala"],
+    visibility = ["//visibility:public"],
+)
+
+#
+# Common aliases
+#
+
+alias(
+    name = "damlc",
+    actual = "//compiler/damlc:damlc",
+)
+
+alias(
+    name = "damlc@ghci",
+    actual = "//compiler/damlc:damlc@ghci",
+)
+
+alias(
+    name = "damlc-dist",
+    actual = "//compiler/damlc:damlc-dist",
+)
+
+alias(
+    name = "bindings-java",
+    actual = "@maven//:com_daml_bindings_java",
+)
+
+genrule(
+    name = "java_rlocation_path",
+    outs = ["java_rlocation_path.txt"],
+    cmd = "echo $(JAVABASE)/bin | sed 's|^external/||' > $@",
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "python_rlocation_path",
+    srcs = ["@python_3_12//:python3"],
+    outs = ["python_rlocation_path.txt"],
+    cmd = "echo $(rootpath @python_3_12//:python3) | sed 's|^\\.\\./||; s|^external/||; s|/[^/]*$$||' > $@",
+    visibility = ["//visibility:public"],
+)
+
+exports_files([
+    ".scalafmt.conf",
+    "maven_install_2.13.json",
+])
+
+_BUILDIFIER_EXCLUDE = [
+    "./compatibility/*",  # nested workspace (own WORKSPACE) — not ours to format
+    "./.bazelbsp/*",  # untracked local IDE (BSP) tooling
+]
+
+buildifier(
+    name = "buildifier",
+    exclude_patterns = _BUILDIFIER_EXCLUDE,
+    mode = "diff",
+    verbose = True,
+)
+
+buildifier(
+    name = "buildifier-fix",
+    exclude_patterns = _BUILDIFIER_EXCLUDE,
+    mode = "fix",
+    verbose = True,
+)
+
+# Formatting-only gate. buildifier's lint suite (module/function docstrings, unused
+# vars, naming, …) flags ~176/245 files here and is mostly non-auto-fixable, so we
+# gate on canonical formatting only, not `--lint`.
+buildifier_test(
+    name = "buildifier_test",
+    timeout = "short",
+    exclude_patterns = _BUILDIFIER_EXCLUDE,
+    no_sandbox = True,
+    workspace = "//:MODULE.bazel",
+)
+
+# Default target for da-ghci, da-ghcid.
+da_haskell_repl(
+    name = "repl",
+    testonly = True,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":damlc",
+        "//compiler/daml-lf-ast:tests",
+        "//compiler/damlc/daml-doc:daml-doc-testing",
+        "//compiler/damlc/daml-ide-core:ide-testing",
+        "//compiler/damlc/stable-packages:generate-stable-package",
+        "//compiler/damlc/tests:daml-doctest",
+        "//compiler/damlc/tests:damlc-test",
+        "//compiler/damlc/tests:generate-simple-dalf",
+        "//compiler/damlc/tests:incremental",
+        "//compiler/damlc/tests:integration-v2dev",
+        "//compiler/damlc/tests:packaging",
+        "//components/daml-new",
+        "//sdk-integration-tests:tests",
+    ],
+)
