@@ -26,6 +26,15 @@ _LAUNCHER_SUFFIX_ARGS = {
 }
 _TOOLS = ["ghc", "ghci", "ghc-pkg", "hsc2hs", "haddock", "runghc", "hpc"]
 
+def _linker_name_and_soname_bundle(lib):
+    if not lib:
+        return ""
+    linker_name = lib.basename.split(".so")[0] + ".so"
+    return """\
+cp -L "$EXECROOT/{path}" "$LIBDIR/rts/{linker_name}"
+cp -L "$EXECROOT/{path}" "$LIBDIR/rts/{soname}"
+""".format(path = lib.path, linker_name = linker_name, soname = lib.basename)
+
 def _is_shared_library(basename):
     return basename.endswith(".dylib") or basename.endswith(".so") or ".so." in basename
 
@@ -105,21 +114,17 @@ def _ghc_bindist_install_impl(ctx):
         llvm_backend_snippet = "\n".join(lines) + "\n"
 
     tinfo = ctx.file.tinfo
-    numa = ctx.file.numa
     runtime_lib_dirs = []
-    for f in ([tinfo] if tinfo else []) + ([numa] if numa else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2:
+    for f in ([tinfo] if tinfo else []) + ctx.files.numa + ctx.files.gmp + ctx.files.libz + ctx.files.bz2:
         d = "$EXECROOT/" + f.dirname
         if d not in runtime_lib_dirs:
             runtime_lib_dirs.append(d)
 
-    tinfo_bundle = "" if not tinfo else """\
-cp -L "$EXECROOT/{tinfo}" "$LIBDIR/rts/libtinfo.so"
-cp -L "$EXECROOT/{tinfo}" "$LIBDIR/rts/{soname}"
-""".format(tinfo = tinfo.path, soname = tinfo.basename)
+    tinfo_bundle = _linker_name_and_soname_bundle(tinfo)
 
     rts_bundle = "".join([
         'cp -L "$EXECROOT/{}" "$LIBDIR/rts/"\n'.format(f.path)
-        for f in ([numa] if numa else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2
+        for f in ctx.files.numa + ctx.files.gmp + ctx.files.libz + ctx.files.bz2
     ])
 
     sysroot = _sysroot_from_flags(cc.cflags)
@@ -216,7 +221,7 @@ rm -rf "$TMP"
     ctx.actions.run_shell(
         outputs = [install_tree, lib_settings, doc_marker],
         inputs = depset(
-            direct = ctx.files.srcs + [configure, ctx.file.make] + ([tinfo] if tinfo else []) + ([numa] if numa else []) + ctx.files.gmp + ctx.files.libz + ctx.files.bz2 + llvm_backend_files,
+            direct = ctx.files.srcs + [configure, ctx.file.make] + ([tinfo] if tinfo else []) + ctx.files.numa + ctx.files.gmp + ctx.files.libz + ctx.files.bz2 + llvm_backend_files,
             transitive = [cc_toolchain.all_files],
         ),
         command = command,
@@ -272,8 +277,8 @@ ghc_bindist_install = rule(
             doc = "Hermetic libtinfo.so bundled into rts as libtinfo.so + its own soname.",
         ),
         "numa": attr.label(
-            allow_single_file = True,
-            doc = "linux/aarch64 only: hermetic libnuma.so.1 bundled into the rts libdir; the aarch64-deb10 bindist links it.",
+            allow_files = True,
+            doc = "linux/aarch64 only: hermetic libnuma.a + libnuma.so.1 bundled into the rts libdir. The aarch64-deb10 RTS records libnuma.so.1 as NEEDED, while -lnuma from the rts package links against the static archive so GHC-built executables gain no runtime dependency.",
         ),
         "llvm_backend": attr.label(
             allow_files = True,
