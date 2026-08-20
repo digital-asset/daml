@@ -30,7 +30,7 @@ ghc_bindist_install(
     libz = None if is_darwin else "@libz//:libs",
     llvm_backend = "@ghc_llvm_backend//:backend" if _HAS_GHC_LLVM_BACKEND else None,
     make = "@make//:make",
-    numa = ":libnuma.so.1" if is_linux_arm else None,
+    numa = ":numa_libs" if is_linux_arm else None,
     tinfo = None if is_darwin else ":" + _TINFO_SONAME,
 )
 
@@ -140,6 +140,14 @@ configure_make(
     make = "@make//:make",
     make_targets = ["libnuma.la"],
     target_compatible_with = ["@platforms//os:linux"],
+)
+
+filegroup(
+    name = "numa_libs",
+    srcs = [
+        ":libnuma.so",
+        ":libnuma.so.1",
+    ],
 )
 
 cc_library(
