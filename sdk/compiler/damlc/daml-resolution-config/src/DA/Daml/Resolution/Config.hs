@@ -177,6 +177,11 @@ expandDependencyPackages cachePath pkgResolution lfVersion dependencyPackages = 
         (dpRegularUncheckedDeps dependencyPackages <> fmap fst asDeps)
         (dpDataDeps dependencyPackages <> dataDeps)
 
+-- TODO: This might do weird things with package-flags
+
+-- | To improve jump-to-definition in the IDE, we automatically add any transient dependency dars to the
+-- list of data-dependencies to ensure their source code is available to the IDE. We look these up
+-- via their package-id to ensure we're only ever adding existing packages
 addTransitiveDeps :: Map.Map FilePath (LF.PackageId, DalfInfoCacheEntry) -> [FilePath] -> IO [FilePath]
 addTransitiveDeps darInfos initialDeps = nubOrd <$> concatMapM addSingleTransitiveDep initialDeps
   where

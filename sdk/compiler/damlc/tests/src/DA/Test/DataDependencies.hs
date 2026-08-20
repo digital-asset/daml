@@ -2997,7 +2997,7 @@ tests TestArgs{..} =
             [ "--target=" <> LF.renderVersion targetDevVersion
             , "-Wupgrade-interfaces"
             ]
-        , extraDeps = []
+        , dataDeps = []
         , expectedStderr = []
         , forbiddenStderr = []
         }
@@ -3007,7 +3007,7 @@ tests TestArgs{..} =
 
     optionsDevScript :: DataDependenciesTestOptions
     optionsDevScript = defTestOptions
-        { extraDeps = [scriptDevDar]
+        { dataDeps = [scriptDevDar]
         }
 
     simpleImportTest :: String -> [String] -> [String] -> TestTree

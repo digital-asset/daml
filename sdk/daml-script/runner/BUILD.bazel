@@ -202,7 +202,7 @@ oci_dar_names = [
     "daml-script-{}.dar".format(lf_version)
     for lf_version in COMPILER_LF_VERSIONS
 ] + [
-    "daml-script-stable-{}.dar".format(name)
+    "{}.dar".format(name)
     for name in SCRIPT_STABLE_PACKAGES
 ]
 
