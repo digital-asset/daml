@@ -132,6 +132,16 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Use the new DPM assistant over the legacy Daml Assistant if it is installed."
+                },
+                "daml.keepAliveInterval": {
+                    "type": "number",
+                    "default": 60000,
+                    "description": "How often (in milliseconds) the extension pings the Daml language server to check that it is responsive."
+                },
+                "daml.keepAliveTimeout": {
+                    "type": "number",
+                    "default": 120000,
+                    "description": "How long (in milliseconds) the extension will wait for the Daml language server to respond to a keep-alive ping or produce any other output before restarting it. Increase this on very large workspaces where individual requests can legitimately take longer than the default."
                 }
             }
         },
