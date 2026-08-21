@@ -49,14 +49,24 @@ haskell_import(
     linkopts = {linkopts},
     static_libraries = glob([{subdir} + "/*.a"], exclude = [{subdir} + "/*_p.a"], allow_empty = True),
     static_profiling_libraries = glob([{subdir} + "/*_p.a"], allow_empty = True),
-    shared_libraries = glob([{subdir} + "/*.so", {subdir} + "/*.so.*"], allow_empty = True),
+    shared_libraries = glob([{subdir} + "/*.so", {subdir} + "/*.so.*"], allow_empty = True) + {vendored_shared_libraries},
     hdrs = [],
     includes = [],
     visibility = ["//visibility:public"],
 )
 """
 
-def _haskell_import(pkg):
+# The aarch64-deb10 RTS records libnuma.so.1 as NEEDED and its `extra_libraries`
+# emit -lnuma, but the bindist ships no libnuma. Declaring our hermetic copy on the
+# rts import is what puts it in the runfiles/solib tree with a usable rpath for
+# every target that links the RTS.
+_VENDORED_SHARED_LIBRARIES = {
+    ("linux", "aarch64"): {
+        "rts": ["@@//bazel/haskell/toolchain:libnuma.so.1"],
+    },
+}
+
+def _haskell_import(pkg, vendored_shared_libraries):
     subdir = "{}/{}".format(_UNPACK_DIR, pkg["build_subdir"])
     return _IMPORT_TEMPLATE.format(
         name = repr(pkg["name"]),
@@ -65,6 +75,7 @@ def _haskell_import(pkg):
         deps = repr(pkg["deps"]),
         linkopts = repr(["-l" + lib for lib in pkg["extra_libraries"]]),
         subdir = repr(subdir),
+        vendored_shared_libraries = repr(vendored_shared_libraries.get(pkg["name"], [])),
     )
 
 def _ghc_bindist_repo_impl(rctx):
@@ -96,7 +107,8 @@ def _ghc_bindist_repo_impl(rctx):
     lock = json.decode(rctx.read(rctx.path(lockfile)))
     packages = lock.get("packages", [])
 
-    imports = "\n".join([_haskell_import(p) for p in packages])
+    vendored_shared_libraries = _VENDORED_SHARED_LIBRARIES.get(key, {})
+    imports = "\n".join([_haskell_import(p, vendored_shared_libraries) for p in packages])
 
     rctx.file(
         "libraries.bzl",
