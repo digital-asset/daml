@@ -1,4 +1,4 @@
-"""Provides a hermetic patchelf binary for Linux x86_64 builds.
+"""Provides a hermetic patchelf binary for Linux builds.
 
 The upstream BCR `patchelf` module builds a host-executed `cc_binary`.
 In this workspace the host C/C++ toolchain is overridden to a hermetic
@@ -10,15 +10,22 @@ To keep action-time tools stable across local/container runs, this
 extension pins the upstream patchelf static release artifact.
 """
 
-load("//bazel/versions:patchelf.version.bzl", "PATCHELF_SHA256", "PATCHELF_URL")
+load("//bazel/versions:patchelf.version.bzl", "PATCHELF_BUILDS")
+
+_ARCH_ALIASES = {
+    "amd64": "x86_64",
+    "x86_64": "x86_64",
+    "aarch64": "aarch64",
+    "arm64": "aarch64",
+}
 
 def _patchelf_repo_impl(rctx):
     os_name = rctx.os.name.lower()
-    arch = rctx.os.arch
-    if "linux" in os_name and arch in ["x86_64", "amd64"]:
+    build = PATCHELF_BUILDS.get(_ARCH_ALIASES.get(rctx.os.arch.lower()))
+    if "linux" in os_name and build:
         rctx.download_and_extract(
-            url = PATCHELF_URL,
-            sha256 = PATCHELF_SHA256,
+            url = build["url"],
+            sha256 = build["sha256"],
         )
     else:
         rctx.file(
