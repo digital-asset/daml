@@ -89,6 +89,13 @@ def _ghc_lib_sdist_impl(ctx):
     # inject into every inner GHC invocation via the ghc wrapper below.
     gmp_lib_dir = ctx.files.gmp[0].dirname
 
+    # The aarch64 GHC links -lnuma, so hadrian's deriveConstants needs libnuma
+    # on the loader path at run time; the bindist ships none.
+    runtime_lib_path = ":".join([
+        "$EXECROOT/" + d
+        for d in [gmp_lib_dir] + ([ctx.files.numa[0].dirname] if ctx.files.numa else [])
+    ])
+
     # -- Shell command --
     shell_cmd = """\
 set -euo pipefail
@@ -145,7 +152,7 @@ case "$LD_PATH" in /*) ;; *) LD_PATH="$EXECROOT/$LD_PATH" ;; esac
 export CC="$CC_PATH"
 export LD="$LD_PATH"
 
-export LD_LIBRARY_PATH="$EXECROOT/{gmp_lib_dir}:${{LD_LIBRARY_PATH:-}}"
+export LD_LIBRARY_PATH="{runtime_lib_path}:${{LD_LIBRARY_PATH:-}}"
 
 GHC_WRAPPER_DIR=$(mktemp -d)
 GHC_BIN_DIR="$(dirname "$EXECROOT/{ghc_path}")"
@@ -266,6 +273,7 @@ cp $TMP/ghc-lib{component}.cabal $EXECROOT/{cabal_output}
         cabal_output = cabal_file.path,
         output_dir = tarball.dirname,
         gmp_lib_dir = gmp_lib_dir,
+        runtime_lib_path = runtime_lib_path,
     )
 
     # -- Action --
@@ -278,7 +286,7 @@ cp $TMP/ghc-lib{component}.cabal $EXECROOT/{cabal_output}
                 ctx.file.m4,
                 ctx.file.cabal,
                 perl_bin,
-            ] + ctx.files.ghc_srcs + ctx.files.perl + ctx.files.python3 + ghc_bindir + ghc_libdir + ctx.files.extra_tools + ctx.files.gmp,
+            ] + ctx.files.ghc_srcs + ctx.files.perl + ctx.files.python3 + ghc_bindir + ghc_libdir + ctx.files.extra_tools + ctx.files.gmp + ctx.files.numa,
             transitive = [cc_toolchain.all_files],
         ),
         tools = [
@@ -322,6 +330,12 @@ ghc_lib_sdist = rule(
                   "inner GHC invocation (via a `ghc` wrapper shim on PATH) " +
                   "so hadrian's deriveConstants link can resolve `-lgmp` " +
                   "under the hermetic sysroot.",
+        ),
+        "numa": attr.label(
+            allow_files = True,
+            doc = "linux/aarch64 only: hermetic libnuma target. Its directory joins " +
+                  "LD_LIBRARY_PATH so hadrian's deriveConstants, built by a GHC that " +
+                  "links -lnuma, can start.",
         ),
         "_cc_toolchain": attr.label(default = "@rules_cc//cc:current_cc_toolchain"),
     },
