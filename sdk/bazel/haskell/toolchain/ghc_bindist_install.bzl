@@ -278,7 +278,7 @@ ghc_bindist_install = rule(
         ),
         "numa": attr.label(
             allow_files = True,
-            doc = "linux/aarch64 only: hermetic libnuma.a + libnuma.so.1 bundled into the rts libdir. The aarch64-deb10 RTS records libnuma.so.1 as NEEDED, while -lnuma from the rts package links against the static archive so GHC-built executables gain no runtime dependency.",
+            doc = "linux only: hermetic libnuma.a + libnuma.so.1 bundled into the rts libdir. The deb10 RTS records libnuma.so.1 as NEEDED, while -lnuma from the rts package links against the static archive so GHC-built executables gain no runtime dependency.",
         ),
         "llvm_backend": attr.label(
             allow_files = True,

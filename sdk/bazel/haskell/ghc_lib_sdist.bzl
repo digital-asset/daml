@@ -89,7 +89,7 @@ def _ghc_lib_sdist_impl(ctx):
     # inject into every inner GHC invocation via the ghc wrapper below.
     gmp_lib_dir = ctx.files.gmp[0].dirname
 
-    # The aarch64 GHC links -lnuma, so hadrian's deriveConstants needs libnuma
+    # The deb10 GHC links -lnuma, so hadrian's deriveConstants needs libnuma
     # on the loader path at run time; the bindist ships none.
     runtime_lib_path = ":".join([
         "$EXECROOT/" + d
@@ -333,7 +333,7 @@ ghc_lib_sdist = rule(
         ),
         "numa": attr.label(
             allow_files = True,
-            doc = "linux/aarch64 only: hermetic libnuma target. Its directory joins " +
+            doc = "linux only: hermetic libnuma target. Its directory joins " +
                   "LD_LIBRARY_PATH so hadrian's deriveConstants, built by a GHC that " +
                   "links -lnuma, can start.",
         ),

@@ -262,6 +262,7 @@
         "m",
         "rt",
         "dl",
+        "numa",
         "pthread"
       ],
       "id": "rts",

@@ -5,7 +5,7 @@ load("//bazel/versions:ghc.version.bzl", "GHC_LLVM_BACKEND", "GHC_VERSION")
 load(":defs.bzl", "ghc_smoke", "ghc_toolchain")
 load(":ghc_bindist_install.bzl", "ghc_bindist_install")
 
-_TINFO_SONAME = "libtinfo.so.6" if is_linux_arm else "libtinfo.so.5"
+_TINFO_SONAME = "libtinfo.so.6"
 
 _AUTOTOOLS_TRIPLES = [
     "--build=aarch64-unknown-linux-gnu",
@@ -15,9 +15,11 @@ _AUTOTOOLS_TRIPLES = [
     "--host=x86_64-pc-linux-gnu",
 ]
 
-_TINFO_ARCH_FLAGS = _AUTOTOOLS_TRIPLES + ([] if is_linux_arm else ["--with-versioned-syms"])
-
-_TINFO_DEB9_SYMBOL_MAP = None if is_linux_arm else "files/libtinfo5.map"
+# The deb10 bindist's prebuilt .so's expect libtinfo.so.6 symbols under version
+# node "NCURSES6_TINFO_5.0.19991023" (Debian's ncurses6 tag). Without it ld.so
+# still resolves symbols by plain name, but warns on stderr -- which broke
+# damlc's tests (they assert ghc-pkg's stderr is empty).
+_TINFO_SYMBOL_MAP = "files/libtinfo6.map"
 
 _HAS_GHC_LLVM_BACKEND = GHC_LLVM_BACKEND and (is_darwin_arm64 or is_linux_arm)
 
@@ -30,7 +32,7 @@ ghc_bindist_install(
     libz = None if is_darwin else "@libz//:libs",
     llvm_backend = "@ghc_llvm_backend//:backend" if _HAS_GHC_LLVM_BACKEND else None,
     make = "@make//:make",
-    numa = ":numa_libs" if is_linux_arm else None,
+    numa = None if is_darwin else ":numa_libs",
     tinfo = None if is_darwin else ":" + _TINFO_SONAME,
 )
 
@@ -108,7 +110,7 @@ configure_make(
         _TINFO_SONAME,
     ],
     configure = "@ncurses//:configure",
-    configure_flags = _TINFO_ARCH_FLAGS + [
+    configure_flags = _AUTOTOOLS_TRIPLES + [
         "--with-shared",
         "--with-termlib",
         "--without-debug",
@@ -122,7 +124,7 @@ configure_make(
     install_libdir = "lib",
     make = "@make//:make",
     target_compatible_with = ["@platforms//os:linux"],
-    version_script = _TINFO_DEB9_SYMBOL_MAP,
+    version_script = _TINFO_SYMBOL_MAP,
 )
 
 configure_make(
