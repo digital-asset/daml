@@ -5,7 +5,7 @@ load(
     "GHC_FLAVOR",
     "GHC_LIB_VERSION",
 )
-load("@os_info//:os_info.bzl", "is_linux_arm")
+load("@os_info//:os_info.bzl", "is_darwin")
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
 
 filegroup(
@@ -58,7 +58,7 @@ ghc_lib_sdist(
     perl = "@rules_perl//:current_toolchain",
     cabal = "@cabal//:cabal",
     gmp = "@gmp//:libs",
-    numa = "@//bazel/haskell/toolchain:numa_libs" if is_linux_arm else None,
+    numa = None if is_darwin else "@//bazel/haskell/toolchain:numa_libs",
     component = "",
     version = GHC_LIB_VERSION,
     ghc_flavor = GHC_FLAVOR,
@@ -83,7 +83,7 @@ ghc_lib_sdist(
     perl = "@rules_perl//:current_toolchain",
     cabal = "@cabal//:cabal",
     gmp = "@gmp//:libs",
-    numa = "@//bazel/haskell/toolchain:numa_libs" if is_linux_arm else None,
+    numa = None if is_darwin else "@//bazel/haskell/toolchain:numa_libs",
     component = "-parser",
     version = GHC_LIB_VERSION,
     ghc_flavor = GHC_FLAVOR,
