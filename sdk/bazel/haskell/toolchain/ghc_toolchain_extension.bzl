@@ -10,10 +10,8 @@ load(
     "//bazel/versions:gnu_tools.version.bzl",
     "GMP_SHA256",
     "GMP_VERSION",
-    "NCURSES_LINUX_AARCH64_SHA256",
-    "NCURSES_LINUX_AARCH64_VERSION",
-    "NCURSES_LINUX_AMD64_SHA256",
-    "NCURSES_LINUX_AMD64_VERSION",
+    "NCURSES_LINUX_SHA256",
+    "NCURSES_LINUX_VERSION",
     "NUMACTL_SHA256",
     "NUMACTL_VERSION",
 )
@@ -56,11 +54,14 @@ haskell_import(
 )
 """
 
-# The aarch64-deb10 RTS records libnuma.so.1 as NEEDED and its `extra_libraries`
+# The deb10 RTS records libnuma.so.1 as NEEDED and its `extra_libraries`
 # emit -lnuma, but the bindist ships no libnuma. Declaring our hermetic copy on the
 # rts import is what puts it in the runfiles/solib tree with a usable rpath for
 # every target that links the RTS.
 _VENDORED_SHARED_LIBRARIES = {
+    ("linux", "amd64"): {
+        "rts": ["@@//bazel/haskell/toolchain:libnuma.so.1"],
+    },
     ("linux", "aarch64"): {
         "rts": ["@@//bazel/haskell/toolchain:libnuma.so.1"],
     },
@@ -196,17 +197,11 @@ def _ghc_toolchain_impl(module_ctx):
         patch_args = ["-p1"],
     )
 
-    ncurses_version = NCURSES_LINUX_AMD64_VERSION
-    ncurses_sha256 = NCURSES_LINUX_AMD64_SHA256
-    if _platform_key(module_ctx) == ("linux", "aarch64"):
-        ncurses_version = NCURSES_LINUX_AARCH64_VERSION
-        ncurses_sha256 = NCURSES_LINUX_AARCH64_SHA256
-
     http_archive(
         name = "ncurses",
-        url = "https://ftp.gnu.org/gnu/ncurses/ncurses-{}.tar.gz".format(ncurses_version),
-        sha256 = ncurses_sha256,
-        strip_prefix = "ncurses-{}".format(ncurses_version),
+        url = "https://ftp.gnu.org/gnu/ncurses/ncurses-{}.tar.gz".format(NCURSES_LINUX_VERSION),
+        sha256 = NCURSES_LINUX_SHA256,
+        strip_prefix = "ncurses-{}".format(NCURSES_LINUX_VERSION),
         build_file = ":files/ncurses.BUILD.bzl",
     )
     http_archive(
