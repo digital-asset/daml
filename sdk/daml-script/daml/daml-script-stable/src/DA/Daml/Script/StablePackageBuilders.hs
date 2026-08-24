@@ -266,9 +266,9 @@ mkSelectorDef modName tyCon tyVars fieldName fieldTy =
         ty = typeConAppToType tyConApp
 
 -- Makes a call to error matching the recSelError from Control.Exception.Base
-mkRecSelError :: FieldName -> Expr
-mkRecSelError fieldName =
-    mkEApps (EBuiltinFun BEError) [TyArg TUnit, TmArg $ EBuiltinFun $ BEText $ "No match in record selector " <> unFieldName fieldName]
+mkRecSelError :: FieldName -> Type -> Expr
+mkRecSelError fieldName fieldTy =
+    mkEApps (EBuiltinFun BEError) [TyArg fieldTy, TmArg $ EBuiltinFun $ BEText $ "No match in record selector " <> unFieldName fieldName]
 
 -- need module name, typecon, tyargs, all variants with their fields, field we're selecting, maybe its type for simplicity
 mkVariantRecordSelectorDef :: ModuleName -> TypeConName -> [(TypeVarName, Kind)] -> [(VariantConName, [(FieldName, Type)])] -> FieldName -> Type -> DefValue
@@ -280,7 +280,7 @@ mkVariantRecordSelectorDef modName tyCon tyVars variants fieldName fieldTy =
           | variantName <- variantsWithField
           , let innerRecordTyConName = TypeConName $ unTypeConName tyCon <> [unVariantConName variantName]
                 innerRecordTyConApp = TypeConApp (Qualified SelfPackageId modName innerRecordTyConName) (map (TVar . fst) tyVars)
-          ] <> [(Nothing, \_ -> mkRecSelError fieldName)]
+          ] <> [(Nothing, \_ -> mkRecSelError fieldName fieldTy)]
   where
     -- Variant names containing this field
     variantsWithField = fst <$> filter (any ((== fieldName) . fst) . snd) variants

@@ -48,23 +48,22 @@ object ScriptF {
 
   sealed trait Cmd {
     private[lf] def executeWithRunner(
-        env: Env,
         @annotation.unused runner: v2.Runner,
         @annotation.unused convertLegacyExceptions: Boolean,
     )(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
-    ): Future[ExtendedValue] = execute(env)
+    ): Future[ExtendedValue] = execute()
 
-    private[lf] def execute(env: Env)(implicit
+    private[lf] def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[ExtendedValue]
   }
   // The environment that the `execute` function gets access to.
-  final class Env(
+  final case class Env(
       val scriptIds: ScriptIds,
       val timeMode: ScriptTimeMode,
       private var _clients: Participants[ScriptLedgerClient],
@@ -115,6 +114,11 @@ object ScriptF {
     ): Boolean =
       compiledPackages.pkgInterface.lookupVariantConstructor(tyCon, consName).isRight
 
+    def doesDataTypeExist(
+        tyCon: Identifier,
+    ): Boolean =
+      compiledPackages.pkgInterface.lookupDataType(tyCon).isRight
+
     def lookupLanguageVersion(packageId: PackageId): Either[String, LanguageVersion] = {
       compiledPackages.pkgInterface.lookupPackageLanguageVersion(packageId) match {
         case Right(lv) => Right(lv)
@@ -124,8 +128,8 @@ object ScriptF {
 
   }
 
-  final case class Throw(exc: ExtendedValueAny) extends Cmd {
-    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
+  final case class Throw(exc: ExtendedValueAny, env: Env) extends Cmd {
+    override def executeWithRunner(runner: v2.Runner, convertLegacyExceptions: Boolean)(
         implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -227,15 +231,15 @@ object ScriptF {
       }
     }
 
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
   }
 
-  final case class Catch(act: ExtendedValueClosureBlob) extends Cmd {
-    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
+  final case class Catch(act: ExtendedValueClosureBlob, env: Env) extends Cmd {
+    override def executeWithRunner(runner: v2.Runner, convertLegacyExceptions: Boolean)(
         implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -266,15 +270,15 @@ object ScriptF {
           case Failure(e) => Future.failed(e)
         }
 
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
   }
 
-  final case class TryFailureStatus(act: ExtendedValueClosureBlob) extends Cmd {
-    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
+  final case class TryFailureStatus(act: ExtendedValueClosureBlob, env: Env) extends Cmd {
+    override def executeWithRunner(runner: v2.Runner, convertLegacyExceptions: Boolean)(
         implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -319,14 +323,14 @@ object ScriptF {
           case Failure(e) => Future.failed(e)
         }
 
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
   }
 
-  final case class Submission(
+  final case class Submission(env: Env, 
       actAs: NonEmptySet[Party],
       readAs: Set[Party],
       cmds: List[ScriptLedgerClient.CommandWithMeta],
@@ -338,13 +342,15 @@ object ScriptF {
   )
 
   // The one submit to rule them all
-  final case class Submit(submissions: List[Submission], legacyAnyContractKey: Boolean)
+  final case class Submit(submissions: List[Submission], legacyAnyContractKey: Boolean, legacySubmitError: Boolean, env: Env)
       extends Cmd {
     import ScriptLedgerClient.SubmissionErrorBehaviour._
 
-    override def execute(
-        env: Env
-    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
+    override def execute()(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[ExtendedValue] =
       Future
         .traverse(submissions)(singleSubmit(_, env))
         .map(results => ValueList(results.to(FrontStack)))
@@ -354,6 +360,14 @@ object ScriptF {
         env: Env,
     )(implicit ec: ExecutionContext, mat: Materializer): Future[ExtendedValue] =
       for {
+        // Sanity check on legacy submit matching script era
+        _ <- (legacySubmitError, env.scriptIds.scriptEra) match {
+          case (true, ScriptIds.ScriptEra.Stable(_, _)) =>
+            Future.failed(new RuntimeException("Unsupported non-stable submission using stable daml-script. Do not use daml-script internal directly."))
+          case (false, ScriptIds.ScriptEra.NonStable(_)) =>
+            Future.failed(new RuntimeException("Unsupported stable submission using non-stable daml-script. Do not use daml-script internal directly."))
+          case _ => Future.successful(())
+        }
         client <- Converter.toFuture(
           env.clients
             .getPartiesParticipant(submission.actAs)
@@ -411,10 +425,13 @@ object ScriptF {
   final case class QueryACS(
       parties: NonEmptySet[Party],
       tplId: Identifier,
+      env: Env,
   ) extends Cmd {
-    override def execute(
-        env: Env
-    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
+    override def execute()(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[ExtendedValue] =
       for {
         client <- Converter.toFuture(
           env.clients
@@ -428,8 +445,9 @@ object ScriptF {
       parties: NonEmptySet[Party],
       tplId: Identifier,
       cid: ContractId,
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -451,8 +469,9 @@ object ScriptF {
   final case class QueryInterface(
       parties: NonEmptySet[Party],
       interfaceId: Identifier,
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -474,8 +493,9 @@ object ScriptF {
       parties: NonEmptySet[Party],
       interfaceId: Identifier,
       cid: ContractId,
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -492,8 +512,9 @@ object ScriptF {
       parties: NonEmptySet[Party],
       tplId: Identifier,
       key: AnyContractKey,
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -515,8 +536,9 @@ object ScriptF {
       tplId: Identifier,
       key: AnyContractKey,
       limit: Int,
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -545,8 +567,9 @@ object ScriptF {
       participants: Option[
         (Participant, List[Participant])
       ],
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -584,9 +607,10 @@ object ScriptF {
     }
   }
   final case class ListKnownParties(
-      participant: Option[Participant]
+      participant: Option[Participant],
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -603,8 +627,8 @@ object ScriptF {
       } yield ValueList(partyDetailsValue.to(FrontStack))
 
   }
-  final case class GetTime() extends Cmd {
-    override def execute(env: Env)(implicit
+  final case class GetTime(env: Env) extends Cmd {
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -627,8 +651,8 @@ object ScriptF {
         }
       } yield ValueTimestamp(time)
   }
-  final case class SetTime(time: Timestamp) extends Cmd {
-    override def execute(env: Env)(implicit
+  final case class SetTime(time: Timestamp, env: Env) extends Cmd {
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -650,8 +674,8 @@ object ScriptF {
       }
   }
 
-  final case class Sleep(micros: Long) extends Cmd {
-    override def execute(env: Env)(implicit
+  final case class Sleep(micros: Long, env: Env) extends Cmd {
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -677,8 +701,8 @@ object ScriptF {
     }
   }
 
-  final case class Secp256k1Sign(pk: String, msg: String) extends Cmd {
-    override def execute(env: Env)(implicit
+  final case class Secp256k1Sign(pk: String, msg: String, env: Env) extends Cmd {
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -697,8 +721,8 @@ object ScriptF {
     }
   }
 
-  final case class Secp256k1WithEcdsaSign(pk: String, msg: String) extends Cmd {
-    override def execute(env: Env)(implicit
+  final case class Secp256k1WithEcdsaSign(pk: String, msg: String, env: Env) extends Cmd {
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -716,8 +740,8 @@ object ScriptF {
     }
   }
 
-  final case class Secp256k1GenerateKeyPair() extends Cmd {
-    override def execute(env: Env)(implicit
+  final case class Secp256k1GenerateKeyPair(env: Env) extends Cmd {
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -738,9 +762,10 @@ object ScriptF {
   }
 
   final case class ValidateUserId(
-      userName: String
+      userName: String,
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -758,8 +783,9 @@ object ScriptF {
       user: User,
       rights: List[UserRight],
       participant: Option[Participant],
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -776,8 +802,9 @@ object ScriptF {
   final case class GetUser(
       userId: UserId,
       participant: Option[Participant],
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -801,8 +828,9 @@ object ScriptF {
   final case class DeleteUser(
       userId: UserId,
       participant: Option[Participant],
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -817,9 +845,10 @@ object ScriptF {
   }
 
   final case class ListAllUsers(
-      participant: Option[Participant]
+      participant: Option[Participant],
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -837,8 +866,9 @@ object ScriptF {
       userId: UserId,
       rights: List[UserRight],
       participant: Option[Participant],
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -860,8 +890,9 @@ object ScriptF {
       userId: UserId,
       rights: List[UserRight],
       participant: Option[Participant],
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -882,8 +913,9 @@ object ScriptF {
   final case class ListUserRights(
       userId: UserId,
       participant: Option[Participant],
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -904,8 +936,9 @@ object ScriptF {
   final case class VetPackages(
       packages: List[ScriptLedgerClient.ReadablePackageId],
       participant: Option[Participant],
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -922,8 +955,9 @@ object ScriptF {
   final case class UnvetPackages(
       packages: List[ScriptLedgerClient.ReadablePackageId],
       participant: Option[Participant],
+      env: Env,
   ) extends Cmd {
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -937,8 +971,8 @@ object ScriptF {
       } yield ValueUnit
   }
 
-  final case class ListVettedPackages() extends Cmd {
-    override def execute(env: Env)(implicit
+  final case class ListVettedPackages(env: Env) extends Cmd {
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -951,8 +985,8 @@ object ScriptF {
       )
   }
 
-  final case class ListAllPackages() extends Cmd {
-    override def execute(env: Env)(implicit
+  final case class ListAllPackages(env: Env) extends Cmd {
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -965,8 +999,8 @@ object ScriptF {
       )
   }
 
-  final case class TryCommands(act: ExtendedValue) extends Cmd {
-    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
+  final case class TryCommands(act: ExtendedValue, env: Env) extends Cmd {
+    override def executeWithRunner(runner: v2.Runner, convertLegacyExceptions: Boolean)(
         implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -1009,15 +1043,15 @@ object ScriptF {
         case Failure(e) => Future.failed(e)
       }
 
-    override def execute(env: Env)(implicit
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
   }
 
-  final case class FailWithStatus(failureStatus: IE.FailureStatus) extends Cmd {
-    override def execute(env: Env)(implicit
+  final case class FailWithStatus(failureStatus: IE.FailureStatus, env: Env) extends Cmd {
+    override def execute()(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -1041,8 +1075,8 @@ object ScriptF {
 
   private def parseSubmission(
       v: ExtendedValue,
-      knownPackages: KnownPackages,
       env: Env,
+      knownPackages: KnownPackages,
       legacyAnyContractKey: Boolean,
   ): Either[String, Submission] =
     v match {
@@ -1084,15 +1118,17 @@ object ScriptF {
           errorBehaviour = errorBehaviour,
           cmds = cmds,
           optLocation = optLocation,
+          env = env,
         )
       case _ => Left(s"Expected Submission payload but got $v")
     }
 
   private def parseSubmit(
       v: ExtendedValue,
-      knownPackages: KnownPackages,
       env: Env,
+      knownPackages: KnownPackages,
       legacyAnyContractKey: Boolean = false,
+      legacySubmitError: Boolean = false,
   ): Either[String, Submit] =
     v match {
       case ValueRecord(
@@ -1101,49 +1137,52 @@ object ScriptF {
           ) =>
         for {
           submissions <- submissions.traverse(
-            parseSubmission(_, knownPackages, env, legacyAnyContractKey)
+            parseSubmission(_, env, knownPackages, legacyAnyContractKey)
           )
         } yield Submit(
           submissions = submissions.toList,
           legacyAnyContractKey = legacyAnyContractKey,
+          legacySubmitError = legacySubmitError,
+          env = env,
         )
       case _ => Left(s"Expected Submit payload but got $v")
     }
 
-  private def parseQueryACS(v: ExtendedValue): Either[String, QueryACS] =
+  private def parseQueryACS(v: ExtendedValue, env: Env): Either[String, QueryACS] =
     v match {
       case ValueRecord(_, ImmArray((_, readAs), (_, tplId))) =>
         for {
           readAs <- Converter.toParties(readAs)
           tplId <- Converter
             .typeRepToIdentifier(tplId)
-        } yield QueryACS(readAs, tplId)
+        } yield QueryACS(readAs, tplId, env)
       case _ => Left(s"Expected QueryACS payload but got $v")
     }
 
-  private def parseQueryContractId(v: ExtendedValue): Either[String, QueryContractId] =
+  private def parseQueryContractId(v: ExtendedValue, env: Env): Either[String, QueryContractId] =
     v match {
       case ValueRecord(_, ImmArray((_, actAs), (_, tplId), (_, cid))) =>
         for {
           actAs <- Converter.toParties(actAs)
           tplId <- Converter.typeRepToIdentifier(tplId)
           cid <- toContractId(cid)
-        } yield QueryContractId(actAs, tplId, cid)
+        } yield QueryContractId(actAs, tplId, cid, env)
       case _ => Left(s"Expected QueryContractId payload but got $v")
     }
 
-  private def parseQueryInterface(v: ExtendedValue): Either[String, QueryInterface] =
+  private def parseQueryInterface(v: ExtendedValue, env: Env): Either[String, QueryInterface] =
     v match {
       case ValueRecord(_, ImmArray((_, actAs), (_, interfaceId))) =>
         for {
           actAs <- Converter.toParties(actAs)
           interfaceId <- Converter.typeRepToIdentifier(interfaceId)
-        } yield QueryInterface(actAs, interfaceId)
+        } yield QueryInterface(actAs, interfaceId, env)
       case _ => Left(s"Expected QueryInterface payload but got $v")
     }
 
   private def parseQueryInterfaceContractId(
-      v: ExtendedValue
+      v: ExtendedValue,
+      env: Env,
   ): Either[String, QueryInterfaceContractId] =
     v match {
       case ValueRecord(_, ImmArray((_, actAs), (_, interfaceId), (_, cid))) =>
@@ -1151,7 +1190,7 @@ object ScriptF {
           actAs <- Converter.toParties(actAs)
           interfaceId <- Converter.typeRepToIdentifier(interfaceId)
           cid <- toContractId(cid)
-        } yield QueryInterfaceContractId(actAs, interfaceId, cid)
+        } yield QueryInterfaceContractId(actAs, interfaceId, cid, env)
       case _ => Left(s"Expected QueryInterfaceContractId payload but got $v")
     }
 
@@ -1166,7 +1205,7 @@ object ScriptF {
           actAs <- Converter.toParties(actAs)
           tplId <- Converter.typeRepToIdentifier(tplId)
           key <- Converter.toAnyContractKey(key, env.lookupKeyTy(_), legacyAnyContractKey)
-        } yield QueryByKey(actAs, tplId, key)
+        } yield QueryByKey(actAs, tplId, key, env)
       case _ => Left(s"Expected QueryByKey payload but got $v")
     }
 
@@ -1184,11 +1223,11 @@ object ScriptF {
           // Daml implementation prevents negative numbers
           // Long.toInt gives -1 for overflows
           limit = if (limitRaw == -1) Int.MaxValue else limitRaw
-        } yield QueryNByKey(actAs, tplId, key, limit)
+        } yield QueryNByKey(actAs, tplId, key, limit, env)
       case _ => Left(s"Expected QueryNByKey payload but got $v")
     }
 
-  private def parseAllocPartyV1(v: ExtendedValue): Either[String, AllocParty] =
+  private def parseAllocPartyV1(v: ExtendedValue, env: Env): Either[String, AllocParty] =
     v match {
       case ValueRecord(
             _,
@@ -1197,11 +1236,11 @@ object ScriptF {
         for {
           participantName <- Converter.toOptionalParticipantName(participantName)
           idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
-        } yield AllocParty(idHint, participantName.map(p => (p, List.empty)))
+        } yield AllocParty(idHint, participantName.map(p => (p, List.empty)), env)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 
-  private def parseAllocPartyV2(v: ExtendedValue): Either[String, AllocParty] =
+  private def parseAllocPartyV2(v: ExtendedValue, env: Env): Either[String, AllocParty] =
     v match {
       case ValueRecord(
             _,
@@ -1218,168 +1257,170 @@ object ScriptF {
             case head :: tail => Some((head, tail))
             case Nil => None
           }
-        } yield AllocParty(idHint, allocArg)
+        } yield AllocParty(idHint, allocArg, env)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 
-  private def parseListKnownParties(v: ExtendedValue): Either[String, ListKnownParties] =
+  private def parseListKnownParties(v: ExtendedValue, env: Env): Either[String, ListKnownParties] =
     v match {
       case ValueRecord(_, ImmArray((_, participantName))) =>
         for {
           participantName <- Converter.toOptionalParticipantName(participantName)
-        } yield ListKnownParties(participantName)
+        } yield ListKnownParties(participantName, env)
       case _ => Left(s"Expected ListKnownParties payload but got $v")
     }
 
-  private def parseEmpty[A](result: A)(v: ExtendedValue): Either[String, A] =
+  private def parseEmpty[A](makeResult: Env => A)(v: ExtendedValue, env: Env): Either[String, A] =
     v match {
-      case ValueRecord(_, ImmArray()) => Right(result)
-      case _ => Left(s"Expected ${result.getClass.getSimpleName} payload but got $v")
+      case ValueRecord(_, ImmArray()) => Right(makeResult(env))
+      case _ => Left(s"Expected ${makeResult(env).getClass.getSimpleName} payload but got $v")
     }
 
-  private def parseSetTime(v: ExtendedValue): Either[String, SetTime] =
+  private def parseSetTime(v: ExtendedValue, env: Env): Either[String, SetTime] =
     v match {
       case ValueRecord(_, ImmArray((_, time))) =>
         for {
           time <- Converter.toTimestamp(time)
-        } yield SetTime(time)
+        } yield SetTime(time, env)
       case _ => Left(s"Expected SetTime payload but got $v")
     }
 
-  private def parseSecp256k1Sign(v: ExtendedValue): Either[String, Secp256k1Sign] =
+  private def parseSecp256k1Sign(v: ExtendedValue, env: Env): Either[String, Secp256k1Sign] =
     v match {
       case ValueRecord(_, ImmArray((_, pk), (_, msg))) =>
         for {
           pk <- toText(pk)
           msg <- toText(msg)
-        } yield Secp256k1Sign(pk, msg)
+        } yield Secp256k1Sign(pk, msg, env)
       case _ => Left(s"Expected Secp256k1Sign payload but got $v")
     }
 
   private def parseSecp256k1WithEcdsaSign(
-      v: ExtendedValue
+      v: ExtendedValue,
+      env: Env,
   ): Either[String, Secp256k1WithEcdsaSign] =
     v match {
       case ValueRecord(_, ImmArray((_, pk), (_, msg))) =>
         for {
           pk <- toText(pk)
           msg <- toText(msg)
-        } yield Secp256k1WithEcdsaSign(pk, msg)
+        } yield Secp256k1WithEcdsaSign(pk, msg, env)
       case _ => Left(s"Expected Secp256k1WithEcdsaSign payload but got $v")
     }
 
-  private def parseSleep(v: ExtendedValue): Either[String, Sleep] =
+  private def parseSleep(v: ExtendedValue, env: Env): Either[String, Sleep] =
     v match {
       case ValueRecord(_, ImmArray((_, ValueRecord(_, ImmArray((_, ValueInt64(micros))))))) =>
-        Right(Sleep(micros))
+        Right(Sleep(micros, env))
       case _ => Left(s"Expected Sleep payload but got $v")
     }
 
-  private def parseCatch(v: ExtendedValue): Either[String, Catch] =
+  private def parseCatch(v: ExtendedValue, env: Env): Either[String, Catch] =
     v match {
       // Catch includes a dummy field for old style typeclass LF encoding, we ignore it here.
-      case ValueRecord(_, ImmArray((_, act: ExtendedValueClosureBlob), _)) => Right(Catch(act))
+      case ValueRecord(_, ImmArray((_, act: ExtendedValueClosureBlob), _)) => Right(Catch(act, env))
       case _ => Left(s"Expected Catch payload but got $v")
     }
 
-  private def parseThrow(v: ExtendedValue): Either[String, Throw] =
+  private def parseThrow(v: ExtendedValue, env: Env): Either[String, Throw] =
     v match {
-      case ValueRecord(_, ImmArray((_, exc: ExtendedValueAny))) => Right(Throw(exc))
+      case ValueRecord(_, ImmArray((_, exc: ExtendedValueAny))) => Right(Throw(exc, env))
       case _ => Left(s"Expected Throw payload but got $v")
     }
 
-  private def parseTryFailureStatus(v: ExtendedValue): Either[String, TryFailureStatus] =
+  private def parseTryFailureStatus(v: ExtendedValue, env: Env): Either[String, TryFailureStatus] =
     v match {
       // TryFailureStatus includes a dummy field for old style typeclass LF encoding, we ignore it here.
       case ValueRecord(_, ImmArray((_, act: ExtendedValueClosureBlob), _)) =>
-        Right(TryFailureStatus(act))
+        Right(TryFailureStatus(act, env))
       case _ => Left(s"Expected TryFailureStatus payload but got $v")
     }
 
-  private def parseValidateUserId(v: ExtendedValue): Either[String, ValidateUserId] =
+  private def parseValidateUserId(v: ExtendedValue, env: Env): Either[String, ValidateUserId] =
     v match {
       case ValueRecord(_, ImmArray((_, userName))) =>
         for {
           userName <- toText(userName)
-        } yield ValidateUserId(userName)
+        } yield ValidateUserId(userName, env)
       case _ => Left(s"Expected ValidateUserId payload but got $v")
     }
 
-  private def parseCreateUser(v: ExtendedValue): Either[String, CreateUser] =
+  private def parseCreateUser(v: ExtendedValue, env: Env): Either[String, CreateUser] =
     v match {
       case ValueRecord(_, ImmArray((_, user), (_, rights), (_, participant))) =>
         for {
           user <- Converter.toUser(user)
           participant <- Converter.toOptionalParticipantName(participant)
           rights <- Converter.toList(rights, Converter.toUserRight)
-        } yield CreateUser(user, rights, participant)
+        } yield CreateUser(user, rights, participant, env)
       case _ => Left(s"Exected CreateUser payload but got $v")
     }
 
-  private def parseGetUser(v: ExtendedValue): Either[String, GetUser] =
+  private def parseGetUser(v: ExtendedValue, env: Env): Either[String, GetUser] =
     v match {
       case ValueRecord(_, ImmArray((_, userId), (_, participant))) =>
         for {
           userId <- Converter.toUserId(userId)
           participant <- Converter.toOptionalParticipantName(participant)
-        } yield GetUser(userId, participant)
+        } yield GetUser(userId, participant, env)
       case _ => Left(s"Expected GetUser payload but got $v")
     }
 
-  private def parseDeleteUser(v: ExtendedValue): Either[String, DeleteUser] =
+  private def parseDeleteUser(v: ExtendedValue, env: Env): Either[String, DeleteUser] =
     v match {
       case ValueRecord(_, ImmArray((_, userId), (_, participant))) =>
         for {
           userId <- Converter.toUserId(userId)
           participant <- Converter.toOptionalParticipantName(participant)
-        } yield DeleteUser(userId, participant)
+        } yield DeleteUser(userId, participant, env)
       case _ => Left(s"Expected DeleteUser payload but got $v")
     }
 
-  private def parseListAllUsers(v: ExtendedValue): Either[String, ListAllUsers] =
+  private def parseListAllUsers(v: ExtendedValue, env: Env): Either[String, ListAllUsers] =
     v match {
       case ValueRecord(_, ImmArray((_, participant))) =>
         for {
           participant <- Converter.toOptionalParticipantName(participant)
-        } yield ListAllUsers(participant)
+        } yield ListAllUsers(participant, env)
       case _ => Left(s"Expected ListAllUsers payload but got $v")
     }
 
-  private def parseGrantUserRights(v: ExtendedValue): Either[String, GrantUserRights] =
+  private def parseGrantUserRights(v: ExtendedValue, env: Env): Either[String, GrantUserRights] =
     v match {
       case ValueRecord(_, ImmArray((_, userId), (_, rights), (_, participant))) =>
         for {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
           participant <- Converter.toOptionalParticipantName(participant)
-        } yield GrantUserRights(userId, rights, participant)
+        } yield GrantUserRights(userId, rights, participant, env)
       case _ => Left(s"Expected GrantUserRights payload but got $v")
     }
 
-  private def parseRevokeUserRights(v: ExtendedValue): Either[String, RevokeUserRights] =
+  private def parseRevokeUserRights(v: ExtendedValue, env: Env): Either[String, RevokeUserRights] =
     v match {
       case ValueRecord(_, ImmArray((_, userId), (_, rights), (_, participant))) =>
         for {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
           participant <- Converter.toOptionalParticipantName(participant)
-        } yield RevokeUserRights(userId, rights, participant)
+        } yield RevokeUserRights(userId, rights, participant, env)
       case _ => Left(s"Expected RevokeUserRights payload but got $v")
     }
 
-  private def parseListUserRights(v: ExtendedValue): Either[String, ListUserRights] =
+  private def parseListUserRights(v: ExtendedValue, env: Env): Either[String, ListUserRights] =
     v match {
       case ValueRecord(_, ImmArray((_, userId), (_, participant))) =>
         for {
           userId <- Converter.toUserId(userId)
           participant <- Converter.toOptionalParticipantName(participant)
-        } yield ListUserRights(userId, participant)
+        } yield ListUserRights(userId, participant, env)
       case _ => Left(s"Expected ListUserRights payload but got $v")
     }
 
   private def parseChangePackages[A](
       v: ExtendedValue,
-      wrap: (List[ScriptLedgerClient.ReadablePackageId], Option[Participant]) => A,
+      env: Env,
+      wrap: (List[ScriptLedgerClient.ReadablePackageId], Option[Participant], Env) => A,
   ): Either[String, A] = {
     def toReadablePackageId(
         s: ExtendedValue
@@ -1397,18 +1438,18 @@ object ScriptF {
         for {
           packageIds <- Converter.toList(packages, toReadablePackageId)
           participant <- Converter.toOptionalParticipantName(participant)
-        } yield wrap(packageIds, participant)
+        } yield wrap(packageIds, participant, env)
       case _ => Left(s"Expected (Vet|Unvet)Packages payload but got $v")
     }
   }
 
-  private def parseTryCommands(v: ExtendedValue): Either[String, TryCommands] =
+  private def parseTryCommands(v: ExtendedValue, env: Env): Either[String, TryCommands] =
     v match {
-      case ValueRecord(_, ImmArray((_, act))) => Right(TryCommands(act))
+      case ValueRecord(_, ImmArray((_, act))) => Right(TryCommands(act, env))
       case _ => Left(s"Expected TryCommands payload but got $v")
     }
 
-  private def parseFailWithStatus(v: ExtendedValue): Either[String, FailWithStatus] =
+  private def parseFailWithStatus(v: ExtendedValue, env: Env): Either[String, FailWithStatus] =
     v match {
       case ValueRecord(
             _,
@@ -1433,7 +1474,7 @@ object ScriptF {
             case v => Left(s"Expected (Text, Text) but got $v")
           }
           .map(meta =>
-            FailWithStatus(IE.FailureStatus(errorId, categoryId.toInt, message, Map.from(meta)))
+            FailWithStatus(IE.FailureStatus(errorId, categoryId.toInt, message, Map.from(meta)), env)
           )
       case _ => Left(s"Expected FailWithStatus payload but got $v")
     }
@@ -1443,44 +1484,51 @@ object ScriptF {
       version: Long,
       v: ExtendedValue,
       @unused knownPackages: KnownPackages,
-      env: Env,
+      envWithoutPkgId: Env,
   ): Either[String, Cmd] = {
+    // When using Stable daml-script, this is the first place we find the package-id of the non-stable script wrapper package
+    // We use the question data-types (which are always unstable records) to pull the id.
+    val env = envWithoutPkgId.copy(scriptIds = envWithoutPkgId.scriptIds.withUnstablePackageId(v match {
+      case ValueRecord(Some(name), _) => name.packageId
+      case _ => throw new IllegalArgumentException(s"Expected record with package id but got $v")
+    }))
     (commandName, version) match {
-      case ("Submit", 1) => parseSubmit(v, knownPackages, env, legacyAnyContractKey = true)
-      case ("Submit", 2) => parseSubmit(v, knownPackages, env)
-      case ("QueryACS", 1) => parseQueryACS(v)
-      case ("QueryContractId", 1) => parseQueryContractId(v)
-      case ("QueryInterface", 1) => parseQueryInterface(v)
-      case ("QueryInterfaceContractId", 1) => parseQueryInterfaceContractId(v)
+      case ("Submit", 1) => parseSubmit(v, env, knownPackages, legacyAnyContractKey = true, legacySubmitError = true)
+      case ("Submit", 2) => parseSubmit(v, env, knownPackages, legacySubmitError = true)
+      case ("Submit", 3) => parseSubmit(v, env, knownPackages)
+      case ("QueryACS", 1) => parseQueryACS(v, env)
+      case ("QueryContractId", 1) => parseQueryContractId(v, env)
+      case ("QueryInterface", 1) => parseQueryInterface(v, env)
+      case ("QueryInterfaceContractId", 1) => parseQueryInterfaceContractId(v, env)
       case ("QueryByKey", 1) => parseQueryByKey(v, env, legacyAnyContractKey = true)
       case ("QueryByKey", 2) => parseQueryByKey(v, env)
       case ("QueryNByKey", 1) => parseQueryNByKey(v, env)
-      case ("AllocateParty", 1) => parseAllocPartyV1(v)
-      case ("AllocateParty", 2) => parseAllocPartyV2(v)
-      case ("ListKnownParties", 1) => parseListKnownParties(v)
-      case ("GetTime", 1) => parseEmpty(GetTime())(v)
-      case ("SetTime", 1) => parseSetTime(v)
-      case ("Sleep", 1) => parseSleep(v)
-      case ("Secp256k1Sign", 1) => parseSecp256k1Sign(v)
-      case ("Secp256k1WithEcdsaSign", 1) => parseSecp256k1WithEcdsaSign(v)
-      case ("Secp256k1GenerateKeyPair", 1) => parseEmpty(Secp256k1GenerateKeyPair())(v)
-      case ("Catch", 1) => parseCatch(v)
-      case ("Throw", 1) => parseThrow(v)
-      case ("ValidateUserId", 1) => parseValidateUserId(v)
-      case ("CreateUser", 1) => parseCreateUser(v)
-      case ("GetUser", 1) => parseGetUser(v)
-      case ("DeleteUser", 1) => parseDeleteUser(v)
-      case ("ListAllUsers", 1) => parseListAllUsers(v)
-      case ("GrantUserRights", 1) => parseGrantUserRights(v)
-      case ("RevokeUserRights", 1) => parseRevokeUserRights(v)
-      case ("ListUserRights", 1) => parseListUserRights(v)
-      case ("VetPackages", 1) => parseChangePackages(v, VetPackages)
-      case ("UnvetPackages", 1) => parseChangePackages(v, UnvetPackages)
-      case ("ListVettedPackages", 1) => parseEmpty(ListVettedPackages())(v)
-      case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
-      case ("TryCommands", 1) => parseTryCommands(v)
-      case ("FailWithStatus", 1) => parseFailWithStatus(v)
-      case ("TryFailureStatus", 1) => parseTryFailureStatus(v)
+      case ("AllocateParty", 1) => parseAllocPartyV1(v, env)
+      case ("AllocateParty", 2) => parseAllocPartyV2(v, env)
+      case ("ListKnownParties", 1) => parseListKnownParties(v, env)
+      case ("GetTime", 1) => parseEmpty(GetTime)(v, env)
+      case ("SetTime", 1) => parseSetTime(v, env)
+      case ("Sleep", 1) => parseSleep(v, env)
+      case ("Secp256k1Sign", 1) => parseSecp256k1Sign(v, env)
+      case ("Secp256k1WithEcdsaSign", 1) => parseSecp256k1WithEcdsaSign(v, env)
+      case ("Secp256k1GenerateKeyPair", 1) => parseEmpty(Secp256k1GenerateKeyPair)(v, env)
+      case ("Catch", 1) => parseCatch(v, env)
+      case ("Throw", 1) => parseThrow(v, env)
+      case ("ValidateUserId", 1) => parseValidateUserId(v, env)
+      case ("CreateUser", 1) => parseCreateUser(v, env)
+      case ("GetUser", 1) => parseGetUser(v, env)
+      case ("DeleteUser", 1) => parseDeleteUser(v, env)
+      case ("ListAllUsers", 1) => parseListAllUsers(v, env)
+      case ("GrantUserRights", 1) => parseGrantUserRights(v, env)
+      case ("RevokeUserRights", 1) => parseRevokeUserRights(v, env)
+      case ("ListUserRights", 1) => parseListUserRights(v, env)
+      case ("VetPackages", 1) => parseChangePackages(v, env, VetPackages)
+      case ("UnvetPackages", 1) => parseChangePackages(v, env, UnvetPackages)
+      case ("ListVettedPackages", 1) => parseEmpty(ListVettedPackages)(v, env)
+      case ("ListAllPackages", 1) => parseEmpty(ListAllPackages)(v, env)
+      case ("TryCommands", 1) => parseTryCommands(v, env)
+      case ("FailWithStatus", 1) => parseFailWithStatus(v, env)
+      case ("TryFailureStatus", 1) => parseTryFailureStatus(v, env)
       case _ => Left(s"Unknown command $commandName - Version $version")
     }
   }

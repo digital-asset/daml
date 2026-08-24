@@ -12,7 +12,7 @@ import Data.Text qualified as T
 import System.Environment (getArgs)
 
 import DA.Daml.Script.StablePackageBuilders
-import DA.Daml.LF.Ast
+import DA.Daml.LF.Ast hiding (packageName)
 import DA.Daml.StablePackages (stablePackageByModuleName)
 import DA.Daml.UtilLF
 
@@ -39,6 +39,7 @@ allStablePackagesList =
   , commands
   , disclosure
   , secp256k1KeyPair
+  , packageName
   , partyDetails
   , partyIdHint
   , participantName
@@ -68,13 +69,14 @@ allStablePackagesList =
   ]
 
 freeModule, lowLevelModule, utilModule, commandsModule, cryptoTextModule
-  , partyManagementModule, submitModule, submitErrorModule, testingModule
-  , transactionTreeModule, userManagementModule :: T.Text
+  , packagesModule, partyManagementModule, submitModule, submitErrorModule
+  , testingModule, transactionTreeModule, userManagementModule :: T.Text
 freeModule = "Daml.Script.Internal.Free.Stable"
 lowLevelModule = "Daml.Script.Internal.LowLevel.Stable"
 utilModule = "Daml.Script.Internal.Questions.Util.Stable"
 commandsModule = "Daml.Script.Internal.Questions.Commands.Stable"
 cryptoTextModule = "Daml.Script.Internal.Questions.Crypto.Text.Stable"
+packagesModule = "Daml.Script.Internal.Questions.Packages.Stable"
 partyManagementModule = "Daml.Script.Internal.Questions.PartyManagement.Stable"
 submitModule = "Daml.Script.Internal.Questions.Submit.Stable"
 submitErrorModule = "Daml.Script.Internal.Questions.Submit.Error.Stable"
@@ -315,6 +317,19 @@ secp256k1KeyPair = makePackage defaultPackageDef
       , fields =
           [ ("privateKey", TText)
           , ("publicKey", TText)
+          ]
+      }
+  }
+
+packageName :: Package
+packageName = makePackage defaultPackageDef
+  { packageDefModuleName = packagesModule <> ".PackageName"
+  , packageDefTypes = pure RecordDef
+      { name = "PackageName"
+      , typeParams = []
+      , fields =
+          [ ("name", TText)
+          , ("version", TText)
           ]
       }
   }

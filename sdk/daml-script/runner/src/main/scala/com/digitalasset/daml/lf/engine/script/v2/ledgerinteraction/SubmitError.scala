@@ -7,7 +7,7 @@ package ledgerinteraction
 
 import cats.data.NonEmptyList
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
-import com.digitalasset.daml.lf.data.{FrontStack, SortedLookupList, Time}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, SortedLookupList, Time, Utf8}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.Result.lookupHandler
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
@@ -37,26 +37,82 @@ object SubmitError {
   final case class SubmitErrorConverters(env: ScriptF.Env) {
     def damlScriptErrorIdentifier(s: String) =
       env.scriptIds.damlScriptModule("Daml.Script.Internal.Questions.Submit.Error", s)
+    def damlScriptErrorIdentifierUnstable(s: String) =
+      env.scriptIds.damlScriptModuleNonStable("Daml.Script.Internal.Questions.Submit.Error", s)
     def damlScriptVariant(
         datatypeName: String,
         variantName: String,
         fields: (String, ExtendedValue)*
-    ) = {
-      ValueVariant(
-        Some(damlScriptErrorIdentifier(datatypeName)),
-        Name.assertFromString(variantName),
-        record(
-          damlScriptErrorIdentifier(datatypeName + "." + variantName),
-          fields: _*
-        ),
-      )
-    }
+    ) =
+      env.scriptIds.scriptEra match {
+        case ScriptIds.ScriptEra.Legacy => throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
+        case ScriptIds.ScriptEra.NonStable(_) =>
+          ValueVariant(
+            Some(damlScriptErrorIdentifier(datatypeName)),
+            Name.assertFromString(variantName),
+            record(
+              damlScriptErrorIdentifier(datatypeName + "." + variantName),
+              fields: _*
+            ),
+          )
+        case ScriptIds.ScriptEra.Stable(_, _) =>
+          // In Stable, the "Variant" is now a wrapper around a "TaggedRecord", which holds the fields in a
+          // Map from Text to "LedgerValue" (i.e. the original type, made opaque)
+          record(
+            damlScriptErrorIdentifier("Any" + datatypeName),
+            (
+              "unpack",
+              record(
+                damlScriptErrorIdentifier("TaggedRecord"),
+                (
+                  "tgTag",
+                  ValueText(variantName),
+                ),
+                (
+                  "tgData",
+                  ValueGenMap(ImmArray.from(fields.sortBy(_._1)(Utf8.Ordering).map { case (k, v) => ValueText(k) -> v }))
+                ),
+              )
+            )
+          )
+      }
+    // For types that are unstable regardless of script era
+    def damlScriptVariantUnstable(
+        datatypeName: String,
+        variantName: String,
+        fields: (String, ExtendedValue)*
+    ) =
+      env.scriptIds.scriptEra match {
+        case ScriptIds.ScriptEra.Legacy => throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
+        case ScriptIds.ScriptEra.NonStable(_) | ScriptIds.ScriptEra.Stable(_, _) =>
+          ValueVariant(
+            Some(damlScriptErrorIdentifierUnstable(datatypeName)),
+            Name.assertFromString(variantName),
+            record(
+              damlScriptErrorIdentifierUnstable(datatypeName + "." + variantName),
+              fields: _*
+            ),
+          )
+      }
+
+
+    // For stable, this should now lookup VariantName<>dataTypeName as a top level data def
     def doesConstructorExist(datatypeName: String, variantName: String): Boolean =
-      env
-        .doesVariantConstructorExist(
-          damlScriptErrorIdentifier(datatypeName),
-          Name.assertFromString(variantName),
-        )
+      env.scriptIds.scriptEra match {
+        case ScriptIds.ScriptEra.Legacy => throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
+        case ScriptIds.ScriptEra.NonStable(_) =>
+          env
+            .doesVariantConstructorExist(
+              damlScriptErrorIdentifier(datatypeName),
+              Name.assertFromString(variantName),
+            )
+        // In stable, we lookup the data assuming form `VariantName <> DataTypeName`, i.e.
+        // `ContractNotFoundSubmitError` in the non-stable daml-script package
+        case ScriptIds.ScriptEra.Stable(_, _) =>
+          env.doesDataTypeExist(
+            damlScriptErrorIdentifierUnstable(variantName + datatypeName)
+          )
+      }
 
     def damlScriptError(name: String, fields: (String, ExtendedValue)*) =
       // Handling for mismatching runner and daml-script library versions, by constructing errors by name, not by rank
@@ -156,7 +212,7 @@ object SubmitError {
     object AdditionalInfo {
       final case class NotFound() extends AdditionalInfo {
         override def toValue(env: Env) =
-          SubmitErrorConverters(env).damlScriptVariant(
+          SubmitErrorConverters(env).damlScriptVariantUnstable(
             "ContractNotFoundAdditionalInfo",
             "NotFound",
           )
@@ -167,7 +223,7 @@ object SubmitError {
           tid: Identifier,
       ) extends AdditionalInfo {
         override def toValue(env: Env) =
-          SubmitErrorConverters(env).damlScriptVariant(
+          SubmitErrorConverters(env).damlScriptVariantUnstable(
             "ContractNotFoundAdditionalInfo",
             "NotActive",
             (
@@ -183,7 +239,7 @@ object SubmitError {
           effectiveAt: Time.Timestamp,
       ) extends AdditionalInfo {
         override def toValue(env: Env) =
-          SubmitErrorConverters(env).damlScriptVariant(
+          SubmitErrorConverters(env).damlScriptVariantUnstable(
             "ContractNotFoundAdditionalInfo",
             "NotEffective",
             (
@@ -205,7 +261,7 @@ object SubmitError {
           observers: Set[Party],
       ) extends AdditionalInfo {
         override def toValue(env: Env) =
-          SubmitErrorConverters(env).damlScriptVariant(
+          SubmitErrorConverters(env).damlScriptVariantUnstable(
             "ContractNotFoundAdditionalInfo",
             "NotVisible",
             (

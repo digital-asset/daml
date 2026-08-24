@@ -3,9 +3,13 @@
 
 -- TODO[SW]: Add some kind of warning here saying this _only_ works for IdeLedgerClient
 
-module Daml.Script.Internal.Questions.Packages where
+module Daml.Script.Internal.Questions.Packages
+  ( module Daml.Script.Internal.Questions.Packages
+  , module Stable
+  ) where
 
 import Daml.Script.Internal.LowLevel
+import Daml.Script.Internal.Questions.Packages.Stable.PackageName as Stable
 import Daml.Script.Internal.Questions.PartyManagement (ParticipantName (..))
 import DA.Stack
 
@@ -33,13 +37,8 @@ data ListAllPackages = ListAllPackages {}
 -- | HIDE
 instance IsQuestion ListAllPackages [PackageName] where command = "ListAllPackages"
 
--- | MOVE Daml.Script.Internal
--- Used for vetting and unvetting packages
-data PackageName = PackageName
-  with
-    name : Text
-    version : Text
-  deriving (Eq, Ord)
+deriving instance Eq PackageName
+deriving instance Ord PackageName
 
 -- | MOVE Daml.Script.Internal
 instance Show PackageName where

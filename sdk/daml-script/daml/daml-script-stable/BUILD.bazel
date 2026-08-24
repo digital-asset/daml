@@ -3,6 +3,7 @@
 
 load("@build_environment//:configuration.bzl", "ghc_version")
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+load("//bazel_tools:scala.bzl", "da_scala_library")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS")
 load("//rules_daml:daml.bzl", "daml_compile")
 load(":stable-packages.bzl", "SCRIPT_STABLE_PACKAGES")
@@ -88,4 +89,33 @@ filegroup(
     name = "daml-script-stable-source",
     srcs = glob(["**/*.daml"]),
     visibility = ["//daml-script/daml/daml-script:__pkg__"],
+)
+
+genrule(
+    name = "stable-packages-scala",
+    srcs = [],
+    outs = ["ScriptStablePackages.scala"],
+    cmd = """
+        cat > $@ <<EOF
+package com.digitalasset.daml.lf.engine.script
+
+object ScriptStablePackages {{
+  val packages: Map[String, String] = Map(
+    {packages}
+  )
+}}
+
+EOF
+    """.format(
+        packages = ",\n    ".join([
+          '"{pkgName}" -> "{pkgId}"'.format(pkgName = pkgName, pkgId = pkgId)
+          for pkgName, pkgId in SCRIPT_STABLE_PACKAGES.items()
+        ]),
+    ),
+)
+
+da_scala_library(
+    name = "stable-packages-scala-lib",
+    srcs = [":stable-packages-scala"],
+    visibility = ["//visibility:public"],
 )

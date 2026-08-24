@@ -120,7 +120,7 @@ private[lf] class Runner(
         )
       result <-
         remapQ(freeExpr).runF[ScriptF.Cmd, ExtendedValue](
-          _.executeWithRunner(env, this, convertLegacyExceptions)
+          _.executeWithRunner(this, convertLegacyExceptions)
             .map(Result.successful)
             .recover { case err: RuntimeException => Result.failed(err) }
         )
@@ -160,7 +160,7 @@ private[lf] class Runner(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Future[ExtendedValue], Option[IdeLedgerContext]) =
-    if (unversionedRunner.script.scriptIds.isLegacy)
+    if (unversionedRunner.script.scriptIds.scriptEra == ScriptIds.ScriptEra.Legacy)
       (
         Future.failed(
           new ConverterException(

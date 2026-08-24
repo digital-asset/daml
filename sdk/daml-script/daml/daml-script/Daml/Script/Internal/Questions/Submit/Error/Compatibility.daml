@@ -15,55 +15,9 @@
 -- This allows for backwards compatibility with code that was written against the old `SubmitError` type, 
 -- which did have a constructor named `UnsupportedContractId`, but was not cross-sdk compatible.
 module Daml.Script.Internal.Questions.Submit.Error.Compatibility
-  ( SubmitError
-  , UpgradeErrorType
-  , CryptoErrorType
-  , ExternalCallErrorType
-  , DevErrorType
-  , pattern UnsupportedContractId
-  , pattern ContractNotFound
-  , pattern ContractKeyNotFound
-  , pattern UnresolvedPackageName
-  , pattern AuthorizationError
-  , pattern ContractHashingError
-  , pattern DisclosedContractKeyHashingError
-  , pattern DuplicateContractKey
-  , pattern InconsistentContractKey
-  , pattern UnhandledException
-  , pattern UserError
-  , pattern TemplatePreconditionViolated
-  , pattern CreateEmptyContractKeyMaintainers
-  , pattern FetchEmptyContractKeyMaintainers
-  , pattern WronglyTypedContract
-  , pattern ContractDoesNotImplementInterface
-  , pattern ContractDoesNotImplementRequiringInterface
-  , pattern NonComparableValues
-  , pattern ContractIdInContractKey
-  , pattern ContractIdComparability
-  , pattern ValueNesting
-  , pattern LocalVerdictLockedContracts
-  , pattern LocalVerdictLockedKeys
-  , pattern UpgradeError
-  , pattern FailureStatusError
-  , pattern CryptoError
-  , pattern ExternalCallError
-  , pattern EffectfulRollbackError
-  , pattern DevError
-  , pattern UnknownError
-  , pattern TruncatedError
-  , pattern ValidationFailed
-  , pattern TranslationFailed
-  , pattern AuthenticationFailed
-  , pattern MalformedByteEncoding
-  , pattern MalformedKey
-  , pattern MalformedSignature
-  , pattern PreparationFailed
-  , pattern ExecutionFailed
-  , pattern InvalidOutput
-  , pattern ChoiceGuardFailed
-  , pattern UnknownNewFeature
+  ( module Daml.Script.Internal.Questions.Submit.Error.Compatibility
+  , module Patterns
   ) where
--- We use explicit pattern exports to only export the pattern synonyms, and not the record accessors they generate
 
 import qualified DA.Exception
 import DA.Fail
@@ -72,15 +26,15 @@ import DA.NonEmpty
 import DA.Text
 import Daml.Script.Internal.Questions.Commands (AnyContractKey)
 import Daml.Script.Internal.Questions.Submit.Error
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.AuthenticationFailed (pattern AuthenticationFailed)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.ContractDoesNotImplementInterface (pattern ContractDoesNotImplementInterface)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.ContractDoesNotImplementRequiringInterface (pattern ContractDoesNotImplementRequiringInterface)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.DisclosedContractKeyHashingError (pattern DisclosedContractKeyHashingError)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.InconsistentContractKey (pattern InconsistentContractKey)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.TranslationFailed (pattern TranslationFailed)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.UpgradeError (pattern UpgradeError)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.ValidationFailed (pattern ValidationFailed)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.WronglyTypedContract (pattern WronglyTypedContract)
+import Daml.Script.Internal.Questions.Submit.Error.Compatibility.AuthenticationFailed as Patterns (pattern AuthenticationFailed)
+import Daml.Script.Internal.Questions.Submit.Error.Compatibility.ContractDoesNotImplementInterface as Patterns (pattern ContractDoesNotImplementInterface)
+import Daml.Script.Internal.Questions.Submit.Error.Compatibility.ContractDoesNotImplementRequiringInterface as Patterns (pattern ContractDoesNotImplementRequiringInterface)
+import Daml.Script.Internal.Questions.Submit.Error.Compatibility.DisclosedContractKeyHashingError as Patterns (pattern DisclosedContractKeyHashingError)
+import Daml.Script.Internal.Questions.Submit.Error.Compatibility.InconsistentContractKey as Patterns (pattern InconsistentContractKey)
+import Daml.Script.Internal.Questions.Submit.Error.Compatibility.TranslationFailed as Patterns (pattern TranslationFailed)
+import Daml.Script.Internal.Questions.Submit.Error.Compatibility.UpgradeError as Patterns (pattern UpgradeError)
+import Daml.Script.Internal.Questions.Submit.Error.Compatibility.ValidationFailed as Patterns (pattern ValidationFailed)
+import Daml.Script.Internal.Questions.Submit.Error.Compatibility.WronglyTypedContract as Patterns (pattern WronglyTypedContract)
 import Daml.Script.Internal.Questions.Util (AnyContractId)
 
 type SubmitError = AnySubmitError

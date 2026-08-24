@@ -85,6 +85,7 @@ da_scala_library(
     deps = [
         "//daml-script/auth-utils",
         "//daml-script/converter",
+        "//daml-script/daml/daml-script-stable:stable-packages-scala-lib",
         "//ledger-service/lf-value-json",
         "//timer-utils",
         "@maven//:com_daml_bindings_java",
