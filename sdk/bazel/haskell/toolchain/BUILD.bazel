@@ -87,6 +87,20 @@ toolchain(
 )
 
 toolchain(
+    name = "ghc_darwin_amd64",
+    exec_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+    target_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+    toolchain = ":ghc_impl",
+    toolchain_type = ":ghc_toolchain_type",
+)
+
+toolchain(
     name = "ghc_darwin_arm64",
     exec_compatible_with = [
         "@platforms//os:macos",

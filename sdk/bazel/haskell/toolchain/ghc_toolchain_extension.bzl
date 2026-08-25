@@ -100,6 +100,7 @@ def _ghc_bindist_repo_impl(rctx):
     lockfiles = {
         ("linux", "amd64"): rctx.attr.lockfile_linux_amd64,
         ("linux", "aarch64"): rctx.attr.lockfile_linux_aarch64,
+        ("darwin", "amd64"): rctx.attr.lockfile_darwin_amd64,
         ("darwin", "aarch64"): rctx.attr.lockfile_darwin_aarch64,
     }
     lockfile = lockfiles.get(key)
@@ -149,6 +150,10 @@ _ghc_bindist_repo = repository_rule(
         ),
         "lockfile_linux_aarch64": attr.label(
             default = "//bazel/haskell/ghc:pin/linux_aarch64.lock.json",
+            doc = "Committed per-platform package pin; regenerate with `bazel run //bazel/haskell/ghc:ghc_packages.pin`.",
+        ),
+        "lockfile_darwin_amd64": attr.label(
+            default = "//bazel/haskell/ghc:pin/darwin_amd64.lock.json",
             doc = "Committed per-platform package pin; regenerate with `bazel run //bazel/haskell/ghc:ghc_packages.pin`.",
         ),
         "lockfile_darwin_aarch64": attr.label(
