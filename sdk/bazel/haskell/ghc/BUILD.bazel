@@ -5,6 +5,7 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 exports_files([
     "pin/linux_amd64.lock.json",
     "pin/linux_aarch64.lock.json",
+    "pin/darwin_amd64.lock.json",
     "pin/darwin_aarch64.lock.json",
 ])
 
@@ -70,6 +71,20 @@ toolchain(
 )
 
 toolchain(
+    name = "ghc_darwin_amd64",
+    exec_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+    target_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+    toolchain = ":ghc",
+    toolchain_type = "@rules_haskell//haskell:toolchain",
+)
+
+toolchain(
     name = "ghc_darwin_arm64",
     exec_compatible_with = [
         "@platforms//os:macos",
@@ -91,6 +106,22 @@ config_setting(
     ],
 )
 
+config_setting(
+    name = "darwin_amd64",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:macos",
+    ],
+)
+
+config_setting(
+    name = "darwin_arm64",
+    constraint_values = [
+        "@platforms//cpu:arm64",
+        "@platforms//os:macos",
+    ],
+)
+
 py_test(
     name = "ghc_packages.check",
     timeout = "short",
@@ -98,7 +129,8 @@ py_test(
     args = [
         "--check",
     ] + select({
-        "@platforms//os:macos": ["$(rlocationpath pin/darwin_aarch64.lock.json)"],
+        ":darwin_amd64": ["$(rlocationpath pin/darwin_amd64.lock.json)"],
+        ":darwin_arm64": ["$(rlocationpath pin/darwin_aarch64.lock.json)"],
         ":linux_arm64": ["$(rlocationpath pin/linux_aarch64.lock.json)"],
         "//conditions:default": ["$(rlocationpath pin/linux_amd64.lock.json)"],
     }) + [
@@ -110,7 +142,8 @@ py_test(
         "@ghc_bindist//:bindist_srcs",
         "@ghc_bindist//:bindist_unpacked/configure",
     ] + select({
-        "@platforms//os:macos": ["pin/darwin_aarch64.lock.json"],
+        ":darwin_amd64": ["pin/darwin_amd64.lock.json"],
+        ":darwin_arm64": ["pin/darwin_aarch64.lock.json"],
         ":linux_arm64": ["pin/linux_aarch64.lock.json"],
         "//conditions:default": ["pin/linux_amd64.lock.json"],
     }),

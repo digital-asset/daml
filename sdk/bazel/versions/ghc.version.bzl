@@ -13,6 +13,11 @@ GHC_BINDISTS = {
         "sha256": "cb016344c70a872738a24af60bd15d3b18749087b9905c1b3f1b1549dc01f46d",
         "strip_prefix": "ghc-{}".format(GHC_VERSION),
     },
+    ("darwin", "amd64"): {
+        "triple": "x86_64-apple-darwin",
+        "sha256": "e1fe990eb987f5c4b03e0396f9c228a10da71769c8a2bc8fadbc1d3b10a0f53a",
+        "strip_prefix": "ghc-{}-x86_64-apple-darwin".format(GHC_VERSION),
+    },
     ("darwin", "aarch64"): {
         "triple": "aarch64-apple-darwin",
         "sha256": "b1fcab17fe48326d2ff302d70c12bc4cf4d570dfbbce68ab57c719cfec882b05",
