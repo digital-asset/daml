@@ -14,7 +14,7 @@ def local_canton_repo():
 filegroup(
   name = "bundle.jar",
   srcs = glob([
-    "community/app/target/release/canton-open-source-3.5.0-SNAPSHOT/lib/canton-open-source-3.5.0-SNAPSHOT.jar"
+    "community/app/target/release/canton-open-source-3.6.0-SNAPSHOT/lib/canton-open-source-3.6.0-SNAPSHOT.jar"
   ]),
   visibility = ["//visibility:public"],
 )
