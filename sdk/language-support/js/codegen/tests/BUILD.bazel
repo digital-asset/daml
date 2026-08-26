@@ -89,6 +89,7 @@ daml_compile(
 sh_test(
     name = "build-and-lint-test",
     size = "small",
+    timeout = "moderate",
     srcs = ["build-and-lint.sh"],
     args = [
         "$(JAVA_ROOTPATH)",
