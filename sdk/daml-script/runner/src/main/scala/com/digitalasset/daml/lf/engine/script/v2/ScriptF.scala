@@ -39,7 +39,6 @@ import java.security.spec.PKCS8EncodedKeySpec
 import java.time.Clock
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
-
 import annotation.unused
 
 object ScriptF {
@@ -131,7 +130,7 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[ExtendedValue] = {
-      def makeFailureStatus(name: Identifier, msg: String) =
+      def makeFailureStatus(name: Identifier, msg: String): Future[Nothing] =
         Future.failed(
           free.InterpretationError(
             SError.SErrorDamlException(
@@ -151,7 +150,6 @@ object ScriptF {
       val userNotFound = userManagementDef("UserNotFound")
       (exc, convertLegacyExceptions) match {
         // Pseudo exceptions defined by daml-script need explicit conversion logic, as compiler won't generate them
-        // Can be removed in 3.4, when exceptions will be replaced with FailureStatus (https://github.com/DACH-NY/canton/issues/23881)
         case (
               ExtendedValueAny(
                 _,
@@ -188,8 +186,7 @@ object ScriptF {
           runner
             .runComputation(
               ExtendedValueComputationMode
-                .ByExceptionMessage(name, v),
-              false,
+                .ByExceptionMessage(name, v)
             )
             .transformWith {
               case Success(ValueText(message)) => makeFailureStatus(name, message)

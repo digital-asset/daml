@@ -208,7 +208,6 @@ class IdeLedgerClient(
       compiledPackages = compiledPackages,
       iterationsBetweenInterruptions = 100000,
       logger = machineLogger,
-      convertLegacyExceptions = false,
     ).toOption.map(ev => Converter.castCommandExtendedValue(ev).toOption.get)
 
   private[this] def implements(templateId: TypeConId, interfaceId: TypeConId): Boolean = {
