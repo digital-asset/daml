@@ -168,13 +168,15 @@ for bin in "$GHC_BIN_DIR"/*; do
     fi
 done
 if [ "$(uname)" = "Darwin" ]; then NO_PIE_FLAG=""; else NO_PIE_FLAG="-optl-no-pie"; fi
+if [ "$(uname)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ]; then FUSE_LD_FLAG=""; LD_PATH_FLAG="--ld-path=/usr/bin/ld"; else FUSE_LD_FLAG="-optl-fuse-ld=lld"; LD_PATH_FLAG=""; fi
 cat > "$GHC_WRAPPER_DIR/ghc" <<'WRAPPER_EOF'
 #!/bin/sh
-exec "__GHC_REAL__" -pgmc "__CC__" -pgma "__CC__" -pgml "__CC__" -optl-fuse-ld=lld __NO_PIE__ -optl-L"__GMP_DIR__" "$@"
+exec "__GHC_REAL__" -pgmc "__CC__" -pgma "__CC__" -pgml "__CC__" __FUSE_LD__ __NO_PIE__ -optl-L"__GMP_DIR__" "$@"
 WRAPPER_EOF
 sed -i.bak \
     -e "s|__GHC_REAL__|$EXECROOT/{ghc_path}|" \
     -e "s|__CC__|$GHC_WRAPPER_DIR/cc|g" \
+    -e "s|__FUSE_LD__|$FUSE_LD_FLAG|" \
     -e "s|__NO_PIE__|$NO_PIE_FLAG|" \
     -e "s|__GMP_DIR__|$EXECROOT/{gmp_lib_dir}|" \
     "$GHC_WRAPPER_DIR/ghc"
@@ -190,9 +192,9 @@ rm -f "$CC_RSP.bak"
 
 cat > "$GHC_WRAPPER_DIR/cc" <<'CC_EOF'
 #!/bin/sh
-exec "__CC__" @__CC_RSP__ "$@"
+exec "__CC__" @__CC_RSP__ "$@" __LD_PATH__
 CC_EOF
-sed -i.bak -e "s|__CC__|$CC_PATH|" -e "s|__CC_RSP__|$CC_RSP|" "$GHC_WRAPPER_DIR/cc"
+sed -i.bak -e "s|__CC__|$CC_PATH|" -e "s|__CC_RSP__|$CC_RSP|" -e "s|__LD_PATH__|$LD_PATH_FLAG|" "$GHC_WRAPPER_DIR/cc"
 rm -f "$GHC_WRAPPER_DIR/cc.bak"
 chmod +x "$GHC_WRAPPER_DIR/cc"
 export CC="$GHC_WRAPPER_DIR/cc"
@@ -205,6 +207,7 @@ for pair in ar:llvm-ar ranlib:llvm-ar nm:llvm-nm objdump:llvm-objdump strip:llvm
         ln -s "$LLVM_BIN/$tool" "$GHC_WRAPPER_DIR/$name"
     fi
 done
+if [ "$(uname)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ]; then ln -sf /usr/bin/ld "$GHC_WRAPPER_DIR/ld"; fi
 export PATH="$GHC_WRAPPER_DIR:$PATH"
 
 # Locale
