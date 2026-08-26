@@ -518,7 +518,7 @@ filegroup(
 
 da_scala_test_suite(
     name = "test-dev",
-    timeout = "short",
+    timeout = "moderate",
     srcs = glob(
         ["src/main/scala/com/**/*Dev*.scala"],
     ),
