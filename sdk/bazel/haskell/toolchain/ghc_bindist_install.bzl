@@ -1,6 +1,7 @@
 """GHC bindist `./configure && make install` as a Bazel action (not fetch), so
 the C compiler is the registered hermetic LLVM cc toolchain at action time."""
 
+load("@os_info//:os_info.bzl", "is_darwin_amd64")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
 load("//bazel/native:hermetic_cc.bzl", "TOOLBIN_SNIPPET", "hermetic_cc_flags")
 
@@ -75,6 +76,9 @@ if [ -f "$ROOT/lib/lib/settings" ]; then LIBDIR="$ROOT/lib/lib"; else LIBDIR="$R
         ),
     )
     return launcher
+
+def _without_lld(flags):
+    return " ".join([f for f in flags.split(" ") if f != "-fuse-ld=lld"])
 
 def _sysroot_from_flags(cflags):
     toks = cflags.split(" ")
@@ -164,15 +168,16 @@ sed -e "s/RelocatableBuild = NO/RelocatableBuild = YES/" -i.bak mk/config.mk.in
 rm -f mk/config.mk.in.bak
 
 export PATH="$(dirname "$CLANG"):$(dirname "$MAKE_BIN"):/usr/bin:/bin:$PATH"
-export CC="$CLANG -fuse-ld=lld {cflags} {ldflags}"
+export CC="$CLANG {fuse_ld} {cflags} {ldflags}"
 export CFLAGS="{cflags}"
 export CPPFLAGS="{cflags}"
 export CPP="$CLANG -E {cflags}"
 export LDFLAGS="{ldflags}"
 export LD_LIBRARY_PATH="{ld_library_path}${{LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}}"
 {toolbin}
+{mach_o_ld}
 
-./configure --prefix "$PREFIX"
+./configure --prefix "$PREFIX" {configure_extra}
 JOBS="$( (nproc 2>/dev/null) || sysctl -n hw.ncpu 2>/dev/null || echo 1 )"
 "$MAKE_BIN" -j"$JOBS" install
 
@@ -205,8 +210,11 @@ rm -rf "$TMP"
         configure = configure.path,
         prefix = install_tree.path,
         compiler = cc.compiler,
+        fuse_ld = "" if is_darwin_amd64 else "-fuse-ld=lld",
+        mach_o_ld = 'ln -sf /usr/bin/ld "$TOOLBIN/ld"' if is_darwin_amd64 else "",
+        configure_extra = "--disable-ld-override" if is_darwin_amd64 else "",
         cflags = cc.cflags,
-        ldflags = cc.ldflags,
+        ldflags = _without_lld(cc.ldflags) if is_darwin_amd64 else cc.ldflags,
         ld_library_path = ":".join(runtime_lib_dirs),
         toolbin = TOOLBIN_SNIPPET,
         make = ctx.file.make.path,
