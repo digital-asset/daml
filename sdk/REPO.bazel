@@ -1,0 +1,13 @@
+repo(
+    default_visibility = ["//visibility:public"],
+)
+
+ignore_directories([
+    ".bazel-cache",
+    ".canton",
+    "scratch",
+    "node_modules",
+    "compiler/daml-extension/node_modules",
+    "language-support/js/packages/node_modules",
+    "compatibility",
+])

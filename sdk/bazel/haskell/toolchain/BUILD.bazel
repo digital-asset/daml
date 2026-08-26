@@ -1,0 +1,181 @@
+load("@os_info//:os_info.bzl", "is_darwin", "is_darwin_arm64", "is_linux_arm")
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//bazel/native:configure_make.bzl", "configure_make")
+load("//bazel/versions:ghc.version.bzl", "GHC_LLVM_BACKEND", "GHC_VERSION")
+load(":defs.bzl", "ghc_smoke", "ghc_toolchain")
+load(":ghc_bindist_install.bzl", "ghc_bindist_install")
+
+_TINFO_SONAME = "libtinfo.so.6"
+
+_AUTOTOOLS_TRIPLES = [
+    "--build=aarch64-unknown-linux-gnu",
+    "--host=aarch64-pc-linux-gnu",
+] if is_linux_arm else [
+    "--build=x86_64-unknown-linux-gnu",
+    "--host=x86_64-pc-linux-gnu",
+]
+
+# The deb10 bindist's prebuilt .so's expect libtinfo.so.6 symbols under version
+# node "NCURSES6_TINFO_5.0.19991023" (Debian's ncurses6 tag). Without it ld.so
+# still resolves symbols by plain name, but warns on stderr -- which broke
+# damlc's tests (they assert ghc-pkg's stderr is empty).
+_TINFO_SYMBOL_MAP = "files/libtinfo6.map"
+
+_HAS_GHC_LLVM_BACKEND = GHC_LLVM_BACKEND and (is_darwin_arm64 or is_linux_arm)
+
+ghc_bindist_install(
+    name = "ghc_install",
+    srcs = "@ghc_bindist//:bindist_srcs",
+    bz2 = None if is_darwin else "@bzip2//:libs",
+    configure = "@ghc_bindist//:bindist_unpacked/configure",
+    gmp = None if is_darwin else "@gmp//:libs",
+    libz = None if is_darwin else "@libz//:libs",
+    llvm_backend = "@ghc_llvm_backend//:backend" if _HAS_GHC_LLVM_BACKEND else None,
+    make = "@make//:make",
+    numa = None if is_darwin else ":numa_libs",
+    tinfo = None if is_darwin else ":" + _TINFO_SONAME,
+)
+
+filegroup(
+    name = "install_tree",
+    srcs = [":ghc_install"],
+    output_group = "install_tree",
+)
+
+genrule(
+    name = "ghc_pkg_bin",
+    srcs = [":install_tree"],
+    outs = ["ghc-pkg"],
+    cmd = 'cp -L "$(location :install_tree)/lib/bin/ghc-pkg" "$@"',
+    executable = True,
+)
+
+toolchain_type(name = "ghc_toolchain_type")
+
+ghc_toolchain(
+    name = "ghc_impl",
+    install = ":ghc_install",
+    version = GHC_VERSION,
+)
+
+toolchain(
+    name = "ghc_linux_amd64",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    toolchain = ":ghc_impl",
+    toolchain_type = ":ghc_toolchain_type",
+)
+
+toolchain(
+    name = "ghc_linux_arm64",
+    exec_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:arm64",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
+        "@platforms//cpu:arm64",
+    ],
+    toolchain = ":ghc_impl",
+    toolchain_type = ":ghc_toolchain_type",
+)
+
+toolchain(
+    name = "ghc_darwin_amd64",
+    exec_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+    target_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+    toolchain = ":ghc_impl",
+    toolchain_type = ":ghc_toolchain_type",
+)
+
+toolchain(
+    name = "ghc_darwin_arm64",
+    exec_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:arm64",
+    ],
+    target_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:arm64",
+    ],
+    toolchain = ":ghc_impl",
+    toolchain_type = ":ghc_toolchain_type",
+)
+
+ghc_smoke(name = "smoke")
+
+configure_make(
+    name = "tinfo",
+    srcs = "@ncurses//:srcs",
+    outs = [
+        "libtinfo.so",
+        _TINFO_SONAME,
+    ],
+    configure = "@ncurses//:configure",
+    configure_flags = _AUTOTOOLS_TRIPLES + [
+        "--with-shared",
+        "--with-termlib",
+        "--without-debug",
+        "--without-ada",
+        "--without-cxx-binding",
+        "--without-manpages",
+        "--without-tests",
+        "cf_cv_gcc_inline=no",
+    ],
+    extra_cflags = ["-Wno-implicit-function-declaration"],
+    install_libdir = "lib",
+    make = "@make//:make",
+    target_compatible_with = ["@platforms//os:linux"],
+    version_script = _TINFO_SYMBOL_MAP,
+)
+
+configure_make(
+    name = "numa",
+    srcs = "@numactl//:srcs",
+    outs = [
+        "libnuma.so",
+        "libnuma.so.1",
+    ],
+    configure = "@numactl//:configure",
+    configure_flags = _AUTOTOOLS_TRIPLES + ["--disable-static"],
+    install_libdir = "lib",
+    install_targets = ["install-libLTLIBRARIES"],
+    link_flags_in_cc = True,
+    make = "@make//:make",
+    make_targets = ["libnuma.la"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+filegroup(
+    name = "numa_libs",
+    srcs = [
+        ":libnuma.so",
+        ":libnuma.so.1",
+    ],
+)
+
+cc_library(
+    name = "tinfo_cc_lib",
+    srcs = [] if is_darwin else [":" + _TINFO_SONAME],
+    linkopts = ["-lncurses"] if is_darwin else [],
+)
+
+filegroup(
+    name = "tinfo_libs",
+    srcs = [] if is_darwin else [
+        ":libtinfo.so",
+        ":" + _TINFO_SONAME,
+    ],
+)
