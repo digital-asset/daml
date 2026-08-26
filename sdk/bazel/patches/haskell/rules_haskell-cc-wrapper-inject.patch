@@ -19,7 +19,7 @@ diff --git a/haskell/private/cc_wrapper.bzl b/haskell/private/cc_wrapper.bzl
  def _cc_wrapper_impl(ctx):
      cc_toolchain = find_cc_toolchain(ctx)
      feature_configuration = cc_common.configure_features(
-@@ -51,6 +57,28 @@
+@@ -51,6 +57,30 @@
          feature_configuration = feature_configuration,
          action_name = ACTION_NAMES.cpp_link_static_library,
      )
@@ -44,11 +44,13 @@ diff --git a/haskell/private/cc_wrapper.bzl b/haskell/private/cc_wrapper.bzl
 +        action_name = ACTION_NAMES.cpp_link_executable,
 +        variables = link_variables,
 +    )
++    if cc_toolchain.cpu == "darwin_x86_64":
++        linker_flags = [flag for flag in linker_flags if flag != "-fuse-ld=lld"]
 +
      cc_wrapper = ctx.actions.declare_file(ctx.label.name)
      ctx.actions.expand_template(
          template = ctx.file.template,
-@@ -62,6 +90,8 @@
+@@ -62,6 +92,8 @@
              "{:workspace:}": ctx.workspace_name,
              "{:platform:}": ctx.attr.platform,
              "{:bindir:}": paths.dirname(ar),
