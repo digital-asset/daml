@@ -249,7 +249,7 @@ encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . go
       SelfPackageId ->
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
       ImportedPackageId p@(PackageId pkgId) ->
-        ifVersion version (\v -> v `supports` featurePackageImports)
+        ifVersion version (`supports` featurePackageImports)
           {-then-}
             (P.SelfOrImportedPackageIdSumPackageImportId <$> allocStablePackageId p)
           {-else-}
