@@ -6,6 +6,7 @@ module DA.Test.Util (
     standardizeQuotes,
     standardizeEoL,
     assertInfixOf,
+    assertNotInfixOf,
     withTempFileResource,
     withTempDirResource,
     withCurrentTempDir,
@@ -48,6 +49,9 @@ standardizeEoL = T.replace (T.singleton '\r') T.empty
 
 assertInfixOf :: String -> String -> Assertion
 assertInfixOf needle haystack = assertBool ("Expected " <> show needle <> " in output but but got " <> show haystack) (needle `isInfixOf` haystack)
+
+assertNotInfixOf :: String -> String -> Assertion
+assertNotInfixOf needle haystack = assertBool ("Expected " <> show needle <> " not to be in output but got " <> show haystack) (not (needle `isInfixOf` haystack))
 
 withTempFileResource :: (IO FilePath -> TestTree) -> TestTree
 withTempFileResource f = withResource newTempFile snd (f . fmap fst)

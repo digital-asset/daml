@@ -51,6 +51,14 @@ module DA.Daml.LFConversion.MetadataEncoding
     , decodeFieldNames
     , decodeLFCompleteMatch
     , completeMatchToLf
+    -- * Warnings and deprecations
+    , Warning (..)
+    , warningName
+    , unWarningName
+    , warningsToLf
+    , encodeWarning
+    , decodeWarning
+    , warningTxtIsDeprecation
     ) where
 
 import Safe (readMay)
@@ -337,6 +345,46 @@ encodeLFCompleteMatch LFCompleteMatch {..} = encodeTypeList id
     , encodeTypeList encodeQualName matchers
     ]
 
+data Warning = Warning
+  { warningSubject :: Maybe GHC.OccName
+  , warningTxt :: GHC.WarningTxt
+  }
+
+warningName :: Integer -> LF.ExprValName
+warningName i = LF.ExprValName $ "$$warning" <> T.pack (show i)
+
+unWarningName :: LF.ExprValName -> Maybe Integer
+unWarningName (LF.ExprValName name) = do
+    suffix <- T.stripPrefix "$$warning" name
+    readMay (T.unpack suffix)
+
+warningsToLf :: GHC.Warnings -> [Warning]
+warningsToLf = \case
+    GHC.NoWarnings -> []
+    GHC.WarnAll warningTxt -> [Warning Nothing warningTxt]
+    GHC.WarnSome warnings -> map (uncurry (Warning . Just)) warnings
+
+encodeWarning :: Warning -> LF.Type
+encodeWarning (Warning subject txt) = encodeTypeList id
+    [ maybe LF.TUnit encodeOccName subject
+    , encodeWarningTxt txt
+    ]
+
+encodeWarningTxt :: GHC.WarningTxt -> LF.Type
+encodeWarningTxt = \case
+    GHC.WarningTxt mCat src txts -> encodeWarning False mCat src txts
+    GHC.DeprecatedTxt mCat src txts -> encodeWarning True mCat src txts
+  where
+    encodeWarning :: Bool -> Maybe (GHC.Located GHC.WarningCategory) -> GHC.Located GHC.SourceText -> [GHC.Located GHC.StringLiteral] -> LF.Type
+    encodeWarning isDeprecation mCat _ txts = encodeTypeList id
+        [ encodeBool isDeprecation
+        , maybe LF.TUnit (encodeWarningCategory . GHC.unLoc) mCat
+        , encodeTypeList encodeStringLiteral (GHC.unLoc <$> txts)
+        ]
+
+encodeStringLiteral :: GHC.StringLiteral -> LF.Type
+encodeStringLiteral (GHC.StringLiteral _ fs) = encodeFastString fs
+
 encodeFieldLbl :: (a -> LF.Type) -> FieldLbl a -> LF.Type
 encodeFieldLbl encodeSelector field = encodeTypeList id
     [ encodeFastString (GHC.flLabel field)
@@ -346,6 +394,9 @@ encodeFieldLbl encodeSelector field = encodeTypeList id
 
 encodeFastString :: FastString -> LF.Type
 encodeFastString = TEncodedStr . fsToText
+
+encodeWarningCategory :: GHC.WarningCategory -> LF.Type
+encodeWarningCategory (GHC.WarningCategory fs) = encodeFastString fs
 
 encodeBool :: Bool -> LF.Type
 encodeBool = \case
@@ -396,6 +447,9 @@ decodeFastString = \case
     TEncodedStr s -> Just (fsFromText s)
     _ -> Nothing
 
+decodeWarningCategory :: LF.Type -> Maybe GHC.WarningCategory
+decodeWarningCategory t = GHC.WarningCategory <$> decodeFastString t
+
 decodeExportInfoNamed :: (QualName -> ExportInfo) -> LF.Type -> Maybe ExportInfo
 decodeExportInfoNamed f t = do
     [name] <- decodeTypeList Just t
@@ -425,6 +479,35 @@ decodeLFCompleteMatch t = do
   LFCompleteMatch
     <$> decodeTypeList decodeQualName matchers
     <*> decodeQualName subject
+
+decodeWarning :: LF.Type -> Maybe Warning
+decodeWarning t = do
+    [subject, warningTxt] <- decodeTypeList Just t
+    Warning
+        <$> case subject of
+              LF.TUnit -> Just Nothing
+              _ -> Just <$> decodeOccName subject
+        <*> decodeWarningTxt warningTxt
+
+decodeWarningTxt :: LF.Type -> Maybe GHC.WarningTxt
+decodeWarningTxt t = do
+    [isDeprecationTy, mCatTy, txtsTy] <- decodeTypeList Just t
+    isDeprecation <- decodeBool isDeprecationTy
+    let build = if isDeprecation then GHC.DeprecatedTxt else GHC.WarningTxt
+    build
+        <$> case mCatTy of
+            LF.TUnit -> Just Nothing
+            _ -> Just . GHC.noLoc <$> decodeWarningCategory mCatTy
+        <*> pure (GHC.noLoc GHC.NoSourceText)
+        <*> decodeTypeList (fmap GHC.noLoc . decodeStringLiteral) txtsTy
+
+warningTxtIsDeprecation :: GHC.WarningTxt -> Bool
+warningTxtIsDeprecation = \case
+    GHC.DeprecatedTxt _ _ _ -> True
+    _ -> False
+
+decodeStringLiteral :: LF.Type -> Maybe GHC.StringLiteral
+decodeStringLiteral t = GHC.StringLiteral GHC.NoSourceText . (\s -> "\"" <> s <> "\"") <$> decodeFastString t
 
 decodeFieldLbl :: (LF.Type -> Maybe a) -> LF.Type -> Maybe (FieldLbl a)
 decodeFieldLbl decodeSelector t = do

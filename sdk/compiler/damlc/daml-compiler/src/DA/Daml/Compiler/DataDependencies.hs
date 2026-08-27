@@ -15,9 +15,10 @@ import Control.Applicative
 import Control.Lens hiding ((<.>))
 import Control.Monad
 import Control.Monad.State.Strict
-import Data.Bifunctor (first)
+import Data.Bifunctor (first, second)
 import Data.Char (isDigit)
 import qualified Data.DList as DL
+import Data.Either (partitionEithers)
 import Data.Foldable (fold)
 import Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HMS
@@ -307,7 +308,7 @@ generateSrcFromLf env = noLoc mod
             { hsmodImports = imports
             , hsmodName = Just (noLoc ghcModName)
             , hsmodDecls = decls <> gsExtraDecls genState
-            , hsmodDeprecMessage = Nothing
+            , hsmodDeprecMessage = mModuleWarning
             , hsmodHaddockModHeader = Nothing
             , hsmodExports = Just (noLoc exports)
             }
@@ -374,8 +375,7 @@ generateSrcFromLf env = noLoc mod
             , completePragmaDecls
             ]
         instDecls <- sequence instanceDecls
-        pure $ decls <> catMaybes instDecls
-
+        pure $ decls <> warningDecls <> catMaybes instDecls
 
     classMethodNames :: Set T.Text
     classMethodNames = Set.fromList
@@ -721,6 +721,28 @@ generateSrcFromLf env = noLoc mod
               )
             } <- NM.toList $ LF.moduleValues $ envMod env
           pure match
+
+    warningDecls :: [LHsDecl GhcPs]
+    mModuleWarning :: Maybe (Located WarningTxt)
+    (warningDecls, mModuleWarning) = second listToMaybe $ partitionEithers $ makeWarning <$> getWarningExprs
+      where
+        makeWarning :: LFC.Warning -> Either (LHsDecl GhcPs) (Located WarningTxt)
+        makeWarning (LFC.Warning (Just subject) warningTxt) =
+          Left . noLoc . WarningD noExt $ Warnings
+            noExt
+            (SourceText $ if LFC.warningTxtIsDeprecation warningTxt then "{-# DEPRECATED" else "{-# WARNING")
+            [noLoc $ Warning noExt [noLoc $ mkRdrUnqual subject] warningTxt]
+        makeWarning (LFC.Warning Nothing warningTxt) = Right $ noLoc warningTxt
+
+        getWarningExprs :: [LFC.Warning]
+        getWarningExprs = do
+          LF.DefValue
+            { dvalBinder = 
+              ( LFC.unWarningName -> Just _
+              , LFC.decodeWarning -> Just warning
+              )
+            } <- NM.toList $ LF.moduleValues $ envMod env
+          pure warning
 
     -- | Generate instance declarations from dictionary functions.
     instanceDecls :: [Gen (Maybe (LHsDecl GhcPs))]

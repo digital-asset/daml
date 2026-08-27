@@ -234,6 +234,7 @@ data ModuleContents = ModuleContents
   , mcFixities :: [(OccName, GHC.Fixity)]
   , mcPatternSynonymTypes :: MS.Map VariantConName PatSynType
   , mcCompleteMatches :: [LFCompleteMatch GHC.Name]
+  , mcWarnings :: [Warning]
   }
 
 data ChoiceData = ChoiceData
@@ -296,6 +297,7 @@ extractModuleContents env@Env{..} coreModule modIface details = do
                  | otherwise -> ConPatSyn
         pure (VariantConName $ T.pack $ getOccString $ patSynName syn, patSynType)
     mcCompleteMatches = completeMatchToLf <$> md_complete_sigs details
+    mcWarnings = warningsToLf $ mi_warns modIface
 
   ModuleContents {..}
 
@@ -807,6 +809,7 @@ convertModuleContents env mc = do
     interfaces <- convertInterfaces env mc
     patsynMetadata <- convertPatternSynonymMetadata env mc
     let fixities = convertFixities mc
+        warnings = convertWarnings mc
         defs =
             types
             ++ templates
@@ -815,6 +818,7 @@ convertModuleContents env mc = do
             ++ interfaces
             ++ depOrphanModules
             ++ fixities
+            ++ warnings
             ++ patsynMetadata
     -- Exports need to know what is defined to know if it should export it
     exports <- convertExports env mc defs
@@ -1051,6 +1055,11 @@ convertPatternSynonymMetadata env mc = do
   where
     convertQualName :: GHC.Name -> ConvertM QualName
     convertQualName = fmap QualName . convertQualified getOccName env
+
+convertWarnings :: ModuleContents -> [Definition]
+convertWarnings mc = do
+    (i, warning) <- zip [0..] $ encodeWarning <$> mcWarnings mc
+    pure $ DValue $ mkMetadataStub (warningName i) warning
 
 convertExports :: ComponentVersioned => Env -> ModuleContents -> [Definition] -> ConvertM [Definition]
 convertExports env mc existingDefs = do
