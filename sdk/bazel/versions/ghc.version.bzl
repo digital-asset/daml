@@ -26,7 +26,7 @@ GHC_BINDISTS = {
     ("windows", "amd64"): {
         "triple": "x86_64-unknown-mingw32",
         "sha256": "f6fbb8047ae16049dc6215a6abb652b4307205310bfffddea695a854af92dc99",
-        "strip_prefix": "ghc-{}".format(GHC_VERSION),
+        "strip_prefix": "ghc-{}-x86_64-unknown-mingw32".format(GHC_VERSION),
     },
 }
 
