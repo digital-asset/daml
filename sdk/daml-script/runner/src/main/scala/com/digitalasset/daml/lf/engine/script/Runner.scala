@@ -303,7 +303,7 @@ object Runner {
   def ideLedgerClient(
       compiledPackages: PureCompiledPackages,
       machineLogger: MachineLogger,
-      snapshotDir: Option[Path],
+      snapshotDir: Option[Path] = None,
   ): Future[Participants[IdeLedgerClient]] =
     Future.successful(
       Participants(
