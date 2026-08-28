@@ -121,19 +121,9 @@ Note, if you are on a Windows ad-hoc or CI machine you can use
 In that case, you should checkout the `daml` repository into the path
 `D:\a\1\s` in order to be able to use remote cache artifacts.
 
-Then start `dev-env` from PowerShell with:
-
-```
-.\dev-env\windows\bin\dadew.ps1 install
-.\dev-env\windows\bin\dadew.ps1 sync
-.\dev-env\windows\bin\dadew.ps1 enable
-```
-
-In all new PowerShell processes started, you need to repeat the `enable` step.
-
 ### 3. Lint, build, and test
 
-We have a single script to build most targets and run the tests. On Linux and Mac run `./build.sh`. On Windows run `.\build.ps1`. Note that these scripts may take over an hour the first time.
+We have a single script to build most targets and run the tests. On Linux and Mac run `./build.sh`. Note that this script may take over an hour the first time.
 
 To just build do `bazel build //...`, and to just test do `bazel test //...`. To read more about Bazel and how to use it, see [the Bazel site](https://bazel.build).
 
