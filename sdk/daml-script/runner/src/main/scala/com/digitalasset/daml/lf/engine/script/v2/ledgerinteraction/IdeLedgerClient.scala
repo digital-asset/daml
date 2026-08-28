@@ -37,6 +37,7 @@ import org.apache.pekko.stream.Materializer
 
 import cats.data.NonEmptySet
 
+import java.nio.file.Path
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -722,7 +723,7 @@ class IdeLedgerClient(
             nextSeed(),
             machineLogger,
             packageMap,
-            snapshotDir,
+            snapshotDir = snapshotDir,
           )
         res <- loop(result)
       } yield res

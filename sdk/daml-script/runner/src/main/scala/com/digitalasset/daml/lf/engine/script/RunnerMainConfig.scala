@@ -282,9 +282,9 @@ private[script] object RunnerMainConfigIntermediate {
       }
       .text("Path to a file where the result of the script will be written to in JSON format.")
 
-    opt[Path]("snapshot-dir")
-      .action { (t, c) =>
-        c.copy(snapshotDir = Some(Paths.get(t)))
+    opt[String]("snapshot-dir")
+      .action { (f, c) =>
+        c.copy(snapshotDir = Some(Paths.get(f)))
       }
       .text(
         "Path to a directory where transaction snapshot data will be written to in protobuf format."
