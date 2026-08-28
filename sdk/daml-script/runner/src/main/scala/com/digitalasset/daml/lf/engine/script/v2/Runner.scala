@@ -34,6 +34,25 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+private[lf] object Runner {
+  def makeFailureStatus(
+      name: Ref.TypeConId,
+      message: String,
+  ): Future[Nothing] =
+    Future.failed(
+      free.InterpretationError(
+        SError.SErrorDamlException(
+          IE.FailureStatus(
+            "UNHANDLED_EXCEPTION/" + name.qualifiedName.toString,
+            Ast.FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
+            message,
+            Map(),
+          )
+        )
+      )
+    )
+}
+
 private[lf] class Runner(
     unversionedRunner: script.Runner,
     initialClients: Participants[UnversionedScriptLedgerClient],
@@ -121,16 +140,14 @@ private[lf] class Runner(
           canceled,
         )
       result <-
-        remapQ(freeExpr)
-          .runF[ScriptF.Cmd, ExtendedValue](
+        recoverUnhandledException(
+          remapQ(freeExpr).runF[ScriptF.Cmd, ExtendedValue](
             _.executeWithRunner(env, this, convertLegacyExceptions)
               .map(Result.successful)
               .recover { case err: RuntimeException => Result.failed(err) }
-          )
-          .recoverWith {
-            case err: free.InterpretationError if convertLegacyExceptions =>
-              convertUnhandledExceptionToFailureStatus(err)
-          }
+          ),
+          convertLegacyExceptions,
+        )
     } yield result
 
   // Takes something that resolves/computes to a Script X, then runs the script
@@ -140,13 +157,63 @@ private[lf] class Runner(
       mat: Materializer,
   ): Future[ExtendedValue] = {
     for {
-      scriptValue <- runComputation(comp).recoverWith {
-        case err: free.InterpretationError if convertLegacyExceptions =>
-          convertUnhandledExceptionToFailureStatus(err)
-      }
+      scriptValue <- recoverUnhandledException(
+        runComputation(comp),
+        convertLegacyExceptions,
+      )
       result <- runResolved(scriptValue, convertLegacyExceptions)
     } yield result
   }
+
+  private def convertUnhandledExceptionToFailureStatus(
+      error: free.InterpretationError
+  )(implicit ec: ExecutionContext): Future[Nothing] =
+    error.error match {
+      case SError.SErrorDamlException(IE.UnhandledException(Ast.TTyCon(excTyp), value)) =>
+        computeMessageThenFailureStatus(excTyp, value)
+      case _ =>
+        Future.failed(error)
+    }
+
+  // Computes the exception message by running the engine again, then wraps it in a FailureStatus.
+  private[v2] def computeMessageThenFailureStatus(
+      name: Ref.TypeConId,
+      value: ExtendedValue,
+  )(implicit ec: ExecutionContext): Future[Nothing] =
+    runComputation(
+      ExtendedValueComputationMode
+        .ByExceptionMessage(name, value)
+    ).transformWith {
+      case Success(ValueText(message)) =>
+        Runner.makeFailureStatus(name, message)
+      case Success(_) =>
+        Future.failed(
+          new RuntimeException(s"Message computation for exception $name did not give Text")
+        )
+      case Failure(
+            free.InterpretationError(
+              SError.SErrorDamlException(
+                IE.UnhandledException(Ast.TTyCon(messageExceptionName), _)
+              )
+            )
+          ) =>
+        Runner.makeFailureStatus(
+          name,
+          s"<Failed to calculate message as ${messageExceptionName.qualifiedName.toString} was thrown during conversion>",
+        )
+      case Failure(e) =>
+        Future.failed(e)
+    }
+
+  private def recoverUnhandledException[A](
+      result: Future[A],
+      convertLegacyExceptions: Boolean,
+  )(implicit ec: ExecutionContext): Future[A] =
+    if (convertLegacyExceptions)
+      result.recoverWith { case error: free.InterpretationError =>
+        convertUnhandledExceptionToFailureStatus(error)
+      }
+    else result
 
   def runComputation(
       comp: ExtendedValueComputationMode
@@ -163,69 +230,6 @@ private[lf] class Runner(
         identity,
       )
     }
-
-  def convertUnhandledExceptionToFailureStatus(
-      excTyp: Ref.TypeConId,
-      value: com.digitalasset.daml.lf.value.Value,
-  )(implicit
-      ec: ExecutionContext
-  ) = {
-    runComputation(
-      ExtendedValueComputationMode
-        .ByExceptionMessage(excTyp, value)
-    ).transformWith {
-      case Success(ValueText(message)) =>
-        Future.failed(
-          free.InterpretationError(
-            SError.SErrorDamlException(
-              IE.FailureStatus(
-                "UNHANDLED_EXCEPTION/" + excTyp.qualifiedName.toString,
-                Ast.FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
-                message,
-                Map(),
-              )
-            )
-          )
-        )
-      case Success(_) =>
-        Future.failed(
-          new RuntimeException(s"Message computation for exception $excTyp did not give Text")
-        )
-      case Failure(
-            free.InterpretationError(
-              SError.SErrorDamlException(
-                IE.UnhandledException(Ast.TTyCon(messageExceptionName), _)
-              )
-            )
-          ) =>
-        Future.failed(
-          free.InterpretationError(
-            SError.SErrorDamlException(
-              IE.FailureStatus(
-                "UNHANDLED_EXCEPTION/" + excTyp.qualifiedName.toString,
-                Ast.FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
-                s"<Failed to calculate message as ${messageExceptionName.qualifiedName.toString} was thrown during conversion>",
-                Map(),
-              )
-            )
-          )
-        )
-      case Failure(e) =>
-        Future.failed(e)
-    }
-  }
-
-  def convertUnhandledExceptionToFailureStatus(
-      error: free.InterpretationError
-  )(implicit ec: ExecutionContext): Future[Nothing] = {
-    error.error match {
-      case SError.SErrorDamlException(IE.UnhandledException(Ast.TTyCon(excTyp), value)) =>
-        // Compute the exception message by running the exception message function
-        convertUnhandledExceptionToFailureStatus(excTyp, value)
-      case _ =>
-        Future.failed(error)
-    }
-  }
 
   def getResult()(implicit
       ec: ExecutionContext,
