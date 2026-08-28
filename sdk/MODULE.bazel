@@ -101,6 +101,14 @@ llvm_toolchain_ext.target(
     arch = "x86_64",
     os = "macos",
 )
+llvm_toolchain_ext.exec(
+    arch = "x86_64",
+    os = "windows",
+)
+llvm_toolchain_ext.target(
+    arch = "x86_64",
+    os = "windows",
+)
 use_repo(llvm_toolchain_ext, "llvm_toolchains")
 
 llvm_osx = use_extension("@llvm//extensions:osx.bzl", "osx")
