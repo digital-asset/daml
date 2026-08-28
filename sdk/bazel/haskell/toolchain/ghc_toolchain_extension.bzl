@@ -1,4 +1,5 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("//bazel/platforms:platforms.bzl", "host_platform")
 load(
     "//bazel/versions:ghc.version.bzl",
     "GHC_BINDISTS",
@@ -20,23 +21,7 @@ _URL = "https://downloads.haskell.org/~ghc/{v}/ghc-{v}-{triple}.tar.xz"
 _UNPACK_DIR = "bindist_unpacked"
 
 def _platform_key(rctx):
-    name = rctx.os.name.lower()
-    arch = rctx.os.arch.lower()
-    if "linux" in name:
-        os = "linux"
-    elif "mac" in name or "darwin" in name:
-        os = "darwin"
-    elif "windows" in name:
-        os = "windows"
-    else:
-        os = name
-    if arch in ["amd64", "x86_64"]:
-        cpu = "amd64"
-    elif arch in ["aarch64", "arm64"]:
-        cpu = "aarch64"
-    else:
-        cpu = arch
-    return (os, cpu)
+    return host_platform(rctx).ghc_key
 
 _IMPORT_TEMPLATE = """\
 haskell_import(
