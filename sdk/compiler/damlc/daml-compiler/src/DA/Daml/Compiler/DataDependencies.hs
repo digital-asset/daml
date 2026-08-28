@@ -374,8 +374,7 @@ generateSrcFromLf env = noLoc mod
             , completePragmaDecls
             ]
         instDecls <- sequence instanceDecls
-        pure $ decls <> catMaybes instDecls
-
+        pure $ decls <> warningDecls <> catMaybes instDecls
 
     classMethodNames :: Set T.Text
     classMethodNames = Set.fromList
@@ -700,7 +699,7 @@ generateSrcFromLf env = noLoc mod
     completePragmaDecls :: [Gen (LHsDecl GhcPs)]
     completePragmaDecls = makeCompletePragma <$> getCompleteExprs
       where
-        makeCompletePragma :: LFC.LFCompleteMatch LFC.QualName -> Gen (LHsDecl GhcPs)
+        makeCompletePragma :: LFC.LFMetadataCompleteMatch LFC.QualName -> Gen (LHsDecl GhcPs)
         makeCompletePragma match = do
           -- Parser only allows the pragma to contain unqualified names, but supports those names coming from any module/package
           -- (as long as one name comes from this module)
@@ -712,15 +711,40 @@ generateSrcFromLf env = noLoc mod
             NoSourceText
             (noLoc matchersRdrNames)
             (Just subjectRdrName)
-        getCompleteExprs :: [LFC.LFCompleteMatch LFC.QualName]
+        getCompleteExprs :: [LFC.LFMetadataCompleteMatch LFC.QualName]
         getCompleteExprs = do
           LF.DefValue
             { dvalBinder = 
               ( LF.ExprValName (T.stripPrefix "$complete" -> Just _)
-              , LFC.decodeLFCompleteMatch -> Just match
+              , LFC.decodeLFMetadataCompleteMatch -> Just match
               )
             } <- NM.toList $ LF.moduleValues $ envMod env
           pure match
+
+    warningDecls :: [LHsDecl GhcPs]
+    warningDecls = mapMaybe makeWarning getWarningExprs
+      where
+        makeWarning :: LFC.LFMetadataWarning -> Maybe (LHsDecl GhcPs)
+        -- Exclude methods that have been re-exported, as deprecations must be in the same module as the definitions
+        makeWarning (LFC.LFMetadataWarning (Just subject) _) | isValOcc subject && T.pack (occNameString subject) `Set.member` reexportedClassMethods = Nothing
+        makeWarning (LFC.LFMetadataWarning (Just subject) warningTxt) =
+           Just . noLoc . WarningD noExt $ Warnings
+            noExt
+            (SourceText $ if LFC.warningTxtIsDeprecation warningTxt then "{-# DEPRECATED" else "{-# WARNING")
+            [noLoc $ Warning noExt [noLoc $ mkRdrUnqual subject] warningTxt]
+        -- TODO[SW]: We do not support module level warnings, as GHC does not reconstruct the source correctly.
+        -- This isn't needed for Daml currently, but we should consider adding support for this in the future.
+        makeWarning (LFC.LFMetadataWarning Nothing _) = Nothing
+
+        getWarningExprs :: [LFC.LFMetadataWarning]
+        getWarningExprs = do
+          LF.DefValue
+            { dvalBinder = 
+              ( LFC.unWarningName -> Just _
+              , LFC.decodeLFMetadataWarning -> Just warning
+              )
+            } <- NM.toList $ LF.moduleValues $ envMod env
+          pure warning
 
     -- | Generate instance declarations from dictionary functions.
     instanceDecls :: [Gen (Maybe (LHsDecl GhcPs))]
