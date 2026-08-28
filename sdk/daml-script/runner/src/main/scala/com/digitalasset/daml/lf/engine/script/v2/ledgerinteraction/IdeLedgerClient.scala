@@ -48,6 +48,7 @@ class IdeLedgerClient(
     canceled: () => Boolean,
     override val loggerFactory: NamedLoggerFactory,
     csmMode: ContractStateMachine.Mode,
+    snapshotDir: Option[Path],
 ) extends ScriptLedgerClient
     with NamedLogging {
   private implicit val traceContext: TraceContext = TraceContext.empty
@@ -721,6 +722,7 @@ class IdeLedgerClient(
             nextSeed(),
             machineLogger,
             packageMap,
+            snapshotDir,
           )
         res <- loop(result)
       } yield res

@@ -50,6 +50,7 @@ import scalaz.syntax.traverse._
 import scalaz.{Applicative, NonEmptyList, Traverse}
 import spray.json._
 
+import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 
 object LfValueCodec extends ApiCodecCompressed(false, false)
@@ -302,11 +303,12 @@ object Runner {
   def ideLedgerClient(
       compiledPackages: PureCompiledPackages,
       machineLogger: MachineLogger,
+      snapshotDir: Option[Path],
   ): Future[Participants[IdeLedgerClient]] =
     Future.successful(
       Participants(
         default_participant =
-          Some(new IdeLedgerClient(compiledPackages, machineLogger, () => false)),
+          Some(new IdeLedgerClient(compiledPackages, machineLogger, () => false, snapshotDir)),
         participants = Map.empty,
         party_participants = Map.empty,
       )
