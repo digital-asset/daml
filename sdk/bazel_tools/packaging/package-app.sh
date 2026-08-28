@@ -49,8 +49,6 @@ fi
 case "$(uname -s)" in
   Darwin|Linux)
     tar=$(abspath $(find "${RUNFILES_DIR}" -maxdepth 2 -name "tar"))
-# Unused
-#    gzip=$(abspath $(rlocation gzip_dev_env/gzip))
     mktgz=$(abspath $(rlocation _main/bazel_tools/sh/mktgz))
     # Support both the BCR layout (`patchelf~/patchelf`) and the
     # pinned static-release layout (`patchelf~/bin/patchelf`).
@@ -76,10 +74,8 @@ case "$(uname -s)" in
     patchelf=$(abspath "$patchelf_runfile")
     ;;
   CYGWIN*|MINGW*|MSYS*)
-    tar=$(abspath $(rlocation tar_dev_env/usr/bin/tar.exe))
-# Unused
-#    gzip=$(abspath $(rlocation gzip_dev_env/usr/bin/gzip.exe))
-    mktgz=$(abspath $(rlocation _main/bazel_tools/sh/mktgz.exe))
+    echo "ERROR: package-app has no Windows implementation" >&2
+    exit 1
     ;;
 esac
 
