@@ -7,6 +7,7 @@ exports_files([
     "pin/linux_aarch64.lock.json",
     "pin/darwin_amd64.lock.json",
     "pin/darwin_aarch64.lock.json",
+    "pin/windows_amd64.lock.json",
 ])
 
 filegroup(
