@@ -1,0 +1,22 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(":platforms.bzl", "PLATFORMS")
+
+package(default_visibility = ["//visibility:public"])
+
+[
+    platform(
+        name = p.name,
+        constraint_values = p.constraints,
+    )
+    for p in PLATFORMS.values()
+]
+
+[
+    config_setting(
+        name = "is_" + p.name,
+        constraint_values = p.constraints,
+    )
+    for p in PLATFORMS.values()
+]
