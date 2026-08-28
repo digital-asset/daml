@@ -23,6 +23,11 @@ GHC_BINDISTS = {
         "sha256": "b1fcab17fe48326d2ff302d70c12bc4cf4d570dfbbce68ab57c719cfec882b05",
         "strip_prefix": "ghc-{}-aarch64-apple-darwin".format(GHC_VERSION),
     },
+    ("windows", "amd64"): {
+        "triple": "x86_64-unknown-mingw32",
+        "sha256": "f6fbb8047ae16049dc6215a6abb652b4307205310bfffddea695a854af92dc99",
+        "strip_prefix": "ghc-{}".format(GHC_VERSION),
+    },
 }
 
 # =============================================================================
