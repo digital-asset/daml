@@ -24,10 +24,6 @@ target
 # Daml
 .daml/
 
-# dev-env
-/dev-env/jdk
-/dev-env/var/
-
 # Bazel
 .bazel-cache
 /bazel-*
