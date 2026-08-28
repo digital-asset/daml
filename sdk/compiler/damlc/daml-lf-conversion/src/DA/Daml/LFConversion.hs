@@ -233,8 +233,8 @@ data ModuleContents = ModuleContents
   , mcExports :: [GHC.AvailInfo]
   , mcFixities :: [(OccName, GHC.Fixity)]
   , mcPatternSynonymTypes :: MS.Map VariantConName PatSynType
-  , mcCompleteMatches :: [LFCompleteMatch GHC.Name]
-  , mcWarnings :: [Warning]
+  , mcCompleteMatches :: [LFMetadataCompleteMatch GHC.Name]
+  , mcWarnings :: [LFMetadataWarning]
   }
 
 data ChoiceData = ChoiceData
@@ -296,8 +296,8 @@ extractModuleContents env@Env{..} coreModule modIface details = do
                  | patSynArity syn > 0 && patSynArity syn == length (patSynFieldLabels syn) -> RecordPatSyn $ flSelector <$> patSynFieldLabels syn
                  | otherwise -> ConPatSyn
         pure (VariantConName $ T.pack $ getOccString $ patSynName syn, patSynType)
-    mcCompleteMatches = completeMatchToLf <$> md_complete_sigs details
-    mcWarnings = warningsToLf $ mi_warns modIface
+    mcCompleteMatches = extractLFMetadataCompleteMatchFromGHC <$> md_complete_sigs details
+    mcWarnings = extractLFMetadataWarningFromGHC $ mi_warns modIface
 
   ModuleContents {..}
 
@@ -809,7 +809,7 @@ convertModuleContents env mc = do
     interfaces <- convertInterfaces env mc
     patsynMetadata <- convertPatternSynonymMetadata env mc
     let fixities = convertFixities mc
-        warnings = convertWarnings mc
+        warnings = convertWarnings types mc
         defs =
             types
             ++ templates
@@ -1050,15 +1050,31 @@ convertPatternSynonymMetadata env mc = do
       pure $ Just $ DValue $ mkMetadataStub (ExprValName $ "$minfix" <> unVariantConName name) $ LF.TBuiltin LF.BTUnit
   matchDefs <- forM (zip [0..] (mcCompleteMatches mc)) $ \(i :: Int, unqualMatch) -> do
     match <- traverse convertQualName unqualMatch
-    pure $ DValue $ mkMetadataStub (ExprValName $ "$completeMatch" <> T.pack (show i)) $ encodeLFCompleteMatch match
+    pure $ DValue $ mkMetadataStub (ExprValName $ "$completeMatch" <> T.pack (show i)) $ encodeLFMetadataCompleteMatch match
   pure $ fieldDefs <> matchDefs
   where
     convertQualName :: GHC.Name -> ConvertM QualName
     convertQualName = fmap QualName . convertQualified getOccName env
 
-convertWarnings :: ModuleContents -> [Definition]
-convertWarnings mc = do
-    (i, warning) <- zip [0..] $ encodeWarning <$> mcWarnings mc
+-- We do not want to generate warnings for types that are removed, i.e. builtin types or
+-- stable types. We achieve this by only allowing warnings on Types/classes/data that are
+-- defined in this module.
+-- All value level warnings are always forwarded.
+-- Note that this will not maintain warnings on templates. We do not publicise the warning
+-- definitions as a daml feature, so this is okay.
+filterWarning :: [Definition] -> LFMetadataWarning -> Bool
+filterWarning existingDefs (LFMetadataWarning (Just subject) _)
+  | isTcOcc subject || isDataOcc subject
+  = any ( \case
+      DDataType (DefDataType {dataTypeCon}) ->
+        occNameString subject == T.unpack (T.intercalate "." $ unTypeConName dataTypeCon)
+      _ -> False
+    ) existingDefs
+filterWarning _ _ = True
+
+convertWarnings :: [Definition] -> ModuleContents -> [Definition]
+convertWarnings existingDefs mc = do
+    (i, warning) <- zip [0..] $ encodeLFMetadataWarning <$> filter (filterWarning existingDefs) (mcWarnings mc)
     pure $ DValue $ mkMetadataStub (warningName i) warning
 
 convertExports :: ComponentVersioned => Env -> ModuleContents -> [Definition] -> ConvertM [Definition]
