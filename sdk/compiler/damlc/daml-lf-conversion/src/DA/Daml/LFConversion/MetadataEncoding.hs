@@ -482,7 +482,7 @@ decodeLFMetadataCompleteMatch t = do
 
 decodeLFMetadataWarning :: LF.Type -> Maybe LFMetadataWarning
 decodeLFMetadataWarning t = do
-    [subject, warningTxt, _] <- decodeTypeList Just t
+    (subject : warningTxt : _) <- decodeTypeList Just t
     LFMetadataWarning
         <$> case subject of
               LF.TUnit -> Just Nothing
@@ -491,7 +491,7 @@ decodeLFMetadataWarning t = do
 
 decodeWarningTxt :: LF.Type -> Maybe GHC.WarningTxt
 decodeWarningTxt t = do
-    [isDeprecationTy, mCatTy, txtsTy, _] <- decodeTypeList Just t
+    (isDeprecationTy : mCatTy : txtsTy : _) <- decodeTypeList Just t
     isDeprecation <- decodeBool isDeprecationTy
     let build = if isDeprecation then GHC.DeprecatedTxt else GHC.WarningTxt
     build
