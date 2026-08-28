@@ -69,7 +69,7 @@ def _resolve_build_subdir(raw_root, hs_libraries):
     matches = sorted(Path(raw_root).rglob("lib{}.a".format(first)))
     if not matches:
         raise SystemExit("no lib{}.a under {}".format(first, raw_root))
-    return str(matches[0].parent.relative_to(raw_root))
+    return matches[0].parent.relative_to(raw_root).as_posix()
 
 
 def _deps_names(fields, by_id):
