@@ -53,6 +53,12 @@ type InternedKindsMap = InternedMap P.KindSum
 type InternedTypesMap = InternedMap P.TypeSum
 type InternedExprsMap = InternedArr P.ExprSum
 
+type ImportMap = M.Map PackageId Int32
+data InternedPackages = InternedPackages
+    { internedPackagesMap :: !ImportMap
+    , internedPackagesNextId :: !Int32
+    }
+
 data EncodeState = EncodeState
     { internedStrings :: !(HMS.HashMap T.Text Int32)
     , nextInternedStringId :: !Int32
@@ -63,16 +69,15 @@ data EncodeState = EncodeState
     , internedKindsMap :: !InternedKindsMap
     , internedTypesMap :: !InternedTypesMap
     , internedExprsMap :: !InternedExprsMap
+    , internedPackages :: Either NoPkgImportsReasons InternedPackages
     }
 
 makeLensesFor [ ("internedKindsMap", "internedKindsMapLens")
               , ("internedTypesMap", "internedTypesMapLens")
               , ("internedExprsMap", "internedExprsMapLens")] ''EncodeState
 
-type ImportMap = M.Map PackageId Int32
 data EncodeConfig = EncodeConfig
     { _version :: !Version
-    , _importMap :: Either NoPkgImportsReasons ImportMap
     }
 makeLenses ''EncodeConfig
 
@@ -95,8 +100,8 @@ whenSupportsFlattening =
   whenSupportsNot version featureFlatArchive $ \v ->
     error $ printf "assertion failiure: lf version %s does not support flattening" (show v)
 
-initEncodeState :: EncodeState
-initEncodeState =
+initEncodeState :: Either NoPkgImportsReasons ImportMap -> EncodeState
+initEncodeState importMap =
     EncodeState
     { nextInternedStringId = 0
     , internedStrings = HMS.empty
@@ -105,11 +110,14 @@ initEncodeState =
     , internedKindsMap = I.empty
     , internedTypesMap = I.empty
     , internedExprsMap = I.empty
-    , ..
+    , internedPackages = (\map -> InternedPackages map $ fromInteger (toInteger $ M.size map)) <$> importMap
     }
 
+initTestEncodeState :: EncodeState
+initTestEncodeState = initEncodeState $ Left $ noPkgImportsReasonTesting "DA.Daml.LF.Proto3.EncodeV2:initTestEncodeState"
+
 initTestEncodeConfig :: Version -> EncodeConfig
-initTestEncodeConfig = flip EncodeConfig $ Left $ noPkgImportsReasonTesting "DA.Daml.LF.Proto3.EncodeV2:initTestEncodeConfig"
+initTestEncodeConfig = EncodeConfig
 
 runEncode :: EncodeConfig           -- The read-only config.
           -> EncodeState            -- The initial state.
@@ -146,6 +154,29 @@ allocDottedName ids = do
                 , nextInternedDottedNameId = n + 1
                 }
             pure n
+
+-- Only supported in LF 2.3 onwards
+-- NOTE, this function assumes the import map already contains all non-stable packages, and will fail if they are missing.
+-- Non-stable packages can only be retrieved from the import map, and only new references to stable packages will be added.
+allocPackageId :: PackageId -> Encode Int32
+allocPackageId pkgId = do
+    env@EncodeState{internedPackages} <- get
+    case internedPackages of
+        Left r -> error $ printf "Encountered an package ID of type ImportedPackage in a module that doesn't expose an import map, reason: %s, pkgId: %s" (show r) (show pkgId)
+        Right (InternedPackages importMap nextN) ->
+            case pkgId `M.lookup` importMap of
+                Just n -> pure n
+                Nothing -> do
+                    -- Error if we try to allocate a non-stable package
+                    unless (pkgId `elem` allStablePackageIds) $
+                        error $ printf "During encoding, did not find imported package id %s in import map %s" (show pkgId) (show importMap)
+
+                    when (nextN == maxBound) $
+                        error "Package interning table grew too large"
+                    put $! env
+                        { internedPackages = Right (InternedPackages (M.insert pkgId nextN importMap) (nextN + 1))
+                        }
+                    pure nextN
 
 ------------------------------------------------------------------------
 -- Encodings of things related to string interning
@@ -217,16 +248,10 @@ encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . go
     go = \case
       SelfPackageId ->
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
-      ImportedPackageId p@(PackageId pkgId) -> do
-        (eMap :: Either NoPkgImportsReasons ImportMap) <- asks (view importMap)
-        ifVersion version (\v -> p `notElem` allStablePackageIds  && v `supports` featurePackageImports)
+      ImportedPackageId p@(PackageId pkgId) ->
+        ifVersion version (`supports` featurePackageImports)
           {-then-}
-             (case eMap of
-               Left r ->
-                 error $ printf "Encountered an package ID of type ImportedPackage in a module that doesn't expose an import map, reason: %s, pkgId: %s" (show r) (show pkgId)
-               Right ids ->
-                 let (mID :: Maybe Int32) = M.lookup p ids
-                 in  maybe (error $ printf "During encoding, did not find imported package id %s in import map %s" (show p) (show ids)) (return . P.SelfOrImportedPackageIdSumPackageImportId) mID)
+            (P.SelfOrImportedPackageIdSumPackageImportId <$> allocPackageId p)
           {-else-}
             (P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr <$> allocString pkgId)
 
@@ -1089,11 +1114,13 @@ packInternedTypes = V.map (P.Type . Just) . I.toVec
 packInternedExprs :: InternedExprsMap -> V.Vector P.Expr
 packInternedExprs = V.map (P.Expr Nothing . Just) . I.toVec
 
-encodeImports :: [PackageId] -> P.PackageImportsSum
-encodeImports = P.PackageImportsSumPackageImports . P.PackageImports . V.fromList . map toTlText
+encodeInternedPackages :: InternedPackages -> P.PackageImportsSum
+encodeInternedPackages = P.PackageImportsSumPackageImports . P.PackageImports . V.fromList . map toTlText . ipToList
   where
     toTlText :: PackageId -> TL.Text
     toTlText = TL.fromStrict . unPackageId
+    ipToList :: InternedPackages -> [PackageId]
+    ipToList = map fst . L.sortOn snd . M.toList . internedPackagesMap
 
 encodeReasons :: NoPkgImportsReasons -> Maybe P.PackageImportsSum
 encodeReasons rsns =
@@ -1104,10 +1131,10 @@ encodeReasons rsns =
 -- | This may be the casue of (future) round-trip test errors: we discard the
 -- reasons here. If we rtt packages that set a reason for unsupported lf and
 -- there are errors, the fix is to never set the field in the first place.
-encodePkgImports :: Version -> Either NoPkgImportsReasons [PackageId] -> Maybe P.PackageImportsSum
+encodePkgImports :: Version -> Either NoPkgImportsReasons InternedPackages -> Maybe P.PackageImportsSum
 encodePkgImports version importList =
   if version `supports` featurePackageImports
-    then either encodeReasons (Just . encodeImports) importList
+    then either encodeReasons (Just . encodeInternedPackages) importList
     else Nothing
 
 mkImportMap :: [PackageId] -> ImportMap
@@ -1120,10 +1147,10 @@ encodePackage (Package version mods metadata imports) =
 -- -> ...) will always be in the same order
     let importList :: Either NoPkgImportsReasons [PackageId]
         importList = L.sort . S.toList <$> imports
-        st = initEncodeState
-        conf = EncodeConfig version $ mkImportMap <$> importList
+        st = initEncodeState $ mkImportMap <$> importList
+        conf = EncodeConfig version
         ( (packageModules, packageMetadata),
-          EncodeState{internedStrings, internedDottedNames, internedKindsMap, internedTypesMap, internedExprsMap}) =
+          EncodeState{internedStrings, internedDottedNames, internedKindsMap, internedTypesMap, internedExprsMap, internedPackages}) =
             runEncode conf st ((,) <$> encodeNameMap encodeModule mods <*> fmap Just (encodePackageMetadata metadata))
         packageInternedStrings = packInternedStrings internedStrings
         packageInternedDottedNames =
@@ -1131,7 +1158,7 @@ encodePackage (Package version mods metadata imports) =
         packageInternedKinds = packInternedKinds internedKindsMap
         packageInternedTypes = packInternedTypes internedTypesMap
         packageInternedExprs = packInternedExprs internedExprsMap
-        packageImportsSum = encodePkgImports version importList
+        packageImportsSum = encodePkgImports version internedPackages
         package = P.Package{..}
     in
       if | version `supports` featureFlatArchive
