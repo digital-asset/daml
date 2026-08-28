@@ -155,11 +155,11 @@ allocDottedName ids = do
                 }
             pure n
 
--- Fetches or allocates an interned package id
--- Shake generates an initial package map from imports, which will not include stable packages. Therefore this function should always perform a successful
--- lookup for non-stable packages, and may only allocate stable packages. If a lookup fails and the package is not stable, we throw an error.
-allocStablePackageId :: PackageId -> Encode Int32
-allocStablePackageId pkgId = do
+-- Only supported in LF 2.3 onwards
+-- NOTE, this function assumes the import map already contains all non-stable packages, and will fail if they are missing.
+-- Non-stable packages can only be retrieved from the import map, and only new references to stable packages will be added.
+allocPackageId :: PackageId -> Encode Int32
+allocPackageId pkgId = do
     env@EncodeState{internedPackages} <- get
     case internedPackages of
         Left r -> error $ printf "Encountered an package ID of type ImportedPackage in a module that doesn't expose an import map, reason: %s, pkgId: %s" (show r) (show pkgId)
@@ -251,7 +251,7 @@ encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . go
       ImportedPackageId p@(PackageId pkgId) ->
         ifVersion version (`supports` featurePackageImports)
           {-then-}
-            (P.SelfOrImportedPackageIdSumPackageImportId <$> allocStablePackageId p)
+            (P.SelfOrImportedPackageIdSumPackageImportId <$> allocPackageId p)
           {-else-}
             (P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr <$> allocString pkgId)
 
