@@ -514,7 +514,7 @@ private[lf] class Runner(
     } yield pkgId).toList
     val qName = QualifiedName(
       ModuleName.assertFromString("Daml.Script.Internal.LowLevel"),
-      DottedName.assertFromString("dangerousCast")
+      DottedName.assertFromString("dangerousCast"),
     )
     damlScriptPackages.foldLeft(compiledPackages) { (cPkgs, pkgId) =>
       makeUnsafeCoerce(cPkgs, Identifier(pkgId, qName))
@@ -537,8 +537,10 @@ private[lf] class Runner(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Future[ExtendedValue], Option[Runner.IdeLedgerContext]) = {
-    val damlScriptName = Runner.getPackageName(compiledPackages, script.scriptIds.scriptTypePackageId)
-    val stableScriptTypePackageName = "daml-script-stable-Daml-Script-Internal-LowLevel-Stable-Script"
+    val damlScriptName =
+      Runner.getPackageName(compiledPackages, script.scriptIds.scriptTypePackageId)
+    val stableScriptTypePackageName =
+      "daml-script-stable-Daml-Script-Internal-LowLevel-Stable-Script"
 
     damlScriptName.getOrElse(
       throw new IllegalArgumentException("Couldn't get daml script package name")

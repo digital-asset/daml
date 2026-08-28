@@ -108,8 +108,11 @@ object ScriptStablePackages {{
 EOF
     """.format(
         packages = ",\n    ".join([
-          '"{pkgName}" -> "{pkgId}"'.format(pkgName = pkgName, pkgId = pkgId)
-          for pkgName, pkgId in SCRIPT_STABLE_PACKAGES.items()
+            '"{pkgName}" -> "{pkgId}"'.format(
+                pkgId = pkgId,
+                pkgName = pkgName,
+            )
+            for pkgName, pkgId in SCRIPT_STABLE_PACKAGES.items()
         ]),
     ),
 )

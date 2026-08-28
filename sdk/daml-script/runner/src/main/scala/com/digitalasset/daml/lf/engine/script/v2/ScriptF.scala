@@ -115,7 +115,7 @@ object ScriptF {
       compiledPackages.pkgInterface.lookupVariantConstructor(tyCon, consName).isRight
 
     def doesDataTypeExist(
-        tyCon: Identifier,
+        tyCon: Identifier
     ): Boolean =
       compiledPackages.pkgInterface.lookupDataType(tyCon).isRight
 
@@ -129,8 +129,7 @@ object ScriptF {
   }
 
   final case class Throw(exc: ExtendedValueAny, env: Env) extends Cmd {
-    override def executeWithRunner(runner: v2.Runner, convertLegacyExceptions: Boolean)(
-        implicit
+    override def executeWithRunner(runner: v2.Runner, convertLegacyExceptions: Boolean)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -239,8 +238,7 @@ object ScriptF {
   }
 
   final case class Catch(act: ExtendedValueClosureBlob, env: Env) extends Cmd {
-    override def executeWithRunner(runner: v2.Runner, convertLegacyExceptions: Boolean)(
-        implicit
+    override def executeWithRunner(runner: v2.Runner, convertLegacyExceptions: Boolean)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -278,8 +276,7 @@ object ScriptF {
   }
 
   final case class TryFailureStatus(act: ExtendedValueClosureBlob, env: Env) extends Cmd {
-    override def executeWithRunner(runner: v2.Runner, convertLegacyExceptions: Boolean)(
-        implicit
+    override def executeWithRunner(runner: v2.Runner, convertLegacyExceptions: Boolean)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -330,7 +327,8 @@ object ScriptF {
     ): Future[ExtendedValue] = Future.failed(new NotImplementedError)
   }
 
-  final case class Submission(env: Env, 
+  final case class Submission(
+      env: Env,
       actAs: NonEmptySet[Party],
       readAs: Set[Party],
       cmds: List[ScriptLedgerClient.CommandWithMeta],
@@ -342,8 +340,12 @@ object ScriptF {
   )
 
   // The one submit to rule them all
-  final case class Submit(submissions: List[Submission], legacyAnyContractKey: Boolean, legacySubmitError: Boolean, env: Env)
-      extends Cmd {
+  final case class Submit(
+      submissions: List[Submission],
+      legacyAnyContractKey: Boolean,
+      legacySubmitError: Boolean,
+      env: Env,
+  ) extends Cmd {
     import ScriptLedgerClient.SubmissionErrorBehaviour._
 
     override def execute()(implicit
@@ -363,9 +365,17 @@ object ScriptF {
         // Sanity check on legacy submit matching script era
         _ <- (legacySubmitError, env.scriptIds.scriptEra) match {
           case (true, ScriptIds.ScriptEra.Stable(_, _)) =>
-            Future.failed(new RuntimeException("Unsupported non-stable submission using stable daml-script. Do not use daml-script internal directly."))
+            Future.failed(
+              new RuntimeException(
+                "Unsupported non-stable submission using stable daml-script. Do not use daml-script internal directly."
+              )
+            )
           case (false, ScriptIds.ScriptEra.NonStable(_)) =>
-            Future.failed(new RuntimeException("Unsupported stable submission using non-stable daml-script. Do not use daml-script internal directly."))
+            Future.failed(
+              new RuntimeException(
+                "Unsupported stable submission using non-stable daml-script. Do not use daml-script internal directly."
+              )
+            )
           case _ => Future.successful(())
         }
         client <- Converter.toFuture(
@@ -1000,8 +1010,7 @@ object ScriptF {
   }
 
   final case class TryCommands(act: ExtendedValue, env: Env) extends Cmd {
-    override def executeWithRunner(runner: v2.Runner, convertLegacyExceptions: Boolean)(
-        implicit
+    override def executeWithRunner(runner: v2.Runner, convertLegacyExceptions: Boolean)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
@@ -1474,7 +1483,10 @@ object ScriptF {
             case v => Left(s"Expected (Text, Text) but got $v")
           }
           .map(meta =>
-            FailWithStatus(IE.FailureStatus(errorId, categoryId.toInt, message, Map.from(meta)), env)
+            FailWithStatus(
+              IE.FailureStatus(errorId, categoryId.toInt, message, Map.from(meta)),
+              env,
+            )
           )
       case _ => Left(s"Expected FailWithStatus payload but got $v")
     }
@@ -1488,12 +1500,14 @@ object ScriptF {
   ): Either[String, Cmd] = {
     // When using Stable daml-script, this is the first place we find the package-id of the non-stable script wrapper package
     // We use the question data-types (which are always unstable records) to pull the id.
-    val env = envWithoutPkgId.copy(scriptIds = envWithoutPkgId.scriptIds.withUnstablePackageId(v match {
-      case ValueRecord(Some(name), _) => name.packageId
-      case _ => throw new IllegalArgumentException(s"Expected record with package id but got $v")
-    }))
+    val env =
+      envWithoutPkgId.copy(scriptIds = envWithoutPkgId.scriptIds.withUnstablePackageId(v match {
+        case ValueRecord(Some(name), _) => name.packageId
+        case _ => throw new IllegalArgumentException(s"Expected record with package id but got $v")
+      }))
     (commandName, version) match {
-      case ("Submit", 1) => parseSubmit(v, env, knownPackages, legacyAnyContractKey = true, legacySubmitError = true)
+      case ("Submit", 1) =>
+        parseSubmit(v, env, knownPackages, legacyAnyContractKey = true, legacySubmitError = true)
       case ("Submit", 2) => parseSubmit(v, env, knownPackages, legacySubmitError = true)
       case ("Submit", 3) => parseSubmit(v, env, knownPackages)
       case ("QueryACS", 1) => parseQueryACS(v, env)

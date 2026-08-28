@@ -47,7 +47,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       scriptIds.damlScriptModuleExplicit(
         "Daml.Script.Internal.Questions.TransactionTree",
         "Daml.Script.Internal.Questions.TransactionTree.Stable.TreeEvent",
-        s
+        s,
       )
     def translateTreeEvent(ev: ScriptLedgerClient.TreeEvent): Either[String, ExtendedValue] =
       ev match {
@@ -260,16 +260,15 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       // Stable daml-script uses a LedgerValue map for metadata, for extensibility in the daml types
       case ValueRecord(_, ImmArray((_, command), (_, m @ ValueGenMap(entries)))) => {
         // Metadata mapping is `Map Text LedgerValue`
-        val commandMetadata = entries.toList
-          .map {
-            case (ValueText(k), v) => (k, v)
-            case _ => throw new RuntimeException(s"Expected Map Text LedgerValue but got $m")
-          }.toMap
+        val commandMetadata = entries.toList.map {
+          case (ValueText(k), v) => (k, v)
+          case _ => throw new RuntimeException(s"Expected Map Text LedgerValue but got $m")
+        }.toMap
         val explicitPackageId = commandMetadata.get("explicitPackageId") match {
           case Some(ValueBool(b)) => b
           case _ => false // Default to upgrade compatible commands when not provided
         }
-        for { 
+        for {
           // Stable daml-script does not support legacy AnyContractKey
           command <- toCommand(command, lookupContractKeyType, false)
         } yield ScriptLedgerClient.CommandWithMeta(command, explicitPackageId)

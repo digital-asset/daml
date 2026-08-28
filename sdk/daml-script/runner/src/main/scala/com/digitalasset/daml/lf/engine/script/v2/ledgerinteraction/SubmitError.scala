@@ -45,7 +45,8 @@ object SubmitError {
         fields: (String, ExtendedValue)*
     ) =
       env.scriptIds.scriptEra match {
-        case ScriptIds.ScriptEra.Legacy => throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
+        case ScriptIds.ScriptEra.Legacy =>
+          throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
         case ScriptIds.ScriptEra.NonStable(_) =>
           ValueVariant(
             Some(damlScriptErrorIdentifier(datatypeName)),
@@ -70,10 +71,12 @@ object SubmitError {
                 ),
                 (
                   "tgData",
-                  ValueGenMap(ImmArray.from(fields.sortBy(_._1)(Utf8.Ordering).map { case (k, v) => ValueText(k) -> v }))
+                  ValueGenMap(ImmArray.from(fields.sortBy(_._1)(Utf8.Ordering).map { case (k, v) =>
+                    ValueText(k) -> v
+                  })),
                 ),
-              )
-            )
+              ),
+            ),
           )
       }
     // For types that are unstable regardless of script era
@@ -83,7 +86,8 @@ object SubmitError {
         fields: (String, ExtendedValue)*
     ) =
       env.scriptIds.scriptEra match {
-        case ScriptIds.ScriptEra.Legacy => throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
+        case ScriptIds.ScriptEra.Legacy =>
+          throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
         case ScriptIds.ScriptEra.NonStable(_) | ScriptIds.ScriptEra.Stable(_, _) =>
           ValueVariant(
             Some(damlScriptErrorIdentifierUnstable(datatypeName)),
@@ -95,11 +99,11 @@ object SubmitError {
           )
       }
 
-
     // For stable, this should now lookup VariantName<>dataTypeName as a top level data def
     def doesConstructorExist(datatypeName: String, variantName: String): Boolean =
       env.scriptIds.scriptEra match {
-        case ScriptIds.ScriptEra.Legacy => throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
+        case ScriptIds.ScriptEra.Legacy =>
+          throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
         case ScriptIds.ScriptEra.NonStable(_) =>
           env
             .doesVariantConstructorExist(
