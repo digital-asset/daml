@@ -1,0 +1,266 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.topology.admin.v30;
+
+import "com/digitalasset/canton/protocol/v30/topology.proto";
+import "com/digitalasset/canton/topology/admin/v30/common.proto";
+import "google/protobuf/duration.proto";
+
+/**
+ * Write operations on the local topology manager.
+ *
+ * Participants, mediators, and sequencers run a local topology manager exposing the same write interface.
+ */
+service TopologyManagerWriteService {
+  rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse);
+
+  rpc AddTransactions(AddTransactionsRequest) returns (AddTransactionsResponse);
+
+  rpc ImportTopologySnapshot(stream ImportTopologySnapshotRequest) returns (ImportTopologySnapshotResponse);
+  rpc ImportTopologySnapshotV2(stream ImportTopologySnapshotV2Request) returns (ImportTopologySnapshotV2Response);
+
+  rpc SignTransactions(SignTransactionsRequest) returns (SignTransactionsResponse);
+
+  /** RPC to generate topology transactions that can be signed */
+  rpc GenerateTransactions(GenerateTransactionsRequest) returns (GenerateTransactionsResponse);
+
+  /** Creates a temporary topology store.
+   * Trying to create a store with the same name results in an error.
+   */
+  rpc CreateTemporaryTopologyStore(CreateTemporaryTopologyStoreRequest) returns (CreateTemporaryTopologyStoreResponse);
+
+  /** Drops a temporary topology store.
+   * Trying to drop a temporary store that does not exist results in an error.
+   */
+  rpc DropTemporaryTopologyStore(DropTemporaryTopologyStoreRequest) returns (DropTemporaryTopologyStoreResponse);
+}
+
+message GenerateTransactionsRequest {
+  message Proposal {
+    /** Replace / Remove */
+    com.digitalasset.canton.protocol.v30.Enums.TopologyChangeOp operation = 1;
+
+    /** Optionally, the serial number of this request (auto-determined if omitted)
+     * NOTE: omitting the serial MAY end up overwriting previous mappings processed concurrently.
+     * To avoid such cases, First read the state using the TopologyManagerReadService and update the mappings
+     * accordingly, incrementing the serial by one and setting it here explicitly.
+     */
+    uint32 serial = 2;
+
+    /** The mapping to be authorized */
+    com.digitalasset.canton.protocol.v30.TopologyMapping mapping = 3;
+
+    // Target store
+    StoreId store = 4;
+  }
+  // transaction proposals for which to generate topology transactions
+  repeated Proposal proposals = 1;
+}
+
+message GenerateTransactionsResponse {
+  message GeneratedTransaction {
+    // Serialized com.digitalasset.canton.protocol.v30.TopologyTransaction
+    bytes serialized_transaction = 1;
+    // Hash of the transaction - this should be signed by the submitter to authorize the transaction
+    bytes transaction_hash = 2;
+  }
+  // Generated transactions, in the same order as the mappings provided in the request
+  repeated GeneratedTransaction generated_transactions = 1;
+}
+
+message AuthorizeRequest {
+  message Proposal {
+    /** Replace / Remove */
+    com.digitalasset.canton.protocol.v30.Enums.TopologyChangeOp change = 1;
+
+    /** Optionally, the serial number of this request (auto-determined if omitted) */
+    uint32 serial = 2;
+
+    /** The mapping to be authorized */
+    com.digitalasset.canton.protocol.v30.TopologyMapping mapping = 3;
+  }
+
+  oneof type {
+    /**
+     * Propose a transaction and distribute it.
+     * If authorize if the node has enough signing keys
+     */
+    Proposal proposal = 1;
+    /**
+     * Authorize a transaction, meaning the node needs to be able to fully sign it locally.
+     * Hash is in hexadecimal format.
+     */
+    string transaction_hash = 2;
+  }
+
+  /**
+   * If true: the transaction is only signed if the new signatures will result in the transaction being fully
+   * authorized. Otherwise returns as an error.
+   * If false: the transaction is signed and the signature distributed. The transaction may still not be fully
+   * authorized and remain as a proposal.
+   */
+  bool must_fully_authorize = 3;
+
+  /** Force specific changes even if dangerous */
+  repeated ForceFlag force_changes = 4;
+
+  /**
+   * Fingerprint of the keys signing the authorization
+   *
+   * The signing key is used to identify a particular `NamespaceDelegation` certificate,
+   * which is used to justify the given authorization.
+   * Optional, if empty, suitable signing keys available known to the node are automatically selected.
+   */
+  repeated string signed_by = 5;
+
+  /**
+   * The store that is used as the underlying source for executing this request.
+   * If `store` is a synchronizer store, the resulting topology transaction will only be available on the respective synchronizer.
+   * If `store` is the authorized store, the resulting topology transaction may or may not be synchronized automatically
+   * to all synchronizers that the node is currently connected to or will be connected to in the future.
+   *
+   * Selecting a specific synchronizers store might be necessary, if the transaction to authorize by hash or the previous
+   * generation of the submitted proposal is only available on the synchronizers store and not in the authorized store.
+   */
+  StoreId store = 6;
+
+  /** Optional timeout to wait for the transaction to become effective in the store. */
+  google.protobuf.Duration wait_to_become_effective = 7;
+}
+
+message AuthorizeResponse {
+  /** the generated signed topology transaction */
+  com.digitalasset.canton.protocol.v30.SignedTopologyTransaction transaction = 1;
+}
+
+message AddTransactionsRequest {
+  /**
+   * The transactions that should be added to the target store as indicated by the parameter `store`.
+   */
+  repeated com.digitalasset.canton.protocol.v30.SignedTopologyTransaction transactions = 1;
+
+  /** Force specific changes even if dangerous */
+  repeated ForceFlag force_changes = 2;
+
+  /**
+   * The store that is used as the underlying source for executing this request.
+   * If `store` is a synchronizers store, the resulting topology transaction will only be available on the respective synchronizers.
+   * If `store` is the authorized store, the resulting topology transaction may or may not be synchronized automatically
+   * to all synchronizers that the node is currently connected to or will be connected to in the future.
+   *
+   * Selecting a specific synchronizers store might be necessary, if the transaction to authorize by hash or the previous
+   * generation of the submitted proposal is only available on the synchronizers store and not in the authorized store.
+   */
+  StoreId store = 3;
+
+  /** Optional timeout to wait for the transaction to become effective in the store. */
+  google.protobuf.Duration wait_to_become_effective = 7;
+}
+message AddTransactionsResponse {}
+
+/**
+ * Same message as AddTransactionsRequest, except that transactions are encoded in a byte string
+ */
+message ImportTopologySnapshotRequest {
+  bytes topology_snapshot = 1;
+  StoreId store = 2;
+  /** Optional timeout to wait for the transaction to become effective in the store. */
+  google.protobuf.Duration wait_to_become_effective = 3;
+}
+message ImportTopologySnapshotResponse {}
+
+/**
+ * Same message as AddTransactionsRequest, except that transactions are encoded in a byte string
+ */
+message ImportTopologySnapshotV2Request {
+  bytes topology_snapshot = 1;
+  StoreId store = 2;
+  /** Optional timeout to wait for the transaction to become effective in the store. */
+  google.protobuf.Duration wait_to_become_effective = 3;
+}
+message ImportTopologySnapshotV2Response {}
+
+message SignTransactionsRequest {
+  /** The transactions to be signed, but will not be stored in the authorized store */
+  repeated com.digitalasset.canton.protocol.v30.SignedTopologyTransaction transactions = 1;
+  /**
+   * Fingerprint of the keys signing the authorization
+   *
+   * The signing key is used to identify a particular `NamespaceDelegation` certificate,
+   * which is used to justify the given authorization.
+   * Optional, if empty, suitable signing keys available known to the node are automatically selected.
+   */
+  repeated string signed_by = 2;
+
+  // Target store
+  StoreId store = 3;
+
+  /** Force specific changes even if dangerous */
+  repeated ForceFlag force_flags = 4;
+}
+
+message SignTransactionsResponse {
+  /** The transactions with the additional signatures from this node. */
+  repeated com.digitalasset.canton.protocol.v30.SignedTopologyTransaction transactions = 1;
+}
+
+message CreateTemporaryTopologyStoreRequest {
+  /** The name of the topology store */
+  string name = 1;
+  /** The protocol version that should be used by the store */
+  uint32 protocol_version = 2;
+}
+
+message CreateTemporaryTopologyStoreResponse {
+  /** The identifier of the topology store that should be used as a store filter string */
+  StoreId.Temporary store_id = 1;
+}
+
+message DropTemporaryTopologyStoreRequest {
+  /** The identifier of the topology store that should be dropped */
+  StoreId.Temporary store_id = 1;
+}
+
+message DropTemporaryTopologyStoreResponse {}
+
+enum ForceFlag {
+  FORCE_FLAG_UNSPECIFIED = 0;
+  /** Required when authorizing adding a topology transaction on behalf of another node. */
+  FORCE_FLAG_ALIEN_MEMBER = 1;
+  /* Deprecated, increasing ledger time record time tolerance does not require a force flag for PV >= 32 */
+  FORCE_FLAG_LEDGER_TIME_RECORD_TIME_TOLERANCE_INCREASE = 2;
+  // Previously FORCE_FLAG_ALLOW_UNVET_PACKAGE, now always enabled as it is not dangerous anymore
+  reserved 3;
+  reserved "FORCE_FLAG_ALLOW_UNVET_PACKAGE";
+  /** Required when vetting unknown packages (not uploaded). */
+  FORCE_FLAG_ALLOW_UNKNOWN_PACKAGE = 4;
+  /** Required when vetting a package with unvetted dependencies */
+  FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES = 5;
+  /** Required when disabling a party with active contracts */
+  FORCE_FLAG_DISABLE_PARTY_WITH_ACTIVE_CONTRACTS = 6;
+  /**
+   * Required when using a key that is not suitable to sign a topology transaction.
+   * Using this force flag likely causes the transaction to be rejected at a later stage of the processing.
+   */
+  FORCE_FLAG_ALLOW_UNVALIDATED_SIGNING_KEYS = 7;
+  // Previously FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS, now allowed without flag as it is not a dangerous operation anymore.
+  reserved 8;
+  reserved "FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS";
+  /** Required when increasing the submission time record time tolerance */
+  FORCE_FLAG_PREPARATION_TIME_RECORD_TIME_TOLERANCE_INCREASE = 9;
+  /** Required when we want to change all participants' permissions to observation while the party is still a signatory of a contract. */
+  FORCE_FLAG_ALLOW_INSUFFICIENT_PARTICIPANT_PERMISSION_FOR_SIGNATORY_PARTY = 10;
+  /** Required when changing the party-to-participant mapping, that would result in insufficient
+   * signatory-assigning participants and thus the assignment would be stuck.
+   */
+  FORCE_FLAG_ALLOW_INSUFFICIENT_SIGNATORY_ASSIGNING_PARTICIPANTS_FOR_PARTY = 11;
+  /** Required when vetting a package that fails upgrade checking */
+  FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES = 12;
+  /** Required when submitting dynamic synchronizer parameters that have out-of-bounds values */
+  FORCE_FLAG_ALLOW_OUT_OF_BOUNDS_VALUE = 13;
+  /** Required when changing the confirming threshold to a value higher than the number of confirming participants */
+  FORCE_FLAG_ALLOW_CONFIRMING_THRESHOLD_CANNOT_BE_MET = 14;
+}

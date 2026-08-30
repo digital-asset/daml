@@ -1,0 +1,34 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module GenerateSnapshot where
+
+import Daml.Script
+import ReplayBenchmark
+
+localCreateAndExercise = do
+  alice <- allocateParty "alice"
+  _ <- submit alice (createAndExerciseCmd (T alice 42) (Add 7))
+  pure ()
+
+globalCreateAndExercise = do
+  alice <- allocateParty "alice"
+  cid <- submit alice (createCmd (T alice 13))
+  _ <- submit alice (exerciseCmd cid (Add 7))
+  pure ()
+
+createOnly = do
+  alice <- allocateParty "alice"
+  _ <- submit alice (createCmd (T alice 13))
+  pure ()
+
+explode = do
+  alice <- allocateParty "alice"
+  _ <- submitMustFail alice (createAndExerciseCmd (T alice 17) Explode)
+  pure ()
+
+createExerciseAndExplode = do
+  alice <- allocateParty "alice"
+  _ <- submit alice (createAndExerciseCmd (T alice 42) (Add 7))
+  _ <- submitMustFail alice (createAndExerciseCmd (T alice 17) Explode)
+  pure ()

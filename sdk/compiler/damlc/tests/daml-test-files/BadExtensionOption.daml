@@ -1,0 +1,8 @@
+-- Test that we get a warning when using a problematic extension.
+{-# OPTIONS_GHC -XPatternSynonyms #-}
+-- @WARN Modules compiled with the PatternSynonyms language extension might not work properly with data-dependencies.
+-- @INFO Use LANGUAGE pragmas
+
+module BadExtensionOption where
+
+pattern Nil = []

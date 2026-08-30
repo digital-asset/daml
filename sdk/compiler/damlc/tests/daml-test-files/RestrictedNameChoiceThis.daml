@@ -1,0 +1,12 @@
+-- @ERROR range=10:9-10:13; `this' is a prohibited field name, please use something else.
+
+module RestrictedNameChoiceThis where
+
+template Test with
+    p : Party
+  where
+    signatory p
+    choice This : () with
+        this : Int
+      controller p
+      do pure ()

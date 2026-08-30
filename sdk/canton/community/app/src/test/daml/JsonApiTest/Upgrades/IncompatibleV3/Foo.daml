@@ -1,0 +1,17 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Foo where
+
+import IFoo
+
+-- This template is an incompatible upgrade of Foo in V2/Foo.daml
+template Foo with
+    otherParty: Party -- inverted with owner below when compared with V2
+    owner : Party
+    extra : Optional Int -- new optional field
+  where
+    signatory owner
+
+    interface instance IFoo for Foo where
+      view = FooView with owner = owner

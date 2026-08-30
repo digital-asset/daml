@@ -1,0 +1,21 @@
+module Foo where
+
+import IBaz
+import Baz
+
+template Foo
+  with
+    owner: Party
+  where
+    signatory owner
+
+    choice Foo_Exe: ()
+      with
+        fooExeInformee: Party
+        subInformee: Party
+      observer fooExeInformee
+      controller owner
+        do
+          bazCid <- create Baz with owner = owner, obs = owner
+          _ <- exercise (toInterfaceContractId @IBaz bazCid) IBaz_Exe with subInformee = subInformee
+          pure ()
