@@ -6,30 +6,33 @@ package engine
 package script
 package v2
 
-import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.engine.free.Free
-import com.digitalasset.daml.lf.engine.script.Runner.IdeLedgerContext
-import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
-  ScriptLedgerClient => UnversionedScriptLedgerClient
-}
-import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.digitalasset.daml.lf.script.IdeLedger
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValue,
   ExtendedValueClosureBlob,
   ExtendedValueComputationMode,
   runExtendedValueComputation,
 }
-import com.digitalasset.daml.lf.speedy.MachineLogger
-import com.digitalasset.daml.lf.transaction.{NextGenContractStateMachine => ContractStateMachine}
-import com.digitalasset.daml.lf.value.Value._
+import com.digitalasset.daml.lf.engine.free.Free
+import com.digitalasset.daml.lf.engine.script.Runner.IdeLedgerContext
+import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
+  ScriptLedgerClient => UnversionedScriptLedgerClient
+}
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.interpretation.{Error => IE}
+import com.digitalasset.daml.lf.script.IdeLedger
 import com.digitalasset.daml.lf.script.converter.ConverterException
-import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.daml.lf.speedy.{MachineLogger, SError}
+import com.digitalasset.daml.lf.transaction.{NextGenContractStateMachine => ContractStateMachine}
+import com.digitalasset.daml.lf.value.Value
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 private[lf] class Runner(
     unversionedRunner: script.Runner,
@@ -99,14 +102,14 @@ private[lf] class Runner(
     }
 
   // Takes a Script X and runs it
-  def runResolved(scriptValue: ExtendedValue, convertLegacyExceptions: Boolean = true)(implicit
+  def runResolved(scriptValue: ExtendedValue, convertLegacyExceptions: Boolean)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[ExtendedValue] =
+  ): Future[ExtendedValue] = handleLegacyExceptions(convertLegacyExceptions)(
     for {
       freeClosure <- scriptValue match {
-        case ValueRecord(_, ImmArray((_, freeClosure: ExtendedValueClosureBlob), _)) =>
+        case Value.ValueRecord(_, ImmArray((_, freeClosure: ExtendedValueClosureBlob), _)) =>
           Future.successful(freeClosure)
         case a => Future.failed(new RuntimeException(s"Expected Script a but got $a"))
       }
@@ -115,7 +118,6 @@ private[lf] class Runner(
           freeClosure,
           unversionedRunner.extendedCompiledPackages,
           machineLogger,
-          convertLegacyExceptions,
           canceled,
         )
       result <-
@@ -125,21 +127,21 @@ private[lf] class Runner(
             .recover { case err: RuntimeException => Result.failed(err) }
         )
     } yield result
+  )
 
   // Takes something that resolves/computes to a Script X, then runs the script
-  def run(comp: ExtendedValueComputationMode, convertLegacyExceptions: Boolean = true)(implicit
+  def run(comp: ExtendedValueComputationMode, convertLegacyExceptions: Boolean)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[ExtendedValue] =
     for {
-      scriptValue <- runComputation(comp, convertLegacyExceptions)
+      scriptValue <- handleLegacyExceptions(convertLegacyExceptions)(runComputation(comp))
       result <- runResolved(scriptValue, convertLegacyExceptions)
     } yield result
 
   def runComputation(
-      comp: ExtendedValueComputationMode,
-      convertLegacyExceptions: Boolean = true,
+      comp: ExtendedValueComputationMode
   )(implicit ec: ExecutionContext): Future[ExtendedValue] =
     Future {
       runExtendedValueComputation(
@@ -148,7 +150,7 @@ private[lf] class Runner(
         unversionedRunner.extendedCompiledPackages,
         machineLogger,
         iterationsBetweenInterruptions = 100000,
-        convertLegacyExceptions,
+        convertLegacyExceptions = false,
       ).fold(
         err => throw err.fold(identity, free.InterpretationError(_)),
         identity,
@@ -173,9 +175,12 @@ private[lf] class Runner(
       (
         unversionedRunner.script match {
           case ScriptAction.NoParam(id, _) =>
-            run(ExtendedValueComputationMode.ByIdentifier(id))
+            run(ExtendedValueComputationMode.ByIdentifier(id), convertLegacyExceptions = true)
           case ScriptAction.Param(id, paramType, Some(param), _) =>
-            run(ExtendedValueComputationMode.ByIdentifier(id, Some(List(param))))
+            run(
+              ExtendedValueComputationMode.ByIdentifier(id, Some(List(param))),
+              convertLegacyExceptions = true,
+            )
           case _ =>
             Future.failed(
               new RuntimeException("impossible")
@@ -183,4 +188,54 @@ private[lf] class Runner(
         },
         ideLedgerContext,
       )
+
+  def makeFailureStatus(excpType: Ref.TypeConId, msg: String) =
+    free.InterpretationError(
+      SError.SErrorDamlException(
+        IE.FailureStatus(
+          "UNHANDLED_EXCEPTION/" + excpType.qualifiedName.toString,
+          Ast.FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
+          msg,
+          Map(),
+        )
+      )
+    )
+
+  def handleLegacyExceptions[X](
+      convertLegacyExceptions: Boolean
+  )(x: Future[X])(implicit ec: ExecutionContext) =
+    x.recoverWith {
+      case free.InterpretationError(
+            SError.SErrorDamlException(IE.UnhandledException(Ast.TTyCon(excpType), value))
+          ) if convertLegacyExceptions =>
+        convertLegacyException(excpType, value)
+    }
+
+  def convertLegacyException(excpType: Ref.TypeConId, value: ExtendedValue)(implicit
+      ec: ExecutionContext
+  ): Future[Nothing] = {
+    runComputation(
+      ExtendedValueComputationMode.ByExceptionMessage(excpType, value)
+    ).transform { result =>
+      val error = result match {
+        case Success(Value.ValueText(msg)) =>
+          makeFailureStatus(excpType, msg)
+        case Success(_) =>
+          new RuntimeException(s"Message computation for exception $excpType did not give Text")
+        case Failure(
+              free.InterpretationError(
+                SError.SErrorDamlException(
+                  IE.UnhandledException(Ast.TTyCon(messageExceptionName), _)
+                )
+              )
+            ) =>
+          makeFailureStatus(
+            excpType,
+            s"<Failed to calculate message as ${messageExceptionName.qualifiedName.toString} was thrown during conversion>",
+          )
+        case Failure(error) => error
+      }
+      Failure(error)
+    }
+  }
 }
