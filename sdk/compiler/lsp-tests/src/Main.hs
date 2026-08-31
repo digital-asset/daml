@@ -70,6 +70,7 @@ main = withComponentVersions $ do
                     , "dependencies:"
                     , "- daml-prim"
                     , "- daml-stdlib"
+                    , "data-dependencies:"
                     , "- daml-script.dar"
                     ]
                 withCurrentDirectory dir $ do
@@ -1166,7 +1167,8 @@ includePathTests damlc scriptDarPath = testGroup "include-path"
               , "name: a"
               , "version: 0.0.1"
               , "source: src1/Root.daml"
-              , "dependencies: [daml-prim, daml-stdlib, daml-script.dar]"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [daml-script.dar]"
               , "build-options:"
               , "- --include=src1/"
               , "- --include=src2/"
@@ -1229,7 +1231,8 @@ multiPackageTests damlc scriptDarPath
               , "name: b"
               , "version: 0.0.1"
               , "source: ."
-              , "dependencies: [daml-prim, daml-stdlib, daml-script.dar, " <> show (".." </> "a" </> "a.dar") <> "]"
+              , "dependencies: [daml-prim, daml-stdlib, " <> show (".." </> "a" </> "a.dar") <> "]"
+              , "data-dependencies: [daml-script.dar]"
               ]
           writeFileUTF8 (dir </> "b" </> "B.daml") $ unlines
               [ "module B where"
@@ -1300,7 +1303,8 @@ multiPackageTests damlc scriptDarPath
               , "name: b"
               , "version: 0.0.1"
               , "source: ."
-              , "dependencies: [daml-prim, daml-stdlib, daml-script.dar, " <> show (".." </> "a" </> "a.dar") <> "]"
+              , "dependencies: [daml-prim, daml-stdlib, " <> show (".." </> "a" </> "a.dar") <> "]"
+              , "data-dependencies: [daml-script.dar]"
               ]
           writeFileUTF8 (dir </> "b" </> "B.daml") $ unlines
               [ "module B where"

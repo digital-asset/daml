@@ -305,6 +305,7 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
+data-dependencies:
   - daml-script.dar
 build-options: ["--ghc-option", "-Werror"]
 EOF
