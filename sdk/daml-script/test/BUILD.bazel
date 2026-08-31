@@ -63,6 +63,7 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
+data-dependencies:
   - daml-script-{lfVersion}.dar
 build-options:
   - --target={lfVersion}
@@ -112,6 +113,7 @@ build-options:
 dependencies:
   - daml-stdlib
   - daml-prim
+data-dependencies:
   - daml-script-{lf_version}.dar
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-{lf_version}.dar)
@@ -150,6 +152,7 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
+data-dependencies:
   - daml-script-{target}.dar
 build-options:
   - --target={target}
@@ -191,6 +194,7 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
+data-dependencies:
   - daml-script-2.dev.dar
 build-options:
   - --target=2.dev
@@ -230,6 +234,7 @@ build-options:
 dependencies:
   - daml-stdlib
   - daml-prim
+data-dependencies:
   - daml-script-{target}.dar
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-no-ledger.dar)

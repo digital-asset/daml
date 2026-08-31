@@ -42,7 +42,7 @@ case class ScriptIds(val scriptEra: ScriptIds.ScriptEra) {
   // Note that `fullStableModulePath` is not used when using NonStable daml-script
   def damlScriptModuleExplicit(module: String, fullStableModulePath: String, s: String) =
     scriptEra match {
-      case ScriptIds.ScriptEra.Legacy =>
+      case ScriptIds.ScriptEra.Legacy(_) =>
         throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
       case ScriptIds.ScriptEra.NonStable(scriptPackageId) =>
         Identifier(
@@ -68,7 +68,7 @@ case class ScriptIds(val scriptEra: ScriptIds.ScriptEra) {
   // Due to how scripts are interpreted, this may sometimes not yet be known when running Stable script
   // as we have not yet come across a data-type from the main package.
   def scriptPackageId: PackageId = scriptEra match {
-    case ScriptIds.ScriptEra.Legacy =>
+    case ScriptIds.ScriptEra.Legacy(_) =>
       throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
     case ScriptIds.ScriptEra.NonStable(scriptPackageId) => scriptPackageId
     case ScriptIds.ScriptEra.Stable(Some(scriptPackageId), _) => scriptPackageId
@@ -79,8 +79,7 @@ case class ScriptIds(val scriptEra: ScriptIds.ScriptEra) {
   // Package id of the Script type, which is either the main script package (pre stable)
   // or the stable package "daml-script-stable-Daml-Script-Internal-LowLevel-Stable-Script" (post stable)
   def scriptTypePackageId: PackageId = scriptEra match {
-    case ScriptIds.ScriptEra.Legacy =>
-      throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
+    case ScriptIds.ScriptEra.Legacy(legacyScriptPackageId) => legacyScriptPackageId
     case ScriptIds.ScriptEra.NonStable(scriptPackageId) => scriptPackageId
     case ScriptIds.ScriptEra.Stable(_, scriptTypePackageId) => scriptTypePackageId
   }
@@ -102,7 +101,8 @@ case class ScriptIds(val scriptEra: ScriptIds.ScriptEra) {
 object ScriptIds {
   sealed trait ScriptEra
   object ScriptEra {
-    case object Legacy extends ScriptEra // Pre 3.3 legacy daml-script, before daml3-script
+    case class Legacy(val legacyScriptPackageId: PackageId)
+        extends ScriptEra // Pre 3.3 legacy daml-script, before daml3-script
     case class NonStable(val scriptPackageId: PackageId)
         extends ScriptEra // Pre 3.6 stable daml-script with cross-sdk support
     // When using Stable daml-script, the `Script` type is not from the unstable package, so we do not know what it is
@@ -123,7 +123,7 @@ object ScriptIds {
     ty match {
       case TApp(TTyCon(Identifier(pkgId, QualifiedName(moduleName, `scriptDottedName`))), _) => {
         moduleName.toString match {
-          case "Daml.Script" => Right(ScriptIds(ScriptEra.Legacy))
+          case "Daml.Script" => Right(ScriptIds(ScriptEra.Legacy(pkgId)))
           case "Daml.Script.Internal.LowLevel" => Right(ScriptIds(ScriptEra.NonStable(pkgId)))
           case "Daml.Script.Internal.LowLevel.Stable.Script" =>
             Right(ScriptIds(ScriptEra.Stable(None, pkgId)))

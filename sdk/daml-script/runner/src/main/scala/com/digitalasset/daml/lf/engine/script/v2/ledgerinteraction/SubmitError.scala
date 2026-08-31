@@ -39,22 +39,50 @@ object SubmitError {
       env.scriptIds.damlScriptModule("Daml.Script.Internal.Questions.Submit.Error", s)
     def damlScriptErrorIdentifierUnstable(s: String) =
       env.scriptIds.damlScriptModuleNonStable("Daml.Script.Internal.Questions.Submit.Error", s)
+
     def damlScriptVariant(
         datatypeName: String,
         variantName: String,
         fields: (String, ExtendedValue)*
     ) =
+      damlScriptVariantOrEnum(
+        datatypeName,
+        variantName,
+        (
+            (
+                dName,
+                vName,
+            ) =>
+              ValueVariant(
+                dName,
+                vName,
+                record(
+                  damlScriptErrorIdentifier(datatypeName + "." + variantName),
+                  fields: _*
+                ),
+              ),
+        ),
+        fields: _*
+      )
+
+    def damlScriptEnum(
+        datatypeName: String,
+        variantName: String,
+    ) = damlScriptVariantOrEnum(datatypeName, variantName, ValueEnum(_, _))
+
+    def damlScriptVariantOrEnum(
+        datatypeName: String,
+        variantName: String,
+        buildLegacy: (Option[Identifier], Name) => ExtendedValue,
+        fields: (String, ExtendedValue)*
+    ) =
       env.scriptIds.scriptEra match {
-        case ScriptIds.ScriptEra.Legacy =>
+        case ScriptIds.ScriptEra.Legacy(_) =>
           throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
         case ScriptIds.ScriptEra.NonStable(_) =>
-          ValueVariant(
+          buildLegacy(
             Some(damlScriptErrorIdentifier(datatypeName)),
             Name.assertFromString(variantName),
-            record(
-              damlScriptErrorIdentifier(datatypeName + "." + variantName),
-              fields: _*
-            ),
           )
         case ScriptIds.ScriptEra.Stable(_, _) =>
           // In Stable, the "Variant" is now a wrapper around a "TaggedRecord", which holds the fields in a
@@ -86,7 +114,7 @@ object SubmitError {
         fields: (String, ExtendedValue)*
     ) =
       env.scriptIds.scriptEra match {
-        case ScriptIds.ScriptEra.Legacy =>
+        case ScriptIds.ScriptEra.Legacy(_) =>
           throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
         case ScriptIds.ScriptEra.NonStable(_) | ScriptIds.ScriptEra.Stable(_, _) =>
           ValueVariant(
@@ -102,7 +130,7 @@ object SubmitError {
     // For stable, this should now lookup VariantName<>dataTypeName as a top level data def
     def doesConstructorExist(datatypeName: String, variantName: String): Boolean =
       env.scriptIds.scriptEra match {
-        case ScriptIds.ScriptEra.Legacy =>
+        case ScriptIds.ScriptEra.Legacy(_) =>
           throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
         case ScriptIds.ScriptEra.NonStable(_) =>
           env
@@ -780,23 +808,17 @@ object SubmitError {
       message: String,
   ) extends SubmitError {
     // This code needs to be kept in sync with daml-script#Error.daml
-    override def toDamlSubmitError(env: Env, legacyAnyContractKey: Boolean): ExtendedValue = {
-      val errorTypeIdentifier =
-        env.scriptIds.damlScriptModule(
-          "Daml.Script.Internal.Questions.Submit.Error",
-          "ExternalCallErrorType",
-        )
+    override def toDamlSubmitError(env: Env, legacyAnyContractKey: Boolean): ExtendedValue =
       SubmitErrorConverters(env).damlScriptError(
         "ExternalCallError",
         (
           "externalCallErrorType",
-          ValueEnum(Some(errorTypeIdentifier), Name.assertFromString(errorType.name)),
+          SubmitErrorConverters(env).damlScriptEnum("ExternalCallErrorType", errorType.name),
         ),
         ("extensionId", ValueText(extensionId)),
         ("functionId", ValueText(functionId)),
         ("externalCallErrorMessage", ValueText(message)),
       )
-    }
   }
 
   object ExternalCallError {
@@ -811,20 +833,18 @@ object SubmitError {
   final case class DevError(errorType: String, message: String) extends SubmitError {
     // This code needs to be kept in sync with daml-script#Error.daml
     override def toDamlSubmitError(env: Env, legacyAnyContractKey: Boolean): ExtendedValue = {
-      val devErrorTypeIdentifier =
-        env.scriptIds.damlScriptModule(
-          "Daml.Script.Internal.Questions.Submit.Error",
-          "DevErrorType",
-        )
-      val devErrorType = errorType match {
-        case "ChoiceGuardFailed" =>
-          ValueEnum(Some(devErrorTypeIdentifier), Name.assertFromString("ChoiceGuardFailed"))
-        case _ =>
-          ValueEnum(Some(devErrorTypeIdentifier), Name.assertFromString("UnknownNewFeature"))
-      }
       SubmitErrorConverters(env).damlScriptError(
         "DevError",
-        ("devErrorType", devErrorType),
+        (
+          "devErrorType",
+          SubmitErrorConverters(env).damlScriptEnum(
+            "DevErrorType",
+            errorType match {
+              case "ChoiceGuardFailed" => "ChoiceGuardFailed"
+              case _ => "UnknownNewFeature"
+            },
+          ),
+        ),
         ("devErrorMessage", ValueText(message)),
       )
     }

@@ -120,7 +120,7 @@ private[lf] class Runner(
         )
       result <-
         remapQ(freeExpr).runF[ScriptF.Cmd, ExtendedValue](
-          _.executeWithRunner(this, convertLegacyExceptions)
+          _.runCommand(env, this, convertLegacyExceptions)
             .map(Result.successful)
             .recover { case err: RuntimeException => Result.failed(err) }
         )
@@ -160,27 +160,29 @@ private[lf] class Runner(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Future[ExtendedValue], Option[IdeLedgerContext]) =
-    if (unversionedRunner.script.scriptIds.scriptEra == ScriptIds.ScriptEra.Legacy)
-      (
-        Future.failed(
-          new ConverterException(
-            "Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK"
-          )
-        ),
-        ideLedgerContext,
-      )
-    else
-      (
-        unversionedRunner.script match {
-          case ScriptAction.NoParam(id, _) =>
-            run(ExtendedValueComputationMode.ByIdentifier(id))
-          case ScriptAction.Param(id, paramType, Some(param), _) =>
-            run(ExtendedValueComputationMode.ByIdentifier(id, Some(List(param))))
-          case _ =>
-            Future.failed(
-              new RuntimeException("impossible")
-            ) // This case is caught by script.Runner, when a Param ScriptAction is called without a param
-        },
-        ideLedgerContext,
-      )
+    unversionedRunner.script.scriptIds.scriptEra match {
+      case ScriptIds.ScriptEra.Legacy(_) =>
+        (
+          Future.failed(
+            new ConverterException(
+              "Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK"
+            )
+          ),
+          ideLedgerContext,
+        )
+      case _ =>
+        (
+          unversionedRunner.script match {
+            case ScriptAction.NoParam(id, _) =>
+              run(ExtendedValueComputationMode.ByIdentifier(id))
+            case ScriptAction.Param(id, paramType, Some(param), _) =>
+              run(ExtendedValueComputationMode.ByIdentifier(id, Some(List(param))))
+            case _ =>
+              Future.failed(
+                new RuntimeException("impossible")
+              ) // This case is caught by script.Runner, when a Param ScriptAction is called without a param
+          },
+          ideLedgerContext,
+        )
+    }
 }

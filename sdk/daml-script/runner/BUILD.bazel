@@ -183,7 +183,7 @@ da_scala_binary(
     daml_compile(
         name = "test-script{n}".format(n = n),
         srcs = glob(["src/test/resources/TestScript.daml"]),
-        dependencies = ["//daml-script/daml:daml-script.dar"],
+        data_dependencies = ["//daml-script/daml:daml-script.dar"],
     )
     for n in range(
         1,
@@ -194,7 +194,7 @@ da_scala_binary(
 daml_compile(
     name = "failing-test-script",
     srcs = glob(["src/test/resources/FailingTestScript.daml"]),
-    dependencies = ["//daml-script/daml:daml-script.dar"],
+    data_dependencies = ["//daml-script/daml:daml-script.dar"],
 )
 
 exports_files(["src/main/resources/logback.xml"])
