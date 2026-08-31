@@ -218,6 +218,10 @@ data ModRefImpSpec
         -- ^ For open imports, e.g.
         --
         -- > import SomeModule
+    | QualifiedImpSpec
+        -- ^ For qualified open imports, e.g.
+        --
+        -- > import qualified SomeModule
     | EmptyImpSpec
         -- ^ For instances-only imports, e.g.
         --
@@ -232,7 +236,7 @@ modRefImport Config{..} ModRef{..} = noLoc ImportDecl
     , ideclSource = False
     , ideclSafe = False
     , ideclImplicit = False
-    , ideclQualified = False
+    , ideclQualified = modRefImpSpec == QualifiedImpSpec
     , ideclAs = Nothing
     , ideclHiding = impSpec
     , ideclExt = noExt
@@ -246,6 +250,7 @@ modRefImport Config{..} ModRef{..} = noLoc ImportDecl
              | otherwise -> prefixDependencyModule importPkgId modRefModule
       impSpec = case modRefImpSpec of
           NoImpSpec -> Nothing
+          QualifiedImpSpec -> Nothing
           EmptyImpSpec -> Just (False, noLoc []) -- False = not 'hiding'
 
 data GenState = GenState
@@ -406,10 +411,15 @@ generateSrcFromLf env = noLoc mod
         pure $ mkOrig ghcMod (LF.qualObject q)
 
     -- Allows unqual regardless of name location, can be dangerous.
-    mkRdrNameUnqualUnsafe :: LFC.QualName -> Gen (Located RdrName)
-    mkRdrNameUnqualUnsafe (LFC.QualName q) = do
+    mkRdrNameUnqualUnsafe :: LFC.QualName -> ModRefImpSpec -> Gen (Located RdrName)
+    mkRdrNameUnqualUnsafe (LFC.QualName q) impSpec = do
       -- Emit the usage for imports, but don't use it
-      void $ genModule env (LF.qualPackage q) (LF.qualModule q)
+      emitModRef ModRef
+        { modRefModule = LF.qualModule q
+        , modRefOrigin = importOriginFromPackageRef (envConfig env) (LF.qualPackage q)
+        , modRefImpSpec = impSpec
+        }
+
       let occName = LF.qualObject q
           bracketOccName :: OccName -> OccName
           bracketOccName name = mkOccName (occNameSpace name) ("(" <> occNameString name <> ")")
@@ -417,12 +427,29 @@ generateSrcFromLf env = noLoc mod
             if isSymOcc occName then bracketOccName occName else occName
       pure $ noLoc $ mkRdrUnqual bracketedOccName
 
+    -- Tuples become "(,)" in LFC.QualName, which `isSymOcc` returns false for, as the brackets have
+    -- already been applied.
+    -- This function checks isSymOcc and for tuples
+    isSymOccOrTuple :: OccName -> Bool
+    isSymOccOrTuple name =
+        isSymOcc name || isTuple (occNameString name)
+      where
+        isTuple :: String -> Bool
+        isTuple s = s == "(" <> replicate (length s - 2) ',' <> ")"
+
+    -- If the qualName is a symbol, we keep it unqualified (as {-# COMPLETE #-} dont support qualified symbols)
+    mkRdrNameUnqualUnsafeIfSymbol :: LFC.QualName -> Gen (Located RdrName)
+    mkRdrNameUnqualUnsafeIfSymbol name@(LFC.QualName q) =
+        if isSymOccOrTuple (LF.qualObject q)
+          then mkRdrNameUnqualUnsafe name NoImpSpec
+          else noLoc <$> mkRdrNameQual name
+
     -- Only allows unqual if the name comes from the same package and module
     mkRdrNameUnqual :: LFC.QualName -> Gen (Located RdrName)
     mkRdrNameUnqual name@(LFC.QualName q) =
         if LF.qualPackage q /= LF.SelfPackageId || LF.qualModule q /= lfModName
           then pure $ error "Tried to call mkRdrNameUnqual on non-local package/module"
-          else mkRdrNameUnqualUnsafe name
+          else mkRdrNameUnqualUnsafe name QualifiedImpSpec
 
     mkFieldLblRdrNameQual :: FieldLbl LFC.QualName -> Gen (Located (FieldLbl RdrName))
     mkFieldLblRdrNameQual = fmap noLoc . traverse mkRdrNameQual
@@ -703,9 +730,9 @@ generateSrcFromLf env = noLoc mod
         makeCompletePragma match = do
           -- Parser only allows the pragma to contain unqualified names, but supports those names coming from any module/package
           -- (as long as one name comes from this module)
-          matchersRdrNames <- traverse mkRdrNameUnqualUnsafe $ LFC.matchers match
+          matchersRdrNames <- traverse (`mkRdrNameUnqualUnsafe` NoImpSpec) $ LFC.matchers match
           -- Similarly, Parser will not allow qualified symbol data types (such as tuple) for the subject, so we unqualify those too
-          subjectRdrName <- mkRdrNameUnqualUnsafe $ LFC.subject match
+          subjectRdrName <- mkRdrNameUnqualUnsafeIfSymbol $ LFC.subject match
           pure $ noLoc . SigD noExt $ CompleteMatchSig
             noExt 
             NoSourceText
@@ -1159,7 +1186,7 @@ prefixDependencyModule (LF.PackageId pkgId) = prefixModuleName ["Pkg_" <> pkgId]
 
 genModuleAux :: Config -> ImportOrigin -> LF.ModuleName -> Gen Module
 genModuleAux conf origin moduleName = do
-    let modRef = ModRef moduleName origin NoImpSpec
+    let modRef = ModRef moduleName origin QualifiedImpSpec
     let ghcModuleName = (unLoc . ideclName . unLoc . modRefImport conf) modRef
     let unitId = case origin of
             FromCurrentSdk unitId -> unitId
