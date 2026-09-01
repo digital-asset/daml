@@ -74,4 +74,5 @@ test_exclusions = {
     "2.3-staging": ["src/it/daml/Tests/ContractKeys.daml", "src/it/daml/Tests/SimpleInterface.daml"],
     "2.3": ["src/it/daml/Tests/ContractKeys.daml", "src/it/daml/Tests/SimpleInterface.daml"],
     "2.4-staging": ["src/it/daml/Tests/ContractKeys.daml", "src/it/daml/Tests/SimpleInterface.daml"],
+    "2.4": ["src/it/daml/Tests/ContractKeys.daml", "src/it/daml/Tests/SimpleInterface.daml"],
 }
