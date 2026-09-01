@@ -211,7 +211,8 @@ class Context(
     val machineLogger = ScriptMachineLogger()
     val timeBomb = TimeBomb(timeout.toMillis)
     val isOverdue = timeBomb.hasExploded
-    val ledgerClient = new IdeLedgerClient(compiledPackages, machineLogger, isOverdue)
+    // Transaction snapshotting is only available via the daml-script CLI
+    val ledgerClient = new IdeLedgerClient(compiledPackages, machineLogger, isOverdue, None)
     val timeBombCanceller = timeBomb.start()
     val (resultF, ideLedgerContext) = Runner.runIdeLedgerClient(
       compiledPackages = compiledPackages,

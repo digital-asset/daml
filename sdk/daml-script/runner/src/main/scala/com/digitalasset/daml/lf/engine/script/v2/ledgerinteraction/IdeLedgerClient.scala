@@ -37,6 +37,7 @@ import org.apache.pekko.stream.Materializer
 
 import cats.data.NonEmptySet
 
+import java.nio.file.Path
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -48,6 +49,7 @@ class IdeLedgerClient(
     canceled: () => Boolean,
     override val loggerFactory: NamedLoggerFactory,
     csmMode: ContractStateMachine.Mode,
+    snapshotDir: Option[Path],
 ) extends ScriptLedgerClient
     with NamedLogging {
   private implicit val traceContext: TraceContext = TraceContext.empty
@@ -711,16 +713,17 @@ class IdeLedgerClient(
         translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
         result =
           IdeLedgerRunner.submit(
-            compiledPackages,
-            speedyDisclosures,
-            ledgerApi,
-            actAs.toSortedSet,
-            readAs,
-            translated,
-            optLocation,
-            nextSeed(),
-            machineLogger,
-            packageMap,
+            compiledPackages = compiledPackages,
+            disclosures = speedyDisclosures,
+            ledger = ledgerApi,
+            committers = actAs.toSortedSet,
+            readAs = readAs,
+            commands = translated,
+            location = optLocation,
+            seed = nextSeed(),
+            machineLogger = machineLogger,
+            packageResolution = packageMap,
+            snapshotDir = snapshotDir,
           )
         res <- loop(result)
       } yield res
