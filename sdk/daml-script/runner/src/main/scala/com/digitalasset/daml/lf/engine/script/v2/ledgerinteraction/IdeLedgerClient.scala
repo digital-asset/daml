@@ -713,16 +713,16 @@ class IdeLedgerClient(
         translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
         result =
           IdeLedgerRunner.submit(
-            compiledPackages,
-            speedyDisclosures,
-            ledgerApi,
-            actAs.toSortedSet,
-            readAs,
-            translated,
-            optLocation,
-            nextSeed(),
-            machineLogger,
-            packageMap,
+            compiledPackages = compiledPackages,
+            disclosures = speedyDisclosures,
+            ledger = ledgerApi,
+            committers = actAs.toSortedSet,
+            readAs = readAs,
+            commands = translated,
+            location = optLocation,
+            seed = nextSeed(),
+            machineLogger = machineLogger,
+            packageResolution = packageMap,
             snapshotDir = snapshotDir,
           )
         res <- loop(result)

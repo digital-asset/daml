@@ -303,6 +303,7 @@ object Runner {
   def ideLedgerClient(
       compiledPackages: PureCompiledPackages,
       machineLogger: MachineLogger,
+      // We only set the snapshotDir when the IDE ledger client is created from the CLI
       snapshotDir: Option[Path] = None,
   ): Future[Participants[IdeLedgerClient]] =
     Future.successful(
