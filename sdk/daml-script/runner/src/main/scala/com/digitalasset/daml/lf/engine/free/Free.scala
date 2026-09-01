@@ -21,7 +21,7 @@ import scalaz.syntax.traverse._
 import scala.concurrent.{ExecutionContext, Future}
 
 case class ConversionError(message: String) extends RuntimeException(message)
-final case class InterpretationError(error: SError.SError)
+final case class InterpretationError(error: SError)
     extends RuntimeException(s"${Pretty.prettyError(error).render(80)}")
 
 private[lf] object Free {

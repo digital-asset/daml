@@ -11,6 +11,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.free.Free
+import com.digitalasset.daml.lf.engine.Result.lookupHandler
 import com.digitalasset.daml.lf.engine.script.Runner.IdeLedgerContext
 import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient => UnversionedScriptLedgerClient
@@ -25,14 +26,13 @@ import com.digitalasset.daml.lf.engine.ScriptEngine.{
 }
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
-import com.digitalasset.daml.lf.speedy.{MachineLogger, SError}
+import com.digitalasset.daml.lf.speedy.{MachineLogger, SError, SValue}
 import com.digitalasset.daml.lf.transaction.{NextGenContractStateMachine => ContractStateMachine}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.digitalasset.canton.logging.NamedLoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 private[lf] object Runner {
   def makeFailureStatus(
@@ -41,7 +41,7 @@ private[lf] object Runner {
   ): Future[Nothing] =
     Future.failed(
       free.InterpretationError(
-        SError.SErrorDamlException(
+        SError.InterpretationError(
           IE.FailureStatus(
             "UNHANDLED_EXCEPTION/" + name.qualifiedName.toString,
             Ast.FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
@@ -165,53 +165,30 @@ private[lf] class Runner(
     } yield result
   }
 
-  private def convertUnhandledExceptionToFailureStatus(
-      error: free.InterpretationError
-  )(implicit ec: ExecutionContext): Future[Nothing] =
-    error.error match {
-      case SError.SErrorDamlException(IE.UnhandledException(Ast.TTyCon(excTyp), value)) =>
-        computeMessageThenFailureStatus(excTyp, value)
-      case _ =>
-        Future.failed(error)
+  private[v2] def convertLegacyException(excp: SValue.SAny): Future[Nothing] = Future.failed(
+    Engine
+      .computeFailureStatus(
+        excp,
+        unversionedRunner.extendedCompiledPackages,
+        machineLogger,
+        iterationsBetweenInterruptions = 100000,
+        detailMsg = None,
+      )
+      .consume(lookupHandler()) match {
+      case Left(error) =>
+        new RuntimeException(error.message)
+      case Right(failureStatus) =>
+        free.InterpretationError(SError.InterpretationError(failureStatus))
     }
-
-  // Computes the exception message by running the engine again, then wraps it in a FailureStatus.
-  private[v2] def computeMessageThenFailureStatus(
-      name: Ref.TypeConId,
-      value: ExtendedValue,
-  )(implicit ec: ExecutionContext): Future[Nothing] =
-    runComputation(
-      ExtendedValueComputationMode
-        .ByExceptionMessage(name, value)
-    ).transformWith {
-      case Success(ValueText(message)) =>
-        Runner.makeFailureStatus(name, message)
-      case Success(_) =>
-        Future.failed(
-          new RuntimeException(s"Message computation for exception $name did not give Text")
-        )
-      case Failure(
-            free.InterpretationError(
-              SError.SErrorDamlException(
-                IE.UnhandledException(Ast.TTyCon(messageExceptionName), _)
-              )
-            )
-          ) =>
-        Runner.makeFailureStatus(
-          name,
-          s"<Failed to calculate message as ${messageExceptionName.qualifiedName.toString} was thrown during conversion>",
-        )
-      case Failure(e) =>
-        Future.failed(e)
-    }
+  )
 
   private def recoverUnhandledException[A](
       result: Future[A],
       convertLegacyExceptions: Boolean,
   )(implicit ec: ExecutionContext): Future[A] =
     if (convertLegacyExceptions)
-      result.recoverWith { case error: free.InterpretationError =>
-        convertUnhandledExceptionToFailureStatus(error)
+      result.recoverWith { case free.InterpretationError(SError.UnhandledException(excp)) =>
+        convertLegacyException(excp)
       }
     else result
 

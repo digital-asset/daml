@@ -11,14 +11,14 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack, SortedLookupList, Utf8, ImmArray}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, SortedLookupList, Utf8}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
-import com.digitalasset.daml.lf.speedy.SError
+import com.digitalasset.daml.lf.speedy.{ExtendedValueTranslator, SError, SValue}
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValue,
   ExtendedValueAny,
@@ -67,7 +67,7 @@ object ScriptF {
       val scriptIds: ScriptIds,
       val timeMode: ScriptTimeMode,
       private var _clients: Participants[ScriptLedgerClient],
-      compiledPackages: CompiledPackages,
+      val compiledPackages: CompiledPackages,
       loggerFactory: NamedLoggerFactory,
       val traceContext: TraceContext,
   ) {
@@ -167,24 +167,14 @@ object ScriptF {
               true,
             ) =>
           Runner.makeFailureStatus(userNotFound, "User not found: " + userId)
-        case (ExtendedValueAny(Ast.TTyCon(name), v), true) =>
-          // Since we cannot call `SBThrow` from the engine, we must re-implement the legacy exception to FailureStatus conversion logic here
-          // This involves calculating the exception message by calling the engine again.
-          runner.computeMessageThenFailureStatus(name, v)
-        case (ExtendedValueAny(ty, _), true) =>
-          Future.failed(
-            new RuntimeException(
-              s"Tried to convert a non-grounded exception type ${ty.pretty} to Failure Status"
-            )
-          )
-        case (ExtendedValueAny(ty, value), false) =>
-          Future.failed(
-            free.InterpretationError(
-              SError.SErrorDamlException(
-                IE.UnhandledException(ty, Converter.castCommandExtendedValue(value).toOption.get)
-              )
-            )
-          )
+        case _ =>
+          val sAny = new ExtendedValueTranslator(env.compiledPackages.pkgInterface)
+            .translateExtendedValue(exc)
+            .fold(err => throw err, _.asInstanceOf[SValue.SAny])
+          if (convertLegacyExceptions)
+            runner.convertLegacyException(sAny)
+          else
+            Future.failed(free.InterpretationError(SError.UnhandledException(sAny)))
       }
     }
 
@@ -214,14 +204,14 @@ object ScriptF {
             )
           case Failure(
                 free.InterpretationError(
-                  SError.SErrorDamlException(IE.UnhandledException(typ, value))
+                  SError.UnhandledException(SValue.SAny(typ, value))
                 )
               ) =>
             Future.successful(
               ValueVariant(
                 Some(StablePackagesV2.Either),
                 Name.assertFromString("Left"),
-                ExtendedValueAny(typ, value),
+                ExtendedValueAny(typ, value.toUnnormalizedValue),
               )
             )
           case Failure(e) => Future.failed(e)
@@ -253,7 +243,7 @@ object ScriptF {
             )
           case Failure(
                 free.InterpretationError(
-                  SError.SErrorDamlException(
+                  SError.InterpretationError(
                     IE.FailureStatus(errorId, failureCategory, errorMessage, metadata)
                   )
                 )
@@ -333,7 +323,7 @@ object ScriptF {
         res <- (submitRes, submission.errorBehaviour) match {
           case (Right(_), MustFail) =>
             Future.failed(
-              SError.SErrorDamlException(
+              SError.InterpretationError(
                 interpretation.Error.UserError("Expected submit to fail but it succeeded")
               )
             )
@@ -948,7 +938,7 @@ object ScriptF {
           }
 
           val name = err match {
-            case Error.RunnerException(SError.SErrorDamlException(iErr)) =>
+            case Error.RunnerException(SError.InterpretationError(iErr)) =>
               iErr.getClass.getSimpleName
             case e => e.getClass.getSimpleName
           }
@@ -983,7 +973,7 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[ExtendedValue] =
-      Future.failed(free.InterpretationError(SError.SErrorDamlException(failureStatus)))
+      Future.failed(free.InterpretationError(SError.InterpretationError(failureStatus)))
   }
 
   final case class Ctx(knownPackages: Map[String, PackageId], compiledPackages: CompiledPackages)
