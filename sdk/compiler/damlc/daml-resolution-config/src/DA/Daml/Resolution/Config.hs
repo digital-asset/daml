@@ -169,12 +169,11 @@ expandDependencyPackages cachePath pkgResolution lfVersion dependencyPackages = 
       resolvedSdkPackagesWithPaths = traverse (\fp -> findDarInDarInfos (snd <$> darInfos) (T.pack fp) lfVersion) sdkPackages
   case resolvedSdkPackagesWithPaths of
     Left err -> throwIO $ ResolutionError $ T.unpack err
-    Right resolvedSdkPackages -> do
-      let (asDataDeps, asDeps) = partition snd resolvedSdkPackages
-      dataDeps <- addTransitiveDeps darInfos $ fmap fst asDataDeps
+    Right resolvedDataDeps -> do
+      dataDeps <- addTransitiveDeps darInfos resolvedDataDeps
       pure $ DependencyPackages
         purePaths
-        (dpRegularUncheckedDeps dependencyPackages <> fmap fst asDeps)
+        (dpRegularUncheckedDeps dependencyPackages)
         (dpDataDeps dependencyPackages <> dataDeps)
 
 -- TODO: This might do weird things with package-flags
@@ -193,28 +192,19 @@ addTransitiveDeps darInfos initialDeps = nubOrd <$> concatMapM addSingleTransiti
           reverseDarInfoMap = Map.fromList $ (\(fp, (pkgId, _)) -> (pkgId, fp)) <$> Map.toList darInfos
       pure $ mapMaybe (`Map.lookup` reverseDarInfoMap) packageIds
 
--- Daml-Script is not supported as a data-dep before featureStableCallStack, since callstack is
--- used extensively in script
-isSupportedAsDataDep :: LF.Version -> T.Text -> Bool
-isSupportedAsDataDep lfVersion "daml-script" = lfVersion `LF.supports` LF.featureStableCallStack
-isSupportedAsDataDep _ _ = True
-
--- Returns the path to the dar found, as well as a bool for whether this dar can be a data-dep (see `isSupportedAsDataDep`)
-findDarInDarInfos :: Map.Map FilePath DalfInfoCacheEntry -> T.Text -> LF.Version -> Either T.Text (FilePath, Bool)
+-- Returns the path to the dar found
+findDarInDarInfos :: Map.Map FilePath DalfInfoCacheEntry -> T.Text -> LF.Version -> Either T.Text FilePath
 findDarInDarInfos darInfos rawName lfVersion = do
   let name = hardcodedPackageRenames rawName
-      dataDepSupported = isSupportedAsDataDep lfVersion name
-      lfCondition = if dataDepSupported then LF.canDependOn else (==)
-      lfConditionPretty = if dataDepSupported then " compatible with " else " to equal "
       correctNamePackages = Map.filter (\darInfo -> (LF.unPackageName $ diPackageName darInfo) == name) darInfos
-      correctNameAndLfPackages = Map.filter (\darInfo -> lfCondition lfVersion (diLfVersion darInfo)) correctNamePackages
+      correctNameAndLfPackages = Map.filter (\darInfo -> lfVersion `LF.canDependOn` diLfVersion darInfo) correctNamePackages
       availablePackageVersions = nubOrd $ diPackageVersion <$> Map.elems correctNameAndLfPackages
       availableLfVersions = nubOrd $ diLfVersion <$> Map.elems correctNamePackages
       lfRenderVersionText = T.pack . LF.renderVersion
   case availablePackageVersions of
     -- If there are available correctly named packages, we have an LF version incompatibility
     [] | not $ null correctNamePackages-> do
-      Left $ "Package of correct name found, but incompatible LF version. Expected LF Version" <> lfConditionPretty <> lfRenderVersionText lfVersion
+      Left $ "Package of correct name found, but incompatible LF version. Expected LF Version compatible with " <> lfRenderVersionText lfVersion
         <> ", available versions: " <> (T.intercalate "," $ lfRenderVersionText <$> availableLfVersions)
     -- Otherwise, we are missing the package
     [] -> do
@@ -223,7 +213,7 @@ findDarInDarInfos darInfos rawName lfVersion = do
     [_] ->
       -- Major LF versions aren't cross compatible, so all will be same major here due to canDependOn check above
       -- as such, we take maximum by minor version
-      Right (fst $ maximumBy (comparing (LF.versionMinor . diLfVersion . snd)) $ Map.toList correctNameAndLfPackages, dataDepSupported)
+      Right $ fst $ maximumBy (comparing (LF.versionMinor . diLfVersion . snd)) $ Map.toList correctNameAndLfPackages
     _ ->
       Left $ "Multiple package versions for " <> rawName <> " were found:\n" <> (T.intercalate "," $ LF.unPackageVersion <$> availablePackageVersions)
         <> "\nYour daml installation may be broken."

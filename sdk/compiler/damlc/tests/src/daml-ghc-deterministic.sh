@@ -43,7 +43,8 @@ sdk-version: $SDK_VERSION
 name: proj
 version: 0.0.1
 source: .
-dependencies: [daml-prim, daml-stdlib, "$scriptdar"]
+dependencies: [daml-prim, daml-stdlib]
+data-dependencies: ["$scriptdar"]
 EOF
 )
 importargs="--package-db=./.daml/package-database --package=daml-script-$GHC_FRIENDLY_SDK_VERSION"

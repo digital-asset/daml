@@ -14,6 +14,15 @@ import Daml.Script.Internal.LowLevel
 import DA.Crypto.Text
 import DA.Stack
 
+instance GetField "privateKey" Secp256k1KeyPair PrivateKeyHex where
+  getField (Secp256k1KeyPair {..}) = privateKey
+instance SetField "privateKey" Secp256k1KeyPair PrivateKeyHex where
+  setField privateKey (Secp256k1KeyPair _ publicKey) = Secp256k1KeyPair privateKey publicKey
+instance GetField "publicKey" Secp256k1KeyPair PublicKeyHex where
+  getField (Secp256k1KeyPair {..}) = publicKey
+instance SetField "publicKey" Secp256k1KeyPair PublicKeyHex where
+  setField publicKey (Secp256k1KeyPair privateKey _) = Secp256k1KeyPair privateKey publicKey
+
 -- | MOVE Daml.Script
 -- A DER formatted private key to be used for ECDSA message signing
 type PrivateKeyHex = Text -- BytesHex
