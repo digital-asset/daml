@@ -25,8 +25,11 @@ final class ExternalCallDevIT extends AsyncWordSpec with AbstractScriptTest with
 
   override protected lazy val timeMode: ScriptTimeMode = ScriptTimeMode.WallClock
 
+  // External call is staged at LF 2.4 and its wire data exists from protocol version 36 on.
+  override protected lazy val protocolVersion = CantonConfig.ProtocolVersion.Explicit("v36")
+
   override lazy val darPath: Path = rlocation(
-    Paths.get("daml-script/test/external-call-test-v2.dev.dar")
+    Paths.get("daml-script/test/external-call-test-v2.4-staging.dar")
   )
   override lazy val dar: CompiledDar = CompiledDar.read(darPath, defaultCompilerConfig)
 
