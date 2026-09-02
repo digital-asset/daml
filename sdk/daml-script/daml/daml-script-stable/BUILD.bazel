@@ -44,8 +44,8 @@ da_haskell_binary(
 )
 
 sh_test(
-    name = "test-script-stable-packages",
-    srcs = ["test_script_stable_packages.sh"],
+    name = "test-daml-script-stable-packages",
+    srcs = ["test_daml_script_stable_packages.sh"],
     args = [
         "$(location generated-stable-packages.bzl)",
         "$(location stable-packages.bzl)",
@@ -57,8 +57,8 @@ sh_test(
 )
 
 sh_binary(
-    name = "update-script-stable-packages",
-    srcs = ["update_script_stable_packages.sh"],
+    name = "update-daml-script-stable-packages",
+    srcs = ["update_daml_script_stable_packages.sh"],
     args = [
         "$(location generated-stable-packages.bzl)",
         "daml-script/daml/daml-script-stable/stable-packages.bzl",

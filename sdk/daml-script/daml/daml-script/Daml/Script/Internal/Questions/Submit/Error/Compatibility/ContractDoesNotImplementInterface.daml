@@ -3,6 +3,8 @@
 
 module Daml.Script.Internal.Questions.Submit.Error.Compatibility.ContractDoesNotImplementInterface (pattern ContractDoesNotImplementInterface) where
 
+-- This pattern is part of Daml.Script.Internal.Questions.Submit.Error.Compatibility but had to be
+-- separated out to avoid field name collisions
 import Daml.Script.Internal.Questions.Submit.Error
 import Daml.Script.Internal.Questions.Util (AnyContractId)
 

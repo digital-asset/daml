@@ -26,6 +26,7 @@ import DA.NonEmpty
 import DA.Text
 import Daml.Script.Internal.Questions.Commands (AnyContractKey)
 import Daml.Script.Internal.Questions.Submit.Error
+-- Some pattern synonyms are split out to avoid field name collisions, which GHC does not allow from the same module
 import Daml.Script.Internal.Questions.Submit.Error.Compatibility.AuthenticationFailed as Patterns (pattern AuthenticationFailed)
 import Daml.Script.Internal.Questions.Submit.Error.Compatibility.ContractDoesNotImplementInterface as Patterns (pattern ContractDoesNotImplementInterface)
 import Daml.Script.Internal.Questions.Submit.Error.Compatibility.ContractDoesNotImplementRequiringInterface as Patterns (pattern ContractDoesNotImplementRequiringInterface)
@@ -37,10 +38,20 @@ import Daml.Script.Internal.Questions.Submit.Error.Compatibility.ValidationFaile
 import Daml.Script.Internal.Questions.Submit.Error.Compatibility.WronglyTypedContract as Patterns (pattern WronglyTypedContract)
 import Daml.Script.Internal.Questions.Util (AnyContractId)
 
+-- | MOVE Daml.Script
+-- Backwards compatibility alias
 type SubmitError = AnySubmitError
+-- | MOVE Daml.Script
+-- Backwards compatibility alias
 type UpgradeErrorType = AnyUpgradeErrorType
+-- | MOVE Daml.Script
+-- Backwards compatibility alias
 type CryptoErrorType = AnyCryptoErrorType
+-- | MOVE Daml.Script
+-- Backwards compatibility alias
 type ExternalCallErrorType = AnyExternalCallErrorType
+-- | MOVE Daml.Script
+-- Backwards compatibility alias
 type DevErrorType = AnyDevErrorType
 
 -- | MOVE Daml.Script

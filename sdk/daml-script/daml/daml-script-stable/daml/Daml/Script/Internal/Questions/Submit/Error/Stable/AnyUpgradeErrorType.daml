@@ -5,5 +5,6 @@ module Daml.Script.Internal.Questions.Submit.Error.Stable.AnyUpgradeErrorType wh
 
 import Daml.Script.Internal.Questions.Submit.Error.Stable.TaggedRecord
 
--- | See IsUpgradeErrorType for details on how to use AnyUpgradeErrorType
+-- | MOVE Daml.Script
+-- See IsUpgradeErrorType for details on how to use AnyUpgradeErrorType
 newtype AnyUpgradeErrorType = AnyUpgradeErrorType TaggedRecord

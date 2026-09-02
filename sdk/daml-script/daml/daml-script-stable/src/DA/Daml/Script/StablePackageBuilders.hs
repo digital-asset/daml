@@ -22,7 +22,7 @@ import Data.Text.Extended (writeFileUtf8)
 import System.Directory (copyFile, createDirectoryIfMissing)
 import System.FilePath (joinPath, takeDirectory, (<.>), (</>))
 import System.Info.Extra (isWindows)
-import System.IO.Extra (newTempDir)
+import System.IO.Extra (withTempDir)
 
 import "ghc-lib-parser" Module (UnitId, mkModuleName, unitIdString)
 import "zip" Codec.Archive.Zip qualified as Zip
@@ -193,6 +193,26 @@ makePackage PackageDef{..} = Package
     modName = mkModNameFromText packageDefModuleName
     modNameList = unModuleName modName
 
+-- Runs a computation that has the path to a daml file, and its source root
+withDamlSourceFilePath :: ModuleName -> (FilePath -> FilePath -> IO ()) -> IO ()
+withDamlSourceFilePath modName f = do
+  let mainDamlFilePath = joinPath (T.unpack <$> unModuleName modName) <.> "daml"
+      getFileRoot = init . dropSuffix mainDamlFilePath
+  realMainDamlFilePath <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-stable" </> "daml" </> mainDamlFilePath)
+  -- Drop the original path from the resolved path to find the "source" path
+  -- (init drops the trailing slash)
+  if isWindows
+    then
+      -- realMainDamlFilePath is fully lower case on windows, which leads to an incorrect dar
+      -- and incorrect damlFileRoot
+      -- We create a temp dir so we can fix the path and pass that to createArchive
+      withTempDir $ \tmpDir -> do
+        let correctedPath = tmpDir </> mainDamlFilePath
+        createDirectoryIfMissing True $ takeDirectory correctedPath
+        copyFile realMainDamlFilePath correctedPath
+        f correctedPath (getFileRoot correctedPath)
+    else f realMainDamlFilePath (getFileRoot realMainDamlFilePath)
+
 makeStableDars :: FilePath -> [Package] -> IO ()
 makeStableDars darDirPath pkgs = withComponentVersions $ do
   versionInfo <- getVersionInfo
@@ -218,40 +238,24 @@ makeStableDars darDirPath pkgs = withComponentVersions $ do
           pkgVersion = packageVersion $ packageMetadata mainPkg
           -- head is safe as all stable packages always have one module
           mainModuleName = head $ NM.names $ packageModules mainPkg
-          mainDamlFilePath = joinPath (T.unpack <$> unModuleName mainModuleName) <.> "daml"
           confFile = mkConfFile pkgName (Just pkgVersion) (getPackageUnitId <$> depPackages) Nothing ghcModuleNames mainPkgId
-      realMainDamlFilePath <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-stable" </> "daml" </> mainDamlFilePath)
-      -- realMainDamlFilePath is fully lower case on windows, which leads to an incorrect dar
-      -- and incorrect damlFileRoot
-      -- We create a temp dir so we can fix the path and pass that to createArchive
-      (correctedRealMainDamlFilePath, cleanup) <-
-        if isWindows
-          then do
-            (tmpDir, cleanup) <- newTempDir
-            let correctedPath = tmpDir </> mainDamlFilePath
-            createDirectoryIfMissing True $ takeDirectory correctedPath
-            copyFile realMainDamlFilePath correctedPath
-            pure (correctedPath, cleanup)
-          else pure (realMainDamlFilePath, pure ())
-            -- Drop the original path from the resolved path to find the "source" path
-      -- (init drops the trailing slash)
-      let damlFileRoot = init $ dropSuffix mainDamlFilePath correctedRealMainDamlFilePath
-          archive =
-            createArchive
-              pkgName
-              Nothing
-              versionInfo
-              mainPkgId
-              mainPkgDalf
-              deps
-              (toNormalizedFilePath' damlFileRoot)
-              [toNormalizedFilePath' correctedRealMainDamlFilePath]
-              [confFile]
-              []
-          darPath = darDirPath </> T.unpack (unPackageName pkgName) <.> "dar"
-      createDirectoryIfMissing True $ takeDirectory darPath
-      Zip.createArchive darPath archive
-      cleanup
+
+      withDamlSourceFilePath mainModuleName $ \damlFilePath damlFileRoot -> do
+        let archive =
+              createArchive
+                pkgName
+                Nothing
+                versionInfo
+                mainPkgId
+                mainPkgDalf
+                deps
+                (toNormalizedFilePath' damlFileRoot)
+                [toNormalizedFilePath' damlFilePath]
+                [confFile]
+                []
+            darPath = darDirPath </> T.unpack (unPackageName pkgName) <.> "dar"
+        createDirectoryIfMissing True $ takeDirectory darPath
+        Zip.createArchive darPath archive
 
 makeStablePackageList :: FilePath -> [Package] -> IO ()
 makeStablePackageList listFilePath pkgs = do

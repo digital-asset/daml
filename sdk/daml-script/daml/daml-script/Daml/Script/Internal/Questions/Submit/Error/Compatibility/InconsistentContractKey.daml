@@ -1,6 +1,8 @@
 -- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+-- This pattern is part of Daml.Script.Internal.Questions.Submit.Error.Compatibility but had to be
+-- separated out to avoid field name collisions
 module Daml.Script.Internal.Questions.Submit.Error.Compatibility.InconsistentContractKey (pattern InconsistentContractKey) where
 
 import Daml.Script.Internal.Questions.Submit.Error

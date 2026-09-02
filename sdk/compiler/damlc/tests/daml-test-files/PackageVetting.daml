@@ -9,7 +9,6 @@ import Daml.Script
 import Daml.Script.Internal
 import PackageAModule
 import DA.Assert
-import DA.Text (isPrefixOf)
 
 packageA : PackageName
 packageA = PackageName "package-vetting-package-a" "1.0.0"
@@ -31,7 +30,7 @@ canUseReVettedPackage = script do
   alice `submit` createCmd PackageATemplate with p = alice
   pure ()
 
--- @ ERROR range=36:1-36:25; Failed to find package
+-- @ ERROR range=35:1-35:25; Failed to find package
 cannotUseUnvettedPackage : Script ()
 cannotUseUnvettedPackage = script do
   alice <- allocateParty "Alice"
@@ -39,7 +38,7 @@ cannotUseUnvettedPackage = script do
   alice `submit` createCmd PackageATemplate with p = alice
   pure ()
 
--- @ ERROR range=44:1-44:30; Failed to find package
+-- @ ERROR range=43:1-43:30; Failed to find package
 cannotExerciseUnvettedPackage : Script ()
 cannotExerciseUnvettedPackage = script do
   alice <- allocateParty "Alice"
@@ -98,14 +97,10 @@ listPackagesIsCorrect = script do
   assertAllPackages
 
   -- Check default packages count (as packageA and packageB previously disabled)
-  -- 12/13 packages in daml-prim (11 specific modules + GHC Stack Types (2.2+) + prim itself)
+  -- 13 packages in daml-prim (12 specific modules + prim itself)
   -- 15 packages in daml-stdlib (14 specific modules + stdlib itself)
   -- 2 packages in ghc-stdlib
-  -- 1 package for daml-script (daml-script)
+  -- 41 packages for daml-script (daml-script + 40 daml-script-stable packages)
   -- the current package
   packages <- listVettedPackages
-  let -- In <=2.2, the stable package for GHC Stack Types didn't exist, so we drop it here and reduce count
-      packagesWithoutGhcStackTypes = filter (("daml-prim-GHC-Stack-Types"/=) . name) packages
-      -- Drop all daml-script stable packages, which always start with daml-script-stable
-      packagesWithoutDamlScriptStable = filter (not . ("daml-script-stable-" `isPrefixOf`) . name) packagesWithoutGhcStackTypes
-  length packagesWithoutDamlScriptStable === 31
+  length packages === 72

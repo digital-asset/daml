@@ -5,5 +5,6 @@ module Daml.Script.Internal.Questions.Submit.Error.Stable.AnyExternalCallErrorTy
 
 import Daml.Script.Internal.Questions.Submit.Error.Stable.TaggedRecord
 
--- | See IsExternalCallErrorType for details on how to use AnyExternalCallErrorType
+-- | MOVE Daml.Script
+-- See IsExternalCallErrorType for details on how to use AnyExternalCallErrorType
 newtype AnyExternalCallErrorType = AnyExternalCallErrorType TaggedRecord
