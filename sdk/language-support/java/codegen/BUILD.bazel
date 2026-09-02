@@ -389,7 +389,10 @@ java_test(
     # we skip 1.13 as their serializable types are the same as 1.12.
     # We include 1.14 since while it has no new serializable types
     # it is the earliest version supported by HEAD damlc.
-    if target != "1.13"
+    # TODO[2.4]: 2.4 is compiler-only for now; canton's Scala LF library does not
+    # yet support stable 2.4, so the Java codegen (which links the canton-provided
+    # daml-lf jars) cannot process 2.4 dars. Re-enable once canton supports 2.4.
+    if target != "1.13" and target != "2.4"
 ]
 
 ########################################################
