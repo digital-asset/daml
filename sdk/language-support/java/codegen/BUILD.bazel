@@ -260,7 +260,8 @@ scala_source_jar(
         target = ver,
         version = "1.2.3",
     )
-    for ver in COMPILER_LF_VERSIONS
+    # for ver in COMPILER_LF_VERSIONS
+    for ver in [v for v in COMPILER_LF_VERSIONS if v != "2.4"]
 ]
 
 daml_compile(
