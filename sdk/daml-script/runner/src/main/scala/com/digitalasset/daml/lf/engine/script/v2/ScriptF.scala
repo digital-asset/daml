@@ -11,14 +11,14 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack, SortedLookupList, Utf8, ImmArray}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, SortedLookupList, Utf8}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
-import com.digitalasset.daml.lf.speedy.SError
+import com.digitalasset.daml.lf.speedy.{ExtendedValueTranslator, SError, SValue}
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValue,
   ExtendedValueAny,
@@ -39,7 +39,6 @@ import java.security.spec.PKCS8EncodedKeySpec
 import java.time.Clock
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
-
 import annotation.unused
 
 object ScriptF {
@@ -85,7 +84,7 @@ object ScriptF {
       private var _scriptIds: ScriptIds,
       val timeMode: ScriptTimeMode,
       private var _clients: Participants[ScriptLedgerClient],
-      compiledPackages: CompiledPackages,
+      val compiledPackages: CompiledPackages,
       loggerFactory: NamedLoggerFactory,
       val traceContext: TraceContext,
   ) {
@@ -161,19 +160,6 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[ExtendedValue] = {
-      def makeFailureStatus(name: Identifier, msg: String) =
-        Future.failed(
-          free.InterpretationError(
-            SError.SErrorDamlException(
-              IE.FailureStatus(
-                "UNHANDLED_EXCEPTION/" + name.qualifiedName.toString,
-                Ast.FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
-                msg,
-                Map(),
-              )
-            )
-          )
-        )
       def userManagementDef(name: String) =
         env.scriptIds.damlScriptModule("Daml.Script.Internal.Questions.UserManagement", name)
       val invalidUserId = userManagementDef("InvalidUserId")
@@ -181,7 +167,6 @@ object ScriptF {
       val userNotFound = userManagementDef("UserNotFound")
       (exc, convertLegacyExceptions) match {
         // Pseudo exceptions defined by daml-script need explicit conversion logic, as compiler won't generate them
-        // Can be removed in 3.4, when exceptions will be replaced with FailureStatus (https://github.com/DACH-NY/canton/issues/23881)
         case (
               ExtendedValueAny(
                 _,
@@ -189,7 +174,7 @@ object ScriptF {
               ),
               true,
             ) =>
-          makeFailureStatus(invalidUserId, msg)
+          Runner.makeFailureStatus(invalidUserId, msg)
         case (
               ExtendedValueAny(
                 _,
@@ -200,7 +185,7 @@ object ScriptF {
               ),
               true,
             ) =>
-          makeFailureStatus(userAlreadyExists, "User already exists: " + userId)
+          Runner.makeFailureStatus(userAlreadyExists, "User already exists: " + userId)
         case (
               ExtendedValueAny(
                 _,
@@ -211,49 +196,15 @@ object ScriptF {
               ),
               true,
             ) =>
-          makeFailureStatus(userNotFound, "User not found: " + userId)
-        case (ExtendedValueAny(Ast.TTyCon(name), v), true) =>
-          // Since we cannot call `SBThrow` from the engine, we must re-implement the legacy exception to FailureStatus conversion logic here
-          // This involves calculating the exception message by calling the engine again.
-          runner
-            .runComputation(
-              ExtendedValueComputationMode
-                .ByExceptionMessage(name, v),
-              false,
-            )
-            .transformWith {
-              case Success(ValueText(message)) => makeFailureStatus(name, message)
-              case Success(_) =>
-                Future.failed(
-                  new RuntimeException(s"Message computation for exception $name did not give Text")
-                )
-              case Failure(
-                    free.InterpretationError(
-                      SError.SErrorDamlException(
-                        IE.UnhandledException(Ast.TTyCon(messageExceptionName), _)
-                      )
-                    )
-                  ) =>
-                makeFailureStatus(
-                  name,
-                  s"<Failed to calculate message as ${messageExceptionName.qualifiedName.toString} was thrown during conversion>",
-                )
-              case Failure(e) => Future.failed(e)
-            }
-        case (ExtendedValueAny(ty, _), true) =>
-          Future.failed(
-            new RuntimeException(
-              s"Tried to convert a non-grounded exception type ${ty.pretty} to Failure Status"
-            )
-          )
-        case (ExtendedValueAny(ty, value), false) =>
-          Future.failed(
-            free.InterpretationError(
-              SError.SErrorDamlException(
-                IE.UnhandledException(ty, Converter.castCommandExtendedValue(value).toOption.get)
-              )
-            )
-          )
+          Runner.makeFailureStatus(userNotFound, "User not found: " + userId)
+        case _ =>
+          val sAny = new ExtendedValueTranslator(env.compiledPackages.pkgInterface)
+            .translateExtendedValue(exc)
+            .fold(err => throw err, _.asInstanceOf[SValue.SAny])
+          if (convertLegacyExceptions)
+            runner.convertLegacyException(sAny)
+          else
+            Future.failed(free.InterpretationError(SError.UnhandledException(sAny)))
       }
     }
   }
@@ -277,14 +228,14 @@ object ScriptF {
             )
           case Failure(
                 free.InterpretationError(
-                  SError.SErrorDamlException(IE.UnhandledException(typ, value))
+                  SError.UnhandledException(SValue.SAny(typ, value))
                 )
               ) =>
             Future.successful(
               ValueVariant(
                 Some(StablePackagesV2.Either),
                 Name.assertFromString("Left"),
-                ExtendedValueAny(typ, value),
+                ExtendedValueAny(typ, value.toUnnormalizedValue),
               )
             )
           case Failure(e) => Future.failed(e)
@@ -311,7 +262,7 @@ object ScriptF {
             )
           case Failure(
                 free.InterpretationError(
-                  SError.SErrorDamlException(
+                  SError.InterpretationError(
                     IE.FailureStatus(errorId, failureCategory, errorMessage, metadata)
                   )
                 )
@@ -407,7 +358,7 @@ object ScriptF {
         res <- (submitRes, submission.errorBehaviour) match {
           case (Right(_), MustFail) =>
             Future.failed(
-              SError.SErrorDamlException(
+              SError.InterpretationError(
                 interpretation.Error.UserError("Expected submit to fail but it succeeded")
               )
             )
@@ -1043,7 +994,7 @@ object ScriptF {
           }
 
           val name = err match {
-            case Error.RunnerException(SError.SErrorDamlException(iErr)) =>
+            case Error.RunnerException(SError.InterpretationError(iErr)) =>
               iErr.getClass.getSimpleName
             case e => e.getClass.getSimpleName
           }
@@ -1073,7 +1024,7 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[ExtendedValue] =
-      Future.failed(free.InterpretationError(SError.SErrorDamlException(failureStatus)))
+      Future.failed(free.InterpretationError(SError.InterpretationError(failureStatus)))
   }
 
   final case class Ctx(knownPackages: Map[String, PackageId], compiledPackages: CompiledPackages)

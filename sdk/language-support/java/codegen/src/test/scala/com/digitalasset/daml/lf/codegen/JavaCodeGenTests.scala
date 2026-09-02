@@ -29,8 +29,7 @@ final class JavaCodeGenTests extends AnyFlatSpec with Matchers {
     val scope = JavaCodeGen.configureCodeGenScope(Map(testDar -> None), Map.empty)
 
     // `daml-prim` + `daml-stdlib` + testDar
-    // TEMPORARILY SET TO 4, REVERT TO 3 WHEN THIS TEST FAILS!
-    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(4)
+    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(3)
     scope.packagePrefixes should ===(PackagePrefixes(Map.empty))
     scope.toBeGenerated should ===(Set.empty)
   }
@@ -44,8 +43,7 @@ final class JavaCodeGenTests extends AnyFlatSpec with Matchers {
       )
 
     // `daml-prim` + `daml-stdlib` + testDar + testDarWithSameDependencies
-    // TEMPORARILY SET TO 5, REVERT TO 4 WHEN THIS TEST FAILS!
-    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(5)
+    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(4)
     scope.packagePrefixes should ===(PackagePrefixes(Map.empty))
     scope.toBeGenerated should ===(Set.empty)
   }
@@ -65,8 +63,7 @@ final class JavaCodeGenTests extends AnyFlatSpec with Matchers {
     // + `daml-prim` from different LF version
     // + `daml-stdlib` from different LF version
     // + testDarWithSameDependenciesButDifferentTargetVersion
-    // TEMPORARILY SET TO 7, REVERT TO 6 WHEN THIS TEST FAILS!
-    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(7)
+    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(6)
     scope.packagePrefixes should ===(PackagePrefixes(Map.empty))
     scope.toBeGenerated should ===(Set.empty)
   }
@@ -118,8 +115,7 @@ final class JavaCodeGenTests extends AnyFlatSpec with Matchers {
     //  + testTemplateDar
     //  + testDependsOnBarTplDar
     //  + `test-another-bar.dar`
-    // TEMPORARILY SET TO 6, REVERT TO 5 WHEN THIS TEST FAILS!
-    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(6)
+    scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(5)
     val prefixes = scope.packagePrefixes.toMap
     prefixes.size should ===(3)
     // prefix1 is applied to the main package containing template Bar

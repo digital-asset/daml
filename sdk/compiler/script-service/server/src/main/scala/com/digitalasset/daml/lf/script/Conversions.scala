@@ -103,13 +103,12 @@ final class Conversions(
 
       case Error.RunnerException(serror) =>
         serror match {
-          case SError.SErrorCrash(_, reason) => setCrash(reason)
-
-          case SError.SErrorDamlException(interpretationError) =>
+          case SError.Crash(_, reason) => setCrash(reason)
+          case SError.UnhandledException(SValue.SAny(_, value)) =>
+            builder.setUnhandledException(convertValue(value.toUnnormalizedValue))
+          case SError.InterpretationError(interpretationError) =>
             import interpretation.Error._
             interpretationError match {
-              case UnhandledException(_, value) =>
-                builder.setUnhandledException(convertValue(value))
               case UserError(msg) =>
                 builder.setUserError(msg)
               case ContractNotFound(cid) =>

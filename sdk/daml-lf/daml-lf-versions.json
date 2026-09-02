@@ -36,6 +36,14 @@
     {
       "major" : 2,
       "minor" : {
+        "Stable" : {
+          "version" : 4
+        }
+      }
+    },
+    {
+      "major" : 2,
+      "minor" : {
         "Staging" : {
           "version" : 4,
           "revision" : 1
@@ -118,6 +126,14 @@
         "minor" : {
           "Stable" : {
             "version" : 3
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 4
           }
         }
       },
@@ -262,6 +278,14 @@
       {
         "major" : 2,
         "minor" : {
+          "Stable" : {
+            "version" : 4
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
           "Staging" : {
             "version" : 4,
             "revision" : 1
@@ -319,6 +343,14 @@
         "minor" : {
           "Stable" : {
             "version" : 3
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 4
           }
         }
       },

@@ -211,7 +211,8 @@ class Context(
     val machineLogger = ScriptMachineLogger()
     val timeBomb = TimeBomb(timeout.toMillis)
     val isOverdue = timeBomb.hasExploded
-    val ledgerClient = new IdeLedgerClient(compiledPackages, machineLogger, isOverdue)
+    // Transaction snapshotting is only available via the daml-script CLI
+    val ledgerClient = new IdeLedgerClient(compiledPackages, machineLogger, isOverdue, None)
     val timeBombCanceller = timeBomb.start()
     val (resultF, ideLedgerContext) = Runner.runIdeLedgerClient(
       compiledPackages = compiledPackages,
@@ -267,7 +268,7 @@ class Context(
       case Failure(e: Script.FailedCmd) =>
         e.cause match {
           case e: Error => handleFailure(e)
-          case e: speedy.SError.SError => handleFailure(Error.RunnerException(e))
+          case e: speedy.SError => handleFailure(Error.RunnerException(e))
           case _ =>
             // We can't send _everything_ over without changing internal, we log and wrap the error in t.
             logger.warn("Script.FailedCmd unexpected cause: " + e.getMessage)

@@ -48,7 +48,7 @@ pekko_version = "1.2.1"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
 
-canton_version = "3.5.0-SNAPSHOT" if LOCAL_CANTON_OVERRIDE != None else CANTON_OPEN_SOURCE_TAG
+canton_version = "3.6.0-SNAPSHOT" if LOCAL_CANTON_OVERRIDE != None else CANTON_OPEN_SOURCE_TAG
 
 upickle_version = "4.1.0"
 ujson_version = "4.0.2"

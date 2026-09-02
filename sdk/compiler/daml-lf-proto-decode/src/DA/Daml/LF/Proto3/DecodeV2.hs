@@ -450,6 +450,10 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionEXTERNAL_CALL -> do
     assertSupportsFeature featureExternalCall
     pure BEExternalCall
+  LF2.BuiltinFunctionEXTERNAL_CALL_LEGACY_DEV ->
+    -- The pre-promotion dev id of EXTERNAL_CALL. Canton temporarily still decodes it so that
+    -- DARs from older compilers keep working; damlc never emits it, so reject it here.
+    throwError (UnknownEnum "BuiltinFunction" 5001)
   LF2.BuiltinFunctionSECP256K1_BOOL -> pure BESecp256k1Bool
   LF2.BuiltinFunctionSECP256K1_WITH_ECDSA_BOOL -> pure BESecp256k1WithEcdsaBool
   LF2.BuiltinFunctionSECP256K1_VALIDATE_KEY -> pure BESecp256k1ValidateKey

@@ -37,6 +37,7 @@ import org.apache.pekko.stream.Materializer
 
 import cats.data.NonEmptySet
 
+import java.nio.file.Path
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -48,6 +49,7 @@ class IdeLedgerClient(
     canceled: () => Boolean,
     override val loggerFactory: NamedLoggerFactory,
     csmMode: ContractStateMachine.Mode,
+    snapshotDir: Option[Path],
 ) extends ScriptLedgerClient
     with NamedLogging {
   private implicit val traceContext: TraceContext = TraceContext.empty
@@ -206,7 +208,6 @@ class IdeLedgerClient(
       compiledPackages = compiledPackages,
       iterationsBetweenInterruptions = 100000,
       logger = machineLogger,
-      convertLegacyExceptions = false,
     ).toOption.map(ev => Converter.castCommandExtendedValue(ev).toOption.get)
 
   private[this] def implements(templateId: TypeConId, interfaceId: TypeConId): Boolean = {
@@ -309,12 +310,6 @@ class IdeLedgerClient(
     } yield res.collect { case Some(contract) => contract }
   }
 
-  private def getTypeIdentifier(t: Ast.Type): Option[Identifier] =
-    t match {
-      case Ast.TTyCon(ty) => Some(ty)
-      case _ => None
-    }
-
   private def fromInterpretationError(err: interpretation.Error): SubmitError = {
     import interpretation.Error._
     err match {
@@ -347,9 +342,6 @@ class IdeLedgerClient(
         SubmitError.DisclosedContractKeyHashingError(cid, key, hash.toString)
       case DuplicateContractKey(key) => SubmitError.DuplicateContractKey(Some(key))
       case InconsistentContractKey(key) => SubmitError.InconsistentContractKey(key)
-      // Only pass on the error if the type is a TTyCon
-      case UnhandledException(ty, v) =>
-        SubmitError.UnhandledException(getTypeIdentifier(ty).map(tyId => (tyId, v)))
       case UserError(msg) => SubmitError.UserError(msg)
       case _: TemplatePreconditionViolated => SubmitError.TemplatePreconditionViolated()
       case CreateEmptyContractKeyMaintainers(tid, arg, _) =>
@@ -450,9 +442,9 @@ class IdeLedgerClient(
 
   // Projects the ide-ledger submission error down to the script submission error
   private def fromIdeLedgerError(err: script.Error): SubmitError = err match {
-    case script.Error.RunnerException(e: SError.SErrorCrash) =>
+    case script.Error.RunnerException(e: SError.Crash) =>
       SubmitError.UnknownError(e.toString)
-    case script.Error.RunnerException(SError.SErrorDamlException(err)) =>
+    case script.Error.RunnerException(SError.InterpretationError(err)) =>
       fromInterpretationError(err)
 
     case script.Error.Internal(reason) => SubmitError.UnknownError(reason)
@@ -711,16 +703,17 @@ class IdeLedgerClient(
         translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
         result =
           IdeLedgerRunner.submit(
-            compiledPackages,
-            speedyDisclosures,
-            ledgerApi,
-            actAs.toSortedSet,
-            readAs,
-            translated,
-            optLocation,
-            nextSeed(),
-            machineLogger,
-            packageMap,
+            compiledPackages = compiledPackages,
+            disclosures = speedyDisclosures,
+            ledger = ledgerApi,
+            committers = actAs.toSortedSet,
+            readAs = readAs,
+            commands = translated,
+            location = optLocation,
+            seed = nextSeed(),
+            machineLogger = machineLogger,
+            packageResolution = packageMap,
+            snapshotDir = snapshotDir,
           )
         res <- loop(result)
       } yield res
