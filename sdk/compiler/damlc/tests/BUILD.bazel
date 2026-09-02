@@ -243,6 +243,10 @@ da_haskell_library(
         ],
     )
     for version in COMPILER_LF_VERSIONS
+    # TODO[2.4]: 2.4 is compiler-only for now; these integration tests run the
+    # Scala script-service, which links canton's daml-lf library that does not
+    # yet support stable 2.4. Re-enable once canton supports 2.4.
+    if version != "2.4"
 ]
 
 # Tests for daml-doc
