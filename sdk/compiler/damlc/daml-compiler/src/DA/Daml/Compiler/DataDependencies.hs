@@ -12,7 +12,7 @@ module DA.Daml.Compiler.DataDependencies
 
 import DA.Pretty hiding (first)
 import Control.Applicative
-import Control.Lens hiding (unsnoc, (<.>))
+import Control.Lens hiding ((<.>))
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Bifunctor (first)

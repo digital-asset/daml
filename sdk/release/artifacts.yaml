@@ -5,6 +5,8 @@
   type: jar-scala
 - target: //daml-script/runner:script-runner-lib
   type: jar-scala
+- target: //daml-script/daml/daml-script-stable:stable-packages-scala-lib
+  type: jar-scala
 - target: //daml-script/converter:converter
   type: jar-scala
 - target: //language-support/codegen-main:binary

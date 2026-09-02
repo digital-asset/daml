@@ -109,6 +109,8 @@ object ScriptF {
         _clients.copy(party_participants = _clients.party_participants + (party -> participant))
     }
 
+    // We need to be able to update the unstablePackageId without copying the env, as it keeps the PartyParticipantMapping
+    // thus we keep scriptIds as a var also and provide this update function.
     def setUnstablePackageId(pkgId: PackageId) = {
       _scriptIds = _scriptIds.withUnstablePackageId(pkgId)
     }
@@ -338,7 +340,6 @@ object ScriptF {
   }
 
   final case class Submission(
-      env: Env,
       actAs: NonEmptySet[Party],
       readAs: Set[Party],
       cmds: List[ScriptLedgerClient.CommandWithMeta],
@@ -1134,7 +1135,6 @@ object ScriptF {
           errorBehaviour = errorBehaviour,
           cmds = cmds,
           optLocation = optLocation,
-          env = env,
         )
       case _ => Left(s"Expected Submission payload but got $v")
     }

@@ -85,7 +85,7 @@ transactionTreeModule = "Daml.Script.Internal.Questions.TransactionTree.Stable"
 userManagementModule = "Daml.Script.Internal.Questions.UserManagement.Stable"
 
 -- Modules of the packages holding (mutually) recursive types, named after the first type they
--- define. Bound because both the package definition and its selfTy references need them.
+-- define. Bound because both the package definition and its selfTyCon references need them.
 freeTypeModule, treeEventTypeModule, treeIndexTypeModule :: T.Text
 freeTypeModule = freeModule <> ".Free"
 treeEventTypeModule = transactionTreeModule <> ".TreeEvent"
@@ -128,7 +128,7 @@ tTuple2 :: Type -> Type -> Type
 tTuple2 a b = compilerStableTy daTypesModule "Tuple2" [a, b]
 
 tLedgerValue :: Type
-tLedgerValue = depTy ledgerValue "LedgerValue" []
+tLedgerValue = pkgTyCon ledgerValue "LedgerValue" []
 
 free :: Package
 free = makePackage defaultPackageDef
@@ -138,7 +138,7 @@ free = makePackage defaultPackageDef
       , typeParams = [("f", KStar `KArrow` KStar), ("a", KStar)]
       , constructors =
           [ ("Pure", tVar "a")
-          , ("Free", TApp (tVar "f") (selfTy freeTypeModule "Free" [tVar "f", tVar "a"]))
+          , ("Free", TApp (tVar "f") (selfTyCon freeTypeModule "Free" [tVar "f", tVar "a"]))
           ]
       }
   }
@@ -177,7 +177,7 @@ scriptF = makePackage defaultPackageDef
       { name = "ScriptF"
       , typeParams = [("a", KStar)]
       , mUnwrap = Nothing
-      , typ = depTy question "Question" [tLedgerValue, tLedgerValue, tVar "a"]
+      , typ = pkgTyCon question "Question" [tLedgerValue, tLedgerValue, tVar "a"]
       }
   , packageDefDependencies = [question, ledgerValue]
   }
@@ -189,7 +189,7 @@ script = makePackage defaultPackageDef
       { name = "Script"
       , typeParams = [("a", KStar)]
       , fields =
-          [ ("runScript", TUnit :-> depTy free "Free" [depTy scriptF "ScriptF" [], tTuple2 (tVar "a") TUnit])
+          [ ("runScript", TUnit :-> pkgTyCon free "Free" [pkgTyCon scriptF "ScriptF" [], tTuple2 (tVar "a") TUnit])
           , ("dummy", TUnit)
           ]
       }
@@ -239,7 +239,7 @@ command = makePackage defaultPackageDef
               ])
           , ("ExerciseByKey",
               [ ("tplId", tTemplateTypeRep)
-              , ("keyE", depTy anyContractKey "AnyContractKey" [])
+              , ("keyE", pkgTyCon anyContractKey "AnyContractKey" [])
               , ("argE", tAnyChoice)
               ])
           , ("CreateAndExercise",
@@ -258,7 +258,7 @@ commandWithMeta = makePackage defaultPackageDef
       { name = "CommandWithMeta"
       , typeParams = []
       , fields =
-          [ ("command", depTy command "Command" [])
+          [ ("command", pkgTyCon command "Command" [])
           , ("additionalData", TGenMap TText tLedgerValue)
           ]
       }
@@ -286,8 +286,8 @@ commands = makePackage defaultPackageDef
       { name = "Commands"
       , typeParams = [("a", KStar)]
       , fields =
-          [ ("commands", TList (depTy commandWithMeta "CommandWithMeta" []))
-          , ("continue", TList (depTy commandResult "CommandResult" []) :-> tVar "a")
+          [ ("commands", TList (pkgTyCon commandWithMeta "CommandWithMeta" []))
+          , ("continue", TList (pkgTyCon commandResult "CommandResult" []) :-> tVar "a")
           ]
       }
   , packageDefDependencies = [commandWithMeta, commandResult]
@@ -413,7 +413,7 @@ taggedRecordNewtype tyName = makePackage defaultPackageDef
       { name = tyName
       , typeParams = []
       , mUnwrap = Nothing
-      , typ = depTy taggedRecord "TaggedRecord" []
+      , typ = pkgTyCon taggedRecord "TaggedRecord" []
       }
   , packageDefDependencies = [taggedRecord]
   }
@@ -465,9 +465,9 @@ failedCmd = makePackage defaultPackageDef
       { name = "FailedCmd"
       , typeParams = []
       , fields =
-          [ ("commandName", depTy commandName "CommandName" [])
-          , ("errorClassName", depTy errorClassName "ErrorClassName" [])
-          , ("errorMessage", depTy errorMessage "ErrorMessage" [])
+          [ ("commandName", pkgTyCon commandName "CommandName" [])
+          , ("errorClassName", pkgTyCon errorClassName "ErrorClassName" [])
+          , ("errorMessage", pkgTyCon errorMessage "ErrorMessage" [])
           ]
       }
   , packageDefDependencies = [commandName, errorClassName, errorMessage]
@@ -480,7 +480,7 @@ created = makePackage defaultPackageDef
       { name = "Created"
       , typeParams = []
       , fields =
-          [ ("contractId", depTy anyContractId "AnyContractId" [])
+          [ ("contractId", pkgTyCon anyContractId "AnyContractId" [])
           , ("argument", tAnyTemplate)
           ]
       }
@@ -496,18 +496,18 @@ treeEventAndExercised = makePackage defaultPackageDef
           { name = "TreeEvent"
           , typeParams = []
           , constructors =
-              [ ("CreatedEvent", depTy created "Created" [])
-              , ("ExercisedEvent", selfTy treeEventTypeModule "Exercised" [])
+              [ ("CreatedEvent", pkgTyCon created "Created" [])
+              , ("ExercisedEvent", selfTyCon treeEventTypeModule "Exercised" [])
               ]
           }
       , RecordDef
           { name = "Exercised"
           , typeParams = []
           , fields =
-              [ ("contractId", depTy anyContractId "AnyContractId" [])
+              [ ("contractId", pkgTyCon anyContractId "AnyContractId" [])
               , ("choice", TText)
               , ("argument", tAnyChoice)
-              , ("childEvents", TList (selfTy treeEventTypeModule "TreeEvent" []))
+              , ("childEvents", TList (selfTyCon treeEventTypeModule "TreeEvent" []))
               ]
           }
       ]
@@ -520,7 +520,7 @@ transactionTree = makePackage defaultPackageDef
   , packageDefTypes = pure RecordDef
       { name = "TransactionTree"
       , typeParams = []
-      , fields = [("rootEvents", TList (depTy treeEventAndExercised "TreeEvent" []))]
+      , fields = [("rootEvents", TList (pkgTyCon treeEventAndExercised "TreeEvent" []))]
       }
   , packageDefDependencies = [treeEventAndExercised]
   }
@@ -548,8 +548,8 @@ treeIndexAndExercisedIndexPayload = makePackage defaultPackageDef
           { name = "TreeIndex"
           , typeParams = [("t", KStar)]
           , constructors =
-              [ ("CreatedIndex", depTy createdIndexPayload "CreatedIndexPayload" [tVar "t"])
-              , ("ExercisedIndex", selfTy treeIndexTypeModule "ExercisedIndexPayload" [tVar "t"])
+              [ ("CreatedIndex", pkgTyCon createdIndexPayload "CreatedIndexPayload" [tVar "t"])
+              , ("ExercisedIndex", selfTyCon treeIndexTypeModule "ExercisedIndexPayload" [tVar "t"])
               ]
           }
       , RecordDef
@@ -559,7 +559,7 @@ treeIndexAndExercisedIndexPayload = makePackage defaultPackageDef
               [ ("templateId", tTemplateTypeRep)
               , ("choice", TText)
               , ("offset", TInt64)
-              , ("child", selfTy treeIndexTypeModule "TreeIndex" [tVar "t"])
+              , ("child", selfTyCon treeIndexTypeModule "TreeIndex" [tVar "t"])
               ]
           }
       ]
@@ -584,7 +584,7 @@ user = makePackage defaultPackageDef
       { name = "User"
       , typeParams = []
       , fields =
-          [ ("userId", depTy userId "UserId" [])
+          [ ("userId", pkgTyCon userId "UserId" [])
           , ("primaryParty", TOptional TParty)
           ]
       }
@@ -625,7 +625,7 @@ userAlreadyExists = makePackage defaultPackageDef
   , packageDefTypes = pure RecordDef
       { name = "UserAlreadyExists"
       , typeParams = []
-      , fields = [("userId", depTy userId "UserId" [])]
+      , fields = [("userId", pkgTyCon userId "UserId" [])]
       }
   , packageDefDependencies = [userId]
   }
@@ -636,7 +636,7 @@ userNotFound = makePackage defaultPackageDef
   , packageDefTypes = pure RecordDef
       { name = "UserNotFound"
       , typeParams = []
-      , fields = [("userId", depTy userId "UserId" [])]
+      , fields = [("userId", pkgTyCon userId "UserId" [])]
       }
   , packageDefDependencies = [userId]
   }
