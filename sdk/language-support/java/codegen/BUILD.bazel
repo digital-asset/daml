@@ -260,7 +260,10 @@ scala_source_jar(
         target = ver,
         version = "1.2.3",
     )
-    for ver in COMPILER_LF_VERSIONS
+    # for ver in COMPILER_LF_VERSIONS
+    # TODO[https://github.com/digital-asset/language-team-planning/issues/58]:
+    # enable when canton knows of 2.4
+    for ver in [v for v in COMPILER_LF_VERSIONS if v != "2.4"]
 ]
 
 daml_compile(
@@ -388,7 +391,9 @@ java_test(
     # we skip 1.13 as their serializable types are the same as 1.12.
     # We include 1.14 since while it has no new serializable types
     # it is the earliest version supported by HEAD damlc.
-    if target != "1.13"
+    # TODO[https://github.com/digital-asset/language-team-planning/issues/58]:
+    # enable when canton knows of 2.4
+    if target != "1.13" and target != "2.4"
 ]
 
 ########################################################

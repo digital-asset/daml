@@ -9,7 +9,12 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
-## Until 2026-07-29 (Exclusive)
+## Until 2026-08-08 (Exclusive)
+
+Cut a not-yet-to-be-released version of lf 2.4 such that we can start targetting
+it in our process of moving 2.4 from staging to stable.
+
+## UNTIL 2026-07-29 (Exclusive)
  - The default version of Daml-LF, released in 3.5, has been bumped to 2.3
    according to our strategy of making an lf verison default the release _after_
    it was released. 2.3 being default means any daml project that does not
