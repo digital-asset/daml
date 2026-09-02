@@ -261,6 +261,8 @@ scala_source_jar(
         version = "1.2.3",
     )
     # for ver in COMPILER_LF_VERSIONS
+    # TODO[https://github.com/digital-asset/language-team-planning/issues/58]:
+    # enable when canton knows of 2.4
     for ver in [v for v in COMPILER_LF_VERSIONS if v != "2.4"]
 ]
 
@@ -389,9 +391,8 @@ java_test(
     # we skip 1.13 as their serializable types are the same as 1.12.
     # We include 1.14 since while it has no new serializable types
     # it is the earliest version supported by HEAD damlc.
-    # TODO[2.4]: 2.4 is compiler-only for now; canton's Scala LF library does not
-    # yet support stable 2.4, so the Java codegen (which links the canton-provided
-    # daml-lf jars) cannot process 2.4 dars. Re-enable once canton supports 2.4.
+    # TODO[https://github.com/digital-asset/language-team-planning/issues/58]:
+    # enable when canton knows of 2.4
     if target != "1.13" and target != "2.4"
 ]
 
