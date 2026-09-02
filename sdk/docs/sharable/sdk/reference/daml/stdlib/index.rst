@@ -28,6 +28,7 @@ Here is a complete list of modules in the standard library:
 * :doc:`DA.Date <DA-Date>`
 * :doc:`DA.Either <DA-Either>`
 * :doc:`DA.Exception <DA-Exception>`
+* :doc:`DA.ExternalCall <DA-ExternalCall>`
 * :doc:`DA.Fail <DA-Fail>`
 * :doc:`DA.Foldable <DA-Foldable>`
 * :doc:`DA.Functor <DA-Functor>`

@@ -268,7 +268,7 @@ class Context(
       case Failure(e: Script.FailedCmd) =>
         e.cause match {
           case e: Error => handleFailure(e)
-          case e: speedy.SError.SError => handleFailure(Error.RunnerException(e))
+          case e: speedy.SError => handleFailure(Error.RunnerException(e))
           case _ =>
             // We can't send _everything_ over without changing internal, we log and wrap the error in t.
             logger.warn("Script.FailedCmd unexpected cause: " + e.getMessage)
