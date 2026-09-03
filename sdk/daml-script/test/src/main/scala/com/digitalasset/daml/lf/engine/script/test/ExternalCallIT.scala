@@ -21,7 +21,7 @@ import scala.concurrent.Future
 // Runs the external-call scripts against a Canton participant configured with
 // an in-process test extension service, covering the success path and each
 // external-call submit error.
-final class ExternalCallDevIT extends AsyncWordSpec with AbstractScriptTest with Matchers {
+final class ExternalCallIT extends AsyncWordSpec with AbstractScriptTest with Matchers {
 
   override protected lazy val timeMode: ScriptTimeMode = ScriptTimeMode.WallClock
 
