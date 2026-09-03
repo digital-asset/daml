@@ -9,6 +9,10 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-09-08 (Exclusive)
+
+- Daml Script: `--ide-ledger-protocol-version` now accepts `v36`
+
 ## Until 2026-08-08 (Exclusive)
 
 Cut a not-yet-to-be-released version of lf 2.4 such that we can start targetting
