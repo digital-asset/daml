@@ -37,6 +37,23 @@ def _detect_cpu_value(ctx):
 
     fail("Unsupported host platform: os={}, arch={}".format(ctx.os.name, arch))
 
+_WINDOWS_SHELL_HELP = """
+Windows build is not set up: BAZEL_SH is {problem}.
+
+Run this once, from the sdk directory:
+
+    powershell -File setup-windows.ps1
+"""
+
+def _check_windows_shell(ctx):
+    sh = ctx.os.environ.get("BAZEL_SH")
+    if not sh:
+        fail(_WINDOWS_SHELL_HELP.format(problem = "not set"))
+    if not ctx.path(sh).exists:
+        fail(_WINDOWS_SHELL_HELP.format(
+            problem = "set to a path that does not exist: " + sh,
+        ))
+
 def _os_info_for_bzlmod_impl(ctx):
     cpu = _detect_cpu_value(ctx)
     known_cpu_values = [
@@ -48,6 +65,8 @@ def _os_info_for_bzlmod_impl(ctx):
     ]
     if cpu not in known_cpu_values:
         fail("Unknown OS type {}, expected one of {}".format(cpu, ", ".join(known_cpu_values)))
+    if cpu == "x64_windows":
+        _check_windows_shell(ctx)
     ctx.file(
         "os_info.bzl",
         _os_info_bzl_template.format(CPU_VALUE = cpu),
@@ -58,6 +77,7 @@ def _os_info_for_bzlmod_impl(ctx):
 os_info_for_bzlmod = repository_rule(
     implementation = _os_info_for_bzlmod_impl,
     local = True,
+    environ = ["BAZEL_SH"],
 )
 
 def _daml_workspace_config_impl(module_ctx):
