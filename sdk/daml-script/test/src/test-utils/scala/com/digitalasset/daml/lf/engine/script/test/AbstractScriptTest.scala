@@ -48,7 +48,7 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
   // TODO[https://github.com/digital-asset/daml/issues/23016]: get rid of
   // hardcoded string when some kind of `renderForDaml` has been added to canton
   lazy val darPath: Path = rlocation(
-    Paths.get(s"daml-script/test/script-test-v2.4-staging.dar")
+    Paths.get(s"daml-script/test/script-test-v2.5-staging.dar")
   )
   lazy val dar: CompiledDar = CompiledDar.read(darPath, defaultCompilerConfig)
 

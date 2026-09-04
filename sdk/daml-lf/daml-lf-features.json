@@ -273,9 +273,8 @@
       "lowerBound" : {
         "major" : 2,
         "minor" : {
-          "Staging" : {
-            "version" : 4,
-            "revision" : 1
+          "Stable" : {
+            "version" : 4
           }
         }
       }
