@@ -49,10 +49,17 @@ sh_test(
     args = [
         "$(location generated-stable-packages.bzl)",
         "$(location stable-packages.bzl)",
+        "$(POSIX_DIFF)",
     ],
     data = [
         "generated-stable-packages.bzl",
         ":stable-packages.bzl",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
 
@@ -120,5 +127,6 @@ EOF
 da_scala_library(
     name = "stable-packages-scala-lib",
     srcs = [":stable-packages-scala"],
+    tags = ["maven_coordinates=com.daml:daml-script-stable-packages-lib:__VERSION__"],
     visibility = ["//visibility:public"],
 )
