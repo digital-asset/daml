@@ -175,17 +175,17 @@ EOF
 ]
 
 genrule(
-    name = "external-call-test-v2.dev",
+    name = "external-call-test-v2.4-staging",
     srcs = glob(["**/*.daml"]) + [
-        "//daml-script/daml:daml-script-2.dev.dar",
+        "//daml-script/daml:daml-script-2.4-staging.dar",
     ],
-    outs = ["external-call-test-v2.dev.dar"],
+    outs = ["external-call-test-v2.4-staging.dar"],
     cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ExternalCallTests.daml) $$TMP_DIR/daml
-      cp -L $(location //daml-script/daml:daml-script-2.dev.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/daml:daml-script-2.4-staging.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: external-call-test
@@ -195,11 +195,11 @@ dependencies:
   - daml-stdlib
   - daml-prim
 data-dependencies:
-  - daml-script-2.dev.dar
+  - daml-script-2.4-staging.dar
 build-options:
-  - --target=2.dev
+  - --target=2.4-staging
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location external-call-test-v2.dev.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location external-call-test-v2.4-staging.dar)
       rm -rf $$TMP_DIR
     """.format(
         sdk = sdk_version,
@@ -360,6 +360,7 @@ da_scala_test_suite(
     data = [
         ":script-test-no-ledger.dar",
         ":attestation-test-v2.dev.dar",
+        ":external-call-test-v2.4-staging.dar",
         # TODO((https://github.com/digital-asset/daml/issues/18457): remove these dev dependencies
         #  once integration tests don't depend on keys anymore
         # TODO[23010]: replace hardcoded "2.2" with something like `PV34_LATEST_SUPPORTED_LF_VERSION`
@@ -513,7 +514,6 @@ da_scala_test_suite(
     data = [dep for deps in [[
         ":script-test-{}.dar".format(lf),
     ] for lf in [DEV_LF_VERSION]] for dep in deps] + [
-        ":external-call-test-v2.dev.dar",
         ":script-test-no-ledger.dar",
         "//compiler/damlc/tests:query-test.dar",
         "//compiler/damlc/tests:submit-test.dar",

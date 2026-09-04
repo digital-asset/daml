@@ -365,16 +365,21 @@ object Runner {
       val csmMode = ContractStateMachine.Mode.Key
       override val toString = "V35"
     }
+    final case object V36 extends IdeLedgerProtocolVersion {
+      val csmMode = ContractStateMachine.Mode.Key
+      override val toString = "V36"
+    }
     final case object VDev extends IdeLedgerProtocolVersion {
       val csmMode = ContractStateMachine.Mode.Key
       override val toString = "VDev"
     }
-    val all = List(V34, V35, VDev)
+    val all = List(V34, V35, V36, VDev)
     val latest = V35
     def parseIdeLedgerProtocolVersion(str: String): Either[String, IdeLedgerProtocolVersion] =
       str.toLowerCase match {
         case "v34" | "34" => Right(V34)
         case "v35" | "35" => Right(V35)
+        case "v36" | "36" => Right(V36)
         case "vdev" | "dev" => Right(VDev)
         case "latest" => Right(latest)
         case _ =>

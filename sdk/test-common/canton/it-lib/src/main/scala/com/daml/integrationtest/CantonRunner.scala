@@ -91,10 +91,17 @@ object CantonRunner {
       if (config.enableLfBetaVersionSupport) "beta-version-support = yes" else ""
     val globalBetaVersionSupport =
       if (config.enableLfBetaVersionSupport) "beta-version-support = yes" else ""
+    // The dev knob covers all pre-release protocol versions in this harness: alpha protocol
+    // versions (currently v36) sit outside dev-version-support, and without the alpha flag the
+    // synchronizer nodes refuse to handshake at an alpha version (see the TODO below).
     val participantDevVersionSupport =
-      if (config.enableLfDevVersionSupport) "dev-version-support = yes" else ""
+      if (config.enableLfDevVersionSupport)
+        "dev-version-support = yes\n        alpha-version-support = yes"
+      else ""
     val globalDevVersionSupport =
-      if (config.enableLfDevVersionSupport) "dev-version-support = yes" else ""
+      if (config.enableLfDevVersionSupport)
+        "dev-version-support = yes\n    alpha-version-support = yes"
+      else ""
 
     val extensionsConfig =
       config.extensionServices
