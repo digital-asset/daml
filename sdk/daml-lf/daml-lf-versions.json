@@ -12,7 +12,7 @@
       "major" : 2,
       "minor" : {
         "Staging" : {
-          "version" : 4,
+          "version" : 5,
           "revision" : 1
         }
       }
@@ -36,8 +36,16 @@
     {
       "major" : 2,
       "minor" : {
+        "Stable" : {
+          "version" : 4
+        }
+      }
+    },
+    {
+      "major" : 2,
+      "minor" : {
         "Staging" : {
-          "version" : 4,
+          "version" : 5,
           "revision" : 1
         }
       }
@@ -56,7 +64,7 @@
       "major" : 2,
       "minor" : {
         "Staging" : {
-          "version" : 4,
+          "version" : 5,
           "revision" : 1
         }
       }
@@ -65,7 +73,7 @@
       "major" : 2,
       "minor" : {
         "Staging" : {
-          "version" : 4,
+          "version" : 5,
           "revision" : 1
         }
       }
@@ -124,8 +132,16 @@
       {
         "major" : 2,
         "minor" : {
+          "Stable" : {
+            "version" : 4
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
           "Staging" : {
-            "version" : 4,
+            "version" : 5,
             "revision" : 1
           }
         }
@@ -163,6 +179,14 @@
             "version" : 3
           }
         }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 4
+          }
+        }
       }
     ],
     "allLfVersions" : [
@@ -193,8 +217,16 @@
       {
         "major" : 2,
         "minor" : {
+          "Stable" : {
+            "version" : 4
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
           "Staging" : {
-            "version" : 4,
+            "version" : 5,
             "revision" : 1
           }
         }
@@ -232,6 +264,14 @@
             "version" : 3
           }
         }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 4
+          }
+        }
       }
     ],
     "compilerInputLfVersions" : [
@@ -262,8 +302,16 @@
       {
         "major" : 2,
         "minor" : {
+          "Stable" : {
+            "version" : 4
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
           "Staging" : {
-            "version" : 4,
+            "version" : 5,
             "revision" : 1
           }
         }
@@ -293,6 +341,15 @@
           "Staging" : {
             "version" : 3,
             "revision" : 2
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
+          "Staging" : {
+            "version" : 4,
+            "revision" : 1
           }
         }
       }
@@ -325,8 +382,16 @@
       {
         "major" : 2,
         "minor" : {
+          "Stable" : {
+            "version" : 4
+          }
+        }
+      },
+      {
+        "major" : 2,
+        "minor" : {
           "Staging" : {
-            "version" : 4,
+            "version" : 5,
             "revision" : 1
           }
         }
