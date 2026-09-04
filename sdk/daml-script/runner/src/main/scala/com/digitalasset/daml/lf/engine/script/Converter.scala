@@ -30,28 +30,105 @@ import scala.concurrent.Future
 import scala.util.Random
 
 // Helper to create identifiers pointing to the Daml.Script module
-case class ScriptIds(val scriptPackageId: PackageId, isLegacy: Boolean) {
+case class ScriptIds(val scriptEra: ScriptIds.ScriptEra) {
+  // When using Stable era, this derives the full stable package path from the module and name.
+  // Otherwise, it uses the package-id of the Script type to build Identifiers
   def damlScriptModule(module: String, s: String) =
+    damlScriptModuleExplicit(module, module + ".Stable." + s, s)
+
+  // Some stable packages define multiple types, to account for mutual recursion
+  // This function will not derive the full module path, but instead allow the user
+  // to specify it.
+  // Note that `fullStableModulePath` is not used when using NonStable daml-script
+  def damlScriptModuleExplicit(module: String, fullStableModulePath: String, s: String) =
+    scriptEra match {
+      case ScriptIds.ScriptEra.Legacy(_) =>
+        throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
+      case ScriptIds.ScriptEra.NonStable(scriptPackageId) =>
+        Identifier(
+          scriptPackageId,
+          QualifiedName(ModuleName.assertFromString(module), DottedName.assertFromString(s)),
+        )
+      case ScriptIds.ScriptEra.Stable(_, _) =>
+        Identifier(
+          ScriptIds
+            .lookupStablePackageId(fullStableModulePath)
+            .fold(
+              err => throw new IllegalArgumentException(err),
+              identity(_),
+            ),
+          QualifiedName(
+            ModuleName.assertFromString(fullStableModulePath),
+            DottedName.assertFromString(s),
+          ),
+        )
+    }
+  // Package id of the main script package, which contains the implementation of the questions.
+  // Pre stable, this also contains the `Script` datatype. Post Stable, it does not.
+  // Due to how scripts are interpreted, this may sometimes not yet be known when running Stable script
+  // as we have not yet come across a data-type from the main package.
+  def scriptPackageId: PackageId = scriptEra match {
+    case ScriptIds.ScriptEra.Legacy(_) =>
+      throw new IllegalArgumentException("Unsupported daml-script era: Legacy")
+    case ScriptIds.ScriptEra.NonStable(scriptPackageId) => scriptPackageId
+    case ScriptIds.ScriptEra.Stable(Some(scriptPackageId), _) => scriptPackageId
+    case ScriptIds.ScriptEra.Stable(None, _) =>
+      throw new IllegalArgumentException("Script package id not yet known to ScriptIds")
+  }
+
+  // Package id of the Script type, which is either the main script package (pre stable)
+  // or the stable package "daml-script-stable-Daml-Script-Internal-LowLevel-Stable-Script" (post stable)
+  def scriptTypePackageId: PackageId = scriptEra match {
+    case ScriptIds.ScriptEra.Legacy(legacyScriptPackageId) => legacyScriptPackageId
+    case ScriptIds.ScriptEra.NonStable(scriptPackageId) => scriptPackageId
+    case ScriptIds.ScriptEra.Stable(_, scriptTypePackageId) => scriptTypePackageId
+  }
+  // Generates defs for each daml-script package in scope, for references to all script versions in scope
+  // Used mostly for `dangerousCast` which must be replaced for all script versions
+  def damlScriptModuleNonStable(module: String, s: String) =
     Identifier(
       scriptPackageId,
       QualifiedName(ModuleName.assertFromString(module), DottedName.assertFromString(s)),
     )
+  def withUnstablePackageId(scriptPackageId: PackageId): ScriptIds =
+    scriptEra match {
+      case ScriptIds.ScriptEra.Stable(_, scriptTypePackageId) =>
+        ScriptIds(ScriptIds.ScriptEra.Stable(Some(scriptPackageId), scriptTypePackageId))
+      case _ => this
+    }
 }
 
 object ScriptIds {
+  sealed trait ScriptEra
+  object ScriptEra {
+    case class Legacy(val legacyScriptPackageId: PackageId)
+        extends ScriptEra // Pre 3.3 legacy daml-script, before daml3-script
+    case class NonStable(val scriptPackageId: PackageId)
+        extends ScriptEra // Pre 3.6 stable daml-script with cross-sdk support
+    // When using Stable daml-script, the `Script` type is not from the unstable package, so we do not know what it is
+    // until we have parsed a question. This will only be set after parsing in ScriptF, and updated in ScriptF's env
+    case class Stable(val oScriptPackageId: Option[PackageId], val scriptTypePackageId: PackageId)
+        extends ScriptEra // Post 3.6 stable daml-script with cross-sdk support
+  }
+
+  def lookupStablePackageId(moduleName: String): Either[String, PackageId] =
+    ScriptStablePackages.packages.get("daml-script-stable-" + moduleName.replace('.', '-')) match {
+      case Some(pkgId) => PackageId.fromString(pkgId)
+      case None => Left(s"Unknown stable package module $moduleName")
+    }
+
   // Constructs ScriptIds if the given type has the form Daml.Script.Script a (or Daml.Script.Internal.LowLevel.Script a).
   def fromType(ty: Type): Either[String, ScriptIds] = {
+    val scriptDottedName = DottedName.assertFromString("Script")
     ty match {
-      case TApp(TTyCon(tyCon), _) => {
-        val scriptIds = ScriptIds(tyCon.packageId, false)
-        if (tyCon == scriptIds.damlScriptModule("Daml.Script.Internal.LowLevel", "Script")) {
-          Right(scriptIds)
-        } else if (tyCon == scriptIds.damlScriptModule("Daml.Script", "Script")) {
-          // In legacy daml-script, the Script type was stored in the top level Daml.Script module
-          // We still give back a scriptIds, so the runner can throw the error more formally
-          Right(scriptIds.copy(isLegacy = true))
-        } else {
-          Left(s"Expected type 'Daml.Script.Script a' but got $ty")
+      case TApp(TTyCon(Identifier(pkgId, QualifiedName(moduleName, `scriptDottedName`))), _) => {
+        moduleName.toString match {
+          case "Daml.Script" => Right(ScriptIds(ScriptEra.Legacy(pkgId)))
+          case "Daml.Script.Internal.LowLevel" => Right(ScriptIds(ScriptEra.NonStable(pkgId)))
+          case "Daml.Script.Internal.LowLevel.Stable.Script" =>
+            Right(ScriptIds(ScriptEra.Stable(None, pkgId)))
+          case name =>
+            Left(s"Expected Script type from Daml Script library, got module name: $name")
         }
       }
       case _ => Left(s"Expected type 'Daml.Script.Script a' but got $ty")

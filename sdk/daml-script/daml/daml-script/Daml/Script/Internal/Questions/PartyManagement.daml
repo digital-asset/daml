@@ -1,0 +1,137 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.PartyManagement
+  ( module Daml.Script.Internal.Questions.PartyManagement
+  , module Stable
+  ) where
+
+import Daml.Script.Internal.LowLevel
+import Daml.Script.Internal.Questions.PartyManagement.Stable.PartyDetails as Stable
+import Daml.Script.Internal.Questions.PartyManagement.Stable.PartyIdHint as Stable
+import Daml.Script.Internal.Questions.PartyManagement.Stable.ParticipantName as Stable
+import DA.Record
+import DA.Stack
+
+-- These types are generated directly in LF, so their record instances are not derived
+instance GetField "party" PartyDetails Party where
+  getField (PartyDetails {..}) = party
+instance SetField "party" PartyDetails Party where
+  setField party (PartyDetails _ isLocal) = PartyDetails party isLocal
+
+instance GetField "isLocal" PartyDetails Bool where
+  getField (PartyDetails {..}) = isLocal
+instance SetField "isLocal" PartyDetails Bool where
+  setField isLocal (PartyDetails party _) = PartyDetails party isLocal
+
+instance GetField "partyIdHint" PartyIdHint Text where
+  getField (PartyIdHint {..}) = partyIdHint
+instance SetField "partyIdHint" PartyIdHint Text where
+  setField partyIdHint (PartyIdHint _) = PartyIdHint partyIdHint
+
+instance GetField "participantName" ParticipantName Text where
+  getField (ParticipantName {..}) = participantName
+instance SetField "participantName" ParticipantName Text where
+  setField participantName (ParticipantName _) = ParticipantName participantName
+
+-- | HIDE
+-- An empty 'participants' means we pick the default one. Otherwise, the first participant of the list is considered
+-- to be the "main" one, which is the participant to which commands submitted by the allocated will be routed.
+data AllocateParty = AllocateParty with
+  requestedName: Text
+  idHint : Text
+  participants : [Text]
+
+-- | HIDE
+instance IsQuestion AllocateParty Party
+  where
+    command = "AllocateParty"
+    version = 2
+
+deriving instance Eq PartyDetails
+deriving instance Ord PartyDetails
+deriving instance Show PartyDetails
+
+-- | MOVE Daml.Script
+-- Allocate a party with the given display name
+-- using the party management service.
+allocateParty : HasCallStack => Text -> Script Party
+allocateParty requestedName = lift $ AllocateParty with
+  requestedName = requestedName
+  idHint = ""
+  participants = []
+
+{-# DEPRECATED allocatePartyWithHint "Daml 3.3 compatibility helper, use 'allocatePartyByHint' instead of 'allocatePartyWithHint'" #-}
+-- | MOVE Daml.Script
+allocatePartyWithHint : HasCallStack => Text -> PartyIdHint -> Script Party
+allocatePartyWithHint requestedName (PartyIdHint idHint) = lift $ AllocateParty with
+  requestedName = requestedName
+  idHint = idHint
+  participants = []
+
+-- | MOVE Daml.Script
+-- Allocate a party with the given id hint
+-- using the party management service.
+allocatePartyByHint : HasCallStack => PartyIdHint -> Script Party
+allocatePartyByHint (PartyIdHint idHint) = lift $ AllocateParty with
+  requestedName = ""
+  idHint = idHint
+  participants = []
+
+-- | MOVE Daml.Script
+-- Allocate a party with the given display name
+-- on the specified participant using the party management service.
+allocatePartyOn : Text -> ParticipantName -> Script Party
+allocatePartyOn requestedName participantName = allocatePartyWithHintOn requestedName (PartyIdHint "") participantName
+
+{-# DEPRECATED allocatePartyWithHintOn "Daml 3.3 compatibility helper, use 'allocatePartyByHintOn' instead of 'allocatePartyWithHintOn'" #-}
+-- | MOVE Daml.Script
+allocatePartyWithHintOn : Text -> PartyIdHint -> ParticipantName -> Script Party
+allocatePartyWithHintOn requestedName idHint participant =
+  allocateReplicatedPartyWithHintOn requestedName idHint participant []
+
+-- TODO(https://github.com/digital-asset/daml/issues/21035): rework allocateParty to avoid the proliferation of variants
+-- | MOVE Daml.Script.Internal
+-- Allocate a party with the given display name on the specified main participant using the party management service
+-- and replicates it to the specified (possibly empty) list of additional participants. Commands submitted by the
+-- allocated party will be routed to the main participant.
+allocateReplicatedPartyOn : Text -> ParticipantName -> [ParticipantName] -> Script Party
+allocateReplicatedPartyOn requestedName mainParticipant additionalParticipants =
+  allocateReplicatedPartyWithHintOn requestedName (PartyIdHint "") mainParticipant additionalParticipants
+
+-- TODO(https://github.com/digital-asset/daml/issues/21035): rework allocateParty to avoid the proliferation of variants
+-- | MOVE Daml.Script.Internal
+-- Allocate a party with the given display name and id hint on the specified main participant using the party
+-- management service and replicates it to the specified (possibly empty) list of additional participants. Commands
+-- submitted by the allocated party will be routed to the main participant.
+allocateReplicatedPartyWithHintOn : Text -> PartyIdHint -> ParticipantName -> [ParticipantName] -> Script Party
+allocateReplicatedPartyWithHintOn requestedName (PartyIdHint idHint) mainParticipant additionalParticipants =
+  lift $ AllocateParty with
+    requestedName = requestedName
+    idHint = idHint
+    participants = map participantName (mainParticipant :: additionalParticipants)
+
+-- | MOVE Daml.Script
+-- Allocate a party with the given id hint
+-- on the specified participant using the party management service.
+allocatePartyByHintOn : PartyIdHint -> ParticipantName -> Script Party
+allocatePartyByHintOn (PartyIdHint idHint) (ParticipantName participant) = lift $ AllocateParty with
+  requestedName = ""
+  idHint = idHint
+  participants = [participant]
+
+-- | HIDE
+data ListKnownParties = ListKnownParties with
+  participant : Optional Text
+-- | HIDE
+instance IsQuestion ListKnownParties [PartyDetails] where command = "ListKnownParties"
+
+-- | MOVE Daml.Script
+-- List the parties known to the default participant.
+listKnownParties : HasCallStack => Script [PartyDetails]
+listKnownParties = lift $ ListKnownParties None
+
+-- | MOVE Daml.Script
+-- List the parties known to the given participant.
+listKnownPartiesOn : HasCallStack => ParticipantName -> Script [PartyDetails]
+listKnownPartiesOn (ParticipantName participant) = lift $ ListKnownParties $ Some participant

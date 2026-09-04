@@ -201,16 +201,14 @@ object ScriptAction {
       scriptId: Identifier,
   ): Either[String, ScriptAction] = {
     val script = compiledPackages.pkgInterface.lookupValue(scriptId).left.map(_.pretty)
-    def getScriptIds(ty: Type): Either[String, ScriptIds] =
-      ScriptIds.fromType(ty)
     script.flatMap {
       case GenDValue(TApp(TApp(TBuiltin(BTArrow), param), result), _) =>
         for {
-          scriptIds <- getScriptIds(result)
+          scriptIds <- ScriptIds.fromType(result)
         } yield ScriptAction.Param(scriptId, param, None, scriptIds)
       case GenDValue(ty, _) =>
         for {
-          scriptIds <- getScriptIds(ty)
+          scriptIds <- ScriptIds.fromType(ty)
         } yield ScriptAction.NoParam(scriptId, scriptIds)
     }
   }
@@ -513,10 +511,23 @@ private[lf] class Runner(
 ) extends StrictLogging {
   // Daml script requires unsafe casting on Value payloads from the engine, for exercise results and such
   // This is implemented as a simple identity in the engine, but is untyped.
-  val extendedCompiledPackages = makeUnsafeCoerce(
-    compiledPackages,
-    script.scriptIds.damlScriptModule("Daml.Script.Internal.LowLevel", "dangerousCast"),
-  )
+  // Since adding cross-sdk daml-script support, this dangerousCast is required in all daml-script versions in scope
+  // so we iterate all daml-script packages and run the replacement.
+  // This is safe, as this replacement only happens on the daml-script side. It cannot be used to introduce
+  // unsafe coerce into contracts.
+  val extendedCompiledPackages = {
+    val damlScriptPackages: List[PackageId] = (for {
+      (pkgId, pkg) <- compiledPackages.signatures
+      if pkg.metadata.name.toString == "daml-script"
+    } yield pkgId).toList
+    val qName = QualifiedName(
+      ModuleName.assertFromString("Daml.Script.Internal.LowLevel"),
+      DottedName.assertFromString("dangerousCast"),
+    )
+    damlScriptPackages.foldLeft(compiledPackages) { (cPkgs, pkgId) =>
+      makeUnsafeCoerce(cPkgs, Identifier(pkgId, qName))
+    }
+  }
 
   // Maps GHC unit ids to LF package ids. Used for location conversion.
   val knownPackages: Map[String, PackageId] = (for {
@@ -534,12 +545,15 @@ private[lf] class Runner(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Future[ExtendedValue], Option[Runner.IdeLedgerContext]) = {
-    val damlScriptName = Runner.getPackageName(compiledPackages, script.scriptIds.scriptPackageId)
+    val damlScriptName =
+      Runner.getPackageName(compiledPackages, script.scriptIds.scriptTypePackageId)
+    val stableScriptTypePackageName =
+      "daml-script-stable-Daml-Script-Internal-LowLevel-Stable-Script"
 
     damlScriptName.getOrElse(
       throw new IllegalArgumentException("Couldn't get daml script package name")
     ) match {
-      case "daml-script" | "daml3-script" =>
+      case "daml-script" | "daml3-script" | `stableScriptTypePackageName` =>
         new v2.Runner(this, initialClients, machineLogger, canceled, csmMode).getResult()
       case pkgName =>
         throw new IllegalArgumentException(

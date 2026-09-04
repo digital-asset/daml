@@ -41,12 +41,20 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
   ): Either[String, ExtendedValue] = {
     def damlTree(s: String) =
       scriptIds.damlScriptModule("Daml.Script.Internal.Questions.TransactionTree", s)
+    // Both `TreeEvent` and `Exercised` share the same stable package, for they are mutually recursive
+    // Explicit builder for these types
+    def damlTreeTreeEvent(s: String) =
+      scriptIds.damlScriptModuleExplicit(
+        "Daml.Script.Internal.Questions.TransactionTree",
+        "Daml.Script.Internal.Questions.TransactionTree.Stable.TreeEvent",
+        s,
+      )
     def translateTreeEvent(ev: ScriptLedgerClient.TreeEvent): Either[String, ExtendedValue] =
       ev match {
         case ScriptLedgerClient.Created(tplId, contractId, argument, _) =>
           Right(
             ValueVariant(
-              Some(damlTree("TreeEvent")),
+              Some(damlTreeTreeEvent("TreeEvent")),
               Name.assertFromString("CreatedEvent"),
               record(
                 damlTree("Created"),
@@ -74,10 +82,10 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
               arg,
             )
           } yield ValueVariant(
-            Some(damlTree("TreeEvent")),
+            Some(damlTreeTreeEvent("TreeEvent")),
             Name.assertFromString("ExercisedEvent"),
             record(
-              damlTree("Exercised"),
+              damlTreeTreeEvent("Exercised"),
               ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId)),
               ("choice", ValueText(choiceName)),
               ("argument", anyChoice),
@@ -244,10 +252,27 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       legacyAnyContractKey: Boolean = false,
   ): Either[String, ScriptLedgerClient.CommandWithMeta] =
     v match {
+      // Pre-stable daml-script used explicit fields for commandWithMeta.
       case ValueRecord(_, ImmArray((_, command), (_, ValueBool(explicitPackageId)))) =>
         for {
           command <- toCommand(command, lookupContractKeyType, legacyAnyContractKey)
         } yield ScriptLedgerClient.CommandWithMeta(command, explicitPackageId)
+      // Stable daml-script uses a LedgerValue map for metadata, for extensibility in the daml types
+      case ValueRecord(_, ImmArray((_, command), (_, m @ ValueGenMap(entries)))) => {
+        // Metadata mapping is `Map Text LedgerValue`
+        val commandMetadata = entries.toList.map {
+          case (ValueText(k), v) => (k, v)
+          case _ => throw new RuntimeException(s"Expected Map Text LedgerValue but got $m")
+        }.toMap
+        val explicitPackageId = commandMetadata.get("explicitPackageId") match {
+          case Some(ValueBool(b)) => b
+          case _ => false // Default to upgrade compatible commands when not provided
+        }
+        for {
+          // Stable daml-script does not support legacy AnyContractKey
+          command <- toCommand(command, lookupContractKeyType, false)
+        } yield ScriptLedgerClient.CommandWithMeta(command, explicitPackageId)
+      }
       case _ => Left(s"Expected CommandWithMeta but got $v")
     }
 

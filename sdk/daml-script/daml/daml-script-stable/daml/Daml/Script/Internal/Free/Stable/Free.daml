@@ -1,0 +1,12 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- | HIDE
+module Daml.Script.Internal.Free.Stable.Free
+  ( Free(..)
+  ) where
+
+-- | A free monad
+data Free f a
+  = Pure a
+  | Free (f (Free f a))

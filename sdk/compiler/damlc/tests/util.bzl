@@ -12,7 +12,8 @@ sdk-version: {sdk_version}
 name: proj
 version: 0.0.1
 source: .
-dependencies: [daml-prim, daml-stdlib, "$$SCRIPTDAR"]
+dependencies: [daml-prim, daml-stdlib]
+data-dependencies: ["$$SCRIPTDAR"]
 EOF
 
 importargs="--package-db=./.daml/package-database --package=daml-script-{ghc_version}"

@@ -31,7 +31,7 @@ exampleInvalidUserId : InvalidUserId
 exampleInvalidUserId = InvalidUserId "invalid-user-id"
 
 exampleInvalidUserIdFailureStatus : FailureStatus
-exampleInvalidUserIdFailureStatus = FailureStatus "UNHANDLED_EXCEPTION/Daml.Script.Internal.Questions.UserManagement:InvalidUserId" InvalidGivenCurrentSystemStateOther "invalid-user-id" mempty
+exampleInvalidUserIdFailureStatus = FailureStatus "UNHANDLED_EXCEPTION/Daml.Script.Internal.Questions.UserManagement.Stable.InvalidUserId:InvalidUserId" InvalidGivenCurrentSystemStateOther "invalid-user-id" mempty
 
 canCatchPureFailureStatus : Script ()
 canCatchPureFailureStatus = do

@@ -18,8 +18,8 @@
       "fct_type": {
         "TypeApp": [
           {
-            "referenceAnchor": "type-daml-script-internal-lowlevel-script-4781",
-            "referencePackage": "daml-script-UNVERSIONED"
+            "referenceAnchor": "type-daml-script-internal-lowlevel-stable-script-script-12809",
+            "referencePackage": "daml-script-stable-Daml-Script-Internal-LowLevel-Stable-Script-1.0.0"
           },
           "Script",
           [

@@ -247,7 +247,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               , "name: test-coverage-report"
               , "version: 0.0.1"
               , "source: ."
-              , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show scriptDar <> "]"
               ]
             let file = dir </> "Foo.daml"
             T.writeFileUtf8 file $ T.unlines
@@ -296,7 +297,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               , "name: full-test-coverage-report"
               , "version: 0.0.1"
               , "source: ."
-              , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show scriptDar <> "]"
               ]
             let file = dir </> "Foo.daml"
             T.writeFileUtf8 file $ T.unlines
@@ -419,7 +421,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , "name: a"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> show scriptDar <> "]"
             ]
           writeFileUTF8 (projDir </> "a" </> "A.daml") $ unlines
             [ "module A where"
@@ -445,7 +448,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , "name: b"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> ", " <> show scriptDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> show scriptDar <> ", " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> "]"
             ]
           let bFilePath = projDir </> "b" </> "B.daml"
           writeFileUTF8 bFilePath $ unlines
@@ -524,7 +528,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , "name: a"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> show scriptDar <> "]"
             ]
           writeFileUTF8 (projDir </> "a" </> "Mod1.daml") $ unlines
             [ "module Mod1 where"
@@ -562,7 +567,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , "name: b"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> ", " <> show scriptDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> show scriptDar <> "," <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <>"]"
             ]
           writeFileUTF8 (projDir </> "b" </> "Mod2.daml") $ unlines
             [ "module Mod2 where"
@@ -809,7 +815,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , "name: a"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> show scriptDar <> "]"
             ]
           writeFileUTF8 (projDir </> "a" </> "A.daml") $ unlines
             [ "module A where"
@@ -828,7 +835,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , "name: b"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> ", " <> show scriptDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> show scriptDar <> ", " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> "]"
             ]
           let bFilePath = projDir </> "b" </> "B.daml"
           writeFileUTF8 bFilePath $ unlines
@@ -872,7 +880,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , "name: a"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> show scriptDar <> "]"
             ]
           writeFileUTF8 (projDir </> "Main.daml") $ unlines
             [ "module Main where"
@@ -1098,7 +1107,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , "name: a"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> show scriptDar <> "]"
             ]
           writeFileUTF8 (projDir </> "a" </> "A.daml") $ unlines
             [ "module A where"
@@ -1123,7 +1133,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , "name: b"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> ", " <> show scriptDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> show scriptDar <> ", " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> "]"
             ]
           let bFilePath = projDir </> "b" </> "B.daml"
           writeFileUTF8 bFilePath $ unlines
@@ -1178,7 +1189,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               , "name: test-failing-script"
               , "version: 0.0.1"
               , "source: ."
-              , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show scriptDar <> "]"
               ]
             let file = dir </> "Foo.daml"
             T.writeFileUtf8 file $ T.unlines
@@ -1211,7 +1223,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , "name: test-files-outside-package"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> show scriptDar <> "]"
             ]
           writeFileUTF8 (projDir </> "Main.daml") $ unlines
             [ "module Main where"
@@ -1244,7 +1257,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , "name: relative"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> show scriptDar <> "]"
             ]
           withCurrentDirectory projDir $
             callProcessSilent
@@ -1264,7 +1278,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , "name: relative"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> show scriptDar <> "]"
             ]
           withCurrentDirectory tempDir $
             callProcessSilent
@@ -1288,7 +1303,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           , "name: foobar"
           , "version: 0.0.1"
           , "source: ."
-          , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+          , "dependencies: [daml-prim, daml-stdlib]"
+          , "data-dependencies: [" <> show scriptDar <> "]"
           , "script-service:"
           , "  grpc-max-message-size: 10000000"
           ]
@@ -1304,7 +1320,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               , "name: test-rollback-archive"
               , "version: 0.0.1"
               , "source: ."
-              , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show scriptDar <> "]"
               , "script-service:"
               , "  protocol-version: V34"
               ]
@@ -1374,7 +1391,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             , "name: b"
             , "version: 0.0.1"
             , "source: ."
-            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> ", " <> show scriptDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: [" <> show scriptDar <> ", " <> show (projDir </> "a/.daml/dist/a-0.0.1.dar") <> "]"
             ]
           writeFileUTF8 (projDir </> "b" </> "B.daml") $ unlines
             [ "module B where"

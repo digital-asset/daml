@@ -15,20 +15,45 @@
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#module-daml-script-55737
 module Daml.Script
 
--- | Thrown if text for a user identifier does not conform to the format restriction.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-usermanagement-invaliduserid-35585
-data InvalidUserId
+-- | The rights of a user.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-usermanagement-stable-userright-userright-81182
+data UserRight
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-invaliduserid-47622
-InvalidUserId :: Text -> InvalidUserId
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-stable-userright-participantadmin-26407
+ParticipantAdmin :: UserRight
 
-m :: InvalidUserId -> Text
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-stable-userright-canactas-18221
+CanActAs :: Party -> UserRight
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-stable-userright-canreadas-58476
+CanReadAs :: Party -> UserRight
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-stable-userright-canreadasanyparty-48466
+CanReadAsAnyParty :: UserRight
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-stable-userright-canexecuteas-94652
+CanExecuteAs :: Party -> UserRight
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-stable-userright-canexecuteasanyparty-47374
+CanExecuteAsAnyParty :: UserRight
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-stable-userright-canactasanyparty-38827
+CanActAsAnyParty :: UserRight
+
+-- | Thrown if a user cannot be located for a given user identifier.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-usermanagement-stable-usernotfound-usernotfound-64170
+data UserNotFound
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-stable-usernotfound-usernotfound-73195
+UserNotFound :: UserId -> UserNotFound
+
+userId :: UserNotFound -> UserId
 
 -- | User-info record for a user in the user management service.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-usermanagement-user-21930
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-usermanagement-stable-user-user-13636
 data User
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-user-51383
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-stable-user-user-97149
 User :: UserId -> Optional Party -> User
 
 userId :: User -> UserId
@@ -36,54 +61,29 @@ userId :: User -> UserId
 primaryParty :: User -> Optional Party
 
 -- | Thrown if a user to be created already exists.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-usermanagement-useralreadyexists-98333
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-usermanagement-stable-useralreadyexists-useralreadyexists-44214
 data UserAlreadyExists
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-useralreadyexists-40670
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-stable-useralreadyexists-useralreadyexists-20731
 UserAlreadyExists :: UserId -> UserAlreadyExists
 
 userId :: UserAlreadyExists -> UserId
 
 -- | Identifier for a user in the user management service.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-usermanagement-userid-11123
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-usermanagement-stable-userid-userid-57234
 data UserId
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-userid-52094
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-stable-userid-userid-78675
 UserId :: Text -> UserId
 
--- | Thrown if a user cannot be located for a given user identifier.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-usermanagement-usernotfound-44479
-data UserNotFound
+-- | Thrown if text for a user identifier does not conform to the format restriction.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-usermanagement-stable-invaliduserid-invaliduserid-33910
+data InvalidUserId
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-usernotfound-26338
-UserNotFound :: UserId -> UserNotFound
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-stable-invaliduserid-invaliduserid-28115
+InvalidUserId :: Text -> InvalidUserId
 
-userId :: UserNotFound -> UserId
-
--- | The rights of a user.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-usermanagement-userright-13475
-data UserRight
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-participantadmin-36398
-ParticipantAdmin :: UserRight
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-canactas-78256
-CanActAs :: Party -> UserRight
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-canreadas-21035
-CanReadAs :: Party -> UserRight
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-canreadasanyparty-13813
-CanReadAsAnyParty :: UserRight
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-canexecuteas-15393
-CanExecuteAs :: Party -> UserRight
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-canexecuteasanyparty-57111
-CanExecuteAsAnyParty :: UserRight
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-canactasanyparty-92986
-CanActAsAnyParty :: UserRight
+m :: InvalidUserId -> Text
 
 -- | Applicative that allows for multiple concurrent transaction submissions
 --   See `concurrently` for usage of this type.
@@ -98,10 +98,10 @@ submits :: ConcurrentSubmits -> [Submission]
 continue :: ConcurrentSubmits -> [Either SubmitError ([CommandResult], TransactionTree)] -> a
 
 -- | Package-id newtype for package preference
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-packageid-95921
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-stable-packageid-packageid-23442
 data PackageId
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-packageid-38878
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-stable-packageid-packageid-37419
 PackageId :: Text -> PackageId
 
 -- | Options to detemine the stakeholders of a transaction, as well as disclosures.
@@ -121,386 +121,13 @@ PackageId :: Text -> PackageId
 --   ```
 --   alice `submit` createCmd MyContract with party = alice
 --   ```
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-submitoptions-56692
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-stable-submitoptions-submitoptions-27150
 data SubmitOptions
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-submitoptions-37975
-SubmitOptions :: [Party] -> [Party] -> [Disclosure] -> Optional [PackageId] -> [AnyContractKey] -> SubmitOptions
-
-soActAs :: SubmitOptions -> [Party]
-
-soReadAs :: SubmitOptions -> [Party]
-
-soDisclosures :: SubmitOptions -> [Disclosure]
-
-soPackagePreference :: SubmitOptions -> Optional [PackageId]
-
-soPrefetchKeys :: SubmitOptions -> [AnyContractKey]
-
--- | Daml Crypto (Secp256k1) related submission errors
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-cryptoerrortype-71749
-data CryptoErrorType
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-malformedbyteencoding-79193
-MalformedByteEncoding :: Text -> CryptoErrorType
-
-value :: CryptoErrorType -> Text
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-malformedkey-58536
-MalformedKey :: Text -> CryptoErrorType
-
-keyValue :: CryptoErrorType -> Text
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-malformedsignature-13573
-MalformedSignature :: Text -> CryptoErrorType
-
-signatureValue :: CryptoErrorType -> Text
-
--- | External-call related submission errors, one per stage: preparing the
---   call, executing it, and validating the service output.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-externalcallerrortype-95837
-data ExternalCallErrorType
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-preparationfailed-20227
-PreparationFailed :: ExternalCallErrorType
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-executionfailed-50072
-ExecutionFailed :: ExternalCallErrorType
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-invalidoutput-87217
-InvalidOutput :: ExternalCallErrorType
-
--- | Errors that can be thrown by a command submission via `trySubmit`
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-submiterror-38284
-data SubmitError
-
--- | Contract with given contract ID could not be found, and has never existed on this participant
---   When run on Canton, there may be more than one contract ID, and additionalDebuggingInfo is always None
---   On the other hand, when run on IDELedger, there is only ever one contract ID, and additionalDebuggingInfo is always Some
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contractnotfound-62819
-ContractNotFound :: NonEmpty Text -> Optional ContractNotFoundAdditionalInfo -> SubmitError
-
--- | Provided as text, as we do not know the template ID of a contract if the lookup fails
-unknownContractIds :: SubmitError -> NonEmpty Text
-
--- | should always be None in Canton's case, see https://github.com/digital-asset/daml/issues/17154
-additionalDebuggingInfo :: SubmitError -> Optional ContractNotFoundAdditionalInfo
-
--- | Unsupported contract id type/version
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-unsupportedcontractid-58555
-UnsupportedContractId :: Text -> SubmitError
-
-unknownContractId :: SubmitError -> Text
-
--- | Contract with given contract key could not be found
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contractkeynotfound-79659
-ContractKeyNotFound :: AnyContractKey -> SubmitError
-
-contractKey :: SubmitError -> AnyContractKey
-
--- | No vetted package with given package name could be found
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-unresolvedpackagename-661
-UnresolvedPackageName :: Text -> SubmitError
-
-packageName :: SubmitError -> Text
-
--- | Generic authorization failure, included missing party authority, invalid signatories, etc.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-authorizationerror-69757
-AuthorizationError :: Text -> SubmitError
-
-authorizationErrorMessage :: SubmitError -> Text
-
--- | Failed to hash a contract
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contracthashingerror-75608
-ContractHashingError :: AnyContractId -> TemplateTypeRep -> AnyTemplate -> Text -> SubmitError
-
-contractId :: SubmitError -> AnyContractId
-
-dstTemplateId :: SubmitError -> TemplateTypeRep
-
-createArg :: SubmitError -> AnyTemplate
-
-errorMessage :: SubmitError -> Text
-
--- | Given disclosed contract key does not match the contract key of the contract on ledger.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-disclosedcontractkeyhashingerror-69749
-DisclosedContractKeyHashingError :: AnyContractId -> AnyContractKey -> Text -> SubmitError
-
-contractId :: SubmitError -> AnyContractId
-
-expectedKey :: SubmitError -> AnyContractKey
-
-givenKeyHash :: SubmitError -> Text
-
--- | Attempted to create a contract with a contract key that already exists
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-duplicatecontractkey-60422
-DuplicateContractKey :: Optional AnyContractKey -> SubmitError
-
--- | Canton will often not provide this key, IDELedger will
-duplicateContractKey :: SubmitError -> Optional AnyContractKey
-
--- | Contract key lookup yielded different results
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-inconsistentcontractkey-74433
-InconsistentContractKey :: AnyContractKey -> SubmitError
-
-contractKey :: SubmitError -> AnyContractKey
-
--- | Unhandled user thrown exception
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-unhandledexception-86682
-UnhandledException :: Optional AnyException -> SubmitError
-
--- | Errors more complex than simple records cannot currently be encoded over the grpc status. Such errors will be missing here.
-exc :: SubmitError -> Optional AnyException
-
--- | Transaction failure due to abort/assert calls pre-exceptions
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-usererror-2902
-UserError :: Text -> SubmitError
-
-userErrorMessage :: SubmitError -> Text
-
--- | Failure due to false result from `ensure`, strictly pre-exception.
---   According to docs, not throwable with LF >= 1.14.
---   On LF >= 1.14, a failed `ensure` will result in a `PreconditionFailed`
---   exception wrapped in `UnhandledException`.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-templatepreconditionviolated-57506
-TemplatePreconditionViolated :: SubmitError
-
--- | Attempted to create a contract with empty contract key maintainers
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-createemptycontractkeymaintainers-30280
-CreateEmptyContractKeyMaintainers :: AnyTemplate -> SubmitError
-
-invalidTemplate :: SubmitError -> AnyTemplate
-
--- | Attempted to fetch a contract with empty contract key maintainers
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-fetchemptycontractkeymaintainers-19351
-FetchEmptyContractKeyMaintainers :: AnyContractKey -> SubmitError
-
-failedTemplateKey :: SubmitError -> AnyContractKey
-
--- | Attempted to exercise/fetch a contract with the wrong template type
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-wronglytypedcontract-14384
-WronglyTypedContract :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> SubmitError
-
--- | Any contract Id of the actual contract
-contractId :: SubmitError -> AnyContractId
-
-expectedTemplateId :: SubmitError -> TemplateTypeRep
-
-actualTemplateId :: SubmitError -> TemplateTypeRep
-
--- | Attempted to use a contract as an interface that it does not implement
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contractdoesnotimplementinterface-89439
-ContractDoesNotImplementInterface :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> SubmitError
-
-contractId :: SubmitError -> AnyContractId
-
-templateId :: SubmitError -> TemplateTypeRep
-
-interfaceId :: SubmitError -> TemplateTypeRep
-
--- | Attempted to use a contract as a required interface that it does not implement
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contractdoesnotimplementrequiringinterface-51672
-ContractDoesNotImplementRequiringInterface :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> TemplateTypeRep -> SubmitError
-
-contractId :: SubmitError -> AnyContractId
-
-templateId :: SubmitError -> TemplateTypeRep
-
-requiredInterfaceId :: SubmitError -> TemplateTypeRep
-
-requiringInterfaceId :: SubmitError -> TemplateTypeRep
-
--- | Attempted to compare values that are not comparable
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-noncomparablevalues-97474
-NonComparableValues :: SubmitError
-
--- | Illegal Contract ID found in Contract Key
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contractidincontractkey-60542
-ContractIdInContractKey :: SubmitError
-
--- | Attempted to compare incomparable contract IDs. You're doing something very wrong.
---   Two contract IDs with the same prefix are incomparable if one of them is local and the other non-local
---   or if one is relative and the other relative or absolute with a different suffix.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contractidcomparability-98492
-ContractIdComparability :: Text -> SubmitError
-
--- | We do not know the template ID at time of comparison.
-globalExistingContractId :: SubmitError -> Text
-
--- | A value has been nested beyond a given depth limit
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-valuenesting-53471
-ValueNesting :: Int -> SubmitError
-
--- | Nesting limit that was exceeded
-limit :: SubmitError -> Int
-
--- | The transaction refers to locked contracts which are in the process of being created, transferred, or
---   archived by another transaction. If the other transaction fails, this transaction could be successfully retried.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-localverdictlockedcontracts-9414
-LocalVerdictLockedContracts :: [AnyContractId] -> SubmitError
-
--- | Locked contract ids
-localVerdictLockedContracts :: SubmitError -> [AnyContractId]
-
--- | The transaction refers to locked keys which are in the process of being modified by another transaction.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-localverdictlockedkeys-14824
-LocalVerdictLockedKeys :: [AnyContractKey] -> SubmitError
-
--- | Locked contract keys
-localVerdictLockedKeys :: SubmitError -> [AnyContractKey]
-
--- | Upgrade exception
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-upgradeerror-4562
-UpgradeError :: UpgradeErrorType -> Text -> SubmitError
-
-errorType :: SubmitError -> UpgradeErrorType
-
-errorMessage :: SubmitError -> Text
-
--- | Exception resulting from call to `failWithStatus`
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-failurestatuserror-13880
-FailureStatusError :: FailureStatus -> SubmitError
-
-failureStatus :: SubmitError -> FailureStatus
-
--- | Crypto exceptions
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-cryptoerror-24426
-CryptoError :: CryptoErrorType -> Text -> SubmitError
-
-cryptoErrorType :: SubmitError -> CryptoErrorType
-
-cryptoErrorMessage :: SubmitError -> Text
-
--- | External-call interpretation exception
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-externalcallerror-13874
-ExternalCallError :: ExternalCallErrorType -> Text -> Text -> Text -> SubmitError
-
-externalCallErrorType :: SubmitError -> ExternalCallErrorType
-
-extensionId :: SubmitError -> Text
-
-functionId :: SubmitError -> Text
-
-externalCallErrorMessage :: SubmitError -> Text
-
--- | Rollback exceptions
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-effectfulrollbackerror-45632
-EffectfulRollbackError :: Text -> SubmitError
-
-effectfulRollbackErrorMsg :: SubmitError -> Text
-
--- | Development feature exceptions
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-deverror-73533
-DevError :: DevErrorType -> Text -> SubmitError
-
-devErrorType :: SubmitError -> DevErrorType
-
-devErrorMessage :: SubmitError -> Text
-
--- | Generic catch-all for missing errors.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-unknownerror-23808
-UnknownError :: Text -> SubmitError
-
-unknownErrorMessage :: SubmitError -> Text
-
--- | One of the above error types where the full exception body did not fit into the response, and was incomplete.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-truncatederror-47926
-TruncatedError :: Text -> Text -> SubmitError
-
--- | One of the constructor names of SubmitFailure except DevError, UnknownError, TruncatedError
-truncatedErrorType :: SubmitError -> Text
-
-truncatedErrorMessage :: SubmitError -> Text
-
--- | SCU related submission errors
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-upgradeerrortype-94779
-data UpgradeErrorType
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-validationfailed-35370
-ValidationFailed :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> Text -> Text -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> UpgradeErrorType
-
-coid :: UpgradeErrorType -> AnyContractId
-
-srcTemplateId :: UpgradeErrorType -> TemplateTypeRep
-
-dstTemplateId :: UpgradeErrorType -> TemplateTypeRep
-
-srcPackageName :: UpgradeErrorType -> Text
-
-dstPackageName :: UpgradeErrorType -> Text
-
-originalSignatories :: UpgradeErrorType -> [Party]
-
-originalNonSignatoryStakeholders :: UpgradeErrorType -> [Party]
-
-originalKeyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
-
-recomputedSignatories :: UpgradeErrorType -> [Party]
-
-recomputedNonSignatoryStakeholders :: UpgradeErrorType -> [Party]
-
-recomputedKeyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-translationfailed-4701
-TranslationFailed :: Optional AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> AnyTemplate -> UpgradeErrorType
-
-mCoid :: UpgradeErrorType -> Optional AnyContractId
-
-srcTemplateId :: UpgradeErrorType -> TemplateTypeRep
-
-dstTemplateId :: UpgradeErrorType -> TemplateTypeRep
-
-createArg :: UpgradeErrorType -> AnyTemplate
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-authenticationfailed-3671
-AuthenticationFailed :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> AnyTemplate -> UpgradeErrorType
-
-coid :: UpgradeErrorType -> AnyContractId
-
-srcTemplateId :: UpgradeErrorType -> TemplateTypeRep
-
-dstTemplateId :: UpgradeErrorType -> TemplateTypeRep
-
-createArg :: UpgradeErrorType -> AnyTemplate
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-created-98301
-data Created
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-created-79356
-Created :: AnyContractId -> AnyTemplate -> Created
-
-contractId :: Created -> AnyContractId
-
-argument :: Created -> AnyTemplate
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-createdindexpayload-52051
-data CreatedIndexPayload t
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-createdindexpayload-17054
-CreatedIndexPayload :: TemplateTypeRep -> Int -> CreatedIndexPayload
-
-templateId :: CreatedIndexPayload -> TemplateTypeRep
-
-offset :: CreatedIndexPayload -> Int
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-exercised-22057
-data Exercised
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-exercised-56388
-Exercised :: AnyContractId -> Text -> AnyChoice -> [TreeEvent] -> Exercised
-
-contractId :: Exercised -> AnyContractId
-
-choice :: Exercised -> Text
-
-argument :: Exercised -> AnyChoice
-
-childEvents :: Exercised -> [TreeEvent]
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-exercisedindexpayload-19779
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-stable-treeindex-exercisedindexpayload-41153
 data ExercisedIndexPayload t
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-exercisedindexpayload-97386
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-stable-treeindex-exercisedindexpayload-19398
 ExercisedIndexPayload :: TemplateTypeRep -> Text -> Int -> TreeIndex t -> ExercisedIndexPayload
 
 templateId :: ExercisedIndexPayload -> TemplateTypeRep
@@ -511,36 +138,567 @@ offset :: ExercisedIndexPayload -> Int
 
 child :: ExercisedIndexPayload -> TreeIndex t
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-transactiontree-91781
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-stable-treeindex-treeindex-63841
+data TreeIndex t
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-stable-treeindex-createdindex-47483
+CreatedIndex :: CreatedIndexPayload t -> TreeIndex
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-stable-treeindex-exercisedindex-81579
+ExercisedIndex :: ExercisedIndexPayload t -> TreeIndex
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-stable-transactiontree-transactiontree-42393
 data TransactionTree
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-transactiontree-56296
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-stable-transactiontree-transactiontree-30690
 TransactionTree :: [TreeEvent] -> TransactionTree
 
 rootEvents :: TransactionTree -> [TreeEvent]
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-treeevent-1267
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-stable-treeevent-exercised-3007
+data Exercised
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-stable-treeevent-exercised-91860
+Exercised :: AnyContractId -> Text -> AnyChoice -> [TreeEvent] -> Exercised
+
+contractId :: Exercised -> AnyContractId
+
+choice :: Exercised -> Text
+
+argument :: Exercised -> AnyChoice
+
+childEvents :: Exercised -> [TreeEvent]
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-stable-treeevent-treeevent-40673
 data TreeEvent
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-createdevent-60119
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-stable-treeevent-createdevent-12647
 CreatedEvent :: Created -> TreeEvent
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-exercisedevent-2627
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-stable-treeevent-exercisedevent-95955
 ExercisedEvent :: Exercised -> TreeEvent
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-treeindex-21327
-data TreeIndex t
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-stable-createdindexpayload-createdindexpayload-2057
+data CreatedIndexPayload t
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-createdindex-88223
-CreatedIndex :: CreatedIndexPayload t -> TreeIndex
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-stable-createdindexpayload-createdindexpayload-16810
+CreatedIndexPayload :: TemplateTypeRep -> Int -> CreatedIndexPayload
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-exercisedindex-22399
-ExercisedIndex :: ExercisedIndexPayload t -> TreeIndex
+templateId :: CreatedIndexPayload -> TemplateTypeRep
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-util-anycontractid-11399
+offset :: CreatedIndexPayload -> Int
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-stable-created-created-78249
+data Created
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-transactiontree-stable-created-created-59458
+Created :: AnyContractId -> AnyTemplate -> Created
+
+contractId :: Created -> AnyContractId
+
+argument :: Created -> AnyTemplate
+
+-- | Backwards compatibility alias
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-compatibility-cryptoerrortype-2249
+type CryptoErrorType = AnyCryptoErrorType
+
+-- | Backwards compatibility alias
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-compatibility-deverrortype-27984
+type DevErrorType = AnyDevErrorType
+
+-- | Backwards compatibility alias
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-compatibility-externalcallerrortype-11049
+type ExternalCallErrorType = AnyExternalCallErrorType
+
+-- | Backwards compatibility alias
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-compatibility-submiterror-33824
+type SubmitError = AnySubmitError
+
+-- | Backwards compatibility alias
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-compatibility-upgradeerrortype-58287
+type UpgradeErrorType = AnyUpgradeErrorType
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-authenticationfailedupgradeerror-46768
+data AuthenticationFailedUpgradeError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-authenticationfailedupgradeerror-86673
+AuthenticationFailedUpgradeError :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> AnyTemplate -> AuthenticationFailedUpgradeError
+
+coid :: AuthenticationFailedUpgradeError -> AnyContractId
+
+srcTemplateId :: AuthenticationFailedUpgradeError -> TemplateTypeRep
+
+dstTemplateId :: AuthenticationFailedUpgradeError -> TemplateTypeRep
+
+createArg :: AuthenticationFailedUpgradeError -> AnyTemplate
+
+-- | Generic authorization failure, included missing party authority, invalid signatories, etc.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-authorizationerrorsubmiterror-17511
+data AuthorizationErrorSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-authorizationerrorsubmiterror-80828
+AuthorizationErrorSubmitError :: Text -> AuthorizationErrorSubmitError
+
+authorizationErrorMessage :: AuthorizationErrorSubmitError -> Text
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-choiceguardfaileddeverror-32850
+data ChoiceGuardFailedDevError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-choiceguardfaileddeverror-29681
+ChoiceGuardFailedDevError :: ChoiceGuardFailedDevError
+
+-- | Attempted to use a contract as an interface that it does not implement
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-contractdoesnotimplementinterfacesubmiterror-10383
+data ContractDoesNotImplementInterfaceSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contractdoesnotimplementinterfacesubmiterror-51882
+ContractDoesNotImplementInterfaceSubmitError :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> ContractDoesNotImplementInterfaceSubmitError
+
+contractId :: ContractDoesNotImplementInterfaceSubmitError -> AnyContractId
+
+templateId :: ContractDoesNotImplementInterfaceSubmitError -> TemplateTypeRep
+
+interfaceId :: ContractDoesNotImplementInterfaceSubmitError -> TemplateTypeRep
+
+-- | Attempted to use a contract as a required interface that it does not implement
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-contractdoesnotimplementrequiringinterfacesubmiterror-56064
+data ContractDoesNotImplementRequiringInterfaceSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contractdoesnotimplementrequiringinterfacesubmiterror-21819
+ContractDoesNotImplementRequiringInterfaceSubmitError :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> TemplateTypeRep -> ContractDoesNotImplementRequiringInterfaceSubmitError
+
+contractId :: ContractDoesNotImplementRequiringInterfaceSubmitError -> AnyContractId
+
+templateId :: ContractDoesNotImplementRequiringInterfaceSubmitError -> TemplateTypeRep
+
+requiredInterfaceId :: ContractDoesNotImplementRequiringInterfaceSubmitError -> TemplateTypeRep
+
+requiringInterfaceId :: ContractDoesNotImplementRequiringInterfaceSubmitError -> TemplateTypeRep
+
+-- | Failed to hash a contract
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-contracthashingerrorsubmiterror-19860
+data ContractHashingErrorSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contracthashingerrorsubmiterror-13695
+ContractHashingErrorSubmitError :: AnyContractId -> TemplateTypeRep -> AnyTemplate -> Text -> ContractHashingErrorSubmitError
+
+contractId :: ContractHashingErrorSubmitError -> AnyContractId
+
+dstTemplateId :: ContractHashingErrorSubmitError -> TemplateTypeRep
+
+createArg :: ContractHashingErrorSubmitError -> AnyTemplate
+
+errorMessage :: ContractHashingErrorSubmitError -> Text
+
+-- | Attempted to compare incomparable contract IDs. You're doing something very wrong.
+--   Two contract IDs with the same prefix are incomparable if one of them is local and the other non-local
+--   or if one is relative and the other relative or absolute with a different suffix.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-contractidcomparabilitysubmiterror-64474
+data ContractIdComparabilitySubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contractidcomparabilitysubmiterror-74619
+ContractIdComparabilitySubmitError :: Text -> ContractIdComparabilitySubmitError
+
+-- | We do not know the template ID at time of comparison.
+globalExistingContractId :: ContractIdComparabilitySubmitError -> Text
+
+-- | Illegal Contract ID found in Contract Key
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-contractidincontractkeysubmiterror-27672
+data ContractIdInContractKeySubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contractidincontractkeysubmiterror-13969
+ContractIdInContractKeySubmitError :: ContractIdInContractKeySubmitError
+
+-- | Contract with given contract key could not be found
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-contractkeynotfoundsubmiterror-26927
+data ContractKeyNotFoundSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contractkeynotfoundsubmiterror-95790
+ContractKeyNotFoundSubmitError :: AnyContractKey -> ContractKeyNotFoundSubmitError
+
+contractKey :: ContractKeyNotFoundSubmitError -> AnyContractKey
+
+-- | Contract with given contract ID could not be found, and has never existed on this participant
+--   When run on Canton, there may be more than one contract ID, and additionalDebuggingInfo is always None
+--   On the other hand, when run on IDELedger, there is only ever one contract ID, and additionalDebuggingInfo is always Some
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-contractnotfoundsubmiterror-39189
+data ContractNotFoundSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-contractnotfoundsubmiterror-9714
+ContractNotFoundSubmitError :: NonEmpty Text -> Optional ContractNotFoundAdditionalInfo -> ContractNotFoundSubmitError
+
+-- | Provided as text, as we do not know the template ID of a contract if the lookup fails
+unknownContractIds :: ContractNotFoundSubmitError -> NonEmpty Text
+
+-- | should always be None in Canton's case, see https://github.com/digital-asset/daml/issues/17154
+additionalDebuggingInfo :: ContractNotFoundSubmitError -> Optional ContractNotFoundAdditionalInfo
+
+-- | Attempted to create a contract with empty contract key maintainers
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-createemptycontractkeymaintainerssubmiterror-51894
+data CreateEmptyContractKeyMaintainersSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-createemptycontractkeymaintainerssubmiterror-12891
+CreateEmptyContractKeyMaintainersSubmitError :: AnyTemplate -> CreateEmptyContractKeyMaintainersSubmitError
+
+invalidTemplate :: CreateEmptyContractKeyMaintainersSubmitError -> AnyTemplate
+
+-- | Crypto exceptions
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-cryptoerrorsubmiterror-70296
+data CryptoErrorSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-cryptoerrorsubmiterror-52709
+CryptoErrorSubmitError :: AnyCryptoErrorType -> Text -> CryptoErrorSubmitError
+
+cryptoErrorType :: CryptoErrorSubmitError -> AnyCryptoErrorType
+
+cryptoErrorMessage :: CryptoErrorSubmitError -> Text
+
+-- | Development feature exceptions
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-deverrorsubmiterror-79959
+data DevErrorSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-deverrorsubmiterror-76132
+DevErrorSubmitError :: AnyDevErrorType -> Text -> DevErrorSubmitError
+
+devErrorType :: DevErrorSubmitError -> AnyDevErrorType
+
+devErrorMessage :: DevErrorSubmitError -> Text
+
+-- | Given disclosed contract key does not match the contract key of the contract on ledger.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-disclosedcontractkeyhashingerrorsubmiterror-24935
+data DisclosedContractKeyHashingErrorSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-disclosedcontractkeyhashingerrorsubmiterror-72748
+DisclosedContractKeyHashingErrorSubmitError :: AnyContractId -> AnyContractKey -> Text -> DisclosedContractKeyHashingErrorSubmitError
+
+contractId :: DisclosedContractKeyHashingErrorSubmitError -> AnyContractId
+
+expectedKey :: DisclosedContractKeyHashingErrorSubmitError -> AnyContractKey
+
+givenKeyHash :: DisclosedContractKeyHashingErrorSubmitError -> Text
+
+-- | Attempted to create a contract with a contract key that already exists
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-duplicatecontractkeysubmiterror-30134
+data DuplicateContractKeySubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-duplicatecontractkeysubmiterror-67517
+DuplicateContractKeySubmitError :: Optional AnyContractKey -> DuplicateContractKeySubmitError
+
+-- | Canton will often not provide this key, IDELedger will
+duplicateContractKey :: DuplicateContractKeySubmitError -> Optional AnyContractKey
+
+-- | Rollback exceptions
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-effectfulrollbackerrorsubmiterror-25900
+data EffectfulRollbackErrorSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-effectfulrollbackerrorsubmiterror-66691
+EffectfulRollbackErrorSubmitError :: Text -> EffectfulRollbackErrorSubmitError
+
+effectfulRollbackErrorMsg :: EffectfulRollbackErrorSubmitError -> Text
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-executionfailedexternalcallerror-27747
+data ExecutionFailedExternalCallError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-executionfailedexternalcallerror-37214
+ExecutionFailedExternalCallError :: ExecutionFailedExternalCallError
+
+-- | External-call interpretation exception
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-externalcallerrorsubmiterror-57640
+data ExternalCallErrorSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-externalcallerrorsubmiterror-46121
+ExternalCallErrorSubmitError :: AnyExternalCallErrorType -> Text -> Text -> Text -> ExternalCallErrorSubmitError
+
+externalCallErrorType :: ExternalCallErrorSubmitError -> AnyExternalCallErrorType
+
+extensionId :: ExternalCallErrorSubmitError -> Text
+
+functionId :: ExternalCallErrorSubmitError -> Text
+
+externalCallErrorMessage :: ExternalCallErrorSubmitError -> Text
+
+-- | Exception resulting from call to `failWithStatus`
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-failurestatuserrorsubmiterror-57372
+data FailureStatusErrorSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-failurestatuserrorsubmiterror-86427
+FailureStatusErrorSubmitError :: FailureStatus -> FailureStatusErrorSubmitError
+
+failureStatus :: FailureStatusErrorSubmitError -> FailureStatus
+
+-- | Attempted to fetch a contract with empty contract key maintainers
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-fetchemptycontractkeymaintainerssubmiterror-95321
+data FetchEmptyContractKeyMaintainersSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-fetchemptycontractkeymaintainerssubmiterror-26230
+FetchEmptyContractKeyMaintainersSubmitError :: AnyContractKey -> FetchEmptyContractKeyMaintainersSubmitError
+
+failedTemplateKey :: FetchEmptyContractKeyMaintainersSubmitError -> AnyContractKey
+
+-- | Contract key lookup yielded different results
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-inconsistentcontractkeysubmiterror-13545
+data InconsistentContractKeySubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-inconsistentcontractkeysubmiterror-86872
+InconsistentContractKeySubmitError :: AnyContractKey -> InconsistentContractKeySubmitError
+
+contractKey :: InconsistentContractKeySubmitError -> AnyContractKey
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-invalidoutputexternalcallerror-81292
+data InvalidOutputExternalCallError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-invalidoutputexternalcallerror-8201
+InvalidOutputExternalCallError :: InvalidOutputExternalCallError
+
+-- | The transaction refers to locked contracts which are in the process of being created, transferred, or
+--   archived by another transaction. If the other transaction fails, this transaction could be successfully retried.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-localverdictlockedcontractssubmiterror-33196
+data LocalVerdictLockedContractsSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-localverdictlockedcontractssubmiterror-22537
+LocalVerdictLockedContractsSubmitError :: [AnyContractId] -> LocalVerdictLockedContractsSubmitError
+
+-- | Locked contract ids
+localVerdictLockedContracts :: LocalVerdictLockedContractsSubmitError -> [AnyContractId]
+
+-- | The transaction refers to locked keys which are in the process of being modified by another transaction.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-localverdictlockedkeyssubmiterror-25684
+data LocalVerdictLockedKeysSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-localverdictlockedkeyssubmiterror-41259
+LocalVerdictLockedKeysSubmitError :: [AnyContractKey] -> LocalVerdictLockedKeysSubmitError
+
+-- | Locked contract keys
+localVerdictLockedKeys :: LocalVerdictLockedKeysSubmitError -> [AnyContractKey]
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-malformedbyteencodingcryptoerror-55788
+data MalformedByteEncodingCryptoError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-malformedbyteencodingcryptoerror-58001
+MalformedByteEncodingCryptoError :: Text -> MalformedByteEncodingCryptoError
+
+value :: MalformedByteEncodingCryptoError -> Text
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-malformedkeycryptoerror-42901
+data MalformedKeyCryptoError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-malformedkeycryptoerror-90034
+MalformedKeyCryptoError :: Text -> MalformedKeyCryptoError
+
+keyValue :: MalformedKeyCryptoError -> Text
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-malformedsignaturecryptoerror-90694
+data MalformedSignatureCryptoError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-malformedsignaturecryptoerror-17025
+MalformedSignatureCryptoError :: Text -> MalformedSignatureCryptoError
+
+signatureValue :: MalformedSignatureCryptoError -> Text
+
+-- | Attempted to compare values that are not comparable
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-noncomparablevaluessubmiterror-29684
+data NonComparableValuesSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-noncomparablevaluessubmiterror-29469
+NonComparableValuesSubmitError :: NonComparableValuesSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-preparationfailedexternalcallerror-68134
+data PreparationFailedExternalCallError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-preparationfailedexternalcallerror-78943
+PreparationFailedExternalCallError :: PreparationFailedExternalCallError
+
+-- | Failure due to false result from `ensure`, strictly pre-exception.
+--   According to docs, not throwable with LF >= 1.14.
+--   On LF >= 1.14, a failed `ensure` will result in a `PreconditionFailed`
+--   exception wrapped in `UnhandledException`.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-templatepreconditionviolatedsubmiterror-80122
+data TemplatePreconditionViolatedSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-templatepreconditionviolatedsubmiterror-43049
+TemplatePreconditionViolatedSubmitError :: TemplatePreconditionViolatedSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-translationfailedupgradeerror-57244
+data TranslationFailedUpgradeError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-translationfailedupgradeerror-94095
+TranslationFailedUpgradeError :: Optional AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> AnyTemplate -> TranslationFailedUpgradeError
+
+mCoid :: TranslationFailedUpgradeError -> Optional AnyContractId
+
+srcTemplateId :: TranslationFailedUpgradeError -> TemplateTypeRep
+
+dstTemplateId :: TranslationFailedUpgradeError -> TemplateTypeRep
+
+createArg :: TranslationFailedUpgradeError -> AnyTemplate
+
+-- | One of the above error types where the full exception body did not fit into the response, and was incomplete.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-truncatederrorsubmiterror-96038
+data TruncatedErrorSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-truncatederrorsubmiterror-53465
+TruncatedErrorSubmitError :: Text -> Text -> TruncatedErrorSubmitError
+
+-- | One of the constructor names of SubmitFailure except DevError, UnknownError, TruncatedError
+truncatedErrorType :: TruncatedErrorSubmitError -> Text
+
+truncatedErrorMessage :: TruncatedErrorSubmitError -> Text
+
+-- | Unhandled user thrown exception
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-unhandledexceptionsubmiterror-90486
+data UnhandledExceptionSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-unhandledexceptionsubmiterror-66645
+UnhandledExceptionSubmitError :: Optional AnyException -> UnhandledExceptionSubmitError
+
+-- | Errors more complex than simple records cannot currently be encoded over the grpc status. Such errors will be missing here.
+exc :: UnhandledExceptionSubmitError -> Optional AnyException
+
+-- | Generic catch-all for missing errors.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-unknownerrorsubmiterror-20400
+data UnknownErrorSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-unknownerrorsubmiterror-36583
+UnknownErrorSubmitError :: Text -> UnknownErrorSubmitError
+
+unknownErrorMessage :: UnknownErrorSubmitError -> Text
+
+-- | This should never happen - Update Scripts when you see this!
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-unknownnewfeaturedeverror-77479
+data UnknownNewFeatureDevError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-unknownnewfeaturedeverror-15260
+UnknownNewFeatureDevError :: UnknownNewFeatureDevError
+
+-- | No vetted package with given package name could be found
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-unresolvedpackagenamesubmiterror-60769
+data UnresolvedPackageNameSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-unresolvedpackagenamesubmiterror-52484
+UnresolvedPackageNameSubmitError :: Text -> UnresolvedPackageNameSubmitError
+
+packageName :: UnresolvedPackageNameSubmitError -> Text
+
+-- | Unsupported contract id type/version
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-unsupportedcontractidsubmiterror-39223
+data UnsupportedContractIdSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-unsupportedcontractidsubmiterror-31038
+UnsupportedContractIdSubmitError :: Text -> UnsupportedContractIdSubmitError
+
+unknownContractId :: UnsupportedContractIdSubmitError -> Text
+
+-- | Upgrade exception
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-upgradeerrorsubmiterror-51646
+data UpgradeErrorSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-upgradeerrorsubmiterror-93753
+UpgradeErrorSubmitError :: AnyUpgradeErrorType -> Text -> UpgradeErrorSubmitError
+
+errorType :: UpgradeErrorSubmitError -> AnyUpgradeErrorType
+
+errorMessage :: UpgradeErrorSubmitError -> Text
+
+-- | Transaction failure due to abort/assert calls pre-exceptions
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-usererrorsubmiterror-77592
+data UserErrorSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-usererrorsubmiterror-61125
+UserErrorSubmitError :: Text -> UserErrorSubmitError
+
+userErrorMessage :: UserErrorSubmitError -> Text
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-validationfailedupgradeerror-84297
+data ValidationFailedUpgradeError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-validationfailedupgradeerror-65884
+ValidationFailedUpgradeError :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> Text -> Text -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> ValidationFailedUpgradeError
+
+coid :: ValidationFailedUpgradeError -> AnyContractId
+
+srcTemplateId :: ValidationFailedUpgradeError -> TemplateTypeRep
+
+dstTemplateId :: ValidationFailedUpgradeError -> TemplateTypeRep
+
+srcPackageName :: ValidationFailedUpgradeError -> Text
+
+dstPackageName :: ValidationFailedUpgradeError -> Text
+
+originalSignatories :: ValidationFailedUpgradeError -> [Party]
+
+originalNonSignatoryStakeholders :: ValidationFailedUpgradeError -> [Party]
+
+originalKeyOpt :: ValidationFailedUpgradeError -> Optional (AnyContractKey, [Party])
+
+recomputedSignatories :: ValidationFailedUpgradeError -> [Party]
+
+recomputedNonSignatoryStakeholders :: ValidationFailedUpgradeError -> [Party]
+
+recomputedKeyOpt :: ValidationFailedUpgradeError -> Optional (AnyContractKey, [Party])
+
+-- | A value has been nested beyond a given depth limit
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-valuenestingsubmiterror-39889
+data ValueNestingSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-valuenestingsubmiterror-72406
+ValueNestingSubmitError :: Int -> ValueNestingSubmitError
+
+-- | Nesting limit that was exceeded
+limit :: ValueNestingSubmitError -> Int
+
+-- | Attempted to exercise/fetch a contract with the wrong template type
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-wronglytypedcontractsubmiterror-35056
+data WronglyTypedContractSubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-wronglytypedcontractsubmiterror-26471
+WronglyTypedContractSubmitError :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> WronglyTypedContractSubmitError
+
+-- | Any contract Id of the actual contract
+contractId :: WronglyTypedContractSubmitError -> AnyContractId
+
+expectedTemplateId :: WronglyTypedContractSubmitError -> TemplateTypeRep
+
+actualTemplateId :: WronglyTypedContractSubmitError -> TemplateTypeRep
+
+-- | See IsUpgradeErrorType for details on how to use AnyUpgradeErrorType
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-stable-anyupgradeerrortype-anyupgradeerrortype-9932
+data AnyUpgradeErrorType
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-stable-anyupgradeerrortype-anyupgradeerrortype-35957
+AnyUpgradeErrorType :: TaggedRecord -> AnyUpgradeErrorType
+
+-- | See IsSubmitError for details on how to use AnySubmitError
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-stable-anysubmiterror-anysubmiterror-96036
+data AnySubmitError
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-stable-anysubmiterror-anysubmiterror-80009
+AnySubmitError :: TaggedRecord -> AnySubmitError
+
+-- | See IsExternalCallErrorType for details on how to use AnyExternalCallErrorType
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-stable-anyexternalcallerrortype-anyexternalcallerrortype-11122
+data AnyExternalCallErrorType
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-stable-anyexternalcallerrortype-anyexternalcallerrortype-22491
+AnyExternalCallErrorType :: TaggedRecord -> AnyExternalCallErrorType
+
+-- | See IsDevErrorType for details on how to use AnyDevErrorType
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-stable-anydeverrortype-anydeverrortype-93864
+data AnyDevErrorType
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-stable-anydeverrortype-anydeverrortype-35121
+AnyDevErrorType :: TaggedRecord -> AnyDevErrorType
+
+-- | See IsCryptoErrorType for details on how to use AnyCryptoErrorType
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-error-stable-anycryptoerrortype-anycryptoerrortype-64150
+data AnyCryptoErrorType
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-stable-anycryptoerrortype-anycryptoerrortype-12155
+AnyCryptoErrorType :: TaggedRecord -> AnyCryptoErrorType
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-util-stable-anycontractid-anycontractid-68288
 data AnyContractId
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-util-anycontractid-12200
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-util-stable-anycontractid-anycontractid-71797
 AnyContractId :: TemplateTypeRep -> ContractId () -> AnyContractId
 
 templateId :: AnyContractId -> TemplateTypeRep
@@ -548,19 +706,29 @@ templateId :: AnyContractId -> TemplateTypeRep
 contractId :: AnyContractId -> ContractId ()
 
 -- | Participant name for multi-participant script runs to address a specific participant
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-partymanagement-participantname-88190
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-partymanagement-stable-participantname-participantname-29562
 data ParticipantName
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-partymanagement-participantname-13079
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-partymanagement-stable-participantname-participantname-84125
 ParticipantName :: Text -> ParticipantName
 
 participantName :: ParticipantName -> Text
 
+-- | A hint to the backing participant what party id to allocate.
+--   Must be a valid PartyIdString (as described in @value.proto@).
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-partymanagement-stable-partyidhint-partyidhint-41530
+data PartyIdHint
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-partymanagement-stable-partyidhint-partyidhint-54741
+PartyIdHint :: Text -> PartyIdHint
+
+partyIdHint :: PartyIdHint -> Text
+
 -- | The party details returned by the party management service.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-partymanagement-partydetails-4369
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-partymanagement-stable-partydetails-partydetails-97882
 data PartyDetails
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-partymanagement-partydetails-1790
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-partymanagement-stable-partydetails-partydetails-2209
 PartyDetails :: Party -> Bool -> PartyDetails
 
 -- | Party id
@@ -569,56 +737,26 @@ party :: PartyDetails -> Party
 -- | True if party is hosted by the backing participant.
 isLocal :: PartyDetails -> Bool
 
--- | A hint to the backing participant what party id to allocate.
---   Must be a valid PartyIdString (as described in @value.proto@).
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-partymanagement-partyidhint-14540
-data PartyIdHint
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-partymanagement-partyidhint-11617
-PartyIdHint :: Text -> PartyIdHint
-
-partyIdHint :: PartyIdHint -> Text
-
 -- | A DER formatted private key to be used for ECDSA message signing
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-crypto-text-privatekeyhex-82732
-type PrivateKeyHex = BytesHex
+type PrivateKeyHex = Text
 
 -- | Secp256k1 key pair generated by `secp256k1generatekeypair` for testing.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-crypto-text-secp256k1keypair-9395
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-crypto-text-stable-secp256k1keypair-secp256k1keypair-89485
 data Secp256k1KeyPair
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-crypto-text-secp256k1keypair-60460
-Secp256k1KeyPair :: PrivateKeyHex -> PublicKeyHex -> Secp256k1KeyPair
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-crypto-text-stable-secp256k1keypair-secp256k1keypair-76534
+Secp256k1KeyPair :: Text -> Text -> Secp256k1KeyPair
 
-privateKey :: Secp256k1KeyPair -> PrivateKeyHex
+privateKey :: Secp256k1KeyPair -> Text
 
-publicKey :: Secp256k1KeyPair -> PublicKeyHex
-
--- | Existential contract key type that can wrap an arbitrary contract key.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-commands-anycontractkey-29496
-data AnyContractKey
-
--- | This is used to build up the commands sent as part of `submit`.
---   If you enable the `ApplicativeDo` extension by adding
---   `{-# LANGUAGE ApplicativeDo #-}` at the top of your file, you can
---   use `do`-notation but the individual commands must not depend
---   on each other and the last statement in a `do` block
---   must be of the form ``return expr`` or ``pure expr``.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-commands-commands-79301
-data Commands a
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-commands-commands-42332
-Commands :: [CommandWithMeta] -> ([CommandResult] -> a) -> Commands
-
-commands :: Commands -> [CommandWithMeta]
-
-continue :: Commands -> [CommandResult] -> a
+publicKey :: Secp256k1KeyPair -> Text
 
 -- | Contract disclosures which can be acquired via ``queryDisclosure``
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-commands-disclosure-40298
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-commands-stable-disclosure-disclosure-17640
 data Disclosure
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-commands-disclosure-14083
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-commands-stable-disclosure-disclosure-6181
 Disclosure :: TemplateTypeRep -> ContractId () -> Text -> Disclosure
 
 templateId :: Disclosure -> TemplateTypeRep
@@ -627,12 +765,32 @@ contractId :: Disclosure -> ContractId ()
 
 blob :: Disclosure -> Text
 
+-- | This is used to build up the commands sent as part of `submit`.
+--   If you enable the `ApplicativeDo` extension by adding
+--   `{-# LANGUAGE ApplicativeDo #-}` at the top of your file, you can
+--   use `do`-notation but the individual commands must not depend
+--   on each other and the last statement in a `do` block
+--   must be of the form ``return expr`` or ``pure expr``.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-commands-stable-commands-commands-95086
+data Commands a
+
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-commands-stable-commands-commands-45295
+Commands :: [CommandWithMeta] -> ([CommandResult] -> a) -> Commands
+
+commands :: Commands -> [CommandWithMeta]
+
+continue :: Commands -> [CommandResult] -> a
+
+-- | Existential contract key type that can wrap an arbitrary contract key.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-commands-stable-anycontractkey-anycontractkey-21404
+data AnyContractKey
+
 -- | This is the type of A Daml script. `Script` is an instance of `Action`,
 --   so you can use `do` notation.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-lowlevel-script-4781
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-lowlevel-stable-script-script-12809
 data Script a
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-lowlevel-script-73096
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-lowlevel-stable-script-script-14144
 Script :: (() -> Free ScriptF (a, ())) -> () -> Script
 
 -- | HIDE
@@ -660,6 +818,82 @@ class (Applicative script) => ScriptSubmit script
 
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-liftsubmission-99954
 liftSubmission :: (ScriptSubmit script, HasCallStack) => ConcurrentSubmits a -> script a
+
+-- | Allows casting AnySubmitError into and out of specific errors.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#class-daml-script-internal-questions-submit-error-issubmiterror-52591
+class IsSubmitError e
+
+-- | Transform a submit error into an AnySubmitError
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-toanysubmiterror-93306
+toAnySubmitError :: (IsSubmitError e) => e -> AnySubmitError
+
+-- | Attempt to transform an AnySubmitError into a specific submit error, gives `None` if the underlying type of the AnySubmitError
+--   does not match.
+--   This can be used with type application, i.e. `fromAnySubmitError @UnsupportedContractIdSubmitError`
+--   or forced with view patterns:
+--   ```
+--     case anySubmitError of
+--       (fromAnySubmitError -> UnsupportedContractIdSubmitError {..}) -> ...
+--   ```
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-fromanysubmiterror-37567
+fromAnySubmitError :: (IsSubmitError e) => AnySubmitError -> Optional e
+
+-- | SCU related submission errors
+--   Allows casting AnyUpgradeErrorType into and out of specific upgrade error types.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#class-daml-script-internal-questions-submit-error-isupgradeerrortype-39350
+class IsUpgradeErrorType e
+
+-- | Transform an upgrade error type into an AnyUpgradeErrorType
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-toanyupgradeerrortype-77005
+toAnyUpgradeErrorType :: (IsUpgradeErrorType e) => e -> AnyUpgradeErrorType
+
+-- | Attempt to transform an AnyUpgradeErrorType into a specific upgrade error type, gives `None` if the underlying type of the AnyUpgradeErrorType
+--   does not match.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-fromanyupgradeerrortype-11058
+fromAnyUpgradeErrorType :: (IsUpgradeErrorType e) => AnyUpgradeErrorType -> Optional e
+
+-- | Daml Crypto (Secp256k1) related submission errors
+--   Allows casting AnyCryptoErrorType into and out of specific crypto error types.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#class-daml-script-internal-questions-submit-error-iscryptoerrortype-84910
+class IsCryptoErrorType e
+
+-- | Transform a crypto error type into an AnyCryptoErrorType
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-toanycryptoerrortype-48571
+toAnyCryptoErrorType :: (IsCryptoErrorType e) => e -> AnyCryptoErrorType
+
+-- | Attempt to transform an AnyCryptoErrorType into a specific crypto error type, gives `None` if the underlying type of the AnyCryptoErrorType
+--   does not match.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-fromanycryptoerrortype-85634
+fromAnyCryptoErrorType :: (IsCryptoErrorType e) => AnyCryptoErrorType -> Optional e
+
+-- | External-call related submission errors, one per stage: preparing the
+--   call, executing it, and validating the service output.
+--   Allows casting AnyExternalCallErrorType into and out of specific external-call error types.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#class-daml-script-internal-questions-submit-error-isexternalcallerrortype-49854
+class IsExternalCallErrorType e
+
+-- | Transform an external-call error type into an AnyExternalCallErrorType
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-toanyexternalcallerrortype-29263
+toAnyExternalCallErrorType :: (IsExternalCallErrorType e) => e -> AnyExternalCallErrorType
+
+-- | Attempt to transform an AnyExternalCallErrorType into a specific external-call error type, gives `None` if the underlying type of the AnyExternalCallErrorType
+--   does not match.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-fromanyexternalcallerrortype-35514
+fromAnyExternalCallErrorType :: (IsExternalCallErrorType e) => AnyExternalCallErrorType -> Optional e
+
+-- | Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
+--   Allows casting AnyDevErrorType into and out of specific dev error types.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#class-daml-script-internal-questions-submit-error-isdeverrortype-77141
+class IsDevErrorType e
+
+-- | Transform a dev error type into an AnyDevErrorType
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-toanydeverrortype-71882
+toAnyDevErrorType :: (IsDevErrorType e) => e -> AnyDevErrorType
+
+-- | Attempt to transform an AnyDevErrorType into a specific dev error type, gives `None` if the underlying type of the AnyDevErrorType
+--   does not match.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-fromanydeverrortype-55897
+fromAnyDevErrorType :: (IsDevErrorType e) => AnyDevErrorType -> Optional e
 
 -- | Extract the name-text from a user identitifer.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-usermanagement-useridtotext-75939
@@ -1181,39 +1415,12 @@ script :: Script a -> Script a
 @url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#module-daml-script-internal-18793
 module Daml.Script.Internal
 
--- | Name of the Daml Script Command (or Question) that failed
-@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#type-daml-script-internal-questions-testing-commandname-12991
-data CommandName
-
-@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#constr-daml-script-internal-questions-testing-commandname-12826
-CommandName :: Text -> CommandName
-
-getCommandName :: CommandName -> Text
-
--- | Scala class name of the exception thrown
-@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#type-daml-script-internal-questions-testing-errorclassname-49861
-data ErrorClassName
-
-@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#constr-daml-script-internal-questions-testing-errorclassname-42862
-ErrorClassName :: Text -> ErrorClassName
-
-getErrorClassName :: ErrorClassName -> Text
-
--- | Result of the `getMessage` method on the Scala exception
-@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#type-daml-script-internal-questions-testing-errormessage-78991
-data ErrorMessage
-
-@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#constr-daml-script-internal-questions-testing-errormessage-24784
-ErrorMessage :: Text -> ErrorMessage
-
-getErrorMessage :: ErrorMessage -> Text
-
 -- | Daml type representing a Scala exception thrown during script interpretation.
 --   Used for internal testing of the Daml Script library.
-@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#type-daml-script-internal-questions-testing-failedcmd-88074
+@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#type-daml-script-internal-questions-testing-stable-failedcmd-failedcmd-6517
 data FailedCmd
 
-@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#constr-daml-script-internal-questions-testing-failedcmd-77803
+@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#constr-daml-script-internal-questions-testing-stable-failedcmd-failedcmd-82606
 FailedCmd :: CommandName -> ErrorClassName -> ErrorMessage -> FailedCmd
 
 commandName :: FailedCmd -> CommandName
@@ -1222,15 +1429,42 @@ errorClassName :: FailedCmd -> ErrorClassName
 
 errorMessage :: FailedCmd -> ErrorMessage
 
+-- | Result of the `getMessage` method on the Scala exception
+@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#type-daml-script-internal-questions-testing-stable-errormessage-errormessage-8491
+data ErrorMessage
+
+@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#constr-daml-script-internal-questions-testing-stable-errormessage-errormessage-18056
+ErrorMessage :: Text -> ErrorMessage
+
+getErrorMessage :: ErrorMessage -> Text
+
+-- | Scala class name of the exception thrown
+@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#type-daml-script-internal-questions-testing-stable-errorclassname-errorclassname-12295
+data ErrorClassName
+
+@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#constr-daml-script-internal-questions-testing-stable-errorclassname-errorclassname-40980
+ErrorClassName :: Text -> ErrorClassName
+
+getErrorClassName :: ErrorClassName -> Text
+
+-- | Name of the Daml Script Command (or Question) that failed
+@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#type-daml-script-internal-questions-testing-stable-commandname-commandname-51757
+data CommandName
+
+@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#constr-daml-script-internal-questions-testing-stable-commandname-commandname-53502
+CommandName :: Text -> CommandName
+
+getCommandName :: CommandName -> Text
+
 -- | Additional debugging information provided only by IDE Ledger
 @url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#type-daml-script-internal-questions-submit-error-contractnotfoundadditionalinfo-6199
 data ContractNotFoundAdditionalInfo
 
 -- | Used for vetting and unvetting packages
-@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#type-daml-script-internal-questions-packages-packagename-68696
+@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#type-daml-script-internal-questions-packages-stable-packagename-packagename-80649
 data PackageName
 
-@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#constr-daml-script-internal-questions-packages-packagename-3807
+@url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#constr-daml-script-internal-questions-packages-stable-packagename-packagename-65200
 PackageName :: Text -> Text -> PackageName
 
 name :: PackageName -> Text
