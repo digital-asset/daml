@@ -30,4 +30,4 @@ generated=$(rlocation "$TEST_WORKSPACE/$1")
 real=$(rlocation "$TEST_WORKSPACE/$2")
 diff="$3"
 
-$diff -u "$generated" "$real" || (>&2 echo "Stable packages have been updated without updating the stable-packages.bzl file. Please run \"bazel run //daml-script/daml/daml-script-stable:update-script-stable-packages\" to update it." && exit 1)
+$diff -u --strip-trailing-cr "$generated" "$real" || (>&2 echo "Stable packages have been updated without updating the stable-packages.bzl file. Please run \"bazel run //daml-script/daml/daml-script-stable:update-script-stable-packages\" to update it." && exit 1)
