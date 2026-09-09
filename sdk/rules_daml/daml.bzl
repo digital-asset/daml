@@ -146,7 +146,18 @@ def _daml_build_impl(ctx):
             # Having to produce all the daml.yaml files via a genrule is annoying
             # so we allow hardcoded version numbers and patch them here.
             {sed} -iE 's/^sdk-version:.*$/sdk-version: {sdk_version}/' $tmpdir/daml.yaml
-            {sed} -iE '/^name: /!s/daml-script$/daml-script.dar/;s/daml-trigger$/daml-trigger.dar/' $tmpdir/daml.yaml
+            # Daml-script replacement is more complex as it must be a data-dependency when referenced 
+            # directly via it's dar, but in daml.yaml it is usually a regular dependency by name
+            # Therefore replacement logic must convert it to a data-dependency
+            # We must also account for existing data-dependencies in the daml.yaml
+            if grep -Rq '\\- daml-script$' $tmpdir/daml.yaml; then
+                {sed} -iE 's/- daml-script$//' $tmpdir/daml.yaml
+                if grep -q '^data-dependencies:' $tmpdir/daml.yaml; then
+                    {sed} -iE 's/^data-dependencies:/data-dependencies:\\n  - daml-script.dar/' $tmpdir/daml.yaml
+                else
+                    {sed} -iE 's/^dependencies:/data-dependencies:\\n  - daml-script.dar\\ndependencies:/' $tmpdir/daml.yaml
+                fi
+            fi
             {cp_srcs}
             {cp_dars}
             {damlc} build --project-root $tmpdir {ghc_opts} -o $PWD/{output_dar} 2>&1 | {output_stdout_command}

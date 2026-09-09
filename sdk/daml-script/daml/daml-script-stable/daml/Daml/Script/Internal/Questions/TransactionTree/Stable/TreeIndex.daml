@@ -1,0 +1,19 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.TransactionTree.Stable.TreeIndex where
+
+import Daml.Script.Internal.Questions.TransactionTree.Stable.CreatedIndexPayload
+
+-- | MOVE Daml.Script
+data TreeIndex t
+  = CreatedIndex (CreatedIndexPayload t)
+  | ExercisedIndex (ExercisedIndexPayload t)
+
+-- | MOVE Daml.Script
+data ExercisedIndexPayload t = ExercisedIndexPayload
+  with
+    templateId : TemplateTypeRep
+    choice : Text
+    offset : Int
+    child : TreeIndex t

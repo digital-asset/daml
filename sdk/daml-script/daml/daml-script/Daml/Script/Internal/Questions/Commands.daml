@@ -1,0 +1,208 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE InstanceSigs #-}
+
+module Daml.Script.Internal.Questions.Commands
+  ( module Daml.Script.Internal.Questions.Commands
+  , module Stable
+  ) where
+
+import Daml.Script.Internal.LowLevel hiding (IsQuestion (..))
+import Daml.Script.Internal.Questions.Commands.Stable.AnyContractKey as Stable
+import Daml.Script.Internal.Questions.Commands.Stable.Command as Stable
+import Daml.Script.Internal.Questions.Commands.Stable.CommandResult as Stable
+import Daml.Script.Internal.Questions.Commands.Stable.Commands as Stable
+import Daml.Script.Internal.Questions.Commands.Stable.CommandWithMeta as Stable
+import Daml.Script.Internal.Questions.Commands.Stable.Disclosure as Stable
+import DA.Bifunctor
+import qualified DA.Map as Map
+import GHC.Types (primitive)
+
+-- Commands is generated directly in LF, so its record instances are not derived
+instance GetField "commands" (Commands a) [CommandWithMeta] where
+  getField (Commands {..}) = commands
+instance SetField "commands" (Commands a) [CommandWithMeta] where
+  setField commands (Commands _ continue) = Commands commands continue
+
+instance GetField "continue" (Commands a) ([CommandResult] -> a) where
+  getField (Commands {..}) = continue
+instance SetField "continue" (Commands a) ([CommandResult] -> a) where
+  setField continue (Commands commands _) = Commands commands continue
+
+instance Eq AnyContractKey where
+  (==) = primitive @"BEEqual"
+instance Ord AnyContractKey where
+  (<=) = primitive @"BELessEq"
+
+-- | MOVE Daml.Script
+-- Wrap a contract key in `AnyContractKey`.
+--
+-- You must pass the template type `t` using an explicit type application.
+-- For example `toAnyContractKey @Proposal k`.
+toAnyContractKey : forall t k. (HasTemplateTypeRep t, TemplateKey t k) => k -> AnyContractKey
+toAnyContractKey k = AnyContractKey (toLedgerValue k) (templateTypeRep @t)
+
+-- | MOVE Daml.Script
+-- Extract the underlying key from `AnyContractKey` if the template and
+-- choice types match, or return `None`.
+--
+-- You must pass the template type `t` using an explicit type application.
+-- For example `fromAnyContractKey @Proposal k`.
+fromAnyContractKey : forall t k. (HasTemplateTypeRep t, TemplateKey t k) => AnyContractKey -> Optional k
+fromAnyContractKey (AnyContractKey ledgerValue rep)
+  | templateTypeRep @t == rep = Some (fromLedgerValue ledgerValue)
+  | otherwise = None
+
+-- | HIDE
+instance Show CommandResult where
+  show CreateResult {} = "CreateResult"
+  show ExerciseResult {} = "ExerciseResult"
+
+deriving instance Functor Commands
+deriving instance Eq Disclosure
+deriving instance Ord Disclosure
+
+-- | HIDE
+-- Expected number of command results for a given command
+expectedCommandResults : Command -> Int
+expectedCommandResults Create {} = 1
+expectedCommandResults Exercise {} = 1
+expectedCommandResults ExerciseByKey {} = 1
+-- Create and exercise gives 2 results, so we account for that here
+expectedCommandResults CreateAndExercise {} = 2
+
+-- Expected number of command results for a list of commands
+expectedCommandsResults : [CommandWithMeta] -> Int
+expectedCommandsResults = foldr ((+) . expectedCommandResults . command) 0
+
+-- | MOVE Daml.Script
+instance Applicative Commands where
+  pure : a -> Commands a
+  pure x = Commands [] (const x)
+
+  liftA2 : (a -> b -> c) -> Commands a -> Commands b -> Commands c
+  liftA2 f a b = Commands
+    { commands = a.commands <> b.commands
+    , continue = \results ->
+        let (aResults, bResults) = splitAt (expectedCommandsResults a.commands) results
+        in f (a.continue aResults) (b.continue bResults)
+    }
+
+makeCommandWithMeta : Command -> Bool -> CommandWithMeta
+makeCommandWithMeta cmd explicitPackageId = CommandWithMeta cmd $ Map.fromList [("explicitPackageId", toLedgerValue explicitPackageId)]
+
+-- | HIDE A version of 'createCmd' without constraints.
+internalCreateCmd : AnyTemplate -> Bool -> Commands (ContractId ())
+internalCreateCmd arg explicitPackageId = Commands [makeCommandWithMeta (Create arg) explicitPackageId] $ \case
+  [CreateResult res] -> res
+  res -> error $ "Expected [CreateResult], got " <> show res
+
+-- | HIDE A version of 'exerciseCmd' without constraints.
+internalExerciseCmd : TemplateTypeRep -> ContractId () -> AnyChoice -> Bool -> Commands LedgerValue
+internalExerciseCmd tplTypeRep cId arg explicitPackageId = Commands [makeCommandWithMeta (Exercise tplTypeRep cId arg) explicitPackageId] $ \case
+  [ExerciseResult res] -> res
+  res -> error $ "Expected [ExerciseResult], got " <> show res
+
+-- | HIDE A version of 'exerciseByKeyCmd' without constraints.
+internalExerciseByKeyCmd : TemplateTypeRep -> AnyContractKey -> AnyChoice -> Bool -> Commands LedgerValue
+internalExerciseByKeyCmd tplTypeRep key arg explicitPackageId = Commands [makeCommandWithMeta (ExerciseByKey tplTypeRep key arg) explicitPackageId] $ \case
+  [ExerciseResult res] -> res
+  res -> error $ "Expected [ExerciseResult], got " <> show res
+
+-- | HIDE A version of 'createAndExerciseCmd' without constraints.
+-- Create and exercise gives a create result and exercise result.
+internalCreateAndExerciseCmd : AnyTemplate -> AnyChoice -> Bool -> Commands (ContractId (), LedgerValue)
+internalCreateAndExerciseCmd tplArg choiceArg explicitPackageId = Commands [makeCommandWithMeta (CreateAndExercise tplArg choiceArg) explicitPackageId] $ \case
+  [CreateResult cId, ExerciseResult res] -> (cId, res)
+  res -> error $ "Expected [CreateResult, ExerciseResult], got " <> show res
+
+-- Typed commands but still internal as explicitPackageId not determined
+-- | HIDE
+internalTypedCreateCmd : (Template t, HasEnsure t) => t -> Bool -> Commands (ContractId t)
+-- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+internalTypedCreateCmd arg explicitPackageId =
+  coerceContractId <$> internalCreateCmd (toAnyTemplate arg) explicitPackageId
+
+-- | HIDE
+internalTypedExerciseCmd : forall t c r. Choice t c r => ContractId t -> c -> Bool -> Commands r
+internalTypedExerciseCmd cId arg explicitPackageId =
+  fromLedgerValue @r <$> internalExerciseCmd (templateTypeRep @t) (coerceContractId cId) (toAnyChoice @t arg) explicitPackageId
+
+-- | HIDE
+internalTypedExerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Bool -> Commands r
+internalTypedExerciseByKeyCmd key arg explicitPackageId =
+  fromLedgerValue @r <$> internalExerciseByKeyCmd (templateTypeRep @t) (toAnyContractKey @t key) (toAnyChoice @t arg) explicitPackageId
+
+-- | HIDE
+internalTypedCreateAndExerciseCmdWithCid : forall t c r. (Template t, Choice t c r, HasEnsure t) => t -> c -> Bool -> Commands (ContractId t, r)
+-- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+internalTypedCreateAndExerciseCmdWithCid tplArg choiceArg explicitPackageId =
+  bimap coerceContractId (fromLedgerValue @r) <$> internalCreateAndExerciseCmd (toAnyTemplate tplArg) (toAnyChoice @t choiceArg) explicitPackageId
+
+-- Main command API, without explicit package ids
+-- | MOVE Daml.Script
+-- Create a contract of the given template.
+createCmd : (Template t, HasEnsure t) => t -> Commands (ContractId t)
+-- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+createCmd arg = internalTypedCreateCmd arg False
+
+-- | MOVE Daml.Script
+-- Exercise a choice on the given contract.
+exerciseCmd : forall t c r. Choice t c r => ContractId t -> c -> Commands r
+exerciseCmd cId arg = internalTypedExerciseCmd cId arg False
+
+-- | MOVE Daml.Script
+-- Exercise a choice on the contract with the given key.
+exerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Commands r
+exerciseByKeyCmd key arg = internalTypedExerciseByKeyCmd @t key arg False
+
+-- | MOVE Daml.Script
+-- Create a contract and exercise a choice on it in the same transaction, returns the created ContractId, and the choice result.
+createAndExerciseWithCidCmd : forall t c r. (Template t, Choice t c r, HasEnsure t) => t -> c -> Commands (ContractId t, r)
+-- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+createAndExerciseWithCidCmd tplArg choiceArg = internalTypedCreateAndExerciseCmdWithCid tplArg choiceArg False
+
+-- | MOVE Daml.Script
+-- Create a contract and exercise a choice on it in the same transaction, returns only the choice result.
+createAndExerciseCmd : forall t c r. (Template t, Choice t c r, HasEnsure t) => t -> c -> Commands r
+-- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+createAndExerciseCmd tplArg choiceArg = snd <$> createAndExerciseWithCidCmd tplArg choiceArg
+
+-- Main command API, WITH explicit package ids
+-- | MOVE Daml.Script
+-- Create a contract of the given template, using the exact package ID of the template given - upgrades are disabled.
+createExactCmd : (Template t, HasEnsure t) => t -> Commands (ContractId t)
+-- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+createExactCmd arg = internalTypedCreateCmd arg True
+
+-- | MOVE Daml.Script
+-- Exercise a choice on the given contract, using the exact package ID of the template given - upgrades are disabled.
+exerciseExactCmd : forall t c r. Choice t c r => ContractId t -> c -> Commands r
+exerciseExactCmd cId arg = internalTypedExerciseCmd cId arg True
+
+-- | MOVE Daml.Script
+-- Exercise a choice on the contract with the given key, using the exact package ID of the template given - upgrades are disabled.
+exerciseByKeyExactCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Commands r
+exerciseByKeyExactCmd key arg = internalTypedExerciseByKeyCmd @t key arg True
+
+-- | MOVE Daml.Script
+-- Create a contract and exercise a choice on it in the same transaction, returns the created ContractId, and the choice result.
+-- Uses the exact package ID of the template given - upgrades are disabled.
+createAndExerciseWithCidExactCmd : forall t c r. (Template t, Choice t c r, HasEnsure t) => t -> c -> Commands (ContractId t, r)
+-- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+createAndExerciseWithCidExactCmd tplArg choiceArg = internalTypedCreateAndExerciseCmdWithCid tplArg choiceArg True
+
+-- | MOVE Daml.Script
+-- Create a contract and exercise a choice on it in the same transaction, returns only the choice result.
+createAndExerciseExactCmd : forall t c r. (Template t, Choice t c r, HasEnsure t) => t -> c -> Commands r
+-- The 'HasEnsure t' constraint prevents this function from being used on interface types.
+createAndExerciseExactCmd tplArg choiceArg = snd <$> createAndExerciseWithCidExactCmd tplArg choiceArg
+
+-- | MOVE Daml.Script
+-- Archive the given contract.
+--
+-- `archiveCmd cid` is equivalent to `exerciseCmd cid Archive`.
+archiveCmd : Choice t Archive () => ContractId t -> Commands ()
+archiveCmd cId = exerciseCmd cId Archive
