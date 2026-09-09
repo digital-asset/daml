@@ -6,4 +6,4 @@ CANTON_OPEN_SOURCE_SHA = "sha256:22c96e1c1781efeae5fcb5bc396f69732e4d6a778adb07f
 
 # Use an alternative canton JAR & artifacts from the local maven cache by setting this to an absolute path
 # Consult canton/README.md
-LOCAL_CANTON_OVERRIDE = None
+LOCAL_CANTON_PATH = None
