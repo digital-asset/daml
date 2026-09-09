@@ -7,6 +7,7 @@ package test
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonConfig.ProtocolVersion
 import org.scalatest.Suite
+//import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
 
 import java.nio.file.Paths
 
@@ -21,7 +22,7 @@ class DamlScriptTestRunnerPV35 extends DamlScriptTestRunner {
   // TODO[23015]: reconsider the lf version here
   // TODO[23016]: get rid of hardcoded string when some kind of `renderForDaml` has been added to canton
   val scriptTestDar =
-    Paths.get(BazelRunfiles.rlocation(s"daml-script/test/script-test-v2.3.dar"))
+    Paths.get(BazelRunfiles.rlocation(s"daml-script/test/script-test-v2.4.dar"))
   val fakeScriptTestDar =
     Paths.get(BazelRunfiles.rlocation("daml-script/test/legacy-script-test.dar"))
   val jsonScriptTestDar =
@@ -36,54 +37,68 @@ class DamlScriptTestRunnerPV35 extends DamlScriptTestRunner {
           |AuthFailure:t4_ExerciseMissingAuthorization FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(0) (XXXXXXXX:AuthFailure:TheContract4) requires authorizers party, but only party were given
           |AuthorizedDivulgence:test_authorizedFetch SUCCESS
           |AuthorizedDivulgence:test_divulgeChoiceTargetContractId SUCCESS
-          |AuthorizedDivulgence:test_noDivulgenceForFetch FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
+          |AuthorizedDivulgence:test_noDivulgenceForFetch FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id 00XXXXXX
           |AuthorizedDivulgence:test_noDivulgenceOfCreateArguments SUCCESS
-          |DiscloseViaChoiceObserver:test FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
-          |Divulgence:main FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
+          |DiscloseViaChoiceObserver:test FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id 00XXXXXX
+          |Divulgence:main FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id 00XXXXXX
+          |ExceptionSemantics:divulgence FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id 00XXXXXX
+          |ExceptionSemantics:handledArithmeticError SUCCESS
+          |ExceptionSemantics:handledUserException SUCCESS
+          |ExceptionSemantics:rollbackArchive FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: INVALID_ARGUMENT: DAML_EFFECTFUL_ROLLBACK_ERROR(8,XXXXXXXX): Interpretation error: Error: Tried to rollback side-effectful node(s): Consuming exercise of Archive on ExceptionSemantics:K@XXXXXXXX ( 00XXXXXX )
+          |ExceptionSemantics:tryContext FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id 00XXXXXX
+          |ExceptionSemantics:uncaughtArithmeticError SUCCESS
+          |ExceptionSemantics:uncaughtUserException SUCCESS
+          |ExceptionSemantics:unhandledArithmeticError FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.ArithmeticError:ArithmeticError (error category 9): ArithmeticError while evaluating (DIV_INT64 1 0).
+          |    in choice XXXXXXXX:ExceptionSemantics:T:ThrowArithmeticError on contract XXXXXXXXXX (#1)
+          |    in create-and-exercise command XXXXXXXX:ExceptionSemantics:T:ThrowArithmeticError.
+          |ExceptionSemantics:unhandledUserException FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/ExceptionSemantics:E (error category 9): E
+          |    in choice XXXXXXXX:ExceptionSemantics:T:Throw on contract XXXXXXXXXX (#1)
+          |    in create-and-exercise command XXXXXXXX:ExceptionSemantics:T:Throw.
+          |ExceptionSemanticsWithKeys:test SUCCESS
           |LFContractKeys:lookupTest FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: InterpretationError(UserError(Expected submit to fail but it succeeded)
-          |MoreChoiceObserverDivulgence:test FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
-          |MultiTestWithKeys:disclosuresByKeyTest SUCCESS
-          |MultiTestWithKeys:disclosuresTest SUCCESS
-          |MultiTestWithKeys:inactiveDisclosureDoesNotFailDuringSubmission FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError (error category 9): Here
-          |    in choice XXXXXXXX:MultiTestWithKeys:Helper:FailWith on contract XXXXXXXXXX (#1)
-          |    in exercise command XXXXXXXX:MultiTestWithKeys:Helper:FailWith on contract XXXXXXXXXX.
-          |MultiTestWithKeys:listKnownPartiesTest SUCCESS
-          |MultiTestWithKeys:multiTest SUCCESS
-          |MultiTestWithKeys:partyIdHintTest SUCCESS
+          |MoreChoiceObserverDivulgence:test FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id 00XXXXXX
+          |MultiTest:disclosuresByKeyTest SUCCESS
+          |MultiTest:disclosuresTest SUCCESS
+          |MultiTest:inactiveDisclosureDoesNotFailDuringSubmission FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError (error category 9): Here
+          |    in choice XXXXXXXX:MultiTest:Helper:FailWith on contract XXXXXXXXXX (#1)
+          |    in exercise command XXXXXXXX:MultiTest:Helper:FailWith on contract XXXXXXXXXX.
+          |MultiTest:listKnownPartiesTest SUCCESS
+          |MultiTest:multiTest SUCCESS
+          |MultiTest:partyIdHintTest SUCCESS
           |ScriptExample:allocateParties SUCCESS
           |ScriptExample:initializeFixed SUCCESS
           |ScriptExample:initializeUser SUCCESS
           |ScriptExample:test SUCCESS
-          |ScriptTestWithKeys:clearUsers SUCCESS
-          |ScriptTestWithKeys:failingTest FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.AssertionFailed:AssertionFailed (error category 9): Assertion failed
-          |    in choice XXXXXXXX:ScriptTestWithKeys:C:ShouldFail on contract XXXXXXXXXX (#0)
-          |    in exercise command XXXXXXXX:ScriptTestWithKeys:C:ShouldFail on contract XXXXXXXXXX.
-          |ScriptTestWithKeys:listKnownPartiesTest SUCCESS
-          |ScriptTestWithKeys:multiPartySubmission SUCCESS
-          |ScriptTestWithKeys:partyIdHintTest SUCCESS
-          |ScriptTestWithKeys:sleepTest SUCCESS
-          |ScriptTestWithKeys:stackTrace FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.AssertionFailed:AssertionFailed (error category 9): Assertion failed
-          |    in choice XXXXXXXX:ScriptTestWithKeys:C:ShouldFail on contract XXXXXXXXXX (#1)
-          |    in create-and-exercise command XXXXXXXX:ScriptTestWithKeys:C:ShouldFail.
-          |ScriptTestWithKeys:test0 SUCCESS
-          |ScriptTestWithKeys:test1 SUCCESS
-          |ScriptTestWithKeys:test3 SUCCESS
-          |ScriptTestWithKeys:test4 SUCCESS
-          |ScriptTestWithKeys:testCreateAndExercise SUCCESS
-          |ScriptTestWithKeys:testGetTime SUCCESS
-          |ScriptTestWithKeys:testKey SUCCESS
-          |ScriptTestWithKeys:testMaxInboundMessageSize SUCCESS
-          |ScriptTestWithKeys:testMultiPartyQueries SUCCESS
-          |ScriptTestWithKeys:testQueryByKey SUCCESS
-          |ScriptTestWithKeys:testQueryContractId SUCCESS
-          |ScriptTestWithKeys:testSetTime SUCCESS
-          |ScriptTestWithKeys:testStack SUCCESS
-          |ScriptTestWithKeys:testUserListPagination SUCCESS
-          |ScriptTestWithKeys:testUserManagement SUCCESS
-          |ScriptTestWithKeys:testUserRightManagement SUCCESS
-          |ScriptTestWithKeys:traceOrder SUCCESS
-          |ScriptTestWithKeys:tree SUCCESS
-          |ScriptTestWithKeys:tupleKey SUCCESS
+          |ScriptTest:clearUsers SUCCESS
+          |ScriptTest:failingTest FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.AssertionFailed:AssertionFailed (error category 9): Assertion failed
+          |    in choice XXXXXXXX:ScriptTest:C:ShouldFail on contract XXXXXXXXXX (#0)
+          |    in exercise command XXXXXXXX:ScriptTest:C:ShouldFail on contract XXXXXXXXXX.
+          |ScriptTest:listKnownPartiesTest SUCCESS
+          |ScriptTest:multiPartySubmission SUCCESS
+          |ScriptTest:partyIdHintTest SUCCESS
+          |ScriptTest:sleepTest SUCCESS
+          |ScriptTest:stackTrace FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.AssertionFailed:AssertionFailed (error category 9): Assertion failed
+          |    in choice XXXXXXXX:ScriptTest:C:ShouldFail on contract XXXXXXXXXX (#1)
+          |    in create-and-exercise command XXXXXXXX:ScriptTest:C:ShouldFail.
+          |ScriptTest:test0 SUCCESS
+          |ScriptTest:test1 SUCCESS
+          |ScriptTest:test3 SUCCESS
+          |ScriptTest:test4 SUCCESS
+          |ScriptTest:testCreateAndExercise SUCCESS
+          |ScriptTest:testGetTime SUCCESS
+          |ScriptTest:testKey SUCCESS
+          |ScriptTest:testMaxInboundMessageSize SUCCESS
+          |ScriptTest:testMultiPartyQueries SUCCESS
+          |ScriptTest:testQueryByKey SUCCESS
+          |ScriptTest:testQueryContractId SUCCESS
+          |ScriptTest:testSetTime SUCCESS
+          |ScriptTest:testStack SUCCESS
+          |ScriptTest:testUserListPagination SUCCESS
+          |ScriptTest:testUserManagement SUCCESS
+          |ScriptTest:testUserRightManagement SUCCESS
+          |ScriptTest:traceOrder SUCCESS
+          |ScriptTest:tree SUCCESS
+          |ScriptTest:tupleKey SUCCESS
           |TestContractId:testContractId SUCCESS
           |TestExceptions:test SUCCESS
           |TestExceptions:try_catch_recover SUCCESS
@@ -98,20 +113,17 @@ class DamlScriptTestRunnerPV35 extends DamlScriptTestRunner {
           |TestInterfaces:test SUCCESS
           |TestInterfaces:test_queryInterface SUCCESS
           |""".stripMargin,
-        // PV35 does not support rollbacks, disable tests that use it
         skipTestNames = List(
-          "ExceptionSemantics:divulgence",
-          "ExceptionSemantics:handledArithmeticError",
-          "ExceptionSemantics:handledUserException",
-          "ExceptionSemantics:rollbackArchive",
-          "ExceptionSemantics:tryContext",
-          "ExceptionSemantics:uncaughtArithmeticError",
-          "ExceptionSemantics:uncaughtUserException",
-          "ExceptionSemantics:unhandledArithmeticError",
-          "ExceptionSemantics:unhandledUserException",
-          "ExceptionSemanticsWithKeys:duplicateKey",
-          // TODO (canton#30398) Re-enable this once canton works with keys. Currently gives an internal error.
-          "ExceptionSemanticsWithKeys:test",
+//          "ExceptionSemantics:divulgence",
+//          "ExceptionSemantics:handledArithmeticError",
+//          "ExceptionSemantics:handledUserException",
+//          "ExceptionSemantics:rollbackArchive",
+//          "ExceptionSemantics:tryContext",
+//          "ExceptionSemantics:uncaughtArithmeticError",
+//          "ExceptionSemantics:uncaughtUserException",
+//          "ExceptionSemantics:uncaughtUserException",
+//          "ExceptionSemantics:unhandledArithmeticError",
+//          "ExceptionSemantics:unhandledUserException",
         ),
       )
     "Reject legacy daml scripts correctly" in
@@ -142,7 +154,7 @@ class DamlScriptTestRunnerPV35 extends DamlScriptTestRunner {
           |""".stripMargin,
         shouldUpload = false,
         jsonOutput = true,
-        // Explicitly not running JsonDamlScriptTestWithKeys:testWeDontRun and asserting it doesnt show in output
+        // Explicitly not running JsonDamlScriptTest:testWeDontRun and asserting it doesnt show in output
         explicitTestNames = Some(
           List(
             "JsonDamlScriptTest:succeedingTestUnit",

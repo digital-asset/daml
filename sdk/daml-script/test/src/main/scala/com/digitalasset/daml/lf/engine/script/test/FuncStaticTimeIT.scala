@@ -18,7 +18,7 @@ class FuncStaticTimeIT extends AbstractFuncIT {
         clients <- scriptClients()
         ValueRecord(_, vals) <- run(
           clients,
-          QualifiedName.assertFromString("ScriptTestWithKeys:testSetTime"),
+          QualifiedName.assertFromString("ScriptTest:testSetTime"),
           dar = dar,
         )
       } yield {

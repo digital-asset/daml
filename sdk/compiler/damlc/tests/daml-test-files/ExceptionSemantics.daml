@@ -3,10 +3,10 @@
 
 -- @ERROR range=105:1-105:23; UNHANDLED_EXCEPTION/ExceptionSemantics:E: E
 -- @ERROR range=120:1-120:25; UNHANDLED_EXCEPTION/DA.Exception.ArithmeticError:ArithmeticError: ArithmeticError while evaluating (DIV_INT64 1 0).
+-- @ERROR range=130:1-130:16; Tried to rollback side-effectful node(s): Consuming exercise of Archive
 -- @ERROR range=135:1-135:11; Attempt to fetch or exercise a contract not visible to the reading parties.
 -- @ERROR range=146:1-146:11; Attempt to exercise a consumed contract
 -- @WARN -Werror=upgrade-exceptions
--- @IDE-PV V34
 
 {-# OPTIONS_GHC -Wno-x-exceptions #-}
 
