@@ -1,0 +1,15 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- This pattern is part of Daml.Script.Internal.Questions.Submit.Error.Compatibility but had to be
+-- separated out to avoid field name collisions
+module Daml.Script.Internal.Questions.Submit.Error.Compatibility.UpgradeError (pattern UpgradeError) where
+
+import Daml.Script.Internal.Questions.Submit.Error
+
+-- | MOVE Daml.Script
+-- Backwards compatibility pattern for the UpgradeError variant of the original SubmitError
+-- Prefer using AnySubmitError and `fromAnySubmitError` instead of this pattern synonym.
+pattern UpgradeError : AnyUpgradeErrorType -> Text -> AnySubmitError
+pattern UpgradeError {errorType, errorMessage} <- (fromAnySubmitError -> Some UpgradeErrorSubmitError {..})
+  where UpgradeError errorType errorMessage = toAnySubmitError UpgradeErrorSubmitError {..}

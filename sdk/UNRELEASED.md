@@ -11,6 +11,7 @@ Wednesday after your change.
 
 ## Until 2026-09-08 (Exclusive)
 
+- Daml-script now supports cross-sdk dependencies, via data-dependencies.
 - 2.4 is now stable
 - 2.5-staging introduced
 - `external_call` moved to 2.4

@@ -1,0 +1,22 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Commands.Stable.Command where
+
+import Daml.Script.Internal.Questions.Commands.Stable.AnyContractKey
+
+-- | HIDE
+data Command
+  = Create with
+      argC : AnyTemplate
+  | Exercise with
+      tplId : TemplateTypeRep
+      cId : ContractId ()
+      argE : AnyChoice
+  | ExerciseByKey with
+      tplId : TemplateTypeRep
+      keyE : AnyContractKey
+      argE : AnyChoice
+  | CreateAndExercise with
+      tplArgCE : AnyTemplate
+      choiceArgCE : AnyChoice

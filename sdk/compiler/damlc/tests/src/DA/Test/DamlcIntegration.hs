@@ -175,8 +175,8 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
         projDir
         (defaultOptions mLfVer)
         getComponentVersionInfo
-        ["daml-prim", "daml-stdlib", scriptDar]
-        extraDars
+        ["daml-prim", "daml-stdlib"]
+        (scriptDar : extraDars)
         mempty
 
       cont (dir </> packageDatabasePath, packageFlags)

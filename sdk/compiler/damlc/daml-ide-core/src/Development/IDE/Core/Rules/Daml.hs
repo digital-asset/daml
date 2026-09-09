@@ -1498,8 +1498,8 @@ getDlintDiagnosticsRule =
       })
 
 isDamlScriptModule :: LF.ModuleName -> Bool
-isDamlScriptModule (LF.ModuleName ["Daml", "Script"]) = True
-isDamlScriptModule (LF.ModuleName ["Daml", "Script", "Internal", "LowLevel"]) = True
+isDamlScriptModule (LF.ModuleName ["Daml", "Script", "Internal", "LowLevel"]) = True -- Daml-script pre-stable refactor
+isDamlScriptModule (LF.ModuleName ["Daml", "Script", "Internal", "LowLevel", "Stable", "Script"]) = True -- Daml-script with stable Script type
 isDamlScriptModule _ = False
 
 scriptsInModule :: LF.Module -> [(LF.ExprValName, Maybe LF.SourceLoc)]

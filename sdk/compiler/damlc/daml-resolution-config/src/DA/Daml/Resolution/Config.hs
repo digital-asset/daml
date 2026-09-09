@@ -25,6 +25,7 @@ import "zip-archive" Codec.Archive.Zip qualified as ZipArchive
 import Control.Applicative ((<|>))
 import Control.Exception
 import Control.Monad
+import Control.Monad.Extra
 import DA.Daml.Compiler.ExtractDar
 import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.Proto3.Archive.Decode qualified as Archive
@@ -98,7 +99,7 @@ instance Show DPMUnsupportedError where
   show (DPMUnsupportedError thing) = "DPM does not currently support " <> thing <> ". Support may be added in a future version."
 instance Exception DPMUnsupportedError
 
-getDarHeaderInfos :: CachePath -> ValidPackageResolution -> IO (Map.Map FilePath DalfInfoCacheEntry)
+getDarHeaderInfos :: CachePath -> ValidPackageResolution -> IO (Map.Map FilePath (LF.PackageId, DalfInfoCacheEntry))
 getDarHeaderInfos cachePath (ValidPackageResolution _ imports _) = do
   let paths = fromMaybe [] $ Map.lookup "dars" imports
   extractedDars <- traverse (\p -> (p,) <$> extractDar p) paths
@@ -124,8 +125,8 @@ getDarHeaderInfos cachePath (ValidPackageResolution _ imports _) = do
               currentTime
           )
       newCache = dalfInfoCacheWithoutStale <> missingCacheEntries
-      pathEntries :: Map.Map FilePath DalfInfoCacheEntry
-      pathEntries = Map.fromList $ mapMaybe (\(path, _, pkgId) -> (path,) <$> Map.lookup pkgId (getDalfInfoCacheMap newCache)) extractedDarsWithPackageIds
+      pathEntries :: Map.Map FilePath (LF.PackageId, DalfInfoCacheEntry)
+      pathEntries = Map.fromList $ mapMaybe (\(path, _, pkgId) -> (path,) . (pkgId,) <$> Map.lookup pkgId (getDalfInfoCacheMap newCache)) extractedDarsWithPackageIds
 
   -- Ensure path exists before writing file
   let diCachePath = darInfoCachePath cachePath
@@ -165,47 +166,86 @@ expandDependencyPackages cachePath pkgResolution lfVersion dependencyPackages = 
   darInfos <- getDarHeaderInfos cachePath pkgResolution
   let isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
       (sdkPackages, purePaths) = partition isSdkPackage $ filter (`notElem` basePackages) $ dpRegularDeps dependencyPackages
-      resolvedSdkPackagesWithPaths = traverse (\fp -> findDarInDarInfos darInfos (T.pack fp) lfVersion) sdkPackages
+      resolvedSdkPackagesWithPaths = traverse (\fp -> findDarInDarInfos (snd <$> darInfos) (T.pack fp) lfVersion) sdkPackages
   case resolvedSdkPackagesWithPaths of
     Left err -> throwIO $ ResolutionError $ T.unpack err
     Right resolvedSdkPackages -> do
       let (asDataDeps, asDeps) = partition snd resolvedSdkPackages
+      dataDeps <- addTransitiveDeps darInfos $ fmap fst asDataDeps
       pure $ DependencyPackages
         purePaths
         (dpRegularUncheckedDeps dependencyPackages <> fmap fst asDeps)
-        (dpDataDeps dependencyPackages <> fmap fst asDataDeps)
+        (dpDataDeps dependencyPackages <> dataDeps)
 
--- Daml-Script is not supported as a data-dep before featureStableCallStack, since callstack is
--- used extensively in script
-isSupportedAsDataDep :: LF.Version -> T.Text -> Bool
-isSupportedAsDataDep lfVersion "daml-script" = lfVersion `LF.supports` LF.featureStableCallStack
-isSupportedAsDataDep _ _ = True
+
+-- | To improve jump-to-definition in the IDE, we automatically add any transient dependency dars to the
+-- list of data-dependencies to ensure their source code is available to the IDE. We look these up
+-- via their package-id to ensure we're only ever adding existing packages
+-- NOTE: this will bring the transitive deps into package-flag scope, such
+-- that their modules can be imported directly. This could cause ambiguity issues in niche cases
+-- See https://github.com/digital-asset/daml/issues/23344 for more detail
+addTransitiveDeps :: Map.Map FilePath (LF.PackageId, DalfInfoCacheEntry) -> [FilePath] -> IO [FilePath]
+addTransitiveDeps darInfos initialDeps = nubOrd <$> concatMapM addSingleTransitiveDep initialDeps
+  where
+    addSingleTransitiveDep :: FilePath -> IO [FilePath]
+    addSingleTransitiveDep fp = do
+      extractedDar <- extractDar fp
+      let packageIds = packageIdsFromPaths extractedDar
+          reverseDarInfoMap :: Map.Map LF.PackageId FilePath
+          reverseDarInfoMap = Map.fromList $ (\(fp, (pkgId, _)) -> (pkgId, fp)) <$> Map.toList darInfos
+      pure $ mapMaybe (`Map.lookup` reverseDarInfoMap) packageIds
+
+unsafePackageVersionToComponentVersion :: LF.PackageVersion -> ComponentVersion
+unsafePackageVersionToComponentVersion (LF.PackageVersion t) =
+  either (\e -> error $ "Failed to parse " <> T.unpack t <> " into a component version: " <> show e) id $ parseComponentVersion t
+
+-- Version whereby daml-script data-dep support was added
+damlScriptDataDepSupportedVersion :: ComponentVersion
+damlScriptDataDepSupportedVersion = unsafePackageVersionToComponentVersion $ LF.PackageVersion "3.6.0"
+
+-- Daml-script is supported as a data-dep in all LF versions past SDK 3.6.
+-- If DPM provides a daml-script pre-3.6, it must be treated as a regular dependency
+isSupportedAsDataDep :: LF.Version -> LF.PackageVersion -> T.Text -> Bool
+-- Daml-script's package version is always the component version of daml-script
+isSupportedAsDataDep _ (unsafePackageVersionToComponentVersion -> componentVersion) "daml-script" =
+  isHeadVersion componentVersion || componentVersion >= damlScriptDataDepSupportedVersion
+isSupportedAsDataDep _ _ _ = True
+
+-- we need to pick a daml-script dar before we know its sdk version to know if we can pick the dar.
+-- Start by taking all compatible LF versions, using LF.canDependOn, then check 
 
 -- Returns the path to the dar found, as well as a bool for whether this dar can be a data-dep (see `isSupportedAsDataDep`)
 findDarInDarInfos :: Map.Map FilePath DalfInfoCacheEntry -> T.Text -> LF.Version -> Either T.Text (FilePath, Bool)
 findDarInDarInfos darInfos rawName lfVersion = do
   let name = hardcodedPackageRenames rawName
-      dataDepSupported = isSupportedAsDataDep lfVersion name
-      lfCondition = if dataDepSupported then LF.canDependOn else (==)
-      lfConditionPretty = if dataDepSupported then " compatible with " else " to equal "
       correctNamePackages = Map.filter (\darInfo -> (LF.unPackageName $ diPackageName darInfo) == name) darInfos
-      correctNameAndLfPackages = Map.filter (\darInfo -> lfCondition lfVersion (diLfVersion darInfo)) correctNamePackages
-      availablePackageVersions = nubOrd $ diPackageVersion <$> Map.elems correctNameAndLfPackages
-      availableLfVersions = nubOrd $ diLfVersion <$> Map.elems correctNamePackages
+      feasibleLfPackages = Map.filter (\darInfo -> lfVersion `LF.canDependOn` diLfVersion darInfo) correctNamePackages
+      availablePackageVersions = nubOrd $ diPackageVersion <$> Map.elems feasibleLfPackages
+      availableLfVersions = nubOrd $ diLfVersion <$> Map.elems feasibleLfPackages
+
       lfRenderVersionText = T.pack . LF.renderVersion
   case availablePackageVersions of
     -- If there are available correctly named packages, we have an LF version incompatibility
     [] | not $ null correctNamePackages-> do
-      Left $ "Package of correct name found, but incompatible LF version. Expected LF Version" <> lfConditionPretty <> lfRenderVersionText lfVersion
+      Left $ "Package of correct name found, but incompatible LF version. Expected LF Version compatible with " <> lfRenderVersionText lfVersion
         <> ", available versions: " <> (T.intercalate "," $ lfRenderVersionText <$> availableLfVersions)
     -- Otherwise, we are missing the package
     [] -> do
       let allPackageNames = T.intercalate "," . nubOrd $ LF.unPackageName . diPackageName <$> Map.elems darInfos
       Left $ "Package " <> rawName <> " could not be found, available packages are:\n" <> allPackageNames
-    [_] ->
-      -- Major LF versions aren't cross compatible, so all will be same major here due to canDependOn check above
-      -- as such, we take maximum by minor version
-      Right (fst $ maximumBy (comparing (LF.versionMinor . diLfVersion . snd)) $ Map.toList correctNameAndLfPackages, dataDepSupported)
+    [pkgVersion] ->
+      if isSupportedAsDataDep lfVersion pkgVersion name
+        -- When data-deps supported, simply take the latest compatible LF version
+        -- Major LF versions aren't cross compatible, so all will be same major here due to canDependOn check above
+        -- as such, we take maximum by minor version
+        then Right (fst $ maximumBy (comparing (LF.versionMinor . diLfVersion . snd)) $ Map.toList feasibleLfPackages, True)
+        -- When data-deps aren't supported, try to find a package with the matching LF version
+        else case find ((== lfVersion) . diLfVersion . snd) $ Map.toList feasibleLfPackages of
+          Just (path, _) -> Right (path, False)
+          Nothing ->
+            Left $ "Package " <> name <> " is required to match LF version " <> lfRenderVersionText lfVersion
+                      <> " as it doesn't not support data-dependencies in its current version.\n"
+                      <> "Only the following LF versions were found: " <> (T.intercalate "," $ lfRenderVersionText <$> availableLfVersions)
     _ ->
       Left $ "Multiple package versions for " <> rawName <> " were found:\n" <> (T.intercalate "," $ LF.unPackageVersion <$> availablePackageVersions)
         <> "\nYour daml installation may be broken."

@@ -91,6 +91,7 @@ withPackageDBAndIdeState lfVersion getScriptService action = do
           "dependencies:",
           "- daml-prim",
           "- daml-stdlib",
+          "data-dependencies:",
           "- " <> show scriptDar
         ]
     let opts = defaultOptions (Just lfVersion)
@@ -716,8 +717,9 @@ testScriptService lfVersion getScriptService =
                       , "dependencies:"
                       , "- daml-prim"
                       , "- daml-stdlib"
-                      , "- " <> T.pack (show scriptDar)
                       , "- ../interface/.daml/dist/interface-1.0.0.dar"
+                      , "data-dependencies:"
+                      , "- " <> T.pack (show scriptDar)
                       ]
                     ),
                     ( "Main.daml"
@@ -752,9 +754,10 @@ testScriptService lfVersion getScriptService =
                       , "dependencies:"
                       , "- daml-prim"
                       , "- daml-stdlib"
-                      , "- " <> T.pack (show scriptDar)
                       , "- ../interface/.daml/dist/interface-1.0.0.dar"
+                      , "data-dependencies:"
                       , "- ../v1/.daml/dist/main-1.0.0.dar"
+                      , "- " <> T.pack (show scriptDar)
                       , "module-prefixes:"
                       , "  main-1.0.0: V1"
                       ]

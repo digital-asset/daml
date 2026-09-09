@@ -481,7 +481,7 @@ class GrpcLedgerClient(
               ScriptLedgerClient.SubmitFailure(
                 submitErr match {
                   // If we have a trace, place it into the runtime error so it is shown by daml-script runner
-                  case SubmitError.FailureStatusError(_, Some(trace)) =>
+                  case SubmitError.FailureStatusError(_, Some(trace), _) =>
                     new StatusRuntimeException(
                       runtimeErr.getStatus().augmentDescription(trace),
                       runtimeErr.getTrailers(),

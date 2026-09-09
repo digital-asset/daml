@@ -1,0 +1,13 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Commands.Stable.CommandWithMeta where
+
+import Daml.Script.Internal.LowLevel.Stable.LedgerValue
+import Daml.Script.Internal.Questions.Commands.Stable.Command
+import DA.Map (Map)
+
+-- | HIDE
+data CommandWithMeta = CommandWithMeta with
+  command : Command
+  additionalData : Map Text LedgerValue
