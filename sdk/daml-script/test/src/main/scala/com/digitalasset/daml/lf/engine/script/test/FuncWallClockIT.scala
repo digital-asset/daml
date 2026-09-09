@@ -17,7 +17,7 @@ class FuncWallClockIT extends AbstractFuncIT {
         clients <- scriptClients()
         ValueRecord(_, vals) <- run(
           clients,
-          QualifiedName.assertFromString("ScriptTestWithKeys:sleepTest"),
+          QualifiedName.assertFromString("ScriptTest:sleepTest"),
           dar = dar,
         )
       } yield {
