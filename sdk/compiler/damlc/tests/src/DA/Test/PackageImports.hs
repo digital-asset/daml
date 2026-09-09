@@ -11,6 +11,7 @@ import qualified Data.ByteString.Lazy as BSL
 import           Data.Either
 import           Data.Map             (Map)
 import qualified Data.Map             as M
+import qualified Data.List.NonEmpty   as NE
 import           Data.Set             hiding (map)
 import           Text.Printf
 
@@ -89,11 +90,19 @@ verifyImports darname = testCase darname $ do
       bss = map (BSL.toStrict . ZipArchive.fromEntry) deps
   let pkgIdDepGraph :: [(PackageId, Package)]
       pkgIdDepGraph = map (fromRight (error "decoding error") . Archive.decodeArchive Archive.DecodeAsMain) bss
+  -- Stable packages never declare imports, so they are leaves of the graph.
+  let importedPackagesToIds :: ImportedPackages -> PackageIds
+      importedPackagesToIds = flip either id $ \case
+        NoPkgImportsReasons (StablePackage NE.:| _) -> empty
+        NoPkgImportsReasons r -> error $ "decoding error, got non-stable-package missing imports reason: " <> show r
   let pkgIdDepGraph' :: [(PackageId, PackageIds)]
-      pkgIdDepGraph' = map (fmap $ fromRight (error "decoding error") . importedPackages) pkgIdDepGraph
+      pkgIdDepGraph' = map (fmap $ importedPackagesToIds . importedPackages) pkgIdDepGraph
 
-  let mentioned = transitiveClosure (M.fromList pkgIdDepGraph') (fst p')
-  let included = (fromList $ map fst pkgIdDepGraph') `difference` fromList allStablePackageIds
+  let stablePkgIds = fromList allStablePackageIds
+  -- Since stable packages can reference other stable packages which may only be transitive dependencies
+  -- via direct references (not package imports), we drop them from both mentioned and included
+  let mentioned = transitiveClosure (M.fromList pkgIdDepGraph') (fst p') `difference` stablePkgIds
+  let included = (fromList $ map fst pkgIdDepGraph') `difference` stablePkgIds
 
   assertBool (printf "Included but not mentioned: %s" $ show $ included `difference` mentioned) $ included `difference` mentioned == empty
   assertBool (printf "Mentioned but not included: %s" $ show $ mentioned `difference` included) $ mentioned `difference` included == empty

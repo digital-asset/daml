@@ -50,6 +50,7 @@ import scalaz.syntax.traverse._
 import scalaz.{Applicative, NonEmptyList, Traverse}
 import spray.json._
 
+import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 
 object LfValueCodec extends ApiCodecCompressed(false, false)
@@ -302,11 +303,13 @@ object Runner {
   def ideLedgerClient(
       compiledPackages: PureCompiledPackages,
       machineLogger: MachineLogger,
+      // We only set the snapshotDir when the IDE ledger client is created from the CLI
+      snapshotDir: Option[Path] = None,
   ): Future[Participants[IdeLedgerClient]] =
     Future.successful(
       Participants(
         default_participant =
-          Some(new IdeLedgerClient(compiledPackages, machineLogger, () => false)),
+          Some(new IdeLedgerClient(compiledPackages, machineLogger, () => false, snapshotDir)),
         participants = Map.empty,
         party_participants = Map.empty,
       )
@@ -364,16 +367,21 @@ object Runner {
       val csmMode = ContractStateMachine.Mode.Key
       override val toString = "V35"
     }
+    final case object V36 extends IdeLedgerProtocolVersion {
+      val csmMode = ContractStateMachine.Mode.Key
+      override val toString = "V36"
+    }
     final case object VDev extends IdeLedgerProtocolVersion {
       val csmMode = ContractStateMachine.Mode.Key
       override val toString = "VDev"
     }
-    val all = List(V34, V35, VDev)
+    val all = List(V34, V35, V36, VDev)
     val latest = V35
     def parseIdeLedgerProtocolVersion(str: String): Either[String, IdeLedgerProtocolVersion] =
       str.toLowerCase match {
         case "v34" | "34" => Right(V34)
         case "v35" | "35" => Right(V35)
+        case "v36" | "36" => Right(V36)
         case "vdev" | "dev" => Right(VDev)
         case "latest" => Right(latest)
         case _ =>

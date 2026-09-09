@@ -14,6 +14,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.engine.Result.lookupHandler
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.engine.ScriptEngine.ExtendedValue
@@ -155,7 +156,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                   .fold(tplId)(intendedPackageId => tplId.copy(pkg = intendedPackageId))
                 enrichedArg <- enricher
                   .enrichContract(intendedTplId, arg)
-                  .consume()
+                  .consume(lookupHandler())
                   .left
                   .map(_.toString)
               } yield ScriptLedgerClient.Created(
@@ -178,7 +179,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                   .map(err => s"Failed to validate exercise argument: $err")
                 enrichedChoiceArg <- enricher
                   .enrichChoiceArgument(intendedTplId, ifaceId, choice, choiceArg)
-                  .consume()
+                  .consume(lookupHandler())
                   .left
                   .map(_.toString)
                 choiceResult <- NoLoggingValueValidator
@@ -187,7 +188,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                   .map(_.toString)
                 enrichedChoiceResult <- enricher
                   .enrichChoiceResult(intendedTplId, ifaceId, choice, choiceResult)
-                  .consume()
+                  .consume(lookupHandler())
                   .left
                   .map(_.toString)
                 childEvents <- javaTx

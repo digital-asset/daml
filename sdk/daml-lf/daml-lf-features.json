@@ -273,16 +273,8 @@
       "lowerBound" : {
         "major" : 2,
         "minor" : {
-          "Dev" : {
-            
-          }
-        }
-      },
-      "upperBound" : {
-        "major" : 2,
-        "minor" : {
-          "Dev" : {
-            
+          "Stable" : {
+            "version" : 4
           }
         }
       }

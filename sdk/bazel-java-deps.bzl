@@ -48,7 +48,7 @@ pekko_version = "1.2.1"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
 
-canton_version = "3.6.0-SNAPSHOT" if LOCAL_CANTON_PATH != None else CANTON_OPEN_SOURCE_TAG
+canton_version = "3.7.0-SNAPSHOT" if LOCAL_CANTON_PATH != None else CANTON_OPEN_SOURCE_TAG
 
 upickle_version = "4.1.0"
 ujson_version = "4.0.2"
@@ -112,8 +112,8 @@ def install_java_deps():
             "org.scalatest:scalatest_{}:3.2.19".format(scala_major_version),
             "org.scalatestplus:scalacheck-1-15_{}:3.2.11.0".format(scala_major_version),
             "org.tpolecat:doobie-postgres_{}:0.13.4".format(scala_major_version),
-            "org.typelevel:kind-projector_{}:0.13.3".format(scala_version),
-            "org.wartremover:wartremover_{}:3.2.5".format(scala_version),
+            "org.typelevel:kind-projector_{}:0.13.4".format(scala_version),
+            "org.wartremover:wartremover_{}:3.5.8".format(scala_version),
         ] + ["{}:{}".format(artifact, version) for artifact, version in JAVA_DEPS.items()],
         fetch_sources = True,
         maven_install_json = "@com_github_digital_asset_daml//:maven_install_{}.json".format(scala_major_version),

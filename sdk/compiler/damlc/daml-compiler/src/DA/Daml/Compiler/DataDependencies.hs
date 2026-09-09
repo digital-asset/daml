@@ -218,6 +218,10 @@ data ModRefImpSpec
         -- ^ For open imports, e.g.
         --
         -- > import SomeModule
+    | QualifiedImpSpec
+        -- ^ For qualified open imports, e.g.
+        --
+        -- > import qualified SomeModule
     | EmptyImpSpec
         -- ^ For instances-only imports, e.g.
         --
@@ -232,7 +236,7 @@ modRefImport Config{..} ModRef{..} = noLoc ImportDecl
     , ideclSource = False
     , ideclSafe = False
     , ideclImplicit = False
-    , ideclQualified = False
+    , ideclQualified = modRefImpSpec == QualifiedImpSpec
     , ideclAs = Nothing
     , ideclHiding = impSpec
     , ideclExt = noExt
@@ -246,6 +250,7 @@ modRefImport Config{..} ModRef{..} = noLoc ImportDecl
              | otherwise -> prefixDependencyModule importPkgId modRefModule
       impSpec = case modRefImpSpec of
           NoImpSpec -> Nothing
+          QualifiedImpSpec -> Nothing
           EmptyImpSpec -> Just (False, noLoc []) -- False = not 'hiding'
 
 data GenState = GenState
@@ -374,8 +379,7 @@ generateSrcFromLf env = noLoc mod
             , completePragmaDecls
             ]
         instDecls <- sequence instanceDecls
-        pure $ decls <> catMaybes instDecls
-
+        pure $ decls <> warningDecls <> catMaybes instDecls
 
     classMethodNames :: Set T.Text
     classMethodNames = Set.fromList
@@ -407,10 +411,15 @@ generateSrcFromLf env = noLoc mod
         pure $ mkOrig ghcMod (LF.qualObject q)
 
     -- Allows unqual regardless of name location, can be dangerous.
-    mkRdrNameUnqualUnsafe :: LFC.QualName -> Gen (Located RdrName)
-    mkRdrNameUnqualUnsafe (LFC.QualName q) = do
+    mkRdrNameUnqualUnsafe :: LFC.QualName -> ModRefImpSpec -> Gen (Located RdrName)
+    mkRdrNameUnqualUnsafe (LFC.QualName q) impSpec = do
       -- Emit the usage for imports, but don't use it
-      void $ genModule env (LF.qualPackage q) (LF.qualModule q)
+      emitModRef ModRef
+        { modRefModule = LF.qualModule q
+        , modRefOrigin = importOriginFromPackageRef (envConfig env) (LF.qualPackage q)
+        , modRefImpSpec = impSpec
+        }
+
       let occName = LF.qualObject q
           bracketOccName :: OccName -> OccName
           bracketOccName name = mkOccName (occNameSpace name) ("(" <> occNameString name <> ")")
@@ -418,12 +427,29 @@ generateSrcFromLf env = noLoc mod
             if isSymOcc occName then bracketOccName occName else occName
       pure $ noLoc $ mkRdrUnqual bracketedOccName
 
+    -- Tuples become "(,)" in LFC.QualName, which `isSymOcc` returns false for, as the brackets have
+    -- already been applied.
+    -- This function checks isSymOcc and for tuples
+    isSymOccOrTuple :: OccName -> Bool
+    isSymOccOrTuple name =
+        isSymOcc name || isTuple (occNameString name)
+      where
+        isTuple :: String -> Bool
+        isTuple s = s == "(" <> replicate (length s - 2) ',' <> ")"
+
+    -- If the qualName is a symbol, we keep it unqualified (as {-# COMPLETE #-} dont support qualified symbols)
+    mkRdrNameUnqualUnsafeIfSymbol :: LFC.QualName -> Gen (Located RdrName)
+    mkRdrNameUnqualUnsafeIfSymbol name@(LFC.QualName q) =
+        if isSymOccOrTuple (LF.qualObject q)
+          then mkRdrNameUnqualUnsafe name NoImpSpec
+          else noLoc <$> mkRdrNameQual name
+
     -- Only allows unqual if the name comes from the same package and module
     mkRdrNameUnqual :: LFC.QualName -> Gen (Located RdrName)
     mkRdrNameUnqual name@(LFC.QualName q) =
         if LF.qualPackage q /= LF.SelfPackageId || LF.qualModule q /= lfModName
           then pure $ error "Tried to call mkRdrNameUnqual on non-local package/module"
-          else mkRdrNameUnqualUnsafe name
+          else mkRdrNameUnqualUnsafe name QualifiedImpSpec
 
     mkFieldLblRdrNameQual :: FieldLbl LFC.QualName -> Gen (Located (FieldLbl RdrName))
     mkFieldLblRdrNameQual = fmap noLoc . traverse mkRdrNameQual
@@ -700,27 +726,52 @@ generateSrcFromLf env = noLoc mod
     completePragmaDecls :: [Gen (LHsDecl GhcPs)]
     completePragmaDecls = makeCompletePragma <$> getCompleteExprs
       where
-        makeCompletePragma :: LFC.LFCompleteMatch LFC.QualName -> Gen (LHsDecl GhcPs)
+        makeCompletePragma :: LFC.LFMetadataCompleteMatch LFC.QualName -> Gen (LHsDecl GhcPs)
         makeCompletePragma match = do
           -- Parser only allows the pragma to contain unqualified names, but supports those names coming from any module/package
           -- (as long as one name comes from this module)
-          matchersRdrNames <- traverse mkRdrNameUnqualUnsafe $ LFC.matchers match
+          matchersRdrNames <- traverse (`mkRdrNameUnqualUnsafe` NoImpSpec) $ LFC.matchers match
           -- Similarly, Parser will not allow qualified symbol data types (such as tuple) for the subject, so we unqualify those too
-          subjectRdrName <- mkRdrNameUnqualUnsafe $ LFC.subject match
+          subjectRdrName <- mkRdrNameUnqualUnsafeIfSymbol $ LFC.subject match
           pure $ noLoc . SigD noExt $ CompleteMatchSig
             noExt 
             NoSourceText
             (noLoc matchersRdrNames)
             (Just subjectRdrName)
-        getCompleteExprs :: [LFC.LFCompleteMatch LFC.QualName]
+        getCompleteExprs :: [LFC.LFMetadataCompleteMatch LFC.QualName]
         getCompleteExprs = do
           LF.DefValue
             { dvalBinder = 
               ( LF.ExprValName (T.stripPrefix "$complete" -> Just _)
-              , LFC.decodeLFCompleteMatch -> Just match
+              , LFC.decodeLFMetadataCompleteMatch -> Just match
               )
             } <- NM.toList $ LF.moduleValues $ envMod env
           pure match
+
+    warningDecls :: [LHsDecl GhcPs]
+    warningDecls = mapMaybe makeWarning getWarningExprs
+      where
+        makeWarning :: LFC.LFMetadataWarning -> Maybe (LHsDecl GhcPs)
+        -- Exclude methods that have been re-exported, as deprecations must be in the same module as the definitions
+        makeWarning (LFC.LFMetadataWarning (Just subject) _) | isValOcc subject && T.pack (occNameString subject) `Set.member` reexportedClassMethods = Nothing
+        makeWarning (LFC.LFMetadataWarning (Just subject) warningTxt) =
+           Just . noLoc . WarningD noExt $ Warnings
+            noExt
+            (SourceText $ if LFC.warningTxtIsDeprecation warningTxt then "{-# DEPRECATED" else "{-# WARNING")
+            [noLoc $ Warning noExt [noLoc $ mkRdrUnqual subject] warningTxt]
+        -- TODO[SW]: We do not support module level warnings, as GHC does not reconstruct the source correctly.
+        -- This isn't needed for Daml currently, but we should consider adding support for this in the future.
+        makeWarning (LFC.LFMetadataWarning Nothing _) = Nothing
+
+        getWarningExprs :: [LFC.LFMetadataWarning]
+        getWarningExprs = do
+          LF.DefValue
+            { dvalBinder = 
+              ( LFC.unWarningName -> Just _
+              , LFC.decodeLFMetadataWarning -> Just warning
+              )
+            } <- NM.toList $ LF.moduleValues $ envMod env
+          pure warning
 
     -- | Generate instance declarations from dictionary functions.
     instanceDecls :: [Gen (Maybe (LHsDecl GhcPs))]
@@ -1135,7 +1186,7 @@ prefixDependencyModule (LF.PackageId pkgId) = prefixModuleName ["Pkg_" <> pkgId]
 
 genModuleAux :: Config -> ImportOrigin -> LF.ModuleName -> Gen Module
 genModuleAux conf origin moduleName = do
-    let modRef = ModRef moduleName origin NoImpSpec
+    let modRef = ModRef moduleName origin QualifiedImpSpec
     let ghcModuleName = (unLoc . ideclName . unLoc . modRefImport conf) modRef
     let unitId = case origin of
             FromCurrentSdk unitId -> unitId

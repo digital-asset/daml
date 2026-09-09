@@ -243,6 +243,9 @@ da_haskell_library(
         ],
     )
     for version in COMPILER_LF_VERSIONS
+    # TODO[https://github.com/digital-asset/language-team-planning/issues/58]:
+    # enable when canton knows of 2.4
+    if version != "2.4"
 ]
 
 # Tests for daml-doc

@@ -14,7 +14,6 @@ module DA.Daml.StablePackages
 import           Data.Bifunctor
 import qualified Data.Map.Strict as MS
 import qualified Data.NameMap as NM
-import qualified Data.Set as Set
 import qualified Data.Text as T
 
 import           DA.Daml.LF.Ast
@@ -52,7 +51,7 @@ allStablePackagesList =
       , daRandomTypes version2_1
       , daStackTypes version2_1
       , daInternalFailTypes version2_1
-      , ghcStackTypes version2_3 (encodePackageHash (daTypes version2_1))
+      , ghcStackTypes version2_1 (encodePackageHash (daTypes version2_1))
       ]
 
 allStablePackagesWithIds :: [(PackageId, Package)]
@@ -421,8 +420,11 @@ daStackTypes version = Package
 -- Notably different to daStackTypes, which defines a user-facing type for reading SrcLocs
 -- This stable package is used as part of the `HasCallStack` constraint, allowing cross-sdk
 -- HasCallStack calls.
+-- This package uses daTypesPackageId but via the TTuple pattern synonyms in Ast Util, which has
+-- hardcoded package ids for stable packages
+-- The argument is here for readability
 ghcStackTypes :: Version -> PackageId -> Package
-ghcStackTypes version daTypesPackageId = Package
+ghcStackTypes version _daTypesPackageId = Package
   { packageLfVersion = version
   , packageModules = NM.singleton (emptyModule modName)
       { moduleDataTypes = types
@@ -433,7 +435,7 @@ ghcStackTypes version daTypesPackageId = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
-  , importedPackages = Right $ Set.fromList [daTypesPackageId]
+  , importedPackages = Left noPkgImportsReasonStablePackage
   }
   where
     modName = mkModName ["GHC", "Stack", "Types"]

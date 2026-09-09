@@ -25,7 +25,7 @@ import qualified Data.Set as Set
 import Data.Time.Clock (UTCTime)
 import Data.Yaml (decodeThrow, encodeFile)
 import ComponentVersion (ComponentVersioned, componentVersionString, withComponentVersions)
-import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removeFile, withCurrentDirectory)
+import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removeFile)
 import System.Exit (ExitCode (..))
 import System.Environment (getEnvironment)
 import System.FilePath (makeRelative, takeExtension, (</>))
@@ -610,10 +610,10 @@ tests =
       -> IO ResolutionData
     addResolvedDepsToResolution dir =
       flip $ foldrM $ \(packagePath, (deps, dataDeps)) resolution -> do
-        packagePath' <- withCurrentDirectory dir $ canonicalizePath packagePath
-        let canonDarFiles path = if takeExtension path == ".dar" then canonicalizePath path else pure path
-        canonDeps <- withCurrentDirectory packagePath' $ traverse canonDarFiles deps
-        canonDataDeps <- withCurrentDirectory packagePath' $ traverse canonDarFiles dataDeps
+        packagePath' <- canonicalizePath (dir </> packagePath)
+        let canonDarFiles dir path = if takeExtension path == ".dar" then canonicalizePath (dir </> path) else pure path
+        canonDeps <- traverse (canonDarFiles packagePath') deps
+        canonDataDeps <- traverse (canonDarFiles packagePath') dataDeps
         let newImports :: Map.Map String [FilePath]
             newImports = Map.fromList [("resolved-dependencies", canonDeps), ("resolved-data-dependencies", canonDataDeps)]
             adjustPackageResolution :: PackageResolutionData -> PackageResolutionData

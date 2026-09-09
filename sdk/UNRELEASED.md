@@ -9,7 +9,14 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
-## Until 2026-07-29 (Exclusive)
+## Until 2026-09-08 (Exclusive)
+
+- 2.4 is now stable
+- 2.5-staging introduced
+- `external_call` moved to 2.4
+- Daml Script: `--ide-ledger-protocol-version` now accepts `v36`
+
+## UNTIL 2026-07-29 (Exclusive)
  - The default version of Daml-LF, released in 3.5, has been bumped to 2.3
    according to our strategy of making an lf verison default the release _after_
    it was released. 2.3 being default means any daml project that does not

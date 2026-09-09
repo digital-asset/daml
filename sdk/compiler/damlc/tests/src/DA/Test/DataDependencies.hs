@@ -66,6 +66,10 @@ data TestArgs = TestArgs
 data DataDependenciesTestOptions = DataDependenciesTestOptions
   { buildOptions :: [String]
   , extraDeps :: [FilePath]
+  , -- List of strings to ensure the build stderr contain
+    expectedStderr :: [String]
+  , -- List of strings to ensure the build stderr does not contain
+    forbiddenStderr :: [String]
   }
 
 darPackageIds :: FilePath -> IO [LF.PackageId]
@@ -1827,6 +1831,38 @@ tests TestArgs{..} =
             , "usePattern None = False"
             ]
         ]
+    
+    , simpleImportTestOptions "Using warnings and deprecations"
+        ( optionsDev
+            { expectedStderr =
+                [ "Deprecated: \"Use `b` instead.\""
+                , "(imported from Lib): \"Use `c` instead.\""
+                ]
+            , -- Hide this warning via categories to prove categories are carried over
+              forbiddenStderr = ["Use `d` instead."]
+            }
+        )
+        [ "module Lib where"
+        , "{-# DEPRECATED a \"Use `b` instead.\" #-}"
+        , "a : Text"
+        , "a = \"a\""
+        , "{-# WARNING b \"Use `c` instead.\" #-}"
+        , "b : Text"
+        , "b = \"b\""
+        , "{-# WARNING in \"x-my-cat\" c \"Use `d` instead.\" #-}"
+        , "c : Text"
+        , "c = \"c\""
+        ]
+        [ "{-# OPTIONS_GHC -Wno-x-my-cat #-}"
+        , "module Main where"
+        , "import Lib"
+        , "x : Text"
+        , "x = a"
+        , "y : Text"
+        , "y = b"
+        , "z : Text"
+        , "z = c"
+        ]
 
     , simpleImportTest "Using explicit exports"
         [ "module Lib (myDef, MyDataHiddenConstructor, mkMyDataHiddenConstructor, MyData(MyData), pattern MyDataPattern) where"
@@ -2956,6 +2992,8 @@ tests TestArgs{..} =
             , "-Wupgrade-interfaces"
             ]
         , extraDeps = []
+        , expectedStderr = []
+        , forbiddenStderr = []
         }
 
     optionsDev :: DataDependenciesTestOptions
@@ -2977,7 +3015,7 @@ tests TestArgs{..} =
     dataDependenciesTest title = dataDependenciesTestOptions title defTestOptions
 
     dataDependenciesTestOptions :: String -> DataDependenciesTestOptions -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
-    dataDependenciesTestOptions title (DataDependenciesTestOptions buildOptions extraDeps) libModules mainModules =
+    dataDependenciesTestOptions title (DataDependenciesTestOptions buildOptions extraDeps expectedStderr forbiddenStderr) libModules mainModules =
         testCaseSteps title $ \step -> withTempDir $ \tmpDir -> do
             step "building package to be imported via data-dependencies"
             createDirectoryIfMissing True (tmpDir </> "lib")
@@ -3011,10 +3049,15 @@ tests TestArgs{..} =
                 ]
             forM_ mainModules $ \(path, contents) ->
                 writeFileUTF8 (tmpDir </> "main" </> path) $ unlines contents
-            callProcessSilent damlc
+            err <- callProcessForSuccessfulStderr damlc
                 [ "build"
                 , "--package-root"
                 , tmpDir </> "main" ]
+
+            forM_ expectedStderr $ \expected ->
+                assertInfixOf expected err
+            forM_ forbiddenStderr $ \forbidden ->
+                assertNotInfixOf forbidden err
 
     damlcForTarget :: LF.Version -> FilePath
     damlcForTarget target

@@ -94,13 +94,19 @@ object ScriptLedgerClient {
           compiledPackages,
           loggerFactory,
         )
-      case abstractLedgers.IdeLedgerClient(pureCompiledPackages, machineLogger, canceled) =>
+      case abstractLedgers.IdeLedgerClient(
+            pureCompiledPackages,
+            machineLogger,
+            canceled,
+            snapshotDir,
+          ) =>
         new IdeLedgerClient(
           pureCompiledPackages,
           machineLogger,
           canceled,
           loggerFactory,
           csmMode,
+          snapshotDir,
         )
     }
 

@@ -40,7 +40,7 @@ class DamlScriptTestRunnerPV35 extends DamlScriptTestRunner {
           |AuthorizedDivulgence:test_noDivulgenceOfCreateArguments SUCCESS
           |DiscloseViaChoiceObserver:test FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
           |Divulgence:main FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
-          |LFContractKeys:lookupTest FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: SErrorDamlException(UserError(Expected submit to fail but it succeeded)
+          |LFContractKeys:lookupTest FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: InterpretationError(UserError(Expected submit to fail but it succeeded)
           |MoreChoiceObserverDivulgence:test FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
           |MultiTestWithKeys:disclosuresByKeyTest SUCCESS
           |MultiTestWithKeys:disclosuresTest SUCCESS

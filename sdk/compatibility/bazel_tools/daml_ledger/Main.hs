@@ -131,6 +131,30 @@ instance IsOption SdkVersion where
   optionName = Tagged "sdk-version"
   optionHelp = Tagged "The SDK version number"
 
+instance Show SdkVersion where
+  show (SdkVersion ver) = SemVer.toString ver
+
+-- | This is the version of canton.
+newtype PlatformVersion = PlatformVersion Version
+  deriving Eq
+
+instance Ord PlatformVersion where
+    PlatformVersion x <= PlatformVersion y
+      | y == SemVer.initial = True -- 0.0.0 is >= than anything else
+      | x == SemVer.initial = False -- 0.0.0 not <= than anything other than 0.0.0
+      | otherwise = x <= y -- regular semver comparison
+
+instance IsOption PlatformVersion where
+  defaultValue = PlatformVersion SemVer.initial
+  -- Tasty seems to force the value somewhere so we cannot just set this
+  -- to `error`. However, this will always be set.
+  parseValue = either (const Nothing) (Just . PlatformVersion) . SemVer.fromText . T.pack
+  optionName = Tagged "platform-version"
+  optionHelp = Tagged "The platform version number"
+
+instance Show PlatformVersion where
+  show (PlatformVersion ver) = SemVer.toString ver
+
 main :: IO ()
 main = do
   -- We manipulate global state via the working directory
@@ -141,21 +165,23 @@ main = do
         , Option @PlatformOption Proxy
         , Option @SandboxArgsOption Proxy
         , Option @SdkVersion Proxy
+        , Option @PlatformVersion Proxy
         ]
   let ingredients = defaultIngredients ++ [includingOptions options]
   defaultMainWithIngredients ingredients $
     withTools $ \getTools -> do
     askOption $ \sdkVersion -> do
+    askOption $ \platformVersion -> do
     testGroup "Deployment"
-      [ authenticatedUploadTest sdkVersion getTools
+      [ authenticatedUploadTest sdkVersion platformVersion getTools
       ]
 
 -- | Test `daml script --access-token-file`
 -- We want to test an elevated permission ledger-api endpoint over simple queries, so we use thw `--upload-dar` flag in dpm script
 -- This uses the --access-token-file to upload the test dar to the participant
 -- We are testing that the logic for sending this token on our ledger client (i.e. daml-script) is compatible with different canton versions
-authenticatedUploadTest :: SdkVersion -> IO Tools -> TestTree
-authenticatedUploadTest sdkVersion getTools = do
+authenticatedUploadTest :: SdkVersion -> PlatformVersion -> IO Tools -> TestTree
+authenticatedUploadTest sdkVersion platformVersion getTools = do
   withSandbox getTools (Just sharedSecret) $ \getSandboxPort -> testGroup "authentication"
     [ testCase "Bearer prefix" $ do
           Tools{..} <- getTools
@@ -166,7 +192,7 @@ authenticatedUploadTest sdkVersion getTools = do
               expiration <- JWT.numericDate . (+180) <$> getPOSIXTime
               -- The trailing newline is not required but we want to test that it is supported.
               writeFileUTF8 tokenFile ("Bearer " <> makeSignedAdminJwt sharedSecret expiration <> "\n")
-              writeMinimalPackage sdkVersion
+              writeMinimalPackage sdkVersion platformVersion
               let origDar = ".daml/dist/proj1-0.0.1.dar"
               callProcessSilent sdk ["damlc", "build"]
 
@@ -185,7 +211,7 @@ authenticatedUploadTest sdkVersion getTools = do
               expiration <- JWT.numericDate . (+180) <$> getPOSIXTime
               -- The trailing newline is not required but we want to test that it is supported.
               writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret expiration <> "\n")
-              writeMinimalPackage sdkVersion
+              writeMinimalPackage sdkVersion platformVersion
               let origDar = ".daml/dist/proj1-0.0.1.dar"
               callProcessSilent sdk ["damlc", "build"]
               callProcessSilent sdk
@@ -217,11 +243,21 @@ makeSignedJwt sharedSecret user expiration = do
 makeSignedAdminJwt :: String -> Maybe JWT.NumericDate -> String
 makeSignedAdminJwt sharedSecret expiration = makeSignedJwt sharedSecret "participant_admin" expiration
 
+semverFromTextUnsafe :: (SemVer.Version -> a) -> T.Text -> a
+semverFromTextUnsafe wrap = either error wrap . SemVer.fromText
+
+deriveBuildOptions :: SdkVersion -> PlatformVersion -> [String]
+-- Need to limit LF version chosen by SDK when platform doesn't support it
+-- LF 2.3 support added in 3.5, so when running 3.5+ SDK with <3.5 platform, we use LF 2.2
+deriveBuildOptions sdkVersion platformVersion |
+  sdkVersion >= semverFromTextUnsafe SdkVersion "3.5.0" && platformVersion < semverFromTextUnsafe PlatformVersion "3.5.0" = ["  - --target=2.2"]
+deriveBuildOptions _ _ = []
+
 -- | Write `daml.yaml` and `Main.daml` files in the current directory.
-writeMinimalPackage :: SdkVersion -> IO ()
-writeMinimalPackage (SdkVersion sdkVersion) = do
-  writeFileUTF8 "daml.yaml" $ unlines
-      [ "sdk-version: " <> SemVer.toString sdkVersion
+writeMinimalPackage :: SdkVersion -> PlatformVersion -> IO ()
+writeMinimalPackage sdkVersion platformVersion = do
+  writeFileUTF8 "daml.yaml" $ unlines $
+      [ "sdk-version: " <> show sdkVersion
       , "name: proj1"
       , "version: 0.0.1"
       , "source: ."
@@ -230,8 +266,7 @@ writeMinimalPackage (SdkVersion sdkVersion) = do
       , "  - daml-stdlib"
       , "  - daml-script"
       , "build-options:"
-      , "  - --target=2.2"
-      ]
+      ] <> deriveBuildOptions sdkVersion platformVersion
   writeFileUTF8 "Main.daml" $ unlines
     [ "module Main where"
     , "import Daml.Script"

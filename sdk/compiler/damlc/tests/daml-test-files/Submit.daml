@@ -259,18 +259,6 @@ wronglyTypedContract = script do
 -- ContractIdInContractKey: Can't do this from daml-script with IDELedger
 -- ContractIdComparability: Can't do this from daml-script with IDELedger
 
-#ifdef DAML_INTERFACE_EXTENDED
-devError : Script ()
-devError = script do
-  alice <- allocateParty "alice"
-  cid <- alice `submit` createCmd T1 with t1_p = alice
-  res <- alice `trySubmit` exerciseCmd (toInterfaceContractId @ExerciseGuardedInterface cid) ExerciseGuarded with shouldArchive = False
-  case res of
-    Left (DevError ChoiceGuardFailed msg) -> assert $ "Choice guard failed for" `isInfixOf` msg
-    Left e -> error $ "devError incorrect error: " <> show e
-    Right _ -> error "devError incorrectly succeeded"
-#endif
-
 -- UnknownError: Shouldn't be testable, we should know all the possible errors.
 -- Can reproduce right now with a timeout, or package vetting test.
 
