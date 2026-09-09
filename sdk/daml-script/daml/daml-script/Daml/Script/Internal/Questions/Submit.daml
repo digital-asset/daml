@@ -147,6 +147,7 @@ class IsSubmitOptions options where
   -- We do not want instance rewritting to remove this class in favour of another
   -- as this forces the old instance definitions onto a new daml-script
   -- We avoid this happening by having the class depend on a non-stable type, defined in this module
+  -- | HIDE
   dummy : options -> Dummy
   dummy = error "IsSubmitOptions.dummy"
 
