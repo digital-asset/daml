@@ -72,6 +72,10 @@ import Daml.Script.Internal.Questions.Submit.Error.Stable.TaggedRecord
 import Daml.Script.Internal.Questions.Commands (AnyContractKey)
 
 -- | HIDE
+-- See "IsTaggedRecord.dummy"
+data Dummy
+
+-- | HIDE
 -- Class used for constructing and destructing TaggedRecords
 -- Intended to be used by newtypes around the TaggedRecord which implement this class with simple wrappers
 -- See AnySubmitError for example
@@ -86,6 +90,12 @@ class IsTaggedRecord a where
     -> [Text] -- Field names
     -> [LedgerValue] -- Field values
     -> a
+  -- We do not want instance rewritting to remove this class in favour of another
+  -- as this forces the old instance definitions onto a new daml-script
+  -- We avoid this happening by having the class depend on a non-stable type, defined in this module
+  dummy : a -> Dummy
+  dummy = error "IsTaggedRecord.dummy"
+
 
 -- | HIDE
 -- Root IsTaggedRecord instance which types like AnySubmitError wrap via newtype deriving
@@ -148,8 +158,8 @@ data ValidationFailedUpgradeError = ValidationFailedUpgradeError with
 
 -- | MOVE Daml.Script
 instance IsUpgradeErrorType ValidationFailedUpgradeError where
-  toAnyUpgradeErrorType ValidationFailedUpgradeError {..} = make "ValidationFailed" ["coid", "srcTemplateId", "dstTemplateId", "srcPackageName", "dstPackageName", "originalSignatories", "originalNonSignatoryStakeholders", "originalKeyOpt", "recomputedSignatories", "recomputedNonSignatoryStakeholders", "recomputedKeyOpt"] [Cast coid, Cast srcTemplateId, Cast dstTemplateId, Cast srcPackageName, Cast dstPackageName, Cast originalSignatories, Cast originalNonSignatoryStakeholders, Cast originalKeyOpt, Cast recomputedSignatories, Cast recomputedNonSignatoryStakeholders, Cast recomputedKeyOpt]
-  fromAnyUpgradeErrorType (match "ValidationFailed" ["coid", "srcTemplateId", "dstTemplateId", "srcPackageName", "dstPackageName", "originalSignatories", "originalNonSignatoryStakeholders", "originalKeyOpt", "recomputedSignatories", "recomputedNonSignatoryStakeholders", "recomputedKeyOpt"] -> Some [Cast coid, Cast srcTemplateId, Cast dstTemplateId, Cast srcPackageName, Cast dstPackageName, Cast originalSignatories, Cast originalNonSignatoryStakeholders, Cast originalKeyOpt, Cast recomputedSignatories, Cast recomputedNonSignatoryStakeholders, Cast recomputedKeyOpt]) = Some ValidationFailedUpgradeError {..}
+  toAnyUpgradeErrorType ValidationFailedUpgradeError {..} = make "ValidationFailed" ["coid", "srcTemplateId", "dstTemplateId", "srcPackageName", "dstPackageName", "originalSignatories", "originalNonSignatoryStakeholders", "originalKeyOpt", "recomputedSignatories", "recomputedNonSignatoryStakeholders", "recomputedKeyOpt"] [CastledgerValue coid, CastledgerValue srcTemplateId, CastledgerValue dstTemplateId, CastledgerValue srcPackageName, CastledgerValue dstPackageName, CastledgerValue originalSignatories, CastledgerValue originalNonSignatoryStakeholders, CastledgerValue originalKeyOpt, CastledgerValue recomputedSignatories, CastledgerValue recomputedNonSignatoryStakeholders, CastledgerValue recomputedKeyOpt]
+  fromAnyUpgradeErrorType (match "ValidationFailed" ["coid", "srcTemplateId", "dstTemplateId", "srcPackageName", "dstPackageName", "originalSignatories", "originalNonSignatoryStakeholders", "originalKeyOpt", "recomputedSignatories", "recomputedNonSignatoryStakeholders", "recomputedKeyOpt"] -> Some [CastledgerValue coid, CastledgerValue srcTemplateId, CastledgerValue dstTemplateId, CastledgerValue srcPackageName, CastledgerValue dstPackageName, CastledgerValue originalSignatories, CastledgerValue originalNonSignatoryStakeholders, CastledgerValue originalKeyOpt, CastledgerValue recomputedSignatories, CastledgerValue recomputedNonSignatoryStakeholders, CastledgerValue recomputedKeyOpt]) = Some ValidationFailedUpgradeError {..}
   fromAnyUpgradeErrorType _ = None
 
 -- | MOVE Daml.Script
@@ -161,8 +171,8 @@ data TranslationFailedUpgradeError = TranslationFailedUpgradeError with
 
 -- | MOVE Daml.Script
 instance IsUpgradeErrorType TranslationFailedUpgradeError where
-  toAnyUpgradeErrorType TranslationFailedUpgradeError {..} = make "TranslationFailed" ["mCoid", "srcTemplateId", "dstTemplateId", "createArg"] [Cast mCoid, Cast srcTemplateId, Cast dstTemplateId, Cast createArg]
-  fromAnyUpgradeErrorType (match "TranslationFailed" ["mCoid", "srcTemplateId", "dstTemplateId", "createArg"] -> Some [Cast mCoid, Cast srcTemplateId, Cast dstTemplateId, Cast createArg]) = Some TranslationFailedUpgradeError {..}
+  toAnyUpgradeErrorType TranslationFailedUpgradeError {..} = make "TranslationFailed" ["mCoid", "srcTemplateId", "dstTemplateId", "createArg"] [CastledgerValue mCoid, CastledgerValue srcTemplateId, CastledgerValue dstTemplateId, CastledgerValue createArg]
+  fromAnyUpgradeErrorType (match "TranslationFailed" ["mCoid", "srcTemplateId", "dstTemplateId", "createArg"] -> Some [CastledgerValue mCoid, CastledgerValue srcTemplateId, CastledgerValue dstTemplateId, CastledgerValue createArg]) = Some TranslationFailedUpgradeError {..}
   fromAnyUpgradeErrorType _ = None
 
 -- | MOVE Daml.Script
@@ -174,8 +184,8 @@ data AuthenticationFailedUpgradeError = AuthenticationFailedUpgradeError with
 
 -- | MOVE Daml.Script
 instance IsUpgradeErrorType AuthenticationFailedUpgradeError where
-  toAnyUpgradeErrorType AuthenticationFailedUpgradeError {..} = make "AuthenticationFailed" ["coid", "srcTemplateId", "dstTemplateId", "createArg"] [Cast coid, Cast srcTemplateId, Cast dstTemplateId, Cast createArg]
-  fromAnyUpgradeErrorType (match "AuthenticationFailed" ["coid", "srcTemplateId", "dstTemplateId", "createArg"] -> Some [Cast coid, Cast srcTemplateId, Cast dstTemplateId, Cast createArg]) = Some AuthenticationFailedUpgradeError {..}
+  toAnyUpgradeErrorType AuthenticationFailedUpgradeError {..} = make "AuthenticationFailed" ["coid", "srcTemplateId", "dstTemplateId", "createArg"] [CastledgerValue coid, CastledgerValue srcTemplateId, CastledgerValue dstTemplateId, CastledgerValue createArg]
+  fromAnyUpgradeErrorType (match "AuthenticationFailed" ["coid", "srcTemplateId", "dstTemplateId", "createArg"] -> Some [CastledgerValue coid, CastledgerValue srcTemplateId, CastledgerValue dstTemplateId, CastledgerValue createArg]) = Some AuthenticationFailedUpgradeError {..}
   fromAnyUpgradeErrorType _ = None
 
 -- | HIDE
@@ -200,8 +210,8 @@ data MalformedByteEncodingCryptoError = MalformedByteEncodingCryptoError with
 
 -- | MOVE Daml.Script
 instance IsCryptoErrorType MalformedByteEncodingCryptoError where
-  toAnyCryptoErrorType MalformedByteEncodingCryptoError {..} = make "MalformedByteEncoding" ["value"] [Cast value]
-  fromAnyCryptoErrorType (match "MalformedByteEncoding" ["value"] -> Some [Cast value]) = Some MalformedByteEncodingCryptoError {..}
+  toAnyCryptoErrorType MalformedByteEncodingCryptoError {..} = make "MalformedByteEncoding" ["value"] [CastledgerValue value]
+  fromAnyCryptoErrorType (match "MalformedByteEncoding" ["value"] -> Some [CastledgerValue value]) = Some MalformedByteEncodingCryptoError {..}
   fromAnyCryptoErrorType _ = None
 
 -- | MOVE Daml.Script
@@ -210,8 +220,8 @@ data MalformedKeyCryptoError = MalformedKeyCryptoError with
 
 -- | MOVE Daml.Script
 instance IsCryptoErrorType MalformedKeyCryptoError where
-  toAnyCryptoErrorType MalformedKeyCryptoError {..} = make "MalformedKey" ["keyValue"] [Cast keyValue]
-  fromAnyCryptoErrorType (match "MalformedKey" ["keyValue"] -> Some [Cast keyValue]) = Some MalformedKeyCryptoError {..}
+  toAnyCryptoErrorType MalformedKeyCryptoError {..} = make "MalformedKey" ["keyValue"] [CastledgerValue keyValue]
+  fromAnyCryptoErrorType (match "MalformedKey" ["keyValue"] -> Some [CastledgerValue keyValue]) = Some MalformedKeyCryptoError {..}
   fromAnyCryptoErrorType _ = None
 
 -- | MOVE Daml.Script
@@ -220,8 +230,8 @@ data MalformedSignatureCryptoError = MalformedSignatureCryptoError with
 
 -- | MOVE Daml.Script
 instance IsCryptoErrorType MalformedSignatureCryptoError where
-  toAnyCryptoErrorType MalformedSignatureCryptoError {..} = make "MalformedSignature" ["signatureValue"] [Cast signatureValue]
-  fromAnyCryptoErrorType (match "MalformedSignature" ["signatureValue"] -> Some [Cast signatureValue]) = Some MalformedSignatureCryptoError {..}
+  toAnyCryptoErrorType MalformedSignatureCryptoError {..} = make "MalformedSignature" ["signatureValue"] [CastledgerValue signatureValue]
+  fromAnyCryptoErrorType (match "MalformedSignature" ["signatureValue"] -> Some [CastledgerValue signatureValue]) = Some MalformedSignatureCryptoError {..}
   fromAnyCryptoErrorType _ = None
 
 -- | HIDE
@@ -316,8 +326,8 @@ data ContractNotFoundSubmitError = ContractNotFoundSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError ContractNotFoundSubmitError where
-  toAnySubmitError ContractNotFoundSubmitError {..} = make "ContractNotFound" ["unknownContractIds", "additionalDebuggingInfo"] [Cast unknownContractIds, Cast additionalDebuggingInfo]
-  fromAnySubmitError (match "ContractNotFound" ["unknownContractIds", "additionalDebuggingInfo"] -> Some [Cast unknownContractIds, Cast additionalDebuggingInfo]) = Some ContractNotFoundSubmitError {..}
+  toAnySubmitError ContractNotFoundSubmitError {..} = make "ContractNotFound" ["unknownContractIds", "additionalDebuggingInfo"] [CastledgerValue unknownContractIds, CastledgerValue additionalDebuggingInfo]
+  fromAnySubmitError (match "ContractNotFound" ["unknownContractIds", "additionalDebuggingInfo"] -> Some [CastledgerValue unknownContractIds, CastledgerValue additionalDebuggingInfo]) = Some ContractNotFoundSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -327,8 +337,8 @@ data UnsupportedContractIdSubmitError = UnsupportedContractIdSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError UnsupportedContractIdSubmitError where
-  toAnySubmitError UnsupportedContractIdSubmitError {..} = make "UnsupportedContractId" ["unknownContractId"] [Cast unknownContractId]
-  fromAnySubmitError (match "UnsupportedContractId" ["unknownContractId"] -> Some [Cast unknownContractId]) = Some UnsupportedContractIdSubmitError {..}
+  toAnySubmitError UnsupportedContractIdSubmitError {..} = make "UnsupportedContractId" ["unknownContractId"] [CastledgerValue unknownContractId]
+  fromAnySubmitError (match "UnsupportedContractId" ["unknownContractId"] -> Some [CastledgerValue unknownContractId]) = Some UnsupportedContractIdSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -338,8 +348,8 @@ data ContractKeyNotFoundSubmitError = ContractKeyNotFoundSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError ContractKeyNotFoundSubmitError where
-  toAnySubmitError ContractKeyNotFoundSubmitError {..} = make "ContractKeyNotFound" ["contractKey"] [Cast contractKey]
-  fromAnySubmitError (match "ContractKeyNotFound" ["contractKey"] -> Some [Cast contractKey]) = Some ContractKeyNotFoundSubmitError {..}
+  toAnySubmitError ContractKeyNotFoundSubmitError {..} = make "ContractKeyNotFound" ["contractKey"] [CastledgerValue contractKey]
+  fromAnySubmitError (match "ContractKeyNotFound" ["contractKey"] -> Some [CastledgerValue contractKey]) = Some ContractKeyNotFoundSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -349,8 +359,8 @@ data UnresolvedPackageNameSubmitError = UnresolvedPackageNameSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError UnresolvedPackageNameSubmitError where
-  toAnySubmitError UnresolvedPackageNameSubmitError {..} = make "UnresolvedPackageName" ["packageName"] [Cast packageName]
-  fromAnySubmitError (match "UnresolvedPackageName" ["packageName"] -> Some [Cast packageName]) = Some UnresolvedPackageNameSubmitError {..}
+  toAnySubmitError UnresolvedPackageNameSubmitError {..} = make "UnresolvedPackageName" ["packageName"] [CastledgerValue packageName]
+  fromAnySubmitError (match "UnresolvedPackageName" ["packageName"] -> Some [CastledgerValue packageName]) = Some UnresolvedPackageNameSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -360,8 +370,8 @@ data AuthorizationErrorSubmitError = AuthorizationErrorSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError AuthorizationErrorSubmitError where
-  toAnySubmitError AuthorizationErrorSubmitError {..} = make "AuthorizationError" ["authorizationErrorMessage"] [Cast authorizationErrorMessage]
-  fromAnySubmitError (match "AuthorizationError" ["authorizationErrorMessage"] -> Some [Cast authorizationErrorMessage]) = Some AuthorizationErrorSubmitError {..}
+  toAnySubmitError AuthorizationErrorSubmitError {..} = make "AuthorizationError" ["authorizationErrorMessage"] [CastledgerValue authorizationErrorMessage]
+  fromAnySubmitError (match "AuthorizationError" ["authorizationErrorMessage"] -> Some [CastledgerValue authorizationErrorMessage]) = Some AuthorizationErrorSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -374,8 +384,8 @@ data ContractHashingErrorSubmitError = ContractHashingErrorSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError ContractHashingErrorSubmitError where
-  toAnySubmitError ContractHashingErrorSubmitError {..} = make "ContractHashingError" ["contractId", "dstTemplateId", "createArg", "errorMessage"] [Cast contractId, Cast dstTemplateId, Cast createArg, Cast errorMessage]
-  fromAnySubmitError (match "ContractHashingError" ["contractId", "dstTemplateId", "createArg", "errorMessage"] -> Some [Cast contractId, Cast dstTemplateId, Cast createArg, Cast errorMessage]) = Some ContractHashingErrorSubmitError {..}
+  toAnySubmitError ContractHashingErrorSubmitError {..} = make "ContractHashingError" ["contractId", "dstTemplateId", "createArg", "errorMessage"] [CastledgerValue contractId, CastledgerValue dstTemplateId, CastledgerValue createArg, CastledgerValue errorMessage]
+  fromAnySubmitError (match "ContractHashingError" ["contractId", "dstTemplateId", "createArg", "errorMessage"] -> Some [CastledgerValue contractId, CastledgerValue dstTemplateId, CastledgerValue createArg, CastledgerValue errorMessage]) = Some ContractHashingErrorSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -387,8 +397,8 @@ data DisclosedContractKeyHashingErrorSubmitError = DisclosedContractKeyHashingEr
 
 -- | MOVE Daml.Script
 instance IsSubmitError DisclosedContractKeyHashingErrorSubmitError where
-  toAnySubmitError DisclosedContractKeyHashingErrorSubmitError {..} = make "DisclosedContractKeyHashingError" ["contractId", "expectedKey", "givenKeyHash"] [Cast contractId, Cast expectedKey, Cast givenKeyHash]
-  fromAnySubmitError (match "DisclosedContractKeyHashingError" ["contractId", "expectedKey", "givenKeyHash"] -> Some [Cast contractId, Cast expectedKey, Cast givenKeyHash]) = Some DisclosedContractKeyHashingErrorSubmitError {..}
+  toAnySubmitError DisclosedContractKeyHashingErrorSubmitError {..} = make "DisclosedContractKeyHashingError" ["contractId", "expectedKey", "givenKeyHash"] [CastledgerValue contractId, CastledgerValue expectedKey, CastledgerValue givenKeyHash]
+  fromAnySubmitError (match "DisclosedContractKeyHashingError" ["contractId", "expectedKey", "givenKeyHash"] -> Some [CastledgerValue contractId, CastledgerValue expectedKey, CastledgerValue givenKeyHash]) = Some DisclosedContractKeyHashingErrorSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -399,8 +409,8 @@ data DuplicateContractKeySubmitError = DuplicateContractKeySubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError DuplicateContractKeySubmitError where
-  toAnySubmitError DuplicateContractKeySubmitError {..} = make "DuplicateContractKey" ["duplicateContractKey"] [Cast duplicateContractKey]
-  fromAnySubmitError (match "DuplicateContractKey" ["duplicateContractKey"] -> Some [Cast duplicateContractKey]) = Some DuplicateContractKeySubmitError {..}
+  toAnySubmitError DuplicateContractKeySubmitError {..} = make "DuplicateContractKey" ["duplicateContractKey"] [CastledgerValue duplicateContractKey]
+  fromAnySubmitError (match "DuplicateContractKey" ["duplicateContractKey"] -> Some [CastledgerValue duplicateContractKey]) = Some DuplicateContractKeySubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -410,8 +420,8 @@ data InconsistentContractKeySubmitError = InconsistentContractKeySubmitError wit
 
 -- | MOVE Daml.Script
 instance IsSubmitError InconsistentContractKeySubmitError where
-  toAnySubmitError InconsistentContractKeySubmitError {..} = make "InconsistentContractKey" ["contractKey"] [Cast contractKey]
-  fromAnySubmitError (match "InconsistentContractKey" ["contractKey"] -> Some [Cast contractKey]) = Some InconsistentContractKeySubmitError {..}
+  toAnySubmitError InconsistentContractKeySubmitError {..} = make "InconsistentContractKey" ["contractKey"] [CastledgerValue contractKey]
+  fromAnySubmitError (match "InconsistentContractKey" ["contractKey"] -> Some [CastledgerValue contractKey]) = Some InconsistentContractKeySubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -422,8 +432,8 @@ data UnhandledExceptionSubmitError = UnhandledExceptionSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError UnhandledExceptionSubmitError where
-  toAnySubmitError UnhandledExceptionSubmitError {..} = make "UnhandledException" ["exc"] [Cast exc]
-  fromAnySubmitError (match "UnhandledException" ["exc"] -> Some [Cast exc]) = Some UnhandledExceptionSubmitError {..}
+  toAnySubmitError UnhandledExceptionSubmitError {..} = make "UnhandledException" ["exc"] [CastledgerValue exc]
+  fromAnySubmitError (match "UnhandledException" ["exc"] -> Some [CastledgerValue exc]) = Some UnhandledExceptionSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -433,8 +443,8 @@ data UserErrorSubmitError = UserErrorSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError UserErrorSubmitError where
-  toAnySubmitError UserErrorSubmitError {..} = make "UserError" ["userErrorMessage"] [Cast userErrorMessage]
-  fromAnySubmitError (match "UserError" ["userErrorMessage"] -> Some [Cast userErrorMessage]) = Some UserErrorSubmitError {..}
+  toAnySubmitError UserErrorSubmitError {..} = make "UserError" ["userErrorMessage"] [CastledgerValue userErrorMessage]
+  fromAnySubmitError (match "UserError" ["userErrorMessage"] -> Some [CastledgerValue userErrorMessage]) = Some UserErrorSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -457,8 +467,8 @@ data CreateEmptyContractKeyMaintainersSubmitError = CreateEmptyContractKeyMainta
 
 -- | MOVE Daml.Script
 instance IsSubmitError CreateEmptyContractKeyMaintainersSubmitError where
-  toAnySubmitError CreateEmptyContractKeyMaintainersSubmitError {..} = make "CreateEmptyContractKeyMaintainers" ["invalidTemplate"] [Cast invalidTemplate]
-  fromAnySubmitError (match "CreateEmptyContractKeyMaintainers" ["invalidTemplate"] -> Some [Cast invalidTemplate]) = Some CreateEmptyContractKeyMaintainersSubmitError {..}
+  toAnySubmitError CreateEmptyContractKeyMaintainersSubmitError {..} = make "CreateEmptyContractKeyMaintainers" ["invalidTemplate"] [CastledgerValue invalidTemplate]
+  fromAnySubmitError (match "CreateEmptyContractKeyMaintainers" ["invalidTemplate"] -> Some [CastledgerValue invalidTemplate]) = Some CreateEmptyContractKeyMaintainersSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -468,8 +478,8 @@ data FetchEmptyContractKeyMaintainersSubmitError = FetchEmptyContractKeyMaintain
 
 -- | MOVE Daml.Script
 instance IsSubmitError FetchEmptyContractKeyMaintainersSubmitError where
-  toAnySubmitError FetchEmptyContractKeyMaintainersSubmitError {..} = make "FetchEmptyContractKeyMaintainers" ["failedTemplateKey"] [Cast failedTemplateKey]
-  fromAnySubmitError (match "FetchEmptyContractKeyMaintainers" ["failedTemplateKey"] -> Some [Cast failedTemplateKey]) = Some FetchEmptyContractKeyMaintainersSubmitError {..}
+  toAnySubmitError FetchEmptyContractKeyMaintainersSubmitError {..} = make "FetchEmptyContractKeyMaintainers" ["failedTemplateKey"] [CastledgerValue failedTemplateKey]
+  fromAnySubmitError (match "FetchEmptyContractKeyMaintainers" ["failedTemplateKey"] -> Some [CastledgerValue failedTemplateKey]) = Some FetchEmptyContractKeyMaintainersSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -481,8 +491,8 @@ data WronglyTypedContractSubmitError = WronglyTypedContractSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError WronglyTypedContractSubmitError where
-  toAnySubmitError WronglyTypedContractSubmitError {..} = make "WronglyTypedContract" ["contractId", "expectedTemplateId", "actualTemplateId"] [Cast contractId, Cast expectedTemplateId, Cast actualTemplateId]
-  fromAnySubmitError (match "WronglyTypedContract" ["contractId", "expectedTemplateId", "actualTemplateId"] -> Some [Cast contractId, Cast expectedTemplateId, Cast actualTemplateId]) = Some WronglyTypedContractSubmitError {..}
+  toAnySubmitError WronglyTypedContractSubmitError {..} = make "WronglyTypedContract" ["contractId", "expectedTemplateId", "actualTemplateId"] [CastledgerValue contractId, CastledgerValue expectedTemplateId, CastledgerValue actualTemplateId]
+  fromAnySubmitError (match "WronglyTypedContract" ["contractId", "expectedTemplateId", "actualTemplateId"] -> Some [CastledgerValue contractId, CastledgerValue expectedTemplateId, CastledgerValue actualTemplateId]) = Some WronglyTypedContractSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -494,8 +504,8 @@ data ContractDoesNotImplementInterfaceSubmitError = ContractDoesNotImplementInte
 
 -- | MOVE Daml.Script
 instance IsSubmitError ContractDoesNotImplementInterfaceSubmitError where
-  toAnySubmitError ContractDoesNotImplementInterfaceSubmitError {..} = make "ContractDoesNotImplementInterface" ["contractId", "templateId", "interfaceId"] [Cast contractId, Cast templateId, Cast interfaceId]
-  fromAnySubmitError (match "ContractDoesNotImplementInterface" ["contractId", "templateId", "interfaceId"] -> Some [Cast contractId, Cast templateId, Cast interfaceId]) = Some ContractDoesNotImplementInterfaceSubmitError {..}
+  toAnySubmitError ContractDoesNotImplementInterfaceSubmitError {..} = make "ContractDoesNotImplementInterface" ["contractId", "templateId", "interfaceId"] [CastledgerValue contractId, CastledgerValue templateId, CastledgerValue interfaceId]
+  fromAnySubmitError (match "ContractDoesNotImplementInterface" ["contractId", "templateId", "interfaceId"] -> Some [CastledgerValue contractId, CastledgerValue templateId, CastledgerValue interfaceId]) = Some ContractDoesNotImplementInterfaceSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -508,8 +518,8 @@ data ContractDoesNotImplementRequiringInterfaceSubmitError = ContractDoesNotImpl
 
 -- | MOVE Daml.Script
 instance IsSubmitError ContractDoesNotImplementRequiringInterfaceSubmitError where
-  toAnySubmitError ContractDoesNotImplementRequiringInterfaceSubmitError {..} = make "ContractDoesNotImplementRequiringInterface" ["contractId", "templateId", "requiredInterfaceId", "requiringInterfaceId"] [Cast contractId, Cast templateId, Cast requiredInterfaceId, Cast requiringInterfaceId]
-  fromAnySubmitError (match "ContractDoesNotImplementRequiringInterface" ["contractId", "templateId", "requiredInterfaceId", "requiringInterfaceId"] -> Some [Cast contractId, Cast templateId, Cast requiredInterfaceId, Cast requiringInterfaceId]) = Some ContractDoesNotImplementRequiringInterfaceSubmitError {..}
+  toAnySubmitError ContractDoesNotImplementRequiringInterfaceSubmitError {..} = make "ContractDoesNotImplementRequiringInterface" ["contractId", "templateId", "requiredInterfaceId", "requiringInterfaceId"] [CastledgerValue contractId, CastledgerValue templateId, CastledgerValue requiredInterfaceId, CastledgerValue requiringInterfaceId]
+  fromAnySubmitError (match "ContractDoesNotImplementRequiringInterface" ["contractId", "templateId", "requiredInterfaceId", "requiringInterfaceId"] -> Some [CastledgerValue contractId, CastledgerValue templateId, CastledgerValue requiredInterfaceId, CastledgerValue requiringInterfaceId]) = Some ContractDoesNotImplementRequiringInterfaceSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -545,8 +555,8 @@ data ContractIdComparabilitySubmitError = ContractIdComparabilitySubmitError wit
 
 -- | MOVE Daml.Script
 instance IsSubmitError ContractIdComparabilitySubmitError where
-  toAnySubmitError ContractIdComparabilitySubmitError {..} = make "ContractIdComparability" ["globalExistingContractId"] [Cast globalExistingContractId]
-  fromAnySubmitError (match "ContractIdComparability" ["globalExistingContractId"] -> Some [Cast globalExistingContractId]) = Some ContractIdComparabilitySubmitError {..}
+  toAnySubmitError ContractIdComparabilitySubmitError {..} = make "ContractIdComparability" ["globalExistingContractId"] [CastledgerValue globalExistingContractId]
+  fromAnySubmitError (match "ContractIdComparability" ["globalExistingContractId"] -> Some [CastledgerValue globalExistingContractId]) = Some ContractIdComparabilitySubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -557,8 +567,8 @@ data ValueNestingSubmitError = ValueNestingSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError ValueNestingSubmitError where
-  toAnySubmitError ValueNestingSubmitError {..} = make "ValueNesting" ["limit"] [Cast limit]
-  fromAnySubmitError (match "ValueNesting" ["limit"] -> Some [Cast limit]) = Some ValueNestingSubmitError {..}
+  toAnySubmitError ValueNestingSubmitError {..} = make "ValueNesting" ["limit"] [CastledgerValue limit]
+  fromAnySubmitError (match "ValueNesting" ["limit"] -> Some [CastledgerValue limit]) = Some ValueNestingSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -570,8 +580,8 @@ data LocalVerdictLockedContractsSubmitError = LocalVerdictLockedContractsSubmitE
 
 -- | MOVE Daml.Script
 instance IsSubmitError LocalVerdictLockedContractsSubmitError where
-  toAnySubmitError LocalVerdictLockedContractsSubmitError {..} = make "LocalVerdictLockedContracts" ["localVerdictLockedContracts"] [Cast localVerdictLockedContracts]
-  fromAnySubmitError (match "LocalVerdictLockedContracts" ["localVerdictLockedContracts"] -> Some [Cast localVerdictLockedContracts]) = Some LocalVerdictLockedContractsSubmitError {..}
+  toAnySubmitError LocalVerdictLockedContractsSubmitError {..} = make "LocalVerdictLockedContracts" ["localVerdictLockedContracts"] [CastledgerValue localVerdictLockedContracts]
+  fromAnySubmitError (match "LocalVerdictLockedContracts" ["localVerdictLockedContracts"] -> Some [CastledgerValue localVerdictLockedContracts]) = Some LocalVerdictLockedContractsSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -582,8 +592,8 @@ data LocalVerdictLockedKeysSubmitError = LocalVerdictLockedKeysSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError LocalVerdictLockedKeysSubmitError where
-  toAnySubmitError LocalVerdictLockedKeysSubmitError {..} = make "LocalVerdictLockedKeys" ["localVerdictLockedKeys"] [Cast localVerdictLockedKeys]
-  fromAnySubmitError (match "LocalVerdictLockedKeys" ["localVerdictLockedKeys"] -> Some [Cast localVerdictLockedKeys]) = Some LocalVerdictLockedKeysSubmitError {..}
+  toAnySubmitError LocalVerdictLockedKeysSubmitError {..} = make "LocalVerdictLockedKeys" ["localVerdictLockedKeys"] [CastledgerValue localVerdictLockedKeys]
+  fromAnySubmitError (match "LocalVerdictLockedKeys" ["localVerdictLockedKeys"] -> Some [CastledgerValue localVerdictLockedKeys]) = Some LocalVerdictLockedKeysSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -594,8 +604,8 @@ data UpgradeErrorSubmitError = UpgradeErrorSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError UpgradeErrorSubmitError where
-  toAnySubmitError UpgradeErrorSubmitError {..} = make "UpgradeError" ["errorType", "errorMessage"] [Cast errorType, Cast errorMessage]
-  fromAnySubmitError (match "UpgradeError" ["errorType", "errorMessage"] -> Some [Cast errorType, Cast errorMessage]) = Some UpgradeErrorSubmitError {..}
+  toAnySubmitError UpgradeErrorSubmitError {..} = make "UpgradeError" ["errorType", "errorMessage"] [CastledgerValue errorType, CastledgerValue errorMessage]
+  fromAnySubmitError (match "UpgradeError" ["errorType", "errorMessage"] -> Some [CastledgerValue errorType, CastledgerValue errorMessage]) = Some UpgradeErrorSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -605,8 +615,8 @@ data FailureStatusErrorSubmitError = FailureStatusErrorSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError FailureStatusErrorSubmitError where
-  toAnySubmitError FailureStatusErrorSubmitError {..} = make "FailureStatusError" ["failureStatus"] [Cast failureStatus]
-  fromAnySubmitError (match "FailureStatusError" ["failureStatus"] -> Some [Cast failureStatus]) = Some FailureStatusErrorSubmitError {..}
+  toAnySubmitError FailureStatusErrorSubmitError {..} = make "FailureStatusError" ["failureStatus"] [CastledgerValue failureStatus]
+  fromAnySubmitError (match "FailureStatusError" ["failureStatus"] -> Some [CastledgerValue failureStatus]) = Some FailureStatusErrorSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -617,8 +627,8 @@ data CryptoErrorSubmitError = CryptoErrorSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError CryptoErrorSubmitError where
-  toAnySubmitError CryptoErrorSubmitError {..} = make "CryptoError" ["cryptoErrorType", "cryptoErrorMessage"] [Cast cryptoErrorType, Cast cryptoErrorMessage]
-  fromAnySubmitError (match "CryptoError" ["cryptoErrorType", "cryptoErrorMessage"] -> Some [Cast cryptoErrorType, Cast cryptoErrorMessage]) = Some CryptoErrorSubmitError {..}
+  toAnySubmitError CryptoErrorSubmitError {..} = make "CryptoError" ["cryptoErrorType", "cryptoErrorMessage"] [CastledgerValue cryptoErrorType, CastledgerValue cryptoErrorMessage]
+  fromAnySubmitError (match "CryptoError" ["cryptoErrorType", "cryptoErrorMessage"] -> Some [CastledgerValue cryptoErrorType, CastledgerValue cryptoErrorMessage]) = Some CryptoErrorSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -631,8 +641,8 @@ data ExternalCallErrorSubmitError = ExternalCallErrorSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError ExternalCallErrorSubmitError where
-  toAnySubmitError ExternalCallErrorSubmitError {..} = make "ExternalCallError" ["externalCallErrorType", "extensionId", "functionId", "externalCallErrorMessage"] [Cast externalCallErrorType, Cast extensionId, Cast functionId, Cast externalCallErrorMessage]
-  fromAnySubmitError (match "ExternalCallError" ["externalCallErrorType", "extensionId", "functionId", "externalCallErrorMessage"] -> Some [Cast externalCallErrorType, Cast extensionId, Cast functionId, Cast externalCallErrorMessage]) = Some ExternalCallErrorSubmitError {..}
+  toAnySubmitError ExternalCallErrorSubmitError {..} = make "ExternalCallError" ["externalCallErrorType", "extensionId", "functionId", "externalCallErrorMessage"] [CastledgerValue externalCallErrorType, CastledgerValue extensionId, CastledgerValue functionId, CastledgerValue externalCallErrorMessage]
+  fromAnySubmitError (match "ExternalCallError" ["externalCallErrorType", "extensionId", "functionId", "externalCallErrorMessage"] -> Some [CastledgerValue externalCallErrorType, CastledgerValue extensionId, CastledgerValue functionId, CastledgerValue externalCallErrorMessage]) = Some ExternalCallErrorSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -642,8 +652,8 @@ data EffectfulRollbackErrorSubmitError = EffectfulRollbackErrorSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError EffectfulRollbackErrorSubmitError where
-  toAnySubmitError EffectfulRollbackErrorSubmitError {..} = make "EffectfulRollbackError" ["effectfulRollbackErrorMsg"] [Cast effectfulRollbackErrorMsg]
-  fromAnySubmitError (match "EffectfulRollbackError" ["effectfulRollbackErrorMsg"] -> Some [Cast effectfulRollbackErrorMsg]) = Some EffectfulRollbackErrorSubmitError {..}
+  toAnySubmitError EffectfulRollbackErrorSubmitError {..} = make "EffectfulRollbackError" ["effectfulRollbackErrorMsg"] [CastledgerValue effectfulRollbackErrorMsg]
+  fromAnySubmitError (match "EffectfulRollbackError" ["effectfulRollbackErrorMsg"] -> Some [CastledgerValue effectfulRollbackErrorMsg]) = Some EffectfulRollbackErrorSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -654,8 +664,8 @@ data DevErrorSubmitError = DevErrorSubmitError with -- We just give the error's 
 
 -- | MOVE Daml.Script
 instance IsSubmitError DevErrorSubmitError where
-  toAnySubmitError DevErrorSubmitError {..} = make "DevError" ["devErrorType", "devErrorMessage"] [Cast devErrorType, Cast devErrorMessage]
-  fromAnySubmitError (match "DevError" ["devErrorType", "devErrorMessage"] -> Some [Cast devErrorType, Cast devErrorMessage]) = Some DevErrorSubmitError {..}
+  toAnySubmitError DevErrorSubmitError {..} = make "DevError" ["devErrorType", "devErrorMessage"] [CastledgerValue devErrorType, CastledgerValue devErrorMessage]
+  fromAnySubmitError (match "DevError" ["devErrorType", "devErrorMessage"] -> Some [CastledgerValue devErrorType, CastledgerValue devErrorMessage]) = Some DevErrorSubmitError {..}
   fromAnySubmitError _ = None
 
 -- | MOVE Daml.Script
@@ -663,6 +673,8 @@ instance IsSubmitError DevErrorSubmitError where
 data UnknownErrorSubmitError = UnknownErrorSubmitError with
   unknownErrorMessage : Text
 
+-- Should include `fromAnySubmitError` for all submit errors except `UnknownErrorSubmitError`, which is explicitly
+-- not a known submit error. Cannot call fromAnySubmitError for UnknownErrorSubmitError as this creates a loop
 isKnownSubmitError : AnySubmitError -> Bool
 isKnownSubmitError (fromAnySubmitError @ContractNotFoundSubmitError -> Some _) = True
 isKnownSubmitError (fromAnySubmitError @UnsupportedContractIdSubmitError -> Some _) = True
@@ -693,14 +705,13 @@ isKnownSubmitError (fromAnySubmitError @CryptoErrorSubmitError -> Some _) = True
 isKnownSubmitError (fromAnySubmitError @ExternalCallErrorSubmitError -> Some _) = True
 isKnownSubmitError (fromAnySubmitError @EffectfulRollbackErrorSubmitError -> Some _) = True
 isKnownSubmitError (fromAnySubmitError @DevErrorSubmitError -> Some _) = True
-isKnownSubmitError (fromAnySubmitError @UnknownErrorSubmitError -> Some _) = True
 isKnownSubmitError (fromAnySubmitError @TruncatedErrorSubmitError -> Some _) = True
 isKnownSubmitError _ = False
 
 -- | MOVE Daml.Script
 instance IsSubmitError UnknownErrorSubmitError where
-  toAnySubmitError UnknownErrorSubmitError {..} = make "UnknownError" ["unknownErrorMessage"] [Cast unknownErrorMessage]
-  fromAnySubmitError (match "UnknownError" ["unknownErrorMessage"] -> Some [Cast unknownErrorMessage]) = Some UnknownErrorSubmitError {..}
+  toAnySubmitError UnknownErrorSubmitError {..} = make "UnknownError" ["unknownErrorMessage"] [CastledgerValue unknownErrorMessage]
+  fromAnySubmitError (match "UnknownError" ["unknownErrorMessage"] -> Some [CastledgerValue unknownErrorMessage]) = Some UnknownErrorSubmitError {..}
   fromAnySubmitError submitError@(AnySubmitError tg) | not $ isKnownSubmitError submitError =
     UnknownErrorSubmitError . fromLedgerValue <$> Map.lookup "originalMessage" (tgData tg)
   fromAnySubmitError _ = None
@@ -714,8 +725,8 @@ data TruncatedErrorSubmitError = TruncatedErrorSubmitError with
 
 -- | MOVE Daml.Script
 instance IsSubmitError TruncatedErrorSubmitError where
-  toAnySubmitError TruncatedErrorSubmitError {..} = make "TruncatedError" ["truncatedErrorType", "truncatedErrorMessage"] [Cast truncatedErrorType, Cast truncatedErrorMessage]
-  fromAnySubmitError (match "TruncatedError" ["truncatedErrorType", "truncatedErrorMessage"] -> Some [Cast truncatedErrorType, Cast truncatedErrorMessage]) = Some TruncatedErrorSubmitError {..}
+  toAnySubmitError TruncatedErrorSubmitError {..} = make "TruncatedError" ["truncatedErrorType", "truncatedErrorMessage"] [CastledgerValue truncatedErrorType, CastledgerValue truncatedErrorMessage]
+  fromAnySubmitError (match "TruncatedError" ["truncatedErrorType", "truncatedErrorMessage"] -> Some [CastledgerValue truncatedErrorType, CastledgerValue truncatedErrorMessage]) = Some TruncatedErrorSubmitError {..}
   fromAnySubmitError _ = None
 
 -- ContractNotFoundAdditionalInfo is not stable/extensible as its constructors are internal, and only used for Show

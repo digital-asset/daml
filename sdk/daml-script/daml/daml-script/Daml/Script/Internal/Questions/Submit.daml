@@ -64,10 +64,10 @@ makeSubmitOptions fields values = Stable.SubmitOptions $ Map.fromList $ zip fiel
 -- for use in matching in the rest of this module
 pattern SubmitOptions : [Party] -> [Party] -> [Disclosure] -> Optional [PackageId] -> [AnyContractKey] -> Stable.SubmitOptions
 pattern SubmitOptions {soActAs, soReadAs, soDisclosures, soPackagePreference, soPrefetchKeys} <-
-    (matchSubmitOptions ["actAs", "readAs", "disclosures", "packagePreference", "prefetchKeys"] -> Some [Cast soActAs, Cast soReadAs, Cast soDisclosures, Cast soPackagePreference, Cast soPrefetchKeys])
+    (matchSubmitOptions ["actAs", "readAs", "disclosures", "packagePreference", "prefetchKeys"] -> Some [CastledgerValue soActAs, CastledgerValue soReadAs, CastledgerValue soDisclosures, CastledgerValue soPackagePreference, CastledgerValue soPrefetchKeys])
   where
     SubmitOptions soActAs soReadAs soDisclosures soPackagePreference soPrefetchKeys =
-      makeSubmitOptions ["actAs", "readAs", "disclosures", "packagePreference", "prefetchKeys"] [Cast soActAs, Cast soReadAs, Cast soDisclosures, Cast soPackagePreference, Cast soPrefetchKeys]
+      makeSubmitOptions ["actAs", "readAs", "disclosures", "packagePreference", "prefetchKeys"] [CastledgerValue soActAs, CastledgerValue soReadAs, CastledgerValue soDisclosures, CastledgerValue soPackagePreference, CastledgerValue soPrefetchKeys]
 
 {-# COMPLETE SubmitOptions #-}
 
@@ -136,10 +136,19 @@ packagePreference packages = SubmitOptions [] [] [] (Some packages) []
 prefetchKeys : [AnyContractKey] -> Stable.SubmitOptions
 prefetchKeys keys = SubmitOptions [] [] [] None keys
 
+-- | HIDE
+-- See "IsSubmitOptions.dummy"
+data Dummy
+
 -- | MOVE Daml.Script
 -- Defines a type that can be transformed into a SubmitOptions
 class IsSubmitOptions options where
   toSubmitOptions : options -> Stable.SubmitOptions
+  -- We do not want instance rewritting to remove this class in favour of another
+  -- as this forces the old instance definitions onto a new daml-script
+  -- We avoid this happening by having the class depend on a non-stable type, defined in this module
+  dummy : options -> Dummy
+  dummy = error "IsSubmitOptions.dummy"
 
 -- | MOVE Daml.Script
 instance IsSubmitOptions Stable.SubmitOptions where

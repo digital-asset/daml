@@ -16,7 +16,7 @@ module Daml.Script.Internal.LowLevel
   , getExposedCallStack
   , anyToAnyException
   , anyExceptionToAny
-  , pattern Cast
+  , pattern CastledgerValue
   ) where
 
 import Daml.Script.Internal.LowLevel.Stable.Script
@@ -177,5 +177,5 @@ anyExceptionToAny = dangerousCast
 
 -- | HIDE
 -- Convenience pattern for casting LedgerValues in TaggedRecord construction and destruction
-pattern Cast : forall a. a -> LedgerValue
-pattern Cast v <- (fromLedgerValue -> v) where Cast v = toLedgerValue v
+pattern CastledgerValue : forall a. a -> LedgerValue
+pattern CastledgerValue v <- (fromLedgerValue -> v) where CastledgerValue v = toLedgerValue v
