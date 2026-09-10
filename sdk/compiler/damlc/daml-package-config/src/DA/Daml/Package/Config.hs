@@ -7,6 +7,10 @@
 module DA.Daml.Package.Config
     ( MultiPackageConfigFields (..)
     , PackageConfigFields (..)
+    , DependencySpec (..)
+    , isUnresolvedDpmDependency
+    , renderDependencySpec
+    , getSimplePathOrName
     , parsePackageConfig
     , withPackageConfig
     , findMultiPackageConfig
@@ -29,7 +33,8 @@ import qualified Data.Aeson as A
 import qualified Data.Aeson.Key as A
 import qualified Data.Aeson.KeyMap as A
 import qualified Data.Aeson.Encoding as A
-import Data.List.Extra (nubOrd)
+import qualified Data.ByteString.Lazy.UTF8 as BS
+import Data.List.Extra (isPrefixOf, isInfixOf, nubOrd)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
@@ -38,8 +43,44 @@ import qualified Data.Text as T
 import qualified Data.Yaml as Y
 import qualified Module as Ghc
 import System.Directory (canonicalizePath, doesFileExist, withCurrentDirectory)
-import System.FilePath (takeDirectory, (</>))
+import System.FilePath (dropDrive, takeDirectory, (</>))
 import Text.Regex.TDFA
+
+data DependencySpec
+  = SimplePathOrName String
+    -- ^ Any dependency that damlc doesn't need dpm to parse/understand
+    -- Note this includes by-name deps like daml-script, which currently damlc
+    -- resolves with the aid of DPM
+  | UnresolvedDpmDependency Y.Value
+    -- ^ Dependencies that damlc can't do anything with, i.e. remote dar paths
+    -- or yaml objects with some meaning to DPM
+  deriving (Show, Eq, Ord)
+
+-- Current valid DPM remote dar prefixes from https://github.com/digital-asset/dpm/blob/main/pkg/damlpackage/locations.go#L81
+-- Used only for helpful errors, falling behind isn't terrible
+isDpmRemotePath :: String -> Bool
+isDpmRemotePath path = any (`isPrefixOf` path) ["http://", "https://", "oci://", "@"] || ":" `isInfixOf` dropDrive path
+
+isUnresolvedDpmDependency :: DependencySpec -> Bool
+isUnresolvedDpmDependency (UnresolvedDpmDependency _) = True
+isUnresolvedDpmDependency _ = False
+
+getSimplePathOrName :: DependencySpec -> Maybe String
+getSimplePathOrName (SimplePathOrName s) = Just s
+getSimplePathOrName _ = Nothing
+
+instance A.FromJSON DependencySpec where
+  parseJSON v@(A.String (T.unpack -> t)) = 
+    pure $ if isDpmRemotePath t then UnresolvedDpmDependency v else SimplePathOrName t
+  parseJSON v = pure $ UnresolvedDpmDependency v
+
+instance A.ToJSON DependencySpec where
+  toJSON (SimplePathOrName t) = A.String (T.pack t)
+  toJSON (UnresolvedDpmDependency v) = v
+
+renderDependencySpec :: DependencySpec -> String
+renderDependencySpec (SimplePathOrName s) = show s
+renderDependencySpec (UnresolvedDpmDependency v) = BS.toString $ A.encode v
 
 -- | daml.yaml config fields specific to packaging.
 data PackageConfigFields = PackageConfigFields
@@ -49,8 +90,8 @@ data PackageConfigFields = PackageConfigFields
     , pVersion :: Maybe LF.PackageVersion
     -- ^ This is optional since for `damlc compile` and `damlc package`
     -- we might not have a version. In `damlc build` this is always set to `Just`.
-    , pDependencies :: [String]
-    , pDataDependencies :: [String]
+    , pDependencies :: [DependencySpec]
+    , pDataDependencies :: [DependencySpec]
     , pModulePrefixes :: Map Ghc.UnitId Ghc.ModuleName
     -- ^ Map from unit ids to a prefix for all modules in that package.
     -- If this is specified, all modules from the package will be remapped
