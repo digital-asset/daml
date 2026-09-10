@@ -197,7 +197,9 @@ addTransitiveDeps darInfos initialDeps = nubOrd <$> concatMapM addSingleTransiti
 
 unsafePackageVersionToComponentVersion :: LF.PackageVersion -> ComponentVersion
 unsafePackageVersionToComponentVersion (LF.PackageVersion t) =
-  either (\e -> error $ "Failed to parse " <> T.unpack t <> " into a component version: " <> show e) id $ parseComponentVersion t
+  either (\e -> error $ "Failed to parse " <> T.unpack t <> " into a component version: " <> show e) id
+    -- Take first 3 numbers from version to treat strings like "3.7.0.20260909.14806.0" as simply "3.7.0"
+    $ parseComponentVersion $ T.intercalate "." $ take 3 $ T.split (=='.') t
 
 -- Version whereby daml-script data-dep support was added
 damlScriptDataDepSupportedVersion :: ComponentVersion
