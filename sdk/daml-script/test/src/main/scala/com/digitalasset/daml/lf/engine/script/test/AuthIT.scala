@@ -49,7 +49,7 @@ class AuthIT extends AsyncWordSpec with AbstractScriptTest with Matchers {
           _ = info(s"client creation with valid token succeeds")
           _ <- run(
             clients,
-            Ref.QualifiedName.assertFromString("ScriptTestWithKeys:auth"),
+            Ref.QualifiedName.assertFromString("ScriptTest:auth"),
             inputValue = Some(
               tuple(
                 Value.ValueParty(Ref.Party.assertFromString(parties.head)),

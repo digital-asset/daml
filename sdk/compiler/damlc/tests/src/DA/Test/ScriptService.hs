@@ -54,21 +54,10 @@ main = withComponentVersions $ do
     defaultMain $
         testGroup
             "Script Service"
-            [ testGroup
-                "Without Contract keys"
-                [ withResourceCps
-                    (withScriptService LF.defaultLfVersion $ Just "V34")
+               [ withResourceCps
+                    (withScriptService LF.defaultLfVersion Nothing)
                     (testScriptService LF.defaultLfVersion)
                 ]
-            , testGroup
-                "With Contract Keys"
-                [ withResourceCps
-                    (withScriptService lfVersion Nothing)
-                    (testScriptServiceWithKeys lfVersion)
-                -- TODO (canton#31925) Change the feature min-bound to LF.defaultLfVersion once 2.3 becomes default
-                | Just lfVersion <- [LF.smallestStableInRange $ LF.featureVersionReq LF.featureContractKeys]
-                ]
-            ]
 
 withScriptService :: ComponentVersioned => LF.Version -> Maybe String -> (SS.Handle -> IO ()) -> IO ()
 withScriptService lfVersion idePv action = do
@@ -472,8 +461,6 @@ testScriptService lfVersion getScriptService =
                     getIdeState
                     [ "module Test where"
                     , "import DA.Exception"
-                    , "import DA.Assert"
-                    , "import DA.Foldable"
                     , "import Daml.Script"
                     , "template T"
                     , "  with"
@@ -485,53 +472,26 @@ testScriptService lfVersion getScriptService =
                     , "    p : Party"
                     , "  where"
                     , "    signatory p"
-                    , "    postconsuming choice C : ()"
-                    , "      with"
-                    , "        cid : ContractId T"
+                    , "    choice C : ()"
                     , "      controller p"
                     , "      do try do"
-                    , "           -- rolled back direct create"
-                    , "           create (T p)"
-                    , "           -- rolled back archive"
-                    , "           archive cid"
-                    , "           -- rolled back create under exercise"
-                    , "           exercise self CreateT"
-                    , "           try do"
-                    , "             create (T p)"
-                    , "             error \"\""
-                    , "           catch"
-                    , "             (GeneralError _) -> pure ()"
-                    , "           -- rolled back create after nested rollback"
+                    , "           -- creates are side-effectful and can no longer be rolled back"
                     , "           create (T p)"
                     , "           error \"\""
                     , "         catch"
                     , "           (GeneralError _) -> pure ()"
-                    , "    nonconsuming choice CreateT : ContractId T"
-                    , "      controller p"
-                    , "      do create (T p)"
                     , "    choice Fail : ()"
                     , "      controller p"
                     , "      do assert False"
-                    -- Check that we display activeness correctly.
-                    -- There are 3 main cases:
-                    -- 1. Direct children of a rollback node are rolled back.
-                    -- 2. Children of an exercise under a rollback node are rolled back.
-                    -- 3. After exiting a nested rollback node, we rollback further children
-                    --    if we’re still below a rollback node.
-                    , "testActive = do"
+                    , "testActive = script do"
                     , "  p <- allocateParty \"p\""
-                    , "  cid <- submit p $ createCmd (T p)"
-                    , "  submit p $ createAndExerciseCmd (Helper p) (C cid)"
-                    , "  r <- query @T p"
-                    , "  r === [(cid, T p)]"
-                    , "  pure ()"
+                    , "  submit p $ createAndExerciseCmd (Helper p) C"
                     , "unhandledOffLedger = script $ assert False"
                     , "unhandledOnLedger = script $ do"
                     , "  p <- allocateParty \"p\""
                     , "  submit p $ createAndExerciseCmd (Helper p) Fail"
                     ]
-                expectScriptSuccess rs "testActive" $ \r ->
-                  matchRegex r "Active contracts:  #0:0\n"
+                expectScriptFailure rs "testActive" $ \r -> matchRegex r "EffectfulRollbackError"
                 expectScriptFailure rs "unhandledOffLedger" $ \r -> matchRegex r "UNHANDLED_EXCEPTION"
                 expectScriptFailure rs "unhandledOnLedger" $ \r -> matchRegex r "UNHANDLED_EXCEPTION",
               testCase "user management" $ do
@@ -647,7 +607,9 @@ testScriptService lfVersion getScriptService =
                     matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'"
                 expectScriptFailure rs "observerNotAllocated" $ \r ->
                     matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'",
-              -- Regression test for issue https://github.com/digital-asset/daml/issues/13835
+              -- Regression test: archive is side-effectful and can no longer be rolled back
+              -- (previously a regression test for issue https://github.com/digital-asset/daml/issues/13835,
+              -- which relied on the opposite behavior).
               testCase "rollback archive" $ do
                 rs <- runScriptsInModule getIdeState
                   [ "module Test where"
@@ -678,136 +640,10 @@ testScriptService lfVersion getScriptService =
                   , "      owner = a"
                   , "  submit a do"
                   , "    exerciseCmd c Catch"
-                  , "  submit a do"
-                  , "    exerciseCmd c Catch"
                   ]
-                expectScriptSuccess rs "test" $ \r ->
-                   matchRegex r "Active contracts:  #0:0\n"
-            ]
-    , testGroup "multi packages"
-        [ testCase "upgrade to acquired interface" $ do
-            scriptDar <- locateDamlScriptDar lfVersion
-            rs <- runScriptsInAllPackages getScriptService lfVersion  (PackagePath "v2")
-              [ ( "interface"
-                , [ ( "daml.yaml"
-                    , [ "sdk-version: " <> T.pack componentVersionString
-                      , "name: interface"
-                      , "version: 1.0.0"
-                      , "source: ."
-                      , "dependencies:"
-                      , "- daml-prim"
-                      , "- daml-stdlib"
-                      ]
-                    ),
-                    ( "Interface.daml"
-                    , [ "module Interface where"
-                      , "data IView = IView { i : Int } deriving Eq"
-                      , "interface I where"
-                      , "  viewtype IView"
-                      ]
-                    )
-                  ]
-                )
-              , ( "v1"
-                , [ ( "daml.yaml"
-                    , [ "sdk-version: " <> T.pack componentVersionString
-                      , "name: main"
-                      , "version: 1.0.0"
-                      , "source: ."
-                      , "dependencies:"
-                      , "- daml-prim"
-                      , "- daml-stdlib"
-                      , "- ../interface/.daml/dist/interface-1.0.0.dar"
-                      , "data-dependencies:"
-                      , "- " <> T.pack (show scriptDar)
-                      ]
-                    ),
-                    ( "Main.daml"
-                    , [ "module Main where"
-                      , "import Interface"
-                      , "import Daml.Script"
-                      , "template T with"
-                      , "    p : Party"
-                      , "    i : Int"
-                      , "  where signatory p"
-                      , "test1 = script do"
-                      , "  p <- allocateParty \"party\""
-                      , "  t <- submit p $ createCmd (T p 0)"
-                      , "  xs <- queryInterface @I p"
-                      , "  assert $ null xs"
-                      , "test2 = script do"
-                      , "  p <- allocateParty \"party\""
-                      , "  t <- submit p $ createCmd (T p 0)"
-                      , "  let i = coerceContractId @T @I t"
-                      , "  optView <- queryInterfaceContractId @I @IView p i"
-                      , "  assert $ optView == None"
-                      ]
-                    )
-                  ]
-                )
-              , ( "v2"
-                , [ ( "daml.yaml"
-                    , [ "sdk-version: " <> T.pack componentVersionString
-                      , "name: main"
-                      , "version: 2.0.0"
-                      , "source: ."
-                      , "dependencies:"
-                      , "- daml-prim"
-                      , "- daml-stdlib"
-                      , "- ../interface/.daml/dist/interface-1.0.0.dar"
-                      , "data-dependencies:"
-                      , "- ../v1/.daml/dist/main-1.0.0.dar"
-                      , "- " <> T.pack (show scriptDar)
-                      , "module-prefixes:"
-                      , "  main-1.0.0: V1"
-                      ]
-                    )
-                  , ( "Main.daml"
-                    , [ "module Main where"
-                      , "import Interface"
-                      , "import qualified V1.Main as V1"
-                      , "import Daml.Script"
-                      , "template T with"
-                      , "    p : Party"
-                      , "    i : Int"
-                      , "  where"
-                      , "    signatory p"
-                      , "    interface instance I for T where"
-                      , "      view = IView i"
-                      , "test1 = script do"
-                      , "  p <- allocateParty \"party\""
-                      , "  t <- submit p $ createCmd (V1.T p 0)"
-                      , "  xs <- queryInterface @I p"
-                      , "  let i = coerceContractId @V1.T @I t"
-                      , "  assert $ xs == [(i, Some (IView 0))]"
-                      , "test2 = script do"
-                      , "  p <- allocateParty \"party\""
-                      , "  t <- submit p $ createCmd (V1.T p 0)"
-                      , "  let i = coerceContractId @V1.T @I t"
-                      , "  optView <- queryInterfaceContractId @I @IView p i"
-                      , "  assert $ optView == Some (IView 0)"
-                      ]
-                    )
-                  ]
-                )
-              ]
-            inLocalOrExternal rs "v2/Main.daml" $ \modRes -> do
-              expectScriptSuccess modRes "test1" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
-              expectScriptSuccess modRes "test2" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
-            
-            inLocalOrExternal rs "main-1.0.0" $ \pkgRes -> do
-              expectScriptSuccess pkgRes "test1" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
-              expectScriptSuccess pkgRes "test2" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
-            
-        ]
-    ]
-
-testScriptServiceWithKeys :: ComponentVersioned => LF.Version -> IO SS.Handle -> TestTree
-testScriptServiceWithKeys lfVersion getScriptService =
-  withResourceCps (withPackageDBAndIdeState lfVersion getScriptService) $ \getIdeState ->
-          testGroup
-            ("LF " <> LF.renderVersion lfVersion)
-            [ testCase "exerciseByKeyCmd" $ do
+                expectScriptFailure rs "test" $ \r ->
+                   matchRegex r "EffectfulRollbackError"
+              , testCase "exerciseByKeyCmd" $ do
                 rs <-
                   runScriptsInModule
                     getIdeState
@@ -1188,6 +1024,123 @@ testScriptServiceWithKeys lfVersion getScriptService =
                 expectScriptSuccess rs "localLookupFetchMulti" $ \r ->
                   matchRegex r "Active contracts:"
             ]
+    , testGroup "multi packages"
+        [ testCase "upgrade to acquired interface" $ do
+            scriptDar <- locateDamlScriptDar lfVersion
+            rs <- runScriptsInAllPackages getScriptService lfVersion  (PackagePath "v2")
+              [ ( "interface"
+                , [ ( "daml.yaml"
+                    , [ "sdk-version: " <> T.pack componentVersionString
+                      , "name: interface"
+                      , "version: 1.0.0"
+                      , "source: ."
+                      , "dependencies:"
+                      , "- daml-prim"
+                      , "- daml-stdlib"
+                      ]
+                    ),
+                    ( "Interface.daml"
+                    , [ "module Interface where"
+                      , "data IView = IView { i : Int } deriving Eq"
+                      , "interface I where"
+                      , "  viewtype IView"
+                      ]
+                    )
+                  ]
+                )
+              , ( "v1"
+                , [ ( "daml.yaml"
+                    , [ "sdk-version: " <> T.pack componentVersionString
+                      , "name: main"
+                      , "version: 1.0.0"
+                      , "source: ."
+                      , "dependencies:"
+                      , "- daml-prim"
+                      , "- daml-stdlib"
+                      , "- ../interface/.daml/dist/interface-1.0.0.dar"
+                      , "data-dependencies:"
+                      , "- " <> T.pack (show scriptDar)
+                      ]
+                    ),
+                    ( "Main.daml"
+                    , [ "module Main where"
+                      , "import Interface"
+                      , "import Daml.Script"
+                      , "template T with"
+                      , "    p : Party"
+                      , "    i : Int"
+                      , "  where signatory p"
+                      , "test1 = script do"
+                      , "  p <- allocateParty \"party\""
+                      , "  t <- submit p $ createCmd (T p 0)"
+                      , "  xs <- queryInterface @I p"
+                      , "  assert $ null xs"
+                      , "test2 = script do"
+                      , "  p <- allocateParty \"party\""
+                      , "  t <- submit p $ createCmd (T p 0)"
+                      , "  let i = coerceContractId @T @I t"
+                      , "  optView <- queryInterfaceContractId @I @IView p i"
+                      , "  assert $ optView == None"
+                      ]
+                    )
+                  ]
+                )
+              , ( "v2"
+                , [ ( "daml.yaml"
+                    , [ "sdk-version: " <> T.pack componentVersionString
+                      , "name: main"
+                      , "version: 2.0.0"
+                      , "source: ."
+                      , "dependencies:"
+                      , "- daml-prim"
+                      , "- daml-stdlib"
+                      , "- ../interface/.daml/dist/interface-1.0.0.dar"
+                      , "data-dependencies:"
+                      , "- ../v1/.daml/dist/main-1.0.0.dar"
+                      , "- " <> T.pack (show scriptDar)
+                      , "module-prefixes:"
+                      , "  main-1.0.0: V1"
+                      ]
+                    )
+                  , ( "Main.daml"
+                    , [ "module Main where"
+                      , "import Interface"
+                      , "import qualified V1.Main as V1"
+                      , "import Daml.Script"
+                      , "template T with"
+                      , "    p : Party"
+                      , "    i : Int"
+                      , "  where"
+                      , "    signatory p"
+                      , "    interface instance I for T where"
+                      , "      view = IView i"
+                      , "test1 = script do"
+                      , "  p <- allocateParty \"party\""
+                      , "  t <- submit p $ createCmd (V1.T p 0)"
+                      , "  xs <- queryInterface @I p"
+                      , "  let i = coerceContractId @V1.T @I t"
+                      , "  assert $ xs == [(i, Some (IView 0))]"
+                      , "test2 = script do"
+                      , "  p <- allocateParty \"party\""
+                      , "  t <- submit p $ createCmd (V1.T p 0)"
+                      , "  let i = coerceContractId @V1.T @I t"
+                      , "  optView <- queryInterfaceContractId @I @IView p i"
+                      , "  assert $ optView == Some (IView 0)"
+                      ]
+                    )
+                  ]
+                )
+              ]
+            inLocalOrExternal rs "v2/Main.daml" $ \modRes -> do
+              expectScriptSuccess modRes "test1" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
+              expectScriptSuccess modRes "test2" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
+
+            inLocalOrExternal rs "main-1.0.0" $ \pkgRes -> do
+              expectScriptSuccess pkgRes "test1" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
+              expectScriptSuccess pkgRes "test2" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
+
+        ]
+    ]
 
 matchRegex :: T.Text -> T.Text -> Bool
 matchRegex s regex = matchTest (makeRegex regex :: Regex) s
@@ -1196,7 +1149,7 @@ inLocalOrExternal :: HasCallStack =>
   -- | The list of script results in all local or external packages
   [(TR.LocalOrExternal, a)] ->
   -- | a local or external name
-  T.Text -> 
+  T.Text ->
   -- | assertions on the list of script results.
   (a -> Assertion) ->
   -- | Succeeds if the LocalOrExternal is found and the assertions are successful
@@ -1247,7 +1200,7 @@ expectScriptFailure xs scriptName pred = case find ((ScriptName scriptName ==) .
       assertFailure $ "Predicate for " <> show scriptName <> " failed on " <> show err
 
 runScriptsInModule :: IO IdeState -> [T.Text] -> IO [(ScriptName, Either T.Text T.Text)]
-runScriptsInModule getIdeState fileContent = do 
+runScriptsInModule getIdeState fileContent = do
   ideState <- getIdeState
   let file = toNormalizedFilePath' "Test.daml"
   setBufferModified ideState file $ Just $ T.unlines fileContent
@@ -1274,7 +1227,7 @@ runScriptsInAllPackages getScriptService lfVersion mainPackage packages = do
   withCurrentTempDir $ do
     for_ packages $ writeAndBuildPackage lfVersion damlc
     opts <- withPackageConfig mainPackage $ \ PackageConfigFields{..} -> do
-      pure $ (defaultOptions (Just lfVersion)) 
+      pure $ (defaultOptions (Just lfVersion))
         { optMbPackageName = Just pName
         , optMbPackageVersion = pVersion
         }

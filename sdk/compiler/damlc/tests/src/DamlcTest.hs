@@ -1322,8 +1322,6 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               , "source: ."
               , "dependencies: [daml-prim, daml-stdlib]"
               , "data-dependencies: [" <> show scriptDar <> "]"
-              , "script-service:"
-              , "  protocol-version: V34"
               ]
             let file = dir </> "Main.daml"
             T.writeFileUtf8 file $ T.unlines
@@ -1366,10 +1364,11 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , "--package-root"
                 , dir ]
                 ""
-            stderr @?= ""
-            exitCode @?= ExitSuccess
+            -- archive is side-effectful and can no longer be rolled back
+            assertInfixOf "Script execution failed" stderr
+            exitCode @?= ExitFailure 1
             let out = lines stdout
-            out!!3 @?= "./Main.daml:test: ok, 1 active contracts, 3 transactions."
+            assertInfixOf "./Main.daml:test: failed" (out!!3)
     ] <>
     [ testCase ("damlc test " <> unwords (args "") <> " in package") $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
