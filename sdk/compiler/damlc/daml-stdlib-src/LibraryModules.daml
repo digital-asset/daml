@@ -62,8 +62,4 @@ import DA.Traversable
 import DA.Tuple
 import DA.Validation
 
-#ifdef DAML_EXPERIMENTAL
-import DA.Experimental.Example
-#endif
-
 import Prelude
