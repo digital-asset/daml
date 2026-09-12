@@ -939,6 +939,35 @@ sh_test(
     ],
 )
 
+daml_compile_with_dalf(
+    name = "inspect-probe",
+    srcs = ["daml-test-files/InspectJson/InspectProbe.daml"],
+    version = "0.0.1",
+)
+
+sh_test(
+    name = "inspect-json",
+    srcs = ["src/inspect-json.sh"],
+    args = [
+        "$(rootpath //compiler/damlc)",
+        "$(rootpath @jq_dev_env//:jq)",
+        "$(rootpath :inspect-probe.dar)",
+        "$(rootpath :inspect-probe.dalf)",
+    ],
+    data = [
+        ":inspect-probe.dalf",
+        ":inspect-probe.dar",
+        "//compiler/damlc",
+        "@jq_dev_env//:jq",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
 sh_test(
     name = "inspect-dar",
     srcs = ["src/inspect-dar.sh"],

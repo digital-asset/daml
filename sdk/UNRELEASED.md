@@ -9,6 +9,11 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-09-22 (Exclusive)
+
+- Daml Compiler: Restore decoded LF2 package objects in `damlc inspect --json`
+  at `Sum.daml_lf_2` (issue #23190).
+
 ## Until 2026-09-15 (Exclusive)
 
 - Daml Codegen: `peer-dependencies` changed to camelCase `peerDependencies`, matching the expected reference in [NPM](https://docs.npmjs.com/cli/v9/configuring-npm/package-json?v=true#peerdependencies).
