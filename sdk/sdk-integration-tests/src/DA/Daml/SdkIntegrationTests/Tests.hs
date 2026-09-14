@@ -554,23 +554,13 @@ templateTests = testGroup "templates" $
   -- this should be good enough.
   where
     templateNames =
-      [ "daml-intro-choices"
-      , "daml-intro-compose"
-      , "daml-intro-constraints"
-      , "daml-intro-contracts"
-      , "daml-intro-daml-scripts"
-      , "daml-intro-data"
---            , "daml-intro-exceptions"    -- warn for deprecated exceptions
-      , "daml-intro-functional-101"
-      , "daml-intro-parties"
-      , "daml-patterns"
+      [ "daml-patterns"
       , "quickstart-java"
       , "script-example"
       , "skeleton-single-package"
       ]
     multipackageTemplateNames =
-      [ "daml-intro-test"
-      , "multi-package-example"
+      [ "multi-package-example"
       , "skeleton"
       ]
 

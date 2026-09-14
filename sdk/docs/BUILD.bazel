@@ -442,73 +442,6 @@ daml_test(
     srcs = glob(["source/sdk/sdlc-howtos/applications/integrate/bindings-java/daml/**/*.daml"]),
 )
 
-daml_test(
-    name = "daml-intro-daml-test-base",
-    srcs = glob(
-        ["source/sdk/tutorials/smart-contracts/daml/**/*.daml"],
-        exclude = [
-            "source/sdk/tutorials/smart-contracts/daml/daml-intro-exceptions/**",
-            "source/sdk/tutorials/smart-contracts/daml/daml-intro-functional-101/**",
-            "source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**",
-            "source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/**",
-            "source/sdk/tutorials/smart-contracts/daml/daml-intro-9/**",
-            "source/sdk/tutorials/smart-contracts/daml/daml-intro-11/**",
-        ],
-    ),
-    data_deps = ["//daml-script/daml:daml-script-2.1.dar"],
-    target = "2.1",
-)
-
-[
-    daml_test(
-        name = "daml-intro-exceptions-daml-test-{}".format(version),
-        srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-exceptions/**/*.daml"]),
-        additional_compiler_flags = ["-Wupgrade-exceptions"],
-        data_deps = ["//daml-script/daml:daml-script-{}.dar".format(version)],
-        target = version,
-    )
-    for version in [DEV_LF_VERSION]
-]
-
-daml_test(
-    name = "daml-intro-9-daml-test",
-    srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-9/**/*.daml"]),
-    data_deps = [
-        ":daml-intro-compose.dar",
-        "//daml-script/daml:daml-script.dar",
-    ],
-)
-
-daml_test(
-    name = "daml-intro-daml-functional-101-test",
-    srcs = glob(
-        ["source/sdk/tutorials/smart-contracts/daml/daml-intro-functional-101/**/*.daml"],
-    ),
-    additional_compiler_flags = ["--ghc-option=-Wwarn=incomplete-patterns"],
-    data_deps = ["//daml-script/daml:daml-script.dar"],
-)
-
-daml_build_test(
-    name = "daml-intro-compose",
-    daml_yaml = ":daml-intro-compose.yaml",
-    dar_dict = {
-        "//daml-script/daml:daml-script.dar": "daml-script.dar",
-    },
-    project_dir = "source/sdk/tutorials/smart-contracts/daml/daml-intro-compose",
-)
-
-daml_multi_package_test(
-    name = "daml-intro-test",
-    srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**/*"]),
-)
-
-daml_multi_package_test(
-    name = "daml-intro-interfaces",
-    srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/**/*"]),
-    enable_interfaces = True,
-    shorten = "source/sdk/tutorials/smart-contracts/daml/",
-)
-
 daml_build_test(
     name = "daml-upgrade-example-v1",
     dar_dict = {
@@ -554,19 +487,6 @@ daml_build_test(
         "//daml-script/daml:daml-script-2.dev.dar": "daml-script.dar",
     },
     project_dir = "source/sdk/sdlc-howtos/smart-contracts/upgrade/example/carbon-initiate-upgrade",
-)
-
-pkg_tar(
-    name = "daml-intro-templates",
-    srcs = glob(
-        ["source/sdk/tutorials/smart-contracts/daml/**"],
-        exclude = [
-            "source/sdk/tutorials/smart-contracts/daml/daml-intro-9/**",
-            "source/sdk/tutorials/smart-contracts/daml/daml-intro-11/**",
-        ],
-    ),
-    strip_prefix = "source/sdk/tutorials/smart-contracts/daml",
-    visibility = ["//visibility:public"],
 )
 
 pkg_tar(
