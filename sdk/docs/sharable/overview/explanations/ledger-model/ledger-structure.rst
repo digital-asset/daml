@@ -120,10 +120,14 @@ A **node** is one of the following:
 
    * The **contract observers**, or just observers for short, are the set of parties that will be informed about the contract creation and archival, in addition to the signatories.
 
-   In Daml, the signatories and contract observers are determined by the ``signatory`` and ``observer`` clauses defined by the template.
+   * The optional :ref:`contract key <da-ledger-contract-keys>` together with its **maintainers**.
+
+   In Daml, the signatories and contract observers are determined by the ``signatory`` and ``observer`` clauses defined by the template,
+   and the contract key and its maintainers by the ``key`` and ``maintainer`` clauses.
    
    Create nodes are depicted as shown below.
    Diagrams often omit fields with empty values and observers that are also signatories.
+   They also omit the contract key and its maintainers unless the example is about keys.
 
    .. https://lucid.app/lucidchart/31888b88-d836-457d-a4a8-05e3e161e07f/edit
    .. image:: ./images/create-node.svg
@@ -156,6 +160,9 @@ A **node** is one of the following:
 
    * The **exercise result** as the Daml value returned by evaluating the choice body.
 
+   * The **by-key** flag, which records whether the input contract was designated by its
+     :ref:`contract key <da-ledger-contract-keys>` rather than by its contract ID.
+
    Exercise nodes are depicted as shown below, where the consequences are indicated by arrows ordered left-to-right.
    Diagrams omit the kind if it is consuming, empty field values, and choice observers that are also actors.
 
@@ -168,7 +175,8 @@ A **node** is one of the following:
 #. A **Fetch** node on a contract, which demonstrates that the contract exists and is active at the time of fetching.
    A Fetch behaves like a non-consuming Exercise with no consequences, and can be repeated.
    The fetch node contains the following pieces of information, analogous to Exercise nodes:
-   **contract ID**, **interface ID**, **template ID**, and the **actors**, namely the parties who fetch the contract.
+   **contract ID**, **interface ID**, **template ID**, the **actors**, namely the parties who fetch the contract,
+   and the **by-key** flag.
 
    Fetch nodes are depicted as shown below.
 
@@ -177,6 +185,19 @@ A **node** is one of the following:
       :align: center
       :width: 30%
       :alt: The structure of a **Fetch** node.
+
+#. A **QueryByKey** node records the outcome of looking up the contracts associated with a
+   :ref:`contract key <da-ledger-contract-keys>`.
+   It contains the following pieces of information:
+
+   * The **key** that was looked up.
+
+   * The **template ID** of the contracts that were looked up.
+
+   * The **result**, an ordered list of contract IDs.
+
+   * The **exhaustive** flag, which records whether the result contains strictly fewer contract IDs 
+     than the number of contracts that were requested.
 
 
 An **action** consists of a **root node** and a list of **consequences**, which are themselves actions.
@@ -193,12 +214,44 @@ An action inherits its kind from its root node:
 
 #. A **Fetch action** as a Fetch node as the root.
    The consequences are empty.
+
+#. A **QueryByKey action** has a QueryByKey node as the root.
+   The consequences are empty.
    
 The terminology on nodes extends to actions via the root node.
 For example, the signatories of a Create action are the signatories of the Create node,
 and an Exercise action is (non)consuming if and only if its root node is.
-Moreover, an Exercise or a Fetch action on a contract is said to **use** the contract.
+Moreover, an Exercise or a Fetch action on a contract is said to **use** the contract,
+and a QueryByKey action is said to **use** every contract in its result.
 Finally, a consuming Exercise is said to **consume** (or **archive**) its contract.
+
+.. _da-ledger-contract-keys:
+
+Contract keys
+=============
+
+A contract may be associated with a **contract key**, a value that identifies the contract within
+the scope of its template. If the contract is associated with a key, it also has a non-empty set of
+**maintainers**, the parties that make sure that the :ref:`lookups on the key are consistent
+<da-model-key-consistency>`. The maintainers must be a subset of the signatories and depend only on
+the key. This dependence is captured by the function `maintainers` that takes a key and returns the
+key's maintainers. In Daml, the key and the maintainers are declared by the ``key`` and
+``maintainer`` clauses of a template.
+
+Keys provide a way to refer to a contract without knowing its contract ID, which is useful because
+contract IDs change whenever a contract is archived and recreated. A Daml program can designate the
+contract of an Exercise or a Fetch by its key instead of its contract ID. The resulting node is the
+same Exercise or Fetch node as if the contract had been retrieved by ID, except that its **by-key**
+flag is set. The key itself is not recorded on the node, because it is fully determined by the
+contract.
+
+A Daml program can also enumerate the contracts associated with a key, which yields a QueryByKey
+node.
+
+.. note::
+   Several contracts with the same key may be active at the same time.
+   The maintainers of a key are responsible for the :ref:`consistency of key lookups
+   <da-model-key-consistency>` within a transaction.
 
 Examples
 ========
