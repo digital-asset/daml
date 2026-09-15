@@ -14,10 +14,7 @@
 -- `AnySubmitError` does not have a constructor named `UnsupportedContractId`.
 -- This allows for backwards compatibility with code that was written against the old `SubmitError` type, 
 -- which did have a constructor named `UnsupportedContractId`, but was not cross-sdk compatible.
-module Daml.Script.Internal.Questions.Submit.Error.Compatibility
-  ( module Daml.Script.Internal.Questions.Submit.Error.Compatibility
-  , module Patterns
-  ) where
+module Daml.Script.Internal.Questions.Submit.Error.Compatibility where
 
 import qualified DA.Exception
 import DA.Fail
@@ -26,16 +23,6 @@ import DA.NonEmpty
 import DA.Text
 import Daml.Script.Internal.Questions.Commands (AnyContractKey)
 import Daml.Script.Internal.Questions.Submit.Error
--- Some pattern synonyms are split out to avoid field name collisions, which GHC does not allow from the same module
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.AuthenticationFailed as Patterns (pattern AuthenticationFailed)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.ContractDoesNotImplementInterface as Patterns (pattern ContractDoesNotImplementInterface)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.ContractDoesNotImplementRequiringInterface as Patterns (pattern ContractDoesNotImplementRequiringInterface)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.DisclosedContractKeyHashingError as Patterns (pattern DisclosedContractKeyHashingError)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.InconsistentContractKey as Patterns (pattern InconsistentContractKey)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.TranslationFailed as Patterns (pattern TranslationFailed)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.UpgradeError as Patterns (pattern UpgradeError)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.ValidationFailed as Patterns (pattern ValidationFailed)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility.WronglyTypedContract as Patterns (pattern WronglyTypedContract)
 import Daml.Script.Internal.Questions.Util (AnyContractId)
 
 -- | MOVE Daml.Script
@@ -72,7 +59,7 @@ pattern UnsupportedContractId {unknownContractId} <- (fromAnySubmitError -> Some
 -- Backwards compatibility pattern for the ContractKeyNotFound variant of the original SubmitError
 -- Prefer using AnySubmitError and `fromAnySubmitError` instead of this pattern synonym.
 pattern ContractKeyNotFound : AnyContractKey -> AnySubmitError
-pattern ContractKeyNotFound {contractKey} <- (fromAnySubmitError -> Some ContractKeyNotFoundSubmitError {..})
+pattern ContractKeyNotFound {cknfContractKey} <- (fromAnySubmitError -> Some ContractKeyNotFoundSubmitError {contractKey = cknfContractKey})
   where ContractKeyNotFound contractKey = toAnySubmitError ContractKeyNotFoundSubmitError {..}
 
 -- | MOVE Daml.Script
@@ -93,8 +80,15 @@ pattern AuthorizationError {authorizationErrorMessage} <- (fromAnySubmitError ->
 -- Backwards compatibility pattern for the ContractHashingError variant of the original SubmitError
 -- Prefer using AnySubmitError and `fromAnySubmitError` instead of this pattern synonym.
 pattern ContractHashingError : AnyContractId -> TemplateTypeRep -> AnyTemplate -> Text -> AnySubmitError
-pattern ContractHashingError {contractId, dstTemplateId, createArg, errorMessage} <- (fromAnySubmitError -> Some ContractHashingErrorSubmitError {..})
+pattern ContractHashingError {cheContractId, cheDstTemplateId, cheCreateArg, cheErrorMessage} <- (fromAnySubmitError -> Some ContractHashingErrorSubmitError {contractId = cheContractId, dstTemplateId = cheDstTemplateId, createArg = cheCreateArg, errorMessage = cheErrorMessage})
   where ContractHashingError contractId dstTemplateId createArg errorMessage = toAnySubmitError ContractHashingErrorSubmitError {..}
+
+-- | MOVE Daml.Script
+-- Backwards compatibility pattern for the DisclosedContractKeyHashingError variant of the original SubmitError
+-- Prefer using AnySubmitError and `fromAnySubmitError` instead of this pattern synonym.
+pattern DisclosedContractKeyHashingError : AnyContractId -> AnyContractKey -> Text -> AnySubmitError
+pattern DisclosedContractKeyHashingError {dckheContractId, expectedKey, givenKeyHash} <- (fromAnySubmitError -> Some DisclosedContractKeyHashingErrorSubmitError {contractId = dckheContractId, ..})
+  where DisclosedContractKeyHashingError contractId expectedKey givenKeyHash = toAnySubmitError DisclosedContractKeyHashingErrorSubmitError {..}
 
 -- | MOVE Daml.Script
 -- Backwards compatibility pattern for the DuplicateContractKey variant of the original SubmitError
@@ -102,6 +96,13 @@ pattern ContractHashingError {contractId, dstTemplateId, createArg, errorMessage
 pattern DuplicateContractKey : Optional AnyContractKey -> AnySubmitError
 pattern DuplicateContractKey {duplicateContractKey} <- (fromAnySubmitError -> Some DuplicateContractKeySubmitError {..})
   where DuplicateContractKey duplicateContractKey = toAnySubmitError DuplicateContractKeySubmitError {..}
+
+-- | MOVE Daml.Script
+-- Backwards compatibility pattern for the InconsistentContractKey variant of the original SubmitError
+-- Prefer using AnySubmitError and `fromAnySubmitError` instead of this pattern synonym.
+pattern InconsistentContractKey : AnyContractKey -> AnySubmitError
+pattern InconsistentContractKey {ickContractKey} <- (fromAnySubmitError -> Some InconsistentContractKeySubmitError {contractKey = ickContractKey})
+  where InconsistentContractKey contractKey = toAnySubmitError InconsistentContractKeySubmitError {..}
 
 -- | MOVE Daml.Script
 -- Backwards compatibility pattern for the UnhandledException variant of the original SubmitError
@@ -137,6 +138,27 @@ pattern CreateEmptyContractKeyMaintainers {invalidTemplate} <- (fromAnySubmitErr
 pattern FetchEmptyContractKeyMaintainers : AnyContractKey -> AnySubmitError
 pattern FetchEmptyContractKeyMaintainers {failedTemplateKey} <- (fromAnySubmitError -> Some FetchEmptyContractKeyMaintainersSubmitError {..})
   where FetchEmptyContractKeyMaintainers failedTemplateKey = toAnySubmitError FetchEmptyContractKeyMaintainersSubmitError {..}
+
+-- | MOVE Daml.Script
+-- Backwards compatibility pattern for the WronglyTypedContract variant of the original SubmitError
+-- Prefer using AnySubmitError and `fromAnySubmitError` instead of this pattern synonym.
+pattern WronglyTypedContract : AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> AnySubmitError
+pattern WronglyTypedContract {wtcContractId, expectedTemplateId, actualTemplateId} <- (fromAnySubmitError -> Some WronglyTypedContractSubmitError {contractId = wtcContractId, ..})
+  where WronglyTypedContract contractId expectedTemplateId actualTemplateId = toAnySubmitError WronglyTypedContractSubmitError {..}
+
+-- | MOVE Daml.Script
+-- Backwards compatibility pattern for the ContractDoesNotImplementInterface variant of the original SubmitError
+-- Prefer using AnySubmitError and `fromAnySubmitError` instead of this pattern synonym.
+pattern ContractDoesNotImplementInterface : AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> AnySubmitError
+pattern ContractDoesNotImplementInterface {cdniiContractId, cdniiTemplateId, interfaceId} <- (fromAnySubmitError -> Some ContractDoesNotImplementInterfaceSubmitError {contractId = cdniiContractId, templateId = cdniiTemplateId, ..})
+  where ContractDoesNotImplementInterface contractId templateId interfaceId = toAnySubmitError ContractDoesNotImplementInterfaceSubmitError {..}
+
+-- | MOVE Daml.Script
+-- Backwards compatibility pattern for the ContractDoesNotImplementRequiringInterface variant of the original SubmitError
+-- Prefer using AnySubmitError and `fromAnySubmitError` instead of this pattern synonym.
+pattern ContractDoesNotImplementRequiringInterface : AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> TemplateTypeRep -> AnySubmitError
+pattern ContractDoesNotImplementRequiringInterface {cdniriContractId, cdniriTemplateId, requiredInterfaceId, requiringInterfaceId} <- (fromAnySubmitError -> Some ContractDoesNotImplementRequiringInterfaceSubmitError {contractId = cdniriContractId, templateId = cdniriTemplateId, ..})
+  where ContractDoesNotImplementRequiringInterface contractId templateId requiredInterfaceId requiringInterfaceId = toAnySubmitError ContractDoesNotImplementRequiringInterfaceSubmitError {..}
 
 -- | MOVE Daml.Script
 -- Backwards compatibility pattern for the NonComparableValues variant of the original SubmitError
@@ -179,6 +201,13 @@ pattern LocalVerdictLockedContracts {localVerdictLockedContracts} <- (fromAnySub
 pattern LocalVerdictLockedKeys : [AnyContractKey] -> AnySubmitError
 pattern LocalVerdictLockedKeys {localVerdictLockedKeys} <- (fromAnySubmitError -> Some LocalVerdictLockedKeysSubmitError {..})
   where LocalVerdictLockedKeys localVerdictLockedKeys = toAnySubmitError LocalVerdictLockedKeysSubmitError {..}
+
+-- | MOVE Daml.Script
+-- Backwards compatibility pattern for the UpgradeError variant of the original SubmitError
+-- Prefer using AnySubmitError and `fromAnySubmitError` instead of this pattern synonym.
+pattern UpgradeError : AnyUpgradeErrorType -> Text -> AnySubmitError
+pattern UpgradeError {ueErrorType, ueErrorMessage} <- (fromAnySubmitError -> Some UpgradeErrorSubmitError {errorType = ueErrorType, errorMessage = ueErrorMessage})
+  where UpgradeError errorType errorMessage = toAnySubmitError UpgradeErrorSubmitError {..}
 
 -- | MOVE Daml.Script
 -- Backwards compatibility pattern for the FailureStatusError variant of the original SubmitError
@@ -228,6 +257,28 @@ pattern UnknownError {unknownErrorMessage} <- (fromAnySubmitError -> Some Unknow
 pattern TruncatedError : Text -> Text -> AnySubmitError
 pattern TruncatedError {truncatedErrorType, truncatedErrorMessage} <- (fromAnySubmitError -> Some TruncatedErrorSubmitError {..})
   where TruncatedError truncatedErrorType truncatedErrorMessage = toAnySubmitError TruncatedErrorSubmitError {..}
+
+
+-- | MOVE Daml.Script
+-- Backwards compatibility pattern for the ValidationFailed variant of the original UpgradeErrorType
+-- Prefer using AnyUpgradeErrorType and `fromAnyUpgradeErrorType` instead of this pattern synonym.
+pattern ValidationFailed : AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> Text -> Text -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> AnyUpgradeErrorType
+pattern ValidationFailed {vfCoid, vfSrcTemplateId, vfDstTemplateId, srcPackageName, dstPackageName, originalSignatories, originalNonSignatoryStakeholders, originalKeyOpt, recomputedSignatories, recomputedNonSignatoryStakeholders, recomputedKeyOpt} <- (fromAnyUpgradeErrorType -> Some ValidationFailedUpgradeError {coid = vfCoid, srcTemplateId = vfSrcTemplateId, dstTemplateId = vfDstTemplateId, ..})
+  where ValidationFailed coid srcTemplateId dstTemplateId srcPackageName dstPackageName originalSignatories originalNonSignatoryStakeholders originalKeyOpt recomputedSignatories recomputedNonSignatoryStakeholders recomputedKeyOpt = toAnyUpgradeErrorType ValidationFailedUpgradeError {..}
+
+-- | MOVE Daml.Script
+-- Backwards compatibility pattern for the TranslationFailed variant of the original UpgradeErrorType
+-- Prefer using AnyUpgradeErrorType and `fromAnyUpgradeErrorType` instead of this pattern synonym.
+pattern TranslationFailed : Optional AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> AnyTemplate -> AnyUpgradeErrorType
+pattern TranslationFailed {mCoid, tfSrcTemplateId, tfDstTemplateId, tfCreateArg} <- (fromAnyUpgradeErrorType -> Some TranslationFailedUpgradeError {srcTemplateId = tfSrcTemplateId, dstTemplateId = tfDstTemplateId, createArg = tfCreateArg, ..})
+  where TranslationFailed mCoid srcTemplateId dstTemplateId createArg = toAnyUpgradeErrorType TranslationFailedUpgradeError {..}
+
+-- | MOVE Daml.Script
+-- Backwards compatibility pattern for the AuthenticationFailed variant of the original UpgradeErrorType
+-- Prefer using AnyUpgradeErrorType and `fromAnyUpgradeErrorType` instead of this pattern synonym.
+pattern AuthenticationFailed : AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> AnyTemplate -> AnyUpgradeErrorType
+pattern AuthenticationFailed {afCoid, afSrcTemplateId, afDstTemplateId, afCreateArg} <- (fromAnyUpgradeErrorType -> Some AuthenticationFailedUpgradeError {coid = afCoid, srcTemplateId = afSrcTemplateId, dstTemplateId = afDstTemplateId, createArg = afCreateArg})
+  where AuthenticationFailed coid srcTemplateId dstTemplateId createArg = toAnyUpgradeErrorType AuthenticationFailedUpgradeError {..}
 
 
 -- | MOVE Daml.Script
@@ -385,3 +436,67 @@ instance Show AnyDevErrorType where
     ChoiceGuardFailed -> "ChoiceGuardFailed"
     UnknownNewFeature -> "UnknownNewFeature"
     _ -> "Unknown DevErrorType"
+
+-- The accessors below carry the field names that the pattern synonyms above shared before they were
+-- given per-synonym prefixes, so that existing uses of those names keep working.
+-- Note that the selectors are still missing, so record update and record field puns will not work, unfortunately
+
+-- | MOVE Daml.Script
+-- Backwards compatibility accessor for the `coid` field of the `ValidationFailed` and `AuthenticationFailed` patterns.
+coid : AnyUpgradeErrorType -> AnyContractId
+coid = \case
+  ValidationFailed {vfCoid} -> vfCoid
+  AuthenticationFailed {afCoid} -> afCoid
+  _ -> error "coid: expected a ValidationFailed or AuthenticationFailed upgrade error"
+
+-- | MOVE Daml.Script
+-- Backwards compatibility accessor for the `srcTemplateId` field of the `ValidationFailed`, `TranslationFailed` and `AuthenticationFailed` patterns.
+srcTemplateId : AnyUpgradeErrorType -> TemplateTypeRep
+srcTemplateId = \case
+  ValidationFailed {vfSrcTemplateId} -> vfSrcTemplateId
+  TranslationFailed {tfSrcTemplateId} -> tfSrcTemplateId
+  AuthenticationFailed {afSrcTemplateId} -> afSrcTemplateId
+  _ -> error "srcTemplateId: expected a ValidationFailed, TranslationFailed or AuthenticationFailed upgrade error"
+
+-- | MOVE Daml.Script
+-- Backwards compatibility accessor for the `dstTemplateId` field of the `ValidationFailed`, `TranslationFailed` and `AuthenticationFailed` patterns.
+dstTemplateId : AnyUpgradeErrorType -> TemplateTypeRep
+dstTemplateId = \case
+  ValidationFailed {vfDstTemplateId} -> vfDstTemplateId
+  TranslationFailed {tfDstTemplateId} -> tfDstTemplateId
+  AuthenticationFailed {afDstTemplateId} -> afDstTemplateId
+  _ -> error "dstTemplateId: expected a ValidationFailed, TranslationFailed or AuthenticationFailed upgrade error"
+
+-- | MOVE Daml.Script
+-- Backwards compatibility accessor for the `createArg` field of the `TranslationFailed` and `AuthenticationFailed` patterns.
+createArg : AnyUpgradeErrorType -> AnyTemplate
+createArg = \case
+  TranslationFailed {tfCreateArg} -> tfCreateArg
+  AuthenticationFailed {afCreateArg} -> afCreateArg
+  _ -> error "createArg: expected a TranslationFailed or AuthenticationFailed upgrade error"
+
+-- | MOVE Daml.Script
+-- Backwards compatibility accessor for the `contractId` field of the `DisclosedContractKeyHashingError`, `WronglyTypedContract`, `ContractDoesNotImplementInterface` and `ContractDoesNotImplementRequiringInterface` patterns.
+contractId : AnySubmitError -> AnyContractId
+contractId = \case
+  DisclosedContractKeyHashingError {dckheContractId} -> dckheContractId
+  WronglyTypedContract {wtcContractId} -> wtcContractId
+  ContractDoesNotImplementInterface {cdniiContractId} -> cdniiContractId
+  ContractDoesNotImplementRequiringInterface {cdniriContractId} -> cdniriContractId
+  _ -> error "contractId: expected a DisclosedContractKeyHashingError, WronglyTypedContract, ContractDoesNotImplementInterface or ContractDoesNotImplementRequiringInterface submit error"
+
+-- | MOVE Daml.Script
+-- Backwards compatibility accessor for the `templateId` field of the `ContractDoesNotImplementInterface` and `ContractDoesNotImplementRequiringInterface` patterns.
+templateId : AnySubmitError -> TemplateTypeRep
+templateId = \case
+  ContractDoesNotImplementInterface {cdniiTemplateId} -> cdniiTemplateId
+  ContractDoesNotImplementRequiringInterface {cdniriTemplateId} -> cdniriTemplateId
+  _ -> error "templateId: expected a ContractDoesNotImplementInterface or ContractDoesNotImplementRequiringInterface submit error"
+
+-- | MOVE Daml.Script
+-- Backwards compatibility accessor for the `contractKey` field of the `ContractKeyNotFound` and `InconsistentContractKey` patterns.
+contractKey : AnySubmitError -> AnyContractKey
+contractKey = \case
+  ContractKeyNotFound {cknfContractKey} -> cknfContractKey
+  InconsistentContractKey {ickContractKey} -> ickContractKey
+  _ -> error "contractKey: expected a ContractKeyNotFound or InconsistentContractKey submit error"

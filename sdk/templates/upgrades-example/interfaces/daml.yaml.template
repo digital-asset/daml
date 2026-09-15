@@ -9,5 +9,3 @@ dependencies:
   - daml-prim
   - daml-stdlib
   - daml-script
-build-options:
-- --target=1.17

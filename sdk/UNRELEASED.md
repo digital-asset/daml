@@ -12,6 +12,11 @@ Wednesday after your change.
 ## Until 2026-09-08 (Exclusive)
 
 - Daml-script now supports cross-sdk dependencies, via data-dependencies.
+  - Breaking source changes include:
+    - `SubmitError`, `UpgradeErrorType`, `CryptoErrorType`, `ExternalCallErrorType`, `DevErrorType` have been renamed to `Any<X>` respectively. They now use an `IsX` typeclass which provides `fromX` and `toX` functions for each error type. Pattern synonyms have been provided to mostly preserve the existing source syntax, but some fields had to be renamed to be unique. See `sdk/daml-script/daml/daml-script/Daml/Script/Internal/Questions/Submit/Error/Compatibility.daml`
+  - Cross-sdk support is only possible when all versions of daml-script are >= 3.6.0. A 3.6.X script cannot depend on a 3.5.X script.
+  - The runner must also be updated to a version that supports cross-sdk dependencies, it should always be atleast as up-to-date as the highest version of daml-script being used.
+
 - 2.4 is now stable
 - 2.5-staging introduced
 - `external_call` moved to 2.4
