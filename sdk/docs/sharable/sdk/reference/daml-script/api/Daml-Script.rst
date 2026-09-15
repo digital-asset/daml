@@ -2177,6 +2177,55 @@ Functions
   e\.g\. ``exercisedN @MyTemplate "MyChoice" 2``
   ``exercised c = exercisedN c 0``
 
+.. _function-daml-script-internal-questions-submit-error-compatibility-coid-37904:
+
+`coid <function-daml-script-internal-questions-submit-error-compatibility-coid-37904_>`_
+  \: `AnyUpgradeErrorType <type-daml-script-internal-questions-submit-error-stable-anyupgradeerrortype-anyupgradeerrortype-9932_>`_ \-\> `AnyContractId <type-daml-script-internal-questions-util-stable-anycontractid-anycontractid-68288_>`_
+
+  Backwards compatibility accessor for the ``coid`` field of the ``ValidationFailed`` and ``AuthenticationFailed`` patterns\.
+
+.. _function-daml-script-internal-questions-submit-error-compatibility-srctemplateid-45531:
+
+`srcTemplateId <function-daml-script-internal-questions-submit-error-compatibility-srctemplateid-45531_>`_
+  \: `AnyUpgradeErrorType <type-daml-script-internal-questions-submit-error-stable-anyupgradeerrortype-anyupgradeerrortype-9932_>`_ \-\> `TemplateTypeRep <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
+
+  Backwards compatibility accessor for the ``srcTemplateId`` field of the ``ValidationFailed``, ``TranslationFailed`` and ``AuthenticationFailed`` patterns\.
+
+.. _function-daml-script-internal-questions-submit-error-compatibility-dsttemplateid-77144:
+
+`dstTemplateId <function-daml-script-internal-questions-submit-error-compatibility-dsttemplateid-77144_>`_
+  \: `AnyUpgradeErrorType <type-daml-script-internal-questions-submit-error-stable-anyupgradeerrortype-anyupgradeerrortype-9932_>`_ \-\> `TemplateTypeRep <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
+
+  Backwards compatibility accessor for the ``dstTemplateId`` field of the ``ValidationFailed``, ``TranslationFailed`` and ``AuthenticationFailed`` patterns\.
+
+.. _function-daml-script-internal-questions-submit-error-compatibility-createarg-27716:
+
+`createArg <function-daml-script-internal-questions-submit-error-compatibility-createarg-27716_>`_
+  \: `AnyUpgradeErrorType <type-daml-script-internal-questions-submit-error-stable-anyupgradeerrortype-anyupgradeerrortype-9932_>`_ \-\> `AnyTemplate <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anytemplate-63703>`_
+
+  Backwards compatibility accessor for the ``createArg`` field of the ``TranslationFailed`` and ``AuthenticationFailed`` patterns\.
+
+.. _function-daml-script-internal-questions-submit-error-compatibility-contractid-76354:
+
+`contractId <function-daml-script-internal-questions-submit-error-compatibility-contractid-76354_>`_
+  \: `AnySubmitError <type-daml-script-internal-questions-submit-error-stable-anysubmiterror-anysubmiterror-96036_>`_ \-\> `AnyContractId <type-daml-script-internal-questions-util-stable-anycontractid-anycontractid-68288_>`_
+
+  Backwards compatibility accessor for the ``contractId`` field of the ``DisclosedContractKeyHashingError``, ``WronglyTypedContract``, ``ContractDoesNotImplementInterface`` and ``ContractDoesNotImplementRequiringInterface`` patterns\.
+
+.. _function-daml-script-internal-questions-submit-error-compatibility-templateid-2630:
+
+`templateId <function-daml-script-internal-questions-submit-error-compatibility-templateid-2630_>`_
+  \: `AnySubmitError <type-daml-script-internal-questions-submit-error-stable-anysubmiterror-anysubmiterror-96036_>`_ \-\> `TemplateTypeRep <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
+
+  Backwards compatibility accessor for the ``templateId`` field of the ``ContractDoesNotImplementInterface`` and ``ContractDoesNotImplementRequiringInterface`` patterns\.
+
+.. _function-daml-script-internal-questions-submit-error-compatibility-contractkey-77153:
+
+`contractKey <function-daml-script-internal-questions-submit-error-compatibility-contractkey-77153_>`_
+  \: `AnySubmitError <type-daml-script-internal-questions-submit-error-stable-anysubmiterror-anysubmiterror-96036_>`_ \-\> `AnyContractKey <type-daml-script-internal-questions-commands-stable-anycontractkey-anycontractkey-21404_>`_
+
+  Backwards compatibility accessor for the ``contractKey`` field of the ``ContractKeyNotFound`` and ``InconsistentContractKey`` patterns\.
+
 .. _function-daml-script-internal-questions-util-fromanycontractid-11435:
 
 `fromAnyContractId <function-daml-script-internal-questions-util-fromanycontractid-11435_>`_
