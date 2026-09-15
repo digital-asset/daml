@@ -91,7 +91,7 @@ private final class JsCodeGen(
         |  "dependencies": {
         |    ${deps.mkString(",\n    ")}
         |  },
-        |  "peer-dependencies": {
+        |  "peerDependencies": {
         |    "@daml/types": "$damlVersion"
         |  }
         |}
@@ -281,7 +281,7 @@ private final class JsCodeGen(
        |    "skipLibCheck": true,
        |    "sourceMap": true,
        |    "strict": true,
-       |    "target": "es5"
+       |    "target": "ES2015"
        |  },
        |  "include": [
        |    "src/**/*.ts"
