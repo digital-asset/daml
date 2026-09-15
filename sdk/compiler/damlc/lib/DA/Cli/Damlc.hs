@@ -1445,7 +1445,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       -- An approach of copying out the deps into a temporary location to build/run the tests has been considered
       -- but the effort to build this, combined with the low number of users of this feature, as well as most packages
       -- already using daml-script has led us to leave this as is. We'll fix this if someone is affected and notifies us.
-      setupPackageDb "." opts versionInfo [scriptDar] [] mempty
+      setupPackageDb "." opts versionInfo [] [scriptDar] mempty
 
       opts <- pure opts
         { optPackageDbs = packageDatabasePath : optPackageDbs opts

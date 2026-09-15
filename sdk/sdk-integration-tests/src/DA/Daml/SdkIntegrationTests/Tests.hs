@@ -572,6 +572,7 @@ templateTests = testGroup "templates" $
       [ "daml-intro-test"
       , "multi-package-example"
       , "skeleton"
+      , "upgrades-example"
       ]
 
 -- | Check we can generate language bindings.

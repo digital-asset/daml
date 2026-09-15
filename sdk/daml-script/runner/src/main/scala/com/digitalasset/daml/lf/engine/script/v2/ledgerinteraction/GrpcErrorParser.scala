@@ -120,6 +120,7 @@ object GrpcErrorParser {
             SubmitError.ContractNotFound(
               NonEmptyList.of(ContractId.assertFromString(cid)),
               None,
+              message,
             )
           case Seq((ErrorResource.ContractIds, cids)) =>
             SubmitError.ContractNotFound(
@@ -131,15 +132,16 @@ object GrpcErrorParser {
                   )
                 ),
               None,
+              message,
             )
         }
       case "UNSUPPORTED_CONTRACT_ID" =>
         caseErr { case Seq((ErrorResource.ContractId, cid)) =>
-          SubmitError.UnsupportedContractId(ContractId.assertFromString(cid))
+          SubmitError.UnsupportedContractId(ContractId.assertFromString(cid), message)
         }
       case "UNRESOLVED_PACKAGE_NAME" =>
         caseErr { case Seq((ErrorResource.PackageName, pkgName)) =>
-          SubmitError.UnresolvedPackageName(PackageName.assertFromString(pkgName))
+          SubmitError.UnresolvedPackageName(PackageName.assertFromString(pkgName), message)
         }
       case "CONTRACT_KEY_NOT_FOUND" =>
         caseErr {
@@ -157,7 +159,8 @@ object GrpcErrorParser {
                 key,
                 // This GlobalKeyWithMaintainers is only used for rendering errors, and that rendering ignores the hash.
                 crypto.Hash.hashPrivateKey("unused-dummy-key-hash"),
-              )
+              ),
+              message,
             )
         }
       case "DAML_AUTHORIZATION_ERROR" => SubmitError.AuthorizationError(message)
@@ -168,6 +171,7 @@ object GrpcErrorParser {
           SubmitError.ContractNotFound(
             NonEmptyList.of(ContractId.assertFromString(cid)),
             None,
+            message,
           )
         }
       case "CONTRACT_HASHING_ERROR" =>
@@ -205,6 +209,7 @@ object GrpcErrorParser {
                 crypto.Hash.hashPrivateKey("unused-dummy-key-hash"),
               ),
               keyHash,
+              message,
             )
         }
       case "DUPLICATE_CONTRACT_KEY" =>
@@ -225,24 +230,25 @@ object GrpcErrorParser {
                   // This GlobalKeyWithMaintainers is only used for rendering errors, and that rendering ignores the hash.
                   crypto.Hash.hashPrivateKey("unused-dummy-key-hash"),
                 )
-              )
+              ),
+              message,
             )
           // TODO[SW] Canton can omit the key, unsure why.
-          case Seq() => SubmitError.DuplicateContractKey(None)
+          case Seq() => SubmitError.DuplicateContractKey(None, message)
         }
       case "LOCAL_VERDICT_LOCKED_KEYS" =>
         caseErr {
           // TODO[MA] Canton does not currently provide the template ids so we
           // can't convert to GlobalKeys.
           // https://github.com/DACH-NY/canton/issues/15071
-          case _ => SubmitError.LocalVerdictLockedKeys(Seq())
+          case _ => SubmitError.LocalVerdictLockedKeys(Seq(), message)
         }
       case "LOCAL_VERDICT_LOCKED_CONTRACTS" =>
         caseErr {
           // TODO[MA] Canton does not currently provide the template ids so we
           // can't construct the argument to LocalVerdictLockedContracts.
           // https://github.com/DACH-NY/canton/issues/15071
-          case _ => SubmitError.LocalVerdictLockedContracts(Seq())
+          case _ => SubmitError.LocalVerdictLockedContracts(Seq(), message)
         }
       case "INCONSISTENT_CONTRACT_KEY" =>
         caseErr {
@@ -261,7 +267,8 @@ object GrpcErrorParser {
                 key,
                 // This GlobalKeyWithMaintainers is only used for rendering errors, and that rendering ignores the hash.
                 crypto.Hash.hashPrivateKey("unused-dummy-key-hash"),
-              )
+              ),
+              message,
             )
         }
       case "UNHANDLED_EXCEPTION" =>
@@ -270,21 +277,28 @@ object GrpcErrorParser {
                 (ErrorResource.ExceptionType, ty),
                 (ErrorResource.ExceptionValue, decodeValue.unlift(value)),
               ) =>
-            SubmitError.UnhandledException(Some((Identifier.assertFromString(ty), value)))
-          case Seq() => SubmitError.UnhandledException(None)
+            SubmitError.UnhandledException(
+              Some((Identifier.assertFromString(ty), value)),
+              message,
+            )
+          case Seq() => SubmitError.UnhandledException(None, message)
         }
       case "INTERPRETATION_USER_ERROR" =>
         caseErr { case Seq((ErrorResource.ExceptionText, excMessage)) =>
-          SubmitError.UserError(excMessage)
+          SubmitError.UserError(excMessage, message)
         }
-      case "TEMPLATE_PRECONDITION_VIOLATED" => SubmitError.TemplatePreconditionViolated()
+      case "TEMPLATE_PRECONDITION_VIOLATED" => SubmitError.TemplatePreconditionViolated(message)
       case "CREATE_EMPTY_CONTRACT_KEY_MAINTAINERS" =>
         caseErr {
           case Seq(
                 (ErrorResource.TemplateId, tid),
                 (ErrorResource.ContractArg, decodeValue.unlift(arg)),
               ) =>
-            SubmitError.CreateEmptyContractKeyMaintainers(Identifier.assertFromString(tid), arg)
+            SubmitError.CreateEmptyContractKeyMaintainers(
+              Identifier.assertFromString(tid),
+              arg,
+              message,
+            )
         }
       case "FETCH_EMPTY_CONTRACT_KEY_MAINTAINERS" =>
         caseErr {
@@ -302,7 +316,8 @@ object GrpcErrorParser {
                 key,
                 // This GlobalKeyWithMaintainers is only used for rendering errors, and that rendering ignores the hash.
                 crypto.Hash.hashPrivateKey("unused-dummy-key-hash"),
-              )
+              ),
+              message,
             )
         }
       case "WRONGLY_TYPED_CONTRACT" =>
@@ -316,6 +331,7 @@ object GrpcErrorParser {
               ContractId.assertFromString(cid),
               Identifier.assertFromString(expectedTid),
               Identifier.assertFromString(actualTid),
+              message,
             )
         }
       case "CONTRACT_DOES_NOT_IMPLEMENT_INTERFACE" =>
@@ -329,6 +345,7 @@ object GrpcErrorParser {
               ContractId.assertFromString(cid),
               Identifier.assertFromString(tid),
               Identifier.assertFromString(iid),
+              message,
             )
         }
       case "CONTRACT_DOES_NOT_IMPLEMENT_REQUIRING_INTERFACE" =>
@@ -344,13 +361,14 @@ object GrpcErrorParser {
               Identifier.assertFromString(tid),
               Identifier.assertFromString(requiredIid),
               Identifier.assertFromString(requiringIid),
+              message,
             )
         }
-      case "NON_COMPARABLE_VALUES" => SubmitError.NonComparableValues()
-      case "CONTRACT_ID_IN_CONTRACT_KEY" => SubmitError.ContractIdInContractKey()
+      case "NON_COMPARABLE_VALUES" => SubmitError.NonComparableValues(message)
+      case "CONTRACT_ID_IN_CONTRACT_KEY" => SubmitError.ContractIdInContractKey(message)
       case "CONTRACT_ID_COMPARABILITY" =>
         caseErr { case Seq((ErrorResource.ContractId, cid)) =>
-          SubmitError.ContractIdComparability(cid)
+          SubmitError.ContractIdComparability(cid, message)
         }
       case "INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED" =>
         val NullableContractKey = ErrorResource.ContractKey.nullable
@@ -463,6 +481,7 @@ object GrpcErrorParser {
           } yield SubmitError.FailureStatusError(
             IE.FailureStatus(errorId, category, messageWithoutPrefix, metadata),
             trace,
+            message,
           )
         oStatus.getOrElse(new SubmitError.TruncatedError("FailureStatusError", message))
       }
@@ -503,6 +522,7 @@ object GrpcErrorParser {
               extensionId,
               functionId,
               excMessage,
+              message,
             )
         }
 
@@ -518,6 +538,7 @@ object GrpcErrorParser {
               extensionId,
               functionId,
               excMessage,
+              message,
             )
         }
 
@@ -533,6 +554,7 @@ object GrpcErrorParser {
               extensionId,
               functionId,
               excMessage,
+              message,
             )
         }
 

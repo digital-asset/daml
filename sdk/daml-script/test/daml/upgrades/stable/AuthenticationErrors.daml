@@ -425,7 +425,7 @@ setUpChoiceBodyTest = do
 
 assertIsAuthenticationError : Show a => Either SubmitError a -> Script ()
 assertIsAuthenticationError (Left (UpgradeError (AuthenticationFailed _ _ _ _) _)) = pure ()
-assertIsAuthenticationError res = assertFail $ "Expected TranslationError, got " <> show res
+assertIsAuthenticationError res = assertFail $ "Expected AuthenticationFailed, got " <> show res
 
 assertIsWronglyTypedContractError : Show a => Either SubmitError a -> Script ()
 assertIsWronglyTypedContractError (Left (WronglyTypedContract _ _ _)) = pure ()
