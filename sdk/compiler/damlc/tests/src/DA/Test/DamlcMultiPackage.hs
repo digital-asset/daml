@@ -497,7 +497,7 @@ tests =
               ]
             ]
             (pure . removeResolvedDepsFromResolution)
-            "Found unresolved DPM remote dar: oci://my-dependency:0.0.1"
+            "Found unresolved DPM remote dar: \"oci://my-dependency:0.0.1\""
         ]
     ]
 

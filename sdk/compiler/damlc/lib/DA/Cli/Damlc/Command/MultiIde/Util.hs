@@ -20,7 +20,7 @@ import Control.Monad.STM
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except
 import DA.Cli.Damlc.Command.MultiIde.Types
-import DA.Daml.Package.Config (isDamlYamlContentForPackage)
+import DA.Daml.Package.Config (getSimplePathOrName, isDamlYamlContentForPackage)
 import DA.Daml.Project.Config (readPackageConfig, queryPackageConfig, queryPackageConfigRequired)
 import DA.Daml.Project.Consts (packageConfigName)
 import DA.Daml.Project.Types (ConfigError (..))
@@ -28,7 +28,7 @@ import Data.Aeson (Value (Null))
 import Data.Bifunctor (first)
 import Data.Either (fromRight)
 import Data.List.Extra (lower, replace)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.Text.Extended as T
@@ -282,8 +282,8 @@ packageSummaryFromDamlYaml path = do
     package <- lift $ readPackageConfig $ toPackagePath path
     dataDeps <- except $ fromMaybe [] <$> queryPackageConfig ["data-dependencies"] package
     directDeps <- except $ fromMaybe [] <$> queryPackageConfig ["dependencies"] package
-    let directDarDeps = filter (\dep -> takeExtension dep == ".dar") directDeps
-    canonDeps <- lift $ withCurrentDirectory (unPackageHome path) $ traverse canonicalizePath $ dataDeps <> directDarDeps
+    let darDeps = filter (\dep -> takeExtension dep == ".dar") $ mapMaybe getSimplePathOrName (dataDeps <> directDeps)
+    canonDeps <- lift $ withCurrentDirectory (unPackageHome path) $ traverse canonicalizePath darDeps
     name <- except $ queryPackageConfigRequired ["name"] package
     version <- except $ queryPackageConfigRequired ["version"] package
     sdkVersion <- except $ queryPackageConfig ["sdk-version"] package
