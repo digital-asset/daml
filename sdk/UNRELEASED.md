@@ -9,6 +9,12 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-09-15 (Exclusive)
+
+- TypeScript codegen: `templateIdWithPackageId` / `interfaceIdWithPackageId` now use the bare
+  package-id reference (`<package-id>:Module:Entity`) instead of a `#`-prefixed value, matching
+  the identifiers returned by the ledger (e.g. interface-view `interfaceId`) and the Java codegen.
+
 ## Until 2026-09-08 (Exclusive)
 
 - Daml-script now supports cross-sdk dependencies, via data-dependencies.
@@ -120,4 +126,3 @@ Wednesday after your change.
     function () { return exports.EmptyInterfaceView; },
     {
   ```
-
