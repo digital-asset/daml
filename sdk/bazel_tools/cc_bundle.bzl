@@ -14,7 +14,11 @@ def _cc_bundle_impl(ctx):
     )
 
     static_libs = []
+    dep_link_flags = []
     for input in cc_info.linking_context.linker_inputs.to_list():
+        for flag in input.user_link_flags:
+            if flag not in dep_link_flags:
+                dep_link_flags.append(flag)
         for lib in input.libraries:
             static = lib.pic_static_library or lib.static_library
             if not static:
@@ -44,10 +48,12 @@ def _cc_bundle_impl(ctx):
         cc_toolchain = toolchain,
         linking_contexts = [link_input],
         output_type = "dynamic_library",
-        user_link_flags = ["-Wno-unused-command-line-argument"],
+        user_link_flags = ["-Wno-unused-command-line-argument"] + dep_link_flags,
     )
 
-    return [CcInfo(
+    return [DefaultInfo(
+        files = depset([link_out.library_to_link.dynamic_library]),
+    ), CcInfo(
         compilation_context = cc_info.compilation_context,
         linking_context = cc_common.create_linking_context(
             linker_inputs = depset([cc_common.create_linker_input(
@@ -61,6 +67,7 @@ def _cc_bundle_impl(ctx):
 # shared library. Bazel underlinks shared libraries (deps tracked internally,
 # not declared), which the GHCi linker cannot resolve; a dependency-free bundle
 # sidesteps it. See https://github.com/tweag/rules_haskell/issues/720.
+
 cc_bundle = rule(
     _cc_bundle_impl,
     attrs = {
