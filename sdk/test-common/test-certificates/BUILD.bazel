@@ -41,14 +41,23 @@ genrule(
     cmd = """
 set -eou pipefail
 
-ABSOLUTE_OUT=$$( cd "$$(dirname $(location openssl.cnf))" >/dev/null 2>&1 && pwd )
+case "$$(uname -s)" in
+  CYGWIN*|MINGW*|MSYS*)
+    export MSYS2_ARG_CONV_EXCL='/CN='
+    ABSOLUTE_OUT=$$( cd "$$(dirname $(location openssl.cnf))" >/dev/null 2>&1 && pwd -W )
+    export OPENSSL_CONF=$$ABSOLUTE_OUT/openssl.cnf
+    ;;
+  *)
+    ABSOLUTE_OUT=$$( cd "$$(dirname $(location openssl.cnf))" >/dev/null 2>&1 && pwd )
+    ;;
+esac
 NEWCERTS_DIR=$$ABSOLUTE_OUT/newcerts
 
 # Generate SSL config from the template
 cat $(location openssl-template.cnf) | sed -e "s;<ROOTDIR>;$$ABSOLUTE_OUT;g" > $(location openssl.cnf)
 
 # Setup directories
-mkdir -- $$NEWCERTS_DIR
+mkdir -p -- $$NEWCERTS_DIR
 touch -- $(location index.txt)
 echo 1000 > $(location serial)
 
@@ -146,7 +155,7 @@ NEWCERTS_ALTERNATIVE_DIR=$$ABSOLUTE_OUT/newcerts_alternative
 cat $(location openssl-alternative-template.cnf) | sed -e "s;<ROOTDIR>;$$ABSOLUTE_OUT;g" > $(location openssl-alternative.cnf)
 
 # Setup directories
-mkdir NEWCERTS_ALTERNATIVE_DIR
+mkdir -p -- $$NEWCERTS_ALTERNATIVE_DIR
 touch $(location index_alternative.txt)
 echo 1000 > $(location serial_alternative)
 
