@@ -2,6 +2,11 @@ load("@ghc_bindist//:libraries.bzl", "TOOLCHAIN_LIBRARIES")
 load("@rules_haskell//haskell:defs.bzl", "haskell_toolchain")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
+_SKIP_ON_WINDOWS = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
 exports_files([
     "pin/linux_amd64.lock.json",
     "pin/linux_aarch64.lock.json",
@@ -14,6 +19,7 @@ filegroup(
     name = "ghc_install_tree",
     srcs = ["//bazel/haskell/toolchain:ghc_install"],
     output_group = "install_tree",
+    target_compatible_with = _SKIP_ON_WINDOWS,
 )
 
 py_binary(
@@ -21,14 +27,15 @@ py_binary(
     srcs = ["pkgdb_to_lock.py"],
     args = [
         "$(rlocationpath :ghc_install_tree)",
-        "$(rlocationpath @ghc_bindist//:bindist_unpacked/configure)",
+        "$(rlocationpath @ghc_bindist//:bindist_configure)",
     ],
     data = [
         ":ghc_install_tree",
         "@ghc_bindist//:bindist_srcs",
-        "@ghc_bindist//:bindist_unpacked/configure",
+        "@ghc_bindist//:bindist_configure",
     ],
     main = "pkgdb_to_lock.py",
+    target_compatible_with = _SKIP_ON_WINDOWS,
     deps = ["@rules_python//python/runfiles"],
 )
 
@@ -39,6 +46,7 @@ haskell_toolchain(
     libdir = ["//bazel/haskell/toolchain:ghc_install"],
     libraries = TOOLCHAIN_LIBRARIES,
     static_runtime = False,
+    target_compatible_with = _SKIP_ON_WINDOWS,
     tools = ["//bazel/haskell/toolchain:ghc_install"],
     version = "9.0.2",
 )
@@ -145,12 +153,12 @@ py_test(
         "//conditions:default": ["$(rlocationpath pin/linux_amd64.lock.json)"],
     }) + [
         "$(rlocationpath :ghc_install_tree)",
-        "$(rlocationpath @ghc_bindist//:bindist_unpacked/configure)",
+        "$(rlocationpath @ghc_bindist//:bindist_configure)",
     ],
     data = [
         ":ghc_install_tree",
         "@ghc_bindist//:bindist_srcs",
-        "@ghc_bindist//:bindist_unpacked/configure",
+        "@ghc_bindist//:bindist_configure",
     ] + select({
         ":darwin_amd64": ["pin/darwin_amd64.lock.json"],
         ":darwin_arm64": ["pin/darwin_aarch64.lock.json"],
@@ -159,5 +167,6 @@ py_test(
         "//conditions:default": ["pin/linux_amd64.lock.json"],
     }),
     main = "pkgdb_to_lock.py",
+    target_compatible_with = _SKIP_ON_WINDOWS,
     deps = ["@rules_python//python/runfiles"],
 )
