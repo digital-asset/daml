@@ -346,7 +346,7 @@ java_binary(
 
 daml_test(
     name = "ledger-api-daml-test",
-    timeout = "short",
+    timeout = "moderate" if is_windows else "short",
     srcs = glob(["source/sdk/sdlc-howtos/applications/integrate/grpc/code-snippets/**/*.daml"]),
     additional_compiler_flags = [
         "-Wupgrade-interfaces",
@@ -378,7 +378,7 @@ daml_test(
 
 daml_test(
     name = "patterns-daml-test",
-    timeout = "short",
+    timeout = "moderate" if is_windows else "short",
     srcs = glob(["source/sdk/sdlc-howtos/smart-contracts/develop/patterns/daml/**/*.daml"]),
     deps = ["//daml-script/daml:daml-script.dar"],
 )
@@ -404,7 +404,7 @@ daml_test(
 
 daml_test(
     name = "daml-ref-daml-test",
-    timeout = "short",
+    timeout = "moderate" if is_windows else "short",
     srcs = glob(["source/sdk/reference/daml/code-snippets/**/*.daml"]),
     additional_compiler_flags = [
         "-Wupgrade-interfaces",
@@ -419,7 +419,7 @@ daml_test(
 [
     daml_test(
         name = "daml-ref-daml-test-{}".format(version),
-        timeout = "short",
+        timeout = "long" if is_windows else "short",
         srcs = glob(["source/sdk/reference/daml/code-snippets-dev/**/*.daml"]),
         additional_compiler_flags = [
             "-Wupgrade-interfaces",
@@ -437,7 +437,7 @@ daml_test(
 
 daml_test(
     name = "quickstart-daml-test",
-    timeout = "short",
+    timeout = "moderate" if is_windows else "short",
     srcs = glob(
         include = ["source/sdk/tutorials/quickstart/template-root/daml/**/*.daml"],
     ),
@@ -446,7 +446,7 @@ daml_test(
 
 daml_test(
     name = "ledger-model-daml-test",
-    timeout = "short",
+    timeout = "moderate" if is_windows else "short",
     srcs = glob(["source/overview/explanations/ledger-model/daml/**/*.daml"]),
     deps = ["//daml-script/daml:daml-script.dar"],
 )
@@ -462,7 +462,7 @@ daml_test(
 
 daml_test(
     name = "daml-intro-daml-test-base",
-    timeout = "short",
+    timeout = "moderate" if is_windows else "short",
     srcs = glob(
         ["source/sdk/tutorials/smart-contracts/daml/**/*.daml"],
         exclude = [
@@ -481,7 +481,7 @@ daml_test(
 [
     daml_test(
         name = "daml-intro-exceptions-daml-test-{}".format(version),
-        timeout = "short",
+        timeout = "moderate" if is_windows else "short",
         srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-exceptions/**/*.daml"]),
         additional_compiler_flags = ["-Wupgrade-exceptions"],
         target = version,
@@ -492,7 +492,7 @@ daml_test(
 
 daml_test(
     name = "daml-intro-9-daml-test",
-    timeout = "short",
+    timeout = "moderate" if is_windows else "short",
     srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-9/**/*.daml"]),
     data_deps = [":daml-intro-compose.dar"],
     deps = ["//daml-script/daml:daml-script.dar"],
