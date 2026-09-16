@@ -24,6 +24,7 @@ JQ=$(rlocation "$TEST_WORKSPACE/$3")
 DAR1=$(rlocation "$TEST_WORKSPACE/$4")
 DAR2=$(rlocation "$TEST_WORKSPACE/$5")
 NODE_PATH=$(rlocation "$TEST_WORKSPACE/$(dirname $6)")
+DAML_TYPES=$(rlocation "$TEST_WORKSPACE/$7")
 TMP_DIR=$(mktemp -d)
 mkdir -p "$TMP_DIR/.npm"
 export npm_config_cache="$TMP_DIR/.npm"
@@ -33,12 +34,18 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Make the local @daml/types package available so npm can resolve the
+# peerDependency emitted by codegen-js in the generated packages.
+mkdir -p "$TMP_DIR/daml-types"
+cp -rL "$DAML_TYPES"/* "$TMP_DIR/daml-types"
+
 cat <<EOF > "$TMP_DIR"/package.json
 {
   "name": "test",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@daml/types": "file:daml-types",
     "@daml.js/npmcheck": "file:daml.js/npmcheck1-1.0.0"
   }
 }
@@ -59,6 +66,7 @@ cat <<EOF > "$TMP_DIR"/package.json
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@daml/types": "file:daml-types",
     "@daml.js/npmcheck": "file:daml.js/npmcheck2-1.0.0"
   }
 }
