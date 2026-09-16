@@ -1,5 +1,6 @@
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
 load("//bazel/native:hermetic_cc.bzl", "JOBS_SNIPPET", "TOOLBIN_SNIPPET", "hermetic_cc_flags")
+load("@os_info//:os_info.bzl", "is_windows")
 
 InstalledGnuToolInfo = provider(
     doc = "Paths within a GNU tool install prefix.",
@@ -9,6 +10,27 @@ InstalledGnuToolInfo = provider(
         "datadir": "Relative path to share/ within prefix.",
     },
 )
+
+_EXECROOT_LINES = [
+    'EXECROOT="$PWD"',
+    'EXECROOT_NATIVE="$(pwd -W)"' if is_windows else 'EXECROOT_NATIVE="$PWD"',
+]
+
+_PERL5SHELL_LINE = 'export PERL5SHELL="sh -c"' if is_windows else ""
+
+_HOST_TRIPLE_FLAGS = [
+    "--build=x86_64-w64-mingw32",
+    "--host=x86_64-w64-mingw32",
+] if is_windows else []
+
+def executable_by_name(files, name):
+    for f in files:
+        if f.basename == name:
+            return f
+    for f in files:
+        if f.basename == name + ".exe":
+            return f
+    return None
 
 def _find_pre_build_configure(dep_src):
     dep_files = dep_src.files.to_list()
@@ -22,25 +44,29 @@ def _build_gnu_tool_impl(ctx):
     cc = hermetic_cc_flags(ctx, cc_toolchain)
 
     configure_src = ctx.file.configure
-    make_bin = ctx.file.make
-    configure_flags = " ".join(ctx.attr.configure_flags)
+    make_bin = executable_by_name(ctx.files.make, "make")
+    if not make_bin:
+        fail("no make executable in {}".format(ctx.attr.make.label))
+    configure_flags = " ".join(_HOST_TRIPLE_FLAGS + ctx.attr.configure_flags)
 
     # Optional perl binary (perl-based tools such as autoconf/automake).
     perl_bin = None
     if ctx.files.perl:
-        perl_bin = [f for f in ctx.files.perl if f.basename == "perl"][0]
+        perl_bin = executable_by_name(ctx.files.perl, "perl")
+        if not perl_bin:
+            fail("no perl executable in {}".format(ctx.attr.perl.label))
 
     # Extra tool binaries placed on PATH during the build (e.g. m4).
     extra_path_entries = ['"$EXECROOT/{}"'.format(f.dirname) for f in ctx.files.extra_tools]
     m4_env_line = ""
-    for f in ctx.files.extra_tools:
-        if f.basename == "m4":
-            m4_env_line = 'export M4="$EXECROOT/{}"'.format(f.path)
+    m4_bin = executable_by_name(ctx.files.extra_tools, "m4")
+    if m4_bin:
+        m4_env_line = 'export M4="$EXECROOT/{}"'.format(m4_bin.path)
 
     # --- Common environment preamble ---
     env_lines = [
         "set -euo pipefail",
-        'EXECROOT="$PWD"',
+    ] + _EXECROOT_LINES + [
         'CLANG="$EXECROOT/{}"'.format(cc.compiler),
         # lld ships next to clang (sandbox has no host ld); CFLAGS/CPPFLAGS/LDFLAGS
         # carry the sysroot so configure's compile/preprocess probes stay hermetic.
@@ -52,11 +78,18 @@ def _build_gnu_tool_impl(ctx):
         JOBS_SNIPPET,
         'MAKE="$EXECROOT/{}"'.format(make_bin.path),
         'SRC="$EXECROOT/$(dirname {})"'.format(configure_src.path),
+        _PERL5SHELL_LINE,
+        'TMP="$(mktemp -d)"',
+        'BUILD="$TMP/build"',
+        'cp -rpL "$SRC/." "$BUILD"',
+        'chmod -R u+w "$BUILD"',
     ]
     if perl_bin:
-        env_lines.append('PERL="$EXECROOT/{}"'.format(perl_bin.path))
+        env_lines.append(
+            'PERL="$(command -v perl)"' if is_windows else 'PERL="$EXECROOT/{}"'.format(perl_bin.path),
+        )
 
-    inputs = ctx.files.srcs + ctx.files.extra_tools + ctx.files.perl + [make_bin]
+    inputs = ctx.files.srcs + ctx.files.extra_tools + ctx.files.perl + ctx.files.make
 
     if ctx.attr.built_path:
         # --- Build mode: compile a single binary, no install/prefix. ---
@@ -67,13 +100,18 @@ def _build_gnu_tool_impl(ctx):
         body = [
             'export PATH={}:"$PATH"'.format(":".join(path_entries)),
             m4_env_line,
-            'cd "$SRC"',
+            'cd "$BUILD"',
             "./configure {}".format(configure_flags),
-            '"$MAKE" -j',
-            'cp "{built}" "$EXECROOT/{out}"'.format(
+            '"$MAKE" -j {}'.format(" ".join([
+                '"{}"'.format(a)
+                for a in ctx.attr.make_args
+            ])),
+            'if [ -f "{built}" ]; then BUILT="{built}"; else BUILT="{built}.exe"; fi'.format(
                 built = ctx.attr.built_path,
-                out = out_binary.path,
             ),
+            'cat "$BUILT" > "$EXECROOT/{out}"'.format(out = out_binary.path),
+            'chmod +x "$EXECROOT/{out}"'.format(out = out_binary.path),
+            'rm -rf "$TMP"',
         ]
         outputs = [out_binary]
         command = "\n".join(env_lines + body)
@@ -97,8 +135,12 @@ def _build_gnu_tool_impl(ctx):
             inputs = inputs + dep_src.files.to_list()
             pre_build_steps.append("\n".join([
                 'echo "=== Pre-building from {} ==="'.format(dep_configure.dirname),
-                'cd "$EXECROOT/$(dirname {})"'.format(dep_configure.path),
-                '{}./configure --prefix="$PREFIX"'.format('PERL="$PERL" ' if perl_bin else ""),
+                'DEP_BUILD="$TMP/pre/{}"'.format(dep_configure.dirname.replace("/", "_")),
+                'mkdir -p "$DEP_BUILD"',
+                'cp -rpL "$EXECROOT/{}/." "$DEP_BUILD"'.format(dep_configure.dirname),
+                'chmod -R u+w "$DEP_BUILD"',
+                'cd "$DEP_BUILD"',
+                '{}./configure --prefix="$PREFIX_NATIVE"'.format('PERL="$PERL" ' if perl_bin else ""),
                 '"$MAKE" -j"$JOBS" install',
                 'cd "$EXECROOT"',
             ]))
@@ -109,14 +151,15 @@ def _build_gnu_tool_impl(ctx):
 
     body = [
         'PREFIX="$EXECROOT/{}"'.format(prefix_dir.path),
+        'PREFIX_NATIVE="$EXECROOT_NATIVE/{}"'.format(prefix_dir.path),
         'export PATH={}:"$PATH"'.format(":".join(path_entries)),
         m4_env_line,
         "",
         "\n".join(pre_build_steps),
         "",
         'echo "=== Building main package ==="',
-        'cd "$SRC"',
-        '{}./configure --prefix="$PREFIX" {}'.format(
+        'cd "$BUILD"',
+        '{}./configure --prefix="$PREFIX_NATIVE" {}'.format(
             'PERL="$PERL" ' if perl_bin else "",
             configure_flags,
         ),
@@ -136,10 +179,11 @@ def _build_gnu_tool_impl(ctx):
         'find "$PREFIX" -type f > "$FILELIST"',
         "while IFS= read -r pf; do",
         '    if grep -Iq . "$pf"; then',
-        '        sed -i.bak "s|$EXECROOT|__EXECROOT__|g" "$pf" && rm -f "$pf.bak"',
+        '        sed -i.bak -e "s|$EXECROOT_NATIVE|__EXECROOT__|g" -e "s|$EXECROOT|__EXECROOT__|g" "$pf" && rm -f "$pf.bak"',
         "    fi",
         'done < "$FILELIST"',
         'rm -f "$FILELIST"',
+        'rm -rf "$TMP"',
     ]
     command = "\n".join(env_lines + body)
 
@@ -175,8 +219,11 @@ build_gnu_tool = rule(
         ),
         "make": attr.label(
             mandatory = True,
-            allow_single_file = True,
-            doc = "The hermetic `make` binary used to drive the build.",
+            allow_files = True,
+            doc = "The hermetic `make` binary, plus any runtime libraries beside it.",
+        ),
+        "make_args": attr.string_list(
+            doc = "Extra arguments for the build-mode `make` invocation, e.g. a SUBDIRS override.",
         ),
         "configure_flags": attr.string_list(
             default = ["--disable-nls", "--disable-dependency-tracking"],
