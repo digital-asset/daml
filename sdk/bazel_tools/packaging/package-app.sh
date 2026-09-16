@@ -43,12 +43,21 @@ if [[ -n ${RUNFILES_DIR:-} ]]; then
   export RUNFILES_DIR=$(abspath $RUNFILES_DIR)
 fi
 if [[ -n ${RUNFILES_MANIFEST_FILE:-} ]]; then
-  export RUNFILES_DIR=$(abspath $RUNFILES_MANIFEST_FILE)
+  export RUNFILES_MANIFEST_FILE=$(abspath $RUNFILES_MANIFEST_FILE)
 fi
+
+runfile_by_name() {
+  local name="$1"
+  if [[ -n "${RUNFILES_DIR:-}" && -d "${RUNFILES_DIR}" ]]; then
+    find "${RUNFILES_DIR}" -maxdepth 2 \( -name "$name" -o -name "$name.exe" \) | head -1
+  elif [[ -n "${RUNFILES_MANIFEST_FILE:-}" && -f "${RUNFILES_MANIFEST_FILE}" ]]; then
+    grep -E "(^|/)$name(\.exe)? " "${RUNFILES_MANIFEST_FILE}" | head -1 | cut -f2- -d' '
+  fi
+}
 
 case "$(uname -s)" in
   Darwin|Linux)
-    tar=$(abspath $(find "${RUNFILES_DIR}" -maxdepth 2 -name "tar"))
+    tar=$(abspath "$(runfile_by_name tar)")
     mktgz=$(abspath $(rlocation _main/bazel_tools/sh/mktgz))
     # Support both the BCR layout (`patchelf~/patchelf`) and the
     # pinned static-release layout (`patchelf~/bin/patchelf`).
@@ -74,8 +83,12 @@ case "$(uname -s)" in
     patchelf=$(abspath "$patchelf_runfile")
     ;;
   CYGWIN*|MINGW*|MSYS*)
-    echo "ERROR: package-app has no Windows implementation" >&2
-    exit 1
+    tar=$(abspath "$(runfile_by_name tar)")
+    mktgz="$(rlocation _main/bazel_tools/sh/mktgz || true)"
+    if [[ -z "${mktgz:-}" ]]; then
+      mktgz="$(rlocation _main/bazel_tools/sh/mktgz.exe || true)"
+    fi
+    mktgz=$(abspath "$mktgz")
     ;;
 esac
 
@@ -334,5 +347,9 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
   copy_deps $SRC $WORKDIR/$NAME/$NAME
 else
     cp "$SRC" "$WORKDIR/$NAME/$NAME"
+    for dll in "$(dirname "$(canonicalpath "$SRC")")"/*.dll; do
+      [ -e "$dll" ] || continue
+      cp "$dll" "$WORKDIR/$NAME/"
+    done
 fi
 cd $WORKDIR && $mktgz $OUT $NAME
