@@ -1,0 +1,36 @@
+--- a/js/private/js_binary.sh.tpl
++++ b/js/private/js_binary.sh.tpl
+@@ -95,13 +95,29 @@
+     fi
+ }
+ 
+-function resolve_execroot_bin_path {
+-    local short_path="$1"
++function _join_execroot_bin_path {
++    local bindir="$1"
++    local short_path="$2"
+     if [[ "$short_path" == ../* ]]; then
+-        echo "$JS_BINARY__EXECROOT/${BAZEL_BINDIR:-$JS_BINARY__BINDIR}/external/${short_path:3}"
++        echo "$JS_BINARY__EXECROOT/$bindir/external/${short_path:3}"
+     else
+-        echo "$JS_BINARY__EXECROOT/${BAZEL_BINDIR:-$JS_BINARY__BINDIR}/$short_path"
++        echo "$JS_BINARY__EXECROOT/$bindir/$short_path"
++    fi
++}
++
++function resolve_execroot_bin_path {
++    local short_path="$1"
++    local bindir="${BAZEL_BINDIR:-$JS_BINARY__BINDIR}"
++    local resolved
++    resolved=$(_join_execroot_bin_path "$bindir" "$short_path")
++    if [ ! -e "$resolved" ] && [ "${JS_BINARY__BINDIR:-}" ] && [ "$bindir" != "$JS_BINARY__BINDIR" ]; then
++        local fallback
++        fallback=$(_join_execroot_bin_path "$JS_BINARY__BINDIR" "$short_path")
++        if [ -e "$fallback" ]; then
++            resolved="$fallback"
++        fi
+     fi
++    echo "$resolved"
+ }
+ 
+ function resolve_execroot_src_path {
