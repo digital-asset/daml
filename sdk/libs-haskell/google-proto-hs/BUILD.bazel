@@ -1,6 +1,15 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_windows")
+
+_HOST_LIBS = [] if is_windows else [
+    "@gmp//:libs",
+    "@libz//:libs",
+]
+
+_LIB_PATH_EXPORT = "" if is_windows else 'export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$${LD_LIBRARY_PATH:-}"'
+
 google_protobuf_src = "external/com_google_protobuf/src"
 
 genrule(
@@ -15,7 +24,7 @@ genrule(
         "FieldMask.hs",
     ]],
     cmd = """
-        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$${LD_LIBRARY_PATH:-}"
+        """ + _LIB_PATH_EXPORT + """
         for f in $(locations @protobuf//:well_known_type_protos); do
             PROTOBUF_INCLUDE=$${f%%/google/protobuf/*}
             break
@@ -31,9 +40,7 @@ genrule(
             esac
         done
     """,
-    tools = [
-        "@gmp//:libs",
-        "@libz//:libs",
+    tools = _HOST_LIBS + [
         "@proto3-suite//:compile-proto-file",
     ],
 )
@@ -57,7 +64,7 @@ genrule(
         "Google/Rpc/ErrorDetails.hs",
     ],
     cmd = """
-        export LD_LIBRARY_PATH="$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$${LD_LIBRARY_PATH:-}"
+        """ + _LIB_PATH_EXPORT + """
         for f in $(locations @protobuf//:well_known_type_protos); do
             PROTOBUF_INCLUDE=$${f%%/google/protobuf/*}
             break
@@ -72,9 +79,7 @@ genrule(
                 --out $(@D)
         done
     """,
-    tools = [
-        "@gmp//:libs",
-        "@libz//:libs",
+    tools = _HOST_LIBS + [
         "@proto3-suite//:compile-proto-file",
     ],
 )
