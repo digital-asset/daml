@@ -28,7 +28,7 @@ import Data.Aeson (Value (Null))
 import Data.Bifunctor (first)
 import Data.Either (fromRight)
 import Data.List.Extra (lower, replace)
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (mapMaybe)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Data.Text.Extended as T
@@ -280,9 +280,9 @@ packageSummaryFromDamlYaml :: PackageHome -> IO (Either ConfigError PackageSumma
 packageSummaryFromDamlYaml path = do
   handle (\(e :: ConfigError) -> return $ Left e) $ runExceptT $ do
     package <- lift $ readPackageConfig $ toPackagePath path
-    dataDeps <- except $ fromMaybe [] <$> queryPackageConfig ["data-dependencies"] package
-    directDeps <- except $ fromMaybe [] <$> queryPackageConfig ["dependencies"] package
-    let darDeps = filter (\dep -> takeExtension dep == ".dar") $ mapMaybe getSimplePathOrName (dataDeps <> directDeps)
+    dataDeps <- except $ maybe [] (mapMaybe getSimplePathOrName) <$> queryPackageConfig ["data-dependencies"] package
+    directDeps <- except $ maybe [] (mapMaybe getSimplePathOrName) <$> queryPackageConfig ["dependencies"] package
+    let darDeps = filter (\dep -> takeExtension dep == ".dar") directDeps <> dataDeps
     canonDeps <- lift $ withCurrentDirectory (unPackageHome path) $ traverse canonicalizePath darDeps
     name <- except $ queryPackageConfigRequired ["name"] package
     version <- except $ queryPackageConfigRequired ["version"] package
