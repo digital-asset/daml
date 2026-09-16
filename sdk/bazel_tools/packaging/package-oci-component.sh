@@ -28,11 +28,24 @@ if [[ -n ${RUNFILES_DIR:-} ]]; then
   export RUNFILES_DIR=$(abspath $RUNFILES_DIR)
 fi
 if [[ -n ${RUNFILES_MANIFEST_FILE:-} ]]; then
-  export RUNFILES_DIR=$(abspath $RUNFILES_MANIFEST_FILE)
+  export RUNFILES_MANIFEST_FILE=$(abspath $RUNFILES_MANIFEST_FILE)
 fi
 
-MKTGZ=$(abspath $(rlocation _main/bazel_tools/sh/mktgz))
-TAR=$(find "${RUNFILES_DIR}" -maxdepth 2 -name "tar")
+runfile_by_name() {
+  local name="$1"
+  if [[ -n "${RUNFILES_DIR:-}" && -d "${RUNFILES_DIR}" ]]; then
+    find "${RUNFILES_DIR}" -maxdepth 2 \( -name "$name" -o -name "$name.exe" \) | head -1
+  elif [[ -n "${RUNFILES_MANIFEST_FILE:-}" && -f "${RUNFILES_MANIFEST_FILE}" ]]; then
+    grep -E "(^|/)$name(\.exe)? " "${RUNFILES_MANIFEST_FILE}" | head -1 | cut -f2- -d' '
+  fi
+}
+
+MKTGZ="$(rlocation _main/bazel_tools/sh/mktgz || true)"
+if [[ -z "${MKTGZ:-}" ]]; then
+  MKTGZ="$(rlocation _main/bazel_tools/sh/mktgz.exe || true)"
+fi
+MKTGZ=$(abspath "$MKTGZ")
+TAR="$(runfile_by_name tar)"
 
 set -eou pipefail
 
