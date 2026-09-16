@@ -1,0 +1,110 @@
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -1,14 +1,65 @@
+ load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+ 
+-COMMON_COPTS = [
+-    "-DUNIX",
+-    "-DHAVE_DIRENT_H",
+-    "-DHAVE_TERMIOS_H",
+-    "-DUNICODE_SUPPORT",
+-    "-DLARGE_FILE_SUPPORT",
+-    "-DZIP64_SUPPORT",
+-    "-DUIDGID_NOT_16BIT",
+-]
++COMMON_COPTS = select({
++    "@bazel_tools//src/conditions:windows": [
++        "-DWIN32",
++        "-DFORCE_WIN32_OVER_UNIX",
++        "-DUNICODE_SUPPORT",
++        "-DLARGE_FILE_SUPPORT",
++        "-DZIP64_SUPPORT",
++        "-DNO_ASM",
++        "-DWIN32_LEAN_AND_MEAN",
++        "-include",
++        "windows.h",
++    ],
++    "//conditions:default": [
++        "-DUNIX",
++        "-DHAVE_DIRENT_H",
++        "-DHAVE_TERMIOS_H",
++        "-DUNICODE_SUPPORT",
++        "-DLARGE_FILE_SUPPORT",
++        "-DZIP64_SUPPORT",
++        "-DUIDGID_NOT_16BIT",
++    ],
++})
++
++PORT_SRCS = select({
++    "@bazel_tools//src/conditions:windows": [
++        "win32/nt.c",
++        "win32/win32.c",
++        "win32/win32i64.c",
++        "win32/win32zip.c",
++    ],
++    "//conditions:default": ["unix/unix.c"],
++})
++
++UTIL_PORT_SRCS = select({
++    "@bazel_tools//src/conditions:windows": [
++        "win32/win32.c",
++        "win32/win32i64.c",
++    ],
++    "//conditions:default": ["unix/unix.c"],
++})
++
++PORT_HDRS = select({
++    "@bazel_tools//src/conditions:windows": [
++        "win32/nt.h",
++        "win32/osdep.h",
++        "win32/win32zip.h",
++        "win32/zipup.h",
++    ],
++    "//conditions:default": ["unix/osdep.h", "unix/zipup.h"],
++})
++
++PORT_INCLUDES = select({
++    "@bazel_tools//src/conditions:windows": [".", "win32"],
++    "//conditions:default": [".", "unix"],
++})
++
++PORT_LINKOPTS = select({
++    "@bazel_tools//src/conditions:windows": ["-ladvapi32", "-luser32"],
++    "//conditions:default": [],
++})
+ 
+ cc_library(
+     name = "zip_lib",
+@@ -23,12 +74,12 @@
+         "util.c",
+         "zipfile.c",
+         "zipup.c",
+-        "unix/unix.c",
+         "zbz2err.c",
+-    ],
+-    hdrs = glob(["*.h"]) + ["unix/osdep.h", "unix/zipup.h"],
++    ] + PORT_SRCS,
++    hdrs = glob(["*.h"]) + PORT_HDRS,
+     copts = COMMON_COPTS,
+-    includes = [".", "unix"],
++    includes = PORT_INCLUDES,
++    linkopts = PORT_LINKOPTS,
+ )
+ 
+ cc_binary(
+@@ -47,11 +98,11 @@
+         "fileio.c",
+         "util.c",
+         "zipfile.c",
+-        "unix/unix.c",
+-    ],
+-    hdrs = glob(["*.h"]) + ["unix/osdep.h", "unix/zipup.h"],
++    ] + UTIL_PORT_SRCS,
++    hdrs = glob(["*.h"]) + PORT_HDRS,
+     copts = UTIL_COPTS,
+-    includes = [".", "unix"],
++    includes = PORT_INCLUDES,
++    linkopts = PORT_LINKOPTS,
+ )
+ 
+ cc_binary(
