@@ -1,0 +1,146 @@
+diff --git a/compiler/BUILD.bazel b/compiler/BUILD.bazel
+--- a/compiler/BUILD.bazel
++++ b/compiler/BUILD.bazel
+@@ -11,7 +11,7 @@
+     ],
+     visibility = ["//visibility:public"],
+     deps = [
+-        "@com_google_protobuf//:protoc_lib",
++        "@protobuf//:protoc_lib",
+     ],
+ )
+ 
+@@ -24,7 +24,7 @@
+         "//stub:javax_annotation",
+         "@com_google_code_findbugs_jsr305//jar",
+         "@com_google_guava_guava//jar",
+-        "@com_google_protobuf//:protobuf_java",
++        "@protobuf//:protobuf_java",
+     ],
+ )
+ 
+diff --git a/compiler/src/java_plugin/cpp/java_generator.cpp b/compiler/src/java_plugin/cpp/java_generator.cpp
+--- a/compiler/src/java_plugin/cpp/java_generator.cpp
++++ b/compiler/src/java_plugin/cpp/java_generator.cpp
+@@ -181,19 +181,19 @@
+ }
+ 
+ static inline std::string LowerMethodName(const MethodDescriptor* method) {
+-  return MixedLower(method->name());
++  return MixedLower(std::string(method->name()));
+ }
+ 
+ static inline std::string MethodPropertiesFieldName(const MethodDescriptor* method) {
+-  return "METHOD_" + ToAllUpperCase(method->name());
++  return "METHOD_" + ToAllUpperCase(std::string(method->name()));
+ }
+ 
+ static inline std::string MethodPropertiesGetterName(const MethodDescriptor* method) {
+-  return MixedLower("get_" + method->name() + "_method");
++  return MixedLower("get_" + std::string(method->name()) + "_method");
+ }
+ 
+ static inline std::string MethodIdFieldName(const MethodDescriptor* method) {
+-  return "METHODID_" + ToAllUpperCase(method->name());
++  return "METHODID_" + ToAllUpperCase(std::string(method->name()));
+ }
+ 
+ static inline std::string MessageFullJavaName(const Descriptor* desc) {
+@@ -404,7 +404,7 @@
+                                        StubType type) {
+   printer->Print("/**\n");
+ 
+-  std::map<std::string, std::string> vars = {{"service", service->name()}};
++  std::map<std::string, std::string> vars = {{"service", std::string(service->name())}};
+   switch (type) {
+     case ASYNC_CLIENT_IMPL:
+       printer->Print(vars, " * A stub to allow clients to do asynchronous rpc calls to service $service$.\n");
+@@ -442,12 +442,12 @@
+     const ServiceDescriptor* service, std::map<std::string, std::string>* vars,
+     Printer* p, ProtoFlavor flavor) {
+   p->Print("// Static method descriptors that strictly reflect the proto.\n");
+-  (*vars)["service_name"] = service->name();
++  (*vars)["service_name"] = std::string(service->name());
+   for (int i = 0; i < service->method_count(); ++i) {
+     const MethodDescriptor* method = service->method(i);
+     (*vars)["arg_in_id"] = to_string(2 * i);
+     (*vars)["arg_out_id"] = to_string(2 * i + 1);
+-    (*vars)["method_name"] = method->name();
++    (*vars)["method_name"] = std::string(method->name());
+     (*vars)["input_type"] = MessageFullJavaName(method->input_type());
+     (*vars)["output_type"] = MessageFullJavaName(method->output_type());
+     (*vars)["method_field_name"] = MethodPropertiesFieldName(method);
+@@ -515,7 +515,7 @@
+         "            .setResponseMarshaller($ProtoUtils$.marshaller(\n"
+         "                $output_type$.getDefaultInstance()))\n");
+ 
+-    (*vars)["proto_method_descriptor_supplier"] = service->name() + "MethodDescriptorSupplier";
++    (*vars)["proto_method_descriptor_supplier"] = std::string(service->name()) + "MethodDescriptorSupplier";
+     if (flavor == ProtoFlavor::NORMAL) {
+       p->Print(
+           *vars,
+@@ -575,7 +575,7 @@
+     const ServiceDescriptor* service,
+     std::map<std::string, std::string>* vars,
+     Printer* p, StubType type) {
+-  const std::string service_name = service->name();
++  const std::string service_name = std::string(service->name());
+   (*vars)["service_name"] = service_name;
+   std::string stub_name = service_name;
+   std::string stub_base_class_name = "AbstractStub";
+@@ -821,7 +821,7 @@
+     const ServiceDescriptor* service,
+     std::map<std::string, std::string>* vars,
+     Printer* p) {
+-  const std::string service_name = service->name();
++  const std::string service_name = std::string(service->name());
+   (*vars)["service_name"] = service_name;
+ 
+   GrpcWriteServiceDocComment(p, service, ABSTRACT_CLASS);
+@@ -956,13 +956,13 @@
+                                    std::map<std::string, std::string>* vars,
+                                    Printer* p,
+                                    ProtoFlavor flavor) {
+-  (*vars)["service_name"] = service->name();
++  (*vars)["service_name"] = std::string(service->name());
+ 
+ 
+   if (flavor == ProtoFlavor::NORMAL) {
+-    (*vars)["proto_base_descriptor_supplier"] = service->name() + "BaseDescriptorSupplier";
+-    (*vars)["proto_file_descriptor_supplier"] = service->name() + "FileDescriptorSupplier";
+-    (*vars)["proto_method_descriptor_supplier"] = service->name() + "MethodDescriptorSupplier";
++    (*vars)["proto_base_descriptor_supplier"] = std::string(service->name()) + "BaseDescriptorSupplier";
++    (*vars)["proto_file_descriptor_supplier"] = std::string(service->name()) + "FileDescriptorSupplier";
++    (*vars)["proto_method_descriptor_supplier"] = std::string(service->name()) + "MethodDescriptorSupplier";
+     (*vars)["proto_class_name"] = protobuf::compiler::java::ClassName(service->file());
+     p->Print(
+         *vars,
+@@ -1056,7 +1056,7 @@
+ static void PrintBindServiceMethod(const ServiceDescriptor* service,
+                                    std::map<std::string, std::string>* vars,
+                                    Printer* p) {
+-  (*vars)["service_name"] = service->name();
++  (*vars)["service_name"] = std::string(service->name());
+   p->Print(*vars,
+            "public static final io.grpc.ServerServiceDefinition "
+            "bindService(AsyncService service) {\n");
+@@ -1117,8 +1117,8 @@
+                          Printer* p,
+                          ProtoFlavor flavor,
+                          bool disable_version) {
+-  (*vars)["service_name"] = service->name();
+-  (*vars)["file_name"] = service->file()->name();
++  (*vars)["service_name"] = std::string(service->name());
++  (*vars)["file_name"] = std::string(service->file()->name());
+   (*vars)["service_class_name"] = ServiceClassName(service);
+   (*vars)["grpc_version"] = "";
+   #ifdef GRPC_VERSION
+@@ -1283,7 +1283,7 @@
+ }
+ 
+ std::string ServiceClassName(const ServiceDescriptor* service) {
+-  return service->name() + "Grpc";
++  return std::string(service->name()) + "Grpc";
+ }
+ 
+ }  // namespace java_grpc_generator
