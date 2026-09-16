@@ -12,7 +12,10 @@ _EXTRA_PLATFORM_CONSTRAINTS = {
 [
     platform(
         name = p.name,
-        constraint_values = p.constraints + _EXTRA_PLATFORM_CONSTRAINTS.get(p.name, []),
+        constraint_values = p.constraints + _EXTRA_PLATFORM_CONSTRAINTS.get(
+            p.name,
+            [],
+        ),
     )
     for p in PLATFORMS.values()
 ]
