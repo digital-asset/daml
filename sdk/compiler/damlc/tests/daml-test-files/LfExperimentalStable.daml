@@ -1,0 +1,13 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @DOES-NOT-SUPPORT-LF-FEATURE DAML_UNSTABLE
+-- @ERROR Experimental primitives are only available with --target=2.dev
+module LfExperimentalStable where
+
+import Daml.Script (script)
+import DA.Experimental.Example (answer)
+import DA.Assert ((===))
+
+run = script do
+    answer () === 42

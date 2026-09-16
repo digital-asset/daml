@@ -201,7 +201,6 @@ data UnwarnableError
   | EMissingMethodInInterfaceInstance !MethodName
   | EUnknownMethodInInterfaceInstance { eumiiIface :: !(Qualified TypeConName), eumiiTpl :: !(Qualified TypeConName), eumiiMethodName :: !MethodName }
   | EWrongInterfaceRequirement !(Qualified TypeConName) !(Qualified TypeConName)
-  | EUnknownExperimental !T.Text !Type
   | EUpgradeMissingModule !ModuleName
   | EUpgradeMissingTemplate !TypeConName
   | EUpgradeMissingChoice !ChoiceName
@@ -836,8 +835,6 @@ instance Pretty UnwarnableError where
       text "Tried to implement method " <> quotes (pretty eumiiMethodName) <> text ", but interface " <> pretty eumiiIface <> text " does not have a method with that name."
     EWrongInterfaceRequirement requiringIface requiredIface ->
       "Interface " <> pretty requiringIface <> " does not require interface " <> pretty requiredIface
-    EUnknownExperimental name ty ->
-      "Unknown experimental primitive " <> string (show name) <> " : " <> pretty ty
     EUpgradeMissingModule moduleName -> "Module " <> pPrint moduleName <> " appears in package that is being upgraded, but does not appear in this package."
     EUpgradeMissingTemplate templateName -> "Template " <> pPrint templateName <> " appears in package that is being upgraded, but does not appear in this package."
     EUpgradeMissingChoice templateName -> "Choice " <> pPrint templateName <> " appears in package that is being upgraded, but does not appear in this package."

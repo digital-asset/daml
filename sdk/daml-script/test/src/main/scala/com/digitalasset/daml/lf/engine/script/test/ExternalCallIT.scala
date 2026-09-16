@@ -30,7 +30,7 @@ final class ExternalCallIT extends AsyncWordSpec with AbstractScriptTest with Ma
 
   // TODO[#23340]: remove hardcoding
   override lazy val darPath: Path = rlocation(
-    Paths.get("daml-script/test/external-call-test-v2.4.dar")
+    Paths.get("daml-script/test/external-call-test.dar")
   )
   override lazy val dar: CompiledDar = CompiledDar.read(darPath, defaultCompilerConfig)
 

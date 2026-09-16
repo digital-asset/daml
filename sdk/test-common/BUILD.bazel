@@ -29,6 +29,7 @@ canonical_lf_versions = [
     "2.1",
     "2.2",
     "2.3",
+    "2.4",
     "2.dev",
 ]
 
@@ -78,9 +79,9 @@ da_scala_dar_resources_library(
 [
     daml_compile(
         name = "upgrades-{}-dep-{}".format(test_name, project_name),
-        srcs = glob(["src/main/daml/upgrades/{}/dep/Dep.daml".format(test_name)]),
+        srcs = glob(["src/main/daml/upgrades/{}/dep-{}/Dep.daml".format(test_name, project_name)]),
         enable_interfaces = True,
-        project_name = project_name,
+        project_name = "upgrades-{}-dep-{}".format(test_name, project_name),
         target = "2.dev",
         version = "1.0.0",
         visibility = ["//visibility:public"],

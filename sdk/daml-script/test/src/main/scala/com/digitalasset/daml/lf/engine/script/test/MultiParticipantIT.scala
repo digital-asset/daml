@@ -26,7 +26,7 @@ class MultiParticipantIT extends AsyncWordSpec with AbstractScriptTest with Insi
           clients <- scriptClients()
           r <- run(
             clients,
-            QualifiedName.assertFromString("MultiTestWithKeys:multiTest"),
+            QualifiedName.assertFromString("MultiTest:multiTest"),
             dar = dar,
           )
         } yield assert(r == ValueInt64(42))
@@ -39,7 +39,7 @@ class MultiParticipantIT extends AsyncWordSpec with AbstractScriptTest with Insi
           clients <- scriptClients()
           ValueRecord(_, vals) <- run(
             clients,
-            QualifiedName.assertFromString("MultiTestWithKeys:partyIdHintTest"),
+            QualifiedName.assertFromString("MultiTest:partyIdHintTest"),
             dar = dar,
           )
         } yield {
@@ -60,7 +60,7 @@ class MultiParticipantIT extends AsyncWordSpec with AbstractScriptTest with Insi
           clients <- scriptClients()
           ValueRecord(_, vals) <- run(
             clients,
-            QualifiedName.assertFromString("MultiTestWithKeys:listKnownPartiesTest"),
+            QualifiedName.assertFromString("MultiTest:listKnownPartiesTest"),
             dar = dar,
           )
         } yield {
@@ -90,7 +90,7 @@ class MultiParticipantIT extends AsyncWordSpec with AbstractScriptTest with Insi
           clients <- scriptClients()
           r <- run(
             clients,
-            QualifiedName.assertFromString("MultiTestWithKeys:disclosuresTest"),
+            QualifiedName.assertFromString("MultiTest:disclosuresTest"),
             dar = dar,
           )
         } yield assert(r == ValueText("my secret"))
@@ -100,7 +100,7 @@ class MultiParticipantIT extends AsyncWordSpec with AbstractScriptTest with Insi
           clients <- scriptClients()
           r <- run(
             clients,
-            QualifiedName.assertFromString("MultiTestWithKeys:disclosuresByKeyTest"),
+            QualifiedName.assertFromString("MultiTest:disclosuresByKeyTest"),
             dar = dar,
           )
         } yield assert(r == ValueText("my secret"))
@@ -112,7 +112,7 @@ class MultiParticipantIT extends AsyncWordSpec with AbstractScriptTest with Insi
             run(
               clients,
               QualifiedName.assertFromString(
-                "MultiTestWithKeys:inactiveDisclosureDoesNotFailDuringSubmission"
+                "MultiTest:inactiveDisclosureDoesNotFailDuringSubmission"
               ),
               dar = dar,
             )

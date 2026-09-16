@@ -389,6 +389,21 @@ packagingTests tmpDir =
                         "data MyFunc = MyFunc with f : Int -> Int"
                       ]
               callCommandSilentIn (tmpDir </> "allowed-util-defs") $ unwords ["dpm", "build"]
+        , testCase "Allows object style dependencies when resolved by DPM" $ do
+              let projDir = tmpDir </> "object-style-deps"
+              callCommandSilent $ unwords ["dpm", "new", projDir, "--template=multi-package-example"]
+              -- Replace the main dependency on interfaces with object style
+              let mainDamlYamlPath = projDir </> "main" </>"daml.yaml"
+              mainDamlYamlContent <- readFileUTF8' mainDamlYamlPath
+              let mainDamlYamlContentUpdated =
+                    unlines $ flip map (lines mainDamlYamlContent) $ \case
+                        "- ../interfaces/.daml/dist/multi-package-example-interfaces-1.0.0.dar" ->
+                          "- value: ../interfaces/.daml/dist/multi-package-example-interfaces-1.0.0.dar"
+                        line -> line
+              writeFileUTF8 mainDamlYamlPath mainDamlYamlContentUpdated
+              callCommandSilentIn projDir $ unwords ["dpm", "build"]
+              let dar = projDir </> "main/.daml/dist/object-style-deps-main-1.0.0.dar"
+              assertFileExists dar
               
         ]
     where
@@ -560,8 +575,7 @@ templateTests = testGroup "templates" $
       , "daml-intro-contracts"
       , "daml-intro-daml-scripts"
       , "daml-intro-data"
---            , "daml-intro-exceptions"    -- warn for deprecated exceptions
-      , "daml-intro-functional-101"
+      , "daml-intro-functional"
       , "daml-intro-parties"
       , "daml-patterns"
       , "quickstart-java"
@@ -571,7 +585,9 @@ templateTests = testGroup "templates" $
     multipackageTemplateNames =
       [ "daml-intro-test"
       , "multi-package-example"
+      , "upgrades-example"
       , "skeleton"
+      , "upgrades-example"
       ]
 
 -- | Check we can generate language bindings.
