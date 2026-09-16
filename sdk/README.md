@@ -110,16 +110,31 @@ On Windows you need to enable long file paths by running the following command i
 Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -Type DWord -Value 1
 ```
 
-You also need to configure Bazel for Windows:
+Then run, from the `sdk` directory:
 
 ```
-echo "build --config windows" > .bazelrc.local
+powershell -File setup-windows.ps1
 ```
 
-Note, if you are on a Windows ad-hoc or CI machine you can use
-`ci/configure-bazel.sh` instead of performing these steps manually.
-In that case, you should checkout the `daml` repository into the path
-`D:\a\1\s` in order to be able to use remote cache artifacts.
+This downloads a pinned Git-for-Windows bash next to the checkout and points
+`BAZEL_SH` at it. Bazel needs a POSIX shell for `genrule` and
+`ctx.actions.run_shell`, and it has to be on disk before the Bazel server
+starts, so Bazel cannot fetch it itself.
+
+Finally, give Bazel a short output base:
+
+```
+echo "startup --output_base=C:/b" >> .bazelrc.local
+```
+
+Windows caps the path of an executable at 260 characters, a limit that
+`LongPathsEnabled` does not lift for process creation, and this build produces
+paths roughly 210 characters below the output base. Without a short one, builds
+fail with "The filename or extension is too long", or report that files which
+are plainly present do not exist.
+
+`build:windows` settings apply automatically based on the host OS, so no
+`--config` flag is needed.
 
 ### 3. Lint, build, and test
 
