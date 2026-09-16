@@ -1,0 +1,29 @@
+diff -ru a/toolchain/BUILD.bazel b/toolchain/BUILD.bazel
+--- a/toolchain/BUILD.bazel
++++ b/toolchain/BUILD.bazel
+@@ -397,6 +397,14 @@
+ )
+ 
+ cc_artifact_name_pattern(
++    name = "windows_dynamic_library_pattern",
++    category = "@rules_cc//cc/toolchains/artifacts:dynamic_library",
++    extension = ".dll",
++    prefix = "",
++    visibility = ["//visibility:public"],
++)
++
++cc_artifact_name_pattern(
+     name = "macos_dynamic_library_pattern",
+     category = "@rules_cc//cc/toolchains/artifacts:dynamic_library",
+     extension = ".dylib",
+diff -ru a/toolchain/cc_toolchain.bzl b/toolchain/cc_toolchain.bzl
+--- a/toolchain/cc_toolchain.bzl
++++ b/toolchain/cc_toolchain.bzl
+@@ -113,6 +113,7 @@
+             ],
+             "@platforms//os:windows": [
+                 "@llvm//toolchain:windows_executable_pattern",
++                "@llvm//toolchain:windows_dynamic_library_pattern",
+             ],
+             "//conditions:default": [],
+         }),
