@@ -84,7 +84,6 @@ genrule(
 da_haskell_binary(
     name = "damlc-bootstrap",
     srcs = ["exe/Main.hs"],
-
     compiler_flags = [
         "-optl-pthread",
     ] if is_windows else [],

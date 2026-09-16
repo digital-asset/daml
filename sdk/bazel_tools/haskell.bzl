@@ -1,8 +1,8 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@os_info//:os_info.bzl", "is_windows")
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@os_info//:os_info.bzl", "is_windows")
 load(
     "@rules_haskell//haskell:c2hs.bzl",
     "c2hs_library",
