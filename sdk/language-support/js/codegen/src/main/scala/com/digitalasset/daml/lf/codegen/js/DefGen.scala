@@ -35,7 +35,7 @@ private[codegen] final case class TemplateGen(
     implements: Seq[TypeConId],
 ) extends DefGen {
   private val templateId = s"#$packageName:${moduleId.moduleName}:$name"
-  private val templateIdWithPackageId = s"#${moduleId.pkg}:${moduleId.moduleName}:$name"
+  private val templateIdWithPackageId = s"${moduleId.pkg}:${moduleId.moduleName}:$name"
   override def renderJsSource(b: CodeBuilder): Unit = {
     val keyDecoder =
       keyDecoderOpt.map(LazyDecoder(_)).getOrElse(ConstantRefDecoder(Seq("undefined")))
@@ -234,7 +234,7 @@ private[codegen] final case class InterfaceGen(
     view: TypeConId,
 ) extends DefGen {
   private val interfaceId = s"#$packageName:${moduleId.moduleName}:$name"
-  private val interfaceIdWithPackageId = s"#${moduleId.pkg}:${moduleId.moduleName}:$name"
+  private val interfaceIdWithPackageId = s"${moduleId.pkg}:${moduleId.moduleName}:$name"
   override def renderJsSource(b: CodeBuilder): Unit = {
     b.addEmptyLine()
     b.addBlock(s"exports.$name = damlTypes.assembleInterface(", ");") {
