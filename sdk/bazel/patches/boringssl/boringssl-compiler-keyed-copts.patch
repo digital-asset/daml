@@ -1,0 +1,52 @@
+diff --git a/util/util.bzl b/util/util.bzl
+--- a/util/util.bzl
++++ b/util/util.bzl
+@@ -46,13 +46,8 @@
+     "@platforms//os:windows": ["-DOPENSSL_NO_ASM"],
+     "//conditions:default": [],
+ }) + select({
+-    # We assume that non-Windows builds use a GCC-compatible toolchain and that
+-    # Windows builds do not.
+-    #
+-    # TODO(davidben): Should these be querying something in @bazel_tools?
+-    # Unfortunately, @bazel_tools is undocumented. See
+-    # https://github.com/bazelbuild/bazel/issues/14914
+-    "@platforms//os:windows": [],
++    "@rules_cc//cc/compiler:msvc-cl": [],
++    "@rules_cc//cc/compiler:clang-cl": [],
+     "//conditions:default": gcc_copts,
+ }) + select({
+     # This is needed on glibc systems to get rwlock in pthreads, but it should
+@@ -62,7 +57,11 @@
+     "@platforms//os:linux": ["-D_XOPEN_SOURCE=700"],
+     # Without WIN32_LEAN_AND_MEAN, <windows.h> pulls in wincrypt.h, which
+     # conflicts with our <openssl/x509.h>.
+-    "@platforms//os:windows": ["-DWIN32_LEAN_AND_MEAN", "-utf-8"],
++    "@platforms//os:windows": ["-DWIN32_LEAN_AND_MEAN"],
++    "//conditions:default": [],
++}) + select({
++    "@rules_cc//cc/compiler:msvc-cl": ["-utf-8"],
++    "@rules_cc//cc/compiler:clang-cl": ["-utf-8"],
+     "//conditions:default": [],
+ })
+ 
+@@ -70,7 +69,8 @@
+ # to come from the top-level toolchain. The concern is that different C++
+ # versions may cause ABIs, notably Abseil's, to change.
+ boringssl_copts_cxx = boringssl_copts_common + select({
+-    "@platforms//os:windows": [],
++    "@rules_cc//cc/compiler:msvc-cl": [],
++    "@rules_cc//cc/compiler:clang-cl": [],
+     "//conditions:default": gcc_copts_cxx,
+ })
+ 
+@@ -79,7 +79,8 @@
+ # for our code or the headers we include, so configure the C version inside the
+ # library. If Bazel's C/C++ version handling improves, we may reconsider this.
+ boringssl_copts_c = boringssl_copts_common + select({
+-    "@platforms//os:windows": ["/std:c11"],
++    "@rules_cc//cc/compiler:msvc-cl": ["/std:c11"],
++    "@rules_cc//cc/compiler:clang-cl": ["/std:c11"],
+     "//conditions:default": ["-std=c11"] + gcc_copts_c,
+ })
+ 
