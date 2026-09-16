@@ -251,7 +251,7 @@ da_haskell_library(
 # Tests for daml-doc
 da_haskell_test(
     name = "daml-doc",
-    timeout = "short",
+    timeout = "moderate" if is_windows else "short",
     srcs = ["src/DA/Test/DamlDoc.hs"],
     data = [
         ":daml-test-files",
@@ -350,7 +350,7 @@ da_haskell_test(
 da_haskell_test(
     name = "shake",
     size = "large",
-    timeout = "moderate",
+    timeout = "long" if is_windows else "moderate",
     srcs = ["src/DA/Test/ShakeIdeClient.hs"],
     data = [
         "//:java_rlocation_path",
@@ -423,7 +423,7 @@ da_haskell_test(
 # Tests for incremental package-db
 da_haskell_test(
     name = "incremental-package-db",
-    timeout = "short",
+    timeout = "moderate" if is_windows else "short",
     srcs = ["src/DA/Test/IncrementalPackageDb.hs"],
     data = [
         "//compiler/damlc",
@@ -452,7 +452,7 @@ da_haskell_test(
 # Tests for upgrades
 da_haskell_test(
     name = "upgrades",
-    timeout = "moderate",
+    timeout = "long" if is_windows else "moderate",
     srcs = ["src/DA/Test/DamlcUpgrades.hs"],
     data = [
         "//compiler/damlc",
@@ -1114,7 +1114,7 @@ generate_and_track_dar_hash_file("platform-independence")
 # Desugared daml golden tests
 da_haskell_test(
     name = "daml-desugar",
-    timeout = "short",
+    timeout = "moderate" if is_windows else "short",
     srcs = ["src/DA/Test/DamlDesugar.hs"],
     data = [
         ":daml-test-files",
