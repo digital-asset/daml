@@ -21,10 +21,13 @@ def _cabal_install_impl(repository_ctx):
         sha256 = platform["sha256"],
     )
 
-    cabal_bin = "cabal.exe" if "windows" in os_name else "cabal"
+    if "windows" in os_name:
+        repository_ctx.symlink("cabal.exe", "cabal")
+
     repository_ctx.file(
         "BUILD.bazel",
-        'exports_files(["{}"], visibility = ["//visibility:public"])\n'.format(cabal_bin),
+        """exports_files(["cabal"], visibility = ["//visibility:public"])
+""",
     )
 
 _cabal_install = repository_rule(
