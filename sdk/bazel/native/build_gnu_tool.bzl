@@ -1,6 +1,6 @@
+load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain", "use_cc_toolchain")
 load("//bazel/native:hermetic_cc.bzl", "JOBS_SNIPPET", "TOOLBIN_SNIPPET", "hermetic_cc_flags")
-load("@os_info//:os_info.bzl", "is_windows")
 
 InstalledGnuToolInfo = provider(
     doc = "Paths within a GNU tool install prefix.",
