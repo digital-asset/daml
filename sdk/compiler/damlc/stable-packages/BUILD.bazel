@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "generate_and_track_cabal")
 load(
     "//daml-lf:daml-lf.bzl",
@@ -11,7 +12,6 @@ load(
     ":defs.bzl",
     "stable_packages",
 )
-load("@os_info//:os_info.bzl", "is_windows")
 
 _HOST_LIBS = [] if is_windows else [
     "@gmp//:libs",
