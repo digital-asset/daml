@@ -25,13 +25,18 @@ export LDFLAGS="{ldflags}"
 # they mis-detect uid_t/gid_t, which then clash with the real glibc typedefs.
 export CPPFLAGS="{cflags}"
 {toolbin}
-cd "$SRC"
+TMP="$(mktemp -d)"
+BUILD="$TMP/build"
+cp -rpL "$SRC/." "$BUILD"
+chmod -R u+w "$BUILD"
+cd "$BUILD"
 
 # build.sh compiles make without needing make itself.
 ./configure --disable-nls --disable-dependency-tracking
 sh ./build.sh
 
 cp make "$OUT"
+rm -rf "$TMP"
 """.format(
         compiler = cc.compiler,
         out = make_bin.path,
