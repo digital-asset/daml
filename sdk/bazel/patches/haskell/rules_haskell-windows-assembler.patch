@@ -1,0 +1,91 @@
+diff --git a/haskell/cc.bzl b/haskell/cc.bzl
+--- a/haskell/cc.bzl
++++ b/haskell/cc.bzl
+@@ -129,17 +129,41 @@
+             if flag != "-fuse-ld=lld"
+         ]
+ 
++    if hs_toolchain.is_windows:
++        compiler_flags = []
++        linker_flags = []
++        real_cc_path = paths.join(
++            paths.dirname(hs_toolchain.libdir_path),
++            "mingw/bin/gcc.exe",
++        )
++
+     cc_bindir = real_cc_path[:real_cc_path.rfind("/") + 1]
+-    tools = {
++    if hs_toolchain.is_darwin:
++        binutils = {
++            "ar": "/usr/bin/ar",
++            "ld": "/usr/bin/ld",
++            "nm": "/usr/bin/nm",
++            "strip": "/usr/bin/strip",
++        }
++    elif hs_toolchain.is_windows:
++        binutils = {
++            "ar": cc_bindir + "ar.exe",
++            "ld": cc_bindir + "ld.exe",
++            "nm": cc_bindir + "nm.exe",
++            "strip": cc_bindir + "strip.exe",
++        }
++    else:
+         # LLVM advertises stub ar/ld/nm/strip paths that don't exist (it links
+         # via clang); use the real llvm-* tools beside clang for direct calls.
+-        "ar": ("/usr/bin/ar" if hs_toolchain.is_darwin else cc_bindir + "llvm-ar"),
+-        "cc": cc,
+-        "ld": ("/usr/bin/ld" if hs_toolchain.is_darwin else cc_bindir + "ld.lld"),
+-        "cpp": cc_toolchain.preprocessor_executable,
+-        "nm": ("/usr/bin/nm" if hs_toolchain.is_darwin else cc_bindir + "llvm-nm"),
+-        "strip": ("/usr/bin/strip" if hs_toolchain.is_darwin else cc_bindir + "llvm-strip"),
+-    }
++        binutils = {
++            "ar": cc_bindir + "llvm-ar",
++            "ld": cc_bindir + "ld.lld",
++            "nm": cc_bindir + "llvm-nm",
++            "strip": cc_bindir + "llvm-strip",
++        }
++    tools = dict(binutils)
++    tools["cc"] = cc
++    tools["cpp"] = cc_toolchain.preprocessor_executable
+ 
+     # If running on darwin but XCode is not installed (i.e., only the Command
+     # Line Tools are available), then Bazel will make ar_executable point to
+diff --git a/haskell/private/ghc_wrapper.sh b/haskell/private/ghc_wrapper.sh
+--- a/haskell/private/ghc_wrapper.sh
++++ b/haskell/private/ghc_wrapper.sh
+@@ -2,6 +2,10 @@
+ set -ueo pipefail
+ export PATH=${PATH:-} # otherwise GCC fails on Windows
+ 
++if [ "${CC_WRAPPER_PLATFORM:-}" = "windows" ]; then
++    unset RUNFILES_DIR RUNFILES_MANIFEST_FILE
++fi
++
+ drop_loaded_and_warning () {
+     # Drop messages that GHC produces on features that we rely upon.
+     #
+diff --git a/haskell/c2hs.bzl b/haskell/c2hs.bzl
+--- a/haskell/c2hs.bzl
++++ b/haskell/c2hs.bzl
+@@ -107,7 +107,7 @@
+             ),
+         mnemonic = "HaskellC2Hs",
+         arguments = [args],
+-        env = hs.env,
++        env = dict(hs.env, **cc.env),
+     )
+ 
+     idir = paths.join(
+diff --git a/haskell/private/actions/process_hsc_file.bzl b/haskell/private/actions/process_hsc_file.bzl
+--- a/haskell/private/actions/process_hsc_file.bzl
++++ b/haskell/private/actions/process_hsc_file.bzl
+@@ -89,7 +89,7 @@
+                 hsc2hs = hs.tools.hsc2hs.path,
+             ),
+         arguments = [args],
+-        env = hs.env,
++        env = dict(hs.env, **cc.env),
+     )
+ 
+     idir = paths.join(
