@@ -7,6 +7,7 @@ import Control.Lens (view)
 import Control.Monad
 import Crypto.Hash (digestFromByteString, hashlazy, Digest, SHA256)
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.KeyMap as Aeson
 import Data.ByteArray.Encoding (Base(Base16, Base64), convertFromBase, convertToBase)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -211,16 +212,6 @@ getDpmChecksums releaseVer = do
     damlTypesHash <- getTypesHash damlVer
     pure (damlVer, Checksums {..})
   where
-    httpGetJsonResponse :: forall a. Aeson.FromJSON a => String -> IO a
-    httpGetJsonResponse url = do
-      req <- parseRequestThrow url
-      res <- httpJSON @_ @a req { responseTimeout = responseTimeoutMicro (60 * 10 ^ (6 :: Int) ) }
-      pure $ responseBody res
-    httpGetTextResponse :: String -> IO Text
-    httpGetTextResponse url = do
-      req <- parseRequestThrow url
-      res <- httpLbs req { responseTimeout = responseTimeoutMicro (60 * 10 ^ (6 :: Int) ) }
-      pure $ T.decodeUtf8 $ BSL.toStrict $ getResponseBody res
     -- Get hash of the bundle tar.gz/zip by calling its manifest api endpoint and finding the hash for SHA256
     getGarHash plat = do
       let ext = if plat == "windows-amd64" then "zip" else "tar.gz"
@@ -265,9 +256,24 @@ getVersionsFromTags = do
         versionFilter ver = ver >= minimumVersion && (null (view SemVer.release ver) || Set.member (getMinor ver) snapshotReleases)
     return $ latestPatchVersions $ Set.filter versionFilter versions
 
+data Paged a = Paged
+  { content :: a
+  , nextPageToken :: Maybe String
+  }
+  deriving (Show, Eq)
+
+instance Aeson.FromJSON a => Aeson.FromJSON (Paged a) where
+  parseJSON = Aeson.withObject "GenericPaged" $ \o ->
+    Paged
+      <$> Aeson.parseJSON (Aeson.Object $ Aeson.delete "nextPageToken" o)
+      <*> o Aeson..:? "nextPageToken"
+
 data GARTags = GARTags
   { _tags :: [GARTag]
   } deriving (Show, Eq, Generic)
+
+instance Semigroup GARTags where
+  GARTags a <> GARTags b = GARTags (a <> b)
 
 instance Aeson.FromJSON GARTags where
     parseJSON = Aeson.genericParseJSON aesonOptions
@@ -280,22 +286,39 @@ data GARTag = GARTag
 instance Aeson.FromJSON GARTag where
     parseJSON = Aeson.genericParseJSON aesonOptions
 
+httpGetTextResponse :: String -> IO Text
+httpGetTextResponse url = do
+  req <- parseRequestThrow url
+  res <- httpLbs req { responseTimeout = responseTimeoutMicro (60 * 10 ^ (6 :: Int) ) }
+  pure $ T.decodeUtf8 $ BSL.toStrict $ getResponseBody res
+
+httpGetJsonResponsePaged :: forall a. (Aeson.FromJSON a, Semigroup a) => String -> IO a
+httpGetJsonResponsePaged url = getPaged Nothing
+  where
+    getPaged :: Maybe String -> IO a
+    getPaged currentToken = do
+      let urlWithToken = url <> "?pageSize=1000" <> maybe "" ("?nextPageToken=" <>) currentToken
+      Paged content nextToken <- httpGetJsonResponse @(Paged a) urlWithToken
+      case nextToken of
+        Just t -> (content <>) <$> getPaged (Just t)
+        Nothing -> pure content
+
+httpGetJsonResponse :: forall a. Aeson.FromJSON a => String -> IO a
+httpGetJsonResponse url = do
+  req <- parseRequestThrow url
+  res <- httpJSON @_ @a req { responseTimeout = responseTimeoutMicro (60 * 10 ^ (6 :: Int) ) }
+  pure $ responseBody res
+
 getVersionsFromDPM :: IO (Set Version)
 getVersionsFromDPM = do
     -- Read all tags, include only valid 3 part versions (which all stable versions will be)
     -- We are specifically trying to avoid tags like "latest-3.5" "3.5" "x.y.z.<platform>"
     -- GAR will give back tags as full paths, i.e. project/*/repository/*/packages/*/tag
     -- We only care for the tag, so drop everything before the last slash
-    res <- httpGetJsonResponse @GARTags "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public/packages/sdk-manifests%2Fopen-source/tags"
+    res <- httpGetJsonResponsePaged @GARTags "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public/packages/sdk-manifests%2Fopen-source/tags"
     let isJustVersion v = length (T.split (=='.') v) == 3
         versions = rights $ fmap SemVer.fromText $ filter isJustVersion $ last . T.split (=='/') . _name <$> _tags res
     return $ latestPatchVersions $ Set.fromList versions
-  where
-    httpGetJsonResponse :: forall a. Aeson.FromJSON a => String -> IO a
-    httpGetJsonResponse url = do
-      req <- parseRequestThrow url
-      res <- httpJSON @_ @a req { responseTimeout = responseTimeoutMicro (60 * 10 ^ (6 :: Int) ) }
-      pure $ responseBody res
 
 data DamlOrDPMVersion = DamlVersion Version | DPMVersion Version deriving (Ord, Eq)
 

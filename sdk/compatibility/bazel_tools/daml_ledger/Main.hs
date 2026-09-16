@@ -187,39 +187,41 @@ authenticatedUploadTest sdkVersion platformVersion getTools = do
           Tools{..} <- getTools
           port <- getSandboxPort
           withTempDir $ \deployDir -> do
-            withCurrentDirectory deployDir $ do
-              let tokenFile = deployDir </> "secretToken.jwt"
-              expiration <- JWT.numericDate . (+180) <$> getPOSIXTime
-              -- The trailing newline is not required but we want to test that it is supported.
-              writeFileUTF8 tokenFile ("Bearer " <> makeSignedAdminJwt sharedSecret expiration <> "\n")
-              writeMinimalPackage sdkVersion platformVersion
-              let origDar = ".daml/dist/proj1-0.0.1.dar"
-              callProcessSilent sdk ["damlc", "build"]
+            withTempDir $ \cacheDir -> do
+              withCurrentDirectory deployDir $ do
+                let tokenFile = deployDir </> "secretToken.jwt"
+                expiration <- JWT.numericDate . (+180) <$> getPOSIXTime
+                -- The trailing newline is not required but we want to test that it is supported.
+                writeFileUTF8 tokenFile ("Bearer " <> makeSignedAdminJwt sharedSecret expiration <> "\n")
+                writeMinimalPackage sdkVersion platformVersion
+                let origDar = ".daml/dist/proj1-0.0.1.dar"
+                callProcessSilentWithEnv [("DAML_CACHE", cacheDir)] sdk ["damlc", "build"]
 
-              callProcessSilent sdk
-                [ "script", "--script-name", "Main:test", "--upload-dar=yes"
-                , "--dar", origDar
-                , "--access-token-file", tokenFile
-                , "--ledger-host", "localhost", "--ledger-port", show port
-                ]
+                callProcessSilent sdk
+                  [ "script", "--script-name", "Main:test", "--upload-dar=yes"
+                  , "--dar", origDar
+                  , "--access-token-file", tokenFile
+                  , "--ledger-host", "localhost", "--ledger-port", show port
+                  ]
     , testCase "no Bearer prefix" $ do
           Tools{..} <- getTools
           port <- getSandboxPort
           withTempDir $ \deployDir -> do
-            withCurrentDirectory deployDir $ do
-              let tokenFile = deployDir </> "secretToken.jwt"
-              expiration <- JWT.numericDate . (+180) <$> getPOSIXTime
-              -- The trailing newline is not required but we want to test that it is supported.
-              writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret expiration <> "\n")
-              writeMinimalPackage sdkVersion platformVersion
-              let origDar = ".daml/dist/proj1-0.0.1.dar"
-              callProcessSilent sdk ["damlc", "build"]
-              callProcessSilent sdk
-                [ "script", "--script-name", "Main:test", "--upload-dar=yes"
-                , "--dar", origDar
-                , "--access-token-file", tokenFile
-                , "--ledger-host", "localhost", "--ledger-port", show port
-                ]
+            withTempDir $ \cacheDir -> do
+              withCurrentDirectory deployDir $ do
+                let tokenFile = deployDir </> "secretToken.jwt"
+                expiration <- JWT.numericDate . (+180) <$> getPOSIXTime
+                -- The trailing newline is not required but we want to test that it is supported.
+                writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret expiration <> "\n")
+                writeMinimalPackage sdkVersion platformVersion
+                let origDar = ".daml/dist/proj1-0.0.1.dar"
+                callProcessSilentWithEnv [("DAML_CACHE", cacheDir)] sdk ["damlc", "build"]
+                callProcessSilent sdk
+                  [ "script", "--script-name", "Main:test", "--upload-dar=yes"
+                  , "--dar", origDar
+                  , "--access-token-file", tokenFile
+                  , "--ledger-host", "localhost", "--ledger-port", show port
+                  ]
     ]
   where
     sharedSecret = "TheSharedSecret"
