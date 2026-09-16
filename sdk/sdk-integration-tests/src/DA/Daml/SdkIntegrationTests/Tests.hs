@@ -575,8 +575,7 @@ templateTests = testGroup "templates" $
       , "daml-intro-contracts"
       , "daml-intro-daml-scripts"
       , "daml-intro-data"
---            , "daml-intro-exceptions"    -- warn for deprecated exceptions
-      , "daml-intro-functional-101"
+      , "daml-intro-functional"
       , "daml-intro-parties"
       , "daml-patterns"
       , "quickstart-java"
@@ -586,6 +585,7 @@ templateTests = testGroup "templates" $
     multipackageTemplateNames =
       [ "daml-intro-test"
       , "multi-package-example"
+      , "upgrades-example"
       , "skeleton"
       , "upgrades-example"
       ]
