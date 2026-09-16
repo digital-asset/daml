@@ -1,6 +1,7 @@
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc:find_cc_toolchain.bzl", "find_cc_toolchain")
-load("//bazel/native:build_gnu_tool.bzl", "InstalledGnuToolInfo")
+load("//bazel/native:build_gnu_tool.bzl", "InstalledGnuToolInfo", "executable_by_name")
+load("//bazel/native:hermetic_cc.bzl", "drop_unsupported_flags")
 
 def _execroot_abs_flag(tok):
     for prefix in ("-isystem", "-iquote", "-idirafter", "-I", "-L", "-B", "-F", "--sysroot=", ""):
@@ -10,6 +11,13 @@ def _execroot_abs_flag(tok):
                 return prefix + "__EXECROOT__/" + body
             return tok
     return tok
+
+def _shallowest(files, names):
+    for name in names:
+        matches = [f for f in files if f.basename == name]
+        if matches:
+            return sorted(matches, key = lambda f: len(f.dirname))[0]
+    return None
 
 def _ghc_lib_sdist_impl(ctx):
     component = ctx.attr.component
@@ -54,7 +62,7 @@ def _ghc_lib_sdist_impl(ctx):
     )
     cc_rsp_flags = "\n".join([
         _execroot_abs_flag(f)
-        for f in cc_common.get_memory_inefficient_command_line(
+        for f in drop_unsupported_flags(cc_common.get_memory_inefficient_command_line(
             feature_configuration = feature_configuration,
             action_name = ACTION_NAMES.c_compile,
             variables = compile_variables,
@@ -62,18 +70,20 @@ def _ghc_lib_sdist_impl(ctx):
             feature_configuration = feature_configuration,
             action_name = ACTION_NAMES.cpp_link_executable,
             variables = link_variables,
-        )
+        ))
     ] + ["-Wno-unused-command-line-argument"])
 
     # -- Autotools prefix (InstalledGnuToolInfo from build_gnu_tool) --
     autotools_info = ctx.attr.autotools[InstalledGnuToolInfo]
 
     # -- Perl binary --
-    perl_files = ctx.files.perl
-    perl_bin = [f for f in perl_files if f.basename == "perl"][0]
+    perl_bin = executable_by_name(ctx.files.perl, "perl")
+    if not perl_bin:
+        fail("no perl executable in {}".format(ctx.attr.perl.label))
 
-    python3_files = ctx.files.python3
-    python3_bin = [f for f in python3_files if f.basename == "python3" and f.dirname.endswith("/bin")][0]
+    python3_bin = _shallowest(ctx.files.python3, ["python3", "python3.exe", "python.exe", "python"])
+    if not python3_bin:
+        fail("no python3 interpreter in {}".format(ctx.attr.python3.label))
 
     # -- Extra tools on PATH (e.g. happy, alex) --
     extra_tool_path_entries = []
@@ -100,6 +110,16 @@ def _ghc_lib_sdist_impl(ctx):
     shell_cmd = """\
 set -euo pipefail
 EXECROOT="$PWD"
+case "$(uname)" in
+    Linux|Darwin) EXECROOT_NATIVE="$EXECROOT" ;;
+    *) EXECROOT_NATIVE="$(pwd -W)" ;;
+esac
+
+if [ "$(uname)" != "Linux" ] && [ "$(uname)" != "Darwin" ]; then
+    if [ -z "${{COMSPEC:-}}" ]; then
+        export COMSPEC="$(cygpath -w "${{SYSTEMROOT:-C:/Windows}}/System32/cmd.exe")"
+    fi
+fi
 
 # Set up autotools from pre-built prefix tree.
 # The prefix contains __EXECROOT__ placeholders that must be fixed up.
@@ -124,6 +144,17 @@ export PATH="$AUTOTOOLS_TMP/{autotools_bindir}:$PATH"
 export PATH="$(dirname "$EXECROOT/{ghc_path}"):$PATH"
 export PATH="$(dirname "$EXECROOT/{perl_path}"):$PATH"
 export PATH="$(dirname "$EXECROOT/{python3_path}"):$PATH"
+if ! command -v python3 > /dev/null 2>&1; then
+    PYTHON3_SHIM_DIR=$(mktemp -d)
+    cat > "$PYTHON3_SHIM_DIR/python3" <<'PYSHIM_EOF'
+#!/bin/sh
+exec "__PYTHON3_REAL__" "$@"
+PYSHIM_EOF
+    sed -i.bak -e "s|__PYTHON3_REAL__|$EXECROOT/{python3_path}|" "$PYTHON3_SHIM_DIR/python3"
+    rm -f "$PYTHON3_SHIM_DIR/python3.bak"
+    chmod +x "$PYTHON3_SHIM_DIR/python3"
+    export PATH="$PYTHON3_SHIM_DIR:$PATH"
+fi
 export PATH="$(dirname "$EXECROOT/{m4_path}"):$PATH"
 export PATH="$(dirname "$EXECROOT/{hadrian_path}"):$PATH"
 export PATH="$(dirname "$EXECROOT/{cabal_path}"):$PATH"
@@ -154,8 +185,11 @@ export LD="$LD_PATH"
 
 export LD_LIBRARY_PATH="{runtime_lib_path}:${{LD_LIBRARY_PATH:-}}"
 
-GHC_WRAPPER_DIR=$(mktemp -d)
 GHC_BIN_DIR="$(dirname "$EXECROOT/{ghc_path}")"
+GHC_TOPDIR="$(dirname "$GHC_BIN_DIR")"
+case "$(uname)" in
+    Linux|Darwin)
+GHC_WRAPPER_DIR=$(mktemp -d)
 # Mirror every bindist binary into the wrapper dir via symlinks, then
 # override `ghc` with our wrapper. GHC's autoconf locates `ghc-pkg` etc.
 # by inspecting the directory of the detected `ghc` (not by PATH lookup),
@@ -178,7 +212,7 @@ sed -i.bak \
     -e "s|__CC__|$GHC_WRAPPER_DIR/cc|g" \
     -e "s|__FUSE_LD__|$FUSE_LD_FLAG|" \
     -e "s|__NO_PIE__|$NO_PIE_FLAG|" \
-    -e "s|__GMP_DIR__|$EXECROOT/{gmp_lib_dir}|" \
+    -e "s|__GMP_DIR__|$EXECROOT_NATIVE/{gmp_lib_dir}|" \
     "$GHC_WRAPPER_DIR/ghc"
 rm -f "$GHC_WRAPPER_DIR/ghc.bak"
 chmod +x "$GHC_WRAPPER_DIR/ghc"
@@ -187,7 +221,7 @@ CC_RSP="$GHC_WRAPPER_DIR/cc.rsp"
 cat > "$CC_RSP" <<'CCRSP_EOF'
 {cc_rsp_flags}
 CCRSP_EOF
-sed -i.bak "s|__EXECROOT__|$EXECROOT|g" "$CC_RSP"
+sed -i.bak "s|__EXECROOT__|$EXECROOT_NATIVE|g" "$CC_RSP"
 rm -f "$CC_RSP.bak"
 
 cat > "$GHC_WRAPPER_DIR/cc" <<'CC_EOF'
@@ -209,6 +243,13 @@ for pair in ar:llvm-ar ranlib:llvm-ar nm:llvm-nm objdump:llvm-objdump strip:llvm
 done
 if [ "$(uname)" = "Darwin" ] && [ "$(uname -m)" = "x86_64" ]; then ln -sf /usr/bin/ld "$GHC_WRAPPER_DIR/ld"; fi
 export PATH="$GHC_WRAPPER_DIR:$PATH"
+        ;;
+    *)
+        export CC="$(cygpath -w "$GHC_TOPDIR/mingw/bin/gcc.exe")"
+        export LD="$(cygpath -w "$GHC_TOPDIR/mingw/bin/ld.exe")"
+        export PATH="$GHC_BIN_DIR:$GHC_TOPDIR/mingw/bin:$PATH"
+        ;;
+esac
 
 # Locale
 if [ "$(uname)" = "Darwin" ]; then
@@ -224,7 +265,12 @@ trap "rm -rf $TMP $AUTOTOOLS_TMP" EXIT
 cp -rL $GHC_DIR/. $TMP/
 export HOME="$TMP"
 
-if [ "$(uname)" != "Darwin" ]; then
+if [ "$(uname)" != "Linux" ] && [ "$(uname)" != "Darwin" ]; then
+    sed -i.bak -e "s|^        EnableDistroToolchain=NO$|        EnableDistroToolchain=YES|" "$TMP/configure.ac"
+    rm -f "$TMP/configure.ac.bak"
+fi
+
+if [ "$(uname)" = "Linux" ]; then
     ENVFIX_SO="$TMP/environ_fix.so"
     printf 'extern char **environ, **__environ;\n__attribute__((constructor)) static void _f(void){{ environ = __environ; }}\n' > "$TMP/environ_fix.c"
     "$CC_PATH" -fuse-ld=lld -shared -fPIC -nostdlib -o "$ENVFIX_SO" "$TMP/environ_fix.c"
