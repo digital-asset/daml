@@ -1,7 +1,6 @@
 module Test where
 
 import Daml.Script
-import Daml.Script.Internal
 
 import Asset (Asset)
 import qualified Asset
