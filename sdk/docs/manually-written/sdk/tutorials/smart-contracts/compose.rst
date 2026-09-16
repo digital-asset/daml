@@ -310,4 +310,7 @@ This is because the ``create`` action of these contracts are in the transitive c
 Next up
 -------
 
-In :doc:`exceptions`, we will learn about how errors in your model can be handled in Daml.
+In :doc:`dependencies` you will learn how to
+extend an already running application to enhance it with new
+features. In that context you'll learn a bit more about the
+architecture of Daml, about dependencies, and about identifiers.

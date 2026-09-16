@@ -447,8 +447,7 @@ daml_test(
     srcs = glob(
         ["source/sdk/tutorials/smart-contracts/daml/**/*.daml"],
         exclude = [
-            "source/sdk/tutorials/smart-contracts/daml/daml-intro-exceptions/**",
-            "source/sdk/tutorials/smart-contracts/daml/daml-intro-functional-101/**",
+            "source/sdk/tutorials/smart-contracts/daml/daml-intro-functional/**",
             "source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**",
             "source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/**",
             "source/sdk/tutorials/smart-contracts/daml/daml-intro-9/**",
@@ -458,17 +457,6 @@ daml_test(
     data_deps = ["//daml-script/daml:daml-script-2.1.dar"],
     target = "2.1",
 )
-
-[
-    daml_test(
-        name = "daml-intro-exceptions-daml-test-{}".format(version),
-        srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-exceptions/**/*.daml"]),
-        additional_compiler_flags = ["-Wupgrade-exceptions"],
-        data_deps = ["//daml-script/daml:daml-script-{}.dar".format(version)],
-        target = version,
-    )
-    for version in [DEV_LF_VERSION]
-]
 
 daml_test(
     name = "daml-intro-9-daml-test",
@@ -480,9 +468,9 @@ daml_test(
 )
 
 daml_test(
-    name = "daml-intro-daml-functional-101-test",
+    name = "daml-intro-daml-functional-test",
     srcs = glob(
-        ["source/sdk/tutorials/smart-contracts/daml/daml-intro-functional-101/**/*.daml"],
+        ["source/sdk/tutorials/smart-contracts/daml/daml-intro-functional/**/*.daml"],
     ),
     additional_compiler_flags = ["--ghc-option=-Wwarn=incomplete-patterns"],
     data_deps = ["//daml-script/daml:daml-script.dar"],
