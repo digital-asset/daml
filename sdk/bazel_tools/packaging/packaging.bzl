@@ -3,7 +3,6 @@
 
 """Packaging of Linux, macOS and Windows binaries into tarballs"""
 
-
 def _package_app_impl(ctx):
     args = ctx.actions.args()
     args.add(ctx.executable.binary.path)
