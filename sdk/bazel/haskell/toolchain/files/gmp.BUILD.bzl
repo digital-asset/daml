@@ -220,7 +220,10 @@ cc_library(
 # Consumer-facing name: base's GMP_DEPS (and others) depend on @gmp//:gmp_cc_lib.
 alias(
     name = "gmp_cc_lib",
-    actual = ":gmp",
+    actual = select({
+        "@platforms//os:windows": "@ghc_bindist//:bindist_gmp",
+        "//conditions:default": ":gmp",
+    }),
 )
 
 # Hermetic shared libgmp.so for consumers that need a `-L<dir>`/`-lgmp` lib
@@ -242,10 +245,13 @@ cc_shared_library(
 
 filegroup(
     name = "libs",
-    srcs = [
-        ":gmp_so",
-        ":gmp_so_10",
-    ],
+    srcs = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": [
+            ":gmp_so",
+            ":gmp_so_10",
+        ],
+    }),
 )
 
 # =============================================================================
