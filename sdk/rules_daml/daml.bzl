@@ -6,6 +6,14 @@ load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("@os_info//:os_info.bzl", "is_darwin", "is_intel", "is_windows")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "version_in")
+load("//bazel/haskell:runtime_libs.bzl", "DAMLC_RUNTIME_LIB_DIR_DEPS", "runtime_lib_path_export")
+
+_HOST_LIBS = [] if is_windows else [
+    "@libz//:libs",
+    "@gmp//:libs",
+]
+
+_LIB_PATH_EXPORT = "" if is_windows else "export LD_LIBRARY_PATH=\"$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$${LD_LIBRARY_PATH:-}\""
 
 _damlc = attr.label(
     default = Label("//compiler/damlc:damlc-compile-only"),
@@ -140,7 +148,7 @@ def _daml_build_impl(ctx):
     for f in ctx.files.runtime_lib_dirs:
         if f.dirname not in lib_dirs:
             lib_dirs.append(f.dirname)
-    ld_library_path_export = "export LD_LIBRARY_PATH=\"" + ":".join(["$PWD/" + d for d in lib_dirs]) + ":${LD_LIBRARY_PATH:-}\""
+    ld_library_path_export = runtime_lib_path_export(lib_dirs)
     ctx.actions.run_shell(
         tools = [damlc],
         inputs = [daml_yaml] + srcs + input_dars + ctx.files.runtime_lib_dirs,
@@ -234,12 +242,7 @@ _daml_build = rule(
         ),
         "damlc": _damlc,
         "runtime_lib_dirs": attr.label_list(
-            default = [
-                Label("//bazel/haskell/toolchain:tinfo_libs"),
-                Label("@libz//:libs"),
-                Label("@gmp//:libs"),
-                Label("@bzip2//:libs"),
-            ],
+            default = DAMLC_RUNTIME_LIB_DIR_DEPS,
             allow_files = True,
         ),
     },
@@ -337,7 +340,7 @@ def _inspect_dar_impl(ctx):
         inputs = [dar] + ctx.files.runtime_lib_dirs,
         outputs = [pp],
         arguments = ["inspect", dar.path, "-o", pp.path],
-        env = {"LD_LIBRARY_PATH": ":".join(lib_dirs)},
+        env = {"PATH" if is_windows else "LD_LIBRARY_PATH": ":".join(lib_dirs)},
     )
 
 _inspect_dar = rule(
@@ -350,12 +353,7 @@ _inspect_dar = rule(
         "damlc": _damlc,
         "pp": attr.output(mandatory = True),
         "runtime_lib_dirs": attr.label_list(
-            default = [
-                Label("//bazel/haskell/toolchain:tinfo_libs"),
-                Label("@libz//:libs"),
-                Label("@gmp//:libs"),
-                Label("@bzip2//:libs"),
-            ],
+            default = DAMLC_RUNTIME_LIB_DIR_DEPS,
             allow_files = True,
         ),
     },
@@ -535,10 +533,13 @@ def generate_dar_hash_file(name):
     """
     native.genrule(
         name = name + "-generated-hash",
-        srcs = [":{}.dar".format(name)],
-        tools = ["//rules_daml:generate-dar-hash"],
+        srcs = [
+            ":{}.dar".format(name),
+            "//rules_daml:generate-dar-hash.py",
+        ],
         outs = [name + "-generated.dar-hash"],
-        cmd = "$(execpath //rules_daml:generate-dar-hash) $(location :{dar}.dar) > $@".format(dar = name),
+        cmd = "$(PYTHON3) $(location //rules_daml:generate-dar-hash.py) $(location :{dar}.dar) > $@".format(dar = name),
+        toolchains = ["@rules_python//python:current_py_toolchain"],
     )
 
 def daml_build_test(
@@ -591,8 +592,14 @@ set -eou pipefail
 tmpdir=$$(mktemp -d)
 trap "rm -rf $$tmpdir" EXIT
 DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
-JAVA_BIN=$$(rlocation \
-  $$(head -n1 $$(canonicalize_rlocation java_rlocation_path.txt)))
+JAVA_DIR=$$(head -n1 $$(canonicalize_rlocation java_rlocation_path.txt))
+JAVA_BIN=$$(rlocation "$$JAVA_DIR")
+if [ ! -d "$$JAVA_BIN" ]; then
+  JAVA_EXE=$$(rlocation "$$JAVA_DIR/java")
+  if [ -z "$$JAVA_EXE" ]; then JAVA_EXE=$$(rlocation "$$JAVA_DIR/java.exe"); fi
+  JAVA_BIN=$$(dirname "$$JAVA_EXE")
+fi
+case "$$(uname -s)" in CYGWIN*|MINGW*|MSYS*) JAVA_BIN=$$(cygpath -u "$$JAVA_BIN") ;; esac
 export PATH="$$JAVA_BIN:$$PATH"
 rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
 DEPS=($$(rlocations {deps}))
@@ -675,10 +682,10 @@ def generate_and_track_yaml_file(
         native.genrule(
             name = generated_target,
             srcs = data,
-            tools = [generator, "@libz//:libs", "@gmp//:libs"],
+            tools = [generator] + _HOST_LIBS,
             outs = [generated_out],
             # Pass the output file path ($@) as the first argument
-            cmd = "export LD_LIBRARY_PATH=\"$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$${{LD_LIBRARY_PATH:-}}\"\n$(execpath {generator}) $@ {args}".format(
+            cmd = _LIB_PATH_EXPORT + "\n$(execpath {generator}) $@ {args}".format(
                 generator = generator,
                 args = " ".join(generator_args),
             ),
@@ -739,7 +746,14 @@ def daml_doc_test(
         ] + srcs,
         cmd = """\
 set -eou pipefail
-JAVA_BIN=$$(rlocation $$(head -n1 $$(canonicalize_rlocation java_rlocation_path.txt)))
+JAVA_DIR=$$(head -n1 $$(canonicalize_rlocation java_rlocation_path.txt))
+JAVA_BIN=$$(rlocation "$$JAVA_DIR")
+if [ ! -d "$$JAVA_BIN" ]; then
+  JAVA_EXE=$$(rlocation "$$JAVA_DIR/java")
+  if [ -z "$$JAVA_EXE" ]; then JAVA_EXE=$$(rlocation "$$JAVA_DIR/java.exe"); fi
+  JAVA_BIN=$$(dirname "$$JAVA_EXE")
+fi
+case "$$(uname -s)" in CYGWIN*|MINGW*|MSYS*) JAVA_BIN=$$(cygpath -u "$$JAVA_BIN") ;; esac
 export PATH="$$JAVA_BIN:$$PATH"
 CPP=$$(canonicalize_rlocation $(rootpath {cpp}))
 DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
@@ -758,6 +772,9 @@ FILES=($$(
     fi
   done
 ))
+DOCTEST_DIR=$$(mktemp -d)
+trap "rm -rf $$DOCTEST_DIR" EXIT
+cd "$$DOCTEST_DIR"
 $$DAMLC doctest {flags} --script-lib $$SCRIPT_DAR --cpp $$CPP --package-name {package_name}-{version} "$${{FILES[@]}}"
 """.format(
             cpp = cpp,
@@ -791,8 +808,14 @@ def daml_multi_package_test(
         ] + srcs,
         cmd = """
             set -eou pipefail
-            JAVA_BIN=$$(rlocation \
-              $$(head -n1 $$(canonicalize_rlocation java_rlocation_path.txt)))
+            JAVA_DIR=$$(head -n1 $$(canonicalize_rlocation java_rlocation_path.txt))
+            JAVA_BIN=$$(rlocation "$$JAVA_DIR")
+            if [ ! -d "$$JAVA_BIN" ]; then
+              JAVA_EXE=$$(rlocation "$$JAVA_DIR/java")
+              if [ -z "$$JAVA_EXE" ]; then JAVA_EXE=$$(rlocation "$$JAVA_DIR/java.exe"); fi
+              JAVA_BIN=$$(dirname "$$JAVA_EXE")
+            fi
+            case "$$(uname -s)" in CYGWIN*|MINGW*|MSYS*) JAVA_BIN=$$(cygpath -u "$$JAVA_BIN") ;; esac
             export PATH="$$JAVA_BIN:$$PATH"
             export DPM_HOME=$$PWD/$$(mktemp -d tmp.XXXXXXX)
             tmpdir=$$PWD/$$(mktemp -d tmp.XXXXXXX)

@@ -28,6 +28,7 @@
 #   Outputs:
 #   - A directory containing the combined package database
 load("@build_environment//:configuration.bzl", "ghc_version")
+load("//bazel/haskell:runtime_libs.bzl", "DAMLC_RUNTIME_LIB_DIR_DEPS", "runtime_lib_path_export")
 
 PACKAGE_CONF_TEMPLATE = """
 name: {name}
@@ -105,7 +106,7 @@ def _daml_package_rule_impl(ctx):
     for f in ctx.files.runtime_lib_dirs:
         if f.dirname not in lib_dirs:
             lib_dirs.append(f.dirname)
-    ld_library_path_export = "export LD_LIBRARY_PATH=\"" + ":".join(["$PWD/" + d for d in lib_dirs]) + ":${LD_LIBRARY_PATH:-}\""
+    ld_library_path_export = runtime_lib_path_export(lib_dirs)
 
     ctx.actions.run_shell(
         outputs = [dalf, iface_dir],
@@ -205,12 +206,7 @@ daml_package_rule = rule(
             default = False,
         ),
         "runtime_lib_dirs": attr.label_list(
-            default = [
-                Label("//bazel/haskell/toolchain:tinfo_libs"),
-                Label("@libz//:libs"),
-                Label("@gmp//:libs"),
-                Label("@bzip2//:libs"),
-            ],
+            default = DAMLC_RUNTIME_LIB_DIR_DEPS,
             allow_files = True,
         ),
     },
