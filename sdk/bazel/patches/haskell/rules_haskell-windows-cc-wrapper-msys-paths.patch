@@ -1,0 +1,22 @@
+--- a/haskell/private/cc_wrapper_windows.sh.tpl
++++ b/haskell/private/cc_wrapper_windows.sh.tpl
+@@ -147,14 +147,17 @@
+         return
+     fi
+ 
++    local resolved
++    resolved="$(realpath "$shortest")"
++
+     local normalized
+-    normalized="$(realpath "$shortest")"
++    normalized="$(cygpath -m "$resolved")"
+     if [[ ${#normalized} -lt ${#shortest} ]]; then
+         shortest="$normalized"
+     fi
+ 
+     local relative
+-    relative="$(realpath --relative-to="$PWD" "$shortest")"
++    relative="$(realpath --relative-to="$(realpath "$PWD")" "$resolved")"
+     if [[ ${#relative} -lt ${#shortest} ]]; then
+         shortest="$relative"
+     fi
