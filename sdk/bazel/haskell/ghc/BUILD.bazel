@@ -31,8 +31,8 @@ py_binary(
     ],
     data = [
         ":ghc_install_tree",
-        "@ghc_bindist//:bindist_srcs",
         "@ghc_bindist//:bindist_configure",
+        "@ghc_bindist//:bindist_srcs",
     ],
     main = "pkgdb_to_lock.py",
     target_compatible_with = _SKIP_ON_WINDOWS,
@@ -157,8 +157,8 @@ py_test(
     ],
     data = [
         ":ghc_install_tree",
-        "@ghc_bindist//:bindist_srcs",
         "@ghc_bindist//:bindist_configure",
+        "@ghc_bindist//:bindist_srcs",
     ] + select({
         ":darwin_amd64": ["pin/darwin_amd64.lock.json"],
         ":darwin_arm64": ["pin/darwin_aarch64.lock.json"],
