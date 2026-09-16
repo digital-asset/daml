@@ -114,7 +114,6 @@ shouldAllowInternalImport (pkgName, mod) =
 
 isExperimental :: GHC.ModuleName -> Bool
 isExperimental (GHC.moduleNameString -> x)
-  -- Experimental modules need to import internal modules.
   = "DA.Experimental." `isPrefixOf` x
 
 shouldSkipPreprocessor :: (LF.PackageName, GHC.ModuleName) -> Bool

@@ -36,15 +36,14 @@ load(
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
-      cp -L $(location :daml/ScriptTest{withkeys}.daml) $$TMP_DIR/daml
-      cp -L $(location :daml/MultiTest{withkeys}.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/MultiTest.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestContractId.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestExceptions.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestInterfaces.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestFailWithStatus.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/sdk/component-howtos/ledger-interaction/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
       cp -L $(locations //compiler/damlc/tests:divulgence-daml-test-files) $$TMP_DIR/daml
-      {removeKeyTests}
       cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
 initializeFixed : Script ()
 initializeFixed = do
@@ -74,19 +73,16 @@ EOF
       rm -rf $$TMP_DIR
     """.format(
             lfVersion = lfVersion,
-            removeKeyTests = "" if supportsKeys else "rm $$TMP_DIR/daml/*Key*.daml",
             sdk = sdk_version,
-            withkeys = "WithKeys" if supportsKeys else "",
         ),
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
     # TODO[#23010]: assess needs after moving 2.3 to stable
-    for (lfVersion, supportsKeys) in [
-        ("2.2", False),
-        (LATEST_STABLE_LF_VERSION, True),
-        (STAGING_LF_VERSION, True),
-        (DEV_LF_VERSION, True),
+    for lfVersion in [
+        LATEST_STABLE_LF_VERSION,
+        STAGING_LF_VERSION,
+        DEV_LF_VERSION,
     ]
 ]
 
@@ -176,17 +172,17 @@ EOF
 
 #TODO[23340]: undo hardcoding
 genrule(
-    name = "external-call-test-v2.4",
+    name = "external-call-test",
     srcs = glob(["**/*.daml"]) + [
-        "//daml-script/daml:daml-script-2.4.dar",
+        "//daml-script/daml:daml-script-{}.dar".format(LATEST_STABLE_LF_VERSION),
     ],
-    outs = ["external-call-test-v2.4.dar"],
+    outs = ["external-call-test.dar"],
     cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ExternalCallTests.daml) $$TMP_DIR/daml
-      cp -L $(location //daml-script/daml:daml-script-2.4.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/daml:daml-script-{target}.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: external-call-test
@@ -196,14 +192,15 @@ dependencies:
   - daml-stdlib
   - daml-prim
 data-dependencies:
-  - daml-script-2.4.dar
+  - daml-script-{target}.dar
 build-options:
-  - --target=2.4
+  - --target={target}
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location external-call-test-v2.4.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location external-call-test.dar)
       rm -rf $$TMP_DIR
     """.format(
         sdk = sdk_version,
+        target = LATEST_STABLE_LF_VERSION,
     ),
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
@@ -359,21 +356,16 @@ da_scala_test_suite(
         ],
     ),
     data = [
-        ":script-test-no-ledger.dar",
         ":attestation-test-v2.dev.dar",
-        ":external-call-test-v2.4.dar",
-        # TODO((https://github.com/digital-asset/daml/issues/18457): remove these dev dependencies
-        #  once integration tests don't depend on keys anymore
-        # TODO[23010]: replace hardcoded "2.2" with something like `PV34_LATEST_SUPPORTED_LF_VERSION`
-        # TODO[23015]: add pv-to-lf version(s) here
-        ":script-test-v{}.dar".format("2.2"),
+        ":external-call-test.dar",
+        ":script-test-no-ledger.dar",
         ":script-test-v{}.dar".format(LATEST_STABLE_LF_VERSION),
         ":script-test-v{}.dar".format(STAGING_LF_VERSION),
         ":script-test-v{}.dar".format(DEV_LF_VERSION),
+        ":json-script-test.dar",
+        ":legacy-script-test.dar",
         "//compiler/damlc",
         "//daml-script/runner:daml-script-binary",
-        ":legacy-script-test.dar",
-        ":json-script-test.dar",
     ],
     # TODO(https://github.com/digital-asset/daml/issues/18457): re-enable once
     #  script tests have been split into those that use keys and those that

@@ -1190,6 +1190,34 @@ exercised :: (HasTemplateTypeRep t) => Text -> TreeIndex t' -> TreeIndex t'
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-transactiontree-exercisedn-70910
 exercisedN :: (HasTemplateTypeRep t) => Text -> Int -> TreeIndex t' -> TreeIndex t'
 
+-- | Backwards compatibility accessor for the `coid` field of the `ValidationFailed` and `AuthenticationFailed` patterns.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-compatibility-coid-37904
+coid :: AnyUpgradeErrorType -> AnyContractId
+
+-- | Backwards compatibility accessor for the `srcTemplateId` field of the `ValidationFailed`, `TranslationFailed` and `AuthenticationFailed` patterns.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-compatibility-srctemplateid-45531
+srcTemplateId :: AnyUpgradeErrorType -> TemplateTypeRep
+
+-- | Backwards compatibility accessor for the `dstTemplateId` field of the `ValidationFailed`, `TranslationFailed` and `AuthenticationFailed` patterns.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-compatibility-dsttemplateid-77144
+dstTemplateId :: AnyUpgradeErrorType -> TemplateTypeRep
+
+-- | Backwards compatibility accessor for the `createArg` field of the `TranslationFailed` and `AuthenticationFailed` patterns.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-compatibility-createarg-27716
+createArg :: AnyUpgradeErrorType -> AnyTemplate
+
+-- | Backwards compatibility accessor for the `contractId` field of the `DisclosedContractKeyHashingError`, `WronglyTypedContract`, `ContractDoesNotImplementInterface` and `ContractDoesNotImplementRequiringInterface` patterns.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-compatibility-contractid-76354
+contractId :: AnySubmitError -> AnyContractId
+
+-- | Backwards compatibility accessor for the `templateId` field of the `ContractDoesNotImplementInterface` and `ContractDoesNotImplementRequiringInterface` patterns.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-compatibility-templateid-2630
+templateId :: AnySubmitError -> TemplateTypeRep
+
+-- | Backwards compatibility accessor for the `contractKey` field of the `ContractKeyNotFound` and `InconsistentContractKey` patterns.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-error-compatibility-contractkey-77153
+contractKey :: AnySubmitError -> AnyContractKey
+
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-util-fromanycontractid-11435
 fromAnyContractId :: (Template t) => AnyContractId -> Optional (ContractId t)
 

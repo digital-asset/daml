@@ -50,7 +50,6 @@ import           Data.Maybe (listToMaybe)
 import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
 import qualified Data.IntSet as IntSet
-import qualified Data.Text as T
 import           Safe.Exact (zipExactMay)
 
 import           DA.Daml.LF.Ast
@@ -790,15 +789,7 @@ typeOf' = \case
     checkExpr contract (TCon tpl)
     checkExpr choiceArg (chcArgType choice)
     pure (TList TParty)
-  EExperimental name ty -> do
-    checkFeature featureExperimental
-    checkExperimentalType name ty
-    pure ty
-
-checkExperimentalType :: MonadGamma m => T.Text -> Type -> m ()
-checkExperimentalType "ANSWER" (TUnit :-> TInt64) = pure ()
-checkExperimentalType name ty =
-  throwWithContext (EUnknownExperimental name ty)
+  EExperimental _ ty -> pure ty
 
 typeOf :: MonadGamma m => Expr -> m Type
 typeOf expr = do

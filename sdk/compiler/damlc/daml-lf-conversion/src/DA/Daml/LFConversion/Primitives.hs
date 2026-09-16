@@ -17,6 +17,13 @@ import qualified Data.Text as T
 import qualified Data.List as L
 
 convertPrim :: Version -> String -> Type -> ConvertM Expr
+-- Experimental
+convertPrim version (L.stripPrefix "$" -> Just builtin) typ
+    | isDevVersion version =
+    pure $
+      EExperimental (T.pack builtin) typ
+    | otherwise =
+    conversionError $ OnlySupportedOnDev "Experimental primitives are"
 -- Update
 convertPrim _ "UPure" (a1 :-> TUpdate a2) | a1 == a2 =
     pure $ ETmLam (varV1, a1) $ EUpdate $ UPure a1 $ EVar varV1
@@ -481,10 +488,6 @@ convertPrim _ "EChoiceObserver"
 convertPrim _ "EFailWithStatus"
     (TText :-> TFailureCategory :-> TText :-> TTextMap TText :-> retTy) =
     pure $ EBuiltinFun BEFailWithStatus `ETyApp` retTy
-
-convertPrim (isDevVersion->True) (L.stripPrefix "$" -> Just builtin) typ =
-    pure $
-      EExperimental (T.pack builtin) typ
 
 -- Unknown primitive.
 convertPrim _ x ty = conversionError $ UnknownPrimitive x ty

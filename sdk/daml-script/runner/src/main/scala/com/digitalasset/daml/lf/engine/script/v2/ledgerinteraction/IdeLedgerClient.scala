@@ -690,26 +690,8 @@ class IdeLedgerClient(
         }
 
       // We use try + unsafePreprocess here to avoid the addition template lookup logic in `preprocessApiCommands`
-      val eitherSpeedyCommands =
-        try {
-          Right(
-            preprocessor.unsafePreprocessApiCommands(
-              packageMap,
-              commands
-                .map(toCommand(_, reversePackageIdMap.view.filterKeys(packageSupportsUpgrades(_))))
-                .to(ImmArray),
-            )
-          )
-        } catch {
-          case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
-          // Expose type mismatches as unknown errors to match canton behaviour. Later this should be fully expressed as a SubmitError
-          case Error.Preprocessing.TypeMismatch(_, _, msg) =>
-            Left(
-              makeEmptySubmissionError(
-                script.Error.Internal("COMMAND_PREPROCESSING_FAILED(0, 00000000): " + msg)
-              )
-            )
-        }
+      val apiCommands: List[ApiCommand] =
+        commands.map(toCommand(_, reversePackageIdMap.view.filterKeys(packageSupportsUpgrades(_))))
 
       val eitherSpeedyDisclosures
           : Either[script.IdeLedgerRunner.SubmissionError, List[FatContractInstance]] = {
@@ -724,23 +706,34 @@ class IdeLedgerClient(
       val ledgerApi = IdeLedgerRunner.ScriptLedgerApi(ledger)
 
       for {
-        speedyCommands <- eitherSpeedyCommands
         speedyDisclosures <- eitherSpeedyDisclosures
-        translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
-        result =
-          IdeLedgerRunner.submit(
-            compiledPackages = compiledPackages,
-            disclosures = speedyDisclosures,
-            ledger = ledgerApi,
-            committers = actAs.toSortedSet,
-            readAs = readAs,
-            commands = translated,
-            location = optLocation,
-            seed = nextSeed(),
-            machineLogger = machineLogger,
-            packageResolution = packageMap,
-            snapshotDir = snapshotDir,
-          )
+        result <-
+          try {
+            Right(
+              IdeLedgerRunner.submit(
+                compiledPackages = compiledPackages,
+                disclosures = speedyDisclosures,
+                ledger = ledgerApi,
+                committers = actAs.toSortedSet,
+                readAs = readAs,
+                commands = apiCommands,
+                location = optLocation,
+                seed = nextSeed(),
+                machineLogger = machineLogger,
+                packageResolution = packageMap,
+                snapshotDir = snapshotDir,
+              )
+            )
+          } catch {
+            case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
+            // Expose type mismatches as unknown errors to match canton behaviour. Later this should be fully expressed as a SubmitError
+            case Error.Preprocessing.TypeMismatch(_, _, msg) =>
+              Left(
+                makeEmptySubmissionError(
+                  script.Error.Internal("COMMAND_PREPROCESSING_FAILED(0, 00000000): " + msg)
+                )
+              )
+          }
         res <- loop(result)
       } yield res
     }
