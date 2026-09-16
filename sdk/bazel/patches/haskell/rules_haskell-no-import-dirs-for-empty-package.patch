@@ -1,0 +1,11 @@
+--- a/haskell/private/actions/package.bzl
++++ b/haskell/private/actions/package.bzl
+@@ -98,7 +98,7 @@
+         "key": pkg_id.to_string(my_pkg_id),
+         "exposed": "True",
+         "hidden-modules": other_modules,
+-        "import-dirs": [import_dir],
++        "import-dirs": [import_dir] if exposed_modules or other_modules else [],
+         "library-dirs": [pkgroot_lib_path] + extra_lib_dirs,
+         "dynamic-library-dirs": [pkgroot_lib_path] + extra_dynamic_lib_dirs,
+         "extra-libraries": extra_libs,
