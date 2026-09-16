@@ -22,11 +22,14 @@ import ComponentVersion (ComponentVersioned, componentVersionString, withCompone
 import Text.Regex.TDFA
 import qualified Data.Text as T
 import Data.Maybe (maybeToList, fromMaybe)
+import GHC.IO.Encoding (setLocaleEncoding)
 
 main :: IO ()
-main = withComponentVersions $ do
-    damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
-    defaultMain $ tests damlc
+main = do
+    setLocaleEncoding utf8
+    withComponentVersions $ do
+        damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
+        defaultMain $ tests damlc
 
 tests :: ComponentVersioned => FilePath -> TestTree
 tests damlc =

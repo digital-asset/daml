@@ -85,10 +85,7 @@ da_haskell_binary(
     name = "damlc-bootstrap",
     srcs = ["exe/Main.hs"],
 
-    # We need to tell the linker to statically link pthread on Windows
-    # otherwise the library is not found at runtime.
     compiler_flags = [
-        "-optl-static",
         "-optl-pthread",
     ] if is_windows else [],
     data = [
@@ -426,7 +423,7 @@ genrule(
 daml_doc_test(
     name = "daml-stdlib-doctest",
     package_name = "daml-stdlib",
-    timeout = "short",
+    timeout = "moderate" if is_windows else "short",
     srcs = ["//compiler/damlc/daml-stdlib-src"],
     flags = [
         "--no-dflags-check",
