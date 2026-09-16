@@ -4,9 +4,9 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("@os_info//:os_info.bzl", "is_darwin", "is_intel", "is_windows")
+load("//bazel/haskell:runtime_libs.bzl", "DAMLC_RUNTIME_LIB_DIR_DEPS", "runtime_lib_path_export")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "version_in")
-load("//bazel/haskell:runtime_libs.bzl", "DAMLC_RUNTIME_LIB_DIR_DEPS", "runtime_lib_path_export")
 
 _HOST_LIBS = [] if is_windows else [
     "@libz//:libs",
