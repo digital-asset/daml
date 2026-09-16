@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load(
     "@rules_haskell//haskell:c2hs.bzl",
     "c2hs_library",
@@ -64,9 +65,23 @@ common_binary_haskell_flags = common_haskell_flags + [
     "-with-rtsopts=-N2 -qg -I0",
 ]
 
+_CBITS_DLL = "_merged_cbits_dll"
+
+def _cbits_dll_beside_binary():
+    if not native.existing_rule(_CBITS_DLL):
+        copy_file(
+            name = _CBITS_DLL,
+            src = "@grpc_haskell_core_cbits//:merged_cbits",
+            out = "merged_cbits.dll",
+            visibility = ["//visibility:private"],
+        )
+    return ":" + _CBITS_DLL
+
 def _wrap_rule(rule, common_flags, name = "", deps = [], hackage_deps = [], compiler_flags = [], **kwargs):
     ext_flags = ["-X%s" % ext for ext in common_haskell_exts]
     stackage_libs = ["@stackage//:{}".format(dep) for dep in hackage_deps]
+    if is_windows and "main_function" in kwargs:
+        kwargs["data"] = kwargs.get("data", []) + [_cbits_dll_beside_binary()]
     rule(
         name = name,
         ghcopts = ext_flags + common_flags + compiler_flags,
