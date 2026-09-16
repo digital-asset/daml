@@ -7,6 +7,12 @@
 // bypass the copy-relocation. Runs before main (constructor); alwayslink keeps
 // it from being GC'd since nothing references it. No-op on a correct glibc
 // (same address) or where the symbol is absent (dlsym -> NULL), e.g. macOS.
+#ifdef _WIN32
+
+void da_fix_environ(void) {}
+
+#else
+
 #define _GNU_SOURCE  // for RTLD_DEFAULT
 #include <dlfcn.h>
 
@@ -25,3 +31,5 @@ void da_fix_environ(void) {
 __attribute__((constructor)) static void da_fix_environ_ctor(void) {
     da_fix_environ();
 }
+
+#endif

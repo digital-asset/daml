@@ -6,14 +6,28 @@ load("//bazel_tools:cc_bundle.bzl", "cc_bundle")
 # (RUNFILES_DIR etc.) works. cc_bundle merges it into a self-contained shared lib
 # (with alwayslink, so the constructor survives) that rules_haskell links cleanly.
 cc_bundle(
-    name = "environ_fix",
+    name = "environ_fix_bundle",
     lib = ":environ_fix_lib",
+)
+
+alias(
+    name = "environ_fix",
+    actual = select({
+        "@platforms//os:windows": ":environ_fix_lib",
+        "//conditions:default": ":environ_fix_bundle",
+    }),
     visibility = ["//visibility:public"],
 )
 
 cc_library(
     name = "environ_fix_lib",
     srcs = ["environ_fix.c"],
-    linkopts = ["-ldl"],
-    alwayslink = True,
+    linkopts = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-ldl"],
+    }),
+    alwayslink = select({
+        "@platforms//os:windows": False,
+        "//conditions:default": True,
+    }),
 )
