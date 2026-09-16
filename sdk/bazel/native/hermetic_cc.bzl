@@ -7,9 +7,9 @@
 # full CFLAGS/CPPFLAGS/LDFLAGS plus a binutils tool dir keeps every probe on the
 # hermetic toolchain.
 
+load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
-load("@os_info//:os_info.bzl", "is_windows")
 
 _PATH_PREFIXES = ["-L", "-B", "-I", "-F", "-iquote", "--sysroot="]
 
