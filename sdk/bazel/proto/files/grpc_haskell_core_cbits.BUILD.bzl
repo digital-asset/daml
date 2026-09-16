@@ -11,6 +11,15 @@ cc_library(
     srcs = glob(["cbits/*.c"]),
     hdrs = glob(["include/*.h"]),
     includes = ["include/"],
+    linkopts = select({
+        "@platforms//os:windows": [
+            "-lws2_32",
+            "-lcrypt32",
+            "-lbcrypt",
+            "-ldbghelp",
+        ],
+        "//conditions:default": [],
+    }),
     deps = [
         "@grpc//:grpc",
     ],

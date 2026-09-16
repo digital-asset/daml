@@ -35,14 +35,25 @@ cc_shared_library(
 
 filegroup(
     name = "libs",
-    srcs = [":bz2_so"],
+    srcs = select({
+        "@platforms//os:windows": [":bz2_cc_lib"],
+        "//conditions:default": [":bz2_so"],
+    }),
     visibility = ["//visibility:public"],
 )
 
 cc_library(
-    name = "bz2_dyn",
-    srcs = [":libs"],
+    name = "bz2_shared",
+    srcs = [":bz2_so"],
     hdrs = ["bzlib.h"],
     includes = ["."],
+)
+
+alias(
+    name = "bz2_dyn",
+    actual = select({
+        "@platforms//os:windows": ":bz2_cc_lib",
+        "//conditions:default": ":bz2_shared",
+    }),
     visibility = ["//visibility:public"],
 )

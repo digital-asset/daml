@@ -9,6 +9,7 @@
 
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+load("@os_info//:os_info.bzl", "is_windows")
 
 _PATH_PREFIXES = ["-L", "-B", "-I", "-F", "-iquote", "--sysroot="]
 
@@ -41,6 +42,13 @@ def _flags(fc, action_name, variables):
             out.append(_abs(f))
     return out
 
+def drop_unsupported_flags(flags):
+    if not is_windows:
+        return flags
+    return [f for f in flags if not f.startswith("-fstack-protector")]
+
+_EXTRA_LDFLAGS = ["-lpthread"] if is_windows else []
+
 def hermetic_cc_flags(ctx, cc_toolchain, link_dynamic = False):
     """Compiler/ar tool paths + CFLAGS/LDFLAGS for an autotools build.
 
@@ -72,8 +80,8 @@ def hermetic_cc_flags(ctx, cc_toolchain, link_dynamic = False):
             feature_configuration = fc,
             action_name = ACTION_NAMES.cpp_link_static_library,
         ),
-        cflags = " ".join(_flags(fc, ACTION_NAMES.c_compile, compile_vars) + ["-Wno-unused-command-line-argument"]),
-        ldflags = " ".join(_flags(fc, link_action, link_vars)),
+        cflags = " ".join(drop_unsupported_flags(_flags(fc, ACTION_NAMES.c_compile, compile_vars) + ["-Wno-unused-command-line-argument"])),
+        ldflags = " ".join(drop_unsupported_flags(_flags(fc, link_action, link_vars)) + _EXTRA_LDFLAGS),
     )
 
 # Shell snippet (brace-free, safe to inject into a .format() command): exposes
@@ -87,6 +95,11 @@ ln -s "$CLANGDIR/llvm-ar" "$TOOLBIN/ar"
 ln -s "$CLANGDIR/llvm-ranlib" "$TOOLBIN/ranlib"
 ln -s "$CLANGDIR/llvm-nm" "$TOOLBIN/nm"
 ln -s "$CLANGDIR/llvm-strip" "$TOOLBIN/strip"
+if [ -f "$CLANGDIR/llvm-windres.exe" ] || [ -f "$CLANGDIR/llvm-windres" ]; then
+    ln -s "$CLANGDIR/llvm-windres" "$TOOLBIN/windres"
+    ln -s "$CLANGDIR/llvm-rc" "$TOOLBIN/rc"
+    ln -s "$CLANGDIR/clang" "$TOOLBIN/clang"
+fi
 export PATH="$TOOLBIN:$PATH"
 """
 
