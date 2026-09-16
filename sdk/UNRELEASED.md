@@ -9,6 +9,10 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-09-15 (Exclusive)
+
+- Daml Codegen: `peer-dependencies` changed to camelCase `peerDependencies`, matching the expected reference in [NPM](https://docs.npmjs.com/cli/v9/configuring-npm/package-json?v=true#peerdependencies).
+
 ## Until 2026-09-08 (Exclusive)
 
 - Daml-script now supports cross-sdk dependencies, via data-dependencies.
