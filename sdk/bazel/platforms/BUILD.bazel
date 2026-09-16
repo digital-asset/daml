@@ -5,10 +5,14 @@ load(":platforms.bzl", "PLATFORMS")
 
 package(default_visibility = ["//visibility:public"])
 
+_EXTRA_PLATFORM_CONSTRAINTS = {
+    "windows_x86_64": ["@llvm//constraints/windows/crt:msvcrt"],
+}
+
 [
     platform(
         name = p.name,
-        constraint_values = p.constraints,
+        constraint_values = p.constraints + _EXTRA_PLATFORM_CONSTRAINTS.get(p.name, []),
     )
     for p in PLATFORMS.values()
 ]
