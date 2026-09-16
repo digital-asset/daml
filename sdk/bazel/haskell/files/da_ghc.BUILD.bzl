@@ -5,7 +5,7 @@ load(
     "GHC_FLAVOR",
     "GHC_LIB_VERSION",
 )
-load("@os_info//:os_info.bzl", "is_darwin")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
 
 filegroup(
@@ -57,8 +57,8 @@ ghc_lib_sdist(
     m4 = "@m4//:m4",
     perl = "@rules_perl//:current_toolchain",
     cabal = "@cabal//:cabal",
-    gmp = "@gmp//:libs",
-    numa = None if is_darwin else "@//bazel/haskell/toolchain:numa_libs",
+    gmp = "@ghc_bindist//:bindist_gmp_libs" if is_windows else "@gmp//:libs",
+    numa = "@//bazel/haskell/toolchain:numa_libs" if is_linux else None,
     component = "",
     version = GHC_LIB_VERSION,
     ghc_flavor = GHC_FLAVOR,
@@ -82,8 +82,8 @@ ghc_lib_sdist(
     m4 = "@m4//:m4",
     perl = "@rules_perl//:current_toolchain",
     cabal = "@cabal//:cabal",
-    gmp = "@gmp//:libs",
-    numa = None if is_darwin else "@//bazel/haskell/toolchain:numa_libs",
+    gmp = "@ghc_bindist//:bindist_gmp_libs" if is_windows else "@gmp//:libs",
+    numa = "@//bazel/haskell/toolchain:numa_libs" if is_linux else None,
     component = "-parser",
     version = GHC_LIB_VERSION,
     ghc_flavor = GHC_FLAVOR,
