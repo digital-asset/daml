@@ -11,6 +11,14 @@ load(
     ":defs.bzl",
     "stable_packages",
 )
+load("@os_info//:os_info.bzl", "is_windows")
+
+_HOST_LIBS = [] if is_windows else [
+    "@gmp//:libs",
+    "@libz//:libs",
+]
+
+_LIB_PATH_EXPORT = "" if is_windows else "export LD_LIBRARY_PATH=\"$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$${LD_LIBRARY_PATH:-}\"\n"
 
 da_haskell_library(
     name = "stable-packages-lib",
@@ -54,7 +62,7 @@ da_haskell_binary(
         name = "gen-stable-packages-v{}".format(majorLfVersion),
         srcs = [],
         outs = stable_packages(majorLfVersion).values(),
-        cmd = "export LD_LIBRARY_PATH=\"$$(dirname $(location @libz//:libs)):$$(dirname $$(set -- $(locations @gmp//:libs); echo $$1)):$${LD_LIBRARY_PATH:-}\"\n" + "\n".join(
+        cmd = _LIB_PATH_EXPORT + "\n".join(
             ["$(location :generate-stable-package) --major-version {major} --module {module} -o $(location {path})".format(
                 major = majorLfVersion,
                 module = module,
@@ -63,9 +71,7 @@ da_haskell_binary(
         ),
         tools = [
             ":generate-stable-package",
-            "@gmp//:libs",
-            "@libz//:libs",
-        ],
+        ] + _HOST_LIBS,
     )
     for majorLfVersion in COMPILER_LF_MAJOR_VERSIONS
 ]
