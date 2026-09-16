@@ -13,6 +13,7 @@ $GitVersion = '2.55.0.5'
 $GitTag = 'v2.55.0.windows.5'
 $Sha256 = '5AA8A20F6E9ABB2C755F0E73C91C687701A46B309AD84A0CA6509380FA4AE290'
 $Url = "https://github.com/git-for-windows/git/releases/download/$GitTag/PortableGit-$GitVersion-64-bit.7z.exe"
+$MaxOutputBaseLength = 40
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $ShellDir = Join-Path (Split-Path -Parent $RepoRoot) ((Split-Path -Leaf $RepoRoot) + '_windows_bash')
@@ -103,6 +104,23 @@ $server = if ($changed) { & bazelisk.exe info server_pid 2>$null } else { $null 
 if ($changed -and $LASTEXITCODE -eq 0 -and $server) {
     Write-Host "Shutting down the Bazel server so it picks up BAZEL_SH"
     & bazelisk.exe shutdown 2>&1 | Out-Null
+}
+
+$outputBase = (& bazelisk.exe info output_base 2>$null)
+if ($LASTEXITCODE -eq 0 -and $outputBase) {
+    $outputBase = $outputBase.Trim()
+    if ($outputBase.Length -gt $MaxOutputBaseLength) {
+        Write-Warning @"
+Bazel's output base is $($outputBase.Length) characters long:
+    $outputBase
+This build generates paths about 210 characters below it, and Windows caps a
+process path at 260. Builds fail with "The filename or extension is too long"
+or "file doesn't exist" for files that are plainly there. Shorten it by adding
+this line to .bazelrc.local:
+
+    startup --output_base=C:/b
+"@
+    }
 }
 
 Write-Host ""
