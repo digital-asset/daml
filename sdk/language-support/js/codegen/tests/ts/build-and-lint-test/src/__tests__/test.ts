@@ -954,7 +954,9 @@ describe("interface definition", () => {
     for (const c of [tpl, if1, if2]) {
       expect(c.templateId.startsWith("#")).toBe(true);
       expect(c.templateIdWithPackageId.startsWith("#")).toBe(false);
-      expect(c.templateIdWithPackageId).toMatch(/^[0-9a-f]{8,}:.+:.+$/);
+      expect(c.templateIdWithPackageId).toMatch(
+        new RegExp(`^${buildAndLint.packageId}:.+:.+$`),
+      );
     }
   });
   test("choices not copied to interfaces", () => {

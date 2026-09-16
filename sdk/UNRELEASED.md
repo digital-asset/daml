@@ -11,7 +11,7 @@ Wednesday after your change.
 
 ## Until 2026-09-15 (Exclusive)
 
-- TypeScript codegen: `templateIdWithPackageId` / `interfaceIdWithPackageId` now use the bare
+- TypeScript codegen bugfix: `templateIdWithPackageId` / `interfaceIdWithPackageId` now use the bare
   package-id reference (`<package-id>:Module:Entity`) instead of a `#`-prefixed value, matching
   the identifiers returned by the ledger (e.g. interface-view `interfaceId`) and the Java codegen.
 
