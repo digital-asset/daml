@@ -24,11 +24,25 @@ else
 fi
 # --- end runfiles.bash initialization ---
 
-TESTS_DIR=$(dirname $(rlocation "$TEST_WORKSPACE/compiler/damlc/tests/daml-test-files/Examples.daml"))
-damlc=$(rlocation "$TEST_WORKSPACE/$1")
-protoc=$(rlocation "$TEST_WORKSPACE/$2")
+resolve_runfile() {
+  local resolved
+  case "$1" in
+    ../*) resolved=$(rlocation "${1#../}") ;;
+    *) resolved=$(rlocation "$TEST_WORKSPACE/$1") ;;
+  esac
+  if [ -z "$resolved" ]; then
+    echo >&2 "ERROR: cannot resolve runfile: $1"
+    exit 1
+  fi
+  printf '%s' "$resolved"
+}
+
+EXAMPLES_DAML=$(resolve_runfile "compiler/damlc/tests/daml-test-files/Examples.daml")
+TESTS_DIR=$(dirname "$EXAMPLES_DAML")
+damlc=$(resolve_runfile "$1")
+protoc=$(resolve_runfile "$2")
 diff="$3"
-scriptdar=$(rlocation "$TEST_WORKSPACE/$4")
+scriptdar=$(resolve_runfile "$4")
 SDK_VERSION=$5
 GHC_FRIENDLY_SDK_VERSION=$6
 

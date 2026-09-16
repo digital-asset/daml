@@ -3,7 +3,6 @@
 
 """Packaging of Linux, macOS and Windows binaries into tarballs"""
 
-load("@os_info//:os_info.bzl", "is_windows")
 
 def _package_app_impl(ctx):
     args = ctx.actions.args()
