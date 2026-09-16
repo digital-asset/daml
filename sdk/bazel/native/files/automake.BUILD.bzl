@@ -12,7 +12,7 @@ filegroup(
 )
 
 build_gnu_tool(
-    name = "automake",
+    name = "automake_from_source",
     srcs = ":srcs",
     configure = "configure",
     make = "@make//:make",
@@ -24,5 +24,14 @@ build_gnu_tool(
         "@m4//:m4",
     ],
     pre_build_srcs = ["@autoconf//:srcs"],
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "automake",
+    actual = select({
+        "@platforms//os:windows": "@//bazel/native:msys2_autotools",
+        "//conditions:default": ":automake_from_source",
+    }),
     visibility = ["//visibility:public"],
 )
