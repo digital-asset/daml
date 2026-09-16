@@ -10,8 +10,10 @@ load(
 load(
     "//bazel/versions:gnu_tools.version.bzl",
     "GMP_SHA256",
+    "GMP_URLS",
     "GMP_VERSION",
     "NCURSES_LINUX_SHA256",
+    "NCURSES_LINUX_URLS",
     "NCURSES_LINUX_VERSION",
     "NUMACTL_SHA256",
     "NUMACTL_VERSION",
@@ -82,6 +84,12 @@ def _ghc_bindist_repo_impl(rctx):
         output = _UNPACK_DIR,
     )
 
+    if key == ("windows", "amd64"):
+        rctx.symlink(
+            "{}/mingw/include/gmp.h".format(_UNPACK_DIR),
+            "bindist_gmp_include/gmp.h",
+        )
+
     lockfiles = {
         ("linux", "amd64"): rctx.attr.lockfile_linux_amd64,
         ("linux", "aarch64"): rctx.attr.lockfile_linux_aarch64,
@@ -110,6 +118,7 @@ def _ghc_bindist_repo_impl(rctx):
     rctx.file(
         "BUILD.bazel",
         content = """\
+load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@rules_haskell//haskell:defs.bzl", "haskell_import")
 
 package(default_visibility = ["//visibility:public"])
@@ -119,6 +128,23 @@ package(default_visibility = ["//visibility:public"])
 filegroup(
     name = "bindist_srcs",
     srcs = glob(["{unpack}/**"]),
+)
+
+filegroup(
+    name = "bindist_configure",
+    srcs = glob(["{unpack}/configure"], allow_empty = True),
+)
+
+cc_library(
+    name = "bindist_gmp",
+    srcs = glob(["{unpack}/mingw/lib/libgmp.a"], allow_empty = True),
+    hdrs = glob(["bindist_gmp_include/gmp.h"], allow_empty = True),
+    includes = ["bindist_gmp_include"],
+)
+
+filegroup(
+    name = "bindist_gmp_libs",
+    srcs = glob(["{unpack}/mingw/lib/libgmp*"], allow_empty = True),
 )
 """.format(
             imports = imports,
@@ -184,7 +210,7 @@ def _ghc_toolchain_impl(module_ctx):
     _ghc_llvm_backend_repo(name = "ghc_llvm_backend")
     http_archive(
         name = "gmp",
-        url = "https://gmplib.org/download/gmp/gmp-{}.tar.xz".format(GMP_VERSION),
+        urls = GMP_URLS,
         sha256 = GMP_SHA256,
         strip_prefix = "gmp-{}".format(GMP_VERSION),
         build_file = ":files/gmp.BUILD.bzl",
@@ -194,7 +220,7 @@ def _ghc_toolchain_impl(module_ctx):
 
     http_archive(
         name = "ncurses",
-        url = "https://ftp.gnu.org/gnu/ncurses/ncurses-{}.tar.gz".format(NCURSES_LINUX_VERSION),
+        urls = NCURSES_LINUX_URLS,
         sha256 = NCURSES_LINUX_SHA256,
         strip_prefix = "ncurses-{}".format(NCURSES_LINUX_VERSION),
         build_file = ":files/ncurses.BUILD.bzl",
