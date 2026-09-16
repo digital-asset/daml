@@ -23,6 +23,7 @@ da_haskell_library(
         "semver",
         "text",
         "transformers",
+        "utf8-string",
         "yaml",
     ],
     src_strip_prefix = "src",
