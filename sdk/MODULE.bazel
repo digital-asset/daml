@@ -50,14 +50,51 @@ single_version_override(
     patch_strip = 1,
     patches = [
         "//bazel/patches:haskell/rules_bazel-8_compat.patch",
+        "//bazel/patches:haskell/rules_haskell-hermetic-fetch-python.patch",
+        "//bazel/patches:haskell/rules_haskell-windows-bindist-tree.patch",
         "//bazel/patches:haskell/rules_haskell-cabal-cc-sysroot.patch",
+        "//bazel/patches:haskell/rules_haskell-windows-setup-interpreter-cc.patch",
         "//bazel/patches:haskell/rules_haskell-cc-wrapper-inject.patch",
+        "//bazel/patches:haskell/rules_haskell-windows-cc-wrapper-msys-paths.patch",
+        "//bazel/patches:haskell/rules_haskell-no-import-dirs-for-empty-package.patch",
         "//bazel/patches:haskell/rules_haskell-darwin-merge-objects-arch.patch",
         "//bazel/patches:haskell/rules_haskell-darwin-no-lld.patch",
         "//bazel/patches:haskell/rules_haskell-darwin-cc-wrapper-otool.patch",
         "//bazel/patches:haskell/rules_haskell-darwin-cabal-resign.patch",
         "//bazel/patches:haskell/rules_haskell-darwin-keep-linker-signature.patch",
+        "//bazel/patches:haskell/rules_haskell-windows-assembler.patch",
+        "//bazel/patches:haskell/rules_haskell-windows-unique-cabal-distdir.patch",
     ],
+)
+
+single_version_override(
+    module_name = "boringssl",
+    patch_strip = 1,
+    patches = ["//bazel/patches:boringssl/boringssl-compiler-keyed-copts.patch"],
+)
+
+single_version_override(
+    module_name = "zip",
+    patch_strip = 1,
+    patches = ["//bazel/patches:zip/zip-windows-port.patch"],
+)
+
+single_version_override(
+    module_name = "llvm",
+    patch_strip = 1,
+    patches = ["//bazel/patches:llvm/llvm-windows-dynamic-library-name.patch"],
+)
+
+single_version_override(
+    module_name = "openssl",
+    patch_strip = 1,
+    patches = ["//bazel/patches:openssl/openssl-mingw-toolchain.patch"],
+)
+
+single_version_override(
+    module_name = "aspect_rules_js",
+    patch_strip = 1,
+    patches = ["//bazel/patches:rules_js/rules_js-windows-exec-entry-point.patch"],
 )
 
 # --- Toolchains ---
@@ -125,7 +162,7 @@ register_toolchains("//:c2hs-toolchain")
 
 # --- Hermetic GNU make ---
 make_ext = use_extension("//bazel/native:make_extension.bzl", "make")
-use_repo(make_ext, "make")
+use_repo(make_ext, "make", "msys_make")
 
 # --- Node.js toolchain ---
 
@@ -169,7 +206,9 @@ use_repo(pnpm, "pnpm")
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(python_version = "3.12")
-use_repo(python, "python_3_12")
+use_repo(python, "python_3_12", "python_3_12_host")
+
+register_toolchains("//bazel/python:python_toolchain")
 
 # --- Haskell toolchain and extensions ---
 
@@ -190,6 +229,7 @@ use_repo(
 inject_repo(
     haskell_toolchains_ext,
     rules_haskell_hermetic_python = "python_3_12",
+    rules_haskell_hermetic_python_host = "python_3_12_host",
 )
 
 da_ghc_ext = use_extension("//bazel/haskell:da_ghc_extension.bzl", "da_ghc")
@@ -216,6 +256,9 @@ register_toolchains(
 cabal_ext = use_extension("//bazel/haskell:cabal_extension.bzl", "cabal")
 use_repo(cabal_ext, "cabal")
 
+stack_ext = use_extension("//bazel/haskell:stack_extension.bzl", "stack")
+use_repo(stack_ext, "stack")
+
 ghcide_lib_ext = use_extension("//bazel/haskell:ghcide_extension.bzl", "ghcide_lib")
 use_repo(ghcide_lib_ext, "ghcide_lib")
 
@@ -237,8 +280,9 @@ stack_snapshot_ext = use_extension(
     "@rules_haskell//extensions:stack_snapshot.bzl",
     "stack_snapshot",
 )
-use_repo(stack_snapshot_ext, "stackage", "stackage-exe")
+use_repo(stack_snapshot_ext, "stackage", "stackage-exe", "stackage-unpinned")
 
+stack_snapshot_ext.stack(label = "@stack//:stack")
 stack_snapshot_ext.snapshot(local_snapshot = "//:stackage_snapshot.yaml")
 stack_snapshot_ext.stack_snapshot_json(
     label = "//:stackage_snapshot.json",
@@ -910,6 +954,7 @@ maven_ext.install(
         "grpc-java",
         "protobuf",
     ],
+    lock_file = "//:maven_install_2.13.json",
     repositories = [
         "https://repo1.maven.org/maven2",
         "https://europe-maven.pkg.dev/da-images/public-maven-unstable",
@@ -1058,13 +1103,13 @@ bzip2_ext = use_extension("//bazel/native:bzip2_extension.bzl", "bzip2")
 use_repo(bzip2_ext, "bzip2")
 
 m4_ext = use_extension("//bazel/native:m4_extension.bzl", "m4")
-use_repo(m4_ext, "m4")
+use_repo(m4_ext, "m4", "msys_m4")
 
 autoconf_ext = use_extension("//bazel/native:autoconf_extension.bzl", "autoconf")
-use_repo(autoconf_ext, "autoconf")
+use_repo(autoconf_ext, "autoconf", "msys_autoconf")
 
 automake_ext = use_extension("//bazel/native:automake_extension.bzl", "automake")
-use_repo(automake_ext, "automake")
+use_repo(automake_ext, "automake", "msys_automake")
 
 daml_finance_ext = use_extension("//bazel/daml:daml_finance_extension.bzl", "daml_finance_extension")
 use_repo(daml_finance_ext, "daml-finance")
