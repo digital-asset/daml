@@ -187,7 +187,7 @@ Definition »Transfer action«
   A **transfer action** on a contract `c` is written **Transfer** `c`.
   The **informees** of the transfer actions are the stakeholders of `c`.
 
-In the following, the term *action* refers to transaction actions (**Create**, **Exercise**, **Fetch**, and **NoSuchKey**) as well as transfer actions.
+In the following, the term *action* refers to transaction actions (**Create**, **Exercise**, **Fetch**, and **QueryByKey**) as well as transfer actions.
 In particular, a transfer action on a contract `c` is an action on `c`.
 Transfer actions do not appear in transactions though.
 So a transaction action cannot have a transfer action as a consequence and transfer actions do not have consequences at all.
@@ -210,7 +210,7 @@ Definition »Multi-Ledger causality graph«
   +---------------+-----------------+-----------------+
   | **Fetch**     | yes             | yes             |
   +---------------+-----------------+-----------------+
-  | **NoSuchKey** | no              | no              |
+  | **QueryByKey**| no              | no              |
   +---------------+-----------------+-----------------+
   | **Transfer**  | maybe           | maybe           |
   +---------------+-----------------+-----------------+
@@ -312,9 +312,8 @@ Definition »Consistency for a multi-ledger causality graph«
   `G` is **multi-ledger consistent** if `G` is multi-ledger consistent on all the actions in `G`.
 
 .. note::
-   There is no multi-ledger consistency requirement for contract keys yet.
+   There is no multi-ledger consistency requirement for contract keys.
    So interoperability does not provide consistency guarantees beyond those that come from the contracts they reference.
-   In particular, contract keys need not be unique and **NoSuchKey** actions do not check that the contract key is unassigned.
 
 The :ref:`multi-ledger causality graph for the split paint counteroffer workflow <counteroffer-interoperable-causality-graph>` is multi-ledger consistent.
 In particular all maximal chains of actions on a contract are ledger traces:
@@ -481,7 +480,7 @@ The transaction tree stream outputs a topological sort of the party's local ledg
    that is not in `Y` are marked as merely being witnessed if the
    party is an informee of the action.
 
-#. **Fetch** nodes and **NoSuchKey** are omitted.
+#. **Fetch** nodes and **QueryByKey** nodes are omitted.
 
 The flat transaction stream contains precisely the ``CreatedEvent``\ s, ``ArchivedEvent``\ s, and the **Enter** and **Leave** actions that correspond to **Create**, consuming **Exercise**, **Enter** and **Leave** actions in transaction trees on the transaction tree stream where the party is a stakeholder of the affected contract and that are not marked as merely being witnessed.
 
