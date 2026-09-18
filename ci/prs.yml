@@ -12,12 +12,56 @@ pr:
       - release/*
 
 jobs:
-- job: placeholder
-  displayName: 'Placeholder'
+- job: linux
+  displayName: 'Linux'
+  timeoutInMinutes: 240
+  strategy:
+    matrix:
+      intel:
+        assignment: default
+      arm:
+        assignment: arm
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals $(assignment)
   steps:
-    - checkout: none
-    - bash: echo "pipeline loaded"
-      displayName: 'No-op'
+    - checkout: self
+      clean: true
+    - template: bazelisk-unix.yml
+    - bash: |
+        set -euo pipefail
+        cd sdk
+        bazelisk build //...
+      displayName: 'Build'
+    - bash: |
+        set -euo pipefail
+        cd sdk
+        bazelisk test //...
+      displayName: 'Test'
+
+- job: macos
+  displayName: 'macOS'
+  timeoutInMinutes: 240
+  strategy:
+    matrix:
+      intel:
+        assignment: default
+      arm:
+        assignment: m1-builds
+  pool:
+    name: 'macOS-pool'
+    demands: assignment -equals $(assignment)
+  steps:
+    - checkout: self
+      clean: true
+    - template: bazelisk-unix.yml
+    - bash: |
+        set -euo pipefail
+        cd sdk
+        bazelisk build //...
+      displayName: 'Build'
+    - bash: |
+        set -euo pipefail
+        cd sdk
+        bazelisk test //...
+      displayName: 'Test'
