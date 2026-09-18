@@ -14,6 +14,7 @@ module DA.Cli.Damlc (main, Command (..), MultiPackageManifestEntry (..), fullPar
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception (bracket, catch, displayException, throwIO, handle)
+import Control.Lens ((&), (.~))
 import Control.Monad (forM, forM_, unless, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
@@ -161,7 +162,9 @@ import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
 import qualified DA.Service.Logger.Impl.IO as Logger.IO
 import DA.Signals (installSignalHandlers)
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf as PLF
-import Data.Aeson (FromJSON, ToJSON)
+import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as PLF2
+import Data.Aeson (FromJSON, ToJSON, Value)
+import Data.Aeson.Lens (key)
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.Aeson.Text as Aeson
 import Data.Bifunctor (bimap, second)
@@ -1389,9 +1392,8 @@ execInspect inFile outFile jsonOutput lvl =
       then do
         payloadBytes <- PLF.archivePayload <$> errorOnLeft "Cannot decode archive" (PS.fromByteString bytes)
         archive :: PLF.ArchivePayload <- errorOnLeft "Cannot decode archive payload" $ PS.fromByteString payloadBytes
-        writeOutputBSL outFile
-         $ Aeson.Pretty.encodePretty
-         $ Proto.JSONPB.toAesonValue archive
+        json <- archivePayloadToInspectJson archive
+        writeOutputBSL outFile $ Aeson.Pretty.encodePretty json
       else do
         (pkgId, lfPkg) <- errorOnLeft "Cannot decode package" $
                    Archive.decodeArchive Archive.DecodeAsMain bytes
@@ -1400,6 +1402,17 @@ execInspect inFile outFile jsonOutput lvl =
             [ DA.Pretty.keyword_ "package" DA.Pretty.<-> DA.Pretty.text (LF.unPackageId pkgId)
             , DA.Pretty.pPrintPrec lvl 0 lfPkg
             ]
+
+archivePayloadToInspectJson :: PLF.ArchivePayload -> IO Value
+archivePayloadToInspectJson archive =
+  case PLF.archivePayloadSum archive of
+    Just (PLF.ArchivePayloadSumDamlLf2 packageBytes) -> do
+      package :: PLF2.Package <- errorOnLeft "Cannot decode LF2 package" $ PS.fromByteString packageBytes
+      let packageJson = Proto.JSONPB.toAesonValue package
+      pure $ archiveJson & key "Sum" . key "daml_lf_2" .~ packageJson
+    _ -> pure archiveJson
+  where
+    archiveJson = Proto.JSONPB.toAesonValue archive
 
 errorOnLeft :: Show a => String -> Either a b -> IO b
 errorOnLeft desc = \case
