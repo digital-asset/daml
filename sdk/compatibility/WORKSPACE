@@ -396,9 +396,7 @@ load("@scala_version//:index.bzl", "scala_artifacts", "scala_major_version", "sc
 maven_install(
     name = "maven",
     artifacts = [
-        "com.daml:daml-lf-archive-reader_2.13:{}".format(internal_sdk_versions[latest_stable_version]),
         "com.daml:daml-lf-transaction_2.13:{}".format(internal_sdk_versions[latest_stable_version]),
-        "com.daml:lf-value-json_2.13:{}".format(internal_sdk_versions[latest_stable_version]),
         "io.grpc:grpc-api:{}".format(grpc_version),
         "io.grpc:grpc-core:{}".format(grpc_version),
         "io.grpc:grpc-netty:{}".format(grpc_version),

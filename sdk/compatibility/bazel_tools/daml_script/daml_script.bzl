@@ -66,7 +66,7 @@ def daml_script_test(
     )
 
     server = daml_runner
-    server_args = ["sandbox", "--canton-port-file", "_port_file"]
+    server_args = ["sandbox", "--debug", "--canton-port-file", "_port_file"]
     server_files = ["$(rootpath {})".format(compiled_dar)]
     server_files_prefix = "--dar="
 

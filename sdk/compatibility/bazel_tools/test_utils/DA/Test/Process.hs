@@ -4,9 +4,11 @@
 module DA.Test.Process
     ( callProcessSilent
     , callProcessForStdout
+    , callProcessSilentWithEnv
     ) where
 
 import Control.Monad
+import System.Environment
 import System.Exit
 import System.IO
 import System.Process
@@ -14,6 +16,11 @@ import System.Process
 callProcessSilent :: FilePath -> [String] -> IO ()
 callProcessSilent cmd args =
   void $ run (proc cmd args)
+
+callProcessSilentWithEnv :: [(String, String)] -> FilePath -> [String] -> IO ()
+callProcessSilentWithEnv additionalEnv cmd args = do
+  currentEnv <- getEnvironment
+  void $ run (proc cmd args) {env = Just $ additionalEnv <> currentEnv}
 
 callProcessForStdout :: FilePath -> [String] -> IO String
 callProcessForStdout cmd args =
