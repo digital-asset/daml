@@ -14,8 +14,8 @@ load(
 )
 load("//bazel_tools/packaging:packaging.bzl", "package_oci_component")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS")
-load("//rules_daml:daml.bzl", "daml_compile")
 load("//daml-script/daml/daml-script-stable:stable-packages.bzl", "SCRIPT_STABLE_PACKAGES")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 # Should match RunnerMainTestBase.DAR_COUNT
 test_dar_count = 5

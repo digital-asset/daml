@@ -696,7 +696,7 @@ use_repo(
 
 # --- Maven version constants ---
 
-CANTON_VERSION = "3.6.0-snapshot.20260804.19865.0.v15879bde"
+CANTON_VERSION = "3.7.0-snapshot.20260916.20390.0.vc001153d"
 
 AUTH0_JWT_VERSION = "4.2.1"
 
@@ -800,6 +800,7 @@ maven_ext.install(
         "com.daml:daml-lf-parser_2.13:" + CANTON_VERSION,
         "com.daml:daml-lf-stable-packages_2.13:" + CANTON_VERSION,
         "com.daml:daml-lf-transaction_2.13:" + CANTON_VERSION,
+        "com.daml:daml-lf-upgrade-check_2.13:" + CANTON_VERSION,
         "com.daml:daml-lf-validation_2.13:" + CANTON_VERSION,
         "com.daml:daml-resources_2.13:" + CANTON_VERSION,
         "com.daml:daml-tls_2.13:" + CANTON_VERSION,
