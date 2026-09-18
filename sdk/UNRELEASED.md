@@ -15,6 +15,9 @@ Wednesday after your change.
   `com.daml:auth-utils`.
 
 ## Until 2026-09-29 (Exclusive)
+
+- Build: migrated the Bazel build from `WORKSPACE` to Bzlmod (`MODULE.bazel`), and from Bazel 7 to Bazel 8.
+
 ### Improved daml test output
 - Test summary now appears at the end of output, making pass/fail results
   immediately visible
