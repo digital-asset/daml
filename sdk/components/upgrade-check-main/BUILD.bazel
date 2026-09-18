@@ -1,8 +1,8 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary")
 load("@os_info//:os_info.bzl", "is_intel", "is_windows")
+load("@rules_scala//scala:scala.bzl", "scala_binary")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
