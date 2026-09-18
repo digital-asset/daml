@@ -1,0 +1,34 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+parameters:
+  - name: version
+    type: string
+    default: '1.29.0'
+  - name: sha256_windows_amd64
+    type: string
+    default: '092a8738d5b41aae7a85c42cc961b1034e3389aba43ffc20c0fabda7b43e095b'
+
+steps:
+  - powershell: |
+      $ErrorActionPreference = 'Stop'
+
+      $version = '${{ parameters.version }}'
+      $binDir = Join-Path $env:USERPROFILE '.local\bin'
+      New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+
+      $url = "https://github.com/bazelbuild/bazelisk/releases/download/v$version/bazelisk-windows-amd64.exe"
+      $tmp = Join-Path $env:TEMP 'bazelisk-download.exe'
+      Invoke-WebRequest -Uri $url -OutFile $tmp
+
+      $expected = '${{ parameters.sha256_windows_amd64 }}'
+      $actual = (Get-FileHash -Algorithm SHA256 -Path $tmp).Hash.ToLower()
+      if ($actual -ne $expected) {
+        throw "sha256 mismatch for bazelisk-windows-amd64.exe: expected $expected, got $actual"
+      }
+
+      Move-Item -Force -Path $tmp -Destination (Join-Path $binDir 'bazelisk.exe')
+      Copy-Item -Force -Path (Join-Path $binDir 'bazelisk.exe') -Destination (Join-Path $binDir 'bazel.exe')
+
+      Write-Host "##vso[task.prependpath]$binDir"
+    displayName: 'Install Bazelisk ${{ parameters.version }}'
