@@ -24,24 +24,39 @@ EOF
 }
 trap usage ERR
 
+runfile_by_name() {
+  local name="$1"
+  if [[ -n "${RUNFILES_DIR:-}" && -d "${RUNFILES_DIR}" ]]; then
+    find "${RUNFILES_DIR}" -maxdepth 2 \( -name "$name" -o -name "$name.exe" \) | head -1
+  elif [[ -n "${RUNFILES_MANIFEST_FILE:-}" && -f "${RUNFILES_MANIFEST_FILE}" ]]; then
+    grep -E "(^|/)$name(\.exe)? " "${RUNFILES_MANIFEST_FILE}" | head -1 | cut -f2- -d' '
+  fi
+}
+
+PIGZ="$(rlocation "pigz+/pigz" || true)"
+if [[ -z "${PIGZ:-}" ]]; then
+  PIGZ="$(rlocation "pigz~/pigz" || true)"
+fi
+if [[ -z "${PIGZ:-}" ]]; then
+  PIGZ="$(runfile_by_name pigz)"
+fi
+TAR="$(runfile_by_name tar)"
+
+TAR_FLAGS=(
+  --format=gnutar
+  --owner=0
+  --group=0
+  --numeric-owner
+  --mtime="2000-01-01 00:00Z"
+  --no-acls
+  --no-xattrs
+)
+
 case "$(uname -s)" in
-  Darwin|Linux)
-    tar=$(rlocation tar_dev_env/tar)
-    gzip=$(rlocation gzip_dev_env/gzip)
-    ;;
   CYGWIN*|MINGW*|MSYS*)
-    tar=$(rlocation tar_dev_env/usr/bin/tar.exe)
-    gzip=$(rlocation gzip_dev_env/usr/bin/gzip.exe)
+    "$TAR" "${TAR_FLAGS[@]}" -cf - "${@:2}" | "$PIGZ" -n > "${1}"
+    ;;
+  *)
+    "$TAR" "${TAR_FLAGS[@]}" --use-compress-program "$PIGZ -n" -cf "${1}" "${@:2}"
     ;;
 esac
-
-$tar c "${@:2}" \
-  --owner="0" \
-  --group="0" \
-  --numeric-owner \
-  --mtime="2000-01-01 00:00Z" \
-  --no-acls \
-  --no-xattrs \
-  --no-selinux \
-  --sort="name" \
-  | $gzip -n > "$1"

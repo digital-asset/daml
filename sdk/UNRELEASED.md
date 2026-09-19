@@ -9,6 +9,10 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-09-22 (Exclusive)
+
+- Build: migrated the Bazel build from `WORKSPACE` to Bzlmod (`MODULE.bazel`), and from Bazel 7 to Bazel 8.
+
 ## Until 2026-09-15 (Exclusive)
 
 - Daml Codegen: `peer-dependencies` changed to camelCase `peerDependencies`, matching the expected reference in [NPM](https://docs.npmjs.com/cli/v9/configuring-npm/package-json?v=true#peerdependencies).

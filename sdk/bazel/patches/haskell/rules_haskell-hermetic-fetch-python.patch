@@ -1,0 +1,137 @@
+diff --git a/extensions/haskell_toolchains.bzl b/extensions/haskell_toolchains.bzl
+--- a/extensions/haskell_toolchains.bzl
++++ b/extensions/haskell_toolchains.bzl
+@@ -9,6 +9,8 @@
+     "haskell_register_ghc_bindists",
+ )
+ 
++_HERMETIC_PYTHON = "@rules_haskell_hermetic_python_host//:python"
++
+ _bindists_tag = tag_class(
+     attrs = {
+         "version": attr.string(
+@@ -125,6 +127,7 @@
+                 repl_ghci_args = bindist_tag.repl_ghci_args,
+                 cabalopts = bindist_tag.cabalopts,
+                 locale = bindist_tag.locale,
++                python_interpreter = _HERMETIC_PYTHON,
+                 register = False,
+             )
+             toolchain_declarations.append(
+@@ -158,6 +161,7 @@
+                 repl_ghci_args = bindists_tag.repl_ghci_args,
+                 cabalopts = bindists_tag.cabalopts,
+                 locale = bindists_tag.locale,
++                python_interpreter = _HERMETIC_PYTHON,
+                 register = False,
+                 targets = targets,
+             )
+diff --git a/haskell/ghc_bindist.bzl b/haskell/ghc_bindist.bzl
+--- a/haskell/ghc_bindist.bzl
++++ b/haskell/ghc_bindist.bzl
+@@ -237,7 +237,7 @@
+     elif os == "windows" and version_tuple >= (9, 0, 1) and version_tuple < (9, 4, 1):
+         docdir = "docs"
+ 
+-    toolchain_libraries = pkgdb_to_bzl(ctx, filepaths, libdir)["file_content"]
++    toolchain_libraries = pkgdb_to_bzl(ctx, filepaths, libdir, ctx.attr.python_interpreter)["file_content"]
+     locale = ctx.attr.locale or ("en_US.UTF-8" if os == "darwin" else "C.UTF-8")
+     toolchain = define_rule(
+         "haskell_toolchain",
+@@ -305,6 +305,10 @@
+         "locale": attr.string(
+             mandatory = False,
+         ),
++        "python_interpreter": attr.label(
++            allow_single_file = True,
++            doc = "A Python interpreter to run pkgdb_to_bzl.py with, instead of probing PATH.",
++        ),
+         "_relpath_script": attr.label(
+             allow_single_file = True,
+             default = Label("@rules_haskell//haskell:assets/relpath.sh"),
+@@ -417,6 +421,7 @@
+         repl_ghci_args = None,
+         cabalopts = None,
+         locale = None,
++        python_interpreter = None,
+         register = True):
+     """Create a new repository from binary distributions of GHC.
+ 
+@@ -451,6 +456,7 @@
+       repl_ghci_args: [see rules_haskell_toolchains](toolchain.html#rules_haskell_toolchains-repl_ghci_args)
+       cabalopts: [see rules_haskell_toolchains](toolchain.html#rules_haskell_toolchains-cabalopts)
+       locale: [see rules_haskell_toolchains](toolchain.html#rules_haskell_toolchains-locale)
++      python_interpreter: A Python interpreter to run pkgdb_to_bzl.py with, instead of probing PATH.
+       register: Whether to register the toolchains (must be set to False if bzlmod is enabled)
+     """
+     if compiler_flags:
+@@ -484,6 +490,7 @@
+         cabalopts = cabalopts,
+         target = target,
+         locale = locale,
++        python_interpreter = python_interpreter,
+         **extra_attrs
+     )
+     _ghc_bindist_toolchain(
+@@ -515,6 +522,7 @@
+         repl_ghci_args = None,
+         cabalopts = None,
+         locale = None,
++        python_interpreter = None,
+         register = True,
+         targets = _GHC_AVAILABLE_TARGETS):
+     """ Register GHC binary distributions for all platforms as toolchains.
+@@ -528,6 +536,7 @@
+       repl_ghci_args: [see rules_haskell_toolchains](toolchain.html#rules_haskell_toolchains-repl_ghci_args)
+       cabalopts: [see rules_haskell_toolchains](toolchain.html#rules_haskell_toolchains-cabalopts)
+       locale: [see rules_haskell_toolchains](toolchain.html#rules_haskell_toolchains-locale)
++      python_interpreter: A Python interpreter to run pkgdb_to_bzl.py with, instead of probing PATH.
+       register: Whether to register the toolchains (must be set to False if bzlmod is enabled)
+       targets: A list of target platforms to generate bindists for, e.g. `["linux_amd64", "windows_amd64"]` (default: all)
+     """
+@@ -547,6 +556,7 @@
+             repl_ghci_args = repl_ghci_args,
+             cabalopts = cabalopts,
+             locale = locale,
++            python_interpreter = python_interpreter,
+             register = register,
+         )
+     local_sh_posix_repo_name = "rules_haskell_sh_posix_local"
+diff --git a/haskell/private/pkgdb_to_bzl.bzl b/haskell/private/pkgdb_to_bzl.bzl
+--- a/haskell/private/pkgdb_to_bzl.bzl
++++ b/haskell/private/pkgdb_to_bzl.bzl
+@@ -1,6 +1,6 @@
+ load(":private/workspace_utils.bzl", "find_python")
+ 
+-def pkgdb_to_bzl(repository_ctx, paths, libdir):
++def pkgdb_to_bzl(repository_ctx, paths, libdir, interpreter = None):
+     """Generate a BUILD file from a package database.
+ 
+     Also creates symlinks to any resources stored outside of the GHC
+@@ -10,9 +10,10 @@
+       repository_ctx: repository context.
+       paths: a dictionary of label names to paths.
+       pkgdir: the relative location of GHC's libdir
++      interpreter: label of a Python interpreter to use instead of probing PATH
+     """
+     result = repository_ctx.execute([
+-        find_python(repository_ctx),
++        find_python(repository_ctx, interpreter),
+         paths["@rules_haskell//haskell:private/pkgdb_to_bzl.py"],
+         repository_ctx.attr.name,
+         libdir,
+diff --git a/haskell/private/workspace_utils.bzl b/haskell/private/workspace_utils.bzl
+--- a/haskell/private/workspace_utils.bzl
++++ b/haskell/private/workspace_utils.bzl
+@@ -31,7 +31,10 @@
+     else:
+         return repr(v)
+ 
+-def find_python(repository_ctx):
++def find_python(repository_ctx, interpreter = None):
++    if interpreter:
++        return str(repository_ctx.path(interpreter)).replace("\\", "/")
++
+     python_version_script = "import sys; v=sys.version_info; print(v.major, v.minor, v.micro, sys.executable)"
+ 
+     ret = repository_ctx.execute(["python3", "-c", python_version_script])

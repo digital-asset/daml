@@ -22,5 +22,4 @@ da_scala_library(
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:script-converter:__VERSION__"],
-    visibility = ["//visibility:public"],
 )
