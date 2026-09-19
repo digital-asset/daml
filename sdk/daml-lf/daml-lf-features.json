@@ -1,4 +1,18 @@
 {
+  "featureUnpack" : {
+    "name" : "Unpack",
+    "cppFlag" : "DAML_UNPACK",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Dev" : {
+            
+          }
+        }
+      }
+    }
+  },
   "featurePV34" : {
     "name" : "LF versions supported by PV34",
     "cppFlag" : "DAML_PV34",
