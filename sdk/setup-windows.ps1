@@ -8,6 +8,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
 $GitVersion = '2.55.0.5'
 $GitTag = 'v2.55.0.windows.5'
@@ -29,6 +30,17 @@ function Test-Shell {
     }
 }
 
+function Invoke-Bazelisk {
+    param([string[]] $Arguments)
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & bazelisk.exe @Arguments 2>$null
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+}
+
 $changed = $false
 
 if ((Test-Shell) -and -not $Force) {
@@ -46,7 +58,18 @@ if ((Test-Shell) -and -not $Force) {
         $previous = $ProgressPreference
         $ProgressPreference = 'SilentlyContinue'
         try {
-            Invoke-WebRequest -Uri $Url -OutFile $archive -UseBasicParsing
+            $attempts = 5
+            for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+                try {
+                    Invoke-WebRequest -Uri $Url -OutFile $archive -UseBasicParsing
+                    break
+                } catch {
+                    if (Test-Path $archive) { Remove-Item -Force $archive }
+                    if ($attempt -eq $attempts) { throw }
+                    Write-Warning "Download attempt $attempt of $attempts failed: $($_.Exception.Message)"
+                    Start-Sleep -Seconds (5 * $attempt)
+                }
+            }
         } finally {
             $ProgressPreference = $previous
         }
@@ -100,13 +123,12 @@ if ($existing -ne $BashForBazel) {
 
 $env:BAZEL_SH = $BashForBazel
 
-$server = if ($changed) { & bazelisk.exe info server_pid 2>$null } else { $null }
-if ($changed -and $LASTEXITCODE -eq 0 -and $server) {
+if ($changed) {
     Write-Host "Shutting down the Bazel server so it picks up BAZEL_SH"
-    & bazelisk.exe shutdown 2>&1 | Out-Null
+    Invoke-Bazelisk @('shutdown') | Out-Null
 }
 
-$outputBase = (& bazelisk.exe info output_base 2>$null)
+$outputBase = Invoke-Bazelisk @('info', 'output_base')
 if ($LASTEXITCODE -eq 0 -and $outputBase) {
     $outputBase = $outputBase.Trim()
     if ($outputBase.Length -gt $MaxOutputBaseLength) {
