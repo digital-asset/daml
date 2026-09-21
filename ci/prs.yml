@@ -68,3 +68,34 @@ jobs:
         cd sdk
         bazelisk test //... $(bazel_flags)
       displayName: 'Test'
+
+- job: windows
+  displayName: 'Windows'
+  timeoutInMinutes: 240
+  pool:
+    name: 'windows-pool'
+    demands: assignment -equals default
+  steps:
+    - checkout: self
+      clean: true
+    - template: bazelisk-windows.yml
+    - powershell: |
+        $ErrorActionPreference = 'Stop'
+        Set-Content -Path sdk\.bazelrc.local -Value 'startup --output_base=C:/b'
+      displayName: 'Short output base'
+    - powershell: |
+        $ErrorActionPreference = 'Stop'
+        Set-Location sdk
+        .\setup-windows.ps1
+        Write-Host "##vso[task.setvariable variable=BAZEL_SH]$env:BAZEL_SH"
+      displayName: 'Provision build shell'
+    - powershell: |
+        $ErrorActionPreference = 'Stop'
+        Set-Location sdk
+        bazelisk build //... $(bazel_flags)
+      displayName: 'Build'
+    - powershell: |
+        $ErrorActionPreference = 'Stop'
+        Set-Location sdk
+        bazelisk test //... $(bazel_flags)
+      displayName: 'Test'
