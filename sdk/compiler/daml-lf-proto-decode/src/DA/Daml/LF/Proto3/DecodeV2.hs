@@ -711,10 +711,6 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
     fmap EUpdate $ UFetchInterface
       <$> mayDecode "update_FetchInterfaceInterface" update_FetchInterfaceInterface decodeTypeConId
       <*> mayDecode "update_FetchInterfaceCid" update_FetchInterfaceCid decodeExpr
-  LF2.UpdateSumUnpackTemplate (LF2.Update_UnpackTemplate _ _) ->
-    error "UnpackTemplate not implemented"
-  LF2.UpdateSumUnpackInterface (LF2.Update_UnpackInterface _ _) ->
-    error "UnpackInterface not implemented"
   LF2.UpdateSumGetTime LF2.Unit ->
     pure (EUpdate UGetTime)
   LF2.UpdateSumLedgerTimeLt time ->
