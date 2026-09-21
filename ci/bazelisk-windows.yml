@@ -12,6 +12,7 @@ parameters:
 steps:
   - powershell: |
       $ErrorActionPreference = 'Stop'
+      [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
       $version = '${{ parameters.version }}'
       $binDir = Join-Path $env:USERPROFILE '.local\bin'
@@ -19,7 +20,7 @@ steps:
 
       $url = "https://github.com/bazelbuild/bazelisk/releases/download/v$version/bazelisk-windows-amd64.exe"
       $tmp = Join-Path $env:TEMP 'bazelisk-download.exe'
-      Invoke-WebRequest -Uri $url -OutFile $tmp
+      Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing
 
       $expected = '${{ parameters.sha256_windows_amd64 }}'
       $actual = (Get-FileHash -Algorithm SHA256 -Path $tmp).Hash.ToLower()
