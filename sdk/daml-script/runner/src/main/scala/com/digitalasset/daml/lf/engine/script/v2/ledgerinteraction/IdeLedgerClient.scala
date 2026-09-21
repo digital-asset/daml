@@ -23,6 +23,7 @@ import com.digitalasset.daml.lf.engine.ScriptEngine.{
 }
 import com.digitalasset.daml.lf.engine.refinement.Enricher
 import com.digitalasset.daml.lf.engine.Result.lookupHandler
+import com.digitalasset.daml.lf.interpretation.InterpretationConfig
 import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.Ast.PackageMetadata
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
@@ -30,7 +31,6 @@ import com.digitalasset.daml.lf.script
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.speedy.{MachineLogger, Pretty, SError}
 import com.digitalasset.daml.lf.transaction._
-import com.digitalasset.daml.lf.transaction.{NextGenContractStateMachine => ContractStateMachine}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.apache.pekko.stream.Materializer
@@ -43,12 +43,13 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 // Client for the script service.
+@scala.annotation.nowarn("msg=parameter interpretConfig in class IdeLedgerClient is never used")
 class IdeLedgerClient(
     val originalCompiledPackages: PureCompiledPackages,
     machineLogger: MachineLogger,
     canceled: () => Boolean,
     override val loggerFactory: NamedLoggerFactory,
-    csmMode: ContractStateMachine.Mode,
+    interpretConfig: InterpretationConfig,
     snapshotDir: Option[Path],
 ) extends ScriptLedgerClient
     with NamedLogging {
@@ -110,7 +111,7 @@ class IdeLedgerClient(
   def packageSupportsUpgrades(packageId: PackageId): Boolean =
     compiledPackages.pkgInterface.lookupPackage(packageId).isRight
 
-  private var _ledger: IdeLedger = IdeLedger.initialLedger(Time.Timestamp.Epoch, csmMode)
+  private var _ledger: IdeLedger = IdeLedger.initialLedger(Time.Timestamp.Epoch)
   def ledger: IdeLedger = _ledger
 
   private var allocatedParties: Map[String, PartyDetails] = Map()
