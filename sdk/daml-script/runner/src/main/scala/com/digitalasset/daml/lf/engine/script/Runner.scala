@@ -26,6 +26,7 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
 }
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
+import com.digitalasset.daml.lf.interpretation.InterpretationConfig
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.script.IdeLedger
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
@@ -34,7 +35,6 @@ import com.digitalasset.daml.lf.engine.ScriptEngine.{
   makeUnsafeCoerce,
 }
 import com.digitalasset.daml.lf.speedy.MachineLogger
-import com.digitalasset.daml.lf.transaction.{NextGenContractStateMachine => ContractStateMachine}
 import com.digitalasset.daml.lf.value._
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
@@ -352,21 +352,21 @@ object Runner {
   }
 
   sealed trait IdeLedgerProtocolVersion {
-    def csmMode: ContractStateMachine.Mode
     def toString: String
+    def interpretationConfig: InterpretationConfig
   }
   object IdeLedgerProtocolVersion {
     final case object V35 extends IdeLedgerProtocolVersion {
-      val csmMode = ContractStateMachine.Mode.Key
       override val toString = "V35"
+      override val interpretationConfig = InterpretationConfig.Stable
     }
     final case object V36 extends IdeLedgerProtocolVersion {
-      val csmMode = ContractStateMachine.Mode.Key
       override val toString = "V36"
+      override val interpretationConfig = InterpretationConfig.Stable
     }
     final case object VDev extends IdeLedgerProtocolVersion {
-      val csmMode = ContractStateMachine.Mode.Key
       override val toString = "VDev"
+      override val interpretationConfig = InterpretationConfig.Stable
     }
     val all = List(V35, V36, VDev)
     val latest = V35
@@ -461,7 +461,7 @@ object Runner {
       timeMode: ScriptTimeMode,
       machineLogger: MachineLogger,
       canceled: () => Option[RuntimeException],
-      ideLedgerProtocolVersion: IdeLedgerProtocolVersion,
+      ideLedgerPV: IdeLedgerProtocolVersion,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -488,7 +488,7 @@ object Runner {
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner = new Runner(compiledPackages, scriptAction, timeMode)
-    runner.runWithClients(initialClients, machineLogger, canceled, ideLedgerProtocolVersion.csmMode)
+    runner.runWithClients(initialClients, machineLogger, canceled, ideLedgerPV.interpretationConfig)
   }
 
   def getPackageName(compiledPackages: CompiledPackages, pkgId: PackageId): Option[String] =
@@ -533,7 +533,7 @@ private[lf] class Runner(
       initialClients: Participants[ScriptLedgerClient],
       machineLogger: MachineLogger = ScriptMachineLogger(),
       canceled: () => Option[RuntimeException] = () => None,
-      csmMode: ContractStateMachine.Mode,
+      interpretConfig: InterpretationConfig,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -548,7 +548,7 @@ private[lf] class Runner(
       throw new IllegalArgumentException("Couldn't get daml script package name")
     ) match {
       case "daml-script" | "daml3-script" | `stableScriptTypePackageName` =>
-        new v2.Runner(this, initialClients, machineLogger, canceled, csmMode).getResult()
+        new v2.Runner(this, initialClients, machineLogger, canceled, interpretConfig).getResult()
       case pkgName =>
         throw new IllegalArgumentException(
           s"Invalid daml script package name. Expected daml-script, daml3-script or $stableScriptTypePackageName, got $pkgName"
