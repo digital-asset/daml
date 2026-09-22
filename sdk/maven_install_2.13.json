@@ -5,46 +5,46 @@
     "ch.qos.logback:logback-core": -1645228219,
     "com.auth0:java-jwt": 1268142488,
     "com.chuusai:shapeless_2.13": 1890991721,
-    "com.daml:base-errors_2.13": 1928886057,
-    "com.daml:bindings-java": 759536372,
-    "com.daml:community-admin-api_2.13": -809539526,
-    "com.daml:community-base_2.13": -1038055571,
-    "com.daml:contextualized-logging_2.13": 1122275243,
-    "com.daml:crypto_2.13": -898921479,
-    "com.daml:daml-grpc-utils_2.13": -1708019819,
-    "com.daml:daml-jwt_2.13": 1008934414,
-    "com.daml:daml-lf-api-type-signature_2.13": -467527438,
-    "com.daml:daml-lf-archive-encoder_2.13": -1888878831,
-    "com.daml:daml-lf-archive_2.13": 1722468866,
-    "com.daml:daml-lf-data_2.13": 1932080612,
-    "com.daml:daml-lf-encoder_2.13": -1429997348,
-    "com.daml:daml-lf-engine_2.13": 633917244,
-    "com.daml:daml-lf-ide-ledger_2.13": 1263747814,
-    "com.daml:daml-lf-interpreter_2.13": 577915962,
-    "com.daml:daml-lf-language_2.13": 764256914,
-    "com.daml:daml-lf-parser_2.13": 307864153,
-    "com.daml:daml-lf-stable-packages_2.13": 1972502207,
-    "com.daml:daml-lf-transaction_2.13": 1134184862,
-    "com.daml:daml-lf-upgrade-check_2.13": -1829039017,
-    "com.daml:daml-lf-validation_2.13": 1580079795,
-    "com.daml:daml-resources_2.13": 2076827500,
-    "com.daml:daml-tls_2.13": 1883387714,
-    "com.daml:ledger-api-core_2.13": 507816920,
-    "com.daml:ledger-api-proto": 1224085806,
-    "com.daml:ledger-api-scala_2.13": 60204391,
-    "com.daml:ledger-api-value_2.13": 739257938,
-    "com.daml:ledger-resources_2.13": 1463500857,
-    "com.daml:logging-entries_2.13": -177477724,
-    "com.daml:magnolify-addon_2.13": -1106029223,
-    "com.daml:nonempty_2.13": 807331032,
-    "com.daml:observability-metrics_2.13": -157678951,
-    "com.daml:ports_2.13": 1738630612,
-    "com.daml:rs-grpc-bridge_2.13": -1701317756,
-    "com.daml:rs-grpc-pekko_2.13": -352489063,
-    "com.daml:scala-utils_2.13": 1284499820,
-    "com.daml:testing-utils_2.13": -871702538,
-    "com.daml:timer-utils_2.13": 22641131,
-    "com.daml:util-observability_2.13": -762664946,
+    "com.daml:base-errors_2.13": 240725824,
+    "com.daml:bindings-java": -928623861,
+    "com.daml:community-admin-api_2.13": 1797267537,
+    "com.daml:community-base_2.13": 1568751492,
+    "com.daml:contextualized-logging_2.13": -565884990,
+    "com.daml:crypto_2.13": 1707885584,
+    "com.daml:daml-grpc-utils_2.13": 898787244,
+    "com.daml:daml-jwt_2.13": -679225819,
+    "com.daml:daml-lf-api-type-signature_2.13": 2139279625,
+    "com.daml:daml-lf-archive-encoder_2.13": 717928232,
+    "com.daml:daml-lf-archive_2.13": 34308633,
+    "com.daml:daml-lf-data_2.13": 243920379,
+    "com.daml:daml-lf-encoder_2.13": 1176809715,
+    "com.daml:daml-lf-engine_2.13": -1054242989,
+    "com.daml:daml-lf-ide-ledger_2.13": -424412419,
+    "com.daml:daml-lf-interpreter_2.13": -1110244271,
+    "com.daml:daml-lf-language_2.13": -923903319,
+    "com.daml:daml-lf-parser_2.13": -1380296080,
+    "com.daml:daml-lf-stable-packages_2.13": 284341974,
+    "com.daml:daml-lf-transaction_2.13": -553975371,
+    "com.daml:daml-lf-upgrade-check_2.13": 777768046,
+    "com.daml:daml-lf-validation_2.13": -108080438,
+    "com.daml:daml-resources_2.13": 388667267,
+    "com.daml:daml-tls_2.13": 195227481,
+    "com.daml:ledger-api-core_2.13": -1180343313,
+    "com.daml:ledger-api-proto": -464074427,
+    "com.daml:ledger-api-scala_2.13": -1627955842,
+    "com.daml:ledger-api-value_2.13": -948902295,
+    "com.daml:ledger-resources_2.13": -224659376,
+    "com.daml:logging-entries_2.13": -1865637957,
+    "com.daml:magnolify-addon_2.13": 1500777840,
+    "com.daml:nonempty_2.13": -880829201,
+    "com.daml:observability-metrics_2.13": -1845839184,
+    "com.daml:ports_2.13": 50470379,
+    "com.daml:rs-grpc-bridge_2.13": 905489307,
+    "com.daml:rs-grpc-pekko_2.13": -2040649296,
+    "com.daml:scala-utils_2.13": -403660413,
+    "com.daml:testing-utils_2.13": 1735104525,
+    "com.daml:timer-utils_2.13": -1665519102,
+    "com.daml:util-observability_2.13": 1844142117,
     "com.eed3si9n.jarjarabrams:jarjar-abrams-assembly_2.12": -80051761,
     "com.github.scopt:scopt_2.13": -1045082748,
     "com.google.android:annotations": 1910180409,
@@ -143,118 +143,118 @@
     "com.auth0:jwks-rsa:jar:sources": -90051624,
     "com.chuusai:shapeless_2.13": -2100787192,
     "com.chuusai:shapeless_2.13:jar:sources": -921881417,
-    "com.daml:base-errors_2.13": 921813582,
-    "com.daml:base-errors_2.13:jar:sources": 291952222,
-    "com.daml:base-validation_2.13": -8696056,
-    "com.daml:base-validation_2.13:jar:sources": -1646997792,
-    "com.daml:bindings-java": -38862902,
-    "com.daml:bindings-java:jar:sources": 2137329604,
-    "com.daml:blake2b_2.13": 1242468305,
-    "com.daml:blake2b_2.13:jar:sources": 885622357,
-    "com.daml:community-admin-api_2.13": 1083930090,
-    "com.daml:community-admin-api_2.13:jar:sources": 667437096,
-    "com.daml:community-base_2.13": -1169916687,
-    "com.daml:community-base_2.13:jar:sources": 261176661,
-    "com.daml:community-common_2.13": 1934345450,
-    "com.daml:community-common_2.13:jar:sources": -1550755056,
-    "com.daml:contextualized-logging_2.13": -392705388,
-    "com.daml:contextualized-logging_2.13:jar:sources": -723483647,
-    "com.daml:crypto_2.13": -1295360523,
-    "com.daml:crypto_2.13:jar:sources": -79053796,
-    "com.daml:daml-grpc-utils_2.13": 2099244196,
-    "com.daml:daml-grpc-utils_2.13:jar:sources": -1970484698,
-    "com.daml:daml-jwt_2.13": -1165070025,
-    "com.daml:daml-jwt_2.13:jar:sources": -1676484740,
-    "com.daml:daml-lf-api-type-signature_2.13": -265828518,
-    "com.daml:daml-lf-api-type-signature_2.13:jar:sources": -1245336002,
-    "com.daml:daml-lf-archive-encoder_2.13": -1173543054,
-    "com.daml:daml-lf-archive-encoder_2.13:jar:sources": -1170867333,
-    "com.daml:daml-lf-archive_2.13": -753957089,
-    "com.daml:daml-lf-archive_2.13:jar:sources": -826565547,
-    "com.daml:daml-lf-data_2.13": 1336565180,
-    "com.daml:daml-lf-data_2.13:jar:sources": -1442658577,
-    "com.daml:daml-lf-encoder_2.13": 1399643372,
-    "com.daml:daml-lf-encoder_2.13:jar:sources": -2136978768,
-    "com.daml:daml-lf-engine_2.13": 738156387,
-    "com.daml:daml-lf-engine_2.13:jar:sources": -448717780,
-    "com.daml:daml-lf-ide-ledger_2.13": 563779202,
-    "com.daml:daml-lf-ide-ledger_2.13:jar:sources": -836144264,
-    "com.daml:daml-lf-interpreter_2.13": -1089261890,
-    "com.daml:daml-lf-interpreter_2.13:jar:sources": 303203098,
-    "com.daml:daml-lf-language_2.13": 275675538,
-    "com.daml:daml-lf-language_2.13:jar:sources": 1262833860,
-    "com.daml:daml-lf-parser_2.13": 361348413,
-    "com.daml:daml-lf-parser_2.13:jar:sources": -1295367889,
-    "com.daml:daml-lf-snapshot-proto_2.13": -716557762,
-    "com.daml:daml-lf-snapshot-proto_2.13:jar:sources": 1420757661,
-    "com.daml:daml-lf-stable-packages_2.13": -913807649,
-    "com.daml:daml-lf-stable-packages_2.13:jar:sources": -1140028375,
-    "com.daml:daml-lf-transaction_2.13": 790201483,
-    "com.daml:daml-lf-transaction_2.13:jar:sources": -2018167672,
-    "com.daml:daml-lf-upgrade-check_2.13": -73453890,
-    "com.daml:daml-lf-upgrade-check_2.13:jar:sources": -13079838,
-    "com.daml:daml-lf-validation_2.13": 872582739,
-    "com.daml:daml-lf-validation_2.13:jar:sources": -535690533,
-    "com.daml:daml-resources_2.13": -1296134630,
-    "com.daml:daml-resources_2.13:jar:sources": -239093115,
-    "com.daml:daml-tls_2.13": -2023321582,
-    "com.daml:daml-tls_2.13:jar:sources": -1341769439,
-    "com.daml:executors_2.13": 276373713,
-    "com.daml:executors_2.13:jar:sources": -898469886,
-    "com.daml:google-common-protos-scala_2.13": -1965442058,
-    "com.daml:google-common-protos-scala_2.13:jar:sources": 1418741237,
-    "com.daml:kms-driver-api_2.13": -1967680272,
-    "com.daml:kms-driver-api_2.13:jar:sources": -772947718,
-    "com.daml:ledger-api-core_2.13": 1642830715,
-    "com.daml:ledger-api-core_2.13:jar:sources": 738703308,
-    "com.daml:ledger-api-proto": 493576304,
-    "com.daml:ledger-api-proto:jar:sources": -793014215,
-    "com.daml:ledger-api-scala_2.13": -892507996,
-    "com.daml:ledger-api-scala_2.13:jar:sources": 1759565858,
-    "com.daml:ledger-api-value-proto": -1737871726,
-    "com.daml:ledger-api-value-proto:jar:sources": 1633743154,
-    "com.daml:ledger-api-value_2.13": 2088945938,
-    "com.daml:ledger-api-value_2.13:jar:sources": 1928498287,
-    "com.daml:ledger-resources_2.13": 1235469797,
-    "com.daml:ledger-resources_2.13:jar:sources": -2038022861,
-    "com.daml:logging-entries_2.13": -155308360,
-    "com.daml:logging-entries_2.13:jar:sources": -666425103,
-    "com.daml:magnolify-addon_2.13": -814763931,
-    "com.daml:magnolify-addon_2.13:jar:sources": -111666553,
-    "com.daml:nameof_2.13": 989537075,
-    "com.daml:nameof_2.13:jar:sources": -955457696,
-    "com.daml:nonempty_2.13": -726519995,
-    "com.daml:nonempty_2.13:jar:sources": 1048685548,
-    "com.daml:observability-metrics_2.13": 1909885633,
-    "com.daml:observability-metrics_2.13:jar:sources": 1379668167,
-    "com.daml:observability-tracing_2.13": 694904245,
-    "com.daml:observability-tracing_2.13:jar:sources": 1650790150,
-    "com.daml:ports_2.13": -824504318,
-    "com.daml:ports_2.13:jar:sources": 1863122421,
-    "com.daml:resources-grpc_2.13": -80005603,
-    "com.daml:resources-grpc_2.13:jar:sources": 84332442,
-    "com.daml:resources-pekko_2.13": 773309921,
-    "com.daml:resources-pekko_2.13:jar:sources": 1641819805,
-    "com.daml:rs-grpc-bridge_2.13": 106937760,
-    "com.daml:rs-grpc-bridge_2.13:jar:sources": 2118892760,
-    "com.daml:rs-grpc-pekko_2.13": -1874022166,
-    "com.daml:rs-grpc-pekko_2.13:jar:sources": 1435887162,
-    "com.daml:scala-utils_2.13": 1977641978,
-    "com.daml:scala-utils_2.13:jar:sources": -333278811,
-    "com.daml:slick-fork_2.13": -279613288,
-    "com.daml:slick-fork_2.13:jar:sources": 1431816898,
-    "com.daml:testing-utils_2.13": -2031388535,
-    "com.daml:testing-utils_2.13:jar:sources": 151338362,
-    "com.daml:timer-utils_2.13": 10389968,
-    "com.daml:timer-utils_2.13:jar:sources": 1650356559,
-    "com.daml:traffic-enforcement-api_2.13": -1352155234,
-    "com.daml:traffic-enforcement-api_2.13:jar:sources": -1459775564,
-    "com.daml:util-external_2.13": 539922190,
-    "com.daml:util-external_2.13:jar:sources": 1814156421,
-    "com.daml:util-observability_2.13": 1010360244,
-    "com.daml:util-observability_2.13:jar:sources": 152467832,
-    "com.daml:wartremover-annotations_2.13": 509414417,
-    "com.daml:wartremover-annotations_2.13:jar:sources": 1805511364,
+    "com.daml:base-errors_2.13": 1164289314,
+    "com.daml:base-errors_2.13:jar:sources": 1128869828,
+    "com.daml:base-validation_2.13": 1661030632,
+    "com.daml:base-validation_2.13:jar:sources": 44223718,
+    "com.daml:bindings-java": 1378927555,
+    "com.daml:bindings-java:jar:sources": 228119365,
+    "com.daml:blake2b_2.13": 1988300452,
+    "com.daml:blake2b_2.13:jar:sources": 567576318,
+    "com.daml:community-admin-api_2.13": -1873006961,
+    "com.daml:community-admin-api_2.13:jar:sources": -441177459,
+    "com.daml:community-base_2.13": -2064551306,
+    "com.daml:community-base_2.13:jar:sources": 1235762540,
+    "com.daml:community-common_2.13": -1163104071,
+    "com.daml:community-common_2.13:jar:sources": -1195503992,
+    "com.daml:contextualized-logging_2.13": -2113768367,
+    "com.daml:contextualized-logging_2.13:jar:sources": -1176351837,
+    "com.daml:crypto_2.13": -1591539863,
+    "com.daml:crypto_2.13:jar:sources": 830317289,
+    "com.daml:daml-grpc-utils_2.13": 842479315,
+    "com.daml:daml-grpc-utils_2.13:jar:sources": 697193588,
+    "com.daml:daml-jwt_2.13": 602284887,
+    "com.daml:daml-jwt_2.13:jar:sources": -289821581,
+    "com.daml:daml-lf-api-type-signature_2.13": -1997345498,
+    "com.daml:daml-lf-api-type-signature_2.13:jar:sources": -1439198967,
+    "com.daml:daml-lf-archive-encoder_2.13": 1358755979,
+    "com.daml:daml-lf-archive-encoder_2.13:jar:sources": 549183390,
+    "com.daml:daml-lf-archive_2.13": 674236545,
+    "com.daml:daml-lf-archive_2.13:jar:sources": 234854373,
+    "com.daml:daml-lf-data_2.13": 208272820,
+    "com.daml:daml-lf-data_2.13:jar:sources": 1026982566,
+    "com.daml:daml-lf-encoder_2.13": 1900471829,
+    "com.daml:daml-lf-encoder_2.13:jar:sources": 286877377,
+    "com.daml:daml-lf-engine_2.13": 1757026317,
+    "com.daml:daml-lf-engine_2.13:jar:sources": -1102920004,
+    "com.daml:daml-lf-ide-ledger_2.13": -1587152096,
+    "com.daml:daml-lf-ide-ledger_2.13:jar:sources": -23733323,
+    "com.daml:daml-lf-interpreter_2.13": 1675205583,
+    "com.daml:daml-lf-interpreter_2.13:jar:sources": 2100768272,
+    "com.daml:daml-lf-language_2.13": 1465898357,
+    "com.daml:daml-lf-language_2.13:jar:sources": -1391635480,
+    "com.daml:daml-lf-parser_2.13": 178903992,
+    "com.daml:daml-lf-parser_2.13:jar:sources": 1489643427,
+    "com.daml:daml-lf-snapshot-proto_2.13": 2041925946,
+    "com.daml:daml-lf-snapshot-proto_2.13:jar:sources": 1346269556,
+    "com.daml:daml-lf-stable-packages_2.13": 2085713957,
+    "com.daml:daml-lf-stable-packages_2.13:jar:sources": -1234810121,
+    "com.daml:daml-lf-transaction_2.13": -564860154,
+    "com.daml:daml-lf-transaction_2.13:jar:sources": -1897902503,
+    "com.daml:daml-lf-upgrade-check_2.13": 1828681865,
+    "com.daml:daml-lf-upgrade-check_2.13:jar:sources": 1699269741,
+    "com.daml:daml-lf-validation_2.13": 1857530963,
+    "com.daml:daml-lf-validation_2.13:jar:sources": -1376598749,
+    "com.daml:daml-resources_2.13": 1960453398,
+    "com.daml:daml-resources_2.13:jar:sources": 1786966423,
+    "com.daml:daml-tls_2.13": -835998607,
+    "com.daml:daml-tls_2.13:jar:sources": -1494308624,
+    "com.daml:executors_2.13": -2071088723,
+    "com.daml:executors_2.13:jar:sources": -1315857518,
+    "com.daml:google-common-protos-scala_2.13": 1691731506,
+    "com.daml:google-common-protos-scala_2.13:jar:sources": 1855933557,
+    "com.daml:kms-driver-api_2.13": -755931774,
+    "com.daml:kms-driver-api_2.13:jar:sources": 617261106,
+    "com.daml:ledger-api-core_2.13": -1526171560,
+    "com.daml:ledger-api-core_2.13:jar:sources": 1684899470,
+    "com.daml:ledger-api-proto": -1605524419,
+    "com.daml:ledger-api-proto:jar:sources": 149467385,
+    "com.daml:ledger-api-scala_2.13": -1004130185,
+    "com.daml:ledger-api-scala_2.13:jar:sources": 865324106,
+    "com.daml:ledger-api-value-proto": 1782352216,
+    "com.daml:ledger-api-value-proto:jar:sources": 259615689,
+    "com.daml:ledger-api-value_2.13": 833934667,
+    "com.daml:ledger-api-value_2.13:jar:sources": -856317763,
+    "com.daml:ledger-resources_2.13": 930110605,
+    "com.daml:ledger-resources_2.13:jar:sources": -628095847,
+    "com.daml:logging-entries_2.13": -998815955,
+    "com.daml:logging-entries_2.13:jar:sources": 1974906962,
+    "com.daml:magnolify-addon_2.13": -1910412122,
+    "com.daml:magnolify-addon_2.13:jar:sources": 1611972487,
+    "com.daml:nameof_2.13": 1360380975,
+    "com.daml:nameof_2.13:jar:sources": 121652575,
+    "com.daml:nonempty_2.13": -1825584802,
+    "com.daml:nonempty_2.13:jar:sources": -1885891695,
+    "com.daml:observability-metrics_2.13": -1121472365,
+    "com.daml:observability-metrics_2.13:jar:sources": -1738933804,
+    "com.daml:observability-tracing_2.13": 958872138,
+    "com.daml:observability-tracing_2.13:jar:sources": 263596448,
+    "com.daml:ports_2.13": -749950958,
+    "com.daml:ports_2.13:jar:sources": -332874445,
+    "com.daml:resources-grpc_2.13": -341933303,
+    "com.daml:resources-grpc_2.13:jar:sources": -535312248,
+    "com.daml:resources-pekko_2.13": 786424042,
+    "com.daml:resources-pekko_2.13:jar:sources": -721639278,
+    "com.daml:rs-grpc-bridge_2.13": 603840519,
+    "com.daml:rs-grpc-bridge_2.13:jar:sources": -2140541053,
+    "com.daml:rs-grpc-pekko_2.13": 244636305,
+    "com.daml:rs-grpc-pekko_2.13:jar:sources": -675725736,
+    "com.daml:scala-utils_2.13": 1220924898,
+    "com.daml:scala-utils_2.13:jar:sources": -994595852,
+    "com.daml:slick-fork_2.13": -704097803,
+    "com.daml:slick-fork_2.13:jar:sources": 480464030,
+    "com.daml:testing-utils_2.13": 1264873180,
+    "com.daml:testing-utils_2.13:jar:sources": 1385599452,
+    "com.daml:timer-utils_2.13": -393494576,
+    "com.daml:timer-utils_2.13:jar:sources": -912922824,
+    "com.daml:traffic-enforcement-api_2.13": -635979037,
+    "com.daml:traffic-enforcement-api_2.13:jar:sources": -206033345,
+    "com.daml:util-external_2.13": -470828492,
+    "com.daml:util-external_2.13:jar:sources": 1258106707,
+    "com.daml:util-observability_2.13": 121027544,
+    "com.daml:util-observability_2.13:jar:sources": 762620759,
+    "com.daml:wartremover-annotations_2.13": -422681908,
+    "com.daml:wartremover-annotations_2.13:jar:sources": -1840209272,
     "com.eed3si9n.jarjarabrams:jarjar-abrams-assembly_2.12": 731740389,
     "com.eed3si9n.jarjarabrams:jarjar-abrams-assembly_2.12:jar:sources": -1910352230,
     "com.fasterxml.jackson.core:jackson-annotations": 1279600750,
@@ -959,395 +959,395 @@
     },
     "com.daml:base-errors_2.13": {
       "shasums": {
-        "jar": "335e0ae377bea02d5e06770b941984f0f28406635d9cc5975d0e3accb1d100c6",
-        "sources": "060b3fa402b854410643ea671fc2a8a5516c4dac88e738d850662ee03b43191e"
+        "jar": "b671ba3c41efbb85a27661a7773f74390e4675a0d39b1d163084713693ca72dd",
+        "sources": "6220432c69831a0954cff84523c918bfff05b2e832d0e03bd21f3f4435f12bcf"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:base-validation_2.13": {
       "shasums": {
-        "jar": "7251e0604bb92644c91d805bb406fc6ac9415c0038398ab381bf3d16ecef355a",
-        "sources": "e212a1e6e9fd08637c60d60f0c3e890b365cac537c45939249a8b790b4f84119"
+        "jar": "3c7c9510616b368b0efbacb31fafc2cc7611c12323c3c75f9fa9deb75a7e7fa9",
+        "sources": "78964087a271be83bd060abc613c6553409a8b1f9698c9f72935a2ba8bc2fd14"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:bindings-java": {
       "shasums": {
-        "jar": "e679607e4b50d32fe5262a2df23905934b50f07cbbe7d317ce6c76a1e8088759",
-        "sources": "36fe488321b37273bd34a6d43ab757ebb7193233d7583aca631d5556890ceabc"
+        "jar": "aa4a8be5367a534b51735cd861e66a821aa4dc7190b5b6b90c7d59fcb9b8cd19",
+        "sources": "2b9bae9de35859619063650e7c4cb1bcd5f3b573e6d91045be79996b0bf3245a"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:blake2b_2.13": {
       "shasums": {
-        "jar": "f258441d65d994cf8c95c898865b85326ca12dcc3c7d5efa46b623dca917fe4b",
-        "sources": "f32838f12195132dbf6e6f818fa1bd3aac8ffbc53792001f2e0cd2bf4b0ba1e4"
+        "jar": "1dd13bcb46eca0db865a868a6e792174eb6b210b9340d46a2eddcc5f8a72c5e1",
+        "sources": "9181a7f22e866d1b631f9dad9cb711cad8442c7c043644c2d26d2ea1e761bcde"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:community-admin-api_2.13": {
       "shasums": {
-        "jar": "3f825cb8ce16782152a9ecefdcef6e89ee4fa6c8ca3fba7465a67be5be720ff6",
-        "sources": "68a0ea6219f1a1f87015e07cac9b65970ba40ffd4416d5a42e88fe4ac5e139a8"
+        "jar": "aad7c4fbd5cc03afd974f4364e2519c9400fc6b9a59c16bef5bdc822fb9a6137",
+        "sources": "4f3e02879efa739ccf3c769a98cd80969932aac0451161ea8392296b79606530"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:community-base_2.13": {
       "shasums": {
-        "jar": "29e9088e4238bf51db29e4dadc91720c38c349b780474ad5d6adacfd74217897",
-        "sources": "c9e99958b63560abd54c345778aef66235168ff4d4b47386245a29d43c77b07f"
+        "jar": "01ae5f02d47299f061897c4c6e8d9eaceda04365d547435a6222729e89c5a23a",
+        "sources": "dd664c9e3b3be08eb0acf488ee3615bfa81591960b3ba0b2c0f07dc7636b6f9a"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:community-common_2.13": {
       "shasums": {
-        "jar": "ded5374c5ec1b6e382a8a14ba7b339166f3f923afa7b3b9538abfcb1ff3335f2",
-        "sources": "92ce02fbcf7bf0ed7dee068eddf0f4561a24ce8d9614677136a69405f0e6b2b9"
+        "jar": "24801160fcdf1d55dc64830b3789bd9b3f800a7d99bd7eb2ed4d9a5fc5496944",
+        "sources": "a7630d5b5c978e1342bb402a90bb54aa63a38c479886ea6bb7aefd03f0a9fda6"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:contextualized-logging_2.13": {
       "shasums": {
-        "jar": "604abbb5a33e89a6ee9f830d4a40786bd517b85eb6c68aa3f21a6c09c6b1e565",
-        "sources": "946f212a247d94405b1fb88decb9e5eff10b2afae0408796a74f154d9dbfe985"
+        "jar": "779beb9d7c8233e10453c25ced48bce1dd580222ecfe5f207c3009eb1b9855cc",
+        "sources": "1d355e24df7d36e03012335f85366182d38a0037e17edb88fbad1df05cd6cb47"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:crypto_2.13": {
       "shasums": {
-        "jar": "de30e3edc8303ae2a129767b9a0c3b52e7b710c223c2ebd4282c3a7bd7316362",
-        "sources": "bcb66ac27830a34df07ef22fa3fecb138d14547725552114213e70074d4f8e75"
+        "jar": "da0ff113ec73e757a90559f789500536a7323b1c9d5c53dde90b53c3563d2451",
+        "sources": "64ae01c18bca2114c8924af94f60733129586cd2717929e27220a0ace5c7d695"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-grpc-utils_2.13": {
       "shasums": {
-        "jar": "b63594f59e86244c219d80acffbb4a276004902dbc10d4d211d237ded1f35a5a",
-        "sources": "e23bfcae8368b40d40c778bda9bfbbf880be4a37b3ac923442d18329545134e6"
+        "jar": "3c7bddd08298470551e86ed57f5b0ebd4ae19f0677d2601170f01290d4aefa72",
+        "sources": "f9a5f3874b2eebcca9c5371dc46e50db7a8f9e5ed0689316ed0606671764025b"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-jwt_2.13": {
       "shasums": {
-        "jar": "fd12017aeba3705d11425607ebdd2df3e52112af966a1441fd3e7cb0841d3f3c",
-        "sources": "dddd110b1201f8de11f518c872e268bbe3259cf8c514bdbd6edcc89f1be868e7"
+        "jar": "2295f033264d23f35d0d572e83c33ef2fe7e6ebbd8143d07e6b02f1ee4e8f55b",
+        "sources": "6e9a0fe8d1b0edbfa79898588d1936f672354fa14979c8f02df3651689198643"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-lf-api-type-signature_2.13": {
       "shasums": {
-        "jar": "c38439aded4a5f8fc7041cbf58b132c2cbc9f22f1fc405cbd6205441c14d8404",
-        "sources": "b5583bed905de646177e4765726a2e6393f61618ee5f57d3b0f923f566b90dc2"
+        "jar": "e3bb16c424b9e932e0d688addf199131b0942a69cff94964a0c7a4c61b9a4669",
+        "sources": "6f2649dbffac9d6bd97402b51ff6bce4f05f377ed2966022be827278254270c2"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-lf-archive-encoder_2.13": {
       "shasums": {
-        "jar": "28798fe7187a45dc713b9b984b35999425ed4ed0450844e7a461e9da209b62f6",
-        "sources": "3ae8a5fa412ea40c007cc1df502c8f1f45c2b258d4652cd233c6ac77add1db15"
+        "jar": "97c672bb51378a917b99357ba776ec3acc60c9a7dd3ddeaa53c8781cb7efdaf5",
+        "sources": "02540b0dce9d0e6c00d9545d2217dfdd7b9c773f7be4726b9bec8207d689e6ba"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-lf-archive_2.13": {
       "shasums": {
-        "jar": "6c522813c04513b52ccde89f2fbf76c8a3ce4a4419b0de86f7443d45b1963f00",
-        "sources": "6bf42b4a413a8c3758f212c4a1b656c27d08ab974cdef6b0f77b9305317eb017"
+        "jar": "d7d8c67d1088b9a84a3b96c5eb9cb77479907bb1ad5706c7ac33031bcadee4f3",
+        "sources": "3b9cd6721783f29a427cde5169c87ae27bc9dac4e6da71dcee540e8ebf8eac45"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-lf-data_2.13": {
       "shasums": {
-        "jar": "39287700518c0f2c4f8ae4d23febd9a2c746df70716f2ebdb6857a5427d71dfd",
-        "sources": "419fa3aa270b9efbfcb5790186918a9ccfff082be6bdde65eb26b6c45dff5877"
+        "jar": "a7193ca440a4e057da38c8c2ea802e98337e27ac89830e9e7905ceca5480c34d",
+        "sources": "136b45584f232d65b07f016cc376a5e7324cb0c5ac0c596d52e8b1e7d9e48d0a"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-lf-encoder_2.13": {
       "shasums": {
-        "jar": "a1075ca9ea28e276f8581248161291ab9954e8b25fe3e27692b2d1478e6f6e20",
-        "sources": "9101c76c00fc84f5605f7fb4a6ff8ce4a005e95b8d76571ebcd4793c06e8410b"
+        "jar": "a5a3a6d73c5dcaa0887a111edc126d23e69a9759404dfef1dc2c432c24f8fd5b",
+        "sources": "5f2de648289268d1e391b2ce7e4cef01bbecb8756945c20b7340a688b7ce6479"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-lf-engine_2.13": {
       "shasums": {
-        "jar": "3b52eb659a612e8ead9ec920a6c8ba44e01c78346755643188e9aaadfade8bc5",
-        "sources": "46b68f5a875ce611cf6476dbf74c74e02738c88225f0dec5a81c05001d125cfc"
+        "jar": "8fd362bcc016c3365d6b684fa1793cb6ad0f61a17f667f7ca1ee654b7e93dd6f",
+        "sources": "c0c0075d6be57cd33a9afd75df8d3ef910fe2a16455f211b6dd235083ca65827"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-lf-ide-ledger_2.13": {
       "shasums": {
-        "jar": "a1f917a2aeb6ae008e16d5afd56dd9afa2447717e9867d032b8ae4f929b3ca1f",
-        "sources": "8eb697fab8bf2215c36036ff04c280c0c6fa39e3276385b87f3a435faabf1255"
+        "jar": "48a342e0597e2b144890a9999a3cc2e0f9a10dd222a0786ee9c2b1f9f07b913b",
+        "sources": "d812426ba0f78206969a2f962237d5ae91636ba63b941115fd71bfda3ad5c5b2"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-lf-interpreter_2.13": {
       "shasums": {
-        "jar": "927f070f07f4fb9ceed345364e0f9d45e744ce544be7807a40aa64f667fe634f",
-        "sources": "d7e6a55d9686dac07495c3fb4195808ea0147990d44233e9687a28938edfc895"
+        "jar": "af3ddd09d91856a8e3b1ad6c5b18d38d242515ecf2c7033767428dc1cb0376ad",
+        "sources": "ea451d89308f6479a274688b9ab65cc5596953a0e99f592eb0a6d067075416b0"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-lf-language_2.13": {
       "shasums": {
-        "jar": "833f3f430bb1c6a94dc5c555c70c3756bbcf769a53d41ca53ddff5775210b2c3",
-        "sources": "e96b6cb66cd3dfbe6fe093173f10ff59d241625a3d45832b436aeabae70b3845"
+        "jar": "eb13e8f26c6fbb470088abf3e5a422e590211da1ad050098f4ac833252c22ef6",
+        "sources": "a1420a2e0cfc69554726bd6efa9df114a47d7a2431276d961834a80792cc086c"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-lf-parser_2.13": {
       "shasums": {
-        "jar": "23e617c45992ef152d60bb63479f2b41ff2e68ad6b06323c56fc120ca15f409b",
-        "sources": "610371c62d03a585fa8f8f94104888ed40a54a966589ee41e891af71116d548b"
+        "jar": "b612e193e5142656a9ac131f644ba271cd7c1adfd50154702195f2acfc1ca23f",
+        "sources": "db050a24eb0151c00751b04cf26edfa6950811148c78fc2538910f689e7bcb6c"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-lf-snapshot-proto_2.13": {
       "shasums": {
-        "jar": "bb5340ac7189e9f90e619de1e20477d933e570ad23de046f82ccabb4891767d3",
-        "sources": "696bdec54ca35960cbd6002778a8dbe262292fde792df90dcd9f12c140b9215d"
+        "jar": "82de28325e7cc89fa88e2d087dd73ac22cbd04f0817d969b80a3e1486d47137b",
+        "sources": "8881204b200879dd3f1b534af1a3b83df3648255c2a5508c4037d02766fef696"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-lf-stable-packages_2.13": {
       "shasums": {
-        "jar": "96c566a710e2910857b134e3f2a1428dafafb391ec3361ab1399d4e919ab518e",
-        "sources": "9ed22b0c6e0479fb79da6d973bd7dfdce10bf171c4ef6f78700b5826d2f0899c"
+        "jar": "1fd43cbc4285480564f561115d8e4231ee039f9c80fd92fe4b0fdf2df7493a08",
+        "sources": "cd4a272c808ab2f6d0f479d9bf557699f2d92a755ba51083d5f6303ee5de209f"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-lf-transaction_2.13": {
       "shasums": {
-        "jar": "d413c97d54e7a96839f41372965d04bf5b6b1ec47cb2b89a363e5c85bc20a8b4",
-        "sources": "fda23f8f071c8b19d27f3b0ad4cc68b51a0a3cc863f4cd610e408bc9cfd8829c"
+        "jar": "065074b99b793cf0ab0a2356ada28a7cdae76e4dc7926d7915c836547f9effcc",
+        "sources": "e21fe9381e55bc59dd9936df8dc9a9fbf12c4ac3b02384087fa7eeda75e3ed19"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-lf-upgrade-check_2.13": {
       "shasums": {
-        "jar": "6a5849a027770548f41ae8d1312e86c5acaafbd82f1e3ada24d4c43613aebbd9",
-        "sources": "7971b74f8ac0d8f9038acd1f4380019570daee3b903460e2500c126db36c0f38"
+        "jar": "2a751eec78b1a76c03f0326ebedd429b16aa73005d2f25d0b9307ae37567902d",
+        "sources": "9ea4bea372405b5a4c6ec71e524a64c0f2624ea2d3afe9c96939233a9fa71234"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-lf-validation_2.13": {
       "shasums": {
-        "jar": "9185c367f510455f1c4281a4bba837c70a33ecf9fbd37258faffad25d80b6ad7",
-        "sources": "f3f8093d328cc9531736cefcf90454f8ce80da9f11ed9da01957ea6b1474ad2b"
+        "jar": "aee3aca0db2859f588c1c395ce6944e4681e701ebe8352c8b72fb57438a9c58b",
+        "sources": "0363a8c5ca9c4a678f3e340932e95348f8898df5f42b0cd03866edb6784dead0"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-resources_2.13": {
       "shasums": {
-        "jar": "a8836502f9b02b9bbbe7143304d3d36dbf14309ed78a9d7a2643667f6b5213a1",
-        "sources": "8210c5e70654103d6f7c00080a1305b20b306e1ff37e421eea589c5e28bfd303"
+        "jar": "e5187671334e1259847b674c14ca8d856a1346b1e58c529d107af9387da384b1",
+        "sources": "27212a29065badca2afe0eecade0c179c9c533f05fdada86b1134ddd0b7ff72e"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:daml-tls_2.13": {
       "shasums": {
-        "jar": "19b16214da75f6b337bec4ffc6cfe39c4a10dc51e32ae0a71c9bd44f3e18b845",
-        "sources": "2b4bb90160ae3835b03660d16ca8bc2ef3f33559f4426311911ca7964e042715"
+        "jar": "8a3d7e936099b75f2720b19afa6fa466f7f30a2867864b96dd0dd2649122c24e",
+        "sources": "cce77f154e4bb0410db7f095586ab04cbab2a761481be0f35608b938cef747a7"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:executors_2.13": {
       "shasums": {
-        "jar": "01a9a21528450528427f90cbc640d280d4d092238b8f8a98f50c726f62edd3aa",
-        "sources": "2dcd4b36572be2ffc886ccf57484866e8c41dbb9ea1e8cb6eea6c991828d79b0"
+        "jar": "a29c4e97d5a9ed9440d3a5edf48aa5f12f4d027b002c5e7423cc718a0e874ef3",
+        "sources": "266dc4c3a3bf9af46b5bd50e46c492fdf411934380cf41e98b3a2bf10c2a5df0"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:google-common-protos-scala_2.13": {
       "shasums": {
-        "jar": "ff88517d7631aff7a63e9f598d3fe2c61c7297375e5d6c5d51ce8430d3fcf47f",
-        "sources": "19460756439414d75143e88098a6dead61d52007c2cfd63cf9546a385125e14e"
+        "jar": "0f8a6358eae19ce7b193bbc953c5b106b31a0c368266d737c75aad7475467002",
+        "sources": "e37b8c914ecd4dd34995fea48e2ea8ef02138e37081a6283ca4d3487aa61604a"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:kms-driver-api_2.13": {
       "shasums": {
-        "jar": "65e510ac143e497bf204b6fd49dc30e6c6dadece6b7f5c04d79cfae9344e6aca",
-        "sources": "dca2df404ec05a695c810a8043e0ddc97eb135ec8059f4b0b24c11fe02c5770f"
+        "jar": "987be788f86ea52a75fe0dadd052debe7499f5eea954776a2c93079e64669137",
+        "sources": "8bff487de713c39dde21ce62c1d0cd6cbf7a82e50350687d0ee19a932dc00e74"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:ledger-api-core_2.13": {
       "shasums": {
-        "jar": "58c5c1f3fcdcc853408358acf49d42f9217964af69835ca4821bbf2d85a6f1df",
-        "sources": "02f81a6fcb25d4d25b80e6561d7546e6e55ead89d406b489c614e51b14183e6a"
+        "jar": "e7699667a8a276a4cd32b707167b51fe14a5e6432ea85940634f0bf3ed4feba5",
+        "sources": "8e1a6fb98ae0600fbe0be00dff4f99f827f8880cc578e676494f4b6e21c6694c"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:ledger-api-proto": {
       "shasums": {
-        "jar": "348493420f8322322cd47e55742d365347c860c22301e979bb43d71d3fdcfac2",
-        "sources": "6a7832bb1237b1b043d37359840b1d87c8edf0c83052e5f52b1499ae4296c793"
+        "jar": "5309bd457e968f2057da482a49904a3e8ce83a4fe82bd316db2ab656e8703728",
+        "sources": "3bf3839d18178a92fdea32673635c092ce5ac4dee1e4f16e1ca6e8e3b54c3592"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:ledger-api-scala_2.13": {
       "shasums": {
-        "jar": "6fd397d36b0778fe4d72b1b540706ce01d227318ced3a59727897d2148ece7b4",
-        "sources": "d6fefb6705caf4126ae8e7b52ec429406a549353da9972ee2fcf871eff4c3bae"
+        "jar": "ef5599661113bf746aeb44278c1d898285a4324e4d43162a8f6fb073a5985e8f",
+        "sources": "bab351402a4e2eb1c2fb117fa9ccd9178b4dffd31cf7a1c7a6c4a6db3e45e0cf"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:ledger-api-value-proto": {
       "shasums": {
-        "jar": "874ddd87d944612fcf236cb83a4526ce1fdd933144a3719ca8d291bc2cd6ab3d",
-        "sources": "22c86ec9356b13755c03f4f98acf184dc68a4e6015b7ff5dba9260de4822e59f"
+        "jar": "b9edca20c7ef81e82e901011646f5caf7c48c2f7fd0ece1d697886a37a2a2238",
+        "sources": "6e61e1dd333e28aca0930fb227e3503d422bc31d7cea487d092188afaa90187d"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:ledger-api-value_2.13": {
       "shasums": {
-        "jar": "0f0ca416ecbf1c48fdf36e61917485b1b86e35762c783dac7dbc3d946cef042b",
-        "sources": "746200fcc48783732f0e69251d48907548ca4a7046ad7db74a91275d8ce70374"
+        "jar": "503217d71f1678637c84284ed89bdc9e8d149a87ec2d504a5d87c30992c6a6ed",
+        "sources": "abe7db055d3eab67715b5d156ba5ae9fc5bd8cc022fc623c797c616c7d6eea9f"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:ledger-resources_2.13": {
       "shasums": {
-        "jar": "5d9019a74483b0328171b7000f53dc94ad29118b9449b9a9cb67af00663fe8b6",
-        "sources": "578914ac89693b5469b35911a7fef08c87cafd086675f72dba12015ab62f9cdf"
+        "jar": "633808a8b8ec842958dbbb787ebec338e2b4e607f2054a6cf4aec0ee5d52e66b",
+        "sources": "7260f839dc6ed4bed2d966e4082910fb58ce346b6acbedd7d44235c63d8a1073"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:logging-entries_2.13": {
       "shasums": {
-        "jar": "7c978d02ae8337fec42e22f961622b47fbc6a931899d0f37b52d3077fc96fce4",
-        "sources": "b1985165d5002a47043e13552c50876b3937c054f87981f32f88fc3195b2195f"
+        "jar": "f8ee60cbe53068292a840fd329b0862337911838a01c431e0ffb48847524f214",
+        "sources": "f4552551d2fc5556f21452a1ebbfe8ff202013782a71db58d7aa65bfadd74e82"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:magnolify-addon_2.13": {
       "shasums": {
-        "jar": "533a56fbb2c525a1690432bbe3d0c8c553f9c686c3306f93ba4fdf20ba5476eb",
-        "sources": "6f1d3770b725a5edcd21faf52d823fb7a671bda716d8f69a88c336e6ba6af6a7"
+        "jar": "98d3da2095d30e02f000a8fc4a245f62536f78c162cdfd8c3a3ca85d07b91d2f",
+        "sources": "d7cb45edfd56996f16ed25272944db19a66e305a53f65943e1972da62e4002ae"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:nameof_2.13": {
       "shasums": {
-        "jar": "94fcd31acce66ea9c37f2f7f087eb24f6d55d8909ce3d7f28c0fad8de1322b86",
-        "sources": "343460b24a8060a8bbc6c32d4a2bbcbfa35aa1bd40c515aacf9cc290223080f1"
+        "jar": "ac8b97ff352ea4b78af33a974331d48762463a3d9c228cab9dfcbad1c15ab09d",
+        "sources": "2b05bb00f09ac23415716f0168daf3956cf6f749d1fa667c1d950000a278bbaa"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:nonempty_2.13": {
       "shasums": {
-        "jar": "2c0a4ff762a715752760c7806a44f8cc86474e29458558a9fe0de8c8ccdcd0ca",
-        "sources": "9d300ca75d3acfff2c3f1b40e756dd8027750581f5ccedabf5af8fdf8e6faa40"
+        "jar": "bcc1e470faa419ed2e4115db4b1624e03284fae1d91aa024407feb66ff3db1c2",
+        "sources": "d0fcbe65cb5dd1696cb0d263bdf60d035c0cb61d03d89dd844370da158b08e5a"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:observability-metrics_2.13": {
       "shasums": {
-        "jar": "bd8fe0a1ce0eff379a569ad2916d56a0217ca1d5af083842d7c080486da9a072",
-        "sources": "5e8f2cfe02a7aa7216bfb5a327179026df005eb1e44a45b48b53dbb43ea52b24"
+        "jar": "f26527079c6c8d7be6d524ae86764286b5c5efe874fc72efe63d0d58188a1937",
+        "sources": "584846bab907cb6de729fa6c17149a9c3d1c2107bb2b63774aba98d967106716"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:observability-tracing_2.13": {
       "shasums": {
-        "jar": "1e054a6c662292c9a9e73a56680573681561ff760f6e54bb3e051cb3e98ba422",
-        "sources": "8e929162216ebc2dcfe3bfd3a1f1123dc4bc94489110a1a7c4c8e80e1b2078fb"
+        "jar": "cab7298480819da9820cc8dd884c4bea3215a1dd764165df8dceb7d47cee841b",
+        "sources": "35c1924ee1b7691b39af36691321e23f154e15acfa672998deffa7a5afe099ca"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:ports_2.13": {
       "shasums": {
-        "jar": "234f91c7911022ff7f2bba1c4a2cd3c40c5843b4d2ad00db7a875b5d3399470a",
-        "sources": "d5767658fc1da450bbd39a57e8460f634eba16d2c34ae1a71f692fb426f5baee"
+        "jar": "fc65eb28b12654d1923bec5b74cf92d5a8e43ea631eaf76bb59b0982b79d60d8",
+        "sources": "e06c8e6e9f6902054bd92a40aff07baca14d455a21f4360933434547e7588a4b"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:resources-grpc_2.13": {
       "shasums": {
-        "jar": "ffcff10ce6e0e03817dca489b23ca850f3c0d015fbafda41d038dd864d66d5c4",
-        "sources": "878de3e3dee88db36662566dc118e3d509ca3c93d5aee329a5c871dc1886601f"
+        "jar": "c15cc79d0d3e8e7eb0b9b9005bbd20a47670f56469b86b1138918f8d2cb05c98",
+        "sources": "449809cd1bdc15a6b42aa009c9f88d8368b823f3872304e0c706fdd10a93d87c"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:resources-pekko_2.13": {
       "shasums": {
-        "jar": "bfffdf4f4c76c9a3f47ec355e9c7dbe1e9f2bc3ca05bfcef8d59057b9459e529",
-        "sources": "691d61b66b033b0ec5f3fbe8d5c5a1471df65ad7e22f2de5f8c9cd13ee59f02c"
+        "jar": "8493af7d59e4beff117da2013259e025e8c0742e7f226f610c01356d7a25aa1e",
+        "sources": "671c638368527cd1b3470e71ff9a5cda33d554ea2719e958571bc05a2d9dff90"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:rs-grpc-bridge_2.13": {
       "shasums": {
-        "jar": "0dcb217cc6a95741a98c40ac89fbe44454b5eddfee98b600d7d60724b409f3ae",
-        "sources": "c4e26c34be695b4290660f165a9771e3aeffd1d3856bfbcf1af56dc0f71305e0"
+        "jar": "1ea791b60e126a67966627dea1705cf4d10835d5aeafb67ca6c47de67f1d2ae6",
+        "sources": "7f8af8d7cc113b9f5a107c8fe69783841d33146546f3e13a138feed45ed67492"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:rs-grpc-pekko_2.13": {
       "shasums": {
-        "jar": "590323c31c0b07a03a0d8c467fed854cd59a6e5eb6d8ec82915b9f0cef133cd2",
-        "sources": "54d88474545a4deb2dff3cbd6f4389c1c4c3e8275014dd9885cc5d6ca9ff0d29"
+        "jar": "f775a438f861a4b52ecfc291996d60454f971a07513a60b7092bb1303f82a395",
+        "sources": "95b007cd1f2fea222b1fd84dde910e8e0e4b3cf0ac626e7d39ca43e3cddff087"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:scala-utils_2.13": {
       "shasums": {
-        "jar": "629fd936567b38481dd39b7ef7eb5e6550b41b2f6450c4797e6c38b67af5a325",
-        "sources": "a4d25fd81eff856a803953c68fca718684a03bd6828e641e543d80b43e792a40"
+        "jar": "0b87bd020dd5455e0ca39bf641c307d59f03f57a8cfc10aa4cae21da1dcb601e",
+        "sources": "5eedf0500de93f6fa5eead23b3faf5a7deb8b56fdee66003f9f494861f96766e"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:slick-fork_2.13": {
       "shasums": {
-        "jar": "79e6b4ea852be451654b60db5bdf966502f349dc4fb50d5c3fad91f770c3d6a8",
-        "sources": "57fd7834539126a18de6882f4cff64a1d8d63689c71887c4a808798d70944972"
+        "jar": "f7a4576e36f4792e11e1310a18a87330b41437f78cf393ad0a2086d3d47322e1",
+        "sources": "4a7c783232d55e16afb2610209daa04862c33a20b783fd16b87ab189954e36ef"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:testing-utils_2.13": {
       "shasums": {
-        "jar": "144da5e0d977c1707b1cc4f325d53787160c4a0a830128d95257f6e629861eaf",
-        "sources": "2d58eab87e1c3f12f559e5757e0108b56356c981089b379da786c03f8b680b25"
+        "jar": "c650f80bd6acb408b7dbe45f78e5b10d73032d573858aaa69b03a356135a990f",
+        "sources": "2cb0ae7015f58376b30ce68311760b4a14e0ed032df4dbb0112203a9513288f0"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:timer-utils_2.13": {
       "shasums": {
-        "jar": "38f05ac31395cbc39ed5c746c8af25c6eeea1617e59b65c97cfd0a3cf953914f",
-        "sources": "5a0cc1b33513daa7ac16ae3fb9dd037aabb593daf3f60ddf705b4985a73e8a6e"
+        "jar": "5e68cb0829d435ba5c5df70e760a8f0ad1ad6a7b7113446137eebc5e15d2e26a",
+        "sources": "a3cc84dbe45ecd4ceaf161ad98aa0b0c4fcdcf7923dd3e3beae9a414da21f9ea"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:traffic-enforcement-api_2.13": {
       "shasums": {
-        "jar": "aa1bbab51a2187a2ad31bbe534ec792a7534b0b7137539ac4d0f29fc1d6e9910",
-        "sources": "d6c9c6732e5ff23d233cc43c83d61327236c31216f4caa728e6eafa5f2566ec1"
+        "jar": "c70ad23d3b146dcbf9a4b69885b93d00daba903bd8b474bbf277577793363438",
+        "sources": "877486b8374309ba4283ce78e5501dd3f176bf9f2a88825aa9072205d1cbcf5d"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:util-external_2.13": {
       "shasums": {
-        "jar": "281ccccd858f32d6d808289af2d975822354b5e099289d824e1925ade7dcc75c",
-        "sources": "1834bdf933e32ddabbf8f5fb541fb63c95f25cf247f94d9affe0447303005719"
+        "jar": "708e30f2e9641930055a964f18b997868c3204cbb700f4513e679c68ad09a23e",
+        "sources": "11e9e3ad1e13ffd90b240264afea6fd4f5ea7272ec3c8ee2f4d35c4e3ba1a65a"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:util-observability_2.13": {
       "shasums": {
-        "jar": "6a670d1bfe78882d377ee877bb1e48a8c7d1cd3166f77959bdf493383561b640",
-        "sources": "c1f72297e8288a8d6b765316b1fd03398a8ae84ac50d155e29d461436c3e4c6b"
+        "jar": "b35cc284dc908a033464963a4a175e1043802df6cb5b4e0e49c13f5aee9da6ec",
+        "sources": "e4cad58ed3d0167427d2abf0cb91a26d2f14007b06e08938313e332aae9b118e"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.daml:wartremover-annotations_2.13": {
       "shasums": {
-        "jar": "82def87e0f355b0a0ac554082a6bc2a07064ce1620b4699f7cd2f5182610c157",
-        "sources": "59298cb84a2f1247279b0181bc2fe5716a6db0a79dc85bddd7aad4ee07949cbc"
+        "jar": "34a20997a1adbd8c3cc51ed2507a22eaf78bafbcb569d72202e4a1806d5c38ab",
+        "sources": "3d7f69542a9e202d8e8d0047ad9ab21225b77af70469afa65d61ef4ebb2f94fa"
       },
-      "version": "3.7.0-snapshot.20260916.20390.0.vc001153d"
+      "version": "3.7.0-snapshot.20260918.20446.0.vda513cad"
     },
     "com.eed3si9n.jarjarabrams:jarjar-abrams-assembly_2.12": {
       "shasums": {
