@@ -96,9 +96,7 @@ execTest
     -> IO ()
 execTest inFiles runAllOption coverage color mbJUnitOutput mPkgConfig opts tableOutputPath transactionsOutputPath resultsIO coverageFilters mbProjectPath = do
     loggerH <- getLogger opts "test"
-    color <- if getUseColor color then pure color else do
-        isTTY <- hIsTerminalDevice stdout
-        pure $ UseColor isTTY
+    color <- if getUseColor color then pure color else fmap UseColor (hIsTerminalDevice stdout)
     let optsWithPkg = case mPkgConfig of
             Just PackageConfigFields{..} -> opts { optMbPackageName = Just pName, optMbPackageVersion = pVersion }
             Nothing -> opts
@@ -307,14 +305,33 @@ failedTestOutput h file = do
     pure $ map (, Just errMsg) scriptNames
 
 
+-- | Semantic styles for test output. Kept abstract rather than as raw SGR
+-- codes so that alternative rendering backends (e.g. HTML for IDE output) can
+-- be added later without touching the call sites.
+data Style
+  = Important  -- ^ Emphasis (bold).
+  | Heading    -- ^ Section header (bold + underlined).
+  | Failure    -- ^ Something went wrong (red).
+  | Success    -- ^ Everything passed (green).
+
+-- | ANSI SGR codes for a semantic style.
+styleToSGR :: Style -> [SGR]
+styleToSGR Important = [SetConsoleIntensity BoldIntensity]
+styleToSGR Heading   = [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity]
+styleToSGR Failure   = [SetColor Foreground Vivid Red]
+styleToSGR Success   = [SetColor Foreground Vivid Green]
+
+-- | Render a string with the given semantic styles, honoring the color
+-- setting and taking care of resetting the styling afterwards.
+renderColor :: UseColor -> [Style] -> String -> String
+renderColor color styles s
+  | getUseColor color = setSGRCode (concatMap styleToSGR styles) <> s <> setSGRCode []
+  | otherwise = s
+
 printTestSuiteBegin :: UseColor -> Maybe String -> IO ()
 printTestSuiteBegin color mbIdentifier =
-    whenJust mbIdentifier $ \identifier -> do
-      let colored = getUseColor color
-      putStrLn $
-        (if colored then setSGRCode [SetConsoleIntensity BoldIntensity] else "")
-        <> "Running tests (" <> identifier <> ") ..."
-        <> (if colored then setSGRCode [] else "")
+    whenJust mbIdentifier $ \identifier ->
+      putStrLn $ renderColor color [Important] ("Running tests (" <> identifier <> ") ...")
 
 printSummary :: UseColor -> Maybe String -> Maybe FilePath -> [ScriptTestResult] -> IO ()
 printSummary color mbIdentifier mbProjectPath res =
@@ -323,43 +340,32 @@ printSummary color mbIdentifier mbProjectPath res =
         nFailed = length failedTests
         nPassed = length res - nFailed
         nTotal = length res
-        colored = getUseColor color
         identifierSuffix = maybe "" (\ident -> " (" <> ident <> ")") mbIdentifier
+        summaryHeading suffix = renderColor color [Heading] ("Test Summary" <> identifierSuffix) <> suffix
 
     -- Handle the "no tests found" case
     if nTotal == 0
-      then do
-        putStrLn $
-          (if colored then setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity] else "")
-          <> "Test Summary" <> identifierSuffix
-          <> (if colored then setSGRCode [] else "")
-          <> ": No tests found"
+      then putStrLn $ summaryHeading ": No tests found"
       else do
         let countLine
               | nFailed > 0 =
-                  (if colored then setSGRCode [SetColor Foreground Vivid Red] else "")
-                  <> show nFailed <> " failed"
-                  <> (if colored then setSGRCode [] else "")
+                  renderColor color [Failure] (show nFailed <> " failed")
                   <> ", " <> show nPassed <> " passed"
               | otherwise =
-                  (if colored then setSGRCode [SetColor Foreground Vivid Green] else "")
-                  <> show nPassed <> " passed"
-                  <> (if colored then setSGRCode [] else "")
+                  renderColor color [Success] (show nPassed <> " passed")
 
         -- Print combined header line
-        putStrLn $
-          (if colored then setSGRCode [SetUnderlining SingleUnderline, SetConsoleIntensity BoldIntensity] else "")
-          <> "Test Summary" <> identifierSuffix
-          <> (if colored then setSGRCode [] else "")
-          <> ": " <> countLine
+        putStrLn $ summaryHeading (": " <> countLine)
 
-        -- Only show failed tests in summary (passed tests are hidden when there are failures)
-        -- This keeps the output focused on what needs attention
+        -- When everything passed, list every test.
         when (nFailed == 0) $
             printScriptResults color mbProjectPath res
 
-        -- Show failed tests last (most visible)
-        when (nFailed > 0) $
+        -- When there are failures, list only the failing tests last (most
+        -- visible). Passing tests are intentionally omitted to keep the focus
+        -- on what needs attention, so label the list to make that clear.
+        when (nFailed > 0) $ do
+            putStrLn $ renderColor color [Important] "Failed tests (passing tests omitted):"
             printScriptResults color mbProjectPath failedTests
 
 printScriptResults :: UseColor -> Maybe FilePath -> [ScriptTestResult] -> IO ()
@@ -378,8 +384,7 @@ printScriptResults color mbProjectPath results = do
           let relativePath = maybe absPath (\projectPath -> makeRelative projectPath absPath) mbProjectPath
           pure $ T.pack relativePath
         TR.External _ -> pure $ TR.localOrExternalName loe
-      let colored = getUseColor color
-          failedResults = [(name, err) | (_, ScriptName name, Left err) <- groupResults]
+      let failedResults = [(name, err) | (_, ScriptName name, Left err) <- groupResults]
           passedResults = [(name, res) | (_, ScriptName name, Right res) <- groupResults]
           nFailed = length failedResults
           nPassed = length passedResults
@@ -388,7 +393,7 @@ printScriptResults color mbProjectPath results = do
         then do
           let failedNames = map fst failedResults
               testWord = if nFailed == 1 then "test" else "tests"
-              failedText = if colored then setSGRCode [SetColor Foreground Vivid Red] <> "failed" <> setSGRCode [] else "failed"
+              failedText = renderColor color [Failure] "failed"
           if nFailed == 1
             then putStrLn $ T.unpack loeName <> ": 1 " <> testWord <> " " <> failedText <> ": " <> T.unpack (head failedNames)
             else do
@@ -397,7 +402,7 @@ printScriptResults color mbProjectPath results = do
                 putStrLn $ "  - " <> T.unpack name
         else do
           let testWord = if nPassed == 1 then "test" else "tests"
-              passedText = if colored then setSGRCode [SetColor Foreground Vivid Green] <> "passed" <> setSGRCode [] else "passed"
+              passedText = renderColor color [Success] "passed"
           putStrLn $ T.unpack loeName <> ": " <> show nPassed <> " " <> testWord <> " " <> passedText
 
 
