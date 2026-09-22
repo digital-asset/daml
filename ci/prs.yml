@@ -16,6 +16,50 @@ variables:
 
 jobs:
 # TODO: temporarily reduced to linux x86_64 only; re-enable linux aarch64, macOS and Windows below.
+- job: probe
+  displayName: 'Probe cache options'
+  timeoutInMinutes: 10
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  steps:
+    - checkout: none
+    - bash: |
+        set -uo pipefail
+        echo "=== identity ==="
+        echo "agent=${AGENT_NAME} machine=${AGENT_MACHINENAME} build=${BUILD_BUILDID}"
+        hostname -f || true
+        echo "=== network ==="
+        ip -4 addr || true
+        ip route || true
+        cat /etc/resolv.conf || true
+        echo "=== disk ==="
+        df -h "$HOME" "${AGENT_WORKFOLDER}" / || true
+        echo "=== existing cache machinery ==="
+        ls -la "$HOME/reset_caches.sh" "$HOME/.bazel-cache" "$HOME/.cache/bazel" 2>&1 || true
+        command -v podman docker || true
+        echo "=== HOME persistence ==="
+        marker="$HOME/bazel-cache-module/.probe-marker"
+        if [ -f "$marker" ]; then
+          echo "MARKER PERSISTS, previous run was:"
+          cat "$marker"
+        else
+          echo "MARKER ABSENT: first run on this agent, or HOME is not persistent"
+        fi
+        mkdir -p "$HOME/bazel-cache-module"
+        { printf '%s %s ' "${BUILD_BUILDID}" "${AGENT_NAME}"; date -uIs; } > "$marker"
+        echo "=== cache endpoint reachability ==="
+        echo "404 means alive and empty at this key; UNREACHABLE or 000 means gone"
+        key=0000000000000000000000000000000000000000000000000000000000000000
+        for base in http://10.0.2.10/cache/202405 http://10.0.2.10/cache/202405/ubuntu https://bazel-cache.da-ext.net/202405/ubuntu; do
+          for kind in ac cas; do
+            printf '  %s/%s/%s -> ' "$base" "$kind" "$key"
+            curl -s -o /dev/null -w '%{http_code}\n' -I -m 20 "$base/$kind/$key" || echo UNREACHABLE
+          done
+        done
+      displayName: 'Probe'
+      continueOnError: true
+
 - job: linux
   displayName: 'Linux'
   timeoutInMinutes: 240
