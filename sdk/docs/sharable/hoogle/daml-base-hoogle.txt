@@ -393,6 +393,16 @@ class HasFetch t
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-fetch-90069
 fetch :: (HasFetch t) => ContractId t -> Update t
 
+-- | (2.dev only) Exposes `unpack` function.
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasunpack-24472
+class HasUnpack t
+
+-- | (2.dev only) Unpack the contract data associated with the given
+--   contract ID. If the `ContractId t` supplied is not the contract ID of
+--   an active contract, this fails and aborts the entire transaction.
+@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#function-da-internal-template-functions-unpack-84858
+unpack :: (HasUnpack t) => ContractId t -> Update t
+
 -- | Exposes `softFetch` function
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-template-functions-hassoftfetch-65731
 class HasSoftFetch t

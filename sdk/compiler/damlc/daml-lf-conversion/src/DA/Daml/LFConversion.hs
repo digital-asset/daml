@@ -857,6 +857,12 @@ convertTypeDef env msi o@(ATyCon t) = withRange (convNameLoc t) $ if
     , NameIn DA_Internal_Template_Functions "HasExerciseGuarded" <- cls
     ->  pure []
 
+    -- Remove HasUnpack class declaration when unpack is unsupported
+    | not (envLfVersion env `supports` featureUnpack)
+    , Just cls <- tyConClass_maybe t
+    , NameIn DA_Internal_Template_Functions "HasUnpack" <- cls
+    -> pure []
+
     -- Remove HasChoiceController class declaration when instances when choice
     -- functions are unsupported
     | not (envLfVersion env `supports` featureChoiceFuncs)
@@ -1479,6 +1485,20 @@ convertBind env mc (name, x)
     -- unsupported
     | not (envLfVersion env `supports` featureExtendedInterfaces)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasExerciseGuarded") _ <- name
+    = pure []
+
+    | not (envLfVersion env `supports` featureUnpack)
+    , "$cunpack" `T.isPrefixOf` getOccText name
+    = pure []
+
+    -- Remove unpack (of HasUnpack) declaration when unpack is unsupported
+    | not (envLfVersion env `supports` featureUnpack)
+    , NameIn DA_Internal_Template_Functions "unpack" <- name
+    = pure []
+
+    -- Remove HasUnpack declaration when unpack is unsupported
+    | not (envLfVersion env `supports` featureUnpack)
+    , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasUnpack") _ <- name
     = pure []
 
     -- Remove _lookupByKey wrapper defintition when unsupported

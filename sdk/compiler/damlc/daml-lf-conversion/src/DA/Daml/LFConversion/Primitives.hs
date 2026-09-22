@@ -256,6 +256,18 @@ convertPrim _ "UFetchInterface" (TContractId (TCon iface) :-> TUpdate (TCon ifac
     ETmLam (mkVar "this", TContractId (TCon iface)) $
     EUpdate $ UFetchInterface iface (EVar (mkVar "this"))
 
+convertPrim _ "UUnpackTemplate" (TContractId (TCon template) :-> TUpdate (TCon template'))
+    | template == template' =
+    pure $
+    ETmLam (mkVar "this", TContractId (TCon template)) $
+    EUpdate $ UUnpackTemplate template (EVar (mkVar "this"))
+
+convertPrim _ "UUnpackInterface" (TContractId (TCon iface) :-> TUpdate (TCon iface'))
+    | iface == iface' =
+    pure $
+    ETmLam (mkVar "this", TContractId (TCon iface)) $
+    EUpdate $ UUnpackInterface iface (EVar (mkVar "this"))
+
 convertPrim _ "UExercise"
     (TContractId (TCon template) :-> TCon choice :-> TUpdate _returnTy) =
     pure $

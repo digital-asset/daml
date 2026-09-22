@@ -626,6 +626,16 @@ checkFetchInterface tpl cid = do
   void $ inWorld (lookupInterface tpl)
   checkExpr cid (TContractId (TCon tpl))
 
+checkUnpackTemplate :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
+checkUnpackTemplate tpl cid = do
+  _ :: Template <- inWorld (lookupTemplate tpl)
+  checkExpr cid (TContractId (TCon tpl))
+
+checkUnpackInterface :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
+checkUnpackInterface tpl cid = do
+  void $ inWorld (lookupInterface tpl)
+  checkExpr cid (TContractId (TCon tpl))
+
 -- | Check that there's a unique interface instance for the given
 -- interface + template pair.
 checkUniqueInterfaceInstance :: MonadGamma m => InterfaceInstanceHead -> m ()
@@ -652,6 +662,8 @@ typeOfUpdate = \case
   UExerciseByKey tpl choice key arg -> typeOfExerciseByKey tpl choice key arg
   UFetch tpl cid -> checkFetch tpl cid $> TUpdate (TCon tpl)
   UFetchInterface tpl cid -> checkFetchInterface tpl cid $> TUpdate (TCon tpl)
+  UUnpackTemplate tpl cid -> checkUnpackTemplate tpl cid $> TUpdate (TCon tpl)
+  UUnpackInterface tpl cid -> checkUnpackInterface tpl cid $> TUpdate (TCon tpl)
   UGetTime -> pure (TUpdate TTimestamp)
   ULedgerTimeLT e -> do
     checkExpr e TTimestamp
