@@ -6,7 +6,7 @@ module DamlcTest
 
 {- HLINT ignore "locateRunfiles/package_app" -}
 
-import Data.List.Extra (isInfixOf, isPrefixOf)
+import Data.List.Extra (isInfixOf)
 import System.Directory
 import System.Environment.Blank
 import System.Exit
@@ -269,27 +269,32 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               readProcessWithExitCode
                 damlc
                 [ "test"
+                , "--show-coverage"
                 , "--package-root"
                 , dir ]
                 ""
             stderr @?= ""
             exitCode @?= ExitSuccess
-            let out = lines stdout
+            assertInfixOf "Running tests (test-coverage-report)" stdout
+            assertInfixOf "Test Summary (test-coverage-report)" stdout
             assertBool ("test coverage is reported correctly: " <> stdout)
                        ( unlines
                        [ "Modules internal to this package:"
                        , "- Internal templates"
                        , "  2 defined"
                        , "  1 ( 50.0%) created"
+                       , "  internal templates never created: 1"
+                       , "    Foo:S"
                        , "- Internal template choices"
                        , "  3 defined"
                        , "  1 ( 33.3%) exercised"
+                       , "  internal template choices never exercised: 2"
+                       , "    Foo:S:Archive"
+                       , "    Foo:T:Archive"
                        ]
                        `isInfixOf` stdout)
-            assertBool ("test summary is reported correctly: " <> out!!1)
-                       ("Test Summary" `isPrefixOf` (out!!1))
-            assertBool ("test summary is reported correctly: " <> out!!3)
-                       ("./Foo.daml:x: ok, 0 active contracts, 2 transactions." == (out!!3))
+            assertBool ("test result is reported correctly: " <> stdout)
+                       ("./Foo.daml: 1 test passed" `isInfixOf` stdout)
     , testCase "Full test coverage report" $ do
         withTempDir $ \dir -> do
             writeFileUTF8 (dir </> "daml.yaml") $ unlines
@@ -480,12 +485,9 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , bFilePath ]
                 ""
           stderr @?= ""
-          assertBool ("Test coverage is reported correctly: " <> stdout)
-            (unlines
-                 [ "B.daml:x: ok, 0 active contracts, 2 transactions."
-                 , "a-0.0.1:testA: ok, 0 active contracts, 2 transactions."
-                 ] `isInfixOf`
-             stdout)
+          assertBool ("Test results are reported correctly: " <> stdout)
+            ("B.daml: 1 test passed" `isInfixOf` stdout &&
+             "a-0.0.1: 1 test passed" `isInfixOf` stdout)
           assertBool ("Internal module test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "Modules internal to this package:"
@@ -606,12 +608,9 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , projDir </> "b" ]
                 ""
           stderr @?= ""
-          assertBool ("Test coverage is reported correctly: " <> stdout)
-            (unlines
-                 [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
-                 , "a-0.0.1:testMod1: ok, 0 active contracts, 4 transactions."
-                 ] `isInfixOf`
-             stdout)
+          assertBool ("Test results are reported correctly: " <> stdout)
+            ("./Mod2.daml: 1 test passed" `isInfixOf` stdout &&
+             "a-0.0.1: 1 test passed" `isInfixOf` stdout)
           assertBool ("Internal module test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "Modules internal to this package:"
@@ -663,12 +662,9 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , projDir </> "b" ]
                 ""
           stderr @?= ""
-          assertBool ("Exclude Deps: Test coverage is reported correctly: " <> stdout)
-            (unlines
-                 [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
-                 , "a-0.0.1:testMod1: ok, 0 active contracts, 4 transactions."
-                 ] `isInfixOf`
-             stdout)
+          assertBool ("Exclude Deps: Test results are reported correctly: " <> stdout)
+            ("./Mod2.daml: 1 test passed" `isInfixOf` stdout &&
+             "a-0.0.1: 1 test passed" `isInfixOf` stdout)
           assertBool ("Exclude Deps: Internal module test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "Modules internal to this package:"
@@ -716,12 +712,9 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , projDir </> "b" ]
                 ""
           stderr @?= ""
-          assertBool ("Exclude Archive: Test coverage is reported correctly: " <> stdout)
-            (unlines
-                 [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
-                 , "a-0.0.1:testMod1: ok, 0 active contracts, 4 transactions."
-                 ] `isInfixOf`
-             stdout)
+          assertBool ("Exclude Archive: Test results are reported correctly: " <> stdout)
+            ("./Mod2.daml: 1 test passed" `isInfixOf` stdout &&
+             "a-0.0.1: 1 test passed" `isInfixOf` stdout)
           assertBool ("Exclude Archive: Internal module test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "Modules internal to this package:"
@@ -771,12 +764,9 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , projDir </> "b" ]
                 ""
           stderr @?= ""
-          assertBool ("Exclude Archive and Dep: Test coverage is reported correctly: " <> stdout)
-            (unlines
-                 [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
-                 , "a-0.0.1:testMod1: ok, 0 active contracts, 4 transactions."
-                 ] `isInfixOf`
-             stdout)
+          assertBool ("Exclude Archive and Dep: Test results are reported correctly: " <> stdout)
+            ("./Mod2.daml: 1 test passed" `isInfixOf` stdout &&
+             "a-0.0.1: 1 test passed" `isInfixOf` stdout)
           assertBool ("Exclude Archive and Dep: Internal module test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "Modules internal to this package:"
@@ -854,23 +844,26 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , "--test-pattern"
                 , "needle"
                 , "--all"
+                , "--show-coverage"
                 , "--package-root"
                 , projDir </> "b"
                 , "--files"
                 , bFilePath ]
                 ""
           stderr @?= ""
+          assertInfixOf "B.daml: 1 test passed" stdout
+          assertInfixOf "a-0.0.1: 1 test passed" stdout
           assertBool ("Test coverage is reported correctly: " <> stdout)
             (unlines
-              [ "B.daml:needleHaystack: ok, 0 active contracts, 0 transactions."
-              , "a-0.0.1:test_needleHaystack: ok, 0 active contracts, 0 transactions."
-              , "Modules internal to this package:"
+              [ "Modules internal to this package:"
               , "- Internal templates"
               , "  0 defined"
               , "  0 (100.0%) created"
+              , "  internal templates never created: 0"
               , "- Internal template choices"
               , "  0 defined"
               , "  0 (100.0%) exercised"
+              , "  internal template choices never exercised: 0"
               ] `isInfixOf` stdout)
           exitCode @?= ExitSuccess
     , testCase "Serialized results aggregate correctly" $ withTempDir $ \projDir -> do
@@ -937,6 +930,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
+                , "--show-coverage"
                 , "--package-root", projDir
                 , "-p", "testT1"
                 , "--save-coverage", projDir </> "testT1-results"
@@ -949,6 +943,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
+                , "--show-coverage"
                 , "--package-root", projDir
                 , "-p", "testBoth"
                 , "--save-coverage", projDir </> "testBoth-results"
@@ -961,6 +956,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
+                , "--show-coverage"
                 , "--package-root", projDir
                 , "--save-coverage", projDir </> "test-all-results"
                 ]
@@ -972,6 +968,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
+                , "--show-coverage"
                 , "--package-root", projDir
                 , "--load-coverage-only"
                 ]
@@ -985,15 +982,18 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               , "- Internal templates"
               , "  0 defined"
               , "  0 (100.0%) created"
+              , "  internal templates never created: 0"
               , "- Internal template choices"
               , "  0 defined"
               , "  0 (100.0%) exercised"
+              , "  internal template choices never exercised: 0"
               ] `isInfixOf` stdoutEmptyAggregate)
 
           (exitCode, stdoutAggregateTestT1, stderr) <-
             readProcessWithExitCode
               damlc
                 [ "test"
+                , "--show-coverage"
                 , "--package-root", projDir
                 , "--load-coverage-only"
                 , "--load-coverage", projDir </> "testT1-results"
@@ -1008,6 +1008,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               , "- Internal templates"
               , "  2 defined"
               , "  1 ( 50.0%) created"
+              , "  internal templates never created: 1"
+              , "    Main:T2"
               , "- Internal template choices"
               , "  6 defined"
               , "  2 ( 33.3%) exercised"
@@ -1020,6 +1022,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
+                , "--show-coverage"
                 , "--package-root", projDir
                 , "--load-coverage-only"
                 , "--load-coverage", projDir </> "testBoth-results"
@@ -1034,6 +1037,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               , "- Internal templates"
               , "  2 defined"
               , "  2 (100.0%) created"
+              , "  internal templates never created: 0"
               , "- Internal template choices"
               , "  6 defined"
               , "  2 ( 33.3%) exercised"
@@ -1046,6 +1050,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
+                , "--show-coverage"
                 , "--package-root", projDir
                 , "--load-coverage-only"
                 , "--load-coverage", projDir </> "testT1-results"
@@ -1061,6 +1066,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               , "- Internal templates"
               , "  2 defined"
               , "  2 (100.0%) created"
+              , "  internal templates never created: 0"
               , "- Internal template choices"
               , "  6 defined"
               , "  3 ( 50.0%) exercised"
@@ -1073,6 +1079,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
+                , "--show-coverage"
                 , "--package-root", projDir
                 , "--load-coverage-only"
                 , "--load-coverage", projDir </> "testBoth-results" -- reorder the way in which we read the results, should be identical
@@ -1089,6 +1096,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
+                , "--show-coverage"
                 , "--package-root", projDir
                 , "--load-coverage", projDir </> "testT1-results"
                 , "-p", "testBoth"
@@ -1164,10 +1172,10 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               , bFilePath]
               ""
           stderr @?= ""
+          assertInfixOf "B.daml: 1 test passed" stdout
           assertBool ("Test coverage is reported correctly: " <> stdout)
             (unlines
-                 [ "B.daml:x: ok, 0 active contracts, 2 transactions."
-                 , "Modules internal to this package:"
+                 [ "Modules internal to this package:"
                  , "- Internal templates"
                  , "  2 defined"
                  , "  1 ( 50.0%) created"
@@ -1211,10 +1219,12 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             assertInfixOf "Script execution failed" stderr
             exitCode @?= ExitFailure 1
 
-            let out = lines stdout
-            assertInfixOf "Test Summary" (out!!1)
-            assertInfixOf "Foo.daml:y: ok" (out!!3)
-            assertInfixOf "Foo.daml:x: failed" (out!!4)
+            assertInfixOf "Running tests (test-failing-script)" stdout
+            assertInfixOf "Test Summary (test-failing-script)" stdout
+            assertInfixOf "1 failed, 1 passed" stdout
+            assertBool ("passing test hidden when there are failures: " <> stdout)
+                       (not ("Foo.daml: 1 test passed" `isInfixOf` stdout))
+            assertInfixOf "Foo.daml: 1 test failed: x" stdout
     , testCase "damlc test --files outside of package" $
         -- TODO: does this test make sense with a daml.yaml file?
         withTempDir $ \projDir -> do
@@ -1242,7 +1252,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , projDir </> "Main.daml" ]
                 ""
           exitCode @?= ExitSuccess
-          assertBool ("Succeeding script in " <> stdout) ("Main.daml:test: ok" `isInfixOf` stdout)
+          assertBool ("Succeeding script in " <> stdout) ("Main.daml: 1 test passed" `isInfixOf` stdout)
           stderr @?= ""
     , testCase "damlc test --package-root relative" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "relative")
@@ -1367,8 +1377,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             -- archive is side-effectful and can no longer be rolled back
             assertInfixOf "Script execution failed" stderr
             exitCode @?= ExitFailure 1
-            let out = lines stdout
-            assertInfixOf "./Main.daml:test: failed" (out!!3)
+            assertInfixOf "./Main.daml: 1 test failed: test" stdout
     ] <>
     [ testCase ("damlc test " <> unwords (args "") <> " in package") $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
@@ -1410,7 +1419,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               : args projDir )
               ""
           stderr @?= ""
-          assertBool ("Succeeding script in " <> stdout) ("B.daml:test: ok" `isInfixOf` stdout)
+          assertBool ("Succeeding script in " <> stdout) ("B.daml: 1 test passed" `isInfixOf` stdout)
           exitCode @?= ExitSuccess
     | args <- [\projDir -> ["--files", projDir </> "b" </> "B.daml"], const []]
     ]

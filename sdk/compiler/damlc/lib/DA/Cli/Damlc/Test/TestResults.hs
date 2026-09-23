@@ -23,6 +23,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Set as S
 import qualified Data.Map.Strict as M
+import Control.Monad (when)
 import Data.Maybe (mapMaybe)
 import Data.Foldable (fold)
 import Text.Printf
@@ -537,6 +538,7 @@ printTestCoverage showCoverage testResults@TestResults { templates, interfaceIns
             [ printf "  %s: %d" variety (M.size names)
             ] ++ [ "    " ++ printer id | (id, _value) <- M.toList names ]
     in
+    when showCoverage $
     putStrLn $
     unlines $
     concat
