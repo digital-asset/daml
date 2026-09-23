@@ -15,6 +15,7 @@ variables:
   bazel_flags: >-
     --local_resources=cpu=HOST_CPUS
     --remote_cache=http://10.0.2.10/cache/202610/ubuntu
+    --remote_upload_local_results=true
 
 jobs:
 # TODO: temporarily reduced to linux x86_64 only; re-enable linux aarch64, macOS and Windows below.
@@ -59,6 +60,21 @@ jobs:
             curl -s -o /dev/null -w '%{http_code}\n' -I -m 20 "$base/$kind/$key" || echo UNREACHABLE
           done
         done
+        echo "=== remote cache WRITE check (PUT/GET round-trip on 202610) ==="
+        echo "PUT 200/201/204 = writable; 403/405 = read-only proxy"
+        printf 'bazel-cache-probe %s' "${BUILD_BUILDID}" > /tmp/probe-blob
+        sha256sum /tmp/probe-blob | cut -d' ' -f1 | { read sha
+          url="http://10.0.2.10/cache/202610/ubuntu/cas/$sha"
+          printf '  PUT %s -> ' "$url"
+          curl -s -o /dev/null -w '%{http_code}\n' -X PUT --data-binary @/tmp/probe-blob -m 20 "$url" || echo UNREACHABLE
+          printf '  GET %s -> ' "$url"
+          curl -s -o /tmp/probe-readback -w '%{http_code}\n' -m 20 "$url" || echo UNREACHABLE
+          if cmp -s /tmp/probe-blob /tmp/probe-readback; then
+            echo "  ROUND-TRIP OK: cache is writable"
+          else
+            echo "  ROUND-TRIP FAILED: content missing or differs"
+          fi
+        }
       displayName: 'Probe'
       continueOnError: true
 
