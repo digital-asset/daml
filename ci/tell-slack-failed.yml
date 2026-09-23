@@ -13,10 +13,19 @@ steps:
       source $(bash_lib)
       COMMIT_TITLE="$(escape_slack "$(git log --pretty=format:%s -n1 ${{ parameters.trigger_sha }})")"
       COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|${COMMIT_TITLE}>"
-      if [ -z "${{ parameters.trigger_sha }}" ]; then
-          WARNING="*FAILED* $(Build.SourceBranchName)/$(Agent.JobName) [$(Agent.MachineName)]: $COMMIT_LINK"
+      # Tag the commit author on Slack when we know their Slack user id (see
+      # ci/slack_user_ids). An empty trigger_sha resolves to HEAD, i.e. the
+      # commit that broke the branch. Unknown authors fall back to no mention.
+      AUTHOR_SLACK_ID="$(user_slack_handle "${{ parameters.trigger_sha }}")"
+      if [ -n "$AUTHOR_SLACK_ID" ]; then
+          MENTION="<@${AUTHOR_SLACK_ID}> "
       else
-          WARNING=":fire: :fire: :fire: :fire: :fire:\n*RELEASE FAILED* $(Build.SourceBranchName)/$(Agent.JobName): $COMMIT_LINK\n:fire: :fire: :fire: :fire: :fire:"
+          MENTION=""
+      fi
+      if [ -z "${{ parameters.trigger_sha }}" ]; then
+          WARNING="${MENTION}*FAILED* $(Build.SourceBranchName)/$(Agent.JobName) [$(Agent.MachineName)]: $COMMIT_LINK"
+      else
+          WARNING=":fire: :fire: :fire: :fire: :fire:\n${MENTION}*RELEASE FAILED* $(Build.SourceBranchName)/$(Agent.JobName): $COMMIT_LINK\n:fire: :fire: :fire: :fire: :fire:"
       fi
       curl -XPOST \
            -i \
