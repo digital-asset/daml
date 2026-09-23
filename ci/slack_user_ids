@@ -1,4 +1,21 @@
-gary.verhaegen@digitalasset.com UEHSF89AQ
+# Known contributors: maps a git author email to a Slack user id.
+# Used by user_slack_handle() in ci/bash-lib.yml to @-mention the commit
+# author in CI Slack notifications (e.g. main-branch build failures).
+#
+# One entry per line, space-separated: <git-author-email> <slack-user-id>
+# The Slack user id (e.g. U0123ABCD) is under Slack profile -> "Copy member ID".
+#
+# NB: match the email that actually lands on the *merge* commit. Depending on a
+# contributor's GitHub email-privacy setting, a squash-merged commit on main is
+# authored either by their corporate email or by a GitHub noreply address
+# (NNN+handle@users.noreply.github.com). When in doubt, add a line for each.
 remy.haemmerle@daml.com UEGT3JT0Q
-moises.ackerman@digitalasset.com U02DAFHFXUN
 paul.brauner@digitalasset.com U05KX5V7KJN
+141240651+paulbrauner-da@users.noreply.github.com U05KX5V7KJN
+samuel.williams@digitalasset.com U04M62HVADS
+dylan.thinnes@digitalasset.com U03HCPABC9M
+106664681+dylant-da@users.noreply.github.com U03HCPABC9M
+marcin.ziolek@digitalasset.com U57BTEKR9
+roger.bosman@digitalasset.com U08QFCVJBML
+brian.healey@digitalasset.com U3SEWCH1R
+brian.healey@daml.com U3SEWCH1R
