@@ -115,9 +115,7 @@ convertPrim version "BEExternalCall" (TText :-> TText :-> TText :-> TText :-> TU
     | not (version `supports` featureExternalCall) =
         unsupportedFeature featureExternalCall version
     | otherwise =
-    pure $ ETmLam (varV1, TText) $ ETmLam (varV2, TText) $ ETmLam (varV3, TText) $ ETmLam (varV4, TText) $
-        EUpdate $ UEmbedExpr TText $
-            EBuiltinFun BEExternalCall `ETmApp` EVar varV1 `ETmApp` EVar varV2 `ETmApp` EVar varV3 `ETmApp` EVar varV4
+    pure $ EBuiltinFun BEExternalCall
 convertPrim _ "BETextToParty" (TText :-> TOptional TParty) =
     pure $ EBuiltinFun BETextToParty
 convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =
