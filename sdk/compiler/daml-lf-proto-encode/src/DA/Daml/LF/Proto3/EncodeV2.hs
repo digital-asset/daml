@@ -863,6 +863,14 @@ encodeUpdate = fmap (P.Update . Just) . \case
         update_FetchInterfaceInterface <- encodeQualTypeConId fetInterface
         update_FetchInterfaceCid <- encodeExpr fetContractId
         pure $ P.UpdateSumFetchInterface P.Update_FetchInterface{..}
+    UUnpackTemplate{..} -> do
+        update_UnpackTemplateTemplate <- encodeQualTypeConId unpackTemplate
+        update_UnpackTemplateCid <- encodeExpr unpackContractId
+        pure $ P.UpdateSumUnpackTemplate P.Update_UnpackTemplate{..}
+    UUnpackInterface{..} -> do
+        update_UnpackInterfaceInterface <- encodeQualTypeConId unpackInterface
+        update_UnpackInterfaceCid <- encodeExpr unpackContractId
+        pure $ P.UpdateSumUnpackInterface P.Update_UnpackInterface{..}
     UGetTime -> pure $ P.UpdateSumGetTime P.Unit
     ULedgerTimeLT e -> do
         update_LedgerTimeLt <- encodeExpr e

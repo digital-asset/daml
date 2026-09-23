@@ -1,0 +1,29 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF 2.dev
+-- @ WARN -Werror=upgrade-interfaces
+module Unpack where
+
+data EmptyInterfaceView = EmptyInterfaceView {}
+
+interface Token where
+  viewtype EmptyInterfaceView
+  getOwner : Party
+
+template Asset
+  with
+    owner : Party
+    amount : Int
+  where
+    signatory owner
+
+unpackTemplate : ContractId Asset -> Update Int
+unpackTemplate cid = do
+  asset <- unpack cid
+  pure asset.amount
+
+unpackInterface : ContractId Token -> Update Party
+unpackInterface cid = do
+  token <- unpack cid
+  pure (getOwner token)

@@ -82,6 +82,8 @@ instance DA.Internal.Desugar.HasCreate TrySyntax where
   create = GHC.Types.primitive @"UCreate"
 instance DA.Internal.Desugar.HasFetch TrySyntax where
   fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasUnpack TrySyntax where
+  unpack = GHC.Types.primitive @"UUnpackTemplate"
 instance DA.Internal.Desugar.HasToAnyTemplate TrySyntax where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate TrySyntax where

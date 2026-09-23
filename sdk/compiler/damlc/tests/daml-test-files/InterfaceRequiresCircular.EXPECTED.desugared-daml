@@ -11,6 +11,8 @@ instance DA.Internal.Desugar.HasInterfaceTypeRep A where
     = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
 instance DA.Internal.Desugar.HasFetch A where
   fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasUnpack A where
+  unpack = GHC.Types.primitive @"UUnpackInterface"
 instance DA.Internal.Desugar.HasToInterface A A where
   _toInterface this = this
 instance DA.Internal.Desugar.HasFromInterface A A where

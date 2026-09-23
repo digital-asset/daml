@@ -492,6 +492,14 @@ alphaUpdate env = \case
         UFetchInterface i2 e2 -> alphaTypeCon env i1 i2
             && alphaExpr' env e1 e2
         _ -> structuralMismatch
+    UUnpackTemplate t1 e1 -> \case
+        UUnpackTemplate t2 e2 -> alphaTypeCon env t1 t2
+            && alphaExpr' env e1 e2
+        _ -> structuralMismatch
+    UUnpackInterface i1 e1 -> \case
+        UUnpackInterface i2 e2 -> alphaTypeCon env i1 i2
+            && alphaExpr' env e1 e2
+        _ -> structuralMismatch
     UGetTime -> \case
         UGetTime -> noMismatch
         _ -> structuralMismatch
