@@ -572,17 +572,17 @@ typeOfBind (Binding (var, typ) bound) body = do
   checkType typ KStar
   checkExpr bound (TUpdate typ)
   bodyType <- introExprVar var typ (typeOf body)
-  _ :: Type <- match _TUpdate (EExpectedUpdateType bodyType) bodyType
+  _ <- match _TUpdate (EExpectedUpdateType bodyType) bodyType
   pure bodyType
 
 checkCreate :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
 checkCreate tpl arg = do
-  _ :: Template <- inWorld (lookupTemplate tpl)
+  _ <- inWorld (lookupTemplate tpl)
   checkExpr arg (TCon tpl)
 
 checkCreateInterface :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
 checkCreateInterface iface arg = do
-  _ :: DefInterface <- inWorld (lookupInterface iface)
+  _ <- inWorld (lookupInterface iface)
   checkExpr arg (TCon iface)
 
 typeOfExercise :: MonadGamma m =>
@@ -618,7 +618,7 @@ typeOfExerciseByKey tplId chName key arg = do
 
 checkFetch :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
 checkFetch tpl cid = do
-  _ :: Template <- inWorld (lookupTemplate tpl)
+  _ <- inWorld (lookupTemplate tpl)
   checkExpr cid (TContractId (TCon tpl))
 
 checkFetchInterface :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
@@ -628,7 +628,7 @@ checkFetchInterface tpl cid = do
 
 checkUnpackTemplate :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
 checkUnpackTemplate tpl cid = do
-  _ :: Template <- inWorld (lookupTemplate tpl)
+  _ <- inWorld (lookupTemplate tpl)
   checkExpr cid (TContractId (TCon tpl))
 
 checkUnpackInterface :: MonadGamma m => Qualified TypeConName -> Expr -> m ()
