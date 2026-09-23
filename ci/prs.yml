@@ -12,7 +12,9 @@ pr:
       - release/*
 
 variables:
-  bazel_flags: '--noremote_accept_cached --local_resources=cpu=HOST_CPUS'
+  bazel_flags: >-
+    --local_resources=cpu=HOST_CPUS
+    --remote_cache=http://10.0.2.10/cache/202610/ubuntu
 
 jobs:
 # TODO: temporarily reduced to linux x86_64 only; re-enable linux aarch64, macOS and Windows below.
