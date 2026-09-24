@@ -14,11 +14,10 @@ pr:
 variables:
   bazel_flags: >-
     --local_resources=cpu=HOST_CPUS
-    --remote_cache=http://10.0.2.10/cache/202610/ubuntu
     --remote_upload_local_results=true
+    --remote_cache=http://10.0.2.10/cache/202610
 
 jobs:
-# TODO: temporarily reduced to linux x86_64 only; re-enable linux aarch64, macOS and Windows below.
 - job: probe
   displayName: 'Probe cache options'
   timeoutInMinutes: 10
@@ -64,7 +63,7 @@ jobs:
         echo "PUT 200/201/204 = writable; 403/405 = read-only proxy"
         printf 'bazel-cache-probe %s' "${BUILD_BUILDID}" > /tmp/probe-blob
         sha256sum /tmp/probe-blob | cut -d' ' -f1 | { read sha
-          url="http://10.0.2.10/cache/202610/ubuntu/cas/$sha"
+          url="http://10.0.2.10/cache/202610/cas/$sha"
           printf '  PUT %s -> ' "$url"
           curl -s -o /dev/null -w '%{http_code}\n' -X PUT --data-binary @/tmp/probe-blob -m 20 "$url" || echo UNREACHABLE
           printf '  GET %s -> ' "$url"
@@ -74,7 +73,24 @@ jobs:
           else
             echo "  ROUND-TRIP FAILED: content missing or differs"
           fi
+          echo "  --- server identity (tells us if it self-evicts) ---"
+          curl -s -D - -o /dev/null -m 20 "$url" | grep -iE "^(server|x-|cache|content-length):" || echo "  (no identifying headers)"
+          echo "  --- DELETE support, on our own probe blob only ---"
+          printf '  DELETE -> '
+          curl -s -o /dev/null -w '%{http_code}\n' -X DELETE -m 20 "$url" || echo UNREACHABLE
+          printf '  GET after DELETE -> '
+          curl -s -o /dev/null -w '%{http_code}\n' -m 20 "$url" || echo UNREACHABLE
+          echo "  (404 after DELETE = deletion works; 200 = DELETE ignored)"
         }
+        echo "=== can we remove a whole orphaned folder? ==="
+        echo "202610/ubuntu was orphaned when the namespace was flattened; nothing reads it"
+        for u in http://10.0.2.10/cache/202610/ubuntu/ http://10.0.2.10/cache/202610/ubuntu; do
+          printf '  DELETE %s -> ' "$u"
+          curl -s -o /dev/null -w '%{http_code}\n' -X DELETE -m 20 "$u" || echo UNREACHABLE
+        done
+        printf '  GET after -> '
+        curl -s -o /dev/null -w '%{http_code}\n' -m 20 http://10.0.2.10/cache/202610/ubuntu/cas/0000000000000000000000000000000000000000000000000000000000000000 || echo UNREACHABLE
+        echo "  (405 = nginx DAV DELETE not enabled at all; 204 = folder removed)"
       displayName: 'Probe'
       continueOnError: true
 
@@ -85,8 +101,8 @@ jobs:
     matrix:
       x86_64:
         assignment: default
-#       aarch64:
-#         assignment: arm
+      aarch64:
+        assignment: arm
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals $(assignment)
@@ -105,99 +121,99 @@ jobs:
         bazelisk test //... $(bazel_flags)
       displayName: 'Test'
 
-# - job: macos
-#   displayName: 'macOS'
-#   timeoutInMinutes: 240
-#   strategy:
-#     matrix:
-#       x86_64:
-#         assignment: default
-#       aarch64:
-#         assignment: m1-builds
-#   pool:
-#     name: 'macOS-pool'
-#     demands: assignment -equals $(assignment)
-#   steps:
-#     - checkout: self
-#       clean: true
-#     - template: bazelisk-unix.yml
-#     - bash: |
-#         set -euo pipefail
-#         cd sdk
-#         bazelisk build //... $(bazel_flags)
-#       displayName: 'Build'
-#     - bash: |
-#         set -euo pipefail
-#         cd sdk
-#         bazelisk test //... $(bazel_flags)
-#       displayName: 'Test'
+- job: macos
+  displayName: 'macOS'
+  timeoutInMinutes: 240
+  strategy:
+    matrix:
+      x86_64:
+        assignment: default
+      aarch64:
+        assignment: m1-builds
+  pool:
+    name: 'macOS-pool'
+    demands: assignment -equals $(assignment)
+  steps:
+    - checkout: self
+      clean: true
+    - template: bazelisk-unix.yml
+    - bash: |
+        set -euo pipefail
+        cd sdk
+        bazelisk build //... $(bazel_flags)
+      displayName: 'Build'
+    - bash: |
+        set -euo pipefail
+        cd sdk
+        bazelisk test //... $(bazel_flags)
+      displayName: 'Test'
 
-# - job: windows
-#   displayName: 'Windows'
-#   timeoutInMinutes: 240
-#   strategy:
-#     matrix:
-#       x86_64:
-#         assignment: default
-#   pool:
-#     name: 'windows-pool'
-#     demands: assignment -equals $(assignment)
-#   steps:
-#     - checkout: self
-#       clean: true
-#     - template: bazelisk-windows.yml
-#     - powershell: |
-#         $ErrorActionPreference = 'Stop'
-#         Set-Content -Path sdk\.bazelrc.local -Value 'startup --output_base=C:/b'
-#       displayName: 'Short output base'
-#     - powershell: |
-#         $ErrorActionPreference = 'Stop'
-#         Set-Location sdk
-#         .\setup-windows.ps1
-#         Write-Host "##vso[task.setvariable variable=BAZEL_SH]$env:BAZEL_SH"
-#
-#         $bashDir = Split-Path -Parent ($env:BAZEL_SH -replace '/', '\')
-#         if (-not (Test-Path (Join-Path $bashDir 'tar.exe'))) { throw "tar.exe not found in $bashDir" }
-#         Write-Host "appending to PATH: $bashDir"
-#         $env:PATH = "$env:PATH;$bashDir"
-#         Write-Host "##vso[task.setvariable variable=PATH]$env:PATH"
-#
-#         Write-Host "shutting down the Bazel server so it re-reads PATH"
-#         & bazelisk.exe shutdown 2>&1 | Out-Null
-#       displayName: 'Provision build shell'
-#     - powershell: |
-#         $ErrorActionPreference = 'Continue'
-#         [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-#         $key = '0000000000000000000000000000000000000000000000000000000000000000'
-#         $targets = @(
-#           'http://10.0.2.10/cache/202405/ubuntu',
-#           'http://10.0.2.10/cache/202405',
-#           'https://bazel-cache.da-ext.net/202405/ubuntu'
-#         )
-#         foreach ($base in $targets) {
-#           foreach ($kind in 'ac','cas') {
-#             $u = "$base/$kind/$key"
-#             $sw = [Diagnostics.Stopwatch]::StartNew()
-#             try {
-#               $r = Invoke-WebRequest -Uri $u -Method Head -UseBasicParsing -TimeoutSec 20
-#               Write-Host "  HTTP $($r.StatusCode)  $([math]::Round($sw.Elapsed.TotalSeconds,1))s  $u"
-#             } catch {
-#               $code = $null
-#               if ($_.Exception.Response) { $code = [int]$_.Exception.Response.StatusCode }
-#               if ($code) { Write-Host "  HTTP $code  $([math]::Round($sw.Elapsed.TotalSeconds,1))s  $u" }
-#               else { Write-Host "  UNREACHABLE  $([math]::Round($sw.Elapsed.TotalSeconds,1))s  $u  ($($_.Exception.Message))" }
-#             }
-#           }
-#         }
-#       displayName: 'Probe cache reachability'
-#       continueOnError: true
-#     - powershell: |
-#         $ErrorActionPreference = 'Stop'
-#         Set-Location sdk
-#         bazelisk build //... $(bazel_flags)
-#       displayName: 'Build'
-#     - powershell: |
-#         $ErrorActionPreference = 'Stop'
-#         Set-Location sdk
-#         bazelisk test //... $(bazel_flags)
-#       displayName: 'Test'
+- job: windows
+  displayName: 'Windows'
+  timeoutInMinutes: 240
+  strategy:
+    matrix:
+      x86_64:
+        assignment: default
+  pool:
+    name: 'windows-pool'
+    demands: assignment -equals $(assignment)
+  steps:
+    - checkout: self
+      clean: true
+    - template: bazelisk-windows.yml
+    - powershell: |
+        $ErrorActionPreference = 'Stop'
+        Set-Content -Path sdk\.bazelrc.local -Value 'startup --output_base=C:/b'
+      displayName: 'Short output base'
+    - powershell: |
+        $ErrorActionPreference = 'Stop'
+        Set-Location sdk
+        .\setup-windows.ps1
+        Write-Host "##vso[task.setvariable variable=BAZEL_SH]$env:BAZEL_SH"
+
+        $bashDir = Split-Path -Parent ($env:BAZEL_SH -replace '/', '\')
+        if (-not (Test-Path (Join-Path $bashDir 'tar.exe'))) { throw "tar.exe not found in $bashDir" }
+        Write-Host "appending to PATH: $bashDir"
+        $env:PATH = "$env:PATH;$bashDir"
+        Write-Host "##vso[task.setvariable variable=PATH]$env:PATH"
+
+        Write-Host "shutting down the Bazel server so it re-reads PATH"
+        & bazelisk.exe shutdown 2>&1 | Out-Null
+      displayName: 'Provision build shell'
+    - powershell: |
+        $ErrorActionPreference = 'Continue'
+        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+        $key = '0000000000000000000000000000000000000000000000000000000000000000'
+        $targets = @(
+          'http://10.0.2.10/cache/202610/windows',
+          'http://10.0.2.10/cache/202610',
+          'https://bazel-cache.da-ext.net/202405/ubuntu'
+        )
+        foreach ($base in $targets) {
+          foreach ($kind in 'ac','cas') {
+            $u = "$base/$kind/$key"
+            $sw = [Diagnostics.Stopwatch]::StartNew()
+            try {
+              $r = Invoke-WebRequest -Uri $u -Method Head -UseBasicParsing -TimeoutSec 20
+              Write-Host "  HTTP $($r.StatusCode)  $([math]::Round($sw.Elapsed.TotalSeconds,1))s  $u"
+            } catch {
+              $code = $null
+              if ($_.Exception.Response) { $code = [int]$_.Exception.Response.StatusCode }
+              if ($code) { Write-Host "  HTTP $code  $([math]::Round($sw.Elapsed.TotalSeconds,1))s  $u" }
+              else { Write-Host "  UNREACHABLE  $([math]::Round($sw.Elapsed.TotalSeconds,1))s  $u  ($($_.Exception.Message))" }
+            }
+          }
+        }
+      displayName: 'Probe cache reachability'
+      continueOnError: true
+    - powershell: |
+        $ErrorActionPreference = 'Stop'
+        Set-Location sdk
+        bazelisk build //... $(bazel_flags)
+      displayName: 'Build'
+    - powershell: |
+        $ErrorActionPreference = 'Stop'
+        Set-Location sdk
+        bazelisk test //... $(bazel_flags)
+      displayName: 'Test'
