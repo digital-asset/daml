@@ -136,8 +136,10 @@ import DA.Daml.Options.Types (EnableScriptService(..),
                               packageDatabasePath)
 import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                PackageConfigFields(..),
+                               DependencySpec(..),
                                checkPkgConfig,
                                findMultiPackageConfig,
+                               getSimplePathOrName,
                                withPackageConfig,
                                withMultiPackageConfig)
 import DA.Daml.Resolution.Config (ValidPackageResolution (..), ResolutionError (..), DPMUnsupportedError (..), findPackageResolutionData, getResolutionData)
@@ -1445,7 +1447,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       -- An approach of copying out the deps into a temporary location to build/run the tests has been considered
       -- but the effort to build this, combined with the low number of users of this feature, as well as most packages
       -- already using daml-script has led us to leave this as is. We'll fix this if someone is affected and notifies us.
-      setupPackageDb "." opts versionInfo [] [scriptDar] mempty
+      setupPackageDb "." opts versionInfo [] [SimplePathOrName scriptDar] mempty
 
       opts <- pure opts
         { optPackageDbs = packageDatabasePath : optPackageDbs opts
@@ -1660,7 +1662,9 @@ buildMultiPackageConfigFromDamlYaml path =
       dataDeps <- fromMaybe [] <$> queryPackageConfig ["data-dependencies"] package
       deps <- fromMaybe [] <$> queryPackageConfig ["dependencies"] package
       upgradesDar <- maybe [] pure <$> queryPackageConfig ["upgrades"] package
-      let bmDarDeps = filter (\dep -> takeExtension dep == ".dar") (dataDeps <> deps) <> upgradesDar
+
+      let bmDarDeps = filter (\dep -> takeExtension dep == ".dar") (mapMaybe getSimplePathOrName $ dataDeps <> deps) <> upgradesDar
+      
       bmOutput <- queryPackageConfigBuildOutput package
       pure $ BuildMultiPackageConfig {..}
     )
