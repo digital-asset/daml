@@ -1,0 +1,180 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module ExceptionsTester where
+
+import DA.Exception
+import DA.List
+import SimpleKeys
+
+exception E
+  with
+    t : Text
+  where
+    message t
+
+template Informees
+  with
+    sig: [Party]
+    obs: [Party]
+  where
+    signatory sig
+    observer obs
+
+    choice SignOn : ContractId Informees
+      with
+        party : Party
+      controller party
+      do
+        assert $ elem party obs
+        create this with sig = sig ++ [party], obs = obs \\ [party]
+
+    choice Close : ()
+      with
+        party : Party
+      controller party
+      do
+        pure ()
+
+    choice Throw : ()
+      with
+        party : Party
+      controller party
+      do
+        throw (E "throw from Informees.throw")
+
+template ExceptionsTester
+  with
+    p : Party
+  where
+    signatory p
+
+    nonconsuming choice TestArchivalUnderRollbackKeepsContractActive : ()
+      controller p
+      do
+        create (SimpleKey p [])
+        try do
+          exerciseByKey @SimpleKey p Archive
+          throw (E "roll back archival")
+        catch
+          E _ ->
+            do
+              pure ()
+        fetchByKey @SimpleKey p
+        pure ()
+
+    nonconsuming choice TestCreateKeyUnderRollbackAllowsKeyRecreate : ()
+      controller p
+      do
+        try do
+          create (SimpleKey p [])
+          throw (E "roll back create")
+        catch
+          E _ ->
+            do
+              pure ()
+        create (SimpleKey p [])
+        pure ()
+
+    nonconsuming choice TestRollbackCreateAndExerciseByKey : ()
+      controller p
+      do
+        try do
+          create (SimpleKey p [])
+          exerciseByKey @SimpleKey p Archive
+          throw (E "roll back create and exercise by key")
+        catch
+          E _ ->
+            do
+              pure ()
+
+    nonconsuming choice TestRollbackCreateNestedRolledBackedArchivalAndExerciseByKey : ()
+      controller p
+      do
+        try do
+          create (SimpleKey p [])
+          try do
+            exerciseByKey @SimpleKey p Archive
+            throw (E "roll back nested exercise by key")
+          catch
+            E _ ->
+              do
+                pure ()
+          exerciseByKey @SimpleKey p Archive
+          throw (E "roll back create and exercise by key")
+        catch
+          E _ ->
+            do
+              pure ()
+
+    nonconsuming choice TestMultiLevelRollbackCreateMultiInformees : ()
+      with
+        obs : Party
+      observer obs
+      controller p
+      do
+        -- produces a "canton view" in which the first create appears in a different, nested
+        -- rollback than the view's top-level rollback scope
+        try do
+          create (SimpleKey p [obs])
+          throw (E "roll back first key create at rollback level 2")
+        catch
+          E _ ->
+            do
+              pure ()
+        -- check that the next create is able to proceed within parent rollback scope
+        create (SimpleKey p [obs])
+        throw (E "roll back second key create at rollback level 1")
+
+    nonconsuming choice TestMultiLevelRollbackCreateSingleInformee : ()
+      with
+        obs : Party
+      controller p
+      do
+        try do
+          -- introduce a choice "obs" as a choice observer along with a nested "canton view"
+          exercise self TestMultiLevelRollbackCreateMultiInformees with obs = obs
+        catch
+          E _ ->
+            do
+              pure ()
+
+    nonconsuming choice TestMultiLevelRollbackMultipleViewsOuter : ()
+      with
+        obs : Party
+      controller p
+      do
+        -- This create lives in a subview because obs is a new informee
+        cid <- create (SimpleKey p [obs])
+        try do
+          -- introduce a choice "obs" as a choice observer along with a nested "canton view"
+          exercise self TestMultiLevelRollbackMultipleViewsInner with obs = obs
+        catch
+          E _ ->
+            do
+              exercise cid Archive
+              pure ()
+
+    nonconsuming choice TestMultiLevelRollbackMultipleViewsInner : ()
+      with
+        obs : Party
+      observer obs
+      controller p
+      do
+        -- This archival lives in the core of the view because we should find a contract with obs as informee
+        exerciseByKey @SimpleKey p Archive
+        try do
+           -- This create lives in a proper subview because obs is not an informee
+          create (SimpleKey p [])
+          -- The exercise is in the core of the view because obs is a choice observer and thus an informee
+          exerciseByKey @SimpleKey p FetchWithObservers with ..
+          throw (E "roll back first key create and exercise at rollback level 2")
+        catch
+          E _ ->
+            do
+              pure ()
+        -- This create lives in the core of the view
+        create (SimpleKey p [obs])
+        -- This fetch lives in its own subview because obs is not an informee
+        fetchByKey @SimpleKey p
+        throw (E "roll back second key create at rollback level 1")

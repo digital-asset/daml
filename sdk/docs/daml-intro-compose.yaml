@@ -1,0 +1,12 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+sdk-version: __VERSION__
+name: dependencies-compose
+source: source/sdk/tutorials/smart-contracts/daml/daml-intro-compose/daml/
+version: 1.0.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+

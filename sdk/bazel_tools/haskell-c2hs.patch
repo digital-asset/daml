@@ -1,0 +1,43 @@
+--- c2hs-0.28.3/src/C2HS/Gen/Bind.hs
++++ c2hs-0.28.3.orig/src/C2HS/Gen/Bind.hs
+@@ -2955,11 +2955,7 @@
+ size CULLongPT       = Storable.sizeOf (undefined :: CLLong)
+ size CFloatPT        = Storable.sizeOf (undefined :: Foreign.C.CFloat)
+ size CDoublePT       = Storable.sizeOf (undefined :: CDouble)
+-#if MIN_VERSION_base(4,2,0)
+ size CLDoublePT      = 0  --marks it as an unsupported type, see 'specType'
+-#else
+-size CLDoublePT      = Storable.sizeOf (undefined :: CLDouble)
+-#endif
+ size CBoolPT         = cBoolSize
+ size (CSFieldPT bs)  = -bs
+ size (CUFieldPT bs)  = -bs
+@@ -2988,11 +2984,7 @@
+ alignment CFloatPT =
+   return $ Storable.alignment (undefined :: Foreign.C.CFloat)
+ alignment CDoublePT       = return $ Storable.alignment (undefined :: CDouble)
+-#if MIN_VERSION_base(4,2,0)
+ alignment CLDoublePT      = interr "Info.alignment: CLDouble not supported"
+-#else
+-alignment CLDoublePT      = return $ Storable.alignment (undefined :: CLDouble)
+-#endif
+ alignment CBoolPT         = return cBoolSize
+ alignment (CSFieldPT bs)  = fieldAlignment bs
+ alignment (CUFieldPT bs)  = fieldAlignment bs
+--- c2hs-0.28.3/src/System/CIO.hs
++++ c2hs-0.28.3.orig/src/System/CIO.hs
+@@ -79,13 +79,11 @@
+ openFile     :: FilePath -> IO.IOMode -> PreCST e s IO.Handle
+ openFile p m  = liftIO $ do
+   hnd <- IO.openFile p m
+-#if MIN_VERSION_base(4,2,0)
+   --FIXME: really we should be using utf8 for .chs and .hs files
+   --       however the current .chs lexer cannot cope with chars
+   --       that are over 255, it goes into an infinte loop.
+   --       As an workaround, use latin1 encoding for the moment:
+   IO.hSetEncoding hnd IO.latin1
+-#endif
+   return hnd
+ 
+ hClose   :: IO.Handle -> PreCST e s ()
+

@@ -1,0 +1,11 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v30;
+
+// Enables storing parties in the database as a blob
+message StoredParties {
+  repeated string parties = 1;
+}

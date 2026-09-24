@@ -1,0 +1,165 @@
+module Dvp.Asset where
+
+template Asset
+  with
+    registrar : Party -- may be a decentralized party
+    issuer : Party
+    id : Text
+    payload : Text
+    owner : Party
+    bystander: Party
+  where
+    signatory registrar, issuer, owner
+    observer bystander
+
+    choice UpdatePayload : ContractId Asset
+      with
+        newPayload : Text
+      controller owner
+      do
+        create this with payload = newPayload
+
+    choice GarbageCollectAsset : ()
+      with
+        party : Party
+      controller party
+        do
+          assert (party == issuer || party == owner)
+          return ()
+
+    choice ProposeTransfer : ContractId AssetTransfer
+        with
+          newOwner : Party
+          growthFactor : Int
+        controller owner
+        do
+          create AssetTransfer with ..
+
+template AssetTransfer
+  with
+    registrar : Party -- may be a dso
+    issuer : Party
+    id : Text
+    payload: Text
+    owner : Party
+    newOwner : Party
+    growthFactor : Int
+  where
+    signatory registrar, issuer, owner
+    observer newOwner
+
+    choice AcceptTransfer: ContractId Asset
+        with
+          bystander : Party
+          random : Text
+        controller newOwner,owner
+        do
+          let ids = map (\x -> random <> show x) [1..growthFactor]
+          let ups = (map (\id -> (create AcsGrowth with owner, issuer, bystander, id)) ids)
+          z <- sequence ups
+          create Asset with
+            owner = newOwner
+            ..
+
+    choice GarbageCollectTransfer : ()
+      with
+        party : Party
+      controller party
+        do
+          return ()
+
+
+genAsset : Int -> Asset -> [Update (ContractId Asset)]
+genAsset 0 asset = []
+genAsset n asset =
+    (create asset with id = asset.id <> ":" <> show n) :: (genAsset (n - 1) asset)
+
+-- we abstract the registry out to allow it to be backed by a DSO
+template Registry
+  with
+    registrar : Party -- may be a dso
+    issuer : Party
+  where
+    signatory registrar
+    observer issuer
+
+    nonconsuming choice CreateProposal : ContractId IssuanceProposal
+      with
+        requester: Party
+      controller issuer
+        do
+          create IssuanceProposal with ..
+
+    choice GarbageCollectRegistry : ()
+      with
+        party : Party
+      controller party
+        do
+          return ()
+
+template IssuanceProposal
+  with
+    registrar : Party -- may be a dso
+    issuer : Party
+    requester : Party
+  where
+    signatory registrar, issuer
+    observer requester
+
+    choice IssueAssets : [ContractId Asset]
+      with
+        id : Text
+        payload : Text
+        quantity : Int
+      controller requester
+      do
+        let
+          baseAsset = Asset with
+            owner = requester, bystander = requester
+            ..
+        sequence (genAsset quantity baseAsset)
+
+-- free assets for everyone!
+template AssetRequest
+  with
+    requester : Party
+    issuer : Party
+    id : Text
+    payload: Text
+    quantity : Int
+  where
+    signatory requester
+    observer issuer
+
+    ensure quantity > 0
+
+    choice AcceptRequest : [ContractId Asset]
+      with
+        registryCid : ContractId Registry
+      controller issuer
+        do
+          proposal <- exercise registryCid CreateProposal with requester
+          exercise proposal IssueAssets with ..
+
+    choice GarbageCollectAssetRequest : ()
+      with
+        party : Party
+      controller party
+        do
+          return ()
+
+
+template AcsGrowth
+  with
+    owner : Party
+    issuer : Party
+    bystander : Party
+    id : Text
+  where
+    signatory owner, issuer
+    observer bystander
+
+    choice Nuke : ()
+      controller owner
+        do
+          return ()

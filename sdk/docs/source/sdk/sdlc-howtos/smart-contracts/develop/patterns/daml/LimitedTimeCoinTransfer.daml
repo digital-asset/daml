@@ -1,0 +1,81 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE PartialTypeSignatures #-}
+
+module LimitedTimeCoinTransfer where
+
+import Daml.Script
+import DA.Assert (assertWithinDeadline)
+import DA.Time (addRelTime, minutes)
+import Utilities
+
+template Coin
+  with
+    owner: Party
+    amount: Decimal
+  where
+    signatory owner
+
+    ensure amount > 0.0
+
+-- BEGIN_LIMITED_TIME_COIN_TRANSFER
+    choice Transfer : ContractId TransferProposal
+      with
+        newOwner: Party
+        timeLimit: Time
+      controller owner
+      do create TransferProposal
+            with coin=this; newOwner; timeLimit
+-- END_LIMITED_TIME_COIN_TRANSFER
+
+-- TransferProposal contract needs additional logic to time limit when transfers are accepted
+template TransferProposal
+  with
+    coin: Coin
+    newOwner: Party
+    timeLimit: Time
+  where
+    signatory coin.owner
+    observer newOwner
+
+    choice WithdrawTransfer : ContractId Coin
+      controller coin.owner
+      do
+        create coin
+
+-- BEGIN_LIMITED_TIME_ACCEPT_COIN_TRANSFER
+    choice AcceptTransfer : ContractId Coin
+      controller newOwner
+      do
+        assertWithinDeadline "time-limited-transfer" timeLimit
+        create coin with owner = newOwner
+-- END_LIMITED_TIME_ACCEPT_COIN_TRANSFER
+
+-- test
+limitedTimeCoinTransfer : Script ()
+limitedTimeCoinTransfer =
+  script do
+
+    [owner, newOwner] <- makePartiesFrom ["Me", "You"]
+
+    --test 1: owner's coin is transferred to a new owner within a 5 minutes
+
+    coin1 <- owner `submit` do createCmd Coin with owner; amount=100.0
+
+    t1 <- getTime
+    transferProposal1 <- owner `submit` do exerciseCmd coin1 Transfer with newOwner; timeLimit=addRelTime t1 (minutes 5)
+
+    newOwner `submit` do exerciseCmd transferProposal1 AcceptTransfer
+
+    --test 2: owner's coin is fails to transfer to a new owner after a 5 minute time limit has passed
+
+    coin2 <- owner `submit` do createCmd Coin with owner; amount=150.0
+
+    t2 <- getTime
+    transferProposal2 <- owner `submit` do exerciseCmd coin2 Transfer with newOwner; timeLimit=addRelTime t2 (minutes 5)
+
+    -- simulate waiting for over 5 minutes
+    _ <- passTime (minutes 6)
+
+    newOwner `submitMustFail` do exerciseCmd transferProposal2 AcceptTransfer

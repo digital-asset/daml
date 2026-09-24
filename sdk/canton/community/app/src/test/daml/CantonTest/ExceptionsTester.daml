@@ -1,0 +1,112 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module ExceptionsTester where
+
+import DA.Exception
+import DA.List
+
+exception E
+  with
+    t : Text
+  where
+    message t
+
+template Informees
+  with
+    sig: [Party]
+    obs: [Party]
+  where
+    signatory sig
+    observer obs
+
+    choice SignOn : ContractId Informees
+      with
+        party : Party
+      controller party
+      do
+        assert $ elem party obs
+        create this with sig = sig ++ [party], obs = obs \\ [party]
+
+    choice Close : ()
+      with
+        party : Party
+      controller party
+      do
+        pure ()
+
+    choice Throw : ()
+      with
+        party : Party
+      controller party
+      do
+        throw (E "throw from Informees.throw")
+
+template ExceptionsTester
+  with
+    p : Party
+  where
+    signatory p
+
+    nonconsuming choice SimpleRollbackCreate : ()
+      controller p
+      do
+        try do
+          create (Informees [p] [p])
+          throw (E "after create")
+        catch
+          E _ -> pure ()
+
+    nonconsuming choice RollbackCreate : ()
+      controller p
+      do
+        try do
+          create (Informees [p] [p])
+          throw (E "after create 1")
+        catch
+          E _ -> pure ()
+        try do
+          create (Informees [p] [p])
+          try do
+            create (Informees [p] [p])
+            throw (E "after create 2.1")
+          catch
+            E _ -> pure ()
+          create (Informees [p] [p])
+          throw (E "after create 2")
+        catch
+          E _ -> pure ()
+
+    nonconsuming choice RollbackExercise : ()
+      with
+        cid : ContractId Informees
+      controller p
+      do
+        try do
+          informees <- fetch cid
+          exercise cid Close with party = p
+          informees2cid <- create (Informees [p] informees.sig)
+          exercise informees2cid Close with party = p
+
+          throw (E "after exercise 2")
+        catch
+          E _ ->
+            do
+              -- create (Informees [p] [])
+              pure ()
+
+    nonconsuming choice RollbackExerciseWithNestedThrow : ()
+      with
+        cid : ContractId Informees
+      controller p
+      do
+        try do
+          informees <- fetch cid
+          informees2cid <- create (Informees [p] informees.sig)
+          exercise informees2cid Close with party = p
+          exercise cid Throw with party = p
+        catch
+          E _ ->
+            do
+              pure ()
+

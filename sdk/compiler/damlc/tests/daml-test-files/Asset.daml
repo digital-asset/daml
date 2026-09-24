@@ -1,0 +1,9 @@
+module Asset where
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer, owner

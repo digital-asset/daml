@@ -1,0 +1,27 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+
+module ConstraintTuples where
+
+type Eq2 a b = (Eq a, Eq b)
+type Eq3 a b c = (Eq a, Eq b, Eq c)
+type Eq4 a b c d = (Eq a, Eq b, Eq c, Eq d)
+
+eq2 : Eq2 a b => a -> a -> b -> b -> Bool
+eq2 x1 x2 y1 y2 = (x1 == x2) && (y1 == y2)
+
+eq2' : (Eq a, Eq b) => a -> a -> b -> b -> Bool
+eq2' = eq2
+
+eq3 : Eq3 a b c => a -> a -> b -> b -> c -> c -> Bool
+eq3 x1 x2 y1 y2 z1 z2 = (x1 == x2) && (y1 == y2) && (z1 == z2)
+
+eq3' : (Eq a, Eq b, Eq c) => a -> a -> b -> b -> c -> c -> Bool
+eq3' = eq3
+
+eq4 : Eq4 a b c d => a -> a -> b -> b -> c -> c -> d -> d -> Bool
+eq4 x1 x2 y1 y2 z1 z2 w1 w2 = (x1 == x2) && (y1 == y2) && (z1 == z2) && (w1 == w2)
+
+eq4' : (Eq a, Eq b, Eq c, Eq d) => a -> a -> b -> b -> c -> c -> d -> d -> Bool
+eq4' = eq4

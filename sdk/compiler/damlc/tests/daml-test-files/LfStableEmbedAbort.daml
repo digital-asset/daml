@@ -1,0 +1,33 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module LfStableEmbedAbort where
+
+import Daml.Script
+
+-- Test that the 'abort' and 'assert' functions are monadically
+-- interpreted and can be passed around as Update/Script actions.
+
+unlessU : Bool -> Update () -> Update ()
+unlessU b f = if b then pure () else f
+
+unlessS : Bool -> Script () -> Script ()
+unlessS b f = if b then pure () else f
+
+-- @LEDGER run LfStableEmbedAbort.EXPECTED.ledger
+run = script do
+  alice <- allocateParty "Alice"
+  unlessS True (abort "fail")
+  unlessS True (assert False)
+  submit alice do createAndExerciseCmd (Helper alice) Exe
+
+template Helper
+  with
+    p : Party
+  where
+    signatory p
+    choice Exe : ()
+      controller p
+      do
+        unlessU True (abort "fail")
+        unlessU True (assert False)

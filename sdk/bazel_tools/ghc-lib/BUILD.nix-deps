@@ -1,0 +1,57 @@
+load("@rules_sh//sh:sh.bzl", "sh_binaries")
+load("@com_github_digital_asset_daml//bazel_tools:bundle.bzl", "library_bundle")
+
+package(default_visibility = ["//visibility:public"])
+
+sh_binaries(
+    name = "tools",
+    srcs = glob(["bin/*"]),
+)
+
+library_bundle(
+    name = "libs",
+    libs = [
+        "libtinfo",
+        "libncurses",
+        "libncursesw",
+        "libform",
+        "libformw",
+        "libmenu",
+        "libmenuw",
+        "libpanel",
+        "libpanelw",
+    ],
+)
+
+cc_library(
+    name = "libtinfo",
+    srcs = glob(["lib/libtinfo.*"]),
+)
+
+[
+    cc_library(
+        name = "libncurses{}".format(w),
+        srcs = glob(["lib/libncurses{}.*".format(w)]),
+    )
+    for w in [
+        "",
+        "w",
+    ]
+]
+
+[
+    cc_library(
+        name = "lib{}{}".format(name, w),
+        srcs = glob(["lib/lib{}{}.*".format(name, w)]),
+        deps = [":libncurses{}".format(w)],
+    )
+    for name in [
+        "form",
+        "menu",
+        "panel",
+    ]
+    for w in [
+        "",
+        "w",
+    ]
+]

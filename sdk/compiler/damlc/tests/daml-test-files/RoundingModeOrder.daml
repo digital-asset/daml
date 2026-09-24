@@ -1,0 +1,30 @@
+-- Copyright (c) 2021, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF 2.dev
+
+-- | Test that rounding mode order matches the order in GHC.Types
+module RoundingModeOrder where
+
+import Daml.Script
+import DA.Assert ((===))
+import qualified DA.List
+import qualified DA.List.BuiltinOrder
+import DA.BigNumeric
+
+roundingModes =
+    [ RoundingUp
+    , RoundingDown
+    , RoundingCeiling
+    , RoundingFloor
+    , RoundingHalfUp
+    , RoundingHalfDown
+    , RoundingHalfEven
+    , RoundingUnnecessary
+    ]
+
+test1 = script do
+    roundingModes === DA.List.sort roundingModes
+
+test2 = script do
+    roundingModes === DA.List.BuiltinOrder.sort roundingModes

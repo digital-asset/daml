@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+target_commit="${1:-unset}"
+
+if [ "unset" = "$target_commit" ]; then
+  target_commit=$(curl --silent \
+                       -H "Accept: application/vnd.github+json" \
+                       -H "X-GitHub-Api-Version: 2022-11-28" \
+                       https://api.github.com/repos/NixOS/nixpkgs/branches/nixpkgs-unstable \
+                  | jq -r .commit.sha)
+fi
+
+archive_sha=$(nix-prefetch-url https://github.com/NixOS/nixpkgs/archive/$target_commit.tar.gz --unpack 2>/dev/null)
+
+tmp=$(mktemp)
+
+jq -n \
+   --arg branch nixpkgs-unstable \
+   --arg repo nixpkgs \
+   --arg owner NixOS \
+   --arg rev $target_commit \
+   --arg sha256 $archive_sha \
+   '{$owner, $repo, $branch, $rev, $sha256}' \
+   > $tmp
+
+mv $tmp $DIR/../nix/nixpkgs/default.src.json

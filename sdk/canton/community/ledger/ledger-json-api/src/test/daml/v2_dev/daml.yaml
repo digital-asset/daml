@@ -1,0 +1,16 @@
+override-components: 
+  damlc: 
+    version: $DAML_VERSION
+  daml-script: 
+    version: $DAML_VERSION
+  codegen-java: 
+    version: $DAML_VERSION
+build-options: 
+- --target=2.dev
+name: JsonEncodingTestDev
+source: JsonEncodingTest.daml
+version: 3.5.0
+dependencies: 
+- daml-prim
+- daml-stdlib
+- daml-script

@@ -1,0 +1,117 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v30;
+
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
+import "com/digitalasset/canton/protocol/v30/common_stable.proto";
+import "com/digitalasset/canton/protocol/v30/merkle.proto";
+import "google/protobuf/timestamp.proto";
+import "scalapb/scalapb.proto";
+
+// Messages sent by a participant as part of the reassignment protocol
+
+message ReassignmentId {
+  // identifies the reassignment batch, built from a hash of source, target, contract ids, contract counters and timestamp.
+  string id = 1;
+}
+
+// Messages sent by a participant as part of the reassignment protocol
+
+message UnassignmentCommonData {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  com.digitalasset.canton.crypto.v30.Salt salt = 1;
+  string source_physical_synchronizer_id = 2;
+
+  Stakeholders stakeholders = 3;
+  repeated string reassigning_participant_uids = 4;
+
+  string uuid = 5;
+  int32 source_mediator_group = 6;
+  ReassignmentSubmitterMetadata submitter_metadata = 7;
+}
+
+message ReassignmentViewTree {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  bytes common_data = 1;
+  BlindableNode participant_data = 2;
+}
+
+message AssignmentMediatorMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  ReassignmentViewTree tree = 1;
+  com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 2;
+}
+
+message UnassignmentMediatorMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  ReassignmentViewTree tree = 1;
+  com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 2;
+}
+
+message AssignmentCommonData {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  com.digitalasset.canton.crypto.v30.Salt salt = 1;
+  string source_physical_synchronizer_id = 8;
+  string target_physical_synchronizer_id = 2;
+  google.protobuf.Timestamp unassignment_ts = 9;
+
+  Stakeholders stakeholders = 3; // stakeholders of the contract
+
+  string uuid = 4; // request uuid
+  int32 target_mediator_group = 5;
+  ReassignmentSubmitterMetadata submitter_metadata = 6;
+  repeated string reassigning_participant_uids = 7;
+}
+
+message ReassignmentSubmitterMetadata {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  string submitter = 1;
+  string submitting_participant_uid = 2;
+  string command_id = 3;
+  string submission_id = 4; // optional
+  string user_id = 5;
+  string workflow_id = 6; // optional
+}
+
+message UnassignmentView {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  com.digitalasset.canton.crypto.v30.Salt salt = 1;
+  string target_physical_synchronizer_id = 2;
+  int64 target_timestamp = 3;
+  repeated ActiveContract contracts = 4;
+}
+
+message UnassignmentData {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StorageProtoVersion";
+
+  com.digitalasset.canton.protocol.v30.ReassignmentSubmitterMetadata submitter_metadata = 1;
+  repeated com.digitalasset.canton.protocol.v30.ActiveContract contracts = 2;
+  repeated string reassigning_participant_uids = 3;
+  string source_physical_synchronizer_id = 4;
+  string target_physical_synchronizer_id = 5;
+  google.protobuf.Timestamp target_timestamp = 6;
+  google.protobuf.Timestamp unassignment_ts = 7;
+}
+
+message AssignmentView {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  com.digitalasset.canton.crypto.v30.Salt salt = 1;
+  repeated ActiveContract contracts = 2;
+  ReassignmentId reassignment_id = 3;
+}
+
+message ActiveContract {
+  bytes contract = 1; // Encoded ContractInstance
+  int64 reassignment_counter = 2;
+}

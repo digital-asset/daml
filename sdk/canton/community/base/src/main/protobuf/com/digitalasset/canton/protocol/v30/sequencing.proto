@@ -1,0 +1,191 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v30;
+
+import "com/digitalasset/canton/crypto/v30/crypto.proto";
+import "com/digitalasset/canton/protocol/v30/common_stable.proto";
+import "com/digitalasset/canton/protocol/v30/traffic_control_parameters.proto";
+import "com/digitalasset/canton/v30/trace_context.proto";
+import "google/protobuf/duration.proto";
+import "google/rpc/status.proto";
+import "scalapb/scalapb.proto";
+
+// Messages for sequencing
+message PossiblyIgnoredSequencedEvent {
+  int64 counter = 1;
+  int64 timestamp = 2; // in microseconds of UTC time since Unix epoch
+  com.digitalasset.canton.v30.TraceContext trace_context = 3;
+  bool is_ignored = 4;
+  optional bytes underlying = 5; // Serialized SignedContent[SequencedEvent]. Optional if is_ignored == true, required otherwise
+}
+
+// Protobuf has a hard limit on the nesting depth of messages, so this message could potentially hit
+// the nesting depth limit. However this probably won't be an issue any time soon.
+message RecipientsTree {
+  // Recipients of the request.
+  // Must be non-empty.
+  // A recipient is either a member (cf. MemberRecipient) or a set of members (cf. GroupRecipient such as AllMembersOfSynchronizer).
+  // TARGET STATE: Each recipient must be authorized at the underlying synchronizer (cf. Recipient.isAuthorized).
+  // CURRENT STATE: A recipient must be "known" to the sequencer.
+  //   A recipient in general remains "known" even after its topology transactions have been removed on the synchronizer.
+  repeated string recipients = 1;
+  repeated com.digitalasset.canton.protocol.v30.RecipientsTree children = 2;
+}
+
+message Recipients {
+  repeated RecipientsTree recipients_tree = 1;
+}
+
+message ServiceAgreement {
+  string id = 1; // A unique identifier of an agreement within a synchronizer, which must change when the legal text changes
+  string legal_text = 2;
+}
+
+// Messages used for synchronization between sequencer nodes
+
+// Submission cost computed by the sender for a SubmissionRequest
+message SequencingSubmissionCost {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+  // Computed cost
+  int64 cost = 1;
+}
+
+message StaticSynchronizerParameters {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  com.digitalasset.canton.crypto.v30.RequiredSigningSpecs required_signing_specs = 1;
+  com.digitalasset.canton.crypto.v30.RequiredEncryptionSpecs required_encryption_specs = 2;
+  repeated com.digitalasset.canton.crypto.v30.SymmetricKeyScheme required_symmetric_key_schemes = 3;
+  repeated com.digitalasset.canton.crypto.v30.HashAlgorithm required_hash_algorithms = 4;
+  repeated com.digitalasset.canton.crypto.v30.CryptoKeyFormat required_crypto_key_formats = 5;
+  repeated com.digitalasset.canton.crypto.v30.SignatureFormat required_signature_formats = 6;
+  int32 protocol_version = 7;
+
+  // Serial of the synchronizer. Must be non-negative.
+  int32 serial = 8;
+
+  // Flag to enable transparency checks.
+  bool enable_transparency_checks = 9;
+
+  google.protobuf.Duration topology_change_delay = 10;
+}
+
+message Envelope {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  // Contains a v30.EnvelopeContent if signatures are empty and a v30.TypedSignedProtocolMessageContent otherwise
+  bytes content = 1;
+  com.digitalasset.canton.protocol.v30.Recipients recipients = 2;
+
+  // An honest sequencer rejects the request if it contains an envelope with an invalid signature.
+  // As only honest sequencers verify signatures, clients should not trust a single sequencer node to verify signatures for them.
+  repeated com.digitalasset.canton.crypto.v30.Signature signatures = 3;
+}
+
+message Batch {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  repeated Envelope envelopes = 1;
+}
+
+message CompressedBatch {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  enum CompressionAlgorithm {
+    COMPRESSION_ALGORITHM_UNSPECIFIED = 0;
+    COMPRESSION_ALGORITHM_GZIP = 1;
+  }
+
+  v30.CompressedBatch.CompressionAlgorithm algorithm = 1;
+  // contains possibly compressed v30.Batch
+  bytes compressed_batch = 2;
+}
+
+message SequencedEvent {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  reserved 1; // was the counter of the event, now unused
+
+  // The timestamp of the previous event of the member's event sequence.
+  // in microseconds of UTC time since Unix epoch
+  // Optional, set to None if this is the first ever event of the member's event sequence.
+  optional int64 previous_timestamp = 9;
+
+  // The timestamp of the event. Unique and monotonically increasing.
+  // The same event has the same timestamp for all recipients.
+  // in microseconds of UTC time since Unix epoch
+  int64 timestamp = 2;
+
+  // The synchronizer on which the event has been sequenced.
+  string physical_synchronizer_id = 3;
+
+  // The message_id of the request.
+  // Optional, but will be defined iff the request sender is the subscriber.
+  optional string message_id = 4;
+
+  // The payload of the event.
+  // Optional, defined iff deliver_error_reason is undefined.
+  CompressedBatch batch = 5;
+
+  // Optional error, indicates why the underlying SubmissionRequest has been rejected.
+  google.rpc.Status deliver_error_reason = 6;
+
+  // Optional timestamp of the topology snapshot used for processing the underlying request
+  // (e.g., validation, signing, resolving group addresses).
+  // If undefined, timestamp is used instead.
+  optional int64 topology_timestamp = 7;
+
+  // Traffic receipt with information about the traffic state after the cost for this event has been consumed
+  // Optional - only set on deliver receipt sent back to the sender of the event when traffic control is enabled
+  com.digitalasset.canton.protocol.v30.TrafficReceipt traffic_receipt = 8;
+}
+
+// Messages used for synchronization between sequencer nodes
+message SubmissionRequest {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+
+  // Sender of the request.
+  // This request must be wrapped in a SignedContent and
+  // the signature therein must validate under one of the sender's public keys.
+  // The request metadata must contain a valid authentication token belonging to the sender.
+  // (Details in SequencerAuthenticationServerInterceptor.)
+  // TARGET STATE: The sender must be authorized (cf. TopologySnapshot.isMemberKnown)
+  // CURRENT STATE: The sender authorization check might have a few gaps (e.g., see MemberAuthenticationService.isActive)
+  //   and/or may use the wrong snapshot.
+  string sender = 1;
+
+  // Will be included in the receipt of the request.
+  // The sender should not reuse a message_id until max_sequencing_time,
+  // because otherwise it will be unable to correlate receipts with requests.
+  string message_id = 2;
+
+  // The payload, mandatory
+  // At most one recipient of an envelope may be (a) a mediator, (b) a mediator group, or (c) all synchronizer members.
+  CompressedBatch batch = 4;
+
+  // Maximum sequencing time for the request.
+  // If the request can't be sequenced until the specified time, the sequencer will reject it.
+  // After max_sequencing_time, no event corresponding to the request will be emitted.
+  // in microseconds of UTC time since Unix epoch
+  int64 max_sequencing_time = 5;
+
+  // Optional timestamp (in microseconds of UTC time since Unix epoch) of topology snapshot to be used for
+  // processing the request (e.g., validation, signing, resolving group addresses).
+  // If defined, it must meet the following conditions:
+  // (1) it must be before or at the sequencing timestamp,
+  // (2) it must be by at most DynamicSynchronizerParameters.sequencerTopologyTimestampTolerance before the sequencing timestamp,
+  //     where the DynamicSynchronizerParameters are taken from the topology state at topology_timestamp,
+  // (3) the sequencer must have signing keys registered in the topology snapshot.
+  // If defined and invalid, the request is rejected.
+  // If undefined or invalid, the topology snapshot at sequencing time will be used instead.
+  optional int64 topology_timestamp = 6;
+
+  // Optional rule used to aggregate requests.
+  v30.AggregationRule aggregation_rule = 7;
+
+  // Optional submission cost computed by the sender. Must be provided if traffic control is enabled on the receiving synchronizer.
+  v30.SequencingSubmissionCost submission_cost = 8;
+}

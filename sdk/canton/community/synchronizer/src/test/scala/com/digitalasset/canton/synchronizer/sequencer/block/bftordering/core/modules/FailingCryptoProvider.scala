@@ -1,0 +1,47 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules
+
+import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.crypto.{Hash, Signature, SignatureCheckError, SyncCryptoError}
+import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider.AuthenticatedMessageType
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
+  MessageFrom,
+  SignedMessage,
+}
+import com.digitalasset.canton.tracing.TraceContext
+import org.scalatest.Assertions.fail
+
+class FailingCryptoProvider[E <: Env[E]] extends CryptoProvider[E] {
+
+  override def signHash(hash: Hash, operationId: String)(implicit
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
+  ): E#FutureUnlessShutdownT[Either[SyncCryptoError, Signature]] =
+    fail("Module should not sign messages")
+
+  override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
+      message: MessageT,
+      authenticatedMessageType: AuthenticatedMessageType,
+  )(implicit
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
+  ): E#FutureUnlessShutdownT[Either[SyncCryptoError, SignedMessage[MessageT]]] =
+    fail("Module should not sign messages")
+
+  override def verifySignature(
+      hash: Hash,
+      node: BftNodeId,
+      signature: Signature,
+      operationId: String,
+  )(implicit
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
+  ): E#FutureUnlessShutdownT[Either[SignatureCheckError, Unit]] =
+    fail("Module should not verifySignature messages")
+}

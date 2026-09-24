@@ -1,0 +1,10 @@
+{-# OPTIONS_GHC -Wunused-matches #-}
+
+module InterfaceControllerUnusedWarning where
+
+data IView = IView {}
+
+-- Previously "Defined but not used: ‘arg’" was thrown by the Archive method on the interface
+-- This is a regression test for that fix
+interface I where
+  viewtype IView

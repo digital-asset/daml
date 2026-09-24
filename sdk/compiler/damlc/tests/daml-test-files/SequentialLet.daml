@@ -1,0 +1,37 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- | Checks that damlc enforces sequentially-ordered let bindings.
+-- Regression test for issue #6788.
+module SequentialLet where
+
+inOrder : Int
+inOrder =
+    let x = 10
+        y = x
+    in y
+
+-- @ERROR range=17:13-17:14; Variable not in scope: y
+outOfOrder : Int
+outOfOrder =
+    let x = y
+        y = 10
+    in x
+
+-- @ERROR range=24:13-24:14; Variable not in scope: y
+doBlock : Update ()
+doBlock = do
+    let x = y
+        y = 10
+    pure ()
+
+-- @ERROR range=34:29-34:30; Variable not in scope: y
+deeplyNested : Update Int
+deeplyNested = do
+    let x =
+            case () of
+                () -> do
+                    let z = y
+                        y = 10
+                    pure z
+    x

@@ -1,0 +1,108 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module NonstakeholderActors where
+
+import Daml.Script
+
+template OpenChoice
+  with
+    sig: Party
+  where
+    signatory sig
+
+    nonconsuming choice PublicUse: ()
+      with actor: Party
+      controller actor
+      do pure ()
+
+    choice PublicArchive: ()
+      with actor: Party
+      controller actor
+      do pure ()
+
+
+template Disclose
+  with
+    sig: Party
+    obs: Party
+  where
+    signatory sig
+    observer obs
+
+    choice DivulgeOpenChoice: ()
+      with openChoiceId: ContractId OpenChoice
+      controller sig
+        do
+          fetch openChoiceId
+          pure ()
+
+    choice WitnessOpenChoice: ContractId OpenChoice
+      controller sig
+        do
+          create OpenChoice with sig = sig
+
+template Delegate
+  with
+    sig: Party
+    obs: Party
+  where
+    signatory sig
+    observer obs
+
+    nonconsuming choice DelegatedOpenChoice: ()
+      with
+        archive: Bool
+        openChoiceId: ContractId OpenChoice
+      controller obs
+        do
+          if archive then exercise openChoiceId $ PublicArchive sig else exercise openChoiceId $ PublicUse sig
+
+
+              
+-- Bob witnesses an OpenChoice creation and then submits an exercise of PublicUse with himself as actor
+witnessed = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  witnessed <- submit alice $ do
+    createAndExerciseCmd (Disclose with sig = alice; obs = bob) WitnessOpenChoice
+
+  submit bob $ do
+    exerciseCmd witnessed $ PublicUse bob
+
+-- Bob is divulged an OpenChoice contract and then submits an exercise of PublicArchive with himself as actor
+divulgedInput = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  divulged <- submit alice do
+    createCmd OpenChoice with sig = alice
+  submit alice $ do
+    createAndExerciseCmd (Disclose with sig = alice; obs = bob) $ DivulgeOpenChoice divulged
+
+  submit bob $ do
+    exerciseCmd divulged $ PublicArchive bob
+
+-- Bob delegates his PublicArchive choice to Alice who lets Bob witness the creation of an OpenChoice
+-- and uses the delegation to archive it.
+witnessedTransient = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  delegate <- submit bob $ createCmd Delegate with sig = bob; obs = alice
+
+  witnessed <- submit alice $ do
+    createAndExerciseCmd (Disclose with sig = alice; obs = bob) $ WitnessOpenChoice
+  submit alice $ do
+    exerciseCmd delegate $ DelegatedOpenChoice True witnessed
+
+-- Bob delegates his PublicUse choice to Alice who creates a fresh OpenChoice and uses the delegation.
+divulgedRelative = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  delegate <- submit bob $ createCmd Delegate with sig = bob; obs = alice
+
+  divulged <- submit alice $ createCmd OpenChoice with sig = alice
+  submit alice $ exerciseCmd delegate $ DelegatedOpenChoice False divulged

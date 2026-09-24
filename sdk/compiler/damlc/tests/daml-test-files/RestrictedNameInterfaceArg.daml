@@ -1,0 +1,15 @@
+-- @ERROR range=13:7-13:10; `arg' is a prohibited field name, please use something else.
+
+
+module RestrictedNameInterfaceArg where
+
+data ViewType = ViewType {
+  p : Party
+}
+
+interface I where
+  viewtype ViewType
+  choice Call : () with
+      arg : Int
+    controller p view
+    do pure ()

@@ -1,0 +1,5 @@
+-- Test that we don't get a warning when using an unproblematic extension.
+{-# OPTIONS_GHC -XPartialTypeSignatures #-}
+-- @INFO Use LANGUAGE pragmas
+
+module GoodExtensionOption where

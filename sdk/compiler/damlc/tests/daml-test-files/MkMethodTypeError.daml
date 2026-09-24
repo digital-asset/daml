@@ -1,0 +1,22 @@
+-- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @ERROR error type checking value MkMethodTypeError.main: unknown data type
+
+-- | Verify that calling mkMethod outside of desugared interface method definitions is an LF type error.
+module MkMethodTypeError where
+
+data T = T
+
+instance HasInterfaceTypeRep T where _interfaceTypeRep = undefined
+instance HasToInterface T T where _toInterface x = x
+instance HasFromInterface T T where
+    fromInterface = Some
+    unsafeFromInterface _ this = this
+
+instance DA.Internal.Desugar.HasMethod T "foo" T where
+
+main : Int
+main =
+    let _ = DA.Internal.Desugar.mkMethod @T @T @T @"foo" identity
+    in 10

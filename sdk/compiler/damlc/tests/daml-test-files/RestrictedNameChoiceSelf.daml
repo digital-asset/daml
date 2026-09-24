@@ -1,0 +1,12 @@
+-- @ERROR range=10:9-10:13; `self' is a prohibited field name, please use something else.
+
+module RestrictedNameChoiceSelf where
+
+template Test with
+    p : Party
+  where
+    signatory p
+    choice Self : () with
+        self : Int
+      controller p
+      do pure ()

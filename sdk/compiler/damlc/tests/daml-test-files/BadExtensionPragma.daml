@@ -1,0 +1,7 @@
+-- Test that we get a warning when using a problematic extension.
+{-# LANGUAGE PatternSynonyms #-}
+-- @WARN Modules compiled with the PatternSynonyms language extension might not work properly with data-dependencies.
+
+module BadExtensionPragma where
+
+pattern Nil = []
