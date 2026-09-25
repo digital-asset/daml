@@ -288,7 +288,8 @@ jobs:
         if ! git diff --cached --quiet; then
           BRANCH=update-compat-versions-$(date -I)-$(Build.SourceBranchName)
           TITLE="update compat versions ($(date -I) $(Build.SourceBranchName))"
-          open_pr "$BRANCH" "$TITLE" "" "" "$(Build.SourceBranchName)"
+          BODY="If follow-up PRs are needed to fix this one, add the run-full-compat: true trailer below so the full compat suite runs on them too.\n\nrun-full-compat: true"
+          open_pr "$BRANCH" "$TITLE" "$BODY" "" "$(Build.SourceBranchName)"
           trigger_azure $(System.AccessToken) PRs --branch $BRANCH
           trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $BRANCH
         else
