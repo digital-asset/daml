@@ -83,6 +83,8 @@ head = "0.0.0"
     for sdk_version in sdk_versions
 ]
 
+daml_script_example_dar("0.0.0", "@head_sdk//:daml-script-no-failure-status-oci.tar.gz")
+
 [
     daml_script_example_test(
         compiler_version = sdk_version,
@@ -120,9 +122,11 @@ head = "0.0.0"
         old_sdk_version = old_sdk_version,
     )
     for old_sdk_version in sdk_versions
-    # Tests that we can run a daml script from a package built with an older
-    # SDK version even when exposed through an import in a package built with
-    # the latest SDK version.
-    # (regression test for https://github.com/digital-asset/daml/issues/14291)
     if old_sdk_version != "0.0.0"
 ]
+
+# Once we have a version that adds a new error type in stable daml-script, this test should be replaced to not use a patched "0.0.0"
+data_dependencies_daml_script_test(
+    "0.0.0",
+    run_unknown_failure_test = True,
+)

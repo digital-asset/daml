@@ -24,7 +24,9 @@ bazel build \
   --tool_java_runtime_version=nixpkgs_java_17 \
   --tool_java_language_version=17 \
   //release:dpm-sdk-release-tarball \
-  @dpm_binary//:dpm
+  @dpm_binary//:dpm \
+  //daml-script/runner:daml-script-no-failure-status-oci
 
 cp -f bazel-bin/release/dpm-sdk-release-tarball.tar.gz "$HEAD_TARGET_DIR"
 cp -f bazel-bin/external/dpm_binary/dpm "$HEAD_TARGET_DIR"
+cp -f bazel-bin/daml-script/runner/daml-script-no-failure-status-oci.tar.gz "$HEAD_TARGET_DIR"

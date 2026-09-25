@@ -24,7 +24,7 @@ def _package_app_impl(ctx):
 def _package_oci_component_impl(ctx):
     args = ctx.actions.args()
     args.add(ctx.outputs.out.path)
-    component_manifest = ctx.actions.declare_file("component.yaml")
+    component_manifest = ctx.actions.declare_file(ctx.label.name + "-component.yaml")
     ctx.actions.expand_template(
         output = component_manifest,
         template = ctx.files.component_manifest[0],

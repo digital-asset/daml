@@ -2,13 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools/daml_script:daml_script.bzl", "daml_script_test")
+load("//bazel_tools:versions.bzl", "versions")
 
 def _build_dar(
         name,
         package_name,
         srcs,
         data_dependencies,
-        sdk_version):
+        sdk_version,
+        stable_script_support = False,
+        run_unknown_failure_test = False):
     daml = "@daml-sdk-{sdk_version}//:daml".format(
         sdk_version = sdk_version,
     )
@@ -39,8 +42,11 @@ source: src
 version: 0.0.1
 dependencies:
   - daml-prim
+  - daml-stdlib
   - daml-script
 data-dependencies:$$DATA_DEPS
+build-options:
+  {stable_script_support_opt}
 EOF
 # TODO(dpm#12) Dpm doesn't support building a package via any kind of `--package-root` flag, so we must CD for now. Revert back to a flag once dpm supports this
 PREV_PWD=$$PWD
@@ -58,6 +64,8 @@ DAML_CACHE=$$DAML_CACHE $$PREV_PWD/$(location {daml}) build -o $$PREV_PWD/$(OUTS
                 "$(locations %s)" % src
                 for src in srcs
             ]),
+            stable_script_support_opt = "- --ghc-option=-DSTABLE_SCRIPT_SUPPORT" if stable_script_support else "",
+            run_unknown_failure_test_opt = "- --ghc-option=-DRUN_UNKNOWN_FAILURE_TEST" if run_unknown_failure_test else "",
         ),
     )
 
@@ -134,55 +142,48 @@ def data_dependencies_upgrade_test(old_sdk_version, new_sdk_version):
         sdk_version = new_sdk_version,
     )
 
-# regression test for https://github.com/digital-asset/daml/issues/14291
-def data_dependencies_daml_script_test(old_sdk_version):
-    data_dep_name = "data-dependencies-script1-{old_sdk_version}".format(
+# This test ensures cross-sdk compatibility with daml-script versions that support it
+# and otherwise checks only this regression: https://github.com/digital-asset/daml/issues/14291
+def data_dependencies_daml_script_test(old_sdk_version, run_unknown_failure_test = False):
+    name = "data-dependencies-script-0.0.0-on-{old_sdk_version}{ext}".format(
         old_sdk_version = old_sdk_version,
-    )
-    main_name = "data-dependencies-script2-from-{old_sdk_version}".format(
-        old_sdk_version = old_sdk_version,
+        ext = "" if not run_unknown_failure_test else "-unknown-failure",
     )
 
-    _build_dar(
-        name = data_dep_name,
-        package_name = "data-dependencies-script1",
-        srcs = ["//bazel_tools/data_dependencies:daml_script_test/Dep.daml"],
-        sdk_version = old_sdk_version,
-        data_dependencies = [],
-    )
+    # For some reason, is_at_least(a, b) runs checks b >= a, so counter-intuitively, this
+    # checks the old_sdk_version is at least 3.6.0
+    supports_stable_script = versions.is_at_least("3.6.0", old_sdk_version)
+
+    if run_unknown_failure_test and not supports_stable_script:
+        fail("Cannot run unknown failure test on an SDK version that does not support stable daml-script.")
 
     _build_dar(
-        name = main_name,
-        package_name = "data-dependencies-script2",
-        srcs = ["//bazel_tools/data_dependencies:daml_script_test/Main.daml"],
+        name = name,
+        package_name = "data-dependencies-script",
+        srcs = ["//bazel_tools/data_dependencies:daml_script_test/ScriptExampleWrapper.daml"],
         data_dependencies = [
-            data_dep_name,
+            "//:script-example-dar-{old_sdk_version}{ext}".format(
+                old_sdk_version = old_sdk_version,
+                ext = "" if not run_unknown_failure_test else "-with-script-override",
+            ),
         ],
+        stable_script_support = supports_stable_script,
+        run_unknown_failure_test = run_unknown_failure_test,
         sdk_version = "0.0.0",
     )
 
     _validate_dar(
-        name = main_name + "-validate",
-        dar_name = main_name,
+        name = name + "-validate",
+        dar_name = name,
         sdk_version = "0.0.0",
     )
 
     daml_script_test(
-        name = "data-dependencies-daml-script-from-{old_sdk_version}-test-1".format(
+        name = "data-dependencies-daml-script-from-{old_sdk_version}-test".format(
             old_sdk_version = old_sdk_version,
         ),
         runner_version = "0.0.0",
         compiler_version = "0.0.0",
-        compiled_dar = main_name,
-        script_name = "Main:run1",
-    )
-
-    daml_script_test(
-        name = "data-dependencies-daml-script-from-{old_sdk_version}-test-2".format(
-            old_sdk_version = old_sdk_version,
-        ),
-        runner_version = "0.0.0",
-        compiler_version = "0.0.0",
-        compiled_dar = main_name,
-        script_name = "Main:run2",
+        compiled_dar = name,
+        script_name = "ScriptExampleWrapper:mainWrapper",
     )

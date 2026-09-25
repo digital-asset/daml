@@ -62,7 +62,7 @@ stdout_if_success() {
   return $ret
 }
 
-all_dpm_components=($(stdout_if_success bazel query "kind('package_oci_component', //...)" | sed -r 's/^.*:(.+)\-oci$/\1/' | sort))
+all_dpm_components=($(stdout_if_success bazel query "kind('package_oci_component', //...) except attr('tags', 'ignore-oci', //...)" | sed -r 's/^.*:(.+)\-oci$/\1/' | sort))
 
 for opt in "$@"; do
   case "$opt" in
@@ -286,7 +286,7 @@ update_component() {
     echo "$(tput setaf 3)$progress_marker Installed JARs.$(tput sgr 0)"
   else
     # Find the OCI bazel target for the component as `package_oci_component` rule named `${component}-oci`
-    bazel_path=$(stdout_if_success bazel query "kind('package_oci_component', //...)" | grep "$target_name-oci")
+    bazel_path=$(stdout_if_success bazel query "kind('package_oci_component', //...) except attr('tags', 'ignore-oci', //...)" | grep "$target_name-oci")
     echo "$(tput setaf 5)$progress_marker Building $bazel_path.$(tput sgr 0)"
     # Build target
     DAML_SDK_RELEASE_VERSION=$COMPONENT_VERSION chronic bazel build "${BAZEL_MODE_FLAGS[@]}" "$bazel_path"

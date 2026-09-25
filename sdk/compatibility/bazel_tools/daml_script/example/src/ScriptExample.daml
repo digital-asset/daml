@@ -6,7 +6,12 @@
 module ScriptExample where
 
 import DA.Assert
+import DA.Exception
+import DA.Fail
+import DA.TextMap
+import DA.Time
 import Daml.Script
+import Daml.Script.Internal
 
 template Coin
   with
@@ -26,22 +31,10 @@ template CoinProposal
       controller coin.owner
       do create coin
 
-data LedgerParties = LedgerParties with
-  bank : Party
-  alice : Party
-  bob : Party
-
-initialize : LedgerParties -> Script ()
-initialize parties = do
-  (coinProposalAlice, coinProposalBob, coinProposalBank) <- submit parties.bank $ do
-    coinProposalAlice <- createCmd (CoinProposal (Coin parties.bank parties.alice))
-    coinProposalBob <- createCmd (CoinProposal (Coin parties.bank parties.bob))
-    coinProposalBank <- createCmd (CoinProposal (Coin parties.bank parties.bank))
-    pure (coinProposalAlice, coinProposalBob, coinProposalBank)
-
-  coinAlice <- submit parties.alice $ exerciseCmd coinProposalAlice Accept
-  coinBob <- submit parties.bob $ exerciseCmd coinProposalBob Accept
-  pure ()
+main : Script ()
+main = do
+  test
+  fullQuestionCoverage
 
 test : Script ()
 test = do
@@ -50,9 +43,15 @@ test = do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
   bank <- allocateParty "Bank"
-  let parties = LedgerParties bank alice bob
 
-  initialize parties
+  (coinProposalAlice, coinProposalBob, coinProposalBank) <- submit bank $ do
+    coinProposalAlice <- createCmd (CoinProposal (Coin bank alice))
+    coinProposalBob <- createCmd (CoinProposal (Coin bank bob))
+    coinProposalBank <- createCmd (CoinProposal (Coin bank bank))
+    pure (coinProposalAlice, coinProposalBob, coinProposalBank)
+
+  _ <- submit alice $ exerciseCmd coinProposalAlice Accept
+  _ <- submit bob $ exerciseCmd coinProposalBob Accept
 
   proposals <- query @CoinProposal bank
   assertEq [CoinProposal (Coin bank bank)] (map snd proposals)
@@ -63,15 +62,84 @@ test = do
   bobCoins <- query @Coin bob
   assertEq [Coin bank bob] (map snd bobCoins)
 
-  submitMustFail parties.alice $
-    createCmd (Coin parties.bank parties.alice)
+  submitMustFail alice $
+    createCmd (Coin bank alice)
 
   debug "Script executed successfully."
 
-initializeFixed : Script ()
-initializeFixed = do
-  bank <- allocateParty "Bank"
-  alice <- allocateParty "Alice"
-  bob <- allocateParty "Bob"
-  let parties = LedgerParties{..}
-  initialize parties
+template T
+  with
+    party : Party
+  where
+    signatory party
+
+    nonconsuming choice C : Bool
+      controller party
+      do pure True
+
+    nonconsuming choice F : ()
+      controller party
+      do throw $ GeneralError "failure in choice F"
+
+    interface instance I for T where
+      view = IView
+
+data IView = IView {}
+
+interface I where
+  viewtype IView
+
+-- Throws the failed auth error, a script we use for testing
+-- Takes a unit to avoid it being run directly
+failedAuthScript : () -> Script ()
+failedAuthScript _ = do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  a `submit` createCmd T with party = b
+  pure ()
+
+exampleFailureStatus : FailureStatus
+exampleFailureStatus = FailureStatus "my-error-code" InvalidGivenCurrentSystemStateOther "Something went wrong!" $ fromList [("thing-that-went-wrong", "something")]
+
+-- big script that uses as many questions as possible
+fullQuestionCoverage : Script ()
+fullQuestionCoverage = script do
+  alice <- allocateParty "alice"
+  -- Questions covered in same order as in ScriptF.scala
+  cid <- alice `submit` createCmd T with party = alice
+  _ <- query @T alice
+  _ <- queryContractId alice cid
+  _ <- queryInterface @I alice
+  _ <- queryInterfaceContractId @I alice $ coerceContractId cid
+  -- We do not check key functions, are they aren't supported in all our compatibility versions
+  _ <- listKnownParties
+  _ <- getTime
+  -- We do not run setTime as it is not supported in canton
+  _ <- sleep (milliseconds 1)
+  -- Secp256k1Sign
+  -- Secp256k1WithEcdsaSign
+  -- Secp256k1GenerateKeyPair
+  _ <- tryToEither $ \_ -> throw $ GeneralError "oh dear!"
+  userId <- validateUserId "user"
+  let user = User userId (Some alice)
+  createUser user [CanActAs alice]
+  _ <- getUser userId
+  _ <- listAllUsers
+  _ <- grantUserRights userId [CanReadAs alice]
+  _ <- revokeUserRights userId [CanReadAs alice]
+  _ <- listUserRights userId
+  deleteUser userId
+  -- Vetting/unvetting avoided for simplicity, since they're mostly internal anyway
+  -- also listPackages and listVettedPackages not supported with grpc ledger
+  _ <- tryCommands $ failedAuthScript ()
+  _ <- tryFailureStatus @() $ failWithStatus exampleFailureStatus
+  pure ()
+
+-- Wraps trySubmit from this daml-script version
+-- Allows us to test cross-sdk compatibility for SubmitOptions, Commands and SubmitError
+trySubmitWrapper : forall a. SubmitOptions -> Commands a -> Script (Either SubmitError a)
+trySubmitWrapper = trySubmit
+
+isUnknownError : SubmitError -> Bool
+isUnknownError (UnknownError _) = True
+isUnknownError _ = False
