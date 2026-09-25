@@ -15,7 +15,7 @@ variables:
   bazel_flags: >-
     --local_resources=cpu=HOST_CPUS
     --remote_upload_local_results=true
-    --remote_cache=http://10.0.2.10/cache/202610
+  vnet_cache: --remote_cache=http://10.0.2.10/cache/202610
 
 jobs:
 - job: linux
@@ -37,12 +37,12 @@ jobs:
     - bash: |
         set -euo pipefail
         cd sdk
-        bazelisk build //... $(bazel_flags)
+        bazelisk build //... $(bazel_flags) $(vnet_cache)
       displayName: 'Build'
     - bash: |
         set -euo pipefail
         cd sdk
-        bazelisk test //... $(bazel_flags)
+        bazelisk test //... $(bazel_flags) $(vnet_cache)
       displayName: 'Test'
 
 - job: macos
@@ -62,15 +62,49 @@ jobs:
       clean: true
     - template: bazelisk-unix.yml
     - bash: |
+        set -uo pipefail
+        cache_flags="--remote_cache=https://bazel-cache.da-ext.net/202610"
+        key=""
+        if [ -n "${GCRED:-}" ]; then
+          key="${AGENT_TEMPDIRECTORY:-/tmp}/gcred-${BUILD_BUILDID}.json"
+          rm -f "$key"
+          umask 077
+          set -C
+          if printf '%s' "$GCRED" > "$key"; then
+            cache_flags="$cache_flags --google_credentials=$key"
+            echo "credentials present; uploads enabled"
+          else
+            echo "could not stage credentials; falling back to read-only"
+            key=""
+            cache_flags="$cache_flags --remote_upload_local_results=false"
+          fi
+          set +C
+        else
+          cache_flags="$cache_flags --remote_upload_local_results=false"
+          echo "no credentials; remote cache is read-only for this job"
+        fi
+        echo "##vso[task.setvariable variable=gcred_key]$key"
+        echo "##vso[task.setvariable variable=cache_flags]$cache_flags"
+      displayName: 'Configure remote cache'
+      env:
+        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    - bash: |
         set -euo pipefail
         cd sdk
-        bazelisk build //... $(bazel_flags)
+        bazelisk build //... $(bazel_flags) $(cache_flags)
       displayName: 'Build'
     - bash: |
         set -euo pipefail
         cd sdk
-        bazelisk test //... $(bazel_flags)
+        bazelisk test //... $(bazel_flags) $(cache_flags)
       displayName: 'Test'
+    - bash: |
+        if [ -n "${KEY:-}" ]; then rm -f "$KEY"; fi
+        (cd sdk && bazelisk shutdown) || true
+      displayName: 'Remove credentials'
+      condition: always()
+      env:
+        KEY: $(gcred_key)
 
 - job: windows
   displayName: 'Windows'
@@ -134,10 +168,10 @@ jobs:
     - powershell: |
         $ErrorActionPreference = 'Stop'
         Set-Location sdk
-        bazelisk build //... $(bazel_flags)
+        bazelisk build //... $(bazel_flags) $(vnet_cache)
       displayName: 'Build'
     - powershell: |
         $ErrorActionPreference = 'Stop'
         Set-Location sdk
-        bazelisk test //... $(bazel_flags)
+        bazelisk test //... $(bazel_flags) $(vnet_cache)
       displayName: 'Test'
