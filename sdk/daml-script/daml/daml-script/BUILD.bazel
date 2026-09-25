@@ -47,3 +47,21 @@ genrule(
     ],
     visibility = ["//daml-script/daml:__pkg__"],
 )
+
+# Daml-script without FailureStatus SubmitError for compatibility testing
+daml_compile(
+    name = "daml-script-no-failure-status",
+    srcs = glob(["**/*.daml"]),
+    data_dependencies = ["//daml-script/daml/daml-script-stable:{}.dar".format(name) for name in SCRIPT_STABLE_PACKAGES],
+    disable_deprecated_exceptions = True,
+    force_utility_package = True,
+    # Force daml files to be under `daml` directory, to match previous behaviour
+    generated_daml_source_directory = "daml",
+    patches = [":drop-failure-status-error.patch"],
+    project_name = "daml-script",
+    target = DEFAULT_LF_VERSION,
+    # Fixed version to avoid collisions in compat tests, never part of any release artifact.
+    # Must be at least 3.6.0 to be supported as a data-dep, due to logic in DA.Daml.Resolution.Config.isSupportedAsDataDep
+    version = "3.6.0",
+    visibility = ["//daml-script/daml:__pkg__"],
+)

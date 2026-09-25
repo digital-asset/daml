@@ -8,42 +8,44 @@ load(
 load("//bazel_tools:versions.bzl", "version_to_name", "versions")
 load("//bazel_tools:testing.bzl", "extra_tags")
 
-def daml_script_example_dar(sdk_version):
+def daml_script_example_dar(sdk_version, override_daml_script = None):
     daml = "@daml-sdk-{sdk_version}//:daml".format(
         sdk_version = sdk_version,
     )
+    ext = "" if override_daml_script == None else "-with-script-override"
     native.genrule(
-        name = "script-example-dar-{sdk_version}".format(
+        name = "script-example-dar-{sdk_version}{ext}".format(
             sdk_version = version_to_name(sdk_version),
+            ext = ext,
         ),
-        srcs = ["//bazel_tools/daml_script:example/src/ScriptExample.daml"],
-        outs = ["script-example-{sdk_version}.dar".format(
+        srcs = ["//bazel_tools/daml_script:example/src/ScriptExample.daml"] + ([] if override_daml_script == None else [override_daml_script]),
+        outs = ["script-example-{sdk_version}{ext}.dar".format(
             sdk_version = version_to_name(sdk_version),
+            ext = ext,
         )],
-        tools = [daml],
+        tools = [daml, "@tar_dev_env//:tar"],
         cmd = """\
 set -euo pipefail
 TMP_DIR=$$(mktemp -d)
 DAML_CACHE=$$(mktemp -d)
 cleanup() {{ rm -rf $$TMP_DIR; }}
 trap cleanup EXIT
+{extract_script}
 mkdir -p $$TMP_DIR/src
 cp -L $(location //bazel_tools/daml_script:example/src/ScriptExample.daml) $$TMP_DIR/src/
 cat <<EOF >$$TMP_DIR/daml.yaml
-sdk-version: {sdk_version}
+{component_spec}
 name: script-example
 source: src
-parties:
-  - Alice
-  - Bob
-  - Bank
 version: 0.0.1
 dependencies:
   - daml-prim
   - daml-stdlib
   - daml-script
-sandbox-options:
-  - --wall-clock-time
+build-options:
+  - -Wno-deprecated-exceptions
+  - -Wno-upgrade-interfaces
+  - -Wno-template-interface-depends-on-daml-script
 EOF
 # TODO(dpm#12) Dpm doesn't support building a package via any kind of `--package-root` flag, so we must CD for now. Revert back to a flag once dpm supports this
 PREV_PWD=$$PWD
@@ -51,7 +53,15 @@ cd $$TMP_DIR
 DAML_CACHE=$$DAML_CACHE $$PREV_PWD/$(location {daml}) build -o $$PREV_PWD/$(OUTS)
 """.format(
             daml = daml,
-            sdk_version = sdk_version,
+            extract_script =
+                "" if override_daml_script == None else "mkdir -p $$TMP_DIR/script-component-extracted && $(location @tar_dev_env//:tar) -xf $(location {script}) -C $$TMP_DIR/script-component-extracted".format(script = override_daml_script),
+            component_spec =
+                "sdk-version: {sdk_version}".format(sdk_version = sdk_version) if override_daml_script == None else """\
+components:
+  - name: daml-script
+    path: ./script-component-extracted
+  - damlc:{sdk_version}
+""".format(sdk_version = sdk_version),
         ),
     )
 
@@ -91,17 +101,15 @@ runner=$$(canonicalize_rlocation $(rootpath {runner}))
 # Cleanup the trigger runner process but maintain the script runner exit code.
 trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
 
-if [ {wait_for_port_file} -eq 1 ]; then
-    timeout=60
-    while [ ! -e _port_file ]; do
-        if [ "$$timeout" = 0 ]; then
-            echo "Timed out waiting for Canton startup" >&2
-            exit 1
-        fi
-        sleep 1
-        timeout=$$((timeout - 1))
-    done
-fi
+timeout=60
+while [ ! -e _port_file ]; do
+    if [ "$$timeout" = 0 ]; then
+        echo "Timed out waiting for Canton startup" >&2
+        exit 1
+    fi
+    sleep 1
+    timeout=$$((timeout - 1))
+done
 
 DAML_SDK_VERSION={runner_version} $$runner script \\
   --ledger-host localhost \\
@@ -116,7 +124,6 @@ chmod +x $(OUTS)
             runner = daml_runner,
             runner_version = runner_version,
             script_name = script_name,
-            wait_for_port_file = "1",
         ),
         tools = [
             compiled_dar,
@@ -160,5 +167,5 @@ def daml_script_example_test(compiler_version, runner_version):
         compiled_dar = "//:script-example-dar-{version}".format(
             version = version_to_name(compiler_version),
         ),
-        script_name = "ScriptExample:test",
+        script_name = "ScriptExample:main",
     )

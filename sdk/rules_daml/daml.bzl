@@ -131,6 +131,8 @@ def _daml_build_impl(ctx):
     input_dars = [file_of_target(k) for k in dar_dict.keys()]
     output_dar = ctx.outputs.dar
     output_stdout = ctx.outputs.stdout
+    patches = ctx.files.patches
+
     if ctx.outputs.srcout != None:
         ctx.actions.write(ctx.outputs.srcout, "\n".join([src.path for src in srcs]))
 
@@ -138,11 +140,12 @@ def _daml_build_impl(ctx):
     ghc_opts = ctx.attr.ghc_options
     ctx.actions.run_shell(
         tools = [damlc],
-        inputs = [daml_yaml] + srcs + input_dars,
+        inputs = [daml_yaml] + srcs + input_dars + patches,
         outputs = [output_dar] + ([output_stdout] if output_stdout != None else []),
         progress_message = "Building Daml project %s" % name,
         command = """
             set -eou pipefail
+            rootdir=$(pwd)
             tmpdir=$(mktemp -d)
             trap "rm -rf $tmpdir" EXIT
             cp -f {config} $tmpdir/daml.yaml
@@ -162,6 +165,7 @@ def _daml_build_impl(ctx):
                 fi
             fi
             {cp_srcs}
+            (cd $tmpdir/{generated_daml_source_directory}{apply_patches})
             {cp_dars}
             {damlc} build --project-root $tmpdir {ghc_opts} -o $PWD/{output_dar} 2>&1 | {output_stdout_command}
         """.format(
@@ -180,6 +184,10 @@ def _daml_build_impl(ctx):
                 )
                 for k, v in dar_dict.items()
             ]),
+            apply_patches = "".join([
+                " && {apply_patch} -p1 -i $rootdir/{patch}".format(apply_patch = posix.commands["patch"], patch = patch.path)
+                for patch in patches
+            ]),
             dars = dar_dict,
             sed = posix.commands["sed"],
             damlc = damlc.path,
@@ -187,6 +195,7 @@ def _daml_build_impl(ctx):
             output_stdout_command = "tee " + output_stdout.path if output_stdout != None else "cat",
             sdk_version = sdk_version,
             ghc_opts = " ".join(ghc_opts),
+            generated_daml_source_directory = generated_daml_source_directory,
         ),
     )
 
@@ -224,6 +233,10 @@ _daml_build = rule(
         ),
         "generated_daml_source_directory": attr.string(
             doc = "Source field in daml.yaml.",
+        ),
+        "patches": attr.label_list(
+            doc = "Patches to apply to the Daml project.",
+            allow_files = [".patch"],
         ),
         "damlc": _damlc,
     },
@@ -370,6 +383,7 @@ def daml_compile(
         generated_daml_source_directory = None,
         force_utility_package = False,
         disable_deprecated_exceptions = False,
+        patches = [],
         **kwargs):
     "Build a Daml project, with a generated daml.yaml."
     if len(srcs) == 0:
@@ -406,6 +420,7 @@ def daml_compile(
             (["--enable-interfaces=no"] if not enable_interfaces and using_local_compiler(target) else []),
         damlc = damlc_for_target(target),
         generated_daml_source_directory = generated_daml_source_directory,
+        patches = patches,
         **kwargs
     )
     _inspect_dar(

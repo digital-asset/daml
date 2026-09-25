@@ -40,9 +40,11 @@ bazel build `
   `-`-execution_log_binary_file ${ARTIFACT_DIRS}/build_execution_windows.log `
   `-`-noexecution_log_sort `
   //release:dpm-sdk-release-tarball `
-  @dpm_binary//:dpm
+  @dpm_binary//:dpm `
+  //daml-script/runner:daml-script-no-failure-status-oci
 
 git clean -fxd -e 'daml-*.tgz' compatibility/head_sdk
 
 cp -Force bazel-bin\release\dpm-sdk-release-tarball.tar.gz compatibility/head_sdk
 cp -Force bazel-bin\external\dpm_binary\dpm.exe compatibility/head_sdk
+cp -Force bazel-bin\daml-script\runner\daml-script-no-failure-status-oci.tar.gz compatibility/head_sdk
