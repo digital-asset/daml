@@ -1379,17 +1379,17 @@
     },
     "com.github.ben-manes.caffeine:caffeine": {
       "shasums": {
-        "jar": "7dd15f9df1be238ffaa367ce6f556737a88031de4294dad18eef57c474ddf1d3",
-        "sources": "7c8237f5d8f23654e7091056316a3730636b7a0f2e6fce450e2bd522090d6b7f"
+        "jar": "abc0622a6f3ffc60e34a06bccd334b70cfa96b7be7824e73423944464df8ccf6",
+        "sources": "556721ba39db04bf813f72631f4df834bf92dd53d17602c8f47f766a58699f7f"
       },
-      "version": "3.1.8"
+      "version": "3.1.1"
     },
     "com.github.blemale:scaffeine_2.13": {
       "shasums": {
-        "jar": "0d73d81bd6b5c57feb75f5cd1884f49c41b7b66371be38bee7dbaaa4b41ca524",
-        "sources": "2d418042bb71a16044adedf36b4cbbcab8969c751c18b988e280907302965525"
+        "jar": "203b2cea585b9194d6f73ae0070395356af557a4bebbaf2cebb58ca954093393",
+        "sources": "65d85e5d44c93a4d7a4d28ea81fd9bd3c0586e3a4853aae860cda2c9785f9c92"
       },
-      "version": "5.3.0"
+      "version": "5.2.1"
     },
     "com.github.luben:zstd-jni": {
       "shasums": {
@@ -1672,17 +1672,17 @@
     },
     "com.spotify:magnolify-scalacheck_2.13": {
       "shasums": {
-        "jar": "f02fdcce1bdb4d83305453cb2177b4e358e7418daf6e9b8c0da0d8b598ba51d4",
-        "sources": "b78b53c43c8d32b13648365cba8b81ac90c5e453e60f900c5f60e15ac55956a7"
+        "jar": "29920287cf84d4b72aaf53cb277b395771187972e2030b3410cd56a0861a0426",
+        "sources": "f4ac31f738bd4128afef15d4a41fe8685bf4804e05f57e657b3dac0ac23c2cdb"
       },
-      "version": "0.9.8"
+      "version": "0.6.2"
     },
     "com.spotify:magnolify-shared_2.13": {
       "shasums": {
-        "jar": "89d7d87139f59c3f58de0f51e537ad7f651138158e0773393d96f4b4ad35b568",
-        "sources": "6ea293a5be57c7c48e5d836e002965110272ac236131e4cd9aaa5e28f1b7f61f"
+        "jar": "267ea89d2076c7c9dfb26daa99a5d86cb2fb909cc2242184128c9d20d62ac69d",
+        "sources": "d010a426e5f00055d09179b06dbeb6482a1f8b94a89a99d3c1615c7d0e12e0e3"
       },
-      "version": "0.9.8"
+      "version": "0.6.2"
     },
     "com.squareup.okhttp3:okhttp": {
       "shasums": {
@@ -1798,10 +1798,10 @@
     },
     "com.typesafe.scala-logging:scala-logging_2.13": {
       "shasums": {
-        "jar": "0ad0c3f4d89d538b3b6c300158555e266aa69cf1b5f6522aba8b5bad238eb994",
-        "sources": "2a7f0487e3b6ec5e38eb82e4f7fcbf4f648b4d653368dbd39bf52dd7e4b39689"
+        "jar": "87a3017d3f43e6ace7566fe4c3d615134c6914ff871c8d64bb32ca1d996d0545",
+        "sources": "db07c47dd691dc4208338364f395fb39448f2d5d29a8b68d099488e9adb1af05"
       },
-      "version": "3.9.6"
+      "version": "3.9.5"
     },
     "com.typesafe.slick:slick-hikaricp_2.13": {
       "shasums": {
@@ -2964,10 +2964,10 @@
     },
     "org.scala-lang.modules:scala-collection-compat_2.13": {
       "shasums": {
-        "jar": "95986ac32df70c9ebdd96edfb276cdc038deedbe600177a45f6584022f34a13f",
-        "sources": "56672b16b5573d4c91e66ae6682ab3ef6d0ff4335ebffc4fdfe408bb4117b409"
+        "jar": "befff482233cd7f9a7ca1e1f5a36ede421c018e6ce82358978c475d45532755f",
+        "sources": "1a60fde64d08f19fe2ce38d99accf6cfefa4eeac3c194fa36ef5f6b89b5f7564"
       },
-      "version": "2.14.0"
+      "version": "2.12.0"
     },
     "org.scala-lang.modules:scala-collection-contrib_2.13": {
       "shasums": {
@@ -5526,6 +5526,7 @@
       "com.digitalasset.canton.crypto.store.memory",
       "com.digitalasset.canton.crypto.topology",
       "com.digitalasset.canton.crypto.v30",
+      "com.digitalasset.canton.crypto.v31",
       "com.digitalasset.canton.crypto.verifier",
       "com.digitalasset.canton.data",
       "com.digitalasset.canton.driver.v1",
@@ -5600,7 +5601,6 @@
       "com.digitalasset.canton.version",
       "com.digitalasset.canton.version.v1",
       "com.digitalasset.nonempty",
-      "com.google.common.util.concurrent",
       "slick.util"
     ],
     "com.daml:community-common_2.13": [
@@ -9355,9 +9355,9 @@
       "software.amazon.awssdk.thirdparty.jackson.core.exc",
       "software.amazon.awssdk.thirdparty.jackson.core.filter",
       "software.amazon.awssdk.thirdparty.jackson.core.format",
-      "software.amazon.awssdk.thirdparty.jackson.core.internal.shaded.fdp.v2_21_6",
-      "software.amazon.awssdk.thirdparty.jackson.core.internal.shaded.fdp.v2_21_6.bte",
-      "software.amazon.awssdk.thirdparty.jackson.core.internal.shaded.fdp.v2_21_6.chr",
+      "software.amazon.awssdk.thirdparty.jackson.core.internal.shaded.fdp.v2_21_4",
+      "software.amazon.awssdk.thirdparty.jackson.core.internal.shaded.fdp.v2_21_4.bte",
+      "software.amazon.awssdk.thirdparty.jackson.core.internal.shaded.fdp.v2_21_4.chr",
       "software.amazon.awssdk.thirdparty.jackson.core.io",
       "software.amazon.awssdk.thirdparty.jackson.core.io.schubfach",
       "software.amazon.awssdk.thirdparty.jackson.core.json",
