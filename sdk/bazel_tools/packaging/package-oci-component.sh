@@ -15,8 +15,8 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 # Make sure that runfiles and tools are still found after we change directory.
 case "$(uname -s)" in
   Darwin)
-    abspath() { python -c 'import os.path, sys; sys.stdout.write(os.path.abspath(sys.argv[1]))' "$@"; }
-    canonicalpath() { python -c 'import os.path, sys; sys.stdout.write(os.path.realpath(sys.argv[1]))' "$@"; }
+    abspath() { case "$1" in /*) printf '%s' "$1" ;; *) printf '%s' "$PWD/$1" ;; esac; }
+    canonicalpath() { readlink -f "$@"; }
     ;;
   *)
     abspath() { realpath -s "$@"; }
@@ -28,19 +28,24 @@ if [[ -n ${RUNFILES_DIR:-} ]]; then
   export RUNFILES_DIR=$(abspath $RUNFILES_DIR)
 fi
 if [[ -n ${RUNFILES_MANIFEST_FILE:-} ]]; then
-  export RUNFILES_DIR=$(abspath $RUNFILES_MANIFEST_FILE)
+  export RUNFILES_MANIFEST_FILE=$(abspath $RUNFILES_MANIFEST_FILE)
 fi
 
-case "$(uname -s)" in
-  Darwin|Linux)
-    tar=$(abspath $(rlocation tar_dev_env/tar))
-    mktgz=$(abspath $(rlocation com_github_digital_asset_daml/bazel_tools/sh/mktgz))
-    ;;
-  CYGWIN*|MINGW*|MSYS*)
-    tar=$(abspath $(rlocation tar_dev_env/usr/bin/tar.exe))
-    mktgz=$(abspath $(rlocation com_github_digital_asset_daml/bazel_tools/sh/mktgz.exe))
-    ;;
-esac
+runfile_by_name() {
+  local name="$1"
+  if [[ -n "${RUNFILES_DIR:-}" && -d "${RUNFILES_DIR}" ]]; then
+    find "${RUNFILES_DIR}" -maxdepth 2 \( -name "$name" -o -name "$name.exe" \) | head -1
+  elif [[ -n "${RUNFILES_MANIFEST_FILE:-}" && -f "${RUNFILES_MANIFEST_FILE}" ]]; then
+    grep -E "(^|/)$name(\.exe)? " "${RUNFILES_MANIFEST_FILE}" | head -1 | cut -f2- -d' '
+  fi
+}
+
+MKTGZ="$(rlocation _main/bazel_tools/sh/mktgz || true)"
+if [[ -z "${MKTGZ:-}" ]]; then
+  MKTGZ="$(rlocation _main/bazel_tools/sh/mktgz.exe || true)"
+fi
+MKTGZ=$(abspath "$MKTGZ")
+TAR="$(runfile_by_name tar)"
 
 set -eou pipefail
 
@@ -56,10 +61,10 @@ componentpath="$WORKDIR/component.yaml"
 cp $MANIFEST $WORKDIR
 case "$(uname -s)" in
   Darwin|Linux)
-    sed -i -e 's/${EXE}//g' $componentpath
+    sed -i.bak -e 's/${EXE}//g' $componentpath && rm -f "$componentpath.bak"
     ;;
   CYGWIN*|MINGW*|MSYS*)
-    sed -i -e 's/${EXE}/.exe/g' $componentpath
+    sed -i.bak -e 's/${EXE}/.exe/g' $componentpath && rm -f "$componentpath.bak"
     ;;
 esac
 
@@ -75,7 +80,7 @@ for res in "$@"; do
       RAWNAME=${BASENAME%%.*}
       # unzip to a directory, as these often have internal relative symlinks to top level, which oras (used by DPM to download artifacts) can't handle right now
       mkdir -p "$WORKDIR/$RAWNAME"
-      $tar xf "$res" --strip-components=1 -C "$WORKDIR/$RAWNAME"
+      $TAR xf "$res" --strip-components=1 -C "$WORKDIR/$RAWNAME"
       ;;
     *)
       cp $res $WORKDIR
@@ -88,4 +93,4 @@ for dir in $(find $WORKDIR -type d -name '*.exe'); do
   mv $dir ${dir%.*}
 done
 
-cd $WORKDIR && $mktgz $OUT *
+cd $WORKDIR && $MKTGZ $OUT *

@@ -1,9 +1,9 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//daml-lf:daml-lf.bzl", "SUPPORTED_PROTO_STABLE_LF_VERSIONS")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
+load("//daml-lf:daml-lf.bzl", "SUPPORTED_PROTO_STABLE_LF_VERSIONS")
 
 dpm_inputs = {
     "damlc": "//compiler/damlc:damlc-oci.tar.gz",

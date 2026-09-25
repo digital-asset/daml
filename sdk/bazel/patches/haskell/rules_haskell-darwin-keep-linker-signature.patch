@@ -1,0 +1,110 @@
+diff --git a/haskell/private/cc_wrapper.py.tpl b/haskell/private/cc_wrapper.py.tpl
+--- a/haskell/private/cc_wrapper.py.tpl
++++ b/haskell/private/cc_wrapper.py.tpl
+@@ -670,10 +670,11 @@
+ 
+ 
+ def darwin_shorten_rpaths(rpaths, libraries, output):
+-    """Avoid redundant rpaths and adapt library load commands.
++    """Determine the rpaths required to load the library dependencies.
+ 
+-    Avoids redundant rpaths by detecting the solib directory and making load
+-    commands relative to the solib directory where applicable.
++    Emits one rpath entry per directory in which a dependency was found,
++    including subdirectories of Bazel's _solib_* tree, and leaves the load
++    commands exactly as the linker wrote them.
+ 
+     Args:
+       rpaths: List of given rpaths.
+@@ -683,79 +684,35 @@
+     Returns:
+       (rpaths, rewrites):
+         rpaths: List of required rpaths.
+-        rewrites: List of load command rewrites.
++        rewrites: Always empty, so the linker-signed code signature survives.
+ 
+     """
+     input_rpaths = sort_rpaths(rpaths)
+-
+-    # Keeps track of libraries that were not yet found in an rpath.
+     libs_still_missing = set(libraries)
+-    # Keeps track of rpaths in which we found libraries.
+     required_rpaths = []
+-    # Keeps track of required rewrites of load commands.
+-    rewrites = []
+ 
+-    # References to core libs take up much space. Consider detecting the GHC
+-    # libdir and adding an rpath for that and making load commands relative to
+-    # that. Alternatively, https://github.com/bazelbuild/bazel/pull/8888 would
+-    # also avoid this issue.
++    def require(rpath):
++        if rpath not in required_rpaths:
++            required_rpaths.append(rpath)
+ 
+-    # Determine solib dir and rewrite load commands relative to solib dir.
+-    #
+-    # This allows to replace potentially many rpaths by a single one on Darwin.
+-    # Namely, Darwin allows to explicitly refer to the rpath in load commands.
+-    # E.g.
+-    #
+-    #   LOAD @rpath/somedir/libsomelib.dylib
+-    #
+-    # With that we can avoid multiple rpath entries of the form
+-    #
+-    #   RPATH @loader_path/.../_solib_*/mangled_a
+-    #   RPATH @loader_path/.../_solib_*/mangled_b
+-    #   RPATH @loader_path/.../_solib_*/mangled_c
+-    #
+-    # And instead have a single rpath and load commands as follows
+-    #
+-    #   RPATH @loader_path/.../_solib_*
+-    #   LOAD @rpath/mangled_a/lib_a
+-    #   LOAD @rpath/mangled_b/lib_b
+-    #   LOAD @rpath/mangled_c/lib_c
+-    #
+     solib_rpath = find_solib_rpath(input_rpaths, output)
+     if libs_still_missing and solib_rpath is not None:
+         solib_rpath, solib_dir = resolve_rpath(solib_rpath, output)
++        found, libs_still_missing = find_library_recursive(
++                libs_still_missing, solib_dir)
++        for relpath in found.values():
++            subdir = os.path.dirname(relpath)
++            require(os.path.join(solib_rpath, subdir) if subdir else solib_rpath)
+ 
+-        found, libs_still_missing = find_library_recursive(libs_still_missing, solib_dir)
+-        if found:
+-            required_rpaths.append(solib_rpath)
+-            for f in found.values():
+-                # Determine rewrites of load commands to load libraries
+-                # relative to the solib dir rpath entry.
+-                soname = darwin_get_install_name(os.path.join(solib_dir, f))
+-                rewrites.append((soname, f))
+-
+-    # For the remaining missing libraries, determine which rpaths are required.
+-    # Iterate over the given rpaths until all libraries are found.
+     for rpath in input_rpaths:
+         if not libs_still_missing:
+             break
+         rpath, rpath_dir = resolve_rpath(rpath, output)
+         found, libs_still_missing = find_library(libs_still_missing, rpath_dir)
+-        # Libraries with an absolute install_name don't require an rpath entry
+-        # and can be filtered out.
+-        found = dict(itertools.filterfalse(
+-                lambda item: os.path.isabs(darwin_get_install_name(os.path.join(rpath_dir, item[1]))),
+-                found.items()))
+-        if len(found) == 1:
+-            # If the rpath is only needed for one load command, then we can
+-            # avoid the rpath entry by fusing the rpath into the load command.
+-            [filename] = found.values()
+-            soname = darwin_get_install_name(os.path.join(rpath_dir, filename))
+-            rewrites.append((soname, os.path.join(rpath, filename)))
+-        elif found:
+-            required_rpaths.append(rpath)
++        if found:
++            require(rpath)
+ 
+-    return required_rpaths, rewrites
++    return required_rpaths, []
+ 
+ 
+ def sort_rpaths(rpaths):

@@ -1,0 +1,18 @@
+diff --git a/haskell/private/cabal_wrapper.py b/haskell/private/cabal_wrapper.py
+--- a/haskell/private/cabal_wrapper.py
++++ b/haskell/private/cabal_wrapper.py
+@@ -214,12 +214,10 @@
+         else:
+             distdir_root = os.path.dirname(pkgroot)
+     if is_windows:
+-        # On Windows we use a fixed length directory name to avoid exceeding
+-        # `MAX_PATH` on targets with long names.
+-        distdir_name = hashlib.md5(name.encode("utf-8")).hexdigest()
++        distdir_name = "{}-{}".format(name, hashlib.md5(rel_pkgroot.encode("utf-8")).hexdigest()[:8])
+     else:
+         distdir_name = name
+-    return os.path.join(distdir_root, name)
++    return os.path.join(distdir_root, distdir_name)
+ 
+ # Build into a temporary distdir that will be cleaned up after the build. The
+ # path to this distdir enters into flags that are passed to GHC and thereby

@@ -28,7 +28,11 @@ canonicalize_rlocation() {
   # compatibility/../daml-sdk-0.0.0/daml. On Linux and MacOS this works
   # just fine. However, on windows we need to normalize the path
   # or rlocation will fail to find the path in the manifest file.
-  rlocation $(realpath -L -s -m --relative-to=$PWD %workspace%/$1)
+  if [[ %os% = macos ]]; then
+    rlocation "%workspace%/$1"
+  else
+    rlocation $(realpath -L -s -m --relative-to=$PWD %workspace%/$1)
+  fi
 }
 get_exe() {
   # Usage: get_exe FILE...
