@@ -12,16 +12,16 @@ def daml_script_example_dar(sdk_version, override_daml_script = None):
     daml = "@daml-sdk-{sdk_version}//:daml".format(
         sdk_version = sdk_version,
     )
-    ext = "" if override_daml_script == None else "-with-script-override"
+    suffix = "" if override_daml_script == None else "-with-script-override"
     native.genrule(
-        name = "script-example-dar-{sdk_version}{ext}".format(
+        name = "script-example-dar-{sdk_version}{suffix}".format(
             sdk_version = version_to_name(sdk_version),
-            ext = ext,
+            suffix = suffix,
         ),
         srcs = ["//bazel_tools/daml_script:example/src/ScriptExample.daml"] + ([] if override_daml_script == None else [override_daml_script]),
-        outs = ["script-example-{sdk_version}{ext}.dar".format(
+        outs = ["script-example-{sdk_version}{suffix}.dar".format(
             sdk_version = version_to_name(sdk_version),
-            ext = ext,
+            suffix = suffix,
         )],
         tools = [daml, "@tar_dev_env//:tar"],
         cmd = """\

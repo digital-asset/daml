@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools/daml_script:daml_script.bzl", "daml_script_test")
-load("//bazel_tools:versions.bzl", "versions")
+load("//bazel_tools:versions.bzl", "version_to_name", "versions")
 
 def _build_dar(
         name,
@@ -145,9 +145,9 @@ def data_dependencies_upgrade_test(old_sdk_version, new_sdk_version):
 # This test ensures cross-sdk compatibility with daml-script versions that support it
 # and otherwise checks only this regression: https://github.com/digital-asset/daml/issues/14291
 def data_dependencies_daml_script_test(old_sdk_version, run_unknown_failure_test = False):
-    name = "data-dependencies-script-0.0.0-on-{old_sdk_version}{ext}".format(
-        old_sdk_version = old_sdk_version,
-        ext = "" if not run_unknown_failure_test else "-unknown-failure",
+    name = "data-dependencies-script-0.0.0-on-{old_sdk_version}{suffix}".format(
+        old_sdk_version = version_to_name(old_sdk_version),
+        suffix = "" if not run_unknown_failure_test else "-unknown-failure",
     )
 
     # For some reason, is_at_least(a, b) runs checks b >= a, so counter-intuitively, this
@@ -162,9 +162,9 @@ def data_dependencies_daml_script_test(old_sdk_version, run_unknown_failure_test
         package_name = "data-dependencies-script",
         srcs = ["//bazel_tools/data_dependencies:daml_script_test/ScriptExampleWrapper.daml"],
         data_dependencies = [
-            "//:script-example-dar-{old_sdk_version}{ext}".format(
-                old_sdk_version = old_sdk_version,
-                ext = "" if not run_unknown_failure_test else "-with-script-override",
+            "//:script-example-dar-{old_sdk_version}{suffix}".format(
+                old_sdk_version = version_to_name(old_sdk_version),
+                suffix = "" if not run_unknown_failure_test else "-with-script-override",
             ),
         ],
         stable_script_support = supports_stable_script,
