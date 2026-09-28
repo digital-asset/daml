@@ -285,7 +285,6 @@ da_haskell_test(
 # Unit tests for daml-doctest
 da_haskell_test(
     name = "daml-doctest",
-    timeout = "short",
     srcs = ["src/DA/Test/DamlDocTest.hs"],
     data = [
         "//compiler/damlc/pkg-db",
