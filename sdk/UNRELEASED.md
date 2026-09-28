@@ -29,6 +29,9 @@ Wednesday after your change.
 
 ## Until 2026-09-15 (Exclusive)
 
+- TypeScript codegen bugfix: `templateIdWithPackageId` / `interfaceIdWithPackageId` now use the bare
+  package-id reference (`<package-id>:Module:Entity`) instead of a `#`-prefixed value, matching
+  the identifiers returned by the ledger (e.g. interface-view `interfaceId`) and the Java codegen.
 - Daml Codegen: `peer-dependencies` changed to camelCase `peerDependencies`, matching the expected reference in [NPM](https://docs.npmjs.com/cli/v9/configuring-npm/package-json?v=true#peerdependencies).
 
 ## Until 2026-09-08 (Exclusive)
@@ -142,4 +145,3 @@ Wednesday after your change.
     function () { return exports.EmptyInterfaceView; },
     {
   ```
-

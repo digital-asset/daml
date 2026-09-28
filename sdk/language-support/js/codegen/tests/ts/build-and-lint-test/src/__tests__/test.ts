@@ -950,6 +950,15 @@ describe("interface definition", () => {
       tpl.templateIdWithPackageId,
     );
   });
+  test("incorrectly formatted template or package ID", () => {
+    for (const c of [tpl, if1, if2]) {
+      expect(c.templateId.startsWith("#")).toBe(true);
+      expect(c.templateIdWithPackageId.startsWith("#")).toBe(false);
+      expect(c.templateIdWithPackageId).toMatch(
+        new RegExp(`^${buildAndLint.packageId}:.+:.+$`),
+      );
+    }
+  });
   test("choices not copied to interfaces", () => {
     const key1 = "Transfer";
     const key2 = "Something";
