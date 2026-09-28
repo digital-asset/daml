@@ -1,5 +1,20 @@
+_SYSCTL_FALLBACK_PATHS = [
+    "/usr/sbin/sysctl",
+    "/sbin/sysctl",
+]
+
+def _find_sysctl(repository_ctx):
+    found = repository_ctx.which("sysctl")
+    if found:
+        return found
+    for candidate in _SYSCTL_FALLBACK_PATHS:
+        path = repository_ctx.path(candidate)
+        if path.exists:
+            return path
+    return None
+
 def _sysctl_impl(repository_ctx):
-    sysctl = repository_ctx.which("sysctl")
+    sysctl = _find_sysctl(repository_ctx)
     if sysctl:
         repository_ctx.symlink(sysctl, "bin/sysctl")
     else:
