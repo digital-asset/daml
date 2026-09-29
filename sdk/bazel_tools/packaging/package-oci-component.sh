@@ -53,7 +53,7 @@ PLATFORM_AGNOSTIC=$3
 shift 3
 
 componentpath="$WORKDIR/component.yaml"
-cp $MANIFEST $WORKDIR
+cp $MANIFEST $componentpath
 case "$(uname -s)" in
   Darwin|Linux)
     sed -i -e 's/${EXE}//g' $componentpath

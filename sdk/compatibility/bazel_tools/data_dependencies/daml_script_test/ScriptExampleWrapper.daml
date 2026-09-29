@@ -1,0 +1,39 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+
+module ScriptExampleWrapper (mainWrapper) where
+
+import Daml.Script
+
+import ScriptExample qualified
+
+-- When using stable script, we use scripts from the other package
+-- Otherwise, we simply re-export `ScriptExample.main` to ensure data-deps maintains the original type
+-- Type signature omitted such that GHC can determine which Script to use (either stable or old_sdk_version's)
+mainWrapper = do
+  ScriptExample.main
+#ifdef STABLE_SCRIPT_SUPPORT
+  submitTest
+#ifdef RUN_UNKNOWN_FAILURE_TEST
+  submitTestUnknownFailureStatus
+#endif
+
+submitTest : Script ()
+submitTest = do
+  alice <- allocateParty "alice"
+  result <- ScriptExample.trySubmitWrapper (actAs alice) $ createAndExerciseCmd (ScriptExample.T alice) ScriptExample.C
+  case result of
+    Right True -> pure ()
+    _ -> fail $ "Expected success but got " <> show result
+
+-- Test where Dep uses a daml-script that doesn't know about failure status, but Main does
+submitTestUnknownFailureStatus : Script ()
+submitTestUnknownFailureStatus = do
+  alice <- allocateParty "alice"
+  result <- ScriptExample.trySubmitWrapper (actAs alice) $ createAndExerciseCmd (ScriptExample.T alice) ScriptExample.F
+  case result of
+    Left err@(FailureStatusError _) -> assert $ ScriptExample.isUnknownError err
+    _ -> fail $ "Expected failure status but got " <> show result
+#endif

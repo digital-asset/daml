@@ -91,7 +91,7 @@ renderVersionsFile versions =
     renderVersion ver = "    \"" <> SemVer.toText (eitherVerToVer ver) <> "\","
     stableVersions = Map.filterWithKey (const . null . view SemVer.release . eitherVerToVer) versions
     firstVersion = SemVer.version 3 3 0 [fromJust $ SemVer.textual "snapshot", SemVer.numeric 20250930, SemVer.numeric 0] []
-    latestVersion = if Map.null versions then firstVersion else eitherVerToVer $ fst $ Map.findMax versions
+    latestVersion = if Map.null versions then firstVersion else eitherVerToVer $ fst $ Map.findMax stableVersions
     renderInternalVersions (releaseVer, sdkVer) = "    \"" <> SemVer.toText (eitherVerToVer releaseVer) <> "\": \"" <> SemVer.toText sdkVer <> "\","
 
 data Opts = Opts
@@ -222,16 +222,17 @@ getDpmChecksums releaseVer = do
       base64TextToDigestSHA256 $ _value $ fromMaybe (error $ "Got no SHA256 hash from " <> url) $ find ((=="SHA256") . _type) $ _hashes fileData
     -- Getting the daml version associated with an assembly is a bit involved, as we need to pull down the dpm manifest yaml file
     getDamlVersion = do
+      let registry = if isSnapshot releaseVer then "public-unstable" else "public"
       -- First resolve the version tag down to the sha of the artifact this tag belongs to
       -- We specifically call down the linux_amd64, as DPM publishes assemblies per platform, even through they are always identical
-      tag <- httpGetJsonResponse @GARTag $ "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public/packages/sdk-manifests%2Fopen-source/tags/" <> SemVer.toString releaseVer <> ".linux_amd64"
+      tag <- httpGetJsonResponse @GARTag $ "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/" <> registry <> "/packages/sdk-manifests%2Fopen-source/tags/" <> SemVer.toString releaseVer <> ".linux_amd64"
       let sha = T.unpack $ last $ T.split (=='/') $ _version tag
       -- Once we have the SHA, pull down the OCI manifest of that GAR artifact, which is essentially a wrapper on the actual DPM yaml manifest file
       -- This manifest tells us the sha of the DPM manifest file
-      manifest <- httpGetJsonResponse @GARManifest $ "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public/files/sdk-manifests%2Fopen-source%2Fmanifests%2F" <> sha <> ":download?alt=media"
+      manifest <- httpGetJsonResponse @GARManifest $ "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/" <> registry <> "/files/sdk-manifests%2Fopen-source%2Fmanifests%2F" <> sha <> ":download?alt=media"
       let assemblyFileHash = T.unpack $ _digest $ head $ _layers manifest
       -- Pull down the DPM manifest file via its sha as discovered above
-      assembly <- httpGetTextResponse $ "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public/files/" <> assemblyFileHash <> ":download?alt=media"
+      assembly <- httpGetTextResponse $ "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/" <> registry <> "/files/" <> assemblyFileHash <> ":download?alt=media"
       -- TODO(#22975) Would use yaml package here but the stackage snapshot we have uses an Aeson that the Yaml package really doesn't like
       -- This parsing is somewhat fragile
       -- Find the line containing "damlc:", get the line after it, remove the "version: " prefix
@@ -248,6 +249,9 @@ optsParser = Opts
 
 getMinor :: Version -> String
 getMinor v = show (view SemVer.major v) <> "." <> show (view SemVer.minor v)
+
+isSnapshot :: Version -> Bool
+isSnapshot = not . null . view SemVer.release
 
 getVersionsFromTags :: IO (Set Version)
 getVersionsFromTags = do
@@ -297,7 +301,7 @@ httpGetJsonResponsePaged url = getPaged Nothing
   where
     getPaged :: Maybe String -> IO a
     getPaged currentToken = do
-      let urlWithToken = url <> "?pageSize=1000" <> maybe "" ("?nextPageToken=" <>) currentToken
+      let urlWithToken = url <> "?pageSize=1000" <> maybe "" ("&pageToken=" <>) currentToken
       Paged content nextToken <- httpGetJsonResponse @(Paged a) urlWithToken
       case nextToken of
         Just t -> (content <>) <$> getPaged (Just t)
@@ -315,9 +319,16 @@ getVersionsFromDPM = do
     -- We are specifically trying to avoid tags like "latest-3.5" "3.5" "x.y.z.<platform>"
     -- GAR will give back tags as full paths, i.e. project/*/repository/*/packages/*/tag
     -- We only care for the tag, so drop everything before the last slash
-    res <- httpGetJsonResponsePaged @GARTags "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public/packages/sdk-manifests%2Fopen-source/tags"
-    let isJustVersion v = length (T.split (=='.') v) == 3
-        versions = rights $ fmap SemVer.fromText $ filter isJustVersion $ last . T.split (=='/') . _name <$> _tags res
+    stableRes <- httpGetJsonResponsePaged @GARTags "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public/packages/sdk-manifests%2Fopen-source/tags"
+    let isStableVersionString v = length (T.split (=='.') v) == 3
+        stableVersions = rights $ fmap SemVer.fromText $ filter isStableVersionString $ last . T.split (=='/') . _name <$> _tags stableRes
+    -- Also filter explicitly for snapshots since we need 3.6 snapshots for testing
+    unstableRes <- httpGetJsonResponsePaged @GARTags "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public-unstable/packages/sdk-manifests%2Fopen-source/tags"
+    let -- Example snapshot version: 3.5.11-snapshot.20260918.117.0.v8ea7f22f
+        filterUnstableVersionString v = length (T.split (=='.') v) == 7
+        filterSnapshot v = Set.member (getMinor v) snapshotReleases
+        unstableVersions = filter filterSnapshot $ rights $ fmap SemVer.fromText $ filter filterUnstableVersionString $ last . T.split (=='/') . _name <$> _tags unstableRes
+        versions = stableVersions <> unstableVersions
     return $ latestPatchVersions $ Set.fromList versions
 
 data DamlOrDPMVersion = DamlVersion Version | DPMVersion Version deriving (Ord, Eq)
@@ -349,7 +360,7 @@ latestPatchVersions allVersions =
     toPatchRelease v = (view SemVer.patch v, view SemVer.release v)
 
 snapshotReleases :: Set String
-snapshotReleases = Set.fromList ["3.3"]
+snapshotReleases = Set.fromList ["3.3", "3.6"]
 
 main :: IO ()
 main = do
