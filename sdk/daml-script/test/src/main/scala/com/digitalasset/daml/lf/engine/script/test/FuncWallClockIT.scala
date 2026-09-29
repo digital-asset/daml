@@ -22,10 +22,6 @@ class FuncWallClockIT extends AbstractFuncIT {
           dar = dar,
         )
       } yield {
-        // Sleep guarantees a minimum duration on the monotonic clock
-        // (System.nanoTime), so we check that guarantee with the same clock.
-        // getTime uses the wall clock (Clock.systemUTC), which can be stepped
-        // relative to the monotonic clock, making it unreliable for lower bounds.
         val elapsed = Duration.ofNanos(System.nanoTime - start)
         elapsed should be >= Duration.ofMillis(1000 + 2000)
 
