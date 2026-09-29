@@ -15,12 +15,20 @@ class FuncWallClockIT extends AbstractFuncIT {
     "sleep for specified duration" in {
       for {
         clients <- scriptClients()
+        start = System.nanoTime
         ValueRecord(_, vals) <- run(
           clients,
           QualifiedName.assertFromString("ScriptTest:sleepTest"),
           dar = dar,
         )
       } yield {
+        // Sleep guarantees a minimum duration on the monotonic clock
+        // (System.nanoTime), so we check that guarantee with the same clock.
+        // getTime uses the wall clock (Clock.systemUTC), which can be stepped
+        // relative to the monotonic clock, making it unreliable for lower bounds.
+        val elapsed = Duration.ofNanos(System.nanoTime - start)
+        elapsed should be >= Duration.ofMillis(1000 + 2000)
+
         assert(vals.length == 3)
         val t0 = assertValueTimestamp(vals(0)._2).toInstant
         val t1 = assertValueTimestamp(vals(1)._2).toInstant
@@ -29,21 +37,8 @@ class FuncWallClockIT extends AbstractFuncIT {
         val duration1 = Duration.between(t0, t1)
         val duration2 = Duration.between(t1, t2)
 
-        // Sleep uses the monotonic clock (System.nanoTime) for accurate real-time
-        // duration, but getTime uses the wall clock (Clock.systemUTC). These clocks
-        // can drift slightly due to NTP adjustments, so we allow a small tolerance.
-        val clockDriftTolerance = Duration.ofMillis(5)
-
-        val required1 = Duration.ofMillis(1000).minus(clockDriftTolerance)
-        val required2 = Duration.ofMillis(2000).minus(clockDriftTolerance)
-        val required1_upper = Duration.ofMillis(1100)
-        val required2_upper = Duration.ofMillis(2100)
-
-        duration1 should be >= required1
-        duration1 should be < required1_upper
-
-        duration2 should be >= required2
-        duration2 should be < required2_upper
+        duration1 should be < Duration.ofMillis(1100)
+        duration2 should be < Duration.ofMillis(2100)
       }
     }
   }
