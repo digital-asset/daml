@@ -228,6 +228,9 @@ _daml_build = rule(
             doc = "Options passed to GHC.",
             default = ["--ghc-option=-Werror", "--log-level=WARNING"],
         ),
+        "srcout": attr.output(
+            doc = "The srcs attribute copied back to an output for querying.",
+        ),
         "generated_daml_source_directory": attr.string(
             doc = "Source field in daml.yaml.",
         ),
@@ -410,6 +413,7 @@ def daml_compile(
             {dar: path_to_dar(dar) for dar in (dependencies + data_dependencies + ([upgrades] if upgrades else []))},
         dar = name + ".dar",
         stdout = name + ".stdout",
+        srcout = name + ".srcout",
         ghc_options =
             ghc_options +
             (["--enable-scenarios=yes"] if enable_scenarios and (target == None or _supports_scenarios(target)) else []) +
