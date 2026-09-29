@@ -55,7 +55,7 @@ function bazel() {
 # which is a workaround for this problem.
 bazel shutdown
 
-$oci_artifacts=bazel.exe query "kind('package_oci_component', //...)"
+$oci_artifacts=bazel.exe query "kind('package_oci_component', //...) except attr('tags', 'ignore-oci', //...)"
 
 bazel build `
   //compiler/damlc/tests:platform-independence.dar `

@@ -228,3 +228,33 @@ package_oci_component(
     tags = ["no-cache"],
     visibility = ["//visibility:public"],
 )
+
+oci_dar_names_no_failure_status = [
+    "daml-script-no-failure-status.dar",
+] + [
+    "{}.dar".format(name)
+    for name in SCRIPT_STABLE_PACKAGES
+]
+
+# Daml-script without FailureStatus SubmitError for compatibility testing
+package_oci_component(
+    name = "daml-script-no-failure-status-oci",
+    component_manifest = ":component.yaml",
+    component_substitutions = {
+        "{SCRIPT_DAR_NAMES}": "\n".join(["        - ./{}".format(dar_name) for dar_name in oci_dar_names_no_failure_status]),
+    },
+    platform_agnostic = True,
+    resources = [
+        ":daml-script-binary_distribute.jar",
+        "//compiler/script-service/server:script-service.jar",
+        "//daml-script/daml:daml-script-no-failure-status.dar",
+    ] + [
+        "//daml-script/daml/daml-script-stable:{}.dar".format(name)
+        for name in SCRIPT_STABLE_PACKAGES
+    ],
+    tags = [
+        "ignore-oci",
+        "no-cache",
+    ],
+    visibility = ["//visibility:public"],
+)
