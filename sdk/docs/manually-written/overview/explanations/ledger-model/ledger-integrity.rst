@@ -21,6 +21,7 @@ At the core is the concept of a *valid ledger*: a change is permissible if addin
 * :ref:`Consistency <da-model-consistency>`:
   A consistent Ledger does not allow exercises and fetches on inactive contracts;
   that is, they cannot act on contracts that have not yet been created or that have already been consumed by an exercise.
+  Moreover, the lookups that a transaction performs on a :ref:`contract key <da-ledger-contract-keys>` must agree with each other.
 
 * :ref:`Conformance <da-model-conformance>`:
   A conformant Ledger contains only actions that are allowed by the smart contract logic of the created or used contract.
@@ -175,6 +176,9 @@ This section introduces the notions that are needed to make this precise:
 
 * :ref:`(Contract) Consistency <da-model-contract-consistency>` strengthens internal consistency in that all used contracts must also have been created.
 
+* :ref:`Key consistency <da-model-key-consistency>` ensures that the lookups that a transaction 
+  performs on a contract key agree with each other and with the other actions of the transaction.
+
 .. _da-model-execution-order:
 
 Execution order
@@ -310,6 +314,109 @@ In contrast, if the DvP ledger omitted the first commit ``TX 0`` and thus contai
 because ``TX 3`` uses the contract #1, but there is no create node for #1 in ``TX 1`` to ``TX 3``.
 
 
+.. _da-model-key-consistency:
+
+Key consistency
+===============
+
+Contracts may carry a :ref:`contract key <da-ledger-contract-keys>`. A transaction can look up a
+key in two ways: a QueryByKey node enumerates the contracts associated with the key, and an Exercise
+or a Fetch node whose by-key flag is set designates its input contract by the key instead of by the
+contract ID. Key consistency constrains what these lookups may report.
+
+Contract keys are not unique: several contracts with the same key may be active at the same time,
+and creating a contract whose key is already in use is not a violation of key consistency. Key
+consistency therefore does not constrain Create nodes. Instead it constrains the lookups performed
+by a single transaction to ensure they agree with each other.
+
+We introduce two auxiliary notions. The first collects the contracts with key k mentioned by 
+a given transaction; these are the contracts that its lookups on k must agree about. The second 
+defines what it means for a contract to be considered active within a transaction.
+
+.. _def-key-contracts:
+
+.. admonition:: Definition: key contracts
+
+   The **key contracts** of a transaction `tx` for a key `k` are the contracts `c` with
+   key `k` such that `tx` contains
+
+   * a **Create** node that creates `c`,
+
+   * an **Exercise** or a **Fetch** node whose input contract is `c`, or
+
+   * a **QueryByKey** node on `k` whose result lists `c`.
+
+.. _def-activeness:
+
+.. admonition:: Definition: activeness within a transaction
+
+   Let `n` be a node of a transaction `tx`. A contract `c` is **active at** `n` **in** `tx`
+   if every **Create** node on `c` in `tx` executes before `n` and no consuming **Exercise**
+   node on `c` in `tx` executes before `n`.
+
+Note that a contract that `tx` does not create is considered active until `tx` consumes it.
+
+Key consistency can now be stated. The order ≺ in the definition captures the precedence that the
+transaction uses to resolve the key: lookups report the contracts in ≺-order and never skip a
+contract in favour of a later one. The definition assumes internal consistency of the transaction.
+It also speaks of QueryByKey nodes only: for its purpose, an Exercise or a Fetch node whose by-key
+flag is set counts as a QueryByKey node on the key of its input contract, with that contract as the
+one-element non-exhaustive result.
+
+.. _def-key-consistency:
+
+.. admonition:: Definition: key consistency
+
+   An internally consistent transaction `tx` is **consistent for a key** `k` if there is a strict
+   total order ≺ on the key contracts of `tx` for `k` such that all of the following hold.
+
+   * **Recency.**
+     If `c`:sub:`1` is created in `tx` and `c`:sub:`2` is not, then `c`:sub:`1` ≺ `c`:sub:`2`.  
+     If both are created in `tx` and the Create node on `c`:sub:`2` executes before the Create node
+     on `c`:sub:`1`, then `c`:sub:`1` ≺ `c`:sub:`2`.
+
+   * For every QueryByKey node `n` on `k` in `tx` with the result `c`:sub:`1`, …, `c`:sub:`m`,
+     writing `A` for the set of key contracts of `tx` for `k` that are active at `n`:
+
+     * **Stability.**
+       `c`:sub:`1`, …, `c`:sub:`m` is a prefix of `A` ordered by ≺.
+
+     * **Completeness.**
+       If `n` is exhaustive, then the prefix is all of `A`.
+
+   The transaction is **consistent for a set of keys** if it is consistent for every key in the set.
+   It is **key consistent** if it is consistent for all keys.  
+   A Ledger is **consistent for a set of keys** if the transaction of every commit is, and 
+   **key consistent** if it is consistent for all keys.
+
+The two clauses Stability and Completeness rule out incoherent lookups. Suppose the contracts #1,
+#2, and #3 all carry the key `k` and are all active. A transaction that looks up two contracts for
+`k` and obtains #1 and #2, and then looks up two contracts for `k` again and obtains #2 and #3, is
+not consistent for `k`, thanks to Stability.  
+Likewise, a transaction that looks up `k` exhaustively and obtains only #1, and then fetches #2 by
+its contract ID, is not consistent for `k` either: #2 is a key contract of the transaction and it is
+active at the lookup, so Completeness requires the exhaustive result to mention it.
+
+The Recency clause orders the contracts that the transaction creates itself before all others, most
+recently created first. Everything else about ≺ is existentially quantified, so the relative order
+of contracts that the transaction did not create is chosen per transaction. Two transactions may
+order the contracts of the same key differently.
+
+Finally, note that a lookup with an empty result is always exhaustive as asking for no contract is
+not allowed.
+
+.. important::
+   Key consistency relates only the nodes of a single transaction. In particular, the exhaustive
+   flag is a statement about the transaction and not about the ledger: it does **not** assert that
+   no other contract with the key is active on the ledger.
+
+   Note however that a QueryByKey action :ref:`uses <def-action>` the contracts in its result, so
+   :ref:`contract consistency <da-model-contract-consistency>` requires each reported contract to
+   have been created and not yet consumed. In short, a contract that is reported is active on the
+   ledger, but a contract that is missing from an exhaustive result need not be inactive on the
+   ledger.
+
+
 .. _da-model-consistency-projection:
 
 Consistency and projection
@@ -385,6 +492,43 @@ for `n`:sub:`2` as ② and `n`:sub:`1` as ④, the consuming exercise ② does n
 With signatories instead of stakeholders, this problem does not appear:
 A signatory is an informee of all nodes on the contract and therefore any node relevant for consistency for the contract is present in the signatory's projection.
 
+.. _da-model-key-consistency-projection:
+
+Maintainers check key consistency on projections
+------------------------------------------------
+
+The projection for a party `p` is always consistent for the keys that `p` is a maintainer of, thanks
+to the requirement that the maintainers of a key be signatories of the contracts carrying it.
+
+The argument rests on the actions that touch a key at all.
+
+.. _def-action-on-key:
+
+.. admonition:: Definition: action on a key
+
+   An action is an **action on a key** `k` if it is
+
+   * a **Create**, **Exercise**, or **Fetch** action on a contract with key `k`, or
+
+   * a **QueryByKey** action on `k`.
+
+Observe that the actions on `k` completely determine key consistency for `k`: the key contracts for
+`k`, their activeness, and the clauses Recency, Stability, and Completeness all speak of actions on
+`k` and of the execution order among them, and of nothing else.
+
+Let `k` be a key and `P` a set of parties containing a maintainer of `k`. Every action on `k` has a
+maintainer of `k` among its informees: the maintainers are signatories of every contract with key
+`k`, hence informees of every Create, Exercise, and Fetch action on such a contract. They are also
+by definition the informees of every QueryByKey action on `k`. Projection to `P` therefore retains
+every action on `k`, and with it every key contract of the transaction for `k`.
+
+Consequently, projections both preserve and reflect key consistency for `k`: a transaction is
+consistent for `k` exactly when its projection to `P` is. 
+
+For a set of parties `Q` that contains no maintainer of `k`, none of this holds. Projection to `Q`
+may drop a consuming Exercise on a contract with key `k`, which makes a subsequent lookup look as if
+it had skipped an active contract.
+
 .. _da-model-conformance:
 
 Conformance
@@ -398,6 +542,8 @@ In practice, Daml templates define such a model as follows:
   Their body defines the subactions (by creating, fetching or exercising contracts) and the Exercise result.
 
 * The ``ensure`` clause on the template constrains the valid arguments of a Create node.
+
+* The ``key`` and ``maintainer`` clauses determine the contract key of a contract and the maintainers of that key.
 
 With :externalref:`smart-contract upgrading <upgrade-model-reference>`, the templates applicable for a given contract may change over time.
 For simplicity, the Ledger Model assumes that it is always clear (to all involved parties) what template defines the set of possible actions for a given contract.
@@ -514,7 +660,16 @@ Required authorizers
 Every node defines a non-empty set of parties who must have consented to the action of this node.
 This set is called the **required authorizers** of the node and defined as follows:
 For Create nodes, the required authorizers are the signatories of the contract,
-and for Exercise and Fetch nodes, the required authorizers are the actors of the node.
+for Exercise and Fetch nodes, the required authorizers are the actors of the node,
+and for QueryByKey nodes, the required authorizers are the maintainers of the key.
+
+.. note::
+   Every QueryByKey node requires the maintainers' authority, including the ones with an empty
+   result. 
+
+   The by-key flag of an Exercise or a Fetch node, in contrast, has no bearing on authorization.
+   Designating the input contract by its key rather than by its contract ID leaves the required
+   authorizers of the node unchanged.
 
 For the running :ref:`example where Bob skips the propose-accept workflow <da-dvp-ledger-create-auth-failure>`,
 the following table lists for each party the nodes for which they are a required authorizer.
@@ -737,13 +892,15 @@ This conformance failure does show up in Bank 1's projection, unlike correspondi
 Validity
 ********
 
-Having formalized the three conditions consistency, conformance and well-authorization, we can now formally define validity.
+Having formalized the four conditions consistency, key consistency, conformance and well-authorization, we can now formally define validity.
 
 .. admonition:: Definition: Valid Ledger
 
    A Canton Ledger is **valid for a set of parties `P`** if all of the following hold:
 
    - The Ledger is consistent for contracts whose signatories include one of the parties in `P`.
+
+   - The Ledger is key consistent for keys whose maintainers include one of the parties in `P`.
 
    - The Ledger conforms to the Daml templates.
 
@@ -753,7 +910,7 @@ Having formalized the three conditions consistency, conformance and well-authori
 
 
 The restriction to a set of parties `P` comes from privacy.
-As discussed above, consistency and well-authorization are not common knowledge.
+As discussed above, consistency, key consistency, and well-authorization are not common knowledge.
 The Canton protocol therefore relies on the relevant parties to check these conditions.
 Accordingly, the protocol only ensures these properties for the parties that follow the protocol.
    
