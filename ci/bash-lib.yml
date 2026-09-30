@@ -97,6 +97,32 @@ steps:
                -d @- \
                "https://api.github.com/repos/digital-asset/daml/pulls/$pr_number/requested_reviewers"
     }
+    list_open_prs_with_label() {
+      local label
+      label="$1"
+
+      curl -H "$(get_gh_auth_header)" \
+           --fail \
+           --silent \
+           --location \
+           "https://api.github.com/repos/digital-asset/daml/issues?state=open&labels=$label&per_page=100" \
+        | jq -r '.[] | select(.pull_request) | .number'
+    }
+    comment_on_pr() {
+      local pr_number body
+      pr_number="$1"
+      body="$2"
+
+      jq -n --arg body "$body" '{"body": $body}' \
+        | curl -H "Content-Type: application/json" \
+               -H "$(get_gh_auth_header)" \
+               --fail \
+               --silent \
+               --location \
+               --output /dev/null \
+               -d @- \
+               "https://api.github.com/repos/digital-asset/daml/issues/$pr_number/comments"
+    }
     user_slack_handle() {
         local email sha
         sha=$1
