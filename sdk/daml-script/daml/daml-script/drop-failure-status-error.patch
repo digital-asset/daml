@@ -1,0 +1,80 @@
+diff --git a/Daml/Script/Internal/Questions/Submit/Error.daml b/Daml/Script/Internal/Questions/Submit/Error.daml
+index e1b5897e84..ca0fd1c0f4 100644
+--- a/Daml/Script/Internal/Questions/Submit/Error.daml
++++ b/Daml/Script/Internal/Questions/Submit/Error.daml
+@@ -48,7 +48,6 @@ module Daml.Script.Internal.Questions.Submit.Error
+   , LocalVerdictLockedContractsSubmitError (..)
+   , LocalVerdictLockedKeysSubmitError (..)
+   , UpgradeErrorSubmitError (..)
+-  , FailureStatusErrorSubmitError (..)
+   , CryptoErrorSubmitError (..)
+   , ExternalCallErrorSubmitError (..)
+   , EffectfulRollbackErrorSubmitError (..)
+@@ -61,7 +60,6 @@ module Daml.Script.Internal.Questions.Submit.Error
+ import Daml.Script.Internal.LowLevel
+ import Daml.Script.Internal.Questions.Util
+ import DA.NonEmpty
+-import DA.Fail
+ import qualified DA.Map as Map
+ import Daml.Script.Internal.Questions.Submit.Error.Stable.AnyCryptoErrorType
+ import Daml.Script.Internal.Questions.Submit.Error.Stable.AnyDevErrorType
+@@ -609,17 +607,6 @@ instance IsSubmitError UpgradeErrorSubmitError where
+   fromAnySubmitError (match "UpgradeError" ["errorType", "errorMessage"] -> Some [CastledgerValue errorType, CastledgerValue errorMessage]) = Some UpgradeErrorSubmitError {..}
+   fromAnySubmitError _ = None
+ 
+--- | MOVE Daml.Script
+--- Exception resulting from call to `failWithStatus`
+-data FailureStatusErrorSubmitError = FailureStatusErrorSubmitError with
+-  failureStatus : FailureStatus
+-
+--- | MOVE Daml.Script
+-instance IsSubmitError FailureStatusErrorSubmitError where
+-  toAnySubmitError FailureStatusErrorSubmitError {..} = make "FailureStatusError" ["failureStatus"] [CastledgerValue failureStatus]
+-  fromAnySubmitError (match "FailureStatusError" ["failureStatus"] -> Some [CastledgerValue failureStatus]) = Some FailureStatusErrorSubmitError {..}
+-  fromAnySubmitError _ = None
+-
+ -- | MOVE Daml.Script
+ -- Crypto exceptions
+ data CryptoErrorSubmitError = CryptoErrorSubmitError with
+@@ -701,7 +688,6 @@ isKnownSubmitError (fromAnySubmitError @ValueNestingSubmitError -> Some _) = Tru
+ isKnownSubmitError (fromAnySubmitError @LocalVerdictLockedContractsSubmitError -> Some _) = True
+ isKnownSubmitError (fromAnySubmitError @LocalVerdictLockedKeysSubmitError -> Some _) = True
+ isKnownSubmitError (fromAnySubmitError @UpgradeErrorSubmitError -> Some _) = True
+-isKnownSubmitError (fromAnySubmitError @FailureStatusErrorSubmitError -> Some _) = True
+ isKnownSubmitError (fromAnySubmitError @CryptoErrorSubmitError -> Some _) = True
+ isKnownSubmitError (fromAnySubmitError @ExternalCallErrorSubmitError -> Some _) = True
+ isKnownSubmitError (fromAnySubmitError @EffectfulRollbackErrorSubmitError -> Some _) = True
+diff --git a/Daml/Script/Internal/Questions/Submit/Error/Compatibility.daml b/Daml/Script/Internal/Questions/Submit/Error/Compatibility.daml
+index 580be5b6f6..25d36a04e7 100644
+--- a/Daml/Script/Internal/Questions/Submit/Error/Compatibility.daml
++++ b/Daml/Script/Internal/Questions/Submit/Error/Compatibility.daml
+@@ -17,7 +17,6 @@
+ module Daml.Script.Internal.Questions.Submit.Error.Compatibility where
+ 
+ import qualified DA.Exception
+-import DA.Fail
+ import DA.Foldable (foldMap)
+ import DA.NonEmpty
+ import DA.Text
+@@ -209,13 +208,6 @@ pattern UpgradeError : AnyUpgradeErrorType -> Text -> AnySubmitError
+ pattern UpgradeError {ueErrorType, ueErrorMessage} <- (fromAnySubmitError -> Some UpgradeErrorSubmitError {errorType = ueErrorType, errorMessage = ueErrorMessage})
+   where UpgradeError errorType errorMessage = toAnySubmitError UpgradeErrorSubmitError {..}
+ 
+--- | MOVE Daml.Script
+--- Backwards compatibility pattern for the FailureStatusError variant of the original SubmitError
+--- Prefer using AnySubmitError and `fromAnySubmitError` instead of this pattern synonym.
+-pattern FailureStatusError : FailureStatus -> AnySubmitError
+-pattern FailureStatusError {failureStatus} <- (fromAnySubmitError -> Some FailureStatusErrorSubmitError {..})
+-  where FailureStatusError failureStatus = toAnySubmitError FailureStatusErrorSubmitError {..}
+-
+ -- | MOVE Daml.Script
+ -- Backwards compatibility pattern for the CryptoError variant of the original SubmitError
+ -- Prefer using AnySubmitError and `fromAnySubmitError` instead of this pattern synonym.
+@@ -374,7 +366,6 @@ instance Show SubmitError where
+     LocalVerdictLockedContracts cids -> "Attempted to use locked contracts: " <> show cids
+     LocalVerdictLockedKeys _ -> "Attempted to use locked contract keys"
+     UpgradeError ty msg -> "UpgradeError: " <> show ty <> "\n with message \"" <> msg <> "\""
+-    FailureStatusError failureStatus -> "Failed with Status: " <> show failureStatus
+     CryptoError ty msg -> "CryptoError: " <> show ty <> "\n with message \"" <> msg <> "\""
+     ExternalCallError ty extensionId functionId msg ->
+       "ExternalCallError: " <> show ty <> " for extension " <> extensionId <> ", function " <> functionId

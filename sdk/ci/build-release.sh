@@ -38,7 +38,7 @@ fi
 $bazel build \
   //compiler/damlc/tests:platform-independence.dar \
   //compiler/damlc:damlc-dist \
-  $(bazel query "kind('package_oci_component', //...)") \
+  $(bazel query "kind('package_oci_component', //...) except attr('tags', 'ignore-oci', //...)") \
   $extra_build_targets \
   --profile build-profile.json \
   --experimental_profile_include_target_label \

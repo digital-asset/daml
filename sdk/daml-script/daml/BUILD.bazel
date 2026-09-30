@@ -79,3 +79,12 @@ genrule(
     ],
     visibility = ["//visibility:public"],
 )
+
+# Daml-script without FailureStatus SubmitError for compatibility testing
+copy_file(
+    name = "daml-script-no-failure-status",
+    src = "//daml-script/daml/daml-script:daml-script-no-failure-status.dar",
+    out = "daml-script-no-failure-status.dar",
+    allow_symlink = True,
+    visibility = ["//visibility:public"],
+)
