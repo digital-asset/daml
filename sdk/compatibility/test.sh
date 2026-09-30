@@ -58,9 +58,11 @@ stop_postgresql # in case it's running from a previous build
 start_postgresql
 
 # First separately build the sdks, since they take a while, and system resources are eaten up by other tasks causing timeouts
-# Unpack seems to only be too slow on linux, so this change isn't replicated to powershell as it would be very ugly
-# Also limits jobs to try give the bootstrapping a fighting chance, though it seems bazel doesn't do a great job enforcing this
-bazel build --jobs 1 $(bazel query //external:all-targets 2>/dev/null | grep -o "daml-sdk-.*" | sed 's=.*=@&//:daml=')
+sdk_targets=$(bazel query //external:all-targets 2>/dev/null | grep -o "daml-sdk-.*" | sed 's=.*=@&//:daml=')
+# Run as separate calls to bazel to give the machine a fighting chance of hitting the deadline
+for target in $sdk_targets; do
+    bazel build "$target"
+done
 
 bazel build //...
 

@@ -43,6 +43,21 @@ cd compatibility
 cp ../.bazelrc .bazelrc
 
 bazel shutdown
+
+# First separately build the sdks, since they take a while, and system resources are eaten up by other tasks causing timeouts
+# ErrorActionPreference is relaxed because redirecting a native command's stderr otherwise turns it into a terminating error.
+$backupErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+$sdk_targets = & bazel.exe query //external:all-targets 2>$null |
+  Select-String -Pattern "daml-sdk-\S+" |
+  %{ "@$($_.Matches[0].Value)//:daml" }
+$ErrorActionPreference = $backupErrorActionPreference
+# Run as separate calls to bazel to give the machine a fighting chance of hitting the deadline
+foreach ($target in $sdk_targets) {
+    bazel build $target
+    bazel shutdown
+}
+
 bazel build //...
 bazel shutdown
 
