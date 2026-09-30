@@ -137,7 +137,7 @@ steps:
       echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
     }
     trigger_azure() (
-      AZURE_DEVOPS_EXT_PAT=$1
+      export AZURE_DEVOPS_EXT_PAT=$1
       shift
       build=$1
       shift
