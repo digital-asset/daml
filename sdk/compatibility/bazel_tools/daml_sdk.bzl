@@ -117,6 +117,8 @@ def _dpm_sdk_impl(ctx):
 
     tar_type = "zip" if is_windows else "tar.gz"
 
+    ctx.delete(out_dir)
+
     # Separate download and extract so that we can override the tarball name.
     # Otherwise, the ":download" in the url makes it into the name, and windows doesn't like that.
     ctx.download(
@@ -152,8 +154,10 @@ def _dpm_sdk_impl(ctx):
 
     assistant_path = "sdk/{version}/bin/dpm{exe}".format(version = ctx.attr.version, exe = ".exe" if is_windows else "")
 
+    ctx.execute(["tree", "sdk/{version}".format(version = ctx.attr.version)], quiet = False)
+
     # Use dpm bootstrapping which takes the bundle and a DPM_HOME path, and sets up an install
-    exec_result = ctx.execute([assistant_path, "bootstrap", "{}".format(out_dir)], environment = {"DPM_HOME": "{}".format(out_dir)})
+    exec_result = ctx.execute([assistant_path, "bootstrap", "{}".format(out_dir)], environment = {"DPM_HOME": "{}".format(out_dir)}, quiet = False)
     if exec_result.return_code:
         fail("Error executing dpm bootstrap: {stdout}\n{stderr}".format(stdout = exec_result.stdout, stderr = exec_result.stderr))
 
