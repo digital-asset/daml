@@ -153,7 +153,9 @@ def _dpm_sdk_impl(ctx):
     assistant_path = "sdk/{version}/bin/dpm{exe}".format(version = ctx.attr.version, exe = ".exe" if is_windows else "")
 
     # Use dpm bootstrapping which takes the bundle and a DPM_HOME path, and sets up an install
-    ctx.execute([assistant_path, "bootstrap", "{}".format(out_dir)], environment = {"DPM_HOME": "{}".format(out_dir)})
+    exec_result = ctx.execute([assistant_path, "bootstrap", "{}".format(out_dir)], environment = {"DPM_HOME": "{}".format(out_dir)})
+    if exec_result.return_code:
+        fail("Error executing dpm bootstrap: {stdout}\n{stderr}".format(stdout = exec_result.stdout, stderr = exec_result.stderr))
 
     ctx.template(
         "dpm.cc",
