@@ -155,17 +155,31 @@ jobs:
     variables:
       need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
     steps:
+      - checkout: self
+        clean: true
+        persistCredentials: true
+      - task: DownloadPipelineArtifact@2
+        displayName: 'Download NOTICES file'
+        inputs:
+          artifactName: notices
+          targetPath: $(Pipeline.Workspace)/notices
+        condition: and(succeeded(), eq(variables['need_to_build'], 'true'))
       - template: ../bash-lib.yml
         parameters:
           var_name: bash_lib
       - bash: |
+          set -euo pipefail
           cd sdk
           eval "$(./dev-env/bin/dade-assist)"
           source "$(bash_lib)"
           if [ "$(need_to_build)" == "true" ]; then
               BRANCH="notices-update-$(Build.BuildId)"
+              cp "$(Pipeline.Workspace)/notices/NOTICES" NOTICES
+              git add NOTICES
+              open_pr "$BRANCH" "update NOTICES file" "" "" "$(Build.SourceBranchName)"
               trigger_azure $AZURE_DEVOPS_EXT_PAT PRs --branch $BRANCH
           fi
+        displayName: 'Open PR to update NOTICES file'
         env:
           AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
 
