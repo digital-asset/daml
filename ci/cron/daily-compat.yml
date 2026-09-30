@@ -251,9 +251,7 @@ jobs:
                   fi
 
                   # Older canton PRs still open, superseded by this one
-                  superseded=$(curl -s --fail -H "$(get_gh_auth_header)" \
-                    "https://api.github.com/repos/digital-asset/daml/issues?state=open&labels=ci-generated-canton-upgrade&per_page=100" \
-                    | jq -r '.[] | select(.pull_request) | .number') || superseded=""
+                  superseded=$(list_open_prs_with_label ci-generated-canton-upgrade) || superseded=""
                   supersedes_section=""
                   if [ -n "$superseded" ]; then
                     supersedes_section="Supersedes $(printf '#%s, ' $superseded | sed 's/, $//').\n\n"
@@ -268,14 +266,7 @@ jobs:
                       open_pr "$branch" "update canton to $version" "$body" "$pr_file" "$(Build.SourceBranchName)" "ci-generated-canton-upgrade"
                       new_pr=$(cat "$pr_file")
                       for old_pr in $superseded; do
-                          jq -n --arg body "superseded by #$new_pr" '{"body": $body}' \
-                            | curl -H "Content-Type: application/json" \
-                                   -H "$(get_gh_auth_header)" \
-                                   --fail \
-                                   --silent \
-                                   -d @- \
-                                   "https://api.github.com/repos/digital-asset/daml/issues/$old_pr/comments" \
-                                   >/dev/null \
+                          comment_on_pr "$old_pr" "superseded by #$new_pr" \
                             || echo "Failed to comment on #$old_pr"
                       done
                       az pipelines build queue --branch "$branch" \
