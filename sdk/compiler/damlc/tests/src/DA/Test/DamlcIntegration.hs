@@ -198,7 +198,7 @@ main = withComponentVersions $ do
 
   let scriptConf = SS.defaultScriptServiceConfig
                        { SS.cnfJvmOptions = ["-Xmx200M"]
-                       , SS.cnfEvaluationTimeout = Just 3
+                       , SS.cnfEvaluationTimeout = Just 10
                        }
 
       withScriptService :: WithPVScriptService a
