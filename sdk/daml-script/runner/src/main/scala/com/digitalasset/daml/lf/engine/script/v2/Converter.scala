@@ -219,15 +219,21 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                   .consume(lookupHandler())
                   .left
                   .map(_.toString)
-                choiceResult <- NoLoggingValueValidator
-                  .validateValue(exercised.getExerciseResult)
-                  .left
-                  .map(_.toString)
-                enrichedChoiceResult <- enricher
-                  .enrichChoiceResult(intendedTplId, ifaceId, choice, choiceResult)
-                  .consume(lookupHandler())
-                  .left
-                  .map(_.toString)
+                // Only the results of top-level events become command results, so the
+                // results of nested events are not converted.
+                enrichedChoiceResult <- oIntendedPackageId.traverse { _ =>
+                  for {
+                    choiceResult <- NoLoggingValueValidator
+                      .validateValue(exercised.getExerciseResult)
+                      .left
+                      .map(_.toString)
+                    enrichedChoiceResult <- enricher
+                      .enrichChoiceResult(intendedTplId, ifaceId, choice, choiceResult)
+                      .consume(lookupHandler())
+                      .left
+                      .map(_.toString)
+                  } yield enrichedChoiceResult
+                }
                 childEvents <- javaTx
                   .getChildNodeIds(
                     JavaExercisedEvent.fromProto(ExercisedEvent.toJavaProto(exercised))
@@ -241,7 +247,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                 cid,
                 choice,
                 enrichedChoiceArg,
-                Some(enrichedChoiceResult),
+                enrichedChoiceResult,
                 childEvents,
               )
             case Event.Event.Archived(_) =>
