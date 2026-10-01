@@ -49,9 +49,7 @@ build-options:
 EOF
 # TODO(dpm#12) Dpm doesn't support building a package via any kind of `--package-root` flag, so we must CD for now. Revert back to a flag once dpm supports this
 PREV_PWD=$$PWD
-&>2 $$PREV_PWD/$(location {daml}) version
 cd $$TMP_DIR
-&>2 $$PREV_PWD/$(location {daml}) version
 DAML_CACHE=$$DAML_CACHE $$PREV_PWD/$(location {daml}) build -o $$PREV_PWD/$(OUTS)
 """.format(
             daml = daml,
