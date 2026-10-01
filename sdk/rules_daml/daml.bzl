@@ -3,6 +3,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
+load("@host_git//:git.bzl", "GIT_PATH")
 load("@os_info//:os_info.bzl", "is_darwin", "is_intel", "is_windows")
 load("//bazel/haskell:runtime_libs.bzl", "DAMLC_RUNTIME_LIB_DIR_DEPS", "runtime_lib_path_export")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
@@ -200,7 +201,7 @@ def _daml_build_impl(ctx):
                 for k, v in dar_dict.items()
             ]),
             apply_patches = "".join([
-                " && git apply -p1 $rootdir/{patch}".format(patch = patch.path)
+                " && {git} apply -p1 $rootdir/{patch}".format(git = GIT_PATH, patch = patch.path)
                 for patch in patches
             ]),
             dars = dar_dict,
