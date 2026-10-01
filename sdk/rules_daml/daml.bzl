@@ -200,7 +200,7 @@ def _daml_build_impl(ctx):
                 for k, v in dar_dict.items()
             ]),
             apply_patches = "".join([
-                " && {apply_patch} -p1 -i $rootdir/{patch}".format(apply_patch = posix.commands["patch"], patch = patch.path)
+                " && git apply -p1 $rootdir/{patch}".format(patch = patch.path)
                 for patch in patches
             ]),
             dars = dar_dict,
