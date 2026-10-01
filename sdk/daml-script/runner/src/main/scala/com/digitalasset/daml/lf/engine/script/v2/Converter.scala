@@ -170,6 +170,8 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
   def fromTransaction(
       tx: Transaction,
       intendedPackageIds: List[PackageId],
+      isKnownPackage: PackageId => Boolean,
+      resolvePackageName: PackageName => Option[PackageId],
       enricher: Enricher,
   )(implicit traceContext: TraceContext): Either[String, ScriptLedgerClient.TransactionTree] = {
     def convEvent(
@@ -178,18 +180,29 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
     ): Either[String, ScriptLedgerClient.TreeEvent] = {
       val javaTx = JavaTransaction.fromProto(Transaction.toJavaProto(tx))
 
+      // A nested event whose package is unknown to the script is upgraded/downgraded to the
+      // version of its package picked by `resolvePackageName`, if any. If that version lacks
+      // the template or choice, the conversion below fails with a lookup error.
+      def nestedTplId(tplId: Identifier, packageName: String): Either[String, Identifier] =
+        if (isKnownPackage(tplId.packageId)) Right(tplId)
+        else
+          PackageName
+            .fromString(packageName)
+            .map(resolvePackageName(_).fold(tplId)(pkgId => tplId.copy(pkg = pkgId)))
+
       // A nested event may come from a package unknown to the script, or fail to be
       // upgraded/downgraded to a known version. Such an event is not a command result, so
       // rather than failing the submission, it is made opaque, signalled here by `None`.
-      def enrichOrOpaque(result: Result[Value]): Either[String, Option[Value]] =
+      def enrichOrOpaque(upgradedOrDowngraded: Boolean)(
+          result: Result[Value]
+      ): Either[String, Option[Value]] =
         result.consume(lookupHandler()) match {
           case Right(value) => Right(Some(value))
-          case Left(
-                Error.Preprocessing(
-                  Error.Preprocessing.Lookup(_: LookupError.NotFound) |
-                  _: Error.Preprocessing.TypeMismatch
-                )
-              ) if oIntendedPackageId.isEmpty =>
+          case Left(Error.Preprocessing(Error.Preprocessing.Lookup(_: LookupError.NotFound)))
+              if oIntendedPackageId.isEmpty =>
+            Right(None)
+          case Left(Error.Preprocessing(_: Error.Preprocessing.TypeMismatch))
+              if oIntendedPackageId.isEmpty && upgradedOrDowngraded =>
             Right(None)
           case Left(err) => Left(err.toString)
         }
@@ -206,9 +219,12 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                     .validateRecord(created.getCreateArguments)
                     .left
                     .map(err => s"Failed to validate create argument: $err")
-                intendedTplId = oIntendedPackageId
-                  .fold(tplId)(intendedPackageId => tplId.copy(pkg = intendedPackageId))
-                enrichedArg <- enrichOrOpaque(enricher.enrichContract(intendedTplId, arg))
+                intendedTplId <- oIntendedPackageId.fold(nestedTplId(tplId, created.packageName))(
+                  intendedPackageId => Right(tplId.copy(pkg = intendedPackageId))
+                )
+                enrichedArg <- enrichOrOpaque(intendedTplId != tplId)(
+                  enricher.enrichContract(intendedTplId, arg)
+                )
               } yield enrichedArg.fold[ScriptLedgerClient.TreeEvent](
                 ScriptLedgerClient.OpaqueCreated(tplId, cid)
               )(
@@ -225,13 +241,17 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                 ifaceId <- exercised.interfaceId.traverse(Converter.fromApiIdentifier)
                 cid <- ContractId.fromString(exercised.contractId)
                 choice <- ChoiceName.fromString(exercised.choice)
-                intendedTplId = oIntendedPackageId
-                  .fold(tplId)(intendedPackageId => tplId.copy(pkg = intendedPackageId))
+                intendedTplId <- oIntendedPackageId.fold(
+                  // The choice argument of an exercise by interface is converted through the
+                  // interface, whatever the template's package.
+                  if (ifaceId.isDefined) Right(tplId)
+                  else nestedTplId(tplId, exercised.packageName)
+                )(intendedPackageId => Right(tplId.copy(pkg = intendedPackageId)))
                 choiceArg <- NoLoggingValueValidator
                   .validateValue(exercised.getChoiceArgument)
                   .left
                   .map(err => s"Failed to validate exercise argument: $err")
-                enrichedChoiceArg <- enrichOrOpaque(
+                enrichedChoiceArg <- enrichOrOpaque(intendedTplId != tplId)(
                   enricher.enrichChoiceArgument(intendedTplId, ifaceId, choice, choiceArg)
                 )
                 // Only the results of top-level events become command results, so the

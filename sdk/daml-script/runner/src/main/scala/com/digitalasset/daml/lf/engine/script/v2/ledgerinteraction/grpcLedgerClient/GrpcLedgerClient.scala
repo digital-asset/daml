@@ -148,21 +148,27 @@ class GrpcLedgerClient(
       .map(_.metadata.name)
   }
 
+  // The known package with the given name that is in the package preference, else the
+  // highest known version of that name.
+  private def resolvePackageName(
+      pkgPrefs: List[PackageId]
+  )(name: Ref.PackageName): Option[PackageId] = {
+    val matchingSigs = compiledPackages.signatures.filter(_._2.metadata.name == name)
+    matchingSigs
+      .find(sig => pkgPrefs.contains(sig._1))
+      .orElse(matchingSigs.maxByOption(_._2.metadata.version))
+      .map(_._1)
+  }
+
   private def getIdentifierPkgId(
       pkgPrefs: List[PackageId],
       identifier: TypeConRef,
   ): PackageId = {
-    def handleName(name: Ref.PackageName): PackageId = {
-      val matchingSigs = compiledPackages.signatures.filter(_._2.metadata.name == name)
-      matchingSigs
-        .filter(sig => pkgPrefs.contains(sig._1))
-        .headOption
-        .getOrElse(matchingSigs.maxBy(_._2.metadata.version))
-        ._1
-    }
-
     identifier.pkg match {
-      case PackageRef.Name(name) => handleName(name)
+      case PackageRef.Name(name) =>
+        resolvePackageName(pkgPrefs)(name).getOrElse(
+          throw new IllegalArgumentException(s"No known package with name $name")
+        )
       case PackageRef.Id(pkgId) =>
         // [djt]TODO: We likely also want to apply upgrading to pkgIds when
         // explicitPackageId is passed, but this is outside the scope of current
@@ -468,7 +474,13 @@ class GrpcLedgerClient(
         case Right(resp) =>
           for {
             tree <- Converter.toFuture(
-              Converter.fromTransaction(resp.getTransaction, commandResultPackageIds, enricher)
+              Converter.fromTransaction(
+                resp.getTransaction,
+                commandResultPackageIds,
+                compiledPackages.signatures.contains,
+                resolvePackageName(optPackagePreference.getOrElse(List.empty)),
+                enricher,
+              )
             )
             results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
           } yield Right((results, tree))
