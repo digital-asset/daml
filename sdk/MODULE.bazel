@@ -1123,3 +1123,6 @@ use_repo(grpcurl_ext, "grpcurl")
 
 patchelf_ext = use_extension("//bazel/native:patchelf_extension.bzl", "patchelf")
 use_repo(patchelf_ext, "patchelf")
+
+host_git_ext = use_extension("//bazel/native:git_extension.bzl", "host_git")
+use_repo(host_git_ext, "host_git")
