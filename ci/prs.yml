@@ -132,8 +132,14 @@ jobs:
 
         $bashDir = Split-Path -Parent ($env:BAZEL_SH -replace '/', '\')
         if (-not (Test-Path (Join-Path $bashDir 'tar.exe'))) { throw "tar.exe not found in $bashDir" }
-        Write-Host "appending to PATH: $bashDir"
-        $env:PATH = "$env:PATH;$bashDir"
+        $shellRoot = Split-Path -Parent (Split-Path -Parent $bashDir)
+        $gitDir = @('cmd', 'mingw64\bin') |
+          ForEach-Object { Join-Path $shellRoot $_ } |
+          Where-Object { Test-Path (Join-Path $_ 'git.exe') } |
+          Select-Object -First 1
+        if (-not $gitDir) { throw "git.exe not found under $shellRoot (looked in cmd, mingw64\bin)" }
+        Write-Host "appending to PATH: $bashDir;$gitDir"
+        $env:PATH = "$env:PATH;$bashDir;$gitDir"
         Write-Host "##vso[task.setvariable variable=PATH]$env:PATH"
 
         Write-Host "shutting down the Bazel server so it re-reads PATH"
