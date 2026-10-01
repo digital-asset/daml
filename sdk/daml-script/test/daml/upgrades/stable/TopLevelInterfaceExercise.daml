@@ -1,0 +1,179 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Template ids of events in transaction trees, when the script knows every
+-- version (https://github.com/digital-asset/daml/issues/23394).
+-- Runs on both ledgers, with the same packages:
+--
+-- | package                        | vetted by the ledger | known to the script |
+-- |--------------------------------|----------------------|---------------------|
+-- | top-level-iface-exercise       | 1.0.0, 2.0.0         | 1.0.0, 2.0.0        |
+-- | top-level-iface-exercise-iface | 1.0.0                | 1.0.0               |
+--
+-- The comments on the tests show the expected transaction tree, with the
+-- version the ledger runs at each node and, in parentheses, how the script sees
+-- it.
+
+module TopLevelInterfaceExercise (main) where
+
+import UpgradeTestLib
+import TopLevelIfaceExerciseIface
+import qualified V1.TopLevelIfaceExercise as V1
+import qualified V2.TopLevelIfaceExercise as V2
+import PackageIds
+import DA.Exception
+
+{- PACKAGE
+name: top-level-iface-exercise-iface
+versions: 1
+-}
+
+{- MODULE
+package: top-level-iface-exercise-iface
+contents: |
+  module TopLevelIfaceExerciseIface where
+
+  data TLIView = TLIView with
+    owner : Party
+
+  interface TLI where
+    viewtype TLIView
+
+    getVersion : Text
+
+    nonconsuming choice TLIGetVersion : Text
+      controller (view this).owner
+      do pure (getVersion this)
+-}
+
+{- PACKAGE
+name: top-level-iface-exercise
+versions: 2
+depends: |
+  top-level-iface-exercise-iface-1.0.0
+-}
+
+{- MODULE
+package: top-level-iface-exercise
+contents: |
+  module TopLevelIfaceExercise where
+
+  import TopLevelIfaceExerciseIface
+
+  template TLTarget with
+      p : Party
+    where
+    signatory p
+
+    nonconsuming choice TLGetVersion : Text
+      controller p
+      do
+        pure "V1" -- @V 1
+        pure "V2" -- @V  2
+
+    interface instance TLI for TLTarget where
+      view = TLIView p
+      getVersion = "V1" -- @V 1
+      getVersion = "V2" -- @V  2
+
+  template TLChild with
+      p : Party
+      extra : Optional Int -- @V  2
+    where
+    signatory p
+
+  template TLParent with
+      p : Party
+    where
+    signatory p
+
+    nonconsuming choice TLSpawn : ()
+      controller p
+      do
+        _ <- create (TLChild p)      -- @V 1
+        _ <- create (TLChild p None) -- @V  2
+        pure ()
+-}
+
+main : TestTree
+main = tests
+  [ broken ("top-level exercise by interface on a V1 contract has the template id of the version run", interfaceExerciseOnV1Contract)
+  , broken ("top-level exercise by interface on a V2 contract has the template id of the version run", interfaceExerciseOnV2Contract)
+  , ("top-level exercise is downgraded to the version the script used", topLevelExerciseDowngraded)
+  , ("nested create from a known package is decoded", nestedCreateKnownPackage)
+  , ("nested create keeps its known package", nestedCreateKeepsKnownPackage)
+  ]
+
+topLevelIfaceExerciseV2 : PackageId
+topLevelIfaceExerciseV2 = getPackageId "top-level-iface-exercise-2.0.0"
+
+-- With a preference for V2, both ledgers run V2, whatever the contract's version:
+-- Exercise V2.TLTarget TLIGetVersion via TLI  (known)
+-- The interface choice returns the version that ran.
+checkInterfaceExercise : Party -> ContractId TLI -> Script ()
+checkInterfaceExercise p icid = do
+  (version, tree) <- (actAs p <> packagePreference [topLevelIfaceExerciseV2]) `submitResultAndTree` exerciseCmd icid TLIGetVersion
+  version === "V2"
+  case tree of
+    TransactionTree [ExercisedEvent ex] ->
+      fromAnyContractId @V2.TLTarget ex.contractId === Some (fromInterfaceContractId icid)
+    _ -> assertFail $ "Expected one root exercise, got " <> show tree
+
+interfaceExerciseOnV1Contract : Test
+interfaceExerciseOnV1Contract = test $ do
+  p <- allocateParty "alice"
+  cid <- p `submit` createExactCmd (V1.TLTarget p)
+  checkInterfaceExercise p (toInterfaceContractId @TLI cid)
+
+interfaceExerciseOnV2Contract : Test
+interfaceExerciseOnV2Contract = test $ do
+  p <- allocateParty "alice"
+  cid <- p `submit` createExactCmd (V2.TLTarget p)
+  checkInterfaceExercise p (toInterfaceContractId @TLI cid)
+
+-- The contract is created as V1. With a preference for V2:
+-- Exercise V2.TLTarget TLGetVersion  (downgraded to V1.TLTarget, as submitted)
+topLevelExerciseDowngraded : Test
+topLevelExerciseDowngraded = test $ do
+  p <- allocateParty "alice"
+  cid <- p `submit` createExactCmd (V1.TLTarget p)
+  (version, tree) <- (actAs p <> packagePreference [topLevelIfaceExerciseV2]) `submitResultAndTree` exerciseCmd cid V1.TLGetVersion
+  version === "V2"
+  case tree of
+    TransactionTree [ExercisedEvent ex] -> do
+      fromAnyContractId @V1.TLTarget ex.contractId === Some cid
+      fromAnyChoice @V1.TLTarget @V1.TLGetVersion ex.argument === Some V1.TLGetVersion
+    _ -> assertFail $ "Expected one root exercise, got " <> show tree
+
+-- Exercise V2.TLParent TLSpawn  (known)
+-- └─ Create V2.TLChild          (known)
+nestedCreateKnownPackage : Test
+nestedCreateKnownPackage = test $ do
+  p <- allocateParty "alice"
+  parent <- p `submit` createCmd (V2.TLParent p)
+  tree <- p `submitTree` exerciseExactCmd parent V2.TLSpawn
+  case tree of
+    TransactionTree [ExercisedEvent (Exercised _ _ _ [CreatedEvent cr])] -> do
+      fromAnyTemplate @V2.TLChild cr.argument === Some (V2.TLChild p None)
+      let cid = fromTree tree (exercised @V2.TLParent "TLSpawn" $ created @V2.TLChild)
+      fromAnyContractId @V2.TLChild cr.contractId === Some cid
+    _ -> assertFail $ "Expected one root exercise with one created child, got " <> show tree
+
+-- The script uses V1. With a preference for V2:
+-- Exercise V2.TLParent TLSpawn  (downgraded to V1.TLParent)
+-- └─ Create V2.TLChild          (known, so not found as V1.TLChild)
+nestedCreateKeepsKnownPackage : Test
+nestedCreateKeepsKnownPackage = test $ do
+  p <- allocateParty "alice"
+  parent <- p `submit` createCmd (V1.TLParent p)
+  tree <- (actAs p <> packagePreference [topLevelIfaceExerciseV2]) `submitTree` exerciseCmd parent V1.TLSpawn
+  asV1 <- try do
+      let cid = fromTree tree (exercised @V1.TLParent "TLSpawn" $ created @V1.TLChild)
+      pure ("found " <> show cid)
+    catch (e : GeneralError) -> pure (message e)
+  asV1 === "No created events for the requested template id found"
+  let cid = fromTree tree (exercised @V1.TLParent "TLSpawn" $ created @V2.TLChild)
+  case tree of
+    TransactionTree [ExercisedEvent (Exercised _ _ _ [CreatedEvent cr])] ->
+      fromAnyContractId @V2.TLChild cr.contractId === Some cid
+    _ -> assertFail $ "Expected one root exercise with one created child, got " <> show tree
