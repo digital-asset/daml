@@ -17,6 +17,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.Result.lookupHandler
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.LookupError
 import com.digitalasset.daml.lf.engine.ScriptEngine.ExtendedValue
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value
@@ -177,6 +178,22 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
     ): Either[String, ScriptLedgerClient.TreeEvent] = {
       val javaTx = JavaTransaction.fromProto(Transaction.toJavaProto(tx))
 
+      // A nested event may come from a package unknown to the script, or fail to be
+      // upgraded/downgraded to a known version. Such an event is not a command result, so
+      // rather than failing the submission, it is made opaque, signalled here by `None`.
+      def enrichOrOpaque(result: Result[Value]): Either[String, Option[Value]] =
+        result.consume(lookupHandler()) match {
+          case Right(value) => Right(Some(value))
+          case Left(
+                Error.Preprocessing(
+                  Error.Preprocessing.Lookup(_: LookupError.NotFound) |
+                  _: Error.Preprocessing.TypeMismatch
+                )
+              ) if oIntendedPackageId.isEmpty =>
+            Right(None)
+          case Left(err) => Left(err.toString)
+        }
+
       javaTx.getEventsById.asScala.get(ev).toRight(s"Event id $ev does not exist").flatMap {
         event =>
           Event.fromJavaProto(event.toProtoEvent).event match {
@@ -191,16 +208,16 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                     .map(err => s"Failed to validate create argument: $err")
                 intendedTplId = oIntendedPackageId
                   .fold(tplId)(intendedPackageId => tplId.copy(pkg = intendedPackageId))
-                enrichedArg <- enricher
-                  .enrichContract(intendedTplId, arg)
-                  .consume(lookupHandler())
-                  .left
-                  .map(_.toString)
-              } yield ScriptLedgerClient.Created(
-                intendedTplId,
-                cid,
-                enrichedArg,
-                Bytes.fromByteString(created.createdEventBlob),
+                enrichedArg <- enrichOrOpaque(enricher.enrichContract(intendedTplId, arg))
+              } yield enrichedArg.fold[ScriptLedgerClient.TreeEvent](
+                ScriptLedgerClient.OpaqueCreated(tplId, cid)
+              )(
+                ScriptLedgerClient.Created(
+                  intendedTplId,
+                  cid,
+                  _,
+                  Bytes.fromByteString(created.createdEventBlob),
+                )
               )
             case Event.Event.Exercised(exercised) =>
               for {
@@ -214,11 +231,9 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                   .validateValue(exercised.getChoiceArgument)
                   .left
                   .map(err => s"Failed to validate exercise argument: $err")
-                enrichedChoiceArg <- enricher
-                  .enrichChoiceArgument(intendedTplId, ifaceId, choice, choiceArg)
-                  .consume(lookupHandler())
-                  .left
-                  .map(_.toString)
+                enrichedChoiceArg <- enrichOrOpaque(
+                  enricher.enrichChoiceArgument(intendedTplId, ifaceId, choice, choiceArg)
+                )
                 // Only the results of top-level events become command results, so the
                 // results of nested events are not converted.
                 enrichedChoiceResult <- oIntendedPackageId.traverse { _ =>
@@ -241,14 +256,18 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                   .asScala
                   .toList
                   .traverse(convEvent(_, None))
-              } yield ScriptLedgerClient.Exercised(
-                intendedTplId,
-                ifaceId,
-                cid,
-                choice,
-                enrichedChoiceArg,
-                enrichedChoiceResult,
-                childEvents,
+              } yield enrichedChoiceArg.fold[ScriptLedgerClient.TreeEvent](
+                ScriptLedgerClient.OpaqueExercised(tplId, ifaceId, cid, choice, childEvents)
+              )(
+                ScriptLedgerClient.Exercised(
+                  intendedTplId,
+                  ifaceId,
+                  cid,
+                  choice,
+                  _,
+                  enrichedChoiceResult,
+                  childEvents,
+                )
               )
             case Event.Event.Archived(_) =>
               throw new RuntimeException(
