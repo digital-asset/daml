@@ -174,7 +174,7 @@ jobs:
     condition: and(succeeded(), eq(variables['out.need_to_build'], 'true'))
 
 - job: bump_blackduck_if_needed
-  timeoutInMinutes: 10
+  timeoutInMinutes: 30
   condition: and(or(eq(variables['Build.SourceBranchName'], 'main'),
                     eq(variables['Build.SourceBranchName'], 'main-2.x')),
                  eq(variables['Build.DefinitionName'], 'digital-asset.daml-daily-compat'))
