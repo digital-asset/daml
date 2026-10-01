@@ -52,6 +52,7 @@ $sdk_targets = & bazel.exe query //external:all-targets 2>$null |
   Select-String -Pattern "daml-sdk-\S+" |
   %{ "@$($_.Matches[0].Value)//:daml" }
 $ErrorActionPreference = $backupErrorActionPreference
+if (-not $sdk_targets) { throw "Could not find any daml-sdk-* repositories to prebuild" }
 # Run as separate calls to bazel to give the machine a fighting chance of hitting the deadline
 foreach ($target in $sdk_targets) {
     bazel build $target
