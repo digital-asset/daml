@@ -97,8 +97,8 @@ contents: |
 
 main : TestTree
 main = tests
-  [ broken ("top-level exercise by interface on a V1 contract has the template id of the version run", interfaceExerciseOnV1Contract)
-  , broken ("top-level exercise by interface on a V2 contract has the template id of the version run", interfaceExerciseOnV2Contract)
+  [ ("top-level exercise by interface on a V1 contract has the template id of the version run", interfaceExerciseOnV1Contract)
+  , ("top-level exercise by interface on a V2 contract has the template id of the version run", interfaceExerciseOnV2Contract)
   , ("top-level exercise is downgraded to the version the script used", topLevelExerciseDowngraded)
   , ("nested create from a known package is decoded", nestedCreateKnownPackage)
   , ("nested create keeps its known package", nestedCreateKeepsKnownPackage)

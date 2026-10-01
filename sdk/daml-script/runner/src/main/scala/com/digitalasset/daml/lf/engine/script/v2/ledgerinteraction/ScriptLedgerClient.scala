@@ -68,6 +68,13 @@ object ScriptLedgerClient {
       childEvents: List[TreeEvent],
   ) extends TreeEvent
 
+  // What the script compiled a command's top-level event against.
+  sealed trait CommandTarget
+  // A template, in the version of its package the script used.
+  final case class TemplateTarget(packageId: PackageId) extends CommandTarget
+  // An interface: the ledger picked the template, not the script.
+  case object InterfaceTarget extends CommandTarget
+
   def transactionTreeToCommandResults(tree: TransactionTree): List[CommandResult] =
     tree.rootEvents.map {
       case c: Created => CreateResult(c.contractId)

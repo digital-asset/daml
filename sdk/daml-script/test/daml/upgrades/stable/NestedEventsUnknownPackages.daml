@@ -126,6 +126,13 @@ contents: |
     where                -- @V  2
     signatory p          -- @V  2
 
+  template NewIfaceTarget with -- @V  2
+      p : Party                -- @V  2
+    where                      -- @V  2
+    signatory p                -- @V  2
+    interface instance I for NewIfaceTarget where -- @V  2
+      view = IV p                                 -- @V  2
+
   template Target with
       p : Party
     where
@@ -232,6 +239,13 @@ contents: |
       with tcid : ContractId Target
       controller p
       do exercise (toInterfaceContractId @I tcid) IC
+
+    nonconsuming choice ExIfaceOfNewTemplate : ()
+      controller p
+      do
+        pure ()                                    -- @V 1
+        cid <- create (NewIfaceTarget p)           -- @V  2
+        exercise (toInterfaceContractId @I cid) IC -- @V  2
 
     nonconsuming choice ExIface2 : ()
       with tcid : ContractId Target
@@ -348,7 +362,8 @@ main = tests
   , ("nested exercise from an unknown version is downgraded to a known one", downgradedExercise)
   , ("nested exercise of an unknown choice is opaque", exerciseOfNewChoice)
   , ("nested choice result that cannot be downgraded is ignored", choiceResultNotDowngradable)
-  , broken ("nested exercise by a known interface has its template id downgraded to a known version", exerciseByKnownInterface)
+  , ("nested exercise by a known interface has its template id downgraded to a known version", exerciseByKnownInterface)
+  , ("nested exercise by a known interface keeps its template id if no known version has the template", exerciseByKnownInterfaceOfNewTemplate)
   , ("nested exercise by an unknown interface is opaque", exerciseByUnknownInterface)
   , ("nested create from an unknown version is upgraded to the highest known one", createUpgradedToHighestVersion)
   , ("nested create from an unknown version is downgraded to the preferred one", createDowngradedToPreferredVersion)
@@ -557,6 +572,27 @@ exerciseByKnownInterface = test $ do
   ex <- singleChild tree >>= expectExercised
   ex.choice === "IC"
   fromAnyContractId @V1.Target ex.contractId === Some target
+
+-- | package              | vetted by Canton | known to the script |
+-- |----------------------|------------------|---------------------|
+-- | nested-unknown-main  | 1.0.0, 2.0.0     | 1.0.0               |
+-- | nested-unknown-iface | 1.0.0            | 1.0.0               |
+--
+-- Exercise V2.Parent ExIfaceOfNewTemplate         (downgraded to V1.Parent)
+-- ├─ Create V2.NewIfaceTarget                     (opaque: not in V1)
+-- └─ Exercise V2.NewIfaceTarget IC via IfaceV1.I  (template id kept: not in V1)
+exerciseByKnownInterfaceOfNewTemplate : Test
+exerciseByKnownInterfaceOfNewTemplate = test $ do
+  (p, parent, _) <- setup
+  tree <- p `submitTree` exerciseCmd parent V1.ExIfaceOfNewTemplate
+  case tree of
+    TransactionTree [ExercisedEvent (Exercised _ _ _ [CreatedEvent cr, ExercisedEvent ex])] -> do
+      assertOpaqueCreate cr
+      ex.choice === "IC"
+      fromAnyChoice @I @IC ex.argument === Some IC
+      fromAnyContractId @V1.Target ex.contractId === None
+      assertMsg "The exercise should have the real template id, the same as the opaque create's" $ ex.contractId == cr.contractId
+    _ -> assertFail $ "Expected one root exercise with a created and an exercised child, got " <> show tree
 
 -- | package               | vetted by Canton | known to the script |
 -- |-----------------------|------------------|---------------------|

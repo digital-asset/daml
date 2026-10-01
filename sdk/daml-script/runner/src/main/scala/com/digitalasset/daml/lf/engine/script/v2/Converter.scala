@@ -167,44 +167,90 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
     )
   }
 
+  // Where an event sits in a transaction tree. A top-level event comes with the target of its
+  // command.
+  private sealed trait EventPosition
+  private case object Nested extends EventPosition
+  private final case class TopLevel(target: ScriptLedgerClient.CommandTarget) extends EventPosition
+
   def fromTransaction(
       tx: Transaction,
-      intendedPackageIds: List[PackageId],
+      commandTargets: List[ScriptLedgerClient.CommandTarget],
       isKnownPackage: PackageId => Boolean,
+      isKnownTemplate: Identifier => Boolean,
       resolvePackageName: PackageName => Option[PackageId],
       enricher: Enricher,
   )(implicit traceContext: TraceContext): Either[String, ScriptLedgerClient.TransactionTree] = {
     def convEvent(
         ev: Int,
-        oIntendedPackageId: Option[PackageId],
+        position: EventPosition,
     ): Either[String, ScriptLedgerClient.TreeEvent] = {
       val javaTx = JavaTransaction.fromProto(Transaction.toJavaProto(tx))
 
-      // A nested event whose package is unknown to the script is upgraded/downgraded to the
-      // version of its package picked by `resolvePackageName`, if any. If that version lacks
-      // the template or choice, the conversion below fails with a lookup error.
-      def nestedTplId(tplId: Identifier, packageName: String): Either[String, Identifier] =
-        if (isKnownPackage(tplId.packageId)) Right(tplId)
+      // The best approximation of `tplId` using a package known to the script, if any: `tplId`
+      // itself if the script knows its package, else the same template in the version of its
+      // package picked by `resolvePackageName` (i.e. `tplId` upgraded/downgraded), if that version
+      // has the template.
+      def resolveTplId(tplId: Identifier, pkgName: PackageName): Option[Identifier] =
+        if (isKnownPackage(tplId.packageId)) Some(tplId)
         else
-          PackageName
-            .fromString(packageName)
-            .map(resolvePackageName(_).fold(tplId)(pkgId => tplId.copy(pkg = pkgId)))
+          resolvePackageName(pkgName)
+            .map(pkgId => tplId.copy(pkg = pkgId))
+            .filter(isKnownTemplate)
 
-      // A nested event may come from a package unknown to the script, or fail to be
-      // upgraded/downgraded to a known version. Such an event is not a command result, so
-      // rather than failing the submission, it is made opaque, signalled here by `None`.
-      def enrichOrOpaque(upgradedOrDowngraded: Boolean)(
-          result: Result[Value]
-      ): Either[String, Option[Value]] =
+      // The approximation of `tplId` that an event is converted against, if any: for the
+      // top-level event of a command on a template, the template in the version the script used
+      // for the command; otherwise, the best approximation of `tplId`.
+      def approximateTplId(tplId: Identifier, pkgName: PackageName): Option[Identifier] =
+        position match {
+          case TopLevel(ScriptLedgerClient.TemplateTarget(pkgId)) => Some(tplId.copy(pkg = pkgId))
+          case TopLevel(ScriptLedgerClient.InterfaceTarget) | Nested =>
+            resolveTplId(tplId, pkgName)
+        }
+
+      // Converts a value with `result` and builds the event from it with `build`. A nested event
+      // may lack its choice or interface in the packages known to the script, or fail to be
+      // upgraded/downgraded to the approximation of its template. Such an event is not a command
+      // result, so rather than failing the submission, it becomes `opaque`.
+      def enrichOrOpaque(
+          result: Result[Value],
+          upgradedOrDowngraded: Boolean,
+          opaque: => ScriptLedgerClient.TreeEvent,
+          build: Value => Either[String, ScriptLedgerClient.TreeEvent],
+      ): Either[String, ScriptLedgerClient.TreeEvent] =
         result.consume(lookupHandler()) match {
-          case Right(value) => Right(Some(value))
+          case Right(value) => build(value)
           case Left(Error.Preprocessing(Error.Preprocessing.Lookup(_: LookupError.NotFound)))
-              if oIntendedPackageId.isEmpty =>
-            Right(None)
+              if position == Nested =>
+            Right(opaque)
           case Left(Error.Preprocessing(_: Error.Preprocessing.TypeMismatch))
-              if oIntendedPackageId.isEmpty && upgradedOrDowngraded =>
-            Right(None)
+              if position == Nested && upgradedOrDowngraded =>
+            Right(opaque)
           case Left(err) => Left(err.toString)
+        }
+
+      // Only the results of top-level events become command results, so the results of nested
+      // events are not converted.
+      def enrichChoiceResult(
+          exercised: ExercisedEvent,
+          tplId: Identifier,
+          ifaceId: Option[Identifier],
+          choice: ChoiceName,
+      ): Either[String, Option[Value]] =
+        position match {
+          case TopLevel(_) =>
+            for {
+              choiceResult <- NoLoggingValueValidator
+                .validateValue(exercised.getExerciseResult)
+                .left
+                .map(_.toString)
+              enrichedChoiceResult <- enricher
+                .enrichChoiceResult(tplId, ifaceId, choice, choiceResult)
+                .consume(lookupHandler())
+                .left
+                .map(_.toString)
+            } yield Some(enrichedChoiceResult)
+          case Nested => Right(None)
         }
 
       javaTx.getEventsById.asScala.get(ev).toRight(s"Event id $ev does not exist").flatMap {
@@ -219,76 +265,86 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                     .validateRecord(created.getCreateArguments)
                     .left
                     .map(err => s"Failed to validate create argument: $err")
-                intendedTplId <- oIntendedPackageId.fold(nestedTplId(tplId, created.packageName))(
-                  intendedPackageId => Right(tplId.copy(pkg = intendedPackageId))
-                )
-                enrichedArg <- enrichOrOpaque(intendedTplId != tplId)(
-                  enricher.enrichContract(intendedTplId, arg)
-                )
-              } yield enrichedArg.fold[ScriptLedgerClient.TreeEvent](
-                ScriptLedgerClient.OpaqueCreated(tplId, cid)
-              )(
-                ScriptLedgerClient.Created(
-                  intendedTplId,
-                  cid,
-                  _,
-                  Bytes.fromByteString(created.createdEventBlob),
-                )
-              )
+                pkgName <- PackageName.fromString(created.packageName)
+                event <- position match {
+                  case TopLevel(ScriptLedgerClient.InterfaceTarget) =>
+                    throw new RuntimeException(
+                      s"Unexpected top-level create of $tplId for a command on an interface"
+                    )
+                  case _ =>
+                    lazy val opaque = ScriptLedgerClient.OpaqueCreated(tplId, cid)
+                    approximateTplId(tplId, pkgName) match {
+                      // No approximation of the template is known to the script
+                      case None => Right(opaque)
+                      case Some(approxTplId) =>
+                        enrichOrOpaque(
+                          enricher.enrichContract(approxTplId, arg),
+                          upgradedOrDowngraded = approxTplId != tplId,
+                          opaque = opaque,
+                          build = enrichedArg =>
+                            Right(
+                              ScriptLedgerClient.Created(
+                                approxTplId,
+                                cid,
+                                enrichedArg,
+                                Bytes.fromByteString(created.createdEventBlob),
+                              )
+                            ),
+                        )
+                    }
+                }
+              } yield event
             case Event.Event.Exercised(exercised) =>
               for {
                 tplId <- Converter.fromApiIdentifier(exercised.getTemplateId)
                 ifaceId <- exercised.interfaceId.traverse(Converter.fromApiIdentifier)
                 cid <- ContractId.fromString(exercised.contractId)
                 choice <- ChoiceName.fromString(exercised.choice)
-                intendedTplId <- oIntendedPackageId.fold(
-                  // The choice argument of an exercise by interface is converted through the
-                  // interface, whatever the template's package.
-                  if (ifaceId.isDefined) Right(tplId)
-                  else nestedTplId(tplId, exercised.packageName)
-                )(intendedPackageId => Right(tplId.copy(pkg = intendedPackageId)))
+                pkgName <- PackageName.fromString(exercised.packageName)
                 choiceArg <- NoLoggingValueValidator
                   .validateValue(exercised.getChoiceArgument)
                   .left
                   .map(err => s"Failed to validate exercise argument: $err")
-                enrichedChoiceArg <- enrichOrOpaque(intendedTplId != tplId)(
-                  enricher.enrichChoiceArgument(intendedTplId, ifaceId, choice, choiceArg)
-                )
-                // Only the results of top-level events become command results, so the
-                // results of nested events are not converted.
-                enrichedChoiceResult <- oIntendedPackageId.traverse { _ =>
-                  for {
-                    choiceResult <- NoLoggingValueValidator
-                      .validateValue(exercised.getExerciseResult)
-                      .left
-                      .map(_.toString)
-                    enrichedChoiceResult <- enricher
-                      .enrichChoiceResult(intendedTplId, ifaceId, choice, choiceResult)
-                      .consume(lookupHandler())
-                      .left
-                      .map(_.toString)
-                  } yield enrichedChoiceResult
-                }
                 childEvents <- javaTx
                   .getChildNodeIds(
                     JavaExercisedEvent.fromProto(ExercisedEvent.toJavaProto(exercised))
                   )
                   .asScala
                   .toList
-                  .traverse(convEvent(_, None))
-              } yield enrichedChoiceArg.fold[ScriptLedgerClient.TreeEvent](
-                ScriptLedgerClient.OpaqueExercised(tplId, ifaceId, cid, choice, childEvents)
-              )(
-                ScriptLedgerClient.Exercised(
-                  intendedTplId,
-                  ifaceId,
-                  cid,
-                  choice,
-                  _,
-                  enrichedChoiceResult,
-                  childEvents,
-                )
-              )
+                  .traverse(convEvent(_, Nested))
+                // An exercise by interface is converted against the interface, which is never
+                // upgraded/downgraded. Any other exercise is converted against its template.
+                convertedAgainstTemplate = ifaceId.isEmpty
+                event <- {
+                  lazy val opaque =
+                    ScriptLedgerClient.OpaqueExercised(tplId, ifaceId, cid, choice, childEvents)
+                  (approximateTplId(tplId, pkgName), ifaceId) match {
+                    // No approximation of the template is known to the script
+                    case (None, None) => Right(opaque)
+                    case (oApproxTplId, _) =>
+                      // An exercise by interface keeps its real template id if it has no
+                      // approximation: its argument is converted against the interface.
+                      val eventTplId = oApproxTplId.getOrElse(tplId)
+                      enrichOrOpaque(
+                        enricher.enrichChoiceArgument(eventTplId, ifaceId, choice, choiceArg),
+                        upgradedOrDowngraded = convertedAgainstTemplate && eventTplId != tplId,
+                        opaque = opaque,
+                        build = enrichedChoiceArg =>
+                          enrichChoiceResult(exercised, eventTplId, ifaceId, choice).map(
+                            ScriptLedgerClient.Exercised(
+                              eventTplId,
+                              ifaceId,
+                              cid,
+                              choice,
+                              enrichedChoiceArg,
+                              _,
+                              childEvents,
+                            )
+                          ),
+                      )
+                  }
+                }
+              } yield event
             case Event.Event.Archived(_) =>
               throw new RuntimeException(
                 "Unexpected archived event in transaction with LedgerEffects shape"
@@ -304,9 +360,9 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
         .getRootNodeIds()
         .asScala
         .toList
-        .zip(intendedPackageIds)
-        .traverse { case (nodeId, intendedPackageId) =>
-          convEvent(nodeId, Some(intendedPackageId))
+        .zip(commandTargets)
+        .traverse { case (nodeId, target) =>
+          convEvent(nodeId, TopLevel(target))
         }
     } yield {
       ScriptLedgerClient.TransactionTree(rootEvents)

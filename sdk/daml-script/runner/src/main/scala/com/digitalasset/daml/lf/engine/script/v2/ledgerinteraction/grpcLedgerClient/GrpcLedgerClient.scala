@@ -451,8 +451,8 @@ class GrpcLedgerClient(
       ledgerCommands <- Converter.toFuture(commands.traverse(toCommand(_)))
       // We need to remember the original package ID for each command result, so we can reapply them
       // after we get the results (for upgrades)
-      commandResultPackageIds = commands.flatMap(
-        toCommandPackageIds(optPackagePreference.getOrElse(List.empty), _)
+      commandTargets = commands.flatMap(
+        toCommandTargets(optPackagePreference.getOrElse(List.empty), _)
       )
       ledgerPrefetchContractKeys <- Converter.toFuture(
         prefetchContractKeys.traverse(toPrefetchContractKey)
@@ -476,8 +476,9 @@ class GrpcLedgerClient(
             tree <- Converter.toFuture(
               Converter.fromTransaction(
                 resp.getTransaction,
-                commandResultPackageIds,
+                commandTargets,
                 compiledPackages.signatures.contains,
+                compiledPackages.pkgInterface.lookupTemplate(_).isRight,
                 resolvePackageName(optPackagePreference.getOrElse(List.empty)),
                 enricher,
               )
@@ -578,19 +579,26 @@ class GrpcLedgerClient(
     } yield ()
   }
 
-  // Note that CreateAndExerciseCommand gives two results, so we duplicate the package id
-  private def toCommandPackageIds(
+  // Note that CreateAndExerciseCommand gives two results, so we duplicate the target
+  private def toCommandTargets(
       pkgPrefs: List[PackageId],
       cmd: ScriptLedgerClient.CommandWithMeta,
-  ): List[PackageId] =
+  ): List[ScriptLedgerClient.CommandTarget] =
     cmd.command match {
       case command.CreateAndExerciseCommand(tmplRef, _, _, _) =>
         List(
-          getIdentifierPkgId(pkgPrefs, tmplRef),
-          getIdentifierPkgId(pkgPrefs, tmplRef),
+          ScriptLedgerClient.TemplateTarget(getIdentifierPkgId(pkgPrefs, tmplRef)),
+          ScriptLedgerClient.TemplateTarget(getIdentifierPkgId(pkgPrefs, tmplRef)),
         )
+      case command.ExerciseCommand(typeRef, _, _, _)
+          if compiledPackages.pkgInterface
+            .lookupInterface(
+              TypeConId(getIdentifierPkgId(pkgPrefs, typeRef), typeRef.qualifiedName)
+            )
+            .isRight =>
+        List(ScriptLedgerClient.InterfaceTarget)
       case command =>
-        List(getIdentifierPkgId(pkgPrefs, command.typeRef))
+        List(ScriptLedgerClient.TemplateTarget(getIdentifierPkgId(pkgPrefs, command.typeRef)))
     }
 
   private def toCommand(cmd: ScriptLedgerClient.CommandWithMeta): Either[String, Command] =
