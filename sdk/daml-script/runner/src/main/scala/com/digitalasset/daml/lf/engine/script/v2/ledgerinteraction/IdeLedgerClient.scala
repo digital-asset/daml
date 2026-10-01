@@ -820,7 +820,7 @@ class IdeLedgerClient(
                     exercise.targetCoid,
                     exercise.choiceId,
                     enrichedArg,
-                    enrichedResult,
+                    Some(enrichedResult),
                     exercise.children.collect(Function.unlift(convEvent(_, None))).toList,
                   )
                 )

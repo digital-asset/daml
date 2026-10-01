@@ -36,6 +36,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
           Option[Identifier],
           ChoiceName,
       ) => Either[String, TemplateChoiceSignature],
+      isKnownPackage: PackageId => Boolean,
       scriptIds: ScriptIds,
       tree: ScriptLedgerClient.TransactionTree,
   ): Either[String, ExtendedValue] = {
@@ -49,20 +50,47 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
         "Daml.Script.Internal.Questions.TransactionTree.Stable.TreeEvent",
         s,
       )
+    def createdEvent(
+        tplId: Identifier,
+        contractId: ContractId,
+        anyTemplate: ExtendedValue,
+    ): ExtendedValue =
+      ValueVariant(
+        Some(damlTreeTreeEvent("TreeEvent")),
+        Name.assertFromString("CreatedEvent"),
+        record(
+          damlTree("Created"),
+          ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId)),
+          ("argument", anyTemplate),
+        ),
+      )
+    def exercisedEvent(
+        tplId: Identifier,
+        contractId: ContractId,
+        choiceName: ChoiceName,
+        anyChoice: Either[String, ExtendedValue],
+        childEvents: List[ScriptLedgerClient.TreeEvent],
+    ): Either[String, ExtendedValue] =
+      for {
+        evs <- childEvents.traverse(translateTreeEvent(_))
+        anyChoice <- anyChoice
+      } yield ValueVariant(
+        Some(damlTreeTreeEvent("TreeEvent")),
+        Name.assertFromString("ExercisedEvent"),
+        record(
+          damlTreeTreeEvent("Exercised"),
+          ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId)),
+          ("choice", ValueText(choiceName)),
+          ("argument", anyChoice),
+          ("childEvents", ValueList(evs.to(FrontStack))),
+        ),
+      )
     def translateTreeEvent(ev: ScriptLedgerClient.TreeEvent): Either[String, ExtendedValue] =
       ev match {
         case ScriptLedgerClient.Created(tplId, contractId, argument, _) =>
-          Right(
-            ValueVariant(
-              Some(damlTreeTreeEvent("TreeEvent")),
-              Name.assertFromString("CreatedEvent"),
-              record(
-                damlTree("Created"),
-                ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId)),
-                ("argument", fromAnyTemplate(tplId, argument)),
-              ),
-            )
-          )
+          Right(createdEvent(tplId, contractId, fromAnyTemplate(tplId, argument)))
+        case ScriptLedgerClient.OpaqueCreated(tplId, contractId) =>
+          fromOpaqueAnyTemplate(tplId, isKnownPackage).map(createdEvent(tplId, contractId, _))
         case ScriptLedgerClient.Exercised(
               tplId,
               ifaceId,
@@ -72,25 +100,26 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
               _, // Result cannot be encoded in daml without some kind of `AnyChoiceResult` type, likely using the `Choice` constraint to unpack.
               childEvents,
             ) =>
-          for {
-            evs <- childEvents.traverse(translateTreeEvent(_))
-            anyChoice <- fromAnyChoice(
-              lookupChoice,
+          exercisedEvent(
+            tplId,
+            contractId,
+            choiceName,
+            fromAnyChoice(lookupChoice, tplId, ifaceId, choiceName, arg),
+            childEvents,
+          )
+        case ScriptLedgerClient.OpaqueExercised(
               tplId,
               ifaceId,
+              contractId,
               choiceName,
-              arg,
-            )
-          } yield ValueVariant(
-            Some(damlTreeTreeEvent("TreeEvent")),
-            Name.assertFromString("ExercisedEvent"),
-            record(
-              damlTreeTreeEvent("Exercised"),
-              ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId)),
-              ("choice", ValueText(choiceName)),
-              ("argument", anyChoice),
-              ("childEvents", ValueList(evs.to(FrontStack))),
-            ),
+              childEvents,
+            ) =>
+          exercisedEvent(
+            tplId,
+            contractId,
+            choiceName,
+            fromOpaqueAnyChoice(tplId, ifaceId, choiceName, isKnownPackage),
+            childEvents,
           )
       }
     for {
@@ -212,7 +241,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                 cid,
                 choice,
                 enrichedChoiceArg,
-                enrichedChoiceResult,
+                Some(enrichedChoiceResult),
                 childEvents,
               )
             case Event.Event.Archived(_) =>

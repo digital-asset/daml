@@ -236,14 +236,57 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
   ): Either[String, ExtendedValue] =
     for {
       choice <- lookupChoice(templateId, interfaceId, choiceName)
-    } yield record(
+    } yield anyChoice(templateId, interfaceId, choice.argBinder._2, argument)
+
+  private[this] def anyChoice(
+      templateId: Identifier,
+      interfaceId: Option[Identifier],
+      argumentType: Type,
+      argument: ExtendedValue,
+  ): ExtendedValue =
+    record(
       stablePackages.AnyChoice,
-      ("getAnyChoice", ExtendedValueAny(choice.argBinder._2, argument)),
+      ("getAnyChoice", ExtendedValueAny(argumentType, argument)),
       (
         "getAnyChoiceTemplateTypeRep",
         fromTemplateTypeRep(toApiIdentifier(interfaceId.getOrElse(templateId))),
       ),
     )
+
+  // Stand-ins for template and choice arguments the script cannot decode. Their `Any` is tagged
+  // with the type the argument would have, and holds `()`. The tag must be in a package unknown to
+  // the script, so that no `fromAny` can ever unpack the `()` as a value of that type.
+  private[this] def checkOpaqueTag(
+      tag: Identifier,
+      isKnownPackage: PackageId => Boolean,
+  ): Either[String, Unit] =
+    Either.cond(
+      !isKnownPackage(tag.packageId),
+      (),
+      s"Opaque value tagged with $tag, from a package known to the script",
+    )
+
+  private[lf] def fromOpaqueAnyTemplate(
+      templateId: Identifier,
+      isKnownPackage: PackageId => Boolean,
+  ): Either[String, ExtendedValue] =
+    checkOpaqueTag(templateId, isKnownPackage).map(_ => fromAnyTemplate(templateId, ValueUnit))
+
+  private[lf] def fromOpaqueAnyChoice(
+      templateId: Identifier,
+      interfaceId: Option[Identifier],
+      choiceName: ChoiceName,
+      isKnownPackage: PackageId => Boolean,
+  ): Either[String, ExtendedValue] = {
+    // A choice argument type is named after the choice, in the module of its template or interface
+    val typeId = interfaceId.getOrElse(templateId)
+    val tag = typeId.copy(qualifiedName =
+      typeId.qualifiedName.copy(name = DottedName.assertFromNames(ImmArray(choiceName)))
+    )
+    checkOpaqueTag(tag, isKnownPackage).map(_ =>
+      anyChoice(templateId, interfaceId, TTyCon(tag), ValueUnit)
+    )
+  }
 
   private[this] def choiceArgTypeToChoiceName(choiceCons: TypeConId) = {
     // This exploits the fact that in Daml, choice argument type names
