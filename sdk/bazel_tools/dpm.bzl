@@ -87,7 +87,7 @@ genrule(
     export USERPROFILE=$$(dirname $@)
     $$ORAS pull --platform "{oras_platform}" -o $$(dirname $@) europe-docker.pkg.dev/da-images/public/components/dpm:{version}
     chmod +x $@
-    downloaded_sha=$$(sha256sum $@)
+    downloaded_sha=$$(sha256sum $@ 2>/dev/null || shasum -a 256 $@)
     if [ "$${{downloaded_sha%% *}}" != "{dpm_sha}" ]; then
       echo "Invalid SHA256 for DPM, expected {dpm_sha}, got $${{downloaded_sha%% *}}"
       exit 1

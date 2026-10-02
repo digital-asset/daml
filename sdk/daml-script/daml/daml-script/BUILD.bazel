@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_environment//:configuration.bzl", "ghc_version")
-load("//rules_daml:daml.bzl", "daml_compile")
+load("//bazel/haskell:runtime_libs.bzl", "DAMLC_RUNTIME_LIBS", "DAMLC_RUNTIME_LIB_PATH_EXPORT")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION")
 load("//daml-script/daml/daml-script-stable:stable-packages.bzl", "SCRIPT_STABLE_PACKAGES")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 # These packages contain all user facing logic and data types for daml-script.
 # They are forced to be utility packages (i.e. have no serializable types) for ease of development in future
@@ -32,6 +33,7 @@ genrule(
     outs = ["daml-script.json"],
     # Include daml-script/daml/daml-script-stable/daml path hard coded, as extracting from rule is ugly and this path should never change
     cmd = """
+        {lib_path_export}
         $(location //compiler/damlc) -- docs \
             --output=$(OUTS) \
             --package-name=daml-script \
@@ -41,8 +43,8 @@ genrule(
             --include=daml-script/daml/daml-script-stable/daml \
             $(location Daml/Script.daml) \
             $(location Daml/Script/Internal.daml)
-    """,
-    tools = [
+    """.format(lib_path_export = DAMLC_RUNTIME_LIB_PATH_EXPORT),
+    tools = DAMLC_RUNTIME_LIBS + [
         "//compiler/damlc",
     ],
     visibility = ["//daml-script/daml:__pkg__"],

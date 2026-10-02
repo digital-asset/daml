@@ -71,7 +71,9 @@ object CantonRunner {
     val sequencerPublicApi = LockedFreePort.find()
     val sequencerAdminApi = LockedFreePort.find()
     val mediatorAdminApi = LockedFreePort.find()
-    val java = s"${System.getenv("JAVA_HOME")}/bin/java${exe}"
+    val javaHome =
+      Option(System.getenv("JAVA_HOME")).filter(_.nonEmpty).getOrElse(System.getProperty("java.home"))
+    val java = s"$javaHome/bin/java${exe}"
     val (timeType, clockType) = config.timeProviderType match {
       case TimeProviderType.Static => (Some("monotonic-time"), Some("sim-clock"))
       case TimeProviderType.WallClock => (None, None)

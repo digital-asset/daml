@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-CONTENT=$(cat $*)
-MIMETYPE=$(echo "$CONTENT" | file -bN --mime-type -)
-CONTENT=$(echo "$CONTENT" | base64 -w 0)
-echo "data:$MIMETYPE;base64,$CONTENT"

@@ -7,7 +7,6 @@ load("//bazel_tools:proto.bzl", "proto_gen")
 proto_library(
     name = "script_service_proto",
     srcs = ["script_service.proto"],
-    visibility = ["//visibility:public"],
     deps = [],
 )
 
@@ -15,7 +14,6 @@ proto_gen(
     name = "script_service_java_proto_src",
     srcs = [":script_service_proto"],
     plugin_name = "java",
-    visibility = ["//visibility:public"],
 )
 
 proto_gen(
@@ -23,7 +21,6 @@ proto_gen(
     srcs = [":script_service_proto"],
     plugin_exec = "@io_grpc_grpc_java//compiler:grpc_java_plugin",
     plugin_name = "java-grpc",
-    visibility = ["//visibility:public"],
 )
 
 # FIXME(JM): java_grpc_library should do this for us,
@@ -36,7 +33,6 @@ java_library(
         ":script_service_java_proto_grpc_src",
         ":script_service_java_proto_src",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -56,11 +52,13 @@ genrule(
     outs = ["ScriptService.hs"],
     cmd = """
     ORIGPWD=$$PWD
+    export LD_LIBRARY_PATH="$$ORIGPWD/$$(dirname $(location @libz//:libs)):$${LD_LIBRARY_PATH:-}"
     cd compiler/script-service/protos
     $$ORIGPWD/$(location @proto3-suite//:compile-proto-file) \
       --proto script_service.proto --out "$$ORIGPWD/$(@D)"
   """,
     tools = [
+        "@libz//:libs",
         "@proto3-suite//:compile-proto-file",
     ],
 )
@@ -81,7 +79,6 @@ da_haskell_library(
         "text",
         "vector",
     ],
-    visibility = ["//visibility:public"],
 )
 
 # FIXME(JM): Modify compile-proto-file to allow specifying
@@ -95,12 +92,14 @@ genrule(
     outs = ["TestResults.hs"],
     cmd = """
     ORIGPWD=$$PWD
+    export LD_LIBRARY_PATH="$$ORIGPWD/$$(dirname $(location @libz//:libs)):$${LD_LIBRARY_PATH:-}"
     cd compiler/script-service/protos
     $$ORIGPWD/$(location @proto3-suite//:compile-proto-file) \
       --includeDir ./                                        \
       --proto test_results.proto --out "$$ORIGPWD/$(@D)"
   """,
     tools = [
+        "@libz//:libs",
         "@proto3-suite//:compile-proto-file",
     ],
 )
@@ -121,7 +120,6 @@ da_haskell_library(
         "text",
         "vector",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         ":script_service_haskell_proto",
         "//compiler/daml-lf-proto:daml_lf_archive_haskell_proto",
