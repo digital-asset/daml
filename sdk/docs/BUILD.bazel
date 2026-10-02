@@ -509,11 +509,13 @@ daml_build_test(
 
 daml_multi_package_test(
     name = "daml-intro-test",
+    timeout = "long" if is_windows else "moderate",
     srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**/*"]),
 )
 
 daml_multi_package_test(
     name = "daml-intro-interfaces",
+    timeout = "long" if is_windows else "moderate",
     srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-interfaces/**/*"]),
     enable_interfaces = True,
     shorten = "source/sdk/tutorials/smart-contracts/daml/",
