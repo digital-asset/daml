@@ -25,8 +25,10 @@ jobs:
     matrix:
       x86_64:
         assignment: default
+        release_name: linux-intel
       aarch64:
         assignment: arm
+        release_name: linux-arm
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals $(assignment)
@@ -44,6 +46,31 @@ jobs:
         cd sdk
         bazelisk test //... $(bazel_flags) $(vnet_cache)
       displayName: 'Test'
+    - bash: |
+        set -euo pipefail
+        cd sdk
+        bazelisk build //release:release $(bazel_flags) $(vnet_cache)
+        ./bazel-bin/release/release --release-dir "$(mktemp -d)"
+      displayName: 'Release artifacts smoke test'
+    - bash: |
+        set -euo pipefail
+        cd sdk
+        ci/build-release.sh
+      env:
+        DAML_SDK_RELEASE_VERSION: '0.0.0'
+      displayName: 'Build release artifacts'
+    - bash: |
+        set -euo pipefail
+        mkdir -p $(Build.StagingDirectory)/release
+        ./ci/copy-unix-release-artifacts.sh 0.0.0 $(release_name) $(Build.StagingDirectory)/release
+      env:
+        DAML_SDK_RELEASE_VERSION: '0.0.0'
+      displayName: 'Stage release artifacts'
+    - task: PublishPipelineArtifact@0
+      displayName: 'Publish release artifacts'
+      inputs:
+        targetPath: $(Build.StagingDirectory)/release
+        artifactName: $(release_name)-release
 
 - job: macos
   displayName: 'macOS'
