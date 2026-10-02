@@ -14,6 +14,7 @@ import Control.Lens hiding (List, children, (.=))
 import Control.Monad
 import Control.Monad.IO.Class
 import DA.Bazel.Runfiles
+import DA.Directory (copyDirectory)
 import Data.Aeson (toJSON, (.=))
 import qualified Data.Aeson.Key as Aeson.Key
 import Data.Char (toLower)
@@ -53,84 +54,92 @@ main = withComponentVersions $ do
         mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar"
     myPackageDarPath <- locateRunfiles $
         mainWorkspace </> "compiler" </> "lsp-tests" </> "my-package.dar"
-    let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide") fullCaps' dir s
-        runScripts s
-            -- We are currently seeing issues with GRPC FFI calls which make everything
-            -- that uses the scenario service extremely flaky and forces us to disable it on
-            -- CI. Once https://github.com/digital-asset/daml/issues/1354 is fixed we can
-            -- also run these tests on Windows.
-            | isWindows = pure ()
-            | otherwise = withTempDir $ \dir -> do
-                copyFile scriptDarPath (dir </> "daml-script.dar")
-                writeFileUTF8 (dir </> "daml.yaml") $ unlines
-                    [ "sdk-version: " <> componentVersionString
-                    , "name: script-test"
-                    , "version: 0.0.1"
-                    , "source: ."
-                    , "dependencies:"
-                    , "- daml-prim"
-                    , "- daml-stdlib"
-                    , "data-dependencies:"
-                    , "- daml-script.dar"
-                    ]
-                withCurrentDirectory dir $ do
-                    let cmd = damlcPath
-                        args = ["ide", "--debug"]
-                        createProc = (proc cmd args) { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
-                    withCreateProcess createProc $ \mbServerIn mbServerOut mbServerErr _serverProc -> do
-                        case (mbServerIn, mbServerOut, mbServerErr) of
-                            (Just serverIn, Just serverOut, Just serverErr) -> do
-                                runSessionWithHandles
-                                    serverIn
-                                    serverOut
-                                    conf
-                                    fullCaps'
-                                    dir
-                                    (s serverErr)
-                            _ -> error "runScripts: Cannot start without stdin, stdout, and stderr."
-        runUpgrades s =
-            withTempDir $ \dir -> do
-                copyFile myPackageDarPath (dir </> "my-package.dar")
-                writeFileUTF8 (dir </> "daml.yaml") $ unlines
-                    [ "sdk-version: " <> componentVersionString
-                    , "name: my-package"
-                    , "version: 2.0.0"
-                    , "source: ."
-                    , "dependencies:"
-                    , "- daml-prim"
-                    , "- daml-stdlib"
-                    , "upgrades: my-package.dar"
-                    ]
-                withCurrentDirectory dir $ do
-                    let cmd = damlcPath
-                        args = ["ide", "--debug"]
-                        createProc = (proc cmd args) { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
-                    withCreateProcess createProc $ \mbServerIn mbServerOut mbServerErr _serverProc -> do
-                        case (mbServerIn, mbServerOut, mbServerErr) of
-                            (Just serverIn, Just serverOut, Just serverErr) -> do
-                                runSessionWithHandles
-                                    serverIn
-                                    serverOut
-                                    conf
-                                    fullCaps'
-                                    dir
-                                    (s serverErr)
-                            _ -> error "runScripts: Cannot start without stdin, stdout, and stderr."
+    -- damlc ide builds the package database before it answers initialize, and
+    -- with daml-script.dar as a data-dependency that takes several seconds. We
+    -- build it once here and copy the project, including .daml, into each
+    -- session's directory, so that damlc finds an up-to-date package database.
+    withTempDir $ \scriptTemplateDir -> do
+        unless isWindows $ do
+            copyFile scriptDarPath (scriptTemplateDir </> "daml-script.dar")
+            writeFileUTF8 (scriptTemplateDir </> "daml.yaml") $ unlines
+                [ "sdk-version: " <> componentVersionString
+                , "name: script-test"
+                , "version: 0.0.1"
+                , "source: ."
+                , "dependencies:"
+                , "- daml-prim"
+                , "- daml-stdlib"
+                , "data-dependencies:"
+                , "- daml-script.dar"
+                ]
+            withCurrentDirectory scriptTemplateDir $ callProcess damlcPath ["init"]
+        let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide") fullCaps' dir s
+            runScripts s
+                -- We are currently seeing issues with GRPC FFI calls which make everything
+                -- that uses the scenario service extremely flaky and forces us to disable it on
+                -- CI. Once https://github.com/digital-asset/daml/issues/1354 is fixed we can
+                -- also run these tests on Windows.
+                | isWindows = pure ()
+                | otherwise = withTempDir $ \dir -> do
+                    copyDirectory scriptTemplateDir dir
+                    withCurrentDirectory dir $ do
+                        let cmd = damlcPath
+                            args = ["ide", "--debug"]
+                            createProc = (proc cmd args) { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
+                        withCreateProcess createProc $ \mbServerIn mbServerOut mbServerErr _serverProc -> do
+                            case (mbServerIn, mbServerOut, mbServerErr) of
+                                (Just serverIn, Just serverOut, Just serverErr) -> do
+                                    runSessionWithHandles
+                                        serverIn
+                                        serverOut
+                                        conf
+                                        fullCaps'
+                                        dir
+                                        (s serverErr)
+                                _ -> error "runScripts: Cannot start without stdin, stdout, and stderr."
+            runUpgrades s =
+                withTempDir $ \dir -> do
+                    copyFile myPackageDarPath (dir </> "my-package.dar")
+                    writeFileUTF8 (dir </> "daml.yaml") $ unlines
+                        [ "sdk-version: " <> componentVersionString
+                        , "name: my-package"
+                        , "version: 2.0.0"
+                        , "source: ."
+                        , "dependencies:"
+                        , "- daml-prim"
+                        , "- daml-stdlib"
+                        , "upgrades: my-package.dar"
+                        ]
+                    withCurrentDirectory dir $ do
+                        let cmd = damlcPath
+                            args = ["ide", "--debug"]
+                            createProc = (proc cmd args) { std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe }
+                        withCreateProcess createProc $ \mbServerIn mbServerOut mbServerErr _serverProc -> do
+                            case (mbServerIn, mbServerOut, mbServerErr) of
+                                (Just serverIn, Just serverOut, Just serverErr) -> do
+                                    runSessionWithHandles
+                                        serverIn
+                                        serverOut
+                                        conf
+                                        fullCaps'
+                                        dir
+                                        (s serverErr)
+                                _ -> error "runScripts: Cannot start without stdin, stdout, and stderr."
 
 
-    defaultMain $ testGroup "LSP"
-        [ symbolsTests run
-        , diagnosticTests run runScripts runUpgrades
-        , requestTests run runScripts
-        , scriptTests runScripts
-        , stressTests run
-        , executeCommandTests run
-        , regressionTests run
-        , includePathTests damlcPath scriptDarPath
-        , multiPackageTests damlcPath scriptDarPath
-        , completionTests run runScripts
-        , raceTests runScripts
-        ]
+        defaultMain $ testGroup "LSP"
+            [ symbolsTests run
+            , diagnosticTests run runScripts runUpgrades
+            , requestTests run runScripts
+            , scriptTests runScripts
+            , stressTests run
+            , executeCommandTests run
+            , regressionTests run
+            , includePathTests damlcPath scriptDarPath
+            , multiPackageTests damlcPath scriptDarPath
+            , completionTests run runScripts
+            , raceTests runScripts
+            ]
 
 conf :: SessionConfig
 conf = defaultConfig
