@@ -176,7 +176,7 @@ jobs:
               BRANCH="notices-update-$(Build.BuildId)"
               cp "$(Pipeline.Workspace)/notices/NOTICES" NOTICES
               git add NOTICES
-              open_pr "$BRANCH" "update NOTICES file" "" "" "$(Build.SourceBranchName)"
+              open_superseding_pr "$BRANCH" "update NOTICES file" "" "$(Build.SourceBranchName)" "ci-generated-notices-update"
               trigger_azure $AZURE_DEVOPS_EXT_PAT PRs --branch $BRANCH
           fi
         displayName: 'Open PR to update NOTICES file'
@@ -250,25 +250,12 @@ jobs:
                     updates_section=$(printf "After updating canton, the following changes were made:\n%s\n" "$update_bullets")
                   fi
 
-                  # Older canton PRs still open, superseded by this one
-                  superseded=$(list_open_prs_with_label ci-generated-canton-upgrade) || superseded=""
-                  supersedes_section=""
-                  if [ -n "$superseded" ]; then
-                    supersedes_section="Supersedes $(printf '#%s, ' $superseded | sed 's/, $//').\n\n"
-                  fi
-
-                  body=$(printf "%s%sCanton changes:\n\n%s\n\ntell-slack: canton" "$supersedes_section" "$updates_section" "$changelog")
+                  body=$(printf "%sCanton changes:\n\n%s\n\ntell-slack: canton" "$updates_section" "$changelog")
 
                   if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
                       echo "Branch $branch already exists on origin (opened by a previous run), not opening another PR."
                   else
-                      pr_file=$(mktemp)
-                      open_pr "$branch" "update canton to $version" "$body" "$pr_file" "$(Build.SourceBranchName)" "ci-generated-canton-upgrade"
-                      new_pr=$(cat "$pr_file")
-                      for old_pr in $superseded; do
-                          comment_on_pr "$old_pr" "superseded by #$new_pr" \
-                            || echo "Failed to comment on #$old_pr"
-                      done
+                      open_superseding_pr "$branch" "update canton to $version" "$body" "$(Build.SourceBranchName)" "ci-generated-canton-upgrade"
                       az pipelines build queue --branch "$branch" \
                                                --definition-name "PRs" \
                                                --org "https://dev.azure.com/digitalasset" \
@@ -320,7 +307,7 @@ jobs:
           BRANCH=update-compat-versions-$(date -I)-$(Build.SourceBranchName)
           TITLE="update compat versions ($(date -I) $(Build.SourceBranchName))"
           BODY="If follow-up PRs are needed to fix this one, add a run-full-compat: true trailer to their commit message so the full compat suite runs on them too.\n\nrun-full-compat: true"
-          open_pr "$BRANCH" "$TITLE" "$BODY" "" "$(Build.SourceBranchName)"
+          open_superseding_pr "$BRANCH" "$TITLE" "$BODY" "$(Build.SourceBranchName)" "ci-generated-compat-versions-update"
           trigger_azure $(System.AccessToken) PRs --branch $BRANCH
           trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $BRANCH
         else
