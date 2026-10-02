@@ -31,21 +31,28 @@ def call_gh(*args):
 
 def extract_failed_tests(report_filename: str):
     """
-    Extracts the names of the failed tests from the given report file.
+    Extracts the names and statuses of the failed and timed out tests from the
+    given report file.
     """
     with open(report_filename) as f:
         for line in f:
             entry = json.loads(line)
-            if "testResult" in entry and entry["testResult"]["status"] == "FAILED":
-                yield entry["id"]["testResult"]["label"]
+            if "testResult" in entry:
+                status = entry["testResult"]["status"]
+                if status in ("FAILED", "TIMEOUT"):
+                    yield entry["id"]["testResult"]["label"], status
 
 
-def report_failed_test(branch: str, test_name: str):
+def report_failed_test(branch: str, test_name: str, status: str):
     """
     Reports a failed test as a github issue. If a github issue already exists
-    for that failed test then adds an entry to its body.
+    for that failed test then adds an entry to its body. Timeouts are reported
+    in separate issues, marked with [TIMEOUT].
     """
-    title = f"[{branch}] Flaky {test_name}"
+    if status == "TIMEOUT":
+        title = f"[{branch}] [TIMEOUT] Flaky {test_name}"
+    else:
+        title = f"[{branch}] Flaky {test_name}"
     result = call_gh(
         "issue",
         "list",
@@ -160,9 +167,9 @@ if __name__ == "__main__":
     [_, access_token, branch, report_filename] = sys.argv
     failing_tests = list(extract_failed_tests(report_filename))
     print(f"Reporting {len(failing_tests)} failing tests as github issues.")
-    for test_name in failing_tests:
-        print(f"Reporting {test_name}")
-        report_failed_test(branch, test_name)
+    for test_name, status in failing_tests:
+        print(f"Reporting {test_name} ({status})")
+        report_failed_test(branch, test_name, status)
     if failing_tests:
         print('Increasing logs retention to 2 years')
         az_set_logs_ttl(access_token, 365 * 2)
