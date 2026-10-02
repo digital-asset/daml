@@ -2,6 +2,7 @@ import datetime
 import http.client
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -43,16 +44,17 @@ def extract_failed_tests(report_filename: str):
                     yield entry["id"]["testResult"]["label"], status
 
 
-def report_failed_test(branch: str, test_name: str, status: str):
+def report_failed_test(test_name: str, status: str, note: str = ""):
     """
     Reports a failed test as a github issue. If a github issue already exists
     for that failed test then adds an entry to its body. Timeouts are reported
-    in separate issues, marked with [TIMEOUT].
+    in separate issues, marked with [TIMEOUT]. The note, if any, is appended to
+    the entry.
     """
     if status == "TIMEOUT":
-        title = f"[{branch}] [TIMEOUT] Flaky {test_name}"
+        title = f"[TIMEOUT] Flaky {test_name}"
     else:
-        title = f"[{branch}] Flaky {test_name}"
+        title = f"Flaky {test_name}"
     result = call_gh(
         "issue",
         "list",
@@ -72,19 +74,19 @@ def report_failed_test(branch: str, test_name: str, status: str):
         id, body, closed = str(match["number"]), match["body"], match["closed"]
         if closed:
             gh_reopen_issue(id)
-        gh_update_issue(id, body)
+        gh_update_issue(id, body, note)
     else:
-        gh_create_issue(title)
+        gh_create_issue(title, note)
 
 
-def gh_create_issue(title: str):
+def gh_create_issue(title: str, note: str):
     """
     Create a new github flaky test issue for the given test name.
     """
     body = ("This issue was created automatically by the CI. "
             "Please fix the test before closing the issue."
             "\n\n"
-            f"{mk_issue_entry()}")
+            f"{mk_issue_entry(note)}")
     with tempfile.NamedTemporaryFile(delete=False, mode='w') as temp_file:
         temp_file.write(body)
         temp_file.close()
@@ -97,10 +99,10 @@ def gh_create_issue(title: str):
     print(f"Created issue {result.stdout.strip()}")
 
 
-def mk_issue_entry():
+def mk_issue_entry(note: str = ""):
     """
-    Returns a string of the form "date url:<url>" where <url> is a link to the
-    build logs for the current job and task.
+    Returns a string of the form "date [logs](<url>) note" where <url> is a
+    link to the build logs for the current job and task.
     """
     date = datetime.datetime.now(datetime.timezone.utc)
     date_str = date.strftime("%Y-%m-%d %H:%M:%S")
@@ -110,14 +112,14 @@ def mk_issue_entry():
         "view": "logs",
         "j": os.environ["SYSTEM_JOBID"],
     })
-    return f"{date_str} [logs]({url})"
+    return f"{date_str} [logs]({url}) {note}".rstrip()
 
 
-def gh_update_issue(id: str, body: str):
+def gh_update_issue(id: str, body: str, note: str):
     """
     Updates the body of the given issue with a new entry.
     """
-    new_body = f"{body}\n{mk_issue_entry()}"
+    new_body = f"{body}\n{mk_issue_entry(note)}"
     with tempfile.NamedTemporaryFile(delete=False, mode='w') as temp_file:
         temp_file.write(new_body)
         temp_file.close()
@@ -163,13 +165,108 @@ def az_set_logs_ttl(access_token: str, days: int):
     urllib.request.urlopen(req)
 
 
+def az_get(access_token: str, url: str):
+    """
+    GETs the given Azure DevOps REST API url and returns the response body.
+    """
+    req = urllib.request.Request(
+        url, headers={'Authorization': f"Bearer {access_token}"})
+    with urllib.request.urlopen(req) as response:
+        return response.read()
+
+
+def earlier_attempt_failures(access_token: str):
+    """
+    Returns {test label: "FAILED" or "TIMEOUT"} for the tests that failed in
+    earlier attempts of the current job, read from the summary bazel prints
+    at the end of the "Build" step, e.g.
+
+        //docs:daml-intro-test                          TIMEOUT in 355.0s
+
+    Retried jobs run in the same build, on the same merge commit, so the PR
+    head and the target branch are the same as in those earlier attempts.
+    """
+    builds = "".join([
+        os.environ['SYSTEM_COLLECTIONURI'],
+        os.environ['SYSTEM_TEAMPROJECT'],
+        "/_apis/build/builds/",
+        os.environ['BUILD_BUILDID'],
+    ])
+    job_name = os.environ['SYSTEM_JOBDISPLAYNAME']
+    timeline = json.loads(az_get(access_token, f"{builds}/timeline?api-version=7.1"))
+    previous = [
+        attempt["timelineId"]
+        for record in timeline["records"]
+        if record["type"] == "Job" and record["name"] == job_name
+        for attempt in record.get("previousAttempts") or []
+    ]
+    failures = {}
+    for timeline_id in previous:
+        old = json.loads(az_get(access_token, f"{builds}/timeline/{timeline_id}?api-version=7.1"))
+        jobs = {
+            r["id"]
+            for r in old["records"]
+            if r["type"] == "Job" and r["name"] == job_name
+        }
+        for record in old["records"]:
+            if (record["type"] == "Task" and record["parentId"] in jobs
+                    and record["name"] == "Build" and record.get("log")):
+                log = az_get(access_token, record["log"]["url"]).decode("utf-8", "replace")
+                for label, status in re.findall(
+                        r"^\S+ (//\S+)\s+(FAILED|TIMEOUT) in ", log, re.MULTILINE):
+                    failures[label] = status
+    return failures
+
+
+def extract_passed_tests(report_filename: str):
+    """
+    Returns the labels of the tests in the given report file that passed after
+    actually running, i.e. not served from the local or remote cache.
+    """
+    passed = set()
+    with open(report_filename) as f:
+        for line in f:
+            entry = json.loads(line)
+            result = entry.get("testResult")
+            if (result and result["status"] == "PASSED"
+                    and not result.get("cachedLocally")
+                    and not result.get("executionInfo", {}).get("cachedRemotely")):
+                passed.add(entry["id"]["testResult"]["label"])
+    return passed
+
+
+def report_pr_flakes(access_token: str, report_filename: str):
+    """
+    On a retried PR job, reports the tests that failed or timed out in an
+    earlier attempt and passed in this one. They go to the same issues as
+    flakes on main, with a note saying which PR they came from.
+    """
+    attempt = os.environ['SYSTEM_JOBATTEMPT']
+    failures = earlier_attempt_failures(access_token)
+    passed = extract_passed_tests(report_filename)
+    flaky = sorted((label, status) for label, status in failures.items() if label in passed)
+    print(f"{len(failures)} tests failed in earlier attempts, {len(flaky)} of them passed in attempt {attempt}.")
+    for test_name, status in flaky:
+        note = (f"(PR #{os.environ['SYSTEM_PULLREQUEST_PULLREQUESTNUMBER']}: "
+                f"{status} in an earlier attempt, passed in attempt {attempt})")
+        print(f"Reporting {test_name} ({status})")
+        report_failed_test(test_name, status, note)
+    if flaky:
+        print('Increasing logs retention to 2 years')
+        az_set_logs_ttl(access_token, 365 * 2)
+
+
 if __name__ == "__main__":
-    [_, access_token, branch, report_filename] = sys.argv
+    if len(sys.argv) == 4 and sys.argv[1] == "--pr":
+        [_, _, access_token, report_filename] = sys.argv
+        report_pr_flakes(access_token, report_filename)
+        sys.exit(0)
+    [_, access_token, report_filename] = sys.argv
     failing_tests = list(extract_failed_tests(report_filename))
     print(f"Reporting {len(failing_tests)} failing tests as github issues.")
     for test_name, status in failing_tests:
         print(f"Reporting {test_name} ({status})")
-        report_failed_test(branch, test_name, status)
+        report_failed_test(test_name, status)
     if failing_tests:
         print('Increasing logs retention to 2 years')
         az_set_logs_ttl(access_token, 365 * 2)
