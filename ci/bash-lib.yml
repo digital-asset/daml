@@ -98,15 +98,16 @@ steps:
                "https://api.github.com/repos/digital-asset/daml/pulls/$pr_number/requested_reviewers"
     }
     list_open_prs_with_label() {
-      local label
+      local label base
       label="$1"
+      base="$2"
 
       curl -H "$(get_gh_auth_header)" \
            --fail \
            --silent \
            --location \
-           "https://api.github.com/repos/digital-asset/daml/issues?state=open&labels=$label&per_page=100" \
-        | jq -r '.[] | select(.pull_request) | .number'
+           "https://api.github.com/repos/digital-asset/daml/pulls?state=open&base=$base&per_page=100" \
+        | jq -r --arg label "$label" '.[] | select(any(.labels[]; .name == $label)) | .number'
     }
     comment_on_pr() {
       local pr_number body
@@ -122,6 +123,30 @@ steps:
                --output /dev/null \
                -d @- \
                "https://api.github.com/repos/digital-asset/daml/issues/$pr_number/comments"
+    }
+    # Like open_pr, but the PR is labelled and lists the older open PRs with
+    # the same label and base it supersedes; each of those gets a
+    # "superseded by" comment.
+    open_superseding_pr() {
+      local branch title body base label superseded pr_file new_pr old_pr
+      branch="$1"
+      title="$2"
+      body="$3"
+      base="$4"
+      label="$5"
+
+      superseded=$(list_open_prs_with_label "$label" "$base") || superseded=""
+      if [ -n "$superseded" ]; then
+        body="Supersedes $(printf '#%s, ' $superseded | sed 's/, $//').${body:+\n\n$body}"
+      fi
+
+      pr_file=$(mktemp)
+      open_pr "$branch" "$title" "$body" "$pr_file" "$base" "$label"
+      new_pr=$(cat "$pr_file")
+      for old_pr in $superseded; do
+        comment_on_pr "$old_pr" "superseded by #$new_pr" \
+          || echo "Failed to comment on #$old_pr"
+      done
     }
     user_slack_handle() {
         local email sha
