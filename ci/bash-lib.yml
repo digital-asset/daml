@@ -201,6 +201,21 @@ steps:
         --project daml \
         $@
     )
+    azure_build_url() {
+      echo "${SYSTEM_COLLECTIONURI}${SYSTEM_TEAMPROJECT}/_build/results?buildId=$1"
+    }
+    # Prints the id of an earlier build of the current pipeline that
+    # succeeded on the same commit as the current build, or nothing if there
+    # is none. For PR builds that commit is refs/pull/N/merge, so a match
+    # means both the PR head and the target branch are unchanged.
+    earlier_successful_build() {
+      local token="$1"
+      curl -sSf \
+           -H "Authorization: Bearer $token" \
+           "${SYSTEM_COLLECTIONURI}${SYSTEM_TEAMPROJECT}/_apis/build/builds?definitions=${SYSTEM_DEFINITIONID}&branchName=${BUILD_SOURCEBRANCH}&statusFilter=completed&resultFilter=succeeded&api-version=7.1" \
+      | jq -r --arg sha "$BUILD_SOURCEVERSION" --argjson self "$BUILD_BUILDID" \
+           '[.value[] | select(.sourceVersion == $sha and .id != $self) | .id] | first // empty'
+    }
 
     END
     echo "##vso[task.setvariable variable=${{parameters.var_name}}]$TMP"

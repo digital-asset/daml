@@ -139,7 +139,11 @@ jobs:
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
-  condition: eq(variables['Build.Reason'], 'PullRequest')
+  dependsOn:
+    - git_sha
+  condition: and(eq(variables['Build.Reason'], 'PullRequest'),
+                 succeeded(),
+                 ne(dependencies.git_sha.outputs['dedupe.already_built'], 'true'))
   steps:
   - checkout: self
     clean: true
