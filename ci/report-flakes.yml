@@ -22,3 +22,25 @@ steps:
     displayName: 'Report flaky tests'
     env:
       GH_TOKEN: $(GH_DAML_READWRITE)
+  # A retried PR job runs on the same merge commit as its earlier attempts
+  # (same PR head, same target branch), so a test that failed before and
+  # passes now is as much a flake as a failure on main.
+  - bash: |
+      set -euo pipefail
+      eval "$(cd sdk; dev-env/bin/dade-assist)"
+
+      report="sdk/test-events.json"
+      if [ -f $report ]; then
+        python ci/report_flakes.py --pr $(System.AccessToken) $(System.PullRequest.TargetBranchName) $report
+      else
+        echo "$report not found, skipping"
+      fi
+    condition: and(
+      succeededOrFailed(),
+      eq(${{parameters.is_release}}, 'false'),
+      eq(variables['Build.Reason'], 'PullRequest'),
+      eq(variables['System.PullRequest.IsFork'], 'False'),
+      ne(variables['System.JobAttempt'], '1'))
+    displayName: 'Report flaky tests from earlier attempts'
+    env:
+      GH_TOKEN: $(GH_DAML_READWRITE)
