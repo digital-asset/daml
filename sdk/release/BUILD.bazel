@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 load("util.bzl", "dpm_sdk_tarball")
 
