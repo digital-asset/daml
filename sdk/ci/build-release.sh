@@ -15,7 +15,7 @@ export LC_ALL=en_US.UTF-8
 ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 mkdir -p "${ARTIFACT_DIRS}/logs"
 
-if [ "${1:-}" = "_m1" ]; then
+if [ "${1:-}" = "_aarch64" ]; then
     bazel="arch -arm64 bazel"
 else
     bazel=bazel
