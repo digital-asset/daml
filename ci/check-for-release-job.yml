@@ -6,6 +6,9 @@ jobs:
   displayName: "Check for Release"
   dependsOn:
     - git_sha
+  # Every build job depends on check_for_release, so skipping it skips them.
+  condition: and(succeeded(),
+                 ne(dependencies.git_sha.outputs['dedupe.already_built'], 'true'))
   variables:
     branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]

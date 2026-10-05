@@ -30,9 +30,35 @@ jobs:
         fi
       name: out
       displayName: 'Get git sha, branch, fork point'
+    - bash: |
+        set -euo pipefail
+        source $(bash-lib)
+        # Marking a draft PR ready for review makes Azure queue a new build
+        # on the same merge commit. If an earlier build already passed on it,
+        # there is nothing new to test, and check_for_release (and with it
+        # everything else) is skipped.
+        prev=""
+        if [ "$(Build.Reason)" == "PullRequest" ]; then
+            # If the lookup fails, run the build as normal.
+            prev=$(earlier_successful_build "$SYSTEM_ACCESSTOKEN" || true)
+        fi
+        if [ -n "$prev" ]; then
+            echo "$(Build.SourceVersion) was already tested by $(azure_build_url "$prev"); skipping."
+            setvar already_built true
+        else
+            setvar already_built false
+        fi
+      name: dedupe
+      displayName: 'Check for earlier successful build of this commit'
+      env:
+        SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
 - job: verify_docs_synchronized
   displayName: 'Verify docs synchronized'
+  dependsOn:
+    - git_sha
+  condition: and(succeeded(),
+                 ne(dependencies.git_sha.outputs['dedupe.already_built'], 'true'))
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -54,6 +80,10 @@ jobs:
       displayName: 'Verify docs synchronized'
 
 - job: validate_docs_sphinx_build
+  dependsOn:
+    - git_sha
+  condition: and(succeeded(),
+                 ne(dependencies.git_sha.outputs['dedupe.already_built'], 'true'))
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
