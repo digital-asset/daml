@@ -44,7 +44,7 @@ def extract_failed_tests(report_filename: str):
                     yield entry["id"]["testResult"]["label"], status
 
 
-def report_failed_test(test_name: str, status: str, note: str = ""):
+def report_failed_test(branch: str, test_name: str, status: str, note: str = ""):
     """
     Reports a failed test as a github issue. If a github issue already exists
     for that failed test then adds an entry to its body. Timeouts are reported
@@ -52,9 +52,9 @@ def report_failed_test(test_name: str, status: str, note: str = ""):
     the entry.
     """
     if status == "TIMEOUT":
-        title = f"[TIMEOUT] Flaky {test_name}"
+        title = f"[{branch}] [TIMEOUT] Flaky {test_name}"
     else:
-        title = f"Flaky {test_name}"
+        title = f"[{branch}] Flaky {test_name}"
     result = call_gh(
         "issue",
         "list",
@@ -235,11 +235,11 @@ def extract_passed_tests(report_filename: str):
     return passed
 
 
-def report_pr_flakes(access_token: str, report_filename: str):
+def report_pr_flakes(access_token: str, target_branch: str, report_filename: str):
     """
     On a retried PR job, reports the tests that failed or timed out in an
     earlier attempt and passed in this one. They go to the same issues as
-    flakes on main, with a note saying which PR they came from.
+    flakes on the target branch, with a note saying which PR they came from.
     """
     attempt = os.environ['SYSTEM_JOBATTEMPT']
     failures = earlier_attempt_failures(access_token)
@@ -250,23 +250,23 @@ def report_pr_flakes(access_token: str, report_filename: str):
         note = (f"(PR #{os.environ['SYSTEM_PULLREQUEST_PULLREQUESTNUMBER']}: "
                 f"{status} in an earlier attempt, passed in attempt {attempt})")
         print(f"Reporting {test_name} ({status})")
-        report_failed_test(test_name, status, note)
+        report_failed_test(target_branch, test_name, status, note)
     if flaky:
         print('Increasing logs retention to 2 years')
         az_set_logs_ttl(access_token, 365 * 2)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 4 and sys.argv[1] == "--pr":
-        [_, _, access_token, report_filename] = sys.argv
-        report_pr_flakes(access_token, report_filename)
+    if len(sys.argv) == 5 and sys.argv[1] == "--pr":
+        [_, _, access_token, target_branch, report_filename] = sys.argv
+        report_pr_flakes(access_token, target_branch, report_filename)
         sys.exit(0)
-    [_, access_token, report_filename] = sys.argv
+    [_, access_token, branch, report_filename] = sys.argv
     failing_tests = list(extract_failed_tests(report_filename))
     print(f"Reporting {len(failing_tests)} failing tests as github issues.")
     for test_name, status in failing_tests:
         print(f"Reporting {test_name} ({status})")
-        report_failed_test(test_name, status)
+        report_failed_test(branch, test_name, status)
     if failing_tests:
         print('Increasing logs retention to 2 years')
         az_set_logs_ttl(access_token, 365 * 2)
