@@ -155,7 +155,9 @@ def _dpm_sdk_impl(ctx):
     assistant_path = "sdk/{version}/bin/dpm{exe}".format(version = ctx.attr.version, exe = ".exe" if is_windows else "")
 
     # Use dpm bootstrapping which takes the bundle and a DPM_HOME path, and sets up an install
-    exec_result = ctx.execute([assistant_path, "bootstrap", "{}".format(out_dir)], environment = {"DPM_HOME": "{}".format(out_dir)}, quiet = False)
+    # Bootstrapping gets stuck after pulling components for >8 minutes sometimes.
+    # We don't yet know why, the timeout is a bandaid solution
+    exec_result = ctx.execute([assistant_path, "bootstrap", "{}".format(out_dir)], environment = {"DPM_HOME": "{}".format(out_dir)}, quiet = False, timeout = 1800)
     if exec_result.return_code:
         fail("Error executing dpm bootstrap: {stdout}\n{stderr}".format(stdout = exec_result.stdout, stderr = exec_result.stderr))
 
