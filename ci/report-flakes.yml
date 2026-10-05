@@ -10,8 +10,11 @@ steps:
       eval "$(cd sdk; dev-env/bin/dade-assist)"
 
       report="sdk/test-events.json"
+      # Build.SourceBranchName is only the last segment of e.g. release/3.4.x
+      branch="$(Build.SourceBranch)"
+      branch="${branch#refs/heads/}"
       if [ -f $report ]; then
-        python ci/report_flakes.py $(System.AccessToken) $(Build.SourceBranchName) $report
+        python ci/report_flakes.py $(System.AccessToken) "$branch" $report
       else
         echo "$report not found, skipping"
       fi
@@ -20,5 +23,30 @@ steps:
       eq(${{parameters.is_release}}, 'false'),
       eq(variables['Build.SourceBranchName'], 'main'))
     displayName: 'Report flaky tests'
+    env:
+      GH_TOKEN: $(GH_DAML_READWRITE)
+  # A retried PR job runs on the same merge commit as its earlier attempts
+  # (same PR head, same target branch), so a test that failed before and
+  # passes now is as much a flake as a failure on the target branch, and is
+  # reported into the same issues.
+  - bash: |
+      set -euo pipefail
+      eval "$(cd sdk; dev-env/bin/dade-assist)"
+
+      report="sdk/test-events.json"
+      branch="$(System.PullRequest.TargetBranch)"
+      branch="${branch#refs/heads/}"
+      if [ -f $report ]; then
+        python ci/report_flakes.py --pr $(System.AccessToken) "$branch" $report
+      else
+        echo "$report not found, skipping"
+      fi
+    condition: and(
+      succeededOrFailed(),
+      eq(${{parameters.is_release}}, 'false'),
+      eq(variables['Build.Reason'], 'PullRequest'),
+      eq(variables['System.PullRequest.IsFork'], 'False'),
+      ne(variables['System.JobAttempt'], '1'))
+    displayName: 'Report flaky tests from earlier attempts'
     env:
       GH_TOKEN: $(GH_DAML_READWRITE)
