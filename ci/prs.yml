@@ -25,10 +25,10 @@ jobs:
     matrix:
       x86_64:
         assignment: default
-        release_name: linux-intel
+        release_name: linux-x86_64
       aarch64:
         assignment: arm
-        release_name: linux-arm
+        release_name: linux-aarch64
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals $(assignment)
@@ -74,7 +74,7 @@ jobs:
         echo "Now Artifacts should be pushed"
         echo "  artifact name: $(release_name)-release"
         echo "  from: $dir"
-        find "$dir" -type f -printf '%12s  %p\n' | sort -k2
+        find "$dir" -type f -exec du -h {} + | sort -k2
         count=$(find "$dir" -type f | wc -l)
         size=$(du -sh "$dir" | cut -f1)
         echo "  total: $count files, $size"
@@ -87,8 +87,12 @@ jobs:
     matrix:
       x86_64:
         assignment: default
+        release_name: macos-x86_64
+        release_arg: ''
       aarch64:
         assignment: m1-builds
+        release_name: macos-aarch64
+        release_arg: '_aarch64'
   pool:
     name: 'macOS-pool'
     demands: assignment -equals $(assignment)
@@ -133,6 +137,33 @@ jobs:
         cd sdk
         bazelisk test //... $(bazel_flags) $(cache_flags)
       displayName: 'Test'
+    - bash: |
+        set -euo pipefail
+        cd sdk
+        ci/build-release.sh $(release_arg)
+      env:
+        DAML_SDK_RELEASE_VERSION: '0.0.0'
+      displayName: 'Build release artifacts'
+    - bash: |
+        set -euo pipefail
+        mkdir -p $(Build.StagingDirectory)/release
+        ./ci/copy-unix-release-artifacts.sh 0.0.0 $(release_name) $(Build.StagingDirectory)/release
+      env:
+        DAML_SDK_RELEASE_VERSION: '0.0.0'
+      displayName: 'Stage release artifacts'
+    # TODO: placeholder for the real artifact push - restore PublishPipelineArtifact@0
+    # and wire ci/publish-artifactory.sh / ci/publish-oci.sh when releasing is re-enabled.
+    - bash: |
+        set -euo pipefail
+        dir="$(Build.StagingDirectory)/release"
+        echo "Now Artifacts should be pushed"
+        echo "  artifact name: $(release_name)-release"
+        echo "  from: $dir"
+        find "$dir" -type f -exec du -h {} + | sort -k2
+        count=$(find "$dir" -type f | wc -l)
+        size=$(du -sh "$dir" | cut -f1)
+        echo "  total: $count files, $size"
+      displayName: 'Push release artifacts (placeholder)'
     - bash: |
         if [ -n "${KEY:-}" ]; then rm -f "$KEY"; fi
         (cd sdk && bazelisk shutdown) || true
