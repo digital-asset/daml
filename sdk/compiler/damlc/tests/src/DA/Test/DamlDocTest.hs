@@ -98,7 +98,7 @@ generateTests scriptPackageData = testGroup "generate doctest module"
             let moduleName = "Case_" <> T.replace " " "" name
                 tmpFile = T.unpack moduleName <> ".daml"
             T.writeFileUtf8 tmpFile $ T.unlines $ testModuleHeader moduleName <> input
-            let opts = (defaultOptions Nothing)
+            let opts = (defaultTestOptions Nothing)
                     { optHaddock = Haddock True
                     , optScriptService = EnableScriptService False
                     , optPackageDbs = [fst scriptPackageData]

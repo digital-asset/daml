@@ -23,18 +23,19 @@ import ComponentVersion.Class (ComponentVersioned)
 
 ------------------------------------------------------------
 
-cmd :: Int -> (CmdArgs -> a) -> Mod CommandFields a
-cmd numProcessors f = command "docs" $
-        info (helper <*> (f <$> documentation numProcessors)) $
+cmd :: Int -> CliOptions -> (CmdArgs -> a) -> Mod CommandFields a
+cmd numProcessors cliOptions f = command "docs" $
+        info (helper <*> (f <$> documentation numProcessors cliOptions)) $
         progDesc "Early Access (Labs). Generate documentation for the given Daml program."
         <> fullDesc
 
-documentation :: Int -> Parser CmdArgs
-documentation numProcessors = Damldoc
+documentation :: Int -> CliOptions -> Parser CmdArgs
+documentation numProcessors cliOptions = Damldoc
     <$> optionsParser
+          cliOptions
           numProcessors
           (EnableScriptService False)
-          optPackageName
+          packageNameOpt
           disabledDlintUsageParser
     <*> optInputFormat
     <*> optOutputPath

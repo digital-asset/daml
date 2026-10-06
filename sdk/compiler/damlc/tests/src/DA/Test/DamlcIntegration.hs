@@ -174,7 +174,7 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
 
       setupPackageDb
         projDir
-        (defaultOptions mLfVer)
+        (defaultTestOptions mLfVer)
         getComponentVersionInfo
         (SimplePathOrName <$> ["daml-prim", "daml-stdlib"])
         (SimplePathOrName <$> (scriptDar : extraDars))
@@ -336,7 +336,7 @@ buildIntegrationTestTree damlTests registerTODO getScriptService (packageDbPath,
     -- We use a separate service for generated files so that we can test files containing internal imports.
     let tree :: TestTree
         tree = askOption $ \(LfVersionOpt version) ->
-          let opts0 = defaultOptions (Just version)
+          let opts0 = defaultTestOptions (Just version)
               opts = opts0
                 { optPackageDbs = [packageDbPath]
                 , optThreads = 0

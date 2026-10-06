@@ -12,6 +12,7 @@ import Control.Monad.Extra (forM_, unless, void)
 import DA.Daml.SdkIntegrationTests.Utils (withDpmSdkExtraVerResource)
 import DA.Daml.Project.Consts (sdkVersionDpmEnvVar)
 import DA.Daml.Resolution.Config (ResolutionData (..), PackageResolutionData (..), ValidPackageResolution (..), resolutionFileEnvVar, toPosixFilePath)
+import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Cli.Damlc (MultiPackageManifestEntry (..))
 import Data.Aeson (eitherDecode)
 import Data.Foldable (foldrM)
@@ -47,6 +48,7 @@ data ProjectStructure
       , dyGhcOptions :: [T.Text]
       , dyDeps :: [T.Text]
       , dyDataDeps :: [T.Text]
+      , dyLfVersion :: Maybe LF.Version
       }
   | MultiPackage
       { mpPackages :: [T.Text]
@@ -499,6 +501,9 @@ tests =
             (pure . removeResolvedDepsFromResolution)
             "Found unresolved DPM remote dar: \"oci://my-dependency:0.0.1\""
         ]
+    , testGroup "Miscellaneous"
+        [ buildThenDamlcTest "Build-options before build-specific options are not ignored when running test" "./package-b" buildOptionsRegressionTest
+        ]
     ]
 
   where
@@ -516,6 +521,21 @@ tests =
       withTempDir $ \dir -> do
         allPossibleDars <- buildProject dir projectStructure
         runBuildAndAssert dir flags runPath allPossibleDars expectedResult
+
+    -- Builds a project structure then runs damlc test on a given directory
+    buildThenDamlcTest
+      :: String
+      -> FilePath
+      -> [ProjectStructure]
+      -> TestTree
+    buildThenDamlcTest name runPath projectStructure =
+      testCase name $
+      withTempDir $ \dir -> do
+        _ <- buildProject dir projectStructure
+        (buildExitCode, _, buildErr) <- runBuild dir [] "."
+        unless (buildExitCode == ExitSuccess) $ assertFailure $ "Expected build success and got " <> show buildExitCode <> ".\n  StdErr: \n  " <> buildErr
+        (testExitCode, _, testErr) <- runTest dir runPath
+        unless (testExitCode == ExitSuccess) $ assertFailure $ "Expected test success and got " <> show testExitCode <> ".\n  StdErr: \n  " <> testErr
 
     testCache 
       :: String -- name
@@ -558,15 +578,15 @@ tests =
     testCacheIO firstRun firstRunPkgs doModification secondRun secondRunPkgs projectStructure =
       withTempDir $ \dir -> do
         allPossibleDars <- buildProject dir projectStructure
-        let runBuild :: ([String], FilePath) -> [PackageIdentifier] -> IO ()
-            runBuild (flags, runPath) pkgs = runBuildAndAssert dir flags runPath allPossibleDars (Right pkgs)
+        let doBuild :: ([String], FilePath) -> [PackageIdentifier] -> IO ()
+            doBuild (flags, runPath) pkgs = runBuildAndAssert dir flags runPath allPossibleDars (Right pkgs)
             getPkgsLastModified :: [PackageIdentifier] -> IO (Map.Map PackageIdentifier UTCTime)
             getPkgsLastModified pkgs =
-              -- fromJust is safe as long as called after a runBuild, since that asserts all pkgs exists in allPossibleDars
+              -- fromJust is safe as long as called after a doBuild, since that asserts all pkgs exists in allPossibleDars
               Map.fromList <$> traverse (\pkg -> fmap (pkg,) $ getModificationTime $ dir </> fromJust (Map.lookup pkg allPossibleDars)) pkgs
         
         -- Do the first build, get the modified times of all files built
-        runBuild firstRun firstRunPkgs
+        doBuild firstRun firstRunPkgs
         modifiedTimes <- getPkgsLastModified firstRunPkgs
         
         -- Apply the modification
@@ -574,7 +594,7 @@ tests =
           \path -> void $ readCreateProcessWithExitCode ((shell "dpm build") {cwd = Just path}) []
         
         -- Run the second build, expecting all the secondRunPkgs and the pre-existing firstRunPkgs
-        runBuild secondRun (secondRunPkgs `union` firstRunPkgs)
+        doBuild secondRun (secondRunPkgs `union` firstRunPkgs)
 
         -- Packages that we expect to have been built by first and second should have their modified time changes
         let pkgsExpectedModified = secondRunPkgs `intersect` firstRunPkgs
@@ -756,6 +776,26 @@ tests =
             , darDeps = convertPath <$> darDeps entry
             }
 
+    runBuild
+      :: FilePath
+      -> [String]
+      -> FilePath
+      -> IO (ExitCode, String, String)
+    runBuild dir flags runPath = do
+      runPath <- canonicalizePath $ dir </> runPath
+      let args = ["build", "--enable-multi-package=yes"] <> flags
+          process = (shell $ unwords $ "dpm" : args) {cwd = Just runPath}
+      readCreateProcessWithExitCode process ""
+
+    runTest
+      :: FilePath
+      -> FilePath
+      -> IO (ExitCode, String, String)
+    runTest dir runPath = do
+      runPath <- canonicalizePath $ dir </> runPath
+      let process = (shell "dpm test") {cwd = Just runPath}
+      readCreateProcessWithExitCode process ""
+
     runBuildAndAssert
       :: FilePath
       -> [String]
@@ -773,10 +813,7 @@ tests =
               assertFailure $ "Package " <> show pkg <> " can never be built by this setup. Did you mean one of: "
                 <> intercalate ", " (show <$> Map.keys allPossibleDars)
 
-      runPath <- canonicalizePath $ dir </> runPath
-      let args = ["build", "--enable-multi-package=yes"] <> flags
-          process = (shell $ unwords $ "dpm" : args) {cwd = Just runPath}
-      (exitCode, _, err) <- readCreateProcessWithExitCode process ""
+      (exitCode, _, err) <- runBuild dir flags runPath
       case expectedResult of
         Right expectedPackageIdentifiers -> do
           unless (exitCode == ExitSuccess) $ assertFailure $ "Expected success and got " <> show exitCode <> ".\n  StdErr: \n  " <> err
@@ -824,6 +861,11 @@ tests =
               , "  - " <> outputPath
               ]
             ) (dyOutPath damlYaml)
+          ++ maybe [] (\lfVersion -> 
+              [ "  - --target"
+              , "  - " <> T.pack (LF.renderVersion lfVersion)
+              ]
+            ) (dyLfVersion damlYaml)
           ++ fmap ("  - --ghc-option=" <>) (dyGhcOptions damlYaml)
         let relDarPath = fromMaybe (".daml/dist/" <> dyName damlYaml <> "-" <> dyVersion damlYaml <> ".dar") (dyOutPath damlYaml)
         outPath <- canonicalizePath $ path </> T.unpack relDarPath
@@ -852,7 +894,7 @@ tests =
 
 -- daml.yaml with current sdk version, default ouput path and source set to `daml`
 damlYaml :: T.Text -> T.Text -> [T.Text] -> ProjectStructure
-damlYaml name version deps = DamlYaml name version Nothing "daml" Nothing [] [] [] deps
+damlYaml name version deps = DamlYaml name version Nothing "daml" Nothing [] [] [] deps Nothing
 
 -- Given deps and data-deps paths for package-b, simple project structure with package-a and package-b
 simpleTwoPackageProjectWithDeps :: [T.Text] -> [T.Text] -> [ProjectStructure]
@@ -1089,6 +1131,28 @@ manifestHashBaseCase =
     , Dir "daml"
         [ GenericFile "MyModule.daml" "module MyModule where"
         , GenericFile "MyLib.daml" "module MyLib where"
+        ]
+    ]
+  ]
+
+-- Both packages use higher LF version than default
+-- Second package uses an output path
+-- Project rendering will put the output path before the lf version,
+-- which previously caused the lf version to be ignored when running
+-- `damlc test`, leading to default LF trying to depend on staging, which errors
+buildOptionsRegressionTest :: [ProjectStructure]
+buildOptionsRegressionTest =
+  [ MultiPackage ["./package-a", "./package-b"] []
+  , Dir "package-a"
+    [ (damlYaml "package-a" "0.0.1" []) {dyLfVersion = Just LF.stagingLfVersion}
+    , Dir "daml"
+        [ DamlSource "Main" []
+        ]
+    ]
+  , Dir "package-b"
+    [ (damlYaml "package-b" "0.0.1" ["../package-a/.daml/dist/package-a-0.0.1.dar"]) {dyLfVersion = Just LF.stagingLfVersion, dyOutPath = Just "./package-b.dar"}
+    , Dir "daml"
+        [ DamlSource "Dep" ["Main"]
         ]
     ]
   ]

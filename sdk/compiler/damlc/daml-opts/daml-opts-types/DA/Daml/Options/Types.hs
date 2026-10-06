@@ -24,7 +24,9 @@ module DA.Daml.Options.Types
     , IgnoreDataDepVisibility(..)
     , ForceUtilityPackage(..)
     , ExplicitSerializable(..)
+    , InitPkgDb(..)
     , defaultOptions
+    , defaultTestOptions
     , damlArtifactDir
     , packageDatabasePath
     , packageDependenciesDatabasePath
@@ -162,6 +164,50 @@ data Options = Options
   -- ^ DPM provided resolution data about active components, provided dars, multi-package structure, etc.
   , optExplicitSerializable :: ExplicitSerializable
   -- ^ Whether serilizability of data-types must be explicitly stated, and not assumed. Currently disabled by default
+  , optInitPkgDb :: InitPkgDb
+  -- ^ Whether to initialize the package database
+  }
+
+defaultOptions :: EnableScriptService -> Options
+defaultOptions enableScriptService = Options
+  { optImportPath = []
+  , optPackageDbs = []
+  , optStablePackages = Nothing
+  , optMbPackageName = Nothing
+  , optMbPackageVersion = Nothing
+  , optMbPackageConfigPath = Nothing
+  , optIfaceDir = Nothing
+  , optPackageImports = []
+  , optShakeProfiling = Nothing
+  , optThreads = 1
+  , optDamlLfVersion = LF.defaultLfVersion
+  , optLogLevel = Logger.Info
+  , optDetailLevel = DA.Pretty.prettyNormal
+  , optGhcCustomOpts = []
+  , optScriptService = enableScriptService
+  , optEnableInterfaces = EnableInterfaces False
+  , optTestFilter = const True
+  , optSkipScriptValidation = SkipScriptValidation False
+  , optDlintUsage = DlintDisabled
+  , optIsGenerated = False
+  , optDflagCheck = True
+  , optCoreLinting = False
+  , optHaddock = Haddock False
+  , optCppPath = Nothing
+  , optIncrementalBuild = IncrementalBuild False
+  , optIgnorePackageMetadata = IgnorePackageMetadata False
+  , optEnableOfInterestRule = False
+  , optAccessTokenPath = Nothing
+  , optHideUnitId = False
+  , optUpgradeInfo = defaultUpgradeInfo
+  , optTypecheckerWarningFlags = WarningFlags.mkWarningFlags TypeCheckerError.warningFlagParser []
+  , optLfConversionWarningFlags = WarningFlags.mkWarningFlags LFConversion.warningFlagParser []
+  , optInlineDamlCustomWarningFlags = WarningFlags.mkWarningFlags warningFlagParserInlineDamlCustom []
+  , optIgnoreDataDepVisibility = IgnoreDataDepVisibility False
+  , optForceUtilityPackage = ForceUtilityPackage False
+  , optResolutionData = Nothing
+  , optExplicitSerializable = ExplicitSerializable False
+  , optInitPkgDb = InitPkgDb True
   }
 
 data InlineDamlCustomWarnings
@@ -212,6 +258,9 @@ newtype IgnoreDataDepVisibility = IgnoreDataDepVisibility { getIgnoreDataDepVisi
   deriving Show
 
 newtype Haddock = Haddock Bool
+  deriving Show
+
+newtype InitPkgDb = InitPkgDb { getInitPkgDb :: Bool }
   deriving Show
 
 -- | The dlint rules file is a dlint yaml file that's used as the base for
@@ -311,8 +360,8 @@ getPackageDbs version mbProjRoot userPkgDbs = do
     builtinPkgDbs <- locateBuiltinPackageDbs mbProjRoot
     pure $ map (</> renderPretty version) (builtinPkgDbs ++ userPkgDbs)
 
-defaultOptions :: Maybe LF.Version -> Options
-defaultOptions mbVersion =
+defaultTestOptions :: Maybe LF.Version -> Options
+defaultTestOptions mbVersion =
     Options
         { optImportPath = []
         , optPackageDbs = []
@@ -351,6 +400,7 @@ defaultOptions mbVersion =
         , optForceUtilityPackage = ForceUtilityPackage False
         , optResolutionData = Nothing
         , optExplicitSerializable = ExplicitSerializable False
+        , optInitPkgDb = InitPkgDb True
         }
 
 defaultUpgradeInfo :: UpgradeInfo

@@ -35,7 +35,7 @@ mkTestTree testDir = do
 runDamlDesugar :: ComponentVersioned => FilePath -> IO Text
 runDamlDesugar input = desugar opts input
   where
-    opts = (defaultOptions Nothing)
+    opts = (defaultTestOptions Nothing)
       { optScriptService = EnableScriptService False
       -- The desugarer is unaffected by the version of LF so we arbitrarily test it with 2.dev.
       , optDamlLfVersion = devLfVersion
