@@ -128,6 +128,5 @@ EOF
 da_scala_library(
     name = "stable-packages-scala-lib",
     srcs = [":stable-packages-scala"],
-    tags = ["maven_coordinates=com.daml:daml-script-stable-packages-lib:__VERSION__"],
     visibility = ["//visibility:public"],
 )

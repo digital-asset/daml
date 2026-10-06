@@ -9,6 +9,11 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-10-13 (Exclusive)
+- The following daml-script libraries are no longer published to Maven Central:
+  `com.daml:daml-script-runner`, `com.daml:script-converter` and
+  `com.daml:auth-utils`.
+
 ## Until 2026-09-29 (Exclusive)
 ### Improved daml test output
 - Test summary now appears at the end of output, making pass/fail results
