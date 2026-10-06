@@ -8,7 +8,7 @@ module DA.Daml.Desugar.Tests(mkTestTree) where
 import Control.Monad (filterM)
 import DA.Daml.Desugar (desugar)
 import DA.Daml.LF.Ast.Version (devLfVersion)
-import DA.Daml.Options.Types (EnableScriptService(..), Options(..), defaultOptions)
+import DA.Daml.Options.Types (EnableScriptService(..), Options(..), defaultTestOptions)
 import Data.List.Extra (nubOrd)
 import Data.Text (Text)
 import System.Directory (doesFileExist, listDirectory, makeAbsolute)
