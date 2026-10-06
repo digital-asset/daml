@@ -19,5 +19,3 @@
   type: jar-scala
 - target: //language-support/build-info:build-info
   type: jar-scala
-- target: //timer-utils:timer-utils
-  type: jar-scala
