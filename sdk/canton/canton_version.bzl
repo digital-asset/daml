@@ -1,8 +1,8 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-CANTON_OPEN_SOURCE_TAG = "3.6.0-snapshot.20260904.20228.0.v11f9e99e"
-CANTON_OPEN_SOURCE_SHA = "sha256:22c96e1c1781efeae5fcb5bc396f69732e4d6a778adb07f0664e7c967dd46194"
+CANTON_OPEN_SOURCE_TAG = "3.6.1"
+CANTON_OPEN_SOURCE_SHA = "sha256:2387aff80fe638e831bf5ff6771b4148d464c3dbdc11011a3a5ae292bc5d3737"
 
 # Use an alternative canton JAR & artifacts from the local maven cache by setting this to an absolute path
 # Consult canton/README.md
