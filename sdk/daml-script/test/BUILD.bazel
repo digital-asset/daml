@@ -429,6 +429,7 @@ da_scala_test(
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_typelevel_cats_core",
     ],
     tags = [
         "cpu:4",
