@@ -376,13 +376,13 @@ one-element non-exhaustive result.
      on `c`:sub:`1`, then `c`:sub:`1` ≺ `c`:sub:`2`.
 
    * For every **QueryByKey** node `n` on `k` in `tx` with the result `c`:sub:`1`, …, `c`:sub:`m`,
-     writing `A` for the set of key contracts of `tx` for `k` that are active at `n`:
+     writing `K` for the set of key contracts of `tx` for `k` that are active at `n`:
 
      * **Stability.**
-       `c`:sub:`1`, …, `c`:sub:`m` is a prefix of `A` ordered by ≺.
+       `c`:sub:`1`, …, `c`:sub:`m` is a prefix of `K` ordered by ≺.
 
      * **Completeness.**
-       If `n` is exhaustive, then the prefix is all of `A`.
+       If `n` is exhaustive, then the prefix is all of `K`.
 
    The transaction is **consistent for a set of keys** if it is consistent for every key in the set.
    It is **key consistent** if it is consistent for all keys.  
