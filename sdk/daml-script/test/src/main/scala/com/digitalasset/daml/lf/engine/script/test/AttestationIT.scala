@@ -32,7 +32,9 @@ class AttestationIT(languageVersion: LanguageVersion.Major)
   private def converter(input: Value, @unused typ: Ast.Type): Either[String, Value] =
     Right(input)
 
-  "Attestation test data can be successfully processed" in {
+  // TODO(https://github.com/DACH-NY/canton/issues/36550): re-enable once canton falls back to
+  //  BouncyCastle again when SunEC cannot parse a secp256k1 public key.
+  "Attestation test data can be successfully processed" ignore {
     val scriptEntryPoint =
       Ref.Identifier(dar.mainPkg, Ref.QualifiedName.assertFromString("AttestationTests:main"))
 
