@@ -102,6 +102,8 @@ deriving instance Data P.Update_ExerciseInterface
 deriving instance Data P.Update_ExerciseByKey
 deriving instance Data P.Update_Fetch
 deriving instance Data P.Update_FetchInterface
+deriving instance Data P.Update_UnpackTemplate
+deriving instance Data P.Update_UnpackInterface
 deriving instance Data P.Update_EmbedExpr
 deriving instance Data P.Update_RetrieveByKey
 deriving instance Data P.Update_TryCatch

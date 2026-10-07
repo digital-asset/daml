@@ -21,7 +21,7 @@ class TlsIT extends AsyncWordSpec with AbstractScriptTest with Matchers {
           clients <- scriptClients()
           _ <- run(
             clients,
-            Ref.QualifiedName.assertFromString("ScriptTestWithKeys:test0"),
+            Ref.QualifiedName.assertFromString("ScriptTest:test0"),
             dar = dar,
           )
         } yield

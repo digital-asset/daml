@@ -1,0 +1,11 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- This module contains the stable types for the PartyManagement daml-script questions
+
+module Daml.Script.Internal.Questions.PartyManagement.Stable.PartyIdHint where
+
+-- | MOVE Daml.Script
+-- A hint to the backing participant what party id to allocate.
+-- Must be a valid PartyIdString (as described in @value.proto@).
+newtype PartyIdHint = PartyIdHint { partyIdHint : Text }

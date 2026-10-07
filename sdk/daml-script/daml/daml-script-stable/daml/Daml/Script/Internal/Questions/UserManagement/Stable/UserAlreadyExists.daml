@@ -1,0 +1,13 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.UserManagement.Stable.UserAlreadyExists where
+
+import Daml.Script.Internal.Questions.UserManagement.Stable.UserId
+
+-- Pseudo exception that daml-script can throw/catch, but that isn't seen as an exception in the dar
+-- and as such, does not need to be serializable/cannot be thrown in Update
+-- | MOVE Daml.Script
+-- Thrown if a user to be created already exists.
+data UserAlreadyExists = UserAlreadyExists with
+    userId : UserId

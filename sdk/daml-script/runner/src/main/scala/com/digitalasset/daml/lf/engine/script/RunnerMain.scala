@@ -292,7 +292,7 @@ object RunnerMain {
           )
         connectApiParameters(config, params)
       case ParticipantMode.IdeLedgerParticipant() =>
-        Runner.ideLedgerClient(compiledPackages, machineLogger)
+        Runner.ideLedgerClient(compiledPackages, machineLogger, config.snapshotDir)
     }
   }
 

@@ -17,6 +17,7 @@ import Control.Monad.Extra
 import DA.Daml.Compiler.ExtractDar (ExtractedDar(..), extractDar)
 -- For fingerprint json instances
 import DA.Daml.Options.Packaging.Metadata ()
+import DA.Daml.Package.Config (DependencySpec, getSimplePathOrName, isUnresolvedDpmDependency, renderDependencySpec)
 import DA.Daml.Project.Consts (getCachePath)
 import DA.Daml.Project.Types (VersionInfo (..), extractAssemblyThenComponentVersion, versionToString)
 import DA.Daml.Resolution.Config (DependencyPackages (..), expandDependencyPackages, findPackageResolutionData, readDependencyPackagesFromResolution)
@@ -30,6 +31,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import Data.Char
 import Data.List.Extra
+import Data.Maybe (mapMaybe)
 import qualified Data.Text as T
 import Development.IDE.Types.Location
 import GHC.Fingerprint
@@ -113,8 +115,8 @@ installDependencies ::
    NormalizedFilePath
    -> Options
    -> VersionInfo
-   -> [String] -- Package dependencies. Can be base-packages, sdk-packages or filepath.
-   -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
+   -> [DependencySpec] -- Package dependencies. Can be base-packages, sdk-packages or filepath.
+   -> [DependencySpec] -- Data Dependencies. Can be filepath to dars/dalfs.
    -> IO ()
 installDependencies packageRoot opts versionInfo pDeps pDataDeps = do
     logger <- getLogger opts "install-dependencies"
@@ -128,14 +130,14 @@ installDependencies packageRoot opts versionInfo pDeps pDataDeps = do
             case readDependencyPackagesFromResolution pkgResolution of
               Just resolution -> pure resolution
               Nothing -> do
-                forM_ (find isDpmRemotePath pDeps) $ \dep -> fail $ "Found unresolved DPM remote dar: " <> dep <> "\nYour DPM version may not support remote dars, consider updating."
-                forM_ (find isDpmRemotePath pDataDeps) $ \dep -> fail $ "Found unresolved DPM remote dar: " <> dep <> "\nYour DPM version may not support remote dars, consider updating."
-                pure $ DependencyPackages pDeps [] pDataDeps
+                forM_ (find isUnresolvedDpmDependency pDeps) $ \dep -> fail $ "Found unresolved DPM remote dar: " <> renderDependencySpec dep <> "\nYour DPM version may not support remote dars, consider updating."
+                forM_ (find isUnresolvedDpmDependency pDataDeps) $ \dep -> fail $ "Found unresolved DPM remote dar: " <> renderDependencySpec dep <> "\nYour DPM version may not support remote dars, consider updating."
+                pure $ DependencyPackages (mapMaybe getSimplePathOrName pDeps) [] (mapMaybe getSimplePathOrName pDataDeps)
           expandDependencyPackages cachePath pkgResolution (optDamlLfVersion opts) dependencyPackages
         Nothing ->
           -- Cannot fail here as this path is taken by bootstrapping. Best we can do is give no packages
-          let depPaths = filter (\fp -> takeExtension fp `elem` [".dar", ".dalf"]) pDeps
-              dataDepPaths = filter (\fp -> takeExtension fp `elem` [".dar", ".dalf"]) pDataDeps
+          let depPaths = filter (\fp -> takeExtension fp `elem` [".dar", ".dalf"]) $ mapMaybe getSimplePathOrName pDeps
+              dataDepPaths = filter (\fp -> takeExtension fp `elem` [".dar", ".dalf"]) $ mapMaybe getSimplePathOrName pDataDeps
            in pure $ DependencyPackages depPaths [] dataDepPaths
     DataDeps {dataDepsDars, dataDepsDalfs, dataDepsPkgIds, dataDepsNameVersion} <- readDataDeps dataDeps
     (needsUpdate, newFingerprint) <-
@@ -171,9 +173,6 @@ installDependencies packageRoot opts versionInfo pDeps pDataDeps = do
         write (depsDir </> fingerprintFile) $ encode newFingerprint
   where
     depsDir = dependenciesDir opts packageRoot
-    -- Current valid DPM remote dar prefixes from https://github.com/digital-asset/dpm/blob/main/pkg/damlpackage/locations.go#L81
-    -- Used only for helpful errors, falling behind isn't terrible
-    isDpmRemotePath path = any (`isPrefixOf` path) ["http://", "https://", "oci://", "@"] || ":" `isInfixOf` dropDrive path
 
 -- | Check that all dependencies match the main packages release (or sdk) version
 -- We check for both, as packages usually use the release version, but internal packages (like daml-script) use the sdk-version, as the

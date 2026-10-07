@@ -40,7 +40,7 @@ abstract class AbstractFuncIT
           clients <- scriptClients()
           ValueRecord(_, vals) <- run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:test0"),
+            QualifiedName.assertFromString("ScriptTest:test0"),
             dar = dar,
           )
         } yield {
@@ -88,7 +88,7 @@ abstract class AbstractFuncIT
       "handle numerics correctly" in {
         for {
           clients <- scriptClients()
-          v <- run(clients, QualifiedName.assertFromString("ScriptTestWithKeys:test1"), dar = dar)
+          v <- run(clients, QualifiedName.assertFromString("ScriptTest:test1"), dar = dar)
         } yield {
           assert(v == ValueNumeric(Numeric.assertFromString("2.12000000000")))
         }
@@ -100,13 +100,13 @@ abstract class AbstractFuncIT
           clients <- scriptClients()
           v <- run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:test2"),
+            QualifiedName.assertFromString("ScriptTest:test2"),
             dar = dar,
             inputValue = Some(
               Value
                 .castExtendedValue(
                   Converter.record(
-                    Identifier(dar.mainPkg, QualifiedName.assertFromString("ScriptTestWithKeys:C")),
+                    Identifier(dar.mainPkg, QualifiedName.assertFromString("ScriptTest:C")),
                     "p" -> Value.ValueParty(Party.assertFromString("Alice")),
                     "v" -> Value.ValueInt64(42),
                   )
@@ -124,7 +124,7 @@ abstract class AbstractFuncIT
       "support submitMustFail" in {
         for {
           clients <- scriptClients()
-          v <- run(clients, QualifiedName.assertFromString("ScriptTestWithKeys:test3"), dar = dar)
+          v <- run(clients, QualifiedName.assertFromString("ScriptTest:test3"), dar = dar)
         } yield {
           assert(v == ValueUnit)
         }
@@ -136,7 +136,7 @@ abstract class AbstractFuncIT
           clients <- scriptClients()
           ValueRecord(_, vals) <- run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:test4"),
+            QualifiedName.assertFromString("ScriptTest:test4"),
             dar = dar,
           )
         } yield {
@@ -151,7 +151,7 @@ abstract class AbstractFuncIT
           clients <- scriptClients()
           ValueRecord(_, vals) <- run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:testKey"),
+            QualifiedName.assertFromString("ScriptTest:testKey"),
             dar = dar,
           )
         } yield {
@@ -166,7 +166,7 @@ abstract class AbstractFuncIT
           clients <- scriptClients()
           v <- run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:testCreateAndExercise"),
+            QualifiedName.assertFromString("ScriptTest:testCreateAndExercise"),
             dar = dar,
           )
         } yield {
@@ -180,7 +180,7 @@ abstract class AbstractFuncIT
           clients <- scriptClients()
           ValueRecord(_, vals) <- run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:testGetTime"),
+            QualifiedName.assertFromString("ScriptTest:testGetTime"),
             dar = dar,
           )
         } yield {
@@ -200,7 +200,7 @@ abstract class AbstractFuncIT
           clients <- scriptClients()
           ValueRecord(_, vals) <- run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:partyIdHintTest"),
+            QualifiedName.assertFromString("ScriptTest:partyIdHintTest"),
             dar = dar,
           )
         } yield {
@@ -226,7 +226,7 @@ abstract class AbstractFuncIT
           clients <- scriptClients()
           ValueRecord(_, vals) <- run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:listKnownPartiesTest"),
+            QualifiedName.assertFromString("ScriptTest:listKnownPartiesTest"),
             dar = dar,
           )
         } yield {
@@ -247,7 +247,7 @@ abstract class AbstractFuncIT
           clients <- scriptClients()
           v <- run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:testStack"),
+            QualifiedName.assertFromString("ScriptTest:testStack"),
             dar = dar,
           )
         } yield {
@@ -265,7 +265,7 @@ abstract class AbstractFuncIT
           ex <- recoverToExceptionIf[Script.FailedCmd](
             run(
               clients,
-              QualifiedName.assertFromString("ScriptTestWithKeys:testMaxInboundMessageSize"),
+              QualifiedName.assertFromString("ScriptTest:testMaxInboundMessageSize"),
               dar = dar,
             )
           )
@@ -292,7 +292,7 @@ abstract class AbstractFuncIT
           clients <- scriptClients()
           v <- run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:testQueryContractId"),
+            QualifiedName.assertFromString("ScriptTest:testQueryContractId"),
             dar = dar,
           )
         } yield {
@@ -306,7 +306,7 @@ abstract class AbstractFuncIT
           clients <- scriptClients()
           v <- run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:testQueryByKey"),
+            QualifiedName.assertFromString("ScriptTest:testQueryByKey"),
             dar = dar,
           )
         } yield {
@@ -325,7 +325,7 @@ abstract class AbstractFuncIT
           _ = LogCollector.clear()
           v <- run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:traceOrder"),
+            QualifiedName.assertFromString("ScriptTest:traceOrder"),
             dar = dar,
           )
         } yield {
@@ -470,7 +470,7 @@ abstract class AbstractFuncIT
           clients <- scriptClients()
           v <- run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:testMultiPartyQueries"),
+            QualifiedName.assertFromString("ScriptTest:testMultiPartyQueries"),
             dar = dar,
           )
         } yield {
@@ -483,7 +483,7 @@ abstract class AbstractFuncIT
         clients <- scriptClients()
         v <- run(
           clients,
-          QualifiedName.assertFromString("ScriptTestWithKeys:multiPartySubmission"),
+          QualifiedName.assertFromString("ScriptTest:multiPartySubmission"),
           dar = dar,
         )
       } yield {
@@ -495,7 +495,7 @@ abstract class AbstractFuncIT
         clients <- scriptClients()
         v <- run(
           clients,
-          QualifiedName.assertFromString("ScriptTestWithKeys:tupleKey"),
+          QualifiedName.assertFromString("ScriptTest:tupleKey"),
           dar = dar,
         )
       } yield {
@@ -508,12 +508,12 @@ abstract class AbstractFuncIT
         e <- recoverToExceptionIf[Script.FailedCmd](
           run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:stackTrace"),
+            QualifiedName.assertFromString("ScriptTest:stackTrace"),
             dar = dar,
           )
         )
       } yield {
-        val m = ModuleName.assertFromString("ScriptTestWithKeys")
+        val m = ModuleName.assertFromString("ScriptTest")
         def loc(d: String, start: (Int, Int), end: (Int, Int)) = Location(
           dar.mainPkg,
           m,
@@ -533,7 +533,7 @@ abstract class AbstractFuncIT
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:testUserManagement"),
+            QualifiedName.assertFromString("ScriptTest:testUserManagement"),
             dar = dar,
           )
       } yield r shouldBe ValueUnit
@@ -545,7 +545,7 @@ abstract class AbstractFuncIT
         r <-
           run(
             clients,
-            QualifiedName.assertFromString("ScriptTestWithKeys:testUserRightManagement"),
+            QualifiedName.assertFromString("ScriptTest:testUserRightManagement"),
             dar = dar,
           )
       } yield r shouldBe ValueUnit

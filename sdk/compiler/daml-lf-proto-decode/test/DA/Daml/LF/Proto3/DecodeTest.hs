@@ -73,9 +73,12 @@ decExternalCallTests = testGroup "external call feature gate"
       Right (EBuiltinFun BEExternalCall) @=? decodeExprWithVersion testVersion externalCallExpr
   , testCase "EXTERNAL_CALL rejects outside feature version range" $
       assertExternalCallUnsupported $ decodeExprWithVersion version2_3 externalCallExpr
+  , testCase "EXTERNAL_CALL_LEGACY_DEV (old dev id 5001) is rejected" $
+      Left (UnknownEnum "BuiltinFunction" 5001) @=? decodeExprWithVersion testVersion legacyExternalCallExpr
   ]
   where
     externalCallExpr = peBuiltin P.BuiltinFunctionEXTERNAL_CALL
+    legacyExternalCallExpr = peBuiltin P.BuiltinFunctionEXTERNAL_CALL_LEGACY_DEV
 
     assertExternalCallUnsupported :: Either Error Expr -> Assertion
     assertExternalCallUnsupported result =

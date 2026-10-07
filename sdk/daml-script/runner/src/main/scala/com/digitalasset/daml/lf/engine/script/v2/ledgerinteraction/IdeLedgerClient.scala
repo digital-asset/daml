@@ -22,6 +22,8 @@ import com.digitalasset.daml.lf.engine.ScriptEngine.{
   runExtendedValueComputation,
 }
 import com.digitalasset.daml.lf.engine.refinement.Enricher
+import com.digitalasset.daml.lf.engine.Result.lookupHandler
+import com.digitalasset.daml.lf.interpretation.InterpretationConfig
 import com.digitalasset.daml.lf.interpretation.Error.ContractIdInContractKey
 import com.digitalasset.daml.lf.language.Ast.PackageMetadata
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
@@ -29,24 +31,26 @@ import com.digitalasset.daml.lf.script
 import com.digitalasset.daml.lf.script.{IdeLedger, IdeLedgerRunner}
 import com.digitalasset.daml.lf.speedy.{MachineLogger, Pretty, SError}
 import com.digitalasset.daml.lf.transaction._
-import com.digitalasset.daml.lf.transaction.{NextGenContractStateMachine => ContractStateMachine}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.apache.pekko.stream.Materializer
 
 import cats.data.NonEmptySet
 
+import java.nio.file.Path
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 // Client for the script service.
+@scala.annotation.nowarn("msg=parameter interpretConfig in class IdeLedgerClient is never used")
 class IdeLedgerClient(
     val originalCompiledPackages: PureCompiledPackages,
     machineLogger: MachineLogger,
     canceled: () => Boolean,
     override val loggerFactory: NamedLoggerFactory,
-    csmMode: ContractStateMachine.Mode,
+    interpretConfig: InterpretationConfig,
+    snapshotDir: Option[Path],
 ) extends ScriptLedgerClient
     with NamedLogging {
   private implicit val traceContext: TraceContext = TraceContext.empty
@@ -76,7 +80,7 @@ class IdeLedgerClient(
   val enricher = Enricher(
     compiledPackages = compiledPackages,
     // Cannot load packages in GrpcLedgerClient
-    loadPackage = { (_: PackageId, _: Reference) => ResultDone(()) },
+    loadPackage = { (_: PackageId, _: Reference) => Result.done(()) },
     addTypeInfo = true,
     addFieldNames = true,
     addTrailingNoneFields = true,
@@ -107,7 +111,7 @@ class IdeLedgerClient(
   def packageSupportsUpgrades(packageId: PackageId): Boolean =
     compiledPackages.pkgInterface.lookupPackage(packageId).isRight
 
-  private var _ledger: IdeLedger = IdeLedger.initialLedger(Time.Timestamp.Epoch, csmMode)
+  private var _ledger: IdeLedger = IdeLedger.initialLedger(Time.Timestamp.Epoch)
   def ledger: IdeLedger = _ledger
 
   private var allocatedParties: Map[String, PartyDetails] = Map()
@@ -172,7 +176,7 @@ class IdeLedgerClient(
   // Maps a result exception to a converter exception and throws it
   def failResultAsConverterException[X](res: Result[X]): X = {
     import com.digitalasset.daml.lf.script.converter.ConverterException
-    res.consume().fold(err => throw new ConverterException(err.toString), identity)
+    res.consume(lookupHandler()).fold(err => throw new ConverterException(err.toString), identity)
   }
 
   override def queryContractId(
@@ -205,7 +209,6 @@ class IdeLedgerClient(
       compiledPackages = compiledPackages,
       iterationsBetweenInterruptions = 100000,
       logger = machineLogger,
-      convertLegacyExceptions = false,
     ).toOption.map(ev => Converter.castCommandExtendedValue(ev).toOption.get)
 
   private[this] def implements(templateId: TypeConId, interfaceId: TypeConId): Boolean = {
@@ -308,51 +311,49 @@ class IdeLedgerClient(
     } yield res.collect { case Some(contract) => contract }
   }
 
-  private def getTypeIdentifier(t: Ast.Type): Option[Identifier] =
-    t match {
-      case Ast.TTyCon(ty) => Some(ty)
-      case _ => None
-    }
-
   private def fromInterpretationError(err: interpretation.Error): SubmitError = {
     import interpretation.Error._
+    val originalMessage = Pretty.prettyDamlException(err).renderWideStream.mkString
     err match {
-      case e: EffectfulRollback =>
-        SubmitError.EffectfulRollback(Pretty.prettyDamlException(e).renderWideStream.mkString)
+      case _: EffectfulRollback =>
+        SubmitError.EffectfulRollback(originalMessage)
       case ContractNotFound(cid) =>
         SubmitError.ContractNotFound(
           NonEmptyList.of(cid),
           Some(SubmitError.ContractNotFound.AdditionalInfo.NotFound()),
+          originalMessage,
         )
       case UnsupportedContractId(cid) =>
-        SubmitError.UnsupportedContractId(cid)
-      case ContractKeyNotFound(key) => SubmitError.ContractKeyNotFound(key)
-      case UnresolvedPackageName(packageName) => SubmitError.UnresolvedPackageName(packageName)
-      case e: FailedAuthorization =>
-        SubmitError.AuthorizationError(Pretty.prettyDamlException(e).renderWideStream.mkString)
+        SubmitError.UnsupportedContractId(cid, originalMessage)
+      case ContractKeyNotFound(key) => SubmitError.ContractKeyNotFound(key, originalMessage)
+      case UnresolvedPackageName(packageName) =>
+        SubmitError.UnresolvedPackageName(packageName, originalMessage)
+      case _: FailedAuthorization =>
+        SubmitError.AuthorizationError(originalMessage)
       case ContractNotActive(cid, tid, _) =>
         SubmitError.ContractNotFound(
           NonEmptyList.of(cid),
           Some(SubmitError.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
+          originalMessage,
         )
-      case e @ ContractHashingError(coid, dstTemplateId, createArg, _) =>
+      case ContractHashingError(coid, dstTemplateId, createArg, _) =>
         SubmitError.ContractHashingError(
           coid,
           dstTemplateId,
           createArg,
-          Pretty.prettyDamlException(e).renderWideStream.mkString,
+          originalMessage,
         )
       case DisclosedContractKeyHashingError(cid, key, hash) =>
-        SubmitError.DisclosedContractKeyHashingError(cid, key, hash.toString)
-      case DuplicateContractKey(key) => SubmitError.DuplicateContractKey(Some(key))
-      case InconsistentContractKey(key) => SubmitError.InconsistentContractKey(key)
-      // Only pass on the error if the type is a TTyCon
-      case UnhandledException(ty, v) =>
-        SubmitError.UnhandledException(getTypeIdentifier(ty).map(tyId => (tyId, v)))
-      case UserError(msg) => SubmitError.UserError(msg)
-      case _: TemplatePreconditionViolated => SubmitError.TemplatePreconditionViolated()
+        SubmitError.DisclosedContractKeyHashingError(cid, key, hash.toString, originalMessage)
+      case DuplicateContractKey(key) =>
+        SubmitError.DuplicateContractKey(Some(key), originalMessage)
+      case InconsistentContractKey(key) =>
+        SubmitError.InconsistentContractKey(key, originalMessage)
+      case UserError(msg) => SubmitError.UserError(msg, originalMessage)
+      case _: TemplatePreconditionViolated =>
+        SubmitError.TemplatePreconditionViolated(originalMessage)
       case CreateEmptyContractKeyMaintainers(tid, arg, _) =>
-        SubmitError.CreateEmptyContractKeyMaintainers(tid, arg)
+        SubmitError.CreateEmptyContractKeyMaintainers(tid, arg, originalMessage)
       case FetchEmptyContractKeyMaintainers(tid, keyValue, packageName) =>
         SubmitError.FetchEmptyContractKeyMaintainers(
           GlobalKey(
@@ -361,20 +362,29 @@ class IdeLedgerClient(
             keyValue,
             // This GlobalKeyWithMaintainers is only used for rendering errors, and that rendering ignores the hash.
             crypto.Hash.hashPrivateKey("unused-dummy-key-hash"),
-          )
+          ),
+          originalMessage,
         )
-      case WronglyTypedContract(cid, exp, act) => SubmitError.WronglyTypedContract(cid, exp, act)
+      case WronglyTypedContract(cid, exp, act) =>
+        SubmitError.WronglyTypedContract(cid, exp, act, originalMessage)
       case ContractDoesNotImplementInterface(iid, cid, tid) =>
-        SubmitError.ContractDoesNotImplementInterface(cid, tid, iid)
+        SubmitError.ContractDoesNotImplementInterface(cid, tid, iid, originalMessage)
       case ContractDoesNotImplementRequiringInterface(requiringIid, requiredIid, cid, tid) =>
-        SubmitError.ContractDoesNotImplementRequiringInterface(cid, tid, requiredIid, requiringIid)
-      case NonComparableValues => SubmitError.NonComparableValues()
-      case ContractIdInContractKey(_) => SubmitError.ContractIdInContractKey()
-      case ContractIdComparability(cid) => SubmitError.ContractIdComparability(cid.toString)
-      case ValueNesting(limit) => SubmitError.ValueNesting(limit)
-      case MalformedText(err) => SubmitError.MalformedText(err)
-      case e: FailureStatus => SubmitError.FailureStatusError(e, None)
-      case e @ Upgrade(innerError: Upgrade.ValidationFailed) =>
+        SubmitError.ContractDoesNotImplementRequiringInterface(
+          cid,
+          tid,
+          requiredIid,
+          requiringIid,
+          originalMessage,
+        )
+      case NonComparableValues => SubmitError.NonComparableValues(originalMessage)
+      case ContractIdInContractKey(_) => SubmitError.ContractIdInContractKey(originalMessage)
+      case ContractIdComparability(cid) =>
+        SubmitError.ContractIdComparability(cid.toString, originalMessage)
+      case ValueNesting(limit) => SubmitError.ValueNesting(limit, originalMessage)
+      case MalformedText(msg) => SubmitError.MalformedText(msg, originalMessage)
+      case e: FailureStatus => SubmitError.FailureStatusError(e, None, originalMessage)
+      case Upgrade(innerError: Upgrade.ValidationFailed) =>
         SubmitError.UpgradeError.ValidationFailed(
           innerError.coid,
           innerError.srcTemplateId,
@@ -382,57 +392,58 @@ class IdeLedgerClient(
           innerError.srcPackageName,
           innerError.dstPackageName,
           innerError.originalSignatories,
-          innerError.originalSignatoryStakeholders,
+          innerError.originalNonSignatoryStakeholders,
           innerError.originalKeyOpt,
           innerError.recomputedSignatories,
-          innerError.recomputedSignatoryStakeholders,
+          innerError.recomputedNonSignatoryStakeholders,
           innerError.recomputedKeyOpt,
-          Pretty.prettyDamlException(e).renderWideStream.mkString,
+          originalMessage,
         )
-      case e @ Upgrade(innerError: Upgrade.TranslationFailed) =>
+      case Upgrade(innerError: Upgrade.TranslationFailed) =>
         SubmitError.UpgradeError.TranslationFailed(
           innerError.coid,
           innerError.srcTemplateId,
           innerError.dstTemplateId,
           innerError.createArg,
-          Pretty.prettyDamlException(e).renderWideStream.mkString,
+          originalMessage,
         )
-      case e @ Upgrade(innerError: Upgrade.AuthenticationFailed) =>
+      case Upgrade(innerError: Upgrade.AuthenticationFailed) =>
         SubmitError.UpgradeError.AuthenticationFailed(
           innerError.coid,
           innerError.srcTemplateId,
           innerError.dstTemplateId,
           innerError.createArg,
-          Pretty.prettyDamlException(e).renderWideStream.mkString,
+          originalMessage,
         )
-      case e @ Crypto(innerError: Crypto.MalformedByteEncoding) =>
+      case Crypto(innerError: Crypto.MalformedByteEncoding) =>
         SubmitError.CryptoError.MalformedByteEncoding(
           innerError.value,
-          Pretty.prettyDamlException(e).renderWideStream.mkString,
+          originalMessage,
         )
-      case e @ Crypto(innerError: Crypto.MalformedKey) =>
+      case Crypto(innerError: Crypto.MalformedKey) =>
         SubmitError.CryptoError.MalformedKey(
           innerError.key,
-          Pretty.prettyDamlException(e).renderWideStream.mkString,
+          originalMessage,
         )
-      case e @ Crypto(innerError: Crypto.MalformedSignature) =>
+      case Crypto(innerError: Crypto.MalformedSignature) =>
         SubmitError.CryptoError.MalformedSignature(
           innerError.signature,
-          Pretty.prettyDamlException(e).renderWideStream.mkString,
+          originalMessage,
         )
-      case e @ Dev(_, innerError) =>
+      case Dev(_, innerError) =>
         SubmitError.DevError(
           innerError.getClass.getSimpleName,
-          Pretty.prettyDamlException(e).renderWideStream.mkString,
+          originalMessage,
         )
-      case e @ ExternalCall(innerError: ExternalCall.PreparationFailed) =>
+      case ExternalCall(innerError: ExternalCall.PreparationFailed) =>
         SubmitError.ExternalCallError(
           SubmitError.ExternalCallError.ErrorType.PreparationFailed,
           innerError.extensionId,
           innerError.functionId,
-          Pretty.prettyDamlException(e).renderWideStream.mkString,
+          innerError.message,
+          originalMessage,
         )
-      case e @ ExternalCall(innerError: ExternalCall.ExecutionFailed) =>
+      case ExternalCall(innerError: ExternalCall.ExecutionFailed) =>
         SubmitError.ExternalCallError(
           innerError.error match {
             case _: ExternalCall.ExecutionFailed.CallFailed =>
@@ -442,50 +453,59 @@ class IdeLedgerClient(
           },
           innerError.extensionId,
           innerError.functionId,
-          Pretty.prettyDamlException(e).renderWideStream.mkString,
+          innerError.error.message,
+          originalMessage,
         )
     }
   }
 
   // Projects the ide-ledger submission error down to the script submission error
-  private def fromIdeLedgerError(err: script.Error): SubmitError = err match {
-    case script.Error.RunnerException(e: SError.SErrorCrash) =>
-      SubmitError.UnknownError(e.toString)
-    case script.Error.RunnerException(SError.SErrorDamlException(err)) =>
-      fromInterpretationError(err)
+  private def fromIdeLedgerError(err: script.Error): SubmitError = {
+    val originalMessage = script.Pretty.prettyError(err).renderWideStream.mkString
+    err match {
+      case script.Error.RunnerException(e: SError.Crash) =>
+        SubmitError.UnknownError(e.toString)
+      case script.Error.RunnerException(SError.InterpretationError(err)) =>
+        fromInterpretationError(err)
 
-    case script.Error.Internal(reason) => SubmitError.UnknownError(reason)
-    case script.Error.Timeout(timeout) => SubmitError.UnknownError("Timeout: " + timeout)
+      case script.Error.Internal(reason) => SubmitError.UnknownError(reason)
+      case script.Error.Timeout(timeout) =>
+        SubmitError.UnknownError("Timeout: " + timeout)
 
-    // We treat ineffective contracts (ie, ones that don't exist yet) as being not found
-    case script.Error.ContractNotEffective(cid, tid, effectiveAt) =>
-      SubmitError.ContractNotFound(
-        NonEmptyList.of(cid),
-        Some(SubmitError.ContractNotFound.AdditionalInfo.NotEffective(cid, tid, effectiveAt)),
-      )
+      // We treat ineffective contracts (ie, ones that don't exist yet) as being not found
+      case script.Error.ContractNotEffective(cid, tid, effectiveAt) =>
+        SubmitError.ContractNotFound(
+          NonEmptyList.of(cid),
+          Some(SubmitError.ContractNotFound.AdditionalInfo.NotEffective(cid, tid, effectiveAt)),
+          originalMessage,
+        )
 
-    case script.Error.ContractNotActive(cid, tid, _) =>
-      SubmitError.ContractNotFound(
-        NonEmptyList.of(cid),
-        Some(SubmitError.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
-      )
+      case script.Error.ContractNotActive(cid, tid, _) =>
+        SubmitError.ContractNotFound(
+          NonEmptyList.of(cid),
+          Some(SubmitError.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
+          originalMessage,
+        )
 
-    // Similarly, we treat contracts that we can't see as not being found
-    case script.Error.ContractNotVisible(cid, tid, actAs, readAs, observers) =>
-      SubmitError.ContractNotFound(
-        NonEmptyList.of(cid),
-        Some(
-          SubmitError.ContractNotFound.AdditionalInfo.NotVisible(cid, tid, actAs, readAs, observers)
-        ),
-      )
+      // Similarly, we treat contracts that we can't see as not being found
+      case script.Error.ContractNotVisible(cid, tid, actAs, readAs, observers) =>
+        SubmitError.ContractNotFound(
+          NonEmptyList.of(cid),
+          Some(
+            SubmitError.ContractNotFound.AdditionalInfo
+              .NotVisible(cid, tid, actAs, readAs, observers)
+          ),
+          originalMessage,
+        )
 
-    case script.Error.LookupError(err, _, _) =>
-      // TODO[SW]: Implement proper Lookup error throughout
-      SubmitError.UnknownError("Lookup error: " + err.toString)
+      case script.Error.LookupError(err, _, _) =>
+        // TODO[SW]: Implement proper Lookup error throughout
+        SubmitError.UnknownError("Lookup error: " + err.toString)
 
-    // This covers MustFailSucceeded, InvalidPartyName, PartyAlreadyExists which should not be throwable by a command submission
-    // It also covers PartiesNotAllocated.
-    case err => SubmitError.UnknownError("Unexpected error type: " + err.toString)
+      // This covers MustFailSucceeded, InvalidPartyName, PartyAlreadyExists which should not be throwable by a command submission
+      // It also covers PartiesNotAllocated.
+      case err => SubmitError.UnknownError("Unexpected error type: " + err.toString)
+    }
   }
   // Build a SubmissionError with empty transaction
   private def makeEmptySubmissionError(err: script.Error): IdeLedgerRunner.SubmissionError =
@@ -671,26 +691,8 @@ class IdeLedgerClient(
         }
 
       // We use try + unsafePreprocess here to avoid the addition template lookup logic in `preprocessApiCommands`
-      val eitherSpeedyCommands =
-        try {
-          Right(
-            preprocessor.unsafePreprocessApiCommands(
-              packageMap,
-              commands
-                .map(toCommand(_, reversePackageIdMap.view.filterKeys(packageSupportsUpgrades(_))))
-                .to(ImmArray),
-            )
-          )
-        } catch {
-          case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
-          // Expose type mismatches as unknown errors to match canton behaviour. Later this should be fully expressed as a SubmitError
-          case Error.Preprocessing.TypeMismatch(_, _, msg) =>
-            Left(
-              makeEmptySubmissionError(
-                script.Error.Internal("COMMAND_PREPROCESSING_FAILED(0, 00000000): " + msg)
-              )
-            )
-        }
+      val apiCommands: List[ApiCommand] =
+        commands.map(toCommand(_, reversePackageIdMap.view.filterKeys(packageSupportsUpgrades(_))))
 
       val eitherSpeedyDisclosures
           : Either[script.IdeLedgerRunner.SubmissionError, List[FatContractInstance]] = {
@@ -705,22 +707,34 @@ class IdeLedgerClient(
       val ledgerApi = IdeLedgerRunner.ScriptLedgerApi(ledger)
 
       for {
-        speedyCommands <- eitherSpeedyCommands
         speedyDisclosures <- eitherSpeedyDisclosures
-        translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
-        result =
-          IdeLedgerRunner.submit(
-            compiledPackages,
-            speedyDisclosures,
-            ledgerApi,
-            actAs.toSortedSet,
-            readAs,
-            translated,
-            optLocation,
-            nextSeed(),
-            machineLogger,
-            packageMap,
-          )
+        result <-
+          try {
+            Right(
+              IdeLedgerRunner.submit(
+                compiledPackages = compiledPackages,
+                disclosures = speedyDisclosures,
+                ledger = ledgerApi,
+                committers = actAs.toSortedSet,
+                readAs = readAs,
+                commands = apiCommands,
+                location = optLocation,
+                seed = nextSeed(),
+                machineLogger = machineLogger,
+                packageResolution = packageMap,
+                snapshotDir = snapshotDir,
+              )
+            )
+          } catch {
+            case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
+            // Expose type mismatches as unknown errors to match canton behaviour. Later this should be fully expressed as a SubmitError
+            case Error.Preprocessing.TypeMismatch(_, _, msg) =>
+              Left(
+                makeEmptySubmissionError(
+                  script.Error.Internal("COMMAND_PREPROCESSING_FAILED(0, 00000000): " + msg)
+                )
+              )
+          }
         res <- loop(result)
       } yield res
     }

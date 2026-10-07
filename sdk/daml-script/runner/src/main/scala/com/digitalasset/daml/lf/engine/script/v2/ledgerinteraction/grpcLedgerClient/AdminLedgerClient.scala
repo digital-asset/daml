@@ -14,6 +14,11 @@ import com.digitalasset.canton.admin.participant.{v30 => admin_participant}
 import com.digitalasset.canton.topology.admin.v30.ForceFlag
 import com.digitalasset.canton.topology.admin.{v30 => admin_topology}
 import com.digitalasset.canton.protocol.{v30 => protocol}
+import com.digitalasset.canton.validation.ProtoValidation
+import com.digitalasset.canton.validation.ProtoUnvalidatedSeq
+import com.digitalasset.canton.validation.ProtoUnvalidatedString
+import com.digitalasset.canton.version.ProtocolVersionValidation
+import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.daml.lf.data.Ref.{PackageName, PackageVersion}
 import com.google.protobuf.ByteString
 import io.grpc.Channel
@@ -23,6 +28,9 @@ import io.grpc.stub.AbstractStub
 import java.io.{Closeable, File, FileInputStream}
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
+
+import cats.syntax.traverse._
+import cats.syntax.traverseFilter._
 
 class AdminLedgerClient private[grpcLedgerClient] (
     val channel: Channel,
@@ -59,10 +67,19 @@ class AdminLedgerClient private[grpcLedgerClient] (
 
   def listVettedPackages(): Future[Map[String, Seq[protocol.VettedPackages.VettedPackage]]] = for {
     synchronizerId <- getSynchronizerId
-    res <- topologyReadServiceStub
+    vettedPackages <- topologyReadServiceStub
       .listVettedPackages(makeListVettedPackagesRequest(synchronizerId))
-      .map(_.results.view.map(res => (res.item.get.participantUid -> res.item.get.packages)).toMap)
-  } yield res
+    results <- AdminLedgerClient.validateProtoSeq(vettedPackages.results, "results")
+    validatedResults <- results.traverse(el =>
+      AdminLedgerClient
+        .validateProtoString(el.item.get.participantUid)
+        .flatMap(uuid =>
+          AdminLedgerClient
+            .validateProtoSeq(el.item.get.packages, "packages")
+            .map(packages => uuid -> packages)
+        )
+    )
+  } yield validatedResults.toMap
 
   private[this] def makeListVettedPackagesRequest(synchronizerId: String) =
     admin_topology.ListVettedPackagesRequest(
@@ -106,8 +123,8 @@ class AdminLedgerClient private[grpcLedgerClient] (
     val packageIdsSet = packageIds.toSet
     for {
       vettedPackages <- listVettedPackages()
-      newVettedPackages = vettedPackages(participantUid).filterNot(pkg =>
-        packageIdsSet.contains(pkg.packageId)
+      newVettedPackages <- vettedPackages(participantUid).filterA(pkg =>
+        AdminLedgerClient.validateProtoString(pkg.packageId).map(p => !packageIdsSet.contains(p))
       )
       synchronizerId <- getSynchronizerId
       _ <- topologyWriteServiceStub.authorize(
@@ -131,7 +148,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
               protocol.TopologyMapping.Mapping.VettedPackages(
                 protocol.VettedPackages(
                   participantId,
-                  Seq.empty,
+                  ProtoUnvalidatedSeq(Seq.empty),
                   vettedPackages.toSeq,
                 )
               )
@@ -140,10 +157,12 @@ class AdminLedgerClient private[grpcLedgerClient] (
         )
       ),
       mustFullyAuthorize = true,
-      forceChanges = Seq(
-        ForceFlag.FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES
+      forceChanges = ProtoUnvalidatedSeq(
+        Seq(
+          ForceFlag.FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES
+        )
       ),
-      signedBy = Seq.empty,
+      signedBy = ProtoUnvalidatedSeq(Seq.empty),
       store = Some(
         admin_topology.StoreId(
           admin_topology.StoreId.Store.Synchronizer(
@@ -174,11 +193,11 @@ class AdminLedgerClient private[grpcLedgerClient] (
       .exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
         for {
           vettedPackages <- listVettedPackages()
+          vettedPackageIds <- vettedPackages
+            .getOrElse(onParticipantUid, Seq.empty)
+            .traverse(el => AdminLedgerClient.validateProtoString(el.packageId))
+            .map(_.toSet)
           _ <- Future {
-            val vettedPackageIds = vettedPackages
-              .getOrElse(onParticipantUid, Seq.empty)
-              .map(_.packageId)
-              .toSet
             assert(
               packageIds.toSet.intersect(vettedPackageIds).isEmpty,
               s"Participant $participantUid does not see that $onParticipantUid unvets ${packages.mkString(",")}",
@@ -204,11 +223,11 @@ class AdminLedgerClient private[grpcLedgerClient] (
       .exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
         for {
           vettedPackages <- listVettedPackages()
+          vettedPackageIds <- vettedPackages
+            .getOrElse(onParticipantUid, Seq.empty)
+            .traverse(el => AdminLedgerClient.validateProtoString(el.packageId))
+            .map(_.toSet)
           _ <- Future {
-            val vettedPackageIds = vettedPackages
-              .getOrElse(onParticipantUid, Seq.empty)
-              .map(_.packageId)
-              .toSet
             assert(
               packageIds.toSet.subsetOf(vettedPackageIds),
               s"Participant $participantUid does not see that $onParticipantUid vets ${packages.mkString(",")}",
@@ -353,19 +372,23 @@ class AdminLedgerClient private[grpcLedgerClient] (
   ): Future[Seq[protocol.PartyToParticipant.HostingParticipant]] =
     topologyReadServiceStub
       .listPartyToParticipant(makeListPartyToParticipantRequest(partyId, synchronizerId))
-      .map(response => {
-        // We expect at most one result because makeListPartyToParticipantRequest filters by partyId
-        if (response.results.length > 1)
-          throw new IllegalStateException(
-            s"Expected at most one result, but got ${response.results.length}"
-          )
-        response.results.headOption
-          .map(_.item)
-          .collect { case admin_topology.ListPartyToParticipantResponse.Result.Item.V30(value) =>
-            value.participants
-          }
-          .getOrElse(Seq.empty)
-      })
+      .flatMap(response =>
+        AdminLedgerClient.validateProtoSeq(response.results, "results").flatMap { results =>
+          // We expect at most one result because makeListPartyToParticipantRequest filters by partyId
+          if (results.length > 1)
+            throw new IllegalStateException(
+              s"Expected at most one result, but got ${results.length}"
+            )
+          results.headOption
+            .map(_.item)
+            .collect { case admin_topology.ListPartyToParticipantResponse.Result.Item.V30(value) =>
+              value.participants
+            }
+            .fold(Future.successful(Seq.empty[protocol.PartyToParticipant.HostingParticipant]))(
+              participants => AdminLedgerClient.validateProtoSeq(participants, "participants")
+            )
+        }
+      )
 
   private[this] def makeListPartyToParticipantRequest(
       partyId: String,
@@ -429,8 +452,8 @@ class AdminLedgerClient private[grpcLedgerClient] (
         )
       ),
       mustFullyAuthorize = false,
-      forceChanges = Seq.empty,
-      signedBy = Seq.empty,
+      forceChanges = ProtoUnvalidatedSeq(Seq.empty),
+      signedBy = ProtoUnvalidatedSeq(Seq.empty),
       store = Some(
         admin_topology.StoreId(
           admin_topology.StoreId.Store.Synchronizer(
@@ -475,8 +498,8 @@ class AdminLedgerClient private[grpcLedgerClient] (
         )
       ),
       mustFullyAuthorize = false,
-      forceChanges = Seq.empty,
-      signedBy = Seq.empty,
+      forceChanges = ProtoUnvalidatedSeq(Seq.empty),
+      signedBy = ProtoUnvalidatedSeq(Seq.empty),
       store = Some(
         admin_topology.StoreId(
           admin_topology.StoreId.Store.Synchronizer(
@@ -550,4 +573,28 @@ object AdminLedgerClient {
       token,
       participantId,
     )
+
+  case class ProtoValidationException(err: ProtoDeserializationError)
+      extends Exception(s"Proto deserialization error: $err")
+
+  private[grpcLedgerClient] def validateProtoSeq[E](
+      seq: ProtoUnvalidatedSeq[E],
+      field: String,
+  ): Future[Seq[E]] =
+    ProtoValidation
+      .validateLength(
+        seq,
+        field,
+        ProtocolVersionValidation.AlwaysValidation,
+        ProtoValidation.MaxCollectionSize,
+      )
+      .fold(
+        err => Future.failed(ProtoValidationException(err)),
+        values => Future.successful(values),
+      )
+
+  private[grpcLedgerClient] def validateProtoString(str: ProtoUnvalidatedString): Future[String] =
+    ProtoValidation
+      .validate[String](str, "value", ProtocolVersionValidation.NoValidation)
+      .fold(err => Future.failed(ProtoValidationException(err)), value => Future.successful(value))
 }

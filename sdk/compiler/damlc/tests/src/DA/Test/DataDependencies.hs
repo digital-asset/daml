@@ -65,7 +65,11 @@ data TestArgs = TestArgs
 
 data DataDependenciesTestOptions = DataDependenciesTestOptions
   { buildOptions :: [String]
-  , extraDeps :: [FilePath]
+  , dataDeps :: [FilePath]
+  , -- List of strings to ensure the build stderr contain
+    expectedStderr :: [String]
+  , -- List of strings to ensure the build stderr does not contain
+    forbiddenStderr :: [String]
   }
 
 darPackageIds :: FilePath -> IO [LF.PackageId]
@@ -734,8 +738,8 @@ tests TestArgs{..} =
           , "name: proj"
           , "version: 0.1.0"
           , "source: ."
-          , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDevDar <> "]"
-          , "data-dependencies: [simple-dalf-1.0.0.dalf]"
+          , "dependencies: [daml-prim, daml-stdlib]"
+          , "data-dependencies: [simple-dalf-1.0.0.dalf, " <> show scriptDevDar <> "]"
           , "build-options: [--package=simple-dalf-1.0.0]"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
@@ -1827,6 +1831,38 @@ tests TestArgs{..} =
             , "usePattern None = False"
             ]
         ]
+    
+    , simpleImportTestOptions "Using warnings and deprecations"
+        ( optionsDev
+            { expectedStderr =
+                [ "Deprecated: \"Use `b` instead.\""
+                , "(imported from Lib): \"Use `c` instead.\""
+                ]
+            , -- Hide this warning via categories to prove categories are carried over
+              forbiddenStderr = ["Use `d` instead."]
+            }
+        )
+        [ "module Lib where"
+        , "{-# DEPRECATED a \"Use `b` instead.\" #-}"
+        , "a : Text"
+        , "a = \"a\""
+        , "{-# WARNING b \"Use `c` instead.\" #-}"
+        , "b : Text"
+        , "b = \"b\""
+        , "{-# WARNING in \"x-my-cat\" c \"Use `d` instead.\" #-}"
+        , "c : Text"
+        , "c = \"c\""
+        ]
+        [ "{-# OPTIONS_GHC -Wno-x-my-cat #-}"
+        , "module Main where"
+        , "import Lib"
+        , "x : Text"
+        , "x = a"
+        , "y : Text"
+        , "y = b"
+        , "z : Text"
+        , "z = c"
+        ]
 
     , simpleImportTest "Using explicit exports"
         [ "module Lib (myDef, MyDataHiddenConstructor, mkMyDataHiddenConstructor, MyData(MyData), pattern MyDataPattern) where"
@@ -2503,9 +2539,8 @@ tests TestArgs{..} =
             , "source: ."
             , "version: 0.1.0"
             , "dependencies: [" <> intercalate ", " (["daml-prim", "daml-stdlib"] <> fmap show extraDeps) <> "]"
-            , "data-dependencies: [" <> intercalate ", " (fmap dar dataDeps) <> "]"
+            , "data-dependencies: [" <> intercalate ", " dataDeps <> "]"
             ]
-
         step tokenProj >> do
           createDirectoryIfMissing True (path tokenProj)
           writeFileUTF8 (damlYaml tokenProj) $ damlYamlBody tokenProj [] []
@@ -2553,7 +2588,7 @@ tests TestArgs{..} =
         step fancyTokenProj >> do
           createDirectoryIfMissing True (path fancyTokenProj)
           writeFileUTF8 (damlYaml fancyTokenProj) $ damlYamlBody fancyTokenProj []
-            [ tokenProj
+            [ dar tokenProj
             ]
           writeFileUTF8 (damlMod fancyTokenProj "FancyToken") $ unlines
             [ "module FancyToken where"
@@ -2581,8 +2616,8 @@ tests TestArgs{..} =
         step assetProj >> do
           createDirectoryIfMissing True (path assetProj)
           writeFileUTF8 (damlYaml assetProj) $ damlYamlBody assetProj []
-            [ tokenProj
-            , fancyTokenProj
+            [ dar tokenProj
+            , dar fancyTokenProj
             ]
           writeFileUTF8 (damlMod assetProj "Asset") $ unlines
             [ "module Asset where"
@@ -2627,13 +2662,19 @@ tests TestArgs{..} =
             , "--package-root", path assetProj
             , "-o", dar assetProj
             ]
-
+        step' $ damlYamlBody mainProj []
+            [ dar tokenProj
+            , dar fancyTokenProj
+            , dar assetProj
+            , scriptDevDar
+            ]
         step mainProj >> do
           createDirectoryIfMissing True (path mainProj)
-          writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj [scriptDevDar]
-            [ tokenProj
-            , fancyTokenProj
-            , assetProj
+          writeFileUTF8 (damlYaml mainProj) $ damlYamlBody mainProj []
+            [ dar tokenProj
+            , dar fancyTokenProj
+            , dar assetProj
+            , scriptDevDar
             ]
           writeFileUTF8 (damlMod mainProj "Main") $ unlines
             [ "{-# LANGUAGE ApplicativeDo #-}"
@@ -2876,8 +2917,9 @@ tests TestArgs{..} =
             , "name: main"
             , "source: ."
             , "version: 0.1.0"
-            , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDevDar <> "]"
+            , "dependencies: [daml-prim, daml-stdlib]"
             , "data-dependencies: "
+            , "  - " <> show scriptDevDar
             , "  - " <> (tmpDir </> "lib" </> "lib.dar")
             ]
         writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines
@@ -2955,7 +2997,9 @@ tests TestArgs{..} =
             [ "--target=" <> LF.renderVersion targetDevVersion
             , "-Wupgrade-interfaces"
             ]
-        , extraDeps = []
+        , dataDeps = []
+        , expectedStderr = []
+        , forbiddenStderr = []
         }
 
     optionsDev :: DataDependenciesTestOptions
@@ -2963,7 +3007,7 @@ tests TestArgs{..} =
 
     optionsDevScript :: DataDependenciesTestOptions
     optionsDevScript = defTestOptions
-        { extraDeps = [scriptDevDar]
+        { dataDeps = [scriptDevDar]
         }
 
     simpleImportTest :: String -> [String] -> [String] -> TestTree
@@ -2977,11 +3021,11 @@ tests TestArgs{..} =
     dataDependenciesTest title = dataDependenciesTestOptions title defTestOptions
 
     dataDependenciesTestOptions :: String -> DataDependenciesTestOptions -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
-    dataDependenciesTestOptions title (DataDependenciesTestOptions buildOptions extraDeps) libModules mainModules =
+    dataDependenciesTestOptions title (DataDependenciesTestOptions buildOptions dataDeps expectedStderr forbiddenStderr) libModules mainModules =
         testCaseSteps title $ \step -> withTempDir $ \tmpDir -> do
             step "building package to be imported via data-dependencies"
             createDirectoryIfMissing True (tmpDir </> "lib")
-            let deps = ["daml-prim", "daml-stdlib"] <> fmap show extraDeps
+            let deps = ["daml-prim", "daml-stdlib"]
             writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
                 [ "sdk-version: " <> componentVersionString
                 , "name: lib"
@@ -2989,6 +3033,7 @@ tests TestArgs{..} =
                 , "source: ."
                 , "version: 0.1.0"
                 , "dependencies: [" <> intercalate ", " deps <> "]"
+                , "data-dependencies: [" <> intercalate ", " (fmap show dataDeps) <> "]"
                 ]
             forM_ libModules $ \(path, contents) ->
                 writeFileUTF8 (tmpDir </> "lib" </> path) $ unlines contents
@@ -3006,15 +3051,19 @@ tests TestArgs{..} =
                 , "source: ."
                 , "version: 0.1.0"
                 , "dependencies: [" <> intercalate ", " deps <> "]"
-                , "data-dependencies: "
-                , "  - " <> (tmpDir </> "lib" </> "lib.dar")
+                , "data-dependencies: [" <> intercalate ", " (fmap show $ (tmpDir </> "lib" </> "lib.dar") : dataDeps) <> "]"
                 ]
             forM_ mainModules $ \(path, contents) ->
                 writeFileUTF8 (tmpDir </> "main" </> path) $ unlines contents
-            callProcessSilent damlc
+            err <- callProcessForSuccessfulStderr damlc
                 [ "build"
                 , "--package-root"
                 , tmpDir </> "main" ]
+
+            forM_ expectedStderr $ \expected ->
+                assertInfixOf expected err
+            forM_ forbiddenStderr $ \forbidden ->
+                assertNotInfixOf forbidden err
 
     damlcForTarget :: LF.Version -> FilePath
     damlcForTarget target

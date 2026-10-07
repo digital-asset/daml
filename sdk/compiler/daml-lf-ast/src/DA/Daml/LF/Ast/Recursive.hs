@@ -78,6 +78,8 @@ data UpdateF expr
   | UExerciseByKeyF !(Qualified TypeConName) !ChoiceName !expr !expr
   | UFetchF    !(Qualified TypeConName) !expr
   | UFetchInterfaceF    !(Qualified TypeConName) !expr
+  | UUnpackTemplateF !(Qualified TypeConName) !expr
+  | UUnpackInterfaceF !(Qualified TypeConName) !expr
   | UGetTimeF
   | ULedgerTimeLTF !expr
   | UEmbedExprF !Type !expr
@@ -111,6 +113,8 @@ projectUpdate = \case
   UExerciseByKey a b c d -> UExerciseByKeyF a b c d
   UFetch a b -> UFetchF a b
   UFetchInterface a b -> UFetchInterfaceF a b
+  UUnpackTemplate a b -> UUnpackTemplateF a b
+  UUnpackInterface a b -> UUnpackInterfaceF a b
   UGetTime -> UGetTimeF
   ULedgerTimeLT a -> ULedgerTimeLTF a
   UEmbedExpr a b -> UEmbedExprF a b
@@ -129,6 +133,8 @@ embedUpdate = \case
   UExerciseByKeyF a b c d -> UExerciseByKey a b c d
   UFetchF a b -> UFetch a b
   UFetchInterfaceF a b -> UFetchInterface a b
+  UUnpackTemplateF a b -> UUnpackTemplate a b
+  UUnpackInterfaceF a b -> UUnpackInterface a b
   UGetTimeF -> UGetTime
   ULedgerTimeLTF a -> ULedgerTimeLT a
   UEmbedExprF a b -> UEmbedExpr a b

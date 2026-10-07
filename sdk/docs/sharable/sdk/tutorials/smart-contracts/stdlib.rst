@@ -41,7 +41,7 @@ Tuples
 In addition to the 2-tuple you have already seen, the Prelude contains definitions for tuples of size up to 15.
 Tuples allow you to store mixed data in an ad-hoc fashion. Common use-cases are return values from functions
 consisting of several pieces or passing around data in folds, as you saw in :ref:`folds`. 
-An example of a relatively wide Tuple can be found in the test modules of the :doc:`exceptions` project.
+An example of a relatively wide Tuple can be found in the test modules of the `daml-intro-9` project.
 ``Test.Intro.Asset.TradeSetup.tradeSetup`` returns the allocated parties and active contracts in a long tuple.
 ``Test.Intro.Asset.MultiTrade.testMultiTrade`` puts them back into scope using pattern matching:
 

@@ -17,6 +17,13 @@ import qualified Data.Text as T
 import qualified Data.List as L
 
 convertPrim :: Version -> String -> Type -> ConvertM Expr
+-- Experimental
+convertPrim version (L.stripPrefix "$" -> Just builtin) typ
+    | isDevVersion version =
+    pure $
+      EExperimental (T.pack builtin) typ
+    | otherwise =
+    conversionError $ OnlySupportedOnDev "Experimental primitives are"
 -- Update
 convertPrim _ "UPure" (a1 :-> TUpdate a2) | a1 == a2 =
     pure $ ETmLam (varV1, a1) $ EUpdate $ UPure a1 $ EVar varV1
@@ -108,9 +115,7 @@ convertPrim version "BEExternalCall" (TText :-> TText :-> TText :-> TText :-> TU
     | not (version `supports` featureExternalCall) =
         unsupportedFeature featureExternalCall version
     | otherwise =
-    pure $ ETmLam (varV1, TText) $ ETmLam (varV2, TText) $ ETmLam (varV3, TText) $ ETmLam (varV4, TText) $
-        EUpdate $ UEmbedExpr TText $
-            EBuiltinFun BEExternalCall `ETmApp` EVar varV1 `ETmApp` EVar varV2 `ETmApp` EVar varV3 `ETmApp` EVar varV4
+    pure $ EBuiltinFun BEExternalCall
 convertPrim _ "BETextToParty" (TText :-> TOptional TParty) =
     pure $ EBuiltinFun BETextToParty
 convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =
@@ -248,6 +253,18 @@ convertPrim _ "UFetchInterface" (TContractId (TCon iface) :-> TUpdate (TCon ifac
     pure $
     ETmLam (mkVar "this", TContractId (TCon iface)) $
     EUpdate $ UFetchInterface iface (EVar (mkVar "this"))
+
+convertPrim _ "UUnpackTemplate" (TContractId (TCon template) :-> TUpdate (TCon template'))
+    | template == template' =
+    pure $
+    ETmLam (mkVar "this", TContractId (TCon template)) $
+    EUpdate $ UUnpackTemplate template (EVar (mkVar "this"))
+
+convertPrim _ "UUnpackInterface" (TContractId (TCon iface) :-> TUpdate (TCon iface'))
+    | iface == iface' =
+    pure $
+    ETmLam (mkVar "this", TContractId (TCon iface)) $
+    EUpdate $ UUnpackInterface iface (EVar (mkVar "this"))
 
 convertPrim _ "UExercise"
     (TContractId (TCon template) :-> TCon choice :-> TUpdate _returnTy) =
@@ -481,10 +498,6 @@ convertPrim _ "EChoiceObserver"
 convertPrim _ "EFailWithStatus"
     (TText :-> TFailureCategory :-> TText :-> TTextMap TText :-> retTy) =
     pure $ EBuiltinFun BEFailWithStatus `ETyApp` retTy
-
-convertPrim (isDevVersion->True) (L.stripPrefix "$" -> Just builtin) typ =
-    pure $
-      EExperimental (T.pack builtin) typ
 
 -- Unknown primitive.
 convertPrim _ x ty = conversionError $ UnknownPrimitive x ty

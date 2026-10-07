@@ -91,7 +91,7 @@ private final class JsCodeGen(
         |  "dependencies": {
         |    ${deps.mkString(",\n    ")}
         |  },
-        |  "peer-dependencies": {
+        |  "peerDependencies": {
         |    "@daml/types": "$damlVersion"
         |  }
         |}

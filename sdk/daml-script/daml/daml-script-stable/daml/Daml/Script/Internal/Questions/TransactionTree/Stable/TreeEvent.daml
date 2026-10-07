@@ -1,0 +1,20 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.TransactionTree.Stable.TreeEvent where
+
+import Daml.Script.Internal.Questions.TransactionTree.Stable.Created
+import Daml.Script.Internal.Questions.Util.Stable.AnyContractId
+
+-- | MOVE Daml.Script
+data TreeEvent
+  = CreatedEvent Created
+  | ExercisedEvent Exercised
+
+-- | MOVE Daml.Script
+data Exercised = Exercised
+  with
+    contractId : AnyContractId
+    choice : Text
+    argument : AnyChoice
+    childEvents: [TreeEvent]

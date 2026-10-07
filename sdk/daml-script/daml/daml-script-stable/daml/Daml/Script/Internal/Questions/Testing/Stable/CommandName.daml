@@ -1,0 +1,9 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Testing.Stable.CommandName where
+
+-- | MOVE Daml.Script.Internal
+-- Name of the Daml Script Command (or Question) that failed
+newtype CommandName = CommandName
+  with getCommandName : Text

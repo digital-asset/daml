@@ -11,6 +11,8 @@ instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
     = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
 instance DA.Internal.Desugar.HasFetch Token where
   fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasUnpack Token where
+  unpack = GHC.Types.primitive @"UUnpackInterface"
 instance DA.Internal.Desugar.HasToInterface Token Token where
   _toInterface this = this
 instance DA.Internal.Desugar.HasFromInterface Token Token where
@@ -146,6 +148,8 @@ instance DA.Internal.Desugar.HasInterfaceTypeRep SubToken where
     = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
 instance DA.Internal.Desugar.HasFetch SubToken where
   fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasUnpack SubToken where
+  unpack = GHC.Types.primitive @"UUnpackInterface"
 instance DA.Internal.Desugar.HasToInterface SubToken SubToken where
   _toInterface this = this
 instance DA.Internal.Desugar.HasFromInterface SubToken SubToken where

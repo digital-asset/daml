@@ -378,6 +378,21 @@ Typeclasses
     If the ``ContractId t`` supplied is not the contract ID of an active
     contract, this fails and aborts the entire transaction\.
 
+.. _class-da-internal-template-functions-hasunpack-24472:
+
+**class** `HasUnpack <class-da-internal-template-functions-hasunpack-24472_>`_ t **where**
+
+  (2\.dev only) Exposes ``unpack`` function\.
+
+  .. _function-da-internal-template-functions-unpack-84858:
+
+  `unpack <function-da-internal-template-functions-unpack-84858_>`_
+    \: `ContractId <type-da-internal-lf-contractid-95282_>`_ t \-\> `Update <type-da-internal-lf-update-68072_>`_ t
+
+    (2\.dev only) Unpack the contract data associated with the given
+    contract ID\. If the ``ContractId t`` supplied is not the contract ID of
+    an active contract, this fails and aborts the entire transaction\.
+
 .. _class-da-internal-template-functions-hassoftfetch-65731:
 
 **class** `HasSoftFetch <class-da-internal-template-functions-hassoftfetch-65731_>`_ t **where**

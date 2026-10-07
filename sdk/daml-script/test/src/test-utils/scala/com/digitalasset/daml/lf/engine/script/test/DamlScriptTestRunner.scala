@@ -89,7 +89,7 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
       // rename template IDs
       .replaceAll(raw"[a-f0-9]{64}(:\w+:\w+)", "XXXXXXXX$1")
       // rename contract IDs
-      .replaceAll("id [a-f0-9]{138}", "id XXXXXXXX")
+      .replaceAll(raw"([^\w])00([a-f0-9]{64}|[a-f0-9]{136})([^\w])", "$100XXXXXX$3")
       // rename parties
       .replaceAll(raw"party-[a-f0-9\-:]+", "party")
       .replaceAll(raw"(Alice|Bob|Charlie|Ivy|Mach)(-[a-z0-9]+)?::[a-z0-9]+", "party")
@@ -100,7 +100,7 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
           Files.writeString(cantonTmpDir.resolve(getClass.getSimpleName + ".expected"), expected)
         val _ = Files.writeString(cantonTmpDir.resolve(getClass.getSimpleName + ".actual"), actual)
       }
-      case _ => {}
+      case _ =>
     }
 
     Files.delete(testSummaryPath)

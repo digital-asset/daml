@@ -1,0 +1,24 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module Daml.Script.Internal.LowLevel.Stable.Script where
+
+import Daml.Script.Internal.LowLevel.Stable.ScriptF
+import Daml.Script.Internal.Free.Stable.Free (Free)
+
+-- | MOVE Daml.Script
+-- This is the type of A Daml script. `Script` is an instance of `Action`,
+-- so you can use `do` notation.
+data Script a = Script with
+    runScript : () -> Free ScriptF (a, ())
+      -- ^ HIDE
+    -- We use an inlined StateT () to separate evaluation of
+    -- something of type Script from execution and to ensure
+    -- proper sequencing of evaluation. This is mainly so that `debug` does something
+    -- slightly more sensible.
+    dummy : ()
+      -- ^ HIDE
+    -- Dummy field to make sure damlc does not consider this an old-style
+    -- typeclass.

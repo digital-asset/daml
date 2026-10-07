@@ -197,7 +197,7 @@ testVersion :: Version
 testVersion = Version V2 PointDev
 
 runEnc :: Encode a -> (a, EncodeState)
-runEnc = runEncode (initTestEncodeConfig testVersion) initEncodeState
+runEnc = runEncode (initTestEncodeConfig testVersion) initTestEncodeState
 
 -- Kinds
 encodeKindAssert :: Kind -> P.Kind -> Assertion
@@ -390,7 +390,7 @@ runEncodeExprTest k = envToTestEnv <$> runEnc (encodeExpr' k)
 
 runEncodeExprTestWithVersion :: Version -> Expr -> (P.Expr, EncodeTestEnv)
 runEncodeExprTestWithVersion version k =
-  envToTestEnv <$> runEncode (initTestEncodeConfig version) initEncodeState (encodeExpr' k)
+  envToTestEnv <$> runEncode (initTestEncodeConfig version) initTestEncodeState (encodeExpr' k)
 
 exprInterningVar :: TestTree
 exprInterningVar =

@@ -1,0 +1,18 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Commands.Stable.Commands where
+
+import Daml.Script.Internal.Questions.Commands.Stable.CommandResult
+import Daml.Script.Internal.Questions.Commands.Stable.CommandWithMeta
+
+-- | MOVE Daml.Script
+-- This is used to build up the commands sent as part of `submit`.
+-- If you enable the `ApplicativeDo` extension by adding
+-- `{-# LANGUAGE ApplicativeDo #-}` at the top of your file, you can
+-- use `do`-notation but the individual commands must not depend
+-- on each other and the last statement in a `do` block
+-- must be of the form ``return expr`` or ``pure expr``.
+data Commands a = Commands with
+    commands : [CommandWithMeta]
+    continue : [CommandResult] -> a

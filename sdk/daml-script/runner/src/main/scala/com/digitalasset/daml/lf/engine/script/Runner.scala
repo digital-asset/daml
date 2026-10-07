@@ -26,6 +26,7 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
 }
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
+import com.digitalasset.daml.lf.interpretation.InterpretationConfig
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.script.IdeLedger
 import com.digitalasset.daml.lf.engine.ScriptEngine.{
@@ -34,7 +35,6 @@ import com.digitalasset.daml.lf.engine.ScriptEngine.{
   makeUnsafeCoerce,
 }
 import com.digitalasset.daml.lf.speedy.MachineLogger
-import com.digitalasset.daml.lf.transaction.{NextGenContractStateMachine => ContractStateMachine}
 import com.digitalasset.daml.lf.value._
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
@@ -50,6 +50,7 @@ import scalaz.syntax.traverse._
 import scalaz.{Applicative, NonEmptyList, Traverse}
 import spray.json._
 
+import java.nio.file.Path
 import scala.concurrent.{ExecutionContext, Future}
 
 object LfValueCodec extends ApiCodecCompressed(false, false)
@@ -200,16 +201,14 @@ object ScriptAction {
       scriptId: Identifier,
   ): Either[String, ScriptAction] = {
     val script = compiledPackages.pkgInterface.lookupValue(scriptId).left.map(_.pretty)
-    def getScriptIds(ty: Type): Either[String, ScriptIds] =
-      ScriptIds.fromType(ty)
     script.flatMap {
       case GenDValue(TApp(TApp(TBuiltin(BTArrow), param), result), _) =>
         for {
-          scriptIds <- getScriptIds(result)
+          scriptIds <- ScriptIds.fromType(result)
         } yield ScriptAction.Param(scriptId, param, None, scriptIds)
       case GenDValue(ty, _) =>
         for {
-          scriptIds <- getScriptIds(ty)
+          scriptIds <- ScriptIds.fromType(ty)
         } yield ScriptAction.NoParam(scriptId, scriptIds)
     }
   }
@@ -302,11 +301,13 @@ object Runner {
   def ideLedgerClient(
       compiledPackages: PureCompiledPackages,
       machineLogger: MachineLogger,
+      // We only set the snapshotDir when the IDE ledger client is created from the CLI
+      snapshotDir: Option[Path] = None,
   ): Future[Participants[IdeLedgerClient]] =
     Future.successful(
       Participants(
         default_participant =
-          Some(new IdeLedgerClient(compiledPackages, machineLogger, () => false)),
+          Some(new IdeLedgerClient(compiledPackages, machineLogger, () => false, snapshotDir)),
         participants = Map.empty,
         party_participants = Map.empty,
       )
@@ -351,29 +352,28 @@ object Runner {
   }
 
   sealed trait IdeLedgerProtocolVersion {
-    def csmMode: ContractStateMachine.Mode
     def toString: String
+    def interpretationConfig: InterpretationConfig
   }
   object IdeLedgerProtocolVersion {
-    // Should be kept in sync with canton/community/base/src/main/scala/com/digitalasset/canton/version/EngineMode.scala
-    final case object V34 extends IdeLedgerProtocolVersion {
-      val csmMode = ContractStateMachine.Mode.NoKey
-      override val toString = "V34"
-    }
     final case object V35 extends IdeLedgerProtocolVersion {
-      val csmMode = ContractStateMachine.Mode.Key
       override val toString = "V35"
+      override val interpretationConfig = InterpretationConfig.Stable
+    }
+    final case object V36 extends IdeLedgerProtocolVersion {
+      override val toString = "V36"
+      override val interpretationConfig = InterpretationConfig.Stable
     }
     final case object VDev extends IdeLedgerProtocolVersion {
-      val csmMode = ContractStateMachine.Mode.Key
       override val toString = "VDev"
+      override val interpretationConfig = InterpretationConfig.Stable
     }
-    val all = List(V34, V35, VDev)
+    val all = List(V35, V36, VDev)
     val latest = V35
     def parseIdeLedgerProtocolVersion(str: String): Either[String, IdeLedgerProtocolVersion] =
       str.toLowerCase match {
-        case "v34" | "34" => Right(V34)
         case "v35" | "35" => Right(V35)
+        case "v36" | "36" => Right(V36)
         case "vdev" | "dev" => Right(VDev)
         case "latest" => Right(latest)
         case _ =>
@@ -461,7 +461,7 @@ object Runner {
       timeMode: ScriptTimeMode,
       machineLogger: MachineLogger,
       canceled: () => Option[RuntimeException],
-      ideLedgerProtocolVersion: IdeLedgerProtocolVersion,
+      ideLedgerPV: IdeLedgerProtocolVersion,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -488,7 +488,7 @@ object Runner {
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner = new Runner(compiledPackages, scriptAction, timeMode)
-    runner.runWithClients(initialClients, machineLogger, canceled, ideLedgerProtocolVersion.csmMode)
+    runner.runWithClients(initialClients, machineLogger, canceled, ideLedgerPV.interpretationConfig)
   }
 
   def getPackageName(compiledPackages: CompiledPackages, pkgId: PackageId): Option[String] =
@@ -505,10 +505,23 @@ private[lf] class Runner(
 ) extends StrictLogging {
   // Daml script requires unsafe casting on Value payloads from the engine, for exercise results and such
   // This is implemented as a simple identity in the engine, but is untyped.
-  val extendedCompiledPackages = makeUnsafeCoerce(
-    compiledPackages,
-    script.scriptIds.damlScriptModule("Daml.Script.Internal.LowLevel", "dangerousCast"),
-  )
+  // Since adding cross-sdk daml-script support, this dangerousCast is required in all daml-script versions in scope
+  // so we iterate all daml-script packages and run the replacement.
+  // This is safe, as this replacement only happens on the daml-script side. It cannot be used to introduce
+  // unsafe coerce into contracts.
+  val extendedCompiledPackages = {
+    val damlScriptPackages: List[PackageId] = (for {
+      (pkgId, pkg) <- compiledPackages.signatures
+      if pkg.metadata.name.toString == "daml-script"
+    } yield pkgId).toList
+    val qName = QualifiedName(
+      ModuleName.assertFromString("Daml.Script.Internal.LowLevel"),
+      DottedName.assertFromString("dangerousCast"),
+    )
+    damlScriptPackages.foldLeft(compiledPackages) { (cPkgs, pkgId) =>
+      makeUnsafeCoerce(cPkgs, Identifier(pkgId, qName))
+    }
+  }
 
   // Maps GHC unit ids to LF package ids. Used for location conversion.
   val knownPackages: Map[String, PackageId] = (for {
@@ -520,22 +533,25 @@ private[lf] class Runner(
       initialClients: Participants[ScriptLedgerClient],
       machineLogger: MachineLogger = ScriptMachineLogger(),
       canceled: () => Option[RuntimeException] = () => None,
-      csmMode: ContractStateMachine.Mode,
+      interpretConfig: InterpretationConfig,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Future[ExtendedValue], Option[Runner.IdeLedgerContext]) = {
-    val damlScriptName = Runner.getPackageName(compiledPackages, script.scriptIds.scriptPackageId)
+    val damlScriptName =
+      Runner.getPackageName(compiledPackages, script.scriptIds.scriptTypePackageId)
+    val stableScriptTypePackageName =
+      "daml-script-stable-Daml-Script-Internal-LowLevel-Stable-Script"
 
     damlScriptName.getOrElse(
       throw new IllegalArgumentException("Couldn't get daml script package name")
     ) match {
-      case "daml-script" | "daml3-script" =>
-        new v2.Runner(this, initialClients, machineLogger, canceled, csmMode).getResult()
+      case "daml-script" | "daml3-script" | `stableScriptTypePackageName` =>
+        new v2.Runner(this, initialClients, machineLogger, canceled, interpretConfig).getResult()
       case pkgName =>
         throw new IllegalArgumentException(
-          "Invalid daml script package name. Expected daml-script or daml3-script, got " + pkgName
+          s"Invalid daml script package name. Expected daml-script, daml3-script or $stableScriptTypePackageName, got $pkgName"
         )
     }
   }

@@ -139,6 +139,9 @@ sh_test(
 
 sh_test(
     name = "npm-update-check",
+    # Runs two cold-cache `npm install`s against the registry; slow/throttled
+    # CI network makes the default (medium/300s) budget too tight.
+    timeout = "long",
     srcs = ["npm_check.sh"],
     args = [
         "$(location //language-support/js/codegen)",
@@ -147,12 +150,14 @@ sh_test(
         "$(location :npmcheck1.dar)",
         "$(location :npmcheck2.dar)",
         "$(location @nodejs//:node)",
+        "$(location //language-support/js/daml-types:npm_package)",
         sdk_version,
     ],
     data = [
         ":npmcheck1.dar",
         ":npmcheck2.dar",
         "//language-support/js/codegen",
+        "//language-support/js/daml-types:npm_package",
         "@jq_dev_env//:jq",
         "@nodejs//:node",
         "@nodejs//:npm_bin",

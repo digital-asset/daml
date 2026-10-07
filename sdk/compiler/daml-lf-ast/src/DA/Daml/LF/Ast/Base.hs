@@ -756,6 +756,20 @@ data Update
       -- ^ Contract id of the contract template instance whose argument shall be
       -- retrieved.
     }
+  -- | Unpack a contract template instance.
+  | UUnpackTemplate
+    { unpackTemplate :: !(Qualified TypeConName)
+      -- ^ Qualified type constructor corresponding to the contract template.
+    , unpackContractId :: !Expr
+      -- ^ Contract id of the contract template instance to unpack.
+    }
+  -- | Unpack a contract interface instance.
+  | UUnpackInterface
+    { unpackInterface :: !(Qualified TypeConName)
+      -- ^ Qualified type constructor corresponding to the interface.
+    , unpackContractId :: !Expr
+      -- ^ Contract id of the contract interface instance to unpack.
+    }
   -- | Retrieve effective ledger time.
   | UGetTime
   -- | Check whether the ledger time is strictly before an absolute time.

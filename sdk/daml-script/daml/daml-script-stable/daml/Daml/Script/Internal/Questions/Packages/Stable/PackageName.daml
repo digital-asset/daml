@@ -1,0 +1,11 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Packages.Stable.PackageName where
+
+-- | MOVE Daml.Script.Internal
+-- Used for vetting and unvetting packages
+data PackageName = PackageName
+  with
+    name : Text
+    version : Text

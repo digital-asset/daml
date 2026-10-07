@@ -73,6 +73,8 @@ instance DA.Internal.Desugar.HasCreate K where
   create = GHC.Types.primitive @"UCreate"
 instance DA.Internal.Desugar.HasFetch K where
   fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasUnpack K where
+  unpack = GHC.Types.primitive @"UUnpackTemplate"
 instance DA.Internal.Desugar.HasToAnyTemplate K where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate K where
@@ -194,6 +196,8 @@ instance DA.Internal.Desugar.HasCreate T where
   create = GHC.Types.primitive @"UCreate"
 instance DA.Internal.Desugar.HasFetch T where
   fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasUnpack T where
+  unpack = GHC.Types.primitive @"UUnpackTemplate"
 instance DA.Internal.Desugar.HasToAnyTemplate T where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate T where

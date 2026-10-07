@@ -1,0 +1,10 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Submit.Error.Stable.AnyDevErrorType where
+
+import Daml.Script.Internal.Questions.Submit.Error.Stable.TaggedRecord
+
+-- | MOVE Daml.Script
+-- See IsDevErrorType for details on how to use AnyDevErrorType
+newtype AnyDevErrorType = AnyDevErrorType TaggedRecord

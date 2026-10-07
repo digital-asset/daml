@@ -57,6 +57,14 @@ trap stop_postgresql EXIT
 stop_postgresql # in case it's running from a previous build
 start_postgresql
 
+# First separately build the sdks, since they take a while, and system resources are eaten up by other tasks causing timeouts
+sdk_targets=$(bazel query //external:all-targets 2>/dev/null | grep -o "daml-sdk-.*" | sed 's=.*=@&//:daml=') \
+  || { echo "Could not find any daml-sdk-* repositories to prebuild" >&2; exit 1; }
+# Run as separate calls to bazel to give the machine a fighting chance of hitting the deadline
+for target in $sdk_targets; do
+    bazel build "$target"
+done
+
 bazel build //...
 
 tag_filter=""

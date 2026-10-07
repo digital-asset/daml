@@ -9,6 +9,8 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.digitalasset.daml.lf.speedy.MachineLogger
 
+import java.nio.file.Path
+
 // Ledger clients before implementation is chosen
 sealed trait ScriptLedgerClient extends Product with Serializable
 
@@ -24,4 +26,5 @@ final case class IdeLedgerClient(
     compiledPackages: PureCompiledPackages,
     machineLogger: MachineLogger,
     canceled: () => Boolean,
+    snapshotDir: Option[Path],
 ) extends ScriptLedgerClient

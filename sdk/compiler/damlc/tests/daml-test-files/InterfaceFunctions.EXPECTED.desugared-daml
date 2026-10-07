@@ -13,6 +13,8 @@ instance DA.Internal.Desugar.HasInterfaceTypeRep Token where
     = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
 instance DA.Internal.Desugar.HasFetch Token where
   fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasUnpack Token where
+  unpack = GHC.Types.primitive @"UUnpackInterface"
 instance DA.Internal.Desugar.HasToInterface Token Token where
   _toInterface this = this
 instance DA.Internal.Desugar.HasFromInterface Token Token where
@@ -122,6 +124,8 @@ instance DA.Internal.Desugar.HasCreate Asset where
   create = GHC.Types.primitive @"UCreate"
 instance DA.Internal.Desugar.HasFetch Asset where
   fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasUnpack Asset where
+  unpack = GHC.Types.primitive @"UUnpackTemplate"
 instance DA.Internal.Desugar.HasToAnyTemplate Asset where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Asset where
@@ -224,6 +228,8 @@ instance DA.Internal.Desugar.HasCreate Test where
   create = GHC.Types.primitive @"UCreate"
 instance DA.Internal.Desugar.HasFetch Test where
   fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasUnpack Test where
+  unpack = GHC.Types.primitive @"UUnpackTemplate"
 instance DA.Internal.Desugar.HasToAnyTemplate Test where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Test where

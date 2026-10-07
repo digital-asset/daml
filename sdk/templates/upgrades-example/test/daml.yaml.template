@@ -16,5 +16,3 @@ data-dependencies:
 module-prefixes:
   __PROJECT_NAME__-main-1.0.0: V1
   __PROJECT_NAME__-main-2.0.0: V2
-build-options:
-- --target=1.17

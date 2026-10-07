@@ -54,6 +54,13 @@ class HasFetch t where
   -- contract, this fails and aborts the entire transaction.
   fetch : ContractId t -> Update t
 
+-- | (2.dev only) Exposes `unpack` function.
+class HasUnpack t where
+  -- | (2.dev only) Unpack the contract data associated with the given
+  -- contract ID. If the `ContractId t` supplied is not the contract ID of
+  -- an active contract, this fails and aborts the entire transaction.
+  unpack : ContractId t -> Update t
+
 -- | Exposes `softFetch` function
 class HasSoftFetch t where
   -- | HIDE

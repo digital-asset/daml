@@ -103,13 +103,12 @@ final class Conversions(
 
       case Error.RunnerException(serror) =>
         serror match {
-          case SError.SErrorCrash(_, reason) => setCrash(reason)
-
-          case SError.SErrorDamlException(interpretationError) =>
+          case SError.Crash(_, reason) => setCrash(reason)
+          case SError.UnhandledException(SValue.SAny(_, value)) =>
+            builder.setUnhandledException(convertValue(value.toUnnormalizedValue))
+          case SError.InterpretationError(interpretationError) =>
             import interpretation.Error._
             interpretationError match {
-              case UnhandledException(_, value) =>
-                builder.setUnhandledException(convertValue(value))
               case UserError(msg) =>
                 builder.setUserError(msg)
               case ContractNotFound(cid) =>
@@ -261,8 +260,6 @@ final class Conversions(
                 )
               case Dev(_, devError) if devMode =>
                 devError match {
-                  case Dev.Conformance(_, _, _) =>
-                    builder.setCrash("conformance fails")
                   case Dev.Limit(limitError) =>
                     limitError match {
                       // TODO https://github.com/digital-asset/daml/issues/11691
@@ -270,15 +267,6 @@ final class Conversions(
                       case _ =>
                         builder.setCrash(s"A limit was overpassed when building the transaction")
                     }
-                  case Dev.ChoiceGuardFailed(coid, templateId, choiceName, byInterface) =>
-                    val cgfBuilder =
-                      proto.ScriptError.ChoiceGuardFailed.newBuilder
-                        .setContractRef(mkContractRef(coid, templateId))
-                        .setChoiceId(choiceName)
-                    byInterface.foreach(ifaceId =>
-                      cgfBuilder.setByInterface(convertIdentifier(ifaceId))
-                    )
-                    builder.setChoiceGuardFailed(cgfBuilder.build)
                   case Dev.Cost(Dev.Cost.BudgetExceeded(cause)) =>
                     builder.setCrash(cause)
                 }

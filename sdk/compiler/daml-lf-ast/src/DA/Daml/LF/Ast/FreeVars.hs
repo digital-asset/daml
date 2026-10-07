@@ -151,6 +151,8 @@ freeVarsStep = \case
         UExerciseByKeyF _ _ e1 e2 -> e1 <> e2
         UFetchF _ e -> e
         UFetchInterfaceF _ e -> e
+        UUnpackTemplateF _ e -> e
+        UUnpackInterfaceF _ e -> e
         UGetTimeF -> mempty
         ULedgerTimeLTF e -> e
         UEmbedExprF t e -> freeVarsInType t <> e

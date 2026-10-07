@@ -14,7 +14,7 @@ jobs:
     name: ubuntu_20_04
     demands: assignment -equals default
   variables:
-    blackduck_script_sha: e107dfd8671049159636313b9c3d3f8c83bcf35d
+    blackduck_script_sha: 371e805ad4a140ca3ee564882637da718a056b47
   steps:
   - checkout: self
     clean: true
@@ -149,28 +149,32 @@ jobs:
       cd sdk
       eval "$(./dev-env/bin/dade-assist)"
       source $(bash_lib)
-      
-      branch="notices-update-$(Build.BuildId)"
 
       tr -d '\015' < digital_asset_daml_$(Build.SourceBranchName)_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml > NOTICES
       if git diff --exit-code -- NOTICES; then
           echo "NOTICES file already up-to-date."
           setvar need_to_build false
       else
-          git add NOTICES
-          open_pr "$branch" "update NOTICES file"  "" "" "$(Build.SourceBranchName)"
+          # The PR is opened by run_notices_pr_build (ci/cron/daily-compat.yml),
+          # whose fresh checkout credentials haven't expired during the scan.
+          mkdir -p $(Build.StagingDirectory)/notices
+          cp NOTICES $(Build.StagingDirectory)/notices/
           setvar need_to_build true
       fi
-    env:
-      AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
-    displayName: 'Open PR to update NOTICES file'
+    displayName: 'Check NOTICES file'
     name: out
     condition: and(succeeded(),
                    or(eq(variables['Build.SourceBranchName'], 'main'),
                       eq(variables['Build.SourceBranchName'], 'main-2.x')))
+  - task: PublishPipelineArtifact@0
+    displayName: 'Publish NOTICES file'
+    inputs:
+      targetPath: $(Build.StagingDirectory)/notices
+      artifactName: notices
+    condition: and(succeeded(), eq(variables['out.need_to_build'], 'true'))
 
 - job: bump_blackduck_if_needed
-  timeoutInMinutes: 10
+  timeoutInMinutes: 30
   condition: and(or(eq(variables['Build.SourceBranchName'], 'main'),
                     eq(variables['Build.SourceBranchName'], 'main-2.x')),
                  eq(variables['Build.DefinitionName'], 'digital-asset.daml-daily-compat'))

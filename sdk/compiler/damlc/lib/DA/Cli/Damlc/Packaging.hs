@@ -61,7 +61,7 @@ import DA.Daml.Compiler.Output
 import DA.Daml.LF.Ast.Optics (packageRefs)
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
-import DA.Daml.Package.Config (PackageConfigFields (..))
+import DA.Daml.Package.Config (DependencySpec, PackageConfigFields (..))
 import DA.Daml.Project.Consts (getVersionInfo)
 import DA.Daml.Project.Types (VersionInfo)
 import Development.IDE.Core.IdeState.Daml
@@ -961,8 +961,8 @@ unsafeSetupPackageDb
     => NormalizedFilePath
     -> Options
     -> VersionInfo
-    -> [String] -- Package dependencies. Can be base-packages, sdk-packages or filepath.
-    -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
+    -> [DependencySpec] -- Package dependencies. Can be base-packages, sdk-packages or filepath.
+    -> [DependencySpec] -- Data Dependencies. Can be filepath to dars/dalfs.
     -> MS.Map UnitId GHC.ModuleName
     -> IO ()
 unsafeSetupPackageDb packageRoot opts versionInfo pDependencies pDataDependencies pModulePrefixes = do
@@ -986,8 +986,8 @@ setupPackageDb
     => NormalizedFilePath
     -> Options
     -> VersionInfo
-    -> [String] -- Package dependencies. Can be base-packages, sdk-packages or filepath.
-    -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
+    -> [DependencySpec] -- Package dependencies. Can be base-packages, sdk-packages or filepath.
+    -> [DependencySpec] -- Data Dependencies. Can be filepath to dars/dalfs.
     -> MS.Map UnitId GHC.ModuleName
     -> IO ()
 setupPackageDb packageRoot opts versionInfo pDependencies pDataDependencies pModulePrefixes =

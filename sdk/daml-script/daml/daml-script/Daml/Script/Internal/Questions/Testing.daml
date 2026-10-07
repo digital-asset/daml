@@ -1,0 +1,98 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Testing
+  ( module Daml.Script.Internal.Questions.Testing
+  , module Stable
+  ) where
+
+import Daml.Script.Internal.LowLevel
+import Daml.Script.Internal.Questions.Exceptions ()
+import Daml.Script.Internal.Questions.Testing.Stable.CommandName as Stable
+import Daml.Script.Internal.Questions.Testing.Stable.ErrorClassName as Stable
+import Daml.Script.Internal.Questions.Testing.Stable.ErrorMessage as Stable
+import Daml.Script.Internal.Questions.Testing.Stable.FailedCmd as Stable
+import DA.Bifunctor
+import qualified DA.TextMap as TextMap
+import DA.Fail
+import DA.Record
+
+-- These types are generated directly in LF, so their record instances are not derived
+instance GetField "getCommandName" CommandName Text where
+  getField (CommandName {..}) = getCommandName
+instance SetField "getCommandName" CommandName Text where
+  setField getCommandName (CommandName _) = CommandName getCommandName
+
+instance GetField "getErrorClassName" ErrorClassName Text where
+  getField (ErrorClassName {..}) = getErrorClassName
+instance SetField "getErrorClassName" ErrorClassName Text where
+  setField getErrorClassName (ErrorClassName _) = ErrorClassName getErrorClassName
+
+instance GetField "getErrorMessage" ErrorMessage Text where
+  getField (ErrorMessage {..}) = getErrorMessage
+instance SetField "getErrorMessage" ErrorMessage Text where
+  setField getErrorMessage (ErrorMessage _) = ErrorMessage getErrorMessage
+
+instance GetField "commandName" FailedCmd CommandName where
+  getField (FailedCmd {..}) = commandName
+instance SetField "commandName" FailedCmd CommandName where
+  setField commandName (FailedCmd _ errorClassName errorMessage) =
+    FailedCmd commandName errorClassName errorMessage
+
+instance GetField "errorClassName" FailedCmd ErrorClassName where
+  getField (FailedCmd {..}) = errorClassName
+instance SetField "errorClassName" FailedCmd ErrorClassName where
+  setField errorClassName (FailedCmd commandName _ errorMessage) =
+    FailedCmd commandName errorClassName errorMessage
+
+instance GetField "errorMessage" FailedCmd ErrorMessage where
+  getField (FailedCmd {..}) = errorMessage
+instance SetField "errorMessage" FailedCmd ErrorMessage where
+  setField errorMessage (FailedCmd commandName errorClassName _) =
+    FailedCmd commandName errorClassName errorMessage
+
+deriving instance Eq CommandName
+deriving instance Show CommandName
+
+deriving instance Eq ErrorClassName
+deriving instance Show ErrorClassName
+
+deriving instance Eq ErrorMessage
+deriving instance Show ErrorMessage
+
+deriving instance Eq FailedCmd
+deriving instance Show FailedCmd
+
+-- | HIDE
+data TryCommands = TryCommands with
+  act : LedgerValue
+instance IsQuestion TryCommands (Either (Text, Text, Text) x) where command = "TryCommands"
+
+-- | HIDE
+tupleToFailedCmd : (Text, Text, Text) -> FailedCmd
+tupleToFailedCmd (cmdName, errName, msg) =
+  FailedCmd with
+    commandName = CommandName cmdName
+    errorClassName = ErrorClassName errName
+    errorMessage = ErrorMessage msg
+
+-- | MOVE Daml.Script.Internal
+-- Internal testing tool that allows us to catch FailedCmds in the daml language
+tryCommands : Script a -> Script (Either FailedCmd a)
+tryCommands = fmap (first tupleToFailedCmd) . lift . TryCommands . toLedgerValue
+
+-- | MOVE Daml.Script.Internal
+-- Runs a script and lifts FailedCmd scala exceptions into a FailureStatus, which can be caught via tryFailureStatus
+liftFailedCommandToFailureStatus : Script a -> Script a
+liftFailedCommandToFailureStatus act = tryCommands act >>= either (failWithStatus . failedCmdToFailureStatus) pure
+  where
+    failedCmdToFailureStatus : FailedCmd -> FailureStatus
+    failedCmdToFailureStatus (FailedCmd cmdName className errMessage) =
+      FailureStatus with
+        errorId = "UNHANDLED_EXCEPTION/Daml.Script:FailedCmd"
+        category = InvalidGivenCurrentSystemStateOther
+        message = getErrorMessage errMessage
+        meta = TextMap.fromList
+          [ ("commandName", getCommandName cmdName)
+          , ("className", getErrorClassName className)
+          ]

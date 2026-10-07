@@ -20,6 +20,7 @@ import           DA.Bazel.Runfiles
 import           DA.Cli.Options (explicitSerializable)
 import           DA.Daml.Options
 import           DA.Daml.Options.Types
+import           DA.Daml.Package.Config (DependencySpec(..))
 import           DA.Test.Util (standardizeQuotes)
 
 import           DA.Daml.LF.Ast as LF
@@ -175,8 +176,8 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
         projDir
         (defaultOptions mLfVer)
         getComponentVersionInfo
-        ["daml-prim", "daml-stdlib", scriptDar]
-        extraDars
+        (SimplePathOrName <$> ["daml-prim", "daml-stdlib"])
+        (SimplePathOrName <$> (scriptDar : extraDars))
         mempty
 
       cont (dir </> packageDatabasePath, packageFlags)
@@ -197,7 +198,7 @@ main = withComponentVersions $ do
 
   let scriptConf = SS.defaultScriptServiceConfig
                        { SS.cnfJvmOptions = ["-Xmx200M"]
-                       , SS.cnfEvaluationTimeout = Just 3
+                       , SS.cnfEvaluationTimeout = Just 10
                        }
 
       withScriptService :: WithPVScriptService a

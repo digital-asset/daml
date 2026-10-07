@@ -155,17 +155,31 @@ jobs:
     variables:
       need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
     steps:
+      - checkout: self
+        clean: true
+        persistCredentials: true
+      - task: DownloadPipelineArtifact@2
+        displayName: 'Download NOTICES file'
+        inputs:
+          artifactName: notices
+          targetPath: $(Pipeline.Workspace)/notices
+        condition: and(succeeded(), eq(variables['need_to_build'], 'true'))
       - template: ../bash-lib.yml
         parameters:
           var_name: bash_lib
       - bash: |
+          set -euo pipefail
           cd sdk
           eval "$(./dev-env/bin/dade-assist)"
           source "$(bash_lib)"
           if [ "$(need_to_build)" == "true" ]; then
               BRANCH="notices-update-$(Build.BuildId)"
+              cp "$(Pipeline.Workspace)/notices/NOTICES" NOTICES
+              git add NOTICES
+              open_superseding_pr "$BRANCH" "update NOTICES file" "" "$(Build.SourceBranchName)" "ci-generated-notices-update"
               trigger_azure $AZURE_DEVOPS_EXT_PAT PRs --branch $BRANCH
           fi
+        displayName: 'Open PR to update NOTICES file'
         env:
           AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
 
@@ -238,11 +252,15 @@ jobs:
 
                   body=$(printf "%sCanton changes:\n\n%s\n\ntell-slack: canton" "$updates_section" "$changelog")
 
-                  open_pr "$branch" "update canton to $version" "$body" "" "$(Build.SourceBranchName)" "ci-generated-canton-upgrade"
-                  az pipelines build queue --branch "$branch" \
-                                           --definition-name "PRs" \
-                                           --org "https://dev.azure.com/digitalasset" \
-                                           --project daml
+                  if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+                      echo "Branch $branch already exists on origin (opened by a previous run), not opening another PR."
+                  else
+                      open_superseding_pr "$branch" "update canton to $version" "$body" "$(Build.SourceBranchName)" "ci-generated-canton-upgrade"
+                      az pipelines build queue --branch "$branch" \
+                                               --definition-name "PRs" \
+                                               --org "https://dev.azure.com/digitalasset" \
+                                               --project daml
+                  fi
               else
                   echo "Would open PR if this were running on main."
               fi
@@ -288,7 +306,8 @@ jobs:
         if ! git diff --cached --quiet; then
           BRANCH=update-compat-versions-$(date -I)-$(Build.SourceBranchName)
           TITLE="update compat versions ($(date -I) $(Build.SourceBranchName))"
-          open_pr "$BRANCH" "$TITLE" "" "" "$(Build.SourceBranchName)"
+          BODY="If follow-up PRs are needed to fix this one, add a run-full-compat: true trailer to their commit message so the full compat suite runs on them too.\n\nrun-full-compat: true"
+          open_superseding_pr "$BRANCH" "$TITLE" "$BODY" "$(Build.SourceBranchName)" "ci-generated-compat-versions-update"
           trigger_azure $(System.AccessToken) PRs --branch $BRANCH
           trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $BRANCH
         else

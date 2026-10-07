@@ -431,6 +431,10 @@ instance Pretty Update where
       pPrintAppKeyword lvl prec "fetch" [tplArg tpl, TmArg cid]
     UFetchInterface interface cid ->
       pPrintAppKeyword lvl prec "fetch_interface" [interfaceArg interface, TmArg cid]
+    UUnpackTemplate tpl cid ->
+      pPrintAppKeyword lvl prec "unpack_template" [tplArg tpl, TmArg cid]
+    UUnpackInterface interface cid ->
+      pPrintAppKeyword lvl prec "unpack_interface" [interfaceArg interface, TmArg cid]
     UGetTime ->
       keyword_ "get_time"
     ULedgerTimeLT time ->

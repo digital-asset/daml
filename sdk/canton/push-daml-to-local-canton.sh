@@ -15,7 +15,7 @@ function cleanup () {
 trap cleanup EXIT
 
 function print_help () {
-  echo "Builds and locally publishes artifacts from this Daml repository in such a way that the local canton repository in canton/canton_version.bzl:LOCAL_CANTON_OVERRIDE can use them."
+  echo "Builds and locally publishes artifacts from this Daml repository in such a way that the local canton repository in canton/canton_version.bzl:LOCAL_CANTON_PATH can use them."
   echo ""
   echo "For more information on usage, consult canton/README.md"
   echo ""
@@ -51,10 +51,10 @@ if $HELP; then
   exit 0
 fi
 
-LOCAL_CANTON_OVERRIDE=$(./canton/get-local-canton-path.sh)
+LOCAL_CANTON_PATH=$(./canton/get-local-canton-path.sh)
 
-echo "Changing directory to local canton path '$LOCAL_CANTON_OVERRIDE'"
-cd "$LOCAL_CANTON_OVERRIDE"
+echo "Changing directory to local canton path '$LOCAL_CANTON_PATH'"
+cd "$LOCAL_CANTON_PATH"
 
 echo "Getting local Canton's DamlVersion settings..."
 sbt --error 'print community-base / buildInfoKeys; print ThisBuild / damlUseCustomVersion' > $SBT_OUT

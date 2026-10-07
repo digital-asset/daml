@@ -14,6 +14,8 @@ instance DA.Internal.Desugar.HasInterfaceTypeRep Iface where
     = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
 instance DA.Internal.Desugar.HasFetch Iface where
   fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasUnpack Iface where
+  unpack = GHC.Types.primitive @"UUnpackInterface"
 instance DA.Internal.Desugar.HasToInterface Iface Iface where
   _toInterface this = this
 instance DA.Internal.Desugar.HasFromInterface Iface Iface where
@@ -129,6 +131,8 @@ instance DA.Internal.Desugar.HasInterfaceTypeRep Iface2 where
     = GHC.Types.primitive @"EInterfaceTemplateTypeRep"
 instance DA.Internal.Desugar.HasFetch Iface2 where
   fetch = GHC.Types.primitive @"UFetchInterface"
+instance DA.Internal.Desugar.HasUnpack Iface2 where
+  unpack = GHC.Types.primitive @"UUnpackInterface"
 instance DA.Internal.Desugar.HasToInterface Iface2 Iface2 where
   _toInterface this = this
 instance DA.Internal.Desugar.HasFromInterface Iface2 Iface2 where
@@ -277,6 +281,8 @@ instance DA.Internal.Desugar.HasCreate Template1 where
   create = GHC.Types.primitive @"UCreate"
 instance DA.Internal.Desugar.HasFetch Template1 where
   fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasUnpack Template1 where
+  unpack = GHC.Types.primitive @"UUnpackTemplate"
 instance DA.Internal.Desugar.HasToAnyTemplate Template1 where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Template1 where
@@ -381,6 +387,8 @@ instance DA.Internal.Desugar.HasCreate Template2 where
   create = GHC.Types.primitive @"UCreate"
 instance DA.Internal.Desugar.HasFetch Template2 where
   fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasUnpack Template2 where
+  unpack = GHC.Types.primitive @"UUnpackTemplate"
 instance DA.Internal.Desugar.HasToAnyTemplate Template2 where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Template2 where
@@ -511,6 +519,8 @@ instance DA.Internal.Desugar.HasCreate Test where
   create = GHC.Types.primitive @"UCreate"
 instance DA.Internal.Desugar.HasFetch Test where
   fetch = GHC.Types.primitive @"UFetch"
+instance DA.Internal.Desugar.HasUnpack Test where
+  unpack = GHC.Types.primitive @"UUnpackTemplate"
 instance DA.Internal.Desugar.HasToAnyTemplate Test where
   _toAnyTemplate = GHC.Types.primitive @"EToAnyTemplate"
 instance DA.Internal.Desugar.HasFromAnyTemplate Test where

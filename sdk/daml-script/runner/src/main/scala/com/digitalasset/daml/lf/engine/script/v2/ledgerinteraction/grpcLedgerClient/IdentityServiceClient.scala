@@ -32,7 +32,11 @@ class IdentityServiceClient private[grpcLedgerClient] (
   def getId(): Future[Option[String]] =
     identityServiceStub
       .getId(admin_topology_service.GetIdRequest())
-      .map(res => if (res.initialized) Some(res.uniqueIdentifier) else None)
+      .flatMap(res =>
+        if (res.initialized)
+          AdminLedgerClient.validateProtoString(res.uniqueIdentifier).map(Some.apply)
+        else Future.successful(None)
+      )
 
   override def close(): Unit = GrpcChannel.close(channel)
 }

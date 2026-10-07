@@ -13,13 +13,17 @@ import DA.Daml.LFConversion.Utils
 import "ghc-lib" GhcPlugins as GHC hiding ((<>))
 import "ghc-lib" TyCoRep
 
+-- Captures all stable daml-script packages also
 pattern DamlScriptPackage :: GHC.UnitId
 pattern DamlScriptPackage <- (T.stripPrefix "daml-script-" . fsToText . unitIdFS -> Just _)
 pattern DamlScriptInternalModule :: GHC.Module
 pattern DamlScriptInternalModule <- ModuleIn DamlScriptPackage "Daml.Script.Internal.LowLevel"
+pattern DamlScriptInternalModuleStable :: GHC.Module
+pattern DamlScriptInternalModuleStable <- ModuleIn DamlScriptPackage "Daml.Script.Internal.LowLevel.Stable.Script"
 
 isDamlScriptType :: TyCon -> Bool
 isDamlScriptType (NameIn DamlScriptInternalModule "Script") = True
+isDamlScriptType (NameIn DamlScriptInternalModuleStable "Script") = True
 isDamlScriptType _ = False
 
 topLevelWarnings :: (Var, Expr Var) -> ConvertM ()

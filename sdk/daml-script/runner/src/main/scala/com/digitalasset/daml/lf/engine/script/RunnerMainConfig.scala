@@ -37,6 +37,7 @@ case class RunnerMainConfig(
     uploadDar: Boolean,
     resultMode: RunnerMainConfig.ResultMode,
     ideLedgerProtocolVersion: IdeLedgerProtocolVersion,
+    snapshotDir: Option[Path],
 )
 
 object RunnerMainConfig {
@@ -109,6 +110,7 @@ private[script] case class RunnerMainConfigIntermediate(
     excludeScriptNames: List[String],
     ideLedgerProtocolVersion: Option[IdeLedgerProtocolVersion],
     listScriptsJsonFile: Option[File],
+    snapshotDir: Option[Path],
 ) {
 
   def getRunMode: Either[String, RunnerMainConfig.RunMode] =
@@ -177,6 +179,7 @@ private[script] case class RunnerMainConfigIntermediate(
         uploadDar = uploadDar,
         resultMode = resultMode,
         ideLedgerProtocolVersion = pv,
+        snapshotDir = snapshotDir,
       )
     } yield config
 
@@ -278,6 +281,14 @@ private[script] object RunnerMainConfigIntermediate {
         c.copy(outputFile = Some(t))
       }
       .text("Path to a file where the result of the script will be written to in JSON format.")
+
+    opt[String]("snapshot-dir")
+      .action { (f, c) =>
+        c.copy(snapshotDir = Some(Paths.get(f)))
+      }
+      .text(
+        "Path to a directory where transaction snapshot data will be written to in protobuf format."
+      )
 
     opt[String]("access-token-file")
       .action { (f, c) =>
@@ -388,6 +399,7 @@ private[script] object RunnerMainConfigIntermediate {
       excludeScriptNames = List(),
       ideLedgerProtocolVersion = None,
       listScriptsJsonFile = None,
+      snapshotDir = None,
     )
 
   private[script] def parse(args: Array[String]): Option[RunnerMainConfigIntermediate] =

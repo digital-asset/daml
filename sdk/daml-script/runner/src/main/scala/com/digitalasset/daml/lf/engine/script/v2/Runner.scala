@@ -9,8 +9,9 @@ package v2
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.free.Free
+import com.digitalasset.daml.lf.engine.Result.lookupHandler
 import com.digitalasset.daml.lf.engine.script.Runner.IdeLedgerContext
 import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient => UnversionedScriptLedgerClient
@@ -23,20 +24,41 @@ import com.digitalasset.daml.lf.engine.ScriptEngine.{
   ExtendedValueComputationMode,
   runExtendedValueComputation,
 }
-import com.digitalasset.daml.lf.speedy.MachineLogger
-import com.digitalasset.daml.lf.transaction.{NextGenContractStateMachine => ContractStateMachine}
+import com.digitalasset.daml.lf.interpretation.InterpretationConfig
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.interpretation.{Error => IE}
+import com.digitalasset.daml.lf.speedy.{MachineLogger, SError, SValue}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.digitalasset.canton.logging.NamedLoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
+private[lf] object Runner {
+  def makeFailureStatus(
+      name: Ref.TypeConId,
+      message: String,
+  ): Future[Nothing] =
+    Future.failed(
+      free.InterpretationError(
+        SError.InterpretationError(
+          IE.FailureStatus(
+            "UNHANDLED_EXCEPTION/" + name.qualifiedName.toString,
+            Ast.FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
+            message,
+            Map(),
+          )
+        )
+      )
+    )
+}
+
 private[lf] class Runner(
     unversionedRunner: script.Runner,
     initialClients: Participants[UnversionedScriptLedgerClient],
     machineLogger: MachineLogger = ScriptMachineLogger(),
     canceled: () => Option[RuntimeException] = () => None,
-    csmMode: ContractStateMachine.Mode = ContractStateMachine.Mode.Key,
+    interpretConfig: InterpretationConfig = InterpretationConfig.Default,
 ) {
   import Free.Result
 
@@ -48,7 +70,7 @@ private[lf] class Runner(
       _,
       unversionedRunner.extendedCompiledPackages,
       loggerFactory,
-      csmMode,
+      interpretConfig,
     )
   )
 
@@ -115,14 +137,16 @@ private[lf] class Runner(
           freeClosure,
           unversionedRunner.extendedCompiledPackages,
           machineLogger,
-          convertLegacyExceptions,
           canceled,
         )
       result <-
-        remapQ(freeExpr).runF[ScriptF.Cmd, ExtendedValue](
-          _.executeWithRunner(env, this, convertLegacyExceptions)
-            .map(Result.successful)
-            .recover { case err: RuntimeException => Result.failed(err) }
+        recoverUnhandledException(
+          remapQ(freeExpr).runF[ScriptF.Cmd, ExtendedValue](
+            _.runCommand(env, this, convertLegacyExceptions)
+              .map(Result.successful)
+              .recover { case err: RuntimeException => Result.failed(err) }
+          ),
+          convertLegacyExceptions,
         )
     } yield result
 
@@ -131,15 +155,45 @@ private[lf] class Runner(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[ExtendedValue] =
+  ): Future[ExtendedValue] = {
     for {
-      scriptValue <- runComputation(comp, convertLegacyExceptions)
+      scriptValue <- recoverUnhandledException(
+        runComputation(comp),
+        convertLegacyExceptions,
+      )
       result <- runResolved(scriptValue, convertLegacyExceptions)
     } yield result
+  }
+
+  private[v2] def convertLegacyException(excp: SValue.SAny): Future[Nothing] = Future.failed(
+    Engine
+      .computeFailureStatus(
+        excp,
+        unversionedRunner.extendedCompiledPackages,
+        machineLogger,
+        iterationsBetweenInterruptions = 100000,
+        detailMsg = None,
+      )
+      .consume(lookupHandler()) match {
+      case Left(error) =>
+        new RuntimeException(error.message)
+      case Right(failureStatus) =>
+        free.InterpretationError(SError.InterpretationError(failureStatus))
+    }
+  )
+
+  private def recoverUnhandledException[A](
+      result: Future[A],
+      convertLegacyExceptions: Boolean,
+  )(implicit ec: ExecutionContext): Future[A] =
+    if (convertLegacyExceptions)
+      result.recoverWith { case free.InterpretationError(SError.UnhandledException(excp)) =>
+        convertLegacyException(excp)
+      }
+    else result
 
   def runComputation(
-      comp: ExtendedValueComputationMode,
-      convertLegacyExceptions: Boolean = true,
+      comp: ExtendedValueComputationMode
   )(implicit ec: ExecutionContext): Future[ExtendedValue] =
     Future {
       runExtendedValueComputation(
@@ -148,7 +202,6 @@ private[lf] class Runner(
         unversionedRunner.extendedCompiledPackages,
         machineLogger,
         iterationsBetweenInterruptions = 100000,
-        convertLegacyExceptions,
       ).fold(
         err => throw err.fold(identity, free.InterpretationError(_)),
         identity,
@@ -160,27 +213,29 @@ private[lf] class Runner(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Future[ExtendedValue], Option[IdeLedgerContext]) =
-    if (unversionedRunner.script.scriptIds.isLegacy)
-      (
-        Future.failed(
-          new ConverterException(
-            "Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK"
-          )
-        ),
-        ideLedgerContext,
-      )
-    else
-      (
-        unversionedRunner.script match {
-          case ScriptAction.NoParam(id, _) =>
-            run(ExtendedValueComputationMode.ByIdentifier(id))
-          case ScriptAction.Param(id, paramType, Some(param), _) =>
-            run(ExtendedValueComputationMode.ByIdentifier(id, Some(List(param))))
-          case _ =>
-            Future.failed(
-              new RuntimeException("impossible")
-            ) // This case is caught by script.Runner, when a Param ScriptAction is called without a param
-        },
-        ideLedgerContext,
-      )
+    unversionedRunner.script.scriptIds.scriptEra match {
+      case ScriptIds.ScriptEra.Legacy(_) =>
+        (
+          Future.failed(
+            new ConverterException(
+              "Legacy daml-script is not supported in daml 3.3, please recompile your script using a daml 3.3+ SDK"
+            )
+          ),
+          ideLedgerContext,
+        )
+      case _ =>
+        (
+          unversionedRunner.script match {
+            case ScriptAction.NoParam(id, _) =>
+              run(ExtendedValueComputationMode.ByIdentifier(id))
+            case ScriptAction.Param(id, paramType, Some(param), _) =>
+              run(ExtendedValueComputationMode.ByIdentifier(id, Some(List(param))))
+            case _ =>
+              Future.failed(
+                new RuntimeException("impossible")
+              ) // This case is caught by script.Runner, when a Param ScriptAction is called without a param
+          },
+          ideLedgerContext,
+        )
+    }
 }

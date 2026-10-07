@@ -1,0 +1,12 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.TransactionTree.Stable.Created where
+
+import Daml.Script.Internal.Questions.Util.Stable.AnyContractId
+
+-- | MOVE Daml.Script
+data Created = Created
+  with
+    contractId : AnyContractId
+    argument : AnyTemplate

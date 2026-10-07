@@ -1,0 +1,13 @@
+-- Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.UserManagement.Stable.User where
+
+import Daml.Script.Internal.Questions.UserManagement.Stable.UserId
+
+-- | MOVE Daml.Script
+-- User-info record for a user in the user management service.
+data User = User
+  with
+    userId : UserId
+    primaryParty : Optional Party

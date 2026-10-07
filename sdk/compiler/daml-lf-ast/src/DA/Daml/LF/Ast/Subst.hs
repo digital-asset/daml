@@ -296,6 +296,12 @@ applySubstInUpdate subst = \case
     UFetchInterface interface e -> UFetchInterface
         interface
         (applySubstInExpr subst e)
+    UUnpackTemplate templateName e -> UUnpackTemplate
+        templateName
+        (applySubstInExpr subst e)
+    UUnpackInterface interface e -> UUnpackInterface
+        interface
+        (applySubstInExpr subst e)
     e@UGetTime -> e
     ULedgerTimeLT e -> ULedgerTimeLT (applySubstInExpr subst e)
     UEmbedExpr t e -> UEmbedExpr
