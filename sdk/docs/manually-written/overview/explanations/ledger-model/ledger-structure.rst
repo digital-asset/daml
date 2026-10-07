@@ -194,7 +194,8 @@ A **node** is one of the following:
 
    * The **template ID** of the contracts that were looked up.
 
-   * The **result**, an ordered list of contract IDs.
+   * The **result**, an ordered list of contract IDs. Every contract in the result has the
+     looked-up key.
 
    * The **exhaustive** flag, which records whether the result contains strictly fewer contract IDs 
      than the number of contracts that were requested.

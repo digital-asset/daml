@@ -358,17 +358,18 @@ Note that a contract that `tx` does not create is considered active until `tx` c
 
 Key consistency can now be stated. The order ≺ in the definition captures the precedence that the
 transaction uses to resolve the key: lookups report the contracts in ≺-order and never skip a
-contract in favour of a later one. The definition assumes internal consistency of the transaction.
-It also speaks of **QueryByKey** nodes only: for its purpose, an **Exercise** or a **Fetch** node whose by-key
-flag is set counts as a **QueryByKey** node on the key of its input contract, with that contract as the
-one-element non-exhaustive result.
+contract in favour of a later one. The definition requires the transaction to be internally
+consistent for all contracts with key `k`. It also speaks of **QueryByKey** nodes only: for its
+purpose, an **Exercise** or a **Fetch** node whose by-key flag is set counts as a **QueryByKey**
+node on the key of its input contract, with that contract as the one-element non-exhaustive result.
 
 .. _def-key-consistency:
 
 .. admonition:: Definition: key consistency
 
-   An internally consistent transaction `tx` is **consistent for a key** `k` if there is a strict
-   total order ≺ on the key contracts of `tx` for `k` such that all of the following hold.
+   Let `k` be a key. A transaction `tx` is **consistent for** `k` if it is internally consistent
+   for all contracts with key `k` and there is a strict total order ≺ on the key contracts of `tx`
+   for `k` such that all of the following hold.
 
    * **Recency.**
      If `c`:sub:`1` is created in `tx` and `c`:sub:`2` is not, then `c`:sub:`1` ≺ `c`:sub:`2`.  
@@ -497,8 +498,10 @@ A signatory is an informee of all nodes on the contract and therefore any node r
 Maintainers check key consistency on projections
 ------------------------------------------------
 
-The projection for a party `p` is always consistent for the keys that `p` is a maintainer of, thanks
-to the requirement that the maintainers of a key be signatories of the contracts carrying it.
+Projection to a party `p` preserves and reflects key consistency for the keys that `p` is a
+maintainer of: a transaction is consistent for such a key exactly when its projection to `p` is.
+This follows from the requirement that the maintainers of a key be signatories of the contracts
+carrying it.
 
 The argument rests on the actions that touch a key at all.
 
@@ -513,17 +516,19 @@ The argument rests on the actions that touch a key at all.
    * a **QueryByKey** action on `k`.
 
 Observe that the actions on `k` completely determine key consistency for `k`: the key contracts for
-`k`, their activeness, and the clauses Recency, Stability, and Completeness all speak of actions on
-`k` and of the execution order among them, and of nothing else.
+`k` and their activeness, the requirement that the transaction be internally consistent for all
+contracts with key `k`, and the clauses Recency, Stability, and Completeness all speak of actions on
+`k` and of the execution order among them, and of nothing else (recall that a **QueryByKey** node on
+a key lists only contracts with that key).
 
 Let `k` be a key and `P` a set of parties containing a maintainer of `k`. Every action on `k` has a
 maintainer of `k` among its informees: the maintainers are signatories of every contract with key
-`k`, hence informees of every **Create**, **Exercise**, and **Fetch** action on such a contract. They are also
-by definition the informees of every **QueryByKey** action on `k`. Projection to `P` therefore retains
-every action on `k`, and with it every key contract of the transaction for `k`.
+`k`, hence informees of every **Create**, **Exercise**, and **Fetch** action on such a contract.
+They are also by definition the informees of every **QueryByKey** action on `k`. Projection to `P`
+therefore retains every action on `k`, in the same execution order.
 
 Consequently, projections both preserve and reflect key consistency for `k`: a transaction is
-consistent for `k` exactly when its projection to `P` is. 
+consistent for `k` exactly when its projection to `P` is.
 
 For a set of parties `Q` that contains no maintainer of `k`, none of this holds. Projection to `Q`
 may drop a consuming **Exercise** on a contract with key `k`, which makes a subsequent lookup look as if
