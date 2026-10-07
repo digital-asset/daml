@@ -320,13 +320,13 @@ Key consistency
 ===============
 
 Contracts may carry a :ref:`contract key <da-ledger-contract-keys>`. A transaction can look up a
-key in two ways: a QueryByKey node enumerates the contracts associated with the key, and an Exercise
-or a Fetch node whose by-key flag is set designates its input contract by the key instead of by the
+key in two ways: a **QueryByKey** node enumerates the contracts associated with the key, and an **Exercise**
+or a **Fetch** node whose by-key flag is set designates its input contract by the key instead of by the
 contract ID. Key consistency constrains what these lookups may report.
 
 Contract keys are not unique: several contracts with the same key may be active at the same time,
 and creating a contract whose key is already in use is not a violation of key consistency. Key
-consistency therefore does not constrain Create nodes. Instead it constrains the lookups performed
+consistency therefore does not constrain **Create** nodes. Instead it constrains the lookups performed
 by a single transaction to ensure they agree with each other.
 
 We introduce two auxiliary notions. The first collects the contracts with key k mentioned by 
@@ -359,8 +359,8 @@ Note that a contract that `tx` does not create is considered active until `tx` c
 Key consistency can now be stated. The order ≺ in the definition captures the precedence that the
 transaction uses to resolve the key: lookups report the contracts in ≺-order and never skip a
 contract in favour of a later one. The definition assumes internal consistency of the transaction.
-It also speaks of QueryByKey nodes only: for its purpose, an Exercise or a Fetch node whose by-key
-flag is set counts as a QueryByKey node on the key of its input contract, with that contract as the
+It also speaks of **QueryByKey** nodes only: for its purpose, an **Exercise** or a **Fetch** node whose by-key
+flag is set counts as a **QueryByKey** node on the key of its input contract, with that contract as the
 one-element non-exhaustive result.
 
 .. _def-key-consistency:
@@ -372,10 +372,10 @@ one-element non-exhaustive result.
 
    * **Recency.**
      If `c`:sub:`1` is created in `tx` and `c`:sub:`2` is not, then `c`:sub:`1` ≺ `c`:sub:`2`.  
-     If both are created in `tx` and the Create node on `c`:sub:`2` executes before the Create node
+     If both are created in `tx` and the **Create** node on `c`:sub:`2` executes before the **Create** node
      on `c`:sub:`1`, then `c`:sub:`1` ≺ `c`:sub:`2`.
 
-   * For every QueryByKey node `n` on `k` in `tx` with the result `c`:sub:`1`, …, `c`:sub:`m`,
+   * For every **QueryByKey** node `n` on `k` in `tx` with the result `c`:sub:`1`, …, `c`:sub:`m`,
      writing `A` for the set of key contracts of `tx` for `k` that are active at `n`:
 
      * **Stability.**
@@ -410,7 +410,7 @@ not allowed.
    flag is a statement about the transaction and not about the ledger: it does **not** assert that
    no other contract with the key is active on the ledger.
 
-   Note however that a QueryByKey action :ref:`uses <def-action>` the contracts in its result, so
+   Note however that a **QueryByKey** action :ref:`uses <def-action>` the contracts in its result, so
    :ref:`contract consistency <da-model-contract-consistency>` requires each reported contract to
    have been created and not yet consumed. In short, a contract that is reported is active on the
    ledger, but a contract that is missing from an exhaustive result need not be inactive on the
@@ -518,15 +518,15 @@ Observe that the actions on `k` completely determine key consistency for `k`: th
 
 Let `k` be a key and `P` a set of parties containing a maintainer of `k`. Every action on `k` has a
 maintainer of `k` among its informees: the maintainers are signatories of every contract with key
-`k`, hence informees of every Create, Exercise, and Fetch action on such a contract. They are also
-by definition the informees of every QueryByKey action on `k`. Projection to `P` therefore retains
+`k`, hence informees of every **Create**, **Exercise**, and **Fetch** action on such a contract. They are also
+by definition the informees of every **QueryByKey** action on `k`. Projection to `P` therefore retains
 every action on `k`, and with it every key contract of the transaction for `k`.
 
 Consequently, projections both preserve and reflect key consistency for `k`: a transaction is
 consistent for `k` exactly when its projection to `P` is. 
 
 For a set of parties `Q` that contains no maintainer of `k`, none of this holds. Projection to `Q`
-may drop a consuming Exercise on a contract with key `k`, which makes a subsequent lookup look as if
+may drop a consuming **Exercise** on a contract with key `k`, which makes a subsequent lookup look as if
 it had skipped an active contract.
 
 .. _da-model-conformance:
@@ -664,10 +664,10 @@ for Exercise and Fetch nodes, the required authorizers are the actors of the nod
 and for QueryByKey nodes, the required authorizers are the maintainers of the key.
 
 .. note::
-   Every QueryByKey node requires the maintainers' authority, including the ones with an empty
+   Every **QueryByKey** node requires the maintainers' authority, including the ones with an empty
    result. 
 
-   The by-key flag of an Exercise or a Fetch node, in contrast, has no bearing on authorization.
+   The by-key flag of an **Exercise** or a **Fetch** node, in contrast, has no bearing on authorization.
    Designating the input contract by its key rather than by its contract ID leaves the required
    authorizers of the node unchanged.
 
