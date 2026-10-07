@@ -27,15 +27,15 @@ class DamlScriptTestRunnerPV34 extends DamlScriptTestRunner {
           |AuthFailure:t4_ExerciseMissingAuthorization FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: INVALID_ARGUMENT: DAML_AUTHORIZATION_ERROR(8,XXXXXXXX): Interpretation error: Error: node NodeId(0) (XXXXXXXX:AuthFailure:TheContract4) requires authorizers party, but only party were given
           |AuthorizedDivulgence:test_authorizedFetch SUCCESS
           |AuthorizedDivulgence:test_divulgeChoiceTargetContractId SUCCESS
-          |AuthorizedDivulgence:test_noDivulgenceForFetch FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
+          |AuthorizedDivulgence:test_noDivulgenceForFetch FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id 00XXXXXX
           |AuthorizedDivulgence:test_noDivulgenceOfCreateArguments SUCCESS
-          |DiscloseViaChoiceObserver:test FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
-          |Divulgence:main FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
-          |ExceptionSemantics:divulgence FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
+          |DiscloseViaChoiceObserver:test FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id 00XXXXXX
+          |Divulgence:main FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id 00XXXXXX
+          |ExceptionSemantics:divulgence FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id 00XXXXXX
           |ExceptionSemantics:handledArithmeticError SUCCESS
           |ExceptionSemantics:handledUserException SUCCESS
           |ExceptionSemantics:rollbackArchive SUCCESS
-          |ExceptionSemantics:tryContext FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
+          |ExceptionSemantics:tryContext FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id 00XXXXXX
           |ExceptionSemantics:uncaughtArithmeticError SUCCESS
           |ExceptionSemantics:uncaughtUserException SUCCESS
           |ExceptionSemantics:unhandledArithmeticError FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.ArithmeticError:ArithmeticError (error category 9): ArithmeticError while evaluating (DIV_INT64 1 0).
@@ -44,7 +44,7 @@ class DamlScriptTestRunnerPV34 extends DamlScriptTestRunner {
           |ExceptionSemantics:unhandledUserException FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/ExceptionSemantics:E (error category 9): E
           |    in choice XXXXXXXX:ExceptionSemantics:T:Throw on contract XXXXXXXXXX (#1)
           |    in create-and-exercise command XXXXXXXX:ExceptionSemantics:T:Throw.
-          |MoreChoiceObserverDivulgence:test FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
+          |MoreChoiceObserverDivulgence:test FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id 00XXXXXX
           |MultiTest:disclosuresTest SUCCESS
           |MultiTest:inactiveDisclosureDoesNotFailDuringSubmission FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError (error category 9): Here
           |    in choice XXXXXXXX:MultiTest:Helper:FailWith on contract XXXXXXXXXX (#1)
