@@ -212,7 +212,7 @@ An action inherits its kind from its root node:
    and the consequences are the subactions.
    The Exercise action is the **parent action** of its consequences.
 
-#. A **Fetch action** as a Fetch node as the root.
+#. A **Fetch action** has a Fetch node as the root.
    The consequences are empty.
 
 #. A **QueryByKey action** has a QueryByKey node as the root.
