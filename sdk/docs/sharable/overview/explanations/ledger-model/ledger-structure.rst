@@ -194,7 +194,8 @@ A **node** is one of the following:
 
    * The **template ID** of the contracts that were looked up.
 
-   * The **result**, an ordered list of contract IDs.
+   * The **result**, an ordered list of contract IDs. Every contract in the result has the
+     looked-up key.
 
    * The **exhaustive** flag, which records whether the result contains strictly fewer contract IDs 
      than the number of contracts that were requested.
@@ -212,7 +213,7 @@ An action inherits its kind from its root node:
    and the consequences are the subactions.
    The Exercise action is the **parent action** of its consequences.
 
-#. A **Fetch action** as a Fetch node as the root.
+#. A **Fetch action** has a Fetch node as the root.
    The consequences are empty.
 
 #. A **QueryByKey action** has a QueryByKey node as the root.
@@ -230,7 +231,7 @@ Finally, a consuming Exercise is said to **consume** (or **archive**) its contra
 Contract keys
 =============
 
-A contract may be associated with a **contract key**, a value that identifies the contract within
+A contract may be associated with a **contract key**, a value that indexes the contract within
 the scope of its template. If the contract is associated with a key, it also has a non-empty set of
 **maintainers**, the parties that make sure that the :ref:`lookups on the key are consistent
 <da-model-key-consistency>`. The maintainers must be a subset of the signatories and depend only on
