@@ -3,6 +3,7 @@
 
 load("@os_info//:os_info.bzl", "is_intel")
 load("@daml_versions_data//:data.bzl", "DATA")
+load("@daml_features_data//:data.bzl", FEATURES_DATA = "DATA")
 
 # Helper to convert "defaultLfVersion" -> "DEFAULT_LF_VERSION"
 def _camel_to_upper_snake(text):
@@ -88,6 +89,71 @@ def _build_versions_struct():
     return struct(**fields)
 
 VERSIONS = _build_versions_struct()
+
+def _feature_field_name(key):
+    """
+    Converts a feature key to an upper snake case field name, dropping the
+    "feature" prefix and keeping acronyms together:
+    "featurePV34" -> "PV34", "featureContractKeys" -> "CONTRACT_KEYS"
+    """
+    name = key[len("feature"):] if key.startswith("feature") else key
+    result = ""
+    for i in range(len(name)):
+        char = name[i]
+        if char.isupper() and i > 0 and name[i - 1].islower():
+            result += "_"
+        result += char
+    return result.upper()
+
+def _version_key(v):
+    # dev sorts after every other version
+    return (int(v.major), 1000000 if v.status == "dev" else int(v.minor))
+
+def _in_range(v, lower, upper):
+    k = _version_key(v)
+    return ((lower == None or k >= _version_key(lower)) and
+            (upper == None or k <= _version_key(upper)))
+
+def _parse_feature(f):
+    """
+    Parses a feature dict from the JSON. Its versionRange is one of:
+    - {"type": "Empty"} or {}
+    - {"lowerBound": ...}
+    - {"upperBound": ...}
+    - {"lowerBound": ..., "upperBound": ...}
+    `versions` holds the versions of ALL_LF_VERSIONS within the range, in
+    ascending order.
+    """
+    r = f["versionRange"]
+    empty = r.get("type") == "Empty" or ("lowerBound" not in r and "upperBound" not in r)
+    lower = _parse_version(r["lowerBound"]) if "lowerBound" in r else None
+    upper = _parse_version(r["upperBound"]) if "upperBound" in r else None
+    return struct(
+        name = f["name"],
+        cpp_flag = f["cppFlag"],
+        empty = empty,
+        lower_bound = lower,
+        upper_bound = upper,
+        versions = [] if empty else [
+            v
+            for v in VERSIONS.ALL_LF_VERSIONS
+            if _in_range(v, lower, upper)
+        ],
+    )
+
+def _build_features_struct():
+    return struct(**{
+        _feature_field_name(key): _parse_feature(val)
+        for key, val in FEATURES_DATA.items()
+    })
+
+FEATURES = _build_features_struct()
+
+def max_lf_version(feature):
+    """Returns the greatest version struct of ALL_LF_VERSIONS supporting the feature."""
+    if not feature.versions:
+        fail("Feature '{}' supports no known LF version".format(feature.name))
+    return feature.versions[-1]
 
 def _to_dotted_version(v):
     """Converts a single version struct to a string like "2.2"."""
