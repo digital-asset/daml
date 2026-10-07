@@ -11,18 +11,15 @@ import org.scalatest.Suite
 
 import java.nio.file.Paths
 
-// TODO (canton#31925) Change this to DamlScriptTestRunnerPVLatest, and update/remove protocolVersion to reflect that
-// once PV35 is the default/out of alpha
-
-class DamlScriptTestRunnerPV35 extends DamlScriptTestRunner {
+class DamlScriptTestRunnerPV36 extends DamlScriptTestRunner {
   self: Suite =>
 
-  override lazy val protocolVersion = ProtocolVersion.Explicit("v35")
+  override lazy val protocolVersion = ProtocolVersion.Explicit("v36")
 
   // TODO[23015]: reconsider the lf version here
   // TODO[23016]: get rid of hardcoded string when some kind of `renderForDaml` has been added to canton
   val scriptTestDar =
-    Paths.get(BazelRunfiles.rlocation(s"daml-script/test/script-test-v2.3.dar"))
+    Paths.get(BazelRunfiles.rlocation(s"daml-script/test/script-test-v2.4.dar"))
   val fakeScriptTestDar =
     Paths.get(BazelRunfiles.rlocation("daml-script/test/legacy-script-test.dar"))
   val jsonScriptTestDar =
