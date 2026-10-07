@@ -231,7 +231,7 @@ Finally, a consuming Exercise is said to **consume** (or **archive**) its contra
 Contract keys
 =============
 
-A contract may be associated with a **contract key**, a value that identifies the contract within
+A contract may be associated with a **contract key**, a value that indexes the contract within
 the scope of its template. If the contract is associated with a key, it also has a non-empty set of
 **maintainers**, the parties that make sure that the :ref:`lookups on the key are consistent
 <da-model-key-consistency>`. The maintainers must be a subset of the signatories and depend only on
