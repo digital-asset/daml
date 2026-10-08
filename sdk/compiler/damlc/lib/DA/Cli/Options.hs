@@ -393,7 +393,7 @@ optionalDlintUsageParser def =
 logLevelOpt :: Parser Logger.Priority
 logLevelOpt =
     flag' Logger.Debug (long "debug" <> help "Set log level to DEBUG") <|>
-    optionOnce readLogLevel (long "log-level" <> help "Set log level. Possible values are DEBUG, INFO, WARNING, ERROR" <> value Logger.Info)
+    optionOnce readLogLevel (long "log-level" <> help "Set log level. Possible values are DEBUG, INFO, WARNING, ERROR")
   where
     readLogLevel = maybeReader $ \s -> case lower s of
         -- we support telemetry log-level for debugging purposes.
@@ -406,8 +406,7 @@ logLevelOpt =
 
 detailLevelOpt :: Parser Pretty.PrettyLevel
 detailLevelOpt =
-  fmap (maybe Pretty.prettyNormal Pretty.PrettyLevel) $
-    optional $ optionOnce auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
+  fmap Pretty.PrettyLevel $ optionOnce auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
 
 packageNameOpt :: Parser (Maybe GHC.UnitId)
 packageNameOpt = optional $ fmap GHC.stringToUnitId $ strOptionOnce $

@@ -322,7 +322,7 @@ cmdMultiIde _numProcessors =
     <> forwardOptions
   where
     cmd = fmap (Command MultiIde Nothing) $ runMultiIde
-        <$> logLevelOpt
+        <$> (fmap (fromMaybe Logger.Info) $ optional logLevelOpt)
         <*> optional (strOptionOnce $ long "ide-identifier" <> help "Identifier string for this IDE")
         <*> many (strArgument mempty)
 
@@ -541,7 +541,11 @@ cmdInspect =
     <> fullDesc
   where
     jsonOpt = switch $ long "json" <> help "Output the raw Protocol Buffer structures as JSON"
-    cmd = execInspect <$> inputFileOptWithExt ".dalf or .dar" <*> outputFileOpt <*> jsonOpt <*> detailLevelOpt
+    cmd = execInspect 
+      <$> inputFileOptWithExt ".dalf or .dar"
+      <*> outputFileOpt
+      <*> jsonOpt
+      <*> (fromMaybe DA.Pretty.prettyNormal <$> optional detailLevelOpt)
 
 cmdBuild :: ComponentVersion.Class.ComponentVersioned => Int -> CmdBuildArguments -> Mod CommandFields Command
 cmdBuild numProcessors buildOptions =
