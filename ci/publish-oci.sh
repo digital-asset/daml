@@ -2,10 +2,7 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -eo pipefail
-set -x
 script_name="$(basename "$0")"
-
-echo "running publish-oci from release/3.5.x branch"
 
 err() {
   (>&2 echo -e "\e[90m${script_name}\e[97m: [\e[1;31mERROR\e[97m]:\e[0m $1")
@@ -39,6 +36,22 @@ RELEASE_TAG=$2
 # Uncomment the relevant line on the published branch to control the registry used.
 DPM_REGISTRY=$3
 # DPM_REGISTRY="europe-docker.pkg.dev/da-images-dev/oci-playground"
+
+function extract_major_minor() {
+  version="$1"
+  echo "$version" | grep -oE '^[0-9]+\.[0-9]+'
+}
+
+# Only snapshots of main's current X.Y line get the floating `main` tag. main's
+# NIGHTLY_PREFIX is read from origin/main at publish time, so release branches
+# cut from main don't need to change this script.
+tag_main=false
+if [[ "${RELEASE_TAG}" == *"-snapshot."* ]] \
+   && git fetch --quiet origin main \
+   && main_prefix=$(git show FETCH_HEAD:sdk/NIGHTLY_PREFIX) \
+   && [[ "$(extract_major_minor "${RELEASE_TAG}")" == "$(extract_major_minor "${main_prefix}")" ]]; then
+  tag_main=true
+fi
 
 # Should match the tars copied into /release/oci during copy-{OS}-release-artifacts.sh
 declare -a components=(damlc daml-script codegen daml-new upgrade-check)
@@ -93,9 +106,11 @@ function publish_artifact {
       fi
       platform_args+=( "--platform ${arch}=dist/${arch}/${artifact_name} " )
     done
-    if [[ "${RELEASE_TAG}" != *"-adhoc"* ]] then
-      extra_tags_args+=( "--extra-tags main" )
+    if [[ "${RELEASE_TAG}" != *"-adhoc"* ]]; then
       extra_tags_args+=( "--extra-tags $(extract_major_minor ${RELEASE_TAG})" )
+      if [[ "${tag_main}" == true ]]; then
+        extra_tags_args+=( "--extra-tags main" )
+      fi
     fi
     info "Uploading ${artifact_name} to oci registry...\n"
 
@@ -106,11 +121,6 @@ function publish_artifact {
       ${platform_args[@]} \
       2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
   )
-}
-
-function extract_major_minor() {
-  version="$1"
-  echo "$version" | grep -oE '^[0-9]+\.[0-9]+'
 }
 
 for component in "${components[@]}"; do
