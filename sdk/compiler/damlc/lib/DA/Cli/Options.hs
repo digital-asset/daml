@@ -98,7 +98,6 @@ lfVersionOpt = optionOnce (str >>= select) $
        metavar "DAML-LF-VERSION"
     <> help ("Daml-LF version to output: " ++ versionsStr)
     <> long "target"
-    <> value LF.defaultLfVersion
     <> internal
   where
     renderVersion v =
@@ -231,6 +230,18 @@ defaultPackageLocationOpts = PackageLocationOpts
     , packageLocationCheck = PackageLocationCheck "" False
     }
 
+projectRootFlagName :: String
+projectRootFlagName = "project-root"
+
+packageRootFlagName :: String
+packageRootFlagName = "package-root"
+
+projectCheckFlagName :: String
+projectCheckFlagName = "project-check"
+
+packageCheckFlagName :: String
+packageCheckFlagName = "package-check"
+
 packageLocationOpts :: String -> Parser PackageLocationOpts
 packageLocationOpts name = PackageLocationOpts <$> packageOrProjectRootOpt <*> packageOrProjectLocationCheckOpt name
     where
@@ -246,21 +257,21 @@ packageLocationOpts name = PackageLocationOpts <$> packageOrProjectRootOpt <*> p
         projectRootOpt =
             fmap PackagePath $
             strOptionOnce $
-            long "project-root" <> hidden <>
+            long projectRootFlagName <> hidden <>
             help (mconcat $ packageRootOptDesc ++ ["(project-root is deprecated, please use --package-root)"])
         packageRootOpt :: Parser PackagePath
         packageRootOpt =
             fmap PackagePath $
             strOptionOnce $
-            long "package-root" <>
+            long packageRootFlagName <>
             help (mconcat packageRootOptDesc)
         packageOrProjectLocationCheckOpt cmdName = packageLocationCheckOpt cmdName <|> projectLocationCheckOpt cmdName
         projectLocationCheckOpt cmdName = fmap (PackageLocationCheck cmdName) . switch $
                help "Check if running in Daml package.\n(project-check is deprecated, please use --package-check)"
-            <> long "project-check" <> internal
+            <> long projectCheckFlagName <> internal
         packageLocationCheckOpt cmdName = fmap (PackageLocationCheck cmdName) . switch $
                help "Check if running in Daml package."
-            <> long "package-check" <> internal
+            <> long packageCheckFlagName <> internal
 
 enableScriptServiceOpt :: Parser EnableScriptService
 enableScriptServiceOpt = fmap EnableScriptService $
@@ -716,18 +727,18 @@ cliOptionsParser numProcessors parseUnitId parseDlintUsage CliOptions {..} = do
                 "Force a given package to compile as a utility package. \
                 \This will make all data types unserializable, and will reject template/exception definitions"
 
-    explicitSerializableOpt :: Parser ExplicitSerializable
-    explicitSerializableOpt = ExplicitSerializable <$>
-        flagYesNoDetermineAuto "explicit-serializable" False desc idm
-        where
-            desc =
-                "Require explicit Serializable instances on data types in order to use them in templates and choices. \
-                \Stop automatically inferring serializability of data types. \
-                \This means data types used in fields of templates and choices will require explicit Serializable instances. \
-                \Currently opt-in, but this will become the default in a future release."
-
     initPkgDbOpt :: Parser InitPkgDb
     initPkgDbOpt = InitPkgDb <$> flagYesNoDetermineAuto "init-package-db" True "Initialize package database" idm
+
+explicitSerializableOpt :: Parser ExplicitSerializable
+explicitSerializableOpt = ExplicitSerializable <$>
+    flagYesNoDetermineAuto "explicit-serializable" False desc idm
+    where
+        desc =
+            "Require explicit Serializable instances on data types in order to use them in templates and choices. \
+            \Stop automatically inferring serializability of data types. \
+            \This means data types used in fields of templates and choices will require explicit Serializable instances. \
+            \Currently opt-in, but this will become the default in a future release."
 
 writeCliOptionsToOptions :: Options -> CliOptions -> Options
 writeCliOptionsToOptions opts CliOptions {..} = opts

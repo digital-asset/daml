@@ -20,7 +20,6 @@ import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
 import Control.Monad.Trans.Cont (ContT (..), evalContT)
 import qualified Crypto.Hash as Hash
 import DA.Bazel.Runfiles (setRunfilesEnv)
-import qualified DA.Cli.Args as ParseArgs
 import DA.Cli.Options (CliOptions(..),
                        Debug(..),
                        EnableMultiPackage(..),
@@ -56,8 +55,12 @@ import DA.Cli.Options (CliOptions(..),
                        optionalOutputFileOpt,
                        optionsParser,
                        outputFileOpt,
+                       packageCheckFlagName,
                        packageLocationOpts,
                        packageNameOpt,
+                       packageRootFlagName,
+                       projectCheckFlagName,
+                       projectRootFlagName,
                        render,
                        studioAutorunAllScriptsOpt,
                        studioReplaceOpt,
@@ -1715,10 +1718,24 @@ runBuildOptionsParser numProcessors args = do
   let buildOptionsParser = parseCmdBuildArguments "build-options" numProcessors defaultCmdBuildArguments
    in execParserPure defaultPrefs (info buildOptionsParser mempty) args
 
+-- We would prefer to use lax parsing here, but it doesn't work for flags that have a space
+-- i.e. `--package-root <thing>`, it requires there to be an "="
+filterForOnlyPackageLocationOpts :: [String] -> [String]
+filterForOnlyPackageLocationOpts args = mapMaybe getFlagPair zippedArgs 
+  where
+    getFlagPair :: (String, String) -> Maybe String
+    getFlagPair (flag, _) | flag `elem` ["--" <> projectCheckFlagName, "--" <> packageCheckFlagName] = Just flag
+    getFlagPair (flag, root) | flag `elem` ["--" <> projectRootFlagName, "--" <> packageRootFlagName] = Just $ flag <> "=" <> root
+    getFlagPair (flag, _) | ("--" <> projectRootFlagName <> "=") `isPrefixOf` flag = Just flag
+    getFlagPair (flag, _) | ("--" <> packageRootFlagName <> "=") `isPrefixOf` flag = Just flag
+    getFlagPair _ = Nothing
+    -- Add empty value at end so first value of sliding window sees all flags
+    zippedArgs = zip args (tail args ++ [""])
+
 fullParseArgs :: ComponentVersion.Class.ComponentVersioned => Int -> [String] -> IO Command
 fullParseArgs numProcessors cliArgs = do
-  -- Get packageLocationOpts by running lax parser directly on cli args.
-  let (_, result) = ParseArgs.lax (info (packageLocationOpts "build-options") mempty) $ "lax" : cliArgs
+  let onlyPackageLocationArgs = filterForOnlyPackageLocationOpts cliArgs
+      result = execParserPure defaultPrefs (info (packageLocationOpts "build-options") mempty) onlyPackageLocationArgs
       mPackageOpts = getParseResult result
   -- Read damlYaml args from these packageOpts.
   -- If this fails, empty list is returned

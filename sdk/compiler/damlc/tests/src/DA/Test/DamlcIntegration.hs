@@ -17,7 +17,7 @@ module DA.Test.DamlcIntegration
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import           DA.Bazel.Runfiles
-import           DA.Cli.Options (explicitSerializable)
+import           DA.Cli.Options (explicitSerializableOpt)
 import           DA.Daml.Options
 import           DA.Daml.Options.Types
 import           DA.Daml.Package.Config (DependencySpec(..))
@@ -83,7 +83,7 @@ import qualified Development.IDE.Types.Diagnostics as D
 import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
 import qualified GHC
-import Options.Applicative (execParser, forwardOptions, info, many, strArgument)
+import Options.Applicative (execParser, forwardOptions, info, many, optional, strArgument)
 import qualified Options.Applicative
 import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
@@ -725,8 +725,8 @@ parseBuildOptions args = case result of
       -- tests. We should not let this list become too big, as we currently
       -- create a new IDE instance for each unique combination of options in
       -- the tests.
-      [ (\seri opts -> opts {optExplicitSerializable = seri}) <$>
-              explicitSerializable
+      [ (\seri opts -> opts {optExplicitSerializable = fromMaybe (ExplicitSerializable False) seri}) <$>
+              optional explicitSerializableOpt
       , (\wf opts -> opts
               { optInlineDamlCustomWarningFlags = WarningFlags.addWarningFlags
                   (WarningFlags.wfFlags wf)
