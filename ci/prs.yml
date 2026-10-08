@@ -15,7 +15,6 @@ variables:
   bazel_flags: >-
     --local_resources=cpu=HOST_CPUS
     --remote_upload_local_results=true
-  vnet_cache: --remote_cache=http://10.0.2.10/cache/202610
 
 jobs:
 - job: linux
@@ -39,19 +38,46 @@ jobs:
       clean: true
     - template: bazelisk-unix.yml
     - bash: |
+        set -uo pipefail
+        cache_flags="--remote_cache=https://bazel-cache.da-ext.net/202610"
+        key=""
+        if [ -n "${GCRED:-}" ]; then
+          key="${AGENT_TEMPDIRECTORY:-/tmp}/gcred-${BUILD_BUILDID}.json"
+          rm -f "$key"
+          umask 077
+          set -C
+          if printf '%s' "$GCRED" > "$key"; then
+            cache_flags="$cache_flags --google_credentials=$key"
+            echo "credentials present; uploads enabled"
+          else
+            echo "could not stage credentials; falling back to read-only"
+            key=""
+            cache_flags="$cache_flags --remote_upload_local_results=false"
+          fi
+          set +C
+        else
+          cache_flags="$cache_flags --remote_upload_local_results=false"
+          echo "no credentials; remote cache is read-only for this job"
+        fi
+        echo "##vso[task.setvariable variable=gcred_key]$key"
+        echo "##vso[task.setvariable variable=cache_flags]$cache_flags"
+      displayName: 'Configure remote cache'
+      env:
+        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    - bash: |
         set -euo pipefail
         cd sdk
-        bazelisk build //... $(bazel_flags) $(vnet_cache)
+        bazelisk build //... $(bazel_flags) $(cache_flags)
       displayName: 'Build'
     - bash: |
         set -euo pipefail
         cd sdk
-        bazelisk test //... $(bazel_flags) $(vnet_cache)
+        bazelisk test //... $(bazel_flags) $(cache_flags)
       displayName: 'Test'
     - bash: |
         set -euo pipefail
         cd sdk
-        bazelisk build //release:release $(bazel_flags) $(vnet_cache)
+        bazelisk build //release:release $(bazel_flags) $(cache_flags)
         ./bazel-bin/release/release --release-dir "$(mktemp -d)"
       displayName: 'Release artifacts smoke test'
     - bash: |
@@ -81,6 +107,13 @@ jobs:
         size=$(du -sh "$dir" | cut -f1)
         echo "  total: $count files, $size"
       displayName: 'Push release artifacts (placeholder)'
+    - bash: |
+        if [ -n "${KEY:-}" ]; then rm -f "$KEY"; fi
+        (cd sdk && bazelisk shutdown) || true
+      displayName: 'Remove credentials'
+      condition: always()
+      env:
+        KEY: $(gcred_key)
 
 - job: macos
   displayName: 'macOS'
@@ -214,12 +247,45 @@ jobs:
         & bazelisk.exe shutdown 2>&1 | Out-Null
       displayName: 'Provision build shell'
     - powershell: |
+        $cacheFlags = '--remote_cache=https://bazel-cache.da-ext.net/202610'
+        $key = ''
+        if ($env:GCRED) {
+          $tempDir = if ($env:AGENT_TEMPDIRECTORY) { $env:AGENT_TEMPDIRECTORY } else { [System.IO.Path]::GetTempPath() }
+          $key = Join-Path $tempDir "gcred-$($env:BUILD_BUILDID).json"
+          try {
+            Remove-Item -Force -ErrorAction SilentlyContinue $key
+            [System.IO.File]::WriteAllText($key, $env:GCRED)
+            $cacheFlags = "$cacheFlags --google_credentials=$($key -replace '\\', '/')"
+            Write-Host 'credentials present; uploads enabled'
+          } catch {
+            Write-Host 'could not stage credentials; falling back to read-only'
+            $key = ''
+            $cacheFlags = "$cacheFlags --remote_upload_local_results=false"
+          }
+        } else {
+          $cacheFlags = "$cacheFlags --remote_upload_local_results=false"
+          Write-Host 'no credentials; remote cache is read-only for this job'
+        }
+        Write-Host "##vso[task.setvariable variable=gcred_key]$key"
+        Write-Host "##vso[task.setvariable variable=cache_flags]$cacheFlags"
+      displayName: 'Configure remote cache'
+      env:
+        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    - powershell: |
         $ErrorActionPreference = 'Stop'
         Set-Location sdk
-        bazelisk build //... $(bazel_flags) $(vnet_cache)
+        bazelisk build //... $(bazel_flags) $(cache_flags)
       displayName: 'Build'
     - powershell: |
         $ErrorActionPreference = 'Stop'
         Set-Location sdk
-        bazelisk test //... $(bazel_flags) $(vnet_cache)
+        bazelisk test //... $(bazel_flags) $(cache_flags)
       displayName: 'Test'
+    - powershell: |
+        if ($env:KEY) { Remove-Item -Force -ErrorAction SilentlyContinue $env:KEY }
+        Set-Location sdk
+        try { & bazelisk.exe shutdown 2>&1 | Out-Null } catch { }
+      displayName: 'Remove credentials'
+      condition: always()
+      env:
+        KEY: $(gcred_key)
