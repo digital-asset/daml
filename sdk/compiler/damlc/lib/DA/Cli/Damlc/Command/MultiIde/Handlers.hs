@@ -89,6 +89,7 @@ subIdeMessageHandler miState unblock ide bs = do
           let ideData = lookupSubIde (ideHome ide) ides
           sendPackageDiagnostic miState ideData
           unsafeSendSubIdeSTM ide $ LSP.FromClientMess LSP.SInitialized $ LSP.NotificationMessage "2.0" LSP.SInitialized (Just LSP.InitializedParams)
+        addDpmPackageDependencyDarsFromDatabase miState (ideHome ide)
         unblock
       LSP.FromServerRsp LSP.SShutdown (LSP.ResponseMessage {_id}) | maybe False isCoordinatorShutdownLspId _id -> handleExit miState ide
 
