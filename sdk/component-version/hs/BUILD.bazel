@@ -1,8 +1,8 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library")
 load("@build_environment//:configuration.bzl", "ghc_version", "mvn_version", "sdk_version")
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
 
 da_haskell_library(
     name = "component-version-class-lib",
@@ -13,7 +13,6 @@ da_haskell_library(
         "ghc-lib-parser",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/da-version-types",
     ],
@@ -55,7 +54,6 @@ da_haskell_library(
         "base",
         "ghc-lib-parser",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         ":component-version-class-lib",
     ],

@@ -1,0 +1,17 @@
+load("//bazel/native:msys2_autotools.bzl", "msys2_autotools")
+load(
+    "//bazel/versions:msys2.version.bzl",
+    "MSYS_AUTOCONF_VERSION",
+    "MSYS_AUTOMAKE_SERIES",
+)
+
+msys2_autotools(
+    name = "msys2_autotools",
+    autoconf = "@msys_autoconf//:files",
+    autoconf_version = MSYS_AUTOCONF_VERSION,
+    automake = "@msys_automake//:files",
+    automake_series = MSYS_AUTOMAKE_SERIES,
+    m4 = "@msys_m4//:files",
+    target_compatible_with = ["@platforms//os:windows"],
+    visibility = ["//visibility:public"],
+)

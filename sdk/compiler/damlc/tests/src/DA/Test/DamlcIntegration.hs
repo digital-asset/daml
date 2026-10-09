@@ -21,7 +21,7 @@ import           DA.Cli.Options (explicitSerializable)
 import           DA.Daml.Options
 import           DA.Daml.Options.Types
 import           DA.Daml.Package.Config (DependencySpec(..))
-import           DA.Test.Util (standardizeQuotes)
+import           DA.Test.Util (standardizeQuotes, withJavaInPath)
 
 import           DA.Daml.LF.Ast as LF
 import           "ghc-lib-parser" UniqSupply
@@ -65,7 +65,7 @@ import           System.Process (readProcess)
 import           System.Random.Shuffle (shuffleM)
 import           System.IO
 import           System.IO.Extra
-import           System.Info.Extra (isWindows)
+
 import           Text.Read
 import qualified Text.Regex.PCRE.ByteString.Utils as PCRE
 import qualified Data.Map.Strict as MS
@@ -185,7 +185,7 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
 type WithPVScriptService a = Maybe String -> (SS.Handle -> IO a) -> IO a
 
 main :: IO ()
-main = withComponentVersions $ do
+main = withJavaInPath $ withComponentVersions $ do
   -- This is a bit hacky, we want the LF version before we hand over to
   -- tasty. To achieve that we first pass with optparse-applicative ignoring
   -- everything apart from the LF version.
@@ -509,8 +509,7 @@ runJqQuery log mJsonFile q isStream = do
   case mJsonFile of
     Just jsonPath -> do
       log $ "running jq query: " ++ q
-      let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
-      jq <- locateRunfiles $ mainWorkspace </> jqKey
+      jq <- locateRunfiles $ mainWorkspace </> "bazel_tools" </> "jq_bin"
       queryLfDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
       let fullQuery = "import \"./query-lf\" as lf; inputs as $pkg | " ++ q
       out <- readProcess jq (["--stream" | isStream] <> ["-n", "-L", queryLfDir, fullQuery, jsonPath]) ""

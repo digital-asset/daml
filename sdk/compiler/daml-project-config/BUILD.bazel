@@ -1,9 +1,9 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test", "generate_and_track_cabal")
 load("//bazel_tools/packaging:packaging.bzl", "package_app")
-load("@os_info//:os_info.bzl", "is_windows")
 
 # This library is intended to be used by applications called by the assistant,
 # e.g., damlc, to get the names of the various environment variables set by the assistant.
@@ -36,6 +36,7 @@ da_haskell_library(
 
 da_haskell_test(
     name = "test",
+    size = "small",
     srcs = ["test/DA/Daml/Project/Tests.hs"],
     hackage_deps = [
         "base",
@@ -58,7 +59,6 @@ da_haskell_test(
     ],
     main_function = "DA.Daml.Project.Tests.main",
     src_strip_prefix = "test",
-    visibility = ["//visibility:public"],
     deps = [
         ":daml-project-config",
         "//libs-haskell/da-hs-base",
@@ -71,7 +71,6 @@ da_haskell_repl(
     name = "repl",
     testonly = True,
     collect_data = False,
-    visibility = ["//visibility:public"],
     deps = [
         ":daml-project-config",
         ":test",
