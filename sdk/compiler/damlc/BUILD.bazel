@@ -30,6 +30,7 @@ package_app(
     name = "hpp-dist",
     binary = "@stackage-exe//hpp",
     extra_lib_dirs = ["@gmp//:libs"],
+    tags = ["no-cache"],
 )
 
 damlc_data = [
@@ -171,6 +172,7 @@ genrule(
     srcs = ["//bazel/haskell/toolchain:install_tree"],
     outs = ["ghc-pkg-dist.tar.gz"],
     cmd = '$(execpath //bazel_tools/packaging:package-app) "$(location //bazel/haskell/toolchain:install_tree)/lib/bin/ghc-pkg" "$@"',
+    tags = ["no-cache"],
     tools = ["//bazel_tools/packaging:package-app"],
 ) if is_linux else (genrule(
     name = "ghc-pkg-dist",
