@@ -1,0 +1,12 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR range=10:1-10:5; Invalid party name: #party
+
+module AllocatePartyError where
+
+import Daml.Script
+
+main = script do
+    _ <- allocateParty "#party"
+    pure ()

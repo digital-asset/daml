@@ -1,0 +1,17 @@
+-- Check that `ContractId a` is serializable whenever `a` is serializable.
+-- @SINCE-LF 2.1
+
+module SerializablePolymorphicContractId where
+
+data ContractIdNT a = ContractIdNT with unContractIdNT : ContractId a
+  deriving (Eq, Show)
+
+data Bar = Bar{}
+
+template Foo with
+    party  : Party
+    foo : ContractIdNT Foo
+    bar : ContractId Bar
+    int : ContractId Int
+  where
+    signatory party

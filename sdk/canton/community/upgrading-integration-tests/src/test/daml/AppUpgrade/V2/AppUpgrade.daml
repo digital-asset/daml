@@ -1,0 +1,21 @@
+module AppUpgrade where
+
+template AppInstall
+  with
+    provider: Party
+    user: Party
+    param1: Decimal
+    param2: Optional Decimal
+  where
+    signatory provider, user
+
+template AppInstallRequest
+  with
+    install : AppInstall
+  where
+    signatory install.user
+    observer install.provider
+
+    nonconsuming choice AppInstall_Accept: ContractId AppInstall
+      controller install.provider
+        do create install

@@ -1,0 +1,31 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @ERROR range=23:1-23:20; Attempt to fetch or exercise a contract not visible to the reading parties.
+module FailedFetch where
+
+import Daml.Script
+
+template T
+  with
+    p: Party
+  where
+    signatory p
+
+template Helper
+  with
+    p: Party
+  where
+    signatory p
+    choice Fetch : T
+      with
+        id : ContractId T
+      controller p
+      do fetch @T id
+
+fetchNonStakeholder = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  secret <- submit alice (createCmd (T alice))
+  submit bob (createAndExerciseCmd (Helper bob) (Fetch secret))
+  return ()

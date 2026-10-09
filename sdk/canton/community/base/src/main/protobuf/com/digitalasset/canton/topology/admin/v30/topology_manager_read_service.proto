@@ -1,0 +1,335 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.topology.admin.v30;
+
+import "com/digitalasset/canton/protocol/v30/synchronizer_parameters.proto";
+import "com/digitalasset/canton/protocol/v30/topology.proto";
+import "com/digitalasset/canton/topology/admin/v30/common.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service TopologyManagerReadService {
+  rpc ListNamespaceDelegation(ListNamespaceDelegationRequest) returns (ListNamespaceDelegationResponse);
+  rpc ListDecentralizedNamespaceDefinition(ListDecentralizedNamespaceDefinitionRequest) returns (ListDecentralizedNamespaceDefinitionResponse);
+
+  rpc ListOwnerToKeyMapping(ListOwnerToKeyMappingRequest) returns (ListOwnerToKeyMappingResponse);
+  rpc ListPartyToKeyMapping(ListPartyToKeyMappingRequest) returns (ListPartyToKeyMappingResponse);
+
+  rpc ListSynchronizerTrustCertificate(ListSynchronizerTrustCertificateRequest) returns (ListSynchronizerTrustCertificateResponse);
+  rpc ListParticipantSynchronizerPermission(ListParticipantSynchronizerPermissionRequest) returns (ListParticipantSynchronizerPermissionResponse);
+  rpc ListPartyHostingLimits(ListPartyHostingLimitsRequest) returns (ListPartyHostingLimitsResponse);
+  rpc ListVettedPackages(ListVettedPackagesRequest) returns (ListVettedPackagesResponse);
+
+  rpc ListPartyToParticipant(ListPartyToParticipantRequest) returns (ListPartyToParticipantResponse);
+
+  rpc ListSynchronizerParametersState(ListSynchronizerParametersStateRequest) returns (ListSynchronizerParametersStateResponse);
+  rpc ListMediatorSynchronizerState(ListMediatorSynchronizerStateRequest) returns (ListMediatorSynchronizerStateResponse);
+  rpc ListSequencerSynchronizerState(ListSequencerSynchronizerStateRequest) returns (ListSequencerSynchronizerStateResponse);
+
+  rpc ListSynchronizerUpgradeAnnouncement(ListSynchronizerUpgradeAnnouncementRequest) returns (ListSynchronizerUpgradeAnnouncementResponse);
+  rpc ListSequencerConnectionSuccessor(ListSequencerConnectionSuccessorRequest) returns (ListSequencerConnectionSuccessorResponse);
+
+  rpc ListAvailableStores(ListAvailableStoresRequest) returns (ListAvailableStoresResponse);
+  rpc ListAll(ListAllRequest) returns (ListAllResponse);
+  rpc ExportTopologySnapshot(ExportTopologySnapshotRequest) returns (stream ExportTopologySnapshotResponse);
+  rpc ExportTopologySnapshotV2(ExportTopologySnapshotV2Request) returns (stream ExportTopologySnapshotV2Response);
+
+  // Fetch the genesis topology state.
+  // The returned bytestring can be used directly to initialize a sequencer.
+  rpc GenesisState(GenesisStateRequest) returns (stream GenesisStateResponse);
+  rpc GenesisStateV2(GenesisStateV2Request) returns (stream GenesisStateV2Response);
+
+  // Fetch the topology state
+  // The returned bytestring can be used directly to initialize a successor sequencer
+  rpc LogicalUpgradeState(LogicalUpgradeStateRequest) returns (stream LogicalUpgradeStateResponse);
+}
+
+message BaseQuery {
+  StoreId store = 1;
+
+  // whether to query only for proposals instead of approved topology mappings
+  bool proposals = 2;
+
+  com.digitalasset.canton.protocol.v30.Enums.TopologyChangeOp operation = 3;
+
+  reserved 4;
+
+  message TimeRange {
+    google.protobuf.Timestamp from = 1;
+    google.protobuf.Timestamp until = 2;
+  }
+
+  oneof time_query {
+    google.protobuf.Timestamp snapshot = 5;
+    google.protobuf.Empty head_state = 6;
+    TimeRange range = 7;
+  }
+  string filter_signed_key = 8;
+  optional int32 protocol_version = 9;
+}
+
+message BaseResult {
+  StoreId store = 1;
+  google.protobuf.Timestamp sequenced = 2;
+  google.protobuf.Timestamp valid_from = 3;
+  google.protobuf.Timestamp valid_until = 4;
+  com.digitalasset.canton.protocol.v30.Enums.TopologyChangeOp operation = 5;
+  bytes transaction_hash = 6;
+  int32 serial = 7;
+  repeated string signed_by_fingerprints = 8;
+}
+
+message ListNamespaceDelegationRequest {
+  BaseQuery base_query = 1;
+  string filter_namespace = 2;
+  string filter_target_key_fingerprint = 3;
+}
+
+message ListNamespaceDelegationResponse {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.NamespaceDelegation item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListDecentralizedNamespaceDefinitionRequest {
+  BaseQuery base_query = 1;
+  string filter_namespace = 2;
+}
+
+message ListDecentralizedNamespaceDefinitionResponse {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.DecentralizedNamespaceDefinition item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListOwnerToKeyMappingRequest {
+  BaseQuery base_query = 1;
+  string filter_key_owner_type = 2;
+  string filter_key_owner_uid = 3;
+}
+
+message ListOwnerToKeyMappingResponse {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.OwnerToKeyMapping item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListPartyToKeyMappingRequest {
+  BaseQuery base_query = 1;
+  string filter_party = 2;
+}
+
+message ListPartyToKeyMappingResponse {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.PartyToKeyMapping item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListSynchronizerTrustCertificateRequest {
+  BaseQuery base_query = 1;
+  string filter_uid = 2;
+}
+
+message ListSynchronizerTrustCertificateResponse {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.SynchronizerTrustCertificate item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListParticipantSynchronizerPermissionRequest {
+  BaseQuery base_query = 1;
+  string filter_uid = 2;
+}
+
+message ListParticipantSynchronizerPermissionResponse {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.ParticipantSynchronizerPermission item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListPartyHostingLimitsRequest {
+  BaseQuery base_query = 1;
+  string filter_uid = 2;
+}
+
+message ListPartyHostingLimitsResponse {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.PartyHostingLimits item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListVettedPackagesRequest {
+  BaseQuery base_query = 1;
+  string filter_participant = 2;
+}
+
+message ListVettedPackagesResponse {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.VettedPackages item = 2;
+  }
+  repeated Result results = 1;
+}
+message ListPartyToParticipantRequest {
+  BaseQuery base_query = 1;
+  string filter_party = 2;
+  string filter_participant = 3;
+}
+
+message ListPartyToParticipantResponse {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.PartyToParticipant item = 2;
+  }
+  repeated Result results = 2;
+}
+
+message ListSynchronizerParametersStateRequest {
+  BaseQuery base_query = 1;
+  string filter_synchronizer_id = 2;
+}
+
+message ListSynchronizerParametersStateResponse {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.DynamicSynchronizerParameters item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListMediatorSynchronizerStateRequest {
+  BaseQuery base_query = 1;
+  string filter_synchronizer_id = 2;
+}
+
+message ListMediatorSynchronizerStateResponse {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.MediatorSynchronizerState item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListSequencerSynchronizerStateRequest {
+  BaseQuery base_query = 1;
+  string filter_synchronizer_id = 2;
+}
+
+message ListSequencerSynchronizerStateResponse {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.SequencerSynchronizerState item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListSynchronizerUpgradeAnnouncementRequest {
+  BaseQuery base_query = 1;
+  string filter_synchronizer_id = 2;
+}
+
+message ListSynchronizerUpgradeAnnouncementResponse {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.SynchronizerUpgradeAnnouncement item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListSequencerConnectionSuccessorRequest {
+  BaseQuery base_query = 1;
+  string filter_sequencer_id = 2;
+}
+
+message ListSequencerConnectionSuccessorResponse {
+  message Result {
+    BaseResult context = 1;
+    com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor item = 2;
+  }
+  repeated Result results = 1;
+}
+
+message ListAvailableStoresRequest {}
+
+message ListAvailableStoresResponse {
+  repeated StoreId store_ids = 1;
+}
+
+message ListAllRequest {
+  BaseQuery base_query = 1;
+  /** The list of topology mappings to exclude from the result.*/
+  repeated string exclude_mappings = 2;
+  string filter_namespace = 3;
+}
+
+message ListAllResponse {
+  com.digitalasset.canton.topology.admin.v30.TopologyTransactions result = 1;
+}
+
+message ExportTopologySnapshotRequest {
+  BaseQuery base_query = 1;
+  repeated string exclude_mappings = 2;
+  string filter_namespace = 3;
+}
+
+message ExportTopologySnapshotResponse {
+  bytes chunk = 1;
+}
+
+message ExportTopologySnapshotV2Request {
+  BaseQuery base_query = 1;
+  repeated string exclude_mappings = 2;
+  string filter_namespace = 3;
+}
+
+message ExportTopologySnapshotV2Response {
+  bytes chunk = 1;
+}
+
+message GenesisStateRequest {
+  // Must be specified if the genesis state is requested from a participant node.
+  optional StoreId synchronizer_store = 1;
+  // Optional - the effective time used to fetch the topology transactions. If not provided the effective time of the last topology transaction is used.
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message GenesisStateResponse {
+  // versioned stored topology transactions
+  bytes chunk = 1;
+}
+
+message GenesisStateV2Request {
+  // Must be specified if the genesis state is requested from a participant node.
+  optional StoreId synchronizer_store = 1;
+  // Optional - the effective time used to fetch the topology transactions. If not provided the effective time of the last topology transaction is used.
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message GenesisStateV2Response {
+  // versioned stored topology transactions
+  bytes chunk = 1;
+}
+
+message LogicalUpgradeStateRequest {}
+
+message LogicalUpgradeStateResponse {
+  // versioned stored topology transactions
+  bytes chunk = 1;
+}

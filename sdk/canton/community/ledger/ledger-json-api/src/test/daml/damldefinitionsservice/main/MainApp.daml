@@ -1,0 +1,38 @@
+module MainApp where
+
+import ExternalDep
+import DA.Time
+import DA.Map (Map)
+
+data RecordInMain = RecordInMain with
+  someInt: Int
+
+template MainTemplate
+  with
+    owner: Party
+    externalRecord : ExternalDep.SomeVariant
+    externalInterface: ContractId ExternalDep.MyInterface
+    someList: [ExternalDep.AnotherRecord]
+    someMap: Map Text ExternalDep.AnotherRecord
+  where
+    signatory owner
+
+    choice MainTemplate_Choice: RecordInMain
+      controller owner
+      do
+        return RecordInMain with someInt = 7
+
+template AllBuiltinTypesTemplate
+  with
+    someParty: Party
+    someInt: Int
+    someDecimal: Decimal
+    someNumeric7: Numeric 7
+    -- someBigNumeric: BigNumeric -- non-serializable error
+    someText: Text
+    someBool: Bool
+    someDate: Date
+    someTime: Time
+    relTime: RelTime
+  where
+    signatory someParty

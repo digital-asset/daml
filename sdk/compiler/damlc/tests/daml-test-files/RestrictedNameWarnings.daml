@@ -1,0 +1,29 @@
+-- @WARN range=12:5-12:9; `self' is an unsupported field name, and may break without warning in future versions. Please use something else.
+-- @WARN range=17:5-17:8; `arg' is an unsupported field name, and may break without warning in future versions. Please use something else.
+-- @WARN range=22:5-22:9; `self' is an unsupported field name, and may break without warning in future versions. Please use something else.
+-- @WARN range=27:5-27:8; `arg' is an unsupported field name, and may break without warning in future versions. Please use something else.
+-- @WARN -Werror=upgrade-exceptions
+
+{-# OPTIONS_GHC -Wno-x-exceptions #-}
+
+module RestrictedNameWarnings where
+
+template TSelf with
+    self : Party
+  where
+    signatory self
+
+template TArg with
+    arg : Party
+  where
+    signatory arg
+
+exception ESelf with
+    self : Text
+  where
+    message self
+
+exception EArg with
+    arg : Text
+  where
+    message arg

@@ -1,0 +1,47 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.participant.protocol.v30;
+
+import "com/digitalasset/canton/protocol/v30/participant_transaction.proto";
+import "google/protobuf/empty.proto";
+import "scalapb/scalapb.proto";
+
+message CompletionInfo {
+  repeated string act_as = 1;
+  string user_id = 2;
+  string command_id = 3;
+  com.digitalasset.canton.protocol.v30.DeduplicationPeriod opt_deduplication_period = 4;
+  string submission_id = 5;
+}
+
+message CommandRejected {
+  // Is always a `com.daml.ledger.participant.state.v2.FinalReason`
+  message GrpcRejectionReasonTemplate {
+    bytes status = 1;
+  }
+}
+
+message SubmissionTrackingData {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StorageProtoVersion";
+
+  // using a oneof as an extension point for other tracking types in the future
+  oneof tracking {
+    TransactionSubmissionTrackingData transaction = 1;
+  }
+}
+
+message TransactionSubmissionTrackingData {
+  CompletionInfo completion_info = 1;
+  RejectionCause rejection_cause = 2;
+  string physical_synchronizer_id = 3;
+
+  message RejectionCause {
+    oneof cause {
+      google.protobuf.Empty timeout = 1;
+      CommandRejected.GrpcRejectionReasonTemplate rejection_reason_template = 2;
+    }
+  }
+}

@@ -1,0 +1,22 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Util where
+
+-- | MOVE Daml.Script
+data AnyContractId = AnyContractId
+  { templateId : TemplateTypeRep
+  , contractId : ContractId ()
+  } deriving Eq
+
+-- | MOVE Daml.Script
+instance Show AnyContractId where
+  showsPrec d (AnyContractId _ cid) = showParen (d > app_prec) $
+    showString "AnyContractId " . showsPrec (app_prec +1) cid
+    where app_prec = 10
+
+-- | MOVE Daml.Script
+fromAnyContractId : forall t. Template t => AnyContractId -> Optional (ContractId t)
+fromAnyContractId cid
+  | cid.templateId == templateTypeRep @t = Some (coerceContractId cid.contractId)
+  | otherwise = None

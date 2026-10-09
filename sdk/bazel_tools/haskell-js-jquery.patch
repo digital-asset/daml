@@ -1,0 +1,48 @@
+diff --git a/js-jquery.cabal b/js-jquery.cabal
+index c159071..e58f88c 100644
+--- a/js-jquery.cabal
++++ b/js-jquery.cabal
+@@ -35,7 +35,8 @@ library
+     default-language: Haskell2010
+     hs-source-dirs:   src
+     build-depends:
+-        base == 4.*
++        base == 4.*,
++        file-embed
+ 
+     exposed-modules:
+         Language.Javascript.JQuery
+diff --git a/src/Language/Javascript/JQuery.hs b/src/Language/Javascript/JQuery.hs
+index 6badffd..97968ca 100644
+--- a/src/Language/Javascript/JQuery.hs
++++ b/src/Language/Javascript/JQuery.hs
+@@ -1,4 +1,4 @@
+-
++{-# LANGUAGE TemplateHaskell #-}
+ -- | Module for accessing minified jQuery code (<http://jquery.com/>).
+ --   As an example:
+ --
+@@ -24,12 +24,13 @@
+ -- > jQueryContents :: BS.ByteString
+ -- > jQueryContents = $(embedFile =<< runIO JQuery.file)
+ module Language.Javascript.JQuery(
+-    version, file, url
++    version, file, fileContent, url
+     ) where
+ 
+ import qualified Paths_js_jquery as Paths
+ import Data.List
+ import Data.Version
++import Data.FileEmbed
+ 
+ 
+ -- | A local file containing the minified jQuery code for 'version'.
+@@ -46,6 +47,8 @@ url = "//code.jquery.com/" ++ name
+ 
+ name = "jquery-" ++ intercalate "." (map show $ versionBranch version) ++ ".min.js"
+ 
++fileContent = $(embedFile $ "javascript/jquery-" ++ intercalate "." (map show $ take 3 $ versionBranch Paths.version) ++ ".min.js")
++
+ -- | The version of jQuery provided by this package. Not necessarily the version of this package,
+ --   but the versions will match in the first three digits.
+ version :: Version

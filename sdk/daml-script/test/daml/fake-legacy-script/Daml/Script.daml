@@ -1,0 +1,9 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- This module serves as a psuedo legacy daml script, defining a script "monad" in the top level Daml.Script module
+-- The new daml-script places the monad in Daml.Script.Internal.LowLevel, so we use the module path to determine
+-- if a script is legacy. This package is used to test the error is correct.
+module Daml.Script where
+
+data Script a = Script {run : a}

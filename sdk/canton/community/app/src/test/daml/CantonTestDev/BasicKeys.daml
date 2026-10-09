@@ -1,0 +1,532 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module BasicKeys where
+
+import Daml.Script
+import qualified DA.Set as S
+import DA.Set (Set)
+import DA.Action(replicateA_)
+import DA.Foldable(mapA_)
+
+template BasicKey
+  with
+    owners: Set Party
+    obs: Set Party
+  where
+    signatory owners
+    observer obs
+    key owners: Set Party
+    maintainer key
+
+    nonconsuming choice SelfLookup: Optional (ContractId BasicKey)
+      controller owners
+        do
+          lookupByKey @BasicKey owners
+
+    nonconsuming choice SelfFetch: ContractId BasicKey
+      controller owners
+        do
+          (cid, c) <- fetchByKey @BasicKey owners
+          pure cid
+
+    nonconsuming choice SelfFetchAndLookup: ContractId BasicKey
+      controller owners
+        do
+          (fcid, _) <- fetchByKey @BasicKey owners
+          lcid <- lookupByKey @BasicKey owners
+          assert $ lcid == Some fcid
+          pure fcid
+
+    choice ConsumeSelf: ()
+      with
+        actor: Party
+      controller actor
+      do
+        pure ()
+
+template NoMaintainer
+  with
+    sig: Party
+  where
+    signatory sig
+    key () : ()
+    maintainer (S.empty : Set Party)
+
+template KeyOps
+  with
+    proposers: Set Party
+    counterParty: Party
+
+  where
+    signatory proposers
+    observer counterParty
+
+    choice Accept: ContractId KeyOps
+      controller counterParty
+        do
+          create this with proposers = S.insert counterParty proposers
+
+    choice
+      Invite: ContractId KeyOps
+        with
+          actor: Party
+          invitee: Party
+        controller actor
+        do
+          assert $ S.member actor proposers
+          create this with counterParty = invitee
+
+    nonconsuming choice
+      CreateKey: ContractId BasicKey
+        with
+          actor: Party
+          keyMaintainers: Set Party
+        controller actor
+          do
+            assert $ S.member actor proposers
+            create BasicKey with owners = keyMaintainers, obs = S.empty
+
+    nonconsuming choice
+      PlainFetch: ()
+        with
+          actor: Party
+          cid: ContractId BasicKey
+        controller actor
+          do
+            assert $ S.member actor proposers
+            fetch cid
+            pure ()
+
+    nonconsuming choice
+      Lookup: Optional (ContractId BasicKey)
+        with actor: Party
+        controller actor
+          do
+            assert $ S.member actor proposers
+            lookupByKey @BasicKey proposers
+
+    nonconsuming choice
+      LookupNoMaintainer: Optional (ContractId NoMaintainer)
+        with
+          actor: Party
+        controller actor
+          do
+            assert $ S.member actor proposers
+            lookupByKey @NoMaintainer ()
+
+    nonconsuming choice
+      Fetch: ContractId BasicKey
+        with actor: Party
+        controller actor
+          do
+            assert $ S.member actor proposers
+            fst <$> fetchByKey @BasicKey proposers
+
+    nonconsuming choice
+      FetchByIdAndThenKey: ContractId BasicKey
+        with
+          actor: Party
+          toFetch: [ContractId BasicKey]
+        controller actor
+          do
+            mapA_ fetch toFetch
+            fst <$> fetchByKey @BasicKey proposers
+
+    nonconsuming choice
+      DeleteKey: ()
+        with
+          actor: Party
+          keyMaintainers: Set Party
+        controller actor
+          do
+            assert $ S.member actor proposers
+            exerciseByKey @BasicKey keyMaintainers Archive
+
+    nonconsuming choice
+      PlainDelete: ()
+        with
+          actor: Party
+          contractId: ContractId BasicKey
+        controller actor
+          do
+            exercise contractId Archive
+            pure ()
+
+    nonconsuming choice
+      LookupGivenKey: Optional (ContractId BasicKey)
+        with
+          actor: Party
+          keyMaintainers: Set Party
+        controller actor
+          do
+            assert $ S.member actor proposers
+            lookupByKey @BasicKey keyMaintainers
+
+    nonconsuming choice
+      FetchGivenKey: ContractId BasicKey
+        with
+          actor: Party
+          keyMaintainers: Set Party
+        controller actor
+          do
+            assert $ S.member actor proposers
+            fst <$> fetchByKey @BasicKey keyMaintainers
+
+    nonconsuming choice
+      FetchAndLookup: ContractId BasicKey
+        with
+          actor: Party
+          keyMaintainers: Set Party
+        controller actor
+          do
+            assert $ S.member actor proposers
+            (fcid, _) <- fetchByKey @BasicKey keyMaintainers
+            lcid <- lookupByKey @BasicKey keyMaintainers
+            assert $ lcid == Some fcid
+            pure fcid
+
+    nonconsuming choice
+      DelegatedFetchAndLookup: ContractId BasicKey
+        with
+          actor: Party
+          keyMaintainers: Set Party
+        controller actor
+          do
+            assert $ S.member actor proposers
+            exerciseByKey @BasicKey keyMaintainers SelfFetchAndLookup
+
+    nonconsuming choice
+      Recreate : ContractId BasicKey
+        with
+          actor: Party
+          keyMaintainers: Set Party
+        controller actor
+          do
+            assert $ S.member actor proposers
+            lookupByKey @BasicKey keyMaintainers >>= optional (pure ()) archive
+            exercise self CreateKey with ..
+
+    nonconsuming choice
+      RecreateAndLookup: ContractId BasicKey
+        with
+          actor: Party
+          keyMaintainers: Set Party
+        controller actor
+          do
+            assert $ S.member actor proposers
+            exerciseByKey @BasicKey keyMaintainers Archive
+            exercise self CreateKey with ..
+            exercise self FetchAndLookup with ..
+
+    nonconsuming choice
+      CreateAndFetchAndLookup: ContractId BasicKey
+        with
+          actor: Party
+          keyMaintainers: Set Party
+        controller actor
+          do
+            assert $ S.member actor proposers
+            exercise self CreateKey with ..
+            exercise self FetchAndLookup with ..
+
+    nonconsuming choice
+      CreateAndDelegatedFetchAndLookup: ContractId BasicKey
+        with
+          actor: Party
+          keyMaintainers: Set Party
+        controller actor
+          do
+            assert $ S.member actor proposers
+            exercise self CreateKey with ..
+            exercise self DelegatedFetchAndLookup with ..
+
+    nonconsuming choice
+      CreateAndFetchAndLookupAndDelete: ()
+        with
+          actor: Party
+          keyMaintainers: Set Party
+          repetitions: Int
+        controller actor
+          do
+            replicateA_ repetitions $ do
+              exercise self CreateAndFetchAndLookup with ..
+              exercise self DeleteKey with ..
+
+    nonconsuming choice
+      CreateAndDelegatedFetchAndLookupAndDelete: ()
+        with
+          actor: Party
+          keyMaintainers: Set Party
+          repetitions: Int
+        controller actor
+          do
+            replicateA_ repetitions $ do
+              exercise self CreateAndDelegatedFetchAndLookup with ..
+              exercise self DeleteKey with ..
+
+    nonconsuming choice
+      FetchAndCreate: ()
+        with
+          actor: Party
+          keyMaintainers: Set Party
+        controller actor
+          do
+            fetchByKey @BasicKey keyMaintainers
+            create BasicKey with owners = keyMaintainers, obs = S.empty
+            pure ()
+
+    nonconsuming choice
+      SwitchObservers: ()
+        with
+          actor: Party
+          keyMaintainers: Set Party
+          newObs: Set Party
+        observer counterParty
+        controller actor
+          do
+            exerciseByKey @BasicKey keyMaintainers Archive
+            create BasicKey with owners = keyMaintainers, obs = newObs
+            pure ()
+
+    nonconsuming choice
+      LookupAfterArchive: ()
+        with
+          actor: Party
+          cid: ContractId BasicKey
+        controller actor
+          do
+            c <- fetch cid
+            exercise cid Archive
+            found <- lookupByKey @BasicKey c.owners
+            assert (found == None)
+
+    nonconsuming choice
+      CreateAfterArchive: ()
+        with
+          actor: Party
+          cid: ContractId BasicKey
+        controller actor
+          do
+            c <- fetch cid
+            archive cid -- Doesn't use by-key and therefore doesn't bring the key into scope.
+            create c -- Recreate the contract
+            pure ()
+
+    nonconsuming choice
+      TransientAfterArchive: ()
+        with
+          actor: Party
+          cid: ContractId BasicKey
+        controller actor
+          do
+            c <- fetch cid
+            archive cid -- Doesn't use by-key and therefore doesn't bring the key into scope.
+            cid2 <- create c -- Recreate the contract
+            archive cid2 -- and archive it again
+
+
+oneParty = script do
+  alice <- allocateParty "Alice"
+  let salice = S.singleton alice
+
+  lookupC <- submit alice $ createCmd KeyOps with proposers = salice, counterParty = alice
+  let
+    lookup = submit alice $ exerciseCmd lookupC Lookup with actor = alice
+    doFetch = submit alice $ exerciseCmd lookupC Fetch with actor = alice
+
+    assertNoKeys = do
+      found <- lookup
+      assert $ found == None
+
+    assertKeyMatches k = do
+      found <- lookup
+      fetched <- doFetch
+      assert $ found == Some k
+      assert $ fetched == k
+
+
+  assertNoKeys
+
+  keyed <- submit alice $ createCmd BasicKey with owners = salice, obs = S.empty
+  assertKeyMatches keyed
+
+  submit alice $ exerciseCmd keyed Archive
+  assertNoKeys
+
+  keyed2 <- submit alice $ createCmd BasicKey with owners = salice, obs = S.empty
+  assertKeyMatches keyed2
+
+  submit alice $ exerciseCmd keyed2 Archive
+  assertNoKeys
+
+  pure ()
+
+twoParties = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  let
+    salice = S.singleton alice
+    aliceAndBob = S.insert bob salice
+
+  proposal <- submit alice $ createCmd KeyOps with proposers = salice, counterParty = bob
+  accepted <- submit bob $ exerciseCmd proposal Accept
+
+  let
+    lookupA = submit alice $ exerciseCmd accepted Lookup with actor = alice
+    lookupB = submit bob $ exerciseCmd accepted Lookup with actor = bob
+    fetchA = submit alice $ exerciseCmd accepted Fetch with actor = alice
+    fetchB = submit bob $ exerciseCmd accepted Fetch with actor = bob
+
+    assertNoKeys = do
+      foundA <- lookupA
+      foundB <- lookupB
+      assert $ foundA == None
+      assert $ foundB == None
+
+    assertKeysMatch cid = do
+      foundA <- lookupA
+      foundB <- lookupB
+      fetchedA <- fetchA
+      fetchedB <- fetchB
+      assert $ foundA == Some cid
+      assert $ foundB == Some cid
+      assert $ fetchedA == cid
+      assert $ fetchedB == cid
+
+  assertNoKeys
+
+  keyed <- submit alice $ exerciseCmd accepted CreateKey with actor = alice, keyMaintainers = aliceAndBob
+  assertKeysMatch keyed
+
+  submit bob $ exerciseCmd accepted DeleteKey with actor = bob, keyMaintainers = aliceAndBob
+  assertNoKeys
+
+  keyed <- submit bob $ exerciseCmd accepted CreateKey with actor = bob, keyMaintainers = aliceAndBob
+  assertKeysMatch keyed
+
+  submit alice $ exerciseCmd accepted DeleteKey with actor = alice, keyMaintainers = aliceAndBob
+  assertNoKeys
+
+  pure ()
+
+keyOpsInVariousProjectionPositions = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  let
+    salice = S.singleton alice
+    aliceAndBob = S.insert bob salice
+
+  proposal <- submit alice $ createCmd KeyOps with proposers = salice, counterParty = bob
+  accepted <- submit bob $ exerciseCmd proposal Accept
+
+  let
+    lookupA = submit alice $ exerciseCmd accepted LookupGivenKey with actor = alice, keyMaintainers = salice
+    lookupB = submit bob $ exerciseCmd accepted LookupGivenKey with actor = bob, keyMaintainers = salice
+    lookupBFail = submitMustFail bob $ exerciseCmd accepted LookupGivenKey with actor = bob, keyMaintainers = salice
+    fetchA = submit alice $ exerciseCmd accepted FetchGivenKey with actor = alice, keyMaintainers = salice
+    fetchAndLookupA = submit alice $ exerciseCmd accepted FetchAndLookup with actor = alice, keyMaintainers = salice
+    delegatedFetchAndLookupA = submit alice $ exerciseCmd accepted DelegatedFetchAndLookup with actor = alice, keyMaintainers = salice
+
+    assertNoKeys = do
+      foundA <- lookupA
+      foundB <- lookupB
+      assert $ foundA == None
+      assert $ foundB == None
+
+    assertKeysMatch cid = do
+      foundA <- lookupA
+      lookupBFail -- this command fails as Bob finds nothing locally
+      fetchedA <- fetchA
+      bothA <- fetchAndLookupA
+      delegatedBothA <- delegatedFetchAndLookupA
+      assert $ foundA == Some cid
+      assert $ fetchedA == cid
+      assert $ bothA == cid
+
+  assertNoKeys
+
+  keyed <- submit alice $ createCmd BasicKey with owners = salice, obs = S.empty
+  assertKeysMatch keyed
+
+  submit alice $ exerciseCmd keyed Archive
+  assertNoKeys
+
+  keyed2 <- submit alice $ createCmd BasicKey with owners = salice, obs = S.empty
+  assertKeysMatch keyed2
+
+  submit alice $ exerciseCmd keyed2 Archive
+  assertNoKeys
+
+  pure ()
+
+-- empty maintainers are allowed by Daml engine
+noMaintainer = script do
+  alice <- allocateParty "Alice"
+
+  submit alice $ createCmd NoMaintainer with sig = alice
+  submit alice $ exerciseByKeyCmd @NoMaintainer () Archive
+
+  proposal <- submit alice $ createCmd KeyOps with proposers = S.singleton alice, counterParty = alice
+
+  notFound <- submit alice $ exerciseCmd proposal LookupNoMaintainer with actor = alice
+  assert $ notFound == None
+  pure ()
+
+createKeyInCoreAfterArchiveInSubview = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  let
+    salice = S.singleton alice
+    sbob = S.singleton bob
+
+  submit alice $ createCmd BasicKey with owners = salice, obs = S.empty
+
+  keyOps <- submit alice $ createCmd KeyOps with proposers = salice, counterParty = bob
+
+  {- Creates a transaction of the following shape
+
+    1. Exercise SwitchObservers: confirmers = alice, observers = bob
+    |- 2. Exercise Archive: confirmers = alice, observers = none
+    |- 3. Create BasicKey: confirmers = alice, observers = bob
+
+    The transaction results in two views:
+    View V1 contains nodes 1 and 3 in its core and has one subview V2, which contains node 2.
+    So the contract key is freed V2 before the parent view's core assigns the key to the contract created in node 3.
+  -}
+  submit alice $ exerciseCmd keyOps SwitchObservers with actor = alice, keyMaintainers = salice, newObs = sbob
+  pure ()
+
+keyOpsAfterArchive = script do
+  alice <- allocateParty "Alice"
+  let
+    salice = S.singleton alice
+
+  keyOps <- submit alice $ createCmd KeyOps with proposers = salice, counterParty = alice
+
+  basic1 <- submit alice $ createCmd BasicKey with owners = salice, obs = S.empty
+  submit alice $ exerciseCmd keyOps LookupAfterArchive with actor = alice, cid = basic1
+
+  basic2 <- submit alice $ createCmd BasicKey with owners = salice, obs = S.empty
+  submit alice $ exerciseCmd keyOps TransientAfterArchive with actor = alice, cid = basic2
+
+  basic3 <- submit alice $ createCmd BasicKey with owners = salice, obs = S.empty
+  submit alice $ exerciseCmd keyOps CreateAfterArchive with actor = alice, cid = basic3
+
+  pure ()
+
+doubleRecreate = script do
+  alice <- allocateParty "Alice"
+
+  let
+    salice = S.singleton alice
+
+  keyOps <- submit alice $ createCmd KeyOps with proposers = salice, counterParty = alice
+
+  basic1 <- submit alice $ exerciseCmd keyOps Recreate with actor = alice, keyMaintainers = salice
+  basic2 <- submit alice $ exerciseCmd keyOps Recreate with actor = alice, keyMaintainers = salice
+
+  pure ()

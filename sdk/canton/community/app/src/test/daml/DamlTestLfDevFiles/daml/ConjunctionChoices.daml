@@ -1,0 +1,127 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- The `demo` scenario below demonstrates
+-- (1) a successful exercise of a choice with two controllers (necessarily in
+--     the body of another choice),
+-- (2) a failing attempt to exercise a choice with two controllers by the
+--     wrong two actors,
+-- (3) a failing attempt to exercise a choice with two controllers by just one
+--     of them,
+-- (4) a successful exercise of a choice with two controllers that actually
+--     coincide through a direct commit.
+--
+-- There's a blog post about this example as well:
+-- https://digitalasset.atlassian.net/wiki/spaces/DEL/blog/2018/06/14/595427344/Introducing+Conjunction+Choices
+
+{- DLINT ignore -}
+
+module ConjunctionChoices where
+
+import Daml.Script
+
+template PaintHouse
+  with
+    owner   : Party
+    painter : Party
+    cleaner : Party
+    price   : Decimal
+  where
+    signatory owner
+    signatory painter
+    signatory cleaner
+
+
+template PaintHouseProposal
+  with
+    owner   : Party
+    painter : Party
+    cleaner : Party
+    price   : Decimal
+  where
+    signatory owner
+    observer [painter, cleaner]
+
+    choice PaintHouseProposal_Accept : ContractId PaintHouse
+      controller [painter, cleaner]
+      do create PaintHouse with owner; painter; cleaner; price
+
+
+template PainterCleanerRelationship
+  with
+    painter   : Party
+    cleaner   : Party
+    threshold : Decimal
+  where
+    signatory painter
+    signatory cleaner
+
+    nonconsuming choice AcceptPaintHouse : ContractId PaintHouse
+      with cid : ContractId PaintHouseProposal
+      controller painter
+      do paintHouseProposal <- fetch cid
+         assert (paintHouseProposal.painter == painter)
+         assert (paintHouseProposal.cleaner == cleaner)
+         assert (paintHouseProposal.price >= threshold)
+         exercise cid PaintHouseProposal_Accept
+
+
+template PainterCleanerProposal
+  with
+    painter   : Party
+    cleaner   : Party
+    threshold : Decimal
+  where
+    signatory painter
+    observer cleaner
+
+    choice PainterCleanerProposal_Accept : ContractId PainterCleanerRelationship
+      controller cleaner
+      do create PainterCleanerRelationship with painter; cleaner; threshold
+
+
+demo : Script (ContractId PaintHouse)
+demo = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  charlie <- allocateParty "Charlie"
+  donald <- allocateParty "Donald"
+  eric <- allocateParty "Eric"
+  painterCleanerProposal <- submit bob do
+    createCmd PainterCleanerProposal with
+      painter = bob
+      cleaner = charlie
+      threshold = 500.0
+  painterCleanerRelationship <- submit charlie do
+    exerciseCmd painterCleanerProposal PainterCleanerProposal_Accept
+
+  paintAlicesHouseProposal <- submit alice do
+    createCmd PaintHouseProposal with
+      owner = alice
+      painter = bob
+      cleaner = charlie
+      price = 1000.0
+  submit bob do
+    exerciseCmd painterCleanerRelationship AcceptPaintHouse with
+      cid = paintAlicesHouseProposal
+
+  paintDonaldsTowerProposal1 <- submit donald do
+    createCmd PaintHouseProposal with
+      owner = donald
+      painter = bob
+      cleaner = eric
+      price = 1000000.0
+  submitMustFail bob do
+    exerciseCmd painterCleanerRelationship AcceptPaintHouse with
+      cid = paintDonaldsTowerProposal1
+  submitMustFail bob do
+    exerciseCmd paintDonaldsTowerProposal1 PaintHouseProposal_Accept
+
+  paintDonaldsTowerProposal2 <- submit donald do
+    createCmd PaintHouseProposal with
+      owner = donald
+      painter = bob
+      cleaner = bob
+      price = 1500000.0
+  submit bob do
+    exerciseCmd paintDonaldsTowerProposal2 PaintHouseProposal_Accept

@@ -1,0 +1,5 @@
+packages:
+- ./interfaces
+- ./main-v1
+- ./main-v2
+- ./test

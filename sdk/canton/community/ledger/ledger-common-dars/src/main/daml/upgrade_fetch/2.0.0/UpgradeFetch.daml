@@ -1,0 +1,15 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module UpgradeFetch where
+
+-- Modified template
+template Fetcher with
+  owner: Party
+  i: Optional Int
+ where
+  signatory owner
+  nonconsuming choice Fetch: Fetcher
+    with cid: ContractId Fetcher
+    controller owner
+    do fetch cid

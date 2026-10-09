@@ -1,0 +1,8 @@
+sdk-version: __VERSION__
+name: daml-patterns
+source: daml
+version: 0.0.1
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script

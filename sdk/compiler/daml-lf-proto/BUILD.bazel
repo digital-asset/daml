@@ -1,0 +1,70 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test", "generate_and_track_cabal")
+
+da_haskell_library(
+    name = "daml-lf-proto",
+    srcs = [
+        "src/DA/Daml/LF/Proto3/Archive.hs",
+    ],
+    hackage_deps = [
+        "base",
+        "containers",
+        "cryptonite",
+        "memory",
+        "bytestring",
+        "mtl",
+        "lens",
+        "text",
+        "vector",
+        "proto3-suite",
+        "unordered-containers",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto-decode",
+        "//compiler/daml-lf-proto-encode",
+        "//compiler/daml-lf-proto-util",
+        "//daml-lf/archive:daml_lf_archive_haskell_proto",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_test(
+    name = "test",
+    srcs = [
+        "test/DA/Daml/LF/Proto3/EncodeDecodeTest.hs",
+    ],
+    data = [
+        "//daml-script/test:script-test-v2.dev.dar",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "mtl",
+        "filepath",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "zip-archive",
+    ],
+    main_function = "DA.Daml.LF.Proto3.EncodeDecodeTest.entry",
+    src_strip_prefix = "test",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-proto-decode",
+        "//compiler/daml-lf-proto-encode",
+        "//compiler/damlc/daml-extract-dar",
+        "//compiler/damlc/daml-ide-core",
+        "//daml-lf/archive:daml_lf_archive_haskell_proto",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+generate_and_track_cabal("daml-lf-proto")

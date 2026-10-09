@@ -1,0 +1,71 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Daml.Script.Internal.Questions.Testing where
+
+import Daml.Script.Internal.LowLevel
+import Daml.Script.Internal.Questions.Exceptions ()
+import DA.Bifunctor
+import qualified DA.TextMap as TextMap
+import DA.Fail
+
+-- | MOVE Daml.Script.Internal
+-- Name of the Daml Script Command (or Question) that failed
+newtype CommandName = CommandName
+  with getCommandName : Text
+  deriving (Eq, Show)
+
+-- | MOVE Daml.Script.Internal
+-- Scala class name of the exception thrown
+newtype ErrorClassName = ErrorClassName
+  with getErrorClassName : Text
+  deriving (Eq, Show)
+
+-- | MOVE Daml.Script.Internal
+-- Result of the `getMessage` method on the Scala exception
+newtype ErrorMessage = ErrorMessage
+  with getErrorMessage : Text
+  deriving (Eq, Show)
+
+-- | HIDE
+data TryCommands = TryCommands with
+  act : LedgerValue
+instance IsQuestion TryCommands (Either (Text, Text, Text) x) where command = "TryCommands"
+
+-- | HIDE
+tupleToFailedCmd : (Text, Text, Text) -> FailedCmd
+tupleToFailedCmd (cmdName, errName, msg) =
+  FailedCmd with
+    commandName = CommandName cmdName
+    errorClassName = ErrorClassName errName
+    errorMessage = ErrorMessage msg
+
+-- | MOVE Daml.Script.Internal
+-- Internal testing tool that allows us to catch FailedCmds in the daml language
+tryCommands : Script a -> Script (Either FailedCmd a)
+tryCommands = fmap (first tupleToFailedCmd) . lift . TryCommands . toLedgerValue
+
+-- | MOVE Daml.Script.Internal
+-- Daml type representing a Scala exception thrown during script interpretation.
+-- Used for internal testing of the Daml Script library.
+data FailedCmd = FailedCmd with
+    commandName : CommandName
+    errorClassName : ErrorClassName
+    errorMessage : ErrorMessage
+  deriving (Eq, Show)
+
+-- | MOVE Daml.Script.Internal
+-- Runs a script and lifts FailedCmd scala exceptions into a FailureStatus, which can be caught via tryFailureStatus
+liftFailedCommandToFailureStatus : Script a -> Script a
+liftFailedCommandToFailureStatus act = tryCommands act >>= either (failWithStatus . failedCmdToFailureStatus) pure
+  where
+    failedCmdToFailureStatus : FailedCmd -> FailureStatus
+    failedCmdToFailureStatus (FailedCmd cmdName className errMessage) =
+      FailureStatus with
+        errorId = "UNHANDLED_EXCEPTION/Daml.Script:FailedCmd"
+        category = InvalidGivenCurrentSystemStateOther
+        message = getErrorMessage errMessage
+        meta = TextMap.fromList
+          [ ("commandName", getCommandName cmdName)
+          , ("className", getErrorClassName className)
+          ]

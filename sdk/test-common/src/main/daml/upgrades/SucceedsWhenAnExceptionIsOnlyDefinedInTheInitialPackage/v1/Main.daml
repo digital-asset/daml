@@ -1,0 +1,11 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+exception E with
+    field1 : Text
+  where
+    message field1
+
+data IsSchemaPackage = IsSchemaPackage { isSchemaPackage : Text }

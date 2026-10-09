@@ -1,0 +1,44 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
+module AnyContractKey where
+
+import Daml.Script
+import DA.Assert
+
+template T1
+  with
+    x : Int
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+
+template T1'
+  with
+    x : Int
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+
+template T2
+  with
+    y : Text
+    p : Party
+  where
+    signatory p
+    key (p, y) : (Party, Text)
+    maintainer key._1
+
+main = script do
+  p <- allocateParty "alice"
+  fromAnyContractKey @T1 (toAnyContractKey @T1 p) === Some p
+  fromAnyContractKey @T1' (toAnyContractKey @T1 p) === None
+  fromAnyContractKey @T2 (toAnyContractKey @T2 (p, "foobar")) === Some (p, "foobar")
+
+  fromAnyContractKey @T2 (toAnyContractKey @T1 p) === None
+  fromAnyContractKey @T1 (toAnyContractKey @T2 (p, "foobar")) === None

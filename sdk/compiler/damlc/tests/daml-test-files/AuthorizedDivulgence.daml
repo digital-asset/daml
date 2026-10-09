@@ -1,0 +1,183 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module AuthorizedDivulgence where
+
+import Daml.Script
+
+----------------------------------------------------------------------------------------------------
+-- Authorized fetch
+----------------------------------------------------------------------------------------------------
+
+template Secret with
+    p : Party
+    mySecret : Text
+  where
+    signatory p
+
+template RevealYourSecret with
+    p : Party
+    secretCid : ContractId Secret
+  where
+    signatory p
+
+template SecretFetchHelper with
+    p : Party
+  where
+    signatory p
+    choice SecretFetchExe : Secret
+      with cid : ContractId Secret
+      controller p
+      do
+        fetch cid
+
+test_authorizedFetch : Script ()
+test_authorizedFetch = script do
+  me <- allocateParty "Me"
+  spy <- allocateParty "Spy"
+  secretCid <- submit me (createCmd Secret {p = me, mySecret = "Password for my Swiss bank account is 874321"})
+  submit spy (createCmd RevealYourSecret {p = spy, secretCid = secretCid})
+  submitMustFail spy do
+    createAndExerciseCmd (SecretFetchHelper spy) (SecretFetchExe secretCid)
+    -- secret <- fetch secretCid
+    -- assert(secret.mySecret == "Password for my Swiss bank account is 874321")
+
+----------------------------------------------------------------------------------------------------
+-- Testing no divulgence of create arguments. We test with the classic swap scenario.
+----------------------------------------------------------------------------------------------------
+
+template Iou with
+    owner : Party
+    obligor : Party
+  where
+    signatory obligor
+    observer owner
+
+    choice Sell : ContractId Iou
+        with newOwner : Party
+        controller owner
+        do create this with owner = newOwner
+
+template Swap1 with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+
+    choice GoSwap1 : ContractId Swap2
+        with cid1 : ContractId Iou
+        controller p1
+        do create Swap2 with p1; p2; cid1
+
+    choice GoSwap1WithFetch : ContractId Swap2
+        with cid1 : ContractId Iou
+        controller p1
+        do
+          fetch cid1
+          create Swap2 with p1; p2; cid1
+
+template Swap2 with
+    p1 : Party
+    p2 : Party
+    cid1 : ContractId Iou
+  where
+    signatory p1
+    observer p2
+
+    choice GoSwap2 : ()
+        with cid2 : ContractId Iou
+        controller p2
+        do
+          exercise cid1 Sell with newOwner = p2
+          exercise cid2 Sell with newOwner = p1
+          pure ()
+
+-- We're testing the classic swap example.
+-- This scenario should fail because the cidIouAlice is not divulged to Bob.
+test_noDivulgenceOfCreateArguments : Script ()
+test_noDivulgenceOfCreateArguments = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  cidIouAlice <- submit alice $ createCmd $ Iou {owner = alice, obligor = alice}
+  cidIouBob <- submit bob $ createCmd $ Iou {owner = bob, obligor = bob}
+  cidSwap1 <- submit alice $ createCmd $ (Swap1 alice bob)
+  cidSwap2 <- submit alice $ exerciseCmd cidSwap1 (GoSwap1 cidIouAlice)
+  submitMustFail bob $ exerciseCmd cidSwap2 (GoSwap2 cidIouBob)
+
+-- If we fetch the contract in the GoSwap1 choice, then the contract will be divulged to Bob and the
+-- swap scenario passes.
+-- @ERROR range=112:1-112:26; Attempt to fetch or exercise a contract not visible to the reading parties.
+test_noDivulgenceForFetch : Script ()
+test_noDivulgenceForFetch = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  cidIouAlice <- submit alice $ createCmd $ Iou {owner = alice, obligor = alice}
+  cidIouBob <- submit bob $ createCmd $ Iou {owner = bob, obligor = bob}
+  cidSwap1 <- submit alice $ createCmd $ (Swap1 alice bob)
+  cidSwap2 <- submit alice $ exerciseCmd cidSwap1 (GoSwap1WithFetch cidIouAlice)
+  submit bob $ exerciseCmd cidSwap2 (GoSwap2 cidIouBob)
+
+----------------------------------------------------------------------------------------------------
+-- Testing divulgence of target contract ids of choices.
+----------------------------------------------------------------------------------------------------
+
+template C
+  with
+    p1: Party
+    p2: Party
+  where
+    signatory p1
+    observer p2
+
+    choice Delegate : ContractId D
+      controller p2
+      do create $ D p1 p2
+
+
+template D
+  with
+    p1: Party
+    p2: Party
+  where
+    signatory p1, p2
+    choice GoD : ContractId E
+      controller p1
+      do
+        -- We create a contract right before exercising. p2 can't know about it and will only learn of
+        -- it when he exercises the choice in the validation.
+        cid <- create $ E p1 p2
+        exercise cid DoSomething
+        pure cid
+
+template E
+  with
+    p1: Party
+    p2: Party
+  where
+    signatory p1
+    observer p2
+
+    nonconsuming choice DoSomething : ()
+      controller p2
+      do pure ()
+
+template EFetchHelper with
+    p : Party
+  where
+    signatory p
+    choice EFetchExe : E
+      with cid : ContractId E
+      controller p
+      do
+        fetch cid
+
+-- We test that target contract id's of choices are divulged to parties.
+test_divulgeChoiceTargetContractId : Script E
+test_divulgeChoiceTargetContractId = script do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  cidC <- submit alice $ createCmd $ C alice bob
+  cidD <- submit bob $ exerciseCmd cidC Delegate
+  cidE <- submit alice $ exerciseCmd cidD GoD
+  submit bob $ createAndExerciseCmd (EFetchHelper bob) (EFetchExe cidE)

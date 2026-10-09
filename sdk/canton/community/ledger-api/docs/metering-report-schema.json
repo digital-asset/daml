@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Metering Report",
+  "type": "object",
+  "properties": {
+    "participant":{
+      "type": "string"
+    }, 
+    "request": {
+      "type": "object",
+      "properties": {
+        "from": { 
+          "type": "string" ,
+          "format": "date-time"
+        },
+        "to": { 
+          "type": "string",
+          "format": "date-time"
+        },
+        "application": { 
+          "type": "string" 
+        }
+      },
+      "required": [ "from" ]
+    },
+    "final": {
+      "type": "boolean"
+    }, 
+    "applications": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "application": { 
+            "type": "string" 
+          },
+          "events": { 
+            "type": "number" 
+          }
+        },
+        "required": [ "application", "events" ]     
+      }
+    },
+    "check": {
+      "type": "object",
+      "properties": {
+        "scheme": { 
+          "type": "string" 
+        },
+        "digest": { 
+          "type": "string" 
+        }
+			},
+  		"required": [ "scheme", "digest" ]
+		}
+  },
+  "required": [ "participant", "request", "final", "applications", "check" ]
+  
+}

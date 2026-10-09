@@ -1,0 +1,120 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+    "scala_source_jar",
+    "scaladoc_jar",
+)
+load("//bazel_tools:pom_file.bzl", "pom_file")
+load("@os_info//:os_info.bzl", "is_windows")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("//bazel_tools/packaging:packaging.bzl", "package_oci_component")
+
+da_scala_library(
+    name = "codegen-main-lib",
+    srcs = glob(["src/main/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_circe_circe_core",
+    ],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        "//daml-assistant/scala-daml-package-config",
+        "//daml-lf/data",
+        "//language-support/java/codegen:lib",
+        "//language-support/js/codegen:lib",
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+)
+
+da_scala_binary(
+    name = "codegen-main",
+    srcs = glob(["src/main/**/*.scala"]),
+    main_class = "com.daml.codegen.CodegenMain",
+    scala_deps = [
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_circe_circe_core",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-assistant/scala-daml-package-config",
+        "//daml-lf/data",
+        "//language-support/java/codegen:lib",
+        "//language-support/js/codegen:lib",
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+)
+
+########################################################
+####  Unit Tests
+########################################################
+da_scala_test(
+    name = "test",
+    srcs = glob(["src/test/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+    ],
+    deps = [
+        ":codegen-main-lib",
+        "//daml-assistant/scala-daml-package-config",
+        "//daml-lf/data",
+        "//language-support/java/codegen:lib",
+        "//language-support/js/codegen:lib",
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+)
+
+########################################################
+####  Distrib
+########################################################
+package_oci_component(
+    name = "codegen-oci",
+    component_manifest = ":component.yaml",
+    platform_agnostic = True,
+    resources = [
+        ":binary.jar",
+    ],
+    tags = ["no-cache"],
+    visibility = ["//visibility:public"],
+)
+
+copy_file(
+    name = "binary",
+    src = "//language-support/codegen-main:codegen-main_distribute.jar",
+    out = "binary.jar",
+    allow_symlink = True,
+    tags = ["maven_coordinates=com.daml:codegen-jvm-main:__VERSION__"],
+    visibility = ["//visibility:public"],
+)
+
+pom_file(
+    name = "binary_pom",
+    target = ":binary",
+    visibility = ["//visibility:public"],
+)
+
+# Create empty Scaladoc JAR for uploading to Maven Central
+scaladoc_jar(
+    name = "binary_scaladoc",
+    srcs = [],
+    tags = ["scaladoc"],
+    deps = [],
+) if is_windows == False else None
+
+# Create empty Sources JAR for uploading to Maven Central
+scala_source_jar(
+    name = "binary_src",
+    srcs = [],
+)
