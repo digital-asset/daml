@@ -32,9 +32,25 @@ it is an imaginary database that represents the union of all parties' databases.
 .. image:: ./images/da-ledger-model.svg
    :alt: A conceptual diagram of the Virtual Global Ledger.
 
+The ledger is fundamentally a record of interactions between actors resulting in shared facts that are stored as **contracts**.
+
+The actors on the ledger are called **parties**. Parties are the entities that authorize actions,
+sign transactions, and hold specific viewing rights. They can represent the people, organizations, or
+automated systems participating in a workflow. When parties interact and agree on a set of facts or
+obligations, that agreement is recorded on the ledger as a **contract**. A contract holds the actual data or state of the
+ledger at any given time. Every contract is assigned a unique, system-generated **contract ID** so the
+ledger can track its lifecycle.
+
+A contract is instantiated from a blueprint known as a **template**, which defines the rules of engagement with it.
+A template specifies what data the contract must contain, who is required to authorize it, and what subsequent
+actions (called **choices**) parties can take on it.
+
+A contract can also optionally be assigned a **contract key**, which is a unique, human-readable identifier tied to
+real-world data that allows parties to easily look up and interact with the contract over time.
+
 The Ledger Model defines:
 
-  #. What the changes and the ledgers looks like - the :ref:`structure <ledger-structure>` of the Canton Ledger
+  #. What the changes and the ledgers look like - the :ref:`structure <ledger-structure>` of the Canton Ledger
   #. Who sees which changes and data - the :ref:`privacy model <da-model-privacy>` for the Canton Ledger
   #. What changes to the ledger are allowed and who can request them - the integrity model for the Canton Ledger
 
@@ -77,10 +93,10 @@ The ``counterparty`` can accept the proposal with the ``Accept`` choice to creat
    :end-before: SNIPPET-PROPOSAL-END
 
 .. .. toctree::
-   :maxdepth: 3
-   ledger-structure
-   ledger-privacy
-   ledger-validity
-   ledger-integrity
-   ledger-daml
-   ledger-exceptions
+:maxdepth: 3
+ledger-structure
+ledger-privacy
+ledger-validity
+ledger-integrity
+ledger-daml
+ledger-exceptions

@@ -11,11 +11,16 @@ Causality
    Update so that the DAG structure of ledgers are reflected directly.
    This should greatly simplify the formalism here.
 
+To understand causality, we must distinguish between the theoretical model (Daml Ledger Model) and the real-world system (Daml Ledger).
+**The Daml Ledger Model** often assumes a single, global timeline where every transaction is strictly ordered. This
+simplification makes the ledger's logic easier to define. **A Daml Ledger** is a distributed system that
+does not totally order all transactions. Because forcing a global order on unrelated events is inefficient, real-world
+ledgers use a **partial order**.
 
-Daml ledgers do not totally order all transactions.
-So different parties may observe two transactions on different Participant Nodes in different orders via the :externalref:`gRPC Ledger API <ledger-api-services>`.
-Moreover, different Participant Nodes may output two transactions for the same party in different orders.
-This document explains the ordering guarantees that Daml ledgers do provide, by :ref:`example <causality-examples>` and formally via the concept of :ref:`causality graphs <causality-graph>` and :ref:`local ledgers <local-ledger-structure>`.
+In practice, this means different parties may observe two transactions on different Participant Nodes in different orders
+via the :externalref:`gRPC Ledger API <ledger-api-services>`. Moreover, different Participant Nodes may output two transactions for the same party in different orders.
+This document explains the ordering guarantees that Daml ledgers do provide, by :ref:`example <causality-examples>` and
+formally via the concept of :ref:`causality graphs <causality-graph>` and :ref:`local ledgers <local-ledger-structure>`.
 
 The presentation assumes that you are familiar with the following concepts:
 
@@ -28,7 +33,7 @@ The presentation assumes that you are familiar with the following concepts:
 Causality Examples
 ******************
 
-A Daml Ledger need not totally order all transaction, unlike ledgers in the Daml Ledger Model.
+A Daml Ledger need not totally order all transaction, unlike the assumption on ledgers in the Daml Ledger Model.
 The following examples illustrate these ordering guarantees of the Ledger API.
 They are based on the paint counteroffer workflow from the Daml Ledger Model's :ref:`privacy section <da-model-privacy>`,
 ignoring the total ordering coming from the Daml Ledger Model.
@@ -71,14 +76,14 @@ and the **Fetch** commit comes after the **Create** of the `Iou`.
 
 .. _causality-example-non-consuming:
 
-Non-Consuming Usages in Different Commits May Appear in Different Orders
+Non-Consuming Usages in Different Unordered Commits May Appear in Different Orders
 ========================================================================
 
 Suppose that the Bank exercises a non-consuming choice on the `Iou Bank A` without consequences while Alice creates the `CounterOffer`.
 In the ledger shown below, the Bank's commit comes before Alice's commit.
    
 .. https://app.lucidchart.com/documents/edit/1923969f-7bf2-45e0-a68d-6a0b2d308883/0_0
-   
+
 .. image:: ./../images/counteroffer-double-fetch.svg
    :align: center
    :width: 100%
@@ -220,7 +225,7 @@ Definition »Causal consistency for a contract«
   * If `X` is not empty, then `X` contains exactly one **Create** action.
     This action precedes all other actions in `X` in `G`\ 's action order.
 
-  * If `X` contains a consuming **Exercise** action `act`, then `act` follows all actions in `X` other than `act` in `G`\ 's action order.
+  * If `X` contains a consuming **Exercise** action `act`, then `act` follows all other actions in `X` in `G`\ 's action order.
 
 Definition »Causal consistency for a key«
   Let `G` be a causality graph and `X` be a set of actions on a key `k` that belong to transactions in `G`.
@@ -238,7 +243,7 @@ Definition »Causal consistency for a key«
 Definition »Consistency for a causality graph«
   Let `X` be a subset of the actions in a causality graph `G`.
   Then `G` is **consistent** on `X` (or `X`-**consistent**) if `G` is causally consistent for all contracts `c` on the set of actions on `c` in `X` and for all keys `k` on the set of actions on `k` in `X`.
-  `G` is **consistent** if `G` is consistent on all the actions in `G`.
+  `G` is **consistent** if `G` is consistent on the set of all the actions in `G`.
 
 When edges are added to an `X`-consistent causality graph such that it remains acyclic and transitively closed,
 the resulting graph is again `X`-consistent.
@@ -248,7 +253,7 @@ So it makes sense to consider minimal consistent causality graphs.
 
 Definition »Minimal consistent causality graph«
   An `X`-consistent causality graph `G` is `X`\ -**minimal** if no strict subgraph of `G` (same vertices, fewer edges) is an `X`-consistent causality graph.
-  If `X` is the set of all actions in `G`, then `X` is omitted.
+  If `X` is the set of all actions in `G`, then the prefix `X` is omitted and the graph is simply called **minimal**.
 
 For example, the :ref:`above causality graph for the split counteroffer workflow <causality-graph-counteroffer-split>` is consistent.
 This causality graph is minimal, as the following analysis shows:
@@ -256,9 +261,9 @@ This causality graph is minimal, as the following analysis shows:
 +----------------+--------------------------------------------------------------------------------------+
 | Edge           | Justification                                                                        |
 +================+======================================================================================+
-| `tx1` -> `tx3` | Alice's `Iou` **Create** action of  must precede the **Fetch** action.               |
+| `tx1` -> `tx3` | Alice's `Iou` **Create** action must precede the **Fetch** action.               |
 +----------------+--------------------------------------------------------------------------------------+
-| `tx2` -> `tx4` | The `CounterOffer` **Create** action of  must precede the **Exercise** action.       |
+| `tx2` -> `tx4` | The `CounterOffer` **Create** action  must precede the **Exercise** action.       |
 +----------------+--------------------------------------------------------------------------------------+
 | `tx3` -> `tx4` | The consuming **Exercise** action on Alice's `Iou` must follow the **Fetch** action. |
 +----------------+--------------------------------------------------------------------------------------+
@@ -285,7 +290,7 @@ At the bottom, `tx5` asserts that there is no key for an Account contract for th
 Then, `tx6` creates an such account with balance 0 and `tx7` deposits the painter's `Iou` from `tx4` into the account, updating the balance to 1.
 
 .. https://app.lucidchart.com/documents/edit/b9d84f0f-e459-427c-86b8-c767662af326
-   
+
 .. image:: ./../images/causality-consistency-examples.svg
    :align: center
    :width: 100%

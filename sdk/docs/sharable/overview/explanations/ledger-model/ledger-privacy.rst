@@ -247,7 +247,7 @@ Projecting the ledger of the complete DvP example yields the following projectio
 
 Examine each party's projection in turn:
 
-#. Alice sees all of the first, thrid, and forth commit
+#. Alice sees all of the first, third, and fourth commit
    as she is an informee of all root actions.
    In contrast, Alice does not see anything of the second commit,
    as she is not a stakeholder of Bob's ``SimpleAsset`` of 1 USD.
@@ -258,7 +258,7 @@ Examine each party's projection in turn:
    This effect is discussed below under :ref:`retroactive divulgence <da-model-divulgence>`.
 
 #. Bob's projection is analogous to Alice's:
-   He sees everything of the second, third, and forth commit,
+   He sees everything of the second, third, and fourth commit,
    but nothing of the first commit and instead merely contract #1 as an input.
 
 #. Banks 1 and 2 only see the commits in which they create their ``SimpleAsset`` and the ``Transfer`` Exercises on them.
