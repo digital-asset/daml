@@ -40,7 +40,7 @@ Intuitively, the allowed actions are:
    #. The exercise kind matches.
    #. All assertions in the update block hold for the given choice arguments.
    #. Create, exercise, fetch and key statements in the update block are represented
-      as create, exercise and fetch actions and key assertions in the consequences of the exercise
+      as create, exercise, fetch and query-by-key actions in the consequences of the exercise
       action.
 
 #. **Fetch** actions on a contract corresponding to
@@ -50,10 +50,15 @@ Intuitively, the allowed actions are:
    `ch` on a contract `c1`, and the fetched contract ID resolves to a contract `c2`, then the actors are defined as the
    intersection of (1) the signatories of `c1` union the controllers of `ch` with (2) the stakeholders of `c2`.
 
-   A :externalref:`fetchbykey` statement also produces a **Fetch** action with the actors determined in the same way.
-   A :externalref:`lookupbykey` statement that finds a contract also translates into a **Fetch** action, but all maintainers of the key are the actors.
+   A :externalref:`fetchbykey` statement also produces a **Fetch** action with the actors determined in the same way,
+   except that its by-key flag is set.
+   Likewise, an ``exerciseByKey`` statement produces an **Exercise** action with the by-key flag set,
+   whose actors are the controllers of the choice as for an ordinary exercise.
 
-#. **NoSuchKey** assertions corresponding to a :externalref:`lookupByKey` update statement for the given key that does not find a contract.
+#. **QueryByKey** actions corresponding to a ``queryNByKey`` update statement for the given key.
+   The result of the action lists the contract IDs that the statement returned,
+   and the action is exhaustive if fewer contracts were returned than the statement asked for.
+   The maintainers of the key are the actors.
 
 An instance of a Daml template, that is, a **Daml contract**,
 is a triple of:
