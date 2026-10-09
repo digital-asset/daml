@@ -61,13 +61,17 @@ unpackDar miState darFile = do
     BSL.writeFile fullPath content
 
   let mainDalfContent = BSL.toStrict $ fromEntry mainDalf
-      ignoredPrefixes = ["daml-stdlib", "daml-prim", "daml-script", "daml3-script", mainPkgName <> "-" <> mainPkgVersion]
-      -- Filter dalfs first such that none start with `daml-stdlib` or `daml-prim`, `daml-script` or `daml3-script`
-      -- then that the package id of the dalf isn't in the LF for the main package
+      -- Filter out dalfs that damlc/dpm do not directly provide
+      -- Except keep daml-script-stable if unpacking daml-script or a daml-script-stable package, as grabbing those via dpm is a bit ugly
+      -- then filter out dalfs who's package-id isn't mentioned in the main-dalfs raw bytestring to get only direct deps
+      dalfFilter :: String -> Bool
+      dalfFilter entryName | "daml-script-stable" `isPrefixOf` entryName = mainPkgName == "daml-script" || "daml-script-stable" `isPrefixOf` mainPkgName
+      dalfFilter entryName = not $ any (`isPrefixOf` entryName) ["daml-stdlib", "daml-prim", mainPkgName <> "-" <> mainPkgVersion]
+
       dalfsToExpand =
         flip filter (zEntries archive) $ \entry ->
           takeExtension (eRelativePath entry) == ".dalf"
-            && not (any (\prefix -> prefix `isPrefixOf` takeBaseName (eRelativePath entry)) ignoredPrefixes)
+            && dalfFilter (takeBaseName $ eRelativePath entry)
             && BS.isInfixOf (BSC.pack $ thd3 $ extractPackageMetadataFromEntry entry) mainDalfContent
       -- Rebuild dalfs into full dars under dars directory
       darDepArchives = 
@@ -87,7 +91,8 @@ unpackDar miState darFile = do
   let isSdkPackage pkgName entry =
         takeExtension (eRelativePath entry) == ".dalf" && pkgName == fst3 (extractPackageMetadataFromEntry entry)
       includesSdkPackage pkgName = any (isSdkPackage pkgName) $ zEntries archive
-      sdkPackages = ["daml-script", "daml3-script", "daml-trigger"]
+      -- Drop main-package from sdkPackages such that unpacking daml-script itself doesn't lead to self dependency
+      sdkPackages = delete mainPkgName ["daml-script", "daml3-script", "daml-trigger"]
       deps = ["daml-prim", "daml-stdlib"] <> filter includesSdkPackage sdkPackages
       damlYamlContent = unlines $
         [ "sdk-version: " <> sdkVersion manifest

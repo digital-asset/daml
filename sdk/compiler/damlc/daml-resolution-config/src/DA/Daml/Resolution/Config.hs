@@ -11,6 +11,7 @@ module DA.Daml.Resolution.Config
   , resolutionFileEnvVar
   , readDependencyPackagesFromResolution
   , toPosixFilePath
+  , getDpmDependencyPaths
   , DependencyPackages (..)
   , ResolutionData (..)
   , PackageResolutionData (..)
@@ -25,7 +26,6 @@ import "zip-archive" Codec.Archive.Zip qualified as ZipArchive
 import Control.Applicative ((<|>))
 import Control.Exception
 import Control.Monad
-import Control.Monad.Extra
 import DA.Daml.Compiler.ExtractDar
 import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.Proto3.Archive.Decode qualified as Archive
@@ -171,29 +171,19 @@ expandDependencyPackages cachePath pkgResolution lfVersion dependencyPackages = 
     Left err -> throwIO $ ResolutionError $ T.unpack err
     Right resolvedSdkPackages -> do
       let (asDataDeps, asDeps) = partition snd resolvedSdkPackages
-      dataDeps <- addTransitiveDeps darInfos $ fmap fst asDataDeps
       pure $ DependencyPackages
         purePaths
         (dpRegularUncheckedDeps dependencyPackages <> fmap fst asDeps)
-        (dpDataDeps dependencyPackages <> dataDeps)
+        (dpDataDeps dependencyPackages <> fmap fst asDataDeps)
 
-
--- | To improve jump-to-definition in the IDE, we automatically add any transient dependency dars to the
--- list of data-dependencies to ensure their source code is available to the IDE. We look these up
--- via their package-id to ensure we're only ever adding existing packages
--- NOTE: this will bring the transitive deps into package-flag scope, such
--- that their modules can be imported directly. This could cause ambiguity issues in niche cases
--- See https://github.com/digital-asset/daml/issues/23344 for more detail
-addTransitiveDeps :: Map.Map FilePath (LF.PackageId, DalfInfoCacheEntry) -> [FilePath] -> IO [FilePath]
-addTransitiveDeps darInfos initialDeps = nubOrd <$> concatMapM addSingleTransitiveDep initialDeps
-  where
-    addSingleTransitiveDep :: FilePath -> IO [FilePath]
-    addSingleTransitiveDep fp = do
-      extractedDar <- extractDar fp
-      let packageIds = packageIdsFromPaths extractedDar
-          reverseDarInfoMap :: Map.Map LF.PackageId FilePath
-          reverseDarInfoMap = Map.fromList $ (\(fp, (pkgId, _)) -> (pkgId, fp)) <$> Map.toList darInfos
-      pure $ mapMaybe (`Map.lookup` reverseDarInfoMap) packageIds
+-- Given a list of package-ids
+-- Check the resolution dependencies for them and return filepaths for all that exist
+getDpmDependencyPaths :: CachePath -> ValidPackageResolution -> [LF.PackageId] -> IO [FilePath]
+getDpmDependencyPaths cachePath pkgResolution packageIds = do
+  darInfos <- getDarHeaderInfos cachePath pkgResolution
+  let reverseDarInfoMap :: Map.Map LF.PackageId FilePath
+      reverseDarInfoMap = Map.fromList $ (\(fp, (pkgId, _)) -> (pkgId, fp)) <$> Map.toList darInfos
+  pure $ mapMaybe (`Map.lookup` reverseDarInfoMap) packageIds
 
 unsafePackageVersionToComponentVersion :: LF.PackageVersion -> ComponentVersion
 unsafePackageVersionToComponentVersion (LF.PackageVersion t) =

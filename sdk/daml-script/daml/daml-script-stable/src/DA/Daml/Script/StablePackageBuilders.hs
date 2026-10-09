@@ -244,7 +244,7 @@ makeStableDars darDirPath pkgs = withComponentVersions $ do
         let archive =
               createArchive
                 pkgName
-                Nothing
+                (Just pkgVersion)
                 versionInfo
                 mainPkgId
                 mainPkgDalf

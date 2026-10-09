@@ -89,6 +89,7 @@ subIdeMessageHandler miState unblock ide bs = do
           let ideData = lookupSubIde (ideHome ide) ides
           sendPackageDiagnostic miState ideData
           unsafeSendSubIdeSTM ide $ LSP.FromClientMess LSP.SInitialized $ LSP.NotificationMessage "2.0" LSP.SInitialized (Just LSP.InitializedParams)
+        addDpmPackageDependencyDarsFromDatabase miState (ideHome ide)
         unblock
       LSP.FromServerRsp LSP.SShutdown (LSP.ResponseMessage {_id}) | maybe False isCoordinatorShutdownLspId _id -> handleExit miState ide
 
@@ -113,7 +114,7 @@ subIdeMessageHandler miState unblock ide bs = do
           -- SubIde containing the reference did not contain the definition, it returns a fake location in .daml and the name
           -- Send a new request to a new SubIde to find the source of this name
           Right (Just (TryGetDefinitionResult loc (Just name))) -> do
-            logDebug miState $ "Got name in result! Backup location is " <> show loc
+            logDebug miState $ "Got name in result: " <> show name <> ".\nBackup location is " <> show loc
             mSourceLocation <- Map.lookup (UnitId $ tgdnPackageUnitId name) <$> atomically (readTMVar $ misMultiPackageMappingVar miState)
             case mSourceLocation of
               -- Didn't find a home for this name, we do not know where this is defined, so give back the (known to be wrong)
