@@ -44,7 +44,8 @@ object ScriptLedgerClient {
       contractId: ContractId,
       choice: ChoiceName,
       argument: Value,
-      result: Value,
+      // Only set for top-level events, whose results become command results
+      result: Option[Value],
       childEvents: List[TreeEvent],
   ) extends TreeEvent
   final case class Created(
@@ -53,11 +54,42 @@ object ScriptLedgerClient {
       argument: Value,
       blob: Bytes,
   ) extends TreeEvent
+  // Nested events whose arguments the script cannot decode, e.g. because their package is unknown
+  // to the script. They keep the template id the ledger used.
+  final case class OpaqueCreated(
+      templateId: Identifier,
+      contractId: ContractId,
+  ) extends TreeEvent
+  final case class OpaqueExercised(
+      templateId: Identifier,
+      interfaceId: Option[Identifier],
+      contractId: ContractId,
+      choice: ChoiceName,
+      childEvents: List[TreeEvent],
+  ) extends TreeEvent
+
+  // What the script compiled a command's top-level event against.
+  sealed trait CommandTarget
+  // A template, in the version of its package the script used.
+  final case class TemplateTarget(packageId: PackageId) extends CommandTarget
+  // An interface: the ledger picked the template, not the script.
+  case object InterfaceTarget extends CommandTarget
 
   def transactionTreeToCommandResults(tree: TransactionTree): List[CommandResult] =
     tree.rootEvents.map {
       case c: Created => CreateResult(c.contractId)
-      case e: Exercised => ExerciseResult(e.templateId, e.interfaceId, e.choice, e.result)
+      case Exercised(templateId, interfaceId, _, choice, _, Some(result), _) =>
+        ExerciseResult(templateId, interfaceId, choice, result)
+      case e: Exercised =>
+        throw new RuntimeException(
+          s"Unexpected top-level exercise of ${e.templateId}:${e.choice} without result"
+        )
+      case e: OpaqueCreated =>
+        throw new RuntimeException(s"Unexpected opaque top-level create of ${e.templateId}")
+      case e: OpaqueExercised =>
+        throw new RuntimeException(
+          s"Unexpected opaque top-level exercise of ${e.templateId}:${e.choice}"
+        )
     }
 
   final case class SubmitFailure(
