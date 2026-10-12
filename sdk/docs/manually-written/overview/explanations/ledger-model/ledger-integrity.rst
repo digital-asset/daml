@@ -6,7 +6,7 @@
 Integrity
 #########
 
-The section on the :ref:`ledger structure <ledger-structure>` section answered the question “What does the Ledger looks like?” by introducing a hierarchical format to record the party interactions as changes to the Ledger.
+The section on the :ref:`ledger structure <ledger-structure>` answered the question “What does the Ledger look like?” by introducing a hierarchical format to record the party interactions as changes to the Ledger.
 The section on :ref:`privacy <da-model-privacy>` answered the question “Who sees which changes and data?” by introducing projections.
 This section addresses the question "Who can request which changes?" by defining which ledgers are valid.
 
@@ -148,7 +148,7 @@ Interaction with projection
 ===========================
 
 Apart from introducing the validity notion, this page also discusses how validity interacts with privacy, which is defined via :ref:`projection <da-model-projections>`.
-To that end, the sections on the different validity conditions analyse the prerequisites under what the following two properties hold:
+To that end, the sections on the different validity conditions analyse the prerequisites under which the following two properties hold:
 
 * **Preservation**: If the Ledger adheres to a condition, then so do the projections.
   This property ensures that a valid Ledger does not appear as invalid to individual parties,
@@ -180,23 +180,19 @@ This section introduces the notions that are needed to make this precise:
 Execution order
 ===============
 
-The meaning of "before" and "after" is given by establishing an execution order on the :ref:`nodes <def-action>` of a ledger.
-The ledger's graph structure already defines a :ref:`happens-before order <da-ledger-definition>` on ledger commits.
-The execution order extends this happens-before order to all the nodes within the commits' transactions
-so that "before" and "after" are also defined for the nodes of a single transaction.
-This is necessary because a contract can be created and used multiple times within a transaction.
+The meaning of "before" and "after" for actions has been formally defined by the **Global Execution Order** (also called execution order in this section)
+introduced in the :ref:`ledger structure <ledger-structure>` section.
+
+Recall that this (global) execution order is established by seamlessly combining two levels of hierarchy:
+1. The **happens-before** order of the ledger, which orders the commits themselves.
+2. The **Transaction Execution Order**, which strictly orders the discrete nodes within each commit (corresponding to a pre-order traversal of the transaction forest).
+
+This combination is necessary because a contract can be created and used multiple times within a single transaction.
+
 In the ``AcceptAndSettle`` :ref:`action of the DvP example <da-dvp-propose-accept-and-settle-action>`, for example,
 contract #3 is used twice (once in the non-consuming exercise at the root and once consumingly in the first consequence)
 and contract #4 is created and consumed in the same action.
 
-.. admonition:: Definiton: execution order
-
-   For two distinct nodes `n`:sub:`1` and `n`:sub:`2` within the same action or transaction, `n`:sub:`1` **executes before** `n`:sub:`2`
-   if `n`:sub:`1` appears before `n`:sub:`2` in the `preorder traversal <https://en.wikipedia.org/wiki/Tree_traversal#Pre-order,_NLR>`_ of the (trans)action, noting that the transaction is an ordered forest.
-   For a ledger, every node in commit `c`:sub:`1` **executes before** every node in commit `c`:sub:`2`
-   if the commit `c`:sub:`1` happens before `c`:sub:`2`.
-
-     
 Diagrammatically, the execution order is given by traversing the trees from root to leaf and left to right:
 the node of a parent action executes before the nodes in the subactions, and otherwise the nodes on the left precede the nodes on the right.
 For example, the following diagram shows the execution order with bold green arrows for the running DvP example.
@@ -231,7 +227,7 @@ which may use as inputs the contracts created outside of the piece.
 
 .. _def-internal-consistency:
 
-.. admonition:: Definition: internal consistency
+.. admonition:: Definition: internal consistency for a contract
 
    An action, transaction, or ledger is **internally consistent for a contract** `c`
    if for any two distinct nodes `n`:sub:`1` and `n`:sub:`2` on `c` in the action, transaction, or ledger,
@@ -269,7 +265,7 @@ For example, the whole ledger shown above in the :ref:`execution order example <
 
 In contrast, the next diagram shows that the ledger in the :ref:`consistency violation example <da-model-consistency-violation>` is not internally consistent for contract #1.
 This contract appears in nodes ①, ②, and ④.
-The second condition is violated but violated for `n`:sub:`1` = ④ and `n`:sub:`2` = ② as ④ does not execute before ②.
+The second condition is violated only for `n`:sub:`1` = ④ and `n`:sub:`2` = ② as ④ does not execute before ②.
 Note that the second condition is satisfied for `n`:sub:`1` = ② and `n`:sub:`2` = ④, but the definition quantifies over both pairs (②, ④) and (④, ②).
 The first condition is also satisfied because the Create node ① executes before both other nodes ② and ④.
 
@@ -352,7 +348,7 @@ then so is the (trans)action or ledger itself.
 This statement can be shown with a similar argument.
 
 Importantly, reflection requires a *signatory* of the contracts in `P`, not just a stakeholder.
-The following example shows that the propery does not hold if `P` contains a stakeholder, but no signatory.
+The following example shows that the property does not hold if `P` contains a stakeholder, but no signatory.
 To that end, we extend the ``SimpleAsset`` template with a non-consuming ``Present`` choice
 so that the issuer and owner can show the asset to a choice observer ``viewer``:
 
@@ -432,8 +428,8 @@ This essentially follows from two observations:
   That is, all inputs and outputs of a transaction are explicitly captured in contracts, choice arguments and exercise results.
 
 Not every such projection can be expressed as a set of commands on the Ledger API, though.
-The Ledger Model considers this lack of expressivity artificial, because future versions of the Ledger API may remove such restrictions.
-There are two kinds of cases where ledger API commads are less expressive than the ledger model defined here.
+The Ledger Model considers this lack of expressivity artificial, therefore future versions of the Ledger API may remove such restrictions.
+There are two kinds of cases where ledger API commands are less expressive than the ledger model defined here.
 First, a projection may contain a Fetch node at the root, like the :ref:`projection of the DvP <da-dvp-acceptandsettle-projection>` ``AcceptAndSettle`` choice for Bank 2.
 Yet, there is no Ledger API command to fetch a contract, as there are only commands for creating and exercising contracts.
 Second, the Ledger API command language does not support feeding the result of an Exercise as an argument to a subsequent command.
@@ -444,7 +440,7 @@ For example, suppose that the ``AcceptAndSettle`` choice of ``ProposeSimpleDvP``
    :start-after: SNIPPET-ACCEPTANDSETTLEDVP-BEGIN
    :end-before: SNIPPET-ACCEPTANDSETTLEDVP-END
 
-Bob can then execute accept and settle the DvP in one transaction by creating a helper contract and immediately exercising the ``Execute`` choice.
+Bob can then execute the AcceptAndSettle choice on the DvP in one transaction by creating a helper contract and immediately exercising the ``Execute`` choice.
 
 .. literalinclude:: ./daml/SimpleDvP.daml
    :language: daml
@@ -495,9 +491,9 @@ This section introduces the notions to formalize this:
 
 * The :ref:`authorization context <da-ledgers-authorization-context>` captures the parties who have actually authorized an action.
 
-* `Well-authorization :ref:<da-ledgers-authorization-rules>` demands that the authorization context includes all the required authorizers.
+*:ref:`Well-authorization <da-ledgers-authorization-rules>` demands that the authorization context includes all the required authorizers.
 
-The running example of :ref:`Bob skipping the propose-accept workflow <da-dvp-ledger-create-auth-failure>` will be used to show how node ③ requires more authorizers than its authorization context provides, and is thus not well auhtorized.
+The running example of :ref:`Bob skipping the propose-accept workflow <da-dvp-ledger-create-auth-failure>` will be used to show how node ③ requires more authorizers than its authorization context provides, and is thus not well authorized.
 For ease of reference, the ledger diagram is repeated below.
 
 .. https://lucid.app/lucidchart/cd2cef11-6f69-4f9c-8e1e-d79488547de2/edit
@@ -791,13 +787,13 @@ For example, consider a Ledger with a root action that no honest party is allowe
 So none of the projections contains this root action and therefore the projections cannot talk about its conformance or internal well-authorization.
 Fortunately, this is not necessary either, because we care only about the pieces of the Ledger that are visible to some honest party.
 
-More formally, two Ledgers are said to be **equivalent** for a set of parties `Q` if the projections of the two Ledgers to `Q` are the same.
+More formally, two Ledgers :math:`L` and :math:`L'` are said to be **equivalent** for a set of parties `Q` if the projections of the two Ledgers to `Q` are the same, i.e.
+if :math:`\text{Proj}_P(L)=\text{Proj}_P(L')`.
 Then reflection holds in the sense that there is an equivalent weakly valid Ledger.
-Let `F` be a set of sets of parties whose union contains the set of parties `Q`.
-If for every set `P` in `F`, the projection of a Ledger `L` to `P` is weakly valid for `P` insterected with `Q`,
-then the projection of `L` to `Q` is weakly valid.
-Note that this projection of `L` to `Q` is equivalent to `L` for `Q` due to the :ref:`absorbtion property of projection <da-model-transaction-projection>`.
-
+Let `F` be a set of sets of parties whose union contains the set of parties `Q`, :math:`Q \subseteq \bigcup_{P \in \mathcal{F}} P`;
+If for every set `P` in `F`, :math:`\text{Proj}_P(L)` is weakly valid for :math:`P \cap Q`, parties in both `P` and `Q`,
+then :math:`\text{Proj}_Q(L)` is weakly valid.
+Note that for parties in `Q`, :math:`\text{Proj}_Q(L)` is equivalent to `L`,  due to the :ref:`absorption property of projection <da-model-transaction-projection>`.
 
 ..
   parking lot
@@ -811,29 +807,29 @@ Note that this projection of `L` to `Q` is equivalent to `L` for `Q` due to the 
 
 
 .. 
-  The next section discusses the criteria that rule out the above examples as
-  invalid ledgers.
-  
-  Ledger projections do not always satisfy the definition of
-  consistency, even if the ledger does. For example, in P's view, `Iou Bank A` is
-  exercised without ever being created, and thus without being made
-  active. Furthermore, projections can in general be
-  non-conformant. However, the projection for a party `p` is always
-  
-  - internally consistent for all contracts,
-  - consistent for all contracts on which `p` is a stakeholder, and
-  - consistent for the keys that `p` is a maintainer of.
-  
-  In other words,
-  `p` is never a stakeholder on any input contracts of its projection. Furthermore, if the
-  contract model is **subaction-closed**, which
-  means that for every action `act` in the model, all subactions of
-  `act` are also in the model, then the projection is guaranteed to be
-  conformant. As we will see shortly, Daml-based contract models are
-  conformant. Lastly, as projections carry no information about the
-  requesters, we cannot talk about authorization on the level of
-  projections.
-  
+The next section discusses the criteria that rule out the above examples as
+invalid ledgers.
+
+Ledger projections do not always satisfy the definition of
+consistency, even if the ledger does. For example, in P's view, `Iou Bank A` is
+exercised without ever being created, and thus without being made
+active. Furthermore, projections can in general be
+non-conformant. However, the projection for a party `p` is always
+
+- internally consistent for all contracts,
+- consistent for all contracts on which `p` is a stakeholder, and
+- consistent for the keys that `p` is a maintainer of.
+
+In other words,
+`p` is never a stakeholder on any input contracts of its projection. Furthermore, if the
+contract model is **subaction-closed**, which
+means that for every action `act` in the model, all subactions of
+`act` are also in the model, then the projection is guaranteed to be
+conformant. As we will see shortly, Daml-based contract models are
+conformant. Lastly, as projections carry no information about the
+requesters, we cannot talk about authorization on the level of
+projections.
+
 
 
   Contract state
@@ -858,18 +854,18 @@ Note that this projection of `L` to `Q` is equivalent to `L` for `Q` due to the 
   The figures below visualize the state of different contracts at all points in the example ledger.
 
   .. https://www.lucidchart.com/documents/edit/19226d95-e8ba-423a-8546-e5bae6bd3ab7
-  .. figure:: ./images/consistency-paint-offer-activeness.svg
-     :align: center
-     :width: 100%
-     :alt: The first time sequence from above. Every action in the first and second commits is inexistent; in the third commit, Exe A (PaintOffer P A P123) is active while all the actions below it are archived.
+.. figure:: ./images/consistency-paint-offer-activeness.svg
+:align: center
+:width: 100%
+:alt: The first time sequence from above. Every action in the first and second commits is inexistent; in the third commit, Exe A (PaintOffer P A P123) is active while all the actions below it are archived.
 
      Activeness of the `PaintOffer` contract
 
   .. https://www.lucidchart.com/documents/edit/19226d95-e8ba-423a-8546-e5bae6bd3ab7
-  .. figure:: ./images/consistency-alice-iou-activeness.svg
-     :align: center
-     :width: 100%
-     :alt: The same time sequence as above, but with PaintOffer P A P123 in the second commit and Exe A (Iou Bank A) in the third commit also active.
+.. figure:: ./images/consistency-alice-iou-activeness.svg
+:align: center
+:width: 100%
+:alt: The same time sequence as above, but with PaintOffer P A P123 in the second commit and Exe A (Iou Bank A) in the third commit also active.
 
      Activeness of the `Iou Bank A` contract
 
