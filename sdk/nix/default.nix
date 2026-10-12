@@ -71,8 +71,6 @@ in rec {
 
     mvn = bazel_dependencies.mvn;
 
-    zinc = pkgs.callPackage ./tools/zinc {};
-
     jdk    = bazel_dependencies.jdk17;
     java   = jdk;
     javac  = jdk;
