@@ -101,6 +101,28 @@ The logical operators in Daml are:
 
 for ``Bool`` variables ``a`` and ``b``.
 
+Short-circuit evaluation
+========================
+
+Daml uses strict evaluation by default: in a function application
+``f x y``, both ``x`` and ``y`` are fully evaluated before ``f`` is
+applied. The following functions are the exceptions and use
+short-circuit evaluation:
+
+- ``&&`` (from ``Prelude``): if the first argument evaluates to
+  ``False``, the second argument is not evaluated.
+- ``||`` (from ``Prelude``): if the first argument evaluates to
+  ``True``, the second argument is not evaluated.
+- ``when`` (from ``DA.Action``): if the first argument evaluates to
+  ``False``, the second argument (an action) is not evaluated.
+- ``unless`` (from ``DA.Action``): if the first argument evaluates to
+  ``True``, the second argument (an action) is not evaluated.
+
+These are the only operators in the standard library that
+short-circuit; all other functions evaluate every argument before being
+applied. The behavior of ``&&`` and ``||`` matches the equivalent
+operators in most strict languages such as C and Java.
+
 .. _daml-ref-if-then-else:
 
 If-then-else
