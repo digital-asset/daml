@@ -347,7 +347,7 @@ java_binary(
 
 daml_test(
     name = "ledger-api-daml-test",
-    timeout = "moderate" if is_windows else "short",
+    timeout = "moderate",
     srcs = glob(["source/sdk/sdlc-howtos/applications/integrate/grpc/code-snippets/**/*.daml"]),
     additional_compiler_flags = [
         "-Wupgrade-interfaces",
@@ -405,7 +405,7 @@ daml_test(
 
 daml_test(
     name = "daml-ref-daml-test",
-    timeout = "moderate" if is_windows else "short",
+    timeout = "moderate",
     srcs = glob(["source/sdk/reference/daml/code-snippets/**/*.daml"]),
     additional_compiler_flags = [
         "-Wupgrade-interfaces",
@@ -463,7 +463,7 @@ daml_test(
 
 daml_test(
     name = "daml-intro-daml-test-base",
-    timeout = "moderate" if is_windows else "short",
+    timeout = "moderate",
     srcs = glob(
         ["source/sdk/tutorials/smart-contracts/daml/**/*.daml"],
         exclude = [
