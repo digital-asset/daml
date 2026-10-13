@@ -14,7 +14,8 @@ import com.digitalasset.daml.lf.engine.free.Free
 import com.digitalasset.daml.lf.engine.Result.lookupHandler
 import com.digitalasset.daml.lf.engine.script.Runner.IdeLedgerContext
 import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
-  ScriptLedgerClient => UnversionedScriptLedgerClient
+  IdeLedgerClient => UnversionedIdeLedgerClient,
+  ScriptLedgerClient => UnversionedScriptLedgerClient,
 }
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.digitalasset.daml.lf.script.IdeLedger
@@ -32,6 +33,7 @@ import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.script.converter.ConverterException
 import com.digitalasset.canton.logging.NamedLoggerFactory
 
+import java.nio.file.{Files, Path}
 import scala.concurrent.{ExecutionContext, Future}
 
 private[lf] object Runner {
@@ -65,14 +67,32 @@ private[lf] class Runner(
   private val loggerFactory: NamedLoggerFactory =
     NamedLoggerFactory("daml-script", "Daml Script")
 
-  private val initialClientsV2 = initialClients.map(
+  private val initialClientsV2 = initialClients.map(client =>
     ScriptLedgerClient.realiseScriptLedgerClient(
-      _,
+      client match {
+        case ide: UnversionedIdeLedgerClient =>
+          ide.copy(snapshotDir = ide.snapshotDir.map(scriptSnapshotDir))
+        case other => other
+      },
       unversionedRunner.extendedCompiledPackages,
       loggerFactory,
       interpretConfig,
     )
   )
+
+  // each script runs on its own ledger, so it is recorded in its own directory
+  private def scriptSnapshotDir(snapshotDir: Path): Path = {
+    val id = unversionedRunner.script.id
+    val pkgName = script.Runner
+      .getPackageName(unversionedRunner.compiledPackages, id.packageId)
+      .getOrElse(id.packageId.toString)
+    Files.createDirectories(
+      snapshotDir
+        .resolve(pkgName)
+        .resolve(id.qualifiedName.module.toString)
+        .resolve(id.qualifiedName.name.toString)
+    )
+  }
 
   private val env =
     new ScriptF.Env(

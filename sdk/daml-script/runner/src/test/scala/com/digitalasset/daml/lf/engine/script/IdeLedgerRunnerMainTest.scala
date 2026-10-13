@@ -6,6 +6,9 @@ package com.digitalasset.daml.lf.engine.script
 import org.scalatest.Suite
 import org.scalatest.freespec.AsyncFreeSpec
 
+import java.nio.file.Files
+import scala.jdk.CollectionConverters._
+
 final class IdeLedgerRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBase {
   self: Suite =>
 
@@ -74,5 +77,31 @@ final class IdeLedgerRunnerMainTest extends AsyncFreeSpec with RunnerMainTestBas
         ),
         Left(Seq("Cannot upload dar to IDELedger")),
       )
+    "Records each script's snapshot in its own directory" in {
+      val snapshotDir = Files.createTempDirectory("snapshot-dir")
+      testDamlScriptPred(
+        dars(0),
+        Seq(
+          "--ide-ledger",
+          "--all",
+          "--snapshot-dir",
+          snapshotDir.toString,
+        ),
+      ) {
+        case Left(actual) =>
+          fail(s"Expected daml-script to succeed but it failed with $actual")
+        case Right(_) =>
+          // <snapshot-dir>/<package name>/<module>/<script>
+          val scriptDirs = Files
+            .walk(snapshotDir)
+            .iterator()
+            .asScala
+            .map(snapshotDir.relativize(_))
+            .filter(_.getNameCount == 3)
+            .map(dir => s"${dir.getName(1)}/${dir.getName(2)}")
+            .toSet
+          assert(scriptDirs == Set("TestScript/myScript", "TestScript/myOtherScript"))
+      }
+    }
   }
 }

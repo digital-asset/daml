@@ -287,7 +287,8 @@ private[script] object RunnerMainConfigIntermediate {
         c.copy(snapshotDir = Some(Paths.get(f)))
       }
       .text(
-        "Path to a directory where transaction snapshot data will be written to in protobuf format."
+        "Path to a directory where transaction snapshot data will be written to in protobuf format, " +
+          "in a subdirectory <package name>/<module>/<script> per script."
       )
 
     opt[String]("access-token-file")
