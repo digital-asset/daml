@@ -102,6 +102,8 @@ build:windows --@rules_go//go/config:pure
 build:windows --platforms=//bazel/platforms:windows_x86_64
 build:windows --host_platform=//bazel/platforms:windows_x86_64
 
+common:windows --experimental_scale_timeouts=3
+
 # TODO: re-decide these on Windows; see .bzlmigration/windows-plan.md Phase 0.
 #build:windows --remote_accept_cached=true
 #build:windows --jobs=4
