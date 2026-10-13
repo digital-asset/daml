@@ -203,8 +203,12 @@ addDpmPackageDependencyDarsFromDatabase miState packageHome = do
         mUnitId <- darUnitIdFromPath darPath
         pure $ (, PackageInDar $ DarFile $ toPosixFilePath darPath) <$> mUnitId
       logDebug miState $ "Adding dpm dependency dars to multi package mapping:\n" <> show newMappings
-      -- Should only replace existing PackageInDar definitions, not PackageOnDisks
-      atomically $ modifyTMVar_ (misMultiPackageMappingVar miState) (<> newMappings)
+      -- Only replace packages that aren't already on disk, as any dar location is a "worse" location to jump to
+      -- than the real source code.
+      let replacePackage :: PackageSourceLocation -> PackageSourceLocation -> PackageSourceLocation
+          replacePackage old@(PackageOnDisk _) _ = old
+          replacePackage _ new = new
+      atomically $ modifyTMVar_ (misMultiPackageMappingVar miState) (flip (Map.unionWith replacePackage) newMappings)
     -- This function is called when an IDE responds to initialization, which means it should have a resolution
     -- There are niche cases where it won't though, so we don't error
     _ -> pure ()
