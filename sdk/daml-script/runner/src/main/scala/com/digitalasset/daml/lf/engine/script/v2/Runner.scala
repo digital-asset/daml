@@ -86,12 +86,15 @@ private[lf] class Runner(
     val pkgName = script.Runner
       .getPackageName(unversionedRunner.compiledPackages, id.packageId)
       .getOrElse(id.packageId.toString)
-    Files.createDirectories(
-      snapshotDir
-        .resolve(pkgName)
-        .resolve(id.qualifiedName.module.toString)
-        .resolve(id.qualifiedName.name.toString)
-    )
+    val components = Seq(pkgName, id.qualifiedName.module.toString, id.qualifiedName.name.toString)
+    // Package, module and script names cannot contain path separators or be "." / "..", but we
+    // check anyway so that a script can never write outside of the snapshot directory.
+    components.foreach { component =>
+      val path = snapshotDir.getFileSystem.getPath(component)
+      if (path.isAbsolute || path.getNameCount != 1 || component == "." || component == "..")
+        throw new IllegalArgumentException(s"Invalid snapshot directory component: $component")
+    }
+    Files.createDirectories(components.foldLeft(snapshotDir)(_ resolve _))
   }
 
   private val env =
