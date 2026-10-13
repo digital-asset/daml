@@ -87,6 +87,7 @@ da_haskell_test(
 da_haskell_test(
     name = "damlc-test",
     size = "large",
+    timeout = "eternal",
     srcs = ["src/DamlcTest.hs"],
     data = [
         "//:java_rlocation_path",
