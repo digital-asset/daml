@@ -424,7 +424,7 @@ genrule(
 daml_doc_test(
     name = "daml-stdlib-doctest",
     package_name = "daml-stdlib",
-    timeout = "moderate" if is_windows else "short",
+    timeout = "moderate",
     srcs = ["//compiler/damlc/daml-stdlib-src"],
     flags = [
         "--no-dflags-check",
