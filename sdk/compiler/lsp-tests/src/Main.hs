@@ -72,7 +72,10 @@ main = withComponentVersions $ do
                 , "data-dependencies:"
                 , "- daml-script.dar"
                 ]
-            withCurrentDirectory scriptTemplateDir $ callProcess damlcPath ["init"]
+            -- damlc build accepts a package without source files. We only want
+            -- the package database, so we throw away the resulting dar.
+            withCurrentDirectory scriptTemplateDir $ callProcess damlcPath ["build"]
+            removeDirectoryRecursive (scriptTemplateDir </> ".daml" </> "dist")
         let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide") fullCaps' dir s
             runScripts s
                 -- We are currently seeing issues with GRPC FFI calls which make everything
