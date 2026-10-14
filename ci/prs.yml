@@ -214,6 +214,7 @@ jobs:
     matrix:
       x86_64:
         assignment: default
+        release_name: windows-x86_64
   pool:
     name: 'windows-pool'
     demands: assignment -equals $(assignment)
@@ -281,6 +282,35 @@ jobs:
         Set-Location sdk
         bazelisk test //... $(bazel_flags) $(cache_flags)
       displayName: 'Test'
+    - powershell: |
+        $ErrorActionPreference = 'Stop'
+        Set-Location sdk
+        .\ci\build-release.ps1
+      env:
+        DAML_SDK_RELEASE_VERSION: '0.0.0'
+      displayName: 'Build release artifacts'
+    - powershell: |
+        $ErrorActionPreference = 'Stop'
+        $dir = '$(Build.StagingDirectory)\release' -replace '\\', '/'
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        & $env:BAZEL_SH ./ci/copy-windows-release-artifacts.sh 0.0.0 $dir
+      env:
+        DAML_SDK_RELEASE_VERSION: '0.0.0'
+      displayName: 'Stage release artifacts'
+    # TODO: placeholder for the real artifact push - restore PublishPipelineArtifact@0 when releasing is re-enabled.
+    - powershell: |
+        $ErrorActionPreference = 'Stop'
+        $dir = '$(Build.StagingDirectory)\release'
+        Write-Host 'Now Artifacts should be pushed'
+        Write-Host '  artifact name: $(release_name)-release'
+        Write-Host "  from: $dir"
+        $files = @(Get-ChildItem -Path $dir -Recurse -File | Sort-Object FullName)
+        foreach ($file in $files) {
+          Write-Host ('{0,8:N1}M  {1}' -f ($file.Length / 1MB), $file.FullName)
+        }
+        $totalBytes = ($files | Measure-Object -Property Length -Sum).Sum
+        Write-Host ('  total: {0} files, {1:N1}M' -f $files.Count, ($totalBytes / 1MB))
+      displayName: 'Push release artifacts (placeholder)'
     - powershell: |
         if ($env:KEY) { Remove-Item -Force -ErrorAction SilentlyContinue $env:KEY }
         Set-Location sdk
