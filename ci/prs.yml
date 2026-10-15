@@ -39,9 +39,38 @@ jobs:
     - template: bazelisk-unix.yml
     - bash: |
         set -euo pipefail
-        cache_dirs=(../daml_build/disk_cache ../daml_build/repository_cache)
-        mkdir -p "${cache_dirs[@]}"
-        find "${cache_dirs[@]}" -type f -mmin +2880 -delete
+        legacy_dirs=("$HOME/.cache/bazel" "$HOME/.bazel-cache" "$HOME/.cache/bazelisk")
+        report() {
+          if [ -e "$1" ]; then
+            echo "present: $1 ($(du -sh "$1" 2>/dev/null | cut -f1))"
+          else
+            echo "absent: $1"
+          fi
+        }
+        wipe_contents() {
+          [ -d "$1" ] || return 0
+          find "$1" -mindepth 1 -maxdepth 1 ! -name lost+found -exec chmod -R u+w {} +
+          find "$1" -mindepth 1 -maxdepth 1 ! -name lost+found -exec rm -rf {} +
+        }
+        for path in "$HOME/reset_caches.sh" "${legacy_dirs[@]}" ../daml_build; do
+          report "$path"
+        done
+        df -h
+        if [ -x "$HOME/reset_caches.sh" ]; then
+          "$HOME/reset_caches.sh"
+        fi
+        for dir in "${legacy_dirs[@]}"; do
+          wipe_contents "$dir"
+        done
+        df -h
+      displayName: 'Deep clean of legacy Bazel caches (one-time)'
+    - bash: |
+        set -euo pipefail
+        build_dir=../daml_build
+        if [ -d "$build_dir" ]; then
+          chmod -R u+w "$build_dir"
+          rm -rf "$build_dir"
+        fi
         printf '%s\n' \
           'startup --output_user_root=../../daml_build/user_root' \
           'build --disk_cache=../../daml_build/disk_cache' \
@@ -148,9 +177,38 @@ jobs:
     - template: bazelisk-unix.yml
     - bash: |
         set -euo pipefail
-        cache_dirs=(../daml_build/disk_cache ../daml_build/repository_cache)
-        mkdir -p "${cache_dirs[@]}"
-        find "${cache_dirs[@]}" -type f -mmin +2880 -delete
+        legacy_dirs=("/var/tmp/_bazel_$(id -un)" "$HOME/.bazel-cache" "$HOME/Library/Caches/bazelisk")
+        report() {
+          if [ -e "$1" ]; then
+            echo "present: $1 ($(du -sh "$1" 2>/dev/null | cut -f1))"
+          else
+            echo "absent: $1"
+          fi
+        }
+        wipe_contents() {
+          [ -d "$1" ] || return 0
+          find "$1" -mindepth 1 -maxdepth 1 -exec chmod -R u+w {} +
+          find "$1" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+        }
+        for path in "$HOME/reset_caches.sh" "${legacy_dirs[@]}" ../daml_build; do
+          report "$path"
+        done
+        df -h
+        if [ -x "$HOME/reset_caches.sh" ]; then
+          "$HOME/reset_caches.sh"
+        fi
+        for dir in "${legacy_dirs[@]}"; do
+          wipe_contents "$dir"
+        done
+        df -h
+      displayName: 'Deep clean of legacy Bazel caches (one-time)'
+    - bash: |
+        set -euo pipefail
+        build_dir=../daml_build
+        if [ -d "$build_dir" ]; then
+          chmod -R u+w "$build_dir"
+          rm -rf "$build_dir"
+        fi
         printf '%s\n' \
           'startup --output_user_root=../../daml_build/user_root' \
           'build --disk_cache=../../daml_build/disk_cache' \
@@ -246,12 +304,34 @@ jobs:
     - template: bazelisk-windows.yml
     - powershell: |
         $ErrorActionPreference = 'Stop'
-        $cacheDirs = @('..\daml_build\disk_cache', '..\daml_build\repository_cache')
-        New-Item -ItemType Directory -Force -Path $cacheDirs | Out-Null
-        $cutoff = (Get-Date).AddDays(-2)
-        Get-ChildItem -Path $cacheDirs -Recurse -File -Force |
-          Where-Object { $_.LastWriteTime -lt $cutoff } |
-          Remove-Item -Force
+        $homeDirs = @($env:USERPROFILE, $env:HOME) | Where-Object { $_ } | Select-Object -Unique
+        $legacyDirs = @($homeDirs | ForEach-Object { Join-Path $_ "_bazel_$env:USERNAME" })
+        $legacyDirs += Join-Path $env:LOCALAPPDATA 'bazelisk'
+        foreach ($path in $legacyDirs + @('..\daml_build', 'C:\b')) {
+          if (Test-Path -LiteralPath $path) {
+            $entries = @(Get-ChildItem -LiteralPath $path -Force -ErrorAction SilentlyContinue | ForEach-Object Name)
+            Write-Host "present: $path ($($entries.Count) entries: $($entries -join ', '))"
+          } else {
+            Write-Host "absent: $path"
+          }
+        }
+        foreach ($dir in $legacyDirs) {
+          if (Test-Path -LiteralPath $dir) {
+            $fullPath = (Resolve-Path -LiteralPath $dir).ProviderPath
+            cmd /c rd /s /q "\\?\$fullPath"
+            if (Test-Path -LiteralPath $fullPath) { throw "could not remove $fullPath" }
+          }
+        }
+      displayName: 'Deep clean of legacy Bazel caches (one-time)'
+    - powershell: |
+        $ErrorActionPreference = 'Stop'
+        foreach ($dir in @('..\daml_build', 'C:\b')) {
+          if (Test-Path -LiteralPath $dir) {
+            $fullPath = (Resolve-Path -LiteralPath $dir).ProviderPath
+            cmd /c rd /s /q "\\?\$fullPath"
+            if (Test-Path -LiteralPath $fullPath) { throw "could not remove $fullPath" }
+          }
+        }
         Set-Content -Path sdk\.bazelrc.local -Value @(
           'startup --output_user_root=../../daml_build/user_root'
           'startup --output_base=C:/b'
