@@ -17,8 +17,9 @@ import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.ByteString as BS
-import Data.List (delete, intercalate, isPrefixOf)
-import Data.List.Extra (lastDef, unsnoc)
+import Data.Char (isAlphaNum)
+import Data.List (delete, intercalate, stripPrefix)
+import Data.List.Extra (unsnoc)
 import Data.List.Split (splitOn)
 import qualified Data.Map as Map
 import Data.Map (Map)
@@ -64,14 +65,35 @@ unpackDar miState darFile = do
       -- Filter out dalfs that damlc/dpm do not directly provide
       -- Except keep daml-script-stable if unpacking daml-script or a daml-script-stable package, as grabbing those via dpm is a bit ugly
       -- then filter out dalfs who's package-id isn't mentioned in the main-dalfs raw bytestring to get only direct deps
-      dalfFilter :: String -> Bool
-      dalfFilter entryName | "daml-script-stable" `isPrefixOf` entryName = mainPkgName == "daml-script" || "daml-script-stable" `isPrefixOf` mainPkgName
-      dalfFilter entryName = not $ any (`isPrefixOf` entryName) ["daml-stdlib", "daml-prim", mainPkgName <> "-" <> mainPkgVersion]
+      isStablePackageName :: String -> String -> Bool
+      isStablePackageName prefix (stripPrefix prefix -> Just stableModulePath) = all isModuleSegment $ splitOn "-" stableModulePath
+        where
+          isModuleSegment segment = not (null segment) && all (\c -> isAlphaNum c) segment && head segment `elem` ['A'..'Z']
+      isStablePackageName _ _ = False
+      isDamlScriptStablePackageName :: String -> Bool
+      isDamlScriptStablePackageName = isStablePackageName "daml-script-stable-"
+      isDamlPrimStablePackageName :: String -> Bool
+      isDamlPrimStablePackageName = isStablePackageName "daml-prim-"
+      isDamlStdlibStablePackageName :: String -> Bool
+      isDamlStdlibStablePackageName = isStablePackageName "daml-stdlib-"
+      dalfFilter :: (String, String) -> Bool
+      -- Always exclude main package dalf
+      dalfFilter (pkgName, pkgVersion) | pkgName == mainPkgName && pkgVersion == mainPkgVersion = False
+      -- Only exclude daml-script-stable packages if not unpacking daml-script or daml-script stable
+      dalfFilter (pkgName, _) | isDamlScriptStablePackageName pkgName = mainPkgName == "daml-script" || isDamlScriptStablePackageName mainPkgName
+      -- Exclude prim, stdlib and regular stable packages
+      dalfFilter (pkgName, _) = not $
+        isDamlPrimStablePackageName pkgName
+          || isDamlStdlibStablePackageName pkgName
+          || pkgName `elem` ["daml-stdlib", "daml-prim"]
+
+      fstSnd3 :: (x, y, z) -> (x, y)
+      fstSnd3 (x, y, _) = (x, y)
 
       dalfsToExpand =
         flip filter (zEntries archive) $ \entry ->
           takeExtension (eRelativePath entry) == ".dalf"
-            && dalfFilter (takeBaseName $ eRelativePath entry)
+            && dalfFilter (fstSnd3 $ extractPackageMetadataFromEntry entry)
             && BS.isInfixOf (BSC.pack $ thd3 $ extractPackageMetadataFromEntry entry) mainDalfContent
       -- Rebuild dalfs into full dars under dars directory
       darDepArchives = 
@@ -117,8 +139,10 @@ extractPackageMetadataFromEntry = extractPackageMetadataFromDalfPath . eRelative
 extractPackageMetadataFromDalfPath :: FilePath -> (String, String, String)
 extractPackageMetadataFromDalfPath path =
   case unsnoc $ splitOn "-" $ takeBaseName path of
+    Just ([], hash) -> ("", "", hash)
     Just ([name], hash) -> (name, "", hash)
-    Just (sections, hash) -> (intercalate "-" $ init sections, lastDef "" sections, hash)
+    Just (sections, hash) | '.' `elem` last sections -> (intercalate "-" $ init sections, last sections, hash)
+    Just (sections, hash) -> (intercalate "-" sections, "", hash)
     _ -> ("", "", "")
 
 unpackedDarsLocation :: MultiIdeState -> FilePath
