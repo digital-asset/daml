@@ -38,6 +38,17 @@ jobs:
       clean: true
     - template: bazelisk-unix.yml
     - bash: |
+        set -euo pipefail
+        cache_dirs=(../daml_build/disk_cache ../daml_build/repository_cache)
+        mkdir -p "${cache_dirs[@]}"
+        find "${cache_dirs[@]}" -type f -mmin +2880 -delete
+        printf '%s\n' \
+          'startup --output_user_root=../../daml_build/user_root' \
+          'build --disk_cache=../../daml_build/disk_cache' \
+          'common --repository_cache=../../daml_build/repository_cache' \
+          > sdk/.bazelrc.local
+      displayName: 'Local Bazel build folder'
+    - bash: |
         set -uo pipefail
         cache_flags="--remote_cache=https://bazel-cache.da-ext.net/202610"
         key=""
@@ -136,6 +147,17 @@ jobs:
       clean: true
     - template: bazelisk-unix.yml
     - bash: |
+        set -euo pipefail
+        cache_dirs=(../daml_build/disk_cache ../daml_build/repository_cache)
+        mkdir -p "${cache_dirs[@]}"
+        find "${cache_dirs[@]}" -type f -mmin +2880 -delete
+        printf '%s\n' \
+          'startup --output_user_root=../../daml_build/user_root' \
+          'build --disk_cache=../../daml_build/disk_cache' \
+          'common --repository_cache=../../daml_build/repository_cache' \
+          > sdk/.bazelrc.local
+      displayName: 'Local Bazel build folder'
+    - bash: |
         set -uo pipefail
         cache_flags="--remote_cache=https://bazel-cache.da-ext.net/202610"
         key=""
@@ -224,8 +246,19 @@ jobs:
     - template: bazelisk-windows.yml
     - powershell: |
         $ErrorActionPreference = 'Stop'
-        Set-Content -Path sdk\.bazelrc.local -Value 'startup --output_base=C:/b'
-      displayName: 'Short output base'
+        $cacheDirs = @('..\daml_build\disk_cache', '..\daml_build\repository_cache')
+        New-Item -ItemType Directory -Force -Path $cacheDirs | Out-Null
+        $cutoff = (Get-Date).AddDays(-2)
+        Get-ChildItem -Path $cacheDirs -Recurse -File -Force |
+          Where-Object { $_.LastWriteTime -lt $cutoff } |
+          Remove-Item -Force
+        Set-Content -Path sdk\.bazelrc.local -Value @(
+          'startup --output_user_root=../../daml_build/user_root'
+          'startup --output_base=C:/b'
+          'build --disk_cache=../../daml_build/disk_cache'
+          'common --repository_cache=../../daml_build/repository_cache'
+        )
+      displayName: 'Short output base and local Bazel build folder'
     - powershell: |
         $ErrorActionPreference = 'Stop'
         Set-Location sdk
