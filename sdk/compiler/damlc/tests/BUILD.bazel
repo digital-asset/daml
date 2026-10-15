@@ -452,7 +452,7 @@ da_haskell_test(
 # Tests for upgrades
 da_haskell_test(
     name = "upgrades",
-    timeout = "long" if is_windows else "moderate",
+    timeout = "long",
     srcs = ["src/DA/Test/DamlcUpgrades.hs"],
     data = [
         "//compiler/damlc",
