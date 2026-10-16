@@ -201,7 +201,6 @@ def install_java_deps():
             "org.bouncycastle:bcprov-jdk18on:1.86",
             "org.bouncycastle:bcutil-jdk18on:1.86",
             "org.checkerframework:checker:3.28.0",
-            "org.codehaus.janino:janino:3.1.4",
             "org.flywaydb:flyway-core:8.4.1",
             "org.freemarker:freemarker-gae:2.3.32",
             "org.jline:jline-reader:3.22.0",
