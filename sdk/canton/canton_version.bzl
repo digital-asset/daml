@@ -6,4 +6,4 @@ CANTON_OPEN_SOURCE_SHA = "sha256:3981bfba9267a47249ab4498d00a0c4908f87c6f5b92523
 
 # Use an alternative canton JAR & artifacts from the local maven cache by setting this to an absolute path
 # Consult canton/README.md
-LOCAL_CANTON_PATH = None
+LOCAL_CANTON_PATH = "/home/polux/projects/canton"

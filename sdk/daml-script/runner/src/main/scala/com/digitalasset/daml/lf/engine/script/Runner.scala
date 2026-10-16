@@ -16,6 +16,10 @@ import com.digitalasset.canton.ledger.client.configuration.{
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.{
+  InterpretationConfig => CantonInterpretationConfig,
+  ProtocolVersion,
+}
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref._
@@ -41,7 +45,7 @@ import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.pekko.stream.Materializer
 import cats.data.NonEmptySet
-import com.digitalasset.daml.lf.language.PackageInterface
+import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface}
 import scalaz.std.either._
 import scalaz.std.map._
 import scalaz.std.option._
@@ -353,23 +357,41 @@ object Runner {
 
   sealed trait IdeLedgerProtocolVersion {
     def toString: String
+    def protocolVersion: ProtocolVersion
     def interpretationConfig: InterpretationConfig
   }
   object IdeLedgerProtocolVersion {
     final case object V35 extends IdeLedgerProtocolVersion {
       override val toString = "V35"
-      override val interpretationConfig = InterpretationConfig.Stable
+      override val protocolVersion = ProtocolVersion.v35
+      // Canton no longer supports PV35, so it has no interpretation config for it
+      override val interpretationConfig = InterpretationConfig(
+        allowedLanguageVersions =
+          List(LanguageVersion.v2_1, LanguageVersion.v2_2, LanguageVersion.v2_3)
+      )
     }
     final case object V36 extends IdeLedgerProtocolVersion {
       override val toString = "V36"
-      override val interpretationConfig = InterpretationConfig.Stable
+      override val protocolVersion = ProtocolVersion.v36
+      override val interpretationConfig =
+        CantonInterpretationConfig.forProtocolVersion(protocolVersion)
     }
     final case object VDev extends IdeLedgerProtocolVersion {
       override val toString = "VDev"
-      override val interpretationConfig = InterpretationConfig.Stable
+      override val protocolVersion = ProtocolVersion.dev
+      override val interpretationConfig =
+        CantonInterpretationConfig.forProtocolVersion(protocolVersion)
     }
     val all = List(V35, V36, VDev)
-    val latest = V35
+    // The latest stable protocol version of the Canton release this SDK is built against
+    val latest: IdeLedgerProtocolVersion =
+      all
+        .find(_.protocolVersion == ProtocolVersion.latest)
+        .getOrElse(
+          throw new IllegalStateException(
+            s"No IDE ledger protocol version for the latest stable protocol version ${ProtocolVersion.latest}"
+          )
+        )
     def parseIdeLedgerProtocolVersion(str: String): Either[String, IdeLedgerProtocolVersion] =
       str.toLowerCase match {
         case "v35" | "35" => Right(V35)
