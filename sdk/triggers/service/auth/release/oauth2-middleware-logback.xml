@@ -1,6 +1,9 @@
 <configuration>
     <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
-        <if condition='isDefined("LOG_FORMAT_JSON")'>
+        <condition class="ch.qos.logback.core.boolex.IsPropertyDefinedCondition">
+            <key>LOG_FORMAT_JSON</key>
+        </condition>
+        <if>
             <then>
                 <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
             </then>
