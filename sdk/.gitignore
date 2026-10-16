@@ -1,3 +1,8 @@
+# This should be later on unignored, for now it will just make a mess
+# in commit history
+# Refer to: https://bazel.build/external/lockfile#best-practices
+MODULE.bazel.lock
+
 # private configuration
 .envrc.private
 
@@ -18,10 +23,6 @@ target
 
 # Daml
 .daml/
-
-# dev-env
-/dev-env/jdk
-/dev-env/var/
 
 # Bazel
 .bazel-cache
@@ -74,6 +75,7 @@ node_modules/
 *.ipr
 *.iws
 out
+.bazelbsp/
 
 # Vim
 *~
@@ -88,3 +90,7 @@ out
 /.canton
 
 docs/build/
+
+# TODO: REMOVE
+.bzlmigration/
+experiments/

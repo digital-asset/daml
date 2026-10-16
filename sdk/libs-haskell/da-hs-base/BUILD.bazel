@@ -1,8 +1,8 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test", "generate_and_track_cabal")
 load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test", "generate_and_track_cabal")
 
 da_haskell_library(
     name = "da-hs-base",
@@ -40,11 +40,11 @@ da_haskell_library(
         "vector",
     ] + ([] if is_windows else ["unix"]),
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
 )
 
 da_haskell_test(
     name = "da-hs-base-options-tests",
+    timeout = "short",
     srcs = glob(["tests/Options.hs"]),
     hackage_deps = [
         "base",
@@ -53,7 +53,6 @@ da_haskell_test(
         "optparse-applicative",
     ],
     main_function = "Options.main",
-    visibility = ["//visibility:public"],
     deps = [
         ":da-hs-base",
         "//libs-haskell/test-utils",

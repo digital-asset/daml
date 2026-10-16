@@ -22,13 +22,13 @@ else
   makedir="mkdir -p"
 fi
 
-${makedir} "${OUTPUT_DIR}/oci/${RELEASE_TAG}/windows"
+${makedir} "${OUTPUT_DIR}/oci/${RELEASE_TAG}/windows-x86_64"
 
 # OCI uploads
 function copy_oci {
   OCI_NAME=$1
   OCI_PATH=$2
-  OCI_OUT_PATH="${OUTPUT_DIR}/oci/${RELEASE_TAG}/windows/${OCI_NAME}.tar.gz"
+  OCI_OUT_PATH="${OUTPUT_DIR}/oci/${RELEASE_TAG}/windows-x86_64/${OCI_NAME}.tar.gz"
   echo "Copying ${OCI_NAME}-oci to ${OCI_OUT_PATH}"
   ${copy} ${OCI_PATH} ${OCI_OUT_PATH}
 }

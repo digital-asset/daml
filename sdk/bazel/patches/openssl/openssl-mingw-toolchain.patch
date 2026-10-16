@@ -1,0 +1,60 @@
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -203,10 +203,12 @@
+ ]
+ 
+ OPENSSL_APP_WINDOWS_LINKOPTS = [
+-    "-defaultlib:ws2_32.lib",
+-    "-defaultlib:advapi32.lib",
+-    "-defaultlib:user32.lib",
+-    "-defaultlib:crypt32.lib",
++    "-lws2_32",
++    "-ladvapi32",
++    "-luser32",
++    "-lcrypt32",
++    "-lgdi32",
++    "-lbcrypt",
+ ]
+ 
+ COMMON_OPENSSL_WINDOWS_DEFINES = [
+@@ -301,7 +303,7 @@
+         "//configs:linux_aarch64": "linux64",
+         "//configs:linux_x86_64": "elf",
+         "//configs:windows_arm64": "win64",
+-        "//configs:windows_x64": "masm",
++        "//configs:windows_x64": "mingw64",
+     }),
+     srcs_to_outs = select({
+         "//configs:darwin_arm64": NIX_ARM64_PERLASM_TOOLS_AND_OUTS,
+@@ -435,10 +437,14 @@
+         "//configs:windows_x64": LIBCRYPTO_WINDOWS_INCLUDES,
+         "//conditions:default": [],
+     }),
+-    linkopts = [
+-        "-lc",
+-        "-pthread",
+-    ],
++    linkopts = select({
++        "//configs:windows_arm64": OPENSSL_APP_WINDOWS_LINKOPTS,
++        "//configs:windows_x64": OPENSSL_APP_WINDOWS_LINKOPTS,
++        "//conditions:default": [
++            "-lc",
++            "-pthread",
++        ],
++    }),
+     textual_hdrs = CRYPTO_TEXTUAL_HDRS,
+     visibility = ["//visibility:public"],
+ )
+@@ -488,7 +494,11 @@
+     defines = COMMON_OPENSSL_DEFINES,
+     # To make sure downstream targets add the right copts to be able to include the headers.
+     includes = ["include"],
+-    linkopts = ["-lc"],
++    linkopts = select({
++        "//configs:windows_arm64": [],
++        "//configs:windows_x64": [],
++        "//conditions:default": ["-lc"],
++    }),
+     visibility = ["//visibility:public"],
+     deps = [
+         ":crypto",

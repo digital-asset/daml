@@ -1,0 +1,6 @@
+toolchain(
+    name = "python_toolchain",
+    toolchain = "@python_3_12//:python_runtimes",
+    toolchain_type = "@rules_python//python:toolchain_type",
+    visibility = ["//visibility:public"],
+)
