@@ -26,7 +26,6 @@ import Data.Map (Map)
 import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
-import Data.Tuple.Extra (fst3, thd3)
 import System.Directory (createDirectoryIfMissing, doesFileExist, removePathForcibly)
 import System.FilePath.Posix
 
@@ -91,7 +90,7 @@ unpackDar miState darFile = do
         flip filter (zEntries archive) $ \entry ->
           takeExtension (eRelativePath entry) == ".dalf"
             && dalfFilter (extractPackageMetadataFromEntry entry)
-            && BS.isInfixOf (BSC.pack $ epmHash $ extractPackageMetadataFromEntry entry) mainDalfContent
+            && BS.isInfixOf (BSC.pack $ epmPkgId $ extractPackageMetadataFromEntry entry) mainDalfContent
       -- Rebuild dalfs into full dars under dars directory
       darDepArchives = 
         fmap (\entry -> 
@@ -108,7 +107,7 @@ unpackDar miState darFile = do
   (_, mainPkg) <- either (fail . show) pure $ decodeArchive DecodeAsMain mainDalfContent
 
   let isSdkPackage pkgName entry =
-        takeExtension (eRelativePath entry) == ".dalf" && pkgName == epmName (extractPackageMetadataFromEntry entry)
+        takeExtension (eRelativePath entry) == ".dalf" && pkgName == epmPkgName (extractPackageMetadataFromEntry entry)
       includesSdkPackage pkgName = any (isSdkPackage pkgName) $ zEntries archive
       -- Drop main-package from sdkPackages such that unpacking daml-script itself doesn't lead to self dependency
       sdkPackages = delete mainPkgName ["daml-script", "daml3-script", "daml-trigger"]
@@ -130,9 +129,9 @@ unpackDar miState darFile = do
 
 -- Metadata about a package extracted from the dalf file name entry
 data EntryPackageMetadata = EntryPackageMetadata
-  { epmName :: String
-  , epmVersion :: String
-  , epmHash :: String
+  { epmPkgName :: String
+  , epmPkgVersion :: String
+  , epmPkgId :: String
   }
 
 extractPackageMetadataFromEntry :: Entry -> EntryPackageMetadata
@@ -223,9 +222,9 @@ resolveSourceLocation miState (PackageInDar darPath) = do
   logDebug miState "Looking for unpacked dar"
   archive <- toArchive <$> BSL.readFile (unDarFile darPath)
   manifest <- either fail pure $ readDalfManifest archive
-  let (EntryPackageMetadata pkgName pkgVersion pkgId) = extractPackageMetadataFromDalfPath $ mainDalfPath manifest
-      pkgPath = unpackedDarPath miState pkgName pkgVersion
-      pkgIdTagPath = unPackageHome pkgPath </> ".daml" </> pkgId
+  let EntryPackageMetadata{..} = extractPackageMetadataFromDalfPath $ mainDalfPath manifest
+      pkgPath = unpackedDarPath miState epmPkgName epmPkgVersion
+      pkgIdTagPath = unPackageHome pkgPath </> ".daml" </> epmPkgId
 
   pkgExists <- doesFileExist pkgIdTagPath
 
