@@ -8,20 +8,20 @@ daml_assistant_versions = [
 dpm_versions = [
     "3.4.11",
     "3.5.12",
-    "3.6.1-snapshot.20261006.2.0.v61ee03bd",
+    "3.6.2-snapshot.20261015.174.0.vab2ba57e",
 ]
 sdk_versions = [
     "3.3.0-snapshot.20250930.0",
     "3.4.11",
     "3.5.12",
-    "3.6.1-snapshot.20261006.2.0.v61ee03bd",
+    "3.6.2-snapshot.20261015.174.0.vab2ba57e",
     "0.0.0",
 ]
 platform_versions = [
     "3.3.0-snapshot.20250930.0",
     "3.4.11",
     "3.5.12",
-    "3.6.1-snapshot.20261006.2.0.v61ee03bd",
+    "3.6.2-snapshot.20261015.174.0.vab2ba57e",
     "0.0.0",
 ]
 stable_versions = [
@@ -49,16 +49,16 @@ version_sha256s = {
         "windows": "775bf7be411830fa0dadd9c8eda52c37d1132d88c8572de0619b3aeb9b110e3c",
         "daml_types": "d7c817e93b36973cd2b68b5a3336486a60e6bbd3d2b2a82c8dfca2bef132243c",
     },
-    "3.6.1-snapshot.20261006.2.0.v61ee03bd": {
-        "linux": "437790f19d792a0b39e3ca1de46da927a36f76a63563e71c3ad86c080dfb1e28",
-        "macos": "762a45d67633a2ab83c00724feaa14db2cf5ac33fa035be9727468883cfdf3d2",
-        "windows": "156fc924ed2b81847b7409f6c3ab54b087a0ba6bbac73e367775b02c1207309b",
-        "daml_types": "efd66e5113419a0a1c4d9480b68fd79a5e49ce3f06922f36c2c127de1689a783",
+    "3.6.2-snapshot.20261015.174.0.vab2ba57e": {
+        "linux": "579964900a8947e4944a35ce0bc936a84d4fbd29b976c289bd5dda8c7d0e4264",
+        "macos": "2bf4665e7afc5b3f4926199d01d90e88f69cff13d54338ac25e629f2db6be4d7",
+        "windows": "a81937b22fc735b778296091503062b92b4e0284bf37b894439bd77958a904a5",
+        "daml_types": "333e01001c438c03c5864490dab4e9026505d4ea25db611c29fd008dbad7af4c",
     },
 }
 internal_sdk_versions = {
     "3.3.0-snapshot.20250930.0": "3.3.0-snapshot.20250926.13852.1.v4f3223e3",
     "3.4.11": "3.4.11",
     "3.5.12": "3.5.3",
-    "3.6.1-snapshot.20261006.2.0.v61ee03bd": "3.7.0-snapshot.20261005.14857.0.vcebfe44b",
+    "3.6.2-snapshot.20261015.174.0.vab2ba57e": "3.6.2",
 }

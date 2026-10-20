@@ -46,6 +46,7 @@ da_haskell_test(
         "//compiler/damlc/daml-ide-core",
         "//component-version/hs:component-version-lib",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
         "@ghcide_ghc_lib//:testing",
     ],
