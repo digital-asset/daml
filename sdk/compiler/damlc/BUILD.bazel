@@ -396,8 +396,9 @@ genrule(
     ],
     cmd = """
         {lib_path_export}
+        RST_DIR=$$(mktemp -d)
         $(location //compiler/damlc:damlc-compile-only) -- docs \\
-            --output=daml-base-rst \\
+            --output=$$RST_DIR/daml-base-rst \\
             --input-format=json \\
             --format=Rst \\
             --exclude-instances=GetField,SetField \\
@@ -411,7 +412,8 @@ genrule(
             --output-anchor=$(location :daml-base-anchors.json) \\
             --target={target} \\
             $(location :daml-stdlib.json) $(location :daml-prim.json)
-        $(execpath //bazel_tools/sh:mktgz) $(location :daml-base-rst.tar.gz) daml-base-rst
+        $(execpath //bazel_tools/sh:mktgz) $(location :daml-base-rst.tar.gz) -C $$RST_DIR daml-base-rst
+        rm -rf $$RST_DIR
     """.format(
         lib_path_export = DAMLC_RUNTIME_LIB_PATH_EXPORT,
         target = LF_DOCS_VERSION,
