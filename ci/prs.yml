@@ -42,7 +42,7 @@ jobs:
         ci/clean-bazel-build-folder.sh
         printf '%s\n' \
           'startup --output_user_root=../../daml_build/user_root' \
-          'build --disk_cache=../../daml_build/disk_cache' \
+          'build --disk_cache=' \
           'common --repository_cache=../../daml_build/repository_cache' \
           > sdk/.bazelrc.local
       displayName: 'Local Bazel build folder'
@@ -152,7 +152,7 @@ jobs:
         ci/clean-bazel-build-folder.sh
         printf '%s\n' \
           'startup --output_user_root=../../daml_build/user_root' \
-          'build --disk_cache=../../daml_build/disk_cache' \
+          'build --disk_cache=' \
           'common --repository_cache=../../daml_build/repository_cache' \
           > sdk/.bazelrc.local
       displayName: 'Local Bazel build folder'
@@ -252,7 +252,7 @@ jobs:
         Set-Content -Path sdk\.bazelrc.local -Value @(
           'startup --output_user_root=../../daml_build/user_root'
           'startup --output_base=C:/b'
-          'build --disk_cache=../../daml_build/disk_cache'
+          'build --disk_cache='
           'common --repository_cache=../../daml_build/repository_cache'
         )
       displayName: 'Short output base and local Bazel build folder'
