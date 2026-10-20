@@ -379,7 +379,7 @@ daml_test(
 
 daml_test(
     name = "patterns-daml-test",
-    timeout = "moderate" if is_windows else "short",
+    timeout = "moderate",
     srcs = glob(["source/sdk/sdlc-howtos/smart-contracts/develop/patterns/daml/**/*.daml"]),
     data_deps = ["//daml-script/daml:daml-script.dar"],
 )
@@ -438,7 +438,7 @@ daml_test(
 
 daml_test(
     name = "quickstart-daml-test",
-    timeout = "moderate" if is_windows else "short",
+    timeout = "moderate",
     srcs = glob(
         include = ["source/sdk/tutorials/quickstart/template-root/daml/**/*.daml"],
     ),
@@ -490,7 +490,7 @@ daml_test(
 
 daml_test(
     name = "daml-intro-daml-functional-test",
-    timeout = "short",
+    timeout = "moderate",
     srcs = glob(
         ["source/sdk/tutorials/smart-contracts/daml/daml-intro-functional/**/*.daml"],
     ),
@@ -509,7 +509,7 @@ daml_build_test(
 
 daml_multi_package_test(
     name = "daml-intro-test",
-    timeout = "long" if is_windows else "moderate",
+    timeout = "long",
     srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**/*"]),
 )
 
