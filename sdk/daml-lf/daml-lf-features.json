@@ -194,6 +194,28 @@
       }
     }
   },
+  "featurePV36" : {
+    "name" : "LF versions supported by PV36",
+    "cppFlag" : "DAML_PV36",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 1
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 4
+          }
+        }
+      }
+    }
+  },
   "featureUnsafeFromInterface" : {
     "name" : "UnsafeFromInterface builtin",
     "cppFlag" : "DAML_UnsafeFromInterface",
@@ -261,6 +283,28 @@
         "minor" : {
           "Dev" : {
             
+          }
+        }
+      }
+    }
+  },
+  "featurePV37" : {
+    "name" : "LF versions supported by PV37",
+    "cppFlag" : "DAML_PV37",
+    "versionRange" : {
+      "lowerBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 1
+          }
+        }
+      },
+      "upperBound" : {
+        "major" : 2,
+        "minor" : {
+          "Stable" : {
+            "version" : 4
           }
         }
       }

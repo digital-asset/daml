@@ -16,6 +16,10 @@ import com.digitalasset.canton.ledger.client.configuration.{
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.{
+  InterpretationConfig => CantonInterpretationConfig,
+  ProtocolVersion,
+}
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref._
@@ -351,29 +355,22 @@ object Runner {
     )
   }
 
-  sealed trait IdeLedgerProtocolVersion {
-    def toString: String
-    def interpretationConfig: InterpretationConfig
+  sealed abstract class IdeLedgerProtocolVersion(protocolVersion: ProtocolVersion) {
+    override val toString: String = s"V${protocolVersion.toString.capitalize}"
+    val interpretationConfig: InterpretationConfig =
+      CantonInterpretationConfig.forProtocolVersion(protocolVersion)
   }
   object IdeLedgerProtocolVersion {
-    final case object V35 extends IdeLedgerProtocolVersion {
-      override val toString = "V35"
-      override val interpretationConfig = InterpretationConfig.Stable
-    }
-    final case object V36 extends IdeLedgerProtocolVersion {
-      override val toString = "V36"
-      override val interpretationConfig = InterpretationConfig.Stable
-    }
-    final case object VDev extends IdeLedgerProtocolVersion {
-      override val toString = "VDev"
-      override val interpretationConfig = InterpretationConfig.Stable
-    }
-    val all = List(V35, V36, VDev)
-    val latest = V35
+    final case object V36 extends IdeLedgerProtocolVersion(ProtocolVersion.v36)
+    final case object V37 extends IdeLedgerProtocolVersion(ProtocolVersion.v37)
+    final case object VDev extends IdeLedgerProtocolVersion(ProtocolVersion.dev)
+    val all = List(V36, V37, VDev)
+    // The latest stable protocol version of the Canton release this SDK is built against
+    val latest: IdeLedgerProtocolVersion = new IdeLedgerProtocolVersion(ProtocolVersion.latest) {}
     def parseIdeLedgerProtocolVersion(str: String): Either[String, IdeLedgerProtocolVersion] =
       str.toLowerCase match {
-        case "v35" | "35" => Right(V35)
         case "v36" | "36" => Right(V36)
+        case "v37" | "37" => Right(V37)
         case "vdev" | "dev" => Right(VDev)
         case "latest" => Right(latest)
         case _ =>
