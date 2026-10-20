@@ -51,8 +51,6 @@
 
   <!-- Set the logging level for Pekko so that if someone configures pekko to actually log something, this will end up in the log -->
   <logger name="pekko" level="${LOG_LEVEL_CANTON:-DEBUG}"/>
-  <!-- janino can be too verbose in tests -->
-  <logger name="org.codehaus.janino" level="WARN"/>
 
   <!-- Enable for database-relevant debug logs -->
 <!--  <logger name="slick" level="DEBUG"/>-->
