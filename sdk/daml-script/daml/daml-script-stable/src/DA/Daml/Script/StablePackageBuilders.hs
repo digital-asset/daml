@@ -222,29 +222,37 @@ makeStableDars darDirPath pkgs = withComponentVersions $ do
     pkgsByPackageId :: [(PackageId, Package)]
     pkgsByPackageId = fmap (\pkg -> (encodePackageHash pkg, pkg)) pkgs
 
-    lookupPackage :: PackageId -> Package
+    -- Returns boolean for if a package is a damlc stable package, as those are not listed in the conf file.
+    lookupPackage :: PackageId -> (Package, Bool)
     lookupPackage pkgId = fromMaybe (error $ "Couldn't find package " <> show pkgId) $
-      pkgId `MS.lookup` allStablePackages <|> pkgId `lookup` pkgsByPackageId
+      (, True) <$> (pkgId `MS.lookup` allStablePackages) <|> (, False) <$> (pkgId `lookup` pkgsByPackageId)
+
+    -- Remap ghc-stdlib package names to daml-stdlib, as damlc does
+    -- More precisely for the DA.Internal.Templates and DA.Internal.Any packages, which have "ghc-stdlib-<module>" as their
+    -- package name in LF, but appear in dars as daml-stdlib, as they are remapped in compiler/damlc/stable-packages/defs.bzl
+    remapGhcStdlib :: PackageName -> PackageName
+    remapGhcStdlib (PackageName (T.stripPrefix "ghc-stdlib" -> Just rest)) = PackageName $ "daml-stdlib" <> rest
+    remapGhcStdlib pkgName = pkgName
 
     getPackageUnitId :: Package -> UnitId
-    getPackageUnitId pkg = pkgNameVersion (packageName $ packageMetadata pkg) (Just $ packageVersion $ packageMetadata pkg)
+    getPackageUnitId pkg = pkgNameVersion (remapGhcStdlib $ packageName $ packageMetadata pkg) (Just $ packageVersion $ packageMetadata pkg)
 
     makeDar :: VersionInfo -> Package -> IO ()
     makeDar versionInfo mainPkg = do
       let depPackages = fmap lookupPackage $ either (const []) S.toList $ importedPackages mainPkg
           (mainPkgDalf, mainPkgId) = encodeArchiveAndHash mainPkg
-          deps = fmap (\pkg -> let (dalf, pkgId) = encodeArchiveAndHash pkg in (T.pack $ unitIdString $ getPackageUnitId pkg, BSL.toStrict dalf, pkgId)) depPackages
+          deps = fmap (\(pkg, _) -> let (dalf, pkgId) = encodeArchiveAndHash pkg in (T.pack $ unitIdString $ getPackageUnitId pkg, BSL.toStrict dalf, pkgId)) depPackages
           ghcModuleNames = mkModuleName . T.unpack . moduleNameString <$> NM.names (packageModules mainPkg)
           pkgName = packageName $ packageMetadata mainPkg
           pkgVersion = packageVersion $ packageMetadata mainPkg
           mainModuleName = headNote "Found stable package with no modules" $ NM.names $ packageModules mainPkg
-          confFile = mkConfFile pkgName (Just pkgVersion) (getPackageUnitId <$> depPackages) Nothing ghcModuleNames mainPkgId
+          confFile = mkConfFile pkgName (Just pkgVersion) (getPackageUnitId . fst <$> filter (not . snd) depPackages) Nothing ghcModuleNames mainPkgId
 
       withDamlSourceFilePath mainModuleName $ \damlFilePath damlFileRoot -> do
         let archive =
               createArchive
                 pkgName
-                Nothing
+                (Just pkgVersion)
                 versionInfo
                 mainPkgId
                 mainPkgDalf
