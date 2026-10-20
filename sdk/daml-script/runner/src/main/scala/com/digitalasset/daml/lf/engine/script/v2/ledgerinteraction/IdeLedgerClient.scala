@@ -43,7 +43,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 // Client for the script service.
-@scala.annotation.nowarn("msg=parameter interpretConfig in class IdeLedgerClient is never used")
 class IdeLedgerClient(
     val originalCompiledPackages: PureCompiledPackages,
     machineLogger: MachineLogger,
@@ -721,6 +720,7 @@ class IdeLedgerClient(
                 location = optLocation,
                 seed = nextSeed(),
                 machineLogger = machineLogger,
+                interpretationConfig = interpretConfig,
                 packageResolution = packageMap,
                 snapshotDir = snapshotDir,
               )

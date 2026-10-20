@@ -60,7 +60,7 @@ private[lf] class Runner(
     initialClients: Participants[UnversionedScriptLedgerClient],
     machineLogger: MachineLogger = ScriptMachineLogger(),
     canceled: () => Option[RuntimeException] = () => None,
-    interpretConfig: InterpretationConfig = InterpretationConfig.Default,
+    interpretConfig: InterpretationConfig,
 ) {
   import Free.Result
 
