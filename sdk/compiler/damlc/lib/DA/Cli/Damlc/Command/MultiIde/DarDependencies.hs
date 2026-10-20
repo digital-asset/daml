@@ -46,7 +46,7 @@ unpackDar miState darFile = do
 
   mainDalf <- maybe (fail "Couldn't find main dalf in dar") pure $ findEntryByPath (mainDalfPath manifest) archive
 
-  let (mainPkgName, mainPkgVersion, mainPackageId) = extractPackageMetadataFromEntry mainDalf
+  let (EntryPackageMetadata mainPkgName mainPkgVersion mainPackageId) = extractPackageMetadataFromEntry mainDalf
       darUnpackLocation = unPackageHome $ unpackedDarPath miState mainPkgName mainPkgVersion
 
   -- Clear the unpack location
@@ -76,25 +76,22 @@ unpackDar miState darFile = do
       isDamlPrimStablePackageName = isStablePackageName "daml-prim-"
       isDamlStdlibStablePackageName :: String -> Bool
       isDamlStdlibStablePackageName = isStablePackageName "daml-stdlib-"
-      dalfFilter :: (String, String) -> Bool
+      dalfFilter :: EntryPackageMetadata -> Bool
       -- Always exclude main package dalf
-      dalfFilter (pkgName, pkgVersion) | pkgName == mainPkgName && pkgVersion == mainPkgVersion = False
+      dalfFilter (EntryPackageMetadata pkgName pkgVersion _) | pkgName == mainPkgName && pkgVersion == mainPkgVersion = False
       -- Only exclude daml-script-stable packages if not unpacking daml-script or daml-script stable
-      dalfFilter (pkgName, _) | isDamlScriptStablePackageName pkgName = mainPkgName == "daml-script" || isDamlScriptStablePackageName mainPkgName
+      dalfFilter (EntryPackageMetadata pkgName _ _) | isDamlScriptStablePackageName pkgName = mainPkgName == "daml-script" || isDamlScriptStablePackageName mainPkgName
       -- Exclude prim, stdlib and regular stable packages
-      dalfFilter (pkgName, _) = not $
+      dalfFilter (EntryPackageMetadata pkgName _ _) = not $
         isDamlPrimStablePackageName pkgName
           || isDamlStdlibStablePackageName pkgName
           || pkgName `elem` ["daml-stdlib", "daml-prim"]
 
-      fstSnd3 :: (x, y, z) -> (x, y)
-      fstSnd3 (x, y, _) = (x, y)
-
       dalfsToExpand =
         flip filter (zEntries archive) $ \entry ->
           takeExtension (eRelativePath entry) == ".dalf"
-            && dalfFilter (fstSnd3 $ extractPackageMetadataFromEntry entry)
-            && BS.isInfixOf (BSC.pack $ thd3 $ extractPackageMetadataFromEntry entry) mainDalfContent
+            && dalfFilter (extractPackageMetadataFromEntry entry)
+            && BS.isInfixOf (BSC.pack $ epmHash $ extractPackageMetadataFromEntry entry) mainDalfContent
       -- Rebuild dalfs into full dars under dars directory
       darDepArchives = 
         fmap (\entry -> 
@@ -111,7 +108,7 @@ unpackDar miState darFile = do
   (_, mainPkg) <- either (fail . show) pure $ decodeArchive DecodeAsMain mainDalfContent
 
   let isSdkPackage pkgName entry =
-        takeExtension (eRelativePath entry) == ".dalf" && pkgName == fst3 (extractPackageMetadataFromEntry entry)
+        takeExtension (eRelativePath entry) == ".dalf" && pkgName == epmName (extractPackageMetadataFromEntry entry)
       includesSdkPackage pkgName = any (isSdkPackage pkgName) $ zEntries archive
       -- Drop main-package from sdkPackages such that unpacking daml-script itself doesn't lead to self dependency
       sdkPackages = delete mainPkgName ["daml-script", "daml3-script", "daml-trigger"]
@@ -131,19 +128,26 @@ unpackDar miState darFile = do
 
   writeFile (darUnpackLocation </> packageConfigName) damlYamlContent
 
-extractPackageMetadataFromEntry :: Entry -> (String, String, String)
+-- Metadata about a package extracted from the dalf file name entry
+data EntryPackageMetadata = EntryPackageMetadata
+  { epmName :: String
+  , epmVersion :: String
+  , epmHash :: String
+  }
+
+extractPackageMetadataFromEntry :: Entry -> EntryPackageMetadata
 extractPackageMetadataFromEntry = extractPackageMetadataFromDalfPath . eRelativePath
 
 -- Gives back name, version, package hash
 -- TODO: Ensure this information is always here and of this form
-extractPackageMetadataFromDalfPath :: FilePath -> (String, String, String)
+extractPackageMetadataFromDalfPath :: FilePath -> EntryPackageMetadata
 extractPackageMetadataFromDalfPath path =
   case unsnoc $ splitOn "-" $ takeBaseName path of
-    Just ([], hash) -> ("", "", hash)
-    Just ([name], hash) -> (name, "", hash)
-    Just (sections, hash) | '.' `elem` last sections -> (intercalate "-" $ init sections, last sections, hash)
-    Just (sections, hash) -> (intercalate "-" sections, "", hash)
-    _ -> ("", "", "")
+    Just ([], hash) -> EntryPackageMetadata "" "" hash
+    Just ([name], hash) -> EntryPackageMetadata name "" hash
+    Just (sections, hash) | '.' `elem` last sections -> EntryPackageMetadata (intercalate "-" $ init sections) (last sections) hash
+    Just (sections, hash) -> EntryPackageMetadata (intercalate "-" sections) "" hash
+    _ -> EntryPackageMetadata "" "" ""
 
 unpackedDarsLocation :: MultiIdeState -> FilePath
 unpackedDarsLocation miState = misMultiPackageHome miState </> ".daml" </> "unpacked-dars"
@@ -219,7 +223,7 @@ resolveSourceLocation miState (PackageInDar darPath) = do
   logDebug miState "Looking for unpacked dar"
   archive <- toArchive <$> BSL.readFile (unDarFile darPath)
   manifest <- either fail pure $ readDalfManifest archive
-  let (pkgName, pkgVersion, pkgId) = extractPackageMetadataFromDalfPath $ mainDalfPath manifest
+  let (EntryPackageMetadata pkgName pkgVersion pkgId) = extractPackageMetadataFromDalfPath $ mainDalfPath manifest
       pkgPath = unpackedDarPath miState pkgName pkgVersion
       pkgIdTagPath = unPackageHome pkgPath </> ".daml" </> pkgId
 

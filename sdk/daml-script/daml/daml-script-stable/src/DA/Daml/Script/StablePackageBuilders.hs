@@ -230,12 +230,12 @@ makeStableDars darDirPath pkgs = withComponentVersions $ do
     -- Remap ghc-stdlib package names to daml-stdlib, as damlc does
     -- More precisely for the DA.Internal.Templates and DA.Internal.Any packages, which have "ghc-stdlib-<module>" as their
     -- package name in LF, but appear in dars as daml-stdlib, as they are remapped in compiler/damlc/stable-packages/defs.bzl
-    remapPackageName :: PackageName -> PackageName
-    remapPackageName (PackageName (T.stripPrefix "ghc-stdlib" -> Just rest)) = PackageName $ "daml-stdlib" <> rest
-    remapPackageName pkgName = pkgName
+    remapGhcStdlib :: PackageName -> PackageName
+    remapGhcStdlib (PackageName (T.stripPrefix "ghc-stdlib" -> Just rest)) = PackageName $ "daml-stdlib" <> rest
+    remapGhcStdlib pkgName = pkgName
 
     getPackageUnitId :: Package -> UnitId
-    getPackageUnitId pkg = pkgNameVersion (remapPackageName $ packageName $ packageMetadata pkg) (Just $ packageVersion $ packageMetadata pkg)
+    getPackageUnitId pkg = pkgNameVersion (remapGhcStdlib $ packageName $ packageMetadata pkg) (Just $ packageVersion $ packageMetadata pkg)
 
     makeDar :: VersionInfo -> Package -> IO ()
     makeDar versionInfo mainPkg = do
