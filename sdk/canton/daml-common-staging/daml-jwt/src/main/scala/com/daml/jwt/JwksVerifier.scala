@@ -50,7 +50,6 @@ class JwksVerifier(
       Integer.valueOf(readTimeoutUnit.toMillis(readTimeout).toInt),
     )
 
-  @scala.annotation.nowarn("cat=deprecation")
   private[this] val cache: Cache[String, JwtVerifier] = CacheBuilder
     .newBuilder()
     .maximumSize(cacheMaxSize)
