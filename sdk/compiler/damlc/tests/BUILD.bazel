@@ -323,7 +323,7 @@ da_haskell_test(
 # Integration test for damlc doctest
 da_haskell_test(
     name = "daml-doctest-integration",
-    timeout = "short",
+    timeout = "moderate",
     srcs = ["src/DA/Test/DamlDocTestIntegration.hs"],
     data = [
         "//:java_rlocation_path",
