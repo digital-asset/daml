@@ -1,0 +1,254 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+trigger: none
+pr: none
+
+variables:
+  blackduck_script_sha: 371e805ad4a140ca3ee564882637da718a056b47
+  bazel_flags: >-
+    --local_resources=cpu=HOST_CPUS
+    --remote_cache=https://bazel-cache.da-ext.net/202610
+    --remote_upload_local_results=false
+  # TODO: when publishing is enabled, drop detect_offline_flags, use $(BLACKDUCK_HUBDETECT_TOKEN) instead of $(blackduck_token), restore the NOTICES check/publish steps from ci.old/blackduck.yml and the main/main-2.x condition of run_notices_pr_build from ci.old/cron/daily-compat.yml, and the sed/open_pr/trigger_azure part of bump_blackduck_if_needed from ci.old/blackduck.yml.
+  detect_offline_flags: --blackduck.offline.mode=true --detect.output.path=$AGENT_TEMPDIRECTORY/blackduck
+  blackduck_token: offline-placeholder
+
+jobs:
+- job: blackduck_scan
+  displayName: 'Blackduck Scan'
+  timeoutInMinutes: 240
+  pool:
+    name: ubuntu_20_04
+    demands: assignment -equals default
+  steps:
+  - checkout: self
+    clean: true
+  - template: bazelisk-unix.yml
+  - bash: |
+      set -euo pipefail
+      ci/clean-bazel-build-folder.sh
+      printf '%s\n' \
+        'startup --output_user_root=../../daml_build/user_root' \
+        'build --disk_cache=' \
+        'common --repository_cache=../../daml_build/repository_cache' \
+        > sdk/.bazelrc.local
+    displayName: 'Local Bazel build folder'
+  - bash: |
+      set -euo pipefail
+      cd sdk
+
+      bazelisk build //... $(bazel_flags)
+      bazelisk query 'deps(//...)' >/dev/null
+    displayName: 'Build'
+  - bash: |
+      set -euo pipefail
+      cd sdk
+
+      jdk=rules_java++toolchains+remotejdk17_linux
+      jq=jq.bzl++toolchains+jq_toolchains_linux_amd64
+      go_sdk=rules_go++go_sdk+go_default_sdk
+
+      bazelisk fetch --repo=@@$jdk --repo=@@$jq --repo=@@$go_sdk
+      external="$(bazelisk info output_base)/external"
+
+      "$external/$jdk/bin/java" -version
+      "$external/$jq/jq" --version
+      "$external/$go_sdk/bin/go" version
+
+      echo "##vso[task.prependpath]$external/$jdk/bin"
+      echo "##vso[task.prependpath]$external/$jq"
+      echo "##vso[task.setvariable variable=go_path]$external/$go_sdk/bin/go"
+    displayName: 'Provide Java, jq and Go for Detect'
+  - bash: |
+      set -euo pipefail
+      cd sdk
+
+      BAZEL_DEPENDENCY_TYPE="haskell_cabal_library"
+
+      bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
+      ci-build digital-asset_daml $(Build.SourceBranchName) \
+      --logging.level.com.synopsys.integration=DEBUG \
+      --detect.tools=BAZEL \
+      --detect.bazel.target=//... \
+      --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
+      --detect.bazel.cquery.options="--build_tag_filters=-manual" \
+      --detect.notices.report=true \
+      --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
+      --detect.timeout=1500 \
+      $(detect_offline_flags)
+    displayName: 'Blackduck Bazel Haskell Scan'
+    env:
+      BLACKDUCK_HUBDETECT_TOKEN: $(blackduck_token)
+  - bash: |
+      set -euo pipefail
+      cd sdk
+
+      BAZEL_DEPENDENCY_TYPE="maven_install"
+
+      bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
+      ci-build digital-asset_daml $(Build.SourceBranchName) \
+      --logging.level.com.synopsys.integration=DEBUG \
+      --detect.tools=BAZEL \
+      --detect.bazel.target=//... \
+      --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
+      --detect.bazel.cquery.options="--build_tag_filters=-manual" \
+      --detect.notices.report=true \
+      --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
+      --detect.timeout=1500 \
+      $(detect_offline_flags)
+    displayName: 'Blackduck Bazel JVM Scan'
+    env:
+      BLACKDUCK_HUBDETECT_TOKEN: $(blackduck_token)
+  - bash: |
+      set -euo pipefail
+      cd sdk
+
+      bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
+      ci-build digital-asset_daml $(Build.SourceBranchName) \
+      --logging.level.com.synopsys.integration=DEBUG \
+      --detect.tools=DETECTOR \
+      --detect.included.detector.types=PNPM,NPM,CLANG \
+      --detect.pnpm.dependency.types.excluded=DEV \
+      --detect.pnpm.excluded.packages=daml-types,packages \
+      --detect.follow.symbolic.links=false \
+      --detect.excluded.directories=language-support/js/daml-types,language-support/js/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.blackduck.signature.scanner.exclusion.name.patterns=language-support/js/daml-types,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.detector.search.exclusion.paths=language-support/js/daml-types,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.notices.report=true \
+      --detect.code.location.name=digital-asset_daml_npm \
+      --detect.timeout=1500 \
+      $(detect_offline_flags)
+    displayName: 'Blackduck Npm Scan'
+    env:
+      BLACKDUCK_HUBDETECT_TOKEN: $(blackduck_token)
+  - bash: |
+      set -euo pipefail
+      cd sdk
+
+      bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
+      ci-build digital-asset_daml $(Build.SourceBranchName) \
+      --logging.level.com.synopsys.integration=DEBUG \
+      --detect.tools=DETECTOR \
+      --detect.included.detector.types=PIP,POETRY \
+      --detect.follow.symbolic.links=false \
+      --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
+      --detect.blackduck.signature.scanner.exclusion.name.patterns=.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*,*_bazel_vsts* \
+      --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*,*_bazel_vsts* \
+      --detect.notices.report=true \
+      --detect.code.location.name=digital-asset_daml_python \
+      --detect.timeout=1500 \
+      $(detect_offline_flags)
+    displayName: 'Blackduck Python Scan'
+    env:
+      BLACKDUCK_HUBDETECT_TOKEN: $(blackduck_token)
+  - bash: |
+      set -euo pipefail
+      cd sdk
+
+      bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
+      ci-build digital-asset_daml $(Build.SourceBranchName) \
+      --logging.level.com.synopsys.integration=DEBUG \
+      --detect.tools=DETECTOR \
+      --detect.included.detector.types=GIT,GO_MOD,GO_DEP,GO_VNDR,GO_VENDOR,GO_GRADLE \
+      --detect.follow.symbolic.links=false \
+      --detect.go.path=$(go_path) \
+      --detect.excluded.directories=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
+      --detect.detector.search.exclusion.paths=bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
+      --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
+      --detect.code.location.name=digital-asset_daml_go \
+      --detect.timeout=1500 \
+      $(detect_offline_flags)
+    displayName: 'Blackduck Go Scan'
+    env:
+      BLACKDUCK_HUBDETECT_TOKEN: $(blackduck_token)
+  - bash: |
+      set -euo pipefail
+      dir="$AGENT_TEMPDIRECTORY/blackduck/runs"
+      echo "Now scan results should be uploaded to Black Duck"
+      echo "  project: digital-asset_daml, version: $(Build.SourceBranchName)"
+      echo "  from: $dir"
+      find "$dir" -path '*/bdio/*' -type f -exec du -h {} + | sort -k2
+      count=$(find "$dir" -path '*/bdio/*' -type f | wc -l)
+      echo "  total: $count files"
+    displayName: 'Upload scan results (placeholder)'
+  - bash: |
+      set -euo pipefail
+      echo "Now the NOTICES file should be checked"
+      echo "  report: sdk/digital_asset_daml_$(Build.SourceBranchName)_Black_Duck_Notices_Report.txt"
+      echo "  compared with: sdk/NOTICES"
+      echo "  if different: published as the 'notices' pipeline artifact for run_notices_pr_build"
+      echo "##vso[task.setvariable variable=need_to_build;isOutput=true]false"
+    displayName: 'Check NOTICES file (placeholder)'
+    name: out
+  - bash: (cd sdk && bazelisk shutdown) || true
+    displayName: 'Shut down Bazel'
+    condition: always()
+  - bash: ci/clean-bazel-build-folder.sh
+    displayName: 'Clean local Bazel build folder'
+    condition: always()
+
+- job: run_notices_pr_build
+  timeoutInMinutes: 60
+  dependsOn: ["blackduck_scan"]
+  condition: false
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  variables:
+    need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
+  steps:
+    - checkout: self
+      clean: true
+      persistCredentials: true
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download NOTICES file'
+      inputs:
+        artifactName: notices
+        targetPath: $(Pipeline.Workspace)/notices
+      condition: and(succeeded(), eq(variables['need_to_build'], 'true'))
+    - template: bash-lib.yml
+      parameters:
+        var_name: bash_lib
+    - bash: |
+        set -euo pipefail
+        cd sdk
+        source "$(bash_lib)"
+        if [ "$(need_to_build)" == "true" ]; then
+            BRANCH="notices-update-$(Build.BuildId)"
+            cp "$(Pipeline.Workspace)/notices/NOTICES" NOTICES
+            git add NOTICES
+            open_superseding_pr "$BRANCH" "update NOTICES file" "" "$(Build.SourceBranchName)" "ci-generated-notices-update"
+            trigger_azure $AZURE_DEVOPS_EXT_PAT PRs --branch $BRANCH
+        fi
+      displayName: 'Open PR to update NOTICES file'
+      env:
+        AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
+
+- job: bump_blackduck_if_needed
+  timeoutInMinutes: 30
+  pool:
+    name: ubuntu_20_04
+    demands: assignment -equals default
+  steps:
+  - checkout: self
+    clean: true
+  - bash: |
+      set -euo pipefail
+
+      latest=$(git ls-remote https://github.com/DACH-NY/security-blackduck.git master | awk '{print $1}')
+      current=$(grep blackduck_script_sha: ci/blackduck.yml | head -1 | cut -f2 -d: | cut -c2-)
+
+      branch="bump-blackduck-script-${latest:0:8}-$(Build.SourceBranchName)"
+
+      if git ls-remote --exit-code --heads https://github.com/digital-asset/daml.git "refs/heads/$branch" >/dev/null; then
+        echo "$branch already exists, nothing to do."
+      elif [ "$current" != "$latest" ]; then
+        echo "Now the Blackduck script should be bumped"
+        echo "  ci/blackduck.yml: blackduck_script_sha $current -> $latest"
+        echo "  PR: $branch into $(Build.SourceBranchName)"
+        echo "  then: PRs pipeline triggered on $branch"
+      else
+        echo "Blackduck script already at $current, nothing to do."
+      fi
+    displayName: 'Bump Blackduck Script if needed (placeholder)'
