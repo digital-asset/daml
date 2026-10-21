@@ -1,0 +1,223 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+parameters:
+  var_name: ""
+  condition: 'True'
+
+steps:
+- bash: |
+    set -euo pipefail
+    TMP=$(mktemp)
+    cat > "$TMP" <<'END'
+    PROJ_DIR="$PWD"
+    escape_slack() {
+      local r
+      r="$1"
+      r="${r//&/&amp;}"
+      r="${r//>/&gt;}"
+      r="${r//</&lt;}"
+      echo "$r"
+    }
+    get_gh_auth_header() {
+        # Credentials are persisted in a different way on GCP and Azure nodes.
+        if header=$(git config 'http.https://github.com/digital-asset/daml.extraheader'); then
+            # On Azure nodes, the auth header is stored directly in the git
+            # config.
+            echo $header
+        else
+            # On GCP nodes, the credentials are stored as part of the remote
+            # url instead of as a separate header. The format is
+            # https://username:password@github.com/:user/:repo.git
+            echo "Authorization: basic $(git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev | tr -d '\n' | base64 -w0)"
+        fi
+    }
+    open_pr() {
+      local branch title body pr_number base label header output
+      branch="$1"
+      title="$2"
+      body="${3:-}"
+      pr_number="${4:-}"
+      base="${5:-main}"
+      label="${6:-}"
+      header=$(mktemp)
+      output=$(mktemp)
+
+      git branch -D $branch || true
+      git checkout -b $branch
+      git -c user.name="Azure Pipelines Daml Build" \
+          -c user.email="support@digitalasset.com" \
+          commit \
+          -m "$(printf "$title\n\n$body\n")"
+      git push origin $branch:$branch
+      jq -n --arg title "$title" \
+            --arg branch "$branch" \
+            --arg base "$base" \
+            --arg body "$(printf "$body")" \
+            '{"title": $title, "head": $branch, "base": $base, "body": $body}' \
+        | curl -H "Content-Type: application/json" \
+               -H "$(get_gh_auth_header)" \
+               --fail \
+               --silent \
+               --location \
+               --dump-header "$header" \
+               --output "$output" \
+               -d @- \
+               https://api.github.com/repos/digital-asset/daml/pulls
+      cat "$header" "$output"
+      if [ -n "$pr_number" ]; then
+          jq '.number' "$output" > "$pr_number"
+      fi
+      if [ -n "$label" ]; then
+          local pr_num
+          pr_num=$(jq -r '.number' "$output")
+          jq -n --arg label "$label" \
+                '{"labels": [$label]}' \
+            | curl -H "Content-Type: application/json" \
+                   -H "$(get_gh_auth_header)" \
+                   --fail \
+                   --silent \
+                   --location \
+                   -d @- \
+                   "https://api.github.com/repos/digital-asset/daml/issues/$pr_num/labels"
+      fi
+    }
+    request_pr_review() {
+      local pr_number reviewer
+      pr_number="$1"
+      reviewer="$2"
+
+      jq -n --arg reviewer "$reviewer" \
+            '{"reviewers": [$reviewer]}' \
+        | curl -H "Content-Type: application/json" \
+               -H "$(get_gh_auth_header)" \
+               --fail \
+               --silent \
+               --location \
+               -d @- \
+               "https://api.github.com/repos/digital-asset/daml/pulls/$pr_number/requested_reviewers"
+    }
+    list_open_prs_with_label() {
+      local label base
+      label="$1"
+      base="$2"
+
+      curl -H "$(get_gh_auth_header)" \
+           --fail \
+           --silent \
+           --location \
+           "https://api.github.com/repos/digital-asset/daml/pulls?state=open&base=$base&per_page=100" \
+        | jq -r --arg label "$label" '.[] | select(any(.labels[]; .name == $label)) | .number'
+    }
+    comment_on_pr() {
+      local pr_number body
+      pr_number="$1"
+      body="$2"
+
+      jq -n --arg body "$body" '{"body": $body}' \
+        | curl -H "Content-Type: application/json" \
+               -H "$(get_gh_auth_header)" \
+               --fail \
+               --silent \
+               --location \
+               --output /dev/null \
+               -d @- \
+               "https://api.github.com/repos/digital-asset/daml/issues/$pr_number/comments"
+    }
+    # Like open_pr, but the PR is labelled and lists the older open PRs with
+    # the same label and base it supersedes; each of those gets a
+    # "superseded by" comment.
+    open_superseding_pr() {
+      local branch title body base label superseded pr_file new_pr old_pr
+      branch="$1"
+      title="$2"
+      body="$3"
+      base="$4"
+      label="$5"
+
+      superseded=$(list_open_prs_with_label "$label" "$base") || superseded=""
+      if [ -n "$superseded" ]; then
+        body="Supersedes $(printf '#%s, ' $superseded | sed 's/, $//').${body:+\n\n$body}"
+      fi
+
+      pr_file=$(mktemp)
+      open_pr "$branch" "$title" "$body" "$pr_file" "$base" "$label"
+      new_pr=$(cat "$pr_file")
+      for old_pr in $superseded; do
+        comment_on_pr "$old_pr" "superseded by #$new_pr" \
+          || echo "Failed to comment on #$old_pr"
+      done
+    }
+    user_slack_handle() {
+        local email sha
+        sha=$1
+        email=$(git log -n 1 --format=%ae $sha)
+        if cat ci/slack_user_ids | grep $email >/dev/null 2>&1; then
+            echo $(cat ci/slack_user_ids | grep $email | awk '{print $2}')
+        else
+            echo ""
+        fi
+    }
+    tell_slack() {
+        local message channel
+        message="$1"
+        channel=${2:-$(Slack.team-daml)}
+        jq -n --arg message "$message" '{"text": $message}' \
+         | curl -XPOST -i -H 'Content-Type: application/json' -d @- $channel
+    }
+    wrap_gcloud() (
+        cred="$1"
+        cmd="$2"
+        key=$(mktemp)
+        config_dir=$(mktemp -d)
+        trap "rm -rf $key $config_dir" EXIT
+        echo "$cred" > $key
+        export CLOUDSDK_CONFIG="$config_dir"
+        export BOTO_CONFIG=/dev/null
+        gcloud auth activate-service-account --key-file=$key
+        eval "$cmd"
+    )
+    gcs() (
+        cred="$1"
+        cmd="${@:2}"
+
+        wrap_gcloud "$cred" "gsutil $cmd"
+    )
+    setvar() {
+      echo "Setting '$1' to '$2'"
+      echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
+    }
+    trigger_azure() (
+      export AZURE_DEVOPS_EXT_PAT=$1
+      shift
+      build=$1
+      shift
+
+      az extension add --name azure-devops --allow-preview true || true
+
+      az pipelines build queue \
+        --definition-name $build \
+        --org "https://dev.azure.com/digitalasset" \
+        --project daml \
+        $@
+    )
+    azure_build_url() {
+      echo "${SYSTEM_COLLECTIONURI}${SYSTEM_TEAMPROJECT}/_build/results?buildId=$1"
+    }
+    # Prints the id of an earlier build of the current pipeline that
+    # succeeded on the same commit as the current build, or nothing if there
+    # is none. For PR builds that commit is refs/pull/N/merge, so a match
+    # means both the PR head and the target branch are unchanged.
+    earlier_successful_build() {
+      local token="$1"
+      curl -sSf \
+           -H "Authorization: Bearer $token" \
+           "${SYSTEM_COLLECTIONURI}${SYSTEM_TEAMPROJECT}/_apis/build/builds?definitions=${SYSTEM_DEFINITIONID}&branchName=${BUILD_SOURCEBRANCH}&statusFilter=completed&resultFilter=succeeded&api-version=7.1" \
+      | jq -r --arg sha "$BUILD_SOURCEVERSION" --argjson self "$BUILD_BUILDID" \
+           '[.value[] | select(.sourceVersion == $sha and .id != $self) | .id] | first // empty'
+    }
+
+    END
+    echo "##vso[task.setvariable variable=${{parameters.var_name}}]$TMP"
+  displayName: 'Install bash-lib script'
+  condition: ${{parameters.condition}}
