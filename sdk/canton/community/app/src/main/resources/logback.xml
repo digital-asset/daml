@@ -53,17 +53,18 @@
   </if>
 
   <condition class="ch.qos.logback.core.boolex.IsPropertyDefinedCondition">
+    <key>LOG_LAST_ERRORS</key>
+  </condition>
+  <if>
+    <then><variable name="log_last_errors_filter" value="com.digitalasset.canton.logging.CantonFilterEvaluator"/></then>
+    <!-- dummy filter which will have no effect, to reduce code replication -->
+    <else><variable name="log_last_errors_filter" value="ch.qos.logback.classic.filter.ThresholdFilter"/></else>
+  </if>
+
+  <condition class="ch.qos.logback.core.boolex.IsPropertyDefinedCondition">
     <key>LOG_FILE_FLAT</key>
   </condition>
   <if>
-    <condition class="ch.qos.logback.core.boolex.IsPropertyDefinedCondition">
-      <key>LOG_LAST_ERRORS</key>
-    </condition>
-    <if>
-      <then><variable name="log_last_errors_filter" value="com.digitalasset.canton.logging.CantonFilterEvaluator"/></then>
-      <!-- dummy filter which will have no effect, to reduce code replication -->
-      <else><variable name="log_last_errors_filter" value="ch.qos.logback.classic.filter.ThresholdFilter"/></else>
-    </if>
     <then>
       <condition class="ch.qos.logback.core.boolex.IsPropertyDefinedCondition">
         <key>LOG_FORMAT_JSON</key>
