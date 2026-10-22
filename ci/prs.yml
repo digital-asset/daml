@@ -85,37 +85,23 @@ jobs:
       displayName: 'Test'
     - bash: |
         set -euo pipefail
+        dir="$(Build.StagingDirectory)/release"
+        archive="$(Build.StagingDirectory)/$(release_name)-release.tar"
         cd sdk
         bazelisk build //release:release $(bazel_flags) $(cache_flags)
         ./bazel-bin/release/release --release-dir "$(mktemp -d)"
-      displayName: 'Release artifacts smoke test'
-    - bash: |
-        set -euo pipefail
-        cd sdk
         ci/build-release.sh "" "$(arch_suffix)"
-      env:
-        DAML_SDK_RELEASE_VERSION: '0.0.0'
-      displayName: 'Build release artifacts'
-    - bash: |
-        set -euo pipefail
-        mkdir -p $(Build.StagingDirectory)/release
-        ./ci/copy-unix-release-artifacts.sh 0.0.0 $(release_name) $(Build.StagingDirectory)/release
-      env:
-        DAML_SDK_RELEASE_VERSION: '0.0.0'
-      displayName: 'Stage release artifacts'
-    # TODO: placeholder for the real artifact push - restore PublishPipelineArtifact@0
-    # and wire ci/publish-artifactory.sh / ci/publish-oci.sh when releasing is re-enabled.
-    - bash: |
-        set -euo pipefail
-        dir="$(Build.StagingDirectory)/release"
-        echo "Now Artifacts should be pushed"
-        echo "  artifact name: $(release_name)-release"
-        echo "  from: $dir"
-        find "$dir" -type f -exec du -h {} + | sort -k2
+        mkdir -p "$dir"
+        ../ci/copy-unix-release-artifacts.sh 0.0.0 $(release_name) "$dir"
+        tar -cf "$archive" -C "$dir" .
+        echo "Release archive: $archive"
+        tar -tvf "$archive"
         count=$(find "$dir" -type f | wc -l)
-        size=$(du -sh "$dir" | cut -f1)
+        size=$(du -h "$archive" | cut -f1)
         echo "  total: $count files, $size"
-      displayName: 'Push release artifacts (placeholder)'
+      env:
+        DAML_SDK_RELEASE_VERSION: '0.0.0'
+      displayName: 'Release - Create Artifacts'
     - bash: |
         if [ -n "${KEY:-}" ]; then rm -f "$KEY"; fi
         (cd sdk && bazelisk shutdown) || true
@@ -195,31 +181,22 @@ jobs:
       displayName: 'Test'
     - bash: |
         set -euo pipefail
+        dir="$(Build.StagingDirectory)/release"
+        archive="$(Build.StagingDirectory)/$(release_name)-release.tar"
         cd sdk
         ci/build-release.sh "$(arch_suffix)"
-      env:
-        DAML_SDK_RELEASE_VERSION: '0.0.0'
-      displayName: 'Build release artifacts'
-    - bash: |
-        set -euo pipefail
-        mkdir -p $(Build.StagingDirectory)/release
-        ./ci/copy-unix-release-artifacts.sh 0.0.0 $(release_name) $(Build.StagingDirectory)/release
-      env:
-        DAML_SDK_RELEASE_VERSION: '0.0.0'
-      displayName: 'Stage release artifacts'
-    # TODO: placeholder for the real artifact push - restore PublishPipelineArtifact@0
-    # and wire ci/publish-artifactory.sh / ci/publish-oci.sh when releasing is re-enabled.
-    - bash: |
-        set -euo pipefail
-        dir="$(Build.StagingDirectory)/release"
-        echo "Now Artifacts should be pushed"
-        echo "  artifact name: $(release_name)-release"
-        echo "  from: $dir"
-        find "$dir" -type f -exec du -h {} + | sort -k2
+        mkdir -p "$dir"
+        ../ci/copy-unix-release-artifacts.sh 0.0.0 $(release_name) "$dir"
+        tar -cf "$archive" -C "$dir" .
+        echo "Release archive: $archive"
+        tar -tvf "$archive"
         count=$(find "$dir" -type f | wc -l)
-        size=$(du -sh "$dir" | cut -f1)
+        size=$(du -h "$archive" | cut -f1)
         echo "  total: $count files, $size"
-      displayName: 'Push release artifacts (placeholder)'
+      env:
+        DAML_SDK_RELEASE_VERSION: '0.0.0'
+        COPYFILE_DISABLE: '1'
+      displayName: 'Release - Create Artifacts'
     - bash: |
         if [ -n "${KEY:-}" ]; then rm -f "$KEY"; fi
         (cd sdk && bazelisk shutdown) || true
@@ -316,31 +293,22 @@ jobs:
         $ErrorActionPreference = 'Stop'
         Set-Location sdk
         .\ci\build-release.ps1
-      env:
-        DAML_SDK_RELEASE_VERSION: '0.0.0'
-      displayName: 'Build release artifacts'
-    - powershell: |
-        $ErrorActionPreference = 'Stop'
         $dir = '$(Build.StagingDirectory)\release' -replace '\\', '/'
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
-        & $env:BAZEL_SH ./ci/copy-windows-release-artifacts.sh 0.0.0 $dir
+        & $env:BAZEL_SH ../ci/copy-windows-release-artifacts.sh 0.0.0 $dir
+        if ($LASTEXITCODE -ne 0) { throw "copy-windows-release-artifacts.sh failed (exit code $LASTEXITCODE)" }
+        Set-Location '$(Build.StagingDirectory)'
+        $archive = '$(release_name)-release.tar'
+        tar.exe -cf $archive -C release .
+        if ($LASTEXITCODE -ne 0) { throw "tar could not create $archive (exit code $LASTEXITCODE)" }
+        Write-Host "Release archive: $PWD\$archive"
+        tar.exe -tvf $archive
+        if ($LASTEXITCODE -ne 0) { throw "tar could not list $archive (exit code $LASTEXITCODE)" }
+        $count = @(Get-ChildItem -Path release -Recurse -File).Count
+        Write-Host ('  total: {0} files, {1:N1}M' -f $count, ((Get-Item $archive).Length / 1MB))
       env:
         DAML_SDK_RELEASE_VERSION: '0.0.0'
-      displayName: 'Stage release artifacts'
-    # TODO: placeholder for the real artifact push - restore PublishPipelineArtifact@0 when releasing is re-enabled.
-    - powershell: |
-        $ErrorActionPreference = 'Stop'
-        $dir = '$(Build.StagingDirectory)\release'
-        Write-Host 'Now Artifacts should be pushed'
-        Write-Host '  artifact name: $(release_name)-release'
-        Write-Host "  from: $dir"
-        $files = @(Get-ChildItem -Path $dir -Recurse -File | Sort-Object FullName)
-        foreach ($file in $files) {
-          Write-Host ('{0,8:N1}M  {1}' -f ($file.Length / 1MB), $file.FullName)
-        }
-        $totalBytes = ($files | Measure-Object -Property Length -Sum).Sum
-        Write-Host ('  total: {0} files, {1:N1}M' -f $files.Count, ($totalBytes / 1MB))
-      displayName: 'Push release artifacts (placeholder)'
+      displayName: 'Release - Create Artifacts'
     - powershell: |
         if ($env:KEY) { Remove-Item -Force -ErrorAction SilentlyContinue $env:KEY }
         Set-Location sdk
