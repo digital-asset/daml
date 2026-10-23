@@ -98,6 +98,14 @@ single_version_override(
     patches = ["//bazel/patches:rules_js/rules_js-windows-exec-entry-point.patch"],
 )
 
+# TODO: Drop once envoy_api stops importing googleapis' no-op switched_rules repo; re-check the pin on every grpc bump.
+single_version_override(
+    module_name = "envoy_api",
+    patch_strip = 1,
+    patches = ["//bazel/patches:envoy_api/envoy_api-drop-googleapis-switched-rules.patch"],
+    version = "0.0.0-20251216-6ef568c",
+)
+
 # --- Toolchains ---
 
 bazel_lib_toolchains_ext = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
