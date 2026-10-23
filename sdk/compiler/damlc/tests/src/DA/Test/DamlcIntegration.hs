@@ -83,8 +83,9 @@ import qualified Development.IDE.Types.Diagnostics as D
 import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
 import qualified GHC
-import Options.Applicative (execParser, forwardOptions, info, many, optional, strArgument)
+import Options.Applicative (execParser, forwardOptions, info, many, strArgument)
 import qualified Options.Applicative
+import Options.Applicative.Extended (getFlagResult)
 import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
 import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
@@ -725,8 +726,8 @@ parseBuildOptions args = case result of
       -- tests. We should not let this list become too big, as we currently
       -- create a new IDE instance for each unique combination of options in
       -- the tests.
-      [ (\seri opts -> opts {optExplicitSerializable = fromMaybe (ExplicitSerializable False) seri}) <$>
-              optional explicitSerializableOpt
+      [ (\seri opts -> opts {optExplicitSerializable = getFlagResult seri}) <$>
+              explicitSerializableOpt
       , (\wf opts -> opts
               { optInlineDamlCustomWarningFlags = WarningFlags.addWarningFlags
                   (WarningFlags.wfFlags wf)
