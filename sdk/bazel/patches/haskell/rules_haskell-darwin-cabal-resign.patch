@@ -1,0 +1,51 @@
+diff --git a/haskell/private/cabal_wrapper.py b/haskell/private/cabal_wrapper.py
+--- a/haskell/private/cabal_wrapper.py
++++ b/haskell/private/cabal_wrapper.py
+@@ -437,3 +437,47 @@
+     os.remove(package_conf_file)
+     os.rename(tmp_package_conf_file, package_conf_file)
+     recache_db()
++
++_MACHO_SIGNABLE_FILETYPES = (2, 6, 8)
++
++def macho_filetype(path):
++    try:
++        with open(path, "rb") as handle:
++            header = handle.read(16)
++    except OSError:
++        return None
++    if len(header) < 16:
++        return None
++    if header[:4] == b"\xcf\xfa\xed\xfe":
++        return int.from_bytes(header[12:16], "little")
++    if header[:4] == b"\xfe\xed\xfa\xcf":
++        return int.from_bytes(header[12:16], "big")
++    return None
++
++def produced_by_this_action(path):
++    try:
++        os.chmod(path, os.stat(path).st_mode | 0o200)
++    except OSError:
++        return False
++    return True
++
++def resign_macho(path):
++    if macho_filetype(path) not in _MACHO_SIGNABLE_FILETYPES:
++        return
++    mode = os.stat(path).st_mode
++    if not produced_by_this_action(path):
++        return
++    staged = path + ".resign"
++    os.rename(path, staged)
++    try:
++        subprocess.run(
++            ["/usr/bin/codesign", "-f", "-s", "-", staged],
++            check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
++    finally:
++        os.rename(staged, path)
++        os.chmod(path, mode)
++
++if sys.platform == "darwin":
++    for resign_root, _, resign_files in os.walk(pkgroot):
++        for resign_file in resign_files:
++            resign_macho(os.path.join(resign_root, resign_file))

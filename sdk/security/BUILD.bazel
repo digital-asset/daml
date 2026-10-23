@@ -16,5 +16,4 @@ da_haskell_binary(
         "text",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
 )

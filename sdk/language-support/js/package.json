@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "pnpm": {
+    "onlyBuiltDependencies": [],
+    "overrides": {
+      "protobufjs": "^6.10.3",
+      "semver": "5.7.2",
+      "@types/node": "22.13.10"
+    }
+  }
+}
