@@ -1,0 +1,19 @@
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -40,16 +40,6 @@
+     "go_toolchains",
+ )
+ 
+-# Googleapis extension for language-specific rules
+-# Using switched_rules from googleapis for compatibility with grpc
+-switched_rules = use_extension("@com_google_googleapis//:extensions.bzl", "switched_rules")
+-switched_rules.use_languages(
+-    cc = True,
+-    go = True,
+-    java = True,
+-)
+-use_repo(switched_rules, "com_google_googleapis_imports")
+-
+ # Non-BCR dependencies extension
+ # These dependencies are not yet available in BCR or require custom build files
+ non_module_deps = use_extension("//bazel:extensions.bzl", "non_module_deps")
