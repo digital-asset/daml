@@ -13,7 +13,7 @@ import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.admin.participant.{v30 => admin_participant}
 import com.digitalasset.canton.topology.admin.v30.ForceFlag
 import com.digitalasset.canton.topology.admin.{v30 => admin_topology}
-import com.digitalasset.canton.protocol.{v31 => protocol}
+import com.digitalasset.canton.protocol.{v30 => protocol}
 import com.digitalasset.canton.validation.ProtoValidation
 import com.digitalasset.canton.validation.ProtoUnvalidatedSeq
 import com.digitalasset.canton.validation.ProtoUnvalidatedString
@@ -430,7 +430,6 @@ class AdminLedgerClient private[grpcLedgerClient] (
         _,
         protocol.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
         None,
-        protocol.PartyToParticipant.HostingParticipant.HostingState.HOSTING_STATE_UNSPECIFIED,
       )
     )
     admin_topology.AuthorizeRequest(
@@ -478,7 +477,6 @@ class AdminLedgerClient private[grpcLedgerClient] (
       participantId,
       protocol.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
       None,
-      protocol.PartyToParticipant.HostingParticipant.HostingState.HOSTING_STATE_UNSPECIFIED,
     )
     admin_topology.AuthorizeRequest(
       admin_topology.AuthorizeRequest.Type.Proposal(
