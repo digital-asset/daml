@@ -64,6 +64,7 @@ single_version_override(
         "//bazel/patches:haskell/rules_haskell-darwin-keep-linker-signature.patch",
         "//bazel/patches:haskell/rules_haskell-windows-assembler.patch",
         "//bazel/patches:haskell/rules_haskell-windows-unique-cabal-distdir.patch",
+        "//bazel/patches:haskell/rules_haskell-rules_js2-npm-load.patch",
     ],
 )
 
