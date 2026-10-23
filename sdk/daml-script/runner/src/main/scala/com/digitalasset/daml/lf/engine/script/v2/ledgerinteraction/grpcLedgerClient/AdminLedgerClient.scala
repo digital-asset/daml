@@ -10,9 +10,9 @@ import com.daml.grpc.AuthCallCredentials
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
-import com.digitalasset.canton.admin.participant.{v31 => admin_participant}
-import com.digitalasset.canton.topology.admin.v31.ForceFlag
-import com.digitalasset.canton.topology.admin.{v31 => admin_topology}
+import com.digitalasset.canton.admin.participant.{v30 => admin_participant}
+import com.digitalasset.canton.topology.admin.v30.ForceFlag
+import com.digitalasset.canton.topology.admin.{v30 => admin_topology}
 import com.digitalasset.canton.protocol.{v31 => protocol}
 import com.digitalasset.canton.validation.ProtoValidation
 import com.digitalasset.canton.validation.ProtoUnvalidatedSeq
