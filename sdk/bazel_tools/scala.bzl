@@ -369,6 +369,7 @@ def _create_scala_source_jar(**kwargs):
         scala_source_jar(
             name = kwargs["name"] + "_src",
             srcs = kwargs["srcs"],
+            tags = ["no-ide"],
         )
 
 def _build_nosrc_jar(ctx):
