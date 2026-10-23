@@ -2,29 +2,31 @@
 set -euo pipefail
 
 bazel_target="${1:-//compiler/damlc:damlc@ghci@bios}"
+bazel="$(command -v bazelisk || command -v bazel)"
 
 hie_bios_flags() {
-  bazel run $bazel_target \
-    | awk -v execroot="$(bazel info execution_root)" '
-      BEGIN { rts_opts = false }
-      {
-        if (rts_opts) {
-          if ($0 == "-RTS") {
-            rts_opts = false
-          }
-        } else if ($0 == "+RTS") {
-          rts_opts = true
-        } else if (match($0, "-qg|-fexternal-interpreter")) {
-        } else if (match($0, "com_github_madler_zlib")) {
-        } else if (match($0, "grpc_haskell_core_cbits")) {
-        } else if (match($0, "-lmerged_cbits")) {
-        } else {
-          # Temporary fix for https://github.com/tweag/rules_haskell/issues/2325
-          # Remove when upstream is patched.
-          sub(execroot "/", "", $0)
-          print $0
-        }
-      }'
+  # Build first: Bazel replays cached action stdout, which would pollute the flags.
+  "$bazel" build $bazel_target >&2
+  # Rewrite the @bios flags (one per line) for HLS, which runs here, not in the execroot.
+  "$bazel" run $bazel_target \
+    | awk -v execroot="$("$bazel" info execution_root)" '
+      # Memory and GC settings meant for the GHCi process; HLS runs GHC inside its own process, so they do not apply.
+      /^\+RTS$/, /^-RTS$/                    { next }
+
+      # Drop -pgm{a,c,l,P} <rules_haskell cc_wrapper> so GHC uses its own C compiler and preprocessor:
+      # the wrapper looks up clang relative to the Bazel execroot and fails when run from here.
+      /^-pgm[aclP]$/                         { getline; next }
+
+      # HLS runs Template Haskell in its own process, not an external interpreter.
+      /^-fexternal-interpreter$/             { next }
+      # Default runtime settings to embed in a built executable; HLS only type-checks, so it never uses them.
+      /^-with-rtsopts=/                      { next }
+      # grpc C core library. Added with da-hls (#13853) for an unrecorded reason; harmless to keep.
+      /-lmerged_cbits/                       { next }
+
+      # Make paths relative to this directory (rules_haskell#2325).
+      { sub(execroot "/", ""); print }
+    '
 }
 if [[ -z "${HIE_BIOS_OUTPUT-}" ]]; then
   hie_bios_flags
