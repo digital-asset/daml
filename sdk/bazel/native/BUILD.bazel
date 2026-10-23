@@ -12,6 +12,7 @@ msys2_autotools(
     automake = "@msys_automake//:files",
     automake_series = MSYS_AUTOMAKE_SERIES,
     m4 = "@msys_m4//:files",
+    tags = ["no-ide"],
     target_compatible_with = ["@platforms//os:windows"],
     visibility = ["//visibility:public"],
 )
