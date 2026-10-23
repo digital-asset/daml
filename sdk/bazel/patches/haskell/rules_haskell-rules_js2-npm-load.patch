@@ -1,0 +1,10 @@
+--- a/haskell/asterius/asterius_dependencies.bzl
++++ b/haskell/asterius/asterius_dependencies.bzl
+@@ -1,6 +1,6 @@
+ # Since this module depends on rules_nodejs, documentation using stardoc does not seem to be possible at the moment because of https://github.com/bazelbuild/rules_nodejs/issues/2874.
+ 
+-load("@aspect_rules_js//npm:npm_import.bzl", "npm_translate_lock")
++load("@aspect_rules_js//npm:repositories.bzl", "npm_translate_lock")
+ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+ load("@rules_nodejs//nodejs:repositories.bzl", "nodejs_register_toolchains")
+ 
