@@ -430,7 +430,6 @@ class AdminLedgerClient private[grpcLedgerClient] (
         _,
         protocol.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
         None,
-        protocol.PartyToParticipant.HostingParticipant.HostingState.HOSTING_STATE_UNSPECIFIED,
       )
     )
     admin_topology.AuthorizeRequest(
@@ -478,7 +477,6 @@ class AdminLedgerClient private[grpcLedgerClient] (
       participantId,
       protocol.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
       None,
-      protocol.PartyToParticipant.HostingParticipant.HostingState.HOSTING_STATE_UNSPECIFIED,
     )
     admin_topology.AuthorizeRequest(
       admin_topology.AuthorizeRequest.Type.Proposal(
