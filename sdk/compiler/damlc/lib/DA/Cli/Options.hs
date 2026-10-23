@@ -85,19 +85,20 @@ outputFileOpt = strOptionOnce $
     <> long "output"
     <> value "-"
 
-optionalOutputFileOpt :: Parser (Maybe String)
-optionalOutputFileOpt = optionOnce (Just <$> str) $
+optionalOutputFileOpt :: Parser (OverwritableFlagResult (Maybe String))
+optionalOutputFileOpt = optionOnceFlagResult (Just <$> str) $
        metavar "FILE"
     <> help "Optional output file (defaults to <PACKAGE-NAME>.dar)"
     <> short 'o'
     <> long "output"
     <> value Nothing
 
-lfVersionOpt :: Parser LF.Version
-lfVersionOpt = optionOnce (str >>= select) $
+lfVersionOpt :: Parser (OverwritableFlagResult LF.Version)
+lfVersionOpt = optionOnceFlagResult (str >>= select) $
        metavar "DAML-LF-VERSION"
     <> help ("Daml-LF version to output: " ++ versionsStr)
     <> long "target"
+    <> value LF.defaultLfVersion
     <> internal
   where
     renderVersion v =
@@ -147,19 +148,16 @@ debugOpt = fmap Debug $
     <> help "Enable debug output."
 
 newtype EnableMultiPackage = EnableMultiPackage {getEnableMultiPackage :: Bool}
-optionalEnableMultiPackageOpt :: Parser (Maybe EnableMultiPackage)
-optionalEnableMultiPackageOpt = optional $ EnableMultiPackage <$> flagYesNoDetermineAuto "enable-multi-package" True "Enable/disable multi-package.yaml support (enabled by default)" idm
-
-enableMultiPackageOpt :: Parser EnableMultiPackage
-enableMultiPackageOpt = fromMaybe (EnableMultiPackage True) <$> optionalEnableMultiPackageOpt
+enableMultiPackageOpt :: Parser (OverwritableFlagResult EnableMultiPackage)
+enableMultiPackageOpt = fmap EnableMultiPackage <$> flagYesNoAutoFlagResult "enable-multi-package" True "Enable/disable multi-package.yaml support (enabled by default)" idm
 
 newtype MultiPackageBuildAll = MultiPackageBuildAll {getMultiPackageBuildAll :: Bool}
-multiPackageBuildAllOpt :: Parser MultiPackageBuildAll
-multiPackageBuildAllOpt = MultiPackageBuildAll <$> switch (long "all" <> help "Build all packages in multi-package.yaml")
+multiPackageBuildAllOpt :: Parser (OverwritableFlagResult MultiPackageBuildAll)
+multiPackageBuildAllOpt = fmap MultiPackageBuildAll <$> switchFlagResult (long "all" <> help "Build all packages in multi-package.yaml")
 
 newtype MultiPackageNoCache = MultiPackageNoCache {getMultiPackageNoCache :: Bool}
-multiPackageNoCacheOpt :: Parser MultiPackageNoCache
-multiPackageNoCacheOpt = MultiPackageNoCache <$> switch (long "no-cache" <> help "Disables cache checking, rebuilding all dependencies")
+multiPackageNoCacheOpt :: Parser (OverwritableFlagResult MultiPackageNoCache)
+multiPackageNoCacheOpt = fmap MultiPackageNoCache <$> switchFlagResult (long "no-cache" <> help "Disables cache checking, rebuilding all dependencies")
 
 data MultiPackageLocation
   -- | Search for the multi-package.yaml above the current directory
@@ -168,16 +166,14 @@ data MultiPackageLocation
   | MPLPath FilePath
   deriving (Show, Eq)
 
-optionalMultiPackageLocationOpt :: Parser (Maybe MultiPackageLocation)
-optionalMultiPackageLocationOpt =
-  optional $ optionOnce (MPLPath <$> str)
+multiPackageLocationOpt :: Parser (OverwritableFlagResult MultiPackageLocation)
+multiPackageLocationOpt =
+  optionOnceFlagResult (MPLPath <$> str)
     (  metavar "FILE"
     <> help "Path to the multi-package.yaml file"
     <> long "multi-package-path"
+    <> value MPLSearch
     )
-
-multiPackageLocationOpt :: Parser MultiPackageLocation
-multiPackageLocationOpt = fromMaybe MPLSearch <$> optionalMultiPackageLocationOpt
 
 newtype MultiPackageCleanAll = MultiPackageCleanAll {getMultiPackageCleanAll :: Bool}
 multiPackageCleanAllOpt :: Parser MultiPackageCleanAll
@@ -349,16 +345,16 @@ dlintOptionsParser = DlintOptions
 -- @optionsParser@ for commands that never perform any linting.
 --
 -- No lint related options will appear for the user.
-disabledDlintUsageParser :: Parser DlintUsage
-disabledDlintUsageParser = pure DlintDisabled
+disabledDlintUsageParser :: Parser (OverwritableFlagResult DlintUsage)
+disabledDlintUsageParser = pure (NotProvided DlintDisabled)
 
 -- | Use @'enabledDlintUsageParser'@ as the @Parser DlintUsage@ argument of
 -- @optionsParser@ for commands that always perform linting.
 --
 -- The options that modify linting settings will be available, but not the ones
 -- for enabling/disabling linting itself.
-enabledDlintUsageParser :: Parser DlintUsage
-enabledDlintUsageParser = DlintEnabled <$> dlintOptionsParser
+enabledDlintUsageParser :: Parser (OverwritableFlagResult DlintUsage)
+enabledDlintUsageParser = Provided . DlintEnabled <$> dlintOptionsParser
 
 -- | Use @'optionalDlintUsageParser' enabled@ as the @Parser DlintUsage@
 -- argument of @optionsParser@ for commands where the user can decide whether
@@ -369,31 +365,34 @@ enabledDlintUsageParser = DlintEnabled <$> dlintOptionsParser
 --
 -- The options that modify linting settings will be available, as well as
 -- two options for enabling/disabling linting.
-optionalDlintUsageParser :: Bool -> Parser DlintUsage
+optionalDlintUsageParser :: Bool -> Parser (OverwritableFlagResult DlintUsage)
 optionalDlintUsageParser def =
-  fromParsed
-    <$> lastOr def (enableDlint <|> disableDlint)
+  fromParsedFlagResult
+    <$> lastOr (NotProvided def) (enableDlint <|> disableDlint)
     <*> dlintOptionsParser
   where
+    fromParsedFlagResult (Provided b) = Provided . fromParsed b
+    fromParsedFlagResult (NotProvided b) = NotProvided . fromParsed b
+
     fromParsed enabled options
       | enabled = DlintEnabled options
       | otherwise = DlintDisabled
 
-    enableDlint = flag' True
+    enableDlint = flag' (Provided True)
       ( long "with-dlint"
         <> internal
         <> help "Enable dlint"
       )
-    disableDlint = flag' False
+    disableDlint = flag' (Provided False)
       ( long "without-dlint"
         <> internal
         <> help "Disable dlint"
       )
 
-logLevelOpt :: Parser Logger.Priority
+logLevelOpt :: Parser (OverwritableFlagResult Logger.Priority)
 logLevelOpt =
-    flag' Logger.Debug (long "debug" <> help "Set log level to DEBUG") <|>
-    optionOnce readLogLevel (long "log-level" <> help "Set log level. Possible values are DEBUG, INFO, WARNING, ERROR")
+    (Provided <$> flag' Logger.Debug (long "debug" <> help "Set log level to DEBUG")) <|>
+    optionOnceFlagResult readLogLevel (long "log-level" <> help "Set log level. Possible values are DEBUG, INFO, WARNING, ERROR" <> value Logger.Info)
   where
     readLogLevel = maybeReader $ \s -> case lower s of
         -- we support telemetry log-level for debugging purposes.
@@ -404,9 +403,9 @@ logLevelOpt =
         "error" -> Just Logger.Error
         _ -> Nothing
 
-detailLevelOpt :: Parser Pretty.PrettyLevel
+detailLevelOpt :: Parser (OverwritableFlagResult Pretty.PrettyLevel)
 detailLevelOpt =
-  fmap Pretty.PrettyLevel $ optionOnce auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
+  optionOnceFlagResult (Pretty.PrettyLevel <$> auto) $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)" <> value Pretty.prettyNormal
 
 packageNameOpt :: Parser (Maybe GHC.UnitId)
 packageNameOpt = optional $ fmap GHC.stringToUnitId $ strOptionOnce $
@@ -414,146 +413,112 @@ packageNameOpt = optional $ fmap GHC.stringToUnitId $ strOptionOnce $
     <> help "create package artifacts for the given package name"
     <> long "package-name"
 
-newtype Replaceable a = Replaceable { getReplaceable :: a } deriving newtype (Show, Eq)
-instance Semigroup (Replaceable a) where
-    Replaceable _ <> Replaceable y = Replaceable y
-
 -- Subset of DA.Daml.Options.Types.Options that can be specified via CLI
 -- Fields that are not "extended" by repeat flags are wrapped in `Replaceable`, to allow
 -- cli options to overwrite those specified in `build-options`
 data CliOptions = CliOptions
-  { cliOptMbPackageName :: Replaceable (Maybe LF.PackageName)
-  , cliOptMbPackageVersion :: Replaceable (Maybe LF.PackageVersion)
+  { cliOptMbPackageName :: OverwritableFlagResult (Maybe LF.PackageName)
+  , cliOptMbPackageVersion :: OverwritableFlagResult (Maybe LF.PackageVersion)
   , cliOptPackageDbs :: [FilePath]
   , cliOptImportPath :: [FilePath]
   , cliOptPackageImports :: [PackageFlag]
-  , cliOptShakeProfiling :: Replaceable (Maybe FilePath)
-  , cliOptThreads :: Replaceable Int
-  , cliOptDamlLfVersion :: Replaceable LF.Version
-  , cliOptLogLevel :: Replaceable Logger.Priority
-  , cliOptDetailLevel :: Replaceable Pretty.PrettyLevel
+  , cliOptShakeProfiling :: OverwritableFlagResult (Maybe FilePath)
+  , cliOptThreads :: OverwritableFlagResult Int
+  , cliOptDamlLfVersion :: OverwritableFlagResult LF.Version
+  , cliOptLogLevel :: OverwritableFlagResult Logger.Priority
+  , cliOptDetailLevel :: OverwritableFlagResult Pretty.PrettyLevel
   , cliOptGhcCustomOpts :: [String]
-  , cliOptEnableInterfaces :: Replaceable EnableInterfaces
-  , cliOptTestFilter :: Replaceable (T.Text -> Bool)
-  , cliOptDlintUsage :: Replaceable DlintUsage
-  , cliOptIsGenerated :: Replaceable Bool
-  , cliOptDflagCheck :: Replaceable Bool
-  , cliOptCppPath :: Replaceable (Maybe FilePath)
-  , cliOptIncrementalBuild :: Replaceable IncrementalBuild
-  , cliOptAccessTokenPath :: Replaceable (Maybe FilePath)
-  , cliOptUpgradeInfo :: Replaceable UpgradeInfo
+  , cliOptEnableInterfaces :: OverwritableFlagResult EnableInterfaces
+  , cliOptTestFilter :: OverwritableFlagResult (T.Text -> Bool)
+  , cliOptDlintUsage :: OverwritableFlagResult DlintUsage
+  , cliOptIsGenerated :: OverwritableFlagResult Bool
+  , cliOptDflagCheck :: OverwritableFlagResult Bool
+  , cliOptCppPath :: OverwritableFlagResult (Maybe FilePath)
+  , cliOptIncrementalBuild :: OverwritableFlagResult IncrementalBuild
+  , cliOptAccessTokenPath :: OverwritableFlagResult (Maybe FilePath)
+  , cliOptUpgradedPackagePath :: OverwritableFlagResult (Maybe FilePath)
+  , cliOptTypecheckUpgrades :: OverwritableFlagResult Bool
   , cliOptTypecheckerWarningFlags :: WarningFlags TypeCheckerError.ErrorOrWarning
   , cliOptLfConversionWarningFlags :: WarningFlags LFConversion.ErrorOrWarning
   , cliOptInlineDamlCustomWarningFlags :: WarningFlags InlineDamlCustomWarnings
-  , cliOptIgnoreDataDepVisibility :: Replaceable IgnoreDataDepVisibility
-  , cliOptForceUtilityPackage :: Replaceable ForceUtilityPackage
-  , cliOptExplicitSerializable :: Replaceable ExplicitSerializable
-  , cliOptInitPkgDb :: Replaceable InitPkgDb
+  , cliOptIgnoreDataDepVisibility :: OverwritableFlagResult IgnoreDataDepVisibility
+  , cliOptForceUtilityPackage :: OverwritableFlagResult ForceUtilityPackage
+  , cliOptExplicitSerializable :: OverwritableFlagResult ExplicitSerializable
+  , cliOptInitPkgDb :: OverwritableFlagResult InitPkgDb
   }
 
--- Inherit defaults from DA.Daml.Options.Types.defaultOptions
-defaultCliOptions :: CliOptions
-defaultCliOptions = 
-  let Options {..} = defaultOptions (EnableScriptService False)
-   in CliOptions
-        { cliOptMbPackageName = Replaceable optMbPackageName
-        , cliOptMbPackageVersion = Replaceable optMbPackageVersion
-        , cliOptImportPath = optImportPath
-        , cliOptPackageDbs = optPackageDbs
-        , cliOptPackageImports = optPackageImports
-        , cliOptShakeProfiling = Replaceable optShakeProfiling
-        , cliOptThreads = Replaceable optThreads
-        , cliOptDamlLfVersion = Replaceable optDamlLfVersion
-        , cliOptLogLevel = Replaceable optLogLevel
-        , cliOptDetailLevel = Replaceable optDetailLevel
-        , cliOptGhcCustomOpts = optGhcCustomOpts
-        , cliOptEnableInterfaces = Replaceable optEnableInterfaces
-        , cliOptTestFilter = Replaceable optTestFilter
-        , cliOptDlintUsage = Replaceable optDlintUsage
-        , cliOptIsGenerated = Replaceable optIsGenerated
-        , cliOptDflagCheck = Replaceable optDflagCheck
-        , cliOptCppPath = Replaceable optCppPath
-        , cliOptIncrementalBuild = Replaceable optIncrementalBuild
-        , cliOptAccessTokenPath = Replaceable optAccessTokenPath
-        , cliOptUpgradeInfo = Replaceable optUpgradeInfo
-        , cliOptTypecheckerWarningFlags = optTypecheckerWarningFlags
-        , cliOptLfConversionWarningFlags = optLfConversionWarningFlags
-        , cliOptInlineDamlCustomWarningFlags = optInlineDamlCustomWarningFlags
-        , cliOptIgnoreDataDepVisibility = Replaceable optIgnoreDataDepVisibility
-        , cliOptForceUtilityPackage = Replaceable optForceUtilityPackage
-        , cliOptExplicitSerializable = Replaceable optExplicitSerializable
-        , cliOptInitPkgDb = Replaceable optInitPkgDb
-        }
+-- Simple "Deriveable" semigroup instance that just concats every field
+-- Would derive it generically but thats messy and slows compilation
+-- Not proud of this one, I wish we had more recent GHC
+instance Semigroup CliOptions where
+  CliOptions f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28
+    <> CliOptions f1' f2' f3' f4' f5' f6' f7' f8' f9' f10' f11' f12' f13' f14' f15' f16' f17' f18' f19' f20' f21' f22' f23' f24' f25' f26' f27' f28'
+    = CliOptions
+        (f1 <> f1') (f2 <> f2') (f3 <> f3') (f4 <> f4') (f5 <> f5') (f6 <> f6') (f7 <> f7')
+        (f8 <> f8') (f9 <> f9') (f10 <> f10') (f11 <> f11') (f12 <> f12') (f13 <> f13') (f14 <> f14')
+        (f15 <> f15') (f16 <> f16') (f17 <> f17') (f18 <> f18') (f19 <> f19') (f20 <> f20') (f21 <> f21')
+        (f22 <> f22') (f23 <> f23') (f24 <> f24') (f25 <> f25') (f26 <> f26') (f27 <> f27') (f28 <> f28')
 
-parseOverwrite :: Semigroup b => b -> (a -> b) -> Parser a -> Parser b
-parseOverwrite existing wrap parser = do
-    result <- optional parser
-    pure $ maybe existing ((existing <>) . wrap) result
-
-cliOptionsParser :: Int -> Parser (Maybe GHC.UnitId) -> Parser DlintUsage -> CliOptions -> Parser CliOptions
-cliOptionsParser numProcessors parseUnitId parseDlintUsage CliOptions {..} = do
+cliOptionsParser :: Int -> Parser (Maybe GHC.UnitId) -> Parser (OverwritableFlagResult DlintUsage) -> Parser CliOptions
+cliOptionsParser numProcessors parseUnitId parseDlintUsage = do
     -- Explicit logic for replacing pkg name&version, as they both use the same parse result
     -- and we cannot run said parser twice
-    let convertUnitId Nothing = (Replaceable Nothing, Replaceable Nothing)
+    let convertUnitId Nothing = (NotProvided Nothing, NotProvided Nothing)
         convertUnitId (Just unitId) = case splitUnitId unitId of
-            (name, mbVersion) -> (Replaceable $ Just name, Replaceable mbVersion)
+            (name, mbVersion) -> (Provided $ Just name, Provided mbVersion)
     ~(cliOptMbPackageName, cliOptMbPackageVersion) <-
         fmap convertUnitId parseUnitId
 
-    cliOptPackageDbs <- parseOverwrite cliOptPackageDbs id optPackageDir
-    cliOptImportPath <- parseOverwrite cliOptImportPath id optImportPath
-    cliOptPackageImports <- parseOverwrite cliOptPackageImports id optPackageImport
-    cliOptShakeProfiling <- parseOverwrite cliOptShakeProfiling Replaceable $ Just <$> shakeProfilingOpt
-    cliOptThreads <- parseOverwrite cliOptThreads Replaceable optShakeThreads
-    cliOptDamlLfVersion <- parseOverwrite cliOptDamlLfVersion Replaceable lfVersionOpt
-    cliOptLogLevel <- parseOverwrite cliOptLogLevel Replaceable logLevelOpt
-    cliOptDetailLevel <- parseOverwrite cliOptDetailLevel Replaceable detailLevelOpt
-    cliOptGhcCustomOpts <- parseOverwrite cliOptGhcCustomOpts id optGhcCustomOptions
-    cliOptEnableInterfaces <- parseOverwrite cliOptEnableInterfaces Replaceable enableInterfacesOpt
-    cliOptTestFilter <- parseOverwrite cliOptTestFilter Replaceable $ compilePatternExpr <$> optTestPattern
-    cliOptDlintUsage <- parseOverwrite cliOptDlintUsage Replaceable parseDlintUsage
-    cliOptIsGenerated <- parseOverwrite cliOptIsGenerated Replaceable optIsGenerated
-    cliOptDflagCheck <- parseOverwrite cliOptDflagCheck Replaceable optNoDflagCheck
-    cliOptCppPath <- parseOverwrite cliOptCppPath Replaceable $ Just <$> optCppPath
-    cliOptIncrementalBuild <- parseOverwrite cliOptIncrementalBuild Replaceable optIncrementalBuild
-    cliOptAccessTokenPath <- parseOverwrite cliOptAccessTokenPath Replaceable $ Just <$> optAccessTokenPath
-    cliOptUpgradeInfo <- parseOverwrite cliOptUpgradeInfo Replaceable optUpgradeInfo
-    ~(optInlineDamlCustomWarningFlags, optTypecheckerWarningFlags, optLfConversionWarningFlags) <- optWarningFlags
-    cliOptIgnoreDataDepVisibility <- parseOverwrite cliOptIgnoreDataDepVisibility Replaceable optIgnoreDataDepVisibility
-    cliOptForceUtilityPackage <- parseOverwrite cliOptForceUtilityPackage Replaceable forceUtilityPackageOpt
-    cliOptExplicitSerializable <- parseOverwrite cliOptExplicitSerializable Replaceable explicitSerializableOpt
-    cliOptInitPkgDb <- parseOverwrite cliOptInitPkgDb Replaceable initPkgDbOpt
+    cliOptPackageDbs <- optPackageDir
+    cliOptImportPath <- optImportPath
+    cliOptPackageImports <- optPackageImport
+    cliOptShakeProfiling <- shakeProfilingOpt
+    cliOptThreads <- optShakeThreads
+    cliOptDamlLfVersion <- lfVersionOpt
+    cliOptLogLevel <- logLevelOpt
+    cliOptDetailLevel <- detailLevelOpt
+    cliOptGhcCustomOpts <- optGhcCustomOptions
+    cliOptEnableInterfaces <- enableInterfacesOpt
+    cliOptTestFilter <- optTestPattern
+    cliOptDlintUsage <- parseDlintUsage
+    cliOptIsGenerated <- optIsGenerated
+    cliOptDflagCheck <- optNoDflagCheck
+    cliOptCppPath <- optCppPath
+    cliOptIncrementalBuild <- optIncrementalBuild
+    cliOptAccessTokenPath <- optAccessTokenPath
+    cliOptUpgradedPackagePath <- optUpgradeDar
+    cliOptTypecheckUpgrades <- optTypecheckUpgrades
+    ~(cliOptInlineDamlCustomWarningFlags, cliOptTypecheckerWarningFlags, cliOptLfConversionWarningFlags) <- optWarningFlags
+    cliOptIgnoreDataDepVisibility <- optIgnoreDataDepVisibility
+    cliOptForceUtilityPackage <- forceUtilityPackageOpt
+    cliOptExplicitSerializable <- explicitSerializableOpt
+    cliOptInitPkgDb <- initPkgDbOpt
 
-    return $
-      CliOptions
-        { cliOptTypecheckerWarningFlags = cliOptTypecheckerWarningFlags `extendFlags` optTypecheckerWarningFlags
-        , cliOptLfConversionWarningFlags = cliOptLfConversionWarningFlags `extendFlags` optLfConversionWarningFlags
-        , cliOptInlineDamlCustomWarningFlags = cliOptInlineDamlCustomWarningFlags `extendFlags` optInlineDamlCustomWarningFlags
-        , ..
-        }
+    return CliOptions {..}
   where
-    optAccessTokenPath :: Parser FilePath
-    optAccessTokenPath = optionOnce str
+    optAccessTokenPath :: Parser (OverwritableFlagResult (Maybe FilePath))
+    optAccessTokenPath = optionOnceFlagResult (Just <$> str)
         $ metavar "PATH"
         <> long "access-token-file"
         <> help "--access-token-file is deprecated, use DPM instead\nPath to the token-file for ledger authorization."
+        <> value Nothing
 
     optImportPath :: Parser [FilePath]
     optImportPath =
-        some $
+        many $
         Options.Applicative.strOption $
         metavar "INCLUDE-PATH" <>
         help "Path to an additional source directory to be included" <>
         long "include"
 
     optPackageDir :: Parser [FilePath]
-    optPackageDir = some $ Options.Applicative.strOption $ metavar "LOC-OF-PACKAGE-DB"
+    optPackageDir = many $ Options.Applicative.strOption $ metavar "LOC-OF-PACKAGE-DB"
                       <> help "use package database in the given location"
                       <> long "package-db"
 
     optPackageImport :: Parser [PackageFlag]
     optPackageImport =
-      some $
+      many $
       Options.Applicative.option readPackageImport $
       metavar "PACKAGE" <>
       help "explicit import of a package with optional renaming of modules" <>
@@ -600,19 +565,20 @@ cliOptionsParser numProcessors parseUnitId parseDlintUsage CliOptions {..} = do
             tok :: R.ReadP a -> R.ReadP a
             tok m = m >>= \x -> R.skipSpaces >> return x
 
-    optIsGenerated :: Parser Bool
+    optIsGenerated :: Parser (OverwritableFlagResult Bool)
     optIsGenerated =
-        switch $
+        switchFlagResult $
         help "Tell the compiler that the source was generated." <>
         long "generated-src" <>
         internal
 
-    optTestPattern :: Parser String
-    optTestPattern = optionOnce str
+    optTestPattern :: Parser (OverwritableFlagResult (T.Text -> Bool))
+    optTestPattern = optionOnceFlagResult (compilePatternExpr <$> str)
         $ metavar "PATTERN"
         <> long "test-pattern"
         <> short 'p'
         <> help "Only scripts with names containing the given pattern will be executed."
+        <> value (const True)
 
     compilePatternExpr :: String -> (T.Text -> Bool)
     compilePatternExpr needle = T.isInfixOf (T.pack needle)
@@ -620,12 +586,12 @@ cliOptionsParser numProcessors parseUnitId parseDlintUsage CliOptions {..} = do
     -- optparse-applicative does not provide a nice way
     -- to make the argument for -j optional, see
     -- https://github.com/pcapriotti/optparse-applicative/issues/243
-    optShakeThreads :: Parser Int
+    optShakeThreads :: Parser (OverwritableFlagResult Int)
     optShakeThreads =
-        flag' numProcessors
+        (Provided <$> flag' numProcessors
           (short 'j' <>
-           internal) <|>
-        optionOnce auto
+           internal)) <|>
+        optionOnceFlagResult auto
           (long "jobs" <>
            metavar "THREADS" <>
            help threadsHelp <>
@@ -640,29 +606,31 @@ cliOptionsParser numProcessors parseUnitId parseDlintUsage CliOptions {..} = do
             ]
 
 
-    optNoDflagCheck :: Parser Bool
+    optNoDflagCheck :: Parser (OverwritableFlagResult Bool)
     optNoDflagCheck =
-      flag True False $
+      flag (NotProvided True) (Provided False) $
       help "Dont check generated GHC DynFlags for errors." <>
       long "no-dflags-check" <>
       internal
 
-    optCppPath :: Parser FilePath
-    optCppPath = optionOnce str
+    optCppPath :: Parser (OverwritableFlagResult (Maybe FilePath))
+    optCppPath = optionOnceFlagResult (Just <$> str)
         $ metavar "PATH"
         <> long "cpp"
         <> help "Set path to CPP."
+        <> value Nothing
         <> internal
 
-    optUpgradeDar :: Parser (Maybe FilePath)
-    optUpgradeDar = optional . optionOnce str
+    optUpgradeDar :: Parser (OverwritableFlagResult (Maybe FilePath))
+    optUpgradeDar = optionOnceFlagResult (Just <$> str)
         $ metavar "UPGRADE_DAR"
         <> long "upgrades"
         <> help "Set DAR to upgrade"
+        <> value Nothing
 
-    optTypecheckUpgrades :: Parser Bool
+    optTypecheckUpgrades :: Parser (OverwritableFlagResult Bool)
     optTypecheckUpgrades =
-      flagYesNoDetermineAuto
+      flagYesNoAutoFlagResult
         "typecheck-upgrades"
         defaultUiTypecheckUpgrades
         "Typecheck upgrades."
@@ -675,16 +643,10 @@ cliOptionsParser numProcessors parseUnitId parseDlintUsage CliOptions {..} = do
       unwrap (ProdT inlineDamlCustomWarnings (ProdT typecheckerError (ProdT lfConversion ProdZ))) =
         (inlineDamlCustomWarnings, typecheckerError, lfConversion)
 
-    optUpgradeInfo :: Parser UpgradeInfo
-    optUpgradeInfo = do
-      uiTypecheckUpgrades <- optTypecheckUpgrades
-      uiUpgradedPackagePath <- optUpgradeDar
-      pure UpgradeInfo {..}
-
-    optIgnoreDataDepVisibility :: Parser IgnoreDataDepVisibility
+    optIgnoreDataDepVisibility :: Parser (OverwritableFlagResult IgnoreDataDepVisibility)
     optIgnoreDataDepVisibility =
-      IgnoreDataDepVisibility <$>
-        flagYesNoDetermineAuto
+      fmap IgnoreDataDepVisibility <$>
+        flagYesNoAutoFlagResult
           "ignore-data-deps-visibility"
           False
           ( "Ignore explicit exports on data-dependencies, and instead allow importing of all definitions from that package\n"
@@ -692,46 +654,47 @@ cliOptionsParser numProcessors parseUnitId parseDlintUsage CliOptions {..} = do
           )
           idm
 
-    optIncrementalBuild :: Parser IncrementalBuild
-    optIncrementalBuild = IncrementalBuild <$> flagYesNoDetermineAuto "incremental" False "Enable incremental builds" idm
+    optIncrementalBuild :: Parser (OverwritableFlagResult IncrementalBuild)
+    optIncrementalBuild = fmap IncrementalBuild <$> flagYesNoAutoFlagResult "incremental" False "Enable incremental builds" idm
 
     optGhcCustomOptions :: Parser [String]
     optGhcCustomOptions =
-        fmap concat $ some $
+        fmap concat $ many $
         Options.Applicative.option (stringsSepBy ' ') $
         long "ghc-option" <>
         metavar "OPTION" <>
         help "Options to pass to the underlying GHC"
 
-    enableInterfacesOpt :: Parser EnableInterfaces
-    enableInterfacesOpt = EnableInterfaces <$>
-        flagYesNoDetermineAuto "enable-interfaces" True desc internal
+    enableInterfacesOpt :: Parser (OverwritableFlagResult EnableInterfaces)
+    enableInterfacesOpt = fmap EnableInterfaces <$>
+        flagYesNoAutoFlagResult "enable-interfaces" True desc internal
         where
             desc =
                 "Enable/disable support for interfaces as a language feature. \
                 \If disabled, defining interfaces and interface instances is a compile-time error. \
                 \On by default."
 
-    shakeProfilingOpt :: Parser FilePath
-    shakeProfilingOpt = strOptionOnce $
+    shakeProfilingOpt :: Parser (OverwritableFlagResult (Maybe FilePath))
+    shakeProfilingOpt = optionOnceFlagResult (Just <$> str) $
           metavar "PROFILING-REPORT"
         <> help "Directory for Shake profiling reports"
         <> long "shake-profiling"
+        <> value Nothing
 
-    forceUtilityPackageOpt :: Parser ForceUtilityPackage
-    forceUtilityPackageOpt = ForceUtilityPackage <$>
-        flagYesNoDetermineAuto "force-utility-package" False desc internal
+    forceUtilityPackageOpt :: Parser (OverwritableFlagResult ForceUtilityPackage)
+    forceUtilityPackageOpt = fmap ForceUtilityPackage <$>
+        flagYesNoAutoFlagResult "force-utility-package" False desc internal
         where
             desc =
                 "Force a given package to compile as a utility package. \
                 \This will make all data types unserializable, and will reject template/exception definitions"
 
-    initPkgDbOpt :: Parser InitPkgDb
-    initPkgDbOpt = InitPkgDb <$> flagYesNoDetermineAuto "init-package-db" True "Initialize package database" idm
+    initPkgDbOpt :: Parser (OverwritableFlagResult InitPkgDb)
+    initPkgDbOpt = fmap InitPkgDb <$> flagYesNoAutoFlagResult "init-package-db" True "Initialize package database" idm
 
-explicitSerializableOpt :: Parser ExplicitSerializable
-explicitSerializableOpt = ExplicitSerializable <$>
-    flagYesNoDetermineAuto "explicit-serializable" False desc idm
+explicitSerializableOpt :: Parser (OverwritableFlagResult ExplicitSerializable)
+explicitSerializableOpt = fmap ExplicitSerializable <$>
+    flagYesNoAutoFlagResult "explicit-serializable" False desc idm
     where
         desc =
             "Require explicit Serializable instances on data types in order to use them in templates and choices. \
@@ -739,39 +702,57 @@ explicitSerializableOpt = ExplicitSerializable <$>
             \This means data types used in fields of templates and choices will require explicit Serializable instances. \
             \Currently opt-in, but this will become the default in a future release."
 
-writeCliOptionsToOptions :: Options -> CliOptions -> Options
-writeCliOptionsToOptions opts CliOptions {..} = opts
-  { optMbPackageName = getReplaceable cliOptMbPackageName
-  , optMbPackageVersion = getReplaceable cliOptMbPackageVersion
-  , optPackageDbs = cliOptPackageDbs
-  , optImportPath = cliOptImportPath
-  , optPackageImports = cliOptPackageImports
-  , optShakeProfiling = getReplaceable cliOptShakeProfiling
-  , optThreads = getReplaceable cliOptThreads
-  , optDamlLfVersion = getReplaceable cliOptDamlLfVersion
-  , optLogLevel = getReplaceable cliOptLogLevel
-  , optDetailLevel = getReplaceable cliOptDetailLevel
-  , optGhcCustomOpts = cliOptGhcCustomOpts
-  , optEnableInterfaces = getReplaceable cliOptEnableInterfaces
-  , optTestFilter = getReplaceable cliOptTestFilter
-  , optDlintUsage = getReplaceable cliOptDlintUsage
-  , optIsGenerated = getReplaceable cliOptIsGenerated
-  , optDflagCheck = getReplaceable cliOptDflagCheck
-  , optCppPath = getReplaceable cliOptCppPath
-  , optIncrementalBuild = getReplaceable cliOptIncrementalBuild
-  , optAccessTokenPath = getReplaceable cliOptAccessTokenPath
-  , optUpgradeInfo = getReplaceable cliOptUpgradeInfo
-  , optTypecheckerWarningFlags = cliOptTypecheckerWarningFlags
-  , optLfConversionWarningFlags = cliOptLfConversionWarningFlags
-  , optInlineDamlCustomWarningFlags = cliOptInlineDamlCustomWarningFlags
-  , optIgnoreDataDepVisibility = getReplaceable cliOptIgnoreDataDepVisibility
-  , optForceUtilityPackage = getReplaceable cliOptForceUtilityPackage
-  , optExplicitSerializable = getReplaceable cliOptExplicitSerializable
-  }
+-- Explicitly matching on the constructor to avoid accidentally forgetting a field
+cliOptionsToOptions :: EnableScriptService -> CliOptions -> Options
+cliOptionsToOptions enableScriptService CliOptions {..} =
+  Options
+    { optMbPackageName = getFlagResult cliOptMbPackageName
+    , optMbPackageVersion = getFlagResult cliOptMbPackageVersion
+    , optPackageDbs = cliOptPackageDbs
+    , optImportPath = cliOptImportPath
+    , optPackageImports = cliOptPackageImports
+    , optShakeProfiling = getFlagResult cliOptShakeProfiling
+    , optThreads = getFlagResult cliOptThreads
+    , optDamlLfVersion = getFlagResult cliOptDamlLfVersion
+    , optLogLevel = getFlagResult cliOptLogLevel
+    , optDetailLevel = getFlagResult cliOptDetailLevel
+    , optGhcCustomOpts = cliOptGhcCustomOpts
+    , optEnableInterfaces = getFlagResult cliOptEnableInterfaces
+    , optTestFilter = getFlagResult cliOptTestFilter
+    , optDlintUsage = getFlagResult cliOptDlintUsage
+    , optIsGenerated = getFlagResult cliOptIsGenerated
+    , optDflagCheck = getFlagResult cliOptDflagCheck
+    , optCppPath = getFlagResult cliOptCppPath
+    , optIncrementalBuild = getFlagResult cliOptIncrementalBuild
+    , optAccessTokenPath = getFlagResult cliOptAccessTokenPath
+    , optUpgradeInfo = UpgradeInfo
+        { uiUpgradedPackagePath = getFlagResult cliOptUpgradedPackagePath
+        , uiTypecheckUpgrades = getFlagResult cliOptTypecheckUpgrades
+        }
+    , optTypecheckerWarningFlags = cliOptTypecheckerWarningFlags
+    , optLfConversionWarningFlags = cliOptLfConversionWarningFlags
+    , optInlineDamlCustomWarningFlags = cliOptInlineDamlCustomWarningFlags
+    , optIgnoreDataDepVisibility = getFlagResult cliOptIgnoreDataDepVisibility
+    , optForceUtilityPackage = getFlagResult cliOptForceUtilityPackage
+    , optExplicitSerializable = getFlagResult cliOptExplicitSerializable
+    , optInitPkgDb = getFlagResult cliOptInitPkgDb
+    , -- Non cli option defaults:
+      optCoreLinting = False
+    , optEnableOfInterestRule = False
+    , optHaddock = Haddock False
+    , optHideUnitId = False
+    , optIfaceDir = Nothing
+    , optIgnorePackageMetadata = IgnorePackageMetadata False
+    , optMbPackageConfigPath = Nothing
+    , optResolutionData = Nothing
+    , optScriptService = enableScriptService
+    , optSkipScriptValidation = SkipScriptValidation False
+    , optStablePackages = Nothing
+    }
 
-optionsParser :: CliOptions -> Int -> EnableScriptService -> Parser (Maybe GHC.UnitId) -> Parser DlintUsage -> Parser Options
+optionsParser :: CliOptions -> Int -> EnableScriptService -> Parser (Maybe GHC.UnitId) -> Parser (OverwritableFlagResult DlintUsage) -> Parser Options
 optionsParser cliOptions numProcessors enableScriptService parseUnitId parseDlintUsage =
-  writeCliOptionsToOptions (defaultOptions enableScriptService) <$> cliOptionsParser numProcessors parseUnitId parseDlintUsage cliOptions
+  cliOptionsToOptions enableScriptService . (cliOptions <> ) <$> cliOptionsParser numProcessors parseUnitId parseDlintUsage
 
 studioReplaceOpt :: Parser ReplaceExtension
 studioReplaceOpt =

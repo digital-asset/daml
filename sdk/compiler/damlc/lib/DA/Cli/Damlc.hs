@@ -32,9 +32,8 @@ import DA.Cli.Options (CliOptions(..),
                        Style(..),
                        Telemetry(..),
                        cliOptionsParser,
+                       cliOptionsToOptions,
                        debugOpt,
-                       defaultCliOptions,
-                       defaultPackageLocationOpts,
                        detailLevelOpt,
                        disabledDlintUsageParser,
                        enabledDlintUsageParser,
@@ -50,8 +49,6 @@ import DA.Cli.Options (CliOptions(..),
                        multiPackageLocationOpt,
                        multiPackageNoCacheOpt,
                        optionalDlintUsageParser,
-                       optionalEnableMultiPackageOpt,
-                       optionalMultiPackageLocationOpt,
                        optionalOutputFileOpt,
                        optionsParser,
                        outputFileOpt,
@@ -64,8 +61,7 @@ import DA.Cli.Options (CliOptions(..),
                        render,
                        studioAutorunAllScriptsOpt,
                        studioReplaceOpt,
-                       telemetryOpt,
-                       writeCliOptionsToOptions)
+                       telemetryOpt)
 import DA.Cli.Damlc.BuildInfo (buildInfo)
 import DA.Cli.Damlc.Command.MultiIde (runMultiIde)
 import DA.Cli.Damlc.Command.UpgradeCheck (runUpgradeCheck)
@@ -118,7 +114,6 @@ import DA.Daml.Options.Types (EnableScriptService(..),
                               StudioAutorunAllScripts,
                               UpgradeInfo(..),
                               damlArtifactDir,
-                              defaultOptions,
                               distDir,
                               getLogger,
                               ifaceDir,
@@ -220,7 +215,7 @@ import "ghc-lib-parser" DynFlags (DumpFlag(..),
 import GHC.Conc (getNumProcessors)
 import "ghc-lib-parser" Module (unitIdString, stringToUnitId)
 import qualified Network.Socket as NS
-import Options.Applicative.Extended (flagYesNoAuto, strOptionOnce)
+import Options.Applicative.Extended (OverwritableFlagResult (..), flagYesNoAuto, strOptionOnce, getFlagResult)
 import Options.Applicative ((<|>),
                             CommandFields,
                             Mod,
@@ -322,7 +317,7 @@ cmdMultiIde _numProcessors =
     <> forwardOptions
   where
     cmd = fmap (Command MultiIde Nothing) $ runMultiIde
-        <$> (fmap (fromMaybe Logger.Info) $ optional logLevelOpt)
+        <$> (getFlagResult <$> logLevelOpt)
         <*> optional (strOptionOnce $ long "ide-identifier" <> help "Identifier string for this IDE")
         <*> many (strArgument mempty)
 
@@ -545,7 +540,7 @@ cmdInspect =
       <$> inputFileOptWithExt ".dalf or .dar"
       <*> outputFileOpt
       <*> jsonOpt
-      <*> (fromMaybe DA.Pretty.prettyNormal <$> optional detailLevelOpt)
+      <*> (getFlagResult <$> detailLevelOpt)
 
 cmdBuild :: ComponentVersion.Class.ComponentVersioned => Int -> CmdBuildArguments -> Mod CommandFields Command
 cmdBuild numProcessors buildOptions =
@@ -554,15 +549,15 @@ cmdBuild numProcessors buildOptions =
     progDesc "Initialize, build and package the Daml package" <> fullDesc
   where
     cmd = do
-      buildArgs <- parseCmdBuildArguments "daml build" numProcessors buildOptions
+      buildArgs <- (buildOptions <>) <$> parseCmdBuildArguments "daml build" numProcessors
       pure $ execBuild
-        (cbPkgLocationOpts buildArgs)
-        (writeCliOptionsToOptions (defaultOptions $ EnableScriptService False) (cbCliOptions buildArgs))
-        (cbOutput buildArgs)
-        (cbEnableMultiPackage buildArgs)
-        (cbMultiPackageBuildAll buildArgs)
-        (cbMultiPackageNoCache buildArgs)
-        (cbMultiPackageLocation buildArgs)
+        (getFlagResult $ cbPkgLocationOpts buildArgs)
+        (cliOptionsToOptions (EnableScriptService False) (cbCliOptions buildArgs))
+        (getFlagResult $ cbOutput buildArgs)
+        (getFlagResult $ cbEnableMultiPackage buildArgs)
+        (getFlagResult $ cbMultiPackageBuildAll buildArgs)
+        (getFlagResult $ cbMultiPackageNoCache buildArgs)
+        (getFlagResult $ cbMultiPackageLocation buildArgs)
 
 cmdClean :: Mod CommandFields Command
 cmdClean =
@@ -572,8 +567,8 @@ cmdClean =
   where
     cmd = execClean
             <$> packageLocationOpts "daml clean"
-            <*> enableMultiPackageOpt
-            <*> multiPackageLocationOpt
+            <*> (getFlagResult <$> enableMultiPackageOpt)
+            <*> (getFlagResult <$> multiPackageLocationOpt)
             <*> multiPackageCleanAllOpt
 
 cmdInit :: ComponentVersion.Class.ComponentVersioned => Int -> CliOptions -> Mod CommandFields Command
@@ -637,7 +632,7 @@ cmdGenerateMultiPackageManifest =
     progDesc "Generates the multi-package manifest file used by external build systems" <> fullDesc
   where
     cmd = execGenerateMultiPackageManifest
-        <$> multiPackageLocationOpt
+        <$> (getFlagResult <$> multiPackageLocationOpt)
         <*> generateMultiPackageManifestOutputOpt
 
 cmdStudio :: Mod CommandFields Command
@@ -1604,7 +1599,7 @@ parserInfo numProcessors buildOptions =
 scrapeOutputFlag :: FilePath -> [String] -> Maybe FilePath
 scrapeOutputFlag packagePath args =
   case runBuildOptionsParser 1 args of
-    Success buildOptions -> cbOutput buildOptions
+    Success buildOptions -> getFlagResult $ cbOutput buildOptions
     Failure err -> error $ "Error reading output from build-options in package " <> packagePath <> ":\n" <> fst (renderFailure err "daml build")
     CompletionInvoked _ -> error "Impossible internal completion invoked."
 
@@ -1678,48 +1673,38 @@ cliArgsFromDamlYaml =
     Right xs -> xs
 
 data CmdBuildArguments = CmdBuildArguments
-  { cbPkgLocationOpts :: PackageLocationOpts
+  { cbPkgLocationOpts :: OverwritableFlagResult PackageLocationOpts
   , cbCliOptions :: CliOptions
-  , cbOutput :: Maybe FilePath
-  , cbEnableMultiPackage :: EnableMultiPackage
-  , cbMultiPackageBuildAll :: MultiPackageBuildAll
-  , cbMultiPackageNoCache :: MultiPackageNoCache
-  , cbMultiPackageLocation :: MultiPackageLocation
+  , cbOutput :: OverwritableFlagResult (Maybe FilePath)
+  , cbEnableMultiPackage :: OverwritableFlagResult EnableMultiPackage
+  , cbMultiPackageBuildAll :: OverwritableFlagResult MultiPackageBuildAll
+  , cbMultiPackageNoCache :: OverwritableFlagResult MultiPackageNoCache
+  , cbMultiPackageLocation :: OverwritableFlagResult MultiPackageLocation
   }
 
-defaultCmdBuildArguments :: CmdBuildArguments
-defaultCmdBuildArguments = CmdBuildArguments
-  { cbPkgLocationOpts = defaultPackageLocationOpts
-  , cbCliOptions = defaultCliOptions
-  , cbOutput = Nothing
-  , cbEnableMultiPackage = EnableMultiPackage True
-  , cbMultiPackageBuildAll = MultiPackageBuildAll False
-  , cbMultiPackageNoCache = MultiPackageNoCache False
-  , cbMultiPackageLocation = MPLSearch
-  }
+-- Simple "Deriveable" semigroup instance that just concats every field
+-- Would derive it generically but thats messy and slows compilation
+instance Semigroup CmdBuildArguments where
+  CmdBuildArguments f1 f2 f3 f4 f5 f6 f7 <> CmdBuildArguments f1' f2' f3' f4' f5' f6' f7'
+    = CmdBuildArguments
+        (f1 <> f1') (f2 <> f2') (f3 <> f3') (f4 <> f4') (f5 <> f5') (f6 <> f6') (f7 <> f7')
 
-parseCmdBuildArguments :: String -> Int -> CmdBuildArguments -> Parser CmdBuildArguments
-parseCmdBuildArguments commandName numProcessors CmdBuildArguments {..} = do
-  -- Always replace packageOpts, shouldn't be defined in build-options
-  cbPkgLocationOpts <- packageLocationOpts commandName
-  cbCliOptions <- cliOptionsParser numProcessors (pure Nothing) disabledDlintUsageParser cbCliOptions
-  cbOutput <- (<|> cbOutput) <$> optionalOutputFileOpt
-  -- If provided, replace enable-multi-package opt
-  cbEnableMultiPackage <- fromMaybe cbEnableMultiPackage <$> optionalEnableMultiPackageOpt
-  -- Following two opts are switches, with no disable flag, so simply `or` them
-  cbMultiPackageBuildAll <- or MultiPackageBuildAll getMultiPackageBuildAll cbMultiPackageBuildAll <$> multiPackageBuildAllOpt
-  cbMultiPackageNoCache <- or MultiPackageNoCache getMultiPackageNoCache cbMultiPackageNoCache <$> multiPackageNoCacheOpt
-  -- Take most recent definition for location
-  cbMultiPackageLocation <- fromMaybe cbMultiPackageLocation <$> optionalMultiPackageLocationOpt
+parseCmdBuildArguments :: String -> Int -> Parser CmdBuildArguments
+parseCmdBuildArguments commandName numProcessors = do
+  -- Always overwrite packageLocationOpts, build-options should never provide this
+  cbPkgLocationOpts <- Provided <$> packageLocationOpts commandName
+  cbCliOptions <- cliOptionsParser numProcessors (pure Nothing) disabledDlintUsageParser
+  cbOutput <- optionalOutputFileOpt
+  cbEnableMultiPackage <- enableMultiPackageOpt
+  cbMultiPackageBuildAll <- multiPackageBuildAllOpt
+  cbMultiPackageNoCache <- multiPackageNoCacheOpt
+  cbMultiPackageLocation <- multiPackageLocationOpt
 
   pure CmdBuildArguments {..}
-  where
-    or :: (Bool -> a) -> (a -> Bool) -> a -> a -> a
-    or wrap unwrap a b = wrap (unwrap a || unwrap b)
 
 runBuildOptionsParser :: Int -> [String] -> ParserResult CmdBuildArguments
 runBuildOptionsParser numProcessors args = do
-  let buildOptionsParser = parseCmdBuildArguments "build-options" numProcessors defaultCmdBuildArguments
+  let buildOptionsParser = parseCmdBuildArguments "build-options" numProcessors
    in execParserPure defaultPrefs (info buildOptionsParser mempty) args
 
 -- We would prefer to use lax parsing here, but it doesn't work for flags that have a space

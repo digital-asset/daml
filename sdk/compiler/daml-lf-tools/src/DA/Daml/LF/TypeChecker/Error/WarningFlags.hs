@@ -96,6 +96,9 @@ data WarningFlags err = WarningFlags
   , wfFlags :: [WarningFlag err]
   }
 
+instance Semigroup (WarningFlags err) where
+  a <> b = a `extendFlags` b
+
 -- Extends the flags of the first WarningFlags with those of the second
 extendFlags :: WarningFlags err -> WarningFlags err -> WarningFlags err
 extendFlags WarningFlags { wfDefault, wfFlags } WarningFlags { wfFlags = wfFlags' } =

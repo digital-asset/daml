@@ -25,7 +25,6 @@ module DA.Daml.Options.Types
     , ForceUtilityPackage(..)
     , ExplicitSerializable(..)
     , InitPkgDb(..)
-    , defaultOptions
     , defaultTestOptions
     , damlArtifactDir
     , packageDatabasePath
@@ -166,48 +165,6 @@ data Options = Options
   -- ^ Whether serilizability of data-types must be explicitly stated, and not assumed. Currently disabled by default
   , optInitPkgDb :: InitPkgDb
   -- ^ Whether to initialize the package database
-  }
-
-defaultOptions :: EnableScriptService -> Options
-defaultOptions enableScriptService = Options
-  { optImportPath = []
-  , optPackageDbs = []
-  , optStablePackages = Nothing
-  , optMbPackageName = Nothing
-  , optMbPackageVersion = Nothing
-  , optMbPackageConfigPath = Nothing
-  , optIfaceDir = Nothing
-  , optPackageImports = []
-  , optShakeProfiling = Nothing
-  , optThreads = 1
-  , optDamlLfVersion = LF.defaultLfVersion
-  , optLogLevel = Logger.Info
-  , optDetailLevel = DA.Pretty.prettyNormal
-  , optGhcCustomOpts = []
-  , optScriptService = enableScriptService
-  , optEnableInterfaces = EnableInterfaces True
-  , optTestFilter = const True
-  , optSkipScriptValidation = SkipScriptValidation False
-  , optDlintUsage = DlintDisabled
-  , optIsGenerated = False
-  , optDflagCheck = True
-  , optCoreLinting = False
-  , optHaddock = Haddock False
-  , optCppPath = Nothing
-  , optIncrementalBuild = IncrementalBuild False
-  , optIgnorePackageMetadata = IgnorePackageMetadata False
-  , optEnableOfInterestRule = False
-  , optAccessTokenPath = Nothing
-  , optHideUnitId = False
-  , optUpgradeInfo = defaultUpgradeInfo
-  , optTypecheckerWarningFlags = WarningFlags.mkWarningFlags TypeCheckerError.warningFlagParser []
-  , optLfConversionWarningFlags = WarningFlags.mkWarningFlags LFConversion.warningFlagParser []
-  , optInlineDamlCustomWarningFlags = WarningFlags.mkWarningFlags warningFlagParserInlineDamlCustom []
-  , optIgnoreDataDepVisibility = IgnoreDataDepVisibility False
-  , optForceUtilityPackage = ForceUtilityPackage False
-  , optResolutionData = Nothing
-  , optExplicitSerializable = ExplicitSerializable False
-  , optInitPkgDb = InitPkgDb True
   }
 
 data InlineDamlCustomWarnings
