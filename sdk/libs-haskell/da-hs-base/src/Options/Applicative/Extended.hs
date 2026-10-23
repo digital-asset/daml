@@ -62,22 +62,21 @@ flagYesNoAutoNoDefault flagName helpText mods =
             "auto" -> Right Auto
             s -> Left ("Expected \"yes\", \"true\", \"no\", \"false\", or \"auto\" but got " <> show s)
 
--- | See flagYesNoRaw, this function resolves the YesNoAuto to its real boolean value
-flagYesNoAuto :: String -> Bool -> String -> Mod OptionFields YesNoAuto -> Parser Bool
-flagYesNoAuto flagName defaultValue helpText mods =
-    determineAuto defaultValue <$> flagYesNoRaw flagName defaultValue helpText mods
-
 -- | This constructs flags that can be set to yes, no, or auto to control a boolean value
 -- with auto using the default.
-flagYesNoRaw :: String -> Bool -> String -> Mod OptionFields YesNoAuto -> Parser YesNoAuto
-flagYesNoRaw flagName defaultValue helpText mods =
-    flagYesNoAutoNoDefault flagName (helpText <> commonHelp) (value Auto <> mods)
-    where
-        commonHelp = " Can be set to \"yes\", \"no\" or \"auto\" to select the default (" <> show defaultValue <> ")"
+flagYesNoAuto :: String -> Bool -> String -> Mod OptionFields YesNoAuto -> Parser Bool
+flagYesNoAuto flagName defaultValue helpText mods =
+    determineAuto defaultValue
+      <$> flagYesNoAutoNoDefault flagName (helpText <> commonHelp defaultValue) (value Auto <> mods)
 
 flagYesNoAutoFlagResult :: String -> Bool -> String -> Mod OptionFields YesNoAuto -> Parser (OverwritableFlagResult Bool)
 flagYesNoAutoFlagResult flagName defaultValue helpText mods =
-  fmap (determineAuto defaultValue) <$> optionFlagResult' (flagYesNoRaw flagName defaultValue helpText) mods
+    fmap (determineAuto defaultValue)
+      <$> optionFlagResult' (flagYesNoAutoNoDefault flagName (helpText <> commonHelp defaultValue)) (value Auto <> mods)
+
+commonHelp :: Bool -> String
+commonHelp defaultValue =
+    " Can be set to \"yes\", \"no\" or \"auto\" to select the default (" <> if defaultValue then "yes" else "no" <> ")"
 
 -- | optparse-applicative does not provide useful error messages when a valid
 -- option is passed more than once https://github.com/pcapriotti/optparse-applicative/issues/395

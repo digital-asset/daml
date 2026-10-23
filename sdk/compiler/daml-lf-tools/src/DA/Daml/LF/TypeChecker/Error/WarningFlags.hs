@@ -107,7 +107,6 @@ extendFlags WarningFlags { wfDefault, wfFlags } WarningFlags { wfFlags = wfFlags
     , wfFlags = wfFlags <> wfFlags'
     }
 
-
 instance Contravariant WarningFlagSpec where
   contramap f WarningFlagSpec {..} = WarningFlagSpec { wfsName, wfsHidden, wfsFilter = wfsFilter . f }
 
