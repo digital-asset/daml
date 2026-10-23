@@ -320,6 +320,7 @@ def proto_jars(
     scala_source_jar(
         name = "%s_scala_src" % name,
         srcs = [":%s_scala_sources" % name],
+        tags = ["no-ide"],
     )
 
     scaladoc_jar(
