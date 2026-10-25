@@ -221,6 +221,7 @@ roundMap = M.fromList
 -- be represented exactly with at most `n` decimal places.
 roundNumeric: forall n. NumericScale n => Int -> RoundingMode -> Numeric n -> Numeric n
 roundNumeric i m x =
-    shift $ (O.fromSome $ M.lookup (37 - scale + i) roundMap) m (shift x)
+    -- rounding to more decimal places than the scale leaves `x` unchanged
+    shift $ (O.fromSome $ M.lookup (37 - scale + min i scale) roundMap) m (shift x)
   where
     scale = numericScale @n
