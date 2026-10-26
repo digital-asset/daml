@@ -6,16 +6,10 @@
 # See https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
-load("@rules_jvm_external//:specs.bzl", "maven")
 load(
     "@scala_version//:index.bzl",
     "scala_major_version",
     "scala_version",
-)
-load(
-    "//bazel_tools:scalapb.bzl",
-    "scalapb_protoc_version",
-    "scalapb_version",
 )
 load("//canton:canton_version.bzl", "CANTON_OPEN_SOURCE_TAG", "LOCAL_CANTON_PATH")
 load("@java_deps_json//:java_deps.bzl", "JAVA_DEPS")
@@ -23,52 +17,7 @@ load("@java_deps_json//:java_deps.bzl", "JAVA_DEPS")
 version_specific = {
 }
 
-# ** Upgrading tcnative in sync with main netty version **
-# Look for "tcnative.version" in top-level pom.xml.
-# For example for netty version netty-4.1.68.Final look here https://github.com/netty/netty/blob/netty-4.1.68.Final/pom.xml#L511:
-# ```
-# <tcnative.version>2.0.42.Final</tcnative.version>
-# ```
-
-# Bumping versions of io.grpc:* has a few implications:
-# 1. io.grpc:grpc-protobuf has a dependency on com.google.protobuf:protobuf-java, which in
-#    turn needs to be aligned with the version of protoc we are using (as declared in deps.bzl).
-#    ScalaPB also depends on a specific version of protobuf-java, but it's not strict:
-#    as long as the version we use is greater than or equal to the version required by ScalaPB,
-#    everything should work.
-#
-# 2. As recommended by https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty we use
-
-# grpc-netty-shaded than embedded netty and netty-boringssl-tcnative (shaded)
-
-apispec_version = "0.11.7"
-grpc_version = "1.77.0"
-protobuf_version = "3.25.5"
-pekko_version = "1.2.1"
-pekko_http_version = "1.1.0"
-tapir_version = "1.8.5"
-
 canton_version = "3.7.0-SNAPSHOT" if LOCAL_CANTON_PATH != None else CANTON_OPEN_SOURCE_TAG
-
-upickle_version = "4.1.0"
-ujson_version = "4.0.2"
-
-guava_version = "33.3.0-jre"
-
-# Updated 2024-03-15
-opentelemetry_version = "1.43.0"
-
-# we pick the newest version of opentelemetry_instrumentation built with the opentelemetry version above
-# https://github.com/open-telemetry/opentelemetry-java-instrumentation/blob/v2.9.0/dependencyManagement/build.gradle.kts
-opentelemetry_instrumentation_version = "2.9.0-alpha"
-prometheus_version = "0.16.0"
-
-protostuff_version = "3.1.40"
-
-aws_version = "2.29.5"
-
-# group libraries controlled by the same org
-circe_version = "0.14.2"
 
 def install_java_deps():
     maven_install(
