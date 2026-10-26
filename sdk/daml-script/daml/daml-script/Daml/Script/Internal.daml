@@ -21,9 +21,11 @@ module Daml.Script.Internal
   , unvetPackages
   , unvetPackagesOnParticipant
 
-  , -- Party Management
-    allocateReplicatedPartyOn
-  , allocateReplicatedPartyWithHintOn
+  -- Party Management
+  -- These methods are not used and broken, replicated party allocation should be removed.
+  -- See #23542
+  -- , allocateReplicatedPartyOn
+  -- , allocateReplicatedPartyWithHintOn
 
     -- Exceptions
   , throwAnyException
