@@ -177,6 +177,7 @@
     },
     "resolutions": {
         "glob": "7.2.3",
-        "@vscode/vsce/markdown-it": "^14.3.3"
+        "@vscode/vsce/markdown-it": "^14.3.3",
+        "**/uuid": "^11.1.1"
     }
 }
