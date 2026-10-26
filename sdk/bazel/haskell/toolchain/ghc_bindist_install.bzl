@@ -77,6 +77,37 @@ if [ -f "$ROOT/lib/lib/settings" ]; then LIBDIR="$ROOT/lib/lib"; else LIBDIR="$R
     )
     return launcher
 
+_GHC_BIGNUM_GMP_SWAP = """\
+GHC_BIGNUM_ARCHIVES="$(find "$PREFIX" -name 'libHSghc-bignum-*.a')"
+if [ -z "$GHC_BIGNUM_ARCHIVES" ]; then
+    echo "no libHSghc-bignum archives under $PREFIX" >&2
+    exit 1
+fi
+for archive in $GHC_BIGNUM_ARCHIVES; do
+    chmod u+w "$archive"
+    if [ -n "$(ar t "$archive" | sort | uniq -d)" ]; then
+        echo "duplicate member names in $archive" >&2
+        exit 1
+    fi
+    ghc_bignum_members="$(nm -A --defined-only --extern-only "$archive" 2>/dev/null | awk '$NF ~ /ghczmbignum|^_integer_gmp_/ {{n = split($1, p, ":"); print p[n - 1]}}' | sort -u)"
+    if [ -z "$ghc_bignum_members" ]; then
+        echo "no ghc-bignum members in $archive" >&2
+        exit 1
+    fi
+    ar d "$archive" $(ar t "$archive" | grep -Fvx "$ghc_bignum_members")
+    ar qL "$archive" "$EXECROOT/{gmp_archive}"
+    ar s "$archive"
+done
+"""
+
+def _ghc_bignum_gmp_swap(ghc_bignum_gmp_files):
+    if not ghc_bignum_gmp_files:
+        return ""
+    archives = [f for f in ghc_bignum_gmp_files if f.basename.endswith(".a")]
+    if len(archives) != 1:
+        fail("ghc_bignum_gmp must provide exactly one static archive, got: {}".format(ghc_bignum_gmp_files))
+    return _GHC_BIGNUM_GMP_SWAP.format(gmp_archive = archives[0].path)
+
 def _without_lld(flags):
     return " ".join([f for f in flags.split(" ") if f != "-fuse-ld=lld"])
 
@@ -125,6 +156,7 @@ def _ghc_bindist_install_impl(ctx):
             runtime_lib_dirs.append(d)
 
     tinfo_bundle = _linker_name_and_soname_bundle(tinfo)
+    ghc_bignum_gmp_swap = _ghc_bignum_gmp_swap(ctx.files.ghc_bignum_gmp)
 
     rts_bundle = "".join([
         'cp -L "$EXECROOT/{}" "$LIBDIR/rts/"\n'.format(f.path)
@@ -186,7 +218,7 @@ if [ -f "$PREFIX/lib/lib/settings" ]; then LIBDIR="$PREFIX/lib/lib"; else LIBDIR
 {llvm_backend_snippet}
 {ffi_fixup}
 {rts_bundle}
-{tinfo_bundle}
+{tinfo_bundle}{ghc_bignum_gmp_swap}
 sed -i.bak \
     -e 's#("C compiler command", "[^"]*")#("C compiler command", "cc")#' \
     -e 's#("Haskell CPP command", "[^"]*")#("Haskell CPP command", "cc")#' \
@@ -222,6 +254,7 @@ rm -rf "$TMP"
         doc_marker = doc_marker.path,
         rts_bundle = rts_bundle,
         tinfo_bundle = tinfo_bundle,
+        ghc_bignum_gmp_swap = ghc_bignum_gmp_swap,
         ffi_fixup = ffi_fixup,
         llvm_backend_snippet = llvm_backend_snippet,
     )
@@ -229,7 +262,7 @@ rm -rf "$TMP"
     ctx.actions.run_shell(
         outputs = [install_tree, lib_settings, doc_marker],
         inputs = depset(
-            direct = ctx.files.srcs + [configure, ctx.file.make] + ([tinfo] if tinfo else []) + ctx.files.numa + ctx.files.gmp + ctx.files.libz + ctx.files.bz2 + llvm_backend_files,
+            direct = ctx.files.srcs + [configure, ctx.file.make] + ([tinfo] if tinfo else []) + ctx.files.numa + ctx.files.gmp + ctx.files.ghc_bignum_gmp + ctx.files.libz + ctx.files.bz2 + llvm_backend_files,
             transitive = [cc_toolchain.all_files],
         ),
         command = command,
@@ -271,6 +304,10 @@ ghc_bindist_install = rule(
         "gmp": attr.label(
             allow_files = True,
             doc = "Hermetic libgmp.so(s) bundled into the rts libdir, e.g. @gmp//:libs.",
+        ),
+        "ghc_bignum_gmp": attr.label(
+            allow_files = True,
+            doc = "darwin only: hermetic static GMP (e.g. @gmp//:gmp) whose objects replace the in-tree GMP 6.2.1 the bindist bakes into libHSghc-bignum*.a.",
         ),
         "libz": attr.label(
             allow_files = True,
