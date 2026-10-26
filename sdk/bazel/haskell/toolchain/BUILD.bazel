@@ -33,6 +33,7 @@ ghc_bindist_install(
     srcs = "@ghc_bindist//:bindist_srcs",
     bz2 = None if is_darwin else "@bzip2//:libs",
     configure = "@ghc_bindist//:bindist_configure",
+    ghc_bignum_gmp = "@gmp//:gmp" if is_darwin else None,
     gmp = None if is_darwin else "@gmp//:libs",
     libz = None if is_darwin else "@libz//:libs",
     llvm_backend = "@ghc_llvm_backend//:backend" if _HAS_GHC_LLVM_BACKEND else None,
