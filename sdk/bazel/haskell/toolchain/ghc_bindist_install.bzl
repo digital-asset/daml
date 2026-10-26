@@ -84,29 +84,41 @@ if [ -z "$GHC_BIGNUM_ARCHIVES" ]; then
     exit 1
 fi
 for archive in $GHC_BIGNUM_ARCHIVES; do
-    chmod u+w "$archive"
-    if [ -n "$(ar t "$archive" | sort | uniq -d)" ]; then
-        echo "duplicate member names in $archive" >&2
-        exit 1
-    fi
     ghc_bignum_members="$(nm -A --defined-only --extern-only "$archive" 2>/dev/null | awk '$NF ~ /ghczmbignum|^_integer_gmp_/ {{n = split($1, p, ":"); print p[n - 1]}}' | sort -u)"
     if [ -z "$ghc_bignum_members" ]; then
         echo "no ghc-bignum members in $archive" >&2
         exit 1
     fi
-    ar d "$archive" $(ar t "$archive" | grep -Fvx "$ghc_bignum_members")
-    ar qL "$archive" "$EXECROOT/{gmp_archive}"
-    ar s "$archive"
+    if [ -n "$(ar t "$archive" | grep -Fx "$ghc_bignum_members" | sort | uniq -d)" ]; then
+        echo "duplicate ghc-bignum member names in $archive" >&2
+        exit 1
+    fi
+    MEMBERS_DIR="$(mktemp -d)"
+    (cd "$MEMBERS_DIR" && ar x "$archive" $ghc_bignum_members)
+    for member in $ghc_bignum_members; do
+        if [ ! -f "$MEMBERS_DIR/$member" ]; then
+            echo "could not extract $member from $archive" >&2
+            exit 1
+        fi
+    done
+    rm -f "$archive"
+    if ! (cd "$MEMBERS_DIR" && "$EXECROOT/{archiver}" -static -o "$archive" $ghc_bignum_members "$EXECROOT/{gmp_archive}") 2>"$MEMBERS_DIR.log"; then
+        cat "$MEMBERS_DIR.log" >&2
+        exit 1
+    fi
+    rm -rf "$MEMBERS_DIR" "$MEMBERS_DIR.log"
 done
 """
 
-def _ghc_bignum_gmp_swap(ghc_bignum_gmp_files):
+def _ghc_bignum_gmp_swap(ghc_bignum_gmp_files, archiver):
     if not ghc_bignum_gmp_files:
         return ""
     archives = [f for f in ghc_bignum_gmp_files if f.basename.endswith(".a")]
     if len(archives) != 1:
         fail("ghc_bignum_gmp must provide exactly one static archive, got: {}".format(ghc_bignum_gmp_files))
-    return _GHC_BIGNUM_GMP_SWAP.format(gmp_archive = archives[0].path)
+    if "libtool" not in archiver:
+        fail("ghc_bignum_gmp needs the toolchain archiver to be llvm-libtool-darwin, got: {}".format(archiver))
+    return _GHC_BIGNUM_GMP_SWAP.format(gmp_archive = archives[0].path, archiver = archiver)
 
 def _without_lld(flags):
     return " ".join([f for f in flags.split(" ") if f != "-fuse-ld=lld"])
@@ -156,7 +168,7 @@ def _ghc_bindist_install_impl(ctx):
             runtime_lib_dirs.append(d)
 
     tinfo_bundle = _linker_name_and_soname_bundle(tinfo)
-    ghc_bignum_gmp_swap = _ghc_bignum_gmp_swap(ctx.files.ghc_bignum_gmp)
+    ghc_bignum_gmp_swap = _ghc_bignum_gmp_swap(ctx.files.ghc_bignum_gmp, cc.ar)
 
     rts_bundle = "".join([
         'cp -L "$EXECROOT/{}" "$LIBDIR/rts/"\n'.format(f.path)
