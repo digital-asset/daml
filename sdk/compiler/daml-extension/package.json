@@ -176,6 +176,7 @@
         "@vscode/vsce": "^2.22.0"
     },
     "resolutions": {
-        "glob": "7.2.3"
+        "glob": "7.2.3",
+        "@vscode/vsce/markdown-it": "^14.3.3"
     }
 }
