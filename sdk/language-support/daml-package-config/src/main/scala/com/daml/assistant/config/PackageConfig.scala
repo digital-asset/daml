@@ -172,11 +172,6 @@ object PackageConfig {
         ),
     )
 
-  def interpolateJsonObjectKeys(jsonObject: JsonObject, env: Map[String, String]): JsonObject =
-    JsonObject.fromIterable(jsonObject.toMap.map { case (k, v) =>
-      (interpolateEnvironmentVariable(k, env), v)
-    })
-
   /** Loads a package configuration from a string */
   def loadFromString(
       packagePath: Path,
