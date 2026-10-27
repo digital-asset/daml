@@ -1746,12 +1746,12 @@ filterForOnlyPackageLocationOpts args = mapMaybe getFlagPair zippedArgs
     -- Given a flag name (that takes an argument), filter for that flag and reconstruct using `=` flag syntax
     getFlagWithArg :: String -> (String, String) -> Maybe String
     getFlagWithArg flagName (flag, _) | ("--" <> flagName <> "=") `isPrefixOf` flag = Just flag
-    getFlagWithArg flagName (flag, root) | flagName == flag = Just $ flag <> "=" <> root
+    getFlagWithArg flagName (flag, root) | ("--" <> flagName) == flag = Just $ flag <> "=" <> root
     getFlagWithArg _ _ = Nothing
 
     -- Given a flag name (that doesn't take an argument, i.e. a switch), filter for that flag and return it
     getFlagWithoutArg :: String -> (String, String) -> Maybe String
-    getFlagWithoutArg flagName (flag, _) | flagName == flag = Just flag
+    getFlagWithoutArg flagName (flag, _) | ("--" <> flagName) == flag = Just flag
     getFlagWithoutArg _ _ = Nothing
 
     flagsWithArgs = [projectRootFlagName, packageRootFlagName]
