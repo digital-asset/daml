@@ -287,6 +287,8 @@ jobs:
     - powershell: |
         $ErrorActionPreference = 'Stop'
         Set-Location sdk
+        Write-Host "shutting down the Bazel server so build workers release execroot files"
+        bazelisk shutdown
         bazelisk test //... $(bazel_flags) $(cache_flags)
       displayName: 'Test'
     - powershell: |
