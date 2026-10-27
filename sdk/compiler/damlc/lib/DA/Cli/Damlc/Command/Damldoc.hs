@@ -23,13 +23,13 @@ import ComponentVersion.Class (ComponentVersioned)
 
 ------------------------------------------------------------
 
-cmd :: Int -> CliOptions -> (CmdArgs -> a) -> Mod CommandFields a
+cmd :: Int -> OrParserFailure CliOptions -> (CmdArgs -> a) -> Mod CommandFields a
 cmd numProcessors cliOptions f = command "docs" $
         info (helper <*> (f <$> documentation numProcessors cliOptions)) $
         progDesc "Early Access (Labs). Generate documentation for the given Daml program."
         <> fullDesc
 
-documentation :: Int -> CliOptions -> Parser CmdArgs
+documentation :: Int -> OrParserFailure CliOptions -> Parser CmdArgs
 documentation numProcessors cliOptions = Damldoc
     <$> optionsParser
           cliOptions
@@ -275,7 +275,7 @@ documentation numProcessors cliOptions = Damldoc
 -- Command Execution
 
 data CmdArgs = Damldoc
-    { cOptions :: Options
+    { cOptions :: OrParserFailure Options
     , cInputFormat :: InputFormat
     , cOutputPath :: FilePath
     , cOutputFormat :: OutputFormat
@@ -306,8 +306,9 @@ exec Damldoc{..} = do
             "Warning: Output format of `md' is being used with a default `--doc-ext' of `html'. "
             <> "The generated `md` docs (and hoogle database) will contain non-existant `html' references. "
             <> "Include `--doc-ext md' to use the correct file extensions."
+    opts <- handleBuildOptionsParserFailure cOptions
     runDamlDoc DamldocOptions
-        { do_compileOptions = cOptions
+        { do_compileOptions = opts
             { optHaddock = Haddock True
             , optScriptService = EnableScriptService False
             }
@@ -320,7 +321,7 @@ exec Damldoc{..} = do
         , do_docIndexTemplate = cIndexTemplate
         , do_docHoogleTemplate = cHoogleTemplate
         , do_transformOptions = transformOptions
-        , do_docTitle = T.pack . unitIdString <$> optUnitId cOptions
+        , do_docTitle = T.pack . unitIdString <$> optUnitId opts
         , do_combine = cCombine
         , do_extractOptions = cExtractOptions
         , do_baseURL = cBaseURL

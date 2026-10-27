@@ -76,7 +76,7 @@ flagYesNoAutoFlagResult flagName defaultValue helpText mods =
 
 commonHelp :: Bool -> String
 commonHelp defaultValue =
-    " Can be set to \"yes\", \"no\" or \"auto\" to select the default (" <> if defaultValue then "yes" else "no" <> ")"
+    " Can be set to \"yes\", \"no\" or \"auto\" to select the default (" <> (if defaultValue then "yes" else "no") <> ")"
 
 -- | optparse-applicative does not provide useful error messages when a valid
 -- option is passed more than once https://github.com/pcapriotti/optparse-applicative/issues/395

@@ -25,10 +25,13 @@ import qualified DA.Service.Logger as Logger
 import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
+import Data.Traversable (for)
 import DA.Daml.LF.TypeChecker.Error.WarningFlags
 import Data.HList
 import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
 import qualified DA.Daml.LFConversion.Errors as LFConversion
+import System.Exit (ExitCode (..), exitWith)
+import System.IO (hPutStrLn, stderr)
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
@@ -750,9 +753,26 @@ cliOptionsToOptions enableScriptService CliOptions {..} =
     , optStablePackages = Nothing
     }
 
-optionsParser :: CliOptions -> Int -> EnableScriptService -> Parser (Maybe GHC.UnitId) -> Parser (OverwritableFlagResult DlintUsage) -> Parser Options
-optionsParser cliOptions numProcessors enableScriptService parseUnitId parseDlintUsage =
-  cliOptionsToOptions enableScriptService . (cliOptions <> ) <$> cliOptionsParser numProcessors parseUnitId parseDlintUsage
+type OrParserFailure a = Either (ParserFailure ParserHelp) a
+
+optionsParser :: Either (ParserFailure ParserHelp) CliOptions -> Int -> EnableScriptService -> Parser (Maybe GHC.UnitId) -> Parser (OverwritableFlagResult DlintUsage) -> Parser (Either (ParserFailure ParserHelp) Options)
+optionsParser eCliOptions numProcessors enableScriptService parseUnitId parseDlintUsage =
+  for eCliOptions $ \cliOptions -> cliOptionsToOptions enableScriptService . (cliOptions <> ) <$> cliOptionsParser numProcessors parseUnitId parseDlintUsage
+
+-- Provides a useful build-options error message around the parse error
+handleBuildOptionsParserFailure :: OrParserFailure a -> IO a
+handleBuildOptionsParserFailure (Right a) = pure a
+handleBuildOptionsParserFailure (Left failure) = do
+  let (msg, exit) = renderFailure failure "daml.yaml build-options"
+  case exit of
+    ExitSuccess -> putStrLn msg
+    _ -> hPutStrLn stderr $ "Failure to parse daml.yaml build-options:\n" <> msg
+  exitWith exit
+
+orParserFailure :: ParserResult a -> OrParserFailure a
+orParserFailure (Success a) = Right a
+orParserFailure (Failure e) = Left e
+orParserFailure (CompletionInvoked _) = error "Impossible internal completion invoked."
 
 studioReplaceOpt :: Parser ReplaceExtension
 studioReplaceOpt =

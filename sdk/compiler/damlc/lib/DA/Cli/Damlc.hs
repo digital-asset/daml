@@ -14,7 +14,7 @@ module DA.Cli.Damlc (main, Command (..), MultiPackageManifestEntry (..), fullPar
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception (bracket, catch, displayException, throwIO, handle)
-import Control.Monad (forM, forM_, unless, void, when)
+import Control.Monad (forM, forM_, msum, unless, void, when)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Extra (allM, mapMaybeM, whenM, whenJust)
 import Control.Monad.Trans.Cont (ContT (..), evalContT)
@@ -28,6 +28,7 @@ import DA.Cli.Options (CliOptions(..),
                        MultiPackageCleanAll(..),
                        MultiPackageLocation(..),
                        MultiPackageNoCache(..),
+                       OrParserFailure,
                        PackageLocationOpts(..),
                        Style(..),
                        Telemetry(..),
@@ -40,6 +41,7 @@ import DA.Cli.Options (CliOptions(..),
                        enableMultiPackageOpt,
                        enableScriptServiceOpt,
                        generateMultiPackageManifestOutputOpt,
+                       handleBuildOptionsParserFailure,
                        inputDarOpt,
                        inputFileOpt,
                        inputFileOptWithExt,
@@ -51,6 +53,7 @@ import DA.Cli.Options (CliOptions(..),
                        optionalDlintUsageParser,
                        optionalOutputFileOpt,
                        optionsParser,
+                       orParserFailure,
                        outputFileOpt,
                        packageCheckFlagName,
                        packageLocationOpts,
@@ -332,7 +335,7 @@ cmdUpgradeCheck _numProcessors =
     cmd = fmap (Command UpgradeCheck Nothing) $ runUpgradeCheck
         <$> many (strArgument $ help "Path to DAR")
 
-cmdIde :: ComponentVersion.Class.ComponentVersioned => Int -> CliOptions -> Mod CommandFields Command
+cmdIde :: ComponentVersion.Class.ComponentVersioned => Int -> OrParserFailure CliOptions -> Mod CommandFields Command
 cmdIde numProcessors cliOptions =
     command "ide" $ info (helper <*> cmd) $
        progDesc
@@ -358,7 +361,7 @@ cmdLicense =
         "License information for open-source projects included in Daml."
     <> fullDesc
 
-cmdCompile :: ComponentVersion.Class.ComponentVersioned => Int -> CliOptions -> Mod CommandFields Command
+cmdCompile :: ComponentVersion.Class.ComponentVersioned => Int -> OrParserFailure CliOptions -> Mod CommandFields Command
 cmdCompile numProcessors cliOptions =
     command "compile" $ info (helper <*> cmd) $
         progDesc "Compile the Daml program into a Core/Daml-LF archive."
@@ -382,7 +385,7 @@ cmdCompile numProcessors cliOptions =
         help "Produce interface files. This is used for building the package db for daml-prim and daml-stdib" <>
         long "write-iface"
 
-cmdDesugar :: ComponentVersion.Class.ComponentVersioned => Int -> CliOptions -> Mod CommandFields Command
+cmdDesugar :: ComponentVersion.Class.ComponentVersioned => Int -> OrParserFailure CliOptions -> Mod CommandFields Command
 cmdDesugar numProcessors cliOptions =
   command "desugar" $ info (helper <*> cmd) $
       progDesc "Show the desugared Daml program"
@@ -398,7 +401,7 @@ cmdDesugar numProcessors cliOptions =
             packageNameOpt
             disabledDlintUsageParser
 
-cmdDebugIdeSpanInfo :: ComponentVersion.Class.ComponentVersioned => Int -> CliOptions -> Mod CommandFields Command
+cmdDebugIdeSpanInfo :: ComponentVersion.Class.ComponentVersioned => Int -> OrParserFailure CliOptions -> Mod CommandFields Command
 cmdDebugIdeSpanInfo numProcessors cliOptions =
   command "debug-ide-span-info" $ info (helper <*> cmd) $
       progDesc "Show the IDE span infos for the Daml program"
@@ -414,7 +417,7 @@ cmdDebugIdeSpanInfo numProcessors cliOptions =
             packageNameOpt
             disabledDlintUsageParser
 
-cmdLint :: ComponentVersion.Class.ComponentVersioned => Int -> CliOptions -> Mod CommandFields Command
+cmdLint :: ComponentVersion.Class.ComponentVersioned => Int -> OrParserFailure CliOptions -> Mod CommandFields Command
 cmdLint numProcessors cliOptions =
     command "lint" $ info (helper <*> cmd) $
         progDesc "Lint the Daml program."
@@ -429,7 +432,7 @@ cmdLint numProcessors cliOptions =
               packageNameOpt
               enabledDlintUsageParser
 
-cmdTest :: ComponentVersion.Class.ComponentVersioned => Int -> CliOptions -> Mod CommandFields Command
+cmdTest :: ComponentVersion.Class.ComponentVersioned => Int -> OrParserFailure CliOptions -> Mod CommandFields Command
 cmdTest numProcessors cliOptions =
     command "test" $ info (helper <*> cmd) $
        progDesc progDoc
@@ -484,7 +487,7 @@ runTestsInPackageOrFiles ::
     -> ShowCoverage
     -> UseColor
     -> Maybe FilePath
-    -> Options
+    -> OrParserFailure Options
     -> TableOutputPath
     -> TransactionsOutputPath
     -> CoveragePaths
@@ -501,11 +504,12 @@ runTestsInPackageOrFiles packageLocationOpts mbInFiles allTests (LoadCoverageOnl
               exitFailure
             Nothing -> do
               loadAggregatePrintResults coveragePaths coverageFilters coverage Nothing
-runTestsInPackageOrFiles packageLocationOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
+runTestsInPackageOrFiles packageLocationOpts Nothing allTests _ coverage color mbJUnitOutput parsedOpts tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
   where effect = withExpectPackageRoot (packageRoot packageLocationOpts) "daml test" $ \pPath relativize -> do
-          cliOptions <- addResolutionData cliOptions
-          cliOptions <- pure $ cliOptions { optMbPackageConfigPath = Just $ PackagePath pPath }
-          installDepsAndInitPackageDb cliOptions
+          opts <- handleBuildOptionsParserFailure parsedOpts
+          opts <- addResolutionData opts
+          opts <- pure $ opts { optMbPackageConfigPath = Just $ PackagePath pPath }
+          installDepsAndInitPackageDb opts
           mbJUnitOutput <- traverse relativize mbJUnitOutput
           withPackageConfig (PackagePath pPath) $ \pkgConfig@PackageConfigFields{..} -> do
             -- TODO: We set up one script service context per file that
@@ -513,21 +517,22 @@ runTestsInPackageOrFiles packageLocationOpts Nothing allTests _ coverage color m
             -- Therefore we keep the behavior of only passing the root file
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
-            execTest files allTests coverage color mbJUnitOutput (Just pkgConfig) cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters (Just pPath)
-runTestsInPackageOrFiles packageLocationOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
+            execTest files allTests coverage color mbJUnitOutput (Just pkgConfig) opts tableOutputPath transactionsOutputPath coveragePaths coverageFilters (Just pPath)
+runTestsInPackageOrFiles packageLocationOpts (Just inFiles) allTests _ coverage color mbJUnitOutput parsedOpts tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
   where effect = withPackageRoot (packageRoot packageLocationOpts) (packageLocationCheck packageLocationOpts) $ \mPackageRoot relativize -> do
-          cliOptions <- addResolutionData cliOptions
-          cliOptions <- pure $ cliOptions { optMbPackageConfigPath = PackagePath <$> mPackageRoot }
+          opts <- handleBuildOptionsParserFailure parsedOpts
+          opts <- addResolutionData opts
+          opts <- pure $ opts { optMbPackageConfigPath = PackagePath <$> mPackageRoot }
           -- Cannot run without package context as resolution provides no default/project level resolution, so we wouldn't be able to find script-service
-          when (isJust (optResolutionData cliOptions) && isNothing mPackageRoot) $
+          when (isJust (optResolutionData opts) && isNothing mPackageRoot) $
             throwIO $ DPMUnsupportedError "running tests outside of a package"
-          installDepsAndInitPackageDb cliOptions
+          installDepsAndInitPackageDb opts
           mbJUnitOutput <- traverse relativize mbJUnitOutput
           mPkgConfig <- case mPackageRoot of
             Just packagePath -> withMaybeConfig (withPackageConfig (PackagePath packagePath)) pure
             Nothing -> pure Nothing
           inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
-          execTest inFiles' allTests coverage color mbJUnitOutput mPkgConfig cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters mPackageRoot
+          execTest inFiles' allTests coverage color mbJUnitOutput mPkgConfig opts tableOutputPath transactionsOutputPath coveragePaths coverageFilters mPackageRoot
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
@@ -542,22 +547,15 @@ cmdInspect =
       <*> jsonOpt
       <*> (getFlagResult <$> detailLevelOpt)
 
-cmdBuild :: ComponentVersion.Class.ComponentVersioned => Int -> CmdBuildArguments -> Mod CommandFields Command
+cmdBuild :: ComponentVersion.Class.ComponentVersioned => Int -> OrParserFailure CmdBuildArguments -> Mod CommandFields Command
 cmdBuild numProcessors buildOptions =
     command "build" $
     info (helper <*> cmd) $
     progDesc "Initialize, build and package the Daml package" <> fullDesc
   where
     cmd = do
-      buildArgs <- (buildOptions <>) <$> parseCmdBuildArguments "daml build" numProcessors
-      pure $ execBuild
-        (getFlagResult $ cbPkgLocationOpts buildArgs)
-        (cliOptionsToOptions (EnableScriptService False) (cbCliOptions buildArgs))
-        (getFlagResult $ cbOutput buildArgs)
-        (getFlagResult $ cbEnableMultiPackage buildArgs)
-        (getFlagResult $ cbMultiPackageBuildAll buildArgs)
-        (getFlagResult $ cbMultiPackageNoCache buildArgs)
-        (getFlagResult $ cbMultiPackageLocation buildArgs)
+      buildArgs <- parseCmdBuildArguments "daml build" numProcessors
+      pure $ execBuild buildOptions buildArgs
 
 cmdClean :: Mod CommandFields Command
 cmdClean =
@@ -571,7 +569,7 @@ cmdClean =
             <*> (getFlagResult <$> multiPackageLocationOpt)
             <*> multiPackageCleanAllOpt
 
-cmdInit :: ComponentVersion.Class.ComponentVersioned => Int -> CliOptions -> Mod CommandFields Command
+cmdInit :: ComponentVersion.Class.ComponentVersioned => Int -> OrParserFailure CliOptions -> Mod CommandFields Command
 cmdInit numProcessors cliOptions =
     command "init" $
     info (helper <*> cmd) $ progDesc "Initialize a Daml package" <> fullDesc
@@ -604,7 +602,7 @@ cmdValidateDar =
   where
     cmd = execValidateDar <$> inputDarOpt
 
-cmdDocTest :: ComponentVersion.Class.ComponentVersioned => Int -> CliOptions -> Mod CommandFields Command
+cmdDocTest :: ComponentVersion.Class.ComponentVersioned => Int -> OrParserFailure CliOptions -> Mod CommandFields Command
 cmdDocTest numProcessors cliOptions =
     command "doctest" $
     info (helper <*> cmd) $
@@ -663,11 +661,12 @@ execIde :: ComponentVersion.Class.ComponentVersioned
         -> Debug
         -> EnableScriptService
         -> StudioAutorunAllScripts
-        -> Options
+        -> OrParserFailure Options
         -> Command
-execIde telemetry (Debug debug) enableScriptService autorunAllScripts options =
+execIde telemetry (Debug debug) enableScriptService autorunAllScripts parsedOpts =
     Command Ide Nothing effect
   where effect = NS.withSocketsDo $ do
+          opts <- handleBuildOptionsParserFailure parsedOpts
           let threshold =
                   if debug
                   then Logger.Debug
@@ -702,9 +701,9 @@ execIde telemetry (Debug debug) enableScriptService autorunAllScripts options =
           pkgPath <- getCanonDefaultPackagePath
           mPkgConfig <- withMaybeConfig (withPackageConfig pkgPath) pure
           let pkgConfUpgradeDar = pUpgradeDar =<< mPkgConfig
-          options <- updateUpgradePath "ide" pkgPath options pkgConfUpgradeDar
-          options <- addResolutionData options
-          options <- pure options
+          opts <- updateUpgradePath "ide" pkgPath opts pkgConfUpgradeDar
+          opts <- addResolutionData opts
+          opts <- pure opts
               { optScriptService = enableScriptService
               , optEnableOfInterestRule = True
               , optSkipScriptValidation = SkipScriptValidation True
@@ -720,25 +719,26 @@ execIde telemetry (Debug debug) enableScriptService autorunAllScripts options =
               -- This flag allows us to still hide the unit-id from ghc, so our assumption that the unit-id is "main" holds.
               , optHideUnitId = True
               }
-          installDepsAndInitPackageDb options
+          installDepsAndInitPackageDb opts
           scriptServiceConfig <- readScriptServiceConfig
           withLogger $ \loggerH ->
-              withScriptService' enableScriptService (optDamlLfVersion options) loggerH scriptServiceConfig (scriptServiceJarFromOptions options) $ \mbScriptService -> do
+              withScriptService' enableScriptService (optDamlLfVersion opts) loggerH scriptServiceConfig (scriptServiceJarFromOptions opts) $ \mbScriptService -> do
                   Logger.logInfo loggerH (T.pack $ "Component version: " <> ComponentVersion.Class.componentVersionString)
                   debouncer <- newAsyncDebouncer
                   runLanguageServer loggerH enabledPlugins Config $ \lspEnv vfs _ ->
-                      getDamlIdeState options autorunAllScripts mbScriptService loggerH debouncer (RealLspEnv lspEnv) vfs
+                      getDamlIdeState opts autorunAllScripts mbScriptService loggerH debouncer (RealLspEnv lspEnv) vfs
 
 
 -- | Whether we should write interface files during `damlc compile`.
 newtype WriteInterface = WriteInterface Bool
 
-execCompile :: ComponentVersion.Class.ComponentVersioned => FilePath -> FilePath -> Options -> WriteInterface -> Maybe FilePath -> Command
-execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir =
+execCompile :: ComponentVersion.Class.ComponentVersioned => FilePath -> FilePath -> OrParserFailure Options -> WriteInterface -> Maybe FilePath -> Command
+execCompile inputFile outputFile parsedOpts (WriteInterface writeInterface) mbIfaceDir =
   Command Compile (Just packageLocationOpts) effect
   where
     packageLocationOpts = PackageLocationOpts Nothing (PackageLocationCheck "" False)
     effect = withPackageRoot' packageLocationOpts $ \relativize -> do
+      opts <- handleBuildOptionsParserFailure parsedOpts
       loggerH <- getLogger opts "compile"
       inputFile <- toNormalizedFilePath' <$> relativize inputFile
       opts <- pure opts { optIfaceDir = mbIfaceDir }
@@ -767,11 +767,12 @@ execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir
         createDirectoryIfMissing True $ takeDirectory outputFile
         B.writeFile outputFile $ Archive.encodeArchive bs
 
-execDesugar :: ComponentVersion.Class.ComponentVersioned => FilePath -> FilePath -> Options -> Command
-execDesugar inputFile outputFile opts = Command Desugar (Just packageLocationOpts) effect
+execDesugar :: ComponentVersion.Class.ComponentVersioned => FilePath -> FilePath -> OrParserFailure Options -> Command
+execDesugar inputFile outputFile parsedOpts = Command Desugar (Just packageLocationOpts) effect
   where
     packageLocationOpts = PackageLocationOpts Nothing (PackageLocationCheck "" False)
-    effect = withPackageRoot' packageLocationOpts $ \relativize ->
+    effect = withPackageRoot' packageLocationOpts $ \relativize -> do
+      opts <- handleBuildOptionsParserFailure parsedOpts
       liftIO . write =<< desugar opts =<< relativize inputFile
     write s
       | outputFile == "-" = T.putStrLn s
@@ -779,13 +780,14 @@ execDesugar inputFile outputFile opts = Command Desugar (Just packageLocationOpt
         createDirectoryIfMissing True $ takeDirectory outputFile
         T.writeFile outputFile s
 
-execDebugIdeSpanInfo :: ComponentVersion.Class.ComponentVersioned => FilePath -> FilePath -> Options -> Command
-execDebugIdeSpanInfo inputFile outputFile opts =
+execDebugIdeSpanInfo :: ComponentVersion.Class.ComponentVersioned => FilePath -> FilePath -> OrParserFailure Options -> Command
+execDebugIdeSpanInfo inputFile outputFile parsedOpts =
   Command DebugIdeSpanInfo (Just packageLocationOpts) effect
   where
     packageLocationOpts = PackageLocationOpts Nothing (PackageLocationCheck "" False)
     effect =
       withPackageRoot' packageLocationOpts $ \relativize -> do
+        opts <- handleBuildOptionsParserFailure parsedOpts
         loggerH <- getLogger opts "debug-ide-span-info"
         inputFile <- toNormalizedFilePath' <$> relativize inputFile
         spanInfo <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
@@ -800,14 +802,15 @@ execDebugIdeSpanInfo inputFile outputFile opts =
         createDirectoryIfMissing True $ takeDirectory outputFile
         TL.writeFile outputFile s
 
-execLint :: ComponentVersion.Class.ComponentVersioned => [FilePath] -> Options -> Command
-execLint inputFiles opts =
+execLint :: ComponentVersion.Class.ComponentVersioned => [FilePath] -> OrParserFailure Options -> Command
+execLint inputFiles parsedOpts =
   Command Lint (Just packageLocationOpts) effect
   where
      packageLocationOpts = PackageLocationOpts Nothing (PackageLocationCheck "" False)
      effect =
        withPackageRoot' packageLocationOpts $ \relativize ->
        do
+         opts <- handleBuildOptionsParserFailure parsedOpts
          loggerH <- getLogger opts "lint"
          withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
              inputFiles <- getInputFiles relativize inputFiles
@@ -833,10 +836,11 @@ getCanonDefaultPackagePath = fmap PackagePath $ canonicalizePath $ unwrapPackage
 
 -- | If we're in a daml package, read the daml.yaml field, install the dependencies and create the
 -- package local package database. Otherwise do nothing.
-execInit :: ComponentVersion.Class.ComponentVersioned => Options -> PackageLocationOpts -> Command
-execInit opts packageLocationOpts =
+execInit :: ComponentVersion.Class.ComponentVersioned => OrParserFailure Options -> PackageLocationOpts -> Command
+execInit parsedOpts packageLocationOpts =
   Command Init (Just packageLocationOpts) effect
-  where effect = withPackageRoot' packageLocationOpts $ \_relativize ->
+  where effect = withPackageRoot' packageLocationOpts $ \_relativize -> do
+          opts <- handleBuildOptionsParserFailure parsedOpts
           installDepsAndInitPackageDb opts
 
 installDepsAndInitPackageDb :: ComponentVersion.Class.ComponentVersioned => Options -> IO ()
@@ -862,6 +866,29 @@ getMultiPackagePath multiPackageLocation searchPath =
 
 execBuild
   :: ComponentVersion.Class.ComponentVersioned
+  => OrParserFailure CmdBuildArguments
+  -> CmdBuildArguments
+  -> Command
+execBuild parsedBuildOptions buildArgs =
+  Command Build (Just packageOpts) $ do
+    buildOptions <- handleBuildOptionsParserFailure parsedBuildOptions
+    let CmdBuildArguments {..} = buildOptions <> buildArgs
+    execBuildIO
+      packageOpts
+      (cliOptionsToOptions (EnableScriptService False) cbCliOptions)
+      (getFlagResult cbOutput)
+      (getFlagResult cbEnableMultiPackage)
+      (getFlagResult cbMultiPackageBuildAll)
+      (getFlagResult cbMultiPackageNoCache)
+      (getFlagResult cbMultiPackageLocation)
+  where
+    -- Take opts from build args only, since specifying is daml.yaml is useless
+    -- and we need to know where the project is before running the effect
+    packageOpts = getFlagResult $ cbPkgLocationOpts buildArgs
+
+
+execBuildIO
+  :: ComponentVersion.Class.ComponentVersioned
   => PackageLocationOpts
   -> Options
   -> Maybe FilePath
@@ -869,9 +896,9 @@ execBuild
   -> MultiPackageBuildAll
   -> MultiPackageNoCache
   -> MultiPackageLocation
-  -> Command
-execBuild packageLocationOpts opts mbOutFile enableMultiPackage buildAll noCache multiPackageLocation =
-  Command Build (Just packageLocationOpts) $ evalContT $ do
+  -> IO ()
+execBuildIO packageLocationOpts opts mbOutFile enableMultiPackage buildAll noCache multiPackageLocation =
+  evalContT $ do
     -- Need exec path for `daml build --all`, where we don't want to be relativized to a package
     execPath <- liftIO getCurrentDirectory
 
@@ -1419,11 +1446,12 @@ execValidateDar inFile =
 -- | Should source files for doc test be imported into the test package (default yes)
 newtype ImportSource = ImportSource Bool
 
-execDocTest :: ComponentVersion.Class.ComponentVersioned => Options -> FilePath -> ImportSource -> [FilePath] -> Command
-execDocTest opts scriptDar (ImportSource importSource) files =
+execDocTest :: ComponentVersion.Class.ComponentVersioned => OrParserFailure Options -> FilePath -> ImportSource -> [FilePath] -> Command
+execDocTest parsedOpts scriptDar (ImportSource importSource) files =
   Command DocTest Nothing effect
   where
     effect = do
+      opts <- handleBuildOptionsParserFailure parsedOpts
       let files' = map toNormalizedFilePath' files
           packageFlag =
             ExposePackage
@@ -1551,7 +1579,7 @@ execGenerateMultiPackageManifest multiPackageLocation outputLocation =
 -- main
 --------------------------------------------------------------------------------
 
-options :: ComponentVersion.Class.ComponentVersioned => Int -> CmdBuildArguments -> Parser Command
+options :: ComponentVersion.Class.ComponentVersioned => Int -> OrParserFailure CmdBuildArguments -> Parser Command
 options numProcessors buildOptions =
     subparser
       (  cmdIde numProcessors cliOptions
@@ -1577,9 +1605,9 @@ options numProcessors buildOptions =
         <> cmdClean
         <> cmdGenerateMultiPackageManifest
       )
-  where cliOptions = cbCliOptions buildOptions
+  where cliOptions = cbCliOptions <$> buildOptions
 
-parserInfo :: ComponentVersion.Class.ComponentVersioned => Int -> CmdBuildArguments -> ParserInfo Command
+parserInfo :: ComponentVersion.Class.ComponentVersioned => Int -> OrParserFailure CmdBuildArguments -> ParserInfo Command
 parserInfo numProcessors buildOptions =
   info (helper <*> options numProcessors buildOptions)
     (  fullDesc
@@ -1713,11 +1741,22 @@ filterForOnlyPackageLocationOpts :: [String] -> [String]
 filterForOnlyPackageLocationOpts args = mapMaybe getFlagPair zippedArgs 
   where
     getFlagPair :: (String, String) -> Maybe String
-    getFlagPair (flag, _) | flag `elem` ["--" <> projectCheckFlagName, "--" <> packageCheckFlagName] = Just flag
-    getFlagPair (flag, root) | flag `elem` ["--" <> projectRootFlagName, "--" <> packageRootFlagName] = Just $ flag <> "=" <> root
-    getFlagPair (flag, _) | ("--" <> projectRootFlagName <> "=") `isPrefixOf` flag = Just flag
-    getFlagPair (flag, _) | ("--" <> packageRootFlagName <> "=") `isPrefixOf` flag = Just flag
-    getFlagPair _ = Nothing
+    getFlagPair pair = msum $ map (flip getFlagWithArg pair) flagsWithArgs ++ map (flip getFlagWithoutArg pair) flagsWithoutArgs
+
+    -- Given a flag name (that takes an argument), filter for that flag and reconstruct using `=` flag syntax
+    getFlagWithArg :: String -> (String, String) -> Maybe String
+    getFlagWithArg flagName (flag, _) | ("--" <> flagName <> "=") `isPrefixOf` flag = Just flag
+    getFlagWithArg flagName (flag, root) | flagName == flag = Just $ flag <> "=" <> root
+    getFlagWithArg _ _ = Nothing
+
+    -- Given a flag name (that doesn't take an argument, i.e. a switch), filter for that flag and return it
+    getFlagWithoutArg :: String -> (String, String) -> Maybe String
+    getFlagWithoutArg flagName (flag, _) | flagName == flag = Just flag
+    getFlagWithoutArg _ _ = Nothing
+
+    flagsWithArgs = [projectRootFlagName, packageRootFlagName]
+    flagsWithoutArgs = [projectCheckFlagName, packageCheckFlagName]
+
     -- Add empty value at end so first value of sliding window sees all flags
     zippedArgs = zip args (tail args ++ [""])
 
@@ -1730,15 +1769,12 @@ fullParseArgs numProcessors cliArgs = do
   -- If this fails, empty list is returned
   damlYamlArgs <- cliArgsFromDamlYaml mPackageOpts
   -- Parse these args out
-  let buildOptionsResult = runBuildOptionsParser numProcessors damlYamlArgs
-  
-  -- If buildOptions fails to parse, we want to directly report that
-  buildOptions <- handleParseResult buildOptionsResult
+  let buildOptionsOrParserFailure = orParserFailure $ runBuildOptionsParser numProcessors damlYamlArgs
 
   -- Call the full command parser, passing the pre-parsed build-options
   -- Most commands will only use buildOptions.cbCliOptions, but the build command will use
   -- the full type
-  let finalParseResult = execParserPure defaultPrefs (parserInfo numProcessors buildOptions) cliArgs
+  let finalParseResult = execParserPure defaultPrefs (parserInfo numProcessors buildOptionsOrParserFailure) cliArgs
   handleParseResult finalParseResult
 
 warnDeprecatedArgs :: [String] -> IO ()
