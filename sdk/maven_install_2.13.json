@@ -77,7 +77,6 @@
     "com.typesafe.scala-logging:scala-logging_2.13": -861751906,
     "dev.optics:monocle-core_2.13": 385859524,
     "io.circe:circe-core_2.13": 771117295,
-    "io.circe:circe-optics_2.13": 1993259364,
     "io.circe:circe-yaml-common_2.13": -1098323040,
     "io.circe:circe-yaml_2.13": -787294730,
     "io.grpc:grpc-api": -1951832244,
@@ -412,8 +411,6 @@
     "io.circe:circe-jawn_2.13:jar:sources": -1593470557,
     "io.circe:circe-numbers_2.13": -1332482328,
     "io.circe:circe-numbers_2.13:jar:sources": 842841239,
-    "io.circe:circe-optics_2.13": -1053822067,
-    "io.circe:circe-optics_2.13:jar:sources": 539929736,
     "io.circe:circe-parser_2.13": 641188622,
     "io.circe:circe-parser_2.13:jar:sources": -629124671,
     "io.circe:circe-yaml-common_2.13": 667737166,
@@ -1901,13 +1898,6 @@
         "sources": "ba9a687ee67dffdbdab4ef6e9fe2f523f2013d48564924b16c98b38f17dab12e"
       },
       "version": "0.14.5"
-    },
-    "io.circe:circe-optics_2.13": {
-      "shasums": {
-        "jar": "9b6be4d441e2eedc6f6a87026c168e9d5b944ae6b5c35c1c43d4bf25dd5ba86a",
-        "sources": "c600574a46353c37a0c72b7f9e8afe698684c7081e70798b9befb3ea74acb98c"
-      },
-      "version": "0.15.0"
     },
     "io.circe:circe-parser_2.13": {
       "shasums": {
@@ -4369,11 +4359,6 @@
     "io.circe:circe-numbers_2.13": [
       "org.scala-lang:scala-library"
     ],
-    "io.circe:circe-optics_2.13": [
-      "dev.optics:monocle-core_2.13",
-      "io.circe:circe-core_2.13",
-      "org.scala-lang:scala-library"
-    ],
     "io.circe:circe-parser_2.13": [
       "io.circe:circe-core_2.13",
       "io.circe:circe-jawn_2.13",
@@ -6755,9 +6740,6 @@
     ],
     "io.circe:circe-numbers_2.13": [
       "io.circe.numbers"
-    ],
-    "io.circe:circe-optics_2.13": [
-      "io.circe.optics"
     ],
     "io.circe:circe-parser_2.13": [
       "io.circe.parser"
@@ -9676,8 +9658,6 @@
       "io.circe:circe-jawn_2.13:jar:sources",
       "io.circe:circe-numbers_2.13",
       "io.circe:circe-numbers_2.13:jar:sources",
-      "io.circe:circe-optics_2.13",
-      "io.circe:circe-optics_2.13:jar:sources",
       "io.circe:circe-parser_2.13",
       "io.circe:circe-parser_2.13:jar:sources",
       "io.circe:circe-yaml-common_2.13",
@@ -10425,8 +10405,6 @@
       "io.circe:circe-jawn_2.13:jar:sources",
       "io.circe:circe-numbers_2.13",
       "io.circe:circe-numbers_2.13:jar:sources",
-      "io.circe:circe-optics_2.13",
-      "io.circe:circe-optics_2.13:jar:sources",
       "io.circe:circe-parser_2.13",
       "io.circe:circe-parser_2.13:jar:sources",
       "io.circe:circe-yaml-common_2.13",
