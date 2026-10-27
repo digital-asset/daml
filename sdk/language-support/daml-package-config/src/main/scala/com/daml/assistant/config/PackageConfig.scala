@@ -7,8 +7,6 @@ import java.io.File
 import java.nio.file.{Files, Path}
 
 import io.circe.{Json, JsonObject, yaml}
-import io.circe.optics.JsonOptics._
-import monocle.function.Plated
 
 import scala.collection.immutable.Map
 import scala.io.Source
@@ -157,10 +155,22 @@ object PackageConfig {
     )
 
   def interpolateEnvironmentVariables(json: Json, env: Map[String, String]): Json =
-    Plated.transform[Json](
-      _.mapString(interpolateEnvironmentVariable(_, env))
-        .mapObject(interpolateJsonObjectKeys(_, env))
-    )(json)
+    json.fold(
+      jsonNull = Json.Null,
+      jsonBoolean = Json.fromBoolean,
+      jsonNumber = Json.fromJsonNumber,
+      jsonString = value => Json.fromString(interpolateEnvironmentVariable(value, env)),
+      jsonArray = values => Json.fromValues(values.map(interpolateEnvironmentVariables(_, env))),
+      jsonObject = values =>
+        Json.fromJsonObject(
+          JsonObject.fromIterable(values.toMap.map { case (key, value) =>
+            (
+              interpolateEnvironmentVariable(key, env),
+              interpolateEnvironmentVariables(value, env),
+            )
+          })
+        ),
+    )
 
   def interpolateJsonObjectKeys(jsonObject: JsonObject, env: Map[String, String]): JsonObject =
     JsonObject.fromIterable(jsonObject.toMap.map { case (k, v) =>

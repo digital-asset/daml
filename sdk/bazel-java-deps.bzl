@@ -51,7 +51,6 @@ def install_java_deps():
             "com.oracle.database.jdbc:ojdbc8:19.18.0.0",
             "com.sparkjava:spark-core:2.9.4",
             "com.squareup:javapoet:1.13.0",
-            "io.circe:circe-optics_{}:{}".format(scala_major_version, "0.15.0"),
             "io.circe:circe-yaml_{}:{}".format(scala_major_version, "0.15.0-RC1"),
             "io.reactivex.rxjava2:rxjava:2.2.21",
             "org.junit.jupiter:junit-jupiter-engine:5.9.2",
