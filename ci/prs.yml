@@ -13,8 +13,8 @@ pr:
 
 variables:
   bazel_flags: >-
-    --local_resources=cpu=HOST_CPUS
     --remote_upload_local_results=true
+  build_cpu_flags: --local_resources=cpu=HOST_CPUS
 
 jobs:
 - job: linux
@@ -76,7 +76,7 @@ jobs:
     - bash: |
         set -euo pipefail
         cd sdk
-        bazelisk build //... $(bazel_flags) $(cache_flags)
+        bazelisk build //... $(bazel_flags) $(build_cpu_flags) $(cache_flags)
       displayName: 'Build'
     - bash: |
         set -euo pipefail
@@ -88,7 +88,7 @@ jobs:
         dir="$(Build.StagingDirectory)/release"
         archive="$(Build.StagingDirectory)/$(release_name)-release.tar"
         cd sdk
-        bazelisk build //release:release $(bazel_flags) $(cache_flags)
+        bazelisk build //release:release $(bazel_flags) $(build_cpu_flags) $(cache_flags)
         ./bazel-bin/release/release --release-dir "$(mktemp -d)"
         ci/build-release.sh "" "$(arch_suffix)"
         mkdir -p "$dir"
@@ -172,7 +172,7 @@ jobs:
     - bash: |
         set -euo pipefail
         cd sdk
-        bazelisk build //... $(bazel_flags) $(cache_flags)
+        bazelisk build //... $(bazel_flags) $(build_cpu_flags) $(cache_flags)
       displayName: 'Build'
     - bash: |
         set -euo pipefail
@@ -282,7 +282,7 @@ jobs:
     - powershell: |
         $ErrorActionPreference = 'Stop'
         Set-Location sdk
-        bazelisk build //... $(bazel_flags) $(cache_flags)
+        bazelisk build //... $(bazel_flags) $(build_cpu_flags) $(cache_flags)
       displayName: 'Build'
     - powershell: |
         $ErrorActionPreference = 'Stop'
