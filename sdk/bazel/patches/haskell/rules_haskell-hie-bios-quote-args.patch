@@ -1,0 +1,30 @@
+--- a/haskell/repl.bzl
++++ b/haskell/repl.bzl
+@@ -709,6 +709,9 @@
+     """Outputs a bash expression computing the runtime path of a runfile using the bash runfiles library"""
+     return "$(rlocation {})".format(_rlocationpath(ctx, file))
+ 
++def _hie_bios_arg(arg):
++    return arg.replace("\\", "\\\\").replace("\"", "\\\"").replace("`", "\\`")
++
+ def _hie_bios_impl(ctx):
+     """Build a shell script that prints the hie-bios flags for ghcide using the bash runfiles library to recover absolute paths.
+ 
+@@ -788,7 +791,7 @@
+         substitutions = {
+             "%{OUTPUT}": hie_bios_script.path,
+             "%{OUTPUT_RLOCATION_PATH}": _rlocationpath(ctx, hie_bios_script),
+-            "%{ARGS}": "\n".join(args),
++            "%{ARGS}": "\n".join([_hie_bios_arg(arg) for arg in args]),
+             "%{UNIT_FILE_FRAGMENTS}": "",
+         },
+     )
+@@ -909,7 +912,7 @@
+         substitutions = {
+             "%{OUTPUT}": hie_bios_script.path,
+             "%{OUTPUT_RLOCATION_PATH}": _rlocationpath(ctx, hie_bios_script),
+-            "%{ARGS}": "\n".join(global_args),
++            "%{ARGS}": "\n".join([_hie_bios_arg(arg) for arg in global_args]),
+             "%{UNIT_FILE_FRAGMENTS}": "\n".join(unit_file_fragments),
+         },
+     )
