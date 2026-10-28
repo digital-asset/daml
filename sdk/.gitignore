@@ -88,6 +88,11 @@ out
 
 /.tmp-pg/
 /.canton
+/.exrc
+/.exrc.bak
+/.dir-locals.el
+/.dir-locals.el.bak
+/bazel/ide/.bazel-path
 
 docs/build/
 

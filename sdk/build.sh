@@ -167,9 +167,3 @@ $bazel query 'deps(//...)' >/dev/null
 # if [[ "$(uname)" != "Darwin" ]]; then
 #   da-ghci --data yes //compiler/damlc:damlc -e ':run Main.main --help'
 # fi
-
-# Test that hls at least builds, we don’t run it since it
-# adds 2-5 minutes to each CI run with relatively little benefit. If
-# you want to test it manually on upgrades, run
-# da-hls compiler/damlc/exe/Main.hs.
-da-hls --help
