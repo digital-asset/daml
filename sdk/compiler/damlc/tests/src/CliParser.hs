@@ -70,10 +70,7 @@ assertDamlcParser cliArgs damlYamlArgs mExpectedError = withCurrentTempDir $ do
 withDamlPackage :: IO a -> IO a
 withDamlPackage f = do
   cwd <- getCurrentDirectory
-  setEnv packagePathEnvVar cwd True
-  res <- f
-  unsetEnv packagePathEnvVar
-  pure res
+  withEnv [(packagePathEnvVar, Just cwd)] f
 
 -- Run the damlc parser with a set of command line flags/options, and a set of daml.yaml flags/options
 -- Run the resulting computation and assert a given string is part of stdout+stderr
