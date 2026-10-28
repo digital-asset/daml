@@ -64,13 +64,6 @@ config_setting(
     },
 )
 
-config_setting(
-    name = "hie_bios_ghci",
-    define_values = {
-        "hie_bios_ghci": "True",
-    },
-)
-
 #
 # Metadata
 #
@@ -138,6 +131,36 @@ alias(
 alias(
     name = "bindings-java",
     actual = "@maven//:com_daml_bindings_java",
+)
+
+alias(
+    name = "ide_setup",
+    actual = "//bazel/ide:setup",
+    tags = ["manual"],
+)
+
+alias(
+    name = "vscode_setup",
+    actual = "//bazel/ide/vscode:setup",
+    tags = ["manual"],
+)
+
+alias(
+    name = "vim_setup",
+    actual = "//bazel/ide/vim:setup",
+    tags = ["manual"],
+)
+
+alias(
+    name = "emacs_setup",
+    actual = "//bazel/ide/emacs:setup",
+    tags = ["manual"],
+)
+
+alias(
+    name = "intellij_setup",
+    actual = "//bazel/ide/intellij:setup",
+    tags = ["manual"],
 )
 
 genrule(
