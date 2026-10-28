@@ -65,6 +65,7 @@ single_version_override(
         "//bazel/patches:haskell/rules_haskell-windows-assembler.patch",
         "//bazel/patches:haskell/rules_haskell-windows-unique-cabal-distdir.patch",
         "//bazel/patches:haskell/rules_haskell-rules_js2-npm-load.patch",
+        "//bazel/patches:haskell/rules_haskell-hie-bios-quote-args.patch",
     ],
 )
 
@@ -270,6 +271,9 @@ use_repo(stack_ext, "stack")
 
 ghcide_lib_ext = use_extension("//bazel/haskell:ghcide_extension.bzl", "ghcide_lib")
 use_repo(ghcide_lib_ext, "ghcide_lib")
+
+hls_ext = use_extension("//bazel/ide/hls:extension.bzl", "hls")
+use_repo(hls_ext, "hls_darwin_aarch64", "hls_darwin_amd64", "hls_linux_aarch64", "hls_linux_amd64")
 
 lsp_types_ext = use_extension("//bazel/haskell:lsp_types_extension.bzl", "lsp_types")
 use_repo(lsp_types_ext, "lsp-types")
