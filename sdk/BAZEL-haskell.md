@@ -251,25 +251,22 @@ alias(
 
 ## Editor integration
 
-The `daml` repository is configured to support [`haskell-language-server`][hls]
-with Bazel and the `da-hls` executable is provided by the `dev-env`. Take a look
-at the [setup section][hls_setup] for example configurations for various
-editors. `haskell-language-server` has to be built with the same `ghc` as the
-project you're working on. Be sure to either point your editor to the
-`dev-env`-provided `haskell-language-server` by absolute path, or make sure that
-the `dev-env`-provided `haskell-language-server` is in `$PATH` for your editor.
+The repository ships a Bazel-managed [`haskell-language-server`][hls] that runs
+against the same GHC as the build, on Linux and macOS. Run one setup command
+from `sdk/` and open `sdk/` in your editor:
 
-Note, `hls` itself is built by Bazel and to load a target into the editor
-some of its dependencies have to be built by Bazel. This means that start-up
-may take some time if the required artifacts are not built or cached already.
+```
+bazelisk run //:vscode_setup   # VS Code / VSCodium
+bazelisk run //:vim_setup      # Vim / Neovim
+bazelisk run //:emacs_setup    # Emacs (eglot or lsp-mode)
+bazelisk run //:intellij_setup # IntelliJ (Haskell LSP plugin)
+bazelisk run //:ide_setup      # any other LSP client
+```
 
-Also note that the current setup works for modules in the bazel target
-`//compiler/damlc:damlc` or in its dependencies. To work on other modules, it
-should be enough to replace `//compiler/damlc:damlc` in `.hie-bios` with the
-appropriate bazel target and restart the language server.
+See [`bazel/ide/README.md`](bazel/ide/README.md) for what each setup changes,
+how the cradle in `hie.yaml` works, and troubleshooting.
 
 [hls]: https://github.com/haskell/haskell-language-server
-[hls_setup]: https://haskell-language-server.readthedocs.io/en/latest/configuration.html#vs-code
 
 ## Further reading:
 
