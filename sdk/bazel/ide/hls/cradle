@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target="${1:?usage: bazel/ide/hls/cradle <haskell_repl target>@bios}"
+
+if [[ -n "${DAML_IDE_HLS_HOST_PATH+set}" ]]; then
+  export PATH="$DAML_IDE_HLS_HOST_PATH"
+  if [[ -n "${DAML_IDE_HLS_HOST_LD_LIBRARY_PATH-}" ]]; then
+    export LD_LIBRARY_PATH="$DAML_IDE_HLS_HOST_LD_LIBRARY_PATH"
+  else
+    unset LD_LIBRARY_PATH
+  fi
+fi
+
+hls_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+run_bazel="$hls_dir/run_bazel"
+cd "$hls_dir"
+
+# Build first: Bazel replays cached action stdout, which would pollute the flags.
+"$run_bazel" build "$target" >&2
+info="$("$run_bazel" info execution_root output_base 2>/dev/null)"
+execroot="$(sed -n 's/^execution_root: //p' <<<"$info")"
+output_base="$(sed -n 's/^output_base: //p' <<<"$info")"
+
+raw="$(mktemp)"
+trap 'rm -f "$raw"' EXIT
+"$run_bazel" run "$target" >"$raw"
+
+cc=""
+wrapper="$(awk 'previous == "-pgmc" { print; exit } { previous = $0 }' "$raw")"
+if [[ -n "$wrapper" ]]; then
+  cc="$output_base/daml_ide/cc-$(printf '%s' "$execroot $wrapper" | cksum | cut -d' ' -f1)"
+  if [[ ! -x "$cc" ]]; then
+    mkdir -p "$(dirname "$cc")"
+    printf '#!/bin/sh\ncd '\''%s'\'' && exec '\''%s'\'' "$@"\n' "$execroot" "$wrapper" >"$cc.$$"
+    chmod +x "$cc.$$"
+    mv -f "$cc.$$" "$cc"
+  fi
+fi
+
+awk -v execroot="$execroot" -v cc="$cc" '
+  function strip(s,   prefix, out, i) {
+    prefix = execroot "/"
+    out = ""
+    while ((i = index(s, prefix)) > 0) {
+      out = out substr(s, 1, i - 1)
+      s = substr(s, i + length(prefix))
+    }
+    return out s
+  }
+  BEGIN { print "-hide-all-packages" }
+  /^-hide-all-packages$/ { next }
+  # Memory and GC settings meant for the GHCi process; HLS runs GHC inside its own process, so they do not apply.
+  /^\+RTS$/, /^-RTS$/ { next }
+  /^-pgmlm$/ { getline; next }
+  /^-pgm[aclP]$/ {
+    flag = $0
+    if ((getline value) <= 0 || cc == "") { next }
+    rest = ""
+    if (flag == "-pgmP" && (i = index(value, " ")) > 0) { rest = substr(value, i) }
+    print flag
+    print cc rest
+    next
+  }
+  # HLS runs Template Haskell in its own process, not an external interpreter.
+  /^-fexternal-interpreter$/ { next }
+  # Default runtime settings to embed in a built executable; HLS only type-checks, so it never uses them.
+  /^-with-rtsopts=/ { next }
+  # grpc C core library. Added with da-hls (#13853) for an unrecorded reason; harmless to keep.
+  /^-lmerged_cbits$/ { next }
+  { print strip($0) }
+' "$raw" >"${HIE_BIOS_OUTPUT:-/dev/stdout}"
