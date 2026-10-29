@@ -675,7 +675,9 @@ da_haskell_test(
     timeout = "long",
     srcs = ["src/DA/Test/DamlcMultiPackage.hs"],
     data = [
+        "//:java_rlocation_path",
         "//release:dpm-sdk-release-tarball",
+        "@rules_java//toolchains:current_java_runtime",
     ],
     hackage_deps = [
         "aeson",
