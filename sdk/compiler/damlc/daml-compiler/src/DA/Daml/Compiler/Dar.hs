@@ -23,6 +23,7 @@ import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource (ResourceT)
 import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.Compiler.Recipe
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
 import DA.Daml.LF.TypeChecker.Error.WarningFlags (WarningFlags)
 import DA.Daml.LF.TypeChecker.Upgrade as Upgrade
@@ -114,8 +115,9 @@ buildDar ::
     -> UpgradeInfo
     -> WarningFlags TypeCheckerError.ErrorOrWarning
     -> Maybe PackagePath
+    -> FilePath -- ^ The .daml/dependencies directory DA.Cli.Damlc.DependencyDb already populated for this package, used to recover which daml.yaml field each dependency was declared under
     -> IO (Maybe (Zip.ZipArchive (), Maybe LF.PackageId))
-buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typecheckerWarningFlags mbProjectPath = do
+buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typecheckerWarningFlags mbProjectPath depsDir = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
         "Creating dar: " <> T.pack pSrc
@@ -126,7 +128,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
             -- in the dalfInput case we interpret pSrc as the filepath pointing to the dalf.
             -- Note that the package id is obviously wrong but this feature is not something we expose to users.
             pure $ Just
-              ( createArchive pName pVersion versionInfo (LF.PackageId "") bytes [] (toNormalizedFilePath' ".") [] [] []
+              ( createArchive pName pVersion versionInfo (LF.PackageId "") bytes [] Nothing (toNormalizedFilePath' ".") [] [] []
               , Nothing
               )
         -- We need runActionSync here to ensure that diagnostics are printed to the terminal.
@@ -181,12 +183,23 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                  let confFile = mkConfFile pName pVersion (Map.keys unstableDeps) pExposedModules pkgModuleNames pkgId
                  let dataFiles = [confFile]
                  srcRoot <- getSrcRoot pSrc
+                 recipe <-
+                     liftIO $ buildRecipe
+                             PackageConfigFields {..}
+                             (T.pack (versionToString versionInfo))
+                             lfVersion
+                             (isJust (optShakeFiles opts))
+                             pkgId
+                             (upwnavPkgId . fst <$> mbUpgradedPackage)
+                             unstableDeps
+                             depsDir
                  pure
                    ( createArchive
                        pName pVersion versionInfo
                        pkgId
                        dalf
                        dalfDependencies
+                       (Just (encodeRecipe recipe))
                        srcRoot
                        files
                        dataFiles
@@ -359,12 +372,13 @@ createArchive
     -> LF.PackageId
     -> BSL.ByteString -- ^ DALF
     -> [(T.Text, BS.ByteString, LF.PackageId)] -- ^ DALF dependencies
+    -> Maybe BSL.ByteString -- ^ The embedded build recipe, if one was built.
     -> NormalizedFilePath -- ^ Source root directory
     -> [NormalizedFilePath] -- ^ Module dependencies
     -> [(String, BS.ByteString)] -- ^ Data files
     -> [NormalizedFilePath] -- ^ Interface files
     -> Zip.ZipArchive ()
-createArchive pName pVersion versionInfo pkgId dalf dalfDependencies srcRoot fileDependencies dataFiles ifaces
+createArchive pName pVersion versionInfo pkgId dalf dalfDependencies mbRecipe srcRoot fileDependencies dataFiles ifaces
  = do
     -- Reads all module source files, and pairs paths (with changed prefix)
     -- with contents as BS. The path must be within the module root path, and
@@ -387,12 +401,16 @@ createArchive pName pVersion versionInfo pkgId dalf dalfDependencies srcRoot fil
             [ (pkgName </> "data" </> n, BSC.fromStrict bs)
             | (n, bs) <- dataFiles
             ]
+    let recipeFiles =
+            [ (recipeEntryPath, recipeBytes)
+            | Just recipeBytes <- [mbRecipe]
+            ]
     -- construct a zip file from all required files
     let allFiles =
             ( "META-INF/MANIFEST.MF"
             , manifestHeader dalfName (dalfName : map fst dependencies)) :
             (dalfName, dalf) :
-            dependencies ++ dataFiles'
+            dependencies ++ dataFiles' ++ recipeFiles
     forM_ allFiles $ \(file, content) -> do
         entry <- Zip.mkEntrySelector file
         sinkEntryDeterministic Zip.Deflate (sourceLazy content) entry
