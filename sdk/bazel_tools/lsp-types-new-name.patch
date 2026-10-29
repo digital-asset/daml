@@ -1,0 +1,37 @@
+diff --git a/lsp-types.cabal b/lsp-types.cabal
+--- a/lsp-types.cabal
++++ b/lsp-types.cabal
+@@ -1,5 +1,5 @@
+ cabal-version:      3.0
+-name:               lsp-types
++name:               lsp-types-new
+ version:            2.4.0.0
+ synopsis:
+   Haskell library for the Microsoft Language Server Protocol, data types
+@@ -608,7 +608,7 @@ library lsp-types-quickcheck
+ 
+   build-depends:
+     , base              >=4.11    && <5
+-    , lsp-types
++    , lsp-types-new
+     , row-types
+     , QuickCheck
+     , quickcheck-instances
+@@ -628,7 +628,7 @@ executable generator
+     , containers
+     , directory
+     , filepath
+-    , lsp-types:metamodel
++    , lsp-types-new:metamodel
+     , mtl
+     , prettyprinter
+     , regex
+@@ -661,7 +661,7 @@ test-suite lsp-types-test
+     , hspec
+     , hspec-golden
+     , lens
+-    , lsp-types
++    , lsp-types-new
+     , lsp-types-quickcheck
+     , network-uri
+     , prettyprinter

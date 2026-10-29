@@ -1,0 +1,57 @@
+diff --git a/lsp-types.cabal b/lsp-types.cabal
+--- a/lsp-types.cabal
++++ b/lsp-types.cabal
+@@ -38,7 +38,7 @@ common warnings
+ library
+   import:             warnings
+   hs-source-dirs:     src generated
+-  default-language:   GHC2021
++  default-language:   Haskell2010
+ 
+   -- Various things we want on by default
+   -- * syntactic niceties, QOL
+@@ -51,6 +51,44 @@ library
+   -- * fancy types for singletons etc.
+   default-extensions:
+     DataKinds
++    BangPatterns
++    BinaryLiterals
++    ConstrainedClassMethods
++    ConstraintKinds
++    DeriveDataTypeable
++    DeriveFoldable
++    DeriveFunctor
++    DeriveGeneric
++    DeriveLift
++    DeriveTraversable
++    EmptyCase
++    EmptyDataDeriving
++    ExistentialQuantification
++    ExplicitForAll
++    FlexibleContexts
++    FlexibleInstances
++    GADTSyntax
++    GeneralizedNewtypeDeriving
++    HexFloatLiterals
++    ImportQualifiedPost
++    InstanceSigs
++    KindSignatures
++    MultiParamTypeClasses
++    NamedFieldPuns
++    NamedWildCards
++    NoCUSKs
++    NoDatatypeContexts
++    NumericUnderscores
++    PolyKinds
++    PostfixOperators
++    RankNTypes
++    ScopedTypeVariables
++    StandaloneDeriving
++    StandaloneKindSignatures
++    TupleSections
++    TypeApplications
++    TypeOperators
++    TypeSynonymInstances
+     DeriveAnyClass
+     DerivingStrategies
+     DerivingVia

@@ -37,6 +37,11 @@ XML_CONDUIT_VERSION = "1.9.1.1"
 LSP_TYPES_VERSION = "1.4.0.0"
 LSP_TYPES_SHA256 = "7ae8a3bad0e91d4a2af9b93e3ad207e3f4c3dace40d420e0592f6323ac93fb67"
 
+NEW_LSP_TYPES_VERSION = "2.4.0.0"
+NEW_LSP_TYPES_SHA256 = "2bd17496aa8cc9024d27525ea0d1c797f89554a6248608fec9cfc87e5b403f2e"
+ROW_TYPES_VERSION = "1.0.1.2"
+ROW_TYPES_SHA256 = "0ea98606fe49d69311800ae29200162dd2dd915088da197b8b9a9fe818b46e17"
+
 def daml_haskell_deps():
     """Load all Haskell dependencies of the Daml repository."""
 
@@ -65,6 +70,78 @@ haskell_cabal_library(
         sha256 = LSP_TYPES_SHA256,
         strip_prefix = "lsp-types-{}".format(LSP_TYPES_VERSION),
         urls = ["http://hackage.haskell.org/package/lsp-types-{version}/lsp-types-{version}.tar.gz".format(version = LSP_TYPES_VERSION)],
+    )
+
+    http_archive(
+        name = "lsp-types-new",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+haskell_cabal_library(
+    name = "lsp-types-new",
+    version = "{version}",
+    srcs = glob(["**"]),
+    deps = [
+        "@stackage//:aeson",
+        "@stackage//:base",
+        "@stackage//:binary",
+        "@stackage//:containers",
+        "@stackage//:data-default",
+        "@stackage//:deepseq",
+        "@stackage//:Diff",
+        "@stackage//:dlist",
+        "@stackage//:filepath",
+        "@stackage//:hashable",
+        "@stackage//:indexed-traversable",
+        "@stackage//:indexed-traversable-instances",
+        "@stackage//:lens",
+        "@stackage//:mod",
+        "@stackage//:mtl",
+        "@stackage//:network-uri",
+        "@stackage//:prettyprinter",
+        "@row-types//:row-types",
+        "@stackage//:safe",
+        "@stackage//:some",
+        "@stackage//:template-haskell",
+        "@stackage//:text",
+    ],
+    haddock = False,
+    visibility = ["//visibility:public"],
+)""".format(version = NEW_LSP_TYPES_VERSION),
+        patch_args = ["-p1"],
+        patches = [
+            "@com_github_digital_asset_daml//bazel_tools:lsp-types-new-name.patch",
+            "@com_github_digital_asset_daml//bazel_tools:lsp-types-new-snapshot-bounds.patch",
+            "@com_github_digital_asset_daml//bazel_tools:lsp-types-new-ghc90.patch",
+        ],
+        sha256 = NEW_LSP_TYPES_SHA256,
+        strip_prefix = "lsp-types-{}".format(NEW_LSP_TYPES_VERSION),
+        urls = ["http://hackage.haskell.org/package/lsp-types-{version}/lsp-types-{version}.tar.gz".format(version = NEW_LSP_TYPES_VERSION)],
+    )
+
+    http_archive(
+        name = "row-types",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+haskell_cabal_library(
+    name = "row-types",
+    version = "{version}",
+    srcs = glob(["**"]),
+    deps = [
+        "@stackage//:base",
+        "@stackage//:constraints",
+        "@stackage//:deepseq",
+        "@stackage//:hashable",
+        "@stackage//:unordered-containers",
+        "@stackage//:generic-lens",
+        "@stackage//:profunctors",
+        "@stackage//:text",
+    ],
+    haddock = False,
+    visibility = ["//visibility:public"],
+)""".format(version = ROW_TYPES_VERSION),
+        sha256 = ROW_TYPES_SHA256,
+        strip_prefix = "row-types-{}".format(ROW_TYPES_VERSION),
+        urls = ["https://hackage.haskell.org/package/row-types-{version}/row-types-{version}.tar.gz".format(version = ROW_TYPES_VERSION)],
     )
 
     # ghc-lib based ghcide - injected into `@stackage` and used for Daml IDE.
@@ -490,12 +567,14 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "conduit",
             "conduit-extra",
             "connection",
+            "constraints",
             "containers",
             "cryptohash",
             "cryptonite",
             "data-default",
             "Decimal",
             "deepseq",
+            "Diff",
             "directory",
             "dlist",
             "either",
@@ -507,6 +586,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "filepath",
             "filepattern",
             "ghc-lib-parser-ex",
+            "generic-lens",
             "gitrev",
             "happy",
             "hashable",
@@ -519,6 +599,8 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "http-client-tls",
             "http-conduit",
             "http-types",
+            "indexed-traversable",
+            "indexed-traversable-instances",
             "jwt",
             "lens",
             "lens-aeson",
@@ -532,6 +614,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "monad-control",
             "monad-logger",
             "monad-loops",
+            "mod",
             "mtl",
             "network",
             "network-uri",
@@ -548,6 +631,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "prettyprinter",
             "pretty-show",
             "process",
+            "profunctors",
             "proto3-wire",
             "QuickCheck",
             "random",
@@ -625,6 +709,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "js-jquery": "@js_jquery//:js-jquery",
             "lsp-types": "@lsp-types//:lsp-types",
             "proto3-suite": "@proto3-suite//:proto3-suite",
+            "row-types": "@row-types//:row-types",
             "shake": "@shake//:shake",
             "turtle": "@turtle//:turtle",
             "xml-conduit": "@xml-conduit//:xml-conduit",
