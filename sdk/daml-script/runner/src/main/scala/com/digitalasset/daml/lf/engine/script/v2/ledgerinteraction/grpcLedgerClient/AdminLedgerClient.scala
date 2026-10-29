@@ -154,6 +154,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
               )
             )
           ),
+          protocolVersion = None,
         )
       ),
       mustFullyAuthorize = true,
@@ -449,6 +450,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
               )
             )
           ),
+          protocolVersion = None,
         )
       ),
       mustFullyAuthorize = false,
@@ -495,6 +497,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
               )
             )
           ),
+          protocolVersion = None,
         )
       ),
       mustFullyAuthorize = false,
