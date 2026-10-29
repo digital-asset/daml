@@ -257,6 +257,7 @@ makeStableDars darDirPath pkgs = withComponentVersions $ do
                 mainPkgId
                 mainPkgDalf
                 deps
+                Nothing
                 (toNormalizedFilePath' damlFileRoot)
                 [toNormalizedFilePath' damlFilePath]
                 [confFile]
