@@ -97,7 +97,7 @@ class JsCodegenRunnerSpec extends AnyFlatSpec with Matchers {
 
     codegenConf(badConfigStr) shouldBe Left(
       ConfigParseError(
-        "DecodingFailure at .js: Missing required field"
+        "DecodingFailure at .codegen.js: Missing required field"
       )
     )
   }
