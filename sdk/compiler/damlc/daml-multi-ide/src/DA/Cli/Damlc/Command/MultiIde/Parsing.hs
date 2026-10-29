@@ -36,13 +36,13 @@ import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Cli.Damlc.Command.MultiIde.Util
 import Data.Bifunctor (second)
 import Data.Functor.Product
-import qualified Data.IxMap as IM
+import qualified "lsp-types-new" Data.IxMap as IM
 import Data.List (delete)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Some.Newtype (Some, mkSome, withSome)
-import qualified Language.LSP.Types as LSP
-import qualified Language.LSP.Types.Lens as LSP
+import qualified Language.LSP.Protocol.Message as LSP
+import qualified Language.LSP.Protocol.Lens as LSP
 import System.IO.Extra
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -76,13 +76,13 @@ putChunk handle payload = do
   hTryFlush handle
 
 putReqMethodSingleFromServer
-  :: forall (m :: LSP.Method 'LSP.FromServer 'LSP.Request)
-  .  MethodTrackerVar 'LSP.FromServer -> PackageHome -> LSP.LspId m -> LSP.SMethod m -> IO ()
+  :: forall (m :: LSP.Method 'LSP.ServerToClient 'LSP.Request)
+  .  MethodTrackerVar 'LSP.ServerToClient -> PackageHome -> LSP.LspId m -> LSP.SMethod m -> IO ()
 putReqMethodSingleFromServer tracker home id method = putReqMethod tracker id $ TrackedSingleMethodFromServer method $ Just home
 
 putReqMethodSingleFromServerCoordinator
-  :: forall (m :: LSP.Method 'LSP.FromServer 'LSP.Request)
-  .  MethodTrackerVar 'LSP.FromServer -> LSP.LspId m -> LSP.SMethod m -> IO ()
+  :: forall (m :: LSP.Method 'LSP.ServerToClient 'LSP.Request)
+  .  MethodTrackerVar 'LSP.ServerToClient -> LSP.LspId m -> LSP.SMethod m -> IO ()
 putReqMethodSingleFromServerCoordinator tracker id method = putReqMethod tracker id $ TrackedSingleMethodFromServer method Nothing
 
 -- Takes a message from server and stores it if its a request, so that later messages from the client can deduce response context
@@ -104,8 +104,8 @@ putFromServerCoordinatorMessage miState (LSP.FromServerMess method mess) =
 putFromServerCoordinatorMessage _ _ = pure ()
 
 putReqMethodSingleFromClient
-  :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
-  .  MethodTrackerVar 'LSP.FromClient -> LSP.LspId m -> LSP.SMethod m -> LSP.FromClientMessage -> PackageHome -> IO ()
+  :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request)
+  .  MethodTrackerVar 'LSP.ClientToServer -> LSP.LspId m -> LSP.SMethod m -> LSP.FromClientMessage -> PackageHome -> IO ()
 putReqMethodSingleFromClient tracker id method message home = putReqMethod tracker id $ TrackedSingleMethodFromClient method message home
 
 -- Convenience wrapper around putReqMethodSingleFromClient
@@ -118,8 +118,8 @@ putSingleFromClientMessage miState home msg@(LSP.FromClientMess method mess) =
 putSingleFromClientMessage _ _ _ = pure ()
 
 putReqMethodAll
-  :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
-  .  MethodTrackerVar 'LSP.FromClient
+  :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request)
+  .  MethodTrackerVar 'LSP.ClientToServer
   -> LSP.LspId m
   -> LSP.SMethod m
   -> LSP.FromClientMessage
@@ -130,13 +130,13 @@ putReqMethodAll tracker id method msg ides combine =
   putReqMethod tracker id $ TrackedAllMethod method id msg combine ides []
 
 putReqMethod
-  :: forall (f :: LSP.From) (m :: LSP.Method f 'LSP.Request)
+  :: forall (f :: LSP.MessageDirection) (m :: LSP.Method f 'LSP.Request)
   .  MethodTrackerVar f -> LSP.LspId m -> TrackedMethod m -> IO ()
 putReqMethod tracker id method = atomically $ modifyTVar' tracker $ \im ->
   fromMaybe im $ IM.insertIxMap id method im
 
 pickReqMethodTo
-  :: forall (f :: LSP.From) r
+  :: forall (f :: LSP.MessageDirection) r
   .  MethodTrackerVar f
   -> ((forall (m :: LSP.Method f 'LSP.Request)
         . LSP.LspId m
@@ -152,7 +152,7 @@ pickReqMethodTo tracker handler = atomically $ do
 -- We're forced to give a result of type `(SMethod m, a m)` by parseServerMessage and parseClientMessage, but we want to include the updated MethodTracker
 -- so we use Product to ensure our result has the SMethod and our MethodTracker
 wrapParseMessageLookup
-  :: forall (f :: LSP.From) (m :: LSP.Method f 'LSP.Request)
+  :: forall (f :: LSP.MessageDirection) (m :: LSP.Method f 'LSP.Request)
   .  (Maybe (TrackedMethod m), MethodTracker f)
   -> Maybe
       ( LSP.SMethod m
@@ -164,7 +164,7 @@ wrapParseMessageLookup (mayTM, newIM) =
 -- Parses a message from the server providing context about previous requests from client
 -- allowing the server parser to reconstruct typed responses to said requests
 -- Handles TrackedAllMethod by returning Nothing for messages that do not have enough replies yet.
-parseServerMessageWithTracker :: MethodTrackerVar 'LSP.FromClient -> PackageHome -> Aeson.Value -> IO (Either String (Maybe LSP.FromServerMessage))
+parseServerMessageWithTracker :: MethodTrackerVar 'LSP.ClientToServer -> PackageHome -> Aeson.Value -> IO (Either String (Maybe LSP.FromServerMessage))
 parseServerMessageWithTracker tracker home val = pickReqMethodTo tracker $ \extract ->
   case Aeson.parseEither (LSP.parseServerMessage (wrapParseMessageLookup . extract)) val of
     Right (LSP.FromServerMess meth mess) -> (Right (Just $ LSP.FromServerMess meth mess), Nothing)
@@ -177,11 +177,11 @@ parseServerMessageWithTracker tracker home val = pickReqMethodTo tracker $ \extr
                   , tamLspId = tamLspId tm
                   , tamClientMessage = tamClientMessage tm
                   , tamCombiner = tamCombiner tm
-                  , tamResponses = (home, LSP._result rsp) : tamResponses tm
+                  , tamResponses = (home, rsp ^. LSP.result) : tamResponses tm
                   , tamRemainingResponsePackageHomes = delete home $ tamRemainingResponsePackageHomes tm
                   }
       if null $ tamRemainingResponsePackageHomes tm'
-        then let msg = LSP.FromServerRsp (tamMethod tm) $ rsp {LSP._result = tamCombiner tm' (tamResponses tm')}
+        then let msg = LSP.FromServerRsp (tamMethod tm) $ rsp & LSP.result .~ tamCombiner tm' (tamResponses tm')
               in (Right $ Just msg, Just newIxMap)
         else let insertedIxMap = fromMaybe newIxMap $ IM.insertIxMap (tamLspId tm) tm' newIxMap
               in (Right Nothing, Just insertedIxMap)
@@ -191,7 +191,7 @@ parseServerMessageWithTracker tracker home val = pickReqMethodTo tracker $ \extr
 -- Also does not include the multi-reply logic
 -- For responses, gives the ide that sent the initial request
 parseClientMessageWithTracker
-  :: MethodTrackerVar 'LSP.FromServer
+  :: MethodTrackerVar 'LSP.ServerToClient
   -> Aeson.Value
   -> IO (Either String (LSP.FromClientMessage' SMethodWithSender))
 parseClientMessageWithTracker tracker val = pickReqMethodTo tracker $ \extract ->
@@ -207,7 +207,7 @@ mapMaybeAccumWithKey f z = flip Map.foldrWithKey (z, Map.empty) $ \k v (accum, m
   second (maybe m (\v' -> Map.insert k v' m)) $ f accum k v
 
 -- Convenience for the longwinded FromClient Some TrackedMethod type
-type SomeFromClientTrackedMethod = Some @(LSP.Method 'LSP.FromClient 'LSP.Request) TrackedMethod
+type SomeFromClientTrackedMethod = Some @(LSP.Method 'LSP.ClientToServer 'LSP.Request) TrackedMethod
 
 -- Sadly some coercions needed here, as IxMap doesn't expose methods to traverse the map safely
 -- Each usage is explained in comments nearby
@@ -217,7 +217,7 @@ adjustClientTrackers
   :: forall a
   .  MultiIdeState
   -> PackageHome
-  -> (  forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
+  -> (  forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request)
      .  LSP.LspId m
      -> TrackedMethod m 
      -> (Maybe (TrackedMethod m), Maybe a)
@@ -225,7 +225,7 @@ adjustClientTrackers
   -> IO [a]
 adjustClientTrackers miState home adjuster = atomically $ stateTVar (misFromClientMethodTrackerVar miState) $ \tracker ->
   let doAdjust 
-        :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
+        :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request)
         .  [a]
         -> LSP.LspId m
         -> TrackedMethod m
@@ -240,15 +240,15 @@ adjustClientTrackers miState home adjuster = atomically $ stateTVar (misFromClie
         _ -> (accum, Just someTracker)
       -- We know that the misFromClientMethodTrackerVar only contains Trackers for FromClient, but this information is lost in the `Some` inside the IxMap
       -- We define our `adjust` method safely, by having it know this `FromClient` constraint, then coerce it to bring said constraint into scope.
-      -- (trackerMap :: forall (from :: LSP.From). Map.Map SomeLspId (Some @(Lsp.Method from @LSP.Request) TrackedMethod))
+      -- (trackerMap :: forall (from :: LSP.MessageDirection). Map.Map SomeLspId (Some @(Lsp.Method from @LSP.Request) TrackedMethod))
       -- where `from` is constrained outside the IxMap and as such, enforced weakly (using unsafeCoerce)
       (accum, trackerMap) = mapMaybeAccumWithKey (unsafeCoerce adjust) [] $ IM.getMap tracker
    in (accum, IM.IxMap trackerMap)
 
 -- Checks if a given Shutdown or Initialize lspId is for an IDE that is still closing, and as such, should not be removed
 isClosingIdeInFlight :: SubIdeData -> LSP.SMethod m -> LSP.LspId m -> Bool
-isClosingIdeInFlight ideData LSP.SShutdown (LSP.IdString str) = any (\ide -> str == ideMessageIdPrefix ide <> "-shutdown") $ ideDataClosing ideData
-isClosingIdeInFlight ideData LSP.SInitialize (LSP.IdString str) = any (\ide -> str == ideMessageIdPrefix ide <> "-init") $ ideDataClosing ideData
+isClosingIdeInFlight ideData LSP.SMethod_Shutdown (LSP.IdString str) = any (\ide -> str == ideMessageIdPrefix ide <> "-shutdown") $ ideDataClosing ideData
+isClosingIdeInFlight ideData LSP.SMethod_Initialize (LSP.IdString str) = any (\ide -> str == ideMessageIdPrefix ide <> "-init") $ ideDataClosing ideData
 isClosingIdeInFlight _ _ _ = False
 
 -- Reads all unresponded messages for a given home, gives back the original messages. Ignores and deletes Initialize and Shutdown requests
@@ -257,8 +257,8 @@ getUnrespondedRequestsToResend :: MultiIdeState -> SubIdeData -> PackageHome -> 
 getUnrespondedRequestsToResend miState ideData home = adjustClientTrackers miState home $ \lspId tracker -> case tmMethod tracker of
   -- Keep shutdown/initialize messages that are in use, but don't return them
   method | isClosingIdeInFlight ideData method lspId -> (Just tracker, Nothing)
-  LSP.SInitialize -> (Nothing, Nothing)
-  LSP.SShutdown -> (Nothing, Nothing)
+  LSP.SMethod_Initialize -> (Nothing, Nothing)
+  LSP.SMethod_Shutdown -> (Nothing, Nothing)
   _ -> (Just tracker, Just $ tmClientMessage tracker)
 
 -- Gets fallback responses for all unresponded requests for a given home.
@@ -270,7 +270,7 @@ getUnrespondedRequestsFallbackResponses miState ideData home = adjustClientTrack
   TrackedSingleMethodFromClient method _ _ | isClosingIdeInFlight ideData method lspId -> (Just tracker, Nothing)
   TrackedSingleMethodFromClient _ msg _ -> (Nothing, noIDEReply msg)
   tm@TrackedAllMethod {tamRemainingResponsePackageHomes = [home']} | home' == home ->
-    let reply = LSP.FromServerRsp (tamMethod tm) $ LSP.ResponseMessage "2.0" (Just $ tamLspId tm) (tamCombiner tm $ tamResponses tm)
+    let reply = LSP.FromServerRsp (tamMethod tm) $ LSP.TResponseMessage "2.0" (Just $ tamLspId tm) (tamCombiner tm $ tamResponses tm)
      in (Nothing, Just reply)
   TrackedAllMethod {..} ->
     let tm = TrackedAllMethod

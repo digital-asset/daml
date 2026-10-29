@@ -31,17 +31,20 @@ import DA.Daml.LanguageServer.SplitGotoDefinition
 import Data.Foldable (traverse_)
 import Data.List (delete, find, isInfixOf, isSuffixOf)
 import Data.List.Extra (nubOrd)
+import Data.Proxy (Proxy (..))
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.Set as Set
 import qualified Data.Text.IO as T
-import qualified Language.LSP.Types as LSP
-import qualified Language.LSP.Types.Lens as LSP
+import qualified Language.LSP.Protocol.Types as LSP
+import qualified Language.LSP.Protocol.Message as LSP
+import qualified Language.LSP.Protocol.Lens as LSP
+import GHC.TypeLits (symbolVal)
 import System.Exit (exitSuccess)
 import System.FilePath.Posix (takeDirectory, takeExtension, takeFileName)
 import System.FilePath ((</>))
 
-parseCustomResult :: Aeson.FromJSON a => String -> Either LSP.ResponseError Aeson.Value -> Either LSP.ResponseError a
+parseCustomResult :: Aeson.FromJSON a => String -> Either e Aeson.Value -> Either e a
 parseCustomResult name =
   fmap $ either (\err -> error $ "Failed to parse response of " <> name <> ": " <> err) id 
     . Aeson.parseEither Aeson.parseJSON
@@ -83,34 +86,34 @@ subIdeMessageHandler miState unblock ide bs = do
 
     logDebug miState "Message successfully parsed and prefixed."
     case msg of
-      LSP.FromServerRsp LSP.SInitialize LSP.ResponseMessage {_result} -> do
+      LSP.FromServerRsp LSP.SMethod_Initialize LSP.TResponseMessage {_result} -> do
         logDebug miState "Got initialization reply, sending initialized and unblocking"
         holdingIDEsAtomic miState $ \ides -> do
           let ideData = lookupSubIde (ideHome ide) ides
           sendPackageDiagnostic miState ideData
-          unsafeSendSubIdeSTM ide $ LSP.FromClientMess LSP.SInitialized $ LSP.NotificationMessage "2.0" LSP.SInitialized (Just LSP.InitializedParams)
+          unsafeSendSubIdeSTM ide $ LSP.FromClientMess LSP.SMethod_Initialized $ LSP.TNotificationMessage "2.0" LSP.SMethod_Initialized LSP.InitializedParams
         addDpmPackageDependencyDarsFromDatabase miState (ideHome ide)
         unblock
-      LSP.FromServerRsp LSP.SShutdown (LSP.ResponseMessage {_id}) | maybe False isCoordinatorShutdownLspId _id -> handleExit miState ide
+      LSP.FromServerRsp LSP.SMethod_Shutdown (LSP.TResponseMessage {_id}) | maybe False isCoordinatorShutdownLspId _id -> handleExit miState ide
 
       -- See STextDocumentDefinition in client handle for description of this path
-      LSP.FromServerRsp (LSP.SCustomMethod "daml/tryGetDefinition") LSP.ResponseMessage {_id, _result} -> do
+      LSP.FromServerRsp method@(LSP.SMethod_CustomMethod (symbolVal -> "daml/tryGetDefinition")) LSP.TResponseMessage {_id, _result} -> do
         logInfo miState "Got tryGetDefinition response, handling..."
         let parsedResult = parseCustomResult @(Maybe TryGetDefinitionResult) "daml/tryGetDefinition" _result
-            reply :: Either LSP.ResponseError (LSP.ResponseResult 'LSP.TextDocumentDefinition) -> IO ()
+            reply :: Either (LSP.TResponseError 'LSP.Method_TextDocumentDefinition) (LSP.MessageResult 'LSP.Method_TextDocumentDefinition) -> IO ()
             reply rsp = do
               logDebug miState $ "Replying directly to client with " <> show rsp
-              sendClient miState $ LSP.FromServerRsp LSP.STextDocumentDefinition $ LSP.ResponseMessage "2.0" (castLspId <$> _id) rsp
+              sendClient miState $ LSP.FromServerRsp LSP.SMethod_TextDocumentDefinition $ LSP.TResponseMessage "2.0" (castLspId <$> _id) rsp
             replyLocations :: [LSP.Location] -> IO ()
-            replyLocations = reply . Right . LSP.InR . LSP.InL . LSP.List
+            replyLocations = reply . Right . LSP.InL . LSP.Definition . LSP.InR
         case parsedResult of
-          -- Request failed, forward error
-          Left err -> reply $ Left err
+          -- Keep the custom error type to preserve method-specific error data.
+          Left err -> sendClient miState $ LSP.FromServerRsp method $ LSP.TResponseMessage "2.0" _id (Left err)
           -- Request didn't find any location information, forward "nothing"
           Right Nothing -> replyLocations []
           -- SubIde containing the reference also contained the definition, so returned no name to lookup
           -- Simply forward this location
-          Right (Just (TryGetDefinitionResult loc Nothing)) -> replyLocations [loc]
+          Right (Just (TryGetDefinitionResult loc Nothing)) -> replyLocations [fromOldLocation loc]
           -- SubIde containing the reference did not contain the definition, it returns a fake location in .daml and the name
           -- Send a new request to a new SubIde to find the source of this name
           Right (Just (TryGetDefinitionResult loc (Just name))) -> do
@@ -120,43 +123,43 @@ subIdeMessageHandler miState unblock ide bs = do
               -- Didn't find a home for this name, we do not know where this is defined, so give back the (known to be wrong)
               -- .daml data-dependency path
               -- This is the worst case, we'll later add logic here to unpack and spinup an SubIde for the read-only dependency
-              Nothing -> replyLocations [loc]
+              Nothing -> replyLocations [fromOldLocation loc]
               -- We found a daml.yaml for this definition, send the getDefinitionByName request to its SubIde
               Just sourceLocation -> do
                 home <- resolveAndUnpackSourceLocation miState sourceLocation
                 logDebug miState $ "Found unit ID in multi-package mapping, forwarding to " <> unPackageHome home
-                let method = LSP.SCustomMethod "daml/gotoDefinitionByName"
+                let method = LSP.SMethod_CustomMethod (Proxy @"daml/gotoDefinitionByName")
                     lspId = maybe (error "No LspId provided back from tryGetDefinition") castLspId _id
                     msg = LSP.FromClientMess method $ LSP.ReqMess $
-                      LSP.RequestMessage "2.0" lspId method $ Aeson.toJSON $
+                      LSP.TRequestMessage "2.0" lspId method $ Aeson.toJSON $
                         GotoDefinitionByNameParams loc name
                 sendSubIdeByPath miState (unPackageHome home) msg
       
       -- See STextDocumentDefinition in client handle for description of this path
-      LSP.FromServerRsp (LSP.SCustomMethod "daml/gotoDefinitionByName") LSP.ResponseMessage {_id, _result} -> do
+      LSP.FromServerRsp method@(LSP.SMethod_CustomMethod (symbolVal -> "daml/gotoDefinitionByName")) LSP.TResponseMessage {_id, _result} -> do
         logDebug miState "Got gotoDefinitionByName response, handling..."
         let parsedResult = parseCustomResult @GotoDefinitionByNameResult "daml/gotoDefinitionByName" _result
-            reply :: Either LSP.ResponseError (LSP.ResponseResult 'LSP.TextDocumentDefinition) -> IO ()
+            reply :: Either (LSP.TResponseError 'LSP.Method_TextDocumentDefinition) (LSP.MessageResult 'LSP.Method_TextDocumentDefinition) -> IO ()
             reply rsp = do
               logDebug miState $ "Replying directly to client with " <> show rsp
-              sendClient miState $ LSP.FromServerRsp LSP.STextDocumentDefinition $ LSP.ResponseMessage "2.0" (castLspId <$> _id) rsp
+              sendClient miState $ LSP.FromServerRsp LSP.SMethod_TextDocumentDefinition $ LSP.TResponseMessage "2.0" (castLspId <$> _id) rsp
         case parsedResult of
-          Left err -> reply $ Left err
-          Right loc -> reply $ Right $ LSP.InR $ LSP.InL $ LSP.List [loc]
+          Left err -> sendClient miState $ LSP.FromServerRsp method $ LSP.TResponseMessage "2.0" _id (Left err)
+          Right loc -> reply $ Right $ LSP.InL $ LSP.Definition $ LSP.InR [fromOldLocation loc]
 
-      LSP.FromServerRsp LSP.STextDocumentDocumentSymbol rsp -> do
+      LSP.FromServerRsp LSP.SMethod_TextDocumentDocumentSymbol rsp -> do
         logDebug miState $ "Backwarding patched TextDocumentDocumentSymbol response:\n" <> show msg
         -- STextDocumentDocumentSymbol on language servers older than 3.4 gave invalid responses for interface symbols
         -- VSCode started reporting this invalid responses as errors around 09/25, now we patch older responses from 3.3 servers
-        let patchResult :: LSP.ResponseMessage 'LSP.TextDocumentDocumentSymbol -> LSP.ResponseMessage 'LSP.TextDocumentDocumentSymbol
-            patchResult = LSP.result . traverse . LSP._InL . traverse %~ transformOf (LSP.children . traverse . traverse) patchSymbol
+        let patchResult :: LSP.TResponseMessage 'LSP.Method_TextDocumentDocumentSymbol -> LSP.TResponseMessage 'LSP.Method_TextDocumentDocumentSymbol
+            patchResult = LSP.result . traverse . LSP._R . LSP._L . traverse %~ transformOf (LSP.children . traverse . traverse) patchSymbol
             patchSymbol :: LSP.DocumentSymbol -> LSP.DocumentSymbol
-            patchSymbol sym@LSP.DocumentSymbol {_kind = LSP.SkConstructor, _range} | _range == LSP.mkRange 0 0 1 0 =
+            patchSymbol sym@LSP.DocumentSymbol {_kind = LSP.SymbolKind_Constructor, _range} | _range == LSP.mkRange 0 0 1 0 =
               -- For symbols missing a range, patch it to the selection range, which will be close enough and avoid the error
               sym & LSP.range .~ view LSP.selectionRange sym
             patchSymbol sym = sym
 
-        sendClient miState $ LSP.FromServerRsp LSP.STextDocumentDocumentSymbol $ patchResult rsp
+        sendClient miState $ LSP.FromServerRsp LSP.SMethod_TextDocumentDocumentSymbol $ patchResult rsp
 
       LSP.FromServerMess method _ -> do
         logDebug miState $ "Backwarding request " <> show method <> ":\n" <> show msg
@@ -167,26 +170,26 @@ subIdeMessageHandler miState unblock ide bs = do
 
 -- Returns whether the message should be forwarded to IDE (We do not want to forward open/close messages on a daml.yaml)
 handleOpenFilesNotification 
-  :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Notification)
+  :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Notification)
   .  MultiIdeState
-  -> LSP.NotificationMessage m
+  -> LSP.TNotificationMessage m
   -> FilePath
   -> IO Bool
 handleOpenFilesNotification miState mess path = atomically $ case (mess ^. LSP.method, takeFileName path) of
-  (LSP.STextDocumentDidOpen, name) | ".daml" `isSuffixOf` name -> do
+  (LSP.SMethod_TextDocumentDidOpen, name) | ".daml" `isSuffixOf` name -> do
     home <- getSourceFileHome miState path
     addOpenFile miState home $ DamlFile path
     pure True
-  (LSP.STextDocumentDidClose, name) | ".daml" `isSuffixOf` name -> do
+  (LSP.SMethod_TextDocumentDidClose, name) | ".daml" `isSuffixOf` name -> do
     home <- getSourceFileHome miState path
     removeOpenFile miState home $ DamlFile path
     -- Also remove from the source mapping, in case project structure changes while we're not tracking the file
     sourceFileHomeHandleDamlFileDeleted miState path
     pure True
-  (LSP.STextDocumentDidOpen, "daml.yaml") -> do
+  (LSP.SMethod_TextDocumentDidOpen, "daml.yaml") -> do
     setDamlYamlOpen miState True $ PackageHome $ takeDirectory path
     pure False
-  (LSP.STextDocumentDidClose, "daml.yaml") -> do
+  (LSP.SMethod_TextDocumentDidClose, "daml.yaml") -> do
     setDamlYamlOpen miState False $ PackageHome $ takeDirectory path
     pure False
   _ -> pure True
@@ -209,10 +212,10 @@ clientMessageHandler miState unblock bs = do
 
   case msg of
     -- Store the initialize params for starting subIdes, respond statically with what ghc-ide usually sends.
-    LSP.FromClientMess LSP.SInitialize LSP.RequestMessage {_id, _method, _params} -> do
+    LSP.FromClientMess LSP.SMethod_Initialize LSP.TRequestMessage {_id, _method, _params} -> do
       putMVar (misInitParamsVar miState) _params
       -- Send initialized out first (skipping the queue), then unblock for other messages
-      sendClientFirst miState $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right $ initializeResult $ misIdentifier miState)
+      sendClientFirst miState $ LSP.FromServerRsp _method $ LSP.TResponseMessage "2.0" (Just _id) (Right $ initializeResult $ misIdentifier miState)
       unblock
 
       -- Register watchers for daml.yaml, multi-package.yaml and *.dar files
@@ -220,9 +223,9 @@ clientMessageHandler miState unblock bs = do
       putFromServerCoordinatorMessage miState watcherMessage
       sendClient miState watcherMessage
 
-    LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel notif -> do
+    LSP.FromClientMess LSP.SMethod_WindowWorkDoneProgressCancel notif -> do
       let (newNotif, mPrefix) = stripWorkDoneProgressCancelTokenPrefix notif
-          newMsg = LSP.FromClientMess LSP.SWindowWorkDoneProgressCancel newNotif
+          newMsg = LSP.FromClientMess LSP.SMethod_WindowWorkDoneProgressCancel newNotif
       -- Find IDE with the correct prefix, send to it if it exists. If it doesn't, the message can be thrown away.
       case mPrefix of
         Nothing -> void $ sendAllSubIdes miState newMsg
@@ -230,7 +233,7 @@ clientMessageHandler miState unblock bs = do
           let mIde = find (\ideData -> (ideMessageIdPrefix <$> ideDataMain ideData) == Just prefix) ides
            in traverse_ (`unsafeSendSubIdeSTM` newMsg) $ mIde >>= ideDataMain
 
-    LSP.FromClientMess (LSP.SCustomMethod t) (LSP.NotMess notif) | t == damlSdkInstallCancelMethod ->
+    LSP.FromClientMess (LSP.SMethod_CustomMethod t) (LSP.NotMess notif) | symbolVal t == symbolVal damlSdkInstallCancelMethod ->
       handleSdkInstallClientCancelled miState notif
 
     -- Special handing for STextDocumentDefinition to ask multiple IDEs (the W approach)
@@ -243,13 +246,13 @@ clientMessageHandler miState unblock bs = do
     -- We also send the backup known incorrect location from the tryGetDefinition, such that if the subIde containing the identifier
     -- can't find the definition, it'll fall back to the known incorrect location.
     -- Once we have this, we return it as a response to the original STextDocumentDefinition request.
-    LSP.FromClientMess LSP.STextDocumentDefinition req@LSP.RequestMessage {_id, _method, _params} -> do
+    LSP.FromClientMess LSP.SMethod_TextDocumentDefinition req@LSP.TRequestMessage {_id, _method, _params} -> do
       let mPath = filePathFromParamsWithTextDocument miState req
           lspId = castLspId _id
-          method = LSP.SCustomMethod "daml/tryGetDefinition"
+          method = LSP.SMethod_CustomMethod (Proxy @"daml/tryGetDefinition")
           forwardedMsg = LSP.FromClientMess method $ LSP.ReqMess $
-            LSP.RequestMessage "2.0" lspId method $ Aeson.toJSON $
-              TryGetDefinitionParams (_params ^. LSP.textDocument) (_params ^. LSP.position)
+            LSP.TRequestMessage "2.0" lspId method $ Aeson.toJSON $
+              TryGetDefinitionParams (toOldTextDocumentIdentifier $ _params ^. LSP.textDocument) (toOldPosition $ _params ^. LSP.position)
       case mPath of
         Just path -> do
           logDebug miState "forwarding STextDocumentDefinition as daml/tryGetDefinition"
@@ -259,13 +262,13 @@ clientMessageHandler miState unblock bs = do
           forM_ (noIDEReply $ castFromClientMessage msg) $ sendClient miState
 
     -- Watched file changes, used for restarting subIdes and changing coordinator state
-    LSP.FromClientMess LSP.SWorkspaceDidChangeWatchedFiles msg@LSP.NotificationMessage {_params = LSP.DidChangeWatchedFilesParams (LSP.List changes)} -> do
+    LSP.FromClientMess LSP.SMethod_WorkspaceDidChangeWatchedFiles msg@LSP.TNotificationMessage {_params = LSP.DidChangeWatchedFilesParams changes} -> do
       let changedPaths =
             mapMaybe (\event -> do
               path <- LSP.uriToFilePath $ event ^. LSP.uri
               -- Filter out any changes to unpacked dars, no reloading logic should happen there
               guard $ not $ unpackedDarsLocation miState `isInfixOf` path
-              pure (path ,event ^. LSP.xtype)
+              pure (path ,event ^. LSP.type_)
             ) changes
       forM_ changedPaths $ \(changedPath, changeType) ->
         case takeFileName changedPath of
@@ -278,12 +281,12 @@ clientMessageHandler miState unblock bs = do
             -- packages disabled by global errors from being restarted
             idesToRestart <-
               case changeType of
-                LSP.FcDeleted -> do
+                LSP.FileChangeType_Deleted -> do
                   shutdownIdeByHome miState home
                   handleRemovedPackageOpenFiles miState home
                   atomically $ onSubIde_ miState home $ \ideData -> ideData {ideDataIsFullDamlYaml = False}
                   pure []
-                LSP.FcCreated -> do
+                LSP.FileChangeType_Created -> do
                   isFullDamlYaml <- shouldHandleDamlYamlChange <$> T.readFile (unPackageHome home </> "daml.yaml")
                   idesToRestart <-
                     if isFullDamlYaml
@@ -299,7 +302,7 @@ clientMessageHandler miState unblock bs = do
                         pure []
                   atomically $ onSubIde_ miState home $ \ideData -> ideData {ideDataIsFullDamlYaml = isFullDamlYaml}
                   pure idesToRestart
-                LSP.FcChanged -> do
+                LSP.FileChangeType_Changed -> do
                   isFullDamlYaml <- shouldHandleDamlYamlChange <$> T.readFile (unPackageHome home </> "daml.yaml")
                   oldIdeData <- atomically $ onSubIde miState home $ \ideData -> (ideData {ideDataIsFullDamlYaml = isFullDamlYaml}, ideData)
                   if isFullDamlYaml
@@ -335,14 +338,14 @@ clientMessageHandler miState unblock bs = do
             idesToReboot <- updatePackageData miState
             traverse_ (lenientRebootIdeByHome miState) idesToReboot
           -- for .daml, we remove entry from the sourceFileHome cache if the file is deleted (note that renames/moves are sent as delete then create)
-          _ | takeExtension changedPath == ".daml" && changeType == LSP.FcDeleted -> atomically $ sourceFileHomeHandleDamlFileDeleted miState changedPath
+          _ | takeExtension changedPath == ".daml" && changeType == LSP.FileChangeType_Deleted -> atomically $ sourceFileHomeHandleDamlFileDeleted miState changedPath
           _ -> pure ()
       logDebug miState "all not on filtered DidChangeWatchedFilesParams"
       -- Filter down to only daml files and send those
       let damlOnlyChanges = filter (maybe False (\path -> takeExtension path == ".daml") . LSP.uriToFilePath . view LSP.uri) changes
-      sendAllSubIdes_ miState $ LSP.FromClientMess LSP.SWorkspaceDidChangeWatchedFiles $ LSP.params .~ LSP.DidChangeWatchedFilesParams (LSP.List damlOnlyChanges) $ msg
+      sendAllSubIdes_ miState $ LSP.FromClientMess LSP.SMethod_WorkspaceDidChangeWatchedFiles $ LSP.params .~ LSP.DidChangeWatchedFilesParams damlOnlyChanges $ msg
 
-    LSP.FromClientMess LSP.SExit _ -> do
+    LSP.FromClientMess LSP.SMethod_Exit _ -> do
       ides <- atomically $ readTMVar $ misSubIdesVar miState
       traverse_ (handleExit miState) $ Map.mapMaybe ideDataMain ides
       -- Wait half a second for all the exit messages to be sent
@@ -358,11 +361,11 @@ clientMessageHandler miState unblock bs = do
 
         ForwardRequest mess (AllRequest combine) -> do
           logDebug miState $ "all req on method " <> show meth
-          let LSP.RequestMessage {_id, _method} = mess
+          let LSP.TRequestMessage {_id, _method} = mess
               msg' = castFromClientMessage msg
           ides <- sendAllSubIdes miState msg'
           if null ides 
-            then sendClient miState $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) $ combine []
+            then sendClient miState $ LSP.FromServerRsp _method $ LSP.TResponseMessage "2.0" (Just _id) $ combine []
             else putReqMethodAll (misFromClientMethodTrackerVar miState) _id _method msg' ides combine
 
         ForwardRequest _ CannotForwardRequest -> do
@@ -391,9 +394,9 @@ clientMessageHandler miState unblock bs = do
       sendSubIdeByPath miState (unPackageHome home) $ LSP.FromClientRsp method $ 
         rMsg & LSP.id %~ fmap stripLspPrefix
     -- Responses to coordinator
-    LSP.FromClientRsp (SMethodWithSender method Nothing) LSP.ResponseMessage {_id, _result} ->
+    LSP.FromClientRsp (SMethodWithSender method Nothing) LSP.TResponseMessage {_id, _result} ->
       case (method, _id) of
-        (LSP.SClientRegisterCapability, Just (LSP.IdString "MultiIdeWatchedFiles")) ->
+        (LSP.SMethod_ClientRegisterCapability, Just (LSP.IdString "MultiIdeWatchedFiles")) ->
           either (\err -> logError miState $ "Watched file registration failed with " <> show err) (const $ logDebug miState "Successfully registered watched files") _result
-        (LSP.SWindowShowMessageRequest, Just lspId) -> handleSdkInstallPromptResponse miState lspId _result
+        (LSP.SMethod_WindowShowMessageRequest, Just lspId) -> handleSdkInstallPromptResponse miState lspId _result
         _ -> pure ()

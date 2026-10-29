@@ -22,8 +22,9 @@ import Control.Monad
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import Data.Tuple (swap)
-import qualified Language.LSP.Types as LSP
-import qualified Language.LSP.Types.Lens as LSP
+import qualified Language.LSP.Protocol.Types as LSP
+import qualified Language.LSP.Protocol.Message as LSP
+import qualified Language.LSP.Protocol.Lens as LSP
 import DA.Cli.Damlc.Command.MultiIde.Types
 
 -- ProgressToken Prefixing
@@ -65,32 +66,32 @@ progressTokenPrefixFromMaybe = maybe ClientPrefix SubIdePrefix
 -- Such that ProgressNumericToken 10   -> ProgressTextToken "iPREFIX-10"
 --       and ProgressTextToken "hello" -> ProgressTextToken "tPREFIX-hello"
 addProgressTokenPrefix :: ProgressTokenPrefix -> LSP.ProgressToken -> LSP.ProgressToken
-addProgressTokenPrefix prefix (LSP.ProgressNumericToken t) = LSP.ProgressTextToken $ "i" <> progressTokenPrefixToText prefix <> "-" <> T.pack (show t)
-addProgressTokenPrefix prefix (LSP.ProgressTextToken t) = LSP.ProgressTextToken $ "t" <> progressTokenPrefixToText prefix <> "-" <> t
+addProgressTokenPrefix prefix (LSP.ProgressToken (LSP.InL t)) = LSP.ProgressToken $ LSP.InR $ "i" <> progressTokenPrefixToText prefix <> "-" <> T.pack (show t)
+addProgressTokenPrefix prefix (LSP.ProgressToken (LSP.InR t)) = LSP.ProgressToken $ LSP.InR $ "t" <> progressTokenPrefixToText prefix <> "-" <> t
 
 progressTokenSplitPrefix :: T.Text -> (T.Text, Maybe T.Text)
 progressTokenSplitPrefix = bimap T.tail (mfilter (/="client") . Just) . swap . T.breakOn "-"
 
 -- Removes prefix, returns the subIde prefix if the token was created by a subIde
 stripProgressTokenPrefix :: LSP.ProgressToken -> (LSP.ProgressToken, Maybe ProgressTokenPrefix)
-stripProgressTokenPrefix (LSP.ProgressTextToken (T.uncons -> Just ('i', rest))) =
-  bimap (LSP.ProgressNumericToken . read . T.unpack) (Just . progressTokenPrefixFromMaybe) $ progressTokenSplitPrefix rest
-stripProgressTokenPrefix (LSP.ProgressTextToken (T.uncons -> Just ('t', rest))) =
-  bimap LSP.ProgressTextToken (Just . progressTokenPrefixFromMaybe) $ progressTokenSplitPrefix rest
+stripProgressTokenPrefix (LSP.ProgressToken (LSP.InR (T.uncons -> Just ('i', rest)))) =
+  bimap (LSP.ProgressToken . LSP.InL . read . T.unpack) (Just . progressTokenPrefixFromMaybe) $ progressTokenSplitPrefix rest
+stripProgressTokenPrefix (LSP.ProgressToken (LSP.InR (T.uncons -> Just ('t', rest)))) =
+  bimap (LSP.ProgressToken . LSP.InR) (Just . progressTokenPrefixFromMaybe) $ progressTokenSplitPrefix rest
 stripProgressTokenPrefix t = (t, Nothing)
 
 -- Prefixes the SWindowWorkDoneProgressCreate and SProgress messages from subIde. Rest are unchanged.
 addProgressTokenPrefixToServerMessage :: T.Text -> LSP.FromServerMessage -> LSP.FromServerMessage
-addProgressTokenPrefixToServerMessage prefix (LSP.FromServerMess LSP.SWindowWorkDoneProgressCreate req) =
-  LSP.FromServerMess LSP.SWindowWorkDoneProgressCreate $ req & LSP.params . LSP.token %~ addProgressTokenPrefix (SubIdePrefix prefix)
-addProgressTokenPrefixToServerMessage prefix (LSP.FromServerMess LSP.SProgress notif) =
+addProgressTokenPrefixToServerMessage prefix (LSP.FromServerMess LSP.SMethod_WindowWorkDoneProgressCreate req) =
+  LSP.FromServerMess LSP.SMethod_WindowWorkDoneProgressCreate $ req & LSP.params . LSP.token %~ addProgressTokenPrefix (SubIdePrefix prefix)
+addProgressTokenPrefixToServerMessage prefix (LSP.FromServerMess LSP.SMethod_Progress notif) =
   case stripProgressTokenPrefix $ notif ^. LSP.params . LSP.token of
     -- ProgressToken was created by this subIde, add its usual prefix
     (unprefixedToken, Nothing) ->
       let prefixedToken = addProgressTokenPrefix (SubIdePrefix prefix) unprefixedToken
-       in LSP.FromServerMess LSP.SProgress $ notif & LSP.params . LSP.token .~ prefixedToken
+       in LSP.FromServerMess LSP.SMethod_Progress $ notif & LSP.params . LSP.token .~ prefixedToken
     -- ProgressToken was created by client, send back the unprefixed token
-    (unprefixedToken, Just ClientPrefix) -> LSP.FromServerMess LSP.SProgress $ notif & LSP.params . LSP.token .~ unprefixedToken
+    (unprefixedToken, Just ClientPrefix) -> LSP.FromServerMess LSP.SMethod_Progress $ notif & LSP.params . LSP.token .~ unprefixedToken
     (_, Just (SubIdePrefix t)) -> error $ "SubIde with prefix " <> T.unpack t <> " is somehow aware of its own prefixing. Something is very wrong."
 addProgressTokenPrefixToServerMessage _ msg = msg
 
@@ -102,10 +103,10 @@ addProgressTokenPrefixToClientMessage = \case
       LSP.IsClientReq -> do
         let progressLenses = getProgressLenses method
             doAddProgressTokenPrefix
-              :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
-              .  Maybe (ReifiedLens' (LSP.RequestMessage m) (Maybe LSP.ProgressToken))
-              -> LSP.RequestMessage m
-              -> LSP.RequestMessage m
+              :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request)
+              .  Maybe (ReifiedLens' (LSP.TRequestMessage m) (Maybe LSP.ProgressToken))
+              -> LSP.TRequestMessage m
+              -> LSP.TRequestMessage m
             doAddProgressTokenPrefix = maybe id $ \lens -> runLens lens . mapped %~ addProgressTokenPrefix ClientPrefix
             params' = doAddProgressTokenPrefix (workDoneLens progressLenses) $ doAddProgressTokenPrefix (partialResultLens progressLenses) params
          in LSP.FromClientMess method params'
@@ -115,50 +116,50 @@ addProgressTokenPrefixToClientMessage = \case
 -- Convenience wrapper for the reified progress token lenses.
 -- Note that there are 2 types, workDone and partialResult.
 -- Most messages with progress have both, but ssome only have workDone
-data ProgressLenses (m :: LSP.Method 'LSP.FromClient 'LSP.Request) = ProgressLenses
-  { workDoneLens :: Maybe (ReifiedLens' (LSP.RequestMessage m) (Maybe LSP.ProgressToken))
-  , partialResultLens :: Maybe (ReifiedLens' (LSP.RequestMessage m) (Maybe LSP.ProgressToken))
+data ProgressLenses (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request) = ProgressLenses
+  { workDoneLens :: Maybe (ReifiedLens' (LSP.TRequestMessage m) (Maybe LSP.ProgressToken))
+  , partialResultLens :: Maybe (ReifiedLens' (LSP.TRequestMessage m) (Maybe LSP.ProgressToken))
   }
 
-getProgressLenses :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request). LSP.SMethod m -> ProgressLenses m
+getProgressLenses :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request). LSP.SMethod m -> ProgressLenses m
 getProgressLenses = \case
-  LSP.SInitialize -> workDone
-  LSP.SWorkspaceSymbol -> both
-  LSP.SWorkspaceExecuteCommand -> workDone
-  LSP.STextDocumentCompletion -> both
-  LSP.STextDocumentHover -> workDone
-  LSP.STextDocumentDeclaration -> both
-  LSP.STextDocumentDefinition -> both
-  LSP.STextDocumentTypeDefinition -> both
-  LSP.STextDocumentImplementation -> both
-  LSP.STextDocumentReferences -> both
-  LSP.STextDocumentDocumentHighlight -> both
-  LSP.STextDocumentDocumentSymbol -> both
-  LSP.STextDocumentCodeAction -> both
-  LSP.STextDocumentCodeLens -> both
-  LSP.STextDocumentDocumentLink -> both
-  LSP.STextDocumentDocumentColor -> both
-  LSP.STextDocumentColorPresentation -> both
-  LSP.STextDocumentFormatting -> workDone
-  LSP.STextDocumentRangeFormatting -> workDone
-  LSP.STextDocumentRename -> workDone
-  LSP.STextDocumentFoldingRange -> both
-  LSP.STextDocumentSelectionRange -> both
-  LSP.STextDocumentPrepareCallHierarchy -> workDone
-  LSP.SCallHierarchyIncomingCalls -> both
-  LSP.SCallHierarchyOutgoingCalls -> both
-  LSP.STextDocumentSemanticTokensFull -> both
-  LSP.STextDocumentSemanticTokensFullDelta -> both
-  LSP.STextDocumentSemanticTokensRange -> both
+  LSP.SMethod_Initialize -> workDone
+  LSP.SMethod_WorkspaceSymbol -> both
+  LSP.SMethod_WorkspaceExecuteCommand -> workDone
+  LSP.SMethod_TextDocumentCompletion -> both
+  LSP.SMethod_TextDocumentHover -> workDone
+  LSP.SMethod_TextDocumentDeclaration -> both
+  LSP.SMethod_TextDocumentDefinition -> both
+  LSP.SMethod_TextDocumentTypeDefinition -> both
+  LSP.SMethod_TextDocumentImplementation -> both
+  LSP.SMethod_TextDocumentReferences -> both
+  LSP.SMethod_TextDocumentDocumentHighlight -> both
+  LSP.SMethod_TextDocumentDocumentSymbol -> both
+  LSP.SMethod_TextDocumentCodeAction -> both
+  LSP.SMethod_TextDocumentCodeLens -> both
+  LSP.SMethod_TextDocumentDocumentLink -> both
+  LSP.SMethod_TextDocumentDocumentColor -> both
+  LSP.SMethod_TextDocumentColorPresentation -> both
+  LSP.SMethod_TextDocumentFormatting -> workDone
+  LSP.SMethod_TextDocumentRangeFormatting -> workDone
+  LSP.SMethod_TextDocumentRename -> workDone
+  LSP.SMethod_TextDocumentFoldingRange -> both
+  LSP.SMethod_TextDocumentSelectionRange -> both
+  LSP.SMethod_TextDocumentPrepareCallHierarchy -> workDone
+  LSP.SMethod_CallHierarchyIncomingCalls -> both
+  LSP.SMethod_CallHierarchyOutgoingCalls -> both
+  LSP.SMethod_TextDocumentSemanticTokensFull -> both
+  LSP.SMethod_TextDocumentSemanticTokensFullDelta -> both
+  LSP.SMethod_TextDocumentSemanticTokensRange -> both
   _ -> ProgressLenses Nothing Nothing
   where
     workDone
-      :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
+      :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request)
       .  LSP.HasWorkDoneToken (LSP.MessageParams m) (Maybe LSP.ProgressToken)
       => ProgressLenses m
     workDone = ProgressLenses (Just $ Lens $ LSP.params . LSP.workDoneToken) Nothing
     both
-      :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
+      :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request)
       .  ( LSP.HasWorkDoneToken (LSP.MessageParams m) (Maybe LSP.ProgressToken)
          , LSP.HasPartialResultToken (LSP.MessageParams m) (Maybe LSP.ProgressToken)
          )
@@ -167,8 +168,8 @@ getProgressLenses = \case
 
 -- strips and returns the subIde prefix from cancel messages. Gives Nothing for client created tokens
 stripWorkDoneProgressCancelTokenPrefix
-  :: LSP.NotificationMessage 'LSP.WindowWorkDoneProgressCancel
-  -> (LSP.NotificationMessage 'LSP.WindowWorkDoneProgressCancel, Maybe T.Text)
+  :: LSP.TNotificationMessage 'LSP.Method_WindowWorkDoneProgressCancel
+  -> (LSP.TNotificationMessage 'LSP.Method_WindowWorkDoneProgressCancel, Maybe T.Text)
 stripWorkDoneProgressCancelTokenPrefix notif =
   case stripProgressTokenPrefix $ notif ^. LSP.params . LSP.token of
     -- Token was created by the client, add the client prefix and broadcast to all subIdes
@@ -186,7 +187,7 @@ stripWorkDoneProgressCancelTokenPrefix notif =
 -- Such that IdInt 10       -> IdString "iPREFIX-10"
 --       and IdString "hello" -> IdString "tPREFIX-hello"
 addLspPrefix
-  :: forall (f :: LSP.From) (m :: LSP.Method f 'LSP.Request)
+  :: forall (f :: LSP.MessageDirection) (m :: LSP.Method f 'LSP.Request)
   .  T.Text
   -> LSP.LspId m
   -> LSP.LspId m
@@ -194,7 +195,7 @@ addLspPrefix prefix (LSP.IdInt t) = LSP.IdString $ "i" <> prefix <> "-" <> T.pac
 addLspPrefix prefix (LSP.IdString t) = LSP.IdString $ "t" <> prefix <> "-" <> t
 
 stripLspPrefix
-  :: forall (f :: LSP.From) (m :: LSP.Method f 'LSP.Request)
+  :: forall (f :: LSP.MessageDirection) (m :: LSP.Method f 'LSP.Request)
   .  LSP.LspId m
   -> LSP.LspId m
 stripLspPrefix (LSP.IdString (T.unpack -> ('i':rest))) = LSP.IdInt $ read $ tail $ dropWhile (/='-') rest
@@ -227,14 +228,14 @@ unprefixCommand miState cmd = fromMaybe cmd $ T.stripPrefix (maybe "" (<> ".") $
 
 -- Adds the unique identifier to the front of commands in code lens replies
 addCommandPrefixes :: MultiIdeState -> LSP.FromServerMessage -> LSP.FromServerMessage
-addCommandPrefixes miState (LSP.FromServerRsp LSP.STextDocumentCodeLens rsp) =
-  let prefixRsp = LSP.result . traverse . traverse . LSP.command . traverse . LSP.command %~ prefixCommand miState
-   in LSP.FromServerRsp LSP.STextDocumentCodeLens $ prefixRsp rsp
+addCommandPrefixes miState (LSP.FromServerRsp LSP.SMethod_TextDocumentCodeLens rsp) =
+  let prefixRsp = LSP.result . traverse . LSP._L . traverse . LSP.command . traverse . LSP.command %~ prefixCommand miState
+   in LSP.FromServerRsp LSP.SMethod_TextDocumentCodeLens $ prefixRsp rsp
 addCommandPrefixes _ msg = msg
 
 -- This function strips the unique identifier we prefix commands with so they can be forwarded to subIDEs as normal
 stripCommandPrefixes :: MultiIdeState -> LSP.FromClientMessage' a -> LSP.FromClientMessage' a
-stripCommandPrefixes miState (LSP.FromClientMess LSP.SWorkspaceExecuteCommand req) =
+stripCommandPrefixes miState (LSP.FromClientMess LSP.SMethod_WorkspaceExecuteCommand req) =
   let stripPrefix = LSP.params . LSP.command %~ unprefixCommand miState
-   in LSP.FromClientMess LSP.SWorkspaceExecuteCommand $ stripPrefix req
+   in LSP.FromClientMess LSP.SMethod_WorkspaceExecuteCommand $ stripPrefix req
 stripCommandPrefixes _ msg = msg

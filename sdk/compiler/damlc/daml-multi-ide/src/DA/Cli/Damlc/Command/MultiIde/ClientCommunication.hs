@@ -13,7 +13,8 @@ import Data.Maybe
 import qualified Data.Set as Set
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Cli.Damlc.Command.MultiIde.Util
-import qualified Language.LSP.Types as LSP
+import qualified Language.LSP.Protocol.Types as LSP
+import qualified Language.LSP.Protocol.Message as LSP
 import System.FilePath
 
 sendClientSTM :: MultiIdeState -> LSP.FromServerMessage -> STM ()
@@ -52,7 +53,7 @@ reportGlobalErrorChange miState f = modifyMVar (misGlobalErrors miState) $ \ge -
       -- Errors to be reported
       _ | ge /= newGe -> do
         logDebug miState $ "New global errors: " <> show newGe
-        sendClient miState $ fullFileDiagnostic LSP.DsError (show newGe) multiPackagePath
+        sendClient miState $ fullFileDiagnostic LSP.DiagnosticSeverity_Error (show newGe) multiPackagePath
         pure (newGe, [])
       _ ->
       -- Nothing has changed
