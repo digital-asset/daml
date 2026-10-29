@@ -37,5 +37,6 @@ checkPkgConfigTests = testGroup "checkPkgConfig"
       , pDataDependencies = []
       , pModulePrefixes = Map.empty
       , pUpgradeDar = Nothing
+      , pBuildOptions = []
       }
 
