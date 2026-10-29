@@ -19,7 +19,8 @@ import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.Package.Config (PackageConfigFields(..))
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BSL
-import Data.List (isPrefixOf, nub)
+import Data.List (isPrefixOf)
+import Data.List.Extra (nubOrd)
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import Data.Maybe (isNothing)
@@ -145,7 +146,7 @@ buildRecipe fields damlcVersion lfVersion isIncremental pkgId upgradedPkgId unst
         , recipeUpgrades = upgradedPkgId
         , recipeDependencies = recipeDependencies
         , recipeSdkDependencies =
-            nub
+            nubOrd
             [ T.pack name
             | unitId <- Map.keys unstableDeps
             , Just name <- [sdkPackageName (Ghc.unitIdString unitId)]
