@@ -14,6 +14,7 @@ import DA.Daml.Project.Consts (sdkVersionDpmEnvVar, damlCacheEnvVar)
 import DA.Daml.Resolution.Config (ResolutionData (..), PackageResolutionData (..), ValidPackageResolution (..), resolutionFileEnvVar, toPosixFilePath)
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Cli.Damlc (MultiPackageManifestEntry (..))
+import DA.Test.Util (withJavaInPath)
 import Data.Aeson (eitherDecode)
 import Data.Foldable (foldrM)
 import Data.List (intercalate, intersect, isInfixOf, sortOn, union, (\\))
@@ -76,7 +77,7 @@ instance Show PackageIdentifier where
   show pi = T.unpack (piName pi) <> "-" <> T.unpack (piVersion pi)
 
 main :: IO ()
-main = withComponentVersions $ do
+main = withJavaInPath $ withComponentVersions $ do
   defaultMain $ withDpmSdkExtraVerResource $ const tests
 
 tests :: ComponentVersioned => TestTree
