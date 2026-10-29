@@ -83,7 +83,7 @@ withPackageDBAndIdeState lfVersion getScriptService action = do
           "data-dependencies:",
           "- " <> show scriptDar
         ]
-    let opts = defaultOptions (Just lfVersion)
+    let opts = defaultTestOptions (Just lfVersion)
     withPackageConfig (PackagePath ".") $
       setupPackageDbFromPackageConfig (toNormalizedFilePath' ".") opts
     withIdeState getScriptService opts action
@@ -1227,7 +1227,7 @@ runScriptsInAllPackages getScriptService lfVersion mainPackage packages = do
   withCurrentTempDir $ do
     for_ packages $ writeAndBuildPackage lfVersion damlc
     opts <- withPackageConfig mainPackage $ \ PackageConfigFields{..} -> do
-      pure $ (defaultOptions (Just lfVersion))
+      pure $ (defaultTestOptions (Just lfVersion))
         { optMbPackageName = Just pName
         , optMbPackageVersion = pVersion
         }

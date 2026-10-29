@@ -4,7 +4,7 @@
 module Options.Applicative.Extended
     ( YesNoAuto (..)
     , flagYesNoAuto
-    , flagYesNoAuto'
+    , flagYesNoAutoFlagResult
     , flagYesNoAutoNoDefault
     , determineAuto
     , determineAutoM
@@ -13,10 +13,16 @@ module Options.Applicative.Extended
     , strOptionOnce
     , optionLast
     , lastOr
+    , OverwritableFlagResult (..)
+    , getFlagResult
+    , optionFlagResult
+    , optionOnceFlagResult
+    , switchFlagResult
     ) where
 
 import GHC.Exts (IsString (..))
 import Options.Applicative
+import qualified Options.Applicative.Builder.Internal as OptParseInternal
 import Safe (lastMay)
 
 import qualified Data.List.NonEmpty as NE
@@ -42,12 +48,6 @@ determineAutoM m = \case
     Auto -> m
     Yes -> pure True
 
--- | This constructs flags that can be set to yes, no, or auto, with auto being the default.
--- This maps yes to "Just true", no to "Just False" and auto to "Nothing"
-flagYesNoAuto' :: String -> String -> Mod OptionFields YesNoAuto -> Parser YesNoAuto
-flagYesNoAuto' flagName helpText mods =
-    flagYesNoAutoNoDefault flagName helpText (value Auto <> mods)
-
 -- | This constructs flags that can be set to yes, no, or auto, with no default
 -- This maps yes to "Just true", no to "Just False" and auto to "Nothing"
 -- Use this when putting this flag behind a combinator like `many`
@@ -66,9 +66,17 @@ flagYesNoAutoNoDefault flagName helpText mods =
 -- with auto using the default.
 flagYesNoAuto :: String -> Bool -> String -> Mod OptionFields YesNoAuto -> Parser Bool
 flagYesNoAuto flagName defaultValue helpText mods =
-    determineAuto defaultValue <$> flagYesNoAuto' flagName (helpText <> commonHelp) mods
-    where
-        commonHelp = " Can be set to \"yes\", \"no\" or \"auto\" to select the default (" <> show defaultValue <> ")"
+    determineAuto defaultValue
+      <$> flagYesNoAutoNoDefault flagName (helpText <> commonHelp defaultValue) (value Auto <> mods)
+
+flagYesNoAutoFlagResult :: String -> Bool -> String -> Mod OptionFields YesNoAuto -> Parser (OverwritableFlagResult Bool)
+flagYesNoAutoFlagResult flagName defaultValue helpText mods =
+    fmap (determineAuto defaultValue)
+      <$> optionFlagResult' (flagYesNoAutoNoDefault flagName (helpText <> commonHelp defaultValue)) (value Auto <> mods)
+
+commonHelp :: Bool -> String
+commonHelp defaultValue =
+    " Can be set to \"yes\", \"no\" or \"auto\" to select the default (" <> (if defaultValue then "yes" else "no") <> ")"
 
 -- | optparse-applicative does not provide useful error messages when a valid
 -- option is passed more than once https://github.com/pcapriotti/optparse-applicative/issues/395
@@ -104,3 +112,35 @@ lastOr :: Alternative f => b -> f b -> f b
 lastOr def one =
       NE.last <$> NE.some1 one
   <|> pure def
+
+data OverwritableFlagResult a = Provided { userValue :: a } | NotProvided { defaultValue :: a }
+  deriving (Show, Eq, Functor)
+
+instance Semigroup (OverwritableFlagResult a) where
+  -- Only take the first if its the only provided
+  Provided x <> NotProvided _ = Provided x
+  _ <> y = y
+
+getFlagResult :: OverwritableFlagResult a -> a
+getFlagResult (Provided a) = a
+getFlagResult (NotProvided def) = def
+
+-- | Variant of `option` that exposes whether the user provided the argument, or whether the default was used
+-- Uses OptParse internals to keep interface the same
+optionFlagResult :: ReadM a -> Mod OptionFields a -> Parser (OverwritableFlagResult a)
+optionFlagResult = optionFlagResult' . option
+
+optionOnceFlagResult :: ReadM a -> Mod OptionFields a -> Parser (OverwritableFlagResult a)
+optionOnceFlagResult = optionFlagResult' . optionOnce
+
+optionFlagResult' :: (Mod OptionFields a -> Parser a) -> Mod OptionFields a -> Parser (OverwritableFlagResult a)
+optionFlagResult' makeParser (OptParseInternal.Mod f (OptParseInternal.DefaultProp (Just def) show) props) =
+  let mods = OptParseInternal.Mod f (OptParseInternal.DefaultProp Nothing show) props
+   in maybe (NotProvided def) Provided <$> optional (makeParser mods)
+optionFlagResult' makeParser mods = Provided <$> makeParser mods
+
+-- | Variant of `switch` to match the OverwritableFlagResult type of `optionFlagResult`
+-- Given switch only allows setting the boolean "one way", this always returns either
+-- `Provided True` or `NotProvided False`
+switchFlagResult :: Mod FlagFields (OverwritableFlagResult Bool) -> Parser (OverwritableFlagResult Bool)
+switchFlagResult = flag (NotProvided False) (Provided True)

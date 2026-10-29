@@ -24,7 +24,8 @@ module DA.Daml.Options.Types
     , IgnoreDataDepVisibility(..)
     , ForceUtilityPackage(..)
     , ExplicitSerializable(..)
-    , defaultOptions
+    , InitPkgDb(..)
+    , defaultTestOptions
     , damlArtifactDir
     , packageDatabasePath
     , packageDependenciesDatabasePath
@@ -162,6 +163,8 @@ data Options = Options
   -- ^ DPM provided resolution data about active components, provided dars, multi-package structure, etc.
   , optExplicitSerializable :: ExplicitSerializable
   -- ^ Whether serilizability of data-types must be explicitly stated, and not assumed. Currently disabled by default
+  , optInitPkgDb :: InitPkgDb
+  -- ^ Whether to initialize the package database
   }
 
 data InlineDamlCustomWarnings
@@ -212,6 +215,9 @@ newtype IgnoreDataDepVisibility = IgnoreDataDepVisibility { getIgnoreDataDepVisi
   deriving Show
 
 newtype Haddock = Haddock Bool
+  deriving Show
+
+newtype InitPkgDb = InitPkgDb { getInitPkgDb :: Bool }
   deriving Show
 
 -- | The dlint rules file is a dlint yaml file that's used as the base for
@@ -311,8 +317,8 @@ getPackageDbs version mbProjRoot userPkgDbs = do
     builtinPkgDbs <- locateBuiltinPackageDbs mbProjRoot
     pure $ map (</> renderPretty version) (builtinPkgDbs ++ userPkgDbs)
 
-defaultOptions :: Maybe LF.Version -> Options
-defaultOptions mbVersion =
+defaultTestOptions :: Maybe LF.Version -> Options
+defaultTestOptions mbVersion =
     Options
         { optImportPath = []
         , optPackageDbs = []
@@ -351,6 +357,7 @@ defaultOptions mbVersion =
         , optForceUtilityPackage = ForceUtilityPackage False
         , optResolutionData = Nothing
         , optExplicitSerializable = ExplicitSerializable False
+        , optInitPkgDb = InitPkgDb True
         }
 
 defaultUpgradeInfo :: UpgradeInfo
