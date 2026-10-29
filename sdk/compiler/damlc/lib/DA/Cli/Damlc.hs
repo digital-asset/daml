@@ -64,6 +64,7 @@ import DA.Cli.Damlc.Command.MultiIde (runMultiIde)
 import DA.Cli.Damlc.Command.UpgradeCheck (runUpgradeCheck)
 import qualified DA.Daml.Dar.Reader as InspectDar
 import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
+import DA.Cli.Damlc.DependencyDb (dependenciesDir)
 import DA.Cli.Damlc.Packaging (setupPackageDb, setupPackageDbFromPackageConfig, mbErr)
 import DA.Cli.Damlc.Test (CoveragePaths(..),
                           LoadCoverageOnly(..),
@@ -998,6 +999,7 @@ buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkg
               (optUpgradeInfo opts)
               (optTypecheckerWarningFlags opts)
               (Just pkgPath)
+              (dependenciesDir opts (toNormalizedFilePath' (unwrapPackagePath pkgPath)))
       (dar, mPkgId) <- mbErr "ERROR: Creation of DAR file failed." mbDar
       createDarFile loggerH fp dar
       pure mPkgId
