@@ -1,6 +1,6 @@
-diff --git a/lsp-types.cabal b/lsp-types.cabal
---- a/lsp-types.cabal
-+++ b/lsp-types.cabal
+diff --git a/lsp-types-new.cabal b/lsp-types-new.cabal
+--- a/lsp-types-new.cabal
++++ b/lsp-types-new.cabal
 @@ -72,11 +72,11 @@ library
      , deepseq                        >=1.4   && <1.6
      , Diff                           >=0.4   && <1.1

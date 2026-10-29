@@ -1,6 +1,6 @@
-diff --git a/lsp-types.cabal b/lsp-types.cabal
---- a/lsp-types.cabal
-+++ b/lsp-types.cabal
+diff --git a/lsp-types-new.cabal b/lsp-types-new.cabal
+--- a/lsp-types-new.cabal
++++ b/lsp-types-new.cabal
 @@ -38,7 +38,7 @@ common warnings
  library
    import:             warnings

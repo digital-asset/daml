@@ -708,6 +708,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "js-flot": "@js_flot//:js-flot",
             "js-jquery": "@js_jquery//:js-jquery",
             "lsp-types": "@lsp-types//:lsp-types",
+            "lsp-types-new": "@lsp-types-new//:lsp-types-new",
             "proto3-suite": "@proto3-suite//:proto3-suite",
             "row-types": "@row-types//:row-types",
             "shake": "@shake//:shake",

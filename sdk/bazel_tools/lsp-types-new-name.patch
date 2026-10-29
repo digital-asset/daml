@@ -1,6 +1,8 @@
-diff --git a/lsp-types.cabal b/lsp-types.cabal
+diff --git a/lsp-types.cabal b/lsp-types-new.cabal
+rename from lsp-types.cabal
+rename to lsp-types-new.cabal
 --- a/lsp-types.cabal
-+++ b/lsp-types.cabal
++++ b/lsp-types-new.cabal
 @@ -1,5 +1,5 @@
  cabal-version:      3.0
 -name:               lsp-types
