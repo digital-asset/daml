@@ -38,8 +38,9 @@ import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Daml.Project.Consts (projectPathEnvVar, packagePathEnvVar)
 import DA.Daml.Resolution.Config
-import qualified Language.LSP.Types as LSP
-import qualified Language.LSP.Types.Lens as LSP
+import qualified Language.LSP.Protocol.Types as LSP
+import qualified Language.LSP.Protocol.Message as LSP
+import qualified Language.LSP.Protocol.Lens as LSP
 import System.Exit (ExitCode (..))
 import System.Environment (getEnv, getEnvironment)
 import System.FilePath (takeDirectory)
@@ -66,19 +67,19 @@ ensureIdeSdkInstalledDPM miState resolutionData packageSummary home ideData = do
           Left <$> tryAskForSdkInstall miState missingSdkIdeDiagnosticMessageDpm (psSdkVersionData packageSummary) home
         ErrorPackageResolutionData errs ->
           -- For all other errors, display to user
-          pure $ Left (LSP.DsError, "Failed to obtain version information from DPM:\n" <> T.pack (unlines $ show <$> errs))
+          pure $ Left (LSP.DiagnosticSeverity_Error, "Failed to obtain version information from DPM:\n" <> T.pack (unlines $ show <$> errs))
         ValidPackageResolutionData packageResolution -> do
           -- If successful, find the damlc-binary. If this fails, forward this to user
           let mDamlcPath = Map.lookup "damlc-binary" (imports packageResolution) >>= listToMaybe
           case mDamlcPath of
-            Nothing -> pure $ Left (LSP.DsError, "Couldn't extract damlc-binary from DPM, your installation may be broken.")
+            Nothing -> pure $ Left (LSP.DiagnosticSeverity_Error, "Couldn't extract damlc-binary from DPM, your installation may be broken.")
             Just damlcPath -> pure $ Right (packageResolution, damlcPath)
 
   -- First check for global errors, if any present, do not try to lookup information for this package.
   diagOrResolution <-
     case globalErrorStatus of
       HasGlobalError ->
-        pure $ Left (LSP.DsError, "Failed to load information from multi-package.yaml, check this file for diagnostics")
+        pure $ Left (LSP.DiagnosticSeverity_Error, "Failed to load information from multi-package.yaml, check this file for diagnostics")
       NoGlobalError ->
         -- First try main packages, then orphan packages
         Map.lookup home (mainPackages resolutionData) <|> Map.lookup home (orphanPackages resolutionData) & \case
@@ -88,7 +89,7 @@ ensureIdeSdkInstalledDPM miState resolutionData packageSummary home ideData = do
             ePackageResolution <- addOrphanResolution miState home
             case ePackageResolution of
               Right resolution -> handleResolution resolution
-              Left errMessage -> pure $ Left (LSP.DsError, errMessage)
+              Left errMessage -> pure $ Left (LSP.DiagnosticSeverity_Error, errMessage)
 
   let ideData' = ideData {ideDataUsingLocalComponents = sdkVersionDataUsingLocalOverrides $ psSdkVersionData packageSummary}
   case diagOrResolution of
@@ -119,21 +120,21 @@ tryAskForSdkInstall miState makeMissingSdkIdeDiagnosticMessage svd home = do
         if svdVersion svd == Just "0.0.0" then do
           let errText = "Version 0.0.0 is not installed, it can be installed by building daml-head locally."
               installData' = installData {sidStatus = SISFailed errText Nothing}
-          addHomeAndReturn installData' (LSP.DsError, errText)
+          addHomeAndReturn installData' (LSP.DiagnosticSeverity_Error, errText)
         else do
           -- Ask the user if they want to install
           let lspId = sdkVersionDataToLspId svd
               verStr = renderSdkVersionData svd
               messageContent = "This package uses the release version " <> verStr <> " which is not installed on this system.\n"
                 <> "The IDE cannot give intelligence on this package without this SDK. Would you like to install it?"
-              message = showMessageRequest lspId LSP.MtError messageContent ["Install SDK " <> verStr, "Do not install"]
+              message = showMessageRequest lspId LSP.MessageType_Error messageContent ["Install SDK " <> verStr, "Do not install"]
               installData' = installData {sidStatus = SISAsking}
           putFromServerCoordinatorMessage miState message
           sendClient miState message
-          addHomeAndReturn installData' (LSP.DsError, makeMissingSdkIdeDiagnosticMessage svd)
-    SISInstalling _ -> addHomeAndReturn installData (LSP.DsInfo, installingSdkIdeDiagnosticMessage svd)
-    SISFailed log err -> addHomeAndReturn installData (LSP.DsError, failedInstallIdeDiagnosticMessage svd log err)
-    _ -> addHomeAndReturn installData (LSP.DsError, makeMissingSdkIdeDiagnosticMessage svd)
+          addHomeAndReturn installData' (LSP.DiagnosticSeverity_Error, makeMissingSdkIdeDiagnosticMessage svd)
+    SISInstalling _ -> addHomeAndReturn installData (LSP.DiagnosticSeverity_Information, installingSdkIdeDiagnosticMessage svd)
+    SISFailed log err -> addHomeAndReturn installData (LSP.DiagnosticSeverity_Error, failedInstallIdeDiagnosticMessage svd log err)
+    _ -> addHomeAndReturn installData (LSP.DiagnosticSeverity_Error, makeMissingSdkIdeDiagnosticMessage svd)
   atomically $ putTMVar (misSdkInstallDatasVar miState) newInstallDatas
   pure disableDiagnostic
 
@@ -188,11 +189,11 @@ getSdkInstallDataFromIdentifier (T.splitOn "-with-overrides-" -> [verStr, overri
   Map.lookup sdkVersionData installDatas
 getSdkInstallDataFromIdentifier _ _ = Nothing
 
-sdkVersionDataToLspId :: SdkVersionData -> LSP.LspId 'LSP.WindowShowMessageRequest
+sdkVersionDataToLspId :: SdkVersionData -> LSP.LspId 'LSP.Method_WindowShowMessageRequest
 sdkVersionDataToLspId ver =
   LSP.IdString $ "sdk-install-request-" <> sdkVersionDataToVersionIdentifier ver
 
-getSdkInstallDataFromLspId :: LSP.LspId 'LSP.WindowShowMessageRequest -> SdkInstallDatas -> Maybe SdkInstallData
+getSdkInstallDataFromLspId :: LSP.LspId 'LSP.Method_WindowShowMessageRequest -> SdkInstallDatas -> Maybe SdkInstallData
 getSdkInstallDataFromLspId (LSP.IdString (T.stripPrefix "sdk-install-request-" -> Just verIdentifier)) installDatas =
   getSdkInstallDataFromIdentifier verIdentifier installDatas
 getSdkInstallDataFromLspId _ _ = Nothing
@@ -278,7 +279,7 @@ updateResolutionFileForManyChanged miState homes = withIDEs miState $ \ides -> d
           res <- addOrphanResolution miState home
           case res of
             Left err -> do
-              let ideData' = (lookupSubIde home ides') {ideDataDisabled = IdeDataDisabled LSP.DsError err}
+              let ideData' = (lookupSubIde home ides') {ideDataDisabled = IdeDataDisabled LSP.DiagnosticSeverity_Error err}
               atomically $ sendPackageDiagnostic miState ideData'
               pure $ Map.insert home ideData' ides'
             _ -> pure ides'
@@ -290,7 +291,7 @@ updateResolutionFileForManyChanged miState homes = withIDEs miState $ \ides -> d
       pure (ides, [])
 
 -- Handle the Client -> Coordinator response to the "Would you like to install ..." message
-handleSdkInstallPromptResponse :: MultiIdeState -> LSP.LspId 'LSP.WindowShowMessageRequest -> Either LSP.ResponseError (Maybe LSP.MessageActionItem) -> IO ()
+handleSdkInstallPromptResponse :: MultiIdeState -> LSP.LspId 'LSP.Method_WindowShowMessageRequest -> Either (LSP.TResponseError 'LSP.Method_WindowShowMessageRequest) (LSP.MessageResult 'LSP.Method_WindowShowMessageRequest) -> IO ()
 handleSdkInstallPromptResponse miState lspId res = do
   installDatas <- atomically $ takeTMVar $ misSdkInstallDatasVar miState
   forM_ (getSdkInstallDataFromLspId lspId installDatas) $ \installData -> do
@@ -299,10 +300,10 @@ handleSdkInstallPromptResponse miState lspId res = do
         changeSdkStatus severity message newStatus = do
           installDatas' <- updateSdkInstallStatus miState installDatas svd severity message newStatus
           atomically $ putTMVar (misSdkInstallDatasVar miState) installDatas'
-        disableSdk = changeSdkStatus LSP.DsError (missingSdkIdeDiagnosticMessageDpm svd) SISDenied
+        disableSdk = changeSdkStatus LSP.DiagnosticSeverity_Error (missingSdkIdeDiagnosticMessageDpm svd) SISDenied
 
     case (sidStatus installData, res) of
-      (SISAsking, Right (Just (LSP.MessageActionItem (T.stripPrefix "Install SDK" -> Just _)))) -> do
+      (SISAsking, Right (LSP.InL (LSP.MessageActionItem (T.stripPrefix "Install SDK" -> Just _)))) -> do
         -- Install accepted, start install process
         installThread <- async $ do
           setupSdkInstallReporter miState svd
@@ -312,12 +313,12 @@ handleSdkInstallPromptResponse miState lspId res = do
           res <- tryForwardAsync $ installSdk outputLogVar $ updateSdkInstallReporter miState svd
           onSdkInstallerFinished miState svd outputLogVar $ either Just (const Nothing) res
           finishSdkInstallReporter miState svd
-        changeSdkStatus LSP.DsInfo (installingSdkIdeDiagnosticMessage svd) (SISInstalling installThread)
+        changeSdkStatus LSP.DiagnosticSeverity_Information (installingSdkIdeDiagnosticMessage svd) (SISInstalling installThread)
       (SISAsking, _) -> disableSdk
       (_, _) -> atomically $ putTMVar (misSdkInstallDatasVar miState) installDatas
 
 -- Handle the Client -> Coordinator notification for cancelling an sdk installation
-handleSdkInstallClientCancelled :: MultiIdeState -> LSP.NotificationMessage 'LSP.CustomMethod -> IO ()
+handleSdkInstallClientCancelled :: MultiIdeState -> LSP.TNotificationMessage ('LSP.Method_CustomMethod s) -> IO ()
 handleSdkInstallClientCancelled miState notif = do
   forM_ (fromJSON $ notif ^. LSP.params) $ \message -> do
     let verIdentifier = sicSdkVersionIdentifier message
@@ -328,7 +329,7 @@ handleSdkInstallClientCancelled miState notif = do
         SISInstalling thread -> do
           logDebug miState $ "Killing install thread for " <> T.unpack (renderSdkVersionData ver)
           cancel thread
-          updateSdkInstallStatus miState installDatas ver LSP.DsError (missingSdkIdeDiagnosticMessageDpm ver) SISDenied
+          updateSdkInstallStatus miState installDatas ver LSP.DiagnosticSeverity_Error (missingSdkIdeDiagnosticMessageDpm ver) SISDenied
         _ -> pure installDatas
       atomically $ putTMVar (misSdkInstallDatasVar miState) installDatas'
 
@@ -356,8 +357,8 @@ onSdkInstallerFinished miState ver outputLogVar mError = do
     Just err -> do
       outputLog <- takeMVar outputLogVar
       let errText = failedInstallIdeDiagnosticMessage ver outputLog (Just err)
-      installDatas' <- updateSdkInstallStatus miState installDatas ver LSP.DsError errText (SISFailed outputLog $ Just err)
-      sendClient miState $ showMessage LSP.MtError errText
+      installDatas' <- updateSdkInstallStatus miState installDatas ver LSP.DiagnosticSeverity_Error errText (SISFailed outputLog $ Just err)
+      sendClient miState $ showMessage LSP.MessageType_Error errText
       atomically $ putTMVar (misSdkInstallDatasVar miState) installDatas'
 
 -- Exception type to mimic previous AssistantError
@@ -378,8 +379,8 @@ installSdkDpm packageHome _outputLogVar _report = do
 
 sendSdkInstallProgress :: MultiIdeState -> SdkVersionData -> DamlSdkInstallProgressNotificationKind -> Int -> IO ()
 sendSdkInstallProgress miState ver kind progress =
-  sendClient miState $ LSP.FromServerMess (LSP.SCustomMethod damlSdkInstallProgressMethod) $ LSP.NotMess $
-    LSP.NotificationMessage "2.0" (LSP.SCustomMethod damlSdkInstallProgressMethod) $ toJSON $ DamlSdkInstallProgressNotification
+  sendClient miState $ LSP.FromServerMess (LSP.SMethod_CustomMethod damlSdkInstallProgressMethod) $ LSP.NotMess $
+    LSP.TNotificationMessage "2.0" (LSP.SMethod_CustomMethod damlSdkInstallProgressMethod) $ toJSON $ DamlSdkInstallProgressNotification
       { sipSdkVersionIdentifier = sdkVersionDataToVersionIdentifier ver
       , sipSdkVersionRendered = renderSdkVersionData ver
       , sipKind = kind

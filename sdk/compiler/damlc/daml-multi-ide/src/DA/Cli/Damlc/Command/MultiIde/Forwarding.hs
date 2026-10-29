@@ -5,11 +5,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-
--- We generate missing instances for SignatureHelpParams
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module DA.Cli.Damlc.Command.MultiIde.Forwarding (
   getMessageForwardingBehaviour,
@@ -23,31 +18,28 @@ import Control.Applicative ((<|>))
 import Control.Lens
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Lens as Aeson
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import Development.IDE.Core.Rules.Daml (uriToVirtualResource)
 import Development.IDE.Core.RuleTypes.Daml (VirtualResource (..))
-import qualified Language.LSP.Types as LSP
-import qualified Language.LSP.Types.Lens as LSP
+import qualified Language.LSP.Protocol.Types as LSP
+import qualified Language.LSP.Protocol.Message as LSP
+import qualified Language.LSP.Protocol.Lens as LSP
+import qualified Language.LSP.Types as OldLSP
+import GHC.TypeLits (symbolVal)
 import qualified Network.URI as URI
 import DA.Cli.Damlc.Command.MultiIde.Types
 
 {-# ANN module ("HLint: ignore Avoid restricted flags" :: String) #-}
-
--- SignatureHelpParams has no lenses from Language.LSP.Types.Lens
--- We just need this one, so we'll write it ourselves
-makeLensesFor [("_textDocument", "signatureHelpParamsTextDocumentLens")] ''LSP.SignatureHelpParams
-instance LSP.HasTextDocument LSP.SignatureHelpParams LSP.TextDocumentIdentifier where
-  textDocument = signatureHelpParamsTextDocumentLens
 
 pullMonadThroughTuple :: Monad m => (a, m b) -> m (a, b)
 pullMonadThroughTuple (a, mb) = (a,) <$> mb
 
 -- Takes a natural transformation of responses and lifts it to forward the first error
 assumeSuccessCombiner
-  :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
-  .  ([(PackageHome, LSP.ResponseResult m)] -> LSP.ResponseResult m)
+  :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request)
+  .  ([(PackageHome, LSP.MessageResult m)] -> LSP.MessageResult m)
   -> ResponseCombiner m
 assumeSuccessCombiner f res = f <$> mapM pullMonadThroughTuple res
 
@@ -56,9 +48,9 @@ ignore = ExplicitHandler $ \_ _ -> pure ()
 
 showError :: T.Text -> Forwarding m
 showError err = ExplicitHandler $ \sendClient _ ->
-  sendClient $ LSP.FromServerMess LSP.SWindowShowMessage
-    $ LSP.NotificationMessage "2.0" LSP.SWindowShowMessage
-      $ LSP.ShowMessageParams LSP.MtError err
+  sendClient $ LSP.FromServerMess LSP.SMethod_WindowShowMessage
+    $ LSP.TNotificationMessage "2.0" LSP.SMethod_WindowShowMessage
+      $ LSP.ShowMessageParams LSP.MessageType_Error err
 
 showFatal :: T.Text -> Forwarding m
 showFatal err = showError $ "FATAL ERROR:\n" <> err <> "\nPlease report this on the daml forums."
@@ -73,51 +65,51 @@ uriFilePathPrism :: Prism' LSP.Uri FilePath
 uriFilePathPrism = prism' LSP.filePathToUri LSP.uriToFilePath
 
 getMessageForwardingBehaviour
-  :: forall t (m :: LSP.Method 'LSP.FromClient t)
+  :: forall t (m :: LSP.Method 'LSP.ClientToServer t)
   .  MultiIdeState
   -> LSP.SMethod m
-  -> LSP.Message m
+  -> LSP.TMessage m
   -> Forwarding m
 getMessageForwardingBehaviour miState meth params =
   case meth of
-    LSP.SInitialize -> handleElsewhere "Initialize"
-    LSP.SInitialized -> ignore
+    LSP.SMethod_Initialize -> handleElsewhere "Initialize"
+    LSP.SMethod_Initialized -> ignore
     -- send to all then const reply
-    LSP.SShutdown -> ForwardRequest params $ AllRequest (assumeSuccessCombiner @m $ const LSP.Empty)
-    LSP.SExit -> handleElsewhere "Exit"
-    LSP.SWorkspaceDidChangeWorkspaceFolders -> ForwardNotification params AllNotification
-    LSP.SWorkspaceDidChangeConfiguration -> ForwardNotification params AllNotification
-    LSP.SWorkspaceDidChangeWatchedFiles -> ForwardNotification params AllNotification
-    LSP.STextDocumentDidOpen -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument miState params
-    LSP.STextDocumentDidChange -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument miState params
-    LSP.STextDocumentWillSave -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument miState params
-    LSP.STextDocumentWillSaveWaitUntil -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
-    LSP.STextDocumentDidSave -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument miState params
-    LSP.STextDocumentDidClose -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument miState params
-    LSP.STextDocumentCompletion -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
-    LSP.STextDocumentHover -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
-    LSP.STextDocumentSignatureHelp -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
-    LSP.STextDocumentDeclaration -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
-    LSP.STextDocumentDefinition -> handleElsewhere "TextDocumentDefinition"
-    LSP.STextDocumentDocumentSymbol -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
-    LSP.STextDocumentCodeAction -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
-    LSP.STextDocumentCodeLens -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
-    LSP.STextDocumentDocumentLink -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
-    LSP.STextDocumentColorPresentation -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
-    LSP.STextDocumentOnTypeFormatting -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_Shutdown -> ForwardRequest params $ AllRequest (assumeSuccessCombiner @m $ const LSP.Null)
+    LSP.SMethod_Exit -> handleElsewhere "Exit"
+    LSP.SMethod_WorkspaceDidChangeWorkspaceFolders -> ForwardNotification params AllNotification
+    LSP.SMethod_WorkspaceDidChangeConfiguration -> ForwardNotification params AllNotification
+    LSP.SMethod_WorkspaceDidChangeWatchedFiles -> ForwardNotification params AllNotification
+    LSP.SMethod_TextDocumentDidOpen -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_TextDocumentDidChange -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_TextDocumentWillSave -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_TextDocumentWillSaveWaitUntil -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_TextDocumentDidSave -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_TextDocumentDidClose -> ForwardNotification params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_TextDocumentCompletion -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_TextDocumentHover -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_TextDocumentSignatureHelp -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_TextDocumentDeclaration -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_TextDocumentDefinition -> handleElsewhere "TextDocumentDefinition"
+    LSP.SMethod_TextDocumentDocumentSymbol -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_TextDocumentCodeAction -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_TextDocumentCodeLens -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_TextDocumentDocumentLink -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_TextDocumentColorPresentation -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
+    LSP.SMethod_TextDocumentOnTypeFormatting -> ForwardRequest params $ forwardingBehaviourFromParamsWithTextDocument miState params
     
-    LSP.SCustomMethod "daml/keepAlive" ->
+    LSP.SMethod_CustomMethod (symbolVal -> "daml/keepAlive") ->
       case params of
-        LSP.ReqMess LSP.RequestMessage {_id, _method, _params} -> ExplicitHandler $ \sendClient _ ->
-          sendClient $ LSP.FromServerRsp _method $ LSP.ResponseMessage "2.0" (Just _id) (Right Aeson.Null)
+        LSP.ReqMess LSP.TRequestMessage {_id, _method, _params} -> ExplicitHandler $ \sendClient _ ->
+          sendClient $ LSP.FromServerRsp _method $ LSP.TResponseMessage "2.0" (Just _id) (Right Aeson.Null)
         _ -> showFatal "Got unpexpected daml/keepAlive response type from client"
 
     -- Other custom messages are notifications from server
-    LSP.SCustomMethod _ -> ignore
+    LSP.SMethod_CustomMethod _ -> ignore
 
     -- We only add the typesignature.add command, which simply sends a WorkspaceEdit with a single file modification
     -- We can take the file path from that modification
-    LSP.SWorkspaceExecuteCommand ->
+    LSP.SMethod_WorkspaceExecuteCommand ->
       case params ^. LSP.params . LSP.command of
         "typesignature.add" ->
           -- Fun lens:
@@ -128,43 +120,64 @@ getMessageForwardingBehaviour miState meth params =
                     ^? LSP.params 
                      . LSP.arguments
                      . _Just
-                     . to (\(LSP.List a) -> a)
                      . _head
                      . Aeson._JSON @Aeson.Value @LSP.WorkspaceEdit
                      . LSP.changes
                      . _Just
-                     . to HM.keys
+                     . to Map.keys
                      . _head
                      . uriFilePathPrism
            in ForwardRequest params $ Single path
         cmd -> showFatal $ "Unknown execute command: " <> cmd
 
-    LSP.SWindowWorkDoneProgressCancel -> handleElsewhere "WindowWorkDoneProgressCancel"
-    LSP.SCancelRequest -> ForwardNotification params AllNotification
+    LSP.SMethod_WindowWorkDoneProgressCancel -> handleElsewhere "WindowWorkDoneProgressCancel"
+    LSP.SMethod_CancelRequest -> ForwardNotification params AllNotification
+    LSP.SMethod_Progress -> ignore
+    LSP.SMethod_SetTrace -> ignore
+    LSP.SMethod_WorkspaceDidCreateFiles -> ignore
+    LSP.SMethod_WorkspaceDidRenameFiles -> ignore
+    LSP.SMethod_WorkspaceDidDeleteFiles -> ignore
+    LSP.SMethod_NotebookDocumentDidOpen -> ignore
+    LSP.SMethod_NotebookDocumentDidChange -> ignore
+    LSP.SMethod_NotebookDocumentDidSave -> ignore
+    LSP.SMethod_NotebookDocumentDidClose -> ignore
     -- Unsupported by GHCIDE:
-    LSP.SWorkspaceSymbol -> unsupported "WorkspaceSymbol"
-    LSP.STextDocumentTypeDefinition -> unsupported "TextDocumentTypeDefinition"
-    LSP.STextDocumentImplementation -> unsupported "TextDocumentImplementation"
-    LSP.STextDocumentReferences -> unsupported "TextDocumentReferences"
-    LSP.STextDocumentDocumentHighlight -> unsupported "TextDocumentDocumentHighlight"
-    LSP.STextDocumentDocumentColor -> unsupported "TextDocumentDocumentColor"
-    LSP.SDocumentLinkResolve -> unsupported "DocumentLinkResolve"
-    LSP.STextDocumentFormatting -> unsupported "TextDocumentFormatting"
-    LSP.STextDocumentRangeFormatting -> unsupported "TextDocumentRangeFormatting"
-    LSP.STextDocumentRename -> unsupported "TextDocumentRename"
-    LSP.STextDocumentPrepareRename -> unsupported "TextDocumentPrepareRename"
-    LSP.STextDocumentFoldingRange -> unsupported "TextDocumentFoldingRange"
-    LSP.STextDocumentSelectionRange -> unsupported "TextDocumentSelectionRange"
-    LSP.STextDocumentPrepareCallHierarchy -> unsupported "TextDocumentPrepareCallHierarchy"
-    LSP.SCompletionItemResolve -> unsupported "CompletionItemResolve"
-    LSP.SCodeLensResolve -> unsupported "CodeLensResolve"
-    LSP.SCallHierarchyIncomingCalls -> unsupported "CallHierarchyIncomingCalls"
-    LSP.SCallHierarchyOutgoingCalls -> unsupported "CallHierarchyOutgoingCalls"
-    LSP.STextDocumentSemanticTokens -> unsupported "TextDocumentSemanticTokens"
-    LSP.STextDocumentSemanticTokensFull -> unsupported "TextDocumentSemanticTokensFull"
-    LSP.STextDocumentSemanticTokensFullDelta -> unsupported "TextDocumentSemanticTokensFullDelta"
-    LSP.STextDocumentSemanticTokensRange -> unsupported "TextDocumentSemanticTokensRange"
-    LSP.SWorkspaceSemanticTokensRefresh -> unsupported "WorkspaceSemanticTokensRefresh"
+    LSP.SMethod_WorkspaceSymbol -> unsupported "WorkspaceSymbol"
+    LSP.SMethod_TextDocumentTypeDefinition -> unsupported "TextDocumentTypeDefinition"
+    LSP.SMethod_TextDocumentImplementation -> unsupported "TextDocumentImplementation"
+    LSP.SMethod_TextDocumentReferences -> unsupported "TextDocumentReferences"
+    LSP.SMethod_TextDocumentDocumentHighlight -> unsupported "TextDocumentDocumentHighlight"
+    LSP.SMethod_TextDocumentDocumentColor -> unsupported "TextDocumentDocumentColor"
+    LSP.SMethod_DocumentLinkResolve -> unsupported "DocumentLinkResolve"
+    LSP.SMethod_TextDocumentFormatting -> unsupported "TextDocumentFormatting"
+    LSP.SMethod_TextDocumentRangeFormatting -> unsupported "TextDocumentRangeFormatting"
+    LSP.SMethod_TextDocumentRename -> unsupported "TextDocumentRename"
+    LSP.SMethod_TextDocumentPrepareRename -> unsupported "TextDocumentPrepareRename"
+    LSP.SMethod_TextDocumentFoldingRange -> unsupported "TextDocumentFoldingRange"
+    LSP.SMethod_TextDocumentSelectionRange -> unsupported "TextDocumentSelectionRange"
+    LSP.SMethod_TextDocumentPrepareCallHierarchy -> unsupported "TextDocumentPrepareCallHierarchy"
+    LSP.SMethod_CompletionItemResolve -> unsupported "CompletionItemResolve"
+    LSP.SMethod_CodeLensResolve -> unsupported "CodeLensResolve"
+    LSP.SMethod_CallHierarchyIncomingCalls -> unsupported "CallHierarchyIncomingCalls"
+    LSP.SMethod_CallHierarchyOutgoingCalls -> unsupported "CallHierarchyOutgoingCalls"
+    LSP.SMethod_TextDocumentSemanticTokensFull -> unsupported "TextDocumentSemanticTokensFull"
+    LSP.SMethod_TextDocumentSemanticTokensFullDelta -> unsupported "TextDocumentSemanticTokensFullDelta"
+    LSP.SMethod_TextDocumentSemanticTokensRange -> unsupported "TextDocumentSemanticTokensRange"
+    LSP.SMethod_TextDocumentLinkedEditingRange -> unsupported "TextDocumentLinkedEditingRange"
+    LSP.SMethod_WorkspaceWillCreateFiles -> unsupported "WorkspaceWillCreateFiles"
+    LSP.SMethod_WorkspaceWillRenameFiles -> unsupported "WorkspaceWillRenameFiles"
+    LSP.SMethod_WorkspaceWillDeleteFiles -> unsupported "WorkspaceWillDeleteFiles"
+    LSP.SMethod_TextDocumentMoniker -> unsupported "TextDocumentMoniker"
+    LSP.SMethod_TextDocumentPrepareTypeHierarchy -> unsupported "TextDocumentPrepareTypeHierarchy"
+    LSP.SMethod_TypeHierarchySupertypes -> unsupported "TypeHierarchySupertypes"
+    LSP.SMethod_TypeHierarchySubtypes -> unsupported "TypeHierarchySubtypes"
+    LSP.SMethod_TextDocumentInlineValue -> unsupported "TextDocumentInlineValue"
+    LSP.SMethod_TextDocumentInlayHint -> unsupported "TextDocumentInlayHint"
+    LSP.SMethod_InlayHintResolve -> unsupported "InlayHintResolve"
+    LSP.SMethod_TextDocumentDiagnostic -> unsupported "TextDocumentDiagnostic"
+    LSP.SMethod_WorkspaceDiagnostic -> unsupported "WorkspaceDiagnostic"
+    LSP.SMethod_CodeActionResolve -> unsupported "CodeActionResolve"
+    LSP.SMethod_WorkspaceSymbolResolve -> unsupported "WorkspaceSymbolResolve"
 
 filePathFromParamsWithTextDocument :: (LSP.HasParams p a, LSP.HasTextDocument a t, LSP.HasUri t LSP.Uri) => MultiIdeState -> p -> Maybe FilePath
 filePathFromParamsWithTextDocument miState params =
@@ -184,7 +197,7 @@ filePathFromURI miState uri =
       case URI.uriScheme parsedUri of
         "daml:" -> do
           vr <- uriToVirtualResource parsedUri
-          pure $ LSP.fromNormalizedFilePath $ vrScriptFile vr
+          pure $ OldLSP.fromNormalizedFilePath $ vrScriptFile vr
         "untitled:" ->
           pure $ unPackageHome $ misDefaultPackagePath miState
         _ -> Nothing

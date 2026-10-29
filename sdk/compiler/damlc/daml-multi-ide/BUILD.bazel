@@ -21,7 +21,9 @@ da_haskell_library(
         "hashable",
         "lens",
         "lens-aeson",
+        # Compatibility with types exposed by the single-package IDE.
         "lsp-types",
+        "lsp-types-new",
         "monad-loops",
         "network-uri",
         "process",

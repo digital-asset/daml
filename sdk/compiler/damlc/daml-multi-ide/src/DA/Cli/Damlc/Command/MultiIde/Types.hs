@@ -25,14 +25,16 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BSL
 import Data.Char (toLower)
 import Data.Function (on)
-import qualified Data.IxMap as IM
+import qualified "lsp-types-new" Data.IxMap as IM
+import Data.Proxy (Proxy (..))
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, isNothing, listToMaybe)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Extended as T
 import Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime)
-import qualified Language.LSP.Types as LSP
+import qualified Language.LSP.Protocol.Types as LSP
+import qualified Language.LSP.Protocol.Message as LSP
 import System.Exit
 import System.IO.Extra
 import System.Process.Typed (Process)
@@ -58,17 +60,17 @@ newtype UnitId = UnitId {unUnitId :: String} deriving (Show, Eq, Ord)
 
 data TrackedMethod (m :: LSP.Method from 'LSP.Request) where
   TrackedSingleMethodFromClient
-    :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
+    :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request)
     .  LSP.SMethod m
     -> LSP.FromClientMessage -- | Store the whole message for re-transmission on subIde restart
     -> PackageHome -- | Store the recipient subIde for this message
     -> TrackedMethod m
   TrackedSingleMethodFromServer
-    :: forall (m :: LSP.Method 'LSP.FromServer 'LSP.Request)
+    :: forall (m :: LSP.Method 'LSP.ServerToClient 'LSP.Request)
     .  LSP.SMethod m
     -> Maybe PackageHome -- | Store the IDE that sent the request (or don't, for requests sent by the coordinator)
     -> TrackedMethod m
-  TrackedAllMethod :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request).
+  TrackedAllMethod :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request).
     { tamMethod :: LSP.SMethod m
         -- ^ The method of the initial request
     , tamLspId :: LSP.LspId m
@@ -78,11 +80,11 @@ data TrackedMethod (m :: LSP.Method from 'LSP.Request) where
         -- ^ How to combine the results from each IDE
     , tamRemainingResponsePackageHomes :: [PackageHome]
         -- ^ The IDES that have not yet replied to this message
-    , tamResponses :: [(PackageHome, Either LSP.ResponseError (LSP.ResponseResult m))]
+    , tamResponses :: [(PackageHome, Either (LSP.TResponseError m) (LSP.MessageResult m))]
     } -> TrackedMethod m
 
 tmMethod
-  :: forall (from :: LSP.From) (m :: LSP.Method from 'LSP.Request)
+  :: forall (from :: LSP.MessageDirection) (m :: LSP.Method from 'LSP.Request)
   .  TrackedMethod m
   -> LSP.SMethod m
 tmMethod (TrackedSingleMethodFromClient m _ _) = m
@@ -90,14 +92,14 @@ tmMethod (TrackedSingleMethodFromServer m _) = m
 tmMethod (TrackedAllMethod {tamMethod}) = tamMethod
 
 tmClientMessage
-  :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
+  :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request)
   .  TrackedMethod m
   -> LSP.FromClientMessage
 tmClientMessage (TrackedSingleMethodFromClient _ msg _) = msg
 tmClientMessage (TrackedAllMethod {tamClientMessage}) = tamClientMessage
 
-type MethodTracker (from :: LSP.From) = IM.IxMap @(LSP.Method from 'LSP.Request) LSP.LspId TrackedMethod
-type MethodTrackerVar (from :: LSP.From) = TVar (MethodTracker from)
+type MethodTracker (from :: LSP.MessageDirection) = IM.IxMap @(LSP.Method from 'LSP.Request) LSP.LspId TrackedMethod
+type MethodTrackerVar (from :: LSP.MessageDirection) = TVar (MethodTracker from)
 
 data SubIdeInstance = SubIdeInstance
   { ideInhandleAsync :: Async ()
@@ -348,8 +350,8 @@ instance ToJSON DamlSdkInstallProgressNotification where
     , "progress" .= sipProgress
     ]
 
-damlSdkInstallProgressMethod :: T.Text
-damlSdkInstallProgressMethod = "daml/sdkInstallProgress"
+damlSdkInstallProgressMethod :: Proxy "daml/sdkInstallProgress"
+damlSdkInstallProgressMethod = Proxy
 
 newtype DamlSdkInstallCancelNotification = DamlSdkInstallCancelNotification
   { sicSdkVersionIdentifier :: T.Text
@@ -359,8 +361,8 @@ instance FromJSON DamlSdkInstallCancelNotification where
   parseJSON = withObject "DamlSdkInstallCancelNotification" $ \v ->
     DamlSdkInstallCancelNotification <$> v .: "sdkVersionidentifier"
 
-damlSdkInstallCancelMethod :: T.Text
-damlSdkInstallCancelMethod = "daml/sdkInstallCancel"
+damlSdkInstallCancelMethod :: Proxy "daml/sdkInstallCancel"
+damlSdkInstallCancelMethod = Proxy
 
 -- Alternate form of ResolutionData that uses Multi-Ide newtypes, and separates main from orphan package resolutions
 data MultiIdeResolutionData = MultiIdeResolutionData
@@ -375,9 +377,9 @@ toMultiIdeResolutionData :: ResolutionData -> MultiIdeResolutionData
 toMultiIdeResolutionData (ResolutionData mapping defaultSdk) = MultiIdeResolutionData (Map.mapKeys PackageHome mapping) mempty defaultSdk
 
 data MultiIdeState = MultiIdeState
-  { misFromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient
+  { misFromClientMethodTrackerVar :: MethodTrackerVar 'LSP.ClientToServer
     -- ^ The client will track its own IDs to ensure they're unique, so no worries about collisions
-  , misFromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer
+  , misFromServerMethodTrackerVar :: MethodTrackerVar 'LSP.ServerToClient
     -- ^ We will prefix LspIds before they get here based on their SubIde messageIdPrefix, to avoid collisions
   , misSubIdesVar :: SubIdesVar
   , misInitParamsVar :: InitParamsVar
@@ -421,8 +423,8 @@ newMultiIdeState
   -> (MultiIdeState -> RebootIdeByHome)
   -> IO MultiIdeState
 newMultiIdeState misMultiPackageHome misDefaultPackagePath logThreshold misIdentifier misSubIdeArgs subIdeMessageHandler unsafeAddNewSubIdeAndSend rebootIdeByHome = do
-  (misFromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
-  (misFromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
+  (misFromClientMethodTrackerVar :: MethodTrackerVar 'LSP.ClientToServer) <- newTVarIO IM.emptyIxMap
+  (misFromServerMethodTrackerVar :: MethodTrackerVar 'LSP.ServerToClient) <- newTVarIO IM.emptyIxMap
   misSubIdesVar <- newTMVarIO @SubIdes mempty
   misInitParamsVar <- newEmptyMVar @InitParams
   misToClientChan <- atomically newTChan
@@ -473,32 +475,32 @@ Forward a request to all IDEs and somehow combine the result
 
 -- TODO: Consider splitting this into one data type for request and one for notification
 -- rather than reusing the Single constructor over both and restricting via types
-data ForwardingBehaviour (m :: LSP.Method 'LSP.FromClient t) where
+data ForwardingBehaviour (m :: LSP.Method 'LSP.ClientToServer t) where
   Single
-    :: forall t (m :: LSP.Method 'LSP.FromClient t)
+    :: forall t (m :: LSP.Method 'LSP.ClientToServer t)
     .  FilePath
     -> ForwardingBehaviour m
   AllRequest
-    :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
+    :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request)
     .  ResponseCombiner m
     -> ForwardingBehaviour m
   AllNotification
-    :: ForwardingBehaviour (m :: LSP.Method 'LSP.FromClient 'LSP.Notification)
+    :: ForwardingBehaviour (m :: LSP.Method 'LSP.ClientToServer 'LSP.Notification)
   -- For the case where a File Path cannot be deduced because it is unrecognised (i.e. unknown schema)
   CannotForwardRequest
-    :: forall t (m :: LSP.Method 'LSP.FromClient t)
+    :: forall t (m :: LSP.Method 'LSP.ClientToServer t)
     .  ForwardingBehaviour m
 
 -- Akin to ClientNotOrReq tagged with ForwardingBehaviour, and CustomMethod realised to req/not
-data Forwarding (m :: LSP.Method 'LSP.FromClient t) where
+data Forwarding (m :: LSP.Method 'LSP.ClientToServer t) where
   ForwardRequest
-    :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Request)
-    .  LSP.RequestMessage m
+    :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request)
+    .  LSP.TRequestMessage m
     -> ForwardingBehaviour m
     -> Forwarding m
   ForwardNotification
-    :: forall (m :: LSP.Method 'LSP.FromClient 'LSP.Notification)
-    .  LSP.NotificationMessage m
+    :: forall (m :: LSP.Method 'LSP.ClientToServer 'LSP.Notification)
+    .  LSP.TNotificationMessage m
     -> ForwardingBehaviour m
     -> Forwarding m
   ExplicitHandler
@@ -506,12 +508,12 @@ data Forwarding (m :: LSP.Method 'LSP.FromClient t) where
        -> (FilePath -> LSP.FromClientMessage -> IO ())
        -> IO ()
        )
-    -> Forwarding (m :: LSP.Method 'LSP.FromClient t)
+    -> Forwarding (m :: LSP.Method 'LSP.ClientToServer t)
 
-type ResponseCombiner (m :: LSP.Method 'LSP.FromClient 'LSP.Request) =
-  [(PackageHome, Either LSP.ResponseError (LSP.ResponseResult m))] -> Either LSP.ResponseError (LSP.ResponseResult m)
+type ResponseCombiner (m :: LSP.Method 'LSP.ClientToServer 'LSP.Request) =
+  [(PackageHome, Either (LSP.TResponseError m) (LSP.MessageResult m))] -> Either (LSP.TResponseError m) (LSP.MessageResult m)
 
-data SMethodWithSender (m :: LSP.Method 'LSP.FromServer t) = SMethodWithSender
+data SMethodWithSender (m :: LSP.Method 'LSP.ServerToClient t) = SMethodWithSender
   { smsMethod :: LSP.SMethod m
   , smsSender :: Maybe PackageHome
   }
