@@ -88,7 +88,7 @@ class Foldable t where
 mapA_ : (Foldable t, Applicative f) => (a -> f b) -> t a -> f ()
 mapA_ f = foldr ((*>) . f) (pure ())
 
--- | 'for_' is 'mapA_' with its arguments flipped. For a version
+-- | 'forA_' is 'mapA_' with its arguments flipped. For a version
 -- that doesn't ignore the results see 'DA.Traversable.forA'.
 forA_ : (Foldable t, Applicative f) => t a -> (a -> f b) -> f ()
 forA_ = flip mapA_
