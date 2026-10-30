@@ -15,6 +15,7 @@ variables:
   bazel_flags: >-
     --remote_upload_local_results=true
   build_cpu_flags: --local_resources=cpu=HOST_CPUS
+  release_tag: '0.0.0'
 
 jobs:
 - job: linux
@@ -94,10 +95,10 @@ jobs:
         archive="$(Build.StagingDirectory)/$(release_name)-release.tar"
         cd sdk
         bazelisk build //release:release $(bazel_flags) $(build_cpu_flags) $(cache_flags)
-        ./bazel-bin/release/release --release-dir "$(mktemp -d)"
+        ./bazel-bin/release/release --release-dir "$(Build.StagingDirectory)/maven"
         ci/build-release.sh "" "$(arch_suffix)"
         mkdir -p "$dir"
-        ../ci/copy-unix-release-artifacts.sh 0.0.0 $(release_name) "$dir"
+        ../ci/copy-unix-release-artifacts.sh $(release_tag) $(release_name) "$dir"
         tar -cf "$archive" -C "$dir" .
         echo "Release archive: $archive"
         tar -tvf "$archive"
@@ -105,8 +106,26 @@ jobs:
         size=$(du -h "$archive" | cut -f1)
         echo "  total: $count files, $size"
       env:
-        DAML_SDK_RELEASE_VERSION: '0.0.0'
+        DAML_SDK_RELEASE_VERSION: $(release_tag)
       displayName: 'Release - Create Artifacts'
+    - bash: |
+        set -euo pipefail
+        cd "$(Build.StagingDirectory)/maven"
+        echo "Would upload to Maven Central:"
+        find . -type f | sort | sed 's|^\./|  |'
+        echo "  total: $(find . -type f | wc -l) files, $(du -sh . | cut -f1)"
+        cd "$(Build.SourcesDirectory)/sdk"
+        target=//language-support/js/daml-types:npm_package.publish
+        if bazelisk query "$target"; then
+          echo "Would publish to npm: bazel run $target -- --access public"
+        else
+          echo "##vso[task.logissue type=warning]$target does not exist, so release --upload would fail at the npm step"
+        fi
+      displayName: 'Release - Maven Central and npm (print only)'
+      condition: and(succeeded(), eq(variables['release_name'], 'linux-x86_64'))
+    - publish: $(Build.StagingDirectory)/$(release_name)-release.tar
+      artifact: $(release_name)-release
+      displayName: 'Release - Publish Artifacts'
     - bash: |
         if [ -n "${KEY:-}" ]; then rm -f "$KEY"; fi
         (cd sdk && bazelisk shutdown) || true
@@ -191,7 +210,7 @@ jobs:
         cd sdk
         ci/build-release.sh "$(arch_suffix)"
         mkdir -p "$dir"
-        ../ci/copy-unix-release-artifacts.sh 0.0.0 $(release_name) "$dir"
+        ../ci/copy-unix-release-artifacts.sh $(release_tag) $(release_name) "$dir"
         tar -cf "$archive" -C "$dir" .
         echo "Release archive: $archive"
         tar -tvf "$archive"
@@ -199,9 +218,12 @@ jobs:
         size=$(du -h "$archive" | cut -f1)
         echo "  total: $count files, $size"
       env:
-        DAML_SDK_RELEASE_VERSION: '0.0.0'
+        DAML_SDK_RELEASE_VERSION: $(release_tag)
         COPYFILE_DISABLE: '1'
       displayName: 'Release - Create Artifacts'
+    - publish: $(Build.StagingDirectory)/$(release_name)-release.tar
+      artifact: $(release_name)-release
+      displayName: 'Release - Publish Artifacts'
     - bash: |
         if [ -n "${KEY:-}" ]; then rm -f "$KEY"; fi
         (cd sdk && bazelisk shutdown) || true
@@ -307,7 +329,7 @@ jobs:
         .\ci\build-release.ps1
         $dir = '$(Build.StagingDirectory)\release' -replace '\\', '/'
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
-        & $env:BAZEL_SH ../ci/copy-windows-release-artifacts.sh 0.0.0 $dir
+        & $env:BAZEL_SH ../ci/copy-windows-release-artifacts.sh $(release_tag) $dir
         if ($LASTEXITCODE -ne 0) { throw "copy-windows-release-artifacts.sh failed (exit code $LASTEXITCODE)" }
         Set-Location '$(Build.StagingDirectory)'
         $archive = '$(release_name)-release.tar'
@@ -319,8 +341,11 @@ jobs:
         $count = @(Get-ChildItem -Path release -Recurse -File).Count
         Write-Host ('  total: {0} files, {1:N1}M' -f $count, ((Get-Item $archive).Length / 1MB))
       env:
-        DAML_SDK_RELEASE_VERSION: '0.0.0'
+        DAML_SDK_RELEASE_VERSION: $(release_tag)
       displayName: 'Release - Create Artifacts'
+    - publish: $(Build.StagingDirectory)/$(release_name)-release.tar
+      artifact: $(release_name)-release
+      displayName: 'Release - Publish Artifacts'
     - powershell: |
         if ($env:KEY) { Remove-Item -Force -ErrorAction SilentlyContinue $env:KEY }
         Set-Location sdk
@@ -332,3 +357,104 @@ jobs:
     - powershell: .\ci\clean-bazel-build-folder.ps1
       displayName: 'Clean local Bazel build folder'
       condition: always()
+
+- job: split_release
+  displayName: 'Split Release (smoke)'
+  dependsOn:
+    - linux
+    - macos
+    - windows
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  workspace:
+    clean: all
+  steps:
+    - checkout: self
+      clean: true
+    - bash: |
+        set -euo pipefail
+        if [ "$(Build.Reason)" = "PullRequest" ]; then
+          release_sha=$(git rev-parse HEAD^2)
+        else
+          release_sha=$(git rev-parse HEAD)
+        fi
+        trigger_sha=$(git rev-parse HEAD)
+        echo "release_tag: $(release_tag)"
+        echo "release_sha: $release_sha"
+        echo "trigger_sha: $trigger_sha"
+        echo "##vso[task.setvariable variable=release_sha]$release_sha"
+        echo "##vso[task.setvariable variable=trigger_sha]$trigger_sha"
+      displayName: 'Release metadata'
+    - download: current
+      patterns: '**/*-release.tar'
+      displayName: 'Download Release Artifacts'
+    - bash: |
+        set -euo pipefail
+        dir="$(Build.StagingDirectory)/release-artifacts"
+        mkdir -p "$dir"
+        for archive in "$(Pipeline.Workspace)"/*-release/*-release.tar; do
+          echo "Unpacking $archive"
+          tar -xkf "$archive" -C "$dir"
+        done
+      displayName: 'Unpack Release Artifacts'
+    - bash: |
+        set -euo pipefail
+        cd "$(Build.StagingDirectory)/release-artifacts/artifactory"
+        for f in *; do
+          echo "Would sign: gpg -ab $f"
+        done
+      displayName: 'Sign Artifactory Artifacts (print only)'
+    - bash: |
+        set -euo pipefail
+        out="$(Build.StagingDirectory)/split-release"
+        mkdir -p "$out"
+        ./ci/assembly-split-release-artifacts.sh $(release_tag) "$(Build.StagingDirectory)/release-artifacts" "$out"
+        printf '{\n  "commit": "%s",\n  "version": "%s",\n  "trigger": "%s"\n}\n' \
+          "$(release_sha)" "$(release_tag)" "$(trigger_sha)" \
+          > "$out/split-release/info.json"
+        cat "$out/split-release/info.json"
+      displayName: 'Split Release Artifacts'
+    - bash: |
+        set -euo pipefail
+        cd "$(Build.StagingDirectory)/split-release/split-release"
+        bucket="gs://daml-binaries/split-releases/$(release_tag)"
+        ls -1 damlc-* | while read -r f; do
+          echo "Would copy: $f -> $bucket/$f"
+        done
+        find daml-libs/daml-script -type f | sort | while read -r f; do
+          echo "Would copy: $f -> $bucket/${f#daml-libs/}"
+        done
+      displayName: 'Upload Split Release Artifacts to GCS (print only)'
+    - bash: |
+        set -euo pipefail
+        ./ci/publish-artifactory.sh "$(Build.StagingDirectory)" $(release_tag) split
+      displayName: 'Publish Split Release Artifacts to Artifactory (print only)'
+    - bash: |
+        set -euo pipefail
+        if [[ "$(release_tag)" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          DPM_REGISTRY="europe-docker.pkg.dev/da-images/public"
+        else
+          DPM_REGISTRY="europe-docker.pkg.dev/da-images/public-unstable"
+        fi
+        ./ci/publish-oci.sh "$(Build.StagingDirectory)" $(release_tag) "$DPM_REGISTRY"
+      displayName: 'Publish Split Release Artifacts to OCI Registry (print only)'
+    - bash: |
+        set -euo pipefail
+        tag="internal-$(release_tag)"
+        echo "Would run: git tag -a $tag $(release_sha) -m \"Internal SDK release $tag\""
+        echo "Would run: git push origin $tag"
+      displayName: 'Tag Release in Git (print only)'
+    - bash: |
+        set -euo pipefail
+        sha="$(release_sha)"
+        echo "Would tell Slack (team-releases): SDK release \`$(release_tag)\` (\`${sha:0:8}\`) just pushed to Artifactory."
+      displayName: 'Notify Slack of Split Release (print only)'
+    - bash: |
+        set -euo pipefail
+        cd "$(Build.StagingDirectory)"
+        find release-artifacts split-release -type f | sort | while read -r f; do
+          printf '%6s  %s  %s\n' "$(du -h "$f" | cut -f1)" "$(sha256sum "$f" | cut -d' ' -f1)" "$f"
+        done
+        echo "  total: $(find release-artifacts split-release -type f | wc -l) files"
+      displayName: 'Split Release - File list'
