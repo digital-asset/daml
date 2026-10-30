@@ -1,4 +1,4 @@
-load("@daml//bazel_tools:haskell.bzl", "da_haskell_binary")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 
 da_haskell_binary(
     name = "update-versions",
@@ -22,4 +22,5 @@ da_haskell_binary(
         "text",
         "unordered-containers",
     ],
+    deps = ["//bazel_tools/environ_fix"],
 )
