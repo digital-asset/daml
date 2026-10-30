@@ -1,288 +1,178 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@os_info//:os_info.bzl", "is_darwin", "is_darwin_amd64", "is_linux_intel", "is_windows", "os_arch", "os_name")
-load("@daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_tool_home", "dadew_where")
-load("@io_bazel_rules_scala//scala:scala_cross_version.bzl", "default_maven_server_urls")
-load("//bazel_tools:versions.bzl", "versions")
-load("//:versions.bzl", "internal_sdk_versions")
-
-runfiles_library = """
-# Copy-pasted from the Bazel Bash runfiles library v2.
-set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
-source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
-  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
-  source "$0.runfiles/$f" 2>/dev/null || \
-  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
-  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
-  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
-# --- end runfiles.bash initialization v2 ---
-"""
-
-def _daml_assistant_sdk_impl(ctx):
-    # The Daml assistant will mark the installed SDK read-only.
-    # This breaks Bazel horribly on Windows to the point where
-    # even `bazel clean --expunge` fails because it cannot remove
-    # the installed SDK. Therefore, we do not use the assistant to
-    # install the SDK but instead simply extract the SDK to the right
-    # location and set the symlink ourselves.
-    out_dir = ctx.path("sdk").get_child("sdk").get_child(ctx.attr.version)
-
-    internal_sdk_version = internal_sdk_versions.get(ctx.attr.version, default = ctx.attr.version)
-
-    ctx.download_and_extract(
-        output = out_dir,
-        url =
-            "https://github.com/digital-asset/daml/releases/download/v{}/daml-sdk-{}-{}-{}.tar.gz".format(ctx.attr.version, internal_sdk_version, os_name, os_arch),
-        sha256 = ctx.attr.sdk_sha256[os_name],
-        stripPrefix = "sdk-{}".format(internal_sdk_version),
-    )
-    sdk_checksum = ctx.attr.sdk_sha256[os_name]
-
-    ctx.download(
-        output = "daml-types.tgz",
-        url = "https://registry.npmjs.org/@daml/types/-/types-{}.tgz".format(internal_sdk_version),
-        sha256 = getattr(ctx.attr, "daml_types_sha256"),
-    )
-
-    ctx.symlink(out_dir.get_child("daml").get_child("daml" + (".exe" if is_windows else "")), "sdk/bin/daml")
-    ctx.file(
-        "sdk/daml-config.yaml",
-        content =
-            """
-auto-install: false
-update-check: never
-""",
-    )
-
-    # Depending on all files as runfiles results in thousands of symlinks
-    # which eventually results in us running out of inodes on CI.
-    # By writing all checksums to a file and only depending on that we get
-    # only one extra runfile while still making sure that things are properly
-    # invalidated.
-    ctx.file(
-        "sdk/sdk/{version}/checksums".format(version = ctx.attr.version),
-        # We don’t really care about the order here but find is non-deterministic
-        # and having something fixed is clearly better for caching.
-        content = sdk_checksum,
-    )
-
-    ctx.template(
-        "daml.cc",
-        Label("@compatibility//bazel_tools:daml.cc.tpl"),
-        substitutions = {"{SDK_VERSION}": ctx.attr.version, "{ASSISTANT_PATH}": "sdk/bin/daml", "{DPM_HOME}": ""},
-    )
-    ctx.file(
-        "BUILD",
-        content =
-            """
-package(default_visibility = ["//visibility:public"])
-cc_binary(
-  name = "daml",
-  srcs = ["daml.cc"],
-  data = [":sdk/bin/daml", ":sdk/sdk/{version}/checksums"],
-  deps = ["@bazel_tools//tools/cpp/runfiles:runfiles"],
+load(
+    "//compatibility:versions.bzl",
+    "daml_assistant_versions",
+    "dpm_versions",
+    "internal_sdk_versions",
+    "version_sha256s",
 )
-exports_files(["daml-types.tgz"])
-""".format(version = ctx.attr.version),
+
+_WRAPPER = Label("//compatibility/bazel_tools:daml_wrapper.cc")
+
+def _host(rctx):
+    os = rctx.os.name.lower()
+    arch = rctx.os.arch.lower()
+    if arch not in ["amd64", "x86_64"]:
+        fail("Compatibility SDKs are only pinned for x86_64, this host is {}/{}.".format(os, arch))
+    if os.startswith("linux"):
+        return struct(name = "linux", dpm_os = "linux", is_windows = False)
+    if os.startswith("mac"):
+        return struct(name = "macos", dpm_os = "darwin", is_windows = False)
+    if os.startswith("windows"):
+        return struct(name = "windows", dpm_os = "windows", is_windows = True)
+    fail("Unsupported host OS for compatibility SDKs: {}".format(os))
+
+def _string_define(name, value):
+    return '{}=\\"{}\\"'.format(name, value)
+
+def _write_wrapper(rctx, assistant_path, checksums_path, dpm_home_marker = None):
+    defines = [
+        _string_define("COMPAT_ASSISTANT_PATH", assistant_path),
+        _string_define("COMPAT_JAVABASE", "$(JAVABASE)"),
+    ]
+    if dpm_home_marker:
+        defines.append(_string_define("COMPAT_DPM_HOME_MARKER", dpm_home_marker))
+    binary_name = "dpm" if dpm_home_marker else "daml"
+    rctx.symlink(_WRAPPER, "daml_wrapper.cc")
+    rctx.file("BUILD.bazel", """
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+package(default_visibility = ["//visibility:public"])
+{daml_alias}
+cc_binary(
+    name = {binary_name},
+    srcs = ["daml_wrapper.cc"],
+    data = [
+        {assistant},
+        {checksums},
+        "@rules_java//toolchains:current_java_runtime",
+    ],
+    local_defines = {defines},
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
+    deps = ["@bazel_tools//tools/cpp/runfiles"],
+)
+""".format(
+        binary_name = repr(binary_name),
+        daml_alias = "" if binary_name == "daml" else '\nalias(name = "daml", actual = ":dpm")\n',
+        assistant = repr(":" + assistant_path),
+        checksums = repr(":" + checksums_path),
+        defines = repr(defines),
+    ))
+
+def _daml_assistant_sdk_impl(rctx):
+    host = _host(rctx)
+    version = rctx.attr.version
+    internal_version = internal_sdk_versions.get(version, version)
+    out_dir = rctx.path("sdk").get_child("sdk").get_child(version)
+    rctx.download_and_extract(
+        output = out_dir,
+        url = "https://github.com/digital-asset/daml/releases/download/v{}/daml-sdk-{}-{}-x86_64.tar.gz".format(version, internal_version, host.name),
+        sha256 = rctx.attr.sdk_sha256[host.name],
+        stripPrefix = "sdk-{}".format(internal_version),
     )
-    return None
+    rctx.symlink(out_dir.get_child("daml").get_child("daml" + (".exe" if host.is_windows else "")), "sdk/bin/daml")
+    rctx.file("sdk/daml-config.yaml", "auto-install: false\nupdate-check: never\n")
+    checksums_path = "sdk/sdk/{}/checksums".format(version)
+    rctx.file(checksums_path, rctx.attr.sdk_sha256[host.name])
+    _write_wrapper(
+        rctx,
+        assistant_path = "sdk/bin/daml",
+        checksums_path = checksums_path,
+    )
 
 _daml_assistant_sdk = repository_rule(
     implementation = _daml_assistant_sdk_impl,
     attrs = {
         "version": attr.string(mandatory = True),
         "sdk_sha256": attr.string_dict(mandatory = True),
-        "daml_types_sha256": attr.string(mandatory = True),
     },
 )
 
-def daml_assistant_sdk(version, **kwargs):
-    _daml_assistant_sdk(
-        name = "daml-sdk-{}".format(version),
-        version = version,
-        **kwargs
+def _dpm_sdk_impl(rctx):
+    host = _host(rctx)
+    version = rctx.attr.version
+    out_dir = rctx.path("sdk").get_child(version)
+    extension = "zip" if host.is_windows else "tar.gz"
+    archive = "dpm-release.{}".format(extension)
+    rctx.download(
+        output = archive,
+        url = "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public-generic/files/dpm-sdk:{v}:dpm-{v}-{os}-amd64.{ext}:download?alt=media".format(
+            v = version,
+            os = host.dpm_os,
+            ext = extension,
+        ),
+        sha256 = rctx.attr.sdk_sha256[host.name],
     )
-
-def _dpm_sdk_impl(ctx):
-    out_dir = ctx.path("sdk").get_child(ctx.attr.version)
-
-    internal_sdk_version = internal_sdk_versions.get(ctx.attr.version, default = ctx.attr.version)
-
-    # arch must be amd64 or arm64. os_arch has x86_64 and aarch64
-    arch = "amd64" if is_windows or is_linux_intel or is_darwin_amd64 else "arm64"
-
-    # os_name for macos is "macos" rather than "darwin"
-    os = "darwin" if is_darwin else os_name
-
-    tar_type = "zip" if is_windows else "tar.gz"
-
-    ctx.delete(out_dir)
-
-    # Separate download and extract so that we can override the tarball name.
-    # Otherwise, the ":download" in the url makes it into the name, and windows doesn't like that.
-    ctx.download(
-        output = "dpm-release.{}".format(tar_type),
-        url =
-            "https://artifactregistry.googleapis.com/v1/projects/da-images/locations/europe/repositories/public-generic/files/dpm-sdk:{}:dpm-{}-{}-{}.{}:download?alt=media".format(ctx.attr.version, ctx.attr.version, os, arch, tar_type),
-        sha256 = ctx.attr.sdk_sha256[os_name],
-    )
-    ctx.extract(
-        archive = "dpm-release.{}".format(tar_type),
+    rctx.extract(
+        archive = archive,
         output = out_dir,
-        stripPrefix = "{}-{}".format(os, arch),
+        stripPrefix = "{}-amd64".format(host.dpm_os),
     )
-    sdk_checksum = ctx.attr.sdk_sha256[os_name]
-
-    ctx.download(
-        output = "daml-types.tgz",
-        url = "https://registry.npmjs.org/@daml/types/-/types-{}.tgz".format(internal_sdk_version),
-        sha256 = getattr(ctx.attr, "daml_types_sha256"),
-    )
-
-    # Depending on all files as runfiles results in thousands of symlinks
-    # which eventually results in us running out of inodes on CI.
-    # By writing all checksums to a file and only depending on that we get
-    # only one extra runfile while still making sure that things are properly
-    # invalidated.
-    ctx.file(
-        "sdk/{version}/checksums".format(version = ctx.attr.version),
-        # We don’t really care about the order here but find is non-deterministic
-        # and having something fixed is clearly better for caching.
-        content = sdk_checksum,
-    )
-
-    assistant_path = "sdk/{version}/bin/dpm{exe}".format(version = ctx.attr.version, exe = ".exe" if is_windows else "")
-
-    # Use dpm bootstrapping which takes the bundle and a DPM_HOME path, and sets up an install
-    # Bootstrapping gets stuck after pulling components for >8 minutes sometimes.
-    # We don't yet know why, the timeout is a bandaid solution
-    exec_result = ctx.execute([assistant_path, "bootstrap", "{}".format(out_dir)], environment = {"DPM_HOME": "{}".format(out_dir)}, quiet = False, timeout = 1800)
-    if exec_result.return_code:
-        fail("Error executing dpm bootstrap: {stdout}\n{stderr}".format(stdout = exec_result.stdout, stderr = exec_result.stderr))
-
-    ctx.template(
-        "dpm.cc",
-        Label("@compatibility//bazel_tools:daml.cc.tpl"),
-        substitutions = {
-            "{SDK_VERSION}": ctx.attr.version,
-            "{ASSISTANT_PATH}": assistant_path,
-            "{DPM_HOME}": "{}".format(out_dir),
+    rctx.delete(archive)
+    assistant_path = "sdk/{}/bin/dpm{}".format(version, ".exe" if host.is_windows else "")
+    home = rctx.path("bootstrap-home")
+    rctx.file("bootstrap-home/.keep", "")
+    result = rctx.execute(
+        [assistant_path, "bootstrap", str(out_dir)],
+        environment = {
+            "DPM_HOME": str(out_dir),
+            "HOME": str(home),
+            "USERPROFILE": str(home),
         },
+        quiet = False,
+        timeout = 1800,
     )
-    ctx.file(
-        "BUILD",
-        content =
-            """
-package(default_visibility = ["//visibility:public"])
-cc_binary(
-  name = "dpm",
-  srcs = ["dpm.cc"],
-  data = [":{assistant_path}", ":sdk/{version}/checksums"],
-  deps = ["@bazel_tools//tools/cpp/runfiles:runfiles"],
-)
-alias(
-    name = "daml",
-    actual = ":dpm",
-)
-exports_files(["daml-types.tgz"])
-""".format(version = ctx.attr.version, assistant_path = assistant_path),
+    if result.return_code:
+        fail("dpm bootstrap failed for {}:\n{}\n{}".format(version, result.stdout, result.stderr))
+    checksums_path = "sdk/{}/checksums".format(version)
+    rctx.file(checksums_path, rctx.attr.sdk_sha256[host.name])
+    _write_wrapper(
+        rctx,
+        assistant_path = assistant_path,
+        checksums_path = checksums_path,
+        dpm_home_marker = checksums_path,
     )
-    return None
 
 _dpm_sdk = repository_rule(
     implementation = _dpm_sdk_impl,
     attrs = {
         "version": attr.string(mandatory = True),
         "sdk_sha256": attr.string_dict(mandatory = True),
-        "daml_types_sha256": attr.string(mandatory = True),
     },
 )
 
-def dpm_sdk(version, **kwargs):
-    _dpm_sdk(
-        name = "daml-sdk-{}".format(version),
-        version = version,
-        **kwargs
-    )
+def _compat_sdks_hub_impl(rctx):
+    rctx.file("BUILD.bazel", "\n".join([
+        'package(default_visibility = ["//visibility:public"])',
+    ] + [
+        'alias(name = "daml-{v}", actual = "@daml-sdk-{v}//:daml")'.format(v = v)
+        for v in rctx.attr.versions
+    ]) + "\n")
 
-def _dpm_head_sdk_impl(ctx):
-    version = "0.0.0"
-    out_dir = ctx.path("sdk").get_child(version)
-
-    internal_sdk_version = internal_sdk_versions.get(version, default = version)
-
-    ctx.extract(
-        ctx.attr.release_tarball,
-        output = out_dir,
-        stripPrefix = "dpm-sdk-release-tarball",
-    )
-    sha256sum = "sha256sum"
-    if is_windows:
-        ps = ctx.which("powershell")
-        dadew = dadew_where(ctx, ps)
-        sha256sum = dadew_tool_home(dadew, "msys2") + "\\usr\\bin\\sha256sum.exe"
-
-    exec_result = ctx.execute([sha256sum, ctx.path(ctx.attr.release_tarball)])
-    if exec_result.return_code:
-        fail("Error executing sha256sum: {stdout}\n{stderr}".format(stdout = exec_result.stdout, stderr = exec_result.stderr))
-    sdk_checksum = exec_result.stdout.strip()
-
-    ctx.symlink(ctx.attr.daml_types_tarball, "daml-types.tgz")
-
-    # Depending on all files as runfiles results in thousands of symlinks
-    # which eventually results in us running out of inodes on CI.
-    # By writing all checksums to a file and only depending on that we get
-    # only one extra runfile while still making sure that things are properly
-    # invalidated.
-    ctx.file(
-        "sdk/{version}/checksums".format(version = version),
-        # We don’t really care about the order here but find is non-deterministic
-        # and having something fixed is clearly better for caching.
-        content = sdk_checksum,
-    )
-
-    assistant_path = "sdk/{version}/bin/dpm{exe}".format(version = version, exe = ".cmd" if is_windows else "")
-
-    ctx.template(
-        "dpm.cc",
-        Label("@compatibility//bazel_tools:daml.cc.tpl"),
-        substitutions = {
-            "{SDK_VERSION}": version,
-            "{ASSISTANT_PATH}": assistant_path,
-            "{DPM_HOME}": "",
-        },
-    )
-    ctx.file(
-        "BUILD",
-        content =
-            """
-package(default_visibility = ["//visibility:public"])
-cc_binary(
-  name = "dpm",
-  srcs = ["dpm.cc"],
-  data = [":{assistant_path}", ":sdk/{version}/checksums"],
-  deps = ["@bazel_tools//tools/cpp/runfiles:runfiles"],
-)
-alias(
-    name = "daml",
-    actual = ":dpm",
-)
-exports_files(["daml-types.tgz"])
-""".format(version = version, assistant_path = assistant_path),
-    )
-    return None
-
-_dpm_head_sdk = repository_rule(
-    implementation = _dpm_head_sdk_impl,
-    attrs = {
-        "release_tarball": attr.label(allow_single_file = True, mandatory = True),
-        "daml_types_tarball": attr.label(allow_single_file = True, mandatory = True),
-    },
+_compat_sdks_hub = repository_rule(
+    implementation = _compat_sdks_hub_impl,
+    attrs = {"versions": attr.string_list(mandatory = True)},
 )
 
-def dpm_head_sdk(**kwargs):
-    _dpm_head_sdk(
-        name = "daml-sdk-0.0.0",
-        **kwargs
+def _compat_sdks_impl(module_ctx):
+    for version in daml_assistant_versions:
+        _daml_assistant_sdk(
+            name = "daml-sdk-{}".format(version),
+            version = version,
+            sdk_sha256 = version_sha256s[version],
+        )
+    for version in dpm_versions:
+        _dpm_sdk(
+            name = "daml-sdk-{}".format(version),
+            version = version,
+            sdk_sha256 = version_sha256s[version],
+        )
+    _compat_sdks_hub(
+        name = "compat_sdks",
+        versions = daml_assistant_versions + dpm_versions,
     )
+    return module_ctx.extension_metadata(reproducible = True)
+
+compat_sdks = module_extension(implementation = _compat_sdks_impl)
