@@ -79,6 +79,7 @@ def sh_inline_test(
         data = data,
         testonly = testonly,
         toolchains = toolchains,
+        tags = kwargs.get("tags", []),
     )
     native.sh_test(
         name = name,

@@ -7,5 +7,4 @@ ignore_directories([
     ".canton",
     "scratch",
     "**/node_modules",
-    "compatibility",
 ])

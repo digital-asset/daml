@@ -85,6 +85,11 @@ jobs:
       displayName: 'Test'
     - bash: |
         set -euo pipefail
+        sdk/compatibility/test.sh $(bazel_flags) $(cache_flags)
+      displayName: 'Compatibility'
+      condition: and(succeeded(), eq(variables['release_name'], 'linux-x86_64'))
+    - bash: |
+        set -euo pipefail
         dir="$(Build.StagingDirectory)/release"
         archive="$(Build.StagingDirectory)/$(release_name)-release.tar"
         cd sdk
@@ -291,6 +296,11 @@ jobs:
         bazelisk shutdown
         bazelisk test //... $(bazel_flags) $(cache_flags)
       displayName: 'Test'
+    - powershell: |
+        $ErrorActionPreference = 'Stop'
+        Set-Location sdk
+        .\compatibility\test-windows.ps1 $(bazel_flags) $(cache_flags)
+      displayName: 'Compatibility'
     - powershell: |
         $ErrorActionPreference = 'Stop'
         Set-Location sdk
