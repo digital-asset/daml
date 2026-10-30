@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ide_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+workspace="$(cd "$ide_dir/../.." && pwd)"
+
+bazel="${DAML_IDE_BAZEL:-}"
+if [[ -z "$bazel" ]]; then
+  bazel="$(command -v bazelisk || command -v bazel || true)"
+fi
+if [[ -z "$bazel" && -f "$ide_dir/.bazel-path" ]]; then
+  bazel="$(cat "$ide_dir/.bazel-path")"
+fi
+if [[ -z "$bazel" ]]; then
+  echo "daml ide: neither bazelisk nor bazel is on PATH; run 'bazelisk run //:ide_setup' once from a shell" >&2
+  exit 127
+fi
+
+cd "$workspace"
+exec "$bazel" "$@"

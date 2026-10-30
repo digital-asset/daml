@@ -13,9 +13,9 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 # --- end runfiles.bash initialization v2 ---
 set -euo pipefail
 
-RUNNER="$(rlocation "$TEST_WORKSPACE/$1")"
+RUNNER="$(rlocation "$1")"
 
-DAML="$(rlocation "$TEST_WORKSPACE/$2")"
-SANDBOX="$(rlocation "$TEST_WORKSPACE/$3")"
+DAML="$(rlocation "$2")"
+SANDBOX="$(rlocation "$3")"
 
 $RUNNER --sdk $DAML --platform $SANDBOX ${@:4}

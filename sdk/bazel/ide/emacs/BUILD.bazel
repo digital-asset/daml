@@ -1,0 +1,9 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+
+py_binary(
+    name = "setup",
+    srcs = ["setup.py"],
+    data = ["//bazel/ide/hls"],
+    tags = ["manual"],
+    deps = ["//bazel/ide:ide_setup"],
+)

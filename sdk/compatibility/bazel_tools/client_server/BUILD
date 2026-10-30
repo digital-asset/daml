@@ -1,4 +1,4 @@
-load("@daml//bazel_tools:haskell.bzl", "da_haskell_binary")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 
 da_haskell_binary(
     name = "runner",
@@ -14,4 +14,5 @@ da_haskell_binary(
         "split",
     ],
     visibility = ["//visibility:public"],
+    deps = ["//bazel_tools/environ_fix"],
 )

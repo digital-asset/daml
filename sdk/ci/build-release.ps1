@@ -1,17 +1,6 @@
 Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
 
-# See https://github.com/lukesampson/scoop/issues/3859
-Set-Strictmode -Off
-.\dev-env\windows\bin\dadew.ps1 install
-Set-StrictMode -Version latest
-.\dev-env\windows\bin\dadew.ps1 sync
-.\dev-env\windows\bin\dadew.ps1 enable
-
-if (!(Test-Path .\.bazelrc.local)) {
-   Set-Content -Path .\.bazelrc.local -Value 'build --config windows'
-}
-
 $ARTIFACT_DIRS = if ("$env:BUILD_ARTIFACTSTAGINGDIRECTORY") { $env:BUILD_ARTIFACTSTAGINGDIRECTORY } else { Get-Location }
 
 if (!(Test-Path ${ARTIFACT_DIRS}/logs)) {

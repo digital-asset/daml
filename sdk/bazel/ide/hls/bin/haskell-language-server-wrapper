@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+self="${BASH_SOURCE[0]}"
+while [[ -L "$self" ]]; do
+  dir="$(cd -P "$(dirname "$self")" && pwd)"
+  self="$(readlink "$self")"
+  [[ "$self" == /* ]] || self="$dir/$self"
+done
+hls_dir="$(cd -P "$(dirname "$self")/.." && pwd)"
+workspace="$(cd -P "$hls_dir/../../.." && pwd)"
+cwd="$(pwd -P)"
+
+serves_workspace() {
+  [[ "$cwd/" == "$workspace/"* || "$workspace/" == "$cwd/"* ]]
+}
+
+other_wrapper_on_path() {
+  local rest="${PATH-}:" dir candidate
+  while [[ -n "$rest" ]]; do
+    dir="${rest%%:*}"
+    rest="${rest#*:}"
+    candidate="$dir/haskell-language-server-wrapper"
+    if [[ -n "$dir" && -f "$candidate" && -x "$candidate" && ! "$candidate" -ef "$self" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if ! serves_workspace; then
+  if other="$(other_wrapper_on_path)"; then
+    exec "$other" "$@"
+  fi
+  echo "daml ide: $cwd is outside $workspace and no other haskell-language-server-wrapper is on PATH" >&2
+  exit 127
+fi
+
+export DAML_IDE_HLS_CWD="$PWD"
+cd "$hls_dir"
+"$hls_dir/run_bazel" build //bazel/ide/hls >&2
+exec "$hls_dir/run_bazel" run //bazel/ide/hls -- "$@"

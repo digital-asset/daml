@@ -1,13 +1,13 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
-load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
-load(":util.bzl", "damlc_compile_test")
-load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_and_track_dar_hash_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
-load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION", "STAGING_LF_VERSION", "mangle_for_damlc")
+load("@os_info//:os_info.bzl", "is_darwin", "is_intel", "is_windows")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
+load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION", "STAGING_LF_VERSION", "mangle_for_damlc")
+load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_and_track_dar_hash_file")
+load(":util.bzl", "damlc_compile_test")
 
 # A REPL with all tests, used as bios for HLS
 da_haskell_repl(
@@ -40,6 +40,7 @@ da_haskell_repl(
 # Tests for the lax CLI parser + damlc CLI parser
 da_haskell_test(
     name = "damlc-cliparser",
+    timeout = "short",
     srcs = ["src/CliParser.hs"],
     hackage_deps = [
         "base",
@@ -67,6 +68,7 @@ da_haskell_test(
 # Tests for the dar reader
 da_haskell_test(
     name = "daml-lf-reader",
+    timeout = "short",
     srcs = ["src/DarReaderTest.hs"],
     hackage_deps = [
         "base",
@@ -86,10 +88,13 @@ da_haskell_test(
 da_haskell_test(
     name = "damlc-test",
     size = "large",
+    timeout = "eternal",
     srcs = ["src/DamlcTest.hs"],
     data = [
+        "//:java_rlocation_path",
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
+        "@rules_java//toolchains:current_java_runtime",
     ],
     hackage_deps = [
         "base",
@@ -104,7 +109,6 @@ da_haskell_test(
     ],
     main_function = "DamlcTest.main",
     src_strip_prefix = "tests",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-opts:daml-opts-types",
@@ -118,6 +122,7 @@ da_haskell_test(
 # Tests for damlc lint
 da_haskell_test(
     name = "damlc-lint",
+    timeout = "short",
     srcs = ["src/DamlcLint.hs"],
     data = [
         "//compiler/damlc",
@@ -134,7 +139,6 @@ da_haskell_test(
     ],
     main_function = "DamlcLint.main",
     src_strip_prefix = "tests",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc:damlc-lib",
         "//component-version/hs:component-version-lib",
@@ -183,7 +187,6 @@ da_haskell_library(
     toolchains = [
         "@rules_sh//sh/posix:make_variables",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto:daml_lf_archive_haskell_proto",
@@ -224,13 +227,15 @@ da_haskell_library(
             ":package-vetting-package-a-{}.dar".format(version),
             ":package-vetting-package-b-{}.dar".format(version),
             ":query-lf-lib",
+            "//:java_rlocation_path",
             "//compiler/damlc:ghcversion",
             "//compiler/damlc:hpp-copy",
             "//compiler/damlc/pkg-db",
             "//compiler/damlc/stable-packages",
             "//compiler/script-service/server:script_service_jar",
+            "@rules_java//toolchains:current_java_runtime",
             "//daml-script/daml:daml-script-{version}.dar".format(version = version),
-            "@jq_dev_env//:jq",
+            "//bazel_tools:jq_bin",
             ghc_pkg,
         ],
         hackage_deps = [
@@ -238,7 +243,6 @@ da_haskell_library(
         ],
         main_function = "DA.Test.DamlcIntegrationMain.main",
         src_strip_prefix = "src",
-        visibility = ["//visibility:public"],
         deps = [
             ":integration-lib",
         ],
@@ -249,6 +253,7 @@ da_haskell_library(
 # Tests for daml-doc
 da_haskell_test(
     name = "daml-doc",
+    timeout = "moderate" if is_windows else "short",
     srcs = ["src/DA/Test/DamlDoc.hs"],
     data = [
         ":daml-test-files",
@@ -267,7 +272,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.DamlDoc.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         ":integration-lib",
         "//compiler/daml-lf-ast",
@@ -303,7 +307,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.DamlDocTest.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         ":integration-lib",
         "//compiler/daml-lf-ast",
@@ -320,10 +323,13 @@ da_haskell_test(
 # Integration test for damlc doctest
 da_haskell_test(
     name = "daml-doctest-integration",
+    timeout = "moderate",
     srcs = ["src/DA/Test/DamlDocTestIntegration.hs"],
     data = [
+        "//:java_rlocation_path",
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
+        "@rules_java//toolchains:current_java_runtime",
     ],
     hackage_deps = [
         "base",
@@ -335,9 +341,9 @@ da_haskell_test(
     ],
     main_function = "DA.Test.DamlDocTestIntegration.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
     ],
 )
 
@@ -345,10 +351,10 @@ da_haskell_test(
 da_haskell_test(
     name = "shake",
     size = "large",
-    # this test takes a while and often time out -- tell that to bazel
-    timeout = "long",
+    timeout = "long" if is_windows else "moderate",
     srcs = ["src/DA/Test/ShakeIdeClient.hs"],
     data = [
+        "//:java_rlocation_path",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/script-service/server:script_service_jar",
@@ -357,6 +363,7 @@ da_haskell_test(
         # the target from DEFAULT_LF_VERSION keeps it in sync automatically when
         # the default is bumped (see also the fail-fast check in DamlcIntegration).
         "//daml-script/daml:daml-script-{}.dar".format(DEFAULT_LF_VERSION),
+        "@rules_java//toolchains:current_java_runtime",
         ghc_pkg,
     ],
     hackage_deps = [
@@ -369,7 +376,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.ShakeIdeClient.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         ":integration-lib",
         "//compiler/daml-lf-ast",
@@ -389,9 +395,11 @@ da_haskell_test(
     name = "incremental",
     srcs = ["src/DA/Test/IncrementalBuilds.hs"],
     data = [
+        "//:java_rlocation_path",
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
         "//daml-script/runner:daml-script-binary",
+        "@rules_java//toolchains:current_java_runtime",
     ],
     hackage_deps = [
         "base",
@@ -405,7 +413,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.IncrementalBuilds.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//component-version/hs:component-version-lib",
@@ -417,6 +424,7 @@ da_haskell_test(
 # Tests for incremental package-db
 da_haskell_test(
     name = "incremental-package-db",
+    timeout = "moderate" if is_windows else "short",
     srcs = ["src/DA/Test/IncrementalPackageDb.hs"],
     data = [
         "//compiler/damlc",
@@ -434,7 +442,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.IncrementalPackageDb.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//component-version/hs:component-version-lib",
@@ -653,7 +660,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.DamlcUpgrades.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-opts:daml-opts-types",
@@ -669,7 +675,9 @@ da_haskell_test(
     timeout = "long",
     srcs = ["src/DA/Test/DamlcMultiPackage.hs"],
     data = [
+        "//:java_rlocation_path",
         "//release:dpm-sdk-release-tarball",
+        "@rules_java//toolchains:current_java_runtime",
     ],
     hackage_deps = [
         "aeson",
@@ -689,7 +697,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.DamlcMultiPackage.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-project-config",
@@ -728,7 +735,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.Packaging.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
@@ -754,8 +760,9 @@ da_haskell_test(
     timeout = "long",
     srcs = ["src/DA/Test/DataDependencies.hs"],
     data = [
+        "//:java_rlocation_path",
+        "@rules_java//toolchains:current_java_runtime",
         "//compiler/damlc",
-        "@damlc_legacy",
         ":generate-simple-dalf",
         "//daml-script/daml:daml-script-2.dev.dar",
         # Feel free to update this to 0.13.55 once that is frozen.
@@ -766,7 +773,7 @@ da_haskell_test(
         # Once we release LF 2.1, we should replace this with a dar file
         # produced by the compiler corresponding to that release.
         ":old-proj-2.1.dar",
-    ],
+    ] + (["@damlc_legacy"] if is_intel else []),
     hackage_deps = [
         "base",
         "bytestring",
@@ -785,7 +792,7 @@ da_haskell_test(
     tags = [
         "cpu:3",
     ],
-    visibility = ["//visibility:public"],
+    target_compatible_with = [] if is_intel else ["@platforms//:incompatible"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
@@ -817,18 +824,18 @@ genrule(
     outs = ["FatTree{i}.daml".format(i = i) for i in range(1, 19)],
     cmd = "$(location :generate-module-tree) $(@D) 18",
     tools = [":generate-module-tree"],
-    visibility = ["//visibility:public"],
 )
 
 damlc_compile_test(
     name = "memory-module-tree",
+    timeout = "short",
     srcs = [":module-tree-test"],
     main = "FatTree18.daml",
-    visibility = ["//visibility:public"],
 )
 
 damlc_compile_test(
     name = "memory-examples",
+    timeout = "short",
     srcs = [":daml-test-files"],
     enable_scripts = True,
     heap_limit = "200M",
@@ -838,6 +845,7 @@ damlc_compile_test(
 
 damlc_compile_test(
     name = "memory-bond-trading",
+    timeout = "short",
     srcs = [":bond-trading"],
     enable_scripts = True,
     heap_limit = "200M" if is_windows else "100M",
@@ -855,6 +863,13 @@ da_haskell_binary(
     ],
     main_function = "DA.Test.GeneratePackagePatternMatch.main",
     src_strip_prefix = "src",
+    # GHC's ghc-bignum declares `extra-libraries: gmp`, so every
+    # HaskellLinkBinary emits `-lgmp`. This target only uses toolchain-library
+    # hackage_deps (base, directory, filepath) and so does not pick up `@gmp`
+    # transitively through stackage's per-package `extra_deps` wiring in
+    # MODULE.bazel. Add it directly so the hermetic sysroot can satisfy
+    # `-lgmp` at link time and propagate libgmp.so into the binary's runfiles.
+    deps = ["@gmp//:gmp_cc_lib"],
 )
 
 # This is an SH test since damlc_compile_test does not support packages so far.
@@ -920,7 +935,7 @@ sh_test(
     srcs = ["src/daml-ghc-deterministic.sh"],
     args = [
         "$(location //compiler/damlc)",
-        "$(location @com_google_protobuf//:protoc)",
+        "$(location @protobuf//:protoc)",
         "$(POSIX_DIFF)",
         "$(location //daml-script/daml:daml-script.dar)",
         sdk_version,
@@ -931,7 +946,7 @@ sh_test(
         "//compiler/damlc",
         "//compiler/damlc/pkg-db",
         "//daml-script/daml:daml-script.dar",
-        "@com_google_protobuf//:protoc",
+        "@protobuf//:protoc",
     ],
     toolchains = [
         "@rules_sh//sh/posix:make_variables",
@@ -943,16 +958,17 @@ sh_test(
 
 sh_test(
     name = "inspect-dar",
+    timeout = "short",
     srcs = ["src/inspect-dar.sh"],
     args = [
         "$(rootpath //compiler/damlc)",
-        "$(rootpath @jq_dev_env//:jq)",
+        "$(rootpath //bazel_tools:jq_bin)",
         "$(rootpath //test-common:model-tests-default.dar)",
     ],
     data = [
+        "//bazel_tools:jq_bin",
         "//compiler/damlc",
         "//test-common:model-tests-default.dar",
-        "@jq_dev_env//:jq",
     ],
     toolchains = [
         "@rules_sh//sh/posix:make_variables",
@@ -964,6 +980,7 @@ sh_test(
 
 da_haskell_test(
     name = "unstable-types",
+    timeout = "short",
     srcs = ["src/DA/Test/UnstableTypes.hs"],
     data = [
         "//compiler/damlc/pkg-db",
@@ -991,6 +1008,8 @@ da_haskell_test(
     name = "script-service",
     srcs = ["src/DA/Test/ScriptService.hs"],
     data = [
+        "//:java_rlocation_path",
+        "@rules_java//toolchains:current_java_runtime",
         "//compiler/damlc",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
@@ -1041,6 +1060,7 @@ daml_compile(
 
 sh_test(
     name = "stable-packages",
+    timeout = "short",
     srcs = ["src/stable-packages.sh"],
     args = [
         "$(location //compiler/damlc)",
@@ -1072,7 +1092,6 @@ da_haskell_binary(
     ],
     main_function = "DA.Test.GenerateSimpleDalf.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
@@ -1099,6 +1118,7 @@ generate_and_track_dar_hash_file("platform-independence")
 # Desugared daml golden tests
 da_haskell_test(
     name = "daml-desugar",
+    timeout = "moderate" if is_windows else "short",
     srcs = ["src/DA/Test/DamlDesugar.hs"],
     data = [
         ":daml-test-files",
@@ -1113,7 +1133,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.DamlDesugar.main",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc/daml-desugar:daml-desugar-testing",
         "//component-version/hs:component-version-lib",
@@ -1125,6 +1144,7 @@ da_haskell_test(
 # Daml renamer golden tests
 da_haskell_test(
     name = "daml-renamer",
+    timeout = "short",
     srcs = ["src/DA/Test/DamlRenamer.hs"],
     compiler_flags = [
         "-DPOSIX_DIFF=\"$(POSIX_DIFF)\"",
@@ -1150,7 +1170,6 @@ da_haskell_test(
     toolchains = [
         "@rules_sh//sh/posix:make_variables",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
@@ -1159,6 +1178,7 @@ da_haskell_test(
 
 da_haskell_test(
     name = "package-imports",
+    timeout = "short",
     srcs = ["src/DA/Test/PackageImports.hs"],
     data = [
         "//daml-script/test:script-test-v{}.dar".format(STAGING_LF_VERSION),
@@ -1174,7 +1194,6 @@ da_haskell_test(
     ],
     main_function = "DA.Test.PackageImports.entry",
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
@@ -1215,7 +1234,6 @@ daml_compile(
     enable_interfaces = True,
     project_name = "submit-test",
     target = "2.dev",
-    visibility = ["//visibility:public"],
 )
 
 daml_compile(
@@ -1226,7 +1244,6 @@ daml_compile(
     ],
     project_name = "try-submit-concurrently-test",
     target = "2.dev",
-    visibility = ["//visibility:public"],
 )
 
 daml_compile(
@@ -1236,7 +1253,6 @@ daml_compile(
         "//daml-script/daml:daml-script-2.dev.dar",
     ],
     target = "2.dev",
-    visibility = ["//visibility:public"],
 )
 
 filegroup(

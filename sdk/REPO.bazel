@@ -1,0 +1,10 @@
+repo(
+    default_visibility = ["//visibility:public"],
+)
+
+ignore_directories([
+    ".bazel-cache",
+    ".canton",
+    "scratch",
+    "**/node_modules",
+])
