@@ -1,8 +1,9 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools/daml_script:daml_script.bzl", "daml_script_test")
-load("//bazel_tools:versions.bzl", "version_to_name", "versions")
+load("//compatibility/bazel_tools:sdks.bzl", "COMPAT_TAGS", "daml_sdk")
+load("//compatibility/bazel_tools:versions.bzl", "version_to_name", "versions")
+load("//compatibility/bazel_tools/daml_script:daml_script.bzl", "daml_script_test")
 
 def _build_dar(
         name,
@@ -12,14 +13,13 @@ def _build_dar(
         sdk_version,
         stable_script_support = False,
         run_unknown_failure_test = False):
-    daml = "@daml-sdk-{sdk_version}//:daml".format(
-        sdk_version = sdk_version,
-    )
+    daml = daml_sdk(sdk_version)
     native.genrule(
         name = name,
         srcs = srcs + data_dependencies,
         outs = ["%s.dar" % name],
         tools = [daml],
+        tags = COMPAT_TAGS,
         cmd = """\
 set -euo pipefail
 TMP_DIR=$$(mktemp -d)
@@ -73,18 +73,17 @@ def _validate_dar(
         name,
         dar_name,
         sdk_version):
-    daml = "@daml-sdk-{sdk_version}//:daml".format(
-        sdk_version = sdk_version,
-    )
+    daml = daml_sdk(sdk_version)
     native.sh_test(
         name = name,
-        srcs = ["//bazel_tools/data_dependencies:validate_dar.sh"],
+        srcs = ["//compatibility/bazel_tools/data_dependencies:validate_dar.sh"],
         args = [
-            "$(rootpath %s)" % daml,
-            "$(rootpath %s)" % dar_name,
+            "$(rlocationpath %s)" % daml,
+            "$(rlocationpath %s)" % dar_name,
         ],
         data = [daml, dar_name],
         deps = ["@bazel_tools//tools/bash/runfiles"],
+        tags = COMPAT_TAGS,
     )
 
 def data_dependencies_coins(sdk_version):
@@ -95,7 +94,7 @@ def data_dependencies_coins(sdk_version):
             sdk_version = sdk_version,
         ),
         package_name = "data-dependencies-coin1",
-        srcs = ["//bazel_tools/data_dependencies:example/CoinV1.daml"],
+        srcs = ["//compatibility/bazel_tools/data_dependencies:example/CoinV1.daml"],
         data_dependencies = [],
         sdk_version = sdk_version,
     )
@@ -104,7 +103,7 @@ def data_dependencies_coins(sdk_version):
             sdk_version = sdk_version,
         ),
         package_name = "data-dependencies-coin2",
-        srcs = ["//bazel_tools/data_dependencies:example/CoinV2.daml"],
+        srcs = ["//compatibility/bazel_tools/data_dependencies:example/CoinV2.daml"],
         data_dependencies = [],
         sdk_version = sdk_version,
     )
@@ -122,7 +121,7 @@ def data_dependencies_upgrade_test(old_sdk_version, new_sdk_version):
     _build_dar(
         name = dar_name,
         package_name = "data-dependencies-upgrade",
-        srcs = ["//bazel_tools/data_dependencies:example/UpgradeFromCoinV1.daml"],
+        srcs = ["//compatibility/bazel_tools/data_dependencies:example/UpgradeFromCoinV1.daml"],
         data_dependencies = [
             "data-dependencies-coin1-{sdk_version}".format(
                 sdk_version = old_sdk_version,
@@ -160,9 +159,9 @@ def data_dependencies_daml_script_test(old_sdk_version, run_unknown_failure_test
     _build_dar(
         name = name,
         package_name = "data-dependencies-script",
-        srcs = ["//bazel_tools/data_dependencies:daml_script_test/ScriptExampleWrapper.daml"],
+        srcs = ["//compatibility/bazel_tools/data_dependencies:daml_script_test/ScriptExampleWrapper.daml"],
         data_dependencies = [
-            "//:script-example-dar-{old_sdk_version}{suffix}".format(
+            "//compatibility:script-example-dar-{old_sdk_version}{suffix}".format(
                 old_sdk_version = version_to_name(old_sdk_version),
                 suffix = "" if not run_unknown_failure_test else "-with-script-override",
             ),

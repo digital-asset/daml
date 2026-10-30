@@ -1,13 +1,9 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load(
-    "@daml//bazel_tools/client_server:client_server_test.bzl",
-    "client_server_test",
-)
-load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:versions.bzl", "version_to_name", "versions")
-load("//:versions.bzl", "latest_stable_version")
+load("//compatibility:versions.bzl", "latest_stable_version")
+load("//compatibility/bazel_tools:sdks.bzl", "COMPAT_TAGS", "daml_sdk")
+load("//compatibility/bazel_tools:versions.bzl", "version_to_name", "versions")
 
 def in_range(version, range):
     start = range.get("start")
@@ -38,17 +34,18 @@ def daml_ledger_test(
         sandbox,
         sandbox_args = [],
         data = [],
+        tags = [],
         **kwargs):
     # We wrap it in an SH test to pass different arguments.
     native.sh_test(
         name = name,
-        srcs = ["//bazel_tools:daml_ledger_test.sh"],
+        srcs = ["//compatibility/bazel_tools:daml_ledger_test.sh"],
         args = [
-            "$(rootpath //bazel_tools/daml_ledger:runner)",
+            "$(rlocationpath //compatibility/bazel_tools/daml_ledger:runner)",
             # "--sdk",
-            "$(rootpath %s)" % daml,
+            "$(rlocationpath %s)" % daml,
             # "--platform",
-            "$(rootpath %s)" % sandbox,
+            "$(rlocationpath %s)" % sandbox,
             "--sdk-version",
             sdk_version,
             "--platform-version",
@@ -56,11 +53,12 @@ def daml_ledger_test(
         ] + _concat([["--sandbox-arg", arg] for arg in sandbox_args]),
         deps = ["@bazel_tools//tools/bash/runfiles"],
         data = data + depset(direct = [
-            "//bazel_tools/daml_ledger:runner",
+            "//compatibility/bazel_tools/daml_ledger:runner",
             # Deduplicate if daml and sandbox come from the same release.
             daml,
             sandbox,
         ]).to_list(),
+        tags = COMPAT_TAGS + tags,
         **kwargs
     )
 
@@ -81,19 +79,11 @@ def daml_lf_compatible(sdk_version, platform_version):
 
 def sdk_platform_test(sdk_version, platform_version):
     # SDK components
-    daml_assistant = "@daml-sdk-{sdk_version}//:daml".format(
-        sdk_version = sdk_version,
-    )
+    daml_assistant = daml_sdk(sdk_version)
 
     # Platform components
-    canton_sandbox = "@daml-sdk-{platform_version}//:daml".format(
-        platform_version = platform_version,
-    )
+    canton_sandbox = daml_sdk(platform_version)
     canton_sandbox_args = ["sandbox", "--canton-port-file", "__PORTFILE__"]
-
-    json_api = "@daml-sdk-{platform_version}//:daml".format(
-        platform_version = platform_version,
-    )
 
     # daml-ledger test-cases
     name = "daml-ledger-{sdk_version}-platform-{platform_version}".format(
@@ -112,4 +102,21 @@ def sdk_platform_test(sdk_version, platform_version):
         # We see timeouts here fairly regularly so we
         # increase the number of CPUs.
         tags = ["cpu:2"] + extra_tags(sdk_version, platform_version),
+    )
+
+def compatibility_test_suites():
+    tests = [
+        rule
+        for rule in native.existing_rules().values()
+        if rule["kind"].endswith("_test") and "compatibility" in rule["tags"]
+    ]
+    native.test_suite(
+        name = "compatibility",
+        tags = ["manual"],
+        tests = [":" + test["name"] for test in tests],
+    )
+    native.test_suite(
+        name = "quick",
+        tags = ["manual"],
+        tests = [":" + test["name"] for test in tests if "head-quick" in test["tags"]],
     )
