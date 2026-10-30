@@ -13,10 +13,4 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 # --- end runfiles.bash initialization v2 ---
 set -euo pipefail
 
-canonicalize_rlocation() {
-    # Bazel will add a . at the beginning of locations in the root package
-    # which breaks rlocation.
-    rlocation $(realpath -L -s -m --relative-to=$PWD $TEST_WORKSPACE/$1)
-}
-
-$(canonicalize_rlocation $1) damlc validate-dar $(canonicalize_rlocation $2)
+"$(rlocation "$1")" damlc validate-dar "$(rlocation "$2")"
