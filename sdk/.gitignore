@@ -29,9 +29,6 @@ target
 /bazel-*
 !/bazel-haskell-deps.bzl
 !/bazel-java-deps.bzl
-/compatibility/bazel-*
-!/compatibility/bazel-haskell-deps.bzl
-/compatibility/head_sdk/
 .bazelrc.local
 .bazelproject
 /build-profile.json
