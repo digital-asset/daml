@@ -185,7 +185,6 @@ exports_files([
 ])
 
 _BUILDIFIER_EXCLUDE = [
-    "./compatibility/*",  # nested workspace (own WORKSPACE) — not ours to format
     "./.bazelbsp/*",  # untracked local IDE (BSP) tooling
 ]
 

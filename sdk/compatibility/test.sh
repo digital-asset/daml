@@ -2,81 +2,30 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+set -euo pipefail
 
-# Build the release artifacts required for running the compatibility
-# tests against HEAD. At the moment this includes the SDK release tarball.
+cd "$(dirname "$0")/.."
 
-set -eou pipefail
+if command -v lsof >/dev/null; then
+  for pid in $(lsof -ti tcp:6865 || true); do
+    kill "$pid"
+  done
+fi
 
-cd "$(dirname "$0")"
+test_suite=//compatibility
+if [ "${1:-}" = "--quick" ]; then
+  test_suite=//compatibility:quick
+  shift
+fi
 
-eval "$(cd ..; ./dev-env/bin/dade-assist)"
-
-# Git, symlinks and windows do not play well together
-# so we have to copy over the Bazel config. We just do
-# it unconditionally since it should be cheap enough.
-cp ../.bazelrc .bazelrc
-
-# Occasionally we end up with a stale sandbox process for a hardcoded
-# port number. Not quite sure how we end up with a stale process
-# but it happens sufficiently rarely that just killing it here is
-# a cheaper solution than having to reset the node.
-# Note that lsof returns a non-zero exit code if there is no match.
-## Even more rarely we end up with 2 pids returned by lsof, so we account for
-## that with a for loop.
-for pid in $(lsof -ti tcp:6865); do
-    kill $pid
+for sdk_target in $(bazelisk query 'kind(alias, @compat_sdks//:all)'); do
+  bazelisk build "$sdk_target" "$@"
 done
-
-# Set up a shared PostgreSQL instance. This is the same code as in //:build.sh.
-export POSTGRESQL_ROOT_DIR="${TMPDIR:-/tmp}/daml/postgresql"
-export POSTGRESQL_DATA_DIR="${POSTGRESQL_ROOT_DIR}/data"
-export POSTGRESQL_LOG_FILE="${POSTGRESQL_ROOT_DIR}/postgresql.log"
-export POSTGRESQL_HOST='localhost'
-export POSTGRESQL_PORT=54321
-export POSTGRESQL_USERNAME='test'
-function start_postgresql() {
-  mkdir -p "$POSTGRESQL_DATA_DIR"
-  bazel run -- @postgresql_dev_env//:initdb --auth=trust --encoding=UNICODE --locale=en_US.UTF-8 --username="$POSTGRESQL_USERNAME" "$POSTGRESQL_DATA_DIR"
-  eval "echo \"$(cat ../ci/postgresql.conf)\"" > "$POSTGRESQL_DATA_DIR/postgresql.conf"
-  bazel run -- @postgresql_dev_env//:pg_ctl -w --pgdata="$POSTGRESQL_DATA_DIR" --log="$POSTGRESQL_LOG_FILE" start || {
-    if [[ -f "$POSTGRESQL_LOG_FILE" ]]; then
-      echo >&2 'PostgreSQL logs:'
-      cat >&2 "$POSTGRESQL_LOG_FILE"
-    fi
-    return 1
-  }
-}
-function stop_postgresql() {
-  if [[ -e "$POSTGRESQL_DATA_DIR" ]]; then
-    bazel run -- @postgresql_dev_env//:pg_ctl -w --pgdata="$POSTGRESQL_DATA_DIR" --mode=immediate stop || :
-    rm -rf "$POSTGRESQL_ROOT_DIR"
-  fi
-}
-trap stop_postgresql EXIT
-stop_postgresql # in case it's running from a previous build
-start_postgresql
-
-# First separately build the sdks, since they take a while, and system resources are eaten up by other tasks causing timeouts
-sdk_targets=$(bazel query //external:all-targets 2>/dev/null | grep -o "daml-sdk-.*" | sed 's=.*=@&//:daml=') \
-  || { echo "Could not find any daml-sdk-* repositories to prebuild" >&2; exit 1; }
-# Run as separate calls to bazel to give the machine a fighting chance of hitting the deadline
-for target in $sdk_targets; do
-    bazel build "$target"
-done
-
-bazel build //...
 
 tag_filter=""
 if [[ "$(uname)" == "Darwin" ]]; then
-  tag_filter="${tag_filter}-dont-run-on-darwin,"
-fi
-if [ "${1:-}" = "--quick" ]; then
-  tag_filter="${tag_filter}+head-quick,"
+  tag_filter="-dont-run-on-darwin"
 fi
 
-bazel test //... \
-  --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
-  --test_env "POSTGRESQL_PORT=${POSTGRESQL_PORT}" \
-  --test_env "POSTGRESQL_USERNAME=${POSTGRESQL_USERNAME}" \
-  --test_tag_filters "${tag_filter%,}"
+bazelisk build "$test_suite" "$@"
+bazelisk test "$test_suite" --test_tag_filters "$tag_filter" "$@"
