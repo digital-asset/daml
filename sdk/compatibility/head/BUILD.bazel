@@ -1,0 +1,31 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@os_info//:os_info.bzl", "is_windows")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("//compatibility/bazel_tools:sdks.bzl", "COMPAT_TAGS")
+load("//compatibility/bazel_tools:untar.bzl", "untar")
+
+untar(
+    name = "dpm-sdk",
+    src = "//release:dpm-sdk-release-tarball",
+    strip_components = 1,
+    tags = COMPAT_TAGS,
+)
+
+cc_binary(
+    name = "dpm",
+    srcs = ["//compatibility/bazel_tools:daml_wrapper.cc"],
+    data = [
+        ":dpm-sdk",
+        "@rules_java//toolchains:current_java_runtime",
+    ],
+    local_defines = [
+        'COMPAT_ASSISTANT_PATH=\\"compatibility/head/dpm-sdk/bin/{}\\"'.format("dpm.cmd" if is_windows else "dpm"),
+        'COMPAT_JAVABASE=\\"$(JAVABASE)\\"',
+    ],
+    tags = COMPAT_TAGS,
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
+    visibility = ["//compatibility:__subpackages__"],
+    deps = ["@bazel_tools//tools/cpp/runfiles"],
+)

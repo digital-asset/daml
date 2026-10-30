@@ -1,65 +1,44 @@
-Set-StrictMode -Version latest
-$ErrorActionPreference = 'Stop'
-# Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# Build the release artifacts required for running the compatibility
-# tests against HEAD. At the moment this includes the SDK release tarball.
-$test_args = ""
-if (($args.length -ge 1) -and ($args[0] -eq "--quick")) {
-  $test_args = "--test_tag_filters=+head-quick"
-}
-write-output $test_args
+Set-StrictMode -Version latest
+$ErrorActionPreference = 'Stop'
 
-# For reasons I do not understand, it seems to be important
-# to sync here even though we sync in the previous step already.
-.\dev-env\windows\bin\dadew.ps1 sync
-.\dev-env\windows\bin\dadew.ps1 enable
+Set-Location (Join-Path $PSScriptRoot '..')
 
-
-if (Test-Path -Path $env:appdata\stack\pantry\hackage\hackage-security-lock) {
-    Write-Output ">> Nuking stack directory"
-    Remove-Item -ErrorAction Continue -Force -Recurse -Path $env:appdata\stack
+$test_suite = '//compatibility'
+$bazel_args = @($args)
+if (($bazel_args.length -ge 1) -and ($bazel_args[0] -eq '--quick')) {
+  $test_suite = '//compatibility:quick'
+  $bazel_args = @($bazel_args | Select-Object -Skip 1)
 }
 
-# This is currently shared between various powershell scripts.
-# We should probably factor this out.
-function bazel() {
-    Write-Output ">> bazel $args"
+function bazelisk() {
+    Write-Output ">> bazelisk $args"
     $global:lastexitcode = 0
     $backupErrorActionPreference = $script:ErrorActionPreference
-    $script:ErrorActionPreference = "Continue"
-    & bazel.exe @args 2>&1 | %{ "$_" }
+    $script:ErrorActionPreference = 'Continue'
+    & bazelisk.exe @args 2>&1 | %{ "$_" }
     $script:ErrorActionPreference = $backupErrorActionPreference
-    if ($global:lastexitcode -ne 0 -And $args[0] -ne "shutdown") {
-        Write-Output "<< bazel $args (failed, exit code: $global:lastexitcode)"
+    if ($global:lastexitcode -ne 0 -And $args[0] -ne 'shutdown') {
+        Write-Output "<< bazelisk $args (failed, exit code: $global:lastexitcode)"
         throw ("Bazel returned non-zero exit code: $global:lastexitcode")
     }
-    Write-Output "<< bazel $args (ok)"
+    Write-Output "<< bazelisk $args (ok)"
 }
 
-cd compatibility
-# Symlinks don’t work on Windows.
-cp ../.bazelrc .bazelrc
-
-bazel shutdown
-
-# First separately build the sdks, since they take a while, and system resources are eaten up by other tasks causing timeouts
-# ErrorActionPreference is relaxed because redirecting a native command's stderr otherwise turns it into a terminating error.
 $backupErrorActionPreference = $ErrorActionPreference
-$ErrorActionPreference = "Continue"
-$sdk_targets = & bazel.exe query //external:all-targets 2>$null |
-  Select-String -Pattern "daml-sdk-\S+" |
-  %{ "@$($_.Matches[0].Value)//:daml" }
+$ErrorActionPreference = 'Continue'
+$sdk_targets = @(& bazelisk.exe query 'kind(alias, @compat_sdks//:all)' 2>$null | Where-Object { $_ })
 $ErrorActionPreference = $backupErrorActionPreference
-if (-not $sdk_targets) { throw "Could not find any daml-sdk-* repositories to prebuild" }
-# Run as separate calls to bazel to give the machine a fighting chance of hitting the deadline
+if (-not $sdk_targets) { throw 'Could not find any @compat_sdks targets to prebuild' }
+
 foreach ($target in $sdk_targets) {
-    bazel build $target
-    bazel shutdown
+    bazelisk build $target @bazel_args
+    bazelisk shutdown
 }
 
-bazel build //...
-bazel shutdown
+bazelisk build $test_suite @bazel_args
+bazelisk shutdown
 
-bazel test //... $test_args
+bazelisk test $test_suite @bazel_args

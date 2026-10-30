@@ -1,29 +1,27 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load(
-    "@daml//bazel_tools/client_server:client_server_test.bzl",
-    "client_server_test",
-)
-load("//bazel_tools:versions.bzl", "version_to_name", "versions")
-load("//bazel_tools:testing.bzl", "extra_tags")
+load("//bazel_tools/client_server:client_server_test.bzl", "client_server_test")
+load("//compatibility/bazel_tools:sdks.bzl", "COMPAT_TAGS", "daml_sdk")
+load("//compatibility/bazel_tools:testing.bzl", "extra_tags")
+load("//compatibility/bazel_tools:versions.bzl", "version_to_name")
 
 def daml_script_example_dar(sdk_version, override_daml_script = None):
-    daml = "@daml-sdk-{sdk_version}//:daml".format(
-        sdk_version = sdk_version,
-    )
+    daml = daml_sdk(sdk_version)
     suffix = "" if override_daml_script == None else "-with-script-override"
     native.genrule(
         name = "script-example-dar-{sdk_version}{suffix}".format(
             sdk_version = version_to_name(sdk_version),
             suffix = suffix,
         ),
-        srcs = ["//bazel_tools/daml_script:example/src/ScriptExample.daml"] + ([] if override_daml_script == None else [override_daml_script]),
+        srcs = ["//compatibility/bazel_tools/daml_script:example/src/ScriptExample.daml"] + ([] if override_daml_script == None else [override_daml_script]),
         outs = ["script-example-{sdk_version}{suffix}.dar".format(
             sdk_version = version_to_name(sdk_version),
             suffix = suffix,
         )],
-        tools = [daml, "@tar_dev_env//:tar"],
+        tools = [daml, "@bsd_tar_toolchains//:resolved_toolchain"],
+        toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+        tags = COMPAT_TAGS,
         cmd = """\
 set -euo pipefail
 TMP_DIR=$$(mktemp -d)
@@ -32,7 +30,7 @@ cleanup() {{ rm -rf $$TMP_DIR; }}
 trap cleanup EXIT
 {extract_script}
 mkdir -p $$TMP_DIR/src
-cp -L $(location //bazel_tools/daml_script:example/src/ScriptExample.daml) $$TMP_DIR/src/
+cp -L $(location //compatibility/bazel_tools/daml_script:example/src/ScriptExample.daml) $$TMP_DIR/src/
 cat <<EOF >$$TMP_DIR/daml.yaml
 {component_spec}
 name: script-example
@@ -54,7 +52,7 @@ DAML_CACHE=$$DAML_CACHE $$PREV_PWD/$(location {daml}) build -o $$PREV_PWD/$(OUTS
 """.format(
             daml = daml,
             extract_script =
-                "" if override_daml_script == None else "mkdir -p $$TMP_DIR/script-component-extracted && $(location @tar_dev_env//:tar) -xf $(location {script}) -C $$TMP_DIR/script-component-extracted".format(script = override_daml_script),
+                "" if override_daml_script == None else "mkdir -p $$TMP_DIR/script-component-extracted && $(BSDTAR_BIN) -xf $(location {script}) -C $$TMP_DIR/script-component-extracted".format(script = override_daml_script),
             component_spec =
                 "sdk-version: {sdk_version}".format(sdk_version = sdk_version) if override_daml_script == None else """\
 components:
@@ -71,9 +69,7 @@ def daml_script_test(
         runner_version,
         compiled_dar,
         script_name):
-    daml_runner = "@daml-sdk-{version}//:daml".format(
-        version = runner_version,
-    )
+    daml_runner = daml_sdk(runner_version)
 
     server = daml_runner
     server_args = ["sandbox", "--debug", "--canton-port-file", "_port_file"]
@@ -87,17 +83,7 @@ def daml_script_test(
 cat >$(OUTS) <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-canonicalize_rlocation() {{
-  # Note (MK): This is a fun one: Let's say $$TEST_WORKSPACE is "compatibility"
-  # and the argument points to a target from an external workspace, e.g.,
-  # @daml-sdk-0.0.0//:daml. Then the short path will point to
-  # ../daml-sdk-0.0.0/daml. Putting things together we end up with
-  # compatibility/../daml-sdk-0.0.0/daml. On Linux and MacOS this works
-  # just fine. However, on windows we need to normalize the path
-  # or rlocation will fail to find the path in the manifest file.
-  rlocation $$(realpath -L -s -m --relative-to=$$PWD $$TEST_WORKSPACE/$$1)
-}}
-runner=$$(canonicalize_rlocation $(rootpath {runner}))
+runner=$$(rlocation $(rlocationpath {runner}))
 # Cleanup the trigger runner process but maintain the script runner exit code.
 trap 'status=$$?; kill -TERM $$PID; wait $$PID; exit $$status' INT TERM
 
@@ -115,7 +101,7 @@ DAML_SDK_VERSION={runner_version} $$runner script \\
   --ledger-host localhost \\
   --ledger-port 6865 \\
   --wall-clock-time \\
-  --dar $$(canonicalize_rlocation $(rootpath {dar})) \\
+  --dar $$(rlocation $(rlocationpath {dar})) \\
   --script-name {script_name}
 EOF
 chmod +x $(OUTS)
@@ -129,6 +115,7 @@ chmod +x $(OUTS)
             compiled_dar,
             daml_runner,
         ],
+        tags = COMPAT_TAGS,
     )
     native.sh_binary(
         name = "{}-client".format(name),
@@ -137,6 +124,7 @@ chmod +x $(OUTS)
             compiled_dar,
             daml_runner,
         ],
+        tags = COMPAT_TAGS,
     )
 
     client_server_test(
@@ -147,13 +135,13 @@ chmod +x $(OUTS)
         data = [
             compiled_dar,
         ],
-        runner = "//bazel_tools/client_server:runner",
+        runner = "//compatibility/bazel_tools/client_server:runner",
         runner_args = ["6865"],
         server = server,
         server_args = server_args,
         server_files = server_files,
         server_files_prefix = server_files_prefix,
-        tags = extra_tags(compiler_version, runner_version) + ["exclusive"],
+        tags = COMPAT_TAGS + extra_tags(compiler_version, runner_version) + ["exclusive"],
     )
 
 def daml_script_example_test(compiler_version, runner_version):
@@ -164,7 +152,7 @@ def daml_script_example_test(compiler_version, runner_version):
         ),
         compiler_version = compiler_version,
         runner_version = runner_version,
-        compiled_dar = "//:script-example-dar-{version}".format(
+        compiled_dar = "//compatibility:script-example-dar-{version}".format(
             version = version_to_name(compiler_version),
         ),
         script_name = "ScriptExample:main",

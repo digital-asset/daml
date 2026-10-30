@@ -4,11 +4,6 @@
 
 set -euo pipefail
 
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
-# Note: not using Bazel run so we actually have access to local files to run
-# `git tag`
-bazel run --run_under "cd $PWD &&" //versions:update-versions -- -o $PWD/versions.bzl
-
-# We refer to latest_stable_version so this might need changing.
-REPIN=1 bazel run @unpinned_maven//:pin
+bazelisk run --run_under "cd $PWD &&" //compatibility/versions:update-versions -- -o "$PWD/compatibility/versions.bzl"
