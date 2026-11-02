@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 """Provides a hermetic patchelf binary for Linux builds.
 
 The upstream BCR `patchelf` module builds a host-executed `cc_binary`.

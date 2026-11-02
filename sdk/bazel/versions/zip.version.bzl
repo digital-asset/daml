@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # -- zip (Haskell package) --
 # http://hackage.haskell.org/package/zip
 ZIP_VERSION = "1.7.1"

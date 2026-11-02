@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # -- protoc (prebuilt binary) --
 # https://github.com/protocolbuffers/protobuf/releases/tag/v25.5
 # Must stay aligned with Maven's com.google.protobuf:protobuf-java:3.25.5
