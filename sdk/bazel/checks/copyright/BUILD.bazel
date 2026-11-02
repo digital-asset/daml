@@ -1,0 +1,28 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@host_git//:git.bzl", "GIT_PATH")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+py_binary(
+    name = "copyright",
+    srcs = ["copyright_headers.py"],
+    env = {"GIT": GIT_PATH},
+    main = "copyright_headers.py",
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_test(
+    name = "copyright_test",
+    srcs = ["copyright_headers.py"],
+    args = ["check"],
+    data = ["//:MODULE.bazel"],
+    env = {"GIT": GIT_PATH},
+    main = "copyright_headers.py",
+    tags = [
+        "external",
+        "local",
+        "manual",
+    ],
+    deps = ["@rules_python//python/runfiles"],
+)
