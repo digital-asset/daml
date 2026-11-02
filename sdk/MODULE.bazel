@@ -115,6 +115,9 @@ use_repo(bazel_lib_toolchains_ext, "bsd_tar_toolchains")
 jq_toolchains_ext = use_extension("@jq.bzl//jq:extensions.bzl", "toolchains")
 use_repo(jq_toolchains_ext, "jq_toolchains")
 
+aspect_bazel_lib_toolchains_ext = use_extension("@aspect_bazel_lib//lib:extensions.bzl", "toolchains")
+use_repo(aspect_bazel_lib_toolchains_ext, "yq")
+
 llvm_toolchain_ext = use_extension("@llvm//extensions:toolchain.bzl", "toolchain")
 llvm_toolchain_ext.exec(
     arch = "x86_64",
