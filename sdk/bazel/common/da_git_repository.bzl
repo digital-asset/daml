@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # Custom `git_repository`-style rule used in this repo.
 #
 # Why not the stock `@bazel_tools//tools/build_defs/repo:git.bzl`:
