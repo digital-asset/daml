@@ -958,8 +958,9 @@ convertSimpleRecordDef env msi tycon = do
         typeDef = DDataType $
             DefDataType (convNameLoc tycon) tconName serializable tyVars (DataRecord fields)
         workerDef = defNewtypeWorker env tycon tconName con tyVars fields
+        newTypeTag = DValue $ mkMetadataStub (ExprValName $ "$newtype" <> getOccText tycon) (LF.TBuiltin LF.BTUnit)
 
-    pure $ typeDef : [workerDef | flavour == NewtypeFlavour]
+    pure $ typeDef : if flavour == NewtypeFlavour then [workerDef, newTypeTag] else []
 
 convertTypeSynonym :: Env -> TyCon -> ConvertM [Definition]
 convertTypeSynonym env tycon
