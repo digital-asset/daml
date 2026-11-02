@@ -9,6 +9,7 @@ import Control.Monad.Extra
 import Control.Exception.Safe
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging (BuildLfPackageGraphArgs' (..), BuildLfPackageGraphMetaArgs (..), buildLfPackageGraph')
+import DA.Daml.Compiler.Recipe (recipeEntryPath)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Reader (readDalfManifest, readDalfs, packageName, Dalfs(..), DalfManifest(DalfManifest), mainDalfPath, dalfPaths)
 import qualified DA.Daml.LF.Proto3.Archive as LFArchive
@@ -1015,6 +1016,74 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "  where (x, y) = bar"
             ]
           withCurrentDirectory (projDir </> "main") $ callProcessSilent damlc ["build", "-o", "main.dar"]
+
+    , testCaseSteps "Embedded build recipe classifies dependencies by the daml.yaml field they came from" $ \step -> withTempDir $ \projDir -> do
+          step "Building a dependency"
+          createDirectoryIfMissing True (projDir </> "dep")
+          writeFileUTF8 (projDir </> "dep" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> componentVersionString
+            , "name: dep"
+            , "version: 1.0.0"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          writeFileUTF8 (projDir </> "dep" </> "Dep.daml") $ unlines
+            [ "module Dep where"
+            , "dep : ()"
+            , "dep = ()"
+            ]
+          withCurrentDirectory (projDir </> "dep") $ callProcessSilent damlc ["build", "-o", "dep.dar"]
+
+          step "Building a data-dependency"
+          createDirectoryIfMissing True (projDir </> "datadep")
+          writeFileUTF8 (projDir </> "datadep" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> componentVersionString
+            , "name: datadep"
+            , "version: 1.0.0"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          writeFileUTF8 (projDir </> "datadep" </> "DataDep.daml") $ unlines
+            [ "module DataDep where"
+            , "dataDep : ()"
+            , "dataDep = ()"
+            ]
+          withCurrentDirectory (projDir </> "datadep") $ callProcessSilent damlc ["build", "-o", "datadep.dar"]
+
+          step "Building main, depending on one via dependencies: and the other via data-dependencies:"
+          createDirectoryIfMissing True (projDir </> "main")
+          writeFileUTF8 (projDir </> "main" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> componentVersionString
+            , "name: main"
+            , "version: 1.0.0"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "dep" </> "dep.dar") <> "]"
+            , "data-dependencies: [" <> show (projDir </> "datadep" </> "datadep.dar") <> "]"
+            ]
+          writeFileUTF8 (projDir </> "main" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "import Dep ()"
+            , "import DataDep ()"
+            ]
+          withCurrentDirectory (projDir </> "main") $ callProcessSilent damlc ["build", "-o", "main.dar"]
+
+          step "Checking the embedded recipe"
+          let dar = projDir </> "main" </> "main.dar"
+          assertFileExists dar
+          archive <- Zip.toArchive <$> BSL.readFile dar
+          Just entry <- pure $ Zip.findEntryByPath recipeEntryPath archive
+          let recipeText = Text.pack (BSL.Char8.unpack (Zip.fromEntry entry))
+
+          Right Dalfs{..} <- pure (readDalfs archive)
+          (pkgId, _pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
+
+          assertInfixOf "\"schema\":\"daml-build-recipe/v1\"" (Text.unpack recipeText)
+          assertInfixOf ("\"package-id\":\"" <> Text.unpack (LF.unPackageId pkgId) <> "\"") (Text.unpack recipeText)
+          assertInfixOf ("\"damlc-version\":\"" <> componentVersionString <> "\"") (Text.unpack recipeText)
+          assertEqual "exactly one dependency came from dependencies:" 1
+              (Text.count (Text.pack "\"field\":\"dependencies\"") recipeText)
+          assertEqual "exactly one dependency came from data-dependencies:" 1
+              (Text.count (Text.pack "\"field\":\"data-dependencies\"") recipeText)
 
     , testCaseSteps "dependency with data-dependency fail" $ \step -> withTempDir $ \projDir -> do
           -- This is identical to the two test cases above except for the fact that

@@ -12,6 +12,8 @@ module DA.Daml.Compiler.Recipe
     , buildRecipe
     , encodeRecipe
     , recipeEntryPath
+    , sdkPackageName -- exposed for testing
+    , resolveDependencyField -- exposed for testing
     ) where
 
 import Control.Monad (forM)
