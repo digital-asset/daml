@@ -4,6 +4,7 @@
 import subprocess
 import os
 import sys
+from dataclasses import dataclass
 
 from python.runfiles import runfiles
 
@@ -47,9 +48,25 @@ filetypes = \
 
 tool_generated_basenames = { 'pnpm-lock.yaml' }
 
-update_command = "bazel run //bazel/checks/copyright -- update"
+update_command = "bazelisk run //bazel/checks/copyright -- update"
 
 git = os.environ.get("GIT", "git")
+
+section_titles = {
+  'missing'   : "Missing header",
+  'outdated'  : "Out-of-date header",
+  'malformed' : "Malformed header",
+}
+
+@dataclass
+class HeaderProblem:
+  filename: str
+  line: int
+  kind: str
+  found: str = ""
+
+def extension(filename):
+  return os.path.splitext(filename)[1][1:]
 
 def workspace_directory():
   if "BUILD_WORKSPACE_DIRECTORY" in os.environ:
@@ -73,15 +90,13 @@ def list_files(dir):
                 if not any(map(lambda x: f.startswith(x), ignores))  ]
 
   return [ f for f in unignored
-           if os.path.isfile(f)
+           if extension(f) in filetypes
+           and os.path.isfile(f)
            and not os.path.islink(f)
            and os.path.basename(f) not in tool_generated_basenames ]
 
 def process_file(filename, check_only):
-  (_, ext) = os.path.splitext(filename)
-  ext = ext[1:]
-  if ext not in filetypes:
-    return True
+  ext = extension(filename)
 
   start_mark = filetypes[ext]['start'] + "\n"
   line_mark = filetypes[ext]['line']
@@ -109,14 +124,14 @@ def process_file(filename, check_only):
   index=0
   before_header=[]
   after_header=[]
-  for line in lines:
+  problem = HeaderProblem(filename, 1, 'missing')
+  for line_number, line in enumerate(lines, start=1):
     if state == 'start':
       if (line.strip(filetypes[ext]['line']).strip(filetypes[ext]['start'])[1:14] == "Copyright (c)"):
         state='notice'
 
         if line != notice_lines[0]+"\n":
-            print("{0}: notice text mismatch:\n  actual  : {1}\n  expected: {2}" \
-                  .format(filename, line.strip(), notice_lines[index].strip()))
+            problem = HeaderProblem(filename, line_number, 'outdated', line.strip())
             state='find_end_and_fail'
         else:
             index += 1
@@ -126,6 +141,7 @@ def process_file(filename, check_only):
 
     elif state == 'notice':
       if (line != notice_lines[1] + "\n"):
+        problem = HeaderProblem(filename, line_number, 'outdated', line.strip())
         state='start'
         before_header.append(start_mark)
         before_header.append(line)
@@ -137,14 +153,13 @@ def process_file(filename, check_only):
     elif state == 'compare':
       if index == len(notice_lines):
         if line != end_mark and not line.endswith(end_mark) and line != empty_line_mark + "\n":
-          print(f"end marker invalid: {line} vs {end_mark}")
+          problem = HeaderProblem(filename, line_number, 'malformed', line.strip())
           state='fail'
         else:
           state='ok'
 
       elif line != notice_lines[index]+"\n":
-        print("{0}: notice text mismatch:\n  actual  : {1}\n  expected: {2}" \
-          .format(filename, line.strip(), notice_lines[index].strip()))
+        problem = HeaderProblem(filename, line_number, 'outdated', line.strip())
         state='find_end_and_fail'
 
       else:
@@ -166,42 +181,69 @@ def process_file(filename, check_only):
       sys.exit("abort: unknown state %s" % state)
 
   if state == 'ok':
-    return True
-  else:
-    if not check_only:
-      if state == 'start':
-        before_header.pop()
-      header_separator = "\n" if before_header else ""
-      print(f"{filename}: copyright header missing or out-of-date, updating.")
-      with open(filename, 'w') as fp:
-        if state == 'fail':
-          fp.write("".join(before_header))
-          fp.write(header)
-          fp.write("".join(after_header[:-1]))
-        elif 'skip' in filetypes[ext]:
-          skip_prefix = filetypes[ext]['skip']
-          index=0
-          while index < len(before_header):
-            line = before_header[index]
-            if line.startswith(skip_prefix):
-              fp.write(line)
-              index += 1
-            else:
-              break
-          fp.write(header + header_separator)
-          while index < len(before_header):
-            fp.write(before_header[index])
-            index += 1
-        else:
-          fp.write(header + header_separator)
-          fp.write("".join(before_header))
-      return True
-    else:
+    return None
+
+  if not check_only:
+    if state == 'start':
+      before_header.pop()
+    header_separator = "\n" if before_header else ""
+    with open(filename, 'w') as fp:
       if state == 'fail':
-        print(f"{filename}: copyright header out-of-date")
+        fp.write("".join(before_header))
+        fp.write(header)
+        fp.write("".join(after_header[:-1]))
+      elif 'skip' in filetypes[ext]:
+        skip_prefix = filetypes[ext]['skip']
+        index=0
+        while index < len(before_header):
+          line = before_header[index]
+          if line.startswith(skip_prefix):
+            fp.write(line)
+            index += 1
+          else:
+            break
+        fp.write(header + header_separator)
+        while index < len(before_header):
+          fp.write(before_header[index])
+          index += 1
       else:
-        print(f"{filename}: copyright header missing")
-      return False
+        fp.write(header + header_separator)
+        fp.write("".join(before_header))
+  return problem
+
+def print_section(title, problems):
+  print(f"{title} ({len(problems)}):")
+  for problem in sorted(problems, key=lambda p: (p.filename, p.line)):
+    location = f"{problem.filename}:{problem.line}"
+    if problem.found:
+      print(f"  {location}: found '{problem.found}'")
+    else:
+      print(f"  {location}")
+  print()
+
+def report(problems, checked_count, check_only):
+  if not problems:
+    print(f"Copyright headers are correct in all {checked_count} checked files.")
+    return
+
+  if check_only:
+    print(f"Copyright header check failed for {len(problems)} of {checked_count} checked files.")
+  else:
+    print(f"Fixed copyright headers in {len(problems)} of {checked_count} checked files.")
+  print()
+
+  for kind, title in section_titles.items():
+    selected = [p for p in problems if p.kind == kind]
+    if selected:
+      print_section(title, selected)
+
+  if check_only:
+    print("Expected header:")
+    for notice in LEGAL_NOTICES:
+      print(f"  {notice}")
+    print()
+    print("To fix them, run:")
+    print(update_command)
 
 def usage():
   print("usage: copyright-headers <check|update> [DIRECTORY]")
@@ -229,12 +271,8 @@ dir = None
 if len(sys.argv) > 2:
   dir = sys.argv[2]
 
-failed=False
-for file in list_files(dir):
-  if not process_file(file, check_only):
-    failed=True
+files = list_files(dir)
+problems = [ p for p in (process_file(f, check_only) for f in files) if p ]
+report(problems, len(files), check_only)
 
-if failed and check_only:
-  print(f"\nCopyright header check failed.\nPlease update copyright headers by running '{update_command}'")
-
-sys.exit(failed)
+sys.exit(1 if check_only and problems else 0)
