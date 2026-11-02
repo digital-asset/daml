@@ -137,7 +137,7 @@ run pnpm install --frozen-lockfile --dir dev-tooling
 run security/update.sh ${security_update_args[@]:-}
 
 # Check for correct copyrights
-run dade-copyright-headers "$dade_copyright_arg" .
+run bazel run //bazel/checks/copyright -- "$dade_copyright_arg" .
 
 # We do test hlint via Bazel rules but we run it separately
 # to get linting failures early.
