@@ -5,15 +5,13 @@ set -euo pipefail
 
 # Make sure they are in the right repo
 readonly REPO_ROOT="$(bazelisk info workspace)"
-if [[ "${REPO_ROOT}/dev-env/bin/dpm-sdk-head" != "$(realpath "${BASH_SOURCE[0]}")" ]]; then
+if [[ ! "${REPO_ROOT}/dev-env/bin/dpm-sdk-head" -ef "${BASH_SOURCE[0]}" ]]; then
   echo "Repo root does not match the script being run."
   echo "Make sure you run this script from a directory within the 'daml' repository "
   exit 1
 fi
 
 cd "$REPO_ROOT"
-
-export YQ=/nix/store/p85dih5f7m1hsxsrnc5xc97n1zllkxsq-python3.11-yq-3.4.3/bin/yq
 
 BAZEL_MODE_FLAGS=()
 
@@ -64,7 +62,7 @@ stdout_if_success() {
   return $ret
 }
 
-all_dpm_components=($(stdout_if_success bazelisk query "kind('package_oci_component', //...) except attr('tags', 'ignore-oci', //...)" | sed -r 's/^.*:(.+)\-oci$/\1/' | sort))
+all_dpm_components=($(stdout_if_success bazelisk query "kind('package_oci_component', //...) except attr('tags', 'ignore-oci', //...)" | sed -E 's/^.*:(.+)\-oci$/\1/' | sort))
 
 for opt in "$@"; do
   case "$opt" in
@@ -149,6 +147,10 @@ if [[ "$PROFILING" -ne 0 ]]; then
   BAZEL_MODE_FLAGS+=(-c dbg)
 fi
 
+YQ_PATH_IN_OUTPUT_BASE=$(stdout_if_success bazelisk cquery ${BAZEL_MODE_FLAGS[@]+"${BAZEL_MODE_FLAGS[@]}"} @yq//:yq --output=files)
+BAZEL_OUTPUT_BASE=$(bazelisk info output_base)
+readonly YQ="${BAZEL_OUTPUT_BASE}/${YQ_PATH_IN_OUTPUT_BASE}"
+
 readonly DPM_HOME="$HOME/.dpm"
 
 if [[ "$NUKE" -ne 0 ]]; then
@@ -158,7 +160,7 @@ fi
 
 get_dpm() {
   chronic bazelisk build @dpm_binary//:dpm >&2
-  dpm_bazel_path=$(stdout_if_success bazelisk cquery "${BAZEL_MODE_FLAGS[@]}" "@dpm_binary//:dpm" --output=files)
+  dpm_bazel_path=$(stdout_if_success bazelisk cquery ${BAZEL_MODE_FLAGS[@]+"${BAZEL_MODE_FLAGS[@]}"} "@dpm_binary//:dpm" --output=files)
   dpm_version=$(HOME=. stdout_if_success "$dpm_bazel_path" -v | head -n 1 | sed -e "s/^version: //")
   mkdir -p "$DPM_HOME/cache/components/dpm/${dpm_version}" "$DPM_HOME/bin" "$DPM_HOME/cache/sdk/open-source"
   cp $dpm_bazel_path "$DPM_HOME/cache/components/dpm/${dpm_version}/dpm"
@@ -250,7 +252,7 @@ fi
 all_components=("${all_dpm_components[@]}" jars dpm)
 
 # If no explicit components specified, update all
-if [[ ! ${TO_BUILD[@]} ]]; then
+if [[ ${#TO_BUILD[@]} -eq 0 ]]; then
   TO_BUILD=("${all_components[@]}")
 fi
 
@@ -265,7 +267,7 @@ update_component() {
     DPM_VERSION=$(get_dpm)
 
     # Update our $RELEASE_VERSION.yaml to point to new DPM
-    DPM_VERSION=$DPM_VERSION $YQ -MiY '.spec.assistant.version |= env.DPM_VERSION' "$assembly_location"
+    DPM_VERSION=$DPM_VERSION "$YQ" -i '.spec.assistant.version = strenv(DPM_VERSION)' "$assembly_location"
     echo "$(tput setaf 3)$progress_marker Installed most recent dpm.$(tput sgr 0)"
   elif [[ "$target_name" = "jars" ]]; then
     tmp="$(mktemp -d)"
@@ -291,17 +293,17 @@ update_component() {
     bazel_path=$(stdout_if_success bazelisk query "kind('package_oci_component', //...) except attr('tags', 'ignore-oci', //...)" | grep "$target_name-oci")
     echo "$(tput setaf 5)$progress_marker Building $bazel_path.$(tput sgr 0)"
     # Build target
-    DAML_SDK_RELEASE_VERSION=$COMPONENT_VERSION chronic bazelisk build "${BAZEL_MODE_FLAGS[@]}" "$bazel_path"
+    DAML_SDK_RELEASE_VERSION=$COMPONENT_VERSION chronic bazelisk build ${BAZEL_MODE_FLAGS[@]+"${BAZEL_MODE_FLAGS[@]}"} "$bazel_path"
     echo "$(tput setaf 5)$progress_marker Built $bazel_path.$(tput sgr 0)"
     # Find built tar and unpack to DPM component
-    output_path=$(stdout_if_success bazelisk cquery "${BAZEL_MODE_FLAGS[@]}" "$bazel_path" --output=files)
+    output_path=$(stdout_if_success bazelisk cquery ${BAZEL_MODE_FLAGS[@]+"${BAZEL_MODE_FLAGS[@]}"} "$bazel_path" --output=files)
     component_path="$DPM_HOME/cache/components/$target_name/$COMPONENT_VERSION"
     rm -rf $component_path
     mkdir -p "$component_path"
     tar -xzf "$output_path" -C "$component_path"
     echo "$(tput setaf 5)$progress_marker Unpacked component, updating assembly.$(tput sgr 0)"
     # Update $RELEASE_VERSION.yaml entry for given component to point to new unpacked component
-    TARGET_NAME=$target_name COMPONENT_VERSION=$COMPONENT_VERSION $YQ -MiY '.spec.components.[env.TARGET_NAME].version |= env.COMPONENT_VERSION' "$assembly_location"
+    TARGET_NAME=$target_name COMPONENT_VERSION=$COMPONENT_VERSION "$YQ" -i '.spec.components[strenv(TARGET_NAME)].version = strenv(COMPONENT_VERSION)' "$assembly_location"
     echo "$(tput setaf 3)$progress_marker Installed $target_name to $component_path.$(tput sgr 0)"
   fi
 }
@@ -311,7 +313,7 @@ update_component() {
 unskipped_to_build=("${TO_BUILD[@]}")
 TO_BUILD=()
 for i in "${!unskipped_to_build[@]}"; do
-  if [[ ! " ${TO_SKIP[*]} " =~ [[:space:]]${unskipped_to_build[$i]}[[:space:]] ]]; then
+  if [[ ! " ${TO_SKIP[*]:-} " =~ [[:space:]]${unskipped_to_build[$i]}[[:space:]] ]]; then
     TO_BUILD+=("${unskipped_to_build[$i]}")
   fi
 done
