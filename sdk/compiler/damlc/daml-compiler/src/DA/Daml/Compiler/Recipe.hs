@@ -179,10 +179,15 @@ sdkPackageName unitIdStr
 dependencyMarkerFile :: FilePath
 dependencyMarkerFile = "_pkg_"
 
+dataDependencyMarkerFile :: FilePath
+dataDependencyMarkerFile = "_data_"
+
 -- | Which daml.yaml field a resolved dependency actually came from. Read
 -- back from the marker file DA.Cli.Damlc.DependencyDb already wrote when
 -- installing it 
 resolveDependencyField :: FilePath -> LF.PackageId -> IO DependencyField
 resolveDependencyField depsDir pkgId = do
-    isDep <- doesFileExist (depsDir </> T.unpack (LF.unPackageId pkgId) </> dependencyMarkerFile)
-    pure $ if isDep then FieldDependencies else FieldDataDependencies
+    let pkgDir = depsDir </> T.unpack (LF.unPackageId pkgId)
+    isDep <- doesFileExist (pkgDir </> dependencyMarkerFile)
+    isDataDep <- doesFileExist (pkgDir </> dataDependencyMarkerFile)
+    pure $ if isDep && not isDataDep then FieldDependencies else FieldDataDependencies
