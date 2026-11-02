@@ -210,7 +210,7 @@ data BazelLocations = BazelLocations
 
 getBazelLocations :: IO BazelLocations
 getBazelLocations = do
-    bazelBin <- parseAbsDir . T.unpack . T.strip . T.pack =<< System.Process.readProcess "bazel" ["info", "bazel-bin"] ""
+    bazelBin <- parseAbsDir . T.unpack . T.strip . T.pack =<< System.Process.readProcess "bazelisk" ["info", "bazel-bin"] ""
     pure BazelLocations{..}
 
 splitBazelTarget :: BazelTarget -> (Text, Text)
