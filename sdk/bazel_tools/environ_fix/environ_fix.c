@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 // The hermetic @llvm glibc split the environ/__environ weak alias into two
 // distinct objects, so a GHC executable's copy-relocated `environ` stays NULL
 // while libc keeps the real environment in `__environ`. That breaks

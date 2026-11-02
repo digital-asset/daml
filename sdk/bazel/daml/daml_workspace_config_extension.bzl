@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 load("//bazel_tools:build_environment.bzl", "build_environment")
 load("//bazel_tools:scala_version.bzl", "scala_version_configure")
 load("//daml-lf:json_repo.bzl", "daml_versions_repo")

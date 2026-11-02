@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # -- googleapis --
 # https://github.com/googleapis/googleapis
 GOOGLEAPIS_VERSION = "83c3605afb5a39952bf0a0809875d41cf2a558ca"
