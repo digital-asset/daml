@@ -4,14 +4,16 @@ set -euo pipefail
 # You should not need to update this file if adding/removing a component using this rule.
 
 # Make sure they are in the right repo
-readonly REPO_ROOT="$(bazel info workspace)"
-if [[ "${REPO_ROOT}/dev-env/bin/dpm-sdk-head" != "${BASH_SOURCE[0]}" ]]; then
+readonly REPO_ROOT="$(bazelisk info workspace)"
+if [[ "${REPO_ROOT}/dev-env/bin/dpm-sdk-head" != "$(realpath "${BASH_SOURCE[0]}")" ]]; then
   echo "Repo root does not match the script being run."
   echo "Make sure you run this script from a directory within the 'daml' repository "
   exit 1
 fi
 
 cd "$REPO_ROOT"
+
+export YQ=/nix/store/p85dih5f7m1hsxsrnc5xc97n1zllkxsq-python3.11-yq-3.4.3/bin/yq
 
 BAZEL_MODE_FLAGS=()
 
@@ -62,7 +64,7 @@ stdout_if_success() {
   return $ret
 }
 
-all_dpm_components=($(stdout_if_success bazel query "kind('package_oci_component', //...) except attr('tags', 'ignore-oci', //...)" | sed -r 's/^.*:(.+)\-oci$/\1/' | sort))
+all_dpm_components=($(stdout_if_success bazelisk query "kind('package_oci_component', //...) except attr('tags', 'ignore-oci', //...)" | sed -r 's/^.*:(.+)\-oci$/\1/' | sort))
 
 for opt in "$@"; do
   case "$opt" in
@@ -155,8 +157,8 @@ if [[ "$NUKE" -ne 0 ]]; then
 fi
 
 get_dpm() {
-  chronic bazel build @dpm_binary//:dpm >&2
-  dpm_bazel_path=$(stdout_if_success bazel cquery "${BAZEL_MODE_FLAGS[@]}" "@dpm_binary//:dpm" --output=files)
+  chronic bazelisk build @dpm_binary//:dpm >&2
+  dpm_bazel_path=$(stdout_if_success bazelisk cquery "${BAZEL_MODE_FLAGS[@]}" "@dpm_binary//:dpm" --output=files)
   dpm_version=$(HOME=. stdout_if_success "$dpm_bazel_path" -v | head -n 1 | sed -e "s/^version: //")
   mkdir -p "$DPM_HOME/cache/components/dpm/${dpm_version}" "$DPM_HOME/bin" "$DPM_HOME/cache/sdk/open-source"
   cp $dpm_bazel_path "$DPM_HOME/cache/components/dpm/${dpm_version}/dpm"
@@ -263,7 +265,7 @@ update_component() {
     DPM_VERSION=$(get_dpm)
 
     # Update our $RELEASE_VERSION.yaml to point to new DPM
-    DPM_VERSION=$DPM_VERSION yq -MiY '.spec.assistant.version |= env.DPM_VERSION' "$assembly_location"
+    DPM_VERSION=$DPM_VERSION $YQ -MiY '.spec.assistant.version |= env.DPM_VERSION' "$assembly_location"
     echo "$(tput setaf 3)$progress_marker Installed most recent dpm.$(tput sgr 0)"
   elif [[ "$target_name" = "jars" ]]; then
     tmp="$(mktemp -d)"
@@ -275,7 +277,7 @@ update_component() {
     trap cleanup EXIT
 
     echo "$(tput setaf 5)$progress_marker Building //release:release for JARs.$(tput sgr 0)"
-    chronic bazel build ${BAZEL_MODE_FLAGS[@]:-} //release:release
+    chronic bazelisk build ${BAZEL_MODE_FLAGS[@]:-} //release:release
     RELEASE_ARGS=(--release-dir "$tmp" --install-head-jars --no-ts --no-docs)
     echo "$(tput setaf 5)$progress_marker Built //release:release, running...$(tput sgr 0)"
 
@@ -286,20 +288,20 @@ update_component() {
     echo "$(tput setaf 3)$progress_marker Installed JARs.$(tput sgr 0)"
   else
     # Find the OCI bazel target for the component as `package_oci_component` rule named `${component}-oci`
-    bazel_path=$(stdout_if_success bazel query "kind('package_oci_component', //...) except attr('tags', 'ignore-oci', //...)" | grep "$target_name-oci")
+    bazel_path=$(stdout_if_success bazelisk query "kind('package_oci_component', //...) except attr('tags', 'ignore-oci', //...)" | grep "$target_name-oci")
     echo "$(tput setaf 5)$progress_marker Building $bazel_path.$(tput sgr 0)"
     # Build target
-    DAML_SDK_RELEASE_VERSION=$COMPONENT_VERSION chronic bazel build "${BAZEL_MODE_FLAGS[@]}" "$bazel_path"
+    DAML_SDK_RELEASE_VERSION=$COMPONENT_VERSION chronic bazelisk build "${BAZEL_MODE_FLAGS[@]}" "$bazel_path"
     echo "$(tput setaf 5)$progress_marker Built $bazel_path.$(tput sgr 0)"
     # Find built tar and unpack to DPM component
-    output_path=$(stdout_if_success bazel cquery "${BAZEL_MODE_FLAGS[@]}" "$bazel_path" --output=files)
+    output_path=$(stdout_if_success bazelisk cquery "${BAZEL_MODE_FLAGS[@]}" "$bazel_path" --output=files)
     component_path="$DPM_HOME/cache/components/$target_name/$COMPONENT_VERSION"
     rm -rf $component_path
     mkdir -p "$component_path"
     tar -xzf "$output_path" -C "$component_path"
     echo "$(tput setaf 5)$progress_marker Unpacked component, updating assembly.$(tput sgr 0)"
     # Update $RELEASE_VERSION.yaml entry for given component to point to new unpacked component
-    TARGET_NAME=$target_name COMPONENT_VERSION=$COMPONENT_VERSION yq -MiY '.spec.components.[env.TARGET_NAME].version |= env.COMPONENT_VERSION' "$assembly_location"
+    TARGET_NAME=$target_name COMPONENT_VERSION=$COMPONENT_VERSION $YQ -MiY '.spec.components.[env.TARGET_NAME].version |= env.COMPONENT_VERSION' "$assembly_location"
     echo "$(tput setaf 3)$progress_marker Installed $target_name to $component_path.$(tput sgr 0)"
   fi
 }
