@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 _PLATFORMS = {
     "darwin_aarch64": ("osx", "aarch64"),
     "darwin_amd64": ("osx", "x86_64"),

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 load("//bazel/versions:ghc.version.bzl", "GHC_VERSION")
 load("//bazel/versions:hls.version.bzl", "HLS_BINDISTS", "HLS_URL")
 

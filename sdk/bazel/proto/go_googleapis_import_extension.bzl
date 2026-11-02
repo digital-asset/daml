@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 load("@go_googleapis//:repository_rules.bzl", "switched_rules_by_language")
 
 def _impl(module_ctx):

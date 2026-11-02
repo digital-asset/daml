@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 _BASE = "https://repo.msys2.org/msys/x86_64/{}.pkg.tar.zst"
 
 MSYS_MAKE_VERSION = "4.4.1-2"

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 
 _LIB_PATH_VAR = "DYLD_LIBRARY_PATH" if is_darwin else "LD_LIBRARY_PATH"

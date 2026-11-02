@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 load("@//bazel/haskell:ghc_lib_sdist.bzl", "ghc_lib_sdist")
 load(
     "@//bazel/versions:da_ghc.version.bzl",

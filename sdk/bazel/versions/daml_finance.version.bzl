@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # -- daml-finance --
 # https://github.com/digital-asset/daml-finance
 DAML_FINANCE_VERSION = "b622b66930d332991bb817a19b59a3f33e8ffc9f"

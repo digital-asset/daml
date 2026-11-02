@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 load("@daml-sdk//bazel_tools:cc_bundle.bzl", "cc_bundle")
 
 cc_bundle(
