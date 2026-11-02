@@ -46,7 +46,7 @@ depsToExclude = T.intercalate " + " [
 buildAndCopyArtifacts :: (MonadLogger m, MonadIO m, E.MonadThrow m) => IncludeDocs -> SemVer.Version -> BazelLocations -> Path Abs Dir -> [Artifact (Maybe ArtifactLocation)] -> m [Artifact PomData]
 buildAndCopyArtifacts includeDocs componentVersionMvn bazelLocations releaseDir artifacts = do
       let targets = concatMap (buildTargets includeDocs) artifacts
-      liftIO $ callProcess "bazel" ("build" : map (T.unpack . getBazelTarget) targets)
+      liftIO $ callProcess "bazelisk" ("build" : map (T.unpack . getBazelTarget) targets)
       $logInfo "Reading metadata from pom files"
       as <- liftIO $ mapM (resolvePomData bazelLocations componentVersionMvn) artifacts
       copyArtifacts includeDocs bazelLocations releaseDir as
@@ -76,7 +76,7 @@ checkForMissingDeps jars = do
     allArtifacts = Set.fromList $ fmap (T.unpack . getBazelTarget . artTarget) jars
     bazelQueryDeps target =
       let query = "kind(\"(java|scala)_(proto_|macro_)?library\", deps(" <> target <> ")) intersect //... except (" <> T.unpack depsToExclude <> ")"
-      in liftIO $ lines <$> readCreateProcess (proc "bazel" ["query", query]) ""
+      in liftIO $ lines <$> readCreateProcess (proc "bazelisk" ["query", query]) ""
 
 copyArtifacts :: (MonadIO m, MonadLogger m, E.MonadThrow m) => IncludeDocs -> BazelLocations -> Path Abs Dir -> [Artifact PomData] -> m ()
 copyArtifacts includeDocs bazelLocations releaseDir as = do
@@ -145,7 +145,7 @@ main = do
 
         -- make sure the NPM packages can be built
         $logInfo "Building language-support TypeScript packages"
-        liftIO $ callProcess "bazel" $ ["build"] ++ npmPackages
+        liftIO $ callProcess "bazelisk" $ ["build"] ++ npmPackages
 
       if  | getPerformUpload optsPerformUpload -> do
               if not (null mvnUploadArtifacts)
@@ -171,7 +171,7 @@ main = do
                   (Dir.removeFile npmrcPath)
                   (forM_ npmPackages
                     $ \rule -> liftIO $ callCommand $ unwords $
-                        ["bazel", "run", rule <> ":npm_package.publish", "--", "--access", "public"] <>
+                        ["bazelisk", "run", rule <> ":npm_package.publish", "--", "--access", "public"] <>
                         [ x | isSnapshot componentVersionMvn, x <- ["--tag", "next"] ])
 
           | optsLocallyInstallJars -> do
