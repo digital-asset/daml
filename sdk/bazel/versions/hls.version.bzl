@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 HLS_URL = "https://downloads.haskell.org/~hls/haskell-language-server-{version}/haskell-language-server-{version}-{triple}.tar.xz"
 
 HLS_BINDISTS = {

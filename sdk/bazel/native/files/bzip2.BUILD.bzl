@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # bzip2 builds natively as a cc_library: it has no `configure` step (just a
 # plain Makefile) and ships its headers in-tree, so Bazel's C++ actions
 # compile it directly via the hermetic toolchain -- no genrule, no host make.
