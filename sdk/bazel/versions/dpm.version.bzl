@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # -- dpm (Daml Package Manager) --
 DPM_VERSION = "1.0.15"
 DPM_SHA256 = {

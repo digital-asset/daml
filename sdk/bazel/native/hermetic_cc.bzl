@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # Shared hermetic compile/link setup for from-source (autotools) builds.
 #
 # `./configure` and build scripts probe the host for a working compiler,

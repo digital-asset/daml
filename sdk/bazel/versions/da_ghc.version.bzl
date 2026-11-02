@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # -- ghc-lib-gen (provides the ghc-lib-gen tool) --
 # https://github.com/digital-asset/ghc-lib
 GHC_LIB_REPO_URL = "https://github.com/digital-asset/ghc-lib"
