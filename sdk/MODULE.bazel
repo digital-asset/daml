@@ -256,10 +256,10 @@ use_repo(ghc_toolchain_ext, "ghc_bindist", "ghc_llvm_backend", "gmp", "ncurses",
 
 # Root registration outranks the stock bindists toolchain above; stock removal (4.1) deferred.
 register_toolchains(
-    "//bazel/haskell/ghc:ghc_linux_amd64",
-    "//bazel/haskell/ghc:ghc_linux_arm64",
-    "//bazel/haskell/ghc:ghc_darwin_amd64",
-    "//bazel/haskell/ghc:ghc_darwin_arm64",
+    "//bazel/haskell/ghc/toolchains:ghc_linux_amd64",
+    "//bazel/haskell/ghc/toolchains:ghc_linux_arm64",
+    "//bazel/haskell/ghc/toolchains:ghc_darwin_amd64",
+    "//bazel/haskell/ghc/toolchains:ghc_darwin_arm64",
 )
 
 register_toolchains(
