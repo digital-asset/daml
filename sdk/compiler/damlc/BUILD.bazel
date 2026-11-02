@@ -227,6 +227,7 @@ da_haskell_library(
         "lens",
         "lens-aeson",
         "memory",
+        "monad-loops",
         "mtl",
         "network",
         "network-uri",
