@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 PATCHELF_VERSION = "0.19.1"
 
 _URL = "https://github.com/NixOS/patchelf/releases/download/{v}/patchelf-{v}-{arch}.tar.gz"

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("@build_environment//:configuration.bzl", "ghc_version", "mvn_version", "sdk_version")
 load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test")
