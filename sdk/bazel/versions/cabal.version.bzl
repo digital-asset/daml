@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # -- cabal-install --
 # https://www.haskell.org/cabal/
 CABAL_INSTALL_VERSION = "3.10.3.0"

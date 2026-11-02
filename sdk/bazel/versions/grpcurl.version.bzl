@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 # -- grpcurl (gRPC command-line tool) --
 # https://github.com/fullstorydev/grpcurl/releases
 GRPCURL_VERSION = "1.9.3"
