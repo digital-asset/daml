@@ -21,28 +21,17 @@ load(
     "NUMACTL_SHA256",
     "NUMACTL_VERSION",
 )
+load(":ghc_repository_rules.bzl", "ghc_bindist_repo", "ghc_llvm_backend_repo")
 
 _URL = "https://downloads.haskell.org/~ghc/{v}/ghc-{v}-{triple}.tar.xz"
-_UNPACK_DIR = "bindist_unpacked"
 
-def _platform_key(rctx):
-    return host_platform(rctx).ghc_key
-
-_IMPORT_TEMPLATE = """\
-haskell_import(
-    name = {name},
-    id = {id},
-    version = {version},
-    deps = {deps},
-    linkopts = {linkopts},
-    static_libraries = glob([{subdir} + "/*.a"], exclude = [{subdir} + "/*_p.a"], allow_empty = True),
-    static_profiling_libraries = glob([{subdir} + "/*_p.a"], allow_empty = True),
-    shared_libraries = glob([{subdir} + "/*.so", {subdir} + "/*.so.*"], allow_empty = True) + {vendored_shared_libraries},
-    hdrs = [],
-    includes = [],
-    visibility = ["//visibility:public"],
-)
-"""
+_LOCKFILES = {
+    ("linux", "amd64"): Label("//bazel/haskell/ghc:pin/linux_amd64.lock.json"),
+    ("linux", "aarch64"): Label("//bazel/haskell/ghc:pin/linux_aarch64.lock.json"),
+    ("darwin", "amd64"): Label("//bazel/haskell/ghc:pin/darwin_amd64.lock.json"),
+    ("darwin", "aarch64"): Label("//bazel/haskell/ghc:pin/darwin_aarch64.lock.json"),
+    ("windows", "amd64"): Label("//bazel/haskell/ghc:pin/windows_amd64.lock.json"),
+}
 
 # The deb10 RTS records libnuma.so.1 as NEEDED and its `extra_libraries`
 # emit -lnuma, but the bindist ships no libnuma. Declaring our hermetic copy on the
@@ -57,20 +46,7 @@ _VENDORED_SHARED_LIBRARIES = {
     },
 }
 
-def _haskell_import(pkg, vendored_shared_libraries):
-    subdir = "{}/{}".format(_UNPACK_DIR, pkg["build_subdir"])
-    return _IMPORT_TEMPLATE.format(
-        name = repr(pkg["name"]),
-        id = repr(pkg["id"]),
-        version = repr(pkg["version"]),
-        deps = repr(pkg["deps"]),
-        linkopts = repr(["-l" + lib for lib in pkg["extra_libraries"]]),
-        subdir = repr(subdir),
-        vendored_shared_libraries = repr(vendored_shared_libraries.get(pkg["name"], [])),
-    )
-
-def _ghc_bindist_repo_impl(rctx):
-    key = _platform_key(rctx)
+def _ghc_bindist(key):
     bindist = GHC_BINDISTS.get(key)
     if bindist == None:
         fail("no GHC {} bindist for platform {}; supported: {}".format(
@@ -78,139 +54,33 @@ def _ghc_bindist_repo_impl(rctx):
             key,
             GHC_BINDISTS.keys(),
         ))
-
-    rctx.download_and_extract(
+    lockfile = _LOCKFILES.get(key)
+    if lockfile == None:
+        fail("no GHC package pin for platform {}; supported: {}".format(key, _LOCKFILES.keys()))
+    ghc_bindist_repo(
+        name = "ghc_bindist",
         url = _URL.format(v = GHC_VERSION, triple = bindist["triple"]),
         sha256 = bindist["sha256"],
-        type = "tar.xz",
-        stripPrefix = bindist["strip_prefix"],
-        output = _UNPACK_DIR,
+        strip_prefix = bindist["strip_prefix"],
+        lockfile = lockfile,
+        vendored_shared_libraries = _VENDORED_SHARED_LIBRARIES.get(key, {}),
+        link_mingw_gmp_header = key == ("windows", "amd64"),
     )
 
-    if key == ("windows", "amd64"):
-        rctx.symlink(
-            "{}/mingw/include/gmp.h".format(_UNPACK_DIR),
-            "bindist_gmp_include/gmp.h",
-        )
-
-    lockfiles = {
-        ("linux", "amd64"): rctx.attr.lockfile_linux_amd64,
-        ("linux", "aarch64"): rctx.attr.lockfile_linux_aarch64,
-        ("darwin", "amd64"): rctx.attr.lockfile_darwin_amd64,
-        ("darwin", "aarch64"): rctx.attr.lockfile_darwin_aarch64,
-        ("windows", "amd64"): rctx.attr.lockfile_windows_amd64,
-    }
-    lockfile = lockfiles.get(key)
-    if lockfile == None:
-        fail("no GHC package pin for platform {}; supported: {}".format(key, lockfiles.keys()))
-    lock = json.decode(rctx.read(rctx.path(lockfile)))
-    packages = lock.get("packages", [])
-
-    vendored_shared_libraries = _VENDORED_SHARED_LIBRARIES.get(key, {})
-    imports = "\n".join([_haskell_import(p, vendored_shared_libraries) for p in packages])
-
-    rctx.file(
-        "libraries.bzl",
-        content = "# Generated from the committed GHC package pin.\n" +
-                  "TOOLCHAIN_LIBRARIES = {}\n".format(
-                      repr(["@ghc_bindist//:" + p["name"] for p in packages]),
-                  ),
-        executable = False,
+def _ghc_llvm_backend(key):
+    backend = GHC_LLVM_BACKENDS.get(key) if GHC_LLVM_BACKEND else None
+    artifacts = backend["artifacts"] if backend else []
+    ghc_llvm_backend_repo(
+        name = "ghc_llvm_backend",
+        urls = {a["output"]: a["url"] for a in artifacts},
+        sha256 = {a["output"]: a["sha256"] for a in artifacts},
+        shared_library = backend["shared_library"] if backend else "",
     )
-
-    rctx.file(
-        "BUILD.bazel",
-        content = """\
-load("@rules_cc//cc:defs.bzl", "cc_library")
-load("@rules_haskell//haskell:defs.bzl", "haskell_import")
-
-package(default_visibility = ["//visibility:public"])
-
-{imports}
-
-filegroup(
-    name = "bindist_srcs",
-    srcs = glob(["{unpack}/**"]),
-)
-
-filegroup(
-    name = "bindist_configure",
-    srcs = glob(["{unpack}/configure"], allow_empty = True),
-)
-
-cc_library(
-    name = "bindist_gmp",
-    srcs = glob(["{unpack}/mingw/lib/libgmp.a"], allow_empty = True),
-    hdrs = glob(["bindist_gmp_include/gmp.h"], allow_empty = True),
-    includes = ["bindist_gmp_include"],
-)
-
-filegroup(
-    name = "bindist_gmp_libs",
-    srcs = glob(["{unpack}/mingw/lib/libgmp*"], allow_empty = True),
-)
-""".format(
-            imports = imports,
-            unpack = _UNPACK_DIR,
-        ),
-        executable = False,
-    )
-
-_ghc_bindist_repo = repository_rule(
-    implementation = _ghc_bindist_repo_impl,
-    attrs = {
-        "lockfile_linux_amd64": attr.label(
-            default = "//bazel/haskell/ghc:pin/linux_amd64.lock.json",
-            doc = "Committed per-platform package pin; regenerate with `bazel run //bazel/haskell/ghc:ghc_packages.pin`.",
-        ),
-        "lockfile_linux_aarch64": attr.label(
-            default = "//bazel/haskell/ghc:pin/linux_aarch64.lock.json",
-            doc = "Committed per-platform package pin; regenerate with `bazel run //bazel/haskell/ghc:ghc_packages.pin`.",
-        ),
-        "lockfile_darwin_amd64": attr.label(
-            default = "//bazel/haskell/ghc:pin/darwin_amd64.lock.json",
-            doc = "Committed per-platform package pin; regenerate with `bazel run //bazel/haskell/ghc:ghc_packages.pin`.",
-        ),
-        "lockfile_darwin_aarch64": attr.label(
-            default = "//bazel/haskell/ghc:pin/darwin_aarch64.lock.json",
-            doc = "Committed per-platform package pin; regenerate with `bazel run //bazel/haskell/ghc:ghc_packages.pin`.",
-        ),
-        "lockfile_windows_amd64": attr.label(
-            default = "//bazel/haskell/ghc:pin/windows_amd64.lock.json",
-            doc = "Committed per-platform package pin; regenerate with `bazel run //bazel/haskell/ghc:ghc_packages.pin`.",
-        ),
-    },
-)
-
-def _ghc_llvm_backend_impl(rctx):
-    backend = GHC_LLVM_BACKENDS.get(_platform_key(rctx))
-    if GHC_LLVM_BACKEND and backend:
-        for artifact in backend["artifacts"]:
-            rctx.download_and_extract(
-                url = artifact["url"],
-                sha256 = artifact["sha256"],
-                type = "tar.bz2",
-                output = artifact["output"],
-            )
-        srcs = '"tools/bin/opt", "tools/bin/llc", "lib/lib/{}"'.format(backend["shared_library"])
-    else:
-        srcs = ""
-    rctx.file("BUILD.bazel", """\
-package(default_visibility = ["//visibility:public"])
-
-filegroup(
-    name = "backend",
-    srcs = [{srcs}],
-)
-""".format(srcs = srcs))
-
-_ghc_llvm_backend_repo = repository_rule(
-    implementation = _ghc_llvm_backend_impl,
-)
 
 def _ghc_toolchain_impl(module_ctx):
-    _ghc_bindist_repo(name = "ghc_bindist")
-    _ghc_llvm_backend_repo(name = "ghc_llvm_backend")
+    key = host_platform(module_ctx).ghc_key
+    _ghc_bindist(key)
+    _ghc_llvm_backend(key)
     http_archive(
         name = "gmp",
         urls = GMP_URLS,
@@ -238,4 +108,6 @@ def _ghc_toolchain_impl(module_ctx):
 
 ghc_toolchain_extension = module_extension(
     implementation = _ghc_toolchain_impl,
+    os_dependent = True,
+    arch_dependent = True,
 )
