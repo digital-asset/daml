@@ -3,7 +3,6 @@
 
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("@build_environment//:configuration.bzl", "ghc_version", "mvn_version", "sdk_version")
-load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load(
     "@rules_haskell//haskell:c2hs.bzl",
@@ -184,37 +183,9 @@ genrule(
 
 exports_files([
     ".scalafmt.conf",
+    "MODULE.bazel",
     "maven_install_2.13.json",
 ])
-
-_BUILDIFIER_EXCLUDE = [
-    "./.bazelbsp/*",  # untracked local IDE (BSP) tooling
-]
-
-buildifier(
-    name = "buildifier",
-    exclude_patterns = _BUILDIFIER_EXCLUDE,
-    mode = "diff",
-    verbose = True,
-)
-
-buildifier(
-    name = "buildifier-fix",
-    exclude_patterns = _BUILDIFIER_EXCLUDE,
-    mode = "fix",
-    verbose = True,
-)
-
-# Formatting-only gate. buildifier's lint suite (module/function docstrings, unused
-# vars, naming, …) flags ~176/245 files here and is mostly non-auto-fixable, so we
-# gate on canonical formatting only, not `--lint`.
-buildifier_test(
-    name = "buildifier_test",
-    timeout = "short",
-    exclude_patterns = _BUILDIFIER_EXCLUDE,
-    no_sandbox = True,
-    workspace = "//:MODULE.bazel",
-)
 
 # Default target for da-ghci, da-ghcid.
 da_haskell_repl(
