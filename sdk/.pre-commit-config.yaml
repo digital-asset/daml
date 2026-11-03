@@ -45,9 +45,9 @@ repos:
       language: system
       pass_filenames: false
       entry: "sdk/pre-commit/platform-independence-check.sh"
-    - id: yarn-lock-check
-      name: yarn-lock-check
+    - id: pnpm-lockfiles
+      name: pnpm lockfiles
       language: system
-      pass_filenames: true
-      files: ^sdk/(package.json|yarn.lock)$
-      entry: "sdk/pre-commit/yarn-lock-check.sh"
+      pass_filenames: false
+      files: '^sdk/(.*/)?(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.npmrc)$'
+      entry: "bash -c 'cd sdk/ && bazelisk run //bazel/checks/pnpm -- check'"
