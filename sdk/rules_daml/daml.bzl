@@ -482,60 +482,7 @@ def daml_compile_with_dalf(
         dalf = name + ".dalf",
     )
 
-def generate_and_track_dar_hash_file(name):
-    """
-    Given a 'name', defines the following targets:
-      (1) ':{name}-dar-hash-file-matches',
-      (2) ':{name}-golden-hash'.
-      (3) ':{name}-generated-hash',
-    Target (1) is a test that checks that the files in targets (2) and (3) match.
-    It can also replace (2) with the output of (3) if run with the flag '--accept'.
-    Target (2) is an indirection to the file
-      ':{name}.dar-hash',
-    which must be present in the package where this macro is used.
-    Target (3) is transitively defined by 'generate_dar_hash_file'.
-
-    These targets are only generated if 'sdk_version == "0.0.0"'.
-    """
-    if sdk_version == "0.0.0":
-        generate_dar_hash_file(name)
-
-        native.filegroup(
-            name = name + "-golden-hash",
-            srcs = native.glob([name + ".dar-hash"]),
-            visibility = ["//visibility:public"],
-        )
-
-        test_name = name + "-dar-hash-file-matches"
-
-        lbl = "//{package}:{target}".format(
-            package = native.package_name(),
-            target = test_name,
-        )
-
-        native.sh_test(
-            name = test_name,
-            timeout = "short",
-            srcs = ["//bazel_tools:match-golden-file"],
-            args = [
-                lbl,
-                "$(location :{}-generated-hash)".format(name),
-                "$(location :{}-golden-hash)".format(name),
-                "$(POSIX_DIFF)",
-            ],
-            data = [
-                ":{}-generated-hash".format(name),
-                ":{}-golden-hash".format(name),
-            ],
-            toolchains = [
-                "@rules_sh//sh/posix:make_variables",
-            ],
-            deps = [
-                "@bazel_tools//tools/bash/runfiles",
-            ],
-        )
-
-def generate_dar_hash_file(name):
+def generate_dar_hash_file(name, visibility = None):
     """
     Given a 'name', defines a target of the form
       ':{name}-generated-hash'.
@@ -556,6 +503,7 @@ def generate_dar_hash_file(name):
         outs = [name + "-generated.dar-hash"],
         cmd = "$(PYTHON3) $(location //rules_daml:generate-dar-hash.py) $(location :{dar}.dar) > $@".format(dar = name),
         toolchains = ["@rules_python//python:current_py_toolchain"],
+        visibility = visibility,
     )
 
 def daml_build_test(
