@@ -137,7 +137,7 @@ run pnpm install --frozen-lockfile --dir dev-tooling
 run bazelisk run //bazel/checks/security-evidence -- "$security_evidence_arg"
 
 # Check for correct copyrights
-run bazel run //bazel/checks/copyright -- "$dade_copyright_arg" .
+run bazelisk run //bazel/checks/copyright -- "$dade_copyright_arg" .
 
 # We do test hlint via Bazel rules but we run it separately
 # to get linting failures early.
