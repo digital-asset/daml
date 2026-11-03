@@ -19,6 +19,7 @@ diff_mode=false
 dade_copyright_arg=update
 buildifier_target=//bazel/checks/buildifier:update
 security_evidence_arg=update
+pnpm_lockfile_arg=update
 prettier_args="--write"
 
 ## Functions ##
@@ -80,6 +81,7 @@ USAGE
       dade_copyright_arg=check
       buildifier_target=//bazel/checks/buildifier:check
       security_evidence_arg=check
+      pnpm_lockfile_arg=check
       prettier_args="--check"
       ;;
     --diff)
@@ -129,9 +131,11 @@ echo "\
 ──██────▐█▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█▌
 "
 
+run bazelisk run //bazel/checks/pnpm -- "$pnpm_lockfile_arg"
+
 # Install the dev-tooling workspace so we can call pprettier directly via its
 # local bin, which is substantially faster than invoking it through Bazel.
-run pnpm install --frozen-lockfile --dir dev-tooling
+run bazelisk run @pnpm//:pnpm -- --dir "$PWD/dev-tooling" install --frozen-lockfile
 
 # update security evidence
 run bazelisk run //bazel/checks/security-evidence -- "$security_evidence_arg"
