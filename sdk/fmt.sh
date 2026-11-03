@@ -17,7 +17,7 @@ scalafmt_args=()
 javafmt_args=(--set-exit-if-changed --replace)
 diff_mode=false
 dade_copyright_arg=update
-buildifier_target=//:buildifier-fix
+buildifier_target=//bazel/checks/buildifier:update
 security_update_args=()
 prettier_args="--write"
 
@@ -78,7 +78,7 @@ USAGE
       scalafmt_args+=(--test)
       javafmt_args=(--set-exit-if-changed --dry-run)
       dade_copyright_arg=check
-      buildifier_target=//:buildifier
+      buildifier_target=//bazel/checks/buildifier:check
       security_update_args+=(--test)
       prettier_args="--check"
       ;;
@@ -160,7 +160,7 @@ fi
 run scalafmt "${scalafmt_args[@]:-}"
 
 # check for Bazel build files code formatting
-run bazel run "$buildifier_target"
+run bazelisk run "$buildifier_target"
 
 # check akka is not used as dependency except in deprecated_maven
 for f in $(ls *_install*.json | egrep -v "deprecated"); do
