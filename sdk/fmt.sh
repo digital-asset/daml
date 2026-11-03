@@ -166,13 +166,7 @@ run scalafmt "${scalafmt_args[@]:-}"
 # check for Bazel build files code formatting
 run bazelisk run "$buildifier_target"
 
-# check akka is not used as dependency except in deprecated_maven
-for f in $(ls *_install*.json | egrep -v "deprecated"); do
-  if grep -q akka $f;  then
-    echo $f contains a dependency to akka
-    exit 1
-  fi
-done
+run bazelisk run //bazel/checks/akka -- check
 
 if [[ $is_test = 1 ]]; then
   echo "Checking .rst with vale, is_test=TRUE so --minAlertLevel=warning"
