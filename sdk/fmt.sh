@@ -18,7 +18,7 @@ javafmt_args=(--set-exit-if-changed --replace)
 diff_mode=false
 dade_copyright_arg=update
 buildifier_target=//bazel/checks/buildifier:update
-security_update_args=()
+security_evidence_arg=update
 prettier_args="--write"
 
 ## Functions ##
@@ -79,7 +79,7 @@ USAGE
       javafmt_args=(--set-exit-if-changed --dry-run)
       dade_copyright_arg=check
       buildifier_target=//bazel/checks/buildifier:check
-      security_update_args+=(--test)
+      security_evidence_arg=check
       prettier_args="--check"
       ;;
     --diff)
@@ -134,7 +134,7 @@ echo "\
 run pnpm install --frozen-lockfile --dir dev-tooling
 
 # update security evidence
-run security/update.sh ${security_update_args[@]:-}
+run bazelisk run //bazel/checks/security-evidence -- "$security_evidence_arg"
 
 # Check for correct copyrights
 run bazel run //bazel/checks/copyright -- "$dade_copyright_arg" .

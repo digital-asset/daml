@@ -1,0 +1,37 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@host_git//:git.bzl", "GIT_PATH")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+_ENV = {
+    "EVIDENCE_GENERATOR": "$(rlocationpath //security:evidence-security)",
+    "GIT": GIT_PATH,
+}
+
+py_binary(
+    name = "security-evidence",
+    srcs = ["security_evidence.py"],
+    data = ["//security:evidence-security"],
+    env = _ENV,
+    main = "security_evidence.py",
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_test(
+    name = "security-evidence_test",
+    srcs = ["security_evidence.py"],
+    args = ["check"],
+    data = [
+        "//:MODULE.bazel",
+        "//security:evidence-security",
+    ],
+    env = _ENV,
+    main = "security_evidence.py",
+    tags = [
+        "external",
+        "local",
+        "manual",
+    ],
+    deps = ["@rules_python//python/runfiles"],
+)
