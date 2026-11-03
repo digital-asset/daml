@@ -1,0 +1,45 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@build_environment//:configuration.bzl", "sdk_version")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+_GENERATED_HASH = "//compiler/damlc/tests:platform-independence-generated-hash"
+
+_GOLDEN_HASH = "//compiler/damlc/tests:platform-independence.dar-hash"
+
+_ENV = {
+    "GENERATED_HASH": "$(rlocationpath %s)" % _GENERATED_HASH,
+    "GOLDEN_HASH": "$(rlocationpath %s)" % _GOLDEN_HASH,
+    "GOLDEN_HASH_SOURCE": "$(rootpath %s)" % _GOLDEN_HASH,
+}
+
+_ONLY_WITH_SDK_VERSION_0_0_0 = [] if sdk_version == "0.0.0" else ["@platforms//:incompatible"]
+
+py_binary(
+    name = "platform-independence",
+    srcs = ["platform_independence.py"],
+    data = [
+        _GENERATED_HASH,
+        _GOLDEN_HASH,
+    ],
+    env = _ENV,
+    main = "platform_independence.py",
+    target_compatible_with = _ONLY_WITH_SDK_VERSION_0_0_0,
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_test(
+    name = "platform-independence_test",
+    timeout = "short",
+    srcs = ["platform_independence.py"],
+    args = ["check"],
+    data = [
+        _GENERATED_HASH,
+        _GOLDEN_HASH,
+    ],
+    env = _ENV,
+    main = "platform_independence.py",
+    target_compatible_with = _ONLY_WITH_SDK_VERSION_0_0_0,
+    deps = ["@rules_python//python/runfiles"],
+)
