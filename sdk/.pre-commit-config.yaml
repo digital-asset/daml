@@ -30,7 +30,8 @@ repos:
       name: buildifier
       language: system
       require_serial: true
-      entry: "bash -c 'cd sdk/; bazel run //:buildifier-fix'"
+      pass_filenames: false
+      entry: "bash -c 'cd sdk/ && bazelisk run //bazel/checks/buildifier:update'"
       types: [bazel]
     - id: copyrights
       name: copyright headers
