@@ -38,7 +38,7 @@ repos:
       description: Idempotently add DA copyright headers to source files.
       language: system
       pass_filenames: false
-      entry: "bash -c 'unset GIT_DIR; cd sdk/ && bazel run //bazel/checks/copyright -- update'"
+      entry: "bash -c 'unset GIT_DIR; cd sdk/ && bazelisk run //bazel/checks/copyright -- update'"
       types: [text]
     - id: platform-independence-check
       name: platform-independence-check

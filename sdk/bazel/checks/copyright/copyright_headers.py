@@ -98,7 +98,6 @@ def list_files(dir):
 def process_file(filename, check_only):
   ext = extension(filename)
 
-  start_mark = filetypes[ext]['start'] + "\n"
   line_mark = filetypes[ext]['line']
   empty_line_mark = filetypes[ext].get('empty_line', line_mark)
   end_mark = filetypes[ext]['end'] + "\n"
@@ -142,9 +141,7 @@ def process_file(filename, check_only):
     elif state == 'notice':
       if (line != notice_lines[1] + "\n"):
         problem = HeaderProblem(filename, line_number, 'outdated', line.strip())
-        state='start'
-        before_header.append(start_mark)
-        before_header.append(line)
+        state='fail'
 
       else:
         index += 1
