@@ -44,7 +44,7 @@ repos:
       name: platform-independence-check
       language: system
       pass_filenames: false
-      entry: "sdk/pre-commit/platform-independence-check.sh"
+      entry: "bash -c 'if [ ${RUN_PLATFORM_INDEPENDENCE_CHECK:-no} = yes ]; then cd sdk/ && bazelisk run //bazel/checks/platform-independence -- check; fi'"
     - id: pnpm-lockfiles
       name: pnpm lockfiles
       language: system

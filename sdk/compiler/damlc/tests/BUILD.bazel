@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_darwin", "is_intel", "is_windows")
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
 load("//daml-lf:daml-lf.bzl", "COMPILER_LF_VERSIONS", "DEFAULT_LF_VERSION", "STAGING_LF_VERSION", "mangle_for_damlc")
-load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_and_track_dar_hash_file")
+load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_dar_hash_file")
 load(":util.bzl", "damlc_compile_test")
 
 # A REPL with all tests, used as bios for HLS
@@ -1108,12 +1108,15 @@ daml_compile_with_dalf(
     ghc_options = [],
 )
 
-# This ensures that changes to the contents of 'platform-independence.dar'
-# don't go unnoticed. This can happen after changes to daml-prim or daml-stdlib.
-# This is likely to happen if you work on the compiler , so it's a good idea to
-# add 'export RUN_PLATFORM_INDEPENDENCE_CHECK=yes' to your '.envrc.private'
-# at the root of the repo.
-generate_and_track_dar_hash_file("platform-independence")
+generate_dar_hash_file(
+    name = "platform-independence",
+    visibility = ["//bazel/checks/platform-independence:__pkg__"],
+)
+
+exports_files(
+    ["platform-independence.dar-hash"],
+    visibility = ["//bazel/checks/platform-independence:__pkg__"],
+)
 
 # Desugared daml golden tests
 da_haskell_test(
