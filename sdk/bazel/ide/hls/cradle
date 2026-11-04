@@ -23,7 +23,8 @@ execroot="$(sed -n 's/^execution_root: //p' <<<"$info")"
 output_base="$(sed -n 's/^output_base: //p' <<<"$info")"
 
 raw="$(mktemp)"
-trap 'rm -f "$raw"' EXIT
+flags="$(mktemp)"
+trap 'rm -f "$raw" "$flags"' EXIT
 "$run_bazel" run "$target" >"$raw"
 
 cc=""
@@ -69,4 +70,33 @@ awk -v execroot="$execroot" -v cc="$cc" '
   # grpc C core library. Added with da-hls (#13853) for an unrecorded reason; harmless to keep.
   /^-lmerged_cbits$/ { next }
   { print strip($0) }
-' "$raw" >"${HIE_BIOS_OUTPUT:-/dev/stdout}"
+' "$raw" >"$flags"
+
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  lib_dirs=()
+  while IFS= read -r dir; do
+    [[ "$dir" == /* ]] || dir="$execroot/$dir"
+    lib_dirs+=("$dir")
+  done < <(sed -n 's/^-L//p' "$flags")
+  aliases="$output_base/daml_ide/dylib-aliases-$(printf '%s' "$execroot $target" | cksum | cut -d' ' -f1)"
+  mkdir -p "$aliases"
+  aliased=""
+  while IFS= read -r name; do
+    shared=""
+    for dir in ${lib_dirs[@]+"${lib_dirs[@]}"}; do
+      if [[ -e "$dir/lib$name.dylib" ]]; then shared=""; break; fi
+      if [[ -z "$shared" && -e "$dir/lib$name.so" ]]; then shared="$dir/lib$name.so"; fi
+    done
+    if [[ -n "$shared" ]]; then
+      alias="$aliases/lib$name.dylib"
+      ln -sf "$shared" "$alias.$$"
+      mv -f "$alias.$$" "$alias"
+      aliased=1
+    fi
+  done < <(sed -n 's/^-l//p' "$flags")
+  if [[ -n "$aliased" ]]; then
+    printf -- '-L%s\n' "$aliases" >>"$flags"
+  fi
+fi
+
+cat "$flags" >"${HIE_BIOS_OUTPUT:-/dev/stdout}"
