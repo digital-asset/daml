@@ -146,11 +146,11 @@ run bazelisk run //bazel/checks/copyright -- "$dade_copyright_arg" .
 # We do test hlint via Bazel rules but we run it separately
 # to get linting failures early.
 if [ "$diff_mode" = "true" ]; then
-  check_diff $merge_base '\.hs$' hlint -j4
+  check_diff $merge_base '\.hs$' bazelisk run //bazel/checks/hlint -- check
   check_diff $merge_base '\.java$' javafmt "${javafmt_args[@]:-}"
   check_diff $merge_base '\.\(ts\|tsx\)$' run_pprettier ${prettier_args[@]:-}
 else
-  run hlint -j4 --git
+  run bazelisk run //bazel/checks/hlint -- check
   java_files=$(find . -name "*.java" | grep -E -v '^\./canton(-3x)?')
   if [[ -z "$java_files" ]]; then
     echo "Unexpected: no Java file in the repository"
