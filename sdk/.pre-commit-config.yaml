@@ -11,7 +11,7 @@ repos:
     - id: hlint
       name: hlint
       language: system
-      entry: "hlint -j --hint=sdk/.hlint.yaml"
+      entry: "bash -c 'cd sdk/ && bazelisk run //bazel/checks/hlint -- check \"${@#sdk/}\"' bash"
       require_serial: true
       types: [haskell]
     - id: scalafmt
