@@ -34,7 +34,7 @@ echo "Temp directory : $TMP_DIR"
 
 JAVA=$(rlocation "$TEST_WORKSPACE/$1")
 YARN=$(rlocation "$TEST_WORKSPACE/$2")
-CODEGEN_JS=$(rlocation "$TEST_WORKSPACE/$3")
+CODEGEN=$(rlocation "$TEST_WORKSPACE/$3")
 CANTON=$(rlocation "$TEST_WORKSPACE/$4")
 # language-support/js/codegen/tests/daml/.daml/dist/daml-1.0.0.dar
 DAR=$(rlocation "$TEST_WORKSPACE/$5")
@@ -59,7 +59,7 @@ cp -rL $DAML_TYPES/* $TMP_DAML_TYPES
 cd $TMP_DIR
 
 # Call codegen-js.
-$CODEGEN_JS -o daml2js -V 2 $DAR
+$CODEGEN js -o daml2js -V 2 $DAR
 PATH=$PATH:$GRPCURL
 
 # yarn.lock includes local paths and hashes for daml.js; remove them
