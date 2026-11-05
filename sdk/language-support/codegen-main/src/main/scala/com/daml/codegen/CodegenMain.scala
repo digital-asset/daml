@@ -98,8 +98,8 @@ object CodegenMain {
             .map(e => e.getMessage)
       } yield componentVersion
       eComponentVersion.fold(
-        identity,
         err => throw new IllegalArgumentException(s"Failed to parse resolution file: $err"),
+        identity,
       )
     }
 
