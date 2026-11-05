@@ -1,0 +1,58 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@host_git//:git.bzl", "GIT_PATH")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load(":exec_binary.bzl", "exec_binary")
+
+filegroup(
+    name = "unsupported_platform",
+    tags = ["manual"],
+    target_compatible_with = ["@platforms//:incompatible"],
+)
+
+alias(
+    name = "binary",
+    actual = select({
+        "@platforms//os:windows": ":unsupported_platform",
+        "//conditions:default": "@hlint_stackage-exe//hlint",
+    }),
+    visibility = ["//bazel_tools:__pkg__"],
+)
+
+exec_binary(
+    name = "exec_binary",
+    binary = ":binary",
+)
+
+_ENV = {
+    "GIT": GIT_PATH,
+    "HLINT": "$(rlocationpath :exec_binary)",
+}
+
+py_binary(
+    name = "hlint",
+    srcs = ["hlint_check.py"],
+    data = [":exec_binary"],
+    env = _ENV,
+    main = "hlint_check.py",
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_test(
+    name = "hlint_test",
+    srcs = ["hlint_check.py"],
+    args = ["check"],
+    data = [
+        ":exec_binary",
+        "//:MODULE.bazel",
+    ],
+    env = _ENV,
+    main = "hlint_check.py",
+    tags = [
+        "external",
+        "local",
+        "manual",
+    ],
+    deps = ["@rules_python//python/runfiles"],
+)

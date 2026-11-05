@@ -6,7 +6,7 @@
 ##########################
 
 # To run HLint do:
-# $ hlint --git -j4
+# $ bazelisk run //bazel/checks/hlint -- check
 
 # Warnings currently triggered by our code
 - ignore: {name: "Use <$>"}

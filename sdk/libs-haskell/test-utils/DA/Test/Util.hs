@@ -3,6 +3,8 @@
 
 {-# LANGUAGE ForeignFunctionInterface #-}
 
+{- HLINT ignore "locateRunfiles/package_app" -}
+
 -- | Test utils
 module DA.Test.Util (
     standardizeQuotes,

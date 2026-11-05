@@ -281,6 +281,9 @@ use_repo(ghcide_lib_ext, "ghcide_lib")
 hls_ext = use_extension("//bazel/ide/hls:extension.bzl", "hls")
 use_repo(hls_ext, "hls_darwin_aarch64", "hls_darwin_amd64", "hls_linux_aarch64", "hls_linux_amd64")
 
+hlint_ext = use_extension("//bazel/haskell:hlint_extension.bzl", "hlint")
+use_repo(hlint_ext, "hlint_stackage", "hlint_stackage-exe", "hlint_stackage-unpinned", "rules_haskell_stack_update")
+
 lsp_types_ext = use_extension("//bazel/haskell:lsp_types_extension.bzl", "lsp_types")
 use_repo(lsp_types_ext, "lsp-types")
 
@@ -675,10 +678,6 @@ stack_snapshot_ext.package(
 )
 stack_snapshot_ext.package(
     name = "hlint",
-    components = [
-        "lib",
-        "exe",
-    ],
     extra_deps = GMP_DEPS,
 )
 stack_snapshot_ext.package(
