@@ -4,11 +4,8 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_benchmark_jmh",
-    "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
-    "scala_source_jar",
-    "scaladoc_jar",
 )
 load(
     "//rules_daml:daml.bzl",
@@ -26,9 +23,6 @@ load(
     "COMPILER_LF_VERSIONS",
     "DEFAULT_LF_VERSION",
 )
-load("//bazel_tools:pom_file.bzl", "pom_file")
-load("@os_info//:os_info.bzl", "is_windows")
-load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 
 da_scala_library(
     name = "lib",
