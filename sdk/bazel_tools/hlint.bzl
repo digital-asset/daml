@@ -10,6 +10,10 @@
 #     deps = ["haskell-app"],
 # )
 
+load("@os_info//:os_info.bzl", "is_darwin")
+
+_UTF8_LOCALE = "en_US.UTF-8" if is_darwin else "C.UTF-8"
+
 HaskellHLintInfo = provider(
     doc = "Provider that collects files produced by linters",
     fields = {
@@ -50,16 +54,7 @@ def _haskell_hlint_aspect_impl(target, ctx):
     if len(inputFiles) == 0:
         return []
     output = ctx.actions.declare_file(target.label.name + ".html")
-
-    # `--no-exit-code` keeps HLint from failing the build on every reported
-    # idea. Required while the snapshot pins ghc-lib-parser-ex 8.8.5.8 against
-    # an LTS-19 (GHC 9.0.2) codebase: the older parser misreads modern
-    # syntax (e.g. `let v :: T = e`) as a parse error, and those parse-error
-    # ideas carry the GHC error message as their hint *name*, so they can't be
-    # suppressed via `ignore:` rules in `.hlint.yaml`. The HTML report is still
-    # produced and can be inspected. Revert once HLint / ghc-lib-parser-ex are
-    # bumped to versions matching the resolver's GHC.
-    args = ["--hint=" + ctx.files._hlint_yaml[0].path] + inputPaths + ["--report=" + output.path] + ["--verbose", "--no-exit-code"]
+    args = ["--hint=" + ctx.files._hlint_yaml[0].path] + inputPaths + ["--report=" + output.path] + ["--verbose"]
     # print(args)
 
     ctx.actions.run(
@@ -74,7 +69,7 @@ def _haskell_hlint_aspect_impl(target, ctx):
         # comments); HLint's GHC runtime then crashes when writing the parse
         # report with `<stdout>: commitBuffer: invalid argument (invalid
         # character)`. Force a UTF-8 locale so output encoding works.
-        env = {"LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"},
+        env = {"LANG": _UTF8_LOCALE, "LC_ALL": _UTF8_LOCALE},
     )
 
     outputs = [output]
@@ -93,7 +88,7 @@ haskell_hlint_aspect = aspect(
             executable = True,
             cfg = "exec",
             allow_single_file = True,
-            default = Label("@stackage-exe//hlint"),
+            default = Label("//bazel/checks/hlint:binary"),
         ),
         "_hlint_yaml": attr.label(
             allow_single_file = True,
