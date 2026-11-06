@@ -94,9 +94,9 @@ call-stack 0.4.0: https://github.com/sol/call-stack#readme : MIT License
 Cats core 2.13.0 : MIT License
 Cats Free 2.12.0 : MIT License
 Cats kernel 2.13.0 : MIT License
-CEL Java Common 0.13.0: https://github.com/google/cel-java : Apache License 2.0
-CEL Java Protobuf adapter 0.13.0: https://github.com/google/cel-java : Apache License 2.0
-CEL Java Runtime 0.13.0: https://github.com/google/cel-java : Apache License 2.0
+CEL Java Common 0.13.0 : Apache License 2.0
+CEL Java Protobuf adapter 0.13.0 : Apache License 2.0
+CEL Java Runtime 0.13.0 : Apache License 2.0
 cereal-conduit 0.8.0: https://github.com/snoyberg/conduit : BSD 3-clause "New" or "Revised" License
 Chalk 4.1.2: https://github.com/sindresorhus/chalk : MIT License
 chalkansi-regex 5.0.1: https://github.com/chalk/ansi-regex : MIT License
