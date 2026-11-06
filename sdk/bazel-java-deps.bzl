@@ -60,7 +60,7 @@ def install_java_deps():
             "ch.qos.logback:logback-classic:1.6.3",
             "ch.qos.logback:logback-core:1.6.3",
             "com.auth0:java-jwt:4.2.1",
-            "com.auth0:jwks-rsa:0.24.1",
+            "com.auth0:jwks-rsa:0.24.2",
             "com.chuusai:shapeless_{}:2.3.6".format(scala_major_version),
             "com.fasterxml.jackson.core:jackson-core:2.22.3",
             "com.fasterxml.jackson.core:jackson-databind:2.15.4",
