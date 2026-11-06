@@ -13,7 +13,7 @@ eval "$(dev-env/bin/dade-assist)"
 
 ## Config ##
 is_test=
-scalafmt_args=()
+scalafmt_arg=update
 google_java_format_arg=update
 diff_mode=false
 dade_copyright_arg=update
@@ -76,7 +76,7 @@ USAGE
     --test)
       shift
       is_test=1
-      scalafmt_args+=(--test)
+      scalafmt_arg=check
       google_java_format_arg=check
       dade_copyright_arg=check
       buildifier_target=//bazel/checks/buildifier:check
@@ -87,7 +87,6 @@ USAGE
     --diff)
       shift
       merge_base="$(git merge-base origin/main HEAD)"
-      scalafmt_args+=('--mode=diff' "--diff-branch=${merge_base}")
       diff_mode=true
       ;;
     *)
@@ -156,7 +155,11 @@ else
 fi
 
 # check for scala code style
-run scalafmt "${scalafmt_args[@]:-}"
+if [ "$diff_mode" = "true" ]; then
+  check_diff $merge_base '\.\(scala\|sc\)$' bazelisk run //bazel/checks/scalafmt -- "$scalafmt_arg"
+else
+  run bazelisk run //bazel/checks/scalafmt -- "$scalafmt_arg"
+fi
 
 # check for Bazel build files code formatting
 run bazelisk run "$buildifier_target"
