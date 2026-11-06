@@ -12,6 +12,9 @@ import urllib.request
 from typing import List
 
 milestone = "M97 Flaky Tests"
+parent_issue = "23477"
+project_owner = "digital-asset"
+project_number = "5"
 
 
 def call_gh(*args):
@@ -96,7 +99,25 @@ def gh_create_issue(title: str, note: str):
             "--milestone", milestone,
             "--title", title,
             "--body-file", temp_file.name)
-    print(f"Created issue {result.stdout.strip()}")
+    url = result.stdout.strip()
+    print(f"Created issue {url}")
+    gh_add_sub_issue(url.rsplit("/", 1)[-1])
+    call_gh("project", "item-add", project_number,
+            "--owner", project_owner, "--url", url)
+    print(f"Added issue {url} to project {project_owner}/{project_number}")
+
+
+def gh_add_sub_issue(number: str):
+    """
+    Makes the given issue a sub-issue of the parent flaky tests issue.
+    """
+    # The sub-issues API takes the issue's internal id, not its number.
+    id = call_gh("api", f"repos/digital-asset/daml/issues/{number}",
+                 "--jq", ".id").stdout.strip()
+    call_gh("api", "--method", "POST",
+            f"repos/digital-asset/daml/issues/{parent_issue}/sub_issues",
+            "-F", f"sub_issue_id={id}")
+    print(f"Made issue {number} a sub-issue of {parent_issue}")
 
 
 def mk_issue_entry(note: str = ""):
