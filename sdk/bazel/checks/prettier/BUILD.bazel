@@ -1,0 +1,40 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@dev_tooling_deps//dev-tooling:prettier/package_json.bzl", prettier_bin = "bin")
+load("@host_git//:git.bzl", "GIT_PATH")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+prettier_bin.prettier_binary(name = "binary")
+
+_ENV = {
+    "GIT": GIT_PATH,
+    "PRETTIER": "$(rlocationpath :binary)",
+}
+
+py_binary(
+    name = "prettier",
+    srcs = ["prettier_check.py"],
+    data = [":binary"],
+    env = _ENV,
+    main = "prettier_check.py",
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_test(
+    name = "prettier_test",
+    srcs = ["prettier_check.py"],
+    args = ["check"],
+    data = [
+        ":binary",
+        "//:MODULE.bazel",
+    ],
+    env = _ENV,
+    main = "prettier_check.py",
+    tags = [
+        "external",
+        "local",
+        "manual",
+    ],
+    deps = ["@rules_python//python/runfiles"],
+)
