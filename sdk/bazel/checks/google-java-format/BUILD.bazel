@@ -1,0 +1,52 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@host_git//:git.bzl", "GIT_PATH")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("//bazel/versions:google_java_format.version.bzl", "GOOGLE_JAVA_FORMAT_JAVA_RUNTIME_VERSION")
+load(":java_runtime_binary.bzl", "java_runtime_binary")
+
+java_binary(
+    name = "launcher",
+    main_class = "com.google.googlejavaformat.java.Main",
+    runtime_deps = ["@google_java_format//jar"],
+)
+
+java_runtime_binary(
+    name = "binary",
+    binary = ":launcher",
+    java_runtime_version = GOOGLE_JAVA_FORMAT_JAVA_RUNTIME_VERSION,
+)
+
+_ENV = {
+    "GIT": GIT_PATH,
+    "GOOGLE_JAVA_FORMAT": "$(rlocationpath :binary)",
+}
+
+py_binary(
+    name = "google-java-format",
+    srcs = ["google_java_format.py"],
+    data = [":binary"],
+    env = _ENV,
+    main = "google_java_format.py",
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_test(
+    name = "google-java-format_test",
+    srcs = ["google_java_format.py"],
+    args = ["check"],
+    data = [
+        ":binary",
+        "//:MODULE.bazel",
+    ],
+    env = _ENV,
+    main = "google_java_format.py",
+    tags = [
+        "external",
+        "local",
+        "manual",
+    ],
+    deps = ["@rules_python//python/runfiles"],
+)
