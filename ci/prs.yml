@@ -77,6 +77,12 @@ jobs:
     - bash: |
         set -euo pipefail
         cd sdk
+        bazelisk test //bazel/checks --test_output=errors $(bazel_flags) $(build_cpu_flags) $(cache_flags)
+      displayName: 'Pre-commit checks'
+      continueOnError: true
+    - bash: |
+        set -euo pipefail
+        cd sdk
         bazelisk build //... $(bazel_flags) $(build_cpu_flags) $(cache_flags)
       displayName: 'Build'
     - bash: |
@@ -193,6 +199,12 @@ jobs:
       displayName: 'Configure remote cache'
       env:
         GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    - bash: |
+        set -euo pipefail
+        cd sdk
+        bazelisk test //bazel/checks --test_output=errors $(bazel_flags) $(build_cpu_flags) $(cache_flags)
+      displayName: 'Pre-commit checks'
+      continueOnError: true
     - bash: |
         set -euo pipefail
         cd sdk
