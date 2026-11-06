@@ -207,7 +207,12 @@ npm.npm_translate_lock(
     npmrc = "//compiler/daml-extension:.npmrc",
     pnpm_lock = "//compiler/daml-extension:pnpm-lock.yaml",
 )
-use_repo(npm, "daml_extension_deps", "language_support_js_deps")
+npm.npm_translate_lock(
+    name = "dev_tooling_deps",
+    npmrc = "//dev-tooling:.npmrc",
+    pnpm_lock = "//dev-tooling:pnpm-lock.yaml",
+)
+use_repo(npm, "daml_extension_deps", "dev_tooling_deps", "language_support_js_deps")
 
 # --- pnpm binary (for shell tests that invoke pnpm at test time) ---
 
