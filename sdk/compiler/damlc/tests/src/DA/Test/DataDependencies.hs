@@ -625,6 +625,16 @@ tests TestArgs{..} =
         , "pure1 x = action1 (pure x)"
         ]
 
+    , simpleImportTest "Newtypes remain newtypes"
+        [ "module Lib where"
+        , "newtype MyNewtype = MyNewtype Int"
+        ]
+        [ "{-# LANGUAGE DerivingStrategies #-}"
+        , "module Main where"
+        , "import Lib"
+        , "deriving newtype instance Additive MyNewtype"
+        ]
+
     , testCaseSteps "Colliding package names" $ \step -> withTempDir $ \tmpDir -> do
           forM_ ["1", "2"] $ \version -> do
               step ("Building 'lib" <> version <> "'")
