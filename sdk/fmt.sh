@@ -158,15 +158,8 @@ run bazelisk run "$buildifier_target"
 
 run bazelisk run //bazel/checks/akka -- check
 
-if [[ $is_test = 1 ]]; then
-  echo "Checking .rst with vale, is_test=TRUE so --minAlertLevel=warning"
-  vale ./docs/sharable --config ./.vale-ci.ini --minAlertLevel=warning
+if [ "$diff_mode" = "true" ]; then
+  check_diff $merge_base '\.rst$' bazelisk run //bazel/checks/vale -- check
 else
-  echo "Checking .rst with vale, is_test=FALSE so --minAlertLevel=suggestion"
-  if [ "$diff_mode" = "true" ]; then
-    echo "--diff, so only linting diff"
-    check_diff $merge_base '\.rst$' vale --config ./.vale-ci.ini --minAlertLevel=suggestion
-  else
-    vale ./docs/sharable --config ./.vale-ci.ini --minAlertLevel=suggestion
-  fi
+  run bazelisk run //bazel/checks/vale -- check
 fi
