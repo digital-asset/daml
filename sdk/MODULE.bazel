@@ -790,6 +790,8 @@ WARTREMOVER_VERSION = "3.5.8"
 
 JLINE_VERSION = "3.27.1"
 
+SCALAFMT_VERSION = "3.5.1"
+
 # --- Maven / JVM dependencies ---
 
 maven_ext = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
@@ -1061,7 +1063,13 @@ maven_ext.override(
     coordinates = "org.scala-lang.modules:scala-parser-combinators",
     target = "@io_bazel_rules_scala_scala_parser_combinators",
 )
-use_repo(maven_ext, "maven")
+maven_ext.install(
+    name = "scalafmt",
+    artifacts = ["org.scalameta:scalafmt-cli_2.13:" + SCALAFMT_VERSION],
+    lock_file = "//bazel/checks/scalafmt:scalafmt_install.json",
+    repositories = ["https://repo1.maven.org/maven2"],
+)
+use_repo(maven_ext, "maven", "scalafmt")
 
 google_java_format_ext = use_extension("//bazel/java:google_java_format_extension.bzl", "google_java_format")
 use_repo(google_java_format_ext, "google_java_format")

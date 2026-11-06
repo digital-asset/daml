@@ -1,0 +1,44 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@host_git//:git.bzl", "GIT_PATH")
+load("@rules_java//java:java_binary.bzl", "java_binary")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+java_binary(
+    name = "binary",
+    main_class = "org.scalafmt.cli.Cli",
+    runtime_deps = ["@scalafmt//:org_scalameta_scalafmt_cli_2_13"],
+)
+
+_ENV = {
+    "GIT": GIT_PATH,
+    "SCALAFMT": "$(rlocationpath :binary)",
+}
+
+py_binary(
+    name = "scalafmt",
+    srcs = ["scalafmt_check.py"],
+    data = [":binary"],
+    env = _ENV,
+    main = "scalafmt_check.py",
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_test(
+    name = "scalafmt_test",
+    srcs = ["scalafmt_check.py"],
+    args = ["check"],
+    data = [
+        ":binary",
+        "//:MODULE.bazel",
+    ],
+    env = _ENV,
+    main = "scalafmt_check.py",
+    tags = [
+        "external",
+        "local",
+        "manual",
+    ],
+    deps = ["@rules_python//python/runfiles"],
+)

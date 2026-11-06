@@ -18,7 +18,7 @@ repos:
       name: scalafmt
       language: system
       require_serial: true
-      entry: "scalafmt --config=sdk/.scalafmt.conf --respect-project-filters"
+      entry: "bash -c 'cd sdk/ && bazelisk run //bazel/checks/scalafmt -- update \"${@#sdk/}\"' bash"
       types: [scala]
     - id: javafmt
       name: javafmt
