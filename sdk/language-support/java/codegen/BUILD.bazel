@@ -4,11 +4,8 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_benchmark_jmh",
-    "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
-    "scala_source_jar",
-    "scaladoc_jar",
 )
 load(
     "//rules_daml:daml.bzl",
@@ -25,16 +22,6 @@ load(
     "//daml-lf:daml-lf.bzl",
     "COMPILER_LF_VERSIONS",
     "DEFAULT_LF_VERSION",
-)
-load("//bazel_tools:pom_file.bzl", "pom_file")
-load("@os_info//:os_info.bzl", "is_windows")
-load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-
-da_scala_binary(
-    name = "codegen",
-    main_class = "com.digitalasset.daml.lf.codegen.StandaloneMain",
-    visibility = ["//visibility:public"],
-    deps = [":lib"],
 )
 
 da_scala_library(
@@ -175,38 +162,6 @@ dar_to_java(
     name = "test-daml-java-baz",
     src = ":test-baz.dar",
     package_prefix = "baz",
-)
-
-########################################################
-####  Distribution
-########################################################
-copy_file(
-    name = "binary",
-    src = "codegen_distribute.jar",
-    out = "binary.jar",
-    allow_symlink = True,
-    tags = ["maven_coordinates=com.daml:codegen-java:__VERSION__"],
-    visibility = ["//visibility:public"],
-)
-
-pom_file(
-    name = "binary_pom",
-    target = ":binary",
-    visibility = ["//visibility:public"],
-)
-
-# Create empty Scaladoc JAR for uploading to Maven Central
-scaladoc_jar(
-    name = "binary_scaladoc",
-    srcs = [],
-    tags = ["scaladoc"],
-    deps = [],
-) if is_windows == False else None
-
-# Create empty Sources JAR for uploading to Maven Central
-scala_source_jar(
-    name = "binary_src",
-    srcs = [],
 )
 
 #TODO(https://github.com/DACH-NY/canton/issues/30666): re-enable these tests after migrating codegen to Canton
