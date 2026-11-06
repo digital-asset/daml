@@ -2,80 +2,43 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:testing.bzl", "daml_lf_compatible", "sdk_platform_test")
+load("//compatibility:versions.bzl", "platform_versions", "sdk_versions")
+load("//compatibility/bazel_tools:sdks.bzl", "HEAD_VERSION")
 load(
-    "//bazel_tools/daml_script:daml_script.bzl",
+    "//compatibility/bazel_tools:testing.bzl",
+    "compatibility_test_suites",
+    "daml_lf_compatible",
+    "sdk_platform_test",
+)
+load("//compatibility/bazel_tools:versions.bzl", "versions")
+load(
+    "//compatibility/bazel_tools/daml_script:daml_script.bzl",
     "daml_script_example_dar",
     "daml_script_example_test",
 )
 load(
-    "//bazel_tools/data_dependencies:data_dependencies.bzl",
+    "//compatibility/bazel_tools/data_dependencies:data_dependencies.bzl",
     "data_dependencies_coins",
     "data_dependencies_daml_script_test",
     "data_dependencies_upgrade_test",
 )
-load("//bazel_tools:versions.bzl", "versions")
-load("//:versions.bzl", "platform_versions", "sdk_versions", "stable_versions")
-load("@daml//bazel_tools:haskell.bzl", "da_haskell_binary")
 
-# This dummy tests ensure that bazel won't fail with "No test targets were
-# found, yet testing was requested" when no target matches the test filter.
-genrule(
-    name = "dummy_test",
-    outs = ["dummy_test_result.sh"],
-    cmd = "touch $(OUTS)",
-)
-
-[
-    sh_test(
-        name = "dummy_test_sh{}".format(suffix),
-        srcs = ["dummy_test_result.sh"],
-        tags = tags,
-    )
-    for (tags, suffix) in [
-        (
-            ["head-quick"],
-            "_head_quick",
-        ),
-        ([], ""),
-    ]
-]
-
-config_setting(
-    name = "ghci_data",
-    define_values = {
-        "ghci_data": "True",
-    },
-)
-
-# Instead of testing the full cartesian product of all SDK versions with
-# all platform (~= Sandbox/JSON API) versions, we test the latest version of
-# each with all versions of the other. This gives us a reasonable feedback
-# with regards to maintaining backwards-compatibility without causing the
-# test runs to grow quadratically.
-head = "0.0.0"
-
-# Missing on purpose: do not test the latest SDK with the latest platform
-# That is not a compatibility test, it's just testing the main branch. ;)
-
-# Test all old platform versions with the latest SDK
 [
     sdk_platform_test(
         platform_version = platform_version,
-        sdk_version = head,
+        sdk_version = HEAD_VERSION,
     )
     for platform_version in platform_versions
-    if platform_version != head and daml_lf_compatible(head, platform_version)
+    if platform_version != HEAD_VERSION and daml_lf_compatible(HEAD_VERSION, platform_version)
 ]
 
-# Test all old SDK versions with the latest platform
 [
     sdk_platform_test(
-        platform_version = head,
+        platform_version = HEAD_VERSION,
         sdk_version = sdk_version,
     )
     for sdk_version in sdk_versions
-    if sdk_version != head and daml_lf_compatible(sdk_version, head)
+    if sdk_version != HEAD_VERSION and daml_lf_compatible(sdk_version, HEAD_VERSION)
 ]
 
 [
@@ -83,7 +46,7 @@ head = "0.0.0"
     for sdk_version in sdk_versions
 ]
 
-daml_script_example_dar("0.0.0", "@head_sdk//:daml-script-no-failure-status-oci.tar.gz")
+daml_script_example_dar(HEAD_VERSION, "//daml-script/runner:daml-script-no-failure-status-oci")
 
 [
     daml_script_example_test(
@@ -92,9 +55,6 @@ daml_script_example_dar("0.0.0", "@head_sdk//:daml-script-no-failure-status-oci.
     )
     for sdk_version in sdk_versions
     for platform_version in platform_versions
-    # Test that the Daml script runner can run DARs built with an older SDK
-    # version. I.e. where the runner version is at least the SDK version or
-    # more recent.
     if versions.is_at_least(sdk_version, platform_version)
 ] if not is_windows else None
 
@@ -112,8 +72,6 @@ daml_script_example_dar("0.0.0", "@head_sdk//:daml-script-no-failure-status-oci.
     )
     for old_sdk_version in sdk_versions
     for new_sdk_version in sdk_versions
-    # Tests that we can build a package with a newer SDK version that has
-    # data-dependencies on packages built with an older SDK version.
     if versions.is_at_least(old_sdk_version, new_sdk_version)
 ]
 
@@ -122,11 +80,12 @@ daml_script_example_dar("0.0.0", "@head_sdk//:daml-script-no-failure-status-oci.
         old_sdk_version = old_sdk_version,
     )
     for old_sdk_version in sdk_versions
-    if old_sdk_version != "0.0.0"
+    if old_sdk_version != HEAD_VERSION
 ]
 
-# Once we have a version that adds a new error type in stable daml-script, this test should be replaced to not use a patched "0.0.0"
 data_dependencies_daml_script_test(
-    "0.0.0",
+    HEAD_VERSION,
     run_unknown_failure_test = True,
 )
+
+compatibility_test_suites()

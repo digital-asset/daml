@@ -40,7 +40,6 @@ da_haskell_library(
         "yaml",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-encode",
@@ -55,6 +54,7 @@ da_haskell_library(
 
 da_haskell_test(
     name = "tests",
+    timeout = "short",
     srcs = glob(["test/**/*.hs"]),
     hackage_deps = [
         "async",
@@ -89,7 +89,6 @@ da_haskell_test(
         "vector",
     ],
     main_function = "DA.Daml.LF.PrettyScriptSpec.main",
-    visibility = ["//visibility:public"],
     deps = [
         ":client",
         "//compiler/daml-lf-ast",

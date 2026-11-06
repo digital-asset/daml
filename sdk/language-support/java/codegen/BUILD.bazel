@@ -1,6 +1,9 @@
 # Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools:pom_file.bzl", "pom_file")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_benchmark_jmh",
@@ -9,6 +12,11 @@ load(
     "da_scala_test",
     "scala_source_jar",
     "scaladoc_jar",
+)
+load(
+    "//daml-lf:daml-lf.bzl",
+    "COMPILER_LF_VERSIONS",
+    "DEFAULT_LF_VERSION",
 )
 load(
     "//rules_daml:daml.bzl",
@@ -21,19 +29,10 @@ load(
     "mangle_for_java",
     "test_exclusions",
 )
-load(
-    "//daml-lf:daml-lf.bzl",
-    "COMPILER_LF_VERSIONS",
-    "DEFAULT_LF_VERSION",
-)
-load("//bazel_tools:pom_file.bzl", "pom_file")
-load("@os_info//:os_info.bzl", "is_windows")
-load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 
 da_scala_binary(
     name = "codegen",
     main_class = "com.digitalasset.daml.lf.codegen.StandaloneMain",
-    visibility = ["//visibility:public"],
     deps = [":lib"],
 )
 
@@ -49,7 +48,6 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["maven_coordinates=com.daml:codegen-java-lib:__VERSION__"],
-    visibility = ["//visibility:public"],
     deps = [
         "//language-support/build-info",
         "@maven//:ch_qos_logback_logback_classic",
@@ -70,6 +68,7 @@ da_scala_library(
 ########################################################
 da_scala_test(
     name = "test",
+    timeout = "short",
     srcs = glob(["src/test/**/*.scala"]),
     data = [
         ":test-baz.dar",
@@ -186,13 +185,11 @@ copy_file(
     out = "binary.jar",
     allow_symlink = True,
     tags = ["maven_coordinates=com.daml:codegen-java:__VERSION__"],
-    visibility = ["//visibility:public"],
 )
 
 pom_file(
     name = "binary_pom",
     target = ":binary",
-    visibility = ["//visibility:public"],
 )
 
 # Create empty Scaladoc JAR for uploading to Maven Central
@@ -253,6 +250,7 @@ scala_source_jar(
                 "src/it/daml/Tests/*.daml",
                 "src/it/daml/Tests/Lib{}.daml".format(mangle_for_java(ver)),
             ],
+            allow_empty = True,
             exclude = test_exclusions.get(ver, []),
         ),
         enable_interfaces = ver == "2.dev",
@@ -334,6 +332,7 @@ module_prefix_test = "src/it/java/com/daml/ModulePrefixes.java"
 
 java_test(
     name = "integration-tests-module-prefixes",
+    timeout = "short",
     srcs = [module_prefix_test],
     test_class = "com.daml.ModulePrefixes",
     deps = [
@@ -361,6 +360,7 @@ java_test(
         ),
         java_test(
             name = "integration-tests-%s" % target,
+            timeout = "short",
             srcs = glob(
                 [
                     "src/it/java-%s/**/*.java" % target,

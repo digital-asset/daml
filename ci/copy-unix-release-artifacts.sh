@@ -48,7 +48,7 @@ copy_oci daml-new bazel-bin/components/daml-new/daml-new-oci.tar.gz
 copy_oci upgrade-check bazel-bin/components/upgrade-check-main/upgrade-check-oci.tar.gz
 
 # Platform independent artifacts are only built on Linux.
-if [[ "${NAME}" == "linux-intel" ]]; then
+if [[ "${NAME}" == "linux-x86_64" ]]; then
     SCRIPT="daml-script-${RELEASE_TAG}.jar"
     ${makedir} "${OUTPUT_DIR}/artifactory"
     # Used only by daml-docker-images. Can be removed once this repo is gone.
