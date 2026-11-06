@@ -20,13 +20,9 @@ dade_copyright_arg=update
 buildifier_target=//bazel/checks/buildifier:update
 security_evidence_arg=update
 pnpm_lockfile_arg=update
-prettier_args="--write"
+prettier_arg=update
 
 ## Functions ##
-
-run_pprettier() {
-    ./dev-tooling/node_modules/.bin/pprettier "$@"
-}
 
 log() {
   echo "fmt.sh: $*" >&2
@@ -82,7 +78,7 @@ USAGE
       buildifier_target=//bazel/checks/buildifier:check
       security_evidence_arg=check
       pnpm_lockfile_arg=check
-      prettier_args="--check"
+      prettier_arg=check
       ;;
     --diff)
       shift
@@ -132,10 +128,6 @@ echo "\
 
 run bazelisk run //bazel/checks/pnpm -- "$pnpm_lockfile_arg"
 
-# Install the dev-tooling workspace so we can call pprettier directly via its
-# local bin, which is substantially faster than invoking it through Bazel.
-run bazelisk run @pnpm//:pnpm -- --dir "$PWD/dev-tooling" install --frozen-lockfile
-
 # update security evidence
 run bazelisk run //bazel/checks/security-evidence -- "$security_evidence_arg"
 
@@ -147,11 +139,11 @@ run bazelisk run //bazel/checks/copyright -- "$dade_copyright_arg" .
 if [ "$diff_mode" = "true" ]; then
   check_diff $merge_base '\.hs$' bazelisk run //bazel/checks/hlint -- check
   check_diff $merge_base '\.java$' bazelisk run //bazel/checks/google-java-format -- "$google_java_format_arg"
-  check_diff $merge_base '\.\(ts\|tsx\)$' run_pprettier ${prettier_args[@]:-}
+  check_diff $merge_base '\.\(ts\|tsx\)$' bazelisk run //bazel/checks/prettier -- "$prettier_arg"
 else
   run bazelisk run //bazel/checks/hlint -- check
   run bazelisk run //bazel/checks/google-java-format -- "$google_java_format_arg"
-  run run_pprettier ${prettier_args[@]:-} './**/*.{ts,tsx}'
+  run bazelisk run //bazel/checks/prettier -- "$prettier_arg"
 fi
 
 # check for scala code style
