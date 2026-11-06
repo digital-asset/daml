@@ -719,7 +719,7 @@ use_repo(
 
 # --- Maven version constants ---
 
-CANTON_VERSION = "3.8.0-snapshot.20261028.21003.0.v96e2737d"
+CANTON_VERSION = "3.8.0-snapshot.20261104.21134.0.vc2ef8797"
 
 AUTH0_JWT_VERSION = "4.2.1"
 
