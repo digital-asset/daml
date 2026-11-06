@@ -1,0 +1,20 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+test_suite(
+    name = "checks",
+    tags = ["manual"],
+    tests = [
+        "//bazel/checks/akka:akka_test",
+        "//bazel/checks/buildifier:buildifier_test",
+        "//bazel/checks/copyright:copyright_test",
+        "//bazel/checks/google-java-format:google-java-format_test",
+        "//bazel/checks/hlint:hlint_test",
+        "//bazel/checks/platform-independence:platform-independence_test",
+        "//bazel/checks/pnpm:pnpm_test",
+        "//bazel/checks/prettier:prettier_test",
+        "//bazel/checks/scalafmt:scalafmt_test",
+        "//bazel/checks/security-evidence:security-evidence_test",
+        "//bazel/checks/vale:vale_test",
+    ],
+)
