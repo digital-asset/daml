@@ -1155,6 +1155,9 @@ use_repo(freefont_ext, "freefont")
 grpcurl_ext = use_extension("//bazel/proto:grpcurl_extension.bzl", "grpcurl_extension")
 use_repo(grpcurl_ext, "grpcurl")
 
+vale_ext = use_extension("//bazel/docs:vale_extension.bzl", "vale_extension")
+use_repo(vale_ext, "docutils", "vale")
+
 patchelf_ext = use_extension("//bazel/native:patchelf_extension.bzl", "patchelf")
 use_repo(patchelf_ext, "patchelf")
 
