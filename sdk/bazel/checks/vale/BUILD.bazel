@@ -1,0 +1,50 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("@host_git//:git.bzl", "GIT_PATH")
+load("@os_info//:os_info.bzl", "is_windows")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+py_binary(
+    name = "rst2html",
+    srcs = ["rst2html.py"],
+    main = "rst2html.py",
+    deps = ["@docutils"],
+)
+
+_VALE = "@vale//:vale.exe" if is_windows else "@vale//:vale"
+
+_DATA = [
+    ":rst2html",
+    _VALE,
+]
+
+_ENV = {
+    "GIT": GIT_PATH,
+    "RST2HTML": "$(rlocationpath :rst2html)",
+    "VALE": "$(rlocationpath %s)" % _VALE,
+}
+
+py_binary(
+    name = "vale",
+    srcs = ["vale_check.py"],
+    data = _DATA,
+    env = _ENV,
+    main = "vale_check.py",
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_test(
+    name = "vale_test",
+    srcs = ["vale_check.py"],
+    args = ["check"],
+    data = _DATA + ["//:MODULE.bazel"],
+    env = _ENV,
+    main = "vale_check.py",
+    tags = [
+        "external",
+        "local",
+        "manual",
+    ],
+    deps = ["@rules_python//python/runfiles"],
+)
