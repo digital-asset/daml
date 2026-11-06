@@ -1063,6 +1063,9 @@ maven_ext.override(
 )
 use_repo(maven_ext, "maven")
 
+google_java_format_ext = use_extension("//bazel/java:google_java_format_extension.bzl", "google_java_format")
+use_repo(google_java_format_ext, "google_java_format")
+
 # --- Project-specific extensions ---
 
 # Workspace configuration: bundles build_environment (SDK version from env),

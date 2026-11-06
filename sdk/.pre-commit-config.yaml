@@ -24,7 +24,7 @@ repos:
       name: javafmt
       language: system
       require_serial: true
-      entry: "javafmt --set-exit-if-changed --replace"
+      entry: "bash -c 'cd sdk/ && bazelisk run //bazel/checks/google-java-format -- update \"${@#sdk/}\"' bash"
       types: [java]
     - id: buildifier
       name: buildifier
