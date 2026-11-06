@@ -14,7 +14,7 @@ eval "$(dev-env/bin/dade-assist)"
 ## Config ##
 is_test=
 scalafmt_args=()
-javafmt_args=(--set-exit-if-changed --replace)
+google_java_format_arg=update
 diff_mode=false
 dade_copyright_arg=update
 buildifier_target=//bazel/checks/buildifier:update
@@ -77,7 +77,7 @@ USAGE
       shift
       is_test=1
       scalafmt_args+=(--test)
-      javafmt_args=(--set-exit-if-changed --dry-run)
+      google_java_format_arg=check
       dade_copyright_arg=check
       buildifier_target=//bazel/checks/buildifier:check
       security_evidence_arg=check
@@ -147,16 +147,11 @@ run bazelisk run //bazel/checks/copyright -- "$dade_copyright_arg" .
 # to get linting failures early.
 if [ "$diff_mode" = "true" ]; then
   check_diff $merge_base '\.hs$' bazelisk run //bazel/checks/hlint -- check
-  check_diff $merge_base '\.java$' javafmt "${javafmt_args[@]:-}"
+  check_diff $merge_base '\.java$' bazelisk run //bazel/checks/google-java-format -- "$google_java_format_arg"
   check_diff $merge_base '\.\(ts\|tsx\)$' run_pprettier ${prettier_args[@]:-}
 else
   run bazelisk run //bazel/checks/hlint -- check
-  java_files=$(find . -name "*.java" | grep -E -v '^\./canton(-3x)?')
-  if [[ -z "$java_files" ]]; then
-    echo "Unexpected: no Java file in the repository"
-    exit 1
-  fi
-  run javafmt "${javafmt_args[@]:-}" ${java_files[@]:-}
+  run bazelisk run //bazel/checks/google-java-format -- "$google_java_format_arg"
   run run_pprettier ${prettier_args[@]:-} './**/*.{ts,tsx}'
 fi
 
