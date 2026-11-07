@@ -9,6 +9,11 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
+## Until 2026-10-27 (Exclusive)
+- `DA.Numeric.roundNumeric` no longer fails with `fromSome: None` when asked to
+  round to more decimal places than the scale of its argument. It now returns
+  the value unchanged.
+
 ## Until 2026-10-13 (Exclusive)
 - The following daml-script libraries are no longer published to Maven Central:
   `com.daml:daml-script-runner`, `com.daml:script-converter` and
