@@ -16,6 +16,7 @@ aeson-pretty 0.8.9: http://github.com/informatikr/aeson-pretty : BSD 3-clause "N
 Animal Sniffer Annotations 1.27: https://www.mojohaus.org/animal-sniffer/animal-sniffer-annotations/ : MIT License
 anorm 2.7.0 : Apache License 2.0
 anorm-tokenizer 2.7.0 : Apache License 2.0
+ansi-regex 5.0.1: https://github.com/sindresorhus/ansi-regex : MIT License
 ansi-styles v4.3.0: https://github.com/chalk/ansi-styles : MIT License
 ansi-terminal 0.11.3: https://github.com/feuerbach/ansi-terminal : BSD 3-clause "New" or "Revised" License
 ansi-wl-pprint 0.6.9: http://github.com/ekmett/ansi-wl-pprint : BSD 3-clause "New" or "Revised" License
@@ -99,7 +100,6 @@ CEL Java Protobuf adapter 0.13.0 : Apache License 2.0
 CEL Java Runtime 0.13.0 : Apache License 2.0
 cereal-conduit 0.8.0: https://github.com/snoyberg/conduit : BSD 3-clause "New" or "Revised" License
 Chalk 4.1.2: https://github.com/sindresorhus/chalk : MIT License
-chalkansi-regex 5.0.1: https://github.com/chalk/ansi-regex : MIT License
 charset 0.3.9: http://github.com/ekmett/charset : BSD 3-clause "New" or "Revised" License
 Checker Qual 4.3.1: https://checkerframework.org : MIT License
 chimney 1.4.0 : Apache License 2.0
@@ -120,7 +120,7 @@ cmdargs 0.10.21: https://github.com/ndmitchell/cmdargs#readme : BSD 3-clause "Ne
 color-name 1.1.4: https://github.com/colorjs/color-name : MIT License
 colour 2.3.6: http://www.haskell.org/haskellwiki/Colour : MIT License
 com.google.api.grpc:proto-google-iam-v1 1.74.0 : Apache License 2.0
-Commander.js 7.2.0: https://github.com/visionmedia/Commander.js : MIT License
+Commander.js 7.2.0: https://github.com/tj/commander.js : MIT License
 comonad 5.0.8: http://github.com/ekmett/comonad/ : BSD 3-clause "New" or "Revised" License
 compilerPlugin 0.11.14 : Apache License 2.0
 conduit-extra 1.3.6: http://hackage.haskell.org/package/conduit-extra : MIT License
@@ -5929,7 +5929,7 @@ Permission is hereby granted, free of charge, to any person
 ---
 
 MIT License
-(chalkansi-regex 5.0.1)
+(ansi-regex 5.0.1)
 
 Upstream-Contact: https://github.com/sindresorhus/ansi-regex/issues
 Source: https://github.com/sindresorhus/ansi-regex
