@@ -49,7 +49,8 @@ object CodegenMain {
   def tryGetComponentVersion(): Option[String] =
     Option(System.getenv("DPM_RESOLUTION_FILE")).map { resolutionPath =>
       // Need own running path to find resolution (in case its run from a package)
-      val runPath = Paths.get(".").toAbsolutePath.normalize
+      // Must lowercase it for windows sake
+      val runPath = Paths.get(Paths.get(".").toAbsolutePath.normalize.toString().toLowerCase())
       val source = scala.io.Source.fromFile(resolutionPath)
       val content =
         try source.mkString
