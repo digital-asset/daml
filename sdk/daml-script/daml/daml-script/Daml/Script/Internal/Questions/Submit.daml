@@ -29,6 +29,13 @@ module Daml.Script.Internal.Questions.Submit
   , submitWithDisclosures
   , submitWithDisclosuresMustFail
   , module SubmitError
+  , coid
+  , srcTemplateId
+  , dstTemplateId
+  , createArg
+  , contractId
+  , templateId
+  , contractKey
   , Stable.SubmitOptions (SubmitOptions)
   , PackageId (..)
   , SubmitError
@@ -39,7 +46,6 @@ module Daml.Script.Internal.Questions.Submit
   , AnySubmitError
       ( UnsupportedContractId
       , ContractNotFound
-      , UnsupportedContractId
       , ContractKeyNotFound
       , UnresolvedPackageName
       , AuthorizationError
