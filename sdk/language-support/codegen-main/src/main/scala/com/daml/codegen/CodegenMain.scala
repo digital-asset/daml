@@ -5,7 +5,10 @@ package com.daml.codegen
 
 import com.daml.assistant.config.PackageConfig
 import com.digitalasset.daml.lf.codegen._
+import io.circe.Json
+import io.circe.yaml
 
+import java.nio.file.Paths
 import scala.util.{Failure, Success, Try}
 import scopt.OptionParser
 
@@ -23,11 +26,13 @@ object CodegenMain {
       case Some(runner) =>
         readConfiguration(runner, args.tail) match {
           case Some(config) =>
-            val damlVersion = sys.env
+            val assemblyVersion = sys.env
               .get("DPM_SDK_VERSION")
               .orElse(sys.env.get("DAML_SDK_VERSION"))
               .getOrElse("0.0.0")
-            Try(runner.generateCode(config, damlVersion)) match {
+            // Try get component version from resolution file, fallback to assembly version
+            val componentVersion = tryGetComponentVersion().getOrElse(assemblyVersion)
+            Try(runner.generateCode(config, assemblyVersion, componentVersion)) match {
               case Success(_) => OK
               case Failure(t) =>
                 println(s"Error generating code: ${t.getMessage}")
@@ -39,6 +44,65 @@ object CodegenMain {
     }
     sys.exit(exitCode.code)
   }
+
+  // Try read codegen component version from the resolution file
+  def tryGetComponentVersion(): Option[String] =
+    Option(System.getenv("DPM_RESOLUTION_FILE")).map { resolutionPath =>
+      // Need own running path to find resolution (in case its run from a package)
+      // Must lowercase it for windows sake
+      val runPath = Paths.get(Paths.get(".").toAbsolutePath.normalize.toString().toLowerCase())
+      val source = scala.io.Source.fromFile(resolutionPath)
+      val content =
+        try source.mkString
+        finally source.close()
+
+      val eComponentVersion = for {
+        json <- yaml.parser.parse(content).left.map(e => e.getMessage)
+        // Get the packages field to try find package specific resolution
+        allPackages <-
+          json.hcursor
+            .downField("packages")
+            .as[Map[String, Json]]
+            .left
+            .map(e => e.getMessage)
+        // get the default-sdk field in case there is no package specific resolution
+        // Default resolution is under `default-sdk.<version>`, where there will only ever be one key for `<version>`
+        // We don't care what the version itself actually is, so we just select the first key in the object
+        defaultResolution <-
+          json.hcursor
+            .downField("default-sdk")
+            .as[Map[String, Json]]
+            .map(m =>
+              m(
+                m.keys.headOption.getOrElse(
+                  throw new IllegalArgumentException(
+                    "No damlc version found under default-sdk in DPM resolution file"
+                  )
+                )
+              )
+            )
+            .left
+            .map(e => e.getMessage)
+        // Search for package in resolution, must use `Path.equals` else windows will break
+        packageResolution = allPackages.toList
+          .map { case (p, j) => (Paths.get(p), j) }
+          .find { case (p, _) => runPath.equals(p) }
+          .fold(defaultResolution)(_._2)
+        // Grab the codegen version, only support componentsV2
+        componentVersion <-
+          packageResolution.hcursor
+            .downField("componentsV2")
+            .downField("codegen")
+            .downField("version")
+            .as[String]
+            .left
+            .map(e => e.getMessage)
+      } yield componentVersion
+      eComponentVersion.fold(
+        err => throw new IllegalArgumentException(s"Failed to parse resolution file: $err"),
+        identity,
+      )
+    }
 
   private def displayUsage(parser: OptionParser[_]): ExitCode = {
     println("\n")
