@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+set -euo pipefail
+
+if [ "${1:-}" = assist ]; then
+  exec "$(dirname -- "${BASH_SOURCE[0]}")/dade-assist"
+fi
+
+echo "TODO: sdk/dev-env/bin/dade is a placeholder that only provides 'dade assist' for release-trigger; remove it once release-trigger no longer calls it" >&2
+exit 1
