@@ -29,13 +29,13 @@ module Daml.Script.Internal.Questions.Submit
   , submitWithDisclosures
   , submitWithDisclosuresMustFail
   , module SubmitError
-  , coid
-  , srcTemplateId
-  , dstTemplateId
-  , createArg
-  , contractId
-  , templateId
-  , contractKey
+  , Compatibility.coid
+  , Compatibility.srcTemplateId
+  , Compatibility.dstTemplateId
+  , Compatibility.createArg
+  , Compatibility.contractId
+  , Compatibility.templateId
+  , Compatibility.contractKey
   , Stable.SubmitOptions (SubmitOptions)
   , PackageId (..)
   , SubmitError
@@ -101,7 +101,7 @@ import Daml.Script.Internal.LowLevel
 import Daml.Script.Internal.Questions.Commands
 import Daml.Script.Internal.Questions.Submit.Error (AnySubmitError, AnyUpgradeErrorType, AnyCryptoErrorType, AnyExternalCallErrorType, AnyDevErrorType)
 import Daml.Script.Internal.Questions.Submit.Error as SubmitError hiding (AnySubmitError, AnyUpgradeErrorType, AnyCryptoErrorType, AnyExternalCallErrorType, AnyDevErrorType)
-import Daml.Script.Internal.Questions.Submit.Error.Compatibility
+import Daml.Script.Internal.Questions.Submit.Error.Compatibility as Compatibility
 import qualified Daml.Script.Internal.Questions.Submit.Stable.SubmitOptions as Stable
 import Daml.Script.Internal.Questions.Submit.Stable.PackageId
 import Daml.Script.Internal.Questions.TransactionTree
