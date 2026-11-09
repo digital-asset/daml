@@ -1,6 +1,26 @@
 Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
 
+function Get-BuildShellDir {
+    if (-not (Test-Path env:BAZEL_SH)) { return $null }
+    return Split-Path -Parent ($env:BAZEL_SH -replace '/', '\')
+}
+
+$buildShellDir = Get-BuildShellDir
+if (-not ($buildShellDir -and (Test-Path $env:BAZEL_SH) -and (($env:PATH -split ';') -contains $buildShellDir))) {
+    Write-Output "TODO: build-release.ps1 provisions the build shell only because release-trigger does not; remove this block once it does"
+    & (Join-Path $PSScriptRoot '..\setup-windows.ps1')
+    $bashDir = Get-BuildShellDir
+    if (-not (Test-Path (Join-Path $bashDir 'tar.exe'))) { throw "tar.exe not found in $bashDir" }
+    $shellRoot = Split-Path -Parent (Split-Path -Parent $bashDir)
+    $gitDir = @('cmd', 'mingw64\bin') |
+      ForEach-Object { Join-Path $shellRoot $_ } |
+      Where-Object { Test-Path (Join-Path $_ 'git.exe') } |
+      Select-Object -First 1
+    if (-not $gitDir) { throw "git.exe not found under $shellRoot (looked in cmd, mingw64\bin)" }
+    $env:PATH = "$env:PATH;$bashDir;$gitDir"
+}
+
 $ARTIFACT_DIRS = if ("$env:BUILD_ARTIFACTSTAGINGDIRECTORY") { $env:BUILD_ARTIFACTSTAGINGDIRECTORY } else { Get-Location }
 
 if (!(Test-Path ${ARTIFACT_DIRS}/logs)) {
