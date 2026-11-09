@@ -27,14 +27,14 @@ def dar_to_java(**kwargs):
         srcs = [dar],
         outs = [mangle(base_name) + ".srcjar"],
         cmd = """
-            $(execpath //language-support/java/codegen:codegen) -o {gen_out} -d com.daml.ledger.javaapi.TestDecoder {gen_in}
+            $(execpath //language-support/codegen-main:codegen-main) java -o {gen_out} -d com.daml.ledger.javaapi.TestDecoder {gen_in}
             $(JAVABASE)/bin/jar -cf $@ -C {gen_out} .
         """.format(
             gen_in = "$(location %s)=%s" % (dar, package_prefix),
             gen_out = src_out,
         ),
         toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-        tools = ["//language-support/java/codegen:codegen"],
+        tools = ["//language-support/codegen-main:codegen-main"],
     )
 
     native.java_library(

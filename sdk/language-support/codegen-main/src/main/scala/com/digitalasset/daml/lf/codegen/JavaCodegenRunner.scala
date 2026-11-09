@@ -39,7 +39,11 @@ object JavaCodegenRunner extends CodegenRunner {
       roots = root.getOrElse(Nil),
     )
 
-  override def generateCode(config: JavaCodeGenConf, damlVersion: String): Unit =
+  override def generateCode(
+      config: JavaCodeGenConf,
+      assemblyVersion: String,
+      componentVersion: String,
+  ): Unit =
     JavaCodeGen.run(config)
 
   private def parserName(isDpm: Boolean): String = if (isDpm) "codegen-java" else "codegen"
