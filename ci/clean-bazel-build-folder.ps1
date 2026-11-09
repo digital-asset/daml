@@ -29,7 +29,20 @@ function Clear-LongPathFolder($path) {
   if ($robocopyExitCode -ge 8) { throw "robocopy could not empty $path (exit code $robocopyExitCode)" }
 }
 
+function Stop-OutputBaseServer {
+  $pidFile = Join-Path $outputBase 'server\server.pid.txt'
+  if (-not (Test-Path -LiteralPath $pidFile)) { return }
+  $serverPid = 0
+  if (-not [int]::TryParse("$(Get-Content -LiteralPath $pidFile -Raw)".Trim(), [ref]$serverPid)) { return }
+  $server = Get-CimInstance Win32_Process -Filter "ProcessId = $serverPid"
+  if (-not $server -or $server.CommandLine -notlike '*A-server.jar*') { return }
+  Write-Host "stopping Bazel server $serverPid left in $outputBase, with its workers"
+  & taskkill.exe /PID $serverPid /T /F | Out-Null
+  Wait-Process -Id $serverPid -Timeout 60 -ErrorAction SilentlyContinue
+}
+
 Write-BuildFolderDump
+Stop-OutputBaseServer
 if (Test-Path -LiteralPath $buildDir) { Clear-LongPathFolder $buildDir }
 foreach ($path in @($buildDir, $outputBase)) {
   if (Test-Path -LiteralPath $path) {
