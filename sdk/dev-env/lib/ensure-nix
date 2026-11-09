@@ -1,0 +1,4 @@
+# Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+echo "TODO: sdk/dev-env/lib/ensure-nix is a placeholder for release-trigger's 'Push Developer Environment build results' step; there is no Nix dev-env to push. Remove it once release-trigger no longer sources it" >&2
