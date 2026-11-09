@@ -54,9 +54,21 @@ function on_exit() {
 
 trap on_exit SIGHUP SIGINT SIGQUIT SIGABRT EXIT
 
+function first_existing_platform_dir {
+  local candidate
+  for candidate in "$@"; do
+    if [[ -d "release-artifacts/oci/${RELEASE_TAG}/${candidate}" ]]; then
+      echo "${candidate}"
+      return
+    fi
+  done
+  echo "$1"
+}
+
 function publish_artifact {
   local artifact_name="${1}"
-  declare -a artifact_platforms=( "linux-x86_64,linux/amd64" "linux-aarch64,linux/arm64" "macos-aarch64,darwin/arm64" "macos-x86_64,darwin/amd64" "windows-x86_64,windows/amd64" )
+  # TODO: drop the old platform names (linux-intel, linux-arm, macos) once release-trigger passes the new ones
+  declare -a artifact_platforms=( "linux-x86_64 linux-intel,linux/amd64" "linux-aarch64 linux-arm,linux/arm64" "macos-aarch64 macos,darwin/arm64" "macos-x86_64 macos,darwin/amd64" "windows-x86_64,windows/amd64" )
   declare -a platform_args
   declare -a extra_tags_args
   declare -a platform_dirs
@@ -64,7 +76,7 @@ function publish_artifact {
   (
     for item in "${artifact_platforms[@]}"; do
       arch="${item##*,}"
-      plat="${item%%,*}"
+      plat="$(first_existing_platform_dir ${item%%,*})"
       ${makedir} "dist/${arch}/${artifact_name}"
       artifact_path=release-artifacts/oci/${RELEASE_TAG}/${plat}/${artifact_name}.tar.gz
       ${unarchive} "${artifact_path}" --unlink-first -C "dist/${arch}/${artifact_name}"
