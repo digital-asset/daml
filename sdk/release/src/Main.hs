@@ -166,12 +166,13 @@ main = do
                 -- code picks it up and looks for the token which is not yet set before the release
                 -- phase.
                 let npmrcPath = ".npmrc"
+                npmrcAbsolutePath <- liftIO $ Dir.makeAbsolute npmrcPath
                 liftIO $ bracket_
                   (writeFile npmrcPath "//registry.npmjs.org/:_authToken=${NPM_TOKEN}")
                   (Dir.removeFile npmrcPath)
                   (forM_ npmPackages
                     $ \rule -> liftIO $ callCommand $ unwords $
-                        ["bazelisk", "run", rule <> ":npm_package.publish", "--", "--access", "public"] <>
+                        ["bazelisk", "run", rule <> ":npm_package.publish", "--", "--access", "public", "--userconfig", npmrcAbsolutePath] <>
                         [ x | isSnapshot componentVersionMvn, x <- ["--tag", "next"] ])
 
           | optsLocallyInstallJars -> do
