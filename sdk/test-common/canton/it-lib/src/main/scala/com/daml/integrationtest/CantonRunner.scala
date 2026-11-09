@@ -160,7 +160,7 @@ object CantonRunner {
          |        public-api.port = ${sequencerPublicApi.port}
          |        sequencer {
          |          config.storage.type = memory
-         |          type = reference
+         |          type = BFT 
          |        }
          |        storage.type = memory
          |    }
