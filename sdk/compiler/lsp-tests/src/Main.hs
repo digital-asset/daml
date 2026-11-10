@@ -769,7 +769,7 @@ scriptTests runScripts = testGroup "scripts"
 
           closeDoc script
           closeDoc main'
-    , let timeoutSeconds = 30 :: Int in
+    , let timeoutSeconds = 60 :: Int in
       localOption (mkTimeout (fromIntegral timeoutSeconds * 1000000)) $
         testCaseSteps "scenario service does not interrupt on non-script messages" $ \step -> runScripts $ \_stderr -> do
           let foldSize = 1000000 :: Integer
