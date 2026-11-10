@@ -1,5 +1,17 @@
+diff --git a/Daml/Script.daml b/Daml/Script.daml
+index c826fc774a..8ba23bf7e7 100644
+--- a/Daml/Script.daml
++++ b/Daml/Script.daml
+@@ -61,7 +61,6 @@ module Daml.Script
+   , LocalVerdictLockedContractsSubmitError (..)
+   , LocalVerdictLockedKeysSubmitError (..)
+   , UpgradeErrorSubmitError (..)
+-  , FailureStatusErrorSubmitError (..)
+   , CryptoErrorSubmitError (..)
+   , ExternalCallErrorSubmitError (..)
+   , EffectfulRollbackErrorSubmitError (..)
 diff --git a/Daml/Script/Internal/Questions/Submit.daml b/Daml/Script/Internal/Questions/Submit.daml
-index 03d20efb22..6a51546667 100644
+index 7dfdad6145..dd69cc2479 100644
 --- a/Daml/Script/Internal/Questions/Submit.daml
 +++ b/Daml/Script/Internal/Questions/Submit.daml
 @@ -68,7 +68,6 @@ module Daml.Script.Internal.Questions.Submit
@@ -10,6 +22,14 @@ index 03d20efb22..6a51546667 100644
        , CryptoError
        , ExternalCallError
        , EffectfulRollbackError
+@@ -111,7 +110,6 @@ module Daml.Script.Internal.Questions.Submit
+       , localVerdictLockedKeys
+       , ueErrorType
+       , ueErrorMessage
+-      , failureStatus
+       , cryptoErrorType
+       , cryptoErrorMessage
+       , externalCallErrorType
 diff --git a/Daml/Script/Internal/Questions/Submit/Error.daml b/Daml/Script/Internal/Questions/Submit/Error.daml
 index e1b5897e84..ca0fd1c0f4 100644
 --- a/Daml/Script/Internal/Questions/Submit/Error.daml

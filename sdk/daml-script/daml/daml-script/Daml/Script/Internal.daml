@@ -33,7 +33,12 @@ module Daml.Script.Internal
   , -- Internal submit error
     ContractNotFoundAdditionalInfo
   , isNotActive
+
+  , IsDevErrorType (..)
   , DevErrorType (..)
+  , AnyDevErrorType (..)
+  , ChoiceGuardFailedDevError (..)
+  , UnknownNewFeatureDevError (..)
 
   , -- Deprecated. Should be removed soon
     trySubmitConcurrently

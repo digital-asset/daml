@@ -75,16 +75,89 @@ module Daml.Script.Internal.Questions.Submit
       , DevError
       , UnknownError
       , TruncatedError
+      , -- Fields must be explicitly exported for pattern synonyms
+        unknownContractIds
+      , additionalDebuggingInfo
+      , unknownContractId
+      , cknfContractKey
+      , packageName
+      , authorizationErrorMessage
+      , cheContractId
+      , cheDstTemplateId
+      , cheCreateArg
+      , cheErrorMessage
+      , dckheContractId
+      , expectedKey
+      , givenKeyHash
+      , duplicateContractKey
+      , ickContractKey
+      , exc
+      , userErrorMessage
+      , invalidTemplate
+      , failedTemplateKey
+      , wtcContractId
+      , expectedTemplateId
+      , actualTemplateId
+      , cdniiContractId
+      , cdniiTemplateId
+      , interfaceId
+      , cdniriContractId
+      , cdniriTemplateId
+      , requiredInterfaceId
+      , requiringInterfaceId
+      , globalExistingContractId
+      , limit
+      , localVerdictLockedContracts
+      , localVerdictLockedKeys
+      , ueErrorType
+      , ueErrorMessage
+      , failureStatus
+      , cryptoErrorType
+      , cryptoErrorMessage
+      , externalCallErrorType
+      , extensionId
+      , functionId
+      , externalCallErrorMessage
+      , effectfulRollbackErrorMsg
+      , devErrorType
+      , devErrorMessage
+      , unknownErrorMessage
+      , truncatedErrorType
+      , truncatedErrorMessage
       )
   , AnyUpgradeErrorType
       ( ValidationFailed
       , TranslationFailed
       , AuthenticationFailed
+      , -- Fields must be explicitly exported for pattern synonyms
+        vfCoid
+      , vfSrcTemplateId
+      , vfDstTemplateId
+      , srcPackageName
+      , dstPackageName
+      , originalSignatories
+      , originalNonSignatoryStakeholders
+      , originalKeyOpt
+      , recomputedSignatories
+      , recomputedNonSignatoryStakeholders
+      , recomputedKeyOpt
+      , mCoid
+      , tfSrcTemplateId
+      , tfDstTemplateId
+      , tfCreateArg
+      , afCoid
+      , afSrcTemplateId
+      , afDstTemplateId
+      , afCreateArg
       )
   , AnyCryptoErrorType
       ( MalformedByteEncoding
       , MalformedKey
       , MalformedSignature
+      , -- Fields must be explicitly exported for pattern synonyms
+        value
+      , keyValue
+      , signatureValue
       )
   , AnyExternalCallErrorType
       ( PreparationFailed
@@ -94,7 +167,8 @@ module Daml.Script.Internal.Questions.Submit
   , AnyDevErrorType
       ( ChoiceGuardFailed
       , UnknownNewFeature
-      )   
+      )
+  , module Compatibility
   ) where
 
 import Daml.Script.Internal.LowLevel
