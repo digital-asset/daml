@@ -90,13 +90,6 @@ m :: InvalidUserId -> Text
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-concurrentsubmits-82688
 data ConcurrentSubmits a
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-concurrentsubmits-49827
-ConcurrentSubmits :: [Submission] -> ([Either SubmitError ([CommandResult], TransactionTree)] -> a) -> ConcurrentSubmits
-
-submits :: ConcurrentSubmits -> [Submission]
-
-continue :: ConcurrentSubmits -> [Either SubmitError ([CommandResult], TransactionTree)] -> a
-
 -- | Package-id newtype for package preference
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-stable-packageid-packageid-23442
 data PackageId
@@ -804,20 +797,6 @@ runScript :: Script -> () -> Free ScriptF (a, ())
 --   Dummy field to make sure damlc does not consider this an old-style
 --   typeclass.
 dummy :: Script -> ()
-
--- | Defines a type that can be transformed into a SubmitOptions
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#class-daml-script-internal-questions-submit-issubmitoptions-64211
-class IsSubmitOptions options
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-tosubmitoptions-99319
-toSubmitOptions :: (IsSubmitOptions options) => options -> SubmitOptions
-
--- | Defines an applicative that can run transaction submissions. Usually this is simply `Script`.
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#class-daml-script-internal-questions-submit-scriptsubmit-55101
-class (Applicative script) => ScriptSubmit script
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-liftsubmission-99954
-liftSubmission :: (ScriptSubmit script, HasCallStack) => ConcurrentSubmits a -> script a
 
 -- | Allows casting AnySubmitError into and out of specific errors.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#class-daml-script-internal-questions-submit-error-issubmiterror-52591
