@@ -1175,6 +1175,8 @@ object ScriptF {
       case _ => Left(s"Expected QueryNByKey payload but got $v")
     }
 
+  // Current version of AllocateParty. Next version is 3. See parseAllocPartyV2
+  // for details.
   private def parseAllocPartyV1(v: ExtendedValue): Either[String, AllocParty] =
     v match {
       case ValueRecord(
@@ -1188,6 +1190,7 @@ object ScriptF {
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 
+  // Legacy, not the latest version: the current version is 1 (parseAllocPartyV1), and the next version is 3.
   // Version 2 took a list of participants to support replicated party allocation, which has been removed.
   // Current daml-script libraries send version 1 again; this is kept for DARs built with older ones.
   private def parseAllocPartyV2(v: ExtendedValue): Either[String, AllocParty] =
@@ -1491,6 +1494,7 @@ object ScriptF {
       case ("QueryByKey", 1) => parseQueryByKey(v, env, legacyAnyContractKey = true)
       case ("QueryByKey", 2) => parseQueryByKey(v, env)
       case ("QueryNByKey", 1) => parseQueryNByKey(v, env)
+      // AllocateParty: current version is 1, 2 is legacy, next version is 3. See parseAllocPartyV2.
       case ("AllocateParty", 1) => parseAllocPartyV1(v)
       case ("AllocateParty", 2) => parseAllocPartyV2(v)
       case ("ListKnownParties", 1) => parseListKnownParties(v)

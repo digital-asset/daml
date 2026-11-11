@@ -42,6 +42,12 @@ data AllocateParty = AllocateParty with
   participant : Optional Text
 
 -- | HIDE
+-- If this question needs to change, the next version is 3: do not reuse 2!
+--
+-- Version 1 is the current version of this question, even though the runner also understands
+-- version 2. Version 2 took a list of participants for replicated party allocation, which has been
+-- removed, so we went back to sending version 1. The runner keeps parsing version 2 for DARs built
+-- with older daml-script libraries.
 instance IsQuestion AllocateParty Party
   where
     command = "AllocateParty"
