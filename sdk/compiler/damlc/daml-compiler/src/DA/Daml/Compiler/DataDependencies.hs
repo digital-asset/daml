@@ -634,8 +634,9 @@ generateSrcFromLf env = noLoc mod
                   | NM.name dtype `NM.member` LF.moduleTemplates (envMod env) -> [templateCtx]
                   | NM.name dtype `NM.member` LF.moduleInterfaces (envMod env) -> [interfaceCtx]
                   | otherwise -> []
+              isNewType = NM.member (LF.ExprValName $ "$newtype" <> dataTypeCon0) $ LF.moduleValues $ envMod env
             cons <- convDataCons dataTypeCon0 dataCons
-            mkDataDecl env thisModule ctxt occName dataSerializable dataParams cons
+            mkDataDecl env thisModule ctxt (if isNewType then NewType else DataType) occName dataSerializable dataParams cons
 
     valueDecls :: [Gen (LHsDecl GhcPs)]
     valueDecls = do
@@ -1057,8 +1058,8 @@ mkConRdr env thisModule
  | envQualifyThisModule env = mkOrig thisModule
  | otherwise = mkRdrUnqual
 
-mkDataDecl :: Env -> Module -> LHsContext GhcPs -> OccName -> LF.IsSerializable -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> Gen (LHsDecl GhcPs)
-mkDataDecl env thisModule ctxt occName isSerializable tyVars cons = do
+mkDataDecl :: Env -> Module -> LHsContext GhcPs -> NewOrData -> OccName -> LF.IsSerializable -> [(LF.TypeVarName, LF.Kind)] -> [LConDecl GhcPs] -> Gen (LHsDecl GhcPs)
+mkDataDecl env thisModule ctxt newOrData occName isSerializable tyVars cons = do
     tyVars' <- mapM (convTyVarBinder env) tyVars
     derivs <- case configExplicitSerializable (envConfig env) of
         ExplicitSerializable True | LF.getIsSerializable isSerializable -> do
@@ -1081,7 +1082,7 @@ mkDataDecl env thisModule ctxt occName isSerializable tyVars cons = do
         , tcdDataDefn =
             HsDataDefn
                 { dd_ext = noExt
-                , dd_ND = DataType
+                , dd_ND = newOrData
                 , dd_ctxt = ctxt
                 , dd_cType = Nothing
                 , dd_kindSig = Nothing
